@@ -1,0 +1,36 @@
+# Build products and generated copies of pinned upstream sources
+/server/
+/.build/
+/artifacts/
+/client/
+/inputs/
+/phone-assets/
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/app/src/main/jniLibs/
+/android/app/src/main/assets/
+/android/app/src/main/python/web/
+/android/app/src/main/python/tools/
+/android/app/src/main/python/patcher/
+
+# Personal game files, saves and signing material
+*.apk
+*.apks
+*.xapk
+*.7z
+*.bin.e
+*.db
+*.db-wal
+*.db-shm
+*.keystore
+*.jks
+*.log
+.env
+.env.*
+.venv/
+**/__pycache__/
+*.py[co]
+.DS_Store
+.idea/

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Content patcher{% endblock %}
+{% block content %}
+<h1>Content patcher</h1>
+<p>Current: <strong>{{ current }}</strong></p>
+<form action="/patcher/apply" method="post" class="panel" data-busy>
+  <label for="preset">Content</label>
+  <select name="preset" id="preset">
+    <optgroup label="Standard">{% for key, title in presets %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
+    <optgroup label="Smaller splits">{% for key, title in splits %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
+  </select>
+  <p>Choose which events and shops appear in the game. Your current master data is backed up first.</p>
+  <details><summary>Advanced configuration</summary>
+    <textarea name="configuration" aria-label="Patch configuration" rows="14" spellcheck="false">{{ configuration }}</textarea>
+  </details>
+  <button type="submit">Apply</button>
+  <span class="busy-note" hidden>Applying… Keep Tools open.</span>
+</form>
+<details class="panel"><summary>Previous versions</summary>
+  {% if history %}<form action="/patcher/restore" method="post" data-busy>
+    <select name="filename" aria-label="Master-data snapshot">{% for item in history %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
+    <button type="submit">Restore</button><span class="busy-note" hidden>Restoring…</span>
+  </form>{% else %}<p>No changes yet.</p>{% endif %}
+</details>
+<details class="panel"><summary>Original file &amp; export</summary>
+  <p>The bundled original is used for every preset. You can replace it with your own original master data.</p>
+  <form action="/patcher/origin" method="post" enctype="multipart/form-data" data-busy>
+    <input type="file" name="source" aria-label="Original master data" required>
+    <button type="submit">Use original file</button><span class="busy-note" hidden>Checking…</span>
+  </form>
+  <p><a href="/patcher/export" download>Export current master data</a></p>
+</details>
+<p class="credit">Based on NavHobbyDev's lunar-tear-masterdata-patcher.</p>
+<script>document.querySelectorAll('[data-busy]').forEach(form => form.addEventListener('submit', () => {form.querySelector('button').disabled = true; form.querySelector('.busy-note').hidden = false;}));</script>
+{% endblock %}

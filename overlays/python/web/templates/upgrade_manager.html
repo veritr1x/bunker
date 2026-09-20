@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Upgrade Manager :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ user_id }} :: UPGRADES{% endblock %}
+
+{% block content %}
+<p style="margin-top:0">
+  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+</p>
+
+<h1 class="bracket-header">Upgrade Manager</h1>
+
+<div class="panel"><p style="margin:0">Upgrade characters and equipment without spending gold or materials. Each change is backed up first.</p></div>
+
+<div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
+
+<h2 class="bracket-header costume-group-header">Characters</h2>
+<div class="panel grant-list">
+  <div class="grant-form upgrade">
+    <span class="grant-name">Exalt All Available Characters</span>
+    <span class="grant-id">{{ exalt_targets }} of {{ owned_character_count }} owned chars below max (5)</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="exalt_all" class="grant-chosen-btn"
+            {% if exalt_targets == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">Fill Mythic Slab Pages of all Available Characters</span>
+    <span class="grant-id">{{ panel_total }} panels across {{ owned_character_count }} owned chars (both monuments, all 3 ranks)</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="fill_mythic_slabs" class="grant-chosen-btn"
+            {% if panel_total == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+</div>
+
+<h2 class="bracket-header costume-group-header">Inventory</h2>
+<div class="panel grant-list">
+  <div class="grant-form upgrade">
+    <span class="grant-name">Add All Missing Companions</span>
+    <span class="grant-id">{{ missing_companions }} missing of {{ companion_total }} total (skips known game-breaking ids 54-62)</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="grant_missing_companions" class="grant-chosen-btn"
+            {% if missing_companions == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">All Missing Remnants</span>
+    <span class="grant-id">{{ missing_remnants }} missing of {{ remnant_total }} total (Important Items prefixed "Remnant")</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="grant_missing_remnants" class="grant-chosen-btn"
+            {% if missing_remnants == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">Add All Missing Debris</span>
+    <span class="grant-id">{{ missing_thoughts }} missing of {{ thought_total }} total (one Thought item per costume's awakening 5; Upgrade All Costumes also grants these naturally)</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="grant_missing_thoughts" class="grant-chosen-btn"
+            {% if missing_thoughts == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+</div>
+
+<h2 class="bracket-header costume-group-header">Mass Upgrades</h2>
+<div class="panel grant-list">
+  <div class="grant-form upgrade">
+    <span class="grant-name">Upgrade All Companions</span>
+    <span class="grant-id">{{ companions_to_upgrade }} of {{ owned_companion_count }} owned companions below max level 50</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="upgrade_all_companions" class="grant-chosen-btn"
+            {% if companions_to_upgrade == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">Upgrade All Weapons</span>
+    <span class="grant-id">{{ owned_weapon_count }} owned weapons &mdash; ascend, evolve to chain end, refine if eligible, enhance to cap, all skills + abilities to lv15 (cost-bypassing)</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="upgrade_all_weapons" class="grant-chosen-btn"
+            {% if owned_weapon_count == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">Upgrade All Costumes</span>
+    <span class="grant-id">{{ owned_costume_count }} owned costumes &mdash; awaken to 5 (grants Debris), ascend to 4, enhance to cap, active skill to lv15, unlock 3 karma slots (SSR; rolls left to player)</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="upgrade_all_costumes" class="grant-chosen-btn"
+            {% if owned_costume_count == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">Skip All Dark Memory Cutscenes</span>
+    <span class="grant-id">Marks every Dark Memory weapon cutscene as already played (84 entries). Use after mass-adding Dark Memory weapons to bypass the queued first-launch cutscene loop that otherwise soft-locks progression.</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="skip_dark_memory_cutscenes" class="grant-chosen-btn">RUN</button>
+  </div>
+  <div class="grant-form upgrade">
+    <span class="grant-name">Fill All Karma Slots</span>
+    <span class="grant-id">Picks the chosen effect for every unlocked karma slot. If a costume's odds pool doesn't contain the chosen effect, falls back to the rarest pool entry. Overwrites existing rolls. Run Upgrade All Costumes first to unlock slots.</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" data-upgrade="fill_karma_slots" class="grant-chosen-btn">RUN</button>
+  </div>
+  <div class="panel" style="margin-top:8px;padding:10px;background:transparent">
+    {% for slot in [1, 2, 3] %}
+    <div style="margin:6px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label for="karma-slot-{{ slot }}" style="min-width:70px;font-size:13px;color:var(--fg-mid);letter-spacing:0.1em">SLOT {{ slot }}</label>
+      <select id="karma-slot-{{ slot }}" data-karma-slot="{{ slot }}" style="flex:1;min-width:300px;font-family:inherit;font-size:12px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:4px">
+        {% for opt in karma_options.get(slot, []) %}
+        <option value="{{ opt.effect_type }}:{{ opt.target_id }}"
+                {% if karma_defaults.get(slot) and karma_defaults[slot][0] == opt.effect_type and karma_defaults[slot][1] == opt.target_id %}selected{% endif %}>
+          [R{{ opt.rarity }}] [{{ opt.group_count }}grp] {{ opt.label }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    <p style="margin:6px 0 0;font-size:11px;color:var(--fg-mid)">
+      [R40/30/20] = rarity tier. [Ngrp] = how many distinct odds groups in the game include this effect (more = more costumes will match this exact pick; the rest fall back to rarest in their own pool).
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const userId = {{ user_id }};
+
+  const bannerEl = document.getElementById("ajax-banner");
+  let bannerTimer = null;
+  function showBanner(text, kind) {
+    bannerEl.textContent = "> " + text;
+    bannerEl.className = "banner " + (kind === "error" ? "error" : "success");
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => bannerEl.classList.add("ajax-hidden"), 12000);
+  }
+
+  function readKarmaPreferences() {
+    const prefs = {};
+    document.querySelectorAll("select[data-karma-slot]").forEach(sel => {
+      const slot = sel.dataset.karmaSlot;
+      const value = sel.value || "";
+      const m = value.match(/^(\d+):(\d+)$/);
+      if (!m) return;
+      prefs[slot] = [[parseInt(m[1], 10), parseInt(m[2], 10)]];
+    });
+    return prefs;
+  }
+
+  document.querySelectorAll("button[data-upgrade]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.dataset.busy === "1") return;
+      const action = btn.dataset.upgrade;
+      const label = btn.closest(".grant-form").querySelector(".grant-name").textContent;
+      if (!confirm(`Run "${label}"? A backup is taken first.`)) return;
+
+      btn.dataset.busy = "1";
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "WORKING...";
+      try {
+        const fetchOpts = {method: "POST"};
+        if (action === "fill_karma_slots") {
+          fetchOpts.headers = {"Content-Type": "application/json"};
+          fetchOpts.body = JSON.stringify({preferences: readKarmaPreferences()});
+        }
+        const res = await fetch(`/users/${userId}/upgrades/${action}`, fetchOpts);
+        const json = await res.json();
+        if (!json.ok) {
+          showBanner(json.error || "Operation failed.", "error");
+          return;
+        }
+        showBanner(
+          `${label}: ${json.applied} applied in ${(json.duration_ms / 1000).toFixed(2)}s. Reload to refresh counts.`,
+          "success"
+        );
+      } catch (err) {
+        showBanner("Network error: " + err.message, "error");
+      } finally {
+        btn.dataset.busy = "0";
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Tools{% endblock %}
+{% block content %}
+<h1>Tools</h1>
+<div class="tool-grid">
+  <a href="/patcher">Content patcher <span>Events &amp; shops</span></a>
+  <a href="/backups">Save data <span>Back up &amp; restore</span></a>
+  <a href="/users">Players <span>Profile &amp; inventory</span></a>
+  <a href="/items">Items <span>Gems, gold &amp; materials</span></a>
+  <a href="/costumes">Costumes <span>Costumes &amp; karma</span></a>
+  <a href="/weapons">Weapons <span>Weapons &amp; evolutions</span></a>
+  <a href="/upgrades">Upgrades <span>Characters &amp; equipment</span></a>
+  <a href="/memoirs">Memoirs <span>Sets &amp; stats</span></a>
+</div>
+{% if not game_db_exists %}<p>Play the game once to create your save.</p>{% endif %}
+<p>Save editors keep a backup before each change.</p>
+<p class="credit">Lunar Base by NMeliksah · Masterdata Patcher by NavHobbyDev</p>
+{% endblock %}

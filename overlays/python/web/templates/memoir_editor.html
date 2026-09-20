@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Memoir Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ user_id }} :: MEMOIRS{% endblock %}
+
+{% block content %}
+<p style="margin-top:0">
+  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+</p>
+
+<h1 class="bracket-header">Memoir Editor</h1>
+
+<div class="panel"><p style="margin:0">Build a four-star set, upgrade memoirs to level 15, or change their stats. Each change is backed up first.</p><p>Owned: {{ owned_count }} / {{ inventory_cap }}. Enter percentage stats multiplied by 10: 3% = 30, 12.5% = 125.</p></div>
+
+<div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
+
+<!-- ============================================================ BUILD A SET -->
+<h2 class="bracket-header costume-group-header">Build a Set</h2>
+
+<div class="panel" style="padding:12px">
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <label for="set-picker" style="font-size:12px;color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Set</label>
+    <select id="set-picker" style="flex:1;min-width:300px;font-family:inherit;font-size:13px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:6px">
+      {% for s in sets %}
+      <option value="{{ s.id }}" data-bonus2="{{ s.bonus_2 }}" data-bonus3="{{ s.bonus_3 }}">
+        {% if s.priority %}[PRIORITY] {% endif %}{{ s.name }}
+      </option>
+      {% endfor %}
+    </select>
+    <button type="button" id="grant-set-btn" class="grant-chosen-btn">GRANT SET AT LV15</button>
+  </div>
+  <p id="set-bonus-line" style="margin:0 0 8px;font-size:11px;color:var(--fg-mid);letter-spacing:0.05em">
+    &mdash;
+  </p>
+
+  <div id="set-editor" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
+
+<!-- ============================================================ MASS ACTIONS -->
+<h2 class="bracket-header costume-group-header">Mass Actions</h2>
+<div class="panel grant-list">
+  <div class="grant-form upgrade">
+    <span class="grant-name">Upgrade All Memoirs</span>
+    <span class="grant-id">{{ owned_count }} owned memoirs &mdash; sets every part level to {{ 15 }} (sub-status rows untouched).</span>
+    <span class="grant-current">&mdash;</span>
+    <button type="button" id="upgrade-all-btn" class="grant-chosen-btn"
+            {% if owned_count == 0 %}disabled{% endif %}>RUN</button>
+  </div>
+</div>
+
+<!-- ============================================================ FIX SLOTS -->
+<h2 class="bracket-header costume-group-header">Fix Slots on a Memoir</h2>
+
+<div class="panel" style="padding:12px">
+  {% if owned_for_picker %}
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <label for="memoir-picker" style="font-size:12px;color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Memoir</label>
+    <select id="memoir-picker" style="flex:1;min-width:340px;font-family:inherit;font-size:12px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:6px">
+      {% for m in owned_for_picker %}
+      <option value="{{ m.uuid }}">
+        {% if m.set_name %}[{{ m.set_name }}] {% endif %}{{ m.memoir_name }} &middot; lv{{ m.level }} &middot; main_id={{ m.main_id }} &middot; uuid={{ m.uuid[:8] }}&hellip;
+      </option>
+      {% endfor %}
+    </select>
+    <button type="button" id="fix-slots-btn" class="grant-chosen-btn">REWRITE SLOTS</button>
+  </div>
+  <div id="fix-slots-editor" style="display:flex;flex-direction:column;gap:6px"></div>
+  {% else %}
+  <p style="margin:0;color:var(--fg-mid);font-size:12px;letter-spacing:0.1em">No memoirs owned yet. Build a set above first.</p>
+  {% endif %}
+</div>
+
+<script>
+(function() {
+  const userId = {{ user_id }};
+
+  // ----- Catalog data exposed to JS ------------------------------------
+  const SETS = {{ sets|tojson }};
+  const PRIMARY_OPTIONS = {{ primary_options|tojson }};
+  const SUB_OPTIONS = {{ sub_options|tojson }};
+  const DEFAULT_SUB_ORDER = {{ default_sub_order|tojson }};
+
+  const SET_BY_ID = {};
+  for (const s of SETS) SET_BY_ID[s.id] = s;
+  const SUB_BY_KEY = {};
+  for (const o of SUB_OPTIONS) SUB_BY_KEY[o.key] = o;
+
+  // ----- Banner --------------------------------------------------------
+  const bannerEl = document.getElementById("ajax-banner");
+  let bannerTimer = null;
+  function showBanner(text, kind) {
+    bannerEl.textContent = "> " + text;
+    bannerEl.className = "banner " + (kind === "error" ? "error" : "success");
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => bannerEl.classList.add("ajax-hidden"), 12000);
+  }
+
+  // ----- Render Build-A-Set editor ------------------------------------
+  function defaultPrimaryKey(memoirIndex) {
+    // First memoir defaults to crit_rate, second to crit_dmg, third to atk_pct.
+    return ["crit_rate", "crit_dmg", "atk_pct"][memoirIndex] || "crit_rate";
+  }
+
+  function makeSelect(name, options, selectedKey, extraStyle) {
+    const sel = document.createElement("select");
+    sel.dataset.kind = name;
+    sel.style.cssText = "font-family:inherit;font-size:12px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:4px;" + (extraStyle || "");
+    for (const opt of options) {
+      const el = document.createElement("option");
+      el.value = opt.key;
+      el.textContent = opt.label;
+      if (opt.key === selectedKey) el.selected = true;
+      sel.appendChild(el);
+    }
+    return sel;
+  }
+
+  function renderMemoirRow(memoir, memoirIndex, container) {
+    const wrap = document.createElement("div");
+    wrap.dataset.memoirRow = "1";
+    wrap.dataset.groupId = memoir.group_id;
+    wrap.style.cssText = "border:1px solid var(--fg-mid);padding:8px;background:var(--bg-cream)";
+
+    const head = document.createElement("div");
+    head.style.cssText = "display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px";
+    const title = document.createElement("strong");
+    title.textContent = memoir.name + " (group " + memoir.group_id + ")";
+    title.style.cssText = "min-width:240px";
+    head.appendChild(title);
+
+    const primaryLabel = document.createElement("span");
+    primaryLabel.textContent = "PRIMARY";
+    primaryLabel.style.cssText = "font-size:11px;color:var(--fg-mid);letter-spacing:0.15em";
+    head.appendChild(primaryLabel);
+
+    const primarySel = makeSelect("primary", PRIMARY_OPTIONS, defaultPrimaryKey(memoirIndex), "flex:1;min-width:220px");
+    primarySel.dataset.role = "primary";
+    head.appendChild(primarySel);
+    wrap.appendChild(head);
+
+    // Slots 1-4
+    const slotsWrap = document.createElement("div");
+    slotsWrap.style.cssText = "display:grid;grid-template-columns:60px minmax(0,1fr) 110px;gap:6px 10px;align-items:center";
+    for (let slot = 1; slot <= 4; slot++) {
+      const lbl = document.createElement("span");
+      lbl.textContent = "SLOT " + slot;
+      lbl.style.cssText = "font-size:11px;color:var(--fg-mid);letter-spacing:0.15em";
+      slotsWrap.appendChild(lbl);
+
+      const subKey = DEFAULT_SUB_ORDER[slot - 1] || SUB_OPTIONS[0].key;
+      const sub = makeSelect("sub", SUB_OPTIONS, subKey, "");
+      sub.dataset.role = "sub";
+      sub.dataset.slot = slot;
+      slotsWrap.appendChild(sub);
+
+      const valInput = document.createElement("input");
+      valInput.type = "number";
+      valInput.dataset.role = "value";
+      valInput.dataset.slot = slot;
+      valInput.value = SUB_BY_KEY[subKey].value;
+      valInput.style.cssText = "background:var(--bg-cream);border:1px solid var(--fg-mid);padding:4px;font-family:inherit;font-size:12px;color:var(--fg-dark)";
+      slotsWrap.appendChild(valInput);
+
+      sub.addEventListener("change", () => {
+        valInput.value = SUB_BY_KEY[sub.value].value;
+      });
+    }
+    wrap.appendChild(slotsWrap);
+    container.appendChild(wrap);
+  }
+
+  function renderSet(setId) {
+    const editor = document.getElementById("set-editor");
+    editor.innerHTML = "";
+    const set = SET_BY_ID[setId];
+    if (!set) return;
+    const bonusLine = document.getElementById("set-bonus-line");
+    bonusLine.textContent = "2-piece: " + set.bonus_2 + "  /  3-piece: " + set.bonus_3;
+    set.memoirs.forEach((m, idx) => renderMemoirRow(m, idx, editor));
+  }
+
+  function readMemoirRows() {
+    const out = [];
+    document.querySelectorAll("#set-editor [data-memoir-row]").forEach(row => {
+      const groupId = parseInt(row.dataset.groupId, 10);
+      const primaryKey = row.querySelector('[data-role="primary"]').value;
+      const subs = [];
+      for (let slot = 1; slot <= 4; slot++) {
+        const subSel = row.querySelector('[data-role="sub"][data-slot="' + slot + '"]');
+        const valInput = row.querySelector('[data-role="value"][data-slot="' + slot + '"]');
+        const v = parseInt(valInput.value, 10);
+        if (Number.isNaN(v)) continue;
+        subs.push({slot: slot, sub_key: subSel.value, value: v});
+      }
+      out.push({group_id: groupId, primary_key: primaryKey, subs: subs});
+    });
+    return out;
+  }
+
+  document.getElementById("set-picker").addEventListener("change", (e) => {
+    renderSet(parseInt(e.target.value, 10));
+  });
+
+  // Initial render: first option in the list (priority sets sit on top).
+  const initialOption = document.querySelector("#set-picker option");
+  if (initialOption) renderSet(parseInt(initialOption.value, 10));
+
+  // ----- Grant set ----------------------------------------------------
+  document.getElementById("grant-set-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("grant-set-btn");
+    if (btn.dataset.busy === "1") return;
+    const setId = parseInt(document.getElementById("set-picker").value, 10);
+    const setName = SET_BY_ID[setId] ? SET_BY_ID[setId].name : "?";
+    if (!confirm("Grant set \"" + setName + "\" (3 memoirs at lv15)? A backup is taken first.")) return;
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = "WORKING...";
+    try {
+      const body = {set_id: setId, memoirs: readMemoirRows()};
+      const res = await fetch("/users/" + userId + "/memoirs/grant_set", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
+      showBanner("Granted " + setName + ": " + json.applied + " memoirs in " + (json.duration_ms / 1000).toFixed(2) + "s. Reload to refresh.", "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      btn.dataset.busy = "0"; btn.disabled = false; btn.textContent = orig;
+    }
+  });
+
+  // ----- Upgrade all --------------------------------------------------
+  const upgradeBtn = document.getElementById("upgrade-all-btn");
+  if (upgradeBtn) {
+    upgradeBtn.addEventListener("click", async () => {
+      if (upgradeBtn.dataset.busy === "1") return;
+      if (!confirm("Upgrade every owned memoir to lv15? A backup is taken first.")) return;
+      upgradeBtn.dataset.busy = "1";
+      upgradeBtn.disabled = true;
+      const orig = upgradeBtn.textContent;
+      upgradeBtn.textContent = "WORKING...";
+      try {
+        const res = await fetch("/users/" + userId + "/memoirs/upgrade_all", {method: "POST"});
+        const json = await res.json();
+        if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
+        showBanner("Upgraded " + json.applied + " memoirs to lv15 in " + (json.duration_ms / 1000).toFixed(2) + "s.", "success");
+      } catch (err) {
+        showBanner("Network error: " + err.message, "error");
+      } finally {
+        upgradeBtn.dataset.busy = "0"; upgradeBtn.disabled = false; upgradeBtn.textContent = orig;
+      }
+    });
+  }
+
+  // ----- Fix slots ----------------------------------------------------
+  const fixEditor = document.getElementById("fix-slots-editor");
+  function renderFixSlots() {
+    if (!fixEditor) return;
+    fixEditor.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:grid;grid-template-columns:60px minmax(0,1fr) 110px;gap:6px 10px;align-items:center";
+    for (let slot = 1; slot <= 4; slot++) {
+      const lbl = document.createElement("span");
+      lbl.textContent = "SLOT " + slot;
+      lbl.style.cssText = "font-size:11px;color:var(--fg-mid);letter-spacing:0.15em";
+      wrap.appendChild(lbl);
+
+      const subKey = DEFAULT_SUB_ORDER[slot - 1] || SUB_OPTIONS[0].key;
+      const sub = makeSelect("sub", SUB_OPTIONS, subKey, "");
+      sub.dataset.role = "fix-sub";
+      sub.dataset.slot = slot;
+      wrap.appendChild(sub);
+
+      const valInput = document.createElement("input");
+      valInput.type = "number";
+      valInput.dataset.role = "fix-value";
+      valInput.dataset.slot = slot;
+      valInput.value = SUB_BY_KEY[subKey].value;
+      valInput.style.cssText = "background:var(--bg-cream);border:1px solid var(--fg-mid);padding:4px;font-family:inherit;font-size:12px;color:var(--fg-dark)";
+      wrap.appendChild(valInput);
+
+      sub.addEventListener("change", () => {
+        valInput.value = SUB_BY_KEY[sub.value].value;
+      });
+    }
+    fixEditor.appendChild(wrap);
+  }
+  renderFixSlots();
+
+  const fixBtn = document.getElementById("fix-slots-btn");
+  if (fixBtn) {
+    fixBtn.addEventListener("click", async () => {
+      if (fixBtn.dataset.busy === "1") return;
+      const picker = document.getElementById("memoir-picker");
+      if (!picker || !picker.value) { showBanner("Pick a memoir first.", "error"); return; }
+      const subs = [];
+      for (let slot = 1; slot <= 4; slot++) {
+        const subSel = fixEditor.querySelector('[data-role="fix-sub"][data-slot="' + slot + '"]');
+        const valInput = fixEditor.querySelector('[data-role="fix-value"][data-slot="' + slot + '"]');
+        const v = parseInt(valInput.value, 10);
+        if (Number.isNaN(v)) continue;
+        subs.push({slot: slot, sub_key: subSel.value, value: v});
+      }
+      if (!confirm("Rewrite slots 1-4 on the selected memoir? A backup is taken first.")) return;
+      fixBtn.dataset.busy = "1";
+      fixBtn.disabled = true;
+      const orig = fixBtn.textContent;
+      fixBtn.textContent = "WORKING...";
+      try {
+        const res = await fetch("/users/" + userId + "/memoirs/fix_slots", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({user_parts_uuid: picker.value, subs: subs}),
+        });
+        const json = await res.json();
+        if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
+        showBanner("Slots rewritten in " + (json.duration_ms / 1000).toFixed(2) + "s.", "success");
+      } catch (err) {
+        showBanner("Network error: " + err.message, "error");
+      } finally {
+        fixBtn.dataset.busy = "0"; fixBtn.disabled = false; fixBtn.textContent = orig;
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

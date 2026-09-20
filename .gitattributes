@@ -1,0 +1,4 @@
+# Preserve the wrapper's Windows line endings on checkout.
+*.bat text eol=crlf
+# Unified diff context contains intentional leading/trailing whitespace.
+*.patch -whitespace

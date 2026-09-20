@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lunar Tear – Login</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 40px 32px 32px;
+    width: 100%;
+    max-width: 360px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #c8c8c8;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 32px;
+    transition: color 0.3s;
+  }
+  .error {
+    background: #2a1515;
+    border: 1px solid #5a2020;
+    color: #e08080;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  input[type="text"],
+  input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: #0e0e0e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 15px;
+    margin-bottom: 18px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: #666; }
+  .buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  button {
+    flex: 1;
+    padding: 11px 0;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.3s;
+  }
+  .btn-login {
+    background: #e0e0e0;
+    color: #111;
+    border-color: #e0e0e0;
+  }
+  .btn-login:hover { background: #fff; border-color: #fff; }
+  .btn-register {
+    background: transparent;
+    color: #aaa;
+  }
+  .btn-register:hover { border-color: #666; color: #e0e0e0; }
+  .hidden { display: none; }
+  @media (max-height: 480px) {
+    body { align-items: stretch; padding: 0; }
+    .card {
+      max-width: none; border-radius: 0; border: none;
+      min-height: 100vh; min-height: 100dvh;
+      padding: 20px 24px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    .subtitle { margin-bottom: 16px; }
+    input[type="text"],
+    input[type="password"] { padding: 8px 10px; margin-bottom: 12px; }
+    .buttons { margin-top: 4px; }
+    button { padding: 9px 0; }
+  }
+</style>
+</head>
+<body>
+<form class="card" method="POST">
+  <h1>Lunar Tear</h1>
+  <div class="subtitle" id="subtitle">Authentication</div>
+
+  {{if .Error}}
+  <div class="error">{{.Error}}</div>
+  {{end}}
+
+  <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
+  <input type="hidden" name="state" value="{{.State}}">
+  <input type="hidden" name="scope" value="{{.Scope}}">
+
+  <label for="username">Username</label>
+  <input type="text" id="username" name="username" value="{{.Username}}" autocomplete="username" autofocus required>
+
+  <label for="password">Password</label>
+  <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+  <div class="buttons">
+    <button type="submit" name="action" value="login" class="btn-login hidden" id="btn-login">Login</button>
+    <button type="submit" name="action" value="register" class="btn-register hidden" id="btn-register">Create Account</button>
+  </div>
+</form>
+<script>
+(function() {
+  var input = document.getElementById('username');
+  var btnLogin = document.getElementById('btn-login');
+  var btnRegister = document.getElementById('btn-register');
+  var subtitle = document.getElementById('subtitle');
+  var timer = null;
+  var lastChecked = '';
+
+  function check() {
+    var name = input.value.trim();
+    if (name === '') {
+      btnLogin.classList.add('hidden');
+      btnRegister.classList.add('hidden');
+      subtitle.textContent = 'Authentication';
+      lastChecked = '';
+      return;
+    }
+    if (name === lastChecked) return;
+    lastChecked = name;
+
+    fetch('/check-username?username=' + encodeURIComponent(name))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (input.value.trim() !== name) return;
+        if (data.exists) {
+          btnLogin.classList.remove('hidden');
+          btnRegister.classList.add('hidden');
+          subtitle.textContent = 'Welcome back';
+        } else {
+          btnLogin.classList.add('hidden');
+          btnRegister.classList.remove('hidden');
+          subtitle.textContent = 'Create your account';
+        }
+      })
+      .catch(function() {
+        btnLogin.classList.remove('hidden');
+        btnRegister.classList.remove('hidden');
+        subtitle.textContent = 'Authentication';
+      });
+  }
+
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    timer = setTimeout(check, 300);
+  });
+
+  input.addEventListener('blur', function() {
+    clearTimeout(timer);
+    check();
+  });
+
+  if (input.value.trim() !== '') check();
+})();
+</script>
+</body>
+</html>

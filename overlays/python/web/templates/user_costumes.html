@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}Costume Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ user_id }} :: COSTUMES{% endblock %}
+
+{% macro costume_row(item) %}
+<form data-grant data-id="{{ item.id }}"
+      data-name="{{ item.name|lower }} {{ item.character_name|lower }}"
+      class="grant-form costume {% if item.owned %}owned{% endif %}">
+  <span class="rarity-badge rarity-{{ item.rarity }}">
+    {% if item.rarity == 40 %}&#9733;&#9733;&#9733;&#9733;{% else %}&#9733;&#9733;&#9733;{% endif %}
+  </span>
+  <span class="grant-name">{{ item.name }}</span>
+  <span class="grant-id">{{ item.character_name }}</span>
+  <span class="grant-current" data-current>
+    {% if item.owned %}
+      <span class="status-pill online">OWNED</span>
+    {% else %}
+      <span class="status-pill offline">MISSING</span>
+    {% endif %}
+  </span>
+  <label class="row-checkbox">
+    <input type="checkbox" data-amount data-fixed-count="1" {% if item.owned %}disabled{% endif %}>
+    <span>add</span>
+  </label>
+  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>GRANT</button>
+  {% if item.rarity == 40 %}
+  <div class="karma-row" data-karma-row data-costume-id="{{ item.id }}" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;padding-top:4px;border-top:1px dashed var(--fg-mid)">
+    {% for slot in [1, 2, 3] %}
+    <select data-karma-select data-costume-id="{{ item.id }}" data-karma-slot="{{ slot }}"
+            disabled
+            title="Slot {{ slot }} (locked or no costume)"
+            style="flex:1 1 280px;min-width:240px;font-family:inherit;font-size:11px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:2px">
+      <option value="">SLOT {{ slot }}: --</option>
+    </select>
+    {% endfor %}
+  </div>
+  {% endif %}
+</form>
+{% endmacro %}
+
+{% block content %}
+<p style="margin-top:0">
+  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+</p>
+
+<h1 class="bracket-header">Costume Editor</h1>
+
+<div class="panel"><p style="margin:0">Add costumes and choose karma effects. Story-starter costumes are earned through play. Each change is backed up first.</p></div>
+
+<div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
+
+<div class="search-row">
+  <label for="search-costumes" class="search-label">FILTER</label>
+  <input type="text" id="search-costumes" class="costume-search"
+         placeholder="Search by costume name, character, or id...">
+  <span class="tab-stats">{{ total_owned }} owned / {{ total_count }} total &middot; {{ missing_count }} missing</span>
+  <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">GRANT ALL CHOSEN</button>
+  <button type="button" class="grant-chosen-btn" id="update-karma-btn"
+          {% if unlocked_karma_costume_count == 0 %}disabled{% endif %}>
+    UPDATE ALL KARMA EFFECTS ({{ unlocked_karma_costume_count }})
+  </button>
+  <button type="button" class="max-all-btn" id="grant-missing-btn"
+          {% if missing_count == 0 %}disabled{% endif %}>
+    GRANT ALL MISSING ({{ missing_count }})
+  </button>
+</div>
+
+{% for group in groups %}
+<h2 class="bracket-header costume-group-header">{{ group.label }}
+  <span class="group-stats">{{ group.owned_count }}/{{ group.total_count }}</span>
+</h2>
+<div class="panel grant-list costume-list" data-group="{{ group.key }}">
+  {% for row in group.rows %}
+    {{ costume_row(row) }}
+  {% endfor %}
+</div>
+{% endfor %}
+
+<script>
+(function() {
+  const userId = {{ user_id }};
+
+  // Karma data: pools shared by group_id, costume->slot->group_id, current
+  // user state. Selects are populated lazily on page load to avoid emitting
+  // ~10k <option> elements server-side.
+  const KARMA_POOLS = {{ karma_pools_json | tojson }};
+  const COSTUME_SLOT_GROUPS = {{ karma_costume_slots_json | tojson }};
+  const CURRENT_KARMA = {{ karma_state_json | tojson }};
+
+  function hydrateKarmaSelects() {
+    document.querySelectorAll("select[data-karma-select]").forEach(sel => {
+      const cid = sel.dataset.costumeId;
+      const slot = sel.dataset.karmaSlot;
+      const groups = COSTUME_SLOT_GROUPS[cid];
+      const groupId = groups ? groups[slot] : undefined;
+      const pool = groupId !== undefined ? KARMA_POOLS[groupId] : undefined;
+      if (!pool || pool.length === 0) {
+        sel.innerHTML = `<option value="">SLOT ${slot}: (no options)</option>`;
+        sel.disabled = true;
+        return;
+      }
+      const currentOdds = (CURRENT_KARMA[cid] || {})[slot];
+      const slotUnlocked = currentOdds !== undefined;
+      let selectedValue = "";
+      pool.forEach(entry => {
+        if (entry.odds_number === currentOdds) {
+          selectedValue = entry.value;
+        }
+      });
+      // Synthetic placeholder so the user has a "no change" option when
+      // (a) the slot is unrolled (OddsNumber=0) or (b) the rolled value
+      // doesn't match any current master-data entry (master-data drift).
+      // Placeholder value="" — the submit handler skips rows whose value
+      // equals their baseline, so leaving this selected is a no-op.
+      const placeholderLabel = currentOdds === 0
+        ? `SLOT ${slot}: (unrolled — pick to set)`
+        : (selectedValue ? `SLOT ${slot}: keep current` : `SLOT ${slot}: (unknown roll #${currentOdds})`);
+      const opts = [
+        `<option value=""${selectedValue ? "" : " selected"}>${placeholderLabel}</option>`,
+      ];
+      pool.forEach(entry => {
+        const isSel = entry.value === selectedValue;
+        opts.push(
+          `<option value="${entry.value}"${isSel ? " selected" : ""}>` +
+          `[R${entry.rarity}] ${entry.label}` +
+          `</option>`
+        );
+      });
+      sel.innerHTML = opts.join("");
+      // Enable only when slot is unlocked AND costume is owned. Owned-ness
+      // is reflected by the form's `.owned` class (set on grant or on the
+      // initial render).
+      const form = sel.closest("form");
+      const owned = form && form.classList.contains("owned");
+      sel.disabled = !slotUnlocked || !owned;
+      if (!owned) {
+        sel.title = "Karma slots are populated when the costume is owned and Upgrade All Costumes has unlocked them.";
+      } else if (!slotUnlocked) {
+        sel.title = "Slot not yet unlocked — run Upgrade All Costumes from the Upgrade Manager first.";
+      } else {
+        sel.title = `Slot ${slot} — pick the karma effect (overwrites the current roll on Update).`;
+      }
+      // Tag baseline so the submit handler can skip rows the user did not
+      // change.
+      sel.dataset.baseline = selectedValue;
+    });
+  }
+  hydrateKarmaSelects();
+
+  const searchInput = document.getElementById("search-costumes");
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+    document.querySelectorAll(".grant-form.costume").forEach(row => {
+      const name = row.dataset.name || "";
+      const id = row.dataset.id || "";
+      const match = !q || name.includes(q) || id.includes(q);
+      row.style.display = match ? "" : "none";
+    });
+  });
+
+  // ---------------- AJAX banner ----------------
+  const bannerEl = document.getElementById("ajax-banner");
+  let bannerTimer = null;
+  function showBanner(text, kind) {
+    bannerEl.textContent = "> " + text;
+    bannerEl.className = "banner " + (kind === "error" ? "error" : "success");
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => bannerEl.classList.add("ajax-hidden"), 6000);
+  }
+
+  // ---------------- Mark a row as just-granted ----------------
+  function markGranted(form) {
+    if (!form) return;
+    const display = form.querySelector("[data-current]");
+    if (display) display.innerHTML = '<span class="status-pill online">OWNED</span>';
+    form.querySelectorAll("[data-amount], button[type=submit]").forEach(el => el.disabled = true);
+    form.classList.add("grant-success", "owned");
+  }
+
+  function applyResults(results) {
+    let n = 0;
+    results.forEach(r => {
+      const form = document.querySelector(`form[data-grant][data-id="${r.costume_id}"]`);
+      if (form) {
+        markGranted(form);
+        n++;
+      }
+    });
+    return n;
+  }
+
+  // ---------------- Single-row grant ----------------
+  document.addEventListener("submit", async e => {
+    const form = e.target;
+    if (!form.matches("form[data-grant].costume")) return;
+    e.preventDefault();
+    if (form.dataset.busy === "1") return;
+    if (form.classList.contains("owned")) return;
+
+    const costumeId = parseInt(form.dataset.id, 10);
+    form.dataset.busy = "1";
+    try {
+      const res = await fetch(`/users/${userId}/edit/costumes/grant_batch`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({costume_ids: [costumeId]}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Grant failed.", "error");
+        return;
+      }
+      const n = applyResults(json.results);
+      showBanner(`Granted costume #${costumeId} in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      form.dataset.busy = "0";
+    }
+  });
+
+  // ---------------- GRANT ALL CHOSEN ----------------
+  document.getElementById("grant-chosen-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("grant-chosen-btn");
+    if (btn.dataset.busy === "1") return;
+
+    const ids = [];
+    document.querySelectorAll("form[data-grant].costume:not(.owned) input[type=checkbox]:checked").forEach(cb => {
+      const form = cb.closest("form");
+      ids.push(parseInt(form.dataset.id, 10));
+    });
+    if (ids.length === 0) {
+      showBanner("Nothing chosen.", "error");
+      return;
+    }
+
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/users/${userId}/edit/costumes/grant_batch`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({costume_ids: ids}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Batch grant failed.", "error");
+        return;
+      }
+      const n = applyResults(json.results);
+      showBanner(`Granted ${n} costume(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      btn.dataset.busy = "0";
+      btn.disabled = false;
+    }
+  });
+
+  // ---------------- UPDATE ALL KARMA EFFECTS ----------------
+  document.getElementById("update-karma-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("update-karma-btn");
+    if (btn.dataset.busy === "1") return;
+
+    // Collect every changed-from-baseline dropdown. Costumes the user did
+    // not edit are skipped client-side so the payload stays small and the
+    // shim's no-op filter has less to chew on.
+    const byCostume = {};
+    document.querySelectorAll("select[data-karma-select]").forEach(sel => {
+      if (sel.disabled) return;
+      const value = sel.value || "";
+      if (!value) return;
+      if (value === (sel.dataset.baseline || "")) return;
+      const cid = sel.dataset.costumeId;
+      const slot = sel.dataset.karmaSlot;
+      byCostume[cid] = byCostume[cid] || {};
+      byCostume[cid][slot] = value;
+    });
+    const costumes = Object.entries(byCostume).map(([cid, karma]) => ({
+      costume_id: parseInt(cid, 10),
+      karma,
+    }));
+    if (costumes.length === 0) {
+      showBanner("No karma changes to apply.", "error");
+      return;
+    }
+    if (!confirm(`Update karma effects on ${costumes.length} costume(s)? A backup is taken first.`)) return;
+
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "WORKING...";
+    try {
+      const res = await fetch(`/users/${userId}/edit/costumes/update_karma_batch`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({costumes}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Karma update failed.", "error");
+        return;
+      }
+      // Re-baseline so subsequent edits ride off the new state.
+      document.querySelectorAll("select[data-karma-select]").forEach(sel => {
+        sel.dataset.baseline = sel.value || "";
+      });
+      showBanner(
+        `Updated karma on ${json.applied} costume(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`,
+        "success"
+      );
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      btn.dataset.busy = "0";
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+
+  // ---------------- GRANT ALL MISSING ----------------
+  document.getElementById("grant-missing-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("grant-missing-btn");
+    if (btn.dataset.busy === "1") return;
+    if (!confirm("Grant every R30 + R40 costume you don't already own. This unlocks dozens of characters and 250+ costumes. Continue?")) return;
+
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "WORKING...";
+    try {
+      const res = await fetch(`/users/${userId}/edit/costumes/grant_all_missing`, {method: "POST"});
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Operation failed.", "error");
+        return;
+      }
+      const n = applyResults(json.results);
+      showBanner(`Granted ${n} missing costume(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      btn.dataset.busy = "0";
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+})();
+</script>
+{% endblock %}

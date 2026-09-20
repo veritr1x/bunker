@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Weapon Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ user_id }} :: WEAPONS{% endblock %}
+
+{% macro weapon_row(item) %}
+<form data-grant data-id="{{ item.id }}"
+      data-name="{{ item.name|lower }} {{ item.id }}"
+      class="grant-form weapon {% if item.owned %}owned{% endif %}">
+  <span class="rarity-badge rarity-{{ item.rarity }}">{% if item.rarity == 50 %}&#9733;&#9733;&#9733;&#9733;&#9733;{% elif item.rarity == 40 %}&#9733;&#9733;&#9733;&#9733;{% else %}&#9733;&#9733;&#9733;{% endif %}</span>
+  <span class="grant-name">{{ item.name }}</span>
+  <span class="grant-id">#{{ item.id }}</span>
+  <span class="grant-current" data-current>
+    {% if item.owned %}
+      <span class="status-pill online">OWNED</span>
+    {% else %}
+      <span class="status-pill offline">MISSING</span>
+    {% endif %}
+  </span>
+  <label class="row-checkbox">
+    <input type="checkbox" data-amount data-fixed-count="1" {% if item.owned %}disabled{% endif %}>
+    <span>add</span>
+  </label>
+  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>GRANT</button>
+</form>
+{% endmacro %}
+
+{% block content %}
+<p style="margin-top:0">
+  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+</p>
+
+<h1 class="bracket-header">Weapon Editor</h1>
+
+<div class="panel"><p style="margin:0">Add weapons, including their skills and stories. Story-starter weapons are earned through play. The inventory limit is 999 weapons. Each change is backed up first.</p></div>
+
+<div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
+
+<div class="search-row">
+  <label for="search-weapons" class="search-label">FILTER</label>
+  <input type="text" id="search-weapons" class="costume-search"
+         placeholder="Search by weapon name or id...">
+  <span class="tab-stats">
+    INVENTORY: <span id="inventory-count">{{ inventory_count }}</span> / {{ inventory_cap }} weapons
+    &middot; CATALOG: {{ total_owned }} owned / {{ total_count }} total &middot; {{ missing_count }} missing
+  </span>
+  <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">GRANT ALL CHOSEN</button>
+  <button type="button" class="max-all-btn" id="grant-missing-btn"
+          {% if missing_count == 0 %}disabled{% endif %}>
+    GRANT ALL MISSING ({{ missing_count }})
+  </button>
+</div>
+
+{% for group in groups %}
+<h2 class="bracket-header costume-group-header">{{ group.label }}
+  <span class="group-stats">{{ group.owned_count }}/{{ group.total_count }}</span>
+</h2>
+<div class="panel grant-list costume-list" data-group="{{ group.key }}">
+  {% for row in group.rows %}
+    {{ weapon_row(row) }}
+  {% endfor %}
+</div>
+{% endfor %}
+
+<script>
+(function() {
+  const userId = {{ user_id }};
+  const inventoryCap = {{ inventory_cap }};
+
+  const searchInput = document.getElementById("search-weapons");
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+    document.querySelectorAll(".grant-form.weapon").forEach(row => {
+      const name = row.dataset.name || "";
+      const id = row.dataset.id || "";
+      const match = !q || name.includes(q) || id.includes(q);
+      row.style.display = match ? "" : "none";
+    });
+  });
+
+  // ---------------- AJAX banner ----------------
+  const bannerEl = document.getElementById("ajax-banner");
+  let bannerTimer = null;
+  function showBanner(text, kind) {
+    bannerEl.textContent = "> " + text;
+    bannerEl.className = "banner " + (kind === "error" ? "error" : "success");
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => bannerEl.classList.add("ajax-hidden"), 8000);
+  }
+
+  // ---------------- Inventory toolbar ----------------
+  function setInventoryCount(n) {
+    if (typeof n !== "number") return;
+    const el = document.getElementById("inventory-count");
+    if (el) el.textContent = n;
+  }
+
+  // ---------------- Mark a row as just-granted ----------------
+  function markGranted(form) {
+    if (!form) return;
+    const display = form.querySelector("[data-current]");
+    if (display) display.innerHTML = '<span class="status-pill online">OWNED</span>';
+    form.querySelectorAll("[data-amount], button[type=submit]").forEach(el => el.disabled = true);
+    form.classList.add("grant-success", "owned");
+  }
+
+  function applyResults(results) {
+    let n = 0;
+    results.forEach(r => {
+      const form = document.querySelector(`form[data-grant][data-id="${r.weapon_id}"]`);
+      if (form) {
+        markGranted(form);
+        n++;
+      }
+    });
+    return n;
+  }
+
+  // ---------------- Single-row grant ----------------
+  document.addEventListener("submit", async e => {
+    const form = e.target;
+    if (!form.matches("form[data-grant].weapon")) return;
+    e.preventDefault();
+    if (form.dataset.busy === "1") return;
+    if (form.classList.contains("owned")) return;
+
+    const weaponId = parseInt(form.dataset.id, 10);
+    form.dataset.busy = "1";
+    try {
+      const res = await fetch(`/users/${userId}/edit/weapons/grant_batch`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({weapon_ids: [weaponId]}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Grant failed.", "error");
+        return;
+      }
+      applyResults(json.results);
+      setInventoryCount(json.inventory_count);
+      showBanner(`Granted weapon #${weaponId} in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      form.dataset.busy = "0";
+    }
+  });
+
+  // ---------------- GRANT ALL CHOSEN ----------------
+  document.getElementById("grant-chosen-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("grant-chosen-btn");
+    if (btn.dataset.busy === "1") return;
+
+    const ids = [];
+    document.querySelectorAll("form[data-grant].weapon:not(.owned) input[type=checkbox]:checked").forEach(cb => {
+      const form = cb.closest("form");
+      ids.push(parseInt(form.dataset.id, 10));
+    });
+    if (ids.length === 0) {
+      showBanner("Nothing chosen.", "error");
+      return;
+    }
+
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/users/${userId}/edit/weapons/grant_batch`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({weapon_ids: ids}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Batch grant failed.", "error");
+        return;
+      }
+      const n = applyResults(json.results);
+      setInventoryCount(json.inventory_count);
+      showBanner(`Granted ${n} weapon(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      btn.dataset.busy = "0";
+      btn.disabled = false;
+    }
+  });
+
+  // ---------------- GRANT ALL MISSING ----------------
+  document.getElementById("grant-missing-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("grant-missing-btn");
+    if (btn.dataset.busy === "1") return;
+    if (!confirm(`Grant every missing weapon in the catalog. The 999-row inventory cap will refuse this if you don't have room. Continue?`)) return;
+
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "WORKING...";
+    try {
+      const res = await fetch(`/users/${userId}/edit/weapons/grant_all_missing`, {method: "POST"});
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Operation failed.", "error");
+        return;
+      }
+      const n = applyResults(json.results);
+      setInventoryCount(json.inventory_count);
+      showBanner(`Granted ${n} missing weapon(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      btn.dataset.busy = "0";
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+})();
+</script>
+{% endblock %}

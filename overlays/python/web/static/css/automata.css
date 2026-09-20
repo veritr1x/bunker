@@ -1,0 +1,538 @@
+/* NieR: Automata Bunker terminal theme. */
+
+:root {
+  --bg-cream: #cfc7b0;
+  --bg-cream-dark: #b8b099;
+  --fg-dark: #2c2922;
+  --fg-mid: #57523f;
+  --accent: #1a1814;
+  --panel: #d8d1bb;
+  --panel-inverse-bg: #2c2922;
+  --panel-inverse-fg: #d8d1bb;
+  --danger: #6b0a0a;
+  --danger-hover: #8a1414;
+  --success: #3a4d24;
+  --border-thick: 2px solid var(--accent);
+  --border-thin: 1px solid var(--accent);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-cream);
+  color: var(--fg-dark);
+  font-family: "Segoe UI", "Tahoma", "Verdana", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  min-height: 100vh;
+}
+
+/* Subtle grid overlay (horizontal + vertical lines) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 3px,
+      rgba(0, 0, 0, 0.03) 3px,
+      rgba(0, 0, 0, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent 3px,
+      rgba(0, 0, 0, 0.03) 3px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+  z-index: 9999;
+}
+
+/* Top status bar */
+.terminal-bar {
+  background: var(--accent);
+  color: var(--bg-cream);
+  padding: 8px 24px;
+  letter-spacing: 0.25em;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+.terminal-bar .left { display: flex; gap: 24px; }
+.terminal-bar .right { color: var(--bg-cream-dark); }
+
+/* Primary nav */
+nav.primary {
+  display: flex;
+  background: var(--accent);
+  border-bottom: 4px double var(--accent);
+}
+nav.primary a {
+  color: var(--bg-cream);
+  padding: 12px 28px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: none;
+}
+nav.primary a:hover,
+nav.primary a.active {
+  background: var(--bg-cream);
+  color: var(--accent);
+}
+
+main {
+  max-width: 1100px;
+  margin: 32px auto;
+  padding: 0 24px;
+}
+
+/* Headers framed by [ brackets ] with a trailing line */
+.bracket-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 32px 0 16px;
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-weight: bold;
+  color: var(--accent);
+}
+.bracket-header::before { content: "["; }
+.bracket-header::after {
+  content: "]";
+  flex: 1;
+  border-bottom: var(--border-thin);
+  padding-left: 12px;
+  text-align: right;
+}
+
+/* Panels */
+.panel {
+  background: var(--panel);
+  border: var(--border-thick);
+  padding: 20px 24px;
+  margin: 16px 0;
+  position: relative;
+}
+.panel.inverse {
+  background: var(--panel-inverse-bg);
+  color: var(--panel-inverse-fg);
+}
+.panel-corners::before,
+.panel-corners::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+}
+.panel-corners::before {
+  top: -4px;
+  left: -4px;
+  border-top: var(--border-thick);
+  border-left: var(--border-thick);
+}
+.panel-corners::after {
+  bottom: -4px;
+  right: -4px;
+  border-bottom: var(--border-thick);
+  border-right: var(--border-thick);
+}
+
+/* Key/value descriptive lists */
+.kv {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 8px 16px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  margin: 0;
+}
+.kv dt {
+  color: var(--fg-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  align-self: center;
+}
+.kv dd { margin: 0; word-break: break-all; }
+
+/* Buttons */
+button, .button {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--bg-cream);
+  border: none;
+  padding: 10px 24px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 80ms, background 80ms;
+}
+button:hover, .button:hover {
+  background: var(--fg-dark);
+  transform: translateX(2px);
+}
+button.danger { background: var(--danger); }
+button.danger:hover { background: var(--danger-hover); }
+button:disabled, button.danger:disabled {
+  background: var(--bg-cream-dark);
+  color: var(--fg-mid);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Form bits */
+input[type="text"] {
+  background: var(--bg-cream);
+  border: var(--border-thin);
+  padding: 8px 10px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  color: var(--fg-dark);
+}
+.confirm-form {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Inline banners (success/error) */
+.banner {
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-left: 4px solid var(--accent);
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  background: var(--panel);
+}
+.banner.error { border-left-color: var(--danger); color: var(--danger); }
+.banner.success { border-left-color: var(--success); color: var(--success); }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+}
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: var(--border-thin);
+  vertical-align: middle;
+}
+th {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  color: var(--fg-mid);
+  font-weight: normal;
+  background: var(--bg-cream-dark);
+}
+tr:hover td { background: var(--bg-cream-dark); }
+
+/* Status pills */
+.status-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: var(--bg-cream);
+  font-weight: bold;
+}
+.status-pill.online { background: var(--success); }
+.status-pill.warn { background: var(--danger); }
+.status-pill.offline { background: var(--fg-mid); }
+
+/* Generic code */
+code {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  background: var(--bg-cream-dark);
+  padding: 1px 6px;
+}
+
+/* Links */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+}
+a:hover { background: var(--accent); color: var(--bg-cream); border-bottom-color: var(--accent); }
+
+/* Currency editor: tabs */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0 0;
+  flex-wrap: wrap;
+  border-bottom: var(--border-thin);
+  padding-bottom: 0;
+}
+.tab-bar .tab-btn {
+  background: var(--bg-cream-dark);
+  color: var(--fg-mid);
+  padding: 10px 20px;
+  letter-spacing: 0.2em;
+}
+.tab-bar .tab-btn:hover {
+  background: var(--fg-mid);
+  color: var(--bg-cream);
+  transform: none;
+}
+.tab-bar .tab-btn.active {
+  background: var(--accent);
+  color: var(--bg-cream);
+}
+.tab-bar .tab-count {
+  font-size: 10px;
+  color: inherit;
+  opacity: 0.7;
+  margin-left: 6px;
+}
+.tab-pane { display: none; margin-top: 0; }
+.tab-pane.active { display: block; }
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 16px 0 8px;
+  flex-wrap: wrap;
+}
+.search-row .search-label {
+  font-size: 11px;
+  color: var(--fg-mid);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.search-row input[type="text"] { flex: 1; min-width: 240px; }
+.search-row .tab-stats {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  color: var(--fg-mid);
+}
+
+/* Currency editor: per-row grant form */
+.grant-list {
+  padding: 0;
+  max-height: 600px;
+  overflow-y: auto;
+}
+.grant-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 130px 130px 90px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin: 0;
+}
+.grant-form:hover { background: var(--bg-cream-dark); }
+.grant-form .grant-name {
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grant-form .grant-id {
+  color: var(--fg-mid);
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.grant-form .grant-current {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  text-align: right;
+}
+.grant-form .grant-current .not-owned { color: var(--fg-mid); }
+.grant-form .grant-current .received-at {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--fg-mid);
+}
+.grant-form input[type="number"] {
+  background: var(--bg-cream);
+  border: var(--border-thin);
+  padding: 6px 8px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  color: var(--fg-dark);
+  width: 100%;
+}
+.grant-form button {
+  padding: 6px 12px;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+}
+.grant-form.important {
+  grid-template-columns: minmax(0, 1fr) 90px 180px 80px 90px;
+}
+.row-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fg-mid);
+  cursor: pointer;
+  user-select: none;
+}
+.row-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.row-checkbox input[type="checkbox"]:disabled,
+.row-checkbox input[type="checkbox"]:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Successful grant: row stays sage-green until a full page refresh.
+   Hover override keeps the success color visible while still distinguishing the row. */
+.grant-form.grant-success,
+.grant-form.grant-success:hover {
+  background: #aab882;
+}
+
+/* Toolbar action buttons */
+.grant-chosen-btn,
+.max-all-btn {
+  padding: 8px 18px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+.max-all-btn { background: var(--danger); }
+.max-all-btn:hover { background: var(--danger-hover); }
+.max-all-btn:disabled { background: var(--bg-cream-dark); color: var(--fg-mid); }
+
+/* Red warning text in editor description */
+.warning-text {
+  color: var(--danger);
+  font-weight: bold;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+/* AJAX banner: hidden by default, banner styles handle the visible state */
+.banner.ajax-hidden { display: none; }
+
+/* Costume editor: rarity badges and row layout */
+.grant-form.costume {
+  grid-template-columns: 70px minmax(0, 1fr) 110px 110px 80px 90px;
+}
+.grant-form.costume.owned { opacity: 0.55; }
+.grant-form.costume.owned:hover { background: var(--bg-cream-dark); opacity: 0.75; }
+
+/* Weapon editor: same shape as costume, slightly wider rarity column for 5 stars */
+.grant-form.weapon {
+  grid-template-columns: 90px minmax(0, 1fr) 90px 110px 80px 90px;
+}
+.grant-form.weapon .rarity-badge { letter-spacing: 0; }
+.grant-form.weapon.owned { opacity: 0.55; }
+.grant-form.weapon.owned:hover { background: var(--bg-cream-dark); opacity: 0.75; }
+
+/* Upgrade Manager rows: name | preview text | status | run button */
+.grant-form.upgrade {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) 100px 100px;
+  gap: 16px;
+}
+.grant-form.upgrade .grant-name { font-weight: bold; }
+.grant-form.upgrade .grant-id { font-style: italic; }
+.grant-form.upgrade.pending { opacity: 0.55; }
+.grant-form.upgrade.pending:hover { background: var(--bg-cream-dark); opacity: 0.65; }
+.rarity-badge {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 2px 6px;
+  font-weight: bold;
+}
+.rarity-badge.rarity-50 { color: #d9a23c; text-shadow: 0 0 4px rgba(217, 162, 60, 0.35); }
+.rarity-badge.rarity-40 { color: #b4750a; }
+.rarity-badge.rarity-30 { color: #6b4c8a; }
+
+.costume-group-header {
+  margin-top: 24px;
+  font-size: 14px;
+  letter-spacing: 0.25em;
+}
+.costume-group-header .group-stats {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 11px;
+  color: var(--fg-mid);
+  margin-left: 8px;
+  letter-spacing: 0.1em;
+}
+
+footer {
+  margin-top: 64px;
+  padding: 24px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--fg-mid);
+  border-top: 4px double var(--accent);
+}
+
+/* Launcher adaptation: readable on narrow phones, no desktop-sized fixed rows. */
+body { background: #f4f1e9; color: #303630; font-family: sans-serif; }
+.terminal-bar, footer { display: none; }
+nav.primary { display: flex; overflow-x: auto; flex-wrap: nowrap; gap: 4px; padding: 8px; }
+nav.primary a { white-space: nowrap; padding: 12px; font-size: 13px; }
+main { max-width: 1100px; margin: auto; padding: 16px; }
+h1 { font-size: 24px; }
+input, select, button { min-height: 44px; max-width: 100%; }
+textarea { width: 100%; box-sizing: border-box; margin: 16px 0; font: 12px monospace; }
+summary { padding: 12px 0; cursor: pointer; }
+.panel { margin: 12px 0; }
+.tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.tool-grid a { background: white; color: #303630; text-decoration: none; border-radius: 16px; padding: 20px; font-weight: 600; }
+.tool-grid span { display: block; color: #6a6d63; font-size: 13px; font-weight: 400; margin-top: 6px; }
+.credit { font-size: 12px; color: #6a6d63; }
+@media (max-width: 600px) {
+  .grant-form, .grant-form.costume, .grant-form.weapon, .grant-form.upgrade { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 10px; }
+  .grant-name { flex: 1 1 100%; }
+  .grant-id { overflow-wrap: anywhere; }
+  .grant-list { overflow-x: auto; }
+  .kv { display: block; }
+  .kv dt { margin-top: 12px; }
+  .kv dd { margin-left: 0; overflow-wrap: anywhere; }
+  .tool-grid { grid-template-columns: 1fr; }
+  table { display: block; overflow-x: auto; }
+}
+:root { --bg-cream: #f4f1e9; --bg-cream-dark: #e5e7df; --fg-dark: #303630; --fg-mid: #6a6d63; --accent: #536554; --panel: #fff; --border-thick: 1px solid #e5e7df; --border-thin: 1px solid #e5e7df; }
+body::before, .panel-corners::before, .panel-corners::after, .bracket-header::before, .bracket-header::after { display: none; }
+nav.primary { background: #f4f1e9; border-bottom: 1px solid #e5e7df; }
+nav.primary a { color: #536554; font-weight: 500; letter-spacing: normal; text-transform: none; border-radius: 10px; }
+nav.primary a.active, nav.primary a:hover { background: #e5e7df; }
+.bracket-header { letter-spacing: normal; text-transform: none; font-size: 24px; margin-top: 20px; }
+.panel { border-radius: 14px; }
+button, .button { border-radius: 10px; letter-spacing: normal; text-transform: none; font-size: 14px; }
+button:hover, .button:hover { transform: none; }
+a { text-decoration: none; }

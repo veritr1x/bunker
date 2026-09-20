@@ -1,0 +1,12 @@
+[submodule "upstream/lunar-tear"]
+	path = upstream/lunar-tear
+	url = https://gitlab.com/walter-sparrow-group/lunar-tear.git
+[submodule "upstream/lunar-scripts"]
+	path = upstream/lunar-scripts
+	url = https://gitlab.com/walter-sparrow-group/lunar-scripts.git
+[submodule "upstream/lunar-base"]
+	path = upstream/lunar-base
+	url = https://github.com/NMeliksah/lunar-base.git
+[submodule "upstream/lunar-tear-masterdata-patcher"]
+	path = upstream/lunar-tear-masterdata-patcher
+	url = https://github.com/NavHobbyDev/lunar-tear-masterdata-patcher.git

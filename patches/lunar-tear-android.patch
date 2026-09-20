@@ -1,0 +1,39 @@
+diff --git a/server/internal/service/data.go b/server/internal/service/data.go
+index c99869b..f0ee106 100644
+--- a/server/internal/service/data.go
++++ b/server/internal/service/data.go
+@@ -25,20 +25,29 @@ const masterDataBaseVersion = "20240404193219"
+ 
+ type DataServiceServer struct {
+ 	pb.UnimplementedDataServiceServer
+-	users    store.UserRepository
+-	sessions store.SessionRepository
++	users          store.UserRepository
++	sessions       store.SessionRepository
++	masterDataPath string
+ }
+ 
+ func NewDataServiceServer(users store.UserRepository, sessions store.SessionRepository) *DataServiceServer {
+-	return &DataServiceServer{users: users, sessions: sessions}
++	return &DataServiceServer{users: users, sessions: sessions, masterDataPath: masterDataBinPath}
++}
++
++// NewDataServiceServerWithMasterPath supports embedded hosts whose working
++// directory is not the server's asset directory.
++func NewDataServiceServerWithMasterPath(users store.UserRepository, sessions store.SessionRepository, path string) *DataServiceServer {
++	s := NewDataServiceServer(users, sessions)
++	s.masterDataPath = path
++	return s
+ }
+ 
+ func (s *DataServiceServer) GetLatestMasterDataVersion(ctx context.Context, _ *emptypb.Empty) (*pb.MasterDataGetLatestVersionResponse, error) {
+ 	version := masterDataBaseVersion
+-	if info, err := os.Stat(masterDataBinPath); err == nil {
++	if info, err := os.Stat(s.masterDataPath); err == nil {
+ 		version = fmt.Sprintf("%s_%d", masterDataBaseVersion, info.ModTime().UnixMilli())
+ 	} else {
+-		log.Printf("[DataService] stat %s: %v (falling back to base version)", masterDataBinPath, err)
++		log.Printf("[DataService] stat %s: %v (falling back to base version)", s.masterDataPath, err)
+ 	}
+ 	log.Printf("[DataService] GetLatestMasterDataVersion -> %s", version)
+ 	return &pb.MasterDataGetLatestVersionResponse{

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Save backups{% endblock %}
+{% block content %}
+<h1>Save backups</h1>
+<p>The latest {{ retention }} backups are kept. Changes are backed up automatically.</p>
+<form method="post" action="/backups/create">
+  <button type="submit" {% if not game_db_exists %}disabled{% endif %}>Create backup</button>
+</form>
+{% if not game_db_exists %}<p>Play the game once to create a save.</p>{% endif %}
+{% if lunar_tear_running %}<p class="banner error">{{ lunar_tear_running }}</p>{% endif %}
+{% for b in backups %}
+<details class="panel">
+  <summary><strong>{{ b.created_at.strftime("%d %b %Y, %H:%M:%S") }}</strong><br>{{ b.reason_display }} · {{ b.size_human }}</summary>
+  <form method="post" action="/backups/restore">
+    <input type="hidden" name="filename" value="{{ b.filename }}">
+    <p>Your current save will be backed up before restoring.</p>
+    <label>Type RESTORE<br><input type="text" name="confirm" aria-label="Type RESTORE to confirm" placeholder="RESTORE" required pattern="RESTORE" autocomplete="off" autocapitalize="characters"></label>
+    <button type="submit" class="danger" {% if lunar_tear_running %}disabled{% endif %}>Restore</button>
+  </form>
+</details>
+{% else %}<p>No backups yet.</p>{% endfor %}
+{% endblock %}

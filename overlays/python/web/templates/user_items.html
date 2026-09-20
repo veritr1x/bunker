@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Item Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ user_id }} :: EDIT{% endblock %}
+
+{% macro grant_row(possession_type, item) %}
+<form data-grant data-tab-key="{{ tab_key }}"
+      data-ptype="{{ possession_type }}" data-id="{{ item.id }}"
+      data-name="{{ item.name|lower }}" class="grant-form">
+  <span class="grant-name">{{ item.name }}</span>
+  <span class="grant-id">ID {{ item.id }}</span>
+  <span class="grant-current" data-current>
+    {% if item.owned %}{{ "{:,}".format(item.count) }}
+    {% else %}<span class="not-owned">&mdash;</span>{% endif %}
+  </span>
+  <input type="number" name="count" min="1" max="999999999"
+         placeholder="+amount" inputmode="numeric" data-amount>
+  <button type="submit">GRANT</button>
+</form>
+{% endmacro %}
+
+{% macro important_row(item) %}
+<form data-grant data-tab-key="important"
+      data-ptype="{{ ptype_important }}" data-id="{{ item.id }}"
+      data-name="{{ item.name|lower }}" class="grant-form important">
+  <span class="grant-name">{{ item.name }}</span>
+  <span class="grant-id">ID {{ item.id }}</span>
+  <span class="grant-current" data-current>
+    {% if item.owned %}<span class="status-pill online">OWNED</span>
+    {% else %}<span class="status-pill offline">NOT OWNED</span>{% endif %}
+  </span>
+  <label class="row-checkbox">
+    <input type="checkbox" data-amount data-fixed-count="1" {% if item.owned %}disabled{% endif %}>
+    <span>add</span>
+  </label>
+  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>GRANT</button>
+</form>
+{% endmacro %}
+
+{% block content %}
+<p style="margin-top:0">
+  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+</p>
+
+<h1 class="bracket-header">Item Editor</h1>
+
+<div class="panel"><p style="margin:0">Amounts are added to your inventory. Each change is backed up first.</p></div>
+
+<div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
+
+<nav class="tab-bar">
+  <button type="button" class="tab-btn active" data-target="tab-gems">Gems</button>
+  {% for tab in tabs %}
+    <button type="button" class="tab-btn" data-target="tab-{{ tab.key }}">
+      {{ tab.label }} <span class="tab-count">{{ tab.owned_count }}/{{ tab.total_count }}</span>
+    </button>
+  {% endfor %}
+</nav>
+
+<section id="tab-gems" class="tab-pane active">
+  <div class="panel">
+    <form data-grant data-tab-key="gems"
+          data-ptype="{{ ptype_paid_gem }}" data-id="0" data-name="paid gems" class="grant-form">
+      <span class="grant-name">Paid Gems</span>
+      <span class="grant-id">PAID</span>
+      <span class="grant-current" data-current>{{ "{:,}".format(paid_gem) }}</span>
+      <input type="number" name="count" min="1" max="999999999" placeholder="+amount" inputmode="numeric" data-amount>
+      <button type="submit">GRANT</button>
+    </form>
+    <form data-grant data-tab-key="gems"
+          data-ptype="{{ ptype_free_gem }}" data-id="0" data-name="free gems" class="grant-form">
+      <span class="grant-name">Free Gems</span>
+      <span class="grant-id">FREE</span>
+      <span class="grant-current" data-current>{{ "{:,}".format(free_gem) }}</span>
+      <input type="number" name="count" min="1" max="999999999" placeholder="+amount" inputmode="numeric" data-amount>
+      <button type="submit">GRANT</button>
+    </form>
+  </div>
+  <div class="search-row">
+    <span class="tab-stats">2 of 2 currencies</span>
+    <span style="margin-left:auto"></span>
+    <button type="button" class="grant-chosen-btn" data-tab-target="tab-gems">GRANT ALL CHOSEN</button>
+  </div>
+</section>
+
+{% for tab in tabs %}
+{% set tab_key = tab.key %}
+<section id="tab-{{ tab.key }}" class="tab-pane">
+  <div class="search-row">
+    <label for="search-{{ tab.key }}" class="search-label">FILTER</label>
+    <input type="text" id="search-{{ tab.key }}" class="tab-search" data-tab="{{ tab.key }}"
+           placeholder="Search {{ tab.label|lower }} by name or id...">
+    <span class="tab-stats">{{ tab.owned_count }} owned / {{ tab.total_count }} total</span>
+    <button type="button" class="grant-chosen-btn" data-tab-target="tab-{{ tab.key }}">GRANT ALL CHOSEN</button>
+    {% if tab.key == "consumables" %}
+      <button type="button" class="max-all-btn" data-action="max_consumables">MAX ALL</button>
+    {% elif tab.key == "materials" %}
+      <button type="button" class="max-all-btn" data-action="max_materials">MAX ALL</button>
+    {% endif %}
+  </div>
+  <div class="panel grant-list">
+    {% for item in tab.rows %}
+      {% if tab.key == "important" %}
+        {{ important_row(item) }}
+      {% else %}
+        {{ grant_row(tab.possession_type, item) }}
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<script>
+(function() {
+  const userId = {{ user_id }};
+  const buttons = document.querySelectorAll(".tab-btn");
+  const panes = document.querySelectorAll(".tab-pane");
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.target;
+      buttons.forEach(b => b.classList.toggle("active", b === btn));
+      panes.forEach(p => p.classList.toggle("active", p.id === target));
+    });
+  });
+
+  // Per-tab search filter (matches name or id)
+  document.querySelectorAll(".tab-search").forEach(input => {
+    input.addEventListener("input", () => {
+      const q = input.value.trim().toLowerCase();
+      const pane = document.getElementById("tab-" + input.dataset.tab);
+      pane.querySelectorAll(".grant-form").forEach(row => {
+        const name = row.dataset.name || "";
+        const id = row.dataset.id || "";
+        const match = !q || name.includes(q) || id.includes(q);
+        row.style.display = match ? "" : "none";
+      });
+    });
+  });
+
+  // ---------------- AJAX banner ----------------
+  const bannerEl = document.getElementById("ajax-banner");
+  let bannerTimer = null;
+  function showBanner(text, kind) {
+    bannerEl.textContent = "> " + text;
+    bannerEl.className = "banner " + (kind === "error" ? "error" : "success");
+    if (bannerTimer) clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => bannerEl.classList.add("ajax-hidden"), 6000);
+  }
+
+  // ---------------- Row green-success update ----------------
+  // The current-count display either holds a comma-formatted integer
+  // (e.g., "27,730") or, for not-owned rows, a "—" placeholder span.
+  function bumpCurrent(form, amount) {
+    const display = form.querySelector("[data-current]");
+    if (!display) return;
+    const text = display.textContent.replace(/[,\s]/g, "");
+    const previous = /^\d+$/.test(text) ? parseInt(text, 10) : 0;
+    const next = previous + amount;
+    display.textContent = next.toLocaleString("en-US");
+    form.classList.add("grant-success");
+  }
+
+  function bumpImportantOwned(form) {
+    const display = form.querySelector("[data-current]");
+    if (!display) return;
+    display.innerHTML = '<span class="status-pill online">OWNED</span>';
+    form.querySelectorAll("[data-amount], button[type=submit]").forEach(el => el.disabled = true);
+    form.classList.add("grant-success");
+  }
+
+  function applyResults(results, planByKey) {
+    // results is a list of {possession_type, possession_id, amount}
+    let grantedRows = 0;
+    results.forEach(r => {
+      const key = r.possession_type + ":" + r.possession_id;
+      const form = planByKey.get(key) || document.querySelector(
+        `form[data-grant][data-ptype="${r.possession_type}"][data-id="${r.possession_id}"]`
+      );
+      if (!form) return;
+      if (form.classList.contains("important")) {
+        bumpImportantOwned(form);
+      } else {
+        bumpCurrent(form, r.amount);
+        const amt = form.querySelector("[data-amount]");
+        if (amt && amt.type !== "checkbox") amt.value = "";
+        if (amt && amt.type === "checkbox") amt.checked = false;
+      }
+      grantedRows++;
+    });
+    return grantedRows;
+  }
+
+  // ---------------- Single-row grant ----------------
+  document.addEventListener("submit", async e => {
+    const form = e.target;
+    if (!form.matches("form[data-grant]")) return;
+    e.preventDefault();
+    if (form.dataset.busy === "1") return;
+
+    const ptype = parseInt(form.dataset.ptype, 10);
+    const pid = parseInt(form.dataset.id, 10);
+    const amtEl = form.querySelector("[data-amount]");
+    let count;
+    if (amtEl && amtEl.dataset.fixedCount) {
+      count = parseInt(amtEl.dataset.fixedCount, 10);
+    } else {
+      count = parseInt((amtEl && amtEl.value) || "0", 10);
+    }
+    if (!count || count <= 0) {
+      showBanner("Enter a positive amount before granting.", "error");
+      return;
+    }
+
+    form.dataset.busy = "1";
+    try {
+      const res = await fetch(`/users/${userId}/edit/items/grant`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({possession_type: ptype, possession_id: pid, count: count}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || "Grant failed.", "error");
+        return;
+      }
+      applyResults(json.results, new Map([[ptype + ":" + pid, form]]));
+      showBanner(`Granted +${count.toLocaleString("en-US")} (#${pid}).`, "success");
+    } catch (err) {
+      showBanner("Network error: " + err.message, "error");
+    } finally {
+      form.dataset.busy = "0";
+    }
+  });
+
+  // ---------------- GRANT ALL CHOSEN ----------------
+  document.querySelectorAll(".grant-chosen-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.dataset.busy === "1") return;
+      const pane = document.getElementById(btn.dataset.tabTarget);
+      const grants = [];
+      const planByKey = new Map();
+      pane.querySelectorAll("form[data-grant]").forEach(form => {
+        const amt = form.querySelector("[data-amount]");
+        if (!amt || amt.disabled) return;
+        let count = 0;
+        if (amt.type === "checkbox") {
+          if (amt.checked) count = parseInt(amt.dataset.fixedCount || "1", 10);
+        } else {
+          count = parseInt(amt.value || "0", 10);
+        }
+        if (!count || count <= 0) return;
+        const ptype = parseInt(form.dataset.ptype, 10);
+        const pid = parseInt(form.dataset.id, 10);
+        grants.push({possession_type: ptype, possession_id: pid, count: count});
+        planByKey.set(ptype + ":" + pid, form);
+      });
+      if (grants.length === 0) {
+        showBanner("Nothing chosen on this tab.", "error");
+        return;
+      }
+
+      btn.dataset.busy = "1";
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/users/${userId}/edit/items/grant_batch`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({grants: grants}),
+        });
+        const json = await res.json();
+        if (!json.ok) {
+          showBanner(json.error || "Batch grant failed.", "error");
+          return;
+        }
+        const n = applyResults(json.results, planByKey);
+        showBanner(`Granted ${n} item(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+      } catch (err) {
+        showBanner("Network error: " + err.message, "error");
+      } finally {
+        btn.dataset.busy = "0";
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // ---------------- MAX ALL ----------------
+  document.querySelectorAll(".max-all-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.dataset.busy === "1") return;
+      const action = btn.dataset.action;
+      const promptText = action === "max_consumables"
+        ? "MAX ALL consumables: 50M gold + thousands of tickets/medals/coins/fragments/shards across the whole consumable list. Continue?"
+        : "MAX ALL materials: ~5,000 of every material in the game (skipping Longing Flicker, Recalling Light, and four unknown ids). Continue?";
+      if (!confirm(promptText)) return;
+
+      btn.dataset.busy = "1";
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "WORKING...";
+      try {
+        const res = await fetch(`/users/${userId}/edit/items/${action}`, {method: "POST"});
+        const json = await res.json();
+        if (!json.ok) {
+          showBanner(json.error || "Operation failed.", "error");
+          return;
+        }
+        const n = applyResults(json.results, new Map());
+        showBanner(
+          `${originalLabel} done: ${json.applied} grant(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`,
+          "success"
+        );
+      } catch (err) {
+        showBanner("Network error: " + err.message, "error");
+      } finally {
+        btn.dataset.busy = "0";
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}
