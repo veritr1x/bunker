@@ -164,10 +164,11 @@ final class FilesStore {
         delete(stage); mkdir(stage);
         try (android.os.ParcelFileDescriptor descriptor = c.getContentResolver().openFileDescriptor(uri, "r")) {
             if (descriptor == null) throw new IOException("Cannot open the selected archive");
-            // Native code reads the picked document through its descriptor.
-            String source = "/proc/self/fd/" + descriptor.getFd();
+            // Native code reads the picked document through this descriptor.
+            // Reopening it as /proc/self/fd/N is refused on Android 17.
+            int fd = descriptor.getFd();
             String[] result = new String[1];
-            Thread worker = new Thread(() -> result[0] = NativeBridge.importArchive(source, stage.getAbsolutePath()), "lunar-archive");
+            Thread worker = new Thread(() -> result[0] = NativeBridge.importArchive(fd, stage.getAbsolutePath()), "lunar-archive");
             worker.start();
             Estimate estimate = null;
             progress.fraction(-1);

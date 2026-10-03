@@ -126,8 +126,34 @@ func TestArchiveCancel(t *testing.T) {
 	if e := ImportArchive("testdata/dump.7z", stage); e != "" {
 		t.Fatal(e)
 	}
+	f, _ := os.Open("testdata/dump.7z")
+	defer f.Close()
 	importCancelled.Store(true)
-	if e := extractArchive("testdata/dump.7z", t.TempDir()); e == nil || !strings.Contains(e.Error(), "cancelled") {
+	if e := extractArchive(f, t.TempDir()); e == nil || !strings.Contains(e.Error(), "cancelled") {
 		t.Fatalf("cancel: got %v", e)
+	}
+}
+
+// Android 17 refuses to reopen a picked document through /proc/self/fd, so
+// the import must read the descriptor it is given. Here the file is deleted
+// after opening: only reading the descriptor itself can succeed.
+func TestArchiveFdNeedsNoReopen(t *testing.T) {
+	data, _ := os.ReadFile("testdata/nested.7z")
+	path := filepath.Join(t.TempDir(), "picked.7z")
+	os.WriteFile(path, data, 0600)
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	os.Remove(path)
+	stage := t.TempDir()
+	if e := ImportArchiveFd(int(f.Fd()), stage); e != "" {
+		t.Fatal(e)
+	}
+	expectRevisionZero(t, stage)
+	// The caller's descriptor stays open and usable.
+	if _, err := f.ReadAt(make([]byte, 2), 0); err != nil {
+		t.Fatalf("caller's descriptor was closed: %v", err)
 	}
 }

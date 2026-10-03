@@ -38,6 +38,14 @@ func LunarImportArchive(source, stage *C.char) *C.char {
 	return C.CString(mobile.ImportArchive(C.GoString(source), C.GoString(stage)))
 }
 
+// LunarImportArchiveFd reads an archive the caller already opened (Android's
+// document picker); Android 17 does not allow reopening it by path.
+//
+//export LunarImportArchiveFd
+func LunarImportArchiveFd(fd C.int, stage *C.char) *C.char {
+	return C.CString(mobile.ImportArchiveFd(int(fd), C.GoString(stage)))
+}
+
 //export LunarImportProgress
 func LunarImportProgress() *C.char { return C.CString(mobile.ImportProgress()) }
 
