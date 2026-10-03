@@ -126,6 +126,10 @@ Master-data changes have a separate history of the latest 10 versions.
 - `upstream/`: pinned, unmodified submodules.
 - `android/`: launcher, service, JNI build/packaging helpers and Python adapters.
 - `ios/`: in-game launcher framework, IPA packaging, simulator check and device helpers. See [iOS](IOS.md).
+- `web/`: the in-browser builder. `web/build_site.py` assembles it; `.github/workflows/pages.yml` builds
+  its bundles from this repository and publishes it on GitHub Pages.
+- `android/tools/assemble_apk.py`: builds the APK by editing the original's files directly (with
+  `axml.py` for the manifest), with no apktool or Android SDK. The web builder runs it in the browser.
 - `overlays/`, `patches/`: mobile adaptations applied to upstream sources. Both platforms share the embedded server.
 - `server/` and the third-party Python packages: generated, ignored build inputs.
 

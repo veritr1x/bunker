@@ -9,6 +9,27 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
 - **Android:** one APK with the launcher, server, content patcher and save editors.
 - **iPhone and iPad:** one IPA with the server and launcher inside the game. See [iOS](docs/IOS.md).
 
+## Build in your browser
+
+**[Open the web builder](https://veritr1x.github.io/lunar-tear-all-in-one/)**: pick Android or
+iPhone/iPad, choose your own game file and master data, and download the offline app. Everything
+runs in your browser; your files are never uploaded. No tools to install.
+
+Limitations:
+
+- **You still need your own files**: the original 3.7.1 ARM64 APK or a decrypted 3.7.1 IPA, the
+  `20240404193219.bin.e` master data, and the resource dump. Other versions are refused.
+- **The download is unsigned.** Sign it yourself before installing: on Android with `apksigner`
+  or uber-apk-signer, on iOS with Sideloadly, AltStore or your own certificate. Keep the same key
+  (Android) or bundle ID (iOS) for updates, or the update replaces the app and its data.
+- **Use a desktop browser** with about 2 GB of free memory. Phones may run out of memory.
+- **The Android web build has no in-game Facebook account link**, because that patch needs a
+  decompiler. Offline play, Tools and save backup and import all work. The iOS web build is the
+  same as the command-line build.
+- **Preparing the 21 GB game files still needs a computer with Python** (step 5 below).
+
+To build everything locally instead, follow the step-by-step guide below.
+
 ## Play on Android
 
 1. Install your locally built APK.

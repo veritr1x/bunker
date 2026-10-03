@@ -41,6 +41,15 @@
   (identical database dump and sign-in key). Bad backups are refused without
   changing the save.
 
+- Web builder (Chrome on macOS, local test server): the Android APK built in
+  18 s and matched the command-line build entry for entry (master data decodes
+  to identical tables); signed with the existing key, it updated the Fold and
+  played offline in airplane mode. The same APK built by
+  `android/tools/assemble_apk.py` on the command line also opened Tools offline. The iOS IPA built in
+  37 s with the same files as the command-line build; signed and installed on
+  the iPad, it kept the game files and save, reached the title screen and
+  opened Tools.
+
 Not yet verified on iOS: airplane-mode play, Safari sign-in for an existing
 account, sustained play and battles, iPhone, and the folder picker with a
 20 GB folder.
