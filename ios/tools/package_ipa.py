@@ -118,6 +118,25 @@ def add_python(app, bundle):
     shutil.copytree(bundle / "python", app / "python")
 
 
+def write_ipa(root, output):
+    """Zip Payload/ keeping permission bits and symlinks, in pure Python (so it
+    also runs in a browser)."""
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+        for folder, dirs, files in os.walk(root / "Payload"):
+            dirs.sort()
+            for name in sorted(files) + sorted(d for d in dirs if (Path(folder) / d).is_symlink()):
+                path = Path(folder) / name
+                info = zipfile.ZipInfo(str(path.relative_to(root)))
+                if path.is_symlink():
+                    info.external_attr = (0o120755 << 16)
+                    archive.writestr(info, os.readlink(path))
+                    continue
+                info.external_attr = (path.stat().st_mode & 0xFFFF) << 16
+                info.compress_type = zipfile.ZIP_DEFLATED
+                with open(path, "rb") as source, archive.open(info, "w", force_zip64=True) as target:
+                    shutil.copyfileobj(source, target, 1 << 20)
+
+
 def profile_entitlements(profile):
     decoded = subprocess.check_output(["security", "cms", "-D", "-i", str(profile)])
     data = plistlib.loads(decoded)
@@ -191,8 +210,7 @@ def main():
             print("Unsigned: sign with Sideloadly/AltStore or rerun with --sign-identity and --profile")
         temporary = output.with_suffix(".partial.ipa")
         temporary.unlink(missing_ok=True)
-        # zip keeps symlinks and permission bits that codesign depends on.
-        run("zip", "-qry", temporary, "Payload", cwd=root)
+        write_ipa(root, temporary)
         os.replace(temporary, output)
     print("Combined IPA:", output)
 

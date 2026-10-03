@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lunar Tear All-in-One Builder</title>
+<meta name="description" content="Build the offline game for Android or iOS from your own files, in your browser.">
+<style>
+  :root { --paper: #f4f1e9; --ink: #303630; --muted: #6a6d63; --green: #536554; --card: #ffffff; --line: #dcdfd4; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font: 400 32px/1.2 Georgia, serif; margin: 0 0 8px; }
+  p.lead { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border-radius: 20px; padding: 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 18px; margin: 0 0 4px; }
+  .card p { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
+  .tabs { display: flex; gap: 8px; }
+  .tabs label { flex: 1; text-align: center; padding: 12px; border-radius: 14px; background: #edf0e8; color: var(--green); font-weight: 600; cursor: pointer; }
+  .tabs input { display: none; }
+  .tabs input:checked + span { color: #fff; }
+  .tabs label:has(input:checked) { background: var(--green); color: #fff; }
+  input[type=file] { width: 100%; font-size: 14px; }
+  button { width: 100%; border: 0; border-radius: 16px; padding: 16px; font-size: 17px; font-weight: 700; color: #fff; background: var(--green); cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  #log { white-space: pre-wrap; font: 12px/1.45 ui-monospace, Menlo, monospace; color: var(--muted); max-height: 220px; overflow: auto; margin: 12px 0 0; }
+  #result { display: none; }
+  #result a { display: block; text-align: center; padding: 16px; border-radius: 16px; background: var(--green); color: #fff; font-weight: 700; text-decoration: none; }
+  .note { font-size: 14px; color: var(--muted); }
+  code { font-size: 13px; }
+  footer { font-size: 13px; color: var(--muted); margin-top: 24px; }
+  a { color: var(--green); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Lunar Tear All-in-One</h1>
+  <p class="lead">Build the offline game for Android or iPhone/iPad from your own files. Everything runs in this browser; your files are never uploaded.</p>
+
+  <div class="card">
+    <h2>1. Platform</h2>
+    <div class="tabs">
+      <label><input type="radio" name="platform" value="android" checked><span>Android</span></label>
+      <label><input type="radio" name="platform" value="ios"><span>iPhone / iPad</span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Your files</h2>
+    <p id="game-help">The original 3.7.1 ARM64 game APK.</p>
+    <input type="file" id="game" accept=".apk,.ipa">
+    <p style="margin-top:14px">The original master data, <code>20240404193219.bin.e</code>.</p>
+    <input type="file" id="master">
+  </div>
+
+  <div class="card">
+    <h2>3. Build</h2>
+    <p>Takes a few minutes and needs about 2 GB of free memory. A desktop browser works best.</p>
+    <button id="build" disabled>Build</button>
+    <div id="log"></div>
+  </div>
+
+  <div class="card" id="result">
+    <h2>4. Sign and install</h2>
+    <a id="download" download>Download</a>
+    <p class="note" id="sign-android">The APK is unsigned. Sign it, for example with
+      <code>apksigner sign --ks my.keystore game-Offline.apk</code> or uber-apk-signer, then install it.
+      Keep your key: updates must be signed with the same one.</p>
+    <p class="note" id="sign-ios" hidden>The IPA is unsigned. Install it with Sideloadly or AltStore and your Apple ID,
+      or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.</p>
+  </div>
+
+  <p class="note">Then copy the game files to the device and choose them in the app's launcher, as described in the
+    <a href="https://github.com/veritr1x/lunar-tear-all-in-one#5-prepare-the-game-files-about-21-gb">guide</a>.
+    The Android build made here leaves out the in-game Facebook account link; offline play, Tools and save backups work.</p>
+  <footer>Based on <a href="https://gitlab.com/walter-sparrow-group/lunar-tear">Lunar Tear</a> and its pinned upstream tools.
+    Source: <a href="https://github.com/veritr1x/lunar-tear-all-in-one">github.com/veritr1x/lunar-tear-all-in-one</a>.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

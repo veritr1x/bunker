@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Build LunarTear.framework: the Go server (static archive) plus the launcher.
-# Usage: build_framework.sh <patched-master.bin.e> <output-dir> [original-master.bin.e]
-# The original master data lets Tools' content presets start from it.
+# Usage: build_framework.sh <patched-master.bin.e|none> <output-dir> [original-master.bin.e]
+# The original master data lets Tools' content presets start from it. Pass
+# "none" to build without master data, as the web builder's bundle does; the
+# player's own master data is added when the IPA is made.
 # Set LUNAR_IOS_SIMULATOR=1 for an Apple-silicon simulator build (testing only).
 set -euo pipefail
 root_dir="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -32,7 +34,7 @@ rm -rf "$framework"; mkdir -p "$framework"
     -framework UIKit -framework WebKit -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"
-cp "$master" "$framework/20240404193219.bin.e"
+if [ "$master" != none ]; then cp "$master" "$framework/20240404193219.bin.e"; fi
 if [ -n "$original" ]; then cp "$original" "$framework/original-master.bin.e"; fi
 cp "$root_dir/LICENSE" "$framework/LUNAR_TEAR_LICENSE.txt"
 echo "Built $framework"
