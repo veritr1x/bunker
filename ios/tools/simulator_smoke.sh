@@ -141,6 +141,31 @@ test -s "$documents/assets/release/20240404193219.bin.e" || { echo "FAIL: archiv
 wait_for "test -z \"\$(ls '$documents/import')\"" 10 || { echo "FAIL: archive pieces were not removed" >&2; exit 1; }
 echo "PASS: split archive import unpacks long paths, replaces files, keeps master data"
 
+# The raw extracted dump: only revision 0 is imported; revisions 1+ hold old
+# catalogs the server never uses. A folder and a split archive of it are tried.
+raw="$work/raw-dump"; rm -rf "$raw"; mkdir -p "$raw/revisions/0/assetbundle/raw" "$raw/revisions/5"
+printf '\x08\x01' > "$raw/revisions/0/list.bin"
+printf '[{"from-name": "a", "to-revision": 0, "to-name": "b"}]' > "$raw/revisions/0/info.json"
+printf 'raw' > "$raw/revisions/0/assetbundle/raw/raw.assetbundle"
+head -c 200000 /dev/urandom > "$raw/revisions/5/info.json"; printf '\x08\x01' > "$raw/revisions/5/list.bin"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="$raw" xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -s '$documents/assets/revisions/0/assetbundle/raw/raw.assetbundle' && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: raw dump folder import" >&2; exit 1; }
+test ! -e "$documents/assets/revisions/5" || { echo "FAIL: raw dump import copied other revisions" >&2; exit 1; }
+(cd "$work/raw-dump" && COPYFILE_DISABLE=1 tar --format ustar -cf - revisions) | split -b 100000 - "$documents/import/raw.tar."
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="import/raw.tar.aa" SIMCTL_CHILD_LUNAR_IMPORT_DELETE=1 xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -z \"\$(ls '$documents/import')\" && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: raw dump archive import" >&2; exit 1; }
+test -s "$documents/assets/revisions/0/assetbundle/raw/raw.assetbundle" && test ! -e "$documents/assets/revisions/5" || { echo "FAIL: raw dump archive kept other revisions" >&2; exit 1; }
+echo "PASS: raw dump folder and archive import only revision 0"
+bad="$work/raw-bad"; rm -rf "$bad"; cp -R "$raw" "$bad"; printf '[{"from-name": "a", "to-revision": 5, "to-name": "b"}]' > "$bad/revisions/0/info.json"
+printf 'other' > "$bad/revisions/0/assetbundle/raw/raw.assetbundle"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="$bad" xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test ! -e '$documents/.assets-importing'" 30; sleep 2
+test "$(cat "$documents/assets/revisions/0/assetbundle/raw/raw.assetbundle")" = raw || { echo "FAIL: dump needing other revisions was imported" >&2; exit 1; }
+echo "PASS: a dump that needs other revisions is refused and current files kept"
+
 # Save import: a backup from another device, in the export's ZIP layout. The
 # imported player takes this device's game ID; the old save is kept.
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true

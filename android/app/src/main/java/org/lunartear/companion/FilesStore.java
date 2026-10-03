@@ -130,18 +130,21 @@ final class FilesStore {
         File stage = new File(base, "assets.importing"), old = new File(base, "assets.previous");
         delete(stage); mkdir(stage);
         try {
-            String id = DocumentsContract.getTreeDocumentId(tree);
-            // Accept either the assets directory itself or its immediate parent.
-            List<Doc> docs = children(c,tree,id);
-            for (Doc d : docs) if (d.directory() && d.name.equals("assets")) { id=d.id; break; }
+            // Only revision 0 is used. The raw dump's other revisions are 28 GB
+            // of old catalogs, so they are skipped rather than copied.
+            String revision = findRevisionZero(c, tree, DocumentsContract.getTreeDocumentId(tree));
+            if (revision == null) throw new IOException("Choose the extracted game files: the folder that contains revisions/0");
+            File revisionDir = new File(stage, "revisions/0");
+            mkdir(revisionDir);
             // List everything first, so the copy can show how much is left.
             progress.fraction(-1);
             List<Entry> entries = new ArrayList<>();
-            long total = scan(c,tree,id,stage,entries,progress,0,0);
+            long total = scan(c,tree,revision,revisionDir,entries,progress,0,0);
             copyAll(c,entries,total,progress);
             File index = new File(stage,"revisions/0/android/list.bin");
             if (index.length()==0 && new File(stage,"revisions/0/list.bin").length()==0)
-                throw new IOException("Select the extracted assets folder containing revisions/0/android/list.bin");
+                throw new IOException("Choose the extracted game files: revisions/0 has no list.bin");
+            for (Entry e : entries) if (e.out.getName().equals("info.json")) checkSelfContained(e.out);
             File nextMaster = new File(stage,"release/"+MASTER);
             if (!nextMaster.exists() && master(c).isFile()) {
                 mkdir(nextMaster.getParentFile());
@@ -153,6 +156,40 @@ final class FilesStore {
             try { move(stage,assets(c)); } catch(Exception e) { if(old.exists()) move(old,assets(c)); throw e; }
             delete(old);
         } finally { delete(stage); }
+    }
+    /**
+     * Finds revisions/0 in the chosen folder: the dump itself, a folder holding
+     * "assets", or the "revisions" folder. Returns its document ID, or null.
+     */
+    static String findRevisionZero(Context c, Uri tree, String id) throws IOException {
+        String[][] paths = {{"revisions","0"},{"assets","revisions","0"},{"0"}};
+        for (String[] path : paths) {
+            String current = id;
+            for (String name : path) {
+                String next = null;
+                for (Doc d : children(c,tree,current)) if (d.directory() && d.name.equals(name)) { next = d.id; break; }
+                current = next;
+                if (current == null) break;
+            }
+            if (current != null) return current;
+        }
+        return null;
+    }
+    /** Refuses a dump whose revision 0 points at files kept in other revisions. */
+    static void checkSelfContained(File info) throws IOException {
+        byte[] key = "\"to-revision\"".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (InputStream in = new BufferedInputStream(new FileInputStream(info), 1 << 16)) {
+            int matched = 0, b;
+            while ((b = in.read()) != -1) {
+                if (b != key[matched]) { matched = b == key[0] ? 1 : 0; continue; }
+                if (++matched < key.length) continue;
+                matched = 0;
+                do { b = in.read(); } while (b == ' ' || b == ':' || b == '"');
+                int after = in.read();
+                if (b != '0' || (after >= '0' && after <= '9'))
+                    throw new IOException("These game files use other revisions. Prepare them on a computer with scripts/prepare_assets.py");
+            }
+        }
     }
     static void recover(Context c) throws IOException {
         File old = new File(root(c),"assets.previous");

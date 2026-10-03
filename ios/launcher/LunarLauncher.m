@@ -136,6 +136,46 @@ static NSURL *FindAssetsRoot(NSURL *picked) {
     return nil;
 }
 
+// Finds revisions/0 in a chosen folder: the extracted dump itself, a folder
+// holding "assets", or the "revisions" folder. Only revision 0 is used; the
+// raw dump's other revisions are 28 GB of old catalogs and are skipped.
+static NSURL *FindRevisionZero(NSURL *picked) {
+    for (NSString *path in @[@"revisions/0", @"assets/revisions/0", @"0"]) {
+        NSURL *candidate = [picked URLByAppendingPathComponent:path];
+        for (NSString *catalog in @[@"ios/list.bin", @"list.bin"])
+            if ([NSFileManager.defaultManager fileExistsAtPath:[candidate URLByAppendingPathComponent:catalog].path]) return candidate;
+    }
+    return nil;
+}
+
+// True when an archive path lies under revisions/<n> with n other than 0.
+static BOOL OtherRevision(NSString *name) {
+    NSArray<NSString *> *parts = name.pathComponents;
+    NSUInteger i = [parts indexOfObject:@"revisions"];
+    return i != NSNotFound && i + 1 < parts.count && ![parts[i + 1] isEqualToString:@"0"];
+}
+
+// Refuses files whose revision 0 points at files kept in other revisions.
+static NSString *CheckSelfContained(NSString *root) {
+    NSDirectoryEnumerator *walk = [NSFileManager.defaultManager enumeratorAtPath:[root stringByAppendingPathComponent:@"revisions/0"]];
+    for (NSString *relative in walk) {
+        if (![relative.lastPathComponent isEqualToString:@"info.json"]) continue;
+        NSData *data = [NSData dataWithContentsOfFile:[[root stringByAppendingPathComponent:@"revisions/0"] stringByAppendingPathComponent:relative]
+                                              options:NSDataReadingMappedIfSafe error:nil];
+        const char *bytes = data.bytes, *end = bytes + data.length, *key = "\"to-revision\"";
+        size_t keyLength = strlen(key);
+        for (const char *p = bytes; p && p < end; ) {
+            p = memmem(p, (size_t)(end - p), key, keyLength);
+            if (!p) break;
+            p += keyLength;
+            while (p < end && (*p == ' ' || *p == ':' || *p == '"')) p++;
+            if (p >= end || *p != '0' || (p + 1 < end && p[1] >= '0' && p[1] <= '9'))
+                return @"These game files use other revisions. Prepare them on a computer with scripts/prepare_assets.py.";
+        }
+    }
+    return @"";
+}
+
 static NSString *LTByteText(unsigned long long bytes) {
     return [NSByteCountFormatter stringFromByteCount:(long long)bytes countStyle:NSByteCountFormatterCountStyleFile];
 }
@@ -298,11 +338,12 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         }
         NSString *target = SafeJoin(root, name);
         if (!target) return [@"The archive contains an unsafe path: " stringByAppendingString:name ?: @"?"];
+        BOOL skip = OtherRevision(name);  // Only revision 0 is used.
         if (type == '5') {
-            [files createDirectoryAtPath:target withIntermediateDirectories:YES attributes:nil error:nil];
+            if (!skip) [files createDirectoryAtPath:target withIntermediateDirectories:YES attributes:nil error:nil];
             continue;
         }
-        BOOL regular = type == '0' || type == 0;
+        BOOL regular = (type == '0' || type == 0) && !skip;
         FILE *out = NULL;
         if (regular) {
             [files createDirectoryAtPath:target.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
@@ -336,7 +377,9 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
     BOOL catalog = NO;
     for (NSString *path in @[@"revisions/0/ios/list.bin", @"revisions/0/list.bin"])
         catalog = catalog || FileSize([root stringByAppendingPathComponent:path]) > 0;
-    if (!catalog) { [files removeItemAtPath:StagePath() error:nil]; return @"The copied folder has no catalog. Choose the prepared assets folder."; }
+    if (!catalog) { [files removeItemAtPath:StagePath() error:nil]; return @"The copied folder has no catalog. Choose the folder that contains revisions/0."; }
+    NSString *aliases = CheckSelfContained(root);
+    if (aliases.length) { [files removeItemAtPath:StagePath() error:nil]; return aliases; }
     // Keep the current master data (including applied content presets).
     NSString *nextMaster = [root stringByAppendingPathComponent:[@"release" stringByAppendingPathComponent:kMasterName]];
     if (FileSize(nextMaster) == 0 && FileSize(MasterPath()) > 0) {
@@ -384,9 +427,9 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
             if (!unpacked) { [files removeItemAtPath:StagePath() error:nil]; return @"The archive has no catalog. Use an archive of the prepared assets folder."; }
             return InstallStaged(unpacked.path, progress);
         }
-        NSURL *source = FindAssetsRoot(picked);
-        if (!source) return @"Choose the prepared assets folder. It must contain revisions/0/list.bin.";
-        NSString *from = source.URLByResolvingSymlinksInPath.path, *target = AssetsPath().stringByResolvingSymlinksInPath;
+        NSURL *source = FindRevisionZero(picked);
+        if (!source) return @"Choose the extracted game files: the folder that contains revisions/0.";
+        NSString *from = source.URLByResolvingSymlinksInPath.path, *target = [AssetsPath() stringByAppendingPathComponent:@"revisions/0"].stringByResolvingSymlinksInPath;
         if ([from isEqualToString:target]) return @"";  // Already in place, e.g. copied in with Finder.
         if ([from hasPrefix:[target stringByAppendingString:@"/"]] || [target hasPrefix:[from stringByAppendingString:@"/"]])
             return @"Choose a folder outside the game's own files.";
@@ -422,13 +465,16 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         if (walkError) { [files removeItemAtPath:StagePath() error:nil]; return [@"Cannot read the folder: " stringByAppendingString:walkError.localizedDescription]; }
         if (FreeSpace() < total + 1000000000ULL)
             { [files removeItemAtPath:StagePath() error:nil]; return [NSString stringWithFormat:@"Not enough free space. Copying needs about %@ free.", LTByteText(total + 1000000000ULL)]; }
+        NSString *revisionStage = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
+        if (![files createDirectoryAtPath:revisionStage withIntermediateDirectories:YES attributes:nil error:&error])
+            { [files removeItemAtPath:StagePath() error:nil]; return error.localizedDescription; }
         unsigned long long bytes = 0, copied = 0, fileCount = 0;
         for (NSNumber *size in sizes) if (size.longLongValue >= 0) fileCount++;
         LTEstimate estimate = LTEstimateStart(fileCount, total);
         reported = 0;
         for (NSUInteger i = 0; i < items.count; i++) {
             if (gCancelImport) { [files removeItemAtPath:StagePath() error:nil]; return @"Import cancelled. Your previous files were kept."; }
-            NSString *destination = [StagePath() stringByAppendingPathComponent:relatives[i]];
+            NSString *destination = [revisionStage stringByAppendingPathComponent:relatives[i]];
             long long size = sizes[i].longLongValue;
             BOOL ok = size < 0
                 ? [files createDirectoryAtPath:destination withIntermediateDirectories:YES attributes:nil error:&error]
