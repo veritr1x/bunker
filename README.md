@@ -4,7 +4,7 @@ This is a **personal hobby project** built with extensive AI assistance from Ope
 
 # lunar-tear-all-in-one
 
-Run NieR Re[in]carnation and its Lunar Tear server on the same phone or tablet, on Android or iOS. After setup, no computer connection or Internet is needed to play.
+Run the game and its Lunar Tear server on the same phone or tablet, on Android or iOS. After setup, no computer connection or Internet is needed to play.
 
 - **Android:** one APK with the launcher, server, content patcher and save editors.
 - **iPhone and iPad:** one IPA with the server and launcher inside the game. See [iOS](docs/IOS.md).
@@ -135,7 +135,7 @@ Android and iOS files are not interchangeable; use the matching dump.
 1. Copy `phone-assets/android/assets` to the phone, for example into `Download/assets`, with
    a USB cable or `adb push phone-assets/android/assets /sdcard/Download/assets`.
 2. Install the APK: open it on the phone, or run `adb install artifacts/game-Offline.apk`.
-3. Open **NieR Re[in]carnation · Offline**, tap **Choose** and select the copied `assets` folder.
+3. Open the installed app, tap **Choose** and select the copied `assets` folder.
    A progress bar shows the time left.
 4. Tap **Play**. The server starts on the phone and the game opens.
 
