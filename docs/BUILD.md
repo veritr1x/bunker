@@ -47,7 +47,7 @@ The build prepares the pinned sources, installs build-only Python packages in a
 local virtual environment, generates protobuf code, runs Go tests and Android
 lint, and signs the combined APK.
 
-Your APK is **`artifacts/NieR-Reincarnation-Offline.apk`**. Its checksum is in
+Your APK is **`artifacts/game-Offline.apk`**. Its checksum is in
 `artifacts/SHA256SUMS`. Keep **`inputs/lunar-local.keystore`**: later APKs need the
 same key to update your installation without removing its data. To reuse a key:
 
@@ -81,7 +81,7 @@ may need more. Patched master data is already bundled in the APK.
 
 ## 5. Install and play
 
-1. Install `NieR-Reincarnation-Offline.apk` on an ARM64 Android 9+ phone.
+1. Install `game-Offline.apk` on an ARM64 Android 9+ phone.
 2. Open it. Under **1 Game files**, tap **Choose** and select the copied folder.
 3. Wait for import. It first counts the files, then shows a progress bar with
    the time left. The server starts and the game opens. Tap **3 Play** to retry.

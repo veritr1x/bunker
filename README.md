@@ -96,7 +96,7 @@ python3.11 scripts/build.py \
   --master ~/Downloads/20240404193219.bin.e
 ```
 
-Result: `artifacts/NieR-Reincarnation-Offline.apk`. The first build creates a signing key in
+Result: `artifacts/game-Offline.apk`. The first build creates a signing key in
 `inputs/lunar-local.keystore`. **Keep it:** later builds must use the same key to update the
 app without losing its data.
 
@@ -108,7 +108,7 @@ python3.11 scripts/build.py \
   --master ~/Downloads/20240404193219.bin.e
 ```
 
-Result: an unsigned `artifacts/NieR-Reincarnation-Offline.ipa`. Install it with Sideloadly or
+Result: an unsigned `artifacts/game-Offline.ipa`. Install it with Sideloadly or
 AltStore and your Apple ID, or sign it with your own Apple developer team as described in
 [iOS](docs/IOS.md#build).
 
@@ -134,7 +134,7 @@ Android and iOS files are not interchangeable; use the matching dump.
 
 1. Copy `phone-assets/android/assets` to the phone, for example into `Download/assets`, with
    a USB cable or `adb push phone-assets/android/assets /sdcard/Download/assets`.
-2. Install the APK: open it on the phone, or run `adb install artifacts/NieR-Reincarnation-Offline.apk`.
+2. Install the APK: open it on the phone, or run `adb install artifacts/game-Offline.apk`.
 3. Open **NieR Re[in]carnation · Offline**, tap **Choose** and select the copied `assets` folder.
    A progress bar shows the time left.
 4. Tap **Play**. The server starts on the phone and the game opens.
