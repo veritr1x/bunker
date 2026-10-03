@@ -1018,6 +1018,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                     for (NSString *part in ArchiveParts(source) ?: @[]) [NSFileManager.defaultManager removeItemAtPath:part error:nil];
                 gImporting = NO;
                 gMessage = error.length ? error : @"";
+                dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
             });
         }
         lt_rebind_image_symbols("UnityFramework.framework/UnityFramework", kReachability, sizeof(kReachability) / sizeof(kReachability[0]));
@@ -1037,6 +1038,8 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             NSString *error = StartServer();
             gMessage = error;
             dispatch_semaphore_signal(started);
+            // An import at launch may have left the launcher open; show the result.
+            dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
         });
         dispatch_semaphore_wait(started, dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC));
         NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
