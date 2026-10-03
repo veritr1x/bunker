@@ -11,21 +11,28 @@ be rejected. The scripts read your originals and work on separate copies.
 
 Use macOS or Linux with:
 
-- Git, Make, Go 1.25.8 or newer, Python 3.11.9 or newer, JDK 21, `protoc`, and `apktool`.
+- Git, Make, Go 1.25.8 or newer, `protoc`, and `apktool`.
+- Python 3.11.9 or newer, available as `python3.11`. Run the build with it; an
+  older `python3` (such as macOS's 3.9) cannot run it.
+- JDK 21, with `JAVA_HOME` pointing to it. Newer JDKs fail in Android's build.
+  Android Studio's bundled JDK works:
+  `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
 - Android SDK platform 36, build-tools 36.0.0, and NDK 27.2.12479018.
-- `JAVA_HOME` pointing to JDK 21 and `ANDROID_HOME` pointing to the Android SDK.
 
 Install the SDK components with Android Studio's SDK Manager. The build finds
 the SDK at `~/Library/Android/sdk` on macOS or `~/Android/Sdk` on Linux if
 `ANDROID_HOME` is unset. Build dependencies need Internet access on the computer.
-Python 3.11 must also be available as `python3.11` for the embedded runtime's build.
+On macOS with Homebrew: `brew install go protobuf apktool python@3.11`.
+
+For the iPhone build, see [iOS](IOS.md): it needs a Mac with Xcode and
+Python 3.13 instead of the Android tools.
 
 ## 3. Clone and build
 
 ```sh
-git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one-android.git
-cd lunar-tear-all-in-one-android
-python3 scripts/build.py \
+git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one-android.git lunar-tear-all-in-one
+cd lunar-tear-all-in-one
+python3.11 scripts/build.py \
   --apk /path/to/original-game.apk \
   --master /path/to/20240404193219.bin.e
 ```
@@ -40,12 +47,12 @@ The build prepares the pinned sources, installs build-only Python packages in a
 local virtual environment, generates protobuf code, runs Go tests and Android
 lint, and signs the combined APK.
 
-Your APK is **`artifacts/NieR-Offline-arm64.apk`**. Its checksum is in
+Your APK is **`artifacts/NieR-Reincarnation-Offline.apk`**. Its checksum is in
 `artifacts/SHA256SUMS`. Keep **`inputs/lunar-local.keystore`**: later APKs need the
 same key to update your installation without removing its data. To reuse a key:
 
 ```sh
-python3 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin.e \
+python3.11 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin.e \
   --keystore /path/to/lunar-local.keystore
 ```
 
@@ -58,7 +65,7 @@ Extract `resource_dump_android.7z` with a 7z extractor. Locate the extracted
 `assets` folder containing `revisions/0`. Then run:
 
 ```sh
-python3 scripts/prepare_assets.py --source /path/to/extracted/assets
+python3.11 scripts/prepare_assets.py --source /path/to/extracted/assets
 ```
 
 Copy the resulting **`phone-assets/assets`** folder to the phone, for example
@@ -74,9 +81,10 @@ may need more. Patched master data is already bundled in the APK.
 
 ## 5. Install and play
 
-1. Install `NieR-Offline-arm64.apk` on an ARM64 Android 9+ phone.
+1. Install `NieR-Reincarnation-Offline.apk` on an ARM64 Android 9+ phone.
 2. Open it. Under **1 Game files**, tap **Choose** and select the copied folder.
-3. Wait for import. The server starts and the game opens. Tap **3 Play** to retry.
+3. Wait for import. It first counts the files, then shows a progress bar with
+   the time left. The server starts and the game opens. Tap **3 Play** to retry.
 
 Subsequent launches start the server and game automatically. In-game download
 prompts load files from this same phone, including in airplane mode.
@@ -103,16 +111,22 @@ app's battery usage to **Unrestricted**.
 Stop the server and use **⋮ → Export save backup** before uninstalling or clearing
 app storage. It exports `game.db`, `auth.db`, and `auth.key` in a ZIP.
 
+To restore, stop the server and use **⋮ → Import save backup**. It accepts such
+a ZIP from Android or iOS, or a bare `game.db`, checks it before replacing
+anything, and keeps the current save as a safety copy. A save from another
+device takes over this device's player: open the game once on a new device
+first, so it has a player to take over.
+
 Tools keeps the latest 50 game-database snapshots and can restore them on the
 phone. Those snapshots remain inside the app and are removed by uninstalling.
-External ZIP import is not yet included. Master-data changes have a separate
-history of the latest 10 versions.
+Master-data changes have a separate history of the latest 10 versions.
 
 ## Source layout and checks
 
 - `upstream/`: pinned, unmodified submodules.
 - `android/`: launcher, service, JNI build/packaging helpers and Python adapters.
-- `overlays/`, `patches/`: Android adaptations applied to upstream sources.
+- `ios/`: in-game launcher framework, IPA packaging, simulator check and device helpers. See [iOS](IOS.md).
+- `overlays/`, `patches/`: mobile adaptations applied to upstream sources. Both platforms share the embedded server.
 - `server/` and the third-party Python packages: generated, ignored build inputs.
 
 Edit overlays or patches rather than generated copies. `scripts/prepare.py`

@@ -1,4 +1,51 @@
-# Validation — 2026-09-20
+# Validation
+
+## iOS — 2026-10-03
+
+- The combined repository still generates the same 291 Android sources
+  byte for byte, and its Android build passed with the same signing key.
+- The iOS build applied all 4 address patches, 11 sign-in framework patches
+  and 13 game-code patches from the pinned lunar-scripts IPA patcher, injected
+  the launcher, and signed for a development team. Go server tests passed.
+- iOS Simulator (stand-in app, real launcher and server): setup screen, bundled
+  master data, server start, sign-in page, save creation, restart with the
+  same auth key, folder import, invalid-folder rejection and split-archive
+  import with long paths all passed.
+- iPad Pro 11-inch (M4), iPadOS 26.6.2, development-signed IPA: the launcher
+  showed the setup screen without files. The 20.9 GB iOS assets were copied as
+  11 archive pieces over USB and unpacked by the app in under two minutes.
+  The embedded server started on the device. The game reached its title screen,
+  accepted the terms, registered a new player, downloaded 19 MB from the
+  device itself, and played the opening story.
+- Remote control from the Mac (screenshots, taps and typing) worked through
+  the UI-test helper.
+
+- Tools in the iOS Simulator, with the real launcher framework and a copy of
+  the iPad save: all 13 editor actions succeeded with a valid backup each,
+  restoring a backup worked, the save passed SQLite's integrity check, and
+  the server restarted on the edited save. The "All content" preset produced
+  a master file identical to the same patch run on the Mac.
+- Tools on the iPad: the three-finger gesture opened the launcher, ⋮ › Tools
+  stopped the server and opened the editors on the iPadTest save. Granting
+  50,000 free gems wrote `user_gem.free_gem = 50000`; "All content" applied;
+  Close showed the restart screen, Close game ended the app, and the game
+  reopened on the edited save and patched master data.
+
+- Import progress: the Fold imported the 20.9 GB folder with a progress bar
+  in the app and its notification; the 11:50 estimate of 15 minutes finished
+  at about 12:06. The iOS Simulator showed the same bar for a 20.9 GB folder.
+- Save import (Go tests, iOS Simulator, Fold): an iPad export imported on the
+  Fold loaded in the game as the Fold's player (the server log shows the
+  Fold's own game ID signing in to the imported player, with no new player
+  registered). Re-importing the Fold's original export restored it exactly
+  (identical database dump and sign-in key). Bad backups are refused without
+  changing the save.
+
+Not yet verified on iOS: airplane-mode play, Safari sign-in for an existing
+account, sustained play and battles, iPhone, and the folder picker with a
+20 GB folder.
+
+## Android — 2026-09-20
 
 ## Repository build
 
