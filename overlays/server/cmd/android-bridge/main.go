@@ -33,6 +33,17 @@ func LunarImportSaves(data, source *C.char) *C.char {
 	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))
 }
 
+//export LunarImportArchive
+func LunarImportArchive(source, stage *C.char) *C.char {
+	return C.CString(mobile.ImportArchive(C.GoString(source), C.GoString(stage)))
+}
+
+//export LunarImportProgress
+func LunarImportProgress() *C.char { return C.CString(mobile.ImportProgress()) }
+
+//export LunarCancelImport
+func LunarCancelImport() { mobile.CancelImport() }
+
 //export LunarEdit
 func LunarEdit(data, assets, request *C.char) *C.char {
 	return C.CString(mobile.Edit(C.GoString(data), C.GoString(assets), C.GoString(request)))

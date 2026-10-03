@@ -61,12 +61,22 @@ Use this integration's key format (alias `lunar-local`, local-build password
 
 ## 4. Prepare the phone's game files
 
-Extract `revisions/0` from `resource_dump_android.7z` with a 7z extractor, on
-the computer (`7zz x resource_dump_android.7z 'revisions/0/*' -oandroid-dump`)
-or on the phone (for example ZArchiver). Only revision 0 is used: the server
+Copy `resource_dump_android.7z` to the phone and choose it in the launcher
+(**Choose → Archive (.7z or .zip)**). Only revision 0 is used: the server
 always serves it, and the dump's 817 other revisions are 28 GB of old catalogs.
-Put the extracted folder on the phone and choose it in the launcher; it copies
-revision 0 only, so a full extraction works too.
+The app unpacks revision 0 only, decompressing just the parts of the archive
+that hold it. A `.zip` of the dump works too.
+
+Or extract `revisions/0` yourself, on the computer
+(`7zz x resource_dump_android.7z 'revisions/0/*' -oandroid-dump`) or on the
+phone (for example ZArchiver), and choose the folder (**Choose → Extracted
+folder: copy into the app**). It copies revision 0 only, so a full extraction works too.
+
+**Extracted folder: use in place** (Android 11+) reads the folder where it is
+instead of copying it, saving 21 GB. It needs **All files access**, which the
+app asks you to turn on in Settings once. The app links the folder rather than
+owning it: choosing other files later removes only the link. If the folder is
+moved or deleted, the launcher says so; choose it again.
 
 The import refuses a dump whose revision 0 points at files in other revisions;
 the tested dump does not. `scripts/prepare_assets.py --source <extracted folder>`
@@ -77,7 +87,7 @@ may need more. Patched master data is already bundled in the APK.
 ## 5. Install and play
 
 1. Install `game-Offline.apk` on an ARM64 Android 9+ phone.
-2. Open it. Under **1 Game files**, tap **Choose** and select the copied folder.
+2. Open it. Under **1 Game files**, tap **Choose** and select the `.7z` or the copied folder.
 3. Wait for import. It first counts the files, then shows a progress bar with
    the time left. The server starts and the game opens. Tap **3 Play** to retry.
 

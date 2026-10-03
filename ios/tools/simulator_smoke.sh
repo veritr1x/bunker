@@ -12,9 +12,18 @@ master="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 work="$root_dir/.build/ios-simulator"
 app="$work/Host.app"
 bundle=org.lunartear.smoke
+# The simulator shares this Mac's network. When the server's ports are taken
+# (for example by a web dev server on 3000), move the test's ports instead.
+offset=0
 for port in 8003 8080 3000; do
-    if lsof -nP -iTCP:$port -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $port is in use on this Mac; stop that service first" >&2; exit 1; fi
+    if lsof -nP -iTCP:$port -sTCP:LISTEN >/dev/null 2>&1; then offset=20000; fi
 done
+for port in 8003 8080 3000; do
+    if lsof -nP -iTCP:$((port + offset)) -sTCP:LISTEN >/dev/null 2>&1; then echo "Port $((port + offset)) is in use on this Mac; stop that service first" >&2; exit 1; fi
+done
+[ "$offset" = 0 ] || echo "Ports 8003/8080/3000 are in use on this Mac; testing on $((8003 + offset))/$((8080 + offset))/$((3000 + offset))"
+export SIMCTL_CHILD_LUNAR_PORT_OFFSET=$offset
+cdn_port=$((8080 + offset)) auth_port=$((3000 + offset))
 LUNAR_IOS_SIMULATOR=1 "$root_dir/ios/tools/build_framework.sh" "$master" "$work/out"
 rm -rf "$app"; mkdir -p "$app/Frameworks"
 cat > "$work/main.m" <<'EOF'
@@ -69,7 +78,7 @@ xcrun simctl boot "$device"
 xcrun simctl bootstatus "$device" -b >/dev/null
 xcrun simctl install "$device" "$app"
 
-health() { curl -fsS --max-time 2 http://127.0.0.1:8080/companion/health 2>/dev/null; }
+health() { curl -fsS --max-time 2 "http://127.0.0.1:$cdn_port/companion/health" 2>/dev/null; }
 wait_for() { for _ in $(seq 1 "$2"); do if eval "$1"; then return 0; fi; sleep 1; done; return 1; }
 
 xcrun simctl launch "$device" "$bundle" >/dev/null
@@ -86,10 +95,10 @@ printf '\x08\x01' > "$documents/assets/revisions/0/list.bin"
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
 xcrun simctl launch "$device" "$bundle" >/dev/null
 wait_for health 30 || { echo "FAIL: server did not start with a catalog" >&2; exit 1; }
-echo "PASS: embedded server answers on 127.0.0.1:8080"
-code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 'http://127.0.0.1:3000/v18.0/dialog/oauth?redirect_uri=fb1://authorize')"
+echo "PASS: embedded server answers on 127.0.0.1:$cdn_port"
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$auth_port/v18.0/dialog/oauth?redirect_uri=fb1://authorize")"
 test "$code" = 200 || { echo "FAIL: sign-in page returned $code" >&2; exit 1; }
-echo "PASS: sign-in page answers on 127.0.0.1:3000"
+echo "PASS: sign-in page answers on 127.0.0.1:$auth_port"
 sleep 2
 xcrun simctl io "$device" screenshot "$work/running.png" >/dev/null 2>&1
 test -s "$documents/saves/game.db" && test -s "$documents/saves/auth.key" || { echo "FAIL: saves were not created" >&2; exit 1; }
@@ -165,6 +174,69 @@ SIMCTL_CHILD_LUNAR_IMPORT_FROM="$bad" xcrun simctl launch "$device" "$bundle" >/
 wait_for "test ! -e '$documents/.assets-importing'" 30; sleep 2
 test "$(cat "$documents/assets/revisions/0/assetbundle/raw/raw.assetbundle")" = raw || { echo "FAIL: dump needing other revisions was imported" >&2; exit 1; }
 echo "PASS: a dump that needs other revisions is refused and current files kept"
+# The resource dump's .7z and a .zip, unpacked by the shared Go code. Only
+# revision 0 is extracted; the 7z fixture keeps revision 5 in its own block.
+cp "$root_dir/overlays/server/mobile/testdata/nested.7z" "$documents/import/dump.7z"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="import/dump.7z" SIMCTL_CHILD_LUNAR_IMPORT_DELETE=1 xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -z \"\$(ls '$documents/import')\" && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: 7z import" >&2; exit 1; }
+test "$(cat "$documents/assets/revisions/0/assetbundle/ui/one.assetbundle")" = bundle-one && test ! -e "$documents/assets/revisions/5" \
+    && test ! -e "$documents/assets/revisions/0/assetbundle/raw" && test -s "$documents/assets/release/20240404193219.bin.e" || { echo "FAIL: 7z import result" >&2; exit 1; }
+python3 - "$documents/import/dump.zip" <<'PY'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], "w") as z:
+    z.writestr("dump/revisions/0/list.bin", b"\x08\x01")
+    z.writestr("dump/revisions/0/info.json", '[{"to-revision": 0}]')
+    z.writestr("dump/revisions/0/assetbundle/zip/zipped.assetbundle", "zipped")
+    z.writestr("dump/revisions/5/list.bin", b"\x08\x05")
+PY
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="import/dump.zip" SIMCTL_CHILD_LUNAR_IMPORT_DELETE=1 xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -z \"\$(ls '$documents/import')\" && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: zip import" >&2; exit 1; }
+test "$(cat "$documents/assets/revisions/0/assetbundle/zip/zipped.assetbundle")" = zipped && test ! -e "$documents/assets/revisions/5" \
+    && test ! -e "$documents/assets/revisions/0/assetbundle/ui" || { echo "FAIL: zip import result" >&2; exit 1; }
+echo "PASS: .7z and .zip of the dump import only revision 0"
+# A folder already in Documents is moved, not copied. One that cannot be used
+# stays where the player put it.
+mkdir -p "$documents/moved/revisions/0/assetbundle/moved"
+printf '\x08\x01' > "$documents/moved/revisions/0/list.bin"; printf 'moved' > "$documents/moved/revisions/0/assetbundle/moved/moved.assetbundle"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="moved" xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -s '$documents/assets/revisions/0/assetbundle/moved/moved.assetbundle' && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: move import" >&2; exit 1; }
+test ! -e "$documents/moved/revisions/0" && test ! -e "$documents/assets/revisions/0/assetbundle/zip" \
+    && test -s "$documents/assets/release/20240404193219.bin.e" || { echo "FAIL: move import result" >&2; exit 1; }
+mkdir -p "$documents/moved-bad/revisions/0"; printf '\x08\x01' > "$documents/moved-bad/revisions/0/list.bin"
+printf '[{"to-revision": 7}]' > "$documents/moved-bad/revisions/0/info.json"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="moved-bad" xcrun simctl launch "$device" "$bundle" >/dev/null
+sleep 5; wait_for "test ! -e '$documents/.assets-importing'" 30
+test -s "$documents/moved-bad/revisions/0/info.json" && test -s "$documents/assets/revisions/0/assetbundle/moved/moved.assetbundle" || { echo "FAIL: refused move lost files" >&2; exit 1; }
+echo "PASS: folder in Documents is moved; a refused one stays in place"
+# Use in place: revisions/0 is linked, not copied. The link survives relaunch,
+# a missing folder stops the server, and a later copy removes only the link.
+inplace="$work/in-place"; rm -rf "$inplace" "$inplace-away"; mkdir -p "$inplace/revisions/0/assetbundle/linked"
+printf '\x08\x01' > "$inplace/revisions/0/list.bin"; printf 'linked' > "$inplace/revisions/0/assetbundle/linked/linked.assetbundle"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="$inplace" SIMCTL_CHILD_LUNAR_IMPORT_LINK=1 xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -L '$documents/assets/revisions/0' && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: in-place link" >&2; exit 1; }
+test "$(cat "$documents/assets/revisions/0/assetbundle/linked/linked.assetbundle")" = linked && test -s "$documents/assets/release/20240404193219.bin.e" \
+    && test -s "$inplace/revisions/0/list.bin" || { echo "FAIL: in-place result" >&2; exit 1; }
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for health 30 || { echo "FAIL: server did not start from the in-place folder" >&2; exit 1; }
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+mv "$inplace" "$inplace-away"
+xcrun simctl launch "$device" "$bundle" >/dev/null; sleep 8
+if health; then echo "FAIL: server started without the in-place folder" >&2; exit 1; fi
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
+mv "$inplace-away" "$inplace"
+xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for health 30 || { echo "FAIL: server did not start once the folder was back" >&2; exit 1; }
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+SIMCTL_CHILD_LUNAR_IMPORT_FROM="$source_root" xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for "test -s '$documents/assets/revisions/0/assetbundle/ui/sample.assetbundle' && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: copy after in-place" >&2; exit 1; }
+test ! -L "$documents/assets/revisions/0" && test "$(cat "$inplace/revisions/0/assetbundle/linked/linked.assetbundle")" = linked || { echo "FAIL: copy after in-place touched the folder" >&2; exit 1; }
+echo "PASS: in-place folder is linked, survives relaunch, needs the folder, and a later copy leaves it intact"
 
 # Save import: a backup from another device, in the export's ZIP layout. The
 # imported player takes this device's game ID; the old save is kept.

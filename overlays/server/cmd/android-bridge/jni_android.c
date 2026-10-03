@@ -62,3 +62,13 @@ JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importSaves(
     if (s) (*env)->ReleaseStringUTFChars(env, source, s);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importArchive(JNIEnv *env, jclass type, jstring source, jstring stage) {
+    const char *s = (*env)->GetStringUTFChars(env, source, NULL);
+    const char *d = (*env)->GetStringUTFChars(env, stage, NULL);
+    char *error = s && d ? LunarImportArchive((char *)s, (char *)d) : NULL;
+    if (s) (*env)->ReleaseStringUTFChars(env, source, s);
+    if (d) (*env)->ReleaseStringUTFChars(env, stage, d);
+    return result(env, error);
+}
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importProgress(JNIEnv *env, jclass type) { return result(env, LunarImportProgress()); }
+JNIEXPORT void JNICALL Java_org_lunartear_companion_NativeBridge_cancelImport(JNIEnv *env, jclass type) { LunarCancelImport(); }

@@ -3,6 +3,7 @@ package mobile
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -29,7 +30,7 @@ func TestMissingAssetsDoesNotOpenPorts(t *testing.T) {
 	if s["state"] != "error" {
 		t.Fatalf("status %v", s)
 	}
-	for _, addr := range []string{"127.0.0.1:8003", "127.0.0.1:8080", "127.0.0.1:3000"} {
+	for _, addr := range []string{local(8003), local(8080), local(3000)} {
 		l, e := net.Listen("tcp", addr)
 		if e != nil {
 			t.Fatal(e)
@@ -78,7 +79,7 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "assets/release", MasterName), b, 0600)
 	os.WriteFile(filepath.Join(root, "assets/revisions/0/android/list.bin"), []byte{0x08, 0x01}, 0600)
 	// Failed starts must roll back any earlier port reservations.
-	occupied, e := net.Listen("tcp", "127.0.0.1:8080")
+	occupied, e := net.Listen("tcp", local(8080))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -105,7 +106,7 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 		func() {
 			defer Stop()
 			client := &http.Client{Timeout: 5 * time.Second}
-			req, _ := http.NewRequest("GET", "http://127.0.0.1:8080/unso-1-assetbundle/abc123", nil)
+			req, _ := http.NewRequest("GET", "http://"+local(8080)+"/unso-1-assetbundle/abc123", nil)
 			req.Header.Set("User-Agent", "Android")
 			asset, err := client.Do(req)
 			if err != nil {
@@ -116,7 +117,7 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 			if err != nil || asset.StatusCode != 200 || string(body) != strings.Repeat(name, 100) {
 				t.Fatalf("replacement asset not served: status=%d body=%q error=%v", asset.StatusCode, body, err)
 			}
-			for _, url := range []string{"http://127.0.0.1:8080/companion/health", "http://127.0.0.1:3000/v18.0/dialog/oauth"} {
+			for _, url := range []string{"http://" + local(8080) + "/companion/health", "http://" + local(3000) + "/v18.0/dialog/oauth"} {
 				resp, e := client.Get(url)
 				if e != nil {
 					t.Fatal(e)
@@ -127,7 +128,7 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 					t.Fatal(resp.Status)
 				}
 			}
-			conn, e := grpc.NewClient("127.0.0.1:8003", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, e := grpc.NewClient(local(8003), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -142,12 +143,12 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if config.Api.Hostname != "127.0.0.1" || config.Api.Port != 8003 || config.Octo.Url != "http://127.0.0.1:8080" {
+			if fmt.Sprintf("%s:%d", config.Api.Hostname, config.Api.Port) != local(8003) || config.Octo.Url != "http://"+local(8080) {
 				t.Fatalf("external endpoint: %v", config)
 			}
 		}()
 	}
-	for _, addr := range []string{"127.0.0.1:8003", "127.0.0.1:8080", "127.0.0.1:3000"} {
+	for _, addr := range []string{local(8003), local(8080), local(3000)} {
 		l, e := net.Listen("tcp", addr)
 		if e != nil {
 			t.Fatal(e)

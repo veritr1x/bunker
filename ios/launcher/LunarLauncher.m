@@ -67,9 +67,54 @@ static NSString *ToolsRoot(void) {
     return [support stringByAppendingPathComponent:@"LunarTools"];
 }
 
+#pragma mark - Game files used in place
+
+// A folder chosen with "Use in place" stays where the player keeps it. Its
+// revisions/0 is linked into assets/, and a bookmark reopens access to it on
+// each start, since iOS grants access to a picked folder only until the app quits.
+static NSString *const kInPlaceBookmark = @"LTInPlaceBookmark", *const kInPlaceRelative = @"LTInPlaceRelative";
+static NSURL *gInPlaceFolder;  // Accessed for as long as the app runs.
+
+static NSString *LinkPath(void);
+static void ForgetInPlace(void) {
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:kInPlaceBookmark];
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:kInPlaceRelative];
+}
+
+// Reopens the saved folder and points the link at it. Returns NO when a folder
+// is in use but cannot be opened (for example, its USB drive is unplugged).
+static BOOL AttachInPlace(void) {
+    NSData *bookmark = [NSUserDefaults.standardUserDefaults dataForKey:kInPlaceBookmark];
+    NSString *relative = [NSUserDefaults.standardUserDefaults stringForKey:kInPlaceRelative];
+    if (!bookmark || !relative) return YES;
+    BOOL stale = NO;
+    NSURL *folder = [NSURL URLByResolvingBookmarkData:bookmark options:0 relativeToURL:nil bookmarkDataIsStale:&stale error:nil];
+    if (!folder) return NO;
+    if (![folder.path isEqualToString:gInPlaceFolder.path]) {
+        if (![folder startAccessingSecurityScopedResource] && ![NSFileManager.defaultManager isReadableFileAtPath:folder.path]) return NO;
+        [gInPlaceFolder stopAccessingSecurityScopedResource];
+        gInPlaceFolder = folder;
+    }
+    if (stale) {
+        NSData *fresh = [folder bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:nil];
+        if (fresh) [NSUserDefaults.standardUserDefaults setObject:fresh forKey:kInPlaceBookmark];
+    }
+    // The folder may have a new path (renamed, or a drive mounted elsewhere).
+    NSString *target = [folder.path stringByAppendingPathComponent:relative];
+    NSFileManager *files = NSFileManager.defaultManager;
+    NSString *current = [files destinationOfSymbolicLinkAtPath:LinkPath() error:nil];
+    if (![current isEqualToString:target]) {
+        [files removeItemAtPath:LinkPath() error:nil];  // Removes the link only.
+        [files createSymbolicLinkAtPath:LinkPath() withDestinationPath:target error:nil];
+    }
+    return [files fileExistsAtPath:target];
+}
+
 // Starts the server; returns an empty string on success.
 static NSString *StartServer(void) {
     EnsureMaster();
+    if (!AttachInPlace())
+        return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
     if (!HasCatalog()) return @"Copy the assets folder into this app, then tap Check again.";
     return TakeString(LunarStart((char *)gSaves.fileSystemRepresentation, (char *)gServerRoot.fileSystemRepresentation));
 }
@@ -119,13 +164,27 @@ static volatile double gImportFraction = -1;
 static NSString *AssetsPath(void) { return [gServerRoot stringByAppendingPathComponent:@"assets"]; }
 static NSString *StagePath(void) { return [gServerRoot stringByAppendingPathComponent:@".assets-importing"]; }
 static NSString *PreviousPath(void) { return [gServerRoot stringByAppendingPathComponent:@".assets-previous"]; }
+static NSString *LinkPath(void) { return [AssetsPath() stringByAppendingPathComponent:@"revisions/0"]; }
+// The player's own folder while it is moved (not copied) into the stage.
+static NSString *gMovedFrom;
+
+// Removes the staging folder. A folder moved in from Documents goes back to
+// where the player put it instead of being deleted.
+static void DiscardStage(void) {
+    NSFileManager *files = NSFileManager.defaultManager;
+    NSString *moved = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
+    if (gMovedFrom && [files fileExistsAtPath:moved] && ![files fileExistsAtPath:gMovedFrom])
+        [files moveItemAtPath:moved toPath:gMovedFrom error:nil];
+    gMovedFrom = nil;
+    [files removeItemAtPath:StagePath() error:nil];
+}
 
 // Restores the last complete folder if the app was closed during a swap.
 static void RecoverImport(void) {
     NSFileManager *files = NSFileManager.defaultManager;
     if (![files fileExistsAtPath:AssetsPath()] && [files fileExistsAtPath:PreviousPath()])
         [files moveItemAtPath:PreviousPath() toPath:AssetsPath() error:nil];
-    [files removeItemAtPath:StagePath() error:nil];
+    DiscardStage();
 }
 
 // Accept the assets folder itself or the folder that contains it.
@@ -155,12 +214,12 @@ static BOOL OtherRevision(NSString *name) {
     return i != NSNotFound && i + 1 < parts.count && ![parts[i + 1] isEqualToString:@"0"];
 }
 
-// Refuses files whose revision 0 points at files kept in other revisions.
-static NSString *CheckSelfContained(NSString *root) {
-    NSDirectoryEnumerator *walk = [NSFileManager.defaultManager enumeratorAtPath:[root stringByAppendingPathComponent:@"revisions/0"]];
+// Refuses files whose revision 0 folder points at files kept in other revisions.
+static NSString *CheckSelfContained(NSString *revisionZero) {
+    NSDirectoryEnumerator *walk = [NSFileManager.defaultManager enumeratorAtPath:revisionZero];
     for (NSString *relative in walk) {
         if (![relative.lastPathComponent isEqualToString:@"info.json"]) continue;
-        NSData *data = [NSData dataWithContentsOfFile:[[root stringByAppendingPathComponent:@"revisions/0"] stringByAppendingPathComponent:relative]
+        NSData *data = [NSData dataWithContentsOfFile:[revisionZero stringByAppendingPathComponent:relative]
                                               options:NSDataReadingMappedIfSafe error:nil];
         const char *bytes = data.bytes, *end = bytes + data.length, *key = "\"to-revision\"";
         size_t keyLength = strlen(key);
@@ -187,6 +246,7 @@ static NSString *LTByteText(unsigned long long bytes) {
 typedef struct {
     double totalFiles, totalBytes, started, lastTime, lastFiles, lastBytes;
     double ff, fb, bb, ft, bt, shown;
+    double st, sf, sb;  // recent time, files and bytes, including pauses with no progress
 } LTEstimate;
 
 static LTEstimate LTEstimateStart(unsigned long long files, unsigned long long bytes) {
@@ -200,6 +260,7 @@ static double LTEstimateUpdate(LTEstimate *e, double files, double bytes) {
     if (dt > 0) {
         e->ff = e->ff * .995 + df * df; e->fb = e->fb * .995 + df * db; e->bb = e->bb * .995 + db * db;
         e->ft = e->ft * .995 + df * dt; e->bt = e->bt * .995 + db * dt;
+        e->st = e->st * .995 + dt; e->sf = e->sf * .995 + df; e->sb = e->sb * .995 + db;
     }
     e->lastTime = now; e->lastFiles = files; e->lastBytes = bytes;
     if (now - e->started < 10 || e->bb <= 0) return -1;
@@ -212,7 +273,11 @@ static double LTEstimateUpdate(LTEstimate *e, double files, double bytes) {
         double done = bytes + files * 1e6, total = e->totalBytes + e->totalFiles * 1e6;
         return done > 0 ? (now - e->started) * (total - done) / done : -1;
     }
-    return MAX(0, perFile * (e->totalFiles - files) + perByte * (e->totalBytes - bytes));
+    // The fit gives the relative cost of a file and a byte. Scale it by the real
+    // recent time, so pauses between bursts (as when several archive blocks
+    // decompress at once) count too.
+    double work = perFile * e->sf + perByte * e->sb, scale = work > 0 ? e->st / work : 1;
+    return MAX(0, scale * (perFile * (e->totalFiles - files) + perByte * (e->totalBytes - bytes)));
 }
 
 // "8.2 GB of 20.9 GB · 39% · about 4 min left". The bar follows the expected
@@ -377,9 +442,9 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
     BOOL catalog = NO;
     for (NSString *path in @[@"revisions/0/ios/list.bin", @"revisions/0/list.bin"])
         catalog = catalog || FileSize([root stringByAppendingPathComponent:path]) > 0;
-    if (!catalog) { [files removeItemAtPath:StagePath() error:nil]; return @"The copied folder has no catalog. Choose the folder that contains revisions/0."; }
-    NSString *aliases = CheckSelfContained(root);
-    if (aliases.length) { [files removeItemAtPath:StagePath() error:nil]; return aliases; }
+    if (!catalog) { DiscardStage(); return @"The copied folder has no catalog. Choose the folder that contains revisions/0."; }
+    NSString *aliases = CheckSelfContained([root stringByAppendingPathComponent:@"revisions/0"].stringByResolvingSymlinksInPath);
+    if (aliases.length) { DiscardStage(); return aliases; }
     // Keep the current master data (including applied content presets).
     NSString *nextMaster = [root stringByAppendingPathComponent:[@"release" stringByAppendingPathComponent:kMasterName]];
     if (FileSize(nextMaster) == 0 && FileSize(MasterPath()) > 0) {
@@ -391,10 +456,12 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
     LunarStop();  // Never serve files while their folder is being replaced.
     [files removeItemAtPath:PreviousPath() error:nil];
     if ([files fileExistsAtPath:AssetsPath()] && ![files moveItemAtPath:AssetsPath() toPath:PreviousPath() error:&error])
-        { [files removeItemAtPath:StagePath() error:nil]; return error.localizedDescription; }
+        { DiscardStage(); return error.localizedDescription; }
     if (![files moveItemAtPath:root toPath:AssetsPath() error:&error]) { RecoverImport(); return error.localizedDescription; }
     [files removeItemAtPath:PreviousPath() error:nil];
-    [files removeItemAtPath:StagePath() error:nil];  // Leftover wrapper when an archive held an assets folder.
+    gMovedFrom = nil;  // Installed: nothing to put back.
+    ForgetInPlace();  // LinkAssets saves its folder again after this.
+    DiscardStage();  // Leftover wrapper when an archive held an assets folder.
     return @"";
 }
 
@@ -402,6 +469,76 @@ static unsigned long long FreeSpace(void) {
     NSNumber *value = nil;
     [[NSURL fileURLWithPath:gServerRoot] getResourceValue:&value forKey:NSURLVolumeAvailableCapacityForImportantUsageKey error:nil];
     return value.unsignedLongLongValue;
+}
+
+// Uses a chosen folder where it is: revisions/0 is linked, not copied. iCloud
+// Drive is refused, since iOS may remove its local copies to save space.
+static NSString *LinkAssets(NSURL *picked, void (^progress)(NSString *)) {
+    BOOL scoped = [picked startAccessingSecurityScopedResource];
+    BOOL keep = NO;
+    @try {
+        NSNumber *cloud = nil;
+        [picked getResourceValue:&cloud forKey:NSURLIsUbiquitousItemKey error:nil];
+        if (cloud.boolValue) return @"Folders in iCloud Drive cannot be used in place. Copy the folder instead.";
+        NSURL *source = FindRevisionZero(picked);
+        if (!source) return @"Choose the extracted game files: the folder that contains revisions/0.";
+        NSString *from = source.URLByResolvingSymlinksInPath.path, *base = picked.URLByResolvingSymlinksInPath.path;
+        if (![from hasPrefix:[base stringByAppendingString:@"/"]]) return @"Choose the extracted game files: the folder that contains revisions/0.";
+        NSData *bookmark = [picked bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:nil];
+        if (!bookmark) return @"iOS cannot keep access to this folder. Copy it instead.";
+        progress(@"Checking the folder…");
+        RecoverImport();
+        NSFileManager *files = NSFileManager.defaultManager;
+        NSError *error = nil;
+        NSString *stageRevisions = [StagePath() stringByAppendingPathComponent:@"revisions"];
+        if (![files createDirectoryAtPath:stageRevisions withIntermediateDirectories:YES attributes:nil error:&error]
+            || ![files createSymbolicLinkAtPath:[stageRevisions stringByAppendingPathComponent:@"0"] withDestinationPath:from error:&error])
+            { DiscardStage(); return error.localizedDescription; }
+        NSString *failure = InstallStaged(StagePath(), progress);
+        if (failure.length) return failure;
+        [NSUserDefaults.standardUserDefaults setObject:bookmark forKey:kInPlaceBookmark];
+        [NSUserDefaults.standardUserDefaults setObject:[from substringFromIndex:base.length + 1] forKey:kInPlaceRelative];
+        [gInPlaceFolder stopAccessingSecurityScopedResource];
+        gInPlaceFolder = picked;
+        keep = YES;  // The server reads the folder from now on.
+        return @"";
+    } @finally {
+        if (scoped && !keep) [picked stopAccessingSecurityScopedResource];
+    }
+}
+
+// True for a .7z or .zip, which the Go bridge unpacks.
+static BOOL IsGoArchive(NSString *path) {
+    unsigned char magic[6] = {0};
+    FILE *file = fopen(path.fileSystemRepresentation, "rb");
+    if (!file) return NO;
+    size_t n = fread(magic, 1, sizeof magic, file);
+    fclose(file);
+    return (n == 6 && !memcmp(magic, "7z\xbc\xaf\x27\x1c", 6)) || (n >= 4 && !memcmp(magic, "PK\x03\x04", 4));
+}
+
+// Unpacks revision 0 from a .7z or .zip of the resource dump with the shared
+// Go code (the same as Android), then installs it like a folder.
+static NSString *ImportGoArchive(NSString *path, void (^progress)(NSString *)) {
+    RecoverImport();
+    __block NSString *result = nil;
+    dispatch_semaphore_t finished = dispatch_semaphore_create(0);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        result = TakeString(LunarImportArchive((char *)path.fileSystemRepresentation, (char *)StagePath().fileSystemRepresentation));
+        dispatch_semaphore_signal(finished);
+    });
+    LTEstimate estimate = {0};
+    while (dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC))) {
+        if (gCancelImport) LunarCancelImport();
+        NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[TakeString(LunarImportProgress()) dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+        unsigned long long done = [state[@"done"] unsignedLongLongValue], total = [state[@"total"] unsignedLongLongValue];
+        unsigned long long files = [state[@"files"] unsignedLongLongValue];
+        if (!total) { progress(@"Reading the archive…"); continue; }
+        if (!estimate.started) estimate = LTEstimateStart([state[@"totalFiles"] unsignedLongLongValue], total);
+        progress(LTProgressText(@"Unpacking", &estimate, files, done));
+    }
+    if (result.length) { DiscardStage(); return result; }
+    return InstallStaged(StagePath(), progress);
 }
 
 // Copies a user-chosen folder or archive into the app. Every write goes to a
@@ -413,8 +550,9 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         NSNumber *isFolder = nil;
         [picked getResourceValue:&isFolder forKey:NSURLIsDirectoryKey error:nil];
         if (!isFolder.boolValue) {
+            if (IsGoArchive(picked.path)) return ImportGoArchive(picked.path, progress);
             NSArray<NSString *> *parts = ArchiveParts(picked.path);
-            if (!parts) return @"Choose the assets folder, or a .tar archive of it.";
+            if (!parts) return @"Choose the extracted game files folder, or the .7z or .zip of the resource dump.";
             unsigned long long total = 0;
             for (NSString *part in parts) total += FileSize(part);
             if (FreeSpace() < total + 1000000000ULL)
@@ -436,6 +574,21 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         RecoverImport();
         NSError *error = nil;
         if (![files createDirectoryAtPath:StagePath() withIntermediateDirectories:YES attributes:nil error:&error]) return error.localizedDescription;
+        // Files already in NieR's Documents (copied in with Finder or the Files
+        // app) are moved instead of copied: instant, and no second 21 GB.
+        NSString *documents = [gServerRoot.stringByResolvingSymlinksInPath stringByAppendingString:@"/"];
+        if ([from hasPrefix:documents] && ![[from substringFromIndex:documents.length] hasPrefix:@"."]) {
+            if (FileSize([from stringByAppendingPathComponent:@"list.bin"]) == 0 && FileSize([from stringByAppendingPathComponent:@"ios/list.bin"]) == 0)
+                { DiscardStage(); return @"The folder has no catalog. Choose the folder that contains revisions/0."; }
+            NSString *aliases = CheckSelfContained(from);
+            if (aliases.length) { DiscardStage(); return aliases; }
+            progress(@"Moving the game files…");
+            NSString *revisionStage = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
+            [files createDirectoryAtPath:revisionStage.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
+            if (![files moveItemAtPath:from toPath:revisionStage error:&error]) { DiscardStage(); return error.localizedDescription; }
+            gMovedFrom = from;
+            return InstallStaged(StagePath(), progress);
+        }
         // List everything first, so the copy can show how much is left.
         __block NSError *walkError = nil;
         NSDirectoryEnumerator *walk = [files enumeratorAtURL:source includingPropertiesForKeys:@[NSURLIsDirectoryKey, NSURLFileSizeKey]
@@ -902,6 +1055,23 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     if (self.pickerMode == 1) { if (picked) [self importMaster:picked]; return; }
     if (self.pickerMode == 3) { if (picked) [self importSave:picked]; return; }
     if (!picked || gImporting) return;
+    // A folder outside NieR's own files can be copied in or used where it is.
+    BOOL scoped = [picked startAccessingSecurityScopedResource];
+    NSNumber *isFolder = nil;
+    [picked getResourceValue:&isFolder forKey:NSURLIsDirectoryKey error:nil];
+    if (scoped) [picked stopAccessingSecurityScopedResource];
+    NSString *documents = [gServerRoot.stringByResolvingSymlinksInPath stringByAppendingString:@"/"];
+    if (!isFolder.boolValue || [picked.URLByResolvingSymlinksInPath.path hasPrefix:documents]) { [self startImport:picked link:NO]; return; }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Copy or use in place?"
+        message:@"Copying keeps the game working if the folder is moved later, and needs about 21 GB free. Using it in place needs no space or wait, but the folder must stay where it is (and its drive connected)."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Copy into NieR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self startImport:picked link:NO]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Use in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self startImport:picked link:YES]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+- (void)startImport:(NSURL *)picked link:(BOOL)link {
+    if (gImporting) return;
     gImporting = YES;
     gCancelImport = NO;
     gImportFraction = -1;
@@ -916,9 +1086,10 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
         task = UIBackgroundTaskInvalid;
     }];
     dispatch_async(gQueue, ^{
-        NSString *error = ImportAssets(picked, ^(NSString *text) {
+        void (^progress)(NSString *) = ^(NSString *text) {
             dispatch_async(dispatch_get_main_queue(), ^{ gMessage = text; [self refresh]; });
-        });
+        };
+        NSString *error = link ? LinkAssets(picked, progress) : ImportAssets(picked, progress);
         if (!error.length) error = StartServer();
         dispatch_async(dispatch_get_main_queue(), ^{
             gImporting = NO;
@@ -1051,7 +1222,8 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             BOOL removeSource = getenv("LUNAR_IMPORT_DELETE") != NULL;
             gImporting = YES;
             dispatch_async(gQueue, ^{
-                NSString *error = ImportAssets([NSURL fileURLWithPath:source], ^(NSString *text) {
+                NSString *(*import)(NSURL *, void (^)(NSString *)) = getenv("LUNAR_IMPORT_LINK") ? LinkAssets : ImportAssets;
+                NSString *error = import([NSURL fileURLWithPath:source], ^(NSString *text) {
                     NSLog(@"[LunarTear] %@", text);
                     dispatch_async(dispatch_get_main_queue(), ^{
                         gMessage = text;
@@ -1061,7 +1233,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                 NSLog(@"[LunarTear] import result: %@", error.length ? error : @"ok");
                 // Automation copies archives into Documents; remove them once unpacked.
                 if (!error.length && removeSource)
-                    for (NSString *part in ArchiveParts(source) ?: @[]) [NSFileManager.defaultManager removeItemAtPath:part error:nil];
+                    for (NSString *part in ArchiveParts(source) ?: (IsGoArchive(source) ? @[source] : @[])) [NSFileManager.defaultManager removeItemAtPath:part error:nil];
                 gImporting = NO;
                 gMessage = error.length ? error : @"";
                 dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });

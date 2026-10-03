@@ -26,16 +26,16 @@ Limitations:
 - **The Android web build has no in-game Facebook account link**, because that patch needs a
   decompiler. Offline play, Tools and save backup and import all work. The iOS web build is the
   same as the command-line build.
-- **You extract the resource dump yourself.** On Android, an app such as ZArchiver can extract
-  it on the phone, so the whole flow works without a computer. iPhone and iPad need a 7z app,
-  and sideloading the IPA usually needs a computer once.
+- **The resource dump is not part of the build.** Put its `.7z` on the phone and choose it in
+  the app, which unpacks only what the game uses, so on Android the whole flow works without
+  a computer. Sideloading the IPA on iPhone and iPad usually needs a computer once.
 
 To build everything locally instead, follow the step-by-step guide below.
 
 ## Play on Android
 
 1. Install your locally built APK.
-2. Open it and **Choose** your prepared `assets` folder. A progress bar shows how much is copied and the time left.
+2. Open it and **Choose** the resource dump's `.7z` (or an extracted folder). A progress bar shows the time left.
 3. Tap **Play**. The server starts and the game opens automatically.
 
 The launcher is simply **1 Game files → 2 Server → 3 Play**.
@@ -44,7 +44,7 @@ Open **⋮ → Tools** for content presets, inventory, upgrades, and save backup
 ## Play on iPhone or iPad
 
 1. Install your locally built and signed IPA.
-2. Open it and tap **Choose assets folder** (a progress bar shows the time left), or drag the folder in with Finder.
+2. Open it and tap **Choose assets folder**, then pick the resource dump's `.7z` or an extracted folder (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play.
 
 Tap **⋮** for server control, master-data import, save backup and restore, the server log, help and about.
@@ -135,10 +135,14 @@ Result: an unsigned `artifacts/game-Offline.ipa`. Install it with Sideloadly or
 AltStore and your Apple ID, or sign it with your own Apple developer team as described in
 [iOS](docs/IOS.md#build).
 
-### 5. Extract the game files (about 21 GB)
+### 5. Get the game files onto the device (about 21 GB)
 
-The game needs only `revisions/0` of the dump; the other 817 revisions are 28 GB of old
-catalogs. Extract just that folder:
+The simplest way is to copy the dump's `.7z` itself to the phone or tablet (step 6) and choose
+it in the app. The app unpacks only `revisions/0`, which the game uses; the other 817 revisions
+are 28 GB of old catalogs and are skipped. A `.zip` of the dump works too. Allow the archive's
+size plus about 25 GB free while importing; you can delete the archive afterwards.
+
+Alternatively, extract just that folder yourself:
 
 ```sh
 # Android
@@ -148,9 +152,8 @@ catalogs. Extract just that folder:
 7zz x ~/Downloads/resource_dump_ios.7z 'revisions/0/*' -o"$HOME/Downloads/ios-dump"
 ```
 
-Or extract on the phone itself, for example with ZArchiver on Android: open the `.7z` and extract
-the `revisions/0` folder. A full extraction also works, since the app copies only revision 0,
-but it needs about 49 GB free while extracting.
+or on the phone with an app such as ZArchiver. A full extraction also works, since the app
+copies only revision 0, but it needs about 49 GB free while extracting.
 
 Android and iOS files are not interchangeable; use the matching dump.
 
@@ -162,21 +165,30 @@ it when you copy files into the app with Finder, which skips the app's own impor
 
 **Android (9 or later, ARM64):**
 
-1. Put the extracted folder on the phone, for example `Download/android-dump`: extract it there,
-   or copy it with a USB cable or `adb push ~/Downloads/android-dump /sdcard/Download/android-dump`.
+1. Put `resource_dump_android.7z` (or the extracted folder) on the phone, for example in
+   `Download`: with a USB cable, or `adb push ~/Downloads/resource_dump_android.7z /sdcard/Download/`.
 2. Install the APK: open it on the phone, or run `adb install artifacts/game-Offline.apk`.
-3. Open the installed app, tap **Choose** and select that folder (the one containing `revisions`).
-   It copies revision 0 into the app; a progress bar shows the time left. You can delete the
-   extracted folder afterwards.
+3. Open the installed app, tap **Choose**, then **Archive (.7z or .zip)** and pick the `.7z`, or
+   **Extracted folder: copy into the app** and pick the folder containing `revisions`. It unpacks
+   or copies revision 0 into the app; a progress bar shows the time left. You can delete the
+   archive or folder afterwards.
+
+   To save 21 GB, pick **Extracted folder: use in place** instead (Android 11 or later). The app
+   asks you to turn on **All files access** for NieR in Settings once, then reads the folder where
+   it is. Keep the folder there: if it is moved or deleted, choose it again.
 4. Tap **Play**. The server starts on the phone and the game opens.
 
 **iPhone/iPad (iOS 14 or later):**
 
 1. Install the IPA (step 4).
 2. Open **NieR**. The launcher appears because the game files are missing.
-3. Tap **Choose assets folder** and pick the extracted folder (the one containing `revisions`)
-   from Files, iCloud Drive or a USB drive. Allow about 25 GB free. To use Finder instead,
-   drag a prepared `assets` folder (step 5) onto NieR (your device › Files) and tap **Check again**.
+3. Tap **Choose assets folder** and pick `resource_dump_ios.7z` or the extracted folder (the one
+   containing `revisions`) from Files, iCloud Drive or a USB drive. Allow about 25 GB free besides
+   the archive. A folder already inside NieR's own files (copied in with Finder) is moved
+   instead of copied, which is instant. For a folder elsewhere, the app asks whether to copy it
+   or **use it in place**, which needs no space but the folder must stay where it is (and a USB
+   drive must stay connected while you play). iCloud Drive folders can only be copied. Finder can also take a prepared `assets` folder (step 5):
+   drag it onto NieR (your device › Files) and tap **Check again**.
 4. The server starts inside the game. Three-finger double-tap opens the launcher during play.
 
 ### 7. Update later

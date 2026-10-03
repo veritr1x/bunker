@@ -21,7 +21,9 @@ import java.util.Date;
 import java.util.Locale;
 
 public final class MainActivity extends Activity {
-    private static final int ASSETS=10, MASTER=11, BACKUP=12, SAVE=13;
+    private static final int ASSETS=10, MASTER=11, BACKUP=12, SAVE=13, ARCHIVE=14, LINK=15;
+    // Set while the player turns on All files access for "use in place".
+    private boolean awaitingAccess;
     private static final int INK=0xff303630, MUTED=0xff6a6d63, GREEN=0xff536554;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,detail,files;
@@ -100,7 +102,8 @@ public final class MainActivity extends Activity {
         try{FilesStore.recover(this);}catch(Exception e){serverDetail=e.getMessage();}
         new Thread(()->{try{FilesStore.ensureBootstrap(this);}catch(Exception ignored){}runOnUiThread(()->{last="";refresh();});},"bootstrap").start();
     }
-    @Override public void onResume(){super.onResume();foreground=true;bound=bindService(new Intent(this,ServerService.class),connection,BIND_AUTO_CREATE);handler.post(tick);}
+    @Override public void onResume(){super.onResume();foreground=true;
+        if(awaitingAccess){awaitingAccess=false;if(FilesStore.canUseInPlace())chooseFolder(LINK);}bound=bindService(new Intent(this,ServerService.class),connection,BIND_AUTO_CREATE);handler.post(tick);}
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);
         boolean manage=intent.getBooleanExtra("manage",false);
@@ -129,11 +132,34 @@ public final class MainActivity extends Activity {
         else if("Saves exported".equals(serverState))message="Backup saved.";
         else if("Save imported".equals(serverState))message=serverDetail;
         else if(hasAssets&&!hasMaster)message="Import master data from the ⋮ menu.";
+        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null)message=FilesStore.canUseInPlace()?"Your game files folder is missing: "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings to read your game files folder, or choose the files again.";
         else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty()&&!serverDetail.equals("Import your game files to get started.")&&!serverDetail.equals("Tap Play to restart.")&&!serverDetail.equals("Your saves are stored on this phone."))message=serverDetail;
         detail.setText(message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);
     }
     private void chooseAssets(){
-        Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,ASSETS);
+        new AlertDialog.Builder(this).setTitle("Choose the game files")
+            .setItems(new String[]{"Extracted folder: copy into the app","Extracted folder: use in place","Archive (.7z or .zip)"},(dialog,which)->{
+                if(which==0)chooseFolder(ASSETS);
+                else if(which==1)useInPlace();
+                // The resource dump's .7z can be chosen directly; only revision 0 is unpacked.
+                else{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,ARCHIVE);}
+            }).show();
+    }
+    private void chooseFolder(int code){
+        Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,code);
+    }
+    /** Uses an extracted folder where it is, saving 21 GB. Needs All files access, which only Settings can grant. */
+    private void useInPlace(){
+        if(Build.VERSION.SDK_INT<30){new AlertDialog.Builder(this).setTitle("Use in place").setMessage("Using a folder in place needs Android 11 or later. Copy it into the app instead.").setPositiveButton("OK",null).show();return;}
+        if(FilesStore.canUseInPlace()){chooseFolder(LINK);return;}
+        new AlertDialog.Builder(this).setTitle("Allow All files access")
+            .setMessage("To read the game files where they are, NieR needs All files access. It only reads the folder you choose next.\n\nTurn on the switch in Settings, then come back. Keep the folder where it is afterwards: if it is moved or deleted, choose it again.")
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Open Settings",(dialog,which)->{
+                awaitingAccess=true;
+                try{startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}
+                catch(Exception e){startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}
+            }).show();
     }
     private void showOptions(View anchor){
         PopupMenu popup=new PopupMenu(this,anchor);Menu menu=popup.getMenu();
@@ -179,7 +205,7 @@ public final class MainActivity extends Activity {
         else startActivity(intent);
     }
     private void help(){
-        new AlertDialog.Builder(this).setTitle("Help").setMessage("Choose the extracted assets folder once. Master data is already included. The server starts and the game opens automatically when your files are ready.\n\nTap the server notification to return here. Stop the server from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage. Import save backup restores one, from this phone, another phone or an iPhone.\n\nIf Samsung pauses the server, set Battery usage to Unrestricted in App settings.")
+        new AlertDialog.Builder(this).setTitle("Help").setMessage("Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. The server starts and the game opens automatically when your files are ready.\n\nTap the server notification to return here. Stop the server from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage. Import save backup restores one, from this phone, another phone or an iPhone.\n\nIf Samsung pauses the server, set Battery usage to Unrestricted in App settings.")
             .setPositiveButton("Close",null).show();
     }
     private void showLog(){query(2);}
@@ -193,7 +219,7 @@ public final class MainActivity extends Activity {
     @Override protected void onActivityResult(int code,int result,Intent data){
         super.onActivityResult(code,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();
-        if(code==ASSETS||code==MASTER){try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}}
-        if(code==ASSETS)run(ServerService.ASSETS,uri);else if(code==MASTER)run(ServerService.MASTER,uri);else if(code==BACKUP)run(ServerService.BACKUP,uri);else if(code==SAVE)run(ServerService.SAVE,uri);
+        if(code==ASSETS||code==MASTER||code==LINK){try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}}
+        if(code==ASSETS)run(ServerService.ASSETS,uri);else if(code==MASTER)run(ServerService.MASTER,uri);else if(code==BACKUP)run(ServerService.BACKUP,uri);else if(code==SAVE)run(ServerService.SAVE,uri);else if(code==ARCHIVE)run(ServerService.ARCHIVE,uri);else if(code==LINK)run(ServerService.LINK,uri);
     }
 }

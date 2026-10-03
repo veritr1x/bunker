@@ -3,6 +3,7 @@ package org.lunartear.companion;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.text.format.Formatter;
@@ -74,6 +75,7 @@ final class FilesStore {
         final long totalFiles, totalBytes, started;
         long lastTime, lastFiles, lastBytes;
         double ff, fb, bb, ft, bt, shown;
+        double st, sf, sb;  // recent time, files and bytes, including pauses with no progress
         Estimate(long totalFiles, long totalBytes) {
             this.totalFiles = totalFiles; this.totalBytes = totalBytes;
             started = lastTime = SystemClock.elapsedRealtime();
@@ -84,6 +86,7 @@ final class FilesStore {
             double dt = (now - lastTime) / 1000.0, df = files - lastFiles, db = bytes - lastBytes;
             if (dt > 0) {
                 ff = ff*.995 + df*df; fb = fb*.995 + df*db; bb = bb*.995 + db*db; ft = ft*.995 + df*dt; bt = bt*.995 + db*dt;
+                st = st*.995 + dt; sf = sf*.995 + df; sb = sb*.995 + db;
             }
             lastTime = now; lastFiles = files; lastBytes = bytes;
             if (now - started < 10000 || bb <= 0) return -1;
@@ -94,7 +97,11 @@ final class FilesStore {
                 double done = bytes + files * 1e6, total = totalBytes + totalFiles * 1e6;
                 return done > 0 ? (now - started) / 1000.0 * (total - done) / done : -1;
             }
-            return Math.max(0, perFile * (totalFiles - files) + perByte * (totalBytes - bytes));
+            // The fit gives the relative cost of a file and a byte. Scale it by the
+            // real recent time, so pauses between bursts (as when several archive
+            // blocks decompress at once) count too.
+            double work = perFile * sf + perByte * sb, scale = work > 0 ? st / work : 1;
+            return Math.max(0, scale * (perFile * (totalFiles - files) + perByte * (totalBytes - bytes)));
         }
         /** Share done for the progress bar: time-based once measured, and never moving back. */
         double fraction(long files, long bytes, double secondsLeft) {
@@ -127,7 +134,7 @@ final class FilesStore {
     static void importAssets(Context c, Uri tree, Progress progress) throws Exception {
         File base = root(c); mkdir(base);
         recover(c);
-        File stage = new File(base, "assets.importing"), old = new File(base, "assets.previous");
+        File stage = new File(base, "assets.importing");
         delete(stage); mkdir(stage);
         try {
             // Only revision 0 is used. The raw dump's other revisions are 28 GB
@@ -141,21 +148,73 @@ final class FilesStore {
             List<Entry> entries = new ArrayList<>();
             long total = scan(c,tree,revision,revisionDir,entries,progress,0,0);
             copyAll(c,entries,total,progress);
-            File index = new File(stage,"revisions/0/android/list.bin");
-            if (index.length()==0 && new File(stage,"revisions/0/list.bin").length()==0)
-                throw new IOException("Choose the extracted game files: revisions/0 has no list.bin");
-            for (Entry e : entries) if (e.out.getName().equals("info.json")) checkSelfContained(e.out);
-            File nextMaster = new File(stage,"release/"+MASTER);
-            if (!nextMaster.exists() && master(c).isFile()) {
-                mkdir(nextMaster.getParentFile());
-                Files.copy(master(c).toPath(), nextMaster.toPath());
-            }
-            if (progress.cancelled()) throw new IOException("Import cancelled");
-            delete(old);
-            if (assets(c).exists()) move(assets(c),old);
-            try { move(stage,assets(c)); } catch(Exception e) { if(old.exists()) move(old,assets(c)); throw e; }
-            delete(old);
+            install(c, stage, progress);
         } finally { delete(stage); }
+    }
+    /**
+     * Imports revision 0 straight from the resource dump's .7z or a .zip of it.
+     * The shared Go code decompresses only the blocks holding revision 0; this
+     * polls its progress for the bar and passes on a cancel.
+     */
+    static void importArchive(Context c, Uri uri, Progress progress) throws Exception {
+        File base = root(c); mkdir(base);
+        recover(c);
+        File stage = new File(base, "assets.importing");
+        delete(stage); mkdir(stage);
+        try (android.os.ParcelFileDescriptor descriptor = c.getContentResolver().openFileDescriptor(uri, "r")) {
+            if (descriptor == null) throw new IOException("Cannot open the selected archive");
+            // Native code reads the picked document through its descriptor.
+            String source = "/proc/self/fd/" + descriptor.getFd();
+            String[] result = new String[1];
+            Thread worker = new Thread(() -> result[0] = NativeBridge.importArchive(source, stage.getAbsolutePath()), "lunar-archive");
+            worker.start();
+            Estimate estimate = null;
+            progress.fraction(-1);
+            progress.update("Opening the archive…");
+            while (worker.isAlive()) {
+                worker.join(500);
+                if (progress.cancelled()) NativeBridge.cancelImport();
+                org.json.JSONObject state = new org.json.JSONObject(NativeBridge.importProgress());
+                long done = state.optLong("done"), total = state.optLong("total"), files = state.optLong("files");
+                if (total <= 0) continue;
+                if (estimate == null) estimate = new Estimate(state.optLong("totalFiles"), total);
+                double left = estimate.update(files, done), fraction = estimate.fraction(files, done, left);
+                progress.fraction((int) (fraction * 1000));
+                progress.update(progressText(c, "Unpacking", done, total, fraction, left));
+            }
+            if (result[0] == null || !result[0].isEmpty()) throw new IOException(result[0] == null ? "Cannot read the archive" : result[0]);
+            progress.fraction(-1);
+            progress.update("Finishing import…");
+            install(c, stage, progress);
+        } finally { delete(stage); }
+    }
+    /** Checks a staged assets folder and swaps it in, keeping the current master data and files until it succeeds. */
+    static void install(Context c, File stage, Progress progress) throws Exception {
+        File old = new File(root(c), "assets.previous");
+        File index = new File(stage,"revisions/0/android/list.bin");
+        if (index.length()==0 && new File(stage,"revisions/0/list.bin").length()==0)
+            throw new IOException("Choose the extracted game files: revisions/0 has no list.bin");
+        List<File> infos = new ArrayList<>();
+        collect(new File(stage, "revisions/0"), "info.json", infos);
+        for (File info : infos) checkSelfContained(info);
+        File nextMaster = new File(stage,"release/"+MASTER);
+        if (!nextMaster.exists() && master(c).isFile()) {
+            mkdir(nextMaster.getParentFile());
+            Files.copy(master(c).toPath(), nextMaster.toPath());
+        }
+        if (progress.cancelled()) throw new IOException("Import cancelled");
+        delete(old);
+        if (assets(c).exists()) move(assets(c),old);
+        try { move(stage,assets(c)); } catch(Exception e) { if(old.exists()) move(old,assets(c)); throw e; }
+        delete(old);
+    }
+    private static void collect(File folder, String name, List<File> found) {
+        File[] children = folder.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (child.isDirectory()) collect(child, name, found);
+            else if (child.getName().equals(name)) found.add(child);
+        }
     }
     /**
      * Finds revisions/0 in the chosen folder: the dump itself, a folder holding
@@ -287,7 +346,47 @@ final class FilesStore {
         }
     }
     static void delete(File file) {
+        // A folder used in place is linked, never owned: remove the link only.
+        if (Files.isSymbolicLink(file.toPath())) { file.delete(); return; }
         File[] children=file.listFiles(); if(children!=null) for(File c:children) delete(c);
         file.delete();
+    }
+    /** The player's folder when the game files are used in place, or null when they were copied in. */
+    static File linkedFolder(Context c) {
+        java.nio.file.Path link = new File(assets(c), "revisions/0").toPath();
+        try { return Files.isSymbolicLink(link) ? Files.readSymbolicLink(link).toFile() : null; }
+        catch (IOException e) { return null; }
+    }
+    /** True when this app may read shared storage by path (All files access, Android 11+). */
+    static boolean canUseInPlace() {
+        return Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager();
+    }
+    /**
+     * Uses the chosen folder's revisions/0 where it is, without copying: the
+     * server reads it through a link. Needs All files access. The folder must
+     * stay in place; the launcher asks for it again if it disappears.
+     */
+    static void linkAssets(Context c, Uri tree, Progress progress) throws Exception {
+        if (!canUseInPlace()) throw new IOException("Allow All files access for NieR in Settings to use a folder in place, or copy it instead.");
+        if (!"com.android.externalstorage.documents".equals(tree.getAuthority()))
+            throw new IOException("Use in place works with folders on this phone's storage or SD card. Copy the folder instead.");
+        String revision = findRevisionZero(c, tree, DocumentsContract.getTreeDocumentId(tree));
+        if (revision == null) throw new IOException("Choose the extracted game files: the folder that contains revisions/0");
+        // Document IDs look like "primary:Download/dump/revisions/0" or "1234-ABCD:dump/revisions/0".
+        int colon = revision.indexOf(':');
+        String volume = revision.substring(0, colon), relative = revision.substring(colon + 1);
+        File base = "primary".equalsIgnoreCase(volume) ? android.os.Environment.getExternalStorageDirectory() : new File("/storage", volume);
+        File folder = new File(base, relative);
+        if (!folder.isDirectory() || folder.list() == null) throw new IOException("Cannot read " + folder + ". Allow All files access for NieR in Settings.");
+        File root = root(c); mkdir(root);
+        recover(c);
+        File stage = new File(root, "assets.importing");
+        delete(stage); mkdir(new File(stage, "revisions"));
+        try {
+            progress.fraction(-1);
+            progress.update("Checking the folder…");
+            Files.createSymbolicLink(new File(stage, "revisions/0").toPath(), folder.toPath());
+            install(c, stage, progress);
+        } finally { delete(stage); }
     }
 }

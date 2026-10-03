@@ -8,12 +8,18 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import tempfile
 
 from prepare import ROOT, prepare
 
 GRPC, HTTP, AUTH = "127.0.0.1:8003", "127.0.0.1:8080", "127.0.0.1:3000"
+
+
+def port_in_use(port):
+    with socket.socket() as probe:
+        return probe.connect_ex(("127.0.0.1", port)) == 0
 
 
 def run(*args, cwd=ROOT, env=None):
@@ -132,6 +138,10 @@ def main():
     run("go", "install", "google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11", env=env)
     run("go", "install", "google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1", env=env)
     run("make", "proto", cwd=ROOT / "server", env=env)
+    if any(port_in_use(port) for port in (8003, 8080, 3000)):
+        # The server tests open the game's ports; move them past a dev server.
+        print("Ports 8003/8080/3000 are in use; testing on 28003/28080/23000.")
+        env["LUNAR_PORT_OFFSET"] = "20000"
     run("go", "test", "./...", cwd=ROOT / "server", env=env)
     if android:
         build_android(args, env, python, patched_master, sdk)

@@ -122,6 +122,15 @@ func (s *instance) close() {
 	}
 }
 
+// local returns the loopback address for one of the game's fixed ports. The
+// patched game always uses the real ports; LUNAR_PORT_OFFSET only moves them
+// for automated tests on a computer where they are already in use.
+func local(port int) string {
+	var offset int
+	fmt.Sscan(os.Getenv("LUNAR_PORT_OFFSET"), &offset)
+	return fmt.Sprintf("127.0.0.1:%d", port+offset)
+}
+
 // Start blocks until all three listeners and data stores are ready. All endpoints
 // are loopback-only; no router, internet connection, or account is required.
 func Start(dataRoot, assetRoot string) (err error) {
@@ -146,7 +155,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 		return err
 	}
 	// Reserve all ports before changing databases or loading catalogs.
-	for _, addr := range []string{"127.0.0.1:8003", "127.0.0.1:8080", "127.0.0.1:3000"} {
+	for _, addr := range []string{local(8003), local(8080), local(3000)} {
 		l, e := net.Listen("tcp", addr)
 		if e != nil {
 			return fmt.Errorf("cannot open %s: %w", addr, e)
@@ -187,7 +196,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	mux.HandleFunc("/me", h.HandleMe)
 	mux.HandleFunc("/check-username", h.HandleCheckUsername)
 	authHTTP := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	cdnURL := "http://127.0.0.1:8080"
+	cdnURL := "http://" + local(8080)
 	prefix := cdnURL + "/"
 	service.ResetOctoCaches()
 	cdn := service.NewOctoHTTPServer(prefix+strings.Repeat("r", 43-len(prefix)), assetRoot)
@@ -201,7 +210,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	s.http = []*http.Server{cdnHTTP, authHTTP}
 	store := sqlite.New(db, gametime.Now)
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, interceptor.NewDiffInterceptor(store, store), interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
-	registerServices(s.grpc, "127.0.0.1:8003", cdnURL, "http://127.0.0.1:3000", filepath.Join(assetRoot, "assets", "release", MasterName), store, holder, false)
+	registerServices(s.grpc, local(8003), cdnURL, "http://"+local(3000), filepath.Join(assetRoot, "assets", "release", MasterName), store, holder, false)
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	grpc_health_v1.RegisterHealthServer(s.grpc, healthServer)

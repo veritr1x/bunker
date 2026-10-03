@@ -59,7 +59,9 @@ Profiles expire; rebuild and reinstall with the same bundle ID to keep saves.
 ## Game files
 
 iOS needs the iOS dump; Android asset bundles do not render on iPhone or iPad.
-Extract its `revisions/0` folder (only that revision is used):
+The launcher can import `resource_dump_ios.7z` directly (or a `.zip` of it) and
+unpacks only `revisions/0`, the revision the server uses. Or extract that folder
+yourself:
 
 ```sh
 7zz x resource_dump_ios.7z 'revisions/0/*' -oclient/ios-dump
@@ -67,12 +69,20 @@ Extract its `revisions/0` folder (only that revision is used):
 
 Then put the 20 GB of files on the device in one of these ways:
 
-- **Choose assets folder** on the launcher screen. Pick the extracted folder
-  (the one containing `revisions`) from Files, iCloud Drive or a USB drive.
-  Only revision 0 is copied, so a full extraction works too. A split `.tar` of
-  it works as well. The app copies it in, so allow about 25 GB
-  free. Your current files stay in place until the copy completes. The app
-  first counts the files, then shows a progress bar with the time left.
+- **Choose assets folder** on the launcher screen. Pick the `.7z`, or the
+  extracted folder (the one containing `revisions`), from Files, iCloud Drive or
+  a USB drive. Only revision 0 is used, so a full extraction works too. A split
+  `.tar` of it works as well. The app copies or unpacks it in, so allow about
+  25 GB free besides the archive. A folder already inside NieR's own files (put
+  there with Finder or the Files app) is moved instead, which is instant. Your
+  current files stay in place until the import completes. A progress bar shows
+  the time left.
+- **Use in place**: after you pick a folder outside NieR's own files, the app
+  asks whether to copy it or use it in place. In place, nothing is copied: the
+  app keeps a bookmark and reads the folder where it is (on the device, another
+  app's folder or a USB drive). Keep it there, and keep a drive connected while
+  playing; otherwise the launcher asks you to reconnect it or choose again.
+  iCloud Drive folders are copied only, since iOS can remove their local copies.
 - Finder: run `python3.11 scripts/prepare_assets.py --source client/ios-dump
   --output phone-assets/ios/assets`, then select the device, open **Files**, and
   drag `assets` onto **NieR**. Then tap **Check again**. (Finder skips the

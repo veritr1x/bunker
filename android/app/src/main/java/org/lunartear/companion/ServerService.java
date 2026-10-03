@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class ServerService extends Service {
-    static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools", SAVE="save";
+    static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools", SAVE="save", ARCHIVE="archive", LINK="link";
     static volatile boolean running=false, busy=false, tools=false;
     // Import progress, 0-1000, or -1 when there is no measured copy in progress.
     static volatile int permille=-1;
@@ -117,6 +117,8 @@ public final class ServerService extends Service {
                         public void fraction(int value){permille=value;}
                     };
                     if(ASSETS.equals(action)) FilesStore.importAssets(this,uri,progress);
+                    else if(ARCHIVE.equals(action)) FilesStore.importArchive(this,uri,progress);
+                    else if(LINK.equals(action)) FilesStore.linkAssets(this,uri,progress);
                     else if(MASTER.equals(action)) FilesStore.importMaster(this,uri,progress);
                     else if(BACKUP.equals(action)) FilesStore.backup(this,uri);
                     else if(SAVE.equals(action)) { FilesStore.importSave(this,uri); closeGame(); }

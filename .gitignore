@@ -25,6 +25,8 @@
 *.apks
 *.xapk
 *.7z
+# Tiny synthetic archives for the Go import tests; no game files.
+!overlays/server/mobile/testdata/*.7z
 *.bin.e
 *.db
 *.db-wal

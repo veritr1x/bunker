@@ -1,5 +1,28 @@
 # Validation
 
+## Archive import and use in place — 2026-10-03
+
+- Go tests: a .7z of the dump unpacks only revision 0 and decompresses only
+  the archive blocks that hold it; a .zip unpacks only revision 0; unsafe
+  paths, other formats and archives without a catalog are refused; cancel
+  works. The real 15 GB Android .7z unpacked on a Mac to 201,073 files that
+  match the prepared folder by name and size (3,002 also compared by hash).
+- iOS Simulator smoke test, all cases passing, including: .7z and .zip import,
+  moving a folder already inside the app's Documents, refusing a bad one and
+  putting it back, and use in place (linked, survives relaunch, refuses to
+  start without the folder, and a later copy removes only the link). Run on
+  offset ports while another service used port 3000.
+- iPad Pro 11-inch (M4): the real 14.9 GB iOS .7z, imported by the app,
+  unpacked 20.96 GB in about 6½ minutes; the archive was removed and the game
+  started.
+- Samsung Galaxy Z Fold: use in place on an extracted folder in Download, with
+  All files access, linked the files without copying (the old 21 GB copy was
+  freed) and opened Tools. Importing the real 15 GB Android .7z afterwards
+  unpacked 20.91 GB in about 15 minutes, and the linked folder's 201,073 files
+  were left intact. The first build's time-left estimate ignored pauses
+  between decompression bursts and showed 100% early; the estimator now
+  counts them.
+
 ## iOS — 2026-10-03
 
 - The combined repository still generates the same 291 Android sources
