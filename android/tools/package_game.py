@@ -87,11 +87,13 @@ def main():
     permissions={x.get(attr("name")) for x in doc.findall("uses-permission")}
     for permission in companion.findall("uses-permission"):
         if permission.get(attr("name")) not in permissions:doc.insert(0,copy.deepcopy(permission))
-    for name in ["activity","service"]:
+    for name in ["activity","service","provider"]:
         for source in companion.findall("application/"+name):
             element=copy.deepcopy(source)
             element.set(attr("name"),"org.lunartear.companion"+element.get(attr("name")))
             if name=="activity":element.set(attr("theme"),"@android:style/Theme.Material.Light.NoActionBar")
+            # Authorities are unique per device: use the game's, not the standalone companion's.
+            if name=="provider":element.set(attr("authorities"),doc.get("package")+".lunar_loopback")
             app.append(element)
     ET.indent(tree,space="    ");tree.write(manifest,encoding="utf-8",xml_declaration=True)
     # The wrapper uses Android 9+ file APIs. Preserve the game's target SDK to

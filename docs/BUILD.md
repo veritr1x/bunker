@@ -111,6 +111,12 @@ imported resources. Close Tools and tap Play to resume with the changed data.
 Use **⋮ → Stop server** when finished. If Samsung pauses the server, set the
 app's battery usage to **Unrestricted**.
 
+VPN, proxy and "network accelerator" apps no longer slow the game down. Android
+sends even requests to `127.0.0.1` through the phone's proxy, which cannot
+reach the game's server on the phone, so loading used to stall for minutes
+(working only in airplane mode). The app now sends the game's requests to its
+own server directly; everything else still uses the phone's proxy.
+
 ## Keep your saves
 
 Stop the server and use **⋮ → Export save backup** before uninstalling or clearing

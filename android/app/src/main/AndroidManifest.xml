@@ -17,6 +17,8 @@
             </intent-filter>
         </activity>
         <activity android:name=".ToolsActivity" android:process=":lunar_server" android:exported="false" android:resizeableActivity="true" android:enableOnBackInvokedCallback="true" />
+        <!-- Runs in the game's process at start: its loopback requests skip any phone proxy (VPN apps). -->
+        <provider android:name=".LoopbackProxyProvider" android:authorities="${applicationId}.lunar_loopback" android:exported="false" />
         <service android:name=".ServerService" android:process=":lunar_server" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started offline game preservation server. Serves local game requests and assets on loopback while the user plays in another app; also imports user-selected local game files. Stops on user request." />

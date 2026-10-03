@@ -1,5 +1,29 @@
 # Validation
 
+## Proxy stall and Android 17 archive import — 2026-10-03
+
+- Report: on a OnePlus 13, entering the game sat at 20% for minutes unless
+  the phone was in airplane mode. Reproduced on an Android 17 emulator with
+  Google Play services and the full game files, with an HTTP proxy set that
+  cannot reach the phone's loopback (as a VPN or accelerator app would be):
+  loading stopped at 60% and showed "Failed to connect. Retrying." for over
+  three minutes, while the game's asset requests to 127.0.0.1:8080 and its
+  Facebook SDK requests to 127.0.0.1:3000 arrived at the proxy and were retried
+  every 10 seconds (Octo's stall timeout). Without the proxy the same game
+  loaded in about 20 seconds.
+- Fix: a provider created in the game's process at start installs a proxy
+  selector that sends loopback addresses directly and keeps the phone's proxy
+  for everything else, and reinstalls it when Android replaces it. With the
+  same proxy, the fixed build loaded to player registration in about 12
+  seconds and no loopback request reached the proxy. Checked for both the
+  command-line build and the web builder's APK.
+- Android 17 refused to reopen a picked archive through /proc/self/fd
+  ("permission denied"). The import now reads the descriptor Android opened,
+  with positioned reads shared by the unpacking workers. A Go test imports an
+  archive whose file was deleted after opening. On the Android 17 emulator the
+  real 15 GB .7z imported 20.91 GB in about 11 minutes, with the progress bar
+  following the real progress.
+
 ## Archive import and use in place — 2026-10-03
 
 - Go tests: a .7z of the dump unpacks only revision 0 and decompresses only

@@ -39,7 +39,7 @@ MASTER = "20240404193219.bin.e"
 LIB, METADATA = "lib/arm64-v8a/libil2cpp.so", "assets/bin/Data/Managed/Metadata/global-metadata.dat"
 
 # Android attribute resource IDs (stable across platform versions).
-NAME, VALUE, THEME = 0x01010003, 0x01010024, 0x01010000
+NAME, VALUE, THEME, AUTHORITIES = 0x01010003, 0x01010024, 0x01010000, 0x01010018
 MIN_SDK, EXTRACT_NATIVE, CLEARTEXT, PAGE_SIZE_COMPAT = 0x0101020C, 0x010104EA, 0x010104EC, 0x010106AB
 THEME_MATERIAL_LIGHT_NO_ACTION_BAR = 0x01030241
 PAGE_SIZE_COMPAT_ENABLED = 32
@@ -119,9 +119,11 @@ def patch_manifest(game_manifest, companion_manifest):
     app.children.append(Element("meta-data", [Attr.string("name", "org.lunartear.GAME_ACTIVITY", NAME),
                                               Attr.string("value", game_activity, VALUE)]))
     for source in companion.find_all("application")[0].children:
-        if isinstance(source, Element) and source.name in ("activity", "service"):
+        if isinstance(source, Element) and source.name in ("activity", "service", "provider"):
             if source.name == "activity":
                 source.set(Attr.reference("theme", THEME_MATERIAL_LIGHT_NO_ACTION_BAR, THEME))
+            if source.name == "provider":  # Authorities are unique per device: use the game's.
+                source.set(Attr.string("authorities", PACKAGE + ".lunar_loopback", AUTHORITIES))
             app.children.append(source)
     return axml.serialize(doc), game_activity
 

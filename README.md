@@ -213,6 +213,8 @@ automatically. On iOS, sign with the same bundle ID. Either way, export a save b
 | `Missing the iOS SDK` | Install Xcode and open it once. |
 | `Install Python 3.13` | Run `uv python install 3.13`. |
 | The new APK will not install over the old one | It was signed with a different key. Build with `--keystore` pointing to your original key. |
+| Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly; rebuild, or turn the app off while playing. |
+| Android 17: importing a `.7z` fails with `open /proc/self/fd/…: permission denied` | Fixed in builds from 2026-10-03 on; rebuild, or choose an extracted folder instead. |
 
 More detail: [Android setup guide](docs/BUILD.md) and [iOS guide](docs/IOS.md).
 
