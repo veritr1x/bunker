@@ -16,7 +16,7 @@
   unpacked 20.96 GB in about 6½ minutes; the archive was removed and the game
   started.
 - iPad, use in place: a copy of the game files in On My iPad (outside NieR)
-  was chosen with Choose game files › Extracted folder: use in place. NieR's
+  was chosen with Game files › Change › Extracted folder: use in place. NieR's
   revisions/0 became a link and its own copy was removed. After a cold
   relaunch the saved bookmark reopened the folder, the game reached its title
   screen and loaded into the 3D world from the linked files.

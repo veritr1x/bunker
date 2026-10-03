@@ -44,7 +44,7 @@ Open **⋮ → Tools** for content presets, inventory, upgrades, and save backup
 ## Play on iPhone or iPad
 
 1. Install your locally built and signed IPA.
-2. Open it and tap **Choose game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
+2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play.
 
 Tap **⋮** for server control, master-data import, save backup and restore, the server log, help and about.
@@ -182,7 +182,7 @@ it when you copy files into the app with Finder, which skips the app's own impor
 
 1. Install the IPA (step 4).
 2. Open **NieR**. The launcher appears because the game files are missing.
-3. Tap **Choose game files**, then **Archive (.7z or .zip)** and pick `resource_dump_ios.7z`, or an
+3. Under **Game files**, tap **Choose**, then **Archive (.7z or .zip)** and pick `resource_dump_ios.7z`, or an
    **Extracted folder** option and pick the extracted folder (the one
    containing `revisions`) from Files, iCloud Drive or a USB drive. Allow about 25 GB free besides
    the archive. A folder already inside NieR's own files (copied in with Finder) is moved

@@ -650,7 +650,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
 
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UILabel *files, *server, *detail;
-@property(nonatomic, strong) UIButton *choose, *check, *back, *more, *quit;
+@property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit;
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) UIProgressView *bar;
@@ -670,7 +670,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     label.adjustsFontForContentSizeCategory = YES;
     return label;
 }
-- (UIView *)card:(NSInteger)number title:(NSString *)title status:(UILabel *)status {
+- (UIView *)card:(NSInteger)number title:(NSString *)title status:(UILabel *)status accessory:(UIView *)accessory {
     UIView *card = [UIView new];
     card.backgroundColor = UIColor.whiteColor;
     card.layer.cornerRadius = 20;
@@ -682,7 +682,8 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     UIStackView *text = [[UIStackView alloc] initWithArrangedSubviews:@[[self label:title size:18 color:Ink() bold:YES], status]];
     text.axis = UILayoutConstraintAxisVertical;
     text.spacing = 4;
-    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[badge, text]];
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:accessory ? @[badge, text, accessory] : @[badge, text]];
+    [text setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
     row.spacing = 16;
     row.alignment = UIStackViewAlignmentCenter;
     row.translatesAutoresizingMaskIntoConstraints = NO;
@@ -715,7 +716,20 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     self.detail = [self label:@"" size:14 color:Muted() bold:NO];
     UILabel *title = [self label:@"Lunar Tear" size:30 color:Ink() bold:NO];
     title.font = [UIFont fontWithName:@"Georgia" size:30] ?: title.font;
-    self.choose = [self button:@"Choose game files" primary:YES action:@selector(chooseOrCancel)];
+    // Like Android: a small Choose / Change button inside the Game files card.
+    self.choose = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.choose setTitle:@"Choose" forState:UIControlStateNormal];
+    self.choose.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    [self.choose setTitleColor:Green() forState:UIControlStateNormal];
+    self.choose.backgroundColor = [UIColor colorWithRed:0.93 green:0.94 blue:0.91 alpha:1];
+    self.choose.layer.cornerRadius = 12;
+    self.choose.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+    self.choose.accessibilityLabel = @"Choose game files";
+    [self.choose.heightAnchor constraintEqualToConstant:48].active = YES;
+    [self.choose setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [self.choose setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [self.choose addTarget:self action:@selector(chooseOrCancel) forControlEvents:UIControlEventTouchUpInside];
+    self.cancel = [self button:@"Cancel import" primary:YES action:@selector(chooseOrCancel)];
     self.check = [self button:@"Check again" primary:NO action:@selector(retry)];
     self.back = [self button:@"Back to game" primary:YES action:@selector(close)];
     self.quit = [self button:@"Close game" primary:YES action:@selector(quitGame)];
@@ -739,8 +753,9 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     self.bar.clipsToBounds = YES;
     self.bar.hidden = YES;
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
-        header, [self card:1 title:@"Game files" status:self.files], [self card:2 title:@"Server" status:self.server],
-        self.detail, self.bar, self.spinner, self.back, self.quit, self.choose, self.check]];
+        header, [self card:1 title:@"Game files" status:self.files accessory:self.choose],
+        [self card:2 title:@"Server" status:self.server accessory:nil],
+        self.detail, self.bar, self.spinner, self.back, self.quit, self.cancel, self.check]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 14;
     [stack setCustomSpacing:24 afterView:header];
@@ -768,7 +783,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 - (void)refresh {
     BOOL catalog = HasCatalog(), master = FileSize(MasterPath()) > 0;
     self.files.text = gImporting ? @"Importing…" : catalog && master ? @"Ready" : catalog ? @"Master data missing" : @"Choose your game files";
-    [self.choose setTitle:gImporting ? @"Cancel import" : catalog ? @"Change game files" : @"Choose game files" forState:UIControlStateNormal];
+    [self.choose setTitle:catalog ? @"Change" : @"Choose" forState:UIControlStateNormal];
     self.check.enabled = !gImporting;
     BOOL measured = gImporting && gImportFraction >= 0;
     self.bar.hidden = !measured;
@@ -783,7 +798,8 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     self.back.hidden = !running || gImporting;
     self.quit.hidden = !gRestartNeeded;
     self.check.hidden = running || gRestartNeeded || gToolsOpen;
-    self.choose.hidden = gRestartNeeded || gToolsOpen;
+    self.choose.hidden = gImporting || gRestartNeeded || gToolsOpen;
+    self.cancel.hidden = !gImporting;
     self.more.menu = [self optionsMenu:running];
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
     self.detail.text = gMessage.length ? gMessage : [NSString stringWithFormat:

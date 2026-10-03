@@ -69,7 +69,7 @@ yourself:
 
 Then put the 20 GB of files on the device in one of these ways:
 
-- **Choose game files** on the launcher screen, then the same three options as
+- **Choose** under **Game files** on the launcher screen, then the same three options as
   on Android. Pick the `.7z`, or the
   extracted folder (the one containing `revisions`), from Files, iCloud Drive or
   a USB drive. Only revision 0 is used, so a full extraction works too. A split
