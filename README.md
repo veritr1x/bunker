@@ -26,7 +26,9 @@ Limitations:
 - **The Android web build has no in-game Facebook account link**, because that patch needs a
   decompiler. Offline play, Tools and save backup and import all work. The iOS web build is the
   same as the command-line build.
-- **Preparing the 21 GB game files still needs a computer with Python** (step 5 below).
+- **You extract the resource dump yourself.** On Android, an app such as ZArchiver can extract
+  it on the phone, so the whole flow works without a computer. iPhone and iPad need a 7z app,
+  and sideloading the IPA usually needs a computer once.
 
 To build everything locally instead, follow the step-by-step guide below.
 
@@ -133,40 +135,48 @@ Result: an unsigned `artifacts/game-Offline.ipa`. Install it with Sideloadly or
 AltStore and your Apple ID, or sign it with your own Apple developer team as described in
 [iOS](docs/IOS.md#build).
 
-### 5. Prepare the game files (about 21 GB)
+### 5. Extract the game files (about 21 GB)
 
-Extract the dump for your platform, then copy out the part the game needs:
+The game needs only `revisions/0` of the dump; the other 817 revisions are 28 GB of old
+catalogs. Extract just that folder:
 
 ```sh
 # Android
-7zz x ~/Downloads/resource_dump_android.7z -o"$HOME/Downloads/android-dump"
-python3.11 scripts/prepare_assets.py --source ~/Downloads/android-dump --output phone-assets/android/assets
+7zz x ~/Downloads/resource_dump_android.7z 'revisions/0/*' -o"$HOME/Downloads/android-dump"
 
 # iPhone/iPad
-7zz x ~/Downloads/resource_dump_ios.7z -o"$HOME/Downloads/ios-dump"
-python3.11 scripts/prepare_assets.py --source ~/Downloads/ios-dump --output phone-assets/ios/assets
+7zz x ~/Downloads/resource_dump_ios.7z 'revisions/0/*' -o"$HOME/Downloads/ios-dump"
 ```
 
+Or extract on the phone itself, for example with ZArchiver on Android: open the `.7z` and extract
+the `revisions/0` folder. A full extraction also works, since the app copies only revision 0,
+but it needs about 49 GB free while extracting.
+
 Android and iOS files are not interchangeable; use the matching dump.
+
+Optional: `python3.11 scripts/prepare_assets.py --source ~/Downloads/android-dump --output
+phone-assets/android/assets` turns the extraction into a ready `assets` folder and checks it. Use
+it when you copy files into the app with Finder, which skips the app's own import.
 
 ### 6. Install and play
 
 **Android (9 or later, ARM64):**
 
-1. Copy `phone-assets/android/assets` to the phone, for example into `Download/assets`, with
-   a USB cable or `adb push phone-assets/android/assets /sdcard/Download/assets`.
+1. Put the extracted folder on the phone, for example `Download/android-dump`: extract it there,
+   or copy it with a USB cable or `adb push ~/Downloads/android-dump /sdcard/Download/android-dump`.
 2. Install the APK: open it on the phone, or run `adb install artifacts/game-Offline.apk`.
-3. Open the installed app, tap **Choose** and select the copied `assets` folder.
-   A progress bar shows the time left.
+3. Open the installed app, tap **Choose** and select that folder (the one containing `revisions`).
+   It copies revision 0 into the app; a progress bar shows the time left. You can delete the
+   extracted folder afterwards.
 4. Tap **Play**. The server starts on the phone and the game opens.
 
 **iPhone/iPad (iOS 14 or later):**
 
 1. Install the IPA (step 4).
 2. Open **NieR**. The launcher appears because the game files are missing.
-3. Tap **Choose assets folder** and pick `phone-assets/ios/assets` after copying it to the device
-   (Files, iCloud Drive or a USB drive), or drag `assets` onto NieR in Finder (your device ›
-   Files) and tap **Check again**. Allow about 25 GB free.
+3. Tap **Choose assets folder** and pick the extracted folder (the one containing `revisions`)
+   from Files, iCloud Drive or a USB drive. Allow about 25 GB free. To use Finder instead,
+   drag a prepared `assets` folder (step 5) onto NieR (your device › Files) and tap **Check again**.
 4. The server starts inside the game. Three-finger double-tap opens the launcher during play.
 
 ### 7. Update later

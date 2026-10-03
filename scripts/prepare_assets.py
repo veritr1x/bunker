@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Copy revision 0 of an extracted Android dump into a phone-ready assets folder.
+"""Copy revision 0 of an extracted dump into a ready assets folder (optional).
 
-The tested resource_dump_android archive already has its complete resource set
-in revision 0. Historical catalogs are unnecessary for this pinned server.
-The input is only read; the output must be a new directory.
+The apps' own import already copies only revision 0 from an extracted dump, so
+this is needed only to make a smaller folder to copy, or one to drag into the
+iOS app with Finder (which skips the app's import). The tested dumps have their
+complete resource set in revision 0; the other revisions are old catalogs this
+pinned server never reads. The input is only read; the output must be a new
+directory.
 """
 import argparse
 import json

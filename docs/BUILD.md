@@ -61,22 +61,17 @@ Use this integration's key format (alias `lunar-local`, local-build password
 
 ## 4. Prepare the phone's game files
 
-Extract `resource_dump_android.7z` with a 7z extractor. Locate the extracted
-`assets` folder containing `revisions/0`. Then run:
+Extract `revisions/0` from `resource_dump_android.7z` with a 7z extractor, on
+the computer (`7zz x resource_dump_android.7z 'revisions/0/*' -oandroid-dump`)
+or on the phone (for example ZArchiver). Only revision 0 is used: the server
+always serves it, and the dump's 817 other revisions are 28 GB of old catalogs.
+Put the extracted folder on the phone and choose it in the launcher; it copies
+revision 0 only, so a full extraction works too.
 
-```sh
-python3.11 scripts/prepare_assets.py --source /path/to/extracted/assets
-```
-
-Copy the resulting **`phone-assets/assets`** folder to the phone, for example
-`Documents/LunarTear/assets`. Keep `.nomedia` and the folder structure intact.
-The tested dump produces about 20.9 GB. The script copies revision 0 and leaves
-your extraction unchanged; its historical catalogs are not needed by this
-pinned server. Dumps that reference assets in other revisions need separate
-preparation and are rejected by this helper.
-
-If you already have the prepared `assets` folder from this project, copy it
-directly. Allow at least 50 GB free on the phone during import; the game's cache
+The import refuses a dump whose revision 0 points at files in other revisions;
+the tested dump does not. `scripts/prepare_assets.py --source <extracted folder>`
+is optional: it writes a checked, ready `phone-assets/assets` folder with only
+revision 0, which is smaller to copy. Its output is about 20.9 GB. Allow at least 50 GB free on the phone during import; the game's cache
 may need more. Patched master data is already bundled in the APK.
 
 ## 5. Install and play

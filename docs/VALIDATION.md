@@ -50,6 +50,14 @@
   the iPad, it kept the game files and save, reached the title screen and
   opened Tools.
 
+- Raw dump import: none of the four pinned projects reads revisions other than
+  0 (the server serves revision 0 for every request; lunar-base only scans for
+  text bundles, which only revision 0 has). On the Fold, choosing a raw-dump
+  layout (revisions/0 with the real files, plus catalog-only revisions 1-3)
+  copied 20.91 GB, revision 0 only, and the game then loaded into a battle. The
+  iOS Simulator check imports a raw-dump folder and a split archive of one,
+  copies only revision 0, and refuses a dump that points at another revision.
+
 Not yet verified on iOS: airplane-mode play, Safari sign-in for an existing
 account, sustained play and battles, iPhone, and the folder picker with a
 20 GB folder.

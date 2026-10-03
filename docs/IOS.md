@@ -58,22 +58,25 @@ Profiles expire; rebuild and reinstall with the same bundle ID to keep saves.
 
 ## Game files
 
-Prepare the iOS resources the same way as Android. iOS needs the iOS dump;
-Android asset bundles do not render on iPhone or iPad.
+iOS needs the iOS dump; Android asset bundles do not render on iPhone or iPad.
+Extract its `revisions/0` folder (only that revision is used):
 
 ```sh
 7zz x resource_dump_ios.7z 'revisions/0/*' -oclient/ios-dump
-python3.11 scripts/prepare_assets.py --source client/ios-dump --output phone-assets/ios/assets
 ```
 
-Then put the 20 GB `assets` folder on the device in one of these ways:
+Then put the 20 GB of files on the device in one of these ways:
 
-- **Choose assets folder** on the launcher screen. Pick the folder from Files,
-  iCloud Drive or a USB drive. The app copies it in, so allow about 25 GB
+- **Choose assets folder** on the launcher screen. Pick the extracted folder
+  (the one containing `revisions`) from Files, iCloud Drive or a USB drive.
+  Only revision 0 is copied, so a full extraction works too. A split `.tar` of
+  it works as well. The app copies it in, so allow about 25 GB
   free. Your current files stay in place until the copy completes. The app
   first counts the files, then shows a progress bar with the time left.
-- Finder: select the device, open **Files**, and drag `assets` onto
-  **NieR**. Then tap **Check again**.
+- Finder: run `python3.11 scripts/prepare_assets.py --source client/ios-dump
+  --output phone-assets/ios/assets`, then select the device, open **Files**, and
+  drag `assets` onto **NieR**. Then tap **Check again**. (Finder skips the
+  app's import, so use the prepared folder.)
 - From a Mac with developer tools:
   `xcrun devicectl device copy to --device <UDID> --domain-type appDataContainer --domain-identifier <bundle ID> --source phone-assets/ios/assets --destination Documents/assets`
 
