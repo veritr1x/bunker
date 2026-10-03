@@ -39,6 +39,7 @@ public final class ToolsActivity extends Activity {
     private int dp(int n){return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        Look.apply(this);
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
         if(!webInitialized){WebView.setDataDirectorySuffix("lunar_tools");webInitialized=true;}
         LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackgroundColor(0xfff4f1e9);

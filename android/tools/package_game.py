@@ -91,16 +91,12 @@ def main():
         for source in companion.findall("application/"+name):
             element=copy.deepcopy(source)
             element.set(attr("name"),"org.lunartear.companion"+element.get(attr("name")))
-            if name=="activity":element.set(attr("theme"),"@style/LunarCompanionTheme")
+            if name=="activity":element.set(attr("theme"),"@android:style/Theme.Material.Light.NoActionBar")
             app.append(element)
     ET.indent(tree,space="    ");tree.write(manifest,encoding="utf-8",xml_declaration=True)
     # The wrapper uses Android 9+ file APIs. Preserve the game's target SDK to
     # avoid changing Unity's behavior; raise only its minimum supported version.
     yml=game/"apktool.yml";yml.write_text(re.sub(r"minSdkVersion: \d+","minSdkVersion: 28",yml.read_text()))
-    res=root/"android/app/src/main/res"
-    (game/"res/drawable").mkdir(parents=True,exist_ok=True)
-    shutil.copy2(res/"drawable/lunar_companion_moon.xml",game/"res/drawable/lunar_companion_moon.xml")
-    shutil.copy2(res/"values/styles.xml",game/"res/values/lunar_companion_styles.xml")
     with zipfile.ZipFile(args.companion_apk) as source:
         for name in source.namelist():
             if name.startswith(("assets/lunar/", "assets/chaquopy/", "lib/arm64-v8a/")):

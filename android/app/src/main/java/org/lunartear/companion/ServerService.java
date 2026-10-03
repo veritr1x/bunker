@@ -41,7 +41,7 @@ public final class ServerService extends Service {
     private Notification notification() {
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ServerService.class).setAction(STOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(getResources().getIdentifier("lunar_companion_moon","drawable",getPackageName())).setContentTitle("Lunar Tear · "+state)
+        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(Look.moon()).setContentTitle("Lunar Tear · "+state)
             .setContentText(detail).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(new Notification.Action.Builder(null,busy?"Cancel":"Stop server",stop).build());
         if(busy&&permille>=0)builder.setProgress(1000,permille,false).setStyle(new Notification.BigTextStyle().bigText(detail));

@@ -67,6 +67,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        Look.apply(this);
         autoAttempted=state!=null?state.getBoolean("attempted"):getIntent().getBooleanExtra("manage",false);
         launchWhenReady=state!=null?state.getBoolean("launch"):!getIntent().getBooleanExtra("manage",false);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(0xfff4f1e9);
