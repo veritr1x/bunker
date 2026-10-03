@@ -28,6 +28,11 @@ func LunarPrepareBackup(root *C.char) *C.char {
 	return C.CString(mobile.PrepareBackup(C.GoString(root)))
 }
 
+//export LunarImportSaves
+func LunarImportSaves(data, source *C.char) *C.char {
+	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))
+}
+
 //export LunarEdit
 func LunarEdit(data, assets, request *C.char) *C.char {
 	return C.CString(mobile.Edit(C.GoString(data), C.GoString(assets), C.GoString(request)))

@@ -8,5 +8,6 @@ public final class NativeBridge {
     public static native String status();
     public static native String checkDatabase(String directory);
     public static native String prepareBackup(String directory);
+    public static native String importSaves(String dataDirectory, String source);
     public static native String edit(String dataDirectory, String assetDirectory, String request);
 }

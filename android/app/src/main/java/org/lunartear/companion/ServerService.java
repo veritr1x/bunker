@@ -10,8 +10,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class ServerService extends Service {
-    static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools";
+    static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools", SAVE="save";
     static volatile boolean running=false, busy=false, tools=false;
+    // Import progress, 0-1000, or -1 when there is no measured copy in progress.
+    static volatile int permille=-1;
     static volatile String state="Server stopped", detail="Import your game files to get started.";
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final Handler main=new Handler(Looper.getMainLooper());
@@ -39,9 +41,11 @@ public final class ServerService extends Service {
     private Notification notification() {
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ServerService.class).setAction(STOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        return new Notification.Builder(this,"server").setSmallIcon(getResources().getIdentifier("lunar_companion_moon","drawable",getPackageName())).setContentTitle("Lunar Tear · "+state)
+        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(getResources().getIdentifier("lunar_companion_moon","drawable",getPackageName())).setContentTitle("Lunar Tear · "+state)
             .setContentText(detail).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(new Notification.Action.Builder(null,busy?"Cancel":"Stop server",stop).build()).build();
+            .addAction(new Notification.Action.Builder(null,busy?"Cancel":"Stop server",stop).build());
+        if(busy&&permille>=0)builder.setProgress(1000,permille,false).setStyle(new Notification.BigTextStyle().bigText(detail));
+        return builder.build();
     }
     private void update(String message) {
         detail=message;
@@ -63,11 +67,7 @@ public final class ServerService extends Service {
                     NativeBridge.stop();running=false;
                     String error=NativeBridge.prepareBackup(FilesStore.data(this).getAbsolutePath());
                     if(!error.isEmpty())throw new IllegalStateException(error);
-                    // Tools has its own activity in this service process. Close the
-                    // paused Unity process so its cached save/master cannot survive edits.
-                    ActivityManager manager=getSystemService(ActivityManager.class);
-                    for(ActivityManager.RunningAppProcessInfo process:manager.getRunningAppProcesses())
-                        if(process.uid==android.os.Process.myUid()&&process.pid!=android.os.Process.myPid()&&process.processName.equals(getPackageName()))android.os.Process.killProcess(process.pid);
+                    closeGame();
                     ToolsRuntime.start(this,this::update);
                     if(cancelled){ToolsRuntime.stop();tools=false;state="Server stopped";}
                     else {state="Tools ready";detail="Close Tools to return to the game.";}
@@ -93,8 +93,8 @@ public final class ServerService extends Service {
             return START_NOT_STICKY;
         }
         if(busy||running||tools) return START_NOT_STICKY;
-        busy=true; cancelled=false;
-        state=START.equals(action)?"Starting server":BACKUP.equals(action)?"Exporting saves":"Importing files";
+        busy=true; cancelled=false; permille=-1;
+        state=START.equals(action)?"Starting server":BACKUP.equals(action)?"Exporting saves":SAVE.equals(action)?"Importing save":"Importing files";
         detail=START.equals(action)?"Loading game data…":"Keep the source files available until this finishes.";
         if(Build.VERSION.SDK_INT>=34) startForeground(1,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(1,notification());
@@ -114,25 +114,35 @@ public final class ServerService extends Service {
                     FilesStore.Progress progress=new FilesStore.Progress(){
                         public void update(String text){ServerService.this.update(text);}
                         public boolean cancelled(){return cancelled;}
+                        public void fraction(int value){permille=value;}
                     };
                     if(ASSETS.equals(action)) FilesStore.importAssets(this,uri,progress);
                     else if(MASTER.equals(action)) FilesStore.importMaster(this,uri,progress);
                     else if(BACKUP.equals(action)) FilesStore.backup(this,uri);
+                    else if(SAVE.equals(action)) { FilesStore.importSave(this,uri); closeGame(); }
                     else throw new IllegalArgumentException("Unknown operation");
-                    state=BACKUP.equals(action)?"Saves exported":"Import complete";
-                    detail=BACKUP.equals(action)?"Keep your backup somewhere safe.":FilesStore.ready(this)?"Your files are ready. Start the server when you want to play.":"Import the remaining game files to continue.";
+                    state=BACKUP.equals(action)?"Saves exported":SAVE.equals(action)?"Save imported":"Import complete";
+                    detail=BACKUP.equals(action)?"Keep your backup somewhere safe.":SAVE.equals(action)?"Save imported. Tap Play to continue with it.":FilesStore.ready(this)?"Your files are ready. Start the server when you want to play.":"Import the remaining game files to continue.";
                 }
             } catch(Exception|LinkageError error) {
                 running=false;state=cancelled?"Operation cancelled":"Needs attention";
                 detail=error.getMessage()==null?error.toString():error.getMessage();
                 android.util.Log.e("LunarTear",detail,error);
             } finally {
-                busy=false;
+                busy=false; permille=-1;
                 if(running) getSystemService(NotificationManager.class).notify(1,notification());
                 else finishForeground();
             }
         });
         return START_NOT_STICKY;
+    }
+    // The launcher, Tools and this service share a process apart from the game.
+    // Close the paused Unity process so its cached save/master cannot survive
+    // the change.
+    private void closeGame() {
+        ActivityManager manager=getSystemService(ActivityManager.class);
+        for(ActivityManager.RunningAppProcessInfo process:manager.getRunningAppProcesses())
+            if(process.uid==android.os.Process.myUid()&&process.pid!=android.os.Process.myPid()&&process.processName.equals(getPackageName()))android.os.Process.killProcess(process.pid);
     }
     private void finishForeground() {
         if(wake!=null&&wake.isHeld())wake.release();
@@ -151,7 +161,7 @@ public final class ServerService extends Service {
     private final Messenger messenger=new Messenger(new Handler(Looper.getMainLooper(),message->{
         if(message.replyTo!=null) {
             Message reply=Message.obtain(null,message.what);
-            Bundle b=new Bundle();b.putBoolean("running",running);b.putBoolean("busy",busy);b.putBoolean("tools",tools);b.putString("state",state);b.putString("detail",detail);
+            Bundle b=new Bundle();b.putBoolean("running",running);b.putBoolean("busy",busy);b.putBoolean("tools",tools);b.putInt("permille",permille);b.putString("state",state);b.putString("detail",detail);
             if(message.what==2) { try { b.putString("native",NativeBridge.status()); } catch(Throwable e){b.putString("native","{\"logs\":\"Native server unavailable\"}");} }
             reply.setData(b);try{message.replyTo.send(reply);}catch(RemoteException ignored){}
         }

@@ -54,3 +54,11 @@ JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_edit(JNIEnv 
     if (r) (*env)->ReleaseStringUTFChars(env, request, r);
     return result(env, value);
 }
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importSaves(JNIEnv *env, jclass type, jstring data, jstring source) {
+    const char *d = (*env)->GetStringUTFChars(env, data, NULL);
+    const char *s = (*env)->GetStringUTFChars(env, source, NULL);
+    char *error = d && s ? LunarImportSaves((char *)d, (char *)s) : NULL;
+    if (d) (*env)->ReleaseStringUTFChars(env, data, d);
+    if (s) (*env)->ReleaseStringUTFChars(env, source, s);
+    return result(env, error);
+}

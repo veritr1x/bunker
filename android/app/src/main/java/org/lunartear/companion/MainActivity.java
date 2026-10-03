@@ -21,19 +21,20 @@ import java.util.Date;
 import java.util.Locale;
 
 public final class MainActivity extends Activity {
-    private static final int ASSETS=10, MASTER=11, BACKUP=12;
+    private static final int ASSETS=10, MASTER=11, BACKUP=12, SAVE=13;
     private static final int INK=0xff303630, MUTED=0xff6a6d63, GREEN=0xff536554;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,detail,files;
     private Button assetButton;
     private LinearLayout play;
-    private ProgressBar progress;
+    private ProgressBar progress,bar;
+    private int permille=-1;
     private String last="";
     private boolean running=false,busy=false,tools=false,bound=false,autoAttempted=false,launchWhenReady=true,foreground=false;
     private String serverState="Server stopped",serverDetail="Import your game files to get started.";
     private Messenger service;
     private final Messenger replies=new Messenger(new Handler(Looper.getMainLooper(),message->{
-        Bundle b=message.getData();running=b.getBoolean("running");busy=b.getBoolean("busy");tools=b.getBoolean("tools");serverState=b.getString("state","");serverDetail=b.getString("detail","");
+        Bundle b=message.getData();running=b.getBoolean("running");busy=b.getBoolean("busy");tools=b.getBoolean("tools");permille=b.getInt("permille",-1);serverState=b.getString("state","");serverDetail=b.getString("detail","");
         refresh();
         if(message.what==2) displayLog(b.getString("native","{}"));
         if(foreground&&running&&!tools&&launchWhenReady){launchWhenReady=false;openGame();}
@@ -89,6 +90,8 @@ public final class MainActivity extends Activity {
         for(int i=0;i<play.getChildCount();i++)play.getChildAt(i).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         play.setAccessibilityDelegate(new View.AccessibilityDelegate(){@Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info){super.onInitializeAccessibilityNodeInfo(host,info);info.setClassName(Button.class.getName());}});
         detail=text("",13,MUTED);detail.setPadding(dp(4),dp(4),dp(4),0);body.addView(detail);
+        bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(1000);bar.setProgressTintList(ColorStateList.valueOf(GREEN));bar.setProgressBackgroundTintList(ColorStateList.valueOf(0xffdcdfd4));bar.setVisibility(View.GONE);
+        LinearLayout.LayoutParams barParams=new LinearLayout.LayoutParams(-1,dp(12));barParams.setMargins(dp(4),dp(8),dp(4),0);body.addView(bar,barParams);
         setContentView(scroll);
         refresh();
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
@@ -107,18 +110,23 @@ public final class MainActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("attempted",autoAttempted);out.putBoolean("launch",launchWhenReady);super.onSaveInstanceState(out);}
     private void refresh(){
         boolean hasAssets=FilesStore.list(this).length()>0,hasMaster=FilesStore.master(this).length()>0,ready=hasAssets&&hasMaster;
-        String key=serverState+serverDetail+busy+running+tools+hasAssets+hasMaster;
+        String key=serverState+serverDetail+busy+running+tools+hasAssets+hasMaster+permille;
         if(key.equals(last))return;last=key;
         boolean importing=busy&&"Importing files".equals(serverState);
         files.setText(importing?"Importing…":hasAssets?"Ready":"Choose assets folder");
         assetButton.setText(hasAssets?"Change":"Choose");assetButton.setVisibility(running?View.GONE:View.VISIBLE);assetButton.setEnabled(!busy&&!running&&!tools);assetButton.setAlpha(assetButton.isEnabled()?1f:.45f);
         status.setText(tools?"Tools open":"Stopping".equals(serverState)&&busy?"Stopping…":running?"Running":"Starting server".equals(serverState)&&busy?"Starting…":ready?"Ready":"Waiting for files");
-        progress.setVisibility(busy?View.VISIBLE:View.GONE);
+        boolean measured=importing&&permille>=0;
+        // A measured copy shows the bar with time left; anything else, the spinner.
+        progress.setVisibility(busy&&!measured?View.VISIBLE:View.GONE);
+        bar.setVisibility(measured?View.VISIBLE:View.GONE);
+        if(measured)bar.setProgress(permille,true);
         play.setEnabled(!busy&&!tools&&ready);play.setAlpha(play.isEnabled()?1f:.45f);
         String message="";
         if("Needs attention".equals(serverState)||"Operation cancelled".equals(serverState))message=serverDetail;
         else if(busy&&!"Starting server".equals(serverState)&&!"Stopping".equals(serverState))message=serverDetail;
         else if("Saves exported".equals(serverState))message="Backup saved.";
+        else if("Save imported".equals(serverState))message=serverDetail;
         else if(hasAssets&&!hasMaster)message="Import master data from the ⋮ menu.";
         else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty()&&!serverDetail.equals("Import your game files to get started.")&&!serverDetail.equals("Tap Play to restart.")&&!serverDetail.equals("Your saves are stored on this phone."))message=serverDetail;
         detail.setText(message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);
@@ -132,6 +140,7 @@ public final class MainActivity extends Activity {
         if(running||busy)menu.add(0,1,0,busy?"Cancel operation":"Stop server");
         menu.add(0,2,1,"Import master data").setEnabled(!busy&&!running&&!tools);
         menu.add(0,3,2,"Export save backup").setEnabled(!busy&&!running&&!tools&&new File(FilesStore.data(this),"game.db").isFile());
+        menu.add(0,9,2,"Import save backup").setEnabled(!busy&&!running&&!tools);
         menu.add(0,4,3,"Server log");menu.add(0,5,4,"App settings");menu.add(0,6,5,"Help");menu.add(0,7,6,"About");
         popup.setOnMenuItemClickListener(item->{switch(item.getItemId()){
             case 1: autoAttempted=true;launchWhenReady=false;run(ServerService.STOP,null);break;
@@ -141,9 +150,17 @@ public final class MainActivity extends Activity {
             case 5: startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));break;
             case 6: help();break;
             case 7: new AlertDialog.Builder(this).setTitle("Lunar Tear").setMessage("Offline companion · 0.1.0\nBased on Lunar Tear by Walter-Sparrow.\nMIT License · Copyright 2026 Ilya Groshev.").setPositiveButton("Close",null).show();break;
+            case 9: confirmSaveImport();break;
             case 8: autoAttempted=true;launchWhenReady=false;startActivity(new Intent(this,ToolsActivity.class));break;
             default: return false;
         }return true;});popup.show();
+    }
+    private void confirmSaveImport(){
+        new AlertDialog.Builder(this).setTitle("Import a save backup?")
+            .setMessage("This replaces the save on this phone with the backup you choose: a ZIP from Export save backup (on Android or iPhone), or a game.db file. Your current save is kept as a safety copy.")
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Choose backup",(dialog,which)->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,SAVE);})
+            .show();
     }
     private void run(String action,Uri uri){
         Intent intent=new Intent(this,ServerService.class).setAction(action);if(uri!=null)intent.setData(uri);
@@ -161,7 +178,7 @@ public final class MainActivity extends Activity {
         else startActivity(intent);
     }
     private void help(){
-        new AlertDialog.Builder(this).setTitle("Help").setMessage("Choose the extracted assets folder once. Master data is already included. The server starts and the game opens automatically when your files are ready.\n\nTap the server notification to return here. Stop the server from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage.\n\nIf Samsung pauses the server, set Battery usage to Unrestricted in App settings.")
+        new AlertDialog.Builder(this).setTitle("Help").setMessage("Choose the extracted assets folder once. Master data is already included. The server starts and the game opens automatically when your files are ready.\n\nTap the server notification to return here. Stop the server from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage. Import save backup restores one, from this phone, another phone or an iPhone.\n\nIf Samsung pauses the server, set Battery usage to Unrestricted in App settings.")
             .setPositiveButton("Close",null).show();
     }
     private void showLog(){query(2);}
@@ -176,6 +193,6 @@ public final class MainActivity extends Activity {
         super.onActivityResult(code,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();
         if(code==ASSETS||code==MASTER){try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}}
-        if(code==ASSETS)run(ServerService.ASSETS,uri);else if(code==MASTER)run(ServerService.MASTER,uri);else if(code==BACKUP)run(ServerService.BACKUP,uri);
+        if(code==ASSETS)run(ServerService.ASSETS,uri);else if(code==MASTER)run(ServerService.MASTER,uri);else if(code==BACKUP)run(ServerService.BACKUP,uri);else if(code==SAVE)run(ServerService.SAVE,uri);
     }
 }
