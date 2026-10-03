@@ -77,7 +77,7 @@ uv python install 3.13
 ### 3. Get the code
 
 ```sh
-git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one-android.git lunar-tear-all-in-one
+git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one.git
 cd lunar-tear-all-in-one
 ```
 

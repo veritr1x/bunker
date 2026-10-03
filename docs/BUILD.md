@@ -30,7 +30,7 @@ Python 3.13 instead of the Android tools.
 ## 3. Clone and build
 
 ```sh
-git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one-android.git lunar-tear-all-in-one
+git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one.git
 cd lunar-tear-all-in-one
 python3.11 scripts/build.py \
   --apk /path/to/original-game.apk \
