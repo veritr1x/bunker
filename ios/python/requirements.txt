@@ -1,0 +1,14 @@
+# Pure Python packages bundled into the iOS app for Tools. Versions match the
+# Android build where it pins them; the rest are the resolved dependencies.
+fastapi==0.115.14
+pydantic==1.10.22
+uvicorn==0.34.3
+jinja2==3.1.6
+python-multipart==0.0.20
+starlette==0.46.2
+anyio==4.15.1
+idna==3.20
+click==8.5.0
+h11==0.16.0
+markupsafe==3.0.4
+typing_extensions==4.16.0

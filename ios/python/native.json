@@ -1,0 +1,10 @@
+{
+  "python": {
+    "url": "https://github.com/beeware/Python-Apple-support/releases/download/3.13-b15/Python-3.13-iOS-support.b15.tar.gz",
+    "sha256": "80175765a31babe43b0910395cf86ba4e8412adf1902b069d55b74d523ecc5d1"
+  },
+  "packages": {
+    "lz4": {"version": "4.3.2", "sha256": "e1431d84a9cfb23e6773e72078ce8e65cad6745816d4cbf9ae67da5ea419acda"},
+    "pycryptodome": {"version": "3.21.0", "sha256": "f7787e0d469bdae763b876174cf2e6c0f7be79808af26b1da96f1a64bcf47297"}
+  }
+}
