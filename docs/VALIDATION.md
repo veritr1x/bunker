@@ -15,13 +15,18 @@
 - iPad Pro 11-inch (M4): the real 14.9 GB iOS .7z, imported by the app,
   unpacked 20.96 GB in about 6½ minutes; the archive was removed and the game
   started.
+- iPad, use in place: a copy of the game files in On My iPad (outside NieR)
+  was chosen with Choose game files › Extracted folder: use in place. NieR's
+  revisions/0 became a link and its own copy was removed. After a cold
+  relaunch the saved bookmark reopened the folder, the game reached its title
+  screen and loaded into the 3D world from the linked files.
 - Samsung Galaxy Z Fold: use in place on an extracted folder in Download, with
   All files access, linked the files without copying (the old 21 GB copy was
   freed) and opened Tools. Importing the real 15 GB Android .7z afterwards
   unpacked 20.91 GB in about 15 minutes, and the linked folder's 201,073 files
-  were left intact. The first build's time-left estimate ignored pauses
-  between decompression bursts and showed 100% early; the estimator now
-  counts them.
+  were left intact. The first builds' progress bar showed 100% early:
+  the time-left estimate was built from a partial total read while the archive was still being listed (12.7 of
+  20.9 GB on a Mac). Totals are now published once the listing is complete.
 
 ## iOS — 2026-10-03
 

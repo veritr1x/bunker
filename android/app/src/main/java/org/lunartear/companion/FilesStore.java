@@ -72,7 +72,8 @@ final class FilesStore {
      * this device, then applies that to what remains. Recent samples count most.
      */
     static final class Estimate {
-        final long totalFiles, totalBytes, started;
+        long totalFiles, totalBytes;  // may grow while an archive is still being listed
+        final long started;
         long lastTime, lastFiles, lastBytes;
         double ff, fb, bb, ft, bt, shown;
         double st, sf, sb;  // recent time, files and bytes, including pauses with no progress
@@ -178,6 +179,7 @@ final class FilesStore {
                 long done = state.optLong("done"), total = state.optLong("total"), files = state.optLong("files");
                 if (total <= 0) continue;
                 if (estimate == null) estimate = new Estimate(state.optLong("totalFiles"), total);
+                estimate.totalFiles = state.optLong("totalFiles"); estimate.totalBytes = total;
                 double left = estimate.update(files, done), fraction = estimate.fraction(files, done, left);
                 progress.fraction((int) (fraction * 1000));
                 progress.update(progressText(c, "Unpacking", done, total, fraction, left));

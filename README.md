@@ -44,7 +44,7 @@ Open **⋮ → Tools** for content presets, inventory, upgrades, and save backup
 ## Play on iPhone or iPad
 
 1. Install your locally built and signed IPA.
-2. Open it and tap **Choose assets folder**, then pick the resource dump's `.7z` or an extracted folder (a progress bar shows the time left).
+2. Open it and tap **Choose game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play.
 
 Tap **⋮** for server control, master-data import, save backup and restore, the server log, help and about.
@@ -182,12 +182,13 @@ it when you copy files into the app with Finder, which skips the app's own impor
 
 1. Install the IPA (step 4).
 2. Open **NieR**. The launcher appears because the game files are missing.
-3. Tap **Choose assets folder** and pick `resource_dump_ios.7z` or the extracted folder (the one
+3. Tap **Choose game files**, then **Archive (.7z or .zip)** and pick `resource_dump_ios.7z`, or an
+   **Extracted folder** option and pick the extracted folder (the one
    containing `revisions`) from Files, iCloud Drive or a USB drive. Allow about 25 GB free besides
    the archive. A folder already inside NieR's own files (copied in with Finder) is moved
-   instead of copied, which is instant. For a folder elsewhere, the app asks whether to copy it
-   or **use it in place**, which needs no space but the folder must stay where it is (and a USB
-   drive must stay connected while you play). iCloud Drive folders can only be copied. Finder can also take a prepared `assets` folder (step 5):
+   instead of copied, which is instant. **Extracted folder: use in place** reads a folder
+   elsewhere where it is: it needs no space, but the folder must stay there (and a USB drive
+   must stay connected while you play). iCloud Drive folders can only be copied. Finder can also take a prepared `assets` folder (step 5):
    drag it onto NieR (your device › Files) and tap **Check again**.
 4. The server starts inside the game. Three-finger double-tap opens the launcher during play.
 

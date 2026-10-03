@@ -54,6 +54,13 @@ func ImportProgress() string {
 	return string(b)
 }
 
+// publishTotals sets the import's size once the whole archive is listed, so the
+// launcher never estimates time left from a partial total.
+func publishTotals(bytes, files int64) {
+	importTotalFiles.Store(files)
+	importTotal.Store(bytes)
+}
+
 // CancelImport stops the running import at the next file chunk.
 func CancelImport() { importCancelled.Store(true) }
 
@@ -167,6 +174,7 @@ func extract7z(source, stage string) error {
 	// Group revision 0's files by compressed block; other blocks are skipped.
 	byStream := map[int][]int{}
 	var streams []int
+	var totalBytes, totalFiles int64
 	for i, file := range archive.File {
 		rel, err := revisionPath(file.Name)
 		if err != nil {
@@ -180,10 +188,11 @@ func extract7z(source, stage string) error {
 			streams = append(streams, file.Stream)
 		}
 		byStream[file.Stream] = append(byStream[file.Stream], i)
-		importTotal.Add(int64(file.UncompressedSize))
-		importTotalFiles.Add(1)
+		totalBytes += int64(file.UncompressedSize)
+		totalFiles++
 	}
 	archive.Close()
+	publishTotals(totalBytes, totalFiles)
 
 	work := make(chan int, len(streams))
 	for _, s := range streams {
@@ -242,6 +251,7 @@ func extractZip(source, stage string) error {
 		file *zip.File
 	}
 	var entries []entry
+	var totalBytes int64
 	for _, file := range archive.File {
 		rel, err := revisionPath(file.Name)
 		if err != nil {
@@ -251,9 +261,9 @@ func extractZip(source, stage string) error {
 			continue
 		}
 		entries = append(entries, entry{rel, file})
-		importTotal.Add(int64(file.UncompressedSize64))
-		importTotalFiles.Add(1)
+		totalBytes += int64(file.UncompressedSize64)
 	}
+	publishTotals(totalBytes, int64(len(entries)))
 	for _, en := range entries {
 		if e := writeEntry(stage, en.rel, en.file.Open); e != nil {
 			return e

@@ -115,7 +115,7 @@ static NSString *StartServer(void) {
     EnsureMaster();
     if (!AttachInPlace())
         return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
-    if (!HasCatalog()) return @"Copy the assets folder into this app, then tap Check again.";
+    if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
     return TakeString(LunarStart((char *)gSaves.fileSystemRepresentation, (char *)gServerRoot.fileSystemRepresentation));
 }
 
@@ -535,6 +535,7 @@ static NSString *ImportGoArchive(NSString *path, void (^progress)(NSString *)) {
         unsigned long long files = [state[@"files"] unsignedLongLongValue];
         if (!total) { progress(@"Reading the archive…"); continue; }
         if (!estimate.started) estimate = LTEstimateStart([state[@"totalFiles"] unsignedLongLongValue], total);
+        estimate.totalFiles = [state[@"totalFiles"] doubleValue]; estimate.totalBytes = total;
         progress(LTProgressText(@"Unpacking", &estimate, files, done));
     }
     if (result.length) { DiscardStage(); return result; }
@@ -650,7 +651,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UILabel *files, *server, *detail;
 @property(nonatomic, strong) UIButton *choose, *check, *back, *more, *quit;
-@property(nonatomic) NSInteger pickerMode;  // 0 assets folder, 1 master data, 2 export, 3 save backup
+@property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) UIProgressView *bar;
 @end
@@ -714,7 +715,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     self.detail = [self label:@"" size:14 color:Muted() bold:NO];
     UILabel *title = [self label:@"Lunar Tear" size:30 color:Ink() bold:NO];
     title.font = [UIFont fontWithName:@"Georgia" size:30] ?: title.font;
-    self.choose = [self button:@"Choose assets folder" primary:YES action:@selector(chooseOrCancel)];
+    self.choose = [self button:@"Choose game files" primary:YES action:@selector(chooseOrCancel)];
     self.check = [self button:@"Check again" primary:NO action:@selector(retry)];
     self.back = [self button:@"Back to game" primary:YES action:@selector(close)];
     self.quit = [self button:@"Close game" primary:YES action:@selector(quitGame)];
@@ -766,8 +767,8 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 }
 - (void)refresh {
     BOOL catalog = HasCatalog(), master = FileSize(MasterPath()) > 0;
-    self.files.text = gImporting ? @"Importing…" : catalog && master ? @"Ready" : catalog ? @"Master data missing" : @"Choose your assets folder";
-    [self.choose setTitle:gImporting ? @"Cancel import" : catalog ? @"Change assets folder" : @"Choose assets folder" forState:UIControlStateNormal];
+    self.files.text = gImporting ? @"Importing…" : catalog && master ? @"Ready" : catalog ? @"Master data missing" : @"Choose your game files";
+    [self.choose setTitle:gImporting ? @"Cancel import" : catalog ? @"Change game files" : @"Choose game files" forState:UIControlStateNormal];
     self.check.enabled = !gImporting;
     BOOL measured = gImporting && gImportFraction >= 0;
     self.bar.hidden = !measured;
@@ -786,8 +787,8 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     self.more.menu = [self optionsMenu:running];
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
     self.detail.text = gMessage.length ? gMessage : [NSString stringWithFormat:
-        @"Choose the prepared assets folder from Files, iCloud Drive or a USB drive. It is copied into the game, "
-        @"so allow about 25 GB free. You can also drag it onto NieR in Finder (your %@ › Files), then tap Check again.", device];
+        @"Choose the resource dump's .7z, or an extracted folder to copy or use in place, from Files, iCloud Drive or a USB drive. "
+        @"Copying needs about 25 GB free. You can also drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
     if (running && !gMessage.length) self.detail.text = @"The server is running on this device. Tap Back to game to keep playing.";
     if (gRestartNeeded && !gMessage.length)
         self.detail.text = @"Your changes are saved. The game must restart to load them: tap Close game, then open NieR again.";
@@ -828,7 +829,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 }
 - (void)help {
     [self alert:@"Help" message:
-        @"Choose the prepared assets folder once. Master data is already included. The server starts with the game and runs only on this device.\n\n"
+        @"Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. The server starts with the game and runs only on this device.\n\n"
         @"Three-finger double-tap during play opens this screen. Export a save backup before deleting the app.\n\n"
         @"Import save backup (in ⋮) restores a backup from this or another device, including Android.\n\n"
         @"Tools (in ⋮) edits your saves and unlocks content. It stops the server while open, and the game restarts afterwards to load the changes.\n\n"
@@ -913,7 +914,8 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 }
 - (void)pick:(NSInteger)mode {
     self.pickerMode = mode;
-    NSArray<UTType *> *types = mode == 0 ? @[UTTypeFolder, UTTypeArchive, UTTypeData] : mode == 3 ? @[UTTypeZIP, UTTypeData] : @[UTTypeItem];
+    NSArray<UTType *> *types = mode == 0 || mode == 4 ? @[UTTypeFolder] : mode == 5 ? @[UTTypeArchive, UTTypeData]
+        : mode == 3 ? @[UTTypeZIP, UTTypeData] : @[UTTypeItem];
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types];
     picker.delegate = self;
     picker.allowsMultipleSelection = NO;
@@ -1043,7 +1045,15 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 }
 - (void)chooseOrCancel {
     if (gImporting) { gCancelImport = YES; gMessage = @"Cancelling…"; [self refresh]; return; }
-    [self pick:0];
+    // The same three choices as on Android.
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Choose the game files"
+        message:@"Copying keeps the game working if the folder is moved later and needs about 21 GB free. In place needs no space, but the folder must stay where it is (and its drive connected). The archive is the resource dump's .7z or a .zip of it."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: copy into NieR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: use in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Archive (.7z or .zip)" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:5]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *picked = urls.firstObject;
@@ -1055,20 +1065,10 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     if (self.pickerMode == 1) { if (picked) [self importMaster:picked]; return; }
     if (self.pickerMode == 3) { if (picked) [self importSave:picked]; return; }
     if (!picked || gImporting) return;
-    // A folder outside NieR's own files can be copied in or used where it is.
-    BOOL scoped = [picked startAccessingSecurityScopedResource];
-    NSNumber *isFolder = nil;
-    [picked getResourceValue:&isFolder forKey:NSURLIsDirectoryKey error:nil];
-    if (scoped) [picked stopAccessingSecurityScopedResource];
+    // A folder already in NieR's own files is moved in either case, which is instant.
     NSString *documents = [gServerRoot.stringByResolvingSymlinksInPath stringByAppendingString:@"/"];
-    if (!isFolder.boolValue || [picked.URLByResolvingSymlinksInPath.path hasPrefix:documents]) { [self startImport:picked link:NO]; return; }
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Copy or use in place?"
-        message:@"Copying keeps the game working if the folder is moved later, and needs about 21 GB free. Using it in place needs no space or wait, but the folder must stay where it is (and its drive connected)."
-        preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Copy into NieR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self startImport:picked link:NO]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Use in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self startImport:picked link:YES]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    BOOL link = self.pickerMode == 4 && ![picked.URLByResolvingSymlinksInPath.path hasPrefix:documents];
+    [self startImport:picked link:link];
 }
 - (void)startImport:(NSURL *)picked link:(BOOL)link {
     if (gImporting) return;

@@ -69,7 +69,8 @@ yourself:
 
 Then put the 20 GB of files on the device in one of these ways:
 
-- **Choose assets folder** on the launcher screen. Pick the `.7z`, or the
+- **Choose game files** on the launcher screen, then the same three options as
+  on Android. Pick the `.7z`, or the
   extracted folder (the one containing `revisions`), from Files, iCloud Drive or
   a USB drive. Only revision 0 is used, so a full extraction works too. A split
   `.tar` of it works as well. The app copies or unpacks it in, so allow about
@@ -77,8 +78,8 @@ Then put the 20 GB of files on the device in one of these ways:
   there with Finder or the Files app) is moved instead, which is instant. Your
   current files stay in place until the import completes. A progress bar shows
   the time left.
-- **Use in place**: after you pick a folder outside NieR's own files, the app
-  asks whether to copy it or use it in place. In place, nothing is copied: the
+- **Extracted folder: use in place**: nothing is copied for a folder outside
+  NieR's own files: the
   app keeps a bookmark and reads the folder where it is (on the device, another
   app's folder or a USB drive). Keep it there, and keep a drive connected while
   playing; otherwise the launcher asks you to reconnect it or choose again.
