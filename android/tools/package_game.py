@@ -82,7 +82,7 @@ def main():
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.
     app.set(attr("pageSizeCompat"),"enabled")
-    app.set(attr("label"),"NieR Re[in]carnation · Offline")
+    # Keep the game's own name ("NieR"), as the iOS build does.
     companion=ET.parse(root/"android/app/src/main/AndroidManifest.xml").getroot()
     permissions={x.get(attr("name")) for x in doc.findall("uses-permission")}
     for permission in companion.findall("uses-permission"):
