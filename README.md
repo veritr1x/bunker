@@ -9,6 +9,16 @@ Lunar Tear, all in one. Run the game and its Lunar Tear server on the same phone
 - **Android:** one APK with the launcher, server, content patcher and save editors.
 - **iPhone and iPad:** one IPA with the server and launcher inside the game. See [iOS](docs/IOS.md).
 
+## Screenshots
+
+| The Bunker (launcher) | Options menu | Pod Programs |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/bunker.webp" width="220" alt="The Bunker: game files ready, Lunar Tear standing by, Deploy and Open Pod Programs"> | <img src="docs/screenshots/options.webp" width="220" alt="The options menu: data import and export, logs, display, settings, help and about"> | <img src="docs/screenshots/pod-programs.webp" width="220" alt="Pod Programs: content patcher, save data, players, items, costumes, weapons, upgrades and memoirs"> |
+| **Players** | **The Bunker, dark** | **Pod Programs, dark** |
+| <img src="docs/screenshots/players.webp" width="220" alt="Players: the one in use is marked, with New player to start another"> | <img src="docs/screenshots/bunker-dark.webp" width="220" alt="The Bunker in dark mode"> | <img src="docs/screenshots/pod-programs-dark.webp" width="220" alt="Pod Programs in dark mode"> |
+
+Light or dark follows the phone, or choose one in ⋮ → Display. Screenshots are from Android; iPhone and iPad look the same.
+
 ## Build in your browser
 
 **[Open the web builder](https://veritr1x.github.io/bunker/)**: pick Android or
