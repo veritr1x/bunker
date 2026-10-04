@@ -31,7 +31,7 @@ python3.11 scripts/build.py \
   --master /path/to/20240404193219.bin.e
 ```
 
-This writes an unsigned `artifacts/game-Offline.ipa`. Sideloadly or
+This writes an unsigned `artifacts/bunker.ipa`. Sideloadly or
 AltStore can sign and install it with your Apple ID.
 
 To sign it yourself, give it a bundle ID your team owns and a development
@@ -50,7 +50,7 @@ cp .build/ios-devtools/Build/Products/Debug-iphoneos/Provision.app/embedded.mobi
 python3.11 scripts/build.py --ipa ... --master ... \
   --bundle-id <bundle ID> --sign-identity '<codesign identity>' \
   --profile inputs/ios-development.mobileprovision
-xcrun devicectl device install app --device <device UDID> artifacts/game-Offline.ipa
+xcrun devicectl device install app --device <device UDID> artifacts/bunker.ipa
 ```
 
 The provisioning build only creates the profile. It does not install anything.

@@ -2,7 +2,7 @@
 """Build the offline APK by editing the original APK's files directly.
 
   assemble_apk.py --apk ORIGINAL.apk --master 20240404193219.bin.e \\
-      --companion-apk app-release.apk --output game-Offline.unsigned.apk
+      --companion-apk app-release.apk --output bunker.unsigned.apk
 
 Unlike package_game.py, this needs no apktool, Android SDK or Java, so it can
 also run in a browser. It patches the game library and metadata with the

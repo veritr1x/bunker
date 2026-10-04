@@ -3,87 +3,194 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lunar Tear All-in-One Builder</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%233a372f'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%23d3ceb8'/%3E%3C/svg%3E">
+<title>Bunker · Lunar Tear builder</title>
 <meta name="description" content="Build the offline game for Android or iOS from your own files, in your browser.">
 <style>
-  :root { --paper: #f4f1e9; --ink: #303630; --muted: #6a6d63; --green: #536554; --card: #ffffff; --line: #dcdfd4; }
+  /* The Bunker terminal, as in the app. System fonts only: the page makes no third-party requests. */
+  :root {
+    --paper: #d3ceb8; --panel: #d8d3bd; --ink: #3a372f; --mid: #4f4b40; --line: rgba(58, 55, 47, .35);
+    --grid: rgba(58, 55, 47, .05); --command: #1e1c18; --on-command: #e4dfc8; --chip: #bcb69e;
+    --ok: #6e7356; --on-ok: #ece8d6; --alert: #7a1c14; --log: #1e1c18; --on-log: #e4dfc8;
+    --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #191813; --panel: #201f19; --ink: #d9d3ba; --mid: #a8a28b; --line: rgba(217, 211, 186, .28);
+      --grid: rgba(217, 211, 186, .035); --command: #d9d3ba; --on-command: #16150f; --chip: #3b392f;
+      --ok: #9da27d; --on-ok: #16150f; --alert: #e58a78; --log: #0f0e0b; --on-log: #d9d3ba;
+    }
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font: 400 32px/1.2 Georgia, serif; margin: 0 0 8px; }
-  p.lead { color: var(--muted); margin: 0 0 24px; }
-  .card { background: var(--card); border-radius: 20px; padding: 20px; margin-bottom: 14px; }
-  .card h2 { font-size: 18px; margin: 0 0 4px; }
-  .card p { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
-  .tabs { display: flex; gap: 8px; }
-  .tabs label { flex: 1; text-align: center; padding: 12px; border-radius: 14px; background: #edf0e8; color: var(--green); font-weight: 600; cursor: pointer; }
-  .tabs input { display: none; }
-  .tabs input:checked + span { color: #fff; }
-  .tabs label:has(input:checked) { background: var(--green); color: #fff; }
-  input[type=file] { width: 100%; font-size: 14px; }
-  button { width: 100%; border: 0; border-radius: 16px; padding: 16px; font-size: 17px; font-weight: 700; color: #fff; background: var(--green); cursor: pointer; }
-  button:disabled { opacity: .45; cursor: default; }
-  #log { white-space: pre-wrap; font: 12px/1.45 ui-monospace, Menlo, monospace; color: var(--muted); max-height: 220px; overflow: auto; margin: 12px 0 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; color: var(--ink); font: 16px/1.6 var(--sans);
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(0deg, var(--grid) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px 3px);
+  }
+  a { color: inherit; }
+  code { font: 13px var(--mono); background: var(--chip); padding: 1px 6px; overflow-wrap: anywhere; }
+  .mono { font-family: var(--mono); }
+
+  /* Top bar */
+  .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 16px; padding: 14px 24px; border-bottom: 1px solid var(--ink); }
+  .top .title { display: flex; flex-direction: column; gap: 2px; }
+  .top .mark { font: 11px var(--mono); letter-spacing: .2em; color: var(--mid); }
+  .top .name { font-size: 20px; font-weight: 700; letter-spacing: .3em; }
+  .top nav { display: flex; flex-wrap: wrap; gap: 4px; font: 12px var(--mono); letter-spacing: .14em; }
+  .top nav a { text-decoration: none; padding: 0 12px; min-height: 40px; display: inline-flex; align-items: center; }
+  .top nav a.on { background: var(--command); color: var(--on-command); }
+  .top nav a.boxed { border: 1px solid var(--ink); }
+  .top nav a:hover:not(.on) { text-decoration: underline; }
+
+  /* One column */
+  main { max-width: 820px; margin: 0 auto; padding: 44px 20px 8px; display: flex; flex-direction: column; gap: 28px; }
+  .intro { display: flex; flex-direction: column; gap: 10px; }
+  .intro h1 { margin: 0; font-size: clamp(30px, 5vw, 40px); line-height: 1.2; letter-spacing: .04em; }
+  .intro p { margin: 0; font-size: 16px; max-width: 640px; }
+  .head { display: flex; align-items: flex-end; gap: 10px; font-weight: 700; letter-spacing: .3em; font-size: 14px; text-transform: uppercase; margin: 0 0 10px; }
+  .head .rule { flex: 1; height: 1px; background: var(--ink); margin: 0 4px 6px; }
+  .frame { position: relative; border: 2px solid var(--ink); background: var(--panel); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .frame::before, .frame::after { content: ""; position: absolute; width: 14px; height: 14px; }
+  .frame::before { left: -7px; top: -7px; border-left: 3px solid var(--ink); border-top: 3px solid var(--ink); }
+  .frame::after { right: -7px; bottom: -7px; border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); }
+  .frame p { margin: 0; font-size: 14px; }
+
+  .tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .tabs label { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid var(--ink); cursor: pointer; min-height: 48px; }
+  .tabs label:has(input:checked) { background: var(--command); color: var(--on-command); border-color: var(--command); }
+  .tabs input { accent-color: currentColor; width: 18px; height: 18px; margin: 0; }
+  .tabs b { letter-spacing: .2em; display: block; }
+  .tabs small { font: 11px var(--mono); opacity: .8; }
+
+  .file { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .file:last-child { border-bottom: 0; padding-bottom: 0; }
+  .file .label { font: 11px var(--mono); letter-spacing: .12em; color: var(--mid); width: 110px; }
+  .file .what { flex: 1 1 220px; font-size: 14px; }
+  .file .chip { font: 11px var(--mono); letter-spacing: .08em; padding: 3px 8px; background: var(--chip); max-width: 100%; overflow-wrap: anywhere; }
+  .file .chip.ok { background: var(--ok); color: var(--on-ok); }
+  .pick { position: relative; font: 12px var(--mono); letter-spacing: .16em; border: 2px solid var(--ink); padding: 0 14px; min-height: 44px; display: inline-flex; align-items: center; cursor: pointer; }
+  .pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .pick:focus-within { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  details summary { cursor: pointer; font: 12px var(--mono); letter-spacing: .14em; padding: 6px 0; }
+  details input[type=number] { font: 14px var(--mono); background: transparent; color: var(--ink); border: 2px solid var(--ink); padding: 8px 10px; width: 9em; }
+  button#build { min-height: 56px; border: 0; background: var(--command); color: var(--on-command); font: 700 15px var(--sans); letter-spacing: .32em; cursor: pointer; }
+  button#build:disabled { opacity: .4; cursor: default; }
+  #log { white-space: pre-wrap; font: 12px/1.8 var(--mono); background: var(--log); color: var(--on-log); padding: 12px 14px; max-height: 260px; overflow: auto; }
+  #log:empty { display: none; }
   #result { display: none; }
-  #result a { display: block; text-align: center; padding: 16px; border-radius: 16px; background: var(--green); color: #fff; font-weight: 700; text-decoration: none; }
-  .note { font-size: 14px; color: var(--muted); }
-  code { font-size: 13px; }
-  footer { font-size: 13px; color: var(--muted); margin-top: 24px; }
-  a { color: var(--green); }
+  #download { align-self: flex-start; text-decoration: none; background: var(--command); color: var(--on-command); padding: 14px 20px; font-weight: 700; letter-spacing: .2em; font-size: 13px; }
+  .note { font-size: 14px; }
+
+
+  footer { border-top: 3px double var(--ink); margin-top: 32px; padding: 18px 20px 28px; text-align: center; font-size: 13px; color: var(--mid); display: flex; flex-direction: column; gap: 6px; }
+  footer .sign { font-size: 11px; letter-spacing: .24em; }
+  .credits { list-style: none; margin: 6px auto 4px; padding: 0; max-width: 780px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; font-size: 13px; }
+  .credits span { color: var(--mid); }
+  .credits li::before { content: "■ " / ""; font-size: 9px; vertical-align: 2px; }
+  .sign-dark { display: none; }
+  @media (prefers-color-scheme: dark) { .sign-dark { display: inline; } .sign-light { display: none; } }
+
+  @media (max-width: 720px) {
+    .tabs { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>Lunar Tear All-in-One</h1>
-  <p class="lead">Build the offline game for Android or iPhone/iPad from your own files. Everything runs in this browser; your files are never uploaded.</p>
-
-  <div class="card">
-    <h2>1. Platform</h2>
-    <div class="tabs">
-      <label><input type="radio" name="platform" value="android" checked><span>Android</span></label>
-      <label><input type="radio" name="platform" value="ios"><span>iPhone / iPad</span></label>
-    </div>
+<header class="top">
+  <div class="title">
+    <span class="mark">LUNAR TEAR // BUILD TERMINAL</span>
+    <span class="name">BUNKER</span>
   </div>
+  <nav aria-label="Page">
+    <a href="#build" class="on">BUILD</a>
+    <a href="https://github.com/veritr1x/bunker#readme">GUIDE</a>
+    <a href="https://github.com/veritr1x/bunker#troubleshooting">TROUBLESHOOTING</a>
+    <a href="https://github.com/veritr1x/bunker" class="boxed">SOURCE ↗</a>
+  </nav>
+</header>
 
-  <div class="card">
-    <h2>2. Your files</h2>
-    <p id="game-help">The original 3.7.1 ARM64 game APK.</p>
-    <input type="file" id="game" accept=".apk,.ipa">
-    <p style="margin-top:14px">The original master data, <code>20240404193219.bin.e</code>.</p>
-    <input type="file" id="master">
-  </div>
+<main id="build">
+  <section class="intro">
+    <h1>Build the offline game</h1>
+    <p>For Android or iPhone/iPad, from your own files. Everything runs in this browser; your files are never uploaded.</p>
+  </section>
 
-  <div class="card">
-    <h2>3. Build</h2>
-    <p>Takes a few minutes and needs about 2 GB of free memory. A desktop browser works best.</p>
-    <details class="note" style="margin:0 0 14px">
-      <summary>Experimental: port offset</summary>
-      <p style="margin:8px 0">The game talks to its server on this device through ports 8003, 8080 and 3000. If another app
-        already uses one of them, the launcher says so. An offset moves all three, for example 30000 gives 38003, 38080
-        and 33000. This is experimental: leave it at 0 unless you need it, and use the same offset for updates.</p>
-      <label>Offset <input type="number" id="port-offset" value="0" min="0" max="57455" step="1" style="width:9em"></label>
-    </details>
-    <button id="build" disabled>Build</button>
-    <div id="log"></div>
-  </div>
+    <section>
+      <h2 class="head"><span>[</span><span>01 Platform</span><span class="rule"></span><span>]</span></h2>
+      <div class="frame">
+        <div class="tabs">
+          <label><input type="radio" name="platform" value="android" checked><span><b>ANDROID</b><small>APK · arm64</small></span></label>
+          <label><input type="radio" name="platform" value="ios"><span><b>IPHONE / IPAD</b><small>IPA</small></span></label>
+        </div>
+      </div>
+    </section>
 
-  <div class="card" id="result">
-    <h2>4. Sign and install</h2>
-    <a id="download" download>Download</a>
-    <p class="note" id="sign-android">The APK is unsigned. Sign it, for example with
-      <code>apksigner sign --ks my.keystore game-Offline.apk</code> or uber-apk-signer, then install it.
-      Keep your key: updates must be signed with the same one.</p>
-    <p class="note" id="sign-ios" hidden>The IPA is unsigned. Install it with Sideloadly or AltStore and your Apple ID,
-      or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.</p>
-  </div>
+    <section>
+      <h2 class="head"><span>[</span><span>02 Your files</span><span class="rule"></span><span>]</span></h2>
+      <div class="frame">
+        <div class="file">
+          <span class="label">GAME</span>
+          <span class="what" id="game-help">The original 3.7.1 ARM64 game APK.</span>
+          <span class="chip" id="game-name">NOT CHOSEN</span>
+          <label class="pick">CHOOSE<input type="file" id="game" accept=".apk,.ipa" aria-label="Game file"></label>
+        </div>
+        <div class="file">
+          <span class="label">MASTER DATA</span>
+          <span class="what">The original master data, <code>20240404193219.bin.e</code>.</span>
+          <span class="chip" id="master-name">NOT CHOSEN</span>
+          <label class="pick">CHOOSE<input type="file" id="master" aria-label="Master data file"></label>
+        </div>
+      </div>
+    </section>
 
-  <p class="note">Then copy the resource dump's <code>.7z</code> to the device and choose it in the app's launcher;
-    the app unpacks only the files the game uses. An extracted folder works too, as described in the
-    <a href="https://github.com/veritr1x/lunar-tear-all-in-one#5-get-the-game-files-onto-the-device-about-21-gb">guide</a>.
-    The Android build made here leaves out the in-game Facebook account link; offline play, Tools and save backups work.</p>
-  <footer>Based on <a href="https://gitlab.com/walter-sparrow-group/lunar-tear">Lunar Tear</a> and its pinned upstream tools.
-    Source: <a href="https://github.com/veritr1x/lunar-tear-all-in-one">github.com/veritr1x/lunar-tear-all-in-one</a>.</footer>
+    <section>
+      <h2 class="head"><span>[</span><span>03 Build</span><span class="rule"></span><span>]</span></h2>
+      <div class="frame">
+        <p>Takes a few minutes and needs about 2 GB of free memory. A desktop browser works best.</p>
+        <details>
+          <summary>EXPERIMENTAL :: PORT OFFSET</summary>
+          <p style="margin:8px 0">The game talks to its server on this device through ports 8003, 8080 and 3000. If another app
+            already uses one of them, the launcher says so. An offset moves all three, for example 30000 gives 38003, 38080
+            and 33000. Leave it at 0 unless you need it, and use the same offset for updates.</p>
+          <label>Offset <input type="number" id="port-offset" value="0" min="0" max="57455" step="1"></label>
+        </details>
+        <button id="build" disabled>BUILD ▶</button>
+        <div id="log" role="log" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="result">
+      <h2 class="head"><span>[</span><span>04 Sign and install</span><span class="rule"></span><span>]</span></h2>
+      <div class="frame">
+        <a id="download" download>Download</a>
+        <p class="note" id="sign-android">The APK is unsigned. Sign it, for example with
+          <code>apksigner sign --ks my.keystore bunker.apk</code> or uber-apk-signer, then install it.
+          Keep your key: updates must be signed with the same one.</p>
+        <p class="note" id="sign-ios" hidden>The IPA is unsigned. Install it with Sideloadly or AltStore and your Apple ID,
+          or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.</p>
+      </div>
+    </section>
+
+    <p class="note">Then copy the resource dump's <code>.7z</code> to the device and choose it in the Bunker;
+      the app unpacks only the files the game uses. An extracted folder works too, as described in the
+      <a href="https://github.com/veritr1x/bunker#5-get-the-game-files-onto-the-device-about-21-gb">guide</a>.
+      The Android build made here leaves out the in-game Facebook account link; offline play, Pod Programs and save backups work.</p>
 </main>
+
+<footer>
+  <span class="sign"><span class="sign-light">END OF TRANSMISSION // GLORY TO MANKIND</span><span class="sign-dark">OPERATOR LINK // STANDING BY</span></span>
+  <ul class="credits" aria-label="Built with">
+    <li><a href="https://gitlab.com/walter-sparrow-group/lunar-tear">Lunar Tear</a> <span>the game server, by Walter-Sparrow</span></li>
+    <li><a href="https://gitlab.com/walter-sparrow-group/lunar-scripts">Lunar Scripts</a> <span>game and master-data patching, by Walter-Sparrow</span></li>
+    <li><a href="https://github.com/NMeliksah/lunar-base">Lunar Base</a> <span>the save editors in Pod Programs, by NMeliksah</span></li>
+    <li><a href="https://github.com/NavHobbyDev/lunar-tear-masterdata-patcher">Master-data patcher</a> <span>the content patcher, by NavHobbyDev</span></li>
+  </ul>
+  <span>Source: <a href="https://github.com/veritr1x/bunker">github.com/veritr1x/bunker</a>.</span>
+</footer>
 <script src="app.js"></script>
 </body>
 </html>

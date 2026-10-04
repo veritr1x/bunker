@@ -62,13 +62,13 @@ self.onmessage = async ({ data }) => {
     let output;
     if (platform === "android") {
       writeFile(pyodide, "/bundles/android.zip", await fetchBytes("bundles/android.zip", "the launcher"));
-      output = "/output/game-Offline.apk";
+      output = "/output/bunker.apk";
       FS.mkdirTree("/output");
       builder.build_android(gamePath, masterPath, "/bundles/android.zip", output, log, portOffset);
     } else {
       writeFile(pyodide, "/bundles/ios-framework.zip", await fetchBytes("bundles/ios-framework.zip", "the launcher"));
       writeFile(pyodide, "/bundles/ios-python.zip", await fetchBytes("bundles/ios-python.zip", "Tools"));
-      output = "/output/game-Offline.ipa";
+      output = "/output/bunker.ipa";
       FS.mkdirTree("/output");
       builder.build_ios(gamePath, masterPath, "/bundles/ios-framework.zip", "/bundles/ios-python.zip", output, log, portOffset);
     }

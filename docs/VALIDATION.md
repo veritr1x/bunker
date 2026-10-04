@@ -1,5 +1,17 @@
 # Validation
 
+## Web builder redesign and rename to Bunker — 2026-10-04
+
+- The site was assembled as CI does (`web/build_site.py` with a fresh Android
+  launcher, iOS framework and Python bundle) and both builds were run in Chrome
+  against the real game files. Android produced `bunker.apk`: all 5,003 entries
+  match `android/tools/assemble_apk.py` exactly except the patched master data,
+  whose compression differs between Pyodide and native libraries; all 607 of its
+  tables decode identically. iOS produced `bunker.ipa` with the current launcher
+  framework, Pod Programs code and templates. Each build ran once even when the
+  button was pressed twice, with no console errors. The command-line build now
+  writes `artifacts/bunker.apk` / `artifacts/bunker.ipa`.
+
 ## Bunker and Pod Programs redesign, choosing players — 2026-10-04
 
 - The launcher (Bunker) and Pod Programs use the NieR:Automata terminal look on

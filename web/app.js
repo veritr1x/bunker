@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const worker = new Worker("worker.js");
 let url = null;
+let building = false;  // One build at a time, however fast the button is pressed.
 
 const platform = () => document.querySelector("input[name=platform]:checked").value;
 
@@ -10,6 +11,11 @@ function update() {
   $("game-help").textContent = ios ? "Your decrypted 3.7.1 game IPA." : "The original 3.7.1 ARM64 game APK.";
   $("game").accept = ios ? ".ipa" : ".apk";
   $("build").disabled = !($("game").files[0] && $("master").files[0]);
+  for (const id of ["game", "master"]) {
+    const file = $(id).files[0], chip = $(id + "-name");
+    chip.textContent = file ? `${file.name} · ${Math.max(1, Math.round(file.size / 1048576))} MB` : "NOT CHOSEN";
+    chip.classList.toggle("ok", !!file);
+  }
 }
 
 function log(line) {
@@ -23,12 +29,15 @@ $("game").addEventListener("change", update);
 $("master").addEventListener("change", update);
 
 $("build").addEventListener("click", () => {
+  if (building) return;
   const game = $("game").files[0], master = $("master").files[0];
+  if (!game || !master) { log("Choose the game file and the master data first."); return; }
   const expected = platform() === "ios" ? ".ipa" : ".apk";
   if (!game.name.toLowerCase().endsWith(expected)) { log(`Choose the game ${expected} file.`); return; }
   if (game.name === master.name) { log("Choose two different files."); return; }
   const portOffset = Number($("port-offset").value || 0);
   if (!Number.isInteger(portOffset) || portOffset < 0 || portOffset > 57455) { log("The port offset must be a whole number from 0 to 57455."); return; }
+  building = true;
   $("build").disabled = true;
   $("result").style.display = "none";
   $("log").textContent = "";
@@ -38,7 +47,7 @@ $("build").addEventListener("click", () => {
 
 worker.onmessage = ({ data }) => {
   if (data.type === "log") log(data.value);
-  if (data.type === "error") { log("Build failed: " + data.value); $("build").disabled = false; }
+  if (data.type === "error") { log("Build failed: " + data.value); building = false; $("build").disabled = false; }
   if (data.type === "done") {
     const { name, bytes } = data.value;
     url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
@@ -48,6 +57,7 @@ worker.onmessage = ({ data }) => {
     $("sign-android").hidden = name.endsWith(".ipa");
     $("sign-ios").hidden = !name.endsWith(".ipa");
     $("result").style.display = "block";
+    building = false;
     $("build").disabled = false;
     log("Done.");
   }

@@ -30,8 +30,8 @@ Python 3.13 instead of the Android tools.
 ## 3. Clone and build
 
 ```sh
-git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one.git
-cd lunar-tear-all-in-one
+git clone --recurse-submodules https://github.com/veritr1x/bunker.git
+cd bunker
 python3.11 scripts/build.py \
   --apk /path/to/original-game.apk \
   --master /path/to/20240404193219.bin.e
@@ -47,7 +47,7 @@ The build prepares the pinned sources, installs build-only Python packages in a
 local virtual environment, generates protobuf code, runs Go tests and Android
 lint, and signs the combined APK.
 
-Your APK is **`artifacts/game-Offline.apk`**. Its checksum is in
+Your APK is **`artifacts/bunker.apk`**. Its checksum is in
 `artifacts/SHA256SUMS`. Keep **`inputs/lunar-local.keystore`**: later APKs need the
 same key to update your installation without removing its data. To reuse a key:
 
@@ -86,7 +86,7 @@ may need more. Patched master data is already bundled in the APK.
 
 ## 5. Install and play
 
-1. Install `game-Offline.apk` on an ARM64 Android 9+ phone.
+1. Install `bunker.apk` on an ARM64 Android 9+ phone.
 2. Open it. Under **1 Game files**, tap **Choose** and select the `.7z` or the copied folder.
 3. Wait for import. It first counts the files, then shows a progress bar with
    the time left. Lunar Tear starts and the game opens. Tap **Deploy** to retry.

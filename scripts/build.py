@@ -50,7 +50,7 @@ def build_android(args, env, python, master, sdk):
     work = ROOT / ".build"
     run(ROOT / "android/tools/build_native.sh", env=env)
     run(ROOT / "android/gradlew", "assembleDebug", "lintDebug", cwd=ROOT / "android", env=env)
-    output = ROOT / "artifacts/game-Offline.apk"
+    output = ROOT / "artifacts/bunker.apk"
     with tempfile.TemporaryDirectory(prefix="game-", dir=work) as temp:
         decoded = Path(temp) / "decoded"
         run("apktool", "d", args.apk, "-o", decoded, env=env)
@@ -67,7 +67,7 @@ def build_android(args, env, python, master, sdk):
 def build_ios(args, env, python, master):
     work = ROOT / ".build/ios"
     work.mkdir(parents=True, exist_ok=True)
-    output = ROOT / "artifacts/game-Offline.ipa"
+    output = ROOT / "artifacts/bunker.ipa"
     with tempfile.TemporaryDirectory(prefix="game-", dir=work) as temp:
         patched = Path(temp) / "patched.ipa"
         grpc, http, auth = addresses(args.port_offset)

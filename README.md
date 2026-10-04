@@ -2,16 +2,16 @@
 
 This is a **personal hobby project** built with extensive AI assistance from OpenAI Codex and Anthropic Claude for coding, integration, testing, and documentation. It is an unofficial, experimental project, not an official game release.
 
-# lunar-tear-all-in-one
+# Bunker
 
-Run the game and its Lunar Tear server on the same phone or tablet, on Android or iOS. After setup, no computer connection or Internet is needed to play.
+Lunar Tear, all in one. Run the game and its Lunar Tear server on the same phone or tablet, on Android or iOS. After setup, no computer connection or Internet is needed to play.
 
 - **Android:** one APK with the launcher, server, content patcher and save editors.
 - **iPhone and iPad:** one IPA with the server and launcher inside the game. See [iOS](docs/IOS.md).
 
 ## Build in your browser
 
-**[Open the web builder](https://veritr1x.github.io/lunar-tear-all-in-one/)**: pick Android or
+**[Open the web builder](https://veritr1x.github.io/bunker/)**: pick Android or
 iPhone/iPad, choose your own game file and master data, and download the offline app. Everything
 runs in your browser; your files are never uploaded. No tools to install.
 
@@ -103,8 +103,8 @@ uv python install 3.13
 ### 3. Get the code
 
 ```sh
-git clone --recurse-submodules https://github.com/veritr1x/lunar-tear-all-in-one.git
-cd lunar-tear-all-in-one
+git clone --recurse-submodules https://github.com/veritr1x/bunker.git
+cd bunker
 ```
 
 If you cloned without `--recurse-submodules`, run `git submodule update --init --recursive`.
@@ -122,7 +122,7 @@ python3.11 scripts/build.py \
   --master ~/Downloads/20240404193219.bin.e
 ```
 
-Result: `artifacts/game-Offline.apk`. The first build creates a signing key in
+Result: `artifacts/bunker.apk`. The first build creates a signing key in
 `inputs/lunar-local.keystore`. **Keep it:** later builds must use the same key to update the
 app without losing its data.
 
@@ -134,7 +134,7 @@ python3.11 scripts/build.py \
   --master ~/Downloads/20240404193219.bin.e
 ```
 
-Result: an unsigned `artifacts/game-Offline.ipa`. Install it with Sideloadly or
+Result: an unsigned `artifacts/bunker.ipa`. Install it with Sideloadly or
 AltStore and your Apple ID, or sign it with your own Apple developer team as described in
 [iOS](docs/IOS.md#build).
 
@@ -170,7 +170,7 @@ it when you copy files into the app with Finder, which skips the app's own impor
 
 1. Put `resource_dump_android.7z` (or the extracted folder) on the phone, for example in
    `Download`: with a USB cable, or `adb push ~/Downloads/resource_dump_android.7z /sdcard/Download/`.
-2. Install the APK: open it on the phone, or run `adb install artifacts/game-Offline.apk`.
+2. Install the APK: open it on the phone, or run `adb install artifacts/bunker.apk`.
 3. Open the installed app, tap **Choose**, then **Archive (.7z or .zip)** and pick the `.7z`, or
    **Extracted folder: copy into the app** and pick the folder containing `revisions`. It unpacks
    or copies revision 0 into the app; a progress bar shows the time left. You can delete the
