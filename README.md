@@ -4,7 +4,7 @@ This is a **personal hobby project** built with extensive AI assistance from Ope
 
 # Bunker
 
-Lunar Tear, all in one. Run the game and its Lunar Tear server on the same phone or tablet, on Android or iOS. After setup, no computer connection or Internet is needed to play.
+Run the game and its Lunar Tear server on the same phone or tablet, on Android or iOS. After setup, no computer connection or Internet is needed to play.
 
 - **Android:** one APK with the launcher, server, content patcher and save editors.
 - **iPhone and iPad:** one IPA with the server and launcher inside the game. See [iOS](docs/IOS.md).
