@@ -26,6 +26,8 @@ Limitations:
 - **The Android web build has no in-game Facebook account link**, because that patch needs a
   decompiler. Offline play, Tools and save backup and import all work. The iOS web build is the
   same as the command-line build.
+- **Experimental: port offset.** If another app on the device already uses the game's local
+  ports (8003, 8080 or 3000), the launcher says so; a build with a port offset moves all three.
 - **The resource dump is not part of the build.** Put its `.7z` on the phone and choose it in
   the app, which unpacks only what the game uses, so on Android the whole flow works without
   a computer. Sideloading the IPA on iPhone and iPad usually needs a computer once.
@@ -214,6 +216,7 @@ automatically. On iOS, sign with the same bundle ID. Either way, export a save b
 | `Install Python 3.13` | Run `uv python install 3.13`. |
 | The new APK will not install over the old one | It was signed with a different key. Build with `--keystore` pointing to your original key. |
 | Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly; rebuild, or turn the app off while playing. |
+| "Port 8080 is already used by another app on this device…" (or 8003, 3000) | Another app holds one of the game's local ports. Close or uninstall it, or build with `--port-offset 30000` (or the web builder's experimental port offset) and keep using that offset for updates. ⋮ → **Check server** shows whether the game can reach its server. |
 | Android: black screen after the logo when reopening the game from Recent apps (for example after an update) | The game was opened without its server. Builds from 2026-10-04 on go through the launcher, which starts the server first; with older builds, open the app from its icon. |
 | Android 17: importing a `.7z` fails with `open /proc/self/fd/…: permission denied` | Fixed in builds from 2026-10-03 on; rebuild, or choose an extracted folder instead. |
 

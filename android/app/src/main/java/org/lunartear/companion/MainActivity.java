@@ -39,6 +39,7 @@ public final class MainActivity extends Activity {
         Bundle b=message.getData();running=b.getBoolean("running");busy=b.getBoolean("busy");tools=b.getBoolean("tools");permille=b.getInt("permille",-1);serverState=b.getString("state","");serverDetail=b.getString("detail","");
         refresh();
         if(message.what==2) displayLog(b.getString("native","{}"));
+        if(message.what==3) showServerCheck(b.getString("selftest",""));
         if(foreground&&running&&!tools&&launchWhenReady){launchWhenReady=false;openGame();}
         else if(foreground&&!busy&&!running&&!tools&&!autoAttempted&&FilesStore.ready(this)){autoAttempted=true;run(ServerService.START,null);}
         return true;
@@ -119,7 +120,7 @@ public final class MainActivity extends Activity {
         boolean importing=busy&&"Importing files".equals(serverState);
         files.setText(importing?"Importing…":hasAssets?"Ready":"Choose assets folder");
         assetButton.setText(hasAssets?"Change":"Choose");assetButton.setVisibility(running?View.GONE:View.VISIBLE);assetButton.setEnabled(!busy&&!running&&!tools);assetButton.setAlpha(assetButton.isEnabled()?1f:.45f);
-        status.setText(tools?"Tools open":"Stopping".equals(serverState)&&busy?"Stopping…":running?"Running":"Starting server".equals(serverState)&&busy?"Starting…":ready?"Ready":"Waiting for files");
+        status.setText(tools?"Tools open":"Stopping".equals(serverState)&&busy?"Stopping…":running?"Running":"Starting server".equals(serverState)&&busy?"Starting…":"Needs attention".equals(serverState)?"Not running":ready?"Ready":"Waiting for files");
         boolean measured=importing&&permille>=0;
         // A measured copy shows the bar with time left; anything else, the spinner.
         progress.setVisibility(busy&&!measured?View.VISIBLE:View.GONE);
@@ -168,6 +169,7 @@ public final class MainActivity extends Activity {
         menu.add(0,2,1,"Import master data").setEnabled(!busy&&!running&&!tools);
         menu.add(0,3,2,"Export save backup").setEnabled(!busy&&!running&&!tools&&new File(FilesStore.data(this),"game.db").isFile());
         menu.add(0,9,2,"Import save backup").setEnabled(!busy&&!running&&!tools);
+        if(running)menu.add(0,10,3,"Check server");
         menu.add(0,4,3,"Server log");menu.add(0,5,4,"App settings");menu.add(0,6,5,"Help");menu.add(0,7,6,"About");
         popup.setOnMenuItemClickListener(item->{switch(item.getItemId()){
             case 1: autoAttempted=true;launchWhenReady=false;run(ServerService.STOP,null);break;
@@ -178,6 +180,7 @@ public final class MainActivity extends Activity {
             case 6: help();break;
             case 7: new AlertDialog.Builder(this).setTitle("Lunar Tear").setMessage("Offline companion · 0.1.0\nBased on Lunar Tear by Walter-Sparrow.\nMIT License · Copyright 2026 Ilya Groshev.").setPositiveButton("Close",null).show();break;
             case 9: confirmSaveImport();break;
+            case 10: query(3);break;
             case 8: autoAttempted=true;launchWhenReady=false;startActivity(new Intent(this,ToolsActivity.class));break;
             default: return false;
         }return true;});popup.show();
@@ -209,6 +212,22 @@ public final class MainActivity extends Activity {
             .setPositiveButton("Close",null).show();
     }
     private void showLog(){query(2);}
+    /** Shows whether the game can reach this server on each of its ports. */
+    private void showServerCheck(String report){
+        StringBuilder text=new StringBuilder();
+        boolean ok=false;
+        try{
+            org.json.JSONObject r=new org.json.JSONObject(report);ok=r.optBoolean("ok");
+            org.json.JSONArray checks=r.getJSONArray("checks");
+            for(int i=0;i<checks.length();i++){
+                org.json.JSONObject c=checks.getJSONObject(i);
+                text.append(c.optBoolean("ok")?"✓ ":"✗ ").append(c.optString("name")).append(" · port ").append(c.optInt("port"));
+                if(!c.optBoolean("ok"))text.append("\n   ").append(c.optString("detail"));
+                text.append("\n");
+            }
+        }catch(Exception e){text.append("The server is not running.");}
+        new AlertDialog.Builder(this).setTitle(ok?"Server is reachable":"Server check failed").setMessage(text.toString().trim()).setPositiveButton("Close",null).show();
+    }
     private void displayLog(String nativeStatus){
         String value;
         try{JSONObject s=new JSONObject(nativeStatus);value=s.optString("logs","No server log yet.");if(value.isEmpty())value="No server log yet.";}

@@ -56,6 +56,13 @@
   <div class="card">
     <h2>3. Build</h2>
     <p>Takes a few minutes and needs about 2 GB of free memory. A desktop browser works best.</p>
+    <details class="note" style="margin:0 0 14px">
+      <summary>Experimental: port offset</summary>
+      <p style="margin:8px 0">The game talks to its server on this device through ports 8003, 8080 and 3000. If another app
+        already uses one of them, the launcher says so. An offset moves all three, for example 30000 gives 38003, 38080
+        and 33000. This is experimental: leave it at 0 unless you need it, and use the same offset for updates.</p>
+      <label>Offset <input type="number" id="port-offset" value="0" min="0" max="57455" step="1" style="width:9em"></label>
+    </details>
     <button id="build" disabled>Build</button>
     <div id="log"></div>
   </div>

@@ -110,13 +110,32 @@ static BOOL AttachInPlace(void) {
     return [files fileExistsAtPath:target];
 }
 
+// Returns a message naming each port that failed the self-test, or nil when all passed.
+static NSString *SelfTestFailure(NSString *report) {
+    NSDictionary *r = [NSJSONSerialization JSONObjectWithData:[report dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    if ([r[@"ok"] boolValue]) return nil;
+    NSMutableString *text = [NSMutableString stringWithString:@"The game could not reach its server:"];
+    for (NSDictionary *c in r[@"checks"])
+        if (![c[@"ok"] boolValue]) [text appendFormat:@"\n• Port %@ (%@): %@", c[@"port"], c[@"name"], c[@"detail"]];
+    return text;
+}
+
 // Starts the server; returns an empty string on success.
 static NSString *StartServer(void) {
     EnsureMaster();
     if (!AttachInPlace())
         return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
     if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
-    return TakeString(LunarStart((char *)gSaves.fileSystemRepresentation, (char *)gServerRoot.fileSystemRepresentation));
+    // The ports the game was built for (8003/8080/3000 plus the build's offset).
+    int offset = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"] intValue];
+    NSString *error = TakeString(LunarSetPortOffset(offset));
+    if (error.length) return error;
+    error = TakeString(LunarStart((char *)gSaves.fileSystemRepresentation, (char *)gServerRoot.fileSystemRepresentation));
+    if (error.length) return error;
+    // Confirm the game can reach this server on every port before playing.
+    NSString *failure = SelfTestFailure(TakeString(LunarSelfTest()));
+    if (failure) { LunarStop(); return failure; }
+    return @"";
 }
 
 #pragma mark - Airplane-mode reachability
@@ -827,6 +846,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     UIAction *restore = item(@"Import save backup", @"tray.and.arrow.down", idle, ^{ [weakSelf confirmSaveImport]; });
     UIAction *backup = item(@"Export save backup", @"square.and.arrow.up", idle && FileSize([gSaves stringByAppendingPathComponent:@"game.db"]) > 0, ^{ [weakSelf exportSaves]; });
     UIAction *log = item(@"Server log", @"doc.text", YES, ^{ [weakSelf showLog]; });
+    UIAction *check = item(@"Check server", @"checkmark.shield", running, ^{ [weakSelf checkServer]; });
     UIAction *settings = item(@"App settings", @"gear", YES, ^{
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
     });
@@ -835,7 +855,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     return [UIMenu menuWithTitle:@"" children:@[
         [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[tools, server]],
         [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, settings, help, about]],
+        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[check, log, settings, help, about]],
     ]];
 }
 - (void)alert:(NSString *)title message:(NSString *)message {
@@ -1128,6 +1148,22 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
         gWindow = nil;
     }]];
     [self presentViewController:alert animated:YES completion:nil];
+}
+// Shows whether the game can reach this server on each of its ports.
+- (void)checkServer {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *report = TakeString(LunarSelfTest());
+        NSDictionary *r = [NSJSONSerialization JSONObjectWithData:[report dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+        NSMutableString *text = [NSMutableString string];
+        for (NSDictionary *c in r[@"checks"]) {
+            [text appendFormat:@"%@ %@ · port %@\n", [c[@"ok"] boolValue] ? @"✓" : @"✗", c[@"name"], c[@"port"]];
+            if (![c[@"ok"] boolValue]) [text appendFormat:@"   %@\n", c[@"detail"]];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self alert:[r[@"ok"] boolValue] ? @"Server is reachable" : @"Server check failed"
+                message:[text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
+        });
+    });
 }
 - (void)showLog {
     NSString *logs = Status()[@"logs"];

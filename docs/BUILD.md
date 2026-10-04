@@ -108,6 +108,18 @@ Tap the server notification to return to the launcher. **⋮ → Tools** opens:
 Tools stops the game while editing. Its first launch prepares names from your
 imported resources. Close Tools and tap Play to resume with the changed data.
 
+Each time the server starts, the launcher checks that the game can reach it on
+its three local ports (8003, 8080 and 3000) and that it is this app's server
+answering. If another app already uses one of the ports, the launcher names the
+port instead of starting. **⋮ → Check server** runs the same check while the
+server is running. If you cannot free the port, build with an offset, which
+moves all three ports (experimental; use the same offset for every update):
+
+```sh
+python3.11 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin.e \
+  --keystore /path/to/lunar-local.keystore --port-offset 30000
+```
+
 Use **⋮ → Stop server** when finished. If Samsung pauses the server, set the
 app's battery usage to **Unrestricted**.
 

@@ -84,7 +84,7 @@ def version_tuple(value):
     return tuple(int(part) for part in str(value).split("."))
 
 
-def patch_info(app, bundle_id=None, display_name=None):
+def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
     path = app / "Info.plist"
     with path.open("rb") as handle:
         info = plistlib.load(handle)
@@ -94,6 +94,8 @@ def patch_info(app, bundle_id=None, display_name=None):
     # The player copies the prepared assets folder into Documents with Finder or Files.
     info["UIFileSharingEnabled"] = True
     info["LSSupportsOpeningDocumentsInPlace"] = True
+    # The ports the game was patched for (8003/8080/3000 plus this); the launcher reads it.
+    info["LunarPortOffset"] = port_offset
     if display_name:  # By default the game keeps its own name, "NieR".
         info["CFBundleDisplayName"] = display_name
     ats = info.setdefault("NSAppTransportSecurity", {})
@@ -173,6 +175,7 @@ def main():
     p.add_argument("--bundle-id", help="New bundle ID, required to sign with your own team")
     p.add_argument("--sign-identity", help="codesign identity, e.g. 'Apple Development: Name (TEAM)'")
     p.add_argument("--profile", type=Path, help="Provisioning profile for --bundle-id and your device")
+    p.add_argument("--port-offset", type=int, default=0, help="The port offset the IPA was patched with")
     args = p.parse_args()
     if bool(args.sign_identity) != bool(args.profile):
         p.error("--sign-identity and --profile must be used together")
@@ -200,7 +203,7 @@ def main():
         shutil.copytree(args.framework, destination)
         if args.python:
             add_python(app, args.python)
-        info = patch_info(app, args.bundle_id)
+        info = patch_info(app, args.bundle_id, port_offset=args.port_offset)
         executable = app / info["CFBundleExecutable"]
         print("Launcher load command", "added" if insert_dylib(executable) else "already present")
         if args.sign_identity:

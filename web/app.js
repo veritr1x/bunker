@@ -27,11 +27,13 @@ $("build").addEventListener("click", () => {
   const expected = platform() === "ios" ? ".ipa" : ".apk";
   if (!game.name.toLowerCase().endsWith(expected)) { log(`Choose the game ${expected} file.`); return; }
   if (game.name === master.name) { log("Choose two different files."); return; }
+  const portOffset = Number($("port-offset").value || 0);
+  if (!Number.isInteger(portOffset) || portOffset < 0 || portOffset > 57455) { log("The port offset must be a whole number from 0 to 57455."); return; }
   $("build").disabled = true;
   $("result").style.display = "none";
   $("log").textContent = "";
   if (url) URL.revokeObjectURL(url);
-  worker.postMessage({ platform: platform(), game, master });
+  worker.postMessage({ platform: platform(), game, master, portOffset });
 });
 
 worker.onmessage = ({ data }) => {

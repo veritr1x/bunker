@@ -14,6 +14,21 @@ func LunarStart(data, assets *C.char) *C.char {
 	return C.CString("")
 }
 
+// LunarSetPortOffset applies the build's port offset before LunarStart.
+//
+//export LunarSetPortOffset
+func LunarSetPortOffset(offset C.int) *C.char { return C.CString(mobile.SetPortOffset(int(offset))) }
+
+// LunarPorts reports {"game":…,"assets":…,"accounts":…}.
+//
+//export LunarPorts
+func LunarPorts() *C.char { return C.CString(mobile.Ports()) }
+
+// LunarSelfTest checks that this server answers on each port as the game expects.
+//
+//export LunarSelfTest
+func LunarSelfTest() *C.char { return C.CString(mobile.SelfTest()) }
+
 //export LunarStop
 func LunarStop() { mobile.Stop() }
 

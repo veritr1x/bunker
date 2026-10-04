@@ -34,6 +34,13 @@ from axml import Attr, Element  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "upstream/lunar-scripts"
 GRPC, HTTP = "127.0.0.1:8003", "127.0.0.1:8080"
+
+
+def addresses(port_offset=0):
+    """The game's loopback addresses, moved by the build's port offset."""
+    if not 0 <= port_offset <= 65535 - 8080:
+        raise ValueError(f"Port offset must be 0–{65535 - 8080}")
+    return f"127.0.0.1:{8003 + port_offset}", f"127.0.0.1:{8080 + port_offset}"
 PACKAGE = "com.square_enix.android_googleplay.nierspww"
 MASTER = "20240404193219.bin.e"
 LIB, METADATA = "lib/arm64-v8a/libil2cpp.so", "assets/bin/Data/Managed/Metadata/global-metadata.dat"
@@ -64,7 +71,7 @@ def run_cli(module, *args):
         sys.argv = old
 
 
-def patch_game_files(lib, metadata):
+def patch_game_files(lib, metadata, port_offset=0):
     """Apply lunar-scripts' library and metadata patches, plus local reachability."""
     with tempfile.TemporaryDirectory() as work:
         work = Path(work)
@@ -75,7 +82,8 @@ def patch_game_files(lib, metadata):
         # The upstream patcher also edits a text manifest; that change is made
         # on the binary manifest below instead.
         (work / "AndroidManifest.xml").write_text("<application >")
-        run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", GRPC, "--http-addr", HTTP)
+        grpc, http = addresses(port_offset)
+        run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", grpc, "--http-addr", http)
         load("package_game", ROOT / "android/tools/package_game.py").patch_local_reachability(work)
         return (work / LIB).read_bytes(), (work / METADATA).read_bytes()
 
@@ -88,7 +96,7 @@ def patch_master(original):
         return target.read_bytes()
 
 
-def patch_manifest(game_manifest, companion_manifest):
+def patch_manifest(game_manifest, companion_manifest, port_offset=0):
     doc = axml.parse(game_manifest)
     companion = axml.parse(companion_manifest).root
     manifest = doc.root
@@ -118,6 +126,9 @@ def patch_manifest(game_manifest, companion_manifest):
         game_activity = PACKAGE + game_activity
     app.children.append(Element("meta-data", [Attr.string("name", "org.lunartear.GAME_ACTIVITY", NAME),
                                               Attr.string("value", game_activity, VALUE)]))
+    # The launcher and server read the ports the game was built for.
+    app.children.append(Element("meta-data", [Attr.string("name", "org.lunartear.PORT_OFFSET", NAME),
+                                              Attr.integer("value", port_offset, VALUE)]))
     for source in companion.find_all("application")[0].children:
         if isinstance(source, Element) and source.name in ("activity", "service", "provider"):
             if source.name == "activity":
@@ -190,16 +201,16 @@ class ApkWriter:
         self.out.write(struct.pack("<IHHHHIIH", 0x06054B50, 0, 0, count, count, end - directory, directory, 0))
 
 
-def assemble(apk, master, companion_apk, output, log=print):
+def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
     with zipfile.ZipFile(apk) as game, zipfile.ZipFile(companion_apk) as companion, open(apk, "rb") as raw:
         names = set(game.namelist())
         for required in ("AndroidManifest.xml", LIB, METADATA, "resources.arsc"):
             if required not in names:
                 raise RuntimeError(f"Not the ARM64 game APK: {required} is missing")
         log("Patching the game library and metadata…")
-        lib, metadata = patch_game_files(game.read(LIB), game.read(METADATA))
+        lib, metadata = patch_game_files(game.read(LIB), game.read(METADATA), port_offset)
         log("Updating the manifest…")
-        manifest, game_activity = patch_manifest(game.read("AndroidManifest.xml"), companion.read("AndroidManifest.xml"))
+        manifest, game_activity = patch_manifest(game.read("AndroidManifest.xml"), companion.read("AndroidManifest.xml"), port_offset)
         log("Patching master data…")
         original_master = Path(master).read_bytes()
         patched_master = patch_master(original_master)
@@ -240,8 +251,10 @@ def main():
     p.add_argument("--master", type=Path, required=True, help="Original 20240404193219.bin.e")
     p.add_argument("--companion-apk", type=Path, required=True, help="Built launcher APK (android/app)")
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--port-offset", type=int, default=0, help="Move the game's ports 8003/8080/3000 by this amount")
     args = p.parse_args()
-    assemble(args.apk.resolve(strict=True), args.master.resolve(strict=True), args.companion_apk.resolve(strict=True), args.output.resolve())
+    assemble(args.apk.resolve(strict=True), args.master.resolve(strict=True), args.companion_apk.resolve(strict=True), args.output.resolve(),
+             port_offset=args.port_offset)
 
 
 if __name__ == "__main__":

@@ -83,8 +83,8 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = Start(data, root); e == nil {
-		t.Fatal("accepted occupied port")
+	if e = Start(data, root); e == nil || !strings.Contains(e.Error(), "already used by another app") {
+		t.Fatalf("occupied port: got %v", e)
 	}
 	occupied.Close()
 	for iteration := 0; iteration < 2; iteration++ {
@@ -105,6 +105,10 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 		}
 		func() {
 			defer Stop()
+			var test struct{ OK bool }
+			if report := SelfTest(); json.Unmarshal([]byte(report), &test) != nil || !test.OK {
+				t.Fatalf("self-test failed on a running server: %s", report)
+			}
 			client := &http.Client{Timeout: 5 * time.Second}
 			req, _ := http.NewRequest("GET", "http://"+local(8080)+"/unso-1-assetbundle/abc123", nil)
 			req.Header.Set("User-Agent", "Android")
@@ -154,5 +158,45 @@ func TestLocalServicesWithRealMasterData(t *testing.T) {
 			t.Fatal(e)
 		}
 		l.Close()
+	}
+}
+
+// Another program on one of the ports must not pass for this server.
+func TestSelfTestRejectsAnotherProgram(t *testing.T) {
+	Stop()
+	defer portOffsetSet.Store(false)
+	if e := SetPortOffset(-1); e == "" {
+		t.Fatal("accepted a negative offset")
+	}
+	SetPortOffset(offset() + 1000)
+	var ports map[string]int
+	json.Unmarshal([]byte(Ports()), &ports)
+	if ports["game"] != 8003+offset() || ports["assets"] != 8080+offset() || ports["accounts"] != 3000+offset() {
+		t.Fatalf("ports %v", ports)
+	}
+	l, e := net.Listen("tcp", local(8080))
+	if e != nil {
+		t.Fatal(e)
+	}
+	impostor := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"status":"ok"}`)
+	})}
+	go impostor.Serve(l)
+	defer impostor.Close()
+	var report struct {
+		OK     bool
+		Checks []check
+	}
+	json.Unmarshal([]byte(SelfTest()), &report)
+	if report.OK || len(report.Checks) != 3 {
+		t.Fatalf("self-test passed without the server: %+v", report)
+	}
+	for _, c := range report.Checks {
+		if c.OK {
+			t.Fatalf("%s passed without the server", c.Name)
+		}
+		if c.Name == "assets" && !strings.Contains(c.Detail, "another program") {
+			t.Fatalf("impostor not identified: %q", c.Detail)
+		}
 	}
 }

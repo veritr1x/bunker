@@ -105,10 +105,16 @@ public final class ServerService extends Service {
                 FilesStore.recover(this);
                 if(START.equals(action)) {
                     FilesStore.ensureBootstrap(this);
-                    String error=NativeBridge.start(FilesStore.data(this).getAbsolutePath(),FilesStore.root(this).getAbsolutePath());
+                    String error=NativeBridge.setPortOffset(Ports.offset(this));
+                    if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?"Native server did not respond":error);
+                    error=NativeBridge.start(FilesStore.data(this).getAbsolutePath(),FilesStore.root(this).getAbsolutePath());
                     if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?"Native server did not respond":error);
                     if(cancelled) { NativeBridge.stop(); throw new InterruptedException("Start cancelled"); }
-                    running=true;state="Server running";detail="Ready to play · server is running on this phone";
+                    // Confirm the game can reach this server on every port before playing.
+                    String failure=selfTestFailure(NativeBridge.selfTest());
+                    if(failure!=null) { NativeBridge.stop(); throw new IllegalStateException(failure); }
+                    running=true;state="Server running";
+                    detail="Ready to play";
                     main.post(monitor);
                 } else {
                     FilesStore.Progress progress=new FilesStore.Progress(){
@@ -146,6 +152,20 @@ public final class ServerService extends Service {
         for(ActivityManager.RunningAppProcessInfo process:manager.getRunningAppProcesses())
             if(process.uid==android.os.Process.myUid()&&process.pid!=android.os.Process.myPid()&&process.processName.equals(getPackageName()))android.os.Process.killProcess(process.pid);
     }
+    /** Returns a message naming each port that failed the self-test, or null when all passed. */
+    static String selfTestFailure(String report) {
+        try {
+            JSONObject r=new JSONObject(report);
+            if(r.optBoolean("ok")) return null;
+            StringBuilder text=new StringBuilder("The game could not reach its server:");
+            org.json.JSONArray checks=r.getJSONArray("checks");
+            for(int i=0;i<checks.length();i++){
+                JSONObject c=checks.getJSONObject(i);
+                if(!c.optBoolean("ok")) text.append("\n• Port ").append(c.optInt("port")).append(" (").append(c.optString("name")).append("): ").append(c.optString("detail"));
+            }
+            return text.toString();
+        } catch(Exception e) { return "Server check failed: "+e.getMessage(); }
+    }
     private void finishForeground() {
         if(wake!=null&&wake.isHeld())wake.release();
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -165,6 +185,17 @@ public final class ServerService extends Service {
             Message reply=Message.obtain(null,message.what);
             Bundle b=new Bundle();b.putBoolean("running",running);b.putBoolean("busy",busy);b.putBoolean("tools",tools);b.putInt("permille",permille);b.putString("state",state);b.putString("detail",detail);
             if(message.what==2) { try { b.putString("native",NativeBridge.status()); } catch(Throwable e){b.putString("native","{\"logs\":\"Native server unavailable\"}");} }
+            if(message.what==3) {
+                // The checks take up to a few seconds; answer from a background thread.
+                Messenger to=message.replyTo;
+                new Thread(()->{
+                    Bundle result=new Bundle();
+                    try { result.putString("selftest",running?NativeBridge.selfTest():""); } catch(Throwable e){ result.putString("selftest",""); }
+                    Message answer=Message.obtain(null,3);answer.setData(result);
+                    try{to.send(answer);}catch(RemoteException ignored){}
+                },"lunar-self-test").start();
+                return true;
+            }
             reply.setData(b);try{message.replyTo.send(reply);}catch(RemoteException ignored){}
         }
         return true;

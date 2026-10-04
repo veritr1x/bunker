@@ -1,5 +1,27 @@
 # Validation
 
+## Server checks, port conflicts and port offset — 2026-10-04
+
+- Another device showed a black screen after the logo. Reproduced on an
+  Android 17 emulator by holding port 8080 with another process: the old build
+  showed the raw "address already in use" error with the server card still
+  "Ready", and the game opened directly sat on a black screen. Now the server
+  checks itself after starting (game, assets and accounts ports, and that this
+  server answers), the launcher names the busy port and shows "Not running",
+  and a game opened directly goes to the launcher instead. Same results on the
+  Fold. Go tests cover the check, including another program on a port.
+- Port offset (scripts/build.py --port-offset, and the web builder's
+  experimental option): with port 8080 held, an offset build first still failed
+  ("Failed to connect"). Unity extracts the game's code data to
+  Android/data/…/files/il2cpp on first launch and re-extracts only when the
+  Unity version changes, so every update had kept running the first install's
+  copy, including its addresses. The game process now deletes that copy after
+  each install or update, and drops the cached asset list when the offset
+  changes. Afterwards the web-built and command-line offset builds reached
+  player registration on 38003/38080/33000 with 8080 held, and switching back
+  to a default build re-extracted the copy and played normally, also on the
+  Fold.
+
 ## Game reopened without its server — 2026-10-04
 
 - On the Fold, after an update the game was reopened from Recent apps. Updating

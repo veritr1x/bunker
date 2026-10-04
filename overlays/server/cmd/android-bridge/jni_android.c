@@ -68,5 +68,8 @@ JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importArchiv
     if (d) (*env)->ReleaseStringUTFChars(env, stage, d);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_setPortOffset(JNIEnv *env, jclass type, jint offset) { return result(env, LunarSetPortOffset((int)offset)); }
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_ports(JNIEnv *env, jclass type) { return result(env, LunarPorts()); }
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_selfTest(JNIEnv *env, jclass type) { return result(env, LunarSelfTest()); }
 JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importProgress(JNIEnv *env, jclass type) { return result(env, LunarImportProgress()); }
 JNIEXPORT void JNICALL Java_org_lunartear_companion_NativeBridge_cancelImport(JNIEnv *env, jclass type) { LunarCancelImport(); }

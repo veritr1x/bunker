@@ -57,6 +57,7 @@ def main():
     p.add_argument("--sdk",type=Path,default=Path(os.environ.get("ANDROID_HOME",str(Path.home()/"Library/Android/sdk"))))
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--keystore",type=Path,required=True)
+    p.add_argument("--port-offset",type=int,default=0,help="The offset the game was patched with (ports 8003/8080/3000)")
     args=p.parse_args()
     root=Path(__file__).resolve().parents[2]
     game=args.decoded_dir.resolve();output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
@@ -76,8 +77,10 @@ def main():
     if original.startswith("."): original=package+original
     elif "." not in original: original=package+"."+original
     for entry in list(app):
-        if entry.get(attr("name")) in ["org.lunartear.GAME_ACTIVITY","org.lunartear.companion.ServerService","org.lunartear.companion.ToolsActivity"]:app.remove(entry)
+        if entry.get(attr("name")) in ["org.lunartear.GAME_ACTIVITY","org.lunartear.PORT_OFFSET","org.lunartear.companion.ServerService","org.lunartear.companion.ToolsActivity"]:app.remove(entry)
     ET.SubElement(app,"meta-data",{attr("name"):"org.lunartear.GAME_ACTIVITY",attr("value"):original})
+    # The launcher and server read the ports the game was built for.
+    ET.SubElement(app,"meta-data",{attr("name"):"org.lunartear.PORT_OFFSET",attr("value"):str(args.port_offset)})
     app.set(attr("usesCleartextTraffic"),"true");app.set(attr("allowBackup"),"false");app.set(attr("extractNativeLibs"),"true")
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.

@@ -14,7 +14,9 @@ import tempfile
 
 from prepare import ROOT, prepare
 
-GRPC, HTTP, AUTH = "127.0.0.1:8003", "127.0.0.1:8080", "127.0.0.1:3000"
+def addresses(port_offset):
+    """The game's loopback addresses (game, assets, accounts), moved by --port-offset."""
+    return tuple(f"127.0.0.1:{port + port_offset}" for port in (8003, 8080, 3000))
 
 
 def port_in_use(port):
@@ -52,11 +54,12 @@ def build_android(args, env, python, master, sdk):
     with tempfile.TemporaryDirectory(prefix="game-", dir=work) as temp:
         decoded = Path(temp) / "decoded"
         run("apktool", "d", args.apk, "-o", decoded, env=env)
+        grpc, http, auth = addresses(args.port_offset)
         run(python, ROOT / "upstream/lunar-scripts/android/patch_apk.py", decoded,
-            "--grpc-addr", GRPC, "--http-addr", HTTP, "--auth-host", AUTH, env=env)
+            "--grpc-addr", grpc, "--http-addr", http, "--auth-host", auth, env=env)
         run(python, ROOT / "android/tools/package_game.py", "--decoded-dir", decoded,
             "--companion-apk", ROOT / "android/app/build/outputs/apk/debug/app-debug.apk",
-            "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), env=env)
+            "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), "--port-offset", args.port_offset, env=env)
     record_checksum(output)
     print(f"\nReady: {output}\nKeep your signing key: {args.keystore.resolve()}")
 
@@ -67,13 +70,14 @@ def build_ios(args, env, python, master):
     output = ROOT / "artifacts/game-Offline.ipa"
     with tempfile.TemporaryDirectory(prefix="game-", dir=work) as temp:
         patched = Path(temp) / "patched.ipa"
+        grpc, http, auth = addresses(args.port_offset)
         run(python, ROOT / "upstream/lunar-scripts/ios/patch_ipa.py", args.ipa,
-            "--grpc-addr", GRPC, "--http-addr", HTTP, "--auth-host", AUTH, "-o", patched, env=env)
+            "--grpc-addr", grpc, "--http-addr", http, "--auth-host", auth, "-o", patched, env=env)
         run(ROOT / "ios/tools/build_framework.sh", master, Path(temp) / "framework", args.master.resolve(), env=env)
         run(python, ROOT / "ios/tools/build_python.py", Path(temp) / "python", env=env)
         command = [python, ROOT / "ios/tools/package_ipa.py", "--patched-ipa", patched,
                    "--framework", Path(temp) / "framework/LunarTear.framework", "--python", Path(temp) / "python",
-                   "--output", output]
+                   "--output", output, "--port-offset", args.port_offset]
         if args.bundle_id:
             command += ["--bundle-id", args.bundle_id]
         if args.sign_identity:
@@ -93,6 +97,8 @@ def main():
     parser.add_argument("--bundle-id", help="iPhone: bundle ID for signing with your own Apple team")
     parser.add_argument("--sign-identity", help="iPhone: codesign identity; requires --profile")
     parser.add_argument("--profile", type=Path, help="iPhone: provisioning profile for --bundle-id")
+    parser.add_argument("--port-offset", type=int, default=0,
+                        help="Move the game's local ports 8003/8080/3000 by this amount, for devices where another app uses them")
     args = parser.parse_args()
     android = args.apk is not None
     if not android and bool(args.sign_identity) != bool(args.profile):
