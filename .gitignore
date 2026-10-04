@@ -21,6 +21,7 @@
 *.mobileprovision
 *.provisionprofile
 *.p12
+!web/signing/bunker-key.p12
 *.cer
 *.apks
 *.xapk
