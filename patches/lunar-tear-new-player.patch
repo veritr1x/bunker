@@ -1,0 +1,28 @@
+diff --git a/server/internal/service/user.go b/server/internal/service/user.go
+--- a/server/internal/service/user.go
++++ b/server/internal/service/user.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"context"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"log"
+ 	"net/http"
+@@ -68,6 +69,16 @@
+ 	log.Printf("[UserService] Auth: uuid=%s platform=%s", req.Uuid, platform)
+ 
+ 	session, err := s.sessions.CreateSession(req.Uuid, 24*time.Hour)
++	if errors.Is(err, store.ErrNotFound) && !s.noRegister {
++		// The game registers only on its very first start. When the player that
++		// held this device's ID was set aside (Pod Programs: New player), start a
++		// new one here instead of failing the sign-in.
++		var userId int64
++		if userId, err = s.users.CreateUser(req.Uuid, platform); err == nil {
++			log.Printf("[UserService] Auth: new player for uuid=%s -> userId=%d", req.Uuid, userId)
++			session, err = s.sessions.CreateSession(req.Uuid, 24*time.Hour)
++		}
++	}
+ 	if err != nil {
+ 		return nil, fmt.Errorf("create session: %w", err)
+ 	}

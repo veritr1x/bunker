@@ -89,7 +89,7 @@ may need more. Patched master data is already bundled in the APK.
 1. Install `game-Offline.apk` on an ARM64 Android 9+ phone.
 2. Open it. Under **1 Game files**, tap **Choose** and select the `.7z` or the copied folder.
 3. Wait for import. It first counts the files, then shows a progress bar with
-   the time left. The server starts and the game opens. Tap **3 Play** to retry.
+   the time left. Lunar Tear starts and the game opens. Tap **Deploy** to retry.
 
 Subsequent launches start the server and game automatically. In-game download
 prompts load files from this same phone, including in airplane mode.
@@ -98,15 +98,22 @@ The APK uses a different signature from the publisher's APK. Preserve existing
 saves before removing a conflicting installation. A later build signed with
 your same local key can update this installation normally.
 
-Tap the server notification to return to the launcher. **⋮ → Tools** opens:
+Tap the Lunar Tear notification to return to the Bunker (the launcher). **Open Pod Programs** opens:
 
 - Content presets, custom configuration, master import/export and rollback.
 - Player inventory, gems/materials, costumes, weapons, companions and upgrades.
 - Karma, slabs, debris, memoir sets and stats.
 - Automatic game-save snapshots, manual backups and restoration.
+- **Users**: the player marked IN USE is the one the game signs in as on this
+  device. **Use this player** switches to another player in the save, and
+  **New player** starts a fresh one; the previous player is always kept, and
+  the save is backed up first.
 
-Tools stops the game while editing. Its first launch prepares names from your
-imported resources. Close Tools and tap Play to resume with the changed data.
+Pod Programs stops the game while editing. Its first launch prepares names from your
+imported resources. Close Pod Programs and tap Deploy to resume with the changed data.
+
+**⋮ → Display** chooses light, dark or the phone's setting (the default) for the
+Bunker and Pod Programs.
 
 Each time the server starts, the launcher checks that the game can reach it on
 its three local ports (8003, 8080 and 3000) and that it is this app's server
@@ -119,6 +126,11 @@ moves all three ports (experimental; use the same offset for every update):
 python3.11 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin.e \
   --keystore /path/to/lunar-local.keystore --port-offset 30000
 ```
+
+The server log is also saved between sessions in
+`Android/data/<package>/files/logs/server.log` (moved to `server.log.1` at
+5 MB). Read it with `adb pull`, no root needed, or use **⋮ → Export server
+log**, which saves a ZIP with the log and the phone's model and Android version.
 
 Use **⋮ → Stop server** when finished. If Samsung pauses the server, set the
 app's battery usage to **Unrestricted**.

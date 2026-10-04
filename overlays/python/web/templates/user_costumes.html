@@ -112,7 +112,10 @@
       // doesn't match any current master-data entry (master-data drift).
       // Placeholder value="" — the submit handler skips rows whose value
       // equals their baseline, so leaving this selected is a no-op.
-      const placeholderLabel = currentOdds === 0
+      // A slot with no roll at all is locked: the costume is missing or not yet upgraded.
+      const placeholderLabel = !slotUnlocked
+        ? `SLOT ${slot}: locked`
+        : currentOdds === 0
         ? `SLOT ${slot}: (unrolled — pick to set)`
         : (selectedValue ? `SLOT ${slot}: keep current` : `SLOT ${slot}: (unknown roll #${currentOdds})`);
       const opts = [

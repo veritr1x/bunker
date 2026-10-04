@@ -93,15 +93,19 @@ Then put the 20 GB of files on the device in one of these ways:
 
 ## Options menu
 
-Tap **⋮** on the launcher screen:
+The launcher is the **Bunker**. **Open Pod Programs** (the save editors and
+content presets, as on Android) is on the Bunker itself. Tap **⋮** for:
 
-- **Tools**: the save editors and content presets, as on Android.
-- **Stop server** or **Start server**.
+- **Display**: light, dark or the system setting (the default).
+- **Stop Lunar Tear** or **Start Lunar Tear**, and **Check Lunar Tear**.
 - **Import master data** replaces the bundled master-data file.
 - **Export save backup** saves `game.db`, `auth.db` and `auth.key` in a ZIP.
 - **Import save backup** restores such a ZIP, from iOS or Android, or a bare
   `game.db`. The current save is kept in `saves.before-import`.
-- **Server log**, **App settings**, **Help** and **About**.
+- **Lunar Tear log** shows the latest lines. **Export Lunar Tear log** saves a ZIP of
+  the log kept between sessions (`Documents/logs`, up to about 10 MB, also
+  visible in Files) with the iOS version.
+- **App settings**, **Help** and **About**.
 
 Stopping the server, importing master data or exporting saves disconnects the
 game: close it from the app switcher and open it again. After importing a save,

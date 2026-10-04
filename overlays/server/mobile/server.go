@@ -58,7 +58,7 @@ func (b *logBuffer) Write(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
-func init() { log.SetOutput(io.MultiWriter(os.Stderr, &logs)) }
+func init() { log.SetOutput(io.MultiWriter(os.Stderr, &logs, fileLog{})) }
 
 func setStatus(p, e string) { statusMu.Lock(); phase, lastError = p, e; statusMu.Unlock() }
 func Status() string {

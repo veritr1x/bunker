@@ -1,18 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Tools{% endblock %}
+{% block title %}Pod Programs{% endblock %}
 {% block content %}
-<h1>Tools</h1>
+<h1>Pod Programs</h1>
+{% if not game_db_exists %}
+<div class="banner error">&gt; No save on this device yet. Import a save backup from the Bunker's ⋮ menu, or Deploy and play once. The editors open when a save exists.</div>
+{% endif %}
+{# The editors need a save; without one they are shown, but off. #}
+{% macro program(href, name, about, needs_save=True) -%}
+{% if needs_save and not game_db_exists %}<span class="off" aria-disabled="true">{{ name }} <span>{{ about }} · needs a save</span></span>
+{% else %}<a href="{{ href }}">{{ name }} <span>{{ about }}</span></a>{% endif %}
+{%- endmacro %}
 <div class="tool-grid">
-  <a href="/patcher">Content patcher <span>Events &amp; shops</span></a>
-  <a href="/backups">Save data <span>Back up &amp; restore</span></a>
-  <a href="/users">Players <span>Profile &amp; inventory</span></a>
-  <a href="/items">Items <span>Gems, gold &amp; materials</span></a>
-  <a href="/costumes">Costumes <span>Costumes &amp; karma</span></a>
-  <a href="/weapons">Weapons <span>Weapons &amp; evolutions</span></a>
-  <a href="/upgrades">Upgrades <span>Characters &amp; equipment</span></a>
-  <a href="/memoirs">Memoirs <span>Sets &amp; stats</span></a>
+  {{ program("/patcher", "Content patcher", "Events & shops", False) }}
+  {{ program("/backups", "Save data", "Back up & restore", False) }}
+  {{ program("/users", "Players", "Profile & inventory") }}
+  {{ program("/items", "Items", "Gems, gold & materials") }}
+  {{ program("/costumes", "Costumes", "Costumes & karma") }}
+  {{ program("/weapons", "Weapons", "Weapons & evolutions") }}
+  {{ program("/upgrades", "Upgrades", "Characters & equipment") }}
+  {{ program("/memoirs", "Memoirs", "Sets & stats") }}
 </div>
-{% if not game_db_exists %}<p>Play the game once to create your save.</p>{% endif %}
 <p>Save editors keep a backup before each change.</p>
 <p class="credit">Lunar Base by NMeliksah · Masterdata Patcher by NavHobbyDev</p>
 {% endblock %}

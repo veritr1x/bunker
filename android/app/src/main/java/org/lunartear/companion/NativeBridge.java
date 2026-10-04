@@ -18,6 +18,10 @@ public final class NativeBridge {
     /** {"ok":bool,"checks":[{"name","port","ok","detail"}]}: is this server reachable on every port? */
     public static native String selfTest();
     public static native void cancelImport();
+    /** Also keeps the server log in this folder, between sessions; "" or an error. */
+    public static native String setLogDir(String directory);
+    /** Writes a zip of the saved logs and the device details to an open document. */
+    public static native String exportLogs(String directory, int fd, String info);
     public static native String importSaves(String dataDirectory, String source);
     public static native String edit(String dataDirectory, String assetDirectory, String request);
 }

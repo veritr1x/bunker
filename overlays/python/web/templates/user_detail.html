@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}User {{ u.user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ u.user_id }}{% endblock %}
+{% block content %}
+<p style="margin-top:0">
+  <a href="/users">&larr; All users</a>
+</p>
+
+{% set in_use = device_player() if device_player is defined else None %}
+<h1 class="bracket-header">This device</h1>
+<div class="panel panel-corners">
+  {% if u.user_id == in_use %}
+  <p style="margin:0"><span class="status-pill online">IN USE</span> The game plays as this player on this device.</p>
+  {% elif in_use is none %}
+  <p style="margin:0">Deploy and sign in to the game once on this device, then you can choose which player it uses.</p>
+  {% else %}
+  <p style="margin:0 0 12px">The game plays as player {{ in_use }}. Use this player instead? Player {{ in_use }} is kept, and your save is backed up first.</p>
+  <form method="post" action="/users/{{ u.user_id }}/use" onsubmit="return confirm('Play as player {{ u.user_id }} on this device?')">
+    <button type="submit">Use this player</button>
+  </form>
+  {% endif %}
+</div>
+
+<h1 class="bracket-header">Identity</h1>
+<div class="panel panel-corners">
+  <dl class="kv">
+    <dt>User ID</dt>       <dd>{{ u.user_id }}</dd>
+    <dt>Player ID</dt>     <dd>{{ u.player_id }}</dd>
+    <dt>UUID</dt>          <dd><code>{{ u.uuid }}</code></dd>
+    <dt>Name</dt>          <dd>{% if u.name %}{{ u.name }}{% else %}<span style="color:var(--fg-mid)">(unset)</span>{% endif %}</dd>
+    <dt>Message</dt>       <dd>{% if u.message %}{{ u.message }}{% else %}<span style="color:var(--fg-mid)">(none)</span>{% endif %}</dd>
+    <dt>Level / EXP</dt>   <dd>{{ u.level }} &nbsp; ({{ u.exp }} EXP)</dd>
+    <dt>Registered</dt>    <dd>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d %H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</dd>
+    <dt>Last login</dt>    <dd>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d %H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">never</span>{% endif %}</dd>
+    <dt>Total logins</dt>  <dd>{{ u.total_login_count }}</dd>
+  </dl>
+</div>
+
+<h1 class="bracket-header">Currencies</h1>
+<div class="panel panel-corners">
+  <dl class="kv">
+    <dt>Paid gems</dt>     <dd>{{ "{:,}".format(u.paid_gem) }}</dd>
+    <dt>Free gems</dt>     <dd>{{ "{:,}".format(u.free_gem) }}</dd>
+  </dl>
+  <p style="margin:16px 0 0">
+    <a href="/users/{{ u.user_id }}/edit/items" class="button">[ EDIT ITEMS ]</a>
+    <a href="/users/{{ u.user_id }}/edit/costumes" class="button">[ EDIT COSTUMES ]</a>
+    <a href="/users/{{ u.user_id }}/edit/weapons" class="button">[ EDIT WEAPONS ]</a>
+    <a href="/users/{{ u.user_id }}/upgrades" class="button">[ UPGRADE MANAGER ]</a>
+    <a href="/users/{{ u.user_id }}/memoirs" class="button">[ MEMOIR EDITOR ]</a>
+  </p>
+</div>
+
+<h1 class="bracket-header">Inventory</h1>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Distinct items</th><th>Source table</th></tr>
+    </thead>
+    <tbody>
+      {% for item in u.inventory_counts %}
+      <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ "{:,}".format(item.count) }}</td>
+        <td><code>{{ item.table }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h1 class="bracket-header">Stackables</h1>
+<div class="panel">
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Distinct IDs</th><th>Total count</th><th>Source table</th></tr>
+    </thead>
+    <tbody>
+      {% for s in u.stackables %}
+      <tr>
+        <td>{{ s.label }}</td>
+        <td>{{ "{:,}".format(s.distinct) }}</td>
+        <td>
+          {% if s.total is none %}
+            <span style="color:var(--fg-mid)">n/a</span>
+          {% else %}
+            {{ "{:,}".format(s.total) }}
+          {% endif %}
+        </td>
+        <td><code>{{ s.table }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin:16px 0 0;color:var(--fg-mid);font-size:12px">
+    "Premium items" stores an acquisition timestamp instead of a quantity, so its total is not shown.
+  </p>
+</div>
+{% endblock %}

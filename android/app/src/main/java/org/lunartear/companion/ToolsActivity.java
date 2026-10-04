@@ -24,36 +24,43 @@ public final class ToolsActivity extends Activity {
     private ValueCallback<Uri[]> upload;
     private final ServiceConnection connection=new ServiceConnection(){
         public void onServiceConnected(ComponentName name,IBinder binder){}
-        public void onServiceDisconnected(ComponentName name){message.setText("Tools stopped. Close and reopen to retry.");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);}
+        public void onServiceDisconnected(ComponentName name){message.setText("> Pod Programs stopped. Close and reopen to retry.");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);}
     };
     private final Runnable poll=new Runnable(){public void run(){
         if(closing&&!ServerService.busy&&!ServerService.tools){returnToLauncher();return;}
         if(!closing&&ServerService.tools&&!ServerService.busy&&!ToolsRuntime.url.isEmpty()&&!loaded){
             loaded=true;origin=ToolsRuntime.url;
+            // WebView takes light or dark from the game's theme, not the phone; tell the page instead.
+            CookieManager.getInstance().setCookie(origin,"lunar_theme="+(look.dark?"dark":"light")+"; Path=/; SameSite=Strict");
             CookieManager.getInstance().setCookie(origin,"lunar_tools="+ToolsRuntime.token+"; Path=/; HttpOnly; SameSite=Strict",ok->web.loadUrl(origin+"/"));
         }
         if(!loaded||closing)message.setText(ServerService.detail);
-        if(loaded&&!ServerService.tools&&!ServerService.busy&&!closing){loaded=false;web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);message.setText("Tools closed. Return to the launcher.");}
+        if(loaded&&!ServerService.tools&&!ServerService.busy&&!closing){loaded=false;web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);message.setText("> Pod Programs closed. Return to the Bunker.");}
         handler.postDelayed(this,300);
     }};
-    private int dp(int n){return (int)(getResources().getDisplayMetrics().density*n+.5f);}
+    private Look look;
+    private int dp(int n){return look.dp(n);}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
-        Look.apply(this);
+        look=Look.of(this);look.apply(this);
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
         if(!webInitialized){WebView.setDataDirectorySuffix("lunar_tools");webInitialized=true;}
-        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackgroundColor(0xfff4f1e9);
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackground(look.paper());
         body.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
-        LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(16),dp(4),dp(8),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);
-        TextView title=new TextView(this);title.setText("Tools");title.setTextSize(20);title.setTextColor(0xff303630);bar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        close=new Button(this);close.setText("Close");close.setAllCaps(false);close.setOnClickListener(v->closeTools());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(48)));
-        message=new TextView(this);message.setText("Opening tools…");message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));message.setTextSize(16);body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
-        web=new WebView(this);web.setBackgroundColor(0xfff4f1e9);web.setVisibility(View.GONE);body.addView(web,new LinearLayout.LayoutParams(-1,0,1));
+        // The same top bar as the Bunker: where you are, and the way back.
+        LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);
+        LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
+        TextView caption=look.monoText("BUNKER // POD 042",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
+        TextView title=look.text("POD PROGRAMS",22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
+        bar.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
+        close=look.outlined("CLOSE");close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->closeTools());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
+        message=look.monoText("> Opening Pod Programs…",13,look.ink);message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
+        web=new WebView(this);web.setBackgroundColor(look.paper);web.setVisibility(View.GONE);body.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return !local(request.getUrl().toString());}
             @Override public void onPageFinished(WebView view,String url){if(!closing&&local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("Unable to open Tools. Close and try again.");message.setVisibility(View.VISIBLE);}}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("> Unable to open Pod Programs. Close and try again.");message.setVisibility(View.VISIBLE);}}
         });
         web.setWebChromeClient(new WebChromeClient(){
             @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){
@@ -74,7 +81,7 @@ public final class ToolsActivity extends Activity {
     }
     private boolean local(String url){return !origin.isEmpty()&&(url.equals(origin)||url.startsWith(origin+"/"));}
     private void closeTools(){
-        if(closing)return;closing=true;close.setEnabled(false);message.setText("Closing tools…");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);
+        if(closing)return;closing=true;close.setEnabled(false);message.setText("> Closing Pod Programs…");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);
         startService(new Intent(this,ServerService.class).setAction(ServerService.CLOSE_TOOLS));
     }
     private void returnToLauncher(){

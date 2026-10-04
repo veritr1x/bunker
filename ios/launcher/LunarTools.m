@@ -128,14 +128,45 @@ NSString *LTToolsStop(void) {
 @property(nonatomic, copy) NSString *origin, *token;
 @property(nonatomic, copy) void (^onClose)(void);
 @property(nonatomic, strong) WKWebView *web;
+@property(nonatomic, strong) UIButton *closeButton;
 @end
 
 @implementation LTToolsViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Tools";
-    self.view.backgroundColor = [UIColor colorWithRed:0.96 green:0.95 blue:0.91 alpha:1];
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Close" style:UIBarButtonItemStyleDone target:self action:@selector(close)];
+    self.title = @"Pod Programs";
+    // The Bunker's paper and ink, matching the launcher and the pages' stylesheet.
+    UIColor *(^shade)(uint32_t, uint32_t) = ^UIColor *(uint32_t light, uint32_t dark) {
+        return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
+            uint32_t v = t.userInterfaceStyle == UIUserInterfaceStyleDark ? dark : light;
+            return [UIColor colorWithRed:((v >> 16) & 255) / 255.0 green:((v >> 8) & 255) / 255.0 blue:(v & 255) / 255.0 alpha:1];
+        }];
+    };
+    UIColor *ink = shade(0x3a372f, 0xd9d3ba), *muted = shade(0x4f4b40, 0xa8a28b);
+    self.view.backgroundColor = shade(0xd3ceb8, 0x191813);
+    // The same top bar as the Bunker: where you are, and the way back.
+    UILabel *caption = [UILabel new];
+    caption.attributedText = [[NSAttributedString alloc] initWithString:@"BUNKER // POD 042" attributes:@{
+        NSFontAttributeName: [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular], NSForegroundColorAttributeName: muted, NSKernAttributeName: @2}];
+    UILabel *title = [UILabel new];
+    title.attributedText = [[NSAttributedString alloc] initWithString:@"POD PROGRAMS" attributes:@{
+        NSFontAttributeName: [UIFont boldSystemFontOfSize:22], NSForegroundColorAttributeName: ink, NSKernAttributeName: @6.2}];
+    title.accessibilityTraits = UIAccessibilityTraitHeader;
+    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
+    titles.axis = UILayoutConstraintAxisVertical;
+    self.closeButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    [self.closeButton setAttributedTitle:[[NSAttributedString alloc] initWithString:@"CLOSE" attributes:@{
+        NSFontAttributeName: [UIFont boldSystemFontOfSize:12], NSForegroundColorAttributeName: ink, NSKernAttributeName: @2.4}] forState:UIControlStateNormal];
+    self.closeButton.layer.borderWidth = 2;
+    self.closeButton.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
+    [self.closeButton addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside];
+    [self.closeButton.heightAnchor constraintEqualToConstant:44].active = YES;
+    [self.closeButton setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    UIStackView *bar = [[UIStackView alloc] initWithArrangedSubviews:@[titles, self.closeButton]];
+    bar.alignment = UIStackViewAlignmentCenter;
+    bar.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:bar];
+    [self updateBorder];
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
     // Nothing persists between sessions; each session has a new token.
     configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
@@ -150,7 +181,10 @@ NSString *LTToolsStop(void) {
     [NSLayoutConstraint activateConstraints:@[
         [self.web.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.web.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [self.web.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [bar.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:18],
+        [bar.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-18],
+        [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:12],
+        [self.web.topAnchor constraintEqualToAnchor:bar.bottomAnchor constant:4],
         [self.web.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
     NSURL *origin = [NSURL URLWithString:self.origin];
@@ -162,12 +196,21 @@ NSString *LTToolsStop(void) {
         [weakSelf.web loadRequest:[NSURLRequest requestWithURL:[origin URLByAppendingPathComponent:@"/"]]];
     }];
 }
+// Layer colours do not follow light and dark by themselves.
+- (void)updateBorder {
+    BOOL dark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    self.closeButton.layer.borderColor = (dark ? [UIColor colorWithRed:0.85 green:0.83 blue:0.73 alpha:1] : [UIColor colorWithRed:0.23 green:0.22 blue:0.18 alpha:1]).CGColor;
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    [self updateBorder];
+}
 - (BOOL)local:(NSURL *)url {
     NSURL *origin = [NSURL URLWithString:self.origin];
     return [url.scheme isEqual:@"http"] && [url.host isEqual:origin.host] && [url.port isEqual:origin.port];
 }
 - (void)close {
-    self.navigationItem.leftBarButtonItem.enabled = NO;
+    self.closeButton.enabled = NO;
     [self.web stopLoading];
     if (self.onClose) self.onClose();
 }
@@ -212,7 +255,7 @@ NSString *LTToolsStop(void) {
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    if (error.code != NSURLErrorCancelled) [self message:@"Unable to open Tools" text:@"Close Tools and try again."];
+    if (error.code != NSURLErrorCancelled) [self message:@"Unable to open Pod Programs" text:@"Close Pod Programs and try again."];
 }
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))handler {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
@@ -241,6 +284,7 @@ UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(v
     tools.onClose = close;
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:tools];
     navigation.modalPresentationStyle = UIModalPresentationFullScreen;
-    navigation.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;  // The editors are light-themed.
+    // Light or dark follows the launcher window: the system, or the player's Display choice.
+    navigation.navigationBarHidden = YES;
     return navigation;
 }

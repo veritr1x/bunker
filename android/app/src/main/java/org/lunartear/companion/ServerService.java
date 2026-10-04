@@ -32,18 +32,30 @@ public final class ServerService extends Service {
     }};
     @Override public void onCreate() {
         super.onCreate();
+        NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());
         NotificationChannel channel=new NotificationChannel("server","Local game server",NotificationManager.IMPORTANCE_LOW);
         channel.setDescription("Server status and Stop control while you play.");
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
         wake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"lunartear:server");
         wake.setReferenceCounted(false);
     }
+    /** The state as the player reads it; the launcher compares the raw values. */
+    private static String shown(String state){
+        switch(state){
+            case "Server running": return "Running";
+            case "Server stopped": return "Stopped";
+            case "Starting server": return "Starting";
+            case "Preparing tools": return "Opening Pod Programs";
+            case "Tools ready": return "Pod Programs open";
+            default: return state;
+        }
+    }
     private Notification notification() {
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ServerService.class).setAction(STOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(Look.moon()).setContentTitle("Lunar Tear · "+state)
+        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(Look.moon()).setContentTitle("Lunar Tear · "+shown(state))
             .setContentText(detail).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(new Notification.Action.Builder(null,busy?"Cancel":"Stop server",stop).build());
+            .addAction(new Notification.Action.Builder(null,busy?"Cancel":"Stop",stop).build());
         if(busy&&permille>=0)builder.setProgress(1000,permille,false).setStyle(new Notification.BigTextStyle().bigText(detail));
         return builder.build();
     }
@@ -70,7 +82,7 @@ public final class ServerService extends Service {
                     closeGame();
                     ToolsRuntime.start(this,this::update);
                     if(cancelled){ToolsRuntime.stop();tools=false;state="Server stopped";}
-                    else {state="Tools ready";detail="Close Tools to return to the game.";}
+                    else {state="Tools ready";detail="Close Pod Programs to return to the game.";}
                 } catch(Exception|LinkageError error) {
                     tools=false;state="Needs attention";detail=error.getMessage()==null?error.toString():error.getMessage();
                     android.util.Log.e("LunarTear","Tools startup failed",error);

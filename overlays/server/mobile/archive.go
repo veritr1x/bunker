@@ -49,11 +49,10 @@ func ImportArchive(source, stage string) string {
 // through /proc/self/fd, so the descriptor itself is read. The caller keeps
 // ownership of fd; a duplicate is used here.
 func ImportArchiveFd(fd int, stage string) string {
-	dup, e := syscall.Dup(fd)
+	f, e := dupFile(fd, "archive")
 	if e != nil {
 		return fmt.Sprintf("Cannot read the selected archive: %v", e)
 	}
-	f := os.NewFile(uintptr(dup), "archive")
 	defer f.Close()
 	return importFile(f, stage)
 }
@@ -68,6 +67,15 @@ func importFile(f *os.File, stage string) string {
 		return e.Error()
 	}
 	return ""
+}
+
+// dupFile wraps a duplicate of fd, so closing it leaves the caller's open.
+func dupFile(fd int, name string) (*os.File, error) {
+	dup, e := syscall.Dup(fd)
+	if e != nil {
+		return nil, e
+	}
+	return os.NewFile(uintptr(dup), name), nil
 }
 
 // ImportProgress reports bytes ("done", "total") and files ("files",

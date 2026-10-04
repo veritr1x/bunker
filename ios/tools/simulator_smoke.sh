@@ -95,7 +95,8 @@ printf '\x08\x01' > "$documents/assets/revisions/0/list.bin"
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
 xcrun simctl launch "$device" "$bundle" >/dev/null
 wait_for health 30 || { echo "FAIL: server did not start with a catalog" >&2; exit 1; }
-echo "PASS: embedded server answers on 127.0.0.1:$cdn_port"
+grep -q "log opened" "$documents/logs/server.log" || { echo "FAIL: server log not saved in Documents/logs" >&2; exit 1; }
+echo "PASS: embedded server answers on 127.0.0.1:$cdn_port; its log is saved in Documents/logs"
 code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$auth_port/v18.0/dialog/oauth?redirect_uri=fb1://authorize")"
 test "$code" = 200 || { echo "FAIL: sign-in page returned $code" >&2; exit 1; }
 echo "PASS: sign-in page answers on 127.0.0.1:$auth_port"

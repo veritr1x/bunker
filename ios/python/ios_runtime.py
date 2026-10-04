@@ -100,7 +100,7 @@ def _adapt_patcher():
     redirect = android_patcher.redirect
     def ios_redirect(**kwargs):
         if "message" in kwargs:
-            kwargs["message"] = kwargs["message"].replace("Close Tools and tap Play.", "Close Tools, then restart the game.")
+            kwargs["message"] = kwargs["message"].replace("Close Pod Programs and tap Deploy.", "Close Pod Programs, then restart the game.")
         return redirect(**kwargs)
     android_patcher.redirect = ios_redirect
 

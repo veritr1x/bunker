@@ -53,6 +53,25 @@ func LunarImportArchive(source, stage *C.char) *C.char {
 	return C.CString(mobile.ImportArchive(C.GoString(source), C.GoString(stage)))
 }
 
+// LunarSetLogDir also keeps the server log in dir, between sessions.
+//
+//export LunarSetLogDir
+func LunarSetLogDir(dir *C.char) *C.char { return C.CString(mobile.SetLogDir(C.GoString(dir))) }
+
+// LunarExportLogs writes a zip of the saved logs in dir and info to target.
+//
+//export LunarExportLogs
+func LunarExportLogs(dir, target, info *C.char) *C.char {
+	return C.CString(mobile.ExportLogs(C.GoString(dir), C.GoString(target), C.GoString(info)))
+}
+
+// LunarExportLogsFd is LunarExportLogs for a document the caller opened.
+//
+//export LunarExportLogsFd
+func LunarExportLogsFd(dir *C.char, fd C.int, info *C.char) *C.char {
+	return C.CString(mobile.ExportLogsFd(C.GoString(dir), int(fd), C.GoString(info)))
+}
+
 // LunarImportArchiveFd reads an archive the caller already opened (Android's
 // document picker); Android 17 does not allow reopening it by path.
 //

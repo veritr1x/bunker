@@ -48,6 +48,22 @@ def cli(module, arguments):
     return output.getvalue()
 
 
+def read_json(path, default=None):
+    """A JSON file's value, or default when it is missing or damaged."""
+    try:
+        return json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        return default
+
+
+def write_json(path, value, **options):
+    """Writes through a temporary file, so a crash never leaves a half-written file."""
+    path = Path(path)
+    pending = path.with_name(path.name + ".tmp")
+    pending.write_text(json.dumps(value, **options))
+    os.replace(pending, path)
+
+
 def fingerprint(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -83,6 +99,10 @@ def adapt_services():
     service_control.is_active = lambda: False
     # The desktop tool uses second-resolution filenames, which collide on a
     # fast sequence of edits. Retain every snapshot with microsecond precision.
+    # Switching players is backed up like any other edit.
+    if "player-switch" not in backup_service.VALID_REASONS:
+        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "player-switch")
+        backup_service.REASON_LABELS["player-switch"] = "Player Switch"
     def backup(reason="manual"):
         if reason not in backup_service.VALID_REASONS:
             raise ValueError("Invalid backup reason")
@@ -171,7 +191,7 @@ def prepare_data():
     if not revision.exists():
         revision = config.REVISIONS_DIR / "0" / "list.bin"
     signature = {"master": fingerprint(master), "catalog": fingerprint(revision) if revision.exists() else None, "format": 1}
-    if marker.exists() and json.loads(marker.read_text()) == signature:
+    if read_json(marker) == signature:
         return
     _report("Reading game data…")
     # Decode every table and fail if any table is malformed; the desktop CLI
@@ -210,15 +230,17 @@ def prepare_data():
     for name in ("names", "costume", "weapon", "karma", "upgrade", "memoir"):
         importlib.reload(importlib.import_module("web.services." + name + "_service"))
     adapt_services()
-    marker.write_text(json.dumps(signature))
+    write_json(marker, signature)
 
 
 def create_app(token, origin):
     from fastapi.responses import JSONResponse
     from web.app import create_app as base_app
     from android_patcher import router
+    import android_players
     app = base_app()
     app.include_router(router)
+    android_players.install(app)
     serial = asyncio.Lock()
     @app.middleware("http")
     async def private_session(request, call_next):

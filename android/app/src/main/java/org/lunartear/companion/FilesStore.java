@@ -25,6 +25,8 @@ final class FilesStore {
     }
     static File root(Context c) { return new File(c.getFilesDir(), "server"); }
     static File data(Context c) { return new File(c.getFilesDir(), "saves"); }
+    /** The saved server log: Android/data/<package>/files/logs, readable over USB without root. */
+    static File logs(Context c) { File d=c.getExternalFilesDir("logs"); return d!=null?d:new File(c.getFilesDir(),"logs"); }
     static File assets(Context c) { return new File(root(c), "assets"); }
     static File master(Context c) { return new File(assets(c), "release/" + MASTER); }
     static File list(Context c) {

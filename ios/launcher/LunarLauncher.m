@@ -52,6 +52,8 @@ static void EnsureMaster(void) {
         rename(pending.fileSystemRepresentation, target.fileSystemRepresentation);
 }
 
+// The server log kept between sessions; Documents/logs also shows in the Files app.
+static NSString *LogFolder(void) { return [Documents() stringByAppendingPathComponent:@"logs"]; }
 static NSString *TakeString(char *value) {
     NSString *text = value ? [NSString stringWithUTF8String:value] : @"Native call failed";
     free(value);
@@ -114,7 +116,7 @@ static BOOL AttachInPlace(void) {
 static NSString *SelfTestFailure(NSString *report) {
     NSDictionary *r = [NSJSONSerialization JSONObjectWithData:[report dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     if ([r[@"ok"] boolValue]) return nil;
-    NSMutableString *text = [NSMutableString stringWithString:@"The game could not reach its server:"];
+    NSMutableString *text = [NSMutableString stringWithString:@"The game could not reach Lunar Tear:"];
     for (NSDictionary *c in r[@"checks"])
         if (![c[@"ok"] boolValue]) [text appendFormat:@"\n• Port %@ (%@): %@", c[@"port"], c[@"name"], c[@"detail"]];
     return text;
@@ -126,9 +128,11 @@ static NSString *StartServer(void) {
     if (!AttachInPlace())
         return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
     if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
-    // The ports the game was built for (8003/8080/3000 plus the build's offset).
-    int offset = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"] intValue];
-    NSString *error = TakeString(LunarSetPortOffset(offset));
+    TakeString(LunarSetLogDir((char *)LogFolder().fileSystemRepresentation));
+    // The ports the game was built for (8003/8080/3000 plus the build's offset);
+    // builds without the key use the default ports.
+    NSNumber *offset = [NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"];
+    NSString *error = offset ? TakeString(LunarSetPortOffset(offset.intValue)) : @"";
     if (error.length) return error;
     error = TakeString(LunarStart((char *)gSaves.fileSystemRepresentation, (char *)gServerRoot.fileSystemRepresentation));
     if (error.length) return error;
@@ -667,17 +671,134 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
 
 #pragma mark - Setup screen
 
-@interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
-@property(nonatomic, strong) UILabel *files, *server, *detail;
-@property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit;
-@property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
-@property(nonatomic, strong) UIActivityIndicatorView *spinner;
-@property(nonatomic, strong) UIProgressView *bar;
+#pragma mark - The Bunker look
+
+// The launcher's look: the Bunker terminal from NieR:Automata. Colours follow
+// light or dark mode, matching the Android launcher.
+static UIColor *Shade(uint32_t light, uint32_t dark) {
+    return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
+        uint32_t v = t.userInterfaceStyle == UIUserInterfaceStyleDark ? dark : light;
+        return [UIColor colorWithRed:((v >> 16) & 255) / 255.0 green:((v >> 8) & 255) / 255.0 blue:(v & 255) / 255.0 alpha:1];
+    }];
+}
+// The player's display choice: "light", "dark", or anything else to follow the system.
+static NSString *DisplayMode(void) { return [NSUserDefaults.standardUserDefaults stringForKey:@"LunarDisplay"] ?: @"system"; }
+static UIUserInterfaceStyle DisplayStyle(void) {
+    NSString *mode = DisplayMode();
+    return [mode isEqual:@"light"] ? UIUserInterfaceStyleLight : [mode isEqual:@"dark"] ? UIUserInterfaceStyleDark : UIUserInterfaceStyleUnspecified;
+}
+static UIColor *Paper(void) { return Shade(0xd3ceb8, 0x191813); }
+static UIColor *Panel(void) { return Shade(0xd8d3bd, 0x201f19); }
+static UIColor *Ink(void) { return Shade(0x3a372f, 0xd9d3ba); }
+static UIColor *Muted(void) { return Shade(0x4f4b40, 0xa8a28b); }
+static UIColor *Command(void) { return Shade(0x1e1c18, 0xd9d3ba); }
+static UIColor *OnCommand(void) { return Shade(0xe4dfc8, 0x16150f); }
+static UIColor *ChipFill(void) { return Shade(0xbcb69e, 0x3b392f); }
+static UIColor *Ok(void) { return Shade(0x6e7356, 0x9da27d); }
+static UIColor *OnOk(void) { return Shade(0xece8d6, 0x16150f); }
+static UIColor *Alert(void) { return Shade(0x7a1c14, 0xe58a78); }
+static UIColor *Faint(void) { return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
+    return [[Ink() resolvedColorWithTraitCollection:t] colorWithAlphaComponent:0.18]; }]; }
+static UIFont *Mono(CGFloat size) { return [UIFont monospacedSystemFontOfSize:size weight:UIFontWeightRegular]; }
+
+// The paper: the background colour under a faint square grid.
+static UIColor *GridPaper(void) {
+    return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
+        BOOL dark = t.userInterfaceStyle == UIUserInterfaceStyleDark;
+        UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+        UIImage *tile = [[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(3, 3) format:format] imageWithActions:^(UIGraphicsImageRendererContext *c) {
+            [[Paper() resolvedColorWithTraitCollection:t] setFill];
+            UIRectFill(CGRectMake(0, 0, 3, 3));
+            [(dark ? [UIColor colorWithRed:.85 green:.83 blue:.73 alpha:.04] : [UIColor colorWithRed:.23 green:.22 blue:.18 alpha:.06]) setFill];
+            UIRectFillUsingBlendMode(CGRectMake(0, 2.5, 3, .5), kCGBlendModeNormal);
+            UIRectFillUsingBlendMode(CGRectMake(2.5, 0, .5, 3), kCGBlendModeNormal);
+        }];
+        return [UIColor colorWithPatternImage:tile];
+    }];
+}
+static NSAttributedString *Tracked(NSString *text, UIFont *font, UIColor *color, CGFloat kern) {
+    return [[NSAttributedString alloc] initWithString:text ?: @"" attributes:@{
+        NSFontAttributeName: font, NSForegroundColorAttributeName: color, NSKernAttributeName: @(kern)}];
+}
+
+// A framed panel: a 2pt border, with corner brackets reaching out at top left and bottom right.
+@interface LTFrame : UIView
+@end
+@implementation LTFrame
+- (instancetype)init {
+    if ((self = [super initWithFrame:CGRectZero])) { self.backgroundColor = UIColor.clearColor; self.contentMode = UIViewContentModeRedraw; }
+    return self;
+}
+- (void)drawRect:(CGRect)rect {
+    CGRect b = self.bounds, r = CGRectInset(b, 6, 6);
+    CGFloat arm = 12, mark = 3;
+    [Panel() setFill];
+    UIRectFill(r);
+    UIBezierPath *edge = [UIBezierPath bezierPathWithRect:CGRectInset(r, 1, 1)];
+    edge.lineWidth = 2;
+    [Ink() setStroke];
+    [edge stroke];
+    [Ink() setFill];
+    UIRectFill(CGRectMake(0, 0, arm, mark));
+    UIRectFill(CGRectMake(0, 0, mark, arm));
+    UIRectFill(CGRectMake(b.size.width - arm, b.size.height - mark, arm, mark));
+    UIRectFill(CGRectMake(b.size.width - mark, b.size.height - arm, mark, arm));
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous { [super traitCollectionDidChange:previous]; [self setNeedsDisplay]; }
 @end
 
-static UIColor *Ink(void) { return [UIColor colorWithRed:0.19 green:0.21 blue:0.19 alpha:1]; }
-static UIColor *Muted(void) { return [UIColor colorWithRed:0.42 green:0.43 blue:0.39 alpha:1]; }
-static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:0.33 alpha:1]; }
+// The import bar: 20 blocks filling left to right.
+@interface LTSegments : UIView
+@property(nonatomic) double fraction;
+@end
+@implementation LTSegments
+- (instancetype)init {
+    if ((self = [super initWithFrame:CGRectZero])) {
+        self.backgroundColor = UIColor.clearColor;
+        self.contentMode = UIViewContentModeRedraw;
+        self.isAccessibilityElement = YES;
+        self.accessibilityLabel = @"Import progress";
+    }
+    return self;
+}
+- (void)setFraction:(double)fraction {
+    _fraction = MAX(0, MIN(1, fraction));
+    self.accessibilityValue = [NSString stringWithFormat:@"%d percent", (int)(_fraction * 100)];
+    [self setNeedsDisplay];
+}
+- (void)drawRect:(CGRect)rect {
+    NSInteger n = 20, filled = lround(self.fraction * n);
+    CGFloat gap = 3, w = (self.bounds.size.width - gap * (n - 1)) / n;
+    for (NSInteger i = 0; i < n; i++) {
+        [(i < filled ? Ink() : Faint()) setFill];
+        UIRectFill(CGRectMake(i * (w + gap), 0, w, self.bounds.size.height));
+    }
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous { [super traitCollectionDidChange:previous]; [self setNeedsDisplay]; }
+@end
+
+// A status chip such as RUNNING or READY.
+@interface LTChip : UILabel
+@end
+@implementation LTChip
+- (void)drawTextInRect:(CGRect)rect { [super drawTextInRect:UIEdgeInsetsInsetRect(rect, UIEdgeInsetsMake(2, 7, 2, 7))]; }
+- (CGSize)intrinsicContentSize { CGSize s = super.intrinsicContentSize; return CGSizeMake(s.width + 14, s.height + 4); }
+@end
+static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color) {
+    chip.attributedText = Tracked(text, Mono(11), color, 1.1);
+    chip.backgroundColor = fill;
+    [chip invalidateIntrinsicContentSize];
+}
+
+@interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
+@property(nonatomic, strong) UILabel *ports, *save, *detail, *sign;
+@property(nonatomic, strong) LTChip *files, *server;
+@property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods;
+@property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
+@property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
+@property(nonatomic, strong) UIActivityIndicatorView *spinner;
+@property(nonatomic, strong) LTSegments *bar;
+@end
 
 @implementation LTLauncherViewController
 - (UILabel *)label:(NSString *)text size:(CGFloat)size color:(UIColor *)color bold:(BOOL)bold {
@@ -689,95 +810,183 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     label.adjustsFontForContentSizeCategory = YES;
     return label;
 }
-- (UIView *)card:(NSInteger)number title:(NSString *)title status:(UILabel *)status accessory:(UIView *)accessory {
-    UIView *card = [UIView new];
-    card.backgroundColor = UIColor.whiteColor;
-    card.layer.cornerRadius = 20;
-    UILabel *badge = [self label:@(number).stringValue size:18 color:Green() bold:YES];
-    badge.textAlignment = NSTextAlignmentCenter;
-    badge.backgroundColor = [UIColor colorWithRed:0.93 green:0.94 blue:0.91 alpha:1];
-    badge.layer.cornerRadius = 20;
-    badge.clipsToBounds = YES;
-    UIStackView *text = [[UIStackView alloc] initWithArrangedSubviews:@[[self label:title size:18 color:Ink() bold:YES], status]];
-    text.axis = UILayoutConstraintAxisVertical;
-    text.spacing = 4;
-    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:accessory ? @[badge, text, accessory] : @[badge, text]];
-    [text setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
-    row.spacing = 16;
-    row.alignment = UIStackViewAlignmentCenter;
-    row.translatesAutoresizingMaskIntoConstraints = NO;
-    [card addSubview:row];
-    [NSLayoutConstraint activateConstraints:@[
-        [badge.widthAnchor constraintEqualToConstant:40], [badge.heightAnchor constraintEqualToConstant:40],
-        [row.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
-        [row.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
-        [row.topAnchor constraintEqualToAnchor:card.topAnchor constant:18],
-        [row.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-    ]];
-    return card;
+- (UILabel *)mono:(NSString *)text size:(CGFloat)size color:(UIColor *)color {
+    UILabel *label = [self label:nil size:size color:color bold:NO];
+    label.font = Mono(size);
+    if (text) label.attributedText = Tracked(text, label.font, color, size * 0.06);
+    return label;
 }
-- (UIButton *)button:(NSString *)title primary:(BOOL)primary action:(SEL)action {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    [button setTitle:title forState:UIControlStateNormal];
-    button.titleLabel.font = [UIFont boldSystemFontOfSize:17];
-    [button setTitleColor:primary ? UIColor.whiteColor : Green() forState:UIControlStateNormal];
-    button.backgroundColor = primary ? Green() : [UIColor colorWithRed:0.93 green:0.94 blue:0.91 alpha:1];
-    button.layer.cornerRadius = 16;
-    [button.heightAnchor constraintGreaterThanOrEqualToConstant:52].active = YES;
+// [ TITLE ────── ]
+- (UIView *)header:(NSString *)title {
+    UILabel *open = [self label:@"[" size:15 color:Ink() bold:YES];
+    UILabel *close = [self label:@"]" size:15 color:Ink() bold:YES];
+    UILabel *name = [self label:nil size:14 color:Ink() bold:YES];
+    name.attributedText = Tracked(title.uppercaseString, [UIFont boldSystemFontOfSize:14], Ink(), 4.2);
+    UIView *rule = [UIView new];
+    rule.backgroundColor = Ink();
+    [rule.heightAnchor constraintEqualToConstant:1].active = YES;
+    // The title never wraps; the rule takes whatever width is left.
+    for (UILabel *v in @[open, close, name]) {
+        v.numberOfLines = 1;
+        [v setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    }
+    [rule setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[open, name, rule, close]];
+    row.alignment = UIStackViewAlignmentCenter;
+    row.spacing = 10;
+    return row;
+}
+- (UIView *)panel:(NSArray<UIView *> *)rows {
+    LTFrame *frame = [LTFrame new];
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:rows];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 10;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [frame addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.leadingAnchor constraintEqualToAnchor:frame.leadingAnchor constant:20],
+        [stack.trailingAnchor constraintEqualToAnchor:frame.trailingAnchor constant:-20],
+        [stack.topAnchor constraintEqualToAnchor:frame.topAnchor constant:18],
+        [stack.bottomAnchor constraintEqualToAnchor:frame.bottomAnchor constant:-18],
+    ]];
+    return frame;
+}
+// One LABEL  value row of a panel; a button in the row sits at the far right.
+- (UIView *)row:(NSString *)name values:(NSArray<UIView *> *)values {
+    UILabel *label = [self mono:name size:11 color:Muted()];
+    [label.widthAnchor constraintEqualToConstant:104].active = YES;
+    NSMutableArray *items = [NSMutableArray arrayWithObject:label];
+    // Values keep their width; only the spacer stretches.
+    UIView *(^spacer)(void) = ^UIView *{
+        UIView *v = [UIView new];
+        [v setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+        [v setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+        return v;
+    };
+    for (UIView *v in values) {
+        if ([v isKindOfClass:UIButton.class]) [items addObject:spacer()];
+        if ([v isKindOfClass:UILabel.class]) ((UILabel *)v).numberOfLines = 1;
+        [v setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [v setContentCompressionResistancePriority:UILayoutPriorityRequired - 1 forAxis:UILayoutConstraintAxisHorizontal];
+        [items addObject:v];
+    }
+    if (![values.lastObject isKindOfClass:UIButton.class]) [items addObject:spacer()];
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:items];
+    row.alignment = UIStackViewAlignmentCenter;
+    row.spacing = 10;
+    [row.heightAnchor constraintGreaterThanOrEqualToConstant:36].active = YES;
+    return row;
+}
+// The solid command button: DEPLOY, CLOSE GAME.
+- (UIButton *)solid:(NSString *)title action:(SEL)action {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    [button setAttributedTitle:Tracked(title, [UIFont boldSystemFontOfSize:15], OnCommand(), 4.8) forState:UIControlStateNormal];
+    button.backgroundColor = Command();
+    [button.heightAnchor constraintEqualToConstant:56].active = YES;
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     return button;
 }
+// The outlined button: ⋮, CHANGE, CHECK AGAIN.
+- (UIButton *)outline:(NSString *)title size:(CGFloat)size action:(SEL)action {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    [button setAttributedTitle:Tracked(title, [UIFont boldSystemFontOfSize:size], Ink(), size * 0.2) forState:UIControlStateNormal];
+    button.layer.borderWidth = 2;
+    button.layer.borderColor = Ink().CGColor;
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+    [button.heightAnchor constraintEqualToConstant:44].active = YES;
+    if (action) [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [self.outlined addObject:button];
+    return button;
+}
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    // Layer colours do not follow light and dark by themselves.
+    for (UIButton *b in self.outlined) b.layer.borderColor = [Ink() resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+    [self updateSign];
+}
+- (void)updateSign {
+    BOOL dark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    self.sign.attributedText = Tracked(dark ? @"OPERATOR LINK // STANDING BY" : @"END OF TRANSMISSION // GLORY TO MANKIND", [UIFont systemFontOfSize:10], Muted(), 2.4);
+}
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithRed:0.96 green:0.95 blue:0.91 alpha:1];
-    self.files = [self label:@"" size:14 color:Muted() bold:NO];
-    self.server = [self label:@"" size:14 color:Muted() bold:NO];
-    self.detail = [self label:@"" size:14 color:Muted() bold:NO];
-    UILabel *title = [self label:@"Lunar Tear" size:30 color:Ink() bold:NO];
-    title.font = [UIFont fontWithName:@"Georgia" size:30] ?: title.font;
-    // Like Android: a small Choose / Change button inside the Game files card.
-    self.choose = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.choose setTitle:@"Choose" forState:UIControlStateNormal];
-    self.choose.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
-    [self.choose setTitleColor:Green() forState:UIControlStateNormal];
-    self.choose.backgroundColor = [UIColor colorWithRed:0.93 green:0.94 blue:0.91 alpha:1];
-    self.choose.layer.cornerRadius = 12;
-    self.choose.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
-    self.choose.accessibilityLabel = @"Choose game files";
-    [self.choose.heightAnchor constraintEqualToConstant:48].active = YES;
-    [self.choose setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
-    [self.choose setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
-    [self.choose addTarget:self action:@selector(chooseOrCancel) forControlEvents:UIControlEventTouchUpInside];
-    self.cancel = [self button:@"Cancel import" primary:YES action:@selector(chooseOrCancel)];
-    self.check = [self button:@"Check again" primary:NO action:@selector(retry)];
-    self.back = [self button:@"Back to game" primary:YES action:@selector(close)];
-    self.quit = [self button:@"Close game" primary:YES action:@selector(quitGame)];
-    self.more = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.more setTitle:@"⋮" forState:UIControlStateNormal];
-    self.more.titleLabel.font = [UIFont systemFontOfSize:30];
-    [self.more setTitleColor:Ink() forState:UIControlStateNormal];
-    self.more.accessibilityLabel = @"More options";
+    self.outlined = [NSMutableArray array];
+    self.view.backgroundColor = GridPaper();
+    // Top bar: where you are, and the options.
+    UILabel *caption = [self mono:@"LUNAR TEAR // 127.0.0.1" size:10 color:Muted()];
+    caption.attributedText = Tracked(@"LUNAR TEAR // 127.0.0.1", Mono(10), Muted(), 2);
+    UILabel *title = [self label:nil size:22 color:Ink() bold:YES];
+    title.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:22], Ink(), 6.2);
+    title.accessibilityTraits = UIAccessibilityTraitHeader;
+    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
+    titles.axis = UILayoutConstraintAxisVertical;
+    self.more = [self outline:@"⋮" size:20 action:nil];
+    self.more.contentEdgeInsets = UIEdgeInsetsZero;
+    // Three drawn squares rather than the ⋮ character, whose glyph sits off centre in the box.
+    UIImage *dots = [[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(4, 18)] imageWithActions:^(UIGraphicsImageRendererContext *c) {
+        for (int i = 0; i < 3; i++) UIRectFill(CGRectMake(0, i * 7, 4, 4));
+    }];
+    [self.more setAttributedTitle:nil forState:UIControlStateNormal];
+    [self.more setImage:[dots imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+    self.more.tintColor = Ink();
+    self.more.accessibilityLabel = @"Options";
     self.more.showsMenuAsPrimaryAction = YES;
-    [self.more.widthAnchor constraintEqualToConstant:48].active = YES;
-    [self.more.heightAnchor constraintEqualToConstant:48].active = YES;
-    UIStackView *header = [[UIStackView alloc] initWithArrangedSubviews:@[title, self.more]];
-    header.alignment = UIStackViewAlignmentCenter;
+    [self.more.widthAnchor constraintEqualToConstant:44].active = YES;
+    UIStackView *top = [[UIStackView alloc] initWithArrangedSubviews:@[titles, self.more]];
+    top.alignment = UIStackViewAlignmentCenter;
+    // [ SYSTEM ]: game files, Lunar Tear, ports and save.
+    self.files = [LTChip new];
+    self.server = [LTChip new];
+    self.choose = [self outline:@"CHOOSE" size:12 action:@selector(chooseOrCancel)];
+    self.choose.accessibilityLabel = @"Choose game files";
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    self.spinner.color = Ink();
     self.spinner.hidesWhenStopped = YES;
-    self.bar = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
-    self.bar.progressTintColor = Green();
-    self.bar.trackTintColor = [UIColor colorWithRed:0.86 green:0.87 blue:0.83 alpha:1];
-    [self.bar.heightAnchor constraintEqualToConstant:8].active = YES;
-    self.bar.layer.cornerRadius = 4;
-    self.bar.clipsToBounds = YES;
+    self.ports = [self mono:@"" size:13 color:Ink()];
+    self.save = [self mono:@"" size:13 color:Ink()];
+    self.bar = [LTSegments new];
+    [self.bar.heightAnchor constraintEqualToConstant:14].active = YES;
     self.bar.hidden = YES;
+    UIView *system = [self panel:@[
+        [self row:@"GAME FILES" values:@[self.files, self.choose]],
+        [self row:@"LUNAR TEAR" values:@[self.server, self.spinner]],
+        [self row:@"PORTS" values:@[self.ports]],
+        [self row:@"SAVE" values:@[self.save]],
+        self.bar]];
+    // [ PLAY ]: what happens next, and the way back into the game.
+    self.detail = [self mono:@"" size:12 color:Ink()];
+    self.back = [self solid:@"DEPLOY  ▶" action:@selector(close)];
+    self.back.accessibilityLabel = @"Deploy: back to the game";
+    self.quit = [self solid:@"CLOSE GAME" action:@selector(quitGame)];
+    self.cancel = [self outline:@"CANCEL IMPORT" size:13 action:@selector(chooseOrCancel)];
+    self.check = [self outline:@"CHECK AGAIN" size:13 action:@selector(retry)];
+    UIView *play = [self panel:@[self.detail, self.back, self.quit, self.cancel, self.check]];
+    // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
+    UILabel *about = [self mono:LTToolsAvailable() ? @"Edit your save and choose which events and shops appear." : @"Pod Programs is not in this build." size:12 color:Ink()];
+    self.pods = [self outline:@"OPEN POD PROGRAMS  ›" size:13 action:@selector(confirmTools)];
+    self.pods.accessibilityLabel = @"Open Pod Programs";
+    UIView *programs = [self panel:@[about, self.pods]];
+    // Footer: a double rule and the sign-off.
+    UIView *ruleA = [UIView new], *ruleB = [UIView new];
+    for (UIView *r in @[ruleA, ruleB]) { r.backgroundColor = Ink(); [r.heightAnchor constraintEqualToConstant:1].active = YES; }
+    self.sign = [UILabel new];
+    self.sign.textAlignment = NSTextAlignmentCenter;
+    [self updateSign];
+    UIStackView *footer = [[UIStackView alloc] initWithArrangedSubviews:@[ruleA, ruleB, self.sign]];
+    footer.axis = UILayoutConstraintAxisVertical;
+    footer.spacing = 2;
+    [footer setCustomSpacing:14 afterView:ruleB];
+    UIView *spacer = [UIView new];
+    [spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
-        header, [self card:1 title:@"Game files" status:self.files accessory:self.choose],
-        [self card:2 title:@"Server" status:self.server accessory:nil],
-        self.detail, self.bar, self.spinner, self.back, self.quit, self.cancel, self.check]];
+        top, [self header:@"System"], system, [self header:@"Play"], play, [self header:@"Pod Programs"], programs, spacer, footer]];
     stack.axis = UILayoutConstraintAxisVertical;
-    stack.spacing = 14;
-    [stack setCustomSpacing:24 afterView:header];
+    stack.spacing = 8;
+    [stack setCustomSpacing:20 afterView:top];
+    [stack setCustomSpacing:20 afterView:system];
+    [stack setCustomSpacing:20 afterView:play];
+    [stack setCustomSpacing:28 afterView:spacer];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     UIScrollView *scroll = [UIScrollView new];
     scroll.translatesAutoresizingMaskIntoConstraints = NO;
@@ -785,48 +994,63 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     [scroll addSubview:stack];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     // Fill the screen up to a readable maximum. This must beat the labels'
-    // compression resistance, or the cards collapse to a narrow column.
-    NSLayoutConstraint *width = [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-48];
+    // compression resistance, or the panels collapse to a narrow column.
+    NSLayoutConstraint *width = [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-36];
     width.priority = UILayoutPriorityRequired - 1;
-    [stack.widthAnchor constraintLessThanOrEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-48].active = YES;
+    // Tall enough to keep the footer at the bottom of the screen.
+    NSLayoutConstraint *height = [stack.heightAnchor constraintGreaterThanOrEqualToAnchor:scroll.frameLayoutGuide.heightAnchor constant:-36];
+    [stack.widthAnchor constraintLessThanOrEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-36].active = YES;
     [NSLayoutConstraint activateConstraints:@[
         [scroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor], [scroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
         [scroll.topAnchor constraintEqualToAnchor:safe.topAnchor], [scroll.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
-        [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor constant:24],
-        [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-24],
-        [stack.centerXAnchor constraintEqualToAnchor:scroll.centerXAnchor], width,
+        [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor constant:18],
+        [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-18],
+        [stack.centerXAnchor constraintEqualToAnchor:scroll.centerXAnchor], width, height,
         [stack.widthAnchor constraintLessThanOrEqualToConstant:520],
     ]];
     [self refresh];
 }
 - (void)refresh {
     BOOL catalog = HasCatalog(), master = FileSize(MasterPath()) > 0;
-    self.files.text = gImporting ? @"Importing…" : catalog && master ? @"Ready" : catalog ? @"Master data missing" : @"Choose your game files";
-    [self.choose setTitle:catalog ? @"Change" : @"Choose" forState:UIControlStateNormal];
+    if (gImporting) SetChip(self.files, @"IMPORTING", ChipFill(), Ink());
+    else if (catalog && master) SetChip(self.files, @"READY", Ok(), OnOk());
+    else if (catalog) SetChip(self.files, @"NO MASTER DATA", Alert(), Paper());
+    else SetChip(self.files, @"NO FILES", ChipFill(), Ink());
+    [self.choose setAttributedTitle:Tracked(catalog ? @"CHANGE" : @"CHOOSE", [UIFont boldSystemFontOfSize:12], Ink(), 2.4) forState:UIControlStateNormal];
     self.check.enabled = !gImporting;
     BOOL measured = gImporting && gImportFraction >= 0;
     self.bar.hidden = !measured;
-    if (measured) [self.bar setProgress:(float)gImportFraction animated:YES];
+    if (measured) self.bar.fraction = gImportFraction;
     self.spinner.alpha = measured ? 0 : 1;  // The bar shows progress instead.
     self.check.alpha = gImporting ? .45 : 1;
     NSDictionary *status = Status();
     NSString *state = status[@"state"];
     BOOL running = [state isEqual:@"running"];
-    self.server.text = gToolsOpen ? @"Stopped for Tools" : gRestartNeeded ? @"Stopped · restart the game"
-        : running ? @"Running" : [state isEqual:@"starting"] ? @"Starting…" : catalog ? @"Not running" : @"Waiting for files";
+    if (gToolsOpen) SetChip(self.server, @"POD PROGRAMS OPEN", ChipFill(), Ink());
+    else if (gRestartNeeded) SetChip(self.server, @"RESTART THE GAME", Alert(), Paper());
+    else if (running) SetChip(self.server, @"RUNNING", Ok(), OnOk());
+    else if ([state isEqual:@"starting"]) SetChip(self.server, @"STARTING", ChipFill(), Ink());
+    else SetChip(self.server, catalog ? @"NOT RUNNING" : @"WAITING FOR FILES", ChipFill(), Ink());
+    int offset = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"] intValue];
+    self.ports.attributedText = Tracked([NSString stringWithFormat:@"%d · %d · %d", 8003 + offset, 8080 + offset, 3000 + offset], Mono(13), Ink(), .8);
+    unsigned long long saved = FileSize([gSaves stringByAppendingPathComponent:@"game.db"]);
+    self.save.attributedText = Tracked(saved ? [NSString stringWithFormat:@"game.db · %@", [NSByteCountFormatter stringFromByteCount:(long long)saved countStyle:NSByteCountFormatterCountStyleFile]] : @"none yet", Mono(13), Ink(), .8);
     self.back.hidden = !running || gImporting;
     self.quit.hidden = !gRestartNeeded;
     self.check.hidden = running || gRestartNeeded || gToolsOpen;
     self.choose.hidden = gImporting || gRestartNeeded || gToolsOpen;
     self.cancel.hidden = !gImporting;
     self.more.menu = [self optionsMenu:running];
+    self.pods.enabled = LTToolsAvailable() && !gImporting && !gToolsOpen && catalog && !self.spinner.isAnimating;
+    self.pods.alpha = self.pods.enabled ? 1 : .45;
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
-    self.detail.text = gMessage.length ? gMessage : [NSString stringWithFormat:
+    NSString *text = gMessage.length ? gMessage : [NSString stringWithFormat:
         @"Choose the resource dump's .7z, or an extracted folder to copy or use in place, from Files, iCloud Drive or a USB drive. "
         @"Copying needs about 25 GB free. You can also drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
-    if (running && !gMessage.length) self.detail.text = @"The server is running on this device. Tap Back to game to keep playing.";
+    if (running && !gMessage.length) text = @"Lunar Tear is running on this device. Tap Deploy to keep playing.";
     if (gRestartNeeded && !gMessage.length)
-        self.detail.text = @"Your changes are saved. The game must restart to load them: tap Close game, then open NieR again.";
+        text = @"Your changes are saved. The game must restart to load them: tap Close game, then open NieR again.";
+    self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
 }
 - (UIMenu *)optionsMenu:(BOOL)running {
     BOOL idle = !gImporting && !gToolsOpen;
@@ -836,26 +1060,36 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
         if (!enabled) action.attributes = UIMenuElementAttributesDisabled;
         return action;
     };
-    UIAction *tools = LTToolsAvailable()
-        ? item(@"Tools", @"wrench.and.screwdriver", idle && HasCatalog() && !self.spinner.isAnimating, ^{ [weakSelf confirmTools]; })
-        : item(@"Tools (not in this build)", @"wrench.and.screwdriver", NO, ^{});
-    UIAction *server = gRestartNeeded ? item(@"Start server", @"play.circle", NO, ^{}) : running
-        ? item(@"Stop server", @"stop.circle", idle, ^{ [weakSelf stopServer]; })
-        : item(@"Start server", @"play.circle", idle && HasCatalog(), ^{ [weakSelf retry]; });
+    UIAction *server = gRestartNeeded ? item(@"Start Lunar Tear", @"play.circle", NO, ^{}) : running
+        ? item(@"Stop Lunar Tear", @"stop.circle", idle, ^{ [weakSelf stopServer]; })
+        : item(@"Start Lunar Tear", @"play.circle", idle && HasCatalog(), ^{ [weakSelf retry]; });
     UIAction *master = item(@"Import master data", @"square.and.arrow.down", idle && !gRestartNeeded, ^{ [weakSelf pick:1]; });
     UIAction *restore = item(@"Import save backup", @"tray.and.arrow.down", idle, ^{ [weakSelf confirmSaveImport]; });
     UIAction *backup = item(@"Export save backup", @"square.and.arrow.up", idle && FileSize([gSaves stringByAppendingPathComponent:@"game.db"]) > 0, ^{ [weakSelf exportSaves]; });
-    UIAction *log = item(@"Server log", @"doc.text", YES, ^{ [weakSelf showLog]; });
-    UIAction *check = item(@"Check server", @"checkmark.shield", running, ^{ [weakSelf checkServer]; });
+    UIAction *log = item(@"Lunar Tear log", @"doc.text", YES, ^{ [weakSelf showLog]; });
+    UIAction *exportLog = item(@"Export Lunar Tear log", @"square.and.arrow.up.on.square", YES, ^{ [weakSelf exportLogs]; });
+    UIAction *check = item(@"Check Lunar Tear", @"checkmark.shield", running, ^{ [weakSelf checkServer]; });
+    NSMutableArray<UIAction *> *modes = [NSMutableArray array];
+    for (NSArray *m in @[@[@"system", @"System", @"circle.lefthalf.filled"], @[@"light", @"Light", @"sun.max"], @[@"dark", @"Dark", @"moon"]]) {
+        NSString *mode = m[0];
+        UIAction *choice = item(m[1], m[2], YES, ^{
+            [NSUserDefaults.standardUserDefaults setObject:mode forKey:@"LunarDisplay"];
+            gWindow.overrideUserInterfaceStyle = DisplayStyle();
+            [weakSelf refresh];
+        });
+        if ([DisplayMode() isEqual:mode]) choice.state = UIMenuElementStateOn;
+        [modes addObject:choice];
+    }
+    UIMenu *display = [UIMenu menuWithTitle:@"Display" image:[UIImage systemImageNamed:@"circle.lefthalf.filled"] identifier:nil options:0 children:modes];
     UIAction *settings = item(@"App settings", @"gear", YES, ^{
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
     });
     UIAction *help = item(@"Help", @"questionmark.circle", YES, ^{ [weakSelf help]; });
     UIAction *about = item(@"About", @"info.circle", YES, ^{ [weakSelf about]; });
     return [UIMenu menuWithTitle:@"" children:@[
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[tools, server]],
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
-        [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[check, log, settings, help, about]],
+        [UIMenu menuWithTitle:@"LUNAR TEAR" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check]],
+        [UIMenu menuWithTitle:@"DATA" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
+        [UIMenu menuWithTitle:@"SUPPORT" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, settings, help, about]],
     ]];
 }
 - (void)alert:(NSString *)title message:(NSString *)message {
@@ -865,11 +1099,11 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 }
 - (void)help {
     [self alert:@"Help" message:
-        @"Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. The server starts with the game and runs only on this device.\n\n"
+        @"Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. Lunar Tear, the game's server, starts with the game and runs only on this device.\n\n"
         @"Three-finger double-tap during play opens this screen. Export a save backup before deleting the app.\n\n"
         @"Import save backup (in ⋮) restores a backup from this or another device, including Android.\n\n"
-        @"Tools (in ⋮) edits your saves and unlocks content. It stops the server while open, and the game restarts afterwards to load the changes.\n\n"
-        @"Stopping the server, importing master data or exporting saves disconnects the game. Close NieR from the app switcher and open it again to continue."];
+        @"Pod Programs (in ⋮) edits your saves and unlocks content. It stops Lunar Tear while open, and the game restarts afterwards to load the changes.\n\n"
+        @"Stopping Lunar Tear, importing master data or exporting saves disconnects the game. Close NieR from the app switcher and open it again to continue."];
 }
 - (void)about {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear"
@@ -896,18 +1130,18 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     });
 }
 - (void)confirmTools {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Tools?"
-        message:@"Tools stops the game server so it can edit your saves and content. When you close Tools, the game restarts to load your changes."
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Pod Programs?"
+        message:@"Pod Programs stops Lunar Tear so it can edit your saves and content. When you close Pod Programs, the game restarts to load your changes."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Open Tools" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Open Pod Programs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)openTools {
     gToolsOpen = YES;
     __block NSString *url = nil, *token = nil;
     NSString *original = [[NSBundle bundleForClass:self.class] pathForResource:@"original-master" ofType:@"bin.e"];
-    [self busy:@"Stopping the game server…" work:^NSString *{
+    [self busy:@"Stopping Lunar Tear…" work:^NSString *{
         LunarStop();
         NSString *error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
         if (error.length) return error;
@@ -918,12 +1152,12 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
         if (error.length) {
             // Nothing was edited, so the game can carry on.
             gToolsOpen = NO;
-            gMessage = [@"Tools could not open: " stringByAppendingString:error];
+            gMessage = [@"Pod Programs could not open: " stringByAppendingString:error];
             dispatch_async(gQueue, ^{ StartServer(); dispatch_async(dispatch_get_main_queue(), ^{ [self refresh]; }); });
             [self refresh];
             return;
         }
-        gMessage = @"Tools is open.";
+        gMessage = @"Pod Programs is open.";
         [self refresh];
         __weak typeof(self) weakSelf = self;
         [self presentViewController:LTToolsBrowser(url, token, ^{ [weakSelf closeTools]; }) animated:YES completion:nil];
@@ -931,10 +1165,10 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 }
 - (void)closeTools {
     [self dismissViewControllerAnimated:YES completion:nil];
-    [self busy:@"Closing Tools…" work:^NSString *{ return LTToolsStop(); } done:^(NSString *error) {
+    [self busy:@"Closing Pod Programs…" work:^NSString *{ return LTToolsStop(); } done:^(NSString *error) {
         gToolsOpen = NO;
         gRestartNeeded = YES;
-        gMessage = error.length ? [@"Tools closed with an error: " stringByAppendingString:error] : @"";
+        gMessage = error.length ? [@"Pod Programs closed with an error: " stringByAppendingString:error] : @"";
         [self refresh];
     }];
 }
@@ -943,8 +1177,8 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     exit(0);
 }
 - (void)stopServer {
-    [self busy:@"Stopping the server and saving progress…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
-        gMessage = @"Server stopped. Your saves are stored on this device.";
+    [self busy:@"Stopping Lunar Tear and saving progress…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
+        gMessage = @"Lunar Tear stopped. Your saves are stored on this device.";
         [self refresh];
     }];
 }
@@ -1058,6 +1292,24 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
         [self presentViewController:picker animated:YES completion:nil];
     }];
 }
+- (void)exportLogs {
+    NSDateFormatter *format = [NSDateFormatter new];
+    format.dateFormat = @"yyyyMMdd-HHmm";
+    format.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    NSString *target = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"lunar-tear-log-%@.zip", [format stringFromDate:NSDate.date]]];
+    UIDevice *device = UIDevice.currentDevice;
+    NSDictionary *bundle = NSBundle.mainBundle.infoDictionary;
+    NSString *info = [NSString stringWithFormat:@"Companion 0.1.0, bundle %@ %@\n%@ %@\nPort offset %@",
+        NSBundle.mainBundle.bundleIdentifier, bundle[@"CFBundleShortVersionString"], device.systemName, device.systemVersion,
+        bundle[@"LunarPortOffset"] ?: @0];
+    NSString *error = TakeString(LunarExportLogs((char *)LogFolder().fileSystemRepresentation, (char *)target.fileSystemRepresentation, (char *)info.UTF8String));
+    if (error.length) { [self alert:@"Export failed" message:error]; return; }
+    self.pickerMode = 6;
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:target]] asCopy:YES];
+    picker.delegate = self;
+    [self presentViewController:picker animated:YES completion:nil];
+}
 - (void)close {
     gMessage = @"";
     gWindow.hidden = YES;
@@ -1066,7 +1318,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 - (void)retry {
     self.check.enabled = NO;
     [self.spinner startAnimating];
-    gMessage = @"Starting the server…";
+    gMessage = @"Starting Lunar Tear…";
     [self refresh];
     dispatch_async(gQueue, ^{
         NSString *error = StartServer();
@@ -1098,6 +1350,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
         [self refresh];
         return;
     }
+    if (self.pickerMode == 6) { [self alert:@"Lunar Tear log exported" message:@"Attach the ZIP when you report a problem. It holds the Lunar Tear log and this device's iOS version."]; return; }
     if (self.pickerMode == 1) { if (picked) [self importMaster:picked]; return; }
     if (self.pickerMode == 3) { if (picked) [self importSave:picked]; return; }
     if (!picked || gImporting) return;
@@ -1141,7 +1394,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
 - (void)dismiss {
     // Unity's first attempts may have failed while files were missing.
     // Closing and reopening the game retries cleanly from the title screen.
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Server running"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear running"
         message:@"If the game shows a connection error, close NieR from the app switcher and open it again." preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         gWindow.hidden = YES;
@@ -1160,7 +1413,7 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
             if (![c[@"ok"] boolValue]) [text appendFormat:@"   %@\n", c[@"detail"]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self alert:[r[@"ok"] boolValue] ? @"Server is reachable" : @"Server check failed"
+            [self alert:[r[@"ok"] boolValue] ? @"Lunar Tear is reachable" : @"Lunar Tear check failed"
                 message:[text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
         });
     });
@@ -1171,9 +1424,9 @@ static UIColor *Green(void) { return [UIColor colorWithRed:0.33 green:0.40 blue:
     UITextView *text = [UITextView new];
     text.editable = NO;
     text.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-    text.text = logs.length ? logs : @"No server log yet.";
+    text.text = logs.length ? logs : @"No Lunar Tear log yet.";
     viewer.view = text;
-    viewer.title = @"Server log";
+    viewer.title = @"Lunar Tear log";
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:viewer];
     viewer.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(closeLog)];
     [self presentViewController:navigation animated:YES completion:nil];
@@ -1190,6 +1443,7 @@ static void ShowLauncher(void) {
     }
     if (!window) window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     window.windowLevel = UIWindowLevelAlert + 1;
+    window.overrideUserInterfaceStyle = DisplayStyle();  // Pod Programs opens inside this window, so it follows too.
     window.rootViewController = [LTLauncherViewController new];
     window.hidden = NO;
     gWindow = window;

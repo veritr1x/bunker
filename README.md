@@ -38,10 +38,11 @@ To build everything locally instead, follow the step-by-step guide below.
 
 1. Install your locally built APK.
 2. Open it and **Choose** the resource dump's `.7z` (or an extracted folder). A progress bar shows the time left.
-3. Tap **Play**. The server starts and the game opens automatically.
+3. Tap **Deploy**. Lunar Tear (the server) starts and the game opens automatically.
 
-The launcher is simply **1 Game files → 2 Server → 3 Play**.
-Open **⋮ → Tools** for content presets, inventory, upgrades, and save backup/restore. Close Tools and tap Play to resume.
+The launcher, the **Bunker**, shows your game files, Lunar Tear and your save, with **Deploy** to play.
+**Open Pod Programs** for content presets, inventory, upgrades, save backup/restore and choosing or starting a player. Close Pod Programs and tap Deploy to resume.
+**⋮ → Display** switches between light, dark and the system setting.
 
 ## Play on iPhone or iPad
 
@@ -49,7 +50,7 @@ Open **⋮ → Tools** for content presets, inventory, upgrades, and save backup
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play.
 
-Tap **⋮** for server control, master-data import, save backup and restore, the server log, help and about.
+Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** sits on the Bunker itself.
 
 ## Build it yourself, step by step
 
@@ -218,6 +219,7 @@ automatically. On iOS, sign with the same bundle ID. Either way, export a save b
 | Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly; rebuild, or turn the app off while playing. |
 | "Port 8080 is already used by another app on this device…" (or 8003, 3000) | Another app holds one of the game's local ports. Close or uninstall it, or build with `--port-offset 30000` (or the web builder's experimental port offset) and keep using that offset for updates. ⋮ → **Check server** shows whether the game can reach its server. |
 | Android: black screen after the logo when reopening the game from Recent apps (for example after an update) | The game was opened without its server. Builds from 2026-10-04 on go through the launcher, which starts the server first; with older builds, open the app from its icon. |
+| Anything else | ⋮ → **Export server log** saves a ZIP of the server log (kept between sessions, up to about 10 MB) with the device model and OS version. Attach it to your report. On Android it is also at `Android/data/<package>/files/logs/` (`adb pull` works without root); on iOS, in the app's `logs` folder in Files. |
 | Android 17: importing a `.7z` fails with `open /proc/self/fd/…: permission denied` | Fixed in builds from 2026-10-03 on; rebuild, or choose an extracted folder instead. |
 
 More detail: [Android setup guide](docs/BUILD.md) and [iOS guide](docs/IOS.md).

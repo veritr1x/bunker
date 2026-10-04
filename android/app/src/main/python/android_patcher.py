@@ -29,10 +29,13 @@ def folder():
 
 def get_config():
     path = folder() / "config.json"
-    if not path.exists():
+    cfg = runtime.read_json(path)
+    if not isinstance(cfg, dict):
+        # Missing or damaged: start again from the bundled configuration.
         import patcher
-        shutil.copyfile(Path(patcher.__file__).parent / "config.json", path)
-    return json.loads(path.read_text())
+        cfg = json.loads((Path(patcher.__file__).parent / "config.json").read_text())
+        runtime.write_json(path, cfg, indent=2)
+    return cfg
 
 
 def expand(cfg, key, seen=()):
@@ -125,7 +128,7 @@ def activate(candidate, label):
         (config.DATA_DIR / "catalog-version.json").unlink(missing_ok=True)
         runtime.prepare_data()
         raise
-    (folder() / "active.json").write_text(json.dumps({"label": label, "sha256": runtime.fingerprint(master)}))
+    runtime.write_json(folder() / "active.json", {"label": label, "sha256": runtime.fingerprint(master)})
     for old in master_history()[10:]:
         old.unlink()
 
@@ -138,8 +141,8 @@ def redirect(**kwargs):
 def view(request: Request, message: str = "", error: str = ""):
     current = "Imported master data"
     state = folder() / "active.json"
-    if state.exists():
-        metadata = json.loads(state.read_text())
+    metadata = runtime.read_json(state)
+    if isinstance(metadata, dict) and metadata.get("label"):
         if metadata.get("sha256") == runtime.fingerprint(config.find_master_data_bin()):
             current = metadata["label"]
     return templates.TemplateResponse(request, "patcher.html", {"active": "patcher", "current": current, "presets": PRESETS, "splits": SPLITS,
@@ -162,8 +165,8 @@ def apply(preset: str = Form(...), configuration: str = Form("")):
         log = runtime.cli(patch_masterdata, ["--input", origin, "--output", candidate, *args])
         (folder() / "last-patch.log").write_text(log)
         activate(candidate, dict(PRESETS + SPLITS)[preset])
-        (folder() / "config.json").write_text(json.dumps(cfg, indent=2))
-        return redirect(message="Applied. Close Tools and tap Play.")
+        runtime.write_json(folder() / "config.json", cfg, indent=2)
+        return redirect(message="Applied. Close Pod Programs and tap Deploy.")
     except Exception as exc:
         return redirect(error=str(exc))
     finally:
@@ -178,7 +181,7 @@ def restore(filename: str = Form(...)):
     try:
         shutil.copyfile(folder() / filename, candidate)
         activate(candidate, "Restored snapshot")
-        return redirect(message="Master data restored. Close Tools and tap Play.")
+        return redirect(message="Master data restored. Close Pod Programs and tap Deploy.")
     except Exception as exc:
         return redirect(error=str(exc))
     finally:

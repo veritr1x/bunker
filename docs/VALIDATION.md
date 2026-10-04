@@ -1,5 +1,41 @@
 # Validation
 
+## Bunker and Pod Programs redesign, choosing players — 2026-10-04
+
+- The launcher (Bunker) and Pod Programs use the NieR:Automata terminal look on
+  Android and iOS, light or dark by the system or ⋮ → Display. Checked on the
+  Android 17 emulator, the Galaxy Z Fold, the iPad and the iOS simulator smoke test.
+- Every Pod Programs action was exercised on the emulator: create and restore a
+  save backup; apply a content preset, restore the previous master data, export
+  it and load an original; grant gems, an important item, a costume, a weapon
+  and a memoir set; run an Upgrade Manager action. Fixed on the way: the
+  content patcher no longer breaks on a half-written state file (writes are now
+  atomic), unowned karma slots say "locked", and karma pickers fit a phone.
+- Use this player: `android/tools/test_players.py` (6 tests) covers swapping,
+  switching back, a device that has not signed in, and New player. On the
+  emulator and iPad the game then signed in as the chosen player. New player
+  needs the server to register a device ID it does not know
+  (`patches/lunar-tear-new-player.patch`); on the emulator, iPad and Fold the
+  game then asked for a name and started a new player, and switching back
+  restored the original.
+
+## Persistent server log and export — 2026-10-04
+
+- Go tests: the log file keeps lines across restarts (one "log opened" marker
+  per session), rotates to `server.log.1` at 5 MB, and the export ZIP holds both
+  files and `info.txt`, also when written over a longer file through a descriptor.
+- Galaxy Z Fold (Android 17): after an update and a restart, `server.log` in
+  `Android/data/<package>/files/logs/` held both sessions and `adb pull` read it
+  without root. ⋮ → **Export server log** saved a ZIP through the system picker
+  with `server.log` and `info.txt` (package, Android version, model, port offset).
+- iOS simulator smoke test: the server log is saved in `Documents/logs`. The
+  log folder is set when the server starts, not while the app loads, because
+  calling Go that early delayed the launcher. The smoke test also found that
+  builds without `LunarPortOffset` reset a test offset to 0; the offset is now
+  set only when the build has one. Export on iOS uses the same Go code as
+  Android and is covered by the Go tests; the share sheet itself was not
+  exercised on a device.
+
 ## Server checks, port conflicts and port offset — 2026-10-04
 
 - Another device showed a black screen after the logo. Reproduced on an

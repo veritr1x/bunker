@@ -73,3 +73,17 @@ JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_ports(JNIEnv
 JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_selfTest(JNIEnv *env, jclass type) { return result(env, LunarSelfTest()); }
 JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_importProgress(JNIEnv *env, jclass type) { return result(env, LunarImportProgress()); }
 JNIEXPORT void JNICALL Java_org_lunartear_companion_NativeBridge_cancelImport(JNIEnv *env, jclass type) { LunarCancelImport(); }
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_setLogDir(JNIEnv *env, jclass type, jstring dir) {
+    const char *d = (*env)->GetStringUTFChars(env, dir, NULL);
+    char *error = d ? LunarSetLogDir((char *)d) : NULL;
+    if (d) (*env)->ReleaseStringUTFChars(env, dir, d);
+    return result(env, error);
+}
+JNIEXPORT jstring JNICALL Java_org_lunartear_companion_NativeBridge_exportLogs(JNIEnv *env, jclass type, jstring dir, jint fd, jstring info) {
+    const char *d = (*env)->GetStringUTFChars(env, dir, NULL);
+    const char *i = (*env)->GetStringUTFChars(env, info, NULL);
+    char *error = d && i ? LunarExportLogsFd((char *)d, (int)fd, (char *)i) : NULL;
+    if (d) (*env)->ReleaseStringUTFChars(env, dir, d);
+    if (i) (*env)->ReleaseStringUTFChars(env, info, i);
+    return result(env, error);
+}

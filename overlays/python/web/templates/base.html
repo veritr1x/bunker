@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+{%- set theme = request.cookies.get("lunar_theme", "") if request else "" -%}
+<html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Lunar Base{% endblock %}</title>
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Pod Programs{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/automata.css">
 </head>
 <body>
@@ -11,12 +13,12 @@
     <div class="left">
       <span>YoRHa</span>
       <span>Bunker Terminal</span>
-      <span>Lunar Base</span>
+      <span>Pod Programs</span>
     </div>
     <div class="right">{% block bar_right %}{% endblock %}</div>
   </div>
   <nav class="primary">
-    <a href="/" {% if active == "home" %}class="active"{% endif %}>Tools</a>
+    <a href="/" {% if active == "home" %}class="active"{% endif %}>Programs</a>
     <a href="/patcher" {% if active == "patcher" %}class="active"{% endif %}>Content</a>
     <a href="/users" {% if active == "users" %}class="active"{% endif %}>Users</a>
     <a href="/backups" {% if active == "backups" %}class="active"{% endif %}>Save Data</a>
@@ -31,6 +33,6 @@
     {% if error %}<div class="banner error">&gt; ERROR :: {{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
-  <footer>End of transmission // Glory to mankind</footer>
+  <footer><span class="sign-light">End of transmission // Glory to mankind</span><span class="sign-dark">Operator link // Standing by</span></footer>
 </body>
 </html>
