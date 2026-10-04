@@ -242,7 +242,7 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
             writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
             writer.close()
         os.replace(temporary, output)
-    log(f"Unsigned APK: {output}\nGame activity: {game_activity}\nSign it before installing.")
+    return game_activity
 
 
 def main():
@@ -253,8 +253,9 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--port-offset", type=int, default=0, help="Move the game's ports 8003/8080/3000 by this amount")
     args = p.parse_args()
-    assemble(args.apk.resolve(strict=True), args.master.resolve(strict=True), args.companion_apk.resolve(strict=True), args.output.resolve(),
-             port_offset=args.port_offset)
+    game_activity = assemble(args.apk.resolve(strict=True), args.master.resolve(strict=True), args.companion_apk.resolve(strict=True),
+                             args.output.resolve(), port_offset=args.port_offset)
+    print(f"Unsigned APK: {args.output}\nGame activity: {game_activity}\nSign it before installing.")
 
 
 if __name__ == "__main__":

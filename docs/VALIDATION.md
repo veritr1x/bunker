@@ -1,5 +1,25 @@
 # Validation
 
+## Signed web APKs and the download fix — 2026-10-04
+
+- `android/tools/test_apk_sign.py` passed: an APK signed by `apk_sign.py`
+  (APK Signature Scheme v2, public key in `web/signing`) verifies with
+  `apksigner`, and a signed APK is refused a second signature.
+- Download failure found and fixed: the page's `<main>` and the BUILD button
+  both had `id="build"`, so the build handler was attached to the whole page
+  section. Clicking the download link revoked the finished APK's link and
+  started another build; Chrome reported the download as a network failure.
+  The section is now `id="terminal"` and the page has no duplicate ids.
+- The site was assembled as CI does and run in Chrome with real clicks: BUILD
+  enabled once both files were chosen, the build ran once, and the download
+  link saved `bunker.apk` (304,320,690 bytes) without starting another build.
+  It verifies with `apksigner` (v2, Bunker public key).
+- On the emulator, the downloaded APK was refused over a copy signed with a
+  different key (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`), as documented. After
+  uninstalling, it installed and opened the Bunker. A separately assembled APK
+  signed with the same public key then installed over it as an update
+  (first-install time kept) and opened with its server running.
+
 ## Web builder redesign and rename to Bunker — 2026-10-04
 
 - The site was assembled as CI does (`web/build_site.py` with a fresh Android

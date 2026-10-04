@@ -29,9 +29,13 @@ Limitations:
 
 - **You still need your own files**: the original 3.7.1 ARM64 APK or a decrypted 3.7.1 IPA, the
   `20240404193219.bin.e` master data, and the resource dump. Other versions are refused.
-- **The download is unsigned.** Sign it yourself before installing: on Android with `apksigner`
-  or uber-apk-signer, on iOS with Sideloadly, AltStore or your own certificate. Keep the same key
-  (Android) or bundle ID (iOS) for updates, or the update replaces the app and its data.
+- **The Android APK is signed with a public key**, so it installs as it is, and every web build
+  updates over the previous one. The key ([`web/signing/bunker-key.p12`](web/signing/bunker-key.p12),
+  password and alias `bunker`) is public: anyone can sign a build that installs over yours. To
+  avoid that, re-sign with your own key, and keep using that key for updates. An app signed with
+  a different key has to be uninstalled first, which deletes its data.
+- **The iOS IPA is unsigned.** Install it with Sideloadly or AltStore, or sign it with your own
+  certificate. Keep the same bundle ID for updates.
 - **Use a desktop browser** with about 2 GB of free memory. Phones may run out of memory.
 - **The Android web build has no in-game Facebook account link**, because that patch needs a
   decompiler. Offline play, Tools and save backup and import all work. The iOS web build is the

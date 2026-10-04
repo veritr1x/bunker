@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PYTHON = [
     "LICENSE",
     "web/webbuild.py",
+    "android/tools/apk_sign.py",
     "android/tools/axml.py",
     "android/tools/assemble_apk.py",
     "android/tools/package_game.py",
@@ -26,6 +27,8 @@ PYTHON = [
     "upstream/lunar-scripts/android/patch_apk.py",
     "upstream/lunar-scripts/ios/patch_ipa.py",
     "upstream/lunar-scripts/patch_masterdata.py",
+    "web/signing/bunker-key.pem",
+    "web/signing/bunker-cert.der",
 ]
 PAGES_LIMIT = 100 * 1024 * 1024  # GitHub Pages refuses larger files.
 
@@ -63,6 +66,7 @@ def main():
     (out / "bundles").mkdir(parents=True)
     for name in ("index.html", "app.js", "worker.js"):
         shutil.copy2(ROOT / "web" / name, out / name)
+    shutil.copy2(ROOT / "web/signing/bunker-key.p12", out / "bunker-key.p12")
     for name in PYTHON:
         target = out / "py" / name
         target.parent.mkdir(parents=True, exist_ok=True)

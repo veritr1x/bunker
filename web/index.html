@@ -106,14 +106,14 @@
     <span class="name">BUNKER</span>
   </div>
   <nav aria-label="Page">
-    <a href="#build" class="on">BUILD</a>
+    <a href="#terminal" class="on">BUILD</a>
     <a href="https://github.com/veritr1x/bunker#readme">GUIDE</a>
     <a href="https://github.com/veritr1x/bunker#troubleshooting">TROUBLESHOOTING</a>
     <a href="https://github.com/veritr1x/bunker" class="boxed">SOURCE ↗</a>
   </nav>
 </header>
 
-<main id="build">
+<main id="terminal">
   <section class="intro">
     <h1>Build the offline game</h1>
     <p>For Android or iPhone/iPad, from your own files. Everything runs in this browser; your files are never uploaded.</p>
@@ -164,12 +164,14 @@
     </section>
 
     <section id="result">
-      <h2 class="head"><span>[</span><span>04 Sign and install</span><span class="rule"></span><span>]</span></h2>
+      <h2 class="head"><span>[</span><span>04 Install</span><span class="rule"></span><span>]</span></h2>
       <div class="frame">
         <a id="download" download>Download</a>
-        <p class="note" id="sign-android">The APK is unsigned. Sign it, for example with
-          <code>apksigner sign --ks my.keystore bunker.apk</code> or uber-apk-signer, then install it.
-          Keep your key: updates must be signed with the same one.</p>
+        <p class="note" id="sign-android">The APK is signed and ready to install. Every APK built on this page is signed
+          with the same public Bunker key, so a newer build installs over an older one and keeps your saves.
+          <a href="bunker-key.p12" download>Download the key</a> (<code>bunker-key.p12</code>, password and alias
+          <code>bunker</code>) to sign your own builds the same way. The key is public: to keep anyone else's build
+          from installing over yours, sign with a key of your own instead.</p>
         <p class="note" id="sign-ios" hidden>The IPA is unsigned. Install it with Sideloadly or AltStore and your Apple ID,
           or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.</p>
       </div>

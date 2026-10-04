@@ -13,6 +13,7 @@ REPO = Path("/repo")
 sys.path.insert(0, str(REPO / "android/tools"))
 sys.path.insert(0, str(REPO / "ios/tools"))
 
+import apk_sign  # noqa: E402
 import assemble_apk  # noqa: E402
 
 MASTER = "20240404193219.bin.e"
@@ -29,6 +30,9 @@ def addresses(port_offset=0):
 def build_android(apk, master, companion, output, log=print, port_offset=0):
     addresses(port_offset)  # Validate before the slow steps.
     assemble_apk.assemble(Path(apk), Path(master), Path(companion), Path(output), log=log, port_offset=int(port_offset))
+    log("Signing with the public Bunker key…")
+    apk_sign.sign(Path(output))
+    log("Signed APK ready to install.")
 
 
 def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_offset=0):
