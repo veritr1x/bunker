@@ -1,5 +1,18 @@
 # Validation
 
+## Game reopened without its server — 2026-10-04
+
+- On the Fold, after an update the game was reopened from Recent apps. Updating
+  ends the server process, and Recent apps opens the game directly rather than
+  through the launcher, so the game waited on a black screen after the logo;
+  the server log ended with "Server stopped".
+- Fix: the provider in the game's process checks that the server answers when
+  the game opens, and otherwise replaces the game with the launcher, which
+  starts the server and the game. On the Fold, after installing (server
+  stopped) and opening the game directly, the launcher took over, the server
+  was listening within about 2 seconds and the game reached its title screen
+  without any taps.
+
 ## Proxy stall and Android 17 archive import — 2026-10-03
 
 - Report: on a OnePlus 13, entering the game sat at 20% for minutes unless

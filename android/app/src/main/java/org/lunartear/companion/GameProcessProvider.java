@@ -1,0 +1,88 @@
+package org.lunartear.companion;
+
+import android.app.Activity;
+import android.app.Application;
+import android.content.ContentProvider;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+
+/**
+ * Runs in the game's own process before the game starts (providers are created
+ * at process start). It serves no data. It:
+ * - sends the game's loopback requests past any phone proxy (see LoopbackProxy);
+ * - makes sure the local server is running when the game opens. The launcher
+ *   starts the server before the game, but Android can also reopen the game
+ *   directly, for example from Recent apps after an update or after the server
+ *   was stopped. The game then waits on a black screen after the logo. In that
+ *   case the launcher is opened instead: it starts the server and the game.
+ */
+public final class GameProcessProvider extends ContentProvider {
+    @Override public boolean onCreate() {
+        LoopbackProxy.install();
+        Application app = (Application) getContext().getApplicationContext();
+        String game = gameActivity(app);
+        if (game != null) app.registerActivityLifecycleCallbacks(new ServerCheck(game));
+        return true;
+    }
+
+    private static String gameActivity(Application app) {
+        try {
+            Bundle meta = app.getPackageManager().getApplicationInfo(app.getPackageName(), PackageManager.GET_META_DATA).metaData;
+            return meta == null ? null : meta.getString("org.lunartear.GAME_ACTIVITY");
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
+    /** Sends the player to the launcher when the game opens without its server. */
+    private static final class ServerCheck implements Application.ActivityLifecycleCallbacks {
+        private final String game;
+        ServerCheck(String game) { this.game = game; }
+
+        @Override public void onActivityCreated(Activity activity, Bundle state) {
+            if (!activity.getClass().getName().equals(game)) return;
+            Handler main = new Handler(Looper.getMainLooper());
+            // Network calls are not allowed on the main thread.
+            new Thread(() -> {
+                if (serverAnswers()) return;
+                main.post(() -> {
+                    if (activity.isFinishing()) return;
+                    // The launcher shares the game's task; clearing it replaces the
+                    // game with the launcher, which then starts the server and the game.
+                    activity.startActivity(new Intent(activity, MainActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                });
+            }, "lunar-server-check").start();
+        }
+
+        private static boolean serverAnswers() {
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress("127.0.0.1", 8003), 1500);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @Override public void onActivityStarted(Activity activity) {}
+        @Override public void onActivityResumed(Activity activity) {}
+        @Override public void onActivityPaused(Activity activity) {}
+        @Override public void onActivityStopped(Activity activity) {}
+        @Override public void onActivitySaveInstanceState(Activity activity, Bundle out) {}
+        @Override public void onActivityDestroyed(Activity activity) {}
+    }
+
+    @Override public Cursor query(Uri uri, String[] projection, String selection, String[] args, String order) { return null; }
+    @Override public String getType(Uri uri) { return null; }
+    @Override public Uri insert(Uri uri, ContentValues values) { return null; }
+    @Override public int delete(Uri uri, String selection, String[] args) { return 0; }
+    @Override public int update(Uri uri, ContentValues values, String selection, String[] args) { return 0; }
+}
