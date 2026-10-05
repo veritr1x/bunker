@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › {{ character.name }}</p>
+<h1>{{ character.name }}</h1>
+<p class="note">{{ character.costumes|length }} costumes · 3D viewer and voice lines are coming next.</p>
+<h2 class="bracket-header">Costumes</h2>
+<div class="cards">
+  {% for c in character.costumes %}
+  <a class="card" href="/costume/{{ c.asset }}">
+    <span class="art portrait">{% if images %}<img src="{{ img("thumb", c.portrait) }}" alt="" loading="lazy">{% endif %}</span>
+    <strong>{{ c.name }}</strong>
+    <span class="note">{{ "★" * ((c.rarity // 10) if c.rarity else 0) }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

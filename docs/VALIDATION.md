@@ -24,9 +24,17 @@
   20.91 GB in about 20 minutes. The Archive rebuilt its index on the device
   in under 30 seconds and listed all 145 movies with their Library titles.
   Deploy then reached the game's title screen.
-- Not yet built: Characters (profiles, voices, 3D viewer), Gallery and
-  Music; they need ASTC texture decoding, Vorbis repacking and mesh
-  conversion on the phone. Speaker names are not shown in scenes yet: the
+- Characters and Gallery: textures decode in the Go library
+  (`server/mobile/unityasset`: Octo mask, UnityFS, serialized files read by
+  their type trees, Texture2D and a Go port of texture2ddecoder's ASTC
+  decoder). Go tests compare eight real textures (ASTC 5x5, 6x6 and 8x8,
+  102x102 to 2048x2048) with texture2ddecoder's output: every byte matches.
+  On the emulator the Archive listed 35 characters and 284 costumes with
+  portraits, showed a costume's 2048x2048 art trimmed to the figure with its
+  story, and the gallery's stills, all decoded on the device. Decoded images
+  are kept as PNGs under the Archive's folder.
+- Not yet built: the 3D viewer, voice lines and Music; they need Vorbis
+  repacking and mesh conversion on the phone. Speaker names are not shown in scenes yet: the
   text bundles hold lines only. Seasons 2 and 3 show numbered chapters
   (their route and act titles do not map one-to-one to the scene files).
   Not checked on iOS or a physical phone.

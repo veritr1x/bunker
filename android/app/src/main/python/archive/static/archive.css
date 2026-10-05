@@ -48,3 +48,20 @@ footer.pager .button { display: inline-flex; align-items: center; min-height: 44
 
 /* Pod Programs lowercases list sub-lines; the Archive's quote story text, so keep its case. */
 .tool-grid a span, .tool-grid span span { text-transform: none; }
+
+/* Art grids: characters, costumes and gallery groups. The hatching shows while an image decodes. */
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0 16px; }
+.cards.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 700px) { .cards { grid-template-columns: repeat(5, minmax(0, 1fr)); } .cards.wide { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.card { display: flex; flex-direction: column; gap: 4px; color: var(--fg-dark); min-width: 0; }
+.card:hover { background: transparent; color: var(--fg-dark); }
+.card strong { font-size: 13px; overflow-wrap: anywhere; }
+.card .note { font-size: 11px; overflow-wrap: anywhere; }
+.art { display: block; position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--accent);
+  background-color: var(--bg-cream-dark); background-image: repeating-linear-gradient(135deg, transparent 0, transparent 7px, var(--line) 7px, var(--line) 8px); }
+.art.portrait { aspect-ratio: 3 / 8; }
+.art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.art.portrait img { object-fit: contain; }
+.art.full { aspect-ratio: auto; margin: 0 0 6px; border-width: 2px; background-image: none; background-color: var(--panel); }
+.art.full img { height: auto; object-fit: contain; }
+.card:hover .art { outline: 2px solid var(--accent); outline-offset: 2px; }

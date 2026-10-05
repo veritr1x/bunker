@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › <a href="/characters/{{ costume.character.id }}">{{ costume.character.name }}</a> › {{ costume.position }} of {{ costume.count }}</p>
+<h1>{{ costume.name }}</h1>
+{% if images %}
+<a class="art full" href="{{ img("full", costume.full) }}"><img src="{{ img("view", costume.full) }}" alt="{{ costume.name }}, full art"></a>
+<p class="note">Tap the art for full size.</p>
+{% endif %}
+{% if costume.story %}
+<div class="panel"><article class="record"><h3>Costume story</h3><p>{{ costume.story|rich|safe }}</p></article></div>
+{% endif %}
+{% endblock %}
+{% block footer %}
+<footer class="pager">
+  {% if costume.previous %}<a class="button ghost" href="/costume/{{ costume.previous }}">‹ Prev</a>{% else %}<a class="button ghost" href="/characters/{{ costume.character.id }}">‹ Back</a>{% endif %}
+  <span>{{ costume.position }} / {{ costume.count }}</span>
+  {% if costume.next %}<a class="button" href="/costume/{{ costume.next }}">Next ›</a>{% else %}<a class="button" href="/characters/{{ costume.character.id }}">Done</a>{% endif %}
+</footer>
+{% endblock %}

@@ -43,6 +43,11 @@ func LunarPrepareBackup(root *C.char) *C.char {
 	return C.CString(mobile.PrepareBackup(C.GoString(root)))
 }
 
+//export LunarTexture
+func LunarTexture(bundle, target *C.char, maxSide C.int) *C.char {
+	return C.CString(mobile.Texture(C.GoString(bundle), C.GoString(target), int(maxSide)))
+}
+
 //export LunarImportSaves
 func LunarImportSaves(data, source *C.char) *C.char {
 	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))

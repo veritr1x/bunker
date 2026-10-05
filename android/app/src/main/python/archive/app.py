@@ -10,10 +10,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import index
+from .media import SIZES, VERSION, Textures
 from .content import KINDS, Archive, rich
 
 HERE = Path(__file__).resolve().parent
-SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("records", "Records", "/records"), ("movies", "Movies", "/movies")]
+SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("characters", "Characters", "/characters"),
+            ("records", "Records", "/records"), ("movies", "Movies", "/movies"), ("gallery", "Gallery", "/gallery")]
 
 
 class Builder:
@@ -44,14 +46,17 @@ class Builder:
         threading.Thread(target=run, name="archive-index", daemon=True).start()
 
 
-def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path) -> FastAPI:
+def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None) -> FastAPI:
+    """decode(bundle, target_png, max_side) -> "" or an error turns a texture bundle into a PNG; without it, no images."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
     builder = Builder(revision, master, db_path)
     archive = Archive(db_path, revision)
+    textures = Textures(revision / "assetbundle", data_dir / "images", decode)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["rich"] = rich
-    templates.env.globals.update(sections=SECTIONS, kinds=KINDS)
+    templates.env.globals.update(sections=SECTIONS, kinds=KINDS, images=decode is not None,
+                                 img=lambda size, path: f"/media/image/{size}/{path}?v={VERSION}")
 
     app = FastAPI(title="Archive", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
@@ -159,6 +164,64 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path) -
         if target.parent != (revision / "resources").resolve() or target.suffix != ".mp4" or not target.is_file():
             raise HTTPException(404)
         return FileResponse(target, media_type="video/mp4")
+
+    @app.get("/characters")
+    def characters(request: Request):
+        need_index(request)
+        return page(request, "characters.html", "characters", characters=archive.characters())
+
+    @app.get("/characters/{character_id}")
+    def character(request: Request, character_id: int):
+        need_index(request)
+        found = archive.character(character_id)
+        if not found:
+            raise HTTPException(404)
+        return page(request, "character.html", "characters", character=found)
+
+    @app.get("/costume/{asset}")
+    def costume(request: Request, asset: str):
+        need_index(request)
+        found = archive.costume(asset)
+        if not found:
+            raise HTTPException(404)
+        return page(request, "costume.html", "characters", costume=found)
+
+    @app.get("/gallery")
+    def gallery(request: Request, tab: str = "stills"):
+        need_index(request)
+        tabs = dict(Archive.GALLERY_TABS)
+        if tab not in tabs:
+            raise HTTPException(404)
+        return page(request, "gallery.html", "gallery", tab=tab, tabs=Archive.GALLERY_TABS, groups=archive.gallery(tab))
+
+    @app.get("/gallery/{category}/{grp}")
+    def gallery_group(request: Request, category: str, grp: str):
+        need_index(request)
+        found = archive.gallery_images(category, grp)
+        if not found:
+            raise HTTPException(404)
+        return page(request, "gallery_group.html", "gallery", category=category, tabs=dict(Archive.GALLERY_TABS),
+                    label=archive.group_label(category, grp), items=found)
+
+    @app.get("/image")
+    def image(request: Request, path: str):
+        need_index(request)
+        found = archive.image(path)
+        if not found:
+            raise HTTPException(404)
+        return page(request, "image.html", "gallery", image=found, tabs=dict(Archive.GALLERY_TABS))
+
+    @app.get("/media/image/{size}/{path:path}")
+    def image_file(size: str, path: str):
+        if size not in SIZES:
+            raise HTTPException(404)
+        try:
+            png = textures.png(path, size)
+        except FileNotFoundError:
+            raise HTTPException(404)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+        return FileResponse(png, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
 
     @app.get("/search")
     def search(request: Request, q: str = ""):

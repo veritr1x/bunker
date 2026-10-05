@@ -23,5 +23,7 @@ public final class NativeBridge {
     /** Writes a zip of the saved logs and the device details to an open document. */
     public static native String exportLogs(String directory, int fd, String info);
     public static native String importSaves(String dataDirectory, String source);
+    /** Writes the largest texture in an asset bundle to target as a PNG for the Archive, no side over maxSide (0: full size); "" or an error. */
+    public static native String texture(String bundle, String target, int maxSide);
     public static native String edit(String dataDirectory, String assetDirectory, String request);
 }

@@ -174,7 +174,17 @@ class Archive:
         return out
 
     def character_name(self, character_id) -> str:
-        return self.text(f"character.name.{character_id}") or self.text(f"character.name.{character_id}.1") or f"Character {character_id}"
+        name = self.text(f"character.name.{character_id}") or self.text(f"character.name.{character_id}.1")
+        if name:
+            return name
+        # Story-only characters have no name of their own; their costume's name stands in.
+        with self.db() as db:
+            assets = [r[0] for r in db.execute("SELECT asset FROM costume WHERE character=? ORDER BY costume", (character_id,))]
+        for asset in assets:
+            costume = self.text(f"costume.name.{asset}")
+            if costume and costume != "-":
+                return costume
+        return "Unnamed"
 
     def reports(self) -> list[dict]:
         groups = {}
@@ -252,3 +262,78 @@ class Archive:
             records = db.execute("SELECT key, value FROM text WHERE (key LIKE 'weapon.story.%' OR key LIKE 'report.description.%' "
                                  "OR key LIKE 'cage.memory.description.%') AND value LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
         return {"lines": [dict(r) for r in lines], "records": [dict(r) for r in records]}
+
+    # ---- Characters -----------------------------------------------------------
+    def characters(self) -> list[dict]:
+        order = {r["CharacterId"]: r.get("SortOrder", 0) for r in self.master("m_character")}
+        with self.db() as db:
+            rows = db.execute("SELECT character, count(*) costumes, min(costume) first FROM costume GROUP BY character").fetchall()
+            out = []
+            for r in rows:
+                first = db.execute("SELECT asset FROM costume WHERE character=? ORDER BY costume LIMIT 1", (r["character"],)).fetchone()[0]
+                out.append({"id": r["character"], "name": self.character_name(r["character"]), "costumes": r["costumes"],
+                            "icon": f"ui/costume/{first}/{first}_portrait.assetbundle"})
+        # Characters with names of their own come first; story-only ones (named by a costume) last.
+        named = lambda c: bool(self.text(f"character.name.{c['id']}") or self.text(f"character.name.{c['id']}.1"))
+        return sorted(out, key=lambda c: (not named(c), order.get(c["id"], 0), c["id"]))
+
+    def character(self, character_id: int) -> dict | None:
+        with self.db() as db:
+            rows = db.execute("SELECT * FROM costume WHERE character=? ORDER BY costume", (character_id,)).fetchall()
+        if not rows:
+            return None
+        costumes = []
+        for r in rows:
+            asset = r["asset"]
+            name = self.text(f"costume.name.{asset}")
+            costumes.append({"asset": asset, "name": name if name and name != "-" else asset, "rarity": r["rarity"],
+                             "story": self.text(f"costume.description.{asset}"),
+                             "portrait": f"ui/costume/{asset}/{asset}_portrait.assetbundle",
+                             "full": f"ui/costume/{asset}/{asset}_full.assetbundle"})
+        return {"id": character_id, "name": self.character_name(character_id), "costumes": costumes}
+
+    def costume(self, asset: str) -> dict | None:
+        with self.db() as db:
+            row = db.execute("SELECT character FROM costume WHERE asset=?", (asset,)).fetchone()
+        if not row:
+            return None
+        found = self.character(row[0])
+        at = next(i for i, c in enumerate(found["costumes"]) if c["asset"] == asset)
+        siblings = found["costumes"]
+        return {**siblings[at], "character": found, "position": at + 1, "count": len(siblings),
+                "previous": siblings[at - 1]["asset"] if at > 0 else None,
+                "next": siblings[at + 1]["asset"] if at + 1 < len(siblings) else None}
+
+    # ---- Gallery ----------------------------------------------------------------
+    GALLERY_TABS = (("stills", "Stills"), ("events", "Event scenes"), ("library", "Library art"), ("photos", "Photos"))
+    LIBRARY_GROUPS = {"stained_glass": "Stained glass", "report": "Report art", "cage_memory": "Lost Archives",
+                      "content": "End contents", "limit_content": "Limited contents", "event_quest_type_01": "Event backdrops",
+                      "event_quest_type_06": "Character story backdrops", "movie": "Movie covers", "record": "Record covers"}
+
+    def group_label(self, category: str, grp: str) -> str:
+        if category == "stills":
+            return grp.replace("season", "Season ")
+        if category == "library":
+            return self.LIBRARY_GROUPS.get(grp, grp.replace("_", " ").capitalize())
+        if category == "photos":
+            return "Photos"
+        return grp.upper()
+
+    def gallery(self, category: str) -> list[dict]:
+        with self.db() as db:
+            rows = db.execute("SELECT grp, count(*) n, min(path) cover FROM image WHERE category=? GROUP BY grp ORDER BY grp", (category,)).fetchall()
+        return [{"grp": r["grp"], "label": self.group_label(category, r["grp"]), "count": r["n"], "cover": r["cover"]} for r in rows]
+
+    def gallery_images(self, category: str, grp: str) -> list[dict]:
+        with self.db() as db:
+            return [dict(r) for r in db.execute("SELECT * FROM image WHERE category=? AND grp=? ORDER BY name", (category, grp))]
+
+    def image(self, path: str) -> dict | None:
+        with self.db() as db:
+            row = db.execute("SELECT * FROM image WHERE path=?", (path,)).fetchone()
+            if not row:
+                return None
+            names = [r[0] for r in db.execute("SELECT path FROM image WHERE category=? AND grp=? ORDER BY name", (row["category"], row["grp"]))]
+        at = names.index(path)
+        return {**dict(row), "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
+                "previous": names[at - 1] if at > 0 else None, "next": names[at + 1] if at + 1 < len(names) else None}

@@ -16,10 +16,17 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 1
+FORMAT = 3
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
-                 "m_character", "m_main_quest_season", "m_event_quest_chapter")
+                 "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume")
+# Gallery: (category, folder under assetbundle/, file pattern, group taken from the path)
+GALLERY = (
+    ("stills", "ui/still", "*/still_main_*.assetbundle", lambda rel: rel.parts[0]),
+    ("events", "2d/ev", "*/texture/ev*_c[0-9]*.assetbundle", lambda rel: rel.parts[0]),
+    ("library", "ui/library", "*/**/*.assetbundle", lambda rel: rel.parts[0]),
+    ("photos", "ui/photo_gallery", "*/*.assetbundle", lambda rel: rel.parts[0]),
+)
 _MARKER = re.compile(r":<[A-Z_]+>$")
 
 
@@ -125,6 +132,8 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                            name TEXT, sort INT, lines INT);
         CREATE TABLE line(scene INT, seq INT, text TEXT);
         CREATE TABLE movie(name TEXT PRIMARY KEY, file TEXT, size INT);
+        CREATE TABLE costume(asset TEXT PRIMARY KEY, character INT, costume INT, rarity INT);
+        CREATE TABLE image(category TEXT, grp TEXT, name TEXT, path TEXT PRIMARY KEY);
     """)
     bundles = sorted(text_root.rglob("*.assetbundle"))
     failures = 0
@@ -152,15 +161,33 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     progress(len(bundles), len(bundles), "Master data")
     for table, rows in load_master(master).items():
         db.execute("INSERT INTO meta VALUES (?,?)", ("master:" + table, json.dumps(rows, ensure_ascii=False)))
+    costumes = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_costume'").fetchone()[0])
+    costume_art = assetbundle / "ui" / "costume"
+    have = {d.name for d in costume_art.iterdir()} if costume_art.is_dir() else set()
+    for row in sorted(costumes, key=lambda r: r["CostumeId"]):
+        asset = f"ch{row['ActorSkeletonId']:03d}{row['AssetVariationId']:03d}"
+        if row["CostumeAssetCategoryType"] == 1 and asset in have:
+            db.execute("INSERT OR IGNORE INTO costume VALUES (?,?,?,?)", (asset, row["CharacterId"], row["CostumeId"], row["RarityType"]))
+    progress(len(bundles), len(bundles), "Gallery")
+    for category, folder, pattern, group in GALLERY:
+        root = assetbundle / folder
+        if root.is_dir():
+            rows = [(category, group(f.relative_to(root)), f.stem, f.relative_to(assetbundle).as_posix())
+                    for f in sorted(root.glob(pattern))]
+            db.executemany("INSERT OR IGNORE INTO image VALUES (?,?,?,?)", rows)
     resources = revision / "resources"
     if resources.is_dir():
         for file in sorted(resources.glob("*.mp4")):
             db.execute("INSERT INTO movie VALUES (?,?,?)", (file.stem, file.name, file.stat().st_size))
     db.execute("CREATE INDEX line_scene ON line(scene, seq)")
     db.execute("CREATE INDEX scene_place ON scene(area, season, chapter, grp)")
+    db.execute("CREATE INDEX image_place ON image(category, grp, name)")
+    db.execute("CREATE INDEX costume_character ON costume(character, costume)")
     summary = {"bundles": len(bundles), "failed": failures, "seconds": round(time.time() - started, 1),
                "scenes": db.execute("SELECT count(*) FROM scene").fetchone()[0],
-               "lines": db.execute("SELECT count(*) FROM line").fetchone()[0]}
+               "lines": db.execute("SELECT count(*) FROM line").fetchone()[0],
+               "costumes": db.execute("SELECT count(*) FROM costume").fetchone()[0],
+               "images": db.execute("SELECT count(*) FROM image").fetchone()[0]}
     db.execute("INSERT INTO meta VALUES ('signature', ?)", (json.dumps(signature(revision, master)),))
     db.execute("INSERT INTO meta VALUES ('summary', ?)", (json.dumps(summary),))
     db.execute("INSERT INTO meta VALUES ('built', ?)", (time.strftime("%Y-%m-%d %H:%M"),))

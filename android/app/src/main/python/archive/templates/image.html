@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/gallery?tab={{ image.category }}">Gallery · {{ tabs[image.category] }}</a> › <a href="/gallery/{{ image.category }}/{{ image.grp }}">{{ image.label }}</a></p>
+<h1>{{ image.name }}</h1>
+{% if images %}
+<a class="art full" href="{{ img("full", image.path) }}"><img src="{{ img("view", image.path) }}" alt="{{ image.name }}"></a>
+<p class="note">Tap the image for full size. <a href="{{ img("full", image.path) }}" download="{{ image.name }}.png">Save PNG</a></p>
+{% endif %}
+{% endblock %}
+{% block footer %}
+<footer class="pager">
+  {% if image.previous %}<a class="button ghost" href="/image?path={{ image.previous|urlencode }}">‹ Prev</a>{% else %}<a class="button ghost" href="/gallery/{{ image.category }}/{{ image.grp }}">‹ Back</a>{% endif %}
+  <span>{{ image.position }} / {{ image.count }}</span>
+  {% if image.next %}<a class="button" href="/image?path={{ image.next|urlencode }}">Next ›</a>{% else %}<a class="button" href="/gallery/{{ image.category }}/{{ image.grp }}">Done</a>{% endif %}
+</footer>
+{% endblock %}

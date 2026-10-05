@@ -64,9 +64,14 @@ class RealDump(unittest.TestCase):
             client = TestClient(create_app(revision, master, Path(folder), root / "overlays/python/web/static"))
             for path in ("/", "/story", "/story?tab=sub", "/story?tab=side", "/story?tab=recollections", "/story/main/1/1",
                          "/scene/1", "/records", "/records?tab=reports", "/records?tab=archives", "/records?tab=debris",
-                         "/movies", "/search?q=cage"):
+                         "/movies", "/search?q=cage", "/characters", "/characters/1008", "/costume/ch008001",
+                         "/gallery", "/gallery?tab=events", "/gallery?tab=library", "/gallery?tab=photos", "/gallery/stills/season1",
+                         "/image?path=ui/still/season1/still_main_1100101.assetbundle"):
                 self.assertEqual(client.get(path).status_code, 200, path)
             self.assertEqual(client.get("/media/movie/../list.bin").status_code, 404)
+            self.assertEqual(client.get("/media/image/thumb/../list.bin").status_code, 404)
+            self.assertGreater(summary["costumes"], 250)
+            self.assertGreater(summary["images"], 1000)
 
 
 if __name__ == "__main__":

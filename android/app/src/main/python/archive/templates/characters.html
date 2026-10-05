@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › Characters</p>
+<h1>Characters</h1>
+<div class="cards">
+  {% for c in characters %}
+  <a class="card" href="/characters/{{ c.id }}">
+    <span class="art portrait">{% if images %}<img src="{{ img("thumb", c.icon) }}" alt="" loading="lazy">{% endif %}</span>
+    <strong>{{ c.name }}</strong>
+    <span class="note">{{ c.costumes }} costume{{ "s" if c.costumes != 1 }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

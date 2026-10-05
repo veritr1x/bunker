@@ -34,9 +34,11 @@ def packaged(name: str) -> Path:
 
 def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
     from fastapi.responses import JSONResponse
+    from java import jclass
     from archive.app import create_app as archive_app
+    native = jclass("org.veritr1x.bunker.NativeBridge")  # textures decode in the Go library
     app = archive_app(revision_root(asset_root), asset_root / "assets" / "release" / "20240404193219.bin.e",
-                      archive_root, packaged("web") / "static")
+                      archive_root, packaged("web") / "static", decode=lambda bundle, target, size: native.texture(bundle, target, size))
 
     @app.middleware("http")
     async def private_session(request, call_next):

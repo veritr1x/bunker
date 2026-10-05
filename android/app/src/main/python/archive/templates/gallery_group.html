@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/gallery?tab={{ category }}">Gallery · {{ tabs[category] }}</a> › {{ label }}</p>
+<h1>{{ label }}</h1>
+<div class="cards wide">
+  {% for item in items %}
+  <a class="card" href="/image?path={{ item.path|urlencode }}">
+    <span class="art">{% if images %}<img src="{{ img("thumb", item.path) }}" alt="{{ item.name }}" loading="lazy">{% endif %}</span>
+    <span class="note">{{ item.name }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

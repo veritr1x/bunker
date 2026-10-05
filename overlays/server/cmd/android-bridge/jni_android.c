@@ -19,6 +19,15 @@ static jstring result(JNIEnv *env, char *s) {
     free(s);
     return value;
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_texture(JNIEnv *env, jclass type, jstring bundle, jstring target, jint maxSide) {
+    const char *b = (*env)->GetStringUTFChars(env, bundle, NULL);
+    const char *t = (*env)->GetStringUTFChars(env, target, NULL);
+    if (!b || !t) { if (b) (*env)->ReleaseStringUTFChars(env, bundle, b); if (t) (*env)->ReleaseStringUTFChars(env, target, t); return NULL; }
+    char *error = LunarTexture((char *)b, (char *)t, (int)maxSide);
+    (*env)->ReleaseStringUTFChars(env, bundle, b);
+    (*env)->ReleaseStringUTFChars(env, target, t);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_start(JNIEnv *env, jclass type, jstring data, jstring assets) {
     const char *d = (*env)->GetStringUTFChars(env, data, NULL);
     const char *a = (*env)->GetStringUTFChars(env, assets, NULL);
