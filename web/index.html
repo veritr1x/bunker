@@ -173,7 +173,10 @@
           <code>bunker</code>) to sign your own builds the same way. The key is public: to keep anyone else's build
           from installing over yours, sign with a key of your own instead.</p>
         <p class="note" id="sign-ios" hidden>The IPA is unsigned. Install it with Sideloadly or AltStore and your Apple ID,
-          or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.</p>
+          or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.
+          The same IPA runs on a Mac with Apple silicon when signed by your Apple developer team for that Mac;
+          build it with a port offset (for example 30000) and open the launcher with ⌘B. See
+          <a href="https://github.com/veritr1x/bunker#play-on-a-mac">Play on a Mac</a>.</p>
       </div>
     </section>
 

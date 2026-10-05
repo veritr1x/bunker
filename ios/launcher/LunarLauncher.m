@@ -7,6 +7,7 @@
 #import <UIKit/UIKit.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <objc/runtime.h>
 #include <stdlib.h>
 #include "liblunar.h"
 #include "rebind.h"
@@ -1462,7 +1463,46 @@ static void ShowLauncher(void) {
 @end
 static LTGestureTarget *gGestureTarget;
 
+// On a Mac (and an iPad with a keyboard) there is no three-finger tap, so a
+// Bunker menu offers "Open Bunker" with ⌘B. The action lives on UIApplication,
+// which is always in the responder chain whichever window has focus.
+@interface UIApplication (LunarTear)
+- (void)lunarOpenBunker:(id)sender;
+@end
+@implementation UIApplication (LunarTear)
+- (void)lunarOpenBunker:(id)sender { NSLog(@"[LunarTear] menu: Open Bunker"); gMessage = @""; ShowLauncher(); }
+@end
+
+static void InstallMenu(void) {
+    static BOOL installed;
+    if (installed) return;
+    installed = YES;
+    // UIKit asks UIApplication to build the main menu, which passes it on to
+    // the app delegate. Hook UIApplication itself: Firebase swaps the game's
+    // delegate class at runtime. Keep the inherited implementation.
+    Class application = UIApplication.class;
+    SEL selector = @selector(buildMenuWithBuilder:);
+    void (*original)(id, SEL, id) = (void (*)(id, SEL, id))class_getMethodImplementation(application, selector);
+    IMP build = imp_implementationWithBlock(^(id self, id<UIMenuBuilder> builder) {
+        original(self, selector, builder);
+        if (builder.system != UIMenuSystem.mainSystem || [builder menuForIdentifier:@"org.veritr1x.bunker.menu"]) return;
+        UIKeyCommand *open = [UIKeyCommand commandWithTitle:@"Open Bunker" image:nil action:@selector(lunarOpenBunker:)
+                                                      input:@"b" modifierFlags:UIKeyModifierCommand propertyList:nil];
+        // Its own menu: on a Mac, iPad apps cannot add to the app menu.
+        UIMenu *menu = [UIMenu menuWithTitle:@"Bunker" image:nil identifier:@"org.veritr1x.bunker.menu" options:0 children:@[open]];
+        // The default Format menu has nothing to act on in the game and takes
+        // ⌘B for Bold; a duplicate shortcut would drop ours.
+        [builder removeMenuForIdentifier:UIMenuFormat];
+        [builder insertSiblingMenu:menu afterMenuForIdentifier:UIMenuView];
+        NSLog(@"[LunarTear] menu: added Bunker menu, %@", [builder menuForIdentifier:@"org.veritr1x.bunker.menu"] ? @"present" : @"missing");
+    });
+    class_replaceMethod(application, selector, build, "v@:@");
+    [UIMenuSystem.mainSystem setNeedsRebuild];
+    NSLog(@"[LunarTear] menu: hook installed");
+}
+
 static void InstallGesture(void) {
+    InstallMenu();
     if (!gGestureTarget) gGestureTarget = [LTGestureTarget new];
     NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
@@ -1514,7 +1554,7 @@ static void BecameActive(void) {
 
 __attribute__((constructor)) static void LunarTearLoad(void) {
     @autoreleasepool {
-        gQueue = dispatch_queue_create("org.lunartear.server", DISPATCH_QUEUE_SERIAL);
+        gQueue = dispatch_queue_create("org.veritr1x.bunker.server", DISPATCH_QUEUE_SERIAL);
         gBackgroundTask = UIBackgroundTaskInvalid;
         gServerRoot = Documents();
         gSaves = [gServerRoot stringByAppendingPathComponent:@"saves"];

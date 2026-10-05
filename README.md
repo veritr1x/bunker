@@ -62,9 +62,36 @@ The launcher, the **Bunker**, shows your game files, Lunar Tear and your save, w
 
 1. Install your locally built and signed IPA.
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
-3. The server starts and the game continues. Three-finger double-tap opens the launcher during play.
+3. The server starts and the game continues. Three-finger double-tap opens the launcher during play
+   (⌘B with a keyboard).
 
 Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** sits on the Bunker itself.
+
+## Play on a Mac
+
+The iPhone/iPad build runs natively on a Mac with Apple silicon (M1 or later), as an iPad app.
+There is no Windows version: the game exists only as ARM code for Android and iOS. On Windows,
+an Android emulator that runs ARM apps is the only option, and it is untested.
+
+1. Sign the IPA with your own Apple developer team (see [iOS](docs/IOS.md#build)). The
+   provisioning profile must include the Mac: add its **Provisioning UDID** (System Information ›
+   Hardware) as a device. Sideloadly and AltStore install only on iPhone and iPad.
+2. Build with a port offset. On a Mac the game shares ports with everything else, and port 3000
+   in particular is often taken by development servers:
+   ```sh
+   python3.11 scripts/build.py --ipa ~/Downloads/com.square-enix.NieRSPww_3.7.1.ipa \
+     --master ~/Downloads/20240404193219.bin.e --port-offset 30000 \
+     --bundle-id <your bundle ID> --sign-identity <identity> --profile <profile>
+   ```
+   Keep the same offset for every update.
+3. Double-click `artifacts/bunker.ipa`; macOS installs it into Applications as **NieR**.
+4. Open NieR and click **Choose** under **Game files**, as on iPhone. The app can read only files
+   you pick there.
+5. **Bunker › Open Bunker** (⌘B) opens the launcher during play.
+
+To update, quit NieR first and double-click the new IPA. If Applications then has more than
+one NieR (for example **NieR 2**), keep the newest and move the others to the Trash; they share
+the same data.
 
 ## Build it yourself, step by step
 
@@ -207,7 +234,8 @@ it when you copy files into the app with Finder, which skips the app's own impor
    elsewhere where it is: it needs no space, but the folder must stay there (and a USB drive
    must stay connected while you play). iCloud Drive folders can only be copied. Finder can also take a prepared `assets` folder (step 5):
    drag it onto NieR (your device › Files) and tap **Check again**.
-4. The server starts inside the game. Three-finger double-tap opens the launcher during play.
+4. The server starts inside the game. Three-finger double-tap opens the launcher during play
+   (⌘B with a keyboard, or **Bunker › Open Bunker** on a Mac).
 
 ### 7. Update later
 
