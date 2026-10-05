@@ -14,7 +14,7 @@
   <div class="tool-grid">
     {% for c in season.chapters %}
     <a href="/story/main/{{ season.season }}/{{ c.chapter }}">{{ c.number }}{% if c.title and c.title != c.number %}: {{ c.title }}{% endif %}
-      <span>{{ c.scenes }} scenes · {{ c.lines }} lines{% if c.preview and not c.title %} · “{{ c.preview }}…”{% endif %}</span></a>
+      <span>{{ count(c.scenes, "scene") }} · {{ count(c.lines, "line") }}{% if c.preview and not c.title %} · “{{ c.preview }}”{% endif %}</span></a>
     {% endfor %}
   </div>
   {% endfor %}
@@ -37,7 +37,7 @@
   <div class="tool-grid">
     {% for item in g["items"] %}
     <a href="/story/{{ g.kind }}/{{ item.grp }}">{{ item.grp|upper }}{% if item.season %} · Season {{ item.season }}{% endif %}
-      <span>{{ item.scenes }} scenes · “{{ item.preview }}…”</span></a>
+      <span>{{ count(item.scenes, "scene") }}{% if item.preview %} · “{{ item.preview }}”{% endif %}</span></a>
     {% endfor %}
   </div>
   {% endif %}{% endfor %}

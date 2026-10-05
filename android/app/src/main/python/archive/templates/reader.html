@@ -23,20 +23,22 @@
   const audio = new Audio();
   const lines = [...document.querySelectorAll("#reader .line[data-voice]")];
   const all = document.getElementById("play-scene");
-  let queue = [], current = null;
+  let queue = [], current = null, whole = false;
   function mark(line) {
     if (current) current.classList.remove("speaking");
     current = line;
     if (line) { line.classList.add("speaking"); line.scrollIntoView({block: "nearest", behavior: "smooth"}); }
   }
-  function play(line) { mark(line); audio.src = line.dataset.voice; audio.play().catch(stop); }
-  function stop() { audio.pause(); queue = []; mark(null); all.textContent = "▶ Play scene"; }
-  audio.addEventListener("ended", () => queue.length ? play(queue.shift()) : stop());
-  audio.addEventListener("error", () => queue.length ? play(queue.shift()) : stop());
-  lines.forEach(line => line.querySelector(".play").addEventListener("click", () => { queue = []; all.textContent = "▶ Play scene"; play(line); }));
+  // A newer play() interrupts the last one with an AbortError; only a real failure moves on.
+  function play(line) { mark(line); audio.src = line.dataset.voice; audio.play().catch(e => e.name !== "AbortError" && next()); }
+  function next() { queue.length ? play(queue.shift()) : stop(); }
+  function stop() { audio.pause(); queue = []; whole = false; mark(null); all.textContent = "▶ Play scene"; }
+  audio.addEventListener("ended", next);
+  audio.addEventListener("error", next);
+  lines.forEach(line => line.querySelector(".play").addEventListener("click", () => { queue = []; whole = false; all.textContent = "▶ Play scene"; play(line); }));
   all.addEventListener("click", () => {
-    if (queue.length || !audio.paused) return stop();
-    queue = lines.slice(); all.textContent = "■ Stop"; play(queue.shift());
+    if (whole) return stop();
+    whole = true; queue = lines.slice(); all.textContent = "■ Stop"; play(queue.shift());
   });
 })();
 </script>

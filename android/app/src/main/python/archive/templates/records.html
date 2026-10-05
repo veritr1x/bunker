@@ -9,11 +9,11 @@
   <a href="/records?tab=debris"{% if tab == "debris" %} class="on"{% endif %}>Debris</a>
 </nav>
 {% if tab == "weapons" %}
-  <div class="search-row"><input type="text" id="filter" placeholder="Filter weapons" aria-label="Filter weapons"><span class="tab-stats">{{ weapons|length }} weapons</span></div>
+  <div class="search-row"><input type="text" id="filter" placeholder="Filter weapons" aria-label="Filter weapons"><span class="tab-stats">{{ count(weapons|length, "weapon") }}</span></div>
   <div id="weapons">
   {% for w in weapons %}
   <details class="panel fold" data-name="{{ w.name|lower }}">
-    <summary>{{ w.name }} · {{ w.stories|length }} stories</summary>
+    <summary>{{ w.name }} · {{ w.stories|length }} {{ "story" if w.stories|length == 1 else "stories" }}</summary>
     {% for s in w.stories %}<article class="record"><h3>Story {{ loop.index }}</h3><p>{{ s|rich|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}

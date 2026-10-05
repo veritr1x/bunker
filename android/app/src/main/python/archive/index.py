@@ -16,7 +16,7 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 4
+FORMAT = 5
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
@@ -191,7 +191,9 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     bgm = assetbundle / "audio" / "bgm"
     for f in sorted(bgm.glob("bgm_*.assetbundle")) if bgm.is_dir() else []:
         track, _, part = f.stem.removeprefix("bgm_").rpartition("_")
-        db.execute("INSERT INTO music VALUES (?,?,?)", (track or f.stem, int(part) if part.isdigit() else 0, f.relative_to(assetbundle).as_posix()))
+        if not track.isdigit():
+            continue  # bgm_delay_settings holds timing data, not music
+        db.execute("INSERT INTO music VALUES (?,?,?)", (track, int(part) if part.isdigit() else 0, f.relative_to(assetbundle).as_posix()))
     resources = revision / "resources"
     if resources.is_dir():
         for file in sorted(resources.glob("*.mp4")):

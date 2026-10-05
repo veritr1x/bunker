@@ -57,7 +57,7 @@ function resetCamera() {
   controls.update();
 }
 
-let current = null, mixer = null, action = null;
+let current = null, mixer = null, action = null, rest = [];
 const clock = new THREE.Clock();
 const motionCache = new Map();
 
@@ -84,7 +84,7 @@ async function playMotion(button) {
     if (wanted !== button) return;
     status.hidden = true;
     if (action) { action.fadeOut(0.25); action = null; }
-    if (!clip) { mixer.stopAllAction(); current.traverse((o) => o.isSkinnedMesh && o.skeleton.pose()); return; }
+    if (!clip) { mixer.stopAllAction(); restPose(); return; }
     action = mixer.clipAction(clip);
     action.reset().fadeIn(0.25).play();
   } catch (error) {
@@ -92,6 +92,14 @@ async function playMotion(button) {
   }
 }
 document.querySelectorAll("[data-motion]").forEach((b) => b.addEventListener("click", () => playMotion(b)));
+
+// The pose the model was saved in. Not skeleton.pose(): the skins share bones, and Unity keeps stale bind
+// matrices for bones a mesh does not use, so posing each skin from its own would scatter the others.
+function restPose() {
+  for (const [bone, position, quaternion, scale] of rest) {
+    bone.position.copy(position); bone.quaternion.copy(quaternion); bone.scale.copy(scale);
+  }
+}
 const loader = new GLTFLoader();
 function load(url) {
   status.textContent = "Preparing the model…";
@@ -100,11 +108,15 @@ function load(url) {
     if (current) scene.remove(current);
     current = gltf.scene;
     current.traverse((o) => { if (o.isSkinnedMesh) o.frustumCulled = false; });
+    rest = [];
+    current.traverse((o) => { if (o.isBone) rest.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]); });
     scene.add(current);
     frameModel(current);
     mixer = new THREE.AnimationMixer(current);
     status.hidden = true;
-    const first = document.querySelector("[data-motion].on") || document.querySelector("[data-motion]");
+    // The first field motion; a family with only battle motions starts with its first of those.
+    const first = document.querySelector("[data-motion].on") || document.querySelector("[data-motion]:not([data-motion=''])")
+      || document.querySelector("[data-motion]");
     if (first) playMotion(first);
   }, undefined, () => { status.textContent = "This model could not be shown."; });
 }
@@ -118,9 +130,13 @@ spin.addEventListener("click", () => {
   spin.setAttribute("aria-pressed", controls.autoRotate);
 });
 document.getElementById("snapshot").addEventListener("click", () => {
+  const picture = renderer.domElement.toDataURL("image/png");
+  const name = (stage.dataset.name || "costume") + ".png";
+  // In the app, WebView ignores download links; the Bunker saves the picture where the user picks.
+  if (window.bunkerFiles) { window.bunkerFiles.savePng(name, picture); return; }
   const link = document.createElement("a");
-  link.href = renderer.domElement.toDataURL("image/png");
-  link.download = (stage.dataset.name || "costume") + ".png";
+  link.href = picture;
+  link.download = name;
   link.click();
 });
 

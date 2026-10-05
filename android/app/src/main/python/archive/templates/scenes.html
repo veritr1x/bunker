@@ -5,7 +5,7 @@
 {% if title %}<p class="subtitle">{{ title }}</p>{% endif %}
 <div class="tool-grid">
   {% for s in scenes %}
-  <a href="/scene/{{ s.id }}">Scene {{ loop.index }}<span>{{ s.lines }} lines{% if s.preview %} · “{{ s.preview }}”{% endif %}</span></a>
+  <a href="/scene/{{ s.id }}">Scene {{ loop.index }}<span>{{ count(s.lines, "line") }}{% if s.preview %} · “{{ s.preview }}”{% endif %}</span></a>
   {% else %}
   <span class="off">No scenes</span>
   {% endfor %}

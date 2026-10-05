@@ -144,3 +144,32 @@ func TestClipToJSON(t *testing.T) {
 		t.Fatal("the run cycle does not move the legs")
 	}
 }
+
+// Without an Avatar, the skeleton's own paths stand in: they must name every path an Avatar would.
+func TestHierarchyPaths(t *testing.T) {
+	root := dumpRoot(t)
+	skeleton := filepath.Join(root, "3d/actor/ch008001/mesh/sk_ch008001.assetbundle")
+	a := &assets{byCAB: map[string]*loadedFile{}}
+	if err := a.add(skeleton); err != nil {
+		t.Fatal(err)
+	}
+	file := a.byCABOfBundle(skeleton)
+	fromAvatar, err := avatarPaths(a, file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromSkeleton, err := hierarchyPaths(a, file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for crc, path := range fromAvatar {
+		if fromSkeleton[crc] != path {
+			t.Fatalf("avatar path %q (%d) is %q from the skeleton", path, crc, fromSkeleton[crc])
+		}
+	}
+	// ch010003 has no Avatar; its motions convert all the same.
+	out := filepath.Join(t.TempDir(), "idle.json")
+	if err := ClipToJSON(filepath.Join(root, "3d/motion/ch010/general/anim_bt_ch010_avoid_01.assetbundle"), filepath.Join(root, "3d/actor/ch010003"), out, 30); err != nil {
+		t.Fatal(err)
+	}
+}

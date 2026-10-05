@@ -117,7 +117,7 @@ public final class MainActivity extends Activity {
         pods.setOnClickListener(v->onOption(8));
         LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,dp(48));pb.setMargins(0,0,0,dp(6));programs.addView(pods,pb);
         LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,-2);gp.setMargins(0,0,0,dp(20));body.addView(programs,gp);
-        // [ ARCHIVE ]: the story, records and movies, read from the game files. The game keeps running.
+        // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
         LinearLayout.LayoutParams hp4=new LinearLayout.LayoutParams(-1,-2);hp4.setMargins(0,0,0,dp(8));body.addView(look.header("Archive"),hp4);
         LinearLayout records=panel();
         TextView story=look.monoText("Read the story, meet the characters, watch and listen.",12,look.ink);

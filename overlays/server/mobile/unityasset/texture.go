@@ -21,11 +21,14 @@ type Texture struct {
 
 // Unity TextureFormat values used by the game's bundles.
 const (
-	formatAlpha8 = 1
-	formatRGB24  = 3
-	formatRGBA32 = 4
-	formatARGB32 = 5
-	formatASTC   = 48 // 48–53 RGB 4x4…12x12, 54–59 RGBA 4x4…12x12
+	formatAlpha8    = 1
+	formatRGB24     = 3
+	formatRGBA32    = 4
+	formatARGB32    = 5
+	formatETC1      = 34
+	formatETC2RGB   = 45
+	formatETC2RGBA8 = 47
+	formatASTC      = 48 // 48–53 RGB 4x4…12x12, 54–59 RGBA 4x4…12x12
 )
 
 var astcBlocks = [6]int{4, 5, 6, 8, 10, 12}
@@ -74,6 +77,8 @@ func decodePixels(format, w, h int, data []byte) ([]byte, error) {
 	case format >= formatASTC && format <= 59:
 		bs := astcBlocks[(format-formatASTC)%6]
 		return DecodeASTC(data, w, h, bs, bs)
+	case format == formatETC1 || format == formatETC2RGB || format == formatETC2RGBA8:
+		return DecodeETC(data, w, h, format)
 	case format == formatRGBA32:
 		if err := need(w * h * 4); err != nil {
 			return nil, err

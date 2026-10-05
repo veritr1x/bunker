@@ -2,7 +2,7 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › Music</p>
 <h1>Music</h1>
-<p class="note">{{ tracks|length }} tracks. The game names them by number; parts are the versions it switches between.</p>
+<p class="note">{{ count(tracks|length, "track") }}. The game names them by number; parts are the versions it switches between.</p>
 <div class="tool-grid tracks" id="tracks">
   {% for t in tracks %}
   <div class="track">

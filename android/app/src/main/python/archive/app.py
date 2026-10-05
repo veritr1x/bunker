@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import index
 from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
-from .content import KINDS, Archive, rich
+from .content import KINDS, Archive, plain, rich
 
 HERE = Path(__file__).resolve().parent
 # Pages run only the Archive's own code. The 3D viewer's glTF loader reads embedded textures
@@ -67,12 +67,13 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     motions = Motions(revision / "assetbundle", data_dir / "motions", motion)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["rich"] = rich
+    templates.env.filters["plain"] = plain
     # The WebView keeps static files across app updates; their URLs change with their content instead.
     own = sorted(p for p in (HERE / "static").rglob("*") if p.is_file() and "vendor" not in p.parts)
     static_version = hashlib.sha256(b"".join(p.read_bytes() for p in own)).hexdigest()[:12]
     pod_css = Path(static_dir) / "css" / "automata.css"
     pod_version = hashlib.sha256(pod_css.read_bytes()).hexdigest()[:12] if pod_css.is_file() else "0"
-    templates.env.globals.update(sections=SECTIONS, kinds=KINDS, images=decode is not None, sounds=sound is not None,
+    templates.env.globals.update(count=lambda n, word: f"{n} {word}{'' if n == 1 else 's'}", sections=SECTIONS, kinds=KINDS, images=decode is not None, sounds=sound is not None,
                                  asset=lambda path: f"/archive-static/{path}?v={static_version}",
                                  pod_css=f"/static/css/automata.css?v={pod_version}",
                                  img=lambda size, path: f"/media/image/{size}/{path}?v={VERSION}",

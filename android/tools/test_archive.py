@@ -12,7 +12,7 @@ import os, sys, tempfile, unittest
 root = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(root / "android/app/src/main/python"), str(root / "upstream/lunar-base/tools")]
 from archive import index  # noqa: E402
-from archive.content import rich  # noqa: E402
+from archive.content import plain, rich  # noqa: E402
 
 
 class Parsing(unittest.TestCase):
@@ -45,6 +45,14 @@ class Parsing(unittest.TestCase):
         self.assertEqual(rich("<i>Tap. Tap."), "<i>Tap. Tap.</i>")
         self.assertEqual(rich("done</i> here"), "done here")
 
+    def test_upper_case_italics_and_lone_brackets(self):
+        self.assertEqual(rich("<I>Hush.</I> Hey Hina! <3"), "<i>Hush.</i> Hey Hina! &lt;3")
+        self.assertEqual(rich("<i>charms.</I. As"), "<i>charms.</i>. As")  # a tag missing its ">"
+
+    def test_previews_are_plain_and_cut_at_a_word(self):
+        self.assertEqual(plain("<align=center><i>There is someone\nI must see.</i>"), "There is someone I must see.")
+        self.assertEqual(plain("Everybody knows them, but nobody knows them well.", 30), "Everybody knows them, but…")
+
     def test_mask_name(self):
         base = Path("/a/assetbundle")
         self.assertEqual(index.mask_name(base / "text/en/main/season01/2000_001.assetbundle", base), "text)en)main)season01)2000_001")
@@ -74,6 +82,16 @@ class RealDump(unittest.TestCase):
             self.assertGreater(summary["images"], 1000)
             self.assertGreater(summary["voiced"], 20000)
             self.assertGreater(summary["tracks"], 300)
+            from archive.content import Archive
+            archive = Archive(Path(folder) / "archive.db", revision)
+            # bgm_delay_settings is timing data, not a track.
+            self.assertTrue(all(t["track"].isdigit() for t in archive.music()))
+            # A costume without full art shows its large card.
+            self.assertTrue(archive.costume("ch051001")["full"].endswith("ch051001_large.assetbundle"))
+            # Each costume lists its own signature moves only, and no two motions share a name.
+            motions = archive.motions("ch008001")
+            self.assertFalse(any("ch008004" in m["clip"] for m in motions))
+            self.assertEqual(len({(m["group"], m["label"]) for m in motions}), len(motions))
             self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
             # The 3D viewer's glTF loader fetches embedded textures from blob: URLs.
             policy = client.get("/").headers["content-security-policy"]

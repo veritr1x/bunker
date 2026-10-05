@@ -9,7 +9,7 @@ Vorbis setup headers generated with [libvorbis](https://xiph.org/vorbis/) 1.3.7
 (BSD-3-Clause, Copyright (c) 2002-2020 Xiph.org Foundation) for the encoder settings the game
 used; each matches the CRC32 its FSB5 data records.
 
-`astc.go` is a Go port of the ASTC decoder in [texture2ddecoder](https://github.com/K0lb3/texture2ddecoder) (`src/Texture2DDecoder/astc.cpp`, version 1.0.6), used under the MIT License:
+`astc.go` and `etc.go` are Go ports of the ASTC and ETC decoders in [texture2ddecoder](https://github.com/K0lb3/texture2ddecoder) (`src/Texture2DDecoder/astc.cpp` and `etc.cpp`, version 1.0.6), used under the MIT License:
 
 ```
 MIT License

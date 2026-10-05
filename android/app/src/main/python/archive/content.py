@@ -10,15 +10,18 @@ from functools import lru_cache
 from pathlib import Path
 
 KINDS = {"eid": "Event scenes", "lid": "Limited scenes", "cid": "Character scenes", "vid": "Other scenes", "sid": "Side stories"}
-_TAG = re.compile(r"<(?!/?i>)[^>]*>")
+_TAG = re.compile(r"<(?!/?i>)/?[a-z][^<>]*>", re.I)
+_ANY_TAG = re.compile(r"</?[a-z][^<>]*>", re.I)
+_OPEN_ITALIC = re.compile(r"</?i(?![a-z>])", re.I)  # "</I." in one summary: a tag missing its ">"
 
 
 def rich(text: str) -> str:
     """Game text as safe HTML: italics kept, other markup dropped, newlines kept."""
-    safe = html.escape(_TAG.sub("", text or ""), quote=False)
+    safe = html.escape(_TAG.sub("", _OPEN_ITALIC.sub(r"\g<0>>", text or "")), quote=False)
     out, depth = [], 0
     # Some game text opens italics without closing them; keep every tag paired so nothing leaks into the page.
-    for part in re.split(r"(&lt;/?i&gt;)", safe):
+    for part in re.split(r"(&lt;/?i&gt;)", safe, flags=re.I):
+        part = part.lower() if re.fullmatch(r"&lt;/?i&gt;", part, re.I) else part
         if part == "&lt;i&gt;":
             depth += 1
             out.append("<i>")
@@ -29,6 +32,14 @@ def rich(text: str) -> str:
         else:
             out.append(part)
     return "".join(out).replace("\n", "<br>") + "</i>" * depth
+
+
+def plain(text: str, limit: int | None = None) -> str:
+    """Game text as one line without markup; past limit, cut at a word and marked with an ellipsis."""
+    text = " ".join(_ANY_TAG.sub("", _OPEN_ITALIC.sub(r"\g<0>>", text or "")).split())
+    if limit and len(text) > limit:
+        text = text[:limit].rsplit(" ", 1)[0].rstrip(",;:—-") + "…"
+    return text
 
 
 class Archive:
@@ -99,7 +110,7 @@ class Archive:
         with self.db() as db:
             row = db.execute("SELECT line.text FROM scene JOIN line ON line.scene = scene.id WHERE area=? AND season=? AND chapter=? "
                              "AND kind != 'narration' AND length(line.text) > 12 ORDER BY sort, seq LIMIT 1", (area, season, chapter)).fetchone()
-        return (row[0].replace("\n", " ") if row else "")[:90]
+        return plain(row[0] if row else "", 90)
 
     def sub_groups(self, kind: str) -> list[dict]:
         with self.db() as db:
@@ -108,7 +119,7 @@ class Archive:
             out = []
             for r in rows:
                 line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 12 ORDER BY seq LIMIT 1", (r["first"],)).fetchone()
-                out.append({**dict(r), "preview": (line[0].replace("\n", " ") if line else "")[:90]})
+                out.append({**dict(r), "preview": plain(line[0] if line else "", 90)})
         return out
 
     def scenes(self, *, area=None, season=None, chapter=None, kind=None, grp=None) -> list[dict]:
@@ -121,7 +132,7 @@ class Archive:
             out = []
             for r in rows:
                 line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 3 ORDER BY seq LIMIT 1", (r["id"],)).fetchone()
-                out.append({**dict(r), "preview": (line[0].replace("\n", " ") if line else "")[:100]})
+                out.append({**dict(r), "preview": plain(line[0] if line else "", 100)})
         return out
 
     def scene(self, scene_id: int) -> dict | None:
@@ -289,7 +300,7 @@ class Archive:
             costumes.append({"asset": asset, "name": name if name and name != "-" else asset, "rarity": r["rarity"],
                              "story": self.text(f"costume.description.{asset}"),
                              "portrait": f"ui/costume/{asset}/{asset}_portrait.assetbundle",
-                             "full": f"ui/costume/{asset}/{asset}_full.assetbundle"})
+                             "full": self.costume_art(asset)})
         with self.db() as db:
             rows = db.execute("SELECT kind, path FROM character_voice WHERE character=? ORDER BY seq", (character_id,)).fetchall()
         voices, counts = [], {}
@@ -309,6 +320,14 @@ class Archive:
         for r in rows:
             tracks.setdefault(r["track"], {"track": r["track"], "parts": []})["parts"].append({"part": r["part"], "path": r["path"]})
         return list(tracks.values())
+
+    def costume_art(self, asset: str) -> str | None:
+        """The costume's full art; a few costumes have only the large card."""
+        for kind in ("full", "large"):
+            path = f"ui/costume/{asset}/{asset}_{kind}.assetbundle"
+            if (self.revision / "assetbundle" / path).is_file():
+                return path
+        return None
 
     def costume(self, asset: str) -> dict | None:
         with self.db() as db:
@@ -369,11 +388,21 @@ class Archive:
             if not m:
                 continue
             parts = m.group(2).split("_")
+            if any(re.fullmatch(r"ch\d{6}", w) and w != asset for w in parts):
+                continue  # another costume's own version of a move
             words = [w for w in parts if not w.isdigit() and not re.fullmatch(r"ch\d{6}", w) and w not in ("lp", "st", "en")]
             label = " ".join(words).capitalize() or m.group(2)
             numbers = [w.lstrip("0") or "0" for w in parts if w.isdigit()]
             if numbers and numbers != ["1"]:
                 label += " " + ".".join(numbers)
-            ending = {"lp": " (loop)", "st": " (start)", "en": " (end)"}.get(parts[-1], "")
-            out.append({"clip": f.stem, "group": self.MOTION_GROUPS[m.group(1)], "label": label + ending})
+            phases = {"st": "start", "lp": "loop", "en": "end"}
+            ending = [phases[w] for w in parts[-2:] if w in phases]
+            out.append({"clip": f.stem, "group": self.MOTION_GROUPS[m.group(1)], "label": label + (f" ({', '.join(ending)})" if ending else "")})
+        # Names that still collide (rare spellings of one move) get a number each.
+        seen = {}
+        for m in out:
+            key = (m["group"], m["label"])
+            seen[key] = seen.get(key, 0) + 1
+            if seen[key] > 1:
+                m["label"] += f" · {seen[key]}"
         return sorted(out, key=lambda m: (m["group"] != "field", not m["label"].lower().startswith("idle"), m["label"]))

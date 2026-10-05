@@ -1,5 +1,5 @@
 // Package unityasset reads the game's Unity asset bundles: Octo's header mask,
-// UnityFS, serialized files and Texture2D, and decodes their ASTC textures.
+// UnityFS, serialized files and Texture2D, and decodes their ASTC and ETC textures.
 //
 // The ASTC decoder is a Go port of texture2ddecoder's astc.cpp
 // (MIT License, Copyright (c) 2020 K0lb3), itself derived from Perfare's

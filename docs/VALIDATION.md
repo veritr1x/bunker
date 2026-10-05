@@ -57,10 +57,33 @@
   the idle and run motions. On the emulator the first build drew it white:
   three.js fetches embedded textures from blob: URLs and the page policy
   blocked fetch(); reproduced on the PC with the same policy, fixed with
-  connect-src blob: (now set by the Archive itself and covered by a test). Speaker names are not shown in scenes yet: the
-  text bundles hold lines only. Seasons 2 and 3 show numbered chapters
-  (their route and act titles do not map one-to-one to the scene files).
-  Not checked on iOS or a physical phone.
+  connect-src blob: (now set by the Archive itself and covered by a test).
+- Audit of every page and conversion: a crawl of every link from the home
+  page opened 7,951 pages without an error, then checked their text for
+  template leftovers, escaped game markup and "1 lines". Every file the pages
+  link to was converted by the Go library: 7,368 images, 21,921 sounds, 282
+  models and 22,503 motions, all without a failure. Fixed on the way: story
+  previews and search results showed raw `<i>`/`<align>` tags and cut words
+  in half; "Rest pose" scattered multi-mesh costumes (three.js posed each
+  skin from its own stale bind matrices; the saved pose is restored
+  instead), and costumes with only battle motions opened in that pose; four
+  costumes ship without an Avatar, so their motions now take bone paths
+  from the skeleton (matching the Avatar's exactly where both exist); each
+  costume listed every other costume's signature moves; three library
+  backdrops are ETC2 (decoder ported from texture2ddecoder, every pixel
+  matches); two costumes have no full art and show their large card;
+  `bgm_delay_settings` was listed as a track; the viewer linked costumes
+  without a model; "Save PNG" and the 3D snapshot did nothing in WebView and
+  now open the system save dialog; tapping a second voice line quickly
+  stopped both; uppercase `<I>`, a stray `</I.` and "<3" in game text were
+  mishandled. `test_archive.py` (10 tests) and the Go tests pass. On the
+  emulator: 2P's Mock Machine renders whole in its battle idle and rest
+  pose, a snapshot and a still saved to Downloads as PNGs, and Noelle's
+  Dissenting Weapon (no Avatar) played its motions.
+- Known gaps: speaker names are not shown in scenes (the text bundles hold
+  lines only), and Seasons 2 and 3 show numbered chapters (their route and
+  act titles do not map one-to-one to the scene files). Not checked on iOS
+  or a physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04
 

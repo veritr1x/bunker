@@ -1,6 +1,7 @@
 package org.veritr1x.bunker;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.*;
 import android.view.*;
 import android.webkit.*;
@@ -10,7 +11,7 @@ import com.chaquo.python.android.AndroidPlatform;
 import org.json.JSONObject;
 import java.io.File;
 
-/** The Archive: story, records and movies from the imported game files. Read only, so the game keeps running. */
+/** The Archive: story, records, characters, pictures, movies and music from the imported game files. Read only, so the game keeps running. */
 public final class ArchiveActivity extends Activity {
     private WebView web;
     private TextView message;
@@ -20,6 +21,8 @@ public final class ArchiveActivity extends Activity {
     private String origin="";
     private Look look;
     private int dp(int n){return look.dp(n);}
+    private static final int SAVE=1;
+    private byte[] pending;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -46,6 +49,21 @@ public final class ArchiveActivity extends Activity {
             @Override public void onPageFinished(WebView view,String url){if(local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> Unable to open the Archive. Close and try again.");}
         });
+        // Pictures from the page ("Save PNG", the 3D snapshot) go where the user picks; WebView ignores download links.
+        web.addJavascriptInterface(new Object(){
+            @JavascriptInterface public void savePng(String name,String dataUrl){
+                byte[] png;
+                try{png=android.util.Base64.decode(dataUrl.substring(dataUrl.indexOf(',')+1),android.util.Base64.DEFAULT);}catch(IllegalArgumentException e){return;}
+                if(png.length<8||png[0]!=(byte)0x89||png[1]!='P'||png[2]!='N'||png[3]!='G')return;
+                String file=name.replaceAll("[^A-Za-z0-9._-]","_");if(!file.endsWith(".png"))file+=".png";
+                final String title=file;
+                runOnUiThread(()->{
+                    if(isFinishing())return;
+                    pending=png;
+                    startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/png").putExtra(Intent.EXTRA_TITLE,title),SAVE);
+                });
+            }
+        },"bunkerFiles");
         // Movies can go full screen.
         web.setWebChromeClient(new WebChromeClient(){
             @Override public void onShowCustomView(View view,CustomViewCallback callback){
@@ -84,6 +102,16 @@ public final class ArchiveActivity extends Activity {
     private void back(){if(fullscreen!=null)leaveFullscreen();else if(web.canGoBack())web.goBack();else finish();}
     @android.annotation.SuppressLint("GestureBackNavigation") // API 33+ uses the dispatcher registered above.
     @Override public void onBackPressed(){back();}
+    @Override protected void onActivityResult(int code,int result,Intent data){
+        super.onActivityResult(code,result,data);
+        if(code!=SAVE)return;
+        final byte[] png=pending;pending=null;
+        if(result!=RESULT_OK||data==null||data.getData()==null||png==null)return;
+        try(java.io.OutputStream out=getContentResolver().openOutputStream(data.getData())){
+            out.write(png);
+            Toast.makeText(this,"Picture saved",Toast.LENGTH_SHORT).show();
+        }catch(Exception e){Toast.makeText(this,"The picture could not be saved",Toast.LENGTH_LONG).show();}
+    }
     @Override protected void onPause(){super.onPause();web.onPause();}
     @Override protected void onResume(){super.onResume();web.onResume();}
     @Override protected void onDestroy(){

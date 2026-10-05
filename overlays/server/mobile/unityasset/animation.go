@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"hash/crc32"
 	"math"
 	"os"
 	"path/filepath"
@@ -153,11 +154,12 @@ type Clip struct {
 	Tracks   []Track `json:"tracks"`
 }
 
-// avatarPaths maps path CRC32s to the full bone path, from a skeleton bundle's Avatar.
+// avatarPaths maps path CRC32s to the full bone path, from a skeleton bundle's Avatar; a few
+// costumes ship without one, and then the paths come from the skeleton itself.
 func avatarPaths(a *assets, skeleton *loadedFile) (map[uint32]string, error) {
 	avatars, err := skeleton.sf.Objects(classIDs["Avatar"])
 	if err != nil || len(avatars) == 0 {
-		return nil, errors.New("the costume has no avatar")
+		return hierarchyPaths(a, skeleton)
 	}
 	tos, _ := avatars[0].Fields["m_TOS"].([]any)
 	out := map[uint32]string{}
@@ -165,6 +167,38 @@ func avatarPaths(a *assets, skeleton *loadedFile) (map[uint32]string, error) {
 		pair, _ := e.(map[string]any)
 		p, _ := pair["second"].(string)
 		out[uint32(num(pair["first"]))] = p
+	}
+	return out, nil
+}
+
+// hierarchyPaths maps path CRC32s to bone paths the way an Avatar does: every Transform's path
+// below the top of the skeleton, its names joined by "/".
+func hierarchyPaths(a *assets, skeleton *loadedFile) (map[uint32]string, error) {
+	transforms, err := skeleton.sf.Objects(classIDs["Transform"])
+	if err != nil || len(transforms) == 0 {
+		return nil, errors.New("the costume has no skeleton")
+	}
+	byID := map[int64]Object{}
+	for _, t := range transforms {
+		byID[t.PathID] = t
+	}
+	out := map[uint32]string{}
+	for _, t := range transforms {
+		var names []string
+		for cur, ok := t, true; ok; {
+			_, father := pptr(cur.Fields["m_Father"])
+			if father == 0 {
+				break // the top object is not part of the path
+			}
+			name := ""
+			if _, goObj, found := a.resolve(skeleton, cur.Fields["m_GameObject"]); found {
+				name, _ = goObj.Fields["m_Name"].(string)
+			}
+			names = append([]string{name}, names...)
+			cur, ok = byID[father]
+		}
+		path := strings.Join(names, "/")
+		out[crc32.ChecksumIEEE([]byte(path))] = path
 	}
 	return out, nil
 }
