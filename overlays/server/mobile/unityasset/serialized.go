@@ -27,6 +27,10 @@ type SerializedFile struct {
 	data    []byte
 	order   binary.ByteOrder
 	objects []objectInfo
+	byID    map[int64]int
+	// Externals are the files a PPtr's FileID (from 1) points into, as Unity names them,
+	// e.g. "archive:/CAB-0123…/CAB-0123…".
+	Externals []string
 }
 
 // Object is a decoded object: its class and its fields by name.
@@ -130,10 +134,47 @@ func ParseSerializedFile(data []byte) (*SerializedFile, error) {
 		}
 		sf.objects = append(sf.objects, o)
 	}
+	// Script types, then the external files.
+	scripts := int(r.u32())
+	for i := 0; i < scripts && r.err == nil; i++ {
+		r.u32()
+		r.align(4)
+		r.u64()
+	}
+	externals := int(r.u32())
+	for i := 0; i < externals && r.err == nil; i++ {
+		r.cstring()
+		r.bytes(16)
+		r.u32()
+		sf.Externals = append(sf.Externals, r.cstring())
+	}
 	if r.err != nil {
 		return nil, r.err
 	}
+	sf.byID = make(map[int64]int, len(sf.objects))
+	for i, o := range sf.objects {
+		sf.byID[o.pathID] = i
+	}
 	return sf, nil
+}
+
+// Object decodes one object by its path ID.
+func (sf *SerializedFile) Object(pathID int64) (Object, bool) {
+	i, ok := sf.byID[pathID]
+	if !ok || sf.objects[i].tree == nil {
+		return Object{}, false
+	}
+	o := sf.objects[i]
+	if o.start < 0 || o.end > int64(len(sf.data)) || o.start > o.end {
+		return Object{}, false
+	}
+	r := &reader{b: sf.data[o.start:o.end], order: sf.order}
+	v := readValue(r, o.tree)
+	if r.err != nil {
+		return Object{}, false
+	}
+	fields, _ := v.(map[string]any)
+	return Object{ClassID: classIDs[o.tree.typ], PathID: o.pathID, Fields: fields}, true
 }
 
 func readTypeTree(r *reader, version int) (*typeNode, error) {
@@ -209,7 +250,8 @@ func (sf *SerializedFile) Objects(classID int32) ([]Object, error) {
 }
 
 // classIDs maps the type names this package reads to Unity class IDs.
-var classIDs = map[string]int32{"Texture2D": 28, "Sprite": 213, "TextAsset": 49, "AudioClip": 83}
+var classIDs = map[string]int32{"GameObject": 1, "Transform": 4, "Material": 21, "Texture2D": 28, "Mesh": 43, "TextAsset": 49,
+	"AnimationClip": 74, "AudioClip": 83, "Avatar": 90, "AnimatorController": 91, "Animator": 95, "SkinnedMeshRenderer": 137, "Sprite": 213}
 
 func readValue(r *reader, n *typeNode) any {
 	var v any

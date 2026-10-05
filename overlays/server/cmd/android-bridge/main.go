@@ -53,6 +53,16 @@ func LunarAudio(bundle, target *C.char) *C.char {
 	return C.CString(mobile.Audio(C.GoString(bundle), C.GoString(target)))
 }
 
+//export LunarModel
+func LunarModel(actor, target *C.char) *C.char {
+	return C.CString(mobile.Model(C.GoString(actor), C.GoString(target)))
+}
+
+//export LunarMotion
+func LunarMotion(clip, actor, target *C.char) *C.char {
+	return C.CString(mobile.Motion(C.GoString(clip), C.GoString(actor), C.GoString(target)))
+}
+
 //export LunarImportSaves
 func LunarImportSaves(data, source *C.char) *C.char {
 	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))

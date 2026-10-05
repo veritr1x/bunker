@@ -40,7 +40,9 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
     app = archive_app(revision_root(asset_root), asset_root / "assets" / "release" / "20240404193219.bin.e",
                       archive_root, packaged("web") / "static",
                       decode=lambda bundle, target, size: native.texture(bundle, target, size),
-                      sound=lambda bundle, target: native.audio(bundle, target))
+                      sound=lambda bundle, target: native.audio(bundle, target),
+                      model=lambda actor, target: native.model(actor, target),
+                      motion=lambda clip, actor, target: native.motion(clip, actor, target))
 
     @app.middleware("http")
     async def private_session(request, call_next):
@@ -52,9 +54,6 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
         response = await call_next(request)
         if not request.url.path.startswith("/media/"):
             response.headers["Cache-Control"] = "no-store"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-                                                      "img-src 'self' data:; media-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
         return response
     return app
 

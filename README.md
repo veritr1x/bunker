@@ -56,7 +56,7 @@ To build everything locally instead, follow the step-by-step guide below.
 
 The launcher, the **Bunker**, shows your game files, Lunar Tear and your save, with **Deploy** to play.
 **Open Pod Programs** for content presets, inventory, upgrades, save backup/restore and choosing or starting a player. Close Pod Programs and tap Deploy to resume.
-**Open Archive** to read the whole story (main story by season and chapter, event, character and side scenes, and the Library's recollections), the records (weapon stories, reports, Lost Archives, debris), every character's costumes with their full art and costume stories and their voice lines, the story read aloud in the original English voices, the whole soundtrack, a gallery of stills, event scenes, library art and photos, watch the movies, and search every line. It reads the game files you imported and never changes your save, so the game keeps running. The first visit builds an index in under a minute.
+**Open Archive** to read the whole story (main story by season and chapter, event, character and side scenes, and the Library's recollections), the records (weapon stories, reports, Lost Archives, debris), every character's costumes with their full art and costume stories and their voice lines, each costume in 3D with the character's field and battle motions, the story read aloud in the original English voices, the whole soundtrack, a gallery of stills, event scenes, library art and photos, watch the movies, and search every line. It reads the game files you imported and never changes your save, so the game keeps running. The first visit builds an index in under a minute.
 **⋮ → Display** switches between light, dark and the system setting.
 
 ## Play on iPhone or iPad

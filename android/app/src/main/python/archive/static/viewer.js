@@ -1,0 +1,136 @@
+// The Archive's 3D viewer: one costume as glTF, lit like a studio, turned by touch.
+import * as THREE from "three";
+import { GLTFLoader } from "/archive-static/vendor/three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "/archive-static/vendor/three/addons/controls/OrbitControls.js";
+
+const stage = document.getElementById("stage");
+const status = document.getElementById("stage-status");
+const css = getComputedStyle(document.documentElement);
+const paper = new THREE.Color(css.getPropertyValue("--bg-cream").trim() || "#d3ceb8");
+const ink = new THREE.Color(css.getPropertyValue("--accent").trim() || "#3a372f");
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = paper;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8470, 2.2));
+const key = new THREE.DirectionalLight(0xffffff, 1.6);
+key.position.set(1.5, 3, 2.5);
+scene.add(key);
+const grid = new THREE.GridHelper(4, 16, ink, ink);
+grid.material.transparent = true;
+grid.material.opacity = 0.25;
+scene.add(grid);
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+let home = { position: new THREE.Vector3(0, 1, 4), target: new THREE.Vector3(0, 0.9, 0) };
+
+function resize() {
+  const { width, height } = stage.getBoundingClientRect();
+  renderer.setSize(width, height, false);
+  camera.aspect = width / Math.max(height, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+function frameModel(object) {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const distance = Math.max(size.y, size.x) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.25;
+  home = { position: new THREE.Vector3(center.x, center.y, center.z + distance), target: center };
+  resetCamera();
+  controls.minDistance = distance * 0.2;
+  controls.maxDistance = distance * 3;
+}
+
+function resetCamera() {
+  camera.position.copy(home.position);
+  controls.target.copy(home.target);
+  controls.update();
+}
+
+let current = null, mixer = null, action = null;
+const clock = new THREE.Clock();
+const motionCache = new Map();
+
+let wanted = null; // the latest choice: a slower, earlier fetch must not replace it
+
+async function playMotion(button) {
+  wanted = button;
+  document.querySelectorAll("[data-motion]").forEach((b) => b.classList.toggle("on", b === button));
+  if (!current) return;
+  try {
+    let clip = null;
+    if (button.dataset.motion) {
+      clip = motionCache.get(button.dataset.motion);
+      if (!clip) {
+        status.textContent = "Preparing the motion…"; status.hidden = false;
+        const response = await fetch(button.dataset.motion);
+        if (!response.ok) throw new Error(await response.text());
+        clip = THREE.AnimationClip.parse(await response.json());
+        // parse() copies json.uuid, which these clips lack; the mixer keys actions by uuid.
+        clip.uuid = THREE.MathUtils.generateUUID();
+        motionCache.set(button.dataset.motion, clip);
+      }
+    }
+    if (wanted !== button) return;
+    status.hidden = true;
+    if (action) { action.fadeOut(0.25); action = null; }
+    if (!clip) { mixer.stopAllAction(); current.traverse((o) => o.isSkinnedMesh && o.skeleton.pose()); return; }
+    action = mixer.clipAction(clip);
+    action.reset().fadeIn(0.25).play();
+  } catch (error) {
+    if (wanted === button) { status.textContent = "This motion could not be shown."; status.hidden = false; }
+  }
+}
+document.querySelectorAll("[data-motion]").forEach((b) => b.addEventListener("click", () => playMotion(b)));
+const loader = new GLTFLoader();
+function load(url) {
+  status.textContent = "Preparing the model…";
+  status.hidden = false;
+  loader.load(url, (gltf) => {
+    if (current) scene.remove(current);
+    current = gltf.scene;
+    current.traverse((o) => { if (o.isSkinnedMesh) o.frustumCulled = false; });
+    scene.add(current);
+    frameModel(current);
+    mixer = new THREE.AnimationMixer(current);
+    status.hidden = true;
+    const first = document.querySelector("[data-motion].on") || document.querySelector("[data-motion]");
+    if (first) playMotion(first);
+  }, undefined, () => { status.textContent = "This model could not be shown."; });
+}
+
+document.getElementById("reset").addEventListener("click", resetCamera);
+const spin = document.getElementById("spin");
+spin.addEventListener("click", () => {
+  controls.autoRotate = !controls.autoRotate;
+  spin.textContent = controls.autoRotate ? "Turning" : "Still";
+  spin.classList.toggle("on", controls.autoRotate);
+  spin.setAttribute("aria-pressed", controls.autoRotate);
+});
+document.getElementById("snapshot").addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.href = renderer.domElement.toDataURL("image/png");
+  link.download = (stage.dataset.name || "costume") + ".png";
+  link.click();
+});
+
+// For checking the viewer from a debugger: the model, its mixer and the playing action.
+window.archiveViewer = { get model() { return current; }, get mixer() { return mixer; }, get action() { return action; } };
+
+renderer.setAnimationLoop(() => {
+  if (mixer) mixer.update(clock.getDelta());
+  controls.update();
+  renderer.render(scene, camera);
+});
+resize();
+load(stage.dataset.model);

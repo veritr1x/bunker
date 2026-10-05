@@ -27,5 +27,9 @@ public final class NativeBridge {
     public static native String texture(String bundle, String target, int maxSide);
     /** Writes the first audio clip in an asset bundle to target as Ogg Vorbis for the Archive; "" or an error. */
     public static native String audio(String bundle, String target);
+    /** Writes a costume folder (…/3d/actor/ch008001) as a .glb for the Archive's 3D viewer; "" or an error. */
+    public static native String model(String actorFolder, String target);
+    /** Writes an animation clip for that costume as three.js clip JSON; "" or an error. */
+    public static native String motion(String clipBundle, String actorFolder, String target);
     public static native String edit(String dataDirectory, String assetDirectory, String request);
 }

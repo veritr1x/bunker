@@ -5,6 +5,7 @@
 {% if images %}
 <a class="art full" href="{{ img("full", costume.full) }}"><img src="{{ img("view", costume.full) }}" alt="{{ costume.name }}, full art"></a>
 <p class="note">Tap the art for full size.</p>
+{% if has_model(costume.asset) %}<a class="button" href="/viewer/{{ costume.asset }}">View in 3D</a>{% endif %}
 {% endif %}
 {% if costume.story %}
 <div class="panel"><article class="record"><h3>Costume story</h3><p>{{ costume.story|rich|safe }}</p></article></div>

@@ -75,6 +75,10 @@ class RealDump(unittest.TestCase):
             self.assertGreater(summary["voiced"], 20000)
             self.assertGreater(summary["tracks"], 300)
             self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
+            # The 3D viewer's glTF loader fetches embedded textures from blob: URLs.
+            policy = client.get("/").headers["content-security-policy"]
+            self.assertIn("connect-src 'self' blob:", policy)
+            self.assertIn("img-src 'self' data: blob:", policy)
 
 
 if __name__ == "__main__":

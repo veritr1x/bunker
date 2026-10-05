@@ -1,6 +1,7 @@
 """The Archive's pages. Read-only: it never opens the save or stops the game."""
 from __future__ import annotations
 
+import hashlib
 import threading
 from pathlib import Path
 
@@ -10,10 +11,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import index
-from .media import SIZES, VERSION, Sounds, Textures
+from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
 from .content import KINDS, Archive, rich
 
 HERE = Path(__file__).resolve().parent
+# Pages run only the Archive's own code. The 3D viewer's glTF loader reads embedded textures
+# through blob: URLs, with fetch() as well as <img>, so both allow blob:.
+POLICY = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+          "img-src 'self' data: blob:; connect-src 'self' blob:; media-src 'self'; frame-ancestors 'none'; "
+          "form-action 'self'; base-uri 'none'")
 SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("characters", "Characters", "/characters"),
             ("records", "Records", "/records"), ("movies", "Movies", "/movies"), ("gallery", "Gallery", "/gallery"),
             ("music", "Music", "/music")]
@@ -47,23 +53,44 @@ class Builder:
         threading.Thread(target=run, name="archive-index", daemon=True).start()
 
 
-def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None) -> FastAPI:
-    """decode(bundle, target_png, max_side) and sound(bundle, target_ogg) return "" or an error; without them, no images or sound."""
+def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None, model=None,
+               motion=None) -> FastAPI:
+    """decode(bundle, target_png, max_side), sound(bundle, target_ogg) and model(actor_folder, target_glb) return
+    "" or an error; so does motion(clip_bundle, actor_folder, target_json). Without them, no images, sound or 3D."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
     builder = Builder(revision, master, db_path)
     archive = Archive(db_path, revision)
     textures = Textures(revision / "assetbundle", data_dir / "images", decode)
     sounds = Sounds(revision / "assetbundle", data_dir / "sounds", sound)
+    models = Models(revision / "assetbundle", data_dir / "models", model)
+    motions = Motions(revision / "assetbundle", data_dir / "motions", motion)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["rich"] = rich
+    # The WebView keeps static files across app updates; their URLs change with their content instead.
+    own = sorted(p for p in (HERE / "static").rglob("*") if p.is_file() and "vendor" not in p.parts)
+    static_version = hashlib.sha256(b"".join(p.read_bytes() for p in own)).hexdigest()[:12]
+    pod_css = Path(static_dir) / "css" / "automata.css"
+    pod_version = hashlib.sha256(pod_css.read_bytes()).hexdigest()[:12] if pod_css.is_file() else "0"
     templates.env.globals.update(sections=SECTIONS, kinds=KINDS, images=decode is not None, sounds=sound is not None,
+                                 asset=lambda path: f"/archive-static/{path}?v={static_version}",
+                                 pod_css=f"/static/css/automata.css?v={pod_version}",
                                  img=lambda size, path: f"/media/image/{size}/{path}?v={VERSION}",
-                                 snd=lambda path: f"/media/audio/{path}?v={VERSION}")
+                                 snd=lambda path: f"/media/audio/{path}?v={VERSION}",
+                                 mdl=lambda asset: f"/media/model/{asset}.glb?v={VERSION}",
+                                 mtn=lambda asset, clip: f"/media/motion/{asset}/{clip}.json?v={VERSION}",
+                                 has_model=lambda asset: model is not None and models.has(asset))
 
     app = FastAPI(title="Archive", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     app.mount("/archive-static", StaticFiles(directory=str(HERE / "static")), name="archive-static")
+
+    @app.middleware("http")
+    async def headers(request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = POLICY
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     def page(request: Request, name: str, active: str, **values):
         values.update(request=request, active=active, theme=request.cookies.get("lunar_theme", ""))
@@ -188,6 +215,35 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         if not found:
             raise HTTPException(404)
         return page(request, "costume.html", "characters", costume=found)
+
+    @app.get("/viewer/{asset}")
+    def viewer(request: Request, asset: str):
+        need_index(request)
+        found = archive.costume(asset)
+        if not found or model is None or not models.has(asset):
+            raise HTTPException(404)
+        return page(request, "viewer.html", "characters", costume=found,
+                    motions=archive.motions(asset) if motion is not None else [])
+
+    @app.get("/media/model/{asset}.glb")
+    def model_file(asset: str):
+        try:
+            glb = models.glb(asset)
+        except FileNotFoundError:
+            raise HTTPException(404)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+        return FileResponse(glb, media_type="model/gltf-binary", headers={"Cache-Control": "private, max-age=86400"})
+
+    @app.get("/media/motion/{asset}/{clip}.json")
+    def motion_file(asset: str, clip: str):
+        try:
+            data = motions.json(asset, clip)
+        except FileNotFoundError:
+            raise HTTPException(404)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+        return FileResponse(data, media_type="application/json", headers={"Cache-Control": "private, max-age=86400"})
 
     @app.get("/gallery")
     def gallery(request: Request, tab: str = "stills"):

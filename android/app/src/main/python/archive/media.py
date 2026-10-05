@@ -1,6 +1,7 @@
-"""Images and sounds for the Archive: converted from asset bundles once, then kept as files."""
+"""Images, sounds, models and motions for the Archive: converted from asset bundles once, then kept as files."""
 from __future__ import annotations
 
+import re
 import shutil
 import threading
 from pathlib import Path
@@ -70,3 +71,59 @@ class Sounds(Converted):
 
     def ogg(self, path: str) -> Path:
         return self.file(path)
+
+
+class Models:
+    """convert(actor_folder, target_glb) -> "" or an error: a costume as glTF, made on first use."""
+
+    def __init__(self, assetbundle: Path, cache: Path, convert):
+        self.actors = Path(assetbundle) / "3d" / "actor"
+        self.files = Converted(assetbundle, cache, convert)  # versioned folder and per-file locks
+
+    def glb(self, asset: str) -> Path:
+        if not self.files.convert or not re.fullmatch(r"ch\d{6}", asset) or not (self.actors / asset / "mesh" / f"sk_{asset}.assetbundle").is_file():
+            raise FileNotFoundError(asset)
+        target = self.files.cache / f"{asset}.glb"
+        if target.is_file():
+            return target
+        with self.files.guard:
+            lock = self.files.locks.setdefault(str(target), threading.Lock())
+        with lock:
+            if not target.is_file():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                error = str(self.files.convert(str(self.actors / asset), str(target)) or "")
+                if error:
+                    raise ValueError(error)
+        return target
+
+    def has(self, asset: str) -> bool:
+        return (self.actors / asset / "mesh" / f"sk_{asset}.assetbundle").is_file()
+
+
+class Motions:
+    """convert(clip_bundle, actor_folder, target_json) -> "" or an error: a motion as three.js clip JSON for one costume."""
+
+    def __init__(self, assetbundle: Path, cache: Path, convert):
+        self.root = Path(assetbundle)
+        self.files = Converted(assetbundle, cache, convert)
+
+    def json(self, asset: str, clip: str) -> Path:
+        family = asset[:5]
+        if not self.files.convert or not re.fullmatch(r"ch\d{6}", asset) or not re.fullmatch(rf"anim_(tw|bt)_{family}_[a-z0-9_]+", clip):
+            raise FileNotFoundError(clip)
+        bundle = self.root / "3d" / "motion" / family / "general" / f"{clip}.assetbundle"
+        actor = self.root / "3d" / "actor" / asset
+        if not bundle.is_file() or not (actor / "mesh" / f"sk_{asset}.assetbundle").is_file():
+            raise FileNotFoundError(clip)
+        target = self.files.cache / asset / f"{clip}.json"
+        if target.is_file():
+            return target
+        with self.files.guard:
+            lock = self.files.locks.setdefault(str(target), threading.Lock())
+        with lock:
+            if not target.is_file():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                error = str(self.files.convert(str(bundle), str(actor), str(target)) or "")
+                if error:
+                    raise ValueError(error)
+        return target

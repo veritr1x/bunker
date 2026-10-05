@@ -2,7 +2,8 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › {{ character.name }}</p>
 <h1>{{ character.name }}</h1>
-<p class="note">{{ character.costumes|length }} costumes{% if character.voices %} · {{ character.voices|length }} voice lines{% endif %} · the 3D viewer is coming next.</p>
+<p class="note">{{ character.costumes|length }} costumes{% if character.voices %} · {{ character.voices|length }} voice lines{% endif %}.</p>
+{% if character.costumes and has_model(character.costumes[0].asset) %}<p><a class="button" href="/viewer/{{ character.costumes[0].asset }}">View in 3D</a></p>{% endif %}
 {% if sounds and character.voices %}
 <h2 class="bracket-header">Voice</h2>
 <div class="tool-grid voices">

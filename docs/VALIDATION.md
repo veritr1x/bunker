@@ -44,7 +44,20 @@
   line (Android reported the app playing 44.1 kHz mono and moved to the next
   line), a soundtrack part played in stereo with loop and seek, and a
   character's profile line played.
-- Not yet built: the 3D viewer, which needs mesh and animation conversion. Speaker names are not shown in scenes yet: the
+- 3D viewer: the Go library writes a costume as glTF (`unityasset/model.go`:
+  the skeleton, every enabled skinned mesh with its weights and bind poses,
+  and each material's colour texture, mirrored into glTF's right-handed
+  space) and a Mecanim clip as three.js clip JSON (`animation.go`: streamed
+  Hermite keys, dense and constant curves, bones named through the Avatar's
+  path table, root motion kept in place). Go tests convert all 323 costumes
+  that have a skeleton without a failure (3 variants have no linked
+  materials and show untextured) and check a run cycle: unit rotations,
+  finite values, moving legs. three.js r160 is bundled (MIT) so it works
+  offline. On the PC the costume rendered textured in its rest pose and with
+  the idle and run motions. On the emulator the first build drew it white:
+  three.js fetches embedded textures from blob: URLs and the page policy
+  blocked fetch(); reproduced on the PC with the same policy, fixed with
+  connect-src blob: (now set by the Archive itself and covered by a test). Speaker names are not shown in scenes yet: the
   text bundles hold lines only. Seasons 2 and 3 show numbered chapters
   (their route and act titles do not map one-to-one to the scene files).
   Not checked on iOS or a physical phone.

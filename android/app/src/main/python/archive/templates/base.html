@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Archive{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/automata.css">
-  <link rel="stylesheet" href="/archive-static/archive.css">
+  <link rel="stylesheet" href="{{ pod_css }}">
+  <link rel="stylesheet" href="{{ asset('archive.css') }}">
 </head>
 <body>
   <nav class="primary">

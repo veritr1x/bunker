@@ -355,3 +355,25 @@ class Archive:
         at = names.index(path)
         return {**dict(row), "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
                 "previous": names[at - 1] if at > 0 else None, "next": names[at + 1] if at + 1 < len(names) else None}
+
+    # ---- 3D motions -------------------------------------------------------------
+    MOTION_GROUPS = {"tw": "field", "bt": "battle"}
+
+    def motions(self, asset: str) -> list[dict]:
+        """The body motions for a costume's skeleton family (ch008001 -> ch008): field first, then battle."""
+        family = asset[:5]
+        folder = self.revision / "assetbundle" / "3d" / "motion" / family / "general"
+        out = []
+        for f in sorted(folder.glob("anim_*.assetbundle")) if folder.is_dir() else []:
+            m = re.fullmatch(rf"anim_(tw|bt)_{family}_(.+)", f.stem)
+            if not m:
+                continue
+            parts = m.group(2).split("_")
+            words = [w for w in parts if not w.isdigit() and not re.fullmatch(r"ch\d{6}", w) and w not in ("lp", "st", "en")]
+            label = " ".join(words).capitalize() or m.group(2)
+            numbers = [w.lstrip("0") or "0" for w in parts if w.isdigit()]
+            if numbers and numbers != ["1"]:
+                label += " " + ".".join(numbers)
+            ending = {"lp": " (loop)", "st": " (start)", "en": " (end)"}.get(parts[-1], "")
+            out.append({"clip": f.stem, "group": self.MOTION_GROUPS[m.group(1)], "label": label + ending})
+        return sorted(out, key=lambda m: (m["group"] != "field", not m["label"].lower().startswith("idle"), m["label"]))

@@ -37,6 +37,31 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_audio(JNIEnv *en
     (*env)->ReleaseStringUTFChars(env, target, t);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_model(JNIEnv *env, jclass type, jstring actor, jstring target) {
+    const char *a = (*env)->GetStringUTFChars(env, actor, NULL);
+    const char *t = (*env)->GetStringUTFChars(env, target, NULL);
+    if (!a || !t) { if (a) (*env)->ReleaseStringUTFChars(env, actor, a); if (t) (*env)->ReleaseStringUTFChars(env, target, t); return NULL; }
+    char *error = LunarModel((char *)a, (char *)t);
+    (*env)->ReleaseStringUTFChars(env, actor, a);
+    (*env)->ReleaseStringUTFChars(env, target, t);
+    return result(env, error);
+}
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_motion(JNIEnv *env, jclass type, jstring clip, jstring actor, jstring target) {
+    const char *c = (*env)->GetStringUTFChars(env, clip, NULL);
+    const char *a = (*env)->GetStringUTFChars(env, actor, NULL);
+    const char *t = (*env)->GetStringUTFChars(env, target, NULL);
+    if (!c || !a || !t) {
+        if (c) (*env)->ReleaseStringUTFChars(env, clip, c);
+        if (a) (*env)->ReleaseStringUTFChars(env, actor, a);
+        if (t) (*env)->ReleaseStringUTFChars(env, target, t);
+        return NULL;
+    }
+    char *error = LunarMotion((char *)c, (char *)a, (char *)t);
+    (*env)->ReleaseStringUTFChars(env, clip, c);
+    (*env)->ReleaseStringUTFChars(env, actor, a);
+    (*env)->ReleaseStringUTFChars(env, target, t);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_start(JNIEnv *env, jclass type, jstring data, jstring assets) {
     const char *d = (*env)->GetStringUTFChars(env, data, NULL);
     const char *a = (*env)->GetStringUTFChars(env, assets, NULL);

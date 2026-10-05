@@ -1,5 +1,8 @@
 # Third-party notices
 
+`model.go` and `animation.go` read Unity meshes and Mecanim clips following the layouts
+documented by [AssetStudio](https://github.com/Perfare/AssetStudio) (MIT License).
+
 `audio.go` follows [python-fsb5](https://github.com/HearthSim/python-fsb5) (MIT License,
 Copyright (c) Simon Pinfold) to rebuild FSB5 Vorbis as Ogg. `vorbis_setups.go` holds three
 Vorbis setup headers generated with [libvorbis](https://xiph.org/vorbis/) 1.3.7
