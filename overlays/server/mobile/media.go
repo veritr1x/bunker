@@ -10,3 +10,12 @@ func Texture(bundle, target string, maxSide int) string {
 	}
 	return ""
 }
+
+// Audio writes the first audio clip in an asset bundle to target as Ogg Vorbis,
+// for the Archive. It returns "" or an error.
+func Audio(bundle, target string) string {
+	if err := unityasset.AudioToOgg(bundle, target); err != nil {
+		return err.Error()
+	}
+	return ""
+}

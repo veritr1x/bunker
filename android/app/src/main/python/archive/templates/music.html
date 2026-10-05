@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › Music</p>
+<h1>Music</h1>
+<p class="note">{{ tracks|length }} tracks. The game names them by number; parts are the versions it switches between.</p>
+<div class="tool-grid tracks" id="tracks">
+  {% for t in tracks %}
+  <div class="track">
+    <strong>Track {{ t.track }}</strong>
+    <span class="parts">{% for p in t.parts %}<button type="button" class="chip" data-src="{{ snd(p.path) }}" data-title="Track {{ t.track }}{% if t.parts|length > 1 %} · part {{ p.part }}{% endif %}">{% if t.parts|length > 1 %}Part {{ p.part }}{% else %}Play{% endif %}</button>{% endfor %}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block footer %}
+<footer class="player-bar" id="player" hidden>
+  <button type="button" class="play" id="toggle" aria-label="Pause">❚❚</button>
+  <div class="now"><strong id="title"></strong><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position"></div>
+  <button type="button" class="chip on" id="loop" aria-pressed="true">Loop</button>
+</footer>
+<script>
+(function () {
+  const audio = new Audio(); audio.loop = true;
+  const bar = document.getElementById("player"), toggle = document.getElementById("toggle"),
+        title = document.getElementById("title"), seek = document.getElementById("seek"), loop = document.getElementById("loop");
+  let active = null;
+  document.querySelectorAll("#tracks [data-src]").forEach(b => b.addEventListener("click", () => {
+    if (active) active.classList.remove("on");
+    active = b; b.classList.add("on");
+    audio.src = b.dataset.src; title.textContent = b.dataset.title; bar.hidden = false; audio.play();
+  }));
+  toggle.addEventListener("click", () => audio.paused ? audio.play() : audio.pause());
+  audio.addEventListener("play", () => { toggle.textContent = "❚❚"; toggle.setAttribute("aria-label", "Pause"); });
+  audio.addEventListener("pause", () => { toggle.textContent = "▶"; toggle.setAttribute("aria-label", "Play"); });
+  audio.addEventListener("timeupdate", () => { if (audio.duration) seek.value = Math.round(audio.currentTime / audio.duration * 1000); });
+  seek.addEventListener("input", () => { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; });
+  loop.addEventListener("click", () => { audio.loop = !audio.loop; loop.classList.toggle("on", audio.loop); loop.setAttribute("aria-pressed", audio.loop); });
+})();
+</script>
+{% endblock %}

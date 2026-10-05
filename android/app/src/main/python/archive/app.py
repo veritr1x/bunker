@@ -10,12 +10,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import index
-from .media import SIZES, VERSION, Textures
+from .media import SIZES, VERSION, Sounds, Textures
 from .content import KINDS, Archive, rich
 
 HERE = Path(__file__).resolve().parent
 SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("characters", "Characters", "/characters"),
-            ("records", "Records", "/records"), ("movies", "Movies", "/movies"), ("gallery", "Gallery", "/gallery")]
+            ("records", "Records", "/records"), ("movies", "Movies", "/movies"), ("gallery", "Gallery", "/gallery"),
+            ("music", "Music", "/music")]
 
 
 class Builder:
@@ -46,17 +47,19 @@ class Builder:
         threading.Thread(target=run, name="archive-index", daemon=True).start()
 
 
-def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None) -> FastAPI:
-    """decode(bundle, target_png, max_side) -> "" or an error turns a texture bundle into a PNG; without it, no images."""
+def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None) -> FastAPI:
+    """decode(bundle, target_png, max_side) and sound(bundle, target_ogg) return "" or an error; without them, no images or sound."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
     builder = Builder(revision, master, db_path)
     archive = Archive(db_path, revision)
     textures = Textures(revision / "assetbundle", data_dir / "images", decode)
+    sounds = Sounds(revision / "assetbundle", data_dir / "sounds", sound)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["rich"] = rich
-    templates.env.globals.update(sections=SECTIONS, kinds=KINDS, images=decode is not None,
-                                 img=lambda size, path: f"/media/image/{size}/{path}?v={VERSION}")
+    templates.env.globals.update(sections=SECTIONS, kinds=KINDS, images=decode is not None, sounds=sound is not None,
+                                 img=lambda size, path: f"/media/image/{size}/{path}?v={VERSION}",
+                                 snd=lambda path: f"/media/audio/{path}?v={VERSION}")
 
     app = FastAPI(title="Archive", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
@@ -222,6 +225,21 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         except ValueError as exc:
             raise HTTPException(422, str(exc))
         return FileResponse(png, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+
+    @app.get("/music")
+    def music(request: Request):
+        need_index(request)
+        return page(request, "music.html", "music", tracks=archive.music())
+
+    @app.get("/media/audio/{path:path}")
+    def audio_file(path: str):
+        try:
+            ogg = sounds.ogg(path)
+        except FileNotFoundError:
+            raise HTTPException(404)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+        return FileResponse(ogg, media_type="audio/ogg", headers={"Cache-Control": "private, max-age=86400"})
 
     @app.get("/search")
     def search(request: Request, q: str = ""):

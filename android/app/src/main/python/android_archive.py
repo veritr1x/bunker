@@ -36,9 +36,11 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
     from fastapi.responses import JSONResponse
     from java import jclass
     from archive.app import create_app as archive_app
-    native = jclass("org.veritr1x.bunker.NativeBridge")  # textures decode in the Go library
+    native = jclass("org.veritr1x.bunker.NativeBridge")  # textures and sounds convert in the Go library
     app = archive_app(revision_root(asset_root), asset_root / "assets" / "release" / "20240404193219.bin.e",
-                      archive_root, packaged("web") / "static", decode=lambda bundle, target, size: native.texture(bundle, target, size))
+                      archive_root, packaged("web") / "static",
+                      decode=lambda bundle, target, size: native.texture(bundle, target, size),
+                      sound=lambda bundle, target: native.audio(bundle, target))
 
     @app.middleware("http")
     async def private_session(request, call_next):

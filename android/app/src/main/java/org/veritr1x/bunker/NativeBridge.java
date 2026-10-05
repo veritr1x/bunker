@@ -25,5 +25,7 @@ public final class NativeBridge {
     public static native String importSaves(String dataDirectory, String source);
     /** Writes the largest texture in an asset bundle to target as a PNG for the Archive, no side over maxSide (0: full size); "" or an error. */
     public static native String texture(String bundle, String target, int maxSide);
+    /** Writes the first audio clip in an asset bundle to target as Ogg Vorbis for the Archive; "" or an error. */
+    public static native String audio(String bundle, String target);
     public static native String edit(String dataDirectory, String assetDirectory, String request);
 }

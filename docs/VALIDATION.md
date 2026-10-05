@@ -33,8 +33,18 @@
   portraits, showed a costume's 2048x2048 art trimmed to the figure with its
   story, and the gallery's stills, all decoded on the device. Decoded images
   are kept as PNGs under the Archive's folder.
-- Not yet built: the 3D viewer, voice lines and Music; they need Vorbis
-  repacking and mesh conversion on the phone. Speaker names are not shown in scenes yet: the
+- Voices and music: Unity's FSB5 Vorbis is rebuilt as Ogg in the Go library
+  (`unityasset/audio.go`). FMOD strips the Vorbis setup header and keeps its
+  CRC32; the dump uses three, regenerated once with libvorbis 1.3.7 and
+  checked against those CRCs (`vorbis_setups.go`). Go tests rebuild six real
+  clips (music, story and character voices) and match python-fsb5's output
+  packet for packet with the same granule positions; ffmpeg decodes the
+  files without errors at the right length. 21,396 of 23,638 story lines
+  have an English voice. On the emulator "Play scene" read a scene line by
+  line (Android reported the app playing 44.1 kHz mono and moved to the next
+  line), a soundtrack part played in stereo with loop and seek, and a
+  character's profile line played.
+- Not yet built: the 3D viewer, which needs mesh and animation conversion. Speaker names are not shown in scenes yet: the
   text bundles hold lines only. Seasons 2 and 3 show numbered chapters
   (their route and act titles do not map one-to-one to the scene files).
   Not checked on iOS or a physical phone.

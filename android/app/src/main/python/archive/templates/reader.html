@@ -2,14 +2,45 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › <a href="{{ back }}">{{ place }}</a> › Scene {{ scene.position }} of {{ scene.count }}</p>
 <h1>Scene {{ scene.position }}</h1>
+{% set voiced = scene.lines|selectattr("voice")|list %}
+{% if sounds and voiced %}
+<div class="voicebar"><button type="button" id="play-scene">▶ Play scene</button><span class="note">{{ voiced|length }} voiced line{{ "s" if voiced|length != 1 }}</span></div>
+{% endif %}
 <div class="reader" id="reader">
   {% for line in scene.lines %}
-  <p{% if line.startswith("<i>") or line.startswith("(") %} class="narration"{% endif %}>{{ line|rich|safe }}</p>
+  <div class="line{% if line.text.startswith('<i>') or line.text.startswith('(') %} narration{% endif %}"{% if sounds and line.voice %} data-voice="{{ snd(line.voice) }}"{% endif %}>
+    <p>{{ line.text|rich|safe }}</p>
+    {% if sounds and line.voice %}<button type="button" class="play" aria-label="Play this line">▶</button>{% endif %}
+  </div>
   {% else %}
-  <p class="narration">This scene has no text.</p>
+  <div class="line narration"><p>This scene has no text.</p></div>
   {% endfor %}
 </div>
 <p class="note">{{ scene.name }}</p>
+{% if sounds and voiced %}
+<script>
+(function () {
+  const audio = new Audio();
+  const lines = [...document.querySelectorAll("#reader .line[data-voice]")];
+  const all = document.getElementById("play-scene");
+  let queue = [], current = null;
+  function mark(line) {
+    if (current) current.classList.remove("speaking");
+    current = line;
+    if (line) { line.classList.add("speaking"); line.scrollIntoView({block: "nearest", behavior: "smooth"}); }
+  }
+  function play(line) { mark(line); audio.src = line.dataset.voice; audio.play().catch(stop); }
+  function stop() { audio.pause(); queue = []; mark(null); all.textContent = "▶ Play scene"; }
+  audio.addEventListener("ended", () => queue.length ? play(queue.shift()) : stop());
+  audio.addEventListener("error", () => queue.length ? play(queue.shift()) : stop());
+  lines.forEach(line => line.querySelector(".play").addEventListener("click", () => { queue = []; all.textContent = "▶ Play scene"; play(line); }));
+  all.addEventListener("click", () => {
+    if (queue.length || !audio.paused) return stop();
+    queue = lines.slice(); all.textContent = "■ Stop"; play(queue.shift());
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
 {% block footer %}
 <footer class="pager">

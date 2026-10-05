@@ -28,8 +28,10 @@ details.fold[open] > summary { border-bottom: 1px solid var(--line); }
 .record p { margin: 0; font-size: 15px; line-height: 1.6; }
 
 /* The reader: one line per paragraph, narration set apart. */
-.reader p { margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 16px; line-height: 1.65; }
-.reader p.narration { color: var(--fg-mid); font-style: italic; }
+.reader .line { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+.reader .line p { flex: 1; margin: 0; padding: 10px 0; font-size: 16px; line-height: 1.65; }
+.reader .line.narration p { color: var(--fg-mid); font-style: italic; }
+.reader .line.speaking { background: var(--bg-cream-dark); box-shadow: -8px 0 0 var(--bg-cream-dark), 8px 0 0 var(--bg-cream-dark); }
 footer.pager { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0.12em; }
 footer.pager span { flex: 1; text-align: center; font-family: var(--mono); font-size: 11px; text-transform: uppercase; }
 footer.pager .button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; }
@@ -65,3 +67,28 @@ footer.pager .button { display: inline-flex; align-items: center; min-height: 44
 .art.full { aspect-ratio: auto; margin: 0 0 6px; border-width: 2px; background-image: none; background-color: var(--panel); }
 .art.full img { height: auto; object-fit: contain; }
 .card:hover .art { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Sound: play buttons, the reader's voice bar, character voices and the music player. */
+.play { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-height: 44px; padding: 0;
+  background: transparent; color: var(--accent); border: 2px solid var(--accent); font-size: 14px; letter-spacing: 0; }
+.play:hover { background: var(--accent); color: var(--bg-cream); }
+.voicebar { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; }
+.chip { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; background: transparent; color: var(--fg-dark); border: 1px solid var(--accent);
+  font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; }
+.chip.on, .chip:hover { background: var(--accent); color: var(--bg-cream); }
+.voices { padding: 0 16px; }
+.voices .voice { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 0; background: transparent; color: var(--fg-dark);
+  border: none; border-bottom: 1px solid var(--line); font-family: var(--sans); font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; text-align: left; }
+.voices .voice:last-child { border-bottom: none; }
+.voices .voice.on .play { background: var(--accent); color: var(--bg-cream); }
+.tracks { padding: 0 16px; }
+.track { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.track:last-child { border-bottom: none; }
+.track strong { flex: 1 1 120px; font-size: 15px; }
+.track .parts { display: flex; gap: 6px; flex-wrap: wrap; }
+footer.player-bar { display: flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; }
+footer.player-bar[hidden] { display: none; }
+.player-bar .now { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.player-bar .now strong { font-size: 13px; color: var(--fg-dark); }
+.player-bar input[type="range"] { width: 100%; min-height: 24px; accent-color: var(--accent); border: none; padding: 0; }
+body:has(footer.player-bar[hidden]) { padding-bottom: 16px; }

@@ -129,7 +129,7 @@ class Archive:
             row = db.execute("SELECT * FROM scene WHERE id=?", (scene_id,)).fetchone()
             if not row:
                 return None
-            lines = [r[0] for r in db.execute("SELECT text FROM line WHERE scene=? ORDER BY seq", (scene_id,))]
+            lines = [{"text": r[0], "voice": r[1]} for r in db.execute("SELECT text, voice FROM line WHERE scene=? ORDER BY seq", (scene_id,))]
             if row["area"] == "main":
                 siblings = db.execute("SELECT id FROM scene WHERE area='main' AND season=? AND chapter=? ORDER BY sort, name",
                                       (row["season"], row["chapter"])).fetchall()
@@ -290,7 +290,25 @@ class Archive:
                              "story": self.text(f"costume.description.{asset}"),
                              "portrait": f"ui/costume/{asset}/{asset}_portrait.assetbundle",
                              "full": f"ui/costume/{asset}/{asset}_full.assetbundle"})
-        return {"id": character_id, "name": self.character_name(character_id), "costumes": costumes}
+        with self.db() as db:
+            rows = db.execute("SELECT kind, path FROM character_voice WHERE character=? ORDER BY seq", (character_id,)).fetchall()
+        voices, counts = [], {}
+        for kind, path in rows:
+            counts[kind] = counts.get(kind, 0) + 1
+            voices.append({"label": f"{self.VOICE_KINDS.get(kind, kind)} {counts[kind]}", "path": path})
+        return {"id": character_id, "name": self.character_name(character_id), "costumes": costumes, "voices": voices}
+
+    # Out-of-game voice files carry no text; their name prefix says where the game plays them.
+    VOICE_KINDS = {"pfv": "Profile", "enh": "Upgrade", "bkt": "Line"}
+
+    # ---- Music -------------------------------------------------------------------
+    def music(self) -> list[dict]:
+        with self.db() as db:
+            rows = db.execute("SELECT track, part, path FROM music ORDER BY track, part").fetchall()
+        tracks = {}
+        for r in rows:
+            tracks.setdefault(r["track"], {"track": r["track"], "parts": []})["parts"].append({"part": r["part"], "path": r["path"]})
+        return list(tracks.values())
 
     def costume(self, asset: str) -> dict | None:
         with self.db() as db:

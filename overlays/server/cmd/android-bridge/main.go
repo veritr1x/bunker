@@ -48,6 +48,11 @@ func LunarTexture(bundle, target *C.char, maxSide C.int) *C.char {
 	return C.CString(mobile.Texture(C.GoString(bundle), C.GoString(target), int(maxSide)))
 }
 
+//export LunarAudio
+func LunarAudio(bundle, target *C.char) *C.char {
+	return C.CString(mobile.Audio(C.GoString(bundle), C.GoString(target)))
+}
+
 //export LunarImportSaves
 func LunarImportSaves(data, source *C.char) *C.char {
 	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))

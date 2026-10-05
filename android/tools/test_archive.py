@@ -66,12 +66,15 @@ class RealDump(unittest.TestCase):
                          "/scene/1", "/records", "/records?tab=reports", "/records?tab=archives", "/records?tab=debris",
                          "/movies", "/search?q=cage", "/characters", "/characters/1008", "/costume/ch008001",
                          "/gallery", "/gallery?tab=events", "/gallery?tab=library", "/gallery?tab=photos", "/gallery/stills/season1",
-                         "/image?path=ui/still/season1/still_main_1100101.assetbundle"):
+                         "/image?path=ui/still/season1/still_main_1100101.assetbundle", "/music"):
                 self.assertEqual(client.get(path).status_code, 200, path)
             self.assertEqual(client.get("/media/movie/../list.bin").status_code, 404)
             self.assertEqual(client.get("/media/image/thumb/../list.bin").status_code, 404)
             self.assertGreater(summary["costumes"], 250)
             self.assertGreater(summary["images"], 1000)
+            self.assertGreater(summary["voiced"], 20000)
+            self.assertGreater(summary["tracks"], 300)
+            self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
 
 
 if __name__ == "__main__":

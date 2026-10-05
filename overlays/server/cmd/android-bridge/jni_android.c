@@ -28,6 +28,15 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_texture(JNIEnv *
     (*env)->ReleaseStringUTFChars(env, target, t);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_audio(JNIEnv *env, jclass type, jstring bundle, jstring target) {
+    const char *b = (*env)->GetStringUTFChars(env, bundle, NULL);
+    const char *t = (*env)->GetStringUTFChars(env, target, NULL);
+    if (!b || !t) { if (b) (*env)->ReleaseStringUTFChars(env, bundle, b); if (t) (*env)->ReleaseStringUTFChars(env, target, t); return NULL; }
+    char *error = LunarAudio((char *)b, (char *)t);
+    (*env)->ReleaseStringUTFChars(env, bundle, b);
+    (*env)->ReleaseStringUTFChars(env, target, t);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_start(JNIEnv *env, jclass type, jstring data, jstring assets) {
     const char *d = (*env)->GetStringUTFChars(env, data, NULL);
     const char *a = (*env)->GetStringUTFChars(env, assets, NULL);

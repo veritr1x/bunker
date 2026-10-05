@@ -1,5 +1,11 @@
 # Third-party notices
 
+`audio.go` follows [python-fsb5](https://github.com/HearthSim/python-fsb5) (MIT License,
+Copyright (c) Simon Pinfold) to rebuild FSB5 Vorbis as Ogg. `vorbis_setups.go` holds three
+Vorbis setup headers generated with [libvorbis](https://xiph.org/vorbis/) 1.3.7
+(BSD-3-Clause, Copyright (c) 2002-2020 Xiph.org Foundation) for the encoder settings the game
+used; each matches the CRC32 its FSB5 data records.
+
 `astc.go` is a Go port of the ASTC decoder in [texture2ddecoder](https://github.com/K0lb3/texture2ddecoder) (`src/Texture2DDecoder/astc.cpp`, version 1.0.6), used under the MIT License:
 
 ```

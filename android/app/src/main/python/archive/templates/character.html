@@ -2,7 +2,23 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › {{ character.name }}</p>
 <h1>{{ character.name }}</h1>
-<p class="note">{{ character.costumes|length }} costumes · 3D viewer and voice lines are coming next.</p>
+<p class="note">{{ character.costumes|length }} costumes{% if character.voices %} · {{ character.voices|length }} voice lines{% endif %} · the 3D viewer is coming next.</p>
+{% if sounds and character.voices %}
+<h2 class="bracket-header">Voice</h2>
+<div class="tool-grid voices">
+  {% for v in character.voices %}<button type="button" class="voice" data-src="{{ snd(v.path) }}"><span class="play" aria-hidden="true">▶</span>{{ v.label }}</button>{% endfor %}
+</div>
+<script>
+(function () {
+  const audio = new Audio(); let active = null;
+  audio.addEventListener("ended", () => active && active.classList.remove("on"));
+  document.querySelectorAll(".voices .voice").forEach(b => b.addEventListener("click", () => {
+    if (active) active.classList.remove("on");
+    active = b; b.classList.add("on"); audio.src = b.dataset.src; audio.play();
+  }));
+})();
+</script>
+{% endif %}
 <h2 class="bracket-header">Costumes</h2>
 <div class="cards">
   {% for c in character.costumes %}

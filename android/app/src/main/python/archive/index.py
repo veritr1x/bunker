@@ -16,10 +16,11 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 3
+FORMAT = 4
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
-                 "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume")
+                 "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
+                 "m_character_voice_unlock_condition")
 # Gallery: (category, folder under assetbundle/, file pattern, group taken from the path)
 GALLERY = (
     ("stills", "ui/still", "*/still_main_*.assetbundle", lambda rel: rel.parts[0]),
@@ -130,11 +131,16 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         CREATE TABLE text(key TEXT PRIMARY KEY, value TEXT, folder TEXT);
         CREATE TABLE scene(id INTEGER PRIMARY KEY, area TEXT, kind TEXT, season INT, chapter INT, grp TEXT,
                            name TEXT, sort INT, lines INT);
-        CREATE TABLE line(scene INT, seq INT, text TEXT);
+        CREATE TABLE line(scene INT, seq INT, text TEXT, voice TEXT);
         CREATE TABLE movie(name TEXT PRIMARY KEY, file TEXT, size INT);
         CREATE TABLE costume(asset TEXT PRIMARY KEY, character INT, costume INT, rarity INT);
         CREATE TABLE image(category TEXT, grp TEXT, name TEXT, path TEXT PRIMARY KEY);
+        CREATE TABLE character_voice(character INT, kind TEXT, seq INT, path TEXT);
+        CREATE TABLE music(track TEXT, part INT, path TEXT PRIMARY KEY);
     """)
+    # Spoken lines: voice/en/…/<line key>.assetbundle, named like the text line they voice.
+    voice_root = assetbundle / "voice" / "en"
+    voices = {f.stem.lower(): f.relative_to(assetbundle).as_posix() for f in voice_root.rglob("*.assetbundle")} if voice_root.is_dir() else {}
     bundles = sorted(text_root.rglob("*.assetbundle"))
     failures = 0
     progress(0, len(bundles), "Story text")
@@ -153,7 +159,8 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                 keys = sorted((k for k in entries if not k.startswith("//")), key=lambda k: line_number(k, name))
                 cursor = db.execute("INSERT INTO scene(area, kind, season, chapter, grp, name, sort, lines) VALUES (?,?,?,?,?,?,?,?)",
                                     (area, where["kind"], where["season"], where["chapter"], where["group"], name, where["sort"], len(keys)))
-                db.executemany("INSERT INTO line VALUES (?,?,?)", [(cursor.lastrowid, i, clean(entries[k])) for i, k in enumerate(keys)])
+                db.executemany("INSERT INTO line VALUES (?,?,?,?)",
+                               [(cursor.lastrowid, i, clean(entries[k]), voices.get(k.lower())) for i, k in enumerate(keys)])
             else:
                 db.executemany("INSERT OR REPLACE INTO text VALUES (?,?,?)", [(k, clean(v), folder) for k, v in entries.items()])
         if done % 50 == 0 or done == len(bundles):
@@ -175,6 +182,16 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
             rows = [(category, group(f.relative_to(root)), f.stem, f.relative_to(assetbundle).as_posix())
                     for f in sorted(root.glob(pattern))]
             db.executemany("INSERT OR IGNORE INTO image VALUES (?,?,?,?)", rows)
+    # A character's own lines (outside the story) sit in voice/en/outgame/<VoiceAssetId>/.
+    rows = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_character_voice_unlock_condition'").fetchone()[0])
+    for character, asset in sorted({(r["CharacterId"], r["VoiceAssetId"]) for r in rows}):
+        folder = voice_root / "outgame" / f"{asset:05d}"
+        for seq, f in enumerate(sorted(folder.glob("*.assetbundle")) if folder.is_dir() else []):
+            db.execute("INSERT INTO character_voice VALUES (?,?,?,?)", (character, f.stem.split("_")[0], seq, f.relative_to(assetbundle).as_posix()))
+    bgm = assetbundle / "audio" / "bgm"
+    for f in sorted(bgm.glob("bgm_*.assetbundle")) if bgm.is_dir() else []:
+        track, _, part = f.stem.removeprefix("bgm_").rpartition("_")
+        db.execute("INSERT INTO music VALUES (?,?,?)", (track or f.stem, int(part) if part.isdigit() else 0, f.relative_to(assetbundle).as_posix()))
     resources = revision / "resources"
     if resources.is_dir():
         for file in sorted(resources.glob("*.mp4")):
@@ -187,7 +204,9 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                "scenes": db.execute("SELECT count(*) FROM scene").fetchone()[0],
                "lines": db.execute("SELECT count(*) FROM line").fetchone()[0],
                "costumes": db.execute("SELECT count(*) FROM costume").fetchone()[0],
-               "images": db.execute("SELECT count(*) FROM image").fetchone()[0]}
+               "images": db.execute("SELECT count(*) FROM image").fetchone()[0],
+               "voiced": db.execute("SELECT count(*) FROM line WHERE voice IS NOT NULL").fetchone()[0],
+               "tracks": db.execute("SELECT count(DISTINCT track) FROM music").fetchone()[0]}
     db.execute("INSERT INTO meta VALUES ('signature', ?)", (json.dumps(signature(revision, master)),))
     db.execute("INSERT INTO meta VALUES ('summary', ?)", (json.dumps(summary),))
     db.execute("INSERT INTO meta VALUES ('built', ?)", (time.strftime("%Y-%m-%d %H:%M"),))
