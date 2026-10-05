@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › Story</p>
+<h1>Story</h1>
+<nav class="seg" aria-label="Story type">
+  <a href="/story?tab=main"{% if tab == "main" %} class="on"{% endif %}>Main</a>
+  <a href="/story?tab=sub"{% if tab == "sub" %} class="on"{% endif %}>Scenes</a>
+  <a href="/story?tab=side"{% if tab == "side" %} class="on"{% endif %}>Side</a>
+  <a href="/story?tab=recollections"{% if tab == "recollections" %} class="on"{% endif %}>Library</a>
+</nav>
+{% if tab == "main" %}
+  {% for season in seasons %}
+  <h2 class="bracket-header">Season {{ season.season }} · {{ season.title }}</h2>
+  <div class="tool-grid">
+    {% for c in season.chapters %}
+    <a href="/story/main/{{ season.season }}/{{ c.chapter }}">{{ c.number }}{% if c.title and c.title != c.number %}: {{ c.title }}{% endif %}
+      <span>{{ c.scenes }} scenes · {{ c.lines }} lines{% if c.preview and not c.title %} · “{{ c.preview }}…”{% endif %}</span></a>
+    {% endfor %}
+  </div>
+  {% endfor %}
+{% elif tab == "recollections" %}
+  <p class="note">The Library's chapter summaries, in full.</p>
+  {% for g in groups %}
+  <details class="panel fold"{% if loop.first %} open{% endif %}>
+    <summary>{{ g.name }} · {{ g["items"]|length }}</summary>
+    {% for item in g["items"] %}
+    <article class="record">
+      {% if item.title %}<h3>{{ item.title }}{% if item.subtitle and item.subtitle != item.title %} <span>{{ item.subtitle }}</span>{% endif %}</h3>{% endif %}
+      <p>{{ item.text|rich|safe }}</p>
+    </article>
+    {% endfor %}
+  </details>
+  {% endfor %}
+{% else %}
+  {% for g in groups %}{% if g["items"] %}
+  <h2 class="bracket-header">{{ g.name }}</h2>
+  <div class="tool-grid">
+    {% for item in g["items"] %}
+    <a href="/story/{{ g.kind }}/{{ item.grp }}">{{ item.grp|upper }}{% if item.season %} · Season {{ item.season }}{% endif %}
+      <span>{{ item.scenes }} scenes · “{{ item.preview }}…”</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}{% endfor %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,254 @@
+"""Read-side queries over the Archive index: what each page lists."""
+from __future__ import annotations
+
+import contextlib
+import html
+import json
+import re
+import sqlite3
+from functools import lru_cache
+from pathlib import Path
+
+KINDS = {"eid": "Event scenes", "lid": "Limited scenes", "cid": "Character scenes", "vid": "Other scenes", "sid": "Side stories"}
+_TAG = re.compile(r"<(?!/?i>)[^>]*>")
+
+
+def rich(text: str) -> str:
+    """Game text as safe HTML: italics kept, other markup dropped, newlines kept."""
+    safe = html.escape(_TAG.sub("", text or ""), quote=False)
+    out, depth = [], 0
+    # Some game text opens italics without closing them; keep every tag paired so nothing leaks into the page.
+    for part in re.split(r"(&lt;/?i&gt;)", safe):
+        if part == "&lt;i&gt;":
+            depth += 1
+            out.append("<i>")
+        elif part == "&lt;/i&gt;":
+            if depth:
+                depth -= 1
+                out.append("</i>")
+        else:
+            out.append(part)
+    return "".join(out).replace("\n", "<br>") + "</i>" * depth
+
+
+class Archive:
+    def __init__(self, db_path: Path, revision: Path):
+        self.db_path, self.revision = Path(db_path), Path(revision)
+
+    @contextlib.contextmanager
+    def db(self):
+        """A read-only connection, closed when the block ends."""
+        db = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+        db.row_factory = sqlite3.Row
+        try:
+            yield db
+        finally:
+            db.close()
+
+    @lru_cache(maxsize=None)
+    def master(self, table: str) -> list[dict]:
+        with self.db() as db:
+            row = db.execute("SELECT value FROM meta WHERE key=?", ("master:" + table,)).fetchone()
+        return json.loads(row[0]) if row else []
+
+    def text(self, key: str, default: str = "") -> str:
+        with self.db() as db:
+            row = db.execute("SELECT value FROM text WHERE key=?", (key,)).fetchone()
+        return row[0] if row else default
+
+    def texts(self, prefix: str) -> dict[str, str]:
+        with self.db() as db:
+            return dict(db.execute("SELECT key, value FROM text WHERE key >= ? AND key < ?", (prefix, prefix + "￿")).fetchall())
+
+    def meta(self, key: str, default=None):
+        with self.db() as db:
+            row = db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+        return row[0] if row else default
+
+    # ---- Story ----------------------------------------------------------------
+    def season_title(self, season: int) -> str:
+        return self.text(f"quest.main.season_title.{season}", f"Season {season}")
+
+    def chapter_label(self, season: int, chapter: int) -> tuple[str, str]:
+        """(number, title) for a main-story chapter. Season 1 maps by its 'Ch. N' labels."""
+        if chapter == 0:
+            return "Prologue", ""
+        if chapter == 99:
+            return "Other scenes", ""
+        if season == 1:
+            numbers = self.texts("quest.main.chapter_number.1.1.")
+            for key, label in numbers.items():
+                if re.match(rf"Ch\. {chapter}\b", label):
+                    return label, self.text(key.replace("chapter_number", "chapter_title"))
+        return f"Chapter {chapter}", ""
+
+    def main_chapters(self) -> list[dict]:
+        with self.db() as db:
+            rows = db.execute("SELECT season, chapter, count(*) scenes, sum(lines) lines FROM scene WHERE area='main' "
+                              "GROUP BY season, chapter ORDER BY season, chapter = 99, chapter").fetchall()
+        seasons = {}
+        for r in rows:
+            number, title = self.chapter_label(r["season"], r["chapter"])
+            seasons.setdefault(r["season"], {"season": r["season"], "title": self.season_title(r["season"]), "chapters": []})
+            seasons[r["season"]]["chapters"].append({"chapter": r["chapter"], "number": number, "title": title,
+                                                     "scenes": r["scenes"], "lines": r["lines"],
+                                                     "preview": self.first_line("main", r["season"], r["chapter"])})
+        return list(seasons.values())
+
+    def first_line(self, area, season, chapter) -> str:
+        with self.db() as db:
+            row = db.execute("SELECT line.text FROM scene JOIN line ON line.scene = scene.id WHERE area=? AND season=? AND chapter=? "
+                             "AND kind != 'narration' AND length(line.text) > 12 ORDER BY sort, seq LIMIT 1", (area, season, chapter)).fetchone()
+        return (row[0].replace("\n", " ") if row else "")[:90]
+
+    def sub_groups(self, kind: str) -> list[dict]:
+        with self.db() as db:
+            rows = db.execute("SELECT grp, season, count(*) scenes, sum(lines) lines, min(id) first FROM scene "
+                              "WHERE kind=? GROUP BY grp ORDER BY season, grp", (kind,)).fetchall()
+            out = []
+            for r in rows:
+                line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 12 ORDER BY seq LIMIT 1", (r["first"],)).fetchone()
+                out.append({**dict(r), "preview": (line[0].replace("\n", " ") if line else "")[:90]})
+        return out
+
+    def scenes(self, *, area=None, season=None, chapter=None, kind=None, grp=None) -> list[dict]:
+        where, args = [], []
+        for column, value in (("area", area), ("season", season), ("chapter", chapter), ("kind", kind), ("grp", grp)):
+            if value is not None:
+                where.append(column + "=?"); args.append(value)
+        with self.db() as db:
+            rows = db.execute("SELECT * FROM scene WHERE " + " AND ".join(where) + " ORDER BY sort, name", args).fetchall()
+            out = []
+            for r in rows:
+                line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 3 ORDER BY seq LIMIT 1", (r["id"],)).fetchone()
+                out.append({**dict(r), "preview": (line[0].replace("\n", " ") if line else "")[:100]})
+        return out
+
+    def scene(self, scene_id: int) -> dict | None:
+        with self.db() as db:
+            row = db.execute("SELECT * FROM scene WHERE id=?", (scene_id,)).fetchone()
+            if not row:
+                return None
+            lines = [r[0] for r in db.execute("SELECT text FROM line WHERE scene=? ORDER BY seq", (scene_id,))]
+            if row["area"] == "main":
+                siblings = db.execute("SELECT id FROM scene WHERE area='main' AND season=? AND chapter=? ORDER BY sort, name",
+                                      (row["season"], row["chapter"])).fetchall()
+            else:
+                siblings = db.execute("SELECT id FROM scene WHERE kind=? AND grp=? ORDER BY sort, name", (row["kind"], row["grp"])).fetchall()
+        ids = [s[0] for s in siblings]
+        at = ids.index(scene_id)
+        return {**dict(row), "lines": lines, "position": at + 1, "count": len(ids),
+                "previous": ids[at - 1] if at > 0 else None, "next": ids[at + 1] if at + 1 < len(ids) else None}
+
+    def recollections(self) -> list[dict]:
+        """The Library's chapter summaries, with their titles."""
+        groups = []
+        main = self.texts("story.Main.Quest.")
+        titles = self.texts("mqt.")
+        if main:
+            items = []
+            for key, value in sorted(main.items()):
+                number = key.rsplit(".", 1)[-1].lstrip("0")
+                items.append({"title": titles.get(f"mqt.{number}p1", ""), "subtitle": titles.get(f"mqt.{number}p2", ""), "text": value})
+            groups.append({"name": "Main story", "items": items})
+        for prefix, name in (("quest.event.chapter.story.01.", "Event stories"), ("quest.event.chapter.story.06.", "Character stories"),
+                             ("limit.content.story.", "Limited content"), ("content.story.", "End contents")):
+            entries = self.texts(prefix)
+            if entries:
+                groups.append({"name": name, "items": [{"title": "", "subtitle": "", "text": v} for _, v in sorted(entries.items())]})
+        return groups
+
+    # ---- Records --------------------------------------------------------------
+    def weapons(self) -> list[dict]:
+        names = self.texts("weapon.name.wp")
+        stories = self.texts("weapon.story.wp")
+        weapons = {}
+        for key, value in stories.items():
+            wp, index = key.split(".")[2], key.split(".")[3]
+            weapons.setdefault(wp, {"id": wp, "name": names.get(f"weapon.name.{wp}.1") or names.get(f"weapon.name.{wp}.2") or wp, "stories": {}})
+            weapons[wp]["stories"][int(index)] = value
+        out = []
+        for w in sorted(weapons.values(), key=lambda w: w["name"]):
+            w["stories"] = [w["stories"][i] for i in sorted(w["stories"])]
+            out.append(w)
+        return out
+
+    def character_name(self, character_id) -> str:
+        return self.text(f"character.name.{character_id}") or self.text(f"character.name.{character_id}.1") or f"Character {character_id}"
+
+    def reports(self) -> list[dict]:
+        groups = {}
+        for row in sorted(self.master("m_report"), key=lambda r: (r["MainQuestSeasonId"], r["CharacterId"], r["ReportNumber"])):
+            asset = row["ReportAssetId"]
+            body = self.text(f"report.description.{asset}")
+            if not body:
+                continue
+            group = groups.setdefault((row["MainQuestSeasonId"], row["CharacterId"]),
+                                      {"season": row["MainQuestSeasonId"], "character": self.character_name(row["CharacterId"]), "items": []})
+            group["items"].append({"title": self.text(f"report.title.{asset}", f"No. {row['ReportNumber']:02d}"), "text": body})
+        return list(groups.values())
+
+    def lost_archives(self) -> list[dict]:
+        out = []
+        for row in sorted(self.master("m_cage_memory"), key=lambda r: (r["MainQuestSeasonId"], r["SortOrder"])):
+            asset = row["CageMemoryAssetId"]
+            body = self.text(f"cage.memory.description.{asset}")
+            if body:
+                out.append({"season": row["MainQuestSeasonId"], "title": self.text(f"cage.memory.title.{asset}", str(asset)), "text": body})
+        return out
+
+    def debris(self) -> list[dict]:
+        names = self.texts("thought.name.")
+        return [{"title": v, "text": self.text("thought.description." + k.rsplit(".", 1)[-1])} for k, v in sorted(names.items())]
+
+    # ---- Movies ---------------------------------------------------------------
+    def movie_files(self) -> dict[str, dict]:
+        with self.db() as db:
+            return {r["name"]: dict(r) for r in db.execute("SELECT * FROM movie")}
+
+    def pick_movie(self, base: str, files: dict) -> dict | None:
+        """The English cut when there is one, else the default."""
+        return files.get(base + "_en") or files.get(base)
+
+    def movies(self) -> list[dict]:
+        files = self.movie_files()
+        assets = {m["MovieId"]: m["AssetId"] for m in self.master("m_movie")}
+        categories = {c["LibraryMovieCategoryId"]: c for c in self.master("m_library_movie_category")}
+        library, used = {}, set()
+        for row in sorted(self.master("m_library_movie"), key=lambda r: (r["LibraryMovieCategoryId"], r["SortOrder"])):
+            asset = assets.get(row["MovieId"])
+            if asset is None:
+                continue
+            base = f"mv_prm{asset:03d}" if asset < 100 else f"mv{asset}"
+            file = self.pick_movie(base, files)
+            if not file:
+                continue
+            used.add(base)
+            category = categories.get(row["LibraryMovieCategoryId"], {})
+            # The game's own key is spelled "catagory".
+            name = (self.text(f"movie.catagory.{category.get('NameLibraryTextId')}")
+                    or self.text(f"movie.catagory.{100 + row['LibraryMovieCategoryId']}") or "Library movies")
+            library.setdefault(row["LibraryMovieCategoryId"], {"name": name, "items": []})["items"].append(
+                {"title": self.text(f"movie.title.name.{row['TitleLibraryTextId']}", base), "file": file["file"], "size": file["size"]})
+        groups = list(library.values())
+        bases = sorted({re.sub(r"_(en|ko|ja)$", "", n) for n in files})
+        scenes = [b for b in bases if b.startswith("mm") and "voice" not in b]
+        promos = [b for b in bases if b.startswith("mv") and b not in used]
+        for name, items in (("Story scenes", scenes), ("Other movies", promos)):
+            entries = [{"title": b, "file": f["file"], "size": f["size"]} for b in items if (f := self.pick_movie(b, files))]
+            if entries:
+                groups.append({"name": name, "items": entries})
+        return groups
+
+    # ---- Search ---------------------------------------------------------------
+    def search(self, query: str, limit: int = 60) -> dict:
+        query = query.strip()
+        if len(query) < 2:
+            return {"lines": [], "records": []}
+        like = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        with self.db() as db:
+            lines = db.execute("SELECT scene.id, scene.area, scene.kind, scene.season, scene.chapter, scene.name, line.text FROM line "
+                               "JOIN scene ON scene.id = line.scene WHERE line.text LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
+            records = db.execute("SELECT key, value FROM text WHERE (key LIKE 'weapon.story.%' OR key LIKE 'report.description.%' "
+                                 "OR key LIKE 'cage.memory.description.%') AND value LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
+        return {"lines": [dict(r) for r in lines], "records": [dict(r) for r in records]}

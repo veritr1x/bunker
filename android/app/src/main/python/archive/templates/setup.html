@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Archive</h1>
+<div class="panel">
+  {% if state.error %}
+  <strong>The archive could not be built</strong>
+  <p class="note">{{ state.error }}</p>
+  <form method="post" action="/setup/retry"><button type="submit">Try again</button></form>
+  {% else %}
+  <strong>Building the archive index</strong>
+  <p class="note">Reading the story text and master data once, so pages open instantly. This takes a minute or two. You can leave this screen.</p>
+  <div class="blocks" id="blocks" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">{% for i in range(20) %}<i></i>{% endfor %}</div>
+  <dl class="kv"><dt>Step</dt><dd id="step">{{ state.step or "Starting" }}</dd><dt>Files read</dt><dd id="count">{{ state.done }} of {{ state.total }}</dd></dl>
+  {% endif %}
+</div>
+{% if not state.error %}
+<script>
+(function poll() {
+  fetch("/api/status").then(r => r.json()).then(s => {
+    if (s.ready) { location.replace("/"); return; }
+    if (s.error) { location.reload(); return; }
+    const share = s.total ? s.done / s.total : 0;
+    document.getElementById("step").textContent = s.step || "Starting";
+    document.getElementById("count").textContent = s.done + " of " + s.total;
+    const bar = document.getElementById("blocks");
+    bar.setAttribute("aria-valuenow", Math.round(share * 100));
+    bar.querySelectorAll("i").forEach((b, i) => b.classList.toggle("on", i < Math.round(share * 20)));
+    setTimeout(poll, 500);
+  }).catch(() => setTimeout(poll, 1000));
+})();
+</script>
+{% endif %}
+{% endblock %}

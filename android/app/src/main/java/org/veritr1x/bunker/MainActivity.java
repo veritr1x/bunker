@@ -27,7 +27,7 @@ public final class MainActivity extends Activity {
     private Look look;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,detail,files,ports,save,progressText;
-    private Button assetButton,play,pods;
+    private Button assetButton,play,pods,archive;
     private ProgressBar progress;
     private Look.Segments bar;
     private int permille=-1;
@@ -116,7 +116,16 @@ public final class MainActivity extends Activity {
         pods=look.outlined("OPEN POD PROGRAMS  ›");pods.setTextSize(13);pods.setContentDescription("Open Pod Programs");
         pods.setOnClickListener(v->onOption(8));
         LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,dp(48));pb.setMargins(0,0,0,dp(6));programs.addView(pods,pb);
-        body.addView(programs,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,-2);gp.setMargins(0,0,0,dp(20));body.addView(programs,gp);
+        // [ ARCHIVE ]: the story, records and movies, read from the game files. The game keeps running.
+        LinearLayout.LayoutParams hp4=new LinearLayout.LayoutParams(-1,-2);hp4.setMargins(0,0,0,dp(8));body.addView(look.header("Archive"),hp4);
+        LinearLayout records=panel();
+        TextView story=look.monoText("Read the story, meet the characters, watch and listen.",12,look.ink);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(6),0,dp(12));records.addView(story,sp);
+        archive=look.outlined("OPEN ARCHIVE  ›");archive.setTextSize(13);archive.setContentDescription("Open the Archive");
+        archive.setOnClickListener(v->startActivity(new Intent(this,ArchiveActivity.class)));
+        LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,0,0,dp(6));records.addView(archive,rb);
+        body.addView(records,new LinearLayout.LayoutParams(-1,-2));
         body.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.setMargins(0,dp(28),0,0);body.addView(look.footer(),fp);
         setContentView(scroll);
@@ -162,6 +171,7 @@ public final class MainActivity extends Activity {
         progressText.setText(importing?(measured?permille/10+"% · ":"")+serverDetail:"");
         play.setEnabled(!busy&&!tools&&ready);play.setAlpha(play.isEnabled()?1f:.45f);
         pods.setEnabled(!busy&&ready);pods.setAlpha(pods.isEnabled()?1f:.45f);
+        archive.setEnabled(!busy&&ready);archive.setAlpha(archive.isEnabled()?1f:.45f);
         String message="";
         boolean warning=attention||"Operation cancelled".equals(serverState);
         if(warning)message=serverDetail;

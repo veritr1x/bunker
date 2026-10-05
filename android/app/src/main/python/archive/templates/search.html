@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="search-box" action="/search" method="get" role="search">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search story lines and records" aria-label="Search the archive" autofocus>
+</form>
+{% if q %}
+<h2 class="bracket-header">Story lines · {{ results.lines|length }}</h2>
+<div class="tool-grid">
+  {% for r in results.lines %}
+  <a href="/scene/{{ r.id }}">{{ r.text[:140] }}<span>{% if r.area == "main" %}main · season {{ r.season }} · chapter {{ r.chapter }}{% else %}{{ kinds.get(r.kind, r.kind)|lower }} · {{ r.name }}{% endif %}</span></a>
+  {% else %}<span class="off">No lines found</span>{% endfor %}
+</div>
+<h2 class="bracket-header">Records · {{ results.records|length }}</h2>
+<div class="tool-grid">
+  {% for r in results.records %}
+  <a href="/records?tab={{ 'weapons' if r.key.startswith('weapon') else 'reports' if r.key.startswith('report') else 'archives' }}">{{ r.value[:140] }}<span>{{ r.key.split('.')[0] }}</span></a>
+  {% else %}<span class="off">No records found</span>{% endfor %}
+</div>
+{% if results.lines|length >= 60 %}<p class="note">Showing the first 60 matches. Add words to narrow the search.</p>{% endif %}
+{% endif %}
+{% endblock %}

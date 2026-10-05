@@ -15,6 +15,8 @@ import java.net.URL;
 /** Private, on-device tools. Runs beside the service so Unity can fully close. */
 public final class ToolsActivity extends Activity {
     private static boolean webInitialized;
+    /** Pod Programs and the Archive share one WebView profile; its folder can be set only once per process. */
+    static synchronized void initWebView(){if(!webInitialized){WebView.setDataDirectorySuffix("lunar_tools");webInitialized=true;}}
     private final Handler handler=new Handler(Looper.getMainLooper());
     private WebView web;
     private TextView message;
@@ -44,7 +46,7 @@ public final class ToolsActivity extends Activity {
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
-        if(!webInitialized){WebView.setDataDirectorySuffix("lunar_tools");webInitialized=true;}
+        initWebView();
         LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackground(look.paper());
         body.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
         // The same top bar as the Bunker: where you are, and the way back.

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › Movies</p>
+<h1>Movies</h1>
+{% if current %}
+<figure class="player">
+  <video src="/media/movie/{{ current.file }}" controls autoplay playsinline preload="metadata"></video>
+  <figcaption>{{ current.title }}</figcaption>
+</figure>
+{% endif %}
+{% for g in groups %}
+<h2 class="bracket-header">{{ g.name }}</h2>
+<div class="tool-grid">
+  {% for m in g["items"] %}
+  <a href="/movies?play={{ m.file|urlencode }}"{% if current and current.file == m.file %} aria-current="true"{% endif %}>{{ m.title }}<span>{{ (m.size / 1048576)|round(1) }} MB</span></a>
+  {% endfor %}
+</div>
+{% endfor %}
+{% endblock %}

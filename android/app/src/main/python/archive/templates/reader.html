@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="{{ back }}">{{ place }}</a> › Scene {{ scene.position }} of {{ scene.count }}</p>
+<h1>Scene {{ scene.position }}</h1>
+<div class="reader" id="reader">
+  {% for line in scene.lines %}
+  <p{% if line.startswith("<i>") or line.startswith("(") %} class="narration"{% endif %}>{{ line|rich|safe }}</p>
+  {% else %}
+  <p class="narration">This scene has no text.</p>
+  {% endfor %}
+</div>
+<p class="note">{{ scene.name }}</p>
+{% endblock %}
+{% block footer %}
+<footer class="pager">
+  {% if scene.previous %}<a class="button ghost" href="/scene/{{ scene.previous }}">‹ Prev</a>{% else %}<a class="button ghost" href="{{ back }}">‹ Scenes</a>{% endif %}
+  <span>Scene {{ scene.position }} / {{ scene.count }}</span>
+  {% if scene.next %}<a class="button" href="/scene/{{ scene.next }}">Next ›</a>{% else %}<a class="button" href="{{ back }}">Done</a>{% endif %}
+</footer>
+{% endblock %}

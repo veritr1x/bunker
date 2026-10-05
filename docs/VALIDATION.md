@@ -1,5 +1,36 @@
 # Validation
 
+## The Archive — 2026-10-05
+
+- Phase 0 on the real Android dump: revision 0 holds 6,633 English text
+  bundles, 270 MP4 movies in `resources/`, ASTC textures (stills, art,
+  icons), Vorbis-in-FSB5 audio clips (24k English voice lines, 524 music
+  tracks) and Unity 2019.4 meshes and animations. Octo's header mask covers
+  the first 256 bytes including the version byte; lunar-scripts'
+  `decrypt_assetbundle.py` masks one byte too many by default, which breaks
+  bundles whose data starts inside the header. Text bundles were unaffected.
+- `android/tools/test_archive.py` (8 tests) passed, including a full index
+  build from the real dump: 0 of 6,633 bundles failed, 4,666 scenes and
+  23,638 story lines in about 4 seconds on a PC, and every page answered.
+  All 144,911 text entries render with balanced italics.
+- Android 16 emulator (x86_64 with ARM translation), APK built with
+  `scripts/build.py` in WSL: the Archive section sits below Pod Programs and
+  stays off until game files are ready. With a reduced dump (English text,
+  catalog, three movies), the Archive built its index on the device, listed
+  Season 1 with chapter titles, paged scenes, showed the weapon stories,
+  searched lines, played a movie streamed from its own server, and followed
+  dark mode. Opening the Archive from adb is refused (not exported).
+- Same emulator with a 64 GB data partition: the real 15 GB `.7z` imported
+  20.91 GB in about 20 minutes. The Archive rebuilt its index on the device
+  in under 30 seconds and listed all 145 movies with their Library titles.
+  Deploy then reached the game's title screen.
+- Not yet built: Characters (profiles, voices, 3D viewer), Gallery and
+  Music; they need ASTC texture decoding, Vorbis repacking and mesh
+  conversion on the phone. Speaker names are not shown in scenes yet: the
+  text bundles hold lines only. Seasons 2 and 3 show numbered chapters
+  (their route and act titles do not map one-to-one to the scene files).
+  Not checked on iOS or a physical phone.
+
 ## Signed web APKs and the download fix — 2026-10-04
 
 - `android/tools/test_apk_sign.py` passed: an APK signed by `apk_sign.py`

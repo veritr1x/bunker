@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › Records</p>
+<h1>Records</h1>
+<nav class="seg" aria-label="Record type">
+  <a href="/records?tab=weapons"{% if tab == "weapons" %} class="on"{% endif %}>Weapons</a>
+  <a href="/records?tab=reports"{% if tab == "reports" %} class="on"{% endif %}>Reports</a>
+  <a href="/records?tab=archives"{% if tab == "archives" %} class="on"{% endif %}>Archives</a>
+  <a href="/records?tab=debris"{% if tab == "debris" %} class="on"{% endif %}>Debris</a>
+</nav>
+{% if tab == "weapons" %}
+  <div class="search-row"><input type="text" id="filter" placeholder="Filter weapons" aria-label="Filter weapons"><span class="tab-stats">{{ weapons|length }} weapons</span></div>
+  <div id="weapons">
+  {% for w in weapons %}
+  <details class="panel fold" data-name="{{ w.name|lower }}">
+    <summary>{{ w.name }} · {{ w.stories|length }} stories</summary>
+    {% for s in w.stories %}<article class="record"><h3>Story {{ loop.index }}</h3><p>{{ s|rich|safe }}</p></article>{% endfor %}
+  </details>
+  {% endfor %}
+  </div>
+  <script>
+  document.getElementById("filter").addEventListener("input", e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll("#weapons details").forEach(d => d.hidden = q && !d.dataset.name.includes(q));
+  });
+  </script>
+{% elif tab == "reports" %}
+  {% for g in groups %}
+  <details class="panel fold">
+    <summary>{{ g.character }} · Season {{ g.season }} · {{ g["items"]|length }}</summary>
+    {% for item in g["items"] %}<article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></article>{% endfor %}
+  </details>
+  {% endfor %}
+{% else %}
+  <div class="panel">
+  {% for item in items %}
+    <article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></article>
+  {% else %}<p class="note">Nothing here.</p>{% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/story">Story</a> › {{ crumb }}</p>
+<h1>{{ heading }}</h1>
+{% if title %}<p class="subtitle">{{ title }}</p>{% endif %}
+<div class="tool-grid">
+  {% for s in scenes %}
+  <a href="/scene/{{ s.id }}">Scene {{ loop.index }}<span>{{ s.lines }} lines{% if s.preview %} · “{{ s.preview }}”{% endif %}</span></a>
+  {% else %}
+  <span class="off">No scenes</span>
+  {% endfor %}
+</div>
+{% endblock %}

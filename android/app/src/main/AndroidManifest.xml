@@ -16,6 +16,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ArchiveActivity" android:process=":lunar_server" android:exported="false" android:resizeableActivity="true" android:enableOnBackInvokedCallback="true" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
         <activity android:name=".ToolsActivity" android:process=":lunar_server" android:exported="false" android:resizeableActivity="true" android:enableOnBackInvokedCallback="true" />
         <!-- Runs in the game's process at start: loopback requests skip any phone proxy (VPN apps), and a game
              opened without its server (for example from Recent apps) goes through the launcher instead. -->

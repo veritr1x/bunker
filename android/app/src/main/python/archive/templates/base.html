@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Archive{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/automata.css">
+  <link rel="stylesheet" href="/archive-static/archive.css">
+</head>
+<body>
+  <nav class="primary">
+    {% for key, label, href in sections %}<a href="{{ href }}"{% if active == key %} class="active"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  {% block footer %}<footer><span class="sign-light">End of transmission // Glory to mankind</span><span class="sign-dark">Operator link // Standing by</span></footer>{% endblock %}
+</body>
+</html>

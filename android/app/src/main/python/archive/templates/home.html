@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="search-box" action="/search" method="get" role="search">
+  <input type="text" name="q" placeholder="Search story lines and records" aria-label="Search the archive">
+</form>
+<h1>Archive</h1>
+<div class="tool-grid">
+  <a href="/story">Story <span>main story · events · side stories · recollections</span></a>
+  <a href="/records">Records <span>weapon stories · reports · lost archives · debris</span></a>
+  <a href="/movies">Movies <span>{{ counts.movies }} movies</span></a>
+  <span class="off" aria-disabled="true">Characters <span>profiles · voices · 3D viewer · coming next</span></span>
+  <span class="off" aria-disabled="true">Gallery <span>stills · chapter art · coming next</span></span>
+  <span class="off" aria-disabled="true">Music <span>soundtrack · coming next</span></span>
+</div>
+<p class="note">Read only. Nothing here changes your save.</p>
+{% if summary %}<p class="note">Index built {{ built }} from revision 0.</p>{% endif %}
+{% endblock %}
