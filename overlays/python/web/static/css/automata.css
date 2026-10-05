@@ -3,11 +3,11 @@
 :root {
   --bg-cream: #cfc7b0;
   --bg-cream-dark: #b8b099;
-  --fg-dark: #2c2922;
-  --fg-mid: #57523f;
-  --accent: #1a1814;
+  --fg-dark: #3a372f;
+  --fg-mid: #4f4b40;
+  --accent: #3a372f;
   --panel: #d8d1bb;
-  --panel-inverse-bg: #2c2922;
+  --panel-inverse-bg: #3a372f;
   --panel-inverse-fg: #d8d1bb;
   --danger: #6b0a0a;
   --danger-hover: #8a1414;
@@ -504,10 +504,10 @@ footer {
 :root {
   --mono: ui-monospace, "SF Mono", Menlo, "Roboto Mono", "Droid Sans Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
-  /* The same paper and grid as the launcher's native bar, so the two read as one surface. */
+  /* The same paper, ink and grid as the launcher (Look.java), so the native bar and the page read as one surface. */
   --bg-cream: #d3ceb8;
   --panel: #d8d3bd;
-  --line: rgba(44, 41, 34, 0.35);
+  --line: rgba(58, 55, 47, 0.35);
   --grid-line: rgba(58, 55, 47, 0.05);
   color-scheme: light;
 }
