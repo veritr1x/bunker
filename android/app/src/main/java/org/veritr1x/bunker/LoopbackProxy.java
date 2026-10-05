@@ -1,4 +1,4 @@
-package org.lunartear.companion;
+package org.veritr1x.bunker;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

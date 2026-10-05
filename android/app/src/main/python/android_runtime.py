@@ -267,7 +267,7 @@ def start(data_root, asset_root, tools_root, reporter):
     if _thread and _thread.is_alive():
         return json.dumps({"url": _base_url, "token": _token})
     from java import jclass
-    native = jclass("org.lunartear.companion.NativeBridge")
+    native = jclass("org.veritr1x.bunker.NativeBridge")
     configure(data_root, asset_root, tools_root, native.edit, reporter.report)
     prepare_data()
     import uvicorn

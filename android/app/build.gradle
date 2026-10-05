@@ -21,10 +21,10 @@ android {
     useLibrary 'android.test.runner'
     useLibrary 'android.test.base'
     useLibrary 'android.test.mock'
-    namespace = 'org.lunartear.companion'
+    namespace = 'org.veritr1x.bunker'
     compileSdk = 36
     defaultConfig {
-        applicationId = 'org.lunartear.companion'
+        applicationId = 'org.veritr1x.bunker'
         minSdk = 28
         targetSdk = 36
         versionCode = 1

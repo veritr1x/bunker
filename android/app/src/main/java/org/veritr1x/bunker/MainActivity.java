@@ -1,4 +1,4 @@
-package org.lunartear.companion;
+package org.veritr1x.bunker;
 
 import android.Manifest;
 import android.app.*;
@@ -293,7 +293,7 @@ public final class MainActivity extends Activity {
         Intent intent=null;
         try {
             android.content.pm.ApplicationInfo info=getPackageManager().getApplicationInfo(getPackageName(),PackageManager.GET_META_DATA);
-            String game=info.metaData==null?null:info.metaData.getString("org.lunartear.GAME_ACTIVITY");
+            String game=info.metaData==null?null:info.metaData.getString("org.veritr1x.bunker.GAME_ACTIVITY");
             if(game!=null) intent=new Intent().setClassName(this,game);
             else intent=getPackageManager().getLaunchIntentForPackage("com.square_enix.android_googleplay.nierspww");
         } catch(PackageManager.NameNotFoundException ignored){}

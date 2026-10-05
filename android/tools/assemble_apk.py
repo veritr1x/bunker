@@ -124,10 +124,10 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
         raise RuntimeError("Cannot find the game's launcher activity")
     if game_activity.startswith("."):
         game_activity = PACKAGE + game_activity
-    app.children.append(Element("meta-data", [Attr.string("name", "org.lunartear.GAME_ACTIVITY", NAME),
+    app.children.append(Element("meta-data", [Attr.string("name", "org.veritr1x.bunker.GAME_ACTIVITY", NAME),
                                               Attr.string("value", game_activity, VALUE)]))
     # The launcher and server read the ports the game was built for.
-    app.children.append(Element("meta-data", [Attr.string("name", "org.lunartear.PORT_OFFSET", NAME),
+    app.children.append(Element("meta-data", [Attr.string("name", "org.veritr1x.bunker.PORT_OFFSET", NAME),
                                               Attr.integer("value", port_offset, VALUE)]))
     for source in companion.find_all("application")[0].children:
         if isinstance(source, Element) and source.name in ("activity", "service", "provider"):

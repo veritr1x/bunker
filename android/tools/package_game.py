@@ -65,10 +65,10 @@ def main():
     manifest=game/"AndroidManifest.xml";tree=ET.parse(manifest);doc=tree.getroot();app=doc.find("application")
     if app is None: raise RuntimeError("Game manifest has no application")
     package=doc.attrib["package"]
-    old=app.find("meta-data[@"+attr("name")+"='org.lunartear.GAME_ACTIVITY']")
+    old=app.find("meta-data[@"+attr("name")+"='org.veritr1x.bunker.GAME_ACTIVITY']")
     original=old.get(attr("value")) if old is not None else None
     for activity in list(app.findall("activity")):
-        if activity.get(attr("name"))=="org.lunartear.companion.MainActivity":
+        if activity.get(attr("name"))=="org.veritr1x.bunker.MainActivity":
             app.remove(activity);continue
         for intent in list(activity.findall("intent-filter")):
             if any(x.get(attr("name"))=="android.intent.category.LAUNCHER" for x in intent.findall("category")):
@@ -77,10 +77,10 @@ def main():
     if original.startswith("."): original=package+original
     elif "." not in original: original=package+"."+original
     for entry in list(app):
-        if entry.get(attr("name")) in ["org.lunartear.GAME_ACTIVITY","org.lunartear.PORT_OFFSET","org.lunartear.companion.ServerService","org.lunartear.companion.ToolsActivity"]:app.remove(entry)
-    ET.SubElement(app,"meta-data",{attr("name"):"org.lunartear.GAME_ACTIVITY",attr("value"):original})
+        if entry.get(attr("name")) in ["org.veritr1x.bunker.GAME_ACTIVITY","org.veritr1x.bunker.PORT_OFFSET","org.veritr1x.bunker.ServerService","org.veritr1x.bunker.ToolsActivity"]:app.remove(entry)
+    ET.SubElement(app,"meta-data",{attr("name"):"org.veritr1x.bunker.GAME_ACTIVITY",attr("value"):original})
     # The launcher and server read the ports the game was built for.
-    ET.SubElement(app,"meta-data",{attr("name"):"org.lunartear.PORT_OFFSET",attr("value"):str(args.port_offset)})
+    ET.SubElement(app,"meta-data",{attr("name"):"org.veritr1x.bunker.PORT_OFFSET",attr("value"):str(args.port_offset)})
     app.set(attr("usesCleartextTraffic"),"true");app.set(attr("allowBackup"),"false");app.set(attr("extractNativeLibs"),"true")
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.
@@ -93,7 +93,7 @@ def main():
     for name in ["activity","service","provider"]:
         for source in companion.findall("application/"+name):
             element=copy.deepcopy(source)
-            element.set(attr("name"),"org.lunartear.companion"+element.get(attr("name")))
+            element.set(attr("name"),"org.veritr1x.bunker"+element.get(attr("name")))
             if name=="activity":element.set(attr("theme"),"@android:style/Theme.Material.Light.NoActionBar")
             # Authorities are unique per device: use the game's, not the standalone companion's.
             if name=="provider":element.set(attr("authorities"),doc.get("package")+".lunar_loopback")

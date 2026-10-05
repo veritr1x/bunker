@@ -1,4 +1,4 @@
-package org.lunartear.companion;
+package org.veritr1x.bunker;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -16,7 +16,7 @@ final class Ports {
     static int offset(Context c) {
         try {
             Bundle meta = c.getPackageManager().getApplicationInfo(c.getPackageName(), PackageManager.GET_META_DATA).metaData;
-            return meta == null ? 0 : meta.getInt("org.lunartear.PORT_OFFSET", 0);
+            return meta == null ? 0 : meta.getInt("org.veritr1x.bunker.PORT_OFFSET", 0);
         } catch (PackageManager.NameNotFoundException e) {
             return 0;
         }

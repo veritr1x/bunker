@@ -1,4 +1,4 @@
-package org.lunartear.companion;
+package org.veritr1x.bunker;
 
 import android.app.Activity;
 import android.app.Application;
@@ -79,7 +79,7 @@ public final class GameProcessProvider extends ContentProvider {
     private static String gameActivity(Application app) {
         try {
             Bundle meta = app.getPackageManager().getApplicationInfo(app.getPackageName(), PackageManager.GET_META_DATA).metaData;
-            return meta == null ? null : meta.getString("org.lunartear.GAME_ACTIVITY");
+            return meta == null ? null : meta.getString("org.veritr1x.bunker.GAME_ACTIVITY");
         } catch (PackageManager.NameNotFoundException e) {
             return null;
         }

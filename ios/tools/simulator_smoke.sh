@@ -11,7 +11,7 @@ root_dir="$(cd "$(dirname "$0")/../.." && pwd)"
 master="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 work="$root_dir/.build/ios-simulator"
 app="$work/Host.app"
-bundle=org.lunartear.smoke
+bundle=org.veritr1x.bunker.smoke
 # The simulator shares this Mac's network. When the server's ports are taken
 # (for example by a web dev server on 3000), move the test's ports instead.
 offset=0

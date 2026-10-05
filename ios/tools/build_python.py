@@ -175,7 +175,7 @@ def main():
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, destination)
 
-    bundle_prefix = "org.lunartear.python"
+    bundle_prefix = "org.veritr1x.bunker.python"
     for base in (lib / "lib-dynload", packages):
         for so_file in sorted(base.rglob("*.so")):
             make_framework(out, so_file, base, bundle_prefix)

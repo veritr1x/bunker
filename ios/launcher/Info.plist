@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>LunarTear</string>
 	<key>CFBundleIdentifier</key>
-	<string>org.lunartear.launcher</string>
+	<string>org.veritr1x.bunker.launcher</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

@@ -1,4 +1,4 @@
-package org.lunartear.companion;
+package org.veritr1x.bunker;
 
 public final class NativeBridge {
     static { System.loadLibrary("lunar"); }
