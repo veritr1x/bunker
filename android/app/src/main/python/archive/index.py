@@ -17,7 +17,7 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 11
+FORMAT = 12
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
@@ -413,6 +413,7 @@ def gallery_rows(rows: list[tuple], texts: dict[str, str], master: dict[str, lis
 
 # The other people and creatures the game shows in 3D, by the first letters of their model.
 MODEL_SECTIONS = ("Main cast", "Story characters", "Enemies")
+ENEMY_ELEMENTS = {"1": "Fire", "2": "Wind", "3": "Water", "4": "Light", "5": "Dark"}
 MODEL_FAMILIES = {"ma": 0, "np": 1, "pc": 1, "pe": 1, "sp": 1, "um": 1, "mt": 2}
 
 
@@ -424,7 +425,9 @@ def readable(name: str) -> bool:
 def enemy_names(master: dict[str, list[dict]], texts: dict[str, str]) -> dict[str, Counter]:
     """Enemy model (mt008101) -> how often each boss name is given to it. A quest's boss name
     (quest.boss.name.<quest>) goes to the boss-type member of the enemy decks its battles field:
-    quest -> scenes -> battle groups -> battles -> deck -> member -> costume -> skeleton and variation."""
+    quest -> scenes -> battle groups -> battles -> deck -> member -> costume -> skeleton and variation.
+    Where no member is marked the boss (the event puppets: Birthday Puppet is mt002046 among ordinary
+    Beast Types), the name goes to the look fought in (nearly) every such quest and seldom elsewhere."""
     costumes = {r["CostumeId"]: r for r in master.get("m_costume", [])}
     npc_costumes = {(r["BattleNpcId"], r["BattleNpcCostumeUuid"]): r["CostumeId"] for r in master.get("m_battle_npc_costume", [])}
     members = {(r["BattleNpcId"], r["BattleNpcDeckCharacterUuid"]): r["BattleNpcCostumeUuid"]
@@ -441,45 +444,76 @@ def enemy_names(master: dict[str, list[dict]], texts: dict[str, str]) -> dict[st
         scene_groups.setdefault(r["QuestSceneId"], []).append(r["BattleGroupId"])
     for r in master.get("m_quest_scene", []):
         scenes.setdefault(r["QuestId"], []).append(r["QuestSceneId"])
-    out = {}
-    for key, name in texts.items():
-        quest = key.rsplit(".", 1)[-1]
-        if not key.startswith("quest.boss.name.") or not quest.isdigit() or not readable(name):
-            continue
-        for scene in scenes.get(int(quest), []):
+    def fought(quest):
+        """The enemy looks a quest fields, and those marked its boss."""
+        looks, marked = set(), set()
+        for scene in scenes.get(quest, []):
             for group in scene_groups.get(scene, []):
                 for battle in (b for g in groups.get(group, []) for b in battles.get(g, [])):
                     deck = decks.get((battle["BattleNpcId"], battle["DeckType"], battle["BattleNpcDeckNumber"]))
                     for slot in ("01", "02", "03") if deck else ():
                         member = (battle["BattleNpcId"], deck["BattleNpcDeckCharacterUuid" + slot])
                         c = costumes.get(npc_costumes.get((battle["BattleNpcId"], members.get(member))))
-                        if member in bosses and c and c["CostumeAssetCategoryType"] == 2:
-                            out.setdefault(f"mt{c['ActorSkeletonId']:03d}{c['AssetVariationId']:03d}", Counter())[name] += 1
+                        if c and c["CostumeAssetCategoryType"] == 2:
+                            look = f"mt{c['ActorSkeletonId']:03d}{c['AssetVariationId']:03d}"
+                            looks.add(look)
+                            if member in bosses:
+                                marked.add(look)
+        return looks, marked
+
+    out, appears, unmarked = {}, Counter(), {}
+    for quest in scenes:
+        looks, marked = fought(quest)
+        appears.update(looks)
+        name = texts.get(f"quest.boss.name.{quest}", "")
+        if not readable(name):
+            continue
+        for look in marked:
+            out.setdefault(look, Counter())[name] += 1
+        if not marked:
+            unmarked.setdefault(name, []).append(looks)
+    for name, quests in unmarked.items():
+        seen = Counter(look for looks in quests for look in looks)
+        ranked = sorted(((seen[v] / appears[v], v) for v in seen if seen[v] >= 0.8 * len(quests)), reverse=True)
+        if ranked and ranked[0][0] >= 0.1 and (len(ranked) == 1 or ranked[0][0] >= 2 * ranked[1][0]):
+            out.setdefault(ranked[0][1], Counter())[name] += len(quests)
     return out
 
 
 def model_rows(assets: list[str], master: dict[str, list[dict]], texts: dict[str, str]) -> list[tuple]:
-    """(asset, section, family, family name, name) for each model of MODEL_FAMILIES. A model is named by the
-    actors that use it (actor.object.name via m_actor_object and m_actor) or, for an enemy, by the bosses it
-    plays; its family (the first five letters: mt008) by the name most of its models share, an enemy's
-    without the element ("Multi-limb Type: Fire" is a Multi-limb Type)."""
-    actors = {r["ActorId"]: r["ActorAssetId"] for r in master.get("m_actor", [])}
+    """(asset, section, family, family name, name) for each model of MODEL_FAMILIES. An enemy is named by the
+    game's own name for its model (costume.name.mt002004), else by the bosses it plays; anyone else by the
+    actors that use the model (actor.object.name via m_actor_object, or m_actor's own name id). A family (the
+    first five letters: mt002) is named by its first look without the element ("Puppet Type"), else by the
+    name most of its looks share."""
     named = {}
+    for r in master.get("m_actor", []):
+        name = texts.get(f"actor.object.name.{r['NameActorTextId']}", "") if r["NameActorTextId"] else ""
+        if readable(name):
+            named.setdefault(r["ActorAssetId"], Counter())[name] += 1
+    actors = {r["ActorId"]: r["ActorAssetId"] for r in master.get("m_actor", [])}
     for r in sorted(master.get("m_actor_object", []), key=lambda r: r["ActorObjectId"]):
         name = texts.get(f"actor.object.name.{r['ActorObjectId']}", "")
         if r["ActorId"] in actors and readable(name):
-            named.setdefault(actors[r["ActorId"]], Counter())[name] += 1
+            named.setdefault(actors[r["ActorId"]], Counter())[name] += 2  # a role's own name outranks the generic one
     for asset, names in enemy_names(master, texts).items():
         named[asset] = names
     own = {a: named[a].most_common(1)[0][0] for a in assets if a in named}
+    for a in assets:
+        if readable(texts.get(f"costume.name.{a}", "")):
+            own[a] = texts[f"costume.name.{a}"]
     families = {}
     for a in assets:
         if a in own:
             families.setdefault(a[:5], Counter())[own[a].split(": ")[0] if a.startswith("mt") else own[a]] += 1
     out = []
     for a in assets:
-        family = families.get(a[:5])
-        out.append((a, MODEL_FAMILIES[a[:2]], a[:5], family.most_common(1)[0][0] if family else "", own.get(a, "")))
+        first = min((b for b in assets if b[:5] == a[:5] and b in own), default="")
+        family = own[first].split(": ")[0] if a.startswith("mt") and first else             (families[a[:5]].most_common(1)[0][0] if a[:5] in families else "")
+        name = own.get(a, "")
+        if not name and a.startswith("mt") and family and a[5] in ENEMY_ELEMENTS:
+            name = f"{family}: {ENEMY_ELEMENTS[a[5]]}"  # the variation's hundreds are its element, as in all 99 named ones
+        out.append((a, MODEL_FAMILIES[a[:2]], a[:5], family, name))
     return out
 
 
@@ -625,7 +659,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                             "OR key LIKE 'limit.content.story.%' OR key LIKE 'content.story.%' OR key LIKE 'quest.main.chapter_%' "
                             "OR key LIKE 'mqt.%' OR key LIKE 'character.name.%' OR key LIKE 'report.title.%' "
                             "OR key LIKE 'cage.memory.title.%' OR key LIKE 'movie.title.name.%' OR key LIKE 'record.title.name.%' "
-                            "OR key LIKE 'actor.object.name.%' OR key LIKE 'quest.boss.name.%'"))
+                            "OR key LIKE 'actor.object.name.%' OR key LIKE 'quest.boss.name.%' OR key LIKE 'costume.name.mt%'"))
     if maps:
         titles = {(k, g): t for k, g, t in db.execute("SELECT kind, grp, title FROM story_group")}
         db.executemany("INSERT INTO music_use VALUES (?,?,?,?)", sorted(music_uses(maps, tables, texts, titles)))

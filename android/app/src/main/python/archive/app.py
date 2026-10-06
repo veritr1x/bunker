@@ -202,6 +202,9 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             raise HTTPException(404)
         return FileResponse(target, media_type="video/mp4")
 
+    def viewable(asset: str) -> bool:
+        return model is not None and models.has(asset)
+
     CHARACTER_TABS = (("playable", "Playable"), ("companions", "Companions"), ("cast", "Cast"), ("enemies", "Enemies"))
 
     @app.get("/characters")
@@ -212,15 +215,11 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             values["characters"] = archive.characters()
         elif tab == "companions":
             values["companions"] = archive.companions()
-        elif tab in ("cast", "enemies"):
-            # Families with at least one model the viewer can show.
-            shown = ("Main cast", "Story characters") if tab == "cast" else ("Enemies",)
-            families = []
-            for f in archive.model_families(shown):
-                f["models"] = [m for m in f["models"] if model is not None and models.has(m["asset"])]
-                if f["models"]:
-                    families.append(f)
-            values["groups"] = [{"name": s, "families": [f for f in families if f["section"] == s]} for s in shown]
+        elif tab in Archive.MODEL_TABS:
+            # The models the viewer can show, by section; the families nobody names last.
+            families = archive.model_families(tab, viewable)
+            values["groups"] = [{"name": s, "families": [f for f in families if f["section"] == s]}
+                                for s in Archive.MODEL_TABS[tab] + ("Unnamed",)]
         else:
             raise HTTPException(404)
         return page(request, "characters.html", "characters", **values)
@@ -268,15 +267,13 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             return page(request, "viewer.html", "characters", subject=asset, heading=found["name"], siblings=[],
                         crumbs=[("/characters?tab=companions", "Companions"), (f"/companion/{asset}", found["name"])], motions=own_motions)
         if not asset.startswith("ch"):
-            found = archive.model(asset)
+            found = archive.model(asset, viewable)
             if not found:
                 raise HTTPException(404)
-            family = found["family"]
-            tab = "enemies" if family["section"] == "Enemies" else "cast"
+            family, tab = found["family"], found["tab"]
             return page(request, "viewer.html", "characters", subject=asset, heading=found["model"]["label"],
                         crumbs=[(f"/characters?tab={tab}", "Enemies" if tab == "enemies" else "Cast"), (f"/characters?tab={tab}#{family['family']}", family["name"])],
-                        siblings=[(m["asset"], m["label"]) for m in family["models"] if models.has(m["asset"])], motions=own_motions,
-                        sibling_title="Look")
+                        siblings=[(m["asset"], m["label"]) for m in family["models"]], motions=own_motions, sibling_title="Look")
         found = archive.costume(asset)
         if not found:
             raise HTTPException(404)

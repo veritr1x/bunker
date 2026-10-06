@@ -144,11 +144,21 @@
 - Other models: the Characters tab lists Mama and the cast (ma), story
   characters (np, pc, pe, sp, um) and enemies (mt) by family: 10, 248
   and 230 models (110 enemy looks borrow their family's skeleton; mt042001
-  has none and is left out).
-  Names come from actor.object.name, and an enemy's from the boss names of
-  the quests it fights in (quest -> scenes -> battle groups -> NPC deck ->
-  boss-type member -> costume skeleton and variation); garbled names
-  (■ blocks, "&f33") are skipped and families nobody names are numbered.
+  has none and is left out). An enemy is named by the game's own name for
+  its model (costume.name.mt…, 148 looks: Beast Type, Puppet Type, Sea
+  Creature Type…), else by the boss names of the quests it fights in
+  (quest -> scenes -> battle groups -> NPC deck -> boss-type member ->
+  costume skeleton and variation). Event puppets are never marked boss; a
+  boss name with no marked boss goes to the look fought in every such quest
+  and seldom elsewhere (Birthday Puppet is mt002046). Looks still unnamed
+  take their family's name and element (variation 1xx-5xx is Fire, Wind,
+  Water, Light, Dark in all 99 named looks). 9 enemy looks stay numbered
+  and one family (mt043, whose boss name is the garbled "%ol13##") is
+  unnamed. The cast's names come from actor.object.name (by actor object
+  and by m_actor's name id: the um models are "Box"); 36 story families,
+  mostly silent extras and props, have no English name anywhere ("-" or
+  absent, and never a speaker) and are listed last under Unnamed. Garbled
+  names (■ blocks, "&f33") are skipped.
   Enemy looks drew their textures from the family's first look, so the
   model code now loads those too (mt008101). The props (oa) are left out.
   Character voice lines keep their numbered labels: the outgame voice

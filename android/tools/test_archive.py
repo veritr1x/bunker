@@ -236,11 +236,15 @@ class RealDump(unittest.TestCase):
             self.assertGreater(sum(len(g["items"]) for g in memoirs), 100)
             self.assertTrue(all(i["art"] for g in memoirs for i in g["items"]))
             self.assertGreater(sum(1 for d in archive.debris() if d["art"]), 150)
-            cast = {f["family"]: f for f in archive.model_families(("Main cast",))}
+            cast = {f["family"]: f for f in archive.model_families("cast")}
             self.assertEqual(cast["ma001"]["name"], "Mama")
-            enemies = {f["family"]: f for f in archive.model_families(("Enemies",))}
+            enemies = {f["family"]: f for f in archive.model_families("enemies")}
+            # The game's own model names first (costume.name.mt…), then boss names.
             self.assertEqual(enemies["mt008"]["name"], "Multi-limb Type")
+            self.assertEqual(enemies["mt002"]["name"], "Puppet Type")
+            self.assertIn("Kimono Puppet", {m["label"] for m in enemies["mt002"]["models"]})
             self.assertFalse([f for f in enemies.values() if "■" in f["name"]])
+            self.assertLessEqual(sum(f["section"] == "Unnamed" for f in enemies.values()), 2)
             if scenario:
                 self.assertTrue(archive.group_label("events", "001010").startswith("Record:"))
                 self.assertGreater(sum(1 for s in archive.recollections() for h in s["headings"] for i in h["items"] if i["art"]), 300)

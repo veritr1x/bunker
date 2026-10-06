@@ -549,38 +549,44 @@ class Archive:
 
     # ---- Other models -------------------------------------------------------------
     MODEL_SECTIONS = ("Main cast", "Story characters", "Enemies")
+    MODEL_TABS = {"cast": ("Main cast", "Story characters"), "enemies": ("Enemies",)}
 
-    def model_families(self, sections: tuple) -> list[dict]:
-        """The other models in the given sections, family by family (mt008: Multi-limb Type and its looks)."""
+    def model_families(self, tab: str, keep=lambda asset: True) -> list[dict]:
+        """A Characters tab's other models (those keep() allows), family by family (mt008: Multi-limb Type and its
+        looks). Families the game never names come last, numbered, in an "Unnamed" section."""
+        sections = self.MODEL_TABS[tab]
         with self.db() as db:
             rows = db.execute("SELECT * FROM model WHERE section IN (%s) ORDER BY section, family, asset" % ",".join("?" * len(sections)),
                               [self.MODEL_SECTIONS.index(s) for s in sections]).fetchall()
-        out, unnamed = [], {}
+        out = []
         for r in rows:
+            if not keep(r["asset"]):
+                continue
             if not out or out[-1]["family"] != r["family"]:
-                section = self.MODEL_SECTIONS[r["section"]]
-                name = r["family_name"]
-                if not name:  # no actor or boss names this family: numbered, one count per section
-                    unnamed[section] = unnamed.get(section, 0) + 1
-                    name = f"{'Unnamed enemy' if section == 'Enemies' else 'Unnamed figure'} {unnamed[section]}"
-                out.append({"family": r["family"], "section": section, "name": name, "models": []})
+                out.append({"family": r["family"], "section": self.MODEL_SECTIONS[r["section"]], "name": r["family_name"], "models": []})
             out[-1]["models"].append({"asset": r["asset"], "name": r["name"]})
+        unnamed = 0
         for family in out:
             if len(family["models"]) == 1 and family["models"][0]["name"]:
                 family["name"] = family["models"][0]["name"]  # one look: its own name (Cursed God: Wind)
+            if not family["name"]:
+                unnamed += 1
+                family["section"], family["name"] = "Unnamed", f"{'Enemy' if tab == 'enemies' else 'Figure'} {unnamed}"
             # Each look is named for itself where it can be, else numbered.
             names = [m["name"] or family["name"] for m in family["models"]]
             for i, m in enumerate(family["models"]):
                 m["label"] = names[i] if names.count(names[i]) == 1 else f"{names[i]} · {names[:i + 1].count(names[i])}"
-        return out
+        return [f for f in out if f["section"] != "Unnamed"] + [f for f in out if f["section"] == "Unnamed"]
 
-    def model(self, asset: str) -> dict | None:
+    def model(self, asset: str, keep=lambda asset: True) -> dict | None:
         with self.db() as db:
             row = db.execute("SELECT section, family FROM model WHERE asset=?", (asset,)).fetchone()
         if not row:
             return None
-        family = next(f for f in self.model_families((self.MODEL_SECTIONS[row["section"]],)) if f["family"] == row["family"])
-        return {"family": family, "model": next(m for m in family["models"] if m["asset"] == asset)}
+        tab = next(t for t, sections in self.MODEL_TABS.items() if self.MODEL_SECTIONS[row["section"]] in sections)
+        family = next((f for f in self.model_families(tab, keep) if f["family"] == row["family"]), None)
+        model = next((m for m in family["models"] if m["asset"] == asset), None) if family else None
+        return {"tab": tab, "family": family, "model": model} if model else None
 
     # ---- Gallery ----------------------------------------------------------------
     GALLERY_TABS = (("stills", "Stills"), ("events", "Event scenes"), ("library", "Library art"), ("photos", "Photos"))
