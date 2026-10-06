@@ -18,6 +18,7 @@ import java.net.URL;
 /**
  * Runs in the game's own process before the game starts (providers are created
  * at process start). It serves no data. It:
+ * - applies the frame rate and resolution chosen in Pod Programs (see DisplayPatch);
  * - sends the game's loopback requests past any phone proxy (see LoopbackProxy);
  * - makes sure the local server is running when the game opens. The launcher
  *   starts the server before the game, but Android can also reopen the game
@@ -29,6 +30,7 @@ public final class GameProcessProvider extends ContentProvider {
     @Override public boolean onCreate() {
         LoopbackProxy.install();
         Application app = (Application) getContext().getApplicationContext();
+        DisplayPatch.apply(app);
         refreshGameCodeAfterUpdate(app);
         forgetListOnPortChange(app);
         String game = gameActivity(app);

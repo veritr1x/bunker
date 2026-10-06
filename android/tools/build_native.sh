@@ -11,3 +11,6 @@ test -f gen/proto/user.pb.go || { echo "Generate protobuf first: cd server && ma
 mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
 go build -buildmode=c-shared -trimpath -ldflags='-s -w -extldflags=-Wl,-z,max-page-size=16384,-z,common-page-size=16384' \
   -o ../android/app/src/main/jniLibs/arm64-v8a/liblunar.so ./cmd/android-bridge
+# Frame rate and resolution choices, applied in the game's process (DisplayPatch.java).
+"$CC" -shared -fPIC -O2 -Wall -Wextra -Werror -s -Wl,-z,max-page-size=16384,-z,common-page-size=16384 \
+  -o ../android/app/src/main/jniLibs/arm64-v8a/libbunkerdisplay.so ../android/app/src/main/cpp/display_patch.c

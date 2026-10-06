@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Display{% endblock %}
+{% block content %}
+<h1>Display</h1>
+{% if result and not result.ok %}<div class="banner error">&gt; The game could not use these settings: {{ result.error }}</div>{% endif %}
+<form action="/display" method="post" class="panel">
+  <label for="fps">Frame rate</label>
+  <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+  <label for="resolution">Resolution</label>
+  <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+  <p>The resolution applies to the game's higher graphics settings and never goes above the screen's own. Power saving keeps its lower frame rate.</p>
+  <button type="submit">Save</button>
+</form>
+<p>Experimental: higher settings use more battery and make the device warmer. The game uses them the next time it opens.</p>
+{% endblock %}
