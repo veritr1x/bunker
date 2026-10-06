@@ -8,7 +8,6 @@
   <form method="post" action="/setup/retry"><button type="submit">Try again</button></form>
   {% else %}
   <strong>Building the archive index</strong>
-  <p class="note">Reading the story text and master data once, so pages open instantly. This takes a minute or two. You can leave this screen.</p>
   <div class="blocks" id="blocks" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">{% for i in range(20) %}<i></i>{% endfor %}</div>
   <dl class="kv"><dt>Step</dt><dd id="step">{{ state.step or "Starting" }}</dd><dt>Files read</dt><dd id="count">{{ state.done }} of {{ state.total }}</dd></dl>
   {% endif %}

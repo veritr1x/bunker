@@ -102,6 +102,15 @@ footer.pager .button { display: inline-flex; align-items: center; min-height: 44
 .track strong { flex: 1 1 100%; font-size: 15px; }
 .track .parts { display: flex; gap: 6px; flex-wrap: wrap; }
 .track .where { flex: 1 1 100%; margin-top: -8px; }
+.link { display: inline; min-height: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; letter-spacing: inherit;
+  text-transform: none; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.places-dialog h2:focus { outline: none; }
+.places-dialog { width: min(92vw, 520px); max-height: 80vh; overflow-y: auto; color: var(--fg-dark); }
+.places-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+.places-dialog h3 { margin: 14px 0 4px; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); }
+.places-dialog ul { margin: 0; padding: 0 0 0 18px; }
+.places-dialog li { padding: 3px 0; font-size: 15px; }
+.places-dialog form { margin-top: 16px; text-align: right; }
 footer.player-bar { display: flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; }
 footer.player-bar[hidden] { display: none; }
 .player-bar .now { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; }

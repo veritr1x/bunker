@@ -2,7 +2,7 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › Music</p>
 <h1>Music</h1>
-<p class="note">{{ count(groups|sum(attribute="tracks", start=[])|length, "track") }}, filed where each is first heard. The game names them by number; parts are the versions it switches between.</p>
+<p class="note">{{ count(groups|sum(attribute="tracks", start=[])|length, "track") }}</p>
 <div id="tracks">
 {% for section in groups %}
 <details class="panel fold movies"{% if loop.first %} open{% endif %}>
@@ -11,7 +11,7 @@
     {% for t in section.tracks %}
     <div class="track">
       <strong>Track {{ t.track }}</strong>
-      {% if t.places %}<span class="note where">{{ t.places[0] }}{% if t.places|length > 1 %} · and {{ count(t.places|length - 1, "other place") }}{% endif %}</span>{% endif %}
+      {% if t.places %}<span class="note where">{{ t.places[0] }}{% if t.places|length > 1 %} · <button type="button" class="link places" data-track="{{ t.track }}" data-where="{{ t.where|tojson|forceescape }}">and {{ count(t.places|length - 1, "other place") }}</button>{% endif %}</span>{% endif %}
       <span class="parts">{% for p in t.parts %}<button type="button" class="chip" data-src="{{ snd(p.path) }}" data-title="Track {{ t.track }}{% if t.parts|length > 1 %} · part {{ p.part }}{% endif %}">{% if t.parts|length > 1 %}Part {{ p.part }}{% else %}Play{% endif %}</button>{% endfor %}</span>
     </div>
     {% endfor %}
@@ -21,6 +21,11 @@
 </div>
 {% endblock %}
 {% block footer %}
+<dialog class="panel places-dialog" id="places" aria-labelledby="places-title">
+  <h2 class="bracket-header" id="places-title" tabindex="-1"></h2>
+  <div id="places-list"></div>
+  <form method="dialog"><button class="button" type="submit">Close</button></form>
+</dialog>
 <footer class="player-bar" id="player" hidden>
   <button type="button" class="play" id="toggle" aria-label="Pause">❚❚</button>
   <div class="now"><strong id="title"></strong><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position"></div>
@@ -43,6 +48,24 @@
   audio.addEventListener("timeupdate", () => { if (audio.duration) seek.value = Math.round(audio.currentTime / audio.duration * 1000); });
   seek.addEventListener("input", () => { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; });
   loop.addEventListener("click", () => { audio.loop = !audio.loop; loop.classList.toggle("on", audio.loop); loop.setAttribute("aria-pressed", audio.loop); });
+
+  // Every place a track plays, grouped by section, in a dialog; built as text so nothing from the data is markup.
+  const dialog = document.getElementById("places"), heading = document.getElementById("places-title"), list = document.getElementById("places-list");
+  document.querySelectorAll("#tracks .places").forEach(b => b.addEventListener("click", () => {
+    const where = JSON.parse(b.dataset.where);
+    heading.textContent = "Track " + b.dataset.track + " · " + where.reduce((n, g) => n + g.places.length, 0) + " places";
+    list.replaceChildren(...where.map(g => {
+      const block = document.createElement("section"), name = document.createElement("h3"), items = document.createElement("ul");
+      name.textContent = g.name;
+      items.append(...g.places.map(p => { const li = document.createElement("li"); li.textContent = p; return li; }));
+      block.append(name, items);
+      return block;
+    }));
+    dialog.showModal();
+    heading.focus();  // start at the top, not at the Close button below the list
+    dialog.scrollTop = 0;
+  }));
+  dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); });  // a tap outside closes it
 })();
 </script>
 {% endblock %}

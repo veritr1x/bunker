@@ -19,7 +19,6 @@
   </div>
   {% endfor %}
 {% elif tab == "recollections" %}
-  <p class="note">The Library's summaries, filed as the game files them.</p>
   {% for section in library %}
   <details class="panel fold"{% if loop.first %} open{% endif %}>
     <summary>{{ section.name }}&nbsp;<span class="note">· {{ count(section.headings|length, section.unit) }}</span></summary>

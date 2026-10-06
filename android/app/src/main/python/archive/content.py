@@ -454,19 +454,28 @@ class Archive:
         for r in rows:
             if r["track"] == "9999":
                 continue  # 8 s of silence (3.9 KB of Vorbis) that maps play to stop the music
-            tracks.setdefault(r["track"], {"track": r["track"], "parts": [], "places": []})["parts"].append({"part": r["part"], "path": r["path"]})
+            tracks.setdefault(r["track"], {"track": r["track"], "parts": [], "places": [], "where": []})["parts"].append(
+                {"part": r["part"], "path": r["path"]})
+
+        def section_name(index):
+            name = self.MUSIC_SECTIONS[index] if index is not None else "Other"
+            return name + (f" · {self.season_title(int(name.split()[1]))}" if name.startswith("Season ") else "")
+
         first = {}
         for r in uses:
-            if r["track"] in tracks:
-                first.setdefault(r["track"], (r["section"], r["sort"]))
-                if r["place"] not in tracks[r["track"]]["places"]:
-                    tracks[r["track"]]["places"].append(r["place"])
+            track = tracks.get(r["track"])
+            if not track or r["place"] in track["places"]:
+                continue
+            first.setdefault(r["track"], (r["section"], r["sort"]))
+            track["places"].append(r["place"])
+            # Every place, grouped by section, for the list a track opens.
+            name = section_name(r["section"])
+            if not track["where"] or track["where"][-1]["name"] != name:
+                track["where"].append({"name": name, "places": []})
+            track["where"][-1]["places"].append(r["place"])
         sections = {}
         for track in sorted(tracks.values(), key=lambda t: (first.get(t["track"], (99, 0)), int(t["track"]) if t["track"].isdigit() else 0)):
-            index = first.get(track["track"], (None,))[0]
-            name = self.MUSIC_SECTIONS[index] if index is not None else "Other"
-            if name.startswith("Season "):
-                name += f" · {self.season_title(int(name.split()[1]))}"
+            name = section_name(first.get(track["track"], (None,))[0])
             sections.setdefault(name, {"name": name, "tracks": []})["tracks"].append(track)
         return list(sections.values())
 

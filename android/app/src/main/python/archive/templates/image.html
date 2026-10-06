@@ -4,7 +4,7 @@
 <h1>{{ image.name }}</h1>
 {% if images %}
 <a class="art full" href="{{ img("full", image.path) }}"><img src="{{ img("view", image.path) }}" alt="{{ image.name }}"></a>
-<p class="note">Tap the image for full size. <a href="{{ img("full", image.path) }}" download="{{ image.name }}.png" id="save">Save PNG</a></p>
+<p class="note"><a href="{{ img("full", image.path) }}" download="{{ image.name }}.png" id="save">Save PNG</a></p>
 <script>
 // In the app, WebView ignores download links; the Bunker saves the picture where the user picks.
 document.getElementById("save").addEventListener("click", (event) => {
