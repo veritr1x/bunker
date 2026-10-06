@@ -27,8 +27,7 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
     and at 120 fps 1080p is easier on the GPU than the screen's own resolution.
 - **Archive** (Android): the whole story by season and chapter with who says each line, the
   records, every costume with its art, story and voice lines, 3D models with field and battle
-  motions, the soundtrack, a gallery, the movies, and search. It reads the imported game files and
-  never changes your save.
+  motions, the soundtrack, a gallery, the movies, and search.
 - **Game Mode**: the app declares itself a game, so iOS Game Mode and Android's Game Mode and Game
   Dashboard apply.
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.
