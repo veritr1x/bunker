@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import index
 from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
-from .content import KINDS, Archive, plain, rich
+from .content import KINDS, Archive, plain, quoted, rich
 
 HERE = Path(__file__).resolve().parent
 # Pages run only the Archive's own code. The 3D viewer's glTF loader reads embedded textures
@@ -69,6 +69,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["rich"] = rich
     templates.env.filters["plain"] = plain
+    templates.env.filters["quoted"] = quoted
     # The WebView keeps static files across app updates; their URLs change with their content instead.
     own = sorted(p for p in (HERE / "static").rglob("*") if p.is_file() and "vendor" not in p.parts)
     static_version = hashlib.sha256(b"".join(p.read_bytes() for p in own)).hexdigest()[:12]
@@ -153,7 +154,8 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         need_index(request)
         if kind not in KINDS:
             raise HTTPException(404)
-        return page(request, "scenes.html", "story", heading=f"{KINDS[kind]} · {grp.upper()}", title="",
+        name = archive.group_title(kind, grp)
+        return page(request, "scenes.html", "story", heading=name or f"{KINDS[kind]} · {grp.upper()}", title=KINDS[kind] if name else "",
                     crumb=KINDS[kind], scenes=archive.scenes(kind=kind, grp=grp))
 
     @app.get("/scene/{scene_id}")
@@ -166,7 +168,8 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             number, title = archive.chapter_label(found["season"], found["chapter"])
             back, place = f"/story/main/{found['season']}/{found['chapter']}", number
         else:
-            back, place = f"/story/{found['kind']}/{found['grp']}", KINDS.get(found["kind"], found["kind"])
+            back = f"/story/{found['kind']}/{found['grp']}"
+            place = archive.group_title(found["kind"], found["grp"]) or KINDS.get(found["kind"], found["kind"])
         return page(request, "reader.html", "story", scene=found, back=back, place=place)
 
     @app.get("/records")

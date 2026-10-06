@@ -92,8 +92,14 @@
   map number (season, route, chapter order), which regroups the main story
   into the game's chapters with their own names: both Season 2 routes, the
   intermissions and Season 1's Interval Prologue; the two Season 2 endings,
-  played by both routes' finales, sit in the first route's. Not checked on
-  iOS or a physical phone.
+  played by both routes' finales, sit in the first route's. The other
+  stories are named the same way: the event maps in `character`,
+  `endcontents`, `limitcontents`, `marathon` and `side` name the text files
+  they read, and their quest map numbers lead through the event quests to
+  the Character Quest's character (shared by that character's Dark Memories
+  and Recollections of Dusk), the Record event's title, or the side story's
+  character. All 112 story groups are named; the battle prompts every side
+  map shares are "Other scenes". Not checked on iOS or a physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04
 

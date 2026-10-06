@@ -26,20 +26,24 @@ func TestScenarioLines(t *testing.T) {
 		t.Fatal("single-line node missing")
 	}
 	out := filepath.Join(t.TempDir(), "scenario.json")
-	if err := ScenarioToJSON(filepath.Join(root, "eventmap/main"), out); err != nil {
+	if err := ScenarioToJSON(filepath.Join(root, "eventmap"), out); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(out)
-	var maps map[string][][3]any
+	var maps map[string]EventMap
 	if err := json.Unmarshal(data, &maps); err != nil {
 		t.Fatal(err)
 	}
 	total := 0
-	for _, l := range maps {
-		total += len(l)
+	for _, m := range maps {
+		total += len(m.Lines)
 	}
 	if len(maps) < 1000 || total < 7000 {
 		t.Fatalf("%d maps, %d lines", len(maps), total)
+	}
+	// A Dark Memory's map names the text it reads.
+	if paths := maps["endcontents/0005003000001n"].Paths; len(paths) == 0 || paths[0] != "sub)season01)eid_a01040_1010g" {
+		t.Fatalf("endcontents paths %v", paths)
 	}
 	t.Logf("%d event maps, %d lines", len(maps), total)
 }

@@ -7,7 +7,7 @@
 <h2 class="bracket-header">Story lines · {{ results.lines|length }}</h2>
 <div class="tool-grid">
   {% for r in results.lines %}
-  <a href="/scene/{{ r.id }}">{{ r.text|plain(140) }}<span>{% if r.area == "main" %}main · season {{ r.season }} · chapter {{ r.chapter }}{% else %}{{ kinds.get(r.kind, r.kind)|lower }} · {{ r.name }}{% endif %}</span></a>
+  <a href="/scene/{{ r.id }}">{{ r.text|plain(140) }}<span>{% if r.area == "main" %}main · season {{ r.season }} · chapter {{ r.chapter }}{% else %}{{ kinds.get(r.kind, r.kind) }} · {{ r.title or r.name }}{% endif %}</span></a>
   {% else %}<span class="off">No lines found</span>{% endfor %}
 </div>
 <h2 class="bracket-header">Records · {{ results.records|length }}</h2>

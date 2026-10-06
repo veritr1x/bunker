@@ -17,11 +17,13 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 6
+FORMAT = 7
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
                  "m_character_voice_unlock_condition")
+# Read while building only, to name story groups; not kept in the index.
+BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character")
 # Gallery: (category, folder under assetbundle/, file pattern, group taken from the path)
 GALLERY = (
     ("stills", "ui/still", "*/still_main_*.assetbundle", lambda rel: rel.parts[0]),
@@ -143,16 +145,85 @@ def line_speakers(lines: list[tuple[str, str, str]], maps: dict[str, list], name
     return out
 
 
-def apply_scenario(db, event_maps: Path, target: Path, scenario) -> int:
-    """Regroup main-story scenes by quest chapter and name speakers; returns the lines named."""
+def story_titles(maps: dict[str, dict], master: dict[str, list[dict]], texts: dict[str, str]) -> dict[tuple, str]:
+    """(kind, group) -> name for the stories outside the main one.
+
+    Event maps are named by quest map number and list the text files they read. Character
+    Quests, Dark Memories and Recollections of Dusk share a code per character (cid_a02020,
+    eid_a02020, lid_a02020: Rion); the Character Quest's event chapter names the character.
+    Events (vid) take their event's title, side stories (sid) are numbered by character."""
+    chapters = {c["EventQuestChapterId"]: c for c in master.get("m_event_quest_chapter", [])}
+    sequences = {}
+    for r in master.get("m_event_quest_sequence_group", []):
+        sequences.setdefault(r["EventQuestSequenceGroupId"], []).append(r["EventQuestSequenceId"])
+    chapter_of_quest = {}
+    sequence_quests = {}
+    for r in master.get("m_event_quest_sequence", []):
+        sequence_quests.setdefault(r["EventQuestSequenceId"], []).append(r["QuestId"])
+    for cid, c in chapters.items():
+        for s in sequences.get(c["EventQuestSequenceGroupId"], []):
+            for q in sequence_quests.get(s, []):
+                chapter_of_quest.setdefault(q, cid)
+    chapter_of_upper = {}
+    for r in master.get("m_quest_scene", []):
+        if r["EventMapNumberUpper"] and r["QuestId"] in chapter_of_quest:
+            chapter_of_upper.setdefault(r["EventMapNumberUpper"], Counter())[chapter_of_quest[r["QuestId"]]] += 1
+    characters = {}
+    for r in master.get("m_event_quest_chapter_character", []):
+        characters.setdefault(r["EventQuestChapterId"], r["CharacterId"])
+    votes: dict[tuple, Counter] = {}
+    for name, m in maps.items():
+        number = name.rsplit("/", 1)[-1][:7]
+        if not number.isdigit():
+            continue
+        for path in m.get("paths", []):
+            parts = path.split(")")
+            where = describe_scene(parts[0], "", parts[-1])
+            if where["kind"] in ("cid", "vid", "sid"):
+                votes.setdefault((where["kind"], where["group"]), Counter())[int(number)] += 1
+    character_of_code, out = {}, {}
+    for (kind, group), counter in votes.items():
+        upper, n = counter.most_common(1)[0]
+        if n < 0.6 * sum(counter.values()):
+            out[(kind, group)] = "Other scenes"  # battle prompts every map shares, like the main story's a999
+            continue
+        if kind == "sid":
+            character = upper  # side story maps are numbered by character
+        else:
+            found = chapter_of_upper.get(upper)
+            chapter = found.most_common(1)[0][0] if found else None
+            if kind == "vid":
+                title = texts.get(f"quest.event.chapter_title.{chapters[chapter]['NameEventQuestTextId']}") if chapter else None
+                if title:
+                    out[(kind, group)] = title
+                continue
+            character = characters.get(chapter)
+        name = texts.get(f"character.name.{character}")
+        if name:
+            out[(kind, group)] = name
+            if kind == "cid":
+                character_of_code[group] = name
+    for code, name in character_of_code.items():
+        for kind in ("eid", "lid"):
+            out[(kind, code)] = name
+    return out
+
+
+def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[str, list[dict]]) -> int:
+    """Regroup main-story scenes by quest chapter, name speakers and stories; returns the lines named."""
     target.unlink(missing_ok=True)
     error = str(scenario(str(event_maps), str(target)) or "")
     if error or not target.is_file():
         return 0
     try:
-        maps = json.loads(target.read_text(encoding="utf-8"))
+        found = json.loads(target.read_text(encoding="utf-8"))
     finally:
         target.unlink(missing_ok=True)
+    texts = dict(db.execute("SELECT key, value FROM text WHERE key LIKE 'character.name.%' OR key LIKE 'quest.event.chapter_title.%'"))
+    db.executemany("INSERT OR REPLACE INTO story_group VALUES (?,?,?)",
+                   [(kind, group, title) for (kind, group), title in story_titles(found, master, texts).items()])
+    # The main story's maps, by name alone, with the lines they play.
+    maps = {name.split("/", 1)[1]: m.get("lines", []) for name, m in found.items() if name.startswith("main/")}
     groups = chapter_groups(maps)
     for scene, kind, season, chapter, grp in db.execute("SELECT id, kind, season, chapter, grp FROM scene WHERE area='main'").fetchall():
         if kind == "narration":  # 2201_001: season 2's intro narration for the chapter whose scenes are b010
@@ -184,7 +255,7 @@ def load_master(master_path: Path) -> dict[str, list[dict]]:
         toc, blob = exc.unpacked, exc.extra
     schemas = dump_masterdata.load_schemas()
     tables = {}
-    for table in MASTER_TABLES:
+    for table in MASTER_TABLES + BUILD_TABLES:
         if table in toc and table in schemas:
             offset, length = toc[table]
             rows = dump_masterdata.decompress_table(blob, offset, length)
@@ -232,6 +303,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         CREATE TABLE image(category TEXT, grp TEXT, name TEXT, path TEXT PRIMARY KEY);
         CREATE TABLE character_voice(character INT, kind TEXT, seq INT, path TEXT);
         CREATE TABLE music(track TEXT, part INT, path TEXT PRIMARY KEY);
+        CREATE TABLE story_group(kind TEXT, grp TEXT, title TEXT, PRIMARY KEY(kind, grp));
     """)
     # Spoken lines: voice/en/…/<line key>.assetbundle, named like the text line they voice.
     voice_root = assetbundle / "voice" / "en"
@@ -260,14 +332,16 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                 db.executemany("INSERT OR REPLACE INTO text VALUES (?,?,?)", [(k, clean(v), folder) for k, v in entries.items()])
         if done % 50 == 0 or done == len(bundles):
             progress(done, len(bundles), "Story text")
+    progress(len(bundles), len(bundles), "Master data")
+    tables = load_master(master)
+    for table, rows in tables.items():
+        if table not in BUILD_TABLES:
+            db.execute("INSERT INTO meta VALUES (?,?)", ("master:" + table, json.dumps(rows, ensure_ascii=False)))
     speakers = 0
-    event_maps = assetbundle / "eventmap" / "main"
+    event_maps = assetbundle / "eventmap"
     if scenario is not None and event_maps.is_dir():
         progress(len(bundles), len(bundles), "Speakers and chapters")
-        speakers = apply_scenario(db, event_maps, db_path.with_name("scenario.json"), scenario)
-    progress(len(bundles), len(bundles), "Master data")
-    for table, rows in load_master(master).items():
-        db.execute("INSERT INTO meta VALUES (?,?)", ("master:" + table, json.dumps(rows, ensure_ascii=False)))
+        speakers = apply_scenario(db, event_maps, db_path.with_name("scenario.json"), scenario, tables)
     costumes = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_costume'").fetchone()[0])
     costume_art = assetbundle / "ui" / "costume"
     have = {d.name for d in costume_art.iterdir()} if costume_art.is_dir() else set()

@@ -73,6 +73,25 @@ class Parsing(unittest.TestCase):
         self.assertEqual(index.line_speakers(lines, maps, names),
                          {"s_x_00100_01060_1": "Hina", "s_x_00200_01080_1": "Soldier", "s_x_00300_01060_1": "Hina"})
 
+    def test_stories_take_their_character_or_event_names(self):
+        maps = {"character/0000008001001p": {"paths": ["sub)season01)cid_a02020_1010g"]},
+                "endcontents/0008004000001n": {"paths": ["sub)season01)eid_a02020_1010g"]},
+                "marathon/0001020001001n": {"paths": ["sub)season01)vid_001020_1"]},
+                "side/0001008000001s": {"paths": ["side)sid_0010_0010g", "side)sid_9999_0010g"]},
+                "side/0001019000001s": {"paths": ["side)sid_0000_0010g", "side)sid_9999_0010g"]}}
+        master = {"m_event_quest_chapter": [{"EventQuestChapterId": 901, "NameEventQuestTextId": 1, "EventQuestSequenceGroupId": 1},
+                                            {"EventQuestChapterId": 501, "NameEventQuestTextId": 2, "EventQuestSequenceGroupId": 2}],
+                  "m_event_quest_sequence_group": [{"EventQuestSequenceGroupId": 1, "EventQuestSequenceId": 1},
+                                                   {"EventQuestSequenceGroupId": 2, "EventQuestSequenceId": 2}],
+                  "m_event_quest_sequence": [{"EventQuestSequenceId": 1, "QuestId": 120001}, {"EventQuestSequenceId": 2, "QuestId": 200031}],
+                  "m_quest_scene": [{"QuestId": 120001, "EventMapNumberUpper": 8}, {"QuestId": 200031, "EventMapNumberUpper": 1020}],
+                  "m_event_quest_chapter_character": [{"EventQuestChapterId": 901, "CharacterId": 1008}]}
+        texts = {"character.name.1008": "Rion", "character.name.1019": "Fio", "quest.event.chapter_title.2": "Record: Den of Madness"}
+        self.assertEqual(index.story_titles(maps, master, texts),
+                         {("cid", "a02020"): "Rion", ("eid", "a02020"): "Rion", ("lid", "a02020"): "Rion",
+                          ("vid", "001020"): "Record: Den of Madness", ("sid", "0010"): "Rion", ("sid", "0000"): "Fio",
+                          ("sid", "9999"): "Other scenes"})
+
     def test_mask_name(self):
         base = Path("/a/assetbundle")
         self.assertEqual(index.mask_name(base / "text/en/main/season01/2000_001.assetbundle", base), "text)en)main)season01)2000_001")
@@ -125,6 +144,10 @@ class RealDump(unittest.TestCase):
                 narration = archive.scene(archive.scenes(area="main", season=2, chapter=102)[0]["id"])
                 self.assertFalse(any(line["speaker"] for line in narration["lines"]))
                 self.assertIn("Hina", {line["speaker"] for line in first["lines"]})
+                # Stories outside the main one carry their character's or event's name.
+                self.assertEqual(archive.group_title("eid", "a02020"), "Rion")
+                self.assertTrue(archive.group_title("vid", "001020").startswith("Record:"))
+                self.assertTrue(all(g["title"] for k in ("eid", "lid", "cid", "vid", "sid") for g in archive.sub_groups(k)))
             self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
             # The 3D viewer's glTF loader fetches embedded textures from blob: URLs.
             policy = client.get("/").headers["content-security-policy"]

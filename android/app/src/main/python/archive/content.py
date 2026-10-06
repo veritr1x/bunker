@@ -9,7 +9,9 @@ import sqlite3
 from functools import lru_cache
 from pathlib import Path
 
-KINDS = {"eid": "Event scenes", "lid": "Limited scenes", "cid": "Character scenes", "vid": "Other scenes", "sid": "Side stories"}
+# The game's own names: Dark Memories (end contents), Recollections of Dusk (limit contents), Character
+# Quests, the "Record" events, and Side Stories.
+KINDS = {"eid": "Dark Memories", "lid": "Recollections of Dusk", "cid": "Character Quests", "vid": "Events", "sid": "Side Stories"}
 _TAG = re.compile(r"<(?!/?i>)/?[a-z][^<>]*>", re.I)
 _ANY_TAG = re.compile(r"</?[a-z][^<>]*>", re.I)
 _OPEN_ITALIC = re.compile(r"</?i(?![a-z>])", re.I)  # "</I." in one summary: a tag missing its ">"
@@ -32,6 +34,11 @@ def rich(text: str) -> str:
         else:
             out.append(part)
     return "".join(out).replace("\n", "<br>") + "</i>" * depth
+
+
+def quoted(text: str) -> str:
+    """Text in quotation marks, unless it already opens with one."""
+    return text if text[:1] in ('"', "“", "「", "『") else f"“{text}”"
 
 
 def plain(text: str, limit: int | None = None) -> str:
@@ -120,13 +127,20 @@ class Archive:
 
     def sub_groups(self, kind: str) -> list[dict]:
         with self.db() as db:
-            rows = db.execute("SELECT grp, season, count(*) scenes, sum(lines) lines, min(id) first FROM scene "
-                              "WHERE kind=? GROUP BY grp ORDER BY season, grp", (kind,)).fetchall()
+            rows = db.execute("SELECT scene.grp, season, count(*) scenes, sum(lines) lines, min(id) first, story_group.title FROM scene "
+                              "LEFT JOIN story_group ON story_group.kind = scene.kind AND story_group.grp = scene.grp "
+                              "WHERE scene.kind=? GROUP BY scene.grp ORDER BY season, scene.grp", (kind,)).fetchall()
             out = []
             for r in rows:
                 line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 12 ORDER BY seq LIMIT 1", (r["first"],)).fetchone()
                 out.append({**dict(r), "preview": plain(line[0] if line else "", 90)})
         return out
+
+    def group_title(self, kind: str, grp: str) -> str:
+        """The story's name (a character, an event), or "" when the index has none."""
+        with self.db() as db:
+            row = db.execute("SELECT title FROM story_group WHERE kind=? AND grp=?", (kind, grp)).fetchone()
+        return row[0] if row else ""
 
     def scenes(self, *, area=None, season=None, chapter=None, kind=None, grp=None) -> list[dict]:
         where, args = [], []
@@ -275,8 +289,9 @@ class Archive:
             return {"lines": [], "records": []}
         like = "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         with self.db() as db:
-            lines = db.execute("SELECT scene.id, scene.area, scene.kind, scene.season, scene.chapter, scene.name, line.text FROM line "
-                               "JOIN scene ON scene.id = line.scene WHERE line.text LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
+            lines = db.execute("SELECT scene.id, scene.area, scene.kind, scene.season, scene.chapter, scene.name, line.text, story_group.title "
+                               "FROM line JOIN scene ON scene.id = line.scene LEFT JOIN story_group ON story_group.kind = scene.kind "
+                               "AND story_group.grp = scene.grp WHERE line.text LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
             records = db.execute("SELECT key, value FROM text WHERE (key LIKE 'weapon.story.%' OR key LIKE 'report.description.%' "
                                  "OR key LIKE 'cage.memory.description.%') AND value LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
         return {"lines": [dict(r) for r in lines], "records": [dict(r) for r in records]}
