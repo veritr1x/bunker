@@ -9,6 +9,30 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
 - **Android:** one APK with the launcher, server, content patcher and save editors.
 - **iPhone and iPad:** one IPA with the server and launcher inside the game. See [iOS](docs/IOS.md).
 
+## Features
+
+- **Offline play.** The game and its Lunar Tear server run on the same device. After setup, it
+  needs no computer or Internet connection, and in-game downloads load from the device, even in
+  airplane mode.
+- **The Bunker**, the launcher: imports the resource dump (`.7z`, `.zip` or an extracted folder,
+  copied or used in place), starts Lunar Tear and opens the game, and checks that the game can
+  reach it.
+- **Pod Programs**, on the device:
+  - **Content patcher**: events and shops, with presets and rollback.
+  - **Save data**: automatic snapshots, backups and restore.
+  - **Players**: choose which player the game signs in as, or start a new one.
+  - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
+  - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
+    screen's own. Walking and battles keep their normal speed. Experimental: it uses more battery,
+    and at 120 fps 1080p is easier on the GPU than the screen's own resolution.
+- **Archive** (Android): the whole story by season and chapter with who says each line, the
+  records, every costume with its art, story and voice lines, 3D models with field and battle
+  motions, the soundtrack, a gallery, the movies, and search. It reads the imported game files and
+  never changes your save.
+- **Game Mode**: the app declares itself a game, so iOS Game Mode and Android's Game Mode and Game
+  Dashboard apply.
+- **Light and dark**: follows the device, or choose one in ⋮ → Display.
+
 ## Screenshots
 
 | The Bunker (launcher) | Options menu | Pod Programs |
@@ -51,13 +75,13 @@ To build everything locally instead, follow the step-by-step guide below.
 ## Play on Android
 
 1. Install your locally built APK.
-2. Open it and **Choose** the resource dump's `.7z` (or an extracted folder). A progress bar shows the time left.
-3. Tap **Deploy**. Lunar Tear (the server) starts and the game opens automatically.
+2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
+3. Tap **Deploy**. The server starts and the game opens.
 
-The launcher, the **Bunker**, shows your game files, Lunar Tear and your save, with **Deploy** to play.
-**Open Pod Programs** for content presets, inventory, upgrades, save backup/restore and choosing or starting a player, and **Display**: frame rate up to the screen's maximum refresh rate and up to the screen's own resolution (experimental, uses more battery; at 120 fps, 1080p is easier on the GPU than the screen's own resolution). Close Pod Programs and tap Deploy to resume.
-**Open Archive** to read the whole story (main story by season and chapter with who says each line, every character's Character Quests, Dark Memories and Recollections of Dusk, the Record events and side stories, and the Library's recollections), the records (every weapon's art, stories and 3D model, reports, Lost Archives, memoirs, debris), every character's costumes with their full art and costume stories and their voice lines, each costume in 3D with the character's field and battle motions, the companions, Mama, the story cast and the enemies in 3D, the story read aloud in the original English voices, the whole soundtrack, a gallery of stills, event scenes, library art and photos, watch the movies, and search every line. It reads the game files you imported and never changes your save, so the game keeps running. The first visit builds an index in under a minute.
-**⋮ → Display** switches between light, dark and the system setting.
+The Bunker opens on later launches and deploys the game by itself; tap the Lunar Tear notification
+to return to it. **Open Pod Programs** and **Open Archive** sit on the Bunker; Pod Programs stops the
+game while it is open, so close it and tap **Deploy** to resume. Tap **⋮** for save backup and
+import, the Lunar Tear log and its export, Display (light/dark/system), settings, help and about.
 
 ## Play on iPhone or iPad
 
