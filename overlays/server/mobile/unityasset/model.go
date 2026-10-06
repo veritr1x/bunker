@@ -337,7 +337,25 @@ func CostumeToGLB(actorFolder, target string, opt ModelOptions) error {
 	}
 	skeleton := a.byCABOfBundle(filepath.Join(actorFolder, "mesh", "sk_"+asset+".assetbundle"))
 	if skeleton == nil {
-		return errors.New("this costume has no skeleton bundle")
+		// Some weapon variants carry only their prefab, with the mesh in a sibling's skeleton
+		// bundle (wp005528 draws wp005505's): load the family's skeletons so it resolves.
+		skeleton = a.byCABOfBundle(filepath.Join(actorFolder, "mesh", asset+".assetbundle"))
+		if skeleton == nil || len(asset) < 6 {
+			return errors.New("this costume has no skeleton bundle")
+		}
+		// The family first (wp0055*); a few borrow from another series of the same type (wp006011
+		// draws wp006520's), so widen to the type (wp006*) while anything is still missing.
+		for _, prefix := range []string{asset[:6], asset[:5]} {
+			if a.hasAll(skeleton.sf.Externals) {
+				break
+			}
+			siblings, _ := filepath.Glob(filepath.Join(filepath.Dir(actorFolder), prefix+"*", "mesh", "sk_*.assetbundle"))
+			for _, f := range siblings {
+				if a.byCABOfBundle(f) == nil {
+					_ = a.add(f) // a sibling that will not open only matters if this model needed it
+				}
+			}
+		}
 	}
 	g := &gltfBuilder{doc: map[string]any{"asset": map[string]any{"version": "2.0", "generator": "Bunker Archive"}}}
 
@@ -484,6 +502,17 @@ func CostumeToGLB(actorFolder, target string, opt ModelOptions) error {
 		g.doc["samplers"] = []any{map[string]any{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}}
 	}
 	return g.writeGLB(target)
+}
+
+// hasAll reports whether every external bundle file (archive:/CAB-…/CAB-…) is loaded;
+// Unity's built-in resources never are and do not count.
+func (a *assets) hasAll(externals []string) bool {
+	for _, e := range externals {
+		if name := path.Base(e); strings.HasPrefix(name, "CAB-") && a.byCAB[name] == nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *assets) byCABOfBundle(bundlePath string) *loadedFile {

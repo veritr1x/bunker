@@ -117,6 +117,19 @@ class Parsing(unittest.TestCase):
                                ("Events", "Record: Den of Madness", "", "E"), ("Character Quests", "Rion", "", "C"),
                                ("Recollections of Dusk", "Fio", "", "L"), ("Dark Memories", "a01040", "", "D")})
 
+    def test_models_cover_costumes_and_weapons(self):
+        from archive.media import Models
+        with tempfile.TemporaryDirectory() as folder:
+            actors = Path(folder) / "3d" / "actor"
+            for asset, bundle in (("ch008001", "sk_ch008001"), ("wp001002", "sk_wp001002"), ("wp005528", "wp005528"),
+                                  ("ch019051", "ch019051")):
+                (actors / asset / "mesh").mkdir(parents=True)
+                (actors / asset / "mesh" / f"{bundle}.assetbundle").write_bytes(b"")
+            models = Models(Path(folder), Path(folder) / "cache", lambda *a: "")
+            # A weapon variant may carry only its prefab (its mesh is a sibling's); a costume may not.
+            self.assertEqual([models.has(a) for a in ("ch008001", "wp001002", "wp005528", "ch019051", "../wp001002")],
+                             [True, True, True, False, False])
+
     def test_mask_name(self):
         base = Path("/a/assetbundle")
         self.assertEqual(index.mask_name(base / "text/en/main/season01/2000_001.assetbundle", base), "text)en)main)season01)2000_001")
@@ -153,6 +166,14 @@ class RealDump(unittest.TestCase):
             archive = Archive(Path(folder) / "archive.db", revision)
             # bgm_delay_settings is timing data, not a track.
             self.assertTrue(all(t["track"].isdigit() for t in archive.music()))
+            # Weapons carry their art; the game's two "Defective" versions are listed too.
+            weapons = {w["name"]: w for w in archive.weapons()}
+            self.assertGreater(len(weapons), 600)
+            self.assertEqual(weapons["Defective Akagi"]["asset"], "wp001516")
+            self.assertTrue(weapons["Akagi"]["art"].endswith("wp001516_full.assetbundle"))
+            # Names come from the lowest evolution step a weapon has (wp001043.5), and none is left as an id.
+            self.assertIn("Hamelin Prototype Sword II", weapons)
+            self.assertFalse([n for n in weapons if n.startswith("wp")])
             # A costume without full art shows its large card.
             self.assertTrue(archive.costume("ch051001")["full"].endswith("ch051001_large.assetbundle"))
             # Each costume lists its own signature moves only, and no two motions share a name.

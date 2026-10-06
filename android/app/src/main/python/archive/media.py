@@ -74,14 +74,14 @@ class Sounds(Converted):
 
 
 class Models:
-    """convert(actor_folder, target_glb) -> "" or an error: a costume as glTF, made on first use."""
+    """convert(actor_folder, target_glb) -> "" or an error: a costume or weapon as glTF, made on first use."""
 
     def __init__(self, assetbundle: Path, cache: Path, convert):
         self.actors = Path(assetbundle) / "3d" / "actor"
         self.files = Converted(assetbundle, cache, convert)  # versioned folder and per-file locks
 
     def glb(self, asset: str) -> Path:
-        if not self.files.convert or not re.fullmatch(r"ch\d{6}", asset) or not (self.actors / asset / "mesh" / f"sk_{asset}.assetbundle").is_file():
+        if not self.files.convert or not self.has(asset):
             raise FileNotFoundError(asset)
         target = self.files.cache / f"{asset}.glb"
         if target.is_file():
@@ -97,7 +97,11 @@ class Models:
         return target
 
     def has(self, asset: str) -> bool:
-        return (self.actors / asset / "mesh" / f"sk_{asset}.assetbundle").is_file()
+        """A costume (ch008001) or weapon (wp001002) with a skeleton, or a weapon variant's own prefab."""
+        if not re.fullmatch(r"(ch|wp)\d{6}", asset):
+            return False
+        mesh = self.actors / asset / "mesh"
+        return (mesh / f"sk_{asset}.assetbundle").is_file() or (asset.startswith("wp") and (mesh / f"{asset}.assetbundle").is_file())
 
 
 class Motions:

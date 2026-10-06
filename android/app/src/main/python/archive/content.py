@@ -195,18 +195,42 @@ class Archive:
 
     # ---- Records --------------------------------------------------------------
     def weapons(self) -> list[dict]:
-        names = self.texts("weapon.name.wp")
-        stories = self.texts("weapon.story.wp")
+        """Every weapon with stories, with its art (ui/weapon/<id>/<id>_full) and model asset. The game keeps
+        two "Defective" versions under weapon.story.replace.<id>; they share their weapon's art and model."""
+        names = self.weapon_names()
         weapons = {}
-        for key, value in stories.items():
-            wp, index = key.split(".")[2], key.split(".")[3]
-            weapons.setdefault(wp, {"id": wp, "name": names.get(f"weapon.name.{wp}.1") or names.get(f"weapon.name.{wp}.2") or wp, "stories": {}})
-            weapons[wp]["stories"][int(index)] = value
+        for key, value in self.texts("weapon.story.").items():
+            parts = key.split(".")
+            prefix = "replace." if parts[2] == "replace" else ""
+            asset, index = parts[-2], parts[-1]
+            # Skip placeholders ("-": wp004512) and a stray copy keyed wp00650529.
+            if not index.isdigit() or not re.fullmatch(r"wp\d{6}", asset) or value.strip() in ("", "-"):
+                continue
+            name = names.get(prefix + asset) or asset
+            weapons.setdefault(prefix + asset, {"id": prefix + asset, "asset": asset, "name": name, "art": self.weapon_art(asset), "stories": {}})
+            weapons[prefix + asset]["stories"][int(index)] = value
         out = []
         for w in sorted(weapons.values(), key=lambda w: w["name"]):
             w["stories"] = [w["stories"][i] for i in sorted(w["stories"])]
             out.append(w)
         return out
+
+    def weapon_art(self, asset: str) -> str | None:
+        path = f"ui/weapon/{asset}/{asset}_full.assetbundle"
+        return path if (self.revision / "assetbundle" / path).is_file() else None
+
+    def weapon_names(self) -> dict[str, str]:
+        """Weapon (or replace.<weapon>) -> name. Keys end in the weapon's evolution step, which
+        need not start at 1 (Hamelin Prototype Sword II is wp001043.5-7), so take the lowest."""
+        found = {}
+        for key, value in self.texts("weapon.name.").items():
+            head, _, step = key.removeprefix("weapon.name.").rpartition(".")
+            if step.isdigit() and value and (head not in found or int(step) < found[head][0]):
+                found[head] = (int(step), value)
+        return {head: value for head, (_, value) in found.items()}
+
+    def weapon_name(self, asset: str) -> str:
+        return self.weapon_names().get(asset, "")
 
     def character_name(self, character_id) -> str:
         name = self.text(f"character.name.{character_id}") or self.text(f"character.name.{character_id}.1")

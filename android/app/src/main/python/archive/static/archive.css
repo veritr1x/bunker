@@ -31,6 +31,9 @@ details.fold.inner[open] > summary::after { content: "−"; }
 .record h3 { margin: 0 0 6px; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); }
 .record h3 span { margin-left: 6px; }
 .record p { margin: 0; font-size: 15px; line-height: 1.6; }
+.weapon { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.art.weapon-art { aspect-ratio: auto; width: min(100%, 300px); background-color: var(--panel); }
+.art.weapon-art img { height: auto; max-height: 420px; object-fit: contain; }
 
 /* The reader: one line per paragraph, narration set apart. */
 .reader .line { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }

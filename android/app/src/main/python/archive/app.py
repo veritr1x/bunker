@@ -173,9 +173,9 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         return page(request, "reader.html", "story", scene=found, back=back, place=place)
 
     @app.get("/records")
-    def records(request: Request, tab: str = "weapons"):
+    def records(request: Request, tab: str = "weapons", q: str = ""):
         need_index(request)
-        values = {"tab": tab}
+        values = {"tab": tab, "q": q}
         if tab == "weapons":
             values["weapons"] = archive.weapons()
         elif tab == "reports":
@@ -224,10 +224,21 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     @app.get("/viewer/{asset}")
     def viewer(request: Request, asset: str):
         need_index(request)
-        found = archive.costume(asset)
-        if not found or model is None or not models.has(asset):
+        if model is None or not models.has(asset):
             raise HTTPException(404)
-        return page(request, "viewer.html", "characters", costume=found,
+        if asset.startswith("wp"):
+            name = archive.weapon_name(asset)
+            if not name:
+                raise HTTPException(404)
+            return page(request, "viewer.html", "records", subject=asset, heading=name, siblings=[],
+                        crumbs=[("/records?tab=weapons", "Weapons"), (f"/records?tab=weapons&q={asset}", name)], motions=[])
+        found = archive.costume(asset)
+        if not found:
+            raise HTTPException(404)
+        character = found["character"]
+        return page(request, "viewer.html", "characters", subject=asset, heading=found["name"],
+                    crumbs=[("/characters", "Characters"), (f"/characters/{character['id']}", character["name"])],
+                    siblings=[(c["asset"], c["name"]) for c in character["costumes"] if models.has(c["asset"])],
                     motions=archive.motions(asset) if motion is not None else [])
 
     @app.get("/media/model/{asset}.glb")

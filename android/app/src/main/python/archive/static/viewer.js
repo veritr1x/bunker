@@ -44,11 +44,28 @@ function frameModel(object) {
   const box = new THREE.Box3().setFromObject(object);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
-  const distance = Math.max(size.y, size.x) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.25;
+  // Fit the whole bounding sphere into the narrower view angle (a phone's width), so the model
+  // stays in frame as it turns, with a margin; then allow zooming well in and well out.
+  const vertical = THREE.MathUtils.degToRad(camera.fov / 2);
+  const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
+  const distance = (size.length() / 2) / Math.sin(Math.min(vertical, horizontal)) * 1.15;
   home = { position: new THREE.Vector3(center.x, center.y, center.z + distance), target: center };
   resetCamera();
-  controls.minDistance = distance * 0.2;
-  controls.maxDistance = distance * 3;
+  controls.minDistance = distance * 0.1;
+  controls.maxDistance = distance * 4;
+}
+
+// Weapons are modelled lying along their length; stand anything much longer than it is tall
+// upright, then rest it on the grid. Costumes already stand and are left alone.
+function standUp(object) {
+  const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+  if (size.z > size.y * 1.5 && size.z >= size.x) object.rotation.x = -Math.PI / 2;
+  else if (size.x > size.y * 1.5) object.rotation.z = Math.PI / 2;
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(object);
+  object.position.y -= box.min.y;
+  object.position.x -= (box.min.x + box.max.x) / 2;
+  object.position.z -= (box.min.z + box.max.z) / 2;
 }
 
 function resetCamera() {
@@ -111,6 +128,7 @@ function load(url) {
     rest = [];
     current.traverse((o) => { if (o.isBone) rest.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]); });
     scene.add(current);
+    standUp(current);
     frameModel(current);
     mixer = new THREE.AnimationMixer(current);
     status.hidden = true;

@@ -173,3 +173,18 @@ func TestHierarchyPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Weapons convert like costumes; some variants carry only a prefab whose mesh is a sibling's,
+// within their series (wp005528 draws wp005505's) or from another series of the type (wp006011).
+func TestWeaponToGLB(t *testing.T) {
+	root := dumpRoot(t)
+	for _, w := range []string{"wp001002", "wp005528", "wp006011"} {
+		out := filepath.Join(t.TempDir(), w+".glb")
+		if err := CostumeToGLB(filepath.Join(root, "3d/actor", w), out, ModelOptions{MaxTexture: 256}); err != nil {
+			t.Fatalf("%s: %v", w, err)
+		}
+		if meshes, _ := readGLB(t, out)["meshes"].([]any); len(meshes) == 0 {
+			t.Fatalf("%s: no meshes", w)
+		}
+	}
+}

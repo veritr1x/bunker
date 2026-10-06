@@ -9,20 +9,28 @@
   <a href="/records?tab=debris"{% if tab == "debris" %} class="on"{% endif %}>Debris</a>
 </nav>
 {% if tab == "weapons" %}
-  <div class="search-row"><input type="text" id="filter" placeholder="Filter weapons" aria-label="Filter weapons"><span class="tab-stats">{{ count(weapons|length, "weapon") }}</span></div>
+  <div class="search-row"><input type="text" id="filter" placeholder="Filter weapons" aria-label="Filter weapons" value="{{ q }}"><span class="tab-stats">{{ count(weapons|length, "weapon") }}</span></div>
   <div id="weapons">
   {% for w in weapons %}
-  <details class="panel fold" data-name="{{ w.name|lower }}">
+  <details class="panel fold" data-name="{{ w.name|lower }} {{ w.asset }}">
     <summary>{{ w.name }} · {{ w.stories|length }} {{ "story" if w.stories|length == 1 else "stories" }}</summary>
+    <div class="weapon">
+      {% if images and w.art %}<a class="art weapon-art" href="{{ img("full", w.art) }}"><img src="{{ img("view", w.art) }}" alt="{{ w.name }}" loading="lazy"></a>{% endif %}
+      {% if has_model(w.asset) %}<a class="button" href="/viewer/{{ w.asset }}">View in 3D</a>{% endif %}
+    </div>
     {% for s in w.stories %}<article class="record"><h3>Story {{ loop.index }}</h3><p>{{ s|rich|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}
   </div>
   <script>
-  document.getElementById("filter").addEventListener("input", e => {
-    const q = e.target.value.trim().toLowerCase();
-    document.querySelectorAll("#weapons details").forEach(d => d.hidden = q && !d.dataset.name.includes(q));
-  });
+  const filter = document.getElementById("filter");
+  function apply() {
+    const q = filter.value.trim().toLowerCase();
+    const shown = [...document.querySelectorAll("#weapons details")].filter(d => !(d.hidden = q && !d.dataset.name.includes(q)));
+    if (q && shown.length === 1) shown[0].open = true;  // arriving from a weapon's 3D view
+  }
+  filter.addEventListener("input", apply);
+  apply();
   </script>
 {% elif tab == "reports" %}
   {% for g in groups %}

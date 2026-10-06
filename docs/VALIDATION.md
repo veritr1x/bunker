@@ -104,7 +104,16 @@
   quest where the game titles them), the events' by Record name (their key
   number is the event chapter's SortOrder; all 45 checked against the
   scenes they quote), and the Character Quests', Recollections of Dusk' and
-  Dark Memories' by character. Not checked on iOS or a physical phone.
+  Dark Memories' by character.
+- Weapons: 639 of the 640 weapon folders convert to glTF with the costume
+  code (the last, wp003001, has no mesh or art); 52 variants carry only a
+  prefab whose mesh sits in a sibling's skeleton bundle, found in their
+  series (wp005528 draws wp005505's) or, for 19, in another series of the
+  same type. All 1,280 weapon art images decode. Records show each weapon's
+  art and open it in the 3D viewer, standing up and framed whole; the two
+  "Defective" weapons are listed too. The viewer now frames any model by its
+  whole bounding sphere in the narrower view angle and zooms out to four
+  times that. Not checked on iOS or a physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04
 

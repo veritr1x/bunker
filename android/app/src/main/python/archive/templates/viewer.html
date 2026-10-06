@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › <a href="/characters/{{ costume.character.id }}">{{ costume.character.name }}</a> › 3D</p>
-<h1>{{ costume.name }}</h1>
-<div class="stage" id="stage" data-model="{{ mdl(costume.asset) }}" data-name="{{ costume.asset }}">
+<p class="crumb"><a href="/">Archive</a>{% for href, label in crumbs %} › <a href="{{ href }}">{{ label }}</a>{% endfor %} › 3D</p>
+<h1>{{ heading }}</h1>
+<div class="stage" id="stage" data-model="{{ mdl(subject) }}" data-name="{{ subject }}">
   <p class="stage-status mono" id="stage-status">Preparing the model…</p>
   <div class="stage-tools">
     <button type="button" class="play" id="reset" aria-label="Reset camera">⟲</button>
@@ -15,19 +15,21 @@
 <h2 class="bracket-header">Motion</h2>
 <div class="chips">
   <button type="button" class="chip" data-motion="">Rest pose</button>
-  {% for m in motions if m.group == "field" %}<button type="button" class="chip{% if loop.first %} on{% endif %}" data-motion="{{ mtn(costume.asset, m.clip) }}">{{ m.label }}</button>{% endfor %}
+  {% for m in motions if m.group == "field" %}<button type="button" class="chip{% if loop.first %} on{% endif %}" data-motion="{{ mtn(subject, m.clip) }}">{{ m.label }}</button>{% endfor %}
 </div>
 {% set battle = motions|selectattr("group", "equalto", "battle")|list %}
 {% if battle %}
 <details class="panel fold"><summary>Battle motions · {{ battle|length }}</summary>
-<div class="chips">{% for m in battle %}<button type="button" class="chip" data-motion="{{ mtn(costume.asset, m.clip) }}">{{ m.label }}</button>{% endfor %}</div>
+<div class="chips">{% for m in battle %}<button type="button" class="chip" data-motion="{{ mtn(subject, m.clip) }}">{{ m.label }}</button>{% endfor %}</div>
 </details>
 {% endif %}
 {% endif %}
+{% if siblings|length > 1 %}
 <h2 class="bracket-header">Costume</h2>
 <div class="chips">
-  {% for c in costume.character.costumes if has_model(c.asset) %}<a class="chip{% if c.asset == costume.asset %} on{% endif %}" href="/viewer/{{ c.asset }}">{{ c.name }}</a>{% endfor %}
+  {% for other, name in siblings %}<a class="chip{% if other == subject %} on{% endif %}" href="/viewer/{{ other }}">{{ name }}</a>{% endfor %}
 </div>
+{% endif %}
 <script type="importmap">{"imports": {"three": "/archive-static/vendor/three/three.module.min.js"}}</script>
 <script type="module" src="{{ asset('viewer.js') }}"></script>
 {% endblock %}
