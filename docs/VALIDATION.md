@@ -174,6 +174,17 @@
   framed again if it has left the view (checked on the emulator).
   Character voice lines keep their numbered labels: the outgame voice
   files have no subtitles in the dump.
+- Web builder (Edge-based pane on Windows, local test server, site assembled
+  by web/build_site.py from this branch's launcher APK): the Android APK built
+  in the browser in under a minute. Against the command-line build, the
+  launcher's native libraries, all 20 Chaquopy assets (the Archive's Python
+  among them) and the launcher dex holding the Archive are byte-identical, and
+  the patched master data decodes to the same 607 tables. The rest differs as
+  designed (the command line rebuilds resources and dex with apktool; the web
+  builder edits the original in place). The APK verifies with the Bunker
+  public key; re-signed with the local key it updated the emulator in place,
+  reached the game's title screen, and its Archive showed a textured cast model
+  in 3D and the Memoirs with their art.
 
 ## Signed web APKs and the download fix — 2026-10-04
 
