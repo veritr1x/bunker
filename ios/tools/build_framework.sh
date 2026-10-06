@@ -30,8 +30,8 @@ framework="$out/LunarTear.framework"
 rm -rf "$framework"; mkdir -p "$framework"
 "$clang" -isysroot "$sdk" -target "$target" -fobjc-arc -O2 -Wall -Werror=implicit-function-declaration \
     -dynamiclib -install_name @rpath/LunarTear.framework/LunarTear -I "$work" -I "$root_dir/ios/launcher" \
-    "$root_dir/ios/launcher/LunarLauncher.m" "$root_dir/ios/launcher/LunarTools.m" "$root_dir/ios/launcher/rebind.c" "$work/liblunar.a" \
-    -framework UIKit -framework WebKit -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
+    "$root_dir/ios/launcher/LunarLauncher.m" "$root_dir/ios/launcher/LunarTools.m" "$root_dir/ios/launcher/LunarDisplay.m" "$root_dir/ios/launcher/rebind.c" "$work/liblunar.a" \
+    -framework UIKit -framework QuartzCore -framework WebKit -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"
 if [ "$master" != none ]; then cp "$master" "$framework/20240404193219.bin.e"; fi

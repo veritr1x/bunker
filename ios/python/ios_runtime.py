@@ -96,13 +96,15 @@ def _connect_readable(database, *args, **kwargs):
 
 
 def _adapt_patcher():
+    import android_display
     import android_patcher
-    redirect = android_patcher.redirect
-    def ios_redirect(**kwargs):
-        if "message" in kwargs:
-            kwargs["message"] = kwargs["message"].replace("Close Pod Programs and tap Deploy.", "Close Pod Programs, then restart the game.")
-        return redirect(**kwargs)
-    android_patcher.redirect = ios_redirect
+    for module in (android_patcher, android_display):
+        redirect = module.redirect
+        def ios_redirect(redirect=redirect, **kwargs):
+            if "message" in kwargs:
+                kwargs["message"] = kwargs["message"].replace("Close Pod Programs and tap Deploy.", "Close Pod Programs, then restart the game.")
+            return redirect(**kwargs)
+        module.redirect = ios_redirect
 
 
 def start(data_root, asset_root, tools_root, original_master):

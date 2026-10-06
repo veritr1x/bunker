@@ -81,7 +81,7 @@ def main():
     ET.SubElement(app,"meta-data",{attr("name"):"org.veritr1x.bunker.GAME_ACTIVITY",attr("value"):original})
     # The launcher and server read the ports the game was built for.
     ET.SubElement(app,"meta-data",{attr("name"):"org.veritr1x.bunker.PORT_OFFSET",attr("value"):str(args.port_offset)})
-    app.set(attr("usesCleartextTraffic"),"true");app.set(attr("allowBackup"),"false");app.set(attr("extractNativeLibs"),"true")
+    app.set(attr("usesCleartextTraffic"),"true");app.set(attr("appCategory"),"game");app.set(attr("allowBackup"),"false");app.set(attr("extractNativeLibs"),"true")
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.
     app.set(attr("pageSizeCompat"),"enabled")

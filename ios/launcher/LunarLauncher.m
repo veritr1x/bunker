@@ -65,6 +65,7 @@ static NSDictionary *Status(void) {
     return [NSJSONSerialization JSONObjectWithData:json options:0 error:nil] ?: @{};
 }
 static BOOL Running(void) { return [Status()[@"state"] isEqual:@"running"]; }
+void LTDisplayStart(NSString *toolsRoot);  // LunarDisplay.m
 static NSString *ToolsRoot(void) {
     NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
     return [support stringByAppendingPathComponent:@"LunarTools"];
@@ -1586,6 +1587,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             });
         }
         lt_rebind_image_symbols("UnityFramework.framework/UnityFramework", kReachability, sizeof(kReachability) / sizeof(kReachability[0]));
+        LTDisplayStart(ToolsRoot());
         // Start before Unity boots. Wait briefly so its first request finds the
         // server, but never long enough to trip the launch watchdog.
         dispatch_semaphore_t started = dispatch_semaphore_create(0);

@@ -48,6 +48,7 @@ LIB, METADATA = "lib/arm64-v8a/libil2cpp.so", "assets/bin/Data/Managed/Metadata/
 # Android attribute resource IDs (stable across platform versions).
 NAME, VALUE, THEME, AUTHORITIES = 0x01010003, 0x01010024, 0x01010000, 0x01010018
 MIN_SDK, EXTRACT_NATIVE, CLEARTEXT, PAGE_SIZE_COMPAT = 0x0101020C, 0x010104EA, 0x010104EC, 0x010106AB
+APP_CATEGORY, APP_CATEGORY_GAME = 0x01010545, 0
 THEME_MATERIAL_LIGHT_NO_ACTION_BAR = 0x01030241
 PAGE_SIZE_COMPAT_ENABLED = 32
 
@@ -111,6 +112,8 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
             manifest.children.insert(position, permission); position += 1
     app.set(Attr.boolean("extractNativeLibs", True, EXTRACT_NATIVE))
     app.set(Attr.boolean("usesCleartextTraffic", True, CLEARTEXT))
+    # The game already sets isGame; the category is what Android's Game Mode and Game Dashboard read.
+    app.set(Attr.integer("appCategory", APP_CATEGORY_GAME, APP_CATEGORY))
     # The game's Unity libraries use 4 KB pages; ask Android for compatibility.
     app.set(Attr.integer("pageSizeCompat", PAGE_SIZE_COMPAT_ENABLED, PAGE_SIZE_COMPAT))
     # The launcher replaces the game's launcher entry and opens the game itself.

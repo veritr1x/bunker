@@ -98,6 +98,13 @@ def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
     info["LunarPortOffset"] = port_offset
     if display_name:  # By default the game keeps its own name, "NieR".
         info["CFBundleDisplayName"] = display_name
+    # A game: iOS Game Mode (iOS 18+) gives it CPU and GPU priority and lowers
+    # controller and AirPods latency while it is in full screen.
+    info["LSApplicationCategoryType"] = "public.app-category.games"
+    info["LSSupportsGameMode"] = True
+    info["GCSupportsGameMode"] = True
+    # Pod Programs > Display can raise the frame rate to 120 on ProMotion iPhones too.
+    info["CADisableMinimumFrameDurationOnPhone"] = True
     ats = info.setdefault("NSAppTransportSecurity", {})
     ats["NSAllowsArbitraryLoads"] = True
     ats["NSAllowsLocalNetworking"] = True
