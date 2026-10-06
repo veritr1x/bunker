@@ -1,5 +1,20 @@
 # Validation
 
+## Display settings and Game Mode — 2026-10-06
+
+- Galaxy Fold (Android 16, 120 Hz): at 60 fps characters walked at 7.4 m/s
+  instead of 3.7: ActorController.FixedUpdate runs once per rendered frame
+  while the physics step stays 1/30 s. With the physics step following the
+  frame time, walking measured 3.7-3.8 m/s at 60 and 30 fps alike; battles
+  (30 x frame time per frame) kept their speed. Steady 120 fps at 1080p; at
+  the screen's own 2448x1848 the GPU limits it to about 52.
+- iPad Pro (M4): the same through the IL2CPP API (LunarDisplay.m),
+  116-120 frames/s at Screen maximum and 1080p; walking and battles normal.
+- Web builder (live site after the merge): the Android APK built in Chrome
+  carries libbunkerdisplay.so, the Display page and appCategory="game";
+  installed with the public key, it imported the game files, played, and
+  switched frame rate and resolution from Pod Programs.
+
 ## The Archive — 2026-10-05
 
 - Phase 0 on the real Android dump: revision 0 holds 6,633 English text
