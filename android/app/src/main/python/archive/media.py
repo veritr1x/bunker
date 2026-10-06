@@ -10,7 +10,7 @@ SIZES = {"thumb": 360, "view": 1400, "full": 0}
 # Models the viewer shows: costumes, weapons, companions, Mama and the cast, story characters, enemies.
 MODEL = r"(ch|wp|cm|ma|np|pc|pe|sp|um|mt)\d{6}"
 # Bump when conversion changes: older files are deleted and browsers fetch the new ones.
-VERSION = 3
+VERSION = 4
 
 
 class Converted:

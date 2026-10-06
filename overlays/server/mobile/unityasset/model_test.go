@@ -188,6 +188,24 @@ func TestFamilyTextures(t *testing.T) {
 	}
 }
 
+// The story characters' shader keeps its colour map in _BaseMap, and pc009001's hair leaves the
+// slot empty with its texture beside it: every material comes out textured.
+func TestStoryCharacterTextures(t *testing.T) {
+	root := dumpRoot(t)
+	for _, asset := range []string{"pc004001", "pc009001"} {
+		out := filepath.Join(t.TempDir(), asset+".glb")
+		if err := CostumeToGLB(filepath.Join(root, "3d/actor", asset), out, ModelOptions{MaxTexture: 256}); err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range readGLB(t, out)["materials"].([]any) {
+			pbr := m.(map[string]any)["pbrMetallicRoughness"].(map[string]any)
+			if pbr["baseColorTexture"] == nil {
+				t.Errorf("%s: %v has no texture", asset, m.(map[string]any)["name"])
+			}
+		}
+	}
+}
+
 func TestWeaponToGLB(t *testing.T) {
 	root := dumpRoot(t)
 	for _, w := range []string{"wp001002", "wp005528", "wp006011"} {

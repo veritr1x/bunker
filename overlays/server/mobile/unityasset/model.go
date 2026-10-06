@@ -564,25 +564,57 @@ func (g *gltfBuilder) material(a *assets, file *loadedFile, mat Object, textures
 	}
 	props, _ := mat.Fields["m_SavedProperties"].(map[string]any)
 	envs, _ := props["m_TexEnvs"].([]any)
+	// The colour map: _MainTex in the costume and enemy shaders, _BaseMap in the one the story
+	// characters (pc, pe, sp) use.
+	slots := map[string]any{}
 	for _, e := range envs {
 		pair, _ := e.(map[string]any)
-		if pair["first"] != "_MainTex" {
-			continue
+		if name, _ := pair["first"].(string); name != "" {
+			slots[name] = pair["second"]
 		}
-		env, _ := pair["second"].(map[string]any)
-		texFile, tex, ok := a.resolve(file, env["m_Texture"])
+	}
+	refs := []any{}
+	for _, slot := range []string{"_MainTex", "_BaseMap"} {
+		if env, _ := slots[slot].(map[string]any); env != nil {
+			refs = append(refs, env["m_Texture"])
+		}
+	}
+	// A material whose colour slot is empty (pc009001's mt_hair) still has its texture beside it,
+	// named for the part: t_pc009001_hair_aaaa.
+	refs = append(refs, nil)
+	for _, ref := range refs {
+		texFile, tex, ok := a.resolve(file, ref)
+		if ref == nil {
+			texFile, tex, ok = a.namedTexture(file.path, strings.TrimPrefix(name, "mt_"))
+		}
 		if !ok {
-			break
+			continue
 		}
 		png, err := texturePNG(texFile.bundle, tex, opt.MaxTexture)
 		if err != nil {
-			break
+			continue
 		}
 		*images = append(*images, map[string]any{"bufferView": g.view(png, 0), "mimeType": "image/png"})
 		*textures = append(*textures, map[string]any{"source": len(*images) - 1, "sampler": 0})
 		out["pbrMetallicRoughness"].(map[string]any)["baseColorTexture"] = map[string]any{"index": len(*textures) - 1}
+		break
 	}
 	return out
+}
+
+// namedTexture finds the colour texture named for a material's part in the actor's own texture folder
+// (material/mt_hair -> texture/t_<actor>_hair_aaa*).
+func (a *assets) namedTexture(materialBundle, part string) (*loadedFile, Object, bool) {
+	actor := filepath.Dir(filepath.Dir(materialBundle))
+	files, _ := filepath.Glob(filepath.Join(actor, "texture", "t_"+filepath.Base(actor)+"_"+part+"_aaa*.assetbundle"))
+	for _, f := range files {
+		if lf := a.byCABOfBundle(f); lf != nil {
+			if objects, _ := lf.sf.Objects(classIDs["Texture2D"]); len(objects) > 0 {
+				return lf, objects[0], true
+			}
+		}
+	}
+	return nil, Object{}, false
 }
 
 // texturePNG decodes one Texture2D object to PNG.

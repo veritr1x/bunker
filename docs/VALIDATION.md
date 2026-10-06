@@ -160,7 +160,14 @@
   absent, and never a speaker) and are listed last under Unnamed. Garbled
   names (■ blocks, "&f33") are skipped.
   Enemy looks drew their textures from the family's first look, so the
-  model code now loads those too (mt008101). The props (oa) are left out.
+  model code now loads those too (mt008101). The story characters (pc, pe,
+  sp, um and one ma) came out untextured: their shader keeps the colour map
+  in _BaseMap, not _MainTex; pc009001's hair leaves the slot empty and takes
+  the texture named for the part (t_pc009001_hair_aaaa). All 542 cast,
+  enemy and companion models now convert textured except two enemy eyes
+  that use another family's face texture (mt019 -> mt007001) and the Cursed
+  Gods' grey placeholder material. The pc textures are greyscale in the
+  game files, so those figures show in grey. The props (oa) are left out.
   mt043001 is modelled 85 units tall (a costume is about 2) and its idle
   motion holds it 60 units up: the viewer's clip planes and floor now
   follow the model's size, and once a motion has faded in the model is
