@@ -172,23 +172,26 @@ class Archive:
         return {**dict(row), "lines": lines, "position": at + 1, "count": len(ids),
                 "previous": ids[at - 1] if at > 0 else None, "next": ids[at + 1] if at + 1 < len(ids) else None}
 
+    LIBRARY_SECTIONS = ("Season 1", "Season 2", "Season 3", "Events", "Character Quests", "Recollections of Dusk", "Dark Memories")
+
     def recollections(self) -> list[dict]:
-        """The Library's chapter summaries, with their titles."""
-        groups = []
-        main = self.texts("story.Main.Quest.")
-        titles = self.texts("mqt.")
-        if main:
-            items = []
-            for key, value in sorted(main.items()):
-                number = key.rsplit(".", 1)[-1].lstrip("0")
-                items.append({"title": titles.get(f"mqt.{number}p1", ""), "subtitle": titles.get(f"mqt.{number}p2", ""), "text": value})
-            groups.append({"name": "Main story", "items": items})
-        for prefix, name in (("quest.event.chapter.story.01.", "Event stories"), ("quest.event.chapter.story.06.", "Character stories"),
-                             ("limit.content.story.", "Limited content"), ("content.story.", "End contents")):
-            entries = self.texts(prefix)
-            if entries:
-                groups.append({"name": name, "items": [{"title": "", "subtitle": "", "text": v} for _, v in sorted(entries.items())]})
-        return groups
+        """The Library's summaries as the game files them: each season by chapter, events by name, and the
+        Character Quests, Recollections of Dusk and Dark Memories by character."""
+        with self.db() as db:
+            rows = db.execute("SELECT section, heading, title, text FROM library ORDER BY section, heading_sort, heading, sort").fetchall()
+        sections = []
+        for section, heading, title, text in rows:
+            name = self.LIBRARY_SECTIONS[section]
+            if name.startswith("Season "):
+                name += f" · {self.season_title(int(name.split()[1]))}"
+            if not sections or sections[-1]["name"] != name:
+                unit = "chapter" if name.startswith("Season ") else "event" if name == "Events" else "character"
+                sections.append({"name": name, "unit": unit, "headings": []})
+            headings = sections[-1]["headings"]
+            if not headings or headings[-1]["name"] != heading:
+                headings.append({"name": heading, "items": []})
+            headings[-1]["items"].append({"title": title, "text": text})
+        return sections
 
     # ---- Records --------------------------------------------------------------
     def weapons(self) -> list[dict]:

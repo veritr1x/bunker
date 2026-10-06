@@ -92,6 +92,31 @@ class Parsing(unittest.TestCase):
                           ("vid", "001020"): "Record: Den of Madness", ("sid", "0010"): "Rion", ("sid", "0000"): "Fio",
                           ("sid", "9999"): "Other scenes"})
 
+    def test_library_files_summaries_like_the_game(self):
+        texts = {"story.Main.Quest.0002.0016.0305": "S2", "mqt.305p1": "The Bond's Beginning",
+                 "quest.main.chapter_number.2.1.2": "The Sun I: The Dawn", "quest.main.chapter_title.2.1.2": "Binding Magick",
+                 "quest.event.chapter.story.01.0002.0001": "E", "quest.event.chapter_title.501": "Record: Den of Madness",
+                 "quest.event.chapter.story.06.0001.0001": "C", "character.name.1008": "Rion",
+                 "limit.content.story.0130003": "L", "character.name.1019": "Fio",
+                 "content.story.0005003.000001": "D"}
+        master = {"m_main_quest_chapter": [{"MainQuestChapterId": 16, "MainQuestRouteId": 2, "SortOrder": 2}],
+                  "m_main_quest_route": [{"MainQuestRouteId": 2, "SortOrder": 1}],
+                  "m_event_quest_chapter": [{"EventQuestChapterId": 501, "EventQuestType": 1, "SortOrder": 2, "NameEventQuestTextId": 501,
+                                             "EventQuestSequenceGroupId": 0},
+                                            {"EventQuestChapterId": 901, "EventQuestType": 6, "SortOrder": 1, "NameEventQuestTextId": 0,
+                                             "EventQuestSequenceGroupId": 0},
+                                            {"EventQuestChapterId": 500001, "EventQuestType": 11, "SortOrder": 1, "NameEventQuestTextId": 0,
+                                             "EventQuestSequenceGroupId": 7}],
+                  "m_event_quest_sequence_group": [{"EventQuestSequenceGroupId": 7, "EventQuestSequenceId": 7}],
+                  "m_event_quest_sequence": [{"EventQuestSequenceId": 7, "QuestId": 130003}],
+                  "m_event_quest_chapter_character": [{"EventQuestChapterId": 901, "CharacterId": 1008},
+                                                      {"EventQuestChapterId": 500001, "CharacterId": 1019}]}
+        maps = {"endcontents/0005003000001n": {"paths": ["sub)season01)eid_a01040_1010g"]}}
+        got = {(section, heading, title, text) for section, heading, _, title, _, text in index.library_entries(texts, master, maps)}
+        self.assertEqual(got, {("Season 2", "The Sun I: The Dawn · Binding Magick", "The Bond's Beginning", "S2"),
+                               ("Events", "Record: Den of Madness", "", "E"), ("Character Quests", "Rion", "", "C"),
+                               ("Recollections of Dusk", "Fio", "", "L"), ("Dark Memories", "a01040", "", "D")})
+
     def test_mask_name(self):
         base = Path("/a/assetbundle")
         self.assertEqual(index.mask_name(base / "text/en/main/season01/2000_001.assetbundle", base), "text)en)main)season01)2000_001")
@@ -148,6 +173,12 @@ class RealDump(unittest.TestCase):
                 self.assertEqual(archive.group_title("eid", "a02020"), "Rion")
                 self.assertTrue(archive.group_title("vid", "001020").startswith("Record:"))
                 self.assertTrue(all(g["title"] for k in ("eid", "lid", "cid", "vid", "sid") for g in archive.sub_groups(k)))
+                # The Library: every summary filed under a named chapter, event or character.
+                library = {s["name"]: s for s in archive.recollections()}
+                self.assertEqual(len(library), 7)
+                self.assertEqual(sum(len(h["items"]) for s in library.values() for h in s["headings"]), 535)
+                self.assertTrue(all(h["name"] for s in library.values() for h in s["headings"]))
+                self.assertEqual([h["name"] for h in library["Character Quests"]["headings"]][:2], ["Rion", "Gayle"])
             self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
             # The 3D viewer's glTF loader fetches embedded textures from blob: URLs.
             policy = client.get("/").headers["content-security-policy"]

@@ -136,7 +136,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         if tab == "main":
             values["seasons"] = archive.main_chapters()
         elif tab == "recollections":
-            values["groups"] = archive.recollections()
+            values["library"] = archive.recollections()
         else:
             kinds = ["eid", "lid", "cid", "vid"] if tab == "sub" else ["sid"]
             values["groups"] = [{"kind": k, "name": KINDS[k], "items": archive.sub_groups(k)} for k in kinds]

@@ -17,13 +17,14 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 7
+FORMAT = 8
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
                  "m_character_voice_unlock_condition")
 # Read while building only, to name story groups; not kept in the index.
-BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character")
+BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character",
+                "m_main_quest_chapter", "m_main_quest_route")
 # Gallery: (category, folder under assetbundle/, file pattern, group taken from the path)
 GALLERY = (
     ("stills", "ui/still", "*/still_main_*.assetbundle", lambda rel: rel.parts[0]),
@@ -209,12 +210,77 @@ def story_titles(maps: dict[str, dict], master: dict[str, list[dict]], texts: di
     return out
 
 
-def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[str, list[dict]]) -> int:
-    """Regroup main-story scenes by quest chapter, name speakers and stories; returns the lines named."""
+# The Library's sections, in the game's order.
+LIBRARY_SECTIONS = ("Season 1", "Season 2", "Season 3", "Events", "Character Quests", "Recollections of Dusk", "Dark Memories")
+
+
+def library_entries(texts: dict[str, str], master: dict[str, list[dict]], maps: dict[str, dict]) -> list[tuple]:
+    """The Library's summaries as (section, heading, heading order, title, order, text).
+
+    story.Main.Quest.<season>.<main quest chapter>.<quest>: under the chapter's own name, titled by the quest.
+    quest.event.chapter.story.01|06.<n>.<part>: the Record event or Character Quest whose SortOrder is n.
+    limit.content.story.<quest>: a Recollection of Dusk, under the character of the quest's event chapter.
+    content.story.<map number>: a Dark Memory, under the scene group its event map plays (named later)."""
+    chapters = {c["EventQuestChapterId"]: c for c in master.get("m_event_quest_chapter", [])}
+    characters = {r["EventQuestChapterId"]: r["CharacterId"] for r in master.get("m_event_quest_chapter_character", [])}
+
+    def character(chapter):
+        return texts.get(f"character.name.{characters.get(chapter)}", "")
+
+    sequences, quests = {}, {}
+    for r in master.get("m_event_quest_sequence_group", []):
+        sequences.setdefault(r["EventQuestSequenceGroupId"], []).append(r["EventQuestSequenceId"])
+    for r in master.get("m_event_quest_sequence", []):
+        quests.setdefault(r["EventQuestSequenceId"], []).append(r["QuestId"])
+    chapter_of_quest = {}
+    for cid, c in sorted(chapters.items()):
+        for s in sequences.get(c["EventQuestSequenceGroupId"], []):
+            for q in quests.get(s, []):
+                chapter_of_quest.setdefault(q, cid)
+    by_sort = {(c["EventQuestType"], c["SortOrder"]): cid for cid, c in chapters.items()}
+    main_chapters = {c["MainQuestChapterId"]: c for c in master.get("m_main_quest_chapter", [])}
+    routes = {r["MainQuestRouteId"]: r for r in master.get("m_main_quest_route", [])}
+    dark = {}  # Dark Memory event map number (0005003000001) -> the scene group it plays (eid_a01040)
+    for name, m in maps.items():
+        folder, _, number = name.partition("/")
+        if folder == "endcontents":
+            for path in m.get("paths", []):
+                dark.setdefault(number.rstrip("abcdefghijklmnopqrstuvwxyz"), describe_scene("sub", "", path.split(")")[-1])["group"])
+    out = []
+    for key, text in texts.items():
+        parts = key.split(".")
+        if key.startswith("story.Main.Quest.") and len(parts) >= 6:
+            season, chapter, quest = int(parts[3]), int(parts[4]), int(parts[5])
+            c = main_chapters.get(chapter)
+            route, order = (routes.get(c["MainQuestRouteId"], {}).get("SortOrder", 1), c["SortOrder"]) if c else (1, chapter)
+            number = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}") or f"Chapter {order}"
+            title = texts.get(f"quest.main.chapter_title.{season}.{route}.{order}", "")
+            heading = number + (f" · {title}" if title and title != number else "")
+            part = int(parts[6]) if len(parts) > 6 else 0
+            out.append((f"Season {season}", heading, route * 100 + order, texts.get(f"mqt.{quest}p1", ""), quest * 100 + part, text))
+        elif key.startswith("quest.event.chapter.story.") and len(parts) == 7:
+            kind, n, part = int(parts[4]), int(parts[5]), int(parts[6])
+            chapter = by_sort.get((kind, n))
+            if kind == 1:
+                name = texts.get(f"quest.event.chapter_title.{chapters[chapter]['NameEventQuestTextId']}", "") if chapter else ""
+                out.append(("Events", name or f"Event {n}", n, "", part, text))
+            elif kind == 6:
+                out.append(("Character Quests", character(chapter) or f"Character {n}", n, "", part, text))
+        elif key.startswith("limit.content.story.") and parts[-1].isdigit():
+            quest = int(parts[-1])
+            chapter = chapter_of_quest.get(quest)
+            out.append(("Recollections of Dusk", character(chapter) or "Other", chapter or 0, "", quest, text))
+        elif key.startswith("content.story.") and len(parts) == 4:
+            out.append(("Dark Memories", dark.get(parts[2] + parts[3], ""), int(parts[2]), "", int(parts[3]), text))
+    return out
+
+
+def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[str, list[dict]]) -> tuple[int, dict]:
+    """Regroup main-story scenes by quest chapter, name speakers and stories; returns the lines named and the maps."""
     target.unlink(missing_ok=True)
     error = str(scenario(str(event_maps), str(target)) or "")
     if error or not target.is_file():
-        return 0
+        return 0, {}
     try:
         found = json.loads(target.read_text(encoding="utf-8"))
     finally:
@@ -238,7 +304,7 @@ def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[st
     named = line_speakers([(key, scene, str(season)) for _, key, scene, season in rows], maps, names)
     updates = [(named[key.lower()], rowid) for rowid, key, *_ in rows if key.lower() in named]
     db.executemany("UPDATE line SET speaker=? WHERE rowid=?", updates)
-    return len(updates)
+    return len(updates), found
 
 
 def load_master(master_path: Path) -> dict[str, list[dict]]:
@@ -304,6 +370,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         CREATE TABLE character_voice(character INT, kind TEXT, seq INT, path TEXT);
         CREATE TABLE music(track TEXT, part INT, path TEXT PRIMARY KEY);
         CREATE TABLE story_group(kind TEXT, grp TEXT, title TEXT, PRIMARY KEY(kind, grp));
+        CREATE TABLE library(section INT, heading TEXT, heading_sort INT, title TEXT, sort INT, text TEXT);
     """)
     # Spoken lines: voice/en/…/<line key>.assetbundle, named like the text line they voice.
     voice_root = assetbundle / "voice" / "en"
@@ -337,11 +404,18 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     for table, rows in tables.items():
         if table not in BUILD_TABLES:
             db.execute("INSERT INTO meta VALUES (?,?)", ("master:" + table, json.dumps(rows, ensure_ascii=False)))
-    speakers = 0
+    speakers, maps = 0, {}
     event_maps = assetbundle / "eventmap"
     if scenario is not None and event_maps.is_dir():
         progress(len(bundles), len(bundles), "Speakers and chapters")
-        speakers = apply_scenario(db, event_maps, db_path.with_name("scenario.json"), scenario, tables)
+        speakers, maps = apply_scenario(db, event_maps, db_path.with_name("scenario.json"), scenario, tables)
+    texts = dict(db.execute("SELECT key, value FROM text WHERE key LIKE 'story.Main.Quest.%' OR key LIKE 'quest.event.chapter%' "
+                            "OR key LIKE 'limit.content.story.%' OR key LIKE 'content.story.%' OR key LIKE 'quest.main.chapter_%' "
+                            "OR key LIKE 'mqt.%' OR key LIKE 'character.name.%'"))
+    dark_names = dict(db.execute("SELECT grp, title FROM story_group WHERE kind='eid'"))
+    db.executemany("INSERT INTO library VALUES (?,?,?,?,?,?)",
+                   [(LIBRARY_SECTIONS.index(section), dark_names.get(heading, "") if section == "Dark Memories" else heading, *rest)
+                    for section, heading, *rest in library_entries(texts, tables, maps) if section in LIBRARY_SECTIONS])
     costumes = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_costume'").fetchone()[0])
     costume_art = assetbundle / "ui" / "costume"
     have = {d.name for d in costume_art.iterdir()} if costume_art.is_dir() else set()

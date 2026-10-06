@@ -19,15 +19,20 @@
   </div>
   {% endfor %}
 {% elif tab == "recollections" %}
-  <p class="note">The Library's chapter summaries, in full.</p>
-  {% for g in groups %}
+  <p class="note">The Library's summaries, filed as the game files them.</p>
+  {% for section in library %}
   <details class="panel fold"{% if loop.first %} open{% endif %}>
-    <summary>{{ g.name }} · {{ g["items"]|length }}</summary>
-    {% for item in g["items"] %}
-    <article class="record">
-      {% if item.title %}<h3>{{ item.title }}{% if item.subtitle and item.subtitle != item.title %} <span>{{ item.subtitle }}</span>{% endif %}</h3>{% endif %}
-      <p>{{ item.text|rich|safe }}</p>
-    </article>
+    <summary>{{ section.name }}&nbsp;<span class="note">· {{ count(section.headings|length, section.unit) }}</span></summary>
+    {% for heading in section.headings %}
+    <details class="fold inner">
+      <summary>{{ heading.name or "Other" }}</summary>
+      {% for item in heading["items"] %}
+      <article class="record">
+        {% if item.title %}<h3>{{ item.title }}</h3>{% endif %}
+        <p>{{ item.text|rich|safe }}</p>
+      </article>
+      {% endfor %}
+    </details>
     {% endfor %}
   </details>
   {% endfor %}

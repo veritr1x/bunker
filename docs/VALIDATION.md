@@ -99,7 +99,12 @@
   the Character Quest's character (shared by that character's Dark Memories
   and Recollections of Dusk), the Record event's title, or the side story's
   character. All 112 story groups are named; the battle prompts every side
-  map shares are "Other scenes". Not checked on iOS or a physical phone.
+  map shares are "Other scenes". The Library's 535 summaries are filed the
+  same way: the main story's under each season's chapter names (titled by
+  quest where the game titles them), the events' by Record name (their key
+  number is the event chapter's SortOrder; all 45 checked against the
+  scenes they quote), and the Character Quests', Recollections of Dusk' and
+  Dark Memories' by character. Not checked on iOS or a physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04
 
