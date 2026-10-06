@@ -10,7 +10,7 @@
 {% endif %}
 {% for g in groups %}
 {% set playing = current and current.file in g["items"]|map(attribute="file") %}
-<details class="fold movies"{% if playing or (not current and loop.first) %} open{% endif %}>
+<details class="panel fold movies"{% if playing or (not current and loop.first) %} open{% endif %}>
   <summary>{{ g.name }}&nbsp;<span class="note">· {{ count(g["items"]|length, "movie") }}</span></summary>
   <div class="tool-grid">
     {% for m in g["items"] %}
