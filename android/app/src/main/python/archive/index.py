@@ -17,7 +17,7 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 12
+FORMAT = 13
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
@@ -674,17 +674,31 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     costumes = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_costume'").fetchone()[0])
     costume_art = assetbundle / "ui" / "costume"
     have = {d.name for d in costume_art.iterdir()} if costume_art.is_dir() else set()
+    text = lambda key: (db.execute("SELECT value FROM text WHERE key=?", (key,)).fetchone() or ("",))[0]
+    named = lambda character: bool(text(f"character.name.{character}") or text(f"character.name.{character}.1"))
+    # A model's playable owner: the named character with the most costumes on that skeleton.
+    owners = Counter((r["ActorSkeletonId"], r["CharacterId"]) for r in costumes
+                     if r["CostumeAssetCategoryType"] == 1 and named(r["CharacterId"]))
+    owner = {}
+    for (skeleton, character), count in owners.most_common():
+        owner.setdefault(skeleton, character)
     for row in sorted(costumes, key=lambda r: r["CostumeId"]):
         asset = f"ch{row['ActorSkeletonId']:03d}{row['AssetVariationId']:03d}"
         if row["CostumeAssetCategoryType"] == 1 and asset in have:
-            db.execute("INSERT OR IGNORE INTO costume VALUES (?,?,?,?)", (asset, row["CharacterId"], row["CostumeId"], row["RarityType"]))
+            character = row["CharacterId"]
+            # A story variant filed under an unnamed pool (for example 10H's model under character 10001)
+            # goes with the character whose model it is.
+            if not named(character) and not text(f"costume.name.{asset}") and row["ActorSkeletonId"] in owner:
+                character = owner[row["ActorSkeletonId"]]
+            db.execute("INSERT OR IGNORE INTO costume VALUES (?,?,?,?)", (asset, character, row["CostumeId"], row["RarityType"]))
     progress(len(bundles), len(bundles), "Gallery")
     rows = []
     for category, folder, pattern, group in GALLERY:
         root = assetbundle / folder
         if root.is_dir():
+            # Four Season 2 stills are 5 KB black placeholders in the game data; a real still is far larger.
             rows += [(category, group(f.relative_to(root)), f.stem, f.relative_to(assetbundle).as_posix())
-                     for f in sorted(root.glob(pattern))]
+                     for f in sorted(root.glob(pattern)) if category != "stills" or f.stat().st_size > 8192]
     library = {art: (heading, heading_sort, sort) for art, heading, heading_sort, sort
                in db.execute("SELECT art, heading, heading_sort, sort FROM library WHERE art != ''")}
     events = dict(db.execute("SELECT grp, title FROM story_group WHERE kind='vid'"))

@@ -449,7 +449,9 @@ class Archive:
         for r in rows:
             asset = r["asset"]
             name = self.text(f"costume.name.{asset}")
-            costumes.append({"asset": asset, "name": name if name and name != "-" else asset, "rarity": r["rarity"],
+            # A few story variants have no name of their own; the character's stands in, never the asset id.
+            name = name if name and name != "-" else self.character_name(character_id)
+            costumes.append({"asset": asset, "name": name, "rarity": r["rarity"],
                              "story": self.text(f"costume.description.{asset}"),
                              "portrait": f"ui/costume/{asset}/{asset}_portrait.assetbundle",
                              "full": self.costume_art(asset)})
@@ -644,6 +646,8 @@ class Archive:
             if not m:
                 continue
             parts = m.group(2).split("_")
+            if parts[0] == "blend":
+                continue  # an additive layer (Mama's umbrella or the baby) over a base motion; it moves no bones alone
             if any(re.fullmatch(r"[a-z]{2}\d{6}", w) and w != asset for w in parts):
                 continue  # another costume's own version of a move
             words = [w for w in parts if not w.isdigit() and not re.fullmatch(r"[a-z]{2}\d{6}", w) and w not in ("lp", "st", "en")]
