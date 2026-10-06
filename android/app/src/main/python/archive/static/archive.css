@@ -22,6 +22,11 @@ details.fold { padding: 0 16px; }
 details.fold > summary { font-family: var(--sans); font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; min-height: 44px; display: flex; align-items: center; }
 details.fold[open] > summary { border-bottom: 1px solid var(--line); }
 details.fold.inner { padding: 0; border-bottom: 1px solid var(--line); }
+details.fold.movies { padding: 0; margin: 0 0 8px; }
+details.fold.movies > summary { gap: 12px; }
+details.fold.movies > summary::after { content: "+"; margin-left: auto; font-family: var(--mono); color: var(--fg-mid); }
+details.fold.movies[open] > summary::after { content: "−"; }
+details.fold.movies[open] > summary { border-bottom: none; }
 details.fold.inner:last-child { border-bottom: none; }
 details.fold.inner > summary { font-size: 14px; font-weight: 500; gap: 12px; }
 details.fold.inner > summary::after { content: "+"; margin-left: auto; font-family: var(--mono); color: var(--fg-mid); }

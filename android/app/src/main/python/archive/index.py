@@ -17,11 +17,11 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 8
+FORMAT = 9
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
-                 "m_character_voice_unlock_condition")
+                 "m_character_voice_unlock_condition", "m_dokan", "m_dokan_content_group", "m_dokan_text")
 # Read while building only, to name story groups; not kept in the index.
 BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character",
                 "m_main_quest_chapter", "m_main_quest_route")
@@ -401,6 +401,8 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
             progress(done, len(bundles), "Story text")
     progress(len(bundles), len(bundles), "Master data")
     tables = load_master(master)
+    if "m_dokan_text" in tables:  # announcement captions: English only (LanguageType 2)
+        tables["m_dokan_text"] = [r for r in tables["m_dokan_text"] if r.get("LanguageType") == 2]
     for table, rows in tables.items():
         if table not in BUILD_TABLES:
             db.execute("INSERT INTO meta VALUES (?,?)", ("master:" + table, json.dumps(rows, ensure_ascii=False)))

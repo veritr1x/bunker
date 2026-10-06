@@ -7,7 +7,7 @@ build the index from real game files and open every page. Needs lz4,
 pycryptodome and msgpack; the page test also needs fastapi and jinja2.
 """
 from pathlib import Path
-import os, shutil, sys, tempfile, unittest
+import os, re, shutil, sys, tempfile, unittest
 
 root = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(root / "android/app/src/main/python"), str(root / "upstream/lunar-base/tools")]
@@ -174,6 +174,14 @@ class RealDump(unittest.TestCase):
             # Names come from the lowest evolution step a weapon has (wp001043.5), and none is left as an id.
             self.assertIn("Hamelin Prototype Sword II", weapons)
             self.assertFalse([n for n in weapons if n.startswith("wp")])
+            # Movies: the seasons' cutscenes and story scenes, the title screen, then announcements by year.
+            movies = {g["name"]: g["items"] for g in archive.movies()}
+            self.assertEqual(list(movies)[:4], ["Season 1 · Girl", "Season 2 · Sun/Moon", "Season 3 · People/World", "Title screen"])
+            self.assertIn("The Moon IV: The Gloaming · Part 1", {m["title"] for m in movies["Season 2 · Sun/Moon"]})
+            self.assertIn("2022", " ".join(movies))
+            self.assertFalse([m for items in movies.values() for m in items if re.fullmatch(r"m[mv]\w*\d+", m["title"])])
+            # Season 1's chapter 8 scene plays its English-voice cut.
+            self.assertTrue(any(m["file"] == "mm01010801_envoice_entext.mp4" for m in movies["Season 1 · Girl"]))
             # A costume without full art shows its large card.
             self.assertTrue(archive.costume("ch051001")["full"].endswith("ch051001_large.assetbundle"))
             # Each costume lists its own signature moves only, and no two motions share a name.

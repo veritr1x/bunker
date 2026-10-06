@@ -113,7 +113,17 @@
   art and open it in the 3D viewer, standing up and framed whole; the two
   "Defective" weapons are listed too. The viewer now frames any model by its
   whole bounding sphere in the narrower view angle and zooms out to four
-  times that. Not checked on iOS or a physical phone.
+  times that.
+- Movies: the Library's categories are the seasons (the game labels the
+  first two "2020" and "2021" and leaves the third unnamed) plus the
+  title-screen movies; each season now also lists its story scenes, named
+  by chapter from their codes (mm + season, route, chapter, part), and the
+  English-voice cut plays where there is one. The 108 dated clips the game's
+  announcements played are grouped by the year they ran and titled by their
+  caption, preferring a line that names a character. 180 movies are listed
+  (35 exist only in Korean or Japanese cuts and were hidden before); 8 with
+  no announcement or caption are "Other clips". Not checked on iOS or a
+  physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04
 

@@ -6,6 +6,8 @@ import html
 import json
 import re
 import sqlite3
+import time
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
@@ -275,38 +277,116 @@ class Archive:
         with self.db() as db:
             return {r["name"]: dict(r) for r in db.execute("SELECT * FROM movie")}
 
+    # A movie's files: plain, _en/_ko/_ja cuts, or <voice>voice_<text>text variants. English first.
+    MOVIE_CUTS = ("_envoice_entext", "_en", "", "_javoice_entext", "_ja", "_envoice_kotext", "_javoice_kotext", "_ko")
+
     def pick_movie(self, base: str, files: dict) -> dict | None:
-        """The English cut when there is one, else the default."""
-        return files.get(base + "_en") or files.get(base)
+        """The English cut when there is one, else the default, else whatever language there is."""
+        for cut in self.MOVIE_CUTS:
+            if base + cut in files:
+                return files[base + cut]
+        return None
+
+    @staticmethod
+    def movie_base(name: str) -> str:
+        """mm01010801_envoice_entext -> mm01010801; the doubled mmmm02010101 is mm02010101."""
+        name = re.sub(r"_(?:(?:en|ja|ko)voice_(?:en|ja|ko)text|en|ja|ko)$", "", name)
+        return re.sub(r"^mmmm", "mm", name)
 
     def movies(self) -> list[dict]:
-        files = self.movie_files()
+        """Each season's Library cutscenes and story scenes, the title-screen movies, then the clips the game's
+        announcements played (summons, new areas, anniversaries) by year, titled by their caption."""
+        files = {}
+        for name, f in self.movie_files().items():
+            files[name] = f
+            base = self.movie_base(name)
+            if base != name and name.startswith("mmmm"):  # keep the doubled name findable under its real one
+                files.setdefault("mm" + name[4:], f)
+        bases = sorted({self.movie_base(n) for n in files})
+        season_groups = {}
+
+        def season_group(season):
+            return season_groups.setdefault(season, {"name": f"Season {season} · {self.season_title(season)}", "items": []})
+
         assets = {m["MovieId"]: m["AssetId"] for m in self.master("m_movie")}
-        categories = {c["LibraryMovieCategoryId"]: c for c in self.master("m_library_movie_category")}
-        library, used = {}, set()
+        used = set()
+        # The Library's cutscenes: categories 1-3 are the seasons ("2020", "2021", and an unnamed 2022);
+        # 101 is the title-screen movies.
+        title_screen = {"name": "Title screen", "items": []}
         for row in sorted(self.master("m_library_movie"), key=lambda r: (r["LibraryMovieCategoryId"], r["SortOrder"])):
-            asset = assets.get(row["MovieId"])
-            if asset is None:
-                continue
+            asset = assets.get(row["MovieId"], row["MovieId"])
             base = f"mv_prm{asset:03d}" if asset < 100 else f"mv{asset}"
             file = self.pick_movie(base, files)
             if not file:
                 continue
             used.add(base)
-            category = categories.get(row["LibraryMovieCategoryId"], {})
-            # The game's own key is spelled "catagory".
-            name = (self.text(f"movie.catagory.{category.get('NameLibraryTextId')}")
-                    or self.text(f"movie.catagory.{100 + row['LibraryMovieCategoryId']}") or "Library movies")
-            library.setdefault(row["LibraryMovieCategoryId"], {"name": name, "items": []})["items"].append(
-                {"title": self.text(f"movie.title.name.{row['TitleLibraryTextId']}", base), "file": file["file"], "size": file["size"]})
-        groups = list(library.values())
-        bases = sorted({re.sub(r"_(en|ko|ja)$", "", n) for n in files})
-        scenes = [b for b in bases if b.startswith("mm") and "voice" not in b]
-        promos = [b for b in bases if b.startswith("mv") and b not in used]
-        for name, items in (("Story scenes", scenes), ("Other movies", promos)):
-            entries = [{"title": b, "file": f["file"], "size": f["size"]} for b in items if (f := self.pick_movie(b, files))]
-            if entries:
-                groups.append({"name": name, "items": entries})
+            category = row["LibraryMovieCategoryId"]
+            title = self.text(f"movie.title.name.{row['TitleLibraryTextId']}") or ("Untitled title-screen movie" if category >= 100 else base)
+            item = {"title": title, "file": file["file"], "size": file["size"]}
+            (title_screen if category >= 100 else season_group(category))["items"].append(item)
+        for base in bases:  # title-screen movies the Library does not list (mv103)
+            if re.fullmatch(r"mv1\d\d", base) and base not in used and (file := self.pick_movie(base, files)):
+                used.add(base)
+                title = self.text(f"movie.title.name.{100000 + int(base[2:]) - 100}") or base
+                title_screen["items"].append({"title": title, "file": file["file"], "size": file["size"]})
+        title_screen["items"].sort(key=lambda m: m["file"])
+        # Story scenes: mm + season + route + chapter order + part, named by the chapter.
+        for base in bases:
+            m = re.fullmatch(r"mm(\d\d)(\d\d)(\d\d)(\d\d)", base)
+            file = self.pick_movie(base, files)
+            if not m or not file:
+                continue
+            used.add(base)
+            season, route, order, part = (int(x) for x in m.groups())
+            chapter = self.text(f"quest.main.chapter_number.{season}.{route}.{order}") or f"Chapter {order}"
+            season_group(season)["items"].append({"title": f"{chapter} · Part {part}", "file": file["file"], "size": file["size"]})
+        groups = [season_groups[s] for s in sorted(season_groups)] + ([title_screen] if title_screen["items"] else [])
+        # Announcements: the clip, its caption, and when it ran.
+        captions = {r["DokanTextId"]: r["Text"] for r in self.master("m_dokan_text")}
+        starts = {r["DokanContentGroupId"]: r["StartDatetime"] for r in self.master("m_dokan")}
+        rows = {}
+        for r in sorted(self.master("m_dokan_content_group"), key=lambda r: (r["DokanContentGroupId"], r["ContentIndex"])):
+            rows.setdefault(r["DokanContentGroupId"], []).append(r)
+        seen = Counter(plain(captions.get(r["DokanTextId"], "")) for group in rows.values() for r in group)
+        names = {v for k, v in self.texts("character.name.").items() if v and len(v) > 2}
+
+        def caption(own, lines):
+            # The most telling line: one naming a character ("a new costume for Dimos"), else one this pop-up
+            # alone has, else the clip's own; the game reuses lines like "Summons have started" everywhere.
+            candidates = [own] + [line for line in lines if line != own]
+            candidates = [line for line in candidates if line not in ("", "-")]
+            return max(candidates, key=lambda line: (any(n in line for n in names), seen[line] == 1), default="")
+
+        announced = {}
+        for group, contents in sorted(rows.items(), key=lambda g: starts.get(g[0], 0)):
+            lines = [plain(captions.get(r["DokanTextId"], "")) for r in contents]
+            for r in contents:
+                base = f"mv_prm{r['MovieId']:03d}"
+                if not r["MovieId"] or base in used or base in announced or not (file := self.pick_movie(base, files)):
+                    continue
+                title = caption(plain(captions.get(r["DokanTextId"], "")), lines)
+                start = starts.get(group, 0)
+                year = time.gmtime(start / 1000).tm_year if start else 0
+                first = re.match(r"(.+?[.!?])\s", title + " ")  # its first sentence carries it
+                announced[base] = {"title": plain(first.group(1) if first and len(first.group(1)) > 15 else title, 90),
+                                   "file": file["file"], "size": file["size"],
+                                   "when": time.strftime("%b %Y", time.gmtime(start / 1000)) if start and year < 2090 else "",
+                                   "year": year if year < 2090 else 0}
+        by_year, others = {}, []
+        for base, item in announced.items():
+            if item["year"] and item["title"]:
+                by_year.setdefault(item["year"], []).append(item)
+            else:
+                others.append((base, item))
+        for year in sorted(by_year):
+            groups.append({"name": f"Announcements · {year}", "items": by_year[year]})
+        used.update(announced)
+        others += [(b, {"title": "", "file": f["file"], "size": f["size"]}) for b in bases
+                   if b not in used and not b.startswith("mmmm") and (f := self.pick_movie(b, files))]
+        if others:  # clips no announcement dates or captions
+            number = lambda base: int(re.sub(r"\D", "", base) or 0)  # noqa: E731 (no backslashes in f-strings before 3.12)
+            groups.append({"name": "Other clips", "items": [
+                {**item, "title": item["title"] or f"Untitled clip {number(base)}"} for base, item in sorted(others)]})
         return groups
 
     # ---- Search ---------------------------------------------------------------
