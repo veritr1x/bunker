@@ -6,17 +6,19 @@
 // - Frame rate: the game sets Application.targetFrameRate to 30 at start (two
 //   places), and its performance presets ask OnDemandRendering for 30 frames
 //   (Dark.Component.PerformanceSetting.Config, UnSavePowerTargetRenderFrameRate).
-//   Both become the chosen rate. Power saving keeps its own 10 frames.
+//   Both become the chosen rate (up to the screen's maximum refresh rate).
+//   Power saving keeps its own 10 frames.
 // - Resolution: the presets with effects on (the start preset, Highest and
 //   High) and the first resolution the game sets use the chosen RenderTargetSize.
 //   RenderManager never goes above the screen's own resolution.
-// - Battles: BattleUpdate advances the battle by one 30 Hz step per frame; at
-//   higher rates it passes the fraction of a step a frame lasts.
+// - Battles: BattleUpdate advances the battle by one 30 Hz step per frame. It
+//   now passes the fraction of a step the frame lasted (30 x frame time, at
+//   most one step, as before); the battle's TurnManager accumulates fractions.
 // - Field movement: ActorController moves characters in FixedUpdate by its
 //   time step, but runs once per rendered frame while physics keeps the 1/30 s
 //   step, so at 60 frames characters move twice as fast. Once per frame the
-//   physics step is set to that frame's duration (1/60 to 1/30 s); measured on
-//   a Galaxy Fold, walking then matches 30 fps (3.7 m/s).
+//   physics step is set to that frame's duration (1/240 to 1/30 s); measured
+//   on a Galaxy Fold at 60, walking then matches 30 fps (3.7 m/s).
 //
 // The RVAs come from the 3.7.1 ARM64 game's IL2CPP metadata. Every site is
 // checked first; on any unknown instruction nothing is changed.
@@ -48,9 +50,6 @@ static int sites(int fps, int size, Site *out) {
         out[n++] = (Site){0x2E5BE0C, 0x321f0fe0u, mov_w(0, fps)};  // Generator.OnlyWhenStarting: targetFrameRate = 30
         out[n++] = (Site){0x2E5C31C, 0x321f0fe0u, mov_w(0, fps)};  // Generator.SetupRenderer: targetFrameRate = 30
         out[n++] = (Site){0x2C7AC80, 0x321f0fe9u, mov_w(9, fps)};  // Config..cctor: UnSavePowerTargetRenderFrameRate = 30
-        // BattleUpdate.OnStateUpdate: KernelBattle.Process(battle, 1.0, false) advances the battle by one
-        // 30 Hz step every frame. At 60 frames pass 0.5: TurnManager accumulates it, one step per two frames.
-        out[n++] = (Site){0x2A6530C, 0x1e6e1000u, fps >= 60 ? 0x1e6c1000u : 0x1e6e1000u};  // fmov d0, #1.0 -> #0.5
     }
     if (size) {
         out[n++] = (Site){0x2C7ACD8, 0xd2c000aau, 0xd2c0000au | (uint32_t)size << 5};  // Config..cctor: HD for the start preset and High
@@ -83,9 +82,47 @@ __attribute__((visibility("hidden"), used)) void follow_frame_time(void) {
     if (frame == last_frame) return;
     last_frame = frame;
     float step = time_unscaled_delta(NULL);
-    if (step < 1 / 60.f) step = 1 / 60.f;
+    if (step < 1 / 240.f) step = 1 / 240.f;
     if (step > 1 / 30.f) step = 1 / 30.f;
     if (time_fixed_delta(NULL) != step) time_set_fixed_delta(step, NULL);
+}
+
+/** BattleUpdate.OnStateUpdate's step for KernelBattle.Process: the part of a 30 Hz step this frame lasted. */
+__attribute__((visibility("hidden"), used)) double battle_step(void) {
+    double step = 30.0 * time_unscaled_delta(NULL);
+    return step > 1.0 ? 1.0 : step;
+}
+
+// Replaces four instructions with "ldr x16, #8; br x16; <hook address>". The
+// first word is the "already hooked" marker.
+static int hook(uint32_t *at, const uint32_t original[4], void (*target)(void)) {
+    if (at[0] == 0x58000050u) return 0;
+    for (int i = 0; i < 4; i++) if (at[i] != original[i]) return -1;
+    uintptr_t page = (uintptr_t)sysconf(_SC_PAGESIZE), start = (uintptr_t)at & ~(page - 1);
+    if (mprotect((void *)start, page * 2, PROT_READ | PROT_WRITE | PROT_EXEC)) return -1;
+    at[0] = 0x58000050u;  // ldr x16, #8
+    at[1] = 0xd61f0200u;  // br x16
+    *(volatile uint64_t *)&at[2] = (uint64_t)(uintptr_t)target;
+    __builtin___clear_cache((char *)at, (char *)(at + 4));
+    mprotect((void *)start, page * 2, PROT_READ | PROT_EXEC);
+    return 0;
+}
+
+// BattleUpdate.OnStateUpdate ends with "fmov d0, #1.0; mov w1, wzr; mov x2, xzr;
+// ldp x20, x19, [sp], #0x20; b KernelBattle.Process": the hook sets d0 to battle_step().
+static const uint32_t kBattleStepCall[4] = {0x1e6e1000u, 0x2a1f03e1u, 0xaa1f03e2u, 0xa8c24ff4u};
+__attribute__((visibility("hidden"), used)) uintptr_t battle_process;
+__attribute__((naked)) static void battle_step_hook(void) {
+    __asm__ volatile(
+        "stp x0, x30, [sp, #-16]!\n"
+        "bl battle_step\n"
+        "ldp x0, x30, [sp], #16\n"
+        "mov w1, wzr\n"
+        "mov x2, xzr\n"
+        "ldp x20, x19, [sp], #0x20\n"
+        "adrp x16, battle_process\n"
+        "ldr x16, [x16, :lo12:battle_process]\n"
+        "br x16\n");
 }
 
 // FixedProcess(this, float deltaTime, MethodInfo*) starts with these four instructions;
@@ -110,23 +147,15 @@ __attribute__((naked)) static void fixed_process_hook(void) {
         "br x16\n");
 }
 
-static int hook_fixed_process(uint8_t *base) {
-    uint32_t *at = (uint32_t *)(base + 0x2D5F7A0);
-    if (at[0] == 0x58000050u) return 0;  // Already hooked.
-    for (int i = 0; i < 4; i++) if (at[i] != kFixedProcessPrologue[i]) return -1;
+static int hook_frame_rate(uint8_t *base) {
     time_unscaled_delta = (float (*)(void *))(base + 0x4D7ED90);
     time_fixed_delta = (float (*)(void *))(base + 0x4D7EDC4);
     time_set_fixed_delta = (void (*)(float, void *))(base + 0x4D7EDF8);
     time_frame_count = (int (*)(void *))(base + 0x4D7EF50);
-    fixed_process_resume = (uintptr_t)(at + 4);
-    uintptr_t page = (uintptr_t)sysconf(_SC_PAGESIZE), start = (uintptr_t)at & ~(page - 1);
-    if (mprotect((void *)start, page * 2, PROT_READ | PROT_WRITE | PROT_EXEC)) return -1;
-    at[0] = 0x58000050u;  // ldr x16, #8
-    at[1] = 0xd61f0200u;  // br x16
-    *(volatile uint64_t *)&at[2] = (uint64_t)(uintptr_t)fixed_process_hook;
-    __builtin___clear_cache((char *)at, (char *)(at + 4));
-    mprotect((void *)start, page * 2, PROT_READ | PROT_EXEC);
-    return 0;
+    fixed_process_resume = (uintptr_t)(base + 0x2D5F7A0 + 16);
+    battle_process = (uintptr_t)(base + 0x37DC3D0);
+    if (hook((uint32_t *)(base + 0x2D5F7A0), kFixedProcessPrologue, fixed_process_hook)) return -1;
+    return hook((uint32_t *)(base + 0x2A6530C), kBattleStepCall, battle_step_hook);
 }
 
 static const char *apply(int fps, int size, char *message, size_t length) {
@@ -141,12 +170,15 @@ static const char *apply(int fps, int size, char *message, size_t length) {
         return message;
     }
     uint8_t *base = info.dli_fbase;
-    uint32_t *fixed = (uint32_t *)(base + 0x2D5F7A0);
-    if (fps > 30 && fixed[0] != 0x58000050u)
-        for (int i = 0; i < 4; i++) if (fixed[i] != kFixedProcessPrologue[i]) {
-            snprintf(message, length, "Unsupported game binary at 0x2D5F7A0; nothing changed");
+    const struct { uint32_t rva; const uint32_t *original; } hooks[] = {{0x2D5F7A0, kFixedProcessPrologue}, {0x2A6530C, kBattleStepCall}};
+    for (int h = 0; fps > 30 && h < 2; h++) {
+        uint32_t *at = (uint32_t *)(base + hooks[h].rva);
+        if (at[0] == 0x58000050u) continue;
+        for (int i = 0; i < 4; i++) if (at[i] != hooks[h].original[i]) {
+            snprintf(message, length, "Unsupported game binary at 0x%X; nothing changed", hooks[h].rva);
             return message;
         }
+    }
     for (int i = 0; i < count; i++) {
         uint32_t now = *(uint32_t *)(base + list[i].rva);
         if (now != list[i].original && now != list[i].patched) {
@@ -161,8 +193,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
             return message;
         }
     }
-    if (fps > 30 && hook_fixed_process(base)) {
-        snprintf(message, length, "Could not write the game code at 0x2D5F7A0");
+    if (fps > 30 && hook_frame_rate(base)) {
+        snprintf(message, length, "Could not write the game's frame timing code");
         return message;
     }
     return "";
@@ -172,7 +204,7 @@ static const char *apply(int fps, int size, char *message, size_t length) {
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *env, jclass cls, jint fps, jint size) {
     (void)cls;
     char message[160];
-    if ((fps && (fps < 30 || fps > 120)) || (size && (size < FullHD || size > DeviceMax)))
+    if ((fps && (fps < 30 || fps > 240)) || (size && (size < FullHD || size > DeviceMax)))
         return (*env)->NewStringUTF(env, "Unsupported display setting");
     return (*env)->NewStringUTF(env, apply(fps, size, message, sizeof message));
 }

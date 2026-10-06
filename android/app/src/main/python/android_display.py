@@ -17,7 +17,7 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
-FPS = [("30", "30 fps (game default)"), ("60", "60 fps")]
+FPS = [("30", "30 fps (game default)"), ("60", "60 fps"), ("90", "90 fps"), ("120", "120 fps"), ("max", "Screen maximum")]
 RESOLUTIONS = [("default", "Game default"), ("1080", "1080p"), ("1440", "1440p"), ("native", "Screen's own resolution")]
 DEFAULTS = {"fps": "30", "resolution": "default"}
 RESTART = "Close Pod Programs and tap Deploy."
