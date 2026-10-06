@@ -24,7 +24,7 @@
 {% endif %}
 {% endif %}
 {% if siblings|length > 1 %}
-<h2 class="bracket-header">Costume</h2>
+<h2 class="bracket-header">{{ sibling_title or "Costume" }}</h2>
 <div class="chips">
   {% for other, name in siblings %}<a class="chip{% if other == subject %} on{% endif %}" href="/viewer/{{ other }}">{{ name }}</a>{% endfor %}
 </div>

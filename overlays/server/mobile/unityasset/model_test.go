@@ -176,6 +176,18 @@ func TestHierarchyPaths(t *testing.T) {
 
 // Weapons convert like costumes; some variants carry only a prefab whose mesh is a sibling's,
 // within their series (wp005528 draws wp005505's) or from another series of the type (wp006011).
+// An enemy look whose textures sit with its family's first look still comes out textured.
+func TestFamilyTextures(t *testing.T) {
+	root := dumpRoot(t)
+	out := filepath.Join(t.TempDir(), "mt008101.glb")
+	if err := CostumeToGLB(filepath.Join(root, "3d/actor", "mt008101"), out, ModelOptions{MaxTexture: 256}); err != nil {
+		t.Fatal(err)
+	}
+	if images, _ := readGLB(t, out)["images"].([]any); len(images) == 0 {
+		t.Fatal("mt008101: no textures")
+	}
+}
+
 func TestWeaponToGLB(t *testing.T) {
 	root := dumpRoot(t)
 	for _, w := range []string{"wp001002", "wp005528", "wp006011"} {

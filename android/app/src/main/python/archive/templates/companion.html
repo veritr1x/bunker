@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/characters?tab=companions">Companions</a> › {{ companion.position }} of {{ companion.count }}</p>
+<h1>{{ companion.name }}</h1>
+{% if images and companion.full %}
+<a class="art full" href="{{ img("full", companion.full) }}"><img src="{{ img("view", companion.full) }}" alt="{{ companion.name }}"></a>
+{% endif %}
+{% if has_model(companion.asset) %}<a class="button" href="/viewer/{{ companion.asset }}">View in 3D</a>{% endif %}
+{% if companion.text %}
+<div class="panel"><article class="record"><p>{{ companion.text|rich|safe }}</p></article></div>
+{% endif %}
+{% endblock %}
+{% block footer %}
+<footer class="pager">
+  {% if companion.previous %}<a class="button ghost" href="/companion/{{ companion.previous }}">‹ Prev</a>{% else %}<a class="button ghost" href="/characters?tab=companions">‹ Back</a>{% endif %}
+  <span>{{ companion.position }} / {{ companion.count }}</span>
+  {% if companion.next %}<a class="button" href="/companion/{{ companion.next }}">Next ›</a>{% else %}<a class="button" href="/characters?tab=companions">Done</a>{% endif %}
+</footer>
+{% endblock %}

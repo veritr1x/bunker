@@ -7,8 +7,10 @@ import threading
 from pathlib import Path
 
 SIZES = {"thumb": 360, "view": 1400, "full": 0}
+# Models the viewer shows: costumes, weapons, companions, Mama and the cast, story characters, enemies.
+MODEL = r"(ch|wp|cm|ma|np|pc|pe|sp|um|mt)\d{6}"
 # Bump when conversion changes: older files are deleted and browsers fetch the new ones.
-VERSION = 2
+VERSION = 3
 
 
 class Converted:
@@ -97,11 +99,16 @@ class Models:
         return target
 
     def has(self, asset: str) -> bool:
-        """A costume (ch008001) or weapon (wp001002) with a skeleton, or a weapon variant's own prefab."""
-        if not re.fullmatch(r"(ch|wp)\d{6}", asset):
+        """A costume (ch008001), companion (cm001001), other figure or enemy with a skeleton; a weapon (wp001002)
+        with one or its own prefab; an enemy whose look borrows its family's skeleton (mt002004 uses mt002001's)."""
+        if not re.fullmatch(MODEL, asset):
             return False
         mesh = self.actors / asset / "mesh"
-        return (mesh / f"sk_{asset}.assetbundle").is_file() or (asset.startswith("wp") and (mesh / f"{asset}.assetbundle").is_file())
+        if (mesh / f"sk_{asset}.assetbundle").is_file():
+            return True
+        if asset[:2] in ("wp", "mt") and (mesh / f"{asset}.assetbundle").is_file():
+            return asset.startswith("wp") or any(self.actors.glob(f"{asset[:5]}*/mesh/sk_{asset[:5]}*.assetbundle"))
+        return False
 
 
 class Motions:
@@ -111,9 +118,14 @@ class Motions:
         self.root = Path(assetbundle)
         self.files = Converted(assetbundle, cache, convert)
 
+    def ready(self, asset: str) -> bool:
+        """Motions play on a model with its own skeleton."""
+        return bool(self.files.convert) and (self.root / "3d" / "actor" / asset / "mesh" / f"sk_{asset}.assetbundle").is_file()
+
     def json(self, asset: str, clip: str) -> Path:
         family = asset[:5]
-        if not self.files.convert or not re.fullmatch(r"ch\d{6}", asset) or not re.fullmatch(rf"anim_(tw|bt)_{family}_[a-z0-9_]+", clip):
+        if not self.files.convert or not re.fullmatch(MODEL, asset) or asset.startswith("wp") \
+                or not re.fullmatch(rf"anim_(tw|bt)_{family}_[a-z0-9_]+", clip):
             raise FileNotFoundError(clip)
         bundle = self.root / "3d" / "motion" / family / "general" / f"{clip}.assetbundle"
         actor = self.root / "3d" / "actor" / asset

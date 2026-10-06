@@ -17,18 +17,21 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 10
+FORMAT = 11
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
-                 "m_character_voice_unlock_condition", "m_dokan", "m_dokan_content_group", "m_dokan_text")
+                 "m_character_voice_unlock_condition", "m_dokan", "m_dokan_content_group", "m_dokan_text",
+                 "m_companion", "m_catalog_companion", "m_parts_group", "m_parts_series")
 # Read while building only, to name story groups; not kept in the index.
 BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character",
-                "m_main_quest_chapter", "m_main_quest_route", "m_battle_quest_scene_bgm", "m_battle_bgm_set")
+                "m_main_quest_chapter", "m_main_quest_route", "m_battle_quest_scene_bgm", "m_battle_bgm_set",
+                "m_actor", "m_actor_object", "m_quest_scene_battle", "m_battle_group", "m_battle", "m_battle_npc_deck",
+                "m_battle_npc_deck_character", "m_battle_npc_deck_character_type", "m_battle_npc_costume")
 # Gallery: (category, folder under assetbundle/, file pattern, group taken from the path)
 GALLERY = (
     ("stills", "ui/still", "*/still_main_*.assetbundle", lambda rel: rel.parts[0]),
-    ("events", "2d/ev", "*/texture/ev*_c[0-9]*.assetbundle", lambda rel: rel.parts[0]),
+    ("events", "2d/ev", "*/texture/ev*_c[0-9]*.assetbundle", lambda rel: rel.parts[0][2:8]),  # ev001010…: Record event 001010
     ("library", "ui/library", "*/**/*.assetbundle", lambda rel: rel.parts[0]),
     ("photos", "ui/photo_gallery", "*/*.assetbundle", lambda rel: rel.parts[0]),
 )
@@ -296,27 +299,187 @@ def library_entries(texts: dict[str, str], master: dict[str, list[dict]], maps: 
         parts = key.split(".")
         if key.startswith("story.Main.Quest.") and len(parts) >= 6:
             season, chapter, quest = int(parts[3]), int(parts[4]), int(parts[5])
-            c = main_chapters.get(chapter)
-            route, order = (routes.get(c["MainQuestRouteId"], {}).get("SortOrder", 1), c["SortOrder"]) if c else (1, chapter)
-            number = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}") or f"Chapter {order}"
-            title = texts.get(f"quest.main.chapter_title.{season}.{route}.{order}", "")
-            heading = number + (f" · {title}" if title and title != number else "")
+            heading, order = chapter_heading(texts, main_chapters, routes, season, chapter)
             part = int(parts[6]) if len(parts) > 6 else 0
-            out.append((f"Season {season}", heading, route * 100 + order, texts.get(f"mqt.{quest}p1", ""), quest * 100 + part, text))
+            out.append((f"Season {season}", heading, order, texts.get(f"mqt.{quest}p1", ""), quest * 100 + part, text, key))
         elif key.startswith("quest.event.chapter.story.") and len(parts) == 7:
             kind, n, part = int(parts[4]), int(parts[5]), int(parts[6])
             chapter = by_sort.get((kind, n))
             if kind == 1:
                 name = texts.get(f"quest.event.chapter_title.{chapters[chapter]['NameEventQuestTextId']}", "") if chapter else ""
-                out.append(("Events", name or f"Event {n}", n, "", part, text))
+                out.append(("Events", name or f"Event {n}", n, "", part, text, key))
             elif kind == 6:
-                out.append(("Character Quests", character(chapter) or f"Character {n}", n, "", part, text))
+                out.append(("Character Quests", character(chapter) or f"Character {n}", n, "", part, text, key))
         elif key.startswith("limit.content.story.") and parts[-1].isdigit():
             quest = int(parts[-1])
             chapter = chapter_of_quest.get(quest)
-            out.append(("Recollections of Dusk", character(chapter) or "Other", chapter or 0, "", quest, text))
+            out.append(("Recollections of Dusk", character(chapter) or "Other", chapter or 0, "", quest, text, key))
         elif key.startswith("content.story.") and len(parts) == 4:
-            out.append(("Dark Memories", dark.get(parts[2] + parts[3], ""), int(parts[2]), "", int(parts[3]), text))
+            out.append(("Dark Memories", dark.get(parts[2] + parts[3], ""), int(parts[2]), "", int(parts[3]), text, key))
+    return out
+
+
+def chapter_heading(texts: dict[str, str], chapters: dict[int, dict], routes: dict[int, dict], season: int,
+                    chapter: int) -> tuple[str, int]:
+    """A main-quest chapter's name ("Ch. 1 · Windblown Sand") and its place in the season."""
+    c = chapters.get(chapter)
+    route, order = (routes.get(c["MainQuestRouteId"], {}).get("SortOrder", 1), c["SortOrder"]) if c else (1, chapter)
+    number = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}") or f"Chapter {order}"
+    title = texts.get(f"quest.main.chapter_title.{season}.{route}.{order}", "")
+    return number + (f" · {title}" if title and title != number else ""), route * 100 + order
+
+
+def library_art(key: str) -> str:
+    """The picture the Library shows with a summary, found by the summary's key ("" when it has none)."""
+    parts = key.split(".")
+    if key.startswith("quest.event.chapter.story.") and len(parts) == 7 and parts[4] in ("01", "06"):
+        return f"ui/library/event_quest_type_{parts[4]}/bg{parts[5]}{parts[6]}.assetbundle"
+    if key.startswith("limit.content.story.") and parts[-1].isdigit():
+        return f"ui/library/limit_content/bg{parts[-1]}.assetbundle"
+    if key.startswith("content.story.") and len(parts) == 4:
+        return f"ui/library/content/bg{parts[2]}{parts[3]}.assetbundle"
+    return ""
+
+
+def gallery_rows(rows: list[tuple], texts: dict[str, str], master: dict[str, list[dict]],
+                 library: dict[str, tuple], events: dict[str, str]) -> list[tuple]:
+    """Each picture (category, group, name, path) as (category, group, name, path, title, section, order), named
+    for what it shows where that can be told: a still by its main-story chapter (still_main_<season><route>
+    <chapter id><n>); an event scene by its Record event's part and cut; Library art by the summary it sits
+    beside (library: path -> (heading, heading order, order)), or the report, Lost Archive, movie or record."""
+    chapters = {c["MainQuestChapterId"]: c for c in master.get("m_main_quest_chapter", [])}
+    routes = {r["MainQuestRouteId"]: r for r in master.get("m_main_quest_route", [])}
+    reports = {r["ReportAssetId"]: r for r in master.get("m_report", [])}
+    cages = {r["CageMemoryAssetId"]: r for r in master.get("m_cage_memory", [])}
+    movies = {r["LibraryMovieId"]: r for r in master.get("m_library_movie", [])}
+    event_parts = {}  # Record event -> its parts' codes (0101, 0401, …), from the folder after the event code
+    for category, grp, name, path in rows:
+        if category == "events":
+            event_parts.setdefault(grp, set()).add(path.split("/")[2][8:])
+    glass = sorted({name[13:19] for category, grp, name, path in rows if grp == "stained_glass"})
+    placed = []
+    for category, grp, name, path in rows:
+        title, section, order = "", "", 0
+        variant = ""
+        if name.endswith(("_full", "_standard")):
+            name_id, variant = name.rsplit("_", 1)
+            variant = " · card" if variant == "standard" else ""
+        else:
+            name_id = name
+        if category == "stills":
+            m = re.fullmatch(r"still_main_(\d)\d(\d{3})\d{2}", name)
+            section, order = chapter_heading(texts, chapters, routes, int(m[1]), int(m[2])) if m else ("Other", 99999)
+        elif category == "events":
+            code = path.split("/")[2][8:]
+            order = sorted(event_parts[grp]).index(code) + 1
+            section = f"Part {order}"
+            cut = re.search(r"_c(\d+)_?(.*)$", name)
+            title = f"Cut {int(cut[1])}" + (f" · {cut[2].replace('_', ' ')}" if cut[2] else "") if cut else ""
+        elif category == "photos":
+            title = "Photo"
+        elif path in library:
+            section, heading_order, order = library[path]
+            order = heading_order * 100000 + order
+            title = "Part"
+        elif grp == "report" and name_id[6:].isdigit():
+            r = reports.get(int(name_id[6:]))
+            if r:
+                section, order = texts.get(f"character.name.{r['CharacterId']}", ""), r["MainQuestSeasonId"] * 100000 + r["CharacterId"]
+                title = texts.get(f"report.title.{r['ReportAssetId']}", "") + variant
+        elif grp == "cage_memory" and name_id[11:].isdigit():
+            r = cages.get(int(name_id[11:]))
+            if r:
+                section, order = f"Season {r['MainQuestSeasonId']}", r["MainQuestSeasonId"] * 1000 + r["SortOrder"]
+                title = texts.get(f"cage.memory.title.{r['CageMemoryAssetId']}", "") + variant
+        elif grp == "stained_glass" and name[13:19] in glass:
+            order = glass.index(name[13:19]) + 1
+            section, title = f"Stained glass {order}", name[20:].capitalize()
+        elif grp == "movie" and name[5:].isdigit():
+            r = movies.get(int(name[5:]))
+            title = texts.get(f"movie.title.name.{r['TitleLibraryTextId']}", "") if r else ""
+            order = int(name[5:])
+        elif grp == "record" and name[6:].isdigit():
+            title, order = texts.get(f"record.title.name.{name[6:]}", ""), int(name[6:])
+        placed.append([category, grp, name, path, title, section, order])
+    # Numbered names count within their section: Still 1, Part 2, Photo 3.
+    counts = Counter()
+    for row in sorted(placed, key=lambda r: (r[0], r[1], r[6], r[5], r[2])):
+        if row[4] in ("", "Still", "Part", "Photo") or row[0] == "stills":
+            word = {"stills": "Still", "photos": "Photo"}.get(row[0], "Part" if row[4] == "Part" else "Picture")
+            counts[(row[0], row[1], row[5])] += 1
+            row[4] = f"{word} {counts[(row[0], row[1], row[5])]}"
+    return [tuple(r) for r in placed]
+
+
+# The other people and creatures the game shows in 3D, by the first letters of their model.
+MODEL_SECTIONS = ("Main cast", "Story characters", "Enemies")
+MODEL_FAMILIES = {"ma": 0, "np": 1, "pc": 1, "pe": 1, "sp": 1, "um": 1, "mt": 2}
+
+
+def readable(name: str) -> bool:
+    """False for names the game garbles on purpose (■ blocks, "&f33", "%ol13##") or that came out as mojibake."""
+    return bool(name) and name != "-" and not re.search(r"[■&%#$*]", name) and all(ord(c) < 0x2000 for c in name)
+
+
+def enemy_names(master: dict[str, list[dict]], texts: dict[str, str]) -> dict[str, Counter]:
+    """Enemy model (mt008101) -> how often each boss name is given to it. A quest's boss name
+    (quest.boss.name.<quest>) goes to the boss-type member of the enemy decks its battles field:
+    quest -> scenes -> battle groups -> battles -> deck -> member -> costume -> skeleton and variation."""
+    costumes = {r["CostumeId"]: r for r in master.get("m_costume", [])}
+    npc_costumes = {(r["BattleNpcId"], r["BattleNpcCostumeUuid"]): r["CostumeId"] for r in master.get("m_battle_npc_costume", [])}
+    members = {(r["BattleNpcId"], r["BattleNpcDeckCharacterUuid"]): r["BattleNpcCostumeUuid"]
+               for r in master.get("m_battle_npc_deck_character", [])}
+    bosses = {(r["BattleNpcId"], r["BattleNpcDeckCharacterUuid"]) for r in master.get("m_battle_npc_deck_character_type", [])
+              if r["BattleEnemyType"] == 2}
+    decks = {(r["BattleNpcId"], r["DeckType"], r["BattleNpcDeckNumber"]): r for r in master.get("m_battle_npc_deck", [])}
+    battles, groups, scene_groups, scenes = {}, {}, {}, {}
+    for r in master.get("m_battle", []):
+        battles.setdefault(r["BattleId"], []).append(r)
+    for r in master.get("m_battle_group", []):
+        groups.setdefault(r["BattleGroupId"], []).append(r["BattleId"])
+    for r in master.get("m_quest_scene_battle", []):
+        scene_groups.setdefault(r["QuestSceneId"], []).append(r["BattleGroupId"])
+    for r in master.get("m_quest_scene", []):
+        scenes.setdefault(r["QuestId"], []).append(r["QuestSceneId"])
+    out = {}
+    for key, name in texts.items():
+        quest = key.rsplit(".", 1)[-1]
+        if not key.startswith("quest.boss.name.") or not quest.isdigit() or not readable(name):
+            continue
+        for scene in scenes.get(int(quest), []):
+            for group in scene_groups.get(scene, []):
+                for battle in (b for g in groups.get(group, []) for b in battles.get(g, [])):
+                    deck = decks.get((battle["BattleNpcId"], battle["DeckType"], battle["BattleNpcDeckNumber"]))
+                    for slot in ("01", "02", "03") if deck else ():
+                        member = (battle["BattleNpcId"], deck["BattleNpcDeckCharacterUuid" + slot])
+                        c = costumes.get(npc_costumes.get((battle["BattleNpcId"], members.get(member))))
+                        if member in bosses and c and c["CostumeAssetCategoryType"] == 2:
+                            out.setdefault(f"mt{c['ActorSkeletonId']:03d}{c['AssetVariationId']:03d}", Counter())[name] += 1
+    return out
+
+
+def model_rows(assets: list[str], master: dict[str, list[dict]], texts: dict[str, str]) -> list[tuple]:
+    """(asset, section, family, family name, name) for each model of MODEL_FAMILIES. A model is named by the
+    actors that use it (actor.object.name via m_actor_object and m_actor) or, for an enemy, by the bosses it
+    plays; its family (the first five letters: mt008) by the name most of its models share, an enemy's
+    without the element ("Multi-limb Type: Fire" is a Multi-limb Type)."""
+    actors = {r["ActorId"]: r["ActorAssetId"] for r in master.get("m_actor", [])}
+    named = {}
+    for r in sorted(master.get("m_actor_object", []), key=lambda r: r["ActorObjectId"]):
+        name = texts.get(f"actor.object.name.{r['ActorObjectId']}", "")
+        if r["ActorId"] in actors and readable(name):
+            named.setdefault(actors[r["ActorId"]], Counter())[name] += 1
+    for asset, names in enemy_names(master, texts).items():
+        named[asset] = names
+    own = {a: named[a].most_common(1)[0][0] for a in assets if a in named}
+    families = {}
+    for a in assets:
+        if a in own:
+            families.setdefault(a[:5], Counter())[own[a].split(": ")[0] if a.startswith("mt") else own[a]] += 1
+    out = []
+    for a in assets:
+        family = families.get(a[:5])
+        out.append((a, MODEL_FAMILIES[a[:2]], a[:5], family.most_common(1)[0][0] if family else "", own.get(a, "")))
     return out
 
 
@@ -411,11 +574,12 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         CREATE TABLE line(scene INT, seq INT, text TEXT, voice TEXT, key TEXT, speaker TEXT);
         CREATE TABLE movie(name TEXT PRIMARY KEY, file TEXT, size INT);
         CREATE TABLE costume(asset TEXT PRIMARY KEY, character INT, costume INT, rarity INT);
-        CREATE TABLE image(category TEXT, grp TEXT, name TEXT, path TEXT PRIMARY KEY);
+        CREATE TABLE image(category TEXT, grp TEXT, name TEXT, path TEXT PRIMARY KEY, title TEXT, section TEXT, sort INT);
         CREATE TABLE character_voice(character INT, kind TEXT, seq INT, path TEXT);
         CREATE TABLE music(track TEXT, part INT, path TEXT PRIMARY KEY);
         CREATE TABLE story_group(kind TEXT, grp TEXT, title TEXT, PRIMARY KEY(kind, grp));
-        CREATE TABLE library(section INT, heading TEXT, heading_sort INT, title TEXT, sort INT, text TEXT);
+        CREATE TABLE library(section INT, heading TEXT, heading_sort INT, title TEXT, sort INT, text TEXT, art TEXT);
+        CREATE TABLE model(asset TEXT PRIMARY KEY, section INT, family TEXT, family_name TEXT, name TEXT);
         CREATE TABLE music_use(track TEXT, section INT, sort INT, place TEXT);
     """)
     # Spoken lines: voice/en/…/<line key>.assetbundle, named like the text line they voice.
@@ -459,14 +623,20 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         speakers, maps = apply_scenario(db, event_maps, db_path.with_name("scenario.json"), scenario, tables)
     texts = dict(db.execute("SELECT key, value FROM text WHERE key LIKE 'story.Main.Quest.%' OR key LIKE 'quest.event.chapter%' "
                             "OR key LIKE 'limit.content.story.%' OR key LIKE 'content.story.%' OR key LIKE 'quest.main.chapter_%' "
-                            "OR key LIKE 'mqt.%' OR key LIKE 'character.name.%'"))
+                            "OR key LIKE 'mqt.%' OR key LIKE 'character.name.%' OR key LIKE 'report.title.%' "
+                            "OR key LIKE 'cage.memory.title.%' OR key LIKE 'movie.title.name.%' OR key LIKE 'record.title.name.%' "
+                            "OR key LIKE 'actor.object.name.%' OR key LIKE 'quest.boss.name.%'"))
     if maps:
         titles = {(k, g): t for k, g, t in db.execute("SELECT kind, grp, title FROM story_group")}
         db.executemany("INSERT INTO music_use VALUES (?,?,?,?)", sorted(music_uses(maps, tables, texts, titles)))
     dark_names = dict(db.execute("SELECT grp, title FROM story_group WHERE kind='eid'"))
-    db.executemany("INSERT INTO library VALUES (?,?,?,?,?,?)",
-                   [(LIBRARY_SECTIONS.index(section), dark_names.get(heading, "") if section == "Dark Memories" else heading, *rest)
-                    for section, heading, *rest in library_entries(texts, tables, maps) if section in LIBRARY_SECTIONS])
+    rows = []
+    for section, heading, heading_sort, title, sort, text, key in library_entries(texts, tables, maps):
+        if section in LIBRARY_SECTIONS:
+            art = library_art(key)
+            rows.append((LIBRARY_SECTIONS.index(section), dark_names.get(heading, "") if section == "Dark Memories" else heading,
+                         heading_sort, title, sort, text, art if art and (assetbundle / art).is_file() else ""))
+    db.executemany("INSERT INTO library VALUES (?,?,?,?,?,?,?)", rows)
     costumes = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_costume'").fetchone()[0])
     costume_art = assetbundle / "ui" / "costume"
     have = {d.name for d in costume_art.iterdir()} if costume_art.is_dir() else set()
@@ -475,12 +645,20 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         if row["CostumeAssetCategoryType"] == 1 and asset in have:
             db.execute("INSERT OR IGNORE INTO costume VALUES (?,?,?,?)", (asset, row["CharacterId"], row["CostumeId"], row["RarityType"]))
     progress(len(bundles), len(bundles), "Gallery")
+    rows = []
     for category, folder, pattern, group in GALLERY:
         root = assetbundle / folder
         if root.is_dir():
-            rows = [(category, group(f.relative_to(root)), f.stem, f.relative_to(assetbundle).as_posix())
-                    for f in sorted(root.glob(pattern))]
-            db.executemany("INSERT OR IGNORE INTO image VALUES (?,?,?,?)", rows)
+            rows += [(category, group(f.relative_to(root)), f.stem, f.relative_to(assetbundle).as_posix())
+                     for f in sorted(root.glob(pattern))]
+    library = {art: (heading, heading_sort, sort) for art, heading, heading_sort, sort
+               in db.execute("SELECT art, heading, heading_sort, sort FROM library WHERE art != ''")}
+    events = dict(db.execute("SELECT grp, title FROM story_group WHERE kind='vid'"))
+    db.executemany("INSERT OR IGNORE INTO image VALUES (?,?,?,?,?,?,?)", gallery_rows(rows, texts, tables, library, events))
+    actors = assetbundle / "3d" / "actor"
+    assets = sorted(d.name for d in actors.iterdir() if d.name[:2] in MODEL_FAMILIES and re.fullmatch(r"[a-z]{2}\d{6}", d.name)) \
+        if actors.is_dir() else []
+    db.executemany("INSERT INTO model VALUES (?,?,?,?,?)", model_rows(assets, tables, texts))
     # A character's own lines (outside the story) sit in voice/en/outgame/<VoiceAssetId>/.
     rows = json.loads(db.execute("SELECT value FROM meta WHERE key='master:m_character_voice_unlock_condition'").fetchone()[0])
     for character, asset in sorted({(r["CharacterId"], r["VoiceAssetId"]) for r in rows}):

@@ -182,6 +182,8 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             values["groups"] = archive.reports()
         elif tab == "archives":
             values["items"] = archive.lost_archives()
+        elif tab == "memoirs":
+            values["groups"] = archive.memoirs()
         else:
             values["items"] = archive.debris()
         return page(request, "records.html", "records", **values)
@@ -200,10 +202,36 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             raise HTTPException(404)
         return FileResponse(target, media_type="video/mp4")
 
+    CHARACTER_TABS = (("playable", "Playable"), ("companions", "Companions"), ("cast", "Cast"), ("enemies", "Enemies"))
+
     @app.get("/characters")
-    def characters(request: Request):
+    def characters(request: Request, tab: str = "playable"):
         need_index(request)
-        return page(request, "characters.html", "characters", characters=archive.characters())
+        values = {"tab": tab, "tabs": CHARACTER_TABS}
+        if tab == "playable":
+            values["characters"] = archive.characters()
+        elif tab == "companions":
+            values["companions"] = archive.companions()
+        elif tab in ("cast", "enemies"):
+            # Families with at least one model the viewer can show.
+            shown = ("Main cast", "Story characters") if tab == "cast" else ("Enemies",)
+            families = []
+            for f in archive.model_families(shown):
+                f["models"] = [m for m in f["models"] if model is not None and models.has(m["asset"])]
+                if f["models"]:
+                    families.append(f)
+            values["groups"] = [{"name": s, "families": [f for f in families if f["section"] == s]} for s in shown]
+        else:
+            raise HTTPException(404)
+        return page(request, "characters.html", "characters", **values)
+
+    @app.get("/companion/{asset}")
+    def companion(request: Request, asset: str):
+        need_index(request)
+        found = archive.companion(asset)
+        if not found:
+            raise HTTPException(404)
+        return page(request, "companion.html", "characters", companion=found)
 
     @app.get("/characters/{character_id}")
     def character(request: Request, character_id: int):
@@ -232,6 +260,23 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
                 raise HTTPException(404)
             return page(request, "viewer.html", "records", subject=asset, heading=name, siblings=[],
                         crumbs=[("/records?tab=weapons", "Weapons"), (f"/records?tab=weapons&q={asset}", name)], motions=[])
+        own_motions = archive.motions(asset) if motion is not None and motions.ready(asset) else []
+        if asset.startswith("cm"):
+            found = archive.companion(asset)
+            if not found:
+                raise HTTPException(404)
+            return page(request, "viewer.html", "characters", subject=asset, heading=found["name"], siblings=[],
+                        crumbs=[("/characters?tab=companions", "Companions"), (f"/companion/{asset}", found["name"])], motions=own_motions)
+        if not asset.startswith("ch"):
+            found = archive.model(asset)
+            if not found:
+                raise HTTPException(404)
+            family = found["family"]
+            tab = "enemies" if family["section"] == "Enemies" else "cast"
+            return page(request, "viewer.html", "characters", subject=asset, heading=found["model"]["label"],
+                        crumbs=[(f"/characters?tab={tab}", "Enemies" if tab == "enemies" else "Cast"), (f"/characters?tab={tab}#{family['family']}", family["name"])],
+                        siblings=[(m["asset"], m["label"]) for m in family["models"] if models.has(m["asset"])], motions=own_motions,
+                        sibling_title="Look")
         found = archive.costume(asset)
         if not found:
             raise HTTPException(404)
@@ -276,7 +321,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         if not found:
             raise HTTPException(404)
         return page(request, "gallery_group.html", "gallery", category=category, tabs=dict(Archive.GALLERY_TABS),
-                    label=archive.group_label(category, grp), items=found)
+                    label=archive.group_label(category, grp), groups=found)
 
     @app.get("/image")
     def image(request: Request, path: str):

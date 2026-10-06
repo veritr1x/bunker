@@ -357,6 +357,25 @@ func CostumeToGLB(actorFolder, target string, opt ModelOptions) error {
 			}
 		}
 	}
+	// An enemy's other looks keep their own material but draw its textures from the family's first
+	// look (mt008101's fire body uses mt008001's): load the family's textures, one at a time, while
+	// anything a loaded bundle points to is still missing.
+	if len(asset) >= 6 {
+		for _, prefix := range []string{asset[:6], asset[:5]} {
+			if a.complete() {
+				break
+			}
+			files, _ := filepath.Glob(filepath.Join(filepath.Dir(actorFolder), prefix+"*", "texture", "*.assetbundle"))
+			for _, f := range files {
+				if a.byCABOfBundle(f) == nil {
+					_ = a.add(f)
+					if a.complete() {
+						break
+					}
+				}
+			}
+		}
+	}
 	g := &gltfBuilder{doc: map[string]any{"asset": map[string]any{"version": "2.0", "generator": "Bunker Archive"}}}
 
 	// Nodes: every Transform, named by its GameObject.
@@ -509,6 +528,16 @@ func CostumeToGLB(actorFolder, target string, opt ModelOptions) error {
 func (a *assets) hasAll(externals []string) bool {
 	for _, e := range externals {
 		if name := path.Base(e); strings.HasPrefix(name, "CAB-") && a.byCAB[name] == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// complete reports whether every loaded file's external bundles are loaded too.
+func (a *assets) complete() bool {
+	for _, f := range a.byCAB {
+		if !a.hasAll(f.sf.Externals) {
 			return false
 		}
 	}

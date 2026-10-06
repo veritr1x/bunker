@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › <a href="/gallery?tab={{ image.category }}">Gallery · {{ tabs[image.category] }}</a> › <a href="/gallery/{{ image.category }}/{{ image.grp }}">{{ image.label }}</a></p>
-<h1>{{ image.name }}</h1>
+<h1>{{ image.heading }}</h1>
 {% if images %}
-<a class="art full" href="{{ img("full", image.path) }}"><img src="{{ img("view", image.path) }}" alt="{{ image.name }}"></a>
-<p class="note"><a href="{{ img("full", image.path) }}" download="{{ image.name }}.png" id="save">Save PNG</a></p>
+<a class="art full" href="{{ img("full", image.path) }}"><img src="{{ img("view", image.path) }}" alt="{{ image.heading }}"></a>
+<p class="note"><a href="{{ img("full", image.path) }}" download="{{ (image.label ~ " " ~ image.heading)|replace("/", "-") }}.png" id="save">Save PNG</a></p>
 <script>
 // In the app, WebView ignores download links; the Bunker saves the picture where the user picks.
 document.getElementById("save").addEventListener("click", (event) => {

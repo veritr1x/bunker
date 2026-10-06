@@ -2,6 +2,10 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › Characters</p>
 <h1>Characters</h1>
+<nav class="seg" aria-label="Character type">
+  {% for key, label in tabs %}<a href="/characters?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
+</nav>
+{% if tab == "playable" %}
 <div class="cards">
   {% for c in characters %}
   <a class="card" href="/characters/{{ c.id }}">
@@ -11,4 +15,23 @@
   </a>
   {% endfor %}
 </div>
+{% elif tab == "companions" %}
+<div class="cards">
+  {% for c in companions %}
+  <a class="card" href="/companion/{{ c.asset }}">
+    <span class="art square">{% if images and c.card %}<img src="{{ img("thumb", c.card) }}" alt="" loading="lazy">{% endif %}</span>
+    <strong>{{ c.name }}</strong>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+  {% for g in groups if g.families %}
+  <h2 class="bracket-header">{{ g.name }}</h2>
+  <div class="tool-grid">
+    {% for f in g.families %}
+    <a href="/viewer/{{ f.models[0].asset }}" id="{{ f.family }}">{{ f.name }}<span>{{ count(f.models|length, "look") }}</span></a>
+    {% endfor %}
+  </div>
+  {% endfor %}
+{% endif %}
 {% endblock %}

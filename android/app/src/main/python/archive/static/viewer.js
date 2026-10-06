@@ -68,6 +68,15 @@ function standUp(object) {
   object.position.z -= (box.min.z + box.max.z) / 2;
 }
 
+// Everything else stands as modelled: rest it on the grid, centred.
+function ground(object) {
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(object);
+  object.position.y -= box.min.y;
+  object.position.x -= (box.min.x + box.max.x) / 2;
+  object.position.z -= (box.min.z + box.max.z) / 2;
+}
+
 function resetCamera() {
   camera.position.copy(home.position);
   controls.target.copy(home.target);
@@ -128,7 +137,7 @@ function load(url) {
     rest = [];
     current.traverse((o) => { if (o.isBone) rest.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]); });
     scene.add(current);
-    standUp(current);
+    if ((stage.dataset.name || "").startsWith("wp")) standUp(current); else ground(current);
     frameModel(current);
     mixer = new THREE.AnimationMixer(current);
     status.hidden = true;

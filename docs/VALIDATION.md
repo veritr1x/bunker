@@ -132,6 +132,27 @@
   and are "Other". Track 9999 is 8 s of silence (3.9 KB of Vorbis) that
   maps play to stop the music, and is left out. Not checked on iOS or a
   physical phone.
+- Gallery names: stills are filed by main-story chapter (still_main_ +
+  season, route, chapter id, number), event scenes by Record event (the
+  2d/ev folder's code is the event's) and part, and Library art by the
+  summary it sits beside (bg + the summary key's numbers; 396 of 535
+  summaries have one and now show it), report, Lost Archive, movie or
+  record. Photos have no names in the data and are numbered.
+- Companions, Memoirs, Debris: all 53 companions show their art,
+  description and 3D model with motions; 144 Memoirs are listed by series
+  with their art; 181 of 182 Debris show their picture.
+- Other models: the Characters tab lists Mama and the cast (ma), story
+  characters (np, pc, pe, sp, um) and enemies (mt) by family: 10, 248
+  and 230 models (110 enemy looks borrow their family's skeleton; mt042001
+  has none and is left out).
+  Names come from actor.object.name, and an enemy's from the boss names of
+  the quests it fights in (quest -> scenes -> battle groups -> NPC deck ->
+  boss-type member -> costume skeleton and variation); garbled names
+  (■ blocks, "&f33") are skipped and families nobody names are numbered.
+  Enemy looks drew their textures from the family's first look, so the
+  model code now loads those too (mt008101). The props (oa) are left out.
+  Character voice lines keep their numbered labels: the outgame voice
+  files have no subtitles in the dump.
 
 ## Signed web APKs and the download fix — 2026-10-04
 

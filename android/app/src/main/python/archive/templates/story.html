@@ -27,6 +27,7 @@
       <summary>{{ heading.name or "Other" }}</summary>
       {% for item in heading["items"] %}
       <article class="record">
+        {% if images and item.art %}<a class="art library-art" href="/image?path={{ item.art|urlencode }}"><img src="{{ img("view", item.art) }}" alt="" loading="lazy"></a>{% endif %}
         {% if item.title %}<h3>{{ item.title }}</h3>{% endif %}
         <p>{{ item.text|rich|safe }}</p>
       </article>

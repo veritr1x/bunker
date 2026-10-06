@@ -112,23 +112,26 @@ class Parsing(unittest.TestCase):
                   "m_event_quest_chapter_character": [{"EventQuestChapterId": 901, "CharacterId": 1008},
                                                       {"EventQuestChapterId": 500001, "CharacterId": 1019}]}
         maps = {"endcontents/0005003000001n": {"paths": ["sub)season01)eid_a01040_1010g"]}}
-        got = {(section, heading, title, text) for section, heading, _, title, _, text in index.library_entries(texts, master, maps)}
+        got = {(section, heading, title, text) for section, heading, _, title, _, text, _ in index.library_entries(texts, master, maps)}
         self.assertEqual(got, {("Season 2", "The Sun I: The Dawn · Binding Magick", "The Bond's Beginning", "S2"),
                                ("Events", "Record: Den of Madness", "", "E"), ("Character Quests", "Rion", "", "C"),
                                ("Recollections of Dusk", "Fio", "", "L"), ("Dark Memories", "a01040", "", "D")})
 
-    def test_models_cover_costumes_and_weapons(self):
+    def test_models_cover_costumes_weapons_and_more(self):
         from archive.media import Models
         with tempfile.TemporaryDirectory() as folder:
             actors = Path(folder) / "3d" / "actor"
             for asset, bundle in (("ch008001", "sk_ch008001"), ("wp001002", "sk_wp001002"), ("wp005528", "wp005528"),
-                                  ("ch019051", "ch019051")):
+                                  ("ch019051", "ch019051"), ("cm001001", "sk_cm001001"), ("mt002001", "sk_mt002001"),
+                                  ("mt002004", "mt002004"), ("mt042001", "mt042001"), ("oa001001", "sk_oa001001")):
                 (actors / asset / "mesh").mkdir(parents=True)
                 (actors / asset / "mesh" / f"{bundle}.assetbundle").write_bytes(b"")
             models = Models(Path(folder), Path(folder) / "cache", lambda *a: "")
-            # A weapon variant may carry only its prefab (its mesh is a sibling's); a costume may not.
-            self.assertEqual([models.has(a) for a in ("ch008001", "wp001002", "wp005528", "ch019051", "../wp001002")],
-                             [True, True, True, False, False])
+            # A weapon variant may carry only its prefab (its mesh is a sibling's); a costume may not. An enemy
+            # look may borrow its family's skeleton when the family has one. Props (oa) are not shown.
+            self.assertEqual([models.has(a) for a in ("ch008001", "wp001002", "wp005528", "ch019051", "../wp001002", "cm001001",
+                                                      "mt002004", "mt042001", "oa001001")],
+                             [True, True, True, False, False, True, True, False, False])
 
     def test_mask_name(self):
         base = Path("/a/assetbundle")
@@ -154,7 +157,9 @@ class RealDump(unittest.TestCase):
                          "/scene/1", "/records", "/records?tab=reports", "/records?tab=archives", "/records?tab=debris",
                          "/movies", "/search?q=cage", "/characters", "/characters/1008", "/costume/ch008001",
                          "/gallery", "/gallery?tab=events", "/gallery?tab=library", "/gallery?tab=photos", "/gallery/stills/season1",
-                         "/image?path=ui/still/season1/still_main_1100101.assetbundle", "/music"):
+                         "/image?path=ui/still/season1/still_main_1100101.assetbundle", "/music", "/records?tab=memoirs",
+                         "/characters?tab=companions", "/characters?tab=cast", "/characters?tab=enemies", "/companion/cm001001",
+                         "/gallery/library/content", "/gallery/library/report"):
                 self.assertEqual(client.get(path).status_code, 200, path)
             self.assertEqual(client.get("/media/movie/../list.bin").status_code, 404)
             self.assertEqual(client.get("/media/image/thumb/../list.bin").status_code, 404)
@@ -216,6 +221,29 @@ class RealDump(unittest.TestCase):
                 self.assertEqual(sum(len(h["items"]) for s in library.values() for h in s["headings"]), 535)
                 self.assertTrue(all(h["name"] for s in library.values() for h in s["headings"]))
                 self.assertEqual([h["name"] for h in library["Character Quests"]["headings"]][:2], ["Rion", "Gayle"])
+            # Gallery pictures carry names: stills by chapter, Library art by what it goes with.
+            stills = archive.gallery_images("stills", "season1")
+            self.assertEqual(stills[0]["items"][0]["title"], "Still 1")
+            self.assertFalse([i for g in stills for i in g["items"] if "still_main" in g["name"]])
+            reports = {g["name"]: g["items"] for g in archive.gallery_images("library", "report")}
+            self.assertTrue(all(i["title"] for items in reports.values() for i in items))
+            self.assertEqual(archive.group_label("library", "content"), "Dark Memories")
+            # Companions, Memoirs and Debris with their art; the other models named where the game names them.
+            companions = archive.companions()
+            self.assertEqual(len(companions), 53)
+            self.assertTrue(all(c["full"] for c in companions))
+            memoirs = archive.memoirs()
+            self.assertGreater(sum(len(g["items"]) for g in memoirs), 100)
+            self.assertTrue(all(i["art"] for g in memoirs for i in g["items"]))
+            self.assertGreater(sum(1 for d in archive.debris() if d["art"]), 150)
+            cast = {f["family"]: f for f in archive.model_families(("Main cast",))}
+            self.assertEqual(cast["ma001"]["name"], "Mama")
+            enemies = {f["family"]: f for f in archive.model_families(("Enemies",))}
+            self.assertEqual(enemies["mt008"]["name"], "Multi-limb Type")
+            self.assertFalse([f for f in enemies.values() if "■" in f["name"]])
+            if scenario:
+                self.assertTrue(archive.group_label("events", "001010").startswith("Record:"))
+                self.assertGreater(sum(1 for s in archive.recollections() for h in s["headings"] for i in h["items"] if i["art"]), 300)
             self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
             # The 3D viewer's glTF loader fetches embedded textures from blob: URLs.
             policy = client.get("/").headers["content-security-policy"]

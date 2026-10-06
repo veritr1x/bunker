@@ -77,6 +77,14 @@ footer.pager .button { display: inline-flex; align-items: center; min-height: 44
 .art { display: block; position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--accent);
   background-color: var(--bg-cream-dark); background-image: repeating-linear-gradient(135deg, transparent 0, transparent 7px, var(--line) 7px, var(--line) 8px); }
 .art.portrait { aspect-ratio: 3 / 8; }
+.art.square { aspect-ratio: 1; }
+.art.square img { object-fit: contain; }
+.art.thumb { aspect-ratio: 1; width: 88px; flex: none; }
+.art.thumb img { object-fit: contain; }
+.record.with-art { display: flex; gap: 12px; align-items: flex-start; }
+.record.with-art > div { min-width: 0; }
+.art.library-art { aspect-ratio: auto; margin: 0 0 10px; background-color: var(--panel); }
+.art.library-art img { height: auto; }
 .art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .art.portrait img { object-fit: contain; }
 .art.full { aspect-ratio: auto; margin: 0 0 6px; border-width: 2px; background-image: none; background-color: var(--panel); }

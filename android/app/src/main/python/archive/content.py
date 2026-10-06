@@ -180,9 +180,9 @@ class Archive:
         """The Library's summaries as the game files them: each season by chapter, events by name, and the
         Character Quests, Recollections of Dusk and Dark Memories by character."""
         with self.db() as db:
-            rows = db.execute("SELECT section, heading, title, text FROM library ORDER BY section, heading_sort, heading, sort").fetchall()
+            rows = db.execute("SELECT section, heading, title, text, art FROM library ORDER BY section, heading_sort, heading, sort").fetchall()
         sections = []
-        for section, heading, title, text in rows:
+        for section, heading, title, text, art in rows:
             name = self.LIBRARY_SECTIONS[section]
             if name.startswith("Season "):
                 name += f" · {self.season_title(int(name.split()[1]))}"
@@ -192,7 +192,7 @@ class Archive:
             headings = sections[-1]["headings"]
             if not headings or headings[-1]["name"] != heading:
                 headings.append({"name": heading, "items": []})
-            headings[-1]["items"].append({"title": title, "text": text})
+            headings[-1]["items"].append({"title": title, "text": text, "art": art})
         return sections
 
     # ---- Records --------------------------------------------------------------
@@ -269,8 +269,31 @@ class Archive:
         return out
 
     def debris(self) -> list[dict]:
-        names = self.texts("thought.name.")
-        return [{"title": v, "text": self.text("thought.description." + k.rsplit(".", 1)[-1])} for k, v in sorted(names.items())]
+        """Each Debris with its picture (ui/thought/thought<id>/thought<id>_standard)."""
+        out = []
+        for key, name in sorted(self.texts("thought.name.").items()):
+            number = key.rsplit(".", 1)[-1]
+            art = f"ui/thought/thought{number}/thought{number}_standard.assetbundle"
+            out.append({"title": name, "text": self.text(f"thought.description.{number}"),
+                        "art": art if (self.revision / "assetbundle" / art).is_file() else None})
+        return out
+
+    def memoirs(self) -> list[dict]:
+        """Memoirs by series, in the game's order; each with its text and picture (ui/memory/memory<asset>)."""
+        series = {r["PartsSeriesId"]: r for r in self.master("m_parts_series")}
+        groups = {}
+        for row in sorted(self.master("m_parts_group"), key=lambda r: (r["PartsSeriesId"], r["SortOrder"], r["PartsGroupId"])):
+            text = self.text(f"parts.group.description.{row['PartsGroupId']}")
+            name = self.text(f"parts.group.name.{row['PartsGroupId']}")
+            if not name or not text:
+                continue
+            s = series.get(row["PartsSeriesId"], {})
+            group = groups.setdefault(row["PartsSeriesId"], {"name": self.text(f"parts.series.name.{s.get('PartsSeriesAssetId', row['PartsSeriesId'])}")
+                                                             or "Other", "items": []})
+            asset = f"memory{row['PartsGroupAssetId']:03d}"
+            art = next((p for kind in ("full", "standard") if (self.revision / "assetbundle" / (p := f"ui/memory/{asset}/{asset}_{kind}.assetbundle")).is_file()), None)
+            group["items"].append({"title": name, "text": text, "art": art})
+        return list(groups.values())
 
     # ---- Movies ---------------------------------------------------------------
     def movie_files(self) -> dict[str, dict]:
@@ -499,11 +522,71 @@ class Archive:
                 "previous": siblings[at - 1]["asset"] if at > 0 else None,
                 "next": siblings[at + 1]["asset"] if at + 1 < len(siblings) else None}
 
+    # ---- Companions ---------------------------------------------------------------
+    def companions(self) -> list[dict]:
+        """The companions in the game's catalogue order, with their art (ui/companion/<asset>/<asset>_<kind>)."""
+        order = {r["CompanionId"]: r["SortOrder"] for r in self.master("m_catalog_companion")}
+        out, seen = [], set()
+        for row in sorted(self.master("m_companion"), key=lambda r: (order.get(r["CompanionId"], 1 << 40), r["CompanionId"])):
+            asset = f"cm{row['ActorSkeletonId']:03d}{row['AssetVariationId']:03d}"
+            name = self.text(f"companion.name.{asset}")
+            if asset in seen or not name or row["CompanionId"] not in order:
+                continue
+            seen.add(asset)
+            art = {kind: path for kind in ("full", "large", "standard")
+                   if (self.revision / "assetbundle" / (path := f"ui/companion/{asset}/{asset}_{kind}.assetbundle")).is_file()}
+            out.append({"asset": asset, "name": name, "text": self.text(f"companion.description.{asset}"),
+                        "card": art.get("standard") or art.get("large"), "full": art.get("full") or art.get("large")})
+        return out
+
+    def companion(self, asset: str) -> dict | None:
+        found = self.companions()
+        at = next((i for i, c in enumerate(found) if c["asset"] == asset), None)
+        if at is None:
+            return None
+        return {**found[at], "position": at + 1, "count": len(found),
+                "previous": found[at - 1]["asset"] if at > 0 else None, "next": found[at + 1]["asset"] if at + 1 < len(found) else None}
+
+    # ---- Other models -------------------------------------------------------------
+    MODEL_SECTIONS = ("Main cast", "Story characters", "Enemies")
+
+    def model_families(self, sections: tuple) -> list[dict]:
+        """The other models in the given sections, family by family (mt008: Multi-limb Type and its looks)."""
+        with self.db() as db:
+            rows = db.execute("SELECT * FROM model WHERE section IN (%s) ORDER BY section, family, asset" % ",".join("?" * len(sections)),
+                              [self.MODEL_SECTIONS.index(s) for s in sections]).fetchall()
+        out, unnamed = [], {}
+        for r in rows:
+            if not out or out[-1]["family"] != r["family"]:
+                section = self.MODEL_SECTIONS[r["section"]]
+                name = r["family_name"]
+                if not name:  # no actor or boss names this family: numbered, one count per section
+                    unnamed[section] = unnamed.get(section, 0) + 1
+                    name = f"{'Unnamed enemy' if section == 'Enemies' else 'Unnamed figure'} {unnamed[section]}"
+                out.append({"family": r["family"], "section": section, "name": name, "models": []})
+            out[-1]["models"].append({"asset": r["asset"], "name": r["name"]})
+        for family in out:
+            if len(family["models"]) == 1 and family["models"][0]["name"]:
+                family["name"] = family["models"][0]["name"]  # one look: its own name (Cursed God: Wind)
+            # Each look is named for itself where it can be, else numbered.
+            names = [m["name"] or family["name"] for m in family["models"]]
+            for i, m in enumerate(family["models"]):
+                m["label"] = names[i] if names.count(names[i]) == 1 else f"{names[i]} · {names[:i + 1].count(names[i])}"
+        return out
+
+    def model(self, asset: str) -> dict | None:
+        with self.db() as db:
+            row = db.execute("SELECT section, family FROM model WHERE asset=?", (asset,)).fetchone()
+        if not row:
+            return None
+        family = next(f for f in self.model_families((self.MODEL_SECTIONS[row["section"]],)) if f["family"] == row["family"])
+        return {"family": family, "model": next(m for m in family["models"] if m["asset"] == asset)}
+
     # ---- Gallery ----------------------------------------------------------------
     GALLERY_TABS = (("stills", "Stills"), ("events", "Event scenes"), ("library", "Library art"), ("photos", "Photos"))
-    LIBRARY_GROUPS = {"stained_glass": "Stained glass", "report": "Report art", "cage_memory": "Lost Archives",
-                      "content": "End contents", "limit_content": "Limited contents", "event_quest_type_01": "Event backdrops",
-                      "event_quest_type_06": "Character story backdrops", "movie": "Movie covers", "record": "Record covers"}
+    LIBRARY_GROUPS = {"stained_glass": "Stained glass", "report": "Reports", "cage_memory": "Lost Archives",
+                      "content": "Dark Memories", "limit_content": "Recollections of Dusk", "event_quest_type_01": "Events",
+                      "event_quest_type_06": "Character Quests", "movie": "Movie covers", "record": "Record covers"}
 
     def group_label(self, category: str, grp: str) -> str:
         if category == "stills":
@@ -512,7 +595,7 @@ class Archive:
             return self.LIBRARY_GROUPS.get(grp, grp.replace("_", " ").capitalize())
         if category == "photos":
             return "Photos"
-        return grp.upper()
+        return self.group_title("vid", grp) or f"Event {grp}"  # event scenes: their Record event
 
     def gallery(self, category: str) -> list[dict]:
         with self.db() as db:
@@ -520,24 +603,33 @@ class Archive:
         return [{"grp": r["grp"], "label": self.group_label(category, r["grp"]), "count": r["n"], "cover": r["cover"]} for r in rows]
 
     def gallery_images(self, category: str, grp: str) -> list[dict]:
+        """A group's pictures in order, gathered under their sections (a chapter, a part, a character)."""
         with self.db() as db:
-            return [dict(r) for r in db.execute("SELECT * FROM image WHERE category=? AND grp=? ORDER BY name", (category, grp))]
+            rows = [dict(r) for r in db.execute("SELECT * FROM image WHERE category=? AND grp=? ORDER BY sort, section, name", (category, grp))]
+        sections = []
+        for r in rows:
+            if not sections or sections[-1]["name"] != r["section"]:
+                sections.append({"name": r["section"], "items": []})
+            sections[-1]["items"].append(r)
+        return sections
 
     def image(self, path: str) -> dict | None:
         with self.db() as db:
             row = db.execute("SELECT * FROM image WHERE path=?", (path,)).fetchone()
             if not row:
                 return None
-            names = [r[0] for r in db.execute("SELECT path FROM image WHERE category=? AND grp=? ORDER BY name", (row["category"], row["grp"]))]
+            names = [r[0] for r in db.execute("SELECT path FROM image WHERE category=? AND grp=? ORDER BY sort, section, name",
+                                              (row["category"], row["grp"]))]
         at = names.index(path)
-        return {**dict(row), "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
+        heading = " · ".join(p for p in (row["section"], row["title"]) if p) or row["name"]
+        return {**dict(row), "heading": heading, "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
                 "previous": names[at - 1] if at > 0 else None, "next": names[at + 1] if at + 1 < len(names) else None}
 
     # ---- 3D motions -------------------------------------------------------------
     MOTION_GROUPS = {"tw": "field", "bt": "battle"}
 
     def motions(self, asset: str) -> list[dict]:
-        """The body motions for a costume's skeleton family (ch008001 -> ch008): field first, then battle."""
+        """The body motions for a model's skeleton family (ch008001 -> ch008): field first, then battle."""
         family = asset[:5]
         folder = self.revision / "assetbundle" / "3d" / "motion" / family / "general"
         out = []
@@ -546,9 +638,9 @@ class Archive:
             if not m:
                 continue
             parts = m.group(2).split("_")
-            if any(re.fullmatch(r"ch\d{6}", w) and w != asset for w in parts):
+            if any(re.fullmatch(r"[a-z]{2}\d{6}", w) and w != asset for w in parts):
                 continue  # another costume's own version of a move
-            words = [w for w in parts if not w.isdigit() and not re.fullmatch(r"ch\d{6}", w) and w not in ("lp", "st", "en")]
+            words = [w for w in parts if not w.isdigit() and not re.fullmatch(r"[a-z]{2}\d{6}", w) and w not in ("lp", "st", "en")]
             label = " ".join(words).capitalize() or m.group(2)
             numbers = [w.lstrip("0") or "0" for w in parts if w.isdigit()]
             if numbers and numbers != ["1"]:

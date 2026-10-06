@@ -6,6 +6,7 @@
   <a href="/records?tab=weapons"{% if tab == "weapons" %} class="on"{% endif %}>Weapons</a>
   <a href="/records?tab=reports"{% if tab == "reports" %} class="on"{% endif %}>Reports</a>
   <a href="/records?tab=archives"{% if tab == "archives" %} class="on"{% endif %}>Archives</a>
+  <a href="/records?tab=memoirs"{% if tab == "memoirs" %} class="on"{% endif %}>Memoirs</a>
   <a href="/records?tab=debris"{% if tab == "debris" %} class="on"{% endif %}>Debris</a>
 </nav>
 {% if tab == "weapons" %}
@@ -39,10 +40,25 @@
     {% for item in g["items"] %}<article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}
+{% elif tab == "memoirs" %}
+  {% for g in groups %}
+  <details class="panel fold">
+    <summary>{{ g.name }} · {{ g["items"]|length }}</summary>
+    {% for item in g["items"] %}
+    <article class="record with-art">
+      {% if images and item.art %}<a class="art thumb" href="{{ img("full", item.art) }}"><img src="{{ img("thumb", item.art) }}" alt="" loading="lazy"></a>{% endif %}
+      <div><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></div>
+    </article>
+    {% endfor %}
+  </details>
+  {% endfor %}
 {% else %}
   <div class="panel">
   {% for item in items %}
-    <article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></article>
+    <article class="record{% if images and item.art %} with-art{% endif %}">
+      {% if images and item.art %}<a class="art thumb" href="{{ img("full", item.art) }}"><img src="{{ img("thumb", item.art) }}" alt="" loading="lazy"></a>{% endif %}
+      <div><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></div>
+    </article>
   {% else %}<p class="note">Nothing here.</p>{% endfor %}
   </div>
 {% endif %}
