@@ -101,6 +101,7 @@ footer.pager .button { display: inline-flex; align-items: center; min-height: 44
 .track:last-child { border-bottom: none; }
 .track strong { flex: 1 1 100%; font-size: 15px; }
 .track .parts { display: flex; gap: 6px; flex-wrap: wrap; }
+.track .where { flex: 1 1 100%; margin-top: -8px; }
 footer.player-bar { display: flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; }
 footer.player-bar[hidden] { display: none; }
 .player-bar .now { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; }

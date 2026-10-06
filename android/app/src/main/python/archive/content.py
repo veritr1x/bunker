@@ -442,13 +442,33 @@ class Archive:
     VOICE_KINDS = {"pfv": "Profile", "enh": "Upgrade", "bkt": "Line"}
 
     # ---- Music -------------------------------------------------------------------
+    MUSIC_SECTIONS = ("Season 1", "Season 2", "Season 3", "Character stories", "Events", "Side stories", "Battle")
+
     def music(self) -> list[dict]:
+        """The soundtrack, each track filed under where it is first heard (the game has no titles for it):
+        a season's chapter, a character's stories, an event, a side story, or battle; with the other places."""
         with self.db() as db:
             rows = db.execute("SELECT track, part, path FROM music ORDER BY track, part").fetchall()
+            uses = db.execute("SELECT track, section, sort, place FROM music_use ORDER BY section, sort, place").fetchall()
         tracks = {}
         for r in rows:
-            tracks.setdefault(r["track"], {"track": r["track"], "parts": []})["parts"].append({"part": r["part"], "path": r["path"]})
-        return list(tracks.values())
+            if r["track"] == "9999":
+                continue  # 8 s of silence (3.9 KB of Vorbis) that maps play to stop the music
+            tracks.setdefault(r["track"], {"track": r["track"], "parts": [], "places": []})["parts"].append({"part": r["part"], "path": r["path"]})
+        first = {}
+        for r in uses:
+            if r["track"] in tracks:
+                first.setdefault(r["track"], (r["section"], r["sort"]))
+                if r["place"] not in tracks[r["track"]]["places"]:
+                    tracks[r["track"]]["places"].append(r["place"])
+        sections = {}
+        for track in sorted(tracks.values(), key=lambda t: (first.get(t["track"], (99, 0)), int(t["track"]) if t["track"].isdigit() else 0)):
+            index = first.get(track["track"], (None,))[0]
+            name = self.MUSIC_SECTIONS[index] if index is not None else "Other"
+            if name.startswith("Season "):
+                name += f" · {self.season_title(int(name.split()[1]))}"
+            sections.setdefault(name, {"name": name, "tracks": []})["tracks"].append(track)
+        return list(sections.values())
 
     def costume_art(self, asset: str) -> str | None:
         """The costume's full art; a few costumes have only the large card."""

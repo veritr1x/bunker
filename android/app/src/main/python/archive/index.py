@@ -17,14 +17,14 @@ from pathlib import Path
 
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 9
+FORMAT = 10
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
                  "m_character_voice_unlock_condition", "m_dokan", "m_dokan_content_group", "m_dokan_text")
 # Read while building only, to name story groups; not kept in the index.
 BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character",
-                "m_main_quest_chapter", "m_main_quest_route")
+                "m_main_quest_chapter", "m_main_quest_route", "m_battle_quest_scene_bgm", "m_battle_bgm_set")
 # Gallery: (category, folder under assetbundle/, file pattern, group taken from the path)
 GALLERY = (
     ("stills", "ui/still", "*/still_main_*.assetbundle", lambda rel: rel.parts[0]),
@@ -210,6 +210,51 @@ def story_titles(maps: dict[str, dict], master: dict[str, list[dict]], texts: di
     return out
 
 
+# Where music plays, in the order the Music page lists it.
+MUSIC_SECTIONS = ("Season 1", "Season 2", "Season 3", "Character stories", "Events", "Side stories", "Battle")
+STORY_KINDS = {"cid": "Character Quest", "eid": "Dark Memories", "lid": "Recollections of Dusk"}
+
+
+def music_uses(maps: dict[str, dict], master: dict[str, list[dict]], texts: dict[str, str],
+               titles: dict[tuple, str]) -> set[tuple]:
+    """(track, section, order, place) for every place a track starts: an event map's music, placed by
+    the map (a main-story chapter from its quest map number, else the story whose text it reads), and
+    the battle music tables."""
+    out = set()
+    for name, m in maps.items():
+        folder, _, number = name.partition("/")
+        place = None
+        if folder == "main" and number[:7].isdigit():
+            season, route, order = int(number[1]), int(number[2:4]), int(number[4:7])
+            label = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}")
+            if 1 <= season <= 3 and label:
+                place = (MUSIC_SECTIONS.index(f"Season {season}"), route * 100 + order, label)
+        elif folder in ("battle", "pt"):
+            place = (MUSIC_SECTIONS.index("Battle"), 0, "Battle")
+        else:
+            for path in m.get("paths", []):
+                where = describe_scene(path.split(")")[0], "", path.split(")")[-1])
+                title = titles.get((where["kind"], where["group"]))
+                if not title or title == "Other scenes":
+                    continue
+                if where["kind"] in STORY_KINDS:
+                    place = (MUSIC_SECTIONS.index("Character stories"), 0, f"{title} · {STORY_KINDS[where['kind']]}")
+                elif where["kind"] == "vid":
+                    place = (MUSIC_SECTIONS.index("Events"), int(where["group"][:6]) if where["group"][:6].isdigit() else 0, title)
+                elif where["kind"] == "sid":
+                    place = (MUSIC_SECTIONS.index("Side stories"), 0, f"{title} · Side Story")
+                if place:
+                    break
+        if place:
+            for track, _ in m.get("music", []):
+                out.add((str(track), *place))
+    for row in master.get("m_battle_quest_scene_bgm", []):
+        out.add((str(row["BgmId"]), MUSIC_SECTIONS.index("Battle"), 0, "Battle"))
+    for row in master.get("m_battle_bgm_set", []):
+        out.add((str(row["BgmAssetId"]), MUSIC_SECTIONS.index("Battle"), 0, "Battle"))
+    return out
+
+
 # The Library's sections, in the game's order.
 LIBRARY_SECTIONS = ("Season 1", "Season 2", "Season 3", "Events", "Character Quests", "Recollections of Dusk", "Dark Memories")
 
@@ -371,6 +416,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
         CREATE TABLE music(track TEXT, part INT, path TEXT PRIMARY KEY);
         CREATE TABLE story_group(kind TEXT, grp TEXT, title TEXT, PRIMARY KEY(kind, grp));
         CREATE TABLE library(section INT, heading TEXT, heading_sort INT, title TEXT, sort INT, text TEXT);
+        CREATE TABLE music_use(track TEXT, section INT, sort INT, place TEXT);
     """)
     # Spoken lines: voice/en/…/<line key>.assetbundle, named like the text line they voice.
     voice_root = assetbundle / "voice" / "en"
@@ -414,6 +460,9 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     texts = dict(db.execute("SELECT key, value FROM text WHERE key LIKE 'story.Main.Quest.%' OR key LIKE 'quest.event.chapter%' "
                             "OR key LIKE 'limit.content.story.%' OR key LIKE 'content.story.%' OR key LIKE 'quest.main.chapter_%' "
                             "OR key LIKE 'mqt.%' OR key LIKE 'character.name.%'"))
+    if maps:
+        titles = {(k, g): t for k, g, t in db.execute("SELECT kind, grp, title FROM story_group")}
+        db.executemany("INSERT INTO music_use VALUES (?,?,?,?)", sorted(music_uses(maps, tables, texts, titles)))
     dark_names = dict(db.execute("SELECT grp, title FROM story_group WHERE kind='eid'"))
     db.executemany("INSERT INTO library VALUES (?,?,?,?,?,?)",
                    [(LIBRARY_SECTIONS.index(section), dark_names.get(heading, "") if section == "Dark Memories" else heading, *rest)

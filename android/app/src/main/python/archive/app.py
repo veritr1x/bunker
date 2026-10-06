@@ -301,7 +301,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     @app.get("/music")
     def music(request: Request):
         need_index(request)
-        return page(request, "music.html", "music", tracks=archive.music())
+        return page(request, "music.html", "music", groups=archive.music())
 
     @app.get("/media/audio/{path:path}")
     def audio_file(path: str):

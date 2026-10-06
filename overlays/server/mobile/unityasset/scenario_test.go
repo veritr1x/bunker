@@ -45,5 +45,9 @@ func TestScenarioLines(t *testing.T) {
 	if paths := maps["endcontents/0005003000001n"].Paths; len(paths) == 0 || paths[0] != "sub)season01)eid_a01040_1010g" {
 		t.Fatalf("endcontents paths %v", paths)
 	}
+	// And the music it starts: Hina's first scenes in The Cage play track 1071, stem 2.
+	if music := maps["main/0201002001020c"].Music; len(music) == 0 || music[0] != [2]int{1071, 2} {
+		t.Fatalf("music %v", music)
+	}
 	t.Logf("%d event maps, %d lines", len(maps), total)
 }

@@ -122,7 +122,15 @@
   announcements played are grouped by the year they ran and titled by their
   caption, preferring a line that names a character. 180 movies are listed
   (35 exist only in Korean or Japanese cuts and were hidden before); 8 with
-  no announcement or caption are "Other clips". Not checked on iOS or a
+  no announcement or caption are "Other clips".
+- Music: the game has no track titles (each event map's _bgm string is the
+  same leftover default), but every map names the track it starts
+  (_bgms: track and stem, bgm_1071_2), and the battle tables name theirs.
+  Each track is filed where it is first heard (a season's chapter, a
+  character's stories, a Record event, a side story, or battle) with the
+  other places; 312 of the 352 tracks are placed, 40 never play anywhere
+  and are "Other". Track 9999 is 8 s of silence (3.9 KB of Vorbis) that
+  maps play to stop the music, and is left out. Not checked on iOS or a
   physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04

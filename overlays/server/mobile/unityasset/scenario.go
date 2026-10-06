@@ -19,19 +19,21 @@ type ScenarioLine struct {
 // ScenarioLines reads the story lines an event map bundle plays. Message nodes hold
 // one line (_scenarioKey, _actorId) or several (_scenarioKeys with _textParamters).
 func ScenarioLines(bundlePath string) ([]ScenarioLine, error) {
-	lines, _, err := readEventMap(bundlePath)
+	lines, _, _, err := readEventMap(bundlePath)
 	return lines, err
 }
 
-// readEventMap returns an event map's story lines and the text files it reads them from
-// (_scenarioTextPathArray, like "sub)season01)eid_a01040_1010g").
-func readEventMap(bundlePath string) ([]ScenarioLine, []string, error) {
+// readEventMap returns an event map's story lines, the text files it reads them from
+// (_scenarioTextPathArray, like "sub)season01)eid_a01040_1010g") and the music it starts
+// (_bgms: up to two [track, stem] pairs, bgm_1071_2 being track 1071, stem 2).
+func readEventMap(bundlePath string) ([]ScenarioLine, []string, [][2]int, error) {
 	b, err := OpenBundle(bundlePath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var out []ScenarioLine
 	var paths []string
+	var music [][2]int
 	for name, data := range b.Files {
 		if strings.HasSuffix(name, ".resS") || strings.HasSuffix(name, ".resource") {
 			continue
@@ -43,7 +45,7 @@ func readEventMap(bundlePath string) ([]ScenarioLine, []string, error) {
 		for _, field := range []string{"_scenarioKey", "_scenarioKeys"} {
 			nodes, err := sf.ObjectsWith(classIDs["MonoBehaviour"], field)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			for _, n := range nodes {
 				out = append(out, messageLines(n.Fields)...)
@@ -51,9 +53,16 @@ func readEventMap(bundlePath string) ([]ScenarioLine, []string, error) {
 		}
 		maps, err := sf.ObjectsWith(classIDs["MonoBehaviour"], "_scenarioTextPathArray")
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		for _, m := range maps {
+			bgms, _ := m.Fields["_bgms"].(map[string]any)
+			for _, slot := range []string{"_track1", "_track2"} {
+				track, _ := bgms[slot].(map[string]any)
+				if name := num(track["_name"]); name > 0 {
+					music = append(music, [2]int{name, num(track["_stem"])})
+				}
+			}
 			list, _ := m.Fields["_scenarioTextPathArray"].([]any)
 			for _, p := range list {
 				if path, _ := p.(string); path != "" {
@@ -62,7 +71,7 @@ func readEventMap(bundlePath string) ([]ScenarioLine, []string, error) {
 			}
 		}
 	}
-	return out, paths, nil
+	return out, paths, music, nil
 }
 
 func id(v any) int {
@@ -102,6 +111,7 @@ func messageLines(f map[string]any) []ScenarioLine {
 type EventMap struct {
 	Lines [][3]any `json:"lines,omitempty"` // [key, actor, speaker]
 	Paths []string `json:"paths,omitempty"`
+	Music [][2]int `json:"music,omitempty"` // [track, stem]
 }
 
 // ScenarioToJSON writes {"folder/event map name": {"lines": [[key, actor, speaker], …],
@@ -115,11 +125,11 @@ func ScenarioToJSON(dir, target string) error {
 	sort.Strings(files)
 	out := map[string]EventMap{}
 	for _, f := range files {
-		lines, paths, err := readEventMap(f)
-		if err != nil || (len(lines) == 0 && len(paths) == 0) {
+		lines, paths, music, err := readEventMap(f)
+		if err != nil || (len(lines) == 0 && len(paths) == 0 && len(music) == 0) {
 			continue // one unreadable map costs its own lines only
 		}
-		m := EventMap{Paths: paths}
+		m := EventMap{Paths: paths, Music: music}
 		for _, l := range lines {
 			m.Lines = append(m.Lines, [3]any{l.Key, l.Actor, l.Speaker})
 		}

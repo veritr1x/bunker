@@ -2,14 +2,22 @@
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › Music</p>
 <h1>Music</h1>
-<p class="note">{{ count(tracks|length, "track") }}. The game names them by number; parts are the versions it switches between.</p>
-<div class="tool-grid tracks" id="tracks">
-  {% for t in tracks %}
-  <div class="track">
-    <strong>Track {{ t.track }}</strong>
-    <span class="parts">{% for p in t.parts %}<button type="button" class="chip" data-src="{{ snd(p.path) }}" data-title="Track {{ t.track }}{% if t.parts|length > 1 %} · part {{ p.part }}{% endif %}">{% if t.parts|length > 1 %}Part {{ p.part }}{% else %}Play{% endif %}</button>{% endfor %}</span>
+<p class="note">{{ count(groups|sum(attribute="tracks", start=[])|length, "track") }}, filed where each is first heard. The game names them by number; parts are the versions it switches between.</p>
+<div id="tracks">
+{% for section in groups %}
+<details class="panel fold movies"{% if loop.first %} open{% endif %}>
+  <summary>{{ section.name }}&nbsp;<span class="note">· {{ count(section.tracks|length, "track") }}</span></summary>
+  <div class="tool-grid tracks">
+    {% for t in section.tracks %}
+    <div class="track">
+      <strong>Track {{ t.track }}</strong>
+      {% if t.places %}<span class="note where">{{ t.places[0] }}{% if t.places|length > 1 %} · and {{ count(t.places|length - 1, "other place") }}{% endif %}</span>{% endif %}
+      <span class="parts">{% for p in t.parts %}<button type="button" class="chip" data-src="{{ snd(p.path) }}" data-title="Track {{ t.track }}{% if t.parts|length > 1 %} · part {{ p.part }}{% endif %}">{% if t.parts|length > 1 %}Part {{ p.part }}{% else %}Play{% endif %}</button>{% endfor %}</span>
+    </div>
+    {% endfor %}
   </div>
-  {% endfor %}
+</details>
+{% endfor %}
 </div>
 {% endblock %}
 {% block footer %}

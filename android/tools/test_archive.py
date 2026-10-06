@@ -165,7 +165,7 @@ class RealDump(unittest.TestCase):
             from archive.content import Archive
             archive = Archive(Path(folder) / "archive.db", revision)
             # bgm_delay_settings is timing data, not a track.
-            self.assertTrue(all(t["track"].isdigit() for t in archive.music()))
+            self.assertTrue(all(t["track"].isdigit() for g in archive.music() for t in g["tracks"]))
             # Weapons carry their art; the game's two "Defective" versions are listed too.
             weapons = {w["name"]: w for w in archive.weapons()}
             self.assertGreater(len(weapons), 600)
@@ -182,6 +182,14 @@ class RealDump(unittest.TestCase):
             self.assertFalse([m for items in movies.values() for m in items if re.fullmatch(r"m[mv]\w*\d+", m["title"])])
             # Season 1's chapter 8 scene plays its English-voice cut.
             self.assertTrue(any(m["file"] == "mm01010801_envoice_entext.mp4" for m in movies["Season 1 · Girl"]))
+            # Music: filed where each track is first heard, with the other places; silence is not a track.
+            music = {g["name"]: g["tracks"] for g in archive.music()}
+            if scenario:
+                self.assertEqual(list(music)[:3], ["Season 1 · Girl", "Season 2 · Sun/Moon", "Season 3 · People/World"])
+                self.assertIn("Battle", music)
+                hina = next(t for t in music["Season 2 · Sun/Moon"] if t["track"] == "1071")
+                self.assertEqual(hina["places"][0], "The Sun: Prologue")
+            self.assertNotIn("9999", {t["track"] for tracks in music.values() for t in tracks})
             # A costume without full art shows its large card.
             self.assertTrue(archive.costume("ch051001")["full"].endswith("ch051001_large.assetbundle"))
             # Each costume lists its own signature moves only, and no two motions share a name.
