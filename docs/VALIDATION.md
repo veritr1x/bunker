@@ -80,10 +80,20 @@
   emulator: 2P's Mock Machine renders whole in its battle idle and rest
   pose, a snapshot and a still saved to Downloads as PNGs, and Noelle's
   Dissenting Weapon (no Avatar) played its motions.
-- Known gaps: speaker names are not shown in scenes (the text bundles hold
-  lines only), and Seasons 2 and 3 show numbered chapters (their route and
-  act titles do not map one-to-one to the scene files). Not checked on iOS
-  or a physical phone.
+- Speakers and chapters: the main story's event maps (`eventmap/main`, read
+  by the Go library's `scenario.go`) list the lines each map plays, the actor
+  each is attached to and any speaker shown instead; Go reads the same 6,751
+  map lines as UnityPy. Names are the game's own actor names. 5,562 of the
+  7,909 main-story scene lines are named: those the maps name, and lines with
+  the same voice code in the same scene, or in the season when that code is
+  at least 90% one actor. Narration, title cards and the unnamed girl stay
+  unlabelled, as do event, character and side scenes, which the game narrates
+  without speakers (one voice code per scene). The maps are named by quest
+  map number (season, route, chapter order), which regroups the main story
+  into the game's chapters with their own names: both Season 2 routes, the
+  intermissions and Season 1's Interval Prologue; the two Season 2 endings,
+  played by both routes' finales, sit in the first route's. Not checked on
+  iOS or a physical phone.
 
 ## Signed web APKs and the download fix — 2026-10-04
 

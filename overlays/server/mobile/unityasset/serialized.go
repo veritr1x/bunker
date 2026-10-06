@@ -226,6 +226,12 @@ func readTypeTree(r *reader, version int) (*typeNode, error) {
 
 // Objects decodes every object of the given class (0 for all).
 func (sf *SerializedFile) Objects(classID int32) ([]Object, error) {
+	return sf.ObjectsWith(classID, "")
+}
+
+// ObjectsWith decodes the objects of the given class whose type has a top-level
+// field of that name (any object for ""), skipping the rest without decoding them.
+func (sf *SerializedFile) ObjectsWith(classID int32, field string) ([]Object, error) {
 	var out []Object
 	for _, o := range sf.objects {
 		if o.tree == nil {
@@ -233,6 +239,9 @@ func (sf *SerializedFile) Objects(classID int32) ([]Object, error) {
 		}
 		cls := classIDs[o.tree.typ]
 		if classID != 0 && cls != classID {
+			continue
+		}
+		if field != "" && !hasField(o.tree, field) {
 			continue
 		}
 		if o.start < 0 || o.end > int64(len(sf.data)) || o.start > o.end {
@@ -249,9 +258,18 @@ func (sf *SerializedFile) Objects(classID int32) ([]Object, error) {
 	return out, nil
 }
 
+func hasField(n *typeNode, name string) bool {
+	for _, c := range n.children {
+		if c.name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // classIDs maps the type names this package reads to Unity class IDs.
 var classIDs = map[string]int32{"GameObject": 1, "Transform": 4, "Material": 21, "Texture2D": 28, "Mesh": 43, "TextAsset": 49,
-	"AnimationClip": 74, "AudioClip": 83, "Avatar": 90, "AnimatorController": 91, "Animator": 95, "SkinnedMeshRenderer": 137, "Sprite": 213}
+	"AnimationClip": 74, "AudioClip": 83, "Avatar": 90, "AnimatorController": 91, "Animator": 95, "MonoBehaviour": 114, "SkinnedMeshRenderer": 137, "Sprite": 213}
 
 func readValue(r *reader, n *typeNode) any {
 	var v any

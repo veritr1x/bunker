@@ -28,8 +28,8 @@ SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("characters", 
 class Builder:
     """Builds the index once, in the background, and reports progress to the setup page."""
 
-    def __init__(self, revision: Path, master: Path, db_path: Path):
-        self.revision, self.master, self.db_path = revision, master, db_path
+    def __init__(self, revision: Path, master: Path, db_path: Path, scenario=None):
+        self.revision, self.master, self.db_path, self.scenario = revision, master, db_path, scenario
         self.state = {"running": False, "done": 0, "total": 0, "step": "", "error": ""}
         self.lock = threading.Lock()
 
@@ -45,7 +45,7 @@ class Builder:
             self.state.update(done=done, total=total, step=step)
         def run():
             try:
-                index.build(self.revision, self.master, self.db_path, report)
+                index.build(self.revision, self.master, self.db_path, report, scenario=self.scenario)
             except Exception as exc:  # shown on the setup page
                 self.state["error"] = str(exc) or exc.__class__.__name__
             finally:
@@ -54,12 +54,13 @@ class Builder:
 
 
 def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None, model=None,
-               motion=None) -> FastAPI:
+               motion=None, scenario=None) -> FastAPI:
     """decode(bundle, target_png, max_side), sound(bundle, target_ogg) and model(actor_folder, target_glb) return
-    "" or an error; so does motion(clip_bundle, actor_folder, target_json). Without them, no images, sound or 3D."""
+    "" or an error; so do motion(clip_bundle, actor_folder, target_json) and scenario(event_map_folder,
+    target_json). Without them, no images, sound or 3D, and no speakers or quest chapters."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
-    builder = Builder(revision, master, db_path)
+    builder = Builder(revision, master, db_path, scenario)
     archive = Archive(db_path, revision)
     textures = Textures(revision / "assetbundle", data_dir / "images", decode)
     sounds = Sounds(revision / "assetbundle", data_dir / "sounds", sound)

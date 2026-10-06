@@ -62,6 +62,15 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_motion(JNIEnv *e
     (*env)->ReleaseStringUTFChars(env, target, t);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_scenario(JNIEnv *env, jclass type, jstring dir, jstring target) {
+    const char *d = (*env)->GetStringUTFChars(env, dir, NULL);
+    const char *t = (*env)->GetStringUTFChars(env, target, NULL);
+    if (!d || !t) { if (d) (*env)->ReleaseStringUTFChars(env, dir, d); if (t) (*env)->ReleaseStringUTFChars(env, target, t); return NULL; }
+    char *error = LunarScenario((char *)d, (char *)t);
+    (*env)->ReleaseStringUTFChars(env, dir, d);
+    (*env)->ReleaseStringUTFChars(env, target, t);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_start(JNIEnv *env, jclass type, jstring data, jstring assets) {
     const char *d = (*env)->GetStringUTFChars(env, data, NULL);
     const char *a = (*env)->GetStringUTFChars(env, assets, NULL);

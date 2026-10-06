@@ -42,7 +42,8 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
                       decode=lambda bundle, target, size: native.texture(bundle, target, size),
                       sound=lambda bundle, target: native.audio(bundle, target),
                       model=lambda actor, target: native.model(actor, target),
-                      motion=lambda clip, actor, target: native.motion(clip, actor, target))
+                      motion=lambda clip, actor, target: native.motion(clip, actor, target),
+                      scenario=lambda folder, target: native.scenario(folder, target))
 
     @app.middleware("http")
     async def private_session(request, call_next):

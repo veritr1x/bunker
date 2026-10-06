@@ -37,3 +37,12 @@ func Motion(clipBundle, actorFolder, target string) string {
 	}
 	return ""
 }
+
+// Scenario writes, for the Archive's index, the story lines every event map in dir
+// plays and who says them, as JSON to target. It returns "" or an error.
+func Scenario(dir, target string) string {
+	if err := unityasset.ScenarioToJSON(dir, target); err != nil {
+		return err.Error()
+	}
+	return ""
+}

@@ -31,5 +31,7 @@ public final class NativeBridge {
     public static native String model(String actorFolder, String target);
     /** Writes an animation clip for that costume as three.js clip JSON; "" or an error. */
     public static native String motion(String clipBundle, String actorFolder, String target);
+    /** Writes the story lines every event map in a folder plays, and who says them, as JSON for the Archive's index; "" or an error. */
+    public static native String scenario(String eventMapFolder, String target);
     public static native String edit(String dataDirectory, String assetDirectory, String request);
 }

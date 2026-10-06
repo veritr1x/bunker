@@ -13,8 +13,8 @@
   <h2 class="bracket-header">Season {{ season.season }} · {{ season.title }}</h2>
   <div class="tool-grid">
     {% for c in season.chapters %}
-    <a href="/story/main/{{ season.season }}/{{ c.chapter }}">{{ c.number }}{% if c.title and c.title != c.number %}: {{ c.title }}{% endif %}
-      <span>{{ count(c.scenes, "scene") }} · {{ count(c.lines, "line") }}{% if c.preview and not c.title %} · “{{ c.preview }}”{% endif %}</span></a>
+    <a href="/story/main/{{ season.season }}/{{ c.chapter }}">{{ c.number }}
+      <span>{% if c.title and c.title != c.number %}{{ c.title }} · {% endif %}{{ count(c.scenes, "scene") }} · {{ count(c.lines, "line") }}{% if c.preview and not c.title %} · “{{ c.preview }}”{% endif %}</span></a>
     {% endfor %}
   </div>
   {% endfor %}

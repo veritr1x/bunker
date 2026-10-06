@@ -31,6 +31,7 @@ details.fold[open] > summary { border-bottom: 1px solid var(--line); }
 .reader .line { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
 .reader .line p { flex: 1; margin: 0; padding: 10px 0; font-size: 16px; line-height: 1.65; }
 .reader .line.narration p { color: var(--fg-mid); font-style: italic; }
+.reader .speaker { display: block; margin-bottom: 2px; font-family: var(--mono); font-size: 11px; font-style: normal; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); }
 .reader .line.speaking { background: var(--bg-cream-dark); box-shadow: -8px 0 0 var(--bg-cream-dark), 8px 0 0 var(--bg-cream-dark); }
 footer.pager { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0.12em; }
 footer.pager span { flex: 1; text-align: center; font-family: var(--mono); font-size: 11px; text-transform: uppercase; }

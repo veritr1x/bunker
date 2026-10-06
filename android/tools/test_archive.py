@@ -7,7 +7,7 @@ build the index from real game files and open every page. Needs lz4,
 pycryptodome and msgpack; the page test also needs fastapi and jinja2.
 """
 from pathlib import Path
-import os, sys, tempfile, unittest
+import os, shutil, sys, tempfile, unittest
 
 root = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(root / "android/app/src/main/python"), str(root / "upstream/lunar-base/tools")]
@@ -53,6 +53,26 @@ class Parsing(unittest.TestCase):
         self.assertEqual(plain("<align=center><i>There is someone\nI must see.</i>"), "There is someone I must see.")
         self.assertEqual(plain("Everybody knows them, but nobody knows them well.", 30), "Everybody knows them, but…")
 
+    def test_chapters_follow_the_event_maps_that_play_them(self):
+        maps = {"0201002001010c": [["MID_b010_0020g_00100_01060_1", 19008, 0]] * 3,
+                "0202002001010c": [["MID_b110_0020g_00100_01060_1", 19008, 0]],
+                "0201008011190c": [["MID_b080_0070_00400_01090_1", 0, 0]],  # an ending both routes play
+                "0202008011190c": [["MID_b080_0070_00400_01090_1", 0, 0]],
+                "0201003001010c": [["MID_a999_0010_00100_00040_0", 0, 0]],  # shared by many chapters
+                "0201004001010c": [["MID_a999_0010_00100_00040_0", 0, 0]],
+                "0202005001010c": [["MID_a999_0010_00100_00040_0", 0, 0]]}
+        self.assertEqual(index.chapter_groups(maps), {"b010": 102, "b110": 202, "b080": 108})
+
+    def test_speakers_from_event_maps_then_the_voice_code(self):
+        maps = {"m": [["S_x_00100_01060_1", 19008, 0], ["S_x_00200_01080_1", 2, 61]]}
+        lines = [("S_x_00100_01060_1", "S_x", "2"), ("S_x_00200_01080_1", "S_x", "2"),
+                 ("S_x_00300_01060_1", "S_x", "2"),  # same voice in the same scene
+                 ("S_y_00100_00050_0", "S_y", "2"),  # a system voice: never guessed
+                 ("S_x_00100_01060_1", "2201_001", "2")]  # a key from another file: not this line's
+        names = {19008: "Hina", 2: "Mama", 61: "Soldier"}
+        self.assertEqual(index.line_speakers(lines, maps, names),
+                         {"s_x_00100_01060_1": "Hina", "s_x_00200_01080_1": "Soldier", "s_x_00300_01060_1": "Hina"})
+
     def test_mask_name(self):
         base = Path("/a/assetbundle")
         self.assertEqual(index.mask_name(base / "text/en/main/season01/2000_001.assetbundle", base), "text)en)main)season01)2000_001")
@@ -62,8 +82,11 @@ class Parsing(unittest.TestCase):
 class RealDump(unittest.TestCase):
     def test_build_and_open_every_page(self):
         revision, master = Path(os.environ["ARCHIVE_DUMP"]), Path(os.environ["ARCHIVE_MASTER"])
+        # ARCHIVE_SCENARIO: the JSON the Go library's ScenarioToJSON writes for eventmap/main.
+        scenario_json = os.environ.get("ARCHIVE_SCENARIO")
+        scenario = (lambda folder, target: shutil.copy(scenario_json, target) and "") if scenario_json else None
         with tempfile.TemporaryDirectory() as folder:
-            summary = index.build(revision, master, Path(folder) / "archive.db")
+            summary = index.build(revision, master, Path(folder) / "archive.db", scenario=scenario)
             self.assertEqual(summary["failed"], 0)
             self.assertGreater(summary["lines"], 20000)
             self.assertTrue(index.is_current(Path(folder) / "archive.db", revision, master))
@@ -92,6 +115,16 @@ class RealDump(unittest.TestCase):
             motions = archive.motions("ch008001")
             self.assertFalse(any("ch008004" in m["clip"] for m in motions))
             self.assertEqual(len({(m["group"], m["label"]) for m in motions}), len(motions))
+            if scenario:
+                # Chapters carry the game's names, and main-story lines their speakers.
+                seasons = {s["season"]: s for s in archive.main_chapters()}
+                self.assertEqual(seasons[2]["chapters"][0]["number"], "The Sun: Prologue")
+                self.assertNotIn("Chapter", " ".join(c["number"] for s in seasons.values() for c in s["chapters"]))
+                self.assertGreater(summary["speakers"], 5000)
+                first = archive.scene(next(s for s in archive.scenes(area="main", season=2, chapter=102) if s["name"] == "MID_b010_0020g")["id"])
+                narration = archive.scene(archive.scenes(area="main", season=2, chapter=102)[0]["id"])
+                self.assertFalse(any(line["speaker"] for line in narration["lines"]))
+                self.assertIn("Hina", {line["speaker"] for line in first["lines"]})
             self.assertEqual(client.get("/media/audio/../list.bin").status_code, 404)
             # The 3D viewer's glTF loader fetches embedded textures from blob: URLs.
             policy = client.get("/").headers["content-security-policy"]

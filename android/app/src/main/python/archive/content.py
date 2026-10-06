@@ -81,7 +81,13 @@ class Archive:
         return self.text(f"quest.main.season_title.{season}", f"Season {season}")
 
     def chapter_label(self, season: int, chapter: int) -> tuple[str, str]:
-        """(number, title) for a main-story chapter. Season 1 maps by its 'Ch. N' labels."""
+        """(number, title) for a main-story chapter. Chapters regrouped by quest are route * 100 + order and
+        named by the game's own labels; without that, Season 1 maps by its 'Ch. N' labels."""
+        if chapter >= 100:
+            route, order = divmod(chapter, 100)
+            number = self.text(f"quest.main.chapter_number.{season}.{route}.{order}")
+            title = self.text(f"quest.main.chapter_title.{season}.{route}.{order}")
+            return (number or f"Chapter {order}"), (title if title and title != number else "")
         if chapter == 0:
             return "Prologue", ""
         if chapter == 99:
@@ -128,7 +134,7 @@ class Archive:
             if value is not None:
                 where.append(column + "=?"); args.append(value)
         with self.db() as db:
-            rows = db.execute("SELECT * FROM scene WHERE " + " AND ".join(where) + " ORDER BY sort, name", args).fetchall()
+            rows = db.execute("SELECT * FROM scene WHERE " + " AND ".join(where) + " ORDER BY grp, sort, name", args).fetchall()
             out = []
             for r in rows:
                 line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 3 ORDER BY seq LIMIT 1", (r["id"],)).fetchone()
@@ -140,9 +146,10 @@ class Archive:
             row = db.execute("SELECT * FROM scene WHERE id=?", (scene_id,)).fetchone()
             if not row:
                 return None
-            lines = [{"text": r[0], "voice": r[1]} for r in db.execute("SELECT text, voice FROM line WHERE scene=? ORDER BY seq", (scene_id,))]
+            lines = [{"text": r[0], "voice": r[1], "speaker": r[2]}
+                     for r in db.execute("SELECT text, voice, speaker FROM line WHERE scene=? ORDER BY seq", (scene_id,))]
             if row["area"] == "main":
-                siblings = db.execute("SELECT id FROM scene WHERE area='main' AND season=? AND chapter=? ORDER BY sort, name",
+                siblings = db.execute("SELECT id FROM scene WHERE area='main' AND season=? AND chapter=? ORDER BY grp, sort, name",
                                       (row["season"], row["chapter"])).fetchall()
             else:
                 siblings = db.execute("SELECT id FROM scene WHERE kind=? AND grp=? ORDER BY sort, name", (row["kind"], row["grp"])).fetchall()

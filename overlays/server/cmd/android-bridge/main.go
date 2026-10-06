@@ -63,6 +63,11 @@ func LunarMotion(clip, actor, target *C.char) *C.char {
 	return C.CString(mobile.Motion(C.GoString(clip), C.GoString(actor), C.GoString(target)))
 }
 
+//export LunarScenario
+func LunarScenario(dir, target *C.char) *C.char {
+	return C.CString(mobile.Scenario(C.GoString(dir), C.GoString(target)))
+}
+
 //export LunarImportSaves
 func LunarImportSaves(data, source *C.char) *C.char {
 	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))
