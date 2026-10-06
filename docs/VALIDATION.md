@@ -161,6 +161,10 @@
   names (■ blocks, "&f33") are skipped.
   Enemy looks drew their textures from the family's first look, so the
   model code now loads those too (mt008101). The props (oa) are left out.
+  mt043001 is modelled 85 units tall (a costume is about 2) and its idle
+  motion holds it 60 units up: the viewer's clip planes and floor now
+  follow the model's size, and once a motion has faded in the model is
+  framed again if it has left the view (checked on the emulator).
   Character voice lines keep their numbered labels: the outgame voice
   files have no subtitles in the dump.
 

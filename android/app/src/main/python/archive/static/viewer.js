@@ -41,7 +41,35 @@ function resize() {
 new ResizeObserver(resize).observe(stage);
 
 function frameModel(object) {
-  const box = new THREE.Box3().setFromObject(object);
+  frameBox(new THREE.Box3().setFromObject(object));
+}
+
+// The box the model fills in its current pose: skinned vertices, where the motion has put the bones.
+function poseBox(object) {
+  const box = new THREE.Box3();
+  object.updateMatrixWorld(true);
+  object.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    o.skeleton.update();
+    o.computeBoundingBox();
+    box.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));
+  });
+  return box;
+}
+
+// A few enemies' motions carry them far from where they were modelled (mt043001 hovers 60 units up);
+// once a motion has faded in, frame it again if the model has left the view.
+function followPose(object) {
+  const box = poseBox(object);
+  if (box.isEmpty() || !home) return;
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  const vertical = THREE.MathUtils.degToRad(camera.fov / 2);
+  const angle = Math.min(vertical, Math.atan(Math.tan(vertical) * camera.aspect));  // as frameBox: the narrower one
+  const reach = home.position.distanceTo(home.target) * Math.sin(angle);
+  if (sphere.center.distanceTo(home.target) + sphere.radius > reach * 1.05) frameBox(box);
+}
+
+function frameBox(box) {
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   // Fit the whole bounding sphere into the narrower view angle (a phone's width), so the model
@@ -50,6 +78,12 @@ function frameModel(object) {
   const horizontal = Math.atan(Math.tan(vertical) * camera.aspect);
   const distance = (size.length() / 2) / Math.sin(Math.min(vertical, horizontal)) * 1.15;
   home = { position: new THREE.Vector3(center.x, center.y, center.z + distance), target: center };
+  // Models come in very different units (mt043001 is 85 tall, a costume about 2): clip planes and
+  // floor follow the model's size.
+  camera.near = distance / 1000;
+  camera.far = distance * 20;
+  camera.updateProjectionMatrix();
+  grid.scale.setScalar(Math.max(1, Math.max(size.x, size.y, size.z) / 2));
   resetCamera();
   controls.minDistance = distance * 0.1;
   controls.maxDistance = distance * 4;
@@ -87,6 +121,7 @@ let current = null, mixer = null, action = null, rest = [];
 const clock = new THREE.Clock();
 const motionCache = new Map();
 
+let following = null; // a motion just started, to be framed once it has faded in
 let wanted = null; // the latest choice: a slower, earlier fetch must not replace it
 
 async function playMotion(button) {
@@ -113,6 +148,7 @@ async function playMotion(button) {
     if (!clip) { mixer.stopAllAction(); restPose(); return; }
     action = mixer.clipAction(clip);
     action.reset().fadeIn(0.25).play();
+    following = action;
   } catch (error) {
     if (wanted === button) { status.textContent = "This motion could not be shown."; status.hidden = false; }
   }
@@ -172,6 +208,11 @@ window.archiveViewer = { get model() { return current; }, get mixer() { return m
 
 renderer.setAnimationLoop(() => {
   if (mixer) mixer.update(clock.getDelta());
+  // Once a new motion is fully faded in (later on a slow phone), see whether it left the view.
+  if (following && following === action && action.getEffectiveWeight() >= 1 && current) {
+    following = null;
+    followPose(current);
+  }
   controls.update();
   renderer.render(scene, camera);
 });
