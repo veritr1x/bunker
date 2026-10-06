@@ -85,7 +85,7 @@ footer.pager .button { display: inline-flex; align-items: center; min-height: 44
 .tracks { padding: 0 16px; }
 .track { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .track:last-child { border-bottom: none; }
-.track strong { flex: 1 1 120px; font-size: 15px; }
+.track strong { flex: 1 1 100%; font-size: 15px; }
 .track .parts { display: flex; gap: 6px; flex-wrap: wrap; }
 footer.player-bar { display: flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; }
 footer.player-bar[hidden] { display: none; }
