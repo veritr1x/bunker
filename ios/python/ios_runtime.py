@@ -46,6 +46,11 @@ _process.LunarEdit.argtypes = [ctypes.c_char_p] * 3
 _process.LunarEdit.restype = ctypes.c_void_p
 _process.LunarToolsReport.argtypes = [ctypes.c_char_p]
 _process.free.argtypes = [ctypes.c_void_p]
+# The Archive's converters, in the same Go library (server/cmd/android-bridge).
+for _name, _count in (("LunarTexture", 2), ("LunarAudio", 2), ("LunarModel", 2), ("LunarMotion", 3), ("LunarScenario", 2)):
+    getattr(_process, _name).argtypes = [ctypes.c_char_p] * _count
+    getattr(_process, _name).restype = ctypes.c_void_p
+_process.LunarTexture.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
 
 # Go and Python each include their own SQLite. Never let both use a save at once.
 _save_lock = threading.Lock()
@@ -142,6 +147,26 @@ def start(data_root, asset_root, tools_root, original_master):
         time.sleep(.02)
     sock.close()
     raise RuntimeError("Tools could not start")
+
+
+def _go(function, *arguments):
+    """Calls a Go export that returns "" or an error as a C string the caller frees."""
+    pointer = function(*(a if isinstance(a, int) else str(a).encode() for a in arguments))
+    try:
+        return ctypes.string_at(pointer).decode()
+    finally:
+        _process.free(pointer)
+
+
+def archive_start(asset_root, archive_root):
+    """The Archive: read only, so it runs beside Lunar Tear and the game. Returns url and token as JSON."""
+    import android_archive
+    return android_archive.start(asset_root, archive_root, dict(
+        decode=lambda bundle, target, size: _go(_process.LunarTexture, bundle, target, int(size)),
+        sound=lambda bundle, target: _go(_process.LunarAudio, bundle, target),
+        model=lambda actor, target: _go(_process.LunarModel, actor, target),
+        motion=lambda clip, actor, target: _go(_process.LunarMotion, clip, actor, target),
+        scenario=lambda folder, target: _go(_process.LunarScenario, folder, target)))
 
 
 def stop():

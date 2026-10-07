@@ -1,4 +1,7 @@
-"""Android host for the Archive: its own private loopback server, separate from Pod Programs.
+"""Host for the Archive: its own private loopback server, separate from Pod Programs.
+
+Android calls start() through Chaquopy; iOS calls it from ios_runtime with its
+own converters.
 
 The Archive only reads the imported game files and master data, so it runs
 beside Lunar Tear and the game; nothing is stopped and the save is never opened.
@@ -20,10 +23,12 @@ _token = ""
 
 
 def revision_root(asset_root: Path) -> Path:
-    """Revision 0 of the imported files; some dumps keep it under an android/ folder."""
+    """Revision 0 of the imported files; some dumps keep it under an android/ or ios/ folder."""
     revision = asset_root / "assets" / "revisions" / "0"
-    nested = revision / "android"
-    return nested if (nested / "assetbundle").is_dir() else revision
+    for platform in ("android", "ios"):
+        if (revision / platform / "assetbundle").is_dir():
+            return revision / platform
+    return revision
 
 
 def packaged(name: str) -> Path:
@@ -32,18 +37,22 @@ def packaged(name: str) -> Path:
     return Path(importlib.import_module(name).__file__).resolve().parent
 
 
-def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
-    from fastapi.responses import JSONResponse
+def android_converters():
+    """Textures, sounds, models and story scenes convert in the Go library, reached through Java."""
     from java import jclass
+    native = jclass("org.veritr1x.bunker.NativeBridge")
+    return dict(decode=lambda bundle, target, size: native.texture(bundle, target, size),
+                sound=lambda bundle, target: native.audio(bundle, target),
+                model=lambda actor, target: native.model(actor, target),
+                motion=lambda clip, actor, target: native.motion(clip, actor, target),
+                scenario=lambda folder, target: native.scenario(folder, target))
+
+
+def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, converters=None):
+    from fastapi.responses import JSONResponse
     from archive.app import create_app as archive_app
-    native = jclass("org.veritr1x.bunker.NativeBridge")  # textures and sounds convert in the Go library
     app = archive_app(revision_root(asset_root), asset_root / "assets" / "release" / "20240404193219.bin.e",
-                      archive_root, packaged("web") / "static",
-                      decode=lambda bundle, target, size: native.texture(bundle, target, size),
-                      sound=lambda bundle, target: native.audio(bundle, target),
-                      model=lambda actor, target: native.model(actor, target),
-                      motion=lambda clip, actor, target: native.motion(clip, actor, target),
-                      scenario=lambda folder, target: native.scenario(folder, target))
+                      archive_root, packaged("web") / "static", **(converters or android_converters()))
 
     @app.middleware("http")
     async def private_session(request, call_next):
@@ -59,7 +68,7 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str):
     return app
 
 
-def start(asset_root: str, archive_root: str) -> str:
+def start(asset_root: str, archive_root: str, converters=None) -> str:
     global _server, _thread, _base_url, _token
     if _thread and _thread.is_alive():
         return json.dumps({"url": _base_url, "token": _token})
@@ -71,7 +80,7 @@ def start(asset_root: str, archive_root: str) -> str:
     sock.bind(("127.0.0.1", 0))
     _base_url = "http://127.0.0.1:" + str(sock.getsockname()[1])
     _token = secrets.token_urlsafe(32)
-    app = create_app(Path(asset_root), Path(archive_root), _token, _base_url)
+    app = create_app(Path(asset_root), Path(archive_root), _token, _base_url, converters)
     _server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, loop="asyncio", http="h11", lifespan="off"))
     _thread = threading.Thread(target=lambda: _server.run(sockets=[sock]), name="lunar-archive", daemon=True)
     _thread.start()

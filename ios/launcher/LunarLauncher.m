@@ -795,7 +795,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UILabel *ports, *save, *detail, *sign;
 @property(nonatomic, strong) LTChip *files, *server;
-@property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods;
+@property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
 @property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -969,6 +969,11 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
     self.pods = [self outline:@"OPEN POD PROGRAMS  ›" size:13 action:@selector(confirmTools)];
     self.pods.accessibilityLabel = @"Open Pod Programs";
     UIView *programs = [self panel:@[about, self.pods]];
+    // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
+    UILabel *records = [self mono:LTToolsAvailable() ? @"Read the story, see every character and costume, and hear the voices and music, from your game files." : @"The Archive is not in this build." size:12 color:Ink()];
+    self.archive = [self outline:@"OPEN ARCHIVE  ›" size:13 action:@selector(openArchive)];
+    self.archive.accessibilityLabel = @"Open the Archive";
+    UIView *archive = [self panel:@[records, self.archive]];
     // Footer: a double rule and the sign-off.
     UIView *ruleA = [UIView new], *ruleB = [UIView new];
     for (UIView *r in @[ruleA, ruleB]) { r.backgroundColor = Ink(); [r.heightAnchor constraintEqualToConstant:1].active = YES; }
@@ -982,12 +987,13 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
     UIView *spacer = [UIView new];
     [spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
-        top, [self header:@"System"], system, [self header:@"Play"], play, [self header:@"Pod Programs"], programs, spacer, footer]];
+        top, [self header:@"System"], system, [self header:@"Play"], play, [self header:@"Pod Programs"], programs, [self header:@"Archive"], archive, spacer, footer]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 8;
     [stack setCustomSpacing:20 afterView:top];
     [stack setCustomSpacing:20 afterView:system];
     [stack setCustomSpacing:20 afterView:play];
+    [stack setCustomSpacing:20 afterView:programs];
     [stack setCustomSpacing:28 afterView:spacer];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     UIScrollView *scroll = [UIScrollView new];
@@ -1045,6 +1051,8 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
     self.more.menu = [self optionsMenu:running];
     self.pods.enabled = LTToolsAvailable() && !gImporting && !gToolsOpen && catalog && !self.spinner.isAnimating;
     self.pods.alpha = self.pods.enabled ? 1 : .45;
+    self.archive.enabled = LTToolsAvailable() && !gImporting && catalog && FileSize(MasterPath()) > 0;
+    self.archive.alpha = self.archive.enabled ? 1 : .45;
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
     NSString *text = gMessage.length ? gMessage : [NSString stringWithFormat:
         @"Choose the resource dump's .7z, or an extracted folder to copy or use in place, from Files, iCloud Drive or a USB drive. "
@@ -1108,11 +1116,11 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
         @"Stopping Lunar Tear, importing master data or exporting saves disconnects the game. Close NieR from the app switcher and open it again to continue."];
 }
 - (void)about {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear"
-        message:@"Offline companion · 0.1.0\nAll-in-one build by veritr1x\ngithub.com/veritr1x\n\nBased on Lunar Tear by Walter-Sparrow.\nMIT License · Copyright 2026 Ilya Groshev."
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bunker"
+        message:@"Version 0.1.0\nOffline NieR Re[in]carnation, all in one app.\nCreated by veritr1x · github.com/veritr1x/bunker\n\nCREDITS\nLunar Tear by Walter-Sparrow: the offline server.\nMIT License · Copyright 2026 Ilya Groshev.\nLunar Scripts by Walter-Sparrow: APK and master data patches.\nLunar Base by NMeliksah: the save editors.\nMasterdata Patcher by NavHobbyDev: the content patcher.\nthree.js: the Archive's 3D viewer.\n\nNieR Re[in]carnation © SQUARE ENIX. Bunker is a fan project, not affiliated with Square Enix."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Open GitHub" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-        [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/veritr1x"] options:@{} completionHandler:nil];
+        [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/veritr1x/bunker"] options:@{} completionHandler:nil];
     }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -1163,6 +1171,26 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
         [self refresh];
         __weak typeof(self) weakSelf = self;
         [self presentViewController:LTToolsBrowser(url, token, ^{ [weakSelf closeTools]; }) animated:YES completion:nil];
+    }];
+}
+- (void)openArchive {
+    __block NSString *url = nil, *token = nil;
+    NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *root = [support stringByAppendingPathComponent:@"LunarArchive"];
+    self.archive.enabled = NO;
+    [self busy:@"Opening the Archive…" work:^NSString *{
+        return LTArchiveStart(gServerRoot, root, &url, &token, ^(NSString *text) {
+            dispatch_async(dispatch_get_main_queue(), ^{ gMessage = text; [self refresh]; });
+        });
+    } done:^(NSString *error) {
+        if (error.length) {
+            gMessage = [@"The Archive could not open: " stringByAppendingString:error];
+            [self refresh];
+            return;
+        }
+        // The Archive's server keeps running in the background, so reopening is instant.
+        __weak typeof(self) weakSelf = self;
+        [self presentViewController:LTArchiveBrowser(url, token, ^{ [weakSelf dismissViewControllerAnimated:YES completion:nil]; }) animated:YES completion:nil];
     }];
 }
 - (void)closeTools {

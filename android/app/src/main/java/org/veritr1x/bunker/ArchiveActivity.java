@@ -2,6 +2,7 @@ package org.veritr1x.bunker;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.*;
 import android.view.*;
 import android.webkit.*;
@@ -18,6 +19,7 @@ public final class ArchiveActivity extends Activity {
     private FrameLayout stage;
     private View fullscreen;
     private WebChromeClient.CustomViewCallback exitFullscreen;
+    private int portraitBefore;
     private String origin="";
     private Look look;
     private int dp(int n){return look.dp(n);}
@@ -69,6 +71,10 @@ public final class ArchiveActivity extends Activity {
             @Override public void onShowCustomView(View view,CustomViewCallback callback){
                 if(fullscreen!=null){callback.onCustomViewHidden();return;}
                 fullscreen=view;exitFullscreen=callback;view.setBackgroundColor(0xff000000);stage.addView(view,new FrameLayout.LayoutParams(-1,-1));
+                // Movies are wide: turn to landscape and hide the system bars until full screen ends.
+                portraitBefore=getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_PORTRAIT?1:0;
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                systemBars(false);
             }
             @Override public void onHideCustomView(){leaveFullscreen();}
         });
@@ -98,6 +104,18 @@ public final class ArchiveActivity extends Activity {
         if(fullscreen==null)return;
         stage.removeView(fullscreen);fullscreen=null;
         if(exitFullscreen!=null)exitFullscreen.onCustomViewHidden();exitFullscreen=null;
+        // Back to the way it was held; the sensor takes over again once it has turned.
+        setRequestedOrientation(portraitBefore==1?ActivityInfo.SCREEN_ORIENTATION_PORTRAIT:ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        stage.postDelayed(()->{if(fullscreen==null)setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);},1000);
+        systemBars(true);
+    }
+    private void systemBars(boolean show){
+        if(Build.VERSION.SDK_INT>=30){
+            WindowInsetsController bars=getWindow().getInsetsController();
+            if(bars==null)return;
+            if(show)bars.show(WindowInsets.Type.systemBars());
+            else{bars.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);bars.hide(WindowInsets.Type.systemBars());}
+        }else getWindow().getDecorView().setSystemUiVisibility(show?0:View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
     private void back(){if(fullscreen!=null)leaveFullscreen();else if(web.canGoBack())web.goBack();else finish();}
     @android.annotation.SuppressLint("GestureBackNavigation") // API 33+ uses the dispatcher registered above.

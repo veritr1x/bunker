@@ -13,3 +13,9 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
 NSString *LTToolsStop(void);
 // A full-screen browser for the editors. close runs when the player taps Close.
 UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void));
+// The Archive: story, records, characters, pictures, movies and music read
+// from the game files. Read only, so Lunar Tear and the game keep running.
+// Blocks; call off the main thread. Returns "" and sets url and token, or an error.
+NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text));
+// A full-screen browser for the Archive. close runs when the player taps Close.
+UIViewController *LTArchiveBrowser(NSString *url, NSString *token, void (^close)(void));
