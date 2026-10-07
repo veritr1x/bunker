@@ -18,6 +18,7 @@ import (
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/missions"
 	"lunar-tear/server/internal/model"
+	"lunar-tear/server/internal/pvp"
 	"lunar-tear/server/internal/questflow"
 	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/store"
@@ -33,6 +34,7 @@ var bunkerHolder *runtime.Holder
 func InitBunker(h *runtime.Holder) {
 	bunkerHolder = h
 	missions.SetHolder(h)
+	pvp.SetHolder(h)
 	missions.GachaLabel = func(gachaId int32) int32 {
 		for _, e := range h.Get().GachaEntries {
 			if e.GachaId == gachaId {
