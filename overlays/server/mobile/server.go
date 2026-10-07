@@ -201,6 +201,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	store := sqlite.New(db, gametime.Now)
 	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, interceptor.NewDiffInterceptor(store, store), interceptor.NewMissionInterceptor(store, store), interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
 	service.InitBunker(holder)
+	service.SetArchiveRoot(dataRoot)
 	gacha.SetRatesPath(filepath.Join(dataRoot, "gacha_rates.json"))
 	registerServices(s.grpc, local(8003), cdnURL, "http://"+local(3000), filepath.Join(assetRoot, "assets", "release", MasterName), store, holder, false)
 	healthServer := health.NewServer()
