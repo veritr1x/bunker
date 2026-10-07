@@ -78,6 +78,52 @@ func init() {
 		s, _ := utils.EncodeJSONMaps(levelBonusRecords(user)...)
 		return s
 	})
+	register("IUserPvpStatus", func(user store.UserState) string {
+		p := user.Ext.Pvp
+		milli, at := p.BattlePointMilli, p.BattlePointUpdated
+		if at == 0 {
+			milli = 100 * 1000 // never in the Arena: full (PVP_MAX_BATTLE_POINT)
+		}
+		s, _ := utils.EncodeJSONMaps(map[string]any{
+			"userId":                              user.UserId,
+			"staminaMilliValue":                   milli,
+			"staminaUpdateDatetime":               at,
+			"latestRewardReceivePvpSeasonId":      p.RewardSeasonId,
+			"latestRewardReceivePvpWeeklyVersion": p.RewardWeekVersion,
+			"winStreakCount":                      p.WinStreak,
+			"winStreakCountUpdateDatetime":        p.WinStreakUpdated,
+			"latestVersion":                       p.LatestVersion,
+		})
+		return s
+	})
+	register("IUserPvpDefenseDeck", func(user store.UserState) string {
+		p := user.Ext.Pvp
+		if p.DefenseDeckNumber == 0 {
+			return "[]"
+		}
+		s, _ := utils.EncodeJSONMaps(map[string]any{
+			"userId":         user.UserId,
+			"userDeckNumber": p.DefenseDeckNumber,
+			"latestVersion":  p.LatestVersion,
+		})
+		return s
+	})
+	register("IUserPvpWeeklyResult", func(user store.UserState) string {
+		rows := make([]map[string]any, 0, len(user.Ext.Pvp.Weekly))
+		for _, w := range user.Ext.Pvp.Weekly {
+			rows = append(rows, map[string]any{
+				"userId":           user.UserId,
+				"pvpWeeklyVersion": w.WeekVersion,
+				"pvpSeasonId":      w.SeasonId,
+				"groupId":          w.GroupId,
+				"finalPoint":       w.FinalPoint,
+				"finalRank":        w.FinalRank,
+				"latestVersion":    w.WeekVersion,
+			})
+		}
+		s, _ := utils.EncodeJSONMaps(rows...)
+		return s
+	})
 }
 
 func sortedKeys[V any](m map[int32]V) []int32 {
@@ -178,6 +224,17 @@ func bunkerChangedTables(before, after *store.UserState) []string {
 	if !mapsEqualSimple(before.Ext.LevelBonusConfirmed, after.Ext.LevelBonusConfirmed) || !costumeLevelsEqual(before, after) {
 		out = append(out, "IUserCostumeLevelBonusReleaseStatus")
 	}
+	if b, a := before.Ext.Pvp, after.Ext.Pvp; b.BattlePointMilli != a.BattlePointMilli || b.BattlePointUpdated != a.BattlePointUpdated ||
+		b.RewardSeasonId != a.RewardSeasonId || b.RewardWeekVersion != a.RewardWeekVersion ||
+		b.WinStreak != a.WinStreak || b.WinStreakUpdated != a.WinStreakUpdated {
+		out = append(out, "IUserPvpStatus")
+	}
+	if before.Ext.Pvp.DefenseDeckNumber != after.Ext.Pvp.DefenseDeckNumber {
+		out = append(out, "IUserPvpDefenseDeck")
+	}
+	if len(before.Ext.Pvp.Weekly) != len(after.Ext.Pvp.Weekly) {
+		out = append(out, "IUserPvpWeeklyResult")
+	}
 	return out
 }
 
@@ -205,6 +262,10 @@ func bunkerKeyFields(table string) []string {
 		return []string{"userId", "questSceneChoiceEffectId"}
 	case "IUserCostumeLevelBonusReleaseStatus":
 		return []string{"userId", "costumeId"}
+	case "IUserPvpStatus", "IUserPvpDefenseDeck":
+		return []string{"userId"}
+	case "IUserPvpWeeklyResult":
+		return []string{"userId", "pvpWeeklyVersion"}
 	}
 	return nil
 }

@@ -1,0 +1,64 @@
+diff --git a/server/cmd/lunar-tear/grpc.go b/server/cmd/lunar-tear/grpc.go
+index 2d51b0a..a9a432e 100644
+--- a/server/cmd/lunar-tear/grpc.go
++++ b/server/cmd/lunar-tear/grpc.go
+@@ -110,6 +110,7 @@ func registerServices(
+ 	pb.RegisterPortalCageServiceServer(srv, service.NewPortalCageServiceServer(userStore, userStore))
+ 	pb.RegisterCharacterViewerServiceServer(srv, service.NewCharacterViewerServiceServer(userStore, userStore, holder))
+ 	pb.RegisterMissionServiceServer(srv, service.NewMissionServiceServer(userStore, userStore))
++	pb.RegisterPvpServiceServer(srv, service.NewPvpServiceServer(userStore, userStore, holder))
+ 	pb.RegisterShopServiceServer(srv, service.NewShopServiceServer(userStore, userStore, holder))
+ 	pb.RegisterCostumeServiceServer(srv, service.NewCostumeServiceServer(userStore, userStore, holder))
+ 	pb.RegisterMovieServiceServer(srv, service.NewMovieServiceServer(userStore, userStore))
+diff --git a/server/internal/service/reward.go b/server/internal/service/reward.go
+index 890cfc3..fda7b26 100644
+--- a/server/internal/service/reward.go
++++ b/server/internal/service/reward.go
+@@ -139,10 +139,3 @@ func (s *RewardServiceServer) ReceiveBigHuntReward(ctx context.Context, _ *empty
+ 		LastWeekWeeklyScoreReward:   []*pb.BigHuntReward{},
+ 	}, nil
+ }
+-
+-func (s *RewardServiceServer) ReceivePvpReward(ctx context.Context, _ *emptypb.Empty) (*pb.ReceivePvpRewardResponse, error) {
+-	log.Printf("[RewardService] ReceivePvpReward (stub)")
+-	return &pb.ReceivePvpRewardResponse{
+-		DiffUserData: map[string]*pb.DiffData{},
+-	}, nil
+-}
+diff --git a/server/internal/service/user.go b/server/internal/service/user.go
+index 7b4bdbc..b369760 100644
+--- a/server/internal/service/user.go
++++ b/server/internal/service/user.go
+@@ -167,6 +167,9 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
+ 	if userId == 0 {
+ 		userId = CurrentUserId(ctx, s.users, s.sessions)
+ 	}
++	if profile := s.cpuProfile(ctx, userId); profile != nil {
++		return profile, nil
++	}
+ 	user, err := s.users.LoadUser(userId)
+ 	if err != nil {
+ 		return &pb.GetUserProfileResponse{}, nil
+@@ -203,7 +206,7 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
+ 			Power:         100,
+ 			DeckCharacter: deckCharacters,
+ 		},
+-		PvpInfo: &pb.ProfilePvpInfo{},
++		PvpInfo: pvpProfileInfo(user),
+ 		GamePlayHistory: &pb.GamePlayHistory{
+ 			HistoryItem:              []*pb.PlayHistoryItem{},
+ 			HistoryCategoryGraphItem: []*pb.PlayHistoryCategoryGraphItem{},
+diff --git a/server/internal/userdata/state_projection.go b/server/internal/userdata/state_projection.go
+index 2bb15e8..dccd838 100644
+--- a/server/internal/userdata/state_projection.go
++++ b/server/internal/userdata/state_projection.go
+@@ -13,6 +13,9 @@ func FullClientTableMap(user store.UserState) map[string]string {
+ 		"IUserStatus":                             projectTable("IUserStatus", user),
+ 		"IUserGem":                                projectTable("IUserGem", user),
+ 		"IUserProfile":                            projectTable("IUserProfile", user),
++		"IUserPvpDefenseDeck":                     projectTable("IUserPvpDefenseDeck", user),
++		"IUserPvpStatus":                          projectTable("IUserPvpStatus", user),
++		"IUserPvpWeeklyResult":                    projectTable("IUserPvpWeeklyResult", user),
+ 		"IUserCharacter":                          projectTable("IUserCharacter", user),
+ 		"IUserCostume":                            projectTable("IUserCostume", user),
+ 		"IUserWeapon":                             projectTable("IUserWeapon", user),
