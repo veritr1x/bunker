@@ -195,6 +195,36 @@ static NSString *gMovedFrom;
 
 // Removes the staging folder. A folder moved in from Documents goes back to
 // where the player put it instead of being deleted.
+// The game creates a downloaded asset's file before writing it. If the game
+// is killed in between, the empty file stays in the cache and the game keeps
+// using it: the image never appears (empty gem and item icons) and the sound
+// never plays. No asset is empty, so each folder
+// (Library/octo/v1/{app}/{bucket}/{object}) holding an empty file is deleted
+// and the game downloads that asset again.
+static void DropEmptyCachedAssets(void) {
+    NSFileManager *files = NSFileManager.defaultManager;
+    NSString *library = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *root = [library stringByAppendingPathComponent:@"octo/v1"];
+    for (NSString *app in [files contentsOfDirectoryAtPath:root error:nil]) {
+        NSString *appDir = [root stringByAppendingPathComponent:app];
+        for (NSString *bucket in [files contentsOfDirectoryAtPath:appDir error:nil]) {
+            NSString *bucketDir = [appDir stringByAppendingPathComponent:bucket];
+            for (NSString *object in [files contentsOfDirectoryAtPath:bucketDir error:nil]) {
+                NSString *objectDir = [bucketDir stringByAppendingPathComponent:object];
+                for (NSString *name in [files contentsOfDirectoryAtPath:objectDir error:nil]) {
+                    if ([name isEqualToString:@".meta"]) continue;
+                    NSDictionary *attributes = [files attributesOfItemAtPath:[objectDir stringByAppendingPathComponent:name] error:nil];
+                    if ([attributes.fileType isEqualToString:NSFileTypeRegular] && attributes.fileSize == 0) {
+                        NSLog(@"[LunarTear] dropping empty cached asset %@", object);
+                        [files removeItemAtPath:objectDir error:nil];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 static void DiscardStage(void) {
     NSFileManager *files = NSFileManager.defaultManager;
     NSString *moved = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
@@ -1588,6 +1618,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         gServerRoot = Documents();
         gSaves = [gServerRoot stringByAppendingPathComponent:@"saves"];
         RecoverImport();
+        DropEmptyCachedAssets();
         // Automation only: developer tools can launch with this variable to run
         // the same import the folder picker uses. Players cannot set it.
         const char *importFrom = getenv("LUNAR_IMPORT_FROM");
