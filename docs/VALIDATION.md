@@ -5,9 +5,9 @@
 - Inventory against the 3.7.1 client: client and server define the same 40
   services and 174 calls; 28 had no handler. This adds missions, the mission
   pass, the daily quest set reward, multi-skip, costume level bonus
-  confirmation, story choices, labyrinth season rewards, unread pop-ups and
-  Portal Cage drops. Arena (PvP), friends and Apple account calls remain
-  unhandled.
+  confirmation, story choices, labyrinth season rewards, unread pop-ups,
+  Portal Cage drops and the friend actions (which succeed with no friends
+  offline). Arena (PvP) and the Apple account calls remain unhandled.
 - Mission rules: `scripts/gen_mission_rules.py` reads the 6,436 missions'
   English names; 5,635 get a rule. Most of the rest are Arena missions, named
   Mythic Slab boards and subjugation bosses, and missions with conditions the
@@ -21,7 +21,7 @@
 - `mobile/missions_test.go` runs the on-device server with the same save over
   gRPC: mission progress and rewards arrive in the response diffs; bulk skip,
   the daily set reward (once a day), level bonus confirmation, story choices,
-  `GetUnreadPop` and `GetDropItem` answer; the user data carries the new
+  `GetUnreadPop`, `GetDropItem` and the friend actions answer; the user data carries the new
   tables; the game's Rates page shows the rates saved in Pod Programs.
 - `internal/gacha` tests: the defaults equal Lunar Tear's table, the settings
   file is read and validated, 20,000 draws land within 1 point of the set ★4
