@@ -33,6 +33,7 @@ public final class GameProcessProvider extends ContentProvider {
         DisplayPatch.apply(app);
         refreshGameCodeAfterUpdate(app);
         forgetListOnPortChange(app);
+        dropEmptyCachedAssets(app);
         String game = gameActivity(app);
         if (game != null) app.registerActivityLifecycleCallbacks(new ServerCheck(game, Ports.assets(app)));
         return true;
@@ -70,6 +71,38 @@ public final class GameProcessProvider extends ContentProvider {
         if (prefs.getInt("offset", 0) == offset) return;
         delete(new java.io.File(app.getFilesDir(), "octo/pdb"));
         prefs.edit().putInt("offset", offset).commit();
+    }
+
+    /**
+     * The game creates a downloaded asset's file before writing it. If the game
+     * is killed in between, the empty file stays in the cache and the game keeps
+     * using it: the image never appears (empty gem and item icons) and the sound
+     * never plays. No asset is empty, so each folder
+     * (files/octo/v1/{app}/{bucket}/{object}) holding an empty file is deleted
+     * and the game downloads that asset again.
+     */
+    private static void dropEmptyCachedAssets(Application app) {
+        java.io.File[] apps = new java.io.File(app.getFilesDir(), "octo/v1").listFiles();
+        if (apps == null) return;
+        for (java.io.File appDir : apps) {
+            java.io.File[] buckets = appDir.listFiles();
+            if (buckets == null) continue;
+            for (java.io.File bucket : buckets) {
+                java.io.File[] objects = bucket.listFiles();
+                if (objects == null) continue;
+                for (java.io.File object : objects) {
+                    java.io.File[] files = object.listFiles();
+                    if (files == null) continue;
+                    for (java.io.File file : files) {
+                        if (file.isFile() && file.length() == 0 && !file.getName().equals(".meta")) {
+                            android.util.Log.w("Bunker", "dropping empty cached asset " + object.getName());
+                            delete(object);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static void delete(java.io.File file) {

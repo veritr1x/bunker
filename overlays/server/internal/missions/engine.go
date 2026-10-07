@@ -398,8 +398,9 @@ func set(u *store.UserState, m *Mission, value int64, now int64) {
 func (cat *Catalog) Track(before, after *store.UserState, method string, req any, now int64) {
 	after.Ext.EnsureMaps()
 	backfill := after.Ext.MissionsVersion < trackVersion
-	c := collect(before, after, method, req)
 	today := startOfDay(now)
+	recordLogin(after, now, today)
+	c := collect(before, after, method, req)
 	for _, m := range cat.Missions {
 		if m.Rule.Kind == "" || m.Rule.Kind == "mission_clear" || m.Rule.Kind == "all_daily" || !cat.active(m, after, now) {
 			continue
@@ -431,6 +432,25 @@ func (cat *Catalog) Track(before, after *store.UserState, method string, req any
 		}
 	}
 	after.Ext.MissionsVersion = trackVersion
+}
+
+// recordLogin counts the day's first request as a login. Lunar Tear sets the
+// login counts when it creates the player and never again, so the daily
+// "Log in" missions would never clear after the first day.
+func recordLogin(u *store.UserState, now, today int64) {
+	l := &u.Login
+	if l.LastLoginDatetime >= today {
+		return
+	}
+	if l.LastLoginDatetime >= today-24*3600*1000 {
+		l.ContinualLoginCount++
+	} else {
+		l.ContinualLoginCount = 1
+	}
+	l.MaxContinualLoginCount = max(l.MaxContinualLoginCount, l.ContinualLoginCount)
+	l.TotalLoginCount++
+	l.LastLoginDatetime = now
+	l.LatestVersion = now
 }
 
 // trackCompletion updates the missions that count other missions.

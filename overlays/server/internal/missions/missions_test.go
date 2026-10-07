@@ -169,6 +169,28 @@ func TestRealSave(t *testing.T) {
 	if m := u.Missions[daily.MissionId]; m.MissionProgressStatusType != StatusInProgress || m.ProgressValue != 0 {
 		t.Fatalf("daily mission not reset the next day: %+v", m)
 	}
+	// The day's first request is a login: the daily "Log in" missions clear.
+	var logins int
+	for _, m := range cat.ByKind["login"] {
+		if !m.Daily() || !cat.active(m, &u, tomorrow) {
+			continue
+		}
+		logins++
+		if rec := u.Missions[m.MissionId]; rec.MissionProgressStatusType != StatusClear {
+			t.Errorf("daily login mission %d not cleared the next day: %+v", m.MissionId, rec)
+		}
+	}
+	if logins == 0 || u.Login.TotalLoginCount != again.Login.TotalLoginCount+1 {
+		t.Fatalf("%d daily login missions; logins %d -> %d", logins, again.Login.TotalLoginCount, u.Login.TotalLoginCount)
+	}
+	// Later requests the same day are not more logins.
+	u, _ = st.UpdateUser(uid, func(u *store.UserState) {
+		before := store.CloneUserState(*u)
+		cat.Track(&before, u, "/apb.api.user.UserService/GameStart", nil, tomorrow+1000)
+	})
+	if u.Login.TotalLoginCount != again.Login.TotalLoginCount+1 {
+		t.Fatalf("second request of the day counted as a login: %d", u.Login.TotalLoginCount)
+	}
 }
 
 func TestQuestFilter(t *testing.T) {
