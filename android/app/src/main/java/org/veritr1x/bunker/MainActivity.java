@@ -281,7 +281,7 @@ public final class MainActivity extends Activity {
             case 4: showLog();break;
             case 5: startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));break;
             case 6: help();break;
-            case 7: dialog().setTitle("Lunar Tear").setMessage("Offline companion · 0.1.0\nBased on Lunar Tear by Walter-Sparrow.\nMIT License · Copyright 2026 Ilya Groshev.").setPositiveButton("Close",null).show();break;
+            case 7: dialog().setTitle("Bunker").setMessage("Version 0.1.0\nOffline NieR Re[in]carnation, all in one app.\nCreated by veritr1x · github.com/veritr1x/bunker\n\nCREDITS\nLunar Tear by Walter-Sparrow: the offline server.\nMIT License · Copyright 2026 Ilya Groshev.\nLunar Scripts by Walter-Sparrow: APK and master data patches.\nLunar Base by NMeliksah: the save editors.\nMasterdata Patcher by NavHobbyDev: the content patcher.\nthree.js: the Archive's 3D viewer.\nChaquopy: Python on Android.\n\nNieR Re[in]carnation © SQUARE ENIX. Bunker is a fan project, not affiliated with Square Enix.").setNeutralButton("Open GitHub",(d,w)->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/veritr1x/bunker")))).setPositiveButton("Close",null).show();break;
             case 9: confirmSaveImport();break;
             case 10: query(3);break;
             case 11: {Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);i.putExtra(Intent.EXTRA_TITLE,"lunar-tear-log-"+new SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");startActivityForResult(i,LOGS);break;}
