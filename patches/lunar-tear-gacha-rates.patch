@@ -71,12 +71,17 @@ index 42cfd83..b4c7078 100644
  	// In-game information / news page
  	if strings.Contains(path, "/information") {
  		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-@@ -456,6 +462,11 @@ func (s *OctoHTTPServer) handleWebAPI(w http.ResponseWriter, r *http.Request, pa
+@@ -456,6 +462,16 @@ func (s *OctoHTTPServer) handleWebAPI(w http.ResponseWriter, r *http.Request, pa
  		return
  	}
  
 +	if strings.Contains(path, "gacha-rate") {
 +		serveGachaRatePage(w)
++		return
++	}
++
++	if strings.Contains(path, "gacha-detail") {
++		serveGachaDetailsPage(w, r)
 +		return
 +	}
 +

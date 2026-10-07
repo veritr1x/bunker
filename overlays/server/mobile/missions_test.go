@@ -27,7 +27,18 @@ func TestMissionsEndToEnd(t *testing.T) {
 	if master == "" || save == "" {
 		t.Skip("set LUNAR_TEST_MASTER and LUNAR_TEST_SAVE")
 	}
-	root, data := t.TempDir(), t.TempDir()
+	root, top := t.TempDir(), t.TempDir()
+	data := filepath.Join(top, "saves")
+	os.MkdirAll(data, 0700)
+	// LUNAR_TEST_ARCHIVE (optional): an Archive database, for names on the details page.
+	if archive := os.Getenv("LUNAR_TEST_ARCHIVE"); archive != "" {
+		a, err := os.ReadFile(archive)
+		if err != nil {
+			t.Fatal(err)
+		}
+		os.MkdirAll(filepath.Join(top, "archive"), 0700)
+		os.WriteFile(filepath.Join(top, "archive", "archive.db"), a, 0600)
+	}
 	os.MkdirAll(filepath.Join(root, "assets/release"), 0700)
 	os.MkdirAll(filepath.Join(root, "assets/revisions/0/android"), 0700)
 	b, err := os.ReadFile(master)
@@ -180,6 +191,24 @@ func TestMissionsEndToEnd(t *testing.T) {
 	resp.Body.Close()
 	if !strings.Contains(string(page), "<td>★4 costume</td><td>6%</td>") {
 		t.Fatalf("rates page does not show the saved rates: %.400s", page)
+	}
+	// The banner's Details button lists its costs and items with their rates.
+	resp, err = http.Get("http://" + local(8080) + "/web/en/gacha-details?gachaId=45&userId=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	for _, want := range []string{"COST", "3000 gems", "1 guaranteed ★3 or higher", "EXCHANGE", "FEATURED", "ALL ITEMS"} {
+		if !strings.Contains(string(page), want) {
+			t.Fatalf("details page has no %q: %.600s", want, page)
+		}
+	}
+	if os.Getenv("LUNAR_TEST_ARCHIVE") != "" && !strings.Contains(string(page), "NieR:Automata Crossover Summons Vol. 1") {
+		t.Fatalf("details page has no banner name: %.400s", page)
+	}
+	if out := os.Getenv("LUNAR_TEST_DETAILS_OUT"); out != "" {
+		os.WriteFile(out, page, 0600)
 	}
 }
 
