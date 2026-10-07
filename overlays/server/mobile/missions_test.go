@@ -113,6 +113,13 @@ func TestMissionsEndToEnd(t *testing.T) {
 	if _, err := pb.NewPortalCageServiceClient(conn).GetDropItem(ctx, &emptypb.Empty{}); err != nil {
 		t.Fatal(err)
 	}
+	friends := pb.NewFriendServiceClient(conn)
+	if _, err := friends.BulkCheerFriend(ctx, &emptypb.Empty{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := friends.SendFriendRequest(ctx, &pb.SendFriendRequestRequest{}); err != nil {
+		t.Fatal(err)
+	}
 
 	quest := pb.NewQuestServiceClient(conn)
 	daily, err := quest.ReceiveDailyQuestGroupCompleteReward(ctx, &emptypb.Empty{})
