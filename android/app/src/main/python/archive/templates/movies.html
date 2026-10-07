@@ -7,6 +7,20 @@
   <video src="/media/movie/{{ current.file }}" controls autoplay playsinline preload="metadata"></video>
   <figcaption>{{ current.title }}</figcaption>
 </figure>
+<script>
+// In the iOS app, WebKit's own full screen stays inside the Archive; the Bunker opens the system player.
+if (window.bunkerFiles && window.bunkerFiles.playMovie) {
+  const video = document.querySelector(".player video"), button = document.createElement("button");
+  button.type = "button";
+  button.className = "link";
+  button.textContent = " · Full screen";
+  document.querySelector(".player figcaption").append(button);
+  button.addEventListener("click", () => {
+    video.pause();
+    window.bunkerFiles.playMovie(new URL(video.getAttribute("src"), location.href).href, video.currentTime);
+  });
+}
+</script>
 {% endif %}
 {% for g in groups %}
 {% set playing = current and current.file in g["items"]|map(attribute="file") %}

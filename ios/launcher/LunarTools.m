@@ -1,6 +1,7 @@
 // Tools on iOS. Python is loaded only when Tools opens, so normal play pays
 // nothing for it. The Python side is ios/python/ios_runtime.py.
 #import "LunarTools.h"
+#import <AVKit/AVKit.h>
 #import <WebKit/WebKit.h>
 #include <dlfcn.h>
 
@@ -116,6 +117,21 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
     return url && token && (*url).length ? @"" : @"Tools could not start";
 }
 
+NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text)) {
+    gProgress = progress;
+    if (progress) progress(gPythonReady ? @"Opening the Archive…" : @"Starting Python…");
+    NSString *error = LoadPython();
+    if (error.length) { gProgress = nil; return error; }
+    [NSFileManager.defaultManager createDirectoryAtPath:archiveRoot withIntermediateDirectories:YES attributes:nil error:nil];
+    NSDictionary *result = CallRuntime(@"archive_start", @[serverRoot, archiveRoot]);
+    gProgress = nil;
+    if (![result[@"ok"] boolValue]) return result[@"error"];
+    NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    *url = state[@"url"];
+    *token = state[@"token"];
+    return url && token && (*url).length ? @"" : @"The Archive could not start";
+}
+
 NSString *LTToolsStop(void) {
     if (!gPythonReady) return @"";
     NSDictionary *result = CallRuntime(@"stop", @[]);
@@ -124,8 +140,11 @@ NSString *LTToolsStop(void) {
 
 #pragma mark - Editor browser
 
-@interface LTToolsViewController : UIViewController <WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate>
+@interface LTToolsViewController : UIViewController <WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate, WKScriptMessageHandler>
 @property(nonatomic, copy) NSString *origin, *token;
+// Pod Programs by default; the Archive sets its own.
+@property(nonatomic, copy) NSString *caption, *heading, *cookie;
+@property(nonatomic) BOOL archive;
 @property(nonatomic, copy) void (^onClose)(void);
 @property(nonatomic, strong) WKWebView *web;
 @property(nonatomic, strong) UIButton *closeButton;
@@ -134,7 +153,8 @@ NSString *LTToolsStop(void) {
 @implementation LTToolsViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Pod Programs";
+    if (!self.heading) { self.caption = @"BUNKER // POD 042"; self.heading = @"POD PROGRAMS"; self.cookie = @"lunar_tools"; }
+    self.title = self.heading.capitalizedString;
     // The Bunker's paper and ink, matching the launcher and the pages' stylesheet.
     UIColor *(^shade)(uint32_t, uint32_t) = ^UIColor *(uint32_t light, uint32_t dark) {
         return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
@@ -146,10 +166,10 @@ NSString *LTToolsStop(void) {
     self.view.backgroundColor = shade(0xd3ceb8, 0x191813);
     // The same top bar as the Bunker: where you are, and the way back.
     UILabel *caption = [UILabel new];
-    caption.attributedText = [[NSAttributedString alloc] initWithString:@"BUNKER // POD 042" attributes:@{
+    caption.attributedText = [[NSAttributedString alloc] initWithString:self.caption attributes:@{
         NSFontAttributeName: [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular], NSForegroundColorAttributeName: muted, NSKernAttributeName: @2}];
     UILabel *title = [UILabel new];
-    title.attributedText = [[NSAttributedString alloc] initWithString:@"POD PROGRAMS" attributes:@{
+    title.attributedText = [[NSAttributedString alloc] initWithString:self.heading attributes:@{
         NSFontAttributeName: [UIFont boldSystemFontOfSize:22], NSForegroundColorAttributeName: ink, NSKernAttributeName: @6.2}];
     title.accessibilityTraits = UIAccessibilityTraitHeader;
     UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
@@ -170,6 +190,20 @@ NSString *LTToolsStop(void) {
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
     // Nothing persists between sessions; each session has a new token.
     configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
+    if (self.archive) {
+        // Voice lines play one after another, and movies play in the page. Full screen
+        // opens the system video player; WebKit's element full screen stays inside this view.
+        configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone;
+        configuration.allowsInlineMediaPlayback = YES;
+        // "Save PNG" and the 3D snapshot hand pictures to the page's bunkerFiles bridge, as on Android.
+        // Full screen movies open in the system player (see playMovie).
+        [configuration.userContentController addScriptMessageHandler:self name:@"savePng"];
+        [configuration.userContentController addScriptMessageHandler:self name:@"playMovie"];
+        [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:
+            @"window.bunkerFiles = {savePng: (name, data) => window.webkit.messageHandlers.savePng.postMessage({name: String(name), data: String(data)}),"
+             "playMovie: (url, time) => window.webkit.messageHandlers.playMovie.postMessage({url: String(url), time: Number(time) || 0})};"
+            injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]];
+    }
     self.web = [[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration];
     self.web.navigationDelegate = self;
     self.web.UIDelegate = self;
@@ -189,11 +223,18 @@ NSString *LTToolsStop(void) {
     ]];
     NSURL *origin = [NSURL URLWithString:self.origin];
     NSHTTPCookie *cookie = [NSHTTPCookie cookieWithProperties:@{
-        NSHTTPCookieName: @"lunar_tools", NSHTTPCookieValue: self.token, NSHTTPCookieDomain: origin.host,
+        NSHTTPCookieName: self.cookie, NSHTTPCookieValue: self.token, NSHTTPCookieDomain: origin.host,
         NSHTTPCookiePath: @"/", @"HttpOnly": @YES, NSHTTPCookieSameSitePolicy: NSHTTPCookieSameSiteStrict}];
+    // The Archive's pages take light or dark from this cookie; Pod Programs follows the system itself.
+    NSHTTPCookie *theme = [NSHTTPCookie cookieWithProperties:@{
+        NSHTTPCookieName: @"lunar_theme", NSHTTPCookieValue: self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? @"dark" : @"light",
+        NSHTTPCookieDomain: origin.host, NSHTTPCookiePath: @"/", NSHTTPCookieSameSitePolicy: NSHTTPCookieSameSiteStrict}];
     __weak typeof(self) weakSelf = self;
-    [configuration.websiteDataStore.httpCookieStore setCookie:cookie completionHandler:^{
-        [weakSelf.web loadRequest:[NSURLRequest requestWithURL:[origin URLByAppendingPathComponent:@"/"]]];
+    WKHTTPCookieStore *cookies = configuration.websiteDataStore.httpCookieStore;
+    [cookies setCookie:theme completionHandler:^{
+        [cookies setCookie:cookie completionHandler:^{
+            [weakSelf.web loadRequest:[NSURLRequest requestWithURL:[origin URLByAppendingPathComponent:@"/"]]];
+        }];
     }];
 }
 // Layer colours do not follow light and dark by themselves.
@@ -209,13 +250,53 @@ NSString *LTToolsStop(void) {
     NSURL *origin = [NSURL URLWithString:self.origin];
     return [url.scheme isEqual:@"http"] && [url.host isEqual:origin.host] && [url.port isEqual:origin.port];
 }
+// A picture from the Archive: check it is a PNG, then let the player choose where it goes.
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+    NSDictionary *body = [message.body isKindOfClass:NSDictionary.class] ? message.body : nil;
+    if ([message.name isEqual:@"playMovie"]) { [self playMovie:body]; return; }
+    NSString *url = body[@"data"];
+    NSRange comma = [url rangeOfString:@","];
+    NSData *png = comma.location == NSNotFound ? nil : [[NSData alloc] initWithBase64EncodedString:[url substringFromIndex:comma.location + 1] options:NSDataBase64DecodingIgnoreUnknownCharacters];
+    const uint8_t signature[] = {0x89, 'P', 'N', 'G'};
+    if (png.length < 8 || memcmp(png.bytes, signature, 4)) return;
+    NSString *name = [[body[@"name"] description] stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
+    if (!name.length) name = @"picture";
+    if (![name.lowercaseString hasSuffix:@".png"]) name = [name stringByAppendingString:@".png"];
+    NSString *folder = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+    [NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+    NSURL *target = [NSURL fileURLWithPath:[folder stringByAppendingPathComponent:name]];
+    if (![png writeToURL:target atomically:YES]) return;
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[target] asCopy:YES];
+    picker.delegate = self;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+// A movie from the Archive in the system player, from where the page left off. Only
+// the Archive's own server, with the session cookie its media requests need.
+- (void)playMovie:(NSDictionary *)body {
+    NSURL *url = [NSURL URLWithString:[body[@"url"] description]];
+    if (!url || ![self local:url]) return;
+    NSURL *origin = [NSURL URLWithString:self.origin];
+    NSHTTPCookie *cookie = [NSHTTPCookie cookieWithProperties:@{
+        NSHTTPCookieName: self.cookie, NSHTTPCookieValue: self.token, NSHTTPCookieDomain: origin.host, NSHTTPCookiePath: @"/"}];
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:@{AVURLAssetHTTPCookiesKey: @[cookie]}];
+    AVPlayer *player = [AVPlayer playerWithPlayerItem:[AVPlayerItem playerItemWithAsset:asset]];
+    double time = [body[@"time"] isKindOfClass:NSNumber.class] ? [body[@"time"] doubleValue] : 0;
+    if (time > 0) [player seekToTime:CMTimeMakeWithSeconds(time, 600) toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero];
+    AVPlayerViewController *controller = [AVPlayerViewController new];
+    controller.player = player;
+    controller.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:controller animated:YES completion:^{ [player play]; }];
+}
 - (void)close {
     self.closeButton.enabled = NO;
+    // The message handler keeps this controller alive until it is removed.
+    [self.web.configuration.userContentController removeScriptMessageHandlerForName:@"savePng"];
+    [self.web.configuration.userContentController removeScriptMessageHandlerForName:@"playMovie"];
     [self.web stopLoading];
     if (self.onClose) self.onClose();
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action decisionHandler:(void (^)(WKNavigationActionPolicy))handler {
-    // Only the local editors; nothing in Tools links out.
+    // Only the local pages; nothing in Tools or the Archive links out.
     handler([self local:action.request.URL] || [action.request.URL.absoluteString isEqual:@"about:blank"] ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationResponse:(WKNavigationResponse *)response decisionHandler:(void (^)(WKNavigationResponsePolicy))handler {
@@ -231,7 +312,7 @@ NSString *LTToolsStop(void) {
 // Fetch the file with the session cookie, then let the player choose where to save it.
 - (void)download:(NSURL *)url name:(NSString *)name {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-    [request setValue:[@"lunar_tools=" stringByAppendingString:self.token] forHTTPHeaderField:@"Cookie"];
+    [request setValue:[NSString stringWithFormat:@"%@=%@", self.cookie, self.token] forHTTPHeaderField:@"Cookie"];
     NSURLSessionDownloadTask *task = [NSURLSession.sharedSession downloadTaskWithRequest:request completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
         NSURL *target = nil;
         if (!error && [(NSHTTPURLResponse *)response statusCode] == 200) {
@@ -255,7 +336,7 @@ NSString *LTToolsStop(void) {
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    if (error.code != NSURLErrorCancelled) [self message:@"Unable to open Pod Programs" text:@"Close Pod Programs and try again."];
+    if (error.code != NSURLErrorCancelled) [self message:[@"Unable to open " stringByAppendingString:self.title] text:@"Close it and try again."];
 }
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))handler {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
@@ -285,6 +366,21 @@ UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(v
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:tools];
     navigation.modalPresentationStyle = UIModalPresentationFullScreen;
     // Light or dark follows the launcher window: the system, or the player's Display choice.
+    navigation.navigationBarHidden = YES;
+    return navigation;
+}
+
+UIViewController *LTArchiveBrowser(NSString *url, NSString *token, void (^close)(void)) {
+    LTToolsViewController *archive = [LTToolsViewController new];
+    archive.origin = url;
+    archive.token = token;
+    archive.onClose = close;
+    archive.caption = @"BUNKER // ARCHIVE";
+    archive.heading = @"ARCHIVE";
+    archive.cookie = @"lunar_archive";
+    archive.archive = YES;
+    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:archive];
+    navigation.modalPresentationStyle = UIModalPresentationFullScreen;
     navigation.navigationBarHidden = YES;
     return navigation;
 }
