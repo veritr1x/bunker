@@ -1,0 +1,240 @@
+diff --git a/server/Makefile b/server/Makefile
+index 1ab3e7f..1f6972f 100644
+--- a/server/Makefile
++++ b/server/Makefile
+@@ -1,7 +1,7 @@
+ # Proto generation: outputs to gen/proto/ (module=lunar-tear/server).
+ # All proto files have go_package. Only protos used by the server are generated here
+ # (generating all would put them in one package and cause name clashes).
+-PROTO_USED = proto/banner.proto proto/battle.proto proto/bighunt.proto proto/cageornament.proto proto/character.proto proto/characterboard.proto proto/characterviewer.proto proto/companion.proto proto/config.proto proto/consumableitem.proto proto/contentsstory.proto proto/costume.proto proto/data.proto proto/deck.proto proto/dokan.proto proto/explore.proto proto/friend.proto proto/gacha.proto proto/gameplay.proto proto/gift.proto proto/gimmick.proto proto/labyrinth.proto proto/loginbonus.proto proto/material.proto proto/mission.proto proto/movie.proto proto/navicutin.proto proto/omikuji.proto proto/notification.proto proto/parts.proto proto/portalcage.proto proto/pvp.proto proto/quest.proto proto/reward.proto proto/shop.proto proto/sidestoryquest.proto proto/tutorial.proto proto/user.proto proto/weapon.proto
++PROTO_USED = proto/banner.proto proto/battle.proto proto/bighunt.proto proto/cageornament.proto proto/character.proto proto/characterboard.proto proto/characterviewer.proto proto/companion.proto proto/config.proto proto/consumableitem.proto proto/contentsstory.proto proto/costume.proto proto/data.proto proto/deck.proto proto/dokan.proto proto/explore.proto proto/friend.proto proto/gacha.proto proto/gameplay.proto proto/gift.proto proto/gimmick.proto proto/individualpop.proto proto/labyrinth.proto proto/loginbonus.proto proto/material.proto proto/mission.proto proto/movie.proto proto/navicutin.proto proto/omikuji.proto proto/notification.proto proto/parts.proto proto/portalcage.proto proto/pvp.proto proto/quest.proto proto/reward.proto proto/shop.proto proto/sidestoryquest.proto proto/tutorial.proto proto/user.proto proto/weapon.proto
+ 
+ PROTOC ?= protoc
+ GOOSE ?= goose
+diff --git a/server/cmd/lunar-tear/grpc.go b/server/cmd/lunar-tear/grpc.go
+index 98ed037..2d51b0a 100644
+--- a/server/cmd/lunar-tear/grpc.go
++++ b/server/cmd/lunar-tear/grpc.go
+@@ -49,10 +49,11 @@ func startGRPC(
+ 
+ 	diffInterceptor := interceptor.NewDiffInterceptor(userStore, userStore)
+ 	grpcServer := grpc.NewServer(
+-		grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, diffInterceptor, interceptor.TimeSync),
++		grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, diffInterceptor, interceptor.NewMissionInterceptor(userStore, userStore), interceptor.TimeSync),
+ 		grpc.UnknownServiceHandler(interceptor.UnknownService),
+ 	)
+ 
++	service.InitBunker(holder)
+ 	registerServices(grpcServer, publicAddr, octoURL, authURL, userStore, holder, noRegister)
+ 
+ 	reflection.Register(grpcServer)
+@@ -125,4 +126,5 @@ func registerServices(
+ 	pb.RegisterBigHuntServiceServer(srv, service.NewBigHuntServiceServer(userStore, userStore, holder))
+ 	pb.RegisterRewardServiceServer(srv, service.NewRewardServiceServer(userStore, userStore, holder))
+ 	pb.RegisterLabyrinthServiceServer(srv, service.NewLabyrinthServiceServer(userStore, userStore, holder))
++	pb.RegisterIndividualPopServiceServer(srv, service.NewIndividualPopServiceServer())
+ }
+diff --git a/server/internal/service/gimmick.go b/server/internal/service/gimmick.go
+index 92f7bdc..0bd59f8 100644
+--- a/server/internal/service/gimmick.go
++++ b/server/internal/service/gimmick.go
+@@ -81,8 +81,8 @@ func (s *GimmickServiceServer) UpdateGimmickProgress(ctx context.Context, req *p
+ 		//   * CageMemory (type 10, "Lost Archives")        — resolve an ImportantItem
+ 		//     (type 4) from the gimmick's monitor texture and grant it. IsGimmickCleared
+ 		//     stays false (matches original userdata; only ornament progress flips).
+-		//   * CageTreasureHunt / CageIntervalDropItem*     — stub per-tap material so
+-		//     the client's reward popup fires; real reward source still unmapped.
++		//   * CageTreasureHunt / CageIntervalDropItem*     — a Cage ornament reward
++		//     per tap (cageDrop); the real per-gimmick source is not in master data.
+ 		switch cat.Gimmick.GimmickType(req.GimmickId) {
+ 		case model.GimmickTypeReport:
+ 			progress.IsGimmickCleared = true
+@@ -128,17 +128,13 @@ func (s *GimmickServiceServer) UpdateGimmickProgress(ctx context.Context, req *p
+ 			//   * type 1 — "Fickle Black Birds" in the cage
+ 			//   * type 2 — "Lost Items" in the cage
+ 			//   * type 8 — Lost Items (map variant)
+-			// Stub: grant 1 of Material 100004 (the most-common reward across
+-			// m_cage_ornament_reward — 15 occurrences — likely a low-tier shard) per
+-			// tap so the client's reward-popup path fires and the player accumulates
+-			// something. Replace once a real per-gimmick mapping surfaces.
+-			const stubMaterialId = int32(100004)
+-			const stubMaterialCount = int32(1)
+-			cat.QuestHandler.Granter.GrantFull(user, model.PossessionTypeMaterial, stubMaterialId, stubMaterialCount, nowMillis)
++			// cageDrop draws from the Cage's ornament rewards instead.
++			dropType, dropId, dropCount := cageDrop()
++			cat.QuestHandler.Granter.GrantFull(user, dropType, dropId, dropCount, nowMillis)
+ 			ornamentRewards = append(ornamentRewards, &pb.GimmickReward{
+-				PossessionType: int32(model.PossessionTypeMaterial),
+-				PossessionId:   stubMaterialId,
+-				Count:          stubMaterialCount,
++				PossessionType: int32(dropType),
++				PossessionId:   dropId,
++				Count:          dropCount,
+ 			})
+ 		}
+ 		user.Gimmick.Progress[progressKey] = progress
+diff --git a/server/internal/service/quest_main.go b/server/internal/service/quest_main.go
+index 8b1a871..49c3269 100644
+--- a/server/internal/service/quest_main.go
++++ b/server/internal/service/quest_main.go
+@@ -266,6 +266,14 @@ func (s *QuestServiceServer) SetRoute(ctx context.Context, req *pb.SetRouteReque
+ func (s *QuestServiceServer) SetQuestSceneChoice(ctx context.Context, req *pb.SetQuestSceneChoiceRequest) (*pb.SetQuestSceneChoiceResponse, error) {
+ 	log.Printf("[QuestService] SetQuestSceneChoice: questSceneId=%d choiceNumber=%d",
+ 		req.QuestSceneId, req.ChoiceNumber)
++	userId := CurrentUserId(ctx, s.users, s.sessions)
++	if _, err := s.users.UpdateUser(userId, func(user *store.UserState) {
++		if !recordSceneChoice(user, req.QuestSceneId, req.QuestFlowType, req.ChoiceNumber, gametime.NowMillis()) {
++			log.Printf("[QuestService] SetQuestSceneChoice: scene %d has no choice %d", req.QuestSceneId, req.ChoiceNumber)
++		}
++	}); err != nil {
++		return nil, err
++	}
+ 	return &pb.SetQuestSceneChoiceResponse{}, nil
+ }
+ 
+diff --git a/server/internal/service/reward.go b/server/internal/service/reward.go
+index 760a76b..890cfc3 100644
+--- a/server/internal/service/reward.go
++++ b/server/internal/service/reward.go
+@@ -146,17 +146,3 @@ func (s *RewardServiceServer) ReceivePvpReward(ctx context.Context, _ *emptypb.E
+ 		DiffUserData: map[string]*pb.DiffData{},
+ 	}, nil
+ }
+-
+-func (s *RewardServiceServer) ReceiveLabyrinthSeasonReward(ctx context.Context, _ *emptypb.Empty) (*pb.ReceiveLabyrinthSeasonRewardResponse, error) {
+-	log.Printf("[RewardService] ReceiveLabyrinthSeasonReward (stub)")
+-	return &pb.ReceiveLabyrinthSeasonRewardResponse{
+-		DiffUserData: map[string]*pb.DiffData{},
+-	}, nil
+-}
+-
+-func (s *RewardServiceServer) ReceiveMissionPassRemainingReward(ctx context.Context, _ *emptypb.Empty) (*pb.ReceiveMissionPassRemainingRewardResponse, error) {
+-	log.Printf("[RewardService] ReceiveMissionPassRemainingReward (stub)")
+-	return &pb.ReceiveMissionPassRemainingRewardResponse{
+-		DiffUserData: map[string]*pb.DiffData{},
+-	}, nil
+-}
+diff --git a/server/internal/store/clone.go b/server/internal/store/clone.go
+index 87966e5..64e26b2 100644
+--- a/server/internal/store/clone.go
++++ b/server/internal/store/clone.go
+@@ -19,6 +19,7 @@ func CloneUserState(u UserState) UserState {
+ 	out.QuestMissions = maps.Clone(u.QuestMissions)
+ 	out.WeaponStories = maps.Clone(u.WeaponStories)
+ 	out.Missions = maps.Clone(u.Missions)
++	out.Ext = u.Ext.Clone()
+ 	out.Gimmick = GimmickState{
+ 		Progress:         maps.Clone(u.Gimmick.Progress),
+ 		OrnamentProgress: maps.Clone(u.Gimmick.OrnamentProgress),
+diff --git a/server/internal/store/sqlite/load.go b/server/internal/store/sqlite/load.go
+index 1e0bd5a..10b1d70 100644
+--- a/server/internal/store/sqlite/load.go
++++ b/server/internal/store/sqlite/load.go
+@@ -31,6 +31,7 @@ func (s *SQLiteStore) LoadUser(userId int64) (store.UserState, error) {
+ 
+ 	load1to1(s.db, userId, &u)
+ 	loadMapTables(s.db, userId, &u)
++	loadExt(s.db, userId, &u)
+ 
+ 	return u, nil
+ }
+diff --git a/server/internal/store/sqlite/save.go b/server/internal/store/sqlite/save.go
+index 37bee58..764d64b 100644
+--- a/server/internal/store/sqlite/save.go
++++ b/server/internal/store/sqlite/save.go
+@@ -551,6 +551,9 @@ func writeUserState(tx *sql.Tx, uid int64, u *store.UserState) error {
+ 			return err
+ 		}
+ 	}
++	if err := saveExt(tx, uid, u.Ext); err != nil {
++		return err
++	}
+ 
+ 	return nil
+ }
+@@ -1147,6 +1150,11 @@ func diffAndSave(tx *sql.Tx, uid int64, before, after *store.UserState) error {
+ 			exec(`DELETE FROM user_big_hunt_weekly_statuses WHERE user_id=? AND big_hunt_weekly_version=?`, uid, ver)
+ 		}
+ 	}
++	if !before.Ext.Equal(after.Ext) {
++		if err := saveExt(tx, uid, after.Ext); err != nil {
++			return err
++		}
++	}
+ 
+ 	return nil
+ }
+diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite/user.go
+index c1ceb2a..0a904e1 100644
+--- a/server/internal/store/sqlite/user.go
++++ b/server/internal/store/sqlite/user.go
+@@ -79,6 +79,7 @@ func (s *SQLiteStore) ImportUser(u *store.UserState) error {
+ 
+ 	// Child tables in reverse-dependency order (matches schema's goose Down).
+ 	childTables := []string{
++		"user_bunker_ext",
+ 		"user_event_quest_labyrinth_stages",
+ 		"user_event_quest_labyrinth_seasons",
+ 		"user_event_quest_tower_accumulation_rewards",
+diff --git a/server/internal/store/types.go b/server/internal/store/types.go
+index fadf082..4b404b2 100644
+--- a/server/internal/store/types.go
++++ b/server/internal/store/types.go
+@@ -120,9 +120,12 @@ type UserState struct {
+ 	AutoSaleSettings            map[int32]AutoSaleSettingState
+ 	CharacterRebirths           map[int32]CharacterRebirthState
+ 	QuestAutoOrbit              QuestAutoOrbitState
++
++	Ext ExtState
+ }
+ 
+ func (u *UserState) EnsureMaps() {
++	u.Ext.EnsureMaps()
+ 	if u.Tutorials == nil {
+ 		u.Tutorials = make(map[int32]TutorialProgressState)
+ 	}
+diff --git a/server/internal/userdata/changed_tables.go b/server/internal/userdata/changed_tables.go
+index 4028de2..5f64725 100644
+--- a/server/internal/userdata/changed_tables.go
++++ b/server/internal/userdata/changed_tables.go
+@@ -307,6 +307,7 @@ func ChangedTables(before, after *store.UserState) []string {
+ 			add("IUserGimmickUnlock")
+ 		}
+ 	}
++	changed = append(changed, bunkerChangedTables(before, after)...)
+ 
+ 	return changed
+ }
+@@ -482,6 +483,6 @@ func keyFieldsForTable(table string) []string {
+ 	case "IUserQuestAutoOrbit":
+ 		return []string{"userId"}
+ 	default:
+-		return nil
++		return bunkerKeyFields(table)
+ 	}
+ }
+diff --git a/server/internal/userdata/state_projection.go b/server/internal/userdata/state_projection.go
+index 66c5aac..2bb15e8 100644
+--- a/server/internal/userdata/state_projection.go
++++ b/server/internal/userdata/state_projection.go
+@@ -25,6 +25,7 @@ func FullClientTableMap(user store.UserState) map[string]string {
+ 		"IUserLogin":                              projectTable("IUserLogin", user),
+ 		"IUserLoginBonus":                         projectTable("IUserLoginBonus", user),
+ 		"IUserMission":                            projectTable("IUserMission", user),
++		"IUserMissionPassPoint":                   projectTable("IUserMissionPassPoint", user),
+ 		"IUserMainQuestFlowStatus":                projectTable("IUserMainQuestFlowStatus", user),
+ 		"IUserMainQuestMainFlowStatus":            projectTable("IUserMainQuestMainFlowStatus", user),
+ 		"IUserMainQuestProgressStatus":            projectTable("IUserMainQuestProgressStatus", user),
+diff --git a/server/proto/individualpop.proto b/server/proto/individualpop.proto
+index 8b5d8e6..90d992e 100644
+--- a/server/proto/individualpop.proto
++++ b/server/proto/individualpop.proto
+@@ -7,7 +7,7 @@ import "proto/data.proto";
+ 
+ package apb.api.individualpop;
+ 
+-service IndividualpopService {
++service IndividualPopService {
+ 	rpc GetUnreadPop (google.protobuf.Empty) returns (GetUnreadPopResponse);
+ }
+ 
