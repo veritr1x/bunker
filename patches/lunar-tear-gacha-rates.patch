@@ -1,0 +1,85 @@
+diff --git a/server/internal/gacha/draw.go b/server/internal/gacha/draw.go
+index 19cbe0f..8efcb84 100644
+--- a/server/internal/gacha/draw.go
++++ b/server/internal/gacha/draw.go
+@@ -21,6 +21,7 @@ type DrawnItem struct {
+ 	CharacterId    int32
+ }
+ 
++// Lunar Tear's rates; DefaultRates in rates.go matches them, and Pod Programs can change them.
+ var premiumRates = []RateTier{
+ 	{200, int32(model.PossessionTypeCostume), model.RaritySSRare},
+ 	{300, int32(model.PossessionTypeWeapon), model.RaritySSRare},
+@@ -31,7 +32,7 @@ var premiumRates = []RateTier{
+ 
+ func DrawPremium(bp *masterdata.BannerPool, count int, fixedRarityMin int32, fixedCount int, rateMultiplier float64) []DrawnItem {
+ 	result := make([]DrawnItem, 0, count)
+-	rates := adjustRates(premiumRates, rateMultiplier)
++	rates := adjustRates(Rates().Tiers(), rateMultiplier)
+ 	totalWeight := 0
+ 	for _, r := range rates {
+ 		totalWeight += r.Weight
+@@ -160,7 +161,7 @@ func tryFeaturedRateUp(bp *masterdata.BannerPool, tier RateTier) (DrawnItem, boo
+ 	if len(matches) == 0 {
+ 		return DrawnItem{}, false
+ 	}
+-	if rand.Intn(model.FeaturedRateUpDenom) >= model.FeaturedRateUpPercent {
++	if rand.Float64()*100 >= Rates().FeaturedPercent {
+ 		return DrawnItem{}, false
+ 	}
+ 	f := matches[rand.Intn(len(matches))]
+diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
+index e92dd80..251087f 100644
+--- a/server/internal/gacha/handler.go
++++ b/server/internal/gacha/handler.go
+@@ -197,8 +197,12 @@ func (h *GachaHandler) HandleRewardDraw(
+ }
+ 
+ func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.GachaPricePhaseEntry, count int) []DrawnItem {
++	cfg := Rates()
+ 	fixedMin := phase.FixedRarityMin
+ 	fixedCount := int(phase.FixedCount)
++	if fixedCount > 0 && fixedMin < cfg.GuaranteedRarity() {
++		fixedMin = cfg.GuaranteedRarity()
++	}
+ 
+ 	bp := h.Pool.BannerPools[entry.GachaId]
+ 	if bp == nil {
+@@ -209,7 +213,7 @@ func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.Ga
+ 	}
+ 
+ 	rateMultiplier := 1.0
+-	if entry.GachaModeType == model.GachaModeStepup {
++	if entry.GachaModeType == model.GachaModeStepup && cfg.StepUpBoost {
+ 		switch phase.StepNumber {
+ 		case 1, 3:
+ 			rateMultiplier = model.StepUpRateBoost
+diff --git a/server/internal/service/octo.go b/server/internal/service/octo.go
+index 42cfd83..b4c7078 100644
+--- a/server/internal/service/octo.go
++++ b/server/internal/service/octo.go
+@@ -230,6 +230,12 @@ func (s *OctoHTTPServer) handleAll(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 
++	// The summon rates page the game opens from a banner
++	if strings.Contains(path, "/gacha-rate") {
++		serveGachaRatePage(w)
++		return
++	}
++
+ 	// In-game information / news page
+ 	if strings.Contains(path, "/information") {
+ 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+@@ -456,6 +462,11 @@ func (s *OctoHTTPServer) handleWebAPI(w http.ResponseWriter, r *http.Request, pa
+ 		return
+ 	}
+ 
++	if strings.Contains(path, "gacha-rate") {
++		serveGachaRatePage(w)
++		return
++	}
++
+ 	if strings.Contains(path, "termsofuse") {
+ 		language := staticPageLanguage(path)
+ 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

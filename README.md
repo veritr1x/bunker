@@ -22,6 +22,7 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   - **Save data**: automatic snapshots, backups and restore.
   - **Players**: choose which player the game signs in as, or start a new one.
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
+  - **Summon rates**: the odds of the next summons.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking and battles keep their normal speed. Experimental: it uses more battery,
     and at 120 fps 1080p is easier on the GPU than the screen's own resolution.
@@ -29,6 +30,13 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   each line, the records, every costume with its art, story and voice lines, 3D models with field
   and battle motions, the soundtrack, a gallery, the movies (full screen in landscape on Android,
   in the system player on iOS), and search. The game keeps running while it is open.
+- **Missions**: daily, challenge, special and mission pass missions progress
+  and pay their rewards (Lunar Tear left them at 0). Progress already in a save
+  counts the first time. Also the daily quest set reward, skipping several
+  quests at once, and story choices.
+- **Summon rates** (Pod Programs, experimental): the ★4 and ★3 rates, the
+  costume and featured shares, the 10-draw guarantee and the multi-step boost;
+  the game's Rates page shows them.
 - **Game Mode**: the app declares itself a game, so iOS Game Mode and Android's Game Mode and Game
   Dashboard apply.
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.

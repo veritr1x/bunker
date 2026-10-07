@@ -1,5 +1,36 @@
 # Validation
 
+## Missions, rewards and summon rates — 2026-10-07
+
+- Inventory against the 3.7.1 client: client and server define the same 40
+  services and 174 calls; 28 had no handler. This adds missions, the mission
+  pass, the daily quest set reward, multi-skip, costume level bonus
+  confirmation, story choices, labyrinth season rewards, unread pop-ups and
+  Portal Cage drops. Arena (PvP), friends and Apple account calls remain
+  unhandled.
+- Mission rules: `scripts/gen_mission_rules.py` reads the 6,436 missions'
+  English names; 5,635 get a rule. Most of the rest are Arena missions, named
+  Mythic Slab boards and subjugation bosses, and missions with conditions the
+  names only hint at.
+- `internal/missions` tests on the emulator's save with the patched master
+  data: the first request backfilled 53 missions (main quest and chapter
+  clears, favourite character, logins), a quest clear counted for the daily
+  quest mission, all 56 cleared missions paid their rewards, the state
+  survived a reload, and the next day reset the daily missions. A check of the
+  backfilled list removed a fallback that cleared "conditional" quest missions.
+- `mobile/missions_test.go` runs the on-device server with the same save over
+  gRPC: mission progress and rewards arrive in the response diffs; bulk skip,
+  the daily set reward (once a day), level bonus confirmation, story choices,
+  `GetUnreadPop` and `GetDropItem` answer; the user data carries the new
+  tables; the game's Rates page shows the rates saved in Pod Programs.
+- `internal/gacha` tests: the defaults equal Lunar Tear's table, the settings
+  file is read and validated, 20,000 draws land within 1 point of the set ★4
+  rate and featured share, and the 10-draw guarantee follows the setting.
+- Emulator (Android 16): the APK started, logged in through the new
+  interceptor without errors, and Pod Programs > Summon rates saved a preset
+  to `saves/gacha_rates.json`. The in-game Missions menu was not reached: the
+  emulator's save is at the start of the story.
+
 ## Display settings and Game Mode — 2026-10-06
 
 - Galaxy Fold (Android 16, 120 Hz): at 60 fps characters walked at 7.4 m/s

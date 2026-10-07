@@ -238,10 +238,12 @@ def create_app(token, origin):
     from web.app import create_app as base_app
     from android_patcher import router
     import android_display
+    import android_gacha
     import android_players
     app = base_app()
     app.include_router(router)
     app.include_router(android_display.router)
+    app.include_router(android_gacha.router)
     android_players.install(app)
     serial = asyncio.Lock()
     @app.middleware("http")

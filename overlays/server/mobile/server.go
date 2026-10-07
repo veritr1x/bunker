@@ -21,6 +21,7 @@ import (
 
 	"lunar-tear/server/internal/auth"
 	"lunar-tear/server/internal/database"
+	"lunar-tear/server/internal/gacha"
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/interceptor"
 	"lunar-tear/server/internal/runtime"
@@ -198,7 +199,9 @@ func Start(dataRoot, assetRoot string) (err error) {
 	cdnHTTP := &http.Server{Handler: h2c.NewHandler(cdnMux, &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
 	s.http = []*http.Server{cdnHTTP, authHTTP}
 	store := sqlite.New(db, gametime.Now)
-	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, interceptor.NewDiffInterceptor(store, store), interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
+	s.grpc = grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, interceptor.NewDiffInterceptor(store, store), interceptor.NewMissionInterceptor(store, store), interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
+	service.InitBunker(holder)
+	gacha.SetRatesPath(filepath.Join(dataRoot, "gacha_rates.json"))
 	registerServices(s.grpc, local(8003), cdnURL, "http://"+local(3000), filepath.Join(assetRoot, "assets", "release", MasterName), store, holder, false)
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
