@@ -25,9 +25,10 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking and battles keep their normal speed. Experimental: it uses more battery,
     and at 120 fps 1080p is easier on the GPU than the screen's own resolution.
-- **Archive** (Android): the whole story by season and chapter with who says each line, the
-  records, every costume with its art, story and voice lines, 3D models with field and battle
-  motions, the soundtrack, a gallery, the movies, and search.
+- **Archive**, read from your game files: the whole story by season and chapter with who says
+  each line, the records, every costume with its art, story and voice lines, 3D models with field
+  and battle motions, the soundtrack, a gallery, the movies (full screen in landscape on Android,
+  in the system player on iOS), and search. The game keeps running while it is open.
 - **Game Mode**: the app declares itself a game, so iOS Game Mode and Android's Game Mode and Game
   Dashboard apply.
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.
@@ -39,6 +40,8 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
 | <img src="docs/screenshots/bunker.webp" width="220" alt="The Bunker: game files ready, Lunar Tear standing by, Deploy and Open Pod Programs"> | <img src="docs/screenshots/options.webp" width="220" alt="The options menu: data import and export, logs, display, settings, help and about"> | <img src="docs/screenshots/pod-programs.webp" width="220" alt="Pod Programs: content patcher, save data, players, items, costumes, weapons, upgrades and memoirs"> |
 | **Players** | **The Bunker, dark** | **Pod Programs, dark** |
 | <img src="docs/screenshots/players.webp" width="220" alt="Players: the one in use is marked, with New player to start another"> | <img src="docs/screenshots/bunker-dark.webp" width="220" alt="The Bunker in dark mode"> | <img src="docs/screenshots/pod-programs-dark.webp" width="220" alt="Pod Programs in dark mode"> |
+| **Archive: characters** | **Archive: movies** | **Display: frame rate** |
+| <img src="docs/screenshots/archive-characters.webp" width="220" alt="Archive characters: the playable cast with their costume counts"> | <img src="docs/screenshots/archive-movies.webp" width="220" alt="Archive movies: a movie playing above the list for Season 1"> | <img src="docs/screenshots/display-frame-rate.webp" width="220" alt="Display: frame rate choices from 30 fps to the screen maximum"> |
 
 Light or dark follows the phone, or choose one in ⋮ → Display. Screenshots are from Android; iPhone and iPad look the same.
 
@@ -61,8 +64,8 @@ Limitations:
   certificate. Keep the same bundle ID for updates.
 - **Use a desktop browser** with about 2 GB of free memory. Phones may run out of memory.
 - **The Android web build has no in-game Facebook account link**, because that patch needs a
-  decompiler. Offline play, Tools and save backup and import all work. The iOS web build is the
-  same as the command-line build.
+  decompiler. Offline play, Pod Programs, the Archive and save backup and import all work. The
+  iOS web build is the same as the command-line build.
 - **Experimental: port offset.** If another app on the device already uses the game's local
   ports (8003, 8080 or 3000), the launcher says so; a build with a port offset moves all three.
 - **The resource dump is not part of the build.** Put its `.7z` on the phone and choose it in
@@ -73,7 +76,7 @@ To build everything locally instead, follow the step-by-step guide below.
 
 ## Play on Android
 
-1. Install your locally built APK.
+1. Install the APK, from the web builder or your own build.
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. Tap **Deploy**. The server starts and the game opens.
 
@@ -84,12 +87,12 @@ import, the Lunar Tear log and its export, Display (light/dark/system), settings
 
 ## Play on iPhone or iPad
 
-1. Install your locally built and signed IPA.
+1. Install the IPA, from the web builder or your own build, signed with Sideloadly, AltStore or your own certificate.
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play
    (⌘B with a keyboard).
 
-Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** sits on the Bunker itself.
+Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** and **Open Archive** sit on the Bunker itself.
 
 ## Play on a Mac
 
@@ -244,7 +247,7 @@ it when you copy files into the app with Finder, which skips the app's own impor
    To save 21 GB, pick **Extracted folder: use in place** instead (Android 11 or later). The app
    asks you to turn on **All files access** for NieR in Settings once, then reads the folder where
    it is. Keep the folder there: if it is moved or deleted, choose it again.
-4. Tap **Play**. The server starts on the phone and the game opens.
+4. Tap **Deploy**. The server starts on the phone and the game opens.
 
 **iPhone/iPad (iOS 14 or later):**
 
@@ -283,9 +286,9 @@ automatically. On iOS, sign with the same bundle ID. Either way, export a save b
 | `Install Python 3.13` | Run `uv python install 3.13`. |
 | The new APK will not install over the old one | It was signed with a different key. Build with `--keystore` pointing to your original key. |
 | Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly; rebuild, or turn the app off while playing. |
-| "Port 8080 is already used by another app on this device…" (or 8003, 3000) | Another app holds one of the game's local ports. Close or uninstall it, or build with `--port-offset 30000` (or the web builder's experimental port offset) and keep using that offset for updates. ⋮ → **Check server** shows whether the game can reach its server. |
+| "Port 8080 is already used by another app on this device…" (or 8003, 3000) | Another app holds one of the game's local ports. Close or uninstall it, or build with `--port-offset 30000` (or the web builder's experimental port offset) and keep using that offset for updates. ⋮ → **Check Lunar Tear** shows whether the game can reach its server. |
 | Android: black screen after the logo when reopening the game from Recent apps (for example after an update) | The game was opened without its server. Builds from 2026-10-04 on go through the launcher, which starts the server first; with older builds, open the app from its icon. |
-| Anything else | ⋮ → **Export server log** saves a ZIP of the server log (kept between sessions, up to about 10 MB) with the device model and OS version. Attach it to your report. On Android it is also at `Android/data/<package>/files/logs/` (`adb pull` works without root); on iOS, in the app's `logs` folder in Files. |
+| Anything else | ⋮ → **Export Lunar Tear log** saves a ZIP of the Lunar Tear log (kept between sessions, up to about 10 MB) with the device model and OS version. Attach it to your report. On Android it is also at `Android/data/<package>/files/logs/` (`adb pull` works without root); on iOS, in the app's `logs` folder in Files. |
 | Android 17: importing a `.7z` fails with `open /proc/self/fd/…: permission denied` | Fixed in builds from 2026-10-03 on; rebuild, or choose an extracted folder instead. |
 
 More detail: [Android setup guide](docs/BUILD.md) and [iOS guide](docs/IOS.md).
@@ -305,7 +308,7 @@ Full pins: [upstream.lock.json](upstream.lock.json). Credits: [third-party notes
 
 ## Status
 
-iOS 14+ on iPhone and iPad: the opening story plays on an iPad Pro (M4), with the server running inside the game. Tools works on iOS too (tested on the iPad). See [validation](docs/VALIDATION.md).
+iOS 14+ on iPhone and iPad: the opening story plays on an iPad Pro (M4), with the server running inside the game. Pod Programs and the Archive work there too, and the game runs at 120 fps with walking and battles at normal speed.
 
-Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, and save restoration were tested on an Android 16 emulator; folder import with progress and save import were tested on a Samsung Galaxy Z Fold. Full campaign coverage is still pending. See [validation](docs/VALIDATION.md).
+Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, save restoration and the Archive were tested on an Android 16 emulator; folder import with progress, save import and 120 fps play were tested on a Samsung Galaxy Z Fold, including a build from the web builder. Full campaign coverage is still pending. See [validation](docs/VALIDATION.md).
 
