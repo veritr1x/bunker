@@ -11,14 +11,17 @@
 //   High) use the chosen RenderTargetSize.
 // - Field movement: characters move once per rendered frame while physics
 //   keeps a 1/30 s step, so the physics step follows the frame time.
-// - Battles advance one 30 Hz step per frame; BattleGame's simulation rate is
-//   scaled by the part of a step each frame lasted.
+// - Battles advance one 30 Hz step per frame. BattleGame's simulation rate
+//   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
+//   the frames between, which BattleGame.Update skips. Fractional steps crashed
+//   the summon reveal, which runs on the battle code.
 //
 // The choices are read from tools/display.conf (android_display.py writes it).
 // The outcome goes to tools/display.status, which Pod Programs shows.
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
 #include <dlfcn.h>
+#include <string.h>
 
 typedef struct { void *pointer; } LTMethod;  // Il2Cpp MethodInfo starts with its code pointer.
 
@@ -52,7 +55,9 @@ static struct {
 } game;
 static int gLastFrame = -1;
 static void *gLastBattle;
-static float gBattleRate, gWrittenRate;
+static float gBattleRate;
+static uint32_t gWrittenRate;  // Compared as bits: the game's own 0 (paused) is not our -0.0.
+static double gBattleTime;
 
 static void WriteStatus(NSString *text) {
     [text writeToFile:gStatusPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
@@ -125,17 +130,23 @@ static BOOL Resolve(void) {
         && FieldOffset(battle, "_simulationRate", &game.simulation_rate);
 }
 
-/** Scales the live battle's simulation rate; the game's own rate (1x or its fast mode) is kept as the base. */
-static void ScaleBattle(float step) {
+/** Gives the live battle one whole step each 1/30 s; the game's own rate (1x, fast or paused) is kept as the base. */
+static void StepBattle(float delta) {
     uint8_t *counter = NULL;
     il2cpp.field_static_get_value(game.battle_counter, &counter);
     uint8_t *context = counter ? *(uint8_t **)(counter + game.battle_context) : NULL;
     uint8_t *battle = context ? *(uint8_t **)(context + game.battle_game) : NULL;
     if (!battle) return;
     float *rate = (float *)(battle + game.simulation_rate);
-    if (battle != gLastBattle || *rate != gWrittenRate) { gLastBattle = battle; gBattleRate = *rate; }
-    gWrittenRate = gBattleRate * step;
-    *rate = gWrittenRate;
+    uint32_t bits;
+    memcpy(&bits, rate, sizeof bits);
+    if (battle != gLastBattle || bits != gWrittenRate) { gLastBattle = battle; gBattleRate = *rate; }
+    // At most one step per frame, as before; a long frame doesn't build a backlog.
+    gBattleTime += 30.0 * delta;
+    float written = -0.f;
+    if (gBattleTime >= 1.0) { gBattleTime = gBattleTime >= 2.0 ? 0.0 : gBattleTime - 1.0; written = gBattleRate; }
+    memcpy(&gWrittenRate, &written, sizeof written);
+    *rate = written;
 }
 
 @interface LTDisplayTicker : NSObject
@@ -160,7 +171,7 @@ static void ScaleBattle(float step) {
     float delta = game.unscaled_delta(NULL);
     float physics = fminf(fmaxf(delta, 1 / 240.f), 1 / 30.f);
     if (game.fixed_delta(NULL) != physics) game.set_fixed_delta(physics, NULL);
-    ScaleBattle(fminf(30 * delta, 1));
+    StepBattle(delta);
     // Developer check only: launch with LUNAR_DISPLAY_LOG set to log the measured rate every 5 s.
     static double since; static int sinceFrame;
     if (getenv("LUNAR_DISPLAY_LOG") && CACurrentMediaTime() - since >= 5) {
