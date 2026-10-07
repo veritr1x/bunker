@@ -12,8 +12,9 @@
 //   High) and the first resolution the game sets use the chosen RenderTargetSize.
 //   RenderManager never goes above the screen's own resolution.
 // - Battles: BattleUpdate advances the battle by one 30 Hz step per frame. It
-//   now passes the fraction of a step the frame lasted (30 x frame time, at
-//   most one step, as before); the battle's TurnManager accumulates fractions.
+//   now advances it by one whole step each time 1/30 s of frame time has
+//   built up, and skips the frames in between. Fractional steps crashed the
+//   summon reveal, which runs on the battle code.
 // - Field movement: ActorController moves characters in FixedUpdate by its
 //   time step, but runs once per rendered frame while physics keeps the 1/30 s
 //   step, so at 60 frames characters move twice as fast. Once per frame the
@@ -87,10 +88,15 @@ __attribute__((visibility("hidden"), used)) void follow_frame_time(void) {
     if (time_fixed_delta(NULL) != step) time_set_fixed_delta(step, NULL);
 }
 
-/** BattleUpdate.OnStateUpdate's step for KernelBattle.Process: the part of a 30 Hz step this frame lasted. */
-__attribute__((visibility("hidden"), used)) double battle_step(void) {
-    double step = 30.0 * time_unscaled_delta(NULL);
-    return step > 1.0 ? 1.0 : step;
+static double battle_time;
+
+/** Whether BattleUpdate.OnStateUpdate runs a 30 Hz step this frame: 1 once 1/30 s has built up, else 0. */
+__attribute__((visibility("hidden"), used)) int battle_step(void) {
+    battle_time += 30.0 * time_unscaled_delta(NULL);
+    if (battle_time < 1.0) return 0;
+    // At most one step per frame, as before; a long frame doesn't build a backlog.
+    battle_time = battle_time >= 2.0 ? 0.0 : battle_time - 1.0;
+    return 1;
 }
 
 // Replaces four instructions with "ldr x16, #8; br x16; <hook address>". The
@@ -109,20 +115,25 @@ static int hook(uint32_t *at, const uint32_t original[4], void (*target)(void)) 
 }
 
 // BattleUpdate.OnStateUpdate ends with "fmov d0, #1.0; mov w1, wzr; mov x2, xzr;
-// ldp x20, x19, [sp], #0x20; b KernelBattle.Process": the hook sets d0 to battle_step().
+// ldp x20, x19, [sp], #0x20; b KernelBattle.Process": the hook makes that call only
+// when battle_step() is 1, and otherwise returns.
 static const uint32_t kBattleStepCall[4] = {0x1e6e1000u, 0x2a1f03e1u, 0xaa1f03e2u, 0xa8c24ff4u};
 __attribute__((visibility("hidden"), used)) uintptr_t battle_process;
 __attribute__((naked)) static void battle_step_hook(void) {
     __asm__ volatile(
         "stp x0, x30, [sp, #-16]!\n"
         "bl battle_step\n"
+        "mov w17, w0\n"
         "ldp x0, x30, [sp], #16\n"
+        "ldp x20, x19, [sp], #0x20\n"
+        "cbz w17, 1f\n"
+        "fmov d0, #1.0\n"
         "mov w1, wzr\n"
         "mov x2, xzr\n"
-        "ldp x20, x19, [sp], #0x20\n"
         "adrp x16, battle_process\n"
         "ldr x16, [x16, :lo12:battle_process]\n"
-        "br x16\n");
+        "br x16\n"
+        "1: ret\n");
 }
 
 // FixedProcess(this, float deltaTime, MethodInfo*) starts with these four instructions;

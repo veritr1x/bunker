@@ -14,6 +14,13 @@
   carries libbunkerdisplay.so, the Display page and appCategory="game";
   installed with the public key, it imported the game files, played, and
   switched frame rate and resolution from Pod Programs.
+- Summon crash (2026-10-07): above 30 fps the summon reveal crashed on the
+  Fold, the iPad and the emulator, always at the same address. Bisected on the
+  emulator (host GPU): frame rate alone and frame rate with the physics step
+  were fine over three 10x summons each; frame rate with the fractional
+  battle step crashed. Battles now get one whole step each 1/30 s and none on
+  the frames between (BattleGame.Update skips a zero step); three 10x summons
+  at Screen maximum no longer crash.
 
 ## The Archive — 2026-10-05
 
