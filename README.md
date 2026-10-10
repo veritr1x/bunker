@@ -41,6 +41,13 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
 - **Summon rates** (Pod Programs, experimental): the ★4 and ★3 rates, the
   costume and featured shares, the 10-draw guarantee and the multi-step boost;
   the game's Rates page shows them.
+- **Summon details**: each banner's Details page lists its dates, cost,
+  medal exchange, featured items and every item with its rate (names come
+  from the Archive once it has been built).
+- **Server fixes**: friend actions and other calls Lunar Tear did not answer
+  no longer fail, and the shop's purchases add their items to the inventory.
+  Reward icons that stayed blank after the game was closed mid-download are
+  downloaded again.
 - **Game Mode**: the app declares itself a game, so iOS Game Mode and Android's Game Mode and Game
   Dashboard apply.
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.
@@ -322,5 +329,5 @@ Full pins: [upstream.lock.json](upstream.lock.json). Credits: [third-party notes
 
 iOS 14+ on iPhone and iPad: the opening story plays on an iPad Pro (M4), with the server running inside the game. Pod Programs and the Archive work there too, and the game runs at 120 fps with walking and battles at normal speed.
 
-Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, save restoration and the Archive were tested on an Android 16 emulator; folder import with progress, save import and 120 fps play were tested on a Samsung Galaxy Z Fold, including a build from the web builder. Full campaign coverage is still pending. See [validation](docs/VALIDATION.md).
+Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, save restoration and the Archive were tested on an Android 16 emulator; folder import with progress, save import and 120 fps play were tested on a Samsung Galaxy Z Fold, including a build from the web builder. Full campaign coverage is still pending. Missions, summon details and the Arena (a full battle and its rewards) were tested on the Android emulator; they are not yet tested on iPhone or iPad. See [validation](docs/VALIDATION.md).
 
