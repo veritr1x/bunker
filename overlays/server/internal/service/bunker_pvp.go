@@ -356,16 +356,15 @@ func (s *UserServiceServer) cpuProfile(ctx context.Context, playerId int64) *pb.
 			CostumeId: d.GetCostume().GetCostumeId(), MainWeaponId: d.GetMainWeapon().GetWeaponId(), MainWeaponLevel: d.GetMainWeapon().GetLevel(),
 		})
 	}
-	level := int32(1)
-	if len(deck) > 0 {
-		level = max(1, min(150, deck[0].GetCostume().GetCharacterLevel()))
-	}
+	// Its own level and deck power, as on its friend card; the characters are
+	// the deck the Arena fields against the player.
+	level, power := c.Card(cpu)
 	return &pb.GetUserProfileResponse{
 		Level:             level,
 		Name:              cpu.Name,
 		FavoriteCostumeId: cpu.Costumes[0],
 		IsFriend:          pvp.IsFriend(&viewer.Ext.Friends, playerId),
-		LatestUsedDeck:    &pb.ProfileDeck{Power: pvp.DeckPower(profile, strength), DeckCharacter: chars},
+		LatestUsedDeck:    &pb.ProfileDeck{Power: power, DeckCharacter: chars},
 		PvpInfo: &pb.ProfilePvpInfo{
 			CurrentRank: ladder.CPURank(cpu, viewer.Ext.Pvp.Point), CurrentGradeId: c.Grade(season, cpu.Point).PvpGradeId,
 			MaxSeasonRank: ladder.CPURank(cpu, viewer.Ext.Pvp.Point),

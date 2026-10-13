@@ -39,7 +39,9 @@ var rulesJSON []byte
 // QuestFilter selects the quests a quest-clear mission counts. The kinds (Main,
 // Event, EventTypes, EventChapters, MainChapters, DailyLimited, Quests) are
 // alternatives; with none set, every quest counts. Diff, Order and Characters
-// narrow further.
+// narrow further. With Diff, Order is the quest's place within that difficulty
+// ("Quest 3 on EX Hard"); event chapters number their quests on across the
+// difficulties (Hard 11-20, EX Hard 31-35).
 type QuestFilter struct {
 	Main          bool    `json:"main"`
 	Event         bool    `json:"event"`
@@ -67,6 +69,10 @@ type Rule struct {
 	Bosses     []int32      `json:"bh"` // subjugation boss ids
 	BoardTypes []int32      `json:"bg"` // Mythic Slab CharacterBoardGroupType
 	LiveType   int32        `json:"lt"` // concert: client enum LiveType
+	// NoTutorials are tutorials (TutorialType) the player must never have
+	// played for a quest clear to count.
+	NoTutorials []int32 `json:"nt"`
+	Word        string  `json:"wd"` // profile message: the words it must contain (lower case)
 }
 
 type Mission struct {
@@ -84,13 +90,15 @@ func (m *Mission) Daily() bool {
 }
 
 // questPlace is where a quest sits: main story chapter or event chapter, with
-// its difficulty and its place in the chapter (1-based).
+// its difficulty, its place in the chapter (SortOrder) and its place among the
+// chapter's quests of that difficulty (1-based).
 type questPlace struct {
 	MainChapter  int32
 	EventChapter int32
 	EventType    int32
 	Difficulty   int32
 	Order        int32
+	Rank         int32
 }
 
 type Catalog struct {
@@ -109,6 +117,8 @@ type Catalog struct {
 	costumeChar   map[int32]int32
 	questBosses   map[int32]int64      // quest -> boss enemies in its battles
 	reportItems   map[int32]bool       // important items that are a Hidden Story
+	shopGroups    map[int32]int32      // ShopId -> ShopGroupType
+	exploreGroups map[int32]int32      // ExploreId -> ExploreGroupId
 	boards        map[int32]boardPlace // CharacterBoardId -> owner and group type
 	encyclopedia  encyclopedia
 }
@@ -199,6 +209,8 @@ func load() (*Catalog, error) {
 		costumeChar:   map[int32]int32{},
 		questBosses:   map[int32]int64{},
 		reportItems:   map[int32]bool{},
+		shopGroups:    map[int32]int32{},
+		exploreGroups: map[int32]int32{},
 		boards:        map[int32]boardPlace{},
 		encyclopedia: encyclopedia{costumes: map[int32]bool{}, weapons: map[int32]bool{}, companions: map[int32]bool{},
 			partsGroups: map[int32]bool{}, thoughts: map[int32]bool{}},
@@ -247,7 +259,8 @@ func load() (*Catalog, error) {
 	for _, ch := range read[masterdata.EntityMMainQuestChapter]("m_main_quest_chapter") {
 		for _, g := range mainGroups[ch.MainQuestSequenceGroupId] {
 			for _, s := range mainSeq[g.MainQuestSequenceId] {
-				c.places[s.QuestId] = append(c.places[s.QuestId], questPlace{MainChapter: ch.MainQuestChapterId, Difficulty: g.DifficultyType, Order: s.SortOrder})
+				c.places[s.QuestId] = append(c.places[s.QuestId], questPlace{MainChapter: ch.MainQuestChapterId, Difficulty: g.DifficultyType,
+					Order: s.SortOrder, Rank: rank(mainSeq[g.MainQuestSequenceId], s.SortOrder, func(s masterdata.EntityMMainQuestSequence) int32 { return s.SortOrder })})
 			}
 		}
 	}
@@ -263,7 +276,8 @@ func load() (*Catalog, error) {
 	for _, ch := range read[masterdata.EntityMEventQuestChapter]("m_event_quest_chapter") {
 		for _, g := range eventGroups[ch.EventQuestSequenceGroupId] {
 			for _, s := range eventSeq[g.EventQuestSequenceId] {
-				c.places[s.QuestId] = append(c.places[s.QuestId], questPlace{EventChapter: ch.EventQuestChapterId, EventType: ch.EventQuestType, Difficulty: g.DifficultyType, Order: s.SortOrder})
+				c.places[s.QuestId] = append(c.places[s.QuestId], questPlace{EventChapter: ch.EventQuestChapterId, EventType: ch.EventQuestType, Difficulty: g.DifficultyType,
+					Order: s.SortOrder, Rank: rank(eventSeq[g.EventQuestSequenceId], s.SortOrder, func(s masterdata.EntityMEventQuestSequence) int32 { return s.SortOrder })})
 			}
 		}
 	}
@@ -283,6 +297,12 @@ func load() (*Catalog, error) {
 		}
 	}
 	c.loadBosses()
+	for _, s := range read[masterdata.EntityMShop]("m_shop") {
+		c.shopGroups[s.ShopId] = s.ShopGroupType
+	}
+	for _, g := range read[masterdata.EntityMExploreGroup]("m_explore_group") {
+		c.exploreGroups[g.ExploreId] = g.ExploreGroupId
+	}
 	for _, it := range read[masterdata.EntityMImportantItem]("m_important_item") {
 		if it.ReportId != 0 {
 			c.reportItems[it.ImportantItemId] = true
@@ -374,6 +394,17 @@ func (c *Catalog) loadBosses() {
 	}
 }
 
+// rank is a sort order's place (1-based) among a sequence's sort orders.
+func rank[T any](seq []T, order int32, sortOrder func(T) int32) int32 {
+	n := int32(1)
+	for _, s := range seq {
+		if sortOrder(s) < order {
+			n++
+		}
+	}
+	return n
+}
+
 func contains(list []int32, v int32) bool {
 	for _, x := range list {
 		if x == v {
@@ -411,7 +442,7 @@ func (c *Catalog) QuestMatches(f *QuestFilter, questId int32) bool {
 		if len(f.Diff) > 0 && !contains(f.Diff, p.Difficulty) {
 			continue
 		}
-		if f.Order != 0 && p.Order != f.Order {
+		if f.Order != 0 && ((len(f.Diff) == 0 && p.Order != f.Order) || (len(f.Diff) > 0 && p.Rank != f.Order)) {
 			continue
 		}
 		if len(f.Characters) > 0 {

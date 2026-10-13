@@ -4,9 +4,9 @@ import (
 	"math"
 	"math/bits"
 	"strings"
-	"time"
 
 	pb "lunar-tear/server/gen/proto"
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/userdata"
@@ -14,14 +14,16 @@ import (
 
 // trackVersion is stored in ExtState.MissionsVersion once a save's missions
 // have been backfilled from what the player already did.
-const trackVersion = 3
+const trackVersion = 4
 
 // kindVersion is the trackVersion that last changed a kind's rules: a save
 // tracked by an older version backfills that kind's missions once from the
-// save. Version 3 added quest rules for missions that had none.
+// save. Version 3 added quest rules for missions that had none; version 4
+// more of them (and EX Hard quest places), profile messages and the play history.
 var kindVersion = map[string]int32{
-	"quest": 3, "login": 1,
+	"quest": 4, "login": 1,
 	"pvp_play": 2, "pvp_win": 2, "pvp_streak": 2,
+	"user_message": 4,
 }
 
 // MissionUnlockConditionType values from the game client.
@@ -36,7 +38,7 @@ var stateKinds = map[string]bool{
 	"weapon_skill_level": true, "weapon_ability_level": true, "favorite_character": true,
 	"board_panel": true, "big_hunt_score": true, "max_deck_power": true,
 	"library": true, "costume_ability_level": true, "report": true, "explore_score": true,
-	"pvp_rank": true, "data_transfer": true,
+	"pvp_rank": true, "data_transfer": true, "costume_collect": true,
 }
 
 // Kinds whose progress is the best single value seen, not a sum.
@@ -53,10 +55,12 @@ type counts struct {
 	byWeapon  map[string]map[int32]int64 // kind -> weapon id -> amount
 	byCostume map[string]map[int32]int64
 	byChar    map[string]map[int32]int64
-	gacha     map[string]int64 // "" all, "daily", "chapter"
-	explores  map[int32]int64  // explore id -> explorations finished
-	rhythm    map[int32]int64  // concert LiveType -> taps in one performance
-	pvp       int              // an Arena battle: pvpWin or pvpLoss
+	gacha     map[string]int64                      // "" all, "daily", "chapter"
+	explores  map[int32]int64                       // explore id -> explorations finished
+	rhythm    map[int32]int64                       // concert LiveType -> taps in one performance
+	pvp       int                                   // an Arena battle: pvpWin or pvpLoss
+	message   *string                               // the profile message set
+	tutorials map[int32]store.TutorialProgressState // tutorials played, after the request
 }
 
 const (
@@ -91,8 +95,7 @@ func add[K comparable](m map[string]map[K]int64, kind string, key K, n int64) {
 var GachaLabel func(gachaId int32) int32
 
 func startOfDay(now int64) int64 {
-	t := time.UnixMilli(now).UTC()
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).UnixMilli()
+	return gametime.StartOfDay(now)
 }
 
 // deckCostumes lists the costumes in a quest deck.
@@ -149,7 +152,11 @@ func collect(before, after *store.UserState, method string, req any) *counts {
 		}
 	case *pb.FinishExploreRequest:
 		c.explores[r.ExploreId]++
+		c.amount["explore_score_total"] += int64(max(0, r.Score))
+	case *pb.SetUserMessageRequest:
+		c.message = &r.Message
 	}
+	c.tutorials = after.Tutorials
 	// The cage's walk and Mama-tap counters ride on several requests
 	// (UpdateMissionProgress, GetMamaBanner, GetFriendList, ...); the client
 	// clears them once sent.
@@ -187,6 +194,9 @@ func collect(before, after *store.UserState, method string, req any) *counts {
 		case strings.Contains(method, "PartsService"):
 			c.amount["parts_enhance"]++
 		}
+	case "GameStart":
+		// The game starts from the title screen.
+		c.amount["title_transition"]++
 	case "Buy":
 		c.amount["shop_buy"]++
 	case "FinishBigHuntQuest", "SkipBigHuntQuest":
@@ -234,6 +244,9 @@ func collect(before, after *store.UserState, method string, req any) *counts {
 			sa += s.Level
 		}
 		add(c.byWeapon, "weapon_skill", old.WeaponId, int64(sa-sb))
+		if w.IsProtected && !old.IsProtected {
+			c.amount["weapon_protect"]++
+		}
 		if _, awake := after.WeaponAwakens[id]; awake {
 			if _, was := before.WeaponAwakens[id]; !was {
 				add(c.byWeapon, "weapon_awaken", w.WeaponId, 1)
@@ -280,6 +293,9 @@ func (cat *Catalog) amountFor(m *Mission, c *counts) int64 {
 	r := m.Rule
 	switch r.Kind {
 	case "quest":
+		if playedAny(r.NoTutorials, c.tutorials) {
+			return 0
+		}
 		var n int64
 		for _, q := range c.clears {
 			if (r.NoSkip && q.skipped) || !cat.QuestMatches(r.Quest, q.questId) {
@@ -325,6 +341,11 @@ func (cat *Catalog) amountFor(m *Mission, c *counts) int64 {
 		return c.rhythm[r.LiveType]
 	case "gacha_draw":
 		return c.gacha[r.Gacha]
+	case "user_message":
+		if c.message != nil && messageMatches(r.Word, *c.message) {
+			return 1
+		}
+		return 0
 	}
 	if by, ok := c.byWeapon[r.Kind]; ok {
 		var n int64
@@ -445,8 +466,38 @@ func (cat *Catalog) stateValue(m *Mission, u *store.UserState) int64 {
 		for _, n := range u.DeckTypeNotes {
 			best = max(best, int64(n.MaxDeckPower))
 		}
+	case "costume_collect":
+		// The costumes m_complete_mission_group lists, owned. The client shows
+		// them from the master data (IUserMissionCompletionProgress has no
+		// lookup in the client), so only the count is kept.
+		owned := map[int32]bool{}
+		for _, co := range u.Costumes {
+			owned[co.CostumeId] = true
+		}
+		for _, id := range r.Costumes {
+			if owned[id] {
+				best++
+			}
+		}
 	}
 	return best
+}
+
+// playedAny reports whether the player has played any of these tutorials.
+func playedAny(tutorials []int32, played map[int32]store.TutorialProgressState) bool {
+	for _, t := range tutorials {
+		if _, ok := played[t]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// messageMatches reports whether a profile message counts for a mission:
+// any message without words, else one containing them (case and spacing aside).
+func messageMatches(word, message string) bool {
+	message = strings.Join(strings.Fields(strings.ToLower(strings.ReplaceAll(message, "’", "'"))), " ")
+	return message != "" && strings.Contains(message, word)
 }
 
 // encyclopediaEntries counts what the player has in the Encyclopedia: costumes,
@@ -485,6 +536,9 @@ func (cat *Catalog) backfillValue(m *Mission, u *store.UserState) int64 {
 	r := m.Rule
 	switch {
 	case r.Kind == "quest" && len(r.Costumes) == 0 && !r.NoSkip:
+		if playedAny(r.NoTutorials, u.Tutorials) {
+			return 0
+		}
 		var n int64
 		for id, q := range u.Quests {
 			if q.ClearCount > 0 && cat.QuestMatches(r.Quest, id) {
@@ -494,6 +548,10 @@ func (cat *Catalog) backfillValue(m *Mission, u *store.UserState) int64 {
 		return n
 	case r.Kind == "login":
 		return int64(u.Login.TotalLoginCount)
+	case r.Kind == "user_message":
+		if messageMatches(r.Word, u.Profile.Message) {
+			return 1
+		}
 	// The Arena keeps this season's results.
 	case r.Kind == "pvp_play":
 		return int64(u.Ext.Pvp.Season.AttackWins + u.Ext.Pvp.Season.AttackLosses)
@@ -564,7 +622,8 @@ func (cat *Catalog) Track(before, after *store.UserState, method string, req any
 		case stateKinds[m.Rule.Kind]:
 			set(after, m, cat.stateValue(m, after), now)
 		case tracked < kindVersion[m.Rule.Kind] && !m.Daily():
-			set(after, m, max(int64(rec.ProgressValue), cat.backfillValue(m, after))+cat.amountFor(m, c), now)
+			// The backfill reads the save before this request; amountFor adds what the request did.
+			set(after, m, max(int64(rec.ProgressValue), cat.backfillValue(m, before))+cat.amountFor(m, c), now)
 		case streakKinds[m.Rule.Kind]:
 			switch c.pvp {
 			case pvpWin:
@@ -583,6 +642,7 @@ func (cat *Catalog) Track(before, after *store.UserState, method string, req any
 		}
 	}
 	cat.trackCompletion(after, now, today)
+	cat.recordHistory(before, after, c, method, req, tracked < 4)
 	if tracked < 1 {
 		// Level bonuses the save already had count as seen, so the game doesn't show them all again.
 		for _, co := range after.Costumes {

@@ -28,7 +28,15 @@ diff --git a/server/cmd/lunar-tear/grpc.go b/server/cmd/lunar-tear/grpc.go
  		grpc.UnknownServiceHandler(interceptor.UnknownService),
  	)
  
-@@ -95,7 +99,7 @@ func registerServices(
+@@ -88,14 +92,14 @@ func registerServices(
+ 	pubHost, pubPortStr, _ := net.SplitHostPort(publicAddr)
+ 	pubPort, _ := strconv.Atoi(pubPortStr)
+ 
+-	pb.RegisterBannerServiceServer(srv, service.NewBannerServiceServer(holder))
++	pb.RegisterBannerServiceServer(srv, service.NewBannerServiceServer(userStore, userStore, holder))
+ 	pb.RegisterUserServiceServer(srv, service.NewUserServiceServer(userStore, userStore, holder, authURL, noRegister))
+ 	pb.RegisterBattleServiceServer(srv, service.NewBattleServiceServer(userStore, userStore))
+ 	pb.RegisterConfigServiceServer(srv, service.NewConfigServiceServer(pubHost, int32(pubPort), octoURL))
  	pb.RegisterDataServiceServer(srv, service.NewDataServiceServer(userStore, userStore))
  	pb.RegisterTutorialServiceServer(srv, service.NewTutorialServiceServer(userStore, userStore, holder))
  	pb.RegisterGachaServiceServer(srv, service.NewGachaServiceServer(userStore, userStore, holder))
@@ -98,7 +106,20 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	}
  
  	bs.DrawCount += int32(drawCount)
-@@ -136,6 +135,14 @@ func (h *GachaHandler) HandleDraw(
+@@ -125,17 +124,25 @@ func (h *GachaHandler) HandleDraw(
+ 	}
+ 
+ 	for _, p := range phase.Bonuses {
+-		store.GrantPossession(user, model.PossessionType(p.PossessionType), p.PossessionId, p.Count)
++		h.Granter.GrantCapped(user, model.PossessionType(p.PossessionType), p.PossessionId, p.Count, nowMillis, store.GiftTextSummons)
+ 		result.Bonuses = append(result.Bonuses, p)
+ 	}
+ 
+ 	if medalBonus > 0 && entry.MedalConsumableItemId != 0 {
+-		store.GrantPossession(user, model.PossessionTypeConsumableItem, entry.MedalConsumableItemId, medalBonus)
++		h.Granter.GrantCapped(user, model.PossessionTypeConsumableItem, entry.MedalConsumableItemId, medalBonus, nowMillis, store.GiftTextSummons)
+ 	}
+ 
  	return result, nil
  }
  
@@ -113,6 +134,141 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  func (h *GachaHandler) HandleResetBox(
  	user *store.UserState,
  	entry store.GachaCatalogEntry,
+@@ -185,7 +192,7 @@ func (h *GachaHandler) HandleRewardDraw(
+ 	items := DrawReward(h.Pool.Materials, int(clamped))
+ 
+ 	for _, item := range items {
+-		store.GrantPossession(user, model.PossessionType(item.PossessionType), item.PossessionId, 1)
++		h.Granter.GrantCapped(user, model.PossessionType(item.PossessionType), item.PossessionId, 1, nowMillis, store.GiftTextSummons)
+ 	}
+ 
+ 	user.Gacha.TodaysCurrentDrawCount = newCount
+@@ -279,29 +286,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
+ 	for i, item := range items {
+ 		switch model.PossessionType(item.PossessionType) {
+ 		case model.PossessionTypeCostume:
+-			if dup, ok := h.tryCostumeDupExchange(user, item, i); ok {
++			if dup, ok := h.tryCostumeDupExchange(user, item, i, nowMillis); ok {
+ 				dupInfos = append(dupInfos, dup)
+ 				continue
+ 			}
+ 			h.Granter.GrantCostume(user, item.PossessionId, nowMillis)
+ 		case model.PossessionTypeWeapon:
+-			h.Granter.GrantWeapon(user, item.PossessionId, nowMillis)
++			h.Granter.GrantWeaponCapped(user, item.PossessionId, nowMillis, store.GiftTextSummons)
+ 		default:
+ 			if item.PossessionType != 0 {
+-				store.GrantPossession(user, model.PossessionType(item.PossessionType), item.PossessionId, 1)
++				h.Granter.GrantCapped(user, model.PossessionType(item.PossessionType), item.PossessionId, 1, nowMillis, store.GiftTextSummons)
+ 			}
+ 		}
+ 	}
+ 	return dupInfos
+ }
+ 
+-func (h *GachaHandler) tryCostumeDupExchange(user *store.UserState, item DrawnItem, index int) (DuplicateInfo, bool) {
++func (h *GachaHandler) tryCostumeDupExchange(user *store.UserState, item DrawnItem, index int, nowMillis int64) (DuplicateInfo, bool) {
+ 	for _, c := range user.Costumes {
+ 		if c.CostumeId == item.PossessionId {
+ 			grade := int32(rand.Intn(model.DupGradeRange) + int(model.DupGradeMin))
+ 			exchanges := h.DupExchange[item.PossessionId]
+ 			for _, ex := range exchanges {
+-				store.GrantPossession(user, model.PossessionType(ex.PossessionType), ex.PossessionId, ex.Count)
++				h.Granter.GrantCapped(user, model.PossessionType(ex.PossessionType), ex.PossessionId, ex.Count, nowMillis, store.GiftTextSummons)
+ 			}
+ 			return DuplicateInfo{Index: index, Grade: grade, Bonuses: exchanges}, true
+ 		}
+diff --git a/server/internal/gametime/gametime.go b/server/internal/gametime/gametime.go
+--- a/server/internal/gametime/gametime.go
++++ b/server/internal/gametime/gametime.go
+@@ -2,6 +2,21 @@ package gametime
+ 
+ import "time"
+ 
++// Zone is the game's day boundary: the global client's BaseTimeZone is
++// PacificStandardTime with zone id "Etc/GMT+8", a fixed UTC-8 with no
++// daylight saving. Daily sets start at 08:00 UTC all year and weekly
++// schedules on Monday 08:00 UTC.
++var Zone = time.FixedZone("GMT-8", -8*60*60)
++
++const (
++	dayMillis  = int64(24 * time.Hour / time.Millisecond)
++	weekMillis = 7 * dayMillis
++	// zoneOffsetMillis is how far the game's midnight is after UTC midnight.
++	zoneOffsetMillis = int64(8 * time.Hour / time.Millisecond)
++	// utcMondayMillis is 1970-01-05 00:00 UTC, the first Monday after the epoch.
++	utcMondayMillis = 4 * dayMillis
++)
++
+ func Now() time.Time {
+ 	return time.Now().UTC()
+ }
+@@ -10,18 +25,60 @@ func NowMillis() int64 {
+ 	return Now().UnixMilli()
+ }
+ 
++// StartOfDay returns the start (00:00 GMT-8) of the game day containing millis.
++func StartOfDay(millis int64) int64 {
++	t := time.UnixMilli(millis).In(Zone)
++	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, Zone).UnixMilli()
++}
++
++// StartOfDayMillis returns the start of the current game day.
+ func StartOfDayMillis() int64 {
+-	n := Now()
+-	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC).UnixMilli()
++	return StartOfDay(NowMillis())
+ }
+ 
+-// WeeklyVersion returns a stable weekly identifier (start-of-week timestamp in millis, Monday 00:00 UTC).
++// WeeklyVersion returns a stable weekly identifier (start-of-week timestamp in
++// millis, Monday 00:00 GMT-8).
+ func WeeklyVersion(millis int64) int64 {
+-	t := time.UnixMilli(millis).UTC()
++	t := time.UnixMilli(millis).In(Zone)
+ 	weekday := int(t.Weekday())
+ 	if weekday == 0 {
+ 		weekday = 7
+ 	}
+-	monday := time.Date(t.Year(), t.Month(), t.Day()-(weekday-1), 0, 0, 0, 0, time.UTC)
++	monday := time.Date(t.Year(), t.Month(), t.Day()-(weekday-1), 0, 0, 0, 0, Zone)
+ 	return monday.UnixMilli()
+ }
++
++// Older saves keyed days and weeks by UTC midnight (00:00 UTC, Monday for
++// weeks); the game's keys fall at 08:00 UTC, so the two never collide.
++
++// IsLegacyWeekVersion reports whether v is an old Monday 00:00 UTC week key.
++func IsLegacyWeekVersion(v int64) bool {
++	return v > 0 && (v-utcMondayMillis)%weekMillis == 0
++}
++
++// UpgradeWeekVersion maps an old UTC week key to the GMT-8 week starting on
++// the same Monday, which covers all but its first 8 hours, so the week in
++// progress carries on rather than closing early. Other values are returned
++// unchanged.
++func UpgradeWeekVersion(v int64) int64 {
++	if IsLegacyWeekVersion(v) {
++		return v + zoneOffsetMillis
++	}
++	return v
++}
++
++// IsLegacyDayVersion reports whether v is an old 00:00 UTC day key.
++func IsLegacyDayVersion(v int64) bool {
++	return v > 0 && v%dayMillis == 0
++}
++
++// UpgradeDayVersion maps an old UTC day key, as seen at now, to the game day
++// of the latest moment it can stand for (the end of that UTC day, or now if
++// earlier). Something done once per day is then never done twice on the
++// switch day. Other values are returned unchanged.
++func UpgradeDayVersion(v, now int64) int64 {
++	if !IsLegacyDayVersion(v) {
++		return v
++	}
++	return StartOfDay(min(v+dayMillis-1, max(v, now)))
++}
 diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/bighunt.go
 --- a/server/internal/masterdata/bighunt.go
 +++ b/server/internal/masterdata/bighunt.go
@@ -187,21 +343,19 @@ diff --git a/server/internal/masterdata/config.go b/server/internal/masterdata/c
 diff --git a/server/internal/masterdata/costume.go b/server/internal/masterdata/costume.go
 --- a/server/internal/masterdata/costume.go
 +++ b/server/internal/masterdata/costume.go
-@@ -2,9 +2,13 @@ package masterdata
+@@ -2,9 +2,11 @@ package masterdata
  
  import (
  	"fmt"
 +	"log"
  	"sort"
  
-+	"github.com/google/uuid"
-+
  	"lunar-tear/server/internal/model"
 +	"lunar-tear/server/internal/store"
  	"lunar-tear/server/internal/utils"
  )
  
-@@ -208,3 +212,98 @@ func LoadCostumeCatalog(matCatalog *MaterialCatalog) (*CostumeCatalog, error) {
+@@ -208,3 +210,89 @@ func LoadCostumeCatalog(matCatalog *MaterialCatalog) (*CostumeCatalog, error) {
  
  	return catalog, nil
  }
@@ -286,17 +440,8 @@ diff --git a/server/internal/masterdata/costume.go b/server/internal/masterdata/
 +		return
 +	}
 +
-+	for _, t := range user.Thoughts {
-+		if t.ThoughtId == acq.PossessionId {
-+			return
-+		}
-+	}
-+	key := uuid.New().String()
-+	user.Thoughts[key] = store.ThoughtState{
-+		UserThoughtUuid:     key,
-+		ThoughtId:           acq.PossessionId,
-+		AcquisitionDatetime: nowMillis,
-+		LatestVersion:       nowMillis,
++	if !store.GrantThought(user, acq.PossessionId, nowMillis) {
++		return
 +	}
 +	log.Printf("[CostumeCatalog] awaken: granted thought id=%d", acq.PossessionId)
 +}
@@ -608,6 +753,62 @@ diff --git a/server/internal/masterdata/quest.go b/server/internal/masterdata/qu
  
  		UserExpThresholds:       BuildExpThresholds(paramMapRows, 1),
  		CharacterExpThresholds:  BuildExpThresholds(paramMapRows, 31),
+diff --git a/server/internal/masterdata/shop.go b/server/internal/masterdata/shop.go
+--- a/server/internal/masterdata/shop.go
++++ b/server/internal/masterdata/shop.go
+@@ -13,12 +13,26 @@ type ExchangeShopCell struct {
+ 	ShopItemId int32
+ }
+ 
++// Dark.Generated.Type.AutoResetType (m_shop_item_limited_stock.ShopItemAutoResetType).
++const (
++	ShopAutoResetNone    int32 = 1
++	ShopAutoResetDaily   int32 = 2 // every ShopItemAutoResetPeriod days
++	ShopAutoResetMonthly int32 = 3 // every ShopItemAutoResetPeriod months
++)
++
++// ShopStockReset is when a limited stock refills.
++type ShopStockReset struct {
++	Type   int32 // ShopAutoReset*
++	Period int32
++}
++
+ type ShopCatalog struct {
+ 	Items             map[int32]EntityMShopItem
+ 	Contents          map[int32][]EntityMShopItemContentPossession
+ 	Effects           map[int32][]EntityMShopItemContentEffect
+ 	MaxStaminaMillis  map[int32]int32              // level -> max stamina in millis
+ 	LimitedStock      map[int32]int32              // stock id -> max count
++	LimitedStockReset map[int32]ShopStockReset     // stock id -> refill schedule
+ 	ItemShopPool      []int32                      // shop item IDs for the replaceable item shop, sorted by cell sort order
+ 	ExchangeShopCells map[int32][]ExchangeShopCell // shopId -> sorted cells for exchange shops
+ }
+@@ -46,11 +60,12 @@ func LoadShopCatalog() (*ShopCatalog, error) {
+ 	}
+ 
+ 	catalog := &ShopCatalog{
+-		Items:            make(map[int32]EntityMShopItem, len(items)),
+-		Contents:         make(map[int32][]EntityMShopItemContentPossession, len(contents)),
+-		Effects:          make(map[int32][]EntityMShopItemContentEffect, len(effects)),
+-		MaxStaminaMillis: make(map[int32]int32, len(userLevels)),
+-		LimitedStock:     make(map[int32]int32, len(stockRows)),
++		Items:             make(map[int32]EntityMShopItem, len(items)),
++		Contents:          make(map[int32][]EntityMShopItemContentPossession, len(contents)),
++		Effects:           make(map[int32][]EntityMShopItemContentEffect, len(effects)),
++		MaxStaminaMillis:  make(map[int32]int32, len(userLevels)),
++		LimitedStock:      make(map[int32]int32, len(stockRows)),
++		LimitedStockReset: make(map[int32]ShopStockReset, len(stockRows)),
+ 	}
+ 	for _, row := range items {
+ 		catalog.Items[row.ShopItemId] = row
+@@ -66,6 +81,7 @@ func LoadShopCatalog() (*ShopCatalog, error) {
+ 	}
+ 	for _, row := range stockRows {
+ 		catalog.LimitedStock[row.ShopItemLimitedStockId] = row.MaxCount
++		catalog.LimitedStockReset[row.ShopItemLimitedStockId] = ShopStockReset{Type: row.ShopItemAutoResetType, Period: row.ShopItemAutoResetPeriod}
+ 	}
+ 
+ 	shops, err := utils.ReadTable[EntityMShop]("m_shop")
 diff --git a/server/internal/model/gacha.go b/server/internal/model/gacha.go
 --- a/server/internal/model/gacha.go
 +++ b/server/internal/model/gacha.go
@@ -780,7 +981,7 @@ diff --git a/server/internal/questflow/handler.go b/server/internal/questflow/ha
 diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/quest.go
 --- a/server/internal/questflow/quest.go
 +++ b/server/internal/questflow/quest.go
-@@ -1,6 +1,7 @@
+@@ -1,14 +1,28 @@
  package questflow
  
  import (
@@ -788,7 +989,28 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  	"fmt"
  	"log"
  
-@@ -60,6 +61,7 @@ func (h *QuestHandler) handleQuestStartInternal(user *store.UserState, questId i
++	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/masterdata"
+ 	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/store"
+ )
+ 
++// addDailyClears counts n clears of a quest at nowMillis. The game shows a
++// daily-limited quest's remaining clears as its limit less DailyClearCount
++// when LastClearDatetime is today (GMT-8), so the count starts over on a new
++// game day.
++func addDailyClears(q *store.UserQuestState, n int32, nowMillis int64) {
++	if q.LastClearDatetime < gametime.StartOfDay(nowMillis) {
++		q.DailyClearCount = 0
++	}
++	q.DailyClearCount += n
++	q.LastClearDatetime = nowMillis
++}
++
+ func (h *QuestHandler) initQuestState(user *store.UserState, questId int32) {
+ 	quest := user.Quests[questId]
+ 	quest.QuestId = questId
+@@ -60,6 +74,7 @@ func (h *QuestHandler) handleQuestStartInternal(user *store.UserState, questId i
  	}
  
  	h.initQuestState(user, questId)
@@ -796,7 +1018,27 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  	if quest.Stamina > 0 {
  		stamina := h.staminaWithCampaign(quest.Stamina, h.targetForMain(questId), nowMillis)
  		store.ConsumeStamina(user, stamina, h.MaxStaminaByLevel[user.Status.Level]*1000, nowMillis)
-@@ -195,17 +197,21 @@ func (h *QuestHandler) applyQuestVictory(user *store.UserState, questId int32, o
+@@ -110,8 +125,7 @@ func (h *QuestHandler) handleQuestStartInternal(user *store.UserState, questId i
+ 	} else {
+ 		questState.QuestStateType = model.UserQuestStateTypeCleared
+ 		questState.ClearCount = 1
+-		questState.DailyClearCount = 1
+-		questState.LastClearDatetime = nowMillis
++		addDailyClears(&questState, 1, nowMillis)
+ 		if sceneIds := h.SceneIdsByQuestId[questId]; len(sceneIds) > 0 {
+ 			firstSceneId := sceneIds[0]
+ 			prevSceneId := user.MainQuest.CurrentQuestSceneId
+@@ -157,8 +171,7 @@ func (h *QuestHandler) applyReplayStart(user *store.UserState, quest masterdata.
+ 		if questState.QuestStateType != model.UserQuestStateTypeCleared {
+ 			questState.QuestStateType = model.UserQuestStateTypeCleared
+ 			questState.ClearCount++
+-			questState.DailyClearCount++
+-			questState.LastClearDatetime = nowMillis
++			addDailyClears(&questState, 1, nowMillis)
+ 		}
+ 		user.Quests[questId] = questState
+ 		if sceneIds := h.SceneIdsByQuestId[questId]; len(sceneIds) > 0 {
+@@ -195,24 +208,27 @@ func (h *QuestHandler) applyQuestVictory(user *store.UserState, questId int32, o
  			outcome.ChangedWeaponStoryIds = append(outcome.ChangedWeaponStoryIds,
  				h.grantWeaponStoryUnlocksForQuestScene(user, questId, model.QuestResultTypeFullResult, nowMillis)...)
  		}
@@ -825,7 +1067,24 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  	for _, reward := range outcome.ReplayFlowFirstClearRewards {
  		h.applyRewardPossession(user, reward.PossessionType, reward.PossessionId, reward.Count, nowMillis)
  	}
-@@ -240,15 +246,19 @@ func (h *QuestHandler) finalizeChainPreviousQuest(user *store.UserState, questId
+ 	questState.QuestStateType = model.UserQuestStateTypeCleared
+ 	questState.ClearCount++
+-	questState.DailyClearCount++
+-	questState.LastClearDatetime = nowMillis
++	addDailyClears(&questState, 1, nowMillis)
+ 	questState.IsBattleOnly = false
+ 	user.Quests[questId] = questState
+ }
+@@ -232,23 +248,26 @@ func (h *QuestHandler) finalizeChainPreviousQuest(user *store.UserState, questId
+ 	}
+ 	questState.QuestStateType = model.UserQuestStateTypeCleared
+ 	questState.ClearCount++
+-	questState.DailyClearCount++
+-	questState.LastClearDatetime = nowMillis
++	addDailyClears(&questState, 1, nowMillis)
+ 	questState.IsBattleOnly = false
+ 	user.Quests[questId] = questState
+ 	h.clearQuestMissions(user, questId, nowMillis)
  	log.Printf("[HandleMainQuestSceneProgress] finalized chain-previous quest %d (cleared)", questId)
  }
  
@@ -851,7 +1110,7 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  }
  
  func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, isRetired, isAnnihilated bool, nowMillis int64) FinishOutcome {
-@@ -264,7 +274,7 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
+@@ -264,7 +283,7 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
  
  	var outcome FinishOutcome
  	if !isRetired && !isAnnihilated {
@@ -860,7 +1119,7 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  		h.applyQuestVictory(user, questId, &outcome, nowMillis, wasReplay)
  
  		// A replay-flow finish must NOT move the MainFlow scene pointer: the
-@@ -285,7 +295,9 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
+@@ -285,7 +304,9 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
  		store.RecoverStamina(user, refund*1000, maxMillis, nowMillis)
  	}
  
@@ -871,7 +1130,7 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  
  	user.MainQuest.ProgressQuestSceneId = 0
  	user.MainQuest.ProgressHeadQuestSceneId = 0
-@@ -313,31 +325,38 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
+@@ -313,31 +334,38 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
  			ctx.CurrentQuestSceneId, ctx.HeadQuestSceneId, ctx.PortalCageInProgress, ctx.CurrentQuestFlowType)
  	}
  
@@ -920,7 +1179,7 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  		h.grantDropRewards(user, drops, raritySet, rankSet, nowMillis)
  		allDrops = append(allDrops, drops...)
  
-@@ -346,6 +365,9 @@ func (h *QuestHandler) HandleQuestSkip(user *store.UserState, questId, skipCount
+@@ -346,15 +374,38 @@ func (h *QuestHandler) HandleQuestSkip(user *store.UserState, questId, skipCount
  		}
  		h.applyExpRewards(user, questId, nowMillis)
  	}
@@ -930,7 +1189,9 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  
  	questState := user.Quests[questId]
  	questState.ClearCount += skipCount
-@@ -354,7 +376,28 @@ func (h *QuestHandler) HandleQuestSkip(user *store.UserState, questId, skipCount
+-	questState.DailyClearCount += skipCount
+-	questState.LastClearDatetime = nowMillis
++	addDailyClears(&questState, skipCount, nowMillis)
  	user.Quests[questId] = questState
  
  	log.Printf("[HandleQuestSkip] questId=%d skipCount=%d drops=%d gold=%d", questId, skipCount, len(allDrops), questDef.Gold*skipCount)
@@ -960,7 +1221,7 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  }
  
  func (h *QuestHandler) HandleQuestRestart(user *store.UserState, questId int32, nowMillis int64) {
-@@ -372,14 +415,8 @@ func (h *QuestHandler) HandleQuestRestart(user *store.UserState, questId int32,
+@@ -372,14 +423,8 @@ func (h *QuestHandler) HandleQuestRestart(user *store.UserState, questId int32,
  	quest.LatestStartDatetime = nowMillis
  	user.Quests[questId] = quest
  
@@ -1082,6 +1343,17 @@ diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/re
  }
  
  func (h *QuestHandler) applyExpRewards(user *store.UserState, questId int32, nowMillis int64) {
+@@ -210,7 +169,9 @@ func (h *QuestHandler) applyExpRewards(user *store.UserState, questId int32, now
+ 	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, questDef.UserExp, user.Status.Exp, user.Status.Level)
+ 
+ 	if user.Status.Level > oldLevel {
+-		if maxStamina, ok := h.MaxStaminaByLevel[user.Status.Level]; ok {
++		// A level-up fills stamina to the new maximum; stamina already
++		// above it is kept.
++		if maxStamina, ok := h.MaxStaminaByLevel[user.Status.Level]; ok && user.Status.StaminaMilliValue < maxStamina*1000 {
+ 			store.ReplenishStamina(user, maxStamina*1000, nowMillis)
+ 		}
+ 	}
 diff --git a/server/internal/runtime/build.go b/server/internal/runtime/build.go
 --- a/server/internal/runtime/build.go
 +++ b/server/internal/runtime/build.go
@@ -1096,6 +1368,70 @@ diff --git a/server/internal/runtime/build.go b/server/internal/runtime/build.go
  	weaponCatalog, err := masterdata.LoadWeaponCatalog(materialCatalog)
  	if err != nil {
  		return nil, fmt.Errorf("load weapon catalog: %w", err)
+diff --git a/server/internal/service/banner.go b/server/internal/service/banner.go
+--- a/server/internal/service/banner.go
++++ b/server/internal/service/banner.go
+@@ -2,25 +2,40 @@ package service
+ 
+ import (
+ 	"context"
++	"fmt"
+ 
+ 	pb "lunar-tear/server/gen/proto"
+ 	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/runtime"
++	"lunar-tear/server/internal/store"
+ )
+ 
+ type BannerServiceServer struct {
+ 	pb.UnimplementedBannerServiceServer
+-	holder *runtime.Holder
++	users    store.UserRepository
++	sessions store.SessionRepository
++	holder   *runtime.Holder
+ }
+ 
+-func NewBannerServiceServer(holder *runtime.Holder) *BannerServiceServer {
+-	return &BannerServiceServer{holder: holder}
++func NewBannerServiceServer(users store.UserRepository, sessions store.SessionRepository, holder *runtime.Holder) *BannerServiceServer {
++	return &BannerServiceServer{users: users, sessions: sessions, holder: holder}
+ }
+ 
+ func (s *BannerServiceServer) GetMamaBanner(ctx context.Context, req *pb.GetMamaBannerRequest) (*pb.GetMamaBannerResponse, error) {
+ 	catalog := s.holder.Get().GachaEntries
+ 	nowMillis := gametime.NowMillis()
++	userId := CurrentUserId(ctx, s.users, s.sessions)
++	user, err := s.users.LoadUser(userId)
++	if err != nil {
++		return nil, fmt.Errorf("get mama banner: %w", err)
++	}
++	return mamaBanner(catalog, &user, nowMillis), nil
++}
++
++// mamaBanner lists the active limited summons and the latest chapter summons
++// the player has unlocked (the one with the highest gacha id).
++func mamaBanner(catalog []store.GachaCatalogEntry, user *store.UserState, nowMillis int64) *pb.GetMamaBannerResponse {
+ 	var termLimited []*pb.GachaBanner
+ 	var latestChapter *pb.GachaBanner
+ 	for _, entry := range catalog {
+@@ -39,6 +54,9 @@ func (s *BannerServiceServer) GetMamaBanner(ctx context.Context, req *pb.GetMama
+ 		case model.GachaLabelEvent, model.GachaLabelPremium:
+ 			termLimited = append(termLimited, b)
+ 		case model.GachaLabelChapter:
++			if !gachaUnlockedFor(entry, user) {
++				continue
++			}
+ 			if latestChapter == nil || entry.GachaId > latestChapter.GachaId {
+ 				latestChapter = b
+ 			}
+@@ -48,5 +66,5 @@ func (s *BannerServiceServer) GetMamaBanner(ctx context.Context, req *pb.GetMama
+ 		TermLimitedGacha:   termLimited,
+ 		LatestChapterGacha: latestChapter,
+ 		IsExistUnreadPop:   false,
+-	}, nil
++	}
+ }
 diff --git a/server/internal/service/battle.go b/server/internal/service/battle.go
 --- a/server/internal/service/battle.go
 +++ b/server/internal/service/battle.go
@@ -1151,6 +1487,59 @@ diff --git a/server/internal/service/cageornament.go b/server/internal/service/c
 -
  	return &pb.RecordAccessResponse{}, nil
  }
+diff --git a/server/internal/service/characterviewer.go b/server/internal/service/characterviewer.go
+--- a/server/internal/service/characterviewer.go
++++ b/server/internal/service/characterviewer.go
+@@ -6,6 +6,7 @@ import (
+ 	"log"
+ 
+ 	pb "lunar-tear/server/gen/proto"
++	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/runtime"
+ 	"lunar-tear/server/internal/store"
+ 
+@@ -26,16 +27,36 @@ func NewCharacterViewerServiceServer(users store.UserRepository, sessions store.
+ func (s *CharacterViewerServiceServer) CharacterViewerTop(ctx context.Context, _ *emptypb.Empty) (*pb.CharacterViewerTopResponse, error) {
+ 	log.Printf("[CharacterViewerService] CharacterViewerTop")
+ 
++	catalog := s.holder.Get().CharacterViewer
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+-	user, err := s.users.LoadUser(userId)
+-	if err != nil {
++	var released []int32
++	if _, err := s.users.UpdateUser(userId, func(user *store.UserState) {
++		released = releaseCharacterViewerFields(user, catalog.ReleasedFieldIds(*user), gametime.NowMillis())
++	}); err != nil {
+ 		panic(fmt.Sprintf("CharacterViewerTop: no user for userId=%d: %v", userId, err))
+ 	}
+-
+-	released := s.holder.Get().CharacterViewer.ReleasedFieldIds(user)
+-	log.Printf("[CharacterViewerService] released %d fields for user %d", len(released), userId)
++	log.Printf("[CharacterViewerService] %d newly released fields for user %d", len(released), userId)
+ 
+ 	return &pb.CharacterViewerTopResponse{
+ 		ReleaseCharacterViewerFieldId: released,
+ 	}, nil
+ }
++
++// releaseCharacterViewerFields records the unlocked fields the player has not
++// been told about and returns them. The client shows an unlock notice for
++// every id in CharacterViewerTopResponse.ReleaseCharacterViewerFieldId, so
++// only new ones are sent.
++func releaseCharacterViewerFields(user *store.UserState, unlocked []int32, nowMillis int64) []int32 {
++	released := []int32{}
++	for _, id := range unlocked {
++		if _, seen := user.Ext.CharacterViewerFields[id]; seen {
++			continue
++		}
++		if user.Ext.CharacterViewerFields == nil {
++			user.Ext.CharacterViewerFields = make(map[int32]int64)
++		}
++		user.Ext.CharacterViewerFields[id] = nowMillis
++		released = append(released, id)
++	}
++	return released
++}
 diff --git a/server/internal/service/costume.go b/server/internal/service/costume.go
 --- a/server/internal/service/costume.go
 +++ b/server/internal/service/costume.go
@@ -1673,15 +2062,15 @@ diff --git a/server/internal/service/gift.go b/server/internal/service/gift.go
  	}
 +	return giftListPage(user.Gifts.NotReceived, req, cat.GameConfig.ConsumableItemIdForGold, gametime.NowMillis()), nil
 +}
- 
--	gifts := append([]store.NotReceivedGiftState(nil), user.Gifts.NotReceived...)
--	sort.Slice(gifts, func(i, j int) bool {
++
 +func giftListPage(gifts []store.NotReceivedGiftState, req *pb.GetGiftListRequest, goldItemId int32, nowMillis int64) *pb.GetGiftListResponse {
 +	pageSize := int(req.GetCount)
 +	if pageSize <= 0 {
 +		pageSize = giftPageSize
 +	}
-+
+ 
+-	gifts := append([]store.NotReceivedGiftState(nil), user.Gifts.NotReceived...)
+-	sort.Slice(gifts, func(i, j int) bool {
 +	keys := giftSortKeys(gifts)
 +	filtered := make([]store.NotReceivedGiftState, 0, len(gifts))
 +	for _, g := range gifts {
@@ -1801,8 +2190,8 @@ diff --git a/server/internal/service/gift.go b/server/internal/service/gift.go
 +		}
 +	}
 +	return giftKindOther
-+}
-+
+ }
+ 
 +func giftMatchesKinds(g store.NotReceivedGiftState, kinds []int32, goldItemId int32) bool {
 +	if len(kinds) == 0 || slices.Contains(kinds, giftKindNone) {
 +		return true
@@ -1818,8 +2207,8 @@ diff --git a/server/internal/service/gift.go b/server/internal/service/gift.go
 +		return g.ExpirationDatetime == 0
 +	}
 +	return true
- }
- 
++}
++
 +// GetGiftReceiveHistoryList returns received gifts newest first, at most
 +// MConfig GIFT_RECEIVED_LIST_TOTAL_COUNT of them.
  func (s *GiftServiceServer) GetGiftReceiveHistoryList(ctx context.Context, req *emptypb.Empty) (*pb.GetGiftReceiveHistoryListResponse, error) {
@@ -1854,6 +2243,30 @@ diff --git a/server/internal/service/gift.go b/server/internal/service/gift.go
  func toProtoGiftCommon(gift store.GiftCommonState) *pb.GiftCommon {
  	return &pb.GiftCommon{
  		PossessionType:        gift.PossessionType,
+@@ -152,3 +357,23 @@ func pageCount(total, pageSize int) int32 {
+ 	}
+ 	return int32(pages)
+ }
++
++// overflowMissionRewards lists what a mission reward grant sent to the gift
++// box (store.TakeGrantOverflow) for ReceiveMissionRewardsResponse.OverflowPossession.
++func overflowMissionRewards(overflow []store.GrantOverflow) []*pb.MissionReward {
++	out := make([]*pb.MissionReward, 0, len(overflow))
++	for _, o := range overflow {
++		out = append(out, &pb.MissionReward{PossessionType: int32(o.PossessionType), PossessionId: o.PossessionId, Count: o.Count})
++	}
++	return out
++}
++
++// overflowMissionPassRewards is overflowMissionRewards for
++// ReceiveMissionPassRewardsResponse.OverflowPossession.
++func overflowMissionPassRewards(overflow []store.GrantOverflow) []*pb.MissionPassReward {
++	out := make([]*pb.MissionPassReward, 0, len(overflow))
++	for _, o := range overflow {
++		out = append(out, &pb.MissionPassReward{PossessionType: int32(o.PossessionType), PossessionId: o.PossessionId, Count: o.Count})
++	}
++	return out
++}
 diff --git a/server/internal/service/gimmick.go b/server/internal/service/gimmick.go
 --- a/server/internal/service/gimmick.go
 +++ b/server/internal/service/gimmick.go
@@ -2251,10 +2664,210 @@ diff --git a/server/internal/service/reward.go b/server/internal/service/reward.
  				for _, item := range items {
  					granter.GrantFull(user, model.PossessionType(item.PossessionType), item.PossessionId, item.Count, nowMillis)
  					weeklyRewards = append(weeklyRewards, &pb.BigHuntReward{
+diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
+--- a/server/internal/service/shop.go
++++ b/server/internal/service/shop.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"log"
++	"time"
+ 
+ 	pb "lunar-tear/server/gen/proto"
+ 	"lunar-tear/server/internal/gametime"
+@@ -35,13 +36,20 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+ 
++	var overflow []store.GrantOverflow
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
++		resetShopStock(catalog, user, nowMillis)
+ 		for shopItemId, qty := range req.ShopItems {
+ 			item, ok := catalog.Items[shopItemId]
+ 			if !ok {
+ 				log.Printf("[ShopService] Buy: unknown shopItemId=%d, skipping", shopItemId)
+ 				continue
+ 			}
++			if maxCount, limited := catalog.LimitedStock[item.ShopItemLimitedStockId]; limited && item.ShopItemLimitedStockId > 0 &&
++				user.ShopItems[shopItemId].BoughtCount+qty > maxCount {
++				log.Printf("[ShopService] Buy: shopItemId=%d out of stock (bought %d of %d), skipping", shopItemId, user.ShopItems[shopItemId].BoughtCount, maxCount)
++				continue
++			}
+ 
+ 			totalPrice := item.Price * qty
+ 			if err := store.DeductPrice(user, item.PriceType, item.PriceId, totalPrice); err != nil {
+@@ -49,13 +57,15 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
+ 				continue
+ 			}
+ 
++			giftText := shopOverflowGiftText(item.PriceType)
+ 			for _, content := range catalog.Contents[shopItemId] {
+-				granter.GrantFull(user,
++				overflow = append(overflow, granter.GrantFullAs(user,
+ 					model.PossessionType(content.PossessionType),
+ 					content.PossessionId,
+ 					content.Count*qty,
+ 					nowMillis,
+-				)
++					giftText,
++				)...)
+ 			}
+ 
+ 			applyShopContentEffects(catalog, user, shopItemId, qty, nowMillis)
+@@ -67,15 +77,85 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
+ 			si.LatestVersion = nowMillis
+ 			user.ShopItems[shopItemId] = si
+ 		}
++		store.TakeGrantOverflow(user)
+ 	})
+ 	if err != nil {
+ 		return nil, fmt.Errorf("shop buy: %w", err)
+ 	}
+ 	return &pb.BuyResponse{
+-		OverflowPossession: []*pb.Possession{},
++		OverflowPossession: overflowPossessions(overflow),
+ 	}, nil
+ }
+ 
++// shopOverflowGiftText is the MGiftText for shop items over a possession
++// limit: 31 for the premium (gem / real money) shop, 32 for exchanges.
++func shopOverflowGiftText(priceType int32) int32 {
++	switch priceType {
++	case model.PriceTypeGem, model.PriceTypePaidGem, model.PriceTypePlatformPayment:
++		return store.GiftTextPremiumShopOverflow
++	}
++	return store.GiftTextExchangeShopOverflow
++}
++
++func overflowPossessions(overflow []store.GrantOverflow) []*pb.Possession {
++	out := make([]*pb.Possession, 0, len(overflow))
++	for _, o := range overflow {
++		out = append(out, &pb.Possession{
++			PossessionType: int32(o.PossessionType),
++			PossessionId:   o.PossessionId,
++			Count:          o.Count,
++		})
++	}
++	return out
++}
++
++// resetShopStock refills limited stock whose reset period has passed. The
++// client shows MaxCount - BoughtCount with no date check, so the server zeroes
++// BoughtCount once the GMT-8 day, week (period 7) or month a purchase was
++// made in has ended.
++func resetShopStock(catalog *masterdata.ShopCatalog, user *store.UserState, nowMillis int64) {
++	for id, si := range user.ShopItems {
++		if si.BoughtCount == 0 {
++			continue
++		}
++		reset, ok := catalog.LimitedStockReset[catalog.Items[id].ShopItemLimitedStockId]
++		if !ok {
++			continue
++		}
++		start, ok := shopStockPeriodStart(reset, nowMillis)
++		if !ok || si.LatestBoughtCountChangedDatetime >= start {
++			continue
++		}
++		si.BoughtCount = 0
++		si.LatestBoughtCountChangedDatetime = nowMillis
++		si.LatestVersion = nowMillis
++		user.ShopItems[id] = si
++	}
++}
++
++// shopStockPeriodStart is the start of the reset period containing nowMillis.
++func shopStockPeriodStart(reset masterdata.ShopStockReset, nowMillis int64) (int64, bool) {
++	period := max(reset.Period, 1)
++	switch reset.Type {
++	case masterdata.ShopAutoResetDaily:
++		switch period {
++		case 1:
++			return gametime.StartOfDay(nowMillis), true
++		case 7:
++			return gametime.WeeklyVersion(nowMillis), true
++		}
++		const dayMillis = 24 * 60 * 60 * 1000
++		day := gametime.StartOfDay(nowMillis)
++		days := (day - gametime.StartOfDay(0)) / dayMillis
++		return day - (days%int64(period))*dayMillis, true
++	case masterdata.ShopAutoResetMonthly:
++		t := time.UnixMilli(nowMillis).In(gametime.Zone)
++		months := (t.Year()*12 + int(t.Month()) - 1) / int(period) * int(period)
++		return time.Date(months/12, time.Month(months%12+1), 1, 0, 0, 0, 0, gametime.Zone).UnixMilli(), true
++	}
++	return 0, false
++}
++
+ func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.RefreshRequest) (*pb.RefreshResponse, error) {
+ 	log.Printf("[ShopService] RefreshUserData: isGemUsed=%v", req.IsGemUsed)
+ 
+@@ -84,6 +164,7 @@ func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.Refresh
+ 	nowMillis := gametime.NowMillis()
+ 
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
++		resetShopStock(catalog, user, nowMillis)
+ 		if len(user.ShopReplaceableLineup) == 0 && len(catalog.ItemShopPool) > 0 {
+ 			for i, itemId := range catalog.ItemShopPool {
+ 				slot := int32(i + 1)
+@@ -131,6 +212,7 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+ 	nowMillis := gametime.NowMillis()
+ 
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
++		resetShopStock(catalog, user, nowMillis)
+ 		item, ok := catalog.Items[req.ShopItemId]
+ 		if !ok {
+ 			log.Printf("[ShopService] CreatePurchaseTransaction: unknown shopItemId=%d", req.ShopItemId)
+@@ -142,13 +224,15 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+ 		}
+ 
+ 		for _, content := range catalog.Contents[req.ShopItemId] {
+-			granter.GrantFull(user,
++			granter.GrantFullAs(user,
+ 				model.PossessionType(content.PossessionType),
+ 				content.PossessionId,
+ 				content.Count,
+ 				nowMillis,
++				store.GiftTextPremiumShopOverflow,
+ 			)
+ 		}
++		store.TakeGrantOverflow(user)
+ 
+ 		applyShopContentEffects(catalog, user, req.ShopItemId, 1, nowMillis)
+ 
 diff --git a/server/internal/service/user.go b/server/internal/service/user.go
 --- a/server/internal/service/user.go
 +++ b/server/internal/service/user.go
-@@ -175,38 +175,15 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
+@@ -6,6 +6,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"log"
++	"math"
+ 	"net/http"
+ 	"strconv"
+ 	"strings"
+@@ -19,6 +20,7 @@ import (
+ 	"google.golang.org/protobuf/types/known/timestamppb"
+ 	pb "lunar-tear/server/gen/proto"
+ 	"lunar-tear/server/internal/gametime"
++	"lunar-tear/server/internal/missions"
+ 	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/runtime"
+ 	"lunar-tear/server/internal/store"
+@@ -107,6 +109,13 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		user.GameStartDatetime = gametime.NowMillis()
++		// Limited stock whose day, week or month has ended is full again; the
++		// client shows stock from BoughtCount alone, so it must be reset here.
++		if bunkerHolder != nil {
++			if cats := bunkerHolder.Get(); cats != nil && cats.Shop != nil {
++				resetShopStock(cats.Shop, user, user.GameStartDatetime)
++			}
++		}
+ 	})
+ 
+ 	return &pb.GameStartResponse{}, nil
+@@ -175,45 +184,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
  		return &pb.GetUserProfileResponse{}, nil
  	}
  
@@ -2291,15 +2904,26 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
 -			DeckCharacter: deckCharacters,
 -		},
 -		PvpInfo: pvpProfileInfo(user),
+-		GamePlayHistory: &pb.GamePlayHistory{
+-			HistoryItem:              []*pb.PlayHistoryItem{},
+-			HistoryCategoryGraphItem: []*pb.PlayHistoryCategoryGraphItem{},
+-		},
 +		LatestUsedDeck:    deck,
 +		PvpInfo:           pvpProfileInfo(user),
- 		GamePlayHistory: &pb.GamePlayHistory{
- 			HistoryItem:              []*pb.PlayHistoryItem{},
- 			HistoryCategoryGraphItem: []*pb.PlayHistoryCategoryGraphItem{},
-@@ -214,6 +191,40 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
++		GamePlayHistory:   playHistory(&user),
  	}, nil
  }
  
++// playHistory is the profile's play history counters. The Greed/Vice/Mania/Zeal
++// graph (historyCategoryGraphItem) is left empty: how the game weighs it is not known.
++func playHistory(u *store.UserState) *pb.GamePlayHistory {
++	h := &pb.GamePlayHistory{HistoryItem: []*pb.PlayHistoryItem{}, HistoryCategoryGraphItem: []*pb.PlayHistoryCategoryGraphItem{}}
++	if cat := missions.Current(); cat != nil {
++		h.HistoryItem = cat.PlayHistory(u)
++	}
++	return h
++}
++
 +// latestUsedDeck is the profile card's deck: the deck of the player's last
 +// battle (recorded from FinishWave), else the deck of the quest started last,
 +// with its three members and its power.
@@ -2337,10 +2961,47 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  func (s *UserServiceServer) SetBirthYearMonth(ctx context.Context, req *pb.SetBirthYearMonthRequest) (*pb.SetBirthYearMonthResponse, error) {
  	log.Printf("[UserService] SetBirthYearMonth: %d/%d", req.BirthYear, req.BirthMonth)
  	userId := CurrentUserId(ctx, s.users, s.sessions)
+@@ -268,8 +295,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
+ 	return &pb.CheckTransferSettingResponse{}, nil
+ }
+ 
++// GetUserGamePlayNote is one play history counter; the smartphone's pedometer
++// asks for the distance walked in the Cage (missions.HistoryWalkDistance), in
++// meters as the client sends it (CageMeasurableValues.runningDistanceMeters).
+ func (s *UserServiceServer) GetUserGamePlayNote(ctx context.Context, req *pb.GetUserGamePlayNoteRequest) (*pb.GetUserGamePlayNoteResponse, error) {
+-	return &pb.GetUserGamePlayNoteResponse{}, nil
++	cat := missions.Current()
++	user, err := s.users.LoadUser(CurrentUserId(ctx, s.users, s.sessions))
++	if cat == nil || err != nil {
++		return &pb.GetUserGamePlayNoteResponse{}, nil
++	}
++	v := cat.HistoryValue(&user, req.GamePlayHistoryTypeId)
++	log.Printf("[UserService] GetUserGamePlayNote: type=%d value=%d", req.GamePlayHistoryTypeId, v)
++	return &pb.GetUserGamePlayNoteResponse{ProgressValue: int32(min(v, math.MaxInt32))}, nil
+ }
+ 
+ func (s *UserServiceServer) resolveAuthToken(token string) (facebookId int64, err error) {
 diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 --- a/server/internal/store/helpers.go
 +++ b/server/internal/store/helpers.go
-@@ -118,6 +118,43 @@ type PartsStatusSubDef struct {
+@@ -4,6 +4,7 @@ import (
+ 	"fmt"
+ 	"log"
+ 	"math/rand"
++	"slices"
+ 	"sort"
+ 
+ 	"github.com/google/uuid"
+@@ -80,6 +81,8 @@ func GrantPossession(user *UserState, possessionType model.PossessionType, posse
+ 		user.ImportantItems[possessionId] += count
+ 	case model.PossessionTypePremiumItem:
+ 		user.PremiumItems[possessionId] = gametime.NowMillis()
++	case model.PossessionTypeThought:
++		GrantThought(user, possessionId, gametime.NowMillis())
+ 	default:
+ 		log.Printf("[GrantPossession] unhandled type=%d id=%d count=%d", possessionType, possessionId, count)
+ 	}
+@@ -118,6 +121,64 @@ type PartsStatusSubDef struct {
  	StatusFunc               func(level int32) int32
  }
  
@@ -2379,12 +3040,33 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +	ConsumableItem int32 // per consumable item, except gold
 +	Money          int32 // gold
 +	ImportantItem  int32 // per important item
++	GachaMedal     int32 // per gacha medal (ConsumableItemType GACHA_MEDAL)
++}
++
++// MGiftText ids of the gifts the server sends.
++const (
++	GiftTextSummons              int32 = 1  // "Earned from summons."
++	GiftTextDuplicateCostume     int32 = 6  // "Earned from obtaining a duplicate costume."
++	GiftTextDuplicateCompanion   int32 = 7  // "Earned from obtaining a duplicate companion."
++	GiftTextOverflow             int32 = 11 // "A gift for holding too many items."
++	GiftTextPremiumShopOverflow  int32 = 31 // "Item that exceeded the cap due to a purchase at the premium shop."
++	GiftTextExchangeShopOverflow int32 = 32 // "Item that exceeded the cap due to an exchange at the shop."
++)
++
++// GiftExpirationMillis is how long a gift the server sends stays claimable.
++const GiftExpirationMillis int64 = 30 * 24 * 60 * 60 * 1000
++
++// GrantOverflow is what a grant sent to the gift box because of a limit.
++type GrantOverflow struct {
++	PossessionType model.PossessionType
++	PossessionId   int32
++	Count          int32
 +}
 +
  type PossessionGranter struct {
  	CostumeById        map[int32]CostumeRef
  	WeaponById         map[int32]WeaponRef
-@@ -134,6 +171,17 @@ type PossessionGranter struct {
+@@ -134,6 +195,20 @@ type PossessionGranter struct {
  	PartsSellPriceL1ByRarity map[int32]int32
  	GoldConsumableItemId     int32
  
@@ -2398,19 +3080,32 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +	ApplyCostumeAwaken func(user *UserState, userCostumeUuid string, costumeId, step int32, nowMillis int64)
 +
 +	Limits PossessionLimits
++	// GachaMedalItemIds are the consumable items of ConsumableItemType
++	// GACHA_MEDAL, limited by Limits.GachaMedal instead of ConsumableItem.
++	GachaMedalItemIds map[int32]bool
 +
  	LastChangedStoryWeaponIds []int32
  }
  
-@@ -143,25 +191,143 @@ func (g *PossessionGranter) DrainChangedStoryWeaponIds() []int32 {
+@@ -143,25 +218,301 @@ func (g *PossessionGranter) DrainChangedStoryWeaponIds() []int32 {
  	return ids
  }
  
 +// GrantFull grants count of a possession the way every reward path does. A
 +// costume or companion the player already owns becomes its duplicate
 +// exchange possessions instead; enhanced costumes and companions arrive at
-+// their m_*_enhanced level.
++// their m_*_enhanced level. What would go past a possession limit goes to the
++// gift box as "A gift for holding too many items" (see GrantFullAs).
  func (g *PossessionGranter) GrantFull(user *UserState, possessionType model.PossessionType, possessionId, count int32, nowMillis int64) {
++	g.GrantFullAs(user, possessionType, possessionId, count, nowMillis, GiftTextOverflow)
++}
++
++// GrantFullAs is GrantFull with the MGiftText id for anything that would go
++// past a possession limit: that part is sent to the gift box instead of being
++// dropped or refused. It returns what went to the gift box; the same entries
++// are also added to user.Ext.GrantOverflow for TakeGrantOverflow.
++func (g *PossessionGranter) GrantFullAs(user *UserState, possessionType model.PossessionType, possessionId, count int32, nowMillis int64, giftTextId int32) []GrantOverflow {
++	start := len(user.Ext.GrantOverflow)
 +	n := max(count, 1)
  	switch possessionType {
 -	case model.PossessionTypeCostume, model.PossessionTypeCostumeEnhanced:
@@ -2418,7 +3113,7 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +	case model.PossessionTypeCostume:
 +		for range n {
 +			if !g.GrantCostume(user, possessionId, nowMillis) {
-+				g.grantExchange(user, g.CostumeDuplicateExchange[possessionId])
++				g.grantExchange(user, g.CostumeDuplicateExchange[possessionId], nowMillis, GiftTextDuplicateCostume)
 +			}
 +		}
 +	case model.PossessionTypeCostumeEnhanced:
@@ -2429,13 +3124,19 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 -		g.GrantWeapon(user, possessionId, nowMillis)
 -	case model.PossessionTypeCompanion, model.PossessionTypeCompanionEnhanced:
 -		g.GrantCompanion(user, possessionId, nowMillis)
++		over := int32(0)
 +		for range n {
++			if g.Limits.Weapon > 0 && len(user.Weapons) >= int(g.Limits.Weapon) {
++				over++
++				continue
++			}
 +			g.GrantWeapon(user, possessionId, nowMillis)
 +		}
++		g.sendOverflow(user, possessionType, possessionId, over, nowMillis, giftTextId)
 +	case model.PossessionTypeCompanion:
 +		for range n {
 +			if !g.GrantCompanion(user, possessionId, nowMillis) {
-+				g.grantExchange(user, g.CompanionDuplicateExchange[possessionId])
++				g.grantExchange(user, g.CompanionDuplicateExchange[possessionId], nowMillis, GiftTextDuplicateCompanion)
 +			}
 +		}
 +	case model.PossessionTypeCompanionEnhanced:
@@ -2444,19 +3145,133 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +		}
  	case model.PossessionTypeParts, model.PossessionTypePartsEnhanced:
 -		g.GrantParts(user, possessionId, nowMillis)
++		over := int32(0)
 +		for range n {
++			if g.Limits.Parts > 0 && len(user.Parts) >= int(g.Limits.Parts) {
++				over++
++				continue
++			}
 +			g.GrantParts(user, possessionId, nowMillis)
 +		}
++		g.sendOverflow(user, possessionType, possessionId, over, nowMillis, giftTextId)
  	default:
- 		GrantPossession(user, possessionType, possessionId, count)
- 	}
- }
- 
--func (g *PossessionGranter) GrantCostume(user *UserState, costumeId int32, nowMillis int64) {
-+func (g *PossessionGranter) grantExchange(user *UserState, exchange []DuplicateExchange) {
-+	for _, ex := range exchange {
-+		GrantPossession(user, ex.PossessionType, ex.PossessionId, ex.Count)
+-		GrantPossession(user, possessionType, possessionId, count)
++		g.GrantCapped(user, possessionType, possessionId, count, nowMillis, giftTextId)
 +	}
++	if len(user.Ext.GrantOverflow) == start {
++		return nil
++	}
++	return slices.Clone(user.Ext.GrantOverflow[start:])
++}
++
++// GrantCapped grants a stackable possession (material, consumable item, gold,
++// gacha medal, important item) up to its limit and sends the rest to the gift
++// box with giftTextId. Other possession types are granted as GrantPossession
++// does. For summons, which grant stackables directly.
++func (g *PossessionGranter) GrantCapped(user *UserState, possessionType model.PossessionType, possessionId, count int32, nowMillis int64, giftTextId int32) {
++	if have, limit, ok := g.stackLimit(user, possessionType, possessionId); ok && limit > 0 && count > 0 {
++		room := max(int64(limit)-have, 0)
++		if int64(count) > room {
++			// Gifts of at most the limit each, so every one can be claimed once there is room.
++			for rest := count - int32(room); rest > 0; rest -= min(rest, limit) {
++				g.sendOverflow(user, possessionType, possessionId, min(rest, limit), nowMillis, giftTextId)
++			}
++			count = int32(room)
++		}
++		if count == 0 {
++			return
++		}
++	}
++	GrantPossession(user, possessionType, possessionId, count)
++}
++
++// GrantWeaponCapped grants one weapon, or sends it to the gift box with
++// giftTextId when the player holds the most weapons allowed.
++func (g *PossessionGranter) GrantWeaponCapped(user *UserState, weaponId int32, nowMillis int64, giftTextId int32) {
++	if g.Limits.Weapon > 0 && len(user.Weapons) >= int(g.Limits.Weapon) {
++		g.sendOverflow(user, model.PossessionTypeWeapon, weaponId, 1, nowMillis, giftTextId)
++		return
++	}
++	g.GrantWeapon(user, weaponId, nowMillis)
++}
++
++// GrantExchangeAs grants duplicate exchange possessions; what would go past a
++// limit goes to the gift box with giftTextId.
++func (g *PossessionGranter) GrantExchangeAs(user *UserState, exchange []DuplicateExchange, nowMillis int64, giftTextId int32) {
++	g.grantExchange(user, exchange, nowMillis, giftTextId)
++}
++
++func (g *PossessionGranter) grantExchange(user *UserState, exchange []DuplicateExchange, nowMillis int64, giftTextId int32) {
++	for _, ex := range exchange {
++		g.GrantCapped(user, ex.PossessionType, ex.PossessionId, ex.Count, nowMillis, giftTextId)
++	}
++}
++
++// stackLimit is how many of a stackable possession the player holds and its
++// MConfig limit; ok is false for possessions without a per-id count.
++func (g *PossessionGranter) stackLimit(user *UserState, possessionType model.PossessionType, possessionId int32) (have int64, limit int32, ok bool) {
++	switch possessionType {
++	case model.PossessionTypeMaterial:
++		return int64(user.Materials[possessionId]), g.Limits.Material, true
++	case model.PossessionTypeConsumableItem:
++		have = int64(user.ConsumableItems[possessionId])
++		switch {
++		case possessionId == g.GoldConsumableItemId:
++			return have, g.Limits.Money, true
++		case g.GachaMedalItemIds[possessionId]:
++			return have, g.Limits.GachaMedal, true
++		}
++		return have, g.Limits.ConsumableItem, true
++	case model.PossessionTypeImportantItem:
++		return int64(user.ImportantItems[possessionId]), g.Limits.ImportantItem, true
++	}
++	return 0, 0, false
++}
++
++// sendOverflow puts count of a possession in the gift box and records it in
++// user.Ext.GrantOverflow.
++func (g *PossessionGranter) sendOverflow(user *UserState, possessionType model.PossessionType, possessionId, count int32, nowMillis int64, giftTextId int32) {
++	if count <= 0 {
++		return
++	}
++	AddGift(user, possessionType, possessionId, count, giftTextId, nowMillis)
++	user.Ext.GrantOverflow = append(user.Ext.GrantOverflow, GrantOverflow{
++		PossessionType: possessionType,
++		PossessionId:   possessionId,
++		Count:          count,
++	})
++	log.Printf("[GrantFull] over the possession limit: type=%d id=%d count=%d -> gift box (text %d)", possessionType, possessionId, count, giftTextId)
++}
++
++// AddGift puts an unclaimed gift in the gift box. It expires after
++// GiftExpirationMillis like the login bonus gifts.
++func AddGift(user *UserState, possessionType model.PossessionType, possessionId, count, giftTextId int32, nowMillis int64) {
++	user.Gifts.NotReceived = append(user.Gifts.NotReceived, NotReceivedGiftState{
++		GiftCommon: GiftCommonState{
++			PossessionType:        int32(possessionType),
++			PossessionId:          possessionId,
++			Count:                 count,
++			GrantDatetime:         nowMillis,
++			DescriptionGiftTextId: giftTextId,
++		},
++		ExpirationDatetime: nowMillis + GiftExpirationMillis,
++		UserGiftUuid:       uuid.New().String(),
++	})
++	live := int32(0)
++	for _, gift := range user.Gifts.NotReceived {
++		if gift.ExpirationDatetime == 0 || gift.ExpirationDatetime >= nowMillis {
++			live++
++		}
++	}
++	user.Notifications.GiftNotReceiveCount = live
++}
++
++// TakeGrantOverflow returns what grants in this request sent to the gift box
++// because of a possession limit, and clears the list.
++func TakeGrantOverflow(user *UserState) []GrantOverflow {
++	out := user.Ext.GrantOverflow
++	user.Ext.GrantOverflow = nil
++	return out
 +}
 +
 +func (g *PossessionGranter) grantCostumeEnhanced(user *UserState, costumeEnhancedId int32, nowMillis int64) {
@@ -2466,7 +3281,7 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +		ref = CostumeEnhancedRef{CostumeId: costumeEnhancedId}
 +	}
 +	if !g.GrantCostume(user, ref.CostumeId, nowMillis) {
-+		g.grantExchange(user, g.CostumeDuplicateExchange[ref.CostumeId])
++		g.grantExchange(user, g.CostumeDuplicateExchange[ref.CostumeId], nowMillis, GiftTextDuplicateCostume)
 +		return
 +	}
 +	var key string
@@ -2507,7 +3322,7 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +		ref = CompanionEnhancedRef{CompanionId: companionEnhancedId, Level: 1}
 +	}
 +	if !g.GrantCompanion(user, ref.CompanionId, nowMillis) {
-+		g.grantExchange(user, g.CompanionDuplicateExchange[ref.CompanionId])
++		g.grantExchange(user, g.CompanionDuplicateExchange[ref.CompanionId], nowMillis, GiftTextDuplicateCompanion)
 +		return
 +	}
 +	for k, c := range user.Companions {
@@ -2521,29 +3336,58 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
 +}
 +
 +// WouldOverflow reports whether granting count of a possession would take the
-+// player past an MConfig possession limit.
++// player past an MConfig possession limit. For a costume or companion the
++// player owns, that is whether its duplicate exchange would.
 +func (g *PossessionGranter) WouldOverflow(user *UserState, possessionType model.PossessionType, possessionId, count int32) bool {
-+	over := func(have int64, limit int32) bool {
-+		return limit > 0 && have+int64(max(count, 1)) > int64(limit)
++	n := int64(max(count, 1))
++	over := func(have int64, limit int32, add int64) bool {
++		return limit > 0 && have+add > int64(limit)
 +	}
++	exchangeOver := func(exchange []DuplicateExchange) bool {
++		for _, ex := range exchange {
++			if have, limit, ok := g.stackLimit(user, ex.PossessionType, ex.PossessionId); ok && over(have, limit, int64(ex.Count)*n) {
++				return true
++			}
++		}
++		return false
+ 	}
 +	switch possessionType {
 +	case model.PossessionTypeWeapon, model.PossessionTypeWeaponEnhanced:
-+		return over(int64(len(user.Weapons)), g.Limits.Weapon)
++		return over(int64(len(user.Weapons)), g.Limits.Weapon, n)
 +	case model.PossessionTypeParts, model.PossessionTypePartsEnhanced:
-+		return over(int64(len(user.Parts)), g.Limits.Parts)
-+	case model.PossessionTypeMaterial:
-+		return over(int64(user.Materials[possessionId]), g.Limits.Material)
-+	case model.PossessionTypeConsumableItem:
-+		if possessionId == g.GoldConsumableItemId {
-+			return over(int64(user.ConsumableItems[possessionId]), g.Limits.Money)
++		return over(int64(len(user.Parts)), g.Limits.Parts, n)
++	case model.PossessionTypeCostume, model.PossessionTypeCostumeEnhanced:
++		costumeId := possessionId
++		if possessionType == model.PossessionTypeCostumeEnhanced {
++			if ref, ok := g.CostumeEnhancedById[possessionId]; ok {
++				costumeId = ref.CostumeId
++			}
 +		}
-+		return over(int64(user.ConsumableItems[possessionId]), g.Limits.ConsumableItem)
-+	case model.PossessionTypeImportantItem:
-+		return over(int64(user.ImportantItems[possessionId]), g.Limits.ImportantItem)
++		for _, c := range user.Costumes {
++			if c.CostumeId == costumeId {
++				return exchangeOver(g.CostumeDuplicateExchange[costumeId])
++			}
++		}
++		return false
++	case model.PossessionTypeCompanion, model.PossessionTypeCompanionEnhanced:
++		companionId := possessionId
++		if possessionType == model.PossessionTypeCompanionEnhanced {
++			if ref, ok := g.CompanionEnhancedById[possessionId]; ok {
++				companionId = ref.CompanionId
++			}
++		}
++		for _, c := range user.Companions {
++			if c.CompanionId == companionId {
++				return exchangeOver(g.CompanionDuplicateExchange[companionId])
++			}
++		}
++		return false
 +	}
-+	return false
-+}
-+
++	have, limit, ok := g.stackLimit(user, possessionType, possessionId)
++	return ok && over(have, limit, n)
+ }
+ 
+-func (g *PossessionGranter) GrantCostume(user *UserState, costumeId int32, nowMillis int64) {
 +// GrantCostume adds the costume and reports whether it was new. An owned
 +// costume is left alone; GrantFull converts it, and summons convert their own.
 +func (g *PossessionGranter) GrantCostume(user *UserState, costumeId int32, nowMillis int64) bool {
@@ -2554,7 +3398,7 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
  		}
  	}
  	if cm, ok := g.CostumeById[costumeId]; ok {
-@@ -185,12 +351,14 @@ func (g *PossessionGranter) GrantCostume(user *UserState, costumeId int32, nowMi
+@@ -185,12 +536,14 @@ func (g *PossessionGranter) GrantCostume(user *UserState, costumeId int32, nowMi
  		Level:               1,
  		AcquisitionDatetime: nowMillis,
  	}
@@ -2571,7 +3415,7 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
  		}
  	}
  	key := uuid.New().String()
-@@ -201,6 +369,7 @@ func (g *PossessionGranter) GrantCompanion(user *UserState, companionId int32, n
+@@ -201,6 +554,7 @@ func (g *PossessionGranter) GrantCompanion(user *UserState, companionId int32, n
  		HeadupDisplayViewId: 1,
  		AcquisitionDatetime: nowMillis,
  	}
@@ -2579,10 +3423,63 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
  }
  
  func (g *PossessionGranter) GrantParts(user *UserState, requestedPartsId int32, nowMillis int64) {
+@@ -377,6 +731,27 @@ func (g *PossessionGranter) populateWeaponSkillsAbilities(user *UserState, weapo
+ 	}
+ }
+ 
++// GrantThought adds a debris (possession type 14, IUserThought) and reports
++// whether it was new. A debris the player already has is not added again.
++func GrantThought(user *UserState, thoughtId int32, nowMillis int64) bool {
++	for _, t := range user.Thoughts {
++		if t.ThoughtId == thoughtId {
++			return false
++		}
++	}
++	if user.Thoughts == nil {
++		user.Thoughts = make(map[string]ThoughtState)
++	}
++	key := uuid.New().String()
++	user.Thoughts[key] = ThoughtState{
++		UserThoughtUuid:     key,
++		ThoughtId:           thoughtId,
++		AcquisitionDatetime: nowMillis,
++		LatestVersion:       nowMillis,
++	}
++	return true
++}
++
+ func GrantWeaponStoryUnlock(user *UserState, weaponId, storyIndex int32, nowMillis int64) bool {
+ 	return grantWeaponStoryUnlock(user, weaponId, storyIndex, nowMillis)
+ }
+diff --git a/server/internal/store/sqlite/load.go b/server/internal/store/sqlite/load.go
+--- a/server/internal/store/sqlite/load.go
++++ b/server/internal/store/sqlite/load.go
+@@ -5,11 +5,21 @@ import (
+ 	"encoding/json"
+ 	"fmt"
+ 
++	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/store"
+ )
+ 
+ func (s *SQLiteStore) LoadUser(userId int64) (store.UserState, error) {
++	u, err := s.loadStored(userId)
++	if err == nil {
++		store.UpgradeTimeKeys(&u, gametime.NowMillis())
++	}
++	return u, err
++}
++
++// loadStored reads the save as stored, before UpgradeTimeKeys.
++func (s *SQLiteStore) loadStored(userId int64) (store.UserState, error) {
+ 	var u store.UserState
+ 	var fbId sql.NullInt64
+ 
 diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite/user.go
 --- a/server/internal/store/sqlite/user.go
 +++ b/server/internal/store/sqlite/user.go
-@@ -3,6 +3,9 @@ package sqlite
+@@ -3,7 +3,11 @@ package sqlite
  import (
  	"database/sql"
  	"fmt"
@@ -2590,9 +3487,11 @@ diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite
 +	"sync"
 +	"time"
  
++	"lunar-tear/server/internal/gametime"
  	"lunar-tear/server/internal/model"
  	"lunar-tear/server/internal/store"
-@@ -240,7 +243,37 @@ func (s *SQLiteStore) UpdateUUID(userId int64, newUuid string) error {
+ )
+@@ -240,13 +244,45 @@ func (s *SQLiteStore) UpdateUUID(userId int64, newUuid string) error {
  	return nil
  }
  
@@ -2625,11 +3524,20 @@ diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite
 +}
 +
  func (s *SQLiteStore) UpdateUser(userId int64, mutate func(*store.UserState)) (store.UserState, error) {
+-	before, err := s.LoadUser(userId)
 +	unlock := s.lockUser(userId)
 +	defer unlock()
- 	before, err := s.LoadUser(userId)
++	before, err := s.loadStored(userId)
  	if err != nil {
  		return store.UserState{}, err
+ 	}
+ 
+ 	after := store.CloneUserState(before)
++	// Saved so the upgraded day and week keys replace the old ones.
++	store.UpgradeTimeKeys(&after, gametime.NowMillis())
+ 	mutate(&after)
+ 
+ 	tx, err := s.db.Begin()
 diff --git a/server/internal/store/types.go b/server/internal/store/types.go
 --- a/server/internal/store/types.go
 +++ b/server/internal/store/types.go
@@ -2711,3 +3619,11 @@ diff --git a/server/internal/userdata/state_projection.go b/server/internal/user
  		"IUserCostume":                            projectTable("IUserCostume", user),
  		"IUserWeapon":                             projectTable("IUserWeapon", user),
  		"IUserWeaponStory":                        projectTable("IUserWeaponStory", user),
+@@ -107,6 +108,7 @@ func FullClientTableMap(user store.UserState) map[string]string {
+ 		"IUserFacebook":                           projectTable("IUserFacebook", user),
+ 		"IUserApple":                              projectTable("IUserApple", user),
+ 		"IUserWebviewPanelMission":                projectTable("IUserWebviewPanelMission", user),
++		"IUserCharacterViewerField":               projectTable("IUserCharacterViewerField", user),
+ 	}
+ }
+ 

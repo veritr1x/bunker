@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-	"time"
 
 	pb "lunar-tear/server/gen/proto"
 	"lunar-tear/server/internal/gametime"
@@ -59,11 +58,13 @@ func (s *MissionServiceServer) ReceiveMissionRewardsById(ctx context.Context, re
 	log.Printf("[MissionService] ReceiveMissionRewardsById: %v", req.MissionId)
 	cat := missions.Current()
 	var received []missions.Reward
+	var overflow []store.GrantOverflow
 	if cat != nil && bunkerHolder != nil {
 		granter := bunkerHolder.Get().QuestHandler.Granter
 		userId := CurrentUserId(ctx, s.users, s.sessions)
 		if _, err := s.users.UpdateUser(userId, func(u *store.UserState) {
 			received = cat.ReceiveMissions(u, granter, req.MissionId, gametime.NowMillis())
+			overflow = store.TakeGrantOverflow(u) // sent to the gift box
 		}); err != nil {
 			return nil, err
 		}
@@ -71,7 +72,7 @@ func (s *MissionServiceServer) ReceiveMissionRewardsById(ctx context.Context, re
 	return &pb.ReceiveMissionRewardsResponse{
 		ReceivedPossession: missionRewards(received),
 		ExpiredPossession:  []*pb.MissionReward{},
-		OverflowPossession: []*pb.MissionReward{},
+		OverflowPossession: overflowMissionRewards(overflow),
 	}, nil
 }
 
@@ -79,11 +80,13 @@ func (s *MissionServiceServer) ReceiveMissionPassRewards(ctx context.Context, re
 	log.Printf("[MissionService] ReceiveMissionPassRewards: pass=%d", req.MissionPassId)
 	cat := missions.Current()
 	var received []missions.Reward
+	var overflow []store.GrantOverflow
 	if cat != nil && bunkerHolder != nil {
 		granter := bunkerHolder.Get().QuestHandler.Granter
 		userId := CurrentUserId(ctx, s.users, s.sessions)
 		if _, err := s.users.UpdateUser(userId, func(u *store.UserState) {
 			received = cat.ReceivePass(u, granter, req.MissionPassId, gametime.NowMillis())
+			overflow = store.TakeGrantOverflow(u) // sent to the gift box
 		}); err != nil {
 			return nil, err
 		}
@@ -92,7 +95,7 @@ func (s *MissionServiceServer) ReceiveMissionPassRewards(ctx context.Context, re
 	for _, r := range received {
 		out = append(out, &pb.MissionPassReward{PossessionType: r.PossessionType, PossessionId: r.PossessionId, Count: r.Count})
 	}
-	return &pb.ReceiveMissionPassRewardsResponse{ReceivedPossession: out, OverflowPossession: []*pb.MissionPassReward{}}, nil
+	return &pb.ReceiveMissionPassRewardsResponse{ReceivedPossession: out, OverflowPossession: overflowMissionPassRewards(overflow)}, nil
 }
 
 func (s *RewardServiceServer) ReceiveMissionPassRemainingReward(ctx context.Context, _ *emptypb.Empty) (*pb.ReceiveMissionPassRemainingRewardResponse, error) {
@@ -226,8 +229,7 @@ var dailyGroups = sync.OnceValue(func() dailyGroupTables {
 // open one that started last.
 func (s *QuestServiceServer) ReceiveDailyQuestGroupCompleteReward(ctx context.Context, _ *emptypb.Empty) (*pb.ReceiveDailyQuestGroupCompleteRewardResponse, error) {
 	now := gametime.NowMillis()
-	t := time.UnixMilli(now).UTC()
-	today := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC).UnixMilli()
+	today := gametime.StartOfDay(now)
 	var group *masterdata.EntityMEventQuestDailyGroup
 	for i, g := range dailyGroups().groups {
 		if g.StartDatetime <= now && now < g.EndDatetime && (group == nil || g.StartDatetime > group.StartDatetime) {

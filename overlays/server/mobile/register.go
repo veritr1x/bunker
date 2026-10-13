@@ -27,7 +27,7 @@ func registerServices(
 	pubHost, pubPortStr, _ := net.SplitHostPort(publicAddr)
 	pubPort, _ := strconv.Atoi(pubPortStr)
 
-	pb.RegisterBannerServiceServer(srv, service.NewBannerServiceServer(holder))
+	pb.RegisterBannerServiceServer(srv, service.NewBannerServiceServer(userStore, userStore, holder))
 	pb.RegisterUserServiceServer(srv, service.NewUserServiceServer(userStore, userStore, holder, authURL, noRegister))
 	pb.RegisterBattleServiceServer(srv, service.NewBattleServiceServer(userStore, userStore))
 	pb.RegisterConfigServiceServer(srv, service.NewConfigServiceServer(pubHost, int32(pubPort), octoURL))

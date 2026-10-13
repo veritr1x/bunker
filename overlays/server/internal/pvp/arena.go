@@ -42,7 +42,7 @@ func (c *Catalog) Sync(u *store.UserState, now int64) (season masterdata.EntityM
 	}
 	ensureArenaDeck(u, now)
 	c.simulateDefense(u, ladder, now)
-	week := gametime.WeeklyVersion(now) // Monday 00:00 UTC
+	week := gametime.WeeklyVersion(now) // Monday 00:00 GMT-8
 	if p.WeekVersion == 0 {
 		p.WeekVersion = week
 	} else if p.WeekVersion < week {

@@ -3,6 +3,7 @@ package pvp
 import (
 	"context"
 	"io"
+	"lunar-tear/server/internal/gametime"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -148,8 +149,8 @@ func TestBattle(t *testing.T) {
 
 func TestWeekAndDefense(t *testing.T) {
 	c, u := realSave(t)
-	monday := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC).UnixMilli()
-	now := monday + 3*24*3600*1000 // a Thursday
+	monday := time.Date(2026, 10, 5, 0, 0, 0, 0, gametime.Zone).UnixMilli() // weeks start Monday 00:00 GMT-8
+	now := monday + 3*24*3600*1000                                          // a Thursday
 	season, ladder, ok := c.Sync(&u, now)
 	if !ok {
 		t.Fatal("no season open")
@@ -248,4 +249,36 @@ func TestFriends(t *testing.T) {
 	if IsFriend(f, a) || c.Cheer(f, a, day+2) {
 		t.Error("removed friend still a friend")
 	}
+}
+
+func TestFriendCards(t *testing.T) {
+	c, _ := realSave(t)
+	season, _ := c.Season(time.Now().UnixMilli())
+	ladder := c.Ladder(season.PvpSeasonId)
+	levels, powers := map[int32]bool{}, map[int32]bool{}
+	var lowSum, highSum, lowN, highN int64
+	for i := int64(1); i <= int64(ladder.Size()); i++ {
+		cpu, _ := ladder.Get(CpuIdBase + i)
+		level, power := c.Card(cpu)
+		if again, _ := c.Card(cpu); again != level {
+			t.Fatalf("player %d card changes", cpu.PlayerId)
+		}
+		if level < 1 || level > c.maxUserLevel() || power < cardPowerLow*8/10 || power > cardPowerHigh*12/10 {
+			t.Fatalf("player %d (%d points): level %d, power %d", cpu.PlayerId, cpu.Point, level, power)
+		}
+		levels[level], powers[power] = true, true
+		switch {
+		case cpu.Point < 5000:
+			lowSum, lowN = lowSum+int64(level), lowN+1
+		case cpu.Point > 40000:
+			highSum, highN = highSum+int64(level), highN+1
+		}
+	}
+	if len(levels) < 100 || len(powers) < ladder.Size()/2 {
+		t.Errorf("cards too alike: %d levels, %d powers over %d players", len(levels), len(powers), ladder.Size())
+	}
+	if lowN == 0 || highN == 0 || lowSum/lowN >= highSum/highN {
+		t.Errorf("average level below 5000 points %d, above 40000 %d", lowSum/max(1, lowN), highSum/max(1, highN))
+	}
+	t.Logf("levels: %d distinct; average %d (<5000 points) to %d (>40000); max level %d", len(levels), lowSum/max(1, lowN), highSum/max(1, highN), c.maxUserLevel())
 }

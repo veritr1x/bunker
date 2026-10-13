@@ -11,6 +11,7 @@ import (
 // need no migration.
 type ExtState struct {
 	MissionsVersion     int32                           `json:"missionsVersion,omitempty"`
+	TimeKeysVersion     int32                           `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
 	MissionPass         map[int32]MissionPassPointState `json:"missionPass,omitempty"`
 	DailyGroupReward    DailyGroupRewardState           `json:"dailyGroupReward"`
 	SceneChoices        map[int32]SceneChoiceState      `json:"sceneChoices,omitempty"`        // by QuestSceneChoiceGroupingId
@@ -20,6 +21,15 @@ type ExtState struct {
 	Quest               QuestExtState                   `json:"quest"`
 	Friends             FriendState                     `json:"friends"`
 	LastDeck            LastDeckState                   `json:"lastDeck"`
+	// CharacterViewerFields are the character viewer fields the client was
+	// told were unlocked: CharacterViewerFieldId -> release time.
+	CharacterViewerFields map[int32]int64 `json:"characterViewerFields,omitempty"`
+	// History is the profile's play history counters that are counted
+	// (profile.history.name.NNN -> count; see internal/missions/history.go).
+	History map[int32]int64 `json:"history,omitempty"`
+	// GrantOverflow is what this request's grants sent to the gift box
+	// (see PossessionGranter.GrantFullAs); never saved.
+	GrantOverflow []GrantOverflow `json:"-"`
 }
 
 // PvpState is the player's Arena: points, battle points, the computer
@@ -116,6 +126,9 @@ func (e *ExtState) EnsureMaps() {
 	if e.LevelBonusConfirmed == nil {
 		e.LevelBonusConfirmed = make(map[int32]int32)
 	}
+	if e.History == nil {
+		e.History = make(map[int32]int64)
+	}
 }
 
 func (e ExtState) Clone() ExtState {
@@ -124,6 +137,9 @@ func (e ExtState) Clone() ExtState {
 	out.SceneChoices = maps.Clone(e.SceneChoices)
 	out.SceneChoiceHistory = maps.Clone(e.SceneChoiceHistory)
 	out.LevelBonusConfirmed = maps.Clone(e.LevelBonusConfirmed)
+	out.CharacterViewerFields = maps.Clone(e.CharacterViewerFields)
+	out.History = maps.Clone(e.History)
+	out.GrantOverflow = slices.Clone(e.GrantOverflow)
 	out.Pvp = e.Pvp.Clone()
 	out.Quest = e.Quest.Clone()
 	out.Friends = e.Friends.Clone()
@@ -131,11 +147,13 @@ func (e ExtState) Clone() ExtState {
 }
 
 func (e ExtState) Equal(o ExtState) bool {
-	return e.MissionsVersion == o.MissionsVersion && e.DailyGroupReward == o.DailyGroupReward &&
+	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.DailyGroupReward == o.DailyGroupReward &&
 		maps.Equal(e.MissionPass, o.MissionPass) &&
 		maps.Equal(e.SceneChoices, o.SceneChoices) &&
 		maps.Equal(e.SceneChoiceHistory, o.SceneChoiceHistory) &&
 		maps.Equal(e.LevelBonusConfirmed, o.LevelBonusConfirmed) &&
+		maps.Equal(e.CharacterViewerFields, o.CharacterViewerFields) &&
+		maps.Equal(e.History, o.History) &&
 		e.Pvp.Equal(o.Pvp) && e.Quest.Equal(o.Quest) &&
 		e.Friends.Equal(o.Friends) && e.LastDeck == o.LastDeck
 }

@@ -133,9 +133,24 @@ func TestArenaEndToEnd(t *testing.T) {
 	if err != nil || cpu.Name != opponent.Name || len(cpu.LatestUsedDeck.GetDeckCharacter()) != 3 || cpu.PvpInfo.GetCurrentGradeId() == 0 {
 		t.Fatalf("computer player profile: %v %+v", err, cpu)
 	}
+	if cpu.Level <= 1 || cpu.LatestUsedDeck.GetPower() <= 0 {
+		t.Fatalf("computer player level %d, power %d", cpu.Level, cpu.LatestUsedDeck.GetPower())
+	}
 	me, err := users.GetUserProfile(ctx, &pb.GetUserProfileRequest{})
 	if err != nil || me.PvpInfo.GetCurrentRank() != finish.AfterRank || me.PvpInfo.GetCurrentGradeId() == 0 {
 		t.Fatalf("own profile Arena info: %v %+v", err, me.GetPvpInfo())
+	}
+	// Play history: every counter; the Arena match just played counts.
+	history := me.GetGamePlayHistory().GetHistoryItem()
+	if len(history) != 29 || history[18].HistoryItemId != 19 || history[18].Count < 1 {
+		t.Fatalf("play history: %v", history)
+	}
+	// The pedometer's walk distance (play history 13) adds up what the cage reports.
+	if _, err := pb.NewMissionServiceClient(conn).UpdateMissionProgress(ctx, &pb.UpdateMissionProgressRequest{CageMeasurableValues: &pb.CageMeasurableValues{RunningDistanceMeters: 75}}); err != nil {
+		t.Fatal(err)
+	}
+	if note, err := users.GetUserGamePlayNote(ctx, &pb.GetUserGamePlayNoteRequest{GamePlayHistoryTypeId: 13}); err != nil || note.ProgressValue < 75 {
+		t.Fatalf("walk distance: %v %+v", err, note)
 	}
 
 	tables, err := pb.NewDataServiceClient(conn).GetUserData(ctx, &pb.UserDataGetRequest{TableName: []string{"IUserPvpStatus", "IUserPvpDefenseDeck", "IUserPvpWeeklyResult"}})

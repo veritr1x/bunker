@@ -13,7 +13,6 @@ import (
 
 	pb "lunar-tear/server/gen/proto"
 	"lunar-tear/server/internal/gametime"
-	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/pvp"
 	"lunar-tear/server/internal/store"
 
@@ -22,7 +21,7 @@ import (
 )
 
 // cpuCard is how a computer player shows in friend lists: level, deck power
-// and favorite costume, as on its profile (cpuProfile).
+// and favorite costume, as on its profile (cpuProfile; see pvp.Catalog.Card).
 type cpuCard struct {
 	cpu       pvp.CPU
 	level     int32
@@ -30,15 +29,13 @@ type cpuCard struct {
 	lastLogin time.Time
 }
 
-// friendWorld is the Arena's ladder this season, with the player's own deck
-// to scale the computer players against.
+// friendWorld is the Arena's ladder this season.
 type friendWorld struct {
 	c      *pvp.Catalog
 	ladder *pvp.Ladder
-	user   *store.UserState
 }
 
-func newFriendWorld(u *store.UserState) (friendWorld, bool) {
+func newFriendWorld() (friendWorld, bool) {
 	c := pvp.Current()
 	if c == nil {
 		return friendWorld{}, false
@@ -47,7 +44,7 @@ func newFriendWorld(u *store.UserState) (friendWorld, bool) {
 	if !ok {
 		return friendWorld{}, false
 	}
-	return friendWorld{c: c, ladder: c.Ladder(season.PvpSeasonId), user: u}, true
+	return friendWorld{c: c, ladder: c.Ladder(season.PvpSeasonId)}, true
 }
 
 func (w friendWorld) card(playerId int64, now int64) (cpuCard, bool) {
@@ -55,12 +52,8 @@ func (w friendWorld) card(playerId int64, now int64) (cpuCard, bool) {
 	if !ok {
 		return cpuCard{}, false
 	}
-	strength := pvp.Strength(cpu.Point, w.user.Ext.Pvp.Point)
-	profile := w.c.ProfileOf(w.user, store.DeckKey{DeckType: model.DeckTypePvp, UserDeckNumber: max(1, w.user.Ext.Pvp.DefenseDeckNumber)})
-	card := cpuCard{cpu: cpu, level: 1, power: pvp.DeckPower(profile, strength)}
-	if deck := w.c.Deck(cpu, profile, strength); len(deck) > 0 {
-		card.level = max(1, min(150, deck[0].GetCostume().GetCharacterLevel()))
-	}
+	card := cpuCard{cpu: cpu}
+	card.level, card.power = w.c.Card(cpu)
 	// Seen within the last few hours, a different time for each.
 	card.lastLogin = time.UnixMilli(now - (playerId%240)*60*1000)
 	return card, true
@@ -76,11 +69,7 @@ func cheerDay() int64 { return gametime.StartOfDayMillis() }
 
 func (s *FriendServiceServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
 	log.Printf("[FriendService] GetUser: playerId=%d", req.PlayerId)
-	u, err := s.users.LoadUser(CurrentUserId(ctx, s.users, s.sessions))
-	if err != nil {
-		return &pb.GetUserResponse{}, nil
-	}
-	w, ok := newFriendWorld(&u)
+	w, ok := newFriendWorld()
 	if !ok {
 		return &pb.GetUserResponse{}, nil
 	}
@@ -97,7 +86,7 @@ func (s *FriendServiceServer) GetFriendList(ctx context.Context, req *pb.GetFrie
 	if err != nil {
 		return resp, nil
 	}
-	w, ok := newFriendWorld(&u)
+	w, ok := newFriendWorld()
 	if !ok {
 		return resp, nil
 	}
@@ -126,7 +115,7 @@ func (s *FriendServiceServer) SearchRecommendedUsers(ctx context.Context, _ *emp
 	if err != nil {
 		return resp, nil
 	}
-	w, ok := newFriendWorld(&u)
+	w, ok := newFriendWorld()
 	if !ok {
 		return resp, nil
 	}

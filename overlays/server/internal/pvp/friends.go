@@ -1,6 +1,7 @@
 package pvp
 
 import (
+	"math"
 	"math/rand/v2"
 	"slices"
 
@@ -115,4 +116,33 @@ func (c *Catalog) Recommend(f *store.FriendState, ladder *Ladder, point int32, u
 		out = append(out, cpu)
 	}
 	return out
+}
+
+// Computer players' accounts, for their friend cards and profiles. The ranges
+// are a guess at players of each Arena band (the original players' are not
+// known): from a new account at 0 points to a long-played one at the top.
+const (
+	cardLevelLow, cardLevelHigh = 15, 250
+	cardPowerLow, cardPowerHigh = 10000, 180000
+)
+
+// Card is a computer player's user level and deck power as its friend card and
+// profile show them: its own, the same each time (seeded by its id), higher
+// the more Arena points it has. Battles don't use it: Deck builds the
+// opponent against the player's own deck.
+func (c *Catalog) Card(cpu CPU) (level, power int32) {
+	r := rand.New(rand.NewPCG(uint64(cpu.PlayerId), 0x5ca1ab1e))
+	band := math.Max(0, math.Min(1, float64(cpu.Point)/topPoint))
+	jitter := func(spread float64) float64 { return 1 + spread*(2*r.Float64()-1) }
+	level = int32(math.Round((cardLevelLow + (cardLevelHigh-cardLevelLow)*math.Pow(band, 0.6)) * jitter(0.15)))
+	power = int32(math.Round((cardPowerLow + (cardPowerHigh-cardPowerLow)*math.Pow(band, 0.8)) * jitter(0.12)))
+	return max(1, min(level, c.maxUserLevel())), power
+}
+
+// maxUserLevel is the highest user level in the master data.
+func (c *Catalog) maxUserLevel() int32 {
+	if c.cats != nil && c.cats.Quest != nil && len(c.cats.Quest.UserExpThresholds) > 1 {
+		return int32(len(c.cats.Quest.UserExpThresholds) - 1)
+	}
+	return cardLevelHigh
 }

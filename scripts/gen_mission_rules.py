@@ -8,7 +8,8 @@ Record: Sunset Port 10 times", "Reach level 30 with Blackbird Dagger"), so this
 script reads each name and writes a rule the server can evaluate:
 
   {"id": mission, "k": kind, "q": quest filter, "c": costumes, "w": weapons, "ch": characters,
-   "ex": explore ids, "bh": subjugation boss ids, "bg": Mythic Slab group types, "lt": concert live type}
+   "ex": explore ids, "bh": subjugation boss ids, "bg": Mythic Slab group types, "lt": concert live type,
+   "nt": tutorials never played, "wd": profile message word}
 
 A mission whose name doesn't match a known pattern gets no rule and stays at 0.
 
@@ -38,6 +39,7 @@ SIMPLE = {
     44: "weapon_skill_level", 45: "weapon_ability_level", 50: "cheer_friend", 51: "big_hunt_play", 52: "big_hunt_knockdown",
     55: "defeat_wizard", 60: "report", 65: "stamina", 67: "login_from_unlock", 68: "all_daily", 69: "pvp_rank",
     70: "weapon_awaken", 72: "lottery_slot", 73: "lottery_draw", 74: "pvp_streak_from_unlock",
+    57: "title_transition", 58: "weapon_protect", 59: "explore_score_total",
 }
 # Exploration option groups (types 26 and 29), named in the missions: Shooting is explore group 1
 # (explores 1 Normal, 11 Hard; the first, from launch), Flying Mama group 2 (2 Normal, 12 Hard; added 2021-08).
@@ -75,6 +77,7 @@ class Names:
         self.event_chapters = collections.defaultdict(set)   # name -> event chapter ids
         self.main_chapters = collections.defaultdict(set)    # name -> main chapter ids
         self.main_by_number = {}                              # season-1 chapter number -> main chapter id
+        self.main_last = {}                                   # (main chapter id, difficulty) -> last quest's place
         self.costumes = collections.defaultdict(set)          # "rion (yuletide exile)", "yuletide exile" -> ids
         self.weapons = collections.defaultdict(set)
         self.characters = collections.defaultdict(set)
@@ -106,8 +109,17 @@ class Names:
         for cc in load(master, "MEventQuestChapterCharacter"):
             self.chapter_characters[cc["EventQuestChapterId"]].add(cc["CharacterId"])
         routes = {r["MainQuestRouteId"]: r for r in load(master, "MMainQuestRoute")}
+        main_orders = collections.defaultdict(list)
+        for s in load(master, "MMainQuestSequence"):
+            main_orders[s["MainQuestSequenceId"]].append(s["SortOrder"])
+        main_groups = collections.defaultdict(list)
+        for g in load(master, "MMainQuestSequenceGroup"):
+            main_groups[g["MainQuestSequenceGroupId"]].append(g)
         for c in load(master, "MMainQuestChapter"):
             route = routes[c["MainQuestRouteId"]]
+            for g in main_groups[c["MainQuestSequenceGroupId"]]:
+                if orders := main_orders[g["MainQuestSequenceId"]]:
+                    self.main_last[(c["MainQuestChapterId"], g["DifficultyType"])] = len(orders)
             where = f"{route['MainQuestSeasonId']}.{route['SortOrder']}.{c['SortOrder']}"
             for key in (f"quest.main.chapter_number.{where}", f"quest.main.chapter_title.{where}"):
                 if key in texts:
@@ -157,6 +169,15 @@ class Names:
         for n in (name, "the " + name, name.replace("false ", "f. ")):
             if n in self.costumes:
                 return sorted(self.costumes[n])
+        return []
+
+    def weapon_ids(self, name: str) -> list[int]:
+        """A weapon by name, also misspelt in the singular ("Blackbird Gauntlet's skills") or with its
+        type after it ("Flurry of Indulgence Dagger")."""
+        name = norm(name)
+        for n in (name, name + "s", name.rsplit(" ", 1)[0]):
+            if n in self.weapons:
+                return sorted(self.weapons[n])
         return []
 
     def dark_memory_quests(self, character: str, quest: str) -> list[int]:
@@ -241,6 +262,12 @@ def quest_filter(name: str, n: Names, opt: int) -> dict | None:
             return None
         q["main_chapters"] = [cid]
         return q
+    # "Clear story quest 1-1": main story chapter 1, quest 1 (the New Year 2022 missions).
+    if m := re.fullmatch(r"clear story quest (\d+)-(\d+)", s):
+        if (cid := n.main_by_number.get(int(m[1]))) is None:
+            return None
+        q.update(main_chapters=[cid], order=int(m[2]))
+        return q
     # "Complete character quest 4 for Priyet", "Clear 1 Recollections of Dusk quest for Fio".
     if m := re.fullmatch(r"(?:complete|clear) character quest (\d+) for (.+)", s):
         ids = n.character_ids(m[2])
@@ -283,6 +310,23 @@ def quest_filter(name: str, n: Names, opt: int) -> dict | None:
     return None
 
 
+def detailed_quest(name: str, n: Names) -> dict | None:
+    """Rule fields for the quest missions with extra conditions (an option detail group) that their
+    names state in full; None for the rest ("Clear a conditional quest")."""
+    s = norm(name)
+    # The chapter's last Normal quest, with the tutorials a first defeat shows (client TutorialType
+    # LOSE_FIRST 44, LOSE_FIRST_AFTER_CHAPTER 57) never played.
+    if m := re.fullmatch(r"clear chapter (\d+) without playing the tutorial that appears when you first fail a quest", s):
+        cid = n.main_by_number.get(int(m[1]))
+        if cid is None or (cid, 1) not in n.main_last:
+            return None
+        return {"q": {"main_chapters": [cid], "diff": [1], "order": n.main_last[(cid, 1)]}, "nt": [44, 57]}
+    # "Clear Quest 3 of an event quest on EX Hard": the third quest of any event chapter's EX Hard.
+    if m := re.fullmatch(r"clear quest (\d+) of an event quest on (normal|hard|very hard|ex hard)", s):
+        return {"q": {"event": True, "order": int(m[1]), "diff": [DIFFICULTY[m[2]]]}}
+    return None
+
+
 def loadout(name: str, n: Names) -> tuple[str, list[int], bool] | None:
     """Missions that need a costume (or a character) in the deck: the rest of the name and the costume ids."""
     s = norm(name)
@@ -310,6 +354,9 @@ def main():
     texts = dict(sqlite3.connect(args.text_db).execute("SELECT key, value FROM text"))
     names = Names(args.master_json, texts)
     rules, unknown = [], collections.Counter()
+    complete_groups = collections.defaultdict(list)
+    for g in load(args.master_json, "MCompleteMissionGroup"):
+        complete_groups[g["MissionId"]].append(g)
     for mission in load(args.master_json, "MMission"):
         kind_type = mission["MissionClearConditionType"]
         name = texts.get(f"mission.name.{mission['NameMissionTextId']}", "")
@@ -322,6 +369,9 @@ def main():
             q = quest_filter(text, names, mission["MissionClearConditionOptionGroupId"]) if text else None
             if mission["MissionClearConditionOptionDetailGroupId"] and not only:
                 q = None  # extra conditions the name only hints at ("a conditional quest")
+                if found := detailed_quest(name, names):
+                    q = found.pop("q")
+                    rule.update(found)
             if only:
                 rule["co"] = True  # "with only Akeha in your loadout": every costume in the deck
             if q is None:
@@ -333,12 +383,33 @@ def main():
             if kind_type == 62 or "skip tickets cannot be used" in norm(name):
                 rule["ns"] = True
         elif kind_type in SIMPLE:
+            # Types 57 (title screen visits), 58 (weapon locks) and 59 (exploration score) have one
+            # mission each (New Year 2022); their option groups (395, 391) name nothing else.
             rule["k"] = SIMPLE[kind_type]
+        elif kind_type == 49:  # collect the costumes m_complete_mission_group lists
+            ids = sorted(g["PossessionId"] for g in complete_groups[mission["MissionId"]] if g["PossessionType"] == 1)
+            if not ids:
+                unknown[kind_type] += 1
+                continue
+            rule.update(k="costume_collect", c=ids)
+        elif kind_type == 56:  # profile message: 'Set your profile comment as "A Happy New Year"', "Update your profile comment"
+            s = norm(name)
+            if m := re.fullmatch(r'set your profile comment as "(.+)"', s):
+                rule.update(k="user_message", wd=m[1])
+            elif s in ("update your profile comment", "update profile"):
+                rule["k"] = "user_message"
+            else:
+                unknown[kind_type] += 1
+                continue
         elif kind_type in WEAPON_KINDS:
             rule["k"] = WEAPON_KINDS[kind_type]
             if mission["MissionClearConditionOptionGroupId"]:
-                m = re.search(r"(?:with|enhance|evolve|ascend) (.+?)(?:'s)?(?: skills)?(?: \d+ times?| once| 1 time)?$", norm(name))
-                ids = sorted(names.weapons.get(m[1], ())) if m else []
+                # "Enhance Spear of Freezing Mist's weapon skills 1 time", "Enhance Dark Fists' skills 3 times";
+                # one ascension mission names only the weapon: "Flurry of Indulgence Dagger 1 times".
+                s = norm(name)
+                m = (re.search(r"(?:with|enhance|evolve|ascend) (.+?)(?:'s|')?(?: weapon)?(?: skills)?(?: \d+ times?| \d+ time\(s\)| once)?$", s)
+                     or re.fullmatch(r"(.+?) \d+ times?", s))
+                ids = names.weapon_ids(m[1]) if m else []
                 if not ids:
                     unknown[kind_type] += 1
                     continue
@@ -346,7 +417,7 @@ def main():
         elif kind_type in COSTUME_KINDS:
             rule["k"] = COSTUME_KINDS[kind_type]
             if mission["MissionClearConditionOptionGroupId"]:
-                m = re.search(r"(?:with|enhance|ascend|awaken) (.+?)(?:'s)?(?: \(([^)]*)\))?(?:'s)?(?: skills)?(?: \d+ times?| once| 1 time)?$", norm(name))
+                m = re.search(r"(?:with|enhance|ascend|awaken) (.+?)(?:'s)?(?: \(([^)]*)\))?(?:'s)?(?: skills)?(?: \d+ times?| \d+ time\(s\)| once)?$", norm(name))
                 ids = []
                 if m:
                     ids = names.costume_ids(f"{m[1]} ({m[2]})" if m[2] else m[1])

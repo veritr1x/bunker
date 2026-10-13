@@ -50,6 +50,33 @@ Checked against the game's master data and the 3.7.1 client. [9e760e4]
 - **Reliability:** an error in one request no longer stops the server. Database
   settings apply to every connection, and saves can't overwrite each other.
 
+### Server: more of the original game
+- **Daily reset:** days now start at 00:00 GMT-8, all year, as the game's own
+  "Resets at 00:00 (PST)" says. Weeks start Monday 00:00 GMT-8. Saves made
+  before move across without losing the week's Big Hunt and Arena results, and
+  without a second daily reward on the day of the switch.
+- **Daily quests:** quests that can be cleared a set number of times a day
+  start over each day.
+- **Stamina:** levelling up no longer lowers stamina that is above the maximum.
+- **Shop:** limited stock refills each day, week or month, as the game data
+  says, and a sold-out item can't be bought.
+- **Storage limits:** items past the limit (999 weapons or memoirs, 99,999
+  materials) go to the gift box, labelled as the game labels them. Summons,
+  quests, missions and the shop all do this, and the shop shows its "sent to
+  gift box" notice.
+- **Debris** rewards are granted; they were dropped before.
+- **Character viewer:** a field's unlock notice shows once, not on every visit.
+- **Mama's summon banner** shows the latest chapter you've unlocked.
+- **Missions:** 66 more missions count (6,350 of 6,436), including:
+  - the Collection missions for sets of costumes;
+  - event missions for a named weapon or costume;
+  - "Update your profile comment" and the New Year missions.
+
+  Event missions on Hard and EX Hard quests now match their quests.
+- **Friends:** computer players each have their own level and total force.
+- **Profile:** play history shows its 29 counts. The Cage's pedometer shows the
+  distance walked.
+
 ### Server: fixes
 - A new player's first load stopped at 60%. Two karma tables were sent as
   null; every table is now sent as a list. [a9358bd]

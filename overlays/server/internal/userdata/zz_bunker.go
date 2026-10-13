@@ -236,6 +236,7 @@ func bunkerChangedTables(before, after *store.UserState) []string {
 		out = append(out, "IUserPvpWeeklyResult")
 	}
 	out = append(out, costumeChangedTables(before, after)...)
+	out = append(out, viewerChangedTables(before, after)...)
 	return out
 }
 
@@ -267,6 +268,9 @@ func bunkerKeyFields(table string) []string {
 		return []string{"userId"}
 	case "IUserPvpWeeklyResult":
 		return []string{"userId", "pvpWeeklyVersion"}
+	}
+	if keys := viewerKeyFields(table); keys != nil {
+		return keys
 	}
 	return costumeDerivedKeyFields(table)
 }

@@ -388,3 +388,164 @@ func TestQuestFilterQuests(t *testing.T) {
 		t.Errorf("Akeha and another: %d", n)
 	}
 }
+
+func TestNewRules(t *testing.T) {
+	cat, st, uid, _ := realSave(t)
+	u, err := st.LoadUser(uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule := func(id int32) Rule {
+		t.Helper()
+		m := cat.ById[id]
+		if m == nil || m.Rule.Kind == "" {
+			t.Fatalf("mission %d has no rule", id)
+		}
+		return m.Rule
+	}
+	// Named weapons and costumes ("Enhance Spear of Freezing Mist's weapon skills", "Flurry of Indulgence Dagger 1 times").
+	for id, want := range map[int32]string{1333: "weapon_skill", 3320: "weapon_skill", 9012: "weapon_skill", 5721: "weapon_limit_break", 3814: "costume_skill"} {
+		if r := rule(id); r.Kind != want || len(r.Weapons)+len(r.Costumes) == 0 {
+			t.Errorf("mission %d rule %+v", id, r)
+		}
+	}
+	if r := rule(1333); !contains(r.Weapons, 220061) {
+		t.Errorf("Spear of Freezing Mist: %v", r.Weapons)
+	}
+
+	// Collections: the costumes m_complete_mission_group lists, owned.
+	group := cat.ById[900201] // Rion and Gayle
+	if r := rule(900201); r.Kind != "costume_collect" || len(r.Costumes) != 2 {
+		t.Fatalf("collection rule %+v", r)
+	}
+	v := store.CloneUserState(u)
+	v.Costumes = map[string]store.CostumeState{"a": {CostumeId: group.Rule.Costumes[0]}, "b": {CostumeId: group.Rule.Costumes[0]}}
+	if n := cat.stateValue(group, &v); n != 1 {
+		t.Errorf("one of two costumes (twice): %d", n)
+	}
+	v.Costumes["c"] = store.CostumeState{CostumeId: group.Rule.Costumes[1]}
+	if n := cat.stateValue(group, &v); n != 2 {
+		t.Errorf("both costumes: %d", n)
+	}
+
+	// Chapter 4 without the first-defeat tutorials: its last Normal quest.
+	ch4 := cat.ById[460002]
+	var last int32
+	for id, places := range cat.places {
+		for _, p := range places {
+			if p.MainChapter == 5 && p.Difficulty == 1 && p.Rank == ch4.Rule.Quest.Order {
+				last = id
+			}
+		}
+	}
+	won := &counts{clears: []questClear{{questId: last, count: 1}}, tutorials: map[int32]store.TutorialProgressState{1: {}}}
+	if last == 0 || cat.amountFor(ch4, won) != 1 {
+		t.Errorf("chapter 4 last quest %d without the tutorials: %d", last, cat.amountFor(ch4, won))
+	}
+	won.tutorials[44] = store.TutorialProgressState{TutorialType: 44}
+	if cat.amountFor(ch4, won) != 0 {
+		t.Error("counted after the first-defeat tutorial")
+	}
+
+	// Quest 3 of an event on EX Hard: EX Hard numbers on after Very Hard (31, 32, 33...).
+	ex := cat.ById[500013]
+	var third, second int32
+	for id, places := range cat.places {
+		for _, p := range places {
+			if p.EventChapter == 501 && p.Difficulty == 4 {
+				switch p.Rank {
+				case 3:
+					third = id
+				case 2:
+					second = id
+				}
+			}
+		}
+	}
+	if third == 0 || !cat.QuestMatches(ex.Rule.Quest, third) || cat.QuestMatches(ex.Rule.Quest, second) {
+		t.Errorf("EX Hard quest 3: %d matches %v, quest 2 %d matches %v", third, cat.QuestMatches(ex.Rule.Quest, third), second, cat.QuestMatches(ex.Rule.Quest, second))
+	}
+	// "Clear story quest 2-2": main story chapter 2, quest 2.
+	if r := rule(7006); r.Quest == nil || len(r.Quest.MainChapters) != 1 || r.Quest.Order != 2 {
+		t.Errorf("story quest 2-2: %+v", r.Quest)
+	}
+
+	// Profile messages, title screen, weapon locks, exploration score.
+	set := func(msg string) *counts {
+		return collect(&u, &u, "/apb.api.user.UserService/SetUserMessage", &pb.SetUserMessageRequest{Message: msg})
+	}
+	newYear, update := cat.ById[7004], cat.ById[1010901]
+	if cat.amountFor(newYear, set("A happy  new year!")) != 1 || cat.amountFor(newYear, set("Hello")) != 0 || cat.amountFor(update, set("Hello")) != 1 {
+		t.Error("profile message missions")
+	}
+	if n := cat.amountFor(cat.ById[7007], collect(&u, &u, "/apb.api.user.UserService/GameStart", nil)); n != 1 {
+		t.Errorf("title screen: %d", n)
+	}
+	if n := cat.amountFor(cat.ById[7010], collect(&u, &u, "/apb.api.explore.ExploreService/FinishExplore", &pb.FinishExploreRequest{ExploreId: 1, Score: 12345})); n != 12345 {
+		t.Errorf("exploration score: %d", n)
+	}
+	before := store.CloneUserState(u)
+	after := store.CloneUserState(u)
+	for id, w := range after.Weapons {
+		before.Weapons[id] = store.WeaponState{WeaponId: w.WeaponId}
+		w.IsProtected = true
+		after.Weapons[id] = w
+	}
+	if n := cat.amountFor(cat.ById[7008], collect(&before, &after, "/apb.api.weapon.WeaponService/Protect", nil)); n != int64(len(after.Weapons)) || n == 0 {
+		t.Errorf("weapon locks: %d of %d", n, len(after.Weapons))
+	}
+}
+
+func TestPlayHistory(t *testing.T) {
+	cat, st, uid, _ := realSave(t)
+	u, err := st.LoadUser(uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	track := func(method string, req any) {
+		prev := store.CloneUserState(u)
+		now++
+		cat.Track(&prev, &u, method, req, now)
+	}
+	// A save tracked before the history starts it from its missions.
+	u.Ext.MissionsVersion = 3
+	track("/apb.api.user.UserService/GameStart", nil)
+	var done int64
+	for _, m := range u.Missions {
+		if m.MissionProgressStatusType >= StatusClear {
+			done++
+		}
+	}
+	if got := cat.HistoryValue(&u, HistoryMissionsCompleted); got != done || done == 0 {
+		t.Errorf("missions completed %d, %d cleared", got, done)
+	}
+	walk := cat.HistoryValue(&u, HistoryWalkDistance)
+	track("/apb.api.mission.MissionService/UpdateMissionProgress", &pb.UpdateMissionProgressRequest{CageMeasurableValues: &pb.CageMeasurableValues{RunningDistanceMeters: 120}})
+	if got := cat.HistoryValue(&u, HistoryWalkDistance); got != walk+120 {
+		t.Errorf("walk distance %d -> %d", walk, got)
+	}
+	track("/apb.api.weapon.WeaponService/EnhanceSkill", &pb.EnhanceSkillRequest{})
+	var itemShop int32
+	for id, g := range cat.shopGroups {
+		if g == shopGroupItemShop {
+			itemShop = id
+		}
+	}
+	track("/apb.api.shop.ShopService/Buy", &pb.BuyRequest{ShopId: itemShop})
+	track("/apb.api.explore.ExploreService/FinishExplore", &pb.FinishExploreRequest{ExploreId: 11})
+	if cat.HistoryValue(&u, HistoryWeaponSkill) != 1 || cat.HistoryValue(&u, HistoryItemShopPurchases) != 1 ||
+		cat.HistoryValue(&u, HistoryExchangeTrades) != 0 || cat.HistoryValue(&u, HistoryExploreGroup1) < 1 {
+		t.Errorf("counted: %v", u.Ext.History)
+	}
+	items := cat.PlayHistory(&u)
+	if len(items) != historyCount || items[0].HistoryItemId != 1 || items[historyCount-1].HistoryItemId != historyCount {
+		t.Fatalf("%d history items", len(items))
+	}
+	if items[HistoryDaysLoggedIn-1].Count != int64(u.Login.TotalLoginCount) || items[HistoryCostumeTypes-1].Count == 0 {
+		t.Errorf("from the save: %v", items)
+	}
+	for _, it := range items {
+		t.Logf("history %d: %d", it.HistoryItemId, it.Count)
+	}
+}
