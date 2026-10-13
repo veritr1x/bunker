@@ -128,6 +128,9 @@ func day(millis int64) string {
 }
 
 func (t *gameText) price(p store.GachaPricePhaseEntry) string {
+	if p.Price == 0 {
+		return "Free"
+	}
 	switch p.PriceType {
 	case model.PriceTypeGem:
 		return fmt.Sprintf("%d gems", p.Price)

@@ -36,6 +36,21 @@ calendar.
 - Each summon's pity ceiling comes from its medal (50, 100, 150 or 200).
 - Summons with a placeholder 2099 row (50, 58) are listed once and open.
 - With the calendar, featured items match catalog terms on original dates.
+- The shard conversion popup is sent until the next game start; the game
+  only shows it when Summons is opened, not when returning to it.
+- Multi-step summons are one summon each, with 7, 5 or 3 steps from the game
+  text (5 when unknown).
+- Summons that start together get their own featured items: those their
+  exchange shop also sells (e.g. Drakengard 3 rerun, FFXIV Resurrected).
+- Chapter summons moved to ids 2100000+ (saved box progress moves with
+  them), so "Mama's Dream" banners no longer open chapter 1 and 2 summons.
+- 19 summons without a medal row get theirs from a matching exchange shop
+  (Festive Dress, YoRHa Stage Play, Fortune's Dress, Blessed Dress, DQX,
+  Yuletide and more).
+- FFXIV (159) and Monthly Featured (414) reruns run on their shop's dates.
+- Special summons follow their titles: free summons give one free 10-pull a
+  day, "★★★★ guaranteed" ones a single 10-pull with a ★4 for 3000 gems, and
+  "paid only" ones take paid gems. Bonus and newcomer summons are left out.
 
 ### Story events
 - Chapter 6-4 (Levania's memory): the player could walk past Mama's lines and

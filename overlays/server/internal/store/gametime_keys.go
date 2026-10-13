@@ -1,6 +1,9 @@
 package store
 
-import "lunar-tear/server/internal/gametime"
+import (
+	"lunar-tear/server/internal/gametime"
+	"lunar-tear/server/internal/model"
+)
 
 // UpgradeTimeKeys moves day and week keys an older save stored at UTC
 // midnight to the game's GMT-8 boundaries (see gametime). Timestamps need no
@@ -45,6 +48,26 @@ func UpgradeTimeKeys(u *UserState, now int64) {
 	}
 	u.Ext.Friends.Day = gametime.UpgradeDayVersion(u.Ext.Friends.Day, now)
 	upgradeDailyTimestamps(u, now)
+	UpgradeChapterGachaIds(u)
+}
+
+// UpgradeChapterGachaIds moves chapter summon progress (box draws) from the
+// old ids, 200000 + chapter, which "Mama's Dream" summons also use, to
+// model.ChapterGachaIdBase + chapter. It runs once per save.
+func UpgradeChapterGachaIds(u *UserState) {
+	if u.Ext.ChapterGachaIds >= 1 {
+		return
+	}
+	u.Ext.ChapterGachaIds = 1
+	for id, st := range u.Gacha.BannerStates {
+		chapter := id - model.LegacyChapterGachaIdBase
+		if chapter < 0 || chapter > 99 {
+			continue
+		}
+		delete(u.Gacha.BannerStates, id)
+		st.GachaId = model.ChapterGachaIdBase + chapter
+		u.Gacha.BannerStates[st.GachaId] = st
+	}
 }
 
 // upgradeDailyTimestamps runs once per save. A daily reward or count recorded

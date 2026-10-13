@@ -13,6 +13,10 @@ type ExtState struct {
 	MissionsVersion     int32                           `json:"missionsVersion,omitempty"`
 	TimeKeysVersion     int32                           `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
 	CalendarLoop        int32                           `json:"calendarLoop,omitempty"`    // Original calendar loop the rotating progress belongs to
+	ChapterGachaIds     int32                           `json:"chapterGachaIds,omitempty"` // 1: chapter summon progress moved to model.ChapterGachaIdBase
+	// GachaExec counts draws of summon price options that have a limit
+	// (free once a day, one-time guaranteed): GachaPricePhaseId -> count.
+	GachaExec map[int32]GachaExecState `json:"gachaExec,omitempty"`
 	MissionPass         map[int32]MissionPassPointState `json:"missionPass,omitempty"`
 	DailyGroupReward    DailyGroupRewardState           `json:"dailyGroupReward"`
 	SceneChoices        map[int32]SceneChoiceState      `json:"sceneChoices,omitempty"`        // by QuestSceneChoiceGroupingId
@@ -84,6 +88,11 @@ type PvpWeeklyResult struct {
 	FinalRank   int32 `json:"finalRank"`
 }
 
+type GachaExecState struct {
+	Count int32 `json:"count"`
+	Day   int64 `json:"day,omitempty"` // game day the count is for, for daily options
+}
+
 func (p PvpState) Clone() PvpState {
 	out := p
 	out.Matching = slices.Clone(p.Matching)
@@ -136,6 +145,7 @@ func (e *ExtState) EnsureMaps() {
 func (e ExtState) Clone() ExtState {
 	out := e
 	out.MissionPass = maps.Clone(e.MissionPass)
+	out.GachaExec = maps.Clone(e.GachaExec)
 	out.SceneChoices = maps.Clone(e.SceneChoices)
 	out.SceneChoiceHistory = maps.Clone(e.SceneChoiceHistory)
 	out.LevelBonusConfirmed = maps.Clone(e.LevelBonusConfirmed)
@@ -149,8 +159,8 @@ func (e ExtState) Clone() ExtState {
 }
 
 func (e ExtState) Equal(o ExtState) bool {
-	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.CalendarLoop == o.CalendarLoop && e.DailyGroupReward == o.DailyGroupReward &&
-		maps.Equal(e.MissionPass, o.MissionPass) &&
+	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.CalendarLoop == o.CalendarLoop && e.ChapterGachaIds == o.ChapterGachaIds && e.DailyGroupReward == o.DailyGroupReward &&
+		maps.Equal(e.MissionPass, o.MissionPass) && maps.Equal(e.GachaExec, o.GachaExec) &&
 		maps.Equal(e.SceneChoices, o.SceneChoices) &&
 		maps.Equal(e.SceneChoiceHistory, o.SceneChoiceHistory) &&
 		maps.Equal(e.LevelBonusConfirmed, o.LevelBonusConfirmed) &&

@@ -37,6 +37,10 @@ EARLIEST = int(datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
 NEVER = int(datetime(2099, 12, 31, 23, 59, 59, tzinfo=timezone.utc).timestamp() * 1000)
 # The game day starts at 00:00 GMT-8 (08:00 UTC).
 DAY_START = 8 * 60 * 60 * 1000
+# Kept in step with server/internal/masterdata/gacha.go and gacha_special.go.
+SHARED_MEDAL = {46, 151} | {401, 501, 535, 541, 542, 543, 549, 550, 555, 556, 582, 583, 585, 510001, 513001, 515001, 536001, 537001, 9000035}
+SPECIAL_SUMMONS = {43, 49, 52, 60, 64, 66, 70, 85, 153, 160, 199, 410, 416, 428, 430, 433, 449, 452, 453, 468, 472, 493, 501, 503, 510, 514, 515, 524, 545, 547, 581, 584, 593, 597, 9000007}
+PARKED_RERUNS = {159: 3110399000, 414: 1123199000}
 SPEEDS = {"1": "Real time", "2": "2×", "3.5": "3.5×", "7": "7×"}
 
 # Rotating content: these tables move with the calendar.
@@ -276,11 +280,21 @@ def entries():
     for row in table("EventQuestChapter"):
         found.append(("event", event_names.get(row["EventQuestChapterId"]), row["StartDatetime"], row["EndDatetime"]))
     banner_names = names("gacha_banners")
-    # The summons the server offers: those with a medal, and Automata Vol. 2,
-    # which shares Vol. 1's (see sharedMedalGachas in masterdata/gacha.go).
-    offered = {row["ShopTransitionGachaId"] for row in table("GachaMedal")} | {46, 151}
+    # The summons the server offers (server/internal/masterdata/gacha.go):
+    # those with a medal, summons sharing a known medal, and the special
+    # free, paid-only and guaranteed summons.
+    medals = {row["ShopTransitionGachaId"]: row for row in table("GachaMedal")}
+    offered = set(medals) | SHARED_MEDAL | SPECIAL_SUMMONS
+    parked = set()
     for row in table("MomBanner"):
-        if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in offered:
+        gacha = row["DestinationDomainId"]
+        if row["DestinationDomainType"] == 1 and gacha in PARKED_RERUNS and gacha in medals and gacha not in parked:
+            # Only placeholder rows: the dates come from the medal (see parkedReruns).
+            parked.add(gacha)
+            convert = medals[gacha]["AutoConvertDatetime"]
+            found.append(("summon", banner_names.get(row["MomBannerId"]), convert - PARKED_RERUNS[gacha], convert - 2 * DAY))
+    for row in table("MomBanner"):
+        if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in offered and row["DestinationDomainId"] not in PARKED_RERUNS:
             found.append(("summon", banner_names.get(row["MomBannerId"]), row["StartDatetime"], row["EndDatetime"]))
     shop_names = names("shops")
     for row in table("Shop"):
