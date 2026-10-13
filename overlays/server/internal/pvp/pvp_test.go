@@ -187,3 +187,65 @@ func TestWeekAndDefense(t *testing.T) {
 	}
 	t.Logf("week result %+v; rewards %+v", pending[0].Result, pending[0].Rewards)
 }
+
+func TestFriends(t *testing.T) {
+	c, u := realSave(t)
+	if c.Friend != (FriendLimits{Friends: 100, SendCheer: 100, ReceiveCheer: 100}) {
+		t.Errorf("friend limits from m_config: %+v", c.Friend)
+	}
+	now := time.Now().UnixMilli()
+	season, _ := c.Season(now)
+	ladder := c.Ladder(season.PvpSeasonId)
+	f := &u.Ext.Friends
+	*f = store.FriendState{}
+	day := int64(1_000_000)
+
+	offered := c.Recommend(f, ladder, 1000, u.UserId, day)
+	if len(offered) != recommendCount {
+		t.Fatalf("%d recommended", len(offered))
+	}
+	if again := c.Recommend(f, ladder, 1000, u.UserId, day); again[0] != offered[0] {
+		t.Error("recommendations change within a day")
+	}
+	a, b := offered[0].PlayerId, offered[1].PlayerId
+	if !c.AddFriend(f, a) || c.AddFriend(f, a) || c.AddFriend(f, 12345) {
+		t.Fatal("add friend: new once, not twice, not a real player id")
+	}
+	for _, cpu := range c.Recommend(f, ladder, 1000, u.UserId, day) {
+		if cpu.PlayerId == a {
+			t.Error("a friend is still recommended")
+		}
+	}
+	c.AddFriend(f, b)
+
+	// One cheer per friend per day, each way.
+	if !c.Cheer(f, a, day) || c.Cheer(f, a, day) || c.Cheer(f, 999, day) {
+		t.Fatal("cheer: once per friend, only friends")
+	}
+	if !c.ReceiveCheer(f, a, day) || c.ReceiveCheer(f, a, day) {
+		t.Fatal("receive: once per friend")
+	}
+	if sent, got := CheerStatus(f, a, day); !sent || !got || SentToday(f, day) != 1 || ReceivedToday(f, day) != 1 {
+		t.Fatalf("status today: %+v", f)
+	}
+	// The next day starts over; the total keeps counting.
+	if SentToday(f, day+1) != 0 || !c.Cheer(f, a, day+1) || f.TotalSent != 2 {
+		t.Fatalf("next day: %+v", f)
+	}
+	// The daily cheer limit.
+	limits := c.Friend
+	c.Friend.SendCheer = 1
+	if c.Cheer(f, b, day+1) {
+		t.Error("cheered past the daily limit")
+	}
+	c.Friend = limits
+	// Removing and re-adding a friend the same day doesn't allow another cheer.
+	RemoveFriend(f, a)
+	if !c.AddFriend(f, a) || c.Cheer(f, a, day+1) {
+		t.Error("cheered a re-added friend twice in a day")
+	}
+	RemoveFriend(f, a)
+	if IsFriend(f, a) || c.Cheer(f, a, day+2) {
+		t.Error("removed friend still a friend")
+	}
+}

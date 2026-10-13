@@ -216,3 +216,175 @@ func TestQuestFilter(t *testing.T) {
 		break
 	}
 }
+
+// first returns a mission with this rule kind (and, if given, a matching rule).
+func first(t *testing.T, cat *Catalog, kind string, ok func(*Mission) bool) *Mission {
+	t.Helper()
+	for _, m := range cat.ByKind[kind] {
+		if ok == nil || ok(m) {
+			return m
+		}
+	}
+	t.Fatalf("no %s mission", kind)
+	return nil
+}
+
+func TestCountedKinds(t *testing.T) {
+	cat, st, uid, _ := realSave(t)
+	u, err := st.LoadUser(uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Bosses: a quest whose battles field bosses counts them when won, not when skipped.
+	var bossQuest int32
+	for id, n := range cat.questBosses {
+		if n > 0 {
+			bossQuest = id
+			break
+		}
+	}
+	if bossQuest == 0 {
+		t.Fatal("no quest with bosses")
+	}
+	boss := first(t, cat, "defeat_boss", nil)
+	won := &counts{clears: []questClear{{questId: bossQuest, count: 1}}}
+	skipped := &counts{clears: []questClear{{questId: bossQuest, count: 1, skipped: true}}}
+	if n := cat.amountFor(boss, won); n != cat.questBosses[bossQuest] {
+		t.Errorf("defeat_boss: quest %d won counts %d, want %d", bossQuest, n, cat.questBosses[bossQuest])
+	}
+	if n := cat.amountFor(boss, skipped); n != 0 {
+		t.Errorf("defeat_boss: skipped quest counts %d", n)
+	}
+
+	// Explorations: a filtered mission counts only its explores.
+	shooting := first(t, cat, "explore_finish", func(m *Mission) bool { return len(m.Rule.Explores) == 1 && m.Rule.Explores[0] == 1 })
+	if n := cat.amountFor(shooting, &counts{explores: map[int32]int64{1: 1, 2: 1}}); n != 1 {
+		t.Errorf("explore_finish Shooting: %d, want 1", n)
+	}
+
+	// Concert taps: the best performance, not the sum.
+	live := first(t, cat, "rhythm_tap", nil)
+	before := store.CloneUserState(u)
+	for _, taps := range []int32{20, 10} {
+		prev := store.CloneUserState(u)
+		cat.Track(&prev, &u, "/apb.api.mission.MissionService/UpdateMissionProgress", &pb.UpdateMissionProgressRequest{
+			PictureBookMeasurableValues: &pb.PictureBookMeasurableValues{RhythmInteractionMeasurableValues: &pb.RhythmInteractionMeasurableValues{LiveTypeId: live.Rule.LiveType, TapCount: taps}},
+		}, time.Now().UnixMilli())
+	}
+	if cat.active(live, &u, time.Now().UnixMilli()) {
+		if p := u.Missions[live.MissionId].ProgressValue; p != 20 && u.Missions[live.MissionId].MissionProgressStatusType < StatusClear {
+			t.Errorf("rhythm_tap progress %d, want 20", p)
+		}
+	}
+	u = before
+
+	// Arena: plays, wins and a streak a loss resets.
+	streak := first(t, cat, "pvp_streak", func(m *Mission) bool { return m.ClearConditionValue > 3 })
+	u.Ext.MissionsVersion = trackVersion
+	delete(u.Missions, streak.MissionId)
+	now := time.Now().UnixMilli()
+	battle := func(win bool) {
+		prev := store.CloneUserState(u)
+		u.Ext.Pvp.AttackLog = append([]store.PvpLog{{PlayerId: 9_000_000_001, Victory: win, Datetime: now}}, u.Ext.Pvp.AttackLog...)
+		now++
+		cat.Track(&prev, &u, "/apb.api.pvp.PvpService/FinishBattle", &pb.FinishBattleRequest{IsVictory: win}, now)
+	}
+	if !cat.active(streak, &u, now) {
+		t.Skipf("streak mission %d not active", streak.MissionId)
+	}
+	battle(true)
+	battle(true)
+	if p := u.Missions[streak.MissionId].ProgressValue; p != 2 {
+		t.Errorf("streak after two wins: %d", p)
+	}
+	battle(false)
+	if p := u.Missions[streak.MissionId].ProgressValue; p != 0 {
+		t.Errorf("streak after a loss: %d", p)
+	}
+
+	// Arena rank: cleared once the season's best rank is at or above the target.
+	rank := first(t, cat, "pvp_rank", nil)
+	u.Ext.Pvp.MaxSeasonRank = rank.ClearConditionValue + 1
+	if v := cat.stateValue(rank, &u); v != 0 {
+		t.Errorf("pvp_rank below target: %d", v)
+	}
+	u.Ext.Pvp.MaxSeasonRank = rank.ClearConditionValue
+	if v := cat.stateValue(rank, &u); v != int64(rank.ClearConditionValue) {
+		t.Errorf("pvp_rank at target: %d", v)
+	}
+
+	// Values read from the save.
+	for _, kind := range []string{"library", "report", "costume_ability_level", "board_panel", "explore_score", "big_hunt_score"} {
+		t.Logf("%s: %d", kind, cat.stateValue(first(t, cat, kind, nil), &u))
+	}
+	if cat.stateValue(first(t, cat, "library", nil), &u) == 0 {
+		t.Error("encyclopedia empty for a played save")
+	}
+	// A character's Stone Tower panels are part of all panels.
+	all := cat.stateValue(first(t, cat, "board_panel", func(m *Mission) bool { return len(m.Rule.Characters) == 0 }), &u)
+	one := first(t, cat, "board_panel", func(m *Mission) bool { return len(m.Rule.Characters) > 0 })
+	if v := cat.stateValue(one, &u); v > all {
+		t.Errorf("board panels for %v %v: %d > all %d", one.Rule.Characters, one.Rule.BoardTypes, v, all)
+	}
+	u.FacebookId = 0
+	transfer := first(t, cat, "data_transfer", nil)
+	if cat.stateValue(transfer, &u) != 0 {
+		t.Error("data transfer without an account")
+	}
+	u.FacebookId = 1
+	if cat.stateValue(transfer, &u) != 1 {
+		t.Error("data transfer with an account")
+	}
+
+	// Friend cheers and cage counters on other requests.
+	cheer := first(t, cat, "cheer_friend", nil)
+	prev := store.CloneUserState(u)
+	u.Ext.Friends.TotalSent += 2
+	if n := cat.amountFor(cheer, collect(&prev, &u, "/apb.api.friend.FriendService/BulkCheerFriend", nil)); n != 2 {
+		t.Errorf("cheer_friend: %d", n)
+	}
+	walk := first(t, cat, "cage_walk", nil)
+	c := collect(&u, &u, "/apb.api.banner.BannerService/GetMamaBanner", &pb.GetMamaBannerRequest{CageMeasurableValues: &pb.CageMeasurableValues{RunningDistanceMeters: 30}})
+	if n := cat.amountFor(walk, c); n != 30 {
+		t.Errorf("cage_walk from GetMamaBanner: %d", n)
+	}
+
+	// The deck used in battle is remembered for the profile.
+	recordLastDeck(&u, &pb.FinishWaveRequest{UserPartyResultInfoList: []*pb.UserPartyResultInfo{{DeckType: 1, UserDeckNumber: 3}}})
+	if u.Ext.LastDeck != (store.LastDeckState{DeckType: 1, UserDeckNumber: 3}) {
+		t.Errorf("last deck %+v", u.Ext.LastDeck)
+	}
+}
+
+func TestQuestFilterQuests(t *testing.T) {
+	cat, _, _, _ := realSave(t)
+	m := cat.ById[28909] // "Clear Levania Dark Lair: Hard"
+	if m == nil || m.Rule.Quest == nil || len(m.Rule.Quest.Quests) != 1 {
+		t.Fatalf("mission 28909 rule %+v", m)
+	}
+	q := m.Rule.Quest.Quests[0]
+	if !cat.QuestMatches(m.Rule.Quest, q) || cat.QuestMatches(m.Rule.Quest, q-1) {
+		t.Errorf("quest list filter %v", m.Rule.Quest.Quests)
+	}
+	// "with only Akeha in your loadout": a deck with someone else does not count.
+	only := cat.ById[500057]
+	if only == nil || !only.Rule.Only {
+		t.Fatalf("mission 500057 rule %+v", only)
+	}
+	var akeha, other int32
+	for co, ch := range cat.costumeChar {
+		if ch == 1015 && akeha == 0 {
+			akeha = co
+		} else if ch != 1015 && ch != 0 && other == 0 {
+			other = co
+		}
+	}
+	target := only.Rule.Quest.Quests[0]
+	if n := cat.amountFor(only, &counts{clears: []questClear{{questId: target, count: 1, costumes: []int32{akeha}}}}); n != 1 {
+		t.Errorf("only Akeha: %d", n)
+	}
+	if n := cat.amountFor(only, &counts{clears: []questClear{{questId: target, count: 1, costumes: []int32{akeha, other}}}}); n != 0 {
+		t.Errorf("Akeha and another: %d", n)
+	}
+}

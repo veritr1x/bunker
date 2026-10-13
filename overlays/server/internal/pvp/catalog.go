@@ -32,6 +32,7 @@ type Catalog struct {
 	groupIds    map[int32]int32 // PvpSeasonGroupingId -> GroupId
 
 	MaxBattlePoint, BattleCost, RefreshCost, RecoverySecond int32
+	Friend                                                  FriendLimits
 
 	costumes []costumePick                      // playable costumes the computer players use
 	weapons  map[int32][]int32                  // rarity -> playable weapon ids
@@ -98,6 +99,7 @@ func load(cats *runtime.Catalogs) *Catalog {
 		ladders:     map[int32]*Ladder{},
 		// The game's own values (m_config), used if a key is missing.
 		MaxBattlePoint: 100, BattleCost: 10, RefreshCost: 5, RecoverySecond: 180,
+		Friend: FriendLimits{Friends: 100, SendCheer: 100, ReceiveCheer: 100},
 	}
 	for _, g := range read[masterdata.EntityMPvpGradeGroup]("m_pvp_grade_group") {
 		c.grades[g.PvpGradeGroupId] = append(c.grades[g.PvpGradeGroupId], g)
@@ -145,6 +147,12 @@ func load(cats *runtime.Catalogs) *Catalog {
 			c.RefreshCost = int32(v)
 		case "USER_BATTLE_POINT_RECOVERY_SECOND":
 			c.RecoverySecond = int32(v)
+		case "USER_FRIEND_MAX_NUMBER":
+			c.Friend.Friends = v
+		case "USER_FRIEND_SEND_CHEER_MAX_NUMBER":
+			c.Friend.SendCheer = v
+		case "USER_FRIEND_RECEIVE_CHEER_MAX_NUMBER":
+			c.Friend.ReceiveCheer = v
 		}
 	}
 	if cats.Weapon != nil {

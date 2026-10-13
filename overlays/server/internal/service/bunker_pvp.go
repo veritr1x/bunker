@@ -364,6 +364,7 @@ func (s *UserServiceServer) cpuProfile(ctx context.Context, playerId int64) *pb.
 		Level:             level,
 		Name:              cpu.Name,
 		FavoriteCostumeId: cpu.Costumes[0],
+		IsFriend:          pvp.IsFriend(&viewer.Ext.Friends, playerId),
 		LatestUsedDeck:    &pb.ProfileDeck{Power: pvp.DeckPower(profile, strength), DeckCharacter: chars},
 		PvpInfo: &pb.ProfilePvpInfo{
 			CurrentRank: ladder.CPURank(cpu, viewer.Ext.Pvp.Point), CurrentGradeId: c.Grade(season, cpu.Point).PvpGradeId,

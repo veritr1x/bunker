@@ -17,6 +17,9 @@ type ExtState struct {
 	SceneChoiceHistory  map[int32]int64                 `json:"sceneChoiceHistory,omitempty"`  // QuestSceneChoiceEffectId -> choice time
 	LevelBonusConfirmed map[int32]int32                 `json:"levelBonusConfirmed,omitempty"` // CostumeId -> confirmed bonus level
 	Pvp                 PvpState                        `json:"pvp"`
+	Quest               QuestExtState                   `json:"quest"`
+	Friends             FriendState                     `json:"friends"`
+	LastDeck            LastDeckState                   `json:"lastDeck"`
 }
 
 // PvpState is the player's Arena: points, battle points, the computer
@@ -122,6 +125,8 @@ func (e ExtState) Clone() ExtState {
 	out.SceneChoiceHistory = maps.Clone(e.SceneChoiceHistory)
 	out.LevelBonusConfirmed = maps.Clone(e.LevelBonusConfirmed)
 	out.Pvp = e.Pvp.Clone()
+	out.Quest = e.Quest.Clone()
+	out.Friends = e.Friends.Clone()
 	return out
 }
 
@@ -131,5 +136,6 @@ func (e ExtState) Equal(o ExtState) bool {
 		maps.Equal(e.SceneChoices, o.SceneChoices) &&
 		maps.Equal(e.SceneChoiceHistory, o.SceneChoiceHistory) &&
 		maps.Equal(e.LevelBonusConfirmed, o.LevelBonusConfirmed) &&
-		e.Pvp.Equal(o.Pvp)
+		e.Pvp.Equal(o.Pvp) && e.Quest.Equal(o.Quest) &&
+		e.Friends.Equal(o.Friends) && e.LastDeck == o.LastDeck
 }

@@ -37,8 +37,9 @@ const (
 var rulesJSON []byte
 
 // QuestFilter selects the quests a quest-clear mission counts. The kinds (Main,
-// Event, EventTypes, EventChapters, MainChapters, DailyLimited) are alternatives;
-// with none set, every quest counts. Diff, Order and Characters narrow further.
+// Event, EventTypes, EventChapters, MainChapters, DailyLimited, Quests) are
+// alternatives; with none set, every quest counts. Diff, Order and Characters
+// narrow further.
 type QuestFilter struct {
 	Main          bool    `json:"main"`
 	Event         bool    `json:"event"`
@@ -49,6 +50,7 @@ type QuestFilter struct {
 	Diff          []int32 `json:"diff"`
 	Order         int32   `json:"order"`
 	Characters    []int32 `json:"characters"`
+	Quests        []int32 `json:"quests"`
 }
 
 type Rule struct {
@@ -59,7 +61,12 @@ type Rule struct {
 	Weapons    []int32      `json:"w"`
 	Characters []int32      `json:"ch"`
 	NoSkip     bool         `json:"ns"`
+	Only       bool         `json:"co"` // every costume in the deck must match Costumes
 	Gacha      string       `json:"g"`
+	Explores   []int32      `json:"ex"` // explore ids
+	Bosses     []int32      `json:"bh"` // subjugation boss ids
+	BoardTypes []int32      `json:"bg"` // Mythic Slab CharacterBoardGroupType
+	LiveType   int32        `json:"lt"` // concert: client enum LiveType
 }
 
 type Mission struct {
@@ -100,6 +107,22 @@ type Catalog struct {
 	places        map[int32][]questPlace
 	chapterChars  map[int32][]int32 // event chapter -> characters
 	costumeChar   map[int32]int32
+	questBosses   map[int32]int64      // quest -> boss enemies in its battles
+	reportItems   map[int32]bool       // important items that are a Hidden Story
+	boards        map[int32]boardPlace // CharacterBoardId -> owner and group type
+	encyclopedia  encyclopedia
+}
+
+// boardPlace is whose Mythic Slab a board is and which of its groups (Stone
+// Tower or Cursed God Monument) it belongs to.
+type boardPlace struct {
+	CharacterId int32
+	GroupType   int32
+}
+
+// encyclopedia is what the Encyclopedia (library catalog) lists.
+type encyclopedia struct {
+	costumes, weapons, companions, partsGroups, thoughts map[int32]bool
 }
 
 var (
@@ -174,6 +197,11 @@ func load() (*Catalog, error) {
 		places:        map[int32][]questPlace{},
 		chapterChars:  map[int32][]int32{},
 		costumeChar:   map[int32]int32{},
+		questBosses:   map[int32]int64{},
+		reportItems:   map[int32]bool{},
+		boards:        map[int32]boardPlace{},
+		encyclopedia: encyclopedia{costumes: map[int32]bool{}, weapons: map[int32]bool{}, companions: map[int32]bool{},
+			partsGroups: map[int32]bool{}, thoughts: map[int32]bool{}},
 	}
 	for _, row := range read[masterdata.EntityMMission]("m_mission") {
 		g := groups[row.MissionGroupId]
@@ -254,8 +282,96 @@ func load() (*Catalog, error) {
 			c.chapterChars[r.EventQuestChapterId] = append(c.chapterChars[r.EventQuestChapterId], ch)
 		}
 	}
+	c.loadBosses()
+	for _, it := range read[masterdata.EntityMImportantItem]("m_important_item") {
+		if it.ReportId != 0 {
+			c.reportItems[it.ImportantItemId] = true
+		}
+	}
+	// Mythic Slab: board -> group (type) -> category -> character.
+	categoryChar := map[int32]int32{}
+	for _, a := range read[masterdata.EntityMCharacterBoardAssignment]("m_character_board_assignment") {
+		categoryChar[a.CharacterBoardCategoryId] = a.CharacterId
+	}
+	boardGroups := map[int32]masterdata.EntityMCharacterBoardGroup{}
+	for _, g := range read[masterdata.EntityMCharacterBoardGroup]("m_character_board_group") {
+		boardGroups[g.CharacterBoardGroupId] = g
+	}
+	for _, b := range read[masterdata.EntityMCharacterBoard]("m_character_board") {
+		g := boardGroups[b.CharacterBoardGroupId]
+		c.boards[b.CharacterBoardId] = boardPlace{CharacterId: categoryChar[g.CharacterBoardCategoryId], GroupType: g.CharacterBoardGroupType}
+	}
+	e := c.encyclopedia
+	for _, r := range read[masterdata.EntityMCatalogCostume]("m_catalog_costume") {
+		e.costumes[r.CostumeId] = true
+	}
+	for _, r := range read[masterdata.EntityMCatalogWeapon]("m_catalog_weapon") {
+		e.weapons[r.WeaponId] = true
+	}
+	for _, r := range read[masterdata.EntityMCatalogCompanion]("m_catalog_companion") {
+		e.companions[r.CompanionId] = true
+	}
+	for _, r := range read[masterdata.EntityMCatalogPartsGroup]("m_catalog_parts_group") {
+		e.partsGroups[r.PartsGroupId] = true
+	}
+	for _, r := range read[masterdata.EntityMCatalogThought]("m_catalog_thought") {
+		e.thoughts[r.ThoughtId] = true
+	}
 	log.Printf("[missions] %d missions, %d with rules", len(c.Missions), len(rules))
 	return c, nil
+}
+
+// loadBosses counts the bosses (m_battle_npc_deck_character_type BattleEnemyType
+// BOSS) a quest's battles field: quest -> scenes -> battle group (one battle per
+// wave) -> enemy deck -> its three characters.
+func (c *Catalog) loadBosses() {
+	const enemyBoss = 2 // BattleEnemyType BOSS
+	type npcChar struct {
+		npc  int64
+		uuid string
+	}
+	boss := map[npcChar]bool{}
+	for _, t := range read[masterdata.EntityMBattleNpcDeckCharacterType]("m_battle_npc_deck_character_type") {
+		if t.BattleEnemyType == enemyBoss {
+			boss[npcChar{t.BattleNpcId, t.BattleNpcDeckCharacterUuid}] = true
+		}
+	}
+	type deckKey struct {
+		npc      int64
+		deckType int32
+		number   int32
+	}
+	deckBosses := map[deckKey]int64{}
+	for _, d := range read[masterdata.EntityMBattleNpcDeck]("m_battle_npc_deck") {
+		var n int64
+		for _, uuid := range []string{d.BattleNpcDeckCharacterUuid01, d.BattleNpcDeckCharacterUuid02, d.BattleNpcDeckCharacterUuid03} {
+			if uuid != "" && boss[npcChar{d.BattleNpcId, uuid}] {
+				n++
+			}
+		}
+		if n > 0 {
+			deckBosses[deckKey{d.BattleNpcId, d.DeckType, d.BattleNpcDeckNumber}] = n
+		}
+	}
+	battleBosses := map[int32]int64{}
+	for _, b := range read[masterdata.EntityMBattle]("m_battle") {
+		if n := deckBosses[deckKey{b.BattleNpcId, b.DeckType, b.BattleNpcDeckNumber}]; n > 0 {
+			battleBosses[b.BattleId] = n
+		}
+	}
+	groupBosses := map[int32]int64{}
+	for _, g := range read[masterdata.EntityMBattleGroup]("m_battle_group") {
+		groupBosses[g.BattleGroupId] += battleBosses[g.BattleId]
+	}
+	sceneBosses := map[int32]int64{}
+	for _, sb := range read[masterdata.EntityMQuestSceneBattle]("m_quest_scene_battle") {
+		sceneBosses[sb.QuestSceneId] += groupBosses[sb.BattleGroupId]
+	}
+	for _, sc := range read[masterdata.EntityMQuestScene]("m_quest_scene") {
+		if n := sceneBosses[sc.QuestSceneId]; n > 0 {
+			c.questBosses[sc.QuestId] += n
+		}
+	}
 }
 
 func contains(list []int32, v int32) bool {
@@ -273,10 +389,11 @@ func (c *Catalog) QuestMatches(f *QuestFilter, questId int32) bool {
 		return true
 	}
 	places := c.places[questId]
-	kinds := f.Main || f.Event || len(f.EventTypes) > 0 || len(f.EventChapters) > 0 || len(f.MainChapters) > 0 || f.DailyLimited
+	kinds := f.Main || f.Event || len(f.EventTypes) > 0 || len(f.EventChapters) > 0 || len(f.MainChapters) > 0 || f.DailyLimited ||
+		len(f.Quests) > 0
 	if len(places) == 0 {
 		// Quests outside both trees (extra quests, subjugation): only an unfiltered count includes them.
-		return !kinds && len(f.Diff) == 0 && f.Order == 0 && len(f.Characters) == 0
+		return (!kinds || contains(f.Quests, questId)) && len(f.Diff) == 0 && f.Order == 0 && len(f.Characters) == 0
 	}
 	for _, p := range places {
 		if kinds {
@@ -285,7 +402,8 @@ func (c *Catalog) QuestMatches(f *QuestFilter, questId int32) bool {
 				(p.EventChapter != 0 && contains(f.EventTypes, p.EventType)) ||
 				(p.EventChapter != 0 && contains(f.EventChapters, p.EventChapter)) ||
 				(p.MainChapter != 0 && contains(f.MainChapters, p.MainChapter)) ||
-				(f.DailyLimited && c.QuestDailyMax[questId] > 0)
+				(f.DailyLimited && c.QuestDailyMax[questId] > 0) ||
+				contains(f.Quests, questId)
 			if !ok {
 				continue
 			}

@@ -235,6 +235,7 @@ func bunkerChangedTables(before, after *store.UserState) []string {
 	if len(before.Ext.Pvp.Weekly) != len(after.Ext.Pvp.Weekly) {
 		out = append(out, "IUserPvpWeeklyResult")
 	}
+	out = append(out, costumeChangedTables(before, after)...)
 	return out
 }
 
@@ -267,5 +268,5 @@ func bunkerKeyFields(table string) []string {
 	case "IUserPvpWeeklyResult":
 		return []string{"userId", "pvpWeeklyVersion"}
 	}
-	return nil
+	return costumeDerivedKeyFields(table)
 }

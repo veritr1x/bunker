@@ -24,6 +24,8 @@ import (
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/utils"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -179,21 +181,20 @@ func (s *RewardServiceServer) ReceiveLabyrinthSeasonReward(ctx context.Context, 
 func (s *QuestServiceServer) SkipQuestBulk(ctx context.Context, req *pb.SkipQuestBulkRequest) (*pb.SkipQuestBulkResponse, error) {
 	log.Printf("[QuestService] SkipQuestBulk: %d quest(s) deck=%d", len(req.SkipQuestInfo), req.UserDeckNumber)
 	nowMillis := gametime.NowMillis()
-	engine := s.holder.Get().QuestHandler
+	cat := s.holder.Get()
 	userId := CurrentUserId(ctx, s.users, s.sessions)
-	var drops []questflow.RewardGrant
+	var outcome questflow.FinishOutcome
+	var skipErr error
 	if _, err := s.users.UpdateUser(userId, func(user *store.UserState) {
-		for _, item := range req.UseEffectItem {
-			user.ConsumableItems[item.ConsumableItemId] = max(0, user.ConsumableItems[item.ConsumableItemId]-item.Count)
-		}
-		for _, info := range req.SkipQuestInfo {
-			outcome := engine.HandleQuestSkip(user, info.QuestId, info.SkipCount, nowMillis)
-			drops = append(drops, outcome.DropRewards...)
-		}
+		outcome, skipErr = skipQuests(cat, user, req.UseEffectItem, req.SkipQuestInfo, req.UserDeckNumber, nowMillis)
 	}); err != nil {
 		return nil, err
 	}
-	return &pb.SkipQuestBulkResponse{DropReward: toProtoRewards(drops), UserStatusCampaignReward: []*pb.QuestReward{}}, nil
+	if skipErr != nil {
+		log.Printf("[QuestService] SkipQuestBulk refused: %v", skipErr)
+		return nil, status.Error(codes.FailedPrecondition, skipErr.Error())
+	}
+	return &pb.SkipQuestBulkResponse{DropReward: toProtoRewards(outcome.DropRewards), UserStatusCampaignReward: []*pb.QuestReward{}}, nil
 }
 
 type dailyGroupTables struct {
