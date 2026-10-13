@@ -4019,6 +4019,23 @@ diff --git a/server/internal/store/sqlite/load.go b/server/internal/store/sqlite
  	var u store.UserState
  	var fbId sql.NullInt64
  
+diff --git a/server/internal/store/sqlite/save.go b/server/internal/store/sqlite/save.go
+--- a/server/internal/store/sqlite/save.go
++++ b/server/internal/store/sqlite/save.go
+@@ -718,8 +718,12 @@ func diffAndSave(tx *sql.Tx, uid int64, before, after *store.UserState) error {
+ 		}
+ 	}
+ 
++	sameObtain := func(a, b *store.ConsumableItemState) bool {
++		return (a == nil) == (b == nil) && (a == nil || *a == *b)
++	}
+ 	if before.Gacha.RewardAvailable != after.Gacha.RewardAvailable || before.Gacha.TodaysCurrentDrawCount != after.Gacha.TodaysCurrentDrawCount ||
+-		before.Gacha.DailyMaxCount != after.Gacha.DailyMaxCount || before.Gacha.LastRewardDrawDate != after.Gacha.LastRewardDrawDate {
++		before.Gacha.DailyMaxCount != after.Gacha.DailyMaxCount || before.Gacha.LastRewardDrawDate != after.Gacha.LastRewardDrawDate ||
++		!sameObtain(before.Gacha.ConvertedGachaMedal.ObtainPossession, after.Gacha.ConvertedGachaMedal.ObtainPossession) {
+ 		var obtainItemId, obtainCount sql.NullInt64
+ 		if after.Gacha.ConvertedGachaMedal.ObtainPossession != nil {
+ 			obtainItemId = sql.NullInt64{Int64: int64(after.Gacha.ConvertedGachaMedal.ObtainPossession.ConsumableItemId), Valid: true}
 diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite/user.go
 --- a/server/internal/store/sqlite/user.go
 +++ b/server/internal/store/sqlite/user.go
