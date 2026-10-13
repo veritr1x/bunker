@@ -331,3 +331,5 @@ iOS 14+ on iPhone and iPad: the opening story plays on an iPad Pro (M4), with th
 
 Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, save restoration and the Archive were tested on an Android 16 emulator; folder import with progress, save import and 120 fps play were tested on a Samsung Galaxy Z Fold, including a build from the web builder. Full campaign coverage is still pending. Missions, summon details and the Arena (a full battle and its rewards) were tested on the Android emulator; they are not yet tested on iPhone or iPad. See [validation](docs/VALIDATION.md).
 
+
+What changed, day by day: [CHANGELOG.md](CHANGELOG.md).
