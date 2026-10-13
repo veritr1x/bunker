@@ -15,6 +15,15 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Story-event zones: an event that waited for the player to walk into a zone
+//   and timed out waits on that zone again after a 1.5 s balloon fade, but only
+//   notices a player who is still inside. A player who crossed it during the
+//   fade is missed and the event stops (6-4: Levania walks off the map); above
+//   30 fps the faster story text puts players in that gap. When that fallback
+//   (EventTriggerOnStayCollision) starts on a zone the player was in during
+//   the last 10 s, it gets the player's collider as if they were still there.
+//   The zones are watched each frame by bounds, and the conductors' begin and
+//   update are reached through their classes' method tables.
 //
 // The choices are read from tools/display.conf (android_display.py writes it).
 // The outcome goes to tools/display.status, which Pod Programs shows.
@@ -36,6 +45,10 @@ static struct {
     void (*field_static_get_value)(void *field, void *value);
     void (*field_static_set_value)(void *field, void *value);
     void (*runtime_class_init)(void *klass);
+    void *(*class_get_type)(void *klass);
+    void *(*type_get_object)(void *type);
+    uint32_t (*gchandle_new)(void *object, bool pinned);
+    void (*gchandle_free)(uint32_t handle);
 } il2cpp;
 
 static int gFps, gSize;  // 0: the game's own.
@@ -53,6 +66,24 @@ static struct {
     void *battle_counter;  // TurnbaseFrameCounterController._instance
     size_t battle_context, battle_game, simulation_rate;
 } game;
+typedef struct { float center[3], extents[3]; } LTBounds;
+static struct {
+    void *(*state_actor)(void *);
+    size_t user_actor;  // StateActor._currentUserActor
+    void *(*actor_collider)(void *game_object, void *);
+    void *(*component)(void *game_object, void *type, BOOL inactive, void *);  // GetComponentInChildren(Type, bool)
+    void *collider_type;  // System.Type of UnityEngine.Collider
+    LTBounds (*bounds)(void *collider, void *);
+    void (*zone_init)(void *zone, void *);
+    void *(*zone_collider)(void *zone, void *);
+    void (*on_stay)(void *self, void *collider, void *);
+    size_t stay_zone, stay_invoked, enter_zone;
+    void (*stay_begin)(void *, void *), (*stay_update)(void *, void *), (*enter_begin)(void *, void *);
+} zones;
+typedef struct { void *zone; double until, inside; uint32_t handle; } LTZone;  // The handle keeps the zone's memory.
+static LTZone gZones[16];
+typedef struct { void *conductor; double since; } LTFallback;
+static LTFallback gFallbacks[8];
 static int gLastFrame = -1;
 static void *gLastBattle;
 static float gBattleRate;
@@ -149,6 +180,133 @@ static void StepBattle(float delta) {
     *rate = written;
 }
 
+/** Whether a Unity object still exists: destroyed ones (a scene unloading) clear m_CachedPtr. */
+static BOOL Alive(void *object) {
+    return object && *(void **)((uint8_t *)object + 0x10);
+}
+
+static void Unwatch(LTZone *zone) {
+    if (zone->handle) il2cpp.gchandle_free(zone->handle);
+    *zone = (LTZone){0};
+}
+
+/** EventTriggerOnEnterCollision.OnStateBegin: the event starts waiting on a zone; watch it for a minute. */
+static void ZoneEnterBegin(void *self, void *method) {
+    zones.enter_begin(self, method);
+    void *zone = *(void **)((uint8_t *)self + zones.enter_zone);
+    if (!zone) return;
+    int slot = 0;
+    for (int i = 0; i < 16; i++) {
+        if (gZones[i].zone == zone) { slot = i; break; }
+        if (gZones[i].until < gZones[slot].until) slot = i;
+    }
+    if (gZones[slot].zone != zone) {
+        Unwatch(&gZones[slot]);
+        gZones[slot] = (LTZone){zone, 0, -1e9, il2cpp.gchandle_new(zone, false)};
+    }
+    gZones[slot].until = CACurrentMediaTime() + 60;
+}
+
+/** EventTriggerOnStayCollision.OnStateBegin: a fallback starts on a zone the player may have just crossed. */
+static void ZoneStayBegin(void *self, void *method) {
+    zones.stay_begin(self, method);
+    int slot = 0;
+    for (int i = 0; i < 8; i++) if (gFallbacks[i].conductor == self || !gFallbacks[i].conductor) { slot = i; break; }
+    gFallbacks[slot] = (LTFallback){self, CACurrentMediaTime()};
+}
+
+/** The player's collider (what OnStay compares with), or NULL. */
+static void *PlayerCollider(void) {
+    uint8_t *actor = zones.state_actor(NULL);
+    void *body = actor ? *(void **)(actor + zones.user_actor) : NULL;
+    void *object = Alive(body) ? zones.actor_collider(body, NULL) : NULL;
+    void *collider = Alive(object) ? zones.component(object, zones.collider_type, NO, NULL) : NULL;
+    return Alive(collider) ? collider : NULL;
+}
+
+/** EventTriggerOnStayCollision.OnStateUpdate (the empty one it inherits): continues a fallback the player crossed. */
+static void ZoneStayUpdate(void *self, void *method) {
+    zones.stay_update(self, method);
+    for (int i = 0; i < 8; i++) {
+        if (gFallbacks[i].conductor != self) continue;
+        double since = gFallbacks[i].since;
+        gFallbacks[i].conductor = NULL;
+        void *zone = *(void **)((uint8_t *)self + zones.stay_zone);
+        for (int z = 0; zone && z < 16; z++) {
+            if (gZones[z].zone != zone || gZones[z].inside < since - 10) continue;
+            void *collider = PlayerCollider();
+            if (collider && !*((uint8_t *)self + zones.stay_invoked)) zones.on_stay(self, collider, NULL);
+            if (*((uint8_t *)self + zones.stay_invoked))
+                NSLog(@"[LunarTear] Story event continued: the player passed its zone %.1f s ago", since - gZones[z].inside);
+        }
+    }
+}
+
+static BOOL Overlaps(LTBounds a, LTBounds b) {
+    for (int i = 0; i < 3; i++)
+        if (fabsf(a.center[i] - b.center[i]) > a.extents[i] + b.extents[i]) return NO;
+    return YES;
+}
+
+/** Notes when the player is inside a watched zone. */
+static void WatchZones(void) {
+    double now = CACurrentMediaTime();
+    void *player = NULL;
+    for (int i = 0; i < 16; i++) {
+        if (!gZones[i].zone) continue;
+        if (gZones[i].until < now || !Alive(gZones[i].zone)) { Unwatch(&gZones[i]); continue; }
+        if (!player && !(player = PlayerCollider())) return;
+        zones.zone_init(gZones[i].zone, NULL);
+        void *collider = zones.zone_collider(gZones[i].zone, NULL);
+        if (Alive(collider) && Overlaps(zones.bounds(player, NULL), zones.bounds(collider, NULL))) gZones[i].inside = now;
+    }
+}
+
+/** Replaces the method-table entry (code pointer) that holds `from`; the entry after must hold `next`. */
+static BOOL Reroute(void *klass, void *from, void *to, void *next, void *nextTo) {
+    uintptr_t *words = klass;
+    for (int i = 0; i < 0x200; i++) {
+        if (words[i] != (uintptr_t)from) continue;
+        if (next && words[i + 2] != (uintptr_t)next) return NO;
+        words[i] = (uintptr_t)to;
+        if (next) words[i + 2] = (uintptr_t)nextTo;
+        return YES;
+    }
+    return NO;
+}
+
+/** The event-zone fix: finds the classes and points their begin and update entries at the functions above. */
+static BOOL ResolveZones(void) {
+    void *stay = FindClass("Dark.Conductor", "EventTriggerOnStayCollision");
+    void *enter = FindClass("Dark.Conductor", "EventTriggerOnEnterCollision");
+    void *conductor = FindClass("Adam.Framework.Gameplay.Paradigm.Core", "StateConductor");
+    void *zone = FindClass("Adam.Framework.Physication", "ColliderBase");
+    void *kernel = FindClass("Dark", "KernelState"), *actor = FindClass("Dark.Variable", "StateActor");
+    void *animation = FindClass("Dark.Calculator", "AnimationActor");
+    void *object = FindClass("UnityEngine", "GameObject"), *collider = FindClass("UnityEngine", "Collider");
+    if (!stay || !enter || !conductor || !zone || !kernel || !actor || !animation || !object || !collider) return NO;
+    zones.state_actor = Method(kernel, "get_StateActor", 0);
+    zones.actor_collider = Method(animation, "GetCollider", 1);
+    zones.component = Method(object, "GetComponentInChildren", 2);
+    zones.collider_type = il2cpp.type_get_object(il2cpp.class_get_type(collider));
+    zones.bounds = Method(collider, "get_bounds", 0);
+    zones.zone_init = Method(zone, "IfNeedInitialize", 0);
+    zones.zone_collider = Method(zone, "get_Collider", 0);
+    zones.on_stay = Method(stay, "OnStay", 1);
+    zones.stay_begin = Method(stay, "OnStateBegin", 0);
+    zones.enter_begin = Method(enter, "OnStateBegin", 0);
+    zones.stay_update = Method(conductor, "OnStateUpdate", 0);
+    if (!zones.state_actor || !zones.actor_collider || !zones.component || !zones.collider_type || !zones.bounds
+        || !zones.zone_init || !zones.zone_collider || !zones.on_stay || !zones.stay_begin || !zones.enter_begin || !zones.stay_update
+        || !FieldOffset(actor, "_currentUserActor", &zones.user_actor) || !FieldOffset(stay, "_colliderBase", &zones.stay_zone)
+        || !FieldOffset(stay, "_hasInvoked", &zones.stay_invoked) || !FieldOffset(enter, "_colliderBase", &zones.enter_zone)) return NO;
+    il2cpp.runtime_class_init(stay);
+    il2cpp.runtime_class_init(enter);
+    // OnStateUpdate is the slot after OnStateBegin (StateConductor slots 11 and 12).
+    return Reroute(stay, zones.stay_begin, ZoneStayBegin, zones.stay_update, ZoneStayUpdate)
+        && Reroute(enter, zones.enter_begin, ZoneEnterBegin, NULL, NULL);
+}
+
 @interface LTDisplayTicker : NSObject
 @end
 @implementation LTDisplayTicker
@@ -157,6 +315,7 @@ static void StepBattle(float delta) {
     if (!ready) {
         if (!il2cpp.domain_get()) return;
         if (gFps && !Resolve()) return;
+        if (gFps && !ResolveZones()) NSLog(@"[LunarTear] display: story-event zone fix not available in this game build");
         if (!PatchPresets()) return;  // Config is in the game assembly; it loads with the others.
         ready = YES;
         WriteStatus(@"ok");
@@ -172,6 +331,7 @@ static void StepBattle(float delta) {
     float physics = fminf(fmaxf(delta, 1 / 240.f), 1 / 30.f);
     if (game.fixed_delta(NULL) != physics) game.set_fixed_delta(physics, NULL);
     StepBattle(delta);
+    if (zones.stay_update) WatchZones();
     // Developer check only: launch with LUNAR_DISPLAY_LOG set to log the measured rate every 5 s.
     static double since; static int sinceFrame;
     if (getenv("LUNAR_DISPLAY_LOG") && CACurrentMediaTime() - since >= 5) {
@@ -211,6 +371,7 @@ void LTDisplayStart(NSString *toolsRoot) {
 #define LOAD(name) if (!(*(void **)&il2cpp.name = dlsym(RTLD_DEFAULT, "il2cpp_" #name))) { WriteStatus(@"error=The game's IL2CPP API is missing"); return; }
     LOAD(domain_get) LOAD(domain_get_assemblies) LOAD(assembly_get_image) LOAD(class_from_name) LOAD(class_get_method_from_name)
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(field_static_set_value) LOAD(runtime_class_init)
+    LOAD(class_get_type) LOAD(type_get_object) LOAD(gchandle_new) LOAD(gchandle_free)
 #undef LOAD
     // IL2CPP starts while Unity finishes launching; the ticker begins once the app is active.
     __block id observer = [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil

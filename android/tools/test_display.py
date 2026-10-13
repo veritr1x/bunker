@@ -66,9 +66,18 @@ class GameBinary(unittest.TestCase):
     def test_every_hook_finds_its_original_instructions(self):
         data = Path(os.environ["BUNKER_GAME_LIB"]).read_bytes()
         hooks = hook_sites()
-        self.assertEqual(len(hooks), 2)
+        self.assertEqual(len(hooks), 4)
         for rva, original in hooks:
             self.assertEqual(list(struct.unpack_from("<4I", data, rva)), original, hex(rva))
+
+    def test_event_zone_methods_are_where_the_patch_calls_them(self):
+        data = Path(os.environ["BUNKER_GAME_LIB"]).read_bytes()
+        prologue = [0xf81d0ff5, 0xa9014ff4, 0xa9027bfd, 0x910083fd]
+        # EventTriggerOnStayCollision.OnStateBegin and OnStay.
+        for rva in (0x2984210, 0x2984420):
+            self.assertEqual(list(struct.unpack_from("<4I", data, rva)), prologue, hex(rva))
+        # StateConductor.OnStateUpdate, the empty virtual the patch replaces: "ret".
+        self.assertEqual(struct.unpack_from("<I", data, 0x3A05C64)[0], 0xd65f03c0)
 
 
 if __name__ == "__main__":
