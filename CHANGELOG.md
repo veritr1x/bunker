@@ -5,6 +5,26 @@ Commit ids are in brackets.
 
 ## 2026-10-13
 
+### Pod Programs: Original calendar
+Content › Schedule can replay the live service from global launch (28 July
+2021) instead of keeping everything open. Not yet released; on branch
+calendar.
+- **Game data:** events, summons, shops, seasons, missions, login bonuses,
+  campaigns and item terms move forward by whole weeks to start at the current
+  week. The main story, character lists, collections and the character viewer
+  count as already released.
+- **Moving ahead:** Next update, Next week, or Jump to a week or an update,
+  with a preview of what opens, what is still paid and what is skipped. The
+  calendar only moves forward, in whole days.
+- **Speed:** real time, 2×, 3.5× or 7×, one week at a time at the daily reset.
+- **Loops:** a loop is 144 weeks. The next loop's game data is built ahead,
+  and the server starts it when a loop ends.
+- **Server:** an Arena season's final rank reward is paid after it ends.
+  Event items leave the inventory when their term ends. A new loop resets
+  event quests, event missions, exchange shop purchases, the mission pass,
+  login bonuses, Labyrinth seasons, Big Hunt records and limited summon
+  progress. Big Hunt picks its schedule by the game clock.
+
 ### Story events
 - Chapter 6-4 (Levania's memory): the player could walk past Mama's lines and
   fall off the right edge of the map. The game misses a player who walks

@@ -282,3 +282,45 @@ func TestFriendCards(t *testing.T) {
 	}
 	t.Logf("levels: %d distinct; average %d (<5000 points) to %d (>40000); max level %d", len(levels), lowSum/max(1, lowN), highSum/max(1, highN), c.maxUserLevel())
 }
+
+// With the Original calendar seasons end: the final rank of the season the
+// player took part in is paid once, and seasons skipped give nothing. Needs
+// the original (unpatched) master data, whose seasons keep their dates.
+func TestSeasonEndPaysFinalRank(t *testing.T) {
+	c, u := realSave(t)
+	first, ok := c.seasonById(202003)
+	if after, open := c.Season(first.SeasonEndDatetime + 2*86400_000); !ok || !open || after.PvpSeasonId == 202003 {
+		t.Skip("needs the original master data, where seasons end")
+	}
+	u.Ext.Pvp = store.PvpState{}
+	at := first.SeasonStartDatetime + 3600_000
+	if s, _, ok := c.Sync(&u, at); !ok || s.PvpSeasonId != 202003 {
+		t.Fatalf("season at start: %d %v", s.PvpSeasonId, ok)
+	}
+	u.Ext.Pvp.Point = 1500
+	if _, ok := c.PendingSeason(&u.Ext.Pvp); ok {
+		t.Fatal("reward pending before the season ended")
+	}
+	next, _, ok := c.Sync(&u, first.SeasonEndDatetime+2*86400_000)
+	if !ok || next.PvpSeasonId == 202003 {
+		t.Fatalf("next season: %d %v", next.PvpSeasonId, ok)
+	}
+	p := &u.Ext.Pvp
+	want := c.Ladder(202003).Rank(1500)
+	if p.SeasonResult == nil || p.SeasonResult.SeasonId != 202003 || p.SeasonResult.FinalRank != want {
+		t.Fatalf("season result %+v, want rank %d", p.SeasonResult, want)
+	}
+	if p.Point != 0 || p.RewardSeasonId == next.PvpSeasonId {
+		t.Fatalf("new season state: points %d, reward season %d", p.Point, p.RewardSeasonId)
+	}
+	reward, ok := c.PendingSeason(p)
+	if !ok || reward.RankGroup == 0 || len(reward.Rewards) == 0 {
+		t.Fatalf("no season reward: %+v", reward)
+	}
+	// Paid, then a jump over several seasons without points pays nothing more.
+	p.SeasonResult, p.RewardSeasonId = nil, p.SeasonId
+	last, _ := c.seasonById(202010)
+	if s, _, _ := c.Sync(&u, last.SeasonStartDatetime+3600_000); s.PvpSeasonId != 202010 || p.SeasonResult != nil {
+		t.Fatalf("skipped seasons paid: %d %+v", s.PvpSeasonId, p.SeasonResult)
+	}
+}

@@ -28,6 +28,8 @@ type Catalog struct {
 	weeklyGrade map[int32][]int32 // PvpGradeWeeklyRewardGroupId -> PvpRewardIds
 	weeklyTiers map[int32][]masterdata.EntityMPvpWeeklyRankRewardRankGroup
 	weeklyRank  map[int32][]int32 // PvpWeeklyRankRewardGroupId -> PvpRewardIds
+	seasonTiers map[int32][]masterdata.EntityMPvpSeasonRankRewardRankGroup
+	seasonRank  map[int32][]int32 // PvpSeasonRankRewardGroupId -> PvpRewardIds
 	rewards     map[int32]masterdata.EntityMPvpReward
 	groupIds    map[int32]int32 // PvpSeasonGroupingId -> GroupId
 
@@ -91,6 +93,8 @@ func load(cats *runtime.Catalogs) *Catalog {
 		weeklyGrade: map[int32][]int32{},
 		weeklyTiers: map[int32][]masterdata.EntityMPvpWeeklyRankRewardRankGroup{},
 		weeklyRank:  map[int32][]int32{},
+		seasonTiers: map[int32][]masterdata.EntityMPvpSeasonRankRewardRankGroup{},
+		seasonRank:  map[int32][]int32{},
 		rewards:     map[int32]masterdata.EntityMPvpReward{},
 		groupIds:    map[int32]int32{},
 		weapons:     map[int32][]int32{},
@@ -124,6 +128,15 @@ func load(cats *runtime.Catalogs) *Catalog {
 	}
 	for _, r := range read[masterdata.EntityMPvpWeeklyRankRewardGroup]("m_pvp_weekly_rank_reward_group") {
 		c.weeklyRank[r.PvpWeeklyRankRewardGroupId] = append(c.weeklyRank[r.PvpWeeklyRankRewardGroupId], r.PvpRewardId)
+	}
+	for _, r := range read[masterdata.EntityMPvpSeasonRankRewardRankGroup]("m_pvp_season_rank_reward_rank_group") {
+		c.seasonTiers[r.PvpSeasonRankRewardRankGroupId] = append(c.seasonTiers[r.PvpSeasonRankRewardRankGroupId], r)
+	}
+	for _, l := range c.seasonTiers {
+		sort.Slice(l, func(i, j int) bool { return l[i].RankLowerLimit < l[j].RankLowerLimit })
+	}
+	for _, r := range read[masterdata.EntityMPvpSeasonRankRewardGroup]("m_pvp_season_rank_reward_group") {
+		c.seasonRank[r.PvpSeasonRankRewardGroupId] = append(c.seasonRank[r.PvpSeasonRankRewardGroupId], r.PvpRewardId)
 	}
 	for _, r := range read[masterdata.EntityMPvpReward]("m_pvp_reward") {
 		c.rewards[r.PvpRewardId] = r
@@ -238,6 +251,17 @@ func (c *Catalog) rewardList(ids []int32) []Reward {
 		}
 	}
 	return out
+}
+
+// seasonRankGroup is the season rank reward group for a final rank.
+func (c *Catalog) seasonRankGroup(season masterdata.EntityMPvpSeason, rank int32) int32 {
+	var g int32
+	for _, t := range c.seasonTiers[season.PvpSeasonRankRewardRankGroupId] {
+		if t.RankLowerLimit <= rank {
+			g = t.PvpSeasonRankRewardGroupId
+		}
+	}
+	return g
 }
 
 // weeklyRankGroup is the weekly rank reward group for a rank.

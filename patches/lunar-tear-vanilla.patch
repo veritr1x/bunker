@@ -181,7 +181,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
 diff --git a/server/internal/gametime/gametime.go b/server/internal/gametime/gametime.go
 --- a/server/internal/gametime/gametime.go
 +++ b/server/internal/gametime/gametime.go
-@@ -2,6 +2,22 @@ package gametime
+@@ -2,26 +2,84 @@ package gametime
  
  import "time"
  
@@ -205,7 +205,8 @@ diff --git a/server/internal/gametime/gametime.go b/server/internal/gametime/gam
 +	real := time.Now().UTC()
 +	return real.Add(time.Duration(calendarShift(real.UnixMilli())) * time.Millisecond)
  }
-@@ -10,18 +26,60 @@ func NowMillis() int64 {
+ 
+ func NowMillis() int64 {
  	return Now().UnixMilli()
  }
  
@@ -274,6 +275,16 @@ diff --git a/server/internal/gametime/gametime.go b/server/internal/gametime/gam
 diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/bighunt.go
 --- a/server/internal/masterdata/bighunt.go
 +++ b/server/internal/masterdata/bighunt.go
+@@ -3,8 +3,8 @@ package masterdata
+ import (
+ 	"log"
+ 	"sort"
+-	"time"
+ 
++	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/utils"
+ )
+ 
 @@ -105,15 +105,22 @@ func (c *BigHuntCatalog) ResolveGradeIconId(bossId int32, score int64) int32 {
  	return iconId
  }
@@ -304,6 +315,15 @@ diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/
  }
  
  func LoadBigHuntCatalog() *BigHuntCatalog {
+@@ -188,7 +195,7 @@ func LoadBigHuntCatalog() *BigHuntCatalog {
+ 	if err != nil {
+ 		log.Fatalf("load big hunt schedule table: %v", err)
+ 	}
+-	nowMillis := time.Now().UnixMilli()
++	nowMillis := gametime.NowMillis()
+ 	var activeScheduleId int32
+ 	var latestEndDatetime int64
+ 	for _, r := range scheduleRows {
 diff --git a/server/internal/masterdata/config.go b/server/internal/masterdata/config.go
 --- a/server/internal/masterdata/config.go
 +++ b/server/internal/masterdata/config.go
@@ -2855,10 +2875,11 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  	"lunar-tear/server/internal/model"
  	"lunar-tear/server/internal/runtime"
  	"lunar-tear/server/internal/store"
-@@ -107,6 +109,13 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
+@@ -107,6 +109,14 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	s.users.UpdateUser(userId, func(user *store.UserState) {
  		user.GameStartDatetime = gametime.NowMillis()
++		calendarGameStart(user, user.GameStartDatetime)
 +		// Limited stock whose day, week or month has ended is full again; the
 +		// client shows stock from BoughtCount alone, so it must be reset here.
 +		if bunkerHolder != nil {
@@ -2869,7 +2890,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  	})
  
  	return &pb.GameStartResponse{}, nil
-@@ -175,45 +184,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
+@@ -175,45 +185,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
  		return &pb.GetUserProfileResponse{}, nil
  	}
  
@@ -2963,7 +2984,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  func (s *UserServiceServer) SetBirthYearMonth(ctx context.Context, req *pb.SetBirthYearMonthRequest) (*pb.SetBirthYearMonthResponse, error) {
  	log.Printf("[UserService] SetBirthYearMonth: %d/%d", req.BirthYear, req.BirthMonth)
  	userId := CurrentUserId(ctx, s.users, s.sessions)
-@@ -268,8 +295,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
+@@ -268,8 +296,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
  	return &pb.CheckTransferSettingResponse{}, nil
  }
  

@@ -12,6 +12,7 @@ import (
 type ExtState struct {
 	MissionsVersion     int32                           `json:"missionsVersion,omitempty"`
 	TimeKeysVersion     int32                           `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
+	CalendarLoop        int32                           `json:"calendarLoop,omitempty"`    // Original calendar loop the rotating progress belongs to
 	MissionPass         map[int32]MissionPassPointState `json:"missionPass,omitempty"`
 	DailyGroupReward    DailyGroupRewardState           `json:"dailyGroupReward"`
 	SceneChoices        map[int32]SceneChoiceState      `json:"sceneChoices,omitempty"`        // by QuestSceneChoiceGroupingId
@@ -54,6 +55,7 @@ type PvpState struct {
 	Weekly             []PvpWeeklyResult `json:"weekly,omitempty"`            // oldest first
 	RewardWeekVersion  int64             `json:"rewardWeekVersion,omitempty"` // weekly rewards paid up to this week
 	RewardSeasonId     int32             `json:"rewardSeasonId,omitempty"`
+	SeasonResult       *PvpWeeklyResult  `json:"seasonResult,omitempty"` // an ended season whose rank reward is not paid yet
 	LatestVersion      int64             `json:"latestVersion,omitempty"`
 }
 
@@ -147,7 +149,7 @@ func (e ExtState) Clone() ExtState {
 }
 
 func (e ExtState) Equal(o ExtState) bool {
-	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.DailyGroupReward == o.DailyGroupReward &&
+	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.CalendarLoop == o.CalendarLoop && e.DailyGroupReward == o.DailyGroupReward &&
 		maps.Equal(e.MissionPass, o.MissionPass) &&
 		maps.Equal(e.SceneChoices, o.SceneChoices) &&
 		maps.Equal(e.SceneChoiceHistory, o.SceneChoiceHistory) &&

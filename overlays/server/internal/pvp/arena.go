@@ -27,13 +27,21 @@ func (c *Catalog) Sync(u *store.UserState, now int64) (season masterdata.EntityM
 	p := &u.Ext.Pvp
 	ladder = c.Ladder(season.PvpSeasonId)
 	if p.SeasonId != season.PvpSeasonId {
+		result := p.SeasonResult
 		if p.SeasonId != 0 {
-			c.closeWeek(p, ladder)
+			// The season ended (with the Original calendar): its last week
+			// and its final rank count on that season's ladder. Seasons
+			// skipped in between give nothing, as the player had no points.
+			old := c.Ladder(p.SeasonId)
+			c.closeWeek(p, old)
+			if p.Point > 0 {
+				result = &store.PvpWeeklyResult{WeekVersion: p.WeekVersion, SeasonId: p.SeasonId, FinalPoint: p.Point, FinalRank: old.Rank(p.Point)}
+			}
 		}
 		*p = store.PvpState{
 			SeasonId: season.PvpSeasonId, BattlePointMilli: p.BattlePointMilli, BattlePointUpdated: p.BattlePointUpdated,
 			DefenseDeckNumber: p.DefenseDeckNumber, DefenseDeckPower: p.DefenseDeckPower,
-			Weekly: p.Weekly, RewardWeekVersion: p.RewardWeekVersion, RewardSeasonId: p.RewardSeasonId,
+			Weekly: p.Weekly, RewardWeekVersion: p.RewardWeekVersion, RewardSeasonId: p.RewardSeasonId, SeasonResult: result,
 		}
 		p.LatestVersion = now
 	}
@@ -50,8 +58,11 @@ func (c *Catalog) Sync(u *store.UserState, now int64) (season masterdata.EntityM
 		p.WeekVersion = week
 		p.LatestVersion = now
 	}
-	// There are no season rank rewards (Bunker's seasons never end).
-	p.RewardSeasonId = season.PvpSeasonId
+	// Season rank rewards are received up to the current season, unless an
+	// ended season's reward is still to be paid.
+	if p.SeasonResult == nil {
+		p.RewardSeasonId = season.PvpSeasonId
+	}
 	if rank := ladder.Rank(p.Point); p.MaxSeasonRank == 0 || rank < p.MaxSeasonRank {
 		p.MaxSeasonRank = rank
 	}
@@ -276,6 +287,27 @@ type WeeklyRewards struct {
 	Result                      store.PvpWeeklyResult
 	GradeRewardGroup, RankGroup int32
 	Rewards                     []Reward
+}
+
+// SeasonRewards are the rank rewards of an ended season.
+type SeasonRewards struct {
+	Result    store.PvpWeeklyResult
+	RankGroup int32
+	Rewards   []Reward
+}
+
+// PendingSeason is the ended season whose rank reward the player has not received.
+func (c *Catalog) PendingSeason(p *store.PvpState) (SeasonRewards, bool) {
+	if p.SeasonResult == nil {
+		return SeasonRewards{}, false
+	}
+	season, ok := c.seasonById(p.SeasonResult.SeasonId)
+	if !ok {
+		return SeasonRewards{}, false
+	}
+	sr := SeasonRewards{Result: *p.SeasonResult, RankGroup: c.seasonRankGroup(season, p.SeasonResult.FinalRank)}
+	sr.Rewards = c.rewardList(c.seasonRank[sr.RankGroup])
+	return sr, true
 }
 
 // PendingWeekly lists the weeks whose rewards the player has not received, oldest first.
