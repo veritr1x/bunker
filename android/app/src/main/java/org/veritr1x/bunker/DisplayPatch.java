@@ -19,7 +19,8 @@ import java.nio.file.Files;
  * refresh rate, which the game's window then asks for. Applied in the game's
  * process before Unity starts, so
  * a change takes effect the next time the game opens. The outcome is written
- * to tools/display.status for Pod Programs to show.
+ * to tools/display.status for Pod Programs to show. The library also carries
+ * the story-event zone fix, so it loads with the game's own settings too.
  */
 final class DisplayPatch {
     private DisplayPatch() {}
@@ -39,10 +40,7 @@ final class DisplayPatch {
         } catch (Exception missing) {
             // Never chosen: the game's own settings.
         }
-        if (fps == 0 && size == 0) {
-            status.delete();
-            return;
-        }
+        // The story-event fix (display_patch.c) applies even with the game's own settings.
         String result;
         try {
             System.loadLibrary("bunkerdisplay");
@@ -52,6 +50,10 @@ final class DisplayPatch {
         }
         if (!result.isEmpty()) Log.w("Bunker", "Display settings not applied: " + result);
         else if (fps > 0) requestRefreshRate(context, fps);
+        if (fps == 0 && size == 0) {
+            status.delete();  // Pod Programs reports on chosen settings only.
+            return;
+        }
         try (FileOutputStream out = new FileOutputStream(status)) {
             out.write((result.isEmpty() ? "ok" : "error=" + result).getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) {}

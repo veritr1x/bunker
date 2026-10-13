@@ -23,7 +23,8 @@
 //   (EventTriggerOnStayCollision) starts on a zone the player was in during
 //   the last 10 s, it gets the player's collider as if they were still there.
 //   The zones are watched each frame by bounds, and the conductors' begin and
-//   update are reached through their classes' method tables.
+//   update are reached through their classes' method tables. This applies at
+//   every frame rate, the game's own 30 included.
 //
 // The choices are read from tools/display.conf (android_display.py writes it).
 // The outcome goes to tools/display.status, which Pod Programs shows.
@@ -315,11 +316,15 @@ static BOOL ResolveZones(void) {
     if (!ready) {
         if (!il2cpp.domain_get()) return;
         if (gFps && !Resolve()) return;
-        if (gFps && !ResolveZones()) NSLog(@"[LunarTear] display: story-event zone fix not available in this game build");
-        if (!PatchPresets()) return;  // Config is in the game assembly; it loads with the others.
+        if ((gFps || gSize) && !PatchPresets()) return;  // Config is in the game assembly; it loads with the others.
+        if (!ResolveZones()) NSLog(@"[LunarTear] display: story-event zone fix not available in this game build");
         ready = YES;
-        WriteStatus(@"ok");
-        if (!gFps) { [link invalidate]; gLink = nil; return; }  // Resolution only: done.
+        if (gFps || gSize) WriteStatus(@"ok");
+        if (!zones.stay_update && !gFps) { [link invalidate]; gLink = nil; return; }  // Resolution only: done.
+    }
+    if (!gFps) {  // The game's own 30 fps: only the story-event zones.
+        if (zones.stay_update) WatchZones();
+        return;
     }
     int frame = game.frame_count(NULL);
     if (frame == gLastFrame) return;
@@ -364,11 +369,10 @@ void LTDisplayStart(NSString *toolsRoot) {
         }
         if ([key isEqual:@"resolution"]) gSize = RenderTargetSize(value);
     }
-    if (!gFps && !gSize) {
-        [NSFileManager.defaultManager removeItemAtPath:gStatusPath error:nil];
-        return;
-    }
-#define LOAD(name) if (!(*(void **)&il2cpp.name = dlsym(RTLD_DEFAULT, "il2cpp_" #name))) { WriteStatus(@"error=The game's IL2CPP API is missing"); return; }
+    // The story-event zone fix runs with the game's own settings too; display.status reports chosen settings only.
+    BOOL chosen = gFps || gSize;
+    if (!chosen) [NSFileManager.defaultManager removeItemAtPath:gStatusPath error:nil];
+#define LOAD(name) if (!(*(void **)&il2cpp.name = dlsym(RTLD_DEFAULT, "il2cpp_" #name))) { if (chosen) WriteStatus(@"error=The game's IL2CPP API is missing"); return; }
     LOAD(domain_get) LOAD(domain_get_assemblies) LOAD(assembly_get_image) LOAD(class_from_name) LOAD(class_get_method_from_name)
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(field_static_set_value) LOAD(runtime_class_init)
     LOAD(class_get_type) LOAD(type_get_object) LOAD(gchandle_new) LOAD(gchandle_free)
@@ -378,8 +382,9 @@ void LTDisplayStart(NSString *toolsRoot) {
         queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
             [NSNotificationCenter.defaultCenter removeObserver:observer];
             gLink = [CADisplayLink displayLinkWithTarget:[LTDisplayTicker new] selector:@selector(tick:)];
-            if (@available(iOS 15.0, *)) gLink.preferredFrameRateRange = CAFrameRateRangeMake(30, (float)screen, (float)screen);
-            else gLink.preferredFramesPerSecond = screen;
+            float rate = gFps ? (float)screen : 30;  // At the game's own 30, don't ask the screen for more.
+            if (@available(iOS 15.0, *)) gLink.preferredFrameRateRange = CAFrameRateRangeMake(30, rate, rate);
+            else gLink.preferredFramesPerSecond = (NSInteger)rate;
             [gLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
         }];
 }

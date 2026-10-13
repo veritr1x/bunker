@@ -21,7 +21,8 @@
 //   physics step is set to that frame's duration (1/240 to 1/30 s); measured
 //   on a Galaxy Fold at 60, walking then matches 30 fps (3.7 m/s).
 // - Story-event zones: a zone the player walks through while an event's
-//   balloon fades out still counts (see the notes above state_changing).
+//   balloon fades out still counts (see the notes above state_changing). This
+//   one applies at every frame rate, the game's own 30 included.
 //
 // The RVAs come from the 3.7.1 ARM64 game's IL2CPP metadata. Every site is
 // checked first; on any unknown instruction nothing is changed.
@@ -295,14 +296,17 @@ __attribute__((naked)) static void trigger_enter_hook(void) {
         "br x16\n");
 }
 
-static int hook_frame_rate(uint8_t *base) {
+static int hook_event_zones(uint8_t *base) {
     game_base = base;
     stay_on_stay = (void (*)(void *, void *, void *))(base + 0x2984420);
     stay_begin = (uintptr_t)(base + 0x2984210);
     change_state_resume = (uintptr_t)(base + 0x3A0ECF8 + 16);
     trigger_enter_resume = (uintptr_t)(base + 0x363082C + 16);
     if (hook((uint32_t *)(base + 0x3A0ECF8), kChangeState, change_state_hook)) return -1;
-    if (hook((uint32_t *)(base + 0x363082C), kTriggerEnter, trigger_enter_hook)) return -1;
+    return hook((uint32_t *)(base + 0x363082C), kTriggerEnter, trigger_enter_hook);
+}
+
+static int hook_frame_rate(uint8_t *base) {
     time_unscaled_delta = (float (*)(void *))(base + 0x4D7ED90);
     time_fixed_delta = (float (*)(void *))(base + 0x4D7EDC4);
     time_set_fixed_delta = (void (*)(float, void *))(base + 0x4D7EDF8);
@@ -316,7 +320,6 @@ static int hook_frame_rate(uint8_t *base) {
 static const char *apply(int fps, int size, char *message, size_t length) {
     Site list[8];
     int count = sites(fps, size, list);
-    if (!count) return "";
     void *library = dlopen("libil2cpp.so", RTLD_NOW);
     void *symbol = library ? dlsym(library, "il2cpp_init") : NULL;
     Dl_info info;
@@ -327,7 +330,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
     uint8_t *base = info.dli_fbase;
     const struct { uint32_t rva; const uint32_t *original; } hooks[] = {{0x2D5F7A0, kFixedProcessPrologue}, {0x2A6530C, kBattleStepCall},
         {0x3A0ECF8, kChangeState}, {0x363082C, kTriggerEnter}};
-    for (int h = 0; fps > 30 && h < 4; h++) {
+    // The event-zone hooks (2 and 3) go in at every frame rate; the frame-timing ones only above 30.
+    for (int h = fps > 30 ? 0 : 2; h < 4; h++) {
         uint32_t *at = (uint32_t *)(base + hooks[h].rva);
         if (at[0] == 0x58000050u) continue;
         for (int i = 0; i < 4; i++) if (at[i] != hooks[h].original[i]) {
@@ -348,6 +352,10 @@ static const char *apply(int fps, int size, char *message, size_t length) {
             snprintf(message, length, "Could not write the game code at 0x%X", list[i].rva);
             return message;
         }
+    }
+    if (hook_event_zones(base)) {
+        snprintf(message, length, "Could not write the game's story-event code");
+        return message;
     }
     if (fps > 30 && hook_frame_rate(base)) {
         snprintf(message, length, "Could not write the game's frame timing code");
