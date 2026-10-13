@@ -223,6 +223,8 @@ func characterCostumeLevelBonusRecords(user store.UserState) []map[string]any {
 // to an ability (one row per slot) or a status up (summed per costume and
 // calculation type).
 func lotteryEffectRecords(user store.UserState) (abilities, statusUps []map[string]any) {
+	// Empty tables go to the client as [], never null: null stops its first load.
+	abilities, statusUps = []map[string]any{}, []map[string]any{}
 	t := costumeDerivedTables()
 	keys := make([]store.CostumeLotteryEffectKey, 0, len(user.CostumeLotteryEffects))
 	for k, e := range user.CostumeLotteryEffects {
