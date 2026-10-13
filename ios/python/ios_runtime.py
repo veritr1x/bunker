@@ -101,9 +101,10 @@ def _connect_readable(database, *args, **kwargs):
 
 
 def _adapt_patcher():
+    import android_calendar
     import android_display
     import android_patcher
-    for module in (android_patcher, android_display):
+    for module in (android_patcher, android_display, android_calendar):
         redirect = module.redirect
         def ios_redirect(redirect=redirect, **kwargs):
             if "message" in kwargs:
