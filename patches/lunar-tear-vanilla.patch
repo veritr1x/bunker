@@ -694,7 +694,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			GachaMedalId:        m.GachaMedalId,
  			ConsumableItemId:    m.ConsumableItemId,
  			AutoConvertDatetime: m.AutoConvertDatetime,
-@@ -41,124 +93,96 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -41,124 +93,98 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  		}
  	}
  
@@ -776,59 +776,22 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 -		relMainQuest := int32(0)
 -		if isChapter {
 -			relMainQuest = gachaId - chapterGachaIdBase
--		}
--
--		var descriptionTextId int32
--		if isChapter {
--			descriptionTextId = gachaId
 +		if hasMedal {
 +			entry.GachaMedalId = medal.GachaMedalId
 +			entry.MedalConsumableItemId = medal.ConsumableItemId
 +			entry.CeilingCount = ceiling(medal)
  		}
 -
--		entries = append(entries, store.GachaCatalogEntry{
--			GachaId:                   gachaId,
--			GachaLabelType:            labelType,
--			GachaModeType:             modeType,
--			GachaAutoResetType:        model.GachaAutoResetNone,
--			IsUserGachaUnlock:         true,
--			StartDatetime:             b.StartDatetime,
--			EndDatetime:               b.EndDatetime,
--			RelatedMainQuestChapterId: relMainQuest,
--			GachaMedalId:              medalId,
--			MedalConsumableItemId:     medalConsumableId,
--			GachaDecorationType:       decoration,
--			SortOrder:                 b.SortOrderDesc,
--			BannerAssetName:           b.BannerAssetName,
--			GroupId:                   gachaId,
--			CeilingCount:              ceilingCount,
--			PricePhases:               pricePhases,
--			DescriptionTextId:         descriptionTextId,
--		})
--	}
--
--	for _, steps := range stepupSteps {
--		first := steps[0]
--		gachaId := first.DestinationDomainId
--
--		medal := gachaToMedal[first.DestinationDomainId]
--		medalId := medal.GachaMedalId
--		medalConsumableId := medal.ConsumableItemId
--
--		pricePhases := buildStepUpPricePhases(gachaId, len(steps))
--
--		var maxStep int32
--		for _, p := range pricePhases {
--			if p.StepNumber > maxStep {
--				maxStep = p.StepNumber
+-		var descriptionTextId int32
+-		if isChapter {
+-			descriptionTextId = gachaId
 +		switch {
 +		case strings.HasPrefix(b.BannerAssetName, model.BannerPrefixStepUp):
 +			// Each multi-step summon has one banner row; its pool and steps
 +			// need a medal to be offered.
 +			if !hasMedal {
 +				continue
- 			}
++			}
 +			steps := defaultStepUpSteps
 +			var group int32
 +			if _, err := fmt.Sscanf(strings.TrimPrefix(b.BannerAssetName, model.BannerPrefixStepUp), "%3d", &group); err == nil {
@@ -861,10 +824,48 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +			}
 +			entry.PricePhases = buildPremiumBasicPricePhases(gachaId)
  		}
+-
+-		entries = append(entries, store.GachaCatalogEntry{
+-			GachaId:                   gachaId,
+-			GachaLabelType:            labelType,
+-			GachaModeType:             modeType,
+-			GachaAutoResetType:        model.GachaAutoResetNone,
+-			IsUserGachaUnlock:         true,
+-			StartDatetime:             b.StartDatetime,
+-			EndDatetime:               b.EndDatetime,
+-			RelatedMainQuestChapterId: relMainQuest,
+-			GachaMedalId:              medalId,
+-			MedalConsumableItemId:     medalConsumableId,
+-			GachaDecorationType:       decoration,
+-			SortOrder:                 b.SortOrderDesc,
+-			BannerAssetName:           b.BannerAssetName,
+-			GroupId:                   gachaId,
+-			CeilingCount:              ceilingCount,
+-			PricePhases:               pricePhases,
+-			DescriptionTextId:         descriptionTextId,
+-		})
 +		seen[gachaId] = true
 +		entries = append(entries, entry)
-+	}
+ 	}
  
+-	for _, steps := range stepupSteps {
+-		first := steps[0]
+-		gachaId := first.DestinationDomainId
+-
+-		medal := gachaToMedal[first.DestinationDomainId]
+-		medalId := medal.GachaMedalId
+-		medalConsumableId := medal.ConsumableItemId
++	entries = append(entries, bannerlessSummons(medals, seen)...)
+ 
+-		pricePhases := buildStepUpPricePhases(gachaId, len(steps))
+-
+-		var maxStep int32
+-		for _, p := range pricePhases {
+-			if p.StepNumber > maxStep {
+-				maxStep = p.StepNumber
+-			}
+-		}
+-
 -		entries = append(entries, store.GachaCatalogEntry{
 -			GachaId:               gachaId,
 -			GachaLabelType:        model.GachaLabelPremium,
@@ -892,7 +893,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  	}
  
  	return entries, medalInfoByGacha, nil
-@@ -292,6 +316,10 @@ func buildPremiumBasicPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -292,6 +318,10 @@ func buildPremiumBasicPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
  
  func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePhaseEntry {
  	stepCosts := []int32{model.StepUpStep1Cost, model.StepUpFreeCost, model.StepUpStep3Cost, model.StepUpFreeCost, model.StepUpStep5Cost}
@@ -903,7 +904,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  	stepCosts = stepCosts[:min(totalSteps, len(stepCosts))]
  
  	var phases []store.GachaPricePhaseEntry
-@@ -324,12 +352,45 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
+@@ -324,12 +354,45 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
  	return phases
  }
  
@@ -951,7 +952,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			Price:        1,
  			RegularPrice: 1,
  			DrawCount:    1,
-@@ -337,10 +398,18 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -337,10 +400,101 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
  		{
  			PhaseId:      gachaId*model.PhaseIdMultiplier + 2,
  			PriceType:    model.PriceTypeConsumableItem,
@@ -970,6 +971,89 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +		return m.CeilingCount
 +	}
 +	return model.PityCeilingCount
++}
++
++// bannerlessSkipped are medal summons without summon art in the client (or,
++// 10016, that never ran).
++var bannerlessSkipped = map[int32]bool{617: true, 10016: true, 10107: true, 10108: true, 9000040: true}
++
++// bannerlessSummons are summons with a medal but no m_mom_banner row: the
++// home-screen carousel never advertised them (the weekly summons, the paid
++// multi-step summons, Fortune's Dress and Blessed Dress), but the client has
++// their art (ui/gacha/en/<asset>). They ran from their exchange shop's opening
++// to two days before their medals convert. Prices are not in the client data:
++// weekly summons cost the usual gems, multi-step summons paid gems by step.
++func bannerlessSummons(medals []EntityMGachaMedal, seen map[int32]bool) []store.GachaCatalogEntry {
++	opens := shopOpensByPrice()
++	var out []store.GachaCatalogEntry
++	for _, m := range medals {
++		gachaId := m.ShopTransitionGachaId
++		if gachaId == 0 || seen[gachaId] || bannerlessSkipped[gachaId] {
++			continue
++		}
++		start, ok := opens[m.ConsumableItemId]
++		if !ok || m.AutoConvertDatetime == 0 || m.AutoConvertDatetime-rerunEndBeforeConvert <= start {
++			continue
++		}
++		entry := store.GachaCatalogEntry{
++			GachaId:               gachaId,
++			GachaLabelType:        model.GachaLabelPremium,
++			GachaModeType:         model.GachaModeBasic,
++			GachaAutoResetType:    model.GachaAutoResetNone,
++			IsUserGachaUnlock:     true,
++			StartDatetime:         start,
++			EndDatetime:           m.AutoConvertDatetime - rerunEndBeforeConvert,
++			GachaMedalId:          m.GachaMedalId,
++			MedalConsumableItemId: m.ConsumableItemId,
++			GachaDecorationType:   model.GachaDecorationFestival,
++			BannerAssetName:       fmt.Sprintf("%s%d", model.BannerPrefixLimited, gachaId),
++			GroupId:               gachaId,
++			CeilingCount:          ceiling(m),
++			PricePhases:           buildPremiumBasicPricePhases(gachaId),
++			UnlockConditionType:   model.GachaUnlockNone,
++		}
++		if gachaId >= 500000 {
++			entry.GachaModeType = model.GachaModeStepup
++			entry.BannerAssetName = fmt.Sprintf("%s%d", model.BannerPrefixStepUp, gachaId)
++			entry.PricePhases = buildStepUpPricePhases(gachaId, defaultStepUpSteps)
++			entry.MaxStepNumber = defaultStepUpSteps
++		}
++		seen[gachaId] = true
++		out = append(out, entry)
++	}
++	return out
++}
++
++// shopOpensByPrice is when the first shop selling for an item opens, by item.
++func shopOpensByPrice() map[int32]int64 {
++	items, _ := utils.ReadTable[EntityMShopItem]("m_shop_item")
++	cells, _ := utils.ReadTable[EntityMShopItemCell]("m_shop_item_cell")
++	groups, _ := utils.ReadTable[EntityMShopItemCellGroup]("m_shop_item_cell_group")
++	shops, _ := utils.ReadTable[EntityMShop]("m_shop")
++	priceOf := make(map[int32]int32, len(items))
++	for _, it := range items {
++		priceOf[it.ShopItemId] = it.PriceId
++	}
++	itemOfCell := make(map[int32]int32, len(cells))
++	for _, c := range cells {
++		itemOfCell[c.ShopItemCellId] = c.ShopItemId
++	}
++	pricesOfGroup := make(map[int32]map[int32]bool)
++	for _, g := range groups {
++		if pricesOfGroup[g.ShopItemCellGroupId] == nil {
++			pricesOfGroup[g.ShopItemCellGroupId] = map[int32]bool{}
++		}
++		pricesOfGroup[g.ShopItemCellGroupId][priceOf[itemOfCell[g.ShopItemCellId]]] = true
++	}
++	out := make(map[int32]int64)
++	for _, sh := range shops {
++		for price := range pricesOfGroup[sh.ShopItemCellGroupId] {
++			if cur, ok := out[price]; !ok || sh.StartDatetime < cur {
++				out[price] = sh.StartDatetime
++			}
++		}
++	}
++	return out
 +}
 diff --git a/server/internal/masterdata/gacha_pool.go b/server/internal/masterdata/gacha_pool.go
 --- a/server/internal/masterdata/gacha_pool.go

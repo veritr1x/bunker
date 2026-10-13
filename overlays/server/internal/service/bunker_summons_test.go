@@ -155,3 +155,33 @@ func TestChapterSummonProgressMoves(t *testing.T) {
 		t.Fatal("ran twice")
 	}
 }
+
+// Summons without a banner row (weekly, paid multi-step, Fortune's and
+// Blessed Dress) are offered on their shop's dates when the client has art.
+func TestBannerlessSummons(t *testing.T) {
+	byId, _ := catalogById(t)
+	w, ok := byId[10001]
+	if !ok {
+		t.Fatal("weekly summon 10001 not offered")
+	}
+	if w.EndDatetime > 1_700_000_000_000 {
+		t.Skip("needs the original master data")
+	}
+	if w.BannerAssetName != "limited_10001" || w.StartDatetime != 1647914400000 || w.EndDatetime != 1648432799000 || w.CeilingCount != 150 {
+		t.Errorf("weekly summon 10001: %+v", w)
+	}
+	p := byId[590001]
+	if p.GachaModeType != model.GachaModeStepup || p.BannerAssetName != "step_up_590001" || p.CeilingCount != 50 || p.PricePhases[0].PriceType != model.PriceTypePaidGem {
+		t.Errorf("paid step-up 590001: %+v", p)
+	}
+	for _, id := range []int32{145, 402, 10106, 612001} {
+		if _, ok := byId[id]; !ok {
+			t.Errorf("summon %d not offered", id)
+		}
+	}
+	for _, id := range []int32{617, 10016, 10107, 10108, 9000040} {
+		if _, ok := byId[id]; ok {
+			t.Errorf("summon %d without art offered", id)
+		}
+	}
+}

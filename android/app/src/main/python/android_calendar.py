@@ -41,6 +41,7 @@ DAY_START = 8 * 60 * 60 * 1000
 SHARED_MEDAL = {46, 151} | {401, 501, 535, 541, 542, 543, 549, 550, 555, 556, 582, 583, 585, 510001, 513001, 515001, 536001, 537001, 9000035}
 SPECIAL_SUMMONS = {43, 49, 52, 60, 64, 66, 70, 85, 153, 160, 199, 410, 416, 428, 430, 433, 449, 452, 453, 468, 472, 493, 501, 503, 510, 514, 515, 524, 545, 547, 581, 584, 593, 597, 9000007}
 PARKED_RERUNS = {159: 3110399000, 414: 1123199000}
+BANNERLESS_SKIPPED = {617, 10016, 10107, 10108, 9000040}
 SPEEDS = {"1": "Real time", "2": "2×", "3.5": "3.5×", "7": "7×"}
 
 # Rotating content: these tables move with the calendar.
@@ -296,6 +297,20 @@ def entries():
     for row in table("MomBanner"):
         if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in offered and row["DestinationDomainId"] not in PARKED_RERUNS:
             found.append(("summon", banner_names.get(row["MomBannerId"]), row["StartDatetime"], row["EndDatetime"]))
+    # Summons with a medal but no banner row (server: bannerlessSummons).
+    with_banner = {row["DestinationDomainId"] for row in table("MomBanner") if row["DestinationDomainType"] == 1}
+    opens = shop_opens_by_price()
+    item_names = names("consumables")
+    for gacha, medal in medals.items():
+        start = opens.get(medal["ConsumableItemId"])
+        end = medal["AutoConvertDatetime"] - 2 * DAY
+        if gacha in with_banner or gacha in BANNERLESS_SKIPPED or start is None or not 0 < start < end:
+            continue
+        shard = item_names.get(medal["ConsumableItemId"], "")
+        label = shard[shard.find("(") + 1:shard.rfind(")")] if "(" in shard else ""
+        if label and "summons" not in label.lower():
+            label += " Summons"
+        found.append(("summon", label or None, start, end))
     shop_names = names("shops")
     for row in table("Shop"):
         if row["ShopGroupType"] == 4:
@@ -313,6 +328,21 @@ def entries():
         found.append(("expiry", "", row["StartDatetime"], row["EndDatetime"]))
     # Content that never ends after release is part of the game, not the calendar.
     return [e for e in found if e[2] < NEVER and e[3] < NEVER and e[2] < e[3]]
+
+
+def shop_opens_by_price():
+    """When the first shop selling for each item opens (server: shopOpensByPrice)."""
+    price = {r["ShopItemId"]: r["PriceId"] for r in table("ShopItem")}
+    cell = {r["ShopItemCellId"]: r["ShopItemId"] for r in table("ShopItemCell")}
+    groups = {}
+    for r in table("ShopItemCellGroup"):
+        groups.setdefault(r["ShopItemCellGroupId"], set()).add(price.get(cell.get(r["ShopItemCellId"])))
+    out = {}
+    for shop in table("Shop"):
+        for item in groups.get(shop["ShopItemCellGroupId"], ()):
+            if item is not None and (item not in out or shop["StartDatetime"] < out[item]):
+                out[item] = shop["StartDatetime"]
+    return out
 
 
 def day_label(ms):
