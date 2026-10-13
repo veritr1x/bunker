@@ -285,7 +285,17 @@ diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/
  	"lunar-tear/server/internal/utils"
  )
  
-@@ -105,15 +105,22 @@ func (c *BigHuntCatalog) ResolveGradeIconId(bossId int32, score int64) int32 {
+@@ -55,7 +55,8 @@ type BigHuntCatalog struct {
+ 	ScoreCoefficients           map[int32]int32
+ 	BossByBossId                map[int32]BigHuntBossRow
+ 	GradeThresholds             map[int32][]GradeThreshold
+-	ActiveScheduleId            int32
++	ActiveScheduleId            int32 // at server start; use ScheduleAt for the current one
++	schedules                   []EntityMBigHuntSchedule
+ 	ScoreRewardSchedules        map[int32][]ScoreRewardScheduleEntry
+ 	ScoreRewardThresholds       map[int32][]ScoreRewardThreshold
+ 	RewardItems                 map[int32][]RewardItem
+@@ -105,15 +106,22 @@ func (c *BigHuntCatalog) ResolveGradeIconId(bossId int32, score int64) int32 {
  	return iconId
  }
  
@@ -315,7 +325,7 @@ diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/
  }
  
  func LoadBigHuntCatalog() *BigHuntCatalog {
-@@ -188,7 +195,7 @@ func LoadBigHuntCatalog() *BigHuntCatalog {
+@@ -188,7 +196,7 @@ func LoadBigHuntCatalog() *BigHuntCatalog {
  	if err != nil {
  		log.Fatalf("load big hunt schedule table: %v", err)
  	}
@@ -324,6 +334,37 @@ diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/
  	var activeScheduleId int32
  	var latestEndDatetime int64
  	for _, r := range scheduleRows {
+@@ -282,9 +290,30 @@ func LoadBigHuntCatalog() *BigHuntCatalog {
+ 		BossByBossId:                bossByBossId,
+ 		GradeThresholds:             gradeThresholds,
+ 		ActiveScheduleId:            activeScheduleId,
++		schedules:                   scheduleRows,
+ 		ScoreRewardSchedules:        scoreRewardSchedules,
+ 		ScoreRewardThresholds:       scoreRewardThresholds,
+ 		RewardItems:                 rewardItems,
+ 		WeeklyRewardSchedulesByAttr: weeklyRewardSchedulesByAttr,
+ 	}
+ }
++
++// ScheduleAt is the Big Hunt schedule open at nowMillis, or else the one that
++// ends last. With the Original calendar the schedule changes while the server
++// runs, so callers ask with the current game time.
++func (c *BigHuntCatalog) ScheduleAt(nowMillis int64) int32 {
++	if len(c.schedules) == 0 {
++		return c.ActiveScheduleId
++	}
++	var id int32
++	var latestEnd int64
++	for _, r := range c.schedules {
++		if nowMillis >= r.ChallengeStartDatetime && nowMillis <= r.ChallengeEndDatetime {
++			return r.BigHuntScheduleId
++		}
++		if r.ChallengeEndDatetime > latestEnd {
++			latestEnd, id = r.ChallengeEndDatetime, r.BigHuntScheduleId
++		}
++	}
++	return id
++}
 diff --git a/server/internal/masterdata/config.go b/server/internal/masterdata/config.go
 --- a/server/internal/masterdata/config.go
 +++ b/server/internal/masterdata/config.go
@@ -2413,6 +2454,15 @@ diff --git a/server/internal/service/quest_bighunt.go b/server/internal/service/
  
  		st := user.BigHuntStatuses[req.BigHuntBossQuestId]
  		if st.LatestChallengeDatetime < today {
+@@ -146,7 +152,7 @@ func (s *BigHuntServiceServer) FinishBigHuntQuest(ctx context.Context, req *pb.F
+ 		}
+ 
+ 		schedKey := store.BigHuntScheduleScoreKey{
+-			BigHuntScheduleId: catalog.ActiveScheduleId,
++			BigHuntScheduleId: catalog.ScheduleAt(gametime.NowMillis()),
+ 			BigHuntBossId:     bossQuest.BigHuntBossId,
+ 		}
+ 		oldSchedMax := user.BigHuntScheduleMaxScores[schedKey].MaxScore
 @@ -185,20 +191,15 @@ func (s *BigHuntServiceServer) FinishBigHuntQuest(ctx context.Context, req *pb.F
  			AssetGradeIconId:      assetGradeIconId,
  		}
@@ -2443,7 +2493,14 @@ diff --git a/server/internal/service/quest_bighunt.go b/server/internal/service/
  		}
  
  		if len(detail.CostumeBattleInfo) > 0 {
-@@ -330,7 +331,8 @@ func (s *BigHuntServiceServer) SkipBigHuntQuest(ctx context.Context, req *pb.Ski
+@@ -324,13 +325,14 @@ func (s *BigHuntServiceServer) SkipBigHuntQuest(ctx context.Context, req *pb.Ski
+ 			return
+ 		}
+ 		maxScore := user.BigHuntScheduleMaxScores[store.BigHuntScheduleScoreKey{
+-			BigHuntScheduleId: catalog.ActiveScheduleId,
++			BigHuntScheduleId: catalog.ScheduleAt(gametime.NowMillis()),
+ 			BigHuntBossId:     bossQuest.BigHuntBossId,
+ 		}].MaxScore
  		if maxScore <= 0 {
  			return
  		}
@@ -2664,7 +2721,14 @@ diff --git a/server/internal/service/quest_main.go b/server/internal/service/que
 diff --git a/server/internal/service/reward.go b/server/internal/service/reward.go
 --- a/server/internal/service/reward.go
 +++ b/server/internal/service/reward.go
-@@ -60,7 +60,7 @@ func (s *RewardServiceServer) ReceiveBigHuntReward(ctx context.Context, _ *empty
+@@ -54,13 +54,13 @@ func (s *RewardServiceServer) ReceiveBigHuntReward(ctx context.Context, _ *empty
+ 				continue
+ 			}
+ 			maxScore := user.BigHuntScheduleMaxScores[store.BigHuntScheduleScoreKey{
+-				BigHuntScheduleId: bhCatalog.ActiveScheduleId,
++				BigHuntScheduleId: bhCatalog.ScheduleAt(nowMillis),
+ 				BigHuntBossId:     bossQuest.BigHuntBossId,
+ 			}].MaxScore
  			if maxScore <= 0 {
  				continue
  			}

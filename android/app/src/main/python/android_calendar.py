@@ -276,8 +276,10 @@ def entries():
     for row in table("EventQuestChapter"):
         found.append(("event", event_names.get(row["EventQuestChapterId"]), row["StartDatetime"], row["EndDatetime"]))
     banner_names = names("gacha_banners")
+    # The server offers only summons with their own medal (see masterdata/gacha.go).
+    medals = {row["ShopTransitionGachaId"] for row in table("GachaMedal")}
     for row in table("MomBanner"):
-        if row["DestinationDomainType"] == 1:
+        if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in medals:
             found.append(("summon", banner_names.get(row["MomBannerId"]), row["StartDatetime"], row["EndDatetime"]))
     shop_names = names("shops")
     for row in table("Shop"):
