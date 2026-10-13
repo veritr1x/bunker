@@ -276,10 +276,11 @@ def entries():
     for row in table("EventQuestChapter"):
         found.append(("event", event_names.get(row["EventQuestChapterId"]), row["StartDatetime"], row["EndDatetime"]))
     banner_names = names("gacha_banners")
-    # The server offers only summons with their own medal (see masterdata/gacha.go).
-    medals = {row["ShopTransitionGachaId"] for row in table("GachaMedal")}
+    # The summons the server offers: those with a medal, and Automata Vol. 2,
+    # which shares Vol. 1's (see sharedMedalGachas in masterdata/gacha.go).
+    offered = {row["ShopTransitionGachaId"] for row in table("GachaMedal")} | {46, 151}
     for row in table("MomBanner"):
-        if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in medals:
+        if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in offered:
             found.append(("summon", banner_names.get(row["MomBannerId"]), row["StartDatetime"], row["EndDatetime"]))
     shop_names = names("shops")
     for row in table("Shop"):

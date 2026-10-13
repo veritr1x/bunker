@@ -584,7 +584,34 @@ diff --git a/server/internal/masterdata/dup_exchange.go b/server/internal/master
 diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/gacha.go
 --- a/server/internal/masterdata/gacha.go
 +++ b/server/internal/masterdata/gacha.go
-@@ -59,68 +59,34 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -19,6 +19,11 @@ type GachaMedalInfo struct {
+ 
+ const chapterGachaIdBase int32 = 200000
+ 
++// sharedMedalGachas are summons without their own m_gacha_medal row that
++// shared another summon's medal: both volumes of the NieR:Automata crossover
++// (at launch and in the rerun) gave Shard (Automata).
++var sharedMedalGachas = map[int32]int32{46: 45, 151: 150}
++
+ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, error) {
+ 	medals, err := utils.ReadTable[EntityMGachaMedal]("m_gacha_medal")
+ 	if err != nil {
+@@ -40,6 +45,14 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+ 			ConversionRate:      m.ConversionRate,
+ 		}
+ 	}
++	for gacha, owner := range sharedMedalGachas {
++		if m, ok := gachaToMedal[owner]; ok {
++			if _, own := gachaToMedal[gacha]; !own {
++				gachaToMedal[gacha] = m
++				medalInfoByGacha[gacha] = medalInfoByGacha[owner]
++			}
++		}
++	}
+ 
+ 	stepupSteps := make(map[int32][]EntityMMomBanner)
+ 	var entries []store.GachaCatalogEntry
+@@ -59,68 +72,34 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  			continue
  		}
  
@@ -675,7 +702,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  		})
  	}
  
-@@ -158,9 +124,18 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -158,9 +137,18 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  			CeilingCount:          model.PityCeilingCount,
  			PricePhases:           pricePhases,
  			MaxStepNumber:         maxStep,
@@ -694,7 +721,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  	return entries, medalInfoByGacha, nil
  }
  
-@@ -324,12 +299,12 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
+@@ -324,12 +312,12 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
  	return phases
  }
  
@@ -709,7 +736,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			Price:        1,
  			RegularPrice: 1,
  			DrawCount:    1,
-@@ -337,7 +312,7 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -337,7 +325,7 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
  		{
  			PhaseId:      gachaId*model.PhaseIdMultiplier + 2,
  			PriceType:    model.PriceTypeConsumableItem,

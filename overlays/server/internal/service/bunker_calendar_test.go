@@ -118,3 +118,24 @@ func TestCalendarGameStart(t *testing.T) {
 		t.Fatalf("loop 2: pass %v loop %d arena %d", u.Ext.MissionPass, u.Ext.CalendarLoop, u.Ext.Pvp.Point)
 	}
 }
+
+func TestAutomataVol2SharesShards(t *testing.T) {
+	loadMaster(t)
+	entries, medals, err := masterdata.LoadGachaCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byId := map[int32]store.GachaCatalogEntry{}
+	for _, e := range entries {
+		byId[e.GachaId] = e
+	}
+	for vol2, vol1 := range map[int32]int32{46: 45, 151: 150} {
+		a, b := byId[vol1], byId[vol2]
+		if b.GachaId == 0 || b.MedalConsumableItemId == 0 || b.MedalConsumableItemId != a.MedalConsumableItemId {
+			t.Errorf("summon %d not offered with summon %d's medal: %+v", vol2, vol1, b)
+		}
+		if medals[vol2] != medals[vol1] {
+			t.Errorf("summon %d medal info differs", vol2)
+		}
+	}
+}
