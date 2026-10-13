@@ -2,20 +2,98 @@
 {% block title %}Content patcher{% endblock %}
 {% block content %}
 <h1>Content patcher</h1>
+{% if calendar %}
+<div class="title-row"><p>Current: <strong>{{ current }}</strong></p><span class="status-pill online">Calendar on</span></div>
+
+<h2 class="bracket-header">Schedule</h2>
+<div class="panel">
+  <dl class="kv plain">
+    <dt>Loop</dt><dd>{{ calendar.loop }} · week {{ calendar.week }} of {{ calendar.weeks }}</dd>
+    <dt>Today</dt><dd>{{ calendar.today }}</dd>
+    <dt>Original</dt><dd>{{ calendar.original }}</dd>
+    <dt>Ends</dt><dd>{{ calendar.ends }}</dd>
+  </dl>
+  <div class="loop-meter" role="img" aria-label="Week {{ calendar.week }} of {{ calendar.weeks }}"><i style="width: {{ calendar.progress }}%"></i></div>
+  <div class="label">Move ahead</div>
+  <div class="actions" style="margin-top: 0">
+    <form action="/patcher/calendar/next" method="get"><button type="submit" class="secondary">Next update</button></form>
+    <form action="/patcher/calendar/next" method="get"><input type="hidden" name="by" value="week"><button type="submit" class="secondary">Next week</button></form>
+    <form action="/patcher/calendar/jump" method="get"><button type="submit" class="secondary">Jump to…</button></form>
+  </div>
+  <form action="/patcher/calendar/speed" method="post">
+    <div class="label">Speed</div>
+    {% for key, title, note in [("1", "Real time", "1 week per week · loop ≈ 2 yr 9 mo"), ("2", "2×", "1 week every 3–4 days · loop ≈ 1 yr 5 mo"), ("3.5", "3.5×", "1 week every 2 days · loop ≈ 9½ mo"), ("7", "7×", "1 week every day · loop ≈ 4¾ mo")] %}
+    <label class="choice"><input type="radio" name="speed" value="{{ key }}" {% if calendar.speed == key %}checked{% endif %} onchange="this.form.submit()"><span><strong>{{ title }}</strong><span class="note">{{ note }}</span></span></label>
+    {% endfor %}
+    <noscript><button type="submit">Save speed</button></noscript>
+  </form>
+  <p class="credit" style="margin: 12px 0 0">Moves at the daily reset. Stamina and daily missions keep normal time.</p>
+</div>
+
+<h2 class="bracket-header">Open now</h2>
+<div class="panel">
+  {% set groups = [("event", "Events"), ("summon", "Summons"), ("arena", "Arena"), ("pass", "Mission pass"), ("hunt", "Big Hunt"), ("shop", "Shops")] %}
+  {% set shown = namespace(any=false) %}
+  {% for kind, title in groups %}{% if calendar.open.get(kind) %}
+  <div class="label" {% if not shown.any %}style="margin-top: 0"{% endif %}>{{ title }} · {{ calendar.open[kind]|length }}</div>
+  {% set shown.any = true %}
+  <ul class="terms">{% for item in calendar.open[kind] %}<li>{{ item.name }}{% if item.until %} <span class="when">until {{ item.until }}</span>{% endif %}</li>{% endfor %}</ul>
+  {% endif %}{% endfor %}
+  {% if calendar.open.get("campaign") or calendar.open.get("expiry") %}
+  <div class="label">Also</div>
+  <ul class="terms">
+    {% if calendar.open.get("campaign") %}<li>{{ calendar.open["campaign"]|length }} campaigns</li>{% endif %}
+    {% if calendar.open.get("expiry") %}<li>{{ calendar.open["expiry"]|length }} event items expire <span class="when">first on {{ calendar.open["expiry"][0].until }}</span></li>{% endif %}
+  </ul>
+  {% endif %}
+  {% if not shown.any %}<p>Nothing is open right now.</p>{% endif %}
+</div>
+<p class="credit">Presets are off while the calendar is on.</p>
+<form action="/patcher/calendar/off" method="post" class="actions"><button type="submit" class="secondary">Switch to everything open</button></form>
+{% else %}
 <p>Current: <strong>{{ current }}</strong></p>
+
+<h2 class="bracket-header">Schedule</h2>
+<div class="panel">
+  <label class="choice"><input type="radio" name="schedule" checked onchange="document.getElementById('turn-on').hidden = true"><span><strong>Everything open</strong><span class="note">All events, summons and shops stay open.</span></span></label>
+  <label class="choice"><input type="radio" name="schedule" onchange="document.getElementById('turn-on').hidden = false"><span><strong>Original calendar</strong><span class="note">Replays the game from launch. Events, summons and seasons open and close on their original dates.</span></span></label>
+</div>
+<form id="turn-on" action="/patcher/calendar/on" method="post" class="panel" data-busy hidden>
+  <p><strong>The game restarts from launch on your next Deploy.</strong></p>
+  <dl class="kv plain">
+    <dt>Starts</dt><dd>{{ start.day }} <span class="when">{{ start.original }} in the original</span></dd>
+    <dt>Length</dt><dd>144 weeks, until {{ start.ends }}</dd>
+  </dl>
+  <div class="label">What changes</div>
+  <ul class="terms">
+    <li>Only current events, summons and shops are open.</li>
+    <li>Event medals expire when their shop closes.</li>
+    <li>Unused summon medals convert when a summon ends.</li>
+    <li>Arena seasons and monthly passes end with rewards.</li>
+  </ul>
+  <div class="label">Kept</div>
+  <p>All characters, weapons, items and story progress.</p>
+  <div class="actions">
+    <button type="submit">Start calendar</button>
+    <span class="busy-note" hidden>Building game data… Keep Pod Programs open.</span>
+  </div>
+</form>
+
+<h2 class="bracket-header">Content</h2>
 <form action="/patcher/apply" method="post" class="panel" data-busy>
   <label for="preset">Content</label>
   <select name="preset" id="preset">
     <optgroup label="Standard">{% for key, title in presets %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
     <optgroup label="Smaller splits">{% for key, title in splits %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
   </select>
-  <p>Choose which events and shops appear in the game. Your current master data is backed up first.</p>
+  <p>Choose which events and shops to include. Your current data is backed up first.</p>
   <details><summary>Advanced configuration</summary>
     <textarea name="configuration" aria-label="Patch configuration" rows="14" spellcheck="false">{{ configuration }}</textarea>
   </details>
   <button type="submit">Apply</button>
   <span class="busy-note" hidden>Applying… Keep Pod Programs open.</span>
 </form>
+{% endif %}
 <details class="panel"><summary>Previous versions</summary>
   {% if history %}<form action="/patcher/restore" method="post" data-busy>
     <select name="filename" aria-label="Master-data snapshot">{% for item in history %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>

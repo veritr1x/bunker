@@ -190,7 +190,7 @@ def prepare_data():
     revision = config.REVISIONS_DIR / "0" / "android" / "list.bin"
     if not revision.exists():
         revision = config.REVISIONS_DIR / "0" / "list.bin"
-    signature = {"master": fingerprint(master), "catalog": fingerprint(revision) if revision.exists() else None, "format": 1}
+    signature = {"master": fingerprint(master), "catalog": fingerprint(revision) if revision.exists() else None, "format": 2}
     if read_json(marker) == signature:
         return
     _report("Reading game data…")
@@ -223,7 +223,7 @@ def prepare_data():
     _report("Preparing item names…")
     config.NAMES_DIR.mkdir(exist_ok=True)
     text_root = extract_names.resolve_text_root(config.REVISIONS_DIR, "0")
-    kinds = ("consumables", "materials", "important_items", "costumes", "characters", "weapons", "companions", "thoughts", "parts", "parts_groups")
+    kinds = ("consumables", "materials", "important_items", "costumes", "characters", "weapons", "companions", "thoughts", "parts", "parts_groups", "event_quests", "gacha_banners", "shops")
     for kind in kinds:
         if kind in extract_names.KIND_CONFIG:
             extract_names.extract_kind(kind, config.MASTERDATA_DIR, text_root, config.NAMES_DIR)
@@ -242,6 +242,8 @@ def create_app(token, origin):
     import android_players
     app = base_app()
     app.include_router(router)
+    import android_calendar
+    app.include_router(android_calendar.router)
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
     android_players.install(app)

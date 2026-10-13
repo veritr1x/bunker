@@ -145,12 +145,32 @@ def view(request: Request, message: str = "", error: str = ""):
     if isinstance(metadata, dict) and metadata.get("label"):
         if metadata.get("sha256") == runtime.fingerprint(config.find_master_data_bin()):
             current = metadata["label"]
+    import android_calendar as calendar
+    state = calendar.read_state()
+    schedule = start = None
+    if state:
+        try:
+            if calendar.roll_over(state):
+                message = message or f"Loop {state['loop']} started. The game is back at launch. Close Pod Programs and tap Deploy."
+            elif not os.path.exists(state.get("next") or ""):
+                calendar.prepare_next(state)
+                calendar.write_state(state)
+        except Exception as exc:
+            error = error or str(exc)
+        schedule = calendar.context(state)
+        current = calendar.label(state)
+    else:
+        start = calendar.start_preview()
     return templates.TemplateResponse(request, "patcher.html", {"active": "patcher", "current": current, "presets": PRESETS, "splits": SPLITS,
-        "configuration": json.dumps(get_config(), indent=2), "history": [p.name for p in master_history()], "message": message, "error": error})
+        "configuration": json.dumps(get_config(), indent=2), "history": [p.name for p in master_history()], "message": message, "error": error,
+        "calendar": schedule, "start": start})
 
 
 @router.post("/patcher/apply")
 def apply(preset: str = Form(...), configuration: str = Form("")):
+    import android_calendar as calendar
+    if calendar.read_state():
+        return redirect(error="Switch the calendar off first")
     candidate = folder() / "candidate.bin.e"
     try:
         cfg = json.loads(configuration) if configuration.strip() else get_config()

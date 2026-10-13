@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Jump to{% endblock %}
+{% block content %}
+<h1>Content patcher</h1>
+<h2 class="bracket-header">Jump to</h2>
+<form action="/patcher/calendar/jump" method="get" class="panel" id="pick">
+  <dl class="kv plain"><dt>Now</dt><dd>Week {{ week }} · {{ today }}</dd></dl>
+  <div class="label">Search</div>
+  <input type="search" id="find" aria-label="Search events and summons" placeholder="Event or summon name" style="width: 100%; box-sizing: border-box">
+  <div class="label">Coming up</div>
+  {% for item in updates %}
+  <label class="choice" data-names="{{ item.all|lower }}" {% if loop.index > 5 %}hidden{% endif %}><input type="radio" name="at" value="{{ item.at }}" {% if item.at == target %}checked{% endif %} onchange="this.form.submit()"><span><span class="wk">Week {{ item.week }} · {{ item.day }}</span><strong>{{ item.name }}{% if item.more %} <span class="when">+{{ item.more }} more</span>{% endif %}</strong></span></label>
+  {% endfor %}
+  {% if not updates %}<p>No more updates in this loop.</p>{% endif %}
+  {% if week < weeks %}
+  <div class="label">Or pick a week</div>
+  <div class="weekrow">
+    <input type="range" id="week" min="{{ week + 1 }}" max="{{ weeks }}" value="{{ view.week if view else week + 1 }}" aria-label="Week">
+    <output for="week" id="week-out">Week {{ view.week if view else week + 1 }}</output>
+  </div>
+  {% endif %}
+  <noscript><button type="submit">Show</button></noscript>
+</form>
+{% if view %}
+<h2 class="bracket-header">Week {{ view.week }}</h2>
+<form action="/patcher/calendar/jump" method="post" class="panel">
+  <input type="hidden" name="target" value="{{ target }}">
+  <dl class="kv plain">
+    <dt>Date</dt><dd>{{ view.day }} <span class="when">{{ view.original }} in the original</span></dd>
+    <dt>Skips</dt><dd>{% if view.days >= 7 %}{{ view.days // 7 }} week{{ "s" if view.days // 7 != 1 }}{% else %}{{ view.days }} day{{ "s" if view.days != 1 }}{% endif %}</dd>
+  </dl>
+  <div class="label">Open there</div>
+  <ul class="terms">
+    {% for kind, title in [("event", "events"), ("summon", "summons"), ("arena", ""), ("pass", ""), ("shop", "shops")] %}{% set items = view.open.get(kind, []) %}{% if items %}
+    <li>{% if title %}{{ items[0].name }}{% if items|length > 1 %} and {{ items|length - 1 }} more {{ title }}{% endif %}{% else %}{{ items|map(attribute="name")|join(", ") }}{% endif %}</li>
+    {% endif %}{% endfor %}
+  </ul>
+  {% if view.paid %}<div class="label">You still get</div>
+  <ul class="terms">{% for name in view.paid %}<li>{{ name }} rewards</li>{% endfor %}</ul>{% endif %}
+  {% if view.missed %}<div class="label">You miss</div>
+  <ul class="terms"><li>{% for kind, title in [("event", "events"), ("summon", "summons"), ("shop", "shops"), ("arena", "Arena seasons"), ("pass", "passes")] %}{% if view.missed.get(kind) %}{{ view.missed[kind] }} {{ title }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}</li></ul>{% endif %}
+  <div class="actions">
+    <button type="submit">Jump</button>
+    <a href="/patcher" class="button secondary">Cancel</a>
+  </div>
+</form>
+{% endif %}
+<p class="credit">You can only move forward. To replay, start a new loop.</p>
+<script>
+const find = document.getElementById('find');
+const rows = [...document.querySelectorAll('#pick .choice')];
+find.addEventListener('input', () => {
+  const q = find.value.trim().toLowerCase();
+  let shown = 0;
+  rows.forEach(row => { row.hidden = q ? !row.dataset.names.includes(q) || shown++ >= 20 : shown++ >= 5; });
+});
+const week = document.getElementById('week');
+if (week) {
+  const out = document.getElementById('week-out');
+  week.addEventListener('input', () => { out.textContent = 'Week ' + week.value; });
+  week.addEventListener('change', () => {
+    location.href = '/patcher/calendar/jump?at=' + ({{ now }} + (week.value - {{ week }}) * {{ weekMillis }});
+  });
+}
+</script>
+{% endblock %}

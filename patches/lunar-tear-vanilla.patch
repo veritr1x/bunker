@@ -181,7 +181,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
 diff --git a/server/internal/gametime/gametime.go b/server/internal/gametime/gametime.go
 --- a/server/internal/gametime/gametime.go
 +++ b/server/internal/gametime/gametime.go
-@@ -2,6 +2,21 @@ package gametime
+@@ -2,6 +2,22 @@ package gametime
  
  import "time"
  
@@ -201,9 +201,11 @@ diff --git a/server/internal/gametime/gametime.go b/server/internal/gametime/gam
 +)
 +
  func Now() time.Time {
- 	return time.Now().UTC()
+-	return time.Now().UTC()
++	real := time.Now().UTC()
++	return real.Add(time.Duration(calendarShift(real.UnixMilli())) * time.Millisecond)
  }
-@@ -10,18 +25,60 @@ func NowMillis() int64 {
+@@ -10,18 +26,60 @@ func NowMillis() int64 {
  	return Now().UnixMilli()
  }
  

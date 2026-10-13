@@ -166,6 +166,17 @@ func Start(dataRoot, assetRoot string) (err error) {
 	if e = migrations.Up(context.Background(), db); e != nil {
 		return fmt.Errorf("prepare save database: %w", e)
 	}
+	// Original calendar: set the game clock, and start the next loop's game
+	// data if this loop has ended, before the game data is loaded.
+	calendarPath := filepath.Join(dataRoot, "calendar.json")
+	calendar, e := gametime.LoadCalendar(calendarPath)
+	if e != nil {
+		log.Printf("calendar off: %v", e)
+	}
+	if calendar, e = gametime.StartNextLoop(calendarPath, filepath.Join(assetRoot, "assets", "release", MasterName), calendar, time.Now().UnixMilli()); e != nil {
+		log.Printf("calendar: start next loop: %v", e)
+	}
+	gametime.SetCalendar(calendar)
 	holder, e := runtime.NewHolder(filepath.Join(assetRoot, "assets", "release", MasterName))
 	if e != nil {
 		return fmt.Errorf("load master data: %w", e)
