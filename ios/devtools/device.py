@@ -7,6 +7,7 @@
   device.py gesture              # three-finger double-tap (opens the launcher)
   device.py press LABEL          # tap the button or menu item with this label
   device.py swipe X Y X2 Y2
+  device.py hold X Y X2 Y2 SECONDS   # drag, then keep the finger down (walking)
   device.py type "text"
 
 Screenshots use devicectl. Touch input runs the Control UI test once per
@@ -36,6 +37,8 @@ def xctestrun(environment):
     for config in data.get("TestConfigurations", []):
         targets += config.get("TestTargets", [])
     for target in targets:
+        # Xcode 27 treats a DSTROOTPath as a root install, which only internal OS builds accept.
+        target.pop("DSTROOTPath", None)
         target.setdefault("EnvironmentVariables", {}).update(environment)
         target.setdefault("TestingEnvironmentVariables", {}).update(environment)
     temp = tempfile.NamedTemporaryFile(suffix=".xctestrun", dir=PRODUCTS, delete=False)
@@ -69,6 +72,9 @@ def main():
         act({"LUNAR_ACTION": "tap", "LUNAR_X": values[0], "LUNAR_Y": values[1]})
     elif command == "swipe" and len(values) == 4:
         act({"LUNAR_ACTION": "swipe", "LUNAR_X": values[0], "LUNAR_Y": values[1], "LUNAR_X2": values[2], "LUNAR_Y2": values[3]})
+    elif command == "hold" and len(values) == 5:
+        act({"LUNAR_ACTION": "hold", "LUNAR_X": values[0], "LUNAR_Y": values[1], "LUNAR_X2": values[2], "LUNAR_Y2": values[3],
+             "LUNAR_SECONDS": values[4]})
     elif command == "type" and len(values) == 1:
         act({"LUNAR_ACTION": "type", "LUNAR_TEXT": values[0]})
     elif command == "gesture":

@@ -1,5 +1,5 @@
 // Drives the installed game for device testing from the Mac.
-// LUNAR_ACTION: launch | tap | swipe | type | home | gesture | press.
+// LUNAR_ACTION: launch | tap | swipe | hold | type | home | gesture | press.
 // Coordinates are 0-1 fractions. press taps the element labelled LUNAR_TEXT.
 #import <XCTest/XCTest.h>
 
@@ -25,6 +25,12 @@
         XCUICoordinate *from = [self point:app x:[self value:@"LUNAR_X"] y:[self value:@"LUNAR_Y"]];
         XCUICoordinate *to = [self point:app x:[self value:@"LUNAR_X2"] y:[self value:@"LUNAR_Y2"]];
         [from pressForDuration:0.05 thenDragToCoordinate:to];
+    } else if ([action isEqualToString:@"hold"]) {
+        // Drag, then keep the finger down for LUNAR_SECONDS: holds the walking stick.
+        XCUICoordinate *from = [self point:app x:[self value:@"LUNAR_X"] y:[self value:@"LUNAR_Y"]];
+        XCUICoordinate *to = [self point:app x:[self value:@"LUNAR_X2"] y:[self value:@"LUNAR_Y2"]];
+        [from pressForDuration:0.05 thenDragToCoordinate:to withVelocity:XCUIGestureVelocityDefault
+            thenHoldForDuration:[self value:@"LUNAR_SECONDS"].doubleValue];
     } else if ([action isEqualToString:@"gesture"]) {
         // The launcher's three-finger double-tap.
         [app.windows.firstMatch tapWithNumberOfTaps:2 numberOfTouches:3];
