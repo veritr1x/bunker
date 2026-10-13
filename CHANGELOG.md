@@ -23,7 +23,19 @@ calendar.
   Event items leave the inventory when their term ends. A new loop resets
   event quests, event missions, exchange shop purchases, the mission pass,
   login bonuses, Labyrinth seasons, Big Hunt records and limited summon
-  progress. Big Hunt picks its schedule by the game clock.
+  progress. Big Hunt follows the game clock while the server runs.
+- **Speed** is saved with a Save speed button, so scrolling can't change it.
+
+### Summons
+- NieR:Automata Crossover Vol. 2 (launch and rerun) is offered and gives
+  Vol. 1's Shard (Automata); the server used to skip it.
+- Leftover shards become Medals once, at the medal's conversion date; the
+  summon screen shows the conversion once. Before, ended summons added the
+  shards a second time.
+- The ticket draw takes the Premium Summon Ticket (item 1002), not Gold.
+- Each summon's pity ceiling comes from its medal (50, 100, 150 or 200).
+- Summons with a placeholder 2099 row (50, 58) are listed once and open.
+- With the calendar, featured items match catalog terms on original dates.
 
 ### Story events
 - Chapter 6-4 (Levania's memory): the player could walk past Mama's lines and

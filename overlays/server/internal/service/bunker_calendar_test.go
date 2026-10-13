@@ -4,18 +4,23 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
+	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/store"
 )
 
 // Runs on the original master data (BUNKER_TEST_MASTER), whose event dates
 // are all in the past.
-func loadMaster(t *testing.T) {
-	master := os.Getenv("BUNKER_TEST_MASTER")
+func loadMaster(t *testing.T) *runtime.Holder {
+	return loadMasterFile(t, os.Getenv("BUNKER_TEST_MASTER"))
+}
+
+func loadMasterFile(t *testing.T, master string) *runtime.Holder {
 	if master == "" {
 		t.Skip("BUNKER_TEST_MASTER not set")
 	}
@@ -28,9 +33,11 @@ func loadMaster(t *testing.T) {
 	io.Copy(out, in)
 	in.Close()
 	out.Close()
-	if _, err := runtime.NewHolder(path); err != nil {
+	h, err := runtime.NewHolder(path)
+	if err != nil {
 		t.Fatal(err)
 	}
+	return h
 }
 
 func TestCalendarGameStart(t *testing.T) {
@@ -136,6 +143,89 @@ func TestAutomataVol2SharesShards(t *testing.T) {
 		}
 		if medals[vol2] != medals[vol1] {
 			t.Errorf("summon %d medal info differs", vol2)
+		}
+	}
+}
+
+// Leftover shards become Medals once, at the medal's AutoConvertDatetime.
+func TestShardsConvertIntoMedals(t *testing.T) {
+	cats := loadMaster(t).Get()
+	info := cats.GachaHandler.MedalInfo[45]
+	if info.AutoConvertDatetime == 0 || info.AutoConvertDatetime > 2_000_000_000_000 {
+		t.Skip("needs the original master data")
+	}
+	u := store.UserState{ConsumableItems: map[int32]int32{info.ConsumableItemId: 170, 2: 5}}
+	u.EnsureMaps()
+	u.Gacha.BannerStates[45] = store.GachaBannerState{MedalCount: 12}
+	autoConvertExpiredMedals(&u, cats.GachaEntries, cats.GachaHandler, info.AutoConvertDatetime-1)
+	if u.ConsumableItems[info.ConsumableItemId] != 170 {
+		t.Fatal("converted before AutoConvertDatetime")
+	}
+	autoConvertExpiredMedals(&u, cats.GachaEntries, cats.GachaHandler, info.AutoConvertDatetime)
+	rate := max(info.ConversionRate, 1)
+	if _, left := u.ConsumableItems[info.ConsumableItemId]; left || u.ConsumableItems[2] != 5+170*rate {
+		t.Fatalf("after conversion: shards %d, Medals %d", u.ConsumableItems[info.ConsumableItemId], u.ConsumableItems[2])
+	}
+	c := u.Gacha.ConvertedGachaMedal
+	if len(c.ConvertedMedalPossession) != 1 || c.ConvertedMedalPossession[0].Count != 170 || c.ObtainPossession == nil || c.ObtainPossession.Count != 170*rate {
+		t.Fatalf("conversion record %+v", c)
+	}
+	if u.Gacha.BannerStates[45].MedalCount != 0 || u.Gacha.BannerStates[46].MedalCount != 0 {
+		t.Fatal("banner medal counts kept")
+	}
+	autoConvertExpiredMedals(&u, cats.GachaEntries, cats.GachaHandler, info.AutoConvertDatetime+1)
+	if u.ConsumableItems[2] != 5+170*rate {
+		t.Fatal("converted twice")
+	}
+}
+
+func TestGachaCatalogEntries(t *testing.T) {
+	cats := loadMaster(t).Get()
+	seen := map[int32]int{}
+	for _, e := range cats.GachaEntries {
+		seen[e.GachaId]++
+		for _, p := range e.PricePhases {
+			if e.GachaLabelType == model.GachaLabelPremium && p.PriceType == model.PriceTypeConsumableItem && p.PriceId != 1002 {
+				t.Fatalf("summon %d ticket phase costs item %d", e.GachaId, p.PriceId)
+			}
+		}
+	}
+	for id, n := range seen {
+		if n > 1 {
+			t.Errorf("summon %d listed %d times", id, n)
+		}
+	}
+	medals := map[int32]int32{}
+	for _, m := range table[masterdata.EntityMGachaMedal]("m_gacha_medal") {
+		medals[m.ShopTransitionGachaId] = m.CeilingCount
+	}
+	for _, e := range cats.GachaEntries {
+		if want, ok := medals[e.GachaId]; ok && want > 0 && e.CeilingCount != want {
+			t.Errorf("summon %d ceiling %d, medal says %d", e.GachaId, e.CeilingCount, want)
+		}
+	}
+}
+
+// With the calendar's game data the featured items match the original's.
+// BUNKER_TEST_CALENDAR_MASTER is a calendar build of BUNKER_TEST_MASTER and
+// BUNKER_TEST_CALENDAR_START its loop start.
+func TestCalendarFeaturedMatchesOriginal(t *testing.T) {
+	path, start := os.Getenv("BUNKER_TEST_CALENDAR_MASTER"), os.Getenv("BUNKER_TEST_CALENDAR_START")
+	if path == "" || start == "" {
+		t.Skip("BUNKER_TEST_CALENDAR_MASTER and BUNKER_TEST_CALENDAR_START not set")
+	}
+	original := loadMaster(t).Get().GachaHandler.Pool.FeaturedByGacha
+	loopStart, _ := strconv.ParseInt(start, 10, 64)
+	gametime.SetCalendar(&gametime.Calendar{Loop: 1, LoopStart: loopStart, Speed: 1})
+	defer gametime.SetCalendar(nil)
+	shifted := loadMasterFile(t, path).Get().GachaHandler.Pool.FeaturedByGacha
+	if len(original) == 0 || len(shifted) != len(original) {
+		t.Fatalf("featured summons: original %d, calendar %d", len(original), len(shifted))
+	}
+	for id, f := range original {
+		g := shifted[id]
+		if len(g.Costumes) != len(f.Costumes) || len(g.Weapons) != len(f.Weapons) {
+			t.Errorf("summon %d featured differs under the calendar", id)
 		}
 	}
 }

@@ -23,9 +23,9 @@
   <form action="/patcher/calendar/speed" method="post">
     <div class="label">Speed</div>
     {% for key, title, note in [("1", "Real time", "1 week per week · loop ≈ 2 yr 9 mo"), ("2", "2×", "1 week every 3–4 days · loop ≈ 1 yr 5 mo"), ("3.5", "3.5×", "1 week every 2 days · loop ≈ 9½ mo"), ("7", "7×", "1 week every day · loop ≈ 4¾ mo")] %}
-    <label class="choice"><input type="radio" name="speed" value="{{ key }}" {% if calendar.speed == key %}checked{% endif %} onchange="this.form.submit()"><span><strong>{{ title }}</strong><span class="note">{{ note }}</span></span></label>
+    <label class="choice"><input type="radio" name="speed" value="{{ key }}" {% if calendar.speed == key %}checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ note }}</span></span></label>
     {% endfor %}
-    <noscript><button type="submit">Save speed</button></noscript>
+    <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Save speed</button></div>
   </form>
   <p class="credit" style="margin: 12px 0 0">Moves at the daily reset. Stamina and daily missions keep normal time.</p>
 </div>

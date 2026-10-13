@@ -29,6 +29,9 @@ type Calendar struct {
 // LoopWeeks is the length of one loop: global launch to the end of service.
 const LoopWeeks = 144
 
+// Launch is the global launch week: Wednesday 28 July 2021, 02:00 UTC.
+const Launch int64 = 1627437600000
+
 var current atomic.Pointer[Calendar]
 
 // SetCalendar switches the calendar clock on, or off when c is nil.
@@ -82,6 +85,16 @@ func (c *Calendar) Shift(real int64) int64 {
 // End is when the loop's game data runs out.
 func (c *Calendar) End() int64 {
 	return c.LoopStart + LoopWeeks*weekMillis
+}
+
+// CalendarOffset is how far the calendar moved rotating dates in the game
+// data (0 when everything is open). Dates it did not move, such as catalog
+// terms, compare with a moved date minus this.
+func CalendarOffset() int64 {
+	if c := current.Load(); c != nil {
+		return c.LoopStart - Launch
+	}
+	return 0
 }
 
 func calendarShift(real int64) int64 {
