@@ -68,9 +68,9 @@ func removeExpiredItems(u *store.UserState, now int64) {
 
 // resetRotatingProgress clears what reruns in the next loop: event quests and
 // their missions, event and limited missions, exchange shop purchases, the
-// mission pass, login bonus calendars, Labyrinth seasons, Big Hunt records,
-// limited summon progress and the pop-ups already seen. Characters, weapons,
-// items, the main story and the play history are kept.
+// mission pass, login bonus calendars, Labyrinth seasons, Subjugation Battle
+// records, limited summon progress and the pop-ups already seen. Characters,
+// weapons, items, the main story and the play history are kept.
 func resetRotatingProgress(u *store.UserState) {
 	// Event quests of chapters that close again.
 	sequences := map[int32][]int32{}

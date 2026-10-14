@@ -32,7 +32,7 @@
 
 <h2 class="bracket-header">Open now</h2>
 <div class="panel">
-  {% set groups = [("event", "Events"), ("summon", "Summons"), ("arena", "Arena"), ("pass", "Mission pass"), ("hunt", "Big Hunt"), ("shop", "Shops")] %}
+  {% set groups = [("event", "Events"), ("summon", "Summons"), ("arena", "Arena"), ("pass", "Mission pass"), ("hunt", "Subjugation Battles"), ("shop", "Shops")] %}
   {% set shown = namespace(any=false) %}
   {% for kind, title in groups %}{% if calendar.open.get(kind) %}
   <div class="label" {% if not shown.any %}style="margin-top: 0"{% endif %}>{{ title }} · {{ calendar.open[kind]|length }}</div>

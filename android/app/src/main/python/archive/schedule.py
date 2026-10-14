@@ -394,8 +394,8 @@ class Schedule:
             {"id": r["PvpSeasonId"], "title": self.text("pvp.season.name.", f"{r['PvpSeasonId'] % 1000:03d}", f"Season {r['PvpSeasonId'] % 1000:03d}"),
              "when": span(r["SeasonStartDatetime"], r["SeasonEndDatetime"])}
             for r in sorted(self.m("m_pvp_season"), key=lambda r: r["SeasonStartDatetime"]) if not r["IsInvalid"]]})
-        sections.append({"key": "hunt", "label": "Big Hunt", "items": [
-            {"id": r["BigHuntScheduleId"], "title": f"Big Hunt {r['BigHuntScheduleId']}", "when": span(r["ChallengeStartDatetime"], r["ChallengeEndDatetime"])}
+        sections.append({"key": "hunt", "label": "Subjugation Battles", "items": [
+            {"id": r["BigHuntScheduleId"], "title": f"Subjugation Battle {r['BigHuntScheduleId']}", "when": span(r["ChallengeStartDatetime"], r["ChallengeEndDatetime"])}
             for r in sorted(self.m("m_big_hunt_schedule"), key=lambda r: r["ChallengeStartDatetime"])]})
         sections.append({"key": "pass", "label": "Mission pass", "items": [
             {"id": r["MissionPassId"], "title": f"Mission pass {i}", "when": span(r["StartDatetime"], r["EndDatetime"])}

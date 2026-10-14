@@ -18,7 +18,7 @@ from pathlib import Path
 from . import schedule
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 16
+FORMAT = 17
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",

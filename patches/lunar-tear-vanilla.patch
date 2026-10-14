@@ -382,7 +382,7 @@ diff --git a/server/internal/masterdata/bighunt.go b/server/internal/masterdata/
  	}
  }
 +
-+// ScheduleAt is the Big Hunt schedule open at nowMillis, or else the one that
++// ScheduleAt is the Subjugation Battle schedule open at nowMillis, or else the one that
 +// ends last. With the Original calendar the schedule changes while the server
 +// runs, so callers ask with the current game time.
 +func (c *BigHuntCatalog) ScheduleAt(nowMillis int64) int32 {
@@ -1708,7 +1708,7 @@ diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/re
  
 -func (h *QuestHandler) evaluateFinishOutcome(user *store.UserState, questId int32, target campaign.QuestTarget, nowMillis int64) FinishOutcome {
 +// evaluateFinishOutcome works out a winning finish's rewards. isReplay is a
-+// main quest replay-flow run (event, extra and big hunt pass false).
++// main quest replay-flow run (event, extra and subjugation battles pass false).
 +func (h *QuestHandler) evaluateFinishOutcome(user *store.UserState, questId int32, target campaign.QuestTarget, isReplay bool, nowMillis int64) FinishOutcome {
  	outcome := FinishOutcome{}
  	questState, ok := user.Quests[questId]

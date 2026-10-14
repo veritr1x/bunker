@@ -5,6 +5,10 @@ Commit ids are in brackets.
 
 ## 2026-10-14
 
+### Names
+- Big Hunt is called Subjugation Battles, as in the game: in the Archive's
+  Schedule, Pod Programs' calendar and patcher, and this changelog.
+
 ### Storage: game files stored once
 The game keeps its own copy of every file it downloads from the in-app
 server, so played content took up space twice. Each cached file is now a
@@ -50,7 +54,7 @@ master data, in UTC. [f6fd958]
   as on the server.
 - **Events, shops, home banners and the rest:** event quests by difficulty,
   shop items with prices and limits, every home banner, login bonuses, Arena
-  seasons, Big Hunt, mission passes, campaigns and fortune draws.
+  seasons, Subjugation Battles, mission passes, campaigns and fortune draws.
 - **No date in the game data:** about 150 rows carry a placeholder date
   (mostly 19 Aug–16 Sep 2099) instead of their real dates. They are listed
   apart, with whether their art and title are in the English files and
@@ -75,11 +79,12 @@ Content › Schedule can replay the live service from global launch (28 July
 - **Speed:** real time, 2×, 3.5× or 7×, one week at a time at the daily reset.
 - **Loops:** a loop is 144 weeks. The next loop's game data is built ahead,
   and the server starts it when a loop ends.
-- **Server:** an Arena season's final rank reward is paid after it ends.
-  Event items leave the inventory when their term ends. A new loop resets
-  event quests, event missions, exchange shop purchases, the mission pass,
-  login bonuses, Labyrinth seasons, Big Hunt records and limited summon
-  progress. Big Hunt follows the game clock while the server runs. [356d2d1]
+- **Server:** an Arena season's final rank reward is paid after it ends. Event
+  items leave the inventory when their term ends. A new loop resets event
+  quests, event missions, exchange shop purchases, the mission pass, login
+  bonuses, Labyrinth seasons, Subjugation Battle records and limited summon
+  progress. Subjugation Battles follow the game clock while the server runs.
+  [356d2d1]
 - **Speed** is saved with a Save speed button, so scrolling can't change it.
 
 ### Summons
@@ -146,19 +151,19 @@ Checked against the game's master data and the 3.7.1 client. [2aa0757]
 - **Quests:**
   - Quest missions are judged from how the battle went and the deck used. They
     clear only on a win and pay when they clear.
-  - Event, extra and Big Hunt first clears no longer lose their rewards after a
-    story replay.
+  - Event, extra and Subjugation Battle first clears no longer lose their
+    rewards after a story replay.
   - A lost or retired quest is marked "challenged", which unlocks quests that
     need it.
   - Quest bonus drops and key-item drop effects apply.
   - Recollections of Dusk locks the costumes and weapons used in a run.
   - Hidden stories and Lost Archives wait for the quests that unlock them.
   - Skips are refused without enough tickets or stamina.
-- **Big Hunt:** pays only the highest score tier reached. Damage counts across
-  all waves, and a crashed run no longer carries into the next.
-- **Missions:** bosses defeated, Big Hunt knockdowns, reports, Arena play, wins,
-  streaks and rank, library, ability level, exploration score and concert taps
-  now count. 6,284 of 6,436 missions have rules.
+- **Subjugation Battles:** pay only the highest score tier reached. Damage
+  counts across all waves, and a crashed run no longer carries into the next.
+- **Missions:** bosses defeated, Subjugation Battle knockdowns, reports, Arena
+  play, wins, streaks and rank, library, ability level, exploration score and
+  concert taps now count. 6,284 of 6,436 missions have rules.
 - **Friends:** the Arena's computer players can be added as friends and sent
   support, so "Send a friend support" and "complete all dailies" can clear.
 - **Profile:** shows the last deck used and its real total force.
@@ -170,8 +175,8 @@ Checked against the game's master data and the 3.7.1 client. [2aa0757]
 ### Server: more of the original game
 - **Daily reset:** days now start at 00:00 GMT-8, all year, as the game's own
   "Resets at 00:00 (PST)" says. Weeks start Monday 00:00 GMT-8. Saves made
-  before move across without losing the week's Big Hunt and Arena results, and
-  without a second daily reward on the day of the switch.
+  before move across without losing the week's Subjugation Battle and Arena
+  results, and without a second daily reward on the day of the switch.
 - **Daily quests:** quests that can be cleared a set number of times a day
   start over each day.
 - **Stamina:** levelling up no longer lowers stamina that is above the maximum.

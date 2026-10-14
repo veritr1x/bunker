@@ -323,7 +323,7 @@ def entries():
     for index, row in enumerate(sorted(table("MissionPass"), key=lambda r: r["StartDatetime"]), 1):
         found.append(("pass", f"Mission pass, month {index}", row["StartDatetime"], row["EndDatetime"]))
     for row in table("BigHuntSchedule"):
-        found.append(("hunt", f"Big Hunt {row['BigHuntScheduleId']}", row["ChallengeStartDatetime"], row["ChallengeEndDatetime"]))
+        found.append(("hunt", f"Subjugation Battle {row['BigHuntScheduleId']}", row["ChallengeStartDatetime"], row["ChallengeEndDatetime"]))
     for row in table("EnhanceCampaign") + table("QuestCampaign"):
         found.append(("campaign", "", row["StartDatetime"], row["EndDatetime"]))
     for row in table("ConsumableItemTerm"):
