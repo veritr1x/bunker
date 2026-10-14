@@ -3,6 +3,28 @@
 What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets.
 
+## 2026-10-14
+
+### Archive: Schedule
+A new section lists the live service's dated content from the original
+master data, in UTC. Not yet released; on branch calendar. [94c4702]
+- **Timeline:** what started each month, linked to its entry.
+- **Summons:** banner art, runs, shards, pity and leftover conversion, and
+  each shard exchange's items (costumes link to their pages). Summons without
+  a banner, or with only placeholder rows, take their shard exchange's dates,
+  as on the server.
+- **Events, shops, home banners and the rest:** event quests by difficulty,
+  shop items with prices and limits, every home banner, login bonuses, Arena
+  seasons, Big Hunt, mission passes, campaigns and fortune draws.
+- **No date in the game data:** about 150 rows carry a placeholder date
+  (mostly 19 Aug–16 Sep 2099) instead of their real dates. They are listed
+  apart, with whether their art and title are in the English files and
+  whether the same target ran on a dated row, not as "never ran".
+- **Names:** 62 summons whose title exists only in their banner art are named
+  from the art; Pod Programs' schedule uses the same names. 13 have no English
+  title or art.
+- The Schedule is worked out while the index is built, so it opens at once.
+
 ## 2026-10-13
 
 ### Pod Programs: Original calendar
