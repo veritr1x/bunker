@@ -5,6 +5,18 @@ Commit ids are in brackets.
 
 ## 2026-10-15
 
+### Step-up summons
+- Multi-step summons move on and show every step. The game builds the
+  summon screen from one summon per step and shows the one for the step
+  you're on; the server sent only step 1, so from step 2 the screen came up
+  empty. A summon not drawn yet also stayed on step 1 after the first draw.
+  Only the current step can be drawn. [fcb1f1e]
+- Each summon has as many steps as the game has step pages for it (3 to 5;
+  most had been given 5, one 7, showing blank steps). New Year's Luck of
+  the Draw costs what its pages say: 3,000, free, 2,000, free, 5,000 paid
+  gems; other step prices are still chosen here. A save past a summon's
+  last step starts again at step 1. [fcb1f1e]
+
 ### Fortune draws
 - The New Year and anniversary fortune draws (omikuji) now open with the
   Original calendar, on their original dates (seven, starting between weeks 23 and
