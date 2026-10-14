@@ -150,11 +150,24 @@ func (l *OctoLinks) entries(objectId, assetType string) []string {
 	if assetType == "resources" {
 		letter = "R"
 	}
-	matches, _ := filepath.Glob(filepath.Join(l.cache, "*", "*", strings.ToUpper(hex.EncodeToString([]byte(letter+objectId))), "*"))
+	name := strings.ToUpper(hex.EncodeToString([]byte(letter + objectId)))
+	// Look the folder up in each bucket by name: a pattern would read every
+	// bucket in full, over 100,000 entries once the game data is downloaded.
 	var files []string
-	for _, m := range matches {
-		if _, ok := cacheSum(filepath.Base(m)); ok {
-			files = append(files, m)
+	apps, _ := os.ReadDir(l.cache)
+	for _, app := range apps {
+		buckets, _ := os.ReadDir(filepath.Join(l.cache, app.Name()))
+		for _, bucket := range buckets {
+			dir := filepath.Join(l.cache, app.Name(), bucket.Name(), name)
+			names, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+			for _, f := range names {
+				if _, ok := cacheSum(f.Name()); ok {
+					files = append(files, filepath.Join(dir, f.Name()))
+				}
+			}
 		}
 	}
 	return files
