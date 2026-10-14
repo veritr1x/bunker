@@ -42,7 +42,7 @@ Commit ids are in brackets.
 - The Summon button shows its "free" badge while a free daily summon is
   unused.
 - Tests drive handlers with the original game data (BUNKER_TEST_MASTER).
-  [COMMIT]
+  [94343e5]
 
 ### Special Gift Roulette
 The menu's roulette (Global only) gave free gems after a video ad, up to 6
