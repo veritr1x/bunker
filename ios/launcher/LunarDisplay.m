@@ -25,6 +25,10 @@
 //   The zones are watched each frame by bounds, and the conductors' begin and
 //   update are reached through their classes' method tables. This applies at
 //   every frame rate, the game's own 30 included.
+// - Special Gift Roulette: once the menu's roulette has created ironSource's
+//   agent, its showRewardedVideo raises the video's "rewarded" and "closed"
+//   events at once instead (roulette_ads.c, shared with Android). This one
+//   applies with any settings too.
 //
 // The choices are read from tools/display.conf (android_display.py writes it).
 // The outcome goes to tools/display.status, which Pod Programs shows.
@@ -32,6 +36,8 @@
 #import <UIKit/UIKit.h>
 #include <dlfcn.h>
 #include <string.h>
+
+#include "roulette_ads.h"
 
 typedef struct { void *pointer; } LTMethod;  // Il2Cpp MethodInfo starts with its code pointer.
 
@@ -53,6 +59,7 @@ static struct {
 } il2cpp;
 
 static int gFps, gSize;  // 0: the game's own.
+static int gAds;  // roulette_ads_route_agent: 0 until the agent exists, then 1 (or -1).
 static NSString *gStatusPath;
 static CADisplayLink *gLink;
 
@@ -320,8 +327,9 @@ static BOOL ResolveZones(void) {
         if (!ResolveZones()) NSLog(@"[LunarTear] display: story-event zone fix not available in this game build");
         ready = YES;
         if (gFps || gSize) WriteStatus(@"ok");
-        if (!zones.stay_update && !gFps) { [link invalidate]; gLink = nil; return; }  // Resolution only: done.
     }
+    if (!gAds) gAds = roulette_ads_route_agent();
+    if (!zones.stay_update && !gFps && gAds) { [link invalidate]; gLink = nil; return; }  // Nothing more to watch.
     if (!gFps) {  // The game's own 30 fps: only the story-event zones.
         if (zones.stay_update) WatchZones();
         return;
@@ -354,6 +362,8 @@ static int RenderTargetSize(NSString *name) {
     return 0;
 }
 
+static void *IL2CPPSymbol(const char *name) { return dlsym(RTLD_DEFAULT, name); }
+
 void LTDisplayStart(NSString *toolsRoot) {
     gStatusPath = [toolsRoot stringByAppendingPathComponent:@"display.status"];
     NSString *conf = [NSString stringWithContentsOfFile:[toolsRoot stringByAppendingPathComponent:@"display.conf"] encoding:NSUTF8StringEncoding error:nil];
@@ -377,6 +387,7 @@ void LTDisplayStart(NSString *toolsRoot) {
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(field_static_set_value) LOAD(runtime_class_init)
     LOAD(class_get_type) LOAD(type_get_object) LOAD(gchandle_new) LOAD(gchandle_free)
 #undef LOAD
+    if (roulette_ads_init(IL2CPPSymbol)) gAds = -1;
     // IL2CPP starts while Unity finishes launching; the ticker begins once the app is active.
     __block id observer = [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil
         queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {

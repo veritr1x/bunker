@@ -23,6 +23,9 @@
 // - Story-event zones: a zone the player walks through while an event's
 //   balloon fades out still counts (see the notes above state_changing). This
 //   one applies at every frame rate, the game's own 30 included.
+// - Special Gift Roulette: IronSource.showRewardedVideo raises the video's
+//   "rewarded" and "closed" events at once instead (roulette_ads.c). This one
+//   applies with any settings too.
 //
 // The RVAs come from the 3.7.1 ARM64 game's IL2CPP metadata. Every site is
 // checked first; on any unknown instruction nothing is changed.
@@ -35,6 +38,8 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#include "roulette_ads.h"
 
 enum { FullHD = 6, WQHD = 7, DeviceMax = 8 };
 
@@ -317,6 +322,18 @@ static int hook_frame_rate(uint8_t *base) {
     return hook((uint32_t *)(base + 0x2A6530C), kBattleStepCall, battle_step_hook);
 }
 
+static void *game_library;
+static void *game_symbol(const char *name) { return dlsym(game_library, name); }
+
+// IronSource.showRewardedVideo starts "stp x20, x19, [sp, #-0x20]!; stp x29, x30, [sp, #0x10];
+// add x29, sp, #0x10; adrp x20, ..."; the hook replaces the whole method.
+static const uint32_t kShowRewardedVideo[4] = {0xa9be4ff4u, 0xa9017bfdu, 0x910043fdu, 0xd00237f4u};
+
+static void hook_roulette_ads(uint8_t *base) {
+    if (roulette_ads_init(game_symbol) || hook((uint32_t *)(base + 0x3291FB4), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Special Gift Roulette: unsupported game binary; the video ad stays");
+}
+
 static const char *apply(int fps, int size, char *message, size_t length) {
     Site list[8];
     int count = sites(fps, size, list);
@@ -328,6 +345,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
         return message;
     }
     uint8_t *base = info.dli_fbase;
+    game_library = library;
+    hook_roulette_ads(base);
     const struct { uint32_t rva; const uint32_t *original; } hooks[] = {{0x2D5F7A0, kFixedProcessPrologue}, {0x2A6530C, kBattleStepCall},
         {0x3A0ECF8, kChangeState}, {0x363082C, kTriggerEnter}};
     // The event-zone hooks (2 and 3) go in at every frame rate; the frame-timing ones only above 30.

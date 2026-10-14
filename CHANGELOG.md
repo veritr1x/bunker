@@ -5,6 +5,21 @@ Commit ids are in brackets.
 
 ## 2026-10-14
 
+### Special Gift Roulette
+The menu's roulette (Global only) gave free gems after a video ad, up to 6
+spins a day. No ad can be shown any more, so the button did nothing, and the
+server answered a spin with a summon item.
+- A spin now pays free gems: 10 (60%), 30 (25%), 50 (10%), 100 (4.7%) or
+  3,000 (0.3%). The wheel shows 15 slices, but the rates were never
+  published; players saw mostly 10s and very rarely the 3,000, so the draw is
+  weighted.
+- The video is skipped: when the game asks ironSource for it, the "rewarded"
+  event comes at once and "closed" on the next frame, as the SDK sent them.
+  Android replaces IronSource.showRewardedVideo; iOS, which can't change the
+  game's code, points the ad agent's entry at the same function.
+- Emulator: six spins with the result dialog, gems added, the counter down to
+  the reset countdown. [COMMIT]
+
 ### Original calendar: opens with the launch summons
 The first summons opened 20 hours into the launch week (28 July 2021, 22:00
 UTC), and the game hangs on a summon page with none open: a calendar started

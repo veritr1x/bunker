@@ -156,16 +156,46 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  func (h *GachaHandler) HandleResetBox(
  	user *store.UserState,
  	entry store.GachaCatalogEntry,
-@@ -185,7 +210,7 @@ func (h *GachaHandler) HandleRewardDraw(
- 	items := DrawReward(h.Pool.Materials, int(clamped))
+@@ -162,10 +187,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
+ 	return requested, currentCount + requested, reset
+ }
  
- 	for _, item := range items {
++// HandleRewardDraw spins the Special Gift Roulette count times (within the
++// daily limit) and returns the free gems of each spin.
+ func (h *GachaHandler) HandleRewardDraw(
+ 	user *store.UserState,
+ 	count int32,
+-) ([]DrawnItem, error) {
++) ([]int32, error) {
+ 	nowMillis := gametime.NowMillis()
+ 	todayStart := gametime.StartOfDayMillis()
+ 
+@@ -182,10 +209,11 @@ func (h *GachaHandler) HandleRewardDraw(
+ 		return nil, fmt.Errorf("daily reward draw limit reached")
+ 	}
+ 
+-	items := DrawReward(h.Pool.Materials, int(clamped))
+-
+-	for _, item := range items {
 -		store.GrantPossession(user, model.PossessionType(item.PossessionType), item.PossessionId, 1)
-+		h.Granter.GrantCapped(user, model.PossessionType(item.PossessionType), item.PossessionId, 1, nowMillis, store.GiftTextSummons)
++	gems := make([]int32, 0, clamped)
++	for range clamped {
++		won := DrawRoulette(rand.Intn)
++		store.GrantPossession(user, model.PossessionTypeFreeGem, 0, won)
++		gems = append(gems, won)
  	}
  
  	user.Gacha.TodaysCurrentDrawCount = newCount
-@@ -279,29 +304,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
+@@ -193,7 +221,7 @@ func (h *GachaHandler) HandleRewardDraw(
+ 	user.Gacha.LastRewardDrawDate = nowMillis
+ 	user.Gacha.RewardAvailable = newCount < maxCount
+ 
+-	return items, nil
++	return gems, nil
+ }
+ 
+ func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.GachaPricePhaseEntry, count int) []DrawnItem {
+@@ -279,29 +307,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
  	for i, item := range items {
  		switch model.PossessionType(item.PossessionType) {
  		case model.PossessionTypeCostume:
@@ -200,7 +230,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  			}
  			return DuplicateInfo{Index: index, Grade: grade, Bonuses: exchanges}, true
  		}
-@@ -344,3 +369,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
+@@ -344,3 +372,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
  	}
  	return store.GachaPricePhaseEntry{}, fmt.Errorf("no price phases for gacha %d", entry.GachaId)
  }
@@ -2402,7 +2432,50 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	}, nil
  }
  
-@@ -416,6 +441,34 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -350,33 +375,23 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	handler := s.holder.Get().GachaHandler
+ 
+-	var items []gacha.DrawnItem
+-	ownedCostumes := map[int32]bool{}
+-	ownedWeapons := map[int32]bool{}
+-	updatedUser, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+-		for _, c := range user.Costumes {
+-			ownedCostumes[c.CostumeId] = true
+-		}
+-		for _, w := range user.Weapons {
+-			ownedWeapons[w.WeaponId] = true
+-		}
++	// The Special Gift Roulette: the wheel stops on the amount returned.
++	var gems []int32
++	if _, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		var drawErr error
+-		items, drawErr = handler.HandleRewardDraw(user, 1)
++		gems, drawErr = handler.HandleRewardDraw(user, 1)
+ 		if drawErr != nil {
+ 			log.Printf("[GachaService] RewardDraw error: %v", drawErr)
+ 		}
+-	})
+-	if err != nil {
++	}); err != nil {
+ 		return nil, fmt.Errorf("update user: %w", err)
+ 	}
+ 
+-	results := make([]*pb.RewardGachaItem, 0, len(items))
+-	for _, item := range items {
++	results := make([]*pb.RewardGachaItem, 0, len(gems))
++	for _, won := range gems {
+ 		results = append(results, &pb.RewardGachaItem{
+-			PossessionType: item.PossessionType,
+-			PossessionId:   item.PossessionId,
+-			Count:          1,
+-			IsNew:          !isOwnedByType(item, ownedCostumes, ownedWeapons, updatedUser),
++			PossessionType: int32(model.PossessionTypeFreeGem),
++			Count:          won,
+ 		})
+ 	}
+ 
+@@ -416,6 +431,34 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
@@ -2437,7 +2510,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb.Gacha {
  	g := &pb.Gacha{
  		GachaId:                    entry.GachaId,
-@@ -424,7 +477,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -424,7 +467,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		GachaAutoResetType:         entry.GachaAutoResetType,
  		GachaAutoResetPeriod:       entry.GachaAutoResetPeriod,
  		NextAutoResetDatetime:      safeTimestamp(entry.NextAutoResetDatetime),
@@ -2446,7 +2519,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		IsUserGachaUnlock:          entry.IsUserGachaUnlock,
  		StartDatetime:              safeTimestamp(entry.StartDatetime),
  		EndDatetime:                safeTimestamp(entry.EndDatetime),
-@@ -438,7 +491,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -438,7 +481,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		InformationId:              entry.InformationId,
  	}
  
@@ -2455,7 +2528,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	promotionItems := buildProtoPromotionItems(entry)
  
-@@ -497,7 +550,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -497,7 +540,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  	return g
  }
  
@@ -2464,7 +2537,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	phases := make([]*pb.GachaPricePhase, 0, len(entry.PricePhases))
  
  	for _, p := range entry.PricePhases {
-@@ -523,6 +576,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -523,6 +566,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  		if limitExec <= 0 {
  			limitExec = 999
  		}
@@ -2479,7 +2552,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  		phases = append(phases, &pb.GachaPricePhase{
  			GachaPricePhaseId: p.PhaseId,
-@@ -534,6 +595,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -534,6 +585,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  			RegularPrice:      p.RegularPrice,
  			DrawCount:         p.DrawCount,
  			LimitExecCount:    limitExec,
