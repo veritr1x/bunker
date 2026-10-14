@@ -226,14 +226,9 @@ func serveGachaDetailsPage(w http.ResponseWriter, r *http.Request) {
 	var bp *masterdata.BannerPool
 	if bunkerHolder != nil {
 		c := bunkerHolder.Get()
-		for i := range c.GachaEntries {
-			if c.GachaEntries[i].GachaId == int32(id) {
-				entry = &c.GachaEntries[i]
-				break
-			}
-		}
-		if c.GachaPool != nil {
-			bp = c.GachaPool.BannerPools[int32(id)]
+		entry, _ = resolveGachaId(c.GachaEntries, int32(id))
+		if c.GachaPool != nil && entry != nil {
+			bp = c.GachaPool.BannerPools[entry.GachaId]
 		}
 	}
 	t := openGameText()

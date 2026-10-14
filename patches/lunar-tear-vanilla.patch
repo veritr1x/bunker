@@ -82,10 +82,17 @@ diff --git a/server/internal/database/database.go b/server/internal/database/dat
 diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
 --- a/server/internal/gacha/handler.go
 +++ b/server/internal/gacha/handler.go
-@@ -61,10 +61,26 @@ func (h *GachaHandler) HandleDraw(
+@@ -61,10 +61,33 @@ func (h *GachaHandler) HandleDraw(
  		return nil, err
  	}
  
++	// A multi-step summon draws only its current step.
++	if entry.GachaModeType == model.GachaModeStepup {
++		if step := CurrentStep(entry, user.Gacha.BannerStates[entry.GachaId]); phase.StepNumber != step {
++			return nil, fmt.Errorf("gacha %d: step %d drawn on step %d", entry.GachaId, phase.StepNumber, step)
++		}
++	}
++
 +	// Options with a limit (free once a day, one-time guaranteed). Multi-step
 +	// summons limit each step through their step number instead.
 +	limited := phase.LimitExecCount > 0 && entry.GachaModeType != model.GachaModeStepup
@@ -110,7 +117,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  		}
  	}
  
-@@ -80,7 +96,11 @@ func (h *GachaHandler) HandleDraw(
+@@ -80,7 +103,11 @@ func (h *GachaHandler) HandleDraw(
  	case model.GachaLabelPremium:
  		items = h.drawPremium(entry, phase, drawCount)
  	case model.GachaLabelChapter, model.GachaLabelRecycle:
@@ -123,7 +130,16 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	case model.GachaLabelEvent:
  		items = h.drawBox(&bs, drawCount)
  	default:
-@@ -98,14 +118,19 @@ func (h *GachaHandler) HandleDraw(
+@@ -88,7 +115,7 @@ func (h *GachaHandler) HandleDraw(
+ 	}
+ 
+ 	if entry.GachaModeType == model.GachaModeStepup {
+-		bs.StepNumber++
++		bs.StepNumber = CurrentStep(entry, bs) + 1
+ 		if bs.StepNumber > entry.MaxStepNumber {
+ 			bs.StepNumber = 1
+ 			bs.LoopCount++
+@@ -98,14 +125,19 @@ func (h *GachaHandler) HandleDraw(
  	var medalBonus int32
  	if entry.GachaMedalId != 0 {
  		medalBonus = int32(drawCount)
@@ -147,7 +163,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  
  	dupInfos := h.grantItems(user, items, nowMillis)
  
-@@ -125,23 +150,37 @@ func (h *GachaHandler) HandleDraw(
+@@ -125,23 +157,37 @@ func (h *GachaHandler) HandleDraw(
  	}
  
  	for _, p := range phase.Bonuses {
@@ -187,7 +203,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	bs.BoxNumber++
  	user.Gacha.BannerStates[entry.GachaId] = bs
  	return nil
-@@ -162,10 +201,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
+@@ -162,10 +208,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
  	return requested, currentCount + requested, reset
  }
  
@@ -201,7 +217,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	nowMillis := gametime.NowMillis()
  	todayStart := gametime.StartOfDayMillis()
  
-@@ -182,10 +223,11 @@ func (h *GachaHandler) HandleRewardDraw(
+@@ -182,10 +230,11 @@ func (h *GachaHandler) HandleRewardDraw(
  		return nil, fmt.Errorf("daily reward draw limit reached")
  	}
  
@@ -217,7 +233,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	}
  
  	user.Gacha.TodaysCurrentDrawCount = newCount
-@@ -193,7 +235,7 @@ func (h *GachaHandler) HandleRewardDraw(
+@@ -193,7 +242,7 @@ func (h *GachaHandler) HandleRewardDraw(
  	user.Gacha.LastRewardDrawDate = nowMillis
  	user.Gacha.RewardAvailable = newCount < maxCount
  
@@ -226,7 +242,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  }
  
  func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.GachaPricePhaseEntry, count int) []DrawnItem {
-@@ -279,29 +321,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
+@@ -279,29 +328,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
  	for i, item := range items {
  		switch model.PossessionType(item.PossessionType) {
  		case model.PossessionTypeCostume:
@@ -261,7 +277,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  			}
  			return DuplicateInfo{Index: index, Grade: grade, Bonuses: exchanges}, true
  		}
-@@ -344,3 +386,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
+@@ -344,3 +393,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
  	}
  	return store.GachaPricePhaseEntry{}, fmt.Errorf("no price phases for gacha %d", entry.GachaId)
  }
@@ -681,7 +697,7 @@ diff --git a/server/internal/masterdata/dup_exchange.go b/server/internal/master
 diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/gacha.go
 --- a/server/internal/masterdata/gacha.go
 +++ b/server/internal/masterdata/gacha.go
-@@ -17,7 +17,41 @@ type GachaMedalInfo struct {
+@@ -17,7 +17,56 @@ type GachaMedalInfo struct {
  	ConversionRate      int32
  }
  
@@ -706,9 +722,24 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +}
 +
 +// stepUpStepCounts is the number of steps of a multi-step summon, by the
-+// group in its banner asset (step_up_<group><step>): the game text has one
-+// title per step. Groups with a single title get the usual five.
-+var stepUpStepCounts = map[int32]int{505: 7, 506: 3}
++// group in its banner asset (step_up_<group><step>): the client shows one
++// appeal page per step (ui/gacha/<lang>/step_up_<group>001/appeal/000n in
++// the game files) and nothing for a step without one. Groups not listed
++// have five.
++var stepUpStepCounts = map[int32]int{
++	500: 4, 504: 3, 506: 3, 514: 4, 519: 3, 522: 3, 525: 4, 527: 3, 534: 3, 536: 3,
++	537: 3, 538: 3, 551: 3, 552: 3, 557: 3, 558: 3, 560: 3, 561: 3, 563: 3, 565: 4,
++	566: 3, 568: 3, 569: 4, 570: 4, 571: 3, 572: 3, 573: 3, 574: 3, 575: 3, 577: 3,
++	578: 3, 579: 4, 580: 3, 581: 3, 582: 3, 583: 3, 584: 4, 585: 3, 586: 3, 587: 3,
++	588: 3, 589: 3, 590: 4, 600: 3, 601: 4, 602: 4, 603: 4, 604: 3, 605: 3, 606: 3,
++	607: 3, 609: 4, 610: 3, 611: 3, 613: 4,
++}
++
++// stepUpCosts are the paid gems per step where the game's step pages give
++// them (0 is a free step); other groups use the usual pattern.
++var stepUpCosts = map[int32][]int32{
++	505: {3000, 0, 2000, 0, 5000}, // New Year's Luck of the Draw
++}
 +
 +const defaultStepUpSteps = 5
 +
@@ -724,7 +755,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  
  func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, error) {
  	medals, err := utils.ReadTable[EntityMGachaMedal]("m_gacha_medal")
-@@ -30,10 +64,28 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -30,10 +79,28 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  	}
  
  	gachaToMedal := make(map[int32]EntityMGachaMedal)
@@ -755,7 +786,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			GachaMedalId:        m.GachaMedalId,
  			ConsumableItemId:    m.ConsumableItemId,
  			AutoConvertDatetime: m.AutoConvertDatetime,
-@@ -41,124 +93,98 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -41,124 +108,98 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  		}
  	}
  
@@ -862,7 +893,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +			}
 +			entry.GachaModeType = model.GachaModeStepup
 +			entry.GachaDecorationType = model.GachaDecorationFestival
-+			entry.PricePhases = buildStepUpPricePhases(gachaId, steps)
++			entry.PricePhases = buildStepUpPricePhases(gachaId, steps, stepUpCosts[group])
 +			entry.MaxStepNumber = int32(steps)
 +		case special != 0:
 +			entry.PricePhases = buildSpecialPricePhases(gachaId, special)
@@ -916,8 +947,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 -		medal := gachaToMedal[first.DestinationDomainId]
 -		medalId := medal.GachaMedalId
 -		medalConsumableId := medal.ConsumableItemId
-+	entries = append(entries, bannerlessSummons(medals, seen)...)
- 
+-
 -		pricePhases := buildStepUpPricePhases(gachaId, len(steps))
 -
 -		var maxStep int32
@@ -926,7 +956,8 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 -				maxStep = p.StepNumber
 -			}
 -		}
--
++	entries = append(entries, bannerlessSummons(medals, seen)...)
+ 
 -		entries = append(entries, store.GachaCatalogEntry{
 -			GachaId:               gachaId,
 -			GachaLabelType:        model.GachaLabelPremium,
@@ -954,18 +985,23 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  	}
  
  	return entries, medalInfoByGacha, nil
-@@ -292,6 +318,10 @@ func buildPremiumBasicPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -290,9 +331,12 @@ func buildPremiumBasicPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+ 	}
+ }
  
- func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePhaseEntry {
- 	stepCosts := []int32{model.StepUpStep1Cost, model.StepUpFreeCost, model.StepUpStep3Cost, model.StepUpFreeCost, model.StepUpStep5Cost}
-+	if totalSteps > len(stepCosts) {
-+		// Longer summons repeat the paid-then-free middle steps before the last.
-+		stepCosts = []int32{model.StepUpStep1Cost, model.StepUpFreeCost, model.StepUpStep3Cost, model.StepUpFreeCost, model.StepUpStep3Cost, model.StepUpFreeCost, model.StepUpStep5Cost}
+-func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePhaseEntry {
+-	stepCosts := []int32{model.StepUpStep1Cost, model.StepUpFreeCost, model.StepUpStep3Cost, model.StepUpFreeCost, model.StepUpStep5Cost}
+-	stepCosts = stepCosts[:min(totalSteps, len(stepCosts))]
++func buildStepUpPricePhases(gachaId int32, totalSteps int, known []int32) []store.GachaPricePhaseEntry {
++	stepCosts := known
++	if len(stepCosts) != totalSteps {
++		stepCosts = []int32{model.StepUpStep1Cost, model.StepUpFreeCost, model.StepUpStep3Cost, model.StepUpFreeCost, model.StepUpStep5Cost}
++		stepCosts = stepCosts[:min(totalSteps, len(stepCosts))]
 +	}
- 	stepCosts = stepCosts[:min(totalSteps, len(stepCosts))]
  
  	var phases []store.GachaPricePhaseEntry
-@@ -324,12 +354,45 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
+ 	for i, cost := range stepCosts {
+@@ -324,12 +368,45 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
  	return phases
  }
  
@@ -1013,7 +1049,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			Price:        1,
  			RegularPrice: 1,
  			DrawCount:    1,
-@@ -337,10 +400,101 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -337,10 +414,105 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
  		{
  			PhaseId:      gachaId*model.PhaseIdMultiplier + 2,
  			PriceType:    model.PriceTypeConsumableItem,
@@ -1076,8 +1112,12 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +		if gachaId >= 500000 {
 +			entry.GachaModeType = model.GachaModeStepup
 +			entry.BannerAssetName = fmt.Sprintf("%s%d", model.BannerPrefixStepUp, gachaId)
-+			entry.PricePhases = buildStepUpPricePhases(gachaId, defaultStepUpSteps)
-+			entry.MaxStepNumber = defaultStepUpSteps
++			group, steps := gachaId/1000, defaultStepUpSteps
++			if n, ok := stepUpStepCounts[group]; ok {
++				steps = n
++			}
++			entry.PricePhases = buildStepUpPricePhases(gachaId, steps, stepUpCosts[group])
++			entry.MaxStepNumber = int32(steps)
 +		}
 +		seen[gachaId] = true
 +		out = append(out, entry)
@@ -2464,7 +2504,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		}
  		bs := user.Gacha.BannerStates[entry.GachaId]
 -		gachaList = append(gachaList, toProtoGacha(entry, &bs))
-+		gachaList = append(gachaList, toProtoGachaFor(entry, &bs, user))
++		gachaList = append(gachaList, protoGachas(entry, &bs, user)...)
  	}
  
  	return &pb.GetGachaListResponse{
@@ -2560,16 +2600,30 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  }
  
  func (s *GachaServiceServer) GetGacha(ctx context.Context, req *pb.GetGachaRequest) (*pb.GetGachaResponse, error) {
-@@ -139,7 +156,7 @@ func (s *GachaServiceServer) GetGacha(ctx context.Context, req *pb.GetGachaReque
- 				break
- 			}
- 			bs := user.Gacha.BannerStates[entry.GachaId]
+@@ -131,17 +148,12 @@ func (s *GachaServiceServer) GetGacha(ctx context.Context, req *pb.GetGachaReque
+ 
+ 	byId := make(map[int32]*pb.Gacha, len(req.GachaId))
+ 	for _, wantedId := range req.GachaId {
+-		for _, entry := range catalog {
+-			if entry.GachaId != wantedId {
+-				continue
+-			}
+-			if !gachaActiveAt(entry, nowMillis) {
+-				break
+-			}
+-			bs := user.Gacha.BannerStates[entry.GachaId]
 -			byId[wantedId] = toProtoGacha(entry, &bs)
-+			byId[wantedId] = toProtoGachaFor(entry, &bs, user)
- 			break
+-			break
++		entry, step := resolveGachaId(catalog, wantedId)
++		if entry == nil || !gachaActiveAt(*entry, nowMillis) {
++			continue
  		}
++		bs := user.Gacha.BannerStates[entry.GachaId]
++		byId[wantedId] = protoGachaById(*entry, step, &bs, user)
  	}
-@@ -166,6 +183,7 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+ 
+ 	return &pb.GetGachaResponse{
+@@ -166,6 +178,7 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  	}
  
  	var drawResult *gacha.DrawResult
@@ -2577,7 +2631,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	ownedCostumes := map[int32]bool{}
  	ownedWeapons := map[int32]bool{}
  	updatedUser, err := s.users.UpdateUser(userId, func(user *store.UserState) {
-@@ -175,16 +193,20 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -175,16 +188,20 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  		for _, w := range user.Weapons {
  			ownedWeapons[w.WeaponId] = true
  		}
@@ -2603,7 +2657,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	for i, item := range drawResult.Items {
  		if bonus, ok := drawResult.BonusItems[i]; ok {
-@@ -253,6 +275,9 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -253,6 +270,9 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  			}
  		}
  
@@ -2613,12 +2667,12 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		if drawResult.MedalBonus > 0 && entry.MedalConsumableItemId != 0 {
  			oddsItem.MedalBonus = &pb.GachaBonus{
  				PossessionType: int32(model.PossessionTypeConsumableItem),
-@@ -281,13 +306,13 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -281,13 +301,13 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  	}
  
  	bs := updatedUser.Gacha.BannerStates[entry.GachaId]
 -	nextGacha := toProtoGacha(*entry, &bs)
-+	nextGacha := toProtoGachaFor(*entry, &bs, updatedUser)
++	nextGacha := protoGachaById(*entry, stepUpCurrent(*entry, &bs), &bs, updatedUser)
  
  	return &pb.DrawResponse{
  		NextGacha:          nextGacha,
@@ -2629,7 +2683,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	}, nil
  }
  
-@@ -314,7 +339,7 @@ func (s *GachaServiceServer) ResetBoxGacha(ctx context.Context, req *pb.ResetBox
+@@ -314,7 +334,7 @@ func (s *GachaServiceServer) ResetBoxGacha(ctx context.Context, req *pb.ResetBox
  	bs := updatedUser.Gacha.BannerStates[entry.GachaId]
  
  	return &pb.ResetBoxGachaResponse{
@@ -2638,7 +2692,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	}, nil
  }
  
-@@ -350,33 +375,23 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
+@@ -350,33 +370,23 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	handler := s.holder.Get().GachaHandler
  
@@ -2681,7 +2735,22 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		})
  	}
  
-@@ -416,6 +431,43 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -386,12 +396,8 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
+ }
+ 
+ func findCatalogEntry(catalog []store.GachaCatalogEntry, gachaId int32) *store.GachaCatalogEntry {
+-	for i := range catalog {
+-		if catalog[i].GachaId == gachaId {
+-			return &catalog[i]
+-		}
+-	}
+-	return nil
++	entry, _ := resolveGachaId(catalog, gachaId)
++	return entry
+ }
+ 
+ func matchesGachaLabel(labels []int32, label int32) bool {
+@@ -416,6 +422,43 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
@@ -2725,7 +2794,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb.Gacha {
  	g := &pb.Gacha{
  		GachaId:                    entry.GachaId,
-@@ -424,7 +476,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -424,7 +467,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		GachaAutoResetType:         entry.GachaAutoResetType,
  		GachaAutoResetPeriod:       entry.GachaAutoResetPeriod,
  		NextAutoResetDatetime:      safeTimestamp(entry.NextAutoResetDatetime),
@@ -2734,7 +2803,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		IsUserGachaUnlock:          entry.IsUserGachaUnlock,
  		StartDatetime:              safeTimestamp(entry.StartDatetime),
  		EndDatetime:                safeTimestamp(entry.EndDatetime),
-@@ -438,7 +490,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -438,7 +481,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		InformationId:              entry.InformationId,
  	}
  
@@ -2743,7 +2812,21 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	promotionItems := buildProtoPromotionItems(entry)
  
-@@ -497,7 +549,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -465,12 +508,9 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+ 			},
+ 		}
+ 	case model.GachaModeStepup:
+-		stepNumber := int32(1)
++		stepNumber := stepUpCurrent(entry, bs)
+ 		loopCount := int32(0)
+ 		if bs != nil {
+-			if bs.StepNumber > 0 {
+-				stepNumber = bs.StepNumber
+-			}
+ 			loopCount = bs.LoopCount
+ 		}
+ 		g.GachaMode = &pb.Gacha_GachaModeStepupComposition{
+@@ -497,17 +537,13 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  	return g
  }
  
@@ -2752,7 +2835,18 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	phases := make([]*pb.GachaPricePhase, 0, len(entry.PricePhases))
  
  	for _, p := range entry.PricePhases {
-@@ -523,6 +575,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+ 		isEnabled := true
+ 		if entry.GachaModeType == model.GachaModeStepup && bs != nil {
+-			currentStep := bs.StepNumber
+-			if currentStep <= 0 {
+-				currentStep = 1
+-			}
+-			isEnabled = p.StepNumber == currentStep
++			isEnabled = p.StepNumber == stepUpCurrent(entry, bs)
+ 		}
+ 
+ 		var bonuses []*pb.GachaBonus
+@@ -523,6 +559,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  		if limitExec <= 0 {
  			limitExec = 999
  		}
@@ -2767,7 +2861,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  		phases = append(phases, &pb.GachaPricePhase{
  			GachaPricePhaseId: p.PhaseId,
-@@ -534,6 +594,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -534,6 +578,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  			RegularPrice:      p.RegularPrice,
  			DrawCount:         p.DrawCount,
  			LimitExecCount:    limitExec,
@@ -2775,7 +2869,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  			EachMaxExecCount:  p.DrawCount,
  			GachaBonus:        bonuses,
  			GachaOddsFixedRarity: &pb.GachaOddsFixedRarity{
-@@ -547,6 +608,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -547,6 +592,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  	return phases
  }
  

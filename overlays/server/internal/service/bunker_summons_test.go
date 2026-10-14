@@ -23,9 +23,15 @@ func TestSummonCatalogRules(t *testing.T) {
 	if _, ok := byId[45]; !ok || byId[45].EndDatetime > 2_000_000_000_000 {
 		t.Skip("needs the original master data")
 	}
-	// Multi-step summons: one entry each, steps from the game text.
-	if e := byId[9000041]; e.GachaModeType != model.GachaModeStepup || e.MaxStepNumber != 7 || len(e.PricePhases) != 7 {
+	// Multi-step summons: one entry each, steps from the game's step pages.
+	if e := byId[9000041]; e.GachaModeType != model.GachaModeStepup || e.MaxStepNumber != 5 || len(e.PricePhases) != 5 {
 		t.Errorf("Festive Dress step-up: mode %d steps %d phases %d", e.GachaModeType, e.MaxStepNumber, len(e.PricePhases))
+	} else {
+		for i, want := range []int32{3000, 0, 2000, 0, 5000} {
+			if p := e.PricePhases[i]; p.Price != want {
+				t.Errorf("Festive Dress step %d costs %d, the game says %d", i+1, p.Price, want)
+			}
+		}
 	}
 	if e := byId[9000035]; e.MedalConsumableItemId != 8021 || e.MaxStepNumber != 5 {
 		t.Errorf("Yuletide step-up: medal %d steps %d", e.MedalConsumableItemId, e.MaxStepNumber)
