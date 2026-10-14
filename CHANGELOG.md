@@ -13,7 +13,7 @@ in those first hours showed an empty summon screen and got stuck there.
   a whole day when needed (the daily reset keeps its hour); a new loop does
   the same.
 - Calendars already started move on at the next Deploy or Pod Programs
-  visit. [COMMIT]
+  visit. [52cca2b]
 
 ### Names
 - Big Hunt is called Subjugation Battles, as in the game: in the Archive's
