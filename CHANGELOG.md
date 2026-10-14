@@ -24,7 +24,7 @@ server answered a spin with a summon item.
   run on iOS), so the patch does the same. Pod Programs > Summon rates sets
   the roulette's chances (roulette_rates.json beside the save, read on the
   next spin; they must add up to 100%; Default brings back the ones above).
-  Fold and iPad: spins play the wheel and pay. [COMMIT]
+  Fold and iPad: spins play the wheel and pay. [fcd818b]
 
 ### Storage: links survive an iOS update
 iOS gives an app a new data folder path when the app is updated, and the
@@ -37,7 +37,7 @@ roulette's own art failed to load the same way.
   before a file is served.
 - iPad: 110,765 links repaired (188 MB) in about 4 minutes on the first start;
   after the next update, which moved the folder again, all links still
-  worked and nothing was downloaded. [COMMIT]
+  worked and nothing was downloaded. [fcd818b]
 
 ### Original calendar: opens with the launch summons
 The first summons opened 20 hours into the launch week (28 July 2021, 22:00
