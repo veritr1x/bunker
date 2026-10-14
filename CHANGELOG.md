@@ -7,7 +7,7 @@ Commit ids are in brackets.
 
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
-master data, in UTC. [8df1b0c]
+master data, in UTC. [f6fd958]
 - **Timeline:** what started each month, linked to its entry.
 - **Summons:** banner art, runs, shards, pity and leftover conversion, and
   each shard exchange's items (costumes link to their pages). Summons without
@@ -29,7 +29,7 @@ master data, in UTC. [8df1b0c]
 
 ### Pod Programs: Original calendar
 Content › Schedule can replay the live service from global launch (28 July
-2021) instead of keeping everything open. [0441ca9, 5b8ec65, 96faa86, 9d1f01f]
+2021) instead of keeping everything open. [36e881f, f8051fe, 921b5b3, 356d2d1]
 - **Game data:** events, summons, shops, seasons, missions, login bonuses,
   campaigns and item terms move forward by whole weeks to start at the current
   week. The main story, character lists, collections and the character viewer
@@ -44,22 +44,22 @@ Content › Schedule can replay the live service from global launch (28 July
   Event items leave the inventory when their term ends. A new loop resets
   event quests, event missions, exchange shop purchases, the mission pass,
   login bonuses, Labyrinth seasons, Big Hunt records and limited summon
-  progress. Big Hunt follows the game clock while the server runs. [9d1f01f]
+  progress. Big Hunt follows the game clock while the server runs. [356d2d1]
 - **Speed** is saved with a Save speed button, so scrolling can't change it.
 
 ### Summons
 - NieR:Automata Crossover Vol. 2 (launch and rerun) is offered and gives
-  Vol. 1's Shard (Automata); the server used to skip it. [9ef987f]
+  Vol. 1's Shard (Automata); the server used to skip it. [8ddce67]
 - Leftover shards become Medals once, at the medal's conversion date; the
   summon screen shows the conversion once. Before, ended summons added the
-  shards a second time. [5690127, 697593a]
+  shards a second time. [77c1b59, c9b4c25]
 - The ticket draw takes the Premium Summon Ticket (item 1002), not Gold.
-  [5690127]
+  [77c1b59]
 - Each summon's pity ceiling comes from its medal (50, 100, 150 or 200).
 - Summons with a placeholder 2099 row (50, 58) are listed once and open.
 - With the calendar, featured items match catalog terms on original dates.
 - The shard conversion popup is sent until the next game start; the game
-  only shows it when Summons is opened, not when returning to it. [697593a]
+  only shows it when Summons is opened, not when returning to it. [c9b4c25]
 - Multi-step summons are one summon each, with 7, 5 or 3 steps from the game
   text (5 when unknown).
 - Summons that start together get their own featured items: those their
@@ -73,15 +73,15 @@ Content › Schedule can replay the live service from global launch (28 July
 - Special summons follow their titles: free summons give one free 10-pull a
   day, "★★★★ guaranteed" ones a single 10-pull with a ★4 for 3000 gems, and
   "paid only" ones take paid gems. Bonus and newcomer summons are left out.
-  [4d9aad6]
+  [c83dcc1]
 - Every draw carries a medal bonus, even an empty one; free summons hung
   without it. A draw option that is used up is switched off, so the game
-  can't send a draw the server refuses (that restarted the game). [c6ac175]
+  can't send a draw the server refuses (that restarted the game). [65dfca7]
 - Summons with shards but no banner row are offered from their exchange
   shop's opening to two days before the shards convert: 106 weekly
   summons, 22 paid multi-step summons, Fortune's Dress and Blessed Dress.
   Pod Programs names them after their shards (e.g. "Weekly Summons B").
-  Five without art are left out. [8f8ccfa]
+  Five without art are left out. [5d37688]
 - Known issue: on the Android 16 emulator the game can crash (libil2cpp
   0x257da0c) during the first few summons after starting. A 6 October
   build without Bunker's display or server changes crashes the same way;
@@ -96,7 +96,7 @@ Content › Schedule can replay the live service from global launch (28 July
   2e71e34]
 
 ### Server: behaving like the original game
-Checked against the game's master data and the 3.7.1 client. [9e760e4]
+Checked against the game's master data and the 3.7.1 client. [2aa0757]
 - **Gifts:** claiming a gift now grants it; login bonus rewards were lost
   before. Expired gifts are dropped and reported. A gift over its storage
   limit stays in the box. Login gifts say "Earned from login bonus". The gift
@@ -161,7 +161,7 @@ Checked against the game's master data and the 3.7.1 client. [9e760e4]
 
 ### Server: fixes
 - A new player's first load stopped at 60%. Two karma tables were sent as
-  null; every table is now sent as a list. [a9358bd]
+  null; every table is now sent as a list. [ac566d3]
 
 ### iOS device tools
 - `device.py hold` keeps a finger on the walking stick. The test controller
