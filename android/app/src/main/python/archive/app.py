@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from . import index
 from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
 from .content import KINDS, Archive, plain, quoted, rich
+from .schedule import TABS as SCHEDULE_TABS
 
 HERE = Path(__file__).resolve().parent
 # Pages run only the Archive's own code. The 3D viewer's glTF loader reads embedded textures
@@ -22,7 +23,7 @@ POLICY = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'sel
           "form-action 'self'; base-uri 'none'")
 SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("characters", "Characters", "/characters"),
             ("records", "Records", "/records"), ("movies", "Movies", "/movies"), ("gallery", "Gallery", "/gallery"),
-            ("music", "Music", "/music")]
+            ("music", "Music", "/music"), ("schedule", "Schedule", "/schedule")]
 
 
 class Builder:
@@ -54,10 +55,11 @@ class Builder:
 
 
 def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None, model=None,
-               motion=None, scenario=None) -> FastAPI:
+               motion=None, scenario=None, original=True) -> FastAPI:
     """decode(bundle, target_png, max_side), sound(bundle, target_ogg) and model(actor_folder, target_glb) return
     "" or an error; so do motion(clip_bundle, actor_folder, target_json) and scenario(event_map_folder,
-    target_json). Without them, no images, sound or 3D, and no speakers or quest chapters."""
+    target_json). Without them, no images, sound or 3D, and no speakers or quest chapters. original says whether
+    master is the game's own master data; patched master data moves the Schedule's dates."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
     builder = Builder(revision, master, db_path, scenario)
@@ -354,6 +356,23 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         except ValueError as exc:
             raise HTTPException(422, str(exc))
         return FileResponse(ogg, media_type="audio/ogg", headers={"Cache-Control": "private, max-age=86400"})
+
+    @app.get("/schedule")
+    def schedule(request: Request, tab: str = "timeline"):
+        need_index(request)
+        if tab not in dict(SCHEDULE_TABS):
+            raise HTTPException(404)
+        return page(request, "schedule.html", "schedule", tab=tab, tabs=SCHEDULE_TABS, groups=getattr(archive.schedule(), tab)(),
+                    original=original)
+
+    @app.get("/schedule/{kind}/{ident}")
+    def schedule_entry(request: Request, kind: str, ident: int):
+        need_index(request)
+        tabs = {"summon": "summons", "event": "events", "shop": "shops"}
+        found = archive.schedule().find(tabs[kind], ident) if kind in tabs else None
+        if not found:
+            raise HTTPException(404)
+        return page(request, f"schedule_{kind}.html", "schedule", item=found, tabs=dict(SCHEDULE_TABS), tab=tabs[kind])
 
     @app.get("/search")
     def search(request: Request, q: str = ""):

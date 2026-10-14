@@ -136,3 +136,17 @@ body:has(footer.player-bar[hidden]) { padding-bottom: 16px; }
 .stage-hint { position: absolute; left: 10px; bottom: 6px; margin: 0; font-family: var(--mono); font-size: 10px; color: var(--fg-mid); pointer-events: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
 .button { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* Schedule: banner art keeps its own shape; rows list one dated thing each. */
+/* The game keeps most banners as square textures with the banner in a 2:1 band across the middle. */
+.art.promo { aspect-ratio: 2 / 1; }
+.art.promo img { object-fit: cover; }
+.art.promo.small { width: 120px; flex: none; }
+.panel > .art.promo, main > .art.promo { margin: 0 0 12px; max-width: 640px; }
+.sched-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--fg-dark); }
+.sched-row:last-of-type { border-bottom: none; }
+.sched-row.with-art { align-items: center; }
+.sched-row strong { font-size: 14px; overflow-wrap: anywhere; }
+.sched-row .kind { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); }
+a.sched-row:hover { background: var(--bg-cream-dark); color: var(--fg-dark); }
+.seg.tight a { letter-spacing: 0.04em; }

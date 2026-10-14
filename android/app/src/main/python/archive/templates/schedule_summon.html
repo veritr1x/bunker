@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "schedule_macros.html" as s with context %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/schedule?tab=summons">Summons</a></p>
+<h1>{{ item.title }}</h1>
+{{ s.banner(item.hero, item.title) }}
+<div class="panel">
+  <article class="record"><h3>Summon {{ item.id }}{% if item.asset %}<span>· {{ item.asset }}</span>{% endif %}</h3>
+    <p>{% for r in item.runs %}{{ r.label }}{% if r.banner %} <span class="note">(home banner {{ r.banner }})</span>{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+    {% if item.exchange %}<p class="note">{{ "No home banner" if item.banner else "Its home banners carry only a placeholder date" }}: dated by its shard exchange, from its opening to two days before the shards convert.</p>
+    {% elif not item.runs or not item.runs[0].ran %}<p class="note">The game data has no date for this summon. {{ "Its English art and title are in the game files, so it may have run in the global service." if item.english else "It has no English art or title in the game files, so it probably never ran in the global service." }}</p>{% endif %}
+  </article>
+  {% if item.medal %}
+  <article class="record"><h3>Shards</h3>
+    <p>{{ item.medal.shard }} · pity after {{ item.medal.ceiling }} pulls{% if item.medal.converts %} · leftovers become Medals on {{ item.medal.converts }}{% endif %}</p>
+  </article>
+  {% endif %}
+</div>
+{% for shop in item.shops %}
+<details class="panel fold"{% if loop.first %} open{% endif %}>
+  <summary>{{ shop.name }}&nbsp;<span class="note">· {{ shop.when.label }}</span></summary>
+  {{ s.lineup(shop["items"]) }}
+</details>
+{% endfor %}
+{% endblock %}

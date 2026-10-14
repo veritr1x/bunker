@@ -11,6 +11,8 @@ from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
+from .schedule import Schedule, Stored
+
 # The game's own names: Dark Memories (end contents), Recollections of Dusk (limit contents), Character
 # Quests, the "Record" events, and Side Stories.
 KINDS = {"eid": "Dark Memories", "lid": "Recollections of Dusk", "cid": "Character Quests", "vid": "Events", "sid": "Side Stories"}
@@ -632,6 +634,18 @@ class Archive:
         heading = " · ".join(p for p in (row["section"], row["title"]) if p) or row["name"]
         return {**dict(row), "heading": heading, "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
                 "previous": names[at - 1] if at > 0 else None, "next": names[at + 1] if at + 1 < len(names) else None}
+
+    # ---- Schedule -----------------------------------------------------------------
+    @lru_cache(maxsize=None)
+    def schedule(self) -> Schedule | Stored:
+        """The Schedule, as the index build worked it out; worked out now for an index without it."""
+        stored = self.meta("schedule")
+        if stored:
+            return Stored(json.loads(stored))
+        with self.db() as db:
+            costumes = [r[0] for r in db.execute("SELECT asset FROM costume")]
+        return Schedule(self.master, self.texts, lambda path: (self.revision / "assetbundle" / path).is_file(),
+                        self.weapon_names(), costumes, [c["asset"] for c in self.companions()])
 
     # ---- 3D motions -------------------------------------------------------------
     MOTION_GROUPS = {"tw": "field", "bt": "battle"}

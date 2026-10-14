@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › Schedule</p>
+<h1>Schedule</h1>
+<nav class="seg tight" aria-label="Schedule view">
+  {% for key, label in tabs %}<a href="/schedule?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
+</nav>
+<p class="note">{% if original %}The live service's own dates, in UTC. Some rows carry a placeholder date in 2099 instead of their real dates; they are listed under "No date in the game data" with what the game files show about them.{% else %}Dates from the master data in use, which Pod Programs may have changed. Open Pod Programs once to show the original dates.{% endif %}</p>
+{% if tab == "timeline" %}
+  {% for m in groups %}
+  <details class="panel fold"{% if loop.first %} open{% endif %}>
+    <summary>{{ m.label }}&nbsp;<span class="note">· {{ m["items"]|length }}</span></summary>
+    {% for e in m["items"] %}
+    <a class="sched-row" href="{{ e.link }}"><span class="kind">{{ e.kind }}</span><strong>{{ e.title }}</strong><span class="note">{{ e.label }}</span></a>
+    {% endfor %}
+  </details>
+  {% endfor %}
+{% elif tab in ("summons", "banners") %}
+  {% for m in groups %}
+  <details class="panel fold"{% if loop.first %} open{% endif %}>
+    <summary>{{ m.label }}&nbsp;<span class="note">· {{ m["items"]|length }}</span></summary>
+    <div class="cards wide">
+    {% for s in m["items"] %}
+      {% set link = "/schedule/summon/" ~ s.id if tab == "summons" else ("/schedule/summon/" ~ s.target if s.kind == "Summon" else ("/schedule/shop/" ~ s.target if s.kind == "Shop" else "")) %}
+      <{{ "a" if link else "div" }} class="card" id="{{ "summon" if tab == "summons" else "banner" }}-{{ s.id }}"{% if link %} href="{{ link }}"{% endif %}>
+        <span class="art promo">{% if images and s.art %}<img src="{{ img("thumb", s.art) }}" alt="" loading="lazy">{% endif %}</span>
+        {% if tab == "summons" %}
+        <strong>{{ s.title }}</strong>
+        <span class="note">{% for r in s.runs if r.ran or not s.ran %}{{ r.label }}{% if not loop.last %} · {% endif %}{% endfor %}{% if s.exchange %} · dated by its shard exchange{% elif s.banner %} · no home banner{% endif %}{% if not s.runs or not s.runs[0].ran %}{{ " · English art and title in the game files" if s.english else " · no English art or title" }}{% endif %}</span>
+        {% else %}
+        <strong>{{ s.kind }}{% if s.name %}: {{ s.name }}{% endif %}</strong>
+        <span class="note">{{ s.when.label }}{% if not s.name %} · {{ s.target }}{% endif %}{% if s.also %} · its target also has dated banners{% elif not s.when.ran %}{{ " · English art in the game files" if s.art else " · no English art" }}{% endif %}</span>
+        {% endif %}
+      </{{ "a" if link else "div" }}>
+    {% endfor %}
+    </div>
+  </details>
+  {% endfor %}
+{% elif tab == "events" %}
+  {% for k in groups %}
+  <details class="panel fold"{% if loop.first %} open{% endif %}>
+    <summary>{{ k.label }}&nbsp;<span class="note">· {{ k["items"]|length }}</span></summary>
+    <div class="cards wide">
+    {% for e in k["items"] %}
+      <a class="card" id="event-{{ e.id }}" href="/schedule/event/{{ e.id }}">
+        <span class="art promo">{% if images and e.art %}<img src="{{ img("thumb", e.art) }}" alt="" loading="lazy">{% endif %}</span>
+        <strong>{{ e.title }}</strong>
+        <span class="note">{{ e.when.label }}{% if e.seasons %} · {{ e.seasons|length }} seasons{% endif %}</span>
+      </a>
+    {% endfor %}
+    </div>
+  </details>
+  {% endfor %}
+{% elif tab == "shops" %}
+  {% for m in groups %}
+  <details class="panel fold"{% if loop.first %} open{% endif %}>
+    <summary>{{ m.label }}&nbsp;<span class="note">· {{ m["items"]|length }}</span></summary>
+    {% for s in m["items"] %}
+    <a class="sched-row" id="shop-{{ s.id }}" href="/schedule/shop/{{ s.id }}"><span class="kind">{{ s.kind }}</span><strong>{{ s.name }}</strong><span class="note">{{ s.when.label }} · {{ s["items"]|length }} item{{ "s" if s["items"]|length != 1 }}</span></a>
+    {% endfor %}
+  </details>
+  {% endfor %}
+{% else %}
+  {% for s in groups %}
+  <details class="panel fold" id="{{ s.key }}">
+    <summary>{{ s.label }}&nbsp;<span class="note">· {{ s["items"]|length }}</span></summary>
+    {% for i in s["items"] %}
+    <div class="sched-row{% if i.art %} with-art{% endif %}">
+      {% if images and i.art %}<span class="art promo small"><img src="{{ img("thumb", i.art) }}" alt="" loading="lazy"></span>{% endif %}
+      <strong>{{ i.title }}</strong><span class="note">{{ i.when.label }}</span>
+    </div>
+    {% endfor %}
+    {% if s.hidden %}<p class="note">{{ s.hidden }} more have no date in the game data.</p>{% endif %}
+  </details>
+  {% endfor %}
+  <script>
+  // Arriving from the timeline: open the section it points to.
+  const target = location.hash && document.getElementById(location.hash.slice(1));
+  if (target) target.open = true;
+  </script>
+{% endif %}
+{% endblock %}

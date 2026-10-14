@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "schedule_macros.html" as s with context %}
+{% block content %}
+<p class="crumb"><a href="/">Archive</a> › <a href="/schedule?tab=events">Events</a> › {{ item.kind }}</p>
+<h1>{{ item.title }}</h1>
+{{ s.banner(item.art, item.title) }}
+<div class="panel">
+  <article class="record"><h3>{{ item.kind }} · event {{ item.id }}</h3><p>{{ item.when.label }}</p></article>
+  {% if item.seasons %}
+  <article class="record"><h3>Seasons</h3><p>{% for x in item.seasons %}Season {{ x.number }}: {{ x.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p></article>
+  {% endif %}
+</div>
+{% for level in item.levels %}
+<details class="panel fold"{% if loop.first %} open{% endif %}>
+  <summary>{{ level.name }}&nbsp;<span class="note">· {{ level.quests|length }} quest{{ "s" if level.quests|length != 1 }}</span></summary>
+  {% for q in level.quests %}<article class="record"><p>{{ loop.index }}. {{ q }}</p></article>{% endfor %}
+</details>
+{% endfor %}
+{% endblock %}

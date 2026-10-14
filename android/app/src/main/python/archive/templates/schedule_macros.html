@@ -1,0 +1,10 @@
+{% macro lineup(items) %}
+  {% for x in items %}
+  <article class="record">
+    <h3>{{ x.name }}{% if x.limit %}<span>· limit {{ x.limit }}</span>{% endif %}{% if x.step > 1 %}<span>· step {{ x.step }}</span>{% endif %}</h3>
+    <p>{{ x.price }}{% if x.term %} · {{ x.term }}{% endif %}</p>
+    {% if x.gets %}<p class="note">{% for g in x.gets %}{% if g.link %}<a href="{{ g.link }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}{% if g.count > 1 %} ×{{ "{:,}".format(g.count) }}{% endif %}{% if g.enhanced %} (enhanced){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </article>
+  {% else %}<p class="note">Nothing for sale.</p>{% endfor %}
+{% endmacro %}
+{% macro banner(art, alt="") %}{% if images and art %}<a class="art promo" href="/image?path={{ art|urlencode }}"><img src="{{ img("view", art) }}" alt="{{ alt }}" loading="lazy"></a>{% endif %}{% endmacro %}

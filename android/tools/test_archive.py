@@ -16,6 +16,14 @@ from archive.content import plain, rich  # noqa: E402
 
 
 class Parsing(unittest.TestCase):
+    def test_schedule_dates(self):
+        from archive.schedule import span
+        self.assertEqual(span(1627509600000, 1631066399000)["label"], "28 Jul 2021 – 8 Sep 2021")
+        self.assertEqual(span(1598925600000, 1630375199000)["label"], "Launch – 31 Aug 2021")  # began before global launch
+        self.assertEqual(span(90000000, 253370854800000)["label"], "From launch, no end")
+        self.assertFalse(span(2217758400000, 2218881599000)["ran"])  # a placeholder date after the service
+
+
     def test_main_scenes_by_season_chapter_and_scene(self):
         self.assertEqual(index.describe_scene("main", "main/season01", "MID_a120_3060g"),
                          {"kind": "mid", "season": 1, "chapter": 12, "group": "a120", "sort": 30600})
@@ -159,7 +167,9 @@ class RealDump(unittest.TestCase):
                          "/gallery", "/gallery?tab=events", "/gallery?tab=library", "/gallery?tab=photos", "/gallery/stills/season1",
                          "/image?path=ui/still/season1/still_main_1100101.assetbundle", "/music", "/records?tab=memoirs",
                          "/characters?tab=companions", "/characters?tab=cast", "/characters?tab=enemies", "/companion/cm001001",
-                         "/gallery/library/content", "/gallery/library/report"):
+                         "/gallery/library/content", "/gallery/library/report", "/schedule", "/schedule?tab=summons",
+                         "/schedule?tab=events", "/schedule?tab=shops", "/schedule?tab=banners", "/schedule?tab=other",
+                         "/schedule/summon/45", "/schedule/event/500", "/schedule/shop/1007"):
                 self.assertEqual(client.get(path).status_code, 200, path)
             self.assertEqual(client.get("/media/movie/../list.bin").status_code, 404)
             self.assertEqual(client.get("/media/image/thumb/../list.bin").status_code, 404)
@@ -171,6 +181,22 @@ class RealDump(unittest.TestCase):
             archive = Archive(Path(folder) / "archive.db", revision)
             # bgm_delay_settings is timing data, not a track.
             self.assertTrue(all(t["track"].isdigit() for g in archive.music() for t in g["tracks"]))
+            # Schedule: launch summons with their shards and exchange, named weapons, and dated events.
+            plan = archive.schedule()
+            automata = plan.find("summons", 45)
+            self.assertEqual((automata["title"], automata["runs"][0]["label"]), ("NieR:Automata Crossover Summons Vol. 1", "28 Jul 2021 – 8 Sep 2021"))
+            self.assertEqual(automata["medal"]["shard"], "Shard (Automata Crossover)")
+            gets = [g["name"] for x in automata["shops"][0]["items"] for g in x["gets"]]
+            self.assertIn("Mock Type-4O Sword", gets)
+            self.assertFalse([g for g in gets if g.startswith("Weapon ")])
+            self.assertEqual(plan.find("events", 500)["title"], "Record: The Cage of Reincarnation")
+            self.assertEqual(plan.timeline()[0]["label"], "July 2021")
+            # Rows parked at a 2099 placeholder are undated, not "never ran"; a shard exchange dates them as on the server.
+            self.assertEqual(plan.find("summons", 159)["runs"][0]["label"], "10 May 2022 – 13 Jun 2022")
+            undated = [g for g in plan.summons() if g["key"] == "never"][0]
+            self.assertEqual(undated["label"], "No date in the game data")
+            self.assertIn(60, [s["id"] for s in undated["items"]])  # Paid Only: Water-Elemental Summons
+            self.assertTrue(plan.find("summons", 60)["english"])
             # Weapons carry their art; the game's two "Defective" versions are listed too.
             weapons = {w["name"]: w for w in archive.weapons()}
             self.assertGreater(len(weapons), 600)

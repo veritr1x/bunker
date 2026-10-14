@@ -48,11 +48,22 @@ def android_converters():
                 scenario=lambda folder, target: native.scenario(folder, target))
 
 
+def original_master(asset_root: Path, archive_root: Path) -> tuple[Path, bool]:
+    """The game's own master data, which Pod Programs keeps beside the Archive's folder (files/tools on
+    Android, LunarTools on iOS) once it has started; else the master data in use, which a patch may change."""
+    for tools in ("tools", "LunarTools"):
+        origin = archive_root.parent / tools / "patcher" / "origin.bin.e"
+        if origin.is_file():
+            return origin, True
+    return asset_root / "assets" / "release" / "20240404193219.bin.e", False
+
+
 def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, converters=None):
     from fastapi.responses import JSONResponse
     from archive.app import create_app as archive_app
-    app = archive_app(revision_root(asset_root), asset_root / "assets" / "release" / "20240404193219.bin.e",
-                      archive_root, packaged("web") / "static", **(converters or android_converters()))
+    master, original = original_master(asset_root, archive_root)
+    app = archive_app(revision_root(asset_root), master, archive_root, packaged("web") / "static",
+                      original=original, **(converters or android_converters()))
 
     @app.middleware("http")
     async def private_session(request, call_next):

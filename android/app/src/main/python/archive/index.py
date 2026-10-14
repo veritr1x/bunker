@@ -15,14 +15,16 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from . import schedule
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 13
+FORMAT = 16
 SCENE_AREAS = ("main", "sub", "side")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
                  "m_character_voice_unlock_condition", "m_dokan", "m_dokan_content_group", "m_dokan_text",
-                 "m_companion", "m_catalog_companion", "m_parts_group", "m_parts_series")
+                 "m_companion", "m_catalog_companion", "m_parts_group", "m_parts_series",
+                 *schedule.TABLES)
 # Read while building only, to name story groups; not kept in the index.
 BUILD_TABLES = ("m_quest_scene", "m_event_quest_sequence", "m_event_quest_sequence_group", "m_event_quest_chapter_character",
                 "m_main_quest_chapter", "m_main_quest_route", "m_battle_quest_scene_bgm", "m_battle_bgm_set",
@@ -563,7 +565,7 @@ def load_master(master_path: Path) -> dict[str, list[dict]]:
         toc, blob = exc.unpacked, exc.extra
     schemas = dump_masterdata.load_schemas()
     tables = {}
-    for table in MASTER_TABLES + BUILD_TABLES:
+    for table in dict.fromkeys(MASTER_TABLES + BUILD_TABLES):
         if table in toc and table in schemas:
             offset, length = toc[table]
             rows = dump_masterdata.decompress_table(blob, offset, length)
@@ -648,7 +650,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     if "m_dokan_text" in tables:  # announcement captions: English only (LanguageType 2)
         tables["m_dokan_text"] = [r for r in tables["m_dokan_text"] if r.get("LanguageType") == 2]
     for table, rows in tables.items():
-        if table not in BUILD_TABLES:
+        if table in MASTER_TABLES:
             db.execute("INSERT INTO meta VALUES (?,?)", ("master:" + table, json.dumps(rows, ensure_ascii=False)))
     speakers, maps = 0, {}
     event_maps = assetbundle / "eventmap"
@@ -738,6 +740,12 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     db.execute("INSERT INTO meta VALUES ('signature', ?)", (json.dumps(signature(revision, master)),))
     db.execute("INSERT INTO meta VALUES ('summary', ?)", (json.dumps(summary),))
     db.execute("INSERT INTO meta VALUES ('built', ?)", (time.strftime("%Y-%m-%d %H:%M"),))
+    db.commit()
+    # The Schedule reads most of the index; worked out here once, it opens at once.
+    progress(len(bundles), len(bundles), "Schedule")
+    from .content import Archive
+    plan = Archive(pending, revision).schedule()
+    db.execute("INSERT INTO meta VALUES ('schedule', ?)", (json.dumps({tab: getattr(plan, tab)() for tab, _ in schedule.TABS}, ensure_ascii=False),))
     db.commit()
     db.close()
     os.replace(pending, db_path)

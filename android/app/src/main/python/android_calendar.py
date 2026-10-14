@@ -22,6 +22,7 @@ from fastapi.templating import Jinja2Templates
 from web import config
 import android_patcher as patcher
 import android_runtime as runtime
+from archive.schedule import ART_TITLES
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
@@ -293,10 +294,11 @@ def entries():
             # Only placeholder rows: the dates come from the medal (see parkedReruns).
             parked.add(gacha)
             convert = medals[gacha]["AutoConvertDatetime"]
-            found.append(("summon", banner_names.get(row["MomBannerId"]), convert - PARKED_RERUNS[gacha], convert - 2 * DAY))
+            found.append(("summon", banner_names.get(row["MomBannerId"]) or ART_TITLES.get(row["BannerAssetName"]), convert - PARKED_RERUNS[gacha], convert - 2 * DAY))
     for row in table("MomBanner"):
         if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in offered and row["DestinationDomainId"] not in PARKED_RERUNS:
-            found.append(("summon", banner_names.get(row["MomBannerId"]), row["StartDatetime"], row["EndDatetime"]))
+            # Some titles are only in the banner art (ART_TITLES).
+            found.append(("summon", banner_names.get(row["MomBannerId"]) or ART_TITLES.get(row["BannerAssetName"]), row["StartDatetime"], row["EndDatetime"]))
     # Summons with a medal but no banner row (server: bannerlessSummons).
     with_banner = {row["DestinationDomainId"] for row in table("MomBanner") if row["DestinationDomainType"] == 1}
     opens = shop_opens_by_price()
