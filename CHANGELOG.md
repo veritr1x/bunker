@@ -24,6 +24,15 @@ link to the server's copy.
   storage grew by about 1 GB, the game's own index files and the links.
   iPad: 5,271 cached files linked, 636 MB saved. [e774947]
 
+### iOS: start-up after a full download
+- The game no longer gets stopped by iOS while starting once its data is
+  fully downloaded. The check for empty cached files read each of the 100,000+
+  cached files one by one, past iOS's 20-second launch limit; it now reads
+  them in bulk and stops after 4 seconds.
+- Linking a new download no longer reads every cache folder: each asset
+  request took about 0.2 s, now well under a millisecond, so Download Data
+  runs at full speed again.
+
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
 master data, in UTC. [f6fd958]

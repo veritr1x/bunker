@@ -202,25 +202,28 @@ static NSString *gMovedFrom;
 // (Library/octo/v1/{app}/{bucket}/{object}) holding an empty file is deleted
 // and the game downloads that asset again.
 static void DropEmptyCachedAssets(void) {
+    // Runs before the game starts, inside the launch watchdog's 20 seconds: a
+    // full download leaves over 100,000 cached files, so read their sizes in
+    // bulk with the directory listing and stop after a few seconds.
     NSFileManager *files = NSFileManager.defaultManager;
     NSString *library = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES).firstObject;
-    NSString *root = [library stringByAppendingPathComponent:@"octo/v1"];
-    for (NSString *app in [files contentsOfDirectoryAtPath:root error:nil]) {
-        NSString *appDir = [root stringByAppendingPathComponent:app];
-        for (NSString *bucket in [files contentsOfDirectoryAtPath:appDir error:nil]) {
-            NSString *bucketDir = [appDir stringByAppendingPathComponent:bucket];
-            for (NSString *object in [files contentsOfDirectoryAtPath:bucketDir error:nil]) {
-                NSString *objectDir = [bucketDir stringByAppendingPathComponent:object];
-                for (NSString *name in [files contentsOfDirectoryAtPath:objectDir error:nil]) {
-                    if ([name isEqualToString:@".meta"]) continue;
-                    NSDictionary *attributes = [files attributesOfItemAtPath:[objectDir stringByAppendingPathComponent:name] error:nil];
-                    if ([attributes.fileType isEqualToString:NSFileTypeRegular] && attributes.fileSize == 0) {
-                        NSLog(@"[LunarTear] dropping empty cached asset %@", object);
-                        [files removeItemAtPath:objectDir error:nil];
-                        break;
-                    }
-                }
-            }
+    NSURL *root = [NSURL fileURLWithPath:[library stringByAppendingPathComponent:@"octo/v1"] isDirectory:YES];
+    NSArray *keys = @[NSURLIsRegularFileKey, NSURLFileSizeKey];
+    NSDirectoryEnumerator *walk = [files enumeratorAtURL:root includingPropertiesForKeys:keys
+        options:NSDirectoryEnumerationSkipsHiddenFiles errorHandler:^BOOL(NSURL *url, NSError *error) { return YES; }];
+    CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 4;
+    NSUInteger seen = 0;
+    for (NSURL *url in walk) {
+        if (++seen % 1024 == 0 && CFAbsoluteTimeGetCurrent() > deadline) {
+            NSLog(@"[LunarTear] empty cached asset check stopped after %lu files", (unsigned long)seen);
+            break;
+        }
+        if (walk.level != 4) continue;  // <app>/<bucket>/<object>/<file>
+        NSDictionary *values = [url resourceValuesForKeys:keys error:nil];
+        if ([values[NSURLIsRegularFileKey] boolValue] && [values[NSURLFileSizeKey] longLongValue] == 0) {
+            NSURL *object = url.URLByDeletingLastPathComponent;
+            NSLog(@"[LunarTear] dropping empty cached asset %@", object.lastPathComponent);
+            [files removeItemAtURL:object error:nil];
         }
     }
 }
