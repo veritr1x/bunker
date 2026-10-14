@@ -5,6 +5,25 @@ Commit ids are in brackets.
 
 ## 2026-10-14
 
+### Storage: game files stored once
+The game keeps its own copy of every file it downloads from the in-app
+server, so played content took up space twice. Each cached file is now a
+link to the server's copy.
+- Files already in the cache are linked when the server starts, new
+  downloads a few seconds after the game saves them. A file is linked only
+  when its bytes match the server's copy.
+- Hard links are used where the system allows them. Android refuses hard
+  links to apps, and iOS refuses them to game files used in place from
+  another folder; there the cached file becomes a symbolic link instead,
+  for files of 4 KB or more (a smaller file takes no more space than its
+  link).
+- The game rewrites cache files in place, so the link is removed before a
+  file is sent again; a new download can never change the server's copy.
+- Emulator: the 9,811 files already cached (1.3 GB) were linked in 12
+  seconds; a full Download Data run then cached 126,975 files (15 GB) while
+  storage grew by about 1 GB, the game's own index files and the links.
+  iPad: 5,271 cached files linked, 636 MB saved.
+
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
 master data, in UTC. [f6fd958]

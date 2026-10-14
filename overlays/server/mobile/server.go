@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"sync"
 	"time"
@@ -207,7 +208,15 @@ func Start(dataRoot, assetRoot string) (err error) {
 	cdn := service.NewOctoHTTPServer(prefix+strings.Repeat("r", 43-len(prefix)), assetRoot)
 	cdnMux := http.NewServeMux()
 	cdnMux.HandleFunc("/companion/health", healthHandler)
-	cdnMux.Handle("/", cdn.Handler())
+	// The game's download cache: files/octo beside files/server on Android,
+	// Library/octo beside Documents on iOS.
+	octoRoot, platform := filepath.Join(filepath.Dir(assetRoot), "octo"), "android"
+	if goruntime.GOOS == "ios" {
+		octoRoot, platform = filepath.Join(filepath.Dir(assetRoot), "Library", "octo"), "ios"
+	}
+	links := service.NewOctoLinks(octoRoot, assetRoot, platform)
+	go links.Sweep()
+	cdnMux.Handle("/", links.Wrap(cdn.Handler()))
 	cdnHTTP := &http.Server{Handler: h2c.NewHandler(cdnMux, &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
 	s.http = []*http.Server{cdnHTTP, authHTTP}
 	store := sqlite.New(db, gametime.Now)
