@@ -44,7 +44,7 @@ Commit ids are in brackets.
 - Limited-time offers (the Limited shop's 34 packs) open for their original
   sale periods (the cell's term, or the shop's dates), which follow the
   Original calendar; what opened them for a player is not in the game data.
-  Each can be bought once while open (other packs still restock).
+  Each can be bought once while open (other packs still restock). [8d6485d]
 - Tests drive handlers with the original game data (BUNKER_TEST_MASTER).
   [94343e5]
 
