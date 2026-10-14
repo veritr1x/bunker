@@ -29,7 +29,7 @@ link to the server's copy.
   stopped the game's process because it took over 10 seconds to start. The
   check for empty cached files followed each cached file's link to the game
   files on shared storage; it now reads the links themselves and stops after
-  3 seconds.
+  3 seconds. [81b68ec]
 
 ### iOS: start-up after a full download
 - The game no longer gets stopped by iOS while starting once its data is
