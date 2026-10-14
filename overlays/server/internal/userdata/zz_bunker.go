@@ -14,6 +14,29 @@ import (
 )
 
 func init() {
+	register("IUserLimitedOpen", func(user store.UserState) string {
+		// Limited-time offers open for their original sale periods (masterdata.LimitedOffers).
+		const targetShop, targetShopItemCell = 1, 5
+		offers, shops := masterdata.LimitedOffers()
+		rows := make([]map[string]any, 0, len(offers)+len(shops))
+		row := func(kind, id int32, open, close int64) {
+			rows = append(rows, map[string]any{"userId": user.UserId, "limitedOpenTargetType": kind, "targetId": id,
+				"openDatetime": open, "closeDatetime": close, "latestVersion": open})
+		}
+		shopIds := make([]int32, 0, len(shops))
+		for id := range shops {
+			shopIds = append(shopIds, id)
+		}
+		sort.Slice(shopIds, func(i, j int) bool { return shopIds[i] < shopIds[j] })
+		for _, id := range shopIds {
+			row(targetShop, id, shops[id].OpenDatetime, shops[id].CloseDatetime)
+		}
+		for _, o := range offers {
+			row(targetShopItemCell, o.ShopItemCellId, o.OpenDatetime, o.CloseDatetime)
+		}
+		s, _ := utils.EncodeJSONMaps(rows...)
+		return s
+	})
 	register("IUserBeginnerCampaign", func(user store.UserState) string {
 		c := user.Ext.Beginner
 		if c.CampaignId == 0 {

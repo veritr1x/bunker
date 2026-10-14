@@ -3836,15 +3836,25 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  
  	return &pb.RefreshResponse{}, nil
  }
-@@ -131,6 +226,7 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+@@ -130,32 +225,40 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
  	nowMillis := gametime.NowMillis()
  
++	var refused error
  	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
 +		resetShopStock(catalog, user, nowMillis)
  		item, ok := catalog.Items[req.ShopItemId]
  		if !ok {
  			log.Printf("[ShopService] CreatePurchaseTransaction: unknown shopItemId=%d", req.ShopItemId)
-@@ -142,13 +238,15 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+ 			return
+ 		}
++		limited := isLimitedOffer(req.ShopItemId)
++		if refused = checkLimitedOffer(catalog, user, item, limited, nowMillis); refused != nil {
++			return
++		}
+ 
+ 		if err := store.DeductPrice(user, item.PriceType, item.PriceId, item.Price); err != nil {
+ 			log.Printf("[ShopService] CreatePurchaseTransaction: deduct failed: %v", err)
  		}
  
  		for _, content := range catalog.Contents[req.ShopItemId] {
@@ -3861,7 +3871,26 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  
  		applyShopContentEffects(catalog, user, req.ShopItemId, 1, nowMillis)
  
-@@ -196,6 +294,8 @@ func applyShopContentEffects(catalog *masterdata.ShopCatalog, user *store.UserSt
+ 		si := user.ShopItems[req.ShopItemId]
+ 		si.ShopItemId = req.ShopItemId
+ 		si.BoughtCount++
+-		if item.ShopItemLimitedStockId > 0 {
++		if item.ShopItemLimitedStockId > 0 && !limited {
+ 			if maxCount, ok := catalog.LimitedStock[item.ShopItemLimitedStockId]; ok && si.BoughtCount >= maxCount {
+ 				si.BoughtCount = 0
+ 			}
+@@ -167,6 +270,10 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+ 	if err != nil {
+ 		return nil, fmt.Errorf("create purchase transaction: %w", err)
+ 	}
++	if refused != nil {
++		log.Printf("[ShopService] CreatePurchaseTransaction refused: %v", refused)
++		return nil, status.Error(codes.FailedPrecondition, refused.Error())
++	}
+ 
+ 	txId := fmt.Sprintf("tx_%d_%d_%d", userId, req.ShopItemId, nowMillis)
+ 
+@@ -196,6 +303,8 @@ func applyShopContentEffects(catalog *masterdata.ShopCatalog, user *store.UserSt
  			maxMillis := catalog.MaxStaminaMillis[user.Status.Level]
  			millis := store.ResolveStaminaEffectMillis(effect.EffectValueType, effect.EffectValue, maxMillis)
  			store.RecoverStamina(user, millis*qty, maxMillis, nowMillis)
