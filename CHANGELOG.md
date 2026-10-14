@@ -7,7 +7,7 @@ Commit ids are in brackets.
 
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
-master data, in UTC. Not yet released; on branch calendar. [94c4702]
+master data, in UTC. [8df1b0c]
 - **Timeline:** what started each month, linked to its entry.
 - **Summons:** banner art, runs, shards, pity and leftover conversion, and
   each shard exchange's items (costumes link to their pages). Summons without
@@ -29,8 +29,7 @@ master data, in UTC. Not yet released; on branch calendar. [94c4702]
 
 ### Pod Programs: Original calendar
 Content › Schedule can replay the live service from global launch (28 July
-2021) instead of keeping everything open. Not yet released; on branch
-calendar. [0441ca9, 5b8ec65, 96faa86, 9d1f01f]
+2021) instead of keeping everything open. [0441ca9, 5b8ec65, 96faa86, 9d1f01f]
 - **Game data:** events, summons, shops, seasons, missions, login bonuses,
   campaigns and item terms move forward by whole weeks to start at the current
   week. The main story, character lists, collections and the character viewer
@@ -82,7 +81,7 @@ calendar. [0441ca9, 5b8ec65, 96faa86, 9d1f01f]
   shop's opening to two days before the shards convert: 106 weekly
   summons, 22 paid multi-step summons, Fortune's Dress and Blessed Dress.
   Pod Programs names them after their shards (e.g. "Weekly Summons B").
-  Five without art are left out. [16179b7]
+  Five without art are left out. [8f8ccfa]
 - Known issue: on the Android 16 emulator the game can crash (libil2cpp
   0x257da0c) during the first few summons after starting. A 6 October
   build without Bunker's display or server changes crashes the same way;
