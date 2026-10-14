@@ -7,7 +7,7 @@ Commit ids are in brackets.
 
 ### Names
 - Big Hunt is called Subjugation Battles, as in the game: in the Archive's
-  Schedule, Pod Programs' calendar and patcher, and this changelog.
+  Schedule, Pod Programs' calendar and patcher, and this changelog. [5a02b2d]
 
 ### Storage: game files stored once
 The game keeps its own copy of every file it downloads from the in-app
