@@ -36,9 +36,24 @@
   <button type="submit">Apply</button>
 </form>
 <p>Applies to regular and multi-step summons from the next draw. The game's Rates page shows these values. Experimental.</p>
+<h2 class="bracket-header">Special Gift Roulette</h2>
+<form action="/gacha/roulette" method="post" class="panel rates" id="roulette">
+  <p>The menu's gem wheel, up to 6 spins a day. Chance of each amount, adding up to 100%.</p>
+  <div class="pair">
+    {% for gems, percent in roulette %}<label>{{ gems }} gems (%)<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
+    {% endfor %}
+  </div>
+  <p id="roulette-total"></p>
+  <button type="submit" name="action" value="save">Save</button>
+  <button type="submit" name="action" value="reset" class="secondary" formnovalidate>Default (60 / 25 / 10 / 4.7 / 0.3)</button>
+</form>
 <script>
   const four = document.getElementById("four"), three = document.getElementById("three"), two = document.getElementById("two-star");
   const update = () => { two.textContent = "★2: " + Math.max(0, 100 - (+four.value || 0) - (+three.value || 0)).toFixed(1) + "%"; };
   four.addEventListener("input", update); three.addEventListener("input", update);
+  const wheel = document.getElementById("roulette"), total = document.getElementById("roulette-total");
+  const sum = () => { const t = [...wheel.querySelectorAll("input[type=number]")].reduce((a, i) => a + (+i.value || 0), 0);
+    total.textContent = "Total: " + Math.round(t * 1000) / 1000 + "%"; };
+  wheel.addEventListener("input", sum); sum();
 </script>
 {% endblock %}

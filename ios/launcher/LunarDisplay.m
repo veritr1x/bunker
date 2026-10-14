@@ -328,7 +328,8 @@ static BOOL ResolveZones(void) {
         ready = YES;
         if (gFps || gSize) WriteStatus(@"ok");
     }
-    if (!gAds) gAds = roulette_ads_route_agent();
+    if (!gAds && (gAds = roulette_ads_route_agent()))
+        NSLog(@"[LunarTear] Special Gift Roulette: %@", gAds > 0 ? @"video ad skipped" : [NSString stringWithFormat:@"not available (%d)", gAds]);
     if (!zones.stay_update && !gFps && gAds) { [link invalidate]; gLink = nil; return; }  // Nothing more to watch.
     if (!gFps) {  // The game's own 30 fps: only the story-event zones.
         if (zones.stay_update) WatchZones();
@@ -363,6 +364,7 @@ static int RenderTargetSize(NSString *name) {
 }
 
 static void *IL2CPPSymbol(const char *name) { return dlsym(RTLD_DEFAULT, name); }
+static void RouletteLog(const char *message) { NSLog(@"[LunarTear] %s", message); }
 
 void LTDisplayStart(NSString *toolsRoot) {
     gStatusPath = [toolsRoot stringByAppendingPathComponent:@"display.status"];
@@ -387,7 +389,10 @@ void LTDisplayStart(NSString *toolsRoot) {
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(field_static_set_value) LOAD(runtime_class_init)
     LOAD(class_get_type) LOAD(type_get_object) LOAD(gchandle_new) LOAD(gchandle_free)
 #undef LOAD
-    if (roulette_ads_init(IL2CPPSymbol)) gAds = -1;
+    if (roulette_ads_init(IL2CPPSymbol, RouletteLog, dlsym(RTLD_DEFAULT, "UnitySendMessage"))) {
+        gAds = -1;
+        NSLog(@"[LunarTear] Special Gift Roulette: the game's IL2CPP API is missing");
+    }
     // IL2CPP starts while Unity finishes launching; the ticker begins once the app is active.
     __block id observer = [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil
         queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {

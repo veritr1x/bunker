@@ -19,6 +19,25 @@ server answered a spin with a summon item.
   game's code, points the ad agent's entry at the same function.
 - Emulator: six spins with the result dialog, gems added, the counter down to
   the reset countdown. [5450aee]
+- iOS: the SDK there keeps its listeners in underscore-named fields and
+  delivers "closed" with UnitySendMessage (Android's event dispatcher doesn't
+  run on iOS), so the patch does the same. Pod Programs > Summon rates sets
+  the roulette's chances (roulette_rates.json beside the save, read on the
+  next spin; they must add up to 100%; Default brings back the ones above).
+  Fold and iPad: spins play the wheel and pay. [COMMIT]
+
+### Storage: links survive an iOS update
+iOS gives an app a new data folder path when the app is updated, and the
+cache's symbolic links held absolute paths: after an update they all pointed
+nowhere, so the game downloaded those files again on every start (19 MB and
+170 MB on the iPad) and could not save them through the broken links. The
+roulette's own art failed to load the same way.
+- Symbolic links now use relative paths. At start, links that are absolute or
+  broken are pointed at the server's copy again; a broken link is removed
+  before a file is served.
+- iPad: 110,765 links repaired (188 MB) in about 4 minutes on the first start;
+  after the next update, which moved the folder again, all links still
+  worked and nothing was downloaded. [COMMIT]
 
 ### Original calendar: opens with the launch summons
 The first summons opened 20 hours into the launch week (28 July 2021, 22:00

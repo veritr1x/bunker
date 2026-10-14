@@ -1,22 +1,48 @@
 package gacha
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
 )
 
-func TestDrawRouletteFollowsTheWeights(t *testing.T) {
+func TestDrawRouletteFollowsTheRates(t *testing.T) {
 	counts := map[int32]int{}
-	for roll := 0; roll < 1000; roll++ {
-		counts[DrawRoulette(func(int) int { return roll })]++
+	for roll := 0; roll < 100000; roll++ {
+		counts[DrawRoulette(DefaultRouletteRates, func(int) int { return roll })]++
 	}
-	want := map[int32]int{10: 600, 30: 250, 50: 100, 100: 47, 3000: 3}
+	want := map[int32]int{10: 60000, 30: 25000, 50: 10000, 100: 4700, 3000: 300}
 	for gems, n := range want {
 		if counts[gems] != n {
-			t.Fatalf("%d gems: %d of 1000 rolls, want %d (%v)", gems, counts[gems], n, counts)
+			t.Fatalf("%d gems: %d of 100000 rolls, want %d (%v)", gems, counts[gems], n, counts)
 		}
+	}
+}
+
+func TestRouletteRatesFromPodPrograms(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "roulette_rates.json")
+	SetRouletteRatesPath(path)
+	defer SetRouletteRatesPath("")
+	if CurrentRouletteRates() != DefaultRouletteRates {
+		t.Fatal("no file should mean the default rates")
+	}
+	if err := os.WriteFile(path, []byte(`{"percents": [0, 0, 0, 0, 100]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := DrawRoulette(CurrentRouletteRates(), func(n int) int { return n - 1 }); got != 3000 {
+		t.Fatalf("saved rates not used: %d", got)
+	}
+	if err := os.WriteFile(path, []byte(`{"percents": [50, 0, 0, 0, 10]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().Add(time.Minute)
+	os.Chtimes(path, future, future)
+	if CurrentRouletteRates() != DefaultRouletteRates {
+		t.Fatal("rates not adding up to 100% should fall back to the defaults")
 	}
 }
 

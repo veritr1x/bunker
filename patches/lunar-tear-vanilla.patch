@@ -180,7 +180,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
 -		store.GrantPossession(user, model.PossessionType(item.PossessionType), item.PossessionId, 1)
 +	gems := make([]int32, 0, clamped)
 +	for range clamped {
-+		won := DrawRoulette(rand.Intn)
++		won := DrawRoulette(CurrentRouletteRates(), rand.Intn)
 +		store.GrantPossession(user, model.PossessionTypeFreeGem, 0, won)
 +		gems = append(gems, won)
  	}

@@ -24,12 +24,16 @@ import (
 // Android 9 or later), and they cannot cross file systems (game files used in
 // place from shared storage, an SD card or another iOS folder); then the entry
 // becomes a symbolic link to the server's copy instead. If neither works, the
-// first failure turns this off and nothing changes.
+// first failure turns this off and nothing changes. Symbolic links are
+// relative: iOS moves an app's data folder when the app is updated, which left
+// absolute links pointing nowhere (the game then downloaded those files on
+// every start, and could not save them through the broken links). Such links
+// are pointed at the server's copy again when the server starts.
 //
 // The game writes cache files in place (FileMode.Create, which also follows a
 // symbolic link), so before serving a file whose cache entry is a link, the
 // entry is removed: a new download then goes to a fresh file and never into
-// the server's copy.
+// the server's copy (or through a broken link).
 type OctoLinks struct {
 	cache    string // octo/v1
 	baseDir  string
@@ -89,7 +93,7 @@ func (l *OctoLinks) Sweep() {
 		files, _ := os.ReadDir(dir)
 		for _, f := range files {
 			sum, ok := cacheSum(f.Name())
-			if !f.Type().IsRegular() || !ok {
+			if !(f.Type().IsRegular() || f.Type()&os.ModeSymlink != 0) || !ok {
 				continue
 			}
 			if l.link(filepath.Join(dir, f.Name()), objectId, assetType, sum) {
@@ -111,11 +115,18 @@ func (l *OctoLinks) disabled() bool {
 	return l.off
 }
 
-// unlink removes cache entries of this object that are links to a server file.
+// unlink removes cache entries of this object that are links: symbolic ones
+// (working or not) and hard links to a server file.
 func (l *OctoLinks) unlink(objectId, assetType string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, path := range l.entries(objectId, assetType) {
+		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			if err := os.Remove(path); err != nil {
+				log.Printf("[OctoLinks] could not unlink %s before a new download: %v", path, err)
+			}
+			continue
+		}
 		cached, err := os.Stat(path)
 		if err != nil {
 			continue
@@ -186,6 +197,9 @@ func (l *OctoLinks) link(path, objectId, assetType, sum string) bool {
 	if l.off {
 		return false
 	}
+	if entry, err := os.Lstat(path); err == nil && entry.Mode()&os.ModeSymlink != 0 {
+		return l.relink(path, objectId, assetType, sum)
+	}
 	cached, err := os.Stat(path)
 	if err != nil || !cached.Mode().IsRegular() {
 		return false
@@ -232,6 +246,44 @@ func (l *OctoLinks) link(path, objectId, assetType, sum string) bool {
 	return false
 }
 
+// relink keeps a symbolic link that reaches the server's copy by a relative
+// path, and points any other (absolute or broken) at that copy again. The
+// entry's name is its md5, checked against the server's copy.
+func (l *OctoLinks) relink(path, objectId, assetType, sum string) bool {
+	if target, err := os.Readlink(path); err == nil && !filepath.IsAbs(target) {
+		if _, err := os.Stat(path); err == nil {
+			return true
+		}
+	}
+	for _, c := range l.find(objectId, assetType) {
+		if !strings.EqualFold(c.ExpectedMD5, sum) {
+			continue
+		}
+		server, err := os.Stat(c.Path)
+		if err != nil || !server.Mode().IsRegular() {
+			continue
+		}
+		if actual, err := fileMD5Hex(c.Path, server); err != nil || !strings.EqualFold(actual, sum) {
+			continue
+		}
+		temp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".link")
+		os.Remove(temp)
+		if err := symlinkRelative(c.Path, temp); err != nil {
+			log.Printf("[OctoLinks] could not repair %s: %v", path, err)
+			return false
+		}
+		if err := os.Rename(temp, path); err != nil {
+			os.Remove(temp)
+			log.Printf("[OctoLinks] could not replace %s: %v", path, err)
+			return false
+		}
+		return true
+	}
+	// No server copy: let the game download the file again.
+	os.Remove(path)
+	return false
+}
+
 // makeLink links temp to the server's file: a hard link while those work,
 // otherwise a symbolic link.
 func (l *OctoLinks) makeLink(server, temp string) error {
@@ -243,11 +295,24 @@ func (l *OctoLinks) makeLink(server, temp string) error {
 		log.Printf("[OctoLinks] hard links refused (%v); using symbolic links", err)
 		l.symbolic = true
 	}
-	absolute, err := filepath.Abs(server)
+	return symlinkRelative(server, temp)
+}
+
+// symlinkRelative makes a symbolic link at link to target by a path relative to
+// the link's folder (absolute only if there is none).
+func symlinkRelative(target, link string) error {
+	absolute, err := filepath.Abs(target)
 	if err != nil {
 		return err
 	}
-	return os.Symlink(absolute, temp)
+	dir, err := filepath.Abs(filepath.Dir(link))
+	if err != nil {
+		return err
+	}
+	if relative, err := filepath.Rel(dir, absolute); err == nil {
+		return os.Symlink(relative, link)
+	}
+	return os.Symlink(absolute, link)
 }
 
 // unsoObject reads the object id and type from an asset URL

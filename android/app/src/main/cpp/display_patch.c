@@ -324,13 +324,14 @@ static int hook_frame_rate(uint8_t *base) {
 
 static void *game_library;
 static void *game_symbol(const char *name) { return dlsym(game_library, name); }
+static void roulette_log(const char *message) { __android_log_print(ANDROID_LOG_INFO, "Bunker", "%s", message); }
 
 // IronSource.showRewardedVideo starts "stp x20, x19, [sp, #-0x20]!; stp x29, x30, [sp, #0x10];
 // add x29, sp, #0x10; adrp x20, ..."; the hook replaces the whole method.
 static const uint32_t kShowRewardedVideo[4] = {0xa9be4ff4u, 0xa9017bfdu, 0x910043fdu, 0xd00237f4u};
 
 static void hook_roulette_ads(uint8_t *base) {
-    if (roulette_ads_init(game_symbol) || hook((uint32_t *)(base + 0x3291FB4), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
+    if (roulette_ads_init(game_symbol, roulette_log, NULL) || hook((uint32_t *)(base + 0x3291FB4), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Special Gift Roulette: unsupported game binary; the video ad stays");
 }
 

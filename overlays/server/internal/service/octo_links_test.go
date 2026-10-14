@@ -187,3 +187,53 @@ func TestOctoLinksLeavesSmallFilesWhenSymbolic(t *testing.T) {
 		t.Fatal("a file smaller than a symbolic link was replaced")
 	}
 }
+
+func TestOctoLinksSymbolicLinksAreRelative(t *testing.T) {
+	data := bytes.Repeat([]byte("asset bundle bytes "), 400)
+	links, server, cached := newLinkFixture(t, data)
+	links.symbolic = true
+	writeCached(t, cached, data)
+
+	links.Sweep()
+
+	target, err := os.Readlink(cached)
+	if err != nil || filepath.IsAbs(target) || !sameFile(t, cached, server) {
+		t.Fatalf("link %q %v", target, err)
+	}
+}
+
+func TestOctoLinksRepairsLinksIntoAMovedFolder(t *testing.T) {
+	data := bytes.Repeat([]byte("asset bundle bytes "), 400)
+	links, server, cached := newLinkFixture(t, data)
+	// iOS moved the app's data folder: the old absolute link points nowhere.
+	if err := os.MkdirAll(filepath.Dir(cached), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/var/mobile/Containers/Data/Application/OLD/server/a.assetbundle", cached); err != nil {
+		t.Fatal(err)
+	}
+
+	links.Sweep()
+
+	if target, err := os.Readlink(cached); err != nil || filepath.IsAbs(target) || !sameFile(t, cached, server) {
+		t.Fatalf("broken link not repaired: %q %v", target, err)
+	}
+}
+
+func TestOctoLinksUnlinksBrokenLinkBeforeServing(t *testing.T) {
+	data := []byte("asset bundle bytes")
+	links, _, cached := newLinkFixture(t, data)
+	links.find = func(string, string) []assetCandidate { return nil } // no server copy to repair with
+	if err := os.MkdirAll(filepath.Dir(cached), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/nowhere/a.assetbundle", cached); err != nil {
+		t.Fatal(err)
+	}
+	links.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := os.Lstat(cached); !os.IsNotExist(err) {
+			t.Error("broken link still present while the file is served")
+		}
+		w.Write(data)
+	})).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/resource-bundle-server/unso-300116832-assetbundle/02Vz10", nil))
+}
