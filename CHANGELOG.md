@@ -3,6 +3,17 @@
 What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets.
 
+## 2026-10-15
+
+### Fortune draws
+- The New Year and anniversary fortune draws (omikuji) now open with the
+  Original calendar, on their original dates (seven, starting between weeks 23 and
+  134). With everything open they stay closed, as before. [d7eb4dd]
+- A draw shows one of its fortunes at random (5 to 22 for each draw, from
+  the game files); the server had sent the draw's own number, which has no
+  result screen. The fortunes carry no items: the game data doesn't say
+  which. [d7eb4dd]
+
 ## 2026-10-14
 
 ### Server: missing game rules
