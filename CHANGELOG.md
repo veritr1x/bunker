@@ -28,10 +28,10 @@ link to the server's copy.
 - The game no longer gets stopped by iOS while starting once its data is
   fully downloaded. The check for empty cached files read each of the 100,000+
   cached files one by one, past iOS's 20-second launch limit; it now reads
-  them in bulk and stops after 4 seconds.
+  them in bulk and stops after 4 seconds. [07e7627]
 - Linking a new download no longer reads every cache folder: each asset
   request took about 0.2 s, now well under a millisecond, so Download Data
-  runs at full speed again.
+  runs at full speed again. [30d4235]
 
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
