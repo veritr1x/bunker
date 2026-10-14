@@ -58,14 +58,14 @@ ROTATING = (
     "m_event_quest_labyrinth_season", "m_event_quest_limit_content", "m_event_quest_limit_content_deck_restriction",
     "m_explore", "m_gacha_medal", "m_gimmick_sequence", "m_gimmick_sequence_schedule", "m_important_item_effect",
     "m_login_bonus", "m_mission_pass", "m_mission_term", "m_mom_banner", "m_mom_point_banner",
-    "m_portal_cage_access_point_function_group_schedule", "m_premium_item", "m_pvp_season",
+    "m_omikuji", "m_portal_cage_access_point_function_group_schedule", "m_premium_item", "m_pvp_season",
     "m_quest_bonus_term_group", "m_quest_campaign", "m_quest_schedule", "m_shop", "m_shop_item_cell_term",
     "m_tip", "m_title_flow_movie", "m_webview_mission", "m_webview_panel_mission",
 )
 # The main story, character and memoir lists, collections and the character
 # viewer keep their original dates, so they count as already released.
-# m_omikuji, m_maintenance and the advert tables are handled as in the
-# everything-open patch.
+# m_maintenance and the advert tables are handled as in the everything-open
+# patch, which leaves the fortune draws (m_omikuji) closed.
 
 
 def state_path():
