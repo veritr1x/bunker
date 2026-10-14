@@ -75,6 +75,21 @@ func TestStartNextLoop(t *testing.T) {
 	if again != saved {
 		t.Fatal("started a loop without its game data")
 	}
+	// The new loop opens when its first summons do, a whole day on.
+	loopStart := saved.LoopStart
+	moved, err := OpenAtFirstSummons(path, saved, loopStart+3600000)
+	if err != nil || moved.JumpMillis != dayMillis {
+		t.Fatalf("not moved to the first summons: %+v %v", moved, err)
+	}
+	if reread, _ := LoadCalendar(path); reread.JumpMillis != moved.JumpMillis {
+		t.Fatalf("move not saved: %+v", reread)
+	}
+	if again, _ := OpenAtFirstSummons(path, moved, loopStart+3600000); again != moved {
+		t.Fatal("moved twice")
+	}
+	if later, _ := OpenAtFirstSummons(path, saved, loopStart+FirstSummons); later != saved {
+		t.Fatal("moved a clock already at the first summons")
+	}
 	if c, err := LoadCalendar(filepath.Join(dir, "missing.json")); c != nil || err != nil {
 		t.Fatal("missing file should mean calendar off")
 	}

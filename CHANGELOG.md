@@ -5,6 +5,16 @@ Commit ids are in brackets.
 
 ## 2026-10-14
 
+### Original calendar: opens with the launch summons
+The first summons opened 20 hours into the launch week (28 July 2021, 22:00
+UTC), and the game hangs on a summon page with none open: a calendar started
+in those first hours showed an empty summon screen and got stuck there.
+- A loop now opens once the launch summons are open, moving the clock on by
+  a whole day when needed (the daily reset keeps its hour); a new loop does
+  the same.
+- Calendars already started move on at the next Deploy or Pod Programs
+  visit. [COMMIT]
+
 ### Names
 - Big Hunt is called Subjugation Battles, as in the game: in the Archive's
   Schedule, Pod Programs' calendar and patcher, and this changelog. [5a02b2d]

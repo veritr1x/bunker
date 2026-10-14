@@ -152,9 +152,14 @@ def view(request: Request, message: str = "", error: str = ""):
         try:
             if calendar.roll_over(state):
                 message = message or f"Loop {state['loop']} started. The game is back at launch. Close Pod Programs and tap Deploy."
-            elif not os.path.exists(state.get("next") or ""):
-                calendar.prepare_next(state)
-                calendar.write_state(state)
+            else:
+                # Calendars started before loops opened at the first summons.
+                changed = calendar.open_at_first_summons(state)
+                if not os.path.exists(state.get("next") or ""):
+                    calendar.prepare_next(state)
+                    changed = True
+                if changed:
+                    calendar.write_state(state)
         except Exception as exc:
             error = error or str(exc)
         schedule = calendar.context(state)

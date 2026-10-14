@@ -29,6 +29,11 @@ type Calendar struct {
 // LoopWeeks is the length of one loop: global launch to the end of service.
 const LoopWeeks = 144
 
+// FirstSummons is how long after the start of the launch week the first
+// summons opened (28 July 2021, 22:00 UTC). The game hangs on a summon page
+// with none open, so a loop opens then.
+const FirstSummons int64 = 20 * 60 * 60 * 1000
+
 // Launch is the global launch week: Wednesday 28 July 2021, 02:00 UTC.
 const Launch int64 = 1627437600000
 
@@ -119,19 +124,42 @@ func StartNextLoop(path, master string, c *Calendar, real int64) (*Calendar, err
 	next.Loop++
 	next.LoopStart += LoopWeeks * weekMillis
 	next.Next, next.NextLoop = "", 0
-	raw, err := json.MarshalIndent(next, "", "  ")
-	if err != nil {
-		return c, err
-	}
 	if err := os.Rename(c.Next, master); err != nil {
 		return c, err
 	}
 	// The client fetches game data again when its modification time changes.
 	now := time.Now()
 	_ = os.Chtimes(master, now, now)
+	return &next, save(path, &next)
+}
+
+// OpenAtFirstSummons moves a game clock that is before the loop's first
+// summons on in whole days (the daily reset keeps its hour) until they are
+// open: at a loop's start, and for calendars started before this check.
+func OpenAtFirstSummons(path string, c *Calendar, real int64) (*Calendar, error) {
+	if c == nil {
+		return nil, nil
+	}
+	behind := c.LoopStart + FirstSummons - (real + c.Shift(real))
+	if behind <= 0 {
+		return c, nil
+	}
+	moved := *c
+	moved.JumpMillis += (behind + dayMillis - 1) / dayMillis * dayMillis
+	if err := save(path, &moved); err != nil {
+		return c, err
+	}
+	return &moved, nil
+}
+
+func save(path string, c *Calendar) error {
+	raw, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
 	pending := path + ".tmp"
 	if err := os.WriteFile(pending, raw, 0600); err != nil {
-		return &next, err
+		return err
 	}
-	return &next, os.Rename(pending, path)
+	return os.Rename(pending, path)
 }

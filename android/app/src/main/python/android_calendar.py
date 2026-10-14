@@ -32,6 +32,10 @@ WEEK = 7 * DAY
 # Global launch week: Wednesday 28 July 2021, 02:00 UTC, the hour updates went live.
 LAUNCH = int(datetime(2021, 7, 28, 2, tzinfo=timezone.utc).timestamp() * 1000)
 LOOP_WEEKS = 144
+# The first summons opened 20 hours into the launch week (28 July 2021, 22:00
+# UTC). The game hangs on a summon page with none open, so a loop opens then
+# (server: gametime.FirstSummons).
+FIRST_SUMMONS = 20 * 60 * 60 * 1000
 # Dates after the service closed (30 April 2024) mean "never ends" or "never starts".
 FOREVER = int(datetime(2024, 6, 1, tzinfo=timezone.utc).timestamp() * 1000)
 EARLIEST = int(datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
@@ -216,6 +220,7 @@ def roll_over(state, real=None):
     while game_now(state, real) >= loop_end(state):
         state["loop"] += 1
         state["loopStart"] += LOOP_WEEKS * WEEK
+    open_at_first_summons(state, real)
     activate_loop(state)
     state.pop("next", None)
     prepare_next(state)
@@ -223,16 +228,32 @@ def roll_over(state, real=None):
     return True
 
 
+def open_at_first_summons(state, real=None):
+    """Moves a clock before the loop's first summons on in whole days until they are open (server: OpenAtFirstSummons). Returns True when it did."""
+    behind = state["loopStart"] + FIRST_SUMMONS - game_now(state, real)
+    if behind <= 0:
+        return False
+    state["jumpMillis"] = state.get("jumpMillis", 0) + -(-behind // DAY) * DAY
+    return True
+
+
+def new_state(real):
+    start = LAUNCH + (real - LAUNCH) // WEEK * WEEK
+    state = {"version": 1, "loop": 1, "loopStart": start, "jumpMillis": 0, "speed": 1, "speedSince": start_of_day(real)}
+    open_at_first_summons(state, real)
+    return state
+
+
 def start_preview(real=None):
     real = now_ms() if real is None else real
-    start = LAUNCH + (real - LAUNCH) // WEEK * WEEK
-    return {"day": day_label(start), "original": day_label(LAUNCH), "ends": day_label(start + LOOP_WEEKS * WEEK)}
+    state = new_state(real)
+    now = game_now(state, real)
+    return {"day": day_label(now), "original": day_label(original(state, now)), "ends": day_label(loop_end(state))}
 
 
 def turn_on(real=None):
     real = now_ms() if real is None else real
-    start = LAUNCH + (real - LAUNCH) // WEEK * WEEK
-    state = {"version": 1, "loop": 1, "loopStart": start, "jumpMillis": 0, "speed": 1, "speedSince": start_of_day(real)}
+    state = new_state(real)
     activate_loop(state)
     prepare_next(state)
     write_state(state)

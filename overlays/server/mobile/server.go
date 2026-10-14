@@ -177,6 +177,9 @@ func Start(dataRoot, assetRoot string) (err error) {
 	if calendar, e = gametime.StartNextLoop(calendarPath, filepath.Join(assetRoot, "assets", "release", MasterName), calendar, time.Now().UnixMilli()); e != nil {
 		log.Printf("calendar: start next loop: %v", e)
 	}
+	if calendar, e = gametime.OpenAtFirstSummons(calendarPath, calendar, time.Now().UnixMilli()); e != nil {
+		log.Printf("calendar: move to the first summons: %v", e)
+	}
 	gametime.SetCalendar(calendar)
 	holder, e := runtime.NewHolder(filepath.Join(assetRoot, "assets", "release", MasterName))
 	if e != nil {
