@@ -18,7 +18,7 @@ server answered a spin with a summon item.
   Android replaces IronSource.showRewardedVideo; iOS, which can't change the
   game's code, points the ad agent's entry at the same function.
 - Emulator: six spins with the result dialog, gems added, the counter down to
-  the reset countdown. [COMMIT]
+  the reset countdown. [5450aee]
 
 ### Original calendar: opens with the launch summons
 The first summons opened 20 hours into the launch week (28 July 2021, 22:00
