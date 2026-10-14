@@ -35,6 +35,14 @@ func NewPvpServiceServer(users store.UserRepository, sessions store.SessionRepos
 
 var errNoArena = fmt.Errorf("the Arena is not available")
 
+// recoverBattlePoints applies an Arena battle point item (items 4001-4005, the
+// recovery shop's refill).
+func recoverBattlePoints(u *store.UserState, valueType, value, count int32, now int64) {
+	if c := pvp.Current(); c != nil {
+		c.Recover(&u.Ext.Pvp, valueType, value, count, now)
+	}
+}
+
 // arena runs fn on the player's synced Arena state inside one save update.
 func (s *PvpServiceServer) arena(ctx context.Context, fn func(c *pvp.Catalog, u *store.UserState, season masterdata.EntityMPvpSeason, ladder *pvp.Ladder, now int64)) error {
 	c := pvp.Current()

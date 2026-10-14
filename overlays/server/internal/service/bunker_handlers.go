@@ -137,40 +137,9 @@ func (s *RewardServiceServer) ReceiveLabyrinthSeasonReward(ctx context.Context, 
 	var results []*pb.LabyrinthSeasonResult
 	_, err := s.users.UpdateUser(userId, func(u *store.UserState) {
 		for _, ch := range laby.ChaptersByOrder {
-			st, ok := u.LabyrinthSeasons[ch.EventQuestChapterId]
-			if !ok {
-				st = store.LabyrinthSeasonState{EventQuestChapterId: ch.EventQuestChapterId, LastJoinSeasonNumber: ch.LatestSeasonNumber}
+			if result := settleLabyrinthSeason(laby, granter, u, ch, now); result != nil {
+				results = append(results, result)
 			}
-			if st.LastJoinSeasonNumber <= st.LastSeasonRewardReceivedSeasonNumber {
-				continue
-			}
-			ended := false
-			for _, season := range labyrinthSeasons()[ch.EventQuestChapterId] {
-				if season.SeasonNumber == st.LastJoinSeasonNumber && season.EndDatetime <= now {
-					ended = true
-				}
-			}
-			if !ended {
-				continue
-			}
-			var best *masterdata.LabyrinthSeasonMilestone
-			for i, m := range laby.SeasonMilestones(ch.EventQuestChapterId) {
-				if u.Quests[m.HeadQuestId].ClearCount > 0 && (best == nil || m.HeadStageOrder > best.HeadStageOrder) {
-					best = &laby.SeasonMilestones(ch.EventQuestChapterId)[i]
-				}
-			}
-			st.LastSeasonRewardReceivedSeasonNumber = st.LastJoinSeasonNumber
-			st.LatestVersion = now
-			u.LabyrinthSeasons[ch.EventQuestChapterId] = st
-			if best == nil {
-				continue
-			}
-			result := &pb.LabyrinthSeasonResult{EventQuestChapterId: ch.EventQuestChapterId, HeadQuestId: best.HeadQuestId, HeadStageOrder: best.HeadStageOrder}
-			for _, it := range best.Rewards {
-				granter.GrantFull(u, model.PossessionType(it.PossessionType), it.PossessionId, it.Count, now)
-				result.SeasonReward = append(result.SeasonReward, &pb.LabyrinthReward{PossessionType: it.PossessionType, PossessionId: it.PossessionId, Count: it.Count})
-			}
-			results = append(results, result)
 		}
 	})
 	if err != nil {

@@ -28,7 +28,7 @@ diff --git a/server/cmd/lunar-tear/grpc.go b/server/cmd/lunar-tear/grpc.go
  		grpc.UnknownServiceHandler(interceptor.UnknownService),
  	)
  
-@@ -88,14 +92,14 @@ func registerServices(
+@@ -88,15 +92,15 @@ func registerServices(
  	pubHost, pubPortStr, _ := net.SplitHostPort(publicAddr)
  	pubPort, _ := strconv.Atoi(pubPortStr)
  
@@ -41,10 +41,12 @@ diff --git a/server/cmd/lunar-tear/grpc.go b/server/cmd/lunar-tear/grpc.go
  	pb.RegisterTutorialServiceServer(srv, service.NewTutorialServiceServer(userStore, userStore, holder))
  	pb.RegisterGachaServiceServer(srv, service.NewGachaServiceServer(userStore, userStore, holder))
 -	pb.RegisterGiftServiceServer(srv, service.NewGiftServiceServer(userStore, userStore))
+-	pb.RegisterGamePlayServiceServer(srv, service.NewGameplayServiceServer())
 +	pb.RegisterGiftServiceServer(srv, service.NewGiftServiceServer(userStore, userStore, holder))
- 	pb.RegisterGamePlayServiceServer(srv, service.NewGameplayServiceServer())
++	pb.RegisterGamePlayServiceServer(srv, service.NewGameplayServiceServer(userStore, userStore, holder))
  	pb.RegisterGimmickServiceServer(srv, service.NewGimmickServiceServer(userStore, userStore, holder))
  	pb.RegisterQuestServiceServer(srv, service.NewQuestServiceServer(userStore, userStore, holder))
+ 	pb.RegisterNotificationServiceServer(srv, service.NewNotificationServiceServer(userStore, userStore))
 diff --git a/server/internal/database/database.go b/server/internal/database/database.go
 --- a/server/internal/database/database.go
 +++ b/server/internal/database/database.go
@@ -80,7 +82,7 @@ diff --git a/server/internal/database/database.go b/server/internal/database/dat
 diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
 --- a/server/internal/gacha/handler.go
 +++ b/server/internal/gacha/handler.go
-@@ -61,10 +61,22 @@ func (h *GachaHandler) HandleDraw(
+@@ -61,10 +61,26 @@ func (h *GachaHandler) HandleDraw(
  		return nil, err
  	}
  
@@ -94,6 +96,10 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
 +		}
 +	}
 +
++	if err := checkBoxDraw(user, entry, int(phase.DrawCount*execCount), gametime.NowMillis()); err != nil {
++		return nil, err
++	}
++
 +	// DeductPrice checks the balance before it changes anything, so a failed
 +	// payment leaves the user as it was.
  	totalCost := phase.Price * execCount
@@ -104,7 +110,20 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  		}
  	}
  
-@@ -98,14 +110,19 @@ func (h *GachaHandler) HandleDraw(
+@@ -80,7 +96,11 @@ func (h *GachaHandler) HandleDraw(
+ 	case model.GachaLabelPremium:
+ 		items = h.drawPremium(entry, phase, drawCount)
+ 	case model.GachaLabelChapter, model.GachaLabelRecycle:
+-		items = h.drawMaterial(drawCount)
++		if len(entry.BoxContents) > 0 {
++			items = drawFixedBox(user, entry, &bs, drawCount, nowMillis)
++		} else {
++			items = h.drawMaterial(drawCount)
++		}
+ 	case model.GachaLabelEvent:
+ 		items = h.drawBox(&bs, drawCount)
+ 	default:
+@@ -98,14 +118,19 @@ func (h *GachaHandler) HandleDraw(
  	var medalBonus int32
  	if entry.GachaMedalId != 0 {
  		medalBonus = int32(drawCount)
@@ -128,7 +147,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  
  	dupInfos := h.grantItems(user, items, nowMillis)
  
-@@ -125,17 +142,25 @@ func (h *GachaHandler) HandleDraw(
+@@ -125,23 +150,37 @@ func (h *GachaHandler) HandleDraw(
  	}
  
  	for _, p := range phase.Bonuses {
@@ -156,7 +175,19 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  func (h *GachaHandler) HandleResetBox(
  	user *store.UserState,
  	entry store.GachaCatalogEntry,
-@@ -162,10 +187,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
+ ) error {
++	if len(entry.BoxContents) > 0 && !canResetBox(user, entry, gametime.NowMillis()) {
++		return fmt.Errorf("gacha %d: the box can be reset once its targets are drawn", entry.GachaId)
++	}
+ 	bs := user.Gacha.BannerStates[entry.GachaId]
+ 	bs.BoxDrewCounts = make(map[int32]int32)
++	if bs.BoxNumber < 1 {
++		bs.BoxNumber = 1
++	}
+ 	bs.BoxNumber++
+ 	user.Gacha.BannerStates[entry.GachaId] = bs
+ 	return nil
+@@ -162,10 +201,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
  	return requested, currentCount + requested, reset
  }
  
@@ -170,7 +201,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	nowMillis := gametime.NowMillis()
  	todayStart := gametime.StartOfDayMillis()
  
-@@ -182,10 +209,11 @@ func (h *GachaHandler) HandleRewardDraw(
+@@ -182,10 +223,11 @@ func (h *GachaHandler) HandleRewardDraw(
  		return nil, fmt.Errorf("daily reward draw limit reached")
  	}
  
@@ -186,7 +217,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	}
  
  	user.Gacha.TodaysCurrentDrawCount = newCount
-@@ -193,7 +221,7 @@ func (h *GachaHandler) HandleRewardDraw(
+@@ -193,7 +235,7 @@ func (h *GachaHandler) HandleRewardDraw(
  	user.Gacha.LastRewardDrawDate = nowMillis
  	user.Gacha.RewardAvailable = newCount < maxCount
  
@@ -195,7 +226,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  }
  
  func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.GachaPricePhaseEntry, count int) []DrawnItem {
-@@ -279,29 +307,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
+@@ -279,29 +321,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
  	for i, item := range items {
  		switch model.PossessionType(item.PossessionType) {
  		case model.PossessionTypeCostume:
@@ -230,7 +261,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  			}
  			return DuplicateInfo{Index: index, Grade: grade, Bonuses: exchanges}, true
  		}
-@@ -344,3 +372,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
+@@ -344,3 +386,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
  	}
  	return store.GachaPricePhaseEntry{}, fmt.Errorf("no price phases for gacha %d", entry.GachaId)
  }
@@ -1347,7 +1378,7 @@ diff --git a/server/internal/model/quest.go b/server/internal/model/quest.go
 diff --git a/server/internal/questflow/bighunt_quest.go b/server/internal/questflow/bighunt_quest.go
 --- a/server/internal/questflow/bighunt_quest.go
 +++ b/server/internal/questflow/bighunt_quest.go
-@@ -14,6 +14,7 @@ func (h *QuestHandler) HandleBigHuntQuestStart(user *store.UserState, questId, u
+@@ -14,10 +14,11 @@ func (h *QuestHandler) HandleBigHuntQuestStart(user *store.UserState, questId, u
  	}
  
  	h.initQuestState(user, questId)
@@ -1355,7 +1386,12 @@ diff --git a/server/internal/questflow/bighunt_quest.go b/server/internal/questf
  
  	if quest.Stamina > 0 {
  		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
-@@ -37,7 +38,7 @@ func (h *QuestHandler) HandleBigHuntQuestFinish(user *store.UserState, questId i
+-		stamina := h.staminaWithCampaign(quest.Stamina, h.targetForBigHunt(questId), nowMillis)
++		stamina := h.staminaWithCampaign(user, quest.Stamina, h.targetForBigHunt(questId), nowMillis)
+ 		store.ConsumeStamina(user, stamina, maxMillis, nowMillis)
+ 	}
+ 
+@@ -37,18 +38,20 @@ func (h *QuestHandler) HandleBigHuntQuestFinish(user *store.UserState, questId i
  	target := h.targetForBigHunt(questId)
  	var outcome FinishOutcome
  	if !isRetired && !isAnnihilated {
@@ -1364,7 +1400,11 @@ diff --git a/server/internal/questflow/bighunt_quest.go b/server/internal/questf
  		h.applyQuestVictory(user, questId, &outcome, nowMillis, false)
  	}
  
-@@ -48,7 +49,9 @@ func (h *QuestHandler) HandleBigHuntQuestFinish(user *store.UserState, questId i
+-	consumed := h.staminaWithCampaign(quest.Stamina, target, nowMillis)
++	consumed := h.staminaWithCampaign(user, quest.Stamina, target, nowMillis)
+ 	if isRetired && !isAnnihilated && consumed > 1 {
+ 		refund := consumed - 1
+ 		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
  		store.RecoverStamina(user, refund*1000, maxMillis, nowMillis)
  	}
  
@@ -1378,7 +1418,7 @@ diff --git a/server/internal/questflow/bighunt_quest.go b/server/internal/questf
 diff --git a/server/internal/questflow/event_quest.go b/server/internal/questflow/event_quest.go
 --- a/server/internal/questflow/event_quest.go
 +++ b/server/internal/questflow/event_quest.go
-@@ -15,6 +15,7 @@ func (h *QuestHandler) HandleEventQuestStart(user *store.UserState, eventQuestCh
+@@ -15,10 +15,11 @@ func (h *QuestHandler) HandleEventQuestStart(user *store.UserState, eventQuestCh
  	}
  
  	h.initQuestState(user, questId)
@@ -1386,7 +1426,12 @@ diff --git a/server/internal/questflow/event_quest.go b/server/internal/questflo
  
  	if quest.Stamina > 0 {
  		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
-@@ -46,9 +47,10 @@ func (h *QuestHandler) HandleEventQuestFinish(user *store.UserState, eventQuestC
+-		stamina := h.staminaWithCampaign(quest.Stamina, h.targetForEvent(eventQuestChapterId, questId), nowMillis)
++		stamina := h.staminaWithCampaign(user, quest.Stamina, h.targetForEvent(eventQuestChapterId, questId), nowMillis)
+ 		store.ConsumeStamina(user, stamina, maxMillis, nowMillis)
+ 	}
+ 
+@@ -46,19 +47,22 @@ func (h *QuestHandler) HandleEventQuestFinish(user *store.UserState, eventQuestC
  	target := h.targetForEvent(eventQuestChapterId, questId)
  	var outcome FinishOutcome
  	if !isRetired && !isAnnihilated {
@@ -1397,8 +1442,11 @@ diff --git a/server/internal/questflow/event_quest.go b/server/internal/questflo
 +		h.recordLimitContentWin(user, eventQuestChapterId, questId, nowMillis)
  	}
  
- 	consumed := h.staminaWithCampaign(quest.Stamina, target, nowMillis)
-@@ -58,7 +60,9 @@ func (h *QuestHandler) HandleEventQuestFinish(user *store.UserState, eventQuestC
+-	consumed := h.staminaWithCampaign(quest.Stamina, target, nowMillis)
++	consumed := h.staminaWithCampaign(user, quest.Stamina, target, nowMillis)
+ 	if isRetired && !isAnnihilated && consumed > 1 {
+ 		refund := consumed - 1
+ 		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
  		store.RecoverStamina(user, refund*1000, maxMillis, nowMillis)
  	}
  
@@ -1421,7 +1469,7 @@ diff --git a/server/internal/questflow/event_quest.go b/server/internal/questflo
 diff --git a/server/internal/questflow/extra_quest.go b/server/internal/questflow/extra_quest.go
 --- a/server/internal/questflow/extra_quest.go
 +++ b/server/internal/questflow/extra_quest.go
-@@ -15,6 +15,7 @@ func (h *QuestHandler) HandleExtraQuestStart(user *store.UserState, questId, use
+@@ -15,10 +15,11 @@ func (h *QuestHandler) HandleExtraQuestStart(user *store.UserState, questId, use
  	}
  
  	h.initQuestState(user, questId)
@@ -1429,7 +1477,12 @@ diff --git a/server/internal/questflow/extra_quest.go b/server/internal/questflo
  
  	if quest.Stamina > 0 {
  		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
-@@ -44,7 +45,7 @@ func (h *QuestHandler) HandleExtraQuestFinish(user *store.UserState, questId int
+-		stamina := h.staminaWithCampaign(quest.Stamina, h.targetForExtra(questId), nowMillis)
++		stamina := h.staminaWithCampaign(user, quest.Stamina, h.targetForExtra(questId), nowMillis)
+ 		store.ConsumeStamina(user, stamina, maxMillis, nowMillis)
+ 	}
+ 
+@@ -44,25 +45,25 @@ func (h *QuestHandler) HandleExtraQuestFinish(user *store.UserState, questId int
  	target := h.targetForExtra(questId)
  	var outcome FinishOutcome
  	if !isRetired && !isAnnihilated {
@@ -1438,7 +1491,11 @@ diff --git a/server/internal/questflow/extra_quest.go b/server/internal/questflo
  		h.applyQuestVictory(user, questId, &outcome, nowMillis, false)
  	}
  
-@@ -55,14 +56,14 @@ func (h *QuestHandler) HandleExtraQuestFinish(user *store.UserState, questId int
+-	consumed := h.staminaWithCampaign(quest.Stamina, target, nowMillis)
++	consumed := h.staminaWithCampaign(user, quest.Stamina, target, nowMillis)
+ 	if isRetired && !isAnnihilated && consumed > 1 {
+ 		refund := consumed - 1
+ 		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
  		store.RecoverStamina(user, refund*1000, maxMillis, nowMillis)
  	}
  
@@ -1500,14 +1557,17 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  func (h *QuestHandler) initQuestState(user *store.UserState, questId int32) {
  	quest := user.Quests[questId]
  	quest.QuestId = questId
-@@ -60,6 +74,7 @@ func (h *QuestHandler) handleQuestStartInternal(user *store.UserState, questId i
+@@ -60,8 +74,9 @@ func (h *QuestHandler) handleQuestStartInternal(user *store.UserState, questId i
  	}
  
  	h.initQuestState(user, questId)
 +	ResetBattleStats(user)
  	if quest.Stamina > 0 {
- 		stamina := h.staminaWithCampaign(quest.Stamina, h.targetForMain(questId), nowMillis)
+-		stamina := h.staminaWithCampaign(quest.Stamina, h.targetForMain(questId), nowMillis)
++		stamina := h.staminaWithCampaign(user, quest.Stamina, h.targetForMain(questId), nowMillis)
  		store.ConsumeStamina(user, stamina, h.MaxStaminaByLevel[user.Status.Level]*1000, nowMillis)
+ 	}
+ 
 @@ -110,8 +125,7 @@ func (h *QuestHandler) handleQuestStartInternal(user *store.UserState, questId i
  	} else {
  		questState.QuestStateType = model.UserQuestStateTypeCleared
@@ -1609,7 +1669,15 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  		h.applyQuestVictory(user, questId, &outcome, nowMillis, wasReplay)
  
  		// A replay-flow finish must NOT move the MainFlow scene pointer: the
-@@ -285,7 +304,9 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
+@@ -278,14 +297,16 @@ func (h *QuestHandler) HandleQuestFinish(user *store.UserState, questId int32, i
+ 		}
+ 	}
+ 
+-	consumed := h.staminaWithCampaign(quest.Stamina, h.targetForMain(questId), nowMillis)
++	consumed := h.staminaWithCampaign(user, quest.Stamina, h.targetForMain(questId), nowMillis)
+ 	if isRetired && !isAnnihilated && consumed > 1 {
+ 		refund := consumed - 1
+ 		maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
  		store.RecoverStamina(user, refund*1000, maxMillis, nowMillis)
  	}
  
@@ -1647,9 +1715,10 @@ diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/ques
  
  	target := h.targetForMain(questId)
  	maxMillis := h.MaxStaminaByLevel[user.Status.Level] * 1000
- 	perSkipStamina := h.staminaWithCampaign(questDef.Stamina, target, nowMillis)
+-	perSkipStamina := h.staminaWithCampaign(questDef.Stamina, target, nowMillis)
 -	store.ConsumeStamina(user, perSkipStamina*skipCount, maxMillis, nowMillis)
 -
++	perSkipStamina := h.staminaWithCampaign(user, questDef.Stamina, target, nowMillis)
  	skipTicketId := h.Config.ConsumableItemIdForQuestSkipTicket
 -	user.ConsumableItems[skipTicketId] -= skipCount
 -	if user.ConsumableItems[skipTicketId] < 0 {
@@ -1814,7 +1883,7 @@ diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/re
  	return outcome
  }
  
-@@ -178,7 +136,7 @@ func (h *QuestHandler) grantDropRewards(user *store.UserState, drops []RewardGra
+@@ -178,11 +136,11 @@ func (h *QuestHandler) grantDropRewards(user *store.UserState, drops []RewardGra
  	}
  }
  
@@ -1823,12 +1892,17 @@ diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/re
  	var drops []RewardGrant
  	var dropRate campaign.DropRateMul
  	if h.Campaigns != nil {
+-		dropRate = h.Campaigns.QuestDropRate(target, h.campaignFilter(nowMillis))
++		dropRate = h.Campaigns.QuestDropRate(target, h.campaignFilter(user, nowMillis))
+ 	}
+ 	if questDef.QuestPickupRewardGroupId != 0 {
+ 		for _, dropId := range h.PickupRewardIdsByGroupId[questDef.QuestPickupRewardGroupId] {
 @@ -195,7 +153,8 @@ func (h *QuestHandler) computeDropRewards(questDef masterdata.EntityMQuest, targ
  			}
  		}
  	}
 -	return h.appendBonusDrops(drops, target, nowMillis)
-+	drops = h.appendBonusDrops(drops, target, nowMillis)
++	drops = h.appendBonusDrops(user, drops, target, nowMillis)
 +	return h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)
  }
  
@@ -2048,7 +2122,41 @@ diff --git a/server/internal/service/costume.go b/server/internal/service/costum
  	"lunar-tear/server/internal/runtime"
  	"lunar-tear/server/internal/store"
  )
-@@ -155,25 +152,7 @@ func (s *CostumeServiceServer) Awaken(ctx context.Context, req *pb.AwakenRequest
+@@ -38,6 +35,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+ 
++	var great bool
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		costume, ok := user.Costumes[req.UserCostumeUuid]
+ 		if !ok {
+@@ -55,7 +53,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+ 			CostumeId:          costume.CostumeId,
+ 			CharacterId:        cm.CharacterId,
+ 			SkillfulWeaponType: cm.SkillfulWeaponType,
+-		}, campaign.Filter{NowMillis: nowMillis, UserStatus: campaign.TargetUserStatusAll})
++		}, campaign.FilterFor(user, nowMillis))
+ 
+ 		totalExp := int32(0)
+ 		totalMaterialCount := int32(0)
+@@ -87,6 +85,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+ 			log.Printf("[CostumeService] Enhance: gold cost=%d (materials=%d)", goldCost, totalMaterialCount)
+ 		}
+ 
++		totalExp, great = rollGreatSuccess(totalExp, greatSuccessRand)
+ 		costume.Exp += totalExp
+ 
+ 		if thresholds, ok := catalog.ExpByRarity[cm.RarityType]; ok {
+@@ -107,7 +106,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+ 	}
+ 
+ 	return &pb.EnhanceResponse{
+-		IsGreatSuccess:         false,
++		IsGreatSuccess:         great,
+ 		SurplusEnhanceMaterial: map[int32]int32{},
+ 	}, nil
+ }
+@@ -155,25 +154,7 @@ func (s *CostumeServiceServer) Awaken(ctx context.Context, req *pb.AwakenRequest
  		user.Costumes[req.UserCostumeUuid] = costume
  		log.Printf("[CostumeService] Awaken: costumeId=%d awakenCount=%d", costume.CostumeId, nextStep)
  
@@ -2075,7 +2183,7 @@ diff --git a/server/internal/service/costume.go b/server/internal/service/costum
  	})
  	if err != nil {
  		return nil, fmt.Errorf("costume awaken: %w", err)
-@@ -182,65 +161,6 @@ func (s *CostumeServiceServer) Awaken(ctx context.Context, req *pb.AwakenRequest
+@@ -182,65 +163,6 @@ func (s *CostumeServiceServer) Awaken(ctx context.Context, req *pb.AwakenRequest
  	return &pb.AwakenResponse{}, nil
  }
  
@@ -2186,7 +2294,63 @@ diff --git a/server/internal/service/deck.go b/server/internal/service/deck.go
 diff --git a/server/internal/service/explore.go b/server/internal/service/explore.go
 --- a/server/internal/service/explore.go
 +++ b/server/internal/service/explore.go
-@@ -65,7 +65,8 @@ func (s *ExploreServiceServer) StartExplore(ctx context.Context, req *pb.StartEx
+@@ -4,20 +4,14 @@ import (
+ 	"context"
+ 	"fmt"
+ 	"log"
++	"math/rand"
+ 
+ 	pb "lunar-tear/server/gen/proto"
+ 	"lunar-tear/server/internal/gametime"
+-	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/runtime"
+ 	"lunar-tear/server/internal/store"
+ )
+ 
+-const (
+-	exploreStaminaRecovery  = 1000 // millivalue added on finish
+-	exploreRewardMaterialId = 100001
+-	exploreRewardBaseCount  = 1
+-)
+-
+ type ExploreServiceServer struct {
+ 	pb.UnimplementedExploreServiceServer
+ 	users    store.UserRepository
+@@ -40,21 +34,31 @@ func (s *ExploreServiceServer) StartExplore(ctx context.Context, req *pb.StartEx
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+ 
++	var short error
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		explore := catalog.Explores[req.ExploreId]
+-		if req.UseConsumableItemId > 0 && explore.ConsumeItemCount > 0 {
++		// Playing again within the waiting time (or on hard) takes Explorer's Tickets.
++		usesTicket := req.UseConsumableItemId > 0 && explore.ConsumeItemCount > 0
++		if usesTicket {
+ 			cur := user.ConsumableItems[req.UseConsumableItemId]
++			if cur < explore.ConsumeItemCount {
++				short = fmt.Errorf("explore id=%d needs %d of item %d, have %d", req.ExploreId, explore.ConsumeItemCount, req.UseConsumableItemId, cur)
++				return
++			}
+ 			user.ConsumableItems[req.UseConsumableItemId] = cur - explore.ConsumeItemCount
+ 			log.Printf("[ExploreService] StartExplore: consumed item=%d count=%d remaining=%d", req.UseConsumableItemId, explore.ConsumeItemCount, user.ConsumableItems[req.UseConsumableItemId])
+ 		}
+ 
+ 		user.Explore = store.ExploreState{
+ 			PlayingExploreId:   req.ExploreId,
+-			IsUseExploreTicket: false,
++			IsUseExploreTicket: usesTicket,
+ 			LatestPlayDatetime: nowMillis,
+ 			LatestVersion:      nowMillis,
+ 		}
+ 	})
++	if err == nil {
++		err = short
++	}
+ 	if err != nil {
+ 		return nil, fmt.Errorf("start explore: %w", err)
+ 	}
+@@ -65,7 +69,8 @@ func (s *ExploreServiceServer) StartExplore(ctx context.Context, req *pb.StartEx
  func (s *ExploreServiceServer) FinishExplore(ctx context.Context, req *pb.FinishExploreRequest) (*pb.FinishExploreResponse, error) {
  	log.Printf("[ExploreService] FinishExplore: exploreId=%d score=%d", req.ExploreId, req.Score)
  
@@ -2196,7 +2360,18 @@ diff --git a/server/internal/service/explore.go b/server/internal/service/explor
  	explore, ok := catalog.Explores[req.ExploreId]
  	if !ok {
  		return nil, fmt.Errorf("explore id=%d not found", req.ExploreId)
-@@ -96,8 +97,9 @@ func (s *ExploreServiceServer) FinishExplore(ctx context.Context, req *pb.Finish
+@@ -76,7 +81,9 @@ func (s *ExploreServiceServer) FinishExplore(ctx context.Context, req *pb.Finish
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+ 
+-	rewardCount := int32(exploreRewardBaseCount) * explore.RewardLotteryCount
++	rank := exploreGradeRank(catalog, req.ExploreId, req.Score)
++	stamina := exploreStamina(rank)
++	var rewards []*pb.ExploreReward
+ 
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		existing, exists := user.ExploreScores[req.ExploreId]
+@@ -96,28 +103,21 @@ func (s *ExploreServiceServer) FinishExplore(ctx context.Context, req *pb.Finish
  			LatestVersion:      nowMillis,
  		}
  
@@ -2204,10 +2379,34 @@ diff --git a/server/internal/service/explore.go b/server/internal/service/explor
 -		user.Status.StaminaUpdateDatetime = nowMillis
 +		// Settle natural regeneration up to now before adding the reward, so
 +		// the time since the last stamina update is not lost.
-+		store.RecoverStamina(user, exploreStaminaRecovery, cat.Shop.MaxStaminaMillis[user.Status.Level], nowMillis)
++		store.RecoverStamina(user, stamina*1000, cat.Shop.MaxStaminaMillis[user.Status.Level], nowMillis)
  		user.Status.LatestVersion = nowMillis
- 		log.Printf("[ExploreService] FinishExplore: stamina +%d -> %d", exploreStaminaRecovery, user.Status.StaminaMilliValue)
+-		log.Printf("[ExploreService] FinishExplore: stamina +%d -> %d", exploreStaminaRecovery, user.Status.StaminaMilliValue)
++		log.Printf("[ExploreService] FinishExplore: grade %d, stamina +%d -> %d", rank, stamina, user.Status.StaminaMilliValue)
  
+-		user.Materials[exploreRewardMaterialId] += rewardCount
+-		log.Printf("[ExploreService] FinishExplore: granted material=%d count=%d", exploreRewardMaterialId, rewardCount)
++		rewards = exploreDraws(user, cat.GameConfig.ConsumableItemIdForGold, rank, explore.RewardLotteryCount, rand.Intn)
++		log.Printf("[ExploreService] FinishExplore: %d draws, %d rewards", explore.RewardLotteryCount, len(rewards))
+ 	})
+ 	if err != nil {
+ 		return nil, fmt.Errorf("finish explore: %w", err)
+ 	}
+ 
+-	rewards := []*pb.ExploreReward{
+-		{
+-			PossessionType: int32(model.PossessionTypeMaterial),
+-			PossessionId:   exploreRewardMaterialId,
+-			Count:          rewardCount,
+-		},
+-	}
+-
+ 	return &pb.FinishExploreResponse{
+-		AcquireStaminaCount: exploreStaminaRecovery,
++		AcquireStaminaCount: stamina,
+ 		ExploreReward:       rewards,
+ 		AssetGradeIconId:    assetGradeIconId,
+ 	}, nil
 diff --git a/server/internal/service/friend.go b/server/internal/service/friend.go
 --- a/server/internal/service/friend.go
 +++ b/server/internal/service/friend.go
@@ -2414,7 +2613,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		if drawResult.MedalBonus > 0 && entry.MedalConsumableItemId != 0 {
  			oddsItem.MedalBonus = &pb.GachaBonus{
  				PossessionType: int32(model.PossessionTypeConsumableItem),
-@@ -281,7 +306,7 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -281,13 +306,13 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  	}
  
  	bs := updatedUser.Gacha.BannerStates[entry.GachaId]
@@ -2423,6 +2622,13 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	return &pb.DrawResponse{
  		NextGacha:          nextGacha,
+ 		GachaResult:        gachaResults,
+ 		GachaBonus:         bonuses,
+-		MenuGachaBadgeInfo: []*pb.MenuGachaBadgeInfo{},
++		MenuGachaBadgeInfo: freeSummonBadges(s.holder.Get().GachaEntries, &updatedUser, gametime.NowMillis()),
+ 	}, nil
+ }
+ 
 @@ -314,7 +339,7 @@ func (s *GachaServiceServer) ResetBoxGacha(ctx context.Context, req *pb.ResetBox
  	bs := updatedUser.Gacha.BannerStates[entry.GachaId]
  
@@ -2475,7 +2681,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		})
  	}
  
-@@ -416,6 +431,34 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -416,6 +431,43 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
@@ -2504,13 +2710,22 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
 +	g := toProtoGacha(entry, bs)
 +	g.IsUserGachaUnlock = gachaUnlockedFor(entry, &user)
 +	g.GachaPricePhase = buildProtoPricePhases(entry, bs, &user)
++	if mode, ok := g.GachaMode.(*pb.Gacha_GachaModeBoxComposition); ok && len(entry.BoxContents) > 0 {
++		// The box runs out: Reset once its targets are drawn; no 10 draws when fewer are left.
++		box := gacha.Box(&user, entry, gametime.NowMillis())
++		mode.GachaModeBoxComposition.IsAlreadyDrawn = box.Drawn > 0
++		mode.GachaModeBoxComposition.IsResettableByDrawingAllTargets = true
++		mode.GachaModeBoxComposition.IsCurrentBoxResettable = box.Left == 0 || box.TargetsDrawn
++		mode.GachaModeBoxComposition.IsHideMultipleDrawButton = box.Left < model.PremiumMultiPullCount
++		mode.GachaModeBoxComposition.PromotionGachaOddsItem = boxPromotionItems(entry, &user)
++	}
 +	return g
 +}
 +
  func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb.Gacha {
  	g := &pb.Gacha{
  		GachaId:                    entry.GachaId,
-@@ -424,7 +467,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -424,7 +476,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		GachaAutoResetType:         entry.GachaAutoResetType,
  		GachaAutoResetPeriod:       entry.GachaAutoResetPeriod,
  		NextAutoResetDatetime:      safeTimestamp(entry.NextAutoResetDatetime),
@@ -2519,7 +2734,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		IsUserGachaUnlock:          entry.IsUserGachaUnlock,
  		StartDatetime:              safeTimestamp(entry.StartDatetime),
  		EndDatetime:                safeTimestamp(entry.EndDatetime),
-@@ -438,7 +481,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -438,7 +490,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		InformationId:              entry.InformationId,
  	}
  
@@ -2528,7 +2743,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	promotionItems := buildProtoPromotionItems(entry)
  
-@@ -497,7 +540,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -497,7 +549,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  	return g
  }
  
@@ -2537,7 +2752,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	phases := make([]*pb.GachaPricePhase, 0, len(entry.PricePhases))
  
  	for _, p := range entry.PricePhases {
-@@ -523,6 +566,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -523,6 +575,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  		if limitExec <= 0 {
  			limitExec = 999
  		}
@@ -2552,7 +2767,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  		phases = append(phases, &pb.GachaPricePhase{
  			GachaPricePhaseId: p.PhaseId,
-@@ -534,6 +585,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -534,6 +594,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  			RegularPrice:      p.RegularPrice,
  			DrawCount:         p.DrawCount,
  			LimitExecCount:    limitExec,
@@ -2560,6 +2775,40 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  			EachMaxExecCount:  p.DrawCount,
  			GachaBonus:        bonuses,
  			GachaOddsFixedRarity: &pb.GachaOddsFixedRarity{
+@@ -547,6 +608,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+ 	return phases
+ }
+ 
++// boxPromotionItems are the "Featured Items" of a box summon: its rarest
++// items (the targets first), each with how many the box holds and how many
++// the player has drawn from this box.
++func boxPromotionItems(entry store.GachaCatalogEntry, user *store.UserState) []*pb.GachaOddsItem {
++	const shown = 4
++	box := gacha.Box(user, entry, gametime.NowMillis())
++	drew := user.Gacha.BannerStates[entry.GachaId].BoxDrewCounts
++	out := make([]*pb.GachaOddsItem, 0, shown)
++	for i, c := range entry.BoxContents { // rarest first
++		if i == shown {
++			break
++		}
++		n := drew[c.PossessionId]
++		if box.Drawn == 0 {
++			n = 0 // refilled this month
++		}
++		out = append(out, &pb.GachaOddsItem{
++			GachaItem:        &pb.GachaItem{PossessionType: c.PossessionType, PossessionId: c.PossessionId, Count: 1, PromotionOrder: int32(i + 1)},
++			GachaItemBonus:   &pb.GachaItem{},
++			MaxDrawableCount: c.Count,
++			DrewCount:        n,
++			IsTarget:         c.IsTarget,
++		})
++	}
++	return out
++}
++
+ func buildProtoPromotionItems(entry store.GachaCatalogEntry) []*pb.GachaOddsItem {
+ 	if len(entry.PromotionItems) == 0 {
+ 		return nil
 diff --git a/server/internal/service/gift.go b/server/internal/service/gift.go
 --- a/server/internal/service/gift.go
 +++ b/server/internal/service/gift.go
@@ -2978,56 +3227,92 @@ diff --git a/server/internal/service/loginbonus.go b/server/internal/service/log
  type LoginBonusServiceServer struct {
  	pb.UnimplementedLoginBonusServiceServer
  	users    store.UserRepository
-@@ -39,6 +42,11 @@ func (s *LoginBonusServiceServer) ReceiveStamp(ctx context.Context, req *emptypb
- 	if err != nil {
- 		return nil, fmt.Errorf("load user: %w", err)
- 	}
-+	// One stamp per game day: a repeat call gets the normal empty response.
-+	if user.LoginBonus.LatestRewardReceiveDatetime >= gametime.StartOfDayMillis() {
-+		log.Printf("[LoginBonusService] ReceiveStamp: already stamped today, ignoring")
-+		return &pb.ReceiveStampResponse{}, nil
-+	}
+@@ -35,44 +38,56 @@ func (s *LoginBonusServiceServer) ReceiveStamp(ctx context.Context, req *emptypb
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	catalog := s.holder.Get().LoginBonus
  
- 	nextPage, nextStamp, reward, err := resolveNextStamp(catalog, user.LoginBonus)
- 	if err != nil {
-@@ -51,24 +59,31 @@ func (s *LoginBonusServiceServer) ReceiveStamp(ctx context.Context, req *emptypb
- 		user.LoginBonus.CurrentStampNumber, nextStamp,
- 		reward.PossessionType, reward.PossessionId, reward.Count)
- 
+-	user, err := s.users.LoadUser(userId)
+-	if err != nil {
+-		return nil, fmt.Errorf("load user: %w", err)
+-	}
+-
+-	nextPage, nextStamp, reward, err := resolveNextStamp(catalog, user.LoginBonus)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	log.Printf("[LoginBonusService] bonusId=%d page %d->%d stamp %d->%d possType=%d possId=%d count=%d (-> gift box)",
+-		user.LoginBonus.LoginBonusId,
+-		user.LoginBonus.CurrentPageNumber, nextPage,
+-		user.LoginBonus.CurrentStampNumber, nextStamp,
+-		reward.PossessionType, reward.PossessionId, reward.Count)
+-
 -	s.users.UpdateUser(userId, func(u *store.UserState) {
-+	_, err = s.users.UpdateUser(userId, func(u *store.UserState) {
++	// One stamp per game day on each card: the everyday one and every dated
++	// login bonus open today (see bunker_login_bonus.go). A repeat call gets
++	// the normal empty response.
++	var stampErr error
++	_, err := s.users.UpdateUser(userId, func(u *store.UserState) {
  		now := gametime.NowMillis()
-+		if u.LoginBonus.LatestRewardReceiveDatetime >= gametime.StartOfDayMillis() {
-+			return
-+		}
- 		u.Gifts.NotReceived = append(u.Gifts.NotReceived, store.NotReceivedGiftState{
- 			GiftCommon: store.GiftCommonState{
+-		u.Gifts.NotReceived = append(u.Gifts.NotReceived, store.NotReceivedGiftState{
+-			GiftCommon: store.GiftCommonState{
 -				PossessionType: reward.PossessionType,
 -				PossessionId:   reward.PossessionId,
 -				Count:          reward.Count,
 -				GrantDatetime:  now,
-+				PossessionType:        reward.PossessionType,
-+				PossessionId:          reward.PossessionId,
-+				Count:                 reward.Count,
-+				GrantDatetime:         now,
-+				DescriptionGiftTextId: giftTextLoginBonus,
- 			},
- 			ExpirationDatetime: now + int64(30*24*time.Hour/time.Millisecond),
- 			UserGiftUuid:       uuid.New().String(),
- 		})
+-			},
+-			ExpirationDatetime: now + int64(30*24*time.Hour/time.Millisecond),
+-			UserGiftUuid:       uuid.New().String(),
+-		})
 -		u.Notifications.GiftNotReceiveCount = int32(len(u.Gifts.NotReceived))
-+		pruneExpiredGifts(u, now)
++		stampEventLoginBonuses(catalog, u, now)
++		if u.LoginBonus.LatestRewardReceiveDatetime >= gametime.StartOfDay(now) {
++			log.Printf("[LoginBonusService] ReceiveStamp: already stamped today")
++			return
++		}
++		nextPage, nextStamp, reward, err := resolveNextStamp(catalog, u.LoginBonus)
++		if err != nil {
++			stampErr = err
++			return
++		}
++		log.Printf("[LoginBonusService] bonusId=%d page %d->%d stamp %d->%d possType=%d possId=%d count=%d (-> gift box)",
++			u.LoginBonus.LoginBonusId, u.LoginBonus.CurrentPageNumber, nextPage, u.LoginBonus.CurrentStampNumber, nextStamp,
++			reward.PossessionType, reward.PossessionId, reward.Count)
++		addLoginBonusGift(u, reward, now)
  		u.LoginBonus.CurrentPageNumber = nextPage
  		u.LoginBonus.CurrentStampNumber = nextStamp
  		u.LoginBonus.LatestRewardReceiveDatetime = now
  		u.LoginBonus.LatestVersion = now
  	})
+-
 +	if err != nil {
 +		return nil, fmt.Errorf("receive stamp: %w", err)
 +	}
- 
++	if stampErr != nil {
++		return nil, stampErr
++	}
  	return &pb.ReceiveStampResponse{}, nil
  }
+ 
++// addLoginBonusGift puts a stamp's reward in the gift box for 30 days.
++func addLoginBonusGift(u *store.UserState, reward masterdata.LoginBonusReward, now int64) {
++	u.Gifts.NotReceived = append(u.Gifts.NotReceived, store.NotReceivedGiftState{
++		GiftCommon: store.GiftCommonState{
++			PossessionType:        reward.PossessionType,
++			PossessionId:          reward.PossessionId,
++			Count:                 reward.Count,
++			GrantDatetime:         now,
++			DescriptionGiftTextId: giftTextLoginBonus,
++		},
++		ExpirationDatetime: now + int64(30*24*time.Hour/time.Millisecond),
++		UserGiftUuid:       uuid.New().String(),
++	})
++	pruneExpiredGifts(u, now)
++}
++
+ func resolveNextStamp(catalog *masterdata.LoginBonusCatalog, lb store.UserLoginBonusState) (nextPage, nextStamp int32, reward masterdata.LoginBonusReward, err error) {
+ 	bonusId := lb.LoginBonusId
+ 	curPage := lb.CurrentPageNumber
 diff --git a/server/internal/service/notification.go b/server/internal/service/notification.go
 --- a/server/internal/service/notification.go
 +++ b/server/internal/service/notification.go
@@ -3380,7 +3665,16 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  
  	pb "lunar-tear/server/gen/proto"
  	"lunar-tear/server/internal/gametime"
-@@ -35,13 +36,20 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
+@@ -12,6 +13,8 @@ import (
+ 	"lunar-tear/server/internal/runtime"
+ 	"lunar-tear/server/internal/store"
+ 
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
+ 	"google.golang.org/protobuf/types/known/emptypb"
+ )
+ 
+@@ -35,13 +38,20 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	nowMillis := gametime.NowMillis()
  
@@ -3401,7 +3695,7 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  
  			totalPrice := item.Price * qty
  			if err := store.DeductPrice(user, item.PriceType, item.PriceId, totalPrice); err != nil {
-@@ -49,13 +57,15 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
+@@ -49,13 +59,15 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
  				continue
  			}
  
@@ -3419,7 +3713,7 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  			}
  
  			applyShopContentEffects(catalog, user, shopItemId, qty, nowMillis)
-@@ -67,15 +77,85 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
+@@ -67,15 +79,86 @@ func (s *ShopServiceServer) Buy(ctx context.Context, req *pb.BuyRequest) (*pb.Bu
  			si.LatestVersion = nowMillis
  			user.ShopItems[shopItemId] = si
  		}
@@ -3461,6 +3755,7 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
 +// BoughtCount once the GMT-8 day, week (period 7) or month a purchase was
 +// made in has ended.
 +func resetShopStock(catalog *masterdata.ShopCatalog, user *store.UserState, nowMillis int64) {
++	syncLineupUpdateCount(user, nowMillis)
 +	for id, si := range user.ShopItems {
 +		if si.BoughtCount == 0 {
 +			continue
@@ -3506,15 +3801,42 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.RefreshRequest) (*pb.RefreshResponse, error) {
  	log.Printf("[ShopService] RefreshUserData: isGemUsed=%v", req.IsGemUsed)
  
-@@ -84,6 +164,7 @@ func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.Refresh
+@@ -83,7 +166,9 @@ func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.Refresh
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
  	nowMillis := gametime.NowMillis()
  
++	var refused error
  	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
 +		resetShopStock(catalog, user, nowMillis)
  		if len(user.ShopReplaceableLineup) == 0 && len(catalog.ItemShopPool) > 0 {
  			for i, itemId := range catalog.ItemShopPool {
  				slot := int32(i + 1)
-@@ -131,6 +212,7 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+@@ -95,7 +180,13 @@ func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.Refresh
+ 			}
+ 		}
+ 		if req.IsGemUsed {
++			price := replaceableRefreshGems(user.ShopReplaceable.LineupUpdateCount)
++			if refused = store.DeductPrice(user, model.PriceTypeGem, 0, price); refused != nil {
++				return
++			}
++			log.Printf("[ShopService] RefreshUserData: refresh %d for %d gems", user.ShopReplaceable.LineupUpdateCount, price)
+ 			user.ShopReplaceable.LineupUpdateCount++
++			user.ShopReplaceable.LatestVersion = nowMillis
+ 			user.ShopReplaceable.LatestLineupUpdateDatetime = nowMillis
+ 			for _, itemId := range catalog.ItemShopPool {
+ 				if si, ok := user.ShopItems[itemId]; ok {
+@@ -109,6 +200,10 @@ func (s *ShopServiceServer) RefreshUserData(ctx context.Context, req *pb.Refresh
+ 	if err != nil {
+ 		return nil, fmt.Errorf("shop refresh: %w", err)
+ 	}
++	if refused != nil {
++		log.Printf("[ShopService] RefreshUserData refused: %v", refused)
++		return nil, status.Error(codes.FailedPrecondition, refused.Error())
++	}
+ 
+ 	return &pb.RefreshResponse{}, nil
+ }
+@@ -131,6 +226,7 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
  	nowMillis := gametime.NowMillis()
  
  	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
@@ -3522,7 +3844,7 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  		item, ok := catalog.Items[req.ShopItemId]
  		if !ok {
  			log.Printf("[ShopService] CreatePurchaseTransaction: unknown shopItemId=%d", req.ShopItemId)
-@@ -142,13 +224,15 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
+@@ -142,13 +238,15 @@ func (s *ShopServiceServer) CreatePurchaseTransaction(ctx context.Context, req *
  		}
  
  		for _, content := range catalog.Contents[req.ShopItemId] {
@@ -3539,6 +3861,15 @@ diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
  
  		applyShopContentEffects(catalog, user, req.ShopItemId, 1, nowMillis)
  
+@@ -196,6 +294,8 @@ func applyShopContentEffects(catalog *masterdata.ShopCatalog, user *store.UserSt
+ 			maxMillis := catalog.MaxStaminaMillis[user.Status.Level]
+ 			millis := store.ResolveStaminaEffectMillis(effect.EffectValueType, effect.EffectValue, maxMillis)
+ 			store.RecoverStamina(user, millis*qty, maxMillis, nowMillis)
++		case model.EffectTargetBattlePointRecovery:
++			recoverBattlePoints(user, effect.EffectValueType, effect.EffectValue, qty, nowMillis)
+ 		default:
+ 			log.Printf("[ShopService] unhandled effect: shopItemId=%d targetType=%d", shopItemId, effect.EffectTargetType)
+ 		}
 diff --git a/server/internal/service/user.go b/server/internal/service/user.go
 --- a/server/internal/service/user.go
 +++ b/server/internal/service/user.go
@@ -3550,19 +3881,22 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  	"net/http"
  	"strconv"
  	"strings"
-@@ -19,6 +20,7 @@ import (
+@@ -18,7 +19,9 @@ import (
+ 	"google.golang.org/protobuf/types/known/emptypb"
  	"google.golang.org/protobuf/types/known/timestamppb"
  	pb "lunar-tear/server/gen/proto"
++	"lunar-tear/server/internal/campaign"
  	"lunar-tear/server/internal/gametime"
 +	"lunar-tear/server/internal/missions"
  	"lunar-tear/server/internal/model"
  	"lunar-tear/server/internal/runtime"
  	"lunar-tear/server/internal/store"
-@@ -107,6 +109,22 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
+@@ -107,6 +110,23 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	s.users.UpdateUser(userId, func(user *store.UserState) {
  		user.GameStartDatetime = gametime.NowMillis()
 +		calendarGameStart(user, user.GameStartDatetime)
++		campaign.JoinBeginner(user, user.GameStartDatetime)
 +		if bunkerHolder != nil {
 +			if cats := bunkerHolder.Get(); cats != nil && cats.GachaHandler != nil {
 +				user.EnsureMaps()
@@ -3581,7 +3915,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  	})
  
  	return &pb.GameStartResponse{}, nil
-@@ -175,45 +193,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
+@@ -175,45 +195,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
  		return &pb.GetUserProfileResponse{}, nil
  	}
  
@@ -3675,7 +4009,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  func (s *UserServiceServer) SetBirthYearMonth(ctx context.Context, req *pb.SetBirthYearMonthRequest) (*pb.SetBirthYearMonthResponse, error) {
  	log.Printf("[UserService] SetBirthYearMonth: %d/%d", req.BirthYear, req.BirthMonth)
  	userId := CurrentUserId(ctx, s.users, s.sessions)
-@@ -268,8 +304,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
+@@ -268,8 +306,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
  	return &pb.CheckTransferSettingResponse{}, nil
  }
  
@@ -4272,7 +4606,33 @@ diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite
 diff --git a/server/internal/store/types.go b/server/internal/store/types.go
 --- a/server/internal/store/types.go
 +++ b/server/internal/store/types.go
-@@ -1116,6 +1116,8 @@ type GachaCatalogEntry struct {
+@@ -1080,6 +1080,17 @@ type GachaPromotionItem struct {
+ 	BonusPossessionId   int32
+ }
+ 
++// GachaBoxContent is one item of a box summon's box: Count of it per box;
++// IsTarget items are the box's prize, and drawing them all lets the box be
++// reset early.
++type GachaBoxContent struct {
++	PossessionType int32
++	PossessionId   int32
++	RarityType     int32
++	Count          int32
++	IsTarget       bool
++}
++
+ type GachaBannerState struct {
+ 	GachaId       int32
+ 	MedalCount    int32
+@@ -1091,6 +1102,7 @@ type GachaBannerState struct {
+ }
+ 
+ type GachaCatalogEntry struct {
++	BoxContents                []GachaBoxContent // box summons: what one box holds
+ 	GachaId                    int32
+ 	GachaLabelType             int32
+ 	GachaModeType              int32
+@@ -1116,6 +1128,8 @@ type GachaCatalogEntry struct {
  	PromotionItems             []GachaPromotionItem
  	DescriptionTextId          int32
  	MaxStepNumber              int32
@@ -4284,6 +4644,15 @@ diff --git a/server/internal/store/types.go b/server/internal/store/types.go
 diff --git a/server/internal/userdata/changed_tables.go b/server/internal/userdata/changed_tables.go
 --- a/server/internal/userdata/changed_tables.go
 +++ b/server/internal/userdata/changed_tables.go
+@@ -74,7 +74,7 @@ func ChangedTables(before, after *store.UserState) []string {
+ 	if before.Login != after.Login {
+ 		add("IUserLogin")
+ 	}
+-	if before.LoginBonus != after.LoginBonus {
++	if before.LoginBonus != after.LoginBonus || !maps.Equal(before.Ext.EventLoginBonuses, after.Ext.EventLoginBonuses) {
+ 		add("IUserLoginBonus")
+ 	}
+ 	if before.PortalCageStatus != after.PortalCageStatus {
 @@ -214,6 +214,9 @@ func ChangedTables(before, after *store.UserState) []string {
  	if !mapsEqualStruct(before.QuestLimitContentStatus, after.QuestLimitContentStatus) {
  		add("IUserQuestLimitContentStatus")
@@ -4358,3 +4727,297 @@ diff --git a/server/internal/userdata/state_projection.go b/server/internal/user
  	}
  }
  
+diff --git a/server/internal/service/consumableitem.go b/server/internal/service/consumableitem.go
+--- a/server/internal/service/consumableitem.go
++++ b/server/internal/service/consumableitem.go
+@@ -53,6 +53,8 @@ func (s *ConsumableItemServiceServer) UseEffectItem(ctx context.Context, req *pb
+ 			case model.EffectTargetStaminaRecovery:
+ 				millis := store.ResolveStaminaEffectMillis(effect.EffectValueType, effect.EffectValue, maxStaminaMillis)
+ 				store.RecoverStamina(user, millis*req.Count, maxStaminaMillis, nowMillis)
++			case model.EffectTargetBattlePointRecovery:
++				recoverBattlePoints(user, effect.EffectValueType, effect.EffectValue, req.Count, nowMillis)
+ 			default:
+ 				log.Printf("[ConsumableItemService] UseEffectItem: unhandled effect targetType=%d valueType=%d value=%d itemId=%d",
+ 					effect.EffectTargetType, effect.EffectValueType, effect.EffectValue, req.ConsumableItemId)
+diff --git a/server/internal/service/weapon.go b/server/internal/service/weapon.go
+--- a/server/internal/service/weapon.go
++++ b/server/internal/service/weapon.go
+@@ -79,6 +79,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+ 
++	var great bool
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		weapon, ok := user.Weapons[req.UserWeaponUuid]
+ 		if !ok {
+@@ -96,7 +97,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+ 			WeaponId:      weapon.WeaponId,
+ 			WeaponType:    wm.WeaponType,
+ 			AttributeType: wm.AttributeType,
+-		}, campaign.Filter{NowMillis: nowMillis, UserStatus: campaign.TargetUserStatusAll})
++		}, campaign.FilterFor(user, nowMillis))
+ 
+ 		totalExp := int32(0)
+ 		totalMaterialCount := int32(0)
+@@ -128,6 +129,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+ 			log.Printf("[WeaponService] EnhanceByMaterial: gold cost=%d (materials=%d)", goldCost, totalMaterialCount)
+ 		}
+ 
++		totalExp, great = rollGreatSuccess(totalExp, greatSuccessRand)
+ 		weapon.Exp += totalExp
+ 		levelingEnhanceId := catalog.LevelingEnhanceIdByWeaponId[weapon.WeaponId]
+ 		if thresholds, ok := catalog.ExpByEnhanceId[levelingEnhanceId]; ok {
+@@ -157,7 +159,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+ 	}
+ 
+ 	return &pb.EnhanceByMaterialResponse{
+-		IsGreatSuccess:         false,
++		IsGreatSuccess:         great,
+ 		SurplusEnhanceMaterial: map[int32]int32{},
+ 	}, nil
+ }
+@@ -309,12 +311,21 @@ func (s *WeaponServiceServer) Evolve(ctx context.Context, req *pb.EvolveRequest)
+ 		evolvedMaster, ok := catalog.Weapons[evolvedId]
+ 		if ok {
+ 			if slots, ok := catalog.AbilitySlots[evolvedMaster.WeaponAbilityGroupId]; ok {
++				// Evolving keeps each slot's ability level; a new slot starts at 1.
++				levels := map[int32]int32{}
++				for _, a := range user.WeaponAbilities[req.UserWeaponUuid] {
++					levels[a.SlotNumber] = a.Level
++				}
+ 				abilities := make([]store.WeaponAbilityState, len(slots))
+ 				for i, slot := range slots {
++					level := levels[slot]
++					if level < 1 {
++						level = 1
++					}
+ 					abilities[i] = store.WeaponAbilityState{
+ 						UserWeaponUuid: req.UserWeaponUuid,
+ 						SlotNumber:     slot,
+-						Level:          1,
++						Level:          level,
+ 					}
+ 				}
+ 				user.WeaponAbilities[req.UserWeaponUuid] = abilities
+@@ -691,6 +702,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+ 
++	var great bool
+ 	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
+ 		weapon, ok := user.Weapons[req.UserWeaponUuid]
+ 		if !ok {
+@@ -708,7 +720,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+ 			WeaponId:      weapon.WeaponId,
+ 			WeaponType:    wm.WeaponType,
+ 			AttributeType: wm.AttributeType,
+-		}, campaign.Filter{NowMillis: nowMillis, UserStatus: campaign.TargetUserStatusAll})
++		}, campaign.FilterFor(user, nowMillis))
+ 
+ 		totalExp := int32(0)
+ 		consumedCount := int32(0)
+@@ -751,6 +763,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+ 			log.Printf("[WeaponService] EnhanceByWeapon: gold cost=%d (weapons=%d)", goldCost, consumedCount)
+ 		}
+ 
++		totalExp, great = rollGreatSuccess(totalExp, greatSuccessRand)
+ 		weapon.Exp += totalExp
+ 		levelingEnhanceId := catalog.LevelingEnhanceIdByWeaponId[weapon.WeaponId]
+ 		if thresholds, ok := catalog.ExpByEnhanceId[levelingEnhanceId]; ok {
+@@ -780,7 +793,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+ 	}
+ 
+ 	return &pb.EnhanceByWeaponResponse{
+-		IsGreatSuccess:       false,
++		IsGreatSuccess:       great,
+ 		SurplusEnhanceWeapon: []string{},
+ 	}, nil
+ }
+diff --git a/server/internal/service/gameplay.go b/server/internal/service/gameplay.go
+--- a/server/internal/service/gameplay.go
++++ b/server/internal/service/gameplay.go
+@@ -5,22 +5,32 @@ import (
+ 	"log"
+ 
+ 	pb "lunar-tear/server/gen/proto"
++	"lunar-tear/server/internal/gametime"
++	"lunar-tear/server/internal/runtime"
++	"lunar-tear/server/internal/store"
+ )
+ 
+ type GameplayServiceServer struct {
+ 	pb.UnimplementedGamePlayServiceServer
++	users    store.UserRepository
++	sessions store.SessionRepository
++	holder   *runtime.Holder
+ }
+ 
+-func NewGameplayServiceServer() *GameplayServiceServer {
+-	return &GameplayServiceServer{}
++func NewGameplayServiceServer(users store.UserRepository, sessions store.SessionRepository, holder *runtime.Holder) *GameplayServiceServer {
++	return &GameplayServiceServer{users: users, sessions: sessions, holder: holder}
+ }
+ 
+ func (s *GameplayServiceServer) CheckBeforeGamePlay(ctx context.Context, req *pb.CheckBeforeGamePlayRequest) (*pb.CheckBeforeGamePlayResponse, error) {
+ 	log.Printf("[GamePlayService] CheckBeforeGamePlay: tr=%s voiceLang=%d textLang=%d",
+ 		req.Tr, req.VoiceClientSystemLanguageTypeId, req.TextClientSystemLanguageTypeId)
+ 
++	badges := []*pb.MenuGachaBadgeInfo{}
++	if user, err := s.users.LoadUser(CurrentUserId(ctx, s.users, s.sessions)); err == nil {
++		badges = freeSummonBadges(s.holder.Get().GachaEntries, &user, gametime.NowMillis())
++	}
+ 	return &pb.CheckBeforeGamePlayResponse{
+ 		IsExistUnreadPop:   false,
+-		MenuGachaBadgeInfo: []*pb.MenuGachaBadgeInfo{},
++		MenuGachaBadgeInfo: badges,
+ 	}, nil
+ }
+diff --git a/server/internal/service/labyrinth.go b/server/internal/service/labyrinth.go
+--- a/server/internal/service/labyrinth.go
++++ b/server/internal/service/labyrinth.go
+@@ -111,28 +111,34 @@ func (s *LabyrinthServiceServer) ReceiveStageClearReward(ctx context.Context, re
+ 	return &pb.ReceiveStageClearRewardResponse{}, nil
+ }
+ 
++// UpdateSeasonData is called when the player opens a labyrinth whose open
++// season they haven't joined: it pays the ended season's reward (the client
++// plays it as the "reach reward") and joins the new season, which starts the
++// climb again (see bunker_labyrinth.go).
+ func (s *LabyrinthServiceServer) UpdateSeasonData(ctx context.Context, req *pb.UpdateSeasonDataRequest) (*pb.UpdateSeasonDataResponse, error) {
+-	laby := s.holder.Get().Labyrinth
+-
+-	var seasonResult []*pb.LabyrinthSeasonResult
+-	for _, m := range laby.SeasonMilestones(req.EventQuestChapterId) {
+-		rewards := make([]*pb.LabyrinthReward, 0, len(m.Rewards))
+-		for _, it := range m.Rewards {
+-			rewards = append(rewards, &pb.LabyrinthReward{
+-				PossessionType: it.PossessionType,
+-				PossessionId:   it.PossessionId,
+-				Count:          it.Count,
+-			})
++	cat := s.holder.Get()
++	laby := cat.Labyrinth
++	granter := cat.QuestHandler.Granter
++	now := gametime.NowMillis()
++	userId := CurrentUserId(ctx, s.users, s.sessions)
++
++	seasonResult := []*pb.LabyrinthSeasonResult{}
++	joined := false
++	if _, err := s.users.UpdateUser(userId, func(u *store.UserState) {
++		for _, ch := range laby.ChaptersByOrder {
++			if ch.EventQuestChapterId != req.EventQuestChapterId {
++				continue
++			}
++			if result := settleLabyrinthSeason(laby, granter, u, ch, now); result != nil {
++				seasonResult = append(seasonResult, result)
++			}
++			joined = joinLabyrinthSeason(u, ch.EventQuestChapterId, now)
+ 		}
+-		seasonResult = append(seasonResult, &pb.LabyrinthSeasonResult{
+-			EventQuestChapterId: req.EventQuestChapterId,
+-			HeadQuestId:         m.HeadQuestId,
+-			SeasonReward:        rewards,
+-			HeadStageOrder:      m.HeadStageOrder,
+-		})
++	}); err != nil {
++		return nil, err
+ 	}
+ 
+-	log.Printf("[LabyrinthService] UpdateSeasonData: chapter=%d -> %d milestone(s)",
+-		req.EventQuestChapterId, len(seasonResult))
++	log.Printf("[LabyrinthService] UpdateSeasonData: chapter=%d paid %d season reward(s), new season %v",
++		req.EventQuestChapterId, len(seasonResult), joined)
+ 	return &pb.UpdateSeasonDataResponse{SeasonResult: seasonResult}, nil
+ }
+diff --git a/server/internal/userdata/proj_user.go b/server/internal/userdata/proj_user.go
+--- a/server/internal/userdata/proj_user.go
++++ b/server/internal/userdata/proj_user.go
+@@ -79,14 +79,28 @@ func init() {
+ 		return s
+ 	})
+ 	register("IUserLoginBonus", func(user store.UserState) string {
+-		s, _ := utils.EncodeJSONMaps(map[string]any{
+-			"userId":                      user.UserId,
+-			"loginBonusId":                user.LoginBonus.LoginBonusId,
+-			"currentPageNumber":           user.LoginBonus.CurrentPageNumber,
+-			"currentStampNumber":          user.LoginBonus.CurrentStampNumber,
+-			"latestRewardReceiveDatetime": user.LoginBonus.LatestRewardReceiveDatetime,
+-			"latestVersion":               user.LoginBonus.LatestVersion,
+-		})
++		// The everyday card, then the dated ones (Ext.EventLoginBonuses) by id.
++		cards := []store.UserLoginBonusState{user.LoginBonus}
++		ids := make([]int32, 0, len(user.Ext.EventLoginBonuses))
++		for id := range user.Ext.EventLoginBonuses {
++			ids = append(ids, id)
++		}
++		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
++		for _, id := range ids {
++			cards = append(cards, user.Ext.EventLoginBonuses[id])
++		}
++		rows := make([]map[string]any, 0, len(cards))
++		for _, c := range cards {
++			rows = append(rows, map[string]any{
++				"userId":                      user.UserId,
++				"loginBonusId":                c.LoginBonusId,
++				"currentPageNumber":           c.CurrentPageNumber,
++				"currentStampNumber":          c.CurrentStampNumber,
++				"latestRewardReceiveDatetime": c.LatestRewardReceiveDatetime,
++				"latestVersion":               c.LatestVersion,
++			})
++		}
++		s, _ := utils.EncodeJSONMaps(rows...)
+ 		return s
+ 	})
+ 	register("IUserTutorialProgress", func(user store.UserState) string {
+diff --git a/server/internal/questflow/campaign.go b/server/internal/questflow/campaign.go
+--- a/server/internal/questflow/campaign.go
++++ b/server/internal/questflow/campaign.go
+@@ -3,6 +3,7 @@ package questflow
+ import (
+ 	"lunar-tear/server/internal/campaign"
+ 	"lunar-tear/server/internal/model"
++	"lunar-tear/server/internal/store"
+ )
+ 
+ func (h *QuestHandler) targetForMain(questId int32) campaign.QuestTarget {
+@@ -30,22 +31,22 @@ func (h *QuestHandler) targetForBigHunt(questId int32) campaign.QuestTarget {
+ 	return campaign.QuestTarget{QuestId: questId, QuestType: campaign.QuestTypeBigHunt}
+ }
+ 
+-func (h *QuestHandler) campaignFilter(nowMillis int64) campaign.Filter {
+-	return campaign.Filter{NowMillis: nowMillis, UserStatus: campaign.TargetUserStatusAll}
++func (h *QuestHandler) campaignFilter(user *store.UserState, nowMillis int64) campaign.Filter {
++	return campaign.FilterFor(user, nowMillis)
+ }
+ 
+-func (h *QuestHandler) staminaWithCampaign(baseStamina int32, t campaign.QuestTarget, nowMillis int64) int32 {
++func (h *QuestHandler) staminaWithCampaign(user *store.UserState, baseStamina int32, t campaign.QuestTarget, nowMillis int64) int32 {
+ 	if h.Campaigns == nil {
+ 		return baseStamina
+ 	}
+-	return h.Campaigns.QuestStamina(t, h.campaignFilter(nowMillis)).Apply(baseStamina)
++	return h.Campaigns.QuestStamina(t, h.campaignFilter(user, nowMillis)).Apply(baseStamina)
+ }
+ 
+-func (h *QuestHandler) appendBonusDrops(drops []RewardGrant, t campaign.QuestTarget, nowMillis int64) []RewardGrant {
++func (h *QuestHandler) appendBonusDrops(user *store.UserState, drops []RewardGrant, t campaign.QuestTarget, nowMillis int64) []RewardGrant {
+ 	if h.Campaigns == nil {
+ 		return drops
+ 	}
+-	for _, bd := range h.Campaigns.QuestBonusDrops(t, h.campaignFilter(nowMillis)) {
++	for _, bd := range h.Campaigns.QuestBonusDrops(t, h.campaignFilter(user, nowMillis)) {
+ 		drops = append(drops, RewardGrant{
+ 			PossessionType: model.PossessionType(bd.PossessionType),
+ 			PossessionId:   bd.PossessionId,
+diff --git a/server/internal/service/parts.go b/server/internal/service/parts.go
+--- a/server/internal/service/parts.go
++++ b/server/internal/service/parts.go
+@@ -187,7 +187,7 @@ func (s *PartsServiceServer) Enhance(ctx context.Context, req *pb.PartsEnhanceRe
+ 			PartsId:      part.PartsId,
+ 			PartsGroupId: partDef.PartsGroupId,
+ 			Rarity:       model.RarityType(partDef.RarityType),
+-		}, campaign.Filter{NowMillis: nowMillis, UserStatus: campaign.TargetUserStatusAll}).Apply(baseRate)
++		}, campaign.FilterFor(user, nowMillis)).Apply(baseRate)
+ 
+ 		if rand.Intn(1000) < int(successRate) {
+ 			part.Level++

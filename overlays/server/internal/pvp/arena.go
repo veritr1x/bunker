@@ -142,6 +142,24 @@ func (c *Catalog) Spend(p *store.PvpState, cost int32, now int64) bool {
 	return true
 }
 
+// Recover adds battle points from an item (valueType 1: points, 2: per mille
+// of the maximum), count times. Like stamina items, it can go above the maximum.
+func (c *Catalog) Recover(p *store.PvpState, valueType, value, count int32, now int64) {
+	milli := int32(0)
+	switch valueType {
+	case model.EffectValueFixed:
+		milli = value * 1000
+	case model.EffectValuePermil:
+		milli = value * c.MaxBattlePoint
+	}
+	if milli <= 0 || count <= 0 {
+		return
+	}
+	p.BattlePointMilli = c.BattlePointMilli(p, now) + milli*count
+	p.BattlePointUpdated = now
+	p.LatestVersion = now
+}
+
 // Match offers three computer players: one with fewer points, one about even, one with more.
 func (c *Catalog) Match(p *store.PvpState, ladder *Ladder, r *rand.Rand) {
 	skip := map[int64]bool{}

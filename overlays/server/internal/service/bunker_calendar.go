@@ -142,7 +142,9 @@ func resetRotatingProgress(u *store.UserState) {
 
 	u.Ext.MissionPass = map[int32]store.MissionPassPointState{}
 	u.PremiumItems = map[int32]int64{}
-	u.LoginBonus = store.UserLoginBonusState{}
+	// The stamp cards start again; the everyday card keeps its id.
+	u.LoginBonus = store.UserLoginBonusState{LoginBonusId: u.LoginBonus.LoginBonusId, CurrentPageNumber: 1}
+	u.Ext.EventLoginBonuses = nil
 	u.LabyrinthSeasons = map[int32]store.LabyrinthSeasonState{}
 	u.LabyrinthStages = map[store.LabyrinthStageKey]store.LabyrinthStageState{}
 	u.BigHuntScheduleMaxScores = map[store.BigHuntScheduleScoreKey]store.BigHuntScheduleMaxScore{}

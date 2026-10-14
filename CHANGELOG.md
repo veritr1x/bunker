@@ -5,6 +5,45 @@ Commit ids are in brackets.
 
 ## 2026-10-14
 
+### Server: missing game rules
+- Event login bonuses: with the Original calendar, every dated login bonus
+  card open that day (over a hundred in the game data, for events and
+  anniversaries) takes one stamp a day beside the everyday card, its reward
+  going to the gift box. A new calendar loop starts the cards again (it
+  had also reset the everyday card's id). Not with everything open, where
+  the patched data keeps every card open.
+- Weapon Evolve keeps each ability's level; a new slot starts at 1.
+- Exploration pays by the score's grade (six in the game data): 5 to 30
+  stamina and its reward draws (1, or 11 on hard), each gold or a costume or
+  weapon experience material, larger with the grade. The amounts are chosen
+  here; the game data has the grades, draw counts and ticket costs. Playing
+  with tickets needs enough of them.
+- Labyrinth seasons move on: opening a labyrinth in a new season pays the
+  last season's reward for the furthest stage (the game plays it as the reach
+  reward) and starts the climb again: its quests and stage clear rewards
+  reset; accumulation rewards stay. It no longer showed every milestone.
+- Item shop: an early restock costs the gems the game shows (10, 30, 50 ...
+  500 by refresh of the day); the count starts at 1 each day (the game failed
+  pricing a refresh at 0). The 17 items are the whole lineup in the game data.
+- Beginner and comeback campaigns: a new player who has cleared the first
+  quest gets 7 days of the beginner campaigns; a login after 28 to 30 days
+  away starts the comeback ones (7 or 14 days). Their quest and enhance
+  campaigns now apply, and the game is sent both tables.
+- Arena battle point items (4001-4005 and the recovery shop refill) restore
+  battle points.
+- Chapter summons are real boxes: each chapter's box holds the materials its
+  quests drop (10 of each common, 6 uncommon, 3 rare, 1 of the rarest, its
+  targets), drawn without putting them back; it refills on the 1st of the
+  month (as the game says) and can be reset once the targets are drawn. The
+  Featured Items panel shows the rarest with their counts, and the details
+  page lists the box. The box contents are chosen here (not in the game data).
+- Enhancing a costume or weapon can be a great success (10%, half again the
+  experience; chosen here), with the game's animation.
+- The Summon button shows its "free" badge while a free daily summon is
+  unused.
+- Tests drive handlers with the original game data (BUNKER_TEST_MASTER).
+  [COMMIT]
+
 ### Special Gift Roulette
 The menu's roulette (Global only) gave free gems after a video ad, up to 6
 spins a day. No ad can be shown any more, so the button did nothing, and the

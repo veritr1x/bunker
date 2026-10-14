@@ -297,6 +297,31 @@ td.n{text-align:right;white-space:nowrap}.f{font-weight:bold}.k{color:#6b6758;fo
 		}
 		b.WriteString("</p>")
 	}
+	if len(entry.BoxContents) > 0 {
+		names := map[int32]string{}
+		for _, m := range table[masterdata.EntityMMaterial]("m_material") {
+			names[m.MaterialId] = t.text(fmt.Sprintf("material.name.%d%03d", m.AssetCategoryId, m.AssetVariationId))
+		}
+		total := int32(0)
+		for _, c := range entry.BoxContents {
+			total += c.Count
+		}
+		fmt.Fprintf(&b, "<h2>BOX</h2><p class=k>Each box holds %d items, drawn without putting them back. It refills on the 1st of every month, and can be reset once its targets are drawn.</p><table>", total)
+		for _, c := range entry.BoxContents {
+			name := names[c.PossessionId]
+			if name == "" {
+				name = fmt.Sprintf("Material %d", c.PossessionId)
+			}
+			class := ""
+			if c.IsTarget {
+				class = " class=f"
+			}
+			fmt.Fprintf(&b, "<tr><td%s>%s %s</td><td class=n>×%d</td></tr>", class, stars(c.RarityType), esc(name), c.Count)
+		}
+		b.WriteString("</table></body></html>")
+		writeHTML(w, b.String())
+		return
+	}
 
 	if bp == nil {
 		b.WriteString("<p>This summon gives items from its own list, not the premium pool.</p></body></html>")

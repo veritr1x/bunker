@@ -2,7 +2,9 @@ package masterdata
 
 import (
 	"fmt"
+	"log"
 	"sort"
+	"sync"
 
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
@@ -27,6 +29,7 @@ const (
 // ChapterTicket is one chapter summon: the ticket that pays for it and the
 // main quest chapter whose quests drop the ticket (0 for the ex summon).
 type ChapterTicket struct {
+	Box                []store.GachaBoxContent // the chapter's materials (chapterBox)
 	ConsumableItemId   int32
 	MainQuestChapterId int32
 	UnlockQuestId      int32 // last normal-difficulty quest of the chapter
@@ -117,10 +120,13 @@ func LoadChapterTickets() ([]ChapterTicket, error) {
 	}
 	mainChaptersByTicket := make(map[int32]map[int32]bool)
 	unlockQuestByChapter := make(map[int32]int32)
+	questsByChapter := make(map[int32][]int32)
+	questsByTicket := make(map[int32][]int32) // event quests dropping a ticket, for the ex summon
 	for _, ch := range mainChapters {
 		lastSort := int32(-1)
 		for _, g := range mainGroupRows[ch.MainQuestSequenceGroupId] {
 			for _, s := range mainQuestsBySequence[g.MainQuestSequenceId] {
+				questsByChapter[ch.MainQuestChapterId] = append(questsByChapter[ch.MainQuestChapterId], s.QuestId)
 				for _, t := range ticketsOfQuest(s.QuestId) {
 					if mainChaptersByTicket[t] == nil {
 						mainChaptersByTicket[t] = make(map[int32]bool)
@@ -149,6 +155,7 @@ func LoadChapterTickets() ([]ChapterTicket, error) {
 		for _, seqId := range eventGroupSequences[ch.EventQuestSequenceGroupId] {
 			for _, questId := range eventQuestsBySequence[seqId] {
 				for _, t := range ticketsOfQuest(questId) {
+					questsByTicket[t] = append(questsByTicket[t], questId)
 					prev, seen := eventOnlyEndContents[t]
 					eventOnlyEndContents[t] = (!seen || prev) && ch.EventQuestType == eventQuestTypeEndContents
 				}
@@ -165,7 +172,8 @@ func LoadChapterTickets() ([]ChapterTicket, error) {
 			continue
 		}
 		for chapterId := range chapters {
-			out = append(out, ChapterTicket{ConsumableItemId: t, MainQuestChapterId: chapterId, UnlockQuestId: unlockQuestByChapter[chapterId]})
+			out = append(out, ChapterTicket{ConsumableItemId: t, MainQuestChapterId: chapterId, UnlockQuestId: unlockQuestByChapter[chapterId],
+				Box: chapterBox(questsByChapter[chapterId], pickupDrops, pickupByQuest, dropById)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ConsumableItemId < out[j].ConsumableItemId })
@@ -180,7 +188,8 @@ func LoadChapterTickets() ([]ChapterTicket, error) {
 		}
 	}
 	if len(exTickets) == 1 {
-		out = append(out, ChapterTicket{ConsumableItemId: exTickets[0], AssetName: chapterGachaExAssetName})
+		out = append(out, ChapterTicket{ConsumableItemId: exTickets[0], AssetName: chapterGachaExAssetName,
+			Box: chapterBox(questsByTicket[exTickets[0]], pickupDrops, pickupByQuest, dropById)})
 	}
 	return out, nil
 }
@@ -197,6 +206,7 @@ func chapterGachaEntry(t ChapterTicket) store.GachaCatalogEntry {
 		IsUserGachaUnlock:         true,
 		RelatedMainQuestChapterId: t.MainQuestChapterId,
 		GachaDecorationType:       model.GachaDecorationNormal,
+		BoxContents:               t.Box,
 		SortOrder:                 chapterGachaSortOrderBase + t.MainQuestChapterId,
 		BannerAssetName:           t.AssetName,
 		GroupId:                   gachaId,
@@ -208,4 +218,54 @@ func chapterGachaEntry(t ChapterTicket) store.GachaCatalogEntry {
 		e.UnlockConditionValue = t.UnlockQuestId
 	}
 	return e
+}
+
+// Box contents. Chapter summons gave the materials found in that chapter, from
+// a box that refilled every month; the box itself is not in the game data. A
+// chapter's box holds each material its quests drop, fewer of the rarer ones
+// (chapterBoxCounts by rarity); the rarest are its targets.
+var chapterBoxCounts = map[int32]int32{model.RarityNormal: 10, model.RarityRare: 6, model.RaritySRare: 3, model.RaritySSRare: 1}
+
+var materialRarity = sync.OnceValue(func() map[int32]int32 {
+	rows, err := utils.ReadTable[EntityMMaterial]("m_material")
+	if err != nil {
+		log.Printf("[ChapterGacha] m_material: %v", err)
+	}
+	out := make(map[int32]int32, len(rows))
+	for _, m := range rows {
+		out[m.MaterialId] = m.RarityType
+	}
+	return out
+})
+
+func chapterBox(quests []int32, pickupDrops map[int32][]int32, pickupByQuest map[int32]int32, dropById map[int32]EntityMBattleDropReward) []store.GachaBoxContent {
+	seen := map[int32]bool{}
+	var box []store.GachaBoxContent
+	top := int32(0)
+	for _, q := range quests {
+		for _, id := range pickupDrops[pickupByQuest[q]] {
+			d := dropById[id]
+			if model.PossessionType(d.PossessionType) != model.PossessionTypeMaterial || seen[d.PossessionId] {
+				continue
+			}
+			rarity, ok := materialRarity()[d.PossessionId]
+			count := chapterBoxCounts[rarity]
+			if !ok || count == 0 {
+				continue
+			}
+			seen[d.PossessionId] = true
+			box = append(box, store.GachaBoxContent{PossessionType: d.PossessionType, PossessionId: d.PossessionId, RarityType: rarity, Count: count})
+			top = max(top, rarity)
+		}
+	}
+	for i := range box {
+		box[i].IsTarget = box[i].RarityType == top
+	}
+	sort.Slice(box, func(i, j int) bool {
+		if box[i].RarityType != box[j].RarityType {
+			return box[i].RarityType > box[j].RarityType
+		}
+		return box[i].PossessionId < box[j].PossessionId
+	})
+	return box
 }

@@ -14,6 +14,26 @@ import (
 )
 
 func init() {
+	register("IUserBeginnerCampaign", func(user store.UserState) string {
+		c := user.Ext.Beginner
+		if c.CampaignId == 0 {
+			return "[]"
+		}
+		s, _ := utils.EncodeJSONMaps(map[string]any{
+			"userId": user.UserId, "beginnerCampaignId": c.CampaignId, "campaignRegisterDatetime": c.Datetime, "latestVersion": c.Datetime,
+		})
+		return s
+	})
+	register("IUserComebackCampaign", func(user store.UserState) string {
+		c := user.Ext.Comeback
+		if c.CampaignId == 0 {
+			return "[]"
+		}
+		s, _ := utils.EncodeJSONMaps(map[string]any{
+			"userId": user.UserId, "comebackCampaignId": c.CampaignId, "comebackDatetime": c.Datetime, "latestVersion": c.Datetime,
+		})
+		return s
+	})
 	register("IUserMissionPassPoint", func(user store.UserState) string {
 		ids := sortedKeys(user.Ext.MissionPass)
 		rows := make([]map[string]any, 0, len(ids))
@@ -211,6 +231,12 @@ func bunkerChangedTables(before, after *store.UserState) []string {
 	var out []string
 	if !mapsEqualSimple(before.Ext.MissionPass, after.Ext.MissionPass) {
 		out = append(out, "IUserMissionPassPoint")
+	}
+	if before.Ext.Beginner != after.Ext.Beginner {
+		out = append(out, "IUserBeginnerCampaign")
+	}
+	if before.Ext.Comeback != after.Ext.Comeback {
+		out = append(out, "IUserComebackCampaign")
 	}
 	if before.Ext.DailyGroupReward != after.Ext.DailyGroupReward {
 		out = append(out, "IUserEventQuestDailyGroupCompleteReward")

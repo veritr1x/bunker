@@ -32,6 +32,15 @@ type ExtState struct {
 	// History is the profile's play history counters that are counted
 	// (profile.history.name.NNN -> count; see internal/missions/history.go).
 	History map[int32]int64 `json:"history,omitempty"`
+	// EventLoginBonuses are the stamp cards of dated login bonuses, beside the
+	// everyday one in UserState.LoginBonus.
+	EventLoginBonuses map[int32]UserLoginBonusState `json:"eventLoginBonuses,omitempty"`
+	// Beginner and Comeback are the player's beginner and comeback campaigns
+	// (internal/campaign/status.go).
+	Beginner CampaignJoinState `json:"beginner"`
+	// BoxMonth is, per box summon, the month its box was last refilled.
+	BoxMonth map[int32]int64 `json:"boxMonth,omitempty"`
+	Comeback CampaignJoinState `json:"comeback"`
 	// GrantOverflow is what this request's grants sent to the gift box
 	// (see PossessionGranter.GrantFullAs); never saved.
 	GrantOverflow []GrantOverflow `json:"-"`
@@ -86,6 +95,12 @@ type PvpWeeklyResult struct {
 	GroupId     int32 `json:"groupId"`
 	FinalPoint  int32 `json:"finalPoint"`
 	FinalRank   int32 `json:"finalRank"`
+}
+
+// CampaignJoinState is a beginner or comeback campaign the player joined, and when.
+type CampaignJoinState struct {
+	CampaignId int32 `json:"campaignId,omitempty"`
+	Datetime   int64 `json:"datetime,omitempty"`
 }
 
 type GachaExecState struct {
@@ -151,6 +166,8 @@ func (e ExtState) Clone() ExtState {
 	out.LevelBonusConfirmed = maps.Clone(e.LevelBonusConfirmed)
 	out.CharacterViewerFields = maps.Clone(e.CharacterViewerFields)
 	out.History = maps.Clone(e.History)
+	out.EventLoginBonuses = maps.Clone(e.EventLoginBonuses)
+	out.BoxMonth = maps.Clone(e.BoxMonth)
 	out.GrantOverflow = slices.Clone(e.GrantOverflow)
 	out.Pvp = e.Pvp.Clone()
 	out.Quest = e.Quest.Clone()

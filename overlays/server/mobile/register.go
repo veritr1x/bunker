@@ -35,7 +35,7 @@ func registerServices(
 	pb.RegisterTutorialServiceServer(srv, service.NewTutorialServiceServer(userStore, userStore, holder))
 	pb.RegisterGachaServiceServer(srv, service.NewGachaServiceServer(userStore, userStore, holder))
 	pb.RegisterGiftServiceServer(srv, service.NewGiftServiceServer(userStore, userStore, holder))
-	pb.RegisterGamePlayServiceServer(srv, service.NewGameplayServiceServer())
+	pb.RegisterGamePlayServiceServer(srv, service.NewGameplayServiceServer(userStore, userStore, holder))
 	pb.RegisterGimmickServiceServer(srv, service.NewGimmickServiceServer(userStore, userStore, holder))
 	pb.RegisterQuestServiceServer(srv, service.NewQuestServiceServer(userStore, userStore, holder))
 	pb.RegisterNotificationServiceServer(srv, service.NewNotificationServiceServer(userStore, userStore))
