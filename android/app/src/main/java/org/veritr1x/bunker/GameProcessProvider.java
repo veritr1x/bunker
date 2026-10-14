@@ -80,21 +80,32 @@ public final class GameProcessProvider extends ContentProvider {
      * never plays. No asset is empty, so each folder
      * (files/octo/v1/{app}/{bucket}/{object}) holding an empty file is deleted
      * and the game downloads that asset again.
+     *
+     * This runs while Android starts the game's process, which it kills if
+     * that takes too long (about 10 seconds): sizes are read without following
+     * links (a cached file may be a link to the server's copy on slower shared
+     * storage, and a link is never a half-written download), and the check
+     * stops after 3 seconds on a very large cache.
      */
     private static void dropEmptyCachedAssets(Application app) {
         java.io.File[] apps = new java.io.File(app.getFilesDir(), "octo/v1").listFiles();
         if (apps == null) return;
+        long deadline = android.os.SystemClock.elapsedRealtime() + 3000;
         for (java.io.File appDir : apps) {
             java.io.File[] buckets = appDir.listFiles();
             if (buckets == null) continue;
             for (java.io.File bucket : buckets) {
                 java.io.File[] objects = bucket.listFiles();
                 if (objects == null) continue;
+                if (android.os.SystemClock.elapsedRealtime() > deadline) {
+                    android.util.Log.w("Bunker", "empty cached asset check stopped at " + bucket);
+                    return;
+                }
                 for (java.io.File object : objects) {
                     java.io.File[] files = object.listFiles();
                     if (files == null) continue;
                     for (java.io.File file : files) {
-                        if (file.isFile() && file.length() == 0 && !file.getName().equals(".meta")) {
+                        if (!file.getName().equals(".meta") && isEmptyFile(file)) {
                             android.util.Log.w("Bunker", "dropping empty cached asset " + object.getName());
                             delete(object);
                             break;
@@ -102,6 +113,16 @@ public final class GameProcessProvider extends ContentProvider {
                     }
                 }
             }
+        }
+    }
+
+    private static boolean isEmptyFile(java.io.File file) {
+        try {
+            java.nio.file.attribute.BasicFileAttributes a = java.nio.file.Files.readAttributes(file.toPath(),
+                java.nio.file.attribute.BasicFileAttributes.class, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            return a.isRegularFile() && a.size() == 0;
+        } catch (java.io.IOException e) {
+            return false;
         }
     }
 

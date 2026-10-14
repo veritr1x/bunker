@@ -24,6 +24,13 @@ link to the server's copy.
   storage grew by about 1 GB, the game's own index files and the links.
   iPad: 5,271 cached files linked, 636 MB saved. [e774947]
 
+### Android: Deploy starting the game
+- Deploy failed to start the game most times on a Galaxy Fold: Android
+  stopped the game's process because it took over 10 seconds to start. The
+  check for empty cached files followed each cached file's link to the game
+  files on shared storage; it now reads the links themselves and stops after
+  3 seconds.
+
 ### iOS: start-up after a full download
 - The game no longer gets stopped by iOS while starting once its data is
   fully downloaded. The check for empty cached files read each of the 100,000+
