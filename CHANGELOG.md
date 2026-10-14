@@ -22,7 +22,7 @@ link to the server's copy.
 - Emulator: the 9,811 files already cached (1.3 GB) were linked in 12
   seconds; a full Download Data run then cached 126,975 files (15 GB) while
   storage grew by about 1 GB, the game's own index files and the links.
-  iPad: 5,271 cached files linked, 636 MB saved.
+  iPad: 5,271 cached files linked, 636 MB saved. [e774947]
 
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
