@@ -8,7 +8,7 @@ Commit ids are in brackets.
 ### Pod Programs: Original calendar
 Content › Schedule can replay the live service from global launch (28 July
 2021) instead of keeping everything open. Not yet released; on branch
-calendar.
+calendar. [0441ca9, 5b8ec65, 96faa86, 9d1f01f]
 - **Game data:** events, summons, shops, seasons, missions, login bonuses,
   campaigns and item terms move forward by whole weeks to start at the current
   week. The main story, character lists, collections and the character viewer
@@ -23,21 +23,22 @@ calendar.
   Event items leave the inventory when their term ends. A new loop resets
   event quests, event missions, exchange shop purchases, the mission pass,
   login bonuses, Labyrinth seasons, Big Hunt records and limited summon
-  progress. Big Hunt follows the game clock while the server runs.
+  progress. Big Hunt follows the game clock while the server runs. [9d1f01f]
 - **Speed** is saved with a Save speed button, so scrolling can't change it.
 
 ### Summons
 - NieR:Automata Crossover Vol. 2 (launch and rerun) is offered and gives
-  Vol. 1's Shard (Automata); the server used to skip it.
+  Vol. 1's Shard (Automata); the server used to skip it. [9ef987f]
 - Leftover shards become Medals once, at the medal's conversion date; the
   summon screen shows the conversion once. Before, ended summons added the
-  shards a second time.
+  shards a second time. [5690127, 697593a]
 - The ticket draw takes the Premium Summon Ticket (item 1002), not Gold.
+  [5690127]
 - Each summon's pity ceiling comes from its medal (50, 100, 150 or 200).
 - Summons with a placeholder 2099 row (50, 58) are listed once and open.
 - With the calendar, featured items match catalog terms on original dates.
 - The shard conversion popup is sent until the next game start; the game
-  only shows it when Summons is opened, not when returning to it.
+  only shows it when Summons is opened, not when returning to it. [697593a]
 - Multi-step summons are one summon each, with 7, 5 or 3 steps from the game
   text (5 when unknown).
 - Summons that start together get their own featured items: those their
@@ -51,6 +52,19 @@ calendar.
 - Special summons follow their titles: free summons give one free 10-pull a
   day, "★★★★ guaranteed" ones a single 10-pull with a ★4 for 3000 gems, and
   "paid only" ones take paid gems. Bonus and newcomer summons are left out.
+  [4d9aad6]
+- Every draw carries a medal bonus, even an empty one; free summons hung
+  without it. A draw option that is used up is switched off, so the game
+  can't send a draw the server refuses (that restarted the game). [c6ac175]
+- Summons with shards but no banner row are offered from their exchange
+  shop's opening to two days before the shards convert: 106 weekly
+  summons, 22 paid multi-step summons, Fortune's Dress and Blessed Dress.
+  Pod Programs names them after their shards (e.g. "Weekly Summons B").
+  Five without art are left out. [16179b7]
+- Known issue: on the Android 16 emulator the game can crash (libil2cpp
+  0x257da0c) during the first few summons after starting. A 6 October
+  build without Bunker's display or server changes crashes the same way;
+  the Galaxy Fold doesn't.
 
 ### Story events
 - Chapter 6-4 (Levania's memory): the player could walk past Mama's lines and
