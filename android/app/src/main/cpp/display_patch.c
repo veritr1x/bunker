@@ -28,6 +28,12 @@
 //   applies with any settings too.
 // - Text builder: ArtStringBuilder grows its buffer to fit long text instead of
 //   writing past its end (text_buffer.c). This one applies with any settings too.
+// - Snapping lists (the summon banners): DarkScrollRect.UpdateSnapPosition eases
+//   the list to the chosen row with SmoothDamp and counts it as there within
+//   0.01. Above 30 fps each frame's step is so small that, far down a long list,
+//   it is below the position's float precision: the list stops just short,
+//   keeps a small speed, and IsScrolling stays true, so the Summon buttons
+//   ignore taps. It now counts as there within 1 unit (invisible). Any setting.
 //
 // The RVAs come from the 3.7.1 ARM64 game's IL2CPP metadata. Every site is
 // checked first; on any unknown instruction nothing is changed.
@@ -83,6 +89,9 @@ static int write_word(uint32_t *address, uint32_t value) {
     mprotect(start, page, PROT_READ | PROT_EXEC);
     return 0;
 }
+
+// UpdateSnapPosition: "ldr s0, [x8, #0x18]" (kScrollBorder, 0.01) becomes "fmov s0, #1.0".
+static const Site kSnapArrive = {0x30DF5A0, 0xbd401900u, 0x1e2e1000u};
 
 // Unity's Time accessors, from the same metadata.
 static float (*time_unscaled_delta)(void *method);
@@ -351,6 +360,10 @@ static const char *apply(int fps, int size, char *message, size_t length) {
     uint8_t *base = info.dli_fbase;
     game_library = library;
     hook_roulette_ads(base);
+    uint32_t *snap = (uint32_t *)(base + kSnapArrive.rva);
+    if (*snap == kSnapArrive.original) write_word(snap, kSnapArrive.patched);
+    else if (*snap != kSnapArrive.patched)
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Snapping lists: unsupported game binary; summon buttons can stop answering above 30 fps");
     if (text_buffer_fix(base, write_word))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Text builder: unsupported game binary; long texts can still overrun");
     const struct { uint32_t rva; const uint32_t *original; } hooks[] = {{0x2D5F7A0, kFixedProcessPrologue}, {0x2A6530C, kBattleStepCall},

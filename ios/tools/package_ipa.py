@@ -18,6 +18,7 @@ import subprocess
 import tempfile
 import zipfile
 
+import scroll_snap
 from text_buffer import patch_text_buffer
 
 MH_MAGIC_64 = 0xFEEDFACF
@@ -221,6 +222,8 @@ def main():
         print("Launcher load command", "added" if insert_dylib(executable) else "already present")
         changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework")
         print("Text builder fix:", f"{changed} instructions" if changed else "already applied")
+        changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", scroll_snap.SITES)
+        print("Snapping list fix:", f"{changed} instruction" if changed else "already applied")
         if args.sign_identity:
             sign(app, args.sign_identity, args.profile, work)
             print("Signed for", info["CFBundleIdentifier"] if not args.bundle_id else args.bundle_id)

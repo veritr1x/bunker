@@ -119,3 +119,12 @@ class BunkerVersionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScrollSnapTests(unittest.TestCase):
+    def test_site_is_the_threshold_load(self):
+        import scroll_snap
+        (offset, original, patched), = scroll_snap.SITES
+        self.assertEqual(original & 0xFFFFFFE0, 0xBD401900)  # ldr sN, [x8, #0x18]
+        self.assertEqual(patched & 0xFFFFFFE0, 0x1E2E1000)   # fmov sN, #1.0
+        self.assertEqual(original & 31, patched & 31)
