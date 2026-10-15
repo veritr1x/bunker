@@ -10,7 +10,7 @@ Commit ids are in brackets.
   when upgrading characters and weapons, as their names say, using the
   game's own formula (+20 to +80 per thousand on the usual 10%). The server
   had read them as a small experience bonus (2 to 8%) and left the chance
-  alone. [da50bb5]
+  alone. The server log notes each roll and its chance. [da50bb5, 120704a]
 
 ### Step-up summons
 - Multi-step summons move on and show every step. The game builds the
