@@ -6,6 +6,7 @@ does not download or distribute game files. It never edits the source APK.
 """
 import argparse
 import copy
+import json
 import os
 from pathlib import Path
 import re
@@ -14,6 +15,8 @@ import struct
 import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
+
+import build_info
 
 NS = "http://schemas.android.com/apk/res/android"
 ET.register_namespace("android", NS)
@@ -54,6 +57,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--decoded-dir",type=Path,required=True)
     p.add_argument("--companion-apk",type=Path,required=True)
+    p.add_argument("--game-apk",type=Path,required=True,help="The original game APK (its manifest and dex count go into build.json)")
     p.add_argument("--sdk",type=Path,default=Path(os.environ.get("ANDROID_HOME",str(Path.home()/"Library/Android/sdk"))))
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--keystore",type=Path,required=True)
@@ -108,6 +112,11 @@ def main():
                 dest=game/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(source.read(name))
     notices=game/"assets/lunar";notices.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/"LICENSE",notices/"LUNAR_TEAR_LICENSE.txt")
+    # What an update in place needs (build_info.py): the game's own manifest and dex count.
+    with zipfile.ZipFile(args.game_apk) as original,zipfile.ZipFile(args.companion_apk) as source:
+        game_dex=sum(1 for n in original.namelist() if re.fullmatch(r"classes\d*\.dex",n))
+        (notices/"build.json").write_text(json.dumps(build_info.describe(source,game_dex,args.port_offset),indent=1))
+        (notices/"game-manifest.xml").write_bytes(original.read("AndroidManifest.xml"))
     unsigned=output.with_suffix(".unsigned.apk");merged=output.with_suffix(".merged.apk")
     run("apktool","b",game,"-o",unsigned)
     shutil.copyfile(unsigned,merged)

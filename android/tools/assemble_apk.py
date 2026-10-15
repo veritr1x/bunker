@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import re
@@ -29,6 +30,7 @@ import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import axml  # noqa: E402
+import build_info  # noqa: E402
 from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -236,13 +238,18 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
             for name in sorted(companion.namelist(), key=lambda n: (len(n), n)):
                 if re.fullmatch(r"classes\d*\.dex", name):
                     writer.add("classes%d.dex" % next_dex, companion.read(name)); next_dex += 1
-            ours = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt"}
+            ours = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
+                    "assets/lunar/build.json", "assets/lunar/game-manifest.xml"}
             for name in sorted(companion.namelist()):
                 if name.startswith(("lib/arm64-v8a/", "assets/chaquopy/", "assets/lunar/")) and name not in ours:
                     writer.add(name, companion.read(name))
             writer.add("assets/lunar/" + MASTER, patched_master)
             writer.add("assets/lunar/original-master.bin.e", original_master)
             writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
+            # What an update in place needs (build_info.py).
+            info = build_info.describe(companion, len(dex), port_offset)
+            writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
+            writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
             writer.close()
         os.replace(temporary, output)
     return game_activity

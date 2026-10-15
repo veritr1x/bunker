@@ -58,7 +58,7 @@ def build_android(args, env, python, master, sdk):
         run(python, ROOT / "upstream/lunar-scripts/android/patch_apk.py", decoded,
             "--grpc-addr", grpc, "--http-addr", http, "--auth-host", auth, env=env)
         run(python, ROOT / "android/tools/package_game.py", "--decoded-dir", decoded,
-            "--companion-apk", ROOT / "android/app/build/outputs/apk/debug/app-debug.apk",
+            "--companion-apk", ROOT / "android/app/build/outputs/apk/debug/app-debug.apk", "--game-apk", args.apk,
             "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), "--port-offset", args.port_offset, env=env)
     record_checksum(output)
     print(f"\nReady: {output}\nKeep your signing key: {args.keystore.resolve()}")
