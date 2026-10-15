@@ -46,6 +46,25 @@ final class Updater {
 
     private Updater() {}
 
+    // The update outlives the launcher screen (rotation, unfolding, split screen), so its state
+    // lives here, once per process; MainActivity redraws from it (listener).
+    static volatile Release current;
+    static volatile String status="";
+    static volatile boolean statusFailed;
+    static volatile Runnable listener;
+    private static boolean inProgress,checked;
+    static synchronized boolean begin() { if(inProgress)return false;inProgress=true;return true; }
+    static synchronized void finish() { inProgress=false; }
+    static synchronized boolean updating() { return inProgress; }
+    private static void show(String text,boolean failed) {
+        status=text;statusFailed=failed;
+        new Handler(Looper.getMainLooper()).post(()->{Runnable l=listener;if(l!=null)l.run();});
+    }
+    /** Checks again (the player turned "Check for updates" back on). */
+    static void recheck(Context c,Found found) { synchronized(Updater.class){checked=false;} check(c,found); }
+    /** Test releases (update-test.json) are honoured only by development builds. */
+    static boolean testReleasesAllowed(String version) { return version.contains("+dev"); }
+
     /** Whether release candidate is offered to a build of version current (1.0.0 is not offered to 1.0.0+dev). */
     static boolean newer(String candidate,String current) {
         int[] a=base(candidate),b=base(current);
@@ -92,8 +111,14 @@ final class Updater {
 
     /** Looks for a newer release in the background; calls found on the main thread only if there is one. */
     static void check(Context context,Found found) {
-        if(!enabled(context))return;
         Context c=context.getApplicationContext();
+        synchronized(Updater.class) {
+            if(checked)return;
+            checked=true;
+            // An update the system stopped part-way (or one whose install replaced this process) leaves files behind.
+            if(!inProgress)FilesStore.delete(new File(c.getCacheDir(),"update"));
+        }
+        if(!enabled(c))return;
         new Thread(()->{
             try {
                 JSONObject release=new JSONObject(get(latestUrl(c)));
@@ -111,7 +136,7 @@ final class Updater {
                     bundleUrl=assets.getJSONObject(i).getString("browser_download_url");
                 Release r=new Release();r.version=version;r.notes=release.optString("html_url",WEB_BUILDER);r.update=update;r.bundleUrl=bundleUrl;
                 r.offer=bundleUrl==null?Offer.WEB_BUILDER:offer(update,BuildConfig.BUNKER_VERSION,installedBuild(c),bunkerKey(c));
-                if(r.offer!=Offer.NONE)new Handler(Looper.getMainLooper()).post(()->found.found(r));
+                if(r.offer!=Offer.NONE){current=r;new Handler(Looper.getMainLooper()).post(()->found.found(r));}
             } catch(Exception ignored) {
                 // Offline, rate-limited or an unexpected reply: say nothing until the next time the launcher opens.
             }
@@ -119,13 +144,13 @@ final class Updater {
     }
 
     /**
-     * For testing an update before a release exists: files/tools/update-test.json
-     * ({"latest": "http://10.0.2.2:8000/latest.json"}) replaces GitHub. The file is
-     * in the app's private storage, so only a developer (adb as root) can add it.
+     * For testing an update before a release exists: in a development build (+dev),
+     * files/tools/update-test.json ({"latest": "http://10.0.2.2:8000/latest.json"})
+     * replaces GitHub. The file is in the app's private storage (adb as root).
      */
     private static String latestUrl(Context c) {
         File test=new File(new File(c.getFilesDir(),"tools"),"update-test.json");
-        try{if(test.isFile())return new JSONObject(new String(read(new FileInputStream(test)),StandardCharsets.UTF_8)).getString("latest");}
+        try{if(testReleasesAllowed(BuildConfig.BUNKER_VERSION)&&test.isFile())return new JSONObject(new String(read(new FileInputStream(test)),StandardCharsets.UTF_8)).getString("latest");}
         catch(Exception ignored){}
         return LATEST;
     }
@@ -135,7 +160,19 @@ final class Updater {
      * stops Lunar Tear and Pod Programs before the installer opens. Messages go to
      * report; a failure ends with failed(message) and leaves the installed app as it was.
      */
-    static Thread apply(Activity activity,Release r,Reporter report,Runnable stopGame,Reporter failed,boolean[] cancelled) {
+    static volatile boolean cancelled;
+
+    /**
+     * Downloads, builds and installs the release on a background thread (one at a time).
+     * stopGame stops Lunar Tear and Pod Programs; the installer opens only once both
+     * have stopped. Progress and failures go to status (and the listener); a failure
+     * leaves the installed app as it was.
+     */
+    static boolean apply(Activity activity,Release r,Runnable stopGame) {
+        if(!begin())return false;
+        cancelled=false;
+        Reporter report=text->show(text,false);
+        Context app=activity.getApplicationContext();
         Thread t=new Thread(()->{
             File work=new File(activity.getCacheDir(),"update");
             try {
@@ -143,29 +180,39 @@ final class Updater {
                 if(new StatFs(activity.getCacheDir().getPath()).getAvailableBytes()<SPACE)
                     throw new IOException("Updating needs about 350 MB free. Free some space and try again.");
                 File bundle=new File(work,"bundle.zip");
-                download(r.bundleUrl,bundle,r.update.getJSONObject("assets").getJSONObject("android").optLong("size",-1),report,cancelled);
-                if(cancelled[0])throw new IOException("Update cancelled.");
+                download(r.bundleUrl,bundle,r.update.getJSONObject("assets").getJSONObject("android").optLong("size",-1),report);
+                if(cancelled)throw new IOException("Update cancelled.");
                 File key=new File(work,"bunker-key.pem"),cert=new File(work,"bunker-cert.der");
                 copyAsset(activity,"lunar/signing/bunker-key.pem",key);copyAsset(activity,"lunar/signing/bunker-cert.der",cert);
                 if(!Python.isStarted())Python.start(new AndroidPlatform(activity));
                 String apk=Python.getInstance().getModule("bunker_update").callAttr("build_android",activity.getPackageCodePath(),bundle.getAbsolutePath(),
                     r.update.getJSONObject("assets").getJSONObject("android").getString("sha256"),work.getAbsolutePath(),key.getAbsolutePath(),cert.getAbsolutePath(),report).toString();
                 bundle.delete();
-                if(cancelled[0])throw new IOException("Update cancelled.");
-                report.report("Stopping Lunar Tear…");
-                activity.runOnUiThread(stopGame);
-                for(int i=0;i<60&&!new JSONObject(NativeBridge.status()).optString("state").matches("stopped|error|");i++)Thread.sleep(250);
+                if(cancelled)throw new IOException("Update cancelled.");
+                report.report("Stopping Lunar Tear and Pod Programs…");
+                new Handler(Looper.getMainLooper()).post(stopGame);
+                // Pod Programs may be finishing an edit (up to two minutes); never install over it.
+                for(int i=0;i<600&&!stopped();i++)Thread.sleep(250);
+                if(!stopped())throw new IOException("Pod Programs is still saving. Close it, wait a moment and try again.");
                 report.report("Opening the installer…");
                 install(activity,new File(apk));
+                // The installer's answer arrives in MainActivity (installResult), which ends the update.
             } catch(Throwable e) {
                 FilesStore.delete(work);
+                finish();
                 String message=e.getMessage()==null?e.toString():e.getMessage();
                 // Python errors arrive as "RuntimeError: <message>".
-                failed.report(message.replaceFirst("^[A-Za-z]*Error: ",""));
+                show(message.replaceFirst("^[A-Za-z]*Error: ",""),true);
             }
         },"update");
         t.start();
-        return t;
+        return true;
+    }
+
+    /** Lunar Tear is stopped and Pod Programs is closed (both run in this process). */
+    private static boolean stopped() {
+        try{return new JSONObject(NativeBridge.status()).optString("state").matches("stopped|error|")&&ToolsRuntime.url.isEmpty();}
+        catch(Exception e){return false;}
     }
 
     private static void install(Activity activity,File apk) throws IOException {
@@ -191,12 +238,13 @@ final class Updater {
             if(confirm!=null){activity.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));return null;}
         }
         FilesStore.delete(new File(activity.getCacheDir(),"update"));
+        finish();
         if(status==PackageInstaller.STATUS_SUCCESS)return null;
         String message=intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
         return status==PackageInstaller.STATUS_FAILURE_ABORTED?"Update cancelled.":"The update could not be installed"+(message==null?".":": "+message);
     }
 
-    private static void download(String url,File target,long size,Reporter report,boolean[] cancelled) throws IOException {
+    private static void download(String url,File target,long size,Reporter report) throws IOException {
         HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
         c.setConnectTimeout(15000);c.setReadTimeout(30000);
         try(InputStream in=c.getInputStream();OutputStream out=new FileOutputStream(target)) {
@@ -204,7 +252,7 @@ final class Updater {
             long total=size>0?size:c.getContentLengthLong(),done=0;int last=-1;
             byte[] buffer=new byte[1<<16];int n;
             while((n=in.read(buffer))>0) {
-                if(cancelled[0])return;
+                if(cancelled)return;
                 out.write(buffer,0,n);done+=n;
                 int percent=total>0?(int)(done*100/total):-1;
                 if(percent!=last){last=percent;report.report(percent>=0?"Downloading "+percent+"%":"Downloading…");}

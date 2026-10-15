@@ -227,6 +227,13 @@ func checkSave(p string, game bool) error {
 		os.Remove(p + "-shm")
 	}()
 	if game {
+		// A save a newer Bunker already updated can't be opened here (update_guard.go).
+		var table string
+		if db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='goose_db_version'`).Scan(&table) == nil {
+			if e = refuseNewerSave(db, ""); e != nil {
+				return e
+			}
+		}
 		if e = migrations.Up(context.Background(), db); e != nil {
 			return fmt.Errorf("cannot be updated: %w", e)
 		}

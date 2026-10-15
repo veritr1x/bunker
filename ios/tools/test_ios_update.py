@@ -32,6 +32,8 @@ class BuildIpaTests(unittest.TestCase):
         write(self.app / "Frameworks/UnityFramework.framework/_CodeSignature/CodeResources", "sig")
         write(self.app / "Frameworks/LunarTear.framework/LunarTear", "old launcher")
         write(self.app / "Frameworks/LunarTear.framework/build.json", '{"version": "1.0.0", "gamePatch": 1}')
+        write(self.app / "Frameworks/LunarTear.framework/20240404193219.bin.e", "patched master")
+        write(self.app / "Frameworks/LunarTear.framework/original-master.bin.e", "original master")
         write(self.app / "Frameworks/Python.framework/Python", "old python")
         write(self.app / "Frameworks/old.module.framework/old.module", "old module")
         write(self.app / "Frameworks/old.module.framework/old.module.origin", "python/x.fwork")
@@ -78,6 +80,19 @@ class BuildIpaTests(unittest.TestCase):
         self.assertEqual(info["BunkerVersion"], "1.1.0")
         self.assertEqual(info["CFBundleIdentifier"], "org.example.nier")
         self.assertEqual(info["LunarPortOffset"], 3)
+
+    def test_master_data_stays(self):
+        # Release bundles never hold master data; the player's own copy stays in the framework.
+        self.build()
+        with zipfile.ZipFile(self.output) as z:
+            framework = "Payload/NieR.app/Frameworks/LunarTear.framework/"
+            self.assertEqual(z.read(framework + "20240404193219.bin.e"), b"patched master")
+            self.assertEqual(z.read(framework + "original-master.bin.e"), b"original master")
+
+    def test_leftover_partial_is_removed_on_failure(self):
+        with self.assertRaises(RuntimeError):
+            self.build(sha_python="0" * 64)
+        self.assertFalse(self.output.with_name(self.output.name + ".partial").exists())
 
     def test_damaged_download_is_refused(self):
         with self.assertRaisesRegex(RuntimeError, "damaged"):

@@ -30,4 +30,19 @@ public final class UpdaterTest extends InstrumentationTestCase {
         assertEquals(Updater.Offer.WEB_BUILDER,Updater.offer(update("1.0.1",1),"0.1.0",null,true));
         assertEquals(Updater.Offer.OWN_KEY,Updater.offer(update("1.0.1",1),"1.0.0",build(1),false));
     }
+
+    public void testOneUpdateAtATime() {
+        Updater.finish();
+        assertTrue(Updater.begin());
+        assertFalse(Updater.begin());
+        Updater.finish();
+        assertTrue(Updater.begin());
+        Updater.finish();
+    }
+
+    public void testTestReleasesOnlyInDevBuilds() {
+        assertTrue(Updater.testReleasesAllowed("1.0.1+dev.abc1234"));
+        assertTrue(Updater.testReleasesAllowed("1.0.1+dev"));
+        assertFalse(Updater.testReleasesAllowed("1.0.1"));
+    }
 }

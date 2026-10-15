@@ -891,8 +891,9 @@ static NSDictionary *InstalledBuild(void) {
     return data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
 }
 
-/** For testing before a release exists: Documents/update-test.json ({"latest": "http://mac:8000/latest.json"}) replaces GitHub. */
+/** For testing before a release exists, in a development build (+dev) only: Documents/update-test.json ({"latest": "http://mac:8000/latest.json"}) replaces GitHub. */
 static NSString *LatestReleaseURL(void) {
+    if (![BunkerVersion() containsString:@"+dev"]) return kLatestRelease;
     NSString *test = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject stringByAppendingPathComponent:@"update-test.json"];
     NSData *data = [NSData dataWithContentsOfFile:test];
     NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
@@ -1239,6 +1240,10 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 - (void)removeOldUpdates {
     NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
     for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:documents error:nil]) {
+        if ([name hasPrefix:@"Bunker-"] && [name hasSuffix:@".ipa.partial"]) {  // a build iOS stopped part-way
+            [NSFileManager.defaultManager removeItemAtPath:[documents stringByAppendingPathComponent:name] error:nil];
+            continue;
+        }
         if (![name hasPrefix:@"Bunker-"] || ![name hasSuffix:@".ipa"]) continue;
         NSString *version = [name substringWithRange:NSMakeRange(7, name.length - 11)];
         if (!VersionNewer(version, BunkerVersion())) [NSFileManager.defaultManager removeItemAtPath:[documents stringByAppendingPathComponent:name] error:nil];

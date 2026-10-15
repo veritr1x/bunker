@@ -3,6 +3,7 @@ package mobile
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -62,20 +63,15 @@ func upSaveDatabase(ctx context.Context, db *sql.DB, dataRoot, version string) e
 // migration history yet) needs neither.
 func prepareSaveDatabase(db *sql.DB, dataRoot, backups, version string) error {
 	var table string
-	if db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='goose_db_version'`).Scan(&table) != nil {
+	switch err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='goose_db_version'`).Scan(&table); {
+	case errors.Is(err, sql.ErrNoRows):
 		return nil
-	}
-	var applied sql.NullInt64
-	if err := db.QueryRow(`SELECT MAX(version_id) FROM goose_db_version WHERE is_applied = 1`).Scan(&applied); err != nil {
-		return fmt.Errorf("read the save's version: %w", err)
+	case err != nil:
+		return fmt.Errorf("read the save: %w", err)
 	}
 	recorded := savedBunkerVersion(dataRoot)
-	if applied.Valid && applied.Int64 > newestKnownMigration() {
-		made := recorded
-		if made == "" {
-			made = "unknown version"
-		}
-		return fmt.Errorf("This save was made by a newer Bunker (%s). Install that version or newer, or restore a snapshot in Pod Programs.", made)
+	if err := refuseNewerSave(db, recorded); err != nil {
+		return err
 	}
 	if recorded == version {
 		return nil
@@ -94,6 +90,22 @@ func prepareSaveDatabase(db *sql.DB, dataRoot, backups, version string) error {
 		return fmt.Errorf("snapshot before update: %w", err)
 	}
 	pruneUpdateSnapshots(backups)
+	return nil
+}
+
+// refuseNewerSave fails for a save that a newer Bunker already migrated
+// (made is that version, if known), so this build never opens it.
+func refuseNewerSave(db *sql.DB, made string) error {
+	var applied sql.NullInt64
+	if err := db.QueryRow(`SELECT MAX(version_id) FROM goose_db_version WHERE is_applied = 1`).Scan(&applied); err != nil {
+		return fmt.Errorf("read the save's version: %w", err)
+	}
+	if applied.Valid && applied.Int64 > newestKnownMigration() {
+		if made == "" {
+			made = "unknown version"
+		}
+		return fmt.Errorf("This save was made by a newer Bunker (%s). Install that version or newer, or restore a snapshot in Pod Programs.", made)
+	}
 	return nil
 }
 

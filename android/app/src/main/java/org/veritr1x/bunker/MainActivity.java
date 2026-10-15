@@ -28,14 +28,10 @@ public final class MainActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,detail,files,ports,save,progressText;
     private Button assetButton,play,pods,archive;
-    // Updates (Updater.java): checked once per process when the launcher opens.
-    private static boolean updateChecked;
+    // Updates (Updater.java keeps their state, so it survives the screen being recreated).
     private LinearLayout updatePanel;
     private TextView updateText;
     private Button updateButton;
-    private Updater.Release release;
-    private final boolean[] updateCancelled={false};
-    private boolean updating;
     private ProgressBar progress;
     private Look.Segments bar;
     private int permille=-1;
@@ -99,10 +95,10 @@ public final class MainActivity extends Activity {
         // [ UPDATE ]: shown when a newer Bunker is released.
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
         updateText=look.monoText("",12,look.ink);LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,-2);up.setMargins(0,dp(6),0,dp(12));updatePanel.addView(updateText,up);
-        updateButton=look.solid("UPDATE");updateButton.setOnClickListener(v->{if(updating)updateCancelled[0]=true;else startUpdate();});
+        updateButton=look.solid("UPDATE");updateButton.setOnClickListener(v->{if(Updater.updating())Updater.cancelled=true;else startUpdate();});
         LinearLayout.LayoutParams ub=new LinearLayout.LayoutParams(-1,dp(48));ub.setMargins(0,0,0,dp(6));updatePanel.addView(updateButton,ub);
         LinearLayout links=new LinearLayout(this);
-        Button notes=look.outlined("WHAT'S NEW");notes.setTextSize(12);notes.setOnClickListener(v->{if(release!=null)openUrl(release.notes);});
+        Button notes=look.outlined("WHAT'S NEW");notes.setTextSize(12);notes.setOnClickListener(v->{if(Updater.current!=null)openUrl(Updater.current.notes);});
         Button web=look.outlined("WEB BUILDER");web.setTextSize(12);web.setOnClickListener(v->openUrl(Updater.WEB_BUILDER));
         LinearLayout.LayoutParams lw=new LinearLayout.LayoutParams(0,dp(44),1);lw.setMargins(0,0,dp(6),dp(6));links.addView(notes,lw);
         links.addView(web,new LinearLayout.LayoutParams(0,dp(44),1));
@@ -154,14 +150,15 @@ public final class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},20);
         try{FilesStore.recover(this);}catch(Exception e){serverDetail=e.getMessage();}
         new Thread(()->{try{FilesStore.ensureBootstrap(this);}catch(Exception ignored){}runOnUiThread(()->{last="";refresh();});},"bootstrap").start();
-        if(Updater.INSTALL_RESULT.equals(getIntent().getAction())){String message=Updater.installResult(this,getIntent());if(message!=null)updateFailed(message);}
+        if(state==null&&Updater.INSTALL_RESULT.equals(getIntent().getAction())){Intent result=getIntent();setIntent(new Intent());String message=Updater.installResult(this,result);if(message!=null)updateFailed(message);}
     }
     @Override public void onResume(){super.onResume();foreground=true;
-        if(!updateChecked){updateChecked=true;Updater.check(this,this::showRelease);}
+        Updater.listener=this::renderUpdate;renderUpdate();Updater.check(this,r->renderUpdate());
         if(awaitingAccess){awaitingAccess=false;if(FilesStore.canUseInPlace())chooseFolder(LINK);}bound=bindService(new Intent(this,ServerService.class),connection,BIND_AUTO_CREATE);handler.post(tick);}
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);
         if(Updater.INSTALL_RESULT.equals(intent.getAction())){
+            setIntent(new Intent());  // handled once, not again if the screen is recreated
             String message=Updater.installResult(this,intent);
             if(message!=null)updateFailed(message);
             return;
@@ -170,7 +167,7 @@ public final class MainActivity extends Activity {
         autoAttempted=manage;launchWhenReady=!manage;
         query(1);
     }
-    @Override public void onPause(){foreground=false;handler.removeCallbacks(tick);if(bound){unbindService(connection);bound=false;service=null;}super.onPause();}
+    @Override public void onPause(){foreground=false;Updater.listener=null;handler.removeCallbacks(tick);if(bound){unbindService(connection);bound=false;service=null;}super.onPause();}
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("attempted",autoAttempted);out.putBoolean("launch",launchWhenReady);super.onSaveInstanceState(out);}
     private void refresh(){
         boolean hasAssets=FilesStore.list(this).length()>0,hasMaster=FilesStore.master(this).length()>0,ready=hasAssets&&hasMaster;
@@ -303,7 +300,7 @@ public final class MainActivity extends Activity {
     private void onOption(int id){
         switch(id){
             case 12: chooseDisplay();break;
-            case 13: Updater.enabled(this,!Updater.enabled(this));if(Updater.enabled(this)){updateChecked=true;Updater.check(this,this::showRelease);}break;
+            case 13: Updater.enabled(this,!Updater.enabled(this));if(Updater.enabled(this))Updater.recheck(this,r->renderUpdate());break;
             case 1: autoAttempted=true;launchWhenReady=false;run(ServerService.STOP,null);break;
             case 2: {Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,MASTER);break;}
             case 3: {Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);i.putExtra(Intent.EXTRA_TITLE,"lunar-tear-saves-"+new SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");startActivityForResult(i,BACKUP);break;}
@@ -326,7 +323,8 @@ public final class MainActivity extends Activity {
     }
     private void run(String action,Uri uri){
         Intent intent=new Intent(this,ServerService.class).setAction(action);if(uri!=null)intent.setData(uri);
-        if(ServerService.STOP.equals(action))startService(intent);else startForegroundService(intent);
+        // Stopping never puts the service in the foreground, so it must not be started as a foreground service.
+        if(ServerService.STOP.equals(action)||ServerService.CLOSE_TOOLS.equals(action))startService(intent);else startForegroundService(intent);
     }
     private void openGame(){
         Intent intent=null;
@@ -342,33 +340,38 @@ public final class MainActivity extends Activity {
     private void openUrl(String url){
         try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException ignored){}
     }
-    private void showRelease(Updater.Release r){
-        release=r;updatePanel.setVisibility(View.VISIBLE);
+    /** Draws the update panel from Updater's state: the release, and the update's progress or failure. */
+    private void renderUpdate(){
+        Updater.Release r=Updater.current;
+        if(r==null){updatePanel.setVisibility(View.GONE);return;}
+        updatePanel.setVisibility(View.VISIBLE);
+        boolean running=Updater.updating();
         String text="Bunker "+r.version+" is available.";
         if(r.offer==Updater.Offer.WEB_BUILDER)text+="\n> This update needs the web builder.";
         else if(r.offer==Updater.Offer.OWN_KEY)text+="\n> Signed with your own key: rebuild with the web builder.";
+        if(running&&!Updater.status.isEmpty())text=Updater.status;
+        else if(Updater.statusFailed)text+="\n> "+Updater.status+"\n> You can also rebuild with the web builder.";
         updateText.setText(text);
-        updateButton.setText("UPDATE TO "+r.version);
+        updateText.setTextColor(Updater.statusFailed&&!running?look.alert:look.ink);
+        updateButton.setText(running?"CANCEL":"UPDATE TO "+r.version);
         updateButton.setVisibility(r.offer==Updater.Offer.UPDATE?View.VISIBLE:View.GONE);
     }
     private void startUpdate(){
-        if(release==null)return;
+        if(Updater.current==null)return;
         if(!getPackageManager().canRequestPackageInstalls()){
             dialog().setTitle("Allow updates").setMessage("To install the update, allow NieR to install apps. Turn on the switch, then come back and tap Update again.")
                 .setPositiveButton("Open Settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
                 .setNegativeButton("Cancel",null).show();
             return;
         }
-        updating=true;updateCancelled[0]=false;updateButton.setText("CANCEL");
-        Updater.apply(this,release,message->runOnUiThread(()->{if(updating)updateText.setText(message);}),
-            ()->{run(ServerService.CLOSE_TOOLS,null);run(ServerService.STOP,null);},
-            message->runOnUiThread(()->updateFailed(message)),updateCancelled);
+        Updater.status="";Updater.statusFailed=false;
+        Context app=getApplicationContext();
+        if(Updater.apply(this,Updater.current,()->{
+            for(String action:new String[]{ServerService.CLOSE_TOOLS,ServerService.STOP})app.startService(new Intent(app,ServerService.class).setAction(action));
+        }))renderUpdate();
     }
     private void updateFailed(String message){
-        updating=false;
-        if(release!=null)showRelease(release);
-        updateText.setText(updateText.getText()+"\n> "+message+"\n> You can also rebuild with the web builder.");
-        updateText.setTextColor(look.alert);
+        Updater.status=message;Updater.statusFailed=true;renderUpdate();
     }
     private void help(){
         dialog().setTitle("Help").setMessage("This is the Bunker. Lunar Tear is the game's server, running on this phone.\n\nChoose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. When your files are ready, Lunar Tear starts and Deploy opens the game.\n\nTap the Lunar Tear notification to return here. Stop Lunar Tear from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage. Import save backup restores one, from this phone, another phone or an iPhone. Pod Programs edits your save and chooses events.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")

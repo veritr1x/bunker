@@ -148,3 +148,34 @@ func TestRefusesNewerDatabase(t *testing.T) {
 		t.Fatalf("a refusal must not snapshot, got %d", n)
 	}
 }
+
+func TestImportRefusesSaveFromNewerBunker(t *testing.T) {
+	Stop()
+	root := t.TempDir()
+	saves, backup := filepath.Join(root, "saves"), filepath.Join(root, "backup")
+	newSaves(t, saves, "this-device", 1)
+	newSaves(t, backup, "this-device", 2)
+	db, err := database.Open(filepath.Join(backup, "game.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Exec(`INSERT INTO goose_db_version (version_id, is_applied) VALUES (99991231000000, 1)`)
+	database.Checkpoint(db)
+	db.Close()
+	if e := ImportSaves(saves, filepath.Join(backup, "game.db")); !strings.Contains(e, "newer Bunker") {
+		t.Fatalf("want a refusal, got %q", e)
+	}
+	if got := player(t, saves); got != "this-device/1" {
+		t.Fatalf("the current save was replaced: %q", got)
+	}
+}
+
+func TestQueryErrorIsNotANewPlayer(t *testing.T) {
+	data, bak := t.TempDir(), t.TempDir()
+	db := openSave(t, data)
+	migrations.Up(context.Background(), db)
+	db.Close() // every query now fails
+	if err := prepareSaveDatabase(db, data, bak, "1.0.0"); err == nil {
+		t.Fatal("a database that can't be read was treated as a new player")
+	}
+}

@@ -18,9 +18,10 @@ on:
 permissions:
   contents: read
 
+# Pushes cancel older push builds; a publish (by hand or from release.yml) is never cancelled by a push.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   android:

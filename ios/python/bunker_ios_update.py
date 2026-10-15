@@ -34,7 +34,10 @@ def _replaced(relative, python_frameworks):
         return True
     if parts[0] == "python":
         return True
-    if len(parts) >= 2 and parts[0] == "Frameworks" and (parts[1] == "LunarTear.framework" or parts[1] in python_frameworks):
+    if len(parts) >= 2 and parts[0] == "Frameworks" and parts[1] == "LunarTear.framework":
+        # The player's master data stays: release bundles never contain it.
+        return not relative.name.endswith(".bin.e")
+    if len(parts) >= 2 and parts[0] == "Frameworks" and parts[1] in python_frameworks:
         return True
     return False
 
