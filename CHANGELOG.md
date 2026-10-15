@@ -5,6 +5,14 @@ Commit ids are in brackets.
 
 ## 2026-10-15
 
+### Summons
+- Fixed the crash after summoning (often on Summon Again, a few minutes
+  after starting the game), on Android and iOS. The game's text builder
+  makes its buffer only twice as big when text doesn't fit, so a long
+  text (the summon confirmation's "Available for purchase until") ran past
+  its end and damaged another game text; the game then crashed while
+  freeing unused assets. Long texts now always fit. [0f82f23]
+
 ### Chapter summons
 - A chapter summon appears in Summons only once its chapter's quest is
   cleared, as in the original game. The game never reads the server's lock
