@@ -2170,7 +2170,12 @@ diff --git a/server/internal/service/costume.go b/server/internal/service/costum
  	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
  		costume, ok := user.Costumes[req.UserCostumeUuid]
  		if !ok {
-@@ -55,7 +53,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+@@ -51,11 +49,11 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+ 			return
+ 		}
+ 
+-		expBonus := cat.Campaign.CostumeExpBonus(campaign.CostumeTarget{
++		greatRate := cat.Campaign.CostumeGreatSuccessBonus(campaign.CostumeTarget{
  			CostumeId:          costume.CostumeId,
  			CharacterId:        cm.CharacterId,
  			SkillfulWeaponType: cm.SkillfulWeaponType,
@@ -2179,11 +2184,20 @@ diff --git a/server/internal/service/costume.go b/server/internal/service/costum
  
  		totalExp := int32(0)
  		totalMaterialCount := int32(0)
+@@ -78,7 +76,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
+ 			if mat.WeaponType != 0 && mat.WeaponType == cm.SkillfulWeaponType {
+ 				expPerUnit = expPerUnit * config.MaterialSameWeaponExpCoefficientPermil / 1000
+ 			}
+-			totalExp += expBonus.Apply(expPerUnit * count)
++			totalExp += expPerUnit * count
+ 		}
+ 
+ 		if costFunc, ok := catalog.EnhanceCostByRarity[cm.RarityType]; ok && totalMaterialCount > 0 {
 @@ -87,6 +85,7 @@ func (s *CostumeServiceServer) Enhance(ctx context.Context, req *pb.EnhanceReque
  			log.Printf("[CostumeService] Enhance: gold cost=%d (materials=%d)", goldCost, totalMaterialCount)
  		}
  
-+		totalExp, great = rollGreatSuccess(totalExp, greatSuccessRand)
++		totalExp, great = rollGreatSuccess(totalExp, greatRate.Apply(greatSuccessBasePermil), greatSuccessRand)
  		costume.Exp += totalExp
  
  		if thresholds, ok := catalog.ExpByRarity[cm.RarityType]; ok {
@@ -4873,7 +4887,12 @@ diff --git a/server/internal/service/weapon.go b/server/internal/service/weapon.
  	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
  		weapon, ok := user.Weapons[req.UserWeaponUuid]
  		if !ok {
-@@ -96,7 +97,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+@@ -92,11 +93,11 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+ 			return
+ 		}
+ 
+-		expBonus := cat.Campaign.WeaponExpBonus(campaign.WeaponTarget{
++		greatRate := cat.Campaign.WeaponGreatSuccessBonus(campaign.WeaponTarget{
  			WeaponId:      weapon.WeaponId,
  			WeaponType:    wm.WeaponType,
  			AttributeType: wm.AttributeType,
@@ -4882,11 +4901,20 @@ diff --git a/server/internal/service/weapon.go b/server/internal/service/weapon.
  
  		totalExp := int32(0)
  		totalMaterialCount := int32(0)
+@@ -119,7 +120,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
+ 			if mat.WeaponType != 0 && mat.WeaponType == wm.WeaponType {
+ 				expPerUnit = expPerUnit * config.MaterialSameWeaponExpCoefficientPermil / 1000
+ 			}
+-			totalExp += expBonus.Apply(expPerUnit * count)
++			totalExp += expPerUnit * count
+ 		}
+ 
+ 		if costFunc, ok := catalog.GoldCostByEnhanceId[wm.WeaponSpecificEnhanceId]; ok && totalMaterialCount > 0 {
 @@ -128,6 +129,7 @@ func (s *WeaponServiceServer) EnhanceByMaterial(ctx context.Context, req *pb.Enh
  			log.Printf("[WeaponService] EnhanceByMaterial: gold cost=%d (materials=%d)", goldCost, totalMaterialCount)
  		}
  
-+		totalExp, great = rollGreatSuccess(totalExp, greatSuccessRand)
++		totalExp, great = rollGreatSuccess(totalExp, greatRate.Apply(greatSuccessBasePermil), greatSuccessRand)
  		weapon.Exp += totalExp
  		levelingEnhanceId := catalog.LevelingEnhanceIdByWeaponId[weapon.WeaponId]
  		if thresholds, ok := catalog.ExpByEnhanceId[levelingEnhanceId]; ok {
@@ -4930,7 +4958,12 @@ diff --git a/server/internal/service/weapon.go b/server/internal/service/weapon.
  	_, err := s.users.UpdateUser(userId, func(user *store.UserState) {
  		weapon, ok := user.Weapons[req.UserWeaponUuid]
  		if !ok {
-@@ -708,7 +720,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+@@ -704,11 +716,11 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+ 			return
+ 		}
+ 
+-		expBonus := cat.Campaign.WeaponExpBonus(campaign.WeaponTarget{
++		greatRate := cat.Campaign.WeaponGreatSuccessBonus(campaign.WeaponTarget{
  			WeaponId:      weapon.WeaponId,
  			WeaponType:    wm.WeaponType,
  			AttributeType: wm.AttributeType,
@@ -4939,11 +4972,20 @@ diff --git a/server/internal/service/weapon.go b/server/internal/service/weapon.
  
  		totalExp := int32(0)
  		consumedCount := int32(0)
+@@ -730,7 +742,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
+ 			if matMaster.WeaponType != 0 && matMaster.WeaponType == wm.WeaponType {
+ 				baseExp = baseExp * config.MaterialSameWeaponExpCoefficientPermil / 1000
+ 			}
+-			totalExp += expBonus.Apply(baseExp)
++			totalExp += baseExp
+ 
+ 			if medals, ok := catalog.MedalsByWeaponId[matWeapon.WeaponId]; ok {
+ 				for itemId, count := range medals {
 @@ -751,6 +763,7 @@ func (s *WeaponServiceServer) EnhanceByWeapon(ctx context.Context, req *pb.Enhan
  			log.Printf("[WeaponService] EnhanceByWeapon: gold cost=%d (weapons=%d)", goldCost, consumedCount)
  		}
  
-+		totalExp, great = rollGreatSuccess(totalExp, greatSuccessRand)
++		totalExp, great = rollGreatSuccess(totalExp, greatRate.Apply(greatSuccessBasePermil), greatSuccessRand)
  		weapon.Exp += totalExp
  		levelingEnhanceId := catalog.LevelingEnhanceIdByWeaponId[weapon.WeaponId]
  		if thresholds, ok := catalog.ExpByEnhanceId[levelingEnhanceId]; ok {
