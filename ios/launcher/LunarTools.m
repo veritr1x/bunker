@@ -117,6 +117,18 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
     return url && token && (*url).length ? @"" : @"Tools could not start";
 }
 
+NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,
+                        NSString *output, void (^progress)(NSString *text)) {
+    gProgress = progress;
+    if (progress) progress(gPythonReady ? @"Building…" : @"Starting Python…");
+    NSString *error = LoadPython();
+    if (error.length) { gProgress = nil; return error; }
+    NSDictionary *result = CallRuntime(@"build_ipa_update", @[app, frameworkZip, pythonZip, shaFramework, shaPython, output]);
+    gProgress = nil;
+    if (![result[@"ok"] boolValue]) return result[@"error"] ?: @"The update could not be built";
+    return @"";
+}
+
 NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text)) {
     gProgress = progress;
     if (progress) progress(gPythonReady ? @"Opening the Archive…" : @"Starting Python…");

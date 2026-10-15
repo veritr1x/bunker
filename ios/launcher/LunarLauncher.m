@@ -840,7 +840,76 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) LTSegments *bar;
+// Updates: shown when a newer Bunker is released (checkForUpdate).
+@property(nonatomic, strong) UIView *updatePanel;
+@property(nonatomic, strong) UILabel *updateText;
+@property(nonatomic, strong) UIButton *updateButton;
+@property(nonatomic, strong) NSDictionary *available;  // version, notes, update (update.json), framework, python (URLs), offer
+@property(nonatomic) BOOL updating;
 @end
+
+// Bunker's updates. The launcher asks GitHub for the latest release once per
+// launch (when online and "Check for updates" is on). An update downloads
+// Bunker's own bundles and builds Bunker-<version>.ipa from this app; iOS only
+// installs apps the player's own tools sign, so the share sheet hands it on.
+static NSString *const kLatestRelease = @"https://api.github.com/repos/veritr1x/bunker/releases/latest";
+static NSString *const kWebBuilder = @"https://veritr1x.github.io/bunker/";
+static BOOL gUpdateChecked;
+
+static BOOL UpdatesEnabled(void) {
+    NSNumber *on = [NSUserDefaults.standardUserDefaults objectForKey:@"BunkerCheckUpdates"];
+    return on ? on.boolValue : YES;
+}
+
+/** 1.2.3 from "1.2.3" or "1.2.3+dev.abc1234"; nil if it isn't a version. */
+static NSArray<NSNumber *> *VersionBase(NSString *version) {
+    NSArray *parts = [[version componentsSeparatedByString:@"+"].firstObject componentsSeparatedByString:@"."];
+    if (parts.count != 3) return nil;
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSString *p in parts) {
+        NSScanner *scan = [NSScanner scannerWithString:p];
+        NSInteger n;
+        if (![scan scanInteger:&n] || !scan.isAtEnd) return nil;
+        [out addObject:@(n)];
+    }
+    return out;
+}
+
+/** Whether release candidate is offered to a build of version current (1.0.0 is not offered to 1.0.0+dev). */
+static BOOL VersionNewer(NSString *candidate, NSString *current) {
+    NSArray *a = VersionBase(candidate), *b = VersionBase(current);
+    if (!a) return NO;
+    if (!b) return YES;
+    for (NSUInteger i = 0; i < 3; i++) if (![a[i] isEqual:b[i]]) return [a[i] integerValue] > [b[i] integerValue];
+    return NO;
+}
+
+/** This app's LunarTear.framework/build.json (version, gamePatch). */
+static NSDictionary *InstalledBuild(void) {
+    NSString *path = [NSBundle.mainBundle.privateFrameworksPath stringByAppendingPathComponent:@"LunarTear.framework/build.json"];
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    return data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+}
+
+/** For testing before a release exists: Documents/update-test.json ({"latest": "http://mac:8000/latest.json"}) replaces GitHub. */
+static NSString *LatestReleaseURL(void) {
+    NSString *test = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject stringByAppendingPathComponent:@"update-test.json"];
+    NSData *data = [NSData dataWithContentsOfFile:test];
+    NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+    return [json isKindOfClass:NSDictionary.class] && [json[@"latest"] isKindOfClass:NSString.class] ? json[@"latest"] : kLatestRelease;
+}
+
+/** Fetches a JSON object; nil on any failure. */
+static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:url]];
+    request.timeoutInterval = 5;
+    [request setValue:@"application/vnd.github+json" forHTTPHeaderField:@"Accept"];
+    [[NSURLSession.sharedSession dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+        id json = !error && status == 200 && data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        done([json isKindOfClass:NSDictionary.class] ? json : nil);
+    }] resume];
+}
 
 @implementation LTLauncherViewController
 - (UILabel *)label:(NSString *)text size:(CGFloat)size color:(UIColor *)color bold:(BOOL)bold {
@@ -1027,10 +1096,11 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
     UIView *spacer = [UIView new];
     [spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
-        top, [self header:@"System"], system, [self header:@"Play"], play, [self header:@"Pod Programs"], programs, [self header:@"Archive"], archive, spacer, footer]];
+        top, [self updatePanelView], [self header:@"System"], system, [self header:@"Play"], play, [self header:@"Pod Programs"], programs, [self header:@"Archive"], archive, spacer, footer]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 8;
     [stack setCustomSpacing:20 afterView:top];
+    [stack setCustomSpacing:20 afterView:self.updatePanel];
     [stack setCustomSpacing:20 afterView:system];
     [stack setCustomSpacing:20 afterView:play];
     [stack setCustomSpacing:20 afterView:programs];
@@ -1134,13 +1204,159 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
     UIAction *settings = item(@"App settings", @"gear", YES, ^{
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
     });
+    UIAction *updates = item(@"Check for updates", @"arrow.down.circle", YES, ^{
+        BOOL on = !UpdatesEnabled();
+        [NSUserDefaults.standardUserDefaults setBool:on forKey:@"BunkerCheckUpdates"];
+        if (on) [weakSelf checkForUpdate];
+        [weakSelf refresh];
+    });
+    updates.state = UpdatesEnabled() ? UIMenuElementStateOn : UIMenuElementStateOff;
     UIAction *help = item(@"Help", @"questionmark.circle", YES, ^{ [weakSelf help]; });
     UIAction *about = item(@"About", @"info.circle", YES, ^{ [weakSelf about]; });
     return [UIMenu menuWithTitle:@"" children:@[
         [UIMenu menuWithTitle:@"LUNAR TEAR" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check]],
         [UIMenu menuWithTitle:@"DATA" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
-        [UIMenu menuWithTitle:@"SUPPORT" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, settings, help, about]],
+        [UIMenu menuWithTitle:@"SUPPORT" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, updates, settings, help, about]],
     ]];
+}
+- (UIView *)updatePanelView {
+    self.updateText = [self mono:@"" size:12 color:Ink()];
+    self.updateButton = [self solid:@"UPDATE" action:@selector(updateTapped)];
+    UIButton *notes = [self outline:@"WHAT'S NEW" size:12 action:@selector(openNotes)];
+    UIButton *web = [self outline:@"WEB BUILDER" size:12 action:@selector(openWebBuilder)];
+    UIStackView *links = [[UIStackView alloc] initWithArrangedSubviews:@[notes, web]];
+    links.distribution = UIStackViewDistributionFillEqually;
+    links.spacing = 8;
+    self.updatePanel = [self panel:@[self.updateText, self.updateButton, links]];
+    self.updatePanel.hidden = YES;
+    return self.updatePanel;
+}
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    if (!gUpdateChecked) { gUpdateChecked = YES; [self removeOldUpdates]; [self checkForUpdate]; }
+}
+/** IPAs built for an update that is now installed (or older) are deleted. */
+- (void)removeOldUpdates {
+    NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:documents error:nil]) {
+        if (![name hasPrefix:@"Bunker-"] || ![name hasSuffix:@".ipa"]) continue;
+        NSString *version = [name substringWithRange:NSMakeRange(7, name.length - 11)];
+        if (!VersionNewer(version, BunkerVersion())) [NSFileManager.defaultManager removeItemAtPath:[documents stringByAppendingPathComponent:name] error:nil];
+    }
+}
+- (void)checkForUpdate {
+    if (!UpdatesEnabled()) return;
+    __weak typeof(self) weakSelf = self;
+    // Offline, rate-limited or an unexpected reply: say nothing until the next launch.
+    FetchJSON(LatestReleaseURL(), ^(NSDictionary *release) {
+        NSString *tag = [release[@"tag_name"] isKindOfClass:NSString.class] ? release[@"tag_name"] : nil;
+        NSString *version = [tag hasPrefix:@"v"] ? [tag substringFromIndex:1] : tag;
+        if (!version || !VersionNewer(version, BunkerVersion())) return;
+        NSMutableDictionary *urls = [NSMutableDictionary dictionary];
+        for (NSDictionary *asset in [release[@"assets"] isKindOfClass:NSArray.class] ? release[@"assets"] : @[])
+            if ([asset[@"name"] isKindOfClass:NSString.class] && [asset[@"browser_download_url"] isKindOfClass:NSString.class])
+                urls[asset[@"name"]] = asset[@"browser_download_url"];
+        if (!urls[@"update.json"]) return;
+        FetchJSON(urls[@"update.json"], ^(NSDictionary *update) {
+            if (!update) return;
+            NSDictionary *assets = update[@"assets"];
+            NSString *framework = urls[assets[@"iosFramework"][@"name"] ?: @""], *python = urls[assets[@"iosPython"][@"name"] ?: @""];
+            NSString *offer = !framework || !python || ![InstalledBuild()[@"gamePatch"] isEqual:update[@"gamePatch"]] ? @"web" : @"update";
+            NSDictionary *found = @{@"version": version, @"notes": release[@"html_url"] ?: kWebBuilder, @"update": update,
+                                    @"framework": framework ?: @"", @"python": python ?: @"", @"offer": offer};
+            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf showRelease:found]; });
+        });
+    });
+}
+- (void)showRelease:(NSDictionary *)release {
+    self.available = release;
+    self.updatePanel.hidden = NO;
+    NSString *text = [NSString stringWithFormat:@"Bunker %@ is available.", release[@"version"]];
+    if ([release[@"offer"] isEqual:@"web"]) text = [text stringByAppendingString:@"\n> This update needs the web builder."];
+    self.updateText.attributedText = Tracked(text, Mono(12), Ink(), 0.7);
+    [self.updateButton setAttributedTitle:Tracked([NSString stringWithFormat:@"UPDATE TO %@", release[@"version"]], [UIFont boldSystemFontOfSize:15], OnCommand(), 4.8) forState:UIControlStateNormal];
+    self.updateButton.hidden = ![release[@"offer"] isEqual:@"update"];
+}
+- (void)updateMessage:(NSString *)text failed:(BOOL)failed {
+    self.updateText.attributedText = Tracked(text, Mono(12), failed ? Alert() : Ink(), 0.7);
+}
+- (void)updateFailed:(NSString *)message {
+    self.updating = NO;
+    [self showRelease:self.available];
+    // Python errors end with " (file.py:line)"; the player needs only the message.
+    NSRange where = [message rangeOfString:@" \\([A-Za-z_]+\\.py:[0-9]+\\)$" options:NSRegularExpressionSearch];
+    if (where.location != NSNotFound) message = [message substringToIndex:where.location];
+    [self updateMessage:[NSString stringWithFormat:@"Bunker %@ is available.\n> %@\n> You can also rebuild with the web builder.", self.available[@"version"], message] failed:YES];
+}
+- (void)openNotes { if (self.available) [UIApplication.sharedApplication openURL:[NSURL URLWithString:self.available[@"notes"]] options:@{} completionHandler:nil]; }
+- (void)openWebBuilder { [UIApplication.sharedApplication openURL:[NSURL URLWithString:kWebBuilder] options:@{} completionHandler:nil]; }
+- (void)updateTapped {
+    if (!self.available || self.updating) return;
+    NSURL *home = [NSURL fileURLWithPath:NSHomeDirectory()];
+    NSNumber *free = nil;
+    [home getResourceValue:&free forKey:NSURLVolumeAvailableCapacityForImportantUsageKey error:nil];
+    // The IPA is stored uncompressed (fast to build): about 530 MB, plus the downloads.
+    if (free && free.longLongValue < 700LL * 1048576) { [self updateFailed:@"Updating needs about 700 MB free. Free some space and try again."]; return; }
+    self.updating = YES;
+    self.updateButton.hidden = YES;
+    NSString *work = [NSTemporaryDirectory() stringByAppendingPathComponent:@"update"];
+    [NSFileManager.defaultManager removeItemAtPath:work error:nil];
+    [NSFileManager.defaultManager createDirectoryAtPath:work withIntermediateDirectories:YES attributes:nil error:nil];
+    NSDictionary *assets = self.available[@"update"][@"assets"];
+    NSArray *parts = @[@[self.available[@"framework"], [work stringByAppendingPathComponent:@"framework.zip"], assets[@"iosFramework"][@"size"] ?: @0],
+                       @[self.available[@"python"], [work stringByAppendingPathComponent:@"python.zip"], assets[@"iosPython"][@"size"] ?: @0]];
+    [self download:parts index:0 done:0 total:[assets[@"iosFramework"][@"size"] longLongValue] + [assets[@"iosPython"][@"size"] longLongValue] then:^(NSString *error) {
+        if (error.length) { [NSFileManager.defaultManager removeItemAtPath:work error:nil]; [self updateFailed:error]; return; }
+        [self buildUpdate:work];
+    }];
+}
+/** Downloads parts in turn (url, target, size), showing the percentage. */
+- (void)download:(NSArray *)parts index:(NSUInteger)index done:(long long)done total:(long long)total then:(void (^)(NSString *error))then {
+    if (index == parts.count) { then(@""); return; }
+    NSArray *part = parts[index];
+    __weak typeof(self) weakSelf = self;
+    NSURLSessionDownloadTask *task = [NSURLSession.sharedSession downloadTaskWithURL:[NSURL URLWithString:part[0]] completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+        NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+        NSError *move = nil;
+        if (!error && status == 200) [NSFileManager.defaultManager moveItemAtURL:location toURL:[NSURL fileURLWithPath:part[1]] error:&move];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (error || status != 200 || move) { then(error ? error.localizedDescription : [NSString stringWithFormat:@"Download failed (HTTP %ld)", (long)status]); return; }
+            [weakSelf download:parts index:index + 1 done:done + [part[2] longLongValue] total:total then:then];
+        });
+    }];
+    [task resume];
+    [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *timer) {
+        if (task.state != NSURLSessionTaskStateRunning) { [timer invalidate]; return; }
+        long long got = done + task.countOfBytesReceived;
+        [weakSelf updateMessage:total > 0 ? [NSString stringWithFormat:@"Downloading %lld%%", MIN(99LL, got * 100 / total)] : @"Downloading…" failed:NO];
+    }];
+}
+- (void)buildUpdate:(NSString *)work {
+    NSDictionary *assets = self.available[@"update"][@"assets"];
+    NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *output = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"Bunker-%@.ipa", self.available[@"update"][@"version"]]];
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *error = LTBuildUpdate(NSBundle.mainBundle.bundlePath, [work stringByAppendingPathComponent:@"framework.zip"], [work stringByAppendingPathComponent:@"python.zip"],
+            assets[@"iosFramework"][@"sha256"] ?: @"", assets[@"iosPython"][@"sha256"] ?: @"", output, ^(NSString *text) {
+                dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf updateMessage:text failed:NO]; });
+            });
+        [NSFileManager.defaultManager removeItemAtPath:work error:nil];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (error.length) { [NSFileManager.defaultManager removeItemAtPath:output error:nil]; [weakSelf updateFailed:error]; return; }
+            [weakSelf shareUpdate:output];
+        });
+    });
+}
+/** Hands the IPA to SideStore, AltStore, AirDrop or Files. */
+- (void)shareUpdate:(NSString *)ipa {
+    self.updating = NO;
+    [self updateMessage:[NSString stringWithFormat:@"%@ is ready in Files (On My %@ › NieR).\n> Open it in SideStore or AltStore, or copy it to a Mac and sideload it as before. Your saves stay.",
+        ipa.lastPathComponent, UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone"] failed:NO];
+    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:ipa]] applicationActivities:nil];
+    share.popoverPresentationController.sourceView = self.updateText;
+    share.popoverPresentationController.sourceRect = self.updateText.bounds;
+    [self presentViewController:share animated:YES completion:nil];
 }
 - (void)alert:(NSString *)title message:(NSString *)message {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];

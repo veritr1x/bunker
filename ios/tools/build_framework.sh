@@ -37,7 +37,8 @@ rm -rf "$framework"; mkdir -p "$framework"
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"
 # Bunker's version, for About, the log and updates (package_ipa.py copies it into the app's Info.plist).
-printf '{"version": "%s"}\n' "$version" > "$framework/build.json"
+game_patch="$(python3 -c "import sys; sys.path.insert(0, '$root_dir/android/tools'); import build_info; print(build_info.GAME_PATCH)")"
+printf '{"version": "%s", "gamePatch": %s}\n' "$version" "$game_patch" > "$framework/build.json"
 if [ "$master" != none ]; then cp "$master" "$framework/20240404193219.bin.e"; fi
 if [ -n "$original" ]; then cp "$original" "$framework/original-master.bin.e"; fi
 cp "$root_dir/LICENSE" "$framework/LUNAR_TEAR_LICENSE.txt"

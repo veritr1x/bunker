@@ -180,3 +180,9 @@ def stop():
             raise RuntimeError("An editor is still finishing. Try closing Tools again.")
     _server = _thread = None
     _state.clear()
+
+
+def build_ipa_update(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa):
+    """The launcher's update: the next Bunker IPA, for the player's sideloading tool (bunker_ios_update.py)."""
+    import bunker_ios_update
+    return bunker_ios_update.build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, _report)
