@@ -1,0 +1,33 @@
+package org.veritr1x.bunker;
+
+import android.test.InstrumentationTestCase;
+import org.json.JSONObject;
+
+/** What the launcher offers for a release: the version rule and the update decision. */
+public final class UpdaterTest extends InstrumentationTestCase {
+    public void testNewer() {
+        assertTrue(Updater.newer("1.0.1","1.0.0"));
+        assertTrue(Updater.newer("1.0.1","1.0.0+dev.abc1234"));
+        assertFalse(Updater.newer("1.0.0","1.0.0+dev.abc1234"));
+        assertFalse(Updater.newer("1.0.0","1.0.0"));
+        assertFalse(Updater.newer("0.9.9","1.0.0"));
+        assertTrue(Updater.newer("1.10.0","1.9.9"));
+        assertFalse(Updater.newer("garbage","1.0.0"));
+        assertTrue(Updater.newer("1.0.1","dev"));
+    }
+
+    private static JSONObject update(String version,int gamePatch) throws Exception {
+        return new JSONObject("{\"version\":\""+version+"\",\"gamePatch\":"+gamePatch+",\"assets\":{\"android\":{\"name\":\"bunker-android-"+version+".zip\",\"size\":10,\"sha256\":\"ab\"}}}");
+    }
+    private static JSONObject build(int gamePatch) throws Exception {
+        return new JSONObject("{\"version\":\"1.0.0\",\"gamePatch\":"+gamePatch+",\"portOffset\":0,\"gameDex\":3}");
+    }
+
+    public void testOffers() throws Exception {
+        assertEquals(Updater.Offer.NONE,Updater.offer(update("1.0.0",1),"1.0.0",build(1),true));
+        assertEquals(Updater.Offer.UPDATE,Updater.offer(update("1.0.1",1),"1.0.0",build(1),true));
+        assertEquals(Updater.Offer.WEB_BUILDER,Updater.offer(update("1.0.1",2),"1.0.0",build(1),true));
+        assertEquals(Updater.Offer.WEB_BUILDER,Updater.offer(update("1.0.1",1),"0.1.0",null,true));
+        assertEquals(Updater.Offer.OWN_KEY,Updater.offer(update("1.0.1",1),"1.0.0",build(1),false));
+    }
+}

@@ -28,6 +28,14 @@ public final class MainActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,detail,files,ports,save,progressText;
     private Button assetButton,play,pods,archive;
+    // Updates (Updater.java): checked once per process when the launcher opens.
+    private static boolean updateChecked;
+    private LinearLayout updatePanel;
+    private TextView updateText;
+    private Button updateButton;
+    private Updater.Release release;
+    private final boolean[] updateCancelled={false};
+    private boolean updating;
     private ProgressBar progress;
     private Look.Segments bar;
     private int permille=-1;
@@ -88,6 +96,18 @@ public final class MainActivity extends Activity {
         Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
         top.addView(more,new LinearLayout.LayoutParams(dp(44),dp(44)));
         LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(20));body.addView(top,tp);
+        // [ UPDATE ]: shown when a newer Bunker is released.
+        updatePanel=panel();updatePanel.setVisibility(View.GONE);
+        updateText=look.monoText("",12,look.ink);LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,-2);up.setMargins(0,dp(6),0,dp(12));updatePanel.addView(updateText,up);
+        updateButton=look.solid("UPDATE");updateButton.setOnClickListener(v->{if(updating)updateCancelled[0]=true;else startUpdate();});
+        LinearLayout.LayoutParams ub=new LinearLayout.LayoutParams(-1,dp(48));ub.setMargins(0,0,0,dp(6));updatePanel.addView(updateButton,ub);
+        LinearLayout links=new LinearLayout(this);
+        Button notes=look.outlined("WHAT'S NEW");notes.setTextSize(12);notes.setOnClickListener(v->{if(release!=null)openUrl(release.notes);});
+        Button web=look.outlined("WEB BUILDER");web.setTextSize(12);web.setOnClickListener(v->openUrl(Updater.WEB_BUILDER));
+        LinearLayout.LayoutParams lw=new LinearLayout.LayoutParams(0,dp(44),1);lw.setMargins(0,0,dp(6),dp(6));links.addView(notes,lw);
+        links.addView(web,new LinearLayout.LayoutParams(0,dp(44),1));
+        updatePanel.addView(links);
+        LinearLayout.LayoutParams upp=new LinearLayout.LayoutParams(-1,-2);upp.setMargins(0,0,0,dp(20));body.addView(updatePanel,upp);
         // [ SYSTEM ]: game files, Lunar Tear, ports and save.
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(0,0,0,dp(8));body.addView(look.header("System"),hp);
         LinearLayout system=panel();
@@ -134,11 +154,18 @@ public final class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},20);
         try{FilesStore.recover(this);}catch(Exception e){serverDetail=e.getMessage();}
         new Thread(()->{try{FilesStore.ensureBootstrap(this);}catch(Exception ignored){}runOnUiThread(()->{last="";refresh();});},"bootstrap").start();
+        if(Updater.INSTALL_RESULT.equals(getIntent().getAction())){String message=Updater.installResult(this,getIntent());if(message!=null)updateFailed(message);}
     }
     @Override public void onResume(){super.onResume();foreground=true;
+        if(!updateChecked){updateChecked=true;Updater.check(this,this::showRelease);}
         if(awaitingAccess){awaitingAccess=false;if(FilesStore.canUseInPlace())chooseFolder(LINK);}bound=bindService(new Intent(this,ServerService.class),connection,BIND_AUTO_CREATE);handler.post(tick);}
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);
+        if(Updater.INSTALL_RESULT.equals(intent.getAction())){
+            String message=Updater.installResult(this,intent);
+            if(message!=null)updateFailed(message);
+            return;
+        }
         boolean manage=intent.getBooleanExtra("manage",false);
         autoAttempted=manage;launchWhenReady=!manage;
         query(1);
@@ -228,6 +255,7 @@ public final class MainActivity extends Activity {
         option(panel,menu,4,"Lunar Tear log",true);
         option(panel,menu,11,"Export Lunar Tear log",true);
         option(panel,menu,12,"Display: "+Character.toUpperCase(Look.display(this).charAt(0))+Look.display(this).substring(1),true);
+        option(panel,menu,13,"Check for updates: "+(Updater.enabled(this)?"On":"Off"),true);
         option(panel,menu,5,"App settings",true);
         option(panel,menu,6,"Help",true);
         option(panel,menu,7,"About",true);
@@ -275,6 +303,7 @@ public final class MainActivity extends Activity {
     private void onOption(int id){
         switch(id){
             case 12: chooseDisplay();break;
+            case 13: Updater.enabled(this,!Updater.enabled(this));if(Updater.enabled(this)){updateChecked=true;Updater.check(this,this::showRelease);}break;
             case 1: autoAttempted=true;launchWhenReady=false;run(ServerService.STOP,null);break;
             case 2: {Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,MASTER);break;}
             case 3: {Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);i.putExtra(Intent.EXTRA_TITLE,"lunar-tear-saves-"+new SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");startActivityForResult(i,BACKUP);break;}
@@ -309,6 +338,37 @@ public final class MainActivity extends Activity {
         } catch(PackageManager.NameNotFoundException ignored){}
         if(intent==null)dialog().setTitle("Install the patched game").setMessage("Install the APK patched for 127.0.0.1. The original game APK cannot connect to this server.").setPositiveButton("OK",null).show();
         else startActivity(intent);
+    }
+    private void openUrl(String url){
+        try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException ignored){}
+    }
+    private void showRelease(Updater.Release r){
+        release=r;updatePanel.setVisibility(View.VISIBLE);
+        String text="Bunker "+r.version+" is available.";
+        if(r.offer==Updater.Offer.WEB_BUILDER)text+="\n> This update needs the web builder.";
+        else if(r.offer==Updater.Offer.OWN_KEY)text+="\n> Signed with your own key: rebuild with the web builder.";
+        updateText.setText(text);
+        updateButton.setText("UPDATE TO "+r.version);
+        updateButton.setVisibility(r.offer==Updater.Offer.UPDATE?View.VISIBLE:View.GONE);
+    }
+    private void startUpdate(){
+        if(release==null)return;
+        if(!getPackageManager().canRequestPackageInstalls()){
+            dialog().setTitle("Allow updates").setMessage("To install the update, allow NieR to install apps. Turn on the switch, then come back and tap Update again.")
+                .setPositiveButton("Open Settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
+                .setNegativeButton("Cancel",null).show();
+            return;
+        }
+        updating=true;updateCancelled[0]=false;updateButton.setText("CANCEL");
+        Updater.apply(this,release,message->runOnUiThread(()->{if(updating)updateText.setText(message);}),
+            ()->{run(ServerService.CLOSE_TOOLS,null);run(ServerService.STOP,null);},
+            message->runOnUiThread(()->updateFailed(message)),updateCancelled);
+    }
+    private void updateFailed(String message){
+        updating=false;
+        if(release!=null)showRelease(release);
+        updateText.setText(updateText.getText()+"\n> "+message+"\n> You can also rebuild with the web builder.");
+        updateText.setTextColor(look.alert);
     }
     private void help(){
         dialog().setTitle("Help").setMessage("This is the Bunker. Lunar Tear is the game's server, running on this phone.\n\nChoose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. When your files are ready, Lunar Tear starts and Deploy opens the game.\n\nTap the Lunar Tear notification to return here. Stop Lunar Tear from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage. Import save backup restores one, from this phone, another phone or an iPhone. Pod Programs edits your save and chooses events.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")
