@@ -2513,9 +2513,16 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	emptypb "google.golang.org/protobuf/types/known/emptypb"
  	"google.golang.org/protobuf/types/known/timestamppb"
  )
-@@ -65,56 +68,70 @@ func (s *GachaServiceServer) GetGachaList(ctx context.Context, req *pb.GetGachaL
+@@ -64,57 +67,77 @@ func (s *GachaServiceServer) GetGachaList(ctx context.Context, req *pb.GetGachaL
+ 		if entry.GachaLabelType == model.GachaLabelPortalCage || entry.GachaLabelType == model.GachaLabelRecycle {
  			continue
  		}
++		// The game never reads IsUserGachaUnlock: it shows every summon it is
++		// sent as open. A locked one (a chapter summon whose quest is not
++		// cleared yet) is left out until it unlocks.
++		if !gachaUnlockedFor(entry, &user) {
++			continue
++		}
  		bs := user.Gacha.BannerStates[entry.GachaId]
 -		gachaList = append(gachaList, toProtoGacha(entry, &bs))
 +		gachaList = append(gachaList, protoGachas(entry, &bs, user)...)
@@ -2614,7 +2621,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  }
  
  func (s *GachaServiceServer) GetGacha(ctx context.Context, req *pb.GetGachaRequest) (*pb.GetGachaResponse, error) {
-@@ -131,17 +148,12 @@ func (s *GachaServiceServer) GetGacha(ctx context.Context, req *pb.GetGachaReque
+@@ -131,17 +154,12 @@ func (s *GachaServiceServer) GetGacha(ctx context.Context, req *pb.GetGachaReque
  
  	byId := make(map[int32]*pb.Gacha, len(req.GachaId))
  	for _, wantedId := range req.GachaId {
@@ -2637,7 +2644,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	}
  
  	return &pb.GetGachaResponse{
-@@ -166,6 +178,7 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -166,6 +184,7 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  	}
  
  	var drawResult *gacha.DrawResult
@@ -2645,7 +2652,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	ownedCostumes := map[int32]bool{}
  	ownedWeapons := map[int32]bool{}
  	updatedUser, err := s.users.UpdateUser(userId, func(user *store.UserState) {
-@@ -175,16 +188,20 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -175,16 +194,20 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  		for _, w := range user.Weapons {
  			ownedWeapons[w.WeaponId] = true
  		}
@@ -2671,7 +2678,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	for i, item := range drawResult.Items {
  		if bonus, ok := drawResult.BonusItems[i]; ok {
-@@ -253,6 +270,9 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -253,6 +276,9 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  			}
  		}
  
@@ -2681,7 +2688,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		if drawResult.MedalBonus > 0 && entry.MedalConsumableItemId != 0 {
  			oddsItem.MedalBonus = &pb.GachaBonus{
  				PossessionType: int32(model.PossessionTypeConsumableItem),
-@@ -281,13 +301,13 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
+@@ -281,13 +307,13 @@ func (s *GachaServiceServer) Draw(ctx context.Context, req *pb.DrawRequest) (*pb
  	}
  
  	bs := updatedUser.Gacha.BannerStates[entry.GachaId]
@@ -2697,7 +2704,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	}, nil
  }
  
-@@ -314,7 +334,7 @@ func (s *GachaServiceServer) ResetBoxGacha(ctx context.Context, req *pb.ResetBox
+@@ -314,7 +340,7 @@ func (s *GachaServiceServer) ResetBoxGacha(ctx context.Context, req *pb.ResetBox
  	bs := updatedUser.Gacha.BannerStates[entry.GachaId]
  
  	return &pb.ResetBoxGachaResponse{
@@ -2706,7 +2713,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  	}, nil
  }
  
-@@ -350,33 +370,23 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
+@@ -350,33 +376,23 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	handler := s.holder.Get().GachaHandler
  
@@ -2749,7 +2756,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		})
  	}
  
-@@ -386,12 +396,8 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
+@@ -386,12 +402,8 @@ func (s *GachaServiceServer) RewardDraw(ctx context.Context, req *pb.RewardDrawR
  }
  
  func findCatalogEntry(catalog []store.GachaCatalogEntry, gachaId int32) *store.GachaCatalogEntry {
@@ -2764,7 +2771,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  }
  
  func matchesGachaLabel(labels []int32, label int32) bool {
-@@ -416,6 +422,43 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -416,6 +428,43 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
@@ -2808,7 +2815,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb.Gacha {
  	g := &pb.Gacha{
  		GachaId:                    entry.GachaId,
-@@ -424,7 +467,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -424,7 +473,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		GachaAutoResetType:         entry.GachaAutoResetType,
  		GachaAutoResetPeriod:       entry.GachaAutoResetPeriod,
  		NextAutoResetDatetime:      safeTimestamp(entry.NextAutoResetDatetime),
@@ -2817,7 +2824,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		IsUserGachaUnlock:          entry.IsUserGachaUnlock,
  		StartDatetime:              safeTimestamp(entry.StartDatetime),
  		EndDatetime:                safeTimestamp(entry.EndDatetime),
-@@ -438,7 +481,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -438,7 +487,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		InformationId:              entry.InformationId,
  	}
  
@@ -2826,7 +2833,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	promotionItems := buildProtoPromotionItems(entry)
  
-@@ -465,12 +508,9 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -465,12 +514,9 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  			},
  		}
  	case model.GachaModeStepup:
@@ -2840,7 +2847,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  			loopCount = bs.LoopCount
  		}
  		g.GachaMode = &pb.Gacha_GachaModeStepupComposition{
-@@ -497,17 +537,13 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -497,17 +543,13 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  	return g
  }
  
@@ -2860,7 +2867,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		}
  
  		var bonuses []*pb.GachaBonus
-@@ -523,6 +559,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -523,6 +565,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  		if limitExec <= 0 {
  			limitExec = 999
  		}
@@ -2875,7 +2882,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  		phases = append(phases, &pb.GachaPricePhase{
  			GachaPricePhaseId: p.PhaseId,
-@@ -534,6 +578,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -534,6 +584,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  			RegularPrice:      p.RegularPrice,
  			DrawCount:         p.DrawCount,
  			LimitExecCount:    limitExec,
@@ -2883,7 +2890,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  			EachMaxExecCount:  p.DrawCount,
  			GachaBonus:        bonuses,
  			GachaOddsFixedRarity: &pb.GachaOddsFixedRarity{
-@@ -547,6 +592,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -547,6 +598,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  	return phases
  }
  
