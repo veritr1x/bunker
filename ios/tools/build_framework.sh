@@ -17,6 +17,7 @@ fi
 sdk="$(xcrun --sdk $platform --show-sdk-path)"
 clang="$(xcrun --sdk $platform -f clang)"
 mkdir -p "$work" "$out"
+version="$(python3 "$root_dir/scripts/version.py")"
 test -f "$root_dir/server/gen/proto/user.pb.go" || { echo "Generate protobuf first: cd server && make proto" >&2; exit 1; }
 
 # The bridge is shared with Android. Its JNI file is compiled only for Android.
@@ -24,7 +25,7 @@ test -f "$root_dir/server/gen/proto/user.pb.go" || { echo "Generate protobuf fir
     CC="$clang -isysroot $sdk -target $target" \
     CGO_CFLAGS="-isysroot $sdk -target $target" \
     CGO_LDFLAGS="-isysroot $sdk -target $target" \
-    go build -buildmode=c-archive -trimpath -ldflags='-s -w' -o "$work/liblunar.a" ./cmd/android-bridge)
+    go build -buildmode=c-archive -trimpath -ldflags="-s -w -X lunar-tear/server/internal/bunkerversion.Version=$version" -o "$work/liblunar.a" ./cmd/android-bridge)
 
 framework="$out/LunarTear.framework"
 rm -rf "$framework"; mkdir -p "$framework"

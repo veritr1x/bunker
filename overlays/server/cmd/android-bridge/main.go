@@ -83,6 +83,11 @@ func LunarImportArchive(source, stage *C.char) *C.char {
 //export LunarSetLogDir
 func LunarSetLogDir(dir *C.char) *C.char { return C.CString(mobile.SetLogDir(C.GoString(dir))) }
 
+// LunarSetBackupDir sets where the save snapshot before an update goes (Pod Programs' snapshots).
+//
+//export LunarSetBackupDir
+func LunarSetBackupDir(dir *C.char) *C.char { return C.CString(mobile.SetBackupDir(C.GoString(dir))) }
+
 // LunarExportLogs writes a zip of the saved logs in dir and info to target.
 //
 //export LunarExportLogs

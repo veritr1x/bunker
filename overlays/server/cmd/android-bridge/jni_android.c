@@ -131,6 +131,12 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_setLogDir(JNIEnv
     if (d) (*env)->ReleaseStringUTFChars(env, dir, d);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_setBackupDir(JNIEnv *env, jclass type, jstring dir) {
+    const char *d = (*env)->GetStringUTFChars(env, dir, NULL);
+    char *error = d ? LunarSetBackupDir((char *)d) : NULL;
+    if (d) (*env)->ReleaseStringUTFChars(env, dir, d);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_exportLogs(JNIEnv *env, jclass type, jstring dir, jint fd, jstring info) {
     const char *d = (*env)->GetStringUTFChars(env, dir, NULL);
     const char *i = (*env)->GetStringUTFChars(env, info, NULL);

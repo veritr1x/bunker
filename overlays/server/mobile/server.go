@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"lunar-tear/server/internal/auth"
+	"lunar-tear/server/internal/bunkerversion"
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/gacha"
 	"lunar-tear/server/internal/gametime"
@@ -134,6 +135,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 		return nil
 	}
 	setStatus("starting", "")
+	log.Printf("Bunker %s", bunkerversion.Version)
 	s := &instance{}
 	defer func() {
 		if r := recover(); r != nil {
@@ -164,8 +166,8 @@ func Start(dataRoot, assetRoot string) (err error) {
 		return e
 	}
 	s.dbs = append(s.dbs, db)
-	if e = migrations.Up(context.Background(), db); e != nil {
-		return fmt.Errorf("prepare save database: %w", e)
+	if e = upSaveDatabase(context.Background(), db, dataRoot, bunkerversion.Version); e != nil {
+		return e
 	}
 	// Original calendar: set the game clock, and start the next loop's game
 	// data if this loop has ended, before the game data is loaded.
