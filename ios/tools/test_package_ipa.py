@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from package_ipa import LAUNCHER, dylibs, insert_dylib, patch_info
+from text_buffer import SITES, patch_text_buffer
 
 
 def build_executable(directory, *flags):
@@ -58,6 +59,44 @@ class InfoTests(unittest.TestCase):
             self.assertEqual(info["CFBundleIdentifier"], "org.example.nier")
             with (app / "Info.plist").open("rb") as handle:
                 self.assertEqual(plistlib.load(handle)["CFBundleDisplayName"], "NieR")
+
+
+class TextBufferTests(unittest.TestCase):
+    SITES = ((0x10, 0x531F7941, 0x0B0B0141), (0x20, 0x531F7901, 0x0B090101))
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / "UnityFramework"
+
+    def write(self, words):
+        data = bytearray(0x30)
+        for offset, word in words:
+            data[offset:offset + 4] = word.to_bytes(4, "little")
+        self.path.write_bytes(data)
+
+    def word(self, offset):
+        return int.from_bytes(self.path.read_bytes()[offset:offset + 4], "little")
+
+    def test_patches_each_site_once(self):
+        self.write([(o, w) for o, w, _ in self.SITES])
+        self.assertEqual(patch_text_buffer(self.path, self.SITES), 2)
+        self.assertEqual([self.word(o) for o, _, _ in self.SITES], [p for _, _, p in self.SITES])
+        self.assertEqual(patch_text_buffer(self.path, self.SITES), 0)
+
+    def test_unknown_binary_is_left_alone(self):
+        self.write([(0x10, 0x531F7941), (0x20, 0xD503201F)])
+        before = self.path.read_bytes()
+        with self.assertRaises(RuntimeError):
+            patch_text_buffer(self.path, self.SITES)
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_sites_are_lsl_to_add(self):
+        self.assertEqual(len(SITES), 58)
+        for offset, original, patched in SITES:
+            self.assertEqual(original & 0xFFFFFC1F, 0x531F7801)  # lsl w1, wN, #1
+            self.assertEqual(patched & 0xFFE0FC1F, 0x0B000001)   # add w1, wN, wM
+            self.assertEqual(original >> 5 & 31, patched >> 5 & 31)
 
 
 if __name__ == "__main__":

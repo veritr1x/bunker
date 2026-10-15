@@ -26,6 +26,8 @@
 // - Special Gift Roulette: IronSource.showRewardedVideo raises the video's
 //   "rewarded" and "closed" events at once instead (roulette_ads.c). This one
 //   applies with any settings too.
+// - Text builder: ArtStringBuilder grows its buffer to fit long text instead of
+//   writing past its end (text_buffer.c). This one applies with any settings too.
 //
 // The RVAs come from the 3.7.1 ARM64 game's IL2CPP metadata. Every site is
 // checked first; on any unknown instruction nothing is changed.
@@ -40,6 +42,7 @@
 #include <unistd.h>
 
 #include "roulette_ads.h"
+#include "text_buffer.h"
 
 enum { FullHD = 6, WQHD = 7, DeviceMax = 8 };
 
@@ -348,6 +351,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
     uint8_t *base = info.dli_fbase;
     game_library = library;
     hook_roulette_ads(base);
+    if (text_buffer_fix(base, write_word))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Text builder: unsupported game binary; long texts can still overrun");
     const struct { uint32_t rva; const uint32_t *original; } hooks[] = {{0x2D5F7A0, kFixedProcessPrologue}, {0x2A6530C, kBattleStepCall},
         {0x3A0ECF8, kChangeState}, {0x363082C, kTriggerEnter}};
     // The event-zone hooks (2 and 3) go in at every frame rate; the frame-timing ones only above 30.
