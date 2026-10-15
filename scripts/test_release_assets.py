@@ -78,6 +78,13 @@ class ChangelogTests(unittest.TestCase):
         # A release's notes run to the previous release, dated sections included.
         self.assertEqual(release_assets.changelog_section(self.TEXT, "1.0.0"), "First.\n\n## 2026-10-15\n\n### Old\n- x")
 
+    def test_wrapped_lines_are_joined(self):
+        # GitHub release notes break lines where the file does; the file wraps at ~76 columns.
+        text = ("## 1.2.0 (2026-11-01)\n\nA paragraph that\nwraps here.\n\n### Area\n- A bullet that\n  wraps twice\n  here. [abc1234]\n"
+                "- Next bullet.\n\n```sh\nkeep\nthese\n```\n\n## 1.1.0 (2026-10-01)\n")
+        self.assertEqual(release_assets.changelog_section(text, "1.2.0"),
+                         "A paragraph that wraps here.\n\n### Area\n- A bullet that wraps twice here. [abc1234]\n- Next bullet.\n\n```sh\nkeep\nthese\n```")
+
     def test_missing_section(self):
         with self.assertRaises(ValueError):
             release_assets.changelog_section(self.TEXT, "2.0.0")

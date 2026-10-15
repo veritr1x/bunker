@@ -61,7 +61,24 @@ def changelog_section(text, version):
     m = re.search(rf"^## {re.escape(version)} \(.*?\)\n(.*?)(?=^## \d+\.\d+\.\d+ \(|\Z)", text, re.S | re.M)
     if not m:
         raise ValueError(f"CHANGELOG.md has no section for {version}")
-    return m.group(1).strip()
+    return unwrap(m.group(1).strip())
+
+
+def unwrap(text):
+    """Joins the file's wrapped lines: GitHub release notes keep every line break."""
+    out, fenced = [], False
+    for line in text.split("\n"):
+        if line.startswith("```"):
+            fenced = not fenced
+            out.append(line)
+            continue
+        continued = out and out[-1] and not fenced and line.strip() and not out[-1].startswith(("#", "```")) \
+            and not re.match(r"\s*([-*+]|\d+\.)\s|#", line)
+        if continued:
+            out[-1] += " " + line.strip()
+        else:
+            out.append(line)
+    return "\n".join(out)
 
 
 def main():
