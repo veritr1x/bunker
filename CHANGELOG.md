@@ -5,6 +5,13 @@ Commit ids are in brackets.
 
 ## 2026-10-15
 
+### Upgrades
+- Glorious Success Rate Up campaigns raise the chance of a glorious success
+  when upgrading characters and weapons, as their names say, using the
+  game's own formula (+20 to +80 per thousand on the usual 10%). The server
+  had read them as a small experience bonus (2 to 8%) and left the chance
+  alone. [da50bb5]
+
 ### Step-up summons
 - Multi-step summons move on and show every step. The game builds the
   summon screen from one summon per step and shows the one for the step
