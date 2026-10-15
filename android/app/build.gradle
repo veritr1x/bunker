@@ -27,8 +27,12 @@ android {
         applicationId = 'org.veritr1x.bunker'
         minSdk = 28
         targetSdk = 36
+        // Bunker's version (scripts/version.py), shown in About and the exported log.
+        // The installed app keeps the game's own version, 3.7.1.
+        def bunkerVersion = providers.exec { commandLine 'python3', "${rootDir}/../scripts/version.py" }.standardOutput.asText.get().trim()
         versionCode = 1
-        versionName = '0.1.0'
+        versionName = bunkerVersion
+        buildConfigField 'String', 'BUNKER_VERSION', "\"${bunkerVersion}\""
         ndk { abiFilters 'arm64-v8a' }
         testInstrumentationRunner = 'android.test.InstrumentationTestRunner'
     }
@@ -36,6 +40,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    buildFeatures { buildConfig = true }
     packaging { jniLibs { useLegacyPackaging = false } }
     buildTypes { release { minifyEnabled = false } }
 }

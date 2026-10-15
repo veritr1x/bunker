@@ -8,6 +8,7 @@ the Python runtime for Tools when given, and optionally signs the result. It nev
 download or distribute game files.
 """
 import argparse
+import json
 import os
 from pathlib import Path
 import plistlib
@@ -112,6 +113,9 @@ def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
     ats["NSAllowsLocalNetworking"] = True
     if bundle_id:
         info["CFBundleIdentifier"] = bundle_id
+    # Bunker's own version, from the launcher framework (build_framework.sh).
+    build = app / "Frameworks/LunarTear.framework/build.json"
+    info["BunkerVersion"] = json.loads(build.read_text()).get("version", "dev") if build.is_file() else "dev"
     with path.open("wb") as handle:
         plistlib.dump(info, handle)
     return info

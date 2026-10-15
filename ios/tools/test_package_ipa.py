@@ -98,6 +98,24 @@ class TextBufferTests(unittest.TestCase):
             self.assertEqual(patched & 0xFFE0FC1F, 0x0B000001)   # add w1, wN, wM
             self.assertEqual(original >> 5 & 31, patched >> 5 & 31)
 
+class BunkerVersionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.app = Path(self.temp.name) / "Game.app"
+        (self.app / "Frameworks/LunarTear.framework").mkdir(parents=True)
+        with (self.app / "Info.plist").open("wb") as f:
+            plistlib.dump({"CFBundleIdentifier": "a.b", "CFBundleExecutable": "Game", "MinimumOSVersion": "14.0"}, f)
+
+    def test_records_the_framework_version(self):
+        (self.app / "Frameworks/LunarTear.framework/build.json").write_text('{"version": "1.2.3"}')
+        self.assertEqual(patch_info(self.app)["BunkerVersion"], "1.2.3")
+        with (self.app / "Info.plist").open("rb") as f:
+            self.assertEqual(plistlib.load(f)["BunkerVersion"], "1.2.3")
+
+    def test_framework_without_version_is_dev(self):
+        self.assertEqual(patch_info(self.app)["BunkerVersion"], "dev")
+
 
 if __name__ == "__main__":
     unittest.main()

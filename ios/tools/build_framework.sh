@@ -36,6 +36,8 @@ rm -rf "$framework"; mkdir -p "$framework"
     -framework UIKit -framework QuartzCore -framework WebKit -framework AVKit -framework AVFoundation -framework CoreMedia -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"
+# Bunker's version, for About, the log and updates (package_ipa.py copies it into the app's Info.plist).
+printf '{"version": "%s"}\n' "$version" > "$framework/build.json"
 if [ "$master" != none ]; then cp "$master" "$framework/20240404193219.bin.e"; fi
 if [ -n "$original" ]; then cp "$original" "$framework/original-master.bin.e"; fi
 cp "$root_dir/LICENSE" "$framework/LUNAR_TEAR_LICENSE.txt"

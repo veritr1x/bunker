@@ -66,6 +66,11 @@ static NSDictionary *Status(void) {
 }
 static BOOL Running(void) { return [Status()[@"state"] isEqual:@"running"]; }
 void LTDisplayStart(NSString *toolsRoot);  // LunarDisplay.m
+/** Bunker's version, from the app's Info.plist (package_ipa.py), or "dev". */
+static NSString *BunkerVersion(void) {
+    return NSBundle.mainBundle.infoDictionary[@"BunkerVersion"] ?: @"dev";
+}
+
 static NSString *ToolsRoot(void) {
     NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
     return [support stringByAppendingPathComponent:@"LunarTools"];
@@ -1152,7 +1157,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 }
 - (void)about {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bunker"
-        message:@"Version 0.1.0\nOffline NieR Re[in]carnation, all in one app.\nCreated by veritr1x · github.com/veritr1x/bunker\n\nCREDITS\nLunar Tear by Walter-Sparrow: the offline server.\nMIT License · Copyright 2026 Ilya Groshev.\nLunar Scripts by Walter-Sparrow: APK and master data patches.\nLunar Base by NMeliksah: the save editors.\nMasterdata Patcher by NavHobbyDev: the content patcher.\nthree.js: the Archive's 3D viewer.\n\nNieR Re[in]carnation © SQUARE ENIX. Bunker is a fan project, not affiliated with Square Enix."
+        message:[NSString stringWithFormat:@"Version %@\nOffline NieR Re[in]carnation, all in one app.\nCreated by veritr1x · github.com/veritr1x/bunker\n\nCREDITS\nLunar Tear by Walter-Sparrow: the offline server.\nMIT License · Copyright 2026 Ilya Groshev.\nLunar Scripts by Walter-Sparrow: APK and master data patches.\nLunar Base by NMeliksah: the save editors.\nMasterdata Patcher by NavHobbyDev: the content patcher.\nthree.js: the Archive's 3D viewer.\n\nNieR Re[in]carnation © SQUARE ENIX. Bunker is a fan project, not affiliated with Square Enix.", BunkerVersion()]
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Open GitHub" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/veritr1x/bunker"] options:@{} completionHandler:nil];
@@ -1365,7 +1370,8 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
         [NSString stringWithFormat:@"lunar-tear-log-%@.zip", [format stringFromDate:NSDate.date]]];
     UIDevice *device = UIDevice.currentDevice;
     NSDictionary *bundle = NSBundle.mainBundle.infoDictionary;
-    NSString *info = [NSString stringWithFormat:@"Companion 0.1.0, bundle %@ %@\n%@ %@\nPort offset %@",
+    NSString *info = [NSString stringWithFormat:@"Bunker %@, bundle %@ %@\n%@ %@\nPort offset %@",
+        BunkerVersion(),
         NSBundle.mainBundle.bundleIdentifier, bundle[@"CFBundleShortVersionString"], device.systemName, device.systemVersion,
         bundle[@"LunarPortOffset"] ?: @0];
     NSString *error = TakeString(LunarExportLogs((char *)LogFolder().fileSystemRepresentation, (char *)target.fileSystemRepresentation, (char *)info.UTF8String));
