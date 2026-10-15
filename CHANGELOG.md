@@ -5,6 +5,13 @@ Commit ids are in brackets.
 
 ## 2026-10-15
 
+### Chapter summons
+- A chapter summon appears in Summons only once its chapter's quest is
+  cleared, as in the original game. The game never reads the server's lock
+  flag and shows every summon it is sent as open, so all of them were listed;
+  drawing one still locked was refused, and the game fell back to the title
+  screen. [8673c63]
+
 ### Upgrades
 - Glorious Success Rate Up campaigns raise the chance of a glorious success
   when upgrading characters and weapons, as their names say, using the
