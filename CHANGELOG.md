@@ -32,7 +32,7 @@ before this date is part of 1.0.0 too.
 - Releases come from version tags: a workflow checks the tag, builds Bunker's
   own bundles (no game files), creates the GitHub Release with these notes
   and `update.json`, and publishes the web builder. Pushes to main only
-  build. [626f533]
+  build. Release notes use whole lines, not the file's wrapping. [626f533, 0929939]
 
 ### Summons
 - Fixed the crash after summoning (often on Summon Again, a few minutes
