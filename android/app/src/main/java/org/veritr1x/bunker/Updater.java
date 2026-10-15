@@ -53,8 +53,31 @@ final class Updater {
     static volatile boolean statusFailed;
     static volatile Runnable listener;
     private static boolean inProgress,checked;
-    static synchronized boolean begin() { if(inProgress)return false;inProgress=true;return true; }
+    enum Stage { DOWNLOADING, BUILDING, INSTALLING }
+    private static Stage stage=Stage.DOWNLOADING;
+    static synchronized boolean begin() { if(inProgress)return false;inProgress=true;stage=Stage.DOWNLOADING;return true; }
     static synchronized void finish() { inProgress=false; }
+    static synchronized void stage(Stage s) { stage=s; }
+    /** Cancel works only while downloading; after that the build and the installer finish on their own. */
+    static synchronized boolean cancellable() { return inProgress&&stage==Stage.DOWNLOADING; }
+
+    /** An HTTP reply other than 200. */
+    static final class HttpError extends IOException {
+        final int code;
+        HttpError(int code) { super("HTTP "+code);this.code=code; }
+    }
+
+    /** A message for the player: network failures in plain words, everything else as it is. */
+    static String explain(Throwable e) {
+        if(e instanceof java.net.UnknownHostException||e instanceof java.net.ConnectException||e instanceof java.net.NoRouteToHostException)
+            return "Can't reach the update server. Check the connection and try again.";
+        if(e instanceof java.net.SocketTimeoutException)return "The connection timed out. Try again.";
+        if(e instanceof HttpError)return "The update files aren't available (HTTP "+((HttpError)e).code+"). Try again later.";
+        if(e instanceof javax.net.ssl.SSLException)return "The secure connection to the update server failed. Try again.";
+        String message=e.getMessage()==null?e.toString():e.getMessage();
+        // Python errors arrive as "RuntimeError: <message>".
+        return message.replaceFirst("^[A-Za-z.]*Error: ","");
+    }
     static synchronized boolean updating() { return inProgress; }
     private static void show(String text,boolean failed) {
         status=text;statusFailed=failed;
@@ -157,10 +180,11 @@ final class Updater {
 
     /**
      * Downloads, builds and installs the release on a background thread. stopGame
-     * stops Lunar Tear and Pod Programs before the installer opens. Messages go to
-     * report; a failure ends with failed(message) and leaves the installed app as it was.
      */
     static volatile boolean cancelled;
+    // Lunar Tear was running when the update stopped it: started again if the install doesn't happen.
+    private static volatile boolean restartServer;
+    private static volatile Context appContext;
 
     /**
      * Downloads, builds and installs the release on a background thread (one at a time).
@@ -173,6 +197,7 @@ final class Updater {
         cancelled=false;
         Reporter report=text->show(text,false);
         Context app=activity.getApplicationContext();
+        appContext=app;restartServer=false;
         Thread t=new Thread(()->{
             File work=new File(activity.getCacheDir(),"update");
             try {
@@ -182,6 +207,7 @@ final class Updater {
                 File bundle=new File(work,"bundle.zip");
                 download(r.bundleUrl,bundle,r.update.getJSONObject("assets").getJSONObject("android").optLong("size",-1),report);
                 if(cancelled)throw new IOException("Update cancelled.");
+                stage(Stage.BUILDING);
                 File key=new File(work,"bunker-key.pem"),cert=new File(work,"bunker-cert.der");
                 copyAsset(activity,"lunar/signing/bunker-key.pem",key);copyAsset(activity,"lunar/signing/bunker-cert.der",cert);
                 if(!Python.isStarted())Python.start(new AndroidPlatform(activity));
@@ -190,23 +216,32 @@ final class Updater {
                 bundle.delete();
                 if(cancelled)throw new IOException("Update cancelled.");
                 report.report("Stopping Lunar Tear and Pod Programs…");
+                restartServer=new JSONObject(NativeBridge.status()).optString("state").equals("running");
                 new Handler(Looper.getMainLooper()).post(stopGame);
                 // Pod Programs may be finishing an edit (up to two minutes); never install over it.
                 for(int i=0;i<600&&!stopped();i++)Thread.sleep(250);
                 if(!stopped())throw new IOException("Pod Programs is still saving. Close it, wait a moment and try again.");
                 report.report("Opening the installer…");
+                stage(Stage.INSTALLING);
                 install(activity,new File(apk));
                 // The installer's answer arrives in MainActivity (installResult), which ends the update.
             } catch(Throwable e) {
                 FilesStore.delete(work);
                 finish();
-                String message=e.getMessage()==null?e.toString():e.getMessage();
-                // Python errors arrive as "RuntimeError: <message>".
-                show(message.replaceFirst("^[A-Za-z]*Error: ",""),true);
+                restartIfStopped();
+                show(explain(e),true);
             }
         },"update");
         t.start();
         return true;
+    }
+
+    /** Starts Lunar Tear again when the update stopped it but nothing was installed. */
+    private static void restartIfStopped() {
+        Context c=appContext;
+        if(!restartServer||c==null)return;
+        restartServer=false;
+        new Handler(Looper.getMainLooper()).post(()->c.startForegroundService(new Intent(c,ServerService.class).setAction(ServerService.START)));
     }
 
     /** Lunar Tear is stopped and Pod Programs is closed (both run in this process). */
@@ -240,6 +275,7 @@ final class Updater {
         FilesStore.delete(new File(activity.getCacheDir(),"update"));
         finish();
         if(status==PackageInstaller.STATUS_SUCCESS)return null;
+        restartIfStopped();
         String message=intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
         return status==PackageInstaller.STATUS_FAILURE_ABORTED?"Update cancelled.":"The update could not be installed"+(message==null?".":": "+message);
     }
@@ -247,8 +283,8 @@ final class Updater {
     private static void download(String url,File target,long size,Reporter report) throws IOException {
         HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
         c.setConnectTimeout(15000);c.setReadTimeout(30000);
+        if(c.getResponseCode()!=200){int code=c.getResponseCode();c.disconnect();throw new HttpError(code);}
         try(InputStream in=c.getInputStream();OutputStream out=new FileOutputStream(target)) {
-            if(c.getResponseCode()!=200)throw new IOException("Download failed (HTTP "+c.getResponseCode()+")");
             long total=size>0?size:c.getContentLengthLong(),done=0;int last=-1;
             byte[] buffer=new byte[1<<16];int n;
             while((n=in.read(buffer))>0) {
@@ -264,8 +300,8 @@ final class Updater {
         HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
         c.setConnectTimeout(5000);c.setReadTimeout(5000);
         c.setRequestProperty("Accept","application/vnd.github+json");
+        if(c.getResponseCode()!=200){int code=c.getResponseCode();c.disconnect();throw new HttpError(code);}
         try(InputStream in=c.getInputStream()) {
-            if(c.getResponseCode()!=200)throw new IOException("HTTP "+c.getResponseCode());
             return new String(read(in),StandardCharsets.UTF_8);
         } finally {c.disconnect();}
     }

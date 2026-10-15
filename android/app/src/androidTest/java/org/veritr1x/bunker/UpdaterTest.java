@@ -45,4 +45,24 @@ public final class UpdaterTest extends InstrumentationTestCase {
         assertTrue(Updater.testReleasesAllowed("1.0.1+dev"));
         assertFalse(Updater.testReleasesAllowed("1.0.1"));
     }
+
+    public void testPlayerFacingErrors() {
+        String offline="Can't reach the update server. Check the connection and try again.";
+        assertEquals(offline,Updater.explain(new java.net.UnknownHostException("github.com")));
+        assertEquals(offline,Updater.explain(new java.net.ConnectException("refused")));
+        assertEquals("The connection timed out. Try again.",Updater.explain(new java.net.SocketTimeoutException("Read timed out")));
+        assertEquals("The update files aren't available (HTTP 404). Try again later.",Updater.explain(new Updater.HttpError(404)));
+        assertEquals("Update cancelled.",Updater.explain(new java.io.IOException("Update cancelled.")));
+    }
+
+    public void testCancelOnlyWhileDownloading() {
+        Updater.finish();
+        assertTrue(Updater.begin());
+        Updater.stage(Updater.Stage.DOWNLOADING);
+        assertTrue(Updater.cancellable());
+        Updater.stage(Updater.Stage.BUILDING);
+        assertFalse(Updater.cancellable());
+        Updater.finish();
+        assertFalse(Updater.cancellable());
+    }
 }

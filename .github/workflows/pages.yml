@@ -12,8 +12,8 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag or branch to build the site from (release.yml passes the release tag)"
-        default: main
+        description: "Tag or branch to build the site from; empty builds the latest release (release.yml passes the release tag)"
+        default: ""
 
 permissions:
   contents: read
@@ -24,14 +24,34 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
+  # What to build: a push builds what was pushed; a publish builds the given
+  # ref, or the latest release, so a run by hand never publishes a +dev site.
+  resolve:
+    name: Choose the source
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT: ${{ inputs.ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ]; then ref="$GITHUB_REF"
+          elif [ -n "$INPUT" ]; then ref="$INPUT"
+          else ref="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"; fi
+          echo "Building $ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
   android:
     name: Android launcher
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.resolve.outputs.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.8"
@@ -65,12 +85,13 @@ jobs:
 
   ios:
     name: iOS launcher and Tools runtime
+    needs: resolve
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.resolve.outputs.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.8"
@@ -101,13 +122,13 @@ jobs:
   site:
     name: Assemble the site
     if: github.event_name == 'workflow_dispatch'
-    needs: [android, ios]
+    needs: [resolve, android, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.resolve.outputs.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

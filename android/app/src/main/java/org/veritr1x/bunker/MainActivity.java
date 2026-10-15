@@ -95,7 +95,7 @@ public final class MainActivity extends Activity {
         // [ UPDATE ]: shown when a newer Bunker is released.
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
         updateText=look.monoText("",12,look.ink);LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,-2);up.setMargins(0,dp(6),0,dp(12));updatePanel.addView(updateText,up);
-        updateButton=look.solid("UPDATE");updateButton.setOnClickListener(v->{if(Updater.updating())Updater.cancelled=true;else startUpdate();});
+        updateButton=look.solid("UPDATE");updateButton.setOnClickListener(v->{if(Updater.updating()){if(Updater.cancellable())Updater.cancelled=true;}else startUpdate();});
         LinearLayout.LayoutParams ub=new LinearLayout.LayoutParams(-1,dp(48));ub.setMargins(0,0,0,dp(6));updatePanel.addView(updateButton,ub);
         LinearLayout links=new LinearLayout(this);
         Button notes=look.outlined("WHAT'S NEW");notes.setTextSize(12);notes.setOnClickListener(v->{if(Updater.current!=null)openUrl(Updater.current.notes);});
@@ -354,7 +354,8 @@ public final class MainActivity extends Activity {
         updateText.setText(text);
         updateText.setTextColor(Updater.statusFailed&&!running?look.alert:look.ink);
         updateButton.setText(running?"CANCEL":"UPDATE TO "+r.version);
-        updateButton.setVisibility(r.offer==Updater.Offer.UPDATE?View.VISIBLE:View.GONE);
+        // Cancel only while downloading: the build and the installer then finish on their own.
+        updateButton.setVisibility(r.offer==Updater.Offer.UPDATE&&(!running||Updater.cancellable())?View.VISIBLE:View.GONE);
     }
     private void startUpdate(){
         if(Updater.current==null)return;
