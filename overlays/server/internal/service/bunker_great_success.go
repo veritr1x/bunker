@@ -1,6 +1,9 @@
 package service
 
-import "math/rand"
+import (
+	"log"
+	"math/rand"
+)
 
 // Great success. Costume and weapon enhancements could end in a "great
 // success" (the client has its own animation and the response flag), which
@@ -16,8 +19,10 @@ const (
 // rollGreatSuccess decides one enhancement at ratePermil ‰; intn is rand.Intn.
 func rollGreatSuccess(exp, ratePermil int32, intn func(int) int) (int32, bool) {
 	if exp <= 0 || intn(1000) >= int(ratePermil) {
+		log.Printf("[Enhance] glorious success: no (chance %d‰)", ratePermil)
 		return exp, false
 	}
+	log.Printf("[Enhance] glorious success: yes (chance %d‰)", ratePermil)
 	return int32(int64(exp) * greatSuccessExpPermil / 1000), true
 }
 
