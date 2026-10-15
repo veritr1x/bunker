@@ -13,6 +13,12 @@ mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
 # Bunker's version for the launcher APK (build_info.py reads it into build.json).
 mkdir -p ../android/app/src/main/assets/lunar
 printf '%s\n' "$version" > ../android/app/src/main/assets/lunar/bunker-version.txt
+# The launcher rebuilds itself for an update (bunker_update.py) with the same
+# tools and public signing key as the web builder.
+rm -rf ../android/app/src/main/python/bunker_tools && mkdir -p ../android/app/src/main/python/bunker_tools ../android/app/src/main/assets/lunar/signing
+cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/app/src/main/python/bunker_tools/
+: > ../android/app/src/main/python/bunker_tools/__init__.py
+cp ../web/signing/bunker-key.pem ../web/signing/bunker-cert.der ../android/app/src/main/assets/lunar/signing/
 go build -buildmode=c-shared -trimpath -ldflags="-s -w -X lunar-tear/server/internal/bunkerversion.Version=$version -extldflags=-Wl,-z,max-page-size=16384,-z,common-page-size=16384" \
   -o ../android/app/src/main/jniLibs/arm64-v8a/liblunar.so ./cmd/android-bridge
 # Frame rate and resolution choices, applied in the game's process (DisplayPatch.java).

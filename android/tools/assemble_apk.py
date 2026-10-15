@@ -255,6 +255,53 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
     return game_activity
 
 
+def update(installed_apk, companion_apk, output, log=print):
+    """Rebuilds an installed Bunker APK with a newer launcher; the game's entries are copied as they are.
+
+    companion_apk is the launcher APK or the release's Android bundle. The
+    installed APK's build.json says which entries are Bunker's; the master data
+    and the game's original manifest stay. Returns the new build.json."""
+    with zipfile.ZipFile(installed_apk) as game, zipfile.ZipFile(companion_apk) as companion, open(installed_apk, "rb") as raw:
+        names = set(game.namelist())
+        if "assets/lunar/build.json" not in names or "assets/lunar/game-manifest.xml" not in names:
+            raise RuntimeError("This update needs the web builder: this build is older than Bunker 1.0.0")
+        old = json.loads(game.read("assets/lunar/build.json"))
+        if old.get("gamePatch") != build_info.GAME_PATCH:
+            raise RuntimeError("This update needs the web builder: it changes how the game itself is patched")
+        log("Updating the manifest…")
+        manifest, _ = patch_manifest(game.read("assets/lunar/game-manifest.xml"), companion.read("AndroidManifest.xml"),
+                                     old["portOffset"])
+        kept = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
+                "assets/lunar/game-manifest.xml"}
+        temporary = Path(str(output) + ".partial")
+        try:
+            with open(temporary, "wb") as out:
+                writer = ApkWriter(out)
+                log("Writing the APK…")
+                for info in game.infolist():
+                    name = info.filename
+                    if name.startswith("META-INF/") and re.search(r"\.(SF|RSA|DSA|EC)$|MANIFEST\.MF$", name) or name == "stamp-cert-sha256":
+                        continue
+                    if name == "AndroidManifest.xml":
+                        writer.add(name, manifest)
+                    elif not build_info.is_bunker_entry(name, old) or name in kept:
+                        writer.copy(raw, info)
+                next_dex = old["gameDex"] + 1
+                for name in sorted(companion.namelist(), key=lambda n: (len(n), n)):
+                    if re.fullmatch(r"classes\d*\.dex", name):
+                        writer.add("classes%d.dex" % next_dex, companion.read(name)); next_dex += 1
+                for name in sorted(companion.namelist()):
+                    if name.startswith(("lib/arm64-v8a/", "assets/chaquopy/", "assets/lunar/")) and name not in kept \
+                            and name != "assets/lunar/build.json" and not name.endswith(".bin.e"):
+                        writer.add(name, companion.read(name))
+                info = build_info.describe(companion, old["gameDex"], old["portOffset"])
+                writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
+                writer.close()
+            os.replace(temporary, output)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return info
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--apk", type=Path, required=True, help="Original ARM64 game 3.7.1 APK")
