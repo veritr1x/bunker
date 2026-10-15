@@ -4,6 +4,11 @@ const worker = new Worker("worker.js");
 let url = null;
 let building = false;  // One build at a time, however fast the button is pressed.
 
+// The Bunker version this site builds (version.json, written by build_site.py).
+fetch("version.json").then((r) => r.ok ? r.json() : null).then((v) => {
+  if (v && v.version) $("bunker-version").textContent = "BUILDS BUNKER " + v.version;
+}).catch(() => {});
+
 const platform = () => document.querySelector("input[name=platform]:checked").value;
 
 function update() {

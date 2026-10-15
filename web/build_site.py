@@ -22,6 +22,7 @@ PYTHON = [
     "android/tools/apk_sign.py",
     "android/tools/axml.py",
     "android/tools/assemble_apk.py",
+    "android/tools/build_info.py",
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
     "upstream/lunar-scripts/android/patch_apk.py",
@@ -73,6 +74,10 @@ def main():
         shutil.copy2(ROOT / name, target)
     (out / "py/manifest.json").write_text(json.dumps(PYTHON))
     android_bundle(args.companion_apk, out / "bundles/android.zip")
+    # The version this site builds, shown in the page header.
+    with zipfile.ZipFile(args.companion_apk) as companion:
+        version = companion.read("assets/lunar/bunker-version.txt").decode().strip()
+    (out / "version.json").write_text(json.dumps({"version": version}))
     folder_bundle(args.framework, out / "bundles/ios-framework.zip", "LunarTear.framework/")
     folder_bundle(args.python, out / "bundles/ios-python.zip")
     for path in out.rglob("*"):

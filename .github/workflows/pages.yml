@@ -1,4 +1,7 @@
-# Builds the in-browser builder and publishes it on GitHub Pages.
+# Builds the in-browser builder on every push to main (a check only). The site
+# is published when this runs by hand or from release.yml, which passes the
+# release tag as "ref" (Pages deploys only from main, so the workflow runs on
+# main and checks out the tag).
 # The bundles are built from this repository only; no game files or master
 # data are used or published. Players supply their own files in the browser.
 name: Web builder
@@ -7,6 +10,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to build the site from (release.yml passes the release tag)"
+        default: main
 
 permissions:
   contents: read
@@ -23,6 +30,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.8"
@@ -61,6 +69,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.8"
@@ -90,12 +99,14 @@ jobs:
 
   site:
     name: Assemble the site
+    if: github.event_name == 'workflow_dispatch'
     needs: [android, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -120,6 +131,7 @@ jobs:
 
   deploy:
     name: Publish
+    if: github.event_name == 'workflow_dispatch'
     needs: site
     runs-on: ubuntu-latest
     permissions:
