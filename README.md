@@ -93,6 +93,27 @@ Limitations:
 
 To build everything locally instead, follow the step-by-step guide below.
 
+## Updating
+
+From version 1.0.0, Bunker checks for a newer release when the launcher opens and the device is
+online, and shows **Bunker 1.1.0 is available** with **Update**, **What's new** and **Web
+builder**. Nothing is checked offline, and **Check for updates** in the ⋮ menu turns it off. An
+update downloads only Bunker's own files; the game files already in the app are reused.
+
+- **Android:** Update rebuilds the app on the phone and Android asks you to confirm the
+  install. The first time, allow NieR to install apps. Only builds signed with the public Bunker
+  key (every web build) can update themselves; a build signed with your own key, or one older
+  than 1.0.0, is updated with the web builder.
+- **iPhone and iPad:** iOS only installs apps signed by your own tools, so Update builds
+  `Bunker-<version>.ipa` in Files (On My iPhone/iPad › NieR) and opens the share sheet. Open it in
+  SideStore or AltStore to install it on the device, or copy it to a Mac and sideload it as
+  before. It needs about 700 MB free.
+- **Your saves stay.** The first time a new version starts, it copies your save to Pod Programs
+  › Save data as **Before update**, then updates it. An older Bunker refuses a save that a newer
+  one has updated, instead of damaging it; install the newer version, or restore the snapshot.
+- A few releases change how the game itself is patched. For those, the launcher says **This
+  update needs the web builder**: build again with the same game files and install over the old app.
+
 ## Play on Android
 
 1. Install the APK, from the web builder or your own build.

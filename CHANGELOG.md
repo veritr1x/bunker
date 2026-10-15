@@ -1,9 +1,38 @@
 # Changelog
 
 What changed in Bunker, newest first. Each day lists its changes by area.
-Commit ids are in brackets.
+Commit ids are in brackets. Each release's heading sits above the dated
+sections it contains; its notes run down to the previous release.
+
+## 1.0.0 (2026-10-15)
+
+The first release. Bunker now has a version, shown in the launcher's About,
+the Lunar Tear log and the web builder, and from this version on it can
+update itself: see Updates below and "Updating" in the README. Everything
+before this date is part of 1.0.0 too.
 
 ## 2026-10-15
+
+### Updates
+- Every build knows its version: `1.0.0` for a release, `1.0.0+dev.<commit>`
+  for any other build. About, the exported log, the server log and the web
+  builder show it. [8ad1095, 01c86e0]
+- When the launcher opens and the device is online, it looks for a newer
+  release and offers it (⋮ › Check for updates turns this off). Android
+  rebuilds the app on the phone from Bunker's new files and the game files
+  already in it, and Android asks to confirm the install; only builds signed
+  with the public Bunker key can do this. iPhone and iPad build
+  `Bunker-<version>.ipa` in Files and open the share sheet for SideStore,
+  AltStore or a Mac. A damaged download, too little space or a refused
+  install leave the app as it was. [6e7d8d3, b431cf7, aa9ebe8, e41af44]
+- Before a new version first updates a save, it copies it to Pod Programs'
+  snapshots as "Before update" (the newest three are kept). An older Bunker
+  refuses a save that a newer one has updated, instead of damaging it.
+  [1389a05, 1ebe33d]
+- Releases come from version tags: a workflow checks the tag, builds Bunker's
+  own bundles (no game files), creates the GitHub Release with these notes
+  and `update.json`, and publishes the web builder. Pushes to main only
+  build. [626f533]
 
 ### Summons
 - Fixed the crash after summoning (often on Summon Again, a few minutes

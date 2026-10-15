@@ -56,6 +56,25 @@ xcrun devicectl device install app --device <device UDID> artifacts/bunker.ipa
 The provisioning build only creates the profile. It does not install anything.
 Profiles expire; rebuild and reinstall with the same bundle ID to keep saves.
 
+## Updates
+
+From 1.0.0 the launcher looks for a newer release when it opens (online
+only; ⋮ › Check for updates turns it off). **Update** downloads Bunker's
+launcher framework and Python runtime from the release and builds
+`Bunker-<version>.ipa` from the installed app, in Documents (Files › On My
+iPhone/iPad › NieR). The game's files, including the patched
+UnityFramework, are copied as they are; the old signatures are left out.
+The share sheet then opens: SideStore or AltStore sign and install it on
+the device, or copy it to a Mac and sideload it with the same bundle ID and
+team, so the saves stay. The IPA is deleted when the new version first
+opens. A save is copied to Pod Programs' snapshots ("Before update") before
+a new version updates it.
+
+To test an update before a release exists, put `Documents/update-test.json`
+containing `{"latest": "http://<mac>:8000/latest.json"}` on the device (a
+GitHub-style release with `update.json` and the two bundles, made by
+`scripts/release_assets.py`).
+
 ## Game files
 
 iOS needs the iOS dump; Android asset bundles do not render on iPhone or iPad.
