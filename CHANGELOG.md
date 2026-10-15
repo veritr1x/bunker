@@ -4,6 +4,27 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 1.0.1 (2026-10-15)
+
+Summon fixes and smoother updates.
+
+### Summons
+- Step-up summons cost what their step pages in the game say: the amount at
+  each step, which steps are free, and whether only paid gems count. The
+  prices were read from all 429 step pages; 33 of the 43 step-up summons had
+  been charged a made-up 2,000 / free / 3,000 / free / 5,000 paid gems (for
+  example Resolute Dress, now 3,000 / 1,500 / 3,000 / 1,500 / 3,000 gems).
+  [579fb8d]
+- The Summon buttons answer after swiping the banner list. Above 30 fps the
+  list could stop a fraction short of its banner far down the list and keep
+  counting as moving, so taps were ignored. [5c35088]
+
+### Updates
+- Network problems read as plain messages, Cancel shows only while the
+  download can still be cancelled, and Lunar Tear starts again when an install
+  is refused. A web-builder publish by hand builds the latest release.
+  [4166ae0]
+
 ## 1.0.0 (2026-10-15)
 
 The first release. Bunker now has a version, shown in the launcher's About,
