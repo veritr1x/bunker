@@ -24,11 +24,11 @@ before this date is part of 1.0.0 too.
   with the public Bunker key can do this. iPhone and iPad build
   `Bunker-<version>.ipa` in Files and open the share sheet for SideStore,
   AltStore or a Mac. A damaged download, too little space or a refused
-  install leave the app as it was. [6e7d8d3, b431cf7, aa9ebe8, e41af44]
+  install leave the app as it was. [6e7d8d3, b431cf7, aa9ebe8, e41af44, 8a020c9]
 - Before a new version first updates a save, it copies it to Pod Programs'
   snapshots as "Before update" (the newest three are kept). An older Bunker
-  refuses a save that a newer one has updated, instead of damaging it.
-  [1389a05, 1ebe33d]
+  refuses a save that a newer one has updated, instead of damaging it, and
+  won't import one either. [1389a05, 1ebe33d, 8a020c9]
 - Releases come from version tags: a workflow checks the tag, builds Bunker's
   own bundles (no game files), creates the GitHub Release with these notes
   and `update.json`, and publishes the web builder. Pushes to main only
