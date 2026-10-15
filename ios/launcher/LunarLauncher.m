@@ -131,6 +131,8 @@ static NSString *StartServer(void) {
         return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
     if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
     TakeString(LunarSetLogDir((char *)LogFolder().fileSystemRepresentation));
+    // Pod Programs' snapshots folder (ToolsRoot()/backups): the save is copied there before an update.
+    TakeString(LunarSetBackupDir((char *)[ToolsRoot() stringByAppendingPathComponent:@"backups"].fileSystemRepresentation));
     // The ports the game was built for (8003/8080/3000 plus the build's offset);
     // builds without the key use the default ports.
     NSNumber *offset = [NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"];

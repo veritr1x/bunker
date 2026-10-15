@@ -20,6 +20,8 @@ public final class NativeBridge {
     public static native void cancelImport();
     /** Also keeps the server log in this folder, between sessions; "" or an error. */
     public static native String setLogDir(String directory);
+    /** Where the save snapshot before an update goes: Pod Programs' snapshots (tools/backups). */
+    public static native String setBackupDir(String directory);
     /** Writes a zip of the saved logs and the device details to an open document. */
     public static native String exportLogs(String directory, int fd, String info);
     public static native String importSaves(String dataDirectory, String source);

@@ -32,7 +32,7 @@ public final class ServerService extends Service {
     }};
     @Override public void onCreate() {
         super.onCreate();
-        NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());
+        NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());NativeBridge.setBackupDir(new java.io.File(new java.io.File(getFilesDir(),"tools"),"backups").getAbsolutePath());
         NotificationChannel channel=new NotificationChannel("server","Local game server",NotificationManager.IMPORTANCE_LOW);
         channel.setDescription("Server status and Stop control while you play.");
         getSystemService(NotificationManager.class).createNotificationChannel(channel);

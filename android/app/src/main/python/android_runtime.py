@@ -103,6 +103,21 @@ def adapt_services():
     if "player-switch" not in backup_service.VALID_REASONS:
         backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "player-switch")
         backup_service.REASON_LABELS["player-switch"] = "Player Switch"
+    # The server takes a snapshot before a new Bunker version first opens the
+    # save (backup_<time>_update.db). It keeps the newest three itself; the
+    # ordinary retention leaves them alone.
+    if "update" not in backup_service.VALID_REASONS:
+        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "update")
+        backup_service.REASON_LABELS["update"] = "Before update"
+    def prune(n):
+        ordinary = [b for b in backup_service.list_backups() if b.reason != "update"]
+        for b in ordinary[n:]:
+            try:
+                b.path.unlink()
+            except OSError:
+                pass
+        return max(0, len(ordinary) - n)
+    backup_service.prune_to_last_n = prune
     def backup(reason="manual"):
         if reason not in backup_service.VALID_REASONS:
             raise ValueError("Invalid backup reason")
