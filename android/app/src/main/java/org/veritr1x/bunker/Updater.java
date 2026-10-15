@@ -255,13 +255,20 @@ final class Updater {
         PackageInstaller.SessionParams params=new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
         params.setAppPackageName(activity.getPackageName());
         int id=installer.createSession(params);
-        try(PackageInstaller.Session session=installer.openSession(id);InputStream in=new FileInputStream(apk);OutputStream out=session.openWrite("bunker.apk",0,apk.length())) {
-            byte[] buffer=new byte[1<<20];int n;while((n=in.read(buffer))>0)out.write(buffer,0,n);
-            session.fsync(out);
-            out.close();
+        try(PackageInstaller.Session session=installer.openSession(id)) {
+            try {
+            // The written file must be closed before commit, and only once (a second close fails with EBADF).
+            try(InputStream in=new FileInputStream(apk);OutputStream out=session.openWrite("bunker.apk",0,apk.length())) {
+                byte[] buffer=new byte[1<<20];int n;while((n=in.read(buffer))>0)out.write(buffer,0,n);
+                session.fsync(out);
+            }
             // The result comes back to the launcher (MainActivity.onNewIntent), which asks the player to confirm.
             Intent result=new Intent(activity,MainActivity.class).setAction(INSTALL_RESULT).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
             session.commit(PendingIntent.getActivity(activity,id,result,PendingIntent.FLAG_MUTABLE|PendingIntent.FLAG_UPDATE_CURRENT).getIntentSender());
+            } catch(IOException|RuntimeException e) {
+                session.abandon();  // nothing half-written is left with the installer
+                throw e;
+            }
         }
     }
 
