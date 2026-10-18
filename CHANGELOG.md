@@ -4,7 +4,9 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
-## 2026-10-18
+## 1.0.2 (2026-10-18)
+
+Safer master data imports and a quieter Android update.
 
 ### Files
 - Import master data takes only master data. The picked file must be a
