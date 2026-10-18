@@ -24,6 +24,8 @@ public final class NativeBridge {
     public static native String setBackupDir(String directory);
     /** Writes a zip of the saved logs and the device details to an open document. */
     public static native String exportLogs(String directory, int fd, String info);
+    /** Whether a copy of a picked file (path), picked as name, is master data the server can load; "" or a message. */
+    public static native String checkMaster(String path, String name);
     public static native String importSaves(String dataDirectory, String source);
     /** Writes the largest texture in an asset bundle to target as a PNG for the Archive, no side over maxSide (0: full size); "" or an error. */
     public static native String texture(String bundle, String target, int maxSide);

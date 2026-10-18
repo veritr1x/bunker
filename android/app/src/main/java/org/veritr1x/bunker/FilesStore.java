@@ -54,9 +54,17 @@ final class FilesStore {
         File temp = new File(out.getParentFile(), ".master-import");
         try {
             copy(c, uri, temp, progress, "Importing master data");
-            if (temp.length() == 0) throw new IOException("The selected file is empty");
+            String error = NativeBridge.checkMaster(temp.getAbsolutePath(), displayName(c, uri));
+            if (error == null || !error.isEmpty()) throw new IOException(error == null ? "Native server did not respond" : error);
             move(temp, out);
         } finally { temp.delete(); }
+    }
+    /** The name the file was picked by, or "" when the provider doesn't say. */
+    static String displayName(Context c, Uri uri) {
+        try (Cursor cur = c.getContentResolver().query(uri, new String[]{"_display_name"}, null, null, null)) {
+            if (cur != null && cur.moveToFirst() && !cur.isNull(0)) return cur.getString(0);
+        } catch (RuntimeException ignored) {}
+        return "";
     }
     static final class Doc {
         String id, name, mime; long size;

@@ -1473,10 +1473,33 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [self refresh];
     }];
 }
+// Replaces the master data with a picked file once it is checked; a refused
+// file leaves the master data and the server as they were. Stops the server
+// first. Returns "" or an error. Not on the main thread: it calls Go.
+static NSString *ImportMaster(NSURL *picked) {
+    BOOL scoped = [picked startAccessingSecurityScopedResource];
+    NSString *pending = [MasterPath() stringByAppendingString:@".import"];
+    NSFileManager *files = NSFileManager.defaultManager;
+    [files removeItemAtPath:pending error:nil];
+    NSError *error = nil;
+    BOOL copied = [files copyItemAtURL:picked toURL:[NSURL fileURLWithPath:pending] error:&error];
+    if (scoped) [picked stopAccessingSecurityScopedResource];
+    if (!copied) return error.localizedDescription;
+    NSString *refused = TakeString(LunarCheckMaster((char *)pending.fileSystemRepresentation, (char *)picked.lastPathComponent.UTF8String));
+    if (refused.length) { [files removeItemAtPath:pending error:nil]; return refused; }
+    LunarStop();
+    [files createDirectoryAtPath:MasterPath().stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
+    if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return @"Cannot replace master data";
+    return @"";
+}
+// Master data's files end in .bin.e: only those can be chosen to import it.
+static UTType *MasterType(void) {
+    return [UTType typeWithFilenameExtension:@"e" conformingToType:UTTypeData] ?: UTTypeData;
+}
 - (void)pick:(NSInteger)mode {
     self.pickerMode = mode;
     NSArray<UTType *> *types = mode == 0 || mode == 4 ? @[UTTypeFolder] : mode == 5 ? @[UTTypeArchive, UTTypeData]
-        : mode == 3 ? @[UTTypeZIP, UTTypeData] : @[UTTypeItem];
+        : mode == 3 ? @[UTTypeZIP, UTTypeData] : mode == 1 ? @[MasterType()] : @[UTTypeItem];
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types];
     picker.delegate = self;
     picker.allowsMultipleSelection = NO;
@@ -1484,20 +1507,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)importMaster:(NSURL *)picked {
     [self busy:@"Importing master data…" work:^NSString *{
-        BOOL scoped = [picked startAccessingSecurityScopedResource];
-        NSString *pending = [MasterPath() stringByAppendingString:@".import"];
-        NSFileManager *files = NSFileManager.defaultManager;
-        [files removeItemAtPath:pending error:nil];
-        NSError *error = nil;
-        BOOL copied = [files copyItemAtURL:picked toURL:[NSURL fileURLWithPath:pending] error:&error];
-        if (scoped) [picked stopAccessingSecurityScopedResource];
-        if (!copied) return error.localizedDescription;
-        unsigned long long size = FileSize(pending);
-        if (size < 1000000 || size > 32000000) { [files removeItemAtPath:pending error:nil]; return @"Choose the 20240404193219.bin.e master-data file."; }
-        LunarStop();
-        [files createDirectoryAtPath:MasterPath().stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
-        if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return @"Cannot replace master data";
-        return StartServer();
+        NSString *error = ImportMaster(picked);
+        return error.length ? error : StartServer();
     } done:^(NSString *error) {
         if (!error.length) { gMessage = @"Master data imported. Close NieR from the app switcher and open it again to load it."; [self refresh]; }
     }];
@@ -1882,8 +1893,9 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         // Start before Unity boots. Wait briefly so its first request finds the
         // server, but never long enough to trip the launch watchdog.
         dispatch_semaphore_t started = dispatch_semaphore_create(0);
-        const char *saveFrom = getenv("LUNAR_IMPORT_SAVE");
+        const char *saveFrom = getenv("LUNAR_IMPORT_SAVE"), *masterFrom = getenv("LUNAR_IMPORT_MASTER");
         NSString *saveSource = saveFrom && *saveFrom ? [NSString stringWithUTF8String:saveFrom] : nil;
+        NSString *masterSource = masterFrom && *masterFrom ? [NSString stringWithUTF8String:masterFrom] : nil;
         dispatch_async(gQueue, ^{
             // Automation only, like LUNAR_IMPORT_FROM: import a save backup
             // before the server starts. Go must not be called on this thread.
@@ -1891,6 +1903,11 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                 NSString *source = saveSource.isAbsolutePath ? saveSource : [gServerRoot stringByAppendingPathComponent:saveSource];
                 NSString *result = TakeString(LunarImportSaves((char *)gSaves.fileSystemRepresentation, (char *)source.fileSystemRepresentation));
                 NSLog(@"[LunarTear] save import result: %@", result.length ? result : @"ok");
+            }
+            if (masterSource) {
+                NSString *source = masterSource.isAbsolutePath ? masterSource : [gServerRoot stringByAppendingPathComponent:masterSource];
+                NSString *result = ImportMaster([NSURL fileURLWithPath:source]);
+                NSLog(@"[LunarTear] master import result: %@", result.length ? result : @"ok");
             }
             NSString *error = StartServer();
             gMessage = error;

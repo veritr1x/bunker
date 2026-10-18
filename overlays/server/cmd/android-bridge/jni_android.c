@@ -114,6 +114,14 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_importSaves(JNIE
     if (s) (*env)->ReleaseStringUTFChars(env, source, s);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_checkMaster(JNIEnv *env, jclass type, jstring path, jstring name) {
+    const char *p = (*env)->GetStringUTFChars(env, path, NULL);
+    const char *n = (*env)->GetStringUTFChars(env, name, NULL);
+    char *error = p && n ? LunarCheckMaster((char *)p, (char *)n) : NULL;
+    if (p) (*env)->ReleaseStringUTFChars(env, path, p);
+    if (n) (*env)->ReleaseStringUTFChars(env, name, n);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_importArchive(JNIEnv *env, jclass type, jint fd, jstring stage) {
     const char *d = (*env)->GetStringUTFChars(env, stage, NULL);
     char *error = d ? LunarImportArchiveFd((int)fd, (char *)d) : NULL;

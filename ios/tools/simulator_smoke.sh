@@ -255,4 +255,22 @@ wait_for health 30 || { echo "FAIL: server did not start after the save import" 
 test "$(sqlite3 "$saves/game.db" "SELECT uuid || '/' || player_id FROM users")" = "this-device/77" || { echo "FAIL: imported player did not take this device's ID" >&2; exit 1; }
 test "$(sqlite3 "$documents/saves.before-import/game.db" "SELECT player_id FROM users")" = "1" || { echo "FAIL: previous save was not kept" >&2; exit 1; }
 echo "PASS: save backup import replaces the save, adopts this device's player ID, keeps the old save"
+# Master data import: only a .bin.e file the server can load replaces it.
+master_now="$documents/assets/release/20240404193219.bin.e"
+master_sum="$(shasum "$master_now" | cut -d' ' -f1)"
+echo "not master data" > "$documents/notes.txt"
+head -c 4000000 /dev/urandom > "$documents/fake.bin.e"
+for wrong in notes.txt fake.bin.e; do
+    xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+    SIMCTL_CHILD_LUNAR_IMPORT_MASTER="$wrong" xcrun simctl launch "$device" "$bundle" >/dev/null
+    wait_for health 30 || { echo "FAIL: server did not start after refusing $wrong" >&2; exit 1; }
+    test "$(shasum "$master_now" | cut -d' ' -f1)" = "$master_sum" || { echo "FAIL: $wrong replaced the master data" >&2; exit 1; }
+    test ! -e "$master_now.import" || { echo "FAIL: $wrong left a staging file" >&2; exit 1; }
+done
+cp "$master" "$documents/copy.bin.e"
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+SIMCTL_CHILD_LUNAR_IMPORT_MASTER="copy.bin.e" xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for health 30 || { echo "FAIL: server did not start after a master data import" >&2; exit 1; }
+cmp -s "$master" "$master_now" || { echo "FAIL: master data was not imported" >&2; exit 1; }
+echo "PASS: master data import refuses other files and accepts master data"
 echo "Simulator smoke test passed. Screenshots: $work/no-files.png, $work/running.png"

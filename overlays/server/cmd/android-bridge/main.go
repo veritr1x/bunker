@@ -73,6 +73,11 @@ func LunarImportSaves(data, source *C.char) *C.char {
 	return C.CString(mobile.ImportSaves(C.GoString(data), C.GoString(source)))
 }
 
+//export LunarCheckMaster
+func LunarCheckMaster(path, name *C.char) *C.char {
+	return C.CString(mobile.CheckMaster(C.GoString(path), C.GoString(name)))
+}
+
 //export LunarImportArchive
 func LunarImportArchive(source, stage *C.char) *C.char {
 	return C.CString(mobile.ImportArchive(C.GoString(source), C.GoString(stage)))
