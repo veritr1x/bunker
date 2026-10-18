@@ -4,6 +4,18 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-18
+
+### Files
+- Import master data takes only master data. The picked file must be a
+  `.bin.e` file that decrypts to the game's tables; anything else is refused
+  with a message, and the current master data stays. On iPhone and iPad the
+  picker offers only `.e` files. [8c73a46]
+
+### Updates
+- Android no longer shows a false error over the installer's prompt after
+  handing it an update. [236618d]
+
 ## 1.0.1 (2026-10-15)
 
 Summon fixes and smoother updates.
