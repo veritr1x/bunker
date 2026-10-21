@@ -1,6 +1,7 @@
 package masterdata
 
 import (
+	"fmt"
 	"testing"
 
 	"lunar-tear/server/internal/model"
@@ -330,7 +331,7 @@ func TestPrizeBoxIsABoxSummon(t *testing.T) {
 		Steps:  []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 6064}},
 		Prizes: []Prize{{Name: "Gems", Type: 12, Qty: 100, Stock: 5}}}}}
 	got := addNewSummons(nil, file, 0)
-	if len(got) != 1 || got[0].GachaModeType != model.GachaModeBox || got[0].GachaLabelType != model.GachaLabelPremium {
+	if len(got) != 1 || got[0].GachaModeType != model.GachaModeBox {
 		t.Fatalf("prize box: %+v", got)
 	}
 }
@@ -357,5 +358,71 @@ func TestLineupFromAnEarlierSummon(t *testing.T) {
 	pool.applyNewFeatured(file)
 	if fs := pool.FeaturedByGacha[10107]; len(fs.Costumes) != 1 || fs.Costumes[0].PossessionId != 34001 {
 		t.Fatalf("rerun lineup: %+v", fs)
+	}
+}
+
+// A plain summon's panel is only its promotion cards (no appeal images in
+// the client): an element ticket summon shows ★4s of its element, newest
+// first, without making them featured (the draw odds stay the pool's).
+func TestPlainSummonPanelShowsItsElement(t *testing.T) {
+	defer SetElementsForTest(nil, nil)
+	SetElementsForTest(map[int32]int32{2001: 2, 2002: 5, 2003: 2}, map[int32]int32{1001: 2, 1002: 2, 1003: 5, 1009: 2})
+	ss := model.RaritySSRare
+	c := func(id int32) GachaPoolItem {
+		return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss}
+	}
+	w := func(id int32) GachaPoolItem {
+		return GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: id, RarityType: ss}
+	}
+	pool := &GachaCatalog{
+		// 1009 (Fire) is in the data but no summon ever featured it: not released.
+		StandardCostumesByRarity: map[int32][]GachaPoolItem{ss: {c(1001), c(1002), c(1003), c(1009)}},
+		StandardWeaponsByRarity:  map[int32][]GachaPoolItem{ss: {w(2001), w(2002), w(2003)}},
+		FeaturedByGacha: map[int32]FeaturedSet{45: {Costumes: []GachaPoolItem{c(1001), c(1002), c(1003)},
+			Weapons: []GachaPoolItem{w(2001), w(2002), w(2003)}}},
+	}
+	pool.CostumeWeaponMap = map[int32]int32{1001: 2001, 1002: 2003}
+	file := summonRulesFile{New: []newSummon{
+		{Id: 970003, Asset: "confirm_60005", Plain: true, Start: 1, End: 2, Steps: []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 1205, Guar: "r4:fire"}}},
+		{Id: 970008, Asset: "confirm_ssr_chara_fire", Plain: true, Start: 1, End: 2, Steps: []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 1203, Guar: "r4c:fire"}}},
+	}}
+	entries := addNewSummons(nil, file, 0)
+	ApplyPanelPromotions(entries, pool)
+	ids := func(e store.GachaCatalogEntry) []int32 {
+		var out []int32
+		for _, p := range e.PromotionItems {
+			out = append(out, p.PossessionId)
+		}
+		return out
+	}
+	byId := map[int32]store.GachaCatalogEntry{}
+	for _, e := range entries {
+		byId[e.GachaId] = e
+	}
+	if got := ids(byId[970003]); fmt.Sprint(got) != "[1002 1001 2003 2001]" {
+		t.Fatalf("Fire ★4 summon cards: %v", got)
+	}
+	if got := ids(byId[970008]); fmt.Sprint(got) != "[1002 1001]" {
+		t.Fatalf("Fire ★4 character summon cards: %v", got)
+	}
+	// The client draws a costume card with its weapon (the card's bonus), as
+	// on the summons that have art.
+	if p := byId[970003].PromotionItems[0]; !p.IsTarget || p.BonusPossessionType != int32(model.PossessionTypeWeapon) || p.BonusPossessionId != 2003 {
+		t.Fatalf("costume card: %+v", p)
+	}
+	if _, ok := pool.FeaturedByGacha[970003]; ok {
+		t.Fatal("cards made featured")
+	}
+}
+
+// Mama's Dream is an event summon: the client's box screen (appeal_background
+// and the stock lines) on the Event tab, which an event summon unlocks.
+func TestPrizeBoxIsOnTheEventTab(t *testing.T) {
+	file := summonRulesFile{New: []newSummon{{Id: 200001, Asset: "common_200001", Plain: true, Start: 1, End: 2,
+		Steps:  []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 6064}},
+		Prizes: []Prize{{Name: "Gems", Type: 12, Qty: 100, Stock: 5}}}}}
+	got := addNewSummons(nil, file, 0)
+	if len(got) != 1 || got[0].GachaLabelType != model.GachaLabelEvent || got[0].GachaModeType != model.GachaModeBox {
+		t.Fatalf("prize box: %+v", got)
 	}
 }

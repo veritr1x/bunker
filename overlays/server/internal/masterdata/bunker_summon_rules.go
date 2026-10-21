@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -104,6 +105,68 @@ type Prize struct {
 
 var prizeBoxes = map[int32][]Prize{}
 
+// plainSummons are the added summons whose art has no appeal images.
+var plainSummons = map[int32]bool{}
+
+// panelCards is how many promotion cards a plain summon's panel shows.
+const panelCostumeCards, panelWeaponCards = 3, 2
+
+// ApplyPanelPromotions gives each plain summon promotion cards, its panel's
+// only content (the client has no appeal images for it): ★4s its guaranteed
+// slot can give, of its element if it names one, released ones only, newest
+// first. They are not
+// featured, so the draws keep the pool's odds. Elements come from
+// ApplyRuleFeatured, which runs first.
+func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog) {
+	// Released items: those some summon featured. The data also holds
+	// costumes that never came out, with placeholder names.
+	released := map[int32]bool{}
+	for _, fs := range pool.FeaturedByGacha {
+		for _, it := range fs.Costumes {
+			released[it.PossessionId] = true
+		}
+		for _, it := range fs.Weapons {
+			released[it.PossessionId] = true
+		}
+	}
+	for i, e := range entries {
+		if !plainSummons[e.GachaId] || len(e.PricePhases) == 0 {
+			continue
+		}
+		if _, prize := PrizeBoxFor(e.GachaId); prize {
+			continue
+		}
+		rule, _ := PhaseRuleFor(e.PricePhases[0].PhaseId)
+		kind, elemName, _ := strings.Cut(rule.Guar, ":")
+		elem, byElement := ElementByName(strings.ToLower(elemName))
+		pick := func(items []GachaPoolItem, n int) []store.GachaPromotionItem {
+			var keep []GachaPoolItem
+			for _, it := range items {
+				if released[it.PossessionId] && (!byElement || ElementOf(it) == elem) {
+					keep = append(keep, it)
+				}
+			}
+			sort.Slice(keep, func(a, b int) bool { return keep[a].PossessionId > keep[b].PossessionId })
+			var out []store.GachaPromotionItem
+			for _, it := range keep[:min(n, len(keep))] {
+				out = append(out, toPromoItemWithBonus(it, pool)) // a costume card carries its weapon
+			}
+			return out
+		}
+		costumes, weapons := pool.StandardCostumesByRarity[model.RaritySSRare], pool.StandardWeaponsByRarity[model.RaritySSRare]
+		var cards []store.GachaPromotionItem
+		switch kind {
+		case "r4c":
+			cards = pick(costumes, panelCostumeCards+panelWeaponCards)
+		case "r4w":
+			cards = pick(weapons, panelCostumeCards+panelWeaponCards)
+		default:
+			cards = append(pick(costumes, panelCostumeCards), pick(weapons, panelWeaponCards)...)
+		}
+		entries[i].PromotionItems = cards
+	}
+}
+
 // PrizeBoxFor is a prize box summon's prizes, if the summon is one.
 func PrizeBoxFor(gachaId int32) ([]Prize, bool) {
 	p, ok := prizeBoxes[gachaId]
@@ -198,10 +261,12 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 		}
 		if n.Plain {
 			e.GachaDecorationType = model.GachaDecorationNormal
+			plainSummons[n.Id] = true
 		}
 		if len(n.Prizes) > 0 {
-			// Its screen is the client's box panel, which shows the prizes' stock.
-			e.GachaModeType = model.GachaModeBox
+			// An event summon: the client's box screen (appeal_background and
+			// the prizes' stock) on the Event tab, which it unlocks.
+			e.GachaLabelType, e.GachaModeType = model.GachaLabelEvent, model.GachaModeBox
 		}
 		if src, ok := byId[n.Lineup]; ok && n.Lineup != 0 {
 			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = src.GachaMedalId, src.MedalConsumableItemId, src.CeilingCount

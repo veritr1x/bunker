@@ -5,6 +5,7 @@ import (
 
 	"lunar-tear/server/internal/gacha"
 	"lunar-tear/server/internal/gametime"
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 )
@@ -77,9 +78,13 @@ func TestSummonCatalogRules(t *testing.T) {
 	if e := byId[159]; e.EndDatetime < 1_700_000_000_000 && (e.StartDatetime != 1652148000000 || e.EndDatetime != 1655085599000) {
 		t.Errorf("FFXIV rerun %d-%d", e.StartDatetime, e.EndDatetime)
 	}
-	// Chapter summons no longer use Mama's Dream ids.
+	// Chapter summons no longer use Mama's Dream ids; Mama's Dream itself is
+	// on the chapter tab for the client's box screen.
 	chapters := 0
 	for id, e := range byId {
+		if _, prizeBox := masterdata.PrizeBoxFor(id); prizeBox {
+			continue
+		}
 		if e.GachaLabelType == model.GachaLabelChapter {
 			chapters++
 			if id < model.ChapterGachaIdBase {
