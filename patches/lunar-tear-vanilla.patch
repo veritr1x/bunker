@@ -242,7 +242,22 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  }
  
  func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.GachaPricePhaseEntry, count int) []DrawnItem {
-@@ -279,29 +328,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
+@@ -222,7 +271,13 @@ func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.Ga
+ 		}
+ 	}
+ 
+-	return DrawPremium(bp, count, fixedMin, fixedCount, rateMultiplier)
++	// A summon's recovered rules set its ★4 rate and what its guaranteed slot gives.
++	rule, ruled := masterdata.PhaseRuleFor(phase.PhaseId)
++	items := DrawPremium(bp, count, fixedMin, fixedCount, ruleRate(rule, ruled, rateMultiplier))
++	if ruled {
++		applyGuarantee(items, bp, h.Pool, rule, fixedCount)
++	}
++	return items
+ }
+ 
+ func (h *GachaHandler) drawMaterial(count int) []DrawnItem {
+@@ -279,29 +334,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
  	for i, item := range items {
  		switch model.PossessionType(item.PossessionType) {
  		case model.PossessionTypeCostume:
@@ -277,7 +292,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  			}
  			return DuplicateInfo{Index: index, Grade: grade, Bonuses: exchanges}, true
  		}
-@@ -344,3 +393,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
+@@ -344,3 +399,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
  	}
  	return store.GachaPricePhaseEntry{}, fmt.Errorf("no price phases for gacha %d", entry.GachaId)
  }

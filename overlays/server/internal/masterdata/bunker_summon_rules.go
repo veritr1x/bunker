@@ -30,7 +30,24 @@ type ruleStep struct {
 	Daily bool     `json:"daily"`
 	Guar  string   `json:"guar"`  // r3w, r4c, set10:feat, ... (see guaranteeRarity)
 	Rate  float64  `json:"rate"`  // ★4 rate multiplier
+	Set   []int32  `json:"set"`   // the costumes a set guarantee draws from
 	Bonus []string `json:"bonus"` // "Skip Ticket x100"
+}
+
+// PhaseRule is what a draw's rule adds to its price phase: the guarantee,
+// the set it draws from and the ★4 rate multiplier (0: no rate-up).
+type PhaseRule struct {
+	Guar string
+	Set  []int32
+	Rate float64
+}
+
+var phaseRules = map[int32]PhaseRule{}
+
+// PhaseRuleFor is the rule of a price phase, if its summon has rules.
+func PhaseRuleFor(phaseId int32) (PhaseRule, bool) {
+	r, ok := phaseRules[phaseId]
+	return r, ok
 }
 
 type summonRule struct {
@@ -99,6 +116,7 @@ func guaranteeRarity(code string) int32 {
 
 func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonRule) []store.GachaCatalogEntry {
 	applied := 0
+	recorded := map[int32]PhaseRule{}
 	for i := range entries {
 		e := &entries[i]
 		rule, ok := rules[e.GachaId]
@@ -145,6 +163,7 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 				}
 			}
 			phases = append(phases, p)
+			recorded[p.PhaseId] = PhaseRule{Guar: s.Guar, Set: s.Set, Rate: s.Rate}
 		}
 		for _, t := range ticket {
 			if len(phases) == int(model.PhaseIdMultiplier)-1 {
@@ -162,6 +181,7 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 		}
 		applied++
 	}
+	phaseRules = recorded
 	log.Printf("summon rules: %d summons priced from notices and other sources", applied)
 	return entries
 }
