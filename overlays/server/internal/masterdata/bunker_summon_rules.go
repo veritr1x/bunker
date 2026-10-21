@@ -23,18 +23,19 @@ import (
 var summonRulesJSON []byte
 
 type ruleStep struct {
-	Step  int32      `json:"step"`
-	Draws int32      `json:"draws"`
-	Price int32      `json:"price"`
-	Cur   string     `json:"cur"` // gems, paid, free, ticket
-	Limit int32      `json:"limit"`
-	Daily bool       `json:"daily"`
-	Guar  string     `json:"guar"`  // r3w, r4c, set10:feat, ... (see guaranteeRarity)
-	Rate  float64    `json:"rate"`  // ★4 rate multiplier
-	Set   []int32    `json:"set"`   // the costumes a set guarantee draws from
-	Feat4 bool       `json:"feat4"` // every ★4 drawn is a featured one
-	Bonus []string   `json:"bonus"` // "Skip Ticket x100", as the notice says
-	Items []ruleItem `json:"items"` // the same, as items
+	Step   int32      `json:"step"`
+	Draws  int32      `json:"draws"`
+	Price  int32      `json:"price"`
+	Cur    string     `json:"cur"` // gems, paid, free, ticket
+	Limit  int32      `json:"limit"`
+	Daily  bool       `json:"daily"`
+	Guar   string     `json:"guar"`   // r3w, r4c, set10:feat, ... (see guaranteeRarity)
+	Rate   float64    `json:"rate"`   // ★4 rate multiplier
+	Set    []int32    `json:"set"`    // the costumes a set guarantee draws from
+	Feat4  bool       `json:"feat4"`  // every ★4 drawn is a featured one
+	Ticket int32      `json:"ticket"` // the ticket item a ticket draw takes (default: Premium Summon Ticket)
+	Bonus  []string   `json:"bonus"`  // "Skip Ticket x100", as the notice says
+	Items  []ruleItem `json:"items"`  // the same, as items
 }
 
 // ruleItem is a bonus item a draw gives: possession type, id and count.
@@ -242,6 +243,9 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 			}
 			if s.Cur == "ticket" {
 				p.PriceId = model.ConsumableIdPremiumTicket
+				if s.Ticket > 0 {
+					p.PriceId = s.Ticket
+				}
 			}
 			if min := guaranteeRarity(s.Guar); min > 0 {
 				p.FixedRarityMin, p.FixedCount = min, 1

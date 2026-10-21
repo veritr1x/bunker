@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/gametime"
@@ -185,7 +186,10 @@ func TestGachaCatalogEntries(t *testing.T) {
 	for _, e := range cats.GachaEntries {
 		seen[e.GachaId]++
 		for _, p := range e.PricePhases {
-			if e.GachaLabelType == model.GachaLabelPremium && p.PriceType == model.PriceTypeConsumableItem && p.PriceId != 1002 {
+			// Premium summons take the Premium Summon Ticket; the ticket summons
+			// (confirm_*: ★★★+ and ★★★★ guaranteed) take their own ticket.
+			if e.GachaLabelType == model.GachaLabelPremium && p.PriceType == model.PriceTypeConsumableItem && p.PriceId != 1002 &&
+				!strings.HasPrefix(e.BannerAssetName, "confirm_") {
 				t.Fatalf("summon %d ticket phase costs item %d", e.GachaId, p.PriceId)
 			}
 		}

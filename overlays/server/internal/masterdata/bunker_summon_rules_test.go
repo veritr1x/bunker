@@ -258,3 +258,18 @@ func TestPaidTwinWithoutAWindowRunsWithItsRegularSummon(t *testing.T) {
 		t.Fatalf("a twin without dates or a regular summon was added: %+v", got)
 	}
 }
+
+// A summon paid with a specific ticket (★★★★ Premium Summon Ticket, 1006).
+func TestTicketSummon(t *testing.T) {
+	file := summonRulesFile{New: []newSummon{{Id: 970001, Asset: "confirm_ssr", Start: 1, End: 2,
+		Steps: []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 1006, Guar: "r4"}}}}}
+	got := addNewSummons(nil, file, 0)
+	if len(got) != 1 {
+		t.Fatalf("entries: %+v", got)
+	}
+	p := got[0].PricePhases[0]
+	if p.PriceType != model.PriceTypeConsumableItem || p.PriceId != 1006 || p.Price != 1 || p.DrawCount != 1 ||
+		p.FixedRarityMin != model.RaritySSRare || p.FixedCount != 1 {
+		t.Fatalf("ticket draw: %+v", p)
+	}
+}

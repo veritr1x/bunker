@@ -3373,6 +3373,78 @@
      "price": 3000
     }
    ]
+  },
+  {
+   "asset": "confirm_ssr",
+   "end": 4102444799000,
+   "id": 970001,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art; ticket summon (in-game screenshot, Aug 2021)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4",
+     "price": 1,
+     "ticket": 1006
+    }
+   ]
+  },
+  {
+   "asset": "confirm_sr",
+   "end": 4102444799000,
+   "id": 970002,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art; ticket summon",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r3",
+     "price": 1,
+     "ticket": 1005
+    }
+   ]
+  },
+  {
+   "asset": "limited_124",
+   "end": 1641175199999,
+   "id": 124,
+   "notice": 0,
+   "pair": 0,
+   "src": "tweet 2022-01-01; Reddit rt9h5v",
+   "start": 1641002400000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r4",
+     "limit": 1,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_124",
+   "end": 1641866399999,
+   "id": 970124,
+   "notice": 0,
+   "pair": 0,
+   "src": "in-game screenshot; Reddit rvs1c0 (second chance)",
+   "start": 1641693600000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r4",
+     "limit": 1,
+     "price": 0
+    }
+   ]
   }
  ],
  "rules": {
