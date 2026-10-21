@@ -91,3 +91,28 @@ func TestRuleRateReplacesTheStepBoost(t *testing.T) {
 		t.Fatalf("summon without rules: %v", got)
 	}
 }
+
+// Paid-only twins: every ★4 that appears is a featured one ("all ★★★★
+// weapons that appear are guaranteed to be featured weapons").
+func TestEveryFourStarIsFeatured(t *testing.T) {
+	bp, _ := guaranteePool()
+	featuredWeapon := masterdata.GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: 2002, RarityType: model.RaritySSRare}
+	bp.Featured = append(bp.Featured, featuredWeapon)
+	items := []DrawnItem{drawn(ssrCostumeA), drawn(srWeapon), drawn(ssrWeapon), drawn(ssrCostumeB)}
+	featureEveryFourStar(items, bp)
+	want := []DrawnItem{drawn(ssrCostumeB), drawn(srWeapon), drawn(featuredWeapon), drawn(ssrCostumeB)}
+	for i := range want {
+		if items[i] != want[i] {
+			t.Fatalf("slot %d: %+v, want %+v", i, items[i], want[i])
+		}
+	}
+}
+
+func TestEveryFourStarWithoutFeaturedWeaponsKeepsWeapons(t *testing.T) {
+	bp, _ := guaranteePool() // featured: one costume, no weapons
+	items := []DrawnItem{drawn(ssrWeapon)}
+	featureEveryFourStar(items, bp)
+	if items[0] != drawn(ssrWeapon) {
+		t.Fatalf("a ★4 weapon was replaced with nothing to replace it by: %+v", items[0])
+	}
+}

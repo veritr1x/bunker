@@ -26,6 +26,9 @@ func ruleRate(rule masterdata.PhaseRule, ruled bool, fallback float64) float64 {
 // again from what the rule allows. Rarity-only rules (r3w, r4) are left to
 // the slot's minimum rarity.
 func applyGuarantee(items []DrawnItem, bp *masterdata.BannerPool, pool *masterdata.GachaCatalog, rule masterdata.PhaseRule, fixedCount int) {
+	if rule.Feat4 {
+		featureEveryFourStar(items, bp)
+	}
 	allowed := guaranteeCandidates(bp, pool, rule)
 	if len(allowed) == 0 || fixedCount <= 0 {
 		return
@@ -81,4 +84,27 @@ func guaranteeCandidates(bp *masterdata.BannerPool, pool *masterdata.GachaCatalo
 		return ssrCostumes
 	}
 	return nil
+}
+
+// featureEveryFourStar makes every ★4 drawn a featured one, as the paid-only
+// summons promised ("all ★★★★ weapons that appear are guaranteed to be
+// featured weapons"): a ★4 character becomes a featured character, a ★4
+// weapon a featured weapon. A kind with nothing featured stays as drawn.
+func featureEveryFourStar(items []DrawnItem, bp *masterdata.BannerPool) {
+	byType := map[int32][]masterdata.GachaPoolItem{}
+	in := map[int32]bool{}
+	for _, f := range bp.Featured {
+		if f.RarityType >= model.RaritySSRare {
+			byType[f.PossessionType] = append(byType[f.PossessionType], f)
+			in[f.PossessionId] = true
+		}
+	}
+	for i, it := range items {
+		pool := byType[it.PossessionType]
+		if it.RarityType < model.RaritySSRare || in[it.PossessionId] || len(pool) == 0 {
+			continue
+		}
+		pick := pool[rand.Intn(len(pool))]
+		items[i] = DrawnItem{PossessionType: pick.PossessionType, PossessionId: pick.PossessionId, RarityType: pick.RarityType, CharacterId: pick.CharacterId}
+	}
 }

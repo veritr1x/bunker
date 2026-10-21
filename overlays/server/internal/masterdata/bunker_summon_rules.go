@@ -32,6 +32,7 @@ type ruleStep struct {
 	Guar  string     `json:"guar"`  // r3w, r4c, set10:feat, ... (see guaranteeRarity)
 	Rate  float64    `json:"rate"`  // ★4 rate multiplier
 	Set   []int32    `json:"set"`   // the costumes a set guarantee draws from
+	Feat4 bool       `json:"feat4"` // every ★4 drawn is a featured one
 	Bonus []string   `json:"bonus"` // "Skip Ticket x100", as the notice says
 	Items []ruleItem `json:"items"` // the same, as items
 }
@@ -46,9 +47,10 @@ type ruleItem struct {
 // PhaseRule is what a draw's rule adds to its price phase: the guarantee,
 // the set it draws from and the ★4 rate multiplier (0: no rate-up).
 type PhaseRule struct {
-	Guar string
-	Set  []int32
-	Rate float64
+	Guar  string
+	Set   []int32
+	Rate  float64
+	Feat4 bool
 }
 
 var phaseRules = map[int32]PhaseRule{}
@@ -246,7 +248,7 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 				}
 			}
 			phases = append(phases, p)
-			recorded[p.PhaseId] = PhaseRule{Guar: s.Guar, Set: s.Set, Rate: s.Rate}
+			recorded[p.PhaseId] = PhaseRule{Guar: s.Guar, Set: s.Set, Rate: s.Rate, Feat4: s.Feat4}
 		}
 		for _, t := range ticket {
 			if len(phases) == int(model.PhaseIdMultiplier)-1 {
