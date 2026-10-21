@@ -4,6 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-21
+
+### Web builder
+- iPhone and iPad builds on the website work again. They stopped at
+  "Writing the IPA" because two of the packager's files were missing from
+  the site. [36654fa]
+
 ## 1.0.2 (2026-10-18)
 
 Safer master data imports and a quieter Android update.
