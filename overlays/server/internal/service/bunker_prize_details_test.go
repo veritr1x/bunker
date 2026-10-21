@@ -41,3 +41,25 @@ func TestPrizeSectionWithoutThePlayer(t *testing.T) {
 		t.Fatalf("page without a player:\n%s", page)
 	}
 }
+
+// The summon screen shows the limited prizes' stock (notice 1618: "remaining
+// stock of each prize appears on both the summons screen and details window"):
+// the box panel's lines, first four, with what has been drawn.
+func TestPrizeBoxLinesShowTheStockLeft(t *testing.T) {
+	prizes := append(dreamPrizes(), masterdata.Prize{Name: "Gems", Type: 12, Qty: 28, Stock: 9}, masterdata.Prize{Name: "Gems", Type: 12, Qty: 2, Stock: 9})
+	bs := store.GachaBannerState{BoxDrewCounts: map[int32]int32{1: 250}}
+	lines := prizeBoxLines(prizes, bs)
+	if len(lines) != 4 {
+		t.Fatalf("%d lines, want the 4 limited prizes", len(lines))
+	}
+	first, second := lines[0], lines[1]
+	if first.GachaItem.PossessionType != 12 || first.GachaItem.Count != 300000 || first.MaxDrawableCount != 1 || first.DrewCount != 0 || !first.IsTarget {
+		t.Fatalf("top prize line: %+v", first)
+	}
+	if second.GachaItem.Count != 100 || second.MaxDrawableCount != 1000 || second.DrewCount != 250 {
+		t.Fatalf("second prize line: %+v", second)
+	}
+	if lines[2].GachaItem.Count != 28 || lines[3].GachaItem.Count != 2 {
+		t.Fatalf("unlimited prizes shown, or limited ones skipped: %+v %+v", lines[2], lines[3])
+	}
+}

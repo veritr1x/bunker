@@ -59,10 +59,18 @@ func TestSummonCatalogRules(t *testing.T) {
 	if byId[153].MedalConsumableItemId == 0 {
 		t.Error("paid-only summon lost its medal")
 	}
-	for _, skipped := range []int32{69, 93, 486, 534} {
+	// Bonus summons whose only rows are 2099 placeholders stay out; those with
+	// a notice run with its rules (Monthly Bonus Summons, Mar. 2023: notice 1040).
+	for _, skipped := range []int32{69, 93} {
 		if _, ok := byId[skipped]; ok {
-			t.Errorf("bonus or newcomer summon %d offered", skipped)
+			t.Errorf("bonus summon %d offered", skipped)
 		}
+	}
+	if p := byId[486].PricePhases; len(p) != 1 || p[0].Price != 3000 || p[0].DrawCount != 10 || p[0].LimitExecCount != 5 {
+		t.Errorf("Monthly Bonus Summons 486: %+v", p)
+	}
+	if _, ok := byId[534]; !ok {
+		t.Error("newcomer pack summon 534 not offered")
 	}
 	// Reruns parked in 2099 take their shop's dates (the original's; the
 	// everything-open data moves the medal's conversion date out).
@@ -185,7 +193,14 @@ func TestBannerlessSummons(t *testing.T) {
 			t.Errorf("summon %d not offered", id)
 		}
 	}
-	for _, id := range []int32{617, 10016, 10107, 10108, 9000040} {
+	// The last weekly summons (04-30-2023) have no art; they reran Lars's and
+	// Griff's of 03-19 and show those.
+	for id, art := range map[int32]string{10107: "limited_10094", 10108: "limited_10095"} {
+		if e, ok := byId[id]; !ok || e.BannerAssetName != art {
+			t.Errorf("weekly summon %d: %+v", id, e)
+		}
+	}
+	for _, id := range []int32{617, 10016, 9000040} {
 		if _, ok := byId[id]; ok {
 			t.Errorf("summon %d without art offered", id)
 		}

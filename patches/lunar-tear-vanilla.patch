@@ -2845,7 +2845,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  }
  
  func matchesGachaLabel(labels []int32, label int32) bool {
-@@ -416,6 +428,43 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -416,6 +428,44 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
@@ -2883,13 +2883,14 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
 +		mode.GachaModeBoxComposition.IsHideMultipleDrawButton = box.Left < model.PremiumMultiPullCount
 +		mode.GachaModeBoxComposition.PromotionGachaOddsItem = boxPromotionItems(entry, &user)
 +	}
++	prizeBoxMode(g, entry, bs) // Mama's Dream: the prizes' stock
 +	return g
 +}
 +
  func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb.Gacha {
  	g := &pb.Gacha{
  		GachaId:                    entry.GachaId,
-@@ -424,7 +473,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -424,7 +474,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		GachaAutoResetType:         entry.GachaAutoResetType,
  		GachaAutoResetPeriod:       entry.GachaAutoResetPeriod,
  		NextAutoResetDatetime:      safeTimestamp(entry.NextAutoResetDatetime),
@@ -2898,7 +2899,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		IsUserGachaUnlock:          entry.IsUserGachaUnlock,
  		StartDatetime:              safeTimestamp(entry.StartDatetime),
  		EndDatetime:                safeTimestamp(entry.EndDatetime),
-@@ -435,10 +484,10 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -435,10 +485,10 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  		GachaDecorationType:        entry.GachaDecorationType,
  		SortOrder:                  entry.SortOrder,
  		IsInactive:                 entry.IsInactive,
@@ -2911,7 +2912,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	promotionItems := buildProtoPromotionItems(entry)
  
-@@ -465,12 +514,9 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -465,12 +515,9 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  			},
  		}
  	case model.GachaModeStepup:
@@ -2925,7 +2926,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  			loopCount = bs.LoopCount
  		}
  		g.GachaMode = &pb.Gacha_GachaModeStepupComposition{
-@@ -497,17 +543,13 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+@@ -497,17 +544,13 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
  	return g
  }
  
@@ -2945,7 +2946,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		}
  
  		var bonuses []*pb.GachaBonus
-@@ -523,6 +565,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -523,6 +566,14 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  		if limitExec <= 0 {
  			limitExec = 999
  		}
@@ -2960,7 +2961,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  		phases = append(phases, &pb.GachaPricePhase{
  			GachaPricePhaseId: p.PhaseId,
-@@ -534,6 +584,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -534,6 +585,7 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  			RegularPrice:      p.RegularPrice,
  			DrawCount:         p.DrawCount,
  			LimitExecCount:    limitExec,
@@ -2968,7 +2969,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  			EachMaxExecCount:  p.DrawCount,
  			GachaBonus:        bonuses,
  			GachaOddsFixedRarity: &pb.GachaOddsFixedRarity{
-@@ -547,6 +598,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
+@@ -547,6 +599,33 @@ func buildProtoPricePhases(entry store.GachaCatalogEntry, bs *store.GachaBannerS
  	return phases
  }
  

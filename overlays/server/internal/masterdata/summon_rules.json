@@ -3375,6 +3375,2113 @@
    ]
   },
   {
+   "asset": "limited_59",
+   "end": 1629597599000,
+   "id": 59,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1629338400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_71",
+   "end": 1635148799000,
+   "id": 71,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1634090400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9001",
+   "end": 1635386399000,
+   "id": 9001,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1635127200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_84",
+   "end": 1635991199000,
+   "id": 9002,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1635300000000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9003",
+   "end": 1638151199000,
+   "id": 9000008,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1637114400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_86",
+   "end": 1638431999000,
+   "id": 9000011,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1637546400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_501001",
+   "end": 1638259199000,
+   "id": 9000016,
+   "notice": 0,
+   "pair": 0,
+   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/r2idia/; https://www.reddit.com/r/NieRReincarnation/comments/r1o22m/",
+   "start": 1637913600000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 50,
+     "price": 12500
+    }
+   ]
+  },
+  {
+   "asset": "limited_9004",
+   "end": 1638518399000,
+   "id": 9000021,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1638086400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9005",
+   "end": 1639015199000,
+   "id": 9000025,
+   "notice": 196,
+   "pair": 0,
+   "src": "notice 196",
+   "start": 1638756000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:fire",
+     "items": [
+      {
+       "id": 501001,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9006",
+   "end": 1639187999000,
+   "id": 9000026,
+   "notice": 196,
+   "pair": 0,
+   "src": "notice 196",
+   "start": 1639015200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:light",
+     "items": [
+      {
+       "id": 501001,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9010",
+   "end": 1639360799000,
+   "id": 9000030,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1639101600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9011",
+   "end": 1639360799000,
+   "id": 9000031,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1639101600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9007",
+   "end": 1639360799000,
+   "id": 9000027,
+   "notice": 196,
+   "pair": 0,
+   "src": "notice 196",
+   "start": 1639188000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:wind",
+     "items": [
+      {
+       "id": 501001,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9012",
+   "end": 1639641599000,
+   "id": 9000032,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1639360800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9013",
+   "end": 1639641599000,
+   "id": 9000033,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1639360800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9008",
+   "end": 1639533599000,
+   "id": 9000028,
+   "notice": 196,
+   "pair": 0,
+   "src": "notice 196",
+   "start": 1639360800000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:water",
+     "items": [
+      {
+       "id": 501001,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9009",
+   "end": 1639706399000,
+   "id": 9000029,
+   "notice": 196,
+   "pair": 0,
+   "src": "notice 196",
+   "start": 1639533600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:dark",
+     "items": [
+      {
+       "id": 501001,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9014",
+   "end": 1641175199000,
+   "id": 9000034,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1640152800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9015",
+   "end": 1641002399000,
+   "id": 9000046,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1640678400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_900001",
+   "end": 1643075999000,
+   "id": 9000054,
+   "notice": 0,
+   "pair": 0,
+   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/s6xnes/",
+   "start": 1642471200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 50,
+     "guar": "r4c",
+     "price": 13000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9017",
+   "end": 1643594399000,
+   "id": 9000059,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1642730400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9018",
+   "end": 1643097599000,
+   "id": 9000060,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1642730400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9019",
+   "end": 1643075999000,
+   "id": 9000061,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1642989600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9020",
+   "end": 1643162399000,
+   "id": 9000062,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1643076000000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9021",
+   "end": 1643248799000,
+   "id": 9000063,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1643162400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9022",
+   "end": 1643335199000,
+   "id": 9000064,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1643248800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9023",
+   "end": 1643421599000,
+   "id": 9000065,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1643335200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_900002",
+   "end": 1643594399000,
+   "id": 9000073,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1643335200000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "price": 0,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "price": 0,
+     "step": 4
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4",
+     "price": 5000,
+     "step": 5
+    }
+   ]
+  },
+  {
+   "asset": "limited_9025",
+   "end": 1643767199000,
+   "id": 9000069,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1643356800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_511001",
+   "end": 1645149599000,
+   "id": 9000086,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1644890400000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "price": 0,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "price": 0,
+     "step": 4
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4",
+     "price": 5000,
+     "step": 5
+    }
+   ]
+  },
+  {
+   "asset": "limited_9026",
+   "end": 1646445599000,
+   "id": 9000091,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1646035200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_9027",
+   "end": 1648778399000,
+   "id": 9000100,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1648454400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_514001",
+   "end": 1650247199000,
+   "id": 514001,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1649728800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r4",
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "limited_9028",
+   "end": 1651456799000,
+   "id": 9000104,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1651132800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_519001",
+   "end": 1654826399000,
+   "id": 519001,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1654221600000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_522001",
+   "end": 1656554399000,
+   "id": 522001,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1656295200000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "price": 0,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "price": 0,
+     "step": 4
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4",
+     "price": 5000,
+     "step": 5
+    }
+   ]
+  },
+  {
+   "asset": "limited_186",
+   "end": 1657504799000,
+   "id": 186,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1656900000000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_525001",
+   "end": 1658714399000,
+   "id": 525001,
+   "notice": 0,
+   "pair": 0,
+   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/w1ivlh/",
+   "start": 1657836000000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 50,
+     "price": 12000
+    }
+   ]
+  },
+  {
+   "asset": "limited_194",
+   "end": 1660096799000,
+   "id": 194,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1659578400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_533001",
+   "end": 1661738399999,
+   "id": 533001,
+   "notice": 659,
+   "pair": 0,
+   "src": "notice 659",
+   "start": 1661220000000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "limited_405",
+   "end": 1662688799000,
+   "id": 405,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1661479200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_527001",
+   "end": 1663552799000,
+   "id": 527001,
+   "notice": 702,
+   "pair": 0,
+   "src": "notice 702",
+   "start": 1662948000000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100",
+      "XL Weapon Enhancement x2180"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 100,
+       "t": 6
+      },
+      {
+       "id": 200004,
+       "n": 2180,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Quality x1",
+      "Insignia of Skill x1",
+      "XL Character Enhancement x2180"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300024,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 100004,
+       "n": 2180,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x10",
+      "Black Pearl x1",
+      "Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "items": [
+      {
+       "id": 311003,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 322002,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_534001",
+   "end": 1665107999000,
+   "id": 534001,
+   "notice": 723,
+   "pair": 0,
+   "src": "notice 723",
+   "start": 1664157600000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4c_feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "limited_415",
+   "end": 1666922399999,
+   "id": 415,
+   "notice": 765,
+   "pair": 0,
+   "src": "notice 765",
+   "start": 1666058400000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "limit": 1,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_539001",
+   "end": 1670810399999,
+   "id": 539001,
+   "notice": 848,
+   "pair": 0,
+   "src": "notice 848",
+   "start": 1670205600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:dark",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:water",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:fire",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:wind",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:light",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  {
+   "asset": "limited_456",
+   "end": 1673683199000,
+   "id": 456,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1673078400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_457",
+   "end": 1674287999000,
+   "id": 457,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1673683200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_551001",
+   "end": 1675648799999,
+   "id": 551001,
+   "notice": 943,
+   "pair": 0,
+   "src": "notice 943",
+   "start": 1674784800000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x200"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 200,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4c_feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "limited_486",
+   "end": 1680487199999,
+   "id": 486,
+   "notice": 1040,
+   "pair": 0,
+   "src": "notice 1040",
+   "start": 1679623200000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Insignia of Quality x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300024,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_494",
+   "end": 1682647199999,
+   "id": 494,
+   "notice": 1085,
+   "pair": 0,
+   "src": "notice 1085",
+   "start": 1681696800000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Insignia of Quality x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300024,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_506",
+   "end": 1692345599999,
+   "id": 506,
+   "notice": 1142,
+   "pair": 0,
+   "src": "notice 1142",
+   "start": 1684720800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_506",
+   "end": 1708243199999,
+   "id": 9505061,
+   "notice": 1300,
+   "pair": 0,
+   "src": "notice 1300: rerun of 506",
+   "start": 1692345600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_506",
+   "end": 1714456799999,
+   "id": 9505062,
+   "notice": 1620,
+   "pair": 0,
+   "src": "notice 1620: rerun of 506",
+   "start": 1708243200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_534",
+   "end": 1694397599999,
+   "id": 534,
+   "notice": 1260,
+   "pair": 0,
+   "src": "notice 1260",
+   "start": 1690876800000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c:limited",
+     "limit": 1,
+     "price": 500
+    }
+   ]
+  },
+  {
+   "asset": "step_up_576001",
+   "end": 1694397599999,
+   "id": 576001,
+   "notice": 1291,
+   "pair": 0,
+   "src": "notice 1291",
+   "start": 1692324000000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "set": [
+      34009,
+      34014,
+      34021,
+      34036
+     ],
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "set": [
+      35021,
+      35022,
+      35026,
+      35030
+     ],
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "set": [
+      31011,
+      31016,
+      31017,
+      31018,
+      31024
+     ],
+     "step": 3
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "set": [
+      32006,
+      32017,
+      32023,
+      32024,
+      32029
+     ],
+     "step": 4
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "set": [
+      33007,
+      33020,
+      33026
+     ],
+     "step": 5
+    }
+   ]
+  },
+  {
+   "asset": "limited_554",
+   "end": 1699235999000,
+   "id": 554,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1698372000000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_576",
+   "end": 1701136799999,
+   "id": 576,
+   "notice": 1426,
+   "pair": 0,
+   "src": "notice 1426",
+   "start": 1698825600000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_unowned",
+     "price": 3000,
+     "set": [
+      33024,
+      35029,
+      34032,
+      34036,
+      31021,
+      34037,
+      32025,
+      35024,
+      35022,
+      31024
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_586",
+   "end": 1704095999999,
+   "id": 586,
+   "notice": 1504,
+   "pair": 0,
+   "src": "notice 1504",
+   "start": 1703037600000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_unowned",
+     "price": 3000,
+     "set": [
+      32028,
+      35025,
+      32022
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_587",
+   "end": 1704095999999,
+   "id": 587,
+   "notice": 1503,
+   "pair": 0,
+   "src": "notice 1503",
+   "start": 1703037600000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_unowned",
+     "price": 3000,
+     "set": [
+      32031,
+      33028,
+      31028,
+      35022,
+      34036
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_595",
+   "end": 1704095999999,
+   "id": 595,
+   "notice": 1519,
+   "pair": 0,
+   "src": "notice 1519",
+   "start": 1703728800000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000,
+     "set": [
+      32026,
+      34041
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_596",
+   "end": 1704095999999,
+   "id": 596,
+   "notice": 1518,
+   "pair": 0,
+   "src": "notice 1518",
+   "start": 1703728800000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000,
+     "set": [
+      32024,
+      34034,
+      33020
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_589",
+   "end": 1704247199999,
+   "id": 589,
+   "notice": 1555,
+   "pair": 0,
+   "src": "notice 1555",
+   "start": 1704096000000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000,
+     "set": [
+      31029,
+      33027
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_590",
+   "end": 1704247199999,
+   "id": 590,
+   "notice": 1554,
+   "pair": 0,
+   "src": "notice 1554",
+   "start": 1704096000000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000,
+     "set": [
+      35031,
+      32030
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_600",
+   "end": 1706860799000,
+   "id": 600,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1705996800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_601",
+   "end": 1707465599000,
+   "id": 601,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1706860800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_602",
+   "end": 1708070399000,
+   "id": 602,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1707465600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_603",
+   "end": 1708675199000,
+   "id": 603,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1708070400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_604",
+   "end": 1709279999000,
+   "id": 604,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1708675200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_605",
+   "end": 1709884799000,
+   "id": 605,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1709280000000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_609",
+   "end": 1710489599000,
+   "id": 609,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1709884800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_610",
+   "end": 1711785599000,
+   "id": 610,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner row; usual prices",
+   "start": 1710489600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_507",
+   "end": 1692345599999,
+   "id": 507,
+   "notice": 1142,
+   "pair": 0,
+   "src": "notice 1142; limited_507, the notice's second banner",
+   "start": 1684720800000,
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_507",
+   "end": 1708243199999,
+   "id": 9505071,
+   "notice": 1300,
+   "pair": 0,
+   "src": "notice 1300: rerun of 506; limited_507, the notice's second banner",
+   "start": 1692345600000,
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_507",
+   "end": 1714456799999,
+   "id": 9505072,
+   "notice": 1620,
+   "pair": 0,
+   "src": "notice 1620: rerun of 506; limited_507, the notice's second banner",
+   "start": 1708243200000,
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "feat4": true,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_10094",
+   "end": 1683511199999,
+   "id": 10107,
+   "lineup": 10094,
+   "notice": 0,
+   "pair": 0,
+   "src": "nierrein.guide: Weekly Summons 04-30-2023, rerun of 10094",
+   "start": 1682906400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300,
+     "rate": 1.5
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 1.5
+    }
+   ]
+  },
+  {
+   "asset": "limited_10095",
+   "end": 1683511199999,
+   "id": 10108,
+   "lineup": 10095,
+   "notice": 0,
+   "pair": 0,
+   "src": "nierrein.guide: Weekly Summons 04-30-2023, rerun of 10095",
+   "start": 1682906400000,
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300,
+     "rate": 1.5
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 1.5
+    }
+   ]
+  },
+  {
    "asset": "confirm_ssr",
    "end": 4102444799000,
    "id": 970001,
@@ -3452,6 +5559,7 @@
    "id": 970003,
    "notice": 0,
    "pair": 0,
+   "plain": true,
    "src": "banner art: Fire ★★★★ Guaranteed Summons (ticket 1205)",
    "start": 1627437600000,
    "steps": [
@@ -3470,6 +5578,7 @@
    "id": 970004,
    "notice": 0,
    "pair": 0,
+   "plain": true,
    "src": "banner art: Water ★★★★ Guaranteed Summons (ticket 1206)",
    "start": 1627437600000,
    "steps": [
@@ -3488,6 +5597,7 @@
    "id": 970005,
    "notice": 0,
    "pair": 0,
+   "plain": true,
    "src": "banner art: Wind ★★★★ Guaranteed Summons (ticket 1207)",
    "start": 1627437600000,
    "steps": [
@@ -3506,6 +5616,7 @@
    "id": 970006,
    "notice": 0,
    "pair": 0,
+   "plain": true,
    "src": "banner art: Light ★★★★ Guaranteed Summons (ticket 1208)",
    "start": 1627437600000,
    "steps": [
@@ -3524,6 +5635,7 @@
    "id": 970007,
    "notice": 0,
    "pair": 0,
+   "plain": true,
    "src": "banner art: Dark ★★★★ Guaranteed Summons (ticket 1209)",
    "start": 1627437600000,
    "steps": [
@@ -3542,6 +5654,7 @@
    "id": 970008,
    "notice": 0,
    "pair": 0,
+   "plain": true,
    "src": "banner art: Fire ★★★★ Character Guaranteed Summons (ticket 1203)",
    "start": 1627437600000,
    "steps": [
@@ -3587,6 +5700,7 @@
    "id": 200001,
    "notice": 1296,
    "pair": 0,
+   "plain": true,
    "prizes": [
     {
      "id": 0,
@@ -3760,6 +5874,7 @@
    "id": 200002,
    "notice": 1521,
    "pair": 0,
+   "plain": true,
    "prizes": [
     {
      "id": 0,
@@ -3940,6 +6055,7 @@
    "id": 200003,
    "notice": 1618,
    "pair": 0,
+   "plain": true,
    "prizes": [
     {
      "id": 0,

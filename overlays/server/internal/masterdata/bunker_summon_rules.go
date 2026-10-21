@@ -87,17 +87,19 @@ type newSummon struct {
 	Src    string     `json:"src"`
 	Steps  []ruleStep `json:"steps"`
 	Prizes []Prize    `json:"prizes"` // a prize box summon
+	Plain  bool       `json:"plain"`  // its art has no appeal/ panel: drawn in the normal (not festival) style
+	Lineup int32      `json:"lineup"` // an earlier summon it reran: that summon's shards and lineup, its own dates
 }
 
 // Prize is one prize of a prize box (Mama's Dream): what it gives and how
 // many, its stock (0: never runs out) and, if unlimited, its weight.
 type Prize struct {
 	Name   string `json:"name"` // as the notice names it ("Gems")
-	Type   int32 `json:"t"`
-	Id     int32 `json:"id"`
-	Qty    int32 `json:"n"`
-	Stock  int32 `json:"stock"`
-	Weight int32 `json:"w"`
+	Type   int32  `json:"t"`
+	Id     int32  `json:"id"`
+	Qty    int32  `json:"n"`
+	Stock  int32  `json:"stock"`
+	Weight int32  `json:"w"`
 }
 
 var prizeBoxes = map[int32][]Prize{}
@@ -193,6 +195,16 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 			CeilingCount:        model.PityCeilingCount,
 			UnlockConditionType: model.GachaUnlockNone,
 			InformationId:       n.Notice,
+		}
+		if n.Plain {
+			e.GachaDecorationType = model.GachaDecorationNormal
+		}
+		if len(n.Prizes) > 0 {
+			// Its screen is the client's box panel, which shows the prizes' stock.
+			e.GachaModeType = model.GachaModeBox
+		}
+		if src, ok := byId[n.Lineup]; ok && n.Lineup != 0 {
+			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = src.GachaMedalId, src.MedalConsumableItemId, src.CeilingCount
 		}
 		pair, paired := byId[n.Pair]
 		if paired {
@@ -348,6 +360,8 @@ func (pool *GachaCatalog) ApplyRuleFeatured() {
 func (pool *GachaCatalog) applyNewFeatured(file summonRulesFile) {
 	for _, n := range file.New {
 		if fs, ok := pool.FeaturedByGacha[n.Pair]; ok && n.Pair != 0 {
+			pool.FeaturedByGacha[n.Id] = fs
+		} else if fs, ok := pool.FeaturedByGacha[n.Lineup]; ok && n.Lineup != 0 {
 			pool.FeaturedByGacha[n.Id] = fs
 		}
 	}

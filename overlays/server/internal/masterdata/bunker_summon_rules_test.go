@@ -302,3 +302,60 @@ func TestNewSummonsFollowTheCalendarMode(t *testing.T) {
 		t.Fatalf("calendar on: twin %d, other %d", on[1].StartDatetime, on[2].StartDatetime)
 	}
 }
+
+// Some summons' art has no panel (appeal/) in the client: only a banner, or
+// an appeal_background like the chapter summons'. The festival style then
+// draws an empty panel with no summon button; they use the normal style.
+func TestPlainSummonsUseTheNormalStyle(t *testing.T) {
+	file := summonRulesFile{New: []newSummon{
+		{Id: 970003, Asset: "confirm_60005", Plain: true, Start: 1000, End: 2000, Steps: []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 1205, Guar: "r4:fire"}}},
+		{Id: 970001, Asset: "confirm_ssr", Start: 1000, End: 2000, Steps: []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 1006, Guar: "r4"}}},
+	}}
+	byId := map[int32]store.GachaCatalogEntry{}
+	for _, e := range addNewSummons(nil, file, 0) {
+		byId[e.GachaId] = e
+	}
+	if e := byId[970003]; e.BannerAssetName != "confirm_60005" || e.GachaDecorationType != model.GachaDecorationNormal {
+		t.Fatalf("plain summon: %q style %d", e.BannerAssetName, e.GachaDecorationType)
+	}
+	if e := byId[970001]; e.GachaDecorationType != model.GachaDecorationFestival {
+		t.Fatalf("summon with a panel: style %d", e.GachaDecorationType)
+	}
+}
+
+// A prize box (Mama's Dream) is the client's box summon: its screen is the
+// box panel with the prizes' stock.
+func TestPrizeBoxIsABoxSummon(t *testing.T) {
+	file := summonRulesFile{New: []newSummon{{Id: 200001, Asset: "common_200001", Plain: true, Start: 1000, End: 2000,
+		Steps:  []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 6064}},
+		Prizes: []Prize{{Name: "Gems", Type: 12, Qty: 100, Stock: 5}}}}}
+	got := addNewSummons(nil, file, 0)
+	if len(got) != 1 || got[0].GachaModeType != model.GachaModeBox || got[0].GachaLabelType != model.GachaLabelPremium {
+		t.Fatalf("prize box: %+v", got)
+	}
+}
+
+// A summon missing from the game data that reran an earlier one (the last
+// weekly summons, 04-30-2023) takes that summon's shards and lineup but keeps
+// its own dates.
+func TestLineupFromAnEarlierSummon(t *testing.T) {
+	weekly := basicEntry(10094)
+	weekly.GachaMedalId, weekly.MedalConsumableItemId, weekly.CeilingCount = 61, 6100, 150
+	weekly.StartDatetime, weekly.EndDatetime = 1_000, 2_000
+	file := summonRulesFile{New: []newSummon{{Id: 10107, Asset: "limited_10094", Lineup: 10094, Start: 5_000, End: 6_000,
+		Steps: []ruleStep{{Draws: 1, Price: 300, Cur: "gems"}, {Draws: 10, Price: 3000, Cur: "gems", Guar: "r3w"}}}}}
+	var rerun store.GachaCatalogEntry
+	for _, e := range addNewSummons([]store.GachaCatalogEntry{weekly}, file, 0) {
+		if e.GachaId == 10107 {
+			rerun = e
+		}
+	}
+	if rerun.StartDatetime != 5_000 || rerun.EndDatetime != 6_000 || rerun.GachaMedalId != 61 || rerun.MedalConsumableItemId != 6100 || rerun.CeilingCount != 150 {
+		t.Fatalf("rerun: %+v", rerun)
+	}
+	pool := &GachaCatalog{FeaturedByGacha: map[int32]FeaturedSet{10094: {Costumes: []GachaPoolItem{{PossessionId: 34001}}}}}
+	pool.applyNewFeatured(file)
+	if fs := pool.FeaturedByGacha[10107]; len(fs.Costumes) != 1 || fs.Costumes[0].PossessionId != 34001 {
+		t.Fatalf("rerun lineup: %+v", fs)
+	}
+}
