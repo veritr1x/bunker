@@ -3049,7 +3049,20 @@
     "src": "web: https://nierrein.guide/event/premium-summons-fractured-prisoner",
     "w": []
    },
-   "steps": []
+   "src": "screens: reddit image 2kxh1hjsc0l71.jpg (Wayback)",
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "price": 1
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
   },
   "40": {
    "featured": {
@@ -3889,7 +3902,20 @@
     "src": "web: https://nierrein.guide/event/premium-summons-bloody-gunman",
     "w": []
    },
-   "steps": []
+   "src": "screens: reddit image caakil76czy71.jpg (Wayback)",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
   },
   "472": {
    "src": "notice 989",
