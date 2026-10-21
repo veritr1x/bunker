@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 )
@@ -70,32 +71,103 @@ type ruleFeatured struct {
 	Src      string  `json:"src"`
 }
 
-func loadSummonRules() (map[int32]summonRule, error) {
-	var file struct {
-		Rules map[string]summonRule `json:"rules"`
-	}
-	if err := json.Unmarshal(summonRulesJSON, &file); err != nil {
-		return nil, fmt.Errorf("summon_rules.json: %w", err)
-	}
-	rules := make(map[int32]summonRule, len(file.Rules))
-	for k, r := range file.Rules {
-		id, err := strconv.Atoi(k)
-		if err != nil {
-			return nil, fmt.Errorf("summon_rules.json: summon id %q", k)
-		}
-		rules[int32(id)] = r
-	}
-	return rules, nil
+// newSummon is a summon the game data lacks but its notice and banner art
+// recover: the paid-only twins. Its window is the notice's (original game
+// time); its pool and medal are its regular summon's (Pair).
+type newSummon struct {
+	Id     int32      `json:"id"`
+	Asset  string     `json:"asset"`
+	Pair   int32      `json:"pair"`
+	Start  int64      `json:"start"`
+	End    int64      `json:"end"`
+	Notice int32      `json:"notice"`
+	Src    string     `json:"src"`
+	Steps  []ruleStep `json:"steps"`
 }
 
-// ApplySummonRules prices the catalog's summons by their recovered rules.
+type summonRulesFile struct {
+	Rules map[int32]summonRule
+	New   []newSummon
+}
+
+func loadSummonRulesFile() (summonRulesFile, error) {
+	var raw struct {
+		Rules map[string]summonRule `json:"rules"`
+		New   []newSummon           `json:"new"`
+	}
+	if err := json.Unmarshal(summonRulesJSON, &raw); err != nil {
+		return summonRulesFile{}, fmt.Errorf("summon_rules.json: %w", err)
+	}
+	file := summonRulesFile{Rules: make(map[int32]summonRule, len(raw.Rules)), New: raw.New}
+	for k, r := range raw.Rules {
+		id, err := strconv.Atoi(k)
+		if err != nil {
+			return summonRulesFile{}, fmt.Errorf("summon_rules.json: summon id %q", k)
+		}
+		file.Rules[int32(id)] = r
+	}
+	return file, nil
+}
+
+func loadSummonRules() (map[int32]summonRule, error) {
+	file, err := loadSummonRulesFile()
+	return file.Rules, err
+}
+
+// ApplySummonRules prices the catalog's summons by their recovered rules and
+// adds the summons only the notices and banner art recover.
 func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEntry {
-	rules, err := loadSummonRules()
+	file, err := loadSummonRulesFile()
 	if err != nil {
 		log.Printf("summon rules off: %v", err)
 		return entries
 	}
-	return applySummonRules(entries, rules)
+	entries = applySummonRules(entries, file.Rules)
+	return addNewSummons(entries, file, gametime.CalendarOffset())
+}
+
+// addNewSummons adds the recovered summons whose ids the game data doesn't
+// use. offset moves their original dates to the calendar's current loop.
+func addNewSummons(entries []store.GachaCatalogEntry, file summonRulesFile, offset int64) []store.GachaCatalogEntry {
+	byId := make(map[int32]store.GachaCatalogEntry, len(entries))
+	for _, e := range entries {
+		byId[e.GachaId] = e
+	}
+	rules := map[int32]summonRule{}
+	var added []store.GachaCatalogEntry
+	for _, n := range file.New {
+		if _, taken := byId[n.Id]; taken || len(n.Steps) == 0 {
+			continue
+		}
+		e := store.GachaCatalogEntry{
+			GachaId:             n.Id,
+			GachaLabelType:      model.GachaLabelPremium,
+			GachaModeType:       model.GachaModeBasic,
+			GachaAutoResetType:  model.GachaAutoResetNone,
+			IsUserGachaUnlock:   true,
+			StartDatetime:       n.Start + offset,
+			EndDatetime:         n.End + offset,
+			GachaDecorationType: model.GachaDecorationFestival,
+			BannerAssetName:     n.Asset,
+			GroupId:             n.Id,
+			CeilingCount:        model.PityCeilingCount,
+			UnlockConditionType: model.GachaUnlockNone,
+			InformationId:       n.Notice,
+		}
+		if pair, ok := byId[n.Pair]; ok {
+			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = pair.GachaMedalId, pair.MedalConsumableItemId, pair.CeilingCount
+			e.SortOrder, e.GachaDecorationType = pair.SortOrder, pair.GachaDecorationType
+		}
+		if n.Steps[0].Step > 0 {
+			e.GachaModeType = model.GachaModeStepup
+			e.GachaDecorationType = model.GachaDecorationFestival
+		}
+		rules[n.Id] = summonRule{Src: n.Src, Steps: n.Steps}
+		added = append(added, e)
+	}
+	added = applySummonRules(added, rules)
+	log.Printf("summon rules: %d summons added from notices and banner art", len(added))
+	return append(entries, added...)
 }
 
 func priceTypeOf(cur string) int32 {
@@ -192,7 +264,9 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 		}
 		applied++
 	}
-	phaseRules = recorded
+	for id, r := range recorded {
+		phaseRules[id] = r
+	}
 	log.Printf("summon rules: %d summons priced from notices and other sources", applied)
 	return entries
 }
@@ -202,12 +276,22 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 // lineup worked out from the game's catalog terms. Run it before
 // BuildBannerPools.
 func (pool *GachaCatalog) ApplyRuleFeatured() {
-	rules, err := loadSummonRules()
+	file, err := loadSummonRulesFile()
 	if err != nil {
 		log.Printf("summon rules off: %v", err)
 		return
 	}
-	pool.applyRuleFeatured(rules)
+	pool.applyRuleFeatured(file.Rules)
+	pool.applyNewFeatured(file)
+}
+
+// applyNewFeatured gives each added summon its regular summon's lineup.
+func (pool *GachaCatalog) applyNewFeatured(file summonRulesFile) {
+	for _, n := range file.New {
+		if fs, ok := pool.FeaturedByGacha[n.Pair]; ok && n.Pair != 0 {
+			pool.FeaturedByGacha[n.Id] = fs
+		}
+	}
 }
 
 func (pool *GachaCatalog) applyRuleFeatured(rules map[int32]summonRule) {

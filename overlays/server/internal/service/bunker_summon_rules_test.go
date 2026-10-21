@@ -95,3 +95,28 @@ func TestStepBonusItemsAreGranted(t *testing.T) {
 	}
 	t.Skip("no step-up with bonus items in this game data")
 }
+
+// With the original game data: the paid-only twins are summons, with their
+// regular summon's lineup and a link to their notice.
+func TestPaidTwinsOnTheGameData(t *testing.T) {
+	byId, _ := catalogById(t)
+	cats := loadMaster(t).Get()
+	twin, ok := byId[490] // Paid Only: Abstract Belle Summons
+	if !ok {
+		t.Fatal("summon 490 (Paid Only: Abstract Belle) missing")
+	}
+	if twin.BannerAssetName != "limited_490" || twin.InformationId != 1078 || twin.PricePhases[0].PriceType != model.PriceTypePaidGem {
+		t.Fatalf("twin: %+v", twin)
+	}
+	a, b := cats.GachaPool.BannerPools[489], cats.GachaPool.BannerPools[490]
+	if a == nil || b == nil || len(b.Featured) == 0 || len(a.Featured) != len(b.Featured) || a.Featured[0] != b.Featured[0] {
+		t.Fatalf("twin lineup differs from Abstract Belle's: %+v vs %+v", a, b)
+	}
+	twins := 0
+	for id, e := range byId {
+		if e.InformationId != 0 && e.GachaMedalId == 0 && id > 400 {
+			twins++
+		}
+	}
+	t.Logf("summon 490 ok; %d summons link straight to a notice", twins)
+}

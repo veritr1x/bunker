@@ -1,4 +1,2682 @@
 {
+ "new": [
+  {
+   "asset": "limited_184",
+   "end": 1659398399000,
+   "id": 184,
+   "notice": 544,
+   "pair": 183,
+   "src": "notice 544",
+   "start": 1656554400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_408",
+   "end": 1662947999999,
+   "id": 408,
+   "notice": 681,
+   "pair": 407,
+   "src": "notice 681",
+   "start": 1661911200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_406",
+   "end": 1665626399999,
+   "id": 406,
+   "notice": 693,
+   "pair": 188,
+   "src": "notice 693",
+   "start": 1662688800000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2",
+      "XL Character Enhancement x600",
+      "XL Weapon Enhancement x600"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 100004,
+       "n": 600,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 600,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_409",
+   "end": 1665705599000,
+   "id": 409,
+   "notice": 708,
+   "pair": 189,
+   "src": "notice 708",
+   "start": 1663293600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2",
+      "XL Character Enhancement x600",
+      "XL Weapon Enhancement x600"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 100004,
+       "n": 600,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 600,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_474",
+   "end": 1665532799000,
+   "id": 474,
+   "notice": 718,
+   "pair": 412,
+   "src": "notice 718",
+   "start": 1663812000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_421",
+   "end": 1666576799999,
+   "id": 421,
+   "notice": 755,
+   "pair": 420,
+   "src": "notice 755",
+   "start": 1665626400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_425",
+   "end": 1667786399999,
+   "id": 425,
+   "notice": 776,
+   "pair": 0,
+   "src": "notice 776",
+   "start": 1666317600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_424",
+   "end": 1667786399999,
+   "id": 424,
+   "notice": 777,
+   "pair": 0,
+   "src": "notice 777",
+   "start": 1666317600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_427",
+   "end": 1668391199999,
+   "id": 427,
+   "notice": 797,
+   "pair": 426,
+   "src": "notice 797",
+   "start": 1667181600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_429",
+   "end": 1670205599999,
+   "id": 429,
+   "notice": 828,
+   "pair": 436,
+   "src": "notice 828",
+   "start": 1669082400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_440",
+   "end": 1672019999999,
+   "id": 440,
+   "notice": 856,
+   "pair": 439,
+   "src": "notice 856",
+   "start": 1670551200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_538001",
+   "end": 1672019999999,
+   "id": 538001,
+   "notice": 863,
+   "pair": 442,
+   "src": "notice 863",
+   "start": 1671156000000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "limited_447",
+   "end": 1673315999999,
+   "id": 447,
+   "notice": 883,
+   "pair": 446,
+   "src": "notice 883",
+   "start": 1672020000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_455",
+   "end": 1676253599999,
+   "id": 455,
+   "notice": 917,
+   "pair": 454,
+   "src": "notice 917",
+   "start": 1673575200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_459",
+   "end": 1676253599999,
+   "id": 459,
+   "notice": 935,
+   "pair": 458,
+   "src": "notice 935",
+   "start": 1674439200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_461",
+   "end": 1677549599999,
+   "id": 461,
+   "notice": 950,
+   "pair": 460,
+   "src": "notice 950",
+   "start": 1675130400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_481",
+   "end": 1681091999999,
+   "id": 481,
+   "notice": 1013,
+   "pair": 480,
+   "src": "notice 1013",
+   "start": 1678413600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_485",
+   "end": 1681091999999,
+   "id": 485,
+   "notice": 1036,
+   "pair": 484,
+   "src": "notice 1036",
+   "start": 1679454000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_478",
+   "end": 1683511199999,
+   "id": 478,
+   "notice": 1055,
+   "pair": 479,
+   "src": "notice 1055",
+   "start": 1680228000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2",
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_490",
+   "end": 1683511199999,
+   "id": 490,
+   "notice": 1078,
+   "pair": 489,
+   "src": "notice 1078",
+   "start": 1680832800000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_488",
+   "end": 1683511199999,
+   "id": 488,
+   "notice": 1094,
+   "pair": 0,
+   "src": "notice 1094",
+   "start": 1682042400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2",
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_561001",
+   "end": 1684115999999,
+   "id": 561001,
+   "notice": 1103,
+   "pair": 496,
+   "src": "notice 1103",
+   "start": 1682647200000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Adamant x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 325001,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 5000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "limited_497",
+   "end": 1686535199999,
+   "id": 497,
+   "notice": 1121,
+   "pair": 498,
+   "src": "notice 1121",
+   "start": 1683856800000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_504",
+   "end": 1686535199999,
+   "id": 504,
+   "notice": 1145,
+   "pair": 505,
+   "src": "notice 1145",
+   "start": 1685066400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_565001",
+   "end": 1688349599999,
+   "id": 565001,
+   "notice": 1152,
+   "pair": 508,
+   "src": "notice 1152",
+   "start": 1685498400000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_566001",
+   "end": 1689645599999,
+   "id": 566001,
+   "notice": 1164,
+   "pair": 0,
+   "src": "notice 1164",
+   "start": 1686276000000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 100,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Quality x1",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300024,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_567001",
+   "end": 1689645599999,
+   "id": 567001,
+   "notice": 1166,
+   "pair": 0,
+   "src": "notice 1166",
+   "start": 1686276000000,
+   "steps": [
+    {
+     "bonus": [
+      "Verse of Truth x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 314001,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Adamant x10",
+      "Insignia of Quality x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 300024,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 1.5,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 4
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 5000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  {
+   "asset": "step_up_569001",
+   "end": 1688954399999,
+   "id": 569001,
+   "notice": 1188,
+   "pair": 513,
+   "src": "notice 1188",
+   "start": 1687485600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "limited_516",
+   "end": 1688090399999,
+   "id": 516,
+   "notice": 1198,
+   "pair": 515,
+   "src": "notice 1198",
+   "start": 1687744800000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "set": [
+      34009,
+      32006,
+      33005,
+      31017,
+      31016,
+      35016,
+      34027
+     ]
+    }
+   ]
+  },
+  {
+   "asset": "limited_518",
+   "end": 1691373599999,
+   "id": 518,
+   "notice": 1207,
+   "pair": 517,
+   "src": "notice 1207",
+   "start": 1688090400000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Quality x2",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300024,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_521",
+   "end": 1691373599999,
+   "id": 521,
+   "notice": 1224,
+   "pair": 520,
+   "src": "notice 1224",
+   "start": 1689300000000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Quality x2",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300024,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_525",
+   "end": 1690941599999,
+   "id": 525,
+   "notice": 1233,
+   "pair": 0,
+   "src": "notice 1233",
+   "start": 1689818400000,
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c_unowned:Saryu",
+     "limit": 3,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "step_up_570001",
+   "end": 1691373599999,
+   "id": 570001,
+   "notice": 1243,
+   "pair": 522,
+   "src": "notice 1243",
+   "start": 1690164000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_572001",
+   "end": 1691978399999,
+   "id": 572001,
+   "notice": 1253,
+   "pair": 532,
+   "src": "notice 1253",
+   "start": 1690768800000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Adamant x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 325001,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 5000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_573001",
+   "end": 1692313199999,
+   "id": 573001,
+   "notice": 1268,
+   "pair": 533,
+   "src": "notice 1268",
+   "start": 1691719200000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+celebratory",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_574001",
+   "end": 1691719199999,
+   "id": 574001,
+   "notice": 1276,
+   "pair": 535,
+   "src": "notice 1276",
+   "start": 1691114400000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+celebratory",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_575001",
+   "end": 1691719199999,
+   "id": 575001,
+   "notice": 1293,
+   "pair": 541,
+   "src": "notice 1293",
+   "start": 1691114400000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+celebratory",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_577001",
+   "end": 1691719199999,
+   "id": 577001,
+   "notice": 1309,
+   "pair": 542,
+   "src": "notice 1309",
+   "start": 1691114400000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+celebratory",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_579001",
+   "end": 1696211999999,
+   "id": 579001,
+   "notice": 1322,
+   "pair": 544,
+   "src": "notice 1322",
+   "start": 1693447200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_578001",
+   "end": 1694397599999,
+   "id": 578001,
+   "notice": 1325,
+   "pair": 543,
+   "src": "notice 1325",
+   "start": 1693533600000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+celebratory",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_584001",
+   "end": 1696903199999,
+   "id": 584001,
+   "notice": 1355,
+   "pair": 552,
+   "src": "notice 1355",
+   "start": 1695607200000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_585001",
+   "end": 1697421599999,
+   "id": 585001,
+   "notice": 1363,
+   "pair": 553,
+   "src": "notice 1363",
+   "start": 1695866400000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Adamant x10",
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 5000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_590001",
+   "end": 1699235999999,
+   "id": 590001,
+   "notice": 1405,
+   "pair": 567,
+   "src": "notice 1405",
+   "start": 1698026400000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_600001",
+   "end": 1700445599999,
+   "id": 600001,
+   "notice": 1419,
+   "pair": 568,
+   "src": "notice 1419",
+   "start": 1698717600000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Adamant x10",
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 5000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_601001",
+   "end": 1702000799999,
+   "id": 601001,
+   "notice": 1434,
+   "pair": 569,
+   "src": "notice 1434",
+   "start": 1699581600000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_602001",
+   "end": 1701568799999,
+   "id": 602001,
+   "notice": 1444,
+   "pair": 572,
+   "src": "notice 1444",
+   "start": 1700186400000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_603001",
+   "end": 1702259999999,
+   "id": 603001,
+   "notice": 1455,
+   "pair": 574,
+   "src": "notice 1455",
+   "start": 1700791200000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_604001",
+   "end": 1703987999999,
+   "id": 604001,
+   "notice": 1476,
+   "pair": 577,
+   "src": "notice 1476",
+   "start": 1701309600000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Verse of Truth x1",
+      "Adamant x10",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+specific",
+     "items": [
+      {
+       "id": 314001,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "set": [
+      32009,
+      34017,
+      34018,
+      35021,
+      35022,
+      32022,
+      32023
+     ],
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "set": [
+      32009,
+      34017,
+      34018,
+      35021,
+      35022,
+      32022,
+      32023
+     ],
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_607001",
+   "end": 1703987999999,
+   "id": 607001,
+   "notice": 1488,
+   "pair": 585,
+   "src": "notice 1488",
+   "start": 1701309600000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Verse of Truth x1",
+      "Adamant x10",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+specific",
+     "items": [
+      {
+       "id": 314001,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_605001",
+   "end": 1703987999999,
+   "id": 605001,
+   "notice": 1496,
+   "pair": 582,
+   "src": "notice 1496",
+   "start": 1701309600000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Verse of Truth x1",
+      "Adamant x10",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+specific",
+     "items": [
+      {
+       "id": 314001,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_606001",
+   "end": 1703987999999,
+   "id": 606001,
+   "notice": 1510,
+   "pair": 583,
+   "src": "notice 1510",
+   "start": 1701309600000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Verse of Truth x1",
+      "Adamant x10",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat+specific",
+     "items": [
+      {
+       "id": 314001,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_610001",
+   "end": 1703987999999,
+   "id": 610001,
+   "notice": 1514,
+   "pair": 592,
+   "src": "notice 1514",
+   "start": 1701309600000,
+   "steps": [
+    {
+     "bonus": [
+      "Insignia of Skill x2",
+      "Advanced Handbook x40"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3",
+     "items": [
+      {
+       "id": 300023,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 40,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Verse of Truth x1",
+      "Adamant x10",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:yuletide",
+     "items": [
+      {
+       "id": 314001,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_611001",
+   "end": 1705888799999,
+   "id": 611001,
+   "notice": 1569,
+   "pair": 594,
+   "src": "notice 1569",
+   "start": 1704420000000,
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Adamant x10",
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 325001,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 5000,
+     "step": 3
+    }
+   ]
+  },
+  {
+   "asset": "step_up_609001",
+   "end": 1706493599999,
+   "id": 609001,
+   "notice": 1573,
+   "pair": 591,
+   "src": "notice 1573",
+   "start": 1705024800000,
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Black Pearl x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  },
+  {
+   "asset": "step_up_613001",
+   "end": 1714456799999,
+   "id": 613001,
+   "notice": 1646,
+   "pair": 613,
+   "src": "notice 1646",
+   "start": 1709863200000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    }
+   ]
+  }
+ ],
  "rules": {
   "107": {
    "featured": {

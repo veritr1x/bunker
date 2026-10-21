@@ -185,3 +185,60 @@ func TestSummonRuleBonusItems(t *testing.T) {
 		t.Fatalf("steps 2/3 bonuses: %+v / %+v", got.PricePhases[1].Bonuses, got.PricePhases[2].Bonuses)
 	}
 }
+
+func TestPaidTwinsJoinTheCatalog(t *testing.T) {
+	regular := basicEntry(489)
+	regular.GachaMedalId, regular.MedalConsumableItemId, regular.CeilingCount, regular.SortOrder = 77, 7700, 200, 5000
+	taken := basicEntry(9)
+	file := summonRulesFile{New: []newSummon{
+		{Id: 490, Asset: "limited_490", Pair: 489, Start: 1_680_000_000_000, End: 1_681_000_000_000, Notice: 1078,
+			Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid", Limit: 5, Guar: "r3w"}}},
+		{Id: 565001, Asset: "step_up_565001", Pair: 565, Start: 1_690_000_000_000, End: 1_691_000_000_000, Notice: 1152,
+			Steps: []ruleStep{{Step: 1, Draws: 10, Price: 1500, Cur: "paid"}, {Step: 2, Draws: 10, Price: 3000, Cur: "paid", Guar: "set10:feat"}}},
+		{Id: 9, Asset: "limited_9", Pair: 489, Start: 1, End: 2, Steps: []ruleStep{{Draws: 10, Price: 1, Cur: "paid"}}},
+	}}
+	got := addNewSummons([]store.GachaCatalogEntry{regular, taken}, file, 0)
+	byId := map[int32]store.GachaCatalogEntry{}
+	for _, e := range got {
+		byId[e.GachaId] = e
+	}
+	if len(got) != 4 || byId[9].PricePhases[1].Price != model.PremiumMultiPullPrice {
+		t.Fatalf("an id the game data already uses was replaced, or a twin is missing: %d entries", len(got))
+	}
+	twin := byId[490]
+	if twin.BannerAssetName != "limited_490" || twin.StartDatetime != 1_680_000_000_000 || twin.EndDatetime != 1_681_000_000_000 ||
+		twin.GachaMedalId != 77 || twin.MedalConsumableItemId != 7700 || twin.CeilingCount != 200 || twin.SortOrder != 5000 ||
+		twin.InformationId != 1078 || twin.GachaModeType != model.GachaModeBasic || !twin.IsUserGachaUnlock {
+		t.Fatalf("twin: %+v", twin)
+	}
+	if len(twin.PricePhases) != 1 || twin.PricePhases[0].PriceType != model.PriceTypePaidGem || twin.PricePhases[0].LimitExecCount != 5 {
+		t.Fatalf("twin draws: %+v", twin.PricePhases)
+	}
+	step := byId[565001]
+	if step.GachaModeType != model.GachaModeStepup || step.MaxStepNumber != 2 || step.GroupId != 565001 || len(step.PricePhases) != 2 ||
+		step.PricePhases[1].StepNumber != 2 || step.GachaMedalId != 0 {
+		t.Fatalf("step-up twin without a regular summon: %+v", step)
+	}
+	if r, ok := PhaseRuleFor(step.PricePhases[1].PhaseId); !ok || r.Guar != "set10:feat" {
+		t.Fatalf("step 2 rule: %+v %v", r, ok)
+	}
+}
+
+func TestPaidTwinDatesFollowTheCalendar(t *testing.T) {
+	file := summonRulesFile{New: []newSummon{{Id: 490, Asset: "limited_490", Start: 1000, End: 2000, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid"}}}}}
+	got := addNewSummons(nil, file, 500)
+	if got[0].StartDatetime != 1500 || got[0].EndDatetime != 2500 {
+		t.Fatalf("dates with a calendar shift of 500: %d-%d", got[0].StartDatetime, got[0].EndDatetime)
+	}
+}
+
+func TestPaidTwinsShareTheirRegularLineup(t *testing.T) {
+	pool := featuredPool()
+	pool.applyNewFeatured(summonRulesFile{New: []newSummon{{Id: 490, Pair: 5}, {Id: 491, Pair: 404}}})
+	if got := pool.FeaturedByGacha[490]; len(got.Costumes) != 1 || got.Costumes[0].PossessionId != 1002 {
+		t.Fatalf("twin lineup: %+v", got)
+	}
+	if _, ok := pool.FeaturedByGacha[491]; ok {
+		t.Fatal("a twin without a regular summon got a lineup")
+	}
+}
