@@ -90,6 +90,7 @@ type newSummon struct {
 	Prizes []Prize    `json:"prizes"` // a prize box summon
 	Plain  bool       `json:"plain"`  // its art has no appeal/ panel: drawn in the normal (not festival) style
 	Lineup int32      `json:"lineup"` // an earlier summon it reran: that summon's shards and lineup, its own dates
+	Cards  []int32    `json:"cards"`  // the costumes its banner art shows, for its panel's cards
 }
 
 // Prize is one prize of a prize box (Mama's Dream): what it gives and how
@@ -108,13 +109,16 @@ var prizeBoxes = map[int32][]Prize{}
 // plainSummons are the added summons whose art has no appeal images.
 var plainSummons = map[int32]bool{}
 
+// bannerCards are the costumes a plain summon's banner art shows.
+var bannerCards = map[int32][]int32{}
+
 // panelCards is how many promotion cards a plain summon's panel shows.
 const panelCostumeCards, panelWeaponCards = 3, 2
 
 // ApplyPanelPromotions gives each plain summon promotion cards, its panel's
-// only content (the client has no appeal images for it): ★4s its guaranteed
-// slot can give, of its element if it names one, released ones only, newest
-// first. They are not
+// only content (the client has no appeal images for it): the characters its
+// banner art shows when known, else ★4s its guaranteed slot can give, of its
+// element if it names one, released ones only, newest first. They are not
 // featured, so the draws keep the pool's odds. Elements come from
 // ApplyRuleFeatured, which runs first.
 func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog) {
@@ -135,6 +139,18 @@ func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog)
 		}
 		if _, prize := PrizeBoxFor(e.GachaId); prize {
 			continue
+		}
+		if ids := bannerCards[e.GachaId]; len(ids) > 0 {
+			var cards []store.GachaPromotionItem
+			for _, id := range ids {
+				if c, ok := pool.CostumeById[id]; ok {
+					cards = append(cards, toPromoItemWithBonus(c, pool))
+				}
+			}
+			if len(cards) > 0 {
+				entries[i].PromotionItems = cards
+				continue
+			}
 		}
 		rule, _ := PhaseRuleFor(e.PricePhases[0].PhaseId)
 		kind, elemName, _ := strings.Cut(rule.Guar, ":")
@@ -262,6 +278,9 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 		if n.Plain {
 			e.GachaDecorationType = model.GachaDecorationNormal
 			plainSummons[n.Id] = true
+			if len(n.Cards) > 0 {
+				bannerCards[n.Id] = n.Cards
+			}
 		}
 		if len(n.Prizes) > 0 {
 			// An event summon: the client's box screen (appeal_background and

@@ -426,3 +426,30 @@ func TestPrizeBoxIsOnTheEventTab(t *testing.T) {
 		t.Fatalf("prize box: %+v", got)
 	}
 }
+
+// A summon whose banner art shows its characters shows those on its panel,
+// in the banner's order: the Fire ★4 banner has 31026, 31014 and 31023.
+func TestPlainSummonPanelShowsItsBannerCharacters(t *testing.T) {
+	defer SetElementsForTest(nil, nil)
+	SetElementsForTest(nil, map[int32]int32{1001: 2, 1002: 2, 1003: 2})
+	ss := model.RaritySSRare
+	c := func(id int32) GachaPoolItem { return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss} }
+	pool := &GachaCatalog{
+		StandardCostumesByRarity: map[int32][]GachaPoolItem{ss: {c(1001)}},
+		CostumesByRarity:         map[int32][]GachaPoolItem{ss: {c(1001), c(1002), c(1003)}},
+		CostumeById:              map[int32]GachaPoolItem{1001: c(1001), 1002: c(1002), 1003: c(1003)},
+		CostumeWeaponMap:         map[int32]int32{1003: 2003},
+		FeaturedByGacha:          map[int32]FeaturedSet{},
+	}
+	file := summonRulesFile{New: []newSummon{{Id: 970003, Asset: "confirm_60005", Plain: true, Cards: []int32{1003, 1001, 1002}, Start: 1, End: 2,
+		Steps: []ruleStep{{Draws: 1, Price: 1, Cur: "ticket", Ticket: 1205, Guar: "r4:fire"}}}}}
+	entries := addNewSummons(nil, file, 0)
+	ApplyPanelPromotions(entries, pool)
+	var got []int32
+	for _, p := range entries[0].PromotionItems {
+		got = append(got, p.PossessionId)
+	}
+	if fmt.Sprint(got) != "[1003 1001 1002]" || entries[0].PromotionItems[0].BonusPossessionId != 2003 {
+		t.Fatalf("banner characters: %v %+v", got, entries[0].PromotionItems)
+	}
+}

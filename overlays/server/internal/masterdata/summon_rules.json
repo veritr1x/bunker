@@ -5555,6 +5555,12 @@
   },
   {
    "asset": "confirm_60005",
+   "cards": [
+    31026,
+    31014,
+    31023
+   ],
+   "cards_src": "characters shown on the banner art (ui/gacha/en/confirm_60005/banner), matched to costume art by eye",
    "end": 4102444799000,
    "id": 970003,
    "notice": 0,
@@ -5574,6 +5580,12 @@
   },
   {
    "asset": "confirm_60006",
+   "cards": [
+    32014,
+    32012,
+    32016
+   ],
+   "cards_src": "characters shown on the banner art (ui/gacha/en/confirm_60006/banner), matched to costume art by eye",
    "end": 4102444799000,
    "id": 970004,
    "notice": 0,
@@ -5593,6 +5605,12 @@
   },
   {
    "asset": "confirm_60007",
+   "cards": [
+    33018,
+    33013,
+    33016
+   ],
+   "cards_src": "characters shown on the banner art (ui/gacha/en/confirm_60007/banner), matched to costume art by eye",
    "end": 4102444799000,
    "id": 970005,
    "notice": 0,
@@ -5612,6 +5630,12 @@
   },
   {
    "asset": "confirm_60008",
+   "cards": [
+    34028,
+    34038,
+    34031
+   ],
+   "cards_src": "characters shown on the banner art (ui/gacha/en/confirm_60008/banner), matched to costume art by eye",
    "end": 4102444799000,
    "id": 970006,
    "notice": 0,
@@ -5631,6 +5655,12 @@
   },
   {
    "asset": "confirm_60009",
+   "cards": [
+    35027,
+    35020,
+    35014
+   ],
+   "cards_src": "characters shown on the banner art (ui/gacha/en/confirm_60009/banner), matched to costume art by eye",
    "end": 4102444799000,
    "id": 970007,
    "notice": 0,
@@ -5650,6 +5680,12 @@
   },
   {
    "asset": "confirm_ssr_chara_fire",
+   "cards": [
+    31011,
+    31018,
+    31015
+   ],
+   "cards_src": "characters shown on the banner art (ui/gacha/en/confirm_ssr_chara_fire/banner), matched to costume art by eye",
    "end": 4102444799000,
    "id": 970008,
    "notice": 0,
