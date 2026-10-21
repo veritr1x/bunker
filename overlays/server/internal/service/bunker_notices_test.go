@@ -240,3 +240,35 @@ func TestCatalogSummonsLinkFromTheirNotice(t *testing.T) {
 		t.Fatalf("summon links:\n%s", page)
 	}
 }
+
+// A postscript the game clock hasn't reached yet neither lifts its notice
+// to the top nor shows.
+func TestFuturePostscriptIsIgnored(t *testing.T) {
+	h := NewNotices(writeNoticePack(t), func() int64 { return 2_500 }) // notice 11: published 2,000, postscript 3,000
+	_, page, _ := getNotice(t, h, "/information/")
+	if strings.Contains(page, "Postscript") {
+		t.Fatalf("future postscript shown:\n%s", page)
+	}
+	h2 := NewNotices(writeNoticePack(t), func() int64 { return 5_000 })
+	if _, page, _ := getNotice(t, h2, "/information/"); !strings.Contains(page, "Postscript") {
+		t.Fatalf("postscript the clock passed not shown:\n%s", page)
+	}
+}
+
+func TestNoticeOrderUsesOnlyPastPostscripts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "notices.zip")
+	f, _ := os.Create(path)
+	z := zip.NewWriter(f)
+	w, _ := z.Create("notices.json")
+	json.NewEncoder(w).Encode(map[string]any{"version": 1, "notices": []map[string]any{
+		{"id": 1, "type": 5, "title": "Known issues", "publish": 1_000, "postscript": 9_000, "body": ""},
+		{"id": 2, "type": 1, "title": "Ver 1.1 Update", "publish": 3_000, "body": ""},
+	}})
+	z.Close()
+	f.Close()
+	h := NewNotices(path, func() int64 { return 5_000 })
+	_, page, _ := getNotice(t, h, "/information/")
+	if i, j := strings.Index(page, "Ver 1.1 Update"), strings.Index(page, "Known issues"); i < 0 || j < 0 || i > j {
+		t.Fatalf("a notice with a future postscript sorted first:\n%s", page)
+	}
+}

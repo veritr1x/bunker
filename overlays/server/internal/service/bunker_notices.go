@@ -64,8 +64,10 @@ type notice struct {
 	Body       string `json:"body"`
 }
 
-func (n *notice) sortTime() int64 {
-	if n.Postscript > n.Publish {
+// sortTime is when the notice last changed as of now: its postscript once
+// the game clock has reached it, else its publish date.
+func (n *notice) sortTime(now int64) int64 {
+	if n.Postscript > n.Publish && n.Postscript <= now {
 		return n.Postscript
 	}
 	return n.Publish
@@ -140,7 +142,7 @@ func (s *Notices) load() bool {
 	for _, n := range index.Notices {
 		s.byID[n.Id] = n
 	}
-	sort.SliceStable(s.list, func(i, j int) bool { return s.list[i].sortTime() > s.list[j].sortTime() })
+	sort.SliceStable(s.list, func(i, j int) bool { return s.list[i].Publish > s.list[j].Publish })
 	s.gacha, s.summon = map[int32]int32{}, map[int32][]int32{}
 	for k, v := range index.Gacha {
 		if id, err := strconv.Atoi(k); err == nil {
@@ -262,9 +264,9 @@ func badgeHTML(t int32) string {
 	return `<span class="badge ` + tone + `">` + label + `</span>`
 }
 
-func dateHTML(n *notice) string {
+func dateHTML(n *notice, now int64) string {
 	s := `<time data-ms="` + strconv.FormatInt(n.Publish, 10) + `"></time>`
-	if n.Postscript > 0 {
+	if n.Postscript > 0 && n.Postscript <= now {
 		s += ` <span class="post">[Postscript: <time data-ms="` + strconv.FormatInt(n.Postscript, 10) + `"></time>]</span>`
 	}
 	return s
@@ -299,18 +301,22 @@ func (s *Notices) serveList(w http.ResponseWriter, tabKey string) {
 	var b strings.Builder
 	b.WriteString(tabsHTML(tab))
 	b.WriteString(`<main class="list">`)
-	shown := 0
+	var visible []*notice
 	for _, n := range s.list {
-		if n.Publish > now || (noticeTabs[tab].types != nil && !noticeTabs[tab].types[n.Type]) {
-			continue
+		if n.Publish <= now && (noticeTabs[tab].types == nil || noticeTabs[tab].types[n.Type]) {
+			visible = append(visible, n)
 		}
+	}
+	sort.SliceStable(visible, func(i, j int) bool { return visible[i].sortTime(now) > visible[j].sortTime(now) })
+	shown := 0
+	for _, n := range visible {
 		shown++
 		thumb := ""
 		if n.Thumb != "" {
 			thumb = `<img class="thumb" loading="lazy" src="img/` + n.Thumb + `.webp" alt="">`
 		}
 		fmt.Fprintf(&b, `<a class="row" href="?informationId=%d&amp;tab=%s"><div class="row-head">%s<span class="date">%s</span></div><div class="row-body">%s<span class="title">%s</span></div><span class="arrow"></span></a>`,
-			n.Id, noticeTabs[tab].key, badgeHTML(n.Type), dateHTML(n), thumb, html.EscapeString(n.Title))
+			n.Id, noticeTabs[tab].key, badgeHTML(n.Type), dateHTML(n, now), thumb, html.EscapeString(n.Title))
 	}
 	if shown == 0 {
 		b.WriteString(`<p class="empty">There are no notices yet.</p>`)
@@ -342,7 +348,7 @@ func (s *Notices) serveDetail(w http.ResponseWriter, id, tabKey string) {
 		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/en/gacha-details?gachaId=%d">Summons Details</a>`, g)
 	}
 	body := fmt.Sprintf(`%s<main class="detail"><header><a class="back" href="?tab=%s" aria-label="Back"></a><div class="head-text">%s<h1>%s</h1></div><span class="date">%s</span></header><article>%s%s</article></main>`,
-		tabsHTML(tab), noticeTabs[tab].key, badgeHTML(n.Type), html.EscapeString(n.Title), dateHTML(n), details.String(), n.Body)
+		tabsHTML(tab), noticeTabs[tab].key, badgeHTML(n.Type), html.EscapeString(n.Title), dateHTML(n, s.now()), details.String(), n.Body)
 	w.Write([]byte(noticePage(n.Title, body)))
 }
 

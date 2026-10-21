@@ -189,6 +189,7 @@ func TestSummonRuleBonusItems(t *testing.T) {
 func TestPaidTwinsJoinTheCatalog(t *testing.T) {
 	regular := basicEntry(489)
 	regular.GachaMedalId, regular.MedalConsumableItemId, regular.CeilingCount, regular.SortOrder = 77, 7700, 200, 5000
+	regular.StartDatetime, regular.EndDatetime = 1_680_000_000_000, 1_681_000_000_000 // the twin runs with it
 	taken := basicEntry(9)
 	file := summonRulesFile{New: []newSummon{
 		{Id: 490, Asset: "limited_490", Pair: 489, Start: 1_680_000_000_000, End: 1_681_000_000_000, Notice: 1078,
@@ -267,9 +268,37 @@ func TestTicketSummon(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("entries: %+v", got)
 	}
+	// Always open, so listed after the summons of the day.
+	if got[0].SortOrder != ticketSummonSortOrder {
+		t.Fatalf("ticket summon sort order %d", got[0].SortOrder)
+	}
 	p := got[0].PricePhases[0]
 	if p.PriceType != model.PriceTypeConsumableItem || p.PriceId != 1006 || p.Price != 1 || p.DrawCount != 1 ||
 		p.FixedRarityMin != model.RaritySSRare || p.FixedCount != 1 {
 		t.Fatalf("ticket draw: %+v", p)
+	}
+}
+
+// With the calendar off every summon in the game data is open (1999-2099);
+// the added summons are too, and a twin always runs with its regular summon.
+func TestNewSummonsFollowTheCalendarMode(t *testing.T) {
+	regular := basicEntry(489)
+	regular.StartDatetime, regular.EndDatetime = 946598400000, 4102444799000
+	file := summonRulesFile{New: []newSummon{
+		{Id: 490, Asset: "limited_490", Pair: 489, Start: 1_680_000_000_000, End: 1_681_000_000_000, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid"}}},
+		{Id: 124, Asset: "limited_124", Start: 1_640_998_800_000, End: 1_641_175_199_999, Steps: []ruleStep{{Draws: 10, Price: 0, Cur: "free"}}},
+	}}
+	off := addNewSummonsFor([]store.GachaCatalogEntry{regular}, file, 0, false)
+	if off[1].StartDatetime != regular.StartDatetime || off[1].EndDatetime != regular.EndDatetime {
+		t.Fatalf("twin with the calendar off: %d-%d", off[1].StartDatetime, off[1].EndDatetime)
+	}
+	if off[2].StartDatetime > 1_000_000_000_000 || off[2].EndDatetime < 4_000_000_000_000 {
+		t.Fatalf("summon without a regular one, calendar off: %d-%d", off[2].StartDatetime, off[2].EndDatetime)
+	}
+	// Calendar on: the twin still runs with its (moved) regular summon; the other keeps its window, moved.
+	regular.StartDatetime, regular.EndDatetime = 1_680_100_000_000+7000, 1_681_200_000_000+7000
+	on := addNewSummonsFor([]store.GachaCatalogEntry{regular}, file, 7000, true)
+	if on[1].StartDatetime != regular.StartDatetime || on[2].StartDatetime != 1_640_998_800_000+7000 {
+		t.Fatalf("calendar on: twin %d, other %d", on[1].StartDatetime, on[2].StartDatetime)
 	}
 }

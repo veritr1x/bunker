@@ -146,12 +146,29 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 		return entries
 	}
 	entries = applySummonRules(entries, file.Rules)
-	return addNewSummons(entries, file, gametime.CalendarOffset())
+	return addNewSummonsFor(entries, file, gametime.CalendarOffset(), gametime.CurrentCalendar() != nil)
 }
 
-// addNewSummons adds the recovered summons whose ids the game data doesn't
-// use. offset moves their original dates to the calendar's current loop.
+// Without the Original calendar the game data has every summon open from
+// 1999-12-31 to 2099-12-31; the added summons are open as long.
+const (
+	alwaysOpenStart int64 = 946598400000
+	alwaysOpenEnd   int64 = 4102444799000
+)
+
+// ticketSummonSortOrder lists the always-open ticket summons after the
+// summons of the day (the list goes by sort order, lowest first).
+const ticketSummonSortOrder int32 = 1_000_000_000
+
 func addNewSummons(entries []store.GachaCatalogEntry, file summonRulesFile, offset int64) []store.GachaCatalogEntry {
+	return addNewSummonsFor(entries, file, offset, true)
+}
+
+// addNewSummonsFor adds the recovered summons whose ids the game data
+// doesn't use. A twin runs with its regular summon (whose dates the calendar
+// already moved). Others keep their own window, moved by offset to the
+// calendar's loop, or with the calendar off are always open.
+func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, offset int64, calendarOn bool) []store.GachaCatalogEntry {
 	byId := make(map[int32]store.GachaCatalogEntry, len(entries))
 	for _, e := range entries {
 		byId[e.GachaId] = e
@@ -182,12 +199,16 @@ func addNewSummons(entries []store.GachaCatalogEntry, file summonRulesFile, offs
 			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = pair.GachaMedalId, pair.MedalConsumableItemId, pair.CeilingCount
 			e.SortOrder, e.GachaDecorationType = pair.SortOrder, pair.GachaDecorationType
 		}
-		if n.Start == 0 {
-			// No notice window: it ran with its regular summon (whose dates the calendar already moved).
-			if !paired {
-				continue
-			}
+		switch {
+		case paired:
 			e.StartDatetime, e.EndDatetime = pair.StartDatetime, pair.EndDatetime
+		case n.Start == 0:
+			continue // runs with a regular summon the game data lacks
+		case !calendarOn:
+			e.StartDatetime, e.EndDatetime = alwaysOpenStart, alwaysOpenEnd
+		}
+		if !paired && n.Steps[0].Cur == "ticket" {
+			e.SortOrder = ticketSummonSortOrder
 		}
 		if n.Steps[0].Step > 0 {
 			e.GachaModeType = model.GachaModeStepup
