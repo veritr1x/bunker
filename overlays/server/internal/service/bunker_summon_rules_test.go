@@ -147,3 +147,42 @@ func TestFireTicketSummonOnTheGameData(t *testing.T) {
 		t.Fatalf("tickets left: %d", u.ConsumableItems[1205])
 	}
 }
+
+// With the original game data: a Mama's Dream draw takes one Mama's Dream
+// Summons Ticket and gives one prize, gems in their amount.
+func TestMamasDreamOnTheGameData(t *testing.T) {
+	byId, handler := catalogById(t)
+	e, ok := byId[200001]
+	if !ok {
+		t.Fatal("Mama's Dream 200001 missing")
+	}
+	defer gametime.SetCalendar(nil)
+	at := e.StartDatetime + 3600_000
+	gametime.SetCalendar(&gametime.Calendar{Loop: 1, LoopStart: 1, JumpMillis: at - gametime.Now().UnixMilli(), Speed: 1})
+	u := store.UserState{}
+	u.EnsureMaps()
+	u.ConsumableItems[6064] = 50
+	gems := u.Gem.FreeGem
+	gotGems, gotItems := 0, 0
+	for i := 0; i < 50; i++ {
+		res, err := handler.HandleDraw(&u, e, e.PricePhases[0].PhaseId, 1)
+		if err != nil {
+			t.Fatalf("draw %d: %v", i, err)
+		}
+		if len(res.Items) != 1 || res.Items[0].Count <= 0 {
+			t.Fatalf("draw %d: %+v", i, res.Items)
+		}
+		if res.Items[0].PossessionType == int32(model.PossessionTypeFreeGem) {
+			gotGems++
+		} else {
+			gotItems++
+		}
+	}
+	if u.ConsumableItems[6064] != 0 || gotGems+gotItems != 50 {
+		t.Fatalf("tickets left %d, prizes %d+%d", u.ConsumableItems[6064], gotGems, gotItems)
+	}
+	if gotGems > 0 && u.Gem.FreeGem <= gems {
+		t.Fatalf("gem prizes drawn (%d) but no gems granted", gotGems)
+	}
+	t.Logf("50 draws: %d gem prizes, %d item prizes", gotGems, gotItems)
+}

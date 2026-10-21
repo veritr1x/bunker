@@ -1,16 +1,18 @@
 diff --git a/server/internal/gacha/draw.go b/server/internal/gacha/draw.go
-index 19cbe0f..8efcb84 100644
 --- a/server/internal/gacha/draw.go
 +++ b/server/internal/gacha/draw.go
-@@ -21,6 +21,7 @@ type DrawnItem struct {
+@@ -19,8 +19,10 @@ type DrawnItem struct {
+ 	PossessionId   int32
+ 	RarityType     model.RarityType
  	CharacterId    int32
++	Count          int32 // how many (prize box draws); 0 means one
  }
  
 +// Lunar Tear's rates; DefaultRates in rates.go matches them, and Pod Programs can change them.
  var premiumRates = []RateTier{
  	{200, int32(model.PossessionTypeCostume), model.RaritySSRare},
  	{300, int32(model.PossessionTypeWeapon), model.RaritySSRare},
-@@ -31,7 +32,7 @@ var premiumRates = []RateTier{
+@@ -31,7 +33,7 @@ var premiumRates = []RateTier{
  
  func DrawPremium(bp *masterdata.BannerPool, count int, fixedRarityMin int32, fixedCount int, rateMultiplier float64) []DrawnItem {
  	result := make([]DrawnItem, 0, count)
@@ -19,7 +21,7 @@ index 19cbe0f..8efcb84 100644
  	totalWeight := 0
  	for _, r := range rates {
  		totalWeight += r.Weight
-@@ -160,7 +161,7 @@ func tryFeaturedRateUp(bp *masterdata.BannerPool, tier RateTier) (DrawnItem, boo
+@@ -160,7 +162,7 @@ func tryFeaturedRateUp(bp *masterdata.BannerPool, tier RateTier) (DrawnItem, boo
  	if len(matches) == 0 {
  		return DrawnItem{}, false
  	}

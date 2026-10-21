@@ -187,9 +187,10 @@ func TestGachaCatalogEntries(t *testing.T) {
 		seen[e.GachaId]++
 		for _, p := range e.PricePhases {
 			// Premium summons take the Premium Summon Ticket; the ticket summons
-			// (confirm_*: ★★★+ and ★★★★ guaranteed) take their own ticket.
+			// (confirm_*: ★★★+ and ★★★★ guaranteed) and Mama's Dream take their own.
+			_, prizeBox := masterdata.PrizeBoxFor(e.GachaId)
 			if e.GachaLabelType == model.GachaLabelPremium && p.PriceType == model.PriceTypeConsumableItem && p.PriceId != 1002 &&
-				!strings.HasPrefix(e.BannerAssetName, "confirm_") {
+				!strings.HasPrefix(e.BannerAssetName, "confirm_") && !prizeBox {
 				t.Fatalf("summon %d ticket phase costs item %d", e.GachaId, p.PriceId)
 			}
 		}

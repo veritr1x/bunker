@@ -86,6 +86,25 @@ type newSummon struct {
 	Notice int32      `json:"notice"`
 	Src    string     `json:"src"`
 	Steps  []ruleStep `json:"steps"`
+	Prizes []Prize    `json:"prizes"` // a prize box summon
+}
+
+// Prize is one prize of a prize box (Mama's Dream): what it gives and how
+// many, its stock (0: never runs out) and, if unlimited, its weight.
+type Prize struct {
+	Type   int32 `json:"t"`
+	Id     int32 `json:"id"`
+	Qty    int32 `json:"n"`
+	Stock  int32 `json:"stock"`
+	Weight int32 `json:"w"`
+}
+
+var prizeBoxes = map[int32][]Prize{}
+
+// PrizeBoxFor is a prize box summon's prizes, if the summon is one.
+func PrizeBoxFor(gachaId int32) ([]Prize, bool) {
+	p, ok := prizeBoxes[gachaId]
+	return p, ok
 }
 
 type summonRulesFile struct {
@@ -174,6 +193,9 @@ func addNewSummons(entries []store.GachaCatalogEntry, file summonRulesFile, offs
 			e.GachaDecorationType = model.GachaDecorationFestival
 		}
 		rules[n.Id] = summonRule{Src: n.Src, Steps: n.Steps}
+		if len(n.Prizes) > 0 {
+			prizeBoxes[n.Id] = n.Prizes
+		}
 		added = append(added, e)
 	}
 	added = applySummonRules(added, rules)
