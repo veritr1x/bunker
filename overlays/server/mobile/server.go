@@ -235,11 +235,19 @@ func Start(dataRoot, assetRoot string) (err error) {
 	cdnHTTP := &http.Server{Handler: h2c.NewHandler(cdnMux, &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
 	s.http = []*http.Server{cdnHTTP, authHTTP}
 	store := sqlite.New(db, gametime.Now)
+	service.SetWebUsers(store) // Summons Details shows the player's prize box
 	s.grpc = grpc.NewServer(
 		// Accept keepalive pings down to 1s apart, also between calls, instead of closing the connection (gRPC default: 5 min).
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Second, PermitWithoutStream: true}),
 		grpc.ChainUnaryInterceptor(interceptor.Recover, interceptor.Platform, interceptor.Logging, interceptor.NewDiffInterceptor(store, store), interceptor.NewMissionInterceptor(store, store), interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
 	service.InitBunker(holder)
+	summonNotices := map[int32]int32{}
+	for _, e := range holder.Get().GachaEntries {
+		if e.InformationId != 0 {
+			summonNotices[e.GachaId] = e.InformationId
+		}
+	}
+	notices.LinkSummons(summonNotices)
 	service.SetArchiveRoot(dataRoot)
 	gacha.SetRatesPath(filepath.Join(dataRoot, "gacha_rates.json"))
 	gacha.SetRouletteRatesPath(filepath.Join(dataRoot, "roulette_rates.json"))

@@ -229,3 +229,14 @@ func TestSummonNoticeLinksToSummonsDetails(t *testing.T) {
 		t.Fatalf("a notice without a summon links to Summons Details:\n%s", page)
 	}
 }
+
+// Summons the catalog links to a notice (the paid-only twins) get a Summons
+// Details button on it too, beside those the notice pack lists.
+func TestCatalogSummonsLinkFromTheirNotice(t *testing.T) {
+	h := NewNotices(writeNoticePack(t), func() int64 { return 5_000 })
+	h.LinkSummons(map[int32]int32{490: 10, 613: 10})
+	_, page, _ := getNotice(t, h, "/en/information/?informationId=10")
+	if !strings.Contains(page, "gachaId=490") || strings.Count(page, "gachaId=613") != 1 {
+		t.Fatalf("summon links:\n%s", page)
+	}
+}

@@ -3591,132 +3591,154 @@
     {
      "id": 0,
      "n": 300000,
+     "name": "Gems",
      "stock": 1,
      "t": 12
     },
     {
      "id": 0,
      "n": 30000,
+     "name": "Gems",
      "stock": 6,
      "t": 12
     },
     {
      "id": 0,
      "n": 3000,
+     "name": "Gems",
      "stock": 100,
      "t": 12
     },
     {
      "id": 0,
      "n": 300,
+     "name": "Gems",
      "stock": 600,
      "t": 12
     },
     {
      "id": 0,
      "n": 100,
+     "name": "Gems",
      "stock": 1000,
      "t": 12
     },
     {
      "id": 315001,
      "n": 10,
+     "name": "Karma Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 314001,
      "n": 1,
+     "name": "Verse of Truth",
      "t": 5,
      "w": 1000
     },
     {
      "id": 325001,
      "n": 10,
+     "name": "Adamant",
      "t": 5,
      "w": 1000
     },
     {
      "id": 313203,
      "n": 1,
+     "name": "Dark Awakening Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 300023,
      "n": 1,
+     "name": "Insignia of Skill",
      "t": 5,
      "w": 1000
     },
     {
      "id": 300024,
      "n": 2,
+     "name": "Insignia of Quality",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321007,
      "n": 100,
+     "name": "Ruby",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321008,
      "n": 100,
+     "name": "Aquamarine",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321009,
      "n": 100,
+     "name": "Emerald",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321010,
      "n": 100,
+     "name": "Topaz",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321011,
      "n": 100,
+     "name": "Tanzanite",
      "t": 5,
      "w": 1000
     },
     {
      "id": 311003,
      "n": 10,
+     "name": "Advanced Handbook",
      "t": 5,
      "w": 1000
     },
     {
      "id": 312003,
      "n": 1,
+     "name": "Black Pearl",
      "t": 5,
      "w": 1000
     },
     {
      "id": 322002,
      "n": 1,
+     "name": "Zenith's Brilliance",
      "t": 5,
      "w": 1000
     },
     {
      "id": 302113,
      "n": 1,
+     "name": "Supreme Adoration",
      "t": 5,
      "w": 1000
     },
     {
      "id": 312101,
      "n": 1,
+     "name": "Polycrystal of Thought",
      "t": 5,
      "w": 1000
     },
     {
      "id": 2003,
      "n": 10,
+     "name": "Skip Ticket",
      "t": 6,
      "w": 1000
     }
@@ -3742,138 +3764,161 @@
     {
      "id": 0,
      "n": 500000,
+     "name": "Gems",
      "stock": 1,
      "t": 12
     },
     {
      "id": 0,
      "n": 50000,
+     "name": "Gems",
      "stock": 6,
      "t": 12
     },
     {
      "id": 0,
      "n": 5000,
+     "name": "Gems",
      "stock": 100,
      "t": 12
     },
     {
      "id": 0,
      "n": 500,
+     "name": "Gems",
      "stock": 600,
      "t": 12
     },
     {
      "id": 0,
      "n": 100,
+     "name": "Gems",
      "stock": 6000,
      "t": 12
     },
     {
      "id": 315001,
      "n": 10,
+     "name": "Karma Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 314001,
      "n": 1,
+     "name": "Verse of Truth",
      "t": 5,
      "w": 1000
     },
     {
      "id": 325001,
      "n": 10,
+     "name": "Adamant",
      "t": 5,
      "w": 1000
     },
     {
      "id": 315002,
      "n": 10,
+     "name": "Dark Karma Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 313203,
      "n": 1,
+     "name": "Dark Awakening Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 300023,
      "n": 2,
+     "name": "Insignia of Skill",
      "t": 5,
      "w": 1000
     },
     {
      "id": 300024,
      "n": 1,
+     "name": "Insignia of Quality",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321007,
      "n": 100,
+     "name": "Ruby",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321008,
      "n": 100,
+     "name": "Aquamarine",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321009,
      "n": 100,
+     "name": "Emerald",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321010,
      "n": 100,
+     "name": "Topaz",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321011,
      "n": 100,
+     "name": "Tanzanite",
      "t": 5,
      "w": 1000
     },
     {
      "id": 311003,
      "n": 10,
+     "name": "Advanced Handbook",
      "t": 5,
      "w": 1000
     },
     {
      "id": 312003,
      "n": 1,
+     "name": "Black Pearl",
      "t": 5,
      "w": 1000
     },
     {
      "id": 322002,
      "n": 1,
+     "name": "Zenith's Brilliance",
      "t": 5,
      "w": 1000
     },
     {
      "id": 302113,
      "n": 1,
+     "name": "Supreme Adoration",
      "t": 5,
      "w": 1000
     },
     {
      "id": 312101,
      "n": 1,
+     "name": "Polycrystal of Thought",
      "t": 5,
      "w": 1000
     },
     {
      "id": 2003,
      "n": 10,
+     "name": "Skip Ticket",
      "t": 6,
      "w": 1000
     }
@@ -3899,138 +3944,161 @@
     {
      "id": 0,
      "n": 2800000,
+     "name": "Gems",
      "stock": 1,
      "t": 12
     },
     {
      "id": 0,
      "n": 280000,
+     "name": "Gems",
      "stock": 6,
      "t": 12
     },
     {
      "id": 0,
      "n": 28000,
+     "name": "Gems",
      "stock": 100,
      "t": 12
     },
     {
      "id": 0,
      "n": 2800,
+     "name": "Gems",
      "stock": 600,
      "t": 12
     },
     {
      "id": 0,
      "n": 280,
+     "name": "Gems",
      "stock": 6000,
      "t": 12
     },
     {
      "id": 315001,
      "n": 10,
+     "name": "Karma Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 314001,
      "n": 1,
+     "name": "Verse of Truth",
      "t": 5,
      "w": 1000
     },
     {
      "id": 325001,
      "n": 10,
+     "name": "Adamant",
      "t": 5,
      "w": 1000
     },
     {
      "id": 315002,
      "n": 10,
+     "name": "Dark Karma Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 313203,
      "n": 1,
+     "name": "Dark Awakening Stone",
      "t": 5,
      "w": 1000
     },
     {
      "id": 300023,
      "n": 1,
+     "name": "Insignia of Skill",
      "t": 5,
      "w": 1000
     },
     {
      "id": 300024,
      "n": 2,
+     "name": "Insignia of Quality",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321007,
      "n": 100,
+     "name": "Ruby",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321008,
      "n": 100,
+     "name": "Aquamarine",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321009,
      "n": 100,
+     "name": "Emerald",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321010,
      "n": 100,
+     "name": "Topaz",
      "t": 5,
      "w": 1000
     },
     {
      "id": 321011,
      "n": 100,
+     "name": "Tanzanite",
      "t": 5,
      "w": 1000
     },
     {
      "id": 311003,
      "n": 10,
+     "name": "Advanced Handbook",
      "t": 5,
      "w": 1000
     },
     {
      "id": 312003,
      "n": 1,
+     "name": "Black Pearl",
      "t": 5,
      "w": 1000
     },
     {
      "id": 322002,
      "n": 1,
+     "name": "Zenith's Brilliance",
      "t": 5,
      "w": 1000
     },
     {
      "id": 302113,
      "n": 1,
+     "name": "Supreme Adoration",
      "t": 5,
      "w": 1000
     },
     {
      "id": 312101,
      "n": 1,
+     "name": "Polycrystal of Thought",
      "t": 5,
      "w": 1000
     },
     {
      "id": 2003,
      "n": 10,
+     "name": "Skip Ticket",
      "t": 6,
      "w": 1000
     }

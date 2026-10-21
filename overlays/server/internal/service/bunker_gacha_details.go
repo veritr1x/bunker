@@ -276,6 +276,10 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 		b.WriteString("</table>")
 	}
 
+	if prizes, ok := masterdata.PrizeBoxFor(entry.GachaId); ok {
+		b.WriteString(prizeSectionHTML(r, entry.GachaId, prizes))
+	}
+
 	if entry.MedalConsumableItemId != 0 {
 		medal := "medals"
 		if rows, err := utils.ReadTable[masterdata.EntityMConsumableItem]("m_consumable_item"); err == nil {

@@ -37,6 +37,21 @@ type Notices struct {
 	byID   map[int32]*notice
 	gacha  map[int32]int32   // summon -> its notice
 	summon map[int32][]int32 // notice -> its summons
+	linked map[int32][]int32 // notice -> summons the catalog links to it (LinkSummons)
+}
+
+// LinkSummons adds the summons the catalog links to a notice (summon ->
+// notice), so their notice offers their Summons Details as well.
+func (s *Notices) LinkSummons(links map[int32]int32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.linked = map[int32][]int32{}
+	for g, n := range links {
+		s.linked[n] = append(s.linked[n], g)
+	}
+	for _, ids := range s.linked {
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	}
 }
 
 type notice struct {
@@ -315,7 +330,15 @@ func (s *Notices) serveDetail(w http.ResponseWriter, id, tabKey string) {
 	}
 	// Bunker's Summons Details (costs, exchange, pool) for the summons this notice announced.
 	var details strings.Builder
-	for _, g := range s.summon[n.Id] {
+	shown := map[int32]bool{}
+	s.mu.Lock()
+	summons := append(append([]int32(nil), s.summon[n.Id]...), s.linked[n.Id]...)
+	s.mu.Unlock()
+	for _, g := range summons {
+		if shown[g] {
+			continue
+		}
+		shown[g] = true
 		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/en/gacha-details?gachaId=%d">Summons Details</a>`, g)
 	}
 	body := fmt.Sprintf(`%s<main class="detail"><header><a class="back" href="?tab=%s" aria-label="Back"></a><div class="head-text">%s<h1>%s</h1></div><span class="date">%s</span></header><article>%s%s</article></main>`,

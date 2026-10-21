@@ -92,6 +92,7 @@ type newSummon struct {
 // Prize is one prize of a prize box (Mama's Dream): what it gives and how
 // many, its stock (0: never runs out) and, if unlimited, its weight.
 type Prize struct {
+	Name   string `json:"name"` // as the notice names it ("Gems")
 	Type   int32 `json:"t"`
 	Id     int32 `json:"id"`
 	Qty    int32 `json:"n"`
