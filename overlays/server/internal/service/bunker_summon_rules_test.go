@@ -61,3 +61,37 @@ func TestFeaturedCharacterGuaranteeOnTheGameData(t *testing.T) {
 	}
 	t.Skip("no step-up with a featured-character guarantee in this game data")
 }
+
+// A step's bonus items (here from its notice) reach the player.
+func TestStepBonusItemsAreGranted(t *testing.T) {
+	byId, handler := catalogById(t)
+	for _, e := range byId {
+		if e.GachaModeType != model.GachaModeStepup || len(e.PricePhases) == 0 || len(e.PricePhases[0].Bonuses) == 0 {
+			continue
+		}
+		defer gametime.SetCalendar(nil)
+		at := e.StartDatetime + 3600_000
+		gametime.SetCalendar(&gametime.Calendar{Loop: 1, LoopStart: 1, JumpMillis: at - gametime.Now().UnixMilli(), Speed: 1})
+		u := store.UserState{}
+		u.EnsureMaps()
+		u.Gem.PaidGem, u.Gem.FreeGem = 1_000_000, 1_000_000
+		if _, err := handler.HandleDraw(&u, e, e.PricePhases[0].PhaseId, 1); err != nil {
+			t.Fatalf("summon %d step 1: %v", e.GachaId, err)
+		}
+		for _, b := range e.PricePhases[0].Bonuses {
+			var have int32
+			switch model.PossessionType(b.PossessionType) {
+			case model.PossessionTypeMaterial:
+				have = u.Materials[b.PossessionId]
+			case model.PossessionTypeConsumableItem:
+				have = u.ConsumableItems[b.PossessionId]
+			}
+			if have < b.Count {
+				t.Fatalf("summon %d step 1 bonus %+v: player has %d", e.GachaId, b, have)
+			}
+		}
+		t.Logf("summon %d step 1 gave %+v", e.GachaId, e.PricePhases[0].Bonuses)
+		return
+	}
+	t.Skip("no step-up with bonus items in this game data")
+}

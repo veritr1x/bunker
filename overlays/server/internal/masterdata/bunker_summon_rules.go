@@ -22,16 +22,24 @@ import (
 var summonRulesJSON []byte
 
 type ruleStep struct {
-	Step  int32    `json:"step"`
-	Draws int32    `json:"draws"`
-	Price int32    `json:"price"`
-	Cur   string   `json:"cur"` // gems, paid, free, ticket
-	Limit int32    `json:"limit"`
-	Daily bool     `json:"daily"`
-	Guar  string   `json:"guar"`  // r3w, r4c, set10:feat, ... (see guaranteeRarity)
-	Rate  float64  `json:"rate"`  // ★4 rate multiplier
-	Set   []int32  `json:"set"`   // the costumes a set guarantee draws from
-	Bonus []string `json:"bonus"` // "Skip Ticket x100"
+	Step  int32      `json:"step"`
+	Draws int32      `json:"draws"`
+	Price int32      `json:"price"`
+	Cur   string     `json:"cur"` // gems, paid, free, ticket
+	Limit int32      `json:"limit"`
+	Daily bool       `json:"daily"`
+	Guar  string     `json:"guar"`  // r3w, r4c, set10:feat, ... (see guaranteeRarity)
+	Rate  float64    `json:"rate"`  // ★4 rate multiplier
+	Set   []int32    `json:"set"`   // the costumes a set guarantee draws from
+	Bonus []string   `json:"bonus"` // "Skip Ticket x100", as the notice says
+	Items []ruleItem `json:"items"` // the same, as items
+}
+
+// ruleItem is a bonus item a draw gives: possession type, id and count.
+type ruleItem struct {
+	Type  int32 `json:"t"`
+	Id    int32 `json:"id"`
+	Count int32 `json:"n"`
 }
 
 // PhaseRule is what a draw's rule adds to its price phase: the guarantee,
@@ -146,6 +154,9 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 				DrawCount:      s.Draws,
 				LimitExecCount: s.Limit,
 				StepNumber:     s.Step,
+			}
+			for _, b := range s.Items {
+				p.Bonuses = append(p.Bonuses, store.GachaBonusEntry{PossessionType: b.Type, PossessionId: b.Id, Count: b.Count})
 			}
 			if s.Cur == "ticket" {
 				p.PriceId = model.ConsumableIdPremiumTicket

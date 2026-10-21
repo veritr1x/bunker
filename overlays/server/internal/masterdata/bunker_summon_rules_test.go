@@ -168,3 +168,20 @@ func TestOutsideSourceLineupKeepsTheFeaturedWeapons(t *testing.T) {
 		t.Fatalf("notice: %+v", fs)
 	}
 }
+
+func TestSummonRuleBonusItems(t *testing.T) {
+	entry := store.GachaCatalogEntry{GachaId: 527001, GachaModeType: model.GachaModeStepup, MaxStepNumber: 3, PricePhases: buildStepUpPricePhases(527001, 3, nil)}
+	rules := map[int32]summonRule{527001: {Steps: []ruleStep{
+		{Step: 1, Draws: 10, Price: 3000, Cur: "paid", Items: []ruleItem{{Type: 6, Id: 2003, Count: 100}, {Type: 5, Id: 200004, Count: 2180}}},
+		{Step: 2, Draws: 10, Price: 3000, Cur: "paid"},
+		{Step: 3, Draws: 10, Price: 3000, Cur: "paid", Items: []ruleItem{{Type: 5, Id: 311003, Count: 10}}},
+	}}}
+	got := applySummonRules([]store.GachaCatalogEntry{entry}, rules)[0]
+	b := got.PricePhases[0].Bonuses
+	if len(b) != 2 || b[0] != (store.GachaBonusEntry{PossessionType: 6, PossessionId: 2003, Count: 100}) || b[1].PossessionId != 200004 || b[1].Count != 2180 {
+		t.Fatalf("step 1 bonuses: %+v", b)
+	}
+	if len(got.PricePhases[1].Bonuses) != 0 || len(got.PricePhases[2].Bonuses) != 1 {
+		t.Fatalf("steps 2/3 bonuses: %+v / %+v", got.PricePhases[1].Bonuses, got.PricePhases[2].Bonuses)
+	}
+}
