@@ -25,6 +25,8 @@ PYTHON = [
     "android/tools/build_info.py",
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
+    "ios/tools/scroll_snap.py",
+    "ios/tools/text_buffer.py",
     "upstream/lunar-scripts/android/patch_apk.py",
     "upstream/lunar-scripts/ios/patch_ipa.py",
     "upstream/lunar-scripts/patch_masterdata.py",
