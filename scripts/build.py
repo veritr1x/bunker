@@ -148,6 +148,8 @@ def main():
     run(python, ROOT / "upstream/lunar-scripts/patch_masterdata.py", "--input", master,
         "--output", patched_master, env=env)
     env["LUNAR_TEST_MASTER"] = str(patched_master)
+    # Bunker's own tests replay the live service's dates, so they read the original data.
+    env["BUNKER_TEST_MASTER"] = str(Path(master).resolve())
     env["GOBIN"] = str(work / "bin")
     Path(env["GOBIN"]).mkdir(exist_ok=True)
     env["PATH"] = env["GOBIN"] + os.pathsep + env["PATH"]
