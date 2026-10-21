@@ -1,0 +1,2840 @@
+{
+ "rules": {
+  "183": {
+   "src": "notice 543",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "188": {
+   "src": "notice 694",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "189": {
+   "src": "notice 709",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "199": {
+   "src": "notice 643",
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 22,
+     "price": 0
+    }
+   ]
+  },
+  "401": {
+   "src": "notice 642",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "limit": 1,
+     "price": 3000
+    }
+   ]
+  },
+  "407": {
+   "src": "notice 680",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "410": {
+   "src": "notice 689",
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 1,
+     "guar": "r4c_unowned",
+     "limit": 1,
+     "price": 0
+    }
+   ]
+  },
+  "412": {
+   "src": "notice 719",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "414": {
+   "src": "notice 722",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "415": {
+   "src": "notice 765",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "limit": 1,
+     "price": 3000
+    }
+   ]
+  },
+  "416": {
+   "src": "notice 734",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  "418": {
+   "src": "notice 747",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300,
+     "rate": 2
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "419": {
+   "src": "notice 810",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "420": {
+   "src": "notice 754",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "422": {
+   "src": "notice 786",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "423": {
+   "src": "notice 778",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "426": {
+   "src": "notice 796",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "428": {
+   "src": "notice 839",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "430": {
+   "src": "notice 833",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "433": {
+   "src": "notice 809",
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 1,
+     "guar": "r4c_unowned",
+     "limit": 1,
+     "price": 0
+    }
+   ]
+  },
+  "435": {
+   "src": "notice 820",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "436": {
+   "src": "notice 827",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "437": {
+   "src": "notice 838",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "439": {
+   "src": "notice 855",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "44": {
+   "src": "screens: reddit image hgylpvtuqdk71.jpg + 1gze4fsuz9i71.jpg",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "442": {
+   "src": "notice 862",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "443": {
+   "src": "notice 874",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300,
+     "rate": 2.5
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2.5
+    }
+   ]
+  },
+  "446": {
+   "src": "notice 882",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "448": {
+   "src": "notice 894",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "449": {
+   "src": "notice 890",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "452": {
+   "src": "notice 903",
+   "steps": [
+    {
+     "cur": "free",
+     "daily": true,
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0
+    }
+   ]
+  },
+  "453": {
+   "src": "notice 910",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c_unowned",
+     "limit": 3,
+     "price": 3000
+    }
+   ]
+  },
+  "454": {
+   "src": "notice 916",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "458": {
+   "src": "notice 934",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "460": {
+   "src": "notice 949",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "462": {
+   "src": "notice 944",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "468": {
+   "src": "notice 962",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w",
+     "price": 1500
+    }
+   ]
+  },
+  "472": {
+   "src": "notice 989",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "475": {
+   "src": "notice 1052",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "477": {
+   "src": "notice 1050",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "479": {
+   "src": "notice 1054",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "480": {
+   "src": "notice 1012",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "483": {
+   "src": "notice 1023",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "limit": 5,
+     "price": 5000
+    }
+   ]
+  },
+  "484": {
+   "src": "notice 1035",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "486": {
+   "src": "notice 1040",
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Insignia of Quality x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "limit": 5,
+     "price": 3000
+    }
+   ]
+  },
+  "487": {
+   "src": "notice 1093",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "489": {
+   "src": "notice 1077",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "49": {
+   "src": "screens: reddit image ki6njupoc7q71.jpg + scozfbt0auu71.jpg",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "limit": 5,
+     "price": 2000
+    }
+   ]
+  },
+  "493": {
+   "src": "notice 1083",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "limit": 5,
+     "price": 5000
+    }
+   ]
+  },
+  "494": {
+   "src": "notice 1085",
+   "steps": [
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Insignia of Quality x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "limit": 5,
+     "price": 3000
+    }
+   ]
+  },
+  "495": {
+   "src": "notice 1114",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "496": {
+   "src": "notice 1104",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "498": {
+   "src": "notice 1120",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "501": {
+   "src": "notice 1126",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c:season1",
+     "limit": 3,
+     "price": 3000
+    }
+   ]
+  },
+  "503": {
+   "src": "notice 1137",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "limit": 5,
+     "price": 5000
+    }
+   ]
+  },
+  "505": {
+   "src": "notice 1144",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "506": {
+   "src": "notice 1142",
+   "steps": [
+    {
+     "cur": "gems",
+     "daily": true,
+     "draws": 10,
+     "guar": "r4w",
+     "price": 3000
+    }
+   ]
+  },
+  "508": {
+   "src": "notice 1151",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "509": {
+   "src": "notice 1163",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "510": {
+   "src": "notice 1159",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c_unowned",
+     "limit": 3,
+     "price": 3000
+    }
+   ]
+  },
+  "511": {
+   "src": "notice 1165",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "513": {
+   "src": "notice 1187",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "514": {
+   "src": "notice 1186",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:abyssal",
+     "limit": 1,
+     "price": 3000
+    }
+   ]
+  },
+  "515": {
+   "src": "notice 1197",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "set10",
+     "limit": 1,
+     "price": 3000
+    }
+   ]
+  },
+  "517": {
+   "src": "notice 1206",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "519": {
+   "src": "notice 1217",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "520": {
+   "src": "notice 1223",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "522": {
+   "src": "notice 1242",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "524": {
+   "src": "notice 1234",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c_unowned:Akeha",
+     "limit": 3,
+     "price": 3000
+    }
+   ]
+  },
+  "525001": {
+   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/w1ivlh/",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 50,
+     "price": 12000
+    }
+   ]
+  },
+  "527": {
+   "src": "notice 1262",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "527001": {
+   "src": "notice 702",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100",
+      "XL Weapon Enhancement x2180"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Quality x1",
+      "Insignia of Skill x1",
+      "XL Character Enhancement x2180"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x10",
+      "Black Pearl x1",
+      "Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "532": {
+   "src": "notice 1252",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "532001": {
+   "src": "notice 641",
+   "steps": [
+    {
+     "bonus": [
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 2000,
+     "rate": 1.5,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Skip Ticket x100"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 1.5,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x10",
+      "Piece: Zenith's Brilliance x5",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w",
+     "price": 5000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "533": {
+   "src": "notice 1267",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "533001": {
+   "src": "notice 659",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "534": {
+   "src": "notice 1260",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c:limited",
+     "limit": 1,
+     "price": 500
+    }
+   ]
+  },
+  "534001": {
+   "src": "notice 723",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "535": {
+   "src": "notice 1275",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "536001": {
+   "src": "notice 787",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "537001": {
+   "src": "notice 821",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "539001": {
+   "src": "notice 848",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:dark",
+     "price": 3000,
+     "rate": 2,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:water",
+     "price": 3000,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:fire",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:wind",
+     "price": 3000,
+     "rate": 2,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:light",
+     "price": 3000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "541": {
+   "src": "notice 1292",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "542": {
+   "src": "notice 1308",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "543": {
+   "src": "notice 1324",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "544": {
+   "src": "notice 1321",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "545": {
+   "src": "notice 1320",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "547": {
+   "src": "notice 1319",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "548": {
+   "src": "notice 1335",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "549": {
+   "src": "notice 1342",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "550": {
+   "src": "notice 1350",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "550001": {
+   "src": "notice 926",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50",
+      "Black Pearl x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50",
+      "Large Slab Fragment x100"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "551": {
+   "src": "notice 1370",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "551001": {
+   "src": "notice 943",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x200"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Piece: Black Pearl x5"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "552": {
+   "src": "notice 1354",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "552001": {
+   "src": "notice 959",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Skill x1",
+      "Insignia of Quality x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r4:celebratory-1.5",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    }
+   ]
+  },
+  "553": {
+   "src": "notice 1362",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "553001": {
+   "src": "notice 976",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Insignia of Quality x1",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 1.5,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 5000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "555": {
+   "src": "notice 1389",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "555001": {
+   "src": "notice 999",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100",
+      "weapon-skill materials of each weapon type x20"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Insignia of Quality x1",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 1.5,
+     "step": 3
+    },
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 5000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "556": {
+   "src": "notice 1395",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "557": {
+   "src": "notice 1379",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "557001": {
+   "src": "notice 1053",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Quality x1",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "558": {
+   "src": "notice 1385",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "559": {
+   "src": "notice 1392",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "559001": {
+   "src": "notice 1020",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50",
+      "Black Pearl x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50",
+      "Large Slab Fragment x100",
+      "Large Cursed-God Antler Bit x100"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "560": {
+   "src": "notice 1407",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "560001": {
+   "src": "notice 1051",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x100"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Quality x1",
+      "Insignia of Skill x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:feat",
+     "price": 3000,
+     "step": 3
+    }
+   ]
+  },
+  "562001": {
+   "src": "notice 1127",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x50"
+     ],
+     "cur": "free",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 0,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x5",
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x5",
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Large Slab Fragment x100",
+      "Skip Ticket x50"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000,
+     "rate": 2,
+     "step": 5
+    }
+   ]
+  },
+  "566": {
+   "src": "notice 1411",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "567": {
+   "src": "notice 1404",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "568": {
+   "src": "notice 1418",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "568001": {
+   "src": "notice 1174",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x30"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 500,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    }
+   ]
+  },
+  "569": {
+   "src": "notice 1433",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "570": {
+   "src": "notice 1448",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "571": {
+   "src": "notice 1449",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "571001": {
+   "src": "notice 1245",
+   "steps": [
+    {
+     "bonus": [
+      "Skip Ticket x30"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 500,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500,
+     "rate": 2,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "rate": 2,
+     "step": 3
+    }
+   ]
+  },
+  "572": {
+   "src": "notice 1443",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "573": {
+   "src": "notice 1440",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000
+    }
+   ]
+  },
+  "574": {
+   "src": "notice 1454",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "576": {
+   "src": "notice 1426",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_unowned",
+     "price": 3000
+    }
+   ]
+  },
+  "576001": {
+   "src": "notice 1291",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "step": 4
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 3000,
+     "step": 5
+    }
+   ]
+  },
+  "577": {
+   "src": "notice 1475",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "578": {
+   "src": "notice 1492",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "579": {
+   "src": "notice 1525",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "58": {
+   "src": "screens: reddit image 34mulzrq7zl71.jpg",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "580": {
+   "src": "notice 1452",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "582": {
+   "src": "notice 1495",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "583": {
+   "src": "notice 1509",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "584": {
+   "src": "notice 1463",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_awakened5",
+     "price": 5000
+    }
+   ]
+  },
+  "585": {
+   "src": "notice 1487",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "586": {
+   "src": "notice 1504",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_unowned",
+     "price": 3000
+    }
+   ]
+  },
+  "587": {
+   "src": "notice 1503",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_unowned",
+     "price": 3000
+    }
+   ]
+  },
+  "588": {
+   "src": "notice 1556",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "589": {
+   "src": "notice 1555",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000
+    }
+   ]
+  },
+  "590": {
+   "src": "notice 1554",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000
+    }
+   ]
+  },
+  "591": {
+   "src": "notice 1572",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "592": {
+   "src": "notice 1513",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "593": {
+   "src": "notice 1516",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "set_awakened5",
+     "limit": 3,
+     "price": 5000
+    }
+   ]
+  },
+  "594": {
+   "src": "notice 1568",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "595": {
+   "src": "notice 1519",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000
+    }
+   ]
+  },
+  "596": {
+   "src": "notice 1518",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10",
+     "price": 5000
+    }
+   ]
+  },
+  "597": {
+   "src": "notice 1520",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 1,
+     "guar": "r4c:limited",
+     "limit": 1,
+     "price": 500
+    }
+   ]
+  },
+  "598": {
+   "src": "notice 1595",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "599": {
+   "src": "notice 1578",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "606": {
+   "src": "notice 1602",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "611": {
+   "src": "notice 1608",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "set10:resonant",
+     "limit": 15,
+     "price": 3000,
+     "rate": 2
+    }
+   ]
+  },
+  "612": {
+   "src": "notice 1614",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "613": {
+   "src": "notice 1645",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "614": {
+   "src": "notice 1658",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "9000016": {
+   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/r2idia/; https://www.reddit.com/r/NieRReincarnation/comments/r1o22m/",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 50,
+     "price": 12500
+    }
+   ]
+  },
+  "9000025": {
+   "src": "notice 196",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:fire",
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  "9000026": {
+   "src": "notice 196",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:light",
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  "9000027": {
+   "src": "notice 196",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:wind",
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  "9000028": {
+   "src": "notice 196",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:water",
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  "9000029": {
+   "src": "notice 196",
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4w:dark",
+     "limit": 2,
+     "price": 3000
+    }
+   ]
+  },
+  "9000047": {
+   "src": "screens: reddit image 6m9xu9vuu0981.jpg",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 3000
+    }
+   ]
+  },
+  "9000054": {
+   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/s6xnes/",
+   "steps": [
+    {
+     "cur": "gems",
+     "draws": 50,
+     "guar": "r4c",
+     "price": 13000
+    }
+   ]
+  }
+ },
+ "version": 1
+}

@@ -1976,7 +1976,15 @@ diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/re
 diff --git a/server/internal/runtime/build.go b/server/internal/runtime/build.go
 --- a/server/internal/runtime/build.go
 +++ b/server/internal/runtime/build.go
-@@ -115,6 +115,10 @@ func buildCatalogs() (*Catalogs, error) {
+@@ -53,6 +53,7 @@ func buildCatalogs() (*Catalogs, error) {
+ 	if err != nil {
+ 		return nil, fmt.Errorf("load gacha catalog: %w", err)
+ 	}
++	gachaEntries = masterdata.ApplySummonRules(gachaEntries)
+ 	log.Printf("gacha catalog loaded: %d entries", len(gachaEntries))
+ 
+ 	gachaPool, err := masterdata.LoadGachaPool()
+@@ -115,6 +116,10 @@ func buildCatalogs() (*Catalogs, error) {
  	}
  	log.Printf("costume catalog loaded: %d costumes, %d materials, %d rarity curves", len(costumeCatalog.Costumes), len(costumeCatalog.Materials), len(costumeCatalog.ExpByRarity))
  
