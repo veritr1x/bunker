@@ -121,6 +121,12 @@ func featureEveryFourStar(items []DrawnItem, bp *masterdata.BannerPool) {
 	}
 }
 
+// GuaranteeCandidates is what a rule's guaranteed slot may give (nil: any
+// item the rarity roll gives), for the Summons Details page.
+func GuaranteeCandidates(bp *masterdata.BannerPool, pool *masterdata.GachaCatalog, rule masterdata.PhaseRule) []masterdata.GachaPoolItem {
+	return guaranteeCandidates(bp, pool, rule)
+}
+
 func ofElement(items []masterdata.GachaPoolItem, element int32) []masterdata.GachaPoolItem {
 	var out []masterdata.GachaPoolItem
 	for _, it := range items {

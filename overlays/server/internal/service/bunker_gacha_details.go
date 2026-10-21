@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"lunar-tear/server/internal/gacha"
-	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
@@ -124,7 +123,24 @@ func stars(rarity int32) string {
 }
 
 func day(millis int64) string {
-	return time.UnixMilli(millis).In(gametime.Zone).Format("2006/01/02")
+	return time.UnixMilli(millis).UTC().Format("2006/01/02")
+}
+
+// openEnded is where a summon's end stands for "never": the always-open ends
+// (31 December 2099) and the placeholders a little before it.
+const openEnded = int64(4070908800000) // 2099/01/01
+
+// periodHTML is the summon's period line. A summon that never ends says so
+// rather than showing a 2099 date; a ticket summon is open while you have one.
+func periodHTML(e store.GachaCatalogEntry, ticket bool) string {
+	if e.EndDatetime < openEnded {
+		return fmt.Sprintf("<p class=k>%s – %s (UTC)</p>", day(e.StartDatetime), day(e.EndDatetime))
+	}
+	note := ""
+	if ticket {
+		note = ": open while you have a ticket"
+	}
+	return fmt.Sprintf("<p class=k>From %s (UTC) · no end date%s</p>", day(e.StartDatetime), note)
 }
 
 func (t *gameText) price(p store.GachaPricePhaseEntry) string {
@@ -160,6 +176,98 @@ type itemRate struct {
 // items, a featured item FeaturedPercent of the time (each featured entry
 // alike); otherwise any item of the tier's pool alike.
 func bannerRates(bp *masterdata.BannerPool) []itemRate {
+	return tierRates(bp, gacha.Rates().Tiers())
+}
+
+// slotRates are the rates of a guaranteed slot, the way gacha.DrawPremium and
+// applyGuarantee fill it: a normal roll of minRarity or better stands, a lower
+// one is rolled again among the tiers of minRarity or better; then, when the
+// guarantee names what the slot may give (candidates), anything else is
+// replaced by one of those, each alike.
+func slotRates(bp *masterdata.BannerPool, minRarity int32, candidates []masterdata.GachaPoolItem) []itemRate {
+	type key struct{ t, id int32 }
+	var high []gacha.RateTier
+	for _, t := range gacha.Rates().Tiers() {
+		if t.RarityType >= minRarity {
+			high = append(high, t)
+		}
+	}
+	rates := tierRates(bp, high) // rescaled below to 100% in all
+	total := 0.0
+	for _, r := range rates {
+		total += r.percent
+	}
+	if total == 0 {
+		return nil
+	}
+	for i := range rates {
+		rates[i].percent *= 100 / total
+	}
+	if len(candidates) == 0 {
+		return rates
+	}
+	in := map[key]bool{}
+	for _, c := range candidates {
+		in[key{c.PossessionType, c.PossessionId}] = true
+	}
+	out := rates[:0]
+	moved := 0.0
+	for _, r := range rates {
+		if in[key{r.item.PossessionType, r.item.PossessionId}] {
+			out = append(out, r)
+		} else {
+			moved += r.percent
+		}
+	}
+	have := map[key]int{}
+	for i, r := range out {
+		have[key{r.item.PossessionType, r.item.PossessionId}] = i
+	}
+	for _, c := range candidates {
+		k := key{c.PossessionType, c.PossessionId}
+		i, ok := have[k]
+		if !ok {
+			out = append(out, itemRate{item: c})
+			i = len(out) - 1
+			have[k] = i
+		}
+		out[i].percent += moved / float64(len(candidates))
+	}
+	sortRates(out)
+	return out
+}
+
+// slotMin is the rarity a phase's guaranteed slot gives at least, as
+// gacha's drawPremium raises it.
+func slotMin(p store.GachaPricePhaseEntry) int32 {
+	if g := gacha.Rates().GuaranteedRarity(); p.FixedRarityMin < g {
+		return g
+	}
+	return p.FixedRarityMin
+}
+
+// guaranteedSlot gives the slot rates when every draw of every phase is a
+// guaranteed slot of the same kind (ticket summons): then those are the
+// summon's rates.
+func guaranteedSlot(e *store.GachaCatalogEntry, bp *masterdata.BannerPool, pool *masterdata.GachaCatalog) ([]itemRate, bool) {
+	if len(e.PricePhases) == 0 {
+		return nil, false
+	}
+	first := e.PricePhases[0]
+	for _, p := range e.PricePhases {
+		if p.FixedCount <= 0 || p.FixedCount < p.DrawCount || p.FixedRarityMin != first.FixedRarityMin {
+			return nil, false
+		}
+	}
+	var candidates []masterdata.GachaPoolItem
+	if rule, ok := masterdata.PhaseRuleFor(first.PhaseId); ok && pool != nil {
+		candidates = gacha.GuaranteeCandidates(bp, pool, rule)
+	}
+	rates := slotRates(bp, slotMin(first), candidates)
+	return rates, len(rates) > 0
+}
+
+func tierRates(bp *masterdata.BannerPool, tiers []gacha.RateTier) []itemRate {
 	cfg := gacha.Rates()
 	type key struct{ t, id int32 }
 	rates := map[key]*itemRate{}
@@ -173,7 +281,7 @@ func bannerRates(bp *masterdata.BannerPool) []itemRate {
 		r.percent += p
 		r.featured = r.featured || featured
 	}
-	for _, tier := range cfg.Tiers() {
+	for _, tier := range tiers {
 		percent := float64(tier.Weight) / 1000
 		var featured []masterdata.GachaPoolItem
 		for _, f := range bp.Featured {
@@ -201,6 +309,11 @@ func bannerRates(bp *masterdata.BannerPool) []itemRate {
 	for _, r := range rates {
 		out = append(out, *r)
 	}
+	sortRates(out)
+	return out
+}
+
+func sortRates(out []itemRate) {
 	sort.Slice(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if a.item.RarityType != b.item.RarityType {
@@ -214,7 +327,6 @@ func bannerRates(bp *masterdata.BannerPool) []itemRate {
 		}
 		return a.item.PossessionId < b.item.PossessionId
 	})
-	return out
 }
 
 // serveGachaDetailsPage answers the banner's "Details" button
@@ -224,11 +336,13 @@ func serveGachaDetailsPage(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.URL.Query().Get("gachaId"))
 	var entry *store.GachaCatalogEntry
 	var bp *masterdata.BannerPool
+	var pool *masterdata.GachaCatalog
 	if bunkerHolder != nil {
 		c := bunkerHolder.Get()
 		entry, _ = resolveGachaId(c.GachaEntries, int32(id))
 		if c.GachaPool != nil && entry != nil {
 			bp = c.GachaPool.BannerPools[entry.GachaId]
+			pool = c.GachaPool
 		}
 	}
 	t := openGameText()
@@ -251,7 +365,11 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 	if title == "" {
 		title = fmt.Sprintf("Summons %d", entry.GachaId)
 	}
-	fmt.Fprintf(&b, "<h1>%s</h1><p class=k>%s – %s (UTC)</p>", esc(title), day(entry.StartDatetime), day(entry.EndDatetime))
+	ticket := false
+	for _, p := range entry.PricePhases {
+		ticket = ticket || (p.PriceType == model.PriceTypeConsumableItem && p.Price > 0)
+	}
+	fmt.Fprintf(&b, "<h1>%s</h1>%s", esc(title), periodHTML(*entry, ticket))
 	b.WriteString(summonNoticeHTML(*entry))
 
 	if len(entry.PricePhases) > 0 {
@@ -330,6 +448,10 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 		return
 	}
 	rates := bannerRates(bp)
+	slot, everySlot := guaranteedSlot(entry, bp, pool)
+	if everySlot {
+		rates = slot
+	}
 	var featured []string
 	for _, r := range rates {
 		if r.featured {
@@ -342,8 +464,12 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 		b.WriteString("</table>")
 	}
 	cfg := gacha.Rates()
-	fmt.Fprintf(&b, "<h2>ALL ITEMS</h2><p class=k>Rates per summon. ★4 %.3g%%, ★3 %.3g%%, ★2 %.3g%%; a featured item %.3g%% of the time when one matches. Multi-step boosts and 10-summon guarantees are on top. Set in Bunker: Pod Programs › Summon rates.</p><table>",
-		cfg.FourStarPercent, cfg.ThreeStarPercent, 100-cfg.FourStarPercent-cfg.ThreeStarPercent, cfg.FeaturedPercent)
+	if everySlot {
+		fmt.Fprintf(&b, "<h2>ALL ITEMS</h2><p class=k>Every summon here is guaranteed %s or higher; rates per summon. Set in Bunker: Pod Programs › Summon rates.</p><table>", stars(slotMin(entry.PricePhases[0])))
+	} else {
+		fmt.Fprintf(&b, "<h2>ALL ITEMS</h2><p class=k>Rates per summon. ★4 %.3g%%, ★3 %.3g%%, ★2 %.3g%%; a featured item %.3g%% of the time when one matches. Multi-step boosts and 10-summon guarantees are on top. Set in Bunker: Pod Programs › Summon rates.</p><table>",
+			cfg.FourStarPercent, cfg.ThreeStarPercent, 100-cfg.FourStarPercent-cfg.ThreeStarPercent, cfg.FeaturedPercent)
+	}
 	for _, r := range rates {
 		kind := "Weapon"
 		if r.item.PossessionType == int32(model.PossessionTypeCostume) {
