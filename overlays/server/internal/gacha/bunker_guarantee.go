@@ -69,6 +69,18 @@ func guaranteeCandidates(bp *masterdata.BannerPool, pool *masterdata.GachaCatalo
 		}
 		return nil
 	}
+	if kind, elem, ok := strings.Cut(g, ":"); ok {
+		if e, isElement := masterdata.ElementByName(strings.ToLower(elem)); isElement {
+			var out []masterdata.GachaPoolItem
+			if kind == "r4" || kind == "r4c" {
+				out = append(out, ofElement(ssrCostumes, e)...)
+			}
+			if kind == "r4" || kind == "r4w" {
+				out = append(out, ofElement(bp.WeaponsByRarity[model.RaritySSRare], e)...)
+			}
+			return out // none of that element: the rarity roll decides
+		}
+	}
 	switch {
 	case g == "" || g == "none" || strings.HasPrefix(g, "r3") || g == "r4" || strings.HasPrefix(g, "r4:"):
 		return nil
@@ -107,4 +119,14 @@ func featureEveryFourStar(items []DrawnItem, bp *masterdata.BannerPool) {
 		pick := pool[rand.Intn(len(pool))]
 		items[i] = DrawnItem{PossessionType: pick.PossessionType, PossessionId: pick.PossessionId, RarityType: pick.RarityType, CharacterId: pick.CharacterId}
 	}
+}
+
+func ofElement(items []masterdata.GachaPoolItem, element int32) []masterdata.GachaPoolItem {
+	var out []masterdata.GachaPoolItem
+	for _, it := range items {
+		if masterdata.ElementOf(it) == element {
+			out = append(out, it)
+		}
+	}
+	return out
 }

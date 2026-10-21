@@ -3445,6 +3445,141 @@
      "price": 0
     }
    ]
+  },
+  {
+   "asset": "confirm_60005",
+   "end": 4102444799000,
+   "id": 970003,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: Fire ★★★★ Guaranteed Summons (ticket 1205)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4:fire",
+     "price": 1,
+     "ticket": 1205
+    }
+   ]
+  },
+  {
+   "asset": "confirm_60006",
+   "end": 4102444799000,
+   "id": 970004,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: Water ★★★★ Guaranteed Summons (ticket 1206)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4:water",
+     "price": 1,
+     "ticket": 1206
+    }
+   ]
+  },
+  {
+   "asset": "confirm_60007",
+   "end": 4102444799000,
+   "id": 970005,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: Wind ★★★★ Guaranteed Summons (ticket 1207)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4:wind",
+     "price": 1,
+     "ticket": 1207
+    }
+   ]
+  },
+  {
+   "asset": "confirm_60008",
+   "end": 4102444799000,
+   "id": 970006,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: Light ★★★★ Guaranteed Summons (ticket 1208)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4:light",
+     "price": 1,
+     "ticket": 1208
+    }
+   ]
+  },
+  {
+   "asset": "confirm_60009",
+   "end": 4102444799000,
+   "id": 970007,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: Dark ★★★★ Guaranteed Summons (ticket 1209)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4:dark",
+     "price": 1,
+     "ticket": 1209
+    }
+   ]
+  },
+  {
+   "asset": "confirm_ssr_chara_fire",
+   "end": 4102444799000,
+   "id": 970008,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: Fire ★★★★ Character Guaranteed Summons (ticket 1203)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "r4c:fire",
+     "price": 1,
+     "ticket": 1203
+    }
+   ]
+  },
+  {
+   "asset": "confirm_60004",
+   "end": 4102444799000,
+   "id": 970009,
+   "notice": 0,
+   "pair": 0,
+   "src": "banner art: ★★★★ Argo Appearance Guaranteed (ticket 1204)",
+   "start": 1627437600000,
+   "steps": [
+    {
+     "cur": "ticket",
+     "draws": 1,
+     "guar": "set10",
+     "price": 1,
+     "set": [
+      31023,
+      32001,
+      32008,
+      33007,
+      33015,
+      34005,
+      34033
+     ],
+     "ticket": 1204
+    }
+   ]
   }
  ],
  "rules": {

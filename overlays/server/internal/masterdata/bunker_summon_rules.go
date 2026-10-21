@@ -297,6 +297,7 @@ func (pool *GachaCatalog) ApplyRuleFeatured() {
 	}
 	pool.applyRuleFeatured(file.Rules)
 	pool.applyNewFeatured(file)
+	pool.loadElements()
 }
 
 // applyNewFeatured gives each added summon its regular summon's lineup.

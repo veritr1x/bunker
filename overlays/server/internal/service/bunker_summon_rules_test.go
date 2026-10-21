@@ -120,3 +120,30 @@ func TestPaidTwinsOnTheGameData(t *testing.T) {
 	}
 	t.Logf("summon 490 ok; %d summons link straight to a notice", twins)
 }
+
+// With the original game data: the Fire ★★★★ Guaranteed ticket summon gives
+// a fire ★★★★ every time, for one Fire ★★★★ Guaranteed Summons Ticket.
+func TestFireTicketSummonOnTheGameData(t *testing.T) {
+	byId, handler := catalogById(t)
+	e, ok := byId[970003]
+	if !ok {
+		t.Fatal("Fire ★★★★ Guaranteed Summons missing")
+	}
+	u := store.UserState{}
+	u.EnsureMaps()
+	u.ConsumableItems[1205] = 20
+	for i := 0; i < 20; i++ {
+		res, err := handler.HandleDraw(&u, e, e.PricePhases[0].PhaseId, 1)
+		if err != nil {
+			t.Fatalf("draw %d: %v", i, err)
+		}
+		it := res.Items[0]
+		pi := masterdata.GachaPoolItem{PossessionType: it.PossessionType, PossessionId: it.PossessionId}
+		if it.RarityType != model.RaritySSRare || masterdata.ElementOf(pi) != 2 {
+			t.Fatalf("draw %d gave %+v (element %d)", i, it, masterdata.ElementOf(pi))
+		}
+	}
+	if u.ConsumableItems[1205] != 0 {
+		t.Fatalf("tickets left: %d", u.ConsumableItems[1205])
+	}
+}
