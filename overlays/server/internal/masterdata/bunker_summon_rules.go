@@ -156,9 +156,17 @@ func addNewSummons(entries []store.GachaCatalogEntry, file summonRulesFile, offs
 			UnlockConditionType: model.GachaUnlockNone,
 			InformationId:       n.Notice,
 		}
-		if pair, ok := byId[n.Pair]; ok {
+		pair, paired := byId[n.Pair]
+		if paired {
 			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = pair.GachaMedalId, pair.MedalConsumableItemId, pair.CeilingCount
 			e.SortOrder, e.GachaDecorationType = pair.SortOrder, pair.GachaDecorationType
+		}
+		if n.Start == 0 {
+			// No notice window: it ran with its regular summon (whose dates the calendar already moved).
+			if !paired {
+				continue
+			}
+			e.StartDatetime, e.EndDatetime = pair.StartDatetime, pair.EndDatetime
 		}
 		if n.Steps[0].Step > 0 {
 			e.GachaModeType = model.GachaModeStepup

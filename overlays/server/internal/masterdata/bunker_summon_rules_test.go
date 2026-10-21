@@ -242,3 +242,19 @@ func TestPaidTwinsShareTheirRegularLineup(t *testing.T) {
 		t.Fatal("a twin without a regular summon got a lineup")
 	}
 }
+
+// A twin without its own window (no notice) runs with its regular summon.
+func TestPaidTwinWithoutAWindowRunsWithItsRegularSummon(t *testing.T) {
+	regular := basicEntry(34)
+	regular.StartDatetime, regular.EndDatetime = 5_000, 9_000 // already moved by the calendar
+	file := summonRulesFile{New: []newSummon{{Id: 35, Asset: "limited_35", Pair: 34, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid", Limit: 5}}}}}
+	got := addNewSummons([]store.GachaCatalogEntry{regular}, file, 1_000)
+	if len(got) != 2 || got[1].StartDatetime != 5_000 || got[1].EndDatetime != 9_000 {
+		t.Fatalf("twin dates: %+v", got)
+	}
+	// Without a regular summon there is nothing to run with: not added.
+	file.New[0].Pair = 99
+	if got := addNewSummons([]store.GachaCatalogEntry{regular}, file, 0); len(got) != 1 {
+		t.Fatalf("a twin without dates or a regular summon was added: %+v", got)
+	}
+}
