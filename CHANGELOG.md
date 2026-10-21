@@ -6,6 +6,16 @@ sections it contains; its notes run down to the previous release.
 
 ## 2026-10-21
 
+### Notices
+- The Notices screen shows the official notices: 947 of them, recovered
+  from archives, with their images, under News, Events and Issues. Each
+  appears once the game clock reaches its date. Notices open inside the
+  game. [2c1ab59]
+- A summon's "i" button opens the notice that announced it (154 summons);
+  the notice links to Summons Details and back. [2c1ab59]
+- Builds carry the notices; updates download them only when a release has
+  new ones. [aa8b064]
+
 ### Web builder
 - iPhone and iPad builds on the website work again. They stopped at
   "Writing the IPA" because two of the packager's files were missing from
