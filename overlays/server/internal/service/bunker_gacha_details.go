@@ -240,7 +240,8 @@ func serveGachaDetailsPage(w http.ResponseWriter, r *http.Request) {
 <style>body{font:15px sans-serif;background:#d8d4c2;color:#3a372e;margin:16px}h1{font-size:18px;letter-spacing:.05em;margin:0 0 4px}
 h2{font-size:15px;letter-spacing:.1em;border-bottom:2px solid #8f8b7a;padding-bottom:4px;margin:20px 0 6px}
 table{border-collapse:collapse;width:100%}td{border-bottom:1px solid #a29f8f;padding:6px 4px;vertical-align:top}
-td.n{text-align:right;white-space:nowrap}.f{font-weight:bold}.k{color:#6b6758;font-size:13px}p{line-height:1.5;margin:6px 0}</style></head><body>`)
+td.n{text-align:right;white-space:nowrap}.f{font-weight:bold}.k{color:#6b6758;font-size:13px}p{line-height:1.5;margin:6px 0}
+a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4b4341;color:#e6e2cf;text-decoration:none;font-size:14px}</style></head><body>`)
 	if entry == nil {
 		b.WriteString("<h1>SUMMONS DETAILS</h1><p>This summon is not on the local server.</p></body></html>")
 		writeHTML(w, b.String())
@@ -251,6 +252,7 @@ td.n{text-align:right;white-space:nowrap}.f{font-weight:bold}.k{color:#6b6758;fo
 		title = fmt.Sprintf("Summons %d", entry.GachaId)
 	}
 	fmt.Fprintf(&b, "<h1>%s</h1><p class=k>%s – %s (UTC)</p>", esc(title), day(entry.StartDatetime), day(entry.EndDatetime))
+	b.WriteString(summonNoticeHTML(*entry))
 
 	if len(entry.PricePhases) > 0 {
 		b.WriteString("<h2>COST</h2><table>")

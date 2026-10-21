@@ -2839,8 +2839,12 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  		IsUserGachaUnlock:          entry.IsUserGachaUnlock,
  		StartDatetime:              safeTimestamp(entry.StartDatetime),
  		EndDatetime:                safeTimestamp(entry.EndDatetime),
-@@ -438,7 +487,7 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
- 		InformationId:              entry.InformationId,
+@@ -435,10 +484,10 @@ func toProtoGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState) *pb
+ 		GachaDecorationType:        entry.GachaDecorationType,
+ 		SortOrder:                  entry.SortOrder,
+ 		IsInactive:                 entry.IsInactive,
+-		InformationId:              entry.InformationId,
++		InformationId:              summonNotice(entry),
  	}
  
 -	g.GachaPricePhase = buildProtoPricePhases(entry, bs)

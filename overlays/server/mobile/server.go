@@ -221,7 +221,17 @@ func Start(dataRoot, assetRoot string) (err error) {
 	}
 	links := service.NewOctoLinks(octoRoot, assetRoot, platform)
 	go links.Sweep()
-	cdnMux.Handle("/", links.Wrap(cdn.Handler()))
+	// The game's Notices screen, from the notice pack the launcher copies in.
+	notices := service.NewNotices(service.NoticePackPath(assetRoot), gametime.NowMillis)
+	service.SetNotices(notices)
+	octo := links.Wrap(cdn.Handler())
+	cdnMux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service.IsNoticePath(r.URL.Path) {
+			notices.ServeHTTP(w, r)
+			return
+		}
+		octo.ServeHTTP(w, r)
+	}))
 	cdnHTTP := &http.Server{Handler: h2c.NewHandler(cdnMux, &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
 	s.http = []*http.Server{cdnHTTP, authHTTP}
 	store := sqlite.New(db, gametime.Now)
