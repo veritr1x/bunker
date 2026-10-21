@@ -53,6 +53,18 @@ static void EnsureMaster(void) {
         rename(pending.fileSystemRepresentation, target.fileSystemRepresentation);
 }
 
+// Points the server at the notice pack inside the app (notices.zip;
+// service.NoticePackPath). The app's folder moves when it is updated, so this
+// is written on every start.
+static void PointAtNotices(void) {
+    NSString *pack = [NSBundle.mainBundle pathForResource:@"notices" ofType:@"zip"];
+    NSString *target = [gServerRoot stringByAppendingPathComponent:@"notices/source.txt"];
+    NSFileManager *files = [NSFileManager defaultManager];
+    if (!pack) { [files removeItemAtPath:target error:nil]; return; }
+    [files createDirectoryAtPath:[target stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:nil];
+    [[pack stringByAppendingString:@"\n"] writeToFile:target atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
 // The server log kept between sessions; Documents/logs also shows in the Files app.
 static NSString *LogFolder(void) { return [Documents() stringByAppendingPathComponent:@"logs"]; }
 static NSString *TakeString(char *value) {
@@ -132,6 +144,7 @@ static NSString *SelfTestFailure(NSString *report) {
 // Starts the server; returns an empty string on success.
 static NSString *StartServer(void) {
     EnsureMaster();
+    PointAtNotices();
     if (!AttachInPlace())
         return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
     if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
@@ -1267,8 +1280,12 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
             NSDictionary *assets = update[@"assets"];
             NSString *framework = urls[assets[@"iosFramework"][@"name"] ?: @""], *python = urls[assets[@"iosPython"][@"name"] ?: @""];
             NSString *offer = !framework || !python || ![InstalledBuild()[@"gamePatch"] isEqual:update[@"gamePatch"]] ? @"web" : @"update";
+            // The notices come along only when the release's pack differs from the app's.
+            NSDictionary *pack = [assets[@"notices"] isKindOfClass:NSDictionary.class] ? assets[@"notices"] : nil;
+            NSString *have = [NSBundle.mainBundle objectForInfoDictionaryKey:@"BunkerNotices"];
+            NSString *notices = pack && ![pack[@"sha256"] isEqual:have] ? urls[pack[@"name"] ?: @""] : nil;
             NSDictionary *found = @{@"version": version, @"notes": release[@"html_url"] ?: kWebBuilder, @"update": update,
-                                    @"framework": framework ?: @"", @"python": python ?: @"", @"offer": offer};
+                                    @"framework": framework ?: @"", @"python": python ?: @"", @"notices": notices ?: @"", @"offer": offer};
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf showRelease:found]; });
         });
     });
@@ -1301,16 +1318,23 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     NSNumber *free = nil;
     [home getResourceValue:&free forKey:NSURLVolumeAvailableCapacityForImportantUsageKey error:nil];
     // The IPA is stored uncompressed (fast to build): about 530 MB, plus the downloads.
-    if (free && free.longLongValue < 700LL * 1048576) { [self updateFailed:@"Updating needs about 700 MB free. Free some space and try again."]; return; }
+    NSDictionary *assets = self.available[@"update"][@"assets"];
+    BOOL notices = [self.available[@"notices"] length] > 0;
+    long long need = 700LL * 1048576 + (notices ? 2 * [assets[@"notices"][@"size"] longLongValue] : 0);
+    if (free && free.longLongValue < need) { [self updateFailed:[NSString stringWithFormat:@"Updating needs about %lld MB free. Free some space and try again.", need / 1048576]]; return; }
     self.updating = YES;
     self.updateButton.hidden = YES;
     NSString *work = [NSTemporaryDirectory() stringByAppendingPathComponent:@"update"];
     [NSFileManager.defaultManager removeItemAtPath:work error:nil];
     [NSFileManager.defaultManager createDirectoryAtPath:work withIntermediateDirectories:YES attributes:nil error:nil];
-    NSDictionary *assets = self.available[@"update"][@"assets"];
-    NSArray *parts = @[@[self.available[@"framework"], [work stringByAppendingPathComponent:@"framework.zip"], assets[@"iosFramework"][@"size"] ?: @0],
-                       @[self.available[@"python"], [work stringByAppendingPathComponent:@"python.zip"], assets[@"iosPython"][@"size"] ?: @0]];
-    [self download:parts index:0 done:0 total:[assets[@"iosFramework"][@"size"] longLongValue] + [assets[@"iosPython"][@"size"] longLongValue] then:^(NSString *error) {
+    NSMutableArray *parts = [@[@[self.available[@"framework"], [work stringByAppendingPathComponent:@"framework.zip"], assets[@"iosFramework"][@"size"] ?: @0],
+                               @[self.available[@"python"], [work stringByAppendingPathComponent:@"python.zip"], assets[@"iosPython"][@"size"] ?: @0]] mutableCopy];
+    long long total = [assets[@"iosFramework"][@"size"] longLongValue] + [assets[@"iosPython"][@"size"] longLongValue];
+    if (notices) {
+        [parts addObject:@[self.available[@"notices"], [work stringByAppendingPathComponent:@"notices.zip"], assets[@"notices"][@"size"] ?: @0]];
+        total += [assets[@"notices"][@"size"] longLongValue];
+    }
+    [self download:parts index:0 done:0 total:total then:^(NSString *error) {
         if (error.length) { [NSFileManager.defaultManager removeItemAtPath:work error:nil]; [self updateFailed:error]; return; }
         [self buildUpdate:work];
     }];
@@ -1342,8 +1366,10 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     NSString *output = [documents stringByAppendingPathComponent:[NSString stringWithFormat:@"Bunker-%@.ipa", self.available[@"update"][@"version"]]];
     __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        BOOL notices = [weakSelf.available[@"notices"] length] > 0;
         NSString *error = LTBuildUpdate(NSBundle.mainBundle.bundlePath, [work stringByAppendingPathComponent:@"framework.zip"], [work stringByAppendingPathComponent:@"python.zip"],
-            assets[@"iosFramework"][@"sha256"] ?: @"", assets[@"iosPython"][@"sha256"] ?: @"", output, ^(NSString *text) {
+            assets[@"iosFramework"][@"sha256"] ?: @"", assets[@"iosPython"][@"sha256"] ?: @"",
+            notices ? [work stringByAppendingPathComponent:@"notices.zip"] : @"", notices ? assets[@"notices"][@"sha256"] : @"", output, ^(NSString *text) {
                 dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf updateMessage:text failed:NO]; });
             });
         [NSFileManager.defaultManager removeItemAtPath:work error:nil];

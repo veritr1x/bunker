@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 import build_info
+import notice_pack
 
 NS = "http://schemas.android.com/apk/res/android"
 ET.register_namespace("android", NS)
@@ -62,6 +63,7 @@ def main():
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--keystore",type=Path,required=True)
     p.add_argument("--port-offset",type=int,default=0,help="The offset the game was patched with (ports 8003/8080/3000)")
+    p.add_argument("--notices",type=Path,help="The notice pack (notice_pack.py) for the game's Notices screen")
     args=p.parse_args()
     root=Path(__file__).resolve().parents[2]
     game=args.decoded_dir.resolve();output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
@@ -125,6 +127,8 @@ def main():
         index=max(int(re.search(r"\d+",n).group()) if re.search(r"\d+",n) else 1 for n in dex)+1
         for name in sorted(n for n in source.namelist() if re.fullmatch(r"classes\d*\.dex",n)):
             target.writestr("classes%d.dex"%index,source.read(name),compress_type=zipfile.ZIP_DEFLATED);index+=1
+        if args.notices:
+            for name,data,kind in notice_pack.entries(args.notices):target.writestr(name,data,compress_type=kind)
     tools=args.sdk/"build-tools/36.0.0"
     if not tools.is_dir(): raise RuntimeError("Install Android SDK build-tools; expected "+str(tools))
     run(tools/"zipalign","-P","16","-f","4",merged,output)

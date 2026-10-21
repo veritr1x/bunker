@@ -49,6 +49,15 @@ class UpdateTests(unittest.TestCase):
             z.writestr("assets/lunar/game-manifest.xml", self.game_manifest)
             z.writestr("assets/lunar/build.json", json.dumps(info))
             z.writestr("META-INF/CERT.RSA", b"old signature")
+            z.writestr("assets/notices/notices.json", b"old notices")
+            z.writestr("assets/notices/img/old.webp", b"old image")
+        return path
+
+    def notice_pack(self):
+        path = self.work / "notices.zip"
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("notices.json", b"new notices")
+            z.writestr("img/new.webp", b"new image")
         return path
 
     def companion(self):
@@ -84,6 +93,26 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(info["version"], "1.1.0")
         self.assertEqual(info["gameDex"], 1)
         self.assertEqual(info["bunkerLibs"], ["lib/arm64-v8a/liblunar.so", "lib/arm64-v8a/libnew.so"])
+
+    def test_update_keeps_the_installed_notices(self):
+        out = self.work / "out.apk"
+        info = assemble_apk.update(self.installed(notices="abc"), self.companion(), out, log=lambda m: None)
+        with zipfile.ZipFile(out) as z:
+            self.assertEqual(z.read("assets/notices/notices.json"), b"old notices")
+            self.assertEqual(z.read("assets/notices/img/old.webp"), b"old image")
+        self.assertEqual(info["notices"], "abc")
+
+    def test_update_replaces_the_notices_with_a_new_pack(self):
+        import notice_pack
+        out = self.work / "out.apk"
+        pack = self.notice_pack()
+        info = assemble_apk.update(self.installed(notices="abc"), self.companion(), out, log=lambda m: None, notices=pack)
+        with zipfile.ZipFile(out) as z:
+            names = set(z.namelist())
+            self.assertEqual(z.read("assets/notices/notices.json"), b"new notices")
+            self.assertEqual(z.read("assets/notices/img/new.webp"), b"new image")
+            self.assertNotIn("assets/notices/img/old.webp", names)
+        self.assertEqual(info["notices"], notice_pack.sha256(pack))
 
     def test_update_keeps_port_offset(self):
         out = self.work / "out.apk"
@@ -130,6 +159,15 @@ class DeviceBuildTests(unittest.TestCase):
             self.bunker_update.build_android(self.case.installed(), bundle, "0" * 64, self.work / "update",
                                              ROOT / "web/signing/bunker-key.pem", ROOT / "web/signing/bunker-cert.der", print)
         self.assertFalse(any((self.work / "update").glob("*.apk")))
+
+    def test_damaged_notices_are_refused(self):
+        import hashlib
+        bundle = self.case.companion()
+        digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(RuntimeError, "damaged"):
+            self.bunker_update.build_android(self.case.installed(), bundle, digest, self.work / "update",
+                                             ROOT / "web/signing/bunker-key.pem", ROOT / "web/signing/bunker-cert.der", print,
+                                             self.case.notice_pack(), "0" * 64)
 
     def test_builds_and_signs(self):
         import hashlib

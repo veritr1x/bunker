@@ -16,7 +16,7 @@ printf '%s\n' "$version" > ../android/app/src/main/assets/lunar/bunker-version.t
 # The launcher rebuilds itself for an update (bunker_update.py) with the same
 # tools and public signing key as the web builder.
 rm -rf ../android/app/src/main/python/bunker_tools && mkdir -p ../android/app/src/main/python/bunker_tools ../android/app/src/main/assets/lunar/signing
-cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/app/src/main/python/bunker_tools/
+cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/tools/notice_pack.py ../android/app/src/main/python/bunker_tools/
 : > ../android/app/src/main/python/bunker_tools/__init__.py
 cp ../web/signing/bunker-key.pem ../web/signing/bunker-cert.der ../android/app/src/main/assets/lunar/signing/
 go build -buildmode=c-shared -trimpath -ldflags="-s -w -X lunar-tear/server/internal/bunkerversion.Version=$version -extldflags=-Wl,-z,max-page-size=16384,-z,common-page-size=16384" \

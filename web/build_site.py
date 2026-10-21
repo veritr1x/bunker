@@ -23,6 +23,7 @@ PYTHON = [
     "android/tools/axml.py",
     "android/tools/assemble_apk.py",
     "android/tools/build_info.py",
+    "android/tools/notice_pack.py",
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
     "ios/tools/scroll_snap.py",
@@ -63,6 +64,7 @@ def main():
     p.add_argument("--framework", type=Path, required=True, help="LunarTear.framework from ios/tools/build_framework.sh")
     p.add_argument("--python", type=Path, required=True, help="Output of ios/tools/build_python.py")
     p.add_argument("--output", type=Path, default=ROOT / ".build/site")
+    p.add_argument("--notices", type=Path, help="The notice pack (scripts/notices.py); without it, builds have no Notices")
     args = p.parse_args()
     out = args.output.resolve()
     shutil.rmtree(out, ignore_errors=True)
@@ -82,6 +84,8 @@ def main():
     (out / "version.json").write_text(json.dumps({"version": version}))
     folder_bundle(args.framework, out / "bundles/ios-framework.zip", "LunarTear.framework/")
     folder_bundle(args.python, out / "bundles/ios-python.zip")
+    if args.notices:
+        shutil.copy2(args.notices, out / "bundles/notices.zip")
     for path in out.rglob("*"):
         if path.is_file() and path.stat().st_size > PAGES_LIMIT:
             raise SystemExit(f"{path.name} is over GitHub Pages' 100 MB limit")

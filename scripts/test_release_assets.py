@@ -56,6 +56,16 @@ class MakeTests(unittest.TestCase):
         with zipfile.ZipFile(self.out / "bunker-ios-framework-1.2.3.zip") as z:
             self.assertIn("LunarTear.framework/LunarTear", z.namelist())
 
+    def test_includes_the_notice_pack(self):
+        pack = self.work / "bunker-notices.zip"
+        with zipfile.ZipFile(pack, "w") as z:
+            z.writestr("notices.json", "{}")
+        update = release_assets.make("1.2.3", self.apk, self.framework, self.python, self.out, notices=pack)
+        digest = sha256(pack)
+        name = f"bunker-notices-{digest[:12]}.zip"
+        self.assertEqual(update["assets"]["notices"], {"name": name, "size": pack.stat().st_size, "sha256": digest})
+        self.assertEqual((self.out / name).read_bytes(), pack.read_bytes())
+
     def test_refuses_master_data(self):
         (self.framework / "20240404193219.bin.e").write_text("master")
         with zipfile.ZipFile(self.apk, "a") as z:

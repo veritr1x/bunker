@@ -140,13 +140,16 @@ jobs:
         with:
           name: ios-bundles
           path: bundles/ios
+      # The notice pack is pinned by notices.lock.json and kept out of the repository.
       - name: Build the site
-        run: >
-          python3 web/build_site.py
-          --companion-apk bundles/android/app-debug.apk
-          --framework bundles/ios/LunarTear.framework
-          --python bundles/ios/python-bundle
-          --output site
+        run: |
+          notices=()
+          if [ -f notices.lock.json ]; then python3 scripts/notices.py; notices=(--notices inputs/bunker-notices.zip); fi
+          python3 web/build_site.py \
+            --companion-apk bundles/android/app-debug.apk \
+            --framework bundles/ios/LunarTear.framework \
+            --python bundles/ios/python-bundle \
+            --output site "${notices[@]}"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

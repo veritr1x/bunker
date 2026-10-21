@@ -27,6 +27,14 @@ async function fetchBytes(url, label) {
   return bytes;
 }
 
+// The notices are optional: a site built without the notice pack makes builds without Notices.
+async function fetchNotices(pyodide) {
+  const head = await fetch("bundles/notices.zip", { method: "HEAD" }).catch(() => null);
+  if (!head || !head.ok) return null;
+  writeFile(pyodide, "/bundles/notices.zip", await fetchBytes("bundles/notices.zip", "the notices"));
+  return "/bundles/notices.zip";
+}
+
 function writeFile(pyodide, path, bytes) {
   pyodide.FS.mkdirTree(path.slice(0, path.lastIndexOf("/")));
   pyodide.FS.writeFile(path, bytes);
@@ -64,13 +72,15 @@ self.onmessage = async ({ data }) => {
       writeFile(pyodide, "/bundles/android.zip", await fetchBytes("bundles/android.zip", "the launcher"));
       output = "/output/bunker.apk";
       FS.mkdirTree("/output");
-      builder.build_android(gamePath, masterPath, "/bundles/android.zip", output, log, portOffset);
+      const notices = await fetchNotices(pyodide);
+      builder.build_android(gamePath, masterPath, "/bundles/android.zip", output, log, portOffset, notices);
     } else {
       writeFile(pyodide, "/bundles/ios-framework.zip", await fetchBytes("bundles/ios-framework.zip", "the launcher"));
       writeFile(pyodide, "/bundles/ios-python.zip", await fetchBytes("bundles/ios-python.zip", "Tools"));
       output = "/output/bunker.ipa";
       FS.mkdirTree("/output");
-      builder.build_ios(gamePath, masterPath, "/bundles/ios-framework.zip", "/bundles/ios-python.zip", output, log, portOffset);
+      const notices = await fetchNotices(pyodide);
+      builder.build_ios(gamePath, masterPath, "/bundles/ios-framework.zip", "/bundles/ios-python.zip", output, log, portOffset, notices);
     }
     const bytes = FS.readFile(output);
     FS.unlink(output);

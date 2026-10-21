@@ -46,6 +46,13 @@ def android_sdk(parser, env):
     return sdk
 
 
+def notices_args(args):
+    if args.notices.is_file():
+        return ["--notices", args.notices.resolve()]
+    print(f"No notice pack at {args.notices}: the build has no Notices.")
+    return []
+
+
 def build_android(args, env, python, master, sdk):
     work = ROOT / ".build"
     run(ROOT / "android/tools/build_native.sh", env=env)
@@ -59,7 +66,8 @@ def build_android(args, env, python, master, sdk):
             "--grpc-addr", grpc, "--http-addr", http, "--auth-host", auth, env=env)
         run(python, ROOT / "android/tools/package_game.py", "--decoded-dir", decoded,
             "--companion-apk", ROOT / "android/app/build/outputs/apk/debug/app-debug.apk", "--game-apk", args.apk,
-            "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), "--port-offset", args.port_offset, env=env)
+            "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), "--port-offset", args.port_offset,
+            *notices_args(args), env=env)
     record_checksum(output)
     print(f"\nReady: {output}\nKeep your signing key: {args.keystore.resolve()}")
 
@@ -77,7 +85,7 @@ def build_ios(args, env, python, master):
         run(python, ROOT / "ios/tools/build_python.py", Path(temp) / "python", env=env)
         command = [python, ROOT / "ios/tools/package_ipa.py", "--patched-ipa", patched,
                    "--framework", Path(temp) / "framework/LunarTear.framework", "--python", Path(temp) / "python",
-                   "--output", output, "--port-offset", args.port_offset]
+                   "--output", output, "--port-offset", args.port_offset, *notices_args(args)]
         if args.bundle_id:
             command += ["--bundle-id", args.bundle_id]
         if args.sign_identity:
@@ -97,6 +105,8 @@ def main():
     parser.add_argument("--bundle-id", help="iPhone: bundle ID for signing with your own Apple team")
     parser.add_argument("--sign-identity", help="iPhone: codesign identity; requires --profile")
     parser.add_argument("--profile", type=Path, help="iPhone: provisioning profile for --bundle-id")
+    parser.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip",
+                        help="The notice pack for the game's Notices screen; left out if the file is missing")
     parser.add_argument("--port-offset", type=int, default=0,
                         help="Move the game's local ports 8003/8080/3000 by this amount, for devices where another app uses them")
     args = parser.parse_args()

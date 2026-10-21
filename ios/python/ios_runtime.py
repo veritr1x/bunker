@@ -182,7 +182,9 @@ def stop():
     _state.clear()
 
 
-def build_ipa_update(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa):
-    """The launcher's update: the next Bunker IPA, for the player's sideloading tool (bunker_ios_update.py)."""
+def build_ipa_update(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, notices_zip="", sha_notices=""):
+    """The launcher's update: the next Bunker IPA, for the player's sideloading tool (bunker_ios_update.py).
+    notices_zip is "" when the app keeps its notices."""
     import bunker_ios_update
-    return bunker_ios_update.build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, _report)
+    return bunker_ios_update.build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, _report,
+                                       notices_zip or None, sha_notices or None)

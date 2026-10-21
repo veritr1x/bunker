@@ -59,6 +59,17 @@ python3.11 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin
 Use this integration's key format (alias `lunar-local`, local-build password
 `android`). Keep the file private. Keys and game files are ignored by Git.
 
+The game's Notices screen shows the official notices, recovered from archives,
+from a notice pack that is not kept in this repository. Fetch the pinned pack
+before building, or the build has no notices:
+
+```sh
+python3.11 scripts/notices.py
+```
+
+It downloads the file `notices.lock.json` names to `inputs/bunker-notices.zip`,
+which `build.py` picks up (`--notices` takes another path).
+
 ## 4. Prepare the phone's game files
 
 Copy `resource_dump_android.7z` to the phone and choose it in the launcher
@@ -167,6 +178,9 @@ Master-data changes have a separate history of the latest 10 versions.
   `axml.py` for the manifest), with no apktool or Android SDK. The web builder runs it in the browser.
 - `overlays/`, `patches/`: mobile adaptations applied to upstream sources. Both platforms share the embedded server.
 - `server/` and the third-party Python packages: generated, ignored build inputs.
+- `notices.lock.json`, `scripts/notices.py`: the pinned notice pack. Android builds carry it under
+  `assets/notices/` and the server reads it from the installed APK; iOS builds carry `notices.zip`.
+  Updates download it only when a release brings a different pack.
 
 Edit overlays or patches rather than generated copies. `scripts/prepare.py`
 refuses to overwrite edits to generated sources. Source pins live in both Git

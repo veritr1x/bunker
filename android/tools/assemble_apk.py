@@ -31,6 +31,7 @@ import zlib
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import axml  # noqa: E402
 import build_info  # noqa: E402
+import notice_pack  # noqa: E402
 from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -206,7 +207,7 @@ class ApkWriter:
         self.out.write(struct.pack("<IHHHHIIH", 0x06054B50, 0, 0, count, count, end - directory, directory, 0))
 
 
-def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
+def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None):
     with zipfile.ZipFile(apk) as game, zipfile.ZipFile(companion_apk) as companion, open(apk, "rb") as raw:
         names = set(game.namelist())
         for required in ("AndroidManifest.xml", LIB, METADATA, "resources.arsc"):
@@ -246,8 +247,12 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
             writer.add("assets/lunar/" + MASTER, patched_master)
             writer.add("assets/lunar/original-master.bin.e", original_master)
             writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
+            if notices:
+                log("Adding the notices…")
+                for name, data, kind in notice_pack.entries(notices):
+                    writer.add(name, data, compress=kind != zipfile.ZIP_STORED)
             # What an update in place needs (build_info.py).
-            info = build_info.describe(companion, len(dex), port_offset)
+            info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None)
             writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
             writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
             writer.close()
@@ -255,12 +260,13 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0):
     return game_activity
 
 
-def update(installed_apk, companion_apk, output, log=print):
+def update(installed_apk, companion_apk, output, log=print, notices=None):
     """Rebuilds an installed Bunker APK with a newer launcher; the game's entries are copied as they are.
 
     companion_apk is the launcher APK or the release's Android bundle. The
     installed APK's build.json says which entries are Bunker's; the master data
-    and the game's original manifest stay. Returns the new build.json."""
+    and the game's original manifest stay, and so do the notices unless a new
+    notice pack is given. Returns the new build.json."""
     with zipfile.ZipFile(installed_apk) as game, zipfile.ZipFile(companion_apk) as companion, open(installed_apk, "rb") as raw:
         names = set(game.namelist())
         if "assets/lunar/build.json" not in names or "assets/lunar/game-manifest.xml" not in names:
@@ -284,6 +290,8 @@ def update(installed_apk, companion_apk, output, log=print):
                         continue
                     if name == "AndroidManifest.xml":
                         writer.add(name, manifest)
+                    elif notices and name.startswith(notice_pack.PREFIX):
+                        continue
                     elif not build_info.is_bunker_entry(name, old) or name in kept:
                         writer.copy(raw, info)
                 next_dex = old["gameDex"] + 1
@@ -294,7 +302,12 @@ def update(installed_apk, companion_apk, output, log=print):
                     if name.startswith(("lib/arm64-v8a/", "assets/chaquopy/", "assets/lunar/")) and name not in kept \
                             and name != "assets/lunar/build.json" and not name.endswith(".bin.e"):
                         writer.add(name, companion.read(name))
-                info = build_info.describe(companion, old["gameDex"], old["portOffset"])
+                if notices:
+                    log("Adding the notices…")
+                    for name, data, kind in notice_pack.entries(notices):
+                        writer.add(name, data, compress=kind != zipfile.ZIP_STORED)
+                info = build_info.describe(companion, old["gameDex"], old["portOffset"],
+                                           notice_pack.sha256(notices) if notices else old.get("notices"))
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
                 writer.close()
             os.replace(temporary, output)

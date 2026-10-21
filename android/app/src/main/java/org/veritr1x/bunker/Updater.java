@@ -39,7 +39,7 @@ final class Updater {
 
     /** A newer release: its version, notes page and update.json, and what can be done here. */
     static final class Release {
-        String version,notes,bundleUrl;JSONObject update;Offer offer;
+        String version,notes,bundleUrl,noticesUrl;JSONObject update;Offer offer;
     }
     interface Found { void found(Release release); }
     interface Reporter { void report(String message); }
@@ -112,6 +112,14 @@ final class Updater {
         return Offer.UPDATE;
     }
 
+    /** The release's notice pack when it differs from the one this app carries (build.json "notices"), else null. */
+    static JSONObject noticesToFetch(JSONObject update,JSONObject installed) {
+        JSONObject notices=update.optJSONObject("assets")==null?null:update.optJSONObject("assets").optJSONObject("notices");
+        if(notices==null||notices.optString("sha256").isEmpty())return null;
+        String have=installed==null?"":installed.optString("notices");
+        return notices.optString("sha256").equals(have)?null:notices;
+    }
+
     static boolean enabled(Context c) { return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean("check",true); }
     static void enabled(Context c,boolean on) { c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putBoolean("check",on).apply(); }
 
@@ -158,6 +166,9 @@ final class Updater {
                 for(int i=0;i<assets.length();i++)if(bundleName.equals(assets.getJSONObject(i).optString("name")))
                     bundleUrl=assets.getJSONObject(i).getString("browser_download_url");
                 Release r=new Release();r.version=version;r.notes=release.optString("html_url",WEB_BUILDER);r.update=update;r.bundleUrl=bundleUrl;
+                JSONObject notices=update.getJSONObject("assets").optJSONObject("notices");
+                if(notices!=null)for(int i=0;i<assets.length();i++)if(notices.optString("name").equals(assets.getJSONObject(i).optString("name")))
+                    r.noticesUrl=assets.getJSONObject(i).getString("browser_download_url");
                 r.offer=bundleUrl==null?Offer.WEB_BUILDER:offer(update,BuildConfig.BUNKER_VERSION,installedBuild(c),bunkerKey(c));
                 if(r.offer!=Offer.NONE){current=r;new Handler(Looper.getMainLooper()).post(()->found.found(r));}
             } catch(Exception ignored) {
@@ -207,13 +218,24 @@ final class Updater {
                 File bundle=new File(work,"bundle.zip");
                 download(r.bundleUrl,bundle,r.update.getJSONObject("assets").getJSONObject("android").optLong("size",-1),report);
                 if(cancelled)throw new IOException("Update cancelled.");
+                // The notices come along only when the release has a different pack.
+                JSONObject notices=r.noticesUrl==null?null:noticesToFetch(r.update,installedBuild(activity));
+                File noticesFile=null;
+                if(notices!=null) {
+                    if(new StatFs(activity.getCacheDir().getPath()).getAvailableBytes()<SPACE+2*notices.optLong("size",0))
+                        throw new IOException("Updating needs about "+((SPACE+2*notices.optLong("size",0))>>20)+" MB free. Free some space and try again.");
+                    noticesFile=new File(work,"notices.zip");
+                    download(r.noticesUrl,noticesFile,notices.optLong("size",-1),report);
+                    if(cancelled)throw new IOException("Update cancelled.");
+                }
                 stage(Stage.BUILDING);
                 File key=new File(work,"bunker-key.pem"),cert=new File(work,"bunker-cert.der");
                 copyAsset(activity,"lunar/signing/bunker-key.pem",key);copyAsset(activity,"lunar/signing/bunker-cert.der",cert);
                 if(!Python.isStarted())Python.start(new AndroidPlatform(activity));
                 String apk=Python.getInstance().getModule("bunker_update").callAttr("build_android",activity.getPackageCodePath(),bundle.getAbsolutePath(),
-                    r.update.getJSONObject("assets").getJSONObject("android").getString("sha256"),work.getAbsolutePath(),key.getAbsolutePath(),cert.getAbsolutePath(),report).toString();
-                bundle.delete();
+                    r.update.getJSONObject("assets").getJSONObject("android").getString("sha256"),work.getAbsolutePath(),key.getAbsolutePath(),cert.getAbsolutePath(),report,
+                    noticesFile==null?null:noticesFile.getAbsolutePath(),notices==null?null:notices.getString("sha256")).toString();
+                bundle.delete();if(noticesFile!=null)noticesFile.delete();
                 if(cancelled)throw new IOException("Update cancelled.");
                 report.report("Stopping Lunar Tear and Pod Programs…");
                 restartServer=new JSONObject(NativeBridge.status()).optString("state").equals("running");

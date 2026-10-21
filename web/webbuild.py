@@ -27,15 +27,16 @@ def addresses(port_offset=0):
     return tuple(f"127.0.0.1:{port + port_offset}" for port in (8003, 8080, 3000))
 
 
-def build_android(apk, master, companion, output, log=print, port_offset=0):
+def build_android(apk, master, companion, output, log=print, port_offset=0, notices=None):
     addresses(port_offset)  # Validate before the slow steps.
-    assemble_apk.assemble(Path(apk), Path(master), Path(companion), Path(output), log=log, port_offset=int(port_offset))
+    assemble_apk.assemble(Path(apk), Path(master), Path(companion), Path(output), log=log, port_offset=int(port_offset),
+                          notices=Path(notices) if notices else None)
     log("Signing with the public Bunker key…")
     apk_sign.sign(Path(output))
     log("Signed APK ready to install.")
 
 
-def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_offset=0):
+def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_offset=0, notices=None):
     grpc, http, auth = addresses(port_offset)
     work = Path("/work/ios")
     shutil.rmtree(work, ignore_errors=True)
@@ -58,8 +59,9 @@ def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_of
             bundle.extractall(work / "python")
         log("Writing the IPA…")
         packager = assemble_apk.load("package_ipa", REPO / "ios/tools/package_ipa.py")
+        extra = ["--notices", notices] if notices else []
         assemble_apk.run_cli(packager, "--patched-ipa", patched, "--framework", framework,
-                             "--python", work / "python", "--output", output, "--port-offset", str(int(port_offset)))
+                             "--python", work / "python", "--output", output, "--port-offset", str(int(port_offset)), *extra)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     log(f"Unsigned IPA ready. Sign it with Sideloadly, AltStore or your own certificate.")

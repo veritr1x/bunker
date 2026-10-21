@@ -28,8 +28,8 @@ jobs:
           python-version: "3.11"
       - name: Unit tests
         run: |
-          (cd scripts && python3 -m unittest test_version test_release_assets)
-          (cd android/tools && python3 -m unittest test_build_info)
+          (cd scripts && python3 -m unittest test_version test_release_assets test_notices)
+          (cd android/tools && python3 -m unittest test_build_info test_notice_pack)
           (cd web && python3 -m unittest test_build_site)
           python3 -c "import sys; sys.path.insert(0, 'scripts'); import release_assets; release_assets.changelog_section(open('CHANGELOG.md').read(), open('VERSION').read().strip())"
 
@@ -128,13 +128,15 @@ jobs:
         with:
           name: ios-bundles
           path: bundles/ios
-      - name: Bundles, update.json and notes
-        run: >
-          python3 scripts/release_assets.py --version "$(cat VERSION)"
-          --companion-apk bundles/android/app-debug.apk
-          --framework bundles/ios/LunarTear.framework
-          --python bundles/ios/python-bundle
-          --out dist
+      - name: Bundles, notice pack, update.json and notes
+        run: |
+          notices=()
+          if [ -f notices.lock.json ]; then python3 scripts/notices.py; notices=(--notices inputs/bunker-notices.zip); fi
+          python3 scripts/release_assets.py --version "$(cat VERSION)" \
+            --companion-apk bundles/android/app-debug.apk \
+            --framework bundles/ios/LunarTear.framework \
+            --python bundles/ios/python-bundle \
+            --out dist "${notices[@]}"
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}

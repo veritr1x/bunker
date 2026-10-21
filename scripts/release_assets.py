@@ -13,6 +13,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
 import sys
 import zipfile
 
@@ -31,7 +32,7 @@ def _sha256(path):
     return h.hexdigest()
 
 
-def make(version, companion_apk, framework_dir, python_dir, out_dir):
+def make(version, companion_apk, framework_dir, python_dir, out_dir, notices=None):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(companion_apk) as companion:
@@ -51,6 +52,12 @@ def make(version, companion_apk, framework_dir, python_dir, out_dir):
             if any(build_site.is_master(n) for n in bundle.namelist()):
                 raise ValueError(f"{name} contains master data")
         assets[key] = {"name": name, "size": path.stat().st_size, "sha256": _sha256(path)}
+    if notices:
+        # Named by its content: launchers download it only when it changes.
+        digest = _sha256(notices)
+        name = f"bunker-notices-{digest[:12]}.zip"
+        shutil.copyfile(notices, out / name)
+        assets["notices"] = {"name": name, "size": (out / name).stat().st_size, "sha256": digest}
     update = {"version": version, "gamePatch": build_info.GAME_PATCH, "assets": assets}
     (out / "update.json").write_text(json.dumps(update, indent=1) + "\n")
     return update
@@ -88,8 +95,9 @@ def main():
     p.add_argument("--framework", type=Path, required=True)
     p.add_argument("--python", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--notices", type=Path, help="The notice pack (scripts/notices.py)")
     args = p.parse_args()
-    make(args.version, args.companion_apk, args.framework, args.python, args.out)
+    make(args.version, args.companion_apk, args.framework, args.python, args.out, args.notices)
     notes = args.out / "notes.md"
     notes.write_text(changelog_section((ROOT / "CHANGELOG.md").read_text(), args.version) + "\n")
     print(notes)

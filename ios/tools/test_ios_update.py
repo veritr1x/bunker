@@ -38,6 +38,7 @@ class BuildIpaTests(unittest.TestCase):
         write(self.app / "Frameworks/old.module.framework/old.module", "old module")
         write(self.app / "Frameworks/old.module.framework/old.module.origin", "python/x.fwork")
         write(self.app / "python/app/old.py", "old code")
+        write(self.app / "notices.zip", "old notices")
         self.framework_zip = work / "framework.zip"
         with zipfile.ZipFile(self.framework_zip, "w") as z:
             binary = zipfile.ZipInfo("LunarTear.framework/LunarTear")
@@ -59,6 +60,28 @@ class BuildIpaTests(unittest.TestCase):
         return bunker_ios_update.build_ipa(self.app, self.framework_zip, self.python_zip,
                                            sha_framework or self.sha(self.framework_zip), sha_python or self.sha(self.python_zip),
                                            self.output, lambda m: None)
+
+    def test_keeps_the_installed_notices(self):
+        self.build()
+        with zipfile.ZipFile(self.output) as z:
+            self.assertEqual(z.read("Payload/NieR.app/notices.zip"), b"old notices")
+
+    def test_replaces_the_notices_with_a_new_pack(self):
+        pack = Path(self.t.name) / "new-notices.zip"
+        pack.write_bytes(b"new notices")
+        bunker_ios_update.build_ipa(self.app, self.framework_zip, self.python_zip, self.sha(self.framework_zip),
+                                    self.sha(self.python_zip), self.output, lambda m: None, pack, self.sha(pack))
+        with zipfile.ZipFile(self.output) as z:
+            self.assertEqual(z.read("Payload/NieR.app/notices.zip"), b"new notices")
+            self.assertEqual(z.namelist().count("Payload/NieR.app/notices.zip"), 1)
+            self.assertEqual(plistlib.loads(z.read("Payload/NieR.app/Info.plist"))["BunkerNotices"], self.sha(pack))
+
+    def test_damaged_notices_are_refused(self):
+        pack = Path(self.t.name) / "new-notices.zip"
+        pack.write_bytes(b"new notices")
+        with self.assertRaisesRegex(RuntimeError, "damaged"):
+            bunker_ios_update.build_ipa(self.app, self.framework_zip, self.python_zip, self.sha(self.framework_zip),
+                                        self.sha(self.python_zip), self.output, lambda m: None, pack, "0" * 64)
 
     def test_ipa_has_new_bunker_and_same_game(self):
         self.assertEqual(self.build(), str(self.output))

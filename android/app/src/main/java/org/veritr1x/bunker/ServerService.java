@@ -117,6 +117,7 @@ public final class ServerService extends Service {
                 FilesStore.recover(this);
                 if(START.equals(action)) {
                     FilesStore.ensureBootstrap(this);
+                    FilesStore.noticeSource(this);
                     String error=NativeBridge.setPortOffset(Ports.offset(this));
                     if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?"Native server did not respond":error);
                     error=NativeBridge.start(FilesStore.data(this).getAbsolutePath(),FilesStore.root(this).getAbsolutePath());

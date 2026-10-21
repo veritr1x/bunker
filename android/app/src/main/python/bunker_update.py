@@ -29,17 +29,24 @@ def _tools():
     return assemble_apk, apk_sign
 
 
-def build_android(installed, bundle_zip, expected_sha256, work_dir, key_pem, cert_der, reporter):
-    """Returns the path of the signed APK; raises RuntimeError with a message for the player."""
+def build_android(installed, bundle_zip, expected_sha256, work_dir, key_pem, cert_der, reporter,
+                  notices_zip=None, notices_sha256=None):
+    """Returns the path of the signed APK; raises RuntimeError with a message for the player.
+
+    notices_zip is the release's notice pack, downloaded only when it differs
+    from the installed one; without it the installed notices stay."""
     work = Path(work_dir)
     work.mkdir(parents=True, exist_ok=True)
     reporter("Checking the download…")
     if _sha256(bundle_zip) != expected_sha256:
         raise RuntimeError("The download is damaged; try again")
+    if notices_zip and _sha256(notices_zip) != notices_sha256:
+        raise RuntimeError("The download is damaged; try again")
     assemble_apk, apk_sign = _tools()
     output = work / "bunker-update.apk"
     reporter("Building…")
-    assemble_apk.update(Path(installed), Path(bundle_zip), output, log=reporter)
+    assemble_apk.update(Path(installed), Path(bundle_zip), output, log=reporter,
+                        notices=Path(notices_zip) if notices_zip else None)
     reporter("Signing…")
     apk_sign.sign(output, key_pem, cert_der)
     return str(output)

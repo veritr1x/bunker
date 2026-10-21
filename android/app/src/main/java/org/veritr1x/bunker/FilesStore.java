@@ -43,6 +43,15 @@ final class FilesStore {
             if(master(c).length()==0)move(tmp,master(c));
         } finally {tmp.delete();}
     }
+    /** Points the server at the notices inside this APK (assets/notices/; service.NoticePackPath). */
+    static void noticeSource(Context c) throws IOException {
+        File f=new File(root(c),"notices/source.txt");mkdir(f.getParentFile());
+        byte[] text=(c.getApplicationInfo().sourceDir+"\nassets/notices/\n").getBytes("UTF-8");
+        if(f.isFile()&&java.util.Arrays.equals(Files.readAllBytes(f.toPath()),text))return;
+        File tmp=new File(f.getParentFile(),".source.tmp");
+        try(FileOutputStream out=new FileOutputStream(tmp)){out.write(text);out.getFD().sync();}
+        move(tmp,f);
+    }
     static void mkdir(File f) throws IOException { if (!f.isDirectory() && !f.mkdirs()) throw new IOException("Cannot create " + f.getName()); }
     static void move(File from, File to) throws IOException {
         Files.move(from.toPath(), to.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

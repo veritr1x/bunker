@@ -8,6 +8,7 @@ the Python runtime for Tools when given, and optionally signs the result. It nev
 download or distribute game files.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -134,6 +135,19 @@ def add_python(app, bundle):
     shutil.copytree(bundle / "python", app / "python")
 
 
+def add_notices(app, pack):
+    """The launcher points the server at this file (Documents/notices/source.txt)."""
+    with zipfile.ZipFile(pack) as z:
+        if "notices.json" not in z.namelist():
+            raise ValueError(f"{pack} is not a notice pack: no notices.json")
+    shutil.copyfile(pack, app / "notices.zip")
+    # Which pack the app carries: an update downloads the release's only when it differs.
+    plist = app / "Info.plist"
+    info = plistlib.loads(plist.read_bytes())
+    info["BunkerNotices"] = hashlib.sha256(pack.read_bytes()).hexdigest()
+    plist.write_bytes(plistlib.dumps(info))
+
+
 def write_ipa(root, output):
     """Zip Payload/ keeping permission bits and symlinks, in pure Python (so it
     also runs in a browser)."""
@@ -190,6 +204,7 @@ def main():
     p.add_argument("--sign-identity", help="codesign identity, e.g. 'Apple Development: Name (TEAM)'")
     p.add_argument("--profile", type=Path, help="Provisioning profile for --bundle-id and your device")
     p.add_argument("--port-offset", type=int, default=0, help="The port offset the IPA was patched with")
+    p.add_argument("--notices", type=Path, help="The notice pack for the game's Notices screen (notices.zip in the app)")
     args = p.parse_args()
     if bool(args.sign_identity) != bool(args.profile):
         p.error("--sign-identity and --profile must be used together")
@@ -217,6 +232,8 @@ def main():
         shutil.copytree(args.framework, destination)
         if args.python:
             add_python(app, args.python)
+        if args.notices:
+            add_notices(app, args.notices)
         info = patch_info(app, args.bundle_id, port_offset=args.port_offset)
         executable = app / info["CFBundleExecutable"]
         print("Launcher load command", "added" if insert_dylib(executable) else "already present")
