@@ -101,10 +101,10 @@ func TestEmbeddedSummonRulesAreValid(t *testing.T) {
 		t.Fatalf("only %d summon rules", len(rules))
 	}
 	for id, r := range rules {
-		if len(r.Steps) == 0 || len(r.Steps) > 9 {
-			t.Fatalf("summon %d: %d steps", id, len(r.Steps))
+		if (len(r.Steps) == 0 && r.Featured == nil) || len(r.Steps) > 9 {
+			t.Fatalf("summon %d: %d steps, featured %v", id, len(r.Steps), r.Featured)
 		}
-		stepped := r.Steps[0].Step > 0
+		stepped := len(r.Steps) > 0 && r.Steps[0].Step > 0
 		for i, s := range r.Steps {
 			if s.Draws <= 0 || s.Price < 0 || priceTypeOf(s.Cur) == model.PriceTypeUnknown {
 				t.Fatalf("summon %d step %d: %+v", id, i, s)
@@ -113,5 +113,58 @@ func TestEmbeddedSummonRulesAreValid(t *testing.T) {
 				t.Fatalf("summon %d: steps out of order: %+v", id, r.Steps)
 			}
 		}
+	}
+}
+
+func featuredPool() *GachaCatalog {
+	c1 := GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: 1001, RarityType: model.RaritySSRare, CharacterId: 1}
+	c2 := GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: 1002, RarityType: model.RaritySSRare, CharacterId: 2}
+	w1 := GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: 2001, RarityType: model.RaritySSRare}
+	w2 := GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: 2002, RarityType: model.RaritySSRare}
+	return &GachaCatalog{
+		CostumeById:      map[int32]GachaPoolItem{1001: c1, 1002: c2},
+		WeaponById:       map[int32]GachaPoolItem{2001: w1, 2002: w2},
+		CostumeWeaponMap: map[int32]int32{1001: 2001},
+		FeaturedByGacha:  map[int32]FeaturedSet{5: {Costumes: []GachaPoolItem{c2}}, 6: {Costumes: []GachaPoolItem{c2}}},
+	}
+}
+
+func TestRuleFeaturedReplacesTheGameDataLineup(t *testing.T) {
+	pool := featuredPool()
+	pool.applyRuleFeatured(map[int32]summonRule{5: {Featured: &ruleFeatured{Costumes: []int32{1001, 9999}, Weapons: []int32{2001, 2002}}}})
+	fs := pool.FeaturedByGacha[5]
+	if len(fs.Costumes) != 1 || fs.Costumes[0].PossessionId != 1001 {
+		t.Fatalf("costumes: %+v", fs.Costumes)
+	}
+	// 2001 comes with costume 1001 (BuildBannerPools adds it); listing it again would double its weight.
+	if len(fs.Weapons) != 1 || fs.Weapons[0].PossessionId != 2002 {
+		t.Fatalf("weapons: %+v", fs.Weapons)
+	}
+	if got := pool.FeaturedByGacha[6]; len(got.Costumes) != 1 || got.Costumes[0].PossessionId != 1002 {
+		t.Fatalf("a summon without a rule changed: %+v", got)
+	}
+}
+
+func TestRuleFeaturedWithUnknownItemsKeepsTheLineup(t *testing.T) {
+	pool := featuredPool()
+	pool.applyRuleFeatured(map[int32]summonRule{5: {Featured: &ruleFeatured{Costumes: []int32{9999}}}})
+	if got := pool.FeaturedByGacha[5]; len(got.Costumes) != 1 || got.Costumes[0].PossessionId != 1002 {
+		t.Fatalf("lineup replaced by nothing: %+v", got)
+	}
+}
+
+func TestOutsideSourceLineupKeepsTheFeaturedWeapons(t *testing.T) {
+	pool := featuredPool()
+	w2 := pool.WeaponById[2002]
+	pool.FeaturedByGacha[5] = FeaturedSet{Costumes: []GachaPoolItem{pool.CostumeById[1002]}, Weapons: []GachaPoolItem{w2}}
+	// Outside sources name characters only: the weapons stay.
+	pool.applyRuleFeatured(map[int32]summonRule{5: {Featured: &ruleFeatured{Costumes: []int32{1001}, Src: "web: tweet"}}})
+	if fs := pool.FeaturedByGacha[5]; len(fs.Costumes) != 1 || fs.Costumes[0].PossessionId != 1001 || len(fs.Weapons) != 1 || fs.Weapons[0].PossessionId != 2002 {
+		t.Fatalf("outside source: %+v", fs)
+	}
+	// A notice lists the whole lineup: no weapons listed means none featured.
+	pool.applyRuleFeatured(map[int32]summonRule{5: {Featured: &ruleFeatured{Costumes: []int32{1002}, Src: "notice 1"}}})
+	if fs := pool.FeaturedByGacha[5]; len(fs.Costumes) != 1 || fs.Costumes[0].PossessionId != 1002 || len(fs.Weapons) != 0 {
+		t.Fatalf("notice: %+v", fs)
 	}
 }

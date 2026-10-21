@@ -34,8 +34,15 @@ type ruleStep struct {
 }
 
 type summonRule struct {
-	Src   string     `json:"src"`
-	Steps []ruleStep `json:"steps"`
+	Src      string        `json:"src"`
+	Steps    []ruleStep    `json:"steps"`
+	Featured *ruleFeatured `json:"featured"`
+}
+
+type ruleFeatured struct {
+	Costumes []int32 `json:"c"`
+	Weapons  []int32 `json:"w"`
+	Src      string  `json:"src"`
 }
 
 func loadSummonRules() (map[int32]summonRule, error) {
@@ -157,4 +164,58 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 	}
 	log.Printf("summon rules: %d summons priced from notices and other sources", applied)
 	return entries
+}
+
+// ApplyRuleFeatured sets each summon's featured characters and weapons to
+// its notice's lineup (else what outside sources name), in place of the
+// lineup worked out from the game's catalog terms. Run it before
+// BuildBannerPools.
+func (pool *GachaCatalog) ApplyRuleFeatured() {
+	rules, err := loadSummonRules()
+	if err != nil {
+		log.Printf("summon rules off: %v", err)
+		return
+	}
+	pool.applyRuleFeatured(rules)
+}
+
+func (pool *GachaCatalog) applyRuleFeatured(rules map[int32]summonRule) {
+	if pool.FeaturedByGacha == nil {
+		pool.FeaturedByGacha = map[int32]FeaturedSet{}
+	}
+	applied := 0
+	for id, r := range rules {
+		if r.Featured == nil {
+			continue
+		}
+		var fs FeaturedSet
+		paired := map[int32]bool{}
+		for _, cid := range r.Featured.Costumes {
+			if c, ok := pool.CostumeById[cid]; ok {
+				fs.Costumes = append(fs.Costumes, c)
+				if wid, ok := pool.CostumeWeaponMap[cid]; ok {
+					paired[wid] = true
+				}
+			}
+		}
+		for _, wid := range r.Featured.Weapons {
+			if w, ok := pool.WeaponById[wid]; ok && !paired[wid] {
+				fs.Weapons = append(fs.Weapons, w)
+			}
+		}
+		if len(fs.Costumes) == 0 && len(fs.Weapons) == 0 {
+			continue
+		}
+		if !strings.HasPrefix(r.Featured.Src, "notice") && len(r.Featured.Weapons) == 0 {
+			// Outside sources name the characters only; the featured weapons stay.
+			for _, w := range pool.FeaturedByGacha[id].Weapons {
+				if !paired[w.PossessionId] {
+					fs.Weapons = append(fs.Weapons, w)
+				}
+			}
+		}
+		pool.FeaturedByGacha[id] = fs
+		applied++
+	}
+	log.Printf("summon rules: %d summons featured as their notices list", applied)
 }

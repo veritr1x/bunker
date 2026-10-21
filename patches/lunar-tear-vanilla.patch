@@ -1984,7 +1984,15 @@ diff --git a/server/internal/runtime/build.go b/server/internal/runtime/build.go
  	log.Printf("gacha catalog loaded: %d entries", len(gachaEntries))
  
  	gachaPool, err := masterdata.LoadGachaPool()
-@@ -115,6 +116,10 @@ func buildCatalogs() (*Catalogs, error) {
+@@ -72,6 +73,7 @@ func buildCatalogs() (*Catalogs, error) {
+ 	gachaPool.BuildShopFeatured(shopCatalog)
+ 	gachaPool.PruneUnpairedCostumes()
+ 	gachaPool.BuildFeaturedFromTerms(gachaEntries)
++	gachaPool.ApplyRuleFeatured()
+ 	gachaPool.BuildBannerPools(gachaEntries)
+ 	masterdata.EnrichCatalogPromotions(gachaEntries, gachaPool)
+ 
+@@ -115,6 +117,10 @@ func buildCatalogs() (*Catalogs, error) {
  	}
  	log.Printf("costume catalog loaded: %d costumes, %d materials, %d rarity curves", len(costumeCatalog.Costumes), len(costumeCatalog.Materials), len(costumeCatalog.ExpByRarity))
  

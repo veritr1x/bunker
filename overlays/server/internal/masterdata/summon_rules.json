@@ -1,6 +1,226 @@
 {
  "rules": {
+  "107": {
+   "featured": {
+    "c": [
+     32008
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-traveler",
+    "w": []
+   },
+   "steps": []
+  },
+  "121": {
+   "featured": {
+    "c": [
+     35011
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-weapon",
+    "w": []
+   },
+   "steps": []
+  },
+  "129": {
+   "featured": {
+    "c": [
+     35013
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-monster",
+    "w": []
+   },
+   "steps": []
+  },
+  "132": {
+   "featured": {
+    "c": [
+     32012
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abstract-werebeast",
+    "w": []
+   },
+   "steps": []
+  },
+  "134": {
+   "featured": {
+    "c": [
+     33012
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-assassin",
+    "w": []
+   },
+   "steps": []
+  },
+  "148": {
+   "featured": {
+    "c": [
+     34022,
+     34023
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-captain-and-hunter",
+    "w": []
+   },
+   "steps": []
+  },
+  "150": {
+   "featured": {
+    "c": [
+     34010,
+     34011,
+     34012
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-2-resurrected-crossover",
+    "w": []
+   },
+   "steps": []
+  },
+  "151": {
+   "featured": {
+    "c": [
+     31000,
+     34000,
+     35000
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-1-resurrected-crossover",
+    "w": []
+   },
+   "steps": []
+  },
+  "153": {
+   "featured": {
+    "c": [
+     35014
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-girl",
+    "w": []
+   },
+   "steps": []
+  },
+  "157": {
+   "featured": {
+    "c": [
+     31014
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-captive",
+    "w": []
+   },
+   "steps": []
+  },
+  "163": {
+   "featured": {
+    "c": [
+     33013
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-weapon",
+    "w": []
+   },
+   "steps": []
+  },
+  "165": {
+   "featured": {
+    "c": [
+     31001,
+     32002,
+     33001
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-nier-replicant-resurrected-crossover",
+    "w": []
+   },
+   "steps": []
+  },
+  "166": {
+   "featured": {
+    "c": [
+     32014
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-witch",
+    "w": []
+   },
+   "steps": []
+  },
+  "168": {
+   "featured": {
+    "c": [
+     33014
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abstract-songstress",
+    "w": []
+   },
+   "steps": []
+  },
+  "171": {
+   "featured": {
+    "c": [
+     31015
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-assassin",
+    "w": []
+   },
+   "steps": []
+  },
+  "173": {
+   "featured": {
+    "c": [
+     32015
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abyssal-gunman",
+    "w": []
+   },
+   "steps": []
+  },
+  "176": {
+   "featured": {
+    "c": [
+     33015
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-traveler",
+    "w": []
+   },
+   "steps": []
+  },
+  "178": {
+   "featured": {
+    "c": [
+     32016
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-soldier",
+    "w": []
+   },
+   "steps": []
+  },
+  "180": {
+   "featured": {
+    "c": [
+     31002,
+     34004,
+     35005
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-drakengard-3-resurrected-crossover",
+    "w": []
+   },
+   "steps": []
+  },
+  "181": {
+   "featured": {
+    "c": [
+     34026
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abyssal-girl",
+    "w": []
+   },
+   "steps": []
+  },
   "183": {
+   "featured": {
+    "c": [
+     31016,
+     35016
+    ],
+    "src": "notice 543",
+    "w": [
+     310401,
+     350341
+    ]
+   },
    "src": "notice 543",
    "steps": [
     {
@@ -16,7 +236,29 @@
     }
    ]
   },
+  "185": {
+   "featured": {
+    "c": [
+     31017,
+     34027
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-evening-sun-swimwear",
+    "w": []
+   },
+   "steps": []
+  },
   "188": {
+   "featured": {
+    "c": [
+     35019,
+     31020
+    ],
+    "src": "notice 694",
+    "w": [
+     350401,
+     310461
+    ]
+   },
    "src": "notice 694",
    "steps": [
     {
@@ -33,6 +275,15 @@
    ]
   },
   "189": {
+   "featured": {
+    "c": [
+     34030
+    ],
+    "src": "notice 709",
+    "w": [
+     340531
+    ]
+   },
    "src": "notice 709",
    "steps": [
     {
@@ -48,6 +299,26 @@
     }
    ]
   },
+  "190": {
+   "featured": {
+    "c": [
+     35017
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abyssal-monster",
+    "w": []
+   },
+   "steps": []
+  },
+  "192": {
+   "featured": {
+    "c": [
+     34028
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-captain",
+    "w": []
+   },
+   "steps": []
+  },
   "199": {
    "src": "notice 643",
    "steps": [
@@ -59,6 +330,58 @@
      "price": 0
     }
    ]
+  },
+  "31": {
+   "featured": {
+    "c": [
+     31002,
+     34004,
+     35005
+    ],
+    "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/q3r8oh/",
+    "w": []
+   },
+   "steps": []
+  },
+  "34": {
+   "featured": {
+    "c": [
+     31004
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abstract-captain",
+    "w": []
+   },
+   "steps": []
+  },
+  "36": {
+   "featured": {
+    "c": [
+     32004
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abstract-weapon",
+    "w": []
+   },
+   "steps": []
+  },
+  "38": {
+   "featured": {
+    "c": [
+     31005
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-prisoner",
+    "w": []
+   },
+   "steps": []
+  },
+  "40": {
+   "featured": {
+    "c": [
+     33003
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-hunter",
+    "w": []
+   },
+   "steps": []
   },
   "401": {
    "src": "notice 642",
@@ -73,6 +396,17 @@
    ]
   },
   "407": {
+   "featured": {
+    "c": [
+     33016
+    ],
+    "src": "notice 680",
+    "w": [
+     330401,
+     330411,
+     230231
+    ]
+   },
    "src": "notice 680",
    "steps": [
     {
@@ -101,6 +435,17 @@
    ]
   },
   "412": {
+   "featured": {
+    "c": [
+     33017
+    ],
+    "src": "notice 719",
+    "w": [
+     330421,
+     330431,
+     330441
+    ]
+   },
    "src": "notice 719",
    "steps": [
     {
@@ -117,6 +462,17 @@
    ]
   },
   "414": {
+   "featured": {
+    "c": [
+     34020,
+     33013
+    ],
+    "src": "notice 722",
+    "w": [
+     340381,
+     330321
+    ]
+   },
    "src": "notice 722",
    "steps": [
     {
@@ -145,6 +501,17 @@
    ]
   },
   "416": {
+   "featured": {
+    "c": [
+     34031
+    ],
+    "src": "notice 734",
+    "w": [
+     340541,
+     340551,
+     240261
+    ]
+   },
    "src": "notice 734",
    "steps": [
     {
@@ -160,6 +527,34 @@
    ]
   },
   "418": {
+   "featured": {
+    "c": [
+     35000,
+     31000,
+     34000,
+     34010,
+     34012,
+     34011,
+     34021,
+     34020,
+     32013,
+     34013,
+     34014,
+     32007,
+     33007,
+     34019,
+     31011,
+     32011,
+     34018,
+     34017,
+     32009,
+     34009,
+     32006,
+     33005
+    ],
+    "src": "notice 747",
+    "w": []
+   },
    "src": "notice 747",
    "steps": [
     {
@@ -178,6 +573,19 @@
    ]
   },
   "419": {
+   "featured": {
+    "c": [
+     32021,
+     31022,
+     31021
+    ],
+    "src": "notice 810",
+    "w": [
+     320421,
+     310481,
+     310471
+    ]
+   },
    "src": "notice 810",
    "steps": [
     {
@@ -194,6 +602,17 @@
    ]
   },
   "420": {
+   "featured": {
+    "c": [
+     35020
+    ],
+    "src": "notice 754",
+    "w": [
+     350411,
+     350421,
+     250241
+    ]
+   },
    "src": "notice 754",
    "steps": [
     {
@@ -210,6 +629,17 @@
    ]
   },
   "422": {
+   "featured": {
+    "c": [
+     34026,
+     34028
+    ],
+    "src": "notice 786",
+    "w": [
+     340461,
+     340501
+    ]
+   },
    "src": "notice 786",
    "steps": [
     {
@@ -226,6 +656,19 @@
    ]
   },
   "423": {
+   "featured": {
+    "c": [
+     32020,
+     32019
+    ],
+    "src": "notice 778",
+    "w": [
+     320391,
+     320381,
+     320401,
+     320411
+    ]
+   },
    "src": "notice 778",
    "steps": [
     {
@@ -242,6 +685,17 @@
    ]
   },
   "426": {
+   "featured": {
+    "c": [
+     33018
+    ],
+    "src": "notice 796",
+    "w": [
+     101031,
+     330461,
+     230241
+    ]
+   },
    "src": "notice 796",
    "steps": [
     {
@@ -258,6 +712,17 @@
    ]
   },
   "428": {
+   "featured": {
+    "c": [
+     35021,
+     35022
+    ],
+    "src": "notice 839",
+    "w": [
+     350431,
+     350441
+    ]
+   },
    "src": "notice 839",
    "steps": [
     {
@@ -299,6 +764,17 @@
    ]
   },
   "435": {
+   "featured": {
+    "c": [
+     34021,
+     34014
+    ],
+    "src": "notice 820",
+    "w": [
+     340391,
+     340291
+    ]
+   },
    "src": "notice 820",
    "steps": [
     {
@@ -315,6 +791,17 @@
    ]
   },
   "436": {
+   "featured": {
+    "c": [
+     34032
+    ],
+    "src": "notice 827",
+    "w": [
+     340571,
+     340581,
+     340591
+    ]
+   },
    "src": "notice 827",
    "steps": [
     {
@@ -331,6 +818,17 @@
    ]
   },
   "437": {
+   "featured": {
+    "c": [
+     35021,
+     35022
+    ],
+    "src": "notice 838",
+    "w": [
+     350431,
+     350441
+    ]
+   },
    "src": "notice 838",
    "steps": [
     {
@@ -347,6 +845,17 @@
    ]
   },
   "439": {
+   "featured": {
+    "c": [
+     32022,
+     32023
+    ],
+    "src": "notice 855",
+    "w": [
+     320431,
+     320441
+    ]
+   },
    "src": "notice 855",
    "steps": [
     {
@@ -363,6 +872,15 @@
    ]
   },
   "44": {
+   "featured": {
+    "c": [
+     32006,
+     33005,
+     34009
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-sunset-swimwear",
+    "w": []
+   },
    "src": "screens: reddit image hgylpvtuqdk71.jpg + 1gze4fsuz9i71.jpg",
    "steps": [
     {
@@ -379,6 +897,19 @@
    ]
   },
   "442": {
+   "featured": {
+    "c": [
+     34018,
+     32009,
+     34017
+    ],
+    "src": "notice 862",
+    "w": [
+     340351,
+     320201,
+     340341
+    ]
+   },
    "src": "notice 862",
    "steps": [
     {
@@ -413,6 +944,17 @@
    ]
   },
   "446": {
+   "featured": {
+    "c": [
+     33019
+    ],
+    "src": "notice 882",
+    "w": [
+     330471,
+     330481,
+     330491
+    ]
+   },
    "src": "notice 882",
    "steps": [
     {
@@ -429,6 +971,19 @@
    ]
   },
   "448": {
+   "featured": {
+    "c": [
+     34034,
+     33020,
+     32024
+    ],
+    "src": "notice 894",
+    "w": [
+     340611,
+     330501,
+     320451
+    ]
+   },
    "src": "notice 894",
    "steps": [
     {
@@ -455,6 +1010,18 @@
     }
    ]
   },
+  "45": {
+   "featured": {
+    "c": [
+     31000,
+     34000,
+     35000
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-1",
+    "w": []
+   },
+   "steps": []
+  },
   "452": {
    "src": "notice 903",
    "steps": [
@@ -480,6 +1047,17 @@
    ]
   },
   "454": {
+   "featured": {
+    "c": [
+     31023
+    ],
+    "src": "notice 916",
+    "w": [
+     310511,
+     310521,
+     210251
+    ]
+   },
    "src": "notice 916",
    "steps": [
     {
@@ -496,6 +1074,17 @@
    ]
   },
   "458": {
+   "featured": {
+    "c": [
+     35024
+    ],
+    "src": "notice 934",
+    "w": [
+     350461,
+     350471,
+     350481
+    ]
+   },
    "src": "notice 934",
    "steps": [
     {
@@ -511,7 +1100,30 @@
     }
    ]
   },
+  "46": {
+   "featured": {
+    "c": [
+     34010,
+     34011,
+     34012
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-2",
+    "w": []
+   },
+   "steps": []
+  },
   "460": {
+   "featured": {
+    "c": [
+     33021
+    ],
+    "src": "notice 949",
+    "w": [
+     330521,
+     330531,
+     230251
+    ]
+   },
    "src": "notice 949",
    "steps": [
     {
@@ -528,6 +1140,17 @@
    ]
   },
   "462": {
+   "featured": {
+    "c": [
+     32011,
+     34031
+    ],
+    "src": "notice 944",
+    "w": [
+     320231,
+     340541
+    ]
+   },
    "src": "notice 944",
    "steps": [
     {
@@ -551,6 +1174,16 @@
      "price": 1500
     }
    ]
+  },
+  "47": {
+   "featured": {
+    "c": [
+     32005
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-gunman",
+    "w": []
+   },
+   "steps": []
   },
   "472": {
    "src": "notice 989",
@@ -583,6 +1216,15 @@
    ]
   },
   "477": {
+   "featured": {
+    "c": [
+     31001,
+     32002,
+     33001
+    ],
+    "src": "notice 1050",
+    "w": []
+   },
    "src": "notice 1050",
    "steps": [
     {
@@ -599,6 +1241,17 @@
    ]
   },
   "479": {
+   "featured": {
+    "c": [
+     32025,
+     33023
+    ],
+    "src": "notice 1054",
+    "w": [
+     320461,
+     330551
+    ]
+   },
    "src": "notice 1054",
    "steps": [
     {
@@ -615,6 +1268,17 @@
    ]
   },
   "480": {
+   "featured": {
+    "c": [
+     35027
+    ],
+    "src": "notice 1012",
+    "w": [
+     350511,
+     350521,
+     250251
+    ]
+   },
    "src": "notice 1012",
    "steps": [
     {
@@ -643,6 +1307,17 @@
    ]
   },
   "484": {
+   "featured": {
+    "c": [
+     34037
+    ],
+    "src": "notice 1035",
+    "w": [
+     340651,
+     340661,
+     340671
+    ]
+   },
    "src": "notice 1035",
    "steps": [
     {
@@ -675,6 +1350,17 @@
    ]
   },
   "487": {
+   "featured": {
+    "c": [
+     33024,
+     35028
+    ],
+    "src": "notice 1093",
+    "w": [
+     330561,
+     350531
+    ]
+   },
    "src": "notice 1093",
    "steps": [
     {
@@ -691,6 +1377,17 @@
    ]
   },
   "489": {
+   "featured": {
+    "c": [
+     31026
+    ],
+    "src": "notice 1077",
+    "w": [
+     310551,
+     310561,
+     210261
+    ]
+   },
    "src": "notice 1077",
    "steps": [
     {
@@ -747,6 +1444,19 @@
    ]
   },
   "495": {
+   "featured": {
+    "c": [
+     32021,
+     31022,
+     31021
+    ],
+    "src": "notice 1114",
+    "w": [
+     320421,
+     310481,
+     310471
+    ]
+   },
    "src": "notice 1114",
    "steps": [
     {
@@ -763,6 +1473,17 @@
    ]
   },
   "496": {
+   "featured": {
+    "c": [
+     32026
+    ],
+    "src": "notice 1104",
+    "w": [
+     320471,
+     320481,
+     220251
+    ]
+   },
    "src": "notice 1104",
    "steps": [
     {
@@ -779,6 +1500,17 @@
    ]
   },
   "498": {
+   "featured": {
+    "c": [
+     34038
+    ],
+    "src": "notice 1120",
+    "w": [
+     340681,
+     340691,
+     240281
+    ]
+   },
    "src": "notice 1120",
    "steps": [
     {
@@ -793,6 +1525,16 @@
      "price": 3000
     }
    ]
+  },
+  "50": {
+   "featured": {
+    "c": [
+     35006
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abstract-monster",
+    "w": []
+   },
+   "steps": []
   },
   "501": {
    "src": "notice 1126",
@@ -819,6 +1561,17 @@
    ]
   },
   "505": {
+   "featured": {
+    "c": [
+     35029
+    ],
+    "src": "notice 1144",
+    "w": [
+     350551,
+     350561,
+     350571
+    ]
+   },
    "src": "notice 1144",
    "steps": [
     {
@@ -847,6 +1600,17 @@
    ]
   },
   "508": {
+   "featured": {
+    "c": [
+     34039
+    ],
+    "src": "notice 1151",
+    "w": [
+     340701,
+     340711,
+     240291
+    ]
+   },
    "src": "notice 1151",
    "steps": [
     {
@@ -863,6 +1627,19 @@
    ]
   },
   "509": {
+   "featured": {
+    "c": [
+     34024,
+     35015,
+     34025
+    ],
+    "src": "notice 1163",
+    "w": [
+     340441,
+     350321,
+     340451
+    ]
+   },
    "src": "notice 1163",
    "steps": [
     {
@@ -890,7 +1667,32 @@
     }
    ]
   },
+  "510001": {
+   "featured": {
+    "c": [
+     32013,
+     34020,
+     34021
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fortunes-dress",
+    "w": []
+   },
+   "steps": []
+  },
   "511": {
+   "featured": {
+    "c": [
+     31027,
+     34040,
+     33025
+    ],
+    "src": "notice 1165",
+    "w": [
+     310571,
+     340721,
+     330571
+    ]
+   },
    "src": "notice 1165",
    "steps": [
     {
@@ -907,6 +1709,17 @@
    ]
   },
   "513": {
+   "featured": {
+    "c": [
+     32027
+    ],
+    "src": "notice 1187",
+    "w": [
+     320501,
+     320511,
+     320521
+    ]
+   },
    "src": "notice 1187",
    "steps": [
     {
@@ -947,6 +1760,17 @@
    ]
   },
   "517": {
+   "featured": {
+    "c": [
+     33026,
+     32028
+    ],
+    "src": "notice 1206",
+    "w": [
+     330581,
+     320531
+    ]
+   },
    "src": "notice 1206",
    "steps": [
     {
@@ -974,6 +1798,17 @@
    ]
   },
   "520": {
+   "featured": {
+    "c": [
+     32029,
+     35030
+    ],
+    "src": "notice 1223",
+    "w": [
+     320541,
+     350601
+    ]
+   },
    "src": "notice 1223",
    "steps": [
     {
@@ -990,6 +1825,17 @@
    ]
   },
   "522": {
+   "featured": {
+    "c": [
+     31028
+    ],
+    "src": "notice 1242",
+    "w": [
+     310591,
+     310601,
+     310611
+    ]
+   },
    "src": "notice 1242",
    "steps": [
     {
@@ -1028,6 +1874,22 @@
    ]
   },
   "527": {
+   "featured": {
+    "c": [
+     31000,
+     31002,
+     35000,
+     32002,
+     35026,
+     33022,
+     34010,
+     33020,
+     32022,
+     34036
+    ],
+    "src": "notice 1262",
+    "w": []
+   },
    "src": "notice 1262",
    "steps": [
     {
@@ -1084,6 +1946,17 @@
    ]
   },
   "532": {
+   "featured": {
+    "c": [
+     34041
+    ],
+    "src": "notice 1252",
+    "w": [
+     340731,
+     340741,
+     240301
+    ]
+   },
    "src": "notice 1252",
    "steps": [
     {
@@ -1100,6 +1973,15 @@
    ]
   },
   "532001": {
+   "featured": {
+    "c": [
+     35018,
+     32017,
+     31018
+    ],
+    "src": "notice 641",
+    "w": []
+   },
    "src": "notice 641",
    "steps": [
     {
@@ -1154,6 +2036,15 @@
    ]
   },
   "533": {
+   "featured": {
+    "c": [
+     31029
+    ],
+    "src": "notice 1267",
+    "w": [
+     310621
+    ]
+   },
    "src": "notice 1267",
    "steps": [
     {
@@ -1170,6 +2061,30 @@
    ]
   },
   "533001": {
+   "featured": {
+    "c": [
+     31011,
+     32009,
+     34009,
+     31008,
+     33011
+    ],
+    "src": "notice 659",
+    "w": [
+     330081,
+     310111,
+     330361,
+     340211,
+     310351,
+     350001,
+     310251,
+     350201,
+     320311,
+     340311,
+     320341,
+     340431
+    ]
+   },
    "src": "notice 659",
    "steps": [
     {
@@ -1217,6 +2132,17 @@
    ]
   },
   "534001": {
+   "featured": {
+    "c": [
+     34020,
+     33013
+    ],
+    "src": "notice 723",
+    "w": [
+     340381,
+     330321
+    ]
+   },
    "src": "notice 723",
    "steps": [
     {
@@ -1252,6 +2178,15 @@
    ]
   },
   "535": {
+   "featured": {
+    "c": [
+     33027
+    ],
+    "src": "notice 1275",
+    "w": [
+     330591
+    ]
+   },
    "src": "notice 1275",
    "steps": [
     {
@@ -1268,6 +2203,17 @@
    ]
   },
   "536001": {
+   "featured": {
+    "c": [
+     34026,
+     34028
+    ],
+    "src": "notice 787",
+    "w": [
+     340461,
+     340501
+    ]
+   },
    "src": "notice 787",
    "steps": [
     {
@@ -1303,6 +2249,17 @@
    ]
   },
   "537001": {
+   "featured": {
+    "c": [
+     34021,
+     34014
+    ],
+    "src": "notice 821",
+    "w": [
+     340391,
+     340291
+    ]
+   },
    "src": "notice 821",
    "steps": [
     {
@@ -1398,6 +2355,15 @@
    ]
   },
   "541": {
+   "featured": {
+    "c": [
+     35031
+    ],
+    "src": "notice 1292",
+    "w": [
+     350621
+    ]
+   },
    "src": "notice 1292",
    "steps": [
     {
@@ -1414,6 +2380,15 @@
    ]
   },
   "542": {
+   "featured": {
+    "c": [
+     32030
+    ],
+    "src": "notice 1308",
+    "w": [
+     320551
+    ]
+   },
    "src": "notice 1308",
    "steps": [
     {
@@ -1430,6 +2405,21 @@
    ]
   },
   "543": {
+   "featured": {
+    "c": [
+     31029,
+     33027,
+     35031,
+     32030
+    ],
+    "src": "notice 1324",
+    "w": [
+     310621,
+     330591,
+     350621,
+     320551
+    ]
+   },
    "src": "notice 1324",
    "steps": [
     {
@@ -1446,6 +2436,17 @@
    ]
   },
   "544": {
+   "featured": {
+    "c": [
+     32031
+    ],
+    "src": "notice 1321",
+    "w": [
+     320561,
+     320571,
+     220261
+    ]
+   },
    "src": "notice 1321",
    "steps": [
     {
@@ -1488,6 +2489,15 @@
    ]
   },
   "548": {
+   "featured": {
+    "c": [
+     35032
+    ],
+    "src": "notice 1335",
+    "w": [
+     350631
+    ]
+   },
    "src": "notice 1335",
    "steps": [
     {
@@ -1504,6 +2514,15 @@
    ]
   },
   "549": {
+   "featured": {
+    "c": [
+     35033
+    ],
+    "src": "notice 1342",
+    "w": [
+     350641
+    ]
+   },
    "src": "notice 1342",
    "steps": [
     {
@@ -1520,6 +2539,15 @@
    ]
   },
   "550": {
+   "featured": {
+    "c": [
+     34043
+    ],
+    "src": "notice 1350",
+    "w": [
+     340761
+    ]
+   },
    "src": "notice 1350",
    "steps": [
     {
@@ -1596,6 +2624,19 @@
    ]
   },
   "551": {
+   "featured": {
+    "c": [
+     35032,
+     35033,
+     34043
+    ],
+    "src": "notice 1370",
+    "w": [
+     350631,
+     350641,
+     340761
+    ]
+   },
    "src": "notice 1370",
    "steps": [
     {
@@ -1612,6 +2653,17 @@
    ]
   },
   "551001": {
+   "featured": {
+    "c": [
+     32011,
+     34031
+    ],
+    "src": "notice 943",
+    "w": [
+     320231,
+     340541
+    ]
+   },
    "src": "notice 943",
    "steps": [
     {
@@ -1647,6 +2699,17 @@
    ]
   },
   "552": {
+   "featured": {
+    "c": [
+     33028
+    ],
+    "src": "notice 1354",
+    "w": [
+     330601,
+     330611,
+     330621
+    ]
+   },
    "src": "notice 1354",
    "steps": [
     {
@@ -1699,6 +2762,17 @@
    ]
   },
   "553": {
+   "featured": {
+    "c": [
+     31030
+    ],
+    "src": "notice 1362",
+    "w": [
+     310641,
+     310651,
+     210281
+    ]
+   },
    "src": "notice 1362",
    "steps": [
     {
@@ -1715,6 +2789,19 @@
    ]
   },
   "553001": {
+   "featured": {
+    "c": [
+     35025,
+     34036,
+     31024
+    ],
+    "src": "notice 976",
+    "w": [
+     350491,
+     340631,
+     310531
+    ]
+   },
    "src": "notice 976",
    "steps": [
     {
@@ -1769,6 +2856,15 @@
    ]
   },
   "555": {
+   "featured": {
+    "c": [
+     33029
+    ],
+    "src": "notice 1389",
+    "w": [
+     330631
+    ]
+   },
    "src": "notice 1389",
    "steps": [
     {
@@ -1785,6 +2881,19 @@
    ]
   },
   "555001": {
+   "featured": {
+    "c": [
+     31025,
+     33022,
+     35026
+    ],
+    "src": "notice 999",
+    "w": [
+     310541,
+     330541,
+     350501
+    ]
+   },
    "src": "notice 999",
    "steps": [
     {
@@ -1839,6 +2948,15 @@
    ]
   },
   "556": {
+   "featured": {
+    "c": [
+     32032
+    ],
+    "src": "notice 1395",
+    "w": [
+     320581
+    ]
+   },
    "src": "notice 1395",
    "steps": [
     {
@@ -1855,6 +2973,15 @@
    ]
   },
   "557": {
+   "featured": {
+    "c": [
+     34044
+    ],
+    "src": "notice 1379",
+    "w": [
+     340781
+    ]
+   },
    "src": "notice 1379",
    "steps": [
     {
@@ -1871,6 +2998,15 @@
    ]
   },
   "557001": {
+   "featured": {
+    "c": [
+     35000,
+     31000,
+     34000
+    ],
+    "src": "notice 1053",
+    "w": []
+   },
    "src": "notice 1053",
    "steps": [
     {
@@ -2006,6 +3142,15 @@
    ]
   },
   "560001": {
+   "featured": {
+    "c": [
+     31001,
+     32002,
+     33001
+    ],
+    "src": "notice 1051",
+    "w": []
+   },
    "src": "notice 1051",
    "steps": [
     {
@@ -2103,6 +3248,19 @@
    ]
   },
   "566": {
+   "featured": {
+    "c": [
+     34044,
+     33029,
+     32032
+    ],
+    "src": "notice 1411",
+    "w": [
+     340781,
+     330631,
+     320581
+    ]
+   },
    "src": "notice 1411",
    "steps": [
     {
@@ -2119,6 +3277,17 @@
    ]
   },
   "567": {
+   "featured": {
+    "c": [
+     34045
+    ],
+    "src": "notice 1404",
+    "w": [
+     340801,
+     340811,
+     340821
+    ]
+   },
    "src": "notice 1404",
    "steps": [
     {
@@ -2135,6 +3304,17 @@
    ]
   },
   "568": {
+   "featured": {
+    "c": [
+     35034
+    ],
+    "src": "notice 1418",
+    "w": [
+     350661,
+     350671,
+     250271
+    ]
+   },
    "src": "notice 1418",
    "steps": [
     {
@@ -2182,6 +3362,17 @@
    ]
   },
   "569": {
+   "featured": {
+    "c": [
+     33030
+    ],
+    "src": "notice 1433",
+    "w": [
+     330641,
+     330651,
+     330661
+    ]
+   },
    "src": "notice 1433",
    "steps": [
     {
@@ -2255,6 +3446,17 @@
    ]
   },
   "572": {
+   "featured": {
+    "c": [
+     31031
+    ],
+    "src": "notice 1443",
+    "w": [
+     310661,
+     310671,
+     310681
+    ]
+   },
    "src": "notice 1443",
    "steps": [
     {
@@ -2282,6 +3484,17 @@
    ]
   },
   "574": {
+   "featured": {
+    "c": [
+     34046
+    ],
+    "src": "notice 1454",
+    "w": [
+     340831,
+     340841,
+     340851
+    ]
+   },
    "src": "notice 1454",
    "steps": [
     {
@@ -2349,6 +3562,15 @@
    ]
   },
   "577": {
+   "featured": {
+    "c": [
+     33031
+    ],
+    "src": "notice 1475",
+    "w": [
+     330671
+    ]
+   },
    "src": "notice 1475",
    "steps": [
     {
@@ -2391,6 +3613,16 @@
    ]
   },
   "58": {
+   "featured": {
+    "c": [
+     32007,
+     33007,
+     34013,
+     34014
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-half-year-anniversary",
+    "w": []
+   },
    "src": "screens: reddit image 34mulzrq7zl71.jpg",
    "steps": [
     {
@@ -2418,6 +3650,15 @@
    ]
   },
   "582": {
+   "featured": {
+    "c": [
+     31032
+    ],
+    "src": "notice 1495",
+    "w": [
+     310691
+    ]
+   },
    "src": "notice 1495",
    "steps": [
     {
@@ -2434,6 +3675,15 @@
    ]
   },
   "583": {
+   "featured": {
+    "c": [
+     32034
+    ],
+    "src": "notice 1509",
+    "w": [
+     320611
+    ]
+   },
    "src": "notice 1509",
    "steps": [
     {
@@ -2461,6 +3711,15 @@
    ]
   },
   "585": {
+   "featured": {
+    "c": [
+     35035
+    ],
+    "src": "notice 1487",
+    "w": [
+     350681
+    ]
+   },
    "src": "notice 1487",
    "steps": [
     {
@@ -2499,6 +3758,19 @@
    ]
   },
   "588": {
+   "featured": {
+    "c": [
+     35036,
+     33032,
+     32035
+    ],
+    "src": "notice 1556",
+    "w": [
+     350691,
+     330691,
+     320621
+    ]
+   },
    "src": "notice 1556",
    "steps": [
     {
@@ -2537,6 +3809,17 @@
    ]
   },
   "591": {
+   "featured": {
+    "c": [
+     32036
+    ],
+    "src": "notice 1572",
+    "w": [
+     320641,
+     320651,
+     320661
+    ]
+   },
    "src": "notice 1572",
    "steps": [
     {
@@ -2553,6 +3836,21 @@
    ]
   },
   "592": {
+   "featured": {
+    "c": [
+     33031,
+     35035,
+     31032,
+     32034
+    ],
+    "src": "notice 1513",
+    "w": [
+     330671,
+     350681,
+     310691,
+     320611
+    ]
+   },
    "src": "notice 1513",
    "steps": [
     {
@@ -2581,6 +3879,17 @@
    ]
   },
   "594": {
+   "featured": {
+    "c": [
+     33033
+    ],
+    "src": "notice 1568",
+    "w": [
+     330701,
+     330711,
+     330721
+    ]
+   },
    "src": "notice 1568",
    "steps": [
     {
@@ -2667,6 +3976,16 @@
     }
    ]
   },
+  "61": {
+   "featured": {
+    "c": [
+     33009
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-soldier",
+    "w": []
+   },
+   "steps": []
+  },
   "611": {
    "src": "notice 1608",
    "steps": [
@@ -2681,6 +4000,19 @@
    ]
   },
   "612": {
+   "featured": {
+    "c": [
+     31034,
+     34047,
+     34048
+    ],
+    "src": "notice 1614",
+    "w": [
+     310711,
+     340861,
+     340871
+    ]
+   },
    "src": "notice 1614",
    "steps": [
     {
@@ -2697,6 +4029,15 @@
    ]
   },
   "613": {
+   "featured": {
+    "c": [
+     35038
+    ],
+    "src": "notice 1645",
+    "w": [
+     350711
+    ]
+   },
    "src": "notice 1645",
    "steps": [
     {
@@ -2723,6 +4064,38 @@
     }
    ]
   },
+  "8": {
+   "featured": {
+    "c": [
+     31001,
+     32002,
+     33001
+    ],
+    "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/pkl8dn/",
+    "w": []
+   },
+   "steps": []
+  },
+  "82": {
+   "featured": {
+    "c": [
+     34016
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-soldier",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000009": {
+   "featured": {
+    "c": [
+     33006
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-captive",
+    "w": []
+   },
+   "steps": []
+  },
   "9000016": {
    "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/r2idia/; https://www.reddit.com/r/NieRReincarnation/comments/r1o22m/",
    "steps": [
@@ -2733,7 +4106,36 @@
     }
    ]
   },
+  "9000022": {
+   "featured": {
+    "c": [
+     32009,
+     34017
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-yuletide-prayers",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000023": {
+   "featured": {
+    "c": [
+     34015
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-assassin",
+    "w": []
+   },
+   "steps": []
+  },
   "9000025": {
+   "featured": {
+    "c": [
+     31005,
+     31004
+    ],
+    "src": "notice 196",
+    "w": []
+   },
    "src": "notice 196",
    "steps": [
     {
@@ -2749,6 +4151,16 @@
    ]
   },
   "9000026": {
+   "featured": {
+    "c": [
+     34002,
+     34003,
+     34001,
+     34005
+    ],
+    "src": "notice 196",
+    "w": []
+   },
    "src": "notice 196",
    "steps": [
     {
@@ -2764,6 +4176,17 @@
    ]
   },
   "9000027": {
+   "featured": {
+    "c": [
+     33009,
+     33006,
+     33003,
+     33002,
+     33000
+    ],
+    "src": "notice 196",
+    "w": []
+   },
    "src": "notice 196",
    "steps": [
     {
@@ -2779,6 +4202,16 @@
    ]
   },
   "9000028": {
+   "featured": {
+    "c": [
+     32005,
+     32004,
+     32003,
+     32000
+    ],
+    "src": "notice 196",
+    "w": []
+   },
    "src": "notice 196",
    "steps": [
     {
@@ -2794,6 +4227,16 @@
    ]
   },
   "9000029": {
+   "featured": {
+    "c": [
+     35006,
+     35003,
+     35002,
+     35001
+    ],
+    "src": "notice 196",
+    "w": []
+   },
    "src": "notice 196",
    "steps": [
     {
@@ -2808,7 +4251,38 @@
     }
    ]
   },
+  "9000035": {
+   "featured": {
+    "c": [
+     34018
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-yuletide-wishes",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000041": {
+   "featured": {
+    "c": [
+     31011,
+     32011,
+     34019
+    ],
+    "src": "web: https://twitter.com/NieRReinEN/status/1477117374243479555",
+    "w": []
+   },
+   "steps": []
+  },
   "9000047": {
+   "featured": {
+    "c": [
+     31011,
+     32011,
+     34019
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-festive-dress",
+    "w": []
+   },
    "src": "screens: reddit image 6m9xu9vuu0981.jpg",
    "steps": [
     {
@@ -2824,6 +4298,26 @@
     }
    ]
   },
+  "9000050": {
+   "featured": {
+    "c": [
+     31009
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-captain",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000052": {
+   "featured": {
+    "c": [
+     35009
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-weapon",
+    "w": []
+   },
+   "steps": []
+  },
   "9000054": {
    "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/s6xnes/",
    "steps": [
@@ -2834,6 +4328,96 @@
      "price": 13000
     }
    ]
+  },
+  "9000059": {
+   "featured": {
+    "c": [
+     25002
+    ],
+    "src": "web: https://twitter.com/NieRReinEN/status/1484722493805973508",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000061": {
+   "featured": {
+    "c": [
+     33009
+    ],
+    "src": "web: https://twitter.com/NieRReinEN/status/1485447269973381120",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000063": {
+   "featured": {
+    "c": [
+     31005
+    ],
+    "src": "web: https://twitter.com/NieRReinEN/status/1486172044920168450",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000064": {
+   "featured": {
+    "c": [
+     31010
+    ],
+    "src": "web: https://twitter.com/NieRReinEN/status/1486534432492191744",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000065": {
+   "featured": {
+    "c": [
+     31009
+    ],
+    "src": "web: https://twitter.com/NieRReinEN/status/1486911914458292227",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000066": {
+   "featured": {
+    "c": [
+     33011
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-fractured-gunman",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000078": {
+   "featured": {
+    "c": [
+     33010
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloody-captive",
+    "w": []
+   },
+   "steps": []
+  },
+  "9000080": {
+   "featured": {
+    "c": [
+     31008
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-monster",
+    "w": []
+   },
+   "steps": []
+  },
+  "99": {
+   "featured": {
+    "c": [
+     31010
+    ],
+    "src": "web: https://nierrein.guide/event/premium-summons-abstract-witch",
+    "w": []
+   },
+   "steps": []
   }
  },
  "version": 1
