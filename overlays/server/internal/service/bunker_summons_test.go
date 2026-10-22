@@ -63,11 +63,14 @@ func TestSummonCatalogRules(t *testing.T) {
 	if byId[153].MedalConsumableItemId == 0 {
 		t.Error("Lacrima Girl summon lost its medal")
 	}
-	twin, ok := byId[152]
-	if !ok || twin.BannerAssetName != "limited_152" || twin.StartDatetime != byId[153].StartDatetime || twin.EndDatetime != byId[153].EndDatetime {
-		t.Errorf("paid Lacrima Girl twin 152: %+v", twin)
-	} else if p := twin.PricePhases; len(p) != 1 || p[0].PriceType != model.PriceTypePaidGem || p[0].Price != 3000 || p[0].DrawCount != 10 {
-		t.Errorf("paid Lacrima Girl twin 152 draws: %+v", p)
+	// So is Fractured Weapon: 163 regular (text: "Lacrima Girl"), 164 its paid twin.
+	for twinId, regular := range map[int32]int32{152: 153, 164: 163} {
+		twin, ok := byId[twinId]
+		if !ok || twin.StartDatetime != byId[regular].StartDatetime || twin.EndDatetime != byId[regular].EndDatetime {
+			t.Errorf("paid twin %d of %d: %+v", twinId, regular, twin)
+		} else if p := twin.PricePhases; len(p) != 1 || p[0].PriceType != model.PriceTypePaidGem || p[0].Price != 3000 || p[0].DrawCount != 10 {
+			t.Errorf("paid twin %d draws: %+v", twinId, p)
+		}
 	}
 	// Bonus summons whose only rows are 2099 placeholders stay out; those with
 	// a notice run with its rules (Monthly Bonus Summons, Mar. 2023: notice 1040).
