@@ -23,7 +23,6 @@ var specialSummons = map[int32]specialSummon{
 	66:      specialPaid | specialGuaranteed, // Paid Gems Exclusive: 15 Million Global Downloads Commemoration ★★★★ Guaranteed Summons
 	70:      specialPaid,                     // Paid Only: Light-Elemental Featured Summons
 	85:      specialPaid,                     // Paid Only: Fire-Elemental Summons
-	153:     specialPaid,                     // Paid Only: Lacrima Girl Summons
 	160:     specialPaid | specialGuaranteed, // Paid Only: Abyss Tower Conquest Fire-Guaranteed Summons Ver. 1
 	199:     specialFree,                     // Japanese 1.5-Year Anniversary 218+2 Free Summons
 	410:     specialGuaranteed,               // Unacquired ★★★★ Character Guaranteed Summons

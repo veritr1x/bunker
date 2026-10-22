@@ -6265,6 +6265,35 @@
      "ticket": 6072
     }
    ]
+  },
+  {
+   "asset": "limited_152",
+   "end": 0,
+   "id": 152,
+   "notice": 0,
+   "pair": 153,
+   "src": "banner art: Lacrima Girl Summons, Paid Gems Only (limited_152 title_logo); twin of 153; steps as the 2022 paid twins' notices (e.g. 184), bonus from its art",
+   "start": 0,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
+     "price": 3000
+    }
+   ]
   }
  ],
  "rules": {
