@@ -4,7 +4,11 @@ package main
 #include <stdlib.h>
 */
 import "C"
-import "lunar-tear/server/mobile"
+import (
+	"log"
+
+	"lunar-tear/server/mobile"
+)
 
 //export LunarStart
 func LunarStart(data, assets *C.char) *C.char {
@@ -87,6 +91,11 @@ func LunarImportArchive(source, stage *C.char) *C.char {
 //
 //export LunarSetLogDir
 func LunarSetLogDir(dir *C.char) *C.char { return C.CString(mobile.SetLogDir(C.GoString(dir))) }
+
+// LunarLog adds a line from the launcher to the server log.
+//
+//export LunarLog
+func LunarLog(line *C.char) { log.Print(C.GoString(line)) }
 
 // LunarSetBackupDir sets where the save snapshot before an update goes (Pod Programs' snapshots).
 //

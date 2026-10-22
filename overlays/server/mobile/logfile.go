@@ -7,15 +7,20 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"time"
 )
 
 // The server log is also kept on disk so it survives restarts: server.log,
 // moved to server.log.1 once it reaches logLimit, so at most twice that is kept.
+// Go writes a fatal crash to stderr, which Android discards, so the runtime also
+// writes it to crash.log; the next start moves it into server.log.
 const (
-	logName  = "server.log"
-	logLimit = 5 << 20
+	logName    = "server.log"
+	logLimit   = 5 << 20
+	crashName  = "crash.log"
+	crashLimit = 64 << 10
 )
 
 var logFile struct {
@@ -76,7 +81,28 @@ func SetLogDir(dir string) string {
 		return e.Error()
 	}
 	log.Printf("=== log opened %s ===", time.Now().Format(time.RFC3339))
+	keepCrashes(dir)
 	return ""
+}
+
+// keepCrashes logs the report the previous run left in crash.log, then has the
+// runtime write the next fatal error there.
+func keepCrashes(dir string) {
+	f, e := os.OpenFile(filepath.Join(dir, crashName), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+	if e != nil {
+		log.Printf("crash reports off: %v", e)
+		return
+	}
+	defer f.Close() // the runtime keeps its own descriptor
+	// The crashing goroutine's trace comes first; the rest can be very long.
+	report, _ := io.ReadAll(io.LimitReader(f, crashLimit))
+	if len(report) > 0 {
+		log.Printf("The previous server run crashed:\n%s", report)
+		f.Truncate(0)
+	}
+	if e = debug.SetCrashOutput(f, debug.CrashOptions{}); e != nil {
+		log.Printf("crash reports off: %v", e)
+	}
 }
 
 // ExportLogs writes a zip of the saved logs in dir and the given device
@@ -119,13 +145,17 @@ func writeLogArchive(w io.Writer, dir, info string) error {
 	logFile.Unlock()
 	z := zip.NewWriter(w)
 	found := false
-	for _, name := range []string{logName + ".1", logName} {
+	for _, name := range []string{logName + ".1", logName, crashName} {
 		src, e := os.Open(filepath.Join(dir, name))
 		if e != nil {
 			continue
 		}
 		var part io.Writer
 		info, e := src.Stat()
+		if e == nil && name == crashName && info.Size() == 0 {
+			src.Close()
+			continue
+		}
 		if e == nil {
 			part, e = z.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate, Modified: info.ModTime()})
 		}

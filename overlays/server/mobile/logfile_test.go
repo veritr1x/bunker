@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -35,6 +36,49 @@ func TestLogFileKeptAcrossSessions(t *testing.T) {
 	text := string(data)
 	if !strings.Contains(text, "first session line") || !strings.Contains(text, "second session line") || strings.Count(text, "=== log opened") != 2 {
 		t.Fatalf("log file:\n%s", text)
+	}
+}
+
+func TestCrashReportWritten(t *testing.T) {
+	if dir := os.Getenv("LUNAR_CRASH_DIR"); dir != "" {
+		SetLogDir(dir)
+		// A panic outside any request handler takes the whole process down.
+		go func() { panic("background crash for the test") }()
+		select {}
+	}
+	dir := t.TempDir()
+	// The child moves this earlier report into its log before it crashes.
+	os.WriteFile(filepath.Join(dir, crashName), []byte("panic: earlier crash\n"), 0644)
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCrashReportWritten$")
+	cmd.Env = append(os.Environ(), "LUNAR_CRASH_DIR="+dir)
+	if cmd.Run() == nil {
+		t.Fatal("the child process did not crash")
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, crashName))
+	if !strings.HasPrefix(string(data), "panic: background crash for the test") || !strings.Contains(string(data), "goroutine ") {
+		t.Fatalf("crash report:\n%s", data)
+	}
+}
+
+func TestCrashReportMovedIntoLog(t *testing.T) {
+	dir := t.TempDir()
+	defer closeLog()
+	os.WriteFile(filepath.Join(dir, crashName), []byte("panic: earlier crash\n\ngoroutine 7 [running]:\n"), 0644)
+	if e := SetLogDir(dir); e != "" {
+		t.Fatal(e)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, logName))
+	if !strings.Contains(string(data), "The previous server run crashed:\npanic: earlier crash") {
+		t.Fatalf("log file:\n%s", data)
+	}
+	// Reported once: the next start has nothing to repeat.
+	if left, _ := os.ReadFile(filepath.Join(dir, crashName)); len(left) != 0 {
+		t.Fatalf("crash report kept: %q", left)
+	}
+	SetLogDir(dir)
+	data, _ = os.ReadFile(filepath.Join(dir, logName))
+	if strings.Count(string(data), "previous server run crashed") != 1 {
+		t.Fatalf("log file:\n%s", data)
 	}
 }
 
@@ -71,6 +115,8 @@ func TestExportLogs(t *testing.T) {
 	SetLogDir(dir)
 	log.Print("exported line")
 	os.WriteFile(filepath.Join(dir, logName+".1"), []byte("older\n"), 0600)
+	// A crash not yet moved into the log, as when the server has not started since.
+	os.WriteFile(filepath.Join(dir, crashName), []byte("panic: not yet reported\n"), 0600)
 	// Written over an existing, longer file through a descriptor, as Android does.
 	os.WriteFile(target, []byte(strings.Repeat("junk", 100000)), 0600)
 	f, _ := os.OpenFile(target, os.O_RDWR, 0)
@@ -93,7 +139,7 @@ func TestExportLogs(t *testing.T) {
 			t.Fatalf("%s has no real date: %v", file.Name, file.Modified)
 		}
 	}
-	if !strings.Contains(got[logName], "exported line") || got[logName+".1"] != "older\n" || !strings.Contains(got["info.txt"], "device: test") {
+	if !strings.Contains(got[logName], "exported line") || got[logName+".1"] != "older\n" || !strings.Contains(got["info.txt"], "device: test") || got[crashName] != "panic: not yet reported\n" {
 		t.Fatalf("archive: %v", got)
 	}
 }

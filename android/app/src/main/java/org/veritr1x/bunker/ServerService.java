@@ -32,12 +32,48 @@ public final class ServerService extends Service {
     }};
     @Override public void onCreate() {
         super.onCreate();
-        NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());NativeBridge.setBackupDir(new java.io.File(new java.io.File(getFilesDir(),"tools"),"backups").getAbsolutePath());
+        NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());logLastExit();NativeBridge.setBackupDir(new java.io.File(new java.io.File(getFilesDir(),"tools"),"backups").getAbsolutePath());
         NotificationChannel channel=new NotificationChannel("server","Local game server",NotificationManager.IMPORTANCE_LOW);
         channel.setDescription("Server status and Stop control while you play.");
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
         wake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"lunartear:server");
         wake.setReferenceCounted(false);
+    }
+    /** Logs why Android ended the previous server process, which the log itself cannot show: a kill for memory leaves no last line. */
+    private void logLastExit() {
+        if(Build.VERSION.SDK_INT<30) return;
+        try {
+            SharedPreferences prefs=getSharedPreferences("lunar_server",MODE_PRIVATE);
+            long seen=prefs.getLong("last_exit",0);
+            for(ApplicationExitInfo exit:getSystemService(ActivityManager.class).getHistoricalProcessExitReasons(null,0,0)) {
+                if(!exit.getProcessName().endsWith(":lunar_server")) continue;
+                if(exit.getTimestamp()>seen) {
+                    NativeBridge.log("Previous server process ended "+new java.util.Date(exit.getTimestamp())+": "+exitReason(exit.getReason())
+                        +", status "+exit.getStatus()+", importance "+exit.getImportance()+", pss "+exit.getPss()+" kB, rss "+exit.getRss()+" kB"
+                        +(exit.getDescription()==null?"":", "+exit.getDescription()));
+                    prefs.edit().putLong("last_exit",exit.getTimestamp()).apply();
+                }
+                return; // newest first; earlier exits were logged when they were newest
+            }
+        } catch(Exception error) { android.util.Log.w("LunarTear","Exit reason unavailable",error); }
+    }
+    private static String exitReason(int reason) {
+        switch(reason) {
+            case ApplicationExitInfo.REASON_EXIT_SELF: return "exited";
+            case ApplicationExitInfo.REASON_SIGNALED: return "killed by a signal";
+            case ApplicationExitInfo.REASON_LOW_MEMORY: return "killed for low memory";
+            case ApplicationExitInfo.REASON_CRASH: return "Java crash";
+            case ApplicationExitInfo.REASON_CRASH_NATIVE: return "native crash";
+            case ApplicationExitInfo.REASON_ANR: return "not responding";
+            case ApplicationExitInfo.REASON_INITIALIZATION_FAILURE: return "failed to start";
+            case ApplicationExitInfo.REASON_PERMISSION_CHANGE: return "permission changed";
+            case ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE: return "killed for resource use";
+            case ApplicationExitInfo.REASON_USER_REQUESTED: return "stopped by the user";
+            case ApplicationExitInfo.REASON_USER_STOPPED: return "user stopped";
+            case ApplicationExitInfo.REASON_DEPENDENCY_DIED: return "a dependency died";
+            case ApplicationExitInfo.REASON_OTHER: return "ended by the system";
+            default: return "reason "+reason;
+        }
     }
     /** The state as the player reads it; the launcher compares the raw values. */
     private static String shown(String state){
