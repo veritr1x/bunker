@@ -227,7 +227,8 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 		return entries
 	}
 	entries = applySummonRules(entries, file.Rules)
-	return addNewSummonsFor(entries, file, gametime.CalendarOffset(), gametime.CurrentCalendar() != nil)
+	entries = addNewSummonsFor(entries, file, gametime.CalendarOffset(), gametime.CurrentCalendar() != nil)
+	return AddEventSummons(entries)
 }
 
 // Without the Original calendar the game data has every summon open from

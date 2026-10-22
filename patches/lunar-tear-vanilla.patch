@@ -117,14 +117,17 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  		}
  	}
  
-@@ -76,19 +99,34 @@ func (h *GachaHandler) HandleDraw(
+@@ -76,19 +99,37 @@ func (h *GachaHandler) HandleDraw(
  
  	var items []DrawnItem
  
 -	switch entry.GachaLabelType {
 -	case model.GachaLabelPremium:
 +	prizes, prizeBox := masterdata.PrizeBoxFor(entry.GachaId)
++	eventBox, _, isEventBox := masterdata.EventSummonFor(entry.GachaId)
 +	switch {
++	case isEventBox:
++		items = drawEventBox(&bs, eventBox, masterdata.EventSummonUnlimited(), drawCount) // an event's summon
 +	case prizeBox:
 +		items = drawPrizeBox(&bs, prizes, drawCount) // Mama's Dream, on the chapter tab
 +	case entry.GachaLabelType == model.GachaLabelPremium:
@@ -158,7 +161,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  		if bs.StepNumber > entry.MaxStepNumber {
  			bs.StepNumber = 1
  			bs.LoopCount++
-@@ -98,16 +136,24 @@ func (h *GachaHandler) HandleDraw(
+@@ -98,16 +139,24 @@ func (h *GachaHandler) HandleDraw(
  	var medalBonus int32
  	if entry.GachaMedalId != 0 {
  		medalBonus = int32(drawCount)
@@ -187,7 +190,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  
  	bonusMap := h.generateBonusItems(entry, items)
  	bonusSlice := make([]DrawnItem, 0, len(bonusMap))
-@@ -125,23 +171,37 @@ func (h *GachaHandler) HandleDraw(
+@@ -125,23 +174,40 @@ func (h *GachaHandler) HandleDraw(
  	}
  
  	for _, p := range phase.Bonuses {
@@ -216,6 +219,9 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	user *store.UserState,
  	entry store.GachaCatalogEntry,
  ) error {
++	if box, _, ok := masterdata.EventSummonFor(entry.GachaId); ok {
++		return resetEventBox(user, box) // Level Up / Prize Replenishment
++	}
 +	if len(entry.BoxContents) > 0 && !canResetBox(user, entry, gametime.NowMillis()) {
 +		return fmt.Errorf("gacha %d: the box can be reset once its targets are drawn", entry.GachaId)
 +	}
@@ -227,7 +233,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	bs.BoxNumber++
  	user.Gacha.BannerStates[entry.GachaId] = bs
  	return nil
-@@ -162,10 +222,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
+@@ -162,10 +228,12 @@ func clampDailyDraw(lastDate, todayStart int64, currentCount, maxCount, requeste
  	return requested, currentCount + requested, reset
  }
  
@@ -241,7 +247,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	nowMillis := gametime.NowMillis()
  	todayStart := gametime.StartOfDayMillis()
  
-@@ -182,10 +244,11 @@ func (h *GachaHandler) HandleRewardDraw(
+@@ -182,10 +250,11 @@ func (h *GachaHandler) HandleRewardDraw(
  		return nil, fmt.Errorf("daily reward draw limit reached")
  	}
  
@@ -257,7 +263,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  	}
  
  	user.Gacha.TodaysCurrentDrawCount = newCount
-@@ -193,7 +256,7 @@ func (h *GachaHandler) HandleRewardDraw(
+@@ -193,7 +262,7 @@ func (h *GachaHandler) HandleRewardDraw(
  	user.Gacha.LastRewardDrawDate = nowMillis
  	user.Gacha.RewardAvailable = newCount < maxCount
  
@@ -266,7 +272,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  }
  
  func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.GachaPricePhaseEntry, count int) []DrawnItem {
-@@ -222,7 +285,13 @@ func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.Ga
+@@ -222,7 +291,13 @@ func (h *GachaHandler) drawPremium(entry store.GachaCatalogEntry, phase store.Ga
  		}
  	}
  
@@ -281,7 +287,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  }
  
  func (h *GachaHandler) drawMaterial(count int) []DrawnItem {
-@@ -279,29 +348,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
+@@ -279,29 +354,29 @@ func (h *GachaHandler) grantItems(user *store.UserState, items []DrawnItem, nowM
  	for i, item := range items {
  		switch model.PossessionType(item.PossessionType) {
  		case model.PossessionTypeCostume:
@@ -316,7 +322,7 @@ diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
  			}
  			return DuplicateInfo{Index: index, Grade: grade, Bonuses: exchanges}, true
  		}
-@@ -344,3 +413,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
+@@ -344,3 +419,13 @@ func findPhase(entry store.GachaCatalogEntry, phaseId int32) (store.GachaPricePh
  	}
  	return store.GachaPricePhaseEntry{}, fmt.Errorf("no price phases for gacha %d", entry.GachaId)
  }
@@ -2790,7 +2796,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  
  	return &pb.ResetBoxGachaResponse{
 -		Gacha: toProtoGacha(*entry, &bs),
-+		Gacha: toProtoGachaFor(*entry, &bs, updatedUser),
++		Gacha: protoGachaById(*entry, 0, &bs, updatedUser), // an event summon: the level the player is on now
  	}, nil
  }
  

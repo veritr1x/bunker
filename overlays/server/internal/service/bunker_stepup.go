@@ -3,6 +3,7 @@ package service
 import (
 	pb "lunar-tear/server/gen/proto"
 	"lunar-tear/server/internal/gacha"
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 )
@@ -36,6 +37,9 @@ func resolveGachaId(catalog []store.GachaCatalogEntry, gachaId int32) (*store.Ga
 	if gachaId > stepUpGachaIdBase {
 		id, step = (gachaId-stepUpGachaIdBase)/10, (gachaId-stepUpGachaIdBase)%10
 	}
+	if box, _, ok := masterdata.EventSummonFor(gachaId); ok {
+		id = box.Base // an event summon's level
+	}
 	for i := range catalog {
 		e := &catalog[i]
 		if e.GachaId != id {
@@ -68,6 +72,9 @@ func stepUpGacha(entry store.GachaCatalogEntry, bs *store.GachaBannerState, user
 
 // protoGachas is a summon as the client lists it: one Gacha, or one per step.
 func protoGachas(entry store.GachaCatalogEntry, bs *store.GachaBannerState, user store.UserState) []*pb.Gacha {
+	if box, _, ok := masterdata.EventSummonFor(entry.GachaId); ok {
+		return eventSummonGachas(entry, box, bs, user)
+	}
 	if entry.GachaModeType != model.GachaModeStepup || entry.MaxStepNumber < 1 {
 		return []*pb.Gacha{toProtoGachaFor(entry, bs, user)}
 	}
@@ -81,8 +88,19 @@ func protoGachas(entry store.GachaCatalogEntry, bs *store.GachaBannerState, user
 // protoGachaById is the Gacha the client asked for by id: the step it names,
 // or for a multi-step summon's own id, step 1.
 func protoGachaById(entry store.GachaCatalogEntry, step int32, bs *store.GachaBannerState, user store.UserState) *pb.Gacha {
+	if box, _, ok := masterdata.EventSummonFor(entry.GachaId); ok {
+		gs := eventSummonGachas(entry, box, bs, user)
+		return gs[min(int(gacha.EventLevel(derefState(bs))), len(gs))-1]
+	}
 	if entry.GachaModeType != model.GachaModeStepup || entry.MaxStepNumber < 1 {
 		return toProtoGachaFor(entry, bs, user)
 	}
 	return stepUpGacha(entry, bs, user, max(step, 1))
+}
+
+func derefState(bs *store.GachaBannerState) store.GachaBannerState {
+	if bs == nil {
+		return store.GachaBannerState{}
+	}
+	return *bs
 }
