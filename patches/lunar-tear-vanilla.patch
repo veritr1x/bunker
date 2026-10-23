@@ -1324,7 +1324,15 @@ diff --git a/server/internal/masterdata/quest.go b/server/internal/masterdata/qu
  
  	UserExpThresholds       []int32
  	CharacterExpThresholds  []int32
-@@ -577,6 +581,33 @@ func LoadQuestCatalog(partsCatalog *PartsCatalog) (*QuestCatalog, error) {
+@@ -221,6 +225,7 @@ func LoadQuestCatalog(partsCatalog *PartsCatalog) (*QuestCatalog, error) {
+ 	if err != nil {
+ 		return nil, fmt.Errorf("load weapon story release condition table: %w", err)
+ 	}
++	releaseConditions = withWeaponStoryOperations(releaseConditions)
+ 
+ 	costumeMasters, err := utils.ReadTable[EntityMCostume]("m_costume")
+ 	if err != nil {
+@@ -577,6 +582,33 @@ func LoadQuestCatalog(partsCatalog *PartsCatalog) (*QuestCatalog, error) {
  		}
  	}
  
@@ -1358,7 +1366,7 @@ diff --git a/server/internal/masterdata/quest.go b/server/internal/masterdata/qu
  	return &QuestCatalog{
  		SceneById:                          sceneById,
  		MissionById:                        missionById,
-@@ -604,6 +635,10 @@ func LoadQuestCatalog(partsCatalog *PartsCatalog) (*QuestCatalog, error) {
+@@ -604,6 +636,10 @@ func LoadQuestCatalog(partsCatalog *PartsCatalog) (*QuestCatalog, error) {
  		BattleOnlyTargetSceneByQuestId:     battleOnlyTargetSceneByQuestId,
  		MainQuestChapterIdByQuestId:        mainQuestChapterIdByQuestId,
  		EventQuestTypeByChapterId:          eventQuestTypeByChapterId,
@@ -2018,6 +2026,14 @@ diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/re
  			store.ReplenishStamina(user, maxStamina*1000, nowMillis)
  		}
  	}
+@@ -409,7 +370,6 @@ func (h *QuestHandler) grantWeaponStoryUnlocksForQuestScene(user *store.UserStat
+ 							changedIds = append(changedIds, weaponId)
+ 						}
+ 					}
+-					break
+ 				}
+ 			}
+ 		}
 diff --git a/server/internal/runtime/build.go b/server/internal/runtime/build.go
 --- a/server/internal/runtime/build.go
 +++ b/server/internal/runtime/build.go
@@ -4127,7 +4143,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  	"lunar-tear/server/internal/model"
  	"lunar-tear/server/internal/runtime"
  	"lunar-tear/server/internal/store"
-@@ -107,6 +110,23 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
+@@ -107,6 +110,32 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	s.users.UpdateUser(userId, func(user *store.UserState) {
  		user.GameStartDatetime = gametime.NowMillis()
@@ -4141,6 +4157,15 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
 +				autoConvertExpiredMedals(user, cats.GachaEntries, cats.GachaHandler, user.GameStartDatetime)
 +			}
 +		}
++		// Stories whose quests were cleared before their conditions were read
++		// right (the Arc 2 ★2 weapons) unlock now.
++		if bunkerHolder != nil {
++			if cats := bunkerHolder.Get(); cats != nil && cats.QuestHandler != nil && cats.QuestHandler.Granter != nil {
++				if cats.QuestHandler.Granter.CatchUpWeaponStories(user, user.GameStartDatetime) {
++					log.Printf("[UserService] user %d: weapon stories caught up", user.UserId)
++				}
++			}
++		}
 +		// Limited stock whose day, week or month has ended is full again; the
 +		// client shows stock from BoughtCount alone, so it must be reset here.
 +		if bunkerHolder != nil {
@@ -4151,7 +4176,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  	})
  
  	return &pb.GameStartResponse{}, nil
-@@ -175,45 +195,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
+@@ -175,45 +204,63 @@ func (s *UserServiceServer) GetUserProfile(ctx context.Context, req *pb.GetUserP
  		return &pb.GetUserProfileResponse{}, nil
  	}
  
@@ -4245,7 +4270,7 @@ diff --git a/server/internal/service/user.go b/server/internal/service/user.go
  func (s *UserServiceServer) SetBirthYearMonth(ctx context.Context, req *pb.SetBirthYearMonthRequest) (*pb.SetBirthYearMonthResponse, error) {
  	log.Printf("[UserService] SetBirthYearMonth: %d/%d", req.BirthYear, req.BirthMonth)
  	userId := CurrentUserId(ctx, s.users, s.sessions)
-@@ -268,8 +306,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
+@@ -268,8 +315,18 @@ func (s *UserServiceServer) CheckTransferSetting(ctx context.Context, _ *emptypb
  	return &pb.CheckTransferSettingResponse{}, nil
  }
  
