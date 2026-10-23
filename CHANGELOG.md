@@ -4,6 +4,23 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-23
+
+### Display
+- On Android the game fills the screen around the camera instead of
+  leaving a black bar beside it in landscape; its buttons stay clear of the
+  camera. Pod Programs → Display → Screen area turns it off ("Keep clear of
+  the camera"). [1b42855]
+
+## 2026-10-22
+
+### Server log
+- The saved server log says why the server last stopped unexpectedly. A
+  crash of the server is kept and added to the log the next time it starts,
+  and exported logs include it; on Android 11 and later the log also gives
+  Android's reason for ending the server (for example low memory). Before,
+  the log just stopped. [6e3fcd4]
+
 ## 2026-10-21
 
 ### Notices
