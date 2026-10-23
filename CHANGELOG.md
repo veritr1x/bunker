@@ -4,6 +4,18 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-23
+
+### Weapons
+- The Arc 2 ★2 weapons' stories now unlock: Apprentice Witch's Staff,
+  Sorrowful Echo, Ivory, Ebony, Ceremonial Scimitar and Ritual Pike showed
+  only their first story. Their later stories unlock on either of two
+  quests, which the server didn't read. Weapons you already own get the
+  stories for quests you've cleared the next time the game starts.
+  [af34a15]
+- Clearing a quest that opens several of a weapon's stories opens all of
+  them, not just the first (Scar and Sin's stories 2-4). [af34a15]
+
 ## 1.1.0 (2026-10-23)
 
 Summons as the official notices ran them, event summons, the official
