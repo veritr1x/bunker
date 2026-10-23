@@ -8,7 +8,9 @@
   <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
   <label for="resolution">Resolution</label>
   <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-  <p>The frame rate never goes above the screen's refresh rate; Screen maximum uses the highest it supports. The resolution applies to the game's higher graphics settings and never goes above the screen's own. Power saving keeps its lower frame rate.</p>
+  <label for="screen">Screen area</label>
+  <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+  <p>The frame rate never goes above the screen's refresh rate; Screen maximum uses the highest it supports. The resolution applies to the game's higher graphics settings and never goes above the screen's own. Power saving keeps its lower frame rate. Full screen draws beside the camera cutout instead of leaving a black bar, and the game keeps its buttons clear of the camera.</p>
   <button type="submit">Save</button>
 </form>
 <p>Experimental: higher settings use more battery and make the device warmer. The game uses them the next time it opens.</p>

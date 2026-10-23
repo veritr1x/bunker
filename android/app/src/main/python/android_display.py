@@ -1,4 +1,4 @@
-"""Frame rate and resolution for the game, applied the next time it opens.
+"""Frame rate, resolution and screen area for the game, applied the next time it opens.
 
 Writes tools/display.conf, which the game's process reads before Unity starts
 (DisplayPatch.java on Android). That process writes tools/display.status:
@@ -19,7 +19,8 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 FPS = [("30", "30 fps (game default)"), ("60", "60 fps"), ("90", "90 fps"), ("120", "120 fps"), ("max", "Screen maximum")]
 RESOLUTIONS = [("default", "Game default"), ("1080", "1080p"), ("1440", "1440p"), ("native", "Screen's own resolution")]
-DEFAULTS = {"fps": "30", "resolution": "default"}
+SCREENS = [("full", "Full screen, around the camera"), ("safe", "Keep clear of the camera")]
+DEFAULTS = {"fps": "30", "resolution": "default", "screen": "full"}
 RESTART = "Close Pod Programs and tap Deploy."
 
 
@@ -34,7 +35,7 @@ def read_settings(path=None):
         lines = (path or conf_path()).read_text().splitlines()
     except OSError:
         return settings
-    allowed = {"fps": dict(FPS), "resolution": dict(RESOLUTIONS)}
+    allowed = {"fps": dict(FPS), "resolution": dict(RESOLUTIONS), "screen": dict(SCREENS)}
     for line in lines:
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip()
@@ -43,12 +44,12 @@ def read_settings(path=None):
     return settings
 
 
-def write_settings(fps, resolution, path=None):
-    if fps not in dict(FPS) or resolution not in dict(RESOLUTIONS):
+def write_settings(fps, resolution, screen, path=None):
+    if fps not in dict(FPS) or resolution not in dict(RESOLUTIONS) or screen not in dict(SCREENS):
         raise ValueError("Unknown display setting")
     path = path or conf_path()
     pending = path.with_name(path.name + ".tmp")
-    pending.write_text(f"fps={fps}\nresolution={resolution}\n")
+    pending.write_text(f"fps={fps}\nresolution={resolution}\nscreen={screen}\n")
     os.replace(pending, path)
 
 
@@ -64,13 +65,13 @@ def last_result():
 @router.get("/display")
 def view(request: Request, message: str = "", error: str = ""):
     return templates.TemplateResponse(request, "display.html", {"active": "display", "settings": read_settings(), "fps_options": FPS,
-        "resolution_options": RESOLUTIONS, "result": last_result(), "message": message, "error": error})
+        "resolution_options": RESOLUTIONS, "screen_options": SCREENS, "result": last_result(), "message": message, "error": error})
 
 
 @router.post("/display")
-def save(fps: str = Form(...), resolution: str = Form(...)):
+def save(fps: str = Form(...), resolution: str = Form(...), screen: str = Form("full")):
     try:
-        write_settings(fps, resolution)
+        write_settings(fps, resolution, screen)
         # The status describes the previous choices until the game opens again.
         (config.DATA_DIR / "display.status").unlink(missing_ok=True)
     except Exception as exc:

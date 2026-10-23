@@ -23,20 +23,26 @@ class Settings(unittest.TestCase):
         self.dir.cleanup()
 
     def test_missing_file_keeps_the_game_defaults(self):
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full"})
 
     def test_saved_choices_are_read_back(self):
-        self.display.write_settings("60", "native", self.conf)
-        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native"})
-        self.display.write_settings("max", "1440", self.conf)
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440"})
+        self.display.write_settings("60", "native", "full", self.conf)
+        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full"})
+        self.display.write_settings("max", "1440", "safe", self.conf)
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe"})
+
+    def test_settings_saved_before_the_screen_choice_use_the_full_screen(self):
+        self.conf.write_text("fps=60\nresolution=native\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full"})
 
     def test_unknown_values_are_refused_and_ignored(self):
         with self.assertRaises(ValueError):
-            self.display.write_settings("240", "native", self.conf)
-        self.conf.write_text("fps=240\nresolution=8k\nnoise\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default"})
+            self.display.write_settings("240", "native", "safe", self.conf)
+        with self.assertRaises(ValueError):
+            self.display.write_settings("60", "native", "wide", self.conf)
+        self.conf.write_text("fps=240\nresolution=8k\nscreen=wide\nnoise\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full"})
 
 
 def patch_sites():
