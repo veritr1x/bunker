@@ -4,6 +4,10 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 1.1.1 (2026-10-23)
+
+Weapon stories that never unlocked.
+
 ## 2026-10-23
 
 ### Weapons
