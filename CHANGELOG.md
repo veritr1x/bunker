@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 1.1.0 (2026-10-23)
+
+Summons as the official notices ran them, event summons, the official
+notices in game, and full screen around the camera on Android.
+
 ## 2026-10-23
 
 ### Display
@@ -14,6 +19,30 @@ sections it contains; its notes run down to the previous release.
 
 ## 2026-10-22
 
+### Summons
+- Event summons return: 31 story events' leveled box summons on the Event
+  tab, open for their event's dates plus two days and drawn with any of
+  the event's tickets. Each level shows its main prizes; Level Up opens
+  once they're all drawn, and the last level has Prize Replenishment.
+  Main prizes are nierrein.guide's where it lists them (17 events), else
+  the event's own weapons and Advanced Handbooks. The rest of each box is
+  a reconstruction modelled on the one box on record (Aurora Dynast,
+  2021): a level prize 35% of the time (30% on the last level), else a
+  common material. [61673b6]
+- Mama's Dream moves to the Event tab, where the game shows its box
+  screen and the prizes left. The Event tab opens once the story has
+  opened side quests. [25f9571]
+- 76 summons the game data has but Bunker left out now run: Monthly
+  Bonus and Bonus Summons, Healer & Support and its reruns, paid
+  step-ups and others, with their notice's rules and dates where there is
+  one. The last weekly summons (04-30-2023, Lars and Griff) rerun their
+  03-19 art and lineup. [0cc86f3]
+- Ticket summons' panels show the characters their banner shows.
+  [25f9571, 26b1f31]
+- Lacrima Girl (153) is a regular summon again, and its Paid Gems Only
+  twin (152) runs beside it; Fractured Weapon (163) gets its paid twin
+  (164) the same way. [0aa9980, 919e68e]
+
 ### Server log
 - The saved server log says why the server last stopped unexpectedly. A
   crash of the server is kept and added to the log the next time it starts,
@@ -22,6 +51,34 @@ sections it contains; its notes run down to the previous release.
   the log just stopped. [6e3fcd4]
 
 ## 2026-10-21
+
+### Summons
+- Summons cost what their official notices say: price, regular or paid
+  gems, free draws, use limits, daily draws and step-up steps (158
+  summons, 81 of which Bunker priced differently). For 2021-22 summons
+  without a notice, archived in-game screenshots and tweets fill in.
+  [af52e6e, b15c461]
+- Featured characters and weapons are the ones each notice lists (145
+  summons). [ccf46d7]
+- Guaranteed slots give what the notice promises (the featured character,
+  one of a set, a ★4 character or weapon, one of an element, a ★4
+  character you don't own), and step rate-ups and step bonus items match
+  the notices. Max Awakening summons bring their ★4 characters to
+  awakening level 5. [35b60d6, 0e713f7, b2386de]
+- The paid-only summons return: 88 Paid Gems Only summons that ran beside
+  a regular one, each with its own art. On them every ★4 drawn is a
+  featured one, as promised. [403f4b4, c195942, 5c6013e]
+- Ticket summons return, so their tickets can be used: ★★★ and ★★★★
+  Guaranteed, the element and Argo ticket summons. The New Year's free
+  ★★★★ summons return for their 2022 windows. [02ccfda, b2386de]
+- Mama's Dream returns as a prize box, one ticket a draw, with the
+  notice's prizes and gem stock (the stock is your own). Summons Details
+  lists its prizes and what's left. [16cb647, 568b6ef]
+- Summons Details lists a ticket summon's guaranteed-slot rates, says "no
+  end date" instead of 2099/12/31, and prints days in UTC as labelled.
+  [568665d]
+- Added summons follow the calendar like the game's own, and always-open
+  ticket summons are listed after the summons of the day. [2926631]
 
 ### Notices
 - The Notices screen shows the official notices: 947 of them, recovered
