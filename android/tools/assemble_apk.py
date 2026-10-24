@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import axml  # noqa: E402
 import build_info  # noqa: E402
 import notice_pack  # noqa: E402
+import privacy  # noqa: E402
 from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,7 +102,7 @@ def patch_game_files(lib, metadata, port_offset=0):
         grpc, http = addresses(port_offset)
         run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", grpc, "--http-addr", http)
         load("package_game", ROOT / "android/tools/package_game.py").patch_local_reachability(work)
-        return (work / LIB).read_bytes(), (work / METADATA).read_bytes()
+        return privacy.patch_library((work / LIB).read_bytes()), (work / METADATA).read_bytes()
 
 
 def patch_unity_connect(settings):
@@ -175,6 +176,7 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
             if source.name == "provider":  # Authorities are unique per device: use the game's.
                 source.set(Attr.string("authorities", PACKAGE + ".lunar_loopback", AUTHORITIES))
             app.children.append(source)
+    privacy.harden_manifest(manifest)
     return axml.serialize(doc), game_activity
 
 
@@ -294,7 +296,7 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
 
 
 def update(installed_apk, companion_apk, output, log=print, notices=None):
-    """Rebuilds an installed Bunker APK with a newer launcher; the game's entries are copied as they are.
+    """Rebuilds an installed Bunker APK with a newer launcher and current telemetry controls.
 
     companion_apk is the launcher APK or the release's Android bundle. The
     installed APK's build.json says which entries are Bunker's; the master data
@@ -307,6 +309,8 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
         old = json.loads(game.read("assets/lunar/build.json"))
         if old.get("gamePatch") != build_info.GAME_PATCH:
             raise RuntimeError("This update needs the web builder: it changes how the game itself is patched")
+        if LIB not in names:
+            raise RuntimeError("Not the ARM64 game APK: " + LIB + " is missing")
         log("Updating the manifest…")
         manifest, _ = patch_manifest(game.read("assets/lunar/game-manifest.xml"), companion.read("AndroidManifest.xml"),
                                      old["portOffset"])
@@ -323,6 +327,8 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                         continue
                     if name == "AndroidManifest.xml":
                         writer.add(name, manifest)
+                    elif name == LIB:
+                        writer.add(name, privacy.patch_library(game.read(name)), compress=info.compress_type != zipfile.ZIP_STORED)
                     elif name == SETTINGS:  # Earlier builds left Unity Connect on.
                         writer.add(name, patch_unity_connect(game.read(name)), compress=info.compress_type != zipfile.ZIP_STORED)
                     elif notices and name.startswith(notice_pack.PREFIX):

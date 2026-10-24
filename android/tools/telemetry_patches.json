@@ -1,0 +1,77 @@
+{
+  "client": "Global 3.7.1 ARM64",
+  "sites": [
+    {
+      "name": "Unity Analytics startup",
+      "rva": 86706468,
+      "original": "ff8302d1fc6f04a9fa6705a9f85f06a9",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics initialization",
+      "rva": 87609560,
+      "original": "f30f1ef8fd7b01a9fd430091b33001d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics log",
+      "rva": 87609756,
+      "original": "f44fbea9fd7b01a9fd430091b43001d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics user ID",
+      "rva": 87609876,
+      "original": "f44fbea9fd7b01a9fd430091b43001d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics exception",
+      "rva": 87609996,
+      "original": "f44fbea9fd7b01a9fd430091b43001d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Facebook Android event",
+      "rva": 79665212,
+      "original": "f70f1cf8f65701a9f44f02a9fd7b03a9",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Facebook Android purchase",
+      "rva": 79665568,
+      "original": "ff0301d1f65701a9f44f02a9fd7b03a9",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Facebook Android activation",
+      "rva": 79666120,
+      "original": "f44fbea9fd7b01a9fd430091346d01d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Adjust automatic startup",
+      "rva": 66985920,
+      "original": "f70f1cf8f65701a9f44f02a9fd7b03a9",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Adjust startup",
+      "rva": 66986716,
+      "original": "f44fbea9fd7b01a9fd430091b4cd01d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "IronSource initialization",
+      "rva": 53026340,
+      "original": "f50f1df8f44f01a9fd7b02a9fd830091",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "IronSource initialization with ad units",
+      "rva": 53026536,
+      "original": "f657bda9f44f01a9fd7b02a9fd830091",
+      "replacement": "c0035fd6"
+    }
+  ]
+}
