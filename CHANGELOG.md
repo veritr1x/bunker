@@ -19,6 +19,15 @@ back after you leave the game.
   file it can't find. See docs/WINDOWS.md. [550840e]
 - Keyboard controls: WASD or the arrow keys move, and Ctrl+B opens the
   Bunker. [7cb3539]
+- Release notes end with a Downloads list that says what `Bunker.exe`
+  is for and which files you don't need. The Windows guide now says
+  gameplay was tested: the field with the keyboard, and the music after a
+  pause. [0934243]
+
+### Web builder
+- After an Android build, a separate paragraph explains how to play the
+  APK on Windows with `Bunker.exe`. It's hidden for iPhone/iPad builds.
+  [0764eb1]
 
 ### Game client
 - Music no longer stops for good after you leave the game. Before, after
@@ -29,6 +38,11 @@ back after you leave the game.
   show a jumbled number: campaigns left open end in 2099, 26,000 days away,
   too long for the badge. Remaining times now stop at "999d", on Android
   and iOS. [d7b1ed6]
+
+### Docs
+- The README, guides, changelog and on-screen messages use shorter,
+  plainer sentences. Facts, commands and button names are unchanged.
+  [c6639f3]
 
 ## 1.2.0 (2026-10-25)
 
