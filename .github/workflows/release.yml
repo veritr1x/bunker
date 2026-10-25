@@ -28,10 +28,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - run: python3 -m pip install pycryptodome
       - name: Unit tests
         run: |
           (cd scripts && python3 -m unittest test_version test_release_assets test_notices)
-          (cd android/tools && python3 -m unittest test_build_info test_notice_pack)
+          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack)
           (cd web && python3 -m unittest test_build_site)
           python3 -c "import sys; sys.path.insert(0, 'scripts'); import release_assets; release_assets.changelog_section(open('CHANGELOG.md').read(), open('VERSION').read().strip())"
 

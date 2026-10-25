@@ -24,6 +24,8 @@ PYTHON = [
     "android/tools/assemble_apk.py",
     "android/tools/build_info.py",
     "android/tools/notice_pack.py",
+    "android/tools/privacy.py",
+    "android/tools/telemetry_patches.json",
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
     "ios/python/bunker_ios_update.py",
