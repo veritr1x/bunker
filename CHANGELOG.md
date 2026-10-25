@@ -4,7 +4,21 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.3.0 (2026-10-25)
+
+Bunker now runs on Windows, with keyboard controls, and the music comes
+back after you leave the game.
+
 ## 2026-10-25
+
+### Windows
+- New: `Bunker-<version>.exe` plays the Android build on a Windows PC, in
+  Google's Android Emulator. The first time, it downloads the emulator
+  from Google, sets up a phone, installs your APK and copies the game
+  files in from the `.7z`. Each step shows on screen, and it asks for any
+  file it can't find. See docs/WINDOWS.md. [550840e]
+- Keyboard controls: WASD or the arrow keys move, and Ctrl+B opens the
+  Bunker. [7cb3539]
 
 ### Game client
 - Music no longer stops for good after you leave the game. Before, after
