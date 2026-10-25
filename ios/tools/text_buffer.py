@@ -80,19 +80,30 @@ SITES = (
 )
 
 
+def patch_words(path, sites, unsupported):
+    """Patches 32-bit words of the file at path where it lies, reading only those words.
+
+    sites are (offset, original, patched); every word is checked first, so on any
+    other value nothing changes and RuntimeError(unsupported) is raised. Returns
+    how many words changed."""
+    with open(path, "r+b") as handle:
+        found = []
+        for offset, original, patched in sites:
+            handle.seek(offset)
+            raw = handle.read(4)
+            now = struct.unpack("<I", raw)[0] if len(raw) == 4 else None
+            if now not in (original, patched):
+                raise RuntimeError(unsupported.format(offset=offset))
+            found.append(now)
+        changed = 0
+        for (offset, _, patched), now in zip(sites, found):
+            if now != patched:
+                handle.seek(offset)
+                handle.write(struct.pack("<I", patched))
+                changed += 1
+    return changed
+
+
 def patch_text_buffer(path, sites=SITES):
     """Patches the binary at path in place. Returns how many words changed; raises on an unknown binary."""
-    path = Path(path)
-    data = bytearray(path.read_bytes())
-    for offset, original, patched in sites:
-        now = struct.unpack_from("<I", data, offset)[0] if offset + 4 <= len(data) else None
-        if now not in (original, patched):
-            raise RuntimeError(f"Unsupported UnityFramework at 0x{offset:X}; text builder fix not applied")
-    changed = 0
-    for offset, original, patched in sites:
-        if struct.unpack_from("<I", data, offset)[0] != patched:
-            struct.pack_into("<I", data, offset, patched)
-            changed += 1
-    if changed:
-        path.write_bytes(data)
-    return changed
+    return patch_words(path, sites, "Unsupported UnityFramework at 0x{offset:X}; text builder fix not applied")

@@ -28,6 +28,7 @@ PYTHON = [
     "android/tools/telemetry_patches.json",
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
+    "ios/tools/ipa_stream.py",
     "ios/python/bunker_ios_update.py",
     "ios/tools/remain_days.py",
     "ios/tools/scroll_snap.py",

@@ -4,8 +4,10 @@ import plistlib
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
-from package_ipa import LAUNCHER, dylibs, insert_dylib, patch_info
+from package_ipa import LAUNCHER, dylibs, insert_dylib, patch_info, turn_off_adjust
+from bunker_ios_update import ADJUST_SITES
 from text_buffer import SITES, patch_text_buffer
 
 
@@ -103,6 +105,26 @@ class TextBufferTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             patch_text_buffer(self.path, self.SITES)
         self.assertEqual(self.path.read_bytes(), before)
+
+    def test_reads_only_the_patched_words(self):
+        # The 109 MB library is patched where it lies: a browser build holds files in memory.
+        self.write([(o, w) for o, w, _ in self.SITES])
+        with mock.patch.object(Path, "read_bytes", side_effect=AssertionError("read the whole file")):
+            self.assertEqual(patch_text_buffer(self.path, self.SITES), 2)
+        self.assertEqual([self.word(o) for o, _, _ in self.SITES], [p for _, _, p in self.SITES])
+
+    def test_adjust_is_turned_off_in_place(self):
+        (offset, original, patched), = ADJUST_SITES
+        with self.path.open("wb") as handle:
+            handle.seek(offset)
+            handle.write(original.to_bytes(4, "little") + b"tail")
+        self.assertEqual(turn_off_adjust(self.path), 1)
+        self.assertEqual(self.word(offset), patched)
+        self.assertEqual(self.path.read_bytes()[offset + 4:], b"tail")
+        self.assertEqual(turn_off_adjust(self.path), 0)
+        self.path.write_bytes(b"\0" * (offset + 4))
+        with self.assertRaises(RuntimeError):
+            turn_off_adjust(self.path)
 
     def test_sites_are_lsl_to_add(self):
         self.assertEqual(len(SITES), 58)

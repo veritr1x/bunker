@@ -21,10 +21,11 @@ import sys
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-from bunker_ios_update import SDK_SWITCHES, SETTINGS, UNITY, patch_adjust, patch_unity_connect  # noqa: E402
+from bunker_ios_update import ADJUST_SITES, SDK_SWITCHES, SETTINGS, UNITY, patch_unity_connect  # noqa: E402
+from ipa_stream import LEFTOVERS  # noqa: E402
 import remain_days  # noqa: E402
 import scroll_snap  # noqa: E402
-from text_buffer import patch_text_buffer  # noqa: E402
+from text_buffer import patch_text_buffer, patch_words  # noqa: E402
 
 MH_MAGIC_64 = 0xFEEDFACF
 LC_SEGMENT_64 = 0x19
@@ -129,28 +130,48 @@ def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
     return info
 
 
-def add_python(app, bundle):
+def turn_off_adjust(path):
+    """Adjust (install tracking) start returns at once, patched where the library lies."""
+    return patch_words(path, ADJUST_SITES, "Unsupported game binary: expected 3.7.1 UnityFramework at 0x{offset:X}")
+
+
+def place(source, target, move=False):
+    """Copies a folder into the app, or moves it there (the browser build keeps one copy in memory)."""
+    if move:
+        shutil.move(source, target)
+    else:
+        shutil.copytree(source, target)
+
+
+def add_python(app, bundle, move=False):
     """Merge Python.framework, the module frameworks and the python/ folder."""
     for framework in sorted((bundle / "Frameworks").iterdir()):
         target = app / "Frameworks" / framework.name
         if target.exists():
             raise RuntimeError(f"The game already has {framework.name}")
-        shutil.copytree(framework, target)
+        place(framework, target, move)
     if (app / "python").exists():
         raise RuntimeError("The game already has a python folder")
-    shutil.copytree(bundle / "python", app / "python")
+    place(bundle / "python", app / "python", move)
 
 
-def add_notices(app, pack):
+def add_notices(app, pack, move=False):
     """The launcher points the server at this file (Documents/notices/source.txt)."""
     with zipfile.ZipFile(pack) as z:
         if "notices.json" not in z.namelist():
             raise ValueError(f"{pack} is not a notice pack: no notices.json")
-    shutil.copyfile(pack, app / "notices.zip")
+    digest = hashlib.sha256()
+    with open(pack, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    if move:
+        shutil.move(pack, app / "notices.zip")
+    else:
+        shutil.copyfile(pack, app / "notices.zip")
     # Which pack the app carries: an update downloads the release's only when it differs.
     plist = app / "Info.plist"
     info = plistlib.loads(plist.read_bytes())
-    info["BunkerNotices"] = hashlib.sha256(pack.read_bytes()).hexdigest()
+    info["BunkerNotices"] = digest.hexdigest()
     plist.write_bytes(plistlib.dumps(info))
 
 
@@ -200,6 +221,43 @@ def sign(app, identity, profile, work):
     run("codesign", "--verify", "--deep", "--strict", app)
 
 
+def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_offset=0, move=False):
+    """Everything Bunker changes in the patched game's NieR.app; returns its Info.plist.
+
+    With move, the launcher, Python and notices are moved in, not copied."""
+    # Store encryption metadata and the publisher's signature no longer apply.
+    for leftover in LEFTOVERS:
+        target = app / leftover
+        if target.is_dir():
+            shutil.rmtree(target)
+        elif target.exists():
+            target.unlink()
+    frameworks = app / "Frameworks"
+    destination = frameworks / "LunarTear.framework"
+    if destination.exists():
+        shutil.rmtree(destination)
+    place(framework, destination, move)
+    if python:
+        add_python(app, python, move)
+    if notices:
+        add_notices(app, notices, move)
+    info = patch_info(app, bundle_id, port_offset=port_offset)
+    executable = app / info["CFBundleExecutable"]
+    print("Launcher load command", "added" if insert_dylib(executable) else "already present")
+    settings = app / SETTINGS
+    settings.write_bytes(patch_unity_connect(settings.read_bytes()))
+    print("Unity Connect (Unity's analytics): off")
+    turn_off_adjust(app / UNITY)
+    print("Adjust (install tracking): off")
+    changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework")
+    print("Text builder fix:", f"{changed} instructions" if changed else "already applied")
+    changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", scroll_snap.SITES)
+    print("Snapping list fix:", f"{changed} instruction" if changed else "already applied")
+    changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", remain_days.SITES)
+    print("Remaining days cap:", f"{changed} instructions" if changed else "already applied")
+    return info
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--patched-ipa", type=Path, required=True, help="Output of lunar-scripts ios/patch_ipa.py")
@@ -224,41 +282,7 @@ def main():
         if len(apps) != 1:
             raise RuntimeError("Expected one app in Payload/")
         app = apps[0]
-        # Store encryption metadata and the publisher's signature no longer apply.
-        for leftover in ("SC_Info", "_CodeSignature", "embedded.mobileprovision"):
-            target = app / leftover
-            if target.is_dir():
-                shutil.rmtree(target)
-            elif target.exists():
-                target.unlink()
-        frameworks = app / "Frameworks"
-        destination = frameworks / "LunarTear.framework"
-        if destination.exists():
-            shutil.rmtree(destination)
-        shutil.copytree(args.framework, destination)
-        if args.python:
-            add_python(app, args.python)
-        if args.notices:
-            add_notices(app, args.notices)
-        info = patch_info(app, args.bundle_id, port_offset=args.port_offset)
-        executable = app / info["CFBundleExecutable"]
-        print("Launcher load command", "added" if insert_dylib(executable) else "already present")
-        settings = app / SETTINGS
-        settings.write_bytes(patch_unity_connect(settings.read_bytes()))
-        print("Unity Connect (Unity's analytics): off")
-        unity = app / UNITY
-        patched = unity.with_name(unity.name + ".patched")
-        with unity.open("rb") as source, patched.open("wb") as target:
-            patch_adjust(source, target)
-        patched.chmod(unity.stat().st_mode)
-        os.replace(patched, unity)
-        print("Adjust (install tracking): off")
-        changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework")
-        print("Text builder fix:", f"{changed} instructions" if changed else "already applied")
-        changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", scroll_snap.SITES)
-        print("Snapping list fix:", f"{changed} instruction" if changed else "already applied")
-        changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", remain_days.SITES)
-        print("Remaining days cap:", f"{changed} instructions" if changed else "already applied")
+        info = prepare_app(app, args.framework, args.python, args.notices, args.bundle_id, args.port_offset)
         if args.sign_identity:
             sign(app, args.sign_identity, args.profile, work)
             print("Signed for", info["CFBundleIdentifier"] if not args.bundle_id else args.bundle_id)
