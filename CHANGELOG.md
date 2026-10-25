@@ -7,6 +7,10 @@ under its heading, down to the previous release.
 ## 2026-10-25
 
 ### Game client
+- Music no longer stops for good after you leave the game. Before, after
+  opening the Bunker, the home screen or another app, the game stayed
+  silent until it was restarted. Now the music comes back about a second
+  after you return. [03f176e]
 - Campaign badges (such as half stamina on EX Character Quests) no longer
   show a jumbled number: campaigns left open end in 2099, 26,000 days away,
   too long for the badge. Remaining times now stop at "999d", on Android
