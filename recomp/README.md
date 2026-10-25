@@ -1,7 +1,8 @@
 # Static recompilation experiments (ARM64 → x86_64)
 
 Feasibility tests for recompiling the game's ARM64 libraries to x86_64. Nothing
-here is part of the Bunker build.
+here is part of the Bunker build. [TODO.md](TODO.md) has the current state, the
+next tasks and the setup for continuing on Windows.
 
 ## Survey
 
