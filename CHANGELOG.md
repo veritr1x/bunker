@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.3.1 (2026-10-25)
+
+The web page can now build for iPhone/iPad with much less memory, and on
+Android more of the game's tracking stays off.
+
 ## 2026-10-25
 
 ### Privacy
