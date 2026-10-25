@@ -28,6 +28,10 @@
 //   applies with any settings too.
 // - Text builder: ArtStringBuilder grows its buffer to fit long text instead of
 //   writing past its end (text_buffer.c). This one applies with any settings too.
+// - EGL fence syncs: Unity's render worker can destroy a sync twice, which on
+//   Android 17 stops the game on a black screen (egl_sync.c). Any setting.
+// - Google Play services: Firebase's start-up check passes without them
+//   (play_services.c), so de-Googled phones get past the logo. Any setting.
 // - Snapping lists (the summon banners): DarkScrollRect.UpdateSnapPosition eases
 //   the list to the chosen row with SmoothDamp and counts it as there within
 //   0.01. Above 30 fps each frame's step is so small that, far down a long list,
@@ -47,6 +51,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "egl_sync.h"
+#include "play_services.h"
 #include "roulette_ads.h"
 #include "text_buffer.h"
 
@@ -366,6 +372,10 @@ static const char *apply(int fps, int size, char *message, size_t length) {
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Snapping lists: unsupported game binary; summon buttons can stop answering above 30 fps");
     if (text_buffer_fix(base, write_word))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Text builder: unsupported game binary; long texts can still overrun");
+    const char *egl = egl_sync_fix();
+    if (egl) __android_log_print(ANDROID_LOG_WARN, "Bunker", "%s", egl);
+    const char *play = play_services_fix(write_word);
+    if (play) __android_log_print(ANDROID_LOG_WARN, "Bunker", "%s", play);
     const struct { uint32_t rva; const uint32_t *original; } hooks[] = {{0x2D5F7A0, kFixedProcessPrologue}, {0x2A6530C, kBattleStepCall},
         {0x3A0ECF8, kChangeState}, {0x363082C, kTriggerEnter}};
     // The event-zone hooks (2 and 3) go in at every frame rate; the frame-timing ones only above 30.

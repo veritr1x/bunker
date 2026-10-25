@@ -19,8 +19,20 @@ rm -rf ../android/app/src/main/python/bunker_tools && mkdir -p ../android/app/sr
 cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/tools/notice_pack.py ../android/app/src/main/python/bunker_tools/
 : > ../android/app/src/main/python/bunker_tools/__init__.py
 cp ../web/signing/bunker-key.pem ../web/signing/bunker-cert.der ../android/app/src/main/assets/lunar/signing/
+# The game's Play services waits (Firebase start-up, Lilium attestation)
+# answered without them, loaded in place of the game's (NoPlayServices.java).
+# The stubs are compile-only.
+noplay="$(mktemp -d)"
+android_jar="$sdk_dir/platforms/android-36/android.jar"
+"${JAVA_HOME:+$JAVA_HOME/bin/}javac" --release 11 -cp "$android_jar" -d "$noplay/stubs" $(find ../android/no-play-services/stubs -name '*.java')
+"${JAVA_HOME:+$JAVA_HOME/bin/}javac" --release 11 -cp "$android_jar:$noplay/stubs" -d "$noplay/classes" $(find ../android/no-play-services/src -name '*.java')
+mkdir -p "$noplay/dex"
+"$sdk_dir/build-tools/36.0.0/d8" --min-api 26 --lib "$android_jar" --classpath "$noplay/stubs" --output "$noplay/dex" $(find "$noplay/classes" -name '*.class')
+cp "$noplay/dex/classes.dex" ../android/app/src/main/assets/lunar/no-play-services.dex
+rm -f ../android/app/src/main/assets/lunar/lilium.dex
+rm -rf "$noplay"
 go build -buildmode=c-shared -trimpath -ldflags="-s -w -X lunar-tear/server/internal/bunkerversion.Version=$version -extldflags=-Wl,-z,max-page-size=16384,-z,common-page-size=16384" \
   -o ../android/app/src/main/jniLibs/arm64-v8a/liblunar.so ./cmd/android-bridge
 # Frame rate and resolution choices, applied in the game's process (DisplayPatch.java).
 "$CC" -shared -fPIC -O2 -Wall -Wextra -Werror -s -Wl,-z,max-page-size=16384,-z,common-page-size=16384 \
-  -o ../android/app/src/main/jniLibs/arm64-v8a/libbunkerdisplay.so ../android/app/src/main/cpp/display_patch.c ../android/app/src/main/cpp/roulette_ads.c ../android/app/src/main/cpp/text_buffer.c -llog
+  -o ../android/app/src/main/jniLibs/arm64-v8a/libbunkerdisplay.so ../android/app/src/main/cpp/display_patch.c ../android/app/src/main/cpp/roulette_ads.c ../android/app/src/main/cpp/text_buffer.c ../android/app/src/main/cpp/egl_sync.c ../android/app/src/main/cpp/play_services.c -llog
