@@ -1,0 +1,15 @@
+# Remill development environment: the toolchain only. The source tree and its build
+# directories are mounted from recomp/work/remill-src, so rebuilds are incremental.
+#   recomp/remill/dev.sh image
+ARG LLVM_VERSION=22
+FROM ubuntu:24.04
+ARG LLVM_VERSION
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends lsb-release wget software-properties-common gnupg \
+        cmake ninja-build python3 python3-venv git ca-certificates build-essential ccache \
+    && wget -q https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh ${LLVM_VERSION} \
+    && apt-get install -y --no-install-recommends llvm-${LLVM_VERSION}-dev clang-${LLVM_VERSION} lld-${LLVM_VERSION} \
+    && rm -rf /var/lib/apt/lists/* llvm.sh
+ENV CC=clang-${LLVM_VERSION} CXX=clang++-${LLVM_VERSION} LLVM_VERSION=${LLVM_VERSION} \
+    PATH="/usr/lib/llvm-${LLVM_VERSION}/bin:${PATH}"
+RUN git config --global --add safe.directory '*'

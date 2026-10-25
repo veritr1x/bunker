@@ -5,7 +5,8 @@
 set -uo pipefail
 DIR=/recomp/work/coverage/$1
 TAG=$2
-LIFT=$(ls /opt/trailofbits/remill/bin/remill-lift-* /opt/remill/bin/remill-lift-* 2>/dev/null | head -1)
+LIFT=$(ls /remill/build-dev/bin/lift/remill-lift-* /opt/trailofbits/remill/bin/remill-lift-* \
+    /opt/remill/bin/remill-lift-* 2>/dev/null | head -1)
 [[ -x $LIFT ]] || { echo "No remill-lift in this image"; exit 1; }
 export LIFT
 lift_one() {
