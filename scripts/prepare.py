@@ -44,7 +44,7 @@ def prepare():
     for name, expected in previous.items():
         path = ROOT / name
         if path.exists() and digest(path) != expected:
-            raise RuntimeError(f"Generated file was edited: {name}. Preserve that edit in overlays/ before rebuilding.")
+            raise RuntimeError(f"Generated file was edited: {name}. Save that edit in overlays/ before rebuilding.")
 
     with tempfile.TemporaryDirectory(prefix="prepare-", dir=work) as temp:
         stage = Path(temp)
@@ -82,7 +82,7 @@ def prepare():
         for name, expected in files.items():
             target = ROOT / name
             if target.exists() and name not in previous and digest(target) != expected:
-                raise RuntimeError(f"Refusing to replace an unowned file: {name}")
+                raise RuntimeError(f"Will not replace {name}: prepare.py did not make it")
         for name in previous.keys() - files.keys():
             (ROOT / name).unlink(missing_ok=True)
         for name in files:

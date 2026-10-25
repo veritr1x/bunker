@@ -137,7 +137,7 @@
       const owned = form && form.classList.contains("owned");
       sel.disabled = !slotUnlocked || !owned;
       if (!owned) {
-        sel.title = "Karma slots are populated when the costume is owned and Upgrade All Costumes has unlocked them.";
+        sel.title = "Karma slots appear once you own the costume and Upgrade All Costumes has unlocked them.";
       } else if (!slotUnlocked) {
         sel.title = "Slot not yet unlocked — run Upgrade All Costumes from the Upgrade Manager first.";
       } else {

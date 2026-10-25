@@ -367,7 +367,7 @@ func PrepareBackup(root string) string {
 			return e.Error()
 		}
 		if busy != 0 {
-			return "Save database is busy; try exporting again after stopping the game"
+			return "The save is in use. Stop the game, then export again"
 		}
 	}
 	return ""

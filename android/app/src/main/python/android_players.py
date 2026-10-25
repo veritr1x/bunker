@@ -109,7 +109,7 @@ def use(user_id: int):
     except Exception as exc:
         return _back(user_id, error=str(exc))
     if not changed:
-        return _back(user_id, message="The game already plays as this player.")
+        return _back(user_id, message="The game already uses this player.")
     return _back(user_id, message="The game will play as this player. Close Pod Programs and tap Deploy.")
 
 
@@ -124,7 +124,7 @@ def new():
         return RedirectResponse("/users?" + urlencode({"error": str(exc)}), status_code=303)
     message = "The game will start a new player. Close Pod Programs and tap Deploy."
     if kept:
-        message += f" Player {kept} is kept; choose it here to go back."
+        message += f" Player {kept} is kept. Choose it here to go back."
     return RedirectResponse("/users?" + urlencode({"message": message}), status_code=303)
 
 

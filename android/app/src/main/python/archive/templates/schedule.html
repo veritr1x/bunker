@@ -5,7 +5,7 @@
 <nav class="seg tight" aria-label="Schedule view">
   {% for key, label in tabs %}<a href="/schedule?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>
-<p class="note">{% if original %}The live service's own dates, in UTC. Some rows carry a placeholder date in 2099 instead of their real dates; they are listed under "No date in the game data" with what the game files show about them.{% else %}Dates from the master data in use, which Pod Programs may have changed. Open Pod Programs once to show the original dates.{% endif %}</p>
+<p class="note">{% if original %}Dates from the live service, in UTC. Some rows have a placeholder date in 2099 instead of a real date. They are listed under "No date in the game data", with what the game files show about them.{% else %}Dates from your current master data. Pod Programs may have changed them. Open Pod Programs once to show the original dates.{% endif %}</p>
 {% if tab == "timeline" %}
   {% for m in groups %}
   <details class="panel fold"{% if loop.first %} open{% endif %}>

@@ -168,7 +168,7 @@ func extractSaves(source, stage string) (map[string]bool, error) {
 // devicePlayer returns the game's ID on this device: that of the most recently
 // started player in the current save.
 func devicePlayer(game string) (string, error) {
-	const first = "Open the game once on this device so it creates its player, then import the backup"
+	const first = "Open the game once on this device to create a player, then import the backup"
 	if _, e := os.Stat(game); e != nil {
 		return "", errors.New(first)
 	}

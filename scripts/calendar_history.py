@@ -2,13 +2,14 @@
 """Writes the runs that the final game data lost (calendar_history.json).
 
 The game data keeps one date range per row. When the live service reran an
-event, or parked something it had finished with (dates moved to 2030, 2040 or
-2099), the earlier range was overwritten, so the Original calendar, which
-replays the final game data, never shows that run. This reads a series of
-global master data files (one per week is enough: a run lasts at least a few
-days and stays in the data until it is overwritten) and records, for each row
-of the calendar's rotating tables that lost a run, every range it was live in
-after global launch. android_calendar.py restores them when it builds a loop.
+event, or parked something it was done with (dates moved to 2030, 2040 or
+2099), the new range replaced the old one. The Original calendar replays the
+final game data, so it never shows the old run. This tool reads a series of
+global master data files. One file per week is enough: a run lasts at least a
+few days and stays in the data until it is replaced. For each row of the
+calendar's rotating tables that lost a run, it records every range the row was
+live in after global launch. android_calendar.py adds these runs back when it
+builds a loop.
 
   calendar_history.py --masters DIR [--out PATH]
 

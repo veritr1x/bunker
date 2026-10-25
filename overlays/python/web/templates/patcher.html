@@ -27,7 +27,7 @@
     {% endfor %}
     <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Save speed</button></div>
   </form>
-  <p class="credit" style="margin: 12px 0 0">Moves at the daily reset. Stamina and daily missions keep normal time.</p>
+  <p class="credit" style="margin: 12px 0 0">The calendar moves at the daily reset. Stamina and daily missions use normal time.</p>
 </div>
 
 <h2 class="bracket-header">Open now</h2>
@@ -56,7 +56,7 @@
 <h2 class="bracket-header">Schedule</h2>
 <div class="panel">
   <label class="choice"><input type="radio" name="schedule" checked onchange="document.getElementById('turn-on').hidden = true"><span><strong>Everything open</strong><span class="note">All events, summons and shops stay open.</span></span></label>
-  <label class="choice"><input type="radio" name="schedule" onchange="document.getElementById('turn-on').hidden = false"><span><strong>Original calendar</strong><span class="note">Replays the game from launch day, once the first summons opened. Events, summons and seasons open and close on their original dates.</span></span></label>
+  <label class="choice"><input type="radio" name="schedule" onchange="document.getElementById('turn-on').hidden = false"><span><strong>Original calendar</strong><span class="note">Replays the game from launch day, starting when the first summons opened. Events, summons and seasons open and close on their original dates.</span></span></label>
 </div>
 <form id="turn-on" action="/patcher/calendar/on" method="post" class="panel" data-busy hidden>
   <p><strong>The game restarts from launch on your next Deploy.</strong></p>

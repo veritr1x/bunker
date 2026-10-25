@@ -1,8 +1,8 @@
 # Changelog
 
 What changed in Bunker, newest first. Each day lists its changes by area.
-Commit ids are in brackets. Each release's heading sits above the dated
-sections it contains; its notes run down to the previous release.
+Commit ids are in brackets. A release's notes are the dated sections
+under its heading, down to the previous release.
 
 ## 2026-10-25
 
@@ -14,15 +14,15 @@ sections it contains; its notes run down to the previous release.
 
 ## 1.2.0 (2026-10-25)
 
-Building for iPhone/iPad on the web page works again, and a tidier
-Display page.
+The web page can build for iPhone/iPad again, and the Display page is
+tidier.
 
 ## 2026-10-25
 
 ### Web builder
-- Building for iPhone/iPad on the web page works again: since 1.1.3 it
-  stopped with "No module named 'bunker_ios_update'", a file the page
-  didn't include. [d69d157]
+- The web page can build for iPhone/iPad again. Since 1.1.3 the build
+  stopped with "No module named 'bunker_ios_update'", because the page
+  didn't include that file. [d69d157]
 
 ### Display
 - The Display page is tidier: each setting has its own row, a full-width
@@ -31,52 +31,53 @@ Display page.
 
 ## 1.1.3 (2026-10-25)
 
-Less memory, lower resolutions and texture size for low-memory phones,
-the game's ad and analytics libraries off, and a calendar fix for iOS
-updates.
+Bunker uses less memory. Low-memory phones get lower resolutions and a
+texture size setting. The game's ad and analytics libraries are off, and
+a calendar bug after iOS updates is fixed.
 
 ## 2026-10-25
 
 ### Calendar
-- The Original calendar keeps the next loop's game data beside the master
-  data instead of remembering its full path, which iOS changes on every
-  app install; the move to loop 2 would not have found it. Calendars
-  started earlier move it the next time Pod Programs opens. [e37c1ed]
+- The Original calendar now keeps the next loop's game data next to the
+  master data. Before, it saved the file's full path, but iOS changes that
+  path on every app install, so the move to loop 2 would not have found
+  the file. For calendars started earlier, the file moves the next time
+  Pod Programs opens. [e37c1ed]
 
 ### Memory
 - Bunker's server uses much less memory: about 140 MB instead of 256 MB
-  while you play, measured on an Android emulator. It reads the game data
-  from its files as it needs it instead of keeping them all loaded, and
-  gives freed memory back. [5cbe846]
-- Closing the Archive gives its memory back. On Android it runs in a
-  process of its own that ends when it closes; on iOS its server stops.
-  Before, the server kept about 450 MB after the Archive had been
-  open. [5cbe846]
-- On Android, closing Pod Programs reopens the launcher fresh, so the
-  memory Tools used goes too. [5cbe846]
+  while you play, measured on an Android emulator. It now reads game data
+  from its files only when needed, instead of keeping it all loaded. It
+  also gives freed memory back. [5cbe846]
+- Closing the Archive now frees its memory. On Android the Archive runs
+  in its own process, which ends when you close it. On iOS its server
+  stops. Before, the server kept about 450 MB after you had opened the
+  Archive. [5cbe846]
+- On Android, closing Pod Programs restarts the launcher, which also
+  frees the memory Tools used. [5cbe846]
 
 ### Display
-- Two lower resolutions, 540p and 640p, below the game's own 720p, for
-  phones short on memory. [6c9c123]
+- For phones with little memory, there are two lower resolutions, 540p
+  and 640p, below the game's own 720p. [6c9c123]
 - On Android, Texture size draws characters and places with half or a
-  quarter of their texture detail; menus stay sharp. Half size used about
-  440 MB less graphics memory on the emulator and looks almost the same;
-  quarter size is visibly softer. [6c9c123]
+  quarter of their texture detail. Menus stay sharp. On the emulator,
+  half size used about 440 MB less graphics memory and looks almost the
+  same. Quarter size is visibly softer. [6c9c123]
 
 ### Privacy
-- The game's ad and analytics libraries stay off. On Android their
-  start-up hooks are removed; on both platforms Firebase's and Facebook's
-  own off switches are set. [c99044c]
+- The game's ad and analytics libraries stay off. On Android, Bunker
+  removes their start-up hooks. On both platforms, it sets Firebase's and
+  Facebook's own off switches. [c99044c]
 - Unity's own analytics, which the game sent to Unity's servers, are
-  turned off, and on iOS the Adjust install tracker no longer starts.
-  Playing now contacts only Bunker's update check (and, on iOS, Apple's
-  App Store). Updating Bunker in the app applies this to the game you
-  have installed. [c99044c]
+  turned off. On iOS the Adjust install tracker no longer starts. While
+  you play, the game now contacts only Bunker's update check (and, on
+  iOS, Apple's App Store). If you update Bunker in the app, this also
+  applies to the game you have installed. [c99044c]
 
 ## 1.1.2 (2026-10-25)
 
-The game starts without Google Play services, events back on their
-original dates, and an Android 17 crash fix.
+The game starts without Google Play services, events run on their
+original dates again, and an Android 17 crash is fixed.
 
 ## 2026-10-25
 
@@ -84,22 +85,22 @@ original dates, and an Android 17 crash fix.
 - The game starts on phones without Google Play services (de-Googled
   phones, Waydroid) instead of stopping on a black screen after the
   logos. Firebase's start-up check and the Lilium attestation waited for
-  Play services; Bunker now answers both. The attestation fails the same
-  way it does on phones with Play services, since Google shut SafetyNet
-  down, and the server never read it. [22b6059]
+  Play services. Bunker now answers both. The attestation fails, just as
+  it does on phones with Play services, because Google shut SafetyNet
+  down. The server never read the attestation. [22b6059]
 - Fixed a black screen on Android 17: Unity's frame pacer destroyed a
   fence sync twice, which stopped the game. [22b6059]
 
 ### Calendar
 - The Original calendar runs events on their original dates. The final
-  game data keeps one date range per row, so reruns and parked dates had
-  overwritten earlier runs, and events such as the NieR:Automata
-  crossover never opened. The runs are restored from 153 weekly global
-  master data files (167 rows in 13 tables); each rerun of an event
-  chapter is a copy of it, with the same quests. Content that later
-  stayed open for good opens from its first run. [c61c907]
-- Pod Programs' schedule names more events (254 of 274), looking titles
-  up by their text id: Automata shows as "Record: The Cage of
+  game data keeps only one date range per row. Reruns and parked dates
+  had overwritten the earlier runs, so events such as the NieR:Automata
+  crossover never opened. Bunker restores the runs from 153 weekly global
+  master data files (167 rows in 13 tables). Each rerun of an event
+  chapter is a copy of that chapter, with the same quests. Content that
+  later stayed open for good is now open from its first run. [c61c907]
+- Pod Programs' schedule names more events (254 of 274). It looks up
+  titles by their text id, so Automata shows as "Record: The Cage of
   Reincarnation". [c61c907]
 
 ## 1.1.1 (2026-10-23)
@@ -109,100 +110,102 @@ Weapon stories that never unlocked.
 ## 2026-10-23
 
 ### Weapons
-- The Arc 2 ★2 weapons' stories now unlock: Apprentice Witch's Staff,
+- The Arc 2 ★2 weapons' stories now unlock. Apprentice Witch's Staff,
   Sorrowful Echo, Ivory, Ebony, Ceremonial Scimitar and Ritual Pike showed
   only their first story. Their later stories unlock on either of two
-  quests, which the server didn't read. Weapons you already own get the
-  stories for quests you've cleared the next time the game starts.
-  [af34a15]
-- Clearing a quest that opens several of a weapon's stories opens all of
-  them, not just the first (Scar and Sin's stories 2-4). [af34a15]
+  quests, and the server didn't read those quests. For weapons you
+  already own, the stories for quests you've cleared unlock the next time
+  the game starts. [af34a15]
+- When a quest opens several of a weapon's stories, clearing it now opens
+  all of them, not just the first (Scar and Sin's stories 2-4). [af34a15]
 
 ## 1.1.0 (2026-10-23)
 
-Summons as the official notices ran them, event summons, the official
-notices in game, and full screen around the camera on Android.
+Summons work as their official notices said. Event summons return, the
+official notices appear in the game, and on Android the game fills the
+screen around the camera.
 
 ## 2026-10-23
 
 ### Display
-- On Android the game fills the screen around the camera instead of
-  leaving a black bar beside it in landscape; its buttons stay clear of the
-  camera. Pod Programs → Display → Screen area turns it off ("Keep clear of
-  the camera"). [1b42855]
+- On Android the game now fills the screen around the camera. Before, it
+  left a black bar beside the camera in landscape. Its buttons stay clear
+  of the camera. Pod Programs → Display → Screen area can turn this off
+  ("Keep clear of the camera"). [1b42855]
 
 ## 2026-10-22
 
 ### Summons
-- Event summons return: 31 story events' leveled box summons on the Event
-  tab, open for their event's dates plus two days and drawn with any of
-  the event's tickets. Each level shows its main prizes; Level Up opens
-  once they're all drawn, and the last level has Prize Replenishment.
-  Main prizes are nierrein.guide's where it lists them (17 events), else
-  the event's own weapons and Advanced Handbooks. The rest of each box is
-  a reconstruction modelled on the one box on record (Aurora Dynast,
-  2021): a level prize 35% of the time (30% on the last level), else a
-  common material. [61673b6]
+- Event summons return. The Event tab has leveled box summons for 31
+  story events. Each is open for its event's dates plus two days, and any
+  of the event's tickets can draw from it. Each level shows its main
+  prizes. Level Up opens once they're all drawn, and the last level has
+  Prize Replenishment. The main prizes come from nierrein.guide where it
+  lists them (17 events). Otherwise they are the event's own weapons and
+  Advanced Handbooks. The rest of each box is modelled on the only box on
+  record (Aurora Dynast, 2021): a level prize 35% of the time (30% on the
+  last level), otherwise a common material. [61673b6]
 - Mama's Dream moves to the Event tab, where the game shows its box
   screen and the prizes left. The Event tab opens once the story has
   opened side quests. [25f9571]
-- 76 summons the game data has but Bunker left out now run: Monthly
-  Bonus and Bonus Summons, Healer & Support and its reruns, paid
-  step-ups and others, with their notice's rules and dates where there is
-  one. The last weekly summons (04-30-2023, Lars and Griff) rerun their
-  03-19 art and lineup. [0cc86f3]
+- 76 summons that are in the game data, but that Bunker left out, now
+  run. They include Monthly Bonus and Bonus Summons, Healer & Support and
+  its reruns, paid step-ups and others. Where a summon has a notice, it
+  uses the notice's rules and dates. The last weekly summons (04-30-2023,
+  Lars and Griff) reuse their 03-19 art and lineup. [0cc86f3]
 - Ticket summons' panels show the characters their banner shows.
   [25f9571, 26b1f31]
 - Lacrima Girl (153) is a regular summon again, and its Paid Gems Only
-  twin (152) runs beside it; Fractured Weapon (163) gets its paid twin
-  (164) the same way. [0aa9980, 919e68e]
+  twin (152) runs beside it. Fractured Weapon (163) also gets its paid
+  twin (164). [0aa9980, 919e68e]
 
 ### Server log
-- The saved server log says why the server last stopped unexpectedly. A
-  crash of the server is kept and added to the log the next time it starts,
-  and exported logs include it; on Android 11 and later the log also gives
-  Android's reason for ending the server (for example low memory). Before,
-  the log just stopped. [6e3fcd4]
+- The saved server log says why the server last stopped unexpectedly. If
+  the server crashes, the crash is kept and added to the log the next time
+  the server starts. Exported logs include it. On Android 11 and later,
+  the log also gives Android's reason for ending the server (for example
+  low memory). Before, the log just stopped. [6e3fcd4]
 
 ## 2026-10-21
 
 ### Summons
-- Summons cost what their official notices say: price, regular or paid
-  gems, free draws, use limits, daily draws and step-up steps (158
-  summons, 81 of which Bunker priced differently). For 2021-22 summons
-  without a notice, archived in-game screenshots and tweets fill in.
-  [af52e6e, b15c461]
+- Summons cost what their official notices say. This covers price,
+  regular or paid gems, free draws, use limits, daily draws and step-up
+  steps (158 summons; Bunker had priced 81 of them differently). For
+  2021-22 summons without a notice, the details come from archived
+  in-game screenshots and tweets. [af52e6e, b15c461]
 - Featured characters and weapons are the ones each notice lists (145
   summons). [ccf46d7]
 - Guaranteed slots give what the notice promises (the featured character,
   one of a set, a ★4 character or weapon, one of an element, a ★4
-  character you don't own), and step rate-ups and step bonus items match
+  character you don't own). Step rate-ups and step bonus items also match
   the notices. Max Awakening summons bring their ★4 characters to
   awakening level 5. [35b60d6, 0e713f7, b2386de]
-- The paid-only summons return: 88 Paid Gems Only summons that ran beside
-  a regular one, each with its own art. On them every ★4 drawn is a
-  featured one, as promised. [403f4b4, c195942, 5c6013e]
-- Ticket summons return, so their tickets can be used: ★★★ and ★★★★
-  Guaranteed, the element and Argo ticket summons. The New Year's free
-  ★★★★ summons return for their 2022 windows. [02ccfda, b2386de]
-- Mama's Dream returns as a prize box, one ticket a draw, with the
-  notice's prizes and gem stock (the stock is your own). Summons Details
-  lists its prizes and what's left. [16cb647, 568b6ef]
+- The paid-only summons return. These are 88 Paid Gems Only summons that
+  ran beside a regular one, each with its own art. Every ★4 drawn from
+  them is a featured one, as promised. [403f4b4, c195942, 5c6013e]
+- Ticket summons return, so you can use their tickets. They are ★★★ and
+  ★★★★ Guaranteed, and the element and Argo ticket summons. The New
+  Year's free ★★★★ summons return for their 2022 dates. [02ccfda, b2386de]
+- Mama's Dream returns as a prize box. Each draw costs one ticket. It has
+  the notice's prizes and gem stock (you have your own stock). Summons
+  Details lists its prizes and what's left. [16cb647, 568b6ef]
 - Summons Details lists a ticket summon's guaranteed-slot rates, says "no
-  end date" instead of 2099/12/31, and prints days in UTC as labelled.
-  [568665d]
-- Added summons follow the calendar like the game's own, and always-open
-  ticket summons are listed after the summons of the day. [2926631]
+  end date" instead of 2099/12/31, and shows days in UTC, as its labels
+  say. [568665d]
+- Added summons follow the calendar, like the game's own summons.
+  Always-open ticket summons are listed after the summons of the day.
+  [2926631]
 
 ### Notices
-- The Notices screen shows the official notices: 947 of them, recovered
-  from archives, with their images, under News, Events and Issues. Each
-  appears once the game clock reaches its date. Notices open inside the
-  game. [2c1ab59]
+- The Notices screen shows the official notices. There are 947 of them,
+  recovered from archives with their images, under News, Events and
+  Issues. Each notice appears when the game clock reaches its date.
+  Notices open inside the game. [2c1ab59]
 - A summon's "i" button opens the notice that announced it (154 summons);
   the notice links to Summons Details and back. [2c1ab59]
-- Builds carry the notices; updates download them only when a release has
-  new ones. [aa8b064]
+- Builds include the notices. Updates download them only when a release
+  has new ones. [aa8b064]
 
 ### Web builder
 - iPhone and iPad builds on the website work again. They stopped at
@@ -214,42 +217,42 @@ notices in game, and full screen around the camera on Android.
 Safer master data imports and a quieter Android update.
 
 ### Files
-- Import master data takes only master data. The picked file must be a
-  `.bin.e` file that decrypts to the game's tables; anything else is refused
-  with a message, and the current master data stays. On iPhone and iPad the
-  picker offers only `.e` files. [8c73a46]
+- Import master data takes only master data. The file you pick must be a
+  `.bin.e` file that decrypts to the game's tables. Bunker refuses any
+  other file with a message and keeps the current master data. On iPhone
+  and iPad the picker offers only `.e` files. [8c73a46]
 
 ### Updates
-- Android no longer shows a false error over the installer's prompt after
-  handing it an update. [236618d]
+- On Android, Bunker no longer shows a false error over the installer's
+  prompt after it hands over an update. [236618d]
 
 ## 1.0.1 (2026-10-15)
 
 Summon fixes and smoother updates.
 
 ### Summons
-- Step-up summons cost what their step pages in the game say: the amount at
-  each step, which steps are free, and whether only paid gems count. The
-  prices were read from all 429 step pages; 33 of the 43 step-up summons had
-  been charged a made-up 2,000 / free / 3,000 / free / 5,000 paid gems (for
-  example Resolute Dress, now 3,000 / 1,500 / 3,000 / 1,500 / 3,000 gems).
-  [579fb8d]
-- The Summon buttons answer after swiping the banner list. Above 30 fps the
-  list could stop a fraction short of its banner far down the list and keep
-  counting as moving, so taps were ignored. [5c35088]
+- Step-up summons cost what their step pages in the game say. This covers
+  the amount at each step, which steps are free, and whether only paid
+  gems count. The prices come from all 429 step pages. Before, 33 of the
+  43 step-up summons charged a made-up 2,000 / free / 3,000 / free / 5,000
+  paid gems (for example Resolute Dress, now 3,000 / 1,500 / 3,000 / 1,500
+  / 3,000 gems). [579fb8d]
+- The Summon buttons now respond after you swipe the banner list. Above 30
+  fps, the list could stop a fraction short of a banner far down the list.
+  It then still counted as moving, so taps were ignored. [5c35088]
 
 ### Updates
-- Network problems read as plain messages, Cancel shows only while the
-  download can still be cancelled, and Lunar Tear starts again when an install
-  is refused. A web-builder publish by hand builds the latest release.
-  [4166ae0]
+- Network problems show as plain messages. Cancel shows only while the
+  download can still be cancelled. Lunar Tear starts again when an install
+  is refused. When you publish the web builder by hand, it builds the
+  latest release. [4166ae0]
 
 ## 1.0.0 (2026-10-15)
 
-The first release. Bunker now has a version, shown in the launcher's About,
-the Lunar Tear log and the web builder, and from this version on it can
-update itself: see Updates below and "Updating" in the README. Everything
-before this date is part of 1.0.0 too.
+The first release. Bunker now has a version. The launcher's About, the
+Lunar Tear log and the web builder show it. From this version on, Bunker
+can update itself: see Updates below and "Updating" in the README.
+Everything before this date is part of 1.0.0 too.
 
 ## 2026-10-15
 
@@ -258,107 +261,120 @@ before this date is part of 1.0.0 too.
   for any other build. About, the exported log, the server log and the web
   builder show it. [8ad1095, 01c86e0]
 - When the launcher opens and the device is online, it looks for a newer
-  release and offers it (⋮ › Check for updates turns this off). Android
-  rebuilds the app on the phone from Bunker's new files and the game files
-  already in it, and Android asks to confirm the install; only builds signed
-  with the public Bunker key can do this. iPhone and iPad build
-  `Bunker-<version>.ipa` in Files and open the share sheet for SideStore,
-  AltStore or a Mac. A damaged download, too little space or a refused
-  install leave the app as it was. [6e7d8d3, b431cf7, aa9ebe8, e41af44, 8a020c9]
-- Before a new version first updates a save, it copies it to Pod Programs'
-  snapshots as "Before update" (the newest three are kept). An older Bunker
-  refuses a save that a newer one has updated, instead of damaging it, and
-  won't import one either. [1389a05, 1ebe33d, 8a020c9]
-- Releases come from version tags: a workflow checks the tag, builds Bunker's
-  own bundles (no game files), creates the GitHub Release with these notes
-  and `update.json`, and publishes the web builder. Pushes to main only
-  build. Release notes use whole lines, not the file's wrapping. [626f533, 0929939]
+  release and offers it (⋮ › Check for updates turns this off). On
+  Android, the phone rebuilds the app from Bunker's new files and the game
+  files already in the app. Then Android asks you to confirm the install.
+  Only builds signed with the public Bunker key can do this. iPhone and
+  iPad build `Bunker-<version>.ipa` in Files and open the share sheet for
+  SideStore, AltStore or a Mac. If the download is damaged, there is too
+  little space or the install is refused, the app stays as it was.
+  [6e7d8d3, b431cf7, aa9ebe8, e41af44, 8a020c9]
+- Before a new version updates a save for the first time, it copies the
+  save to Pod Programs' snapshots as "Before update" (the newest three are
+  kept). An older Bunker refuses a save that a newer Bunker has updated,
+  so it does not damage it. It also won't import such a save. [1389a05,
+  1ebe33d, 8a020c9]
+- Releases come from version tags. A workflow checks the tag, builds
+  Bunker's own bundles (no game files), creates the GitHub Release with
+  these notes and `update.json`, and publishes the web builder. Pushes to
+  main only build. Release notes put each item on one line, without this
+  file's line wrapping. [626f533, 0929939]
 
 ### Summons
-- Fixed the crash after summoning (often on Summon Again, a few minutes
-  after starting the game), on Android and iOS. The game's text builder
-  makes its buffer only twice as big when text doesn't fit, so a long
-  text (the summon confirmation's "Available for purchase until") ran past
-  its end and damaged another game text; the game then crashed while
-  freeing unused assets. Long texts now always fit. [0f82f23]
+- Fixed the crash after summoning on Android and iOS (often on Summon
+  Again, a few minutes after starting the game). When text doesn't fit,
+  the game's text builder makes its buffer only twice as big. A long text
+  (the summon confirmation's "Available for purchase until") ran past the
+  end of the buffer and damaged another game text. The game then crashed
+  while freeing unused assets. Long texts now always fit. [0f82f23]
 
 ### Chapter summons
 - A chapter summon appears in Summons only once its chapter's quest is
   cleared, as in the original game. The game never reads the server's lock
-  flag and shows every summon it is sent as open, so all of them were listed;
-  drawing one still locked was refused, and the game fell back to the title
-  screen. [8673c63]
+  flag. It shows every summon it receives as open, so all of them were
+  listed. Drawing a locked one was refused, and the game went back to the
+  title screen. [8673c63]
 
 ### Upgrades
 - Glorious Success Rate Up campaigns raise the chance of a glorious success
-  when upgrading characters and weapons, as their names say, using the
-  game's own formula (+20 to +80 per thousand on the usual 10%). The server
-  had read them as a small experience bonus (2 to 8%) and left the chance
-  alone. The server log notes each roll and its chance. [da50bb5, 120704a]
+  when you upgrade characters and weapons, as their names say. They use the
+  game's own formula (+20 to +80 per thousand on top of the usual 10%).
+  Before, the server treated them as a small experience bonus (2 to 8%)
+  and did not change the chance. The server log records each roll and its
+  chance. [da50bb5, 120704a]
 
 ### Step-up summons
-- Multi-step summons move on and show every step. The game builds the
-  summon screen from one summon per step and shows the one for the step
-  you're on; the server sent only step 1, so from step 2 the screen came up
-  empty. A summon not drawn yet also stayed on step 1 after the first draw.
-  Only the current step can be drawn. [fcb1f1e]
-- Each summon has as many steps as the game has step pages for it (3 to 5;
-  most had been given 5, one 7, showing blank steps). New Year's Luck of
-  the Draw costs what its pages say: 3,000, free, 2,000, free, 5,000 paid
-  gems; other step prices are still chosen here. A save past a summon's
-  last step starts again at step 1. [fcb1f1e]
+- Multi-step summons move to the next step and show every step. The game
+  builds the summon screen from one summon per step and shows the one for
+  your current step. The server sent only step 1, so from step 2 on the
+  screen was empty. A summon not drawn yet also stayed on step 1 after the
+  first draw. Only the current step can be drawn. [fcb1f1e]
+- Each summon has as many steps as the game has step pages for it (3 to
+  5). Before, most had 5 steps and one had 7, so some showed blank steps.
+  New Year's Luck of the Draw costs what its pages say: 3,000, free,
+  2,000, free, 5,000 paid gems. Bunker still chooses the other step
+  prices. A save that is past a summon's last step starts again at step 1.
+  [fcb1f1e]
 
 ### Fortune draws
 - The New Year and anniversary fortune draws (omikuji) now open with the
-  Original calendar, on their original dates (seven, starting between weeks 23 and
-  134). With everything open they stay closed, as before. [d7eb4dd]
+  Original calendar, on their original dates (seven draws, starting
+  between weeks 23 and 134). When everything is open, they stay closed, as
+  before. [d7eb4dd]
 - A draw shows one of its fortunes at random (5 to 22 for each draw, from
-  the game files); the server had sent the draw's own number, which has no
-  result screen. The fortunes carry no items: the game data doesn't say
-  which. [d7eb4dd]
+  the game files). Before, the server sent the draw's own number, which
+  has no result screen. The fortunes give no items, because the game data
+  doesn't say which items they give. [d7eb4dd]
 
 ## 2026-10-14
 
 ### Server: missing game rules
 - Event login bonuses: with the Original calendar, every dated login bonus
-  card open that day (over a hundred in the game data, for events and
-  anniversaries) takes one stamp a day beside the everyday card, its reward
-  going to the gift box. A new calendar loop starts the cards again (it
-  had also reset the everyday card's id). Not with everything open, where
-  the patched data keeps every card open.
+  card that is open that day takes one stamp a day, next to the everyday
+  card. The game data has over a hundred of these cards, for events and
+  anniversaries. Their rewards go to the gift box. A new calendar loop
+  starts the cards again (it had also reset the everyday card's id). This
+  does not happen with everything open, where the patched data keeps every
+  card open.
 - Weapon Evolve keeps each ability's level; a new slot starts at 1.
-- Exploration pays by the score's grade (six in the game data): 5 to 30
-  stamina and its reward draws (1, or 11 on hard), each gold or a costume or
-  weapon experience material, larger with the grade. The amounts are chosen
-  here; the game data has the grades, draw counts and ticket costs. Playing
-  with tickets needs enough of them.
-- Labyrinth seasons move on: opening a labyrinth in a new season pays the
-  last season's reward for the furthest stage (the game plays it as the reach
-  reward) and starts the climb again: its quests and stage clear rewards
-  reset; accumulation rewards stay. It no longer showed every milestone.
+- Exploration pays by the score's grade (the game data has six). Each
+  grade gives 5 to 30 stamina and its reward draws (1, or 11 on hard).
+  Each draw gives gold or a costume or weapon experience material, and
+  higher grades give more. Bunker chose the amounts; the game data has the
+  grades, draw counts and ticket costs. Playing with tickets needs enough
+  tickets.
+- Labyrinth seasons now change. When you open a labyrinth in a new season,
+  it pays the last season's reward for the furthest stage (the game plays it
+  as the reach reward). Then the climb starts again: its quests and stage
+  clear rewards reset, and accumulation rewards stay. It no longer showed
+  every milestone.
 - Item shop: an early restock costs the gems the game shows (10, 30, 50 ...
-  500 by refresh of the day); the count starts at 1 each day (the game failed
-  pricing a refresh at 0). The 17 items are the whole lineup in the game data.
+  500, by the day's refresh count). The count starts at 1 each day, because
+  the game failed to price a refresh at 0. The 17 items are the whole lineup
+  in the game data.
 - Beginner and comeback campaigns: a new player who has cleared the first
-  quest gets 7 days of the beginner campaigns; a login after 28 to 30 days
-  away starts the comeback ones (7 or 14 days). Their quest and enhance
-  campaigns now apply, and the game is sent both tables.
+  quest gets 7 days of the beginner campaigns. Logging in after 28 to 30
+  days away starts the comeback campaigns (7 or 14 days). Their quest and
+  enhance campaigns now apply, and the server sends the game both tables.
 - Arena battle point items (4001-4005 and the recovery shop refill) restore
   battle points.
-- Chapter summons are real boxes: each chapter's box holds the materials its
-  quests drop (10 of each common, 6 uncommon, 3 rare, 1 of the rarest, its
-  targets), drawn without putting them back; it refills on the 1st of the
-  month (as the game says) and can be reset once the targets are drawn. The
-  Featured Items panel shows the rarest with their counts, and the details
-  page lists the box. The box contents are chosen here (not in the game data).
-- Enhancing a costume or weapon can be a great success (10%, half again the
-  experience; chosen here), with the game's animation.
+- Chapter summons are real boxes. Each chapter's box holds the materials
+  its quests drop (10 of each common, 6 uncommon, 3 rare, and 1 of the
+  rarest, which are its targets). Drawn items are not put back. The box
+  refills on the 1st of the month (as the game says), and you can reset it
+  once the targets are drawn. The Featured Items panel shows the rarest
+  with their counts, and the details page lists the box. Bunker chose the
+  box contents; they are not in the game data.
+- Enhancing a costume or weapon can be a great success, with the game's
+  animation. The chance is 10%, and it gives 50% more experience (Bunker
+  chose these values).
 - The Summon button shows its "free" badge while a free daily summon is
   unused.
 - Limited-time offers (the Limited shop's 34 packs) open for their original
-  sale periods (the cell's term, or the shop's dates), which follow the
-  Original calendar; what opened them for a player is not in the game data.
-  Each can be bought once while open (other packs still restock). [8d6485d]
+  sale periods (the cell's term, or the shop's dates). These follow the
+  Original calendar. The game data doesn't say what opened them for a
+  player. Each can be bought once while open (other packs still restock).
+  [8d6485d]
 - Tests drive handlers with the original game data (BUNKER_TEST_MASTER).
   [94343e5]
 
@@ -368,43 +384,46 @@ spins a day. No ad can be shown any more, so the button did nothing, and the
 server answered a spin with a summon item.
 - A spin now pays free gems: 10 (60%), 30 (25%), 50 (10%), 100 (4.7%) or
   3,000 (0.3%). The wheel shows 15 slices, but the rates were never
-  published; players saw mostly 10s and very rarely the 3,000, so the draw is
-  weighted.
-- The video is skipped: when the game asks ironSource for it, the "rewarded"
-  event comes at once and "closed" on the next frame, as the SDK sent them.
-  Android replaces IronSource.showRewardedVideo; iOS, which can't change the
-  game's code, points the ad agent's entry at the same function.
-- Emulator: six spins with the result dialog, gems added, the counter down to
-  the reset countdown. [5450aee]
-- iOS: the SDK there keeps its listeners in underscore-named fields and
-  delivers "closed" with UnitySendMessage (Android's event dispatcher doesn't
+  published. Players saw mostly 10s and very rarely the 3,000, so the draw
+  is weighted.
+- The video is skipped. When the game asks ironSource for it, the
+  "rewarded" event comes at once and "closed" on the next frame, as the SDK
+  sent them. On Android, Bunker replaces IronSource.showRewardedVideo. On
+  iOS, Bunker can't change the game's code, so it points the ad agent's
+  entry at the same function.
+- Emulator: six spins showed the result dialog and added gems, and the
+  counter went down to the reset countdown. [5450aee]
+- iOS: the SDK on iOS keeps its listeners in underscore-named fields and
+  sends "closed" with UnitySendMessage (Android's event dispatcher doesn't
   run on iOS), so the patch does the same. Pod Programs > Summon rates sets
-  the roulette's chances (roulette_rates.json beside the save, read on the
-  next spin; they must add up to 100%; Default brings back the ones above).
-  Fold and iPad: spins play the wheel and pay. [fcd818b]
+  the roulette's chances. They are saved in roulette_rates.json next to the
+  save and read on the next spin. They must add up to 100%, and Default
+  brings back the rates above. Fold and iPad: spins play the wheel and pay.
+  [fcd818b]
 
 ### Storage: links survive an iOS update
-iOS gives an app a new data folder path when the app is updated, and the
-cache's symbolic links held absolute paths: after an update they all pointed
-nowhere, so the game downloaded those files again on every start (19 MB and
-170 MB on the iPad) and could not save them through the broken links. The
-roulette's own art failed to load the same way.
-- Symbolic links now use relative paths. At start, links that are absolute or
-  broken are pointed at the server's copy again; a broken link is removed
+iOS gives an app a new data folder path when the app is updated. The
+cache's symbolic links held absolute paths, so after an update they all
+pointed nowhere. The game then downloaded those files again on every start
+(19 MB and 170 MB on the iPad) and could not save them through the broken
+links. The roulette's own art failed to load for the same reason.
+- Symbolic links now use relative paths. At start, Bunker points absolute
+  or broken links at the server's copy again. A broken link is removed
   before a file is served.
-- iPad: 110,765 links repaired (188 MB) in about 4 minutes on the first start;
-  after the next update, which moved the folder again, all links still
-  worked and nothing was downloaded. [fcd818b]
+- iPad: the first start repaired 110,765 links (188 MB) in about 4 minutes.
+  The next update moved the folder again, and all links still worked and
+  nothing was downloaded. [fcd818b]
 
 ### Original calendar: opens with the launch summons
 The first summons opened 20 hours into the launch week (28 July 2021, 22:00
-UTC), and the game hangs on a summon page with none open: a calendar started
-in those first hours showed an empty summon screen and got stuck there.
-- A loop now opens once the launch summons are open, moving the clock on by
-  a whole day when needed (the daily reset keeps its hour); a new loop does
-  the same.
-- Calendars already started move on at the next Deploy or Pod Programs
-  visit. [52cca2b]
+UTC). The game hangs on a summon page when no summon is open. So a calendar
+started in those first hours showed an empty summon screen and got stuck
+there.
+- A loop now starts only when the launch summons are open. When needed, it
+  moves the clock forward by a whole day (the daily reset keeps its hour).
+  A new loop does the same.
+- Calendars that were already started move forward at the next Deploy or
+  Pod Programs visit. [52cca2b]
 
 ### Names
 - Big Hunt is called Subjugation Battles, as in the game: in the Archive's
@@ -414,36 +433,39 @@ in those first hours showed an empty summon screen and got stuck there.
 The game keeps its own copy of every file it downloads from the in-app
 server, so played content took up space twice. Each cached file is now a
 link to the server's copy.
-- Files already in the cache are linked when the server starts, new
-  downloads a few seconds after the game saves them. A file is linked only
-  when its bytes match the server's copy.
-- Hard links are used where the system allows them. Android refuses hard
-  links to apps, and iOS refuses them to game files used in place from
-  another folder; there the cached file becomes a symbolic link instead,
-  for files of 4 KB or more (a smaller file takes no more space than its
+- Files already in the cache are linked when the server starts. New
+  downloads are linked a few seconds after the game saves them. A file is
+  linked only when its bytes match the server's copy.
+- Bunker uses hard links where the system allows them. Android doesn't
+  allow hard links for apps. iOS doesn't allow them for game files used in
+  place from another folder. In those cases, files of 4 KB or more become
+  symbolic links instead (a smaller file takes no more space than its
   link).
 - The game rewrites cache files in place, so the link is removed before a
-  file is sent again; a new download can never change the server's copy.
+  file is sent again. This way a new download can never change the
+  server's copy.
 - Emulator: the 9,811 files already cached (1.3 GB) were linked in 12
-  seconds; a full Download Data run then cached 126,975 files (15 GB) while
-  storage grew by about 1 GB, the game's own index files and the links.
+  seconds. A full Download Data run then cached 126,975 files (15 GB),
+  while storage grew by about 1 GB (the game's own index files and the
+  links).
   iPad: 5,271 cached files linked, 636 MB saved. [e774947]
 
 ### Android: Deploy starting the game
-- Deploy failed to start the game most times on a Galaxy Fold: Android
+- On a Galaxy Fold, Deploy failed to start the game most times. Android
   stopped the game's process because it took over 10 seconds to start. The
   check for empty cached files followed each cached file's link to the game
-  files on shared storage; it now reads the links themselves and stops after
-  3 seconds. [81b68ec]
+  files on shared storage. It now reads the links themselves and stops
+  after 3 seconds. [81b68ec]
 
 ### iOS: start-up after a full download
-- The game no longer gets stopped by iOS while starting once its data is
-  fully downloaded. The check for empty cached files read each of the 100,000+
-  cached files one by one, past iOS's 20-second launch limit; it now reads
-  them in bulk and stops after 4 seconds. [07e7627]
-- Linking a new download no longer reads every cache folder: each asset
-  request took about 0.2 s, now well under a millisecond, so Download Data
-  runs at full speed again. [30d4235]
+- After the game's data is fully downloaded, iOS no longer stops the game
+  while it starts. The check for empty cached files read each of the
+  100,000+ cached files one by one, which took longer than iOS's 20-second
+  launch limit. It now reads them in bulk and stops after 4 seconds.
+  [07e7627]
+- Linking a new download no longer reads every cache folder. Each asset
+  request took about 0.2 s and now takes well under a millisecond, so
+  Download Data runs at full speed again. [30d4235]
 
 ### Archive: Schedule
 A new section lists the live service's dated content from the original
@@ -458,12 +480,12 @@ master data, in UTC. [f6fd958]
   seasons, Subjugation Battles, mission passes, campaigns and fortune draws.
 - **No date in the game data:** about 150 rows carry a placeholder date
   (mostly 19 Aug–16 Sep 2099) instead of their real dates. They are listed
-  apart, with whether their art and title are in the English files and
-  whether the same target ran on a dated row, not as "never ran".
+  separately, not as "never ran". Each row shows whether its art and title
+  are in the English files and whether the same target ran on a dated row.
 - **Names:** 62 summons whose title exists only in their banner art are named
   from the art; Pod Programs' schedule uses the same names. 13 have no English
   title or art.
-- The Schedule is worked out while the index is built, so it opens at once.
+- The Schedule is built along with the index, so it opens at once.
 
 ## 2026-10-13
 
@@ -490,8 +512,8 @@ Content › Schedule can replay the live service from global launch (28 July
 
 ### Summons
 - NieR:Automata Crossover Vol. 2 (launch and rerun) is offered and gives
-  Vol. 1's Shard (Automata); the server used to skip it. [8ddce67]
-- Leftover shards become Medals once, at the medal's conversion date; the
+  Vol. 1's Shard (Automata). The server used to skip it. [8ddce67]
+- Leftover shards become Medals once, at the medal's conversion date. The
   summon screen shows the conversion once. Before, ended summons added the
   shards a second time. [77c1b59, c9b4c25]
 - The ticket draw takes the Premium Summon Ticket (item 1002), not Gold.
@@ -499,8 +521,9 @@ Content › Schedule can replay the live service from global launch (28 July
 - Each summon's pity ceiling comes from its medal (50, 100, 150 or 200).
 - Summons with a placeholder 2099 row (50, 58) are listed once and open.
 - With the calendar, featured items match catalog terms on original dates.
-- The shard conversion popup is sent until the next game start; the game
-  only shows it when Summons is opened, not when returning to it. [c9b4c25]
+- The server sends the shard conversion popup until the next game start.
+  The game only shows it when you open Summons, not when you return to it.
+  [c9b4c25]
 - Multi-step summons are one summon each, with 7, 5 or 3 steps from the game
   text (5 when unknown).
 - Summons that start together get their own featured items: those their
@@ -515,9 +538,9 @@ Content › Schedule can replay the live service from global launch (28 July
   day, "★★★★ guaranteed" ones a single 10-pull with a ★4 for 3000 gems, and
   "paid only" ones take paid gems. Bonus and newcomer summons are left out.
   [c83dcc1]
-- Every draw carries a medal bonus, even an empty one; free summons hung
-  without it. A draw option that is used up is switched off, so the game
-  can't send a draw the server refuses (that restarted the game). [65dfca7]
+- Every draw includes a medal bonus, even an empty one. Without it, free
+  summons hung. A used-up draw option is switched off, so the game can't
+  send a draw that the server refuses (that restarted the game). [65dfca7]
 - Summons with shards but no banner row are offered from their exchange
   shop's opening to two days before the shards convert: 106 weekly
   summons, 22 paid multi-step summons, Fortune's Dress and Blessed Dress.
@@ -525,21 +548,21 @@ Content › Schedule can replay the live service from global launch (28 July
   Five without art are left out. [5d37688]
 - Known issue: on the Android 16 emulator the game can crash (libil2cpp
   0x257da0c) during the first few summons after starting. A 6 October
-  build without Bunker's display or server changes crashes the same way;
-  the Galaxy Fold doesn't.
+  build without Bunker's display or server changes crashes the same way.
+  The Galaxy Fold doesn't crash.
 
 ### Story events
 - Chapter 6-4 (Levania's memory): the player could walk past Mama's lines and
   fall off the right edge of the map. The game misses a player who walks
-  through an event's zone while a speech balloon fades out; that zone now
-  still counts. Applies on Android and iOS at every frame rate, the game's own
-  30 fps included. Chapter 6-7's tree still falls across the chasm. [4b4f8f8,
-  2e71e34]
+  through an event's zone while a speech balloon fades out. Now that zone
+  still counts. The fix applies on Android and iOS at every frame rate,
+  including the game's own 30 fps. Chapter 6-7's tree still falls across the
+  chasm. [4b4f8f8, 2e71e34]
 
 ### Server: behaving like the original game
 Checked against the game's master data and the 3.7.1 client. [2aa0757]
-- **Gifts:** claiming a gift now grants it; login bonus rewards were lost
-  before. Expired gifts are dropped and reported. A gift over its storage
+- **Gifts:** claiming a gift now grants it. Before, login bonus rewards
+  were lost. Expired gifts are dropped and reported. A gift over its storage
   limit stays in the box. Login gifts say "Earned from login bonus". The gift
   box filters and pages work, and history shows the newest 100.
 - **Login bonus:** one stamp per day.
@@ -575,8 +598,8 @@ Checked against the game's master data and the 3.7.1 client. [2aa0757]
 
 ### Server: more of the original game
 - **Daily reset:** days now start at 00:00 GMT-8, all year, as the game's own
-  "Resets at 00:00 (PST)" says. Weeks start Monday 00:00 GMT-8. Saves made
-  before move across without losing the week's Subjugation Battle and Arena
+  "Resets at 00:00 (PST)" says. Weeks start Monday 00:00 GMT-8. Older saves
+  switch over without losing the week's Subjugation Battle and Arena
   results, and without a second daily reward on the day of the switch.
 - **Daily quests:** quests that can be cleared a set number of times a day
   start over each day.
@@ -641,8 +664,8 @@ Checked against the game's master data and the 3.7.1 client. [2aa0757]
   start, on Android and iOS. [108ec0a, 01660dc]
 
 ### Display
-- Battles step in whole 30 Hz steps above 30 fps, fixing a crash in the summon
-  reveal. [ecf7393]
+- Above 30 fps, battles move in whole 30 Hz steps. This fixes a crash in the
+  summon reveal. [ecf7393]
 
 ### Archive
 - Every costume is named. 10H's story variant is filed with her. Placeholder

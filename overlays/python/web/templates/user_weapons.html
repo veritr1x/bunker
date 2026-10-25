@@ -189,7 +189,7 @@
   document.getElementById("grant-missing-btn").addEventListener("click", async () => {
     const btn = document.getElementById("grant-missing-btn");
     if (btn.dataset.busy === "1") return;
-    if (!confirm(`Grant every missing weapon in the catalog. The 999-row inventory cap will refuse this if you don't have room. Continue?`)) return;
+    if (!confirm(`Grant every missing weapon in the catalog. This fails if your inventory has no room (the limit is 999 weapons). Continue?`)) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;

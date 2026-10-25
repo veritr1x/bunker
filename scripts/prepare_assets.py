@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Copy revision 0 of an extracted dump into a ready assets folder (optional).
 
-The apps' own import already copies only revision 0 from an extracted dump, so
-this is needed only to make a smaller folder to copy, or one to drag into the
-iOS app with Finder (which skips the app's import). The tested dumps have their
-complete resource set in revision 0; the other revisions are old catalogs this
-pinned server never reads. The input is only read; the output must be a new
+The apps' import already copies only revision 0 from an extracted dump. Use
+this tool only to make a smaller folder to copy, or a folder to drag into the
+iOS app with Finder (Finder skips the app's import). In the tested dumps,
+revision 0 has every resource. The other revisions are old catalogs that this
+server never reads. The input is only read. The output must be a new
 directory.
 """
 import argparse
@@ -28,7 +28,7 @@ def prepare_assets(source, output):
     for info in revision.rglob("info.json"):
         aliases = json.loads(info.read_text())
         if any(str(item.get("to-revision", 0)) != "0" for item in aliases):
-            raise ValueError(f"{info} refers to another revision; this dump needs separate preparation")
+            raise ValueError(f"{info} points to another revision. This tool copies only revision 0, so it cannot prepare this dump")
     output = output.resolve()
     if output == source or source in output.parents:
         raise ValueError("Choose an output outside the extracted source")

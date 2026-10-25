@@ -122,7 +122,7 @@ def save_roulette(g10: float = Form(...), g30: float = Form(...), g50: float = F
                   g3000: float = Form(...), action: str = Form("save")):
     if action == "reset":
         roulette_path().unlink(missing_ok=True)
-        return redirect(message="Roulette back to the default chances.")
+        return redirect(message="Roulette reset to the default chances.")
     try:
         write_roulette([g10, g30, g50, g100, g3000])
     except Exception as exc:

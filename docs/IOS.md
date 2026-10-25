@@ -2,8 +2,8 @@
 
 The iOS build puts the Lunar Tear server inside the game itself. iOS pauses
 apps in the background, so a separate server app could not answer the game
-while you play. Playing needs no computer or Internet once the game files
-are on the device.
+while you play. Once the game files are on the device, you can play
+without a computer or Internet.
 
 ## How it works
 
@@ -16,8 +16,8 @@ are on the device.
   app can see. Saves are in `Documents/saves`.
 - The launcher screen appears when game files are missing or the server
   fails. A three-finger double-tap during play opens it at any time.
-- With the radios off, Unity reports no network and refuses downloads. The
-  launcher reports a local network to Unity only, as the Android build does.
+- With the radios off, Unity sees no network and refuses downloads. Like the
+  Android build, the launcher tells only Unity that a local network exists.
 
 ## Build
 
@@ -54,30 +54,30 @@ xcrun devicectl device install app --device <device UDID> artifacts/bunker.ipa
 ```
 
 The provisioning build only creates the profile. It does not install anything.
-Profiles expire; rebuild and reinstall with the same bundle ID to keep saves.
+Profiles expire. To keep saves, rebuild and reinstall with the same bundle ID.
 
 ## Updates
 
-From 1.0.0 the launcher looks for a newer release when it opens (online
-only; ⋮ › Check for updates turns it off). **Update** downloads Bunker's
-launcher framework and Python runtime from the release and builds
+From 1.0.0, the launcher looks for a newer release when it opens. It checks
+only when online, and ⋮ › Check for updates turns it off. **Update** downloads
+Bunker's launcher framework and Python runtime from the release. It then builds
 `Bunker-<version>.ipa` from the installed app, in Documents (Files › On My
-iPhone/iPad › NieR). The game's files, including the patched
-UnityFramework, are copied as they are; the old signatures are left out.
-The share sheet then opens: SideStore or AltStore sign and install it on
-the device, or copy it to a Mac and sideload it with the same bundle ID and
-team, so the saves stay. The IPA is deleted when the new version first
-opens. A save is copied to Pod Programs' snapshots ("Before update") before
-a new version updates it.
+iPhone/iPad › NieR). It copies the game's files, including the patched
+UnityFramework, unchanged, and leaves out the old signatures.
+Then the share sheet opens. SideStore or AltStore can sign and install the IPA on
+the device. Or copy it to a Mac and sideload it with the same bundle ID and
+team, so the saves stay. The new version deletes the IPA when it first
+opens. Before a new version updates a save, it copies the save to Pod Programs'
+snapshots ("Before update").
 
 To test an update before a release exists, put `Documents/update-test.json`
-containing `{"latest": "http://<mac>:8000/latest.json"}` on the device (a
-GitHub-style release with `update.json` and the two bundles, made by
-`scripts/release_assets.py`).
+containing `{"latest": "http://<mac>:8000/latest.json"}` on the device. That URL
+serves a GitHub-style release with `update.json` and the two bundles, made by
+`scripts/release_assets.py`.
 
 ## Game files
 
-iOS needs the iOS dump; Android asset bundles do not render on iPhone or iPad.
+iOS needs the iOS dump. Android asset bundles do not render on iPhone or iPad.
 The launcher can import `resource_dump_ios.7z` directly (or a `.zip` of it) and
 unpacks only `revisions/0`, the revision the server uses. Or extract that folder
 yourself:
@@ -88,21 +88,22 @@ yourself:
 
 Then put the 20 GB of files on the device in one of these ways:
 
-- **Choose** under **Game files** on the launcher screen, then the same three options as
-  on Android. Pick the `.7z`, or the
+- Tap **Choose** under **Game files** on the launcher screen. It shows the same three
+  options as on Android. Pick the `.7z`, or the
   extracted folder (the one containing `revisions`), from Files, iCloud Drive or
   a USB drive. Only revision 0 is used, so a full extraction works too. A split
-  `.tar` of it works as well. The app copies or unpacks it in, so allow about
-  25 GB free besides the archive. A folder already inside NieR's own files (put
-  there with Finder or the Files app) is moved instead, which is instant. Your
+  `.tar` of it works as well. The app copies or unpacks it into the app, so you need
+  about 25 GB free, plus space for the archive. If the folder is already inside
+  NieR's own files (put there with Finder or the Files app), the app moves it
+  instead. This is instant. Your
   current files stay in place until the import completes. A progress bar shows
   the time left.
-- **Extracted folder: use in place**: nothing is copied for a folder outside
-  NieR's own files: the
-  app keeps a bookmark and reads the folder where it is (on the device, another
-  app's folder or a USB drive). Keep it there, and keep a drive connected while
-  playing; otherwise the launcher asks you to reconnect it or choose again.
-  iCloud Drive folders are copied only, since iOS can remove their local copies.
+- **Extracted folder: use in place**: for a folder outside NieR's own files,
+  nothing is copied. The app keeps a bookmark and reads the folder from where it
+  is (on the device, another app's folder or a USB drive). Keep the folder there,
+  and keep a drive connected while playing. Otherwise, the launcher asks you to
+  reconnect it or choose again. iCloud Drive folders can only be copied, because
+  iOS can remove their local copies.
 - Finder: run `python3.11 scripts/prepare_assets.py --source client/ios-dump
   --output phone-assets/ios/assets`, then select the device, open **Files**, and
   drag `assets` onto **NieR**. Then tap **Check again**. (Finder skips the
@@ -121,13 +122,13 @@ content presets, as on Android) is on the Bunker itself. Tap **⋮** for:
 - **Export save backup** saves `game.db`, `auth.db` and `auth.key` in a ZIP.
 - **Import save backup** restores such a ZIP, from iOS or Android, or a bare
   `game.db`. The current save is kept in `saves.before-import`.
-- **Lunar Tear log** shows the latest lines. **Export Lunar Tear log** saves a ZIP of
-  the log kept between sessions (`Documents/logs`, up to about 10 MB, also
-  visible in Files) with the iOS version.
+- **Lunar Tear log** shows the latest lines. **Export Lunar Tear log** saves a ZIP with
+  the log and the iOS version. The log is kept between sessions (`Documents/logs`,
+  up to about 10 MB, also visible in Files).
 - **App settings**, **Help** and **About**.
 
 Stopping the server, importing master data or exporting saves disconnects the
-game: close it from the app switcher and open it again. After importing a save,
+game. Close it from the app switcher and open it again. After importing a save,
 tap **Close game**, then open NieR again. Export a save backup before deleting
 the app.
 
@@ -140,8 +141,8 @@ new device before importing, so that ID exists.
 Tools runs lunar-base's editors and the content patcher with the same code as
 Android, on a Python 3.13 built for iOS
 ([BeeWare Python-Apple-support](https://github.com/beeware/Python-Apple-support),
-pinned in `ios/python/native.json`). `ios/tools/build_python.py` builds it;
-lz4 and pycryptodome are compiled for iOS and every compiled module becomes
+pinned in `ios/python/native.json`). `ios/tools/build_python.py` builds it.
+It compiles lz4 and pycryptodome for iOS and turns every compiled module into
 its own framework, as iOS requires.
 
 - Python loads only when Tools opens, so normal play is unaffected.
@@ -155,8 +156,8 @@ its own framework, as iOS requires.
 ## Sign-in
 
 The game's account page opens in Safari, which sends the game to the
-background. The launcher asks iOS for its short background allowance so the
-page can still reach the server. Finish signing in promptly.
+background. The launcher asks iOS for a short time to keep running in the
+background, so the page can still reach the server. Finish signing in quickly.
 
 ## Checks
 

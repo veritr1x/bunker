@@ -1672,7 +1672,7 @@ static UTType *MasterType(void) {
     if (gImporting) { gCancelImport = YES; gMessage = @"Cancelling…"; [self refresh]; return; }
     // The same three choices as on Android.
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Choose the game files"
-        message:@"Copying keeps the game working if the folder is moved later and needs about 21 GB free. In place needs no space, but the folder must stay where it is (and its drive connected). The archive is the resource dump's .7z or a .zip of it."
+        message:@"Copy: needs about 21 GB free. The game keeps working if you move the folder later.\nIn place: needs no free space, but leave the folder where it is and keep its drive connected.\nArchive: the resource dump's .7z, or a .zip of it."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: copy into NieR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: use in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];

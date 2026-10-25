@@ -7,7 +7,7 @@
 <div class="panel">
   <article class="record"><h3>Summon {{ item.id }}{% if item.asset %}<span>· {{ item.asset }}</span>{% endif %}</h3>
     <p>{% for r in item.runs %}{{ r.label }}{% if r.banner %} <span class="note">(home banner {{ r.banner }})</span>{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
-    {% if item.exchange %}<p class="note">{{ "No home banner" if item.banner else "Its home banners carry only a placeholder date" }}: dated by its shard exchange, from its opening to two days before the shards convert.</p>
+    {% if item.exchange %}<p class="note">{{ "No home banner" if item.banner else "Its home banners only have a placeholder date" }}. The dates come from its shard exchange: from when it opens until two days before the shards convert.</p>
     {% elif not item.runs or not item.runs[0].ran %}<p class="note">The game data has no date for this summon. {{ "Its English art and title are in the game files, so it may have run in the global service." if item.english else "It has no English art or title in the game files, so it probably never ran in the global service." }}</p>{% endif %}
   </article>
   {% if item.medal %}

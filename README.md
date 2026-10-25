@@ -12,7 +12,7 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
 ## Features
 
 - **Offline play.** The game and its Lunar Tear server run on the same device. After setup, it
-  needs no computer or Internet connection, and in-game downloads load from the device, even in
+  needs no computer or Internet connection. In-game downloads load from the device, even in
   airplane mode.
 - **The Bunker**, the launcher: imports the resource dump (`.7z`, `.zip` or an extracted folder,
   copied or used in place), starts Lunar Tear and opens the game, and checks that the game can
@@ -24,16 +24,16 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
   - **Summon rates**: the odds of the next summons.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
-    screen's own. Walking and battles keep their normal speed. Experimental: it uses more battery,
-    and at 120 fps 1080p is easier on the GPU than the screen's own resolution.
-- **Archive**, read from your game files: the whole story by season and chapter with who says
+    screen's own. Walking and battles keep their normal speed. Experimental: it uses more battery.
+    At 120 fps, 1080p is easier on the GPU than the screen's own resolution.
+- **Archive**, read from your game files: the whole story by season and chapter, with the speaker of
   each line, the records, every costume with its art, story and voice lines, 3D models with field
   and battle motions, the soundtrack, a gallery, the movies (full screen in landscape on Android,
   in the system player on iOS), and search. The game keeps running while it is open.
 - **Missions**: daily, challenge, special and mission pass missions progress
-  and pay their rewards (Lunar Tear left them at 0). Progress already in a save
-  counts the first time. Also the daily quest set reward, skipping several
-  quests at once, and story choices.
+  and pay their rewards (Lunar Tear left them at 0). The first time, progress already in your
+  save is counted. Missions also cover the daily quest set reward, skipping
+  several quests at once, and story choices.
 - **Arena**: battles against computer players on a ladder of 5,000, with decks
   raised to match yours. Points, grades, rank, win rewards, battle points,
   history, defense battles while you are away and weekly rewards. Opens after
@@ -44,12 +44,12 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
 - **Summon details**: each banner's Details page lists its dates, cost,
   medal exchange, featured items and every item with its rate (names come
   from the Archive once it has been built).
-- **Server fixes**: friend actions and other calls Lunar Tear did not answer
-  no longer fail, and the shop's purchases add their items to the inventory.
-  Reward icons that stayed blank after the game was closed mid-download are
+- **Server fixes**: friend actions and other calls that Lunar Tear did not
+  answer no longer fail. Shop purchases add their items to the inventory.
+  If the game was closed during a download, reward icons that stayed blank are
   downloaded again.
-- **Game Mode**: the app declares itself a game, so iOS Game Mode and Android's Game Mode and Game
-  Dashboard apply.
+- **Game Mode**: the app tells the system it is a game, so iOS Game Mode and Android's Game Mode and
+  Game Dashboard work with it.
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.
 
 ## Screenshots
@@ -74,11 +74,11 @@ Limitations:
 
 - **You still need your own files**: the original 3.7.1 ARM64 APK or a decrypted 3.7.1 IPA, the
   `20240404193219.bin.e` master data, and the resource dump. Other versions are refused.
-- **The Android APK is signed with a public key**, so it installs as it is, and every web build
-  updates over the previous one. The key ([`web/signing/bunker-key.p12`](web/signing/bunker-key.p12),
+- **The Android APK is signed with a public key**, so you can install it directly. Every web build
+  installs over the previous one. The key ([`web/signing/bunker-key.p12`](web/signing/bunker-key.p12),
   password and alias `bunker`) is public: anyone can sign a build that installs over yours. To
-  avoid that, re-sign with your own key, and keep using that key for updates. An app signed with
-  a different key has to be uninstalled first, which deletes its data.
+  avoid that, re-sign with your own key, and keep using that key for updates. To switch to a
+  different key, you must uninstall the app first, and that deletes its data.
 - **The iOS IPA is unsigned.** Install it with Sideloadly or AltStore, or sign it with your own
   certificate. Keep the same bundle ID for updates.
 - **Use a desktop browser** with about 2 GB of free memory. Phones may run out of memory.
@@ -86,31 +86,31 @@ Limitations:
   decompiler. Offline play, Pod Programs, the Archive and save backup and import all work. The
   iOS web build is the same as the command-line build.
 - **Experimental: port offset.** If another app on the device already uses the game's local
-  ports (8003, 8080 or 3000), the launcher says so; a build with a port offset moves all three.
+  ports (8003, 8080 or 3000), the launcher tells you. A build with a port offset moves all three.
 - **The resource dump is not part of the build.** Put its `.7z` on the phone and choose it in
-  the app, which unpacks only what the game uses, so on Android the whole flow works without
-  a computer. Sideloading the IPA on iPhone and iPad usually needs a computer once.
+  the app. The app unpacks only the files the game uses. On Android, you can do all of this
+  without a computer. On iPhone and iPad, you usually need a computer once to sideload the IPA.
 
 To build everything locally instead, follow the step-by-step guide below.
 
 ## Updating
 
 From version 1.0.0, Bunker checks for a newer release when the launcher opens and the device is
-online, and shows **Bunker 1.1.0 is available** with **Update**, **What's new** and **Web
-builder**. Nothing is checked offline, and **Check for updates** in the ⋮ menu turns it off. An
-update downloads only Bunker's own files; the game files already in the app are reused.
+online. It then shows **Bunker 1.1.0 is available** with **Update**, **What's new** and **Web
+builder**. It does not check when offline. **Check for updates** in the ⋮ menu turns the check
+off. An update downloads only Bunker's own files. It reuses the game files already in the app.
 
-- **Android:** Update rebuilds the app on the phone and Android asks you to confirm the
+- **Android:** Update rebuilds the app on the phone. Android then asks you to confirm the
   install. The first time, allow NieR to install apps. Only builds signed with the public Bunker
-  key (every web build) can update themselves; a build signed with your own key, or one older
-  than 1.0.0, is updated with the web builder.
+  key (every web build) can update themselves. To update a build signed with your own key, or one
+  older than 1.0.0, use the web builder.
 - **iPhone and iPad:** iOS only installs apps signed by your own tools, so Update builds
   `Bunker-<version>.ipa` in Files (On My iPhone/iPad › NieR) and opens the share sheet. Open it in
   SideStore or AltStore to install it on the device, or copy it to a Mac and sideload it as
   before. It needs about 700 MB free.
 - **Your saves stay.** The first time a new version starts, it copies your save to Pod Programs
   › Save data as **Before update**, then updates it. An older Bunker refuses a save that a newer
-  one has updated, instead of damaging it; install the newer version, or restore the snapshot.
+  one has updated, so the save is not damaged. Install the newer version, or restore the snapshot.
 - A few releases change how the game itself is patched. For those, the launcher says **This
   update needs the web builder**: build again with the same game files and install over the old app.
 
@@ -120,9 +120,9 @@ update downloads only Bunker's own files; the game files already in the app are 
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. Tap **Deploy**. The server starts and the game opens.
 
-The Bunker opens on later launches and deploys the game by itself; tap the Lunar Tear notification
-to return to it. **Open Pod Programs** and **Open Archive** sit on the Bunker; Pod Programs stops the
-game while it is open, so close it and tap **Deploy** to resume. Tap **⋮** for save backup and
+On later launches, the Bunker opens and starts the game by itself. Tap the Lunar Tear notification
+to return to it. **Open Pod Programs** and **Open Archive** are on the Bunker. Pod Programs stops the
+game while it is open. Close it and tap **Deploy** to resume. Tap **⋮** for save backup and
 import, the Lunar Tear log and its export, Display (light/dark/system), settings, help and about.
 
 ## Play on iPhone or iPad
@@ -132,7 +132,7 @@ import, the Lunar Tear log and its export, Display (light/dark/system), settings
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play
    (⌘B with a keyboard).
 
-Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** and **Open Archive** sit on the Bunker itself.
+Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** and **Open Archive** are on the Bunker itself.
 
 ## Play on a Mac
 
@@ -143,8 +143,8 @@ an Android emulator that runs ARM apps is the only option, and it is untested.
 1. Sign the IPA with your own Apple developer team (see [iOS](docs/IOS.md#build)). The
    provisioning profile must include the Mac: add its **Provisioning UDID** (System Information ›
    Hardware) as a device. Sideloadly and AltStore install only on iPhone and iPad.
-2. Build with a port offset. On a Mac the game shares ports with everything else, and port 3000
-   in particular is often taken by development servers:
+2. Build with a port offset. On a Mac, the game shares ports with all other apps.
+   Development servers often use port 3000:
    ```sh
    python3.11 scripts/build.py --ipa ~/Downloads/com.square-enix.NieRSPww_3.7.1.ipa \
      --master ~/Downloads/20240404193219.bin.e --port-offset 30000 \
@@ -157,7 +157,7 @@ an Android emulator that runs ARM apps is the only option, and it is untested.
 5. **Bunker › Open Bunker** (⌘B) opens the launcher during play.
 
 To update, quit NieR first and double-click the new IPA. If Applications then has more than
-one NieR (for example **NieR 2**), keep the newest and move the others to the Trash; they share
+one NieR (for example **NieR 2**), keep the newest and move the others to the Trash. They all share
 the same data.
 
 ## Build it yourself, step by step
@@ -249,11 +249,11 @@ AltStore and your Apple ID, or sign it with your own Apple developer team as des
 ### 5. Get the game files onto the device (about 21 GB)
 
 The simplest way is to copy the dump's `.7z` itself to the phone or tablet (step 6) and choose
-it in the app. The app unpacks only `revisions/0`, which the game uses; the other 817 revisions
-are 28 GB of old catalogs and are skipped. A `.zip` of the dump works too. Allow the archive's
-size plus about 25 GB free while importing; you can delete the archive afterwards.
+it in the app. The app unpacks only `revisions/0`, the part the game uses. It skips the other 817 revisions,
+which are 28 GB of old catalogs. A `.zip` of the dump works too. While importing, you need free
+space for the archive plus about 25 GB. You can delete the archive afterwards.
 
-Alternatively, extract just that folder yourself:
+Or extract just that folder yourself:
 
 ```sh
 # Android
@@ -263,14 +263,14 @@ Alternatively, extract just that folder yourself:
 7zz x ~/Downloads/resource_dump_ios.7z 'revisions/0/*' -o"$HOME/Downloads/ios-dump"
 ```
 
-or on the phone with an app such as ZArchiver. A full extraction also works, since the app
-copies only revision 0, but it needs about 49 GB free while extracting.
+or on the phone with an app such as ZArchiver. A full extraction also works, because the app
+copies only revision 0. But it needs about 49 GB free while extracting.
 
-Android and iOS files are not interchangeable; use the matching dump.
+Android and iOS files are different. Use the dump for your platform.
 
 Optional: `python3.11 scripts/prepare_assets.py --source ~/Downloads/android-dump --output
 phone-assets/android/assets` turns the extraction into a ready `assets` folder and checks it. Use
-it when you copy files into the app with Finder, which skips the app's own import.
+it when you copy files into the app with Finder, because Finder skips the app's own import.
 
 ### 6. Install and play
 
@@ -281,12 +281,12 @@ it when you copy files into the app with Finder, which skips the app's own impor
 2. Install the APK: open it on the phone, or run `adb install artifacts/bunker.apk`.
 3. Open the installed app, tap **Choose**, then **Archive (.7z or .zip)** and pick the `.7z`, or
    **Extracted folder: copy into the app** and pick the folder containing `revisions`. It unpacks
-   or copies revision 0 into the app; a progress bar shows the time left. You can delete the
+   or copies revision 0 into the app. A progress bar shows the time left. You can delete the
    archive or folder afterwards.
 
    To save 21 GB, pick **Extracted folder: use in place** instead (Android 11 or later). The app
-   asks you to turn on **All files access** for NieR in Settings once, then reads the folder where
-   it is. Keep the folder there: if it is moved or deleted, choose it again.
+   asks you once to turn on **All files access** for NieR in Settings. Then it reads the folder
+   from where it is. Keep the folder there: if it is moved or deleted, choose it again.
 4. Tap **Deploy**. The server starts on the phone and the game opens.
 
 **iPhone/iPad (iOS 14 or later):**
@@ -295,12 +295,13 @@ it when you copy files into the app with Finder, which skips the app's own impor
 2. Open **NieR**. The launcher appears because the game files are missing.
 3. Under **Game files**, tap **Choose**, then **Archive (.7z or .zip)** and pick `resource_dump_ios.7z`, or an
    **Extracted folder** option and pick the extracted folder (the one
-   containing `revisions`) from Files, iCloud Drive or a USB drive. Allow about 25 GB free besides
-   the archive. A folder already inside NieR's own files (copied in with Finder) is moved
-   instead of copied, which is instant. **Extracted folder: use in place** reads a folder
-   elsewhere where it is: it needs no space, but the folder must stay there (and a USB drive
-   must stay connected while you play). iCloud Drive folders can only be copied. Finder can also take a prepared `assets` folder (step 5):
-   drag it onto NieR (your device › Files) and tap **Check again**.
+   containing `revisions`) from Files, iCloud Drive or a USB drive. You need about 25 GB free, plus
+   space for the archive. If the folder is already inside NieR's own files (copied in with
+   Finder), the app moves it instead of copying it. This is instant.
+   **Extracted folder: use in place** reads a folder from where it is, outside NieR's files.
+   It needs no extra space, but the folder must stay there, and a USB drive must stay connected
+   while you play. iCloud Drive folders can only be copied. You can also use Finder to copy a
+   prepared `assets` folder (step 5): drag it onto NieR (your device › Files) and tap **Check again**.
 4. The server starts inside the game. Three-finger double-tap opens the launcher during play
    (⌘B with a keyboard, or **Bunker › Open Bunker** on a Mac).
 
@@ -313,7 +314,7 @@ git submodule update --init --recursive
 
 Then build again with the same command. On Android, the build reuses `inputs/lunar-local.keystore`
 automatically. On iOS, sign with the same bundle ID. Either way, export a save backup from
-**⋮** first; **⋮ → Import save backup** restores it, including on another device.
+**⋮** first. **⋮ → Import save backup** restores it, also on another device.
 
 ### Troubleshooting
 
@@ -325,11 +326,11 @@ automatically. On iOS, sign with the same bundle ID. Either way, export a save b
 | `Missing the iOS SDK` | Install Xcode and open it once. |
 | `Install Python 3.13` | Run `uv python install 3.13`. |
 | The new APK will not install over the old one | It was signed with a different key. Build with `--keystore` pointing to your original key. |
-| Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly; rebuild, or turn the app off while playing. |
+| Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly. Rebuild, or turn the app off while playing. |
 | "Port 8080 is already used by another app on this device…" (or 8003, 3000) | Another app holds one of the game's local ports. Close or uninstall it, or build with `--port-offset 30000` (or the web builder's experimental port offset) and keep using that offset for updates. ⋮ → **Check Lunar Tear** shows whether the game can reach its server. |
-| Android: black screen after the logo when reopening the game from Recent apps (for example after an update) | The game was opened without its server. Builds from 2026-10-04 on go through the launcher, which starts the server first; with older builds, open the app from its icon. |
+| Android: black screen after the logo when reopening the game from Recent apps (for example after an update) | The game was opened without its server. Builds from 2026-10-04 on open the launcher first, and it starts the server. With older builds, open the app from its icon. |
 | Anything else | ⋮ → **Export Lunar Tear log** saves a ZIP of the Lunar Tear log (kept between sessions, up to about 10 MB) with the device model and OS version. Attach it to your report. On Android it is also at `Android/data/<package>/files/logs/` (`adb pull` works without root); on iOS, in the app's `logs` folder in Files. |
-| Android 17: importing a `.7z` fails with `open /proc/self/fd/…: permission denied` | Fixed in builds from 2026-10-03 on; rebuild, or choose an extracted folder instead. |
+| Android 17: importing a `.7z` fails with `open /proc/self/fd/…: permission denied` | Fixed in builds from 2026-10-03 on. Rebuild, or choose an extracted folder instead. |
 
 More detail: [Android setup guide](docs/BUILD.md) and [iOS guide](docs/IOS.md).
 
@@ -350,7 +351,7 @@ Full pins: [upstream.lock.json](upstream.lock.json). Credits: [third-party notes
 
 iOS 14+ on iPhone and iPad: the opening story plays on an iPad Pro (M4), with the server running inside the game. Pod Programs and the Archive work there too, and the game runs at 120 fps with walking and battles at normal speed.
 
-Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, save restoration and the Archive were tested on an Android 16 emulator; folder import with progress, save import and 120 fps play were tested on a Samsung Galaxy Z Fold, including a build from the web builder. Full campaign coverage is still pending. Missions, summon details and the Arena (a full battle and its rewards) were tested on the Android emulator; they are not yet tested on iPhone or iPad. See [validation](docs/VALIDATION.md).
+Android 9+ on ARM64. Offline opening gameplay, touch movement, content patching, save restoration and the Archive were tested on an Android 16 emulator; folder import with progress, save import and 120 fps play were tested on a Samsung Galaxy Z Fold, including a build from the web builder. The full campaign is not tested yet. Missions, summon details and the Arena (a full battle and its rewards) were tested on the Android emulator; they are not yet tested on iPhone or iPad. See [validation](docs/VALIDATION.md).
 
 
 What changed, day by day: [CHANGELOG.md](CHANGELOG.md).

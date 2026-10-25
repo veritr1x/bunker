@@ -7,17 +7,17 @@
   <div class="setting">
     <label for="fps">Frame rate</label>
     <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Never above the screen's refresh rate. Power saving keeps its lower rate.</span>
+    <span class="note">Never higher than the screen's refresh rate. Power saving mode keeps its lower rate.</span>
   </div>
   <div class="setting">
     <label for="resolution">Resolution</label>
     <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">For the game's higher graphics settings, never above the screen's own. 540p and 640p use less memory.</span>
+    <span class="note">Used by the game's higher graphics settings. Never higher than the screen's own resolution. 540p and 640p use less memory.</span>
   </div>
   <div class="setting">
     <label for="screen">Screen area</label>
     <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Full screen draws beside the camera cutout; the game's buttons stay clear of it.</span>
+    <span class="note">Full screen also draws around the camera cutout. The game's buttons stay clear of it.</span>
   </div>
   {% if texture_options|length > 1 %}<div class="setting">
     <label for="textures">Texture size</label>
