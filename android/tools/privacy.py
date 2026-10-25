@@ -66,6 +66,9 @@ def _segments(data):
 def patch_library(data):
     """Validate every site first, then patch. Recognize our own output idempotently.
 
+    Return a new bytearray without changing the input. Keeping the mutable buffer
+    avoids another full-library copy during updates on memory-constrained phones.
+
     Sites were resolved with Il2CppDumper 6.7.46 from the original Global 3.7.1
     metadata; instruction guards include unchanged surrounding instructions.
     No task-returning method is replaced with null or an incomplete task.
@@ -87,4 +90,4 @@ def patch_library(data):
     result = bytearray(data)
     for offset, replacement in changes:
         result[offset:offset + len(replacement)] = replacement
-    return bytes(result)
+    return result

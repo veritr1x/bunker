@@ -201,7 +201,7 @@ class ApkWriter:
             extra = b"\0" * ((-start) % align)
         self.out.write(struct.pack("<IHHHHHIIIHH", 0x04034B50, 20, flags & ~0x8, method, 0, 0x21, crc,
                                    compressed, size, len(encoded), len(extra)) + encoded + extra)
-        if isinstance(data, bytes):
+        if isinstance(data, (bytes, bytearray)):
             self.out.write(data)
         else:
             data(self.out)
