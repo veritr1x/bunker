@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 1.2.0 (2026-10-25)
+
+Building for iPhone/iPad on the web page works again, and a tidier
+Display page.
+
 ## 2026-10-25
 
 ### Web builder
