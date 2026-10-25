@@ -743,3 +743,9 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
 .weekrow input[type=range] { flex: 1 1 auto; min-width: 0; min-height: 44px; accent-color: var(--accent); }
 .weekrow output { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
 .kv.plain dd { word-break: normal; }
+/* A labelled setting: label, a full-width control, then a one-line note. */
+.setting { display: block; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.setting:last-of-type { border-bottom: none; }
+.setting label { display: block; margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.setting select { display: block; width: 100%; margin: 0; }
+.setting .note { display: block; margin-top: 6px; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--fg-mid); }

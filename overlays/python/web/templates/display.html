@@ -4,15 +4,26 @@
 <h1>Display</h1>
 {% if result and not result.ok %}<div class="banner error">&gt; The game could not use these settings: {{ result.error }}</div>{% endif %}
 <form action="/display" method="post" class="panel">
-  <label for="fps">Frame rate</label>
-  <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-  <label for="resolution">Resolution</label>
-  <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-  <label for="screen">Screen area</label>
-  <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-  {% if texture_options|length > 1 %}<label for="textures">Texture size</label>
-  <select name="textures" id="textures">{% for key, title in texture_options %}<option value="{{ key }}"{% if settings.textures == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>{% endif %}
-  <p>The frame rate never goes above the screen's refresh rate; Screen maximum uses the highest it supports. The resolution applies to the game's higher graphics settings and never goes above the screen's own; 540p and 640p draw the game below its own 720p to use less memory.{% if texture_options|length > 1 %} Smaller textures make characters and places less sharp and use much less of the device's memory; menus keep their size.{% endif %} Power saving keeps its lower frame rate. Full screen draws beside the camera cutout instead of leaving a black bar, and the game keeps its buttons clear of the camera.</p>
+  <div class="setting">
+    <label for="fps">Frame rate</label>
+    <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">Never above the screen's refresh rate. Power saving keeps its lower rate.</span>
+  </div>
+  <div class="setting">
+    <label for="resolution">Resolution</label>
+    <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">For the game's higher graphics settings, never above the screen's own. 540p and 640p use less memory.</span>
+  </div>
+  <div class="setting">
+    <label for="screen">Screen area</label>
+    <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">Full screen draws beside the camera cutout; the game's buttons stay clear of it.</span>
+  </div>
+  {% if texture_options|length > 1 %}<div class="setting">
+    <label for="textures">Texture size</label>
+    <select name="textures" id="textures">{% for key, title in texture_options %}<option value="{{ key }}"{% if settings.textures == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">Smaller textures use much less memory but look softer. Menus stay sharp.</span>
+  </div>{% endif %}
   <button type="submit">Save</button>
 </form>
 <p>Experimental: higher settings use more battery and make the device warmer. The game uses them the next time it opens.</p>
