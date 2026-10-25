@@ -4,6 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 1.1.3 (2026-10-25)
+
+Less memory, lower resolutions and texture size for low-memory phones,
+the game's ad and analytics libraries off, and a calendar fix for iOS
+updates.
+
 ## 2026-10-25
 
 ### Calendar
