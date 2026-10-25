@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-25
+
+### Privacy
+- On Android, more of the game's tracking stays off: Unity Analytics,
+  Crashlytics, Facebook events, Adjust and ironSource no longer start, and
+  the advertising-ID permission and Adjust's install tracker are removed
+  from the app. New builds get this at once; an existing install gets it
+  from its second in-app update after this one, because each update runs
+  the tools already installed. See docs/PRIVACY.md. Contributed by
+  nathangerday (PR #3). [962eb57, 6ba7d42]
+
 ## 1.3.0 (2026-10-25)
 
 Bunker now runs on Windows, with keyboard controls. The music comes back
