@@ -22,6 +22,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
 from bunker_ios_update import SDK_SWITCHES, SETTINGS, UNITY, patch_adjust, patch_unity_connect  # noqa: E402
+import remain_days  # noqa: E402
 import scroll_snap  # noqa: E402
 from text_buffer import patch_text_buffer  # noqa: E402
 
@@ -256,6 +257,8 @@ def main():
         print("Text builder fix:", f"{changed} instructions" if changed else "already applied")
         changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", scroll_snap.SITES)
         print("Snapping list fix:", f"{changed} instruction" if changed else "already applied")
+        changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", remain_days.SITES)
+        print("Remaining days cap:", f"{changed} instructions" if changed else "already applied")
         if args.sign_identity:
             sign(app, args.sign_identity, args.profile, work)
             print("Signed for", info["CFBundleIdentifier"] if not args.bundle_id else args.bundle_id)

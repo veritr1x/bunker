@@ -29,6 +29,8 @@
 //   applies with any settings too.
 // - Text builder: ArtStringBuilder grows its buffer to fit long text instead of
 //   writing past its end (text_buffer.c). This one applies with any settings too.
+// - Remaining days: "{0}d" times stop at 999 days, so a campaign left open to
+//   2099 fits its badge (remain_days.c). Any setting.
 // - EGL fence syncs: Unity's render worker can destroy a sync twice, which on
 //   Android 17 stops the game on a black screen (egl_sync.c). Any setting.
 // - Google Play services: Firebase's start-up check passes without them
@@ -54,6 +56,7 @@
 
 #include "egl_sync.h"
 #include "play_services.h"
+#include "remain_days.h"
 #include "roulette_ads.h"
 #include "text_buffer.h"
 
@@ -376,6 +379,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Snapping lists: unsupported game binary; summon buttons can stop answering above 30 fps");
     if (text_buffer_fix(base, write_word))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Text builder: unsupported game binary; long texts can still overrun");
+    if (remain_days_cap(base, write_word))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Remaining days: unsupported game binary; open campaigns show their full day count");
     const char *egl = egl_sync_fix();
     if (egl) __android_log_print(ANDROID_LOG_WARN, "Bunker", "%s", egl);
     const char *play = play_services_fix(write_word);

@@ -141,3 +141,16 @@ class ScrollSnapTests(unittest.TestCase):
         self.assertEqual(original & 0xFFFFFFE0, 0xBD401900)  # ldr sN, [x8, #0x18]
         self.assertEqual(patched & 0xFFFFFFE0, 0x1E2E1000)   # fmov sN, #1.0
         self.assertEqual(original & 31, patched & 31)
+
+
+class RemainDaysTests(unittest.TestCase):
+    def test_each_caller_caps_the_days_then_jumps_to_its_call(self):
+        import remain_days
+        self.assertEqual(len(remain_days.SITES), 8)
+        for start in (0, 4):
+            sites = remain_days.SITES[start:start + 4]
+            self.assertEqual([p for _, _, p in sites[:3]], [0x52807CE8, 0x6B08001F, 0x1A88D000])
+            offset, original, patched = sites[3]
+            self.assertEqual(original & 0xFFF8001F, 0x36480008)  # tbz w8, #9, ...
+            self.assertEqual(offset + (patched & 0x3FFFFFF) * 4, offset + (original >> 5 & 0x3FFF) * 4 + 4)  # the call after the init check
+            self.assertEqual([o - offset for o, _, _ in sites], [-12, -8, -4, 0])

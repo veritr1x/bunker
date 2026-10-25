@@ -27,6 +27,7 @@ PYTHON = [
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
     "ios/python/bunker_ios_update.py",
+    "ios/tools/remain_days.py",
     "ios/tools/scroll_snap.py",
     "ios/tools/text_buffer.py",
     "upstream/lunar-scripts/android/patch_apk.py",
