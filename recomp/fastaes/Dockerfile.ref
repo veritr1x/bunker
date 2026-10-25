@@ -1,0 +1,4 @@
+# ARM64 side: runs the original library natively, as the reference.
+FROM --platform=linux/arm64 ubuntu:22.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
