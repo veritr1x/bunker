@@ -2,12 +2,12 @@
 
 Groups the library's instructions into forms (mnemonic plus operand shape:
 register classes, vector arrangements, immediates collapsed), takes one sample
-of each, and lifts every sample as its own function (`insn; ret`, reached by a
-`bl`). A lifted function that ends in __remill_error marks an unsupported form.
-Results are weighted by how often each form occurs in the library.
+of each and lifts it on its own (`insn; ret`). A result that calls
+__remill_error, or a lift that fails, marks an unsupported form. Results are
+weighted by how often each form occurs in the library.
 
-    python3 recomp/coverage.py prepare --lib libFastAES.so      # host: disassemble, write chunks
-    docker run --rm -v "$PWD/recomp:/recomp" <remill image> /recomp/coverage_lift.sh libFastAES.so <tag>
+    python3 recomp/coverage.py prepare --lib libFastAES.so      # host: disassemble, pick samples
+    recomp/coverage.sh <remill image> <tag> libFastAES.so       # lift in the image, then report
     python3 recomp/coverage.py report --lib libFastAES.so --tag <tag>
 
 Control flow (branches, calls, returns) is left out: a sample would leave its
@@ -18,12 +18,9 @@ import json
 import re
 import subprocess
 from collections import Counter
-from pathlib import Path
 
 from survey import WORK, tool
 
-BASE = 0x10000000
-CHUNK = 4000  # Forms per lift; keeps the hex argument under Linux's 128 KiB per-argument limit.
 CONTROL = re.compile(r"^(b|bl|br|blr|ret|cbz|cbnz|tbz|tbnz|b\..+|bc\..+|braa|brab|blraa|blrab|braaz|brabz|blraaz|blrabz|"
                      r"retaa|retab|eret)$")
 SIMD = re.compile(r"\bv\d+\.|\bq\d+\b|\{")
@@ -72,78 +69,40 @@ def scan(lib):
     return forms, control, unknown
 
 
-def bl(src, dst):
-    offset = (dst - src) // 4
-    return (0x94000000 | (offset & 0x3ffffff)).to_bytes(4, "little")
-
-
-RET = bytes.fromhex("c0035fd6")
-
-
 def prepare(lib_name):
-    lib = WORK / "lib" / lib_name
     out = WORK / "coverage" / lib_name
     out.mkdir(parents=True, exist_ok=True)
-    forms, control, unknown = scan(lib)
+    forms, control, unknown = scan(WORK / "lib" / lib_name)
     names = sorted(forms, key=lambda k: -forms[k]["count"])
-    chunks = [names[i:i + CHUNK] for i in range(0, len(names), CHUNK)]
-    for old in out.glob("chunk_*"):
-        old.unlink()
-    index = {}
-    for c, chunk in enumerate(chunks):
-        # Layout: one `bl` per sample, a `ret`, then 8-byte slots of `sample; ret`.
-        slots = BASE + 4 * len(chunk) + 4
-        blob = bytearray()
-        for i in range(len(chunk)):
-            blob += bl(BASE + 4 * i, slots + 8 * i)
-        blob += RET
-        for i, name in enumerate(chunk):
-            blob += bytes.fromhex(forms[name]["word"]) + RET
-            index[f"{c}:{slots + 8 * i:x}"] = name
-        (out / f"chunk_{c}.hex").write_text(blob.hex())
-    (out / "forms.json").write_text(json.dumps({"forms": forms, "control": control, "unknown": unknown,
-                                                "index": index}, indent=0))
+    # One line per sample: its index and the bytes to lift (the instruction, then `ret`).
+    (out / "samples.txt").write_text("".join(f"{i} {forms[n]['word']}c0035fd6\n" for i, n in enumerate(names)))
+    (out / "forms.json").write_text(json.dumps({"names": names, "forms": forms, "control": control,
+                                                "unknown": unknown}, indent=0))
     total = sum(f["count"] for f in forms.values())
-    print(f"{lib_name}: {total:,} instructions in {len(forms):,} forms, {len(chunks)} chunks; "
+    print(f"{lib_name}: {total:,} instructions in {len(forms):,} forms; "
           f"{sum(control.values()):,} control flow in {len(control)} forms; {unknown:,} undecodable or data")
-
-
-def failed_slots(ll_text):
-    """Addresses of lifted functions that call __remill_error."""
-    failed, current = set(), None
-    for line in ll_text.splitlines():
-        if line.startswith("define"):
-            m = re.search(r"@sub_([0-9a-f]+)\(", line)
-            current = m.group(1) if m else None
-        elif current and "@__remill_error(" in line and "call" in line:
-            failed.add(current)
-        elif line.startswith("}"):
-            current = None
-    return failed
 
 
 def report(lib_name, tag):
     out = WORK / "coverage" / lib_name
     data = json.loads((out / "forms.json").read_text())
-    forms, index = data["forms"], data["index"]
-    failed, lifted = set(), set()
-    for ll in sorted(out.glob(f"chunk_*.{tag}.ll")):
-        c = ll.name.split("_")[1].split(".")[0]
-        text = ll.read_text()
-        lifted |= {f"{c}:{a}" for a in re.findall(r"^define .*@sub_([0-9a-f]+)\(", text, re.M)}
-        failed |= {f"{c}:{a}" for a in failed_slots(text)}
-    missing = {k for k in index if k not in lifted}  # Never lifted at all: the chunk failed.
-    bad = {index[k] for k in failed | missing}
+    names, forms = data["names"], data["forms"]
+    results = dict(line.split() for line in (out / f"results.{tag}.txt").read_text().splitlines() if line.strip())
+    if len(results) != len(names):
+        print(f"  warning: {len(names) - len(results)} samples have no result")
+    bad = {names[int(i)] for i, r in results.items() if r != "ok"}
+    lift_failed = sum(1 for r in results.values() if r == "fail")
     total = sum(f["count"] for f in forms.values())
     simd_total = sum(f["count"] for f in forms.values() if f["simd"])
     bad_count = sum(forms[n]["count"] for n in bad)
     bad_simd = sum(forms[n]["count"] for n in bad if forms[n]["simd"])
-    print(f"{lib_name} [{tag}]: {len(forms) - len(bad):,} of {len(forms):,} forms lift "
-          f"({len(missing)} not lifted at all)")
+    print(f"{lib_name} [{tag}]: {len(forms) - len(bad):,} of {len(forms):,} forms lift"
+          + (f" ({lift_failed} made remill-lift fail)" if lift_failed else ""))
     print(f"  instructions covered: {100 * (1 - bad_count / total):.2f}% of {total:,}")
     if simd_total:
         print(f"  SIMD instructions covered: {100 * (1 - bad_simd / simd_total):.2f}% of {simd_total:,}")
-    print("  most common unsupported forms:")
+    if bad:
+        print("  most common unsupported forms:")
     for name in sorted(bad, key=lambda n: -forms[n]["count"])[:25]:
         f = forms[name]
         print(f"    {f['count']:>9,}  {name}   (e.g. {f['word']} at 0x{f['addr']})")
