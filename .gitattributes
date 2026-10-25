@@ -2,3 +2,5 @@
 *.bat text eol=crlf
 # Unified diff context contains intentional leading/trailing whitespace.
 *.patch -whitespace
+# Shell scripts run in Linux containers and WSL: keep LF on Windows checkouts.
+*.sh text eol=lf
