@@ -41,6 +41,34 @@ saves in nearly every function that uses SIMD), `fcsel`, byte and pair
 exclusives (`ldaxrb`, `stxrb`, `ldxp`, `clrex`), `adcs`, and the AES/SHA
 instructions. Remill's AArch64 semantics only define scalar `FMUL`/`FADD`.
 
+## Extending Remill
+
+`recomp/remill/patches/` holds our changes to Remill v6.0.1, developed on a
+`bunker` branch in `recomp/work/remill-src` (`recomp/remill/fetch.sh` clones
+and applies them; `fetch.sh export` refreshes them after a commit there).
+
+    recomp/remill/dev.sh image      # once
+    recomp/remill/dev.sh build      # incremental; first run builds the dependencies
+    recomp/remill/dev.sh test       # Remill's AArch64 differential tests: native vs lifted
+    recomp/remill/dev.sh run coverage_lift.sh libunity.so bunker1   # coverage with this build
+
+The tests need an ARM64 host (this Mac, or an ARM64 Linux machine): each test
+runs the instruction natively and lifted, then compares registers, flags and
+memory. The semantics build step does not notice edits to `Semantics/*.cpp`;
+run `dev.sh run remill/clean_semantics.sh` before `build` after changing them.
+
+Batch 1 (all 1,161 tests pass): vector `fadd`/`fsub`/`fmul`/`fdiv`/`faddp`,
+`fmul` by element, element `mov`/`dup`, `fcsel`, `stp` of Q and indexed `stp`/`str`
+of FP registers. It also fixes three existing problems: FP operations moved out
+of the exception-flag window (flags lost), FPSR.DZC never tracked, and the test
+harness writing FPSR into FPCR.
+
+| Library | Remill v6.0.1 | With batch 1 | SIMD, v6.0.1 → batch 1 |
+|---|---|---|---|
+| `libil2cpp.so` | 99.69% | 99.98% | 90.5% → 99.8% |
+| `libunity.so` | 92.16% | 97.93% | 41.1% → 85.4% |
+| `libgrpc_csharp_ext.so` | 98.46% | 98.72% | 77.1% → 85.9% |
+
 ## libFastAES end to end
 
 The smallest real library, recompiled with [Remill](https://github.com/lifting-bits/remill)
