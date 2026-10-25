@@ -1,16 +1,25 @@
 #!/bin/bash
-# Runs in a Remill image: lifts each chunk that coverage.py prepared.
+# Runs in a Remill image: lifts every sample coverage.py prepared, on all cores,
+# and writes "<index> ok|error|fail" per sample to results.<tag>.txt.
 #   coverage_lift.sh <library> <tag>
 set -uo pipefail
 DIR=/recomp/work/coverage/$1
 TAG=$2
 LIFT=$(ls /opt/trailofbits/remill/bin/remill-lift-* /opt/remill/bin/remill-lift-* 2>/dev/null | head -1)
 [[ -x $LIFT ]] || { echo "No remill-lift in this image"; exit 1; }
-for hex in "$DIR"/chunk_*.hex; do
-    base=${hex%.hex}
-    if ! "$LIFT" --arch aarch64 --os linux --bytes "$(cat "$hex")" --address $((0x10000000)) \
-            --ir_out "$base.$TAG.ll" > "$base.$TAG.log" 2>&1; then
-        echo "$(basename "$hex"): remill-lift failed, see $base.$TAG.log"
+export LIFT
+lift_one() {
+    local ir
+    ir=$(mktemp)
+    if ! "$LIFT" --arch aarch64 --os linux --bytes "$2" --address $((0x10000000)) --ir_out "$ir" > /dev/null 2>&1; then
+        echo "$1 fail"
+    elif grep -q "@__remill_error(" "$ir" && grep -q "call.*@__remill_error(" "$ir"; then
+        echo "$1 error"
+    else
+        echo "$1 ok"
     fi
-done
-echo "Lifted $(ls "$DIR"/chunk_*."$TAG".ll 2>/dev/null | wc -l) chunks with $(basename "$LIFT")"
+    rm -f "$ir"
+}
+export -f lift_one
+xargs -P "$(nproc)" -L 1 bash -c 'lift_one "$0" "$1"' < "$DIR/samples.txt" | sort -n > "$DIR/results.$TAG.txt"
+echo "Lifted $(wc -l < "$DIR/results.$TAG.txt") samples with $(basename "$LIFT") on $(nproc) cores"
