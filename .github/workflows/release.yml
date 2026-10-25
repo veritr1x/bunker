@@ -109,9 +109,31 @@ jobs:
           name: ios-bundles
           path: out
 
+  windows:
+    needs: check
+    name: Windows launcher
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.8"
+          cache: false
+      # Bunker.exe holds none of the Android SDK: it downloads the emulator from Google on first start.
+      - name: Test and build Bunker.exe
+        run: |
+          cd windows
+          go test ./...
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=$(cat ../VERSION)" -o "../out/Bunker-$(cat ../VERSION).exe" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-launcher
+          path: out
+
   release:
     name: GitHub Release
-    needs: [android, ios]
+    needs: [android, ios, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -130,6 +152,10 @@ jobs:
         with:
           name: ios-bundles
           path: bundles/ios
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-launcher
+          path: dist
       - name: Bundles, notice pack, update.json and notes
         run: |
           notices=()
@@ -142,7 +168,7 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip dist/update.json --title "Bunker $(cat VERSION)" --notes-file dist/notes.md --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.exe dist/update.json --title "Bunker $(cat VERSION)" --notes-file dist/notes.md --verify-tag
 
   publish:
     name: Publish the web builder

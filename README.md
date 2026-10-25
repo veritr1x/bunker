@@ -137,8 +137,7 @@ Tap **⋮** for Lunar Tear control, master-data import, save backup and restore,
 ## Play on a Mac
 
 The iPhone/iPad build runs natively on a Mac with Apple silicon (M1 or later), as an iPad app.
-There is no Windows version: the game exists only as ARM code for Android and iOS. On Windows,
-an Android emulator that runs ARM apps is the only option, and it is untested.
+For Windows, see [Play on Windows](#play-on-windows).
 
 1. Sign the IPA with your own Apple developer team (see [iOS](docs/IOS.md#build)). The
    provisioning profile must include the Mac: add its **Provisioning UDID** (System Information ›
@@ -159,6 +158,15 @@ an Android emulator that runs ARM apps is the only option, and it is untested.
 To update, quit NieR first and double-click the new IPA. If Applications then has more than
 one NieR (for example **NieR 2**), keep the newest and move the others to the Trash. They all share
 the same data.
+
+## Play on Windows
+
+Experimental. Each release includes `Bunker.exe`, which runs the Android build in Google's
+Android Emulator. The first time, it downloads the emulator and an Android 16 image from Google
+(about 2.3 GB, after you accept Google's license). Then it creates a phone next to itself,
+installs your `bunker.apk`, copies in the game files from the resource dump's `.7z` and opens
+the game. Later starts need no Internet. You need Windows 10 or 11 on an Intel or AMD processor,
+with Windows Hypervisor Platform turned on. See [Windows](docs/WINDOWS.md).
 
 ## Build it yourself, step by step
 

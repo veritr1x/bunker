@@ -14,6 +14,8 @@
 /android/app/src/main/python/web/
 /android/app/src/main/python/tools/
 /android/app/src/main/python/patcher/
+/windows/windows
+/windows/*.exe
 
 # Personal game files, saves and signing material
 *.apk
@@ -28,6 +30,7 @@
 *.7z
 # Tiny synthetic archives for the Go import tests; no game files.
 !overlays/server/mobile/testdata/*.7z
+!windows/testdata/*.7z
 *.bin.e
 *.db
 *.db-wal
