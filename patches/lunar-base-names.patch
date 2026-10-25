@@ -1,0 +1,17 @@
+diff --git a/android/app/src/main/python/tools/extract_names.py b/android/app/src/main/python/tools/extract_names.py
+--- a/android/app/src/main/python/tools/extract_names.py
++++ b/android/app/src/main/python/tools/extract_names.py
+@@ -2963,7 +2963,12 @@
+     records: list[dict[str, Any]] = []
+     for row in sorted(chapter_rows, key=lambda current: int(current["EventQuestChapterId"])):
+         chapter_id = int(row["EventQuestChapterId"])
+-        text_key = f"quest.event.chapter_title.{chapter_id}"
++        # The title is keyed by the chapter's text id, which differs for some
++        # chapters (510, the NieR:Automata crossover, uses 500).
++        text_id = int(row.get("NameEventQuestTextId", 0) or 0) or chapter_id
++        text_key = f"quest.event.chapter_title.{text_id}"
++        if text_key not in entries:
++            text_key = f"quest.event.chapter_title.{chapter_id}"
+         english_name = entries.get(text_key, "")
+         sequence_group_id = int(row.get("EventQuestSequenceGroupId", 0) or 0)
+         difficulties = []

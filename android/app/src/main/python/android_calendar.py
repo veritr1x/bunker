@@ -117,6 +117,99 @@ def original(state, game):
 
 # --- Game data ---------------------------------------------------------------
 
+# Runs the final game data lost: a rerun overwrote the original dates, or a
+# finished event was parked in 2030 to 2099 (scripts/calendar_history.py).
+HISTORY = Path(__file__).with_name("calendar_history.json")
+# An event chapter's later runs are copies of its row with these ids, so each
+# run opens in its own weeks: chapter + n * COPY_STEP for the nth later run.
+COPY_STEP = 10_000_000
+
+
+def history():
+    try:
+        return json.loads(HISTORY.read_text())["tables"]
+    except FileNotFoundError:
+        return {}
+
+
+def runs(final, lost):
+    """The (start, end) ranges a row opens in a loop. One that ends up open for
+    good opens from its first run; otherwise every run it had, in order."""
+    start, end = final
+    if EARLIEST <= start < FOREVER <= end:
+        return [(min([start] + [run[0] for run in lost]), end)]
+    return [tuple(run) for run in lost] or [final]
+
+
+def _rows(blob):
+    """The rows of a table blob as (array header, [cell bytes])."""
+    from patcher.patch_masterdata import read_array_len, skip_msgpack_value
+    count, pos = read_array_len(blob, 0)
+    for _ in range(count):
+        cells, p = read_array_len(blob, pos)
+        header, values = bytes(blob[pos:p]), []
+        for _ in range(cells):
+            q = skip_msgpack_value(blob, p)
+            values.append(bytes(blob[p:q]))
+            p = q
+        yield header, values
+        pos = p
+
+
+def _table(rows):
+    total = len(rows)
+    header = bytes([0x90 | total]) if total <= 0x0f else b"\xdc" + struct.pack(">H", total) if total <= 0xffff else b"\xdd" + struct.pack(">I", total)
+    return header + b"".join(rows)
+
+
+def restore_runs(blob, spec, copies=None):
+    """Gives the rows calendar_history.json lists their runs. With copies (a
+    dict), an event chapter's later runs become copies of its row, recorded as
+    copies[chapter] = [copy ids]; otherwise a row keeps its first run."""
+    import msgpack
+    keys, (start_col, end_col), lost = spec["key"], spec["dates"], spec["rows"]
+    out = []
+    for header, cells in _rows(blob):
+        known = lost.get("|".join(str(msgpack.unpackb(cells[i])) for i in keys)) if max(start_col, end_col) < len(cells) else None
+        if known is None:
+            out.append(header + b"".join(cells))
+            continue
+        ranges = runs((msgpack.unpackb(cells[start_col]), msgpack.unpackb(cells[end_col])), known)
+        for n, (start, end) in enumerate(ranges if copies is not None else ranges[:1]):
+            row = list(cells)
+            # Whole int64 cells, which the loop's date shift moves (shift_table).
+            row[start_col], row[end_col] = b"\xd3" + struct.pack(">q", start), b"\xd3" + struct.pack(">q", end)
+            if n:
+                chapter = msgpack.unpackb(cells[0])
+                row[0] = msgpack.packb(chapter + n * COPY_STEP)
+                copies.setdefault(chapter, []).append(chapter + n * COPY_STEP)
+            out.append(header + b"".join(row))
+    return _table(out)
+
+
+def copy_chapter_rows(blob, copies):
+    """Adds a row for each chapter copy to a table keyed by event chapter (first column)."""
+    import msgpack
+    out = []
+    for header, cells in _rows(blob):
+        out.append(header + b"".join(cells))
+        for copy in copies.get(msgpack.unpackb(cells[0]), []) if cells else []:
+            out.append(header + msgpack.packb(copy) + b"".join(cells[1:]))
+    return _table(out)
+
+
+def restore_history(toc, blob, changed, schemas):
+    """Puts the runs the final game data lost back, before the loop's shift."""
+    from patcher import patch_masterdata as pm
+    copies = {}
+    for table, spec in history().items():
+        pm.apply_to_table(toc, blob, changed, table, lambda b, s=spec, t=table: restore_runs(b, s, copies if t == "m_event_quest_chapter" else None))
+    if copies:
+        for table, (_, columns) in schemas.items():
+            if table != "m_event_quest_chapter" and table in toc and any(index == 0 and name == "EventQuestChapterId" for index, _, name in columns):
+                pm.apply_to_table(toc, blob, changed, table, lambda b: copy_chapter_rows(b, copies))
+    return copies
+
 def shift_table(blob, columns, offset):
     """Move every dated int64 cell in columns by offset; far-future dates become NEVER."""
     from patcher.patch_masterdata import read_array_len, skip_msgpack_value
@@ -155,6 +248,7 @@ def build_master(origin, output, offset):
         toc, blob = exc.unpacked, exc.extra
     schemas = dump_masterdata.load_schemas()
     changed = {}
+    restore_history(toc, blob, changed, schemas)
     moved = 0
     for table in ROTATING:
         if table not in toc or table not in schemas:
@@ -300,8 +394,11 @@ def entries():
     """Dated content the Schedule page lists: (kind, name, start, end)."""
     found = []
     event_names = names("event_quests")
+    lost = history().get("m_event_quest_chapter", {}).get("rows", {})
     for row in table("EventQuestChapter"):
-        found.append(("event", event_names.get(row["EventQuestChapterId"]), row["StartDatetime"], row["EndDatetime"]))
+        final = (row["StartDatetime"], row["EndDatetime"])
+        for start, end in runs(final, lost.get(str(row["EventQuestChapterId"]), [])):
+            found.append(("event", event_names.get(row["EventQuestChapterId"]), start, end))
     banner_names = names("gacha_banners")
     # The summons the server offers (server/internal/masterdata/gacha.go):
     # those with a medal, summons sharing a known medal, and the special
