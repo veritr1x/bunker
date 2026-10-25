@@ -23,7 +23,7 @@ the library a Remill build can lift, weighted by how often each form occurs.
     recomp/coverage.sh bunker-remill6 remill6 libunity.so libil2cpp.so
 
 `recomp/remill/Dockerfile` builds Remill v6.0.1 with LLVM 22 for the host's
-architecture (clone it to `recomp/work/remill-src` first). The older image used
+architecture (run `recomp/remill/fetch.sh` first). The older image used
 by `fastaes/` (Remill on LLVM 11) gives the same results.
 
 Results with Remill v6.0.1 (branches and calls are not counted):
@@ -43,9 +43,10 @@ instructions. Remill's AArch64 semantics only define scalar `FMUL`/`FADD`.
 
 ## Extending Remill
 
-`recomp/remill/patches/` holds our changes to Remill v6.0.1, developed on a
-`bunker` branch in `recomp/work/remill-src` (`recomp/remill/fetch.sh` clones
-and applies them; `fetch.sh export` refreshes them after a commit there).
+Our changes to Remill live in the fork
+[veritr1x/remill](https://github.com/veritr1x/remill), on the `bunker` branch
+(Remill v6.0.1 plus our commits). `recomp/remill/fetch.sh` clones it into
+`recomp/work/remill-src`; commit and push changes there, to the fork.
 
     recomp/remill/dev.sh image      # once
     recomp/remill/dev.sh build      # incremental; first run builds the dependencies
