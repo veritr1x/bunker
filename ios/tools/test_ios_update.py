@@ -28,7 +28,12 @@ class BuildIpaTests(unittest.TestCase):
         write(self.app / "Data/data.unity3d", "game data")
         write(self.app / "_CodeSignature/CodeResources", "old signature")
         write(self.app / "embedded.mobileprovision", "old profile")
-        write(self.app / "Frameworks/UnityFramework.framework/UnityFramework", "patched unity")
+        # Adjust's start at offset 16 of a small stand-in library (the real one is 100 MB).
+        self.unity = b"patched unity..." + (0xA9BD57F6).to_bytes(4, "little") + b"rest"
+        sites = bunker_ios_update.ADJUST_SITES
+        bunker_ios_update.ADJUST_SITES = ((16, 0xA9BD57F6, 0xD65F03C0),)
+        self.addCleanup(setattr, bunker_ios_update, "ADJUST_SITES", sites)
+        write(self.app / "Frameworks/UnityFramework.framework/UnityFramework", self.unity)
         write(self.app / "Frameworks/UnityFramework.framework/_CodeSignature/CodeResources", "sig")
         write(self.app / "Frameworks/LunarTear.framework/LunarTear", "old launcher")
         write(self.app / "Frameworks/LunarTear.framework/build.json", '{"version": "1.0.0", "gamePatch": 1}')
@@ -90,7 +95,8 @@ class BuildIpaTests(unittest.TestCase):
             app = "Payload/NieR.app/"
             self.assertEqual(z.read(app + "NieR"), b"game executable")
             self.assertEqual(z.read(app + "Data/data.unity3d"), b"game data")
-            self.assertEqual(z.read(app + "Frameworks/UnityFramework.framework/UnityFramework"), b"patched unity")
+            self.assertEqual(z.read(app + "Frameworks/UnityFramework.framework/UnityFramework"),
+                             self.unity[:16] + (0xD65F03C0).to_bytes(4, "little") + b"rest")
             self.assertEqual(z.read(app + "Frameworks/LunarTear.framework/LunarTear"), b"new launcher")
             self.assertEqual(z.read(app + "Frameworks/Python.framework/Python"), b"new python")
             self.assertEqual(z.read(app + "Frameworks/new.module.framework/new.module"), b"new module")
@@ -128,6 +134,62 @@ class BuildIpaTests(unittest.TestCase):
             z.writestr("LunarTear.framework/build.json", '{"version": "1.1.0", "gamePatch": 2}')
         with self.assertRaisesRegex(RuntimeError, "web builder"):
             self.build()
+
+    def test_turns_unity_connect_and_analytics_off(self):
+        settings = b"head\x01\0\0\0\x2b\0\0\0https://api.uca.cloud.unity3d.com/v1/events\0tail"
+        write(self.app / "Data/globalgamemanagers", settings)
+        self.build()
+        with zipfile.ZipFile(self.output) as z:
+            self.assertEqual(z.read("Payload/NieR.app/Data/globalgamemanagers"), settings.replace(b"\x01", b"\0", 1))
+            info = plistlib.loads(z.read("Payload/NieR.app/Info.plist"))
+        for key, value in bunker_ios_update.SDK_SWITCHES.items():
+            self.assertIs(info[key], value, key)
+
+
+class AdjustTests(unittest.TestCase):
+    def patch(self, data):
+        import io
+        out = io.BytesIO()
+        bunker_ios_update.patch_adjust(io.BytesIO(data), out)
+        return out.getvalue()
+
+    def test_game_binary(self):
+        ipa = Path(__file__).resolve().parents[2] / "inputs/game-3.7.1.ipa"
+        if not ipa.is_file():
+            raise unittest.SkipTest("needs inputs/game-3.7.1.ipa")
+        with zipfile.ZipFile(ipa) as z:
+            original = z.read("Payload/NieR.app/" + bunker_ios_update.UNITY)
+        patched = self.patch(original)
+        self.assertEqual(len(patched), len(original))
+        self.assertEqual([i for i in range(len(original)) if original[i] != patched[i]],
+                         [i for i in range(0x18F10C4, 0x18F10C8) if original[i] != patched[i]])
+        self.assertEqual(patched[0x18F10C4:0x18F10C8], (0xD65F03C0).to_bytes(4, "little"))
+        self.assertEqual(self.patch(patched), patched)
+
+    def test_unknown_binary_is_refused(self):
+        with self.assertRaisesRegex(RuntimeError, "3.7.1 UnityFramework"):
+            self.patch(b"\0" * 0x18F2000)
+        with self.assertRaisesRegex(RuntimeError, "too short"):
+            self.patch(b"\0" * 16)
+
+
+class UnityConnectTests(unittest.TestCase):
+    def test_game_settings_match_android(self):
+        root = Path(__file__).resolve().parents[2]
+        ipa, apk = root / "inputs/game-3.7.1.ipa", root / "inputs/game-3.7.1.apk"
+        if not ipa.is_file() or not apk.is_file():
+            raise unittest.SkipTest("needs inputs/game-3.7.1.ipa and .apk")
+        sys.path.insert(0, str(root / "android/tools"))
+        import assemble_apk
+        with zipfile.ZipFile(ipa) as z:
+            original = z.read("Payload/NieR.app/" + bunker_ios_update.SETTINGS)
+        patched = bunker_ios_update.patch_unity_connect(original)
+        self.assertEqual(sum(a != b for a, b in zip(original, patched)), 1)
+        self.assertEqual(bunker_ios_update.patch_unity_connect(patched), patched)
+        self.assertEqual(assemble_apk.patch_unity_connect(original), patched)
+        with zipfile.ZipFile(apk) as z:
+            android = z.read(assemble_apk.SETTINGS)
+        self.assertEqual(bunker_ios_update.patch_unity_connect(android), assemble_apk.patch_unity_connect(android))
 
 
 if __name__ == "__main__":

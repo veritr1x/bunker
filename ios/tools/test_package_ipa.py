@@ -60,6 +60,19 @@ class InfoTests(unittest.TestCase):
             with (app / "Info.plist").open("rb") as handle:
                 self.assertEqual(plistlib.load(handle)["CFBundleDisplayName"], "NieR")
 
+    def test_turns_analytics_off(self):
+        with tempfile.TemporaryDirectory() as temp:
+            app = Path(temp)
+            with (app / "Info.plist").open("wb") as handle:
+                plistlib.dump({"CFBundleExecutable": "Game", "FacebookAutoLogAppEventsEnabled": True,
+                               "GADApplicationIdentifier": "ca-app-pub-1~2"}, handle)
+            info = patch_info(app)
+            self.assertTrue(info["FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED"])
+            for key in ("FirebaseCrashlyticsCollectionEnabled", "FirebaseMessagingAutoInitEnabled", "FacebookAutoInitEnabled",
+                        "FacebookAutoLogAppEventsEnabled", "FacebookAdvertiserIDCollectionEnabled"):
+                self.assertIs(info[key], False, key)
+            self.assertEqual(info["GADApplicationIdentifier"], "ca-app-pub-1~2")  # AdMob stops the game without it
+
 
 class TextBufferTests(unittest.TestCase):
     SITES = ((0x10, 0x531F7941, 0x0B0B0141), (0x20, 0x531F7901, 0x0B090101))

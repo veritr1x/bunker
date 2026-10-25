@@ -114,6 +114,16 @@ class UpdateTests(unittest.TestCase):
             self.assertNotIn("assets/notices/img/old.webp", names)
         self.assertEqual(info["notices"], notice_pack.sha256(pack))
 
+    def test_update_turns_unity_connect_off(self):
+        settings = b"head\x01\0\0\0\x2b\0\0\0https://api.uca.cloud.unity3d.com/v1/events\0tail"
+        path = self.installed()
+        with zipfile.ZipFile(path, "a") as z:
+            z.writestr(assemble_apk.SETTINGS, settings)
+        out = self.work / "out.apk"
+        assemble_apk.update(path, self.companion(), out, log=lambda m: None)
+        with zipfile.ZipFile(out) as z:
+            self.assertEqual(z.read(assemble_apk.SETTINGS), settings.replace(b"\x01", b"\0", 1))
+
     def test_update_keeps_port_offset(self):
         out = self.work / "out.apk"
         info = assemble_apk.update(self.installed(portOffset=7), self.companion(), out, log=lambda m: None)
@@ -132,6 +142,41 @@ class UpdateTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "web builder"):
             assemble_apk.update(self.installed(gamePatch=build_info.GAME_PATCH + 1), self.companion(),
                                 self.work / "out.apk", log=lambda m: None)
+
+
+class ManifestTests(unittest.TestCase):
+    def test_ad_and_analytics_libraries_stay_off(self):
+        import axml
+        game, companion = manifests()
+        app = axml.parse(assemble_apk.patch_manifest(game, companion)[0]).root.find_all("application")[0]
+        providers = {p.get("name").raw for p in app.find_all("provider")}
+        self.assertFalse(providers & set(assemble_apk.SDK_PROVIDERS))
+        self.assertIn("com.google.firebase.provider.FirebaseInitProvider", providers)
+        meta = [m for m in app.find_all("meta-data") if m.get("name").raw in dict(assemble_apk.SDK_SWITCHES)]
+        self.assertEqual(len(meta), len(assemble_apk.SDK_SWITCHES))
+        for m in meta:
+            on = dict(assemble_apk.SDK_SWITCHES)[m.get("name").raw]
+            self.assertEqual((m.get("value").type, m.get("value").data), (axml.TYPE_INT_BOOLEAN, 0xFFFFFFFF if on else 0))
+
+
+class UnityConnectTests(unittest.TestCase):
+    def test_game_settings(self):
+        if not GAME_APK.is_file():
+            raise unittest.SkipTest("needs inputs/game-3.7.1.apk")
+        with zipfile.ZipFile(GAME_APK) as g:
+            original = g.read(assemble_apk.SETTINGS)
+        patched = assemble_apk.patch_unity_connect(original)
+        changed = [i for i in range(len(original)) if original[i] != patched[i]]
+        self.assertEqual(len(patched), len(original))
+        self.assertEqual(len(changed), 1)
+        self.assertEqual((original[changed[0]], patched[changed[0]]), (1, 0))
+        self.assertEqual(assemble_apk.patch_unity_connect(patched), patched)
+
+    def test_unknown_data_is_refused(self):
+        url = b"\x2b\0\0\0https://api.uca.cloud.unity3d.com/v1/events"
+        for data in (b"no settings here", b"\x07\0\0\0" + url, b"\x01\0\0\0" + url + b"\x01\0\0\0" + url):
+            with self.assertRaisesRegex(RuntimeError, "Unity Connect"):
+                assemble_apk.patch_unity_connect(data)
 
 
 class DeviceBuildTests(unittest.TestCase):

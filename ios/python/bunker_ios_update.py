@@ -14,6 +14,58 @@ import zipfile
 
 GAME_PATCH_FILE = "Frameworks/LunarTear.framework/build.json"
 NOTICES = "notices.zip"  # the notice pack the server reads (package_ipa.add_notices)
+SETTINGS = "Data/globalgamemanagers"
+# The analytics libraries' own off switches (Android's are in assemble_apk.SDK_SWITCHES).
+# The game starts its ad libraries from its code; AdMob needs GADApplicationIdentifier to stay.
+# FirebaseDataCollectionDefaultEnabled also stops Firebase's own diagnostics (firebaselogging-pa).
+SDK_SWITCHES = {"FirebaseDataCollectionDefaultEnabled": False,
+                "FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED": True, "FirebaseCrashlyticsCollectionEnabled": False,
+                "FirebaseMessagingAutoInitEnabled": False, "FacebookAutoInitEnabled": False,
+                "FacebookAutoLogAppEventsEnabled": False, "FacebookAdvertiserIDCollectionEnabled": False}
+
+
+UNITY = "Frameworks/UnityFramework.framework/UnityFramework"
+# The game starts Adjust (install attribution, app.adjust.com) with +[Adjust appDidLaunch:]; it
+# returns at once instead, and Adjust's other calls only log that it isn't started.
+# File offset in the 3.7.1 UnityFramework: stp x22, x21, [sp, #-0x30]! -> ret.
+ADJUST_SITES = ((0x18F10C4, 0xA9BD57F6, 0xD65F03C0),)
+
+
+def patch_adjust(source, target):
+    """Copies UnityFramework from the open file source to target with Adjust's start turned off.
+
+    Streams the 100 MB library: on iOS this runs in the game's process. Already off is fine."""
+    sites = {offset: (original, patched) for offset, original, patched in ADJUST_SITES}
+    position = 0
+    while True:
+        chunk = bytearray(source.read(1 << 20))
+        if not chunk:
+            break
+        for offset, (original, patched) in sites.items():
+            if position <= offset and offset + 4 <= position + len(chunk):
+                word = int.from_bytes(chunk[offset - position:offset - position + 4], "little")
+                if word not in (original, patched):
+                    raise RuntimeError(f"Unsupported game binary: expected 3.7.1 UnityFramework at 0x{offset:X}")
+                chunk[offset - position:offset - position + 4] = patched.to_bytes(4, "little")
+                sites[offset] = None
+        target.write(chunk)
+        position += len(chunk)
+        sites = {k: v for k, v in sites.items() if v}
+    if sites:
+        raise RuntimeError("Unsupported game binary: UnityFramework is too short")
+
+
+def patch_unity_connect(settings):
+    """Turn off Unity Connect, which sends Unity's own analytics to cdp.cloud.unity3d.com.
+
+    UnityConnectSettings in globalgamemanagers starts with m_Enabled and
+    m_TestMode (aligned to 4 bytes), then its old event URL. Already off is fine.
+    The same as assemble_apk.patch_unity_connect, which Android's build uses."""
+    url = b"\x2b\x00\x00\x00https://api.uca.cloud.unity3d.com/v1/events"
+    at = settings.find(url)
+    if at < 4 or settings.find(url, at + 1) != -1 or settings[at - 4:at] not in (b"\x01\0\0\0", b"\0\0\0\0"):
+        raise RuntimeError("Unsupported game data: expected 3.7.1 Unity Connect settings")
+    return settings[:at - 4] + b"\0" + settings[at - 3:]
 
 
 def _sha256(path):
@@ -75,6 +127,7 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
                 if relative.as_posix() == "Info.plist":
                     info = plistlib.loads(path.read_bytes())
                     info["BunkerVersion"] = new_build.get("version", "dev")
+                    info.update(SDK_SWITCHES)  # earlier builds left them on
                     if notices_zip:
                         info["BunkerNotices"] = sha_notices
                     plist = zipfile.ZipInfo(prefix + "Info.plist")
@@ -82,6 +135,15 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
                     out.writestr(plist, plistlib.dumps(info))
                 elif path.is_symlink():
                     continue  # app bundles have none; never follow one out of the app
+                elif relative.as_posix() == SETTINGS:  # earlier builds left Unity Connect on
+                    settings = zipfile.ZipInfo(prefix + SETTINGS)
+                    settings.external_attr = 0o100644 << 16
+                    out.writestr(settings, patch_unity_connect(path.read_bytes()))
+                elif relative.as_posix() == UNITY:  # earlier builds let the game start Adjust
+                    unity = zipfile.ZipInfo(prefix + UNITY)
+                    unity.external_attr = 0o100755 << 16
+                    with path.open("rb") as source, out.open(unity, "w", force_zip64=True) as target:
+                        patch_adjust(source, target)
                 else:
                     out.write(path, prefix + relative.as_posix())
             if notices_zip:

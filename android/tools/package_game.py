@@ -16,6 +16,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
 
+from assemble_apk import SDK_PROVIDERS, SDK_SWITCHES, patch_unity_connect
 import build_info
 import notice_pack
 
@@ -68,6 +69,7 @@ def main():
     root=Path(__file__).resolve().parents[2]
     game=args.decoded_dir.resolve();output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
     patch_local_reachability(game)
+    settings=game/"assets/bin/Data/globalgamemanagers";settings.write_bytes(patch_unity_connect(settings.read_bytes()))
     manifest=game/"AndroidManifest.xml";tree=ET.parse(manifest);doc=tree.getroot();app=doc.find("application")
     if app is None: raise RuntimeError("Game manifest has no application")
     package=doc.attrib["package"]
@@ -87,6 +89,12 @@ def main():
     ET.SubElement(app,"meta-data",{attr("name"):"org.veritr1x.bunker.GAME_ACTIVITY",attr("value"):original})
     # The launcher and server read the ports the game was built for.
     ET.SubElement(app,"meta-data",{attr("name"):"org.veritr1x.bunker.PORT_OFFSET",attr("value"):str(args.port_offset)})
+    for provider in list(app.findall("provider")):
+        if provider.get(attr("name")) in SDK_PROVIDERS:app.remove(provider)
+    for name,on in SDK_SWITCHES:
+        meta=app.find("meta-data[@"+attr("name")+"='"+name+"']")
+        if meta is None:meta=ET.SubElement(app,"meta-data",{attr("name"):name})
+        meta.set(attr("value"),"true" if on else "false")
     app.set(attr("usesCleartextTraffic"),"true");app.set(attr("appCategory"),"game");app.set(attr("allowBackup"),"false");app.set(attr("extractNativeLibs"),"true")
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.

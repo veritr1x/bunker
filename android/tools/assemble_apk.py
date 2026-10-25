@@ -47,6 +47,7 @@ def addresses(port_offset=0):
 PACKAGE = "com.square_enix.android_googleplay.nierspww"
 MASTER = "20240404193219.bin.e"
 LIB, METADATA = "lib/arm64-v8a/libil2cpp.so", "assets/bin/Data/Managed/Metadata/global-metadata.dat"
+SETTINGS = "assets/bin/Data/globalgamemanagers"
 
 # Android attribute resource IDs (stable across platform versions).
 NAME, VALUE, THEME, AUTHORITIES = 0x01010003, 0x01010024, 0x01010000, 0x01010018
@@ -54,6 +55,17 @@ MIN_SDK, EXTRACT_NATIVE, CLEARTEXT, PAGE_SIZE_COMPAT = 0x0101020C, 0x010104EA, 0
 APP_CATEGORY, APP_CATEGORY_GAME = 0x01010545, 0
 THEME_MATERIAL_LIGHT_NO_ACTION_BAR = 0x01030241
 PAGE_SIZE_COMPAT_ENABLED = 32
+
+# The ad and analytics libraries can't reach their servers offline but still start
+# with the game. These providers start them before the game's own code runs; the
+# game's Facebook account link is unavailable anyway (see above).
+SDK_PROVIDERS = ("com.google.android.gms.ads.MobileAdsInitProvider", "com.applovin.sdk.AppLovinInitProvider",
+                 "com.ironsource.lifecycle.IronsourceLifecycleProvider", "com.facebook.ads.AudienceNetworkContentProvider",
+                 "com.facebook.internal.FacebookInitProvider", "com.facebook.FacebookContentProvider")
+# The libraries' own off switches. Firebase stays: the game waits for it to start.
+SDK_SWITCHES = (("firebase_data_collection_default_enabled", False), ("firebase_analytics_collection_deactivated", True), ("firebase_crashlytics_collection_enabled", False),
+                ("firebase_messaging_auto_init_enabled", False), ("com.facebook.sdk.AutoInitEnabled", False),
+                ("com.facebook.sdk.AutoLogAppEventsEnabled", False), ("com.facebook.sdk.AdvertiserIDCollectionEnabled", False))
 
 
 def load(name, path):
@@ -90,6 +102,18 @@ def patch_game_files(lib, metadata, port_offset=0):
         run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", grpc, "--http-addr", http)
         load("package_game", ROOT / "android/tools/package_game.py").patch_local_reachability(work)
         return (work / LIB).read_bytes(), (work / METADATA).read_bytes()
+
+
+def patch_unity_connect(settings):
+    """Turn off Unity Connect, which sends Unity's own analytics to cdp.cloud.unity3d.com.
+
+    UnityConnectSettings in globalgamemanagers starts with m_Enabled and
+    m_TestMode (aligned to 4 bytes), then its old event URL. Already off is fine."""
+    url = b"\x2b\x00\x00\x00https://api.uca.cloud.unity3d.com/v1/events"
+    at = settings.find(url)
+    if at < 4 or settings.find(url, at + 1) != -1 or settings[at - 4:at] not in (b"\x01\0\0\0", b"\0\0\0\0"):
+        raise RuntimeError("Unsupported game data: expected 3.7.1 Unity Connect settings")
+    return settings[:at - 4] + b"\0" + settings[at - 3:]
 
 
 def patch_master(original):
@@ -130,6 +154,15 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
         raise RuntimeError("Cannot find the game's launcher activity")
     if game_activity.startswith("."):
         game_activity = PACKAGE + game_activity
+    for provider in app.find_all("provider"):
+        if provider.get("name").raw in SDK_PROVIDERS:
+            app.children.remove(provider)
+    meta = {m.get("name").raw: m for m in app.find_all("meta-data")}
+    for name, on in SDK_SWITCHES:
+        if name in meta:
+            meta[name].set(Attr.boolean("value", on, VALUE))
+        else:
+            app.children.append(Element("meta-data", [Attr.string("name", name, NAME), Attr.boolean("value", on, VALUE)]))
     app.children.append(Element("meta-data", [Attr.string("name", "org.veritr1x.bunker.GAME_ACTIVITY", NAME),
                                               Attr.string("value", game_activity, VALUE)]))
     # The launcher and server read the ports the game was built for.
@@ -210,7 +243,7 @@ class ApkWriter:
 def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None):
     with zipfile.ZipFile(apk) as game, zipfile.ZipFile(companion_apk) as companion, open(apk, "rb") as raw:
         names = set(game.namelist())
-        for required in ("AndroidManifest.xml", LIB, METADATA, "resources.arsc"):
+        for required in ("AndroidManifest.xml", LIB, METADATA, SETTINGS, "resources.arsc"):
             if required not in names:
                 raise RuntimeError(f"Not the ARM64 game APK: {required} is missing")
         log("Patching the game library and metadata…")
@@ -220,7 +253,7 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
         log("Patching master data…")
         original_master = Path(master).read_bytes()
         patched_master = patch_master(original_master)
-        replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata}
+        replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
         dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]
         next_dex = max(int(n[7:-4] or 1) for n in dex) + 1
         temporary = Path(str(output) + ".partial")
@@ -290,6 +323,8 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                         continue
                     if name == "AndroidManifest.xml":
                         writer.add(name, manifest)
+                    elif name == SETTINGS:  # Earlier builds left Unity Connect on.
+                        writer.add(name, patch_unity_connect(game.read(name)), compress=info.compress_type != zipfile.ZIP_STORED)
                     elif notices and name.startswith(notice_pack.PREFIX):
                         continue
                     elif not build_info.is_bunker_entry(name, old) or name in kept:

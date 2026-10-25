@@ -17,10 +17,13 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import sys
 import zipfile
 
-import scroll_snap
-from text_buffer import patch_text_buffer
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
+from bunker_ios_update import SDK_SWITCHES, SETTINGS, UNITY, patch_adjust, patch_unity_connect  # noqa: E402
+import scroll_snap  # noqa: E402
+from text_buffer import patch_text_buffer  # noqa: E402
 
 MH_MAGIC_64 = 0xFEEDFACF
 LC_SEGMENT_64 = 0x19
@@ -113,6 +116,8 @@ def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
     ats = info.setdefault("NSAppTransportSecurity", {})
     ats["NSAllowsArbitraryLoads"] = True
     ats["NSAllowsLocalNetworking"] = True
+    # The analytics libraries can't reach their servers offline; keep them from starting.
+    info.update(SDK_SWITCHES)
     if bundle_id:
         info["CFBundleIdentifier"] = bundle_id
     # Bunker's own version, from the launcher framework (build_framework.sh).
@@ -237,6 +242,16 @@ def main():
         info = patch_info(app, args.bundle_id, port_offset=args.port_offset)
         executable = app / info["CFBundleExecutable"]
         print("Launcher load command", "added" if insert_dylib(executable) else "already present")
+        settings = app / SETTINGS
+        settings.write_bytes(patch_unity_connect(settings.read_bytes()))
+        print("Unity Connect (Unity's analytics): off")
+        unity = app / UNITY
+        patched = unity.with_name(unity.name + ".patched")
+        with unity.open("rb") as source, patched.open("wb") as target:
+            patch_adjust(source, target)
+        patched.chmod(unity.stat().st_mode)
+        os.replace(patched, unity)
+        print("Adjust (install tracking): off")
         changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework")
         print("Text builder fix:", f"{changed} instructions" if changed else "already applied")
         changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", scroll_snap.SITES)
