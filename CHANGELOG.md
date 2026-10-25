@@ -15,6 +15,14 @@ under its heading, down to the previous release.
   the tools already installed. See docs/PRIVACY.md. Contributed by
   nathangerday (PR #3). [962eb57, 6ba7d42]
 
+### Web builder
+- The iPhone/iPad build needs much less memory: about 1.1 GB in Chrome
+  instead of 2.7 GB. It no longer unpacks the whole game; only the files
+  the patches change are taken out, and the IPA is passed to the page in
+  pieces as it is written. Before, iPhone and iPad browsers closed the tab
+  mid-build and the page reloaded. The IPA has the same files as before.
+  [dbaec6a]
+
 ## 1.3.0 (2026-10-25)
 
 Bunker now runs on Windows, with keyboard controls. The music comes back
