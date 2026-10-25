@@ -4,6 +4,35 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 1.1.2 (2026-10-25)
+
+The game starts without Google Play services, events back on their
+original dates, and an Android 17 crash fix.
+
+## 2026-10-25
+
+### Android
+- The game starts on phones without Google Play services (de-Googled
+  phones, Waydroid) instead of stopping on a black screen after the
+  logos. Firebase's start-up check and the Lilium attestation waited for
+  Play services; Bunker now answers both. The attestation fails the same
+  way it does on phones with Play services, since Google shut SafetyNet
+  down, and the server never read it. [22b6059]
+- Fixed a black screen on Android 17: Unity's frame pacer destroyed a
+  fence sync twice, which stopped the game. [22b6059]
+
+### Calendar
+- The Original calendar runs events on their original dates. The final
+  game data keeps one date range per row, so reruns and parked dates had
+  overwritten earlier runs, and events such as the NieR:Automata
+  crossover never opened. The runs are restored from 153 weekly global
+  master data files (167 rows in 13 tables); each rerun of an event
+  chapter is a copy of it, with the same quests. Content that later
+  stayed open for good opens from its first run. [c61c907]
+- Pod Programs' schedule names more events (254 of 274), looking titles
+  up by their text id: Automata shows as "Record: The Cage of
+  Reincarnation". [c61c907]
+
 ## 1.1.1 (2026-10-23)
 
 Weapon stories that never unlocked.
