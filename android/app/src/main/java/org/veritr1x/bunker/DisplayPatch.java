@@ -25,7 +25,7 @@ import java.nio.file.Files;
 import java.util.List;
 
 /**
- * Frame rate, resolution and screen area chosen in Pod Programs (android_display.py writes
+ * Frame rate, resolution, screen area and texture size chosen in Pod Programs (android_display.py writes
  * tools/display.conf). The frame rate is capped at the screen's highest
  * refresh rate, which the game's window then asks for. Applied in the game's
  * process before Unity starts, so
@@ -181,14 +181,37 @@ final class DisplayPatch {
         @Override public void onPointerCaptureChanged(boolean captured) { base.onPointerCaptureChanged(captured); }
     }
 
-    /** RenderTargetSize: FullHD 6, WQHD 7, DeviceMax 8; 0 keeps the game's presets. */
+    /** RenderTargetSize: H540 3, H640 4, FullHD 6, WQHD 7, DeviceMax 8; 0 keeps the game's presets (HD, 5). */
     private static int size(String name) {
         switch (name) {
+            case "540": return 3;
+            case "640": return 4;
             case "1080": return 6;
             case "1440": return 7;
             case "native": return 8;
             default: return 0;
         }
+    }
+
+    /**
+     * Unity's command line for the game, from the texture size chosen in Pod Programs, or null.
+     * Unity's boot setting texture-mipmap-skip-level leaves out that many of the largest mipmap
+     * levels of every texture that has them (menus have none), from the first texture loaded:
+     * half (1) or quarter (2) size. The game's player activity reads the "unity" extra.
+     */
+    static String unityArguments(Context context) {
+        try {
+            for (String line : Files.readAllLines(new File(new File(context.getFilesDir(), "tools"), "display.conf").toPath(), StandardCharsets.UTF_8)) {
+                String[] pair = line.split("=", 2);
+                if (pair.length != 2 || !pair[0].trim().equals("textures")) continue;
+                switch (pair[1].trim()) {
+                    case "half": return "-texture-mipmap-skip-level 1";
+                    case "quarter": return "-texture-mipmap-skip-level 2";
+                    default: return null;
+                }
+            }
+        } catch (Exception missing) {}
+        return null;
     }
 
     private static native String apply(int fps, int size);

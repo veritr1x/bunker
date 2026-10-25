@@ -111,6 +111,8 @@ def _adapt_patcher():
                 kwargs["message"] = kwargs["message"].replace("Close Pod Programs and tap Deploy.", "Close Pod Programs, then restart the game.")
             return redirect(**kwargs)
         module.redirect = ios_redirect
+    # Texture size goes to Unity on the game's command line, which only Android's launcher sets.
+    android_display.TEXTURES = android_display.TEXTURES[:1]
 
 
 def start(data_root, asset_root, tools_root, original_master):

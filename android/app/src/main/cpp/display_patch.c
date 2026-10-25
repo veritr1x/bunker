@@ -10,7 +10,8 @@
 //   Power saving keeps its own 10 frames.
 // - Resolution: the presets with effects on (the start preset, Highest and
 //   High) and the first resolution the game sets use the chosen RenderTargetSize.
-//   RenderManager never goes above the screen's own resolution.
+//   RenderManager never goes above the screen's own resolution. 540p and 640p go
+//   below the game's own 720p (HD) to use less memory.
 // - Battles: BattleUpdate advances the battle by one 30 Hz step per frame. It
 //   now advances it by one whole step each time 1/30 s of frame time has
 //   built up, and skips the frames in between. Fractional steps crashed the
@@ -56,7 +57,8 @@
 #include "roulette_ads.h"
 #include "text_buffer.h"
 
-enum { FullHD = 6, WQHD = 7, DeviceMax = 8 };
+// RenderTargetSize, from the game's metadata: H320 1, H450 2, H540 3, H640 4, HD 5 (its own), FullHD 6, WQHD 7, DeviceMax 8.
+enum { H540 = 3, H640 = 4, FullHD = 6, WQHD = 7, DeviceMax = 8 };
 
 typedef struct { uint32_t rva, original, patched; } Site;
 
@@ -65,6 +67,8 @@ static uint32_t mov_w(int reg, int value) { return 0x52800000u | (uint32_t)value
 // orr x11, x11, #(size << 32): the immediate is encoded as a run of set bits.
 static uint32_t orr_x11_size(int size) {
     switch (size) {
+    case H540: return 0xb260056bu;
+    case H640: return 0xb25e016bu;
     case FullHD: return 0xb25f056bu;
     case WQHD: return 0xb260096bu;
     default: return 0xb25d016bu;
@@ -416,7 +420,7 @@ static const char *apply(int fps, int size, char *message, size_t length) {
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *env, jclass cls, jint fps, jint size) {
     (void)cls;
     char message[160];
-    if ((fps && (fps < 30 || fps > 240)) || (size && (size < FullHD || size > DeviceMax)))
+    if ((fps && (fps < 30 || fps > 240)) || (size && (size < H540 || size > DeviceMax || size == 5)))
         return (*env)->NewStringUTF(env, "Unsupported display setting");
     return (*env)->NewStringUTF(env, apply(fps, size, message, sizeof message));
 }

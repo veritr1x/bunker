@@ -8,7 +8,8 @@
 //   the screen's maximum), and the performance presets (Config.LevelConfigs)
 //   ask OnDemandRendering for it instead of 30. Power saving keeps 10.
 // - Resolution: the presets with effects on (the start preset, Highest and
-//   High) use the chosen RenderTargetSize.
+//   High) use the chosen RenderTargetSize; 540p and 640p go below the game's 720p.
+//   (Texture size is Android only: Unity takes it on the command line.)
 // - Field movement: characters move once per rendered frame while physics
 //   keeps a 1/30 s step, so the physics step follows the frame time.
 // - Battles advance one 30 Hz step per frame. BattleGame's simulation rate
@@ -356,7 +357,10 @@ static BOOL ResolveZones(void) {
 }
 @end
 
+// RenderTargetSize, from the game's metadata: H540 3, H640 4, HD 5 (its own), FullHD 6, WQHD 7, DeviceMax 8.
 static int RenderTargetSize(NSString *name) {
+    if ([name isEqual:@"540"]) return 3;
+    if ([name isEqual:@"640"]) return 4;
     if ([name isEqual:@"1080"]) return 6;
     if ([name isEqual:@"1440"]) return 7;
     if ([name isEqual:@"native"]) return 8;

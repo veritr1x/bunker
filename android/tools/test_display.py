@@ -23,18 +23,26 @@ class Settings(unittest.TestCase):
         self.dir.cleanup()
 
     def test_missing_file_keeps_the_game_defaults(self):
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full"})
 
     def test_saved_choices_are_read_back(self):
         self.display.write_settings("60", "native", "full", self.conf)
-        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full"})
+        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full"})
         self.display.write_settings("max", "1440", "safe", self.conf)
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full"})
+
+    def test_lower_resolutions_and_texture_sizes_are_saved(self):
+        self.display.write_settings("30", "540", "full", self.conf, textures="quarter")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter"})
+        self.display.write_settings("60", "640", "safe", self.conf, textures="half")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half"})
+        with self.assertRaises(ValueError):
+            self.display.write_settings("30", "default", "full", self.conf, textures="tiny")
 
     def test_settings_saved_before_the_screen_choice_use_the_full_screen(self):
         self.conf.write_text("fps=60\nresolution=native\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full"})
 
     def test_unknown_values_are_refused_and_ignored(self):
         with self.assertRaises(ValueError):
@@ -42,7 +50,27 @@ class Settings(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.display.write_settings("60", "native", "wide", self.conf)
         self.conf.write_text("fps=240\nresolution=8k\nscreen=wide\nnoise\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full"})
+
+
+class Encodings(unittest.TestCase):
+    def test_highest_preset_immediates(self):
+        """orr x11, x11, #(size << 32) for each size display_patch.c can choose."""
+        source = (root / "android/app/src/main/cpp/display_patch.c").read_text()
+        body = re.search(r"static uint32_t orr_x11_size\(int size\) \{(.*?)\n\}", source, re.S).group(1)
+        chosen = {name: int(word, 16) for name, word in re.findall(r"case (\w+): return 0x([0-9a-f]+)u;", body)}
+        sizes = {"H540": 3, "H640": 4, "FullHD": 6, "WQHD": 7}
+        self.assertEqual(set(chosen), set(sizes))
+        for name, word in chosen.items():
+            self.assertEqual(word, orr_x11(sizes[name] << 32), name)
+
+
+def orr_x11(value):
+    """The A64 instruction orr x11, x11, #value, for a value that is one run of set bits."""
+    ones = bin(value).count("1")
+    low = (value & -value).bit_length() - 1
+    assert value == ((1 << ones) - 1) << low
+    return 0xb2400000 | ((64 - low) % 64) << 16 | (ones - 1) << 10 | 11 << 5 | 11
 
 
 def patch_sites():

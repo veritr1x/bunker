@@ -335,7 +335,11 @@ public final class MainActivity extends Activity {
             else intent=getPackageManager().getLaunchIntentForPackage("com.square_enix.android_googleplay.nierspww");
         } catch(PackageManager.NameNotFoundException ignored){}
         if(intent==null)dialog().setTitle("Install the patched game").setMessage("Install the APK patched for 127.0.0.1. The original game APK cannot connect to this server.").setPositiveButton("OK",null).show();
-        else startActivity(intent);
+        else {
+            String unity=DisplayPatch.unityArguments(this);
+            if(unity!=null)intent.putExtra("unity",unity);
+            startActivity(intent);
+        }
     }
     private void openUrl(String url){
         try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException ignored){}
