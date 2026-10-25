@@ -64,7 +64,7 @@ While it works, `Bunker.exe` shows each step, how far it is and the time left:
   [ 05 DEPLOY ] ──────────────────────────────────────────
     OPEN             STANDING BY
 
-  > Copying the game files from resource_dump_android.7z into the phone (21 GB).
+  > Copying the game files into the phone (21 GB).
     Keep this window open.
 ```
 
@@ -78,6 +78,21 @@ code and the emulator has to translate it.
 
 The mouse works as touch, and the keyboard types into the game. You can resize the emulator
 window from its corner.
+
+Keyboard controls in the game:
+
+| Key | Does |
+| --- | --- |
+| **W A S D** or the arrow keys | Move |
+| **Shift** with a movement key | Walk instead of run |
+| **Ctrl+B** | Open the Bunker (like ⌘B on a Mac) |
+
+They work in the game window only, and on Android phones and tablets with a keyboard too.
+
+The emulator passes a held key on as a stream of taps, and forgets a held key when you press
+another. So while the emulator is open, `Bunker.exe` keeps a small helper running that reads
+which movement keys are really held and tells the game. It changes no keys, so typing works as
+before, and it quits when you close the emulator.
 
 ## Every day
 

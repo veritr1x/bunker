@@ -71,8 +71,8 @@ func sendGameFiles(dev device, dump string, s *steps) error {
 	buffered := bufio.NewWriterSize(pipe, 4<<20)
 	stream := newTarSink(buffered, uid, gid)
 	s.set(s.files, busy, "STREAMING", "")
-	s.say("Copying the game files from %s into the phone (21 GB).\n"+
-		"Keep this window open.", filepath.Base(dump))
+	s.say("Copying the game files into the phone (21 GB).\n" +
+		"Keep this window open.")
 	count, err := unpackGameFiles(dump, stream, func(done, total int64) { s.progress(s.files, done, total, "") })
 	if err == nil {
 		err = stream.close()

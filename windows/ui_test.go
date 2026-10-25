@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"io"
+	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -58,6 +62,57 @@ func TestPanelPlain(t *testing.T) {
 		lines[12] != "[04 GAME FILES] UNPACK: IN PLACE · 201073 files" || lines[13] != "> Done." {
 		t.Fatalf("plain output:\n%s", got)
 	}
+}
+
+// The cards redraw every second; while a question waits, they must not draw
+// over it (they did, so the first question vanished at once).
+func TestQuestionStaysOnScreen(t *testing.T) {
+	var out syncBuffer
+	p := newPanel(&out, true, "1.2.0")
+	s := newSteps(p)
+	r, w := io.Pipe()
+	stdin = bufio.NewReader(r)
+	defer func() { stdin = bufio.NewReader(os.Stdin) }()
+	go func() {
+		time.Sleep(2500 * time.Millisecond)
+		w.Write([]byte("C:\\bunker.apk\n"))
+	}()
+	p.set(s.install, busy, "NEEDS FILE", "bunker.apk")
+	answer := p.ask("Bunker needs bunker.apk.", "Drag bunker.apk into this window and press Enter:")
+	p.close()
+	if answer != "C:\\bunker.apk" {
+		t.Fatalf("answer %q", answer)
+	}
+	text := out.String()
+	q := strings.Index(text, "Drag bunker.apk into this window")
+	after := text[q:]
+	// The next repaint must come after the answer clears the screen.
+	redraw, cleared := strings.Index(after, "\x1b[H"), strings.Index(after, "\x1b[2J")
+	if redraw >= 0 && (cleared < 0 || redraw < cleared) {
+		t.Fatal("the screen was redrawn while the question waited")
+	}
+	before := ansi.ReplaceAllString(text[:q], "")
+	frames := strings.Split(before, "\n")
+	if !strings.Contains(before, "> Bunker needs bunker.apk.") || !strings.Contains(before, "NEEDS FILE") {
+		t.Fatalf("the question's explanation or step is missing:\n%s", strings.Join(frames, "\n"))
+	}
+}
+
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
 }
 
 func TestPhoneMemory(t *testing.T) {

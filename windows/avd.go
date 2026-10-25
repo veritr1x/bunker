@@ -36,13 +36,27 @@ func avdConfig(abi string, ramMB, cores int) string {
 		"hw.lcd.width=1080",
 		"hw.lcd.height=2400",
 		"hw.lcd.density=420",
-		"hw.initialOrientation=portrait",
+		// The game runs in landscape only, so the window starts that way.
+		"hw.initialOrientation=landscape",
 		"hw.keyboard=yes",
 		"hw.mainKeys=no",
 		"hw.audioOutput=yes",
 		"hw.audioInput=no",
 		"hw.camera.back=none",
 		"hw.camera.front=none",
+		// The game needs none of the other simulated sensors, and their
+		// service used half a core while it ran. The accelerometer stays: the
+		// emulator's rotate buttons work through it.
+		"hw.accelerometer=yes",
+		"hw.gyroscope=no",
+		"hw.gps=no",
+		"hw.sensors.proximity=no",
+		"hw.sensors.magnetic_field=no",
+		"hw.sensors.orientation=no",
+		"hw.sensors.temperature=no",
+		"hw.sensors.light=no",
+		"hw.sensors.pressure=no",
+		"hw.sensors.humidity=no",
 		"showDeviceFrame=no",
 		"fastboot.forceColdBoot=no",
 	}

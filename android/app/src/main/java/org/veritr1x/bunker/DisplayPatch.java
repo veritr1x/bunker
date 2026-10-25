@@ -63,7 +63,7 @@ final class DisplayPatch {
         }
         if (!result.isEmpty()) Log.w("Bunker", "Display settings not applied: " + result);
         else if (fps > 0) requestRefreshRate(context, fps);
-        if (full) useFullScreen(context);
+        wrapWindows(context, full);
         if (fps == 0 && size == 0) {
             status.delete();  // Pod Programs reports on chosen settings only.
             return;
@@ -122,6 +122,9 @@ final class DisplayPatch {
     }
 
     /**
+     * Wraps the callback of each of the game's windows, for the keyboard
+     * controls (Keyboard) and, when full is set, the screen area.
+     *
      * The game was built without Unity's "render outside safe area", so in
      * landscape Android leaves the camera cutout's whole edge black. Drawing
      * there is a window setting, and Unity sets it back from its own setting
@@ -129,14 +132,14 @@ final class DisplayPatch {
      * through the window's callback with the window's own attributes, so the
      * callback restores short edges before the change reaches the screen.
      */
-    private static void useFullScreen(Application app) {
+    private static void wrapWindows(Application app, boolean full) {
         app.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(Activity activity, Bundle state) {}
             @Override public void onActivityStarted(Activity activity) {
                 Window window = activity.getWindow();
-                if (window.getCallback() instanceof ShortEdges) return;
-                window.setCallback(new ShortEdges(window.getCallback()));
-                window.setAttributes(window.getAttributes());
+                if (window.getCallback() instanceof GameWindow) return;
+                window.setCallback(new GameWindow(window.getCallback(), activity, full));
+                if (full) window.setAttributes(window.getAttributes());
             }
             @Override public void onActivityResumed(Activity activity) {}
             @Override public void onActivityPaused(Activity activity) {}
@@ -146,16 +149,22 @@ final class DisplayPatch {
         });
     }
 
-    /** The activity's window callback, keeping the window around the camera cutout. */
-    private static final class ShortEdges implements Window.Callback {
+    /** The activity's window callback: keyboard controls, and the window around the camera cutout. */
+    private static final class GameWindow implements Window.Callback {
         private final Window.Callback base;
-        ShortEdges(Window.Callback base) { this.base = base; }
+        private final boolean shortEdges;
+        private final Keyboard keyboard;
+        GameWindow(Window.Callback base, Activity activity, boolean shortEdges) {
+            this.base = base;
+            this.shortEdges = shortEdges;
+            this.keyboard = new Keyboard(activity, base);
+        }
 
         @Override public void onWindowAttributesChanged(WindowManager.LayoutParams attrs) {
-            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            if (shortEdges) attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             base.onWindowAttributesChanged(attrs);
         }
-        @Override public boolean dispatchKeyEvent(KeyEvent event) { return base.dispatchKeyEvent(event); }
+        @Override public boolean dispatchKeyEvent(KeyEvent event) { return keyboard.handle(event) || base.dispatchKeyEvent(event); }
         @Override public boolean dispatchKeyShortcutEvent(KeyEvent event) { return base.dispatchKeyShortcutEvent(event); }
         @Override public boolean dispatchTouchEvent(MotionEvent event) { return base.dispatchTouchEvent(event); }
         @Override public boolean dispatchTrackballEvent(MotionEvent event) { return base.dispatchTrackballEvent(event); }
@@ -167,7 +176,11 @@ final class DisplayPatch {
         @Override public boolean onMenuOpened(int feature, Menu menu) { return base.onMenuOpened(feature, menu); }
         @Override public boolean onMenuItemSelected(int feature, MenuItem item) { return base.onMenuItemSelected(feature, item); }
         @Override public void onContentChanged() { base.onContentChanged(); }
-        @Override public void onWindowFocusChanged(boolean focused) { base.onWindowFocusChanged(focused); }
+        @Override public void onWindowFocusChanged(boolean focused) {
+            if (!focused) keyboard.release();
+            else HostKeys.attach(keyboard);
+            base.onWindowFocusChanged(focused);
+        }
         @Override public void onAttachedToWindow() { base.onAttachedToWindow(); }
         @Override public void onDetachedFromWindow() { base.onDetachedFromWindow(); }
         @Override public void onPanelClosed(int feature, Menu menu) { base.onPanelClosed(feature, menu); }

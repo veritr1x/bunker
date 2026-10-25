@@ -38,6 +38,12 @@ const gamePackage = "com.square_enix.android_googleplay.nierspww"
 // other tools with a different adb version.
 const adbPort = "5039"
 
+// The game's port for the keyboard helper (HostKeys.java).
+const hostKeysPort = 27183
+
+// keysRunning is set once the keyboard helper runs; it keeps adb up for it.
+var keysRunning bool
+
 type folders struct {
 	root, sdk, home, avd, downloads, logs string
 }
@@ -98,12 +104,20 @@ func newSteps(p *panel) *steps {
 }
 
 func main() {
+	// Bunker.exe -keys PORT -data FOLDER: the keyboard helper, in the background.
+	if len(os.Args) == 5 && os.Args[1] == "-keys" && os.Args[3] == "-data" {
+		if port, err := strconv.Atoi(os.Args[2]); err == nil {
+			runKeys(port, os.Args[4])
+		}
+		return
+	}
 	p := newPanel(os.Stdout, console(os.Stdout), version)
 	s := newSteps(p)
 	f, err := run(s)
 	// Its own adb server would otherwise keep running and hold files in the
-	// folder, which could then not be moved or deleted.
-	if f.sdk != "" {
+	// folder, which could then not be moved or deleted. The keyboard helper
+	// stops it when the emulator closes.
+	if f.sdk != "" && !keysRunning {
 		stop := exec.Command(f.adb(), "kill-server")
 		stop.Env = f.env()
 		stop.Run()
@@ -176,18 +190,26 @@ func run(s *steps) (folders, error) {
 	// Ask for anything missing first, so the rest runs without the player.
 	apk := *apkPath
 	if _, err := os.Stat(apk); err != nil && st.APK == "" {
-		apk = s.askPath("Bunker needs bunker.apk. Build it for Android in the web builder:\n"+
-			"https://veritr1x.github.io/bunker/ (you need your own game APK and master data).",
+		s.set(s.install, busy, "NEEDS FILE", "bunker.apk")
+		apk = s.askPath("Bunker needs bunker.apk. Build it for Android with your own game files at\n"+
+			"https://veritr1x.github.io/bunker/",
 			"Drag bunker.apk into this window and press Enter:")
 		if apk == "" {
 			return f, errors.New("Bunker needs bunker.apk. Put it next to Bunker.exe, then start again")
 		}
+		s.set(s.install, idle, "STANDING BY", filepath.Base(apk))
 	}
 	if dump == "" && st.GameFiles == "" && !st.NoGameFiles {
+		s.set(s.files, busy, "NEEDS FILE", "resource_dump_android.7z")
 		dump = s.askPath("NieR needs the game files: resource_dump_android.7z (or a .zip of it).\n"+
 			"Bunker copies them into the phone. This takes 15 to 20 minutes.",
 			"Drag the .7z into this window and press Enter. To skip, just press Enter:")
 		st.NoGameFiles = dump == ""
+		if dump == "" {
+			s.set(s.files, idle, "SKIPPED", "")
+		} else {
+			s.set(s.files, idle, "STANDING BY", filepath.Base(dump))
+		}
 	}
 
 	if err := ensureSDK(f, s); err != nil {
@@ -248,6 +270,7 @@ func run(s *steps) (folders, error) {
 	// screens again, which a busy phone may not manage in time.
 	if top, _ := dev.shell("dumpsys activity activities | grep -m1 topResumedActivity"); strings.Contains(top, gamePackage+"/com.") {
 		s.set(s.open, good, "OPEN", "NieR was already open")
+		keysRunning = startKeys(f, dev)
 		s.say("NieR is open in the emulator window. To stop, close that window.\n" +
 			"The next start is quick. This window closes by itself.")
 		return f, nil
@@ -257,6 +280,7 @@ func run(s *steps) (folders, error) {
 		return f, fmt.Errorf("could not open NieR: %s", out)
 	}
 	s.set(s.open, good, "OPEN", "NieR")
+	keysRunning = startKeys(f, dev)
 	s.say("NieR is open in the emulator window. To stop, close that window.\n" +
 		"The next start is quick. This window closes by itself.")
 	return f, nil

@@ -39,6 +39,7 @@ type panel struct {
 	title    string
 	rows     []*row
 	note     string
+	asking   bool // a question is on screen: nothing may draw over it
 	drawn    time.Time
 	stop     chan struct{}
 	stopped  sync.WaitGroup
@@ -110,7 +111,7 @@ func (p *panel) say(format string, args ...any) {
 	p.note = fmt.Sprintf(format, args...)
 	if p.live {
 		p.draw()
-	} else {
+	} else if !p.asking {
 		fmt.Fprintln(p.out, "> "+p.note)
 	}
 }
@@ -135,22 +136,32 @@ func (p *panel) changed(r *row, now bool) {
 	}
 }
 
-// ask shows a question over the cards and returns the answer. The text, such as
-// a license, may be long; the cards come back once it is answered.
+// ask shows a question and returns the answer. A short explanation goes under
+// the cards; a long one, such as a license, takes the whole window. Nothing
+// redraws until the question is answered.
 func (p *panel) ask(text, question string) string {
 	p.mu.Lock()
-	if p.live {
-		fmt.Fprint(p.out, "\x1b[2J\x1b[H\x1b[?25h")
-	}
-	if text != "" {
+	long := strings.Count(text, "\n") > 6
+	switch {
+	case p.live && long:
+		fmt.Fprint(p.out, "\x1b[2J\x1b[H"+text+"\n\n")
+	case p.live:
+		p.note = text
+		p.draw()
+	case text != "":
 		fmt.Fprintln(p.out, text)
-		fmt.Fprintln(p.out)
 	}
-	fmt.Fprint(p.out, question+" ")
+	if p.live {
+		fmt.Fprint(p.out, "  "+bold+yellow+"? "+reset+question+" \x1b[?25h")
+	} else {
+		fmt.Fprint(p.out, question+" ")
+	}
+	p.asking = true
 	p.mu.Unlock()
 	answer, _ := stdin.ReadString('\n')
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.asking, p.note = false, ""
 	if p.live {
 		fmt.Fprint(p.out, "\x1b[?25l\x1b[2J")
 		p.draw()
@@ -184,6 +195,9 @@ const (
 
 // draw repaints the whole screen from the top. The caller holds p.mu.
 func (p *panel) draw() {
+	if p.asking {
+		return
+	}
 	p.drawn = time.Now()
 	var b strings.Builder
 	b.WriteString("\x1b[H")
