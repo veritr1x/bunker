@@ -54,11 +54,11 @@ worker.onmessage = ({ data }) => {
   if (data.type === "log") log(data.value);
   if (data.type === "error") { log("Build failed: " + data.value); building = false; $("build").disabled = false; }
   if (data.type === "done") {
-    const { name, bytes } = data.value;
-    url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    const { name, blob } = data.value;
+    url = URL.createObjectURL(blob);
     $("download").href = url;
     $("download").download = name;
-    $("download").textContent = `Download ${name} (${Math.round(bytes.length / 1048576)} MB)`;
+    $("download").textContent = `Download ${name} (${Math.round(blob.size / 1048576)} MB)`;
     $("sign-android").hidden = name.endsWith(".ipa");
     $("play-windows").hidden = name.endsWith(".ipa");
     $("sign-ios").hidden = !name.endsWith(".ipa");
