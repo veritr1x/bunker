@@ -13,6 +13,7 @@ import re
 import shutil
 import struct
 import subprocess
+import privacy
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -70,6 +71,8 @@ def main():
     game=args.decoded_dir.resolve();output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
     patch_local_reachability(game)
     settings=game/"assets/bin/Data/globalgamemanagers";settings.write_bytes(patch_unity_connect(settings.read_bytes()))
+    library = game / "lib/arm64-v8a/libil2cpp.so"
+    library.write_bytes(privacy.patch_library(library.read_bytes()))
     manifest=game/"AndroidManifest.xml";tree=ET.parse(manifest);doc=tree.getroot();app=doc.find("application")
     if app is None: raise RuntimeError("Game manifest has no application")
     package=doc.attrib["package"]
@@ -127,6 +130,7 @@ def main():
         game_dex=sum(1 for n in original.namelist() if re.fullmatch(r"classes\d*\.dex",n))
         (notices/"build.json").write_text(json.dumps(build_info.describe(source,game_dex,args.port_offset),indent=1))
         (notices/"game-manifest.xml").write_bytes(original.read("AndroidManifest.xml"))
+    privacy.harden_text_manifest(manifest)
     unsigned=output.with_suffix(".unsigned.apk");merged=output.with_suffix(".merged.apk")
     run("apktool","b",game,"-o",unsigned)
     shutil.copyfile(unsigned,merged)
