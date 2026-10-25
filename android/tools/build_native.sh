@@ -35,4 +35,4 @@ go build -buildmode=c-shared -trimpath -ldflags="-s -w -X lunar-tear/server/inte
   -o ../android/app/src/main/jniLibs/arm64-v8a/liblunar.so ./cmd/android-bridge
 # Frame rate and resolution choices, applied in the game's process (DisplayPatch.java).
 "$CC" -shared -fPIC -O2 -Wall -Wextra -Werror -s -Wl,-z,max-page-size=16384,-z,common-page-size=16384 \
-  -o ../android/app/src/main/jniLibs/arm64-v8a/libbunkerdisplay.so ../android/app/src/main/cpp/display_patch.c ../android/app/src/main/cpp/roulette_ads.c ../android/app/src/main/cpp/text_buffer.c ../android/app/src/main/cpp/remain_days.c ../android/app/src/main/cpp/egl_sync.c ../android/app/src/main/cpp/play_services.c -llog
+  -o ../android/app/src/main/jniLibs/arm64-v8a/libbunkerdisplay.so ../android/app/src/main/cpp/display_patch.c ../android/app/src/main/cpp/roulette_ads.c ../android/app/src/main/cpp/text_buffer.c ../android/app/src/main/cpp/remain_days.c ../android/app/src/main/cpp/egl_sync.c ../android/app/src/main/cpp/play_services.c ../android/app/src/main/cpp/audio_resume.c -llog

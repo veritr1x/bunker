@@ -114,7 +114,17 @@ final class DisplayPatch {
             }
             @Override public void onActivityStarted(Activity activity) {}
             @Override public void onActivityResumed(Activity activity) {}
-            @Override public void onActivityPaused(Activity activity) {}
+            // Before the pause starts: the game can take seconds to pause, and
+            // its focus can come back before onActivityPaused would run.
+            @Override public void onActivityPrePaused(Activity activity) {
+                AudioResume.install();
+                AudioResume.paused();
+            }
+            @Override public void onActivityPaused(Activity activity) {
+                // Android 9 has no onActivityPrePaused.
+                AudioResume.install();
+                AudioResume.paused();
+            }
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle out) {}
             @Override public void onActivityDestroyed(Activity activity) {}
@@ -142,7 +152,17 @@ final class DisplayPatch {
                 if (full) window.setAttributes(window.getAttributes());
             }
             @Override public void onActivityResumed(Activity activity) {}
-            @Override public void onActivityPaused(Activity activity) {}
+            // Before the pause starts: the game can take seconds to pause, and
+            // its focus can come back before onActivityPaused would run.
+            @Override public void onActivityPrePaused(Activity activity) {
+                AudioResume.install();
+                AudioResume.paused();
+            }
+            @Override public void onActivityPaused(Activity activity) {
+                // Android 9 has no onActivityPrePaused.
+                AudioResume.install();
+                AudioResume.paused();
+            }
             @Override public void onActivityStopped(Activity activity) {}
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle out) {}
             @Override public void onActivityDestroyed(Activity activity) {}
@@ -178,7 +198,10 @@ final class DisplayPatch {
         @Override public void onContentChanged() { base.onContentChanged(); }
         @Override public void onWindowFocusChanged(boolean focused) {
             if (!focused) keyboard.release();
-            else HostKeys.attach(keyboard);
+            else {
+                HostKeys.attach(keyboard);
+                AudioResume.install();
+            }
             base.onWindowFocusChanged(focused);
         }
         @Override public void onAttachedToWindow() { base.onAttachedToWindow(); }
