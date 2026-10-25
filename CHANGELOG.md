@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-25
+
+### Calendar
+- The Original calendar keeps the next loop's game data beside the master
+  data instead of remembering its full path, which iOS changes on every
+  app install; the move to loop 2 would not have found it. Calendars
+  started earlier move it the next time Pod Programs opens. [e37c1ed]
+
 ## 1.1.2 (2026-10-25)
 
 The game starts without Google Play services, events back on their
