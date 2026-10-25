@@ -4,6 +4,18 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-25
+
+### Web builder
+- Building for iPhone/iPad on the web page works again: since 1.1.3 it
+  stopped with "No module named 'bunker_ios_update'", a file the page
+  didn't include. [d69d157]
+
+### Display
+- The Display page is tidier: each setting has its own row, a full-width
+  menu and a short note, instead of wrapped labels and one long
+  paragraph. [dd6e3a0]
+
 ## 1.1.3 (2026-10-25)
 
 Less memory, lower resolutions and texture size for low-memory phones,
