@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 )
@@ -109,6 +110,11 @@ func calendarShift(real int64) int64 {
 	return 0
 }
 
+// NextName is the next loop's game data, which Pod Programs builds beside the
+// master data. It is found there rather than by a stored full path because
+// iOS moves the app's folder on every install.
+const NextName = "calendar-next.bin"
+
 // StartNextLoop swaps in the next loop's game data, built ahead by Pod
 // Programs, once the game clock has passed the end of the loop. It returns
 // the calendar to use; without next-loop data the old loop stays (nothing is
@@ -117,14 +123,21 @@ func StartNextLoop(path, master string, c *Calendar, real int64) (*Calendar, err
 	if c == nil || real+c.Shift(real) < c.End() || c.Next == "" || c.NextLoop != c.Loop+1 {
 		return c, nil
 	}
-	if _, err := os.Stat(c.Next); err != nil {
-		return c, nil
+	data := filepath.Join(filepath.Dir(master), NextName)
+	if _, err := os.Stat(data); err != nil {
+		// Calendars started before 1.1.3 built it in the tools folder.
+		if data = c.Next; !filepath.IsAbs(data) {
+			return c, nil
+		}
+		if _, err := os.Stat(data); err != nil {
+			return c, nil
+		}
 	}
 	next := *c
 	next.Loop++
 	next.LoopStart += LoopWeeks * weekMillis
 	next.Next, next.NextLoop = "", 0
-	if err := os.Rename(c.Next, master); err != nil {
+	if err := os.Rename(data, master); err != nil {
 		return c, err
 	}
 	// The client fetches game data again when its modification time changes.

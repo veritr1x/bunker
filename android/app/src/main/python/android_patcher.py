@@ -155,7 +155,7 @@ def view(request: Request, message: str = "", error: str = ""):
             else:
                 # Calendars started before loops opened at the first summons.
                 changed = calendar.open_at_first_summons(state)
-                if not os.path.exists(state.get("next") or ""):
+                if not calendar.next_file().exists():
                     calendar.prepare_next(state)
                     changed = True
                 if changed:

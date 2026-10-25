@@ -529,6 +529,11 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
         [files createDirectoryAtPath:nextMaster.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
         [files copyItemAtPath:MasterPath() toPath:nextMaster error:nil];
     }
+    // The Original calendar's next loop sits beside it (android_calendar.NEXT_NAME).
+    NSString *calendarNext = [MasterPath().stringByDeletingLastPathComponent stringByAppendingPathComponent:@"calendar-next.bin"];
+    NSString *stagedNext = [nextMaster.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"calendar-next.bin"];
+    if (FileSize(stagedNext) == 0 && FileSize(calendarNext) > 0)
+        [files copyItemAtPath:calendarNext toPath:stagedNext error:nil];
     gImportFraction = -1;
     progress(@"Finishing import…");
     LunarStop();  // Never serve files while their folder is being replaced.

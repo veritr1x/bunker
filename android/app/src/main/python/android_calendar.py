@@ -74,7 +74,10 @@ def state_path():
 
 def read_state():
     state = runtime.read_json(state_path())
-    return state if isinstance(state, dict) and state.get("loopStart") else None
+    if not (isinstance(state, dict) and state.get("loopStart")):
+        return None
+    move_next(state)
+    return state
 
 
 def write_state(state):
@@ -281,8 +284,32 @@ def origin_file():
     return origin
 
 
+# The next loop's game data sits beside the master data, where the server
+# looks for it (gametime.NextName): a full path in calendar.json goes stale
+# when iOS moves the app's folder on an update. Not .bin.e, which the tools
+# would take for the master data.
+NEXT_NAME = "calendar-next.bin"
+
+
 def next_file():
+    return config.RELEASE_DIR / NEXT_NAME
+
+
+def old_next_file():
     return patcher.folder() / "calendar-next.bin.e"
+
+
+def move_next(state):
+    """Moves a calendar started before 1.1.3 to the next loop's new place."""
+    if not state.get("next") or state["next"] == NEXT_NAME:
+        return
+    if old_next_file().exists():
+        if next_file().exists():
+            old_next_file().unlink()
+        else:
+            os.replace(old_next_file(), next_file())
+    state["next"] = NEXT_NAME
+    write_state(state)
 
 
 def label(state):
@@ -303,7 +330,7 @@ def prepare_next(state):
     pending = next_file().with_suffix(".tmp")
     build_master(origin_file(), pending, state["loopStart"] + LOOP_WEEKS * WEEK - LAUNCH)
     os.replace(pending, next_file())
-    state["next"] = str(next_file())
+    state["next"] = NEXT_NAME
     state["nextLoop"] = state["loop"] + 1
 
 
@@ -357,6 +384,7 @@ def turn_on(real=None):
 def turn_off():
     state_path().unlink(missing_ok=True)
     next_file().unlink(missing_ok=True)
+    old_next_file().unlink(missing_ok=True)
 
 
 def set_speed(state, speed, real=None):

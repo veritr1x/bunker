@@ -224,6 +224,10 @@ final class FilesStore {
             mkdir(nextMaster.getParentFile());
             Files.copy(master(c).toPath(), nextMaster.toPath());
         }
+        // The Original calendar's next loop sits beside it (android_calendar.NEXT_NAME).
+        File calendarNext = new File(master(c).getParentFile(), "calendar-next.bin");
+        File stagedNext = new File(stage, "release/calendar-next.bin");
+        if (!stagedNext.exists() && calendarNext.isFile()) Files.copy(calendarNext.toPath(), stagedNext.toPath());
         if (progress.cancelled()) throw new IOException("Import cancelled");
         delete(old);
         if (assets(c).exists()) move(assets(c),old);

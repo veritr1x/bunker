@@ -45,6 +45,23 @@ func TestNowFollowsTheCalendar(t *testing.T) {
 	}
 }
 
+func TestStartNextLoopFindsDataBesideTheMaster(t *testing.T) {
+	dir := t.TempDir()
+	master := filepath.Join(dir, "master.bin.e")
+	os.WriteFile(master, []byte("loop1"), 0600)
+	os.WriteFile(filepath.Join(dir, NextName), []byte("loop2"), 0600)
+	path := filepath.Join(dir, "calendar.json")
+	// iOS moves the app's folder on every install, so a stored full path goes stale.
+	c := &Calendar{Loop: 1, LoopStart: ms(t, "2026-10-07T02:00:00Z"), Speed: 1, Next: "/old/container/calendar-next.bin.e", NextLoop: 2}
+	got, err := StartNextLoop(path, master, c, c.End())
+	if err != nil || got.Loop != 2 {
+		t.Fatalf("next loop: %+v %v", got, err)
+	}
+	if raw, _ := os.ReadFile(master); string(raw) != "loop2" {
+		t.Fatalf("master not swapped: %q", raw)
+	}
+}
+
 func TestStartNextLoop(t *testing.T) {
 	dir := t.TempDir()
 	master := filepath.Join(dir, "master.bin.e")
