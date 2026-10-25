@@ -99,6 +99,11 @@ class ChangelogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release_assets.changelog_section(self.TEXT, "2.0.0")
 
+    def test_downloads_name_the_exe(self):
+        text = release_assets.downloads("1.3.0")
+        self.assertIn("`Bunker-1.3.0.exe`", text)
+        self.assertIn("update.json", text)
+
 
 if __name__ == "__main__":
     unittest.main()

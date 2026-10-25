@@ -71,6 +71,16 @@ def changelog_section(text, version):
     return unwrap(m.group(1).strip())
 
 
+def downloads(version):
+    """The end of the release notes: what each file is for."""
+    return (f"### Downloads\n"
+            f"- `Bunker-{version}.exe` plays the Android build on Windows, in Google's Android Emulator. "
+            f"Put it in one folder with your `bunker.apk` and `resource_dump_android.7z`. "
+            f"See [Windows](https://github.com/veritr1x/bunker/blob/main/docs/WINDOWS.md).\n"
+            f"- The `bunker-*.zip` files and `update.json` are for the Bunker's own updates. "
+            f"You don't need to download them.")
+
+
 def unwrap(text):
     """Joins the file's wrapped lines: GitHub release notes keep every line break."""
     out, fenced = [], False
@@ -99,7 +109,7 @@ def main():
     args = p.parse_args()
     make(args.version, args.companion_apk, args.framework, args.python, args.out, args.notices)
     notes = args.out / "notes.md"
-    notes.write_text(changelog_section((ROOT / "CHANGELOG.md").read_text(), args.version) + "\n")
+    notes.write_text(changelog_section((ROOT / "CHANGELOG.md").read_text(), args.version) + "\n\n" + downloads(args.version) + "\n")
     print(notes)
 
 

@@ -9,8 +9,8 @@ the game files and opens the game. After that, it needs no Internet connection.
 Google's emulator, so each player downloads it from Google and accepts Google's license.
 
 Experimental. Tested on Windows 11 with a Ryzen 7 7800X3D: the first start set up the emulator,
-added the 21 GB of game files and reached the title screen and the screen after Tap to Start.
-Gameplay after that is not tested on Windows yet.
+added the 21 GB of game files and opened the game. The game plays in the field with the keyboard,
+and the music comes back after the Bunker or another app.
 
 ## What you need
 
