@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. Each release's heading sits above the dated
 sections it contains; its notes run down to the previous release.
 
+## 2026-10-25
+
+### Game client
+- Campaign badges (such as half stamina on EX Character Quests) no longer
+  show a jumbled number: campaigns left open end in 2099, 26,000 days away,
+  too long for the badge. Remaining times now stop at "999d", on Android
+  and iOS. [d7b1ed6]
+
 ## 1.2.0 (2026-10-25)
 
 Building for iPhone/iPad on the web page works again, and a tidier
