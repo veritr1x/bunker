@@ -172,10 +172,14 @@
           with the same public Bunker key, so a newer build installs over an older one and keeps your saves.
           <a href="bunker-key.p12" download>Download the key</a> (<code>bunker-key.p12</code>, password and alias
           <code>bunker</code>) to sign your own builds the same way. The key is public, so anyone's build can install
-          over yours. To prevent this, sign with a key of your own instead.
-          On a Windows PC, put the APK next to <code>Bunker.exe</code> from the
-          <a href="https://github.com/veritr1x/bunker/releases/latest">latest release</a>. <code>Bunker.exe</code> runs it in
-          Google's Android Emulator. See <a href="https://github.com/veritr1x/bunker/blob/main/docs/WINDOWS.md">Windows</a>.</p>
+          over yours. To prevent this, sign with a key of your own instead.</p>
+        <p class="note" id="play-windows">The same APK runs on a Windows PC with an Intel or AMD processor, in Google's
+          Android Emulator. Download <code>Bunker.exe</code> from the
+          <a href="https://github.com/veritr1x/bunker/releases/latest">latest release</a> and put it in one folder with the APK,
+          named <code>bunker.apk</code>, and <code>resource_dump_android.7z</code>. Turn on <b>Windows Hypervisor Platform</b>
+          in Windows features, then double-click <code>Bunker.exe</code>. The first start downloads about 2.3 GB from
+          Google and copies the game files in. Open the launcher with Ctrl+B and move with WASD. See
+          <a href="https://github.com/veritr1x/bunker/blob/main/docs/WINDOWS.md">Play on Windows</a>.</p>
         <p class="note" id="sign-ios" hidden>The IPA is unsigned. Install it with Sideloadly or AltStore and your Apple ID,
           or sign it with your own certificate. Use the same bundle ID for updates to keep your saves.
           The same IPA runs on a Mac with Apple silicon if your Apple developer team signs it for that Mac.

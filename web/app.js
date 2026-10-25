@@ -60,6 +60,7 @@ worker.onmessage = ({ data }) => {
     $("download").download = name;
     $("download").textContent = `Download ${name} (${Math.round(bytes.length / 1048576)} MB)`;
     $("sign-android").hidden = name.endsWith(".ipa");
+    $("play-windows").hidden = name.endsWith(".ipa");
     $("sign-ios").hidden = !name.endsWith(".ipa");
     $("result").style.display = "block";
     building = false;
