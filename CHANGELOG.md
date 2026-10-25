@@ -6,8 +6,9 @@ under its heading, down to the previous release.
 
 ## 1.3.0 (2026-10-25)
 
-Bunker now runs on Windows, with keyboard controls, and the music comes
-back after you leave the game.
+Bunker now runs on Windows, with keyboard controls. The music comes back
+after you leave the game, and campaign badges no longer show a jumbled
+number.
 
 ## 2026-10-25
 
