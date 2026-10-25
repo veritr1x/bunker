@@ -12,6 +12,36 @@ sections it contains; its notes run down to the previous release.
   app install; the move to loop 2 would not have found it. Calendars
   started earlier move it the next time Pod Programs opens. [e37c1ed]
 
+### Memory
+- Bunker's server uses much less memory: about 140 MB instead of 256 MB
+  while you play, measured on an Android emulator. It reads the game data
+  from its files as it needs it instead of keeping them all loaded, and
+  gives freed memory back. [5cbe846]
+- Closing the Archive gives its memory back. On Android it runs in a
+  process of its own that ends when it closes; on iOS its server stops.
+  Before, the server kept about 450 MB after the Archive had been
+  open. [5cbe846]
+- On Android, closing Pod Programs reopens the launcher fresh, so the
+  memory Tools used goes too. [5cbe846]
+
+### Display
+- Two lower resolutions, 540p and 640p, below the game's own 720p, for
+  phones short on memory. [6c9c123]
+- On Android, Texture size draws characters and places with half or a
+  quarter of their texture detail; menus stay sharp. Half size used about
+  440 MB less graphics memory on the emulator and looks almost the same;
+  quarter size is visibly softer. [6c9c123]
+
+### Privacy
+- The game's ad and analytics libraries stay off. On Android their
+  start-up hooks are removed; on both platforms Firebase's and Facebook's
+  own off switches are set. [c99044c]
+- Unity's own analytics, which the game sent to Unity's servers, are
+  turned off, and on iOS the Adjust install tracker no longer starts.
+  Playing now contacts only Bunker's update check (and, on iOS, Apple's
+  App Store). Updating Bunker in the app applies this to the game you
+  have installed. [c99044c]
+
 ## 1.1.2 (2026-10-25)
 
 The game starts without Google Play services, events back on their
