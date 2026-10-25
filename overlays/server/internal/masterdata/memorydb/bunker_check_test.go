@@ -89,10 +89,12 @@ func TestCheckRefusesOtherFiles(t *testing.T) {
 }
 
 func TestCheckLeavesTheLoadedTablesAlone(t *testing.T) {
-	tables = map[string][]byte{"m_loaded": {1}}
+	if err := Init(write(t, masterWith(t, "m_loaded"))); err != nil {
+		t.Fatal(err)
+	}
 	defer func() { tables = nil }()
 	Check(write(t, masterWith(t, requiredTables...)))
-	if _, ok := tables["m_loaded"]; !ok || len(tables) != 1 {
-		t.Fatalf("tables changed: %v", tables)
+	if _, ok := TableBytes("m_loaded"); !ok || TableCount() != 1 {
+		t.Fatalf("tables changed: %d tables", TableCount())
 	}
 }

@@ -15,7 +15,7 @@ import java.net.URL;
 /** Private, on-device tools. Runs beside the service so Unity can fully close. */
 public final class ToolsActivity extends Activity {
     private static boolean webInitialized;
-    /** Pod Programs and the Archive share one WebView profile; its folder can be set only once per process. */
+    /** Pod Programs' WebView profile; its folder can be set only once per process. */
     static synchronized void initWebView(){if(!webInitialized){WebView.setDataDirectorySuffix("lunar_tools");webInitialized=true;}}
     private final Handler handler=new Handler(Looper.getMainLooper());
     private WebView web;
@@ -87,7 +87,11 @@ public final class ToolsActivity extends Activity {
         startService(new Intent(this,ServerService.class).setAction(ServerService.CLOSE_TOOLS));
     }
     private void returnToLauncher(){
-        startActivity(new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP));finish();
+        // Python and WebView cannot be unloaded, and this process serves the game next. The server
+        // is stopped now, so the launcher reopens in a fresh process.
+        if(com.chaquo.python.Python.isStarted())RestartActivity.restart(this);
+        else startActivity(new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP));
+        finish();
     }
     private void back(){if(!closing&&web.canGoBack())web.goBack();else closeTools();}
     @android.annotation.SuppressLint("GestureBackNavigation") // API 33+ uses the dispatcher registered above.

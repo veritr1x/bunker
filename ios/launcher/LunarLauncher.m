@@ -1480,9 +1480,12 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
             [self refresh];
             return;
         }
-        // The Archive's server keeps running in the background, so reopening is instant.
+        // Closing stops the Archive's server: it shares the game's memory, and the index makes reopening quick.
         __weak typeof(self) weakSelf = self;
-        [self presentViewController:LTArchiveBrowser(url, token, ^{ [weakSelf dismissViewControllerAnimated:YES completion:nil]; }) animated:YES completion:nil];
+        [self presentViewController:LTArchiveBrowser(url, token, ^{
+            [weakSelf dismissViewControllerAnimated:YES completion:nil];
+            [weakSelf busy:@"Closing the Archive…" work:^NSString *{ return LTArchiveStop(); } done:^(NSString *error) { [weakSelf refresh]; }];
+        }) animated:YES completion:nil];
     }];
 }
 - (void)closeTools {

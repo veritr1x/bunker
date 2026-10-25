@@ -271,6 +271,8 @@ func Start(dataRoot, assetRoot string) (err error) {
 	go func() { serveError(s.grpc.Serve(s.listeners[0])) }()
 	go func() { serveError(cdnHTTP.Serve(s.listeners[1])) }()
 	go func() { serveError(authHTTP.Serve(s.listeners[2])) }()
+	// Loading the catalogs and the asset index allocated about twice what they keep.
+	releaseMemory()
 	setStatus("running", "")
 	log.Printf("Local server ready: game %d, assets %d, accounts %d", 8003+offset(), 8080+offset(), 3000+offset())
 	return nil
@@ -284,6 +286,7 @@ func Stop() {
 		s := active
 		active = nil
 		s.close()
+		releaseMemory()
 	}
 	setStatus("stopped", "")
 	log.Print("Server stopped; saves flushed")

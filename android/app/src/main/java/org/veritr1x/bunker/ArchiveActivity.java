@@ -12,8 +12,12 @@ import com.chaquo.python.android.AndroidPlatform;
 import org.json.JSONObject;
 import java.io.File;
 
-/** The Archive: story, records, characters, pictures, movies and music from the imported game files. Read only, so the game keeps running. */
+/** The Archive: story, records, characters, pictures, movies and music from the imported game files. Read only, so the game keeps running.
+ *  It runs in a process of its own, ended when the Archive closes. */
 public final class ArchiveActivity extends Activity {
+    private static boolean webInitialized;
+    /** A WebView folder can be used by one process at a time; Pod Programs keeps "lunar_tools" in the server's. */
+    private static synchronized void initWebView(){if(!webInitialized){WebView.setDataDirectorySuffix("lunar_archive");webInitialized=true;}}
     private WebView web;
     private TextView message;
     private FrameLayout stage;
@@ -30,7 +34,7 @@ public final class ArchiveActivity extends Activity {
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
-        ToolsActivity.initWebView();
+        initWebView();
         stage=new FrameLayout(this);
         LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackground(look.paper());
         stage.addView(body,new FrameLayout.LayoutParams(-1,-1));
@@ -134,8 +138,8 @@ public final class ArchiveActivity extends Activity {
     @Override protected void onResume(){super.onResume();web.onResume();}
     @Override protected void onDestroy(){
         web.destroy();
-        // The server reads only; stopping it just frees memory.
-        if(isFinishing()&&Python.isStarted())new Thread(()->Python.getInstance().getModule("android_archive").callAttr("stop"),"archive-stop").start();
         super.onDestroy();
+        // Python cannot be unloaded, so closing the Archive ends its process; the server reads only, so nothing is lost.
+        if(isFinishing())new Handler(Looper.getMainLooper()).post(()->android.os.Process.killProcess(android.os.Process.myPid()));
     }
 }

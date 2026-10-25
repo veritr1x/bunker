@@ -145,6 +145,12 @@ NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString *
     return url && token && (*url).length ? @"" : @"The Archive could not start";
 }
 
+NSString *LTArchiveStop(void) {
+    if (!gPythonReady) return @"";
+    NSDictionary *result = CallRuntime(@"archive_stop", @[]);
+    return [result[@"ok"] boolValue] ? @"" : result[@"error"];
+}
+
 NSString *LTToolsStop(void) {
     if (!gPythonReady) return @"";
     NSDictionary *result = CallRuntime(@"stop", @[]);

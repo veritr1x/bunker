@@ -8,7 +8,7 @@ import re
 import sqlite3
 import time
 from collections import Counter
-from functools import lru_cache
+from .memo import memo
 from pathlib import Path
 
 from .schedule import Schedule, Stored
@@ -67,7 +67,7 @@ class Archive:
         finally:
             db.close()
 
-    @lru_cache(maxsize=None)
+    @memo
     def master(self, table: str) -> list[dict]:
         with self.db() as db:
             row = db.execute("SELECT value FROM meta WHERE key=?", ("master:" + table,)).fetchone()
@@ -636,7 +636,7 @@ class Archive:
                 "previous": names[at - 1] if at > 0 else None, "next": names[at + 1] if at + 1 < len(names) else None}
 
     # ---- Schedule -----------------------------------------------------------------
-    @lru_cache(maxsize=None)
+    @memo
     def schedule(self) -> Schedule | Stored:
         """The Schedule, as the index build worked it out; worked out now for an index without it."""
         stored = self.meta("schedule")

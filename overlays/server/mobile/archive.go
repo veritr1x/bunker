@@ -58,6 +58,7 @@ func ImportArchiveFd(fd int, stage string) string {
 }
 
 func importFile(f *os.File, stage string) string {
+	defer releaseMemory() // up to four LZMA2 decoders of 64 MB each
 	importCancelled.Store(false)
 	importDone.Store(0)
 	importTotal.Store(0)

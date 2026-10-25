@@ -170,6 +170,14 @@ def archive_start(asset_root, archive_root):
         scenario=lambda folder, target: _go(_process.LunarScenario, folder, target)))
 
 
+def archive_stop():
+    """Stops the Archive's server when it closes: Python shares the game's process, and
+    the Archive's tables would otherwise stay in its memory for the rest of the game."""
+    import android_archive
+    android_archive.stop()
+    return ""
+
+
 def stop():
     global _server, _thread
     if _server:

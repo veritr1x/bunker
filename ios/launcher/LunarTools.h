@@ -17,6 +17,8 @@ UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(v
 // from the game files. Read only, so Lunar Tear and the game keep running.
 // Blocks; call off the main thread. Returns "" and sets url and token, or an error.
 NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text));
+// Stops the Archive's server so its tables leave the game's memory. Blocks; call off the main thread.
+NSString *LTArchiveStop(void);
 /** Builds the next Bunker IPA from the installed app and the release's bundles (bunker_ios_update.py). noticesZip
     is the release's notice pack, or "" to keep the app's. Returns "" or an error. */
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,

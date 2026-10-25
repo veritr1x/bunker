@@ -8,6 +8,7 @@ beside Lunar Tear and the game; nothing is stopped and the save is never opened.
 """
 from __future__ import annotations
 
+import gc
 import json
 import secrets
 import socket
@@ -112,3 +113,4 @@ def stop():
     if _thread:
         _thread.join(30)
     _server = _thread = None
+    gc.collect()  # free the app's tables now, reference cycles included

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
-from functools import cache
+from .memo import memo
 
 LAUNCH = int(datetime(2021, 7, 28, 2, tzinfo=timezone.utc).timestamp() * 1000)  # global launch
 # Dates from June 2024 on are placeholders: the service ended in April 2024.
@@ -237,7 +237,7 @@ class Schedule:
     def shop_name(self, shop: dict) -> str:
         return self.text("shop.name.", shop["NameShopTextId"], f"Shop {shop['ShopId']}")
 
-    @cache
+    @memo
     def shops(self) -> list[dict]:
         """Every shop that ran for a time, by the month it opened."""
         months = defaultdict(list)
@@ -257,7 +257,7 @@ class Schedule:
                 return self.text("gacha.title.", key)
         return ART_TITLES.get(asset, "")
 
-    @cache
+    @memo
     def summons(self) -> list[dict]:
         """Every summon on a home banner, plus summons with shards but no banner, by the month they first ran."""
         runs = defaultdict(list)
@@ -325,7 +325,7 @@ class Schedule:
                 for k, v in sorted(months.items(), key=lambda kv: (kv[0] == "never", kv[0]))]
 
     # ---- Events -----------------------------------------------------------------
-    @cache
+    @memo
     def events(self) -> list[dict]:
         """Event chapters by type, each with its quests by difficulty."""
         groups = defaultdict(list)
@@ -359,7 +359,7 @@ class Schedule:
         return [{"key": k, "label": k, "items": v} for k, v in sorted(kinds.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99)]
 
     # ---- Home banners -----------------------------------------------------------
-    @cache
+    @memo
     def banners(self) -> list[dict]:
         summon_titles = {s["id"]: s["title"] for m in self.summons() for s in m["items"]}
         found = []
@@ -381,7 +381,7 @@ class Schedule:
         return self.by_month(found, "first")
 
     # ---- Other ------------------------------------------------------------------
-    @cache
+    @memo
     def other(self) -> list[dict]:
         sections = []
         login = []
@@ -433,7 +433,7 @@ class Schedule:
         return next((i for g in getattr(self, tab)() for i in g["items"] if i["id"] == ident), None)
 
     # ---- Timeline ---------------------------------------------------------------
-    @cache
+    @memo
     def timeline(self) -> list[dict]:
         """What started each month, across every tab, linked to its entry."""
         entries = []

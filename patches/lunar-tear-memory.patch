@@ -1,0 +1,475 @@
+diff --git a/server/internal/masterdata/memorydb/memorydb.go b/server/internal/masterdata/memorydb/memorydb.go
+--- a/server/internal/masterdata/memorydb/memorydb.go
++++ b/server/internal/masterdata/memorydb/memorydb.go
+@@ -7,25 +7,79 @@
+ 	"encoding/binary"
+ 	"encoding/hex"
+ 	"fmt"
++	"io"
++	"log"
+ 	"os"
+ 
+ 	"github.com/pierrec/lz4/v4"
+ 	"github.com/vmihailenco/msgpack/v5"
+ )
+ 
+-var tables map[string][]byte
++// tables reads master data tables from the file as they are wanted. The server
++// decodes about 200 of the 607 tables, and keeping the whole file decrypted cost
++// 7.7 MB for as long as it ran. The file stays open, so replacing it (always by
++// renaming another over it) changes nothing until the next Init.
++var tables *tableFile
+ 
++type tableFile struct {
++	file *os.File
++	base int               // where the tables start in the decrypted file
++	toc  map[string][2]int // name → offset from base, length
++}
++
++// read decrypts the bytes [off, off+n) of the decrypted file. In CBC each block
++// is decrypted with the ciphertext block before it, so any range can be read alone.
++func (f *tableFile) read(off, n int) ([]byte, error) {
++	first := off / aes.BlockSize
++	end := (off + n + aes.BlockSize - 1) / aes.BlockSize
++	start := first - 1 // the block before is the IV; the first block's is the file's
++	if start < 0 {
++		start = 0
++	}
++	buf := make([]byte, (end-start)*aes.BlockSize)
++	if _, err := f.file.ReadAt(buf, int64(start*aes.BlockSize)); err != nil {
++		return nil, err
++	}
++	iv, err := hex.DecodeString(aesIVHex)
++	if err != nil {
++		return nil, err
++	}
++	if first > 0 {
++		iv, buf = buf[:aes.BlockSize], buf[aes.BlockSize:]
++	}
++	key, err := hex.DecodeString(aesKeyHex)
++	if err != nil {
++		return nil, err
++	}
++	block, err := aes.NewCipher(key)
++	if err != nil {
++		return nil, err
++	}
++	cipher.NewCBCDecrypter(block, iv).CryptBlocks(buf, buf)
++	skip := off - first*aes.BlockSize
++	return buf[skip : skip+n], nil
++}
++
+ const (
+ 	aesKeyHex  = "36436230313332314545356536624265"
+ 	aesIVHex   = "45666341656634434165356536446141"
+ 	lz4ExtCode = int8(99)
+ )
+ 
+-func Init(binPath string) error {
+-	encrypted, err := os.ReadFile(binPath)
++func Init(binPath string) (err error) {
++	f, err := os.Open(binPath)
+ 	if err != nil {
+ 		return fmt.Errorf("read bin.e: %w", err)
+ 	}
++	defer func() {
++		if err != nil {
++			f.Close()
++		}
++	}()
++	encrypted, err := io.ReadAll(f)
++	if err != nil {
++		return fmt.Errorf("read bin.e: %w", err)
++	}
+ 
+ 	decrypted, err := decrypt(encrypted)
+ 	if err != nil {
+@@ -37,26 +91,41 @@
+ 		return fmt.Errorf("parse header: %w", err)
+ 	}
+ 
+-	tables = make(map[string][]byte, len(toc))
+ 	for name, offLen := range toc {
+ 		off := offLen[0]
+ 		length := offLen[1]
+-		if off+length > len(dataBlob) {
++		if off < 0 || length < 0 || off+length > len(dataBlob) {
+ 			return fmt.Errorf("table %q: offset %d + length %d exceeds data blob size %d", name, off, length, len(dataBlob))
+ 		}
+-		tables[name] = dataBlob[off : off+length]
+ 	}
+ 
++	// A previous file stays open until collected: ReadTable may still be reading it.
++	tables = &tableFile{file: f, base: len(decrypted) - len(dataBlob), toc: toc}
+ 	return nil
+ }
+ 
+ func TableCount() int {
+-	return len(tables)
++	if tables == nil {
++		return 0
++	}
++	return len(tables.toc)
+ }
+ 
+ func TableBytes(key string) ([]byte, bool) {
+-	b, ok := tables[key]
+-	return b, ok
++	t := tables
++	if t == nil {
++		return nil, false
++	}
++	offLen, ok := t.toc[key]
++	if !ok {
++		return nil, false
++	}
++	b, err := t.read(t.base+offLen[0], offLen[1])
++	if err != nil {
++		log.Printf("[memorydb] read table %q: %v", key, err)
++		return nil, false
++	}
++	return b, true
+ }
+ 
+ func ReadTable[T any](key string) ([]T, error) {
+diff --git a/server/internal/service/listbin.go b/server/internal/service/listbin.go
+--- a/server/internal/service/listbin.go
++++ b/server/internal/service/listbin.go
+@@ -1,9 +1,16 @@
+ package service
+ 
+ import (
++	"bufio"
++	"bytes"
+ 	"encoding/json"
++	"fmt"
++	"io"
++	"math"
+ 	"os"
+ 	"path/filepath"
++	"slices"
++	"sort"
+ 	"strconv"
+ 	"strings"
+ 	"sync"
+@@ -17,9 +24,54 @@
+ 	MD5  string
+ }
+ 
+-// listBinIndex caches object_id → entry for a revision.
+-type listBinIndex map[string]listBinEntry
++// listBinIndex finds a revision's list.bin entries by object_id. list.bin has about
++// 200,000 entries, and a map of their paths and md5s took ~36 MB in a server that
++// shares the phone with the game; the index keeps only where each entry is in the
++// file (16 bytes) and reads the entry back when asked.
++type listBinIndex struct {
++	file    *os.File
++	records []listBinRecord          // ids of up to 8 bytes, sorted
++	long    map[string]listBinRecord // longer ids, or ones with a zero byte (none in the 3.7.1 dump)
++}
+ 
++type listBinRecord struct {
++	id  [8]byte
++	off uint32
++	n   uint32
++}
++
++func shortListBinID(id string) (key [8]byte, ok bool) {
++	if len(id) > len(key) || strings.IndexByte(id, 0) >= 0 {
++		return key, false
++	}
++	copy(key[:], id)
++	return key, true
++}
++
++func (x *listBinIndex) lookup(objectId string) (listBinEntry, bool) {
++	var r listBinRecord
++	if key, short := shortListBinID(objectId); short {
++		i := sort.Search(len(x.records), func(i int) bool { return bytes.Compare(x.records[i].id[:], key[:]) >= 0 })
++		if i == len(x.records) || x.records[i].id != key {
++			return listBinEntry{}, false
++		}
++		r = x.records[i]
++	} else if r = x.long[objectId]; r.n == 0 {
++		return listBinEntry{}, false
++	}
++	data := make([]byte, r.n)
++	if _, err := x.file.ReadAt(data, int64(r.off)); err != nil {
++		return listBinEntry{}, false
++	}
++	id, entry, ok := parseListBinEntry(data)
++	if !ok || id != objectId {
++		return listBinEntry{}, false
++	}
++	return entry, true
++}
++
++func (x *listBinIndex) len() int { return len(x.records) + len(x.long) }
++
+ type infoAlias struct {
+ 	ToName     string
+ 	ToRevision string
+@@ -35,7 +87,7 @@
+ 
+ type listBinLoad struct {
+ 	done chan struct{}
+-	idx  listBinIndex
++	idx  *listBinIndex
+ 	ok   bool
+ }
+ 
+@@ -45,7 +97,7 @@
+ }
+ 
+ var (
+-	listBinCache    = make(map[string]listBinIndex) // revision/platform → index
++	listBinCache    = make(map[string]*listBinIndex) // revision/platform → index
+ 	listBinInflight = make(map[string]*listBinLoad)
+ 	listBinCacheMu  sync.RWMutex
+ 	infoCache       = make(map[string]map[string]infoAlias) // revision/platform → from-name → duplicate target
+@@ -178,44 +230,108 @@
+ 	return objectId, entry, true
+ }
+ 
+-// parseListBin reads list.bin and builds object_id (6-byte string) → entry (path, size, md5).
++// indexListBin indexes list.bin by object_id (6-byte string) → where the entry is.
+ // The file is a protobuf message with repeated nested entry messages, so we parse each entry
+-// boundary first instead of doing a flat scan across the whole file.
+-func parseListBin(data []byte) listBinIndex {
+-	idx := make(listBinIndex)
+-	i := 0
+-	for i < len(data) {
+-		tag, n := readVarint(data[i:])
+-		if n == 0 {
++// boundary first instead of doing a flat scan across the whole file. It reads the file as a
++// stream, and a later entry with the same object_id replaces an earlier one. It stops at
++// the first damaged field, keeping the entries before it.
++func indexListBin(f *os.File) (*listBinIndex, error) {
++	idx := &listBinIndex{file: f}
++	info, err := f.Stat()
++	if err != nil {
++		return nil, err
++	}
++	if info.Size() > math.MaxUint32 {
++		return nil, fmt.Errorf("list.bin is %d bytes", info.Size())
++	}
++	in := bufio.NewReaderSize(io.NewSectionReader(f, 0, info.Size()), 64<<10)
++	var off int64 // in's position in the file
++	readVarint := func() (v uint64, ok bool) {
++		for i := 0; i < 10; i++ {
++			b, err := in.ReadByte()
++			if err != nil {
++				return 0, false
++			}
++			off++
++			v |= uint64(b&0x7f) << (7 * i)
++			if b&0x80 == 0 {
++				return v, true
++			}
++		}
++		return 0, false
++	}
++	skip := func(n int64) bool {
++		if n < 0 || off+n > info.Size() {
++			return false
++		}
++		d, err := in.Discard(int(n))
++		off += int64(d)
++		return err == nil
++	}
++	var entry []byte
++	for {
++		tag, ok := readVarint()
++		if !ok {
+ 			break
+ 		}
+-		i += n
+-		wireType := tag & 0x7
+-
+-		if wireType == 2 {
+-			length, vn := readVarint(data[i:])
+-			if vn == 0 || length < 0 || i+vn+length > len(data) {
++		switch tag & 7 {
++		case 0:
++			ok = func() bool { _, ok := readVarint(); return ok }()
++		case 1:
++			ok = skip(8)
++		case 5:
++			ok = skip(4)
++		case 2:
++			var length uint64
++			if length, ok = readVarint(); !ok || length > uint64(info.Size()-off) {
++				ok = false
+ 				break
+ 			}
+-			entryBytes := data[i+vn : i+vn+length]
+-			objectId, entry, ok := parseListBinEntry(entryBytes)
+-			if ok {
+-				idx[objectId] = entry
+-				i += vn + length
+-				continue
++			start := off
++			if cap(entry) < int(length) {
++				entry = make([]byte, length)
+ 			}
++			entry = entry[:length]
++			if _, err := io.ReadFull(in, entry); err != nil {
++				ok = false
++				break
++			}
++			off += int64(length)
++			if objectId, _, valid := parseListBinEntry(entry); valid {
++				r := listBinRecord{off: uint32(start), n: uint32(length)}
++				if key, short := shortListBinID(objectId); short {
++					r.id = key
++					idx.records = append(idx.records, r)
++				} else {
++					if idx.long == nil {
++						idx.long = map[string]listBinRecord{}
++					}
++					idx.long[objectId] = r
++				}
++			}
++		default:
++			ok = false
+ 		}
+-
+-		next, ok := skipProtoField(wireType, data, i)
+ 		if !ok {
+ 			break
+ 		}
+-		i = next
+ 	}
+-	return idx
++	// Sort by id, keeping each id's last entry (its records stay in file order).
++	sort.SliceStable(idx.records, func(i, j int) bool {
++		return bytes.Compare(idx.records[i].id[:], idx.records[j].id[:]) < 0
++	})
++	kept := idx.records[:0]
++	for i, r := range idx.records {
++		if i+1 < len(idx.records) && idx.records[i+1].id == r.id {
++			continue
++		}
++		kept = append(kept, r)
++	}
++	idx.records = slices.Clip(kept)
++	return idx, nil
+ }
+ 
+-func loadListBinIndex(baseDir, revision, platform string) (listBinIndex, bool) {
++func loadListBinIndex(baseDir, revision, platform string) (*listBinIndex, bool) {
+ 	key := cacheKey(revision, platform)
+ 	listBinCacheMu.RLock()
+ 	idx, ok := listBinCache[key]
+@@ -239,7 +355,12 @@
+ 	listBinCacheMu.Unlock()
+ 
+ 	filePath := filepath.Join(baseDir, "assets", "revisions", revision, platform, "list.bin")
+-	data, err := os.ReadFile(filePath)
++	f, err := os.Open(filePath)
++	if err == nil {
++		if idx, err = indexListBin(f); err != nil {
++			f.Close()
++		}
++	}
+ 	if err != nil {
+ 		listBinCacheMu.Lock()
+ 		delete(listBinInflight, key)
+@@ -247,7 +368,6 @@
+ 		listBinCacheMu.Unlock()
+ 		return nil, false
+ 	}
+-	idx = parseListBin(data)
+ 	load.idx = idx
+ 	load.ok = true
+ 	listBinCacheMu.Lock()
+@@ -471,7 +591,7 @@
+ 		if !idxOk || idx == nil {
+ 			return
+ 		}
+-		entry, entryOk := idx[objectId]
++		entry, entryOk := idx.lookup(objectId)
+ 		if !entryOk || entry.Path == "" {
+ 			return
+ 		}
+diff --git a/server/internal/service/octo.go b/server/internal/service/octo.go
+--- a/server/internal/service/octo.go
++++ b/server/internal/service/octo.go
+@@ -417,31 +417,67 @@
+ 	w.WriteHeader(http.StatusNotFound)
+ }
+ 
+-// serveListBin reads list.bin from filePath, optionally rewrites the resource base URL to s.ResourcesBaseURL
+-// (must be exactly 43 bytes to preserve protobuf layout), and writes the result to w.
++// listBinChunk is how much of list.bin serveListBin reads at a time.
++var listBinChunk = 64 << 10
++
++// serveListBin streams list.bin from filePath, optionally rewriting the resource base URL to s.ResourcesBaseURL
++// (must be exactly 43 bytes to preserve protobuf layout), to w. It reads the ~27 MB file a chunk at a
++// time rather than whole, as the server shares the phone's memory with the game.
+ func (s *OctoHTTPServer) serveListBin(w http.ResponseWriter, filePath string) {
+-	data, err := os.ReadFile(filePath)
++	f, err := os.Open(filePath)
++	var info os.FileInfo
++	if err == nil {
++		defer f.Close()
++		info, err = f.Stat()
++	}
+ 	if err != nil {
+ 		log.Printf("[Octo] list.bin read error: %v", err)
+ 		http.Error(w, "list not found", http.StatusNotFound)
+ 		return
+ 	}
+ 	orig := []byte(resourcesURLOriginal)
++	var repl []byte
+ 	if s.ResourcesBaseURL != "" {
+ 		if len(s.ResourcesBaseURL) != len(orig) {
+ 			log.Printf("[Octo] resources-base-url length is %d, need %d — serving list.bin unchanged", len(s.ResourcesBaseURL), len(orig))
+ 		} else {
+-			repl := []byte(s.ResourcesBaseURL)
+-			if idx := bytes.Index(data, orig); idx >= 0 {
+-				copy(data[idx:], repl)
+-				log.Printf("[Octo] list.bin: rewrote resource base URL to %s", s.ResourcesBaseURL)
+-			}
++			repl = []byte(s.ResourcesBaseURL)
+ 		}
+ 	}
+ 	w.Header().Set("Content-Type", "application/x-protobuf")
+-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
++	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+ 	w.WriteHeader(http.StatusOK)
+-	w.Write(data)
++	// Until the URL is rewritten, hold back the end of each chunk that could be its start.
++	hold := len(orig) - 1
++	buf := make([]byte, 0, listBinChunk+hold)
++	for {
++		n, err := f.Read(buf[len(buf):cap(buf)])
++		buf = buf[:len(buf)+n]
++		if repl != nil {
++			if idx := bytes.Index(buf, orig); idx >= 0 {
++				copy(buf[idx:], repl)
++				repl = nil
++				log.Printf("[Octo] list.bin: rewrote resource base URL to %s", s.ResourcesBaseURL)
++			}
++		}
++		if err != nil {
++			w.Write(buf)
++			if err != io.EOF {
++				log.Printf("[Octo] list.bin read error: %v", err)
++			}
++			return
++		}
++		send := len(buf)
++		if repl != nil {
++			send -= hold
++		}
++		if send > 0 {
++			if _, err := w.Write(buf[:send]); err != nil {
++				return
++			}
++			buf = buf[:copy(buf, buf[send:])]
++		}
++	}
+ }
+ 
+ // serveDatabaseBinE serves the master data binary. The URL's {version} segment
