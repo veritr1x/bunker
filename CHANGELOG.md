@@ -17,6 +17,12 @@ under its heading, down to the previous release.
   each loop. Before, the game showed it from the start, offering an unlock
   "for 0m" that opened nothing; it is now hidden until then, on Android
   and iOS, and the server takes no gems for it either. [1319534, ccda6e3]
+- Android, story rooms: on screens wider than 19.5:9 (2.4:1 phones with
+  "Full screen, around the camera") the camera now goes all the way to the
+  room's edge, where the invisible walls are. Before, it stopped short, the
+  wall stopped the player the same distance short, and a story trigger near
+  the edge could not be reached (chapter 4, "A Tool of the Master"). iOS
+  screens are not that wide. [b0b1121]
 
 ### Game data
 - New builds (APK, IPA and the web page) start with the game data Pod
