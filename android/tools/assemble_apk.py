@@ -37,6 +37,9 @@ from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "upstream/lunar-scripts"
+# Pod Programs' master-data patcher. With nothing picked it opens everything to
+# 31 December 2099, which the server treats as never ending, and hides ads.
+MASTER_PATCHER = ROOT / "upstream/lunar-tear-masterdata-patcher/patch_masterdata.py"
 GRPC, HTTP = "127.0.0.1:8003", "127.0.0.1:8080"
 
 
@@ -121,7 +124,7 @@ def patch_master(original):
     with tempfile.TemporaryDirectory() as work:
         source, target = Path(work) / "in.bin.e", Path(work) / "out.bin.e"
         source.write_bytes(original)
-        run_cli(load("patch_masterdata", SCRIPTS / "patch_masterdata.py"), "--input", source, "--output", target)
+        run_cli(load("patch_masterdata", MASTER_PATCHER), "--input", source, "--output", target)
         return target.read_bytes()
 
 

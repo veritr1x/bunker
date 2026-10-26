@@ -10,7 +10,7 @@
   points, 1 point back every 180 s, 10 points a battle and 5 a refresh.
   Grades and the win, weekly grade and weekly rank rewards come from the
   Arena tables. Season 202038 is the current one: Bunker's patched seasons
-  all run to 2030, and it is the one that started last.
+  all run to 2099, and it is the one that started last.
 - `internal/pvp` tests with the patched master data and the emulator's save:
   the ladder is the same each start and ranks the player; a battle costs
   battle points that come back on time; opponent decks stay within the

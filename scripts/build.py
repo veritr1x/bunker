@@ -145,7 +145,7 @@ def main():
         assets = work / "ios/master"
         assets.mkdir(parents=True, exist_ok=True)
     patched_master = assets / "20240404193219.bin.e"
-    run(python, ROOT / "upstream/lunar-scripts/patch_masterdata.py", "--input", master,
+    run(python, ROOT / "upstream/lunar-tear-masterdata-patcher/patch_masterdata.py", "--input", master,
         "--output", patched_master, env=env)
     env["LUNAR_TEST_MASTER"] = str(patched_master)
     # Bunker's own tests replay the live service's dates, so they read the original data.
