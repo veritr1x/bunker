@@ -31,11 +31,19 @@ UNITY = "Frameworks/UnityFramework.framework/UnityFramework"
 ADJUST_SITES = ((0x18F10C4, 0xA9BD57F6, 0xD65F03C0),)
 
 
-def patch_adjust(source, target):
-    """Copies UnityFramework from the open file source to target with Adjust's start turned off.
+def unity_sites():
+    """Every UnityFramework change Bunker makes, so an update brings the current ones to an
+    installed app (package_ipa.prepare_app makes the same changes in a new build)."""
+    import guerrilla_unlock, remain_days, scroll_snap, text_buffer
+    return ADJUST_SITES + text_buffer.SITES + scroll_snap.SITES + remain_days.SITES + guerrilla_unlock.SITES
 
-    Streams the 100 MB library: on iOS this runs in the game's process. Already off is fine."""
-    sites = {offset: (original, patched) for offset, original, patched in ADJUST_SITES}
+
+def patch_unity(source, target, sites=None):
+    """Copies UnityFramework from the open file source to target with Bunker's changes made.
+
+    Streams the 100 MB library: on iOS this runs in the game's process. A change already
+    made is fine; any other word at a site stops the update."""
+    sites = {offset: (original, patched) for offset, original, patched in (unity_sites() if sites is None else sites)}
     position = 0
     while True:
         chunk = bytearray(source.read(1 << 20))
@@ -139,11 +147,11 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
                     settings = zipfile.ZipInfo(prefix + SETTINGS)
                     settings.external_attr = 0o100644 << 16
                     out.writestr(settings, patch_unity_connect(path.read_bytes()))
-                elif relative.as_posix() == UNITY:  # earlier builds let the game start Adjust
+                elif relative.as_posix() == UNITY:  # earlier builds lack later changes (Adjust, the 999-day cap, ...)
                     unity = zipfile.ZipInfo(prefix + UNITY)
                     unity.external_attr = 0o100755 << 16
                     with path.open("rb") as source, out.open(unity, "w", force_zip64=True) as target:
-                        patch_adjust(source, target)
+                        patch_unity(source, target)
                 else:
                     out.write(path, prefix + relative.as_posix())
             if notices_zip:

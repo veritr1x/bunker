@@ -78,8 +78,10 @@ From 1.0.0, the launcher looks for a newer release when it opens. It checks
 only when online, and ⋮ › Check for updates turns it off. **Update** downloads
 Bunker's launcher framework and Python runtime from the release. It then builds
 `Bunker-<version>.ipa` from the installed app, in Documents (Files › On My
-iPhone/iPad › NieR). It copies the game's files, including the patched
-UnityFramework, unchanged, and leaves out the old signatures.
+iPhone/iPad › NieR). It copies the game's files and leaves out the old
+signatures. UnityFramework gets Bunker's current game fixes on the way, so an
+app built before a fix gets it with the update. The updater is the installed
+app's, so a fix it doesn't know yet arrives with the update after.
 Then the share sheet opens. SideStore or AltStore can sign and install the IPA on
 the device. Or copy it to a Mac and sideload it with the same bundle ID and
 team, so the saves stay. The new version deletes the IPA when it first
