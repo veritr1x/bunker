@@ -4,6 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.3.5 (2026-10-27)
+
+Chapter 4's "A Tool of the Master" can be finished on very wide Android
+screens, the guerrilla quests' unlock follows the game's rules, iOS updates
+bring the game fixes, and new builds start with all content open and no ads.
+
 ## 2026-10-26
 
 ### Game client
