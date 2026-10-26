@@ -33,6 +33,9 @@
 //   2099 fits its badge (remain_days.c). Any setting.
 // - Guerrilla quests: the Force Unlock button shows only while the game data
 //   has an unlock valid now (guerrilla_unlock.c). Any setting.
+// - Story rooms: on screens wider than 19.5:9 the camera stops at the room's
+//   edge where the screen-edge walls do, so a story trigger there can be
+//   reached (camera_edge.c). Any setting.
 // - EGL fence syncs: Unity's render worker can destroy a sync twice, which on
 //   Android 17 stops the game on a black screen (egl_sync.c). Any setting.
 // - Google Play services: Firebase's start-up check passes without them
@@ -60,6 +63,7 @@
 #include "play_services.h"
 #include "remain_days.h"
 #include "guerrilla_unlock.h"
+#include "camera_edge.h"
 #include "roulette_ads.h"
 #include "text_buffer.h"
 
@@ -384,6 +388,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Text builder: unsupported game binary; long texts can still overrun");
     if (remain_days_cap(base, write_word))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Remaining days: unsupported game binary; open campaigns show their full day count");
+    if (camera_edge_fix(base, write_word))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Story rooms: unsupported game binary; on very wide screens the camera stops short of the room's edge");
     if (guerrilla_unlock_button(base, hook))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Guerrilla quests: unsupported game binary; Force Unlock shows before it exists");
     const char *egl = egl_sync_fix();
