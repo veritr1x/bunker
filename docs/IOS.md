@@ -34,6 +34,12 @@ python3.11 scripts/build.py \
 This writes an unsigned `artifacts/bunker.ipa`. Sideloadly or
 AltStore can sign and install it with your Apple ID.
 
+**Pick one bundle ID and keep it.** iOS keeps an app's saves and game files
+under its bundle ID: an IPA signed with another ID installs as a second app,
+empty, and deleting an app deletes its data. Keep the game's own ID,
+`com.square-enix.NieRSPww`, if your profile allows it (a wildcard profile
+does); otherwise use one ID of your team's for every build and update.
+
 To sign it yourself, give it a bundle ID your team owns and a development
 profile that includes your device. One way to get the profile is to let
 Xcode create it with the helper project:
@@ -55,6 +61,16 @@ xcrun devicectl device install app --device <device UDID> artifacts/bunker.ipa
 
 The provisioning build only creates the profile. It does not install anything.
 Profiles expire. To keep saves, rebuild and reinstall with the same bundle ID.
+
+To sign an IPA that is already built, such as the web builder's, use
+`ios/tools/sign_ipa.py`. It changes only the bundle ID (when you give one) and
+keeps everything else the builder set, such as the port offset:
+
+```sh
+python3.11 ios/tools/sign_ipa.py bunker.ipa --bundle-id com.square-enix.NieRSPww \
+  --sign-identity '<codesign identity>' --profile inputs/ios-development.mobileprovision
+xcrun devicectl device install app --device <device UDID> bunker-signed.ipa
+```
 
 ## Updates
 
