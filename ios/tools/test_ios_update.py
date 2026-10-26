@@ -30,9 +30,9 @@ class BuildIpaTests(unittest.TestCase):
         write(self.app / "embedded.mobileprovision", "old profile")
         # Adjust's start at offset 16 of a small stand-in library (the real one is 100 MB).
         self.unity = b"patched unity..." + (0xA9BD57F6).to_bytes(4, "little") + b"rest"
-        sites = bunker_ios_update.ADJUST_SITES
-        bunker_ios_update.ADJUST_SITES = ((16, 0xA9BD57F6, 0xD65F03C0),)
-        self.addCleanup(setattr, bunker_ios_update, "ADJUST_SITES", sites)
+        sites = bunker_ios_update.unity_sites
+        bunker_ios_update.unity_sites = lambda: ((16, 0xA9BD57F6, 0xD65F03C0),)
+        self.addCleanup(setattr, bunker_ios_update, "unity_sites", sites)
         write(self.app / "Frameworks/UnityFramework.framework/UnityFramework", self.unity)
         write(self.app / "Frameworks/UnityFramework.framework/_CodeSignature/CodeResources", "sig")
         write(self.app / "Frameworks/LunarTear.framework/LunarTear", "old launcher")
@@ -146,31 +146,36 @@ class BuildIpaTests(unittest.TestCase):
             self.assertIs(info[key], value, key)
 
 
-class AdjustTests(unittest.TestCase):
-    def patch(self, data):
+class UnityPatchTests(unittest.TestCase):
+    def patch(self, data, sites=None):
         import io
         out = io.BytesIO()
-        bunker_ios_update.patch_adjust(io.BytesIO(data), out)
+        bunker_ios_update.patch_unity(io.BytesIO(data), out, sites)
         return out.getvalue()
 
-    def test_game_binary(self):
+    def test_an_update_makes_the_same_changes_as_a_new_build(self):
+        # An app built before a change (the 999-day cap, the guerrilla button) gets it on its next update.
         ipa = Path(__file__).resolve().parents[2] / "inputs/game-3.7.1.ipa"
         if not ipa.is_file():
             raise unittest.SkipTest("needs inputs/game-3.7.1.ipa")
+        import guerrilla_unlock
+        from text_buffer import patch_words
         with zipfile.ZipFile(ipa) as z:
-            original = z.read("Payload/NieR.app/" + bunker_ios_update.UNITY)
-        patched = self.patch(original)
-        self.assertEqual(len(patched), len(original))
-        self.assertEqual([i for i in range(len(original)) if original[i] != patched[i]],
-                         [i for i in range(0x18F10C4, 0x18F10C8) if original[i] != patched[i]])
-        self.assertEqual(patched[0x18F10C4:0x18F10C8], (0xD65F03C0).to_bytes(4, "little"))
-        self.assertEqual(self.patch(patched), patched)
+            original = bytearray(z.read("Payload/NieR.app/" + bunker_ios_update.UNITY))
+        original[guerrilla_unlock.MENU_BUTTON:guerrilla_unlock.MENU_BUTTON + 4] = (0xD65F03C0).to_bytes(4, "little")  # lunar-scripts
+        updated = self.patch(bytes(original))
+        with tempfile.TemporaryDirectory() as temp:
+            built = Path(temp) / "UnityFramework"
+            built.write_bytes(original)
+            patch_words(built, bunker_ios_update.unity_sites(), "0x{offset:X}")
+            self.assertEqual(updated, built.read_bytes())
+        self.assertEqual(self.patch(updated), updated)  # Already changed is fine.
 
     def test_unknown_binary_is_refused(self):
         with self.assertRaisesRegex(RuntimeError, "3.7.1 UnityFramework"):
-            self.patch(b"\0" * 0x18F2000)
+            self.patch(b"\0" * 0x18F2000, bunker_ios_update.ADJUST_SITES)
         with self.assertRaisesRegex(RuntimeError, "too short"):
-            self.patch(b"\0" * 16)
+            self.patch(b"\0" * 16, bunker_ios_update.ADJUST_SITES)
 
 
 class UnityConnectTests(unittest.TestCase):
