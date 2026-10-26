@@ -102,7 +102,8 @@ def main():
     target.add_argument("--ipa", type=Path, help="Original decrypted game 3.7.1 IPA (builds iPhone)")
     parser.add_argument("--master", type=Path, required=True, help="Original 20240404193219.bin.e")
     parser.add_argument("--keystore", type=Path, default=ROOT / "inputs/lunar-local.keystore", help="Android signing key")
-    parser.add_argument("--bundle-id", help="iPhone: bundle ID for signing with your own Apple team")
+    parser.add_argument("--bundle-id", help="iPhone: bundle ID for signing with your own Apple team. Use the same one for every build: "
+                        "saves stay with the bundle ID (com.square-enix.NieRSPww, the game's own, if your profile allows it)")
     parser.add_argument("--sign-identity", help="iPhone: codesign identity; requires --profile")
     parser.add_argument("--profile", type=Path, help="iPhone: provisioning profile for --bundle-id")
     parser.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip",
