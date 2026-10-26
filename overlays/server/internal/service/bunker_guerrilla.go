@@ -15,11 +15,23 @@ import (
 // gems (m_config, 100), free gems first; the uses reset at the daily reset.
 // The client checks the player has the gems; the server takes them.
 
-// guerrillaRules reads the free uses a day, the gem price and how long an unlock lasts.
-func guerrillaRules() (freePerDay, gemCost, minutes int32) {
-	freePerDay, minutes = 1, defaultGuerrillaFreeOpenMinutes
-	if rows, err := utils.ReadTable[masterdata.EntityMEventQuestGuerrillaFreeOpen]("m_event_quest_guerrilla_free_open"); err == nil && len(rows) > 0 {
-		freePerDay, minutes = rows[0].DailyOpenMaxCount, rows[0].OpenMinutes
+// guerrillaTerm finds the unlock row valid at now: its free uses a day and how long an
+// unlock lasts. The Original calendar moves this table with the rest of the game data, so
+// early in a loop (before 10 September 2021 in the live service) there is none and the
+// game offers the unlock for "0m"; it must not open or take gems then.
+func guerrillaTerm(rows []masterdata.EntityMEventQuestGuerrillaFreeOpen, now int64) (freePerDay, minutes int32, ok bool) {
+	for _, row := range rows {
+		if row.StartDatetime <= now && now < row.EndDatetime {
+			return row.DailyOpenMaxCount, row.OpenMinutes, true
+		}
+	}
+	return 0, 0, false
+}
+
+// guerrillaRules reads the unlock row valid at now and the gem price.
+func guerrillaRules(now int64) (freePerDay, gemCost, minutes int32, ok bool) {
+	if rows, err := utils.ReadTable[masterdata.EntityMEventQuestGuerrillaFreeOpen]("m_event_quest_guerrilla_free_open"); err == nil {
+		freePerDay, minutes, ok = guerrillaTerm(rows, now)
 	}
 	if rows, err := utils.ReadTable[masterdata.EntityMConfig]("m_config"); err == nil {
 		for _, row := range rows {
@@ -30,7 +42,7 @@ func guerrillaRules() (freePerDay, gemCost, minutes int32) {
 			}
 		}
 	}
-	return freePerDay, gemCost, minutes
+	return freePerDay, gemCost, minutes, ok
 }
 
 // openGuerrilla unlocks the guerrilla quests from now for minutes, charging gemCost gems once

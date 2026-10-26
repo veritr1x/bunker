@@ -1,8 +1,8 @@
 diff --git a/server/internal/service/quest_event.go b/server/internal/service/quest_event.go
-index 8b58be1..9b37286 100644
+index 8b58be1..6db9b16 100644
 --- a/server/internal/service/quest_event.go
 +++ b/server/internal/service/quest_event.go
-@@ -106,12 +106,16 @@ func (s *QuestServiceServer) StartGuerrillaFreeOpen(ctx context.Context, req *em
+@@ -106,12 +106,21 @@ func (s *QuestServiceServer) StartGuerrillaFreeOpen(ctx context.Context, req *em
  
  	userId := CurrentUserId(ctx, s.users, s.sessions)
  	nowMillis := gametime.NowMillis()
@@ -12,7 +12,12 @@ index 8b58be1..9b37286 100644
 -		user.GuerrillaFreeOpen.DailyOpenedCount++
 -		user.GuerrillaFreeOpen.LatestVersion = nowMillis
 -	})
-+	freePerDay, gemCost, minutes := guerrillaRules()
++	freePerDay, gemCost, minutes, ok := guerrillaRules(nowMillis)
++	if !ok {
++		// No unlock in the game data yet (early in an Original calendar loop): nothing opens, nothing is taken.
++		log.Printf("[QuestService] StartGuerrillaFreeOpen: no unlock valid now")
++		return &pb.StartGuerrillaFreeOpenResponse{}, nil
++	}
 +	var openErr error
 +	if _, err := s.users.UpdateUser(userId, func(user *store.UserState) {
 +		openErr = openGuerrilla(user, nowMillis, gametime.StartOfDay(nowMillis), freePerDay, gemCost, minutes)
