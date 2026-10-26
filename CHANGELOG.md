@@ -34,6 +34,12 @@ under its heading, down to the previous release.
   before. [4205647]
 
 ### iOS
+- In-app updates now bring Bunker's game fixes to an installed app: the
+  999-day campaign badges, the guerrilla Force Unlock button, and the
+  summon list and long-text fixes for installs older than those. Before,
+  an update kept the game binary as it was, so those fixes needed a new
+  build. Because each update runs the installed app's updater, an app gets
+  this from its second update after this release. [707a6bf]
 - New: `ios/tools/sign_ipa.py` signs an IPA that is already built, such as
   the web builder's, with your certificate and profile. It changes only the
   bundle ID and keeps the builder's settings. docs/IOS.md now says to keep
