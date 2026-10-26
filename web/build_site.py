@@ -35,7 +35,7 @@ PYTHON = [
     "ios/tools/text_buffer.py",
     "upstream/lunar-scripts/android/patch_apk.py",
     "upstream/lunar-scripts/ios/patch_ipa.py",
-    "upstream/lunar-scripts/patch_masterdata.py",
+    "upstream/lunar-tear-masterdata-patcher/patch_masterdata.py",
     "web/signing/bunker-key.pem",
     "web/signing/bunker-cert.der",
 ]
