@@ -3,6 +3,7 @@ import struct
 import tempfile
 from pathlib import Path
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -116,6 +117,28 @@ class PrivacyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported game binary"):
             privacy.patch_library(source)
         self.assertEqual(bytes(source), original)
+
+    def test_library_file_is_patched_where_it_lies(self):
+        # The browser build keeps files in memory: the 127 MB library is not read whole.
+        source, _ = elf()
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "libil2cpp.so"
+            path.write_bytes(source)
+            with mock.patch.object(Path, "read_bytes", side_effect=AssertionError("read the whole library")):
+                privacy.patch_library_file(path)
+            self.assertEqual(path.read_bytes(), privacy.patch_library(source))
+            privacy.patch_library_file(path)  # Already patched is fine.
+            self.assertEqual(path.read_bytes(), privacy.patch_library(source))
+
+    def test_unknown_library_file_is_left_alone(self):
+        source, offsets = elf()
+        source[offsets[-1] + 12] ^= 1
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "libil2cpp.so"
+            path.write_bytes(source)
+            with self.assertRaisesRegex(ValueError, "Unsupported game binary"):
+                privacy.patch_library_file(path)
+            self.assertEqual(path.read_bytes(), bytes(source))
 
     def test_non_executable_mapping_and_wrong_architecture_are_rejected(self):
         source, _ = elf()

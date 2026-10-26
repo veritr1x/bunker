@@ -48,21 +48,6 @@ class Pieces {
   done() { this.fold(); return this.blob; }
 }
 
-// Reads a file out of Pyodide's in-memory file system piece by piece, then deletes it.
-function takeFile(FS, path) {
-  const pieces = new Pieces();
-  const size = FS.stat(path).size;
-  const stream = FS.open(path, "r");
-  for (let position = 0; position < size; position += 16 << 20) {
-    const piece = new Uint8Array(Math.min(16 << 20, size - position));
-    FS.read(stream, piece, 0, piece.length, position);
-    pieces.add(piece);
-  }
-  FS.close(stream);
-  FS.unlink(path);
-  return pieces.done();
-}
-
 function writeFile(pyodide, path, bytes) {
   pyodide.FS.mkdirTree(path.slice(0, path.lastIndexOf("/")));
   pyodide.FS.writeFile(path, bytes);
@@ -95,30 +80,28 @@ self.onmessage = async ({ data }) => {
     const gamePath = "/input/" + game.name, masterPath = "/input/" + master.name;
     const log = (line) => post("log", line);
     const builder = pyodide.globals.get("webbuild");
-    let name, blob;
+    // The APK or IPA comes out in pieces as it is written; it is never a file here.
+    const pieces = new Pieces();
+    const handOver = (piece) => {
+      const buffer = piece.getBuffer("u8");
+      pieces.add(buffer.data.slice());
+      buffer.release();
+      piece.destroy();
+    };
+    let name;
     if (platform === "android") {
       writeFile(pyodide, "/bundles/android.zip", await fetchBytes("bundles/android.zip", "the launcher"));
-      FS.mkdirTree("/output");
       const notices = await fetchNotices(pyodide);
-      builder.build_android(gamePath, masterPath, "/bundles/android.zip", "/output/bunker.apk", log, portOffset, notices);
+      builder.build_android(gamePath, masterPath, "/bundles/android.zip", handOver, log, portOffset, notices);
       name = "bunker.apk";
-      blob = takeFile(FS, "/output/bunker.apk");
     } else {
       writeFile(pyodide, "/bundles/ios-framework.zip", await fetchBytes("bundles/ios-framework.zip", "the launcher"));
       writeFile(pyodide, "/bundles/ios-python.zip", await fetchBytes("bundles/ios-python.zip", "Tools"));
       const notices = await fetchNotices(pyodide);
-      // The IPA comes out in pieces as it is written; it is never a file here.
-      const pieces = new Pieces();
-      const handOver = (piece) => {
-        const buffer = piece.getBuffer("u8");
-        pieces.add(buffer.data.slice());
-        buffer.release();
-        piece.destroy();
-      };
       builder.build_ios(gamePath, masterPath, "/bundles/ios-framework.zip", "/bundles/ios-python.zip", handOver, log, portOffset, notices);
       name = "bunker.ipa";
-      blob = pieces.done();
     }
+    const blob = pieces.done();
     for (const file of FS.readdir("/bundles")) if (file !== "." && file !== "..") FS.unlink("/bundles/" + file);
     self.postMessage({ type: "done", value: { name, blob } });
   } catch (error) {

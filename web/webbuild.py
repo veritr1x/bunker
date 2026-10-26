@@ -30,11 +30,21 @@ def addresses(port_offset=0):
 
 
 def build_android(apk, master, companion, output, log=print, port_offset=0, notices=None):
+    """output is a path, or a function that takes the signed APK in pieces: it is then signed
+    as it is written and never held whole (a browser keeps every file in memory)."""
     addresses(port_offset)  # Validate before the slow steps.
-    assemble_apk.assemble(Path(apk), Path(master), Path(companion), Path(output), log=log, port_offset=int(port_offset),
-                          notices=Path(notices) if notices else None)
-    log("Signing with the public Bunker key…")
-    apk_sign.sign(Path(output))
+    notices = Path(notices) if notices else None
+    if callable(output):
+        pieces = _Pieces(output)
+        log("Signing with the public Bunker key as the APK is written…")
+        assemble_apk.assemble(Path(apk), Path(master), Path(companion), apk_sign.StreamSigner(pieces), log=log,
+                              port_offset=int(port_offset), notices=notices)
+        pieces.flush()
+    else:
+        assemble_apk.assemble(Path(apk), Path(master), Path(companion), Path(output), log=log, port_offset=int(port_offset),
+                              notices=notices)
+        log("Signing with the public Bunker key…")
+        apk_sign.sign(Path(output))
     log("Signed APK ready to install.")
 
 
