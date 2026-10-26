@@ -1,14 +1,19 @@
 """The streaming IPA writer the browser build uses, on small generated archives."""
 from pathlib import Path
+import importlib.util
 import os
 import plistlib
+import shutil
+import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 import ipa_stream
 
 APP = "Payload/Game.app/"
+UPSTREAM = Path(__file__).resolve().parents[2] / "upstream/lunar-scripts/ios/patch_ipa.py"
 
 
 class Sink:
@@ -95,6 +100,45 @@ class StreamTests(unittest.TestCase):
             entry(z, "Payload/B.app/Info.plist", b"")
         with self.assertRaises(RuntimeError):
             ipa_stream.extract_for_patching(self.source, self.root / "edit")
+
+
+class UpstreamPatcherTests(unittest.TestCase):
+    """The browser build runs lunar-scripts' ios/patch_ipa.py with its unpack and repack
+    swapped for ipa_stream's (web/webbuild.py). This fails if a new upstream version stops
+    going through them, which would unpack the whole game in memory again."""
+
+    def test_the_patcher_patches_only_the_files_it_takes_out(self):
+        if not UPSTREAM.is_file():
+            self.skipTest("needs the lunar-scripts submodule")
+        spec = importlib.util.spec_from_file_location("patch_ipa_under_test", UPSTREAM)
+        patcher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(patcher)
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        app = "Payload/NieR.app/"
+        source = root / "game.ipa"
+        with zipfile.ZipFile(source, "w") as z:
+            entry(z, app + "Info.plist", plistlib.dumps({"CFBundleExecutable": "NieR"}))
+            entry(z, app + "NieR", b"executable", 0o100755)
+            entry(z, app + "Data/Managed/Metadata/global-metadata.dat", b"metadata")
+            entry(z, app + "Frameworks/UnityFramework.framework/UnityFramework", b"unity")
+            entry(z, app + "Data/Raw/level.bundle", b"not patched" * 100)
+        patched = []
+        stubs = {name: (lambda *args, name=name: patched.append((name, Path(args[0]).name)) or 0)
+                 for name in ("patch_metadata_strings", "patch_info_plist", "patch_facebook_frameworks", "patch_unity_framework")}
+        for name in stubs:
+            self.assertTrue(hasattr(patcher, name), f"upstream has no {name}")
+        edited = root / "edited"
+        argv = ["patch_ipa", str(source), "--grpc-addr", "127.0.0.1:8003", "--http-addr", "127.0.0.1:8080",
+                "--auth-host", "127.0.0.1:3000", "-o", str(edited)]
+        with mock.patch.multiple(patcher, unpack_ipa=ipa_stream.extract_for_patching, repack_ipa=shutil.move, **stubs), \
+                mock.patch.object(sys, "argv", argv), mock.patch("sys.stdout"):
+            patcher.main()
+        self.assertEqual(sorted(name for name, _ in patched), sorted(stubs))
+        self.assertEqual(dict(patched)["patch_unity_framework"], "UnityFramework")
+        kept = sorted(str(p.relative_to(edited)) for p in edited.rglob("*") if p.is_file())
+        self.assertEqual(kept, sorted(app + n for n in (
+            "Info.plist", "NieR", "Data/Managed/Metadata/global-metadata.dat",
+            "Frameworks/UnityFramework.framework/UnityFramework")))
 
 
 if __name__ == "__main__":
