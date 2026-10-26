@@ -1,0 +1,27 @@
+diff --git a/server/internal/service/quest_event.go b/server/internal/service/quest_event.go
+index 8b58be1..9b37286 100644
+--- a/server/internal/service/quest_event.go
++++ b/server/internal/service/quest_event.go
+@@ -106,12 +106,16 @@ func (s *QuestServiceServer) StartGuerrillaFreeOpen(ctx context.Context, req *em
+ 
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+ 	nowMillis := gametime.NowMillis()
+-	s.users.UpdateUser(userId, func(user *store.UserState) {
+-		user.GuerrillaFreeOpen.StartDatetime = nowMillis
+-		user.GuerrillaFreeOpen.OpenMinutes = defaultGuerrillaFreeOpenMinutes
+-		user.GuerrillaFreeOpen.DailyOpenedCount++
+-		user.GuerrillaFreeOpen.LatestVersion = nowMillis
+-	})
++	freePerDay, gemCost, minutes := guerrillaRules()
++	var openErr error
++	if _, err := s.users.UpdateUser(userId, func(user *store.UserState) {
++		openErr = openGuerrilla(user, nowMillis, gametime.StartOfDay(nowMillis), freePerDay, gemCost, minutes)
++	}); err != nil {
++		return nil, status.Errorf(codes.Internal, "update user: %v", err)
++	}
++	if openErr != nil {
++		return nil, status.Errorf(codes.FailedPrecondition, "guerrilla unlock: %v", openErr)
++	}
+ 
+ 	return &pb.StartGuerrillaFreeOpenResponse{}, nil
+ }
