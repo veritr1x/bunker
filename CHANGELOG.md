@@ -4,6 +4,35 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-26
+
+### Game data
+- New builds (APK, IPA and the web page) start with the game data Pod
+  Programs makes when nothing is picked: content stays open until 31
+  December 2099, which the server treats as never ending, and the menu's
+  ad banners, the home screen's news cut-ins and the login popup are hidden.
+  Before, a fresh install was open only to 2030 and showed the ads until
+  Pod Programs patched it. Installed apps keep their current game data.
+  [0b195b6]
+
+### Web builder
+- The Android build needs much less memory: about 1.2 GB in Chrome instead
+  of 2 GB. The game library is patched where it lies, and the APK is signed
+  as it is written and passed to the page in pieces. The APK is the same as
+  before. [4205647]
+
+### iOS
+- New: `ios/tools/sign_ipa.py` signs an IPA that is already built, such as
+  the web builder's, with your certificate and profile. It changes only the
+  bundle ID and keeps the builder's settings. docs/IOS.md now says to keep
+  one bundle ID for every install, the game's own `com.square-enix.NieRSPww`
+  where your profile allows it: saves stay with the bundle ID. [814b222]
+
+### Development
+- The unit tests now run on every push to main, not only at release, plus
+  the iOS packaging tests on macOS and a check that the web builder still
+  goes through lunar-scripts' IPA patcher as it expects. [9588b6e]
+
 ## 1.3.1 (2026-10-25)
 
 The web page can now build for iPhone/iPad with much less memory, and on
