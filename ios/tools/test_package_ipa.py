@@ -152,8 +152,40 @@ class BunkerVersionTests(unittest.TestCase):
         self.assertEqual(patch_info(self.app)["BunkerVersion"], "dev")
 
 
-if __name__ == "__main__":
-    unittest.main()
+class GuerrillaUnlockTests(unittest.TestCase):
+    def test_the_epilogue_jumps_to_code_that_ends_with_the_same_epilogue(self):
+        import guerrilla_unlock as g
+
+        def branch(offset, word):
+            imm = word & 0x3FFFFFF
+            return offset + (imm - (1 << 26) if imm & 1 << 25 else imm) * 4
+        sites = {o: (orig, new) for o, orig, new in g.SITES}
+        self.assertEqual(sites[g.MENU_BUTTON], (0xD65F03C0, 0xD65F03C0))  # Only into a method that already returns.
+        original, jump = sites[g.TIMETABLE_END]
+        self.assertEqual(jump >> 26, 0b000101)  # b
+        self.assertEqual(branch(g.TIMETABLE_END, jump), g.CAVE)
+        cave = [sites[g.CAVE + 4 * i][1] for i in range(19)]
+        self.assertEqual(cave[14], original)  # The epilogue's first word, then the rest of it.
+        self.assertEqual(cave[-1], 0xD65F03C0)
+        calls = [branch(g.CAVE + 4 * i, w) for i, w in enumerate(cave) if w >> 26 == 0b100101]
+        self.assertEqual(calls, [g.TRY_GET_FREE_OPEN, g.GET_GAME_OBJECT, g.SET_ACTIVE])
+        self.assertLess(g.CAVE + 4 * 19, 0x1F1BD9C)  # Inside InitializeMenuButton.
+
+    def test_an_unpatched_title_screen_is_left_alone(self):
+        import guerrilla_unlock as g
+        from text_buffer import patch_words
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "UnityFramework"
+            with path.open("wb") as handle:
+                for offset, original, _ in g.SITES:
+                    handle.seek(offset)
+                    handle.write(original.to_bytes(4, "little"))
+                handle.seek(g.MENU_BUTTON)
+                handle.write((0xD10103FF).to_bytes(4, "little"))  # The method's own first word: not returned yet.
+            before = path.read_bytes()
+            with self.assertRaises(RuntimeError):
+                patch_words(path, g.SITES, "unsupported at 0x{offset:X}")
+            self.assertEqual(path.read_bytes(), before)
 
 
 class ScrollSnapTests(unittest.TestCase):
@@ -176,3 +208,7 @@ class RemainDaysTests(unittest.TestCase):
             self.assertEqual(original & 0xFFF8001F, 0x36480008)  # tbz w8, #9, ...
             self.assertEqual(offset + (patched & 0x3FFFFFF) * 4, offset + (original >> 5 & 0x3FFF) * 4 + 4)  # the call after the init check
             self.assertEqual([o - offset for o, _, _ in sites], [-12, -8, -4, 0])
+
+
+if __name__ == "__main__":
+    unittest.main()
