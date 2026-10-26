@@ -3,6 +3,7 @@ package service
 import (
 	"testing"
 
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
 )
 
@@ -44,5 +45,23 @@ func TestGuerrillaUnlockIsFreeOnceADayThenCostsGems(t *testing.T) {
 	}
 	if user.Gem.FreeGem != 20 || user.Gem.PaidGem != 30 || user.GuerrillaFreeOpen.DailyOpenedCount != 1 {
 		t.Fatalf("next day: %+v %+v", user.Gem, user.GuerrillaFreeOpen)
+	}
+}
+
+func TestGuerrillaUnlockNeedsAnUnlockRowInItsTerm(t *testing.T) {
+	rows := []masterdata.EntityMEventQuestGuerrillaFreeOpen{
+		{EventQuestGuerrillaFreeOpenId: 1, OpenMinutes: 60, DailyOpenMaxCount: 1, StartDatetime: 1000, EndDatetime: 5000},
+	}
+	if _, _, ok := guerrillaTerm(rows, 999); ok {
+		t.Fatal("open before the unlock's start (the calendar has not reached it)")
+	}
+	if free, minutes, ok := guerrillaTerm(rows, 1000); !ok || free != 1 || minutes != 60 {
+		t.Fatalf("at the start: %d %d %v", free, minutes, ok)
+	}
+	if _, _, ok := guerrillaTerm(rows, 5000); ok {
+		t.Fatal("open after the end")
+	}
+	if _, _, ok := guerrillaTerm(nil, 1000); ok {
+		t.Fatal("open without a row")
 	}
 }
