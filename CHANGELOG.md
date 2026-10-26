@@ -6,6 +6,13 @@ under its heading, down to the previous release.
 
 ## 2026-10-26
 
+### Game client
+- Guerrilla quests: the "Use 100 gems" unlock now takes the 100 gems.
+  The first unlock each day stays free and comes back at the daily reset.
+  Before, every unlock was free and the day's count never reset. With
+  fewer than 100 gems the game's Unlock button does nothing; that is the
+  game's own check. [087b373]
+
 ### Game data
 - New builds (APK, IPA and the web page) start with the game data Pod
   Programs makes when nothing is picked: content stays open until 31
