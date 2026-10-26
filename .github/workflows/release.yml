@@ -32,7 +32,7 @@ jobs:
       - name: Unit tests
         run: |
           (cd scripts && python3 -m unittest test_version test_release_assets test_notices)
-          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch)
+          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch test_assemble_stream)
           (cd ios/tools && python3 -m unittest test_ipa_stream test_sign_ipa)
           (cd web && python3 -m unittest test_build_site)
           python3 -c "import sys; sys.path.insert(0, 'scripts'); import release_assets; release_assets.changelog_section(open('CHANGELOG.md').read(), open('VERSION').read().strip())"

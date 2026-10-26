@@ -35,25 +35,19 @@ def patch_local_reachability(game):
     Refuse unknown binaries rather than applying this offset speculatively.
     """
     path=game/"lib/arm64-v8a/libil2cpp.so"
-    data=bytearray(path.read_bytes())
-    if data[:6] != b"\x7fELF\x02\x01" or struct.unpack_from("<H",data,18)[0] != 183:
-        raise RuntimeError("Expected the Android ARM64 game library")
     rva=0x4910D4C
-    table=struct.unpack_from("<Q",data,32)[0]
-    stride,count=struct.unpack_from("<HH",data,54)
-    offset=None
-    for i in range(count):
-        kind,flags,file_offset,address,_,size,_,_=struct.unpack_from("<IIQQQQQQ",data,table+i*stride)
-        if kind==1 and flags&1 and address<=rva and rva+16<=address+size:
-            offset=file_offset+rva-address
-            break
-    if offset is None: raise RuntimeError("Reachability method is outside executable ELF data")
-    original=bytes.fromhex("f30f1ef8fd7b01a9")
-    patched=bytes.fromhex("40008052c0035fd6") # mov w0, #2; ret
-    if data[offset:offset+8] not in (original,patched) or data[offset+8:offset+16]!=bytes.fromhex("fd430091738401b0"):
-        raise RuntimeError("Unsupported game binary: expected 3.7.1 reachability method")
-    data[offset:offset+8]=patched
-    path.write_bytes(data)
+    # Patched where it lies: the browser build keeps files in memory.
+    with open(path,"r+b") as f:
+        try: segments=privacy.file_segments(f)
+        except ValueError: raise RuntimeError("Expected the Android ARM64 game library")
+        offset=next((file_offset+rva-address for file_offset,address,size in segments if address<=rva and rva+16<=address+size),None)
+        if offset is None: raise RuntimeError("Reachability method is outside executable ELF data")
+        original=bytes.fromhex("f30f1ef8fd7b01a9")
+        patched=bytes.fromhex("40008052c0035fd6") # mov w0, #2; ret
+        f.seek(offset); now=f.read(16)
+        if now[:8] not in (original,patched) or now[8:]!=bytes.fromhex("fd430091738401b0"):
+            raise RuntimeError("Unsupported game binary: expected 3.7.1 reachability method")
+        f.seek(offset); f.write(patched)
     print("Local asset reachability enabled (works with radios disabled)")
 
 def main():
@@ -72,7 +66,7 @@ def main():
     patch_local_reachability(game)
     settings=game/"assets/bin/Data/globalgamemanagers";settings.write_bytes(patch_unity_connect(settings.read_bytes()))
     library = game / "lib/arm64-v8a/libil2cpp.so"
-    library.write_bytes(privacy.patch_library(library.read_bytes()))
+    privacy.patch_library_file(library)
     manifest=game/"AndroidManifest.xml";tree=ET.parse(manifest);doc=tree.getroot();app=doc.find("application")
     if app is None: raise RuntimeError("Game manifest has no application")
     package=doc.attrib["package"]

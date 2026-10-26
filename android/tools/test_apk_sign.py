@@ -58,6 +58,30 @@ class SignTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "already signed"):
                 apk_sign.sign(apk)
 
+    def test_signing_while_writing_matches_signing_the_file(self):
+        # The browser build signs the APK as it streams to the page, never holding it as a file.
+        with tempfile.TemporaryDirectory() as work:
+            apk = Path(work) / "test.apk"
+            unsigned_copy(SOURCE, apk)
+            apk_sign.sign(apk)
+
+            class Sink:
+                def __init__(self):
+                    self.parts = []
+
+                def write(self, data):
+                    self.parts.append(bytes(data))
+
+            sink = Sink()
+            with zipfile.ZipFile(SOURCE) as source, open(SOURCE, "rb") as raw:
+                writer = ApkWriter(apk_sign.StreamSigner(sink))
+                for info in source.infolist():
+                    if not re.search(r"^META-INF/.*\.(SF|RSA|DSA|EC|MF)$", info.filename):
+                        writer.copy(raw, info)
+                writer.close()
+            streamed = b"".join(sink.parts)
+            self.assertEqual(streamed, apk.read_bytes())
+
     def verify(self, apk):
         return subprocess.run([str(APKSIGNER), "verify", "-v", "--print-certs", str(apk)],
                               capture_output=True, text=True)

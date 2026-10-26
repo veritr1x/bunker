@@ -40,7 +40,7 @@ jobs:
       - run: python3 -m pip install pycryptodome msgpack lz4
       - run: |
           (cd scripts && python3 -m unittest test_version test_release_assets test_notices)
-          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch)
+          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch test_assemble_stream)
           (cd ios/tools && python3 -m unittest test_ipa_stream test_sign_ipa)
           (cd web && python3 -m unittest test_build_site)
 

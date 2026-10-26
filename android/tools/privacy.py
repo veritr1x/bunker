@@ -48,7 +48,10 @@ def harden_text_manifest(path):
     tree.write(path, encoding="utf-8", xml_declaration=True)
 
 
-def _segments(data):
+def _segments(data, size=None):
+    """Executable segments (file offset, address, size) of the ELF whose header and program
+    headers are at the start of data; size is the whole file's (default len(data))."""
+    size = len(data) if size is None else size
     if len(data) < 64 or data[:6] != b"\x7fELF\x02\x01" or struct.unpack_from("<H", data, 18)[0] != 183:
         raise ValueError("Telemetry hardening requires the Android ARM64 ELF library")
     table = struct.unpack_from("<Q", data, 32)[0]
@@ -57,10 +60,41 @@ def _segments(data):
         raise ValueError("Invalid ELF program headers")
     segments = []
     for index in range(count):
-        kind, flags, offset, address, _, size, _, _ = struct.unpack_from("<IIQQQQQQ", data, table + index * stride)
-        if kind == 1 and flags & 1 and offset + size <= len(data):
-            segments.append((offset, address, size))
+        kind, flags, offset, address, _, length, _, _ = struct.unpack_from("<IIQQQQQQ", data, table + index * stride)
+        if kind == 1 and flags & 1 and offset + length <= size:
+            segments.append((offset, address, length))
     return segments
+
+
+def file_segments(handle):
+    """_segments for an open file, reading only the ELF header and program headers."""
+    size = handle.seek(0, 2)
+    handle.seek(0)
+    header = handle.read(64)
+    if len(header) < 64:
+        return _segments(header, size)
+    table = struct.unpack_from("<Q", header, 32)[0]
+    stride, count = struct.unpack_from("<HH", header, 54)
+    handle.seek(0)
+    return _segments(handle.read(min(size, table + stride * count)), size)
+
+
+def _changes(segments, read):
+    """Where each site goes, checked first: read(offset, length) gives the library's bytes."""
+    changes = []
+    for site in SITES:
+        expected = bytes.fromhex(site["original"])
+        replacement = bytes.fromhex(site["replacement"])
+        offset = next((file + site["rva"] - address for file, address, size in segments
+                       if address <= site["rva"] and site["rva"] + len(expected) <= address + size), None)
+        if offset is None:
+            raise ValueError("Telemetry site outside executable ELF data: " + site["name"])
+        actual = read(offset, len(expected))
+        patched = replacement + expected[len(replacement):]
+        if actual not in (expected, patched):
+            raise ValueError("Unsupported game binary at telemetry site: " + site["name"])
+        changes.append((offset, replacement))
+    return changes
 
 
 def patch_library(data):
@@ -73,21 +107,20 @@ def patch_library(data):
     metadata; instruction guards include unchanged surrounding instructions.
     No task-returning method is replaced with null or an incomplete task.
     """
-    segments = _segments(data)
-    changes = []
-    for site in SITES:
-        expected = bytes.fromhex(site["original"])
-        replacement = bytes.fromhex(site["replacement"])
-        offset = next((file + site["rva"] - address for file, address, size in segments
-                       if address <= site["rva"] and site["rva"] + len(expected) <= address + size), None)
-        if offset is None:
-            raise ValueError("Telemetry site outside executable ELF data: " + site["name"])
-        actual = data[offset:offset + len(expected)]
-        patched = replacement + expected[len(replacement):]
-        if actual not in (expected, patched):
-            raise ValueError("Unsupported game binary at telemetry site: " + site["name"])
-        changes.append((offset, replacement))
+    changes = _changes(_segments(data), lambda offset, length: bytes(data[offset:offset + length]))
     result = bytearray(data)
     for offset, replacement in changes:
         result[offset:offset + len(replacement)] = replacement
     return result
+
+
+def patch_library_file(path):
+    """patch_library on the file at path, where it lies: only the ELF headers and the sites are read."""
+    with open(path, "r+b") as handle:
+        def read(offset, length):
+            handle.seek(offset)
+            return handle.read(length)
+        changes = _changes(file_segments(handle), read)
+        for offset, replacement in changes:
+            handle.seek(offset)
+            handle.write(replacement)

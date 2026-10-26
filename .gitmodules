@@ -10,3 +10,5 @@
 [submodule "upstream/lunar-tear-masterdata-patcher"]
 	path = upstream/lunar-tear-masterdata-patcher
 	url = https://github.com/NavHobbyDev/lunar-tear-masterdata-patcher.git
+	# The builders load its patcher, which leaves __pycache__ behind.
+	ignore = untracked

@@ -15,6 +15,7 @@ the game's Facebook account link is unavailable. Offline play, Tools and save
 import do not use it.
 """
 import argparse
+import contextlib
 import hashlib
 import importlib.util
 import io
@@ -22,6 +23,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import struct
 import sys
 import tempfile
@@ -91,21 +93,22 @@ def run_cli(module, *args):
         sys.argv = old
 
 
-def patch_game_files(lib, metadata, port_offset=0):
-    """Apply lunar-scripts' library and metadata patches, plus local reachability."""
-    with tempfile.TemporaryDirectory() as work:
-        work = Path(work)
-        (work / LIB).parent.mkdir(parents=True)
-        (work / METADATA).parent.mkdir(parents=True)
-        (work / LIB).write_bytes(lib)
-        (work / METADATA).write_bytes(metadata)
-        # The upstream patcher also edits a text manifest; that change is made
-        # on the binary manifest below instead.
-        (work / "AndroidManifest.xml").write_text("<application >")
-        grpc, http = addresses(port_offset)
-        run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", grpc, "--http-addr", http)
-        load("package_game", ROOT / "android/tools/package_game.py").patch_local_reachability(work)
-        return privacy.patch_library((work / LIB).read_bytes()), (work / METADATA).read_bytes()
+def patch_game_files(game, work, port_offset=0):
+    """Apply lunar-scripts' library and metadata patches, plus local reachability and the
+    telemetry controls, to copies in work. Returns their paths: the 127 MB library is never
+    held whole (the browser build keeps files in memory)."""
+    for name in (LIB, METADATA):
+        (work / name).parent.mkdir(parents=True, exist_ok=True)
+        with game.open(name) as source, open(work / name, "wb") as target:
+            shutil.copyfileobj(source, target, 1 << 20)
+    # The upstream patcher also edits a text manifest; that change is made
+    # on the binary manifest below instead.
+    (work / "AndroidManifest.xml").write_text("<application >")
+    grpc, http = addresses(port_offset)
+    run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", grpc, "--http-addr", http)
+    load("package_game", ROOT / "android/tools/package_game.py").patch_local_reachability(work)
+    privacy.patch_library_file(work / LIB)
+    return work / LIB, work / METADATA
 
 
 def patch_unity_connect(settings):
@@ -219,6 +222,27 @@ class ApkWriter:
         else:
             self._write(name, 0, crc, len(data), len(data), data)
 
+    def add_file(self, name, path, compress=True):
+        """add() for a file on disk, without holding it whole (the browser build keeps files in memory)."""
+        crc = size = 0
+        with open(path, "rb") as source:
+            for chunk in iter(lambda: source.read(1 << 20), b""):
+                crc = zlib.crc32(chunk, crc)
+                size += len(chunk)
+        if compress:
+            deflater = zlib.compressobj(6, zlib.DEFLATED, -15)
+            packed = bytearray()
+            with open(path, "rb") as source:
+                for chunk in iter(lambda: source.read(1 << 20), b""):
+                    packed += deflater.compress(chunk)
+            packed += deflater.flush()
+            self._write(name, 8, crc, len(packed), size, packed)
+        else:
+            def stream(out):
+                with open(path, "rb") as source:
+                    shutil.copyfileobj(source, out, 1 << 20)
+            self._write(name, 0, crc, size, size, stream)
+
     def copy(self, source, info):
         """Copy an entry's compressed bytes from the source APK unchanged."""
         source.seek(info.header_offset)
@@ -236,13 +260,17 @@ class ApkWriter:
 
     def close(self):
         directory = self.out.tell()
+        central = bytearray()
         for name, method, crc, compressed, size, offset, flags in self.entries:
             encoded = name.encode()
-            self.out.write(struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, 20, 20, flags, method, 0, 0x21, crc,
-                                       compressed, size, len(encoded), 0, 0, 0, 0, 0, offset) + encoded)
-        end = self.out.tell()
+            central += struct.pack("<IHHHHHHIIIHHHHHII", 0x02014B50, 20, 20, flags, method, 0, 0x21, crc,
+                                   compressed, size, len(encoded), 0, 0, 0, 0, 0, offset) + encoded
         count = len(self.entries)
-        self.out.write(struct.pack("<IHHHHIIH", 0x06054B50, 0, 0, count, count, end - directory, directory, 0))
+        eocd = struct.pack("<IHHHHIIH", 0x06054B50, 0, 0, count, count, len(central), directory, 0)
+        if hasattr(self.out, "finish"):  # apk_sign.StreamSigner: signs as it writes.
+            self.out.finish(bytes(central), eocd)
+        else:
+            self.out.write(bytes(central) + eocd)
 
 
 def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None):
@@ -252,49 +280,60 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
             if required not in names:
                 raise RuntimeError(f"Not the ARM64 game APK: {required} is missing")
         log("Patching the game library and metadata…")
-        lib, metadata = patch_game_files(game.read(LIB), game.read(METADATA), port_offset)
-        log("Updating the manifest…")
-        manifest, game_activity = patch_manifest(game.read("AndroidManifest.xml"), companion.read("AndroidManifest.xml"), port_offset)
-        log("Patching master data…")
-        original_master = Path(master).read_bytes()
-        patched_master = patch_master(original_master)
-        replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
-        dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]
-        next_dex = max(int(n[7:-4] or 1) for n in dex) + 1
-        temporary = Path(str(output) + ".partial")
-        with open(temporary, "wb") as out:
-            writer = ApkWriter(out)
-            log("Writing the APK…")
-            for info in game.infolist():
-                name = info.filename
-                # The publisher's signature no longer applies; you sign the result.
-                if name.startswith("META-INF/") and re.search(r"\.(SF|RSA|DSA|EC)$|MANIFEST\.MF$", name) or name == "stamp-cert-sha256":
-                    continue
-                if name in replaced:
-                    writer.add(name, replaced[name], compress=name != LIB or info.compress_type != 0)
-                else:
-                    writer.copy(raw, info)
-            for name in sorted(companion.namelist(), key=lambda n: (len(n), n)):
-                if re.fullmatch(r"classes\d*\.dex", name):
-                    writer.add("classes%d.dex" % next_dex, companion.read(name)); next_dex += 1
-            ours = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
-                    "assets/lunar/build.json", "assets/lunar/game-manifest.xml"}
-            for name in sorted(companion.namelist()):
-                if name.startswith(("lib/arm64-v8a/", "assets/chaquopy/", "assets/lunar/")) and name not in ours:
-                    writer.add(name, companion.read(name))
-            writer.add("assets/lunar/" + MASTER, patched_master)
-            writer.add("assets/lunar/original-master.bin.e", original_master)
-            writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
-            if notices:
-                log("Adding the notices…")
-                for name, data, kind in notice_pack.entries(notices):
-                    writer.add(name, data, compress=kind != zipfile.ZIP_STORED)
-            # What an update in place needs (build_info.py).
-            info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None)
-            writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
-            writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
-            writer.close()
-        os.replace(temporary, output)
+        patched_files = Path(tempfile.mkdtemp(prefix="game-"))
+        try:
+            lib, metadata = patch_game_files(game, patched_files, port_offset)
+            log("Updating the manifest…")
+            manifest, game_activity = patch_manifest(game.read("AndroidManifest.xml"), companion.read("AndroidManifest.xml"), port_offset)
+            log("Patching master data…")
+            original_master = Path(master).read_bytes()
+            patched_master = patch_master(original_master)
+            replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
+            dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]
+            next_dex = max(int(n[7:-4] or 1) for n in dex) + 1
+            # output is a path, or something to write to (apk_sign.StreamSigner in the browser).
+            streaming = hasattr(output, "write")
+            temporary = None if streaming else Path(str(output) + ".partial")
+            with contextlib.nullcontext(output) if streaming else open(temporary, "wb") as out:
+                writer = ApkWriter(out)
+                log("Writing the APK…")
+                for info in game.infolist():
+                    name = info.filename
+                    # The publisher's signature no longer applies; you sign the result.
+                    if name.startswith("META-INF/") and re.search(r"\.(SF|RSA|DSA|EC)$|MANIFEST\.MF$", name) or name == "stamp-cert-sha256":
+                        continue
+                    if name in replaced:
+                        if isinstance(replaced[name], Path):
+                            writer.add_file(name, replaced[name], compress=name != LIB or info.compress_type != 0)
+                            replaced[name].unlink()  # In the browser this frees its memory.
+                        else:
+                            writer.add(name, replaced[name], compress=name != LIB or info.compress_type != 0)
+                    else:
+                        writer.copy(raw, info)
+                for name in sorted(companion.namelist(), key=lambda n: (len(n), n)):
+                    if re.fullmatch(r"classes\d*\.dex", name):
+                        writer.add("classes%d.dex" % next_dex, companion.read(name)); next_dex += 1
+                ours = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
+                        "assets/lunar/build.json", "assets/lunar/game-manifest.xml"}
+                for name in sorted(companion.namelist()):
+                    if name.startswith(("lib/arm64-v8a/", "assets/chaquopy/", "assets/lunar/")) and name not in ours:
+                        writer.add(name, companion.read(name))
+                writer.add("assets/lunar/" + MASTER, patched_master)
+                writer.add("assets/lunar/original-master.bin.e", original_master)
+                writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
+                if notices:
+                    log("Adding the notices…")
+                    for name, data, kind in notice_pack.entries(notices):
+                        writer.add(name, data, compress=kind != zipfile.ZIP_STORED)
+                # What an update in place needs (build_info.py).
+                info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None)
+                writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
+                writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
+                writer.close()
+        finally:
+            shutil.rmtree(patched_files, ignore_errors=True)
+        if temporary:
+            os.replace(temporary, output)
     return game_activity
 
 
