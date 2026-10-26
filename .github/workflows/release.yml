@@ -28,11 +28,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python3 -m pip install pycryptodome
+      - run: python3 -m pip install pycryptodome msgpack lz4
       - name: Unit tests
         run: |
           (cd scripts && python3 -m unittest test_version test_release_assets test_notices)
-          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack)
+          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch)
+          (cd ios/tools && python3 -m unittest test_ipa_stream)
           (cd web && python3 -m unittest test_build_site)
           python3 -c "import sys; sys.path.insert(0, 'scripts'); import release_assets; release_assets.changelog_section(open('CHANGELOG.md').read(), open('VERSION').read().strip())"
 
@@ -101,6 +102,9 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
           make -C server proto
           uv python install 3.13
+      - name: iOS packaging tests
+        # These build tiny iOS executables with Xcode, so they run on macOS.
+        run: (cd ios/tools && python3.11 -m unittest test_package_ipa test_ios_update test_ipa_stream)
       - name: Build the launcher framework and Python runtime
         run: |
           ios/tools/build_framework.sh none out

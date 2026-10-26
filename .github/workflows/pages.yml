@@ -24,6 +24,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
+  # The release's unit tests, on every push to main: a release should not be
+  # the first to find a broken builder.
+  tests:
+    name: Unit tests
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python3 -m pip install pycryptodome msgpack lz4
+      - run: |
+          (cd scripts && python3 -m unittest test_version test_release_assets test_notices)
+          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch)
+          (cd ios/tools && python3 -m unittest test_ipa_stream)
+          (cd web && python3 -m unittest test_build_site)
+
   # What to build: a push builds what was pushed; a publish builds the given
   # ref, or the latest release, so a run by hand never publishes a +dev site.
   resolve:
