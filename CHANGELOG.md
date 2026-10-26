@@ -12,6 +12,9 @@ under its heading, down to the previous release.
   Before, every unlock was free and the day's count never reset. With
   fewer than 100 gems the game's Unlock button does nothing; that is the
   game's own check. [087b373]
+- With the Original calendar, the guerrilla unlock arrives when it did in
+  the live service, about six weeks into each loop. Before that the game
+  offers it for "0m" and nothing opens; no gems are taken. [1319534]
 
 ### Game data
 - New builds (APK, IPA and the web page) start with the game data Pod
