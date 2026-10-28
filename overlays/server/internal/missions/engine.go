@@ -642,6 +642,7 @@ func (cat *Catalog) Track(before, after *store.UserState, method string, req any
 			}
 		}
 	}
+	cat.trackPanels(after, c, now)
 	cat.trackCompletion(after, now, today)
 	cat.recordHistory(before, after, c, method, req, tracked < 4)
 	if tracked < 1 {

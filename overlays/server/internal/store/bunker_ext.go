@@ -10,13 +10,13 @@ import (
 // stored as one JSON document per user (table user_bunker_ext), so new fields
 // need no migration.
 type ExtState struct {
-	MissionsVersion     int32                           `json:"missionsVersion,omitempty"`
-	TimeKeysVersion     int32                           `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
-	CalendarLoop        int32                           `json:"calendarLoop,omitempty"`    // Original calendar loop the rotating progress belongs to
-	ChapterGachaIds     int32                           `json:"chapterGachaIds,omitempty"` // 1: chapter summon progress moved to model.ChapterGachaIdBase
+	MissionsVersion int32 `json:"missionsVersion,omitempty"`
+	TimeKeysVersion int32 `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
+	CalendarLoop    int32 `json:"calendarLoop,omitempty"`    // Original calendar loop the rotating progress belongs to
+	ChapterGachaIds int32 `json:"chapterGachaIds,omitempty"` // 1: chapter summon progress moved to model.ChapterGachaIdBase
 	// GachaExec counts draws of summon price options that have a limit
 	// (free once a day, one-time guaranteed): GachaPricePhaseId -> count.
-	GachaExec map[int32]GachaExecState `json:"gachaExec,omitempty"`
+	GachaExec           map[int32]GachaExecState        `json:"gachaExec,omitempty"`
 	MissionPass         map[int32]MissionPassPointState `json:"missionPass,omitempty"`
 	DailyGroupReward    DailyGroupRewardState           `json:"dailyGroupReward"`
 	SceneChoices        map[int32]SceneChoiceState      `json:"sceneChoices,omitempty"`        // by QuestSceneChoiceGroupingId
@@ -39,8 +39,11 @@ type ExtState struct {
 	// (internal/campaign/status.go).
 	Beginner CampaignJoinState `json:"beginner"`
 	// BoxMonth is, per box summon, the month its box was last refilled.
-	BoxMonth map[int32]int64 `json:"boxMonth,omitempty"`
+	BoxMonth map[int32]int64   `json:"boxMonth,omitempty"`
 	Comeback CampaignJoinState `json:"comeback"`
+	// PanelMissions are the Anecdotes' panel sheets, by web panel mission
+	// (one per run: the Original calendar's copies have ids of their own).
+	PanelMissions map[int32]PanelMissionState `json:"panelMissions,omitempty"`
 	// GrantOverflow is what this request's grants sent to the gift box
 	// (see PossessionGranter.GrantFullAs); never saved.
 	GrantOverflow []GrantOverflow `json:"-"`
@@ -155,6 +158,25 @@ func (e *ExtState) EnsureMaps() {
 	if e.History == nil {
 		e.History = make(map[int32]int64)
 	}
+	if e.PanelMissions == nil {
+		e.PanelMissions = make(map[int32]PanelMissionState)
+	}
+}
+
+// PanelMissionState is one Anecdote run's sheets. Panels are keyed page*100 +
+// their place on the page; PageDone is when a page's sheet was completed.
+type PanelMissionState struct {
+	Progress map[int32]int64 `json:"progress,omitempty"`
+	Claimed  map[int32]bool  `json:"claimed,omitempty"`
+	PageDone map[int32]int64 `json:"pageDone,omitempty"`
+}
+
+func (p PanelMissionState) clone() PanelMissionState {
+	return PanelMissionState{Progress: maps.Clone(p.Progress), Claimed: maps.Clone(p.Claimed), PageDone: maps.Clone(p.PageDone)}
+}
+
+func (p PanelMissionState) equal(o PanelMissionState) bool {
+	return maps.Equal(p.Progress, o.Progress) && maps.Equal(p.Claimed, o.Claimed) && maps.Equal(p.PageDone, o.PageDone)
 }
 
 func (e ExtState) Clone() ExtState {
@@ -165,6 +187,12 @@ func (e ExtState) Clone() ExtState {
 	out.SceneChoiceHistory = maps.Clone(e.SceneChoiceHistory)
 	out.LevelBonusConfirmed = maps.Clone(e.LevelBonusConfirmed)
 	out.CharacterViewerFields = maps.Clone(e.CharacterViewerFields)
+	if e.PanelMissions != nil {
+		out.PanelMissions = make(map[int32]PanelMissionState, len(e.PanelMissions))
+		for k, v := range e.PanelMissions {
+			out.PanelMissions[k] = v.clone()
+		}
+	}
 	out.History = maps.Clone(e.History)
 	out.EventLoginBonuses = maps.Clone(e.EventLoginBonuses)
 	out.BoxMonth = maps.Clone(e.BoxMonth)
@@ -184,5 +212,6 @@ func (e ExtState) Equal(o ExtState) bool {
 		maps.Equal(e.CharacterViewerFields, o.CharacterViewerFields) &&
 		maps.Equal(e.History, o.History) &&
 		e.Pvp.Equal(o.Pvp) && e.Quest.Equal(o.Quest) &&
-		e.Friends.Equal(o.Friends) && e.LastDeck == o.LastDeck
+		e.Friends.Equal(o.Friends) && e.LastDeck == o.LastDeck &&
+		maps.EqualFunc(e.PanelMissions, o.PanelMissions, PanelMissionState.equal)
 }

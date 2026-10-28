@@ -102,6 +102,7 @@ type questPlace struct {
 }
 
 type Catalog struct {
+	Panels        *Panels // the Anecdotes' panel sheets (panels.go)
 	Missions      []*Mission
 	ByKind        map[string][]*Mission
 	ById          map[int32]*Mission
@@ -227,6 +228,7 @@ func load() (*Catalog, error) {
 		c.Missions = append(c.Missions, m)
 		c.ById[row.MissionId] = m
 	}
+	c.Panels = loadPanels()
 	for _, r := range read[masterdata.EntityMMissionReward]("m_mission_reward") {
 		c.Rewards[r.MissionRewardId] = append(c.Rewards[r.MissionRewardId], r)
 	}
