@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='calendar-') as work:
     assert 'Start calendar' in page('/patcher').text
     page('/patcher/calendar/on', {})
     state = json.loads((data / 'calendar.json').read_text())
-    assert state['loop'] == 1 and Path(state['next']).exists(), state
+    assert state['loop'] == 1 and (server / 'assets/release' / state['next']).exists(), state
     print('Calendar on, loop 1 week', cal.week_of(state, cal.game_now(state)))
 
     target = int(re.search(r'name="target" value="(\d+)"', page('/patcher/calendar/next').text).group(1))
