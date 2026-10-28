@@ -116,3 +116,24 @@ func TestEveryFourStarWithoutFeaturedWeaponsKeepsWeapons(t *testing.T) {
 		t.Fatalf("a ★4 weapon was replaced with nothing to replace it by: %+v", items[0])
 	}
 }
+
+// "A Season 1 ★★★★ character" (notice 1126): the slot gives one of the set.
+func TestNamedCharacterGuaranteeDrawsItsSet(t *testing.T) {
+	bp, pool := guaranteePool()
+	items := []DrawnItem{drawn(ssrCostumeA)}
+	applyGuarantee(items, bp, pool, masterdata.PhaseRule{Guar: "r4c:season1", Set: []int32{1002}}, 1)
+	if items[0] != drawn(ssrCostumeB) {
+		t.Fatalf("r4c:season1 gave %+v", items[0])
+	}
+}
+
+// "Every ★★★★ in Step 3 is Celebratory Assassin, Songstress or Ruler" (notice
+// 959): each ★4 drawn is one of the set; lower rarities stay.
+func TestEveryFourStarFromTheSet(t *testing.T) {
+	bp, pool := guaranteePool()
+	items := []DrawnItem{drawn(ssrWeapon), drawn(srWeapon), drawn(ssrCostumeA)}
+	applyGuarantee(items, bp, pool, masterdata.PhaseRule{Guar: "r4:celebratory-1.5", Set: []int32{1002}}, 1)
+	if items[0] != drawn(ssrCostumeB) || items[1] != drawn(srWeapon) || items[2] != drawn(ssrCostumeB) {
+		t.Fatalf("r4 with a set gave %+v", items)
+	}
+}

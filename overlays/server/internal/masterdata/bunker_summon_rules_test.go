@@ -137,6 +137,19 @@ func TestNoticeWindowRunsTheSummon(t *testing.T) {
 	}
 }
 
+// namesAGroup: a guarantee that names a group of costumes ("set10:abyssal",
+// "r4c:season1", "r4c_unowned:Saryu"), not an element or the featured ones.
+func namesAGroup(guar string) bool {
+	kind, group, ok := strings.Cut(guar, ":")
+	if !ok || group == "feat" {
+		return false
+	}
+	if _, element := ElementByName(strings.ToLower(group)); element {
+		return false
+	}
+	return kind != "r4w"
+}
+
 // A guarantee of one character's costumes ("a ★★★★ Witch you have not yet
 // obtained") lists them; without the list the slot gives any ★4 character.
 // The Healer & Support summons' "feat4" draws from their lineup.
@@ -147,7 +160,7 @@ func TestEmbeddedSummonsNameTheirLineups(t *testing.T) {
 	}
 	check := func(id int32, steps []ruleStep) {
 		for _, s := range steps {
-			if strings.HasPrefix(s.Guar, "r4c_unowned:") && len(s.Set) == 0 {
+			if namesAGroup(s.Guar) && len(s.Set) == 0 {
 				t.Errorf("summon %d: %s without a set", id, s.Guar)
 			}
 		}
