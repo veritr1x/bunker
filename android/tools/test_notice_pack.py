@@ -41,6 +41,21 @@ class NoticePackTest(unittest.TestCase):
         self.assertNotIn("notices", build_info.describe(companion, 1, 0))
         self.assertEqual(build_info.describe(companion, 1, 0, notices="abc")["notices"], "abc")
 
+    def test_carries_the_web_app(self):
+        """The official web app (web/...) for the Anecdotes' panel mission page."""
+        path = pack({"notices.json": "{}", "web/default_page.html": "<!doctype html>", "web/main/main.bundle.js": "var a;",
+                     "web/npm/vue2-perfect-scrollbar@1.5.0/dist/vue2-perfect-scrollbar.css": "",
+                     "web/images/en/operations/panel_mission/8/page1/card/" + "ab" * 32: b"\xff\xd8\xff",
+                     "web/audio/se_ui_common_ok.wav": b"RIFF", "web/images/common/icon/gem_icon.png": b"\x89PNG"})
+        kinds = {n: c for n, _, c in notice_pack.entries(path)}
+        self.assertEqual(kinds["assets/notices/web/main/main.bundle.js"], zipfile.ZIP_DEFLATED)
+        for stored in ("web/images/en/operations/panel_mission/8/page1/card/" + "ab" * 32, "web/audio/se_ui_common_ok.wav",
+                       "web/images/common/icon/gem_icon.png"):
+            self.assertEqual(kinds["assets/notices/" + stored], zipfile.ZIP_STORED, stored)
+        for bad in ("web/../lib/x.so", "web/a b.js", "webx/a.js"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                list(notice_pack.entries(pack({"notices.json": "{}", bad: b"x"})))
+
     def test_rejects_other_files(self):
         for bad in ({"img/a.webp": b"x"}, {"notices.json": "{}", "../evil.so": b"x"},
                     {"notices.json": "{}", "lib/arm64-v8a/x.so": b"x"}, {"notices.json": "{}", "img/a.png": b"x"}):

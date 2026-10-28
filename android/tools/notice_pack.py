@@ -1,4 +1,5 @@
-"""The notice pack: the game's Notices for Bunker's server (notices.json and img/<key>.webp in one zip).
+"""The notice pack: the game's Notices for Bunker's server (notices.json and img/<key>.webp in one zip),
+and the official web app the Anecdotes' panel mission page runs on (web/...).
 
 Android APKs carry its files under assets/notices/, where the server reads them
 from the installed APK; iPhone apps carry the zip itself as notices.zip.
@@ -8,7 +9,9 @@ import re
 import zipfile
 
 PREFIX = "assets/notices/"
-_NAME = re.compile(r"notices\.json|img/[A-Za-z0-9_-]+\.webp")
+_NAME = re.compile(r"notices\.json|img/[A-Za-z0-9_-]+\.webp|web/(?:[A-Za-z0-9_@~-][A-Za-z0-9_.@~-]*/)*[A-Za-z0-9_@~-][A-Za-z0-9_.@~-]*")
+# Already compressed: stored, so the server reads them without inflating.
+_STORED = (".webp", ".png", ".jpg", ".wav")
 
 
 def entries(path):
@@ -21,9 +24,9 @@ def entries(path):
             if not _NAME.fullmatch(name):
                 raise ValueError(f"Unexpected file in the notice pack: {name}")
         for name in names:
-            # WebP is already compressed; storing it lets the server read it without inflating.
-            kind = zipfile.ZIP_STORED if name.endswith(".webp") else zipfile.ZIP_DEFLATED
-            yield PREFIX + name, pack.read(name), kind
+            data = pack.read(name)
+            stored = name.endswith(_STORED) or data[:3] == b"\xff\xd8\xff"  # sheet images are JPEGs named by hash
+            yield PREFIX + name, data, zipfile.ZIP_STORED if stored else zipfile.ZIP_DEFLATED
 
 
 def sha256(path):

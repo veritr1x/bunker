@@ -44,6 +44,11 @@ type PanelPage struct {
 	Page     int32         `json:"page"`
 	Panels   []Panel       `json:"panels"`
 	Complete []PanelReward `json:"complete"`
+	Words    []string      `json:"words"` // each panel's word, shown where it opens and in bold in the story
+	// The card's 45 pieces (9 x 5, row by row) as the sheet scatters them:
+	// column and row (from 1), rotation in degrees, and which of the two
+	// moves brings it home.
+	Parts [][4]int32 `json:"parts"`
 }
 
 type PanelSheets struct {
@@ -68,10 +73,18 @@ type Panels struct {
 
 func loadPanelSheets() (map[int32]*PanelSheets, error) {
 	var f struct {
+		Parts    [][4]int32             `json:"parts"` // every sheet scatters the pieces alike
 		Missions map[int32]*PanelSheets `json:"missions"`
 	}
 	if err := json.Unmarshal(panelJSON, &f); err != nil {
 		return nil, err
+	}
+	for _, s := range f.Missions {
+		for i := range s.Pages {
+			if s.Pages[i].Parts == nil {
+				s.Pages[i].Parts = f.Parts
+			}
+		}
 	}
 	return f.Missions, nil
 }
@@ -109,11 +122,23 @@ func (p *Panels) runFor(mission int32) *PanelRun {
 	return nil
 }
 
-// Run is the run whose sheet the game's page asks for (/panelmission/{target}).
-func (p *Panels) Run(target int32) (PanelRun, bool) {
+// Run is the run whose sheet the game's page asks for (/panelmission/{target})
+// at now: the game's banners always open an Anecdote's first sheet, so while a
+// later run of that Anecdote (a copy) is open, it is that run.
+func (p *Panels) Run(target int32, now int64) (PanelRun, bool) {
 	r, ok := p.byTarget[target]
-	return r, ok
+	if !ok || r.open(now) {
+		return r, ok
+	}
+	for _, o := range p.Runs {
+		if o.Mission == r.Mission && o.open(now) {
+			return o, true
+		}
+	}
+	return r, true
 }
+
+func (r PanelRun) open(now int64) bool { return now >= r.Start && (r.End == 0 || now < r.End) }
 
 func ensure(st store.PanelMissionState) store.PanelMissionState {
 	if st.Progress == nil {
@@ -135,7 +160,7 @@ func (cat *Catalog) trackPanels(after *store.UserState, c *counts, now int64) {
 		return
 	}
 	for _, run := range p.Runs {
-		if now < run.Start || (run.End != 0 && now >= run.End) {
+		if !run.open(now) {
 			continue
 		}
 		st := ensure(after.Ext.PanelMissions[run.Id])
@@ -176,11 +201,11 @@ var (
 // once, and the page's own reward when it is the page's last panel. It returns
 // what to grant; the caller grants it.
 func (p *Panels) Claim(u *store.UserState, target, page, index int32, now int64) ([]PanelReward, error) {
-	run, ok := p.byTarget[target]
+	run, ok := p.Run(target, now)
 	if !ok {
 		return nil, ErrNoPanel
 	}
-	if now < run.Start || (run.End != 0 && now >= run.End) {
+	if !run.open(now) {
 		return nil, ErrRunNotActive
 	}
 	var pg *PanelPage

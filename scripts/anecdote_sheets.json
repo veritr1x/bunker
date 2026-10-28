@@ -63,7 +63,19 @@
     "complete": [
      "Gems x300"
     ],
-    "story": "She fights. She channels quiet will into her blade, destroying endless nightmares. It is her task done for humanity so that they may walk the earth anew. It is the never-ending cycle of death for the lifeless. It is the never-ending tale of the dolls' fight."
+    "story": "She fights. She channels quiet will into her blade, destroying endless nightmares. It is her task done for humanity so that they may walk the earth anew. It is the never-ending cycle of death for the lifeless. It is the never-ending tale of the dolls' fight.",
+    "words": [
+     "She",
+     "Task",
+     "Will",
+     "Blade",
+     "Nightmares",
+     "Humanity",
+     "Earth",
+     "Dolls",
+     "Tale"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=eamDI08ZqvA@59s (Mission Complete 60s)"
    },
    {
     "sheet": 2,
@@ -126,7 +138,19 @@
     "complete": [
      "Gems x300"
     ],
-    "story": "She fights. She keeps her doubts in her heart. To whom does she point her blade? To what does she direct this will? There is no end to the nightmares that sharpen her sense of self. It is a display of life by the lifeless. An endless tale of the dolls' trials."
+    "story": "She fights. She keeps her doubts in her heart. To whom does she point her blade? To what does she direct this will? There is no end to the nightmares that sharpen her sense of self. It is a display of life by the lifeless. An endless tale of the dolls' trials.",
+    "words": [
+     "She",
+     "Doubts",
+     "Blade",
+     "Will",
+     "Nightmares",
+     "Self",
+     "Life",
+     "Dolls",
+     "Tale"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=eamDI08ZqvA@145s (Mission Complete 146s)"
    }
   ],
   "confidence": "guide text"
@@ -196,7 +220,19 @@
      "Gems x100",
      "Faith x1"
     ],
-    "story": "A pure girl dreams a joyous dream. She sees a cream stew full of veggies. Mommy and Daddy join her at the table, and they smile as they discuss the day. As the girl boasts of the stew she made, her parents shower her with praise. For her, this quiet vision of a normal meal shines brighter than any jewel."
+    "story": "A pure girl dreams a joyous dream. She sees a cream stew full of veggies. Mommy and Daddy join her at the table, and they smile as they discuss the day. As the girl boasts of the stew she made, her parents shower her with praise. For her, this quiet vision of a normal meal shines brighter than any jewel.",
+    "words": [
+     "Pure",
+     "Joyous",
+     "Veggies",
+     "Cream",
+     "Stew",
+     "Smile",
+     "Meal",
+     "Jewel",
+     "Vision"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=6dXS9o6-lSs@58s (Mission Complete 59s)"
    },
    {
     "sheet": 2,
@@ -301,7 +337,26 @@
     "complete": [
      "Gems x500"
     ],
-    "story": "A pure girl dreams the strangest dream. She sees a great monster, a floating black ghost, and an endless stone tower. But even without her mommy and daddy, she is not lonely. For here, she is not treated unjustly. Here, she sees no nightmares. She looks forward to her nightly slumber with joy, and knows she will visit this world again tonight…"
+    "story": "A pure girl dreams the strangest dream. She sees a great monster, a floating black ghost, and an endless stone tower. But even without her mommy and daddy, she is not lonely. For here, she is not treated unjustly. Here, she sees no nightmares. She looks forward to her nightly slumber with joy, and knows she will visit this world again tonight…",
+    "words": [
+     "Pure",
+     "Girl",
+     "Strangest",
+     "Great Monster",
+     "Black Ghost",
+     "Endless",
+     "Stone Tower",
+     "Mommy",
+     "Daddy",
+     "Lonely",
+     "Unjustly",
+     "Nightmare",
+     "Nightly",
+     "Slumber",
+     "Tonight",
+     "World"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=6dXS9o6-lSs@188s (Mission Complete 189s)"
    }
   ],
   "confidence": "guide text"
@@ -370,7 +425,19 @@
     "complete": [
      "Gems x500"
     ],
-    "story": "The man conquers the mountain. He alone bests the vastness of nature. Hardships become like friendships. He basks in otherworldly exaltation. There is no peak he cannot reach, no ridge he cannot traverse. He is the king. The first to see the sunrise. For he sits astride the highest point."
+    "story": "The man conquers the mountain. He alone bests the vastness of nature. Hardships become like friendships. He basks in otherworldly exaltation. There is no peak he cannot reach, no ridge he cannot traverse. He is the king. The first to see the sunrise. For he sits astride the highest point.",
+    "words": [
+     "Mountain",
+     "Nature",
+     "Hardships",
+     "Friendships",
+     "Exaltation",
+     "Peak",
+     "King",
+     "Sunrise",
+     "Highest Point"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=kBb5S9cfgIg@62s (Mission Complete 63.8s)"
    },
    {
     "sheet": 2,
@@ -433,7 +500,19 @@
     "complete": [
      "Gems x500"
     ],
-    "story": "The man conquers the mountain alone with no thought for his wife or child. He is criticized for being selfish. Blamed for being vain. Mocked for being savage. Unable to resist the mountain's pull, he journeys for his own impulses. He is king, and kings are ever arrogant. For they never see the truth in time."
+    "story": "The man conquers the mountain alone with no thought for his wife or child. He is criticized for being selfish. Blamed for being vain. Mocked for being savage. Unable to resist the mountain's pull, he journeys for his own impulses. He is king, and kings are ever arrogant. For they never see the truth in time.",
+    "words": [
+     "Mountain",
+     "Wife",
+     "Child",
+     "Savage",
+     "Pull",
+     "Impulses",
+     "King",
+     "Arrogant",
+     "In Time"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=kBb5S9cfgIg@150.5s (Mission Complete 152.5s)"
    }
   ],
   "confidence": "guide text"
@@ -502,7 +581,19 @@
     "complete": [
      "Gems x200"
     ],
-    "story": "Explosions. Bombardments. Hues of death. Each night, a fearful past pays a visit. Remorse and shame become raging fire, burning his heart and soul for eternity. Compared to this pain, the verbal abuse he endures is but a summer breeze. He will never change his way of life. Instead, he continues to inspire himself so past tragedies will never repeat."
+    "story": "Explosions. Bombardments. Hues of death. Each night, a fearful past pays a visit. Remorse and shame become raging fire, burning his heart and soul for eternity. Compared to this pain, the verbal abuse he endures is but a summer breeze. He will never change his way of life. Instead, he continues to inspire himself so past tragedies will never repeat.",
+    "words": [
+     "Bombardments",
+     "Explosions",
+     "Each Night",
+     "Remorse",
+     "Shame",
+     "Eternity",
+     "Abuse",
+     "Way of Life",
+     "Tragedies"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=bSTAM6hFHoY@61s (Mission Complete 62s)"
    },
    {
     "sheet": 2,
@@ -565,7 +656,19 @@
     "complete": [
      "Gems x200"
     ],
-    "story": "It is a tale of conflict and friendship. A tale of an unremarkable squadron that remains on the front lines. A tale of a mocked captain---a leader caught between the past and the future. He fears mistakes, yet prays for peace. He will never change his way of life. It is the very flames that eat away at him that allow him to maintain his ideals."
+    "story": "It is a tale of conflict and friendship. A tale of an unremarkable squadron that remains on the front lines. A tale of a mocked captain---a leader caught between the past and the future. He fears mistakes, yet prays for peace. He will never change his way of life. It is the very flames that eat away at him that allow him to maintain his ideals.",
+    "words": [
+     "Tale",
+     "Conflict",
+     "Front Lines",
+     "Captain",
+     "Tale",
+     "Mocked",
+     "Peace",
+     "Way of Life",
+     "Flames"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=bSTAM6hFHoY@148s (Mission Complete 150s)"
    }
   ],
   "confidence": "guide text"
@@ -641,7 +744,19 @@
      "Topaz x50",
      "Tanzanite x50"
     ],
-    "story": "In the sad reality of a distant future..."
+    "story": "In the sad reality of a distant future...",
+    "words": [
+     "Past",
+     "Memories",
+     "Wife",
+     "Mother",
+     "Neighbor",
+     "Boy",
+     "Husband",
+     "Luxury",
+     "Family"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=cHVnvoqARSc@53s (Mission Complete 54s)"
    },
    {
     "sheet": 2,
@@ -703,7 +818,19 @@
     ],
     "complete": [
      "Gems x300"
-    ]
+    ],
+    "words": [
+     "Distant Future",
+     "Sad Reality",
+     "Flames",
+     "Revenge",
+     "Warrior",
+     "Heart",
+     "Pawn",
+     "Prisoner",
+     "Cycle of War"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=cHVnvoqARSc@160s (Mission Complete) / 160.7s (dialog closed)"
    }
   ],
   "sourced_from": "video"
@@ -774,7 +901,19 @@
     ],
     "complete": [
      "Jubilant Spirit x1"
-    ]
+    ],
+    "words": [
+     "■■■■■■",
+     "Keeper",
+     "Rips",
+     "Stories",
+     "Keeps Away",
+     "Stands Watch",
+     "The Cage",
+     "Finale",
+     "Curtains"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=DX9KtSK9s-0@56s (Mission Complete 58s)"
    },
    {
     "sheet": 2,
@@ -837,7 +976,19 @@
     "complete": [
      "Jubilant Spirit x1"
     ],
-    "story": "...stories— to make them as they were meant to be. Ah, however... Who decided? Who said all stories must end happy?"
+    "story": "...stories— to make them as they were meant to be. Ah, however... Who decided? Who said all stories must end happy?",
+    "words": [
+     "■■■■■■",
+     "Destroyer",
+     "Desire",
+     "Emotion",
+     "Plot",
+     "Rules",
+     "Shatters",
+     "Black Wings",
+     "Detests"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=DX9KtSK9s-0@147s (Mission Complete 150s)"
    }
   ],
   "sourced_from": "video"
@@ -909,7 +1060,19 @@
     "complete": [
      "Gems x300"
     ],
-    "story": "Is this fulfillment of ambition, or an atonement of sins? Was he given a rare moment of joy, or subjected to a cruel trick? What does he see along his path? But a single soul exists in the gloom. It glimmers dim. No form. No clarity. Yet it guides the monster as he wanders the cold stone towers in the void."
+    "story": "Is this fulfillment of ambition, or an atonement of sins? Was he given a rare moment of joy, or subjected to a cruel trick? What does he see along his path? But a single soul exists in the gloom. It glimmers dim. No form. No clarity. Yet it guides the monster as he wanders the cold stone towers in the void.",
+    "words": [
+     "Ambition",
+     "Atonement",
+     "Joy",
+     "Trick",
+     "See",
+     "Path",
+     "Exists",
+     "Glimmers",
+     "Towers"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y@59s (Mission Complete 60s)"
    },
    {
     "sheet": 2,
@@ -972,7 +1135,19 @@
     "complete": [
      "Gems x300"
     ],
-    "story": "Is this redemption for failure, or for successful aspirations? ... a single soul exists in the world. It is his armor. His blade. His might. ...amidst towers of the void. (partly read)"
+    "story": "Is this redemption for failure, or for successful aspirations? ... a single soul exists in the world. It is his armor. His blade. His might. ...amidst towers of the void. (partly read)",
+    "words": [
+     "Redemption",
+     "Successful",
+     "Girl",
+     "Demon",
+     "Outcome",
+     "Wish",
+     "Exists",
+     "Might",
+     "Towers"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y@136s (Mission Complete 137s)"
    }
   ],
   "sourced_from": "video"
@@ -1042,7 +1217,19 @@
     ],
     "complete": [
      "Gems x100"
-    ]
+    ],
+    "words": [
+     "Buffoon",
+     "Rift",
+     "Tear",
+     "Task",
+     "Duty",
+     "Leads",
+     "Travelers",
+     "Casualty",
+     "Regret"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=y6cLJQyUL_M@65s (Mission Complete 66s)"
    },
    {
     "sheet": 2,
@@ -1147,7 +1334,26 @@
     ],
     "complete": [
      "Gems x300"
-    ]
+    ],
+    "words": [
+     "Shade",
+     "Desire",
+     "Emotion",
+     "Speaks",
+     "Wings",
+     "Him",
+     "Things",
+     "Dispel",
+     "Powerful",
+     "Entices",
+     "Begin",
+     "Farcical",
+     "Japes",
+     "Memories",
+     "Dripping",
+     "Irony"
+    ],
+    "words_source": "https://www.youtube.com/watch?v=y6cLJQyUL_M@201.7s (Mission Complete 202s)"
    }
   ],
   "sourced_from": "video"

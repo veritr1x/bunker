@@ -17,17 +17,20 @@ import (
 	"lunar-tear/server/internal/utils"
 )
 
-// The Anecdotes' panel sheets: the game opens <web base>/panelmission/{sheet}
+// The Anecdotes' panel sheets: the game opens <web base>/web/<language>/panelmission/{sheet}
 // (the run's WebviewMissionTargetId) with the player's userId. The page lists
 // the run's panels with the player's progress (counted by the missions engine,
 // missions/panels.go); a reached panel's reward goes to the gift box, and so
 // does the page's own once every panel on it is received. A completed page
 // unlocks its story in the Library.
 
-var panelPath = regexp.MustCompile(`^/panelmission/(\d+)(/claim)?$`)
+var panelPath = regexp.MustCompile(`^((?:/web/[a-z-]+)?/panelmission/(\d+))(/claim)?$`)
 
-// IsPanelMissionPath says whether path is an Anecdote sheet or its claim.
-func IsPanelMissionPath(path string) bool { return panelPath.MatchString(path) }
+// IsPanelMissionPath says whether path is an Anecdote sheet, its claim, or
+// the official page's API.
+func IsPanelMissionPath(path string) bool {
+	return panelPath.MatchString(path) || panelAPIPath.MatchString(path)
+}
 
 type panelUserStore interface {
 	LoadUser(userId int64) (store.UserState, error)
@@ -46,8 +49,8 @@ var (
 	panelNow   = gametime.NowMillis
 )
 
-// giftTextMission: "Earned from mission completion."
-const giftTextMission = 8
+// giftTextPanelMission: "Earned from panel missions."
+const giftTextPanelMission = 25
 
 // SetPanelUsers lets the sheets read and change the player's save, and the
 // Library list the pages completed on them.
@@ -62,34 +65,47 @@ func SetPanelUsers(u panelUserStore) {
 }
 
 func ServePanelMission(w http.ResponseWriter, r *http.Request) {
+	if m := panelAPIPath.FindStringSubmatch(r.URL.Path); m != nil {
+		servePanelAPI(w, r, m[1])
+		return
+	}
+	if panelWeb != nil && r.Method == http.MethodGet && panelPagePath.MatchString(r.URL.Path) {
+		if page, ok := panelWeb.WebPage(); ok {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			w.Write(page)
+			return
+		}
+	}
 	m := panelPath.FindStringSubmatch(r.URL.Path)
-	target, _ := strconv.ParseInt(m[1], 10, 32)
+	sheet := m[1] // the sheet's path as the game asked for it
+	target, _ := strconv.ParseInt(m[2], 10, 32)
 	userId, _ := strconv.ParseInt(r.URL.Query().Get("userId"), 10, 64)
 	p := panelSheets()
+	now := panelNow()
 	var run missions.PanelRun
 	ok := p != nil && panelUsers != nil
 	if ok {
-		run, ok = p.Run(int32(target))
+		run, ok = p.Run(int32(target), now)
 	}
 	if !ok {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(panelHTML("Panel Missions", `<p class="empty">This Anecdote isn't available.</p>`)))
 		return
 	}
-	if m[2] != "" && r.Method == http.MethodPost {
+	if m[3] != "" && r.Method == http.MethodPost {
 		page, _ := strconv.ParseInt(r.FormValue("page"), 10, 32)
 		panel, _ := strconv.ParseInt(r.FormValue("panel"), 10, 32)
-		now := panelNow()
 		panelUsers.UpdateUser(userId, func(u *store.UserState) {
 			rewards, err := p.Claim(u, int32(target), int32(page), int32(panel), now)
 			if err != nil {
 				return
 			}
 			for _, rw := range rewards {
-				store.AddGift(u, model.PossessionType(rw.Type), rw.Id, rw.Count, giftTextMission, now)
+				store.AddGift(u, model.PossessionType(rw.Type), rw.Id, rw.Count, giftTextPanelMission, now)
 			}
 		})
-		http.Redirect(w, r, fmt.Sprintf("/panelmission/%d?%s", target, r.URL.RawQuery), http.StatusSeeOther)
+		http.Redirect(w, r, sheet+"?"+r.URL.RawQuery, http.StatusSeeOther)
 		return
 	}
 	u, err := panelUsers.LoadUser(userId)
@@ -99,10 +115,10 @@ func ServePanelMission(w http.ResponseWriter, r *http.Request) {
 	u.Ext.EnsureMaps()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write([]byte(renderPanelSheet(p, run, &u, r.URL.RawQuery, panelNow())))
+	w.Write([]byte(renderPanelSheet(p, run, &u, sheet, r.URL.RawQuery, now)))
 }
 
-func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserState, query string, now int64) string {
+func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserState, sheet, query string, now int64) string {
 	sheets := p.Sheets[run.Mission]
 	st := p.Progress(u, run)
 	text := openGameText()
@@ -126,8 +142,8 @@ func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserSt
 				action = `<span class="got">Received</span>`
 			case have >= panel.N && open:
 				cls += " ready"
-				action = fmt.Sprintf(`<form method="post" action="/panelmission/%d/claim?%s"><input type="hidden" name="page" value="%d"><input type="hidden" name="panel" value="%d"><button>Receive</button></form>`,
-					run.Target, html.EscapeString(query), pg.Page, i)
+				action = fmt.Sprintf(`<form method="post" action="%s/claim?%s"><input type="hidden" name="page" value="%d"><input type="hidden" name="panel" value="%d"><button>Receive</button></form>`,
+					html.EscapeString(sheet), html.EscapeString(query), pg.Page, i)
 			}
 			note := ""
 			if panel.Standin {
@@ -190,8 +206,14 @@ func possessionName(t *gameText, kind, id int32) string {
 		return t.costumeName(id)
 	case model.PossessionTypeMaterial:
 		key = fmt.Sprintf("material.name.%d", id)
-	case model.PossessionTypeConsumableItem:
-		key = fmt.Sprintf("consumable_item.name.%d", id)
+	case model.PossessionTypeConsumableItem: // named by its art, not its id
+		if rows, err := utils.ReadTable[masterdata.EntityMConsumableItem]("m_consumable_item"); err == nil {
+			for _, c := range rows {
+				if c.ConsumableItemId == id {
+					key = fmt.Sprintf("consumable_item.name.%d%03d", c.AssetCategoryId, c.AssetVariationId)
+				}
+			}
+		}
 	case model.PossessionTypeCompanion:
 		if rows, err := utils.ReadTable[masterdata.EntityMCompanion]("m_companion"); err == nil {
 			for _, c := range rows {
@@ -206,6 +228,10 @@ func possessionName(t *gameText, kind, id int32) string {
 	}
 	return fmt.Sprintf("Item %d", id)
 }
+
+// panelClose closes the game's web view: its mission dialog closes on a
+// uniwebview:// message with a "close" argument (iOS has no Back key).
+const panelClose = `<a class="close" href="uniwebview://panelmission?close=1">CLOSE</a>`
 
 func panelHTML(title, body string) string {
 	return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>` +
@@ -225,5 +251,6 @@ button{background:#a8945f;color:#0a0a0f;border:0;padding:6px 10px;font-weight:bo
 .got{color:#a8945f;font-size:.9em}
 .complete{color:#a99c80;font-size:.8em}
 blockquote{border-left:2px solid #a8945f;margin:12px 0;padding:6px 12px;color:#cfc8ba;font-size:.85em;line-height:1.6}
-</style></head><body><h1>` + html.EscapeString(strings.ToUpper(title)) + `</h1>` + body + `</body></html>`
+.close{position:fixed;top:10px;right:12px;color:#d4cfc6;border:1px solid #5a5446;background:#121218;padding:6px 12px;font-size:.8em;letter-spacing:.12em;text-decoration:none}
+</style></head><body>` + panelClose + `<h1>` + html.EscapeString(strings.ToUpper(title)) + `</h1>` + body + `</body></html>`
 }

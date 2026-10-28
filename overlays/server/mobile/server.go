@@ -224,6 +224,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	// The game's Notices screen, from the notice pack the launcher copies in.
 	notices := service.NewNotices(service.NoticePackPath(assetRoot), gametime.NowMillis)
 	service.SetNotices(notices)
+	service.SetPanelWeb(notices) // the Anecdotes' official page, from the pack's web app
 	octo := links.Wrap(cdn.Handler())
 	cdnMux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if service.IsNoticePath(r.URL.Path) {
@@ -232,6 +233,10 @@ func Start(dataRoot, assetRoot string) (err error) {
 		}
 		if service.IsPanelMissionPath(r.URL.Path) {
 			service.ServePanelMission(w, r) // an Anecdote's panel sheet
+			return
+		}
+		if notices.HasWebFile(r.URL.Path) {
+			notices.ServeWeb(w, r) // the official web app's scripts, styles and images
 			return
 		}
 		octo.ServeHTTP(w, r)

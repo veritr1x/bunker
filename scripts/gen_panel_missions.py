@@ -10,6 +10,10 @@ script turns each panel's wording into a mission rule the server's missions
 engine counts (the same rule format as rules.json, from gen_mission_rules.py)
 and each reward into an item.
 
+Each sheet also gets its panels' words (shown where a panel opens and in bold
+in the story; read from the same videos) and where it scatters the card's
+pieces (anecdote_parts.json).
+
 A few panels name what the sources don't record or a Japanese-only event
 ("Clear a conditional quest", "Record: Garden of Blessing"); they get the
 nearest rule Bunker can count and "standin": true, and keep their own wording.
@@ -27,6 +31,8 @@ import gen_mission_rules as G
 
 ROOT = Path(__file__).resolve().parents[1]
 SHEETS = Path(__file__).with_name("anecdote_sheets.json")
+# Where each sheet scatters the card's 45 pieces (one layout for every sheet).
+PARTS = Path(__file__).with_name("anecdote_parts.json")
 
 # The Anecdotes' web panel missions (m_webview_mission ids).
 MISSIONS = {"Stars": 1, "Tower": 2, "Empress": 3, "The Moon": 4, "The World": 5, "Emperor": 6, "Judgment": 7, "Doll": 8}
@@ -107,10 +113,15 @@ def reward(text, items, names):
 def item_names(master, texts):
     """English item names -> (possession type, id): materials, consumables and companions."""
     out = {}
+    # Item names are keyed by their art (asset category and variation): a
+    # material's id is the same number, a consumable's is not.
+    consumables = {f"{c['AssetCategoryId']}{c['AssetVariationId']:03d}": c["ConsumableItemId"] for c in G.load(master, "MConsumableItem")}
     for key, value in texts.items():
         kind, _, rest = key.partition(".name.")
-        if kind in ("material", "consumable_item") and rest.isdigit():
+        if kind == "material" and rest.isdigit():
             out.setdefault(value, (POSSESSION[kind], int(rest)))
+        elif kind == "consumable_item" and rest in consumables:
+            out.setdefault(value, (POSSESSION[kind], consumables[rest]))
     for c in G.load(master, "MCompanion"):
         if name := texts.get(f"companion.name.cm{c['ActorSkeletonId']:03d}{c['AssetVariationId']:03d}"):
             out.setdefault(name, (POSSESSION["companion"], c["CompanionId"]))
@@ -133,7 +144,8 @@ def build(master, texts):
                 if standin:
                     panel["standin"] = True
                 panels.append(panel)
-            pages.append({"page": sheet["sheet"], "panels": panels, "complete": [reward(x, items, names) for x in sheet.get("complete", [])]})
+            pages.append({"page": sheet["sheet"], "panels": panels, "complete": [reward(x, items, names) for x in sheet.get("complete", [])],
+                          "words": sheet.get("words", [])})
         out[str(mission)] = {"name": f"Anecdote: {name}", "source": anecdote.get("source", ""), "pages": pages}
     return out
 
@@ -146,7 +158,7 @@ def main():
     args = p.parse_args()
     texts = dict(sqlite3.connect(args.text_db).execute("SELECT key, value FROM text"))
     missions = build(args.master_json, texts)
-    args.output.write_text(json.dumps({"version": 1, "missions": missions}, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
+    args.output.write_text(json.dumps({"version": 1, "parts": json.loads(PARTS.read_text())["parts"], "missions": missions}, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
     panels = sum(len(pg["panels"]) for m in missions.values() for pg in m["pages"])
     standins = sum(1 for m in missions.values() for pg in m["pages"] for p in pg["panels"] if p.get("standin"))
     print(f"{args.output}: {len(missions)} Anecdotes, {panels} panels ({standins} stand-ins)")
