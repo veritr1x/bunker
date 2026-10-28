@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+from datetime import datetime, timezone
 import json
 import sys
 from pathlib import Path
@@ -70,6 +71,26 @@ def live(dates):
     return REAL <= start < FOREVER and end > LAUNCH
 
 
+def file_time(path):
+    """When a master data file was published, from its name (YYYYMMDDhhmmss, UTC)."""
+    try:
+        return int(datetime.strptime(Path(path).name[:14], "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc).timestamp() * 1000)
+    except ValueError:
+        return None
+
+
+def was_live(run, live_at, times):
+    """Whether a run really ran: some file published during it had the row live
+    then, whatever end date it gave (live_at: the times of the files that had
+    the row live). A run no file falls in cannot be checked and counts. One
+    that every file published during it had missing or parked was a
+    placeholder (item 29 dated 31 August to 12 September 2021, missing from the
+    files of those weeks)."""
+    start, end = run[0], run[-1]
+    inside = [t for t in times if start <= t < end]
+    return not inside or any(t in live_at for t in inside)
+
+
 def build(masters):
     schemas = dm.load_schemas()
     tables = [t for t in rotating() if t in schemas]
@@ -83,8 +104,11 @@ def build(masters):
         rows = dm.decompress_table(final_blob, *final_toc[table])
         shape[table] = (key_columns(rows, set(dates)), dates, {tuple(r[i] for i in key_columns(rows, set(dates))): tuple(r[i] for i in dates) for r in rows})
     seen = {table: {} for table in shape}
+    # The times of the files that had each (table, key) live when published.
+    live_at, times = {}, [t for t in map(file_time, masters) if t is not None]
     for path in masters:
         toc, blob = load(path)
+        published = file_time(path)
         for table, (keys, dates, _) in shape.items():
             if table not in toc:
                 continue
@@ -93,7 +117,10 @@ def build(masters):
                     continue
                 value = tuple(row[i] for i in dates)
                 if live(value):
-                    seen[table].setdefault(tuple(row[i] for i in keys), set()).add(value)
+                    key = tuple(row[i] for i in keys)
+                    seen[table].setdefault(key, set()).add(value)
+                    if published is not None and value[0] <= published < value[-1]:
+                        live_at.setdefault((table, key), set()).add(published)
         print(Path(path).name, file=sys.stderr)
     out = {}
     for table, (keys, dates, final) in shape.items():
@@ -101,7 +128,8 @@ def build(masters):
         for key, runs in seen[table].items():
             if key not in final:
                 continue
-            lost = {run for run in runs if run != final[key] and (not live(final[key]) or run[-1] < final[key][0])}
+            lost = {run for run in runs if run != final[key] and (not live(final[key]) or run[-1] < final[key][0])
+                    and was_live(run, live_at.get((table, key), set()), times)}
             if lost:
                 kept = sorted(lost | ({final[key]} if live(final[key]) else set()))
                 rows["|".join(map(str, key))] = [list(run) for run in kept]
