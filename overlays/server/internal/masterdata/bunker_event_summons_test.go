@@ -41,6 +41,22 @@ func TestEventSummonsJoinTheCatalog(t *testing.T) {
 	}
 }
 
+// The Original calendar gives an event's later runs chapter rows of their own
+// (the chapter + n * 10,000,000; android_calendar.py COPY_STEP). The summon
+// stays open from the first run to two days after the last, so tickets from
+// a rerun can be spent (chapters 300 and 301 rerun in 2023).
+func TestEventSummonsOpenForEveryRun(t *testing.T) {
+	chapters := map[int32]EntityMEventQuestChapter{
+		340:            {EventQuestChapterId: 340, StartDatetime: 1_000_000, EndDatetime: 2_000_000},
+		340 + 10000000: {EventQuestChapterId: 340 + 10000000, StartDatetime: 9_000_000, EndDatetime: 9_500_000},
+		341:            {EventQuestChapterId: 341, StartDatetime: 50_000_000, EndDatetime: 60_000_000},
+	}
+	got := addEventSummons(nil, testEventFile(), chapters)
+	if len(got) != 1 || got[0].StartDatetime != 1_000_000 || got[0].EndDatetime != 9_500_000+2*24*3600*1000 {
+		t.Fatalf("event summon: %+v", got)
+	}
+}
+
 // Its levels have ids of their own (340001, 340002, ...), all one summon.
 func TestEventSummonLevelIds(t *testing.T) {
 	setEventSummons(testEventFile())
