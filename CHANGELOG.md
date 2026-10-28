@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-28
+
+### Calendar
+- With the Original calendar, a rerun event's medal exchange now opens with
+  the event. The game data keeps only an event's last run, so events that
+  reopen from an earlier run (26 of them, such as "Record: The Cage of
+  Reincarnation" from July 2021) dropped medals for months before their
+  exchange and the medal itself opened. The exchange, its offers and the
+  medal now open when the event first does and stay until its last run
+  ends. Reported in GitHub issue #5. [bcd55ab]
+
 ## 1.3.5 (2026-10-27)
 
 Chapter 4's "A Tool of the Master" can be finished on very wide Android
