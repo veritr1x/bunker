@@ -23,6 +23,17 @@ under its heading, down to the previous release.
   2023) are back: seven free summons of 40 draws each, one a week, each
   giving ★4 characters of one costume series. The game data lacked them.
   [db8c595]
+- The Story Completion festivals (February to April 2024) have all three
+  volumes each, as their notices say; the game data had only the first.
+  Each volume's ★4 characters are its own lineup (limited-time characters,
+  or the series its art names), with the notices' 10% ★4 rate, as the
+  Black Friday Karma Festival now has too. [5a3fe20]
+- Guarantees that name a group of characters now give one of them: the
+  RoD Resonant Character, Abyssal, Celebratory and Yuletide summons, the
+  Season 1 summon (whose characters are now all it gives) and the
+  limited-time character summons. Before, the guaranteed slot gave any ★4.
+  The limited-time sets are a best guess, as no notice lists them.
+  [c4cd7c6]
 
 ## 2026-10-28
 
