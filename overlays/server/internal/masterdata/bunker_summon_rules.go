@@ -77,7 +77,14 @@ type ruleFeatured struct {
 	Costumes []int32 `json:"c"`
 	Weapons  []int32 `json:"w"`
 	Src      string  `json:"src"`
+	// Only: the lineup is the summon's ★4 characters, not an addition to the
+	// standard pool, and nothing is rated up (the Appreciation Gala's free
+	// summons, each of one costume series).
+	Only bool `json:"only"`
 }
+
+// onlyLineups are the summons whose ★4 characters are their lineup only.
+var onlyLineups = map[int32]bool{}
 
 // newSummon is a summon the game data lacks but its notice and banner art
 // recover: the paid-only twins. Its window is the notice's (original game
@@ -126,6 +133,7 @@ const panelCostumeCards, panelWeaponCards = 3, 2
 // featured, so the draws keep the pool's odds. Elements come from
 // ApplyRuleFeatured, which runs first.
 func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog) {
+	pool.applyOnlyLineups()
 	// Released items: those some summon featured. The data also holds
 	// costumes that never came out, with placeholder names.
 	released := map[int32]bool{}
@@ -184,6 +192,27 @@ func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog)
 			cards = append(pick(costumes, panelCostumeCards), pick(weapons, panelWeaponCards)...)
 		}
 		entries[i].PromotionItems = cards
+	}
+}
+
+// applyOnlyLineups makes a summon's ★4 characters its lineup only (onlyLineups),
+// once BuildBannerPools has added the lineup to the standard pool. The draws,
+// Rates and panel all read the banner pool. ★3 characters and weapons stay.
+func (pool *GachaCatalog) applyOnlyLineups() {
+	for id := range onlyLineups {
+		bp := pool.BannerPools[id]
+		if bp == nil {
+			continue
+		}
+		var lineup []GachaPoolItem
+		for _, c := range pool.FeaturedByGacha[id].Costumes {
+			if c.RarityType >= model.RaritySSRare {
+				lineup = append(lineup, c)
+			}
+		}
+		if len(lineup) > 0 {
+			bp.CostumesByRarity[model.RaritySSRare] = lineup
+		}
 	}
 }
 
@@ -509,6 +538,9 @@ func (pool *GachaCatalog) applyRuleFeatured(rules map[int32]summonRule) {
 			}
 		}
 		pool.FeaturedByGacha[id] = fs
+		if r.Featured.Only {
+			onlyLineups[id] = true
+		}
 		applied++
 	}
 	log.Printf("summon rules: %d summons featured as their notices list", applied)
