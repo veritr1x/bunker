@@ -112,6 +112,29 @@ func EventSummonUnlimited() []BoxPrize {
 // eventSummonGrace: the summons stay open this long after their event ends.
 const eventSummonGrace = 2 * 24 * 60 * 60 * 1000
 
+// chapterRunStep: the Original calendar gives an event's later runs chapter
+// rows of their own, the chapter + n * chapterRunStep (android_calendar.py
+// COPY_STEP).
+const chapterRunStep = 10_000_000
+
+// eventRuns is when an event chapter first opens and last closes, over its
+// own row and the rows the Original calendar gives its later runs.
+func eventRuns(chapters map[int32]EntityMEventQuestChapter, chapter int32) (start, end int64, ok bool) {
+	for id, c := range chapters {
+		if id%chapterRunStep != chapter {
+			continue
+		}
+		if !ok || c.StartDatetime < start {
+			start = c.StartDatetime
+		}
+		if !ok || c.EndDatetime > end {
+			end = c.EndDatetime
+		}
+		ok = true
+	}
+	return start, end, ok
+}
+
 // AddEventSummons adds each event's summon for its event's dates (as the game
 // data has them, so the Original calendar moves them with the event).
 func AddEventSummons(entries []store.GachaCatalogEntry) []store.GachaCatalogEntry {
@@ -142,18 +165,18 @@ func addEventSummons(entries []store.GachaCatalogEntry, f eventSummonsFile, chap
 		taken[e.GachaId] = true
 	}
 	for _, ev := range f.Events {
-		c, ok := chapters[ev.Chapter]
-		if !ok || taken[ev.Base] || len(ev.Levels) == 0 || len(ev.Tickets) == 0 {
+		if _, ok := chapters[ev.Chapter]; !ok || taken[ev.Base] || len(ev.Levels) == 0 || len(ev.Tickets) == 0 {
 			continue
 		}
+		start, end, _ := eventRuns(chapters, ev.Chapter)
 		e := store.GachaCatalogEntry{
 			GachaId:                    ev.Base,
 			GachaLabelType:             model.GachaLabelEvent,
 			GachaModeType:              model.GachaModeBox,
 			GachaAutoResetType:         model.GachaAutoResetNone,
 			IsUserGachaUnlock:          true,
-			StartDatetime:              c.StartDatetime,
-			EndDatetime:                c.EndDatetime + eventSummonGrace,
+			StartDatetime:              start,
+			EndDatetime:                end + eventSummonGrace,
 			GachaDecorationType:        model.GachaDecorationNormal,
 			SortOrder:                  ev.Chapter,
 			BannerAssetName:            ev.Assets[0],
