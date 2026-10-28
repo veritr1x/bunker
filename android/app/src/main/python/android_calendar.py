@@ -213,6 +213,92 @@ def restore_history(toc, blob, changed, schemas):
                 pm.apply_to_table(toc, blob, changed, table, lambda b: copy_chapter_rows(b, copies))
     return copies
 
+# An event's medal exchange. The final game data keeps each event's last run
+# only: its quests drop that run's medal (EventQuestLink) and its exchange and
+# medal date from that run. A chapter whose earlier runs the calendar restores
+# opens with the medal but without the exchange to spend it in (chapter 510
+# from 2021, its shop 6064 from 2023). The exchange and the medal open when the
+# chapter first does and stay until its last run ends.
+LINK_SHOP = 3            # EventQuestLink.DestinationDomainType: a shop
+CONSUMABLE_ITEM = 6      # PossessionType
+
+
+def exchange_dates(chapters, links, shops, cell_groups, cell_terms, items, item_terms):
+    """New (start, end) dates for the exchanges, their offers' terms and their
+    medals' terms, by table and id; only rows that change.
+
+    chapters: (chapter, link, start, end); links: link -> (destination type,
+    destination id, possession type, possession id); shops: shop -> (cell group,
+    start, end); cell_groups: (cell group, cell term); cell_terms, item_terms:
+    term -> (start, end); items: consumable item -> its term."""
+    wanted, medals = {}, {}
+    for _, link, start, end in chapters:
+        kind, shop, possession, item = links.get(link, (0, 0, 0, 0))
+        if kind != LINK_SHOP or shop not in shops or not EARLIEST <= start < FOREVER:
+            continue
+        first, last = wanted.get(shop, (start, end))
+        wanted[shop] = (min(first, start), max(last, end))
+        if possession == CONSUMABLE_ITEM and item in items:
+            medals[items[item]] = min(medals.get(items[item], start), start)
+    shop_dates = {}
+    for shop, (first, last) in wanted.items():
+        _, start, end = shops[shop]
+        dates = (min(start, first), max(end, last))
+        if dates != (start, end):
+            shop_dates[shop] = dates
+    # An offer's term opens with the exchange when no other shop uses it.
+    users = {}
+    group_shop = {group: shop for shop, (group, _, _) in shops.items()}
+    for group, term in cell_groups:
+        if term:
+            users.setdefault(term, set()).add(group_shop.get(group))
+    term_dates = {}
+    for term, owners in users.items():
+        if term in cell_terms and owners <= set(shop_dates):
+            start, end = cell_terms[term]
+            first = min(shop_dates[shop][0] for shop in owners)
+            if first < start:
+                term_dates[term] = (first, end)
+    medal_dates = {term: (first, item_terms[term][1]) for term, first in medals.items()
+                   if term in item_terms and first < item_terms[term][0]}
+    return {"m_shop": shop_dates, "m_shop_item_cell_term": term_dates, "m_consumable_item_term": medal_dates}
+
+
+def set_dates(blob, columns, dates):
+    """Gives the rows keyed by their first cell the (start, end) in dates."""
+    import msgpack
+    out = []
+    for header, cells in _rows(blob):
+        new = dates.get(msgpack.unpackb(cells[0])) if cells else None
+        if new is not None:
+            cells = list(cells)
+            for column, value in zip(columns, new):
+                cells[column] = b"\xd3" + struct.pack(">q", value)
+        out.append(header + b"".join(cells))
+    return _table(out)
+
+
+def open_exchanges(toc, blob, changed, schemas):
+    """Opens each event's medal exchange with its chapter (exchange_dates)."""
+    from patcher import patch_masterdata as pm
+    read = lambda table, *names: _read(toc, blob, changed, schemas, table, *names) if table in toc else []
+    rows = lambda table, *names: {r[0]: r[1:] for r in read(table, *names)}
+    found = exchange_dates(
+        read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestLinkId", "StartDatetime", "EndDatetime"),
+        rows("m_event_quest_link", "EventQuestLinkId", "DestinationDomainType", "DestinationDomainId", "PossessionType", "PossessionId"),
+        rows("m_shop", "ShopId", "ShopItemCellGroupId", "StartDatetime", "EndDatetime"),
+        read("m_shop_item_cell_group", "ShopItemCellGroupId", "ShopItemCellTermId"),
+        rows("m_shop_item_cell_term", "ShopItemCellTermId", "StartDatetime", "EndDatetime"),
+        dict(read("m_consumable_item", "ConsumableItemId", "ConsumableItemTermId")),
+        rows("m_consumable_item_term", "ConsumableItemTermId", "StartDatetime", "EndDatetime"))
+    for table, dates in found.items():
+        if dates:
+            index = {name: i for i, _, name in schemas[table][1]}
+            columns = (index["StartDatetime"], index["EndDatetime"])
+            pm.apply_to_table(toc, blob, changed, table, lambda b, c=columns, d=dates: set_dates(b, c, d))
+    return found
+
+
 def shift_table(blob, columns, offset):
     """Move every dated int64 cell in columns by offset; far-future dates become NEVER."""
     from patcher.patch_masterdata import read_array_len, skip_msgpack_value
@@ -233,25 +319,52 @@ def shift_table(blob, columns, offset):
     return moved
 
 
+def read_master(path):
+    """A master data file's table of contents and table blob."""
+    import msgpack
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+    from patcher import patch_masterdata as pm
+    key, iv = bytes.fromhex(pm.DEFAULT_KEY), bytes.fromhex(pm.DEFAULT_IV)
+    decoded = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(Path(path).read_bytes()), AES.block_size)
+    try:
+        msgpack.unpackb(decoded, raw=False, strict_map_key=False)
+        raise ValueError("Master data has no tables")
+    except msgpack.ExtraData as exc:
+        return exc.unpacked, exc.extra
+
+
+def _read(toc, blob, changed, schemas, table, *names):
+    """A table's rows as tuples of the named columns."""
+    import msgpack
+    from patcher import patch_masterdata as pm
+    index = {name: i for i, _, name in schemas[table][1]}
+    columns, out = [index[name] for name in names], []
+
+    def collect(b):
+        for _, cells in _rows(b):
+            if max(columns) < len(cells):
+                out.append(tuple(msgpack.unpackb(cells[i]) for i in columns))
+        return 0
+    pm.apply_to_table(toc, blob, changed, table, collect)
+    return out
+
+
 def build_master(origin, output, offset):
     """Writes origin's game data with rotating content moved forward by offset."""
     import msgpack
     from Crypto.Cipher import AES
-    from Crypto.Util.Padding import pad, unpad
+    from Crypto.Util.Padding import pad
     from patcher import patch_masterdata as pm
     from tools import dump_masterdata
     if offset % WEEK:
         raise ValueError("The calendar moves in whole weeks")
     key, iv = bytes.fromhex(pm.DEFAULT_KEY), bytes.fromhex(pm.DEFAULT_IV)
-    decoded = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(Path(origin).read_bytes()), AES.block_size)
-    try:
-        msgpack.unpackb(decoded, raw=False, strict_map_key=False)
-        raise ValueError("Master data has no tables")
-    except msgpack.ExtraData as exc:
-        toc, blob = exc.unpacked, exc.extra
+    toc, blob = read_master(origin)
     schemas = dump_masterdata.load_schemas()
     changed = {}
     restore_history(toc, blob, changed, schemas)
+    open_exchanges(toc, blob, changed, schemas)
     moved = 0
     for table in ROTATING:
         if table not in toc or table not in schemas:
