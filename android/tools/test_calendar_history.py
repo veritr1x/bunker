@@ -97,6 +97,26 @@ class AbyssTowers(unittest.TestCase):
         self.assertEqual(len([q for q in sq if q[0] == 230001]), 30)
 
 
+class Anecdotes(unittest.TestCase):
+    """An Anecdote (web panel mission) replays every run as a copy: the mission
+    and its sheet get the run's ids, the story pages stay shared."""
+
+    def test_a_mission_and_its_sheet_get_a_copy_per_run(self):
+        mission = {"key": [0], "dates": [4, 5], "rows": {"8": [[T0, T0 + 9 * DAY], [T0 + 200 * DAY, T0 + 230 * DAY]]}}
+        sheet = {"key": [0, 1], "dates": [3, 4], "rows": {"8|1": [[T0, T0 + 9 * DAY], [T0 + 200 * DAY, T0 + 230 * DAY]]}}
+        copies = {}
+        m = cal.restore_runs(table(row(8, 8, 1, 8, Date(T0 + 200 * DAY), Date(T0 + 230 * DAY))), mission, copies, table_name="m_webview_mission")
+        s = cal.restore_runs(table(row(8, 1, 15, Date(T0 + 200 * DAY), Date(T0 + 230 * DAY))), sheet, copies, table_name="m_webview_panel_mission")
+        step = cal.COPY_STEP
+        self.assertEqual(cells(m), [[8, 8, 1, 8, T0, T0 + 9 * DAY], [8 + step, 8, 1, 8 + step, T0 + 200 * DAY, T0 + 230 * DAY]])
+        self.assertEqual(cells(s), [[8, 1, 15, T0, T0 + 9 * DAY], [8 + step, 1, 15, T0 + 200 * DAY, T0 + 230 * DAY]])
+
+    def test_a_run_recorded_twice_plays_once(self):
+        # Anecdote: Tower's April 2022 run is in the history twice, 6 hours apart.
+        self.assertEqual(cal.merge_overlaps([[0, 10 * DAY], [DAY // 4, 10 * DAY + DAY // 4], [100 * DAY, 110 * DAY]]),
+                         [[0, 10 * DAY], [100 * DAY, 110 * DAY]])
+
+
 class Exchanges(unittest.TestCase):
     """An event's medal exchange and the items it gives open with the event (GitHub issue #5)."""
     SHOP, LINK, MEDAL = 3, 6, 6  # link to a shop; the medal is a consumable item
@@ -180,6 +200,27 @@ class TowersInTheGameData(unittest.TestCase):
                 end = cal.NEVER if end >= cal.FOREVER else end  # the build writes "never" as 2099-12-31
                 self.assertEqual((s, e), (start, end), f"tower {tower} run {n}")
                 self.assertEqual(count[seq_of[group]], want, f"tower {tower} run {n} floors")
+
+
+@unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
+class AnecdotesInTheGameData(unittest.TestCase):
+    def test_every_anecdote_run_opens_with_its_sheet(self):
+        import tempfile
+        from tools import dump_masterdata
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "loop.bin.e"
+            cal.build_master(ORIGINAL, out, 0)
+            toc, blob = cal.read_master(out)
+        changed, schemas = {}, dump_masterdata.load_schemas()
+        read = lambda table, *names: cal._read(toc, blob, changed, schemas, table, *names)
+        missions = read("m_webview_mission", "WebviewMissionId", "WebviewMissionTargetId", "StartDatetime")
+        sheets = {}
+        for sheet, start in read("m_webview_panel_mission", "WebviewPanelMissionId", "StartDatetime"):
+            sheets.setdefault(sheet, []).append(start)
+        self.assertEqual(len(missions), 15)  # 8 Anecdotes, 7 reruns (Stars and Doll twice)
+        for mission, target, start in missions:
+            self.assertEqual(len(sheets.get(target, [])), 2, f"mission {mission}")
+            self.assertTrue(all(abs(s - start) <= 6 * 3600_000 for s in sheets[target]), f"mission {mission}")
 
 
 @unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
