@@ -491,9 +491,13 @@ func (pool *GachaCatalog) ApplyRuleFeatured() {
 	pool.loadElements()
 }
 
-// applyNewFeatured gives each added summon its regular summon's lineup.
+// applyNewFeatured gives each added summon its regular summon's lineup,
+// unless its rule lists a lineup of its own (another volume of a summon).
 func (pool *GachaCatalog) applyNewFeatured(file summonRulesFile) {
 	for _, n := range file.New {
+		if r, ok := file.Rules[n.Id]; ok && r.Featured != nil {
+			continue
+		}
 		if fs, ok := pool.FeaturedByGacha[n.Pair]; ok && n.Pair != 0 {
 			pool.FeaturedByGacha[n.Id] = fs
 		} else if fs, ok := pool.FeaturedByGacha[n.Lineup]; ok && n.Lineup != 0 {

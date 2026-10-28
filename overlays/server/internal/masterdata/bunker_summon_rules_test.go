@@ -174,6 +174,21 @@ func TestEmbeddedSummonsNameTheirLineups(t *testing.T) {
 	if len(gala) != 7 {
 		t.Errorf("%d Gala summons", len(gala))
 	}
+	// The festivals' three volumes (notices 1602 and 1658): each with a
+	// lineup of limited-time characters and the 10% ★4 rate.
+	volumes := map[int32]bool{}
+	for _, n := range file.New {
+		volumes[n.Id] = true
+	}
+	for _, id := range []int32{606, 607, 608, 614, 615, 616} {
+		r := file.Rules[id]
+		if id != 606 && id != 614 && !volumes[id] {
+			t.Errorf("festival volume %d missing", id)
+		}
+		if r.Featured == nil || !r.Featured.Only || len(r.Steps) == 0 || r.Steps[0].Rate != 2 {
+			t.Errorf("festival summon %d: %+v", id, r)
+		}
+	}
 	for _, id := range []int32{506, 507} {
 		if f := file.Rules[id].Featured; f == nil || len(f.Costumes) == 0 || len(f.Weapons) == 0 {
 			t.Errorf("Healer & Support summon %d has no lineup", id)
@@ -271,6 +286,24 @@ func TestSummonRuleBonusItems(t *testing.T) {
 	}
 	if len(got.PricePhases[1].Bonuses) != 0 || len(got.PricePhases[2].Bonuses) != 1 {
 		t.Fatalf("steps 2/3 bonuses: %+v / %+v", got.PricePhases[1].Bonuses, got.PricePhases[2].Bonuses)
+	}
+}
+
+// A volume of a summon runs with the first (its pair) but keeps a lineup of
+// its own (Story Completion Festival Vol. 2 and 3, notice 1658).
+func TestAddedSummonKeepsItsOwnLineup(t *testing.T) {
+	pool := featuredPool()
+	file := summonRulesFile{
+		Rules: map[int32]summonRule{7: {Featured: &ruleFeatured{Costumes: []int32{1001}}}},
+		New:   []newSummon{{Id: 7, Pair: 5}, {Id: 8, Pair: 5}},
+	}
+	pool.applyRuleFeatured(file.Rules)
+	pool.applyNewFeatured(file)
+	if c := pool.FeaturedByGacha[7].Costumes; len(c) != 1 || c[0].PossessionId != 1001 {
+		t.Fatalf("volume with its own lineup: %+v", c)
+	}
+	if c := pool.FeaturedByGacha[8].Costumes; len(c) != 1 || c[0].PossessionId != 1002 {
+		t.Fatalf("twin without one: %+v", c)
 	}
 }
 
