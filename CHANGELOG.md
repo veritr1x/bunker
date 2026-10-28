@@ -4,6 +4,26 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-29
+
+### Summons
+- The Paid Only Unacquired ★★★★ Witch and Assassin summons now give a
+  Witch (Saryu) or an Assassin (Akeha) the player lacks, any of them if the
+  player has them all, and their details list them. Before, they could give
+  any ★4 character. [9874b88]
+- The Healer & Support ★★★★ Guaranteed summons have their lineup: their
+  panels show its characters, their ★4s come from it, and their details
+  list it, taken from the Healer & Support Summon Medal Exchange. Before,
+  the panel had only the banner art. [9874b88]
+- With the Original calendar, 29 summons run as long as their notices say.
+  The game data dated them by their 3-day home banner, so they closed early,
+  such as the Unacquired ★★★★ Assassin summon after 3 of its 13 days and
+  the RoD Resonant Character summons. [05974bd]
+- The Re[in]carnation Appreciation Gala's free summons (July to September
+  2023) are back: seven free summons of 40 draws each, one a week, each
+  giving ★4 characters of one costume series. The game data lacked them.
+  [db8c595]
+
 ## 2026-10-28
 
 ### Calendar
