@@ -173,28 +173,53 @@ def _table(rows):
     return header + b"".join(rows)
 
 
-def restore_runs(blob, spec, copies=None):
+# Tables whose rows replay every run as copies, and the id columns a copy moves
+# by n * COPY_STEP: event chapters, and the Anecdotes (web panel missions: the
+# mission and its target sheet; the sheet's story pages stay shared).
+COPIED = {
+    "m_event_quest_chapter": (0,),
+    "m_webview_mission": (0, 3),
+    "m_webview_panel_mission": (0,),
+}
+
+
+def merge_overlaps(lost):
+    """Runs with overlapping windows as one, the first's (a run the history
+    recorded twice: Anecdote: Tower's April 2022 run, 6 hours apart)."""
+    out = []
+    for run in sorted(lost):
+        if out and run[0] < out[-1][-1]:
+            continue
+        out.append(run)
+    return out
+
+
+def restore_runs(blob, spec, copies=None, table_name="m_event_quest_chapter"):
     """Gives the rows calendar_history.json lists their runs. With copies (a
-    dict), an event chapter's later runs become copies of its row, recorded as
-    copies[chapter] = [copy ids]; otherwise a row keeps its first run."""
+    dict), a row's later runs become copies of it (COPIED), recorded as
+    copies[id] = [copy ids]; otherwise a row keeps its first run."""
     import msgpack
     keys, (start_col, end_col), lost = spec["key"], spec["dates"], spec["rows"]
+    moved = COPIED.get(table_name, (0,))
     out = []
     for header, cells in _rows(blob):
         known = lost.get("|".join(str(msgpack.unpackb(cells[i])) for i in keys)) if max(start_col, end_col) < len(cells) else None
         if known is None:
             out.append(header + b"".join(cells))
             continue
-        tower = copies is not None and len(cells) > 1 and msgpack.unpackb(cells[1]) == TOWER_TYPE
+        tower = copies is not None and table_name == "m_event_quest_chapter" and len(cells) > 1 and msgpack.unpackb(cells[1]) == TOWER_TYPE
+        if table_name != "m_event_quest_chapter":
+            known = merge_overlaps(known)
         ranges = runs((msgpack.unpackb(cells[start_col]), msgpack.unpackb(cells[end_col])), known, keep_runs=tower)
         for n, (start, end) in enumerate(ranges if copies is not None else ranges[:1]):
             row = list(cells)
             # Whole int64 cells, which the loop's date shift moves (shift_table).
             row[start_col], row[end_col] = b"\xd3" + struct.pack(">q", start), b"\xd3" + struct.pack(">q", end)
             if n:
-                chapter = msgpack.unpackb(cells[0])
-                row[0] = msgpack.packb(chapter + n * COPY_STEP)
-                copies.setdefault(chapter, []).append(chapter + n * COPY_STEP)
+                for col in moved:
+                    row[col] = msgpack.packb(msgpack.unpackb(cells[col]) + n * COPY_STEP)
+                first = msgpack.unpackb(cells[0])
+                copies.setdefault(first, []).append(first + n * COPY_STEP)
             out.append(header + b"".join(row))
     return _table(out)
 
@@ -247,9 +272,10 @@ def copy_chapter_rows(blob, copies):
 def restore_history(toc, blob, changed, schemas):
     """Puts the runs the final game data lost back, before the loop's shift."""
     from patcher import patch_masterdata as pm
-    copies = {}
+    copies, other = {}, {}
     for table, spec in history().items():
-        pm.apply_to_table(toc, blob, changed, table, lambda b, s=spec, t=table: restore_runs(b, s, copies if t == "m_event_quest_chapter" else None))
+        kept = copies if table == "m_event_quest_chapter" else other if table in COPIED else None
+        pm.apply_to_table(toc, blob, changed, table, lambda b, s=spec, t=table, k=kept: restore_runs(b, s, k, table_name=t))
     if copies:
         for table, (_, columns) in schemas.items():
             if table != "m_event_quest_chapter" and table in toc and any(index == 0 and name == "EventQuestChapterId" for index, _, name in columns):
