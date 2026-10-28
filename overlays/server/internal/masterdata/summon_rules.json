@@ -6332,6 +6332,132 @@
      "price": 3000
     }
    ]
+  },
+  {
+   "asset": "limited_528",
+   "end": 1694397599999,
+   "id": 528,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_528 (Abstract)",
+   "start": 1690106400000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_529",
+   "end": 1694397599999,
+   "id": 529,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_529 (Bloody)",
+   "start": 1690768800000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_530",
+   "end": 1694397599999,
+   "id": 530,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_530 (Bloodless)",
+   "start": 1691373600000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_536",
+   "end": 1694397599999,
+   "id": 536,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_536 (Abyssal)",
+   "start": 1691978400000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_531",
+   "end": 1694397599999,
+   "id": 531,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_531 (Lacrima)",
+   "start": 1692583200000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_537",
+   "end": 1694397599999,
+   "id": 537,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_537 (Fractured)",
+   "start": 1693188000000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
+  },
+  {
+   "asset": "limited_538",
+   "end": 1694397599999,
+   "id": 538,
+   "notice": 1239,
+   "pair": 0,
+   "src": "notice 1239; banner art limited_538 (All)",
+   "start": 1693792800000,
+   "steps": [
+    {
+     "cur": "free",
+     "draws": 10,
+     "guar": "none",
+     "limit": 4,
+     "price": 0
+    }
+   ]
   }
  ],
  "rules": {
@@ -8560,6 +8686,89 @@
     }
    ]
   },
+  "528": {
+   "featured": {
+    "c": [
+     31004,
+     31010,
+     31026,
+     32000,
+     32003,
+     32004,
+     32012,
+     33000,
+     33002,
+     33014,
+     33018,
+     34002,
+     34003,
+     34005,
+     34031,
+     34038,
+     35001,
+     35003,
+     35006
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: Abstract costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
+  },
+  "529": {
+   "featured": {
+    "c": [
+     32005,
+     32014,
+     32016,
+     33003,
+     33010,
+     33015,
+     34015,
+     34028,
+     35011,
+     35013
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: Bloody costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
+  },
+  "530": {
+   "featured": {
+    "c": [
+     31008,
+     31014,
+     33012,
+     33021,
+     35009
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: Bloodless costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
+  },
+  "531": {
+   "featured": {
+    "c": [
+     31009,
+     33006,
+     33016,
+     34016,
+     35014
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: Lacrima costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
+  },
   "532": {
    "featured": {
     "c": [
@@ -8886,6 +9095,31 @@
     }
    ]
   },
+  "536": {
+   "featured": {
+    "c": [
+     31019,
+     31028,
+     32015,
+     32019,
+     32020,
+     32027,
+     33017,
+     33019,
+     34026,
+     34032,
+     34037,
+     35017,
+     35024,
+     35029
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: Abyssal costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
+  },
   "536001": {
    "featured": {
     "c": [
@@ -8956,6 +9190,26 @@
     }
    ]
   },
+  "537": {
+   "featured": {
+    "c": [
+     31005,
+     31015,
+     32008,
+     33009,
+     33011,
+     33013,
+     34022,
+     34023,
+     35027
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: Fractured costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
+  },
   "537001": {
    "featured": {
     "c": [
@@ -9025,6 +9279,80 @@
      "step": 3
     }
    ]
+  },
+  "538": {
+   "featured": {
+    "c": [
+     31004,
+     31005,
+     31008,
+     31009,
+     31010,
+     31014,
+     31015,
+     31019,
+     31026,
+     31028,
+     32000,
+     32003,
+     32004,
+     32005,
+     32008,
+     32012,
+     32014,
+     32015,
+     32016,
+     32019,
+     32020,
+     32027,
+     32031,
+     33000,
+     33002,
+     33003,
+     33006,
+     33009,
+     33010,
+     33011,
+     33012,
+     33013,
+     33014,
+     33015,
+     33016,
+     33017,
+     33018,
+     33019,
+     33021,
+     34002,
+     34003,
+     34005,
+     34015,
+     34016,
+     34022,
+     34023,
+     34026,
+     34028,
+     34031,
+     34032,
+     34037,
+     34038,
+     35001,
+     35003,
+     35006,
+     35009,
+     35011,
+     35013,
+     35014,
+     35017,
+     35024,
+     35027,
+     35029
+    ],
+    "only": true,
+    "src": "notice 1239 + appeal art: All costumes released by the banner's start",
+    "w": []
+   },
+   "src": "notice 1239",
+   "steps": []
   },
   "539001": {
    "src": "notice 848",

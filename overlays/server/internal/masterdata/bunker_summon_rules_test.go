@@ -158,6 +158,22 @@ func TestEmbeddedSummonsNameTheirLineups(t *testing.T) {
 	for _, n := range file.New {
 		check(n.Id, n.Steps)
 	}
+	// The Appreciation Gala: seven free summons, 40 draws each (notice 1239).
+	gala := map[int32]bool{}
+	for _, n := range file.New {
+		if n.Notice == 1239 {
+			gala[n.Id] = true
+			if s := n.Steps[0]; s.Cur != "free" || s.Draws != 10 || s.Limit != 4 {
+				t.Errorf("Gala summon %d: %+v", n.Id, s)
+			}
+			if f := file.Rules[n.Id].Featured; f == nil || !f.Only || len(f.Costumes) == 0 {
+				t.Errorf("Gala summon %d has no series lineup", n.Id)
+			}
+		}
+	}
+	if len(gala) != 7 {
+		t.Errorf("%d Gala summons", len(gala))
+	}
 	for _, id := range []int32{506, 507} {
 		if f := file.Rules[id].Featured; f == nil || len(f.Costumes) == 0 || len(f.Weapons) == 0 {
 			t.Errorf("Healer & Support summon %d has no lineup", id)
@@ -191,6 +207,29 @@ func TestRuleFeaturedReplacesTheGameDataLineup(t *testing.T) {
 	}
 	if got := pool.FeaturedByGacha[6]; len(got.Costumes) != 1 || got.Costumes[0].PossessionId != 1002 {
 		t.Fatalf("a summon without a rule changed: %+v", got)
+	}
+}
+
+// The Appreciation Gala's free summons give ★4 characters of one costume
+// series only (notice 1239); ★3 characters and weapons stay as usual.
+func TestOnlyLineupIsTheBannersFourStarCharacters(t *testing.T) {
+	pool := featuredPool()
+	pool.applyRuleFeatured(map[int32]summonRule{7: {Featured: &ruleFeatured{Costumes: []int32{1002}, Only: true}}})
+	sr := GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: 1003, RarityType: model.RaritySRare}
+	pool.StandardCostumesByRarity = map[int32][]GachaPoolItem{model.RaritySSRare: {pool.CostumeById[1001]}, model.RaritySRare: {sr}}
+	pool.StandardWeaponsByRarity = map[int32][]GachaPoolItem{model.RaritySSRare: {pool.WeaponById[2002]}}
+	entries := []store.GachaCatalogEntry{{GachaId: 7}, {GachaId: 8}}
+	pool.BuildBannerPools(entries)
+	ApplyPanelPromotions(entries, pool)
+	bp := pool.BannerPools[7]
+	if c := bp.CostumesByRarity[model.RaritySSRare]; len(c) != 1 || c[0].PossessionId != 1002 {
+		t.Fatalf("★4 characters: %+v", c)
+	}
+	if len(bp.CostumesByRarity[model.RaritySRare]) != 1 || len(bp.WeaponsByRarity[model.RaritySSRare]) != 1 {
+		t.Fatalf("★3 characters or weapons changed: %+v", bp)
+	}
+	if c := pool.BannerPools[8].CostumesByRarity[model.RaritySSRare]; len(c) != 1 || c[0].PossessionId != 1001 {
+		t.Fatalf("another summon changed: %+v", c)
 	}
 }
 
