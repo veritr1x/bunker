@@ -90,7 +90,9 @@ func guaranteeCandidates(bp *masterdata.BannerPool, pool *masterdata.GachaCatalo
 		return or(featured, ssrCostumes)
 	case strings.HasPrefix(g, "set10:feat+"):
 		return or(append(append([]masterdata.GachaPoolItem(nil), featured...), set...), ssrCostumes)
-	case strings.HasPrefix(g, "set"):
+	case strings.HasPrefix(g, "set"), strings.HasPrefix(g, "r4c_unowned"):
+		// "A ★★★★ Witch you have not yet obtained": one of the listed
+		// character's costumes; applyOwnedRules then prefers an unowned one.
 		return or(set, ssrCostumes)
 	case strings.HasPrefix(g, "r4c"):
 		return ssrCostumes

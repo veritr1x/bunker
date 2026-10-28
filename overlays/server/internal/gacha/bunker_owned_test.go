@@ -56,6 +56,26 @@ func TestUnownedCharacterGuarantee(t *testing.T) {
 	}
 }
 
+// "A ★★★★ Witch you have not yet obtained" (notice 1233): the slot gives one
+// of the listed character's costumes, never another character, even when the
+// player owns every one of them.
+func TestUnownedCharacterOfASet(t *testing.T) {
+	bp, pool := guaranteePool()
+	rule := masterdata.PhaseRule{Guar: "r4c_unowned:Saryu", Set: []int32{1002}}
+	items := []DrawnItem{drawn(ssrCostumeA)} // another ★4 character
+	applyGuarantee(items, bp, pool, rule, 1)
+	applyOwnedRules(ownerOf(), items, bp, pool, rule, 1)
+	if items[0] != drawn(ssrCostumeB) {
+		t.Fatalf("Witch guarantee gave %+v", items[0])
+	}
+	items = []DrawnItem{drawn(ssrCostumeA)}
+	applyGuarantee(items, bp, pool, rule, 1)
+	applyOwnedRules(ownerOf(1002), items, bp, pool, rule, 1)
+	if items[0] != drawn(ssrCostumeB) {
+		t.Fatalf("Witch guarantee with every Witch owned gave %+v", items[0])
+	}
+}
+
 func TestAwakenedFiveGrant(t *testing.T) {
 	u := ownerOf(1001)
 	for k, c := range u.Costumes {

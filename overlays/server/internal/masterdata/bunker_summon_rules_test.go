@@ -2,6 +2,7 @@ package masterdata
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/model"
@@ -113,6 +114,34 @@ func TestEmbeddedSummonRulesAreValid(t *testing.T) {
 			if stepped && s.Step != int32(i+1) {
 				t.Fatalf("summon %d: steps out of order: %+v", id, r.Steps)
 			}
+		}
+	}
+}
+
+// A guarantee of one character's costumes ("a ★★★★ Witch you have not yet
+// obtained") lists them; without the list the slot gives any ★4 character.
+// The Healer & Support summons' "feat4" draws from their lineup.
+func TestEmbeddedSummonsNameTheirLineups(t *testing.T) {
+	file, err := loadSummonRulesFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := func(id int32, steps []ruleStep) {
+		for _, s := range steps {
+			if strings.HasPrefix(s.Guar, "r4c_unowned:") && len(s.Set) == 0 {
+				t.Errorf("summon %d: %s without a set", id, s.Guar)
+			}
+		}
+	}
+	for id, r := range file.Rules {
+		check(id, r.Steps)
+	}
+	for _, n := range file.New {
+		check(n.Id, n.Steps)
+	}
+	for _, id := range []int32{506, 507} {
+		if f := file.Rules[id].Featured; f == nil || len(f.Costumes) == 0 || len(f.Weapons) == 0 {
+			t.Errorf("Healer & Support summon %d has no lineup", id)
 		}
 	}
 }
