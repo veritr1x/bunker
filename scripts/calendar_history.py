@@ -56,6 +56,23 @@ def load(path):
     return toc, blob
 
 
+# Runs an official notice dates otherwise than the weekly masters recorded:
+# (table, key, the run's start) -> its end. Seat of Shadow (Resurrected) ends
+# Dec. 2 17:59 PST (notices 1442, 1445); the last master before it closed moved
+# the end a day later without a notice.
+CORRECTIONS = {
+    ("m_event_quest_chapter", "507", 1700186400000): 1701568799000,
+}
+
+
+def apply_corrections(tables):
+    for (table, key, start), end in CORRECTIONS.items():
+        for run in tables.get(table, {}).get("rows", {}).get(key, []):
+            if run[0] == start:
+                run[-1] = end
+    return tables
+
+
 def key_columns(rows, dates):
     """The fewest leading non-date columns that tell the rows apart."""
     width = max((len(r) for r in rows), default=1)
@@ -146,7 +163,7 @@ def main():
     masters = sorted(args.masters.glob("*.bin.e"))
     if not masters:
         raise SystemExit("No .bin.e files in " + str(args.masters))
-    tables = build(masters)
+    tables = apply_corrections(build(masters))
     data = {"source": f"{len(masters)} global master data files, {masters[0].name[:8]} to {masters[-1].name[:8]}", "tables": tables}
     args.out.write_text(json.dumps(data, separators=(",", ":"), sort_keys=True) + "\n")
     print(f"{args.out}: {sum(len(t['rows']) for t in tables.values())} rows in {len(tables)} tables")
