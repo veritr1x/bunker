@@ -24,6 +24,12 @@ under its heading, down to the previous release.
 - With the Original calendar, a story event's summon stays open for every
   run of the event. Its 2023 reruns had no summon to spend their tickets
   in (chapters 300 and 301). [9b7624b]
+- The Original calendar no longer replays 25 placeholder dates as runs:
+  dates content carried in the game data before it was used, such as
+  chapter 513's medal dated August 2021 for a November event, one-day
+  quests and home-screen pop-ups that were parked on their own days, and
+  a few tips and missions. A date range now counts only if the game data
+  published during it had the content live. [db9374f]
 
 ## 1.3.5 (2026-10-27)
 
