@@ -1,0 +1,52 @@
+diff --git a/server/internal/service/quest_tower.go b/server/internal/service/quest_tower.go
+index 2969b94..bcb9758 100644
+--- a/server/internal/service/quest_tower.go
++++ b/server/internal/service/quest_tower.go
+@@ -22,7 +22,8 @@ func (s *QuestServiceServer) ReceiveTowerAccumulationReward(ctx context.Context,
+ 	nowMillis := gametime.NowMillis()
+ 
+ 	s.users.UpdateUser(userId, func(user *store.UserState) {
+-		rec := user.TowerAccumulationRewards[req.EventQuestChapterId]
++		key := towerBase(req.EventQuestChapterId)
++		rec := user.TowerAccumulationRewards[key]
+ 		old := rec.LatestRewardReceiveQuestMissionClearCount
+ 
+ 		items, highest := tower.CollectRewards(req.EventQuestChapterId, old, req.TargetMissionClearCount)
+@@ -36,10 +37,10 @@ func (s *QuestServiceServer) ReceiveTowerAccumulationReward(ctx context.Context,
+ 			granter.GrantFull(user, model.PossessionType(it.PossessionType), it.PossessionId, it.Count, nowMillis)
+ 		}
+ 
+-		rec.EventQuestChapterId = req.EventQuestChapterId
++		rec.EventQuestChapterId = key
+ 		rec.LatestRewardReceiveQuestMissionClearCount = highest
+ 		rec.LatestVersion = nowMillis
+-		user.TowerAccumulationRewards[req.EventQuestChapterId] = rec
++		user.TowerAccumulationRewards[key] = rec
+ 
+ 		log.Printf("[QuestService] ReceiveTowerAccumulationReward: chapter=%d granted %d item(s), claimed %d -> %d",
+ 			req.EventQuestChapterId, len(items), old, highest)
+diff --git a/server/internal/userdata/proj_quest.go b/server/internal/userdata/proj_quest.go
+index 83a05b5..df988fe 100644
+--- a/server/internal/userdata/proj_quest.go
++++ b/server/internal/userdata/proj_quest.go
+@@ -258,12 +258,14 @@ func init() {
+ 		records := make([]map[string]any, 0, len(ids))
+ 		for _, id := range ids {
+ 			st := user.TowerAccumulationRewards[int32(id)]
+-			records = append(records, map[string]any{
+-				"userId":              user.UserId,
+-				"eventQuestChapterId": st.EventQuestChapterId,
+-				"latestRewardReceiveQuestMissionClearCount": st.LatestRewardReceiveQuestMissionClearCount,
+-				"latestVersion": st.LatestVersion,
+-			})
++			for _, chapter := range towerRunIds(st.EventQuestChapterId) {
++				records = append(records, map[string]any{
++					"userId":              user.UserId,
++					"eventQuestChapterId": chapter,
++					"latestRewardReceiveQuestMissionClearCount": st.LatestRewardReceiveQuestMissionClearCount,
++					"latestVersion": st.LatestVersion,
++				})
++			}
+ 		}
+ 		s, _ := utils.EncodeJSONMaps(records...)
+ 		return s
