@@ -67,5 +67,77 @@ class RestoredRuns(unittest.TestCase):
             self.assertTrue(spec["rows"], name)
 
 
+class Exchanges(unittest.TestCase):
+    """An event's medal exchange opens with the event (GitHub issue #5)."""
+    SHOP, LINK, MEDAL = 3, 6, 6  # link to a shop; the medal is a consumable item
+
+    def dates(self, chapters, shops, cell_groups=(), cell_terms=None, item_terms=None):
+        links = {84: (self.SHOP, 6064, self.MEDAL, 149), 90: (1, 7, self.MEDAL, 150)}
+        return cal.exchange_dates(chapters, links, shops, cell_groups, cell_terms or {}, {149: 149}, item_terms or {})
+
+    def test_the_exchange_opens_when_its_chapter_first_does(self):
+        # Chapter 510 opens from its 2021 run; its exchange only from 2023.
+        out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0 + 600 * DAY, cal.NEVER)})
+        self.assertEqual(out["m_shop"], {6064: (T0, cal.NEVER)})
+
+    def test_an_exchange_already_open_stays_as_it_is(self):
+        out = self.dates([(510, 84, T0 + 10 * DAY, cal.NEVER)], {6064: (600064, T0, cal.NEVER)})
+        self.assertEqual(out["m_shop"], {})
+
+    def test_the_exchange_stays_open_through_the_last_run(self):
+        out = self.dates([(510, 84, T0, T0 + 40 * DAY), (510 + cal.COPY_STEP, 84, T0 + 600 * DAY, T0 + 620 * DAY)],
+                         {6064: (600064, T0 + 600 * DAY, T0 + 610 * DAY)})
+        self.assertEqual(out["m_shop"], {6064: (T0, T0 + 620 * DAY)})
+
+    def test_the_medal_is_valid_when_its_chapter_opens(self):
+        out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0, cal.NEVER)}, item_terms={149: (T0 + 600 * DAY, cal.NEVER)})
+        self.assertEqual(out["m_consumable_item_term"], {149: (T0, cal.NEVER)})
+
+    def test_an_offer_added_later_opens_with_the_exchange(self):
+        out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0 + 600 * DAY, cal.NEVER)},
+                         cell_groups=[(600064, 22)], cell_terms={22: (T0 + 620 * DAY, cal.NEVER)})
+        self.assertEqual(out["m_shop_item_cell_term"], {22: (T0, cal.NEVER)})
+
+    def test_an_offer_term_another_shop_shares_is_left(self):
+        out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0 + 600 * DAY, cal.NEVER), 7000: (700000, T0 + 600 * DAY, cal.NEVER)},
+                         cell_groups=[(600064, 22), (700000, 22)], cell_terms={22: (T0 + 620 * DAY, cal.NEVER)})
+        self.assertEqual(out["m_shop_item_cell_term"], {})
+
+    def test_links_to_other_screens_are_ignored(self):
+        out = self.dates([(511, 90, T0, cal.NEVER)], {7: (700000, T0 + 600 * DAY, cal.NEVER)})
+        self.assertEqual(out, {"m_shop": {}, "m_shop_item_cell_term": {}, "m_consumable_item_term": {}})
+
+
+ORIGINAL = Path(__file__).resolve().parents[2] / "inputs/20240404193219.bin.e"
+
+
+@unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
+class ExchangesInTheGameData(unittest.TestCase):
+    def test_every_event_exchange_opens_with_its_chapter(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "loop.bin.e"
+            cal.build_master(ORIGINAL, out, 0)
+            toc, blob = cal.read_master(out)
+        from tools import dump_masterdata
+        changed, schemas = {}, dump_masterdata.load_schemas()
+        read = lambda table, *names: cal._read(toc, blob, changed, schemas, table, *names)
+        links = {r[0]: r[1:] for r in read("m_event_quest_link", "EventQuestLinkId", "DestinationDomainType", "DestinationDomainId", "PossessionType", "PossessionId")}
+        shops = {r[0]: r[1:] for r in read("m_shop", "ShopId", "StartDatetime", "EndDatetime")}
+        item_term = dict(read("m_consumable_item", "ConsumableItemId", "ConsumableItemTermId"))
+        item_terms = {r[0]: r[1:] for r in read("m_consumable_item_term", "ConsumableItemTermId", "StartDatetime", "EndDatetime")}
+        checked = 0
+        for chapter, link, start, end in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestLinkId", "StartDatetime", "EndDatetime"):
+            kind, shop, possession, item = links.get(link, (0, 0, 0, 0))
+            if kind != 3 or shop not in shops or not cal.EARLIEST <= start < cal.FOREVER:
+                continue
+            checked += 1
+            self.assertLessEqual(shops[shop][0], start, f"chapter {chapter}: exchange {shop} opens after the chapter")
+            self.assertGreaterEqual(shops[shop][1], end, f"chapter {chapter}: exchange {shop} closes before the chapter")
+            if possession == 6 and item_term.get(item) in item_terms:
+                self.assertLessEqual(item_terms[item_term[item]][0], start, f"chapter {chapter}: medal {item} not valid yet")
+        self.assertGreater(checked, 20)
+
+
 if __name__ == "__main__":
     unittest.main()
