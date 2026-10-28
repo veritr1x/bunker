@@ -67,6 +67,10 @@ type summonRule struct {
 	Src      string        `json:"src"`
 	Steps    []ruleStep    `json:"steps"`
 	Featured *ruleFeatured `json:"featured"`
+	// The notice's window (original game time), for a summon the game data
+	// dates by its home banner, which showed for 3 days of a longer run.
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
 }
 
 type ruleFeatured struct {
@@ -227,8 +231,25 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 		return entries
 	}
 	entries = applySummonRules(entries, file.Rules)
-	entries = addNewSummonsFor(entries, file, gametime.CalendarOffset(), gametime.CurrentCalendar() != nil)
+	calendarOn := gametime.CurrentCalendar() != nil
+	entries = applyNoticeWindows(entries, file.Rules, gametime.CalendarOffset(), calendarOn)
+	entries = addNewSummonsFor(entries, file, gametime.CalendarOffset(), calendarOn)
 	return AddEventSummons(entries)
+}
+
+// applyNoticeWindows runs the summons whose rule has a notice window for that
+// window, moved by offset to the calendar's loop. With the calendar off the
+// game data has every summon open, which stays.
+func applyNoticeWindows(entries []store.GachaCatalogEntry, rules map[int32]summonRule, offset int64, calendarOn bool) []store.GachaCatalogEntry {
+	if !calendarOn {
+		return entries
+	}
+	for i := range entries {
+		if r, ok := rules[entries[i].GachaId]; ok && r.Start > 0 && r.End > r.Start {
+			entries[i].StartDatetime, entries[i].EndDatetime = r.Start+offset, r.End+offset
+		}
+	}
+	return entries
 }
 
 // Without the Original calendar the game data has every summon open from
