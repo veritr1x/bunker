@@ -68,12 +68,13 @@ class RestoredRuns(unittest.TestCase):
 
 
 class Exchanges(unittest.TestCase):
-    """An event's medal exchange opens with the event (GitHub issue #5)."""
+    """An event's medal exchange and the items it gives open with the event (GitHub issue #5)."""
     SHOP, LINK, MEDAL = 3, 6, 6  # link to a shop; the medal is a consumable item
 
-    def dates(self, chapters, shops, cell_groups=(), cell_terms=None, item_terms=None):
+    def dates(self, chapters, shops, cell_groups=(), cell_terms=None, item_terms=None, given=None):
         links = {84: (self.SHOP, 6064, self.MEDAL, 149), 90: (1, 7, self.MEDAL, 150)}
-        return cal.exchange_dates(chapters, links, shops, cell_groups, cell_terms or {}, {149: 149}, item_terms or {})
+        items = {149: 149, 150: 150, 6006: 6006}
+        return cal.exchange_dates(chapters, links, shops, cell_groups, cell_terms or {}, items, item_terms or {}, given or {})
 
     def test_the_exchange_opens_when_its_chapter_first_does(self):
         # Chapter 510 opens from its 2021 run; its exchange only from 2023.
@@ -92,6 +93,20 @@ class Exchanges(unittest.TestCase):
     def test_the_medal_is_valid_when_its_chapter_opens(self):
         out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0, cal.NEVER)}, item_terms={149: (T0 + 600 * DAY, cal.NEVER)})
         self.assertEqual(out["m_consumable_item_term"], {149: (T0, cal.NEVER)})
+
+    def test_a_medal_its_quests_drop_is_valid_while_its_chapter_is_open(self):
+        # Chapter 510's silver medal: dropped by its quests, dated to the 2023 run.
+        out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0, cal.NEVER)}, item_terms={150: (T0 + 600 * DAY, T0 + 640 * DAY)}, given={510: [150]})
+        self.assertEqual(out["m_consumable_item_term"], {150: (T0, cal.NEVER)})
+
+    def test_an_item_dated_to_another_run_covers_this_one(self):
+        # Chapter 306's tickets: valid in October, the event runs in December.
+        out = self.dates([(306, 90, T0 + 140 * DAY, T0 + 154 * DAY)], {}, item_terms={6006: (T0 + 75 * DAY, T0 + 91 * DAY)}, given={306: [6006]})
+        self.assertEqual(out["m_consumable_item_term"], {6006: (T0 + 75 * DAY, T0 + 154 * DAY)})
+
+    def test_an_item_parked_for_good_opens_with_its_chapter(self):
+        out = self.dates([(508, 90, T0 + 36 * DAY, T0 + 51 * DAY)], {}, item_terms={6006: (cal.NEVER, cal.NEVER)}, given={508: [6006]})
+        self.assertEqual(out["m_consumable_item_term"], {6006: (T0 + 36 * DAY, cal.NEVER)})
 
     def test_an_offer_added_later_opens_with_the_exchange(self):
         out = self.dates([(510, 84, T0, cal.NEVER)], {6064: (600064, T0 + 600 * DAY, cal.NEVER)},
@@ -126,10 +141,35 @@ class ExchangesInTheGameData(unittest.TestCase):
         shops = {r[0]: r[1:] for r in read("m_shop", "ShopId", "StartDatetime", "EndDatetime")}
         item_term = dict(read("m_consumable_item", "ConsumableItemId", "ConsumableItemTermId"))
         item_terms = {r[0]: r[1:] for r in read("m_consumable_item_term", "ConsumableItemTermId", "StartDatetime", "EndDatetime")}
-        checked = 0
+        sequences, quests_of = {}, {}
+        for group, sequence in read("m_event_quest_sequence_group", "EventQuestSequenceGroupId", "EventQuestSequenceId"):
+            sequences.setdefault(group, []).append(sequence)
+        for sequence, quest in read("m_event_quest_sequence", "EventQuestSequenceId", "QuestId"):
+            quests_of.setdefault(sequence, []).append(quest)
+        quest_rewards = {r[0]: r[1:] for r in read("m_quest", "QuestId", "QuestFirstClearRewardGroupId", "QuestPickupRewardGroupId")}
+        first_clear, pickup = {}, {}
+        for group, kind, item in read("m_quest_first_clear_reward_group", "QuestFirstClearRewardGroupId", "PossessionType", "PossessionId"):
+            if kind == 6:
+                first_clear.setdefault(group, set()).add(item)
+        drops = {r[0]: r[1:] for r in read("m_battle_drop_reward", "BattleDropRewardId", "PossessionType", "PossessionId")}
+        for group, drop in read("m_quest_pickup_reward_group", "QuestPickupRewardGroupId", "BattleDropRewardId"):
+            kind, item = drops.get(drop, (0, 0))
+            if kind == 6:
+                pickup.setdefault(group, set()).add(item)
+        group_of = {r[0]: r[1] for r in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestSequenceGroupId")}
+        checked = rewards = 0
         for chapter, link, start, end in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestLinkId", "StartDatetime", "EndDatetime"):
+            if not cal.EARLIEST <= start < cal.FOREVER:
+                continue
+            for quest in (q for sequence in sequences.get(group_of[chapter], []) for q in quests_of.get(sequence, [])):
+                first, pick = quest_rewards.get(quest, (0, 0))
+                for given in first_clear.get(first, set()) | pickup.get(pick, set()):
+                    if item_term.get(given) in item_terms:
+                        rewards += 1
+                        term_start, term_end = item_terms[item_term[given]]
+                        self.assertTrue(term_start <= start and term_end >= end, f"chapter {chapter}: item {given} not valid while it is open")
             kind, shop, possession, item = links.get(link, (0, 0, 0, 0))
-            if kind != 3 or shop not in shops or not cal.EARLIEST <= start < cal.FOREVER:
+            if kind != 3 or shop not in shops:
                 continue
             checked += 1
             self.assertLessEqual(shops[shop][0], start, f"chapter {chapter}: exchange {shop} opens after the chapter")
@@ -137,6 +177,7 @@ class ExchangesInTheGameData(unittest.TestCase):
             if possession == 6 and item_term.get(item) in item_terms:
                 self.assertLessEqual(item_terms[item_term[item]][0], start, f"chapter {chapter}: medal {item} not valid yet")
         self.assertGreater(checked, 20)
+        self.assertGreater(rewards, 1000)
 
 
 if __name__ == "__main__":

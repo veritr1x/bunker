@@ -213,33 +213,42 @@ def restore_history(toc, blob, changed, schemas):
                 pm.apply_to_table(toc, blob, changed, table, lambda b: copy_chapter_rows(b, copies))
     return copies
 
-# An event's medal exchange. The final game data keeps each event's last run
-# only: its quests drop that run's medal (EventQuestLink) and its exchange and
-# medal date from that run. A chapter whose earlier runs the calendar restores
-# opens with the medal but without the exchange to spend it in (chapter 510
-# from 2021, its shop 6064 from 2023). The exchange and the medal open when the
-# chapter first does and stay until its last run ends.
+# An event's medal exchange and the items it gives. The final game data keeps
+# each event's last run only: its exchange (EventQuestLink) and the medals and
+# tickets its quests drop date from that run. A chapter whose other runs the
+# calendar restores opened without the exchange to spend its medals in
+# (chapter 510 from 2021, its shop 6064 from 2023), and with medals and tickets
+# not yet or no longer valid (chapter 300's tickets in 2023, its run in 2022).
+# The exchange and every item the chapter gives open when it first does and
+# stay until its last run ends.
 LINK_SHOP = 3            # EventQuestLink.DestinationDomainType: a shop
 CONSUMABLE_ITEM = 6      # PossessionType
 
 
-def exchange_dates(chapters, links, shops, cell_groups, cell_terms, items, item_terms):
-    """New (start, end) dates for the exchanges, their offers' terms and their
-    medals' terms, by table and id; only rows that change.
+def exchange_dates(chapters, links, shops, cell_groups, cell_terms, items, item_terms, given):
+    """New (start, end) dates for the exchanges, their offers' terms and the
+    terms of the items the chapters give, by table and id; only rows that change.
 
     chapters: (chapter, link, start, end); links: link -> (destination type,
     destination id, possession type, possession id); shops: shop -> (cell group,
     start, end); cell_groups: (cell group, cell term); cell_terms, item_terms:
-    term -> (start, end); items: consumable item -> its term."""
+    term -> (start, end); items: consumable item -> its term; given: chapter ->
+    the consumable items its quests give."""
     wanted, medals = {}, {}
-    for _, link, start, end in chapters:
-        kind, shop, possession, item = links.get(link, (0, 0, 0, 0))
-        if kind != LINK_SHOP or shop not in shops or not EARLIEST <= start < FOREVER:
+
+    def widen(found, key, start, end):
+        first, last = found.get(key, (start, end))
+        found[key] = (min(first, start), max(last, end))
+
+    for chapter, link, start, end in chapters:
+        if not EARLIEST <= start < FOREVER:
             continue
-        first, last = wanted.get(shop, (start, end))
-        wanted[shop] = (min(first, start), max(last, end))
-        if possession == CONSUMABLE_ITEM and item in items:
-            medals[items[item]] = min(medals.get(items[item], start), start)
+        kind, shop, possession, item = links.get(link, (0, 0, 0, 0))
+        for each in set(given.get(chapter, ())) | ({item} if possession == CONSUMABLE_ITEM else set()):
+            if each in items:
+                widen(medals, items[each], start, end)
+        if kind == LINK_SHOP and shop in shops:
+            widen(wanted, shop, start, end)
     shop_dates = {}
     for shop, (first, last) in wanted.items():
         _, start, end = shops[shop]
@@ -259,8 +268,12 @@ def exchange_dates(chapters, links, shops, cell_groups, cell_terms, items, item_
             first = min(shop_dates[shop][0] for shop in owners)
             if first < start:
                 term_dates[term] = (first, end)
-    medal_dates = {term: (first, item_terms[term][1]) for term, first in medals.items()
-                   if term in item_terms and first < item_terms[term][0]}
+    medal_dates = {}
+    for term, (first, last) in medals.items():
+        if term in item_terms:
+            start, end = item_terms[term]
+            if first < start or last > end:
+                medal_dates[term] = (min(start, first), max(end, last))
     return {"m_shop": shop_dates, "m_shop_item_cell_term": term_dates, "m_consumable_item_term": medal_dates}
 
 
@@ -278,8 +291,33 @@ def set_dates(blob, columns, dates):
     return _table(out)
 
 
+def chapter_items(read):
+    """The consumable items each event chapter's quests give: first-clear
+    rewards and drops."""
+    def grouped(rows):
+        out = {}
+        for key, value in rows:
+            out.setdefault(key, []).append(value)
+        return out
+
+    sequences = grouped(read("m_event_quest_sequence_group", "EventQuestSequenceGroupId", "EventQuestSequenceId"))
+    quests = grouped(read("m_event_quest_sequence", "EventQuestSequenceId", "QuestId"))
+    rewards = {r[0]: r[1:] for r in read("m_quest", "QuestId", "QuestFirstClearRewardGroupId", "QuestPickupRewardGroupId")}
+    first_clear = grouped([(g, item) for g, kind, item in read("m_quest_first_clear_reward_group", "QuestFirstClearRewardGroupId", "PossessionType", "PossessionId") if kind == CONSUMABLE_ITEM])
+    drops = {d: item for d, kind, item in read("m_battle_drop_reward", "BattleDropRewardId", "PossessionType", "PossessionId") if kind == CONSUMABLE_ITEM}
+    pickup = grouped([(g, drops[d]) for g, d in read("m_quest_pickup_reward_group", "QuestPickupRewardGroupId", "BattleDropRewardId") if d in drops])
+    out = {}
+    for chapter, group in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestSequenceGroupId"):
+        items = set()
+        for quest in (q for sequence in sequences.get(group, []) for q in quests.get(sequence, [])):
+            first, pick = rewards.get(quest, (0, 0))
+            items.update(first_clear.get(first, []), pickup.get(pick, []))
+        out[chapter] = items
+    return out
+
+
 def open_exchanges(toc, blob, changed, schemas):
-    """Opens each event's medal exchange with its chapter (exchange_dates)."""
+    """Opens each event's medal exchange and items with its chapter (exchange_dates)."""
     from patcher import patch_masterdata as pm
     read = lambda table, *names: _read(toc, blob, changed, schemas, table, *names) if table in toc else []
     rows = lambda table, *names: {r[0]: r[1:] for r in read(table, *names)}
@@ -290,7 +328,8 @@ def open_exchanges(toc, blob, changed, schemas):
         read("m_shop_item_cell_group", "ShopItemCellGroupId", "ShopItemCellTermId"),
         rows("m_shop_item_cell_term", "ShopItemCellTermId", "StartDatetime", "EndDatetime"),
         dict(read("m_consumable_item", "ConsumableItemId", "ConsumableItemTermId")),
-        rows("m_consumable_item_term", "ConsumableItemTermId", "StartDatetime", "EndDatetime"))
+        rows("m_consumable_item_term", "ConsumableItemTermId", "StartDatetime", "EndDatetime"),
+        chapter_items(read))
     for table, dates in found.items():
         if dates:
             index = {name: i for i, _, name in schemas[table][1]}
