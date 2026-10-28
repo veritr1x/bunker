@@ -14,6 +14,16 @@ under its heading, down to the previous release.
   exchange and the medal itself opened. The exchange, its offers and the
   medal now open when the event first does and stay until its last run
   ends. Reported in GitHub issue #5. [bcd55ab]
+- With the Original calendar, the medals and tickets an event gives are
+  valid while it runs. Like the exchanges, they kept the dates of the
+  event's last run: silver and gold medals of events reopened from an
+  earlier run were not valid yet, story events' summon tickets were valid
+  in another year than the event, and three 2021 events dropped medals
+  never valid. Every item an event gives is now valid from its first run
+  to its last (100 medals and tickets). [3f0934d]
+- With the Original calendar, a story event's summon stays open for every
+  run of the event. Its 2023 reruns had no summon to spend their tickets
+  in (chapters 300 and 301). [9b7624b]
 
 ## 1.3.5 (2026-10-27)
 
