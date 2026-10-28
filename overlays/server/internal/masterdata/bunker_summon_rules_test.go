@@ -118,6 +118,25 @@ func TestEmbeddedSummonRulesAreValid(t *testing.T) {
 	}
 }
 
+// The game data dates some summons by their 3-day home banner. Their notice
+// window (original time) runs them as long as they ran, moved to the loop by
+// the calendar; with the calendar off every summon is open anyway.
+func TestNoticeWindowRunsTheSummon(t *testing.T) {
+	rules := map[int32]summonRule{524: {Start: 1_000, End: 9_000}}
+	entries := []store.GachaCatalogEntry{
+		{GachaId: 524, StartDatetime: 1_500, EndDatetime: 3_000},
+		{GachaId: 525, StartDatetime: 1_500, EndDatetime: 3_000},
+	}
+	got := applyNoticeWindows(append([]store.GachaCatalogEntry(nil), entries...), rules, 100, true)
+	if got[0].StartDatetime != 1_100 || got[0].EndDatetime != 9_100 || got[1].StartDatetime != 1_500 || got[1].EndDatetime != 3_000 {
+		t.Fatalf("calendar on: %+v", got)
+	}
+	got = applyNoticeWindows(append([]store.GachaCatalogEntry(nil), entries...), rules, 0, false)
+	if got[0].StartDatetime != 1_500 || got[0].EndDatetime != 3_000 {
+		t.Fatalf("calendar off: %+v", got[0])
+	}
+}
+
 // A guarantee of one character's costumes ("a ★★★★ Witch you have not yet
 // obtained") lists them; without the list the slot gives any ★4 character.
 // The Healer & Support summons' "feat4" draws from their lineup.
