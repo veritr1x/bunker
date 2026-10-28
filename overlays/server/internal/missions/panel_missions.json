@@ -159,6 +159,17 @@
        },
        "text": "Clear a quest 100 times"
       }
+     ],
+     "words": [
+      "Pure",
+      "Joyous",
+      "Veggies",
+      "Cream",
+      "Stew",
+      "Smile",
+      "Meal",
+      "Jewel",
+      "Vision"
      ]
     },
     {
@@ -471,6 +482,24 @@
        "standin": true,
        "text": "Clear a designed quest enough times"
       }
+     ],
+     "words": [
+      "Pure",
+      "Girl",
+      "Strangest",
+      "Great Monster",
+      "Black Ghost",
+      "Endless",
+      "Stone Tower",
+      "Mommy",
+      "Daddy",
+      "Lonely",
+      "Unjustly",
+      "Nightmare",
+      "Nightly",
+      "Slumber",
+      "Tonight",
+      "World"
      ]
     }
    ],
@@ -558,7 +587,7 @@
        "n": 10,
        "rewards": [
         {
-         "id": 300001,
+         "id": 3001,
          "n": 50,
          "t": 6
         }
@@ -645,6 +674,17 @@
        },
        "text": "Clear a main quest on Hard 50 times"
       }
+     ],
+     "words": [
+      "Buffoon",
+      "Rift",
+      "Tear",
+      "Task",
+      "Duty",
+      "Leads",
+      "Travelers",
+      "Casualty",
+      "Regret"
      ]
     },
     {
@@ -984,6 +1024,24 @@
        },
        "text": "Clear a dungeon 200 times"
       }
+     ],
+     "words": [
+      "Shade",
+      "Desire",
+      "Emotion",
+      "Speaks",
+      "Wings",
+      "Him",
+      "Things",
+      "Dispel",
+      "Powerful",
+      "Entices",
+      "Begin",
+      "Farcical",
+      "Japes",
+      "Memories",
+      "Dripping",
+      "Irony"
      ]
     }
    ],
@@ -1094,7 +1152,7 @@
        "n": 3,
        "rewards": [
         {
-         "id": 300001,
+         "id": 3001,
          "n": 50,
          "t": 6
         }
@@ -1161,6 +1219,17 @@
        },
        "text": "Play 5 Arena matches"
       }
+     ],
+     "words": [
+      "Past",
+      "Memories",
+      "Wife",
+      "Mother",
+      "Neighbor",
+      "Boy",
+      "Husband",
+      "Luxury",
+      "Family"
      ]
     },
     {
@@ -1330,6 +1399,17 @@
        },
        "text": "Play 10 Arena matches"
       }
+     ],
+     "words": [
+      "Distant Future",
+      "Sad Reality",
+      "Flames",
+      "Revenge",
+      "Warrior",
+      "Heart",
+      "Pawn",
+      "Prisoner",
+      "Cycle of War"
      ]
     }
    ],
@@ -1367,7 +1447,7 @@
        "n": 30,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 20,
          "t": 6
         }
@@ -1450,7 +1530,7 @@
        "n": 30,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 20,
          "t": 6
         }
@@ -1464,7 +1544,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 20,
          "t": 6
         }
@@ -1488,6 +1568,17 @@
        },
        "text": "Defeat 30 bosses"
       }
+     ],
+     "words": [
+      "Bombardments",
+      "Explosions",
+      "Each Night",
+      "Remorse",
+      "Shame",
+      "Eternity",
+      "Abuse",
+      "Way of Life",
+      "Tragedies"
      ]
     },
     {
@@ -1519,7 +1610,7 @@
        "n": 150,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 40,
          "t": 6
         }
@@ -1641,6 +1732,17 @@
        },
        "text": "Defeat 50 bosses"
       }
+     ],
+     "words": [
+      "Tale",
+      "Conflict",
+      "Front Lines",
+      "Captain",
+      "Tale",
+      "Mocked",
+      "Peace",
+      "Way of Life",
+      "Flames"
      ]
     }
    ],
@@ -1663,7 +1765,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 20,
          "t": 6
         }
@@ -1764,7 +1866,7 @@
        "n": 30,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 20,
          "t": 6
         }
@@ -1778,7 +1880,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 20,
          "t": 6
         }
@@ -1802,6 +1904,17 @@
        },
        "text": "Defeat 20 bosses"
       }
+     ],
+     "words": [
+      "■■■■■■",
+      "Keeper",
+      "Rips",
+      "Stories",
+      "Keeps Away",
+      "Stands Watch",
+      "The Cage",
+      "Finale",
+      "Curtains"
      ]
     },
     {
@@ -1943,7 +2056,7 @@
        "n": 3,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 40,
          "t": 6
         }
@@ -1967,6 +2080,17 @@
        },
        "text": "Defeat 50 bosses"
       }
+     ],
+     "words": [
+      "■■■■■■",
+      "Destroyer",
+      "Desire",
+      "Emotion",
+      "Plot",
+      "Rules",
+      "Shatters",
+      "Black Wings",
+      "Detests"
      ]
     }
    ],
@@ -2067,7 +2191,7 @@
        "n": 3,
        "rewards": [
         {
-         "id": 300001,
+         "id": 3001,
          "n": 100,
          "t": 6
         }
@@ -2081,7 +2205,7 @@
        "n": 100,
        "rewards": [
         {
-         "id": 300001,
+         "id": 3001,
          "n": 100,
          "t": 6
         }
@@ -2133,7 +2257,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 100,
          "t": 6
         }
@@ -2152,6 +2276,17 @@
        },
        "text": "Clear Quest 4 of Chapter 12: White Autumn"
       }
+     ],
+     "words": [
+      "Mountain",
+      "Nature",
+      "Hardships",
+      "Friendships",
+      "Exaltation",
+      "Peak",
+      "King",
+      "Sunrise",
+      "Highest Point"
      ]
     },
     {
@@ -2168,7 +2303,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 100,
          "t": 6
         }
@@ -2336,7 +2471,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 200002,
+         "id": 1002,
          "n": 3,
          "t": 6
         }
@@ -2355,6 +2490,17 @@
        },
        "text": "Clear Quest 10 of Chapter 6 (Very Hard): Inscriptions in Stone"
       }
+     ],
+     "words": [
+      "Mountain",
+      "Wife",
+      "Child",
+      "Savage",
+      "Pull",
+      "Impulses",
+      "King",
+      "Arrogant",
+      "In Time"
      ]
     }
    ],
@@ -2522,6 +2668,17 @@
        },
        "text": "Clear Hard Exploration 1 time"
       }
+     ],
+     "words": [
+      "Ambition",
+      "Atonement",
+      "Joy",
+      "Trick",
+      "See",
+      "Path",
+      "Exists",
+      "Glimmers",
+      "Towers"
      ]
     },
     {
@@ -2594,7 +2751,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 100,
          "t": 6
         }
@@ -2670,6 +2827,17 @@
        },
        "text": "Clear a daily quest 30 times"
       }
+     ],
+     "words": [
+      "Redemption",
+      "Successful",
+      "Girl",
+      "Demon",
+      "Outcome",
+      "Wish",
+      "Exists",
+      "Might",
+      "Towers"
      ]
     }
    ],
@@ -2833,6 +3001,17 @@
        },
        "text": "Play Exploration 5 times"
       }
+     ],
+     "words": [
+      "She",
+      "Task",
+      "Will",
+      "Blade",
+      "Nightmares",
+      "Humanity",
+      "Earth",
+      "Dolls",
+      "Tale"
      ]
     },
     {
@@ -2905,7 +3084,7 @@
        "n": 1,
        "rewards": [
         {
-         "id": 201003,
+         "id": 2003,
          "n": 100,
          "t": 6
         }
@@ -2981,11 +3160,294 @@
        },
        "text": "Clear a daily quest 30 times"
       }
+     ],
+     "words": [
+      "She",
+      "Doubts",
+      "Blade",
+      "Will",
+      "Nightmares",
+      "Self",
+      "Life",
+      "Dolls",
+      "Tale"
      ]
     }
    ],
    "source": "https://nierrein.guide/event/anecdote-doll-resurrected-3rd-appearance"
   }
  },
+ "parts": [
+  [
+   2,
+   2,
+   90,
+   1
+  ],
+  [
+   5,
+   2,
+   0,
+   0
+  ],
+  [
+   2,
+   4,
+   0,
+   1
+  ],
+  [
+   3,
+   2,
+   0,
+   0
+  ],
+  [
+   7,
+   5,
+   0,
+   1
+  ],
+  [
+   7,
+   3,
+   0,
+   0
+  ],
+  [
+   8,
+   2,
+   0,
+   1
+  ],
+  [
+   8,
+   1,
+   0,
+   0
+  ],
+  [
+   3,
+   5,
+   0,
+   1
+  ],
+  [
+   1,
+   2,
+   0,
+   0
+  ],
+  [
+   1,
+   1,
+   0,
+   1
+  ],
+  [
+   4,
+   1,
+   0,
+   0
+  ],
+  [
+   4,
+   2,
+   0,
+   1
+  ],
+  [
+   1,
+   3,
+   0,
+   0
+  ],
+  [
+   6,
+   2,
+   0,
+   1
+  ],
+  [
+   7,
+   2,
+   0,
+   0
+  ],
+  [
+   7,
+   1,
+   0,
+   1
+  ],
+  [
+   9,
+   2,
+   0,
+   0
+  ],
+  [
+   2,
+   1,
+   0,
+   1
+  ],
+  [
+   5,
+   3,
+   0,
+   0
+  ],
+  [
+   6,
+   5,
+   270,
+   1
+  ],
+  [
+   1,
+   5,
+   90,
+   0
+  ],
+  [
+   2,
+   3,
+   270,
+   1
+  ],
+  [
+   9,
+   1,
+   90,
+   0
+  ],
+  [
+   6,
+   1,
+   0,
+   1
+  ],
+  [
+   9,
+   4,
+   270,
+   0
+  ],
+  [
+   9,
+   3,
+   0,
+   1
+  ],
+  [
+   2,
+   5,
+   0,
+   0
+  ],
+  [
+   3,
+   1,
+   0,
+   1
+  ],
+  [
+   3,
+   4,
+   0,
+   0
+  ],
+  [
+   5,
+   5,
+   0,
+   1
+  ],
+  [
+   4,
+   3,
+   0,
+   0
+  ],
+  [
+   6,
+   4,
+   0,
+   1
+  ],
+  [
+   9,
+   5,
+   0,
+   0
+  ],
+  [
+   5,
+   1,
+   90,
+   1
+  ],
+  [
+   8,
+   3,
+   0,
+   0
+  ],
+  [
+   3,
+   3,
+   0,
+   1
+  ],
+  [
+   1,
+   4,
+   0,
+   0
+  ],
+  [
+   6,
+   3,
+   0,
+   1
+  ],
+  [
+   4,
+   5,
+   0,
+   0
+  ],
+  [
+   4,
+   4,
+   0,
+   1
+  ],
+  [
+   5,
+   4,
+   0,
+   0
+  ],
+  [
+   8,
+   4,
+   0,
+   1
+  ],
+  [
+   8,
+   5,
+   0,
+   0
+  ],
+  [
+   7,
+   4,
+   90,
+   1
+  ]
+ ],
  "version": 1
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	pb "lunar-tear/server/gen/proto"
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
 )
 
@@ -21,6 +22,9 @@ func TestPanelSheetsAreComplete(t *testing.T) {
 			t.Errorf("Anecdote %d: %d pages", id, len(s.Pages))
 		}
 		for _, pg := range s.Pages {
+			if len(pg.Words) != len(pg.Panels) || len(pg.Parts) != 45 {
+				t.Errorf("Anecdote %d page %d: %d words for %d panels, %d pieces", id, pg.Page, len(pg.Words), len(pg.Panels), len(pg.Parts))
+			}
 			for i, p := range pg.Panels {
 				if p.Rule.Kind == "" || p.N <= 0 || len(p.Rewards) == 0 {
 					t.Errorf("Anecdote %d page %d panel %d: %+v", id, pg.Page, i, p)
@@ -104,4 +108,63 @@ func mamaPanel(t *testing.T, cat *Catalog) int32 {
 	}
 	t.Fatal("Anecdote: Doll has no Tap Mama panel")
 	return 0
+}
+
+// The game's banners open an Anecdote's first sheet (/panelmission/8) in every
+// run; the sheet is the run open now, a later run's copy.
+func TestPanelSheetIsTheOpenRun(t *testing.T) {
+	sheet := &PanelSheets{Name: "Anecdote: Doll", Pages: []PanelPage{{Page: 1, Panels: []Panel{
+		{Text: "Tap Mama 10 Times", Rule: Rule{Kind: "mama_tap"}, N: 10, Rewards: []PanelReward{{Type: 12, Count: 50}}},
+	}}}}
+	third := 2*panelRunStep + 8
+	p := NewPanels(map[int32]*PanelSheets{8: sheet}, []PanelRun{
+		{Id: 8, Mission: 8, Target: 8, Start: 1000, End: 2000},
+		{Id: int32(third), Mission: 8, Target: int32(third), Start: 5000, End: 9000},
+	}, nil)
+	if run, ok := p.Run(8, 6000); !ok || run.Id != int32(third) {
+		t.Fatalf("sheet 8 during the third run: %+v %v", run, ok)
+	}
+	if run, ok := p.Run(8, 1500); !ok || run.Id != 8 {
+		t.Fatalf("sheet 8 during the first run: %+v %v", run, ok)
+	}
+	if run, ok := p.Run(8, 3000); !ok || run.Id != 8 {
+		t.Fatalf("sheet 8 between runs: %+v %v", run, ok)
+	}
+	u := store.UserState{}
+	u.Ext.EnsureMaps()
+	u.Ext.PanelMissions[int32(third)] = store.PanelMissionState{Progress: map[int32]int64{100: 10}}
+	if rewards, err := p.Claim(&u, 8, 1, 0, 6000); err != nil || len(rewards) != 1 {
+		t.Fatalf("claim on sheet 8 during the third run: %v %v", rewards, err)
+	}
+}
+
+// Every panel pays an item the game has (its id, not its art's name).
+func TestPanelRewardsAreGameItems(t *testing.T) {
+	cat, _, _, _ := realSave(t)
+	have := map[int32]map[int32]bool{2: {}, 3: {}, 5: {}, 6: {}}
+	for _, r := range read[masterdata.EntityMWeapon]("m_weapon") {
+		have[2][r.WeaponId] = true
+	}
+	for _, r := range read[masterdata.EntityMCompanion]("m_companion") {
+		have[3][r.CompanionId] = true
+	}
+	for _, r := range read[masterdata.EntityMMaterial]("m_material") {
+		have[5][r.MaterialId] = true
+	}
+	for _, r := range read[masterdata.EntityMConsumableItem]("m_consumable_item") {
+		have[6][r.ConsumableItemId] = true
+	}
+	for id, s := range cat.Panels.Sheets {
+		for _, pg := range s.Pages {
+			rewards := append([]PanelReward(nil), pg.Complete...)
+			for _, p := range pg.Panels {
+				rewards = append(rewards, p.Rewards...)
+			}
+			for _, r := range rewards {
+				if ids, ok := have[r.Type]; ok && !ids[r.Id] {
+					t.Errorf("Anecdote %d page %d: no item %d/%d", id, pg.Page, r.Type, r.Id)
+				}
+			}
+		}
+	}
 }
