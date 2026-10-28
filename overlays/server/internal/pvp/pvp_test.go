@@ -60,9 +60,32 @@ func realSave(t *testing.T) (*Catalog, store.UserState) {
 	return Current(), u
 }
 
+// seasonTime is now if an Arena season is open in the test's game data, else
+// ten days into its latest season: the unpatched data ends them in 2024.
+func seasonTime(c *Catalog) int64 {
+	now := time.Now().UnixMilli()
+	if _, ok := c.Season(now); ok {
+		return now
+	}
+	var latest int64
+	for _, s := range c.seasons {
+		if !s.IsInvalid && s.SeasonStartDatetime > latest {
+			latest = s.SeasonStartDatetime
+		}
+	}
+	return latest + 10*24*3600*1000
+}
+
+// mondayOf is the start of at's Arena week: Monday 00:00 GMT-8.
+func mondayOf(at int64) int64 {
+	d := time.UnixMilli(at).In(gametime.Zone)
+	d = time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, gametime.Zone)
+	return d.AddDate(0, 0, -((int(d.Weekday()) + 6) % 7)).UnixMilli()
+}
+
 func TestLadder(t *testing.T) {
 	c, _ := realSave(t)
-	now := time.Now().UnixMilli()
+	now := seasonTime(c)
 	season, ok := c.Season(now)
 	if !ok {
 		t.Fatal("no season open")
@@ -93,7 +116,7 @@ func TestLadder(t *testing.T) {
 
 func TestBattle(t *testing.T) {
 	c, u := realSave(t)
-	now := time.Now().UnixMilli()
+	now := seasonTime(c)
 	season, ladder, ok := c.Sync(&u, now)
 	if !ok {
 		t.Fatal("no season open")
@@ -149,8 +172,8 @@ func TestBattle(t *testing.T) {
 
 func TestWeekAndDefense(t *testing.T) {
 	c, u := realSave(t)
-	monday := time.Date(2026, 10, 5, 0, 0, 0, 0, gametime.Zone).UnixMilli() // weeks start Monday 00:00 GMT-8
-	now := monday + 3*24*3600*1000                                          // a Thursday
+	monday := mondayOf(seasonTime(c)) // weeks start Monday 00:00 GMT-8
+	now := monday + 3*24*3600*1000    // a Thursday
 	season, ladder, ok := c.Sync(&u, now)
 	if !ok {
 		t.Fatal("no season open")
@@ -194,7 +217,7 @@ func TestFriends(t *testing.T) {
 	if c.Friend != (FriendLimits{Friends: 100, SendCheer: 100, ReceiveCheer: 100}) {
 		t.Errorf("friend limits from m_config: %+v", c.Friend)
 	}
-	now := time.Now().UnixMilli()
+	now := seasonTime(c)
 	season, _ := c.Season(now)
 	ladder := c.Ladder(season.PvpSeasonId)
 	f := &u.Ext.Friends
@@ -253,7 +276,7 @@ func TestFriends(t *testing.T) {
 
 func TestFriendCards(t *testing.T) {
 	c, _ := realSave(t)
-	season, _ := c.Season(time.Now().UnixMilli())
+	season, _ := c.Season(seasonTime(c))
 	ladder := c.Ladder(season.PvpSeasonId)
 	levels, powers := map[int32]bool{}, map[int32]bool{}
 	var lowSum, highSum, lowN, highN int64

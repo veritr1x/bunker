@@ -70,9 +70,20 @@ func status(u store.UserState) (cleared, received int) {
 	return
 }
 
+// afterLastLogin is now, or just after the save's last login when that is later:
+// the Original calendar can move a save's clock ahead of the real one.
+func afterLastLogin(t *testing.T, st *sqlite.SQLiteStore, uid int64) int64 {
+	t.Helper()
+	u, err := st.LoadUser(uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return max(time.Now().UnixMilli(), u.Login.LastLoginDatetime+1000)
+}
+
 func TestRealSave(t *testing.T) {
 	cat, st, uid, h := realSave(t)
-	now := time.Now().UnixMilli()
+	now := afterLastLogin(t, st, uid)
 
 	// Backfill from what the save already did.
 	u, err := st.UpdateUser(uid, func(u *store.UserState) {
@@ -502,7 +513,8 @@ func TestPlayHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := time.Now().UnixMilli()
+	now := afterLastLogin(t, st, uid)
+	counted := u.Ext.History[HistoryMissionsCompleted] // what the save already counted
 	track := func(method string, req any) {
 		prev := store.CloneUserState(u)
 		now++
@@ -517,8 +529,10 @@ func TestPlayHistory(t *testing.T) {
 			done++
 		}
 	}
-	if got := cat.HistoryValue(&u, HistoryMissionsCompleted); got != done || done == 0 {
-		t.Errorf("missions completed %d, %d cleared", got, done)
+	// Daily missions completed on past days have reset since; a counter the save
+	// already has stays when it is larger than the missions cleared now.
+	if got := cat.HistoryValue(&u, HistoryMissionsCompleted); got != max(done, counted) || done == 0 {
+		t.Errorf("missions completed %d, %d cleared, %d counted before", got, done, counted)
 	}
 	walk := cat.HistoryValue(&u, HistoryWalkDistance)
 	track("/apb.api.mission.MissionService/UpdateMissionProgress", &pb.UpdateMissionProgressRequest{CageMeasurableValues: &pb.CageMeasurableValues{RunningDistanceMeters: 120}})
