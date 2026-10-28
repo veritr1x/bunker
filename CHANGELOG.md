@@ -18,6 +18,21 @@ under its heading, down to the previous release.
 - Record: Seat of Shadow (Resurrected) ends on 2 December 2023 as its
   notices say, a day earlier than before. [9c8b65c]
 
+### Anecdotes
+- The Anecdotes are playable. Each of the eight has its two sheets of
+  panels again (from guides and gameplay videos; 26 panels whose exact
+  condition isn't recorded count the nearest thing). A run's panels count
+  what the player does while it is open, a reached panel's reward goes to
+  the gift box, and a finished sheet pays its own reward and unlocks its
+  story in the Library. [c55ecc4] [cadd148]
+- The sheets are the game's own page, restored from a preserved copy of the
+  official web app in the notice pack: the panels over the hidden picture,
+  each received panel opening onto its piece and word, and a finished sheet
+  assembling its card beside its story. The words of every sheet come from
+  gameplay videos. Mama's banners open the run that is on. [a32d3d7]
+- Three panels paid an item that doesn't exist instead of a Premium Summon
+  Ticket, a Skip Ticket or a Small Stamina Recovery. [a32d3d7]
+
 ### Summons
 - The Paid Only Unacquired ★★★★ Witch and Assassin summons now give a
   Witch (Saryu) or an Assassin (Akeha) the player lacks, any of them if the
@@ -46,6 +61,10 @@ under its heading, down to the previous release.
   limited-time character summons. Before, the guaranteed slot gave any ★4.
   The limited-time sets are a best guess, as no notice lists them.
   [c4cd7c6]
+
+### Tests
+- The real-save tests pass on any save and game data: the arena season
+  and play history checks follow the save's own dates. [a2b6660]
 
 ## 2026-10-28
 
