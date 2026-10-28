@@ -32,6 +32,9 @@ under its heading, down to the previous release.
   gameplay videos. Mama's banners open the run that is on. [a32d3d7]
 - Three panels paid an item that doesn't exist instead of a Premium Summon
   Ticket, a Skip Ticket or a Small Stamina Recovery. [a32d3d7]
+- When a sub-quest type unlocks, its guide opens on the official page
+  (Dark Memory and Recollections of Dusk; the other guides weren't
+  preserved). Before, the page was blank. [dcaa007]
 
 ### Summons
 - The Paid Only Unacquired ★★★★ Witch and Assassin summons now give a
