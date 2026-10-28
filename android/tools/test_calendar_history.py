@@ -67,6 +67,36 @@ class RestoredRuns(unittest.TestCase):
             self.assertTrue(spec["rows"], name)
 
 
+class AbyssTowers(unittest.TestCase):
+    """A tower reruns on its own schedule, each run with the floors it had
+    (notices 666, 716, 885; permanent from 22 March 2023, notice 1037)."""
+
+    def test_a_tower_keeps_every_run_though_it_ends_open(self):
+        lost = [[T0, T0 + 10 * DAY], [T0 + 100 * DAY, T0 + 110 * DAY], [T0 + 600 * DAY, cal.NEVER]]
+        self.assertEqual(cal.runs((T0 + 600 * DAY, cal.NEVER), lost, keep_runs=True), [tuple(r) for r in lost])
+
+    def test_a_tower_chapter_gets_a_copy_for_each_run(self):
+        spec = {"key": [0], "dates": [2, 3], "rows": {"701": [[T0, T0 + 10 * DAY], [T0 + 600 * DAY, cal.NEVER]]}}
+        copies = {}
+        blob = cal.restore_runs(table(row(701, cal.TOWER_TYPE, Date(T0 + 600 * DAY), Date(cal.NEVER), 230001),
+                                      row(510, 1, Date(T0 + 600 * DAY), Date(cal.NEVER), 200011)), spec, copies)
+        self.assertEqual(cells(blob)[:2], [[701, cal.TOWER_TYPE, T0, T0 + 10 * DAY, 230001],
+                                           [701 + cal.COPY_STEP, cal.TOWER_TYPE, T0 + 600 * DAY, cal.NEVER, 230001]])
+        self.assertEqual(copies, {701: [701 + cal.COPY_STEP]})
+
+    def test_each_run_shows_only_its_floors(self):
+        chapters = table(row(701, cal.TOWER_TYPE, 0, 0, 230001), row(701 + cal.COPY_STEP, cal.TOWER_TYPE, 0, 0, 230001))
+        groups = table(row(230001, 1, 230001))
+        sequences = cal._table([row(230001, n, 230000 + n) for n in range(1, 31)])  # more rows than table() can head
+        out = cal.tower_floors(chapters, groups, sequences, group_col=4, floors={"701": [20, 30]})
+        ch, gr, sq = (cells(b) for b in out)
+        first = 230001 + 20 * cal.COPY_STEP  # a sequence of the first 20 floors
+        self.assertEqual([c[4] for c in ch], [first, 230001])  # the first run 20 floors, the second all 30
+        self.assertIn([first, 1, first], gr)
+        self.assertEqual(sorted(q[2] for q in sq if q[0] == first), [230000 + n for n in range(1, 21)])
+        self.assertEqual(len([q for q in sq if q[0] == 230001]), 30)
+
+
 class Exchanges(unittest.TestCase):
     """An event's medal exchange and the items it gives open with the event (GitHub issue #5)."""
     SHOP, LINK, MEDAL = 3, 6, 6  # link to a shop; the medal is a consumable item
@@ -124,6 +154,32 @@ class Exchanges(unittest.TestCase):
 
 
 ORIGINAL = Path(__file__).resolve().parents[2] / "inputs/20240404193219.bin.e"
+
+
+@unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
+class TowersInTheGameData(unittest.TestCase):
+    def test_every_tower_run_opens_with_its_floors(self):
+        import tempfile
+        from tools import dump_masterdata
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "loop.bin.e"
+            cal.build_master(ORIGINAL, out, 0)
+            toc, blob = cal.read_master(out)
+        changed, schemas = {}, dump_masterdata.load_schemas()
+        read = lambda table, *names: cal._read(toc, blob, changed, schemas, table, *names)
+        floors = json.loads(cal.TOWER_FLOORS.read_text())["floors"]
+        runs = json.loads(cal.HISTORY.read_text())["tables"]["m_event_quest_chapter"]["rows"]
+        chapters = {c: (g, s, e) for c, t, g, s, e in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestType", "EventQuestSequenceGroupId", "StartDatetime", "EndDatetime") if t == cal.TOWER_TYPE}
+        seq_of = dict(read("m_event_quest_sequence_group", "EventQuestSequenceGroupId", "EventQuestSequenceId"))
+        count = {}
+        for seq, _ in read("m_event_quest_sequence", "EventQuestSequenceId", "QuestId"):
+            count[seq] = count.get(seq, 0) + 1
+        for tower, counts in floors.items():
+            for n, (want, (start, end)) in enumerate(zip(counts, runs[tower])):
+                group, s, e = chapters[int(tower) + n * cal.COPY_STEP]
+                end = cal.NEVER if end >= cal.FOREVER else end  # the build writes "never" as 2099-12-31
+                self.assertEqual((s, e), (start, end), f"tower {tower} run {n}")
+                self.assertEqual(count[seq_of[group]], want, f"tower {tower} run {n} floors")
 
 
 @unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")

@@ -126,6 +126,11 @@ HISTORY = Path(__file__).with_name("calendar_history.json")
 # An event chapter's later runs are copies of its row with these ids, so each
 # run opens in its own weeks: chapter + n * COPY_STEP for the nth later run.
 COPY_STEP = 10_000_000
+# Abyss Towers (EventQuestType 10) reran 2021-2023 before they stayed for good
+# (notice 1037): each run is its own copy, with the floors it had then
+# (tower_floors.json, from the weekly game data: 20, then 30, 40 and 50).
+TOWER_TYPE = 10
+TOWER_FLOORS = Path(__file__).with_name("tower_floors.json")
 
 
 def history():
@@ -135,10 +140,13 @@ def history():
         return {}
 
 
-def runs(final, lost):
+def runs(final, lost, keep_runs=False):
     """The (start, end) ranges a row opens in a loop. One that ends up open for
-    good opens from its first run; otherwise every run it had, in order."""
+    good opens from its first run, unless keep_runs (an Abyss Tower, which
+    reran before it stayed); otherwise every run it had, in order."""
     start, end = final
+    if keep_runs and lost:
+        return [tuple(run) for run in lost]
     if EARLIEST <= start < FOREVER <= end:
         return [(min([start] + [run[0] for run in lost]), end)]
     return [tuple(run) for run in lost] or [final]
@@ -177,7 +185,8 @@ def restore_runs(blob, spec, copies=None):
         if known is None:
             out.append(header + b"".join(cells))
             continue
-        ranges = runs((msgpack.unpackb(cells[start_col]), msgpack.unpackb(cells[end_col])), known)
+        tower = copies is not None and len(cells) > 1 and msgpack.unpackb(cells[1]) == TOWER_TYPE
+        ranges = runs((msgpack.unpackb(cells[start_col]), msgpack.unpackb(cells[end_col])), known, keep_runs=tower)
         for n, (start, end) in enumerate(ranges if copies is not None else ranges[:1]):
             row = list(cells)
             # Whole int64 cells, which the loop's date shift moves (shift_table).
@@ -188,6 +197,40 @@ def restore_runs(blob, spec, copies=None):
                 copies.setdefault(chapter, []).append(chapter + n * COPY_STEP)
             out.append(header + b"".join(row))
     return _table(out)
+
+
+def tower_floors(chapters, groups, sequences, group_col, floors):
+    """Gives each tower run the floors it had: a run with fewer than all of them
+    gets a sequence of its first floors (sequence and group id: the tower's +
+    floors * COPY_STEP). floors: tower -> floor count per run, the base row's
+    run first. Returns the chapter, sequence group and sequence tables."""
+    import msgpack
+    first_seq = {}
+    for _, c in _rows(groups):
+        first_seq.setdefault(msgpack.unpackb(c[0]), msgpack.unpackb(c[2]))
+    quests = {}
+    for _, c in _rows(sequences):
+        quests.setdefault(msgpack.unpackb(c[0]), []).append((msgpack.unpackb(c[1]), c))
+    chapter_rows, new_groups, new_sequences, made = [], [], [], set()
+    for header, cells in _rows(chapters):
+        chapter = msgpack.unpackb(cells[0])
+        counts = floors.get(str(chapter % COPY_STEP))
+        n = chapter // COPY_STEP
+        group = msgpack.unpackb(cells[group_col])
+        seq = first_seq.get(group)
+        if counts and n < len(counts) and seq in quests and counts[n] < len(quests[seq]):
+            want = counts[n]
+            new_group, new_seq = group + want * COPY_STEP, seq + want * COPY_STEP
+            if new_group not in made:
+                made.add(new_group)
+                new_groups.append(bytes([0x93]) + msgpack.packb(new_group) + msgpack.packb(1) + msgpack.packb(new_seq))
+                for order, qc in sorted(quests[seq], key=lambda q: q[0])[:want]:
+                    new_sequences.append(bytes([0x90 | len(qc)]) + msgpack.packb(new_seq) + b"".join(qc[1:]))
+            cells = list(cells)
+            cells[group_col] = msgpack.packb(new_group)
+        chapter_rows.append(header + b"".join(cells))
+    keep = lambda blob: [h + b"".join(c) for h, c in _rows(blob)]
+    return _table(chapter_rows), _table(keep(groups) + new_groups), _table(keep(sequences) + new_sequences)
 
 
 def copy_chapter_rows(blob, copies):
@@ -211,7 +254,27 @@ def restore_history(toc, blob, changed, schemas):
         for table, (_, columns) in schemas.items():
             if table != "m_event_quest_chapter" and table in toc and any(index == 0 and name == "EventQuestChapterId" for index, _, name in columns):
                 pm.apply_to_table(toc, blob, changed, table, lambda b: copy_chapter_rows(b, copies))
+    apply_tower_floors(toc, blob, changed, schemas)
     return copies
+
+
+def apply_tower_floors(toc, blob, changed, schemas):
+    """Gives each Abyss Tower run its own floors (tower_floors)."""
+    from patcher import patch_masterdata as pm
+    try:
+        floors = json.loads(TOWER_FLOORS.read_text())["floors"]
+    except FileNotFoundError:
+        return
+    names = ("m_event_quest_chapter", "m_event_quest_sequence_group", "m_event_quest_sequence")
+    if not all(n in toc for n in names):
+        return
+    group_col = next(i for i, _, name in schemas["m_event_quest_chapter"][1] if name == "EventQuestSequenceGroupId")
+    tables = {}
+    for n in names:
+        pm.apply_to_table(toc, blob, changed, n, lambda b, n=n: tables.__setitem__(n, bytes(b)) or 0)
+    built = tower_floors(*(tables[n] for n in names), group_col=group_col, floors=floors)
+    for n, new in zip(names, built):
+        pm.apply_to_table(toc, blob, changed, n, lambda b, new=new: new)
 
 # An event's medal exchange and the items it gives. The final game data keeps
 # each event's last run only: its exchange (EventQuestLink) and the medals and
