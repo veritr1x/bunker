@@ -6,6 +6,18 @@ under its heading, down to the previous release.
 
 ## 2026-10-29
 
+### Calendar
+- With the Original calendar, the Abyss Towers rerun on their own schedule:
+  each tower opens for each of its runs (both Fivefold Unveilings included)
+  and closes between them, with the floors that run had (20, then 30, 40
+  and 50), and stays open for good from March 2023 as notice 1037 says.
+  Before, a tower opened at its first run with all its floors and never
+  closed. A tower's accumulation rewards are still claimed once. [ba0ccbe]
+- With the Original calendar, every Anecdote run plays, not only the
+  first (15 runs in all). [095eac0]
+- Record: Seat of Shadow (Resurrected) ends on 2 December 2023 as its
+  notices say, a day earlier than before. [9c8b65c]
+
 ### Summons
 - The Paid Only Unacquired ★★★★ Witch and Assassin summons now give a
   Witch (Saryu) or an Assassin (Akeha) the player lacks, any of them if the
