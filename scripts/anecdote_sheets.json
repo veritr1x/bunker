@@ -1,0 +1,1155 @@
+{
+ "Doll": {
+  "source": "https://nierrein.guide/event/anecdote-doll-resurrected-3rd-appearance",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Update Profile",
+      "rewards": [
+       "XL Character Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Tap Mama 10 Times",
+      "rewards": [
+       "XL Weapon Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Clear guerrilla quests 10 times",
+      "rewards": [
+       "Small Slab Fragment x 100"
+      ]
+     },
+     {
+      "condition": "Clear guerrilla quests 30 times",
+      "rewards": [
+       "Medium Slab Fragment x200"
+      ]
+     },
+     {
+      "condition": "Clear Quest 10 of Main Quest, Chapter 2 (Normal)",
+      "rewards": [
+       "Mech: Pod 042"
+      ]
+     },
+     {
+      "condition": "Defeat 10 bosses",
+      "rewards": [
+       "Small Cursed-God Antler Bit x300"
+      ]
+     },
+     {
+      "condition": "Defeat 30 bosses",
+      "rewards": [
+       "Medium Cursed-God Antler Bit x200"
+      ]
+     },
+     {
+      "condition": "Buy 20 items in the Item Shop (Any item is possible)",
+      "rewards": [
+       "Small Circuit x100"
+      ]
+     },
+     {
+      "condition": "Play Exploration 5 times",
+      "rewards": [
+       "Medium Circuit x80"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x300"
+    ],
+    "story": "She fights. She channels quiet will into her blade, destroying endless nightmares. It is her task done for humanity so that they may walk the earth anew. It is the never-ending cycle of death for the lifeless. It is the never-ending tale of the dolls' fight."
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Use 100 stamina",
+      "rewards": [
+       "XL Character Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Use 300 stamina",
+      "rewards": [
+       "XL Weapon Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Win 1 Arena match",
+      "rewards": [
+       "Medium Slab Fragment x200"
+      ]
+     },
+     {
+      "condition": "Win 3 Arena matches",
+      "rewards": [
+       "Medium Cursed-God Antler Bit x200"
+      ]
+     },
+     {
+      "condition": "Set a favorite character",
+      "rewards": [
+       "Skip Ticket x100"
+      ]
+     },
+     {
+      "condition": "Win 5 Arena matches",
+      "rewards": [
+       "Large Slab Fragment x20"
+      ]
+     },
+     {
+      "condition": "Win 10 Arena matches",
+      "rewards": [
+       "Large Cursed-God Antler Bit x20"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 10 times",
+      "rewards": [
+       "Large Circuit x 60"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 30 times",
+      "rewards": [
+       "XL Circuit x50"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x300"
+    ],
+    "story": "She fights. She keeps her doubts in her heart. To whom does she point her blade? To what does she direct this will? There is no end to the nightmares that sharpen her sense of self. It is a display of life by the lifeless. An endless tale of the dolls' trials."
+   }
+  ],
+  "confidence": "guide text"
+ },
+ "Stars": {
+  "source": "https://nierrein.guide/event/anecdote-stars-resurrected-3",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Clear a main quest or story quest 10 times",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest or story quest 100 times",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Use the item shop 30 times",
+      "rewards": [
+       "Aquamarine x5"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 3 times",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a quest 1 time",
+      "rewards": [
+       "Faith x1"
+      ]
+     },
+     {
+      "condition": "Defeat 100 bosses",
+      "rewards": [
+       "Aquamarine x5"
+      ]
+     },
+     {
+      "condition": "Perform 30 chapter summons",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 1 time",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a quest 100 times",
+      "rewards": [
+       "Medium Circuit x80"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x100",
+     "Faith x1"
+    ],
+    "story": "A pure girl dreams a joyous dream. She sees a cream stew full of veggies. Mommy and Daddy join her at the table, and they smile as they discuss the day. As the girl boasts of the stew she made, her parents shower her with praise. For her, this quiet vision of a normal meal shines brighter than any jewel."
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Clear a designed quest enough times",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a designed quest enough times",
+      "rewards": [
+       "Aquamarine x10"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Aquamarine x10"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Aquamarine x10"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Aquamarine x10"
+      ]
+     },
+     {
+      "condition": "Clear a quest 3 times",
+      "rewards": [
+       "Faith x1"
+      ]
+     },
+     {
+      "condition": "Clear a designed quest enough times",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a designed quest enough times",
+      "rewards": [
+       "Faith x1"
+      ]
+     },
+     {
+      "condition": "Clear a designed quest enough times",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a conditional quest",
+      "rewards": [
+       "Gems x100"
+      ]
+     },
+     {
+      "condition": "Clear a designed quest enough times",
+      "rewards": [
+       "Faith x1"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x500"
+    ],
+    "story": "A pure girl dreams the strangest dream. She sees a great monster, a floating black ghost, and an endless stone tower. But even without her mommy and daddy, she is not lonely. For here, she is not treated unjustly. Here, she sees no nightmares. She looks forward to her nightly slumber with joy, and knows she will visit this world again tonight…"
+   }
+  ],
+  "confidence": "guide text"
+ },
+ "Emperor": {
+  "source": "https://nierrein.guide/event/anecdote-emperor-resurrected",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Clear a main quest or story quest 50 times",
+      "rewards": [
+       "Small Slab Fragment x200"
+      ]
+     },
+     {
+      "condition": "Clear a main quest or story quest 100 times",
+      "rewards": [
+       "Small Slab Fragment x200"
+      ]
+     },
+     {
+      "condition": "Clear a guerrilla quest 50 times",
+      "rewards": [
+       "XL Character Enhancement x500"
+      ]
+     },
+     {
+      "condition": "Clear a guerrilla quest 100 times",
+      "rewards": [
+       "XL Character Enhancement x1000"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 3 times",
+      "rewards": [
+       "Small Stamina Recovery x100"
+      ]
+     },
+     {
+      "condition": "Perform 100 chapter summons",
+      "rewards": [
+       "Small Stamina Recovery x100"
+      ]
+     },
+     {
+      "condition": "Defeat 50 bosses",
+      "rewards": [
+       "Medium Slab Fragment x50"
+      ]
+     },
+     {
+      "condition": "Clear Quest 4 of Chapter 1 (Hard): Windblown Sand",
+      "rewards": [
+       "XL Character Enhancement x500"
+      ]
+     },
+     {
+      "condition": "Clear Quest 4 of Chapter 12: White Autumn",
+      "rewards": [
+       "Skip Ticket x100"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x500"
+    ],
+    "story": "The man conquers the mountain. He alone bests the vastness of nature. Hardships become like friendships. He basks in otherworldly exaltation. There is no peak he cannot reach, no ridge he cannot traverse. He is the king. The first to see the sunrise. For he sits astride the highest point."
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Clear Quest 4 of Chapter 1 (Very Hard): Windblown Sand",
+      "rewards": [
+       "Skip Ticket x100"
+      ]
+     },
+     {
+      "condition": "Clear Quest 10 of Chapter 2 (Very Hard): Grains of Sand",
+      "rewards": [
+       "Large Slab Fragment x25"
+      ]
+     },
+     {
+      "condition": "Clear Quest 10 of Chapter 3 (Very Hard): Hard Sand",
+      "rewards": [
+       "Large Slab Fragment x25"
+      ]
+     },
+     {
+      "condition": "Clear Argo's Dark Coin Quest (Easy) 10 times",
+      "rewards": [
+       "Medium Slab Fragment x50"
+      ]
+     },
+     {
+      "condition": "Clear Argo's EX Ticket Quest (Easy) 10 times",
+      "rewards": [
+       "Medium Slab Fragment x50"
+      ]
+     },
+     {
+      "condition": "Perform 100 Dark Memories Chapter Summons",
+      "rewards": [
+       "XL Character Enhancement x2000"
+      ]
+     },
+     {
+      "condition": "Clear Quest 10 of Chapter 4 (Very Hard): Flowing Water",
+      "rewards": [
+       "Insignia of Skill x1"
+      ]
+     },
+     {
+      "condition": "Clear Quest 10 of Chapter 5 (Very Hard): Snowy Peaks",
+      "rewards": [
+       "Insignia of Quality x1"
+      ]
+     },
+     {
+      "condition": "Clear Quest 10 of Chapter 6 (Very Hard): Inscriptions in Stone",
+      "rewards": [
+       "Premium Summon Ticket x3"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x500"
+    ],
+    "story": "The man conquers the mountain alone with no thought for his wife or child. He is criticized for being selfish. Blamed for being vain. Mocked for being savage. Unable to resist the mountain's pull, he journeys for his own impulses. He is king, and kings are ever arrogant. For they never see the truth in time."
+   }
+  ],
+  "confidence": "guide text"
+ },
+ "The Moon": {
+  "source": "https://nierrein.guide/event/anecdote-the-moon-resurrected",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Clear a quest 10 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a quest 30 times",
+      "rewards": [
+       "Skip Ticket x20"
+      ]
+     },
+     {
+      "condition": "Clear a quest 50 times",
+      "rewards": [
+       "XL Weapon Enhancement x200"
+      ]
+     },
+     {
+      "condition": "Perform 30 chapter summons",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 10 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 10 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Use the item shop 30 times",
+      "rewards": [
+       "Skip Ticket x20"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 1 time",
+      "rewards": [
+       "Skip Ticket x20"
+      ]
+     },
+     {
+      "condition": "Defeat 30 bosses",
+      "rewards": [
+       "XL Character Enhancement x200"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x200"
+    ],
+    "story": "Explosions. Bombardments. Hues of death. Each night, a fearful past pays a visit. Remorse and shame become raging fire, burning his heart and soul for eternity. Compared to this pain, the verbal abuse he endures is but a summer breeze. He will never change his way of life. Instead, he continues to inspire himself so past tragedies will never repeat."
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Clear a quest 100 times",
+      "rewards": [
+       "Angrite x100"
+      ]
+     },
+     {
+      "condition": "Clear a quest 150 times",
+      "rewards": [
+       "Skip Ticket x40"
+      ]
+     },
+     {
+      "condition": "Clear a quest 200 times",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a quest 250 times",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Perform 100 chapter summons",
+      "rewards": [
+       "Moldavite x10"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 30 times",
+      "rewards": [
+       "Aubrite x10"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 30 times",
+      "rewards": [
+       "Chondrite x10"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 3 times",
+      "rewards": [
+       "Eucrite x10"
+      ]
+     },
+     {
+      "condition": "Defeat 50 bosses",
+      "rewards": [
+       "Merlinite x10"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x200"
+    ],
+    "story": "It is a tale of conflict and friendship. A tale of an unremarkable squadron that remains on the front lines. A tale of a mocked captain---a leader caught between the past and the future. He fears mistakes, yet prays for peace. He will never change his way of life. It is the very flames that eat away at him that allow him to maintain his ideals."
+   }
+  ],
+  "confidence": "guide text"
+ },
+ "Empress": {
+  "source": "https://www.youtube.com/watch?v=cHVnvoqARSc",
+  "region": "global",
+  "duration": "2021-10-26 22:00 - 2021-11-03 21:59 (video local time)",
+  "confidence": "high (read from video); sheet 1 complete: Tanzanite x50 seen in gift box, other four gems inferred from icons",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Clear a main quest 10 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest 20 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest 30 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest 50 times",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 3 times",
+      "rewards": [
+       "Small Stamina Recovery x50"
+      ]
+     },
+     {
+      "condition": "Perform 30 chapter summons",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Defeat 30 bosses",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Use the item shop 30 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Play 5 Arena matches",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     }
+    ],
+    "complete": [
+     "Ruby x50",
+     "Aquamarine x50",
+     "Emerald x50",
+     "Topaz x50",
+     "Tanzanite x50"
+    ],
+    "story": "In the sad reality of a distant future..."
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Clear a main quest on Very Hard 10 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Very Hard 30 times",
+      "rewards": [
+       "XL Weapon Enhancement x200"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Very Hard 50 times",
+      "rewards": [
+       "XL Character Enhancement x200"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Very Hard 70 times",
+      "rewards": [
+       "XL Weapon Enhancement x200"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Very Hard 100 times",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 5 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Perform 100 chapter summons",
+      "rewards": [
+       "XL Character Enhancement x200"
+      ]
+     },
+     {
+      "condition": "Defeat 50 bosses",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Play 10 Arena matches",
+      "rewards": [
+       "XL Weapon Enhancement x200"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x300"
+    ]
+   }
+  ],
+  "sourced_from": "video"
+ },
+ "The World": {
+  "source": "https://www.youtube.com/watch?v=DX9KtSK9s-0",
+  "region": "global",
+  "duration": "2022-02-09 20:00 - 2022-02-17 19:59 (video local time)",
+  "confidence": "high for conditions/rewards; sheet 2 panel order partly inferred; sheet 2 complete = final 'Mission Complete' dialog",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Update your profile comment",
+      "rewards": [
+       "Skip Ticket x20"
+      ]
+     },
+     {
+      "condition": "Clear a quest 10 times",
+      "rewards": [
+       "XL Character Enhancement x500"
+      ]
+     },
+     {
+      "condition": "Clear a quest 30 times",
+      "rewards": [
+       "Jubilant Spirit x1"
+      ]
+     },
+     {
+      "condition": "Clear 10 Dark Memory quests",
+      "rewards": [
+       "XL Character Enhancement x500"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 10 times",
+      "rewards": [
+       "XL Weapon Enhancement x500"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 10 times",
+      "rewards": [
+       "XL Weapon Enhancement x500"
+      ]
+     },
+     {
+      "condition": "Use the item shop 30 times",
+      "rewards": [
+       "Skip Ticket x20"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 1 time",
+      "rewards": [
+       "Skip Ticket x20"
+      ]
+     },
+     {
+      "condition": "Defeat 20 bosses",
+      "rewards": [
+       "Jubilant Spirit x1"
+      ]
+     }
+    ],
+    "complete": [
+     "Jubilant Spirit x1"
+    ]
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Clear a quest 50 times",
+      "rewards": [
+       "Medium Slab Fragment x150"
+      ]
+     },
+     {
+      "condition": "Clear a quest 100 times",
+      "rewards": [
+       "Jubilant Spirit x1"
+      ]
+     },
+     {
+      "condition": "Clear guerrilla quests 30 times",
+      "rewards": [
+       "Medium Slab Fragment x100"
+      ]
+     },
+     {
+      "condition": "Clear 50 story quests",
+      "rewards": [
+       "Piece: Black Pearl x1"
+      ]
+     },
+     {
+      "condition": "Clear 50 Dark Memory quests",
+      "rewards": [
+       "Piece: Black Pearl x1"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 50 times",
+      "rewards": [
+       "Piece: Black Pearl x1"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 50 times",
+      "rewards": [
+       "Piece: Black Pearl x1"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 3 times",
+      "rewards": [
+       "Skip Ticket x40"
+      ]
+     },
+     {
+      "condition": "Defeat 50 bosses",
+      "rewards": [
+       "Piece: Black Pearl x1"
+      ]
+     }
+    ],
+    "complete": [
+     "Jubilant Spirit x1"
+    ],
+    "story": "...stories— to make them as they were meant to be. Ah, however... Who decided? Who said all stories must end happy?"
+   }
+  ],
+  "sourced_from": "video"
+ },
+ "Judgment": {
+  "source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y",
+  "region": "global",
+  "duration": "2022-08-07 21:00 - 2022-08-25 20:59 (video local time)",
+  "confidence": "high (all 18 panels and both complete dialogs read from video)",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Update your profile comment",
+      "rewards": [
+       "XL Character Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Awaken a character once",
+      "rewards": [
+       "XL Weapon Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Clear guerrilla quests 10 times",
+      "rewards": [
+       "Small Slab Fragment x300"
+      ]
+     },
+     {
+      "condition": "Clear guerrilla quests 30 times",
+      "rewards": [
+       "Medium Slab Fragment x200"
+      ]
+     },
+     {
+      "condition": "Clear Quest 4 of Main Quest, Chapter 12 (Normal)",
+      "rewards": [
+       "Advanced Handbook x10"
+      ]
+     },
+     {
+      "condition": "Defeat 10 bosses",
+      "rewards": [
+       "Small Cursed-God Antler Bit x300"
+      ]
+     },
+     {
+      "condition": "Defeat 30 bosses",
+      "rewards": [
+       "Medium Cursed-God Antler Bit x200"
+      ]
+     },
+     {
+      "condition": "Use the item shop 20 times",
+      "rewards": [
+       "Insignia of Skill x1"
+      ]
+     },
+     {
+      "condition": "Clear Hard Exploration 1 time",
+      "rewards": [
+       "Insignia of Quality x1"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x300"
+    ],
+    "story": "Is this fulfillment of ambition, or an atonement of sins? Was he given a rare moment of joy, or subjected to a cruel trick? What does he see along his path? But a single soul exists in the gloom. It glimmers dim. No form. No clarity. Yet it guides the monster as he wanders the cold stone towers in the void."
+   },
+   {
+    "sheet": 2,
+    "panels": [
+     {
+      "condition": "Clear quests using 100 stamina in total",
+      "rewards": [
+       "XL Character Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Clear quests using 300 stamina in total",
+      "rewards": [
+       "XL Weapon Enhancement x2180"
+      ]
+     },
+     {
+      "condition": "Win 1 Arena match",
+      "rewards": [
+       "Medium Slab Fragment x200"
+      ]
+     },
+     {
+      "condition": "Win 3 Arena matches",
+      "rewards": [
+       "Medium Cursed-God Antler Bit x200"
+      ]
+     },
+     {
+      "condition": "Set a favorite character",
+      "rewards": [
+       "Skip Ticket x100"
+      ]
+     },
+     {
+      "condition": "Win 5 Arena matches",
+      "rewards": [
+       "Large Slab Fragment x20"
+      ]
+     },
+     {
+      "condition": "Win 10 Arena matches",
+      "rewards": [
+       "Large Cursed-God Antler Bit x20"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 10 times",
+      "rewards": [
+       "Insignia of Skill x1"
+      ]
+     },
+     {
+      "condition": "Clear a daily quest 30 times",
+      "rewards": [
+       "Insignia of Quality x1"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x300"
+    ],
+    "story": "Is this redemption for failure, or for successful aspirations? ... a single soul exists in the world. It is his armor. His blade. His might. ...amidst towers of the void. (partly read)"
+   }
+  ],
+  "sourced_from": "video"
+ },
+ "Tower": {
+  "source": "https://www.youtube.com/watch?v=ifddldoPnZw (sheet 1), https://www.youtube.com/watch?v=ZS6WZCCkmMg (sheet 2)",
+  "region": "JAPAN run 2021-08-18 11:00 - 2021-09-06 10:59 JST; no global panel video found",
+  "confidence": "high for the JP sheets (read from video, translated); global reruns (Apr/Jul 2022) not verified. The ten sheet-2 'conditional quest' panels: each is 'Clear Main Quest (Hard) Chapter N QUEST k with <character> (any costume)' - partly read: Dimis, 063y, Akeha, Fenrir? (フレンリーゼ) seen; exact chapter/quest per panel not fully legible",
+  "sheets": [
+   {
+    "sheet": 1,
+    "panels": [
+     {
+      "condition": "Clear a main quest 30 times",
+      "rewards": [
+       "Large Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Hard 10 times",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Buy 30 times in the item shop",
+      "rewards": [
+       "Large Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear Exploration 3 times",
+      "rewards": [
+       "Large Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest 10 times",
+      "rewards": [
+       "Small Stamina Recovery x50"
+      ]
+     },
+     {
+      "condition": "Clear event quest 'Record: Garden of Blessing' 10 times",
+      "rewards": [
+       "Large Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Perform 30 chapter summons",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 10 times",
+      "rewards": [
+       "Large Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Hard 50 times",
+      "rewards": [
+       "Large Weapon Enhancement x100"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x100"
+    ]
+   },
+   {
+    "sheet": 2,
+    "layout": "4x4",
+    "panels": [
+     {
+      "condition": "Clear a main quest on Very Hard 30 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 30 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Very Hard 100 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a main quest on Very Hard 200 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 100 times",
+      "rewards": [
+       "XL Character Enhancement x100"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a specified Hard main quest with a named character in the party",
+      "rewards": [
+       "Gems x50"
+      ]
+     },
+     {
+      "condition": "Clear a dungeon 200 times",
+      "rewards": [
+       "XL Weapon Enhancement x100"
+      ]
+     }
+    ],
+    "complete": [
+     "Gems x300"
+    ]
+   }
+  ],
+  "sourced_from": "video"
+ }
+}

@@ -1,0 +1,2991 @@
+{
+ "missions": {
+  "1": {
+   "name": "Anecdote: Stars",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 100,
+       "t": 12
+      },
+      {
+       "id": 320021,
+       "n": 1,
+       "t": 2
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          6
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest or story quest 10 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          6
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest or story quest 100 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 321008,
+         "n": 5,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Use the item shop 30 times"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 3 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 320021,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 1 time"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 321008,
+         "n": 5,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 100 bosses"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 30 chapter summons"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 1 time"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 330022,
+         "n": 80,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 100 times"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 500,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "standin": true,
+       "text": "Clear a designed quest enough times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 321008,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "standin": true,
+       "text": "Clear a designed quest enough times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 321008,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 321008,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 321008,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 320021,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 3 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "standin": true,
+       "text": "Clear a designed quest enough times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 320021,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "standin": true,
+       "text": "Clear a designed quest enough times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "standin": true,
+       "text": "Clear a designed quest enough times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 100,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a conditional quest"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 320021,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "standin": true,
+       "text": "Clear a designed quest enough times"
+      }
+     ]
+    }
+   ],
+   "source": "https://nierrein.guide/event/anecdote-stars-resurrected-3"
+  },
+  "2": {
+   "name": "Anecdote: Tower",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 100,
+       "t": 12
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100003,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "main": true
+        }
+       },
+       "text": "Clear a main quest 30 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Hard 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100003,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Buy 30 times in the item shop"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 100003,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 3 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 300001,
+         "n": 50,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "main": true
+        }
+       },
+       "text": "Clear a main quest 10 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200003,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          1
+         ]
+        }
+       },
+       "standin": true,
+       "text": "Clear event quest 'Record: Garden of Blessing' 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 30 chapter summons"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200003,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 10 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 200003,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Hard 50 times"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 300,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 30 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 30 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 100 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 200,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 200 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 100 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main": true
+        }
+       },
+       "standin": true,
+       "text": "Clear a specified Hard main quest with a named character in the party"
+      },
+      {
+       "n": 200,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 200 times"
+      }
+     ]
+    }
+   ],
+   "source": "https://www.youtube.com/watch?v=ifddldoPnZw (sheet 1), https://www.youtube.com/watch?v=ZS6WZCCkmMg (sheet 2)"
+  },
+  "3": {
+   "name": "Anecdote: Empress",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 321007,
+       "n": 50,
+       "t": 5
+      },
+      {
+       "id": 321008,
+       "n": 50,
+       "t": 5
+      },
+      {
+       "id": 321009,
+       "n": 50,
+       "t": 5
+      },
+      {
+       "id": 321010,
+       "n": 50,
+       "t": 5
+      },
+      {
+       "id": 321011,
+       "n": 50,
+       "t": 5
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "main": true
+        }
+       },
+       "text": "Clear a main quest 10 times"
+      },
+      {
+       "n": 20,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "main": true
+        }
+       },
+       "text": "Clear a main quest 20 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "main": true
+        }
+       },
+       "text": "Clear a main quest 30 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "main": true
+        }
+       },
+       "text": "Clear a main quest 50 times"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 300001,
+         "n": 50,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 3 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 30 chapter summons"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 30 bosses"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Use the item shop 30 times"
+      },
+      {
+       "n": 5,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_play"
+       },
+       "text": "Play 5 Arena matches"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 300,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 30 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 50 times"
+      },
+      {
+       "n": 70,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 70 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest on Very Hard 100 times"
+      },
+      {
+       "n": 5,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 5 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 100 chapter summons"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 50 bosses"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_play"
+       },
+       "text": "Play 10 Arena matches"
+      }
+     ]
+    }
+   ],
+   "source": "https://www.youtube.com/watch?v=cHVnvoqARSc"
+  },
+  "4": {
+   "name": "Anecdote: The Moon",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 200,
+       "t": 12
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 20,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 30 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 50 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 30 chapter summons"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 10 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 20,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Use the item shop 30 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 20,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 1 time"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 30 bosses"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 200,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 300017,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 100 times"
+      },
+      {
+       "n": 150,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 40,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 150 times"
+      },
+      {
+       "n": 200,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 200 times"
+      },
+      {
+       "n": 250,
+       "rewards": [
+        {
+         "id": 0,
+         "n": 50,
+         "t": 12
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 250 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 300018,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 100 chapter summons"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 300019,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 30 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 300020,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 30 times"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 300021,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 3 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 300022,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 50 bosses"
+      }
+     ]
+    }
+   ],
+   "source": "https://nierrein.guide/event/anecdote-the-moon-resurrected"
+  },
+  "5": {
+   "name": "Anecdote: The World",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 330311,
+       "n": 1,
+       "t": 2
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 20,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "user_message"
+       },
+       "text": "Update your profile comment"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 500,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 330311,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 30 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 500,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          7
+         ]
+        }
+       },
+       "text": "Clear 10 Dark Memory quests"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 500,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 10 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 500,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 20,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Use the item shop 30 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 20,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 1 time"
+      },
+      {
+       "n": 20,
+       "rewards": [
+        {
+         "id": 330311,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 20 bosses"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 330311,
+       "n": 1,
+       "t": 2
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 150,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 50 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 330311,
+         "n": 1,
+         "t": 2
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {}
+       },
+       "text": "Clear a quest 100 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear guerrilla quests 30 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 501002,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          6
+         ]
+        }
+       },
+       "text": "Clear 50 story quests"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 501002,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          7
+         ]
+        }
+       },
+       "text": "Clear 50 Dark Memory quests"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 501002,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 50 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 501002,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          3
+         ]
+        }
+       },
+       "text": "Clear a dungeon 50 times"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 40,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 3 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 501002,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 50 bosses"
+      }
+     ]
+    }
+   ],
+   "source": "https://www.youtube.com/watch?v=DX9KtSK9s-0"
+  },
+  "6": {
+   "name": "Anecdote: Emperor",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 500,
+       "t": 12
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 401001,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          6
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest or story quest 50 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 401001,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          6
+         ],
+         "main": true
+        }
+       },
+       "text": "Clear a main quest or story quest 100 times"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 500,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear a guerrilla quest 50 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 1000,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear a guerrilla quest 100 times"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 300001,
+         "n": 100,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Clear Exploration 3 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 300001,
+         "n": 100,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 100 chapter summons"
+      },
+      {
+       "n": 50,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 50,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 50 bosses"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 500,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          2
+         ],
+         "main_chapters": [
+          2
+         ],
+         "order": 4
+        }
+       },
+       "text": "Clear Quest 4 of Chapter 1 (Hard): Windblown Sand"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 100,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          1
+         ],
+         "main_chapters": [
+          14
+         ],
+         "order": 4
+        }
+       },
+       "text": "Clear Quest 4 of Chapter 12: White Autumn"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 500,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 100,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main_chapters": [
+          2
+         ],
+         "order": 4
+        }
+       },
+       "text": "Clear Quest 4 of Chapter 1 (Very Hard): Windblown Sand"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 401003,
+         "n": 25,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main_chapters": [
+          3
+         ],
+         "order": 10
+        }
+       },
+       "text": "Clear Quest 10 of Chapter 2 (Very Hard): Grains of Sand"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 401003,
+         "n": 25,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main_chapters": [
+          4
+         ],
+         "order": 10
+        }
+       },
+       "text": "Clear Quest 10 of Chapter 3 (Very Hard): Hard Sand"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 50,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "quests": [
+          110041
+         ]
+        }
+       },
+       "text": "Clear Argo's Dark Coin Quest (Easy) 10 times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 50,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "quests": [
+          110042
+         ]
+        }
+       },
+       "text": "Clear Argo's EX Ticket Quest (Easy) 10 times"
+      },
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 2000,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "g": "chapter",
+        "k": "gacha_draw"
+       },
+       "text": "Perform 100 Dark Memories Chapter Summons"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 300023,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main_chapters": [
+          5
+         ],
+         "order": 10
+        }
+       },
+       "text": "Clear Quest 10 of Chapter 4 (Very Hard): Flowing Water"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 300024,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main_chapters": [
+          6
+         ],
+         "order": 10
+        }
+       },
+       "text": "Clear Quest 10 of Chapter 5 (Very Hard): Snowy Peaks"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 200002,
+         "n": 3,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          3
+         ],
+         "main_chapters": [
+          7
+         ],
+         "order": 10
+        }
+       },
+       "text": "Clear Quest 10 of Chapter 6 (Very Hard): Inscriptions in Stone"
+      }
+     ]
+    }
+   ],
+   "source": "https://nierrein.guide/event/anecdote-emperor-resurrected"
+  },
+  "7": {
+   "name": "Anecdote: Judgment",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 300,
+       "t": 12
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "user_message"
+       },
+       "text": "Update your profile comment"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "costume_awaken"
+       },
+       "text": "Awaken a character once"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 401001,
+         "n": 300,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear guerrilla quests 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear guerrilla quests 30 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 311003,
+         "n": 10,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          1
+         ],
+         "main_chapters": [
+          14
+         ],
+         "order": 4
+        }
+       },
+       "text": "Clear Quest 4 of Main Quest, Chapter 12 (Normal)"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 402001,
+         "n": 300,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 10 bosses"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 402002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 30 bosses"
+      },
+      {
+       "n": 20,
+       "rewards": [
+        {
+         "id": 300023,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Use the item shop 20 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 300024,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "ex": [
+         11,
+         12
+        ],
+        "k": "explore_finish"
+       },
+       "text": "Clear Hard Exploration 1 time"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 300,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "stamina"
+       },
+       "text": "Clear quests using 100 stamina in total"
+      },
+      {
+       "n": 300,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "stamina"
+       },
+       "text": "Clear quests using 300 stamina in total"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 1 Arena match"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 402002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 3 Arena matches"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 100,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "favorite_character"
+       },
+       "text": "Set a favorite character"
+      },
+      {
+       "n": 5,
+       "rewards": [
+        {
+         "id": 401003,
+         "n": 20,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 5 Arena matches"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 402003,
+         "n": 20,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 10 Arena matches"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 300023,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 300024,
+         "n": 1,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 30 times"
+      }
+     ]
+    }
+   ],
+   "source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y"
+  },
+  "8": {
+   "name": "Anecdote: Doll",
+   "pages": [
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 300,
+       "t": 12
+      }
+     ],
+     "page": 1,
+     "panels": [
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "user_message"
+       },
+       "text": "Update Profile"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "mama_tap"
+       },
+       "text": "Tap Mama 10 Times"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 401001,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear guerrilla quests 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          5
+         ]
+        }
+       },
+       "text": "Clear guerrilla quests 30 times"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 44,
+         "n": 1,
+         "t": 3
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "diff": [
+          1
+         ],
+         "main_chapters": [
+          3
+         ],
+         "order": 10
+        }
+       },
+       "text": "Clear Quest 10 of Main Quest, Chapter 2 (Normal)"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 402001,
+         "n": 300,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 10 bosses"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 402002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "defeat_boss"
+       },
+       "text": "Defeat 30 bosses"
+      },
+      {
+       "n": 20,
+       "rewards": [
+        {
+         "id": 330021,
+         "n": 100,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "shop_buy"
+       },
+       "text": "Buy 20 items in the Item Shop (Any item is possible)"
+      },
+      {
+       "n": 5,
+       "rewards": [
+        {
+         "id": 330022,
+         "n": 80,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "explore_finish"
+       },
+       "text": "Play Exploration 5 times"
+      }
+     ]
+    },
+    {
+     "complete": [
+      {
+       "id": 0,
+       "n": 300,
+       "t": 12
+      }
+     ],
+     "page": 2,
+     "panels": [
+      {
+       "n": 100,
+       "rewards": [
+        {
+         "id": 100004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "stamina"
+       },
+       "text": "Use 100 stamina"
+      },
+      {
+       "n": 300,
+       "rewards": [
+        {
+         "id": 200004,
+         "n": 2180,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "stamina"
+       },
+       "text": "Use 300 stamina"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 401002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 1 Arena match"
+      },
+      {
+       "n": 3,
+       "rewards": [
+        {
+         "id": 402002,
+         "n": 200,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 3 Arena matches"
+      },
+      {
+       "n": 1,
+       "rewards": [
+        {
+         "id": 201003,
+         "n": 100,
+         "t": 6
+        }
+       ],
+       "rule": {
+        "k": "favorite_character"
+       },
+       "text": "Set a favorite character"
+      },
+      {
+       "n": 5,
+       "rewards": [
+        {
+         "id": 401003,
+         "n": 20,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 5 Arena matches"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 402003,
+         "n": 20,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "pvp_win"
+       },
+       "text": "Win 10 Arena matches"
+      },
+      {
+       "n": 10,
+       "rewards": [
+        {
+         "id": 330023,
+         "n": 60,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 10 times"
+      },
+      {
+       "n": 30,
+       "rewards": [
+        {
+         "id": 330024,
+         "n": 50,
+         "t": 5
+        }
+       ],
+       "rule": {
+        "k": "quest",
+        "q": {
+         "event_types": [
+          4
+         ]
+        }
+       },
+       "text": "Clear a daily quest 30 times"
+      }
+     ]
+    }
+   ],
+   "source": "https://nierrein.guide/event/anecdote-doll-resurrected-3rd-appearance"
+  }
+ },
+ "version": 1
+}
