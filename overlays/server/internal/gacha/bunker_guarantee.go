@@ -29,6 +29,9 @@ func applyGuarantee(items []DrawnItem, bp *masterdata.BannerPool, pool *masterda
 	if rule.Feat4 {
 		featureEveryFourStar(items, bp)
 	}
+	if strings.HasPrefix(rule.Guar, "r4:") {
+		everyFourStarFromSet(items, pool, rule.Set)
+	}
 	allowed := guaranteeCandidates(bp, pool, rule)
 	if len(allowed) == 0 || fixedCount <= 0 {
 		return
@@ -68,6 +71,10 @@ func guaranteeCandidates(bp *masterdata.BannerPool, pool *masterdata.GachaCatalo
 			}
 		}
 		return nil
+	}
+	if kind, _, ok := strings.Cut(g, ":"); ok && len(set) > 0 && (kind == "r4" || kind == "r4c") {
+		// A named group ("r4c:season1", "r4:celebratory-1.5"): its listed costumes.
+		return set
 	}
 	if kind, elem, ok := strings.Cut(g, ":"); ok {
 		if e, isElement := masterdata.ElementByName(strings.ToLower(elem)); isElement {
@@ -119,6 +126,31 @@ func featureEveryFourStar(items []DrawnItem, bp *masterdata.BannerPool) {
 			continue
 		}
 		pick := pool[rand.Intn(len(pool))]
+		items[i] = DrawnItem{PossessionType: pick.PossessionType, PossessionId: pick.PossessionId, RarityType: pick.RarityType, CharacterId: pick.CharacterId}
+	}
+}
+
+// everyFourStarFromSet makes every ★4 drawn one of the set ("every ★★★★ in
+// Step 3 is Celebratory Assassin, Songstress or Ruler"). Lower rarities stay.
+func everyFourStarFromSet(items []DrawnItem, pool *masterdata.GachaCatalog, ids []int32) {
+	var set []masterdata.GachaPoolItem
+	for _, id := range ids {
+		if c, ok := pool.CostumeById[id]; ok {
+			set = append(set, c)
+		}
+	}
+	if len(set) == 0 {
+		return
+	}
+	in := make(map[int32]bool, len(set))
+	for _, c := range set {
+		in[c.PossessionId] = true
+	}
+	for i, it := range items {
+		if it.RarityType < model.RaritySSRare || in[it.PossessionId] {
+			continue
+		}
+		pick := set[rand.Intn(len(set))]
 		items[i] = DrawnItem{PossessionType: pick.PossessionType, PossessionId: pick.PossessionId, RarityType: pick.RarityType, CharacterId: pick.CharacterId}
 	}
 }
