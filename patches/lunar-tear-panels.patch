@@ -1,0 +1,14 @@
+diff --git a/server/internal/userdata/proj_webview.go b/server/internal/userdata/proj_webview.go
+index 800d162..93759cb 100644
+--- a/server/internal/userdata/proj_webview.go
++++ b/server/internal/userdata/proj_webview.go
+@@ -12,6 +12,9 @@ var webviewPanelMissionCatalog = sync.OnceValue(masterdata.LoadWebviewPanelMissi
+ 
+ func init() {
+ 	register("IUserWebviewPanelMission", func(user store.UserState) string {
++		if PanelPagesDone != nil {
++			return panelPagesDone(user)
++		}
+ 		pageIds := webviewPanelMissionCatalog().PageIds
+ 		records := make([]map[string]any, 0, len(pageIds))
+ 		for _, pageId := range pageIds {

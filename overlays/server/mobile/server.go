@@ -230,12 +230,17 @@ func Start(dataRoot, assetRoot string) (err error) {
 			notices.ServeHTTP(w, r)
 			return
 		}
+		if service.IsPanelMissionPath(r.URL.Path) {
+			service.ServePanelMission(w, r) // an Anecdote's panel sheet
+			return
+		}
 		octo.ServeHTTP(w, r)
 	}))
 	cdnHTTP := &http.Server{Handler: h2c.NewHandler(cdnMux, &http2.Server{}), ReadHeaderTimeout: 10 * time.Second}
 	s.http = []*http.Server{cdnHTTP, authHTTP}
 	store := sqlite.New(db, gametime.Now)
-	service.SetWebUsers(store) // Summons Details shows the player's prize box
+	service.SetWebUsers(store)   // Summons Details shows the player's prize box
+	service.SetPanelUsers(store) // the Anecdotes' panel sheets read and pay the player's save
 	s.grpc = grpc.NewServer(
 		// Accept keepalive pings down to 1s apart, also between calls, instead of closing the connection (gRPC default: 5 min).
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Second, PermitWithoutStream: true}),
