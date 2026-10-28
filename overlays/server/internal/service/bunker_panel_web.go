@@ -37,9 +37,16 @@ var (
 	panelPagePath = regexp.MustCompile(`^(?:/web/[a-z-]+)?/panelmission/(\d+)$`)
 )
 
+// webAppStatic is a page the app loads into itself (a sub-quest's guide, a
+// panel mission's how-to-play): the pack's English one.
+var webAppStatic = regexp.MustCompile(`^/static/[a-z]{2}(?:-[A-Za-z]+)?/([a-z_]+/[A-Za-z0-9_]+\.html)$`)
+
 func webAppFile(urlPath string) (string, bool) {
 	if m := webAppImages.FindStringSubmatch(urlPath); m != nil {
 		return "web/images/en/" + m[1], true
+	}
+	if m := webAppStatic.FindStringSubmatch(urlPath); m != nil {
+		return "web/static/en/" + m[1], true
 	}
 	if webAppPath.MatchString(urlPath) && !strings.Contains(urlPath, "..") {
 		return "web" + urlPath, true
@@ -113,6 +120,34 @@ func (s *Notices) WebPage() ([]byte, bool) {
 	defer rc.Close()
 	b, err := io.ReadAll(rc)
 	return b, err == nil
+}
+
+// The app's other page the game opens: a sub-quest type's guide
+// (/web/<lang>/sub-quest?playguideId=N).
+var (
+	webAppSubQuest = regexp.MustCompile(`^/web/[a-z]{2}(?:-[A-Za-z]+)?/sub-quest/?$`)
+	playguideId    = regexp.MustCompile(`^[0-9]+$`)
+)
+
+// IsWebAppRoute says whether r is that page and the pack holds its guide.
+func (s *Notices) IsWebAppRoute(r *http.Request) bool {
+	if !webAppSubQuest.MatchString(r.URL.Path) {
+		return false
+	}
+	id := r.URL.Query().Get("playguideId")
+	return playguideId.MatchString(id) && s.HasWebFile("/static/en/subquest/subquest_"+id+".html")
+}
+
+// ServeWebAppRoute serves the app's page, which shows the route's content.
+func (s *Notices) ServeWebAppRoute(w http.ResponseWriter, r *http.Request) {
+	page, ok := s.WebPage()
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(page)
 }
 
 type panelWebApp interface {

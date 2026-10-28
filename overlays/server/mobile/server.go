@@ -235,6 +235,10 @@ func Start(dataRoot, assetRoot string) (err error) {
 			service.ServePanelMission(w, r) // an Anecdote's panel sheet
 			return
 		}
+		if notices.IsWebAppRoute(r) {
+			notices.ServeWebAppRoute(w, r) // a sub-quest's guide, on the official web app
+			return
+		}
 		if notices.HasWebFile(r.URL.Path) {
 			notices.ServeWeb(w, r) // the official web app's scripts, styles and images
 			return

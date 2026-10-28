@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,9 +24,10 @@ func writeWebPack(t *testing.T) string {
 	w, _ := z.Create("notices.json")
 	json.NewEncoder(w).Encode(map[string]any{"notices": []map[string]any{{"id": 1, "type": 1, "title": "A", "publish": 1}}})
 	for name, body := range map[string]string{
-		"web/default_page.html":           "<!doctype html><title>NieR Re[in]carnation</title>",
-		"web/main/main.bundle.js":         "var app;",
-		"web/css/panelmission.bundle.css": ".panel{}",
+		"web/default_page.html":                  "<!doctype html><title>NieR Re[in]carnation</title>",
+		"web/main/main.bundle.js":                "var app;",
+		"web/css/panelmission.bundle.css":        ".panel{}",
+		"web/static/en/subquest/subquest_4.html": "<h1>Dark Memory</h1>",
 		"web/images/en/operations/panel_mission/8/page1/card/" + panelFile("card_full.jpg"): "\xff\xd8\xffJPEG",
 	} {
 		w, _ := z.Create(name)
@@ -81,5 +83,29 @@ func TestStoryHTMLMarksEachPanelsWord(t *testing.T) {
 	want := "It is the <span>never-ending</span> <span>tale</span> of the <span>dolls</span>&#39; fight. A <span>tale</span> &amp; a &lt;war&gt;."
 	if got != want {
 		t.Fatalf("\n got %s\nwant %s", got, want)
+	}
+}
+
+// The web app's sub-quest guides the game opens, when the pack holds them.
+func TestWebAppRoutes(t *testing.T) {
+	n := NewNotices(writeWebPack(t), func() int64 { return 10 })
+	for target, want := range map[string]bool{
+		"/web/en/sub-quest?playguideId=4":  true,
+		"/web/en/sub-quest/?playguideId=4": true,
+		"/web/en/sub-quest?playguideId=5":  false, // not preserved
+		"/web/static/en/terms/termsofuse":  false,
+		"/web/en/gacha-details":            false,
+	} {
+		r := httptest.NewRequest(http.MethodGet, target, nil)
+		if got := n.IsWebAppRoute(r); got != want {
+			t.Errorf("%s: %v, want %v", target, got, want)
+		}
+	}
+	if !n.HasWebFile("/static/ja/subquest/subquest_4.html") {
+		t.Fatal("another language's guide isn't the English one")
+	}
+	code, body, _ := getNotice(t, http.HandlerFunc(n.ServeWebAppRoute), "/web/en/sub-quest?playguideId=4")
+	if code != 200 || !strings.Contains(body, "NieR Re[in]carnation") {
+		t.Fatalf("sub-quest page: %d %q", code, body)
 	}
 }
