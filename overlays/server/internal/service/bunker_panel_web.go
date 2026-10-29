@@ -185,18 +185,28 @@ func storyHTML(story string, words []string) string {
 		}
 		return false
 	}
-	for _, w := range words {
+	mark := func(w string, prefix bool) bool {
 		for from := 0; from < len(text); {
-			i := wordIndex(text[from:], w)
+			i := wordIndex(text[from:], w, prefix)
 			if i < 0 {
-				break
+				return false
 			}
 			at := from + i
-			if !taken(at, at+len(w)) {
-				spans = append(spans, span{at, at + len(w)})
-				break
+			end := at + len(w)
+			for prefix && end < len(text) && isLetter(text[end]) { // the story's longer form: "nightmares", "wished"
+				end++
+			}
+			if !taken(at, end) {
+				spans = append(spans, span{at, end})
+				return true
 			}
 			from = at + 1
+		}
+		return false
+	}
+	for _, w := range words {
+		if !mark(w, false) {
+			mark(w, true)
 		}
 	}
 	sort.Slice(spans, func(i, j int) bool { return spans[i].at < spans[j].at })
@@ -211,10 +221,12 @@ func storyHTML(story string, words []string) string {
 	return b.String()
 }
 
-// wordIndex finds w in s as a whole word, ignoring case.
-func wordIndex(s, w string) int {
+func isLetter(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
+
+// wordIndex finds w in s as a whole word, ignoring case; with prefix, as the
+// start of a word.
+func wordIndex(s, w string, prefix bool) int {
 	ls, lw := strings.ToLower(s), strings.ToLower(w)
-	isLetter := func(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
 	for from := 0; ; {
 		i := strings.Index(ls[from:], lw)
 		if i < 0 {
@@ -222,7 +234,7 @@ func wordIndex(s, w string) int {
 		}
 		i += from
 		end := i + len(lw)
-		if (i == 0 || !isLetter(s[i-1])) && (end == len(s) || !isLetter(s[end])) {
+		if (i == 0 || !isLetter(s[i-1])) && (prefix || end == len(s) || !isLetter(s[end])) {
 			return i
 		}
 		from = i + 1

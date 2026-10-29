@@ -112,3 +112,13 @@ func TestWebAppRoutes(t *testing.T) {
 		t.Fatalf("sub-quest page: %d %q", code, body)
 	}
 }
+
+// A panel's word may be shorter than the story's ("Nightmare" in
+// "nightmares", "Wish" in "wished"): the story's word is marked.
+func TestStoryHTMLMarksALongerFormOfTheWord(t *testing.T) {
+	got := storyHTML("Here, she sees no\nnightmares. The outcome that he has so long wished for.", []string{"Nightmare", "Wish", "Outcome"})
+	want := "Here, she sees no <span>nightmares</span>. The <span>outcome</span> that he has so long <span>wished</span> for."
+	if got != want {
+		t.Fatalf("\n got %s\nwant %s", got, want)
+	}
+}
