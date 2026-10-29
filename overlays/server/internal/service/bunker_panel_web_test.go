@@ -24,10 +24,11 @@ func writeWebPack(t *testing.T) string {
 	w, _ := z.Create("notices.json")
 	json.NewEncoder(w).Encode(map[string]any{"notices": []map[string]any{{"id": 1, "type": 1, "title": "A", "publish": 1}}})
 	for name, body := range map[string]string{
-		"web/default_page.html":                  "<!doctype html><title>NieR Re[in]carnation</title>",
-		"web/main/main.bundle.js":                "var app;",
-		"web/css/panelmission.bundle.css":        ".panel{}",
-		"web/static/en/subquest/subquest_4.html": "<h1>Dark Memory</h1>",
+		"web/default_page.html":                                 "<!doctype html><title>NieR Re[in]carnation</title>",
+		"web/main/main.bundle.js":                               "var app;",
+		"web/css/panelmission.bundle.css":                       ".panel{}",
+		"web/static/en/subquest/subquest_4.html":                "<h1>Dark Memory</h1>",
+		"web/images/en/operations/banner/" + panelFile("guide"): "\xff\xd8\xffGUIDE",
 		"web/images/en/operations/panel_mission/8/page1/card/" + panelFile("card_full.jpg"): "\xff\xd8\xffJPEG",
 	} {
 		w, _ := z.Create(name)
@@ -48,6 +49,8 @@ func TestNoticePackServesTheWebApp(t *testing.T) {
 		"/main/main.bundle.js":         "var app;",
 		"/css/panelmission.bundle.css": ".panel{}",
 		"/images/en/operations/panel_mission/8/page1/card/" + panelFile("card_full.jpg"): "\xff\xd8\xffJPEG",
+		// The sub-quest and how-to-play guides' pictures.
+		"/images/en/operations/banner/" + panelFile("guide"): "\xff\xd8\xffGUIDE",
 		// Another language's page asks for its own images: the pack's English ones.
 		"/images/ja/operations/panel_mission/8/page1/card/" + panelFile("card_full.jpg"): "\xff\xd8\xffJPEG",
 	} {
