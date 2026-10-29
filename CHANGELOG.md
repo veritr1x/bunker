@@ -12,10 +12,15 @@ under its heading, down to the previous release.
   instead of being cut off. [03e995b]
 - Notices and summon details keep their text in a readable column on wide
   screens. [03e995b]
+- In the Archive, weapon stories, records, companion and costume texts
+  reflow to the screen instead of keeping the game's narrow line breaks;
+  lists, reports and the like keep their own breaks. [a8c9870]
 
 ### Anecdotes
 - The sub-quest guides and the Anecdotes' How to Play pages show their
   pictures (with a notice pack that has them). [f2b976b]
+- The completed sheet's story marks every panel's word, also where the
+  story uses a longer form of it ("nightmares", "wished"). [b0a3a65]
 
 ## 1.4.0 (2026-10-29)
 
