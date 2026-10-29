@@ -40,6 +40,29 @@ def rich(text: str) -> str:
     return "".join(out).replace("\n", "<br>") + "</i>" * depth
 
 
+# A line break the game put in only to fit its narrow text box: the next line
+# goes on with the sentence (it starts in lower case, or the line before ends
+# in a lower-case word, or a comma after more than a greeting). Breaks after a
+# sentence, before a "Label:" (a report's Sender:), symbols, digits and blank
+# lines are the writer's own (letters, reports, lists, hex dumps) and stay.
+_GOES_ON = re.compile(r"""(?:<i>|['"])?[a-z]""")
+_GOES_ON_CAPITAL = re.compile(r"(?:<i>)?[A-Z—]")
+_LABEL = re.compile(r"[A-Z][A-Za-z ]{0,20}:")  # "Sender: Commander"
+
+
+def prose(text: str) -> str:
+    """Story text as safe HTML (rich) that reflows to the screen: the game's
+    mid-sentence line breaks become spaces."""
+    lines = (text or "").split("\n")
+    out = lines[0].rstrip()
+    for prev, line in zip(lines, lines[1:]):
+        prev, line = prev.rstrip(), line.strip()
+        soft = line and prev and not _LABEL.match(line) and (
+            _GOES_ON.match(line) or _GOES_ON_CAPITAL.match(line) and (prev[-1].islower() or prev.endswith(",") and len(prev) > 20))
+        out += (" " if soft else "\n") + line
+    return rich(out)
+
+
 def quoted(text: str) -> str:
     """Text in quotation marks, unless it already opens with one."""
     return text if text[:1] in ('"', "“", "「", "『") else f"“{text}”"

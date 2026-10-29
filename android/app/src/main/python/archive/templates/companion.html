@@ -7,7 +7,7 @@
 {% endif %}
 {% if has_model(companion.asset) %}<a class="button" href="/viewer/{{ companion.asset }}">View in 3D</a>{% endif %}
 {% if companion.text %}
-<div class="panel"><article class="record"><p>{{ companion.text|rich|safe }}</p></article></div>
+<div class="panel"><article class="record"><p>{{ companion.text|prose|safe }}</p></article></div>
 {% endif %}
 {% endblock %}
 {% block footer %}

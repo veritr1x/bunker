@@ -7,7 +7,7 @@
 {% endif %}
 {% if has_model(costume.asset) %}<a class="button" href="/viewer/{{ costume.asset }}">View in 3D</a>{% endif %}
 {% if costume.story %}
-<div class="panel"><article class="record"><h3>Costume story</h3><p>{{ costume.story|rich|safe }}</p></article></div>
+<div class="panel"><article class="record"><h3>Costume story</h3><p>{{ costume.story|prose|safe }}</p></article></div>
 {% endif %}
 {% endblock %}
 {% block footer %}

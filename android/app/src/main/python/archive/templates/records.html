@@ -19,7 +19,7 @@
       {% if images and w.art %}<a class="art weapon-art" href="{{ img("full", w.art) }}"><img src="{{ img("view", w.art) }}" alt="{{ w.name }}" loading="lazy"></a>{% endif %}
       {% if has_model(w.asset) %}<a class="button" href="/viewer/{{ w.asset }}">View in 3D</a>{% endif %}
     </div>
-    {% for s in w.stories %}<article class="record"><h3>Story {{ loop.index }}</h3><p>{{ s|rich|safe }}</p></article>{% endfor %}
+    {% for s in w.stories %}<article class="record"><h3>Story {{ loop.index }}</h3><p>{{ s|prose|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}
   </div>
@@ -37,7 +37,7 @@
   {% for g in groups %}
   <details class="panel fold">
     <summary>{{ g.character }} · Season {{ g.season }} · {{ g["items"]|length }}</summary>
-    {% for item in g["items"] %}<article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></article>{% endfor %}
+    {% for item in g["items"] %}<article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|prose|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}
 {% elif tab == "memoirs" %}
@@ -47,7 +47,7 @@
     {% for item in g["items"] %}
     <article class="record with-art">
       {% if images and item.art %}<a class="art thumb" href="{{ img("full", item.art) }}"><img src="{{ img("thumb", item.art) }}" alt="" loading="lazy"></a>{% endif %}
-      <div><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></div>
+      <div><h3>{{ item.title }}</h3><p>{{ item.text|prose|safe }}</p></div>
     </article>
     {% endfor %}
   </details>
@@ -57,7 +57,7 @@
   {% for item in items %}
     <article class="record{% if images and item.art %} with-art{% endif %}">
       {% if images and item.art %}<a class="art thumb" href="{{ img("full", item.art) }}"><img src="{{ img("thumb", item.art) }}" alt="" loading="lazy"></a>{% endif %}
-      <div><h3>{{ item.title }}</h3><p>{{ item.text|rich|safe }}</p></div>
+      <div><h3>{{ item.title }}</h3><p>{{ item.text|prose|safe }}</p></div>
     </article>
   {% else %}<p class="note">Nothing here.</p>{% endfor %}
   </div>

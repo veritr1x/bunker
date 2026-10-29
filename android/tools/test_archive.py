@@ -12,7 +12,7 @@ import os, re, shutil, sys, tempfile, unittest
 root = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(root / "android/app/src/main/python"), str(root / "upstream/lunar-base/tools")]
 from archive import index  # noqa: E402
-from archive.content import plain, rich  # noqa: E402
+from archive.content import plain, prose, rich  # noqa: E402
 
 
 class Parsing(unittest.TestCase):
@@ -56,6 +56,27 @@ class Parsing(unittest.TestCase):
     def test_upper_case_italics_and_lone_brackets(self):
         self.assertEqual(rich("<I>Hush.</I> Hey Hina! <3"), "<i>Hush.</i> Hey Hina! &lt;3")
         self.assertEqual(rich("<i>charms.</I. As"), "<i>charms.</i>. As")  # a tag missing its ">"
+
+    def test_story_lines_reflow_but_deliberate_breaks_stay(self):
+        # The game breaks lines for its narrow text box; mid-sentence breaks join, so the text fills any screen.
+        self.assertEqual(prose("A dark monster finds a sad girl in The Cage. Wanting to become\nhuman, he offers to eat her dreams—though he did not know\n<i>why</i> he wants to be human."),
+                         "A dark monster finds a sad girl in The Cage. Wanting to become human, he offers to eat her dreams—though he did not know <i>why</i> he wants to be human.")
+        self.assertEqual(prose("for a rumor had spread of  \ntreasure hiding so"), "for a rumor had spread of treasure hiding so")
+        self.assertEqual(prose("■ [TOP SECRET] Capture and Destruction of\nYoRHa Units 8B, 22B, 64B\nSender: Commander"),
+                         "■ [TOP SECRET] Capture and Destruction of YoRHa Units 8B, 22B, 64B<br>Sender: Commander")
+        self.assertEqual(prose("A statue appears. The bird\n—which I thought was a statue—begins to flap."), "A statue appears. The bird —which I thought was a statue—begins to flap.")
+        # A break after a sentence, before a symbol or a digit, and blank lines stay.
+        self.assertEqual(prose("It is all right.\nShe smiles."), "It is all right.<br>She smiles.")
+        self.assertEqual(prose("□ I am not a robot.\n↑ Click the box"), "□ I am not a robot.<br>↑ Click the box")
+        self.assertEqual(prose("65726564206c6f6f6b73\n74696f6e20616e64"), "65726564206c6f6f6b73<br>74696f6e20616e64")
+        self.assertEqual(prose("One.\n\nTwo"), "One.<br><br>Two")
+        self.assertEqual(prose("Dear ■■■■■,\nThis year I want paint!"), "Dear ■■■■■,<br>This year I want paint!")  # a letter's greeting
+        self.assertEqual(prose("■ PS: Regarding restrictions on access of said information\nSender: Commander"),
+                         "■ PS: Regarding restrictions on access of said information<br>Sender: Commander")  # a header line
+        self.assertEqual(prose("■Confidential Mission Details\nSender: Operator 6O"), "■Confidential Mission Details<br>Sender: Operator 6O")
+        self.assertEqual(prose("I don't need to be an ■■■■■ so long as ■■■■■\nand ■■■■■ get ■■■■■."),
+                         "I don't need to be an ■■■■■ so long as ■■■■■ and ■■■■■ get ■■■■■.")  # censored words, one sentence
+        self.assertEqual(prose("in the end, scattered over the seas,\nAnd then"), "in the end, scattered over the seas, And then")
 
     def test_previews_are_plain_and_cut_at_a_word(self):
         self.assertEqual(plain("<align=center><i>There is someone\nI must see.</i>"), "There is someone I must see.")
