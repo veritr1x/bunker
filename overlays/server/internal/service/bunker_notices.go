@@ -394,7 +394,7 @@ img{max-width:100%}
 .tabs{position:sticky;top:0;z-index:5;display:flex;gap:2px;padding:6px 8px 7px;background:var(--bg);border-bottom:1px solid var(--line)}
 .tabs a{flex:1;text-align:center;font-weight:700;font-size:13px;line-height:22px;background:var(--tab);color:#e6e2cf;clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,8px 100%,0 50%);box-shadow:inset 0 0 0 1px #b3b0a1}
 .tabs a.on{background:var(--tab-on);color:var(--line)}
-main{padding:8px 8px 32px}
+main{max-width:1000px;margin:0 auto;padding:8px 8px 32px}
 .empty{color:var(--dim);text-align:center;margin:48px 0}
 .badge{display:inline-block;min-width:112px;padding:0 14px;font-size:11px;font-weight:700;line-height:18px;text-align:center;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,0 100%)}
 .badge.light{background:#e6dfcf;color:#736b68}

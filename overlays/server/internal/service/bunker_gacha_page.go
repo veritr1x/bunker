@@ -19,7 +19,7 @@ func serveGachaRatePage(w http.ResponseWriter) {
 	fs, ts := c.FourCostumeShare/100, c.ThreeCostumeShare/100
 	var b strings.Builder
 	b.WriteString(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{font:15px sans-serif;background:#d8d4c2;color:#3a372e;margin:16px}h1{font-size:18px;letter-spacing:.1em}
+<style>body{font:15px sans-serif;background:#d8d4c2;color:#3a372e;max-width:1000px;margin:16px auto;padding:0 16px}h1{font-size:18px;letter-spacing:.1em}
 table{border-collapse:collapse;width:100%;margin:8px 0 16px}td{border-bottom:1px solid #a29f8f;padding:6px 4px}td:last-child{text-align:right}
 p{line-height:1.5}</style></head><body><h1>RATES</h1><table>`)
 	b.WriteString(row("★4 costume", c.FourStarPercent*fs))
