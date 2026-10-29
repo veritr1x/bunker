@@ -4,6 +4,19 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-29 (after 1.4.0)
+
+### Display
+- On tablets and in landscape, every Pod Programs tab shows (on two rows
+  when they don't fit), and long costume, weapon and upgrade names wrap
+  instead of being cut off. [03e995b]
+- Notices and summon details keep their text in a readable column on wide
+  screens. [03e995b]
+
+### Anecdotes
+- The sub-quest guides and the Anecdotes' How to Play pages show their
+  pictures (with a notice pack that has them). [f2b976b]
+
 ## 1.4.0 (2026-10-29)
 
 The Anecdotes are playable again on the game's own panel mission page, the
