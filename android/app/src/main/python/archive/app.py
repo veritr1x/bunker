@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import index
 from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
-from .content import KINDS, Archive, plain, quoted, rich
+from .content import KINDS, Archive, plain, prose, quoted, rich
 from .schedule import TABS as SCHEDULE_TABS
 
 HERE = Path(__file__).resolve().parent
@@ -70,6 +70,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     motions = Motions(revision / "assetbundle", data_dir / "motions", motion)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["rich"] = rich
+    templates.env.filters["prose"] = prose
     templates.env.filters["plain"] = plain
     templates.env.filters["quoted"] = quoted
     # The WebView keeps static files across app updates; their URLs change with their content instead.
