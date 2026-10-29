@@ -27,6 +27,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = ROOT / "android/app/src/main/python"
 sys.path.insert(0, str(PYTHON))
+# tools/ there is copied from the lunar-base submodule by prepare.py; a fresh
+# checkout (CI's unit tests) has only the submodule.
+if not (PYTHON / "tools/dump_masterdata.py").exists():
+    sys.path.insert(0, str(ROOT / "upstream/lunar-base"))
 from tools import dump_masterdata as dm  # noqa: E402
 
 LAUNCH = 1627437600000      # 28 July 2021, 02:00 UTC
