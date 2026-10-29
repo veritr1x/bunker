@@ -112,9 +112,17 @@ final class Updater {
         return Offer.UPDATE;
     }
 
+    /** The release's notice pack: the whole one ("noticePack", with the web app), else the one
+     *  launchers before 1.4 take ("notices", without it). */
+    static JSONObject noticeAsset(JSONObject assets) {
+        if(assets==null)return null;
+        JSONObject whole=assets.optJSONObject("noticePack");
+        return whole!=null?whole:assets.optJSONObject("notices");
+    }
+
     /** The release's notice pack when it differs from the one this app carries (build.json "notices"), else null. */
     static JSONObject noticesToFetch(JSONObject update,JSONObject installed) {
-        JSONObject notices=update.optJSONObject("assets")==null?null:update.optJSONObject("assets").optJSONObject("notices");
+        JSONObject notices=noticeAsset(update.optJSONObject("assets"));
         if(notices==null||notices.optString("sha256").isEmpty())return null;
         String have=installed==null?"":installed.optString("notices");
         return notices.optString("sha256").equals(have)?null:notices;
@@ -166,7 +174,7 @@ final class Updater {
                 for(int i=0;i<assets.length();i++)if(bundleName.equals(assets.getJSONObject(i).optString("name")))
                     bundleUrl=assets.getJSONObject(i).getString("browser_download_url");
                 Release r=new Release();r.version=version;r.notes=release.optString("html_url",WEB_BUILDER);r.update=update;r.bundleUrl=bundleUrl;
-                JSONObject notices=update.getJSONObject("assets").optJSONObject("notices");
+                JSONObject notices=noticeAsset(update.getJSONObject("assets"));
                 if(notices!=null)for(int i=0;i<assets.length();i++)if(notices.optString("name").equals(assets.getJSONObject(i).optString("name")))
                     r.noticesUrl=assets.getJSONObject(i).getString("browser_download_url");
                 r.offer=bundleUrl==null?Offer.WEB_BUILDER:offer(update,BuildConfig.BUNKER_VERSION,installedBuild(c),bunkerKey(c));
