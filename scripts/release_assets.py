@@ -54,13 +54,33 @@ def make(version, companion_apk, framework_dir, python_dir, out_dir, notices=Non
         assets[key] = {"name": name, "size": path.stat().st_size, "sha256": _sha256(path)}
     if notices:
         # Named by its content: launchers download it only when it changes.
-        digest = _sha256(notices)
-        name = f"bunker-notices-{digest[:12]}.zip"
-        shutil.copyfile(notices, out / name)
-        assets["notices"] = {"name": name, "size": (out / name).stat().st_size, "sha256": digest}
+        # Launchers before 1.4 take only notices.json and img/ from the pack they
+        # update with ("notices"); a pack with the web app (web/) goes to them
+        # without it, and whole to 1.4 and later ("noticePack").
+        with zipfile.ZipFile(notices) as pack:
+            web = any(n.startswith("web/") for n in pack.namelist())
+        assets["notices"] = _named_pack(notices, out, without_web=web)
+        if web:
+            assets["noticePack"] = _named_pack(notices, out)
     update = {"version": version, "gamePatch": build_info.GAME_PATCH, "assets": assets}
     (out / "update.json").write_text(json.dumps(update, indent=1) + "\n")
     return update
+
+
+def _named_pack(notices, out, without_web=False):
+    source = notices
+    if without_web:
+        source = out / "notices-without-web.zip"
+        with zipfile.ZipFile(notices) as pack, zipfile.ZipFile(source, "w") as copy:
+            for item in pack.infolist():
+                if not item.filename.startswith("web/"):
+                    copy.writestr(item, pack.read(item.filename))
+    digest = _sha256(source)
+    name = f"bunker-notices-{digest[:12]}.zip"
+    shutil.copyfile(source, out / name)
+    if without_web:
+        source.unlink()
+    return {"name": name, "size": (out / name).stat().st_size, "sha256": digest}
 
 
 def changelog_section(text, version):
