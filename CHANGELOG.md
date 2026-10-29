@@ -4,6 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.4.1 (2026-10-29)
+
+Bunker reads better on iPads and in landscape: Pod Programs shows every
+tab and full names, notices keep a readable column, and the Archive's
+stories fill the screen. The guides show their pictures (notice pack 3).
+
 ## 2026-10-29 (after 1.4.0)
 
 ### Display
@@ -18,7 +24,7 @@ under its heading, down to the previous release.
 
 ### Anecdotes
 - The sub-quest guides and the Anecdotes' How to Play pages show their
-  pictures (with a notice pack that has them). [f2b976b]
+  pictures, from notice pack 3. [f2b976b] [9af79be]
 - The completed sheet's story marks every panel's word, also where the
   story uses a longer form of it ("nightmares", "wished"). [b0a3a65]
 
