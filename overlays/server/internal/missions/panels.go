@@ -95,18 +95,28 @@ func loadPanels() *Panels {
 		log.Printf("panel missions off: %v", err)
 		sheets = nil
 	}
+	return buildPanels(sheets, read[masterdata.EntityMWebviewMission]("m_webview_mission"),
+		read[masterdata.EntityMWebviewPanelMission]("m_webview_panel_mission"))
+}
+
+// panelLibrarySlot: with the Original calendar, the row an Anecdote with
+// several runs is listed by in the Library (android_calendar.py LIBRARY_SLOT);
+// it spans all the runs and isn't one.
+const panelLibrarySlot = 99
+
+func buildPanels(sheets map[int32]*PanelSheets, missions []masterdata.EntityMWebviewMission, pages []masterdata.EntityMWebviewPanelMission) *Panels {
 	p := &Panels{Sheets: sheets, byTarget: map[int32]PanelRun{}, pageIds: map[[2]int32]int32{}}
-	for _, m := range read[masterdata.EntityMWebviewMission]("m_webview_mission") {
+	for _, m := range missions {
 		run := PanelRun{Id: m.WebviewMissionId, Mission: m.WebviewMissionId % panelRunStep, Target: m.WebviewMissionTargetId,
 			Start: m.StartDatetime, End: m.EndDatetime}
-		if sheets[run.Mission] == nil {
+		if sheets[run.Mission] == nil || m.WebviewMissionId/panelRunStep == panelLibrarySlot {
 			continue
 		}
 		p.Runs = append(p.Runs, run)
 		p.byTarget[run.Target] = run
 	}
 	sort.Slice(p.Runs, func(i, j int) bool { return p.Runs[i].Start < p.Runs[j].Start })
-	for _, pm := range read[masterdata.EntityMWebviewPanelMission]("m_webview_panel_mission") {
+	for _, pm := range pages {
 		p.pageIds[[2]int32{pm.WebviewPanelMissionId, pm.Page}] = pm.WebviewPanelMissionPageId
 	}
 	return p
@@ -127,6 +137,9 @@ func (p *Panels) runFor(mission int32) *PanelRun {
 // later run of that Anecdote (a copy) is open, it is that run.
 func (p *Panels) Run(target int32, now int64) (PanelRun, bool) {
 	r, ok := p.byTarget[target]
+	if !ok && target/panelRunStep == panelLibrarySlot { // the Anecdote's Library row: its first run, or the one on now
+		r, ok = p.byTarget[target%panelRunStep]
+	}
 	if !ok || r.open(now) {
 		return r, ok
 	}
