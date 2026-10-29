@@ -183,6 +183,62 @@ COPIED = {
 }
 
 
+# The game's Library (Card Stories) and the Missions screen list the web
+# missions of type 1, one row each; the live game had one row per Anecdote,
+# its dates changed for each run. An Anecdote with several runs lists its runs
+# as type 2 and gets one type-1 row for the lists at LIBRARY_SLOT * COPY_STEP,
+# from its first run's start to its last run's end, with a sheet of its own
+# (the game finds a mission's pages by its id) holding the first run's pages.
+LIBRARY_SLOT = 99
+MISSION_LISTED, MISSION_RUN = 1, 2
+
+
+def library_missions(blob):
+    """m_webview_mission with each Anecdote listed once (LIBRARY_SLOT)."""
+    import msgpack
+    rows = list(_rows(blob))
+    runs = {}
+    for _, cells in rows:
+        runs.setdefault(msgpack.unpackb(cells[0]) % COPY_STEP, []).append(cells)
+    out = []
+    for header, cells in rows:
+        cells = list(cells)
+        if len(runs[msgpack.unpackb(cells[0]) % COPY_STEP]) > 1:
+            cells[2] = msgpack.packb(MISSION_RUN)
+        out.append(header + b"".join(cells))
+    for base, group in sorted(runs.items()):
+        if len(group) < 2:
+            continue
+        first = min(group, key=lambda c: msgpack.unpackb(c[0]))
+        date = lambda c: b"\xd3" + struct.pack(">q", c)  # whole int64 cells, which the loop's date shift moves
+        listed = msgpack.packb(base + LIBRARY_SLOT * COPY_STEP)
+        cells = [listed, first[1], msgpack.packb(MISSION_LISTED), listed,
+                 date(min(msgpack.unpackb(c[4]) for c in group)), date(max(msgpack.unpackb(c[5]) for c in group))]
+        out.append(bytes([0x90 | len(cells)]) + b"".join(cells))
+    return _table(out)
+
+
+def library_sheets(blob):
+    """m_webview_panel_mission with the sheet of each library_missions row: the
+    first run's pages, dated across all the runs."""
+    import msgpack
+    rows = list(_rows(blob))
+    runs = {}
+    for _, cells in rows:
+        runs.setdefault(msgpack.unpackb(cells[0]) % COPY_STEP, {}).setdefault(msgpack.unpackb(cells[0]), []).append(cells)
+    out = [header + b"".join(cells) for header, cells in rows]
+    date = lambda c: b"\xd3" + struct.pack(">q", c)
+    for base, sheets in sorted(runs.items()):
+        if len(sheets) < 2:
+            continue
+        every = [c for pages in sheets.values() for c in pages]
+        start, end = min(msgpack.unpackb(c[3]) for c in every), max(msgpack.unpackb(c[4]) for c in every)
+        for page in sorted(sheets[min(sheets)], key=lambda c: msgpack.unpackb(c[1])):
+            cells = [msgpack.packb(base + LIBRARY_SLOT * COPY_STEP), page[1], page[2], date(start), date(end)]
+            out.append(bytes([0x90 | len(cells)]) + b"".join(cells))
+    return _table(out)
+
+
 def merge_overlaps(lost):
     """Runs with overlapping windows as one, the first's (a run the history
     recorded twice: Anecdote: Tower's April 2022 run, 6 hours apart)."""
@@ -280,6 +336,9 @@ def restore_history(toc, blob, changed, schemas):
         for table, (_, columns) in schemas.items():
             if table != "m_event_quest_chapter" and table in toc and any(index == 0 and name == "EventQuestChapterId" for index, _, name in columns):
                 pm.apply_to_table(toc, blob, changed, table, lambda b: copy_chapter_rows(b, copies))
+    if "m_webview_mission" in toc:
+        pm.apply_to_table(toc, blob, changed, "m_webview_mission", library_missions)
+        pm.apply_to_table(toc, blob, changed, "m_webview_panel_mission", library_sheets)
     apply_tower_floors(toc, blob, changed, schemas)
     return copies
 

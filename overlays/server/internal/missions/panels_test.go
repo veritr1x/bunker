@@ -168,3 +168,31 @@ func TestPanelRewardsAreGameItems(t *testing.T) {
 		}
 	}
 }
+
+// With the Original calendar the Library lists an Anecdote by one row that
+// spans all its runs (android_calendar.py library_missions); it isn't a run.
+func TestPanelRunsSkipTheLibraryRow(t *testing.T) {
+	sheets := map[int32]*PanelSheets{8: {Name: "Anecdote: Doll", Pages: []PanelPage{{Page: 1}}}}
+	missions := []masterdata.EntityMWebviewMission{
+		{WebviewMissionId: 8, WebviewMissionType: 2, WebviewMissionTargetId: 8, StartDatetime: 1000, EndDatetime: 2000},
+		{WebviewMissionId: panelRunStep + 8, WebviewMissionType: 2, WebviewMissionTargetId: panelRunStep + 8, StartDatetime: 5000, EndDatetime: 9000},
+		{WebviewMissionId: 99*panelRunStep + 8, WebviewMissionType: 1, WebviewMissionTargetId: 99*panelRunStep + 8, StartDatetime: 1000, EndDatetime: 9000},
+	}
+	p := buildPanels(sheets, missions, nil)
+	if len(p.Runs) != 2 {
+		t.Fatalf("runs: %+v", p.Runs)
+	}
+	if run, ok := p.Run(8, 3000); !ok || run.Id != 8 || run.open(3000) {
+		t.Fatalf("between runs the sheet isn't open: %+v %v", run, ok)
+	}
+	if run, _ := p.Run(8, 6000); run.Id != panelRunStep+8 {
+		t.Fatalf("second run: %+v", run)
+	}
+	// The game may open the sheet by the Library row: the run on now.
+	if run, ok := p.Run(99*panelRunStep+8, 6000); !ok || run.Id != panelRunStep+8 {
+		t.Fatalf("by the Library row: %+v %v", run, ok)
+	}
+	if run, ok := p.Run(99*panelRunStep+8, 3000); !ok || run.open(3000) {
+		t.Fatalf("by the Library row between runs: %+v %v", run, ok)
+	}
+}

@@ -111,6 +111,37 @@ class Anecdotes(unittest.TestCase):
         self.assertEqual(cells(m), [[8, 8, 1, 8, T0, T0 + 9 * DAY], [8 + step, 8, 1, 8 + step, T0 + 200 * DAY, T0 + 230 * DAY]])
         self.assertEqual(cells(s), [[8, 1, 15, T0, T0 + 9 * DAY], [8 + step, 1, 15, T0 + 200 * DAY, T0 + 230 * DAY]])
 
+    def test_the_library_lists_an_anecdote_once(self):
+        # The game's Library and Missions list the missions of type 1: the
+        # runs become type 2 and one type-1 row stands for the Anecdote, from
+        # its first run's start to its last run's end, with its own sheet
+        # (the game finds a mission's pages by its id): the first run's pages.
+        step = cal.COPY_STEP
+        runs = table(row(8, 8, 1, 8, Date(T0), Date(T0 + 9 * DAY)),
+                     row(8 + step, 8, 1, 8 + step, Date(T0 + 200 * DAY), Date(T0 + 230 * DAY)),
+                     row(3, 3, 1, 3, Date(T0 + 50 * DAY), Date(T0 + 60 * DAY)))
+        out = cal.library_missions(runs)
+        self.assertEqual(sorted(cells(out)), sorted([
+            [8, 8, 2, 8, T0, T0 + 9 * DAY],
+            [8 + step, 8, 2, 8 + step, T0 + 200 * DAY, T0 + 230 * DAY],
+            [8 + cal.LIBRARY_SLOT * step, 8, 1, 8 + cal.LIBRARY_SLOT * step, T0, T0 + 230 * DAY],
+            [3, 3, 1, 3, T0 + 50 * DAY, T0 + 60 * DAY],  # one run: as it was
+        ]))
+        # Dates stay whole int64 cells, which the loop's date shift moves.
+        library = [c for _, c in cal._rows(out) if msgpack.unpackb(c[0]) == 8 + cal.LIBRARY_SLOT * step][0]
+        self.assertTrue(library[4].startswith(b"\xd3") and library[5].startswith(b"\xd3"))
+
+    def test_the_library_row_has_the_first_runs_pages(self):
+        step = cal.COPY_STEP
+        sheets = table(row(8, 1, 15, Date(T0), Date(T0 + 9 * DAY)), row(8, 2, 16, Date(T0), Date(T0 + 9 * DAY)),
+                       row(8 + step, 1, 15, Date(T0 + 200 * DAY), Date(T0 + 230 * DAY)),
+                       row(8 + step, 2, 16, Date(T0 + 200 * DAY), Date(T0 + 230 * DAY)),
+                       row(3, 1, 5, Date(T0 + 50 * DAY), Date(T0 + 60 * DAY)))
+        lib = 8 + cal.LIBRARY_SLOT * step
+        added = [c for c in cells(cal.library_sheets(sheets)) if c[0] == lib]
+        self.assertEqual(added, [[lib, 1, 15, T0, T0 + 230 * DAY], [lib, 2, 16, T0, T0 + 230 * DAY]])
+        self.assertFalse([c for c in cells(cal.library_sheets(sheets)) if c[0] == 3 + cal.LIBRARY_SLOT * step])
+
     def test_a_run_recorded_twice_plays_once(self):
         # Anecdote: Tower's April 2022 run is in the history twice, 6 hours apart.
         self.assertEqual(cal.merge_overlaps([[0, 10 * DAY], [DAY // 4, 10 * DAY + DAY // 4], [100 * DAY, 110 * DAY]]),
@@ -217,6 +248,12 @@ class AnecdotesInTheGameData(unittest.TestCase):
         sheets = {}
         for sheet, start in read("m_webview_panel_mission", "WebviewPanelMissionId", "StartDatetime"):
             sheets.setdefault(sheet, []).append(start)
+        types = dict(read("m_webview_mission", "WebviewMissionId", "WebviewMissionType"))
+        self.assertEqual(sum(1 for t in types.values() if t == 1), 8)  # the Library lists each Anecdote once
+        listed = [m for m in missions if m[0] // cal.COPY_STEP == cal.LIBRARY_SLOT]
+        for mission, target, _ in listed:
+            self.assertEqual((target, len(sheets.get(target, []))), (mission, 2), f"library row {mission}")
+        missions = [m for m in missions if m[0] // cal.COPY_STEP != cal.LIBRARY_SLOT]
         self.assertEqual(len(missions), 15)  # 8 Anecdotes, 7 reruns (Stars and Doll twice)
         for mission, target, start in missions:
             self.assertEqual(len(sheets.get(target, [])), 2, f"mission {mission}")
