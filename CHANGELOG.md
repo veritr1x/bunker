@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.4.0 (2026-10-29)
+
+The Anecdotes are playable again on the game's own panel mission page, the
+Library lists their stories, and notice pack 2 brings more of the official
+notices back. With the Original calendar, the Abyss Towers and the Anecdotes
+rerun on their own schedules, and many summons run as long as their notices
+say.
+
 ## 2026-10-29
 
 ### Calendar
@@ -38,6 +46,18 @@ under its heading, down to the previous release.
 - When a sub-quest type unlocks, its guide opens on the official page
   (Dark Memory and Recollections of Dusk; the other guides weren't
   preserved). Before, the page was blank. [dcaa007]
+
+### Notices
+- Notice pack 2: four notices that were missing, the later versions of
+  "Known issues" (#4) and three more, no garbled characters, and 274 more
+  images: banners and pictures from the Wayback Machine and gameplay videos
+  (where a banner is lost, the official X account's poster for the notice),
+  item icons rebuilt from the game's own art (and the event medal and
+  ticket coins), and 22 thumbnails. It also carries the official web app
+  the Anecdotes run on. [28608b6]
+- Updates from 1.3.x get the new notices without the web app, which their
+  launchers can't take; 1.4 and later updates take the whole pack.
+  [e240558]
 
 ### Summons
 - The Paid Only Unacquired ★★★★ Witch and Assassin summons now give a
