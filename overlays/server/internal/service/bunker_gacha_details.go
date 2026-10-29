@@ -351,7 +351,7 @@ func serveGachaDetailsPage(w http.ResponseWriter, r *http.Request) {
 
 	var b strings.Builder
 	b.WriteString(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{font:15px sans-serif;background:#d8d4c2;color:#3a372e;margin:16px}h1{font-size:18px;letter-spacing:.05em;margin:0 0 4px}
+<style>body{font:15px sans-serif;background:#d8d4c2;color:#3a372e;max-width:1000px;margin:16px auto;padding:0 16px}h1{font-size:18px;letter-spacing:.05em;margin:0 0 4px}
 h2{font-size:15px;letter-spacing:.1em;border-bottom:2px solid #8f8b7a;padding-bottom:4px;margin:20px 0 6px}
 table{border-collapse:collapse;width:100%}td{border-bottom:1px solid #a29f8f;padding:6px 4px;vertical-align:top}
 td.n{text-align:right;white-space:nowrap}.f{font-weight:bold}.k{color:#6b6758;font-size:13px}p{line-height:1.5;margin:6px 0}

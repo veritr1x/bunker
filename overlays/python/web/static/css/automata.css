@@ -349,9 +349,7 @@ a:hover { background: var(--accent); color: var(--bg-cream); border-bottom-color
 .grant-form:hover { background: var(--bg-cream-dark); }
 .grant-form .grant-name {
   font-weight: bold;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere; /* long names wrap rather than lose their end */
 }
 .grant-form .grant-id {
   color: var(--fg-mid);
@@ -585,6 +583,10 @@ nav.primary a {
   letter-spacing: 0.14em;
 }
 nav.primary a.active, nav.primary a:hover { background: var(--accent); color: var(--bg-cream); }
+/* Wider than a phone (tablets, landscape): every tab shows, on two rows if need be. */
+@media (min-width: 601px) {
+  nav.primary { flex-wrap: wrap; overflow-x: visible; }
+}
 
 main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 0; }
 
