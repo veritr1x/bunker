@@ -8,6 +8,9 @@ No input is modified; everything runs in a temporary folder.
 from pathlib import Path
 import argparse, contextlib, json, re, shutil, sqlite3, sys, tempfile
 
+if __name__ != '__main__':  # unittest discovery imports it: it needs private inputs
+    import unittest
+    raise unittest.SkipTest('integration script: run it directly with --save, --assets and --original-master')
 root = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--save', type=Path, required=True)
