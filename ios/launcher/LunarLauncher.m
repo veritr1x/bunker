@@ -1932,9 +1932,9 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         }
         lt_rebind_image_symbols("UnityFramework.framework/UnityFramework", kReachability, sizeof(kReachability) / sizeof(kReachability[0]));
         LTDisplayStart(ToolsRoot());
-        // Start before Unity boots. Wait briefly so its first request finds the
-        // server, but never long enough to trip the launch watchdog.
-        dispatch_semaphore_t started = dispatch_semaphore_create(0);
+        // Start before Unity boots, without waiting: the Go runtime's own
+        // initializer runs after this one, so every Go call waits until this
+        // returns. Waiting here only spent the launch watchdog's time.
         const char *saveFrom = getenv("LUNAR_IMPORT_SAVE"), *masterFrom = getenv("LUNAR_IMPORT_MASTER");
         NSString *saveSource = saveFrom && *saveFrom ? [NSString stringWithUTF8String:saveFrom] : nil;
         NSString *masterSource = masterFrom && *masterFrom ? [NSString stringWithUTF8String:masterFrom] : nil;
@@ -1953,11 +1953,9 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             }
             NSString *error = StartServer();
             gMessage = error;
-            dispatch_semaphore_signal(started);
             // An import at launch may have left the launcher open; show the result.
             dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
         });
-        dispatch_semaphore_wait(started, dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC));
         NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
         [center addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { BecameActive(); }];
         [center addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { EnteredBackground(); }];
