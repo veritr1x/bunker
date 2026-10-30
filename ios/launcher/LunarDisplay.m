@@ -318,10 +318,32 @@ static BOOL ResolveZones(void) {
 
 @interface LTDisplayTicker : NSObject
 @end
+// Unity starts its player a run loop turn after the app becomes active, so the
+// first ticks can come before its engine managers exist; Time and Application
+// then read a null manager (the crash at 0xc8). In the 3.7.1 UnityFramework the
+// managers are a table at 0x639c930 (GetManagerFromContext at 0xd2d058) and the
+// time manager is entry 7. Another build skips the check.
+static BOOL UnityStarted(void) {
+    static void **timeManager;
+    static BOOL unchecked;
+    if (unchecked) return YES;
+    if (!timeManager) {
+        Dl_info info;
+        if (!dladdr((void *)il2cpp.domain_get, &info)) { unchecked = YES; return YES; }
+        uint8_t *base = info.dli_fbase;
+        if (*(uint32_t *)(base + 0xd2d060) != 0xf860d900) { unchecked = YES; return YES; }  // ldr x0, [x8, w0, sxtw #3]
+        timeManager = (void **)(base + 0x639c930) + 7;
+    }
+    return *timeManager != NULL;
+}
+
 @implementation LTDisplayTicker
 - (void)tick:(CADisplayLink *)link {
     static BOOL ready;
+    static int waited;
+    if (!UnityStarted()) { waited++; return; }
     if (!ready) {
+        if (waited) { NSLog(@"[LunarTear] display: waited %d frames for Unity to start", waited); waited = 0; }
         if (!il2cpp.domain_get()) return;
         if (gFps && !Resolve()) return;
         if ((gFps || gSize) && !PatchPresets()) return;  // Config is in the game assembly; it loads with the others.
