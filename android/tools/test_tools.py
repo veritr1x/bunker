@@ -9,6 +9,9 @@ from pathlib import Path
 import argparse
 import sys, shutil, subprocess, os, json, sqlite3, tempfile, contextlib
 
+if __name__ != '__main__':  # unittest discovery imports it: it needs private inputs
+    import unittest
+    raise unittest.SkipTest('integration script: run it directly with --save, --assets, --master and --original-master')
 root = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--save', type=Path, required=True)
