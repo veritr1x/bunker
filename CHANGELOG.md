@@ -4,6 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-30 (after 1.4.1)
+
+### iPhone and iPad
+- The game starts about 8 seconds sooner. The launcher no longer waits for
+  the server before the game starts (the server could not start until that
+  wait ran out), so iOS no longer ends a slow launch. [fe40c38]
+
 ## 1.4.1 (2026-10-29)
 
 Bunker reads better on iPads and in landscape: Pod Programs shows every
