@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.4.2 (2026-10-30)
+
+On iPhone and iPad the game starts about 8 seconds sooner, and iOS no
+longer ends it while it loads.
+
 ## 2026-10-30 (after 1.4.1)
 
 ### iPhone and iPad
