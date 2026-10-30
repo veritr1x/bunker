@@ -4,6 +4,28 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.4.4 (2026-10-31)
+
+Flying Mama plays at its normal speed above 30 fps, and the Dark Memory
+chapter summon no longer leaves the game stuck before Dark Memories open.
+
+## 2026-10-31 (after 1.4.3)
+
+### Display (Android, iPhone and iPad)
+- Flying Mama plays at its normal speed with a frame rate above 30 chosen in
+  Display. The minigame counts frames, so at 60 fps the stage scrolled and
+  Mama fell twice as fast against the same clock; its logic now runs 30 times
+  a second, and taps still count on every frame. [7869f1e]
+
+### Summons
+- The Dark Memory chapter summon appears once Dark Memories open (clearing
+  the last quest of Season 1, Chapter 14). Before that, its To Quests opened
+  an empty screen that the game could not leave. [c0554ce]
+
+### Tools
+- The Android tools tests run as a folder again: the two scripts that need
+  private game files are skipped there. [13d48c5]
+
 ## 1.4.3 (2026-10-30)
 
 On iPhone and iPad the game no longer crashes now and then as it opens.
