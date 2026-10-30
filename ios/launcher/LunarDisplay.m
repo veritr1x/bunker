@@ -16,6 +16,8 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Flying Mama counts frames, so it ran faster against its clock; its logic
+//   now runs as 30 steps a second (flying_mom.c, shared with Android).
 // - Story-event zones: an event that waited for the player to walk into a zone
 //   and timed out waits on that zone again after a 1.5 s balloon fade, but only
 //   notices a player who is still inside. A player who crossed it during the
@@ -38,6 +40,7 @@
 #include <dlfcn.h>
 #include <string.h>
 
+#include "flying_mom.h"
 #include "roulette_ads.h"
 
 typedef struct { void *pointer; } LTMethod;  // Il2Cpp MethodInfo starts with its code pointer.
@@ -60,6 +63,7 @@ static struct {
 } il2cpp;
 
 static int gFps, gSize;  // 0: the game's own.
+static int gFlyingMom = -1;  // flying_mom_route's result; -1 before flying_mom_init
 static int gAds;  // roulette_ads_route_agent: 0 until the agent exists, then 1 (or -1).
 static NSString *gStatusPath;
 static CADisplayLink *gLink;
@@ -368,6 +372,8 @@ static BOOL UnityStarted(void) {
     float physics = fminf(fmaxf(delta, 1 / 240.f), 1 / 30.f);
     if (game.fixed_delta(NULL) != physics) game.set_fixed_delta(physics, NULL);
     StepBattle(delta);
+    if (!gFlyingMom && (gFlyingMom = flying_mom_route()) < 0)
+        NSLog(@"[LunarTear] Flying Mama: not available in this game build (%d); it runs faster above 30 fps", gFlyingMom);
     if (zones.stay_update) WatchZones();
     // Developer check only: launch with LUNAR_DISPLAY_LOG set to log the measured rate every 5 s.
     static double since; static int sinceFrame;
@@ -390,7 +396,7 @@ static int RenderTargetSize(NSString *name) {
 }
 
 static void *IL2CPPSymbol(const char *name) { return dlsym(RTLD_DEFAULT, name); }
-static void RouletteLog(const char *message) { NSLog(@"[LunarTear] %s", message); }
+static void GameLog(const char *message) { NSLog(@"[LunarTear] %s", message); }
 
 void LTDisplayStart(NSString *toolsRoot) {
     gStatusPath = [toolsRoot stringByAppendingPathComponent:@"display.status"];
@@ -415,10 +421,12 @@ void LTDisplayStart(NSString *toolsRoot) {
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(field_static_set_value) LOAD(runtime_class_init)
     LOAD(class_get_type) LOAD(type_get_object) LOAD(gchandle_new) LOAD(gchandle_free)
 #undef LOAD
-    if (roulette_ads_init(IL2CPPSymbol, RouletteLog, dlsym(RTLD_DEFAULT, "UnitySendMessage"))) {
+    if (roulette_ads_init(IL2CPPSymbol, GameLog, dlsym(RTLD_DEFAULT, "UnitySendMessage"))) {
         gAds = -1;
         NSLog(@"[LunarTear] Special Gift Roulette: the game's IL2CPP API is missing");
     }
+    if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
+        NSLog(@"[LunarTear] Flying Mama: the game's IL2CPP API is missing");
     // IL2CPP starts while Unity finishes launching; the ticker begins once the app is active.
     __block id observer = [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil
         queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {

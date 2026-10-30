@@ -46,6 +46,8 @@
 //   it is below the position's float precision: the list stops just short,
 //   keeps a small speed, and IsScrolling stays true, so the Summon buttons
 //   ignore taps. It now counts as there within 1 unit (invisible). Any setting.
+// - Flying Mama: the minigame counts frames, so above 30 fps it ran faster
+//   against its clock. Its logic now runs as 30 steps a second (flying_mom.c).
 //
 // The RVAs come from the 3.7.1 ARM64 game's IL2CPP metadata. Every site is
 // checked first; on any unknown instruction nothing is changed.
@@ -60,6 +62,7 @@
 #include <unistd.h>
 
 #include "egl_sync.h"
+#include "flying_mom.h"
 #include "play_services.h"
 #include "remain_days.h"
 #include "guerrilla_unlock.h"
@@ -120,11 +123,16 @@ static void (*time_set_fixed_delta)(float value, void *method);
 static int (*time_frame_count)(void *method);
 static int last_frame = -1;
 
+static int flying_mom_state = -1;  // flying_mom_route's result; -1 before flying_mom_init
+
 /** Runs at the start of ActorController.FixedProcess, on Unity's main thread. */
 __attribute__((visibility("hidden"), used)) void follow_frame_time(void) {
     int frame = time_frame_count(NULL);
     if (frame == last_frame) return;
     last_frame = frame;
+    // The Cage is a field, so this runs before Exploration can open.
+    if (!flying_mom_state && (flying_mom_state = flying_mom_route()) < 0)
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Flying Mama: unsupported game binary (%d); it runs faster above 30 fps", flying_mom_state);
     float step = time_unscaled_delta(NULL);
     if (step < 1 / 240.f) step = 1 / 240.f;
     if (step > 1 / 30.f) step = 1 / 30.f;
@@ -356,14 +364,14 @@ static int hook_frame_rate(uint8_t *base) {
 
 static void *game_library;
 static void *game_symbol(const char *name) { return dlsym(game_library, name); }
-static void roulette_log(const char *message) { __android_log_print(ANDROID_LOG_INFO, "Bunker", "%s", message); }
+static void bunker_log(const char *message) { __android_log_print(ANDROID_LOG_INFO, "Bunker", "%s", message); }
 
 // IronSource.showRewardedVideo starts "stp x20, x19, [sp, #-0x20]!; stp x29, x30, [sp, #0x10];
 // add x29, sp, #0x10; adrp x20, ..."; the hook replaces the whole method.
 static const uint32_t kShowRewardedVideo[4] = {0xa9be4ff4u, 0xa9017bfdu, 0x910043fdu, 0xd00237f4u};
 
 static void hook_roulette_ads(uint8_t *base) {
-    if (roulette_ads_init(game_symbol, roulette_log, NULL) || hook((uint32_t *)(base + 0x3291FB4), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
+    if (roulette_ads_init(game_symbol, bunker_log, NULL) || hook((uint32_t *)(base + 0x3291FB4), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Special Gift Roulette: unsupported game binary; the video ad stays");
 }
 
@@ -429,6 +437,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
         snprintf(message, length, "Could not write the game's frame timing code");
         return message;
     }
+    if (fps > 30 && (flying_mom_state = flying_mom_init(game_symbol, bunker_log)))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Flying Mama: the game's IL2CPP API is missing; it runs faster above 30 fps");
     return "";
 }
 
