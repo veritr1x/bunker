@@ -76,6 +76,7 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
+        addMenuShortcut();
         autoAttempted=state!=null?state.getBoolean("attempted"):getIntent().getBooleanExtra("manage",false);
         launchWhenReady=state!=null?state.getBoolean("launch"):!getIntent().getBooleanExtra("manage",false);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackground(look.paper());
@@ -151,6 +152,16 @@ public final class MainActivity extends Activity {
         try{FilesStore.recover(this);}catch(Exception e){serverDetail=e.getMessage();}
         new Thread(()->{try{FilesStore.ensureBootstrap(this);}catch(Exception ignored){}runOnUiThread(()->{last="";refresh();});},"bootstrap").start();
         if(state==null&&Updater.INSTALL_RESULT.equals(getIntent().getAction())){Intent result=getIntent();setIntent(new Intent());String message=Updater.installResult(this,result);if(message!=null)updateFailed(message);}
+    }
+    /** Long-pressing the app icon offers "Bunker menu": this screen, without starting the game. */
+    private void addMenuShortcut(){
+        android.content.pm.ShortcutManager shortcuts=getSystemService(android.content.pm.ShortcutManager.class);
+        if(shortcuts==null)return;
+        Intent open=new Intent(this,MainActivity.class).setAction(Intent.ACTION_VIEW).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        android.content.pm.ShortcutInfo menu=new android.content.pm.ShortcutInfo.Builder(this,"bunker-menu")
+            .setShortLabel("Bunker menu").setLongLabel("Open the Bunker menu")
+            .setIcon(android.graphics.drawable.Icon.createWithResource(this,getApplicationInfo().icon)).setIntent(open).build();
+        try{shortcuts.setDynamicShortcuts(java.util.Collections.singletonList(menu));}catch(RuntimeException ignored){}  // e.g. rate-limited
     }
     @Override public void onResume(){super.onResume();foreground=true;
         Updater.listener=this::renderUpdate;renderUpdate();Updater.check(this,r->renderUpdate());

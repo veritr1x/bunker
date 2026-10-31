@@ -1794,6 +1794,39 @@ static void ShowLauncher(void) {
     gWindow = window;
 }
 
+#pragma mark - Home Screen quick action
+
+// Long-pressing the app icon offers "Bunker menu", which opens the launcher.
+// The app delegate is Unity's, so the handler is added to its class (ahead of
+// any it has); a launch from the action also arrives in the launch options.
+static NSString *const kMenuShortcut = @"org.veritr1x.bunker.menu";
+static BOOL gOpenMenu;  // show the launcher when the app next becomes active
+static IMP gPreviousShortcutHandler;
+
+static void PerformShortcut(id self, SEL command, UIApplication *application, UIApplicationShortcutItem *item, void (^completion)(BOOL)) {
+    if ([item.type isEqual:kMenuShortcut]) {
+        if (application.applicationState == UIApplicationStateActive) { gMessage = @""; ShowLauncher(); }
+        else gOpenMenu = YES;
+        if (completion) completion(YES);
+        return;
+    }
+    if (gPreviousShortcutHandler) ((void (*)(id, SEL, UIApplication *, UIApplicationShortcutItem *, void (^)(BOOL)))gPreviousShortcutHandler)(self, command, application, item, completion);
+    else if (completion) completion(NO);
+}
+
+static void InstallShortcut(NSDictionary *launchOptions) {
+    UIApplication *app = UIApplication.sharedApplication;
+    app.shortcutItems = @[[[UIApplicationShortcutItem alloc] initWithType:kMenuShortcut localizedTitle:@"Bunker menu" localizedSubtitle:nil
+        icon:[UIApplicationShortcutIcon iconWithSystemImageName:@"slider.horizontal.3"] userInfo:nil]];
+    Class delegate = object_getClass(app.delegate);
+    SEL action = @selector(application:performActionForShortcutItem:completionHandler:);
+    Method existing = delegate ? class_getInstanceMethod(delegate, action) : NULL;
+    if (existing) { if (method_getImplementation(existing) != (IMP)PerformShortcut) gPreviousShortcutHandler = method_setImplementation(existing, (IMP)PerformShortcut); }
+    else if (delegate) class_addMethod(delegate, action, (IMP)PerformShortcut, "v@:@@@?");
+    UIApplicationShortcutItem *launched = launchOptions[UIApplicationLaunchOptionsShortcutItemKey];
+    if ([launched.type isEqual:kMenuShortcut]) gOpenMenu = YES;
+}
+
 #pragma mark - Opening the launcher during play
 
 // Three-finger double-tap anywhere opens the launcher. It observes touches
@@ -1885,6 +1918,7 @@ static void BecameActive(void) {
         gBackgroundTask = UIBackgroundTaskInvalid;
     }
     InstallGesture();
+    if (gOpenMenu) { gOpenMenu = NO; gMessage = @""; ShowLauncher(); }
     if (gImporting) { ShowLauncher(); return; }  // Always show how far the import has got.
     if (gToolsOpen || gRestartNeeded || Running()) { if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; return; }
     // iOS can reclaim listening sockets during a long suspension; restart then.
@@ -1957,6 +1991,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
         });
         NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+        [center addObserverForName:UIApplicationDidFinishLaunchingNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { InstallShortcut(n.userInfo); }];
         [center addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { BecameActive(); }];
         [center addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { EnteredBackground(); }];
         [center addObserverForName:UIApplicationWillTerminateNotification object:nil queue:nil usingBlock:^(NSNotification *n) { LunarStop(); }];
