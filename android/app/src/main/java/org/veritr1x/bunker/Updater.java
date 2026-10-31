@@ -84,7 +84,8 @@ final class Updater {
         new Handler(Looper.getMainLooper()).post(()->{Runnable l=listener;if(l!=null)l.run();});
     }
     /** Checks again (the player turned "Check for updates" back on). */
-    static void recheck(Context c,Found found) { synchronized(Updater.class){checked=false;} check(c,found); }
+    /** Checks again now, showing even a release the player skipped or put off. */
+    static void recheck(Context c,Found found) { synchronized(Updater.class){checked=false;} later=false;skipped(c,""); check(c,found,true); }
     /** Test releases (update-test.json) are honoured only by development builds. */
     static boolean testReleasesAllowed(String version) { return version.contains("+dev"); }
 
@@ -129,6 +130,13 @@ final class Updater {
     }
 
     static boolean enabled(Context c) { return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean("check",true); }
+
+    // Later hides the notice until the launcher's process starts again; Skip hides it until a newer release.
+    static volatile boolean later;
+    static String skipped(Context c) { return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString("skip",""); }
+    static void skipped(Context c,String version) { c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putString("skip",version).apply(); }
+    /** Whether the notice for release r is shown: not while put off or skipped, unless it is updating. */
+    static boolean shown(Context c,Release r) { return r!=null&&(updating()||!later&&!r.version.equals(skipped(c))); }
     static void enabled(Context c,boolean on) { c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putBoolean("check",on).apply(); }
 
     /** This app's build.json, or null for builds made before 1.0.0. */
@@ -149,7 +157,9 @@ final class Updater {
     }
 
     /** Looks for a newer release in the background; calls found on the main thread only if there is one. */
-    static void check(Context context,Found found) {
+    static void check(Context context,Found found) { check(context,found,false); }
+    /** manual: asked for in the menu, so it runs even with automatic checks off. */
+    private static void check(Context context,Found found,boolean manual) {
         Context c=context.getApplicationContext();
         synchronized(Updater.class) {
             if(checked)return;
@@ -157,7 +167,7 @@ final class Updater {
             // An update the system stopped part-way (or one whose install replaced this process) leaves files behind.
             if(!inProgress)FilesStore.delete(new File(c.getCacheDir(),"update"));
         }
-        if(!enabled(c))return;
+        if(!enabled(c)&&!manual)return;
         new Thread(()->{
             try {
                 JSONObject release=new JSONObject(get(latestUrl(c)));

@@ -31,7 +31,7 @@ public final class MainActivity extends Activity {
     // Updates (Updater.java keeps their state, so it survives the screen being recreated).
     private LinearLayout updatePanel;
     private TextView updateText;
-    private Button updateButton;
+    private Button updateButton,updateWeb,updateLater,updateSkip;
     private ProgressBar progress;
     private Look.Segments bar;
     private int permille=-1;
@@ -93,17 +93,27 @@ public final class MainActivity extends Activity {
         Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
         top.addView(more,new LinearLayout.LayoutParams(dp(44),dp(44)));
         LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(20));body.addView(top,tp);
-        // [ UPDATE ]: shown when a newer Bunker is released.
+        // [ UPDATE ]: shown when a newer Bunker is released. Two rows: the message with WHAT'S NEW,
+        // then UPDATE (or WEB BUILDER when this app can't update itself), LATER and SKIP.
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
-        updateText=look.monoText("",12,look.ink);LinearLayout.LayoutParams up=new LinearLayout.LayoutParams(-1,-2);up.setMargins(0,dp(6),0,dp(12));updatePanel.addView(updateText,up);
-        updateButton=look.solid("UPDATE");updateButton.setOnClickListener(v->{if(Updater.updating()){if(Updater.cancellable())Updater.cancelled=true;}else startUpdate();});
-        LinearLayout.LayoutParams ub=new LinearLayout.LayoutParams(-1,dp(48));ub.setMargins(0,0,0,dp(6));updatePanel.addView(updateButton,ub);
-        LinearLayout links=new LinearLayout(this);
-        Button notes=look.outlined("WHAT'S NEW");notes.setTextSize(12);notes.setOnClickListener(v->{if(Updater.current!=null)openUrl(Updater.current.notes);});
-        Button web=look.outlined("WEB BUILDER");web.setTextSize(12);web.setOnClickListener(v->openUrl(Updater.WEB_BUILDER));
-        LinearLayout.LayoutParams lw=new LinearLayout.LayoutParams(0,dp(44),1);lw.setMargins(0,0,dp(6),dp(6));links.addView(notes,lw);
-        links.addView(web,new LinearLayout.LayoutParams(0,dp(44),1));
-        updatePanel.addView(links);
+        LinearLayout updateLine=new LinearLayout(this);updateLine.setGravity(Gravity.CENTER_VERTICAL);
+        updateText=look.monoText("",12,look.ink);updateLine.addView(updateText,new LinearLayout.LayoutParams(0,-2,1));
+        TextView notes=look.monoText("WHAT'S NEW ›",11,look.ink);notes.setLetterSpacing(.12f);notes.setTypeface(null,Typeface.BOLD);
+        notes.setPadding(dp(8),dp(8),0,dp(8));notes.setOnClickListener(v->{if(Updater.current!=null)openUrl(Updater.current.notes);});
+        updateLine.addView(notes);
+        LinearLayout.LayoutParams um=new LinearLayout.LayoutParams(-1,-2);um.setMargins(0,dp(2),0,dp(8));updatePanel.addView(updateLine,um);
+        LinearLayout actions=new LinearLayout(this);
+        updateButton=look.solid("UPDATE");updateButton.setTextSize(13);updateButton.setLetterSpacing(.16f);updateButton.setPadding(dp(8),0,dp(8),0);
+        updateButton.setOnClickListener(v->{if(Updater.updating()){if(Updater.cancellable())Updater.cancelled=true;}else startUpdate();});
+        updateWeb=look.outlined("WEB BUILDER");updateWeb.setOnClickListener(v->openUrl(Updater.WEB_BUILDER));
+        updateLater=look.outlined("LATER");updateLater.setOnClickListener(v->{Updater.later=true;renderUpdate();});
+        updateSkip=look.outlined("SKIP");updateSkip.setOnClickListener(v->{if(Updater.current!=null)Updater.skipped(this,Updater.current.version);renderUpdate();});
+        for(Button b:new Button[]{updateButton,updateWeb,updateLater,updateSkip}){
+            boolean wide=b==updateButton||b==updateWeb;
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(40),wide?2:1);lp.setMargins(0,0,dp(6),dp(4));actions.addView(b,lp);
+        }
+        ((LinearLayout.LayoutParams)updateSkip.getLayoutParams()).setMargins(0,0,0,dp(4));
+        updatePanel.addView(actions);
         LinearLayout.LayoutParams upp=new LinearLayout.LayoutParams(-1,-2);upp.setMargins(0,0,0,dp(20));body.addView(updatePanel,upp);
         // [ SYSTEM ]: game files, Lunar Tear, ports and save.
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(0,0,0,dp(8));body.addView(look.header("System"),hp);
@@ -264,6 +274,7 @@ public final class MainActivity extends Activity {
         option(panel,menu,11,"Export Lunar Tear log",true);
         option(panel,menu,12,"Display: "+Character.toUpperCase(Look.display(this).charAt(0))+Look.display(this).substring(1),true);
         option(panel,menu,13,"Check for updates: "+(Updater.enabled(this)?"On":"Off"),true);
+        option(panel,menu,14,"Check for updates now",true);
         option(panel,menu,5,"App settings",true);
         option(panel,menu,6,"Help",true);
         option(panel,menu,7,"About",true);
@@ -312,6 +323,7 @@ public final class MainActivity extends Activity {
         switch(id){
             case 12: chooseDisplay();break;
             case 13: Updater.enabled(this,!Updater.enabled(this));if(Updater.enabled(this))Updater.recheck(this,r->renderUpdate());break;
+            case 14: Updater.recheck(this,r->renderUpdate());Toast.makeText(this,"Checking for updates…",Toast.LENGTH_SHORT).show();break;
             case 1: autoAttempted=true;launchWhenReady=false;run(ServerService.STOP,null);break;
             case 2: {Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,MASTER);break;}
             case 3: {Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);i.putExtra(Intent.EXTRA_TITLE,"lunar-tear-saves-"+new SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");startActivityForResult(i,BACKUP);break;}
@@ -358,9 +370,9 @@ public final class MainActivity extends Activity {
     /** Draws the update panel from Updater's state: the release, and the update's progress or failure. */
     private void renderUpdate(){
         Updater.Release r=Updater.current;
-        if(r==null){updatePanel.setVisibility(View.GONE);return;}
+        if(!Updater.shown(this,r)){updatePanel.setVisibility(View.GONE);return;}
         updatePanel.setVisibility(View.VISIBLE);
-        boolean running=Updater.updating();
+        boolean running=Updater.updating(),canUpdate=r.offer==Updater.Offer.UPDATE;
         String text="Bunker "+r.version+" is available.";
         if(r.offer==Updater.Offer.WEB_BUILDER)text+="\n> This update needs the web builder.";
         else if(r.offer==Updater.Offer.OWN_KEY)text+="\n> This app uses your own signing key. Rebuild it with the web builder.";
@@ -368,9 +380,11 @@ public final class MainActivity extends Activity {
         else if(Updater.statusFailed)text+="\n> "+Updater.status+"\n> You can also rebuild with the web builder.";
         updateText.setText(text);
         updateText.setTextColor(Updater.statusFailed&&!running?look.alert:look.ink);
-        updateButton.setText(running?"CANCEL":"UPDATE TO "+r.version);
+        updateButton.setText(running?"CANCEL":"UPDATE");
         // Cancel only while downloading: the build and the installer then finish on their own.
-        updateButton.setVisibility(r.offer==Updater.Offer.UPDATE&&(!running||Updater.cancellable())?View.VISIBLE:View.GONE);
+        updateButton.setVisibility(canUpdate&&(!running||Updater.cancellable())?View.VISIBLE:View.GONE);
+        updateWeb.setVisibility(!running&&(!canUpdate||Updater.statusFailed)?View.VISIBLE:View.GONE);
+        for(Button b:new Button[]{updateLater,updateSkip})b.setVisibility(running?View.GONE:View.VISIBLE);
     }
     private void startUpdate(){
         if(Updater.current==null)return;
