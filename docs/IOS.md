@@ -15,7 +15,8 @@ without a computer or Internet.
 - Game files live in the app's Documents folder, which Finder and the Files
   app can see. Saves are in `Documents/saves`.
 - The launcher screen appears when game files are missing or the server
-  fails. A three-finger double-tap during play opens it at any time.
+  fails. A three-finger double-tap during play opens it at any time, and so
+  does **Bunker menu** when you long-press the app icon on the Home Screen.
 - With the radios off, Unity sees no network and refuses downloads. Like the
   Android build, the launcher tells only Unity that a local network exists.
 
@@ -75,7 +76,9 @@ xcrun devicectl device install app --device <device UDID> bunker-signed.ipa
 ## Updates
 
 From 1.0.0, the launcher looks for a newer release when it opens. It checks
-only when online, and ⋮ › Check for updates turns it off. **Update** downloads
+only when online, and ⋮ › Check for updates turns it off. **Later** hides the
+notice until the app next starts, **Skip** hides that version until a newer one,
+and ⋮ › Check for updates now shows it again. **Update** downloads
 Bunker's launcher framework and Python runtime from the release. It then builds
 `Bunker-<version>.ipa` from the installed app, in Documents (Files › On My
 iPhone/iPad › NieR). It copies the game's files and leaves out the old

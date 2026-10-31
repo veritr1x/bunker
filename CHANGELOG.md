@@ -4,6 +4,16 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-10-31 (after 1.4.4)
+
+### Launcher (Android, iPhone and iPad)
+- The update notice is two rows instead of four, and has **Later** (hide it
+  until the app next starts) and **Skip** (hide that version until a newer
+  one). ⋮ → **Check for updates now** checks straight away and shows a
+  skipped version again. [9e383d4]
+- Long-pressing the app icon offers **Open the Bunker menu** (**Bunker menu**
+  on iOS), which opens the launcher without starting the game. [df27920]
+
 ## 1.4.4 (2026-10-31)
 
 Flying Mama plays at its normal speed above 30 fps, and the Dark Memory

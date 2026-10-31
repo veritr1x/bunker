@@ -110,7 +110,8 @@ The APK is signed with a different key than the publisher's APK. Before you
 remove a conflicting installation, back up its saves. A later build signed with
 the same local key can update this app normally.
 
-Tap the Lunar Tear notification to return to the Bunker (the launcher). **Open Pod Programs** opens:
+Tap the Lunar Tear notification, or long-press the app icon and choose **Open the Bunker menu**, to
+return to the Bunker (the launcher). **Open Pod Programs** opens:
 
 - Content presets, custom configuration, master import/export and rollback.
 - Player inventory, gems/materials, costumes, weapons, companions and upgrades.

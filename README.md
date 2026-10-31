@@ -24,7 +24,8 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
   - **Summon rates**: the odds of the next summons.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
-    screen's own. Walking and battles keep their normal speed. Experimental: it uses more battery.
+    screen's own. Walking, battles and the Flying Mama minigame keep their normal speed.
+    Experimental: it uses more battery.
     At 120 fps, 1080p is easier on the GPU than the screen's own resolution.
 - **Archive**, read from your game files: the whole story by season and chapter, with the speaker of
   each line, the records, every costume with its art, story and voice lines, 3D models with field
@@ -96,9 +97,15 @@ To build everything locally instead, follow the step-by-step guide below.
 ## Updating
 
 From version 1.0.0, Bunker checks for a newer release when the launcher opens and the device is
-online. It then shows **Bunker 1.1.0 is available** with **Update**, **What's new** and **Web
-builder**. It does not check when offline. **Check for updates** in the ⋮ menu turns the check
-off. An update downloads only Bunker's own files. It reuses the game files already in the app.
+online. It then shows **Bunker 1.1.0 is available** with **What's new**, **Update**, **Later** and
+**Skip** (**Web builder** instead of Update when the app can't update itself). It does not check
+when offline. An update downloads only Bunker's own files. It reuses the game files already in the
+app.
+
+- **Later** hides the notice until the app next starts. **Skip** hides that version until a newer
+  one is released.
+- **Check for updates now** in the ⋮ menu checks straight away and shows a skipped version again.
+  **Check for updates** turns the automatic check off.
 
 - **Android:** Update rebuilds the app on the phone. Android then asks you to confirm the
   install. The first time, allow NieR to install apps. Only builds signed with the public Bunker
@@ -120,8 +127,8 @@ off. An update downloads only Bunker's own files. It reuses the game files alrea
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. Tap **Deploy**. The server starts and the game opens.
 
-On later launches, the Bunker opens and starts the game by itself. Tap the Lunar Tear notification
-to return to it. **Open Pod Programs** and **Open Archive** are on the Bunker. Pod Programs stops the
+On later launches, the Bunker opens and starts the game by itself. To return to it, tap the Lunar
+Tear notification, or long-press the NieR icon and choose **Open the Bunker menu**. **Open Pod Programs** and **Open Archive** are on the Bunker. Pod Programs stops the
 game while it is open. Close it and tap **Deploy** to resume. Tap **⋮** for save backup and
 import, the Lunar Tear log and its export, Display (light/dark/system), settings, help and about.
 
@@ -130,7 +137,8 @@ import, the Lunar Tear log and its export, Display (light/dark/system), settings
 1. Install the IPA, from the web builder or your own build, signed with Sideloadly, AltStore or your own certificate.
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play
-   (⌘B with a keyboard).
+   (⌘B with a keyboard). Long-pressing the NieR icon on the Home Screen offers **Bunker menu**,
+   which opens the launcher too.
 
 Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** and **Open Archive** are on the Bunker itself.
 
@@ -311,7 +319,8 @@ it when you copy files into the app with Finder, because Finder skips the app's 
    while you play. iCloud Drive folders can only be copied. You can also use Finder to copy a
    prepared `assets` folder (step 5): drag it onto NieR (your device › Files) and tap **Check again**.
 4. The server starts inside the game. Three-finger double-tap opens the launcher during play
-   (⌘B with a keyboard, or **Bunker › Open Bunker** on a Mac).
+   (⌘B with a keyboard, or **Bunker › Open Bunker** on a Mac), and so does **Bunker menu** when
+   you long-press the NieR icon on the Home Screen.
 
 ### 7. Update later
 
