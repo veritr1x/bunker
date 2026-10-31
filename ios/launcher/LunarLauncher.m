@@ -870,6 +870,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic, strong) UIView *updatePanel;
 @property(nonatomic, strong) UILabel *updateText;
 @property(nonatomic, strong) UIButton *updateButton;
+@property(nonatomic, strong) UIButton *updateWeb, *updateLater, *updateSkip;
 @property(nonatomic, strong) NSDictionary *available;  // version, notes, update (update.json), framework, python (URLs), offer
 @property(nonatomic) BOOL updating;
 @end
@@ -881,11 +882,15 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 static NSString *const kLatestRelease = @"https://api.github.com/repos/veritr1x/bunker/releases/latest";
 static NSString *const kWebBuilder = @"https://veritr1x.github.io/bunker/";
 static BOOL gUpdateChecked;
+// Later hides the notice until the app starts again; Skip hides it until a newer release.
+static BOOL gUpdateLater;
 
 static BOOL UpdatesEnabled(void) {
     NSNumber *on = [NSUserDefaults.standardUserDefaults objectForKey:@"BunkerCheckUpdates"];
     return on ? on.boolValue : YES;
 }
+static NSString *SkippedVersion(void) { return [NSUserDefaults.standardUserDefaults stringForKey:@"BunkerSkippedVersion"] ?: @""; }
+static void SetSkippedVersion(NSString *version) { [NSUserDefaults.standardUserDefaults setObject:version forKey:@"BunkerSkippedVersion"]; }
 
 /** 1.2.3 from "1.2.3" or "1.2.3+dev.abc1234"; nil if it isn't a version. */
 static NSArray<NSNumber *> *VersionBase(NSString *version) {
@@ -1238,23 +1243,38 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [weakSelf refresh];
     });
     updates.state = UpdatesEnabled() ? UIMenuElementStateOn : UIMenuElementStateOff;
+    UIAction *checkNow = item(@"Check for updates now", @"arrow.clockwise", YES, ^{ [weakSelf checkForUpdateNow]; });
     UIAction *help = item(@"Help", @"questionmark.circle", YES, ^{ [weakSelf help]; });
     UIAction *about = item(@"About", @"info.circle", YES, ^{ [weakSelf about]; });
     return [UIMenu menuWithTitle:@"" children:@[
         [UIMenu menuWithTitle:@"LUNAR TEAR" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check]],
         [UIMenu menuWithTitle:@"DATA" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
-        [UIMenu menuWithTitle:@"SUPPORT" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, updates, settings, help, about]],
+        [UIMenu menuWithTitle:@"SUPPORT" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, updates, checkNow, settings, help, about]],
     ]];
 }
+// Two rows: the message with WHAT'S NEW, then UPDATE (or WEB BUILDER when this
+// app can't update itself), LATER and SKIP.
 - (UIView *)updatePanelView {
     self.updateText = [self mono:@"" size:12 color:Ink()];
+    UIButton *notes = [UIButton buttonWithType:UIButtonTypeCustom];
+    [notes setAttributedTitle:Tracked(@"WHAT'S NEW ›", [UIFont boldSystemFontOfSize:11], Ink(), 1.3) forState:UIControlStateNormal];
+    [notes addTarget:self action:@selector(openNotes) forControlEvents:UIControlEventTouchUpInside];
+    [notes setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [notes setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    UIStackView *line = [[UIStackView alloc] initWithArrangedSubviews:@[self.updateText, notes]];
+    line.alignment = UIStackViewAlignmentCenter;
+    line.spacing = 8;
     self.updateButton = [self solid:@"UPDATE" action:@selector(updateTapped)];
-    UIButton *notes = [self outline:@"WHAT'S NEW" size:12 action:@selector(openNotes)];
-    UIButton *web = [self outline:@"WEB BUILDER" size:12 action:@selector(openWebBuilder)];
-    UIStackView *links = [[UIStackView alloc] initWithArrangedSubviews:@[notes, web]];
-    links.distribution = UIStackViewDistributionFillEqually;
-    links.spacing = 8;
-    self.updatePanel = [self panel:@[self.updateText, self.updateButton, links]];
+    self.updateWeb = [self outline:@"WEB BUILDER" size:12 action:@selector(openWebBuilder)];
+    self.updateLater = [self outline:@"LATER" size:12 action:@selector(updateLaterTapped)];
+    self.updateSkip = [self outline:@"SKIP" size:12 action:@selector(updateSkipTapped)];
+    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]];
+    actions.spacing = 8;
+    for (UIButton *b in @[self.updateButton, self.updateWeb]) [b.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor multiplier:2].active = YES;
+    [self.updateSkip.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor].active = YES;
+    for (UIButton *b in @[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]) b.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
+    [self.updateButton.heightAnchor constraintEqualToConstant:44].active = YES;
+    self.updatePanel = [self panel:@[line, actions]];
     self.updatePanel.hidden = YES;
     return self.updatePanel;
 }
@@ -1276,7 +1296,20 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     }
 }
 - (void)checkForUpdate {
-    if (!UpdatesEnabled()) return;
+    if (UpdatesEnabled()) [self fetchRelease];
+}
+/** Checks again now (from the menu), showing even a release the player skipped or put off. */
+- (void)checkForUpdateNow {
+    gUpdateLater = NO;
+    SetSkippedVersion(@"");
+    [self fetchRelease];
+}
+- (void)updateLaterTapped { gUpdateLater = YES; self.updatePanel.hidden = YES; }
+- (void)updateSkipTapped {
+    if (self.available) SetSkippedVersion(self.available[@"version"]);
+    self.updatePanel.hidden = YES;
+}
+- (void)fetchRelease {
     __weak typeof(self) weakSelf = self;
     // Offline, rate-limited or an unexpected reply: say nothing until the next launch.
     FetchJSON(LatestReleaseURL(), ^(NSDictionary *release) {
@@ -1305,11 +1338,13 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)showRelease:(NSDictionary *)release {
     self.available = release;
-    self.updatePanel.hidden = NO;
+    self.updatePanel.hidden = !self.updating && (gUpdateLater || [release[@"version"] isEqual:SkippedVersion()]);
+    self.updateLater.hidden = self.updateSkip.hidden = self.updating;
+    self.updateWeb.hidden = self.updating || [release[@"offer"] isEqual:@"update"];
     NSString *text = [NSString stringWithFormat:@"Bunker %@ is available.", release[@"version"]];
     if ([release[@"offer"] isEqual:@"web"]) text = [text stringByAppendingString:@"\n> This update needs the web builder."];
     self.updateText.attributedText = Tracked(text, Mono(12), Ink(), 0.7);
-    [self.updateButton setAttributedTitle:Tracked([NSString stringWithFormat:@"UPDATE TO %@", release[@"version"]], [UIFont boldSystemFontOfSize:15], OnCommand(), 4.8) forState:UIControlStateNormal];
+    [self.updateButton setAttributedTitle:Tracked(@"UPDATE", [UIFont boldSystemFontOfSize:13], OnCommand(), 2) forState:UIControlStateNormal];
     self.updateButton.hidden = ![release[@"offer"] isEqual:@"update"];
 }
 - (void)updateMessage:(NSString *)text failed:(BOOL)failed {
@@ -1318,6 +1353,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 - (void)updateFailed:(NSString *)message {
     self.updating = NO;
     [self showRelease:self.available];
+    self.updateWeb.hidden = NO;  // the message points there
     // Python errors end with " (file.py:line)"; the player needs only the message.
     NSRange where = [message rangeOfString:@" \\([A-Za-z_]+\\.py:[0-9]+\\)$" options:NSRegularExpressionSearch];
     if (where.location != NSNotFound) message = [message substringToIndex:where.location];
