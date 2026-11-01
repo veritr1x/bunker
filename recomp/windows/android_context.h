@@ -13,6 +13,7 @@ struct LaunchExtra {
 };
 struct AndroidContextConfig {
   struct PackageVersion {std::u16string name;int32_t code=0;};
+  struct MainActivityFilter {std::u16string component;std::set<std::u16string> categories;bool enabled=true;};
   std::u16string package_name;
   std::u16string source_dir = u"/data/app/bunker/base.apk";
   std::u16string native_library_dir = u"/data/app/bunker/lib/arm64";
@@ -27,6 +28,9 @@ struct AndroidContextConfig {
   std::shared_ptr<ApkAssets> apk_assets;
   std::optional<PackageVersion> version;
   std::map<std::u16string,LaunchExtra> application_metadata;
+  // Complete MAIN/no-data filter catalog for this one installed APK. An absent
+  // catalog means unknown, not an empty resolver result.
+  std::optional<std::vector<MainActivityFilter>> main_activity_filters;
   // Closed host capability catalog; playback low latency is not advertised
   // merely because a Windows audio endpoint can be observed.
   std::set<std::u16string> supported_android_features;

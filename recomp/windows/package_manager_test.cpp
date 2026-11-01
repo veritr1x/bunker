@@ -1,25 +1,4 @@
-#include "android_context.h"
-#include "../fastaes/elfload.h"
-#include "traces.h"
-#include "sample.h"
-#include <array>
-#include <cstdio>
-#include <climits>
-#include <stdexcept>
-#include <thread>
-struct Session {
-  recomp::Runtime runtime;bunker::jni::Host host{[](addr_t){return false;}};elf_image &image;alignas(16)std::array<uint8_t,65536> stack{};
-  explicit Session(elf_image &i):image(i){host.Install(runtime);runtime.AddTraces(kTraces,std::size(kTraces));}
-  addr_t call(size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;host.InvokeEnv(slot,s);return s.gpr.x0.qword;}
-  addr_t find(const char *name){return call(6,reinterpret_cast<addr_t>(name));}
-  addr_t method(const char *owner,const char *name,const char *sig){return call(33,find(owner),reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>(sig));}
-  addr_t field(const char *owner,const char *name,const char *sig,bool stat=false){return call(stat?144:94,find(owner),reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>(sig));}
-  addr_t run(const char *name,std::initializer_list<addr_t> args){State s{};Reg GPR::*regs[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3,&GPR::x4,&GPR::x5,&GPR::x6};size_t i=0;for(auto a:args)(s.gpr.*regs[i++]).qword=a;s.gpr.sp.qword=reinterpret_cast<addr_t>(stack.data()+stack.size());s.gpr.x30.qword=0xfeedffff;runtime.Run(s,reinterpret_cast<addr_t>(elf_symbol(&image,name)));if(s.gpr.sp.qword!=reinterpret_cast<addr_t>(stack.data()+stack.size())||s.gpr.pc.qword!=0xfeedffff)throw std::runtime_error("NDK package caller PC/SP changed");return s.gpr.x0.qword;}
-  addr_t zero(addr_t o,addr_t m,addr_t mode){return run("package_zero",{host.EnvAddress(),o,m,mode});}
-  addr_t two(addr_t o,addr_t m,addr_t n,int32_t flags,addr_t mode){return run("package_two",{host.EnvAddress(),o,m,n,static_cast<uint32_t>(flags),mode});}
-  addr_t get(addr_t o,addr_t f){return run("package_field",{host.EnvAddress(),o,f});}
-  std::u16string text(addr_t ref){auto value=host.StringValue(ref);if(!value)throw std::runtime_error("expected String");return *value;}
-};
+#include "package_test_session.h"
 int main(){
   using namespace bunker::windows;unsigned checks=0;auto check=[&](bool b,const char *why){if(!b)throw std::runtime_error(why);++checks;};elf_image image{};check(!elf_load(PACKAGE_IMAGE,0x74000000,nullptr,&image),"actual NDK package image");Session h(image);
   AndroidContextConfig config;config.package_name=kPackageName;config.target_sdk=kTargetSdk;config.activity_class=kLaunchActivity;config.version=AndroidContextConfig::PackageVersion{u"3.7.1",152};config.application_metadata={{u"unity.splash-enable",LaunchExtra::Boolean(true)},{u"unity.build-id",LaunchExtra::String(u"453c06d8-54c4-4943-9c0c-7d1675d84689")},{u"resource",LaunchExtra::Integer(0x7f0800c3)}};

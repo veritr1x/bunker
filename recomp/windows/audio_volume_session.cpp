@@ -28,8 +28,10 @@ struct AudioVolumeSession::State {
   void RequireOwner()const{if(owner!=std::this_thread::get_id())throw std::logic_error("audio volume callbacks belong to the constructor/UI caller");}
 };
 int AudioVolumeSession::MusicIndex(const AudioVolumeObserver::Snapshot &value){
-  if(!value.available||value.stopped||value.status<0||value.callback_status<0||!value.volume_registered||!value.defaults_registered||!std::isfinite(value.scalar)||value.scalar<0||value.scalar>1)
-    throw std::runtime_error("read-only audio endpoint/notification prerequisite is unavailable");
+  if(!value.available||value.stopped||value.status<0||value.callback_status<0||!value.volume_registered||!value.defaults_registered||!std::isfinite(value.scalar)||value.scalar<0||value.scalar>1){
+    char detail[256];std::snprintf(detail,sizeof(detail),"read-only audio endpoint/notification prerequisite is unavailable: available=%d stopped=%d status=%#x callback=%#x volume-registered=%d defaults-registered=%d scalar=%g",int(value.available),int(value.stopped),static_cast<unsigned>(value.status),static_cast<unsigned>(value.callback_status),int(value.volume_registered),int(value.defaults_registered),double(value.scalar));
+    throw std::runtime_error(detail);
+  }
   return value.muted||value.scalar==0?0:1;
 }
 void AudioVolumeSession::DeclareFields(jni::Host &java){java.DefineField("com/unity3d/player/UnityPlayer",kField,kFieldType);}
