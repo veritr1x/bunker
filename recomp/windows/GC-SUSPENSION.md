@@ -1,10 +1,19 @@
 # IL2CPP GC suspension: evidence and implementation requirements
 
-**Status: signals and GC suspension are unimplemented.** Nonzero
-`pthread_kill` and `pthread_sigmask` are not a working stop-world mechanism.
+**Status: production signal delivery and GC suspension are unimplemented.**
+The isolated signal/semaphore providers and opt-in polling are not installed in
+the Unity harness. Its nonzero `pthread_kill` and `pthread_sigmask` are not a working stop-world mechanism.
 The current Windows startup/resource gates do not establish GC correctness.
 The linked collector resembles upstream Boehm's POSIX implementation, including
 its resumed-epoch bit, but its exact version has not been proved.
+
+Bounded components now pass native Linux/Windows gates: signal policy/semaphore
+foundations, optimized cooperative polling, AArch64 frame serialization, and
+[combined same-worker stack-frame delivery](signal_delivery.md). The combined
+gate performs 16 stop/acknowledgment/restart/acknowledgment cycles using actual
+NDK test handlers, preserving live GPR/SIMD roots and returning to the original
+loop. These test handlers are not the game's actual collector handlers, and
+provider transition roots/interruptible waits remain unimplemented.
 
 ## Actual binary behavior
 

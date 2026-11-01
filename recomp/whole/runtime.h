@@ -25,6 +25,7 @@ void WithGuestMemoryWrite(addr_t address, size_t size, const std::function<void(
 // includes suspended parents of nested Runtime::Run callbacks. It does not
 // enumerate roots kept solely in native provider temporaries.
 std::vector<State *> CurrentExecutionFrames(State &top);
+State *CurrentExecutionState() noexcept;
 
 class Runtime {
  public:
