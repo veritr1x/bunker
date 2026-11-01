@@ -154,6 +154,12 @@ public final class ServerService extends Service {
                 if(START.equals(action)) {
                     FilesStore.ensureBootstrap(this);
                     FilesStore.noticeSource(this);
+                    if(CalendarUpdate.needed(FilesStore.data(this),BuildConfig.BUNKER_VERSION)) {
+                        update("Updating the calendar for this version…");
+                        // A failure leaves the calendar as it was; the game still starts.
+                        try {ToolsRuntime.updateCalendar(this);}
+                        catch(Exception error){android.util.Log.e("LunarTear","Calendar update failed",error);}
+                    }
                     String error=NativeBridge.setPortOffset(Ports.offset(this));
                     if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?"Native server did not respond":error);
                     error=NativeBridge.start(FilesStore.data(this).getAbsolutePath(),FilesStore.root(this).getAbsolutePath());

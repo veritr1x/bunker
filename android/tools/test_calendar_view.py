@@ -74,6 +74,28 @@ class OriginalDates(unittest.TestCase):
         cal.read_state()
         self.assertEqual(self.builds, [0])
 
+    def test_an_update_rebuilds_the_view_copy_without_pod_programs(self):
+        # 1.6.1 built the copy; the launcher runs this before the server starts.
+        cal.view_file().write_bytes(b"old view")
+        cal.write_state(self.state(originalDates=True))
+        self.assertTrue(cal.update_for("1.6.2"))
+        self.assertEqual(self.builds, [0])
+        self.assertEqual(cal.view_file().read_bytes(), b"view")
+        self.assertEqual(cal.updated_file().read_text(), "1.6.2")
+
+    def test_an_update_runs_once_per_version(self):
+        cal.write_state(self.state(originalDates=True))
+        cal.update_for("1.6.2")
+        self.assertFalse(cal.update_for("1.6.2"))
+        self.assertTrue(cal.update_for("1.6.3"))
+        self.assertEqual(cal.updated_file().read_text(), "1.6.3")
+
+    def test_an_update_rebuilds_game_data_from_before(self):
+        cal.write_state({k: v for k, v in self.state().items() if k != "dataVersion"})
+        with mock.patch.object(cal.patcher, "activate"):
+            cal.update_for("1.6.2")
+        self.assertEqual(self.builds, [100 * WEEK])
+
     def test_no_view_copy_is_built_with_original_dates_off(self):
         cal.write_state(self.state())
         cal.read_state()
