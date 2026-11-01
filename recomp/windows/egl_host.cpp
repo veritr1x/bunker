@@ -378,4 +378,22 @@ void EglHost::SetProcedureResolver(std::function<addr_t(const std::string&)> res
 addr_t EglHost::CurrentContextToken(){std::lock_guard lock(impl_->mutex);return impl_->Find(impl_->eglGetCurrentContext(),Impl::Context);}
 bool EglHost::ContextAlive(addr_t token){std::lock_guard lock(impl_->mutex);auto at=impl_->objects.find(token);return at!=impl_->objects.end()&&at->second.kind==Impl::Context&&!at->second.native_destroyed;}
 bool EglHost::UsesGlesModule(const void *module){std::lock_guard lock(impl_->mutex);return impl_->gles==module;}
+std::optional<EglHost::ReadPbufferExtent> EglHost::CurrentReadPbufferExtent(){
+  std::lock_guard lock(impl_->mutex);
+  impl_->Capture();const auto saved=errors[impl_->owner];
+  struct Restore{Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*impl_,saved};
+  auto owned=[&](E native,Impl::Kind kind){for(const auto &[token,o]:impl_->objects)if(o.kind==kind&&o.native==native&&!o.native_destroyed)return token;return addr_t(0);};
+  const auto context=owned(impl_->eglGetCurrentContext(),Impl::Context);
+  const auto surface=owned(impl_->eglGetCurrentSurface(0x305a),Impl::Surface);
+  auto current=impl_->currents.find(std::this_thread::get_id());
+  if(!context||!surface||current==impl_->currents.end()||current->second.context!=context||current->second.read!=surface)return std::nullopt;
+  const auto &c=impl_->objects.at(context);const auto &s=impl_->objects.at(surface);
+  auto display=impl_->objects.find(s.display);
+  if(c.native_destroyed||s.native_destroyed||s.window||display==impl_->objects.end()||display->second.native_destroyed)return std::nullopt;
+  I width=0,height=0;
+  if(!impl_->eglQuerySurface(display->second.native,s.native,0x3057,&width)||
+     !impl_->eglQuerySurface(display->second.native,s.native,0x3056,&height)||width<=0||height<=0)
+    throw std::runtime_error("Cannot query positive logical extent of owned current read pbuffer");
+  return ReadPbufferExtent{context,surface,width,height};
+}
 }  // namespace bunker::windows
