@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "../whole/runtime.h"
@@ -73,6 +74,10 @@ class FileSystem {
   int Munmap(addr_t address, uint64_t length);
   int Mprotect(addr_t address, uint64_t length, int protection);
   int Madvise(addr_t address, uint64_t length, int advice);
+  struct MappingInfo {addr_t base;uint64_t size,generation;};
+  // Identifies an owned mmap lifetime and verifies actual page permissions.
+  // This is not a lease or evidence of a Unity arena subobject's C lifetime.
+  std::optional<MappingInfo> MappingRegion(addr_t address,uint64_t length,bool writable)const;
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
