@@ -28,8 +28,10 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Parallel, resumable Windows COFF translation with hash-verified caches and
   immutable lifter/semantics snapshots. Unknown targets and unliftable
   instructions fail explicitly.
-- Guard-proven jump-table recovery adds 4,535 Unity and 10,203 IL2CPP case
-  entries. Byte/halfword/signed-word layouts pass 4,992 ARM64-reference
+- Guard-proven jump-table recovery finds 5,232 Unity and 13,473 IL2CPP case
+  entries (Unity now 5,238), including width-equivalent masked indices,
+  bounded loop closure and joined guard paths.
+  Byte/halfword/signed-word, masked-loop and joined layouts pass 9,984 ARM64-reference
   checks per platform. Ambiguous patterns remain explicitly unresolved.
 - Real `libFastAES.so` executes as native Windows x86_64 code: all 48 calls
   match the original ARM64 reference and OpenSSL.
@@ -61,10 +63,12 @@ not establish whole-program correctness or execution coverage. The first
 Unity Windows translation completed with 58,850
 traces in 463 objects, 2,419 unsupported traces and zero unresolved direct
 targets. The pair-enabled snapshot has 58,855 traces and 1,860 unsupported
-traces. Its native Windows diagnostic executable completes constructors 1–94;
-constructor 95 reaches a switch table whose W/X masked-index equivalence is
-being added to recovery. The earlier store/pair blockers at constructors 53
-and 71 are cleared. JNI_OnLoad has not run. The initial IL2CPP translation completed
+traces. The masked-switch snapshot has 59,552 traces / 1,889 unsupported, and
+its native Windows executable completes constructors 1–128. Constructor 129
+passed the added `getpagesize` adapter, then reached a joined-guard switch
+whose recovery now passes focused tests; its rebuilt executable is pending.
+The earlier store/pair/masked-switch blockers at constructors 53, 71 and 95
+are cleared. JNI_OnLoad has not run. The initial IL2CPP translation completed
 with 393,781 traces in 3,079 objects, 192 unsupported traces and zero unresolved
 direct targets. Exploratory objects retain explicit failure paths for
 unsupported instructions.
@@ -90,6 +94,9 @@ unsupported instructions.
 - IL2CPP GC suspension/signals and needed Bionic/ELF TLS. Nonzero
   `pthread_kill`, `pthread_sigmask` and `pthread_atfork` currently return
   `ENOSYS`; GC signal handling is not implemented.
+  [The binary/ABI evidence and required gates](windows/GC-SUSPENSION.md) are
+  preserved for the implementation; both stop and resume acknowledgments are
+  needed by this collector's default retry mode.
 - Finish provider memory integration and exercise paired exclusives in real
   Unity startup. The replacement single/pair reservation protocol passes 90,112
   instruction comparisons per platform plus 97 runtime checks and five

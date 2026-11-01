@@ -42,6 +42,12 @@ class Target:
     shift: int
 
 
+@dataclass(frozen=True)
+class BoundProof:
+    count: int
+    guards: tuple
+
+
 def _register(ins, reg):
     name = ins.reg_name(reg)
     if name in ('wzr', 'xzr'):
@@ -282,14 +288,15 @@ class Function:
         return result
 
     def bound(self, table):
+        if self.block.get(table.load) not in self.dom:
+            return None
+        guarded_edges = {}
         for pc, branch in sorted(self.ins.items(), reverse=True):
             if branch.mnemonic not in ('b.hi', 'b.hs', 'b.ls', 'b.lo'):
                 continue
             if branch.operands[0].imm == pc + 4:
                 continue  # Both outcomes take the same edge: this is no guard.
             allowed = pc + 4 if branch.mnemonic in ('b.hi', 'b.hs') else branch.operands[0].imm
-            if self.pred.get(allowed) != {pc} or not self.dominates(allowed, table.load):
-                continue
             compare = None
             previous = pc
             for _ in range(64):
@@ -311,8 +318,32 @@ class Function:
             count = compare.operands[1].imm << compare.operands[1].shift.value
             count += branch.mnemonic in ('b.hi', 'b.ls')
             if 0 < count <= 65536:
-                return count, pc
-        return None
+                guarded_edges[pc, allowed] = count
+        # Cut the CFG at every edge which independently proves a bound for
+        # this exact index. Every remaining path into the load must hit one of
+        # those edges before reaching the function entry or an unknown root.
+        # This handles joins of separately guarded paths without pretending
+        # that any one of their guards dominates the shared dispatch block.
+        pending, visited, used = [table.load], set(), {}
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            parents = self.parents(current)
+            if current == self.lo or not parents or len(visited) > 4096:
+                return None
+            for pc in parents:
+                count = guarded_edges.get((pc, current))
+                if count is not None:
+                    used[pc] = count
+                else:
+                    pending.append(pc)
+        if not used:
+            return None
+        # Incoming ranges are a union: choosing their minimum would miss
+        # legal larger indices on another guarded path.
+        return BoundProof(max(used.values()), tuple(sorted(used)))
 
 
 def _recover_table(function, ins, read, code):
@@ -327,7 +358,7 @@ def _recover_table(function, ins, read, code):
         return None, 'no dominating unsigned index bound proven'
     if target.table.stride != target.table.size:
         return None, 'indexed load stride does not match table element size'
-    count, guard = proof
+    count, guard = proof.count, proof.guards[0]
     raw = read(target.table.address, count * target.table.size)
     if raw is None:
         return None, 'bounded table is outside file-backed allocated sections'
@@ -335,9 +366,12 @@ def _recover_table(function, ins, read, code):
                for i in range(0, len(raw), target.table.size)]
     if not all(lo <= address < hi and code(address) for address in targets):
         return None, 'table contains a target outside the containing executable function'
-    return dict(site=pc, function=lo, function_end=hi, table=target.table.address,
-                count=count, entry_size=target.table.size, signed=target.table.signed,
-                case_base=target.base, shift=target.shift, guard=guard, targets=targets), None
+    record = dict(site=pc, function=lo, function_end=hi, table=target.table.address,
+                  count=count, entry_size=target.table.size, signed=target.table.signed,
+                  case_base=target.base, shift=target.shift, guard=guard, targets=targets)
+    if len(proof.guards) > 1:
+        record['guards'] = list(proof.guards)
+    return record, None
 
 
 def recover(elf):
