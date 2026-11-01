@@ -323,6 +323,7 @@ struct GlHost::Impl {
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
 GlHost::~GlHost()=default;
 const std::vector<GlHost::Query> &GlHost::Queries(){return queries;}
+const std::vector<std::string> &GlHost::Commands(){static const std::vector<std::string> commands(std::begin(names),std::end(names));return commands;}
 size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);impl_->SelectContext();auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
 addr_t GlHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::runtime_error("Unsupported typed GL resolver signature: "+name);}
 void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();found->second(state);}

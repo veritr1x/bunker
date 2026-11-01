@@ -4,6 +4,13 @@ This gate expands `GlHost` by the 29 exact signatures in `gl_draw_commands.inc`.
 
 The existing six query and 28 scalar-command marker indices remain unchanged. `eglGetProcAddress` resolves these supported names to installed guest import markers, never native code pointers. Unknown names still fail explicitly.
 
+The Unity bootstrap uses `GlHost::Commands()` for both direct-import selection
+and installation of forwarding bridges, covering all 63 supported commands in
+the same marker order. Dynamic lookup returns those same installed markers.
+This replaces its older six-query-only forwarding list. The updated bootstrap
+compiles against the accepted Unity cohort, and the updated GL provider retains
+all 286 native draw-gate checks. This integration has not executed a Unity draw.
+
 ## Guest memory and ABI
 
 GL enums, GLuint names, signed GLint/GLsizei values and output lengths occupy four bytes; GLboolean occupies one byte; ARM64 guest pointer tables and signed GLsizeiptr/GLintptr values occupy eight. Shader/program query widths are enumerated explicitly, including the three-component compute-work-group-size information query; unknown widths are rejected before touching output memory. Compute shader creation/execution remains outside the guest bridge.
