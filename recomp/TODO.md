@@ -172,9 +172,13 @@ unsupported instructions.
 - Pinned Vulkan ANGLE now passes GLES3.2/AEP, shader, draw/compute and all 28
   ASTC formats (239 samples/61,184 bytes), including correct sRGB behavior.
   The typed query resolver passes 976 checks for six getter signatures and 133
-  enum widths. A separate native Vulkan scaling variant now passes fixed-size
+  enum widths. An additional 28 scalar state/clear signatures pass 320 checks
+  through actual NDK callers, native state/error comparison and 64 independently
+  checked RGBA pixels; all 976 query regressions still pass. See
+  [the scalar command boundary](windows/gl_scalar.md).
+  A separate native Vulkan scaling variant now passes fixed-size
   buffer negotiation, physical/logical resize and present-mode checks; the
-  original ANGLE bundle is preserved. Rendering/client/mapped GL APIs, Unity's
+  original ANGLE bundle is preserved. Shader/draw/client/mapped GL APIs, Unity's
   full surface/resume/frame lifecycle, input and audio remain unverified.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.

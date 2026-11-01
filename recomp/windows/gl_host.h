@@ -6,8 +6,8 @@
 #include <vector>
 
 namespace bunker::windows {
-// Initial GLES capability-query catalog only. Native driver strings/results are
-// copied to tracked guest memory; unsupported signatures or query widths fail.
+// GLES capability queries plus scalar state/clear commands. Native query
+// results use tracked guest memory; unsupported signatures/query widths fail.
 class GlHost {
  public:
   struct Query {uint32_t name;uint32_t count;uint32_t count_query=0;};
