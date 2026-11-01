@@ -18,6 +18,9 @@ class EglHost {
   void Install(recomp::Runtime &);
   addr_t Marker(const std::string &)const;
   void Invoke(const std::string &,State &);
+  // Resolver must return an installed guest marker or reject the signature.
+  // Called without guest-memory locks; it must not reenter this EglHost.
+  void SetProcedureResolver(std::function<addr_t(const std::string&)>);
   // Call on the native worker itself before it exits. No guest callback runs.
   void ReleaseCurrentThread();
  private:
