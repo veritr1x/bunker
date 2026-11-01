@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-01 (after 1.6.0)
+
+### Server
+- With the Original calendar, Notices come out as the loop reaches their
+  dates instead of all at once, and show the same dates as the rest of the
+  game (this loop's, or the original ones with "Show original dates").
+  [dbb4a0b]
+
 ## 1.6.0 (2026-11-01)
 
 A **Bunker** button in the game's own top row opens the launcher. The Schedule
