@@ -6,6 +6,7 @@ static jboolean bv(JNIEnv *e,jobject o,jmethodID m,...){va_list v;va_start(v,m);
 static jobject nv(JNIEnv *e,jclass c,jmethodID m,...){va_list v;va_start(v,m);jobject r=(*e)->NewObjectV(e,c,m,v);va_end(v);return r;}
 static jobject sv(JNIEnv *e,jclass c,jmethodID m,...){va_list v;va_start(v,m);jobject r=(*e)->CallStaticObjectMethodV(e,c,m,v);va_end(v);return r;}
 static jobject split_static(JNIEnv *e,jclass c,jmethodID m,int a,int b,int d,int last,...){va_list v;va_start(v,last);jobject r=(*e)->CallStaticObjectMethodV(e,c,m,v);va_end(v);return r;}
+static void vv(JNIEnv *e,jobject o,jmethodID m,...){va_list v;va_start(v,m);(*e)->CallVoidMethodV(e,o,m,v);va_end(v);}
 jobject package_zero(JNIEnv *e,jobject o,jmethodID m,int mode){if(mode==0)return (*e)->CallObjectMethod(e,o,m);if(mode==1)return ov(e,o,m);return (*e)->CallObjectMethodA(e,o,m,0);}
 jobject package_two(JNIEnv *e,jobject o,jmethodID m,jstring n,jint f,int mode){if(mode==0)return (*e)->CallObjectMethod(e,o,m,n,f);if(mode==1)return ov(e,o,m,n,f);if(mode==3)return split(e,o,m,1,2,3,4,n,f);jvalue v[2];v[1].j=(jlong)0xccccccccccccccccULL;v[0].l=n;v[1].i=f;return (*e)->CallObjectMethodA(e,o,m,v);}
 jobject package_three(JNIEnv *e,jobject o,jmethodID m,jobject a,jint b,jobject c,int mode){if(mode==0)return (*e)->CallObjectMethod(e,o,m,a,b,c);if(mode==1)return ov(e,o,m,a,b,c);if(mode==3)return split(e,o,m,1,2,3,4,a,b,c);jvalue v[3];v[1].j=(jlong)0xccccccccccccccccULL;v[0].l=a;v[1].i=b;v[2].l=c;return (*e)->CallObjectMethodA(e,o,m,v);}
@@ -20,3 +21,4 @@ jboolean package_empty(JNIEnv *e,jobject o,jmethodID m,int mode){if(mode==0)retu
 jobject package_static_zero(JNIEnv *e,jclass c,jmethodID m,int mode){if(mode==0)return (*e)->CallStaticObjectMethod(e,c,m);if(mode==1)return sv(e,c,m);return (*e)->CallStaticObjectMethodA(e,c,m,0);}
 jobject package_static_three(JNIEnv *e,jclass c,jmethodID m,jobject a,jint b,jobject d,int mode){if(mode==0)return (*e)->CallStaticObjectMethod(e,c,m,a,b,d);if(mode==1)return sv(e,c,m,a,b,d);if(mode==3)return split_static(e,c,m,1,2,3,4,a,b,d);jvalue v[3];v[0].l=a;v[1].j=(jlong)0xccccccccccccccccULL;v[1].i=b;v[2].l=d;return (*e)->CallStaticObjectMethodA(e,c,m,v);}
 jclass package_object_class(JNIEnv *e,jobject object){return (*e)->GetObjectClass(e,object);}
+int package_void(JNIEnv *e,jobject o,jmethodID m,int mode){if(mode==0)(*e)->CallVoidMethod(e,o,m);else if(mode==1)vv(e,o,m);else (*e)->CallVoidMethodA(e,o,m,0);return 0x1234;}

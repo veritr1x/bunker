@@ -93,6 +93,37 @@ struct Host::Thread {
   bool attached = false;
   std::vector<std::vector<addr_t>> frames{1};
   std::shared_ptr<Object> exception;
+  std::vector<size_t> callback_floors;
+  size_t provider_locks=0;
+  bool flushing=false;
+  std::map<addr_t,Reference> retired_references;
+  std::vector<std::shared_ptr<Object>> retired_objects;
+};
+// Count actual scoped provider acquisitions, not recursive mutex unlock guesses.
+// Reference nodes and acquired objects survive until the outer provider unlock;
+// arbitrary payload destructors then execute without the provider mutex.
+class Host::ProviderLock {
+ public:
+  explicit ProviderLock(Host &host):host_(host),native_(host.mutex_){thread_=&host_.Current();++thread_->provider_locks;}
+  ~ProviderLock(){if(native_.owns_lock())unlock();}
+  void unlock(){--thread_->provider_locks;native_.unlock();if(!thread_->provider_locks)Flush();}
+  void lock(){native_.lock();++thread_->provider_locks;}
+  bool owns_lock()const{return native_.owns_lock();}
+  void FlushRetirements(){if(native_.owns_lock()||thread_->provider_locks)throw std::logic_error("retirement requires an unlocked provider");Flush(true);}
+ private:
+  void Flush(bool nested=false){
+    if(thread_->flushing&&!nested)return;
+    const bool previous=thread_->flushing;
+    thread_->flushing=true;
+    while(!thread_->retired_references.empty()||!thread_->retired_objects.empty()){
+      std::map<addr_t,Reference> references;references.swap(thread_->retired_references);
+      std::vector<std::shared_ptr<Object>> objects;objects.swap(thread_->retired_objects);
+      references.clear();objects.clear();
+      if(thread_->retired_objects.empty())objects.swap(thread_->retired_objects);
+    }
+    thread_->flushing=previous;
+  }
+  Host &host_;Thread *thread_;std::unique_lock<std::recursive_mutex> native_;
 };
 struct Host::UtfLease { std::shared_ptr<Object> owner; std::unique_ptr<std::string> data; };
 struct Host::CharLease { std::shared_ptr<Object> owner; std::unique_ptr<std::u16string> data; };
@@ -147,13 +178,13 @@ Host::Thread &Host::Current(bool attach) {
   if (attach) thread->attached = true;
   return *thread;
 }
-addr_t Host::EnvAddress() { std::lock_guard lock(mutex_); auto &t = Current(); return t.attached ? reinterpret_cast<addr_t>(&t.env_word) : 0; }
+addr_t Host::EnvAddress() { ProviderLock lock(*this); auto &t = Current(); return t.attached ? reinterpret_cast<addr_t>(&t.env_word) : 0; }
 void Host::RequireEnv(addr_t address) {
   auto &t = Current();
   if (!t.attached || address != reinterpret_cast<addr_t>(&t.env_word)) throw std::runtime_error("JNIEnv belongs to a different or detached thread");
 }
 void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> methods, const std::string &superclass, bool bootstrap) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   if (name.empty() || classes_.count(name) || (!superclass.empty() && !classes_.count(superclass))) throw std::invalid_argument("invalid or duplicate Java class");
   auto clazz = std::make_unique<Class>();
   clazz->object = std::make_shared<Object>(); clazz->object->kind = Object::kClass; clazz->object->class_name = name;
@@ -172,7 +203,7 @@ void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> m
   classes_.emplace(name, std::move(clazz));
 }
 void Host::MarkClassInitialized(const std::string &name) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   auto found = classes_.find(name);
   if (found == classes_.end()) throw std::invalid_argument("unknown Java class initialization");
   found->second->initialized = true;
@@ -197,11 +228,11 @@ void Host::DefineVoidMethod(const std::string &owner,const std::string &name,con
 void Host::DefineConstructor(const std::string &owner,const std::string &signature,std::function<addr_t(const MethodArguments&)> factory){
   if(!factory)throw std::invalid_argument("missing constructor factory");DefineHandler(owner,"<init>",signature,'V',[factory=std::move(factory)](addr_t,const MethodArguments &arguments){return factory(arguments);});
 }
-void Host::ThrowException(const std::string &type,const std::u16string &message){std::lock_guard lock(mutex_);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,Encode(message));}
-void Host::ThrowException(const std::string &type){std::lock_guard lock(mutex_);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,"",false);}
+void Host::ThrowException(const std::string &type,const std::u16string &message){ProviderLock lock(*this);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,Encode(message));}
+void Host::ThrowException(const std::string &type){ProviderLock lock(*this);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,"",false);}
 void Host::DefineHandler(const std::string &class_name,const std::string &name,const std::string &signature,char result,
                          std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static){
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   auto clazz = classes_.find(class_name);
   if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
   if(class_name!="java/lang/Object"&&name=="getClass"&&signature=="()Ljava/lang/Class;")throw std::invalid_argument("java.lang.Object.getClass() is final; catalog override/hiding is invalid");
@@ -224,7 +255,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   method_ids_[method->id] = method.get(); clazz->second->methods.emplace(key, std::move(method));
 }
 void Host::DefineField(const std::string &class_name, const std::string &name, const std::string &signature, bool is_static) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   auto clazz = classes_.find(class_name);
   if (clazz == classes_.end() || name.empty() || (signature != "I" && signature!="[Ljava/lang/String;" && !(signature.size() > 2 && signature.front() == 'L' && signature.back() == ';')))
     throw std::invalid_argument("JNI fields support int, object and nullable String-array signatures on known classes");
@@ -236,16 +267,16 @@ void Host::DefineField(const std::string &class_name, const std::string &name, c
 void Host::Raise(const std::string &type, const std::string &message, bool message_present) {
   auto object = std::make_shared<Object>(); object->kind = Object::kThrowable; object->class_name = type; object->message = message;
   object->message_present=message_present;
-  Current().exception = std::move(object);
+  RetireObject(Current().exception);Current().exception = std::move(object);
 }
-std::string Host::PendingException() { std::lock_guard lock(mutex_); auto e = Current().exception; return e ? e->class_name + ": " + e->message : ""; }
-void Host::ClearException() { std::lock_guard lock(mutex_); Current().exception.reset(); }
+std::string Host::PendingException() { ProviderLock lock(*this); auto e = Current().exception; return e ? e->class_name + ": " + e->message : ""; }
+void Host::ClearException() { ProviderLock lock(*this);RetireObject(Current().exception); }
 addr_t Host::Local(const std::shared_ptr<Object> &object) {
   if (!object) return 0;
   auto &t = Current();
   addr_t handle = next_reference_++;
-  references_.emplace(handle, Reference{1, ThreadKey(), object, {}});
   t.frames.back().push_back(handle);
+  try{references_.emplace(handle, Reference{1, ThreadKey(), object, {}});}catch(...){t.frames.back().pop_back();throw;}
   return handle;
 }
 std::shared_ptr<Host::Object> Host::Get(addr_t handle, bool allow_null) {
@@ -256,8 +287,11 @@ std::shared_ptr<Host::Object> Host::Get(addr_t handle, bool allow_null) {
   }
   auto object=found->second.Lock();
   if(!object&&!allow_null)Raise("java/lang/NullPointerException","cleared weak JNI reference");
+  if(object)Current().retired_objects.push_back(object);
   return object;
 }
+void Host::RetireReference(addr_t reference){auto found=references_.find(reference);if(found!=references_.end())Current().retired_references.insert(references_.extract(found));}
+void Host::RetireObject(std::shared_ptr<Object> &object){if(object)Current().retired_objects.push_back(std::move(object));}
 std::shared_ptr<Host::Object> Host::String(addr_t handle) {
   auto object = Get(handle);
   if (object && object->kind != Object::kString) { Raise("java/lang/IllegalArgumentException", "expected jstring"); return {}; }
@@ -270,33 +304,33 @@ Host::Class *Host::GetClass(addr_t handle) {
   return classes_.at(object->class_name).get();
 }
 addr_t Host::NewString(const std::u16string &value) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   auto object = std::make_shared<Object>(); object->kind = Object::kString; object->class_name = "java/lang/String"; object->text = value;
   return Local(object);
 }
 addr_t Host::NewInstance(const std::string &name) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   if (!classes_.count(name)) throw std::invalid_argument("unknown Java class");
   auto object = std::make_shared<Object>(); object->class_name = name; return Local(object);
 }
 addr_t Host::HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state){
   if(!state)throw std::invalid_argument("host instance requires initialized state");
-  std::lock_guard lock(mutex_);auto reference=NewInstance(name);auto object=Get(reference);object->host_type=type;object->host_state=std::move(state);return reference;
+  ProviderLock lock(*this);auto reference=NewInstance(name);auto object=Get(reference);object->host_type=type;object->host_state=std::move(state);return reference;
 }
 std::shared_ptr<void> Host::HostState(addr_t reference,std::type_index type){
-  std::lock_guard lock(mutex_);auto object=Get(reference);if(!object)return {};
+  ProviderLock lock(*this);auto object=Get(reference);if(!object)return {};
   if(object->host_type!=type||!object->host_state){Raise("java/lang/UnsupportedOperationException","Java object has no configured host state: "+object->class_name);return {};}return object->host_state;
 }
-Host::ObjectValue Host::CaptureValue(addr_t reference){std::lock_guard lock(mutex_);ObjectValue value;value.owner_=this;value.object_=Get(reference,true);return value;}
-addr_t Host::LocalValue(const ObjectValue &value){std::lock_guard lock(mutex_);if(value.object_&&value.owner_!=this)throw std::invalid_argument("Java object value belongs to another host");return Local(value.object_);}
+Host::ObjectValue Host::CaptureValue(addr_t reference){ProviderLock lock(*this);ObjectValue value;value.owner_=this;value.object_=Get(reference,true);return value;}
+addr_t Host::LocalValue(const ObjectValue &value){ProviderLock lock(*this);if(value.object_&&value.owner_!=this)throw std::invalid_argument("Java object value belongs to another host");return Local(value.object_);}
 std::optional<std::u16string> Host::StringValue(addr_t reference){
-  std::lock_guard lock(mutex_);auto object=Get(reference,true);if(!object)return std::nullopt;
+  ProviderLock lock(*this);auto object=Get(reference,true);if(!object)return std::nullopt;
   if(object->kind!=Object::kString){Raise("java/lang/IllegalArgumentException","expected initialized jstring");return std::nullopt;}return object->text;
 }
-addr_t Host::NewGlobalReference(addr_t reference) { std::lock_guard lock(mutex_); return Ref(reference, 2); }
-addr_t Host::NewLocalReference(addr_t reference) { std::lock_guard lock(mutex_); return Ref(reference, 1); }
-void Host::DeleteGlobalReference(addr_t reference) { std::lock_guard lock(mutex_); Delete(reference, 2); }
-void Host::DeleteLocalReference(addr_t reference) { std::lock_guard lock(mutex_); Delete(reference, 1); }
+addr_t Host::NewGlobalReference(addr_t reference) { ProviderLock lock(*this); return Ref(reference, 2); }
+addr_t Host::NewLocalReference(addr_t reference) { ProviderLock lock(*this); return Ref(reference, 1); }
+void Host::DeleteGlobalReference(addr_t reference) { ProviderLock lock(*this); Delete(reference, 2); }
+void Host::DeleteLocalReference(addr_t reference) { ProviderLock lock(*this); Delete(reference, 1); }
 bool Host::Assignable(const std::string &actual, const std::string &expected) const {
   std::string name = actual;
   while (!name.empty()) {
@@ -340,21 +374,21 @@ std::shared_ptr<Host::Object> Host::FieldTarget(addr_t reference, addr_t id, boo
   return is_static ? classes_.at(metadata.owner)->object : object;
 }
 void Host::SetObjectFieldValue(addr_t reference, const std::string &name, const std::string &signature, addr_t value) {
-  std::lock_guard lock(mutex_); auto object = Get(reference); if (!object) return;
+  ProviderLock lock(*this); auto object = Get(reference); if (!object) return;
   auto *field = LookupField(object->class_name, name.c_str(), signature.c_str(), false); if (!field) return;
   auto target = FieldTarget(reference, field->id, false, "object"); if (!target) return;
   auto source = Get(value, true); if (value && !source) return;
   auto actual = source && source->kind == Object::kClass ? "java/lang/Class" : source ? source->class_name : "";
   if (source && !Assignable(actual, signature.front()=='['?signature:signature.substr(1, signature.size() - 2))) { Raise("java/lang/IllegalArgumentException", "JNI object field value type mismatch"); return; }
-  target->object_fields[field->id] = source;
+  RetireObject(target->object_fields[field->id]);target->object_fields[field->id] = source;
 }
 addr_t Host::GetObjectFieldValue(addr_t reference, const std::string &name, const std::string &signature) {
-  std::lock_guard lock(mutex_); auto object = Get(reference); if (!object) return 0;
+  ProviderLock lock(*this); auto object = Get(reference); if (!object) return 0;
   auto *field = LookupField(object->class_name, name.c_str(), signature.c_str(), false); if (!field) return 0;
   auto target = FieldTarget(reference, field->id, false, "object"); return target ? Local(target->object_fields[field->id]) : 0;
 }
 void Host::SetIntFieldValue(addr_t reference, const std::string &name, int32_t value) {
-  std::lock_guard lock(mutex_); auto object = Get(reference); if (!object) return;
+  ProviderLock lock(*this); auto object = Get(reference); if (!object) return;
   auto *field = LookupField(object->class_name, name.c_str(), "I", false); if (!field) return;
   auto target = FieldTarget(reference, field->id, false, "I"); if (target) target->primitive_fields[field->id] = static_cast<uint32_t>(value);
 }
@@ -370,7 +404,7 @@ void Host::Delete(addr_t handle, unsigned kind) {
   if (found == references_.end() || found->second.kind != kind || (kind == 1 && found->second.owner != ThreadKey())) {
     Raise("java/lang/IllegalArgumentException", "incorrect reference deletion"); return;
   }
-  references_.erase(found);
+  Current().retired_references.insert(references_.extract(found));
 }
 addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bool is_static) {
   auto *clazz = GetClass(handle); if (!clazz) return 0;
@@ -393,7 +427,7 @@ addr_t Host::ObjectClass(const std::shared_ptr<Object> &object){
   auto found=classes_.find(name);if(found==classes_.end()){Raise("java/lang/NoClassDefFoundError",name);return 0;}
   return Local(found->second->object);
 }
-addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,char expected_result) {
+addr_t Host::CallObject(ProviderLock &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,char expected_result) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
   auto object = Get(reference); if (!object) return 0;
@@ -470,27 +504,62 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   }
   if (!metadata.object_handler) throw std::runtime_error("Java method has no host implementation: " + metadata.owner + "." + metadata.declaration.name + metadata.declaration.signature);
   if(!ValidateArguments(metadata,arguments))return 0;
-  // Keep the receiver and callback alive, but never hold the host registry lock
-  // across external code. A callback may wait for another attached JNI thread.
-  auto handler = metadata.object_handler;
-  auto return_type = expected_result=='L'?metadata.declaration.signature.substr(close+2,metadata.declaration.signature.size()-close-3):"";
-  addr_t result;
-  lock.unlock();
-  try { result = handler(reference,arguments); }
-  catch (...) { lock.lock(); throw; }
-  lock.lock();
-  if(expected_result=='Z')return result?1:0;
-  if(expected_result=='V')return 0;
-  auto returned = Get(result, true);
-  if (result && !returned) return 0;
-  if (returned && !Assignable(returned->kind == Object::kClass ? "java/lang/Class" : returned->class_name, return_type)) {
-    Raise("java/lang/IllegalArgumentException", "host Java method returned wrong object type"); return 0;
-  }
-  // The callback retains ownership of its reference; JNI calls return a new
-  // local reference owned by the invoking thread, including for global results.
-  return Local(returned);
+  return InvokeHandler(lock,std::move(object),metadata,arguments,expected_result);
 }
-addr_t Host::Construct(std::unique_lock<std::recursive_mutex> &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
+void Host::DrainCallbackFrame(ProviderLock &lock,size_t depth,std::shared_ptr<Object> &exception){
+  auto &thread=Current();
+  for(;;){
+    // Keep the boundary through retirement: payload destructors can reenter JNI
+    // and create locals or leave user frames which must be drained as well.
+    while(thread.frames.size()>depth+1){for(auto ref:thread.frames.back())RetireReference(ref);thread.frames.pop_back();}
+    for(auto ref:thread.frames.back())RetireReference(ref);thread.frames.back().clear();
+    if(!exception&&thread.exception)exception=thread.exception;
+    if(thread.exception!=exception){RetireObject(thread.exception);thread.exception=exception;}
+    lock.unlock();lock.FlushRetirements();lock.lock();
+    if(!exception&&thread.exception)exception=thread.exception;
+    if(thread.frames.size()==depth+1&&thread.frames.back().empty()&&thread.retired_references.empty()&&thread.retired_objects.empty()&&thread.exception==exception)break;
+  }
+}
+addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,const Method &method,const MethodArguments &arguments,char kind){
+  auto &thread=Current();
+  if(thread.provider_locks!=1)throw std::logic_error("external Java callback requires the outer provider boundary");
+  auto handler=method.object_handler;const auto close=method.declaration.signature.find(')');
+  const auto return_type=kind=='L'?method.declaration.signature.substr(close+2,method.declaration.signature.size()-close-3):std::string();
+  const auto depth=thread.frames.size();thread.frames.emplace_back();
+  try{thread.callback_floors.push_back(depth+1);}catch(...){thread.frames.pop_back();throw;}
+  std::array<std::shared_ptr<Object>,3> retained_arguments{};MethodArguments callee=arguments;
+  std::shared_ptr<Object> returned,exception;std::exception_ptr failure;addr_t result=0;
+  try{
+    auto callee_receiver=Local(receiver);
+    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="I"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
+    lock.unlock();
+    try{result=handler(callee_receiver,callee);}catch(...){failure=std::current_exception();}
+    lock.lock();exception=thread.exception;
+    if(!failure&&!exception&&kind=='L'){
+      returned=Get(result,true);
+      if(returned&&!Assignable(returned->kind==Object::kClass?"java/lang/Class":returned->class_name,return_type))Raise("java/lang/IllegalArgumentException","host Java method returned wrong object type");
+      exception=thread.exception;
+    }
+  }catch(...){if(!lock.owns_lock())lock.lock();failure=std::current_exception();exception=thread.exception;}
+  // Snapshots and the closure retire outside the provider mutex, with the
+  // owned frame/floor and detach prohibition still protecting the caller.
+  lock.unlock();handler={};receiver.reset();for(auto &argument:retained_arguments)argument.reset();lock.lock();
+  DrainCallbackFrame(lock,depth,exception);
+  addr_t promoted=0;
+  if(!failure&&!exception&&kind=='L'){
+    // Target the caller only after all temporaries retire. Restore the empty
+    // boundary before any remaining root can be released or cleanup can reenter.
+    auto empty=std::move(thread.frames.back());thread.frames.pop_back();
+    try{promoted=Local(returned);}catch(...){failure=std::current_exception();}
+    thread.frames.emplace_back(std::move(empty));
+  }
+  lock.unlock();returned.reset();lock.lock();DrainCallbackFrame(lock,depth,exception);
+  if((failure||exception)&&promoted){RetireReference(promoted);promoted=0;DrainCallbackFrame(lock,depth,exception);}
+  thread.frames.pop_back();thread.callback_floors.pop_back();
+  if(failure)std::rethrow_exception(failure);
+  return exception?0:kind=='L'?promoted:kind=='Z'?(result?1:0):0;
+}
+addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
   auto found=method_ids_.find(id);if(found==method_ids_.end()){Raise("java/lang/NoSuchMethodError","invalid JNI constructor ID");return 0;}
   auto &method=*found->second;
@@ -543,16 +612,16 @@ int32_t Host::Register(addr_t handle, const NativeMethod *methods, int32_t count
   return kOk;
 }
 addr_t Host::NativeEntry(const std::string &class_name, const std::string &name, const std::string &signature) const {
-  std::lock_guard lock(mutex_); auto clazz = classes_.find(class_name); if (clazz == classes_.end()) return 0;
+  ProviderLock lock(*const_cast<Host*>(this)); auto clazz = classes_.find(class_name); if (clazz == classes_.end()) return 0;
   auto found = clazz->second->methods.find({name, signature}); return found == clazz->second->methods.end() ? 0 : found->second->native;
 }
 size_t Host::NativeCount(const std::string &class_name) const {
-  std::lock_guard lock(mutex_); auto clazz = classes_.find(class_name); if (clazz == classes_.end()) return 0;
+  ProviderLock lock(*const_cast<Host*>(this)); auto clazz = classes_.find(class_name); if (clazz == classes_.end()) return 0;
   size_t count = 0; for (auto &entry : clazz->second->methods) if (entry.second->native) ++count; return count;
 }
 
 void Host::InvokeVm(size_t slot, State &s) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   if (s.gpr.x0.qword != VmAddress()) throw std::runtime_error("invalid JavaVM pointer");
   auto &thread = Current();
   switch (slot) {
@@ -562,8 +631,9 @@ void Host::InvokeVm(size_t slot, State &s) {
       thread.attached = true; Write(s.gpr.x1.qword, reinterpret_cast<addr_t>(&thread.env_word)); IntResult(s, kOk); return;
     case 5:
       if (!thread.attached) { IntResult(s, kDetached); return; }
-      for (auto &frame : thread.frames) for (auto ref : frame) references_.erase(ref);
-      thread.frames.clear(); thread.frames.emplace_back(); thread.exception.reset(); thread.attached = false; IntResult(s, kOk); return;
+      if(!thread.callback_floors.empty()){IntResult(s,kError);return;}
+      for (auto &frame : thread.frames) for (auto ref : frame) RetireReference(ref);
+      thread.frames.clear(); thread.frames.emplace_back();RetireObject(thread.exception);thread.attached = false;IntResult(s, kOk); return;
     case 6:
       if (!s.gpr.x1.qword) { IntResult(s, kError); return; }
       Write<addr_t>(s.gpr.x1.qword, 0);
@@ -575,7 +645,7 @@ void Host::InvokeVm(size_t slot, State &s) {
 }
 
 void Host::InvokeEnv(size_t slot, State &s) {
-  std::unique_lock lock(mutex_);
+  ProviderLock lock(*this);
   RequireEnv(s.gpr.x0.qword);
   addr_t a = s.gpr.x1.qword, b = s.gpr.x2.qword, c = s.gpr.x3.qword, d = s.gpr.x4.qword;
   switch (slot) {
@@ -589,17 +659,18 @@ void Host::InvokeEnv(size_t slot, State &s) {
     }
     case 10: { auto *clazz = GetClass(a); s.gpr.x0.qword = clazz && !clazz->superclass.empty() ? Local(classes_.at(clazz->superclass)->object) : 0; return; }
     case 11: { auto *first = GetClass(a), *second = GetClass(b); s.gpr.x0.qword = first && second && Assignable(first->object->class_name, second->object->class_name); return; }
-    case 13: { auto object = Get(a); if (!object || object->kind != Object::kThrowable) { IntResult(s, kError); return; } Current().exception = object; IntResult(s, kOk); return; }
+    case 13: { auto object = Get(a); if (!object || object->kind != Object::kThrowable) { IntResult(s, kError); return; } RetireObject(Current().exception);Current().exception = object; IntResult(s, kOk); return; }
     case 14: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } if(!Assignable(clazz->object->class_name,"java/lang/Throwable")){Raise("java/lang/IllegalArgumentException","ThrowNew requires a Throwable subclass");IntResult(s,kError);return;}Raise(clazz->object->class_name, b ? recomp::ReadGuestString(b) : "",b!=0); IntResult(s, kOk); return; }
     case 15: s.gpr.x0.qword = Local(Current().exception); return;
     case 16: if (Current().exception) std::fprintf(stderr, "%s\n", PendingException().c_str()); return;
-    case 17: Current().exception.reset(); return;
+    case 17: RetireObject(Current().exception);return;
     case 18: throw std::runtime_error(std::string("JNI FatalError: ") + (a ? recomp::ReadGuestString(a) : "null"));
     case 19: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else { Current().frames.emplace_back(); IntResult(s, kOk); } return;
     case 20: {
       auto &frames = Current().frames;
       if (frames.size() <= 1) { Raise("java/lang/IllegalStateException", "no local frame to pop"); s.gpr.x0.qword = 0; return; }
-      auto result = Get(a, true); for (auto ref : frames.back()) references_.erase(ref); frames.pop_back(); s.gpr.x0.qword = Local(result); return;
+      const auto &floors=Current().callback_floors;if(!floors.empty()&&frames.size()<=floors.back()){Raise("java/lang/IllegalStateException","cannot pop an owned callback frame");s.gpr.x0.qword=0;return;}
+      auto result = Get(a, true); for (auto ref : frames.back())RetireReference(ref);frames.pop_back();s.gpr.x0.qword = Local(result);return;
     }
     case 21: s.gpr.x0.qword = Ref(a, 2); return;
     case 22: Delete(a, 2); return;
@@ -629,7 +700,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
       auto source = Get(c, true); if (c && !source) return;
       auto &signature = field_ids_.at(b)->signature;
       if (source && !Assignable(source->kind == Object::kClass ? "java/lang/Class" : source->class_name, signature.front()=='['?signature:signature.substr(1, signature.size() - 2))) { Raise("java/lang/IllegalArgumentException", "JNI object field value type mismatch"); return; }
-      target->object_fields[b] = source; return;
+      RetireObject(target->object_fields[b]);target->object_fields[b] = source;return;
     }
     case 109: case 159: { auto target = FieldTarget(a, b, slot == 159, "I"); if (target) target->primitive_fields[b] = static_cast<uint32_t>(c); return; }
     case 163: {
@@ -675,7 +746,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
 }
 
 void Host::Install(recomp::Runtime &runtime) {
-  std::lock_guard lock(mutex_);
+  ProviderLock lock(*this);
   if (installed_) throw std::logic_error("JNI host already installed");
   auto protect = [](auto fn) {
     return [fn](State &state) {

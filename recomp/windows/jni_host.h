@@ -28,6 +28,7 @@ struct MethodDeclaration {
 // interpreter: unsupported JNI calls fail instead of returning fake success.
 class Host {
   struct Object;
+  class ProviderLock;
  public:
   // Descriptor-checked reference/jint arguments. jint uses the low32 bits of
   // its AAPCS64/jvalue slot; no FP/long/array method arguments are implied.
@@ -48,6 +49,11 @@ class Host {
   // Only call after the host has supplied the class's initialization effects.
   // A metadata declaration alone does not execute Java <clinit>.
   void MarkClassInitialized(const std::string &name);
+  // External object/boolean/void handlers run without the provider lock in an
+  // owned local frame. Receiver/reference arguments are borrowed callee locals;
+  // returning an object produces one fresh caller local. Temporary locals and
+  // unbalanced user frames expire on return, including exceptional returns.
+  // Constructor factories have a separate ownership contract pending review.
   void DefineObjectMethod(const std::string &class_name, const std::string &name,
                           const std::string &signature, std::function<addr_t(addr_t)> handler);
   void DefineObjectMethod(const std::string &class_name,const std::string &name,const std::string &signature,
@@ -109,6 +115,8 @@ class Host {
   std::shared_ptr<Object> String(addr_t reference);
   Class *GetClass(addr_t reference);
   addr_t ObjectClass(const std::shared_ptr<Object> &object);
+  void RetireReference(addr_t reference);
+  void RetireObject(std::shared_ptr<Object> &object);
   void Delete(addr_t reference, unsigned kind);
   addr_t Ref(addr_t reference, unsigned kind);
   addr_t MethodId(addr_t clazz, const char *name, const char *signature, bool is_static);
@@ -116,9 +124,11 @@ class Host {
   addr_t FieldId(addr_t clazz, const char *name, const char *signature, bool is_static);
   std::shared_ptr<Object> FieldTarget(addr_t object, addr_t field, bool is_static, const std::string &signature_kind);
   bool Assignable(const std::string &actual, const std::string &expected) const;
-  addr_t CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t object, addr_t method, bool is_static = false,
+  addr_t CallObject(ProviderLock &lock, addr_t object, addr_t method, bool is_static = false,
                     const std::array<addr_t, 3> &arguments = {},char expected_result = 'L');
-  addr_t Construct(std::unique_lock<std::recursive_mutex> &lock,addr_t clazz, addr_t method,const MethodArguments &arguments);
+  addr_t Construct(ProviderLock &lock,addr_t clazz, addr_t method,const MethodArguments &arguments);
+  addr_t InvokeHandler(ProviderLock&,std::shared_ptr<Object> receiver,const Method&,const MethodArguments&,char result);
+  void DrainCallbackFrame(ProviderLock&,size_t depth,std::shared_ptr<Object> &exception);
   bool ValidateArguments(const Method &method,const MethodArguments &arguments);
   bool Arguments(State &state, size_t slot, size_t count, std::array<addr_t,3> &arguments);
   int32_t Register(addr_t clazz, const NativeMethod *methods, int32_t count);
@@ -131,7 +141,7 @@ class Host {
   addr_t next_reference_ = 0x7ff100000000ULL, next_method_ = 0x7ff200000000ULL;
   uint32_t next_identity_hash_ = 1;
   std::function<bool(addr_t)> native_entry_validator_;
-  std::map<uint64_t, std::unique_ptr<Thread>> threads_;
+  mutable std::map<uint64_t, std::unique_ptr<Thread>> threads_;
   std::map<std::string, std::unique_ptr<Class>> classes_;
   std::map<addr_t, Reference> references_;
   std::map<addr_t, Method *> method_ids_;

@@ -546,8 +546,25 @@ distinct. This is not general Java verifier/final-class enforcement.
 strict NDK traces, comparing direct/V/A calls to NDK GetObjectClass and covering
 class identity, null/stale/weak/global/frame/thread reference rules. The array
 case is an explicitly registered typed host fixture; JNI NewByteArray remains
-unsupported. Callback-local-frame promotion is a separate ownership fix and is
-not implied by this builtin.
+unsupported.
+
+External object/boolean/void handlers now execute in an owned JNI local frame.
+Receiver/reference arguments are callee-local copies; integer arguments retain
+their slots. A successful object result is retained before cleanup and promoted
+to exactly one caller-local reference. Caller/global references remain intact.
+Cleanup drains temporary locals and unbalanced user frames even after C++ throws
+or Java exceptions. A callback cannot pop its frame boundary or detach while its
+body or cleanup is active. Host payloads retire outside the provider lock, with
+the boundary kept active through reentrant destructors and nested callbacks.
+`test_package_manager.ps1 -CallbackFrames` passes464 checks on Windows and Linux
+through22 strict NDK traces, including direct/V/A dispatch, weak-reference
+liveness, nested callbacks, worker joins, exception identity and destructor
+reentry. The reproduced four-call leak falls from16 live temporary objects to0.
+Constructor factories still have a separately reproduced ownership leak; this
+fix does not cover their lifetime or imply general Java native-frame execution.
+The existing JNI36, Context14, ClassLoader109, StringBuilder66, assets65,
+PackageManager107, code-path25, storage220 plus13 real backing, Object.getClass76,
+Intent83, tracked-memory6 and original libmain JNI_OnLoad regressions pass.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
