@@ -1,0 +1,3 @@
+# Versions used for the real-library planning and jump-table reference gates.
+pyelftools==0.33
+capstone==5.0.6
