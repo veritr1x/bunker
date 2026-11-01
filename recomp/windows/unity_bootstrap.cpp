@@ -2,6 +2,7 @@
 // a game launcher: every constructor must run before JNI_OnLoad is attempted.
 #include "jni_host.h"
 #include "android_context.h"
+#include "android_internal_storage.h"
 #include "apk_assets.h"
 #include "native_window.h"
 #include "unity_lifecycle.h"
@@ -152,6 +153,7 @@ int main(int argc,char **argv){
     AndroidContextConfig context_config;
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
     ApplyUnityPackageMetadata(context_config);
+    context_config.prepare_internal_directory=MakeInternalDirectoryPreparer(files,context_config.data_dir);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
     // Process dispositions and pure sigset operations only. Thread signal

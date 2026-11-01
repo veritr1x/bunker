@@ -34,6 +34,10 @@ struct AndroidContextConfig {
   // Closed host capability catalog; playback low latency is not advertised
   // merely because a Windows audio endpoint can be observed.
   std::set<std::u16string> supported_android_features;
+  // Internal-only storage. Called for exactly data_dir+/files or /cache, outside
+  // JNI/provider locks; 0 means a real directory was verified, otherwise a
+  // positive Android errno. An absent callback cannot return a directory File.
+  std::function<int32_t(const std::u16string&)> prepare_internal_directory;
 };
 
 // Explicit host implementations of the Java context metadata Unity requests.
