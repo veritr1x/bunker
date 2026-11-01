@@ -59,6 +59,14 @@ part of the normal Bunker release. The game does not boot or render yet.
   fixes old pair-exclusive instructions; this remains a mixed diagnostic
   snapshot with 189 unsupported traces. No collection or il2cpp_init has run.
   See [the exact lineage and boundary](windows/il2cpp_bootstrap.md).
+- A separate combined native Windows gate now runs both accepted module
+  cohorts together: 417+9 constructors, Unity JNI/initJni, its actual ClassLoader
+  findLibrary helper and NativeString destructor, then host-registry loading
+  and all 222 original Unity-requested IL2CPP export lookups, refcounts and
+  2+2 reverse finalizers. All 3,548 original objects remain unchanged. The
+  frozen host uses an isolated checked Object.getClass adapter. Unity's whole
+  API loader/startup queue, IL2CPP API bodies/init/GC and managed execution
+  remain unrun. See [the bounded combined gate](windows/combined_modules.md).
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -124,8 +132,9 @@ unsupported instructions.
 
 ## Active work
 
-1. Integrate the complete initial IL2CPP object set and refresh its translation
-   snapshot with current semantics/root recovery when startup requires it.
+1. Connect the passing combined ClassLoader/module-provider path into Unity's
+   actual startup loader, then refresh IL2CPP's translation snapshot with
+   current semantics/root recovery when startup requires it.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
 2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
