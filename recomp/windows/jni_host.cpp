@@ -54,10 +54,12 @@ bool SupportedVersion(int32_t version) { return version == 0x10001 || version ==
 }  // namespace
 
 struct Host::Object {
-  enum Kind { kClass, kString, kInstance, kThrowable } kind = kInstance;
+  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder } kind = kInstance;
   std::string class_name, message;
   bool message_present = true;
   uint32_t identity_hash = 0;
+  std::type_index host_type=typeid(void);
+  std::shared_ptr<void> host_state;
   std::u16string text;
   std::map<addr_t, std::shared_ptr<Object>> object_fields;
   std::map<addr_t, uint64_t> primitive_fields;
@@ -70,10 +72,12 @@ struct Host::Reference {
   std::shared_ptr<Object> Lock() const { return kind == 3 ? weak.lock() : strong; }
 };
 struct Host::Method {
-  enum Builtin { kNone, kClassLoader, kForName, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString } builtin = kNone;
+  enum Builtin { kNone, kClassLoader, kForName, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString,
+    kBuilderConstructor, kBuilderAppend, kBuilderString } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
-  std::function<addr_t(addr_t)> object_handler;
+  std::function<addr_t(addr_t,const MethodArguments&)> object_handler;
+  std::vector<std::string> argument_types;
   addr_t id = 0, native = 0;
 };
 struct Host::Field { std::string owner, name, signature; bool is_static; addr_t id; };
@@ -105,6 +109,13 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineClass("java/lang/ClassLoader", {}, "java/lang/Object", true);
   DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
   DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"}}, "java/lang/Object", true);
+  DefineClass("java/lang/AbstractStringBuilder", {}, "java/lang/Object", true);
+  DefineClass("java/lang/StringBuilder", {{"<init>","()V"},{"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"},{"toString","()Ljava/lang/String;"}}, "java/lang/AbstractStringBuilder", true);
+  classes_.at("java/lang/StringBuilder")->methods.at({"<init>","()V"})->builtin=Method::kBuilderConstructor;
+  classes_.at("java/lang/StringBuilder")->methods.at({"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"})->builtin=Method::kBuilderAppend;
+  classes_.at("java/lang/StringBuilder")->methods.at({"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"})->argument_types={"java/lang/String"};
+  classes_.at("java/lang/StringBuilder")->methods.at({"toString","()Ljava/lang/String;"})->builtin=Method::kBuilderString;
+  empty_string_=std::make_shared<Object>();empty_string_->kind=Object::kString;empty_string_->class_name="java/lang/String";
   DefineClass("java/lang/Throwable", {{"toString", "()Ljava/lang/String;"}, {"getMessage", "()Ljava/lang/String;"}, {"getLocalizedMessage", "()Ljava/lang/String;"}}, "java/lang/Object", true);
   for (auto [name,superclass] : std::vector<std::pair<const char *,const char *>>{
       {"java/lang/Exception","java/lang/Throwable"},{"java/lang/RuntimeException","java/lang/Exception"},
@@ -165,15 +176,35 @@ void Host::MarkClassInitialized(const std::string &name) {
 }
 void Host::DefineObjectMethod(const std::string &class_name, const std::string &name,
                               const std::string &signature, std::function<addr_t(addr_t)> handler) {
+  if(signature.rfind("()L",0)!=0||!handler)throw std::invalid_argument("zero-argument object handler requires an object signature");
+  DefineHandler(class_name,name,signature,'L',[handler=std::move(handler)](addr_t object,const MethodArguments&){return handler(object);});
+}
+void Host::DefineObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                              std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler));}
+void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                               std::function<bool(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing boolean handler");
+  DefineHandler(owner,name,signature,'Z',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){return handler(object,arguments)?1:0;});
+}
+void Host::DefineHandler(const std::string &class_name,const std::string &name,const std::string &signature,char result,
+                         std::function<addr_t(addr_t,const MethodArguments&)> handler){
   std::lock_guard lock(mutex_);
   auto clazz = classes_.find(class_name);
-  if (clazz == classes_.end() || name.empty() || signature.size() <= 4 || signature.rfind("()L", 0) != 0 || signature.back() != ';' || !handler)
-    throw std::invalid_argument("object host methods require a known class and fixed zero-argument object signature");
+  if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
+  std::vector<std::string> arguments;size_t at=1;
+  while(at<signature.size()&&signature[at]!=')'){
+    if(signature[at]!='L'||arguments.size()==3)throw std::invalid_argument("host handlers support at most three object-reference arguments");
+    auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host argument descriptor");
+    auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(type);at=end+1;
+  }
+  auto returns=at<signature.size()?signature.substr(at+1):"";
+  if((result=='Z'&&returns!="Z")||(result=='L'&&(returns.size()<3||returns.front()!='L'||returns.back()!=';'||!classes_.count(returns.substr(1,returns.size()-2)))))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
   if (found != clazz->second->methods.end()) throw std::invalid_argument("duplicate host method");
   auto method = std::make_unique<Method>(); method->declaration = {name, signature, false, false};
   method->owner = class_name; method->id = next_method_++; method->object_handler = std::move(handler);
+  method->argument_types=std::move(arguments);
   method_ids_[method->id] = method.get(); clazz->second->methods.emplace(key, std::move(method));
 }
 void Host::DefineField(const std::string &class_name, const std::string &name, const std::string &signature, bool is_static) {
@@ -207,7 +238,9 @@ std::shared_ptr<Host::Object> Host::Get(addr_t handle, bool allow_null) {
   if (found == references_.end() || (found->second.kind == 1 && found->second.owner != ThreadKey())) {
     Raise("java/lang/IllegalArgumentException", "invalid JNI reference"); return {};
   }
-  return found->second.Lock();
+  auto object=found->second.Lock();
+  if(!object&&!allow_null)Raise("java/lang/NullPointerException","cleared weak JNI reference");
+  return object;
 }
 std::shared_ptr<Host::Object> Host::String(addr_t handle) {
   auto object = Get(handle);
@@ -229,6 +262,20 @@ addr_t Host::NewInstance(const std::string &name) {
   std::lock_guard lock(mutex_);
   if (!classes_.count(name)) throw std::invalid_argument("unknown Java class");
   auto object = std::make_shared<Object>(); object->class_name = name; return Local(object);
+}
+addr_t Host::HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state){
+  if(!state)throw std::invalid_argument("host instance requires initialized state");
+  std::lock_guard lock(mutex_);auto reference=NewInstance(name);auto object=Get(reference);object->host_type=type;object->host_state=std::move(state);return reference;
+}
+std::shared_ptr<void> Host::HostState(addr_t reference,std::type_index type){
+  std::lock_guard lock(mutex_);auto object=Get(reference);if(!object)return {};
+  if(object->host_type!=type||!object->host_state){Raise("java/lang/UnsupportedOperationException","Java object has no configured host state: "+object->class_name);return {};}return object->host_state;
+}
+Host::ObjectValue Host::CaptureValue(addr_t reference){std::lock_guard lock(mutex_);ObjectValue value;value.owner_=this;value.object_=Get(reference,true);return value;}
+addr_t Host::LocalValue(const ObjectValue &value){std::lock_guard lock(mutex_);if(value.object_&&value.owner_!=this)throw std::invalid_argument("Java object value belongs to another host");return Local(value.object_);}
+std::optional<std::u16string> Host::StringValue(addr_t reference){
+  std::lock_guard lock(mutex_);auto object=Get(reference,true);if(!object)return std::nullopt;
+  if(object->kind!=Object::kString){Raise("java/lang/IllegalArgumentException","expected initialized jstring");return std::nullopt;}return object->text;
 }
 addr_t Host::NewGlobalReference(addr_t reference) { std::lock_guard lock(mutex_); return Ref(reference, 2); }
 addr_t Host::NewLocalReference(addr_t reference) { std::lock_guard lock(mutex_); return Ref(reference, 1); }
@@ -324,7 +371,7 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments) {
+addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,bool boolean_result) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
   auto object = Get(reference); if (!object) return 0;
@@ -338,6 +385,17 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
     }
   }
   auto &metadata=*selected;
+  auto close=metadata.declaration.signature.find(')');char result_kind=close==std::string::npos||close+1==metadata.declaration.signature.size()?0:metadata.declaration.signature[close+1];
+  if((boolean_result&&result_kind!='Z')||(!boolean_result&&result_kind!='L')){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch");return 0;}
+  if(metadata.builtin==Method::kBuilderAppend||metadata.builtin==Method::kBuilderString){
+    if(object->kind!=Object::kBuilder){Raise("java/lang/UnsupportedOperationException","StringBuilder constructor has not initialized this object");return 0;}
+    if(metadata.builtin==Method::kBuilderString)return object->text.empty()?Local(empty_string_):NewString(object->text);
+    auto input=Get(arguments[0],true);if(Current().exception)return 0;
+    if(input&&input->kind!=Object::kString){Raise("java/lang/IllegalArgumentException","StringBuilder.append(String) requires a string reference");return 0;}
+    object->text+=input?input->text:u"null";
+    return Local(object);
+  }
+  if(metadata.builtin==Method::kBuilderConstructor){Raise("java/lang/IllegalArgumentException","StringBuilder constructor requires NewObject");return 0;}
   if(metadata.builtin==Method::kStringString){
     if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}return Local(object);
   }
@@ -383,15 +441,17 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
     return Local(found->second->object);
   }
   if (!metadata.object_handler) throw std::runtime_error("Java method has no host implementation: " + metadata.owner + "." + metadata.declaration.name + metadata.declaration.signature);
+  for(size_t i=0;i<metadata.argument_types.size();++i){auto argument=Get(arguments[i],true);if(Current().exception)return 0;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,metadata.argument_types[i])){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return 0;}}
   // Keep the receiver and callback alive, but never hold the host registry lock
   // across external code. A callback may wait for another attached JNI thread.
   auto handler = metadata.object_handler;
-  auto return_type = metadata.declaration.signature.substr(3, metadata.declaration.signature.size() - 4);
+  auto return_type = boolean_result?"":metadata.declaration.signature.substr(close+2,metadata.declaration.signature.size()-close-3);
   addr_t result;
   lock.unlock();
-  try { result = handler(reference); }
+  try { result = handler(reference,arguments); }
   catch (...) { lock.lock(); throw; }
   lock.lock();
+  if(boolean_result)return result?1:0;
   auto returned = Get(result, true);
   if (result && !returned) return 0;
   if (returned && !Assignable(returned->kind == Object::kClass ? "java/lang/Class" : returned->class_name, return_type)) {
@@ -400,6 +460,31 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   // The callback retains ownership of its reference; JNI calls return a new
   // local reference owned by the invoking thread, including for global results.
   return Local(returned);
+}
+addr_t Host::Construct(addr_t reference,addr_t id){
+  auto *clazz=GetClass(reference);if(!clazz)return 0;
+  auto found=method_ids_.find(id);if(found==method_ids_.end()){Raise("java/lang/NoSuchMethodError","invalid JNI constructor ID");return 0;}
+  auto &method=*found->second;
+  if(method.owner!=clazz->object->class_name||method.declaration.is_static||method.declaration.name!="<init>"){
+    Raise("java/lang/IllegalArgumentException","JNI constructor class/method mismatch");return 0;
+  }
+  if(method.builtin!=Method::kBuilderConstructor)throw std::runtime_error("Java constructor has no host implementation: "+method.owner+method.declaration.signature);
+  auto object=std::make_shared<Object>();object->kind=Object::kBuilder;object->class_name="java/lang/StringBuilder";object->text.reserve(16);
+  return Local(object);
+}
+bool Host::Arguments(State &state,size_t slot,size_t count,std::array<addr_t,3> &arguments){
+  if(!count)return true;
+  if(count>arguments.size())throw std::logic_error("unsupported JNI host argument count");
+  const bool direct=slot==28||slot==34||slot==114, array=slot==30||slot==36||slot==116;
+  if(direct){const addr_t regs[]={state.gpr.x3.qword,state.gpr.x4.qword,state.gpr.x5.qword};std::copy_n(regs,count,arguments.begin());return true;}
+  auto pointer=state.gpr.x3.qword;
+  if(!pointer){Raise("java/lang/IllegalArgumentException","null JNI argument list");return false;}
+  if(array){for(size_t i=0;i<count;++i)arguments[i]=Read<addr_t>(pointer+i*8);return true;}
+  // Android AAPCS64 va_list: stack, gr_top, vr_top, gr_offs, vr_offs.
+  struct VaList {addr_t stack,gr_top,vr_top;int32_t gr_offs,vr_offs;};static_assert(sizeof(VaList)==32);
+  auto list=Read<VaList>(pointer);
+  for(size_t i=0;i<count;++i){if(list.gr_offs<0){arguments[i]=Read<addr_t>(list.gr_top+list.gr_offs);list.gr_offs+=8;}else{arguments[i]=Read<addr_t>(list.stack);list.stack+=8;}}
+  return true;
 }
 int32_t Host::Register(addr_t handle, const NativeMethod *methods, int32_t count) {
   auto *clazz = GetClass(handle); if (!clazz) return kError;
@@ -488,28 +573,18 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 24: { auto first = Get(a, true), second = Get(b, true); s.gpr.x0.qword = first == second; return; }
     case 25: s.gpr.x0.qword = Ref(a, 1); return;
     case 26: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else IntResult(s, kOk); return;
+    case 28: case 29: case 30: s.gpr.x0.qword=Construct(a,b);return;
     case 31: { auto object = Get(a); if (!object) { s.gpr.x0.qword = 0; return; } s.gpr.x0.qword = Local(classes_.at(object->kind == Object::kClass ? "java/lang/Class" : object->class_name)->object); return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
     case 33: case 113: s.gpr.x0.qword = MethodId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 113); return;
-    case 34: case 35: case 36: s.gpr.x0.qword = CallObject(lock, a, b); return;
+    case 34: case 35: case 36: case 37: case 38: case 39: {
+      std::array<addr_t,3> args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();
+      s.gpr.x0.qword=Arguments(s,slot>=37?slot-3:slot,count,args)?CallObject(lock,a,b,false,args,slot>=37):0;return;
+    }
     case 114: case 115: case 116: {
       std::array<addr_t, 3> args{};
-      if (slot == 114) args = {c, d, s.gpr.x5.qword};
-      else {
-        if (!c) { Raise("java/lang/IllegalArgumentException", "null JNI argument list"); s.gpr.x0.qword = 0; return; }
-        if (slot == 116) { args = {Read<addr_t>(c), Read<uint8_t>(c + 8), Read<addr_t>(c + 16)}; }
-        else {
-          // Android AAPCS64 va_list: stack, gr_top, vr_top, gr_offs, vr_offs.
-          struct VaList { addr_t stack, gr_top, vr_top; int32_t gr_offs, vr_offs; };
-          static_assert(sizeof(VaList) == 32);
-          auto list = Read<VaList>(c);
-          for (auto &argument : args) {
-            if (list.gr_offs < 0) { argument = Read<addr_t>(list.gr_top + list.gr_offs); list.gr_offs += 8; }
-            else { argument = Read<addr_t>(list.stack); list.stack += 8; }
-          }
-        }
-      }
-      s.gpr.x0.qword = CallObject(lock, a, b, true, args); return;
+      auto method=method_ids_.find(b);size_t count=method!=method_ids_.end()&&method->second->builtin==Method::kForName?3:0;
+      s.gpr.x0.qword=Arguments(s,slot,count,args)?CallObject(lock,a,b,true,args):0;return;
     }
     case 94: case 144: s.gpr.x0.qword = FieldId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 144); return;
     case 95: case 145: { auto target = FieldTarget(a, b, slot == 145, "object"); s.gpr.x0.qword = target ? Local(target->object_fields[b]) : 0; return; }
