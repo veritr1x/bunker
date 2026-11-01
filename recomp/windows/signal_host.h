@@ -1,0 +1,66 @@
+#pragma once
+// Isolated signal policy foundation. No asynchronous/native signal delivery.
+#include "../whole/runtime.h"
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <thread>
+
+namespace bunker::windows {
+class SignalWake {
+ public:
+  uint64_t Generation();
+  void Notify();
+  bool Wait(uint64_t generation,std::optional<std::chrono::system_clock::time_point> deadline={});
+ private:
+  std::mutex mutex_;std::condition_variable condition_;uint64_t generation_=0;
+};
+struct AndroidSignalAction {uint32_t flags=0,padding=0;addr_t handler=0;uint64_t mask=0;addr_t restorer=0;};
+static_assert(sizeof(AndroidSignalAction)==32);
+class SignalHost {
+ public:
+  using Info=std::array<uint8_t,128>;
+  struct Delivery {uint64_t token;int signal;AndroidSignalAction action;Info info;uint64_t saved_mask;};
+  // Return a mask only when an explicit user-context edit overrides restoration.
+  using Boundary=std::function<std::optional<uint64_t>(const Delivery&)>;
+  using Notify=std::function<void(uint64_t)>;
+  using Current=std::function<uint64_t()>;
+  struct Dispatch {int error=0;bool handled=false,restart=false;};
+  struct Thread;
+  using ThreadRef=std::shared_ptr<Thread>;
+  explicit SignalHost(Notify request_poll={},addr_t marker_base=0x7ff600100000ULL);
+  // Primitive status returns are positive Android errno values; Install adapts
+  // POSIX -1/errno versus pthread direct-error conventions. Lifecycle is explicit:
+  // owner must DropThread on exit and keep this host alive through all callbacks.
+  int RegisterThread(uint64_t token,uint64_t parent=0);
+  int BindCurrent(uint64_t token);
+  int DropThread(uint64_t token);
+  ThreadRef Lookup(uint64_t token);
+  static bool NeedsPoll(const ThreadRef&) noexcept;
+  std::shared_ptr<SignalWake> Wake(uint64_t token);
+  int Action(int signal,const AndroidSignalAction *set,AndroidSignalAction *old);
+  int Mask(uint64_t token,int how,const uint64_t *set,uint64_t *old);
+  int Pending(uint64_t token,uint64_t *out);
+  int Queue(uint64_t token,int signal,const Info *info=nullptr);
+  Dispatch DispatchOne(uint64_t token,const Boundary&);
+  int Suspend(uint64_t token,uint64_t temporary_mask,const Boundary&); // positive EINTR normally
+  void Install(recomp::Runtime&,Current,Boundary);
+  addr_t Marker(const std::string&)const;
+  void SetErrorSink(std::function<void(int)> sink){error_sink_=std::move(sink);}
+  static uint64_t Bit(int signal);
+ private:
+  Dispatch DispatchImpl(uint64_t,const Boundary&,std::optional<uint64_t> saved_override);
+  void Publish(const ThreadRef&);
+  void NotifyAfterUnlock(const ThreadRef&);
+  int SyscallError(int);
+  std::mutex mutex_;std::map<uint64_t,ThreadRef> threads_;
+  std::array<AndroidSignalAction,32> actions_{};
+  Notify request_poll_;std::function<void(int)> error_sink_;addr_t marker_base_;bool installed_=false;
+};
+}  // namespace bunker::windows
