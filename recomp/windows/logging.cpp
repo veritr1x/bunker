@@ -26,13 +26,17 @@ Logging::Logging(addr_t base) : marker_base_(base) {
   allocator_ = [](uint64_t size) { return std::malloc(static_cast<size_t>(size)); };
   output_ = [](std::string_view text) { return Write(stdout, text); };
   log_ = [](int, std::string_view tag, std::string_view text) {
-    return Write(stderr, tag) && Write(stderr, ": ") && Write(stderr, text) && Write(stderr, "\n");
+    return Write(stderr, std::string(tag) + ": " + std::string(text) + "\n");
   };
 }
 int Logging::Error() const { return last_error; }
 void Logging::Fail(int error) noexcept {
   last_error = error;
-  if (error_sink_) { try { error_sink_(error); } catch (...) {} }
+  try {
+    std::function<void(int)> sink;
+    { std::lock_guard lock(mutex_); sink = error_sink_; }
+    if (sink) sink(error);
+  } catch (...) {}
 }
 addr_t Logging::Marker(const std::string &name) const {
   for (size_t i = 0; i < sizeof(names) / sizeof(*names); ++i)
@@ -50,7 +54,15 @@ void Logging::Invoke(size_t index, State &state) noexcept {
   const bool fatal = index == 3;
   bool fatal_reported = false;
   try {
-    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    Writer output;
+    LogWriter log;
+    StreamWriter stream_writer;
+    std::function<void *(uint64_t)> allocator;
+    std::string ident;
+    {
+      std::lock_guard lock(mutex_);
+      output = output_; log = log_; stream_writer = stream_; allocator = allocator_; ident = ident_;
+    }
     recomp::bridge_detail::Arguments args(state);
     auto formatted = [&](bool va) {
       const char *format = args.Read<const char *>();
@@ -61,7 +73,7 @@ void Logging::Invoke(size_t index, State &state) noexcept {
       int priority = args.Read<int32_t>();
       const char *tag = args.Read<const char *>();
       std::string text = index == 2 ? Text(args.Read<const char *>()) : formatted(index == 1);
-      if (!log_ || !log_(priority, Text(tag), text)) { Fail(1); result = -1; }
+      if (!log || !log(priority, Text(tag), text)) { Fail(1); result = -1; }
       else result = 1;  // liblog's documented success value, not the text length.
     } else if (fatal) {
       const char *condition = args.Read<const char *>();
@@ -69,7 +81,7 @@ void Logging::Invoke(size_t index, State &state) noexcept {
       const char *format = args.Read<const char *>();
       std::string text = format ? recomp::Format(format, args) :
           (condition ? "Assertion failed: " + Text(condition) : "Unspecified assertion failed");
-      if (log_) log_(7, Text(tag), text);
+      if (log) log(7, Text(tag), text);
       Write(stderr, text); Write(stderr, "\n");
       fatal_reported = true;
     } else if (index >= 4 && index <= 7) {
@@ -88,23 +100,25 @@ void Logging::Invoke(size_t index, State &state) noexcept {
       std::string text;
       if (index == 10) { auto value = args.Read<const char *>(); if (!value) throw std::invalid_argument("null puts string"); text = Text(value); text += '\n'; }
       else text = formatted(index == 9);
-      if (!output_ || !output_(text)) Fail(5);
+      if (!output || !output(text)) Fail(5);
       else result = index == 10 ? 0 : static_cast<int>(text.size());
     } else if (index == 11) {
       int priority = args.Read<int32_t>();
       auto text = formatted(false);
-      if (!log_ || !log_(priority, ident_, text)) Fail(5);
+      if (!log || !log(priority, ident, text)) Fail(5);
       else result = 0;
     } else if (index == 12) {
-      ident_ = Text(args.Read<const char *>()); result = 0;
-    } else if (index == 13) { ident_.clear(); result = 0;
+      auto next_ident = Text(args.Read<const char *>());
+      { std::lock_guard lock(mutex_); ident_ = std::move(next_ident); }
+      result = 0;
+    } else if (index == 13) { std::lock_guard lock(mutex_); ident_.clear(); result = 0;
     } else if (index == 14 || index == 15) {
       char **destination = args.Read<char **>();
       if (!destination) throw std::invalid_argument("null asprintf result pointer");
       char *empty = nullptr;
       recomp::WriteGuestMemory(reinterpret_cast<addr_t>(destination), &empty, sizeof(empty));
       auto text = formatted(index == 15);
-      auto buffer = static_cast<char *>(allocator_ ? allocator_(text.size() + 1) : nullptr);
+      auto buffer = static_cast<char *>(allocator ? allocator(text.size() + 1) : nullptr);
       if (!buffer) throw std::bad_alloc();
       std::memcpy(buffer, text.data(), text.size()); buffer[text.size()] = 0;
       recomp::WriteGuestMemory(reinterpret_cast<addr_t>(destination), &buffer, sizeof(buffer));
@@ -112,8 +126,8 @@ void Logging::Invoke(size_t index, State &state) noexcept {
     } else {
       addr_t stream = args.Read<addr_t>();
       auto text = formatted(index == 17);
-      if (!stream_) { Fail(38); }  // ENOSYS: never reinterpret an opaque guest FILE.
-      else if (stream_(stream, text) != text.size()) Fail(5);
+      if (!stream_writer) { Fail(38); }  // ENOSYS: never reinterpret an opaque guest FILE.
+      else if (stream_writer(stream, text) != text.size()) Fail(5);
       else result = static_cast<int>(text.size());
     }
   } catch (const std::bad_alloc &) { Fail(12);
