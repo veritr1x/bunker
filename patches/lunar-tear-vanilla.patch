@@ -24,7 +24,7 @@ diff --git a/server/cmd/lunar-tear/grpc.go b/server/cmd/lunar-tear/grpc.go
 -		grpc.ChainUnaryInterceptor(interceptor.Platform, interceptor.Logging, diffInterceptor, interceptor.NewMissionInterceptor(userStore, userStore), interceptor.TimeSync),
 +		// Accept keepalive pings down to 1s apart, also between calls, instead of closing the connection (gRPC default: 5 min).
 +		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Second, PermitWithoutStream: true}),
-+		grpc.ChainUnaryInterceptor(interceptor.Recover, interceptor.Platform, interceptor.Logging, diffInterceptor, interceptor.NewMissionInterceptor(userStore, userStore), interceptor.TimeSync),
++		grpc.ChainUnaryInterceptor(interceptor.Recover, interceptor.Platform, interceptor.Logging, diffInterceptor, interceptor.NewMissionInterceptor(userStore, userStore), interceptor.ViewTimes, interceptor.TimeSync),
  		grpc.UnknownServiceHandler(interceptor.UnknownService),
  	)
  
