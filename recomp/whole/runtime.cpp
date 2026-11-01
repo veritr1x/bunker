@@ -194,6 +194,7 @@ std::vector<State *> recomp::CurrentExecutionFrames(State &top) {
   for (auto *frame = execution; frame; frame = frame->previous) frames.push_back(frame->state);
   return frames;
 }
+State *recomp::CurrentExecutionState() noexcept { return execution ? execution->state : nullptr; }
 Memory *recomp::Runtime::Run(State &state, addr_t address, Memory *memory) {
   clear_current_reservation();
   ExecutionContext context{&state, {}, execution};

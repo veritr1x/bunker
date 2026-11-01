@@ -41,8 +41,8 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Real Unity now completes all 417 constructors, returns JNI 1.6 with all 42
   native registrations checked against ELF/DEX, and exits cleanly through
   `JNI_OnUnload` and its actual finalizers. The separate `initJni(Context)`
-  diagnostic now passes checked StringBuilder and launch Intent/Bundle paths;
-  its next observed dependency is `AssetManager.open("bin/Data/boot.config")`.
+  diagnostic now returns cleanly with zero original JNI exception events,
+  using checked Java strings, launch intents and the original APK boot.config.
   Rendering and the full Java/game lifecycle remain unexecuted.
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
@@ -84,8 +84,8 @@ unsupported instructions.
    snapshot with current semantics/root recovery when startup requires it.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
-2. Continue the actual `initJni(Context)` path with checked APK asset streams,
-   then implement the evidenced surface and UnityMain message flow.
+2. Preserve the passing actual `initJni(Context)`/APK asset path and implement
+   the evidenced surface and UnityMain message flow.
    Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
    imports or unsupported Java effects into successful no-ops.
 3. Close instruction gaps reached by startup, then remaining reciprocal
@@ -107,9 +107,12 @@ unsupported instructions.
   Opt-in compiler/runtime cooperative polling passes 27,349 checks/260 pauses
   on each host, including optimized register roots and irregular CFG cycles.
   [Its contract](whole/cooperative_poll.md) leaves provider transition roots
-  and interruptible waits explicit. Signal-frame byte gates also pass, but are not
-  integrated signal delivery or evidence of collector correctness. See
+  and interruptible waits explicit. Signal-frame byte gates also pass;
+  production integration and collector correctness remain unverified. See
   [the frame contract](whole/signal_frame.md).
+  [A bounded combined gate](windows/signal_delivery.md) passes 16 same-worker
+  stop/restart cycles on both hosts with NDK handlers and actual guest-stack
+  contexts. The game's collector handlers remain a separate required gate.
 - Finish provider memory integration and exercise paired exclusives in real
   Unity startup. The replacement single/pair reservation protocol passes 90,112
   instruction comparisons per platform plus 97 runtime checks and five
@@ -123,7 +126,8 @@ unsupported instructions.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.
   The native APK reader passes 69 independent checks on both hosts and reads
-  the actual 149-byte boot.config exactly; Java asset-stream wiring is active.
+  the actual 149-byte boot.config exactly; checked Java stream/Scanner wiring
+  now clears the actual native initJni gate.
   See [the reader contract](windows/apk_assets.md).
 - Reach title screen, load a save, exercise gameplay/render/audio/input, then
   package a reproducible Windows build consuming user-supplied game assets.
