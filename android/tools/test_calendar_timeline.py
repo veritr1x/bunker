@@ -127,5 +127,59 @@ class Timeline(unittest.TestCase):
         self.assertEqual(next(i for i in summons if i["name"] == "Summon")["art"], "")
 
 
+class Art(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        import android_runtime
+        from web import config
+        self.dir = Path(tempfile.mkdtemp())
+        bundle = self.dir / "assets/revisions/0/assetbundle" / ART
+        bundle.parent.mkdir(parents=True)
+        bundle.write_bytes(b"bundle")
+        (self.dir / "saves").mkdir()
+        self.calls = []
+
+        def decode(source, target, size):
+            self.calls.append((source, size))
+            Path(target).write_bytes(b"\x89PNG")
+            return ""
+        self.patches = [mock.patch.object(config, "ASSETS_DIR", self.dir / "assets"),
+                        mock.patch.object(config, "DATA_DIR", self.dir / "tools"),
+                        mock.patch.object(android_runtime, "TEXTURE", decode)]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in self.patches])
+
+    def test_art_is_decoded_once_into_pod_programs_cache(self):
+        first, second = cal.art_file(ART), cal.art_file(ART)
+        self.assertEqual(first, second)
+        self.assertEqual(first.read_bytes(), b"\x89PNG")
+        self.assertIn(self.dir / "tools" / "art", first.parents)
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[0][1], 360)
+
+    def test_no_decoder_means_no_art(self):
+        import android_runtime
+        with mock.patch.object(android_runtime, "TEXTURE", None):
+            with self.assertRaises(FileNotFoundError):
+                cal.art_file(ART)
+
+    def test_paths_outside_the_game_files_are_refused(self):
+        for path in ("../../saves/game.db", "ui/x.png", "ui/gacha/en/missing/mom_banner.assetbundle"):
+            with self.assertRaises(FileNotFoundError):
+                cal.art_file(path)
+        self.assertEqual(self.calls, [])
+
+    def test_route_answers_404_without_art(self):
+        from fastapi import HTTPException
+        route = next(r for r in cal.router.routes if r.path == "/patcher/calendar/art")
+        self.assertEqual(route.methods, {"GET"})
+        ok = route.endpoint(ART)
+        self.assertEqual((ok.media_type, Path(ok.path).read_bytes()), ("image/png", b"\x89PNG"))
+        with self.assertRaises(HTTPException) as refused:
+            route.endpoint("../../saves/game.db")
+        self.assertEqual(refused.exception.status_code, 404)
+
+
 if __name__ == "__main__":
     unittest.main()
