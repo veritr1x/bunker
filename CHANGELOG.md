@@ -22,6 +22,9 @@ under its heading, down to the previous release.
   a rerun it opened the first event tab). [f33e818]
 - Six missions that unlock with the first page of an Anecdote no longer
   count before that page is complete. [d4dc1ad]
+- With the Original calendar, the weekly reruns of May 2023 (10107, 10108)
+  no longer show an **Exchange** for medals whose exchange is closed then.
+  [63c5f17]
 
 ### Calendar
 - Two home banners whose summons Bunker doesn't list at that time stay
