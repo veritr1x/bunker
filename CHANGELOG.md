@@ -21,6 +21,10 @@ under its heading, down to the previous release.
   did nothing. First-clear weapons and parts now always go to the
   inventory, and a story weapon already sent to the Gift Box this way is
   moved back to the inventory when the game starts. [ff95fea]
+- A player already stuck there can finish the tutorial: when the game
+  starts, Rion's weapon is also put back in Rion's empty main weapon slot in
+  the first loadout, which the tutorial had set up while the weapon was in
+  the Gift Box. [4577dc2]
 
 ## 1.4.4 (2026-10-31)
 
