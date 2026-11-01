@@ -104,7 +104,7 @@ int main() {
   });
   thread.join();
   bool rejected = false;
-  try { call(61); } catch (const std::runtime_error &) { rejected = true; }
+  try { call(40); } catch (const std::runtime_error &) { rejected = true; }
   require(rejected, "unsupported JNI call must fail explicitly");
   recomp::Runtime runtime;
   host.Install(runtime);

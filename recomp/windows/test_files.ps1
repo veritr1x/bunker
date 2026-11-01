@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$BuildDirectory,
     [string]$Remill = (Join-Path $PSScriptRoot '..\work\remill-src'),
+    [string]$ZlibDirectory = (Join-Path $PSScriptRoot '..\work\zlib-native'),
     [string]$Cxx = 'g++.exe',
     [string]$Cc = 'gcc.exe'
 )
@@ -16,8 +17,9 @@ if (Test-Path -LiteralPath (Join-Path $taskBuild 'guest\manifest.json')) {
     & $Cc '-O2' '-c' (Join-Path $PSScriptRoot '..\fastaes\elfload.c') '-o' $taskLoader
     if ($LASTEXITCODE -ne 0) { throw 'File ABI ELF data-loader compilation failed.' }
     $taskArguments += @('-DHAVE_GUEST_FILE_FIXTURE', "-DGUEST_FILES_IMAGE=`"$($taskBuild.Replace('\', '/'))/file-guest.so`"", $taskLoader,
-        (Join-Path $PSScriptRoot 'jni_host.cpp'), (Join-Path $PSScriptRoot 'android_context.cpp'))
+        (Join-Path $PSScriptRoot 'jni_host.cpp'), (Join-Path $PSScriptRoot 'android_context.cpp'),(Join-Path $PSScriptRoot 'android_assets.cpp'),(Join-Path $PSScriptRoot 'apk_assets.cpp'),"-I$ZlibDirectory\zlib-1.3.2")
     foreach ($taskObject in $taskManifest.objects) { $taskArguments += Join-Path $taskBuild "guest\$(Split-Path -Leaf $taskObject)" }
+    $taskArguments+=Join-Path $ZlibDirectory 'libz-inflate.a'
 }
 $taskArguments += @('-static', '-latomic', '-o', $taskExecutable)
 & $Cxx @taskArguments

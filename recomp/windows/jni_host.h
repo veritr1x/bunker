@@ -52,6 +52,11 @@ class Host {
                           std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void DefineBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
                            std::function<bool(addr_t,const MethodArguments&)> handler);
+  void DefineVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                        std::function<void(addr_t,const MethodArguments&)> handler);
+  void DefineConstructor(const std::string &owner,const std::string &signature,std::function<addr_t(const MethodArguments&)> factory);
+  void ThrowException(const std::string &type,const std::u16string &message);
+  void ThrowException(const std::string &type);
   void DefineField(const std::string &class_name, const std::string &name,
                    const std::string &signature, bool is_static = false);
   addr_t NewString(const std::u16string &value);
@@ -107,8 +112,9 @@ class Host {
   std::shared_ptr<Object> FieldTarget(addr_t object, addr_t field, bool is_static, const std::string &signature_kind);
   bool Assignable(const std::string &actual, const std::string &expected) const;
   addr_t CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t object, addr_t method, bool is_static = false,
-                    const std::array<addr_t, 3> &arguments = {},bool boolean_result = false);
-  addr_t Construct(addr_t clazz, addr_t method);
+                    const std::array<addr_t, 3> &arguments = {},char expected_result = 'L');
+  addr_t Construct(std::unique_lock<std::recursive_mutex> &lock,addr_t clazz, addr_t method,const MethodArguments &arguments);
+  bool ValidateArguments(const Method &method,const MethodArguments &arguments);
   bool Arguments(State &state, size_t slot, size_t count, std::array<addr_t,3> &arguments);
   int32_t Register(addr_t clazz, const NativeMethod *methods, int32_t count);
 

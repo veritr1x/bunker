@@ -186,6 +186,14 @@ void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,
   if(!handler)throw std::invalid_argument("missing boolean handler");
   DefineHandler(owner,name,signature,'Z',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){return handler(object,arguments)?1:0;});
 }
+void Host::DefineVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<void(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing void handler");DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;});
+}
+void Host::DefineConstructor(const std::string &owner,const std::string &signature,std::function<addr_t(const MethodArguments&)> factory){
+  if(!factory)throw std::invalid_argument("missing constructor factory");DefineHandler(owner,"<init>",signature,'V',[factory=std::move(factory)](addr_t,const MethodArguments &arguments){return factory(arguments);});
+}
+void Host::ThrowException(const std::string &type,const std::u16string &message){std::lock_guard lock(mutex_);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,Encode(message));}
+void Host::ThrowException(const std::string &type){std::lock_guard lock(mutex_);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,"",false);}
 void Host::DefineHandler(const std::string &class_name,const std::string &name,const std::string &signature,char result,
                          std::function<addr_t(addr_t,const MethodArguments&)> handler){
   std::lock_guard lock(mutex_);
@@ -198,7 +206,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
     auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(type);at=end+1;
   }
   auto returns=at<signature.size()?signature.substr(at+1):"";
-  if((result=='Z'&&returns!="Z")||(result=='L'&&(returns.size()<3||returns.front()!='L'||returns.back()!=';'||!classes_.count(returns.substr(1,returns.size()-2)))))throw std::invalid_argument("invalid host result descriptor");
+  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='L'&&(returns.size()<3||returns.front()!='L'||returns.back()!=';'||!classes_.count(returns.substr(1,returns.size()-2)))))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
   if (found != clazz->second->methods.end()) throw std::invalid_argument("duplicate host method");
@@ -371,7 +379,8 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,bool boolean_result) {
+bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){auto argument=Get(arguments[i],true);if(Current().exception)return false;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,method.argument_types[i])){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
+addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,char expected_result) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
   auto object = Get(reference); if (!object) return 0;
@@ -386,7 +395,7 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   }
   auto &metadata=*selected;
   auto close=metadata.declaration.signature.find(')');char result_kind=close==std::string::npos||close+1==metadata.declaration.signature.size()?0:metadata.declaration.signature[close+1];
-  if((boolean_result&&result_kind!='Z')||(!boolean_result&&result_kind!='L')){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch");return 0;}
+  if(result_kind!=expected_result||metadata.declaration.name=="<init>"){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch or constructor requires NewObject");return 0;}
   if(metadata.builtin==Method::kBuilderAppend||metadata.builtin==Method::kBuilderString){
     if(object->kind!=Object::kBuilder){Raise("java/lang/UnsupportedOperationException","StringBuilder constructor has not initialized this object");return 0;}
     if(metadata.builtin==Method::kBuilderString)return object->text.empty()?Local(empty_string_):NewString(object->text);
@@ -441,17 +450,18 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
     return Local(found->second->object);
   }
   if (!metadata.object_handler) throw std::runtime_error("Java method has no host implementation: " + metadata.owner + "." + metadata.declaration.name + metadata.declaration.signature);
-  for(size_t i=0;i<metadata.argument_types.size();++i){auto argument=Get(arguments[i],true);if(Current().exception)return 0;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,metadata.argument_types[i])){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return 0;}}
+  if(!ValidateArguments(metadata,arguments))return 0;
   // Keep the receiver and callback alive, but never hold the host registry lock
   // across external code. A callback may wait for another attached JNI thread.
   auto handler = metadata.object_handler;
-  auto return_type = boolean_result?"":metadata.declaration.signature.substr(close+2,metadata.declaration.signature.size()-close-3);
+  auto return_type = expected_result=='L'?metadata.declaration.signature.substr(close+2,metadata.declaration.signature.size()-close-3):"";
   addr_t result;
   lock.unlock();
   try { result = handler(reference,arguments); }
   catch (...) { lock.lock(); throw; }
   lock.lock();
-  if(boolean_result)return result?1:0;
+  if(expected_result=='Z')return result?1:0;
+  if(expected_result=='V')return 0;
   auto returned = Get(result, true);
   if (result && !returned) return 0;
   if (returned && !Assignable(returned->kind == Object::kClass ? "java/lang/Class" : returned->class_name, return_type)) {
@@ -461,14 +471,19 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   // local reference owned by the invoking thread, including for global results.
   return Local(returned);
 }
-addr_t Host::Construct(addr_t reference,addr_t id){
+addr_t Host::Construct(std::unique_lock<std::recursive_mutex> &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
   auto found=method_ids_.find(id);if(found==method_ids_.end()){Raise("java/lang/NoSuchMethodError","invalid JNI constructor ID");return 0;}
   auto &method=*found->second;
-  if(method.owner!=clazz->object->class_name||method.declaration.is_static||method.declaration.name!="<init>"){
+  if(method.owner!=clazz->object->class_name||method.declaration.is_static||method.declaration.name!="<init>"||method.declaration.signature.back()!='V'){
     Raise("java/lang/IllegalArgumentException","JNI constructor class/method mismatch");return 0;
   }
-  if(method.builtin!=Method::kBuilderConstructor)throw std::runtime_error("Java constructor has no host implementation: "+method.owner+method.declaration.signature);
+  if(method.builtin!=Method::kBuilderConstructor){
+    if(!method.object_handler)throw std::runtime_error("Java constructor has no host implementation: "+method.owner+method.declaration.signature);
+    if(!ValidateArguments(method,arguments))return 0;
+    auto factory=method.object_handler;auto owner=method.owner;addr_t result;lock.unlock();try{result=factory(0,arguments);}catch(...){lock.lock();throw;}lock.lock();
+    if(Current().exception)return 0;auto object=Get(result,true);if(!object){if(!Current().exception)Raise("java/lang/IllegalStateException","host constructor returned null without an exception");return 0;}if(object->kind!=Object::kInstance||object->class_name!=owner){Raise("java/lang/IllegalArgumentException","host constructor returned the wrong class");return 0;}return Local(object);
+  }
   auto object=std::make_shared<Object>();object->kind=Object::kBuilder;object->class_name="java/lang/StringBuilder";object->text.reserve(16);
   return Local(object);
 }
@@ -573,14 +588,15 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 24: { auto first = Get(a, true), second = Get(b, true); s.gpr.x0.qword = first == second; return; }
     case 25: s.gpr.x0.qword = Ref(a, 1); return;
     case 26: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else IntResult(s, kOk); return;
-    case 28: case 29: case 30: s.gpr.x0.qword=Construct(a,b);return;
+    case 28: case 29: case 30: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot,count,args)?Construct(lock,a,b,args):0;return;}
     case 31: { auto object = Get(a); if (!object) { s.gpr.x0.qword = 0; return; } s.gpr.x0.qword = Local(classes_.at(object->kind == Object::kClass ? "java/lang/Class" : object->class_name)->object); return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
     case 33: case 113: s.gpr.x0.qword = MethodId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 113); return;
     case 34: case 35: case 36: case 37: case 38: case 39: {
       std::array<addr_t,3> args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();
-      s.gpr.x0.qword=Arguments(s,slot>=37?slot-3:slot,count,args)?CallObject(lock,a,b,false,args,slot>=37):0;return;
+      s.gpr.x0.qword=Arguments(s,slot>=37?slot-3:slot,count,args)?CallObject(lock,a,b,false,args,slot>=37?'Z':'L'):0;return;
     }
+    case 61: case 62: case 63: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot-27,count,args)?CallObject(lock,a,b,false,args,'V'):0;return;}
     case 114: case 115: case 116: {
       std::array<addr_t, 3> args{};
       auto method=method_ids_.find(b);size_t count=method!=method_ids_.end()&&method->second->builtin==Method::kForName?3:0;

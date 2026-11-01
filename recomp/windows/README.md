@@ -347,6 +347,24 @@ unsupported method, `AssetManager.open(String)InputStream`, for actual
 `unity-bootstrap-init-jni-asset-open*`. The default gate exits0 again;
 `unity-bootstrap-intent-default.log` includes both real finalizers.
 
+The checked AssetManager/InputStream/Scanner bridge now reads boot.config from
+the configured original APK through `ApkAssets`. It implements the observed
+UTF-8 Scanner constructor, `useDelimiter("\\z")`, `next()` and close behavior,
+including EOF, missing assets, wrong types, closed streams and reference
+lifetimes. Other delimiters, charsets and malformed UTF-8 replacement remain
+explicitly unsupported. `test_asset_java.ps1` passes65 native Windows checks
+through11 actual NDK traces, covering direct/V/A constructors and methods plus
+the exact149-byte APK resource with CRC32 `f53e2d64`.
+
+The isolated real `initJni(Context)V` gate now exits0 with no pending exception
+and zero original JNI exception events. All417 constructors, JNI_OnLoad/42
+bindings, JNI_OnUnload and both finalizers also complete. Evidence is
+`unity-bootstrap-init-jni-assets-success.log` and its translation manifest;
+the separate default run is `unity-bootstrap-assets-default.log`. This remains
+an exploratory native-entry gate with1,774 unsupported traces. The Java
+Activity/UnityPlayer lifecycle, surface creation, rendering and resume have
+not been executed, and the game is not running.
+
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
 DEX method offsets/signatures: the Activity constructs UnityPlayer, whose

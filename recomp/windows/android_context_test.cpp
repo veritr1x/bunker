@@ -48,7 +48,8 @@ int main() {
   host.DeleteLocalReference(updated);
   source = call(95, info, source_id); bytes = call(169, source);
   require(bytes && !std::strcmp(reinterpret_cast<const char *>(bytes), "/updated/base.apk"), "object field retains strong ownership after local deletion"); call(170, source, bytes);
-  require(!method(find("android/content/res/AssetManager"), "open", "(Ljava/lang/String;)Ljava/io/InputStream;") && !host.PendingException().empty(), "unimplemented Java asset stream is not fabricated"); host.ClearException();
+  auto open_method=method(find("android/content/res/AssetManager"),"open","(Ljava/lang/String;)Ljava/io/InputStream;");
+  require(open_method&&!call(34,assets,open_method,host.NewString(u"bin/Data/boot.config"))&&host.PendingException().find("UnsupportedOperationException")!=std::string::npos,"unconfigured APK asset reader cannot fabricate a stream");host.ClearException();
   require(!host.PendingException().size(), "catalog leaves no pending exception");
   std::printf("Android context JNI catalog: %u checks passed.\n", checks);
 }
