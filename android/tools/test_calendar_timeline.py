@@ -61,5 +61,71 @@ class Entries(unittest.TestCase):
         self.assertEqual((kind, start, end), ("arena", T0, T0 + 28 * DAY))
 
 
+E = cal.Entry
+ART = "ui/gacha/en/limited_46/mom_banner.assetbundle"
+
+
+class Timeline(unittest.TestCase):
+    def setUp(self):
+        self.state = {"loop": 1, "loopStart": cal.LAUNCH + 200 * WEEK}
+        self.now = self.state["loopStart"] + 20 * WEEK
+
+    def items(self):
+        n = self.now
+        return [E("arena", "Season 1", n - 3 * DAY, n + 20 * DAY),
+                E("summon", "Vol. 2", n - 5 * DAY, n + 25 * DAY, "/schedule/summon/46", ART),
+                E("summon", "Gone", n - 30 * DAY, n - 8 * DAY, "/schedule/summon/45"),
+                E("summon", None, n + 10 * DAY, n + 40 * DAY, "/schedule/summon/50"),
+                E("event", "Far off", n + 93 * DAY, n + 100 * DAY),
+                E("shop", "Medal Exchange", n - 400 * DAY, n + 600 * DAY),
+                E("event", "Cage", n - 2 * DAY, n + 2 * DAY, "/schedule/event/120"),
+                E("pass", "Mission pass, month 1", n - DAY, n + DAY),
+                E("hunt", "Subjugation Battle 1", n - DAY, n + DAY)]
+
+    def test_window_is_a_week_back_and_three_months_ahead(self):
+        t = cal.timeline(self.state, [], self.now)
+        self.assertEqual((t["now"], t["from"], t["to"]), (self.now, self.now - 7 * DAY, self.now + 92 * DAY))
+
+    def test_window_stops_at_loop_end(self):
+        now = cal.loop_end(self.state) - 10 * DAY
+        self.assertEqual(cal.timeline(self.state, [], now)["to"], cal.loop_end(self.state))
+
+    def test_only_items_in_the_window_and_kinds_in_order(self):
+        rows = cal.timeline(self.state, self.items(), self.now)["rows"]
+        self.assertEqual([(r["kind"], r["label"]) for r in rows],
+                         [("summon", "Summons"), ("event", "Events"), ("shop", "Shops"), ("arena", "Arena")])
+        names = [i["name"] for r in rows for i in r["items"]]
+        self.assertEqual(sorted(names), sorted(["Vol. 2", "Summon", "Cage", "Medal Exchange", "Season 1"]))
+
+    def test_long_bar_keeps_its_dates(self):
+        [shop] = cal.timeline(self.state, self.items(), self.now)["rows"][2]["items"]
+        self.assertEqual((shop["start"], shop["end"]), (self.now - 400 * DAY, self.now + 600 * DAY))
+
+    def test_soon_is_open_items_ending_within_a_week_soonest_first(self):
+        n = self.now
+        items = [E("event", "B", n - DAY, n + 7 * DAY - 1), E("event", "A", n - DAY, n + 2 * DAY),
+                 E("event", "Later", n - DAY, n + 8 * DAY), E("event", "Upcoming", n + DAY, n + 3 * DAY)]
+        self.assertEqual([i["name"] for i in cal.timeline(self.state, items, n)["soon"]], ["A", "B"])
+
+    def test_original_dates_move_everything(self):
+        plain = cal.timeline(self.state, self.items(), self.now)
+        shift = self.state["loopStart"] - cal.LAUNCH
+        moved = cal.timeline(dict(self.state, originalDates=True), self.items(), self.now)
+        self.assertEqual((moved["now"], moved["from"], moved["to"]), (plain["now"] - shift, plain["from"] - shift, plain["to"] - shift))
+        for a, b in zip([i for r in plain["rows"] for i in r["items"]] + plain["soon"],
+                        [i for r in moved["rows"] for i in r["items"]] + moved["soon"]):
+            self.assertEqual((b["start"], b["end"]), (a["start"] - shift, a["end"] - shift))
+
+    def test_unnamed_items_take_their_kind(self):
+        summons = cal.timeline(self.state, self.items(), self.now)["rows"][0]["items"]
+        self.assertIn("Summon", [i["name"] for i in summons])
+
+    def test_art_is_a_pod_programs_url(self):
+        summons = cal.timeline(self.state, self.items(), self.now)["rows"][0]["items"]
+        vol2 = next(i for i in summons if i["name"] == "Vol. 2")
+        self.assertEqual((vol2["art"], vol2["ref"]), ("/patcher/calendar/art?path=" + ART, "/schedule/summon/46"))
+        self.assertEqual(next(i for i in summons if i["name"] == "Summon")["art"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

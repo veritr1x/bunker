@@ -878,6 +878,29 @@ def summary(items, at):
     return groups
 
 
+# The Schedule page's timeline: from a week back to three months ahead (or
+# the loop's end), and what ends within a week. Times are in the dates the
+# game shows; the page draws them in the phone's local time.
+TIMELINE_KINDS = (("summon", "Summons"), ("event", "Events"), ("shop", "Shops"), ("arena", "Arena"))
+TIMELINE_BEFORE, TIMELINE_AFTER, ENDING_SOON = 7 * DAY, 92 * DAY, 7 * DAY
+
+
+def timeline(state, items, now):
+    """Rows of the summons, events, shops and Arena seasons in the window, and those ending soon."""
+    from urllib.parse import quote
+    start, end = now - TIMELINE_BEFORE, min(now + TIMELINE_AFTER, loop_end(state))
+    shift = state["loopStart"] - LAUNCH if state.get("originalDates") else 0
+    labels = dict(TIMELINE_KINDS)
+
+    def item(e):
+        return {"name": e.name or labels[e.kind].removesuffix("s"), "start": e.start - shift, "end": e.end - shift, "ref": e.ref,
+                "art": "/patcher/calendar/art?path=" + quote(e.art, safe="/") if e.art else ""}
+    shown = sorted((e for e in items if e.kind in labels and e.start < end and e.end > start), key=lambda e: (e.start, e.end))
+    soon = sorted((e for e in shown if e.start <= now < e.end <= now + ENDING_SOON), key=lambda e: e.end)
+    return {"now": now - shift, "from": start - shift, "to": end - shift, "soon": [item(e) for e in soon],
+            "rows": [{"kind": kind, "label": label, "items": [item(e) for e in shown if e.kind == kind]} for kind, label in TIMELINE_KINDS]}
+
+
 def updates(state, items, after):
     """Days in the rest of the loop when new events or summons open, named by their first event."""
     days = {}
@@ -920,7 +943,8 @@ def context(state):
     return {"state": state, "loop": state["loop"], "week": week_of(state, now), "weeks": LOOP_WEEKS,
             "progress": round(100 * (now - state["loopStart"]) / (LOOP_WEEKS * WEEK), 1),
             "today": day_label(shown), "originalDates": bool(state.get("originalDates")), "original": day_label(original(state, now)), "ends": day_label(loop_end(state)),
-            "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "open": summary(items, now), "now": now}
+            "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "open": summary(items, now), "now": now,
+            "timeline": timeline(state, items, now)}
 
 
 @router.post("/patcher/calendar/on")
