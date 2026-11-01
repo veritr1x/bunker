@@ -74,6 +74,16 @@ part of the normal Bunker release. The game does not boot or render yet.
   checks pass. Stale top slots and an empty-map allocation remain process-lifetime
   diagnostic state; no reuse or full boot is claimed. See
   [original-loader scope](windows/unity_api_loader.md).
+- The next registration-only gate runs Unity's original dispatcher and checks
+  all 1,987 registrations through the actual IL2CPP lookup API. Real DSO teardown
+  invokes the registered map destructor once and frees all 3,972 observed map
+  allocations. Its 2,019 checks plus eight isolated precondition cases pass.
+  Stored native targets, configuration, init and GC remain separate gates. See
+  [the registration and teardown boundary](windows/unity_icalls.md).
+- Android process CPU `clock()` and `sysconf` page-size/online-CPU queries now
+  use real host APIs, passing 453 checks and 57 actual NDK calls per host.
+  Known unimplemented query names fail explicitly. These prerequisites do not
+  establish collector startup. See [the process adapter](windows/libc_process.md).
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -97,7 +107,7 @@ part of the normal Bunker release. The game does not boot or render yet.
   See [the transpose gate](whole/transpose.md).
 - Indexed FP32/FP64 FMLA matches 5,689,856 exact ARM64 result/source/FPSR/NZCV
   records on each host. The original Unity matrix now lifts completely; the
-  frozen Unity engine cohort retains its earlier semantics. See
+  current refreshed Unity cohort includes these semantics. See
   [the fused arithmetic scope](whole/fp_fmla.md).
 - Indexed FMUL's NaN/FZ/DN behavior is corrected and passes 8,444,032 ARM64
   comparisons per host. The exact original 104-byte Unity matrix leaf now
@@ -152,8 +162,10 @@ unsupported instructions.
 ## Active work
 
 1. Continue the verified original-loader prefix through the actual runtime
-   configuration and managed-initialization path, then refresh IL2CPP's
-   translation snapshot with current semantics/root recovery when required.
+   configuration and managed-initialization path. A separate IL2CPP refresh
+   is compiling with current semantics and callback/setjmp root recovery;
+   the accepted older diagnostic cohorts remain preserved until lineage and
+   native lifecycle checks pass.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
 2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
@@ -173,9 +185,10 @@ unsupported instructions.
 
 - Real Unity/IL2CPP startup and the Java service/native lifecycle catalog
   required by this APK. JNI support is an explicit catalog, not a Java interpreter.
-- IL2CPP GC suspension/signals and needed Bionic/ELF TLS. Nonzero
-  `pthread_kill`, `pthread_sigmask` and `pthread_atfork` currently return
-  `ENOSYS`; GC signal handling is not implemented.
+- IL2CPP GC suspension/signals and needed Bionic/ELF TLS. The separate signal
+  provider supplies checked masks and queued delivery; the older pthread-only
+  provider leaves nonzero delivery/masks and atfork unsupported. Actual collector
+  integration, thread records and root scanning remain unverified.
   [The binary/ABI evidence and required gates](windows/GC-SUSPENSION.md) are
   preserved for the implementation; both stop and resume acknowledgments are
   needed by this collector's default retry mode.
@@ -217,7 +230,7 @@ unsupported instructions.
   [the typed draw scope](windows/gl_draw.md).
   A separate native Vulkan scaling variant now passes fixed-size
   buffer negotiation, physical/logical resize and present-mode checks; the
-  original ANGLE bundle is preserved. Shader/draw/client/mapped GL APIs, Unity's
+  original ANGLE bundle is preserved. Further GL APIs, client/mapped memory, Unity's
   full surface/resume/frame lifecycle, input and audio remain unverified.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.
