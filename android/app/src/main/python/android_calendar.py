@@ -78,6 +78,7 @@ def read_state():
     if not (isinstance(state, dict) and state.get("loopStart")):
         return None
     move_next(state)
+    refresh_view(state)
     return state
 
 
@@ -521,6 +522,27 @@ def shift_table(blob, columns, offset):
     return moved
 
 
+def cap_table(blob, columns, latest):
+    """Moves every dated int64 cell in columns later than latest back to latest."""
+    from patcher.patch_masterdata import read_array_len, skip_msgpack_value
+    count, pos = read_array_len(blob, 0)
+    for _ in range(count):
+        cells, p = read_array_len(blob, pos)
+        for index in range(cells):
+            if index in columns and blob[p] == 0xd3 and struct.unpack(">q", blob[p + 1:p + 9])[0] > latest:
+                struct.pack_into(">q", blob, p + 1, latest)
+            p = skip_msgpack_value(blob, p)
+        pos = p
+    return 0
+
+
+# The final game data dates when 33 characters (the starting cast among them)
+# appear in character lists such as Enhance: 2022 on, when its list settings
+# came. The live game listed them from launch; with the original dates (2021)
+# the lists were empty. They are listed from launch.
+LISTED_FROM_LAUNCH = {"m_character": ("ListSettingDisplayStartDatetime",)}
+
+
 def read_master(path):
     """A master data file's table of contents and table blob."""
     import msgpack
@@ -573,6 +595,10 @@ def build_master(origin, output, offset):
             continue
         columns = {index for index, kind, name in schemas[table][1] if kind == "long" and "Datetime" in name}
         moved += pm.apply_to_table(toc, blob, changed, table, lambda b: shift_table(b, columns, offset)) or 0
+    for table, names in LISTED_FROM_LAUNCH.items():
+        if table in toc and table in schemas:
+            columns = {index for index, kind, name in schemas[table][1] if name in names}
+            pm.apply_to_table(toc, blob, changed, table, lambda b, c=columns: cap_table(b, c, LAUNCH))
     for table, column in pm.EXPIRED_AD_TABLES.items():
         pm.apply_to_table(toc, blob, changed, table, lambda b, c=column: pm.expire_table_end(b, c))
     for table in pm.EMPTY_TABLES:
@@ -621,12 +647,37 @@ def view_file():
     return config.RELEASE_DIR / VIEW_NAME
 
 
+# Bumped when the copy's build changes, so a copy built before is rebuilt
+# (refresh_view): 2 lists characters from launch (LISTED_FROM_LAUNCH).
+VIEW_VERSION = "2"
+
+
+def view_version_file():
+    return config.RELEASE_DIR / "calendar-view.version"
+
+
+def build_view():
+    pending = view_file().with_suffix(".tmp")
+    build_master(origin_file(), pending, 0)
+    os.replace(pending, view_file())
+    view_version_file().write_text(VIEW_VERSION)
+
+
+def view_outdated():
+    version = view_version_file()
+    return not view_file().exists() or not version.exists() or version.read_text().strip() != VIEW_VERSION
+
+
+def refresh_view(state):
+    """Rebuilds the game's copy for "Show original dates" when it is on and the copy is missing or older."""
+    if state.get("originalDates") and view_outdated():
+        build_view()
+
+
 def set_original_dates(state, on):
-    """Turns "Show original dates" on or off, building the game's copy once."""
-    if on and not view_file().exists():
-        pending = view_file().with_suffix(".tmp")
-        build_master(origin_file(), pending, 0)
-        os.replace(pending, view_file())
+    """Turns "Show original dates" on or off, building the game's copy when needed."""
+    if on and view_outdated():
+        build_view()
     state["originalDates"] = bool(on)
 
 
@@ -720,6 +771,7 @@ def turn_off():
     state_path().unlink(missing_ok=True)
     next_file().unlink(missing_ok=True)
     view_file().unlink(missing_ok=True)
+    view_version_file().unlink(missing_ok=True)
     old_next_file().unlink(missing_ok=True)
 
 

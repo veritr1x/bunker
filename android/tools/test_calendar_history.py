@@ -327,3 +327,25 @@ class BannerRuns(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
+class CharactersInTheGameData(unittest.TestCase):
+    def test_characters_are_listed_from_launch(self):
+        # The final game data dates when 33 characters (the starting cast among
+        # them) appear in character lists, from 2022 on, as when its list
+        # settings came: showing the original dates (2021), Enhance was empty.
+        import tempfile
+        from tools import dump_masterdata
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "view.bin.e"
+            cal.build_master(ORIGINAL, out, 0)
+            toc, blob = cal.read_master(out)
+            otoc, oblob = cal.read_master(ORIGINAL)
+        schemas = dump_masterdata.load_schemas()
+        built = dict(cal._read(toc, blob, {}, schemas, "m_character", "CharacterId", "ListSettingDisplayStartDatetime"))
+        original = dict(cal._read(otoc, oblob, {}, schemas, "m_character", "CharacterId", "ListSettingDisplayStartDatetime"))
+        self.assertEqual(built.keys(), original.keys())
+        self.assertTrue(any(v > cal.LAUNCH for v in original.values()))
+        for character, start in original.items():
+            self.assertEqual(built[character], min(start, cal.LAUNCH), character)

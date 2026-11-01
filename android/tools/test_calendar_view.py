@@ -54,6 +54,25 @@ class OriginalDates(unittest.TestCase):
         cal.set_original_dates(state, False)
         self.assertFalse(state["originalDates"])
 
+    def test_view_copy_records_its_version(self):
+        cal.set_original_dates(self.state(), True)
+        self.assertEqual(cal.view_version_file().read_text(), cal.VIEW_VERSION)
+
+    def test_outdated_view_copy_is_rebuilt_when_the_calendar_is_read(self):
+        # A copy built before a fix to the copy (no version, or an older one) is rebuilt once.
+        cal.view_file().write_bytes(b"old view")
+        cal.write_state(self.state(originalDates=True))
+        cal.read_state()
+        self.assertEqual(self.builds, [0])
+        self.assertEqual(cal.view_file().read_bytes(), b"view")
+        cal.read_state()
+        self.assertEqual(self.builds, [0])
+
+    def test_no_view_copy_is_built_with_original_dates_off(self):
+        cal.write_state(self.state())
+        cal.read_state()
+        self.assertEqual(self.builds, [])
+
     def test_turning_off_the_calendar_removes_the_view(self):
         cal.set_original_dates(self.state(), True)
         cal.turn_off()
