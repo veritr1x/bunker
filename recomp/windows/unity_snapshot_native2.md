@@ -49,3 +49,14 @@ Ignored evidence is under `recomp/work/unity-native2-lineage/` and
 exit codes, source archive and log hashes. Prepare/build entry points remain
 `unity_bootstrap_prepare.py` and `unity_bootstrap_build.ps1`; use a separate
 output directory and retain `--exploratory` because unsupported traces remain.
+
+A second host checkpoint uses the same unchanged translated cohort with Bunker
+`92bea353436f70bc82a4ff03068c25bf7fb36ab9`. It includes the rooted internal
+storage service and context-owned GL error bridge. All three default/initJni/
+surface gates again exit zero with 42 verified bindings and two finalizers.
+The executable SHA-256 is
+`d5b2679abf400f6fdcb73967c4d18814cd5432346044ebe338adfa29fd97c233`.
+Source archive and full command/log hashes are in ignored
+`work/windows-unity-native3/parity-acceptance.json`. This paused diagnostic
+does not invoke nativeRender, exercise the new storage selectors from Unity's
+boot body, or claim a GL/game frame; those adapters have separate direct tests.
