@@ -268,10 +268,11 @@ is not used; discard/zero-fill advice remains unsupported.
 With that adapter, the actual native Windows executable completes ALL417
 constructors in order, returns JNI1.6 from the real Unity `JNI_OnLoad`, and
 verifies all42 native addresses across the nine classes against ELF/DEX data.
-This is an exploratory constructor/JNI-only gate: 1,889 unsupported traces
-remain and the game is not running. The next failure is teardown:
-finalizer `0x700dd2dc` calls `__cxa_finalize` with DSO `0x7123eac0` and the
-provider aborts. Full evidence is `unity-bootstrap-all417-jni42-finalize*`.
+The earlier1,889-unsupported snapshot stopped at teardown: finalizer
+`0x700dd2dc` called `__cxa_finalize` with DSO `0x7123eac0` and encountered a
+missing translated callback root. That diagnostic is preserved in
+`unity-bootstrap-all417-jni42-finalize*`; the callback/ST1 snapshot below fixes
+it. These remain exploratory gates and the game is not running.
 The file suite passes103 checks including actual NDK advice callers, committed
 CRT/image pages, reserved holes, protection preservation and a successful
 cross-thread exclusive reservation across the non-mutating normal hint.
@@ -287,8 +288,8 @@ initialization still fail explicitly. Surface/render/resume are not invoked.
 The first actual optional run reaches entry `0x70439db0`, then aborts in native
 pending-exception formatting: `strncpy` at return `0x70ab521c` receives source0
 and length256 after the unavailable `Object.toString()Ljava/lang/String;`
-lookup/call. The original Java exception has not yet been captured; this
-secondary failure must not be treated as a libc string-copy success case.
+lookup/call. At that point the original Java exception had not yet been
+captured; this secondary failure was not treated as a string-copy success case.
 Evidence is `unity-bootstrap-init-jni-strncpy.log` and
 `java-startup/latest-native-gates.json`.
 The opt-in diagnostic now forwards the original JNI table handlers and records
@@ -364,6 +365,32 @@ the separate default run is `unity-bootstrap-assets-default.log`. This remains
 an exploratory native-entry gate with1,774 unsupported traces. The Java
 Activity/UnityPlayer lifecycle, surface creation, rendering and resume have
 not been executed, and the game is not running.
+
+`unity_lifecycle.h/.cpp` ports the evidenced surface subset of UnityMain's FIFO
+to a dedicated JNI-attached host worker. After real initJni succeeds, the
+explicit post-init transition matches constructor DEX0x554a40. A nonnull surface
+queues recreate then SURFACE_ACQUIRED; a change queues the changed notification
+after those operations. Destruction queues SURFACE_LOST before recreate(null)
+and waits for acknowledgment before HWND closure. Queued Java graph references
+become fresh worker-local JNI references. Runner TLS cleanup happens before JNI
+detach. The worker remains paused and never schedules render/resume.
+`test_unity_lifecycle.ps1` passes 46 native Windows checks; the same test passes 46
+on Linux. These use explicitly synthetic Runtime callbacks to test ordering,
+thread/ref lifetimes and failures; they do not prove the real surface entries.
+
+The separate optional harness flag `--surface-gate <width> <height>` (build script
+`-SurfaceGate -ClientWidth ... -ClientHeight ...`) requires explicit landscape
+client pixels and verifies the real HWND dimensions. The manifest specifies
+sensorLandscape, without fixed pixel dimensions. This gate ports the native
+surface-call sequence only: it does not claim the APK's View/splash UI, phone,
+clipboard, camera and HFP Java constructor effects or Java class initialization.
+The first real attempt completes all constructors, JNI registration and initJni,
+creates a checked 960×540 HWND, and enters nativeRecreateGfxState on UnityMain.
+It stops at missing `sigemptyset`, return address `0x704233c8`, in temporary
+crash-handler setup. Evidence is `unity-bootstrap-surface-sigemptyset.log` and
+its pinned translation manifest. The surface handoff has not yet passed.
+This combined harness keeps NativeWindows markers at `0x7ff440000000`, separate
+from the module registry, native-window tokens and EGL marker/handle ranges.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
