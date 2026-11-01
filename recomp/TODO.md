@@ -41,8 +41,9 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Real Unity now completes all 417 constructors, returns JNI 1.6 with all 42
   native registrations checked against ELF/DEX, and exits cleanly through
   `JNI_OnUnload` and its actual finalizers. The separate `initJni(Context)`
-  diagnostic currently fails on missing `java/lang/StringBuilder`; rendering
-  and the Java/game lifecycle remain unexecuted.
+  diagnostic now passes checked StringBuilder and launch Intent/Bundle paths;
+  its next observed dependency is `AssetManager.open("bin/Data/boot.config")`.
+  Rendering and the full Java/game lifecycle remain unexecuted.
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -54,14 +55,14 @@ part of the normal Bunker release. The game does not boot or render yet.
   values and deterministic random inputs. Physical ARM64 validation remains
   useful, especially for floating point.
 
-Latest three-library instruction-form audit with LLVM 18 / Remill `09f7d4d`
-(`windows-exclusive`):
+Latest three-library instruction-form audit with LLVM 18 / Remill `0e8b07b`
+(`windows-st1`):
 
 | Library | Supported forms | Unsupported occurrences | Weighted liftability |
 |---|---:|---:|---:|
-| `libunity.so` | 1,262 / 1,442 | 9,005 | 99.6958% |
+| `libunity.so` | 1,267 / 1,442 | 8,388 | 99.7167% |
 | `libil2cpp.so` | 917 / 941 | 177 | 99.9982% |
-| `libgrpc_csharp_ext.so` | 769 / 826 | 888 | 99.7750% |
+| `libgrpc_csharp_ext.so` | 770 / 826 | 887 | 99.7753% |
 
 These sample one encoding per operand form and exclude control flow; they do
 not establish whole-program correctness or execution coverage. The first
@@ -79,11 +80,12 @@ unsupported instructions.
 
 ## Active work
 
-1. Build complete Unity and IL2CPP Windows object sets; inspect unsupported
-   traces and unresolved targets. Unity has 417 initializers/344 imports;
-   IL2CPP has nine initializers/280 imports.
-2. Continue the actual `initJni(Context)` path with checked Java string/service
-   behavior, then implement the evidenced surface and UnityMain message flow.
+1. Integrate the complete initial IL2CPP object set and refresh its translation
+   snapshot with current semantics/root recovery when startup requires it.
+   Inspect reached unsupported traces and unresolved targets. Unity has 417
+   initializers/344 imports; IL2CPP has nine initializers/280 imports.
+2. Continue the actual `initJni(Context)` path with checked APK asset streams,
+   then implement the evidenced surface and UnityMain message flow.
    Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
    imports or unsupported Java effects into successful no-ops.
 3. Close instruction gaps reached by startup, then remaining reciprocal
@@ -102,6 +104,9 @@ unsupported instructions.
   [The binary/ABI evidence and required gates](windows/GC-SUSPENSION.md) are
   preserved for the implementation; both stop and resume acknowledgments are
   needed by this collector's default retry mode.
+  Isolated optimized safepoint and signal-frame gates pass, but are not
+  integrated signal delivery or evidence of collector correctness. See
+  [the frame contract](whole/signal_frame.md).
 - Finish provider memory integration and exercise paired exclusives in real
   Unity startup. The replacement single/pair reservation protocol passes 90,112
   instruction comparisons per platform plus 97 runtime checks and five
@@ -109,9 +114,14 @@ unsupported instructions.
   Host providers must participate in tracked reads/writes and allocation
   lifetime invalidation; untracked native/external writes remain a boundary.
 - A Windows window, actual EGL/GLES-compatible rendering, surface lifecycle,
-  frame scheduling, input and audio. None is verified yet.
+  frame scheduling, input and audio. A native Vulkan ANGLE probe passes GLES3.1
+  draw/compute readback, but fails the APK's required AEP capability because
+  ASTC LDR is missing. A complete pinned graphics dependency remains needed.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.
+  The native APK reader passes 69 independent checks on both hosts and reads
+  the actual 149-byte boot.config exactly; Java asset-stream wiring is active.
+  See [the reader contract](windows/apk_assets.md).
 - Reach title screen, load a save, exercise gameplay/render/audio/input, then
   package a reproducible Windows build consuming user-supplied game assets.
 - Preserve local checkpoints in both Git repositories after review. No remote
