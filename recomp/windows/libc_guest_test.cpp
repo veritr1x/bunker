@@ -5,6 +5,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 static bunker::windows::LibC *provider;
 static int32_t guest_errno;
 static uint64_t dso;
@@ -28,9 +33,16 @@ int main(){
   runtime.AddTraces(kTraces,sizeof(kTraces)/sizeof(*kTraces));elf_image image;
   if(elf_load(LIBC_LIBRARY,0x62000000,resolve,&image))return 1;
   uint64_t order[16]{};unsigned checks=0;
-  for(const char*name:{"guest_allocators","guest_strings","guest_parsing","guest_math","guest_lifecycle","guest_environment"}){
+  uint64_t expected_page;
+#ifdef _WIN32
+  SYSTEM_INFO system_info{};GetSystemInfo(&system_info);expected_page=system_info.dwPageSize;
+#else
+  expected_page=static_cast<uint64_t>(::sysconf(_SC_PAGESIZE));
+#endif
+  for(const char*name:{"guest_allocators","guest_strings","guest_parsing","guest_math","guest_lifecycle","guest_environment","guest_page_size"}){
     auto address=reinterpret_cast<addr_t>(elf_symbol(&image,name));if(!address)std::abort();
-    auto result=static_cast<int32_t>(run(address,std::strcmp(name,"guest_lifecycle")==0?std::vector<addr_t>{reinterpret_cast<addr_t>(order)}:std::vector<addr_t>{}));
+    auto result=static_cast<int32_t>(run(address,std::strcmp(name,"guest_lifecycle")==0?std::vector<addr_t>{reinterpret_cast<addr_t>(order)}:
+      std::strcmp(name,"guest_page_size")==0?std::vector<addr_t>{expected_page}:std::vector<addr_t>{}));
     if(result){std::fprintf(stderr,"NDK libc fixture %s failed line %d\n",name,result);return 1;}++checks;
   }
   std::printf("Translated Android NDK libc: %u startup gates passed, including reentrant translated destructors.\n",checks);

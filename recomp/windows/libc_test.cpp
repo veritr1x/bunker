@@ -6,6 +6,8 @@
 #include <limits>
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif
 static unsigned checks;
 static void check(bool value,const char *text){++checks;if(!value){std::fprintf(stderr,"libc check failed: %s\n",text);std::exit(1);}}
@@ -17,6 +19,21 @@ int main(int argc,char **argv){
 #endif
     State s{};runtime.Run(s,libc.Marker(argv[1]));return 0;
   }
+  State page_state{};runtime.Run(page_state,libc.Marker("getpagesize"));
+  auto page=static_cast<int32_t>(page_state.gpr.x0.qword);
+#ifdef _WIN32
+  SYSTEM_INFO system_info{};GetSystemInfo(&system_info);
+  check(page==static_cast<int32_t>(system_info.dwPageSize),"getpagesize matches Windows page size, not allocation granularity");
+  auto pages=static_cast<unsigned char*>(VirtualAlloc(nullptr,size_t(page)*2,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE));
+  check(pages!=nullptr,"allocate two real Windows pages");DWORD previous=0;
+  check(VirtualProtect(pages+page,page,PAGE_READONLY,&previous)!=0,"actual page-sized protection change");
+  MEMORY_BASIC_INFORMATION first{},second{};
+  check(VirtualQuery(pages,&first,sizeof(first))&&VirtualQuery(pages+page,&second,sizeof(second))&&
+        first.RegionSize==size_t(page)&&second.BaseAddress==pages+page&&second.Protect==PAGE_READONLY,"reported page size matches independent real mapping boundaries");
+  check(VirtualFree(pages,0,MEM_RELEASE)!=0,"release page-layout probe");
+#else
+  check(page==::sysconf(_SC_PAGESIZE),"getpagesize matches host page size");
+#endif
   check(!libc.Getenv("PATH"),"host environment is never inherited");
   libc.SetEnvironment({{"BUNKER","explicit"}});check(std::string(libc.Getenv("BUNKER"))=="explicit","explicit virtual environment");
   check(!libc.Setenv("BUNKER","retained",0)&&std::string(libc.Getenv("BUNKER"))=="explicit","setenv overwrite false");
