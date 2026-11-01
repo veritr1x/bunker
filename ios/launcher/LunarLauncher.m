@@ -2077,6 +2077,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             }
             NSString *calendar = @"";
             if (updateCalendar) {
+                AttachInPlace();  // Game files kept in place: the catalog is read through the link.
                 calendar = LTUpdateCalendar(gSaves, gServerRoot, ToolsRoot(), originalMaster, BunkerVersion());
                 NSLog(@"[LunarTear] calendar update: %@", calendar.length ? calendar : @"ok");
                 // A failure leaves the calendar as it was; the game still starts.
