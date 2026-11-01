@@ -10,10 +10,13 @@ under its heading, down to the previous release.
 - With "Show original dates" on, Enhance › Characters and the other
   character lists were empty: the game data lists the starting cast only
   from 2022. Characters are listed from launch, and so are filters,
-  Character Viewer backgrounds and the like, as without the setting. Story
-  chapters open on their original release dates, as in the live game. The
+  Character Viewer backgrounds and the like, as without the setting. The
   copy for original dates is rebuilt the next time Pod Programs opens.
   [427944d, 3c35230, 52866ff]
+- Story chapters open on their release dates in the first loop, as in the
+  live game, with or without "Show original dates"; from the second loop
+  all are open. Chapters a player has already reached stay open. The loop's
+  game data is rebuilt once the next time Pod Programs opens. [2c41097]
 
 ## 1.6.1 (2026-11-01)
 
