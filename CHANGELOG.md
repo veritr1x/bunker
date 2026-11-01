@@ -4,6 +4,21 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.6.5 (2026-11-02)
+
+On iPhone and iPad, the picture can be upscaled with MetalFX: 1080p with
+MetalFX looks close to the screen's own resolution for about half the GPU
+work.
+
+## 2026-11-02
+
+### Display
+- iPhone and iPad: Upscaling › MetalFX. Below the screen's own resolution,
+  each frame is upscaled with MetalFX instead of plain stretching. Measured
+  on an iPad Pro: rendering at 1080p takes 2.7 ms of GPU time per frame in
+  the field against 6.6 ms at the screen's own resolution. Off by default.
+  [d98ed39]
+
 ## 1.6.4 (2026-11-01)
 
 Above 30 fps the game draws 30 frames a second when idle and slows down when
