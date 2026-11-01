@@ -128,13 +128,18 @@ are recorded in ignored `work/coverage-windows-estimate-shifts.json`.
 
 These sample one encoding per operand form and exclude control flow; they do
 not establish whole-program correctness or execution coverage. The first
-Unity Windows translation completed with 58,850 traces. The current callback/
+Unity Windows translation completed with 58,850 traces. The prior callback/
 ST1 snapshot has 59,561 traces in 469 objects and 1,774 unsupported traces.
-The refreshed estimate/shift/TRN snapshot has 59,610 traces in 469 objects,
+The estimate/shift/TRN snapshot has 59,610 traces in 469 objects,
 1,345 unsupported traces and zero unresolved direct targets. Its constructor,
 JNI, initJni and paused surface/shutdown gates pass natively. Original entries
 are retained and all 49 new entries are proved continuations; see
 [the frozen lineage and exact execution boundary](windows/unity_snapshot_native2.md).
+The current corrected indexed-FP cohort retains the same 59,610 traces/469
+objects with 1,343 unsupported traces, no newly unsupported heads, identical
+State layout and closed direct references. Its constructor/JNI/initJni/paused
+surface gates also pass on Windows with frozen callback-frame host `32edc69`.
+See [current snapshot evidence](windows/unity_snapshot_indexed_fp.md).
 The optional `initJni` diagnostic retains exception history so clearing a Java
 exception cannot turn a missing-service path into success. Static callback
 root recovery finds 112 Unity callback entries, including three otherwise
