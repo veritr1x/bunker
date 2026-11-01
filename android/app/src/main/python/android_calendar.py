@@ -901,6 +901,21 @@ def timeline(state, items, now):
             "rows": [{"kind": kind, "label": label, "items": [item(e) for e in shown if e.kind == kind]} for kind, label in TIMELINE_KINDS]}
 
 
+def timeline_file():
+    return config.DATA_DIR / "timeline.json"
+
+
+def timeline_hidden():
+    """The timeline rows the player hid. Kept here, not in the page: iOS keeps no page storage between sessions."""
+    data = runtime.read_json(timeline_file(), {})
+    hidden = data.get("hidden", []) if isinstance(data, dict) else []
+    return [k for k in hidden if k in dict(TIMELINE_KINDS)] if isinstance(hidden, list) else []
+
+
+def set_timeline_hidden(kinds):
+    runtime.write_json(timeline_file(), {"hidden": [k for k in kinds if k in dict(TIMELINE_KINDS)]})
+
+
 def updates(state, items, after):
     """Days in the rest of the loop when new events or summons open, named by their first event."""
     days = {}
@@ -943,7 +958,7 @@ def context(state):
     return {"state": state, "loop": state["loop"], "week": week_of(state, now), "weeks": LOOP_WEEKS,
             "progress": round(100 * (now - state["loopStart"]) / (LOOP_WEEKS * WEEK), 1),
             "today": day_label(shown), "originalDates": bool(state.get("originalDates")), "original": day_label(original(state, now)), "ends": day_label(loop_end(state)),
-            "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "now": now, "timeline": timeline(state, items, now)}
+            "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "now": now, "timeline": dict(timeline(state, items, now), hidden=timeline_hidden())}
 
 
 @router.post("/patcher/calendar/on")
@@ -1004,6 +1019,13 @@ def calendar_art(path: str):
         return FileResponse(art_file(path), media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
     except FileNotFoundError:
         raise HTTPException(404)
+
+
+@router.post("/patcher/calendar/timeline")
+def calendar_timeline(hidden: str = Form("")):
+    from fastapi import Response
+    set_timeline_hidden([k for k in hidden.split(",") if k])
+    return Response(status_code=204)
 
 
 @router.post("/patcher/calendar/view")

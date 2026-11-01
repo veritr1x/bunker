@@ -54,9 +54,9 @@
   const ZOOMS = [["2 weeks", 14], ["6 weeks", 42], ["3 months", 92]];
   const LABELS = {summon: "Summons", event: "Events", shop: "Shops", arena: "Arena"};
   const PLAIN = {summon: "SUMMON", event: "EVENT", shop: "SHOP", arena: "ARENA"};
-  const KEY = "bunker.timeline.hidden";
-  let hidden = new Set(), zoom = 42;
-  try { hidden = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+  // Hidden rows are saved by Pod Programs (timeline.json), so they last on iOS too.
+  let hidden = new Set(data.hidden || []), zoom = 42;
+  const save = () => fetch("/patcher/calendar/timeline", {method: "POST", body: new URLSearchParams({hidden: [...hidden].join(",")})}).catch(() => {});
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const year = new Date(data.now).getFullYear();
   const day = ms => { const d = new Date(ms); return d.toLocaleDateString(undefined, d.getFullYear() === year ? {month: "short", day: "numeric"} : {month: "short", day: "numeric", year: "numeric"}); };
@@ -96,7 +96,7 @@
     for (const r of data.rows) {
       const b = el("button", "tl-chip" + (hidden.has(r.kind) ? "" : " on"), `${LABELS[r.kind]} · ${r.items.length}`);
       b.type = "button";
-      b.onclick = () => { hidden.has(r.kind) ? hidden.delete(r.kind) : hidden.add(r.kind); try { localStorage.setItem(KEY, JSON.stringify([...hidden])); } catch (e) {} chips(); draw(); };
+      b.onclick = () => { hidden.has(r.kind) ? hidden.delete(r.kind) : hidden.add(r.kind); save(); chips(); draw(); };
       kinds.append(b);
     }
     const zooms = document.getElementById("tl-zoom"); zooms.replaceChildren();

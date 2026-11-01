@@ -208,5 +208,42 @@ class Page(unittest.TestCase):
         self.assertNotIn("timeline-data", self.render(None))
 
 
+class Filters(unittest.TestCase):
+    """Hidden rows are kept beside Pod Programs' other settings: iOS keeps no page storage between sessions."""
+    def setUp(self):
+        import tempfile
+        from web import config
+        self.dir = Path(tempfile.mkdtemp())
+        self.patch = mock.patch.object(config, "DATA_DIR", self.dir)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+
+    def test_nothing_hidden_at_first(self):
+        self.assertEqual(cal.timeline_hidden(), [])
+
+    def test_hidden_rows_are_remembered(self):
+        cal.set_timeline_hidden(["shop", "arena"])
+        self.assertEqual(cal.timeline_hidden(), ["shop", "arena"])
+
+    def test_unknown_kinds_and_a_broken_file_are_ignored(self):
+        cal.set_timeline_hidden(["shop", "pass", "nonsense"])
+        self.assertEqual(cal.timeline_hidden(), ["shop"])
+        (self.dir / "timeline.json").write_text("{not json")
+        self.assertEqual(cal.timeline_hidden(), [])
+
+    def test_route_saves_the_choice(self):
+        route = next(r for r in cal.router.routes if r.path == "/patcher/calendar/timeline")
+        self.assertEqual(route.methods, {"POST"})
+        self.assertEqual(route.endpoint("event,arena").status_code, 204)
+        self.assertEqual(cal.timeline_hidden(), ["event", "arena"])
+
+    def test_the_page_gets_the_hidden_rows(self):
+        cal.set_timeline_hidden(["arena"])
+        state = {"loop": 1, "loopStart": cal.LAUNCH + 200 * WEEK}
+        now = state["loopStart"] + WEEK
+        with mock.patch.object(cal, "game_now", lambda s, real=None: now), mock.patch.object(cal, "entries", lambda: []):
+            self.assertEqual(cal.context(state)["timeline"]["hidden"], ["arena"])
+
+
 if __name__ == "__main__":
     unittest.main()
