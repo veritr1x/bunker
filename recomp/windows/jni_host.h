@@ -53,7 +53,6 @@ class Host {
   // owned local frame. Receiver/reference arguments are borrowed callee locals;
   // returning an object produces one fresh caller local. Temporary locals and
   // unbalanced user frames expire on return, including exceptional returns.
-  // Constructor factories have a separate ownership contract pending review.
   void DefineObjectMethod(const std::string &class_name, const std::string &name,
                           const std::string &signature, std::function<addr_t(addr_t)> handler);
   void DefineObjectMethod(const std::string &class_name,const std::string &name,const std::string &signature,
@@ -64,6 +63,10 @@ class Host {
                            std::function<bool(addr_t,const MethodArguments&)> handler);
   void DefineVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
                         std::function<void(addr_t,const MethodArguments&)> handler);
+  // Factories use the same owned frame and borrowed argument rules. Return a
+  // non-null NewInstance/NewHostInstance of the exact owner, or a Java exception.
+  // One fresh caller-local result survives cleanup; builtin StringBuilder is
+  // separate.
   void DefineConstructor(const std::string &owner,const std::string &signature,std::function<addr_t(const MethodArguments&)> factory);
   void ThrowException(const std::string &type,const std::u16string &message);
   void ThrowException(const std::string &type);

@@ -523,7 +523,10 @@ void Host::DrainCallbackFrame(ProviderLock &lock,size_t depth,std::shared_ptr<Ob
 addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,const Method &method,const MethodArguments &arguments,char kind){
   auto &thread=Current();
   if(thread.provider_locks!=1)throw std::logic_error("external Java callback requires the outer provider boundary");
-  auto handler=method.object_handler;const auto close=method.declaration.signature.find(')');
+  // N shares callback lifetime rules but accepts only the factory's exact owner
+  // and instance kind, rather than the assignable/null object-method contract.
+  const bool object_result=kind=='L'||kind=='N';
+  auto handler=method.object_handler;const auto owner=method.owner;const auto close=method.declaration.signature.find(')');
   const auto return_type=kind=='L'?method.declaration.signature.substr(close+2,method.declaration.signature.size()-close-3):std::string();
   const auto depth=thread.frames.size();thread.frames.emplace_back();
   try{thread.callback_floors.push_back(depth+1);}catch(...){thread.frames.pop_back();throw;}
@@ -535,9 +538,12 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
     lock.unlock();
     try{result=handler(callee_receiver,callee);}catch(...){failure=std::current_exception();}
     lock.lock();exception=thread.exception;
-    if(!failure&&!exception&&kind=='L'){
+    if(!failure&&!exception&&object_result){
       returned=Get(result,true);
-      if(returned&&!Assignable(returned->kind==Object::kClass?"java/lang/Class":returned->class_name,return_type))Raise("java/lang/IllegalArgumentException","host Java method returned wrong object type");
+      if(kind=='N'){
+        if(!returned&&!thread.exception)Raise("java/lang/IllegalStateException","host constructor returned null without an exception");
+        else if(returned&&(returned->kind!=Object::kInstance||returned->class_name!=owner))Raise("java/lang/IllegalArgumentException","host constructor returned the wrong class");
+      }else if(returned&&!Assignable(returned->kind==Object::kClass?"java/lang/Class":returned->class_name,return_type))Raise("java/lang/IllegalArgumentException","host Java method returned wrong object type");
       exception=thread.exception;
     }
   }catch(...){if(!lock.owns_lock())lock.lock();failure=std::current_exception();exception=thread.exception;}
@@ -546,7 +552,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   lock.unlock();handler={};receiver.reset();for(auto &argument:retained_arguments)argument.reset();lock.lock();
   DrainCallbackFrame(lock,depth,exception);
   addr_t promoted=0;
-  if(!failure&&!exception&&kind=='L'){
+  if(!failure&&!exception&&object_result){
     // Target the caller only after all temporaries retire. Restore the empty
     // boundary before any remaining root can be released or cleanup can reenter.
     auto empty=std::move(thread.frames.back());thread.frames.pop_back();
@@ -557,7 +563,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   if((failure||exception)&&promoted){RetireReference(promoted);promoted=0;DrainCallbackFrame(lock,depth,exception);}
   thread.frames.pop_back();thread.callback_floors.pop_back();
   if(failure)std::rethrow_exception(failure);
-  return exception?0:kind=='L'?promoted:kind=='Z'?(result?1:0):0;
+  return exception?0:object_result?promoted:kind=='Z'?(result?1:0):0;
 }
 addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
@@ -569,8 +575,7 @@ addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const Metho
   if(method.builtin!=Method::kBuilderConstructor){
     if(!method.object_handler)throw std::runtime_error("Java constructor has no host implementation: "+method.owner+method.declaration.signature);
     if(!ValidateArguments(method,arguments))return 0;
-    auto factory=method.object_handler;auto owner=method.owner;addr_t result;lock.unlock();try{result=factory(0,arguments);}catch(...){lock.lock();throw;}lock.lock();
-    if(Current().exception)return 0;auto object=Get(result,true);if(!object){if(!Current().exception)Raise("java/lang/IllegalStateException","host constructor returned null without an exception");return 0;}if(object->kind!=Object::kInstance||object->class_name!=owner){Raise("java/lang/IllegalArgumentException","host constructor returned the wrong class");return 0;}return Local(object);
+    return InvokeHandler(lock,{},method,arguments,'N');
   }
   auto object=std::make_shared<Object>();object->kind=Object::kBuilder;object->class_name="java/lang/StringBuilder";object->text.reserve(16);
   return Local(object);
