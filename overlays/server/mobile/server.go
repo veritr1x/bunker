@@ -223,6 +223,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	go links.Sweep()
 	// The game's Notices screen, from the notice pack the launcher copies in.
 	notices := service.NewNotices(service.NoticePackPath(assetRoot), gametime.NowMillis)
+	notices.UseCalendar(gametime.CalendarOffset, gametime.ViewOffset)
 	service.SetNotices(notices)
 	service.SetPanelWeb(notices) // the Anecdotes' official page, from the pack's web app
 	octo := links.Wrap(cdn.Handler())
