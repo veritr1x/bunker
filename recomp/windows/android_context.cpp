@@ -12,7 +12,14 @@ struct UriState {Value text;};
 struct ExtraState {LaunchExtra::Kind kind=LaunchExtra::kNull;Value text;int32_t integer=0;bool boolean=false;};
 struct BundleState {std::map<std::u16string,ExtraState> values;};
 struct IntentState {std::mutex mutex;Value action,component,data,data_string,package_selector;std::set<std::u16string> categories;uint32_t flags=0;std::shared_ptr<BundleState> extras;};
-struct ContextState {Value info,assets,package,intent,manager,code_path;};
+struct StorageState {
+  struct Cached {bool set=false;Value file;};
+  std::mutex mutex;std::u16string files,cache;
+  std::function<int32_t(const std::u16string&)> prepare;
+  Cached files_file,cache_file;
+};
+struct FileState {std::u16string path;Value text;};
+struct ContextState {Value info,assets,package,intent,manager,code_path;std::shared_ptr<StorageState> storage;};
 struct PackageState {AndroidContextConfig config;};
 struct ActivityListState {std::set<std::u16string> components;};
 Value Keep(jni::Host &host,addr_t local){auto value=host.CaptureValue(local);host.DeleteLocalReference(local);return value;}
@@ -43,6 +50,21 @@ bool KnownPackage(jni::Host &host,const PackageState &state,addr_t name){
   if(*text!=state.config.package_name){host.ThrowException("android/content/pm/PackageManager$NameNotFoundException",*text);return false;}
   return true;
 }
+addr_t InternalDirectory(jni::Host &host,const std::shared_ptr<StorageState> &storage,bool cache){
+  if(!storage->prepare){host.ThrowException("java/lang/UnsupportedOperationException",u"internal directory backing is not configured");return 0;}
+  const auto &path=cache?storage->cache:storage->files;
+  // The backing callback may block on host filesystem work or attach another
+  // JNI thread. Neither the JNI registry nor this cache lock is held here.
+  const auto status=storage->prepare(path);
+  if(status){host.ThrowException(status<0?"java/lang/IllegalStateException":"java/io/IOException",u"internal directory verification failed; Android errno="+Utf16(std::to_string(status)));return 0;}
+  auto &slot=cache?storage->cache_file:storage->files_file;Value value;bool ready;
+  {std::lock_guard lock(storage->mutex);ready=slot.set;value=slot.file;}
+  if(!ready){
+    auto file=std::make_shared<FileState>();file->path=path;file->text=Keep(host,host.NewString(path));auto candidate=Keep(host,host.NewHostInstance("java/io/File",std::move(file)));
+    {std::lock_guard lock(storage->mutex);if(!slot.set){slot.file=std::move(candidate);slot.set=true;}value=slot.file;}
+  }
+  return host.LocalValue(value);
+}
 }
 AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &config) : host_(host) {
   if (config.package_name.empty() || config.source_dir.empty() || config.source_dir.front() != u'/' ||
@@ -54,6 +76,10 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
   host.DefineClass("android/content/pm/ApplicationInfo", {}, "java/lang/Object", true);
+  // File overrides Object.toString in Android. Declare the unsupported override
+  // so virtual dispatch cannot silently substitute Object's identity formatter.
+  host.DefineClass("java/io/File",{{"toString","()Ljava/lang/String;"}},"java/lang/Object",true);
+  host.DefineClass("android/os/Environment",{},"java/lang/Object",true);
   host.DefineClass("android/content/Intent",{},"java/lang/Object",true);
   host.DefineClass("android/content/ComponentName",{},"java/lang/Object",true);
   host.DefineClass("android/os/BaseBundle",{},"java/lang/Object",true);
@@ -84,11 +110,15 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   // Reached Unity lookup abc49c/abc4a4 uses the Intent class cache130e0f8.
   // This is the SDK's actual initialized String constant, not a Java body.
   host.DefineField("android/content/Intent","ACTION_MAIN","Ljava/lang/String;",true);
+  host.DefineField("android/os/Environment","MEDIA_MOUNTED","Ljava/lang/String;",true);
   auto env=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;host.InvokeEnv(slot,s);return s.gpr.x0.qword;};
   auto manager_class=env(6,reinterpret_cast<addr_t>("android/content/pm/PackageManager"));
   for(const auto &[name,value]:std::initializer_list<std::pair<const char*,int32_t>>{{"GET_META_DATA",128},{"GET_ACTIVITIES",1},{"GET_INTENT_FILTERS",32}}){auto field=env(144,manager_class,reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>("I"));env(159,manager_class,field,static_cast<uint32_t>(value));}
   auto feature_field=env(144,manager_class,reinterpret_cast<addr_t>("FEATURE_AUDIO_LOW_LATENCY"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto feature=host.NewString(u"android.hardware.audio.low_latency");env(154,manager_class,feature_field,feature);host.DeleteLocalReference(feature);host.DeleteLocalReference(manager_class);
   auto intent_class=env(6,reinterpret_cast<addr_t>("android/content/Intent")),action_field=env(144,intent_class,reinterpret_cast<addr_t>("ACTION_MAIN"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto main=host.NewString(u"android.intent.action.MAIN");env(154,intent_class,action_field,main);auto main_action=Keep(host,main);host.DeleteLocalReference(intent_class);
+  auto environment=env(6,reinterpret_cast<addr_t>("android/os/Environment")),mounted_field=env(144,environment,reinterpret_cast<addr_t>("MEDIA_MOUNTED"),reinterpret_cast<addr_t>("Ljava/lang/String;")),mounted=host.NewString(u"mounted");env(154,environment,mounted_field,mounted);host.DeleteLocalReference(mounted);host.DeleteLocalReference(environment);
+  auto unmounted=Keep(host,host.NewString(u"unmounted"));
+  host.DefineStaticObjectMethod("android/os/Environment","getExternalStorageState","()Ljava/lang/String;",[&host,unmounted](addr_t,const jni::Host::MethodArguments&){return host.LocalValue(unmounted);});
   auto global = [&](addr_t local) { auto result = host.NewGlobalReference(local); host.DeleteLocalReference(local); return result; };
   info_ = global(ApplicationInfo(host,config,true));
   assets_ = global(CreateJavaAssets(host,config.apk_assets));
@@ -104,6 +134,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
     for(auto &[name,extra]:config.launch_extras){if(extra.kind<LaunchExtra::kNull||extra.kind>LaunchExtra::kBoolean)throw std::invalid_argument("unsupported configured Intent extra type");ExtraState value;value.kind=extra.kind;value.integer=extra.integer;value.boolean=extra.boolean;if(extra.kind==LaunchExtra::kString)value.text=Keep(host,host.NewString(extra.text));intent->extras->values.emplace(name,std::move(value));}
   }
   auto state=std::make_shared<ContextState>();state->info=host.CaptureValue(info_);state->assets=host.CaptureValue(assets_);state->package=host.CaptureValue(package_);
+  state->storage=std::make_shared<StorageState>();auto base=config.data_dir;while(base.size()>1&&base.back()==u'/')base.pop_back();if(base.back()!=u'/')base+=u'/';state->storage->files=base+u"files";state->storage->cache=base+u"cache";state->storage->prepare=config.prepare_internal_directory;
   // LoadedApk stores its installed app path independently of the public mutable
   // ApplicationInfo record. Snapshot the original immutable String object.
   state->code_path=Keep(host,host.GetObjectFieldValue(info_,"sourceDir","Ljava/lang/String;"));
@@ -111,6 +142,11 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   state->intent=Keep(host,host.NewHostInstance("android/content/Intent",intent));activity_=global(host.NewHostInstance(config.activity_class,state));
   host.DefineObjectMethod("android/content/Context","getApplicationInfo","()Landroid/content/pm/ApplicationInfo;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->info):0;});
   host.DefineObjectMethod("android/content/Context","getPackageCodePath","()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->code_path):0;});
+  for(bool cache:{false,true})host.DefineObjectMethod("android/content/Context",cache?"getCacheDir":"getFilesDir","()Ljava/io/File;",[&host,cache](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?InternalDirectory(host,state->storage,cache):0;});
+  host.DefineObjectMethod("android/content/Context","getExternalFilesDir","(Ljava/lang/String;)Ljava/io/File;",[&host](addr_t object,const jni::Host::MethodArguments&){host.ReadHostState<ContextState>(object);return addr_t(0);});
+  host.DefineObjectMethod("android/content/Context","getExternalCacheDir","()Ljava/io/File;",[&host](addr_t object){host.ReadHostState<ContextState>(object);return addr_t(0);});
+  for(const char *method:{"getPath","getAbsolutePath"})host.DefineObjectMethod("java/io/File",method,"()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<FileState>(object);return state?host.LocalValue(state->text):0;});
+  host.DefineObjectMethod("java/io/File","getParent","()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<FileState>(object);if(!state)return addr_t(0);auto at=state->path.find_last_of(u'/');return at==std::u16string::npos||state->path==u"/"?0:host.NewString(state->path.substr(0,at?at:1));});
   host.DefineObjectMethod("android/content/Context","getPackageManager","()Landroid/content/pm/PackageManager;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->manager):0;});
   host.DefineObjectMethod("android/content/pm/PackageManager","getPackageInfo","(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;",[&host](addr_t object,const jni::Host::MethodArguments &args){
     auto state=host.ReadHostState<PackageState>(object);if(!state||!KnownPackage(host,*state,args[0]))return addr_t(0);

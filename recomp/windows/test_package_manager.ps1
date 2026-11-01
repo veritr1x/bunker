@@ -1,12 +1,13 @@
-param([string]$BuildDirectory=(Join-Path $PSScriptRoot '..\work\windows-package-manager'),[string]$ApkMetadata=(Join-Path $PSScriptRoot '..\work\windows-files'),[string]$ZlibDirectory=(Join-Path $PSScriptRoot '..\work\zlib-native'),[string]$Cxx='C:\mingw64\bin\g++.exe',[string]$Cc='C:\mingw64\bin\gcc.exe',[switch]$IntentResolver,[switch]$PackageCodePath)
+param([string]$BuildDirectory=(Join-Path $PSScriptRoot '..\work\windows-package-manager'),[string]$ApkMetadata=(Join-Path $PSScriptRoot '..\work\windows-files'),[string]$ZlibDirectory=(Join-Path $PSScriptRoot '..\work\zlib-native'),[string]$Cxx='C:\mingw64\bin\g++.exe',[string]$Cc='C:\mingw64\bin\gcc.exe',[switch]$IntentResolver,[switch]$PackageCodePath,[switch]$Storage)
 $ErrorActionPreference='Stop';$taskBuild=(Resolve-Path -LiteralPath $BuildDirectory).ProviderPath;$taskApk=(Resolve-Path -LiteralPath $ApkMetadata).ProviderPath
 $taskManifest=Get-Content -Raw (Join-Path $taskBuild 'guest\manifest.json')|ConvertFrom-Json
 if($taskManifest.base -ne 0x74000000 -or $taskManifest.target -ne 'x86_64-w64-windows-gnu' -or $taskManifest.unsupported_traces.Count -or $taskManifest.unresolved_direct_targets.Count){throw 'Incomplete PackageManager fixture'}
 $taskLoader=Join-Path $taskBuild 'elfload.o'; & $Cc '-O2' '-c' (Join-Path $PSScriptRoot '..\fastaes\elfload.c') '-o' $taskLoader
 if($LASTEXITCODE){throw 'Loader compilation failed'}
-if($IntentResolver -and $PackageCodePath){throw 'Select only one isolated PackageManager fixture'}
-$taskTest=if($IntentResolver){'intent_resolver'}elseif($PackageCodePath){'package_code_path'}else{'package_manager'}
+if(([int][bool]$IntentResolver+[int][bool]$PackageCodePath+[int][bool]$Storage) -gt 1){throw 'Select only one isolated PackageManager fixture'}
+$taskTest=if($IntentResolver){'intent_resolver'}elseif($PackageCodePath){'package_code_path'}elseif($Storage){'android_storage'}else{'package_manager'}
 $taskArgs=@('-std=c++17','-O2','-Wall','-Wextra','-Wno-unknown-pragmas','-DADDRESS_SIZE_BITS=64',"-I$PSScriptRoot\..\work\remill-src\include","-I$taskBuild\guest","-I$taskApk","-DPACKAGE_IMAGE=`"$($taskBuild.Replace('\','/'))/package.so`"",(Join-Path $PSScriptRoot ($taskTest+'_test.cpp')),(Join-Path $PSScriptRoot 'android_context.cpp'),(Join-Path $PSScriptRoot 'jni_host.cpp'),(Join-Path $PSScriptRoot '..\whole\runtime.cpp'),$taskLoader,"-I$ZlibDirectory\zlib-1.3.2",(Join-Path $PSScriptRoot 'android_assets.cpp'),(Join-Path $PSScriptRoot 'apk_assets.cpp'))
+if($Storage){$taskArgs+=@("-DSTORAGE_TEST_DIRECTORY=`"$($taskBuild.Replace('\','/'))/internal-storage`"",(Join-Path $PSScriptRoot 'android_internal_storage.cpp'),(Join-Path $PSScriptRoot 'filesystem.cpp'),'-ladvapi32')}
 foreach($taskObject in $taskManifest.objects){$taskArgs+=Join-Path $taskBuild "guest\$(Split-Path -Leaf $taskObject)"}
 $taskExe=Join-Path $taskBuild ('test-'+$taskTest+'.exe');$taskArgs+=@((Join-Path $ZlibDirectory 'libz-inflate.a'),'-static','-latomic','-o',$taskExe)
 & $Cxx @taskArgs;if($LASTEXITCODE){throw 'PackageManager compilation failed'}

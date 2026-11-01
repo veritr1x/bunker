@@ -502,8 +502,38 @@ Read-only exact boot/file API evidence is in
 `java-startup/boot-file-prerequisites.json`: prctl(PR_SET_NAME,"UnityMain")
 precedes the code-path request, and the later files/cache selection requires
 Context directory getters, Environment storage state, String.equals and File
-path getters. Directory objects/storage effects are a separate implementation
-gate; no arbitrary getDir or Java mkdirs facade is implied by those literals.
+path getters. No arbitrary getDir or Java mkdirs facade is implied by those
+literals; the bounded internal directory profile is described next.
+
+`AndroidContextConfig::prepare_internal_directory` is optional; missing backing
+fails explicitly. It receives only derived absolute files/cache paths and runs
+outside JNI/cache locks. Return0 means a real directory was verified; failures
+use positive Android errno values. Each Context getter revalidates before
+returning a cached typed File with a fresh caller-local reference. A failed
+verification never returns the cached File. File.getPath/getAbsolutePath expose
+the virtual Android path, and getParent uses Android slash syntax. File's
+unsupported toString override is declared so Object formatting cannot invent
+replacement behavior.
+
+`MakeInternalDirectoryPreparer` supplies the actual bootstrap callback using
+only rooted FileSystem.Mkdir/Stat. The mounted parent must exist. It creates
+the exact files/cache child with the owner-private Windows policy, accepting
+EEXIST only after Stat proves a directory. Existing files, read-only/unmounted
+roots and arbitrary paths fail. This does not emulate Android chmod, UID/group
+ownership, cache xattrs or a stable filesystem lease. External directory getters
+return null and Environment.getExternalStorageState returns the virtual
+profile's unmounted state. The selector's String.equals(Object) now compares
+checked UTF16 values. Generic static object handlers share instance handlers'
+argument/ref rules; Class.forName retains its initialization/loader checks.
+
+The `-Storage` mode of `test_package_manager.ps1` passes220 JNI/static/String/
+ref/thread checks on both native hosts through19 strict NDK traces, with an
+explicitly injected verifier. A separate13 checks on native Windows exercise
+the actual rooted Mkdir/Stat callback, including real NDK Context calls. These
+labels distinguish dispatch from real backing/ACL evidence. Existing JNI36,
+Context14, ClassLoader109, StringBuilder66, assets65, PackageManager107,
+code-path25, Intent83, tracked-memory6 and original libmain JNI_OnLoad regressions
+remain passing. No native frame is claimed while the audio endpoint is absent.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact

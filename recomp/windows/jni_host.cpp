@@ -72,7 +72,7 @@ struct Host::Reference {
   std::shared_ptr<Object> Lock() const { return kind == 3 ? weak.lock() : strong; }
 };
 struct Host::Method {
-  enum Builtin { kNone, kClassLoader, kForName, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString,
+  enum Builtin { kNone, kClassLoader, kForName, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString, kStringEquals,
     kBuilderConstructor, kBuilderAppend, kBuilderString } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
@@ -108,7 +108,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
       {"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;", true}}, "java/lang/Object", true);
   DefineClass("java/lang/ClassLoader", {}, "java/lang/Object", true);
   DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
-  DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"}}, "java/lang/Object", true);
+  DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"}}, "java/lang/Object", true);
   DefineClass("java/lang/AbstractStringBuilder", {}, "java/lang/Object", true);
   DefineClass("java/lang/StringBuilder", {{"<init>","()V"},{"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"},{"toString","()Ljava/lang/String;"}}, "java/lang/AbstractStringBuilder", true);
   classes_.at("java/lang/StringBuilder")->methods.at({"<init>","()V"})->builtin=Method::kBuilderConstructor;
@@ -129,6 +129,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
     DefineClass(name, {}, superclass, true);
   auto builtin=[&](const char *owner,const char *name,Method::Builtin kind){classes_.at(owner)->methods.at({name,"()Ljava/lang/String;"})->builtin=kind;};
   builtin("java/lang/Object","toString",Method::kObjectString);builtin("java/lang/String","toString",Method::kStringString);
+  auto &equals=*classes_.at("java/lang/String")->methods.at({"equals","(Ljava/lang/Object;)Z"});equals.builtin=Method::kStringEquals;equals.argument_types={"Ljava/lang/Object;"};
   builtin("java/lang/Throwable","toString",Method::kThrowableString);builtin("java/lang/Throwable","getMessage",Method::kMessage);builtin("java/lang/Throwable","getLocalizedMessage",Method::kLocalizedMessage);
   classes_.at("java/lang/Class")->methods.at({"getClassLoader", "()Ljava/lang/ClassLoader;"})->builtin = Method::kClassLoader;
   classes_.at("java/lang/Class")->methods.at({"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;"})->builtin = Method::kForName;
@@ -181,6 +182,8 @@ void Host::DefineObjectMethod(const std::string &class_name, const std::string &
 }
 void Host::DefineObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
                               std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler));}
+void Host::DefineStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                                    std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler),true);}
 void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                std::function<bool(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing boolean handler");
@@ -195,7 +198,7 @@ void Host::DefineConstructor(const std::string &owner,const std::string &signatu
 void Host::ThrowException(const std::string &type,const std::u16string &message){std::lock_guard lock(mutex_);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,Encode(message));}
 void Host::ThrowException(const std::string &type){std::lock_guard lock(mutex_);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,"",false);}
 void Host::DefineHandler(const std::string &class_name,const std::string &name,const std::string &signature,char result,
-                         std::function<addr_t(addr_t,const MethodArguments&)> handler){
+                         std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static){
   std::lock_guard lock(mutex_);
   auto clazz = classes_.find(class_name);
   if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
@@ -212,7 +215,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
   if (found != clazz->second->methods.end()) throw std::invalid_argument("duplicate host method");
-  auto method = std::make_unique<Method>(); method->declaration = {name, signature, false, false};
+  auto method = std::make_unique<Method>(); method->declaration = {name, signature, is_static, false};
   method->owner = class_name; method->id = next_method_++; method->object_handler = std::move(handler);
   method->argument_types=std::move(arguments);
   method_ids_[method->id] = method.get(); clazz->second->methods.emplace(key, std::move(method));
@@ -410,6 +413,11 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   if(metadata.builtin==Method::kStringString){
     if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}return Local(object);
   }
+  if(metadata.builtin==Method::kStringEquals){
+    if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}
+    auto argument=Get(arguments[0],true);if(Current().exception)return 0;
+    return argument&&argument->kind==Object::kString&&object->text==argument->text;
+  }
   if(metadata.builtin==Method::kMessage||metadata.builtin==Method::kLocalizedMessage||metadata.builtin==Method::kThrowableString){
     if(object->kind!=Object::kThrowable){Raise("java/lang/UnsupportedOperationException","Throwable object has no initialized throwable state");return 0;}
     if(metadata.builtin==Method::kMessage)return object->message_present?NewString(Decode(object->message.c_str())):0;
@@ -601,7 +609,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 61: case 62: case 63: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot-27,count,args)?CallObject(lock,a,b,false,args,'V'):0;return;}
     case 114: case 115: case 116: {
       std::array<addr_t, 3> args{};
-      auto method=method_ids_.find(b);size_t count=method!=method_ids_.end()&&method->second->builtin==Method::kForName?3:0;
+      auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->builtin==Method::kForName?3:method->second->argument_types.size();
       s.gpr.x0.qword=Arguments(s,slot,count,args)?CallObject(lock,a,b,true,args):0;return;
     }
     case 94: case 144: s.gpr.x0.qword = FieldId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 144); return;
