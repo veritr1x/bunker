@@ -536,11 +536,25 @@ def cap_table(blob, columns, latest):
     return 0
 
 
-# The final game data dates when 33 characters (the starting cast among them)
-# appear in character lists such as Enhance: 2022 on, when its list settings
-# came. The live game listed them from launch; with the original dates (2021)
-# the lists were empty. They are listed from launch.
-LISTED_FROM_LAUNCH = {"m_character": ("ListSettingDisplayStartDatetime",)}
+# Tables the calendar doesn't move are all in the past in a loop's dates (2026
+# on): every character listed, every story chapter open. The copy for "Show
+# original dates" (2021 on, view=True) caps their start dates at launch so
+# the game behaves the same: the final game data lists 33 characters (the
+# starting cast among them) only from 2022, and Enhance > Characters was
+# empty. m_catalog_term keeps its dates: the server compares it in the live
+# service's dates too (summon notices).
+VIEW_FROM_LAUNCH = {
+    "m_character": ("ListSettingDisplayStartDatetime",),
+    "m_list_setting_ability_group": ("ListSettingDisplayStartDatetime",),
+    "m_parts_series": ("ListSettingDisplayStartDatetime",),
+    "m_main_quest_chapter": ("StartDatetime",),
+    "m_character_viewer_field": ("PublishDatetime",),
+    "m_costume_lottery_effect_release_schedule": ("ReleaseDatetime",),
+    "m_possession_acquisition_route": ("StartDatetime",),
+    "m_navi_cut_in": ("StartDatetime",),
+    "m_appeal_dialog": ("StartDatetime",),
+    "m_stained_glass": ("EmptyDisplayStartDatetime", "LockDisplayStartDatetime"),
+}
 
 
 def read_master(path):
@@ -574,8 +588,9 @@ def _read(toc, blob, changed, schemas, table, *names):
     return out
 
 
-def build_master(origin, output, offset):
-    """Writes origin's game data with rotating content moved forward by offset."""
+def build_master(origin, output, offset, view=False):
+    """Writes origin's game data with rotating content moved forward by offset;
+    view: the copy for "Show original dates" (VIEW_FROM_LAUNCH)."""
     import msgpack
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import pad
@@ -595,7 +610,7 @@ def build_master(origin, output, offset):
             continue
         columns = {index for index, kind, name in schemas[table][1] if kind == "long" and "Datetime" in name}
         moved += pm.apply_to_table(toc, blob, changed, table, lambda b: shift_table(b, columns, offset)) or 0
-    for table, names in LISTED_FROM_LAUNCH.items():
+    for table, names in (VIEW_FROM_LAUNCH if view else {}).items():
         if table in toc and table in schemas:
             columns = {index for index, kind, name in schemas[table][1] if name in names}
             pm.apply_to_table(toc, blob, changed, table, lambda b, c=columns: cap_table(b, c, LAUNCH))
@@ -648,7 +663,7 @@ def view_file():
 
 
 # Bumped when the copy's build changes, so a copy built before is rebuilt
-# (refresh_view): 2 lists characters from launch (LISTED_FROM_LAUNCH).
+# (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH).
 VIEW_VERSION = "2"
 
 
@@ -658,7 +673,7 @@ def view_version_file():
 
 def build_view():
     pending = view_file().with_suffix(".tmp")
-    build_master(origin_file(), pending, 0)
+    build_master(origin_file(), pending, 0, view=True)
     os.replace(pending, view_file())
     view_version_file().write_text(VIEW_VERSION)
 
