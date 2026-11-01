@@ -14,6 +14,14 @@ under its heading, down to the previous release.
 - Long-pressing the app icon offers **Open the Bunker menu** (**Bunker menu**
   on iOS), which opens the launcher without starting the game. [df27920]
 
+### Server
+- Story weapons are no longer sent to the Gift Box when weapon storage is
+  full. A player who had filled it with early summons got Rion's weapon
+  (quest 2) as a gift, and **Select** in the chapter 2 loadout tutorial
+  did nothing. First-clear weapons and parts now always go to the
+  inventory, and a story weapon already sent to the Gift Box this way is
+  moved back to the inventory when the game starts. [ff95fea]
+
 ## 1.4.4 (2026-10-31)
 
 Flying Mama plays at its normal speed above 30 fps, and the Dark Memory
