@@ -25,6 +25,8 @@ under its heading, down to the previous release.
   starts, Rion's weapon is also put back in Rion's empty main weapon slot in
   the first loadout, which the tutorial had set up while the weapon was in
   the Gift Box. [4577dc2]
+- **To Quests** on the Dark Memory chapter summon opens EX Character Quests
+  instead of stopping on an empty Quests screen. [229aabf]
 
 ## 1.4.4 (2026-10-31)
 
