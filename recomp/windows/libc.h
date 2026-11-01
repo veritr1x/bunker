@@ -7,7 +7,7 @@
 #include "../whole/runtime.h"
 
 namespace bunker::windows {
-// C-locale, Android LP64 scalar libc. Platform I/O, locale objects, wide strings,
+// Android LP64 scalar libc with Bionic C/C.UTF-8 locale objects. Platform I/O, wide strings,
 // pthreads and stdio are deliberately provided elsewhere or remain unresolved.
 // Keep this object alive until its imports and guest callbacks are finished.
 class LibC {
@@ -32,9 +32,14 @@ class LibC {
   uint64_t ParseInteger(const char *, char **, int base, bool is_signed);
   int RegisterExit(addr_t callback, addr_t argument, addr_t dso, bool plain = false);
   void Finalize(addr_t dso = 0);
+  addr_t NewLocale(int32_t mask, const char *name, addr_t base);
+  void FreeLocale(addr_t locale);
+  addr_t UseLocale(addr_t locale);
+  uint64_t LocaleMbCurMax();
  private:
   struct Aligned { void *base; uint64_t size, alignment; };
   struct Exit { addr_t callback, argument, dso; bool plain, called; };
+  struct Locale { uint64_t *storage; bool active; };
   void *AlignedAllocate(uint64_t alignment, uint64_t size, bool set_errno);
   void BuildEnvironment();
   void Fail(int error) noexcept;
@@ -50,6 +55,8 @@ class LibC {
   char **environment_array_ = nullptr;
   char **environment_slot_ = nullptr;
   std::string abort_message_;
+  std::map<addr_t, Locale> locales_;
+  uint64_t locale_owner_;
   addr_t marker_base_;
   bool installed_ = false;
 };

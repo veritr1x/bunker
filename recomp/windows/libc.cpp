@@ -2,6 +2,7 @@
 #include "../whole/bridge.h"
 #include "provider_memory.h"
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -23,6 +24,9 @@ namespace bunker::windows {
 namespace pm=provider_memory;
 namespace {
 thread_local int guest_error;
+std::atomic<uint64_t> next_locale_owner{1};
+thread_local std::map<uint64_t, addr_t> current_locales;
+constexpr addr_t global_locale = UINT64_MAX;
 const char *const imports[] = {
   "malloc", "calloc", "realloc", "free", "memalign", "posix_memalign", "aligned_alloc",
   "memcpy", "memmove", "memset", "memcmp", "memchr", "memrchr",
@@ -35,7 +39,8 @@ const char *const imports[] = {
   "__stack_chk_fail", "abort", "exit", "android_set_abort_message", "__ctype_get_mb_cur_max",
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
-  "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize"
+  "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
+  "newlocale", "freelocale", "uselocale"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -58,11 +63,67 @@ template <typename T> auto ParseFloating(const char *input,char **end){
 }
 LibC::LibC(Runner runner,addr_t base):runner_(std::move(runner)),marker_base_(base) {
   if((base&7)||base>UINT64_MAX-sizeof(imports)/sizeof(*imports)*8)throw std::invalid_argument("invalid libc marker base");
+  locale_owner_=next_locale_owner.fetch_add(1);
+  if(!locale_owner_)throw std::overflow_error("locale provider identity exhausted");
   BuildEnvironment();
 }
 LibC::~LibC(){
+  for(const auto &entry:locales_)Free(entry.second.storage);
+  current_locales.erase(locale_owner_);
   recomp::InvalidateGuestMemory(pm::Address(&environment_slot_),sizeof(environment_slot_));
   Free(environment_array_);for(auto text:environment_strings_)Free(text);
+}
+addr_t LibC::NewLocale(int32_t mask,const char *name,addr_t /*base*/){
+  // Android 13 LC_ALL_MASK excludes the LC_ALL pseudo-category bit (6).
+  // Bionic ignores base, even for a zero category mask, and allocates afresh.
+  if((uint32_t(mask)&~UINT32_C(0x1fbf))||!name){Fail(22);return 0;}
+  auto text=pm::String(name);
+  if(text!=""&&text!="C"&&text!="POSIX"&&text!="C.UTF-8"&&text!="en_US.UTF-8"){
+    Fail(2);return 0;
+  }
+  const uint64_t maximum=(text.empty()||text.find("UTF-8")!=std::string::npos)?4:1;
+  auto storage=static_cast<uint64_t*>(Malloc(sizeof(uint64_t)));
+  if(!storage)return 0;
+  try{
+    pm::Write(storage,maximum);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    locales_.emplace(pm::Address(storage),Locale{storage,true});
+  }catch(const std::bad_alloc&){Free(storage);Fail(12);return 0;}
+  catch(...){Free(storage);throw;}
+  return pm::Address(storage);
+}
+void LibC::FreeLocale(addr_t locale){
+  if(!locale)return;
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  auto found=locales_.find(locale);
+  if(found==locales_.end()||!found->second.active)
+    throw std::invalid_argument("freelocale requires an active locale owned by this provider");
+  // Quarantine backing storage until shutdown: stale handles never alias a
+  // newly created locale. The public API rejects the retired identity.
+  recomp::InvalidateGuestMemory(locale,sizeof(uint64_t));
+  found->second.active=false;
+}
+addr_t LibC::UseLocale(addr_t locale){
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if(locale&&locale!=global_locale){
+    auto found=locales_.find(locale);
+    if(found==locales_.end()||!found->second.active)
+      throw std::invalid_argument("uselocale requires an active locale owned by this provider");
+  }
+  auto old=current_locales.find(locale_owner_);
+  const addr_t previous=old==current_locales.end()?global_locale:old->second;
+  if(locale)current_locales[locale_owner_]=locale;
+  return previous;
+}
+uint64_t LibC::LocaleMbCurMax(){
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  const auto locale=UseLocale(0);
+  // Android starts in C.UTF-8; no host process locale is consulted or changed.
+  if(locale==global_locale)return 4;
+  auto found=locales_.find(locale);
+  if(found==locales_.end()||!found->second.active)
+    throw std::invalid_argument("current locale has been retired");
+  return pm::Read(found->second.storage);
 }
 int LibC::Error()const{return guest_error;}
 void LibC::Fail(int error)noexcept{guest_error=error;if(error_sink_)try{error_sink_(error);}catch(...){}}
@@ -278,7 +339,7 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<void()>(runtime,"abort",[this]{Fatal("abort");});
   Add<void(int32_t)>(runtime,"exit",[this](auto code){Finalize();std::exit(code);});
   Add<void(const char*)>(runtime,"android_set_abort_message",[this](auto s){auto message=s?pm::String(s):std::string();std::lock_guard<std::recursive_mutex> lock(mutex_);abort_message_=std::move(message);});
-  Add<uint64_t()>(runtime,"__ctype_get_mb_cur_max",[]{return UINT64_C(1);});
+  Add<uint64_t()>(runtime,"__ctype_get_mb_cur_max",[this]{return LocaleMbCurMax();});
 #define MATH1(name,type) Add<type(type)>(runtime,#name,[this](type x){auto r=Math([](type v){return ::name(v);},x);if(r.second)Fail(r.second==EDOM?33:34);return r.first;})
 #define MATH2(name,type) Add<type(type,type)>(runtime,#name,[this](type x,type y){auto r=Math([](type a,type b){return ::name(a,b);},x,y);if(r.second)Fail(r.second==EDOM?33:34);return r.first;})
   MATH1(sin,double);MATH1(sinf,float);MATH1(cos,double);MATH1(cosf,float);MATH1(tan,double);MATH1(tanf,float);
@@ -303,6 +364,9 @@ void LibC::Install(recomp::Runtime &runtime){
 #endif
     if(!(size>0&&size<=INT32_MAX))Fatal("invalid host memory page size");return static_cast<int32_t>(size);
   });
+  Add<addr_t(int32_t,const char*,addr_t)>(runtime,"newlocale",[this](auto mask,auto name,auto base){return NewLocale(mask,name,base);});
+  Add<void(addr_t)>(runtime,"freelocale",[this](auto locale){FreeLocale(locale);});
+  Add<addr_t(addr_t)>(runtime,"uselocale",[this](auto locale){return UseLocale(locale);});
   installed_=true;
 }
 }  // namespace bunker::windows
