@@ -57,3 +57,16 @@ func TestVersionChangesWithTheView(t *testing.T) {
 		t.Fatalf("same version %s in both modes", on.LatestMasterDataVersion)
 	}
 }
+
+// The summon details page prints its dates in the original-dates view too.
+func TestGachaDetailsDateInTheView(t *testing.T) {
+	at := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC).UnixMilli()
+	setOriginalDates(t, false)
+	if day(at) != "2026/11/20" {
+		t.Fatalf("view off: %s", day(at))
+	}
+	setOriginalDates(t, true)
+	if day(at) != time.UnixMilli(at-100*7*24*3600*1000).UTC().Format("2006/01/02") {
+		t.Fatalf("view on: %s", day(at))
+	}
+}
