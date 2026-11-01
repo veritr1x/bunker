@@ -72,7 +72,7 @@ struct Host::Reference {
   std::shared_ptr<Object> Lock() const { return kind == 3 ? weak.lock() : strong; }
 };
 struct Host::Method {
-  enum Builtin { kNone, kClassLoader, kForName, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString, kStringEquals,
+  enum Builtin { kNone, kClassLoader, kForName, kObjectClass, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString, kStringEquals,
     kBuilderConstructor, kBuilderAppend, kBuilderString } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
@@ -103,7 +103,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   for (size_t i = 4; i < env_table_.size(); ++i) env_table_[i] = EnvMarker(i);
   for (size_t i = 3; i < vm_table_.size(); ++i) vm_table_[i] = VmMarker(i);
   vm_word_ = reinterpret_cast<addr_t>(vm_table_.data());
-  DefineClass("java/lang/Object", {{"toString", "()Ljava/lang/String;"}}, "", true);
+  DefineClass("java/lang/Object", {{"toString", "()Ljava/lang/String;"},{"getClass","()Ljava/lang/Class;"}}, "", true);
   DefineClass("java/lang/Class", {{"getClassLoader", "()Ljava/lang/ClassLoader;"},
       {"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;", true}}, "java/lang/Object", true);
   DefineClass("java/lang/ClassLoader", {}, "java/lang/Object", true);
@@ -128,6 +128,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
       {"java/lang/NoSuchFieldError","java/lang/IncompatibleClassChangeError"},{"java/lang/UnsatisfiedLinkError","java/lang/LinkageError"}})
     DefineClass(name, {}, superclass, true);
   auto builtin=[&](const char *owner,const char *name,Method::Builtin kind){classes_.at(owner)->methods.at({name,"()Ljava/lang/String;"})->builtin=kind;};
+  classes_.at("java/lang/Object")->methods.at({"getClass","()Ljava/lang/Class;"})->builtin=Method::kObjectClass;
   builtin("java/lang/Object","toString",Method::kObjectString);builtin("java/lang/String","toString",Method::kStringString);
   auto &equals=*classes_.at("java/lang/String")->methods.at({"equals","(Ljava/lang/Object;)Z"});equals.builtin=Method::kStringEquals;equals.argument_types={"Ljava/lang/Object;"};
   builtin("java/lang/Throwable","toString",Method::kThrowableString);builtin("java/lang/Throwable","getMessage",Method::kMessage);builtin("java/lang/Throwable","getLocalizedMessage",Method::kLocalizedMessage);
@@ -161,6 +162,7 @@ void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> m
   for (auto &declaration : methods) {
     if (declaration.name.empty() || declaration.signature.empty() || declaration.signature.front() != '(')
       throw std::invalid_argument("invalid method declaration");
+    if(name!="java/lang/Object"&&declaration.name=="getClass"&&declaration.signature=="()Ljava/lang/Class;")throw std::invalid_argument("java.lang.Object.getClass() is final; catalog override/hiding is invalid");
     auto key = std::make_pair(declaration.name, declaration.signature);
     if (clazz->methods.count(key)) throw std::invalid_argument("duplicate method declaration");
     auto method = std::make_unique<Method>(); method->declaration = std::move(declaration); method->id = next_method_++; method->owner = name;
@@ -202,6 +204,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   std::lock_guard lock(mutex_);
   auto clazz = classes_.find(class_name);
   if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
+  if(class_name!="java/lang/Object"&&name=="getClass"&&signature=="()Ljava/lang/Class;")throw std::invalid_argument("java.lang.Object.getClass() is final; catalog override/hiding is invalid");
   std::vector<std::string> arguments;size_t at=1;
   while(at<signature.size()&&signature[at]!=')'){
     if(arguments.size()==3)throw std::invalid_argument("host handlers support at most three fixed arguments");
@@ -385,6 +388,11 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
 bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,type.substr(1,type.size()-2))){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
+addr_t Host::ObjectClass(const std::shared_ptr<Object> &object){
+  const auto &name=object->kind==Object::kClass?std::string("java/lang/Class"):object->class_name;
+  auto found=classes_.find(name);if(found==classes_.end()){Raise("java/lang/NoClassDefFoundError",name);return 0;}
+  return Local(found->second->object);
+}
 addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,char expected_result) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
@@ -401,6 +409,7 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   auto &metadata=*selected;
   auto close=metadata.declaration.signature.find(')');char result_kind=close==std::string::npos||close+1==metadata.declaration.signature.size()?0:metadata.declaration.signature[close+1];
   if(result_kind!=expected_result||metadata.declaration.name=="<init>"){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch or constructor requires NewObject");return 0;}
+  if(metadata.builtin==Method::kObjectClass)return ObjectClass(object);
   if(metadata.builtin==Method::kBuilderAppend||metadata.builtin==Method::kBuilderString){
     if(object->kind!=Object::kBuilder){Raise("java/lang/UnsupportedOperationException","StringBuilder constructor has not initialized this object");return 0;}
     if(metadata.builtin==Method::kBuilderString)return object->text.empty()?Local(empty_string_):NewString(object->text);
@@ -599,7 +608,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 25: s.gpr.x0.qword = Ref(a, 1); return;
     case 26: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else IntResult(s, kOk); return;
     case 28: case 29: case 30: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot,count,args)?Construct(lock,a,b,args):0;return;}
-    case 31: { auto object = Get(a); if (!object) { s.gpr.x0.qword = 0; return; } s.gpr.x0.qword = Local(classes_.at(object->kind == Object::kClass ? "java/lang/Class" : object->class_name)->object); return; }
+    case 31: { auto object=Get(a);s.gpr.x0.qword=object?ObjectClass(object):0;return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
     case 33: case 113: s.gpr.x0.qword = MethodId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 113); return;
     case 34: case 35: case 36: case 37: case 38: case 39: {

@@ -535,6 +535,20 @@ Context14, ClassLoader109, StringBuilder66, assets65, PackageManager107,
 code-path25, Intent83, tracked-memory6 and original libmain JNI_OnLoad regressions
 remain passing. No native frame is claimed while the audio endpoint is absent.
 
+Object.getClass()Class is now a builtin sharing the checked GetObjectClass
+class-resolution helper. String objects resolve to String.class, Class objects
+to Class.class, and inherited instances to their actual declared runtime class.
+Each call returns a fresh caller-local reference without initializing the
+application class. The catalog rejects only explicit override/static hiding of
+the exact final Object.getClass signature; other-argument overloads remain
+distinct. This is not general Java verifier/final-class enforcement.
+`test_package_manager.ps1 -ObjectClass` passes76 checks on both hosts through20
+strict NDK traces, comparing direct/V/A calls to NDK GetObjectClass and covering
+class identity, null/stale/weak/global/frame/thread reference rules. The array
+case is an explicitly registered typed host fixture; JNI NewByteArray remains
+unsupported. Callback-local-frame promotion is a separate ownership fix and is
+not implied by this builtin.
+
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
 DEX method offsets/signatures: the Activity constructs UnityPlayer, whose

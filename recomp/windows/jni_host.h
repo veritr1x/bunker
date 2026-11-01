@@ -108,6 +108,7 @@ class Host {
   std::shared_ptr<Object> Get(addr_t reference, bool allow_null = false);
   std::shared_ptr<Object> String(addr_t reference);
   Class *GetClass(addr_t reference);
+  addr_t ObjectClass(const std::shared_ptr<Object> &object);
   void Delete(addr_t reference, unsigned kind);
   addr_t Ref(addr_t reference, unsigned kind);
   addr_t MethodId(addr_t clazz, const char *name, const char *signature, bool is_static);

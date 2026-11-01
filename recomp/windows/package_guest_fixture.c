@@ -19,3 +19,4 @@ jobject package_construct(JNIEnv *e,jclass c,jmethodID m,jobject a,int mode){if(
 jboolean package_empty(JNIEnv *e,jobject o,jmethodID m,int mode){if(mode==0)return (*e)->CallBooleanMethod(e,o,m);if(mode==1)return bv(e,o,m);return (*e)->CallBooleanMethodA(e,o,m,0);}
 jobject package_static_zero(JNIEnv *e,jclass c,jmethodID m,int mode){if(mode==0)return (*e)->CallStaticObjectMethod(e,c,m);if(mode==1)return sv(e,c,m);return (*e)->CallStaticObjectMethodA(e,c,m,0);}
 jobject package_static_three(JNIEnv *e,jclass c,jmethodID m,jobject a,jint b,jobject d,int mode){if(mode==0)return (*e)->CallStaticObjectMethod(e,c,m,a,b,d);if(mode==1)return sv(e,c,m,a,b,d);if(mode==3)return split_static(e,c,m,1,2,3,4,a,b,d);jvalue v[3];v[0].l=a;v[1].j=(jlong)0xccccccccccccccccULL;v[1].i=b;v[2].l=d;return (*e)->CallStaticObjectMethodA(e,c,m,v);}
+jclass package_object_class(JNIEnv *e,jobject object){return (*e)->GetObjectClass(e,object);}
