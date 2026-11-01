@@ -8,9 +8,11 @@
  * Loads the IL2CPP API through resolve ("il2cpp_domain_get", ...) and, once the
  * game has started, takes over EventSystem.Update to pace drawing each frame.
  * fps is the chosen rate (above 30); idle and heat turn the two slow-downs on.
- * Returns 0, or -1 if the API is missing.
+ * each_frame (or NULL) also runs every frame on Unity's main thread, from the
+ * first frame after IL2CPP has started. Returns 0, or -1 if the API is missing.
  */
-int render_pace_init(void *(*resolve)(const char *name), void (*log)(const char *message), int fps, int idle, int heat);
+int render_pace_init(void *(*resolve)(const char *name), void (*log)(const char *message), int fps, int idle, int heat,
+                     void (*each_frame)(void));
 
 /** 1 once EventSystem.Update is taken over and render_pace.c sets the render interval each frame. */
 int render_pace_active(void);

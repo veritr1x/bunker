@@ -58,7 +58,8 @@ static struct {
 } il2cpp;
 
 static void (*report)(const char *message);
-static int chosen_fps, idle_on, heat_on;
+static int chosen_fps, idle_on, heat_on, pacing;
+static void (*each_frame)(void);
 static volatile int thermal;
 static RenderPace pace;
 static int last_frame = -1;
@@ -92,6 +93,8 @@ static void update_hook(void *self, Method *method) {
     int frame = frame_count(NULL);
     if (frame == last_frame) return;  // one decision a frame, however many event systems
     last_frame = frame;
+    if (each_frame) each_frame();
+    if (!pacing) return;
     int current = get_interval(NULL);
     int next = render_pace_decide(&pace, chosen_fps, current, unscaled_delta(NULL), touch_count(NULL) > 0, in_battle(), thermal, idle_on, heat_on);
     if (next != current) set_interval(next, NULL);
@@ -157,20 +160,22 @@ static void *install(void *unused) {
     if (!look_up()) { say("Frame pacing: unsupported game; it draws every frame"); return NULL; }
     update_original = (void (*)(void *, Method *))update->pointer;
     update->pointer = (void *)update_hook;
-    active = 1;
+    active = pacing;
     say("Frame pacing: ready");
     return NULL;
 }
 
-int render_pace_init(void *(*resolve)(const char *name), void (*log)(const char *message), int fps, int idle, int heat) {
+int render_pace_init(void *(*resolve)(const char *name), void (*log)(const char *message), int fps, int idle, int heat,
+                     void (*frame)(void)) {
     report = log;
-    chosen_fps = fps, idle_on = idle, heat_on = heat;
+    chosen_fps = fps, idle_on = idle, heat_on = heat, each_frame = frame;
+    pacing = fps > 30 && (idle || heat);
 #define LOAD(name) if (!(*(void **)&il2cpp.name = resolve("il2cpp_" #name))) return -1;
     LOAD(domain_get) LOAD(domain_get_assemblies) LOAD(assembly_get_image) LOAD(class_from_name) LOAD(class_get_method_from_name)
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(runtime_class_init)
     LOAD(thread_attach) LOAD(get_corlib)
 #undef LOAD
-    if (fps <= 30 || (!idle && !heat)) return 0;  // nothing to pace
+    if (!pacing && !each_frame) return 0;  // nothing to do
     pthread_t thread;
     if (pthread_create(&thread, NULL, install, NULL)) return -1;
     pthread_detach(thread);
