@@ -46,7 +46,8 @@ int main(){
   Reject([&]{queue.Start();},"UnityMain cannot start before real initJni completion transition");
   Reject([&]{queue.SurfaceCreated(surface);},"surface callbacks cannot run before UnityMain starts");
   queue.AfterInitJni();Check(queue.Describe().initialized,"post-init flag is explicit");
-  Reject([&]{queue.AfterInitJni();},"duplicate post-init transition rejected");queue.Start();
+  std::atomic<bool> entered{false};
+  Reject([&]{queue.AfterInitJni();},"duplicate post-init transition rejected");queue.Start([&]{Check(std::this_thread::get_id()!=caller,"WorkerEnter runs on UnityMain");Check(java.EnvAddress()!=0,"WorkerEnter runs after JNI attachment");entered=true;});Check(entered,"WorkerEnter completes before Start acknowledges readiness");
   Reject([&]{queue.SurfaceCreated(player);},"wrong Surface object type rejected");Reject([&]{queue.SurfaceChanged(0);},"null changed Surface rejected");
   auto dead=java.NewInstance("android/view/Surface");State weak_state{};weak_state.gpr.x0.qword=java.EnvAddress();weak_state.gpr.x1.qword=dead;java.InvokeEnv(226,weak_state);auto weak=weak_state.gpr.x0.qword;java.DeleteLocalReference(dead);
   Reject([&]{queue.SurfaceCreated(weak);},"cleared weak Surface is rejected despite IsInstanceOf(null) semantics");
@@ -65,5 +66,9 @@ int main(){
   broken.AfterInitJni();broken.Start();broken.SurfaceCreated(surface2);
   Reject([&]{broken.WaitIdle();},"native callback failure reaches waiting owner");Reject([&]{broken.Stop();},"callback failure is retained on stop");Check(failed_cleanup==1,"failed callback still cleans runner TLS before detaching");
   Check(java.PendingException().empty(),"all expected host sequencing errors leave caller Java state clear");
+  std::atomic<int> entry_cleanup{0};
+  UnitySurfaceLifecycle bad_entry(java,run,{1,2},player2,[&]{Check(java.EnvAddress()!=0,"failed WorkerEnter cleans up while JNI attached");++entry_cleanup;});bad_entry.AfterInitJni();
+  Reject([&]{bad_entry.Start([]{throw std::runtime_error("virtual-thread registration failed");});},"WorkerEnter failure reaches Start caller");
+  Reject([&]{bad_entry.Stop();},"WorkerEnter failure remains decisive on Stop");Check(entry_cleanup==1,"failed WorkerEnter still runs worker cleanup exactly once");
   std::printf("UnityMain surface FIFO: %u checks passed (synthetic Runtime callbacks; no render/resume)\n",checks.load());
 }

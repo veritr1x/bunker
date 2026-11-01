@@ -5,6 +5,8 @@
 #include "apk_assets.h"
 #include "native_window.h"
 #include "unity_lifecycle.h"
+#include "signal_host.h"
+#include "nonlocal_jmp.h"
 #include "filesystem.h"
 #include "module_registry.h"
 #include "pthread_host.h"
@@ -77,11 +79,18 @@ static void *Resolve(const char *name){
 template<class Provider> addr_t Try(Provider &provider,const std::string &name){
   try{return provider.Marker(name);}catch(const std::invalid_argument&){return 0;}
 }
+addr_t TryProcess(bunker::windows::SignalHost &provider,const std::string &name){
+  try{return provider.ProcessMarker(name);}catch(const std::invalid_argument&){return 0;}
+}
 bool Translated(addr_t entry){
   // Generated trace table is ordered. Data exports are intentionally excluded.
   size_t low=0,high=std::size(kTraces);
   while(low<high){size_t mid=low+(high-low)/2;if(kTraces[mid].address<entry)low=mid+1;else high=mid;}
   return low<std::size(kTraces)&&kTraces[low].address==entry;
+}
+bool Executable(addr_t address){
+  for(const auto &range:kUnityExecutableRanges)if(address>=range.low&&address<range.high)return true;
+  return false;
 }
 LONG WINAPI Crash(EXCEPTION_POINTERS *exception){
   std::fprintf(stderr,"Unity bootstrap: native exception %#lx at %p; stage=%s, completed constructors=%zu/%zu\n",
@@ -131,6 +140,12 @@ int main(int argc,char **argv){
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
+    // Process dispositions and pure sigset operations only. Thread signal
+    // masks/kill stay with their existing provider; sigaltstack is unresolved.
+    SignalHost process_signals;process_signals.SetErrorSink(error);
+    std::unique_ptr<NonlocalJumps> jumps;
+    recomp::Runtime window_bridges;
+    std::mutex window_call_mutex;std::map<std::string,uint64_t> window_calls;
     std::unique_ptr<NativeWindows> native_windows;
     // ModuleRegistry owns 0x7ff400000000; keep this combined provider disjoint.
     if(surface_gate)native_windows=std::make_unique<NativeWindows>(java,0x7ff440000000ULL);
@@ -147,18 +162,50 @@ int main(int argc,char **argv){
     libc.SetErrorSink(error);libc.SetEnvironment({});
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated);threads.SetErrorSink(error);runner=&threads;
+    auto current_jump_thread=[&](){
+      auto token=threads.Self();AndroidThreadAttr attr{};
+      if(!process_signals.Lookup(token))throw std::runtime_error("setjmp thread has no registered virtual signal-mask lifetime");
+      if(threads.GetAttr(token,&attr)||!attr.stack_base||!attr.stack_size||attr.stack_size>UINT64_MAX-attr.stack_base)throw std::runtime_error("setjmp thread has no owned guest stack");
+      return NonlocalJumps::Thread{token,token,attr.stack_base,attr.stack_base+attr.stack_size};
+    };
+    if(surface_gate)jumps=std::make_unique<NonlocalJumps>(current_jump_thread,[&files,current_jump_thread](addr_t environment,size_t size)->std::optional<NonlocalJumps::Region>{
+      if(auto mapping=files.MappingRegion(environment,size,true)){
+        std::fprintf(stderr,"Unity bootstrap: jmp_buf=%#llx owned mmap=[%#llx,%#llx) generation=%llu\n",static_cast<unsigned long long>(environment),static_cast<unsigned long long>(mapping->base),static_cast<unsigned long long>(mapping->base+mapping->size),static_cast<unsigned long long>(mapping->generation));
+        return NonlocalJumps::Region{mapping->base,mapping->base+mapping->size,mapping->generation};
+      }
+      auto current=current_jump_thread();
+      if(environment>=current.stack_low&&environment<=current.stack_high&&size<=current.stack_high-environment)return NonlocalJumps::Region{current.stack_low,current.stack_high,current.generation};
+      std::fprintf(stderr,"Unity bootstrap: unknown jmp_buf allocation=%#llx bytes=%zu; owned guest stack=[%#llx,%#llx); no mmap/stack lifetime; heap/subobject provenance is not invented\n",static_cast<unsigned long long>(environment),size,static_cast<unsigned long long>(current.stack_low),static_cast<unsigned long long>(current.stack_high));
+      return {};
+    },[&](){uint64_t mask=0;auto token=threads.Self();if(process_signals.Mask(token,0,nullptr,&mask))throw std::runtime_error("setjmp signal mask is not registered for this virtual thread");return mask;},Executable);
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;~Drain(){if(threads.Shutdown())std::abort();}} drain{threads};
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);modules.Install(runtime);
     if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
     zlib.Install(runtime);
-    if(native_windows)native_windows->Install(runtime);
+    if(surface_gate)process_signals.InstallProcess(runtime);
+    if(jumps)jumps->Install(runtime);
+    if(native_windows){
+      // Forward the original checked provider bridges without adding a nested
+      // Runtime::Run/ExecutionContext. Observe actual guest imports, not our
+      // separate host calls used to verify the HWND's initial geometry.
+      native_windows->Install(window_bridges);
+      for(const char *name:{"ANativeWindow_fromSurface","ANativeWindow_acquire","ANativeWindow_release","ANativeWindow_getWidth","ANativeWindow_getHeight","ANativeWindow_setBuffersGeometry"}){
+        const auto marker=native_windows->Marker(name);
+        runtime.AddImport(marker,[&,marker,name](State &s){
+          {std::lock_guard<std::mutex> lock(window_call_mutex);++window_calls[name];}
+          std::fprintf(stderr,"Unity bootstrap: guest %s x0=%#llx x1=%#llx return=%#llx\n",name,static_cast<unsigned long long>(s.gpr.x0.qword),static_cast<unsigned long long>(s.gpr.x1.qword),static_cast<unsigned long long>(s.gpr.x30.qword));
+          window_bridges.Dispatch(s,marker,nullptr);
+          std::fprintf(stderr,"Unity bootstrap: guest %s completed x0=%#llx\n",name,static_cast<unsigned long long>(s.gpr.x0.qword));
+        });
+      }
+    }
     size_t provided=0,missing=0;
     for(const auto &import:kUnityImports){
       std::string name=import.name;addr_t address=0;
       // These provider namespaces are disjoint. The selected provider owns both
       // its function marker and data symbol representation (notably __sF).
-      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0}){
+      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,surface_gate?TryProcess(process_signals,name):0,jumps?Try(*jumps,name):0}){
         if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
       }
       if(address)++provided;
@@ -222,23 +269,52 @@ int main(int argc,char **argv){
         auto actual_width=native_windows->Width(token),actual_height=native_windows->Height(token);native_windows->Release(token);
         if(actual_width!=width||actual_height!=height)throw std::runtime_error("actual HWND client geometry differs from configured landscape pixels");
         std::fprintf(stderr,"Unity bootstrap: %ssurface-only host lifecycle port; actual HWND client=%dx%d; APK sensorLandscape; resumed=false; no Java class-init or render/resume claim\n",kExploratory?"EXPLORATORY ":"",actual_width,actual_height);
+        uint64_t worker_token=0;bool worker_registered=false;
         UnitySurfaceLifecycle lifecycle(java,[&](addr_t target,const std::vector<addr_t>&args){
           std::fprintf(stderr,"Unity bootstrap: UnityMain host-thread=%lu native=%#llx argc=%zu env=%#llx receiver=%#llx display=%#llx surface=%#llx\n",GetCurrentThreadId(),static_cast<unsigned long long>(target),args.size(),static_cast<unsigned long long>(args.at(0)),static_cast<unsigned long long>(args.at(1)),static_cast<unsigned long long>(args.size()>2?args[2]:0),static_cast<unsigned long long>(args.size()>3?args[3]:0));
           auto result=threads.Run(target,args);std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));return result;
-        },{recreate,changed},player,[&]{if(threads.ReleaseCurrent())throw std::runtime_error("UnityMain runner TLS/stack cleanup failed");});
-        lifecycle.AfterInitJni();lifecycle.Start();init_java_errors=0;init_java_diagnostic_active=true;
+        },{recreate,changed},player,[&]{
+          const auto token=worker_token;
+          if(!token)return;
+          int released=0;std::exception_ptr release_error;
+          try{released=threads.ReleaseCurrent();}catch(...){release_error=std::current_exception();}
+          jumps->DropThread(token,token);
+          const auto dropped=worker_registered?process_signals.DropThread(token):0;
+          if(release_error)std::rethrow_exception(release_error);
+          if(released||dropped)throw std::runtime_error("UnityMain runner/signal lifetime cleanup failed");
+        });
+        lifecycle.AfterInitJni();
+        // A real model mask is captured at Start, then inherited by the child.
+        // Full thread-signal imports stay uninstalled in this diagnostic.
+        const auto parent_token=threads.Self();
+        if(process_signals.RegisterThread(parent_token)||process_signals.BindCurrent(parent_token))throw std::runtime_error("cannot establish parent virtual signal-mask lifetime");
+        uint64_t parent_mask=0;if(process_signals.Mask(parent_token,0,nullptr,&parent_mask))throw std::runtime_error("cannot snapshot parent virtual signal mask");
+        lifecycle.Start([&,parent_token,parent_mask]{
+          worker_token=threads.Self();
+          if(process_signals.RegisterThread(worker_token,parent_token))throw std::runtime_error("cannot register UnityMain virtual signal-mask lifetime");
+          worker_registered=true;
+          if(process_signals.BindCurrent(worker_token)||process_signals.Mask(worker_token,2,&parent_mask,nullptr))throw std::runtime_error("cannot inherit UnityMain signal mask");
+          std::fprintf(stderr,"Unity bootstrap: UnityMain virtual-thread=%llu generation=%llu inherited mask=%#llx; alternate stack disabled\n",static_cast<unsigned long long>(worker_token),static_cast<unsigned long long>(worker_token),static_cast<unsigned long long>(parent_mask));
+        });init_java_errors=0;init_java_diagnostic_active=true;
         stage="surfaceCreated/recreate";lifecycle.SurfaceCreated(surface);lifecycle.WaitIdle();
         stage="surfaceChanged/recreate+notify";lifecycle.SurfaceChanged(surface);lifecycle.WaitIdle();
         stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
         init_java_diagnostic_active=false;
         if(init_java_errors.load())throw std::runtime_error("surface native calls encountered original Java exceptions");
         auto state=lifecycle.Describe();if(state.resumed||state.surface||state.started)throw std::runtime_error("surface lifecycle did not finish paused and detached");
+        {std::lock_guard<std::mutex> lock(window_call_mutex);
+          const auto from=window_calls["ANativeWindow_fromSurface"],acquire=window_calls["ANativeWindow_acquire"],release=window_calls["ANativeWindow_release"];
+          std::fprintf(stderr,"Unity bootstrap: observed guest native-window calls fromSurface=%llu acquire=%llu release=%llu\n",static_cast<unsigned long long>(from),static_cast<unsigned long long>(acquire),static_cast<unsigned long long>(release));
+          if(from!=2||release!=from+acquire)throw std::runtime_error("real native-window handoff calls missing or guest reference calls unbalanced");
+        }
         native_windows->Close(window);java.DeleteLocalReference(surface);
         std::fprintf(stderr,"Unity bootstrap: isolated surface handoff/detach gate passed on UnityMain; HWND closed after native detach acknowledgment; no nativeRender/nativeResume executed\n");
       }
     }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
-    libc.Finalize();threads.ReleaseCurrent();return 0;
+    libc.Finalize();auto current_token=threads.Self();auto released=threads.ReleaseCurrent();
+    if(jumps){jumps->DropThread(current_token,current_token);if(process_signals.Lookup(current_token)&&process_signals.DropThread(current_token))throw std::runtime_error("parent signal-thread cleanup failed");}
+    if(released)throw std::runtime_error("main runner TLS/stack cleanup failed");return 0;
   }catch(const std::exception &error){std::fprintf(stderr,"Unity bootstrap: %s; stage=%s completed constructors=%zu\n",error.what(),stage,constructor_index);return 1;}
 }

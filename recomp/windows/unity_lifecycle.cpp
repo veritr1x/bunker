@@ -47,12 +47,13 @@ struct UnitySurfaceLifecycle::Impl {
     }catch(...){if(surface)java.DeleteLocalReference(surface);throw;}
     if(surface)java.DeleteLocalReference(surface);
   }
-  void Work(std::promise<void> startup){
+  void Work(std::promise<void> startup,WorkerEnter enter){
     bool startup_sent=false;addr_t receiver=0;
     try{
       addr_t env=0;State vm{};vm.gpr.x0.qword=java.VmAddress();vm.gpr.x1.qword=reinterpret_cast<addr_t>(&env);java.InvokeVm(4,vm);
       if(static_cast<int32_t>(vm.gpr.x0.dword)||!env)throw std::runtime_error("UnityMain AttachCurrentThread failed");
       attached=true;receiver=java.LocalValue(player);
+      if(enter)enter();
 #ifdef _WIN32
       // Naming is diagnostic; no Android service or scheduling result is faked.
       using SetDescription=HRESULT(WINAPI*)(HANDLE,PCWSTR);
@@ -87,7 +88,7 @@ UnitySurfaceLifecycle::~UnitySurfaceLifecycle(){
   auto &p=*impl_;{std::lock_guard<std::mutex> lock(p.mutex);p.stopping=true;}p.ready.notify_all();if(p.worker.joinable())p.worker.join();
 }
 void UnitySurfaceLifecycle::AfterInitJni(){auto &p=*impl_;std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(p.status.initialized||p.status.started)throw std::logic_error("duplicate post-init transition");if(!p.java.PendingException().empty())throw std::logic_error("post-init transition with pending Java exception");p.status.initialized=true;}
-void UnitySurfaceLifecycle::Start(){auto &p=*impl_;std::promise<void> start;auto done=start.get_future();{std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(!p.status.initialized||p.status.started||p.stopping)throw std::logic_error("invalid UnityMain start ordering");p.status.started=true;p.worker=std::thread([&p,start=std::move(start)]()mutable{p.Work(std::move(start));});}done.get();}
+void UnitySurfaceLifecycle::Start(WorkerEnter enter){auto &p=*impl_;std::promise<void> start;auto done=start.get_future();{std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(!p.status.initialized||p.status.started||p.stopping)throw std::logic_error("invalid UnityMain start ordering");p.status.started=true;p.worker=std::thread([&p,start=std::move(start),enter=std::move(enter)]()mutable{p.Work(std::move(start),std::move(enter));});}done.get();}
 void UnitySurfaceLifecycle::SurfaceCreated(addr_t surface){auto &p=*impl_;p.RequireType(surface,"android/view/Surface");auto value=p.java.CaptureValue(surface);{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();p.requested_surface=true;p.jobs.push_back({Impl::Job::Recreate,value,{}});p.jobs.push_back({Impl::Job::Acquire,{},{}});}p.ready.notify_one();}
 void UnitySurfaceLifecycle::SurfaceChanged(addr_t surface){auto &p=*impl_;p.RequireType(surface,"android/view/Surface");auto value=p.java.CaptureValue(surface);{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();p.requested_surface=true;p.jobs.push_back({Impl::Job::Recreate,value,{}});p.jobs.push_back({Impl::Job::Acquire,{},{}});p.jobs.push_back({Impl::Job::Changed,{},{}});}p.ready.notify_one();}
 void UnitySurfaceLifecycle::SurfaceDestroyed(){auto &p=*impl_;auto ack=std::make_shared<std::promise<void>>();auto done=ack->get_future();{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();if(std::this_thread::get_id()==p.worker.get_id())throw std::logic_error("UnityMain cannot wait for its own surface acknowledgment");p.requested_surface=false;p.jobs.push_back({Impl::Job::Lost,{},{}});p.jobs.push_back({Impl::Job::Recreate,{},ack});}p.ready.notify_one();if(done.wait_for(std::chrono::seconds(4))!=std::future_status::ready)throw std::runtime_error("timeout detaching primary Unity surface; retain HWND until UnityMain stops");done.get();}

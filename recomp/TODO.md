@@ -43,7 +43,10 @@ part of the normal Bunker release. The game does not boot or render yet.
   `JNI_OnUnload` and its actual finalizers. The separate `initJni(Context)`
   diagnostic now returns cleanly with zero original JNI exception events,
   using checked Java strings, launch intents and the original APK boot.config.
-  Rendering and the full Java/game lifecycle remain unexecuted.
+  The bounded UnityMain surface gate also completes actual created/changed/
+  detached native calls, observing two fromSurface, two acquire and four release
+  calls against the same actual HWND-backed token before close. Native rendering
+  and the full Java/game lifecycle remain unexecuted.
 - Real IL2CPP completes all nine constructors and both finalizers. Its actual
   parameterless GC signal-initialization routine also passes, installing the
   evidenced actions and acknowledgment semaphore. A validated one-shard overlay
@@ -90,8 +93,8 @@ unsupported instructions.
    snapshot with current semantics/root recovery when startup requires it.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
-2. Preserve the passing actual `initJni(Context)`/APK asset path and implement
-   the evidenced surface and UnityMain message flow.
+2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
+   and implement the evidenced focus/resume/frame/pause/done UnityMain flow.
    Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
    imports or unsupported Java effects into successful no-ops.
 3. Close instruction gaps reached by startup, then remaining reciprocal
@@ -128,8 +131,10 @@ unsupported instructions.
 - Real Windows HWND/Surface ownership passes 291 NDK/host checks. The checked
   EGL bridge passes 49 checks, including real window/pbuffer draws, readback,
   swap, tracked outputs and resource lifetimes. The actual Unity surface gate
-  now passes temporary crash-action setup and stops on missing setjmp, before
-  native window handoff. This is not a completed Unity surface gate.
+  now passes temporary crash-action setup, a real saved Bionic context, and
+  observed native window handoff/detach, all with clean shutdown. Rendering
+  remains a separate gate. Default-size RGBA/RGBX format support passes 391
+  additional native draw/lifetime/concurrency checks; RGB565 is unsupported.
 - Pinned Vulkan ANGLE now passes GLES3.2/AEP, shader, draw/compute and all 28
   ASTC formats (239 samples/61,184 bytes), including correct sRGB behavior.
   The typed query resolver passes 976 checks for six getter signatures and 133
@@ -141,6 +146,11 @@ unsupported instructions.
   the actual 149-byte boot.config exactly; checked Java stream/Scanner wiring
   now clears the actual native initJni gate.
   See [the reader contract](windows/apk_assets.md).
+- Normal setjmp context saving is implemented and used by the real surface
+  gate with an owned mmap lifetime and inherited worker mask. Longjmp transfer
+  remains fatal: it needs rooted continuation PCs and a proven unwind/status
+  route compatible with lifted LLVM contracts. See
+  [the exact wire/transfer boundary](windows/nonlocal_jmp.md).
 - Reach title screen, load a save, exercise gameplay/render/audio/input, then
   package a reproducible Windows build consuming user-supplied game assets.
 - Preserve local checkpoints in both Git repositories after review. No remote
