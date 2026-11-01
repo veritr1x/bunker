@@ -80,6 +80,10 @@ part of the normal Bunker release. The game does not boot or render yet.
 - SIMD TRN1/TRN2 transposes match 17,920 ARM64 reference records on each host,
   including all allocated arrangements and source/destination overlaps.
   See [the transpose gate](whole/transpose.md).
+- Indexed FP32/FP64 FMLA matches 5,689,856 exact ARM64 result/source/FPSR/NZCV
+  records on each host. The original Unity matrix now lifts completely; the
+  frozen Unity engine cohort retains its earlier semantics. See
+  [the fused arithmetic scope](whole/fp_fmla.md).
 - Proved direct setjmp import calls now seed executable post-call continuations
   in the compiler: 49 roots in Unity and one in IL2CPP. Native dispatch checks,
   normal context-save tests and whole-compiler regressions pass on both hosts.
