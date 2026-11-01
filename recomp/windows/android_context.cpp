@@ -12,7 +12,7 @@ struct UriState {Value text;};
 struct ExtraState {LaunchExtra::Kind kind=LaunchExtra::kNull;Value text;int32_t integer=0;bool boolean=false;};
 struct BundleState {std::map<std::u16string,ExtraState> values;};
 struct IntentState {std::mutex mutex;Value action,component,data,data_string,package_selector;std::set<std::u16string> categories;uint32_t flags=0;std::shared_ptr<BundleState> extras;};
-struct ContextState {Value info,assets,package,intent,manager;};
+struct ContextState {Value info,assets,package,intent,manager,code_path;};
 struct PackageState {AndroidContextConfig config;};
 struct ActivityListState {std::set<std::u16string> components;};
 Value Keep(jni::Host &host,addr_t local){auto value=host.CaptureValue(local);host.DeleteLocalReference(local);return value;}
@@ -104,9 +104,13 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
     for(auto &[name,extra]:config.launch_extras){if(extra.kind<LaunchExtra::kNull||extra.kind>LaunchExtra::kBoolean)throw std::invalid_argument("unsupported configured Intent extra type");ExtraState value;value.kind=extra.kind;value.integer=extra.integer;value.boolean=extra.boolean;if(extra.kind==LaunchExtra::kString)value.text=Keep(host,host.NewString(extra.text));intent->extras->values.emplace(name,std::move(value));}
   }
   auto state=std::make_shared<ContextState>();state->info=host.CaptureValue(info_);state->assets=host.CaptureValue(assets_);state->package=host.CaptureValue(package_);
+  // LoadedApk stores its installed app path independently of the public mutable
+  // ApplicationInfo record. Snapshot the original immutable String object.
+  state->code_path=Keep(host,host.GetObjectFieldValue(info_,"sourceDir","Ljava/lang/String;"));
   auto packages=std::make_shared<PackageState>();packages->config=config;state->manager=Keep(host,host.NewHostInstance("android/app/ApplicationPackageManager",packages));
   state->intent=Keep(host,host.NewHostInstance("android/content/Intent",intent));activity_=global(host.NewHostInstance(config.activity_class,state));
   host.DefineObjectMethod("android/content/Context","getApplicationInfo","()Landroid/content/pm/ApplicationInfo;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->info):0;});
+  host.DefineObjectMethod("android/content/Context","getPackageCodePath","()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->code_path):0;});
   host.DefineObjectMethod("android/content/Context","getPackageManager","()Landroid/content/pm/PackageManager;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->manager):0;});
   host.DefineObjectMethod("android/content/pm/PackageManager","getPackageInfo","(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;",[&host](addr_t object,const jni::Host::MethodArguments &args){
     auto state=host.ReadHostState<PackageState>(object);if(!state||!KnownPackage(host,*state,args[0]))return addr_t(0);

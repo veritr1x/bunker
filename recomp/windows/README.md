@@ -489,6 +489,22 @@ The same resolver-enabled combined executable independently exits0 for default,
 init and surface-only runs, including unload/both finalizers; see
 `unity-bootstrap-resolver-{default,init,surface}.log` and the parity manifest.
 
+The next audited Context data API, getPackageCodePath()String, now returns a
+snapshot of the configured installed APK path. It initially shares the source
+String with ApplicationInfo, while later mutation of that public record does
+not change the installed path, matching Android13 LoadedApk.getAppDir.
+`test_package_manager.ps1 -PackageCodePath` passes25 checks on each host through
+the actual NDK direct/V/A fixture, including independent local references,
+frame/global/thread lifetime, receiver typing and an alternate virtual path.
+The unchanged Intent/Bundle regression still passes83 Windows checks. This does
+not establish native boot execution past the current audio prerequisite.
+Read-only exact boot/file API evidence is in
+`java-startup/boot-file-prerequisites.json`: prctl(PR_SET_NAME,"UnityMain")
+precedes the code-path request, and the later files/cache selection requires
+Context directory getters, Environment storage state, String.equals and File
+path getters. Directory objects/storage effects are a separate implementation
+gate; no arbitrary getDir or Java mkdirs facade is implied by those literals.
+
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
 DEX method offsets/signatures: the Activity constructs UnityPlayer, whose
