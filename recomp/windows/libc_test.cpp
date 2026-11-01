@@ -47,7 +47,12 @@ int main(int argc,char **argv){
     actual=libc.ParseInteger(text,&actual_end,10,true);
     check(actual==static_cast<uint64_t>(signed_expected)&&actual_end-text==expected_end-text&&(!expected_error||error==34),"signed parser saturation and end pointer");
   }
-  char *end;const char *binary="0b1011tail";check(libc.ParseInteger(binary,&end,0,false)==11&&end==binary+6,"Bionic binary prefix");
+  char *end;
+  struct Prefix{const char *text;int base;uint64_t value;unsigned consumed;};
+  for(const auto &p:std::initializer_list<Prefix>{{"0b1011",0,0,1},{"0b2",2,0,1},{"0b",0,0,1},{"+0B1",0,0,2},{"-0b1",2,0,2},
+       {"0x",0,0,1},{"0xG",16,0,1},{"-0x",0,0,2},{"0x1",0,1,3},{"",0,0,0},{" \t+",10,0,0},{"+",2,0,0},{"-x",16,0,0},{"0b2",16,0xb2,3}}){
+    for(bool signed_input:{false,true})check(libc.ParseInteger(p.text,&end,p.base,signed_input)==p.value&&end==p.text+p.consumed,"Android13 no-digit/prefix end pointer");
+  }
   for(unsigned mode=0;mode<4;++mode)for(unsigned negative=0;negative<2;++negative){
     State s{};s.fpcr.rmode=static_cast<FPURoundingMode>(mode);float value=negative?-1.25f:1.25f;std::memcpy(&s.simd.v[0],&value,4);
     runtime.Run(s,libc.Marker("nearbyintf"));float rounded;std::memcpy(&rounded,&s.simd.v[0],4);

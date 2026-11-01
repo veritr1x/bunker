@@ -58,6 +58,10 @@ int guest_parsing(void) {
     s="0xG";REQUIRE(strtol(s,&end,0)==0&&end==s+1);
     s=" +oops";errno=87;REQUIRE(strtol(s,&end,10)==0&&end==s&&errno==87);
     errno=0;s="123";REQUIRE(strtol(s,&end,1)==0&&end==s&&errno==EINVAL);
+    errno=17;s="0b2";REQUIRE(strtol(s,&end,0)==0&&end==s+1&&errno==17);
+    s="0b1011";REQUIRE(strtoull(s,&end,2)==0&&end==s+1);
+    s="0x";REQUIRE(strtoul(s,&end,16)==0&&end==s+1);
+    s=" \t+";REQUIRE(strtoll(s,&end,10)==0&&end==s);
     REQUIRE(atol("4294967297")==INT64_C(4294967297)&&atoi("-123")==-123);
     s="1.25x";REQUIRE(strtod(s,&end)==1.25&&end==s+4&&strtof("-2.5",NULL)==-2.5f);
     return 0;

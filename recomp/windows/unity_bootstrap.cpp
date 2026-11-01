@@ -7,6 +7,7 @@
 #include "pthread_host.h"
 #include "libc.h"
 #include "logging.h"
+#include "zlib_host.h"
 #include "../fastaes/elfload.h"
 #include "unity_traces.h"
 #include "unity_bootstrap_data.h"
@@ -85,7 +86,7 @@ int main(int argc,char **argv){
     files.MountDirectory("/data/app/bunker/lib/arm64",library.parent_path());
     files.MountDirectory("/data/user/0/bunker",storage,true);
     files.SetWorkingDirectory("/data/user/0/bunker");
-    auto error=[&](int value){*reinterpret_cast<int32_t*>(files.ErrnoAddress())=value;};
+    auto error=[&](int value){files.SetError(value);};
     Pthreads *runner=nullptr;
     Logging logging;logging.SetErrorSink(error);
     logging.SetStream([&](addr_t stream,std::string_view text){return files.FWrite(text.data(),1,text.size(),stream);});
@@ -103,16 +104,19 @@ int main(int argc,char **argv){
       if(std::strcmp(stage,"constructors")==0)++constructor_index;
     });
     LibC libc([&](addr_t entry,const std::vector<addr_t> &args){return runner->Run(entry,args);});
+    logging.SetAllocator([&](uint64_t size){return libc.Malloc(size);});
     libc.SetErrorSink(error);libc.SetEnvironment({});
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated);threads.SetErrorSink(error);runner=&threads;
-    files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);modules.Install(runtime);java.Install(runtime);
+    Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
+    struct Drain {Pthreads &threads;~Drain(){if(threads.Shutdown())std::abort();}} drain{threads};
+    files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);modules.Install(runtime);java.Install(runtime);zlib.Install(runtime);
     size_t provided=0,missing=0;
     for(const auto &import:kUnityImports){
       std::string name=import.name;addr_t address=0;
       // These provider namespaces are disjoint. The selected provider owns both
       // its function marker and data symbol representation (notably __sF).
-      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name)}){
+      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name)}){
         if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
       }
       if(address)++provided;
@@ -135,7 +139,7 @@ int main(int argc,char **argv){
     unity.initializers.assign(std::begin(kInitializers),std::end(kInitializers));
     unity.finalizers.assign(std::begin(kUnityFinalizers),std::end(kUnityFinalizers));
     auto snapshot=std::make_shared<std::vector<uint8_t>>(image.base,image.base+image.span);
-    unity.reset_image=[snapshot,&image]{std::memcpy(image.base,snapshot->data(),snapshot->size());};
+    unity.reset_image=[snapshot,&image]{recomp::WriteGuestMemory(reinterpret_cast<addr_t>(image.base),snapshot->data(),snapshot->size());};
     modules.Add(std::move(unity));
     stage="constructors";auto module=modules.Open("libunity.so",2);
     if(!module||constructor_index!=kExpectedConstructors)throw std::runtime_error("not all real Unity constructors completed");

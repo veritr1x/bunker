@@ -14,6 +14,7 @@ class LibC {
  public:
   using Runner = std::function<uint64_t(addr_t, const std::vector<addr_t> &)>;
   explicit LibC(Runner runner = {}, addr_t marker_base = 0x7ffb00000000ULL);
+  ~LibC();
   addr_t Marker(const std::string &) const;
   void Install(recomp::Runtime &);
   void SetErrorSink(std::function<void(int)> sink) { error_sink_ = std::move(sink); }
@@ -45,8 +46,8 @@ class LibC {
   std::map<void *, Aligned> aligned_;
   std::vector<Exit> exits_;
   std::map<std::string, std::string> environment_;
-  std::vector<std::string> environment_text_;
-  std::vector<char *> environment_pointers_;
+  std::vector<char *> environment_strings_;
+  char **environment_array_ = nullptr;
   char **environment_slot_ = nullptr;
   std::string abort_message_;
   addr_t marker_base_;

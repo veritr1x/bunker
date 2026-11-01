@@ -47,21 +47,24 @@ part of the normal Bunker release. The game does not boot or render yet.
   values and deterministic random inputs. Physical ARM64 validation remains
   useful, especially for floating point.
 
-Latest three-library instruction-form audit with LLVM 18:
+Latest three-library instruction-form audit with LLVM 18 / Remill `09f7d4d`
+(`windows-exclusive`):
 
-| Library | Supported forms | Unsupported instruction occurrences |
-|---|---:|---:|
-| `libunity.so` | 1,237 / 1,442 | 12,015 |
-| `libil2cpp.so` | 904 / 941 | 374 |
-| `libgrpc_csharp_ext.so` | 754 / 826 | 1,630 |
+| Library | Supported forms | Unsupported occurrences | Weighted liftability |
+|---|---:|---:|---:|
+| `libunity.so` | 1,262 / 1,442 | 9,005 | 99.6958% |
+| `libil2cpp.so` | 917 / 941 | 177 | 99.9982% |
+| `libgrpc_csharp_ext.so` | 769 / 826 | 888 | 99.7750% |
 
-These are one-sample-per-form measurements, not whole-program correctness or
-execution coverage. The first Unity Windows translation completed with 58,850
+These sample one encoding per operand form and exclude control flow; they do
+not establish whole-program correctness or execution coverage. The first
+Unity Windows translation completed with 58,850
 traces in 463 objects, 2,419 unsupported traces and zero unresolved direct
-targets. After multiply/register-offset store additions, it has 58,855 traces
-and 2,151 unsupported traces. Its native Windows diagnostic executable completes
-constructors 1–70; constructor 71 reaches an LDXP/STXP pair loop, now being
-implemented. JNI_OnLoad has not run. The initial IL2CPP translation completed
+targets. The pair-enabled snapshot has 58,855 traces and 1,860 unsupported
+traces. Its native Windows diagnostic executable completes constructors 1–94;
+constructor 95 reaches a switch table whose W/X masked-index equivalence is
+being added to recovery. The earlier store/pair blockers at constructors 53
+and 71 are cleared. JNI_OnLoad has not run. The initial IL2CPP translation completed
 with 393,781 traces in 3,079 objects, 192 unsupported traces and zero unresolved
 direct targets. Exploratory objects retain explicit failure paths for
 unsupported instructions.
@@ -74,9 +77,9 @@ unsupported instructions.
 2. Execute every real Unity initializer and its `JNI_OnLoad` with Windows
    providers. Implement concrete missing behavior with tests. Never skip
    initializers or turn unknown imports into successful no-ops.
-3. Close remaining instruction groups, starting with vector/indexed integer
-   multiply/accumulate. Coordinate shared Remill builds; engine builds already
-   use immutable snapshots.
+3. Close instruction gaps reached by startup, then remaining reciprocal
+   estimates, SIMD stores/shifts/permutations, FP rounding and crypto groups.
+   Coordinate shared Remill builds; engine builds use immutable snapshots.
 4. Audit actual imports against available providers, then implement
    startup-critical libc/resource gaps using translated NDK caller tests.
 
