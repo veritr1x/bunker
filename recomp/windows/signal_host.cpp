@@ -7,7 +7,7 @@
 
 namespace bunker::windows {
 namespace {
-constexpr uint32_t kSiginfo=4,kRestart=0x10000000;
+constexpr uint32_t kSiginfo=4,kRestart=0x10000000,kOnStack=0x08000000;
 constexpr uint64_t kUnblockable=(1ULL<<8)|(1ULL<<18);
 constexpr uint64_t kAndroidTimer=1ULL<<31,kAndroidUnblocked=0xffULL<<32;
 const char *const imports[]={"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember"};
@@ -52,7 +52,9 @@ int SignalHost::DropThread(uint64_t token){
 int SignalHost::Action(int signal,const AndroidSignalAction *set,AndroidSignalAction *old){
   const AndroidSignalAction desired=set?*set:AndroidSignalAction{};
   if(signal<=0||signal>=32||signal==9||signal==19)return signal>=32&&signal<=64?38:22;
-  if(set&&(desired.flags&~(kSiginfo|kRestart)))return 38;
+  // Threads start with SS_DISABLE and no sigaltstack API is installed. A
+  // registered SA_ONSTACK action therefore uses the ordinary stack.
+  if(set&&(desired.flags&~(kSiginfo|kRestart|kOnStack)))return 38;
   if(set&&desired.handler>1&&(desired.handler&3))return 22;
   std::lock_guard lock(mutex_);if(old)*old=actions_[signal];
   if(set){actions_[signal]=desired;actions_[signal].padding=0;actions_[signal].mask&=~kUnblockable;
@@ -118,16 +120,26 @@ int SignalHost::Suspend(uint64_t token,uint64_t temporary,const Boundary &bounda
 }
 int SignalHost::SyscallError(int error){if(error&&error_sink_)error_sink_(error);return error?-1:0;}
 addr_t SignalHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(imports);++i)if(name==imports[i])return marker_base_+i*8;throw std::invalid_argument("unsupported signal import: "+name);}
+addr_t SignalHost::ProcessMarker(const std::string &name)const{
+  for(auto process:{"sigaction","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember"})if(name==process)return Marker(name);
+  throw std::invalid_argument("thread signal import outside process-only subset: "+name);
+}
+void SignalHost::InstallProcess(recomp::Runtime &runtime){
+  if(process_installed_)throw std::logic_error("signal process imports already installed");
+  auto add=[&](const char *name,auto bridge){runtime.AddImport(ProcessMarker(name),[name,bridge](State&s){try{bridge(s);}catch(const std::exception&e){std::fprintf(stderr,"signal process %s: %s\n",name,e.what());std::abort();}catch(...){std::abort();}});};
+  add("sigaction",recomp::MakeBridge<int32_t(int32_t,addr_t,addr_t)>([this](auto sig,auto set,auto old){AndroidSignalAction a{},previous{};if(set)a=Read<AndroidSignalAction>(set);int e=Action(sig,set?&a:nullptr,old?&previous:nullptr);if(!e&&old)Write(old,previous);return SyscallError(e);}));
+  for(auto name:{"sigemptyset","sigfillset"})add(name,recomp::MakeBridge<int32_t(addr_t)>([this,name](auto out){if(!out)return SyscallError(22);Write(out,std::string(name)=="sigemptyset"?uint64_t(0):UINT64_MAX);return 0;}));
+  for(auto name:{"sigaddset","sigdelset","sigismember"})add(name,recomp::MakeBridge<int32_t(addr_t,int32_t)>([this,name](auto out,auto sig){if(!out||!Bit(sig))return SyscallError(22);auto value=Read<uint64_t>(out);if(!std::strcmp(name,"sigismember"))return int(bool(value&Bit(sig)));value=std::strcmp(name,"sigaddset")?value&~Bit(sig):value|Bit(sig);Write(out,value);return 0;}));
+  process_installed_=true;
+}
 void SignalHost::Install(recomp::Runtime &runtime,Current current,Boundary boundary){
   if(installed_||!current)throw std::logic_error("signal imports need one explicit current-token binding");
+  if(!process_installed_)InstallProcess(runtime);
   auto add=[&](const char *name,auto bridge){runtime.AddImport(Marker(name),[name,bridge](State&s){try{bridge(s);}catch(const std::exception&e){std::fprintf(stderr,"signal foundation %s: %s\n",name,e.what());std::abort();}catch(...){std::abort();}});};
-  add("sigaction",recomp::MakeBridge<int32_t(int32_t,addr_t,addr_t)>([this](auto sig,auto set,auto old){AndroidSignalAction a{},previous{};if(set)a=Read<AndroidSignalAction>(set);int e=Action(sig,set?&a:nullptr,old?&previous:nullptr);if(!e&&old)Write(old,previous);return SyscallError(e);}));
   for(auto name:{"pthread_sigmask","sigprocmask"})add(name,recomp::MakeBridge<int32_t(int32_t,addr_t,addr_t)>([this,current,name](auto how,auto set,auto old){uint64_t value=set?Read<uint64_t>(set):0,previous=0;int e=Mask(current(),how,set?&value:nullptr,old?&previous:nullptr);if(!e&&old)Write(old,previous);return std::string(name)=="pthread_sigmask"?e:SyscallError(e);}));
   add("pthread_kill",recomp::MakeBridge<int32_t(uint64_t,int32_t)>([this](auto token,auto sig){return Queue(token,sig);}));
   add("sigsuspend",recomp::MakeBridge<int32_t(addr_t)>([this,current,boundary](auto mask){return SyscallError(mask?Suspend(current(),Read<uint64_t>(mask),boundary):14);}));
   add("sigpending",recomp::MakeBridge<int32_t(addr_t)>([this,current](auto out){uint64_t pending=0;int e=out?Pending(current(),&pending):14;if(!e)Write(out,pending);return SyscallError(e);}));
-  for(auto name:{"sigemptyset","sigfillset"})add(name,recomp::MakeBridge<int32_t(addr_t)>([this,name](auto out){if(!out)return SyscallError(22);Write(out,std::string(name)=="sigemptyset"?uint64_t(0):UINT64_MAX);return 0;}));
-  for(auto name:{"sigaddset","sigdelset","sigismember"})add(name,recomp::MakeBridge<int32_t(addr_t,int32_t)>([this,name](auto out,auto sig){if(!out||!Bit(sig))return SyscallError(22);auto value=Read<uint64_t>(out);if(!std::strcmp(name,"sigismember"))return int(bool(value&Bit(sig)));value=std::strcmp(name,"sigaddset")?value&~Bit(sig):value|Bit(sig);Write(out,value);return 0;}));
   installed_=true;
 }
 }  // namespace bunker::windows

@@ -50,6 +50,9 @@ class SignalHost {
   int Queue(uint64_t token,int signal,const Info *info=nullptr);
   Dispatch DispatchOne(uint64_t token,const Boundary&);
   int Suspend(uint64_t token,uint64_t temporary_mask,const Boundary&); // positive EINTR normally
+  // Dispositions and pure sigset helpers only; does not enable thread signals.
+  void InstallProcess(recomp::Runtime&);
+  addr_t ProcessMarker(const std::string&)const;
   void Install(recomp::Runtime&,Current,Boundary);
   addr_t Marker(const std::string&)const;
   void SetErrorSink(std::function<void(int)> sink){error_sink_=std::move(sink);}
@@ -61,6 +64,6 @@ class SignalHost {
   int SyscallError(int);
   std::mutex mutex_;std::map<uint64_t,ThreadRef> threads_;
   std::array<AndroidSignalAction,32> actions_{};
-  Notify request_poll_;std::function<void(int)> error_sink_;addr_t marker_base_;bool installed_=false;
+  Notify request_poll_;std::function<void(int)> error_sink_;addr_t marker_base_;bool installed_=false,process_installed_=false;
 };
 }  // namespace bunker::windows
