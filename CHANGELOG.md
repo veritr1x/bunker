@@ -4,7 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## 2026-11-01 (after 1.6.2)
+## 1.6.3 (2026-11-01)
+
+After an update, Content presets are applied again with the new version, so
+Dark Memories and Recollections of Dusk come back without opening Pod
+Programs.
+
+## 2026-11-01
 
 ### Pod Programs
 - After an update, a Content preset is applied again with the new version
