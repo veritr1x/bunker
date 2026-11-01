@@ -107,3 +107,37 @@ func TestEmbeddedEventSummonsAreValid(t *testing.T) {
 		}
 	}
 }
+
+// Between runs the summon is closed, and To Quests opens the run that is on
+// (its chapter row): the first run's row is closed during a rerun, and the
+// game then fell back to its first event tab.
+func TestEventSummonFollowsTheOpenRun(t *testing.T) {
+	chapters := map[int32]EntityMEventQuestChapter{
+		340:            {EventQuestChapterId: 340, StartDatetime: 1_000_000, EndDatetime: 2_000_000},
+		340 + 10000000: {EventQuestChapterId: 340 + 10000000, StartDatetime: 900_000_000, EndDatetime: 950_000_000},
+	}
+	got := addEventSummons(nil, testEventFile(), chapters)
+	if len(got) != 1 || got[0].UnlockConditionType != model.GachaUnlockEventRun {
+		t.Fatalf("event summon: %+v", got)
+	}
+	grace := int64(2 * 24 * 3600 * 1000)
+	for _, c := range []struct {
+		now     int64
+		chapter int32
+		open    bool
+	}{
+		{1_500_000, 340, true},
+		{2_000_000 + grace - 1, 340, true},
+		{500_000_000, 0, false},
+		{920_000_000, 340 + 10000000, true},
+		{960_000_000 + grace, 0, false},
+	} {
+		chapter, open, isEvent := EventSummonRunAt(340001, c.now)
+		if !isEvent || open != c.open || chapter != c.chapter {
+			t.Errorf("at %d: chapter %d open %v (event %v), want %d %v", c.now, chapter, open, isEvent, c.chapter, c.open)
+		}
+	}
+	if _, _, isEvent := EventSummonRunAt(999, 1_500_000); isEvent {
+		t.Error("another summon counted as an event summon")
+	}
+}

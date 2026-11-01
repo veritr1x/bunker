@@ -8,3 +8,8 @@ const GachaUnlockDarkMemories int32 = 1001
 
 // TutorialPhaseEndContentsFirst is TutorialPhases.EndContentsFirst.
 const TutorialPhaseEndContentsFirst int32 = 10
+
+// GachaUnlockEventRun is Bunker's own condition for event summons, never sent
+// to the game: open while one of the event's runs is (plus the summons' two
+// days of grace); masterdata.EventSummonRunAt.
+const GachaUnlockEventRun int32 = 1002

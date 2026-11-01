@@ -586,3 +586,25 @@ func TestPlainSummonPanelShowsItsBannerCharacters(t *testing.T) {
 		t.Fatalf("banner characters: %v %+v", got, entries[0].PromotionItems)
 	}
 }
+
+// The Mama's Dream prize boxes are on the Event tab, which shows To Quests;
+// it goes to the daily quest that gave their tickets (event chapter 0 opened
+// the plain Event Quests list).
+func TestPrizeBoxSummonsLinkToTheirTicketQuest(t *testing.T) {
+	file, err := loadSummonRulesFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[int32]int32{200001: 11, 200002: 400062, 200003: 400063}
+	for _, e := range addNewSummonsFor(nil, file, 0, false) {
+		if chapter, ok := want[e.GachaId]; ok {
+			if e.RelatedEventQuestChapterId != chapter {
+				t.Errorf("summon %d links to event chapter %d, want %d", e.GachaId, e.RelatedEventQuestChapterId, chapter)
+			}
+			delete(want, e.GachaId)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("summons not added: %v", want)
+	}
+}
