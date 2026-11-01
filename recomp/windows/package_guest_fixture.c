@@ -9,3 +9,4 @@ jobject package_three(JNIEnv *e,jobject o,jmethodID m,jobject a,jint b,jobject c
 jboolean package_feature(JNIEnv *e,jobject o,jmethodID m,jstring n,int mode){if(mode==0)return (*e)->CallBooleanMethod(e,o,m,n);if(mode==1)return bv(e,o,m,n);jvalue v[1];v[0].l=n;return (*e)->CallBooleanMethodA(e,o,m,v);}
 jint package_static_int(JNIEnv *e,jclass c,jfieldID f){return (*e)->GetStaticIntField(e,c,f);}
 jobject package_field(JNIEnv *e,jobject o,jfieldID f){return (*e)->GetObjectField(e,o,f);}
+jobject package_static_field(JNIEnv *e,jclass c,jfieldID f){return (*e)->GetStaticObjectField(e,c,f);}
