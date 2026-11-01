@@ -69,7 +69,11 @@ const std::vector<GlHost::Query> queries={
   {GL_SHADER_BINARY_FORMATS,0,GL_NUM_SHADER_BINARY_FORMATS},
   {GL_PROGRAM_BINARY_FORMATS,0,GL_NUM_PROGRAM_BINARY_FORMATS},
 };
-const char *const names[]={"glGetString","glGetStringi","glGetIntegerv","glGetFloatv","glGetBooleanv","glGetError"};
+const char *const names[]={"glGetString","glGetStringi","glGetIntegerv","glGetFloatv","glGetBooleanv","glGetError",
+#define GL_SCALAR(name, native_type, signature) #name,
+#include "gl_scalar_commands.inc"
+#undef GL_SCALAR
+};
 std::atomic<uint64_t> next_owner{1};
 thread_local std::map<uint64_t,std::set<GLenum>> pending_errors;
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
@@ -129,6 +133,11 @@ struct GlHost::Impl {
   }
   template<class S,class F>void Bind(const char *name,F function){bridges.emplace(name,recomp::MakeBridge<S>(std::move(function)));}
   void Bindings(){
+    // Scalar commands delegate validation/error flags to the same current
+    // ANGLE context. They neither drain errors nor expose driver pointers.
+#define GL_SCALAR(name, native_type, signature) {using GuestSignature=signature;static_assert(std::is_same_v<native_type,GuestSignature*>);Bind<signature>(#name,Symbol<native_type>(module,#name));}
+#include "gl_scalar_commands.inc"
+#undef GL_SCALAR
     Bind<addr_t(uint32_t)>("glGetString",[this](GLenum name){CollectErrors();const auto native=getString(name);CollectErrors();return String(native);});
     Bind<addr_t(uint32_t,uint32_t)>("glGetStringi",[this](GLenum name,GLuint index){CollectErrors();const auto native=getStringi(name,index);CollectErrors();return String(native);});
     Bind<void(uint32_t,addr_t)>("glGetIntegerv",[this](GLenum name,addr_t out){QueryValues<GLint>(name,out,getInteger);});
@@ -144,5 +153,5 @@ const std::vector<GlHost::Query> &GlHost::Queries(){return queries;}
 size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
 addr_t GlHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::runtime_error("Unsupported typed GL resolver signature: "+name);}
 void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);found->second(state);}
-void GlHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("GL query imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"GL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
+void GlHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("GL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"GL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 }  // namespace bunker::windows
