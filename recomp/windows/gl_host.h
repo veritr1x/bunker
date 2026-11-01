@@ -25,6 +25,8 @@ class GlHost {
   void Invoke(const std::string &,State &);
   size_t QueryComponents(uint32_t name);
   static const std::vector<Query> &Queries();
+  // Every supported typed command, in append-only marker order.
+  static const std::vector<std::string> &Commands();
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

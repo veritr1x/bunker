@@ -45,7 +45,6 @@ const char *stage="setup";
 std::atomic<bool> jni_diagnostic_reached{false};
 std::atomic<bool> init_java_diagnostic_active{false};
 std::atomic<size_t> init_java_errors{0};
-constexpr const char *kGlQueries[]={"glGetString","glGetStringi","glGetIntegerv","glGetFloatv","glGetBooleanv","glGetError"};
 void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
   auto invoke=[&host](bool vm,size_t slot,State &state){
     if(!jni_diagnostic_reached.exchange(true))std::fprintf(stderr,"Unity bootstrap: opt-in JNI dispatch diagnostic reached\n");
@@ -90,7 +89,7 @@ addr_t TryProcess(bunker::windows::SignalHost &provider,const std::string &name)
   try{return provider.ProcessMarker(name);}catch(const std::invalid_argument&){return 0;}
 }
 addr_t TryGlImport(bunker::windows::GlHost &provider,const std::string &name){
-  for(const auto *supported:kGlQueries)if(name==supported)return provider.Marker(name);
+  for(const auto &supported:bunker::windows::GlHost::Commands())if(name==supported)return provider.Marker(name);
   return 0;
 }
 bool Translated(addr_t entry){
@@ -213,9 +212,9 @@ int main(int argc,char **argv){
     if(jumps)jumps->Install(runtime);
     if(graphics){
       graphics->Install(gl_bridges);
-      for(const char *name:kGlQueries){
+      for(const auto &name:GlHost::Commands()){
         auto marker=graphics->Marker(name);runtime.AddImport(marker,[&,marker,name](State &s){
-          std::fprintf(stderr,"Unity bootstrap: guest %s enum=%#llx x1=%#llx return=%#llx\n",name,static_cast<unsigned long long>(s.gpr.x0.qword),static_cast<unsigned long long>(s.gpr.x1.qword),static_cast<unsigned long long>(s.gpr.x30.qword));gl_bridges.Dispatch(s,marker,nullptr);
+          std::fprintf(stderr,"Unity bootstrap: guest %s x0=%#llx x1=%#llx return=%#llx\n",name.c_str(),static_cast<unsigned long long>(s.gpr.x0.qword),static_cast<unsigned long long>(s.gpr.x1.qword),static_cast<unsigned long long>(s.gpr.x30.qword));gl_bridges.Dispatch(s,marker,nullptr);
         });
       }
     }
