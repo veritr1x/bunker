@@ -20,3 +20,16 @@ index 9f2b978..440b805 100644
  		))
  	}
  	return resp, err
+diff --git a/server/internal/userdata/projector.go b/server/internal/userdata/projector.go
+index 10efb18..988bc9e 100644
+--- a/server/internal/userdata/projector.go
++++ b/server/internal/userdata/projector.go
+@@ -36,7 +36,7 @@ func projectTable(tableName string, user store.UserState) string {
+ 	if s == "" {
+ 		return "[]"
+ 	}
+-	return s
++	return viewJSON(s) // the original-dates view (bunker_view.go)
+ }
+ 
+ func sortedStringKeys[T any](rows map[string]T) []string {
