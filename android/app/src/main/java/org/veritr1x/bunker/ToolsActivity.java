@@ -60,7 +60,12 @@ public final class ToolsActivity extends Activity {
         web=new WebView(this);web.setBackgroundColor(look.paper);web.setVisibility(View.GONE);body.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.setWebViewClient(new WebViewClient(){
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return !local(request.getUrl().toString());}
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+                // A timeline bar: open the Archive on that summon or event (ArchiveLinks); Back returns here.
+                String archive=ArchiveLinks.path(request.getUrl().toString());
+                if(archive!=null){startActivity(new Intent(ToolsActivity.this,ArchiveActivity.class).putExtra(ArchiveActivity.PATH,archive));return true;}
+                return !local(request.getUrl().toString());
+            }
             @Override public void onPageFinished(WebView view,String url){if(!closing&&local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("> Unable to open Pod Programs. Close and try again.");message.setVisibility(View.VISIBLE);}}
         });
