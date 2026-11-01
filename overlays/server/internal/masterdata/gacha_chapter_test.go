@@ -20,9 +20,10 @@ func loadTestMaster(t *testing.T) {
 	}
 }
 
-// The Dark Memory summon's "To Quests" opens the Dark Memory quests, which
-// stop the game on an empty screen while they are locked; so the summon
-// unlocks with them (Season 1 Chapter 14's last quest).
+// The Dark Memory summon opens with Dark Memories themselves: the game's
+// CalculatorEndContents.IsUnlockEndContents is the END_CONTENTS tutorial at
+// EndContentsFirst, which the unlock scene after the first Hard chapter writes.
+// (Quest 121 opens Recollections of Dusk, not Dark Memories.)
 func TestDarkMemorySummonUnlocksWithDarkMemories(t *testing.T) {
 	loadTestMaster(t)
 	tickets, err := LoadChapterTickets()
@@ -38,12 +39,9 @@ func TestDarkMemorySummonUnlocksWithDarkMemories(t *testing.T) {
 	if ex == nil {
 		t.Fatal("no Dark Memory chapter summon")
 	}
-	if ex.UnlockQuestId != 121 {
-		t.Errorf("Dark Memory summon unlock quest = %d, want 121", ex.UnlockQuestId)
-	}
 	e := chapterGachaEntry(*ex)
-	if e.UnlockConditionType != model.GachaUnlockMainQuestClear || e.UnlockConditionValue != 121 {
-		t.Errorf("Dark Memory summon unlock = %d/%d, want main quest clear 121", e.UnlockConditionType, e.UnlockConditionValue)
+	if e.UnlockConditionType != model.GachaUnlockDarkMemories {
+		t.Errorf("Dark Memory summon unlock = %d/%d, want Dark Memories unlocked", e.UnlockConditionType, e.UnlockConditionValue)
 	}
 }
 

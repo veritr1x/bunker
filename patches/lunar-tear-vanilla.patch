@@ -2874,11 +2874,14 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  }
  
  func matchesGachaLabel(labels []int32, label int32) bool {
-@@ -416,6 +428,44 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -416,6 +428,51 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
 +func gachaUnlockCondition(entry store.GachaCatalogEntry) *pb.GachaUnlockCondition {
++	if c, ok := bunkerGachaUnlockCondition(entry); ok {
++		return c
++	}
 +	if entry.UnlockConditionType == 0 {
 +		return &pb.GachaUnlockCondition{GachaUnlockConditionType: model.GachaUnlockNone}
 +	}
@@ -2886,10 +2889,14 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
 +}
 +
 +// gachaUnlockedFor evaluates the banner's unlock condition for this user.
-+// Only MAIN_QUEST_CLEAR is used by Bunker's catalog (chapter summons).
++// Bunker's catalog uses MAIN_QUEST_CLEAR (chapter summons) and its own
++// conditions (bunker_gacha_unlock.go).
 +func gachaUnlockedFor(entry store.GachaCatalogEntry, user *store.UserState) bool {
 +	if !entry.IsUserGachaUnlock {
 +		return false
++	}
++	if unlocked, ok := bunkerGachaUnlockedFor(entry, user); ok {
++		return unlocked
 +	}
 +	if entry.UnlockConditionType == model.GachaUnlockMainQuestClear {
 +		// Replaying a cleared quest sets its state back to Active until it ends; ClearCount stays.
