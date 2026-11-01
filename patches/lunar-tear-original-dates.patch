@@ -1,0 +1,22 @@
+diff --git a/server/internal/interceptor/timesync.go b/server/internal/interceptor/timesync.go
+index 9f2b978..440b805 100644
+--- a/server/internal/interceptor/timesync.go
++++ b/server/internal/interceptor/timesync.go
+@@ -4,8 +4,6 @@ import (
+ 	"context"
+ 	"fmt"
+ 
+-	"lunar-tear/server/internal/gametime"
+-
+ 	"google.golang.org/grpc"
+ 	"google.golang.org/grpc/metadata"
+ )
+@@ -18,7 +16,7 @@ func TimeSync(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler
+ 		"/apb.api.user.UserService/TransferUser":
+ 	default:
+ 		grpc.SetTrailer(ctx, metadata.Pairs(
+-			"x-apb-response-datetime", fmt.Sprintf("%d", gametime.NowMillis()),
++			"x-apb-response-datetime", fmt.Sprintf("%d", viewNowMillis()),
+ 		))
+ 	}
+ 	return resp, err
