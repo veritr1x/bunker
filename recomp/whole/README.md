@@ -66,6 +66,12 @@ Each build snapshots its lifter and semantics. Resume checks source, target,
 compiler/pipeline, known trace boundaries and IR/object hashes. Keep one writer
 per output directory. Changed compiler snapshots invalidate incompatible shards.
 
+Optional `--poll-instrument` freezes an LLVM18 cooperative poll instrumenter
+and adds State escape points at trace entries and cycle cuts. Link
+`cooperative_poll.cpp` when using it. It is disabled for current engine
+snapshots. See [the contract and gates](cooperative_poll.md); signal delivery,
+provider transition roots and GC integration remain separate work.
+
 ## Integration gates
 
 Run `--help` on each driver for paths and platform options:

@@ -36,6 +36,7 @@ struct Reservation {
 struct ExecutionContext {
   State *state;
   Reservation reservation;
+  ExecutionContext *previous;
 };
 thread_local ExecutionContext *execution;
 struct MemoryTracking {
@@ -186,9 +187,16 @@ void recomp::Runtime::AddImport(addr_t address, std::function<void(State &)> bri
   if (!bridge || traces_.count(address) || !imports_.emplace(address, std::move(bridge)).second)
     throw std::invalid_argument("duplicate or invalid guest import");
 }
+std::vector<State *> recomp::CurrentExecutionFrames(State &top) {
+  if (!execution || execution->state != &top)
+    throw std::invalid_argument("execution frames requested outside current target State");
+  std::vector<State *> frames;
+  for (auto *frame = execution; frame; frame = frame->previous) frames.push_back(frame->state);
+  return frames;
+}
 Memory *recomp::Runtime::Run(State &state, addr_t address, Memory *memory) {
   clear_current_reservation();
-  ExecutionContext context{&state, {}};
+  ExecutionContext context{&state, {}, execution};
   struct Scope {
     Runtime *previous;
     ExecutionContext *previous_execution;

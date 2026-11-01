@@ -104,7 +104,10 @@ unsupported instructions.
   [The binary/ABI evidence and required gates](windows/GC-SUSPENSION.md) are
   preserved for the implementation; both stop and resume acknowledgments are
   needed by this collector's default retry mode.
-  Isolated optimized safepoint and signal-frame gates pass, but are not
+  Opt-in compiler/runtime cooperative polling passes 27,349 checks/260 pauses
+  on each host, including optimized register roots and irregular CFG cycles.
+  [Its contract](whole/cooperative_poll.md) leaves provider transition roots
+  and interruptible waits explicit. Signal-frame byte gates also pass, but are not
   integrated signal delivery or evidence of collector correctness. See
   [the frame contract](whole/signal_frame.md).
 - Finish provider memory integration and exercise paired exclusives in real
