@@ -19,8 +19,8 @@ index ddb4ade..56bbaf1 100644
  		// right (the Arc 2 ★2 weapons) unlock now.
  		if bunkerHolder != nil {
  			if cats := bunkerHolder.Get(); cats != nil && cats.QuestHandler != nil && cats.QuestHandler.Granter != nil {
-+				// Story weapons a full storage sent to the gift box come back first, so their stories unlock too.
-+				cats.QuestHandler.ReturnFirstClearRewardsFromGiftBox(user, user.GameStartDatetime)
++				// Saves from older versions are repaired first (story weapons, memoirs), so stories unlock too.
++				cats.QuestHandler.RepairOnGameStart(user, user.GameStartDatetime)
  				if cats.QuestHandler.Granter.CatchUpWeaponStories(user, user.GameStartDatetime) {
  					log.Printf("[UserService] user %d: weapon stories caught up", user.UserId)
  				}

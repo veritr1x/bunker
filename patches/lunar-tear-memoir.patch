@@ -1,0 +1,27 @@
+diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
+index b8c995b..82faab0 100644
+--- a/server/internal/store/helpers.go
++++ b/server/internal/store/helpers.go
+@@ -632,10 +632,10 @@ func (g *PossessionGranter) createParts(user *UserState, chosenPartsId int32, ch
+ 		AcquisitionDatetime: nowMillis,
+ 	}
+ 
+-	initialCount := chosenRef.PartsInitialLotteryId
++	initialCount := memoirInitialSubStatusCount(chosenRef.PartsInitialLotteryId) // sub-statuses (bunker_memoir.go)
+ 	pool := g.PartsSubStatusPool[chosenRef.PartsStatusSubLotteryGroupId]
+-	if initialCount > 1 && len(pool) > 0 {
+-		for i := int32(0); i < initialCount-1; i++ {
++	if initialCount > 0 && len(pool) > 0 {
++		for i := int32(0); i < initialCount; i++ {
+ 			pickId := pool[rand.Intn(len(pool))]
+ 			def, ok := g.PartsSubStatusDefs[pickId]
+ 			if !ok {
+@@ -658,7 +658,7 @@ func (g *PossessionGranter) createParts(user *UserState, chosenPartsId int32, ch
+ 		}
+ 	}
+ 
+-	log.Printf("[GrantParts] chosen=%d group=%d rarity=%d preUnlockedSubs=%d", chosenPartsId, chosenRef.PartsGroupId, chosenRef.RarityType, initialCount-1)
++	log.Printf("[GrantParts] chosen=%d group=%d rarity=%d preUnlockedSubs=%d", chosenPartsId, chosenRef.PartsGroupId, chosenRef.RarityType, initialCount)
+ }
+ 
+ func (g *PossessionGranter) GrantWeapon(user *UserState, weaponId int32, nowMillis int64) {
