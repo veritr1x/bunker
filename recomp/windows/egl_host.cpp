@@ -82,6 +82,7 @@ struct EglHost::Impl {
   std::map<std::thread::id,Current> currents;
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
+  std::function<addr_t(const std::string&)> procedure_resolver;
 #define DECL(ret,name,args) using name##T=ret(WINAPI*)args;name##T name=nullptr;
   EGL_API(DECL)
 #undef DECL
@@ -247,7 +248,10 @@ struct EglHost::Impl {
           if(!value.empty())value+=' ';
           value+=extension;}}}return String(value);});
     Bind<addr_t(addr_t)>("eglGetProcAddress",[this](addr_t name){const auto text=CString(name);auto it=bridges.find(text);
-      if(it==bridges.end())throw std::runtime_error("Unsupported typed graphics resolver signature: "+text);
+      if(it==bridges.end()){
+        if(procedure_resolver)return procedure_resolver(text);
+        throw std::runtime_error("Unsupported typed graphics resolver signature: "+text);
+      }
       for(size_t i=0;i<std::size(names);++i)if(text==names[i])return marker+i*8;
       throw std::logic_error("EGL marker missing");});
   }
@@ -258,4 +262,5 @@ addr_t EglHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(
 void EglHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported EGL import: "+name);std::unique_ptr<WindowDpiScope> dpi;if(auto window=impl_->DpiWindow(name,&state))dpi=std::make_unique<WindowDpiScope>(window);found->second(state);}
 void EglHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("EGL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"EGL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 void EglHost::ReleaseCurrentThread(){std::lock_guard lock(impl_->mutex);impl_->ReleaseThread();}
+void EglHost::SetProcedureResolver(std::function<addr_t(const std::string&)> resolver){std::lock_guard lock(impl_->mutex);impl_->procedure_resolver=std::move(resolver);}
 }  // namespace bunker::windows
