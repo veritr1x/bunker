@@ -81,7 +81,19 @@ addr_t LibC::Marker(const std::string &name)const{
 template <typename Signature,typename F>void LibC::Add(recomp::Runtime &runtime,const char *name,F function){
   auto bridge=recomp::MakeBridge<Signature>(std::move(function));
   runtime.AddImport(Marker(name),[this,bridge=std::move(bridge),name](State &state){
-    try{bridge(state);}catch(...){Fatal(name);}
+    try{bridge(state);}
+    catch(const std::exception &error){
+      std::fprintf(stderr,"Bunker guest libc import %s failed: %s\n",name,error.what());
+      std::fprintf(stderr,"  guest-pc=%#llx return=%#llx x0=%#llx x1=%#llx x2=%#llx x3=%#llx\n",
+        static_cast<unsigned long long>(state.gpr.pc.qword),static_cast<unsigned long long>(state.gpr.x30.qword),
+        static_cast<unsigned long long>(state.gpr.x0.qword),static_cast<unsigned long long>(state.gpr.x1.qword),
+        static_cast<unsigned long long>(state.gpr.x2.qword),static_cast<unsigned long long>(state.gpr.x3.qword));
+      Fatal(name);
+    }
+    catch(...){
+      std::fprintf(stderr,"Bunker guest libc import %s failed: non-standard C++ exception\n",name);
+      Fatal(name);
+    }
   });
 }
 void *LibC::Malloc(uint64_t size){
@@ -185,7 +197,17 @@ void LibC::Finalize(addr_t dso){
   for(;;){Exit entry{};bool found=false;{
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     for(auto i=exits_.rbegin();i!=exits_.rend();++i)if(!i->called&&(!dso||i->dso==dso)){i->called=true;entry=*i;found=true;break;}
-  }if(!found)return;runner_(entry.callback,entry.plain?std::vector<addr_t>{}:std::vector<addr_t>{entry.argument});}
+  }if(!found)return;
+    try{runner_(entry.callback,entry.plain?std::vector<addr_t>{}:std::vector<addr_t>{entry.argument});}
+    catch(...){
+      char context[224];
+      std::snprintf(context,sizeof(context),"__cxa_finalize callback=%#llx argument=%#llx dso=%#llx filter=%#llx%s: ",
+        static_cast<unsigned long long>(entry.callback),static_cast<unsigned long long>(entry.argument),
+        static_cast<unsigned long long>(entry.dso),static_cast<unsigned long long>(dso),entry.plain?" plain-atexit":"");
+      try{throw;}catch(const std::exception &error){throw std::runtime_error(std::string(context)+error.what());}
+      catch(...){throw std::runtime_error(std::string(context)+"non-standard C++ exception");}
+    }
+  }
 }
 void LibC::Install(recomp::Runtime &runtime){
   if(installed_)throw std::logic_error("libc imports already installed");

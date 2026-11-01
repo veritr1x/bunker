@@ -35,7 +35,7 @@ bool SnapshotString(const char *source, std::string &value, size_t limit) {
   return false;
 }
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
-  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect"};
+  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise"};
 int GuestCrtError(int error) {
   switch (error) {
     case 0: return 0;
@@ -454,6 +454,36 @@ addr_t FileSystem::Marker(const std::string &name) const {
   for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i) if (name == names[i]) return impl_->marker_base + i * 8;
   throw std::invalid_argument("unsupported file-system import " + name);
 }
+int FileSystem::Madvise(addr_t address, uint64_t length, int advice) {
+  std::lock_guard lock(impl_->mutex);
+  // Only normal/default policy is implemented. Linux rejects unsupported
+  // behavior before alignment/range validation, including for an empty range.
+  if (advice != 0 || address % kPage || length > UINT64_MAX - (kPage - 1)) { impl_->Error(22); return -1; }
+  const auto rounded = RoundPage(length);
+  if (address > UINT64_MAX - rounded) { impl_->Error(22); return -1; }
+  const auto end = address + rounded;
+  for (auto cursor = address; cursor < end;) {
+    uint64_t available = end - cursor;
+    auto mapping = impl_->mappings.upper_bound(cursor);
+    if (mapping != impl_->mappings.begin()) {
+      --mapping;
+      const auto offset = cursor - mapping->first;
+      if (offset < mapping->second.rounded_length) available = std::min(available, mapping->second.rounded_length - offset);
+    }
+    // ELF data, guest stacks and CRT guest heap allocations also reside in
+    // this shared address space. Verify actual committed pages even when a
+    // different provider owns their allocation; reserved/free pages are holes.
+    MEMORY_BASIC_INFORMATION info{};
+    if (!VirtualQuery(reinterpret_cast<const void *>(cursor), &info, sizeof(info)) || info.State != MEM_COMMIT) { impl_->Error(12); return -1; }
+    const auto region = reinterpret_cast<addr_t>(info.BaseAddress);
+    if (cursor < region || cursor - region >= info.RegionSize) { impl_->Error(12); return -1; }
+    cursor += std::min<uint64_t>(available, info.RegionSize - (cursor - region));
+  }
+  // Our VirtualAlloc/MapViewOfFile mappings already use ordinary Windows
+  // paging/caching policy. MADV_NORMAL is advisory and changes no contents,
+  // protection or lifetime. Never reset/decommit pages or invalidate stores.
+  return 0;
+}
 void FileSystem::Install(recomp::Runtime &runtime) {
   std::lock_guard lock(impl_->mutex); if (impl_->installed) throw std::logic_error("file system already installed");
   runtime.AddImport(Marker("__errno"), recomp::MakeBridge<addr_t()>([this] { return ErrnoAddress(); }));
@@ -477,6 +507,7 @@ void FileSystem::Install(recomp::Runtime &runtime) {
   runtime.AddImport(Marker("mmap"), recomp::MakeBridge<addr_t(addr_t, uint64_t, int32_t, int32_t, int32_t, int64_t)>([this](auto address, auto length, auto prot, auto flags, auto fd, auto offset) { return Mmap(address, length, prot, flags, fd, offset); }));
   runtime.AddImport(Marker("munmap"), recomp::MakeBridge<int32_t(addr_t, uint64_t)>([this](auto address, auto length) { return Munmap(address, length); }));
   runtime.AddImport(Marker("mprotect"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto prot) { return Mprotect(address, length, prot); }));
+  runtime.AddImport(Marker("madvise"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto advice) { return Madvise(address, length, advice); }));
   impl_->installed = true;
 }
 }  // namespace bunker::windows

@@ -75,7 +75,7 @@ class Host {
   struct CharLease;
   Thread &Current(bool attach = false);
   void RequireEnv(addr_t address);
-  void Raise(const std::string &type, const std::string &message);
+  void Raise(const std::string &type, const std::string &message, bool message_present = true);
   addr_t Local(const std::shared_ptr<Object> &object);
   std::shared_ptr<Object> Get(addr_t reference, bool allow_null = false);
   std::shared_ptr<Object> String(addr_t reference);
@@ -97,6 +97,7 @@ class Host {
   addr_t vm_word_ = 0, marker_base_;
   bool installed_ = false;
   addr_t next_reference_ = 0x7ff100000000ULL, next_method_ = 0x7ff200000000ULL;
+  uint32_t next_identity_hash_ = 1;
   std::function<bool(addr_t)> native_entry_validator_;
   std::map<uint64_t, std::unique_ptr<Thread>> threads_;
   std::map<std::string, std::unique_ptr<Class>> classes_;

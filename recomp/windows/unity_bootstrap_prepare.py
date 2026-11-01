@@ -88,11 +88,18 @@ def main():
     sdk=int(re.search(r"^targetSdkVersion:'(\d+)'",badging,re.M).group(1))
     activity=re.search(r"^launchable-activity: name='([^']+)'",badging,re.M).group(1).replace('.','/')
     groups=registration_tables(a.library)
-    required={g['class'] for g in groups};classes={}
+    # Actual initJni helper0xab6eb4 resolves this class and registers its two
+    # natives. Include only its real APK declarations, never Java method bodies.
+    bridge='bitter/jnibridge/JNIBridge'
+    required={g['class'] for g in groups}|{bridge};classes={}
     with zipfile.ZipFile(a.apk) as apk:
         for name in apk.namelist():
             if re.fullmatch(r'classes\d*\.dex',name):classes.update(Dex(apk.read(name)).unity_classes(required))
     if not classes:raise RuntimeError('Actual APK does not declare Unity JNI classes')
+    if bridge not in classes:raise RuntimeError('Evidenced initJni bridge class is absent from actual APK')
+    for name,signature in [('delete','(J)V'),('invoke','(JLjava/lang/Class;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;')]:
+        found=[m for m in classes[bridge]['methods'] if m['name']==name and m['signature']==signature]
+        if len(found)!=1 or not found[0]['native'] or not found[0]['static']:raise RuntimeError('Actual initJni bridge native/DEX mismatch: '+name)
     for group in groups:
         if group['class'] not in classes:raise RuntimeError('Actual registration class absent from APK: '+group['class'])
         for method in group['methods']:

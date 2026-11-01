@@ -56,6 +56,8 @@ bool SupportedVersion(int32_t version) { return version == 0x10001 || version ==
 struct Host::Object {
   enum Kind { kClass, kString, kInstance, kThrowable } kind = kInstance;
   std::string class_name, message;
+  bool message_present = true;
+  uint32_t identity_hash = 0;
   std::u16string text;
   std::map<addr_t, std::shared_ptr<Object>> object_fields;
   std::map<addr_t, uint64_t> primitive_fields;
@@ -68,7 +70,7 @@ struct Host::Reference {
   std::shared_ptr<Object> Lock() const { return kind == 3 ? weak.lock() : strong; }
 };
 struct Host::Method {
-  enum Builtin { kNone, kClassLoader, kForName } builtin = kNone;
+  enum Builtin { kNone, kClassLoader, kForName, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
   std::function<addr_t(addr_t)> object_handler;
@@ -97,16 +99,26 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   for (size_t i = 4; i < env_table_.size(); ++i) env_table_[i] = EnvMarker(i);
   for (size_t i = 3; i < vm_table_.size(); ++i) vm_table_[i] = VmMarker(i);
   vm_word_ = reinterpret_cast<addr_t>(vm_table_.data());
-  DefineClass("java/lang/Object", {}, "", true);
+  DefineClass("java/lang/Object", {{"toString", "()Ljava/lang/String;"}}, "", true);
   DefineClass("java/lang/Class", {{"getClassLoader", "()Ljava/lang/ClassLoader;"},
       {"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;", true}}, "java/lang/Object", true);
   DefineClass("java/lang/ClassLoader", {}, "java/lang/Object", true);
   DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
-  DefineClass("java/lang/String", {}, "java/lang/Object", true);
-  for (const char *name : {"java/lang/Throwable", "java/lang/IllegalArgumentException", "java/lang/IllegalStateException",
-      "java/lang/NoClassDefFoundError", "java/lang/NoSuchMethodError", "java/lang/NoSuchFieldError", "java/lang/NullPointerException",
-      "java/lang/StringIndexOutOfBoundsException", "java/lang/UnsatisfiedLinkError", "java/lang/ClassNotFoundException",
-      "java/lang/UnsupportedOperationException"}) DefineClass(name, {}, "java/lang/Object", true);
+  DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"}}, "java/lang/Object", true);
+  DefineClass("java/lang/Throwable", {{"toString", "()Ljava/lang/String;"}, {"getMessage", "()Ljava/lang/String;"}, {"getLocalizedMessage", "()Ljava/lang/String;"}}, "java/lang/Object", true);
+  for (auto [name,superclass] : std::vector<std::pair<const char *,const char *>>{
+      {"java/lang/Exception","java/lang/Throwable"},{"java/lang/RuntimeException","java/lang/Exception"},
+      {"java/lang/IllegalArgumentException","java/lang/RuntimeException"},{"java/lang/IllegalStateException","java/lang/RuntimeException"},
+      {"java/lang/NullPointerException","java/lang/RuntimeException"},{"java/lang/IndexOutOfBoundsException","java/lang/RuntimeException"},
+      {"java/lang/StringIndexOutOfBoundsException","java/lang/IndexOutOfBoundsException"},{"java/lang/UnsupportedOperationException","java/lang/RuntimeException"},
+      {"java/lang/ClassNotFoundException","java/lang/Exception"},{"java/lang/Error","java/lang/Throwable"},
+      {"java/lang/LinkageError","java/lang/Error"},{"java/lang/IncompatibleClassChangeError","java/lang/LinkageError"},
+      {"java/lang/NoClassDefFoundError","java/lang/LinkageError"},{"java/lang/NoSuchMethodError","java/lang/IncompatibleClassChangeError"},
+      {"java/lang/NoSuchFieldError","java/lang/IncompatibleClassChangeError"},{"java/lang/UnsatisfiedLinkError","java/lang/LinkageError"}})
+    DefineClass(name, {}, superclass, true);
+  auto builtin=[&](const char *owner,const char *name,Method::Builtin kind){classes_.at(owner)->methods.at({name,"()Ljava/lang/String;"})->builtin=kind;};
+  builtin("java/lang/Object","toString",Method::kObjectString);builtin("java/lang/String","toString",Method::kStringString);
+  builtin("java/lang/Throwable","toString",Method::kThrowableString);builtin("java/lang/Throwable","getMessage",Method::kMessage);builtin("java/lang/Throwable","getLocalizedMessage",Method::kLocalizedMessage);
   classes_.at("java/lang/Class")->methods.at({"getClassLoader", "()Ljava/lang/ClassLoader;"})->builtin = Method::kClassLoader;
   classes_.at("java/lang/Class")->methods.at({"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;"})->builtin = Method::kForName;
   application_loader_ = std::make_shared<Object>(); application_loader_->class_name = "java/lang/ClassLoader";
@@ -174,8 +186,9 @@ void Host::DefineField(const std::string &class_name, const std::string &name, c
   auto field = std::make_unique<Field>(Field{class_name, name, signature, is_static, next_method_++});
   field_ids_[field->id] = field.get(); clazz->second->fields.emplace(key, std::move(field));
 }
-void Host::Raise(const std::string &type, const std::string &message) {
+void Host::Raise(const std::string &type, const std::string &message, bool message_present) {
   auto object = std::make_shared<Object>(); object->kind = Object::kThrowable; object->class_name = type; object->message = message;
+  object->message_present=message_present;
   Current().exception = std::move(object);
 }
 std::string Host::PendingException() { std::lock_guard lock(mutex_); auto e = Current().exception; return e ? e->class_name + ": " + e->message : ""; }
@@ -315,9 +328,39 @@ addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t ref
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
   auto object = Get(reference); if (!object) return 0;
-  auto &metadata = *method->second;
+  auto *selected = method->second;
   auto actual = is_static ? object->class_name : object->kind == Object::kClass ? "java/lang/Class" : object->class_name;
-  if (metadata.declaration.is_static != is_static || (is_static && object->kind != Object::kClass) || !Assignable(actual, metadata.owner)) { Raise("java/lang/IllegalArgumentException", "JNI method receiver mismatch"); return 0; }
+  if (selected->declaration.is_static != is_static || (is_static && object->kind != Object::kClass) || !Assignable(actual, selected->owner)) { Raise("java/lang/IllegalArgumentException", "JNI method receiver mismatch"); return 0; }
+  if(!is_static){
+    const auto key=std::make_pair(selected->declaration.name,selected->declaration.signature);
+    for(auto clazz=classes_.at(actual).get();clazz;clazz=clazz->superclass.empty()?nullptr:classes_.at(clazz->superclass).get()){
+      auto override=clazz->methods.find(key);if(override!=clazz->methods.end()&&!override->second->declaration.is_static){selected=override->second.get();break;}
+    }
+  }
+  auto &metadata=*selected;
+  if(metadata.builtin==Method::kStringString){
+    if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}return Local(object);
+  }
+  if(metadata.builtin==Method::kMessage||metadata.builtin==Method::kLocalizedMessage||metadata.builtin==Method::kThrowableString){
+    if(object->kind!=Object::kThrowable){Raise("java/lang/UnsupportedOperationException","Throwable object has no initialized throwable state");return 0;}
+    if(metadata.builtin==Method::kMessage)return object->message_present?NewString(Decode(object->message.c_str())):0;
+    const char *getter=metadata.builtin==Method::kLocalizedMessage?"getMessage":"getLocalizedMessage";
+    auto getter_id=classes_.at("java/lang/Throwable")->methods.at({getter,"()Ljava/lang/String;"})->id;
+    auto message=CallObject(lock,reference,getter_id);if(Current().exception)return 0;
+    if(metadata.builtin==Method::kLocalizedMessage)return message;
+    auto text=Get(message,true);if(message&&!text)return 0;
+    std::string name=object->class_name;std::replace(name.begin(),name.end(),'/','.');
+    auto result=Decode(name.c_str());if(text){result+=u": ";result+=text->text;}
+    if(message)Delete(message,1);return NewString(result);
+  }
+  if(metadata.builtin==Method::kObjectString){
+    if(object->kind==Object::kClass){Raise("java/lang/UnsupportedOperationException","Class.toString requires complete class/interface metadata");return 0;}
+    for(auto clazz=classes_.at(actual).get();clazz&&!clazz->superclass.empty();clazz=classes_.at(clazz->superclass).get())
+      if(clazz->methods.count({"hashCode","()I"})){Raise("java/lang/UnsupportedOperationException","Java hashCode override is not implemented: "+clazz->object->class_name);return 0;}
+    if(!object->identity_hash){if(!next_identity_hash_)++next_identity_hash_;object->identity_hash=next_identity_hash_++;}
+    auto name=actual;std::replace(name.begin(),name.end(),'/','.');char hash[9];std::snprintf(hash,sizeof(hash),"%x",object->identity_hash);
+    return NewString(Decode((name+"@"+hash).c_str()));
+  }
   if (metadata.builtin == Method::kClassLoader) {
     if (object->kind != Object::kClass) { Raise("java/lang/IllegalArgumentException", "getClassLoader requires a class object"); return 0; }
     return Local(classes_.at(object->class_name)->bootstrap ? bootstrap_loader_ : application_loader_);
@@ -428,7 +471,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 10: { auto *clazz = GetClass(a); s.gpr.x0.qword = clazz && !clazz->superclass.empty() ? Local(classes_.at(clazz->superclass)->object) : 0; return; }
     case 11: { auto *first = GetClass(a), *second = GetClass(b); s.gpr.x0.qword = first && second && Assignable(first->object->class_name, second->object->class_name); return; }
     case 13: { auto object = Get(a); if (!object || object->kind != Object::kThrowable) { IntResult(s, kError); return; } Current().exception = object; IntResult(s, kOk); return; }
-    case 14: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } Raise(clazz->object->class_name, b ? recomp::ReadGuestString(b) : ""); IntResult(s, kOk); return; }
+    case 14: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } if(!Assignable(clazz->object->class_name,"java/lang/Throwable")){Raise("java/lang/IllegalArgumentException","ThrowNew requires a Throwable subclass");IntResult(s,kError);return;}Raise(clazz->object->class_name, b ? recomp::ReadGuestString(b) : "",b!=0); IntResult(s, kOk); return; }
     case 15: s.gpr.x0.qword = Local(Current().exception); return;
     case 16: if (Current().exception) std::fprintf(stderr, "%s\n", PendingException().c_str()); return;
     case 17: Current().exception.reset(); return;

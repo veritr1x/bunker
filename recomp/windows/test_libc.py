@@ -43,6 +43,13 @@ def main():
         if fatal.returncode == 0 or b'guest libc fatal' not in fatal.stderr:
             raise RuntimeError(f'{name} failed to report and terminate')
     print('Guest stack-check and abort imports terminate truthfully.')
+    rejected = subprocess.run([str(unit), 'finalize-untranslated'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if rejected.returncode == 0 or any(item not in rejected.stderr for item in (
+            b'import __cxa_finalize failed', b'callback=0x70ab7a24', b'argument=0x7130da68',
+            b'dso=0x7123eac0', b'not a registered translated entry', b'guest libc fatal',
+            b'guest-pc=0x700b8f60', b'return=0x700dd2e4', b'x0=0x7123eac0', b'x1=0x1515', b'x2=0x2626')):
+        raise RuntimeError('Rejected translated destructor lost context/reason or failed to terminate')
+    print('Rejected guest destructor reports callback/argument/DSO and runner reason before terminating.')
     compiler = a.ndk / 'toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang'
     library = out / 'libc-guest.so'
     run([compiler, '-shared', '-nostdlib', '-fPIC', '-O1', '-fno-stack-protector', '-D_FORTIFY_SOURCE=0',

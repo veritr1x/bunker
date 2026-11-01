@@ -77,6 +77,13 @@ uint64_t guest_missing_errno(const char *path) {
     if (open(path, O_RDONLY) >= 0) return UINT64_MAX;
     return errno;
 }
+uint64_t guest_madvise(void *address, uint64_t length, int advice) {
+    _Static_assert(MADV_NORMAL == 0, "actual NDK normal advice");
+    _Static_assert(MADV_DONTNEED == 4, "actual NDK discard advice");
+    errno = 123;
+    int result = madvise(address, length, advice);
+    return ((uint64_t)(uint32_t)result << 32) | (uint32_t)errno;
+}
 uint64_t guest_context_checksum(JavaVM *vm, jobject activity, uint64_t offset, uint64_t length, uint64_t file_size, uint32_t target_sdk) {
     JNIEnv *env = 0;
     if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) || !env) return UINT64_MAX;
