@@ -372,3 +372,50 @@ class ViewFromLaunch(unittest.TestCase):
 
     def test_loop_data_is_not_capped(self):
         self.assertEqual(self.rows(self.loop, "m_main_quest_chapter", "StartDatetime"), self.rows(self.original, "m_main_quest_chapter", "StartDatetime"))
+
+
+@unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
+class StoryChaptersInTheGameData(unittest.TestCase):
+    """With the Original calendar, story chapters open on their release dates
+    (moved into the loop), except chapters the player already reached."""
+    @classmethod
+    def setUpClass(cls):
+        from tools import dump_masterdata
+        cls.schemas = dump_masterdata.load_schemas()
+        cls.original = dict(cls.rows(cal.read_master(ORIGINAL)))
+        cls.dated = sorted(c for c, v in cls.original.items() if cal.LAUNCH < v < cal.FOREVER)
+
+    @classmethod
+    def rows(cls, master):
+        toc, blob = master
+        return cal._read(toc, blob, {}, cls.schemas, "m_main_quest_chapter", "MainQuestChapterId", "StartDatetime")
+
+    def build(self, offset, chapters, view=False):
+        import tempfile
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "out.bin.e"
+            cal.build_master(ORIGINAL, out, offset, view=view, open_chapters=chapters)
+            return dict(self.rows(cal.read_master(out)))
+
+    def test_loop_moves_chapters_and_opens_reached_ones(self):
+        offset, reached = 100 * cal.WEEK, self.dated[0]
+        built = self.build(offset, {reached})
+        self.assertEqual(built[reached], min(self.original[reached], cal.LAUNCH) + offset)
+        for chapter in self.dated[1:]:
+            self.assertEqual(built[chapter], self.original[chapter] + offset, chapter)
+
+    def test_chapters_open_from_the_start_stay_as_they_are(self):
+        built = self.build(100 * cal.WEEK, set())
+        early = [c for c, v in self.original.items() if v < cal.LAUNCH]
+        self.assertTrue(early)
+        self.assertEqual([built[c] for c in early], [self.original[c] for c in early])
+
+    def test_view_keeps_dates_and_opens_reached_ones(self):
+        reached = self.dated[0]
+        built = self.build(0, {reached}, view=True)
+        self.assertEqual(built[reached], min(self.original[reached], cal.LAUNCH))
+        self.assertEqual([built[c] for c in self.dated[1:]], [self.original[c] for c in self.dated[1:]])
+
+    def test_every_chapter_open_when_all_are_reached(self):
+        built = self.build(100 * cal.WEEK, set(self.original))
+        self.assertTrue(all(v <= cal.LAUNCH + 100 * cal.WEEK for v in built.values()))
