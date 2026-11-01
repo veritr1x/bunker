@@ -18,11 +18,19 @@ _BR_ENCODING = re.compile(rb'[\x00\x20\x40\x60\x80\xa0\xc0\xe0][\x00-\x03]\x1f\x
 
 
 @dataclass(frozen=True)
+class MaskedIndex:
+    register: str
+    source_width: int
+    mask: int
+    before: int
+
+
+@dataclass(frozen=True)
 class Table:
     address: int
     size: int
     signed: bool
-    index: tuple
+    index: object
     stride: int
     load: int
 
@@ -48,12 +56,14 @@ def _register(ins, reg):
 
 
 class Function:
-    def __init__(self, instructions, lo, hi):
+    def __init__(self, instructions, lo, hi, indirect_edges=None, reachable_only=False):
         self.lo, self.hi = lo, hi
+        self.reachable_only = reachable_only
         self.ins = {i.address: i for i in instructions}
         self.pred = defaultdict(set)
         self.succ = {}
         self.cache = {}
+        self.reaching_cache = {}
         self.active = set()
         for pc, ins in self.ins.items():
             name = ins.mnemonic
@@ -61,6 +71,8 @@ class Function:
             edges = []
             if name == 'b' or conditional:
                 edges.append(ins.operands[-1].imm)
+            elif name == 'br' and indirect_edges:
+                edges.extend(indirect_edges.get(pc, ()))
             if conditional or name not in ('b', 'br', 'ret', 'eret'):
                 edges.append(pc + 4)
             self.succ[pc] = {a for a in edges if a in self.ins}
@@ -116,6 +128,86 @@ class Function:
         reg, bits = _register(ins, operand)
         return self.resolve(reg, width or bits, before)
 
+    def parents(self, before):
+        parents = self.pred.get(before, ())
+        return [pc for pc in parents if self.block[pc] in self.dom] if self.reachable_only else parents
+
+    @staticmethod
+    def writes_register(ins, reg):
+        writes = {_register(ins, r)[0] for r in ins.regs_access()[1]}
+        # Capstone 5 reports a spurious GPR write for these ZR-destination aliases.
+        if ins.mnemonic in ('cmp', 'cmn', 'tst', 'ccmp', 'ccmn'):
+            writes = {'nzcv'}
+        if ins.mnemonic in ('bl', 'blr'):
+            writes.update(str(r) for r in range(19))
+            writes.add('30')
+        return reg in writes
+
+    def unchanged_between(self, reg, earlier, later):
+        if not self.dominates(earlier, later):
+            return False
+        pending, visited, reached = [later], set(), False
+        while pending:
+            before = pending.pop()
+            if before in visited:
+                continue
+            visited.add(before)
+            for pc in self.pred.get(before, ()):
+                # The first mask reads its input before its own destination
+                # write, so an in-place mask must also count as a clobber.
+                if self.writes_register(self.ins[pc], reg):
+                    return False
+                if pc == earlier:
+                    reached = True
+                else:
+                    pending.append(pc)
+        return reached
+
+    def equivalent_index(self, lhs, rhs):
+        if lhs == rhs:
+            return True
+        if not isinstance(lhs, MaskedIndex) or not isinstance(rhs, MaskedIndex):
+            return False
+        if lhs.register != rhs.register or lhs.mask != rhs.mask:
+            return False
+        # A W read loses bits above 31; equality with an X read is valid only
+        # when the effective AND mask already removes every such bit.
+        if lhs.mask >> min(lhs.source_width, rhs.source_width):
+            return False
+        return (self.unchanged_between(lhs.register, lhs.before, rhs.before) or
+                self.unchanged_between(lhs.register, rhs.before, lhs.before))
+
+    def unique_reaching_definition(self, reg, before):
+        key = reg, before
+        if key in self.reaching_cache:
+            return self.reaching_cache[key]
+        pending, visited, writers = [before], set(), set()
+        result = None
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            # A value reaching the initial ABI input is not initialized by a
+            # unique local writer. Bound exploration rather than guessing if
+            # a very large function exhausts the analysis budget.
+            if current == self.lo or not self.parents(current) or len(visited) > 4096:
+                break
+            for pc in self.parents(current):
+                if self.writes_register(self.ins[pc], reg):
+                    writers.add(pc)
+                else:
+                    pending.append(pc)
+            if len(writers) > 1:
+                break
+        else:
+            if len(writers) == 1:
+                candidate = next(iter(writers))
+                if self.dominates(candidate, before):
+                    result = candidate
+        self.reaching_cache[key] = result
+        return result
+
     def resolve(self, reg, width, before):
         if reg == 'zero':
             return ('constant', 0)
@@ -125,7 +217,7 @@ class Function:
         if key in self.active or len(self.active) > 96:
             return None
         self.active.add(key)
-        parents = self.pred.get(before, ())
+        parents = self.parents(before)
         # A backedge into the function entry must not erase the initial ABI
         # input path when joining reaching definitions.
         values = [('input', reg, width)] if before == self.lo else []
@@ -134,16 +226,17 @@ class Function:
         else:
             for pc in parents:
                 ins = self.ins[pc]
-                writes = {_register(ins, r)[0] for r in ins.regs_access()[1]}
-                # Capstone 5 incorrectly reports the first CMP/CMN/TST alias
-                # operand as written (the encoded destination is ZR).
-                if ins.mnemonic in ('cmp', 'cmn', 'tst', 'ccmp', 'ccmn'):
-                    writes = {'nzcv'}
-                if ins.mnemonic in ('bl', 'blr'):
-                    writes.update(str(r) for r in range(19))
-                    writes.add('30')
-                values.append(self.definition(ins, reg, width) if reg in writes else self.resolve(reg, width, pc))
+                values.append(self.definition(ins, reg, width) if self.writes_register(ins, reg) else self.resolve(reg, width, pc))
             result = values[0] if all(v == values[0] for v in values) else None
+        if result is None:
+            # A loop with no writes to this register need not destroy an
+            # earlier constant table address. Re-evaluate only a unique,
+            # dominating last writer, and retain only a proven constant.
+            writer = self.unique_reaching_definition(reg, before)
+            if writer is not None:
+                value = self.definition(self.ins[writer], reg, width)
+                if isinstance(value, tuple) and value[0] == 'constant':
+                    result = value
         self.active.remove(key)
         self.cache[key] = result
         return result
@@ -158,6 +251,10 @@ class Function:
             result = ('constant', ops[1].imm)
         elif name == 'mov':
             result = ('constant', ops[1].imm) if ops[1].type == ARM64_OP_IMM else self.read(ops[1].reg, ins.address, ins)
+        elif name == 'and' and len(ops) == 3 and ops[2].type == ARM64_OP_IMM:
+            source, source_width = _register(ins, ops[1].reg)
+            mask = ops[2].imm & ((1 << min(width, written_width)) - 1)
+            result = ('constant', 0) if source == 'zero' else MaskedIndex(source, source_width, mask, ins.address)
         elif name in ('add', 'sub') and len(ops) == 3:
             lhs = self.read(ops[1].reg, ins.address, ins)
             rhs = ('constant', ops[2].imm << ops[2].shift.value) if ops[2].type == ARM64_OP_IMM else self.read(
@@ -180,7 +277,7 @@ class Function:
                                1 << ops[1].shift.value, ins.address)
         if result is None:
             result = ('definition', ins.address, reg, min(width, written_width))
-        elif width == 32 and written_width == 64:
+        elif width == 32 and written_width == 64 and not isinstance(result, MaskedIndex):
             result = ('truncate32', result)
         return result
 
@@ -209,13 +306,38 @@ class Function:
             if compare is None or compare.operands[1].type != ARM64_OP_IMM:
                 continue
             index = self.read(compare.operands[0].reg, compare.address, compare)
-            if index != table.index:
+            if not self.equivalent_index(index, table.index):
                 continue
             count = compare.operands[1].imm << compare.operands[1].shift.value
             count += branch.mnemonic in ('b.hi', 'b.ls')
             if 0 < count <= 65536:
                 return count, pc
         return None
+
+
+def _recover_table(function, ins, read, code):
+    pc, lo, hi = ins.address, function.lo, function.hi
+    target = function.read(ins.operands[0].reg, pc, ins)
+    if not isinstance(target, Target):
+        return None, 'indirect target is not a supported relative-table expression'
+    if target.table.index is None:
+        return None, 'table index has ambiguous reaching definitions'
+    proof = function.bound(target.table)
+    if proof is None:
+        return None, 'no dominating unsigned index bound proven'
+    if target.table.stride != target.table.size:
+        return None, 'indexed load stride does not match table element size'
+    count, guard = proof
+    raw = read(target.table.address, count * target.table.size)
+    if raw is None:
+        return None, 'bounded table is outside file-backed allocated sections'
+    targets = [target.base + (int.from_bytes(raw[i:i + target.table.size], 'little', signed=target.table.signed) << target.shift)
+               for i in range(0, len(raw), target.table.size)]
+    if not all(lo <= address < hi and code(address) for address in targets):
+        return None, 'table contains a target outside the containing executable function'
+    return dict(site=pc, function=lo, function_end=hi, table=target.table.address,
+                count=count, entry_size=target.table.size, signed=target.table.signed,
+                case_base=target.base, shift=target.shift, guard=guard, targets=targets), None
 
 
 def recover(elf):
@@ -260,38 +382,31 @@ def recover(elf):
         # BR xN has a fixed encoding; most functions contain no candidate.
         if not any(match.start() % 4 == 0 for match in _BR_ENCODING.finditer(data)):
             continue
-        function = Function(decoder.disasm(data, lo), lo, hi)
+        instructions = list(decoder.disasm(data, lo))
+        function = Function(instructions, lo, hi)
+        branches = [ins for ins in instructions if ins.mnemonic == 'br']
         for pc, ins in function.ins.items():
             if ins.mnemonic != 'br' or pc in seen:
                 continue
             seen.add(pc)
-            target = function.read(ins.operands[0].reg, pc, ins)
-            reason = None
-            if not isinstance(target, Target):
-                reason = 'indirect target is not a supported relative-table expression'
-            elif target.table.index is None:
-                reason = 'table index has ambiguous reaching definitions'
-            else:
-                proof = function.bound(target.table)
-                if proof is None:
-                    reason = 'no dominating unsigned index bound proven'
-                elif target.table.stride != target.table.size:
-                    reason = 'indexed load stride does not match table element size'
-                else:
-                    count, guard = proof
-                    raw = read(target.table.address, count * target.table.size)
-                    if raw is None:
-                        reason = 'bounded table is outside file-backed allocated sections'
-                    else:
-                        targets = [target.base + (int.from_bytes(raw[i:i + target.table.size], 'little', signed=target.table.signed) << target.shift)
-                                   for i in range(0, len(raw), target.table.size)]
-                        if not all(lo <= address < hi and code(address) for address in targets):
-                            reason = 'table contains a target outside the containing executable function'
-                        else:
-                            entries.update(targets)
-                            tables.append(dict(site=pc, function=lo, function_end=hi, table=target.table.address,
-                                               count=count, entry_size=target.table.size, signed=target.table.signed,
-                                               case_base=target.base, shift=target.shift, guard=guard, targets=targets))
+            record, reason = _recover_table(function, ins, read, code)
+            if record is None and len(branches) == 1:
+                # A loop may have case roots disconnected until its sole BR
+                # is known. Derive a candidate from entry-reachable paths,
+                # then close the CFG with exactly those bounded table edges.
+                # No seed is emitted unless the full proof remains identical
+                # with every candidate case path included.
+                trial = Function(instructions, lo, hi, reachable_only=True)
+                candidate, _ = _recover_table(trial, ins, read, code)
+                if candidate and all(address in function.ins for address in candidate['targets']):
+                    closed = Function(instructions, lo, hi, indirect_edges={pc: candidate['targets']})
+                    verified, _ = _recover_table(closed, ins, read, code)
+                    if verified == candidate:
+                        record, reason = verified, None
+                        record['closed_cfg'] = True
+            if record:
+                entries.update(record['targets'])
+                tables.append(record)
             if reason:
                 unresolved.append(dict(site=pc, function=lo, reason=reason))
     # A stripped thunk/assembly fragment may lack both symbols and unwind
