@@ -27,6 +27,10 @@ under its heading, down to the previous release.
   the Gift Box. [4577dc2]
 - **To Quests** on the Dark Memory chapter summon opens EX Character Quests
   instead of stopping on an empty Quests screen. [229aabf]
+- The Dark Memory chapter summon appears once Dark Memories are unlocked,
+  after the first Hard chapter, as in the original game. Since 1.4.4 it
+  appeared at the end of Season 1, which unlocks Recollections of Dusk
+  instead. [756e716]
 
 ## 1.4.4 (2026-10-31)
 
