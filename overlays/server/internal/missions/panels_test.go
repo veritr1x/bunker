@@ -5,6 +5,7 @@ import (
 
 	pb "lunar-tear/server/gen/proto"
 	"lunar-tear/server/internal/masterdata"
+	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 )
 
@@ -194,5 +195,24 @@ func TestPanelRunsSkipTheLibraryRow(t *testing.T) {
 	}
 	if run, ok := p.Run(99*panelRunStep+8, 3000); !ok || run.open(3000) {
 		t.Fatalf("by the Library row between runs: %+v %v", run, ok)
+	}
+}
+
+// Six missions (1010206, 1010402, ...) unlock with "Anecdote page 1 complete"
+// (m_mission_unlock_condition 115, type 5): page 1 of the Anecdote running
+// with them. They counted from the start.
+func TestMissionWaitsForThePanelPage(t *testing.T) {
+	p := NewPanels(map[int32]*PanelSheets{2: {Name: "Anecdote"}}, []PanelRun{{Id: 2, Mission: 2, Target: 2, Start: 1000, End: 2000}}, nil)
+	cat := &Catalog{Panels: p}
+	m := &Mission{EntityMMission: masterdata.EntityMMission{MissionId: 1010402}, Start: 1000, End: 2000,
+		Unlock: masterdata.EntityMMissionUnlockCondition{MissionUnlockConditionType: unlockPanelPage, ConditionValue: 1}}
+	u := store.SeedUserState(1, "u", 0, model.DefaultPlatform)
+	u.EnsureMaps()
+	if cat.active(m, u, 1500) {
+		t.Fatal("active before page 1 is complete")
+	}
+	u.Ext.PanelMissions[2] = store.PanelMissionState{PageDone: map[int32]int64{1: 1400}}
+	if !cat.active(m, u, 1500) {
+		t.Fatal("not active once page 1 is complete")
 	}
 }

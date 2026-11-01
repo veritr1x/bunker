@@ -276,6 +276,17 @@ func (p *Panels) PagesDone(u *store.UserState) map[int32]int64 {
 	return out
 }
 
+// PageDoneAt is whether the player completed that page of an Anecdote run
+// open at now (missions that unlock with a page run with that Anecdote).
+func (p *Panels) PageDoneAt(u *store.UserState, page int32, now int64) bool {
+	for _, r := range p.Runs {
+		if r.open(now) && u.Ext.PanelMissions[r.Id].PageDone[page] != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // NewPanels builds panel sheets from parts, for tests elsewhere.
 func NewPanels(sheets map[int32]*PanelSheets, runs []PanelRun, pageIds map[[2]int32]int32) *Panels {
 	p := &Panels{Sheets: sheets, Runs: runs, byTarget: map[int32]PanelRun{}, pageIds: pageIds}
