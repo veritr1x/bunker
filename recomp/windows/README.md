@@ -24,12 +24,19 @@ class-loader execution. NDK-translated direct, V and A callers cover lookup,
 loader identity, errors, local frames, globals and attached-thread ownership.
 Run `prepare_class_loader.py --ndk ... --lift ...`, then
 `test_class_loader.ps1` on Windows.
-The 80-check gate also verifies callbacks can join another attached JNI thread:
+The 109-check gate also verifies callbacks can join another attached JNI thread:
 external object handlers run outside the host registry lock, with receiver and
 callback lifetimes retained, then their results are validated under the lock.
 Object-returning calls produce a fresh caller-local reference. Returning a
 cached global or local from a host callback preserves that original reference
 when the caller deletes its result; foreign-thread local returns are rejected.
+`Object.toString`, initialized host `Throwable` messages and `String.toString`
+follow the Android13 contracts, including virtual object-method dispatch,
+localized-message overrides and null-versus-empty messages. Default object
+identity hashes remain stable. Unimplemented Java overrides and uninitialized
+throwable state fail explicitly. Primary implementations are
+[Object.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-13.0.0_r1/ojluni/src/main/java/java/lang/Object.java)
+and [Throwable.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-13.0.0_r1/ojluni/src/main/java/java/lang/Throwable.java).
 
 ## Verified behavior
 
@@ -237,6 +244,69 @@ after the checked native page-size adapter, it reaches unresolved indirect
 target `0x708f27cc` from the signed table at RVA `0xf50540` / BR `0x8f27c8`.
 `unity-bootstrap-ctor129*` preserves both diagnostics and translation metadata.
 Every prior constructor ran; JNI_OnLoad has not run yet.
+
+The joined-guard snapshot (59,558 traces, same unsupported count) gets past
+that indirect target. Constructor129 next requests `madvise` with advice0
+(`MADV_NORMAL`) at RVA `0x8f2cf8`; the unavailable import aborts explicitly at
+return `0x708f2cfc`. `unity-bootstrap-ctor129-madvise*` preserves this run and
+its exact link metadata. Constructors1–128 complete; JNI_OnLoad remains unrun.
+
+`madvise` implements the evidenced advice0 (`MADV_NORMAL`): registered mappings
+and other committed Windows ranges retain their normal/default paging policy.
+It checks Android page alignment, length rounding/overflow and complete committed
+range coverage; aligned zero-length calls succeed, errors set guest errno,
+and success preserves errno. Every other advice returns `EINVAL` explicitly.
+The check uses mapping provenance and
+[VirtualQuery](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualquery),
+including committed ELF/heap/stack pages owned by other providers. It follows
+[Linux do_madvise](https://github.com/torvalds/linux/blob/v6.1/mm/madvise.c)
+validation order. This operation does not write or discard bytes, change page
+protection, commit reserved pages or invalidate guest exclusive reservations.
+[MEM_RESET](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc)
+is not used; discard/zero-fill advice remains unsupported.
+
+With that adapter, the actual native Windows executable completes ALL417
+constructors in order, returns JNI1.6 from the real Unity `JNI_OnLoad`, and
+verifies all42 native addresses across the nine classes against ELF/DEX data.
+This is an exploratory constructor/JNI-only gate: 1,889 unsupported traces
+remain and the game is not running. The next failure is teardown:
+finalizer `0x700dd2dc` calls `__cxa_finalize` with DSO `0x7123eac0` and the
+provider aborts. Full evidence is `unity-bootstrap-all417-jni42-finalize*`.
+The file suite passes103 checks including actual NDK advice callers, committed
+CRT/image pages, reserved holes, protection preservation and a successful
+cross-thread exclusive reservation across the non-mutating normal hint.
+
+`unity_bootstrap_build.ps1 -Run -InitJni` (executable `--init-jni`) optionally
+attempts the exact registered instance-native `UnityPlayer.initJni(Context)V`
+after the full constructor/JNI verification. The default gate stops before
+this entry. It uses typed host UnityPlayer/Activity objects in a local frame;
+it does not execute or mark Java class initializers/constructors complete.
+This is an isolated native-entry diagnostic, not the APK Java lifecycle or
+game startup. Java services, missing method/field behavior and class
+initialization still fail explicitly. Surface/render/resume are not invoked.
+The first actual optional run reaches entry `0x70439db0`, then aborts in native
+pending-exception formatting: `strncpy` at return `0x70ab521c` receives source0
+and length256 after the unavailable `Object.toString()Ljava/lang/String;`
+lookup/call. The original Java exception has not yet been captured; this
+secondary failure must not be treated as a libc string-copy success case.
+Evidence is `unity-bootstrap-init-jni-strncpy.log` and
+`java-startup/latest-native-gates.json`.
+The opt-in diagnostic now forwards the original JNI table handlers and records
+new pending exceptions before native code clears/formats them. A trace-table
+wrapper at `0x70ab5020` was bypassed by direct calls and was not used as proof.
+The reached JNI wrapper proved the original missing class was
+`bitter/jnibridge/JNIBridge`. Its exact APK declarations are now included
+(141 classes); its Java proxy bodies remain unimplemented.
+
+With the validated callback/ST1 snapshot (59,561 traces, 469 objects, 1,774
+unsupported traces), the default native Windows gate exits0: all417
+constructors, real JNI_OnLoad/42 bindings, JNI_OnUnload and both finalizers
+complete. See `unity-bootstrap-callback-roots-default.log`.
+The separate optional initJni diagnostic now gets past JNIBridge and string
+formatting, then records `NoClassDefFoundError: java/lang/StringBuilder`.
+Native initJni clears that exception and returns, but the harness rejects
+the gate because it observed the unsupported Java operation. No lifecycle
+completion is claimed. See `unity-bootstrap-init-jni-stringbuilder*`.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact

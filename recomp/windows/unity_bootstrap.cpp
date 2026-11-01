@@ -12,6 +12,7 @@
 #include "unity_traces.h"
 #include "unity_bootstrap_data.h"
 #include <cstdio>
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -29,6 +30,24 @@ namespace {
 std::map<std::string,addr_t> resolved;
 size_t constructor_index;
 const char *stage="setup";
+std::atomic<bool> jni_diagnostic_reached{false};
+std::atomic<bool> init_java_diagnostic_active{false};
+std::atomic<size_t> init_java_errors{0};
+void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
+  auto invoke=[&host](bool vm,size_t slot,State &state){
+    if(!jni_diagnostic_reached.exchange(true))std::fprintf(stderr,"Unity bootstrap: opt-in JNI dispatch diagnostic reached\n");
+    auto prior=host.PendingException();
+    try{if(vm)host.InvokeVm(slot,state);else host.InvokeEnv(slot,state);}
+    catch(const std::exception &error){std::fprintf(stderr,"Unity bootstrap: JNI diagnostic %s slot%zu failed: %s\n",vm?"VM":"Env",slot,error.what());std::abort();}
+    auto pending=host.PendingException();
+    if(!pending.empty()&&pending!=prior){
+      if(init_java_diagnostic_active.load())++init_java_errors;
+      std::fprintf(stderr,"Unity bootstrap: original pending Java exception after %s slot%zu return=%#llx: %s\n",vm?"VM":"Env",slot,static_cast<unsigned long long>(state.gpr.x30.qword),pending.c_str());
+    }
+  };
+  for(size_t slot=4;slot<bunker::jni::kEnvSlots;++slot)runtime.AddImport(host.EnvMarker(slot),[invoke,slot](State &state){invoke(false,slot,state);});
+  for(size_t slot=3;slot<bunker::jni::kVmSlots;++slot)runtime.AddImport(host.VmMarker(slot),[invoke,slot](State &state){invoke(true,slot,state);});
+}
 std::string Sha256(const std::filesystem::path &path){
   // BCrypt's object storage must outlive the hash handle, including failures.
   std::vector<uint8_t> object;
@@ -65,11 +84,17 @@ LONG WINAPI Crash(EXCEPTION_POINTERS *exception){
       exception->ExceptionRecord->ExceptionCode,exception->ExceptionRecord->ExceptionAddress,stage,constructor_index,std::size(kInitializers));
   std::fflush(stderr);return EXCEPTION_EXECUTE_HANDLER;
 }
+struct LocalFrame {
+  bunker::jni::Host &host;
+  explicit LocalFrame(bunker::jni::Host &value):host(value){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=64;host.InvokeEnv(19,s);if(s.gpr.x0.dword)throw std::runtime_error("initJni local frame allocation failed");}
+  ~LocalFrame(){State s{};s.gpr.x0.qword=host.EnvAddress();host.InvokeEnv(20,s);}
+};
 }
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
-  if(argc!=4){std::fprintf(stderr,"Usage: bunker-unity-bootstrap.exe <original-libunity.so> <original-game.apk> <writable-storage-directory>\n");return 2;}
+  if((argc!=4&&argc!=5)||(argc==5&&std::strcmp(argv[4],"--init-jni"))){std::fprintf(stderr,"Usage: bunker-unity-bootstrap.exe <original-libunity.so> <original-game.apk> <writable-storage-directory> [--init-jni]\n");return 2;}
+  const bool init_jni=argc==5;
   try{
     using namespace bunker::windows;
     namespace fs=std::filesystem;
@@ -110,7 +135,9 @@ int main(int argc,char **argv){
     Pthreads threads(runtime,Translated);threads.SetErrorSink(error);runner=&threads;
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;~Drain(){if(threads.Shutdown())std::abort();}} drain{threads};
-    files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);modules.Install(runtime);java.Install(runtime);zlib.Install(runtime);
+    files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);modules.Install(runtime);
+    if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
+    zlib.Install(runtime);
     size_t provided=0,missing=0;
     for(const auto &import:kUnityImports){
       std::string name=import.name;addr_t address=0;
@@ -125,6 +152,7 @@ int main(int argc,char **argv){
         address=0x7ffc00000000ULL+missing++*8;
         runtime.AddImport(address,[name,address](State &s){
           std::fprintf(stderr,"Unity bootstrap: unsupported import %s marker=%#llx guest-pc=%#llx return=%#llx; stage=%s, completed constructors=%zu/%zu\n",name.c_str(),static_cast<unsigned long long>(address),static_cast<unsigned long long>(s.gpr.pc.qword),static_cast<unsigned long long>(s.gpr.x30.qword),stage,constructor_index,std::size(kInitializers));
+          std::fprintf(stderr,"Unity bootstrap: import arguments x0=%#llx x1=%#llx x2=%#llx x3=%#llx x4=%#llx x5=%#llx\n",static_cast<unsigned long long>(s.gpr.x0.qword),static_cast<unsigned long long>(s.gpr.x1.qword),static_cast<unsigned long long>(s.gpr.x2.qword),static_cast<unsigned long long>(s.gpr.x3.qword),static_cast<unsigned long long>(s.gpr.x4.qword),static_cast<unsigned long long>(s.gpr.x5.qword));
           std::fflush(stderr);std::abort();
         });
       }
@@ -154,6 +182,22 @@ int main(int argc,char **argv){
     // Reaching this line proves constructors and JNI registration only. Surface,
     // graphics/audio initialization and the game lifecycle are separate gates.
     std::fprintf(stderr,"Unity bootstrap: %sconstructor/JNI-only gate passed; %zu unsupported traces remain; the game is not running\n",kExploratory?"EXPLORATORY ":"",kUnsupportedTraces);
+    if(init_jni){
+      stage="initJni(Context)";LocalFrame frame(java);
+      auto entry=java.NativeEntry("com/unity3d/player/UnityPlayer","initJni","(Landroid/content/Context;)V");
+      if(!entry||!Translated(entry))throw std::runtime_error("verified instance-native initJni(Context) entry is unavailable");
+      auto player=java.NewInstance("com/unity3d/player/UnityPlayer"),activity=context.Activity();
+      if(!player||!activity||!java.PendingException().empty())throw std::runtime_error("typed initJni receiver/context creation failed");
+      std::fprintf(stderr,"Unity bootstrap: %sisolated instance-native initJni(Context)V gate entry=%#llx; host-typed UnityPlayer/Activity objects; Java <clinit>/constructors are not executed or marked initialized\n",kExploratory?"EXPLORATORY ":"",static_cast<unsigned long long>(entry));
+      init_java_errors=0;init_java_diagnostic_active=true;
+      threads.Run(entry,{java.EnvAddress(),player,activity});
+      init_java_diagnostic_active=false;
+      auto exception=java.PendingException();
+      std::fprintf(stderr,"Unity bootstrap: initJni native entry returned; pending Java exception: %s\n",exception.c_str());
+      if(!exception.empty())throw std::runtime_error("initJni stopped with pending Java exception: "+exception);
+      if(init_java_errors.load())throw std::runtime_error("initJni encountered "+std::to_string(init_java_errors.load())+" Java exception(s); inspect the original JNI diagnostics even when native code cleared them");
+      std::fprintf(stderr,"Unity bootstrap: isolated initJni native-entry gate passed; Activity/UnityPlayer Java lifecycle, surface/render/resume and game startup remain unexecuted\n");
+    }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
     libc.Finalize();threads.ReleaseCurrent();return 0;

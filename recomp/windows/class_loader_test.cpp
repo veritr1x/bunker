@@ -14,10 +14,43 @@ int main(){
   host.DefineClass("example/Game");host.DefineClass("example/Other");host.Install(runtime);runtime.AddTraces(kTraces,std::size(kTraces));
   elf_image image{};check(!elf_load(CLASS_LOADER_IMAGE,0x71000000,nullptr,&image),"NDK image load");
   auto call=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0,addr_t d=0,addr_t e=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;s.gpr.x4.qword=d;s.gpr.x5.qword=e;host.InvokeEnv(slot,s);return s.gpr.x0.qword;};
+  auto text=[&](addr_t string){auto bytes=call(169,string);if(!bytes)throw std::runtime_error("toString did not return a string");std::string result(reinterpret_cast<const char*>(bytes));call(170,string,bytes);return result;};
   auto find=[&](const char *n){return call(6,reinterpret_cast<addr_t>(n));};
   alignas(16) std::array<uint8_t,65536> stack{};
   auto run=[&](const char *n,std::initializer_list<addr_t> args){State s{};Reg GPR::*regs[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3,&GPR::x4,&GPR::x5};size_t i=0;for(auto a:args)(s.gpr.*regs[i++]).qword=a;s.gpr.sp.qword=reinterpret_cast<addr_t>(stack.data()+stack.size());runtime.Run(s,reinterpret_cast<addr_t>(elf_symbol(&image,n)));return s.gpr.x0.qword;};
   auto game=find("example/Game"),clazz=find("java/lang/Class"),object=find("java/lang/Object");
+  auto string_method=call(33,object,reinterpret_cast<addr_t>("toString"),reinterpret_cast<addr_t>("()Ljava/lang/String;"));
+  auto ordinary=host.NewInstance("java/lang/Object"),ordinary_alias=host.NewGlobalReference(ordinary);
+  std::string identity;
+  for(addr_t mode=0;mode<3;++mode){
+    auto result=run("guest_invoke_loader",{host.EnvAddress(),ordinary_alias,string_method,mode});auto value=text(result);
+    if(identity.empty())identity=value;
+    check(value==identity&&value.rfind("java.lang.Object@",0)==0&&value.size()>17&&value.find_first_not_of("0123456789abcdef",17)==std::string::npos,"Object.toString has stable binary class name and lowercase identity hash");
+    host.DeleteLocalReference(result);
+    auto original=host.NewString(u"string self");result=run("guest_invoke_loader",{host.EnvAddress(),original,string_method,mode});
+    check(result!=original&&call(232,result)==1&&call(24,result,original)&&text(result)=="string self","virtual String.toString returns an independent local to the same string");host.DeleteLocalReference(result);host.DeleteLocalReference(original);
+    for(const char *message:{static_cast<const char*>(nullptr),"","detail"}){
+      auto exception_class=find("java/lang/IllegalArgumentException");
+      check(call(14,exception_class,reinterpret_cast<addr_t>(message))==0,"ThrowNew initializes checked throwable detail state");
+      auto exception=call(15);call(17);
+      auto formatted=run("guest_invoke_loader",{host.EnvAddress(),exception,string_method,mode});
+      auto expected=std::string("java.lang.IllegalArgumentException")+(message?std::string(": ")+message:"");
+      check(formatted&&text(formatted)==expected&&call(32,exception,find("java/lang/Throwable"))&&call(32,exception,find("java/lang/RuntimeException")),"virtual Throwable.toString distinguishes null and empty messages with real hierarchy");
+      host.DeleteLocalReference(formatted);host.DeleteLocalReference(exception);
+    }
+  }
+  host.DeleteGlobalReference(ordinary_alias);
+  host.DefineClass("example/LocalizedException",{},"java/lang/RuntimeException");
+  host.DefineObjectMethod("example/LocalizedException","getLocalizedMessage","()Ljava/lang/String;",[&](addr_t){return host.NewString(u"localized detail");});
+  call(14,find("example/LocalizedException"),reinterpret_cast<addr_t>("raw detail"));auto localized=call(15);call(17);
+  check(text(run("guest_invoke_loader",{host.EnvAddress(),localized,string_method,1}))=="example.LocalizedException: localized detail","Throwable.toString dispatches an implemented getLocalizedMessage override");
+  host.DefineClass("example/JavaHash",{{"hashCode","()I"}});
+  check(!call(34,host.NewInstance("example/JavaHash"),string_method)&&host.PendingException().find("UnsupportedOperationException")!=std::string::npos,"Object.toString does not fabricate Java hashCode override effects");host.ClearException();
+  host.DefineClass("example/JavaString",{{"toString","()Ljava/lang/String;"}});
+  bool java_string_rejected=false;try{call(34,host.NewInstance("example/JavaString"),string_method);}catch(const std::runtime_error &){java_string_rejected=true;}
+  check(java_string_rejected,"Object.toString does not bypass an unimplemented Java toString override");
+  check(!call(34,game,string_method)&&host.PendingException().find("UnsupportedOperationException")!=std::string::npos,"Class.toString requires unavailable interface metadata explicitly");host.ClearException();
+  check(!call(34,host.NewInstance("java/lang/RuntimeException"),string_method)&&host.PendingException().find("UnsupportedOperationException")!=std::string::npos,"uninitialized Throwable instances cannot fabricate message state");host.ClearException();
   auto loader=run("guest_loader",{host.EnvAddress(),game,0});check(loader!=0,"application loader");
   auto global=host.NewGlobalReference(loader);host.DeleteLocalReference(loader);
   for(addr_t mode=0;mode<3;++mode){

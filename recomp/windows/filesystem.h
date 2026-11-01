@@ -72,6 +72,7 @@ class FileSystem {
   addr_t Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset);
   int Munmap(addr_t address, uint64_t length);
   int Mprotect(addr_t address, uint64_t length, int protection);
+  int Madvise(addr_t address, uint64_t length, int advice);
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

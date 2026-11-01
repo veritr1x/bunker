@@ -7,6 +7,7 @@ param(
     [string]$Cc = 'gcc.exe',
     [string]$ZlibDirectory = (Join-Path $PSScriptRoot '..\work\zlib-native'),
     [switch]$CompileOnly,
+    [switch]$InitJni,
     [switch]$Run
 )
 $ErrorActionPreference = 'Stop'
@@ -25,7 +26,7 @@ $taskObject = Join-Path $taskBuild 'unity-bootstrap.o'
 $taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$taskBuild", '-c', (Join-Path $PSScriptRoot 'unity_bootstrap.cpp'), '-o', $taskObject)
 & $Cxx @taskArguments
 if ($LASTEXITCODE -ne 0) { throw 'Unity bootstrap harness compilation failed.' }
-if ($CompileOnly) { Write-Output 'Harness syntax/object check passed; full Unity translation is still required.'; return }
+if ($CompileOnly) { Write-Output 'Harness syntax/object check passed; no guest code was executed.'; return }
 $taskLoader = Join-Path $taskBuild 'elfload.o'
 & $Cc '-O2' '-c' (Join-Path $PSScriptRoot '..\fastaes\elfload.c') '-o' $taskLoader
 if ($LASTEXITCODE -ne 0) { throw 'Unity bootstrap data-loader build failed.' }
@@ -48,7 +49,9 @@ if ($Run) {
     if (-not $StorageDirectory) { $StorageDirectory = Join-Path $taskBuild 'data' }
     [System.IO.Directory]::CreateDirectory($StorageDirectory) | Out-Null
     $taskStorage = (Resolve-Path -LiteralPath $StorageDirectory).ProviderPath
-    & $taskExecutable $taskLibrary $taskApk $taskStorage 2>&1 | Tee-Object -FilePath (Join-Path $taskBuild 'unity-bootstrap-last-run.log')
+    $taskRunArguments=@($taskLibrary,$taskApk,$taskStorage)
+    if($InitJni){$taskRunArguments+='--init-jni'}
+    & $taskExecutable @taskRunArguments 2>&1 | Tee-Object -FilePath (Join-Path $taskBuild 'unity-bootstrap-last-run.log')
     $taskExitCode = $LASTEXITCODE
-    if ($taskExitCode -ne 0) { throw "Actual Unity bootstrap stopped with exit code $taskExitCode; inspect the explicit constructor/import diagnostic above." }
+    if ($taskExitCode -ne 0) { throw "Actual Unity bootstrap stopped with exit code $taskExitCode; inspect the explicit startup/finalization diagnostic above." }
 }

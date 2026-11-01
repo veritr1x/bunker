@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <stdexcept>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -17,6 +18,16 @@ int main(int argc,char **argv){
 #ifdef _WIN32
     SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
 #endif
+    if(std::string(argv[1])=="finalize-untranslated"){
+      bunker::windows::LibC rejected([](addr_t,const std::vector<addr_t>&)->uint64_t{
+        throw std::invalid_argument("pthread callback is not a registered translated entry");
+      });
+      recomp::Runtime failure_runtime;rejected.Install(failure_runtime);
+      rejected.RegisterExit(0x70ab7a24,0x7130da68,0x7123eac0);
+      State failure{};failure.gpr.x0.qword=0x7123eac0;failure.gpr.x1.qword=0x1515;failure.gpr.x2.qword=0x2626;
+      failure.gpr.pc.qword=0x700b8f60;failure.gpr.x30.qword=0x700dd2e4;
+      failure_runtime.Run(failure,rejected.Marker("__cxa_finalize"));return 0;
+    }
     State s{};runtime.Run(s,libc.Marker(argv[1]));return 0;
   }
   State page_state{};runtime.Run(page_state,libc.Marker("getpagesize"));
@@ -87,6 +98,23 @@ int main(int argc,char **argv){
   callbacks.Finalize(1);check(order==std::vector<uint64_t>({3,4,1}),"DSO filtering/reverse order/reentrant registration and finalization");
   callbacks.Finalize(1);check(order.size()==3,"DSO destructors run once");callbacks.Finalize();check(order==std::vector<uint64_t>({3,4,1,9,2}),"global finalization includes plain and other DSO in reverse order");
   callbacks.Finalize();check(order.size()==5,"repeated global finalize does not rerun callbacks");
+  unsigned attempts=0;
+  bunker::windows::LibC missing([&](addr_t,const std::vector<addr_t>&)->uint64_t{
+    ++attempts;throw std::invalid_argument("pthread callback is not a registered translated entry");
+  });
+  missing.RegisterExit(0x70ab7a24,0x7130da68,0x7123eac0);
+  std::string failure;
+  try{missing.Finalize(0x7123eac0);}catch(const std::exception &error){failure=error.what();}
+  check(failure.find("callback=0x70ab7a24")!=std::string::npos&&failure.find("argument=0x7130da68")!=std::string::npos&&
+        failure.find("dso=0x7123eac0")!=std::string::npos&&failure.find("filter=0x7123eac0")!=std::string::npos,
+        "failed destructor diagnostic identifies guest callback, argument, DSO and selection filter");
+  check(failure.find("not a registered translated entry")!=std::string::npos,"failed destructor preserves runner rejection reason");
+  missing.Finalize(0x7123eac0);check(attempts==1,"failed destructor remains once-only during reentrant/follow-up finalization");
+  bunker::windows::LibC unknown([](addr_t,const std::vector<addr_t>&)->uint64_t{throw 17;});
+  unknown.RegisterExit(0x44,0,0,true);failure.clear();
+  try{unknown.Finalize();}catch(const std::exception &error){failure=error.what();}
+  check(failure.find("plain-atexit")!=std::string::npos&&failure.find("non-standard C++ exception")!=std::string::npos,
+        "plain callbacks preserve identity for non-standard runner exceptions");
   bool rejected=false;try{libc.Marker("pthread_create");}catch(...){rejected=true;}check(rejected,"provider cannot claim another provider's imports");
   std::printf("Native Android-width libc: %u checks passed.\n",checks);
 }
