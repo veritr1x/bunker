@@ -43,7 +43,7 @@ bool SnapshotString(const char *source, std::string &value, size_t limit) {
   return false;
 }
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
-  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir"};
+  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf"};
 int GuestCrtError(int error) {
   switch (error) {
     case 0: return 0;
@@ -137,7 +137,7 @@ struct FileSystem::Impl {
     ~Descriptor(){if(native>=0)_close(native);}
   };
   struct Stream {
-    std::mutex io;FILE *native;bool writable;uint64_t device;
+    std::mutex io;FILE *native;bool writable;uint64_t device;bool io_started=false;
     Stream(FILE *n,bool w,uint64_t d):native(n),writable(w),device(d){}
     ~Stream(){if(native)std::fclose(native);}
   };
@@ -430,10 +430,22 @@ int FileSystem::FClose(addr_t stream) {
   {std::lock_guard lock(impl_->mutex);auto it=impl_->streams.find(stream);if(it==impl_->streams.end()){impl_->Error(9);return -1;}file=it->second;impl_->streams.erase(it);}
   std::lock_guard lock(file->io);int result=std::fclose(file->native);file->native=nullptr;if(result)impl_->CrtError();return result;
 }
+int FileSystem::FSetBuffer(addr_t stream, addr_t buffer, int32_t mode, uint64_t size) {
+  auto file=impl_->GetStream(stream);if(!file)return -1;
+  std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
+  // Bionic _IOFBF=0, _IOLBF=1, _IONBF=2; Windows values are different.
+  if(mode<0||mode>2){impl_->Error(22);return -1;}
+  if(file->io_started)throw std::runtime_error("setvbuf after stdio operations is outside the reached pre-I/O scope");
+  if(mode!=2||buffer||size)throw std::runtime_error("Unsupported setvbuf shape; only(NULL,Android_IONBF2,size0) before I/O is implemented");
+  int result=std::setvbuf(file->native,nullptr,_IONBF,0);
+  if(result){impl_->CrtError();return -1;}
+  return 0;
+}
 uint64_t FileSystem::FRead(void *buffer, uint64_t size, uint64_t count, addr_t stream) {
   auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}
   if (!size || !count) return 0;
   if (!buffer || count > SIZE_MAX / size) { impl_->Error(!buffer ? 14 : 75); return 0; }
+  file->io_started=true;
   std::array<uint8_t,kIoChunk> bounce;uint64_t total=0,bytes=size*count;
   while(total<bytes){size_t chunk=static_cast<size_t>(std::min<uint64_t>(bytes-total,bounce.size()));auto got=std::fread(bounce.data(),1,chunk,file->native);int host_error=errno;
     if(got)recomp::WriteGuestMemory(reinterpret_cast<addr_t>(buffer)+total,bounce.data(),got);
@@ -445,6 +457,7 @@ uint64_t FileSystem::FWrite(const void *buffer, uint64_t size, uint64_t count, a
   auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}
   if (!size || !count) return 0;
   if (!buffer || count > SIZE_MAX / size) { impl_->Error(!buffer ? 14 : 75); return 0; }
+  file->io_started=true;
   std::array<uint8_t,kIoChunk> bounce;uint64_t total=0,bytes=size*count;
   while(total<bytes){size_t chunk=static_cast<size_t>(std::min<uint64_t>(bytes-total,bounce.size()));recomp::ReadGuestMemory(bounce.data(),reinterpret_cast<addr_t>(buffer)+total,chunk);
     auto got=std::fwrite(bounce.data(),1,chunk,file->native);total+=got;if(got<chunk){impl_->CrtError();break;}}
@@ -453,19 +466,19 @@ uint64_t FileSystem::FWrite(const void *buffer, uint64_t size, uint64_t count, a
 int FileSystem::FSeek(addr_t stream, int64_t offset, int whence) {
   auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
   if (whence < 0 || whence > 2) { impl_->Error(22); return -1; }
-  int result = _fseeki64(file->native,offset,whence); if (result) impl_->CrtError(); return result;
+  file->io_started=true;int result = _fseeki64(file->native,offset,whence); if (result) impl_->CrtError(); return result;
 }
 int64_t FileSystem::FTell(addr_t stream) {
   auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
-  auto result = _ftelli64(file->native); if (result < 0) impl_->CrtError(); return result;
+  file->io_started=true;auto result = _ftelli64(file->native); if (result < 0) impl_->CrtError(); return result;
 }
-int FileSystem::FEof(addr_t stream){auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}return std::feof(file->native);}
-int FileSystem::FError(addr_t stream){auto file=impl_->GetStream(stream);if(!file)return 1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 1;}return std::ferror(file->native);}
+int FileSystem::FEof(addr_t stream){auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}file->io_started=true;return std::feof(file->native);}
+int FileSystem::FError(addr_t stream){auto file=impl_->GetStream(stream);if(!file)return 1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 1;}file->io_started=true;return std::ferror(file->native);}
 int FileSystem::FFlush(addr_t stream) {
   if(!stream){std::vector<std::shared_ptr<Impl::Stream>> snapshot;{std::lock_guard lock(impl_->mutex);for(auto &entry:impl_->streams)snapshot.push_back(entry.second);}
-    int result=0;for(auto &file:snapshot){std::lock_guard lock(file->io);if(file->native&&std::fflush(file->native)){impl_->CrtError();result=-1;}}return result;}
+    int result=0;for(auto &file:snapshot){std::lock_guard lock(file->io);if(file->native){file->io_started=true;if(std::fflush(file->native)){impl_->CrtError();result=-1;}}}return result;}
   auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
-  int result=std::fflush(file->native);if(result)impl_->CrtError();return result;
+  file->io_started=true;int result=std::fflush(file->native);if(result)impl_->CrtError();return result;
 }
 addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset) {
   std::unique_lock lock(impl_->mutex);
@@ -615,6 +628,7 @@ void FileSystem::Install(recomp::Runtime &runtime) {
   runtime.AddImport(Marker("munmap"), recomp::MakeBridge<int32_t(addr_t, uint64_t)>([this](auto address, auto length) { return Munmap(address, length); }));
   runtime.AddImport(Marker("mprotect"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto prot) { return Mprotect(address, length, prot); }));
   runtime.AddImport(Marker("madvise"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto advice) { return Madvise(address, length, advice); }));
+  runtime.AddImport(Marker("setvbuf"), recomp::MakeBridge<int32_t(addr_t, addr_t, int32_t, uint64_t)>([this](auto stream, auto buffer, auto mode, auto size) { return FSetBuffer(stream, buffer, mode, size); }));
   impl_->installed = true;
 }
 }  // namespace bunker::windows
