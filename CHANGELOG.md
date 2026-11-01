@@ -6,6 +6,12 @@ under its heading, down to the previous release.
 
 ## 2026-11-01 (after 1.6.1)
 
+### Pod Programs
+- Content presets (Full, Story, Gacha and the rest) no longer hide Dark
+  Memories, Recollections of Dusk, the cage, Abyss Towers or the Labyrinth:
+  after applying any preset their menus were empty. Presets choose limited
+  events only. Apply the preset again to bring them back. [bef8716]
+
 ### Calendar
 - With "Show original dates" on, Enhance › Characters and the other
   character lists were empty: the game data lists the starting cast only
