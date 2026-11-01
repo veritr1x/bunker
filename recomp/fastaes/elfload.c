@@ -1,11 +1,16 @@
 #define _GNU_SOURCE
 #include "elfload.h"
 
-#include <elf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#include "elf64.h"
+#else
+#include <elf.h>
 #include <sys/mman.h>
+#endif
 
 #ifndef R_AARCH64_ABS64
 #define R_AARCH64_ABS64 257
@@ -35,8 +40,9 @@ static int relocate(struct elf_image *image, const Elf64_Rela *rela, size_t coun
             *slot = (uint64_t)image->base + rela[i].r_addend;
         } else if (type == R_AARCH64_GLOB_DAT || type == R_AARCH64_JUMP_SLOT || type == R_AARCH64_ABS64) {
             const char *name = image->dynstr + syms[sym].st_name;
-            void *target = syms[sym].st_shndx != SHN_UNDEF ? image->base + syms[sym].st_value : resolve(name);
-            if (!target) {
+            void *target = syms[sym].st_shndx == SHN_ABS ? (void *)(uintptr_t)syms[sym].st_value :
+                syms[sym].st_shndx != SHN_UNDEF ? image->base + syms[sym].st_value : resolve(name);
+            if (!target && syms[sym].st_shndx == SHN_UNDEF && ELF64_ST_BIND(syms[sym].st_info) != STB_WEAK) {
                 fprintf(stderr, "elfload: unresolved import %s\n", name);
                 return -1;
             }
@@ -64,9 +70,20 @@ int elf_load(const char *path, uintptr_t base, elf_resolver resolve, struct elf_
         if (ph[i].p_type == PT_LOAD && ph[i].p_vaddr + ph[i].p_memsz > span) span = ph[i].p_vaddr + ph[i].p_memsz;
     span = (span + 0xffff) & ~(size_t)0xffff;
     // RWX keeps the test simple: natively the code runs in place, recompiled it is only data.
-    void *map = mmap((void *)base, span, PROT_READ | PROT_WRITE | PROT_EXEC,
-                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+    void *map;
+#ifdef _WIN32
+    // The ARM64 image is data only. Executable x86 code is linked separately.
+    map = VirtualAlloc((void *)base, span, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (map != (void *)base) {
+        fprintf(stderr, "elfload: VirtualAlloc at %#llx failed (%lu)\n", (unsigned long long)base, GetLastError());
+        if (map) VirtualFree(map, 0, MEM_RELEASE);
+        return -1;
+    }
+#else
+    map = mmap((void *)base, span, PROT_READ | PROT_WRITE | PROT_EXEC,
+               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (map != (void *)base) return perror("elfload: mmap"), -1;
+#endif
     image->base = map, image->span = span, image->file = file;
 
     const Elf64_Dyn *dyn = NULL;
@@ -95,7 +112,9 @@ int elf_load(const char *path, uintptr_t base, elf_resolver resolve, struct elf_
     if (relocate(image, rela, relasz / sizeof(Elf64_Rela), resolve) ||
         relocate(image, jmprel, pltrelsz / sizeof(Elf64_Rela), resolve))
         return -1;
+#ifndef _WIN32
     __builtin___clear_cache((char *)image->base, (char *)image->base + span);
+#endif
     return 0;
 }
 
@@ -103,6 +122,6 @@ void *elf_symbol(const struct elf_image *image, const char *name) {
     const Elf64_Sym *syms = image->dynsym;
     for (size_t i = 0; i < image->nsyms; i++)
         if (syms[i].st_shndx != SHN_UNDEF && !strcmp(image->dynstr + syms[i].st_name, name))
-            return image->base + syms[i].st_value;
+            return syms[i].st_shndx == SHN_ABS ? (void *)(uintptr_t)syms[i].st_value : image->base + syms[i].st_value;
     return NULL;
 }

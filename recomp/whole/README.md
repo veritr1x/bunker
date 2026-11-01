@@ -1,0 +1,97 @@
+# Whole-library ARM64 to native x86_64
+
+`compile.py` reads an AArch64 ELF, discovers trace entries, lifts shards with
+the Bunker Remill fork, and compiles LLVM IR to Linux ELF or Windows COFF
+objects. The original library supplies data and relocated guest pointers;
+`runtime.*` dispatches guest code addresses to linked x86_64 functions.
+Native Windows execution does not emulate ARM64 instructions.
+
+FastAES and synthetic integration gates execute. Full Unity/IL2CPP game startup
+remains unverified. See [../TODO.md](../TODO.md).
+
+## Dependencies
+
+- WSL/Linux Python 3.11+ with `pyelftools` and `capstone>=5,<6`.
+- Bunker Remill fork with the file/multiple-entry/trace-head/snapshot CLI
+  extensions, matching `aarch64.bc`, and LLVM/Clang 18 on this machine.
+- Android NDK for Android ABI caller fixtures; ARM64 Linux cross-sysroot
+  and QEMU for independent ARM64 reference runs.
+- MinGW-w64 GCC/G++ for native Windows hosts and executable linking.
+
+This machine keeps its Python environment and lifter under
+`/home/sattam/bunker-recomp/recomp/work/`, NDK under
+`/home/sattam/bunker-tools/android-sdk/ndk/27.2.12479018`, and Windows
+compilers under `C:\mingw64\bin`. Generated files belong under ignored `work/`.
+
+## Plan and compile
+
+Example from the repository root in WSL (adjust paths to the build checkout):
+
+```sh
+PY=~/bunker-recomp/recomp/work/tools/bin/python
+LIFT=~/bunker-recomp/recomp/work/remill-src/build-native/bin/lift/remill-lift-18
+LIB=~/bunker-recomp/recomp/work/lib/libunity.so
+OUT=~/bunker-recomp/recomp/work/whole-unity
+
+$PY recomp/whole/compile.py "$LIB" --out "$OUT" --lift "$LIFT" \
+  --base 0x70000000 --target x86_64-w64-windows-gnu --plan-only
+
+$PY recomp/whole/compile.py "$LIB" --out "$OUT" --lift "$LIFT" \
+  --base 0x70000000 --target x86_64-w64-windows-gnu --cxx clang++-18 \
+  --jobs 4 --shard-size 128 --resume
+```
+
+For IL2CPP, use `libil2cpp.so`, a separate output directory and base
+`0x80000000`. Windows bases require 64-KiB alignment. Use
+`--target x86_64-linux-gnu` for Linux execution.
+
+Strict builds reject unsupported traces. Diagnostic `--allow-unsupported`
+builds retain explicit failure paths to locate missing operations at startup;
+they are not complete translations.
+
+Outputs include `plan.json` (source/hash/imports/exports/initializers), raw code
+bytes, entries, per-shard IR/objects/logs/caches, `manifest.json` and `traces.h`.
+Executable sections distinguish code from strings in mixed RX segments. Seeds
+come from symbols, unwind records, code relocations and proven jump tables.
+Ambiguous indirect branches remain reported.
+
+Each build snapshots its lifter and semantics. Resume checks source, target,
+compiler/pipeline, known trace boundaries and IR/object hashes. Keep one writer
+per output directory. Changed compiler snapshots invalidate incompatible shards.
+
+## Integration gates
+
+Run `--help` on each driver for paths and platform options:
+
+```sh
+$PY recomp/whole/test_lifter.py --lift "$LIFT"
+$PY recomp/whole/test_fixture.py --lift "$LIFT" --cc clang-18 --cxx clang++-18
+$PY recomp/whole/test_compile_cache.py --library recomp/work/whole-fixture/fixture.so \
+  --lift "$LIFT" --cxx clang++-18
+$PY recomp/whole/test_fastaes.py --help
+$PY recomp/whole/test_semantics.py --help
+$PY recomp/whole/test_jump_tables.py --help
+```
+
+`test_fixture.py` checks constructors, calls, recursion, relocations, imports,
+mixed RX data, absolute symbols and undefined weak symbols. Unknown targets
+must abort diagnostically. It passes 100,105 checks on Linux and native Windows.
+
+`test_semantics.py` and `test_fp_*.py` compare translated results/FPSR against
+ARM64 references. `--windows` runs a real PE executable through WSL interop.
+QEMU generates reference results only; translated Windows code runs natively.
+Jump-table tests also reject unsafe patterns.
+
+`build_windows.ps1` links complete FastAES/fixture/semantics COFF outputs with
+the Windows data loader and runtime. It rejects unsupported traces:
+
+```powershell
+recomp/whole/build_windows.ps1 -BuildDirectory <Windows-objects-directory> `
+  -Library <original-ARM64-library> -Program fixture `
+  -Cxx C:\mingw64\bin\g++.exe -Cc C:\mingw64\bin\gcc.exe
+```
+
+JNI, variadic formatting, file handles, pthread state and Android wire layouts
+have dedicated adapters under [../windows](../windows/README.md). Guest
+callbacks dispatch through the runtime; never cast guest code pointers to
+native Windows callbacks.

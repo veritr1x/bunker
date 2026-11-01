@@ -37,14 +37,21 @@ def expected(enc):
 def main():
     ref, recomp = parse(WORK / "ref.txt"), parse(WORK / "recomp.txt")
     problems = []
+    if not ref or not recomp:
+        problems.append("reference or recompiled output is empty")
+    if len(ref) % 2:
+        problems.append("reference output does not contain encrypt/decrypt pairs")
     if len(ref) != len(recomp):
         problems.append(f"call count differs: ARM64 {len(ref)}, x86_64 {len(recomp)}")
-    for i, ((op, r), (_, x)) in enumerate(zip(ref, recomp)):
-        if r != x:
+    for i, ((op, r), (xop, x)) in enumerate(zip(ref, recomp)):
+        if op != xop or r != x:
             problems.append(f"call {i} ({op}) differs between ARM64 and x86_64")
         if op == "enc" and bytes.fromhex(r["out"]) != expected(r):
             problems.append(f"call {i} (enc key_len={r['key_len']} len={r['len']}) differs from OpenSSL")
         if op == "dec":
+            if i == 0 or ref[i - 1][0] != "enc":
+                problems.append(f"call {i} (dec) has no preceding encrypt call")
+                continue
             plain = ref[i - 1][1]["in"]
             want = plain if r["padding"] == "2" else plain[:len(plain) // 32 * 32]
             if r["out"] != want:
@@ -56,4 +63,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--work", type=Path, default=WORK, help="Directory containing ref.txt and recomp.txt")
+    WORK = parser.parse_args().work
     main()

@@ -11,8 +11,12 @@ typedef uint32_t (*aes_enc_fn)(uint8_t *out, void *unused, const uint8_t *in, ui
 typedef uint32_t (*aes_dec_fn)(uint8_t *out, const uint8_t *in, uint32_t len, const uint8_t *key, uint32_t key_len,
                                const uint8_t *iv, uint8_t padding);
 
+#ifndef BASE
 #define BASE 0x10000000UL
+#endif
+#ifndef LIB
 #define LIB "/recomp/work/lib/libFastAES.so"
+#endif
 
 static void fill(uint8_t *p, size_t n, uint32_t seed) {
     for (size_t i = 0; i < n; i++) p[i] = (uint8_t)((seed = seed * 1103515245u + 12345u) >> 16);

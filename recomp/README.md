@@ -1,8 +1,14 @@
 # Static recompilation experiments (ARM64 → x86_64)
 
-Feasibility tests for recompiling the game's ARM64 libraries to x86_64. Nothing
-here is part of the Bunker build. [TODO.md](TODO.md) has the current state, the
-next tasks and the setup for continuing on Windows.
+The current target is a standalone Windows x86_64 executable built from the
+game's ARM64 libraries. Nothing here is part of the normal Bunker release yet.
+[TODO.md](TODO.md) tracks current milestones;
+[whole/README.md](whole/README.md) describes the whole-library compiler and
+[windows/README.md](windows/README.md) the native host providers.
+
+The sections below retain historical feasibility experiments and coverage
+measurements. Native Windows FastAES and host integration gates now execute;
+full game startup and rendering remain unverified.
 
 ## Survey
 
@@ -56,8 +62,8 @@ Our changes to Remill live in the fork
 
 The tests need an ARM64 host (this Mac, or an ARM64 Linux machine): each test
 runs the instruction natively and lifted, then compares registers, flags and
-memory. The semantics build step does not notice edits to `Semantics/*.cpp`;
-run `dev.sh run remill/clean_semantics.sh` before `build` after changing them.
+memory. The current fork tracks semantics dependencies in CMake. Older
+snapshots require `dev.sh run remill/clean_semantics.sh` before rebuilding.
 
 Batch 1 (all 1,161 tests pass): vector `fadd`/`fsub`/`fmul`/`fdiv`/`faddp`,
 `fmul` by element, element `mov`/`dup`, `fcsel`, `stp` of Q and indexed `stp`/`str`
@@ -151,7 +157,7 @@ image runs under emulation.
 `key_len` is in bytes (16, 24 or 32). `padding` 2 is PKCS#7; otherwise only whole
 blocks are processed. Both return the output length.
 
-### Known gaps
+### Historical LLVM 11 experiment gaps
 
 - This Remill build (LLVM 11, the newest image on Docker Hub) cannot lift
   `LD4`/`ST4`. libFastAES uses them only in a key copy for keys over 63 bytes,
