@@ -4,6 +4,29 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-01
+
+### Server
+- A long press on a memoir opens its full menu (**Enhance**, **Show Story**)
+  instead of a small preview. The game shows the menu only for a memoir with
+  a secondary stat, and rank-1 memoirs had none: every memoir now has at
+  least one, and memoirs without one get it when the game starts. [4200f58]
+- A player stuck at the chapter 2 loadout tutorial whose Rion weapon gift
+  has expired gets the weapon again when the game starts. [4200f58]
+- The starter costume and weapons of the first story scene are no longer
+  given again when the game reports that scene a second time. [6723c55]
+- **To Event** on a Mama's Dream summon opens the daily quest that gives its
+  tickets, instead of the first event tab. [f33e818]
+- With the Original calendar, event summons are listed only while one of
+  their event's runs is on, and **To Event** opens the run that is on (during
+  a rerun it opened the first event tab). [f33e818]
+- Six missions that unlock with the first page of an Anecdote no longer
+  count before that page is complete. [d4dc1ad]
+
+### Calendar
+- Two home banners whose summons Bunker doesn't list at that time stay
+  hidden, instead of opening the Summons screen on another summon. [eadd1cc]
+
 ## 2026-10-31 (after 1.4.4)
 
 ### Launcher (Android, iPhone and iPad)
