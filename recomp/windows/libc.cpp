@@ -10,6 +10,14 @@
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace bunker::windows {
 namespace pm=provider_memory;
@@ -27,7 +35,7 @@ const char *const imports[] = {
   "__stack_chk_fail", "abort", "exit", "android_set_abort_message", "__ctype_get_mb_cur_max",
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
-  "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff"
+  "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -265,6 +273,14 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<float(float,int32_t*)>(runtime,"frexpf",[](auto x,auto p){int32_t exponent;auto fraction=std::frexp(x,&exponent);pm::Write(p,exponent);return fraction;});
   Add<double(double,double*)>(runtime,"modf",[](auto x,auto p){double integral;auto fraction=std::modf(x,&integral);pm::Write(p,integral);return fraction;});
   Add<float(float,float*)>(runtime,"modff",[](auto x,auto p){float integral;auto fraction=std::modf(x,&integral);pm::Write(p,integral);return fraction;});
+  Add<int32_t()>(runtime,"getpagesize",[this]{
+#ifdef _WIN32
+    SYSTEM_INFO info{};GetSystemInfo(&info);const uint64_t size=info.dwPageSize;
+#else
+    const auto size=::sysconf(_SC_PAGESIZE);
+#endif
+    if(!(size>0&&size<=INT32_MAX))Fatal("invalid host memory page size");return static_cast<int32_t>(size);
+  });
   installed_=true;
 }
 }  // namespace bunker::windows

@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <math.h>
+#include <unistd.h>
 extern int __cxa_atexit(void (*)(void *), void *, void *);
 extern void __cxa_finalize(void *);
 extern char **environ;
@@ -27,6 +28,11 @@ int guest_allocators(void) {
     REQUIRE(!posix_memalign(&aligned,512,100)&&aligned&&!((uintptr_t)aligned&511));free(aligned);
     char b[32];memcpy(b,"0123456789",11);REQUIRE(memmove(b+2,b,8)==b+2&&!memcmp(b,"0101234567",10));
     REQUIRE(memchr(b,'1',10)==b+1&&memrchr(b,'1',10)==b+3);
+    return 0;
+}
+int guest_page_size(uint64_t expected) {
+    errno=123;int size=getpagesize();
+    REQUIRE(size>0&&(uint64_t)size==expected&&((unsigned)size&((unsigned)size-1))==0&&errno==123);
     return 0;
 }
 int guest_strings(void) {
