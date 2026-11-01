@@ -22,7 +22,7 @@ from elftools.elf.sections import SymbolTableSection
 PIPELINE_HASH = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
-def inspect(path, base, recover_jumps=True, recover_callbacks=True):
+def inspect(path, base, recover_jumps=True, recover_callbacks=True, recover_nonlocals=True):
     with path.open("rb") as stream:
         elf = ELFFile(stream)
         if elf.elfclass != 64 or not elf.little_endian or elf['e_machine'] != 'EM_AARCH64':
@@ -121,6 +121,14 @@ def inspect(path, base, recover_jumps=True, recover_callbacks=True):
             if any(not executable(addr) for addr in callback_roots['entries']):
                 raise ValueError('Callback recovery returned a non-executable or unaligned entry')
             entries.update(base + addr for addr in callback_roots['entries'])
+        nonlocal_roots = {'enabled': recover_nonlocals, 'entries': [], 'continuations': [], 'unresolved': []}
+        if recover_nonlocals:
+            from nonlocal_roots import recover
+            nonlocal_roots.update(recover(elf))
+            if any(not executable(addr) or not any(lo <= addr and addr + 4 <= hi for lo, hi in ranges)
+                   for addr in nonlocal_roots['entries']):
+                raise ValueError('Nonlocal recovery returned an incomplete, non-executable or unaligned continuation')
+            entries.update(base + addr for addr in nonlocal_roots['entries'])
         if not entries:
             raise ValueError('No function entries found in symbols, relocations or unwind records')
         return image, start, sorted(entries), {
@@ -130,6 +138,7 @@ def inspect(path, base, recover_jumps=True, recover_callbacks=True):
             'exports': exports, 'imports': sorted(imports), 'initializers': initializers, 'finalizers': finalizers,
             'jump_tables': jump_tables,
             'callback_roots': callback_roots,
+            'nonlocal_roots': nonlocal_roots,
         }
 
 
@@ -178,6 +187,8 @@ def main():
     parser.add_argument('--plan-only', action='store_true', help='Write the complete image/entry plan without lifting')
     parser.add_argument('--no-callback-recovery', action='store_true',
                         help='Diagnostic baseline only: omit statically proven callback entry roots')
+    parser.add_argument('--no-nonlocal-roots', action='store_true',
+                        help='Diagnostic baseline only: omit proved setjmp post-call continuation roots')
     parser.add_argument('--allow-unsupported', action='store_true', help='Exploratory builds only: retain traces with unliftable instructions')
     parser.add_argument('--poll-instrument', type=Path,
                         help='Opt-in LLVM18 poll-instrument executable; inserts trace-entry and cycle-cut State escape barriers')
@@ -187,10 +198,12 @@ def main():
     alignment = 65536 if args.target == 'x86_64-w64-windows-gnu' else 4096
     if args.base < 0 or args.base % alignment:
         parser.error(f'--base must be nonnegative and aligned to {alignment} bytes')
+    recovery_options = {}
     if args.no_callback_recovery:
-        image, offset, pending, manifest = inspect(args.library, args.base, recover_callbacks=False)
-    else:
-        image, offset, pending, manifest = inspect(args.library, args.base)
+        recovery_options['recover_callbacks'] = False
+    if args.no_nonlocal_roots:
+        recovery_options['recover_nonlocals'] = False
+    image, offset, pending, manifest = inspect(args.library, args.base, **recovery_options)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     raw = out / 'executable.bin'

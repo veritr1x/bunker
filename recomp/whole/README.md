@@ -60,6 +60,11 @@ statically proven `__cxa_atexit`/`atexit` callback arguments. Callback recovery
 checks real GOT/PLT imports and load-base provenance; numeric values that only
 resemble code RVAs are rejected. Tiny callbacks can lack both symbols and FDEs.
 `--no-callback-recovery` exists for diagnostic baseline comparisons only.
+Proved direct calls to real `setjmp`/`_setjmp`/`sigsetjmp` GOT/PLT imports also
+seed their executable post-call PCs by default. The `nonlocal_roots` manifest
+section retains proofs and unresolved calls; `--no-nonlocal-roots` is its
+diagnostic opt-out. This makes continuation code available without implementing
+`longjmp` transfer. See [the proof and gates](nonlocal_roots.md).
 Ambiguous indirect branches remain reported.
 
 Each build snapshots its lifter and semantics. Resume checks source, target,
@@ -85,6 +90,8 @@ $PY recomp/whole/test_fastaes.py --help
 $PY recomp/whole/test_semantics.py --help
 $PY recomp/whole/test_jump_tables.py --help
 $PY recomp/whole/test_callback_roots.py --help
+$PY recomp/whole/test_nonlocal_roots.py --help
+$PY recomp/whole/test_nonlocal_compile.py --help
 ```
 
 `test_fixture.py` checks constructors, calls, recursion, relocations, imports,
