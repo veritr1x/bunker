@@ -32,7 +32,7 @@ class NextLoopData(unittest.TestCase):
         old.parent.mkdir()
         old.write_bytes(b"loop2")
         # The full path of an app folder iOS has since moved.
-        cal.write_state({"version": 1, "loop": 1, "loopStart": cal.LAUNCH, "next": "/old/container/calendar-next.bin.e", "nextLoop": 2})
+        cal.write_state({"version": 1, "loop": 1, "loopStart": cal.LAUNCH, "next": "/old/container/calendar-next.bin.e", "nextLoop": 2, "dataVersion": cal.DATA_VERSION})
         state = cal.read_state()
         self.assertEqual(cal.next_file().read_bytes(), b"loop2")
         self.assertFalse(old.exists())
@@ -44,13 +44,13 @@ class NextLoopData(unittest.TestCase):
         old.parent.mkdir()
         old.write_bytes(b"stale")
         cal.next_file().write_bytes(b"loop2")
-        cal.write_state({"version": 1, "loop": 1, "loopStart": cal.LAUNCH, "next": "/old/container/calendar-next.bin.e", "nextLoop": 2})
+        cal.write_state({"version": 1, "loop": 1, "loopStart": cal.LAUNCH, "next": "/old/container/calendar-next.bin.e", "nextLoop": 2, "dataVersion": cal.DATA_VERSION})
         cal.read_state()
         self.assertEqual(cal.next_file().read_bytes(), b"loop2")
         self.assertFalse(old.exists())
 
     def test_turning_the_calendar_off_removes_it(self):
-        cal.write_state({"version": 1, "loop": 1, "loopStart": cal.LAUNCH, "next": "calendar-next.bin", "nextLoop": 2})
+        cal.write_state({"version": 1, "loop": 1, "loopStart": cal.LAUNCH, "next": "calendar-next.bin", "nextLoop": 2, "dataVersion": cal.DATA_VERSION})
         cal.next_file().write_bytes(b"loop2")
         cal.turn_off()
         self.assertFalse(cal.next_file().exists())

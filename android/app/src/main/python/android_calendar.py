@@ -78,6 +78,10 @@ def read_state():
     if not (isinstance(state, dict) and state.get("loopStart")):
         return None
     move_next(state)
+    if state.get("dataVersion") != DATA_VERSION:
+        activate_loop(state)
+        state["dataVersion"] = DATA_VERSION
+        write_state(state)
     refresh_view(state)
     return state
 
@@ -557,6 +561,58 @@ VIEW_FROM_LAUNCH = {
 }
 
 
+def gate_chapters(blob, id_index, column, offset, open_ids):
+    """Story chapters released after launch open on their dates moved by
+    offset; those in open_ids open at the loop's start instead."""
+    from patcher.patch_masterdata import read_array_len, skip_msgpack_value
+    import msgpack
+    count, pos = read_array_len(blob, 0)
+    for _ in range(count):
+        cells, p = read_array_len(blob, pos)
+        chapter, at = None, None
+        for index in range(cells):
+            if index == id_index:
+                end = skip_msgpack_value(blob, p)
+                chapter = msgpack.unpackb(bytes(blob[p:end]))
+            if index == column and blob[p] == 0xd3:
+                at = p
+            p = skip_msgpack_value(blob, p)
+        if at is not None:
+            value = struct.unpack(">q", blob[at + 1:at + 9])[0]
+            if LAUNCH <= value < FOREVER:  # earlier: open from the start
+                struct.pack_into(">q", blob, at + 1, (LAUNCH if chapter in open_ids else value) + offset)
+        pos = p
+    return 0
+
+
+# With the Original calendar story chapters open on their release dates, in
+# the first loop only: from the second the player has been through the story.
+# Chapters the player has reached (a quest cleared in them) stay open.
+def all_chapters():
+    return {r["MainQuestChapterId"] for r in table("MainQuestChapter")}
+
+
+def reached_chapters():
+    """Chapters with a quest any player of this save has cleared."""
+    import sqlite3
+    try:
+        db = sqlite3.connect(f"file:{config.GAME_DB_PATH}?mode=ro", uri=True)
+        try:
+            cleared = {q for (q,) in db.execute("select distinct quest_id from user_quests where clear_count > 0")}
+        finally:
+            db.close()
+    except sqlite3.Error:
+        return set()
+    sequence = {r["QuestId"]: r["MainQuestSequenceId"] for r in table("MainQuestSequence")}
+    group = {r["MainQuestSequenceId"]: r["MainQuestSequenceGroupId"] for r in table("MainQuestSequenceGroup")}
+    chapter = {r["MainQuestSequenceGroupId"]: r["MainQuestChapterId"] for r in table("MainQuestChapter")}
+    return {chapter[group[sequence[q]]] for q in cleared if q in sequence and sequence[q] in group and group[sequence[q]] in chapter}
+
+
+def open_chapters(state):
+    return reached_chapters() if state.get("loop", 1) <= 1 else all_chapters()
+
+
 def read_master(path):
     """A master data file's table of contents and table blob."""
     import msgpack
@@ -588,9 +644,10 @@ def _read(toc, blob, changed, schemas, table, *names):
     return out
 
 
-def build_master(origin, output, offset, view=False):
+def build_master(origin, output, offset, view=False, open_chapters=None):
     """Writes origin's game data with rotating content moved forward by offset;
-    view: the copy for "Show original dates" (VIEW_FROM_LAUNCH)."""
+    view: the copy for "Show original dates" (VIEW_FROM_LAUNCH); open_chapters:
+    story chapters open on their dates (moved by offset) except these (None: all open)."""
     import msgpack
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import pad
@@ -610,6 +667,10 @@ def build_master(origin, output, offset, view=False):
             continue
         columns = {index for index, kind, name in schemas[table][1] if kind == "long" and "Datetime" in name}
         moved += pm.apply_to_table(toc, blob, changed, table, lambda b: shift_table(b, columns, offset)) or 0
+    if open_chapters is not None and "m_main_quest_chapter" in toc:
+        names = [name for _, _, name in schemas["m_main_quest_chapter"][1]]
+        pm.apply_to_table(toc, blob, changed, "m_main_quest_chapter", lambda b: gate_chapters(
+            b, names.index("MainQuestChapterId"), names.index("StartDatetime"), offset, set(open_chapters)))
     for table, names in (VIEW_FROM_LAUNCH if view else {}).items():
         if table in toc and table in schemas:
             columns = {index for index, kind, name in schemas[table][1] if name in names}
@@ -663,36 +724,45 @@ def view_file():
 
 
 # Bumped when the copy's build changes, so a copy built before is rebuilt
-# (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH).
+# (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
+# story chapters on their dates.
 VIEW_VERSION = "2"
+# Bumped when a loop's game data changes, so the loop in use is rebuilt
+# (read_state): 1 opens story chapters on their dates.
+DATA_VERSION = 1
 
 
 def view_version_file():
     return config.RELEASE_DIR / "calendar-view.version"
 
 
-def build_view():
+def view_version(state):
+    """The copy's version: the build's, and first loop or later (story chapters)."""
+    return f"{VIEW_VERSION}:{min(state.get('loop', 1), 2)}"
+
+
+def build_view(state):
     pending = view_file().with_suffix(".tmp")
-    build_master(origin_file(), pending, 0, view=True)
+    build_master(origin_file(), pending, 0, view=True, open_chapters=open_chapters(state))
     os.replace(pending, view_file())
-    view_version_file().write_text(VIEW_VERSION)
+    view_version_file().write_text(view_version(state))
 
 
-def view_outdated():
+def view_outdated(state):
     version = view_version_file()
-    return not view_file().exists() or not version.exists() or version.read_text().strip() != VIEW_VERSION
+    return not view_file().exists() or not version.exists() or version.read_text().strip() != view_version(state)
 
 
 def refresh_view(state):
     """Rebuilds the game's copy for "Show original dates" when it is on and the copy is missing or older."""
-    if state.get("originalDates") and view_outdated():
-        build_view()
+    if state.get("originalDates") and view_outdated(state):
+        build_view(state)
 
 
 def set_original_dates(state, on):
     """Turns "Show original dates" on or off, building the game's copy when needed."""
-    if on and view_outdated():
-        build_view()
+    if on and view_outdated(state):
+        build_view(state)
     state["originalDates"] = bool(on)
 
 
@@ -720,7 +790,7 @@ def label(state):
 def activate_loop(state):
     candidate = patcher.folder() / "candidate.bin.e"
     try:
-        build_master(origin_file(), candidate, state["loopStart"] - LAUNCH)
+        build_master(origin_file(), candidate, state["loopStart"] - LAUNCH, open_chapters=open_chapters(state))
         patcher.activate(candidate, label(state))
     finally:
         candidate.unlink(missing_ok=True)
@@ -761,7 +831,7 @@ def open_at_first_summons(state, real=None):
 
 def new_state(real):
     start = LAUNCH + (real - LAUNCH) // WEEK * WEEK
-    state = {"version": 1, "loop": 1, "loopStart": start, "jumpMillis": 0, "speed": 1, "speedSince": start_of_day(real)}
+    state = {"version": 1, "loop": 1, "loopStart": start, "jumpMillis": 0, "speed": 1, "speedSince": start_of_day(real), "dataVersion": DATA_VERSION}
     open_at_first_summons(state, real)
     return state
 
