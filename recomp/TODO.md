@@ -38,6 +38,11 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Real `libmain.so` translated `JNI_OnLoad` registers its original loader
   methods. Its load/unload path works with an explicitly synthetic Unity
   module. This does not establish that real Unity initializes.
+- Real Unity now completes all 417 constructors, returns JNI 1.6 with all 42
+  native registrations checked against ELF/DEX, and exits cleanly through
+  `JNI_OnUnload` and its actual finalizers. The separate `initJni(Context)`
+  diagnostic currently fails on missing `java/lang/StringBuilder`; rendering
+  and the Java/game lifecycle remain unexecuted.
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -60,15 +65,14 @@ Latest three-library instruction-form audit with LLVM 18 / Remill `09f7d4d`
 
 These sample one encoding per operand form and exclude control flow; they do
 not establish whole-program correctness or execution coverage. The first
-Unity Windows translation completed with 58,850
-traces in 463 objects, 2,419 unsupported traces and zero unresolved direct
-targets. The pair-enabled snapshot has 58,855 traces and 1,860 unsupported
-traces. The masked-switch snapshot has 59,552 traces / 1,889 unsupported, and
-its native Windows executable completes constructors 1–128. Constructor 129
-passed the added `getpagesize` adapter, then reached a joined-guard switch
-whose recovery now passes focused tests; its rebuilt executable is pending.
-The earlier store/pair/masked-switch blockers at constructors 53, 71 and 95
-are cleared. JNI_OnLoad has not run. The initial IL2CPP translation completed
+Unity Windows translation completed with 58,850 traces. The current callback/
+ST1 snapshot has 59,561 traces in 469 objects, 1,774 unsupported traces and zero
+unresolved direct targets. Its constructor/JNI/shutdown gate passes natively;
+the optional `initJni` diagnostic retains exception history so clearing a Java
+exception cannot turn a missing-service path into success. Static callback
+root recovery finds 112 Unity callback entries, including three otherwise
+unseeded tiny destructors; this clears the observed finalization failure.
+The initial IL2CPP translation completed
 with 393,781 traces in 3,079 objects, 192 unsupported traces and zero unresolved
 direct targets. Exploratory objects retain explicit failure paths for
 unsupported instructions.
@@ -78,9 +82,10 @@ unsupported instructions.
 1. Build complete Unity and IL2CPP Windows object sets; inspect unsupported
    traces and unresolved targets. Unity has 417 initializers/344 imports;
    IL2CPP has nine initializers/280 imports.
-2. Execute every real Unity initializer and its `JNI_OnLoad` with Windows
-   providers. Implement concrete missing behavior with tests. Never skip
-   initializers or turn unknown imports into successful no-ops.
+2. Continue the actual `initJni(Context)` path with checked Java string/service
+   behavior, then implement the evidenced surface and UnityMain message flow.
+   Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
+   imports or unsupported Java effects into successful no-ops.
 3. Close instruction gaps reached by startup, then remaining reciprocal
    estimates, SIMD stores/shifts/permutations, FP rounding and crypto groups.
    Coordinate shared Remill builds; engine builds use immutable snapshots.
