@@ -27,6 +27,14 @@ public final class ToolsRuntime {
         String result=Python.getInstance().getModule("android_runtime").callAttr("start",FilesStore.data(context).getAbsolutePath(),FilesStore.root(context).getAbsolutePath(),directory.getAbsolutePath(),reporter).toString();
         JSONObject state=new JSONObject(result);url=state.getString("url");token=state.getString("token");
     }
+    /** Before the server starts: the Original calendar's game data for this build, once per version (CalendarUpdate). */
+    static void updateCalendar(Context context) {
+        File data=FilesStore.data(context);
+        if(!CalendarUpdate.needed(data,BuildConfig.BUNKER_VERSION))return;
+        File directory=new File(context.getFilesDir(),"tools");
+        if(!Python.isStarted())Python.start(new AndroidPlatform(context));
+        Python.getInstance().getModule("android_runtime").callAttr("update_calendar",data.getAbsolutePath(),FilesStore.root(context).getAbsolutePath(),directory.getAbsolutePath(),BuildConfig.BUNKER_VERSION);
+    }
     static void stop(){
         if(Python.isStarted())Python.getInstance().getModule("android_runtime").callAttr("stop");
         url="";token="";

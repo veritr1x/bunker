@@ -2057,6 +2057,11 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         const char *saveFrom = getenv("LUNAR_IMPORT_SAVE"), *masterFrom = getenv("LUNAR_IMPORT_MASTER");
         NSString *saveSource = saveFrom && *saveFrom ? [NSString stringWithUTF8String:saveFrom] : nil;
         NSString *masterSource = masterFrom && *masterFrom ? [NSString stringWithUTF8String:masterFrom] : nil;
+        // After an update, the calendar's game data is brought up to this build
+        // before the server starts; the launcher shows meanwhile.
+        BOOL updateCalendar = LTToolsAvailable() && LTCalendarNeedsUpdate(gSaves, BunkerVersion());
+        if (updateCalendar) { gOpenMenu = YES; gMessage = @"Updating the calendar for this version…"; }
+        NSString *originalMaster = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
         dispatch_async(gQueue, ^{
             // Automation only, like LUNAR_IMPORT_FROM: import a save backup
             // before the server starts. Go must not be called on this thread.
@@ -2070,8 +2075,15 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                 NSString *result = ImportMaster([NSURL fileURLWithPath:source]);
                 NSLog(@"[LunarTear] master import result: %@", result.length ? result : @"ok");
             }
+            NSString *calendar = @"";
+            if (updateCalendar) {
+                calendar = LTUpdateCalendar(gSaves, gServerRoot, ToolsRoot(), originalMaster, BunkerVersion());
+                NSLog(@"[LunarTear] calendar update: %@", calendar.length ? calendar : @"ok");
+                // A failure leaves the calendar as it was; the game still starts.
+                if (calendar.length) calendar = [@"The calendar could not be updated: " stringByAppendingString:calendar];
+            }
             NSString *error = StartServer();
-            gMessage = error;
+            gMessage = error.length ? error : calendar;
             // An import at launch may have left the launcher open; show the result.
             dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
         });

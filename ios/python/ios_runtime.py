@@ -115,11 +115,7 @@ def _adapt_patcher():
     android_display.TEXTURES = android_display.TEXTURES[:1]
 
 
-def start(data_root, asset_root, tools_root, original_master):
-    """Prepare the editors and serve them on loopback. Returns url and token as JSON."""
-    global _server, _thread
-    if _thread and _thread.is_alive():
-        return json.dumps(_state)
+def _prepare(data_root, asset_root, tools_root, original_master):
     sqlite3.connect = _connect_readable
     patcher = Path(tools_root) / "patcher"
     patcher.mkdir(parents=True, exist_ok=True)
@@ -132,6 +128,22 @@ def start(data_root, asset_root, tools_root, original_master):
     config.SHIM_LUNAR_TEAR_REF = "Bundled iOS server (63df7d7)"
     android_runtime.TEXTURE = lambda bundle, target, size: _go(_process.LunarTexture, bundle, target, int(size))
     android_runtime.prepare_data()
+
+
+def update_calendar(data_root, asset_root, tools_root, original_master, version):
+    """Before the server starts after an update (LunarLauncher.m): the Original
+    calendar's game data for this build (android_calendar.update_for)."""
+    _prepare(data_root, asset_root, tools_root, original_master)
+    import android_calendar
+    return android_calendar.update_for(version)
+
+
+def start(data_root, asset_root, tools_root, original_master):
+    """Prepare the editors and serve them on loopback. Returns url and token as JSON."""
+    global _server, _thread
+    if _thread and _thread.is_alive():
+        return json.dumps(_state)
+    _prepare(data_root, asset_root, tools_root, original_master)
     _adapt_patcher()
     import uvicorn
     sock = socket.socket()

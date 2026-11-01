@@ -90,6 +90,23 @@ def write_state(state):
     runtime.write_json(state_path(), state, indent=2)
 
 
+def updated_file():
+    """The Bunker version update_for last ran for, beside calendar.json (ServerService, LunarLauncher.m read it)."""
+    return state_path().with_name("calendar.updated")
+
+
+def update_for(version):
+    """Brings the calendar's game data up to this build (read_state), once per
+    Bunker version. The launchers call it before the server starts, so an update
+    reaches the game without opening Pod Programs. Returns True when it ran."""
+    stamp = updated_file()
+    if stamp.exists() and stamp.read_text().strip() == version:
+        return False
+    read_state()
+    stamp.write_text(version)
+    return True
+
+
 def start_of_day(ms):
     return (ms - DAY_START) // DAY * DAY + DAY_START
 

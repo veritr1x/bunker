@@ -314,6 +314,16 @@ def start(data_root, asset_root, tools_root, reporter):
     raise RuntimeError("Tools could not start")
 
 
+def update_calendar(data_root, asset_root, tools_root, version):
+    """Before the server starts after an update (ServerService): the Original
+    calendar's game data for this build (android_calendar.update_for)."""
+    from java import jclass
+    configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
+    prepare_data()
+    import android_calendar
+    return android_calendar.update_for(version)
+
+
 def stop():
     global _server, _thread
     if _server:
