@@ -45,8 +45,12 @@ part of the normal Bunker release. The game does not boot or render yet.
   using checked Java strings, launch intents and the original APK boot.config.
   The bounded UnityMain surface gate also completes actual created/changed/
   detached native calls, observing two fromSurface, two acquire and four release
-  calls against the same actual HWND-backed token before close. Native rendering
-  and the full Java/game lifecycle remain unexecuted.
+  calls against the same actual HWND-backed token before close. The separate
+  bounded first-frame diagnostic now receives actual HWND focus, returns from
+  nativeResume and enters nativeRender. It stops on an original missing
+  PackageManager method; no frame has completed or rendered. A read-only native
+  volume observer supplies resume's cached initial music/mute state without an
+  invented initial native callback. The full Java/game lifecycle remains open.
 - Real IL2CPP completes all nine constructors and both finalizers. Its actual
   parameterless GC signal-initialization routine also passes, installing the
   evidenced actions and acknowledgment semaphore. A validated one-shard overlay
@@ -63,6 +67,16 @@ part of the normal Bunker release. The game does not boot or render yet.
   FPSR are checked against ARM64 QEMU across rounding/FZ/DN modes, boundary
   values and deterministic random inputs. Physical ARM64 validation remains
   useful, especially for floating point.
+- FP32/FP64 scalar/vector reciprocal and reciprocal-square-root estimates now
+  match 3,354,880 ARM64 reference records on each host, including every lookup
+  bucket boundary, FZ/DN/rounding modes and cumulative FPSR. Existing engine
+  objects retain their earlier frozen semantics until refreshed.
+  See [the exact estimate gate](whole/fp_estimates.md).
+- Proved direct setjmp import calls now seed executable post-call continuations
+  in the compiler: 49 roots in Unity and one in IL2CPP. Native dispatch checks,
+  normal context-save tests and whole-compiler regressions pass on both hosts.
+  This does not implement longjmp transfer or refresh existing engine objects.
+  See [continuation proofs and boundaries](whole/nonlocal_roots.md).
 
 Latest three-library instruction-form audit with LLVM 18 / Remill `0e8b07b`
 (`windows-st1`):
@@ -94,11 +108,12 @@ unsupported instructions.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
 2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
-   and implement the evidenced focus/resume/frame/pause/done UnityMain flow.
+   and continue the bounded focus/resume/frame/pause/done UnityMain flow from
+   its reached PackageManager exception in nativeRender.
    Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
    imports or unsupported Java effects into successful no-ops.
-3. Close instruction gaps reached by startup, then remaining reciprocal
-   estimates, SIMD stores/shifts/permutations, FP rounding and crypto groups.
+3. Close instruction gaps reached by startup, then remaining SIMD
+   stores/shifts/permutations, FP rounding and crypto groups.
    Coordinate shared Remill builds; engine builds use immutable snapshots.
 4. Audit actual imports against available providers, then implement
    startup-critical libc/resource gaps using translated NDK caller tests.
