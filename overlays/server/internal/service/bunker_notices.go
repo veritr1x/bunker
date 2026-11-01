@@ -23,11 +23,16 @@ import (
 // notice pack: a zip holding notices.json and img/<key>.webp, built from the
 // official notices recovered from archives. The game opens /information/ for
 // the list and /information/?informationId=N for one notice. Notices appear
-// once the game clock reaches their publish date, so with the Original
-// calendar they come out as they did in the live game.
+// once the game clock reaches their publish date. With the Original calendar
+// the clock runs in the loop's dates and the notices keep the live service's,
+// so each comes out when the loop reaches its date moved into the loop
+// (UseCalendar), as it did in the live game.
 type Notices struct {
 	path string
 	now  func() int64
+	// offset: how far the calendar moved the live service's dates into this
+	// loop; view: how far the original-dates view moves them back (gametime).
+	offset, view func() int64
 
 	mu     sync.Mutex
 	loaded bool
@@ -62,6 +67,39 @@ type notice struct {
 	Postscript int64  `json:"postscript"`
 	Thumb      string `json:"thumb"`
 	Body       string `json:"body"`
+}
+
+// UseCalendar sets the calendar's offset and the original-dates view offset
+// (gametime.CalendarOffset, gametime.ViewOffset); without it both are 0.
+func (s *Notices) UseCalendar(offset, view func() int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.offset, s.view = offset, view
+}
+
+// original is the game clock in the live service's dates, which the notices
+// keep; shown moves a notice's date to the one the game shows.
+func (s *Notices) original() int64 {
+	s.mu.Lock()
+	offset := s.offset
+	s.mu.Unlock()
+	if offset == nil {
+		return s.now()
+	}
+	return s.now() - offset()
+}
+
+func (s *Notices) shown(ms int64) int64 {
+	s.mu.Lock()
+	offset, view := s.offset, s.view
+	s.mu.Unlock()
+	if offset != nil {
+		ms += offset()
+	}
+	if view != nil {
+		ms -= view()
+	}
+	return ms
 }
 
 // sortTime is when the notice last changed as of now: its postscript once
@@ -264,10 +302,12 @@ func badgeHTML(t int32) string {
 	return `<span class="badge ` + tone + `">` + label + `</span>`
 }
 
-func dateHTML(n *notice, now int64) string {
-	s := `<time data-ms="` + strconv.FormatInt(n.Publish, 10) + `"></time>`
+// dateHTML is the notice's date (and postscript, once now in the live
+// service's dates has reached it), each moved by shown to the date the game shows.
+func dateHTML(n *notice, now int64, shown func(int64) int64) string {
+	s := `<time data-ms="` + strconv.FormatInt(shown(n.Publish), 10) + `"></time>`
 	if n.Postscript > 0 && n.Postscript <= now {
-		s += ` <span class="post">[Postscript: <time data-ms="` + strconv.FormatInt(n.Postscript, 10) + `"></time>]</span>`
+		s += ` <span class="post">[Postscript: <time data-ms="` + strconv.FormatInt(shown(n.Postscript), 10) + `"></time>]</span>`
 	}
 	return s
 }
@@ -297,7 +337,7 @@ func tabsHTML(current int) string {
 
 func (s *Notices) serveList(w http.ResponseWriter, tabKey string) {
 	tab := tabIndex(tabKey)
-	now := s.now()
+	now := s.original()
 	var b strings.Builder
 	b.WriteString(tabsHTML(tab))
 	b.WriteString(`<main class="list">`)
@@ -316,7 +356,7 @@ func (s *Notices) serveList(w http.ResponseWriter, tabKey string) {
 			thumb = `<img class="thumb" loading="lazy" src="img/` + n.Thumb + `.webp" alt="">`
 		}
 		fmt.Fprintf(&b, `<a class="row" href="?informationId=%d&amp;tab=%s"><div class="row-head">%s<span class="date">%s</span></div><div class="row-body">%s<span class="title">%s</span></div><span class="arrow"></span></a>`,
-			n.Id, noticeTabs[tab].key, badgeHTML(n.Type), dateHTML(n, now), thumb, html.EscapeString(n.Title))
+			n.Id, noticeTabs[tab].key, badgeHTML(n.Type), dateHTML(n, now, s.shown), thumb, html.EscapeString(n.Title))
 	}
 	if shown == 0 {
 		b.WriteString(`<p class="empty">There are no notices yet.</p>`)
@@ -329,7 +369,8 @@ func (s *Notices) serveDetail(w http.ResponseWriter, id, tabKey string) {
 	tab := tabIndex(tabKey)
 	v, _ := strconv.Atoi(id)
 	n := s.byID[int32(v)]
-	if n == nil {
+	now := s.original()
+	if n == nil || n.Publish > now {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(noticePage("Notices", tabsHTML(tab)+`<main><a class="back" href="?tab=`+noticeTabs[tab].key+`" aria-label="Back"></a><p class="empty">This notice isn't available.</p></main>`)))
 		return
@@ -348,7 +389,7 @@ func (s *Notices) serveDetail(w http.ResponseWriter, id, tabKey string) {
 		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/en/gacha-details?gachaId=%d">Summons Details</a>`, g)
 	}
 	body := fmt.Sprintf(`%s<main class="detail"><header><a class="back" href="?tab=%s" aria-label="Back"></a><div class="head-text">%s<h1>%s</h1></div><span class="date">%s</span></header><article>%s%s</article></main>`,
-		tabsHTML(tab), noticeTabs[tab].key, badgeHTML(n.Type), html.EscapeString(n.Title), dateHTML(n, s.now()), details.String(), n.Body)
+		tabsHTML(tab), noticeTabs[tab].key, badgeHTML(n.Type), html.EscapeString(n.Title), dateHTML(n, now, s.shown), details.String(), n.Body)
 	w.Write([]byte(noticePage(n.Title, body)))
 }
 

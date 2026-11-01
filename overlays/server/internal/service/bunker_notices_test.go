@@ -272,3 +272,33 @@ func TestNoticeOrderUsesOnlyPastPostscripts(t *testing.T) {
 		t.Fatalf("a notice with a future postscript sorted first:\n%s", page)
 	}
 }
+
+// With the Original calendar, the game clock runs in the loop's dates while
+// the notices keep the live service's: a notice comes out when the loop
+// reaches its date moved into the loop, and shows the date the game shows.
+func TestNoticesFollowTheOriginalCalendar(t *testing.T) {
+	const offset = 100_000 // the loop starts this far after the live service did
+	h := NewNotices(writeNoticePack(t), func() int64 { return offset + 2_500 })
+	h.UseCalendar(func() int64 { return offset }, func() int64 { return 0 })
+	_, page, _ := getNotice(t, h, "/information/")
+	if !strings.Contains(page, "Abstract Savior") || !strings.Contains(page, "Known issues") {
+		t.Fatalf("notices published before the loop's date are missing:\n%s", page)
+	}
+	if strings.Contains(page, "Ver 9.9 Update") {
+		t.Fatal("a notice the loop hasn't reached is listed")
+	}
+	if strings.Contains(page, "Postscript") {
+		t.Fatal("a postscript the loop hasn't reached is shown")
+	}
+	if !strings.Contains(page, `data-ms="101000"`) {
+		t.Fatalf("the summon notice's date is not in the loop's dates:\n%s", page)
+	}
+	if code, _, _ := getNotice(t, h, "/information/?informationId=12"); code != http.StatusNotFound {
+		t.Fatalf("a notice the loop hasn't reached opens (status %d)", code)
+	}
+	// Showing original dates: the live service's date, as the game shows it.
+	h.UseCalendar(func() int64 { return offset }, func() int64 { return offset })
+	if _, page, _ := getNotice(t, h, "/information/"); !strings.Contains(page, `data-ms="1000"`) {
+		t.Fatalf("the summon notice's date is not the original one:\n%s", page)
+	}
+}
