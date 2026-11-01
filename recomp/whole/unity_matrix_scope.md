@@ -57,13 +57,15 @@ The frozen baseline lifter/semantics hashes are respectively
 `78e33b4cc37e8b2d34e7b6f2adf2a549ccc2590199f8c41a9758a039e09a5a54`
 and `c6a6a752edfde4ccc6de252a52d58b87986f461b130869dac9a7241bc32e2b69`.
 
-## Nonfinite/FZ diagnostic remains failing
+## Nonfinite/FZ baseline and indexed FMUL correction
 
-The separate diagnostic profile preserves its raw failures: **5,368 of 18,432
-records differ on each host**. Its first difference is record2, FPCR.FZ=1:
+The original baseline diagnostic had **5,368 of 18,432 records differ on each
+host**. Its first difference was record2, FPCR.FZ=1:
 result bits agree, but ARM64 FPSR=0x81 and lifted FPSR=0x99, adding UFC and IXC.
-The finite profile is the acceptance criterion; the diagnostic is explicitly
-reported separately and is not relabeled as a passing full-FP pipeline.
+Those raw failures and the six-file source cohort from Bunker `fb2acfd` and
+Remill `79081a6` are preserved under the native WSL work directory
+`unity-matrix-fmul-baseline`, including `source/cohort.json` and both reports.
+The earlier failure has not been reclassified as a passing baseline.
 
 An isolated witness executes the original first FMUL opcode `0x4f809214` without
 any FMLA. ARM64 and both lifted hosts show these baseline differences:
@@ -75,9 +77,21 @@ any FMLA. ARM64 and both lifted hosts show these baseline differences:
 | min-normal × 0.5, FZ=1 | 0x00000000 / 0x08 | 0x00400000 / 0x00 |
 | qNaN0x7fc12345 × 1, DN=1 | 0x7fc00000 / 0x00 | 0x7fc12345 / 0x00 |
 
-These establish existing indexed FMUL default-NaN/FZ/DN behavior as a separate
-repair scope. This gate changes no semantics and does not modify scalar FMADD.
-Baseline failure artifacts are under ignored `work/unity-matrix-fmul-witness`.
+The indexed-only FMUL correction now matches ARM64 on all seven isolated witness
+rows on both hosts. The gate itself changes no semantics; the separate correction
+routes only indexed FP32/FP64 FMUL through the validated integer fused helper with
+a zero accumulator carrying the product sign. Ordinary scalar/vector FMUL and
+scalar FMADD remain unchanged. Baseline witness artifacts are under ignored
+`work/unity-matrix-fmul-witness`; corrected witnesses are under
+`work/unity-matrix-fmul-fixed-witness`.
+
+With corrected semantics SHA256
+`098d2e4b3214af9b3e4a7a39053acf44bc04ab94527b549874fd7d69710bab1e`,
+**both hosts pass all36,928 finite and all18,432 nonfinite/FZ diagnostic records,
+with zero differences**. The finite output hash remains unchanged. The diagnostic
+ARM64/Linux/Windows output SHA256 is
+`07c6657562be0983f3c449217ad138ad8cefeaf37d605b939522eb358355030d`.
+This remains bounded coverage of this exact routine and these input profiles.
 
 ## Reproduce
 
@@ -95,6 +109,8 @@ Add `--windows` for native Windows. Large binary streams stay on the native
 Linux filesystem. Each platform writes a separate `acceptance.json` under
 `recomp/work/unity-matrix-{linux,windows}`, retaining both profile outcomes,
 source/toolchain hashes, extraction proof and diagnostic mismatch samples.
-The runner fails on any finite-profile difference or invariant failure. An
-expected diagnostic difference is printed as `DIFFERENT` and remains
-`passed:false` in its own report entry.
+The runner now fails on any difference in either profile or any invariant
+failure. For explicit observation of an archived baseline only,
+`--allow-diagnostic-differences` permits a nonzero diagnostic mismatch count;
+it remains printed as `DIFFERENT` and recorded as `passed:false`. That flag
+cannot suppress a finite-profile difference.

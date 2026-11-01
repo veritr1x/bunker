@@ -92,6 +92,13 @@ part of the normal Bunker release. The game does not boot or render yet.
   records on each host. The original Unity matrix now lifts completely; the
   frozen Unity engine cohort retains its earlier semantics. See
   [the fused arithmetic scope](whole/fp_fmla.md).
+- Indexed FMUL's NaN/FZ/DN behavior is corrected and passes 8,444,032 ARM64
+  comparisons per host. The exact original 104-byte Unity matrix leaf now
+  passes 36,928 finite and 18,432 nonfinite/FZ records on each host, including
+  register, memory, alias and guard checks. Its former 5,368 diagnostic failures
+  are preserved as a separate baseline. Ordinary FMUL remains outside this
+  correction. See [multiply scope](whole/fp_fmul_indexed_scope.md) and
+  [the exact original-code execution boundary](whole/unity_matrix_scope.md).
 - Proved direct setjmp import calls now seed executable post-call continuations
   in the compiler: 49 roots in Unity and one in IL2CPP. Native dispatch checks,
   normal context-save tests and whole-compiler regressions pass on both hosts.

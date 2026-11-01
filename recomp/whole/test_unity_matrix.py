@@ -44,6 +44,7 @@ def main():
     parser.add_argument('--remill',type=Path,default=HERE.parent/'work/remill-src')
     parser.add_argument('--windows',action='store_true')
     parser.add_argument('--record-directory',type=Path,required=True,help='Native Linux directory for large output streams')
+    parser.add_argument('--allow-diagnostic-differences',action='store_true',help='Explicit baseline observation only: retain failing diagnostic results without accepting that profile')
     args=parser.parse_args();platform='windows'if args.windows else'linux';out=HERE.parent/f'work/unity-matrix-{platform}';out.mkdir(parents=True,exist_ok=True)
     args.record_directory.mkdir(exist_ok=True,parents=True)
     source,extraction=prepare(args.unity,out);image=out/'fixture.so'
@@ -73,8 +74,8 @@ def main():
         records,mismatches,mismatch_records=compare(ref_file,actual);passed=mismatch_records==0
         report['profiles'][profile]={'passed':passed,'records':records,'mismatch_records':mismatch_records,'mismatches':mismatches,'reference_sha256':digest(ref_file),'actual_sha256':digest(actual)}
         print(f'Exact Unity matrix {platform} {profile}: {records:,} records, {mismatch_records:,} different, {"PASS"if passed else"DIFFERENT"}',flush=True)
-        if profile=='finite'and not passed:
-            (out/'acceptance.json').write_text(json.dumps(report,indent=2)+'\n');raise RuntimeError('Finite exact-code matrix acceptance failed')
+        if not passed and(profile=='finite'or not args.allow_diagnostic_differences):
+            (out/'acceptance.json').write_text(json.dumps(report,indent=2)+'\n');raise RuntimeError(f'{profile} exact-code matrix acceptance failed')
     report['sources']={str(HERE/name):digest(HERE/name)for name in ['unity_matrix_fixture.py','unity_matrix_driver.h','unity_matrix_ref.c','unity_matrix_test.cpp','test_unity_matrix.py']}
     (out/'acceptance.json').write_text(json.dumps(report,indent=2)+'\n')
 
