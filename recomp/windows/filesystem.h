@@ -68,6 +68,10 @@ class FileSystem {
   // virtual0755 directory mode is compatibility metadata, not ACL certification.
   // Parent traversal components are rejected with EACCES for this operation.
   int Mkdir(const char *path, uint32_t mode);
+  // Removes one file or one empty directory in a writable mount. Mount roots,
+  // parent traversal and final reparse points remain protected; never recursive.
+  int Unlink(const char *path);
+  int Rmdir(const char *path);
   addr_t FOpen(const char *path, const char *mode);
   int FClose(addr_t stream);
   // Exact reached Android setvbuf shape: owned stream, buffer0, mode2
