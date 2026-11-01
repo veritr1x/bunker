@@ -605,6 +605,10 @@ guest `setenv`/`unsetenv`, never the host process environment. The checked
 [Bionic locale adapter](locale.md) supplies `newlocale`/`uselocale`/`freelocale`
 with C/POSIX and C.UTF-8 aliases and per-thread selection. Wide strings,
 long double, sockets and signal integration remain separate work.
+The [process clock/sysconf adapter](libc_process.md) returns actual process CPU
+microseconds and native page-size/system-online-CPU values for Android names
+39/40/97. Its append-only imports pass453 checks/57 NDK calls per host; known
+unimplemented sysconf names remain decisive. This does not establish GC startup.
 Math uses the native host libm; it is not a bit-identical Android libm port.
 Integer prefixes follow the targeted
 [Android 13 parser](https://android.googlesource.com/platform/bionic/+/android-13.0.0_r1/libc/bionic/strtol.cpp):
