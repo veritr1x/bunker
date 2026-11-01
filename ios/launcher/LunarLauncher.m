@@ -1535,10 +1535,20 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         gMessage = @"Pod Programs is open.";
         [self refresh];
         __weak typeof(self) weakSelf = self;
-        [self presentViewController:LTToolsBrowser(url, token, ^{ [weakSelf closeTools]; }) animated:YES completion:nil];
+        __block __weak UIViewController *tools = nil;
+        UIViewController *browser = LTToolsBrowser(url, token, ^{ [weakSelf closeTools]; }, ^(NSString *path) {
+            // A timeline bar: the Archive opens over Pod Programs, and closing it returns there.
+            if (tools) [weakSelf openArchiveAt:path from:tools];
+        });
+        tools = browser;
+        [self presentViewController:browser animated:YES completion:nil];
     }];
 }
 - (void)openArchive {
+    [self openArchiveAt:nil from:self];
+}
+// The Archive, on its home page or a timeline link's page, over the launcher or Pod Programs.
+- (void)openArchiveAt:(NSString *)path from:(UIViewController *)presenter {
     __block NSString *url = nil, *token = nil;
     NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
     NSString *root = [support stringByAppendingPathComponent:@"LunarArchive"];
@@ -1555,8 +1565,9 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         }
         // Closing stops the Archive's server: it shares the game's memory, and the index makes reopening quick.
         __weak typeof(self) weakSelf = self;
-        [self presentViewController:LTArchiveBrowser(url, token, ^{
-            [weakSelf dismissViewControllerAnimated:YES completion:nil];
+        __weak UIViewController *from = presenter;
+        [presenter presentViewController:LTArchiveBrowser(url, token, path, ^{
+            [from dismissViewControllerAnimated:YES completion:nil];
             [weakSelf busy:@"Closing the Archive…" work:^NSString *{ return LTArchiveStop(); } done:^(NSString *error) { [weakSelf refresh]; }];
         }) animated:YES completion:nil];
     }];

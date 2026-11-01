@@ -12,7 +12,8 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
 // Stops the editors. Blocks until the current edit finishes. Returns "" or an error.
 NSString *LTToolsStop(void);
 // A full-screen browser for the editors. close runs when the player taps Close.
-UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void));
+// archive opens the Archive at a timeline link's page (Pod Programs › Schedule).
+UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void), void (^archive)(NSString *path));
 // The Archive: story, records, characters, pictures, movies and music read
 // from the game files. Read only, so Lunar Tear and the game keep running.
 // Blocks; call off the main thread. Returns "" and sets url and token, or an error.
@@ -24,4 +25,5 @@ NSString *LTArchiveStop(void);
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,
                         NSString *noticesZip, NSString *shaNotices, NSString *output, void (^progress)(NSString *text));
 // A full-screen browser for the Archive. close runs when the player taps Close.
-UIViewController *LTArchiveBrowser(NSString *url, NSString *token, void (^close)(void));
+// path: the page to open on (a timeline link's), or nil for the home page.
+UIViewController *LTArchiveBrowser(NSString *url, NSString *token, NSString *path, void (^close)(void));

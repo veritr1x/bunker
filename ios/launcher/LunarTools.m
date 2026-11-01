@@ -159,12 +159,28 @@ NSString *LTToolsStop(void) {
 
 #pragma mark - Editor browser
 
+// Pod Programs' timeline links a summon or an event to its Archive page with
+// "bunker-archive:/schedule/summon/46"; the link opens the Archive at that page.
+// Only those pages open. Android uses the same rule (ArchiveLinks.java,
+// android/tools/test_archive_links.py).
+static NSString *const kArchiveLink = @"^bunker-archive:(/schedule/(?:summon|event)/[0-9]+)$";
+
+static NSString *ArchivePath(NSString *link) {
+    if (!link) return nil;
+    NSRegularExpression *rule = [NSRegularExpression regularExpressionWithPattern:kArchiveLink options:0 error:nil];
+    NSTextCheckingResult *found = [rule firstMatchInString:link options:0 range:NSMakeRange(0, link.length)];
+    return found ? [link substringWithRange:[found rangeAtIndex:1]] : nil;
+}
+
 @interface LTToolsViewController : UIViewController <WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate, WKScriptMessageHandler>
 @property(nonatomic, copy) NSString *origin, *token;
 // Pod Programs by default; the Archive sets its own.
 @property(nonatomic, copy) NSString *caption, *heading, *cookie;
 @property(nonatomic) BOOL archive;
 @property(nonatomic, copy) void (^onClose)(void);
+// Pod Programs: opens the Archive at a timeline link's page. The Archive: the page it opens on.
+@property(nonatomic, copy) void (^openArchive)(NSString *path);
+@property(nonatomic, copy) NSString *startPath;
 @property(nonatomic, strong) WKWebView *web;
 @property(nonatomic, strong) UIButton *closeButton;
 @end
@@ -252,7 +268,7 @@ NSString *LTToolsStop(void) {
     WKHTTPCookieStore *cookies = configuration.websiteDataStore.httpCookieStore;
     [cookies setCookie:theme completionHandler:^{
         [cookies setCookie:cookie completionHandler:^{
-            [weakSelf.web loadRequest:[NSURLRequest requestWithURL:[origin URLByAppendingPathComponent:@"/"]]];
+            [weakSelf.web loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:weakSelf.startPath ?: @"/" relativeToURL:origin]]];
         }];
     }];
 }
@@ -315,6 +331,12 @@ NSString *LTToolsStop(void) {
     if (self.onClose) self.onClose();
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action decisionHandler:(void (^)(WKNavigationActionPolicy))handler {
+    NSString *archive = self.openArchive ? ArchivePath(action.request.URL.absoluteString) : nil;
+    if (archive) {
+        handler(WKNavigationActionPolicyCancel);
+        self.openArchive(archive);
+        return;
+    }
     // Only the local pages; nothing in Tools or the Archive links out.
     handler([self local:action.request.URL] || [action.request.URL.absoluteString isEqual:@"about:blank"] ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
 }
@@ -377,11 +399,12 @@ NSString *LTToolsStop(void) {
 }
 @end
 
-UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void)) {
+UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void), void (^archive)(NSString *path)) {
     LTToolsViewController *tools = [LTToolsViewController new];
     tools.origin = url;
     tools.token = token;
     tools.onClose = close;
+    tools.openArchive = archive;
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:tools];
     navigation.modalPresentationStyle = UIModalPresentationFullScreen;
     // Light or dark follows the launcher window: the system, or the player's Display choice.
@@ -389,8 +412,9 @@ UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(v
     return navigation;
 }
 
-UIViewController *LTArchiveBrowser(NSString *url, NSString *token, void (^close)(void)) {
+UIViewController *LTArchiveBrowser(NSString *url, NSString *token, NSString *path, void (^close)(void)) {
     LTToolsViewController *archive = [LTToolsViewController new];
+    archive.startPath = ArchivePath([@"bunker-archive:" stringByAppendingString:path ?: @""]);
     archive.origin = url;
     archive.token = token;
     archive.onClose = close;
