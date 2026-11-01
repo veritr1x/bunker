@@ -26,6 +26,9 @@ _thread = None
 _base_url = ""
 _token = ""
 _native = None
+# The game's texture decoder (bundle, target PNG, longest side) -> "" or an error,
+# set by each platform's start: banner art for the Schedule page's timeline.
+TEXTURE = None
 _data_root = None
 _asset_root = None
 _report = lambda message: None
@@ -284,11 +287,12 @@ def create_app(token, origin):
 
 
 def start(data_root, asset_root, tools_root, reporter):
-    global _server, _thread, _base_url, _token
+    global _server, _thread, _base_url, _token, TEXTURE
     if _thread and _thread.is_alive():
         return json.dumps({"url": _base_url, "token": _token})
     from java import jclass
     native = jclass("org.veritr1x.bunker.NativeBridge")
+    TEXTURE = lambda bundle, target, size: native.texture(bundle, target, size)
     configure(data_root, asset_root, tools_root, native.edit, reporter.report)
     prepare_data()
     import uvicorn

@@ -975,6 +975,38 @@ def calendar_speed(speed: str = Form(...)):
         return redirect(error=str(exc))
 
 
+# Banner art for the timeline, decoded from the game files with the same
+# decoder the Archive uses, into Pod Programs' own folder: the Archive runs in
+# another process and clears its older images.
+_art = {}
+
+
+def art_file(path):
+    """The banner art PNG for a bundle path; FileNotFoundError when there is none."""
+    from archive.media import Textures
+    from android_archive import revision_root
+    if not runtime.TEXTURE:
+        raise FileNotFoundError(path)
+    key = (str(config.ASSETS_DIR), str(config.DATA_DIR), runtime.TEXTURE)
+    if key not in _art:
+        _art.clear()
+        _art[key] = Textures(revision_root(config.ASSETS_DIR.parent) / "assetbundle", config.DATA_DIR / "art", runtime.TEXTURE)
+    try:
+        return _art[key].png(path, "thumb")
+    except ValueError as exc:
+        raise FileNotFoundError(path) from exc
+
+
+@router.get("/patcher/calendar/art")
+def calendar_art(path: str):
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+    try:
+        return FileResponse(art_file(path), media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+    except FileNotFoundError:
+        raise HTTPException(404)
+
+
 @router.post("/patcher/calendar/view")
 def calendar_view(on: str = Form("")):
     state = read_state()

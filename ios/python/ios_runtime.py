@@ -130,6 +130,7 @@ def start(data_root, asset_root, tools_root, original_master):
         os.replace(pending, origin)
     config = android_runtime.configure(data_root, asset_root, tools_root, _edit, _report)
     config.SHIM_LUNAR_TEAR_REF = "Bundled iOS server (63df7d7)"
+    android_runtime.TEXTURE = lambda bundle, target, size: _go(_process.LunarTexture, bundle, target, int(size))
     android_runtime.prepare_data()
     _adapt_patcher()
     import uvicorn
