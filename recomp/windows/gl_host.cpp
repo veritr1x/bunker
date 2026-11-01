@@ -3,6 +3,7 @@
 #define GL_GLES_PROTOTYPES 0
 #include <GLES3/gl32.h>
 #include "gl_host.h"
+#include "egl_host.h"
 #include "../whole/bridge.h"
 #include <algorithm>
 #include <atomic>
@@ -74,8 +75,6 @@ const char *const names[]={"glGetString","glGetStringi","glGetIntegerv","glGetFl
 #include "gl_scalar_commands.inc"
 #undef GL_SCALAR
 };
-std::atomic<uint64_t> next_owner{1};
-thread_local std::map<uint64_t,std::set<GLenum>> pending_errors;
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
   const auto native=GetProcAddress(module,name);if(!native)throw std::runtime_error(std::string("Missing ANGLE GL symbol: ")+name);
@@ -83,7 +82,9 @@ template<class T>T Symbol(HMODULE module,const char *name){
 }
 }
 struct GlHost::Impl {
-  const uint64_t owner=next_owner++;
+  EglHost &egl;
+  addr_t current_context=0;
+  std::map<addr_t,std::set<GLenum>> pending_errors;
   HMODULE module=nullptr;addr_t marker;bool installed=false;
   std::mutex mutex;
   PFNGLGETSTRINGPROC getString=nullptr;PFNGLGETSTRINGIPROC getStringi=nullptr;
@@ -91,23 +92,32 @@ struct GlHost::Impl {
   PFNGLGETBOOLEANVPROC getBoolean=nullptr;PFNGLGETERRORPROC getError=nullptr;
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
-  Impl(const std::wstring &directory,addr_t marker):marker(marker){
+  Impl(EglHost &egl,const std::wstring &directory,addr_t marker):egl(egl),marker(marker){
     static_assert(sizeof(GLboolean)==1&&sizeof(GLint)==4&&sizeof(GLfloat)==4);
     if((marker&7)||marker>UINT64_MAX-std::size(names)*8)throw std::invalid_argument("GL marker range/alignment");
     if(directory.size()<3||directory[1]!=L':'||!(directory[2]==L'\\'||directory[2]==L'/'))throw std::invalid_argument("ANGLE GL DLL directory must be absolute");
     module=LoadLibraryExW((directory+L"\\libGLESv2.dll").c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);
     if(!module)throw std::runtime_error("Cannot load pinned ANGLE GLES DLL");
     try{
+      if(!egl.UsesGlesModule(module))throw std::invalid_argument("GL and EGL must use the same native GLES module");
       getString=Symbol<PFNGLGETSTRINGPROC>(module,"glGetString");getStringi=Symbol<PFNGLGETSTRINGIPROC>(module,"glGetStringi");
       getInteger=Symbol<PFNGLGETINTEGERVPROC>(module,"glGetIntegerv");getFloat=Symbol<PFNGLGETFLOATVPROC>(module,"glGetFloatv");
       getBoolean=Symbol<PFNGLGETBOOLEANVPROC>(module,"glGetBooleanv");getError=Symbol<PFNGLGETERRORPROC>(module,"glGetError");
       Bindings();
     }catch(...){FreeLibrary(module);throw;}
   }
-  ~Impl(){for(const auto &[text,value]:strings)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(value.get()),text.size()+1);FreeLibrary(module);pending_errors.erase(owner);}
+  ~Impl(){for(const auto &[text,value]:strings)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(value.get()),text.size()+1);FreeLibrary(module);}
+  void SelectContext(){
+    // Provider tokens stay unique even if ANGLE recycles a native pointer.
+    // Stored flags follow a context when it migrates between native threads.
+    current_context=egl.CurrentContextToken();
+    if(!current_context)throw std::runtime_error("GL requires an owned current EGL context");
+    for(auto at=pending_errors.begin();at!=pending_errors.end();)
+      if(!egl.ContextAlive(at->first))at=pending_errors.erase(at);else ++at;
+  }
   bool CollectErrors(){
     bool any=false;for(unsigned n=0;n<32;++n){GLenum value=getError();if(value==GL_NO_ERROR)return any;
-      pending_errors[owner].insert(value);any=true;}
+      pending_errors[current_context].insert(value);any=true;}
     throw std::runtime_error("Native GL error flags did not drain within32 reads");
   }
   std::optional<size_t> Components(GLenum name){
@@ -143,15 +153,15 @@ struct GlHost::Impl {
     Bind<void(uint32_t,addr_t)>("glGetIntegerv",[this](GLenum name,addr_t out){QueryValues<GLint>(name,out,getInteger);});
     Bind<void(uint32_t,addr_t)>("glGetFloatv",[this](GLenum name,addr_t out){QueryValues<GLfloat>(name,out,getFloat);});
     Bind<void(uint32_t,addr_t)>("glGetBooleanv",[this](GLenum name,addr_t out){QueryValues<GLboolean>(name,out,getBoolean);});
-    Bind<uint32_t()>("glGetError",[this]{CollectErrors();auto &errors=pending_errors[owner];if(errors.empty())return GLenum(GL_NO_ERROR);
-      const GLenum value=*errors.begin();errors.erase(errors.begin());return value;});
+    Bind<uint32_t()>("glGetError",[this]{CollectErrors();auto at=pending_errors.find(current_context);if(at==pending_errors.end())return GLenum(GL_NO_ERROR);
+      const GLenum value=*at->second.begin();at->second.erase(at->second.begin());if(at->second.empty())pending_errors.erase(at);return value;});
   }
 };
-GlHost::GlHost(const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(directory,marker)){}
+GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
 GlHost::~GlHost()=default;
 const std::vector<GlHost::Query> &GlHost::Queries(){return queries;}
-size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
+size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);impl_->SelectContext();auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
 addr_t GlHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::runtime_error("Unsupported typed GL resolver signature: "+name);}
-void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);found->second(state);}
+void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();found->second(state);}
 void GlHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("GL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"GL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 }  // namespace bunker::windows

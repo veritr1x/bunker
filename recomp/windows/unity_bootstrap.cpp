@@ -162,13 +162,13 @@ int main(int argc,char **argv){
     recomp::Runtime egl_bridges,gl_bridges;
     std::mutex window_call_mutex;std::map<std::string,uint64_t> window_calls;
     std::unique_ptr<NativeWindows> native_windows;
-    std::unique_ptr<GlHost> graphics;
     std::unique_ptr<EglHost> egl;
+    std::unique_ptr<GlHost> graphics;
     // ModuleRegistry owns 0x7ff400000000; keep this combined provider disjoint.
     if(surface_gate)native_windows=std::make_unique<NativeWindows>(java,0x7ff440000000ULL);
     if(frame_gate){
       auto dlls=fs::canonical(fs::u8path(argv[7]));
-      graphics=std::make_unique<GlHost>(dlls.wstring());egl=std::make_unique<EglHost>(*native_windows,dlls.wstring());
+      egl=std::make_unique<EglHost>(*native_windows,dlls.wstring());graphics=std::make_unique<GlHost>(*egl,dlls.wstring());
       egl->SetProcedureResolver([&](const std::string &name){
         std::fprintf(stderr,"Unity bootstrap: requested typed GL procedure %s\n",name.c_str());return graphics->Marker(name);
       });

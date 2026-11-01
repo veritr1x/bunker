@@ -32,7 +32,7 @@ int main(){
   std::thread([]{std::this_thread::sleep_for(std::chrono::seconds(60));std::fputs("GL query watchdog\n",stderr);std::_Exit(95);}).detach();
   bunker::jni::Host java([](addr_t){return false;});NativeWindows windows(java);recomp::Runtime runtime;
   EglHost egl(windows,GL_HOST_DLL_DIRECTORY);egl_provider=&egl;egl.Install(runtime);
-  GlHost gl(GL_HOST_DLL_DIRECTORY);gl.Install(runtime);egl.SetProcedureResolver([&](const std::string &name){return gl.Marker(name);});
+  GlHost gl(egl,GL_HOST_DLL_DIRECTORY);gl.Install(runtime);egl.SetProcedureResolver([&](const std::string &name){return gl.Marker(name);});
   auto display=Invoke(egl,"eglGetDisplay",{0});Check(display&&Invoke(egl,"eglInitialize",{display,0,0}),"actual Vulkan display initialization");
   const int attrs[]={0x3024,8,0x3023,8,0x3022,8,0x3021,8,0x3033,1,0x3040,0x40,0x3038};addr_t config=0;int n=0;
   Check(Invoke(egl,"eglChooseConfig",{display,reinterpret_cast<addr_t>(attrs),reinterpret_cast<addr_t>(&config),1,reinterpret_cast<addr_t>(&n)})&&n==1,"real GLES3 pbuffer config");

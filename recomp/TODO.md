@@ -172,9 +172,10 @@ unsupported instructions.
 - Pinned Vulkan ANGLE now passes GLES3.2/AEP, shader, draw/compute and all 28
   ASTC formats (239 samples/61,184 bytes), including correct sRGB behavior.
   The typed query resolver passes 976 checks for six getter signatures and 133
-  enum widths. An additional 28 scalar state/clear signatures pass 320 checks
+  enum widths. An additional 28 scalar state/clear signatures pass 342 checks
   through actual NDK callers, native state/error comparison and 64 independently
-  checked RGBA pixels; all 976 query regressions still pass. See
+  checked RGBA pixels. Errors follow actual EGL contexts across switches and
+  native thread migration; all 976 query regressions still pass. See
   [the scalar command boundary](windows/gl_scalar.md).
   A separate native Vulkan scaling variant now passes fixed-size
   buffer negotiation, physical/logical resize and present-mode checks; the
