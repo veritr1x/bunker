@@ -363,8 +363,8 @@ bindings, JNI_OnUnload and both finalizers also complete. Evidence is
 `unity-bootstrap-init-jni-assets-success.log` and its translation manifest;
 the separate default run is `unity-bootstrap-assets-default.log`. This remains
 an exploratory native-entry gate with1,774 unsupported traces. The Java
-Activity/UnityPlayer lifecycle, surface creation, rendering and resume have
-not been executed, and the game is not running.
+Activity/UnityPlayer Java lifecycle has not been executed. Surface/frame host
+ports are separate diagnostics below, and the game is not running.
 
 `unity_lifecycle.h/.cpp` ports the evidenced surface subset of UnityMain's FIFO
 to a dedicated JNI-attached host worker. After real initJni succeeds, the
@@ -373,7 +373,8 @@ queues recreate then SURFACE_ACQUIRED; a change queues the changed notification
 after those operations. Destruction queues SURFACE_LOST before recreate(null)
 and waits for acknowledgment before HWND closure. Queued Java graph references
 become fresh worker-local JNI references. Runner TLS cleanup happens before JNI
-detach. The worker remains paused and never schedules render/resume.
+detach. The default surface-only profile remains paused and never schedules
+render/resume; a separate explicitly configured one-frame profile is below.
 `test_unity_lifecycle.ps1` passes 53 native Windows checks; the same test passes 53
 on Linux. These use explicitly synthetic Runtime callbacks to test ordering,
 thread/ref lifetimes and failures; they do not prove the real surface entries.
@@ -414,6 +415,43 @@ for one actual 960×540 HWND, with native detach acknowledgment before closure.
 See `unity-bootstrap-surface-success.log` and its translation manifest. No EGL,
 nativeRender or nativeResume was executed; 1,774 unsupported traces remain and
 this is not a game-startup or Java-constructor-completion claim.
+
+The optional `--frame-gate <width> <height> <ANGLE-directory>` / `-FrameGate`
+ports the evidenced resume/focus/NEXT_FRAME FIFO with a budget of one render
+call. The HWND is visible, actual focus events drive native focus, and the real
+read-only Core Audio observer supplies the AudioVolumeHandler construction
+effect before rendering. Its explicit music-index profile is0 for muted/zero
+endpoint volume and1 otherwise: the actual native callback only observes
+zero/nonzero. Initial state is cached without a fabricated notification. COM
+threads never run guest callbacks. Finishing pause queues PAUSE then nativeDone;
+worker TLS/EGL release precedes surface/window and provider retirement. These
+are bounded native lifecycle ports, not Java constructor or `<clinit>` execution.
+`test_unity_frame.ps1` passes97 synthetic native-callback FIFO checks on each
+host; `test_audio_volume_session.ps1` passes24 Windows checks with a real
+observer and explicitly synthetic guest callback.
+
+The actual first frame diagnostic has returned from nativeResume and entered
+nativeRender, then stopped at the original missing
+`Context.getPackageManager()PackageManager`, LR `0x70ab5d38`. No render result or
+image has been produced. The original exception history is preserved in
+`unity-bootstrap-one-frame-package-manager.log` with its translation metadata.
+The secondary `newlocale(0x1fbf,"C",null)` failure now has a checked LibC adapter;
+it did not explain or erase the original Java exception.
+
+The checked PackageManager host now supplies current-package version snapshots,
+ApplicationInfo paths, optional typed application metadata, null split paths
+for the explicit single-base-APK profile, and a closed Android capability set.
+Unknown packages throw NameNotFoundException; unsupported flags and unconfigured
+version data fail explicitly. Full ApplicationInfo.flags remains a configured
+installed-profile boundary, not a bitmask inferred from manifest attributes.
+`application_metadata.py` resolves direct application metadata from real AAPT
+output in the reproducible preparation pipeline: android:value references
+resolve to typed values, while android:resource stays an integer resource ID.
+All16 actual APK entries match the independent audit. `test_package_manager.ps1`
+passes104 native Windows checks; the same actual NDK fixture passes104 on Linux
+(9 traces, zero unsupported). It covers direct/V/A calls, signed jint arguments,
+nonzero jvalue padding, GP-save/stack spill boundaries, ref/type/lifetime rules,
+SDK constants and honest absence of the Oculus package/low-latency feature.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact

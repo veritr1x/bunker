@@ -113,7 +113,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineClass("java/lang/StringBuilder", {{"<init>","()V"},{"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"},{"toString","()Ljava/lang/String;"}}, "java/lang/AbstractStringBuilder", true);
   classes_.at("java/lang/StringBuilder")->methods.at({"<init>","()V"})->builtin=Method::kBuilderConstructor;
   classes_.at("java/lang/StringBuilder")->methods.at({"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"})->builtin=Method::kBuilderAppend;
-  classes_.at("java/lang/StringBuilder")->methods.at({"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"})->argument_types={"java/lang/String"};
+  classes_.at("java/lang/StringBuilder")->methods.at({"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"})->argument_types={"Ljava/lang/String;"};
   classes_.at("java/lang/StringBuilder")->methods.at({"toString","()Ljava/lang/String;"})->builtin=Method::kBuilderString;
   empty_string_=std::make_shared<Object>();empty_string_->kind=Object::kString;empty_string_->class_name="java/lang/String";
   DefineClass("java/lang/Throwable", {{"toString", "()Ljava/lang/String;"}, {"getMessage", "()Ljava/lang/String;"}, {"getLocalizedMessage", "()Ljava/lang/String;"}}, "java/lang/Object", true);
@@ -201,9 +201,11 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
   std::vector<std::string> arguments;size_t at=1;
   while(at<signature.size()&&signature[at]!=')'){
-    if(signature[at]!='L'||arguments.size()==3)throw std::invalid_argument("host handlers support at most three object-reference arguments");
+    if(arguments.size()==3)throw std::invalid_argument("host handlers support at most three fixed arguments");
+    if(signature[at]=='I'){arguments.push_back("I");++at;continue;}
+    if(signature[at]!='L')throw std::invalid_argument("host handlers support only object-reference and jint arguments");
     auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host argument descriptor");
-    auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(type);at=end+1;
+    auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(signature.substr(at,end-at+1));at=end+1;
   }
   auto returns=at<signature.size()?signature.substr(at+1):"";
   if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='L'&&(returns.size()<3||returns.front()!='L'||returns.back()!=';'||!classes_.count(returns.substr(1,returns.size()-2)))))throw std::invalid_argument("invalid host result descriptor");
@@ -218,8 +220,8 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
 void Host::DefineField(const std::string &class_name, const std::string &name, const std::string &signature, bool is_static) {
   std::lock_guard lock(mutex_);
   auto clazz = classes_.find(class_name);
-  if (clazz == classes_.end() || name.empty() || (signature != "I" && !(signature.size() > 2 && signature.front() == 'L' && signature.back() == ';')))
-    throw std::invalid_argument("initial JNI fields support only int and object signatures on known classes");
+  if (clazz == classes_.end() || name.empty() || (signature != "I" && signature!="[Ljava/lang/String;" && !(signature.size() > 2 && signature.front() == 'L' && signature.back() == ';')))
+    throw std::invalid_argument("JNI fields support int, object and nullable String-array signatures on known classes");
   auto key = std::make_pair(name, signature);
   if (clazz->second->fields.count(key)) throw std::invalid_argument("duplicate JNI field");
   auto field = std::make_unique<Field>(Field{class_name, name, signature, is_static, next_method_++});
@@ -321,7 +323,7 @@ std::shared_ptr<Host::Object> Host::FieldTarget(addr_t reference, addr_t id, boo
   auto field = field_ids_.find(id);
   if (field == field_ids_.end()) { Raise("java/lang/NoSuchFieldError", "invalid JNI field ID"); return {}; }
   auto &metadata = *field->second;
-  if (metadata.is_static != is_static || (kind == "I" ? metadata.signature != "I" : metadata.signature.front() != 'L')) {
+  if (metadata.is_static != is_static || (kind == "I" ? metadata.signature != "I" : (metadata.signature.front() != 'L'&&metadata.signature.front()!='['))) {
     Raise("java/lang/IllegalArgumentException", "JNI field type/static mismatch"); return {};
   }
   auto object = Get(reference); if (!object) return {};
@@ -337,7 +339,7 @@ void Host::SetObjectFieldValue(addr_t reference, const std::string &name, const 
   auto target = FieldTarget(reference, field->id, false, "object"); if (!target) return;
   auto source = Get(value, true); if (value && !source) return;
   auto actual = source && source->kind == Object::kClass ? "java/lang/Class" : source ? source->class_name : "";
-  if (source && !Assignable(actual, signature.substr(1, signature.size() - 2))) { Raise("java/lang/IllegalArgumentException", "JNI object field value type mismatch"); return; }
+  if (source && !Assignable(actual, signature.front()=='['?signature:signature.substr(1, signature.size() - 2))) { Raise("java/lang/IllegalArgumentException", "JNI object field value type mismatch"); return; }
   target->object_fields[field->id] = source;
 }
 addr_t Host::GetObjectFieldValue(addr_t reference, const std::string &name, const std::string &signature) {
@@ -379,7 +381,7 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){auto argument=Get(arguments[i],true);if(Current().exception)return false;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,method.argument_types[i])){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
+bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,type.substr(1,type.size()-2))){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
 addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,char expected_result) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
@@ -609,7 +611,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
       auto target = FieldTarget(a, b, slot == 154, "object"); if (!target) return;
       auto source = Get(c, true); if (c && !source) return;
       auto &signature = field_ids_.at(b)->signature;
-      if (source && !Assignable(source->kind == Object::kClass ? "java/lang/Class" : source->class_name, signature.substr(1, signature.size() - 2))) { Raise("java/lang/IllegalArgumentException", "JNI object field value type mismatch"); return; }
+      if (source && !Assignable(source->kind == Object::kClass ? "java/lang/Class" : source->class_name, signature.front()=='['?signature:signature.substr(1, signature.size() - 2))) { Raise("java/lang/IllegalArgumentException", "JNI object field value type mismatch"); return; }
       target->object_fields[b] = source; return;
     }
     case 109: case 159: { auto target = FieldTarget(a, b, slot == 159, "I"); if (target) target->primitive_fields[b] = static_cast<uint32_t>(c); return; }

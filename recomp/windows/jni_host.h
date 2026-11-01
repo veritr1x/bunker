@@ -29,6 +29,8 @@ struct MethodDeclaration {
 class Host {
   struct Object;
  public:
+  // Descriptor-checked reference/jint arguments. jint uses the low32 bits of
+  // its AAPCS64/jvalue slot; no FP/long/array method arguments are implied.
   using MethodArguments=std::array<addr_t,3>;
   // Strong references used inside host-supplied Java object state. They are
   // opaque C++ graph edges, not guest JNI handles or global-reference slots.

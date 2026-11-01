@@ -6,18 +6,22 @@ param(
     [string]$Cxx = 'g++.exe',
     [string]$Cc = 'gcc.exe',
     [string]$ZlibDirectory = (Join-Path $PSScriptRoot '..\work\zlib-native'),
+    [string]$AngleDirectory = (Join-Path $PSScriptRoot '..\work\angle-native'),
     [switch]$CompileOnly,
     [switch]$InitJni,
     [switch]$SurfaceGate,
+    [switch]$FrameGate,
+    [string]$AngleDllDirectory,
     [int]$ClientWidth,
     [int]$ClientHeight,
     [switch]$Run
 )
 $ErrorActionPreference = 'Stop'
-if($SurfaceGate -and ($ClientWidth -le $ClientHeight -or $ClientHeight -le 0 -or $ClientWidth -gt 32767)){throw '-SurfaceGate requires explicit landscape ClientWidth/ClientHeight in1..32767 pixels.'}
+if(($SurfaceGate -or $FrameGate) -and ($ClientWidth -le $ClientHeight -or $ClientHeight -le 0 -or $ClientWidth -gt 32767)){throw 'Surface/frame gates require explicit landscape ClientWidth/ClientHeight in1..32767 pixels.'}
 $taskBuild = (Resolve-Path -LiteralPath $BuildDirectory).ProviderPath
 $taskRemill = (Resolve-Path -LiteralPath $Remill).ProviderPath
 $taskZlib = (Resolve-Path -LiteralPath $ZlibDirectory).ProviderPath
+$taskAngle = (Resolve-Path -LiteralPath $AngleDirectory).ProviderPath
 if (-not (Test-Path -LiteralPath (Join-Path $taskZlib 'libz-inflate.a'))) { throw 'Prepare the verified static zlib backend with windows/prepare_zlib.py first.' }
 $taskManifest = $null
 if (-not $CompileOnly) {
@@ -35,10 +39,10 @@ $taskLoader = Join-Path $taskBuild 'elfload.o'
 & $Cc '-O2' '-c' (Join-Path $PSScriptRoot '..\fastaes\elfload.c') '-o' $taskLoader
 if ($LASTEXITCODE -ne 0) { throw 'Unity bootstrap data-loader build failed.' }
 $taskExecutable = Join-Path $taskBuild 'bunker-unity-bootstrap.exe'
-$taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$taskZlib\zlib-1.3.2", '-static', $taskObject, $taskLoader)
-foreach ($taskSource in @('jni_host.cpp','android_context.cpp','android_assets.cpp','apk_assets.cpp','native_window.cpp','unity_lifecycle.cpp','signal_host.cpp','nonlocal_jmp.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
+$taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$taskZlib\zlib-1.3.2", "-I$taskAngle\src\include", '-static', $taskObject, $taskLoader)
+foreach ($taskSource in @('jni_host.cpp','android_context.cpp','android_assets.cpp','apk_assets.cpp','native_window.cpp','unity_lifecycle.cpp','signal_host.cpp','nonlocal_jmp.cpp','audio_volume.cpp','audio_volume_session.cpp','egl_host.cpp','gl_host.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
 foreach ($taskInput in $taskManifest.objects) { $taskArguments += Join-Path $taskBuild $taskInput }
-$taskArguments += @((Join-Path $taskZlib 'libz-inflate.a'), '-latomic', '-lbcrypt', '-luser32', '-lgdi32', '-o', $taskExecutable)
+$taskArguments += @((Join-Path $taskZlib 'libz-inflate.a'), '-latomic', '-lbcrypt', '-luser32', '-lgdi32', '-lole32', '-luuid', '-o', $taskExecutable)
 # Response files avoid Windows command-line limits for the full Unity shards.
 $taskResponse = Join-Path $taskBuild 'unity-bootstrap-link.rsp'
 $taskEscaped = foreach ($taskArgument in $taskArguments) { '"' + $taskArgument.Replace('\','/').Replace('"','\"') + '"' }
@@ -54,7 +58,8 @@ if ($Run) {
     [System.IO.Directory]::CreateDirectory($StorageDirectory) | Out-Null
     $taskStorage = (Resolve-Path -LiteralPath $StorageDirectory).ProviderPath
     $taskRunArguments=@($taskLibrary,$taskApk,$taskStorage)
-    if($SurfaceGate){$taskRunArguments+=@('--surface-gate',"$ClientWidth","$ClientHeight")}
+    if($FrameGate){if(-not $AngleDllDirectory){$AngleDllDirectory=Join-Path $taskAngle 'bundle\bin'};$taskRunArguments+=@('--frame-gate',"$ClientWidth","$ClientHeight",(Resolve-Path -LiteralPath $AngleDllDirectory).ProviderPath)}
+    elseif($SurfaceGate){$taskRunArguments+=@('--surface-gate',"$ClientWidth","$ClientHeight")}
     elseif($InitJni){$taskRunArguments+='--init-jni'}
     & $taskExecutable @taskRunArguments 2>&1 | Tee-Object -FilePath (Join-Path $taskBuild 'unity-bootstrap-last-run.log')
     $taskExitCode = $LASTEXITCODE

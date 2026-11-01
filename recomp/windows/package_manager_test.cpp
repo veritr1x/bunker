@@ -1,0 +1,52 @@
+#include "android_context.h"
+#include "../fastaes/elfload.h"
+#include "traces.h"
+#include "sample.h"
+#include <array>
+#include <cstdio>
+#include <climits>
+#include <stdexcept>
+#include <thread>
+struct Session {
+  recomp::Runtime runtime;bunker::jni::Host host{[](addr_t){return false;}};elf_image &image;alignas(16)std::array<uint8_t,65536> stack{};
+  explicit Session(elf_image &i):image(i){host.Install(runtime);runtime.AddTraces(kTraces,std::size(kTraces));}
+  addr_t call(size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;host.InvokeEnv(slot,s);return s.gpr.x0.qword;}
+  addr_t find(const char *name){return call(6,reinterpret_cast<addr_t>(name));}
+  addr_t method(const char *owner,const char *name,const char *sig){return call(33,find(owner),reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>(sig));}
+  addr_t field(const char *owner,const char *name,const char *sig,bool stat=false){return call(stat?144:94,find(owner),reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>(sig));}
+  addr_t run(const char *name,std::initializer_list<addr_t> args){State s{};Reg GPR::*regs[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3,&GPR::x4,&GPR::x5,&GPR::x6};size_t i=0;for(auto a:args)(s.gpr.*regs[i++]).qword=a;s.gpr.sp.qword=reinterpret_cast<addr_t>(stack.data()+stack.size());s.gpr.x30.qword=0xfeedffff;runtime.Run(s,reinterpret_cast<addr_t>(elf_symbol(&image,name)));if(s.gpr.sp.qword!=reinterpret_cast<addr_t>(stack.data()+stack.size())||s.gpr.pc.qword!=0xfeedffff)throw std::runtime_error("NDK package caller PC/SP changed");return s.gpr.x0.qword;}
+  addr_t zero(addr_t o,addr_t m,addr_t mode){return run("package_zero",{host.EnvAddress(),o,m,mode});}
+  addr_t two(addr_t o,addr_t m,addr_t n,int32_t flags,addr_t mode){return run("package_two",{host.EnvAddress(),o,m,n,static_cast<uint32_t>(flags),mode});}
+  addr_t get(addr_t o,addr_t f){return run("package_field",{host.EnvAddress(),o,f});}
+  std::u16string text(addr_t ref){auto value=host.StringValue(ref);if(!value)throw std::runtime_error("expected String");return *value;}
+};
+int main(){
+  using namespace bunker::windows;unsigned checks=0;auto check=[&](bool b,const char *why){if(!b)throw std::runtime_error(why);++checks;};elf_image image{};check(!elf_load(PACKAGE_IMAGE,0x74000000,nullptr,&image),"actual NDK package image");Session h(image);
+  AndroidContextConfig config;config.package_name=kPackageName;config.target_sdk=kTargetSdk;config.activity_class=kLaunchActivity;config.version=AndroidContextConfig::PackageVersion{u"3.7.1",152};config.application_metadata={{u"unity.splash-enable",LaunchExtra::Boolean(true)},{u"unity.build-id",LaunchExtra::String(u"453c06d8-54c4-4943-9c0c-7d1675d84689")},{u"resource",LaunchExtra::Integer(0x7f0800c3)}};
+  addr_t retained=0;{
+    AndroidContext context(h.host,config);h.call(19,512);auto activity=context.Activity(),get_manager=h.method("android/content/Context","getPackageManager","()Landroid/content/pm/PackageManager;"),manager=h.zero(activity,get_manager,0);retained=h.host.NewGlobalReference(manager);auto name=h.host.NewString(kPackageName);
+    auto package=h.method("android/content/pm/PackageManager","getPackageInfo","(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"),application=h.method("android/content/pm/PackageManager","getApplicationInfo","(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;"),feature=h.method("android/content/pm/PackageManager","hasSystemFeature","(Ljava/lang/String;)Z");
+    auto version_name=h.field("android/content/pm/PackageInfo","versionName","Ljava/lang/String;"),version_code=h.field("android/content/pm/PackageInfo","versionCode","I"),package_name=h.field("android/content/pm/PackageInfo","packageName","Ljava/lang/String;"),metadata=h.field("android/content/pm/ApplicationInfo","metaData","Landroid/os/Bundle;"),splits=h.field("android/content/pm/ApplicationInfo","splitPublicSourceDirs","[Ljava/lang/String;");
+    for(addr_t mode=0;mode<4;++mode){
+      auto again=h.zero(activity,get_manager,mode);check(again!=manager&&h.call(24,again,manager)&&h.call(232,again)==1,"stable manager object with fresh caller local result");h.host.DeleteLocalReference(again);
+      auto info=h.two(manager,package,name,0,mode);check(info&&h.text(h.get(info,version_name))==u"3.7.1"&&static_cast<int32_t>(h.call(100,info,version_code))==152&&h.text(h.get(info,package_name))==kPackageName,"configured real APK package/version fields");h.host.SetIntFieldValue(info,"versionCode",-1);auto fresh=h.two(manager,package,name,0,mode);check(h.call(100,fresh,version_code)==152&&!h.call(24,info,fresh),"package queries return independent snapshots");
+      auto plain=h.two(manager,application,name,0,mode),full=h.two(manager,application,name,128,mode);check(plain&&full&&!h.get(plain,metadata)&&h.get(full,metadata)&&!h.get(full,splits),"metadata flag respected; single base APK has absent splits");
+      auto bundle=h.get(full,metadata),get_string=h.method("android/os/Bundle","getString","(Ljava/lang/String;)Ljava/lang/String;"),get_bool=h.method("android/os/Bundle","getBoolean","(Ljava/lang/String;)Z");
+      check(h.text(h.call(34,bundle,get_string,h.host.NewString(u"unity.build-id")))==u"453c06d8-54c4-4943-9c0c-7d1675d84689"&&h.run("package_feature",{h.host.EnvAddress(),bundle,get_bool,h.host.NewString(u"unity.splash-enable"),mode%3}),"actual configured typed metadata values");
+      check(!h.run("package_feature",{h.host.EnvAddress(),manager,feature,h.host.NewString(u"android.hardware.audio.low_latency"),mode%3})&&!h.run("package_feature",{h.host.EnvAddress(),manager,feature,0,mode%3})&&h.host.PendingException().empty(),"closed feature profile does not fabricate playback capability");
+      for(auto query:{h.host.NewString(u"com.oculus.systemactivities"),addr_t(0)}){check(!h.two(manager,application,query,1,mode)&&h.host.PendingException().find("NameNotFoundException")!=std::string::npos,"uninstalled/null package returns checked NameNotFoundException");h.host.ClearException();}
+      for(int32_t flags:{int32_t(-1),INT_MIN,INT_MAX,128,1}){check(!h.two(manager,package,name,flags,mode)&&h.host.PendingException().find("UnsupportedOperationException")!=std::string::npos,"unsupported package flags fail explicitly");h.host.ClearException();}
+      h.two(manager,package,activity,0,mode);check(h.host.PendingException().find("IllegalArgumentException")!=std::string::npos,"package name reference type checked");h.host.ClearException();
+    }
+    auto clazz=h.find("android/content/pm/PackageManager");for(auto [key,value]:{std::pair<const char*,int32_t>{"GET_META_DATA",128},{"GET_ACTIVITIES",1}})check(h.run("package_static_int",{h.host.EnvAddress(),clazz,h.field("android/content/pm/PackageManager",key,"I",true)})==static_cast<uint32_t>(value),"actual NDK static flag read");
+    auto array_info=h.two(manager,application,name,0,0);h.call(104,array_info,splits,activity);check(h.host.PendingException().find("IllegalArgumentException")!=std::string::npos,"nullable String-array field rejects non-array assignment");h.host.ClearException();
+    h.host.DefineClass("Mixed");int32_t expected=0;auto left=h.host.NewString(u"left"),right=h.host.NewString(u"right");h.host.DefineObjectMethod("Mixed","combine","(Ljava/lang/String;ILjava/lang/String;)Ljava/lang/String;",[&](addr_t,const bunker::jni::Host::MethodArguments &a){if(h.text(a[0])!=u"left"||static_cast<int32_t>(a[1])!=expected||h.text(a[2])!=u"right")throw std::runtime_error("mixed GP/stack/jvalue decoder mismatch");return a[2];});auto mixed=h.host.NewInstance("Mixed"),combine=h.method("Mixed","combine","(Ljava/lang/String;ILjava/lang/String;)Ljava/lang/String;");
+    for(addr_t mode=0;mode<4;++mode)for(auto value:{0,-1,INT_MIN,INT_MAX,128}){expected=value;auto result=h.run("package_three",{h.host.EnvAddress(),mixed,combine,left,static_cast<uint32_t>(value),right,mode});check(result!=right&&h.call(24,result,right)&&h.call(232,result)==1,"mixed jint/reference arguments direct,V,A plus GP-stack split");h.host.DeleteLocalReference(result);check(h.text(right)==u"right","method result deletion preserves input local");}
+    h.host.DefineClass("I");h.host.DefineObjectMethod("Mixed","typed","(LI;)Ljava/lang/Object;",[&](addr_t,const bunker::jni::Host::MethodArguments &a){return a[0];});auto typed=h.method("Mixed","typed","(LI;)Ljava/lang/Object;");h.call(34,mixed,typed,left);check(h.host.PendingException().find("IllegalArgumentException")!=std::string::npos,"class I descriptor remains distinct from primitive jint");h.host.ClearException();
+    auto foreign=name;std::exception_ptr failure;std::thread worker([&]{try{addr_t env=0;State s{};s.gpr.x0.qword=h.host.VmAddress();s.gpr.x1.qword=reinterpret_cast<addr_t>(&env);h.host.InvokeVm(4,s);h.two(retained,package,foreign,0,1);if(h.host.PendingException().find("IllegalArgumentException")==std::string::npos)throw std::runtime_error("foreign local package name accepted");h.host.ClearException();s={};s.gpr.x0.qword=h.host.VmAddress();h.host.InvokeVm(5,s);}catch(...){failure=std::current_exception();}});worker.join();if(failure)std::rethrow_exception(failure);++checks;
+    h.call(20);
+  }
+  auto method=h.method("android/content/pm/PackageManager","getPackageInfo","(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");check(h.two(retained,method,h.host.NewString(kPackageName),0,2)!=0&&h.host.PendingException().empty(),"manager graph survives Context wrapper/caller local frame");
+  Session empty(image);config.version.reset();AndroidContext context(empty.host,config);auto manager=empty.zero(context.Activity(),empty.method("android/content/Context","getPackageManager","()Landroid/content/pm/PackageManager;"),0);empty.two(manager,empty.method("android/content/pm/PackageManager","getPackageInfo","(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;"),empty.host.NewString(kPackageName),0,0);check(empty.host.PendingException().find("UnsupportedOperationException")!=std::string::npos,"unconfigured version never fabricates metadata");
+  std::printf("PackageManager + mixed JNI arguments: %u native checks passed using actual NDK direct,V,A and stack-spill callers\n",checks);
+}

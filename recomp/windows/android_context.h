@@ -1,5 +1,6 @@
 #pragma once
 #include "jni_host.h"
+#include <set>
 
 namespace bunker::windows {
 class ApkAssets;
@@ -11,21 +12,30 @@ struct LaunchExtra {
   static LaunchExtra Boolean(bool value){LaunchExtra e;e.kind=kBoolean;e.boolean=value;return e;}
 };
 struct AndroidContextConfig {
+  struct PackageVersion {std::u16string name;int32_t code=0;};
   std::u16string package_name;
   std::u16string source_dir = u"/data/app/bunker/base.apk";
   std::u16string native_library_dir = u"/data/app/bunker/lib/arm64";
   std::u16string data_dir = u"/data/user/0/bunker";
   int32_t target_sdk = 0;
+  // Explicit installed-profile value. Manifest attributes alone do not establish
+  // the complete PackageParser/default/user-state bitmask; no such claim is made.
   int32_t flags = 0;
   std::string activity_class = "android/app/Activity";
   std::map<std::u16string,LaunchExtra> launch_extras;
   std::optional<std::u16string> launch_data;
   std::shared_ptr<ApkAssets> apk_assets;
+  std::optional<PackageVersion> version;
+  std::map<std::u16string,LaunchExtra> application_metadata;
+  // Closed host capability catalog; playback low latency is not advertised
+  // merely because a Windows audio endpoint can be observed.
+  std::set<std::u16string> supported_android_features;
 };
 
 // Explicit host implementations of the Java context metadata Unity requests.
-// AssetManager is a typed Java object here; Java stream/AssetManager.open and
-// other Android services are not implemented or reported as successful.
+// The configured APK reader supplies real asset streams; launch/package metadata
+// and the closed capability catalog are host implementations. Other Android
+// services and Java bytecode/class initialization remain explicit requirements.
 class AndroidContext {
  public:
   AndroidContext(jni::Host &host, const AndroidContextConfig &config);
