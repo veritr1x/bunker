@@ -61,6 +61,13 @@ class FileSystem {
   int Stat(const char *path, AndroidStat *result, bool no_follow = false);
   int FStat(int descriptor, AndroidStat *result);
   int Access(const char *path, int mode);
+  // Creates one directory inside an explicit writable mount; never parents.
+  // 0700/0755/0777 are maximum-access requests narrowed to an inheritable,
+  // protected Windows DACL for the current process user. Other modes fail95.
+  // No Android UID/group/umask/chmod equivalence is implied. Stat's existing
+  // virtual0755 directory mode is compatibility metadata, not ACL certification.
+  // Parent traversal components are rejected with EACCES for this operation.
+  int Mkdir(const char *path, uint32_t mode);
   addr_t FOpen(const char *path, const char *mode);
   int FClose(addr_t stream);
   uint64_t FRead(void *buffer, uint64_t size, uint64_t count, addr_t stream);
