@@ -27,6 +27,12 @@
     {% endfor %}
     <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Save speed</button></div>
   </form>
+  <form action="/patcher/calendar/view" method="post">
+    <div class="label">Dates</div>
+    <label class="choice"><input type="radio" name="on" value="" {% if not calendar.originalDates %}checked{% endif %}><span><strong>Today's dates</strong><span class="note">The game shows this loop's dates</span></span></label>
+    <label class="choice"><input type="radio" name="on" value="1" {% if calendar.originalDates %}checked{% endif %}><span><strong>Show original dates (2021–2024)</strong><span class="note">The game shows the dates the live service had</span></span></label>
+    <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Save dates</button></div>
+  </form>
   <p class="credit" style="margin: 12px 0 0">The calendar moves at the daily reset. Stamina and daily missions use normal time.</p>
 </div>
 

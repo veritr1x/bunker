@@ -609,6 +609,26 @@ def next_file():
     return config.RELEASE_DIR / NEXT_NAME
 
 
+# "Show original dates": the game is sent its data with no date shift and its
+# clock and times moved back by the loop's offset, so it shows 2021-2024
+# (server: gametime.ViewOffset, service.ViewMasterName). The copy does not
+# depend on the loop, so one serves every loop.
+VIEW_NAME = "calendar-view.bin.e"
+
+
+def view_file():
+    return config.RELEASE_DIR / VIEW_NAME
+
+
+def set_original_dates(state, on):
+    """Turns "Show original dates" on or off, building the game's copy once."""
+    if on and not view_file().exists():
+        pending = view_file().with_suffix(".tmp")
+        build_master(origin_file(), pending, 0)
+        os.replace(pending, view_file())
+    state["originalDates"] = bool(on)
+
+
 def old_next_file():
     return patcher.folder() / "calendar-next.bin.e"
 
@@ -698,6 +718,7 @@ def turn_on(real=None):
 def turn_off():
     state_path().unlink(missing_ok=True)
     next_file().unlink(missing_ok=True)
+    view_file().unlink(missing_ok=True)
     old_next_file().unlink(missing_ok=True)
 
 
@@ -873,9 +894,10 @@ def redirect(path="/patcher", **kwargs):
 def context(state):
     now = game_now(state)
     items = entries()
+    shown = original(state, now) if state.get("originalDates") else now
     return {"state": state, "loop": state["loop"], "week": week_of(state, now), "weeks": LOOP_WEEKS,
             "progress": round(100 * (now - state["loopStart"]) / (LOOP_WEEKS * WEEK), 1),
-            "today": day_label(now), "original": day_label(original(state, now)), "ends": day_label(loop_end(state)),
+            "today": day_label(shown), "originalDates": bool(state.get("originalDates")), "original": day_label(original(state, now)), "ends": day_label(loop_end(state)),
             "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "open": summary(items, now), "now": now}
 
 
@@ -903,6 +925,19 @@ def calendar_speed(speed: str = Form(...)):
         set_speed(state, speed)
         write_state(state)
         return redirect(message="Speed saved. Close Pod Programs and tap Deploy.")
+    except Exception as exc:
+        return redirect(error=str(exc))
+
+
+@router.post("/patcher/calendar/view")
+def calendar_view(on: str = Form("")):
+    state = read_state()
+    if not state:
+        return redirect(error="The calendar is off")
+    try:
+        set_original_dates(state, on == "1")
+        write_state(state)
+        return redirect(message="Saved. Close Pod Programs and tap Deploy.")
     except Exception as exc:
         return redirect(error=str(exc))
 
