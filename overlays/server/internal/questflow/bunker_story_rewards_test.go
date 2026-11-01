@@ -8,7 +8,10 @@ import (
 	"lunar-tear/server/internal/store"
 )
 
-const rionWeapon = 101001
+const (
+	rionWeapon  = 101001
+	rionCostume = 10100
+)
 
 // A handler whose testQuest gives Rion's weapon on its first clear, with room for one weapon.
 func storyRewardHandler() *QuestHandler {
@@ -70,6 +73,40 @@ func TestOverflowedFirstClearWeaponComesBackFromTheGiftBox(t *testing.T) {
 	// Run again (next game start): nothing more moves.
 	if moved := h.ReturnFirstClearRewardsFromGiftBox(u, 2); moved != 0 {
 		t.Fatalf("moved %d on the second start", moved)
+	}
+}
+
+// The loadout tutorial's first step built deck 1 while Rion's weapon was in the
+// gift box, so Rion has no main weapon there and the tutorial's Select did
+// nothing even once the weapon was back.
+func TestReturnedRionWeaponGoesToRionInTheDeck(t *testing.T) {
+	h := storyRewardHandler()
+	u := testUser()
+	u.Quests[testQuest] = store.UserQuestState{QuestId: testQuest, QuestStateType: model.UserQuestStateTypeCleared, IsRewardGranted: true}
+	u.Costumes["rion"] = store.CostumeState{UserCostumeUuid: "rion", CostumeId: rionCostume}
+	u.DeckCharacters["rd"] = store.DeckCharacterState{UserDeckCharacterUuid: "rd", UserCostumeUuid: "rion"}
+	u.Gifts.NotReceived = []store.NotReceivedGiftState{giftOf(store.GiftTextOverflow, rionWeapon)}
+	h.ReturnFirstClearRewardsFromGiftBox(u, 1)
+	w, ok := u.Weapons[u.DeckCharacters["rd"].MainUserWeaponUuid]
+	if !ok || w.WeaponId != rionWeapon {
+		t.Fatalf("Rion's main weapon is %q, want Rion's weapon", u.DeckCharacters["rd"].MainUserWeaponUuid)
+	}
+	if u.DeckCharacters["d1"].MainUserWeaponUuid != "w1" {
+		t.Fatal("a deck character that had a weapon was changed")
+	}
+}
+
+// The weapon is back (its gift claimed, or moved by an earlier start) but Rion
+// still has no main weapon.
+func TestOwnedRionWeaponGoesToRionInTheDeck(t *testing.T) {
+	h := storyRewardHandler()
+	u := testUser()
+	u.Weapons["rw"] = store.WeaponState{UserWeaponUuid: "rw", WeaponId: rionWeapon}
+	u.Costumes["rion"] = store.CostumeState{UserCostumeUuid: "rion", CostumeId: rionCostume}
+	u.DeckCharacters["rd"] = store.DeckCharacterState{UserDeckCharacterUuid: "rd", UserCostumeUuid: "rion"}
+	h.ReturnFirstClearRewardsFromGiftBox(u, 1)
+	if got := u.DeckCharacters["rd"].MainUserWeaponUuid; got != "rw" {
+		t.Fatalf("Rion's main weapon is %q, want rw", got)
 	}
 }
 
