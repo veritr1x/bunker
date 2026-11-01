@@ -4,6 +4,30 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.6.4 (2026-11-01)
+
+Above 30 fps the game draws 30 frames a second when idle and slows down when
+the device is hot, and shadows, reflections and bloom can be turned off: an
+iPad at 120 fps and its own resolution no longer runs hot in menus.
+
+## 2026-11-01 (after 1.6.3)
+
+### Display
+- Above 30 fps, after 2 seconds without a touch outside battles, the game
+  draws 30 frames a second; a touch brings the chosen rate back at once.
+  Measured on an iPad Pro at 120 fps: 30 when idle, 120 while touching.
+  Pod Programs › Display › When idle, on by default. [ae51c8c]
+- While the device reports it is hot, the game draws 60 frames a second,
+  and 30 when very hot, until it cools down. When hot, on by default.
+  [ae51c8c]
+- Shadows, reflections and bloom can each be turned off, in every graphics
+  preset; each costs GPU work every frame. On by default. [0333e8f]
+- Shorter notes on the Display page. [7839624]
+
+### iPhone and iPad
+- A developer-only GPU frame capture for finding what each frame costs
+  (launch setting; players cannot turn it on). [5f66240]
+
 ## 1.6.3 (2026-11-01)
 
 After an update, Content presets are applied again with the new version, so
