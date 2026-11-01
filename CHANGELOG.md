@@ -4,7 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## 2026-11-01 (after 1.6.0)
+## 1.6.1 (2026-11-01)
+
+With the Original calendar, Notices come out as the loop reaches them. The
+Bunker emblem replaces the notification, shortcut and quick action icons.
+
+## 2026-11-01
 
 ### Server
 - With the Original calendar, Notices come out as the loop reaches their
