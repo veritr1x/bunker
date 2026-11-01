@@ -31,6 +31,7 @@ var kindVersion = map[string]int32{
 const (
 	unlockQuestClear     = 2
 	unlockMissionClearBy = 3
+	unlockPanelPage      = 5 // WEBVIEW_PANEL_MISSION_CLEAR_BY_PAGE_NUMBER: that page of the Anecdote on now
 )
 
 // Kinds whose value is read from the save each time, not counted.
@@ -573,6 +574,8 @@ func (cat *Catalog) active(m *Mission, u *store.UserState, now int64) bool {
 		return u.Quests[m.Unlock.ConditionValue].ClearCount > 0
 	case unlockMissionClearBy:
 		return u.Missions[m.Unlock.ConditionValue].MissionProgressStatusType >= StatusClear
+	case unlockPanelPage:
+		return cat.Panels != nil && cat.Panels.PageDoneAt(u, m.Unlock.ConditionValue, now)
 	}
 	return true
 }
