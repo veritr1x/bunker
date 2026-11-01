@@ -73,10 +73,14 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineField("android/content/pm/PackageInfo","applicationInfo","Landroid/content/pm/ApplicationInfo;");
   for(const char *name:{"GET_META_DATA","GET_ACTIVITIES"})host.DefineField("android/content/pm/PackageManager",name,"I",true);
   host.DefineField("android/content/pm/PackageManager","FEATURE_AUDIO_LOW_LATENCY","Ljava/lang/String;",true);
+  // Reached Unity lookup abc49c/abc4a4 uses the Intent class cache130e0f8.
+  // This is the SDK's actual initialized String constant, not a Java body.
+  host.DefineField("android/content/Intent","ACTION_MAIN","Ljava/lang/String;",true);
   auto env=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;host.InvokeEnv(slot,s);return s.gpr.x0.qword;};
   auto manager_class=env(6,reinterpret_cast<addr_t>("android/content/pm/PackageManager"));
   for(const auto &[name,value]:std::initializer_list<std::pair<const char*,int32_t>>{{"GET_META_DATA",128},{"GET_ACTIVITIES",1}}){auto field=env(144,manager_class,reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>("I"));env(159,manager_class,field,static_cast<uint32_t>(value));}
   auto feature_field=env(144,manager_class,reinterpret_cast<addr_t>("FEATURE_AUDIO_LOW_LATENCY"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto feature=host.NewString(u"android.hardware.audio.low_latency");env(154,manager_class,feature_field,feature);host.DeleteLocalReference(feature);host.DeleteLocalReference(manager_class);
+  auto intent_class=env(6,reinterpret_cast<addr_t>("android/content/Intent")),action_field=env(144,intent_class,reinterpret_cast<addr_t>("ACTION_MAIN"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto main=host.NewString(u"android.intent.action.MAIN");env(154,intent_class,action_field,main);auto main_action=Keep(host,main);host.DeleteLocalReference(intent_class);
   auto global = [&](addr_t local) { auto result = host.NewGlobalReference(local); host.DeleteLocalReference(local); return result; };
   info_ = global(ApplicationInfo(host,config,true));
   assets_ = global(CreateJavaAssets(host,config.apk_assets));
@@ -84,7 +88,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   auto component=std::make_shared<ComponentState>();component->package=host.CaptureValue(package_);
   auto binary=config.activity_class;std::replace(binary.begin(),binary.end(),'/','.');
   component->name=Keep(host,host.NewString(Utf16(binary)));
-  auto intent=std::make_shared<IntentState>();intent->action=Keep(host,host.NewString(u"android.intent.action.MAIN"));
+  auto intent=std::make_shared<IntentState>();intent->action=std::move(main_action);
   intent->component=Keep(host,host.NewHostInstance("android/content/ComponentName",component));
   if(config.launch_data){auto uri=std::make_shared<UriState>();uri->text=Keep(host,host.NewString(*config.launch_data));intent->data_string=uri->text;intent->data=Keep(host,host.NewHostInstance("android/net/Uri$StringUri",uri));}
   if(!config.launch_extras.empty()){
