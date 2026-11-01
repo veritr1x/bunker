@@ -64,6 +64,7 @@ template<class T>T Symbol(HMODULE module,const char *name){
  X(U,eglDestroyContext,(E,E)) \
  X(I,eglGetError,()) \
  X(U,eglSwapInterval,(E,I)) \
+ X(U,eglSurfaceAttrib,(E,E,I,I)) \
  X(E,eglCreatePbufferSurface,(E,E,const I*)) \
  X(U,eglDestroySurface,(E,E)) \
  X(E,eglGetCurrentSurface,(I)) \
@@ -77,12 +78,14 @@ struct EglHost::Impl {
   // No guest callbacks or guest-memory lock span native EGL operations.
   std::mutex mutex;
   enum Kind{Display,Config,Context,Surface};
-  struct Object {Kind kind;E native;addr_t display=0,window=0;bool deleted=false,native_destroyed=false;I format=0;};
+  struct Object {Kind kind;E native;addr_t display=0,window=0;bool deleted=false,native_destroyed=false;I format=0;bool fixed=false;I width=0,height=0;};
   struct Current {addr_t context=0,draw=0,read=0;};
   struct GeometryLife {std::mutex mutex;Impl *owner=nullptr;};
   std::shared_ptr<GeometryLife> geometry_life=std::make_shared<GeometryLife>();
   std::map<addr_t,std::set<I>> display_window_formats;
-  std::map<addr_t,I> approved_formats;
+  std::map<addr_t,NativeWindows::Geometry> approved_geometry;
+  std::map<addr_t,std::map<I,E>> display_window_configs;
+  std::map<addr_t,bool> display_fixed_size;
   std::map<addr_t,Object> objects;
   std::map<std::thread::id,Current> currents;
   std::map<std::string,std::unique_ptr<char[]>> strings;
@@ -137,9 +140,9 @@ struct EglHost::Impl {
       Error(kind==Display?BadDisplay:kind==Config?BadConfig:kind==Context?BadContext:BadSurface);return nullptr;}
     return it->second.native;
   }
-  addr_t Add(Kind kind,E native,addr_t display=0,addr_t window=0,I format=0){
+  addr_t Add(Kind kind,E native,addr_t display=0,addr_t window=0,I format=0,bool fixed=false,I width=0,I height=0){
     for(const auto &[token,o]:objects)if(!o.deleted&&o.kind==kind&&o.native==native&&o.display==display)return token;
-    const auto token=Token();objects.emplace(token,Object{kind,native,display,window,false,false,format});return token;
+    const auto token=Token();objects.emplace(token,Object{kind,native,display,window,false,false,format,fixed,width,height});return token;
   }
   addr_t Find(E native,Kind kind){if(!native)return 0;for(const auto &[token,o]:objects)if(o.kind==kind&&o.native==native)return token;
     throw std::runtime_error("Native current EGL object is outside provider ownership");}
@@ -191,7 +194,7 @@ struct EglHost::Impl {
     if(r==16&&g==16&&b==16&&a==16)return 22;
     Error(BadMatch);return 0;
   }
-  std::set<I> WindowFormats(E display){
+  std::set<I> WindowFormats(addr_t token,E display){
     // Internal capability queries must not change the guest EGL error flag.
     Capture();const I saved=errors[owner];
     struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*this,saved};
@@ -199,26 +202,80 @@ struct EglHost::Impl {
     if(!eglChooseConfig(display,attrs,nullptr,0,&count)||count<0||count>4096)return {};
     std::vector<E> configs(count);
     if(count&&!eglChooseConfig(display,attrs,configs.data(),count,&count))return {};
+    display_window_configs[token].clear();
+    display_fixed_size[token]=false;
+    const char *native_extensions=eglQueryString(display,0x3055);
+    if(native_extensions){std::istringstream list(native_extensions);std::string extension;
+      while(list>>extension)if(extension=="EGL_ANGLE_window_fixed_size")display_fixed_size[token]=true;}
     std::set<I> supported;
     for(I i=0;i<count;++i){const I format=Visual(display,configs[i]);
       // RGB565 remains unsupported unless a real presentable config and draw
       // gate demonstrate it. This backend enables only validated RGBA/RGBX.
-      if(format==1||format==2)supported.insert(format);
+      if(format==1||format==2){supported.insert(format);display_window_configs[token].emplace(format,configs[i]);}
     }
     return supported;
   }
+  static int GeometryError(I error){
+    if(error==0x3003)return -12;
+    if(error==BadWindow||error==BadDisplay||error==0x3001)return -19;
+    if(error==BadMatch||error==BadParameter||error==BadAttribute)return -22;
+    return -5;
+  }
   int ApplyFormat(addr_t window,const NativeWindows::Geometry &geometry){
-    if(geometry.fixed_size||geometry.width!=geometry.client_width||geometry.height!=geometry.client_height)return -38;
     if(geometry.format!=1&&geometry.format!=2)return -38;
+    if(!geometry.fixed_size&&(geometry.width!=geometry.client_width||geometry.height!=geometry.client_height))return -38;
     bool supported=false;for(const auto &[display,formats]:display_window_formats){(void)display;supported|=formats.count(geometry.format)!=0;}
     if(!supported)return -38;
-    for(const auto &[token,object]:objects){
-      if(object.kind==Surface&&object.window==window&&(!object.native_destroyed||Held(token))&&object.format!=geometry.format)return -16;
+    if(geometry.fixed_size){bool fixed_supported=false;
+      for(const auto &[display,formats]:display_window_formats){fixed_supported|=display_fixed_size[display]&&formats.count(geometry.format)!=0;}
+      if(!fixed_supported)return -38;
+    }
+    Object *existing=nullptr;addr_t existing_token=0;
+    for(auto &[token,object]:objects){
+      if(object.kind!=Surface||object.window!=window||(object.native_destroyed&&!Held(token)))continue;
+      if(object.format!=geometry.format||object.deleted||object.fixed!=geometry.fixed_size)return -16;
+      existing=&object;existing_token=token;
+    }
+    if(geometry.fixed_size){
+      addr_t target_display=0;E config=nullptr;
+      if(existing){target_display=existing->display;}
+      else for(const auto &[display,configs]:display_window_configs){
+        const auto found=configs.find(geometry.format);
+        if(display_fixed_size[display]&&found!=configs.end()){target_display=display;config=found->second;break;}}
+      if(!target_display||!display_fixed_size[target_display])return -38;
+      auto native_window=windows.NativeHandle(window);if(!native_window)return -19;
+      WindowDpiScope dpi(native_window);
+      Capture();const I saved=errors[owner];
+      struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*this,saved};
+      E display=Native(target_display,Display);
+      if(existing){
+        for(const auto &[thread,current]:currents){
+          if(thread!=std::this_thread::get_id()&&(current.draw==existing_token||current.read==existing_token))return -16;
+        }
+        const auto old_width=existing->width,old_height=existing->height;
+        if(!eglSurfaceAttrib(display,existing->native,0x3057,geometry.width))return GeometryError(eglGetError());
+        if(!eglSurfaceAttrib(display,existing->native,0x3056,geometry.height)){
+          const I failure=eglGetError();
+          const bool rollback_width=eglSurfaceAttrib(display,existing->native,0x3057,old_width)!=0;
+          const bool rollback_height=eglSurfaceAttrib(display,existing->native,0x3056,old_height)!=0;
+          if(!rollback_width||!rollback_height)throw std::runtime_error("Native fixed-buffer resize rollback failed");
+          return GeometryError(failure);
+        }
+        existing->width=geometry.width;existing->height=geometry.height;
+      }else{
+        // Creation allocates a real native fixed swapchain, validating this
+        // exact HWND/format/size before the Android descriptor can commit.
+        // The caller's later EGL creation repeats validation for its config.
+        const I attrs[]={0x3201,1,0x3057,geometry.width,0x3056,geometry.height,None};
+        E trial=eglCreateWindowSurface(display,config,static_cast<HWND>(native_window),attrs);
+        if(!trial)return GeometryError(eglGetError());
+        if(!eglDestroySurface(display,trial))throw std::runtime_error("Native fixed-buffer validation surface retirement failed");
+      }
     }
     // Record before NativeWindows commits its descriptor. A concurrent create
     // must match both this approval and the published descriptor, so it fails
     // conservatively during the callback-to-commit interval.
-    approved_formats[window]=geometry.format;
+    approved_geometry[window]=geometry;
     return 0;
   }
   template<class S,class F>void Bind(const char *name,F function){bridges.emplace(name,recomp::MakeBridge<S>(std::move(function)));}
@@ -228,7 +285,7 @@ struct EglHost::Impl {
       E display=getPlatform(0x3202,nullptr,attrs);Capture();return display?Add(Display,display):0;});
     Bind<U(addr_t,addr_t,addr_t)>("eglInitialize",[this](addr_t d,addr_t major,addr_t minor){
       E display=Native(d,Display);if(!display)return U(0);I a=0,b=0;U ok=eglInitialize(display,major?&a:nullptr,minor?&b:nullptr);Capture();
-      if(ok){display_window_formats[d]=WindowFormats(display);if(major)Write(major,a);if(minor)Write(minor,b);}return ok;});
+      if(ok){display_window_formats[d]=WindowFormats(d,display);if(major)Write(major,a);if(minor)Write(minor,b);}return ok;});
     Bind<U(addr_t,addr_t,addr_t,I,addr_t)>("eglChooseConfig",[this](addr_t d,addr_t attrs,addr_t configs,I size,addr_t count){
       E display=Native(d,Display);if(!display)return U(0);if(!count||size<0||size>4096){Error(BadParameter);return U(0);}
       auto list=Attributes(attrs);I wanted=-1;for(size_t i=0;i+1<list.size();i+=2)if(list[i]==0x302e){wanted=list[i+1];list.erase(list.begin()+i,list.begin()+i+2);break;}
@@ -254,11 +311,23 @@ struct EglHost::Impl {
     Bind<addr_t(addr_t,addr_t,addr_t,addr_t)>("eglCreateWindowSurface",[this](addr_t d,addr_t c,addr_t window,addr_t attrs){
       E display=Native(d,Display),config=Native(c,Config,d);if(!display||!config)return addr_t(0);auto list=Attributes(attrs);
       try{auto geometry=windows.Describe(window);auto hwnd=static_cast<HWND>(windows.NativeHandle(window));
-        if(!hwnd){Error(BadWindow);return addr_t(0);}if(geometry.fixed_size){Error(BadMatch);return addr_t(0);}
-        const I format=Visual(display,config);auto approved=approved_formats.find(window);
-        if(geometry.format!=format||(approved!=approved_formats.end()&&approved->second!=geometry.format)){Error(BadMatch);return addr_t(0);}
+        if(!hwnd){Error(BadWindow);return addr_t(0);}
+        if(geometry.fixed_size&&!display_fixed_size[d]){Error(BadMatch);return addr_t(0);}
+        const I format=Visual(display,config);auto approved=approved_geometry.find(window);
+        if(geometry.format!=format){Error(BadMatch);return addr_t(0);}
+        if(approved!=approved_geometry.end()){
+          const auto &expected=approved->second;
+          if(expected.format!=geometry.format||expected.fixed_size!=geometry.fixed_size||
+             (geometry.fixed_size&&(expected.width!=geometry.width||expected.height!=geometry.height))){Error(BadMatch);return addr_t(0);}}
+        auto supplement=[&](I name,I value){
+          for(size_t i=0;i+1<list.size();i+=2)if(list[i]==name)return list[i+1]==value;
+          if(!list.empty())list.pop_back();
+          list.push_back(name);list.push_back(value);list.push_back(None);return true;};
+        if(geometry.fixed_size){
+          if(!supplement(0x3201,1)||!supplement(0x3057,geometry.width)||!supplement(0x3056,geometry.height)){Error(BadMatch);return addr_t(0);}
+        }else for(size_t i=0;i+1<list.size();i+=2)if(list[i]==0x3201&&list[i+1]){Error(BadMatch);return addr_t(0);}
         windows.Acquire(window);E surface=eglCreateWindowSurface(display,config,hwnd,list.empty()?nullptr:list.data());Capture();
-        if(!surface){windows.Release(window);return addr_t(0);}return Add(Surface,surface,d,window,format);
+        if(!surface){windows.Release(window);return addr_t(0);}return Add(Surface,surface,d,window,format,geometry.fixed_size,geometry.width,geometry.height);
       }catch(const std::invalid_argument&){Error(BadWindow);return addr_t(0);}});
     Bind<U(addr_t,addr_t,addr_t,addr_t)>("eglMakeCurrent",[this](addr_t d,addr_t draw,addr_t read,addr_t ctx){
       E display=Native(d,Display),context=ctx?Native(ctx,Context,d):nullptr,ds=draw?Native(draw,Surface,d):nullptr,rs=read?Native(read,Surface,d):nullptr;
@@ -282,7 +351,7 @@ struct EglHost::Impl {
       auto &object=objects.at(c);if(!Held(c)){DestroyNative(object);}
       object.deleted=true;Prune();return U(1);});
     Bind<U(addr_t)>("eglTerminate",[this](addr_t d){E display=Native(d,Display);if(!display)return U(0);U ok=eglTerminate(display);Capture();
-      if(ok){display_window_formats.erase(d);for(auto &[token,o]:objects){(void)token;if(o.display==d){o.deleted=true;o.native_destroyed=true;}}Prune();}return ok;});
+      if(ok){display_window_formats.erase(d);display_window_configs.erase(d);display_fixed_size.erase(d);for(auto &[token,o]:objects){(void)token;if(o.display==d){o.deleted=true;o.native_destroyed=true;}}Prune();}return ok;});
     Bind<I()>("eglGetError",[this]{auto &error=errors[owner];I value=error?error:Success;error=Success;return value;});
     Bind<addr_t(addr_t,I)>("eglQueryString",[this](addr_t d,I name){E display=d?Native(d,Display):nullptr;if(d&&!display)return addr_t(0);
       const char *native=eglQueryString(display,name);Capture();if(!native)return addr_t(0);std::string value=native;
