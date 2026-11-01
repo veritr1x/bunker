@@ -374,7 +374,7 @@ after those operations. Destruction queues SURFACE_LOST before recreate(null)
 and waits for acknowledgment before HWND closure. Queued Java graph references
 become fresh worker-local JNI references. Runner TLS cleanup happens before JNI
 detach. The worker remains paused and never schedules render/resume.
-`test_unity_lifecycle.ps1` passes 46 native Windows checks; the same test passes 46
+`test_unity_lifecycle.ps1` passes 53 native Windows checks; the same test passes 53
 on Linux. These use explicitly synthetic Runtime callbacks to test ordering,
 thread/ref lifetimes and failures; they do not prove the real surface entries.
 
@@ -384,13 +384,36 @@ client pixels and verifies the real HWND dimensions. The manifest specifies
 sensorLandscape, without fixed pixel dimensions. This gate ports the native
 surface-call sequence only: it does not claim the APK's View/splash UI, phone,
 clipboard, camera and HFP Java constructor effects or Java class initialization.
-The first real attempt completes all constructors, JNI registration and initJni,
-creates a checked 960×540 HWND, and enters nativeRecreateGfxState on UnityMain.
-It stops at missing `sigemptyset`, return address `0x704233c8`, in temporary
-crash-handler setup. Evidence is `unity-bootstrap-surface-sigemptyset.log` and
-its pinned translation manifest. The surface handoff has not yet passed.
+The first real attempt reached missing `sigemptyset`, return address
+`0x704233c8`, in temporary crash-handler setup. That earlier evidence remains
+in `unity-bootstrap-surface-sigemptyset.log` and its translation manifest.
 This combined harness keeps NativeWindows markers at `0x7ff440000000`, separate
 from the module registry, native-window tokens and EGL marker/handle ranges.
+The process-only signal adapter now supplies checked dispositions and pure
+sigset helpers for this gate. Thread signal masks/kill retain their existing
+owner, and sigaltstack remains unresolved. The next preserved diagnostic was
+missing `setjmp`, return address `0x7043a04c`, in
+`unity-bootstrap-surface-setjmp.log` and its translation manifest.
+
+Normal setjmp saves now use the checked Android wire adapter, actual GetAttr
+guest stack, lifetime-unique Self token, and compiler executable-section ranges
+(the saved return address is interior code, not a trace head). WorkerEnter
+registers/binds a virtual signal thread after JNI attachment and before startup
+acknowledgment; its real parent-model mask is captured at Start. Runner TLS
+destructors execute while those registrations remain live, then captured tokens
+retire without calling Self again. The actual scope buffer is inside a verified
+writable FileSystem-owned mmap with an epoch. This establishes the mapping's
+lifetime, not individual Unity arena-subobject reuse. Unknown heap buffers fail;
+longjmp control transfer remains explicitly unsupported.
+
+The actual exploratory surface gate now exits0: all 417 constructors,
+JNI_OnLoad/42 bindings, initJni, surface-created/change/notification/detach,
+JNI_OnUnload and both finalizers complete. Exact original-provider observation
+proves two guest ANativeWindow_fromSurface calls, two acquires and four releases
+for one actual 960×540 HWND, with native detach acknowledgment before closure.
+See `unity-bootstrap-surface-success.log` and its translation manifest. No EGL,
+nativeRender or nativeResume was executed; 1,774 unsupported traces remain and
+this is not a game-startup or Java-constructor-completion claim.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact

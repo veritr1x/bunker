@@ -20,6 +20,18 @@ HERE=Path(__file__).resolve().parent
 def digest(path):
     with path.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def executable_ranges(manifest):
+    """Use the compiler's actual executable sections, including interior PCs."""
+    ranges=manifest.get('executable_ranges',[])
+    if not ranges:raise RuntimeError('Translation is missing executable section ranges')
+    previous=manifest['base']
+    for pair in ranges:
+        if not isinstance(pair,list) or len(pair)!=2 or any(type(n) is not int for n in pair):raise RuntimeError('Invalid executable range metadata')
+        low,high=pair
+        if low<previous or low>=high or high>manifest['base']+manifest['image_span'] or low%4 or high%4:raise RuntimeError('Executable range is overlapping, unaligned or outside the image')
+        previous=high
+    return ranges
+
 def registration_tables(library):
     """Read actual JNI_OnLoad's FindClass/RegisterNatives wrappers, not guesses."""
     with library.open('rb') as f:
@@ -113,6 +125,7 @@ def main():
     if set(imports)!=set(m['imports']):raise RuntimeError('Original ELF and translation import catalogs differ')
     apk_hash=digest(a.apk)
     unsupported=len(m.get('unsupported_traces',[]))
+    code_ranges=executable_ranges(m)
     lines=['// Generated from original APK/ELF and verified translation, not desktop guesses.',
         f'static constexpr addr_t kUnityBase={m["base"]:#x};',f'static constexpr size_t kUnityImageSpan={m["image_span"]};',
         f'static constexpr size_t kExpectedConstructors={len(m["initializers"])};',f'static constexpr const char *kUnitySha256="{m["sha256"]}";',
@@ -122,6 +135,8 @@ def main():
         f'static constexpr const char *kLaunchActivity={json.dumps(activity)};',
         'struct UnityImport {const char *name;bool is_object;};','static const UnityImport kUnityImports[]={']
     lines += [f'  {{{json.dumps(name)},{str(obj).lower()}}},' for name,obj in sorted(imports.items())]
+    lines += ['};','struct UnityCodeRange {addr_t low,high;};','static constexpr UnityCodeRange kUnityExecutableRanges[]={']
+    lines += [f'  {{{low:#x},{high:#x}}},' for low,high in code_ranges]
     lines += ['};','struct UnityExport {const char *name;addr_t address;};','static const UnityExport kUnityExports[]={']
     lines += [f'  {{{json.dumps(name)},{entry:#x}}},' for name,entry in sorted(m['exports'].items())]
     lines += ['};','static const addr_t kUnityFinalizers[]={']+[f'  {entry:#x},' for entry in m['finalizers']]+['};']
@@ -147,7 +162,7 @@ def main():
         native=out/'native';native.mkdir(exist_ok=True)
         shutil.copyfile(a.library,native/'libunity.so')
         (out/'unity_bootstrap_link.json').write_text(json.dumps({'complete':True,'unity_sha256':m['sha256'],'apk_sha256':apk_hash,
-            'exploratory':a.exploratory,'unsupported_traces':unsupported,'base':m['base'],'constructors':len(m['initializers']),'objects':[f'objects/{Path(o).name}' for o in m['objects']]},indent=2)+'\n')
+            'exploratory':a.exploratory,'unsupported_traces':unsupported,'base':m['base'],'executable_ranges':code_ranges,'constructors':len(m['initializers']),'objects':[f'objects/{Path(o).name}' for o in m['objects']]},indent=2)+'\n')
     elif complete:
         shutil.copyfile(a.translation/'traces.h',out/'unity_traces.h')
         (out/'unity_bootstrap_link.json').unlink(missing_ok=True)

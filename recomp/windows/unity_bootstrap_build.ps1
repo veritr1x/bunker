@@ -36,7 +36,7 @@ $taskLoader = Join-Path $taskBuild 'elfload.o'
 if ($LASTEXITCODE -ne 0) { throw 'Unity bootstrap data-loader build failed.' }
 $taskExecutable = Join-Path $taskBuild 'bunker-unity-bootstrap.exe'
 $taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$taskZlib\zlib-1.3.2", '-static', $taskObject, $taskLoader)
-foreach ($taskSource in @('jni_host.cpp','android_context.cpp','android_assets.cpp','apk_assets.cpp','native_window.cpp','unity_lifecycle.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
+foreach ($taskSource in @('jni_host.cpp','android_context.cpp','android_assets.cpp','apk_assets.cpp','native_window.cpp','unity_lifecycle.cpp','signal_host.cpp','nonlocal_jmp.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
 foreach ($taskInput in $taskManifest.objects) { $taskArguments += Join-Path $taskBuild $taskInput }
 $taskArguments += @((Join-Path $taskZlib 'libz-inflate.a'), '-latomic', '-lbcrypt', '-luser32', '-lgdi32', '-o', $taskExecutable)
 # Response files avoid Windows command-line limits for the full Unity shards.
