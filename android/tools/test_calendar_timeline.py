@@ -56,6 +56,14 @@ class Entries(unittest.TestCase):
         self.assertEqual(len(others), 2)
         self.assertTrue(all((e.ref, e.art) == ("", "") for e in others))
 
+    def test_event_dates_come_from_the_loop_data_not_the_history(self):
+        # The loop's game data already holds every restored run (moved into the loop);
+        # the history file's original dates (2023 here) must not come back.
+        lost = {"m_event_quest_chapter": {"rows": {"120": [[cal.LAUNCH + 85 * WEEK, cal.LAUNCH + 87 * WEEK]]}}}
+        with mock.patch.object(cal, "history", lambda: lost):
+            runs = sorted((e.start, e.end) for e in self.of("event") if e.ref == "/schedule/event/120")
+        self.assertEqual(runs, [(T0, T0 + 14 * DAY), (T0 + 30 * DAY, T0 + 44 * DAY)])
+
     def test_entries_still_unpack_as_four_fields_first(self):
         kind, name, start, end, *_ = self.of("arena")[0]
         self.assertEqual((kind, start, end), ("arena", T0, T0 + 28 * DAY))
