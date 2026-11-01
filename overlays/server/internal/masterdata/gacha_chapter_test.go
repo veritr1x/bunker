@@ -46,3 +46,24 @@ func TestDarkMemorySummonUnlocksWithDarkMemories(t *testing.T) {
 		t.Errorf("Dark Memory summon unlock = %d/%d, want main quest clear 121", e.UnlockConditionType, e.UnlockConditionValue)
 	}
 }
+
+// Its "To Quests" jumps to RelatedMainQuestChapterId when there is no event
+// chapter, and main quest chapter 0 left the game on an empty Quests screen;
+// so it names the first Dark Memory chapter.
+func TestDarkMemorySummonLinksToDarkMemories(t *testing.T) {
+	loadTestMaster(t)
+	tickets, err := LoadChapterTickets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ticket := range tickets {
+		if ticket.AssetName != chapterGachaExAssetName {
+			continue
+		}
+		if e := chapterGachaEntry(ticket); e.RelatedEventQuestChapterId != 99001 {
+			t.Fatalf("Dark Memory summon links to event chapter %d, want 99001", e.RelatedEventQuestChapterId)
+		}
+		return
+	}
+	t.Fatal("no Dark Memory chapter summon")
+}
