@@ -18,14 +18,12 @@ import (
 // groups), so nothing here names a ticket or chapter by id.
 
 const (
-	consumableItemTypeTicket   int32 = 200
-	eventQuestTypeEndContents  int32 = 7
-	eventQuestTypeLimitContent int32 = 11
-	unlockConditionQuestClear  int32 = 1
-	questDifficultyTypeNormal  int32 = 1
-	chapterGachaSortOrderBase  int32 = 9000
-	chapterGachaAssetPrefix          = "chapter_"
-	chapterGachaExAssetName          = "chapter_ex"
+	consumableItemTypeTicket  int32 = 200
+	eventQuestTypeEndContents int32 = 7
+	questDifficultyTypeNormal int32 = 1
+	chapterGachaSortOrderBase int32 = 9000
+	chapterGachaAssetPrefix         = "chapter_"
+	chapterGachaExAssetName         = "chapter_ex"
 )
 
 // ChapterTicket is one chapter summon: the ticket that pays for it and the
@@ -34,7 +32,7 @@ type ChapterTicket struct {
 	Box                 []store.GachaBoxContent // the chapter's materials (chapterBox)
 	ConsumableItemId    int32
 	MainQuestChapterId  int32
-	UnlockQuestId       int32 // last normal-difficulty quest of the chapter; for the ex summon, the one that opens Dark Memories
+	UnlockQuestId       int32 // last normal-difficulty quest of the chapter
 	EventQuestChapterId int32 // the ex summon's: the first Dark Memory chapter, where its "To Quests" goes
 	AssetName           string
 }
@@ -195,34 +193,11 @@ func LoadChapterTickets() ([]ChapterTicket, error) {
 		}
 	}
 	if len(exTickets) == 1 {
-		unlock, err := darkMemoryUnlockQuest()
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, ChapterTicket{ConsumableItemId: exTickets[0], AssetName: chapterGachaExAssetName, UnlockQuestId: unlock,
+		out = append(out, ChapterTicket{ConsumableItemId: exTickets[0], AssetName: chapterGachaExAssetName,
 			EventQuestChapterId: firstEndChapter.EventQuestChapterId,
 			Box:                 chapterBox(questsByTicket[exTickets[0]], pickupDrops, pickupByQuest, dropById)})
 	}
 	return out, nil
-}
-
-// darkMemoryUnlockQuest is the quest whose clear opens Dark Memories (0 if the
-// game data has none). The ex summon's "To Quests" opens them, and while they
-// are locked that leaves the game on an empty screen it can't leave; so the
-// summon unlocks with them. The game's own check
-// (CalculatorUnlockCondition.IsUnlockEndContents) reads the quest-clear row of
-// LIMIT_CONTENT, not END_CONTENTS, so this does too: Season 1 Chapter 14's last quest.
-func darkMemoryUnlockQuest() (int32, error) {
-	rows, err := utils.ReadTable[EntityMEventQuestUnlockCondition]("m_event_quest_unlock_condition")
-	if err != nil {
-		return 0, fmt.Errorf("load event quest unlock conditions: %w", err)
-	}
-	for _, r := range rows {
-		if r.EventQuestType == eventQuestTypeLimitContent && r.UnlockConditionType == unlockConditionQuestClear {
-			return r.ConditionValue, nil
-		}
-	}
-	return 0, nil
 }
 
 // chapterGachaEntry is the box-mode summon paid with one chapter ticket. The
@@ -249,7 +224,11 @@ func chapterGachaEntry(t ChapterTicket) store.GachaCatalogEntry {
 		PricePhases:                buildChapterPricePhases(gachaId, t.ConsumableItemId),
 		UnlockConditionType:        model.GachaUnlockNone,
 	}
-	if t.UnlockQuestId != 0 {
+	if t.AssetName == chapterGachaExAssetName {
+		// Opens with Dark Memories (model.GachaUnlockDarkMemories): its To
+		// Quests goes there.
+		e.UnlockConditionType = model.GachaUnlockDarkMemories
+	} else if t.UnlockQuestId != 0 {
 		e.UnlockConditionType = model.GachaUnlockMainQuestClear
 		e.UnlockConditionValue = t.UnlockQuestId
 	}
