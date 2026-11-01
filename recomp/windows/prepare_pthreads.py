@@ -20,12 +20,12 @@ def main():
     a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=True)
     cc=a.ndk/'toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang'
     labels=['mutex_size','cond_size','attr_size','mutexattr_size','condattr_size','thread_size','key_size','once_size','rw_size',
-            'attr_stack_base','attr_stack_size','attr_guard','attr_sched_policy','normal','recursive','errorcheck','stack_min','keys_max','destructor_rounds','monotonic','detached']
+            'attr_stack_base','attr_stack_size','attr_guard','attr_sched_policy','normal','recursive','errorcheck','stack_min','keys_max','destructor_rounds','monotonic','detached','boottime']
     source=out/'ndk_pthread_layout.c'
     source.write_text('#include <pthread.h>\n#include <limits.h>\n#include <stdint.h>\n#include <stddef.h>\n'
         'const uint64_t ndk_layout[]={sizeof(pthread_mutex_t),sizeof(pthread_cond_t),sizeof(pthread_attr_t),sizeof(pthread_mutexattr_t),sizeof(pthread_condattr_t),sizeof(pthread_t),sizeof(pthread_key_t),sizeof(pthread_once_t),sizeof(pthread_rwlock_t),'
         'offsetof(pthread_attr_t,stack_base),offsetof(pthread_attr_t,stack_size),offsetof(pthread_attr_t,guard_size),offsetof(pthread_attr_t,sched_policy),'
-        'PTHREAD_MUTEX_NORMAL,PTHREAD_MUTEX_RECURSIVE,PTHREAD_MUTEX_ERRORCHECK,PTHREAD_STACK_MIN,PTHREAD_KEYS_MAX,PTHREAD_DESTRUCTOR_ITERATIONS,CLOCK_MONOTONIC,PTHREAD_CREATE_DETACHED};\n'
+        'PTHREAD_MUTEX_NORMAL,PTHREAD_MUTEX_RECURSIVE,PTHREAD_MUTEX_ERRORCHECK,PTHREAD_STACK_MIN,PTHREAD_KEYS_MAX,PTHREAD_DESTRUCTOR_ITERATIONS,CLOCK_MONOTONIC,PTHREAD_CREATE_DETACHED,CLOCK_BOOTTIME};\n'
         'const pthread_mutex_t recursive_initializer=PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;\n'
         'const pthread_mutex_t errorcheck_initializer=PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;\n'
         'const pthread_cond_t monotonic_initializer=PTHREAD_COND_INITIALIZER_MONOTONIC_NP;\n')
@@ -40,7 +40,7 @@ def main():
         for name,expected in [('recursive_initializer',0x4000),('errorcheck_initializer',0x8000),('monotonic_initializer',2)]:
             word=struct.unpack_from('<I',value(name))[0];layout[name]=word
             if word!=expected:raise RuntimeError(f'Unexpected NDK initializer {name}={word}')
-    expected=[40,48,56,8,8,8,4,4,56,8,16,24,32,0,1,2,16384,128,4,1,1]
+    expected=[40,48,56,8,8,8,4,4,56,8,16,24,32,0,1,2,16384,128,4,1,1,7]
     if list(values)!=expected:raise RuntimeError(f'NDK pthread layout mismatch: {layout}')
     (out/'ndk_pthread_layout.json').write_text(json.dumps(layout,indent=2)+'\n')
     if a.lib_dir:

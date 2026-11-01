@@ -194,12 +194,12 @@ class Dex:
         return {'name': self.string(self.u32(at + 4)), 'signature': f'({args}){result}',
                 'access_flags': flags, 'static': bool(flags & 8), 'native': bool(flags & 0x100)}
 
-    def unity_classes(self):
+    def unity_classes(self, additional_names=()):
         classes = {}
         for index in range(self.u32(96)):
             at = self.u32(100) + index * 32
             name = self.type(self.u32(at))
-            if not name.startswith('Lcom/unity3d/player/'):
+            if not name.startswith('Lcom/unity3d/player/') and name[1:-1] not in additional_names:
                 continue
             data = self.u32(at + 24)
             methods = []

@@ -12,11 +12,56 @@ import shutil
 import subprocess
 import zipfile
 from elftools.elf.elffile import ELFFile
+from elftools.elf.relocation import RelocationSection
+from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
 from inventory import Dex
 
 HERE=Path(__file__).resolve().parent
 def digest(path):
     with path.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
+
+def registration_tables(library):
+    """Read actual JNI_OnLoad's FindClass/RegisterNatives wrappers, not guesses."""
+    with library.open('rb') as f:
+        elf=ELFFile(f);loads=[s for s in elf.iter_segments() if s['p_type']=='PT_LOAD'];relocations={}
+        def read(address,size):
+            for s in loads:
+                if s['p_vaddr']<=address and address+size<=s['p_vaddr']+s['p_filesz']:
+                    f.seek(s['p_offset']+address-s['p_vaddr']);return f.read(size)
+            raise RuntimeError(f'JNI metadata address {address:#x} is outside file data')
+        for section in elf.iter_sections():
+            if not isinstance(section,RelocationSection):continue
+            symbols=elf.get_section(section['sh_link'])
+            for r in section.iter_relocations():
+                value=r.entry.get('r_addend',0)
+                if r['r_info_sym']:
+                    symbol=symbols.get_symbol(r['r_info_sym'])
+                    if symbol['st_shndx']=='SHN_UNDEF':continue
+                    value+=symbol['st_value']
+                relocations[r['r_offset']]=value
+        def pointer(at):return relocations.get(at,int.from_bytes(read(at,8),'little'))
+        def string(at):return read(at,1024).split(b'\0',1)[0].decode('utf-8')
+        onload=elf.get_section_by_name('.dynsym').get_symbol_by_name('JNI_OnLoad')[0]
+        dis=Cs(CS_ARCH_ARM64,CS_MODE_LITTLE_ENDIAN);dis.detail=True
+        calls=[i.operands[0].imm for i in dis.disasm(read(onload['st_value'],onload['st_size']),onload['st_value']) if i.mnemonic=='bl']
+        groups=[]
+        for helper in calls:
+            first=next(dis.disasm(read(helper,4),helper));body=first.operands[0].imm if first.mnemonic=='b' else helper
+            code=list(dis.disasm(read(body,112),body))
+            # Exact evidenced wrapper shape. Pre-Attach time-baseline setup does
+            # not match and therefore cannot introduce guessed Java classes.
+            if len(code)!=28 or code[3].mnemonic!='adrp' or code[4].mnemonic!='ldr' or code[10].mnemonic!='adrp':continue
+            if code[6].mnemonic!='ldr' or code[6].operands[1].mem.disp!=6*8:continue
+            if code[13].mnemonic!='ldr' or code[13].operands[1].mem.disp!=215*8:continue
+            class_slot=code[3].operands[1].imm+code[4].operands[1].mem.disp
+            table=code[10].operands[1].imm+code[12].operands[2].imm
+            count=code[14].operands[-1].imm
+            if not 0<count<=256:raise RuntimeError('Invalid actual JNI native table length')
+            methods=[{'name':string(pointer(table+i*24)),'signature':string(pointer(table+i*24+8)),
+                      'entry_rva':pointer(table+i*24+16)} for i in range(count)]
+            groups.append({'helper_rva':helper,'class':string(pointer(class_slot)),'class_pointer_rva':class_slot,'table_rva':table,'count':count,'methods':methods})
+        if len(groups)!=9 or sum(g['count'] for g in groups)!=42:raise RuntimeError('Actual JNI_OnLoad registration shape changed; inspect it before extending the catalog')
+        return groups
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--translation',type=Path,required=True)
@@ -42,11 +87,19 @@ def main():
     package=re.search(r"^package: name='([^']+)'",badging,re.M).group(1)
     sdk=int(re.search(r"^targetSdkVersion:'(\d+)'",badging,re.M).group(1))
     activity=re.search(r"^launchable-activity: name='([^']+)'",badging,re.M).group(1).replace('.','/')
-    classes={}
+    groups=registration_tables(a.library)
+    required={g['class'] for g in groups};classes={}
     with zipfile.ZipFile(a.apk) as apk:
         for name in apk.namelist():
-            if re.fullmatch(r'classes\d*\.dex',name):classes.update(Dex(apk.read(name)).unity_classes())
+            if re.fullmatch(r'classes\d*\.dex',name):classes.update(Dex(apk.read(name)).unity_classes(required))
     if not classes:raise RuntimeError('Actual APK does not declare Unity JNI classes')
+    for group in groups:
+        if group['class'] not in classes:raise RuntimeError('Actual registration class absent from APK: '+group['class'])
+        for method in group['methods']:
+            declared=[m for m in classes[group['class']]['methods'] if m['name']==method['name'] and m['signature']==method['signature']]
+            if len(declared)!=1 or not declared[0]['native']:raise RuntimeError('Native/DEX method mismatch: '+group['class']+'.'+method['name'])
+            method['static']=declared[0]['static']
+    (out/'jni_onload_catalog.json').write_text(json.dumps(groups,indent=2)+'\n')
     with a.library.open('rb') as f:
         elf=ELFFile(f);syms=elf.get_section_by_name('.dynsym')
         imports={s.name:s['st_info']['type']=='STT_OBJECT' for s in syms.iter_symbols() if s['st_shndx']=='SHN_UNDEF' and s.name}
@@ -65,6 +118,9 @@ def main():
     lines += ['};','struct UnityExport {const char *name;addr_t address;};','static const UnityExport kUnityExports[]={']
     lines += [f'  {{{json.dumps(name)},{entry:#x}}},' for name,entry in sorted(m['exports'].items())]
     lines += ['};','static const addr_t kUnityFinalizers[]={']+[f'  {entry:#x},' for entry in m['finalizers']]+['};']
+    lines += ['struct UnityRegistration {const char *class_name,*name,*signature;addr_t entry;};','static const UnityRegistration kUnityRegistrations[]={']
+    lines += [f'  {{{json.dumps(g["class"])},{json.dumps(method["name"])},{json.dumps(method["signature"])},{m["base"]+method["entry_rva"]:#x}}},' for g in groups for method in g['methods']]
+    lines += ['};']
     lines += ['static const char *const kUnityJavaClasses[]={']+[f'  {json.dumps(name)},' for name in sorted(classes)]+['};']
     lines += ['static void DefineUnityJavaCatalog(bunker::jni::Host &host){',
               '  // APK declarations support lookup/registration; Java bytecode is not executed.',
@@ -75,7 +131,7 @@ def main():
         lines.append('  });')
     lines += ['}']
     (out/'unity_bootstrap_data.h').write_text('\n'.join(lines)+'\n')
-    if complete:
+    if complete and not a.metadata_only:
         shutil.copyfile(a.translation/'traces.h',out/'unity_traces.h')
         objects=out/'objects';objects.mkdir(exist_ok=True)
         for source in m['objects']:
@@ -85,6 +141,9 @@ def main():
         shutil.copyfile(a.library,native/'libunity.so')
         (out/'unity_bootstrap_link.json').write_text(json.dumps({'complete':True,'unity_sha256':m['sha256'],'apk_sha256':apk_hash,
             'exploratory':a.exploratory,'unsupported_traces':unsupported,'base':m['base'],'constructors':len(m['initializers']),'objects':[f'objects/{Path(o).name}' for o in m['objects']]},indent=2)+'\n')
+    elif complete:
+        shutil.copyfile(a.translation/'traces.h',out/'unity_traces.h')
+        (out/'unity_bootstrap_link.json').unlink(missing_ok=True)
     else:
         # Syntax compilation only; no runtime binary or completed link manifest.
         entries=m['seed_entries']
@@ -94,5 +153,5 @@ def main():
         h += ['static const addr_t kInitializers[]={']+[f'  {entry:#x},' for entry in m['initializers']]+['};']
         (out/'unity_traces.h').write_text('\n'.join(h)+'\n')
         (out/'unity_bootstrap_link.json').unlink(missing_ok=True)
-    print(f'Original Unity: {len(m["initializers"])} constructors, {len(imports)} imports, {len(classes)} APK Unity classes; '+('complete link inputs ready' if complete else 'compile-only metadata; full translation still required'))
+    print(f'Original Unity: {len(m["initializers"])} constructors, {len(imports)} imports, {len(classes)} evidenced APK classes; nine JNI tables/42 native signatures validated; '+('complete link inputs ready' if complete and not a.metadata_only else 'compile-only metadata; full translation/link inputs still required'))
 if __name__=='__main__':main()
