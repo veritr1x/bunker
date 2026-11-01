@@ -47,8 +47,10 @@ part of the normal Bunker release. The game does not boot or render yet.
   detached native calls, observing two fromSurface, two acquire and four release
   calls against the same actual HWND-backed token before close. The separate
   bounded first-frame diagnostic now receives actual HWND focus, returns from
-  nativeResume and enters nativeRender. It stops on an original missing
-  PackageManager method; no frame has completed or rendered. A read-only native
+  nativeResume and enters nativeRender. Reached PackageManager and Intent
+  services now have checked implementations. The latest frame attempt stops
+  earlier because Windows has no default audio output (`E_NOTFOUND`); no frame
+  has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
   invented initial native callback. The full Java/game lifecycle remains open.
 - Real IL2CPP completes all nine constructors and both finalizers. Its actual
@@ -101,9 +103,13 @@ are recorded in ignored `work/coverage-windows-estimate-shifts.json`.
 These sample one encoding per operand form and exclude control flow; they do
 not establish whole-program correctness or execution coverage. The first
 Unity Windows translation completed with 58,850 traces. The current callback/
-ST1 snapshot has 59,561 traces in 469 objects, 1,774 unsupported traces and zero
-unresolved direct targets. Its constructor/JNI/shutdown gate passes natively;
-the optional `initJni` diagnostic retains exception history so clearing a Java
+ST1 snapshot has 59,561 traces in 469 objects and 1,774 unsupported traces.
+The refreshed estimate/shift/TRN snapshot has 59,610 traces in 469 objects,
+1,345 unsupported traces and zero unresolved direct targets. Its constructor,
+JNI, initJni and paused surface/shutdown gates pass natively. Original entries
+are retained and all 49 new entries are proved continuations; see
+[the frozen lineage and exact execution boundary](windows/unity_snapshot_native2.md).
+The optional `initJni` diagnostic retains exception history so clearing a Java
 exception cannot turn a missing-service path into success. Static callback
 root recovery finds 112 Unity callback entries, including three otherwise
 unseeded tiny destructors; this clears the observed finalization failure.
@@ -119,8 +125,10 @@ unsupported instructions.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
 2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
-   and continue the bounded focus/resume/frame/pause/done UnityMain flow from
-   its reached PackageManager exception in nativeRender.
+   and continue the bounded focus/resume/frame/pause/done UnityMain flow after
+   the machine has a real default audio output again. Connect the actual
+   application ClassLoader/IL2CPP module path and audited internal file/cache
+   services in parallel.
    Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
    imports or unsupported Java effects into successful no-ops.
 3. Close instruction gaps reached by startup, then remaining SIMD
@@ -164,8 +172,10 @@ unsupported instructions.
 - Pinned Vulkan ANGLE now passes GLES3.2/AEP, shader, draw/compute and all 28
   ASTC formats (239 samples/61,184 bytes), including correct sRGB behavior.
   The typed query resolver passes 976 checks for six getter signatures and 133
-  enum widths. Rendering/client/mapped GL APIs, nondefault buffer-size scaling, Unity's full
-  surface/resume/frame lifecycle, input and audio remain unverified.
+  enum widths. A separate native Vulkan scaling variant now passes fixed-size
+  buffer negotiation, physical/logical resize and present-mode checks; the
+  original ANGLE bundle is preserved. Rendering/client/mapped GL APIs, Unity's
+  full surface/resume/frame lifecycle, input and audio remain unverified.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.
   The native APK reader passes 69 independent checks on both hosts and reads
