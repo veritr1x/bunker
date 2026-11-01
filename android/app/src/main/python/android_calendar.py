@@ -537,17 +537,17 @@ def cap_table(blob, columns, latest):
 
 
 # Tables the calendar doesn't move are all in the past in a loop's dates (2026
-# on): every character listed, every story chapter open. The copy for "Show
+# on): every character listed, every filter complete. The copy for "Show
 # original dates" (2021 on, view=True) caps their start dates at launch so
 # the game behaves the same: the final game data lists 33 characters (the
 # starting cast among them) only from 2022, and Enhance > Characters was
-# empty. m_catalog_term keeps its dates: the server compares it in the live
-# service's dates too (summon notices).
+# empty. Story chapters (m_main_quest_chapter) keep their dates and open as
+# the calendar reaches them, as in the live game. m_catalog_term keeps its
+# dates too: the server compares it in the live service's dates (summon notices).
 VIEW_FROM_LAUNCH = {
     "m_character": ("ListSettingDisplayStartDatetime",),
     "m_list_setting_ability_group": ("ListSettingDisplayStartDatetime",),
     "m_parts_series": ("ListSettingDisplayStartDatetime",),
-    "m_main_quest_chapter": ("StartDatetime",),
     "m_character_viewer_field": ("PublishDatetime",),
     "m_costume_lottery_effect_release_schedule": ("ReleaseDatetime",),
     "m_possession_acquisition_route": ("StartDatetime",),

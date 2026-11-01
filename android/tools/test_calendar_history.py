@@ -332,9 +332,10 @@ if __name__ == "__main__":
 @unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
 class ViewFromLaunch(unittest.TestCase):
     """Tables the calendar doesn't move are all in the past in the loop's dates
-    (2026 on): characters listed, story chapters open. The copy for Show
-    original dates (2021) caps their start dates at launch so the game behaves
-    the same; before, Enhance > Characters was empty (m_character 2022)."""
+    (2026 on): characters listed, filters complete. The copy for Show original
+    dates (2021) caps those start dates at launch so the game behaves the same;
+    before, Enhance > Characters was empty (m_character 2022). Story chapters
+    keep their dates and open as the calendar reaches them."""
     @classmethod
     def setUpClass(cls):
         import tempfile
@@ -353,13 +354,17 @@ class ViewFromLaunch(unittest.TestCase):
 
     def test_start_dates_are_capped_at_launch(self):
         self.assertIn("m_character", cal.VIEW_FROM_LAUNCH)
-        self.assertIn("m_main_quest_chapter", cal.VIEW_FROM_LAUNCH)
         for table, columns in cal.VIEW_FROM_LAUNCH.items():
             for column in columns:
                 built = [r[0] for r in self.rows(self.view, table, column)]
                 original = [r[0] for r in self.rows(self.original, table, column)]
                 self.assertEqual(built, [min(v, cal.LAUNCH) for v in original], f"{table}.{column}")
                 self.assertTrue(any(v > cal.LAUNCH for v in original), f"{table}.{column} has nothing to cap")
+
+    def test_story_chapters_open_on_their_dates(self):
+        # As in the live game: a chapter opens when the calendar reaches its date.
+        self.assertEqual(self.rows(self.view, "m_main_quest_chapter", "StartDatetime"),
+                         self.rows(self.original, "m_main_quest_chapter", "StartDatetime"))
 
     def test_catalog_terms_keep_their_dates(self):
         # The server compares them in the live service's dates (summon notices).
