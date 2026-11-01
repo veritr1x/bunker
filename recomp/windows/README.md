@@ -162,6 +162,12 @@ is released during blocking I/O; an owned resource lock preserves its handle
 and offset. No shared-memory lock crosses OS I/O or translated callbacks.
 `FileSystem::SetError` is the tracked errno sink for other providers.
 
+The reached [setvbuf adapter](filesystem_setvbuf.md) translates Android's
+unbuffered constant to the real Windows CRT mode, with76 focused checks.
+[Rooted unlink/rmdir](filesystem_remove.md) remove one file or empty directory
+per call, passing138 checks; both changes retain the116-check file regression.
+Directory enumeration and the original ZIP/managed-copy path remain separate.
+
 Pthread attributes, key/thread result outputs, opaque initializer/once words,
 clock outputs and allocation lifetimes are tracked; timed waits copy their
 deadline before blocking. Cross-thread gates verify real fd/fread ABA, same-value

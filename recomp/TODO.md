@@ -80,6 +80,11 @@ part of the normal Bunker release. The game does not boot or render yet.
   allocations. Its 2,019 checks plus eight isolated precondition cases pass.
   Stored native targets, configuration, init and GC remain separate gates. See
   [the registration and teardown boundary](windows/unity_icalls.md).
+- Unity's reached APK setvbuf shape passes 76 native checks, and real rooted
+  unlink/rmdir pass 138 checks; each retains the 116-check file regression.
+  Directory enumeration and original ZIP-backed managed-data copying remain
+  open. See [buffering](windows/filesystem_setvbuf.md) and
+  [single-entry removal](windows/filesystem_remove.md).
 - Android process CPU `clock()` and `sysconf` page-size/online-CPU queries now
   use real host APIs, passing 453 checks and 57 actual NDK calls per host.
   Known unimplemented query names fail explicitly. These prerequisites do not
