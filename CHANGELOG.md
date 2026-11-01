@@ -4,6 +4,15 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.5.0 (2026-11-01)
+
+The update notice can be put off with **Later** or **Skip**, and a long press
+on the app icon opens the Bunker menu. Players who filled weapon storage early
+can finish the chapter 2 loadout tutorial again. The Dark Memory summon opens
+after the first Hard chapter and its **To Quests** works. Memoirs open their
+full menu on a long press, and several summon, mission and calendar links go
+where they should.
+
 ## 2026-11-01
 
 ### Server
