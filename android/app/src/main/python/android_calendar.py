@@ -893,7 +893,9 @@ def timeline(state, items, now):
     labels = dict(TIMELINE_KINDS)
 
     def item(e):
-        return {"kind": e.kind, "name": e.name or labels[e.kind].removesuffix("s"), "start": e.start - shift, "end": e.end - shift, "ref": e.ref,
+        # Ends after the loop are the game data's placeholders for content that stays: no end.
+        return {"kind": e.kind, "name": e.name or labels[e.kind].removesuffix("s"), "start": e.start - shift,
+                "end": e.end - shift if e.end <= loop_end(state) else None, "ref": e.ref,
                 "art": "/patcher/calendar/art?path=" + quote(e.art, safe="/") if e.art else ""}
     shown = sorted((e for e in items if e.kind in labels and e.start < end and e.end > start), key=lambda e: (e.start, e.end))
     soon = sorted((e for e in shown if e.start <= now < e.end <= now + ENDING_SOON), key=lambda e: e.end)
