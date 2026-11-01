@@ -9,6 +9,7 @@
 #include <map>
 #include <mutex>
 #include <sstream>
+#include <set>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -76,8 +77,12 @@ struct EglHost::Impl {
   // No guest callbacks or guest-memory lock span native EGL operations.
   std::mutex mutex;
   enum Kind{Display,Config,Context,Surface};
-  struct Object {Kind kind;E native;addr_t display=0,window=0;bool deleted=false,native_destroyed=false;};
+  struct Object {Kind kind;E native;addr_t display=0,window=0;bool deleted=false,native_destroyed=false;I format=0;};
   struct Current {addr_t context=0,draw=0,read=0;};
+  struct GeometryLife {std::mutex mutex;Impl *owner=nullptr;};
+  std::shared_ptr<GeometryLife> geometry_life=std::make_shared<GeometryLife>();
+  std::map<addr_t,std::set<I>> display_window_formats;
+  std::map<addr_t,I> approved_formats;
   std::map<addr_t,Object> objects;
   std::map<std::thread::id,Current> currents;
   std::map<std::string,std::unique_ptr<char[]>> strings;
@@ -103,9 +108,16 @@ struct EglHost::Impl {
       auto address=getProc("eglGetPlatformDisplayEXT");std::memcpy(&getPlatform,&address,sizeof(address));
       if(!getPlatform)throw std::runtime_error("ANGLE Vulkan platform entry missing");
       Bindings();
+      geometry_life->owner=this;
+      windows.SetGeometryBackend([life=geometry_life](addr_t token,const NativeWindows::Geometry &geometry){
+        std::lock_guard lease(life->mutex);if(!life->owner)return -19;
+        std::lock_guard lock(life->owner->mutex);return life->owner->ApplyFormat(token,geometry);
+      });
     }catch(...){if(gles)FreeLibrary(gles);if(egl)FreeLibrary(egl);throw;}
   }
   ~Impl(){
+    windows.SetGeometryBackend({});
+    {std::lock_guard lease(geometry_life->mutex);geometry_life->owner=nullptr;}
     ReleaseThread();
     if(!currents.empty()){std::fputs("EGL owner destroyed before worker current contexts retired\n",stderr);std::abort();}
     for(auto &[token,o]:objects){(void)token;if(o.deleted)continue;
@@ -125,9 +137,9 @@ struct EglHost::Impl {
       Error(kind==Display?BadDisplay:kind==Config?BadConfig:kind==Context?BadContext:BadSurface);return nullptr;}
     return it->second.native;
   }
-  addr_t Add(Kind kind,E native,addr_t display=0,addr_t window=0){
+  addr_t Add(Kind kind,E native,addr_t display=0,addr_t window=0,I format=0){
     for(const auto &[token,o]:objects)if(!o.deleted&&o.kind==kind&&o.native==native&&o.display==display)return token;
-    const auto token=Token();objects.emplace(token,Object{kind,native,display,window,false,false});return token;
+    const auto token=Token();objects.emplace(token,Object{kind,native,display,window,false,false,format});return token;
   }
   addr_t Find(E native,Kind kind){if(!native)return 0;for(const auto &[token,o]:objects)if(o.kind==kind&&o.native==native)return token;
     throw std::runtime_error("Native current EGL object is outside provider ownership");}
@@ -179,6 +191,36 @@ struct EglHost::Impl {
     if(r==16&&g==16&&b==16&&a==16)return 22;
     Error(BadMatch);return 0;
   }
+  std::set<I> WindowFormats(E display){
+    // Internal capability queries must not change the guest EGL error flag.
+    Capture();const I saved=errors[owner];
+    struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*this,saved};
+    const I attrs[]={0x3033,4,None};I count=0;
+    if(!eglChooseConfig(display,attrs,nullptr,0,&count)||count<0||count>4096)return {};
+    std::vector<E> configs(count);
+    if(count&&!eglChooseConfig(display,attrs,configs.data(),count,&count))return {};
+    std::set<I> supported;
+    for(I i=0;i<count;++i){const I format=Visual(display,configs[i]);
+      // RGB565 remains unsupported unless a real presentable config and draw
+      // gate demonstrate it. This backend enables only validated RGBA/RGBX.
+      if(format==1||format==2)supported.insert(format);
+    }
+    return supported;
+  }
+  int ApplyFormat(addr_t window,const NativeWindows::Geometry &geometry){
+    if(geometry.fixed_size||geometry.width!=geometry.client_width||geometry.height!=geometry.client_height)return -38;
+    if(geometry.format!=1&&geometry.format!=2)return -38;
+    bool supported=false;for(const auto &[display,formats]:display_window_formats){(void)display;supported|=formats.count(geometry.format)!=0;}
+    if(!supported)return -38;
+    for(const auto &[token,object]:objects){
+      if(object.kind==Surface&&object.window==window&&(!object.native_destroyed||Held(token))&&object.format!=geometry.format)return -16;
+    }
+    // Record before NativeWindows commits its descriptor. A concurrent create
+    // must match both this approval and the published descriptor, so it fails
+    // conservatively during the callback-to-commit interval.
+    approved_formats[window]=geometry.format;
+    return 0;
+  }
   template<class S,class F>void Bind(const char *name,F function){bridges.emplace(name,recomp::MakeBridge<S>(std::move(function)));}
   void Bindings(){
     Bind<addr_t(addr_t)>("eglGetDisplay",[this](addr_t native){
@@ -186,7 +228,7 @@ struct EglHost::Impl {
       E display=getPlatform(0x3202,nullptr,attrs);Capture();return display?Add(Display,display):0;});
     Bind<U(addr_t,addr_t,addr_t)>("eglInitialize",[this](addr_t d,addr_t major,addr_t minor){
       E display=Native(d,Display);if(!display)return U(0);I a=0,b=0;U ok=eglInitialize(display,major?&a:nullptr,minor?&b:nullptr);Capture();
-      if(ok){if(major)Write(major,a);if(minor)Write(minor,b);}return ok;});
+      if(ok){display_window_formats[d]=WindowFormats(display);if(major)Write(major,a);if(minor)Write(minor,b);}return ok;});
     Bind<U(addr_t,addr_t,addr_t,I,addr_t)>("eglChooseConfig",[this](addr_t d,addr_t attrs,addr_t configs,I size,addr_t count){
       E display=Native(d,Display);if(!display)return U(0);if(!count||size<0||size>4096){Error(BadParameter);return U(0);}
       auto list=Attributes(attrs);I wanted=-1;for(size_t i=0;i+1<list.size();i+=2)if(list[i]==0x302e){wanted=list[i+1];list.erase(list.begin()+i,list.begin()+i+2);break;}
@@ -213,9 +255,10 @@ struct EglHost::Impl {
       E display=Native(d,Display),config=Native(c,Config,d);if(!display||!config)return addr_t(0);auto list=Attributes(attrs);
       try{auto geometry=windows.Describe(window);auto hwnd=static_cast<HWND>(windows.NativeHandle(window));
         if(!hwnd){Error(BadWindow);return addr_t(0);}if(geometry.fixed_size){Error(BadMatch);return addr_t(0);}
-        if(geometry.format!=Visual(display,config)){Error(BadMatch);return addr_t(0);}
+        const I format=Visual(display,config);auto approved=approved_formats.find(window);
+        if(geometry.format!=format||(approved!=approved_formats.end()&&approved->second!=geometry.format)){Error(BadMatch);return addr_t(0);}
         windows.Acquire(window);E surface=eglCreateWindowSurface(display,config,hwnd,list.empty()?nullptr:list.data());Capture();
-        if(!surface){windows.Release(window);return addr_t(0);}return Add(Surface,surface,d,window);
+        if(!surface){windows.Release(window);return addr_t(0);}return Add(Surface,surface,d,window,format);
       }catch(const std::invalid_argument&){Error(BadWindow);return addr_t(0);}});
     Bind<U(addr_t,addr_t,addr_t,addr_t)>("eglMakeCurrent",[this](addr_t d,addr_t draw,addr_t read,addr_t ctx){
       E display=Native(d,Display),context=ctx?Native(ctx,Context,d):nullptr,ds=draw?Native(draw,Surface,d):nullptr,rs=read?Native(read,Surface,d):nullptr;
@@ -239,7 +282,7 @@ struct EglHost::Impl {
       auto &object=objects.at(c);if(!Held(c)){DestroyNative(object);}
       object.deleted=true;Prune();return U(1);});
     Bind<U(addr_t)>("eglTerminate",[this](addr_t d){E display=Native(d,Display);if(!display)return U(0);U ok=eglTerminate(display);Capture();
-      if(ok){for(auto &[token,o]:objects){(void)token;if(o.display==d){o.deleted=true;o.native_destroyed=true;}}Prune();}return ok;});
+      if(ok){display_window_formats.erase(d);for(auto &[token,o]:objects){(void)token;if(o.display==d){o.deleted=true;o.native_destroyed=true;}}Prune();}return ok;});
     Bind<I()>("eglGetError",[this]{auto &error=errors[owner];I value=error?error:Success;error=Success;return value;});
     Bind<addr_t(addr_t,I)>("eglQueryString",[this](addr_t d,I name){E display=d?Native(d,Display):nullptr;if(d&&!display)return addr_t(0);
       const char *native=eglQueryString(display,name);Capture();if(!native)return addr_t(0);std::string value=native;
