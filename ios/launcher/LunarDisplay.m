@@ -16,6 +16,8 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Upscaling: below the screen's own resolution, MetalFX upscales each frame
+//   instead of plain stretching (LunarUpscale.m).
 // - Effects: shadows, reflections and bloom chosen off are cleared in every
 //   performance preset and the one in use is applied again (render_effects.c).
 // - Drawing: above 30 fps it draws 30 a second after 2 s without a touch
@@ -446,11 +448,13 @@ static void *IL2CPPSymbol(const char *name) { return dlsym(RTLD_DEFAULT, name); 
 void LTOpenBunker(void);  // LunarLauncher.m
 static void GameLog(const char *message) { NSLog(@"[LunarTear] %s", message); }
 
+void LTUpscaleStart(void);  // LunarUpscale.m
+
 void LTDisplayStart(NSString *toolsRoot) {
     gStatusPath = [toolsRoot stringByAppendingPathComponent:@"display.status"];
     NSString *conf = [NSString stringWithContentsOfFile:[toolsRoot stringByAppendingPathComponent:@"display.conf"] encoding:NSUTF8StringEncoding error:nil];
     NSInteger screen = UIScreen.mainScreen.maximumFramesPerSecond;
-    BOOL idle = YES, heat = YES;
+    BOOL idle = YES, heat = YES, upscale = NO;
     int effectsOff = 0;
     for (NSString *line in [conf componentsSeparatedByString:@"\n"]) {
         NSArray *pair = [line componentsSeparatedByString:@"="];
@@ -464,6 +468,7 @@ void LTDisplayStart(NSString *toolsRoot) {
         if ([key isEqual:@"resolution"]) gSize = RenderTargetSize(value);
         if ([key isEqual:@"idle"]) idle = ![value isEqual:@"off"];
         if ([key isEqual:@"heat"]) heat = ![value isEqual:@"off"];
+        if ([key isEqual:@"upscale"]) upscale = [value isEqual:@"metalfx"];
         if ([value isEqual:@"off"] && [key isEqual:@"shadows"]) effectsOff |= RENDER_EFFECTS_SHADOWS;
         if ([value isEqual:@"off"] && [key isEqual:@"reflections"]) effectsOff |= RENDER_EFFECTS_REFLECTIONS;
         if ([value isEqual:@"off"] && [key isEqual:@"bloom"]) effectsOff |= RENDER_EFFECTS_BLOOM;
@@ -484,6 +489,7 @@ void LTDisplayStart(NSString *toolsRoot) {
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
         NSLog(@"[LunarTear] Flying Mama: the game's IL2CPP API is missing");
+    if (upscale) LTUpscaleStart();  // below the screen's resolution: MetalFX instead of plain stretching
     if (effectsOff && !render_effects_init(IL2CPPSymbol, GameLog, effectsOff)) gEffects = 1;
     if (gFps && (idle || heat)) {
         if (render_pace_init(IL2CPPSymbol, GameLog, gFps, idle, heat, NULL))
