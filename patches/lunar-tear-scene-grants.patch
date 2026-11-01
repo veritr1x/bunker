@@ -1,0 +1,46 @@
+diff --git a/server/internal/questflow/scene.go b/server/internal/questflow/scene.go
+index ff031f5..5767571 100644
+--- a/server/internal/questflow/scene.go
++++ b/server/internal/questflow/scene.go
+@@ -92,6 +92,9 @@ func (h *QuestHandler) HandleMainFlowSceneProgress(user *store.UserState, questS
+ 		panic(fmt.Sprintf("unknown questId=%d for HandleMainFlowSceneProgress", questSceneId))
+ 	}
+ 
++	// Scene grants (scene 2: the starter costume and weapons) come once, on
++	// first arrival; the client reports a scene again after a restart.
++	firstArrival := h.isSceneAhead(questSceneId, user.MainQuest.HeadQuestSceneId)
+ 	h.advanceMainFlowScene(user, quest.QuestId, questSceneId)
+ 	user.MainQuest.CurrentQuestFlowType = int32(model.QuestFlowTypeMainFlow)
+ 
+@@ -104,29 +107,8 @@ func (h *QuestHandler) HandleMainFlowSceneProgress(user *store.UserState, questS
+ 	user.PortalCageStatus.IsCurrentProgress = false
+ 	user.PortalCageStatus.LatestVersion = nowMillis
+ 
+-	h.applySceneGrants(user, questSceneId, nowMillis)
+-}
+-
+-func (h *QuestHandler) advanceTutorialsForScene(user *store.UserState, sceneId int32) {
+-	currentScene, ok := h.SceneById[sceneId]
+-	if !ok {
+-		log.Printf("[advanceTutorialsForScene] unknown sceneId=%d", sceneId)
+-		return
+-	}
+-	for _, cond := range h.TutorialUnlockConditions {
+-		condScene, ok := h.SceneById[cond.ConditionValue]
+-		if !ok {
+-			log.Printf("[advanceTutorialsForScene] unknown conditionValue=%d", cond.ConditionValue)
+-			continue
+-		}
+-		if currentScene.SortOrder >= condScene.SortOrder {
+-			if _, exists := user.Tutorials[cond.TutorialType]; !exists {
+-				user.Tutorials[cond.TutorialType] = store.TutorialProgressState{
+-					TutorialType:  cond.TutorialType,
+-					ProgressPhase: 99999,
+-				}
+-			}
+-		}
++	if firstArrival {
++		h.applySceneGrants(user, questSceneId, nowMillis)
+ 	}
+ }
+ 
