@@ -4,6 +4,18 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-01 (after 1.6.2)
+
+### Pod Programs
+- After an update, a Content preset is applied again with the new version
+  when the app starts, so preset fixes reach the game without opening Pod
+  Programs: with a preset applied before 1.6.2, Dark Memories and
+  Recollections of Dusk stayed empty until the preset was applied again.
+  Only master data the preset made is rebuilt; imported or restored master
+  data is left alone, and the old copy is kept under Previous versions. The
+  Bunker menu shows "Updating your game data for this version…" meanwhile
+  on iPhone and iPad. [71cfe73]
+
 ## 1.6.2 (2026-11-01)
 
 Content presets keep Dark Memories, Recollections of Dusk and the other
