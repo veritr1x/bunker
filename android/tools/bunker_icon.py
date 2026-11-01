@@ -6,7 +6,9 @@ header icons (cream strokes on a dark diamond plate).
 
 Writes android/app/src/main/cpp/bunker_icon.h, the PNG the in-game Bunker
 button shows (bunker_button.c). The plate and colours were matched on a
-device against the game's Notices icon.
+device against the game's Notices icon. Also writes the emblem everywhere
+else Bunker shows a mark (asset_files): Android's notification and shortcut
+icons, iOS's quick action (a template image) and the web builder's tab icon.
 
     python3 android/tools/bunker_icon.py
 """
@@ -21,17 +23,19 @@ PLATE = (36, 28, 19, 196)   # the game's plate: dark brown, a little see-through
 CREAM = (231, 224, 205, 255)
 
 
-def draw(size=SIZE, plate=PLATE, cream=CREAM):
-    """The emblem as an RGBA image; plate None leaves it out."""
+def draw(size=SIZE, plate=PLATE, cream=CREAM, scale=1.25):
+    """The emblem as an RGBA image; plate None leaves it out. scale sizes the
+    glyph (1.25 on its plate; larger alone, so it fills its square)."""
     from PIL import Image, ImageDraw
     big = size * 4  # drawn large, then scaled down for smooth edges
     k = big / 100
     image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     pen = ImageDraw.Draw(image)
     at = lambda points: [(x * k, y * k) for x, y in points]
-    # The glyph's points in a 0..100 square, scaled 1.25 about (50, 49).
-    glyph = lambda points: at([(50 + (x - 50) * 1.25, 49 + (y - 49) * 1.25) for x, y in points])
-    stroke = int(7 * k)
+    # The glyph's points in a 0..100 square, scaled about (50, 46) (its middle).
+    centre = 46 if plate is None else 49
+    glyph = lambda points: at([(50 + (x - 50) * scale, centre + (y - centre) * scale) for x, y in points])
+    stroke = int(7 * k * min(scale / 1.25, 1.35))
     if plate:
         pen.polygon(at([(50, 0.5), (99.5, 50), (50, 99.5), (0.5, 50)]), fill=plate)
     pen.polygon(glyph([(50, 25), (54.5, 38), (45.5, 38)]), fill=cream)              # upright blade
@@ -49,6 +53,52 @@ def png(image):
     return out.getvalue()
 
 
+PAPER = (211, 206, 184, 255)  # the launcher's paper (Look.java)
+WHITE = (255, 255, 255, 255)
+
+
+def asset_files(base=root):
+    """Where each emblem file goes, under base (the repository)."""
+    return {
+        # Copied into the app's assets/lunar/ by build_native.sh (assets/ is generated).
+        "notification": base / "android/emblem/bunker-emblem-notification.png",
+        "shortcut": base / "android/emblem/bunker-emblem-shortcut.png",
+        "ios@2x": base / "ios/launcher/BunkerEmblem@2x.png",
+        "ios@3x": base / "ios/launcher/BunkerEmblem@3x.png",
+    }
+
+
+def shortcut(size=192):
+    """An adaptive launcher icon: paper edge to edge, the emblem in its safe middle."""
+    from PIL import Image
+    icon = Image.new("RGBA", (size, size), PAPER)
+    emblem = draw(size * 52 // 100)
+    icon.alpha_composite(emblem, ((size - emblem.width) // 2, (size - emblem.height) // 2))
+    return icon
+
+
+def write_assets(base=root):
+    """The emblem files for the apps (asset_files)."""
+    files = asset_files(base)
+    made = {
+        # Android notification icons are white on transparent; the glyph alone reads at 24 dp.
+        "notification": draw(96, plate=None, cream=WHITE, scale=1.9),
+        "shortcut": shortcut(),
+        # iOS draws quick action icons from the shape (template image): the glyph alone, 35 pt.
+        "ios@2x": draw(70, plate=None, cream=WHITE, scale=1.9),
+        "ios@3x": draw(105, plate=None, cream=WHITE, scale=1.9),
+    }
+    for name, image in made.items():
+        files[name].parent.mkdir(parents=True, exist_ok=True)
+        files[name].write_bytes(png(image))
+
+
+def favicon_data_uri():
+    """The web builder's tab icon: the emblem with its plate, 64 px."""
+    import base64
+    return "data:image/png;base64," + base64.b64encode(png(draw(64))).decode()
+
+
 def write_header(path=HEADER):
     data = png(draw())
     lines = [", ".join(str(b) for b in data[i:i + 24]) for i in range(0, len(data), 24)]
@@ -61,4 +111,6 @@ def write_header(path=HEADER):
 
 if __name__ == "__main__":
     write_header()
+    write_assets()
     print(HEADER)
+    print(favicon_data_uri()[:60] + "…  (web/index.html: <link rel=\"icon\">)")

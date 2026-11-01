@@ -238,6 +238,11 @@ def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_
     if destination.exists():
         shutil.rmtree(destination)
     place(framework, destination, move)
+    # The quick action's icon (UIApplicationShortcutIcon iconWithTemplateImageName:@"BunkerEmblem")
+    # is looked up in the app's own folder; it ships in the launcher framework (build_framework.sh).
+    for name in ("BunkerEmblem@2x.png", "BunkerEmblem@3x.png"):
+        if (destination / name).is_file():
+            shutil.copyfile(destination / name, app / name)
     if python:
         add_python(app, python, move)
     if notices:

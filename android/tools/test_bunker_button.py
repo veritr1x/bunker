@@ -40,6 +40,56 @@ class Icon(unittest.TestCase):
         self.assertEqual(icon.getpixel((64, 35))[:3], (231, 224, 205))
 
 
+ASSETS = root / "android/emblem"
+IOS_LAUNCHER = root / "ios/launcher"
+
+
+@unittest.skipUnless(Image, "needs Pillow")
+class EmblemElsewhere(unittest.TestCase):
+    """The emblem replaces Bunker's other marks: Android's notification and
+    shortcut icons, iOS's quick action and the web builder's tab icon."""
+    def test_files_match_the_generator(self):
+        import bunker_icon
+        with tempfile.TemporaryDirectory() as tmp:
+            bunker_icon.write_assets(Path(tmp))
+            for name, made in bunker_icon.asset_files(Path(tmp)).items():
+                self.assertEqual(made.read_bytes(), bunker_icon.asset_files(root)[name].read_bytes(), name)
+
+    def test_notification_icon_is_white_on_transparent(self):
+        icon = Image.open(ASSETS / "bunker-emblem-notification.png").convert("RGBA")
+        self.assertEqual(icon.size, (96, 96))
+        colours = {px[:3] for px in icon.getdata() if px[3] > 0}
+        self.assertEqual(colours, {(255, 255, 255)})
+
+    def test_shortcut_icon_has_the_plate_on_paper(self):
+        icon = Image.open(ASSETS / "bunker-emblem-shortcut.png").convert("RGBA")
+        self.assertEqual(icon.size, (192, 192))
+        self.assertEqual(icon.getpixel((4, 4)), (211, 206, 184, 255))  # the launcher's paper, edge to edge (adaptive icon)
+
+    def test_ios_quick_action_template_at_2x_and_3x(self):
+        for scale, side in ((2, 70), (3, 105)):
+            icon = Image.open(IOS_LAUNCHER / f"BunkerEmblem@{scale}x.png").convert("RGBA")
+            self.assertEqual(icon.size, (side, side))
+            self.assertEqual(icon.getpixel((0, 0))[3], 0)
+
+    def test_the_apps_use_them(self):
+        java = (root / "android/app/src/main/java/org/veritr1x/bunker/Look.java").read_text()
+        self.assertIn("bunker-emblem-notification.png", java)
+        self.assertIn("bunker-emblem-shortcut.png", java)
+        self.assertIn("Look.emblem(this)", (root / "android/app/src/main/java/org/veritr1x/bunker/ServerService.java").read_text())
+        self.assertIn("Look.shortcutEmblem(this)", (root / "android/app/src/main/java/org/veritr1x/bunker/MainActivity.java").read_text())
+        launcher = (IOS_LAUNCHER / "LunarLauncher.m").read_text()
+        self.assertIn('iconWithTemplateImageName:@"BunkerEmblem"', launcher)
+        self.assertNotIn("slider.horizontal.3", launcher)
+        self.assertIn("BunkerEmblem@", (root / "ios/tools/build_framework.sh").read_text())
+        self.assertIn("BunkerEmblem@", (root / "ios/tools/package_ipa.py").read_text())
+
+    def test_web_builder_tab_icon(self):
+        import bunker_icon
+        page = (root / "web/index.html").read_text()
+        self.assertIn('<link rel="icon" href="' + bunker_icon.favicon_data_uri() + '">', page)
+
+
 @unittest.skipUnless(shutil.which("cc"), "needs a C compiler")
 class Rules(unittest.TestCase):
     """Each case runs the C functions through a small driver."""
