@@ -140,6 +140,19 @@ def history():
         return {}
 
 
+# Home banners whose run is not restored: their summon is not listed then
+# (Bunker leaves out summon 9000085; summon 159 is a parked rerun), so the
+# banner would open the Summons screen on another summon.
+UNRESTORED_BANNERS = {274, 365}
+
+
+def history_spec(table, spec):
+    """A table's recorded runs to restore (calendar_history.json)."""
+    if table != "m_mom_banner":
+        return spec
+    return dict(spec, rows={k: v for k, v in spec["rows"].items() if int(k) not in UNRESTORED_BANNERS})
+
+
 def runs(final, lost, keep_runs=False):
     """The (start, end) ranges a row opens in a loop. One that ends up open for
     good opens from its first run, unless keep_runs (an Abyss Tower, which
@@ -330,6 +343,7 @@ def restore_history(toc, blob, changed, schemas):
     from patcher import patch_masterdata as pm
     copies, other = {}, {}
     for table, spec in history().items():
+        spec = history_spec(table, spec)
         kept = copies if table == "m_event_quest_chapter" else other if table in COPIED else None
         pm.apply_to_table(toc, blob, changed, table, lambda b, s=spec, t=table, k=kept: restore_runs(b, s, k, table_name=t))
     if copies:

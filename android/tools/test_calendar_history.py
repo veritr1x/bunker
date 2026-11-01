@@ -314,5 +314,16 @@ class ExchangesInTheGameData(unittest.TestCase):
         self.assertGreater(rewards, 1000)
 
 
+
+class BannerRuns(unittest.TestCase):
+    def test_banners_of_summons_bunker_does_not_list_stay_parked(self):
+        # Banner 274 opens summon 9000085, which Bunker leaves out; banner 365
+        # opens summon 159, a parked rerun. Their restored runs would open the
+        # Summons screen on another summon.
+        spec = {"key": [0], "dates": [6, 7], "rows": {"274": [[1, 2]], "365": [[3, 4]], "22": [[5, 6]]}}
+        self.assertEqual(sorted(cal.history_spec("m_mom_banner", spec)["rows"]), ["22"])
+        self.assertIs(cal.history_spec("m_tip", spec), spec)
+
+
 if __name__ == "__main__":
     unittest.main()
