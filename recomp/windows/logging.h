@@ -16,11 +16,13 @@ class Logging {
   explicit Logging(addr_t marker_base = 0x7ff800000000ULL);
   addr_t Marker(const std::string &name) const;
   void Install(recomp::Runtime &runtime);
-  void SetOutput(Writer writer) { output_ = std::move(writer); }
-  void SetLog(LogWriter writer) { log_ = std::move(writer); }
-  void SetStream(StreamWriter writer) { stream_ = std::move(writer); }
-  void SetAllocator(std::function<void *(uint64_t)> allocator) { allocator_ = std::move(allocator); }
-  void SetErrorSink(std::function<void(int)> sink) { error_sink_ = std::move(sink); }
+  // Callbacks execute without provider locks and may run concurrently. A sink
+  // that shares mutable host state must provide its own synchronization.
+  void SetOutput(Writer writer) { std::lock_guard lock(mutex_); output_ = std::move(writer); }
+  void SetLog(LogWriter writer) { std::lock_guard lock(mutex_); log_ = std::move(writer); }
+  void SetStream(StreamWriter writer) { std::lock_guard lock(mutex_); stream_ = std::move(writer); }
+  void SetAllocator(std::function<void *(uint64_t)> allocator) { std::lock_guard lock(mutex_); allocator_ = std::move(allocator); }
+  void SetErrorSink(std::function<void(int)> sink) { std::lock_guard lock(mutex_); error_sink_ = std::move(sink); }
   int Error() const;
  private:
   void Invoke(size_t index, State &state) noexcept;

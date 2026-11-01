@@ -57,6 +57,11 @@ def main():
          hp(HERE.parent / 'windows/jni_host.cpp'), hp(HERE.parent / 'windows/logging.cpp'),
          hp(HERE / 'format.cpp'), hp(HERE / 'runtime.cpp'), '-latomic', '-o', hp(memory_unit)])
     run([memory_unit])
+    callback_unit = out / ('logging-callbacks.exe' if a.windows else 'logging-callbacks')
+    run([cxx, *common, hp(HERE.parent / 'windows/logging_callback_test.cpp'),
+         hp(HERE.parent / 'windows/logging.cpp'), hp(HERE / 'format.cpp'),
+         hp(HERE / 'runtime.cpp'), '-latomic', '-o', hp(callback_unit)])
+    run([callback_unit])
     fatal = subprocess.run([str(logging_unit), '--assert'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if fatal.returncode == 0 or b'fatal 42' not in fatal.stderr:
         raise RuntimeError('guest assertion did not report and terminate')

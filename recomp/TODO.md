@@ -28,11 +28,11 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Parallel, resumable Windows COFF translation with hash-verified caches and
   immutable lifter/semantics snapshots. Unknown targets and unliftable
   instructions fail explicitly.
-- Guard-proven jump-table recovery finds 5,232 Unity and 13,473 IL2CPP case
-  entries (Unity now 5,238), including width-equivalent masked indices,
+- Guard-proven jump-table recovery finds 5,238 Unity and 13,473 IL2CPP case
+  entries, including width-equivalent masked indices,
   bounded loop closure and joined guard paths.
-  Byte/halfword/signed-word, masked-loop and joined layouts pass 9,984 ARM64-reference
-  checks per platform. Ambiguous patterns remain explicitly unresolved.
+  Byte/halfword/signed-word, masked-loop and joined layouts pass 9,984
+  ARM64-reference checks per platform. Ambiguous patterns remain unresolved.
 - Real `libFastAES.so` executes as native Windows x86_64 code: all 48 calls
   match the original ARM64 reference and OpenSSL.
 - Real `libmain.so` translated `JNI_OnLoad` registers its original loader
