@@ -29,6 +29,13 @@ uint64_t ThreadKey() {
 constexpr addr_t kMapFailed = UINT64_MAX;
 constexpr uint64_t kPage = 4096;
 constexpr size_t kIoChunk = 65536;
+std::atomic<uint64_t> next_mapping_generation{1};
+uint64_t MappingGeneration(){
+  auto current=next_mapping_generation.load(std::memory_order_relaxed);
+  do{if(current==UINT64_MAX)throw std::overflow_error("mmap lifetime generation exhausted");}
+  while(!next_mapping_generation.compare_exchange_weak(current,current+1,std::memory_order_relaxed));
+  return current;
+}
 bool SnapshotString(const char *source, std::string &value, size_t limit) {
   value.clear();if(!source)return false;
   for(size_t i=0;i<limit;++i){char c;recomp::ReadGuestMemory(&c,reinterpret_cast<addr_t>(source)+i,1);if(!c)return true;value+=c;}
@@ -94,7 +101,7 @@ struct FileSystem::Impl {
     Stream(FILE *n,bool w,uint64_t d):native(n),writable(w),device(d){}
     ~Stream(){if(native)std::fclose(native);}
   };
-  struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; };
+  struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation; };
   std::recursive_mutex mutex;
   std::vector<Mount> mounts;
   std::map<int, std::shared_ptr<Descriptor>> descriptors;
@@ -390,13 +397,14 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   const bool no_replace = flags & linux_flags::map_fixed_no_replace;
   if (no_replace && (!address || address % kPage)) { impl_->Error(22); return kMapFailed; }
   uint64_t rounded = RoundPage(length);
+  const auto generation=MappingGeneration();
   if (flags & linux_flags::map_anonymous) {
     if (offset || (flags & 3) == linux_flags::map_shared) { impl_->Error(95); return kMapFailed; }
     void *result = VirtualAlloc(reinterpret_cast<void *>(address), rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result && address && !no_replace) result = VirtualAlloc(nullptr, rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result) { if (no_replace && GetLastError() == ERROR_INVALID_ADDRESS) impl_->Error(17); else impl_->WinError(); return kMapFailed; }
     if (no_replace && reinterpret_cast<addr_t>(result) != address) { VirtualFree(result, 0, MEM_RELEASE); impl_->Error(17); return kMapFailed; }
-    auto pointer = reinterpret_cast<addr_t>(result);recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false}); return pointer;
+    auto pointer = reinterpret_cast<addr_t>(result);recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false,generation}); return pointer;
   }
   auto found = impl_->descriptors.find(descriptor);
   if (found == impl_->descriptors.end() || (found->second->flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
@@ -425,7 +433,7 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   auto pointer = reinterpret_cast<addr_t>(view) + delta;
   DWORD previous;
   if (!VirtualProtect(reinterpret_cast<void *>(pointer), length, Protection(protection, private_file), &previous)) { impl_->WinError(); UnmapViewOfFile(view); CloseHandle(object); return kMapFailed; }
-  recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{view, object, rounded, true, private_file}); return pointer;
+  recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{view, object, rounded, true, private_file,generation}); return pointer;
 }
 int FileSystem::Munmap(addr_t address, uint64_t length) {
   std::lock_guard lock(impl_->mutex); auto found = impl_->mappings.find(address);
@@ -448,6 +456,26 @@ int FileSystem::Mprotect(addr_t address, uint64_t length, int protection) {
     }
   }
   impl_->Error(12); return -1;
+}
+std::optional<FileSystem::MappingInfo> FileSystem::MappingRegion(addr_t address,uint64_t length,bool writable)const{
+  if(!length||length>UINT64_MAX-address)return {};
+  std::lock_guard lock(impl_->mutex);auto found=impl_->mappings.upper_bound(address);
+  if(found==impl_->mappings.begin())return {};--found;
+  const auto base=found->first,size=found->second.rounded_length;
+  if(address<base||address-base>size||length>size-(address-base)||size>UINT64_MAX-base)return {};
+  for(auto cursor=address;cursor<address+length;){
+    MEMORY_BASIC_INFORMATION info{};
+    if(!VirtualQuery(reinterpret_cast<const void*>(cursor),&info,sizeof(info))||info.State!=MEM_COMMIT||(info.Protect&PAGE_GUARD))return {};
+    const auto protection=info.Protect&0xff;
+    const bool read=protection==PAGE_READONLY||protection==PAGE_READWRITE||protection==PAGE_WRITECOPY||
+      protection==PAGE_EXECUTE_READ||protection==PAGE_EXECUTE_READWRITE||protection==PAGE_EXECUTE_WRITECOPY;
+    const bool write=protection==PAGE_READWRITE||protection==PAGE_WRITECOPY||protection==PAGE_EXECUTE_READWRITE||protection==PAGE_EXECUTE_WRITECOPY;
+    if(!read||(writable&&!write))return {};
+    const auto region=reinterpret_cast<addr_t>(info.BaseAddress);
+    if(cursor<region||cursor-region>=info.RegionSize)return {};
+    cursor+=std::min<uint64_t>(address+length-cursor,info.RegionSize-(cursor-region));
+  }
+  return MappingInfo{base,size,found->second.generation};
 }
 addr_t FileSystem::Marker(const std::string &name) const {
   if (name == "__sF") return const_cast<FileSystem *>(this)->StandardStreamsAddress();
