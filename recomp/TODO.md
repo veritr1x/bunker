@@ -23,6 +23,37 @@ here. This file says where things stand and what to do next.
 - **Coverage now** (instructions; SIMD in brackets): `libil2cpp.so` 99.98%
   (99.8%), `libunity.so` 97.93% (85.4%), `libgrpc_csharp_ext.so` 98.72% (85.9%).
 
+## Current progress
+
+### November 1, 2026: batch 2 started
+
+- Added 32-bit and 64-bit ADC/ADCS decoders and semantics in the Remill fork,
+  plus 24 AArch64 differential-test cases (overlap, zero-register reads,
+  discarded writes, carry, signed overflow and W-register zero-extension).
+  Saved as local fork commit `87ac48f` in the Windows checkout; not pushed.
+- Validation on WSL x86_64 with LLVM 18.1.3: Remill builds; 6,412,544 direct
+  semantics checks and 3,915,264 lifted-code checks match x86 ADC hardware.
+  The complete AArch64 assembly test source assembles. The ARM64 differential
+  executable has not been run for this group.
+- Same-machine `libgrpc_csharp_ext.so` coverage: 98.72% → 99.44%, 719 → 728
+  supported forms out of 826. All nine ADC/ADCS forms now lift: 2,859 additional
+  instructions; no other forms changed. Baseline/new reports are in
+  `recomp/work/coverage/libgrpc_csharp_ext.so/report.llvm18-{batch1,addcarry}.json`
+  in the WSL build checkout. The other two large libraries still need remeasurement.
+- Added `remill/check_addcarry.sh` and `remill/check_addcarry_lifted.py`; see
+  README for repeatable commands. Fixed `test_in_dev.sh` to propagate failed
+  tests and report when the ARM64 executable is unavailable.
+- Current Windows checkout: `C:\GitRepos\bunker`, branch `recomp-x86_64`.
+  Separate WSL build checkout: `/home/user/bunker-recomp`; the older
+  `/home/user/bunker` has unrelated Archive edits and was left untouched.
+  Remill source is under `recomp/work/remill-src` in both checkouts.
+- Docker Desktop and WSL integration are running. The LLVM 22 dev-image build
+  was stopped during a stalled Ubuntu base-image download; it is not ready.
+  Validation used the completed native WSL LLVM 18 build instead.
+- Next: run the new differential cases on ARM64, then continue the Unity
+  instruction groups below (single-lane LD1, USHL, etc.). The rest of batch 2
+  and whole-library lifting remain unfinished.
+
 ## Setting up on Windows
 
 1. Install WSL2 (Ubuntu) and Docker Desktop with the WSL2 backend. Run every
@@ -48,6 +79,12 @@ and not the semantics'. Treat results from the Mac (Apple Silicon) or another
 real ARM64 Linux machine as the reference. Writing semantics, building and
 measuring coverage all work fine on x86_64.
 
+The default dev image builds for its host architecture. Remill's CMake disables
+the AArch64 differential suite on x86_64, even when its option is requested.
+An emulated run therefore requires explicitly building an ARM64 image; running
+`dev.sh test` in the default x86_64 image does not do this automatically. The
+add/carry hardware checks above work directly on x86_64 without emulation.
+
 ## Next tasks
 
 ### 1. Remill batch 2: the next most common missing instructions
@@ -61,7 +98,7 @@ From `coverage.py report --tag bunker1` (counts are occurrences in the library):
 - `libil2cpp.so`: `scvtf s, s` (268), `fnmul` (141), `fabd` (65), `ld1r`,
   `fcvtn`/`fcvtl`/`fcvtzu`/`ucvtf` vector, `stlr xzr` (53). Small counts, but
   this is the game's own code, so each one matters.
-- `libgrpc_csharp_ext.so`: `adcs` (2,756 across forms), `stxr` (467), `tbl`,
+- `libgrpc_csharp_ext.so`: ADC/ADCS is now implemented; next are `stxr` (467), `tbl`,
   `mla` by element, `ushr`/`sli`, the AES instructions.
 
 How each one is added (see batch 1 in the fork for worked examples):
