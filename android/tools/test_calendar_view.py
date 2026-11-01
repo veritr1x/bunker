@@ -7,6 +7,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "android/app/src/main/python"))
 import android_calendar as cal  # noqa: E402
+import android_patcher as ap  # noqa: E402
 from web import config  # noqa: E402
 
 WEEK = cal.WEEK
@@ -78,22 +79,22 @@ class OriginalDates(unittest.TestCase):
         # 1.6.1 built the copy; the launcher runs this before the server starts.
         cal.view_file().write_bytes(b"old view")
         cal.write_state(self.state(originalDates=True))
-        self.assertTrue(cal.update_for("1.6.2"))
+        self.assertTrue(ap.update_for("1.6.2"))
         self.assertEqual(self.builds, [0])
         self.assertEqual(cal.view_file().read_bytes(), b"view")
-        self.assertEqual(cal.updated_file().read_text(), "1.6.2")
+        self.assertEqual(ap.updated_file().read_text(), "1.6.2")
 
     def test_an_update_runs_once_per_version(self):
         cal.write_state(self.state(originalDates=True))
-        cal.update_for("1.6.2")
-        self.assertFalse(cal.update_for("1.6.2"))
-        self.assertTrue(cal.update_for("1.6.3"))
-        self.assertEqual(cal.updated_file().read_text(), "1.6.3")
+        ap.update_for("1.6.2")
+        self.assertFalse(ap.update_for("1.6.2"))
+        self.assertTrue(ap.update_for("1.6.3"))
+        self.assertEqual(ap.updated_file().read_text(), "1.6.3")
 
     def test_an_update_rebuilds_game_data_from_before(self):
         cal.write_state({k: v for k, v in self.state().items() if k != "dataVersion"})
         with mock.patch.object(cal.patcher, "activate"):
-            cal.update_for("1.6.2")
+            ap.update_for("1.6.2")
         self.assertEqual(self.builds, [100 * WEEK])
 
     def test_no_view_copy_is_built_with_original_dates_off(self):

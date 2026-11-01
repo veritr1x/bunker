@@ -2057,10 +2057,10 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         const char *saveFrom = getenv("LUNAR_IMPORT_SAVE"), *masterFrom = getenv("LUNAR_IMPORT_MASTER");
         NSString *saveSource = saveFrom && *saveFrom ? [NSString stringWithUTF8String:saveFrom] : nil;
         NSString *masterSource = masterFrom && *masterFrom ? [NSString stringWithUTF8String:masterFrom] : nil;
-        // After an update, the calendar's game data is brought up to this build
-        // before the server starts; the launcher shows meanwhile.
-        BOOL updateCalendar = LTToolsAvailable() && LTCalendarNeedsUpdate(gSaves, BunkerVersion());
-        if (updateCalendar) { gOpenMenu = YES; gMessage = @"Updating the calendar for this version…"; }
+        // After an update, the game data (the calendar's or a preset's) is brought
+        // up to this build before the server starts; the launcher shows meanwhile.
+        BOOL updateData = LTToolsAvailable() && LTDataNeedsUpdate(gSaves, ToolsRoot(), BunkerVersion());
+        if (updateData) { gOpenMenu = YES; gMessage = @"Updating your game data for this version…"; }
         NSString *originalMaster = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
         dispatch_async(gQueue, ^{
             // Automation only, like LUNAR_IMPORT_FROM: import a save backup
@@ -2075,16 +2075,16 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                 NSString *result = ImportMaster([NSURL fileURLWithPath:source]);
                 NSLog(@"[LunarTear] master import result: %@", result.length ? result : @"ok");
             }
-            NSString *calendar = @"";
-            if (updateCalendar) {
+            NSString *update = @"";
+            if (updateData) {
                 AttachInPlace();  // Game files kept in place: the catalog is read through the link.
-                calendar = LTUpdateCalendar(gSaves, gServerRoot, ToolsRoot(), originalMaster, BunkerVersion());
-                NSLog(@"[LunarTear] calendar update: %@", calendar.length ? calendar : @"ok");
-                // A failure leaves the calendar as it was; the game still starts.
-                if (calendar.length) calendar = [@"The calendar could not be updated: " stringByAppendingString:calendar];
+                update = LTUpdateData(gSaves, gServerRoot, ToolsRoot(), originalMaster, BunkerVersion());
+                NSLog(@"[LunarTear] game data update: %@", update.length ? update : @"ok");
+                // A failure leaves the game data as it was; the game still starts.
+                if (update.length) update = [@"Your game data could not be updated: " stringByAppendingString:update];
             }
             NSString *error = StartServer();
-            gMessage = error.length ? error : calendar;
+            gMessage = error.length ? error : update;
             // An import at launch may have left the launcher open; show the result.
             dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
         });
