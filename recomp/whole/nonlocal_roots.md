@@ -1,10 +1,10 @@
 # Proven setjmp continuation roots
 
-nonlocal_roots.recover(elf) is an isolated analysis API. It returns entries,
+nonlocal_roots.recover(elf) is an analysis API. It returns entries,
 continuations, unresolved and summary. Addresses are ELF virtual addresses,
 before the caller adds its chosen guest load base. Each accepted continuation
 records the call site, API name, post-call entry and complete import proof.
-It makes no compiler/runtime changes and implements no longjmp transfer.
+The compiler uses it by default and implements no longjmp transfer.
 
 Only an aligned direct AArch64 BL to a proved undefined setjmp, _setjmp or
 sigsetjmp import seeds site+4. The entire next four-byte instruction must be
@@ -60,15 +60,24 @@ relocation/load/provenance cases above. The return PCs have neither exported/
 local symbols nor containing unwind FDEs.
 
 On native Linux and Windows, both normal and padded fixtures reproduce missing
-entry dispatch in a baseline build. The isolated recovered build dispatches
+entry dispatch in a baseline build. The recovered build dispatches
 all three return PCs and passes 18 checks per variant, 36 per host, for actual
 effects, return value, callee register, SP, PC and registered entry. Tests prepare
 the explicit starting State/stack for that availability check; they do not
 perform a setjmp/longjmp cycle. Unexpected import execution aborts. No exception
 crosses a lifted nounwind intrinsic.
 
-The runner injects roots only into its in-process compiler instance; shared
-compile.py stays untouched. Ignored work/nonlocal-roots-{linux,windows}
+compile.py rebases proved entries into its normal seed/trace-head set and
+records nonlocal_roots.enabled/entries/continuations/unresolved in both plan
+and final manifest. --no-nonlocal-roots provides a diagnostic baseline. Every
+returned entry is independently checked for aligned, complete executable bytes.
+Resume cache keys already include seeds and all known trace boundaries; changing
+the root option therefore invalidates incompatible shards. Tests exercise the
+real CLI default/opt-out, unchanged resume and toggling roots in the same output.
+test_nonlocal_compile.py adds 52 plan/manifest/rebasing/CLI checks, including
+independent callback flags, analyzer bypass when disabled, and rejection of
+forged unaligned, nonexecutable or truncated instruction roots.
+Ignored work/nonlocal-roots-{linux,windows}
 contains static reports, per-ELF audits, baseline/recovered manifests and native
-results. Production integration, saved execution lifetimes, rooted engine
-overlays, mask commit and controlled unwind/dispatch remain parent-owned work.
+results. Saved execution lifetimes, actual engine refreshes, mask commit and
+controlled unwind/dispatch remain parent-owned work.

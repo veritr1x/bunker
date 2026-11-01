@@ -1,7 +1,6 @@
 """NDK static import-ownership proofs and continuation-only native dispatch."""
 import argparse
 import hashlib
-import importlib.util
 import io
 import json
 from pathlib import Path
@@ -112,8 +111,6 @@ def main():
             print('Actual Unity continuation proved: ELF0x43a04c -> guest0x7043a04c',flush=True)
     if a.analysis_only:return
     if a.lift is None:p.error('--lift required for native continuation dispatch gate')
-    spec=importlib.util.spec_from_file_location('nonlocal_fixture_compiler',HERE/'compile.py')
-    compiler=importlib.util.module_from_spec(spec);spec.loader.exec_module(compiler);original=compiler.inspect
     def hp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()if a.windows else str(path)
     hostcc='/mnt/c/mingw64/bin/gcc.exe'if a.windows else'clang-18';hostcxx='/mnt/c/mingw64/bin/g++.exe'if a.windows else'clang++-18'
     loader=out/'elfload.o';subprocess.run([hostcc,'-O2','-c',hp(HERE.parent/'fastaes/elfload.c'),'-o',hp(loader)],check=True)
@@ -121,20 +118,16 @@ def main():
     for name,library,report in valid:
         for recovered in (False,True):
             destination=out/name.lower()/('recovered'if recovered else'baseline')
-            def inspect(path,base,**options):
-                # Isolated injection only: compile.py stays unchanged.
-                image,start,entries,manifest=original(path,base,**options)
-                requested={base+e for e in report['entries']}
-                entries=sorted((set(entries)|requested)if recovered else(set(entries)-requested))
-                manifest['isolated_nonlocal_roots']=dict(enabled=recovered,**report)
-                return image,start,entries,manifest
-            compiler.inspect=inspect;previous=sys.argv
-            try:
-                sys.argv=[str(HERE/'compile.py'),str(library),'--out',str(destination),'--lift',str(a.lift),
-                          '--cxx','clang++-18','--base','0x5c000000','--target','x86_64-w64-windows-gnu'if a.windows else'x86_64-linux-gnu']
-                compiler.main()
-            finally:sys.argv=previous
+            compile_command=[sys.executable,str(HERE/'compile.py'),str(library),'--out',str(destination),'--lift',str(a.lift),
+                     '--cxx','clang++-18','--base','0x5c000000','--resume','--target',
+                     'x86_64-w64-windows-gnu'if a.windows else'x86_64-linux-gnu']
+            if not recovered:compile_command.append('--no-nonlocal-roots')
+            subprocess.run(compile_command,check=True)
             manifest=json.loads((destination/'manifest.json').read_text());assert not manifest['unsupported_traces']
+            evidence=manifest['nonlocal_roots'];assert evidence['enabled']==recovered
+            assert evidence['entries']==(report['entries']if recovered else[])
+            assert evidence['continuations']==(report['continuations']if recovered else[])
+            assert not evidence['unresolved']
             roots={0x5c000000+e for e in report['entries']};actual=set(manifest['traces'])
             assert roots<=actual if recovered else roots.isdisjoint(actual),'Fixture return PCs already baseline roots'
             (destination/'nonlocal_entries.h').write_text('static constexpr addr_t kNonlocalEntries[]={'+','.join(hex(e)for e in sorted(roots))+'};\n')
@@ -150,6 +143,22 @@ def main():
                 print(name,'baseline reproduces unavailable post-call dispatch entry',flush=True)
             native.append(dict(variant=name,recovered=recovered,exit_code=run.returncode,stdout=run.stdout.decode(),
                                stderr=run.stderr.decode(),executable_sha256=hashlib.sha256(binary.read_bytes()).hexdigest()))
+            if recovered:
+                objects=[Path(p)for p in manifest['objects']];stamps={str(p):p.stat().st_mtime_ns for p in objects}
+                cached=subprocess.check_output(compile_command,text=True)
+                assert cached.count('(cached)')==len(objects),cached
+                assert stamps=={str(p):p.stat().st_mtime_ns for p in objects}
+                if name=='NORMAL':
+                    disabled=subprocess.check_output(compile_command+['--no-nonlocal-roots'],text=True)
+                    assert '(cached)'not in disabled,'Disabled roots reused incompatible shard boundaries'
+                    baseline=json.loads((destination/'manifest.json').read_text())
+                    assert not baseline['nonlocal_roots']['enabled']and roots.isdisjoint(baseline['traces'])
+                    enabled=subprocess.check_output(compile_command,text=True)
+                    assert '(cached)'not in enabled,'Reenabled roots reused baseline shards'
+                    restored=json.loads((destination/'manifest.json').read_text())
+                    assert restored['nonlocal_roots']['enabled']and roots<=set(restored['traces'])
+                    assert subprocess.check_output(compile_command,text=True).count('(cached)')==len(restored['objects'])
+                print(name,'CLI defaults/opt-out and root-sensitive resume boundaries pass',flush=True)
     (out/'native-results.json').write_text(json.dumps(native,indent=2)+'\n')
 
 
