@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import struct
+from typing import NamedTuple
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
@@ -753,15 +754,34 @@ def names(kind):
     return {r["id"]: r["name"] for r in data.get("records", []) if isinstance(r, dict) and r.get("name_found") and isinstance(r.get("id"), int)}
 
 
+class Entry(NamedTuple):
+    """Dated content: its kind and name, when it is open, the Archive page it
+    links to (or "") and its banner art's bundle path (or "")."""
+    kind: str
+    name: str | None
+    start: int
+    end: int
+    ref: str = ""
+    art: str = ""
+
+
+def summon_art(asset):
+    return f"ui/gacha/en/{asset}/mom_banner.assetbundle" if asset else ""
+
+
 def entries():
-    """Dated content the Schedule page lists: (kind, name, start, end)."""
+    """Dated content the Schedule page lists (Entry)."""
     found = []
     event_names = names("event_quests")
     lost = history().get("m_event_quest_chapter", {}).get("rows", {})
     for row in table("EventQuestChapter"):
         final = (row["StartDatetime"], row["EndDatetime"])
         for start, end in runs(final, lost.get(str(row["EventQuestChapterId"]), [])):
-            found.append(("event", event_names.get(row["EventQuestChapterId"]), start, end))
+            # A rerun's copy (chapter + n * COPY_STEP) is the same event in the Archive.
+            banner = row.get("BannerAssetId", 0)
+            found.append(Entry("event", event_names.get(row["EventQuestChapterId"]), start, end,
+                               f"/schedule/event/{row['EventQuestChapterId'] % COPY_STEP}",
+                               f"ui/quest/en/banner/event_banner_{banner:03d}.assetbundle" if banner else ""))
     banner_names = names("gacha_banners")
     # The summons the server offers (server/internal/masterdata/gacha.go):
     # those with a medal, summons sharing a known medal, and the special
@@ -775,11 +795,13 @@ def entries():
             # Only placeholder rows: the dates come from the medal (see parkedReruns).
             parked.add(gacha)
             convert = medals[gacha]["AutoConvertDatetime"]
-            found.append(("summon", banner_names.get(row["MomBannerId"]) or ART_TITLES.get(row["BannerAssetName"]), convert - PARKED_RERUNS[gacha], convert - 2 * DAY))
+            found.append(Entry("summon", banner_names.get(row["MomBannerId"]) or ART_TITLES.get(row["BannerAssetName"]), convert - PARKED_RERUNS[gacha], convert - 2 * DAY,
+                               f"/schedule/summon/{gacha}", summon_art(row["BannerAssetName"])))
     for row in table("MomBanner"):
         if row["DestinationDomainType"] == 1 and row["DestinationDomainId"] in offered and row["DestinationDomainId"] not in PARKED_RERUNS:
             # Some titles are only in the banner art (ART_TITLES).
-            found.append(("summon", banner_names.get(row["MomBannerId"]) or ART_TITLES.get(row["BannerAssetName"]), row["StartDatetime"], row["EndDatetime"]))
+            found.append(Entry("summon", banner_names.get(row["MomBannerId"]) or ART_TITLES.get(row["BannerAssetName"]), row["StartDatetime"], row["EndDatetime"],
+                               f"/schedule/summon/{row['DestinationDomainId']}", summon_art(row["BannerAssetName"])))
     # Summons with a medal but no banner row (server: bannerlessSummons).
     with_banner = {row["DestinationDomainId"] for row in table("MomBanner") if row["DestinationDomainType"] == 1}
     opens = shop_opens_by_price()
@@ -793,22 +815,22 @@ def entries():
         label = shard[shard.find("(") + 1:shard.rfind(")")] if "(" in shard else ""
         if label and "summons" not in label.lower():
             label += " Summons"
-        found.append(("summon", label or None, start, end))
+        found.append(Entry("summon", label or None, start, end, f"/schedule/summon/{gacha}"))
     shop_names = names("shops")
     for row in table("Shop"):
         if row["ShopGroupType"] == 4:
-            found.append(("shop", shop_names.get(row["ShopId"]), row["StartDatetime"], row["EndDatetime"]))
+            found.append(Entry("shop", shop_names.get(row["ShopId"]), row["StartDatetime"], row["EndDatetime"]))
     for row in table("PvpSeason"):
         if not row.get("IsInvalid"):
-            found.append(("arena", f"Arena Season {row['PvpSeasonId'] % 1000:03d}", row["SeasonStartDatetime"], row["SeasonEndDatetime"]))
+            found.append(Entry("arena", f"Arena Season {row['PvpSeasonId'] % 1000:03d}", row["SeasonStartDatetime"], row["SeasonEndDatetime"]))
     for index, row in enumerate(sorted(table("MissionPass"), key=lambda r: r["StartDatetime"]), 1):
-        found.append(("pass", f"Mission pass, month {index}", row["StartDatetime"], row["EndDatetime"]))
+        found.append(Entry("pass", f"Mission pass, month {index}", row["StartDatetime"], row["EndDatetime"]))
     for row in table("BigHuntSchedule"):
-        found.append(("hunt", f"Subjugation Battle {row['BigHuntScheduleId']}", row["ChallengeStartDatetime"], row["ChallengeEndDatetime"]))
+        found.append(Entry("hunt", f"Subjugation Battle {row['BigHuntScheduleId']}", row["ChallengeStartDatetime"], row["ChallengeEndDatetime"]))
     for row in table("EnhanceCampaign") + table("QuestCampaign"):
-        found.append(("campaign", "", row["StartDatetime"], row["EndDatetime"]))
+        found.append(Entry("campaign", "", row["StartDatetime"], row["EndDatetime"]))
     for row in table("ConsumableItemTerm"):
-        found.append(("expiry", "", row["StartDatetime"], row["EndDatetime"]))
+        found.append(Entry("expiry", "", row["StartDatetime"], row["EndDatetime"]))
     # Content that never ends after release is part of the game, not the calendar.
     return [e for e in found if e[2] < NEVER and e[3] < NEVER and e[2] < e[3]]
 
@@ -846,7 +868,7 @@ OTHER = {"event": "other event", "summon": "other summon", "shop": "other shop"}
 def summary(items, at):
     """Open content by kind, soonest to close first; unnamed entries are counted in one line."""
     groups, unnamed = {}, {}
-    for kind, name, start, end in sorted(open_at(items, at), key=lambda e: e[3]):
+    for kind, name, start, end, *_ in sorted(open_at(items, at), key=lambda e: e[3]):
         if name or kind in ("campaign", "expiry"):
             groups.setdefault(kind, []).append({"name": name, "until": short_label(end - 1)})
         else:
@@ -859,7 +881,7 @@ def summary(items, at):
 def updates(state, items, after):
     """Days in the rest of the loop when new events or summons open, named by their first event."""
     days = {}
-    for kind, name, start, end in sorted(items, key=lambda e: (e[2], e[0] != "event")):
+    for kind, name, start, end, *_ in sorted(items, key=lambda e: (e[2], e[0] != "event")):
         if kind in ("event", "summon") and after < start < loop_end(state):
             day = days.setdefault(start_of_day(start), {"at": start, "names": [], "count": 0})
             day["count"] += 1
@@ -873,7 +895,7 @@ def preview(state, items, now, target):
     """What a jump from now to target opens, still pays out, and skips."""
     arrive = now + -(-(target - now) // DAY) * DAY
     paid, missed = [], {}
-    for kind, name, start, end in items:
+    for kind, name, start, end, *_ in items:
         if not now < end <= arrive:
             continue
         if start <= now and kind in ("arena", "pass"):
