@@ -43,7 +43,7 @@ bool SnapshotString(const char *source, std::string &value, size_t limit) {
   return false;
 }
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
-  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf"};
+  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf", "unlink", "rmdir"};
 int GuestCrtError(int error) {
   switch (error) {
     case 0: return 0;
@@ -231,6 +231,43 @@ struct FileSystem::Impl {
     result = canonical;
     return true;
   }
+  int Remove(const char *path,bool directory) {
+    std::lock_guard lock(mutex);
+    if(!path){Error(14);return -1;}
+    std::string snapshot;
+    if(!SnapshotString(path,snapshot,4096)){Error(36);return -1;}
+    if(snapshot.empty()){Error(2);return -1;}
+    // Match mkdir's rooted write policy; do not normalize a parent traversal
+    // into another explicit mount or hide a missing/non-directory ancestor.
+    for(size_t start=0;start<=snapshot.size();){
+      auto end=snapshot.find('/',start);if(end==std::string::npos)end=snapshot.size();
+      if(snapshot.compare(start,end-start,"..")==0){Error(13);return -1;}
+      if(end==snapshot.size())break;start=end+1;
+    }
+    fs::path host;const Mount *mount;
+    try{if(!Resolve(snapshot.c_str(),true,host,mount,true))return -1;}
+    catch(const fs::filesystem_error &){Error(22);return -1;}
+    // Configured capability roots outlive their contents, even when writable.
+    if(host==mount->host){Error(16);return -1;}
+    fs::path parent=mount->host;
+    const auto relative=host.lexically_relative(mount->host);
+    for(auto at=relative.begin();at!=relative.end();++at){
+      auto next=at;++next;if(next==relative.end())break;
+      parent/=*at;auto attributes=GetFileAttributesW(parent.c_str());
+      if(attributes==INVALID_FILE_ATTRIBUTES){Error(DirectoryError(GetLastError()));return -1;}
+      if(!(attributes&FILE_ATTRIBUTE_DIRECTORY)){Error(20);return -1;}
+    }
+    auto attributes=GetFileAttributesW(host.c_str());
+    if(attributes==INVALID_FILE_ATTRIBUTES){Error(DirectoryError(GetLastError()));return -1;}
+    const bool is_directory=(attributes&FILE_ATTRIBUTE_DIRECTORY)!=0;
+    if(!is_directory&&(directory||snapshot.back()=='/')){Error(20);return -1;}
+    if(is_directory&&!directory){Error(21);return -1;}
+    auto final=snapshot.find_last_not_of('/');
+    if(final!=std::string::npos&&snapshot[final]=='.'&&(final==0||snapshot[final-1]=='/')){Error(22);return -1;}
+    const auto removed=directory?RemoveDirectoryW(host.c_str()):DeleteFileW(host.c_str());
+    if(!removed){auto error=GetLastError();Error(error==ERROR_DIR_NOT_EMPTY?39:DirectoryError(error));return -1;}
+    return 0;
+  }
   int NativeFlags(int flags) {
     constexpr int allowed = 3 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 | 0x1000 | 0x4000 | 0x8000 | 0x20000 | 0x80000 | 0x100000;
     if (flags & ~allowed || (flags & 3) == 3) { Error(22); return -1; }
@@ -400,6 +437,8 @@ int FileSystem::Mkdir(const char *path,uint32_t mode) {
   if(error){impl_->Error(error);return -1;}
   return 0;
 }
+int FileSystem::Unlink(const char *path){return impl_->Remove(path,false);}
+int FileSystem::Rmdir(const char *path){return impl_->Remove(path,true);}
 addr_t FileSystem::FOpen(const char *path, const char *mode) {
   std::lock_guard lock(impl_->mutex);
   std::string mode_copy;if(!SnapshotString(mode,mode_copy,16)){impl_->Error(22);return 0;}mode=mode_copy.c_str();
@@ -629,6 +668,8 @@ void FileSystem::Install(recomp::Runtime &runtime) {
   runtime.AddImport(Marker("mprotect"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto prot) { return Mprotect(address, length, prot); }));
   runtime.AddImport(Marker("madvise"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto advice) { return Madvise(address, length, advice); }));
   runtime.AddImport(Marker("setvbuf"), recomp::MakeBridge<int32_t(addr_t, addr_t, int32_t, uint64_t)>([this](auto stream, auto buffer, auto mode, auto size) { return FSetBuffer(stream, buffer, mode, size); }));
+  runtime.AddImport(Marker("unlink"), recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Unlink(path);}));
+  runtime.AddImport(Marker("rmdir"), recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Rmdir(path);}));
   impl_->installed = true;
 }
 }  // namespace bunker::windows
