@@ -18,6 +18,12 @@ work.
   on an iPad Pro: rendering at 1080p takes 2.7 ms of GPU time per frame in
   the field against 6.6 ms at the screen's own resolution. Off by default.
   [d98ed39]
+- Android: Upscaling › FSR 1 or SGSR (AMD FidelityFX FSR 1, Qualcomm
+  Snapdragon Game Super Resolution). Below the screen's own resolution, each
+  frame is upscaled with the chosen one instead of being stretched by the
+  display hardware. Off by default. [cbc1b79]
+- The Display page is grouped under Frame rate, Resolution, Effects and
+  Screen. [2dfa2d5]
 
 ## 1.6.4 (2026-11-01)
 
