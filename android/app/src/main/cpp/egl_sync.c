@@ -16,6 +16,7 @@
 // eglGetProcAddress and dlsym). Each slot is checked to hold that function
 // first; on anything else nothing is changed.
 #include "egl_sync.h"
+#include "render_scale.h"
 
 #include <android/log.h>
 #include <dlfcn.h>
@@ -82,6 +83,7 @@ static int wait_sync(void *display, void *sync, int flags, unsigned long long ti
 
 static void *wrap(const char *name, void *function) {
     if (!function || !name) return function;
+    function = render_scale_wrap(name, function);  // upscaling's GL hooks
     if (!strcmp(name, "eglCreateSyncKHR")) { real_create = (CreateSync)function; return (void *)create; }
     if (!strcmp(name, "eglDestroySyncKHR")) { real_destroy = (DestroySync)function; return (void *)destroy; }
     if (!strcmp(name, "eglClientWaitSyncKHR")) { real_wait = (ClientWaitSync)function; return (void *)wait_sync; }

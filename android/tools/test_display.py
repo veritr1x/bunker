@@ -61,13 +61,18 @@ class Settings(unittest.TestCase):
             self.display.write_settings("120", "native", "full", self.conf, idle="sometimes")
 
     def test_upscaling_is_saved_where_offered(self):
-        # iPhone and iPad offer MetalFX (ios_runtime adds it); Android has only plain stretching.
+        # Android offers FSR 1 and SGSR; iPhone and iPad MetalFX in their place (ios_runtime).
+        for upscaler in ("fsr", "sgsr"):
+            self.display.write_settings("60", "default", "full", self.conf, upscale=upscaler)
+            self.assertEqual(self.display.read_settings(self.conf)["upscale"], upscaler)
         with self.assertRaises(ValueError):
             self.display.write_settings("60", "1080", "full", self.conf, upscale="metalfx")
         from unittest import mock
-        with mock.patch.object(self.display, "UPSCALE", self.display.UPSCALE + self.display.UPSCALE_IOS):
+        with mock.patch.object(self.display, "UPSCALE", self.display.UPSCALE[:1] + self.display.UPSCALE_IOS):
             self.display.write_settings("60", "1080", "full", self.conf, upscale="metalfx")
             self.assertEqual(self.display.read_settings(self.conf)["upscale"], "metalfx")
+            self.assertEqual(self.display.read_settings(self.conf.with_name("none"))["upscale"], "off")
+        self.conf.write_text("upscale=metalfx\n")  # an iPhone setting read on Android
         self.assertEqual(self.display.read_settings(self.conf)["upscale"], "off")
 
     def test_effects_can_be_turned_off(self):
@@ -197,6 +202,22 @@ int main(void) {
 
     def test_heat_does_not_slow_a_rate_already_low_enough(self):
         self.assertEqual(self.run_frames([(None, 1 / 60, 1, 0, 2)], fps=60)[0], 1)
+
+
+class Upscalers(unittest.TestCase):
+    def test_display_conf_names_match_render_scale(self):
+        java = (root / "android/app/src/main/java/org/veritr1x/bunker/DisplayPatch.java").read_text()
+        header = (root / "android/app/src/main/cpp/render_scale.h").read_text()
+        self.assertIn('case "fsr": return 1;', java)
+        self.assertIn('case "sgsr": return 2;', java)
+        self.assertIn("RENDER_SCALE_FSR = 1, RENDER_SCALE_SGSR = 2", header)
+
+    def test_shaders_keep_their_licences(self):
+        shaders = (root / "android/app/src/main/cpp/render_scale_shaders.h").read_text()
+        self.assertIn("Advanced Micro Devices", shaders)
+        self.assertIn("BSD-3-Clause", shaders)
+        for name in ("fidelityfx-fsr1.txt", "snapdragon-gsr.txt"):
+            self.assertTrue((root / "android/licenses" / name).is_file())
 
 
 class RenderEffects(unittest.TestCase):

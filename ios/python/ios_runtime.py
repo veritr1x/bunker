@@ -113,9 +113,8 @@ def _adapt_patcher():
         module.redirect = ios_redirect
     # Texture size goes to Unity on the game's command line, which only Android's launcher sets.
     android_display.TEXTURES = android_display.TEXTURES[:1]
-    # MetalFX upscaling is iPhone and iPad only (LunarUpscale.m).
-    if android_display.UPSCALE_IOS[0] not in android_display.UPSCALE:
-        android_display.UPSCALE = android_display.UPSCALE + android_display.UPSCALE_IOS
+    # Upscaling: MetalFX on iPhone and iPad (LunarUpscale.m) in place of Android's FSR 1 and SGSR.
+    android_display.UPSCALE = android_display.UPSCALE[:1] + android_display.UPSCALE_IOS
 
 
 def _prepare(data_root, asset_root, tools_root, original_master):

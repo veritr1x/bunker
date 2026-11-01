@@ -68,6 +68,7 @@
 
 #include "render_pace.h"
 #include "render_effects.h"
+#include "render_scale.h"
 #include "egl_sync.h"
 #include "flying_mom.h"
 #include "play_services.h"
@@ -399,7 +400,7 @@ static void open_bunker(void) {
 
 static void apply_effects(void) { render_effects_apply(); }
 
-static const char *apply(int fps, int size, int idle, int heat, int effects_off, char *message, size_t length) {
+static const char *apply(int fps, int size, int idle, int heat, int effects_off, int upscale, char *message, size_t length) {
     Site list[8];
     int count = sites(fps, size, list);
     void *library = dlopen("libil2cpp.so", RTLD_NOW);
@@ -426,6 +427,8 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Story rooms: unsupported game binary; on very wide screens the camera stops short of the room's edge");
     if (guerrilla_unlock_button(base, hook))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Guerrilla quests: unsupported game binary; Force Unlock shows before it exists");
+    const char *scale = render_scale_init(upscale);  // before egl_sync_fix, whose lookups it joins
+    if (scale) __android_log_print(ANDROID_LOG_WARN, "Bunker", "%s", scale);
     const char *egl = egl_sync_fix();
     if (egl) __android_log_print(ANDROID_LOG_WARN, "Bunker", "%s", egl);
     const char *play = play_services_fix(write_word);
@@ -473,7 +476,7 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
 
 /** Applies the choices; 0 keeps the game's own value. Returns "" or an error. */
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *env, jclass cls, jint fps, jint size, jboolean idle, jboolean heat,
-                                                                  jint effects_off) {
+                                                                  jint effects_off, jint upscale) {
     (void)cls;
     char message[160];
     if (!java && (*env)->GetJavaVM(env, &java) == JNI_OK) {
@@ -483,7 +486,7 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *en
     }
     if ((fps && (fps < 30 || fps > 240)) || (size && (size < H540 || size > DeviceMax || size == 5)))
         return (*env)->NewStringUTF(env, "Unsupported display setting");
-    return (*env)->NewStringUTF(env, apply(fps, size, idle, heat, effects_off, message, sizeof message));
+    return (*env)->NewStringUTF(env, apply(fps, size, idle, heat, effects_off, upscale, message, sizeof message));
 }
 
 /** The device's heat as it changes (render_pace_set_thermal's levels). */
