@@ -170,7 +170,7 @@ public final class MainActivity extends Activity {
         Intent open=new Intent(this,MainActivity.class).setAction(Intent.ACTION_VIEW).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         android.content.pm.ShortcutInfo menu=new android.content.pm.ShortcutInfo.Builder(this,"bunker-menu")
             .setShortLabel("Bunker menu").setLongLabel("Open the Bunker menu")
-            .setIcon(android.graphics.drawable.Icon.createWithResource(this,getApplicationInfo().icon)).setIntent(open).build();
+            .setIcon(Look.shortcutEmblem(this)).setIntent(open).build();
         try{shortcuts.setDynamicShortcuts(java.util.Collections.singletonList(menu));}catch(RuntimeException ignored){}  // e.g. rate-limited
     }
     @Override public void onResume(){super.onResume();foreground=true;

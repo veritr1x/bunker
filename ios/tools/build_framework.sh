@@ -37,6 +37,8 @@ rm -rf "$framework"; mkdir -p "$framework"
     -framework UIKit -framework QuartzCore -framework WebKit -framework AVKit -framework AVFoundation -framework CoreMedia -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"
+# The Bunker emblem for the home-screen quick action (package_ipa.py puts it in the app, where iOS looks).
+cp "$root_dir/ios/launcher/BunkerEmblem@2x.png" "$root_dir/ios/launcher/BunkerEmblem@3x.png" "$framework/"
 # Bunker's version, for About, the log and updates (package_ipa.py copies it into the app's Info.plist).
 game_patch="$(python3 -c "import sys; sys.path.insert(0, '$root_dir/android/tools'); import build_info; print(build_info.GAME_PATCH)")"
 printf '{"version": "%s", "gamePatch": %s}\n' "$version" "$game_patch" > "$framework/build.json"

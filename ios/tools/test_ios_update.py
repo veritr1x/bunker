@@ -110,6 +110,18 @@ class BuildIpaTests(unittest.TestCase):
         self.assertEqual(info["CFBundleIdentifier"], "org.example.nier")
         self.assertEqual(info["LunarPortOffset"], 3)
 
+    def test_quick_action_icon_goes_beside_the_app(self):
+        # iOS looks up the quick action's template image in the app's own folder.
+        with zipfile.ZipFile(self.framework_zip, "a") as z:
+            z.writestr("LunarTear.framework/BunkerEmblem@2x.png", "emblem 2x")
+            z.writestr("LunarTear.framework/BunkerEmblem@3x.png", "emblem 3x")
+        self.build()
+        with zipfile.ZipFile(self.output) as z:
+            app = "Payload/NieR.app/"
+            self.assertEqual(z.read(app + "BunkerEmblem@2x.png"), b"emblem 2x")
+            self.assertEqual(z.read(app + "BunkerEmblem@3x.png"), b"emblem 3x")
+            self.assertEqual(len([n for n in z.namelist() if n == app + "BunkerEmblem@3x.png"]), 1)
+
     def test_master_data_stays(self):
         # Release bundles never hold master data; the player's own copy stays in the framework.
         self.build()

@@ -89,11 +89,18 @@ def _python_framework(folder):
     return folder.name == "Python.framework" or any(folder.glob("*.origin"))
 
 
+# The home-screen quick action's icon: iOS looks it up in the app's own
+# folder, so it is copied there from the launcher framework (as package_ipa does).
+QUICK_ACTION_ICONS = ("BunkerEmblem@2x.png", "BunkerEmblem@3x.png")
+
+
 def _replaced(relative, python_frameworks):
     parts = relative.parts
     if "_CodeSignature" in parts or relative.name == "embedded.mobileprovision":
         return True
     if parts[0] == "python":
+        return True
+    if len(parts) == 1 and parts[0] in QUICK_ACTION_ICONS:  # taken from the new launcher framework
         return True
     if len(parts) >= 2 and parts[0] == "Frameworks" and parts[1] == "LunarTear.framework":
         # The player's master data stays: release bundles never contain it.
@@ -163,6 +170,11 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
                             copied = zipfile.ZipInfo(prefix + base + entry.filename, entry.date_time)
                             copied.external_attr = entry.external_attr or (0o100644 << 16)  # keeps executables executable
                             out.writestr(copied, source.read(entry))
+                            name = entry.filename.rpartition("/")[2]
+                            if bundle is framework_zip and name in QUICK_ACTION_ICONS:
+                                icon = zipfile.ZipInfo(prefix + name, entry.date_time)
+                                icon.external_attr = 0o100644 << 16
+                                out.writestr(icon, source.read(entry))
         temporary.replace(output)
     finally:
         temporary.unlink(missing_ok=True)

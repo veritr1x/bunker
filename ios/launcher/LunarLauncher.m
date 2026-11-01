@@ -1901,7 +1901,7 @@ static void PerformShortcut(id self, SEL command, UIApplication *application, UI
 static void InstallShortcut(NSDictionary *launchOptions) {
     UIApplication *app = UIApplication.sharedApplication;
     app.shortcutItems = @[[[UIApplicationShortcutItem alloc] initWithType:kMenuShortcut localizedTitle:@"Bunker menu" localizedSubtitle:nil
-        icon:[UIApplicationShortcutIcon iconWithSystemImageName:@"slider.horizontal.3"] userInfo:nil]];
+        icon:[UIApplicationShortcutIcon iconWithTemplateImageName:@"BunkerEmblem"] userInfo:nil]];
     Class delegate = object_getClass(app.delegate);
     SEL action = @selector(application:performActionForShortcutItem:completionHandler:);
     Method existing = delegate ? class_getInstanceMethod(delegate, action) : NULL;

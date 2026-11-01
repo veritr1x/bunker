@@ -154,16 +154,17 @@ final class Look {
         return f;
     }
 
-    /** The crescent moon, as a monochrome notification icon. */
-    static Icon moon() {
-        Bitmap bitmap=Bitmap.createBitmap(96,96,Bitmap.Config.ARGB_8888);
-        Canvas canvas=new Canvas(bitmap);canvas.scale(2,2);
-        Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);paint.setColor(Color.WHITE);
-        canvas.drawCircle(24,24,22,paint);
-        Path crescent=new Path();
-        crescent.moveTo(31,10);crescent.cubicTo(18,8,10,18,14,29);crescent.cubicTo(17,38,29,41,36,33);crescent.cubicTo(23,36,17,20,31,10);crescent.close();
-        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-        canvas.drawPath(crescent,paint);
-        return Icon.createWithBitmap(bitmap);
+    /** The Bunker emblem (android/tools/bunker_icon.py), as a monochrome notification icon. */
+    static Icon emblem(Context c){
+        Bitmap bitmap=asset(c,"lunar/bunker-emblem-notification.png");
+        return bitmap!=null?Icon.createWithBitmap(bitmap):Icon.createWithResource(c,c.getApplicationInfo().icon);
+    }
+    /** The Bunker emblem on the launcher's paper, as an adaptive launcher shortcut icon. */
+    static Icon shortcutEmblem(Context c){
+        Bitmap bitmap=asset(c,"lunar/bunker-emblem-shortcut.png");
+        return bitmap!=null?Icon.createWithAdaptiveBitmap(bitmap):Icon.createWithResource(c,c.getApplicationInfo().icon);
+    }
+    private static Bitmap asset(Context c,String path){
+        try(java.io.InputStream in=c.getAssets().open(path)){return BitmapFactory.decodeStream(in);}catch(java.io.IOException e){return null;}
     }
 }
