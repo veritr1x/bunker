@@ -55,7 +55,11 @@ they are not complete translations.
 Outputs include `plan.json` (source/hash/imports/exports/initializers), raw code
 bytes, entries, per-shard IR/objects/logs/caches, `manifest.json` and `traces.h`.
 Executable sections distinguish code from strings in mixed RX segments. Seeds
-come from symbols, unwind records, code relocations and proven jump tables.
+come from symbols, unwind records, code relocations, proven jump tables and
+statically proven `__cxa_atexit`/`atexit` callback arguments. Callback recovery
+checks real GOT/PLT imports and load-base provenance; numeric values that only
+resemble code RVAs are rejected. Tiny callbacks can lack both symbols and FDEs.
+`--no-callback-recovery` exists for diagnostic baseline comparisons only.
 Ambiguous indirect branches remain reported.
 
 Each build snapshots its lifter and semantics. Resume checks source, target,
@@ -74,6 +78,7 @@ $PY recomp/whole/test_compile_cache.py --library recomp/work/whole-fixture/fixtu
 $PY recomp/whole/test_fastaes.py --help
 $PY recomp/whole/test_semantics.py --help
 $PY recomp/whole/test_jump_tables.py --help
+$PY recomp/whole/test_callback_roots.py --help
 ```
 
 `test_fixture.py` checks constructors, calls, recursion, relocations, imports,

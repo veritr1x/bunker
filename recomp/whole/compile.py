@@ -22,7 +22,7 @@ from elftools.elf.sections import SymbolTableSection
 PIPELINE_HASH = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
-def inspect(path, base, recover_jumps=True):
+def inspect(path, base, recover_jumps=True, recover_callbacks=True):
     with path.open("rb") as stream:
         elf = ELFFile(stream)
         if elf.elfclass != 64 or not elf.little_endian or elf['e_machine'] != 'EM_AARCH64':
@@ -114,6 +114,13 @@ def inspect(path, base, recover_jumps=True):
             from jump_tables import recover
             jump_tables = recover(elf)
             entries.update(base + addr for addr in jump_tables['entries'] if executable(addr))
+        callback_roots = {'enabled': recover_callbacks, 'entries': [], 'registrations': [], 'unresolved': []}
+        if recover_callbacks:
+            from callback_roots import recover
+            callback_roots.update(recover(elf))
+            if any(not executable(addr) for addr in callback_roots['entries']):
+                raise ValueError('Callback recovery returned a non-executable or unaligned entry')
+            entries.update(base + addr for addr in callback_roots['entries'])
         if not entries:
             raise ValueError('No function entries found in symbols, relocations or unwind records')
         return image, start, sorted(entries), {
@@ -122,6 +129,7 @@ def inspect(path, base, recover_jumps=True):
             'executable_ranges': [[base + lo, base + hi] for lo, hi in ranges],
             'exports': exports, 'imports': sorted(imports), 'initializers': initializers, 'finalizers': finalizers,
             'jump_tables': jump_tables,
+            'callback_roots': callback_roots,
         }
 
 
@@ -168,6 +176,8 @@ def main():
     parser.add_argument('--semantics-dir', type=Path, help='Directory containing aarch64.bc; native build layout is detected automatically')
     parser.add_argument('--resume', action='store_true', help='Reuse hash-verified shards built with the same input/compiler snapshot')
     parser.add_argument('--plan-only', action='store_true', help='Write the complete image/entry plan without lifting')
+    parser.add_argument('--no-callback-recovery', action='store_true',
+                        help='Diagnostic baseline only: omit statically proven callback entry roots')
     parser.add_argument('--allow-unsupported', action='store_true', help='Exploratory builds only: retain traces with unliftable instructions')
     args = parser.parse_args()
     if args.shard_size < 1 or args.jobs < 1:
@@ -175,7 +185,10 @@ def main():
     alignment = 65536 if args.target == 'x86_64-w64-windows-gnu' else 4096
     if args.base < 0 or args.base % alignment:
         parser.error(f'--base must be nonnegative and aligned to {alignment} bytes')
-    image, offset, pending, manifest = inspect(args.library, args.base)
+    if args.no_callback_recovery:
+        image, offset, pending, manifest = inspect(args.library, args.base, recover_callbacks=False)
+    else:
+        image, offset, pending, manifest = inspect(args.library, args.base)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     raw = out / 'executable.bin'
