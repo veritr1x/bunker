@@ -35,7 +35,10 @@ std::string utf8(const std::wstring &s) {
   return result;
 }
 std::map<std::string, std::string> report;
-void text(const std::string &k, const std::string &v) { report[k] = quote(v); }
+void text(const std::string &k, const std::string &v) {
+  report[k] = quote(v);
+  if (k == "stage") std::cerr << "stage: " << v << '\n' << std::flush;
+}
 void flag(const std::string &k, bool v) { report[k] = v ? "true" : "false"; }
 void number(const std::string &k, int64_t v) { report[k] = std::to_string(v); }
 void require(bool v, const std::string &message) { if (!v) throw std::runtime_error(message); }
@@ -267,7 +270,7 @@ int wmain(int argc, wchar_t **argv) {
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
   flag("success", false); flag("gles31", false); flag("draw_readback", false);
   flag("compute_readback", false); flag("aep_directive_shader", false);
-  flag("aep_query_gate", false); text("dependency_kind", "installed VSCode diagnostic DLLs; not project SDK");
+  flag("aep_query_gate", false); text("dependency_kind", "caller-supplied diagnostic ANGLE DLLs; see provenance");
   text("requested_backend", "ANGLE Vulkan hardware"); flag("visible_window_created", false);
   int status = 1;
   try { require(argc == 2, "Usage: graphics-probe.exe ABSOLUTE_DLL_DIRECTORY");

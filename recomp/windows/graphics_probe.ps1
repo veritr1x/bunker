@@ -1,7 +1,8 @@
 param(
   [string]$DllDirectory='C:\Users\user\AppData\Local\Programs\Microsoft VS Code\0870c2a0c7',
   [string]$BuildDirectory=(Join-Path $PSScriptRoot '..\work\graphics-probe'),
-  [string]$Cxx='C:\mingw64\bin\g++.exe'
+  [string]$Cxx='C:\mingw64\bin\g++.exe',
+  [string]$DependencyDescription='Installed VSCode diagnostic DLLs; not project SDK'
 )
 $ErrorActionPreference='Stop'
 $taskDllDirectory=(Resolve-Path -LiteralPath $DllDirectory).ProviderPath
@@ -24,6 +25,7 @@ function Get-ProbeFileEvidence([string]$Path) {
 }
 $taskEvidence=[ordered]@{
   diagnostic_only=$true; sdk_or_redistribution_approval=$false
+  dependency_description=$DependencyDescription
   utc=[DateTime]::UtcNow.ToString('o'); source=(Get-ProbeFileEvidence $taskSource)
   compiler=(Get-ProbeFileEvidence $Cxx); dll_directory=$taskDllDirectory
   requested_backend='ANGLE Vulkan hardware only; no ES3.0/default/D3D/software fallback'
