@@ -24,6 +24,11 @@
     <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
     <span class="note">For the field and battles; story scenes keep 720p. Capped at the screen's own resolution.</span>
   </div>
+  {% if upscale_options|length > 1 %}<div class="setting">
+    <label for="upscale">Upscaling</label>
+    <select name="upscale" id="upscale">{% for key, title in upscale_options %}<option value="{{ key }}"{% if settings.upscale == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">Below the screen's own resolution, MetalFX sharpens the picture. 1080p with MetalFX looks close to the screen's own resolution for about half the GPU work.</span>
+  </div>{% endif %}
   {% for name, title, about in [("shadows", "Shadows", "Shadows of characters and scenery."), ("reflections", "Reflections", "Reflections on floors and water."), ("bloom", "Bloom", "The glow around bright light.")] %}<div class="setting">
     <label for="{{ name }}">{{ title }}</label>
     <select name="{{ name }}" id="{{ name }}">{% for key, label in effect_options %}<option value="{{ key }}"{% if settings[name] == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
