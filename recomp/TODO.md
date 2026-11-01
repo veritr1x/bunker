@@ -19,7 +19,7 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Original APK, extracted libraries, reference tools, reports, generated
   objects and executables remain in ignored work/input directories.
 
-## Completed gates (November 1, 2026)
+## Completed gates (November 2, 2026)
 
 - Whole-library ELF planning, relocation-backed function pointers, translated
   address dispatch, recursive/direct/indirect/tail calls, constructors and
