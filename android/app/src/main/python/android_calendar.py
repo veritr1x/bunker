@@ -773,15 +773,15 @@ def entries():
     """Dated content the Schedule page lists (Entry)."""
     found = []
     event_names = names("event_quests")
-    lost = history().get("m_event_quest_chapter", {}).get("rows", {})
+    # The loop's game data already holds every run the history restored, each
+    # as its own row with its dates moved into the loop (restore_history,
+    # build_master); the history's original dates are not this loop's.
     for row in table("EventQuestChapter"):
-        final = (row["StartDatetime"], row["EndDatetime"])
-        for start, end in runs(final, lost.get(str(row["EventQuestChapterId"]), [])):
-            # A rerun's copy (chapter + n * COPY_STEP) is the same event in the Archive.
-            banner = row.get("BannerAssetId", 0)
-            found.append(Entry("event", event_names.get(row["EventQuestChapterId"]), start, end,
-                               f"/schedule/event/{row['EventQuestChapterId'] % COPY_STEP}",
-                               f"ui/quest/en/banner/event_banner_{banner:03d}.assetbundle" if banner else ""))
+        # A rerun's copy (chapter + n * COPY_STEP) is the same event in the Archive.
+        banner = row.get("BannerAssetId", 0)
+        found.append(Entry("event", event_names.get(row["EventQuestChapterId"]), row["StartDatetime"], row["EndDatetime"],
+                           f"/schedule/event/{row['EventQuestChapterId'] % COPY_STEP}",
+                           f"ui/quest/en/banner/event_banner_{banner:03d}.assetbundle" if banner else ""))
     banner_names = names("gacha_banners")
     # The summons the server offers (server/internal/masterdata/gacha.go):
     # those with a medal, summons sharing a known medal, and the special
