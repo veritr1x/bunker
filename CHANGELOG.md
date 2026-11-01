@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-01 (after 1.6.1)
+
+### Calendar
+- With "Show original dates" on, Enhance › Characters and the other
+  character lists were empty: the game data lists the starting cast only
+  from 2022. Characters are listed from launch; the copy for original dates
+  is rebuilt the next time Pod Programs opens. [427944d]
+
 ## 1.6.1 (2026-11-01)
 
 With the Original calendar, Notices come out as the loop reaches them. The
