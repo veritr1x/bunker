@@ -71,6 +71,53 @@ harness writing FPSR into FPCR.
 | `libunity.so` | 92.16% | 97.93% | 41.1% → 85.4% |
 | `libgrpc_csharp_ext.so` | 98.46% | 98.72% | 77.1% → 85.9% |
 
+## Integer semantics checks on x86_64
+
+`remill/check_addcarry.sh` compares the fork's actual 32-bit and 64-bit
+`ADC`/`ADCS` semantics with the host's x86 ADC instruction. It checks results,
+NZCV, flag preservation for ADC, and zero-extension of W-register writes over
+boundary values and deterministic random inputs, with all 16 initial NZCV
+combinations. It needs the fork in `work/remill-src` with the batch 2 add/carry
+changes, and Clang on an x86_64 Linux host (WSL works):
+
+    CXX=clang++-18 bash recomp/remill/check_addcarry.sh
+
+It can also run in the x86_64 dev image:
+
+    recomp/remill/dev.sh run remill/check_addcarry.sh
+
+This checks semantics directly; the AArch64 differential suite additionally
+checks instruction decoding, register overlap and zero-register operands.
+
+`check_addcarry_lifted.py` also checks those decoder/register cases on x86_64:
+it lifts 24 ADC/ADCS instruction variants with Remill, compiles the LLVM IR for
+x86_64, and compares the resulting functions with the hardware oracle. With a
+dev build:
+
+    python3 recomp/remill/check_addcarry_lifted.py
+
+For a native WSL build, pass its lifter and matching compiler:
+
+    python3 recomp/remill/check_addcarry_lifted.py \
+        --lift recomp/work/remill-src/build-native/bin/lift/remill-lift-18 \
+        --cxx clang++-18
+
+On November 1, 2026, the first batch 2 group passed 6,412,544 direct-semantics
+checks and 3,915,264 lifted-code checks. The complete AArch64 test assembly,
+including 24 new cases, also assembled successfully. Native ARM64 differential
+execution has not been rerun for this group.
+
+Same-machine coverage comparison (WSL x86_64, LLVM 18.1.3, original game APK):
+
+| Library | Batch 1 | With ADC/ADCS | Forms lifted |
+|---|---|---|---|
+| `libgrpc_csharp_ext.so` | 98.72% | 99.44% | 719 → 728 of 826 |
+
+All nine add/carry forms in that library now lift, covering 2,859 additional
+instructions. Other forms have identical outcomes between these two builds.
+The three-library LLVM 22 batch 1 results above remain the last full survey;
+`libunity.so` and `libil2cpp.so` have not been remeasured for this group.
+
 ## libFastAES end to end
 
 The smallest real library, recompiled with [Remill](https://github.com/lifting-bits/remill)
