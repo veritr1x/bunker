@@ -1,0 +1,26 @@
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+index b041f81..74efcbd 100644
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -282,7 +282,7 @@ func (h *QuestHandler) applyFirstClearItemRewards(user *store.UserState, questId
+ 	}
+ 	rewardGroupId := h.firstClearRewardGroupId(user, questDef)
+ 	for _, reward := range h.FirstClearRewardsByGroupId[rewardGroupId] {
+-		h.applyRewardPossession(user, model.PossessionType(reward.PossessionType), reward.PossessionId, reward.Count, nowMillis)
++		h.grantFirstClearReward(user, model.PossessionType(reward.PossessionType), reward.PossessionId, reward.Count, nowMillis)
+ 	}
+ }
+ 
+diff --git a/server/internal/service/user.go b/server/internal/service/user.go
+index ddb4ade..56bbaf1 100644
+--- a/server/internal/service/user.go
++++ b/server/internal/service/user.go
+@@ -124,6 +124,8 @@ func (s *UserServiceServer) GameStart(ctx context.Context, _ *emptypb.Empty) (*p
+ 		// right (the Arc 2 ★2 weapons) unlock now.
+ 		if bunkerHolder != nil {
+ 			if cats := bunkerHolder.Get(); cats != nil && cats.QuestHandler != nil && cats.QuestHandler.Granter != nil {
++				// Story weapons a full storage sent to the gift box come back first, so their stories unlock too.
++				cats.QuestHandler.ReturnFirstClearRewardsFromGiftBox(user, user.GameStartDatetime)
+ 				if cats.QuestHandler.Granter.CatchUpWeaponStories(user, user.GameStartDatetime) {
+ 					log.Printf("[UserService] user %d: weapon stories caught up", user.UserId)
+ 				}
