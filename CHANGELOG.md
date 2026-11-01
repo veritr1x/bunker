@@ -9,8 +9,10 @@ under its heading, down to the previous release.
 ### Calendar
 - With "Show original dates" on, Enhance › Characters and the other
   character lists were empty: the game data lists the starting cast only
-  from 2022. Characters are listed from launch; the copy for original dates
-  is rebuilt the next time Pod Programs opens. [427944d]
+  from 2022. Characters are listed from launch, and so is everything else
+  the calendar doesn't move (story chapters, filters, Character Viewer
+  backgrounds and the like), as without the setting. The copy for original
+  dates is rebuilt the next time Pod Programs opens. [427944d, 3c35230]
 
 ## 1.6.1 (2026-11-01)
 
