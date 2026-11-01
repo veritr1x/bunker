@@ -1,6 +1,7 @@
 #include "libc.h"
 #include "../whole/bridge.h"
 #include "provider_memory.h"
+#include "libc_process_detail.h"
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -18,6 +19,7 @@
 #include <windows.h>
 #else
 #include <unistd.h>
+#include <time.h>
 #endif
 
 namespace bunker::windows {
@@ -40,7 +42,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -126,6 +128,40 @@ uint64_t LibC::LocaleMbCurMax(){
   return pm::Read(found->second.storage);
 }
 int LibC::Error()const{return guest_error;}
+int64_t LibC::ProcessClock(){
+#ifdef _WIN32
+  FILETIME created{},exited{},kernel{},user{};
+  if(!GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user)){
+    const auto error=GetLastError();Fail(error==ERROR_ACCESS_DENIED?13:error==ERROR_INVALID_PARAMETER?22:error==ERROR_NOT_ENOUGH_MEMORY?12:error==ERROR_NOT_SUPPORTED?95:5);return -1;
+  }
+  const uint64_t kernel_ticks=uint64_t(kernel.dwHighDateTime)<<32|kernel.dwLowDateTime;
+  const uint64_t user_ticks=uint64_t(user.dwHighDateTime)<<32|user.dwLowDateTime;
+  return libc_detail::CpuMicroseconds(kernel_ticks,user_ticks);
+#else
+  timespec value{};
+  if(::clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&value)){Fail(errno?errno:5);return -1;}
+  if(value.tv_sec<0||value.tv_nsec<0||value.tv_nsec>=1000000000){Fail(5);return -1;}
+  if(uint64_t(value.tv_sec)>uint64_t(INT64_MAX)/1000000){Fail(75);return -1;}
+  const auto whole=uint64_t(value.tv_sec)*1000000,fraction=uint64_t(value.tv_nsec)/1000;
+  if(whole>uint64_t(INT64_MAX)-fraction){Fail(75);return -1;}
+  return static_cast<int64_t>(whole+fraction);
+#endif
+}
+int64_t LibC::Sysconf(int32_t name){
+  if(name!=39&&name!=40&&name!=97){
+    if(libc_detail::AndroidSysconfName(name))throw std::runtime_error("unsupported Android sysconf name: "+std::to_string(name));
+    Fail(22);return -1;
+  }
+#ifdef _WIN32
+  if(name==39||name==40){SYSTEM_INFO info{};GetSystemInfo(&info);if(!info.dwPageSize){Fail(5);return -1;}return info.dwPageSize;}
+  const auto count=GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+  if(!count){const auto error=GetLastError();Fail(error==ERROR_ACCESS_DENIED?13:error==ERROR_INVALID_PARAMETER?22:error==ERROR_NOT_ENOUGH_MEMORY?12:error==ERROR_NOT_SUPPORTED?95:5);return -1;}
+  return count;
+#else
+  errno=0;const auto value=::sysconf(name==97?_SC_NPROCESSORS_ONLN:_SC_PAGESIZE);
+  if(value<=0){Fail(errno?errno:5);return -1;}return static_cast<int64_t>(value);
+#endif
+}
 void LibC::Fail(int error)noexcept{guest_error=error;if(error_sink_)try{error_sink_(error);}catch(...){}}
 [[noreturn]] void LibC::Fatal(const char *why)noexcept{
   std::fprintf(stderr,"Bunker guest libc fatal: %s\n",why);
@@ -367,6 +403,8 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<addr_t(int32_t,const char*,addr_t)>(runtime,"newlocale",[this](auto mask,auto name,auto base){return NewLocale(mask,name,base);});
   Add<void(addr_t)>(runtime,"freelocale",[this](auto locale){FreeLocale(locale);});
   Add<addr_t(addr_t)>(runtime,"uselocale",[this](auto locale){return UseLocale(locale);});
+  Add<int64_t()>(runtime,"clock",[this]{return ProcessClock();});
+  Add<int64_t(int32_t)>(runtime,"sysconf",[this](auto name){return Sysconf(name);});
   installed_=true;
 }
 }  // namespace bunker::windows

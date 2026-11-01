@@ -36,6 +36,8 @@ class LibC {
   void FreeLocale(addr_t locale);
   addr_t UseLocale(addr_t locale);
   uint64_t LocaleMbCurMax();
+  int64_t ProcessClock();
+  int64_t Sysconf(int32_t name);
  private:
   struct Aligned { void *base; uint64_t size, alignment; };
   struct Exit { addr_t callback, argument, dso; bool plain, called; };
