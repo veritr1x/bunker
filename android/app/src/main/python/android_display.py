@@ -31,9 +31,9 @@ HEAT = [("on", "Slow down (cooler)"), ("off", "Keep the frame rate")]
 # The game's effects (render_effects.c): each costs GPU time every frame, more at high resolutions.
 EFFECT = [("on", "On (game default)"), ("off", "Off (less GPU work)")]
 EFFECTS = ("shadows", "reflections", "bloom")
-# Below the screen's own resolution the picture is stretched to the screen. iPhone and iPad can
-# use MetalFX instead (LunarUpscale.m); ios_runtime adds UPSCALE_IOS.
-UPSCALE = [("off", "Plain stretching (game default)")]
+# Below the screen's own resolution the picture is stretched to the screen. Android can use FSR 1 or
+# SGSR instead (render_scale.c); iPhone and iPad MetalFX (LunarUpscale.m), which ios_runtime puts in their place.
+UPSCALE = [("off", "Plain stretching (game default)"), ("fsr", "FSR 1 (sharpest)"), ("sgsr", "SGSR (sharp, lighter)")]
 UPSCALE_IOS = [("metalfx", "MetalFX (sharper)")]
 DEFAULTS = {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on",
             "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"}

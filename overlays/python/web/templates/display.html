@@ -33,7 +33,7 @@
     {% if upscale_options|length > 1 %}<div class="setting">
       <label for="upscale">Upscaling</label>
       <select name="upscale" id="upscale">{% for key, title in upscale_options %}<option value="{{ key }}"{% if settings.upscale == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">Below the screen's own resolution, MetalFX sharpens the picture. 1080p with MetalFX looks close to the screen's own resolution for about half the GPU work.</span>
+      <span class="note">Below the screen's own resolution, the picture is sharpened as it fills the screen instead of plainly stretched. It looks close to the screen's own resolution for about half the GPU work.</span>
     </div>{% endif %}
     {% if texture_options|length > 1 %}<div class="setting">
       <label for="textures">Texture size</label>

@@ -45,6 +45,7 @@ final class DisplayPatch {
         boolean full = true;  // the game's own setting leaves a black bar beside the camera
         boolean idle = true, heat = true;  // above 30 fps: draw less while idle or hot (render_pace.c)
         int effectsOff = 0;  // render_effects.c: 1 shadows, 2 reflections, 4 bloom
+        int upscale = 0;  // render_scale.c: 1 FSR 1, 2 SGSR
         try {
             for (String line : Files.readAllLines(new File(tools, "display.conf").toPath(), StandardCharsets.UTF_8)) {
                 String[] pair = line.split("=", 2);
@@ -56,6 +57,7 @@ final class DisplayPatch {
                 if (pair[0].trim().equals("idle")) idle = !value.equals("off");
                 if (pair[0].trim().equals("heat")) heat = !value.equals("off");
                 if (value.equals("off")) effectsOff |= effectBit(pair[0].trim());
+                if (pair[0].trim().equals("upscale")) upscale = upscaler(value);
             }
         } catch (Exception missing) {
             // Never chosen: the game's own frame rate and resolution, on the full screen.
@@ -64,7 +66,7 @@ final class DisplayPatch {
         String result;
         try {
             System.loadLibrary("bunkerdisplay");
-            result = apply(fps, size, idle, heat, effectsOff);
+            result = apply(fps, size, idle, heat, effectsOff, upscale);
             if (result.isEmpty() && fps > 30 && heat) followHeat(context);
         } catch (Throwable error) {
             result = String.valueOf(error);
@@ -258,7 +260,16 @@ final class DisplayPatch {
         return null;
     }
 
-    private static native String apply(int fps, int size, boolean idle, boolean heat, int effectsOff);
+    private static native String apply(int fps, int size, boolean idle, boolean heat, int effectsOff, int upscale);
+
+    /** render_scale.h's upscaler for display.conf's upscale value; 0 is plain stretching. */
+    static int upscaler(String value) {
+        switch (value) {
+            case "fsr": return 1;
+            case "sgsr": return 2;
+            default: return 0;
+        }
+    }
 
     /** render_effects.h's bit for an effect switch in display.conf, or 0. */
     static int effectBit(String name) {
