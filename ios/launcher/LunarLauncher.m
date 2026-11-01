@@ -1855,6 +1855,14 @@ static UTType *MasterType(void) {
 - (void)closeLog { [self dismissViewControllerAnimated:YES completion:nil]; }
 @end
 
+static void ShowLauncher(void);
+
+// The game's own Bunker button (bunker_button.c, called on Unity's thread,
+// which is the main thread): the launcher, as the gesture and ⌘B open it.
+void LTOpenBunker(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{ gMessage = @""; ShowLauncher(); });
+}
+
 static void ShowLauncher(void) {
     if (gWindow) { [(LTLauncherViewController *)gWindow.rootViewController refresh]; return; }
     UIWindow *window = nil;
