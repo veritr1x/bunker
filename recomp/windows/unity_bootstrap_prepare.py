@@ -15,10 +15,16 @@ from elftools.elf.elffile import ELFFile
 from elftools.elf.relocation import RelocationSection
 from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
 from inventory import Dex
+from application_metadata import read_application_metadata
 
 HERE=Path(__file__).resolve().parent
 def digest(path):
     with path.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
+
+def u16(value):
+    raw=value.encode('utf-16-le','surrogatepass')
+    units=[int.from_bytes(raw[i:i+2],'little') for i in range(0,len(raw),2)]
+    return 'std::u16string({'+','.join(f'char16_t({n:#x})' for n in units)+'})'
 
 def executable_ranges(manifest):
     """Use the compiler's actual executable sections, including interior PCs."""
@@ -97,6 +103,10 @@ def main():
             if entry not in m['traces']:raise RuntimeError(f'Required actual Unity entry {entry:#x} is not translated')
     badging=subprocess.check_output([str(a.aapt),'dump','badging',str(a.apk)],text=True)
     package=re.search(r"^package: name='([^']+)'",badging,re.M).group(1)
+    version_name=re.search(r"^package: .* versionName='([^']*)'",badging,re.M).group(1)
+    version_code=int(re.search(r"^package: .* versionCode='(\d+)'",badging,re.M).group(1))
+    if not 0<=version_code<1<<31:raise RuntimeError('Unsupported APK versionCode width')
+    metadata=read_application_metadata(a.apk,a.aapt)
     sdk=int(re.search(r"^targetSdkVersion:'(\d+)'",badging,re.M).group(1))
     activity=re.search(r"^launchable-activity: name='([^']+)'",badging,re.M).group(1).replace('.','/')
     groups=registration_tables(a.library)
@@ -119,6 +129,7 @@ def main():
             if len(declared)!=1 or not declared[0]['native']:raise RuntimeError('Native/DEX method mismatch: '+group['class']+'.'+method['name'])
             method['static']=declared[0]['static']
     (out/'jni_onload_catalog.json').write_text(json.dumps(groups,indent=2)+'\n')
+    (out/'application_metadata.json').write_text(json.dumps({'apk_sha256':digest(a.apk),'version_name':version_name,'version_code':version_code,'scope':'direct application children only','metadata':metadata},indent=2)+'\n')
     with a.library.open('rb') as f:
         elf=ELFFile(f);syms=elf.get_section_by_name('.dynsym')
         imports={s.name:s['st_info']['type']=='STT_OBJECT' for s in syms.iter_symbols() if s['st_shndx']=='SHN_UNDEF' and s.name}
@@ -151,7 +162,12 @@ def main():
         lines.append(f'  host.DefineClass({json.dumps(name)},{{')
         lines += [f'    {{{json.dumps(method["name"])},{json.dumps(method["signature"])},{str(method["static"]).lower()},{str(method["native"]).lower()}}},' for method in info['methods']]
         lines.append('  });')
-    lines += ['}']
+    lines += ['}','static void ApplyUnityPackageMetadata(bunker::windows::AndroidContextConfig &config){',f'  config.version=bunker::windows::AndroidContextConfig::PackageVersion{{{u16(version_name)},{version_code}}};','  config.application_metadata={']
+    for name,value in sorted(metadata.items()):
+        kind,data=value['type'],value['value']
+        factory='String('+u16(data)+')' if kind=='string' else 'Integer('+str(data)+')' if kind=='int' else 'Boolean('+str(data).lower()+')'
+        lines.append('    {'+u16(name)+',bunker::windows::LaunchExtra::'+factory+'},')
+    lines += ['  };','}']
     (out/'unity_bootstrap_data.h').write_text('\n'.join(lines)+'\n')
     if complete and not a.metadata_only:
         shutil.copyfile(a.translation/'traces.h',out/'unity_traces.h')

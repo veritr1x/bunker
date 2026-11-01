@@ -7,6 +7,9 @@
 #include "unity_lifecycle.h"
 #include "signal_host.h"
 #include "nonlocal_jmp.h"
+#include "audio_volume_session.h"
+#include "egl_host.h"
+#include "gl_host.h"
 #include "filesystem.h"
 #include "module_registry.h"
 #include "pthread_host.h"
@@ -19,6 +22,7 @@
 #include <cstdio>
 #include <atomic>
 #include <charconv>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -28,6 +32,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 #include <windows.h>
 #include <bcrypt.h>
@@ -39,6 +44,7 @@ const char *stage="setup";
 std::atomic<bool> jni_diagnostic_reached{false};
 std::atomic<bool> init_java_diagnostic_active{false};
 std::atomic<size_t> init_java_errors{0};
+constexpr const char *kGlQueries[]={"glGetString","glGetStringi","glGetIntegerv","glGetFloatv","glGetBooleanv","glGetError"};
 void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
   auto invoke=[&host](bool vm,size_t slot,State &state){
     if(!jni_diagnostic_reached.exchange(true))std::fprintf(stderr,"Unity bootstrap: opt-in JNI dispatch diagnostic reached\n");
@@ -82,6 +88,10 @@ template<class Provider> addr_t Try(Provider &provider,const std::string &name){
 addr_t TryProcess(bunker::windows::SignalHost &provider,const std::string &name){
   try{return provider.ProcessMarker(name);}catch(const std::invalid_argument&){return 0;}
 }
+addr_t TryGlImport(bunker::windows::GlHost &provider,const std::string &name){
+  for(const auto *supported:kGlQueries)if(name==supported)return provider.Marker(name);
+  return 0;
+}
 bool Translated(addr_t entry){
   // Generated trace table is ordered. Data exports are intentionally excluded.
   size_t low=0,high=std::size(kTraces);
@@ -106,9 +116,11 @@ struct LocalFrame {
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
-  const bool surface_gate=argc==7&&!std::strcmp(argv[4],"--surface-gate");
-  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-unity-bootstrap.exe <original-libunity.so> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height>]\n");return 2;}
+  const bool frame_gate=argc==8&&!std::strcmp(argv[4],"--frame-gate");
+  const bool surface_gate=frame_gate||(argc==7&&!std::strcmp(argv[4],"--surface-gate"));
+  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-unity-bootstrap.exe <original-libunity.so> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory>]\n");return 2;}
   const bool init_jni=argc!=4;
+  bool frame_continues=true;
   try{
     using namespace bunker::windows;
     namespace fs=std::filesystem;
@@ -136,8 +148,10 @@ int main(int argc,char **argv){
     logging.SetStream([&](addr_t stream,std::string_view text){return files.FWrite(text.data(),1,text.size(),stream);});
     bunker::jni::Host java(Translated);
     DefineUnityJavaCatalog(java);
+    if(frame_gate)AudioVolumeSession::DeclareFields(java);
     AndroidContextConfig context_config;
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
+    ApplyUnityPackageMetadata(context_config);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
     // Process dispositions and pure sigset operations only. Thread signal
@@ -145,10 +159,20 @@ int main(int argc,char **argv){
     SignalHost process_signals;process_signals.SetErrorSink(error);
     std::unique_ptr<NonlocalJumps> jumps;
     recomp::Runtime window_bridges;
+    recomp::Runtime egl_bridges,gl_bridges;
     std::mutex window_call_mutex;std::map<std::string,uint64_t> window_calls;
     std::unique_ptr<NativeWindows> native_windows;
+    std::unique_ptr<GlHost> graphics;
+    std::unique_ptr<EglHost> egl;
     // ModuleRegistry owns 0x7ff400000000; keep this combined provider disjoint.
     if(surface_gate)native_windows=std::make_unique<NativeWindows>(java,0x7ff440000000ULL);
+    if(frame_gate){
+      auto dlls=fs::canonical(fs::u8path(argv[7]));
+      graphics=std::make_unique<GlHost>(dlls.wstring());egl=std::make_unique<EglHost>(*native_windows,dlls.wstring());
+      egl->SetProcedureResolver([&](const std::string &name){
+        std::fprintf(stderr,"Unity bootstrap: requested typed GL procedure %s\n",name.c_str());return graphics->Marker(name);
+      });
+    }
     ModuleRegistry modules([&](addr_t entry){
       if(std::strcmp(stage,"constructors")==0){
         if(constructor_index>=std::size(kInitializers)||entry!=kInitializers[constructor_index])throw std::runtime_error("constructor order mismatch");
@@ -185,6 +209,15 @@ int main(int argc,char **argv){
     zlib.Install(runtime);
     if(surface_gate)process_signals.InstallProcess(runtime);
     if(jumps)jumps->Install(runtime);
+    if(graphics){
+      graphics->Install(gl_bridges);
+      for(const char *name:kGlQueries){
+        auto marker=graphics->Marker(name);runtime.AddImport(marker,[&,marker,name](State &s){
+          std::fprintf(stderr,"Unity bootstrap: guest %s enum=%#llx x1=%#llx return=%#llx\n",name,static_cast<unsigned long long>(s.gpr.x0.qword),static_cast<unsigned long long>(s.gpr.x1.qword),static_cast<unsigned long long>(s.gpr.x30.qword));gl_bridges.Dispatch(s,marker,nullptr);
+        });
+      }
+    }
+    if(egl)egl->Install(egl_bridges);
     if(native_windows){
       // Forward the original checked provider bridges without adding a nested
       // Runtime::Run/ExecutionContext. Observe actual guest imports, not our
@@ -205,10 +238,15 @@ int main(int argc,char **argv){
       std::string name=import.name;addr_t address=0;
       // These provider namespaces are disjoint. The selected provider owns both
       // its function marker and data symbol representation (notably __sF).
-      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,surface_gate?TryProcess(process_signals,name):0,jumps?Try(*jumps,name):0}){
+      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,surface_gate?TryProcess(process_signals,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
         if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
       }
-      if(address)++provided;
+      if(address){
+        ++provided;
+        if(egl&&Try(*egl,name)==address)runtime.AddImport(address,[&,address,name](State &s){
+          std::fprintf(stderr,"Unity bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx return=%#llx\n",name.c_str(),static_cast<unsigned long long>(s.gpr.x0.qword),static_cast<unsigned long long>(s.gpr.x1.qword),static_cast<unsigned long long>(s.gpr.x2.qword),static_cast<unsigned long long>(s.gpr.x30.qword));egl_bridges.Dispatch(s,address,nullptr);
+        });
+      }
       else {
         if(import.is_object){std::fprintf(stderr,"Unity bootstrap: unsupported DATA import %s; refusing fabricated data\n",import.name);return 3;}
         address=0x7ffc00000000ULL+missing++*8;
@@ -263,7 +301,7 @@ int main(int argc,char **argv){
         auto recreate=java.NativeEntry("com/unity3d/player/UnityPlayer","nativeRecreateGfxState","(ILandroid/view/Surface;)V");
         auto changed=java.NativeEntry("com/unity3d/player/UnityPlayer","nativeSendSurfaceChangedEvent","()V");
         if(!Translated(recreate)||!Translated(changed))throw std::runtime_error("verified surface natives are not translated");
-        auto window=native_windows->Create(width,height,u"Bunker native surface diagnostic",false);
+        auto window=native_windows->Create(width,height,frame_gate?u"Bunker":u"Bunker native surface diagnostic",frame_gate);
         auto surface=native_windows->NewSurface(window);
         auto token=native_windows->FromSurface(surface);
         auto actual_width=native_windows->Width(token),actual_height=native_windows->Height(token);native_windows->Release(token);
@@ -277,12 +315,17 @@ int main(int argc,char **argv){
           const auto token=worker_token;
           if(!token)return;
           int released=0;std::exception_ptr release_error;
-          try{released=threads.ReleaseCurrent();}catch(...){release_error=std::current_exception();}
+          try{if(egl)egl->ReleaseCurrentThread();}catch(...){release_error=std::current_exception();}
+          try{released=threads.ReleaseCurrent();}catch(...){if(!release_error)release_error=std::current_exception();}
           jumps->DropThread(token,token);
           const auto dropped=worker_registered?process_signals.DropThread(token):0;
           if(release_error)std::rethrow_exception(release_error);
           if(released||dropped)throw std::runtime_error("UnityMain runner/signal lifetime cleanup failed");
         });
+        if(frame_gate){
+          auto native=[&](const char *name,const char *signature){auto address=java.NativeEntry("com/unity3d/player/UnityPlayer",name,signature);if(!Translated(address))throw std::runtime_error(std::string("required frame native is not translated: ")+name);return address;};
+          lifecycle.ConfigureOneFrame({native("nativeResume","()V"),native("nativeFocusChanged","(Z)V"),native("nativeRender","()Z"),native("nativePause","()Z"),native("nativeDone","()Z")});
+        }
         lifecycle.AfterInitJni();
         // A real model mask is captured at Start, then inherited by the child.
         // Full thread-signal imports stay uninstalled in this diagnostic.
@@ -298,7 +341,35 @@ int main(int argc,char **argv){
         });init_java_errors=0;init_java_diagnostic_active=true;
         stage="surfaceCreated/recreate";lifecycle.SurfaceCreated(surface);lifecycle.WaitIdle();
         stage="surfaceChanged/recreate+notify";lifecycle.SurfaceChanged(surface);lifecycle.WaitIdle();
+        if(frame_gate){
+          stage="one-frame resume/focus/render/pause/done";
+          auto indicator=java.NativeEntry("com/unity3d/player/UnityPlayer","nativeRestartActivityIndicator","()V");
+          if(!Translated(indicator))throw std::runtime_error("actual UI resume activity-indicator entry is not translated");
+          std::fprintf(stderr,"Unity bootstrap: UI resume prerequisite nativeRestartActivityIndicator entry=%#llx\n",static_cast<unsigned long long>(indicator));
+          threads.Run(indicator,{java.EnvAddress(),player});
+          if(!java.PendingException().empty()||init_java_errors.load())throw std::runtime_error("UI resume prerequisite raised an original Java exception");
+          AudioVolumeSession volume(java,[&](addr_t address,const std::vector<addr_t>&args){return threads.Run(address,args);},activity,player);
+          auto audio=volume.InitialSnapshot();
+          std::fprintf(stderr,"Unity bootstrap: real read-only music-volume observer ready scalar=%g muted=%d profile-index=%d; no initial native callback; no playback/system mutation\n",double(audio.scalar),audio.muted,AudioVolumeSession::MusicIndex(audio));
+          volume.Poll();lifecycle.ActivityResumed();
+          auto lease=native_windows->FromSurface(surface);auto hwnd=static_cast<HWND>(native_windows->NativeHandle(lease));native_windows->Release(lease);
+          if(GetForegroundWindow()!=hwnd)std::fprintf(stderr,"Unity bootstrap: real foreground activation requested, accepted=%d\n",int(SetForegroundWindow(hwnd)!=0));
+          bool focused=false;auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+          while(!focused&&std::chrono::steady_clock::now()<deadline){
+            for(const auto &event:native_windows->DrainEvents(window)){
+              if(event.kind==NativeWindows::Event::Focus){lifecycle.WindowFocusChanged(event.focused);focused=event.focused;}
+              if(event.kind==NativeWindows::Event::CloseRequested)throw std::runtime_error("window close requested before first native frame");
+              if(event.kind==NativeWindows::Event::Resized&&(event.width!=actual_width||event.height!=actual_height))throw std::runtime_error("one-frame client resized before startup; rerun with explicit dimensions");
+            }
+            if(!focused)std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          }
+          if(!focused)throw std::runtime_error("no real HWND focus event; native frame prerequisite remains unmet");
+          auto keep_running=lifecycle.WaitForFrame();frame_continues=keep_running;lifecycle.WaitIdle();volume.Poll();
+          std::fprintf(stderr,"Unity bootstrap: first nativeRender returned continue=%d; requesting finishing PAUSE at diagnostic frame boundary\n",int(keep_running));
+          volume.Pause();lifecycle.PauseNative(true);
+        }
         stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
+        if(egl)egl->SetProcedureResolver({});
         init_java_diagnostic_active=false;
         if(init_java_errors.load())throw std::runtime_error("surface native calls encountered original Java exceptions");
         auto state=lifecycle.Describe();if(state.resumed||state.surface||state.started)throw std::runtime_error("surface lifecycle did not finish paused and detached");
@@ -308,13 +379,15 @@ int main(int argc,char **argv){
           if(from!=2||release!=from+acquire)throw std::runtime_error("real native-window handoff calls missing or guest reference calls unbalanced");
         }
         native_windows->Close(window);java.DeleteLocalReference(surface);
-        std::fprintf(stderr,"Unity bootstrap: isolated surface handoff/detach gate passed on UnityMain; HWND closed after native detach acknowledgment; no nativeRender/nativeResume executed\n");
+        if(!frame_gate)std::fprintf(stderr,"Unity bootstrap: isolated surface handoff/detach gate passed on UnityMain; HWND closed after native detach acknowledgment; no nativeRender/nativeResume executed\n");
+        else std::fprintf(stderr,"Unity bootstrap: bounded native frame diagnostic completed: rendered=%llu continue=%d nativeDone=%d process-kill-requested=%d; Java class-init/constructor completion, a rendered image and a playable game are not claimed\n",static_cast<unsigned long long>(state.rendered),int(frame_continues),int(state.native_done),int(state.process_kill_requested));
       }
     }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
     libc.Finalize();auto current_token=threads.Self();auto released=threads.ReleaseCurrent();
     if(jumps){jumps->DropThread(current_token,current_token);if(process_signals.Lookup(current_token)&&process_signals.DropThread(current_token))throw std::runtime_error("parent signal-thread cleanup failed");}
-    if(released)throw std::runtime_error("main runner TLS/stack cleanup failed");return 0;
+    if(released)throw std::runtime_error("main runner TLS/stack cleanup failed");
+    if(frame_gate&&!frame_continues){std::fprintf(stderr,"Unity bootstrap: nativeRender returned false/requested Activity finish; one-frame startup was not successful\n");return 6;}return 0;
   }catch(const std::exception &error){std::fprintf(stderr,"Unity bootstrap: %s; stage=%s completed constructors=%zu\n",error.what(),stage,constructor_index);return 1;}
 }
