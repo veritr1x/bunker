@@ -3,6 +3,8 @@
 #include "jni_host.h"
 #include "android_context.h"
 #include "apk_assets.h"
+#include "native_window.h"
+#include "unity_lifecycle.h"
 #include "filesystem.h"
 #include "module_registry.h"
 #include "pthread_host.h"
@@ -14,6 +16,7 @@
 #include "unity_bootstrap_data.h"
 #include <cstdio>
 #include <atomic>
+#include <charconv>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -94,11 +97,17 @@ struct LocalFrame {
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
-  if((argc!=4&&argc!=5)||(argc==5&&std::strcmp(argv[4],"--init-jni"))){std::fprintf(stderr,"Usage: bunker-unity-bootstrap.exe <original-libunity.so> <original-game.apk> <writable-storage-directory> [--init-jni]\n");return 2;}
-  const bool init_jni=argc==5;
+  const bool surface_gate=argc==7&&!std::strcmp(argv[4],"--surface-gate");
+  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-unity-bootstrap.exe <original-libunity.so> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height>]\n");return 2;}
+  const bool init_jni=argc!=4;
   try{
     using namespace bunker::windows;
     namespace fs=std::filesystem;
+    int32_t width=0,height=0;
+    if(surface_gate){
+      auto dimension=[](const char *text){int32_t value=0;auto end=text+std::strlen(text);auto result=std::from_chars(text,end,value);if(result.ec!=std::errc{}||result.ptr!=end||value<=0||value>32767)throw std::invalid_argument("surface dimensions must be integer client pixels in1..32767");return value;};
+      width=dimension(argv[5]);height=dimension(argv[6]);if(width<=height)throw std::invalid_argument("APK sensorLandscape surface gate requires width greater than height");
+    }
     if(std::size(kInitializers)!=kExpectedConstructors)throw std::runtime_error("trace/metadata constructor count mismatch");
     auto library=fs::canonical(fs::u8path(argv[1]));
     auto apk=fs::canonical(fs::u8path(argv[2]));
@@ -122,6 +131,9 @@ int main(int argc,char **argv){
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
+    std::unique_ptr<NativeWindows> native_windows;
+    // ModuleRegistry owns 0x7ff400000000; keep this combined provider disjoint.
+    if(surface_gate)native_windows=std::make_unique<NativeWindows>(java,0x7ff440000000ULL);
     ModuleRegistry modules([&](addr_t entry){
       if(std::strcmp(stage,"constructors")==0){
         if(constructor_index>=std::size(kInitializers)||entry!=kInitializers[constructor_index])throw std::runtime_error("constructor order mismatch");
@@ -140,12 +152,13 @@ int main(int argc,char **argv){
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);modules.Install(runtime);
     if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
     zlib.Install(runtime);
+    if(native_windows)native_windows->Install(runtime);
     size_t provided=0,missing=0;
     for(const auto &import:kUnityImports){
       std::string name=import.name;addr_t address=0;
       // These provider namespaces are disjoint. The selected provider owns both
       // its function marker and data symbol representation (notably __sF).
-      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name)}){
+      for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0}){
         if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
       }
       if(address)++provided;
@@ -199,6 +212,30 @@ int main(int argc,char **argv){
       if(!exception.empty())throw std::runtime_error("initJni stopped with pending Java exception: "+exception);
       if(init_java_errors.load())throw std::runtime_error("initJni encountered "+std::to_string(init_java_errors.load())+" Java exception(s); inspect the original JNI diagnostics even when native code cleared them");
       std::fprintf(stderr,"Unity bootstrap: isolated initJni native-entry gate passed; Activity/UnityPlayer Java lifecycle, surface/render/resume and game startup remain unexecuted\n");
+      if(surface_gate){
+        auto recreate=java.NativeEntry("com/unity3d/player/UnityPlayer","nativeRecreateGfxState","(ILandroid/view/Surface;)V");
+        auto changed=java.NativeEntry("com/unity3d/player/UnityPlayer","nativeSendSurfaceChangedEvent","()V");
+        if(!Translated(recreate)||!Translated(changed))throw std::runtime_error("verified surface natives are not translated");
+        auto window=native_windows->Create(width,height,u"Bunker native surface diagnostic",false);
+        auto surface=native_windows->NewSurface(window);
+        auto token=native_windows->FromSurface(surface);
+        auto actual_width=native_windows->Width(token),actual_height=native_windows->Height(token);native_windows->Release(token);
+        if(actual_width!=width||actual_height!=height)throw std::runtime_error("actual HWND client geometry differs from configured landscape pixels");
+        std::fprintf(stderr,"Unity bootstrap: %ssurface-only host lifecycle port; actual HWND client=%dx%d; APK sensorLandscape; resumed=false; no Java class-init or render/resume claim\n",kExploratory?"EXPLORATORY ":"",actual_width,actual_height);
+        UnitySurfaceLifecycle lifecycle(java,[&](addr_t target,const std::vector<addr_t>&args){
+          std::fprintf(stderr,"Unity bootstrap: UnityMain host-thread=%lu native=%#llx argc=%zu env=%#llx receiver=%#llx display=%#llx surface=%#llx\n",GetCurrentThreadId(),static_cast<unsigned long long>(target),args.size(),static_cast<unsigned long long>(args.at(0)),static_cast<unsigned long long>(args.at(1)),static_cast<unsigned long long>(args.size()>2?args[2]:0),static_cast<unsigned long long>(args.size()>3?args[3]:0));
+          auto result=threads.Run(target,args);std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));return result;
+        },{recreate,changed},player,[&]{if(threads.ReleaseCurrent())throw std::runtime_error("UnityMain runner TLS/stack cleanup failed");});
+        lifecycle.AfterInitJni();lifecycle.Start();init_java_errors=0;init_java_diagnostic_active=true;
+        stage="surfaceCreated/recreate";lifecycle.SurfaceCreated(surface);lifecycle.WaitIdle();
+        stage="surfaceChanged/recreate+notify";lifecycle.SurfaceChanged(surface);lifecycle.WaitIdle();
+        stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
+        init_java_diagnostic_active=false;
+        if(init_java_errors.load())throw std::runtime_error("surface native calls encountered original Java exceptions");
+        auto state=lifecycle.Describe();if(state.resumed||state.surface||state.started)throw std::runtime_error("surface lifecycle did not finish paused and detached");
+        native_windows->Close(window);java.DeleteLocalReference(surface);
+        std::fprintf(stderr,"Unity bootstrap: isolated surface handoff/detach gate passed on UnityMain; HWND closed after native detach acknowledgment; no nativeRender/nativeResume executed\n");
+      }
     }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
