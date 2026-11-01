@@ -21,6 +21,10 @@ void InvalidateGuestMemory(addr_t address, size_t size);
 // The callback executes under a non-recursive memory lock. It must only do a
 // short native write; no guest callbacks, runtime access, or waits on guests.
 void WithGuestMemoryWrite(addr_t address, size_t size, const std::function<void()> &write);
+// Target-thread-only view, innermost first. Valid only during this execution;
+// includes suspended parents of nested Runtime::Run callbacks. It does not
+// enumerate roots kept solely in native provider temporaries.
+std::vector<State *> CurrentExecutionFrames(State &top);
 
 class Runtime {
  public:

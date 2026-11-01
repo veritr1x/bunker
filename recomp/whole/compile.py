@@ -179,6 +179,8 @@ def main():
     parser.add_argument('--no-callback-recovery', action='store_true',
                         help='Diagnostic baseline only: omit statically proven callback entry roots')
     parser.add_argument('--allow-unsupported', action='store_true', help='Exploratory builds only: retain traces with unliftable instructions')
+    parser.add_argument('--poll-instrument', type=Path,
+                        help='Opt-in LLVM18 poll-instrument executable; inserts trace-entry and cycle-cut State escape barriers')
     args = parser.parse_args()
     if args.shard_size < 1 or args.jobs < 1:
         parser.error('--shard-size and --jobs must be positive')
@@ -194,7 +196,7 @@ def main():
     raw = out / 'executable.bin'
     raw.write_bytes(image)
     image = None
-    manifest.update(seed_entries=list(pending), target=args.target)
+    manifest.update(seed_entries=list(pending), target=args.target, cooperative_polls=bool(args.poll_instrument))
     (out / 'plan.json').write_text(json.dumps(manifest, indent=2) + '\n')
     if args.plan_only:
         print(f'{args.library.name}: {len(pending):,} seed entries, {len(manifest["initializers"])} constructors, {len(manifest["imports"])} imports')
@@ -202,6 +204,16 @@ def main():
     lift, semantics_dir, hashes = freeze_toolchain(args.lift, args.semantics_dir, out)
     compiler_version = subprocess.check_output([args.cxx, '--version'], text=True)
     manifest['toolchain'] = {**hashes, 'compiler_version': compiler_version, 'pipeline': PIPELINE_HASH}
+    poll_instrument = None
+    if args.poll_instrument:
+        poll_hash = digest(args.poll_instrument)
+        poll_instrument = out / '.toolchain' / ('poll-' + poll_hash) / 'poll-instrument'
+        poll_instrument.parent.mkdir(parents=True, exist_ok=True)
+        if not poll_instrument.exists():
+            shutil.copy2(args.poll_instrument, poll_instrument)
+        if digest(poll_instrument) != poll_hash:
+            raise RuntimeError('Frozen poll instrument hash mismatch')
+        manifest['toolchain']['poll_instrument'] = poll_hash
     lifted, unsupported, missing, objects = set(), set(), set(), {}
 
     def compile_shard(job):
@@ -229,6 +241,10 @@ def main():
                                 '--address', str(args.base + offset), '--entry_addresses_file', str(seed_file),
                                 '--trace_heads_file', str(out / 'trace-heads.txt'),
                                 '--ir_out', str(ir)], stdout=log, stderr=subprocess.STDOUT, check=True)
+                if poll_instrument:
+                    modified = prefix.with_suffix('.poll.ll')
+                    subprocess.run([str(poll_instrument), str(ir), str(modified)], stdout=log, stderr=subprocess.STDOUT, check=True)
+                    modified.replace(ir)
         text = ir.read_text()
         definitions = {int(addr, 16) for addr in re.findall(r'^define[^\n]*@sub_([0-9a-f]+)\(', text, re.M)}
         if not set(seeds) <= definitions:
