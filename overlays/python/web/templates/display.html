@@ -10,6 +10,16 @@
     <span class="note">Never higher than the screen's refresh rate. Power saving mode keeps its lower rate.</span>
   </div>
   <div class="setting">
+    <label for="idle">When idle</label>
+    <select name="idle" id="idle">{% for key, title in idle_options %}<option value="{{ key }}"{% if settings.idle == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">Above 30 fps: after 2 seconds without a touch, outside battles, the game draws 30 times a second until you touch the screen again. Keeps the device much cooler.</span>
+  </div>
+  <div class="setting">
+    <label for="heat">When hot</label>
+    <select name="heat" id="heat">{% for key, title in heat_options %}<option value="{{ key }}"{% if settings.heat == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+    <span class="note">Above 60 fps the game draws 60 a second while the device reports it is hot, and 30 when it is very hot, until it cools down.</span>
+  </div>
+  <div class="setting">
     <label for="resolution">Resolution</label>
     <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
     <span class="note">Used by the game's higher graphics settings. Never higher than the screen's own resolution. 540p and 640p use less memory.</span>

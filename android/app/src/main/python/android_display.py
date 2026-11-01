@@ -24,7 +24,11 @@ SCREENS = [("full", "Full screen, around the camera"), ("safe", "Keep clear of t
 # Unity's texture-mipmap-skip-level, on the game's command line (DisplayPatch.unityArguments): each
 # step halves the width and height of every texture with mipmaps; menus have none.
 TEXTURES = [("full", "Full size (game default)"), ("half", "Half size (less memory)"), ("quarter", "Quarter size (least memory)")]
-DEFAULTS = {"fps": "30", "resolution": "default", "screen": "full", "textures": "full"}
+# Above 30 fps (render_pace.c): draw 30 a second after 2 s without a touch outside battles,
+# and slow down when the device reports it is hot.
+IDLE = [("on", "30 fps when idle (cooler)"), ("off", "Chosen rate always")]
+HEAT = [("on", "Slow down when hot"), ("off", "Chosen rate always")]
+DEFAULTS = {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on"}
 RESTART = "Close Pod Programs and tap Deploy."
 
 
@@ -39,7 +43,7 @@ def read_settings(path=None):
         lines = (path or conf_path()).read_text().splitlines()
     except OSError:
         return settings
-    allowed = {"fps": dict(FPS), "resolution": dict(RESOLUTIONS), "screen": dict(SCREENS), "textures": dict(TEXTURES)}
+    allowed = {"fps": dict(FPS), "resolution": dict(RESOLUTIONS), "screen": dict(SCREENS), "textures": dict(TEXTURES), "idle": dict(IDLE), "heat": dict(HEAT)}
     for line in lines:
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip()
@@ -48,12 +52,13 @@ def read_settings(path=None):
     return settings
 
 
-def write_settings(fps, resolution, screen, path=None, textures="full"):
-    if fps not in dict(FPS) or resolution not in dict(RESOLUTIONS) or screen not in dict(SCREENS) or textures not in dict(TEXTURES):
+def write_settings(fps, resolution, screen, path=None, textures="full", idle="on", heat="on"):
+    if (fps not in dict(FPS) or resolution not in dict(RESOLUTIONS) or screen not in dict(SCREENS) or textures not in dict(TEXTURES)
+            or idle not in dict(IDLE) or heat not in dict(HEAT)):
         raise ValueError("Unknown display setting")
     path = path or conf_path()
     pending = path.with_name(path.name + ".tmp")
-    pending.write_text(f"fps={fps}\nresolution={resolution}\nscreen={screen}\ntextures={textures}\n")
+    pending.write_text(f"fps={fps}\nresolution={resolution}\nscreen={screen}\ntextures={textures}\nidle={idle}\nheat={heat}\n")
     os.replace(pending, path)
 
 
@@ -69,13 +74,14 @@ def last_result():
 @router.get("/display")
 def view(request: Request, message: str = "", error: str = ""):
     return templates.TemplateResponse(request, "display.html", {"active": "display", "settings": read_settings(), "fps_options": FPS,
-        "resolution_options": RESOLUTIONS, "screen_options": SCREENS, "texture_options": TEXTURES, "result": last_result(), "message": message, "error": error})
+        "resolution_options": RESOLUTIONS, "screen_options": SCREENS, "texture_options": TEXTURES, "idle_options": IDLE, "heat_options": HEAT, "result": last_result(), "message": message, "error": error})
 
 
 @router.post("/display")
-def save(fps: str = Form(...), resolution: str = Form(...), screen: str = Form("full"), textures: str = Form("full")):
+def save(fps: str = Form(...), resolution: str = Form(...), screen: str = Form("full"), textures: str = Form("full"), idle: str = Form("on"),
+         heat: str = Form("on")):
     try:
-        write_settings(fps, resolution, screen, textures=textures)
+        write_settings(fps, resolution, screen, textures=textures, idle=idle, heat=heat)
         # The status describes the previous choices until the game opens again.
         (config.DATA_DIR / "display.status").unlink(missing_ok=True)
     except Exception as exc:
