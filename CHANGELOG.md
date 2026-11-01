@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-01
+
+### Calendar
+- **Show original dates (2021–2024)** under Content › Schedule: with the
+  Original calendar on, the game shows the dates the live service had, so
+  summons, events, exchanges, missions and Arena seasons read 2021 onwards
+  instead of this loop's dates. It can be switched on and off at any time
+  (then Deploy); the save is not changed, only what the game is shown. The
+  game data copy for it is built the first time it is switched on.
+  [dc41292, c956ea5, 0726b71, dee6a13, c8769cb, cf46134, 8cbc080]
+
 ## 1.5.0 (2026-11-01)
 
 The update notice can be put off with **Later** or **Skip**, and a long press
