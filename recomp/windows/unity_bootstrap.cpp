@@ -2,6 +2,7 @@
 // a game launcher: every constructor must run before JNI_OnLoad is attempted.
 #include "jni_host.h"
 #include "android_context.h"
+#include "apk_assets.h"
 #include "filesystem.h"
 #include "module_registry.h"
 #include "pthread_host.h"
@@ -119,6 +120,7 @@ int main(int argc,char **argv){
     DefineUnityJavaCatalog(java);
     AndroidContextConfig context_config;
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
+    context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
     ModuleRegistry modules([&](addr_t entry){
       if(std::strcmp(stage,"constructors")==0){

@@ -2,6 +2,7 @@
 #include "jni_host.h"
 
 namespace bunker::windows {
+class ApkAssets;
 struct LaunchExtra {
   enum Kind {kNull,kString,kInteger,kBoolean} kind=kNull;
   std::u16string text;int32_t integer=0;bool boolean=false;
@@ -19,6 +20,7 @@ struct AndroidContextConfig {
   std::string activity_class = "android/app/Activity";
   std::map<std::u16string,LaunchExtra> launch_extras;
   std::optional<std::u16string> launch_data;
+  std::shared_ptr<ApkAssets> apk_assets;
 };
 
 // Explicit host implementations of the Java context metadata Unity requests.

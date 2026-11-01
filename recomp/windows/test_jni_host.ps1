@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)][string]$JniHeader,
     [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\work\windows-jni'),
     [string]$Remill = (Join-Path $PSScriptRoot '..\work\remill-src'),
+    [string]$ZlibDirectory = (Join-Path $PSScriptRoot '..\work\zlib-native'),
     [string]$LibMainDirectory,
     [string]$LibMainLibrary,
     [string]$Cxx = 'g++.exe',
@@ -11,6 +12,7 @@ $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $BuildDirectory | Out-Null
 $taskBuild = (Resolve-Path -LiteralPath $BuildDirectory).ProviderPath
 $taskRemill = (Resolve-Path -LiteralPath $Remill).ProviderPath
+$taskZlib=(Resolve-Path -LiteralPath $ZlibDirectory).ProviderPath
 Copy-Item -LiteralPath $JniHeader -Destination (Join-Path $taskBuild 'jni.h')
 $taskCommon = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$PSScriptRoot", "-I$taskBuild")
 $taskRuntime = Join-Path $PSScriptRoot '..\whole\runtime.cpp'
@@ -21,7 +23,7 @@ if ($LASTEXITCODE -ne 0) { throw 'JNI host compilation failed.' }
 & $taskTest
 if ($LASTEXITCODE -ne 0) { throw 'JNI host checks failed.' }
 $taskContextTest = Join-Path $taskBuild 'test-android-context.exe'
-& $Cxx @taskCommon (Join-Path $PSScriptRoot 'android_context_test.cpp') (Join-Path $PSScriptRoot 'android_context.cpp') $taskHost $taskRuntime '-static' '-latomic' '-o' $taskContextTest
+& $Cxx @taskCommon "-I$taskZlib\zlib-1.3.2" (Join-Path $PSScriptRoot 'android_context_test.cpp') (Join-Path $PSScriptRoot 'android_context.cpp') (Join-Path $PSScriptRoot 'android_assets.cpp') (Join-Path $PSScriptRoot 'apk_assets.cpp') $taskHost $taskRuntime (Join-Path $taskZlib 'libz-inflate.a') '-static' '-latomic' '-o' $taskContextTest
 if ($LASTEXITCODE -ne 0) { throw 'Android context catalog compilation failed.' }
 & $taskContextTest
 if ($LASTEXITCODE -ne 0) { throw 'Android context catalog checks failed.' }

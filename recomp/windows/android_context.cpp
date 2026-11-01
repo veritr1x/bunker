@@ -1,7 +1,7 @@
 #include "android_context.h"
+#include "android_assets.h"
+#include "unicode.h"
 #include <algorithm>
-#include <codecvt>
-#include <locale>
 #include <stdexcept>
 
 namespace bunker::windows {
@@ -25,7 +25,6 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
   host.DefineClass("android/content/pm/ApplicationInfo", {}, "java/lang/Object", true);
-  host.DefineClass("android/content/res/AssetManager", {}, "java/lang/Object", true);
   host.DefineClass("android/content/Intent",{},"java/lang/Object",true);
   host.DefineClass("android/content/ComponentName",{},"java/lang/Object",true);
   host.DefineClass("android/os/BaseBundle",{},"java/lang/Object",true);
@@ -38,7 +37,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineField("android/content/pm/ApplicationInfo", "flags", "I");
   auto global = [&](addr_t local) { auto result = host.NewGlobalReference(local); host.DeleteLocalReference(local); return result; };
   info_ = global(host.NewInstance("android/content/pm/ApplicationInfo"));
-  assets_ = global(host.NewInstance("android/content/res/AssetManager"));
+  assets_ = global(CreateJavaAssets(host,config.apk_assets));
   package_ = global(host.NewString(config.package_name));
   auto set_string = [&](const char *name, const std::u16string &value) {
     auto local = host.NewString(value); host.SetObjectFieldValue(info_, name, "Ljava/lang/String;", local); host.DeleteLocalReference(local);
@@ -48,7 +47,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.SetIntFieldValue(info_, "targetSdkVersion", config.target_sdk); host.SetIntFieldValue(info_, "flags", config.flags);
   auto component=std::make_shared<ComponentState>();component->package=host.CaptureValue(package_);
   auto binary=config.activity_class;std::replace(binary.begin(),binary.end(),'/','.');
-  component->name=Keep(host,host.NewString(std::wstring_convert<std::codecvt_utf8_utf16<char16_t>,char16_t>{}.from_bytes(binary)));
+  component->name=Keep(host,host.NewString(Utf16(binary)));
   auto intent=std::make_shared<IntentState>();intent->action=Keep(host,host.NewString(u"android.intent.action.MAIN"));
   intent->component=Keep(host,host.NewHostInstance("android/content/ComponentName",component));
   if(config.launch_data){auto uri=std::make_shared<UriState>();uri->text=Keep(host,host.NewString(*config.launch_data));intent->data_string=uri->text;intent->data=Keep(host,host.NewHostInstance("android/net/Uri$StringUri",uri));}
