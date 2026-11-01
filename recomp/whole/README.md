@@ -98,3 +98,25 @@ JNI, variadic formatting, file handles, pthread state and Android wire layouts
 have dedicated adapters under [../windows](../windows/README.md). Guest
 callbacks dispatch through the runtime; never cast guest code pointers to
 native Windows callbacks.
+
+## Shared guest memory and exclusive operations
+
+The replacement exclusive protocol keeps a reservation across trace dispatch
+within a guest execution. A shared lock and versioned 64-byte granules detect
+intervening tracked writes, including ABA and same-value writes. Native atomic
+operations implement conditional stores. Import/host entry may conservatively
+clear the current execution's reservation. Single and paired operations pass
+90,112 ARM64-reference comparisons on each host platform, plus runtime
+contention/ABA checks. This is not a full game synchronization validation.
+
+Host providers must use `ReadGuestMemory` to snapshot input and
+`WriteGuestMemory` to publish output. `WithGuestMemoryWrite` is for short native
+writes only: its non-recursive lock must never span translated callbacks,
+nested tracked operations, blocking I/O or waits. `InvalidateGuestMemory`
+records allocation lifetime changes. `guest_memory.h` provides bounded string
+snapshots without reading beyond NUL or a printf precision limit.
+
+Use private buffers around native libraries and operating-system I/O, then
+publish changed guest bytes. Direct external writes, shared-file aliases and
+uninstrumented providers do not participate in the protocol. Each provider's
+tests and documentation state its current coverage.

@@ -45,12 +45,18 @@ def main():
     if a.windows:
         common += ['-static']
     unit = out / ('unit.exe' if a.windows else 'unit')
-    run([cxx, *common, hp(HERE / 'format_test.cpp'), hp(HERE / 'format.cpp'), '-o', hp(unit)])
+    run([cxx, *common, hp(HERE / 'format_test.cpp'), hp(HERE / 'format.cpp'),
+         hp(HERE / 'runtime.cpp'), '-latomic', '-o', hp(unit)])
     run([unit])
     logging_unit = out / ('logging-unit.exe' if a.windows else 'logging-unit')
     run([cxx, *common, hp(HERE.parent / 'windows/logging_test.cpp'), hp(HERE.parent / 'windows/logging.cpp'),
          hp(HERE / 'format.cpp'), hp(HERE / 'runtime.cpp'), '-latomic', '-o', hp(logging_unit)])
     run([logging_unit])
+    memory_unit = out / ('provider-memory.exe' if a.windows else 'provider-memory')
+    run([cxx, *common, hp(HERE.parent / 'windows/provider_memory_test.cpp'),
+         hp(HERE.parent / 'windows/jni_host.cpp'), hp(HERE.parent / 'windows/logging.cpp'),
+         hp(HERE / 'format.cpp'), hp(HERE / 'runtime.cpp'), '-latomic', '-o', hp(memory_unit)])
+    run([memory_unit])
     fatal = subprocess.run([str(logging_unit), '--assert'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if fatal.returncode == 0 or b'fatal 42' not in fatal.stderr:
         raise RuntimeError('guest assertion did not report and terminate')

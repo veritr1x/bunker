@@ -1,4 +1,5 @@
 #include "jni_host.h"
+#include "../whole/guest_memory.h"
 
 #include <algorithm>
 #include <atomic>
@@ -16,8 +17,8 @@ uint64_t ThreadKey() {
   thread_local const uint64_t key = next.fetch_add(1, std::memory_order_relaxed);
   return key;
 }
-template <typename T> T Read(addr_t at) { T value; std::memcpy(&value, reinterpret_cast<void *>(at), sizeof(value)); return value; }
-template <typename T> void Write(addr_t at, T value) { std::memcpy(reinterpret_cast<void *>(at), &value, sizeof(value)); }
+template <typename T> T Read(addr_t at) { T value; recomp::ReadGuestMemory(&value, at, sizeof(value)); return value; }
+template <typename T> void Write(addr_t at, T value) { recomp::WriteGuestMemory(at, &value, sizeof(value)); }
 void IntResult(State &s, int32_t value) { s.gpr.x0.qword = static_cast<uint32_t>(value); }
 std::string Encode(const std::u16string &text) {
   std::string result;
@@ -30,8 +31,9 @@ std::string Encode(const std::u16string &text) {
 }
 std::u16string Decode(const char *text) {
   if (!text) throw std::invalid_argument("null modified UTF-8 string");
+  const auto snapshot = recomp::ReadGuestString(reinterpret_cast<addr_t>(text));
   std::u16string result;
-  auto p = reinterpret_cast<const uint8_t *>(text);
+  auto p = reinterpret_cast<const uint8_t *>(snapshot.c_str());
   while (*p) {
     uint32_t c = *p++, minimum = 0;
     unsigned extra = 0;
@@ -212,17 +214,19 @@ bool Host::Assignable(const std::string &actual, const std::string &expected) co
 }
 Host::Field *Host::LookupField(const std::string &class_name, const char *name, const char *signature, bool is_static) {
   if (!name || !signature) { Raise("java/lang/NullPointerException", "null field name/signature"); return nullptr; }
+  const auto field_name = recomp::ReadGuestString(reinterpret_cast<addr_t>(name));
+  const auto field_signature = recomp::ReadGuestString(reinterpret_cast<addr_t>(signature));
   std::string owner = class_name;
   while (!owner.empty()) {
     auto clazz = classes_.find(owner); if (clazz == classes_.end()) break;
-    auto found = clazz->second->fields.find({name, signature});
+    auto found = clazz->second->fields.find({field_name, field_signature});
     if (found != clazz->second->fields.end()) {
       if (found->second->is_static == is_static) return found->second.get();
       break;
     }
     owner = clazz->second->superclass;
   }
-  Raise("java/lang/NoSuchFieldError", std::string(name) + ":" + signature); return nullptr;
+  Raise("java/lang/NoSuchFieldError", field_name + ":" + field_signature); return nullptr;
 }
 addr_t Host::FieldId(addr_t clazz, const char *name, const char *signature, bool is_static) {
   auto *metadata = GetClass(clazz); if (!metadata) return 0;
@@ -278,15 +282,17 @@ void Host::Delete(addr_t handle, unsigned kind) {
 addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bool is_static) {
   auto *clazz = GetClass(handle); if (!clazz) return 0;
   if (!name || !signature) { Raise("java/lang/NullPointerException", "null method name/signature"); return 0; }
+  const auto method_name = recomp::ReadGuestString(reinterpret_cast<addr_t>(name));
+  const auto method_signature = recomp::ReadGuestString(reinterpret_cast<addr_t>(signature));
   while (clazz) {
-    auto found = clazz->methods.find({name, signature});
+    auto found = clazz->methods.find({method_name, method_signature});
     if (found != clazz->methods.end()) {
       if (found->second->declaration.is_static == is_static) return found->second->id;
       break;
     }
     clazz = clazz->superclass.empty() ? nullptr : classes_.at(clazz->superclass).get();
   }
-  Raise("java/lang/NoSuchMethodError", std::string(name) + signature); return 0;
+  Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
 addr_t Host::CallObject(addr_t reference, addr_t id) {
   auto method = method_ids_.find(id);
@@ -314,11 +320,13 @@ int32_t Host::Register(addr_t handle, const NativeMethod *methods, int32_t count
     auto wire = Read<NativeMethod>(reinterpret_cast<addr_t>(methods + i));
     auto *name = reinterpret_cast<const char *>(wire.name), *signature = reinterpret_cast<const char *>(wire.signature);
     if (!name || !signature) { Raise("java/lang/IllegalArgumentException", "null native method descriptor"); return kError; }
-    auto found = clazz->methods.find({name, signature});
+    const auto native_name = recomp::ReadGuestString(wire.name);
+    const auto native_signature = recomp::ReadGuestString(wire.signature);
+    auto found = clazz->methods.find({native_name, native_signature});
     if (found == clazz->methods.end() || !found->second->declaration.is_native) {
-      Raise("java/lang/NoSuchMethodError", std::string(name) + signature); return kError;
+      Raise("java/lang/NoSuchMethodError", native_name + native_signature); return kError;
     }
-    if (!wire.entry || !native_entry_validator_(wire.entry)) { Raise("java/lang/UnsatisfiedLinkError", name); return kError; }
+    if (!wire.entry || !native_entry_validator_(wire.entry)) { Raise("java/lang/UnsatisfiedLinkError", native_name); return kError; }
     if (!seen.insert(found->second.get()).second) { Raise("java/lang/IllegalArgumentException", "duplicate native registration"); return kError; }
     updates.emplace_back(found->second.get(), wire.entry);
   }
@@ -364,20 +372,20 @@ void Host::InvokeEnv(size_t slot, State &s) {
   switch (slot) {
     case 4: IntResult(s, kVersion16); return;
     case 6: {
-      auto *name = reinterpret_cast<const char *>(a);
-      auto found = name ? classes_.find(name) : classes_.end();
-      if (found == classes_.end()) { Raise("java/lang/NoClassDefFoundError", name ? name : "null class name"); s.gpr.x0.qword = 0; }
+      const auto name = a ? recomp::ReadGuestString(a) : std::string("null class name");
+      auto found = a ? classes_.find(name) : classes_.end();
+      if (found == classes_.end()) { Raise("java/lang/NoClassDefFoundError", name); s.gpr.x0.qword = 0; }
       else s.gpr.x0.qword = Local(found->second->object);
       return;
     }
     case 10: { auto *clazz = GetClass(a); s.gpr.x0.qword = clazz && !clazz->superclass.empty() ? Local(classes_.at(clazz->superclass)->object) : 0; return; }
     case 11: { auto *first = GetClass(a), *second = GetClass(b); s.gpr.x0.qword = first && second && Assignable(first->object->class_name, second->object->class_name); return; }
     case 13: { auto object = Get(a); if (!object || object->kind != Object::kThrowable) { IntResult(s, kError); return; } Current().exception = object; IntResult(s, kOk); return; }
-    case 14: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } Raise(clazz->object->class_name, b ? reinterpret_cast<const char *>(b) : ""); IntResult(s, kOk); return; }
+    case 14: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } Raise(clazz->object->class_name, b ? recomp::ReadGuestString(b) : ""); IntResult(s, kOk); return; }
     case 15: s.gpr.x0.qword = Local(Current().exception); return;
     case 16: if (Current().exception) std::fprintf(stderr, "%s\n", PendingException().c_str()); return;
     case 17: Current().exception.reset(); return;
-    case 18: throw std::runtime_error(std::string("JNI FatalError: ") + (a ? reinterpret_cast<const char *>(a) : "null"));
+    case 18: throw std::runtime_error(std::string("JNI FatalError: ") + (a ? recomp::ReadGuestString(a) : "null"));
     case 19: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else { Current().frames.emplace_back(); IntResult(s, kOk); } return;
     case 20: {
       auto &frames = Current().frames;
@@ -416,7 +424,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
       auto data = std::make_unique<std::u16string>(object->text); auto ptr = reinterpret_cast<addr_t>(data->data());
       char_leases_.emplace(ptr, CharLease{object, std::move(data)}); if (b) Write<uint8_t>(b, 1); s.gpr.x0.qword = ptr; return;
     }
-    case 166: case 225: { auto object = String(a); auto lease = char_leases_.find(b); if (!object || lease == char_leases_.end() || lease->second.owner != object) Raise("java/lang/IllegalArgumentException", "invalid UTF-16 lease"); else char_leases_.erase(lease); return; }
+    case 166: case 225: { auto object = String(a); auto lease = char_leases_.find(b); if (!object || lease == char_leases_.end() || lease->second.owner != object) Raise("java/lang/IllegalArgumentException", "invalid UTF-16 lease"); else recomp::WithGuestMemoryWrite(b, (lease->second.data->size() + 1) * 2, [&] { char_leases_.erase(lease); }); return; }
     case 167:
       try { s.gpr.x0.qword = NewString(Decode(reinterpret_cast<const char *>(a))); }
       catch (const std::invalid_argument &error) { Raise("java/lang/IllegalArgumentException", error.what()); s.gpr.x0.qword = 0; }
@@ -426,7 +434,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
       auto data = std::make_unique<std::string>(Encode(object->text)); auto ptr = reinterpret_cast<addr_t>(data->c_str());
       utf_leases_.emplace(ptr, UtfLease{object, std::move(data)}); if (b) Write<uint8_t>(b, 1); s.gpr.x0.qword = ptr; return;
     }
-    case 170: { auto object = String(a); auto lease = utf_leases_.find(b); if (!object || lease == utf_leases_.end() || lease->second.owner != object) Raise("java/lang/IllegalArgumentException", "invalid UTF-8 lease"); else utf_leases_.erase(lease); return; }
+    case 170: { auto object = String(a); auto lease = utf_leases_.find(b); if (!object || lease == utf_leases_.end() || lease->second.owner != object) Raise("java/lang/IllegalArgumentException", "invalid UTF-8 lease"); else recomp::WithGuestMemoryWrite(b, lease->second.data->size() + 1, [&] { utf_leases_.erase(lease); }); return; }
     case 215: IntResult(s, Register(a, reinterpret_cast<const NativeMethod *>(b), static_cast<int32_t>(c))); return;
     case 216: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } for (auto &method : clazz->methods) method.second->native = 0; IntResult(s, kOk); return; }
     case 219: if (!a) { IntResult(s, kError); return; } Write(a, VmAddress()); IntResult(s, kOk); return;
@@ -435,8 +443,8 @@ void Host::InvokeEnv(size_t slot, State &s) {
       if (!object) return;
       if (start < 0 || length < 0 || static_cast<size_t>(start) > object->text.size() || static_cast<size_t>(length) > object->text.size() - start || (length && !d)) { Raise("java/lang/StringIndexOutOfBoundsException", "invalid string region"); return; }
       auto region = object->text.substr(start, length);
-      if (slot == 220) std::memcpy(reinterpret_cast<void *>(d), region.data(), region.size() * 2);
-      else { auto encoded = Encode(region); std::memcpy(reinterpret_cast<void *>(d), encoded.data(), encoded.size()); }
+      if (slot == 220) recomp::WriteGuestMemory(d, region.data(), region.size() * 2);
+      else { auto encoded = Encode(region); recomp::WriteGuestMemory(d, encoded.data(), encoded.size()); }
       return;
     }
     case 226: s.gpr.x0.qword = Ref(a, 3); return;

@@ -40,7 +40,8 @@ def main():
     common = ['-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', *includes]
     if args.windows:
         common += ['-static']
-    host_run([host_cxx, *common, host_path(HERE / 'bridge_test.cpp'), '-o', host_path(unit)])
+    host_run([host_cxx, *common, host_path(HERE / 'bridge_test.cpp'),
+              host_path(HERE / 'runtime.cpp'), '-latomic', '-o', host_path(unit)])
     host_run([unit])
 
     library = out / 'bridge-guest.so'

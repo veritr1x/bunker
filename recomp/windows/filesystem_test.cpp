@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -9,6 +10,7 @@
 #include <winioctl.h>
 
 #include "filesystem.h"
+#include "tracked_memory_test.h"
 #include "sample.h"
 #ifdef HAVE_GUEST_FILE_FIXTURE
 #include "../fastaes/elfload.h"
@@ -120,6 +122,41 @@ int main() {
     replacement.join();
   }
   recomp::Runtime runtime; files.Install(runtime);
+  // Actual provider writes must defeat a reservation even when bytes return to
+  // the loaded value. A value-only compare/exchange would incorrectly succeed.
+  const uint64_t sequence[]={9,7};
+  int aba_file=files.Open("aba.bin",linux_flags::read_write|linux_flags::create|linux_flags::truncate,0600);
+  require(aba_file>=0&&files.Write(aba_file,sequence,sizeof(sequence))==sizeof(sequence)&&files.Seek(aba_file,0,0)==0,"prepare actual file ABA bytes");
+  alignas(64) uint64_t aba_buffer[16]{};uint64_t seven=7;recomp::WriteGuestMemory(reinterpret_cast<addr_t>(aba_buffer),&seven,8);
+  auto reservation=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(aba_buffer),8,[&]{if(files.Read(aba_file,aba_buffer,8)!=8||files.Read(aba_file,aba_buffer,8)!=8)throw std::runtime_error("file ABA read failed");});
+  require(reservation.status==1&&aba_buffer[0]==7,"cross-thread fd read ABA invalidates guest exclusive reservation");
+  files.Close(aba_file);auto aba_stream=files.FOpen("aba.bin","rb");
+  reservation=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(aba_buffer),8,[&]{if(files.FRead(aba_buffer,8,1,aba_stream)!=1||files.FRead(aba_buffer,8,1,aba_stream)!=1)throw std::runtime_error("stdio ABA read failed");});
+  require(reservation.status==1&&aba_buffer[0]==7,"cross-thread fread ABA invalidates guest exclusive reservation");
+  reservation=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(aba_buffer),8,[&]{if(files.FRead(aba_buffer,8,1,aba_stream)!=0)throw std::runtime_error("expected EOF");});
+  require(reservation.status==0,"EOF makes no tracked destination write");files.FClose(aba_stream);
+  alignas(64) AndroidStat tracked_stat{};files.Stat("bytes.bin",&tracked_stat);
+  reservation=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_stat),8,[&]{if(files.Stat("bytes.bin",&tracked_stat))throw std::runtime_error("tracked stat failed");});
+  require(reservation.status==1,"same-value stat output invalidates reservation");
+  aba_file=files.Open("aba.bin",0);
+  files.FStat(aba_file,&tracked_stat);
+  reservation=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_stat.size),8,[&]{if(files.FStat(aba_file,&tracked_stat))throw std::runtime_error("tracked fstat failed");});
+  require(reservation.status==1&&tracked_stat.size==16,"fstat publishes complete Android wire structure");files.Close(aba_file);
+  // fread publishes trailing bytes of an incomplete item, not only the item
+  // count returned to its caller. Preserve the untouched tail of the buffer.
+  auto partial=files.FOpen("bytes.bin","rb");files.FSeek(partial,995,0);std::memset(aba_buffer,0xcd,sizeof(aba_buffer));
+  require(files.FRead(aba_buffer,3,3,partial)==1&&reinterpret_cast<uint8_t*>(aba_buffer)[4]==static_cast<uint8_t>(999*37+11)&&reinterpret_cast<uint8_t*>(aba_buffer)[5]==0xcd,"fread tracks five actual bytes while returning one complete item");files.FClose(partial);
+  std::vector<uint8_t> large_io(65536+73);for(size_t i=0;i<large_io.size();++i)large_io[i]=static_cast<uint8_t>(i*17+5);
+  auto large_io_file=files.FOpen("bounce.bin","wb+");require(large_io_file&&files.FWrite(large_io.data(),7,large_io.size()/7,large_io_file)==large_io.size()/7&&files.FSeek(large_io_file,0,0)==0,"stdio tracked input spans bounce-buffer boundary");
+  std::vector<uint8_t> roundtrip(large_io.size(),0);auto complete_bytes=large_io.size()/7*7;
+  require(files.FRead(roundtrip.data(),1,complete_bytes,large_io_file)==complete_bytes&&std::equal(roundtrip.begin(),roundtrip.begin()+complete_bytes,large_io.begin()),"stdio tracked copy-back spans bounce-buffer boundary");files.FClose(large_io_file);
+  aba_file=files.Open("input-snapshot.bin",linux_flags::write_only|linux_flags::create|linux_flags::truncate,0600);aba_buffer[0]=7;
+  reservation=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(aba_buffer),8,[&]{if(files.Write(aba_file,aba_buffer,8)!=8)throw std::runtime_error("snapshot write failed");});
+  require(reservation.status==0,"fd write snapshots guest input without invalidating its reservation");files.Close(aba_file);
+  std::atomic<addr_t> worker_errno{0};std::atomic<bool> errno_go{false};std::thread errno_worker([&]{files.SetError(123);worker_errno=files.ErrnoAddress();while(!errno_go.load())std::this_thread::yield();files.SetError(9);files.SetError(123);});
+  while(!worker_errno.load())std::this_thread::yield();
+  reservation=bunker::test::ReserveAcrossOperation(worker_errno.load(),4,[&]{errno_go=true;errno_worker.join();});
+  require(reservation.status==1&&*reinterpret_cast<int32_t*>(worker_errno.load())==123,"cross-thread errno ABA is tracked");
   State call{}; call.gpr.x0.qword = reinterpret_cast<addr_t>("/data/app/bunker/base.apk"); call.gpr.x1.qword = 0; call.gpr.x30.qword = 0xfeedffff;
   runtime.Run(call, files.Marker("open"));
   require(static_cast<int32_t>(call.gpr.x0.dword) >= 1000 && call.gpr.pc.qword == 0xfeedffff, "typed guest file import marker"); files.Close(call.gpr.x0.dword);

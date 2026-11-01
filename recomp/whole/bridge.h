@@ -60,13 +60,13 @@ class Arguments {
       if (fp_ < 8) {
         std::memcpy(&value, &state_.simd.v[fp_++], sizeof(value));
       } else {
-        std::memcpy(&value, StackSlot(), sizeof(value));
+        ReadGuestMemory(&value, reinterpret_cast<addr_t>(StackSlot()), sizeof(value));
       }
       return value;
     } else {
       uint64_t bits;
       if (gp_ < 8) bits = General(state_, gp_++);
-      else std::memcpy(&bits, StackSlot(), sizeof(bits));
+      else ReadGuestMemory(&bits, reinterpret_cast<addr_t>(StackSlot()), sizeof(bits));
       if constexpr (kDataPointer<T>) {
         return reinterpret_cast<T>(static_cast<uintptr_t>(bits));
       } else if constexpr (std::is_same_v<T, bool>) {

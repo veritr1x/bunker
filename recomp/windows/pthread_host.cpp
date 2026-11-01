@@ -37,8 +37,11 @@ const char *const names[]={
   "pthread_once","pthread_key_create","pthread_key_delete","pthread_getspecific","pthread_setspecific",
   "pthread_rwlock_init","pthread_rwlock_destroy","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_rwlock_unlock",
   "pthread_kill","pthread_sigmask","pthread_atfork","clock_gettime"};
-uint32_t Word(const void *p) { uint32_t v; std::memcpy(&v,p,4); return v; }
-void SetWord(void *p,uint32_t v) { std::memcpy(p,&v,4); }
+template<class T>T ReadWire(const T *p){T v;recomp::ReadGuestMemory(&v,reinterpret_cast<addr_t>(p),sizeof(v));return v;}
+template<class T>void WriteWire(T *p,const T &v){recomp::WriteGuestMemory(reinterpret_cast<addr_t>(p),&v,sizeof(v));}
+uint32_t Word(const void *p){return ReadWire(static_cast<const uint32_t*>(p));}
+void SetWord(void *p,uint32_t v){WriteWire(static_cast<uint32_t*>(p),v);}
+void InitializeOpaque(void *p,size_t size,uint32_t first=0){std::array<uint8_t,56> bytes{};std::memcpy(bytes.data(),&first,4);recomp::WriteGuestMemory(reinterpret_cast<addr_t>(p),bytes.data(),size);}
 int64_t NowNs(int clock) {
   if(clock==0) return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -59,7 +62,7 @@ struct Pthreads::Impl {
     addr_t stack_base=0; uint64_t stack_size=0,guard_size=0;
     std::map<int32_t,Value> values;
     std::vector<std::pair<int32_t*,OnceState*>> active_once;
-    ~Thread(){if(stack_allocation)VirtualFree(stack_allocation,0,MEM_RELEASE);if(handle)CloseHandle(handle);}
+    ~Thread(){if(stack_allocation){recomp::InvalidateGuestMemory(stack_base,stack_size);VirtualFree(stack_allocation,0,MEM_RELEASE);}recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(tls),sizeof(tls));if(handle)CloseHandle(handle);}
   };
   recomp::Runtime &runtime;
   std::function<bool(addr_t)> translated;
@@ -88,9 +91,9 @@ struct Pthreads::Impl {
     if(!allocation)throw std::bad_alloc();
     auto address=reinterpret_cast<addr_t>(allocation)+guard;
     if(!VirtualAlloc(reinterpret_cast<void*>(address),size,MEM_COMMIT,PAGE_READWRITE)){VirtualFree(allocation,0,MEM_RELEASE);throw std::bad_alloc();}
-    t.stack_allocation=allocation;t.stack_base=address;t.stack_size=size;t.guard_size=guard;
+    recomp::InvalidateGuestMemory(address,size);t.stack_allocation=allocation;t.stack_base=address;t.stack_size=size;t.guard_size=guard;
   }
-  void ReleaseStack(Thread &t){if(t.stack_allocation){VirtualFree(t.stack_allocation,0,MEM_RELEASE);t.stack_allocation=nullptr;}t.stack_base=0;t.stack_size=0;t.guard_size=0;}
+  void ReleaseStack(Thread &t){if(t.stack_allocation){recomp::InvalidateGuestMemory(t.stack_base,t.stack_size);VirtualFree(t.stack_allocation,0,MEM_RELEASE);t.stack_allocation=nullptr;}t.stack_base=0;t.stack_size=0;t.guard_size=0;}
   // Call with registry locked. Keep small token tombstones but release native
   // handles and owned guest stacks only after actual OS thread termination.
   void ReapDetached(){for(auto &item:threads){auto &t=*item.second;if(t.worker&&t.detached&&t.complete&&t.handle&&WaitForSingleObject(t.handle,0)==WAIT_OBJECT_0){ReleaseStack(t);CloseHandle(t.handle);t.handle=nullptr;}}}
@@ -161,10 +164,7 @@ Pthreads::Pthreads(recomp::Runtime &r,std::function<bool(addr_t)> v,addr_t base)
 Pthreads::~Pthreads() {
   // The host owns native handles until actual OS termination, including detached
   // workers. Stable token tombstones prevent OS thread-id reuse aliasing.
-  {std::lock_guard guard(impl_->registry);impl_->stopping=true;}
-  // New worker creation is refused once shutdown starts. External native threads
-  // are tracked for liveness but are owned by their original host, not joined.
-  for(auto &item:impl_->threads) {auto &t=*item.second;if(t.worker&&t.handle)WaitForSingleObject(t.handle,INFINITE);}
+  if(Shutdown()){std::fprintf(stderr,"pthread host destroyed on its own worker\n");std::abort();}
   Impl::Bindings().erase(impl_->instance);
 }
 addr_t Pthreads::Marker(const std::string &s)const {for(size_t i=0;i<std::size(names);++i)if(s==names[i])return impl_->markers+i*8;throw std::invalid_argument("unsupported pthread import "+s);}
@@ -173,15 +173,24 @@ uint64_t Pthreads::Run(addr_t e,std::initializer_list<addr_t> a){return impl_->R
 uint64_t Pthreads::Run(addr_t e,const std::vector<addr_t> &a){return impl_->Run(impl_->Current(),e,a.data(),a.size());}
 void Pthreads::AttachCurrentStack(void *base,uint64_t size){if(!base||size<kStackMin||(reinterpret_cast<addr_t>(base)&15)||(size&15))throw std::invalid_argument("unaligned/invalid guest stack");auto &t=impl_->Current();if(t.active)throw std::logic_error("cannot replace active guest stack");std::lock_guard lock(impl_->registry);impl_->ReleaseStack(t);t.stack_base=reinterpret_cast<addr_t>(base);t.stack_size=size;}
 int Pthreads::ReleaseCurrent(){auto &t=impl_->Current();if(t.worker||t.active)return kBusy;impl_->Finish(t,0);{std::lock_guard lock(impl_->registry);impl_->ReleaseStack(t);CloseHandle(t.handle);t.handle=nullptr;impl_->ReapDetached();}Impl::Bindings().erase(impl_->instance);return 0;}
-int Pthreads::AttrInit(AndroidThreadAttr *a){if(!a)return kInvalid;*a={};a->stack_size=kStackSize;a->guard_size=4096;return 0;}
-int Pthreads::AttrDestroy(AndroidThreadAttr *a){if(!a||a->flags==kDead)return kInvalid;*a={};a->flags=kDead;return 0;}
-int Pthreads::AttrSetDetach(AndroidThreadAttr *a,int d){if(!a||a->flags==kDead||d<0||d>1)return kInvalid;a->flags=(a->flags&~1U)|d;return 0;}
-int Pthreads::AttrSetStackSize(AndroidThreadAttr *a,uint64_t size){if(!a||a->flags==kDead||size<kStackMin)return kInvalid;a->stack_size=size;return 0;}
-int Pthreads::AttrGetStack(const AndroidThreadAttr *a,uint64_t *base,uint64_t *size){if(!a||a->flags==kDead||!base||!size)return kInvalid;*base=a->stack_base;*size=a->stack_size;return 0;}
-int Pthreads::GetAttr(uint64_t id,AndroidThreadAttr *a){if(!a)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;auto &t=*it->second;if(!t.stack_base)return kNotSupported;AttrInit(a);a->flags=t.detached?1:0;a->stack_base=t.stack_base;a->stack_size=t.stack_size;a->guard_size=t.guard_size;return 0;}
+int Pthreads::Shutdown(){
+  auto &bindings=Impl::Bindings();auto current=bindings.find(impl_->instance);
+  if(current!=bindings.end()&&current->second->worker)return kDeadlock;
+  {std::lock_guard guard(impl_->registry);impl_->stopping=true;}
+  // External host threads retain their original ownership and are not joined.
+  // Callers must stop issuing external imports before destroying the host.
+  for(auto &item:impl_->threads){auto &t=*item.second;if(t.worker&&t.handle&&WaitForSingleObject(t.handle,INFINITE)!=WAIT_OBJECT_0)return kInvalid;}
+  return 0;
+}
+int Pthreads::AttrInit(AndroidThreadAttr *a){if(!a)return kInvalid;AndroidThreadAttr v{};v.stack_size=kStackSize;v.guard_size=4096;WriteWire(a,v);return 0;}
+int Pthreads::AttrDestroy(AndroidThreadAttr *a){if(!a||ReadWire(a).flags==kDead)return kInvalid;AndroidThreadAttr v{};v.flags=kDead;WriteWire(a,v);return 0;}
+int Pthreads::AttrSetDetach(AndroidThreadAttr *a,int d){if(!a||d<0||d>1)return kInvalid;auto v=ReadWire(a);if(v.flags==kDead)return kInvalid;v.flags=(v.flags&~1U)|d;WriteWire(a,v);return 0;}
+int Pthreads::AttrSetStackSize(AndroidThreadAttr *a,uint64_t size){if(!a||size<kStackMin)return kInvalid;auto v=ReadWire(a);if(v.flags==kDead)return kInvalid;v.stack_size=size;WriteWire(a,v);return 0;}
+int Pthreads::AttrGetStack(const AndroidThreadAttr *a,uint64_t *base,uint64_t *size){if(!a||!base||!size)return kInvalid;auto v=ReadWire(a);if(v.flags==kDead)return kInvalid;WriteWire(base,v.stack_base);WriteWire(size,v.stack_size);return 0;}
+int Pthreads::GetAttr(uint64_t id,AndroidThreadAttr *a){if(!a)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;auto &t=*it->second;if(!t.stack_base)return kNotSupported;AndroidThreadAttr v{};v.flags=t.detached?1:0;v.stack_base=t.stack_base;v.stack_size=t.stack_size;v.guard_size=t.guard_size;WriteWire(a,v);return 0;}
 int Pthreads::Create(uint64_t *out,const AndroidThreadAttr *attr,addr_t entry,addr_t arg) {
   if(!out||!entry||!impl_->translated(entry))return kInvalid;
-  AndroidThreadAttr a;AttrInit(&a);if(attr)a=*attr;
+  AndroidThreadAttr a;AttrInit(&a);if(attr)a=ReadWire(attr);
   if(a.flags&~1U||a.stack_size<kStackMin)return kInvalid;
   if(a.stack_base||a.sched_policy||a.sched_priority||std::any_of(std::begin(a.reserved),std::end(a.reserved),[](auto x){return x!=0;}))return kNotSupported;
   if(a.stack_size>1ULL<<30||a.guard_size>1ULL<<30)return kAgain;
@@ -193,7 +202,7 @@ int Pthreads::Create(uint64_t *out,const AndroidThreadAttr *attr,addr_t entry,ad
   auto *raw=t.get();auto id=t->id;
   try{impl_->threads.emplace(id,std::move(t));}catch(const std::bad_alloc&){return kAgain;}
   auto handle=_beginthreadex(nullptr,0,Impl::Worker,raw,CREATE_SUSPENDED,&raw->native_id);
-  if(!handle){impl_->threads.erase(id);return kAgain;}raw->handle=reinterpret_cast<HANDLE>(handle);*out=id;
+  if(!handle){impl_->threads.erase(id);return kAgain;}raw->handle=reinterpret_cast<HANDLE>(handle);WriteWire(out,id);
   if(ResumeThread(raw->handle)==DWORD(-1)){std::fprintf(stderr,"pthread ResumeThread failed\n");std::abort();}return 0;
 }
 int Pthreads::Join(uint64_t id,uint64_t *result) {
@@ -201,24 +210,25 @@ int Pthreads::Join(uint64_t id,uint64_t *result) {
   Impl::Thread *t;
   {std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end())return kNoThread;t=it->second.get();if(!t->worker||t->detached||t->joining||t->joined)return kInvalid;t->joining=true;}
   if(WaitForSingleObject(t->handle,INFINITE)!=WAIT_OBJECT_0){std::lock_guard lock(impl_->registry);t->joining=false;return kInvalid;}
-  std::lock_guard lock(impl_->registry);if(result)*result=t->result;t->joined=true;t->joining=false;impl_->ReleaseStack(*t);CloseHandle(t->handle);t->handle=nullptr;impl_->ReapDetached();return 0;
+  std::lock_guard lock(impl_->registry);if(result)WriteWire(result,t->result);t->joined=true;t->joining=false;impl_->ReleaseStack(*t);CloseHandle(t->handle);t->handle=nullptr;impl_->ReapDetached();return 0;
 }
 int Pthreads::Detach(uint64_t id){std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end())return kNoThread;auto &t=*it->second;if(!t.worker||t.detached||t.joining||t.joined)return kInvalid;t.detached=true;return 0;}
 [[noreturn]] void Pthreads::Exit(uint64_t result){auto &t=impl_->Current();if(!t.worker){std::fprintf(stderr,"pthread_exit on an external host thread is unsupported\n");std::abort();}impl_->Finish(t,result);_endthreadex(0);std::abort();}
-int Pthreads::MutexAttrInit(int64_t *a){if(!a)return kInvalid;*a=0;return 0;}
-int Pthreads::MutexAttrDestroy(int64_t *a){if(!a||*a<0||*a>2)return kInvalid;*a=-1;return 0;}
-int Pthreads::MutexAttrSetType(int64_t *a,int type){if(!a||*a<0||*a>2||type<0||type>2)return kInvalid;*a=type;return 0;}
-int Pthreads::MutexInit(void *p,const int64_t *a){if(!p)return kInvalid;int64_t type=a?*a:0;if(type<0||type>2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->mutexes.count(p))return kBusy;auto m=std::make_shared<Impl::Mutex>();m->type=static_cast<int>(type);std::memset(p,0,40);SetWord(p,static_cast<uint32_t>(type)<<14);impl_->mutexes.emplace(p,m);return 0;}
+int Pthreads::MutexAttrInit(int64_t *a){if(!a)return kInvalid;WriteWire(a,int64_t(0));return 0;}
+int Pthreads::MutexAttrDestroy(int64_t *a){if(!a)return kInvalid;auto v=ReadWire(a);if(v<0||v>2)return kInvalid;WriteWire(a,int64_t(-1));return 0;}
+int Pthreads::MutexAttrSetType(int64_t *a,int type){if(!a||type<0||type>2)return kInvalid;auto v=ReadWire(a);if(v<0||v>2)return kInvalid;WriteWire(a,int64_t(type));return 0;}
+int Pthreads::MutexInit(void *p,const int64_t *a){if(!p)return kInvalid;int64_t type=a?ReadWire(a):0;if(type<0||type>2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->mutexes.count(p))return kBusy;auto m=std::make_shared<Impl::Mutex>();m->type=static_cast<int>(type);InitializeOpaque(p,40,static_cast<uint32_t>(type)<<14);impl_->mutexes.emplace(p,m);return 0;}
 int Pthreads::MutexDestroy(void *p){auto m=impl_->GetMutex(p);if(!m)return kInvalid;std::lock_guard lock(m->lock);if(m->dead)return kInvalid;if(m->owner||m->waiters)return kBusy;m->dead=true;{std::lock_guard guard(impl_->registry);impl_->mutexes.erase(p);SetWord(p,kDead);}return 0;}
 int Pthreads::MutexLock(void *p,bool attempt){auto m=impl_->GetMutex(p);if(!m)return kInvalid;auto id=Self();std::unique_lock lock(m->lock);if(m->dead)return kInvalid;if(m->owner==id&&m->type==1){if(m->depth==UINT32_MAX)return kAgain;++m->depth;return 0;}if(m->owner&&attempt)return kBusy;if(m->owner==id&&m->type==2)return kDeadlock;++m->waiters;m->cv.wait(lock,[&]{return !m->owner||m->dead;});--m->waiters;if(m->dead)return kInvalid;m->owner=id;m->depth=1;return 0;}
 int Pthreads::MutexUnlock(void *p){auto m=impl_->GetMutex(p);if(!m)return kInvalid;std::lock_guard lock(m->lock);if(m->dead)return kInvalid;if(m->owner!=Self())return kPerm;if(--m->depth==0){m->owner=0;m->cv.notify_one();}return 0;}
-int Pthreads::CondAttrInit(int64_t *a){if(!a)return kInvalid;*a=0;return 0;}
-int Pthreads::CondAttrDestroy(int64_t *a){if(!a||(*a!=0&&*a!=2))return kInvalid;*a=0xdeada11d;return 0;}
-int Pthreads::CondAttrSetClock(int64_t *a,int clock){if(!a||(*a!=0&&*a!=2)||clock<0||clock>1)return kInvalid;*a=clock<<1;return 0;}
-int Pthreads::CondInit(void *p,const int64_t *a){if(!p)return kInvalid;auto flags=a?*a:0;if(flags!=0&&flags!=2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->conditions.count(p))return kBusy;auto c=std::make_shared<Impl::Cond>();c->clock=static_cast<int>(flags>>1);std::memset(p,0,48);SetWord(p,static_cast<uint32_t>(flags));impl_->conditions.emplace(p,c);return 0;}
+int Pthreads::CondAttrInit(int64_t *a){if(!a)return kInvalid;WriteWire(a,int64_t(0));return 0;}
+int Pthreads::CondAttrDestroy(int64_t *a){if(!a)return kInvalid;auto v=ReadWire(a);if(v!=0&&v!=2)return kInvalid;WriteWire(a,int64_t(0xdeada11d));return 0;}
+int Pthreads::CondAttrSetClock(int64_t *a,int clock){if(!a||clock<0||clock>1)return kInvalid;auto v=ReadWire(a);if(v!=0&&v!=2)return kInvalid;WriteWire(a,int64_t(clock<<1));return 0;}
+int Pthreads::CondInit(void *p,const int64_t *a){if(!p)return kInvalid;auto flags=a?ReadWire(a):0;if(flags!=0&&flags!=2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->conditions.count(p))return kBusy;auto c=std::make_shared<Impl::Cond>();c->clock=static_cast<int>(flags>>1);InitializeOpaque(p,48,static_cast<uint32_t>(flags));impl_->conditions.emplace(p,c);return 0;}
 int Pthreads::CondDestroy(void *p){auto c=impl_->GetCond(p);if(!c)return kInvalid;std::lock_guard lock(c->lock);if(c->dead)return kInvalid;if(c->waiters)return kBusy;c->dead=true;{std::lock_guard guard(impl_->registry);impl_->conditions.erase(p);SetWord(p,kDead);}return 0;}
 int Pthreads::CondWake(void *p,bool all){auto c=impl_->GetCond(p);if(!c)return kInvalid;std::lock_guard lock(c->lock);if(c->dead)return kInvalid;++c->sequence;if(all)c->cv.notify_all();else c->cv.notify_one();return 0;}
 int Pthreads::CondWait(void *p,void *mp,const AndroidTimespec *deadline){
+  AndroidTimespec copied;if(deadline){copied=ReadWire(deadline);deadline=&copied;}
   if(deadline&&(deadline->nanoseconds<0||deadline->nanoseconds>=1000000000))return kInvalid;
   auto c=impl_->GetCond(p);auto m=impl_->GetMutex(mp);if(!c||!m)return kInvalid;
   std::unique_lock lock(c->lock);if(c->dead)return kInvalid;
@@ -249,17 +259,17 @@ int Pthreads::Once(int32_t *p,addr_t callback){
   try {impl_->Run(t,callback,nullptr,0);}catch(...){lock.lock();o->owner=0;SetWord(p,0);t.active_once.pop_back();o->cv.notify_all();throw;}
   lock.lock();t.active_once.pop_back();o->owner=0;o->done=true;SetWord(p,2);o->cv.notify_all();return 0;
 }
-int Pthreads::KeyCreate(int32_t *out,addr_t callback){if(!out||(callback&&!impl_->translated(callback)))return kInvalid;std::lock_guard lock(impl_->registry);for(int32_t i=0;i<128;++i)if(!impl_->keys[i].live){auto &k=impl_->keys[i];k.live=true;++k.generation;k.destructor=callback;*out=i;return 0;}return kAgain;}
+int Pthreads::KeyCreate(int32_t *out,addr_t callback){if(!out||(callback&&!impl_->translated(callback)))return kInvalid;std::lock_guard lock(impl_->registry);for(int32_t i=0;i<128;++i)if(!impl_->keys[i].live){auto &k=impl_->keys[i];k.live=true;++k.generation;k.destructor=callback;WriteWire(out,i);return 0;}return kAgain;}
 int Pthreads::KeyDelete(int32_t key){if(key<0||key>=128)return kInvalid;std::lock_guard lock(impl_->registry);auto &k=impl_->keys[key];if(!k.live)return kInvalid;k.live=false;k.destructor=0;return 0;}
 int Pthreads::SetSpecific(int32_t key,uint64_t value){if(key<0||key>=128)return kInvalid;auto &t=impl_->Current();std::lock_guard lock(impl_->registry);auto &k=impl_->keys[key];if(!k.live)return kInvalid;try{t.values[key]={k.generation,value};}catch(const std::bad_alloc&){return kNoMemory;}return 0;}
 uint64_t Pthreads::GetSpecific(int32_t key){if(key<0||key>=128)return 0;auto &t=impl_->Current();std::lock_guard lock(impl_->registry);auto &k=impl_->keys[key];auto it=t.values.find(key);return k.live&&it!=t.values.end()&&it->second.generation==k.generation?it->second.value:0;}
-int Pthreads::RwInit(void *p,const int64_t *a){if(!p)return kInvalid;if(a&&*a)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->rwlocks.count(p))return kBusy;std::memset(p,0,56);impl_->rwlocks.emplace(p,std::make_shared<Impl::Rw>());return 0;}
+int Pthreads::RwInit(void *p,const int64_t *a){if(!p)return kInvalid;if(a&&ReadWire(a))return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->rwlocks.count(p))return kBusy;InitializeOpaque(p,56);impl_->rwlocks.emplace(p,std::make_shared<Impl::Rw>());return 0;}
 int Pthreads::RwDestroy(void *p){auto r=impl_->GetRw(p);if(!r)return kInvalid;std::lock_guard lock(r->lock);if(r->dead)return kInvalid;if(r->writer||!r->readers.empty()||r->waiters)return kBusy;r->dead=true;{std::lock_guard guard(impl_->registry);impl_->rwlocks.erase(p);SetWord(p,kDead);}return 0;}
 int Pthreads::RwLock(void *p,bool write){auto r=impl_->GetRw(p);if(!r)return kInvalid;auto id=Self();std::unique_lock lock(r->lock);if(r->dead)return kInvalid;if(r->writer==id||(write&&r->readers.count(id)))return kDeadlock;++r->waiters;r->cv.wait(lock,[&]{return !r->writer&&(!write||r->readers.empty());});--r->waiters;if(write)r->writer=id;else ++r->readers[id];return 0;}
 int Pthreads::RwUnlock(void *p){auto r=impl_->GetRw(p);if(!r)return kInvalid;auto id=Self();std::lock_guard lock(r->lock);if(r->dead)return kInvalid;if(r->writer==id)r->writer=0;else{auto it=r->readers.find(id);if(it==r->readers.end())return kPerm;if(!--it->second)r->readers.erase(it);}r->cv.notify_all();return 0;}
-int Pthreads::SetName(uint64_t id,const char *name){if(!name)return kInvalid;auto length=std::strlen(name);if(length>15)return kRange;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;auto handle=it->second->handle;using SetDescription=HRESULT(WINAPI*)(HANDLE,PCWSTR);auto fn=reinterpret_cast<SetDescription>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"SetThreadDescription"));if(!fn)return kNoSys;wchar_t text[32];int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,name,-1,text,32);if(!n)return kInvalid;return SUCCEEDED(fn(handle,text))?0:kPerm;}
+int Pthreads::SetName(uint64_t id,const char *name){if(!name)return kInvalid;std::string copy;for(unsigned i=0;i<16;++i){char c;recomp::ReadGuestMemory(&c,reinterpret_cast<addr_t>(name)+i,1);if(!c)break;copy+=c;}if(copy.size()==16)return kRange;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;auto handle=it->second->handle;using SetDescription=HRESULT(WINAPI*)(HANDLE,PCWSTR);auto fn=reinterpret_cast<SetDescription>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"SetThreadDescription"));if(!fn)return kNoSys;wchar_t text[32];int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,copy.c_str(),-1,text,32);if(!n)return kInvalid;return SUCCEEDED(fn(handle,text))?0:kPerm;}
 int Pthreads::Kill(uint64_t id,int signal){if(signal<0||signal>64)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;return signal==0?0:kNoSys;}
-int Pthreads::ClockGetTime(int clock,AndroidTimespec *out){if(!out||clock<0||clock>1)return -1;auto ns=NowNs(clock);out->seconds=ns/1000000000;out->nanoseconds=ns%1000000000;return 0;}
+int Pthreads::ClockGetTime(int clock,AndroidTimespec *out){if(!out||clock<0||clock>1)return -1;auto ns=NowNs(clock);AndroidTimespec value{ns/1000000000,ns%1000000000};WriteWire(out,value);return 0;}
 void Pthreads::SetErrorSink(std::function<void(int)> sink){impl_->error_sink=std::move(sink);}
 
 void Pthreads::Install(){

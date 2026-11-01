@@ -41,6 +41,9 @@ class Pthreads {
   // External native threads call this before exiting to run their guest TLS
   // destructors on the correct thread. pthread_create workers do so automatically.
   int ReleaseCurrent();
+  // Stop new worker creation and wait for native workers, while keeping this
+  // guest callback runner alive for dependent provider finalization.
+  int Shutdown();
   uint64_t Self();
   int Create(uint64_t *thread, const AndroidThreadAttr *, addr_t entry, addr_t arg);
   int Join(uint64_t thread, uint64_t *result);

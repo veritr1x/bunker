@@ -17,6 +17,7 @@ struct Module {
   std::vector<addr_t> initializers, finalizers;
   // Restore the relocated data-image snapshot before a new load generation.
   // Required for reopening a module after its last dlclose.
+  // Publish restored guest bytes through recomp::WriteGuestMemory.
   std::function<void()> reset_image;
 };
 
