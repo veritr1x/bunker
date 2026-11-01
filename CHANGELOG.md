@@ -7,6 +7,17 @@ under its heading, down to the previous release.
 ## 2026-11-01
 
 ### Calendar
+- A **Timeline** on Content › Schedule replaces the "Open now" list: summons,
+  events, time-limited shops and Arena seasons as bars across the weeks, from
+  a week back to three months ahead, with a TODAY line. Each bar shows the
+  game's banner art (summons and events), the full name, its dates and how
+  long is left or until it opens; an "Ending in 7 days" strip sits on top.
+  Zoom 2 weeks / 6 weeks / 3 months; rows can be hidden and stay hidden.
+  Dates are in the phone's time zone and follow "Show original dates", as
+  the game does. Content the game never closes shows as open, not until
+  2099. [3e4ea8b, 24025d9, e567c94, df94298, 3ac9c7a, 8573cfb]
+- Abyss Towers and other rerun events are listed on their runs in this loop:
+  they showed as open since 2023 (the original service's dates). [b8d32e4]
 - **Show original dates (2021–2024)** under Content › Schedule: with the
   Original calendar on, the game shows the dates the live service had, so
   summons, events, exchanges, missions and Arena seasons read 2021 onwards
@@ -22,6 +33,9 @@ under its heading, down to the previous release.
   by years they hid the roulette's **FREE** badge, Mama's News and the other
   once-a-day reminders. The game shows them again the next time it starts.
   [cc0539a]
+- Tapping a summon or an event on the Schedule timeline opens it in the
+  Archive; closing the Archive returns to Pod Programs. An entry the Archive
+  doesn't list opens its Schedule tab. [14592a2, e102f50]
 
 ## 1.5.0 (2026-11-01)
 
