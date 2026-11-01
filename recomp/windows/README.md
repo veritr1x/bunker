@@ -440,8 +440,10 @@ imports found in Unity/IL2CPP. Windows `long` is never used as an Android long.
 Aligned allocations are tracked so common `free`/`realloc` also accept them;
 ordinary allocation uses the same CRT family as logging's `asprintf`.
 `getenv`/`environ` expose only `SetEnvironment` configuration and subsequent
-guest `setenv`/`unsetenv`, never the host process environment. Locale objects,
-wide strings, long double, sockets and signals remain separate unresolved work.
+guest `setenv`/`unsetenv`, never the host process environment. The checked
+[Bionic locale adapter](locale.md) supplies `newlocale`/`uselocale`/`freelocale`
+with C/POSIX and C.UTF-8 aliases and per-thread selection. Wide strings,
+long double, sockets and signal integration remain separate work.
 Math uses the native host libm; it is not a bit-identical Android libm port.
 Integer prefixes follow the targeted
 [Android 13 parser](https://android.googlesource.com/platform/bionic/+/android-13.0.0_r1/libc/bionic/strtol.cpp):
