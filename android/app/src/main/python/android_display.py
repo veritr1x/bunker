@@ -26,8 +26,8 @@ SCREENS = [("full", "Full screen, around the camera"), ("safe", "Keep clear of t
 TEXTURES = [("full", "Full size (game default)"), ("half", "Half size (less memory)"), ("quarter", "Quarter size (least memory)")]
 # Above 30 fps (render_pace.c): draw 30 a second after 2 s without a touch outside battles,
 # and slow down when the device reports it is hot.
-IDLE = [("on", "30 fps when idle (cooler)"), ("off", "Chosen rate always")]
-HEAT = [("on", "Slow down when hot"), ("off", "Chosen rate always")]
+IDLE = [("on", "Slow to 30 fps (cooler)"), ("off", "Keep the frame rate")]
+HEAT = [("on", "Slow down (cooler)"), ("off", "Keep the frame rate")]
 # The game's effects (render_effects.c): each costs GPU time every frame, more at high resolutions.
 EFFECT = [("on", "On (game default)"), ("off", "Off (less GPU work)")]
 EFFECTS = ("shadows", "reflections", "bloom")

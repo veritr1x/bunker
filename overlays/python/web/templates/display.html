@@ -7,33 +7,33 @@
   <div class="setting">
     <label for="fps">Frame rate</label>
     <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Never higher than the screen's refresh rate. Power saving mode keeps its lower rate.</span>
+    <span class="note">Capped at the screen's refresh rate. Power saving mode keeps its own lower rate.</span>
   </div>
   <div class="setting">
     <label for="idle">When idle</label>
     <select name="idle" id="idle">{% for key, title in idle_options %}<option value="{{ key }}"{% if settings.idle == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Above 30 fps: after 2 seconds without a touch, outside battles, the game draws 30 times a second until you touch the screen again. Keeps the device much cooler.</span>
+    <span class="note">After 2 seconds without a touch, outside battles. Touching the screen brings the full rate back at once.</span>
   </div>
   <div class="setting">
     <label for="heat">When hot</label>
     <select name="heat" id="heat">{% for key, title in heat_options %}<option value="{{ key }}"{% if settings.heat == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Above 60 fps the game draws 60 a second while the device reports it is hot, and 30 when it is very hot, until it cools down.</span>
+    <span class="note">60 fps while the device is hot, 30 when very hot, back up once it cools.</span>
   </div>
   <div class="setting">
     <label for="resolution">Resolution</label>
     <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Used by the game's higher graphics settings. Never higher than the screen's own resolution. 540p and 640p use less memory.</span>
+    <span class="note">For the field and battles; story scenes keep 720p. Capped at the screen's own resolution.</span>
   </div>
+  {% for name, title, about in [("shadows", "Shadows", "Shadows of characters and scenery."), ("reflections", "Reflections", "Reflections on floors and water."), ("bloom", "Bloom", "The glow around bright light.")] %}<div class="setting">
+    <label for="{{ name }}">{{ title }}</label>
+    <select name="{{ name }}" id="{{ name }}">{% for key, label in effect_options %}<option value="{{ key }}"{% if settings[name] == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <span class="note">{{ about }}</span>
+  </div>{% endfor %}
   <div class="setting">
     <label for="screen">Screen area</label>
     <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-    <span class="note">Full screen also draws around the camera cutout. The game's buttons stay clear of it.</span>
+    <span class="note">Full screen also draws around the camera cutout; the game's buttons stay clear of it.</span>
   </div>
-  {% for name, title, about in [("shadows", "Shadows", "Characters' and scenery shadows."), ("reflections", "Reflections", "Reflections on floors and water."), ("bloom", "Bloom", "The soft glow around bright light. The scene looks a little flatter without it.")] %}<div class="setting">
-    <label for="{{ name }}">{{ title }}</label>
-    <select name="{{ name }}" id="{{ name }}">{% for key, label in effect_options %}<option value="{{ key }}"{% if settings[name] == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-    <span class="note">{{ about }} Off saves GPU work every frame, more at high resolutions.</span>
-  </div>{% endfor %}
   {% if texture_options|length > 1 %}<div class="setting">
     <label for="textures">Texture size</label>
     <select name="textures" id="textures">{% for key, title in texture_options %}<option value="{{ key }}"{% if settings.textures == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
@@ -41,5 +41,5 @@
   </div>{% endif %}
   <button type="submit">Save</button>
 </form>
-<p>Experimental: higher settings use more battery and make the device warmer. The game uses them the next time it opens.</p>
+<p>Higher frame rates and resolutions use more battery and warm the device; turning effects off saves GPU work. Changes apply the next time the game opens.</p>
 {% endblock %}
