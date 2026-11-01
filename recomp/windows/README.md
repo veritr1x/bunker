@@ -308,6 +308,45 @@ Native initJni clears that exception and returns, but the harness rejects
 the gate because it observed the unsupported Java operation. No lifecycle
 completion is claimed. See `unity-bootstrap-init-jni-stringbuilder*`.
 
+StringBuilder now implements only the three evidenced methods: default
+construction, `append(String)` and `toString`. It preserves UTF16 units,
+appends `null` as four characters, returns a fresh local alias from append,
+and copies nonempty snapshots. Empty snapshots share Android13's constant
+empty string. `prepare_string_builder.py` / `test_string_builder.ps1` pass66
+native Windows checks using six actual NDK traces, including direct/V/A and
+the va_list stack path. Uninitialized instances, wrong types, unsupported
+constructors and other Java bodies fail explicitly. Contracts follow
+[StringBuilder.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-13.0.0_r1/ojluni/src/main/java/java/lang/StringBuilder.java)
+and [AbstractStringBuilder.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-13.0.0_r1/ojluni/src/main/java/java/lang/AbstractStringBuilder.java).
+The default native gate still exits0 (`unity-bootstrap-stringbuilder-default.log`).
+The separate initJni gate now reaches the next missing service method,
+`Activity.getIntent()Landroid/content/Intent;`, and fails on the captured
+exception history (`unity-bootstrap-init-jni-getintent*`).
+
+Activity.getIntent now exposes a configured MAIN/LAUNCHER launch with the
+component package/activity taken from APK metadata. Extra/data properties are
+absent by default. Explicit string, integer, boolean and null extras retain
+their types: Bundle.getString uses its default for absent/null/wrong-type
+values, getBoolean defaults to false, and containsKey preserves presence.
+Intent.getExtras returns independent Bundle copies. URI/string/component
+properties and Bundle string values retain their identities and lifetimes
+through internal object-graph references, without extra native global roots.
+Unconfigured objects, wrong payloads/types and unknown services fail explicitly.
+This follows Android13 [Intent.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-13.0.0_r1/core/java/android/content/Intent.java)
+and [BaseBundle.java](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-13.0.0_r1/core/java/android/os/BaseBundle.java).
+The real makeMainActivity factory sets no task flags; no package selector is
+invented when its component is already explicit.
+
+`prepare_context.py` / `test_context.ps1` pass83 native Windows checks through
+seven actual NDK traces: object/boolean direct/V/A, two-argument register/stack
+boundaries, APK component metadata, optional data/extras, type/ref errors,
+cross-thread globals and object lifetimes after Context/frame destruction.
+The optional real initJni gate now passes Intent lookup, then records the next
+unsupported method, `AssetManager.open(String)InputStream`, for actual
+`bin/Data/boot.config`. Exception history still fails the gate, preserving
+`unity-bootstrap-init-jni-asset-open*`. The default gate exits0 again;
+`unity-bootstrap-intent-default.log` includes both real finalizers.
+
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
 DEX method offsets/signatures: the Activity constructs UnityPlayer, whose

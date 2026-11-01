@@ -5,8 +5,10 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
+#include <typeindex>
 #include <vector>
 
 #include "../whole/runtime.h"
@@ -25,7 +27,12 @@ struct MethodDeclaration {
 // A checked host for explicitly declared Java classes. This is not a Java
 // interpreter: unsupported JNI calls fail instead of returning fake success.
 class Host {
+  struct Object;
  public:
+  using MethodArguments=std::array<addr_t,3>;
+  // Strong references used inside host-supplied Java object state. They are
+  // opaque C++ graph edges, not guest JNI handles or global-reference slots.
+  class ObjectValue { friend class Host; const Host *owner_=nullptr;std::shared_ptr<Object> object_; };
   explicit Host(std::function<bool(addr_t)> native_entry_validator,
                 addr_t marker_base = 0x7ff000000000ULL);
   ~Host();
@@ -41,10 +48,19 @@ class Host {
   void MarkClassInitialized(const std::string &name);
   void DefineObjectMethod(const std::string &class_name, const std::string &name,
                           const std::string &signature, std::function<addr_t(addr_t)> handler);
+  void DefineObjectMethod(const std::string &class_name,const std::string &name,const std::string &signature,
+                          std::function<addr_t(addr_t,const MethodArguments&)> handler);
+  void DefineBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
+                           std::function<bool(addr_t,const MethodArguments&)> handler);
   void DefineField(const std::string &class_name, const std::string &name,
                    const std::string &signature, bool is_static = false);
   addr_t NewString(const std::u16string &value);
   addr_t NewInstance(const std::string &class_name);
+  template<class T> addr_t NewHostInstance(const std::string &name,std::shared_ptr<T> state){return HostInstance(name,typeid(T),std::move(state));}
+  template<class T> std::shared_ptr<T> ReadHostState(addr_t reference){return std::static_pointer_cast<T>(HostState(reference,typeid(T)));}
+  ObjectValue CaptureValue(addr_t reference);
+  addr_t LocalValue(const ObjectValue &value);
+  std::optional<std::u16string> StringValue(addr_t reference);
   addr_t NewGlobalReference(addr_t reference);
   addr_t NewLocalReference(addr_t reference);
   void DeleteGlobalReference(addr_t reference);
@@ -65,7 +81,6 @@ class Host {
   void ClearException();
 
  private:
-  struct Object;
   struct Reference;
   struct Method;
   struct Field;
@@ -75,6 +90,10 @@ class Host {
   struct CharLease;
   Thread &Current(bool attach = false);
   void RequireEnv(addr_t address);
+  addr_t HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state);
+  std::shared_ptr<void> HostState(addr_t reference,std::type_index type);
+  void DefineHandler(const std::string &owner,const std::string &name,const std::string &signature,char result,
+                     std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void Raise(const std::string &type, const std::string &message, bool message_present = true);
   addr_t Local(const std::shared_ptr<Object> &object);
   std::shared_ptr<Object> Get(addr_t reference, bool allow_null = false);
@@ -88,7 +107,9 @@ class Host {
   std::shared_ptr<Object> FieldTarget(addr_t object, addr_t field, bool is_static, const std::string &signature_kind);
   bool Assignable(const std::string &actual, const std::string &expected) const;
   addr_t CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t object, addr_t method, bool is_static = false,
-                    const std::array<addr_t, 3> &arguments = {});
+                    const std::array<addr_t, 3> &arguments = {},bool boolean_result = false);
+  addr_t Construct(addr_t clazz, addr_t method);
+  bool Arguments(State &state, size_t slot, size_t count, std::array<addr_t,3> &arguments);
   int32_t Register(addr_t clazz, const NativeMethod *methods, int32_t count);
 
   mutable std::recursive_mutex mutex_;
@@ -108,5 +129,6 @@ class Host {
   std::map<addr_t, CharLease> char_leases_;
   std::shared_ptr<Object> application_loader_;
   std::shared_ptr<Object> bootstrap_loader_;
+  std::shared_ptr<Object> empty_string_;
 };
 }  // namespace bunker::jni

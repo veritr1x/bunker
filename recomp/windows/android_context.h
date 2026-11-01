@@ -2,6 +2,13 @@
 #include "jni_host.h"
 
 namespace bunker::windows {
+struct LaunchExtra {
+  enum Kind {kNull,kString,kInteger,kBoolean} kind=kNull;
+  std::u16string text;int32_t integer=0;bool boolean=false;
+  static LaunchExtra String(std::u16string value){LaunchExtra e;e.kind=kString;e.text=std::move(value);return e;}
+  static LaunchExtra Integer(int32_t value){LaunchExtra e;e.kind=kInteger;e.integer=value;return e;}
+  static LaunchExtra Boolean(bool value){LaunchExtra e;e.kind=kBoolean;e.boolean=value;return e;}
+};
 struct AndroidContextConfig {
   std::u16string package_name;
   std::u16string source_dir = u"/data/app/bunker/base.apk";
@@ -10,6 +17,8 @@ struct AndroidContextConfig {
   int32_t target_sdk = 0;
   int32_t flags = 0;
   std::string activity_class = "android/app/Activity";
+  std::map<std::u16string,LaunchExtra> launch_extras;
+  std::optional<std::u16string> launch_data;
 };
 
 // Explicit host implementations of the Java context metadata Unity requests.
