@@ -4,7 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## 2026-11-01 (after 1.6.1)
+## 1.6.2 (2026-11-01)
+
+Content presets keep Dark Memories, Recollections of Dusk and the other
+permanent quests. With "Show original dates", the character lists are filled
+again, and story chapters open on their release dates. Calendar fixes reach
+the game when the updated app starts.
+
+## 2026-11-01
 
 ### Pod Programs
 - Content presets (Full, Story, Gacha and the rest) no longer hide Dark
@@ -27,7 +34,7 @@ under its heading, down to the previous release.
   version when the app starts, before the game connects; before, that
   waited until Pod Programs opened, so calendar fixes did not reach the
   game. The Bunker menu shows "Updating the calendar for this version…"
-  meanwhile on iPhone and iPad. [99053f2]
+  meanwhile on iPhone and iPad. [99053f2, 2d2be46]
 
 ## 1.6.1 (2026-11-01)
 
