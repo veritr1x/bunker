@@ -14,6 +14,7 @@
 #include <thread>
 #include <sys/stat.h>
 #include <windows.h>
+#include <sddl.h>
 
 #include "filesystem.h"
 #include "../whole/bridge.h"
@@ -42,7 +43,7 @@ bool SnapshotString(const char *source, std::string &value, size_t limit) {
   return false;
 }
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
-  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise"};
+  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir"};
 int GuestCrtError(int error) {
   switch (error) {
     case 0: return 0;
@@ -74,6 +75,45 @@ bool Within(const fs::path &root, const fs::path &path) {
   auto a = root.begin(), b = path.begin();
   for (; a != root.end(); ++a, ++b) if (b == path.end() || *a != *b) return false;
   return true;
+}
+int DirectoryError(DWORD error) {
+  if(error==ERROR_INVALID_NAME)return 22;
+  if(error==ERROR_FILENAME_EXCED_RANGE)return 36;
+  if(error==ERROR_WRITE_PROTECT)return 30;
+  return GuestWinError(error);
+}
+// Apply privacy at creation, never by changing an existing object's ACL.
+// https://learn.microsoft.com/windows/win32/api/fileapi/nf-fileapi-createdirectoryw
+// https://learn.microsoft.com/windows/win32/secauthz/security-descriptor-string-format
+int CreatePrivateDirectory(const fs::path &path) {
+  struct SecurityApi {
+    HMODULE module=LoadLibraryExW(L"advapi32.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);
+    decltype(&OpenProcessToken) open=module?reinterpret_cast<decltype(open)>(GetProcAddress(module,"OpenProcessToken")):nullptr;
+    decltype(&GetTokenInformation) query=module?reinterpret_cast<decltype(query)>(GetProcAddress(module,"GetTokenInformation")):nullptr;
+    decltype(&ConvertSidToStringSidW) sid=module?reinterpret_cast<decltype(sid)>(GetProcAddress(module,"ConvertSidToStringSidW")):nullptr;
+    decltype(&ConvertStringSecurityDescriptorToSecurityDescriptorW) descriptor=module?reinterpret_cast<decltype(descriptor)>(GetProcAddress(module,"ConvertStringSecurityDescriptorToSecurityDescriptorW")):nullptr;
+    ~SecurityApi(){if(module)FreeLibrary(module);}
+  };
+  static const SecurityApi api;
+  if(!api.open||!api.query||!api.sid||!api.descriptor)return 95;
+  // Filesystems that ignore security descriptors cannot satisfy this contract.
+  wchar_t volume[MAX_PATH];DWORD flags=0;
+  if(!GetVolumePathNameW(path.parent_path().c_str(),volume,MAX_PATH)||
+     !GetVolumeInformationW(volume,nullptr,0,nullptr,nullptr,&flags,nullptr,0))return DirectoryError(GetLastError());
+  if(!(flags&FILE_PERSISTENT_ACLS))return 95;
+  struct Handle {HANDLE value=nullptr;~Handle(){if(value)CloseHandle(value);}} token;
+  if(!api.open(GetCurrentProcess(),TOKEN_QUERY,&token.value))return DirectoryError(GetLastError());
+  DWORD size=0;
+  if(api.query(token.value,TokenUser,nullptr,0,&size)||GetLastError()!=ERROR_INSUFFICIENT_BUFFER)return 5;
+  std::vector<uint8_t> user(size);
+  if(!api.query(token.value,TokenUser,user.data(),size,&size))return DirectoryError(GetLastError());
+  struct Local {void *value=nullptr;~Local(){if(value)LocalFree(value);}} sid,descriptor;
+  if(!api.sid(reinterpret_cast<TOKEN_USER*>(user.data())->User.Sid,reinterpret_cast<LPWSTR*>(&sid.value)))return DirectoryError(GetLastError());
+  const auto user_sid=static_cast<const wchar_t*>(sid.value);
+  const auto text=std::wstring(L"O:")+user_sid+L"D:P(A;OICI;FA;;;"+user_sid+L")";
+  if(!api.descriptor(text.c_str(),SDDL_REVISION_1,&descriptor.value,nullptr))return DirectoryError(GetLastError());
+  SECURITY_ATTRIBUTES attributes{sizeof(attributes),descriptor.value,FALSE};
+  return CreateDirectoryW(path.c_str(),&attributes)?0:DirectoryError(GetLastError());
 }
 uint64_t RoundPage(uint64_t value) { return (value + kPage - 1) & ~(kPage - 1); }
 DWORD Protection(int protection, bool private_file = false) {
@@ -145,7 +185,7 @@ struct FileSystem::Impl {
     std::string result; for (auto &part : parts) result += "/" + part;
     return result.empty() ? "/" : result;
   }
-  bool Resolve(const char *raw, bool writing, fs::path &result, const Mount *&mount, bool no_follow = false) {
+  bool Resolve(const char *raw, bool writing, fs::path &result, const Mount *&mount, bool no_follow = false, bool directory_create = false) {
     if (!raw) { Error(14); return false; }
     std::string snapshot;if(!SnapshotString(raw,snapshot,4096)){Error(36);return false;}
     auto normalized = Normalize(snapshot); if (normalized.empty()) return false;
@@ -168,6 +208,19 @@ struct FileSystem::Impl {
       std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
       if (stem == "CON" || stem == "CONIN$" || stem == "CONOUT$" || stem == "PRN" || stem == "AUX" || stem == "NUL" ||
           (stem.size() == 4 && (stem.compare(0, 3, "COM") == 0 || stem.compare(0, 3, "LPT") == 0) && stem[3] >= '1' && stem[3] <= '9')) { Error(22); return false; }
+    }
+    if(directory_create){
+      // Check existing ancestors explicitly: Win32 otherwise often reports
+      // PATH_NOT_FOUND both for absent parents and for a file used as a parent.
+      fs::path parent=mount->host;
+      const auto relative=result.lexically_relative(mount->host);
+      for(auto at=relative.begin();at!=relative.end();++at){
+        auto next=at;++next;if(next==relative.end())break;
+        parent/=*at;auto attributes=GetFileAttributesW(parent.c_str());
+        if(attributes==INVALID_FILE_ATTRIBUTES){Error(DirectoryError(GetLastError()));return false;}
+        if(!(attributes&FILE_ATTRIBUTE_DIRECTORY)){Error(20);return false;}
+      }
+      if(GetFileAttributesW(result.c_str())!=INVALID_FILE_ATTRIBUTES){Error(17);return false;}
     }
     std::error_code error;
     auto attributes = GetFileAttributesW(result.c_str());
@@ -320,6 +373,31 @@ int FileSystem::Access(const char *path, int mode) {
   if (!impl_->Resolve(path, mode & 2, host, mount)) return -1;
   if (mode & 1 && !fs::is_directory(host)) { impl_->Error(13); return -1; }
   if (_waccess(host.c_str(), mode & 6)) { impl_->CrtError(); return -1; }
+  return 0;
+}
+int FileSystem::Mkdir(const char *path,uint32_t mode) {
+  std::lock_guard lock(impl_->mutex);
+  if(!path){impl_->Error(14);return -1;}
+  std::string snapshot;
+  if(!SnapshotString(path,snapshot,4096)){impl_->Error(36);return -1;}
+  if(snapshot.empty()){impl_->Error(2);return -1;}
+  if(mode!=0700&&mode!=0755&&mode!=0777){
+    std::fprintf(stderr,"mkdir mode %#o unsupported by owner-private Windows policy\n",mode);
+    impl_->Error(95);return -1;
+  }
+  // Do not let lexical normalization bypass a missing/file ancestor, or turn
+  // a parent traversal into a write through some other explicit mount.
+  for(size_t start=0;start<=snapshot.size();){
+    auto end=snapshot.find('/',start);if(end==std::string::npos)end=snapshot.size();
+    if(snapshot.compare(start,end-start,"..")==0){impl_->Error(13);return -1;}
+    if(end==snapshot.size())break;start=end+1;
+  }
+  fs::path host;const Impl::Mount *mount;
+  try{
+    if(!impl_->Resolve(snapshot.c_str(),true,host,mount,false,true))return -1;
+  }catch(const fs::filesystem_error &){impl_->Error(22);return -1;}
+  auto error=CreatePrivateDirectory(host);
+  if(error){impl_->Error(error);return -1;}
   return 0;
 }
 addr_t FileSystem::FOpen(const char *path, const char *mode) {
@@ -523,6 +601,7 @@ void FileSystem::Install(recomp::Runtime &runtime) {
   for (const char *name : {"stat", "lstat"}) runtime.AddImport(Marker(name), recomp::MakeBridge<int32_t(const char *, AndroidStat *)>([this, follow = std::string(name) == "lstat"](auto path, auto result) { return Stat(path, result, follow); }));
   runtime.AddImport(Marker("fstat"), recomp::MakeBridge<int32_t(int32_t, AndroidStat *)>([this](auto fd, auto result) { return FStat(fd, result); }));
   runtime.AddImport(Marker("access"), recomp::MakeBridge<int32_t(const char *, int32_t)>([this](auto path, auto mode) { return Access(path, mode); }));
+  runtime.AddImport(Marker("mkdir"), recomp::MakeBridge<int32_t(const char *, uint32_t)>([this](auto path, auto mode) { return Mkdir(path, mode); }));
   runtime.AddImport(Marker("fopen"), recomp::MakeBridge<addr_t(const char *, const char *)>([this](auto path, auto mode) { return FOpen(path, mode); }));
   runtime.AddImport(Marker("fclose"), recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FClose(stream); }));
   runtime.AddImport(Marker("fread"), recomp::MakeBridge<uint64_t(void *, uint64_t, uint64_t, addr_t)>([this](auto buffer, auto size, auto count, auto stream) { return FRead(buffer, size, count, stream); }));
