@@ -62,8 +62,9 @@
   const day = ms => { const d = new Date(ms); return d.toLocaleDateString(undefined, d.getFullYear() === year ? {month: "short", day: "numeric"} : {month: "short", day: "numeric", year: "numeric"}); };
   const span = ms => ms >= DAY ? `${Math.floor(ms / DAY)}d${ms % DAY >= HOUR ? " " + Math.floor(ms % DAY / HOUR) + "h" : ""}`
                                : ms >= HOUR ? `${Math.floor(ms / HOUR)}h ${Math.floor(ms % HOUR / MIN)}m` : `${Math.max(1, Math.floor(ms / MIN))}m`;
-  const state = i => i.end <= data.now ? "ended" : i.start > data.now ? "next" : "open";
-  const tag = i => ({ended: "ended", next: "opens in " + span(i.start - data.now), open: span(i.end - data.now) + " left"})[state(i)];
+  // An item with no end (null) stays open: the game data never closes it.
+  const state = i => i.end !== null && i.end <= data.now ? "ended" : i.start > data.now ? "next" : "open";
+  const tag = i => ({ended: "ended", next: "opens in " + span(i.start - data.now), open: i.end === null ? "open" : span(i.end - data.now) + " left"})[state(i)];
   // Art, or the plain label when there is none or it does not load.
   const art = (i, kind, cls) => {
     const box = el("div", cls);
@@ -75,7 +76,7 @@
   const link = (i, node) => { if (!i.ref) return node; const a = el("a", node.className); a.href = "bunker-archive:" + i.ref; a.append(...node.childNodes); return a; };
   const text = i => {
     const t = el("div", "tl-text");
-    t.append(el("b", "", i.name), el("span", "", `${day(i.start)} → ${day(i.end - 1)}`), el("em", "", tag(i)));
+    t.append(el("b", "", i.name), el("span", "", i.end === null ? `from ${day(i.start)}` : `${day(i.start)} → ${day(i.end - 1)}`), el("em", "", tag(i)));
     return t;
   };
 
@@ -134,7 +135,7 @@
         const bar = el("div", "tl-bar " + state(i)); bar.append(content);
         const node = link(i, bar); node.style.left = x(i.start) + "px"; body.append(node);
         // A short bar widens to fit its text; its left edge stays on its start.
-        node.style.width = Math.max(x(i.end) - x(i.start), node.scrollWidth + 2) + "px";
+        node.style.width = Math.max(x(i.end === null ? data.to : i.end) - x(i.start), node.scrollWidth + 2) + "px";
         return node;
       });
       // Stack: each bar goes on the first line whose last bar ends before it starts.

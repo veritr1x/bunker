@@ -116,6 +116,13 @@ class Timeline(unittest.TestCase):
                         [i for r in moved["rows"] for i in r["items"]] + moved["soon"]):
             self.assertEqual((b["start"], b["end"]), (a["start"] - shift, a["end"] - shift))
 
+    def test_no_end_after_the_loop(self):
+        # Content the game data never closes (a 2099 placeholder) has no end, not "26388d left".
+        tower = E("event", "Abyss Tower", self.now - 400 * DAY, cal.loop_end(self.state) + DAY)
+        [item] = cal.timeline(self.state, [tower], self.now)["rows"][1]["items"]
+        self.assertIsNone(item["end"])
+        self.assertEqual(cal.timeline(self.state, [tower], self.now)["soon"], [])
+
     def test_unnamed_items_take_their_kind(self):
         summons = cal.timeline(self.state, self.items(), self.now)["rows"][0]["items"]
         self.assertIn("Summon", [i["name"] for i in summons])
