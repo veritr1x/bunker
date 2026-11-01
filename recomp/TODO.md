@@ -58,9 +58,13 @@ Latest three-library instruction-form audit with LLVM 18:
 These are one-sample-per-form measurements, not whole-program correctness or
 execution coverage. The first Unity Windows translation completed with 58,850
 traces in 463 objects, 2,419 unsupported traces and zero unresolved direct
-targets. Its 166-MB diagnostic executable links; constructor execution is under
-investigation. IL2CPP translation remains running. Exploratory objects retain
-explicit failure paths for unsupported instructions.
+targets. After multiply/register-offset store additions, it has 58,855 traces
+and 2,151 unsupported traces. Its native Windows diagnostic executable completes
+constructors 1–70; constructor 71 reaches an LDXP/STXP pair loop, now being
+implemented. JNI_OnLoad has not run. The initial IL2CPP translation completed
+with 393,781 traces in 3,079 objects, 192 unsupported traces and zero unresolved
+direct targets. Exploratory objects retain explicit failure paths for
+unsupported instructions.
 
 ## Active work
 
@@ -83,10 +87,12 @@ explicit failure paths for unsupported instructions.
 - IL2CPP GC suspension/signals and needed Bionic/ELF TLS. Nonzero
   `pthread_kill`, `pthread_sigmask` and `pthread_atfork` currently return
   `ENOSYS`; GC signal handling is not implemented.
-- Correct persistent exclusive-load/store reservations across split traces,
-  contention and intervening writes. The inherited Remill implementation only
-  tracks a local address and does not provide a reliable exclusive protocol;
-  adding more STXR decoders alone would not resolve this.
+- Finish provider memory integration and exercise paired exclusives in real
+  Unity startup. The replacement single/pair reservation protocol passes 90,112
+  instruction comparisons per platform plus 97 runtime checks and five
+  rejection checks per platform.
+  Host providers must participate in tracked reads/writes and allocation
+  lifetime invalidation; untracked native/external writes remain a boundary.
 - A Windows window, actual EGL/GLES-compatible rendering, surface lifecycle,
   frame scheduling, input and audio. None is verified yet.
 - Real APK/data/decompression paths and Bunker backend/launcher services,

@@ -1,5 +1,6 @@
 #include "module_registry.h"
 #include "../whole/bridge.h"
+#include "../whole/guest_memory.h"
 
 #include <algorithm>
 #include <atomic>
@@ -52,10 +53,11 @@ void ModuleRegistry::Add(Module module) {
 addr_t ModuleRegistry::Open(const char *path, int flags) {
   std::lock_guard lock(mutex_);
   // Android RTLD_LAZY/RTLD_NOW and optional RTLD_GLOBAL are the supported flags.
-  if (!path || !*path) { SetError("translated dlopen requires an explicit registered module path"); return 0; }
+  const auto path_snapshot = path ? recomp::ReadGuestString(reinterpret_cast<addr_t>(path)) : std::string();
+  if (path_snapshot.empty()) { SetError("translated dlopen requires an explicit registered module path"); return 0; }
   if ((flags & ~0x103) || !(flags & 3) || (flags & 3) == 3) { SetError("unsupported translated dlopen flags"); return 0; }
-  auto found = aliases_.find(Path(path));
-  if (found == aliases_.end()) { SetError(std::string("translated module is unavailable: ") + path); return 0; }
+  auto found = aliases_.find(Path(path_snapshot));
+  if (found == aliases_.end()) { SetError(std::string("translated module is unavailable: ") + path_snapshot); return 0; }
   auto &image = *found->second;
   if (image.status == Image::kClosing) { SetError("translated module is being finalized: " + image.module.name); return 0; }
   if (image.status == Image::kLoaded || image.status == Image::kLoading) { ++image.references; return image.handle; }
@@ -75,9 +77,10 @@ addr_t ModuleRegistry::Symbol(addr_t handle, const char *name) {
   std::lock_guard lock(mutex_);
   auto found = handles_.find(handle);
   if (found == handles_.end()) { SetError("invalid translated module handle"); return 0; }
-  if (!name || !*name) { SetError("empty translated export name"); return 0; }
-  auto symbol = found->second->module.exports.find(name);
-  if (symbol == found->second->module.exports.end()) { SetError("translated export is unavailable: " + found->second->module.name + ": " + name); return 0; }
+  const auto name_snapshot = name ? recomp::ReadGuestString(reinterpret_cast<addr_t>(name)) : std::string();
+  if (name_snapshot.empty()) { SetError("empty translated export name"); return 0; }
+  auto symbol = found->second->module.exports.find(name_snapshot);
+  if (symbol == found->second->module.exports.end()) { SetError("translated export is unavailable: " + found->second->module.name + ": " + name_snapshot); return 0; }
   return symbol->second;
 }
 int ModuleRegistry::Close(addr_t handle) {
@@ -99,7 +102,9 @@ int ModuleRegistry::Close(addr_t handle) {
 addr_t ModuleRegistry::Error() {
   std::lock_guard lock(mutex_);
   auto &errors = errors_[ThreadKey()];
-  errors.retrieved = std::move(errors.pending); errors.pending.clear();
+  recomp::WithGuestMemoryWrite(reinterpret_cast<addr_t>(errors.retrieved.c_str()), errors.retrieved.size() + 1, [&] {
+    errors.retrieved = std::move(errors.pending); errors.pending.clear();
+  });
   return errors.retrieved.empty() ? 0 : reinterpret_cast<addr_t>(errors.retrieved.c_str());
 }
 addr_t ModuleRegistry::Marker(const std::string &name) const {

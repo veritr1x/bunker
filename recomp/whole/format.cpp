@@ -1,4 +1,5 @@
 #include "format.h"
+#include "guest_memory.h"
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -11,7 +12,7 @@ namespace {
 template <typename T> T Read(uint64_t address) {
   if (!address) throw std::invalid_argument("null guest variadic argument address");
   T result;
-  std::memcpy(&result, reinterpret_cast<const void *>(address), sizeof(result));
+  ReadGuestMemory(&result, address, sizeof(result));
   return result;
 }
 template <typename T> T Narrow(uint64_t bits) {
@@ -59,7 +60,7 @@ std::string Pointer(uint64_t value, const std::string &flags,
 VaArguments::VaArguments(const void *guest_list) {
   static_assert(sizeof(Layout) == 32);
   if (!guest_list) throw std::invalid_argument("null AAPCS64 va_list");
-  std::memcpy(&value_, guest_list, sizeof(value_));
+  ReadGuestMemory(&value_, reinterpret_cast<addr_t>(guest_list), sizeof(value_));
   if (value_.gr_offs > 0 || value_.gr_offs < -64 || value_.gr_offs % 8 ||
       value_.vr_offs > 0 || value_.vr_offs < -128 || value_.vr_offs % 16)
     throw std::invalid_argument("invalid AAPCS64 va_list register offsets");
@@ -94,8 +95,9 @@ double VaArguments::Floating() {
 std::string Format(const char *format, FormatArguments args) {
   if (!format || !args.integer || !args.floating)
     throw std::invalid_argument("invalid guest format arguments");
+  const auto format_snapshot = ReadGuestString(reinterpret_cast<addr_t>(format));
   std::string output;
-  const char *position = format;
+  const char *position = format_snapshot.c_str();
   while (*position) {
     if (*position != '%') { output += *position++; continue; }
     ++position;
@@ -155,7 +157,10 @@ std::string Format(const char *format, FormatArguments args) {
     } else if (conversion == 's') {
       if (!length.empty()) throw std::invalid_argument("guest wide string formatting is not implemented");
       const char *text = reinterpret_cast<const char *>(args.integer());
-      output += Render(prefix + 's', text ? text : "(null)");
+      const size_t maximum = precision.empty() ? std::numeric_limits<size_t>::max() :
+          precision.size() == 1 ? 0 : static_cast<size_t>(std::stoull(precision.substr(1)));
+      const auto snapshot = text ? ReadGuestString(reinterpret_cast<addr_t>(text), maximum) : std::string("(null)");
+      output += Render(prefix + 's', snapshot.c_str());
     } else if (conversion == 'c') {
       if (!length.empty()) throw std::invalid_argument("guest wide character formatting is not implemented");
       output += Render(prefix + 'c', static_cast<int>(Narrow<uint8_t>(args.integer())));

@@ -1,4 +1,5 @@
 #include "pthread_host.h"
+#include "tracked_memory_test.h"
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -32,6 +33,26 @@ int main(){
   require(elf_load(PTHREAD_GUEST_IMAGE,0x70000000,Resolve,&image)==0,"NDK pthread caller image");
   auto invoke=[&](const char *name){auto entry=reinterpret_cast<addr_t>(elf_symbol(&image,name));require(entry!=0,"fixture export");return host.Run(entry);};
   uint64_t self=host.Self();require(self==host.Self(),"stable calling-thread token");
+  alignas(64) AndroidThreadAttr tracked_attr{};
+  host.AttrInit(&tracked_attr);
+  auto reserved=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_attr),8,[&]{if(host.AttrSetDetach(&tracked_attr,1)||host.AttrSetDetach(&tracked_attr,0))throw std::runtime_error("attr ABA failed");});
+  require(reserved.status==1&&tracked_attr.flags==0,"cross-thread attribute ABA invalidates reservations");
+  alignas(64) int64_t tracked_condattr=0;
+  reserved=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_condattr),8,[&]{if(host.CondAttrSetClock(&tracked_condattr,1)||host.CondAttrSetClock(&tracked_condattr,0))throw std::runtime_error("condattr ABA failed");});
+  require(reserved.status==1&&tracked_condattr==0,"cross-thread clockattr ABA invalidates reservations");
+  alignas(64) int32_t tracked_key=0;
+  reserved=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_key),4,[&]{if(host.KeyCreate(&tracked_key,0)||tracked_key!=0||host.KeyDelete(tracked_key))throw std::runtime_error("key output failed");});
+  require(reserved.status==1&&tracked_key==0,"same-value pthread_key_create output is tracked");
+  alignas(64) uint8_t tracked_mutex[64]{};
+  reserved=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(tracked_mutex),4,[&]{if(host.MutexInit(tracked_mutex,nullptr)||host.MutexDestroy(tracked_mutex)||host.MutexInit(tracked_mutex,nullptr))throw std::runtime_error("mutex ABA failed");});
+  require(reserved.status==1&&*reinterpret_cast<uint32_t*>(tracked_mutex)==0&&host.MutexDestroy(tracked_mutex)==0,"opaque mutex lifetime ABA is tracked");
+  // Join publishes the actual translated callback result, even if its bits were
+  // already present in the caller's result slot.
+  uint64_t joined_thread=0;alignas(64) uint64_t tracked_result=0x6013;
+  auto nested_entry=reinterpret_cast<addr_t>(elf_symbol(&image,"guest_nested_stack"));
+  require(host.Create(&joined_thread,nullptr,nested_entry,0)==0,"create translated result-publishing worker");
+  reserved=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_result),8,[&]{if(host.Join(joined_thread,&tracked_result))throw std::runtime_error("tracked join failed");});
+  require(reserved.status==1&&tracked_result==0x6013,"same-value joined translated result is tracked");
   AndroidThreadAttr attr;uint64_t base,size;
   require(host.GetAttr(self,&attr)==95,"external thread stack initially unknown");
   require(host.AttrInit(&attr)==0&&attr.stack_size==1048576&&host.AttrSetStackSize(&attr,100)==22&&host.AttrSetDetach(&attr,2)==22,"Android attrs and minimum stack");
@@ -96,5 +117,6 @@ int main(){
   MEMORY_BASIC_INFORMATION guard_info,stack_info;
   require(attr.guard_size==4096&&VirtualQuery(reinterpret_cast<void*>(attr.stack_base-1),&guard_info,sizeof(guard_info))&&guard_info.State==MEM_RESERVE&&VirtualQuery(reinterpret_cast<void*>(attr.stack_base),&stack_info,sizeof(stack_info))&&stack_info.State==MEM_COMMIT&&stack_info.Protect==PAGE_READWRITE,"guest stack has actual inaccessible guard pages");
   require(host.ReleaseCurrent()==0&&host.Kill(self,0)==3&&host.Self()!=self,"explicit external guest-thread teardown and new lifetime");
+  require(host.Shutdown()==0&&host.Create(&unused,nullptr,reinterpret_cast<addr_t>(elf_symbol(&image,"guest_nested_stack")),0)==11,"explicit worker shutdown refuses creation and preserves callback runner");
   std::printf("Windows Android pthread ABI: %u checks passed; translated NDK workers/once/TLS callbacks, 6000 guest mutex increments, cond broadcast, explicit exit/detach.\n",checks);
 }

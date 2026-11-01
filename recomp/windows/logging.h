@@ -19,6 +19,7 @@ class Logging {
   void SetOutput(Writer writer) { output_ = std::move(writer); }
   void SetLog(LogWriter writer) { log_ = std::move(writer); }
   void SetStream(StreamWriter writer) { stream_ = std::move(writer); }
+  void SetAllocator(std::function<void *(uint64_t)> allocator) { allocator_ = std::move(allocator); }
   void SetErrorSink(std::function<void(int)> sink) { error_sink_ = std::move(sink); }
   int Error() const;
  private:
@@ -27,6 +28,7 @@ class Logging {
   Writer output_;
   LogWriter log_;
   StreamWriter stream_;
+  std::function<void *(uint64_t)> allocator_;
   std::function<void(int)> error_sink_;
   addr_t marker_base_;
   std::string ident_;

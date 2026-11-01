@@ -48,6 +48,7 @@ class FileSystem {
   void Install(recomp::Runtime &runtime);
   addr_t ErrnoAddress();
   int Error();
+  void SetError(int);
   // Android's legacy __sF is three opaque 152-byte FILE objects. Their guest
   // addresses identify independently owned binary duplicates of host stdio.
   addr_t StandardStreamsAddress();

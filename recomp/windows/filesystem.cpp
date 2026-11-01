@@ -28,6 +28,12 @@ uint64_t ThreadKey() {
 }
 constexpr addr_t kMapFailed = UINT64_MAX;
 constexpr uint64_t kPage = 4096;
+constexpr size_t kIoChunk = 65536;
+bool SnapshotString(const char *source, std::string &value, size_t limit) {
+  value.clear();if(!source)return false;
+  for(size_t i=0;i<limit;++i){char c;recomp::ReadGuestMemory(&c,reinterpret_cast<addr_t>(source)+i,1);if(!c)return true;value+=c;}
+  return false;
+}
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
   "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect"};
 int GuestCrtError(int error) {
@@ -78,13 +84,21 @@ AndroidTimespec Timestamp(int64_t ticks) {
 
 struct FileSystem::Impl {
   struct Mount { std::string guest; fs::path host; bool directory, writable; uint64_t device; };
-  struct Descriptor { int native, flags; bool writable; uint64_t device; };
-  struct Stream { FILE *native; bool writable; uint64_t device; };
+  struct Descriptor {
+    std::mutex io;int native,flags;bool writable;uint64_t device;
+    Descriptor(int n,int f,bool w,uint64_t d):native(n),flags(f),writable(w),device(d){}
+    ~Descriptor(){if(native>=0)_close(native);}
+  };
+  struct Stream {
+    std::mutex io;FILE *native;bool writable;uint64_t device;
+    Stream(FILE *n,bool w,uint64_t d):native(n),writable(w),device(d){}
+    ~Stream(){if(native)std::fclose(native);}
+  };
   struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; };
   std::recursive_mutex mutex;
   std::vector<Mount> mounts;
-  std::map<int, Descriptor> descriptors;
-  std::map<addr_t, Stream> streams;
+  std::map<int, std::shared_ptr<Descriptor>> descriptors;
+  std::map<addr_t, std::shared_ptr<Stream>> streams;
   alignas(8) std::array<uint8_t, 3*152> standard_objects{};
   bool standards_ready = false;
   std::map<addr_t, Mapping> mappings;
@@ -95,14 +109,17 @@ struct FileSystem::Impl {
   bool installed = false;
   explicit Impl(addr_t base) : marker_base(base) {}
   ~Impl() {
-    for (auto &entry : streams) std::fclose(entry.second.native);
-    for (auto &entry : descriptors) _close(entry.second.native);
+    for(auto &entry:errors)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(&entry.second),sizeof(entry.second));
+    recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(standard_objects.data()),standard_objects.size());
     for (auto &entry : mappings) {
+      recomp::InvalidateGuestMemory(entry.first,entry.second.rounded_length);
       if (entry.second.file) { UnmapViewOfFile(entry.second.native); CloseHandle(entry.second.object); }
       else VirtualFree(entry.second.native, 0, MEM_RELEASE);
     }
   }
-  void Error(int value) { errors[ThreadKey()] = value; }
+  void Error(int value) {std::lock_guard lock(mutex);auto &slot=errors[ThreadKey()];recomp::WriteGuestMemory(reinterpret_cast<addr_t>(&slot),&value,sizeof(value));}
+  std::shared_ptr<Descriptor> GetDescriptor(int descriptor){std::lock_guard lock(mutex);auto it=descriptors.find(descriptor);if(it==descriptors.end()){Error(9);return {};}return it->second;}
+  std::shared_ptr<Stream> GetStream(addr_t stream){std::lock_guard lock(mutex);auto it=streams.find(stream);if(it==streams.end()){Error(9);return {};}return it->second;}
   void CrtError() { Error(GuestCrtError(errno)); }
   void WinError() { Error(GuestWinError(GetLastError())); }
   std::string Normalize(const std::string &raw) {
@@ -123,7 +140,8 @@ struct FileSystem::Impl {
   }
   bool Resolve(const char *raw, bool writing, fs::path &result, const Mount *&mount, bool no_follow = false) {
     if (!raw) { Error(14); return false; }
-    auto normalized = Normalize(raw); if (normalized.empty()) return false;
+    std::string snapshot;if(!SnapshotString(raw,snapshot,4096)){Error(36);return false;}
+    auto normalized = Normalize(snapshot); if (normalized.empty()) return false;
     mount = nullptr;
     for (const auto &candidate : mounts) {
       bool match = normalized == candidate.guest || (candidate.directory && normalized.size() > candidate.guest.size() &&
@@ -177,7 +195,7 @@ struct FileSystem::Impl {
     value.size = directory ? 0 : static_cast<int64_t>((static_cast<uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow);
     value.block_size = 4096; value.blocks = value.size / 512 + (value.size % 512 != 0);
     value.access_time = Timestamp(times.LastAccessTime.QuadPart); value.modification_time = Timestamp(times.LastWriteTime.QuadPart); value.change_time = Timestamp(times.ChangeTime.QuadPart);
-    std::memcpy(output, &value, sizeof(value)); return true;
+    recomp::WriteGuestMemory(reinterpret_cast<addr_t>(output),&value,sizeof(value)); return true;
   }
 };
 
@@ -203,7 +221,8 @@ void FileSystem::SetWorkingDirectory(const std::string &guest) {
   impl_->cwd = impl_->Normalize(guest);
 }
 addr_t FileSystem::ErrnoAddress() { std::lock_guard lock(impl_->mutex); return reinterpret_cast<addr_t>(&impl_->errors[ThreadKey()]); }
-int FileSystem::Error() { std::lock_guard lock(impl_->mutex); return impl_->errors[ThreadKey()]; }
+int FileSystem::Error() {std::lock_guard lock(impl_->mutex);int32_t result;auto &slot=impl_->errors[ThreadKey()];recomp::ReadGuestMemory(&result,reinterpret_cast<addr_t>(&slot),sizeof(result));return result;}
+void FileSystem::SetError(int value){impl_->Error(value);}
 addr_t FileSystem::StandardStreamsAddress() {
   std::lock_guard lock(impl_->mutex);
   auto base = reinterpret_cast<addr_t>(impl_->standard_objects.data());
@@ -221,7 +240,7 @@ addr_t FileSystem::StandardStreamsAddress() {
     // Match standard interactive diagnostics without buffering away a crash.
     if (i == 2) std::setvbuf(copies[i], nullptr, _IONBF, 0);
   }
-  for (unsigned i = 0; i < 3; ++i) impl_->streams.emplace(base + i*152, Impl::Stream{copies[i], i != 0, 0});
+  for (unsigned i = 0; i < 3; ++i) impl_->streams.emplace(base + i*152, std::make_shared<Impl::Stream>(copies[i], i != 0, 0));
   impl_->standards_ready = true;
   return base;
 }
@@ -234,45 +253,48 @@ int FileSystem::Open(const char *path, int flags, uint32_t mode) {
   int native = _wopen(host.c_str(), native_flags, mode & 0200 ? _S_IREAD | _S_IWRITE : _S_IREAD);
   if (native < 0) { impl_->CrtError(); return -1; }
   int guest = impl_->next_descriptor++;
-  impl_->descriptors.emplace(guest, Impl::Descriptor{native, flags, mount->writable, mount->device}); return guest;
+  impl_->descriptors.emplace(guest, std::make_shared<Impl::Descriptor>(native, flags, mount->writable, mount->device)); return guest;
 }
 int FileSystem::Close(int descriptor) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end()) { impl_->Error(9); return -1; }
-  int result = _close(found->second.native); impl_->descriptors.erase(found); if (result < 0) impl_->CrtError(); return result;
+  std::shared_ptr<Impl::Descriptor> file;
+  {std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);if(found==impl_->descriptors.end()){impl_->Error(9);return -1;}file=found->second;impl_->descriptors.erase(found);}
+  std::lock_guard lock(file->io);int result=_close(file->native);file->native=-1;if(result<0)impl_->CrtError();return result;
 }
 int64_t FileSystem::Read(int descriptor, void *buffer, uint64_t count) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end() || (found->second.flags & 3) == 1) { impl_->Error(9); return -1; }
+  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->io);
+  if (file->native<0 || (file->flags & 3) == 1) { impl_->Error(9); return -1; }
   if ((!buffer && count) || count > INT64_MAX) { impl_->Error(!buffer ? 14 : 22); return -1; }
   uint64_t total = 0;
+  std::array<uint8_t,kIoChunk> bounce;
   while (total < count) {
-    auto chunk = static_cast<unsigned>(std::min<uint64_t>(count - total, INT_MAX));
-    int got = _read(found->second.native, static_cast<uint8_t *>(buffer) + total, chunk);
+    auto chunk = static_cast<unsigned>(std::min<uint64_t>(count - total, bounce.size()));
+    int got = _read(file->native,bounce.data(),chunk);
     if (got < 0) { impl_->CrtError(); return total ? static_cast<int64_t>(total) : -1; }
+    if(got)recomp::WriteGuestMemory(reinterpret_cast<addr_t>(buffer)+total,bounce.data(),got);
     total += got; if (static_cast<unsigned>(got) < chunk) break;
   }
   return static_cast<int64_t>(total);
 }
 int64_t FileSystem::Write(int descriptor, const void *buffer, uint64_t count) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end() || !(found->second.flags & 3)) { impl_->Error(9); return -1; }
+  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->io);
+  if(file->native<0||!(file->flags&3)){impl_->Error(9);return -1;}
   if ((!buffer && count) || count > INT64_MAX) { impl_->Error(!buffer ? 14 : 22); return -1; }
   uint64_t total = 0;
+  std::array<uint8_t,kIoChunk> bounce;
   while (total < count) {
-    auto chunk = static_cast<unsigned>(std::min<uint64_t>(count - total, INT_MAX));
-    int got = _write(found->second.native, static_cast<const uint8_t *>(buffer) + total, chunk);
+    auto chunk = static_cast<unsigned>(std::min<uint64_t>(count-total,bounce.size()));
+    recomp::ReadGuestMemory(bounce.data(),reinterpret_cast<addr_t>(buffer)+total,chunk);
+    int got = _write(file->native,bounce.data(),chunk);
     if (got < 0) { impl_->CrtError(); return total ? static_cast<int64_t>(total) : -1; }
     total += got; if (static_cast<unsigned>(got) < chunk) break;
   }
-  if (found->second.flags & 0x1000 && _commit(found->second.native)) { impl_->CrtError(); return -1; }
+  if(file->flags&0x1000&&_commit(file->native)){impl_->CrtError();return -1;}
   return static_cast<int64_t>(total);
 }
 int64_t FileSystem::Seek(int descriptor, int64_t offset, int whence) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end()) { impl_->Error(9); return -1; }
+  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->io);if(file->native<0){impl_->Error(9);return -1;}
   if (whence < 0 || whence > 2) { impl_->Error(22); return -1; }
-  auto position = _lseeki64(found->second.native, offset, whence); if (position < 0) impl_->CrtError(); return position;
+  auto position = _lseeki64(file->native,offset,whence); if (position < 0) impl_->CrtError(); return position;
 }
 int FileSystem::Stat(const char *path, AndroidStat *result, bool no_follow) {
   std::lock_guard lock(impl_->mutex); fs::path host; const Impl::Mount *mount;
@@ -282,9 +304,8 @@ int FileSystem::Stat(const char *path, AndroidStat *result, bool no_follow) {
   bool filled = impl_->Fill(file, mount->device, mount->writable, result); CloseHandle(file); return filled ? 0 : -1;
 }
 int FileSystem::FStat(int descriptor, AndroidStat *result) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end()) { impl_->Error(9); return -1; }
-  return impl_->Fill(reinterpret_cast<HANDLE>(_get_osfhandle(found->second.native)), found->second.device, found->second.writable, result) ? 0 : -1;
+  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->io);if(file->native<0){impl_->Error(9);return -1;}
+  return impl_->Fill(reinterpret_cast<HANDLE>(_get_osfhandle(file->native)),file->device,file->writable,result)?0:-1;
 }
 int FileSystem::Access(const char *path, int mode) {
   std::lock_guard lock(impl_->mutex); if (mode & ~7) { impl_->Error(22); return -1; }
@@ -296,6 +317,7 @@ int FileSystem::Access(const char *path, int mode) {
 }
 addr_t FileSystem::FOpen(const char *path, const char *mode) {
   std::lock_guard lock(impl_->mutex);
+  std::string mode_copy;if(!SnapshotString(mode,mode_copy,16)){impl_->Error(22);return 0;}mode=mode_copy.c_str();
   if (!mode || !*mode || !std::strchr("rwa", *mode)) { impl_->Error(22); return 0; }
   bool plus = false, exclusive = false;
   for (const char *at = mode + 1; *at; ++at) {
@@ -316,49 +338,52 @@ addr_t FileSystem::FOpen(const char *path, const char *mode) {
   std::wstring native_mode(1, static_cast<wchar_t>(*mode)); if (plus) native_mode += L'+'; native_mode += L'b';
   FILE *file = _wfdopen(native, native_mode.c_str());
   if (!file) { impl_->CrtError(); _close(native); return 0; }
-  auto handle = impl_->next_stream++; impl_->streams.emplace(handle, Impl::Stream{file, mount->writable, mount->device}); return handle;
+  auto handle = impl_->next_stream++; impl_->streams.emplace(handle,std::make_shared<Impl::Stream>(file,mount->writable,mount->device)); return handle;
 }
 int FileSystem::FClose(addr_t stream) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream);
-  if (found == impl_->streams.end()) { impl_->Error(9); return -1; }
-  int result = std::fclose(found->second.native); impl_->streams.erase(found); if (result) impl_->CrtError(); return result;
+  std::shared_ptr<Impl::Stream> file;
+  {std::lock_guard lock(impl_->mutex);auto it=impl_->streams.find(stream);if(it==impl_->streams.end()){impl_->Error(9);return -1;}file=it->second;impl_->streams.erase(it);}
+  std::lock_guard lock(file->io);int result=std::fclose(file->native);file->native=nullptr;if(result)impl_->CrtError();return result;
 }
 uint64_t FileSystem::FRead(void *buffer, uint64_t size, uint64_t count, addr_t stream) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream);
-  if (found == impl_->streams.end()) { impl_->Error(9); return 0; }
+  auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}
   if (!size || !count) return 0;
   if (!buffer || count > SIZE_MAX / size) { impl_->Error(!buffer ? 14 : 75); return 0; }
-  auto result = std::fread(buffer, size, count, found->second.native);
-  if (result < count && std::ferror(found->second.native)) impl_->CrtError(); return result;
+  std::array<uint8_t,kIoChunk> bounce;uint64_t total=0,bytes=size*count;
+  while(total<bytes){size_t chunk=static_cast<size_t>(std::min<uint64_t>(bytes-total,bounce.size()));auto got=std::fread(bounce.data(),1,chunk,file->native);int host_error=errno;
+    if(got)recomp::WriteGuestMemory(reinterpret_cast<addr_t>(buffer)+total,bounce.data(),got);
+    total+=got;if(got<chunk){if(std::ferror(file->native))impl_->Error(GuestCrtError(host_error));break;}}
+  // A partial final item still changes its bytes, just as native fread does.
+  return total/size;
 }
 uint64_t FileSystem::FWrite(const void *buffer, uint64_t size, uint64_t count, addr_t stream) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream);
-  if (found == impl_->streams.end()) { impl_->Error(9); return 0; }
+  auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}
   if (!size || !count) return 0;
   if (!buffer || count > SIZE_MAX / size) { impl_->Error(!buffer ? 14 : 75); return 0; }
-  auto result = std::fwrite(buffer, size, count, found->second.native); if (result < count) impl_->CrtError(); return result;
+  std::array<uint8_t,kIoChunk> bounce;uint64_t total=0,bytes=size*count;
+  while(total<bytes){size_t chunk=static_cast<size_t>(std::min<uint64_t>(bytes-total,bounce.size()));recomp::ReadGuestMemory(bounce.data(),reinterpret_cast<addr_t>(buffer)+total,chunk);
+    auto got=std::fwrite(bounce.data(),1,chunk,file->native);total+=got;if(got<chunk){impl_->CrtError();break;}}
+  return total/size;
 }
 int FileSystem::FSeek(addr_t stream, int64_t offset, int whence) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream);
-  if (found == impl_->streams.end()) { impl_->Error(9); return -1; }
+  auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
   if (whence < 0 || whence > 2) { impl_->Error(22); return -1; }
-  int result = _fseeki64(found->second.native, offset, whence); if (result) impl_->CrtError(); return result;
+  int result = _fseeki64(file->native,offset,whence); if (result) impl_->CrtError(); return result;
 }
 int64_t FileSystem::FTell(addr_t stream) {
-  std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream);
-  if (found == impl_->streams.end()) { impl_->Error(9); return -1; }
-  auto result = _ftelli64(found->second.native); if (result < 0) impl_->CrtError(); return result;
+  auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
+  auto result = _ftelli64(file->native); if (result < 0) impl_->CrtError(); return result;
 }
-int FileSystem::FEof(addr_t stream) { std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream); if (found == impl_->streams.end()) { impl_->Error(9); return 0; } return std::feof(found->second.native); }
-int FileSystem::FError(addr_t stream) { std::lock_guard lock(impl_->mutex); auto found = impl_->streams.find(stream); if (found == impl_->streams.end()) { impl_->Error(9); return 1; } return std::ferror(found->second.native); }
+int FileSystem::FEof(addr_t stream){auto file=impl_->GetStream(stream);if(!file)return 0;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 0;}return std::feof(file->native);}
+int FileSystem::FError(addr_t stream){auto file=impl_->GetStream(stream);if(!file)return 1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return 1;}return std::ferror(file->native);}
 int FileSystem::FFlush(addr_t stream) {
-  std::lock_guard lock(impl_->mutex);
-  if (!stream) { int result = 0; for (auto &entry : impl_->streams) if (std::fflush(entry.second.native)) { impl_->CrtError(); result = -1; } return result; }
-  auto found = impl_->streams.find(stream); if (found == impl_->streams.end()) { impl_->Error(9); return -1; }
-  int result = std::fflush(found->second.native); if (result) impl_->CrtError(); return result;
+  if(!stream){std::vector<std::shared_ptr<Impl::Stream>> snapshot;{std::lock_guard lock(impl_->mutex);for(auto &entry:impl_->streams)snapshot.push_back(entry.second);}
+    int result=0;for(auto &file:snapshot){std::lock_guard lock(file->io);if(file->native&&std::fflush(file->native)){impl_->CrtError();result=-1;}}return result;}
+  auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
+  int result=std::fflush(file->native);if(result)impl_->CrtError();return result;
 }
 addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset) {
-  std::lock_guard lock(impl_->mutex);
+  std::unique_lock lock(impl_->mutex);
   constexpr int allowed = 3 | 0x10 | 0x20 | 0x4000 | 0x20000 | 0x100000;
   if (!length || length > SIZE_MAX - kPage || protection & ~7 || flags & ~allowed || (flags & 3) == 0 || (flags & 3) == 3 || offset < 0 || offset % kPage) { impl_->Error(22); return kMapFailed; }
   if (flags & linux_flags::map_fixed) { impl_->Error(95); return kMapFailed; }
@@ -371,13 +396,14 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
     if (!result && address && !no_replace) result = VirtualAlloc(nullptr, rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result) { if (no_replace && GetLastError() == ERROR_INVALID_ADDRESS) impl_->Error(17); else impl_->WinError(); return kMapFailed; }
     if (no_replace && reinterpret_cast<addr_t>(result) != address) { VirtualFree(result, 0, MEM_RELEASE); impl_->Error(17); return kMapFailed; }
-    auto pointer = reinterpret_cast<addr_t>(result); impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false}); return pointer;
+    auto pointer = reinterpret_cast<addr_t>(result);recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false}); return pointer;
   }
   auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end() || (found->second.flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
+  if (found == impl_->descriptors.end() || (found->second->flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
+  auto file=found->second;lock.unlock();std::lock_guard io_lock(file->io);lock.lock();if(file->native<0){impl_->Error(9);return kMapFailed;}
   const bool private_file = (flags & 3) == linux_flags::map_private;
-  if (!private_file && protection & 2 && !(found->second.flags & 3)) { impl_->Error(13); return kMapFailed; }
-  auto native = reinterpret_cast<HANDLE>(_get_osfhandle(found->second.native));
+  if (!private_file && protection & 2 && !(file->flags & 3)) { impl_->Error(13); return kMapFailed; }
+  auto native = reinterpret_cast<HANDLE>(_get_osfhandle(file->native));
   LARGE_INTEGER file_size; if (!GetFileSizeEx(native, &file_size)) { impl_->WinError(); return kMapFailed; }
   if (static_cast<uint64_t>(offset) >= static_cast<uint64_t>(file_size.QuadPart) ||
       static_cast<uint64_t>(offset) > UINT64_MAX - length || static_cast<uint64_t>(offset) + length > RoundPage(file_size.QuadPart)) { impl_->Error(22); return kMapFailed; }
@@ -399,13 +425,14 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   auto pointer = reinterpret_cast<addr_t>(view) + delta;
   DWORD previous;
   if (!VirtualProtect(reinterpret_cast<void *>(pointer), length, Protection(protection, private_file), &previous)) { impl_->WinError(); UnmapViewOfFile(view); CloseHandle(object); return kMapFailed; }
-  impl_->mappings.emplace(pointer, Impl::Mapping{view, object, rounded, true, private_file}); return pointer;
+  recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{view, object, rounded, true, private_file}); return pointer;
 }
 int FileSystem::Munmap(addr_t address, uint64_t length) {
   std::lock_guard lock(impl_->mutex); auto found = impl_->mappings.find(address);
   if (!length || length > UINT64_MAX - kPage || address % kPage) { impl_->Error(22); return -1; }
   if (found == impl_->mappings.end()) { impl_->Error(22); return -1; }
   if (RoundPage(length) != found->second.rounded_length) { impl_->Error(95); return -1; }
+  recomp::InvalidateGuestMemory(address,found->second.rounded_length);
   bool result = found->second.file ? !!UnmapViewOfFile(found->second.native) : !!VirtualFree(found->second.native, 0, MEM_RELEASE);
   if (!result) { impl_->WinError(); return -1; }
   if (found->second.object) CloseHandle(found->second.object); impl_->mappings.erase(found); return 0;
