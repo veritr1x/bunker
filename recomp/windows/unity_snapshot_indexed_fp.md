@@ -42,6 +42,16 @@ source-archive, manifest, command and log hashes. Prepare/build entry points
 remain `unity_bootstrap_prepare.py` and `unity_bootstrap_build.ps1`; explicit
 exploratory mode is still required.
 
+A later host-only refresh at `a187d003fcbb11731b865663a9755334f3363125`
+also passes all three executions with the same 417 constructors, 42 bindings
+and two finalizers per process. It includes constructor-factory JNI frames,
+process clock/sysconf, setvbuf and full supported-GL forwarding. All engine
+objects and generated link metadata retain their accepted hashes. Its executable
+is `96884fe5614c6d9dc5d0288b0f7970d3efd1e4ececbe4a92db3335e27d5d7bad`;
+source archive is `14db0ff27f96936bd3ecc5029952f4cd1c396d0a5c9f5c2270100071671cde24`.
+Evidence is `work/windows-unity-native5/parity-acceptance.json`. These paused
+checks do not exercise the new GL draw forwarding or claim a game frame.
+
 This remains an unpolled diagnostic snapshot. These three startup checks do
 not execute nativeResume/nativeRender, IL2CPP initialization or a game frame.
 Ordinary FMUL and remaining unsupported instructions retain their documented
