@@ -23,26 +23,26 @@ class Settings(unittest.TestCase):
         self.dir.cleanup()
 
     def test_missing_file_keeps_the_game_defaults(self):
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
 
     def test_saved_choices_are_read_back(self):
         self.display.write_settings("60", "native", "full", self.conf)
-        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full"})
+        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\nidle=on\nheat=on\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
         self.display.write_settings("max", "1440", "safe", self.conf)
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full", "idle": "on", "heat": "on"})
 
     def test_lower_resolutions_and_texture_sizes_are_saved(self):
         self.display.write_settings("30", "540", "full", self.conf, textures="quarter")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter", "idle": "on", "heat": "on"})
         self.display.write_settings("60", "640", "safe", self.conf, textures="half")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half", "idle": "on", "heat": "on"})
         with self.assertRaises(ValueError):
             self.display.write_settings("30", "default", "full", self.conf, textures="tiny")
 
     def test_settings_saved_before_the_screen_choice_use_the_full_screen(self):
         self.conf.write_text("fps=60\nresolution=native\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
 
     def test_unknown_values_are_refused_and_ignored(self):
         with self.assertRaises(ValueError):
@@ -50,7 +50,15 @@ class Settings(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.display.write_settings("60", "native", "wide", self.conf)
         self.conf.write_text("fps=240\nresolution=8k\nscreen=wide\nnoise\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
+
+    def test_idle_and_heat_slow_downs_can_be_turned_off(self):
+        self.display.write_settings("120", "native", "full", self.conf, idle="off", heat="off")
+        self.assertEqual(self.conf.read_text(), "fps=120\nresolution=native\nscreen=full\ntextures=full\nidle=off\nheat=off\n")
+        self.assertEqual(self.display.read_settings(self.conf)["idle"], "off")
+        self.assertEqual(self.display.read_settings(self.conf)["heat"], "off")
+        with self.assertRaises(ValueError):
+            self.display.write_settings("120", "native", "full", self.conf, idle="sometimes")
 
 
 class Encodings(unittest.TestCase):
@@ -85,6 +93,93 @@ def hook_sites():
     words = {name: [int(w, 16) for w in re.findall(r"0x([0-9a-f]{8})u", body)]
              for name, body in re.findall(r"static const uint32_t (\w+)\[4\] = \{([^}]*)\}", source)}
     return [(int(rva, 16), words[name]) for rva, name in re.findall(r"\{(0x[0-9A-F]+), (k\w+)\}", source)]
+
+
+class RenderPace(unittest.TestCase):
+    """render_pace.c's choice of how often to draw, built for this computer."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.TemporaryDirectory()
+        harness = Path(cls.dir.name) / "harness.c"
+        # Reads "fps current delta touching battle thermal idle heat" lines; prints each frame's interval.
+        harness.write_text(r"""
+#include <stdio.h>
+#include "render_pace.h"
+int main(void) {
+    RenderPace pace = {0};
+    int fps, current, touching, battle, thermal, idle, heat; float delta;
+    while (scanf("%d %d %f %d %d %d %d %d", &fps, &current, &delta, &touching, &battle, &thermal, &idle, &heat) == 8)
+        printf("%d\n", render_pace_decide(&pace, fps, current, delta, touching, battle, thermal, idle, heat)), fflush(stdout);
+    return 0;
+}
+""")
+        cls.binary = Path(cls.dir.name) / "harness"
+        cpp = root / "android/app/src/main/cpp"
+        subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-I", str(cpp), "-o", str(cls.binary),
+                        str(harness), str(cpp / "render_pace.c")], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def run_frames(self, frames, fps=120, idle=1, heat=1):
+        """frames: (current, delta, touching, battle, thermal) per frame; current None follows the last answer."""
+        out, last, lines = [], 1, []
+        # Each frame's current interval is the one decided the frame before, unless the game sets its own.
+        proc = subprocess.Popen([str(self.binary)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        for current, delta, touching, battle, thermal in frames:
+            proc.stdin.write(f"{fps} {last if current is None else current} {delta} {touching} {battle} {thermal} {idle} {heat}\n")
+            proc.stdin.flush()
+            last = int(proc.stdout.readline())
+            out.append(last)
+        proc.stdin.close()
+        proc.wait()
+        return out
+
+    def still(self, seconds, fps=120, **kw):
+        return [(None, 1 / fps, 0, 0, 0)] * int(seconds * fps)
+
+    def test_draws_every_frame_while_touched(self):
+        self.assertEqual(set(self.run_frames([(None, 1 / 120, 1, 0, 0)] * 600)), {1})
+
+    def test_slows_to_30_a_second_after_two_idle_seconds(self):
+        out = self.run_frames(self.still(3))
+        self.assertEqual(out[int(1.9 * 120)], 1)
+        self.assertEqual(out[-1], 4)  # 120 / 4 = 30 drawn a second
+
+    def test_a_touch_draws_every_frame_again_at_once(self):
+        out = self.run_frames(self.still(3) + [(None, 1 / 120, 1, 0, 0)] + self.still(1))
+        self.assertEqual(out[360], 1)
+        self.assertEqual(out[-1], 1)
+
+    def test_battles_keep_the_chosen_rate(self):
+        self.assertEqual(set(self.run_frames([(None, 1 / 120, 0, 1, 0)] * 600)), {1})
+
+    def test_at_60_fps_idle_draws_every_other_frame(self):
+        self.assertEqual(self.run_frames(self.still(3, fps=60), fps=60)[-1], 2)
+
+    def test_idle_off_keeps_every_frame(self):
+        self.assertEqual(set(self.run_frames(self.still(3), idle=0)), {1})
+
+    def test_power_saving_keeps_the_games_own_slower_rate(self):
+        # The game asks for 10 a second (every 12th frame at 120); a touch doesn't speed it up.
+        out = self.run_frames([(12, 1 / 120, 1, 0, 0)] + [(None, 1 / 120, 1, 0, 0)] * 10)
+        self.assertEqual(set(out), {12})
+
+    def test_a_preset_from_before_the_patch_is_drawn_every_frame(self):
+        # The game's own 30 a second at 120 (every 4th) from before the table was changed.
+        self.assertEqual(self.run_frames([(4, 1 / 120, 1, 0, 0)])[0], 1)
+
+    def test_serious_heat_draws_60_a_second_and_critical_30(self):
+        self.assertEqual(self.run_frames([(None, 1 / 120, 1, 0, 2)])[0], 2)
+        self.assertEqual(self.run_frames([(None, 1 / 120, 1, 1, 3)])[0], 4)
+
+    def test_heat_off_keeps_the_chosen_rate(self):
+        self.assertEqual(self.run_frames([(None, 1 / 120, 1, 0, 3)], heat=0)[0], 1)
+
+    def test_heat_does_not_slow_a_rate_already_low_enough(self):
+        self.assertEqual(self.run_frames([(None, 1 / 60, 1, 0, 2)], fps=60)[0], 1)
 
 
 class FlyingMom(unittest.TestCase):

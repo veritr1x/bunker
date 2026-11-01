@@ -46,6 +46,9 @@
 //   it is below the position's float precision: the list stops just short,
 //   keeps a small speed, and IsScrolling stays true, so the Summon buttons
 //   ignore taps. It now counts as there within 1 unit (invisible). Any setting.
+// - Drawing: above 30 fps it draws 30 a second after 2 s without a touch
+//   outside battles, and 60 or 30 while the device reports it is hot
+//   (render_pace.c; DisplayPatch.java passes the thermal status).
 // - Flying Mama: the minigame counts frames, so above 30 fps it ran faster
 //   against its clock. Its logic now runs as 30 steps a second (flying_mom.c).
 //
@@ -61,6 +64,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "render_pace.h"
 #include "egl_sync.h"
 #include "flying_mom.h"
 #include "play_services.h"
@@ -390,7 +394,7 @@ static void open_bunker(void) {
     if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
 }
 
-static const char *apply(int fps, int size, char *message, size_t length) {
+static const char *apply(int fps, int size, int idle, int heat, char *message, size_t length) {
     Site list[8];
     int count = sites(fps, size, list);
     void *library = dlopen("libil2cpp.so", RTLD_NOW);
@@ -456,11 +460,13 @@ static const char *apply(int fps, int size, char *message, size_t length) {
     }
     if (fps > 30 && (flying_mom_state = flying_mom_init(game_symbol, bunker_log)))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Flying Mama: the game's IL2CPP API is missing; it runs faster above 30 fps");
+    if (fps > 30 && render_pace_init(game_symbol, bunker_log, fps, idle, heat))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Frame pacing: the game's IL2CPP API is missing; it draws every frame");
     return "";
 }
 
 /** Applies the choices; 0 keeps the game's own value. Returns "" or an error. */
-JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *env, jclass cls, jint fps, jint size) {
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *env, jclass cls, jint fps, jint size, jboolean idle, jboolean heat) {
     (void)cls;
     char message[160];
     if (!java && (*env)->GetJavaVM(env, &java) == JNI_OK) {
@@ -470,6 +476,12 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *en
     }
     if ((fps && (fps < 30 || fps > 240)) || (size && (size < H540 || size > DeviceMax || size == 5)))
         return (*env)->NewStringUTF(env, "Unsupported display setting");
-    return (*env)->NewStringUTF(env, apply(fps, size, message, sizeof message));
+    return (*env)->NewStringUTF(env, apply(fps, size, idle, heat, message, sizeof message));
+}
+
+/** The device's heat as it changes (render_pace_set_thermal's levels). */
+JNIEXPORT void JNICALL Java_org_veritr1x_bunker_DisplayPatch_thermal(JNIEnv *env, jclass cls, jint level) {
+    (void)env, (void)cls;
+    render_pace_set_thermal(level);
 }
 

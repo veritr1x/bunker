@@ -16,6 +16,9 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Drawing: above 30 fps it draws 30 a second after 2 s without a touch
+//   outside battles, and 60 or 30 while the device is hot (render_pace.c,
+//   shared with Android; it fixes up stale presets itself).
 // - Flying Mama counts frames, so it ran faster against its clock; its logic
 //   now runs as 30 steps a second (flying_mom.c, shared with Android).
 // - Story-event zones: an event that waited for the player to walk into a zone
@@ -41,6 +44,7 @@
 #include <string.h>
 
 #include "flying_mom.h"
+#include "render_pace.h"
 #include "bunker_button.h"
 #include "roulette_ads.h"
 
@@ -367,8 +371,8 @@ static BOOL UnityStarted(void) {
     if (frame == gLastFrame) return;
     gLastFrame = frame;
     if (game.target_frame_rate(NULL) != gFps) game.set_target_frame_rate(gFps, NULL);
-    // A preset applied before the table changed asked for every (gFps / 30)th frame.
-    if (game.render_interval(NULL) == gFps / 30) game.set_render_interval(1, NULL);
+    // A preset applied before the table changed asked for every (gFps / 30)th frame (render_pace.c does this itself).
+    if (!render_pace_active() && game.render_interval(NULL) == gFps / 30) game.set_render_interval(1, NULL);
     float delta = game.unscaled_delta(NULL);
     float physics = fminf(fmaxf(delta, 1 / 240.f), 1 / 30.f);
     if (game.fixed_delta(NULL) != physics) game.set_fixed_delta(physics, NULL);
@@ -404,6 +408,7 @@ void LTDisplayStart(NSString *toolsRoot) {
     gStatusPath = [toolsRoot stringByAppendingPathComponent:@"display.status"];
     NSString *conf = [NSString stringWithContentsOfFile:[toolsRoot stringByAppendingPathComponent:@"display.conf"] encoding:NSUTF8StringEncoding error:nil];
     NSInteger screen = UIScreen.mainScreen.maximumFramesPerSecond;
+    BOOL idle = YES, heat = YES;
     for (NSString *line in [conf componentsSeparatedByString:@"\n"]) {
         NSArray *pair = [line componentsSeparatedByString:@"="];
         if (pair.count != 2) continue;
@@ -414,6 +419,8 @@ void LTDisplayStart(NSString *toolsRoot) {
             gFps = rate > 30 ? (int)MIN(rate, 240) : 0;
         }
         if ([key isEqual:@"resolution"]) gSize = RenderTargetSize(value);
+        if ([key isEqual:@"idle"]) idle = ![value isEqual:@"off"];
+        if ([key isEqual:@"heat"]) heat = ![value isEqual:@"off"];
     }
     // The story-event zone fix runs with the game's own settings too; display.status reports chosen settings only.
     BOOL chosen = gFps || gSize;
@@ -431,6 +438,14 @@ void LTDisplayStart(NSString *toolsRoot) {
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
         NSLog(@"[LunarTear] Flying Mama: the game's IL2CPP API is missing");
+    if (gFps && (idle || heat)) {
+        if (render_pace_init(IL2CPPSymbol, GameLog, gFps, idle, heat))
+            NSLog(@"[LunarTear] Frame pacing: the game's IL2CPP API is missing");
+        // thermalState: 0 nominal, 1 fair, 2 serious, 3 critical, as render_pace_set_thermal takes it.
+        render_pace_set_thermal((int)NSProcessInfo.processInfo.thermalState);
+        [NSNotificationCenter.defaultCenter addObserverForName:NSProcessInfoThermalStateDidChangeNotification object:nil
+            queue:nil usingBlock:^(NSNotification *note) { render_pace_set_thermal((int)NSProcessInfo.processInfo.thermalState); }];
+    }
     // IL2CPP starts while Unity finishes launching; the ticker begins once the app is active.
     __block id observer = [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil
         queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
