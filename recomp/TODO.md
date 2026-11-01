@@ -56,8 +56,11 @@ Latest three-library instruction-form audit with LLVM 18:
 | `libgrpc_csharp_ext.so` | 754 / 826 | 1,630 |
 
 These are one-sample-per-form measurements, not whole-program correctness or
-execution coverage. Full-engine translation is now running. Exploratory
-objects retain explicit failure paths for unsupported instructions.
+execution coverage. The first Unity Windows translation completed with 58,850
+traces in 463 objects, 2,419 unsupported traces and zero unresolved direct
+targets. Its 166-MB diagnostic executable links; constructor execution is under
+investigation. IL2CPP translation remains running. Exploratory objects retain
+explicit failure paths for unsupported instructions.
 
 ## Active work
 

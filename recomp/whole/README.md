@@ -18,6 +18,9 @@ remains unverified. See [../TODO.md](../TODO.md).
   and QEMU for independent ARM64 reference runs.
 - MinGW-w64 GCC/G++ for native Windows hosts and executable linking.
 
+Install the tested Python dependencies with
+`python -m pip install -r recomp/whole/requirements.txt`.
+
 This machine keeps its Python environment and lifter under
 `/home/sattam/bunker-recomp/recomp/work/`, NDK under
 `/home/sattam/bunker-tools/android-sdk/ndk/27.2.12479018`, and Windows
