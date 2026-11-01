@@ -370,9 +370,12 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     def schedule_entry(request: Request, kind: str, ident: int):
         need_index(request)
         tabs = {"summon": "summons", "event": "events", "shop": "shops"}
-        found = archive.schedule().find(tabs[kind], ident) if kind in tabs else None
-        if not found:
+        if kind not in tabs:
             raise HTTPException(404)
+        found = archive.schedule().find(tabs[kind], ident)
+        if not found:
+            # Pod Programs' timeline links by id; one the Archive doesn't list opens its tab.
+            return RedirectResponse(f"/schedule?tab={tabs[kind]}")
         return page(request, f"schedule_{kind}.html", "schedule", item=found, tabs=dict(SCHEDULE_TABS), tab=tabs[kind])
 
     @app.get("/search")
