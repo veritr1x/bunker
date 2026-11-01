@@ -87,7 +87,7 @@ int main(){
   GLfloat got=0;NativeSymbol<PFNGLGETFLOATVPROC>("glGetFloatv")(GL_SAMPLE_COVERAGE_VALUE,&got);GLint inverted=0;NativeSymbol<PFNGLGETINTEGERVPROC>("glGetIntegerv")(GL_SAMPLE_COVERAGE_INVERT,&inverted);
   Check(got==coverage&&inverted==GL_TRUE,"mixed FP/GPR signature reads scalar float and low GLboolean only");
   Check(gl.Marker("glGetString")==0x7ff450000000ULL&&gl.Marker("glGetError")==0x7ff450000028ULL,"existing query marker identities preserved");
-  bool rejected=false;try{gl.Marker("glReadPixels");}catch(const std::runtime_error&){rejected=true;}Check(rejected,"unimplemented pointer/output rendering signature still decisive");
+  bool rejected=false;try{gl.Marker("glMapBufferRange");}catch(const std::runtime_error&){rejected=true;}Check(rejected,"unimplemented pointer/output rendering signature still decisive");
   Check(Invoke(gl,"glGetError")==0,"scalar padding tests leave no GL errors");
   Check(!Invoke(gl,"glGetString",{0xffffffffU}),"query records a real pending enum error");
   Invoke(gl,"glViewport",{0,0,0xffffffffU,1});Invoke(gl,"glEnable",{GL_BLEND});

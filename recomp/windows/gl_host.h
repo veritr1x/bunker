@@ -7,8 +7,10 @@
 
 namespace bunker::windows {
 class EglHost;
-// GLES capability queries plus scalar state/clear commands. Native query
-// results use tracked guest memory; unsupported signatures/query widths fail.
+// Typed GLES queries, scalar state, shader/program and buffer-backed draws.
+// Transfers use tracked snapshots/publication. No retained client arrays,
+// mapping, textures, uniforms/FBO APIs or compute execution are implemented.
+// Readback is in-bounds RGBA8/default-FBO/no-PBO on owned immutable pbuffers.
 class GlHost {
  public:
   struct Query {uint32_t name;uint32_t count;uint32_t count_query=0;};

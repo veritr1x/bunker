@@ -1,6 +1,7 @@
 #pragma once
 #include "native_window.h"
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace bunker::windows {
@@ -27,6 +28,10 @@ class EglHost {
   addr_t CurrentContextToken();
   bool ContextAlive(addr_t token);
   bool UsesGlesModule(const void *native_module);
+  struct ReadPbufferExtent {addr_t context,surface;int32_t width,height;};
+  // Read-only, actual owned EGL_READ pbuffer. Window/surfaceless/foreign
+  // surfaces are excluded. Internal queries preserve the public EGL error.
+  std::optional<ReadPbufferExtent> CurrentReadPbufferExtent();
   // Call on the native worker itself before it exits. No guest callback runs.
   void ReleaseCurrentThread();
  private:

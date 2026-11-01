@@ -204,6 +204,12 @@ unsupported instructions.
   checked RGBA pixels. Errors follow actual EGL contexts across switches and
   native thread migration; all 976 query regressions still pass. See
   [the scalar command boundary](windows/gl_scalar.md).
+  A further 29 shader/program/VBO/VAO/draw/readback commands pass 286 checks
+  through ten strict NDK traces, including real array/indexed triangles and
+  exact native pixel comparison. Query976/scalar342/EGL49 regressions pass.
+  Readback is restricted to in-bounds owned pbuffers; textures, uniforms,
+  client/mapped memory, FBO commands and compute execution remain open. See
+  [the typed draw scope](windows/gl_draw.md).
   A separate native Vulkan scaling variant now passes fixed-size
   buffer negotiation, physical/logical resize and present-mode checks; the
   original ANGLE bundle is preserved. Shader/draw/client/mapped GL APIs, Unity's
