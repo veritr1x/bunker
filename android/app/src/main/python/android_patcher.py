@@ -49,6 +49,20 @@ def expand(cfg, key, seen=()):
     return value.strip()
 
 
+# Presets choose limited-time events; the patcher expires every event chapter
+# a preset doesn't list. These kinds of chapter are part of the game, not
+# events, and the configuration leaves many out (every Dark Memory and
+# Recollections of Dusk chapter: their menus were empty), so every preset keeps
+# them. EventQuestType: 6 character quests, 7 Dark Memories, 8 the cage,
+# 10 Abyss Towers, 11 Recollections of Dusk, 12 the Labyrinth.
+PERMANENT_EVENT_TYPES = {6, 7, 8, 10, 11, 12}
+
+
+def permanent_chapters():
+    rows = runtime.read_json(config.MASTERDATA_DIR / "EntityMEventQuestChapterTable.json", []) or []
+    return sorted(r["EventQuestChapterId"] for r in rows if isinstance(r, dict) and r.get("EventQuestType") in PERMANENT_EVENT_TYPES)
+
+
 def arguments(preset, cfg):
     if preset not in dict(PRESETS + SPLITS):
         raise ValueError("Unknown preset")
@@ -76,6 +90,9 @@ def arguments(preset, cfg):
             events += ", " + get("EVENTS_" + family.upper() + "_" + index)
             if family == "Rec":
                 shops += ", " + get("SHOPS_EVENT_" + index)
+    permanent = permanent_chapters()
+    if permanent:
+        events = ", ".join(filter(None, [events, ", ".join(str(c) for c in permanent)]))
     return ["--event-quests", events, "--banners", banners, "--premium-shops", get("SHOP_PREM"), "--exchange-shops", shops,
             "--exclude-consumables", get("CONSUMABLES_ALL"), "--rewrite-shop-content", join("SHOPCONTENT_COMP", "SHOPCONTENT_MEDAL"),
             "--rewrite-shop-count", get("SHOPCOUNT"), "--rewrite-shop-type", get("SHOPTYPE")]
