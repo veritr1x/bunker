@@ -560,8 +560,18 @@ the boundary kept active through reentrant destructors and nested callbacks.
 through22 strict NDK traces, including direct/V/A dispatch, weak-reference
 liveness, nested callbacks, worker joins, exception identity and destructor
 reentry. The reproduced four-call leak falls from16 live temporary objects to0.
-Constructor factories still have a separately reproduced ownership leak; this
-fix does not cover their lifetime or imply general Java native-frame execution.
+Constructor factories use the same owned scope with a distinct checked result
+contract: a non-null kInstance of the exact declared owner, or a Java exception.
+Null, stale, foreign-thread, subclass and wrong-kind results fail explicitly.
+Factories receive callee-local reference arguments and return one independent
+caller-local result; existing caller/global references stay owned by the caller.
+`test_package_manager.ps1 -ConstructorFrames` passes362 checks on each host
+through24 strict NDK traces, covering NewObject direct/V/A and stack-V callers,
+mixed reference/jint arguments, weak liveness, exceptions, nested construction,
+destructor reentry and simultaneous threads. The original probe's temporary and
+instance both expire before caller frame pop after the caller deletes its result.
+Builtin StringBuilder construction remains separate. These explicit host
+factories do not execute Java constructor bytecode or imply general VM execution.
 The existing JNI36, Context14, ClassLoader109, StringBuilder66, assets65,
 PackageManager107, code-path25, storage220 plus13 real backing, Object.getClass76,
 Intent83, tracked-memory6 and original libmain JNI_OnLoad regressions pass.
