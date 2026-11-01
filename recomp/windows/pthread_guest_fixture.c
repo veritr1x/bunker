@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
+#include <unistd.h>
 
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t condition=PTHREAD_COND_INITIALIZER;
@@ -13,6 +14,8 @@ static pthread_once_t once=PTHREAD_ONCE_INIT;
 static pthread_key_t key;
 static unsigned ready,release_workers,count,once_count,destructor_count,errors;
 static uintptr_t stack_bases[4],tls_bases[4],thread_ids[4];
+static pid_t native_tids[4];
+uint64_t guest_gettid(void){pid_t tid=gettid();return tid>0&&gettid()==tid?(uint32_t)tid:0;}
 static void initialize(void){++once_count;}
 static void destroy_value(void *value){
   pthread_mutex_lock(&mutex);
@@ -28,6 +31,7 @@ static void *worker(void *arg){
   uintptr_t local=(uintptr_t)&attr;
   if(local<(uintptr_t)base||local>=(uintptr_t)base+size)return (void*)0xbad2;
   stack_bases[i]=(uintptr_t)base;thread_ids[i]=pthread_self();
+  native_tids[i]=gettid();if(native_tids[i]<=0||gettid()!=native_tids[i])return (void*)0xbad4;
   __asm__("mrs %0,tpidr_el0":"=r"(tls_bases[i]));
   if(pthread_attr_destroy(&attr)||!pthread_equal(pthread_self(),thread_ids[i])||pthread_setname_np(pthread_self(),"bunker-worker")||pthread_setspecific(key,(void*)1))return (void*)0xbad3;
   pthread_once(&once,initialize);
@@ -45,7 +49,7 @@ uint64_t guest_threads(void){
   release_workers=1;pthread_cond_broadcast(&condition);pthread_mutex_unlock(&mutex);
   for(unsigned i=0;i<4;++i)if(pthread_join(threads[i],&result)||(uintptr_t)result!=0x100+i)return 3;
   if(count!=6000||once_count!=1||destructor_count!=8||errors)return 4;
-  for(unsigned i=0;i<4;++i)for(unsigned j=0;j<i;++j)if(stack_bases[i]==stack_bases[j]||tls_bases[i]==tls_bases[j]||thread_ids[i]==thread_ids[j])return 5;
+  for(unsigned i=0;i<4;++i)for(unsigned j=0;j<i;++j)if(stack_bases[i]==stack_bases[j]||tls_bases[i]==tls_bases[j]||thread_ids[i]==thread_ids[j]||native_tids[i]==native_tids[j])return 5;
   if(pthread_getspecific(key)||pthread_key_delete(key)||pthread_attr_destroy(&attr))return 6;
   return 0x600d;
 }
@@ -90,7 +94,11 @@ uint64_t guest_detach(void){
 }
 static pthread_once_t interrupted_once=PTHREAD_ONCE_INIT;
 static unsigned interrupted_tries;
-static void interrupted_initialize(void){if(interrupted_tries++==0)pthread_exit((void*)0x77);}
+// A typed indirect call gives this fixture finite supported control flow
+// (a tail branch or a call/return). A final direct noreturn call can otherwise
+// end at zero linker padding, which the strict lifter correctly rejects.
+static void (*volatile interrupted_exit)(void*)=pthread_exit;
+static void interrupted_initialize(void){if(interrupted_tries++==0)interrupted_exit((void*)0x77);}
 static void *once_worker(void *arg){(void)arg;pthread_once(&interrupted_once,interrupted_initialize);return (void*)0x88;}
 uint64_t guest_once_exit(void){
   pthread_t t;void *v;

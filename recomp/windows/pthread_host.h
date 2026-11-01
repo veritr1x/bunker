@@ -45,6 +45,9 @@ class Pthreads {
   // guest callback runner alive for dependent provider finalization.
   int Shutdown();
   uint64_t Self();
+  // Native calling-thread ID, checked for Android pid_t width. This is not
+  // the lifetime-unique opaque pthread_self token or a Linux process-group ID.
+  int32_t GetTid();
   int Create(uint64_t *thread, const AndroidThreadAttr *, addr_t entry, addr_t arg);
   int Join(uint64_t thread, uint64_t *result);
   int Detach(uint64_t thread);

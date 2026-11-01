@@ -36,7 +36,7 @@ const char *const names[]={
   "pthread_cond_init","pthread_cond_destroy","pthread_cond_wait","pthread_cond_timedwait","pthread_cond_signal","pthread_cond_broadcast",
   "pthread_once","pthread_key_create","pthread_key_delete","pthread_getspecific","pthread_setspecific",
   "pthread_rwlock_init","pthread_rwlock_destroy","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_rwlock_unlock",
-  "pthread_kill","pthread_sigmask","pthread_atfork","clock_gettime"};
+  "pthread_kill","pthread_sigmask","pthread_atfork","clock_gettime","gettid"};
 template<class T>T ReadWire(const T *p){T v;recomp::ReadGuestMemory(&v,reinterpret_cast<addr_t>(p),sizeof(v));return v;}
 template<class T>void WriteWire(T *p,const T &v){recomp::WriteGuestMemory(reinterpret_cast<addr_t>(p),&v,sizeof(v));}
 uint32_t Word(const void *p){return ReadWire(static_cast<const uint32_t*>(p));}
@@ -181,6 +181,13 @@ Pthreads::~Pthreads() {
 }
 addr_t Pthreads::Marker(const std::string &s)const {for(size_t i=0;i<std::size(names);++i)if(s==names[i])return impl_->markers+i*8;throw std::invalid_argument("unsupported pthread import "+s);}
 uint64_t Pthreads::Self(){return impl_->Current().id;}
+int32_t Pthreads::GetTid(){
+  const auto &thread=impl_->Current();
+  const auto native=GetCurrentThreadId();
+  if(!native||native>static_cast<DWORD>(INT32_MAX)||thread.native_id!=native)
+    throw std::runtime_error("current native thread ID does not match a representable Android pid_t");
+  return static_cast<int32_t>(native);
+}
 uint64_t Pthreads::Run(addr_t e,std::initializer_list<addr_t> a){return impl_->Run(impl_->Current(),e,a.begin(),a.size());}
 uint64_t Pthreads::Run(addr_t e,const std::vector<addr_t> &a){return impl_->Run(impl_->Current(),e,a.data(),a.size());}
 void Pthreads::AttachCurrentStack(void *base,uint64_t size){if(!base||size<kStackMin||(reinterpret_cast<addr_t>(base)&15)||(size&15))throw std::invalid_argument("unaligned/invalid guest stack");auto &t=impl_->Current();if(t.active)throw std::logic_error("cannot replace active guest stack");std::lock_guard lock(impl_->registry);impl_->ReleaseStack(t);t.stack_base=reinterpret_cast<addr_t>(base);t.stack_size=size;}
@@ -297,6 +304,7 @@ void Pthreads::Install(){
   add("pthread_join",recomp::MakeBridge<int32_t(uint64_t,uint64_t*)>([this](auto t,auto r){return Join(t,r);}));
   add("pthread_detach",recomp::MakeBridge<int32_t(uint64_t)>([this](auto t){return Detach(t);}));
   add("pthread_self",recomp::MakeBridge<uint64_t()>([this]{return Self();}));
+  add("gettid",recomp::MakeBridge<int32_t()>([this]{return GetTid();}));
   add("pthread_equal",recomp::MakeBridge<int32_t(uint64_t,uint64_t)>([](auto a,auto b){return a==b;}));
   add("pthread_exit",recomp::MakeBridge<void(uint64_t)>([this](auto r){Exit(r);}));
   add("pthread_setname_np",recomp::MakeBridge<int32_t(uint64_t,const char*)>([this](auto t,auto s){return SetName(t,s);}));
