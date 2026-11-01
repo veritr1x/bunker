@@ -32,8 +32,13 @@ class Host {
   Host(const Host &) = delete;
   Host &operator=(const Host &) = delete;
   void Install(recomp::Runtime &runtime);
+  // Application metadata defaults to an uninitialized application-loader class.
+  // bootstrap=true is for initialized framework classes implemented by this host.
   void DefineClass(const std::string &name, std::vector<MethodDeclaration> methods = {},
-                   const std::string &superclass = "java/lang/Object");
+                   const std::string &superclass = "java/lang/Object", bool bootstrap = false);
+  // Only call after the host has supplied the class's initialization effects.
+  // A metadata declaration alone does not execute Java <clinit>.
+  void MarkClassInitialized(const std::string &name);
   void DefineObjectMethod(const std::string &class_name, const std::string &name,
                           const std::string &signature, std::function<addr_t(addr_t)> handler);
   void DefineField(const std::string &class_name, const std::string &name,
@@ -82,7 +87,8 @@ class Host {
   addr_t FieldId(addr_t clazz, const char *name, const char *signature, bool is_static);
   std::shared_ptr<Object> FieldTarget(addr_t object, addr_t field, bool is_static, const std::string &signature_kind);
   bool Assignable(const std::string &actual, const std::string &expected) const;
-  addr_t CallObject(addr_t object, addr_t method);
+  addr_t CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t object, addr_t method, bool is_static = false,
+                    const std::array<addr_t, 3> &arguments = {});
   int32_t Register(addr_t clazz, const NativeMethod *methods, int32_t count);
 
   mutable std::recursive_mutex mutex_;
@@ -99,5 +105,7 @@ class Host {
   std::map<addr_t, Field *> field_ids_;
   std::map<addr_t, UtfLease> utf_leases_;
   std::map<addr_t, CharLease> char_leases_;
+  std::shared_ptr<Object> application_loader_;
+  std::shared_ptr<Object> bootstrap_loader_;
 };
 }  // namespace bunker::jni

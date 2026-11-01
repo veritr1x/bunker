@@ -4,6 +4,33 @@ These adapters support the ARM64-to-x86_64 recompilation path. They do not yet
 boot the real Unity player, initialize its graphics/audio host, or run the game.
 Unsupported JNI methods and unavailable translated modules fail explicitly.
 
+Logging snapshots its configuration under its provider lock, then invokes
+output/log/stream/error/allocator callbacks without that lock. Callbacks may
+run concurrently and must synchronize their own shared host state. The
+eight-check callback gate joins worker formatters, replaces a sink from a
+callback worker, and verifies exception recovery on Linux and native Windows;
+the existing formatter, logging and ARM64 variadic reference gates also pass.
+
+`Class.getClassLoader()` and three-argument `Class.forName` use the explicit
+class catalog. The host keeps stable application and Android `BootClassLoader`
+objects; a null loader selects bootstrap lookup. This follows Android13's
+[Class.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-13.0.0_r1/ojluni/src/main/java/java/lang/Class.java)
+and [ClassLoader.java](https://android.googlesource.com/platform/libcore/+/refs/tags/android-13.0.0_r1/ojluni/src/main/java/java/lang/ClassLoader.java).
+Unknown names, wrong reference types and unconfigured loaders fail explicitly.
+Metadata-only classes reject initialization requests; `MarkClassInitialized`
+is reserved for classes whose actual initialization effects the host supplies.
+There is no Java bytecode interpreter, array-class synthesis or custom Java
+class-loader execution. NDK-translated direct, V and A callers cover lookup,
+loader identity, errors, local frames, globals and attached-thread ownership.
+Run `prepare_class_loader.py --ndk ... --lift ...`, then
+`test_class_loader.ps1` on Windows.
+The 80-check gate also verifies callbacks can join another attached JNI thread:
+external object handlers run outside the host registry lock, with receiver and
+callback lifetimes retained, then their results are validated under the lock.
+Object-returning calls produce a fresh caller-local reference. Returning a
+cached global or local from a host callback preserves that original reference
+when the caller deletes its result; foreign-thread local returns are rejected.
+
 ## Verified behavior
 
 - `jni_host.*`: NDK-compatible JavaVM/JNIEnv pointer tables backed by guest
@@ -202,6 +229,14 @@ uses equivalent masked W/X index expressions and resolves to real code blocks
 `0x36ef74`, `0x36ef60` and `0x36eed0`. Logs and the manifest are preserved as
 `unity-bootstrap-ctor95*`; no constructor was skipped and JNI_OnLoad remains
 unrun.
+
+The masked-switch snapshot has 59,552 traces, 469 objects, 1,889 unsupported
+traces and zero unresolved direct targets. The actual Windows run completes
+constructors1–128. Constructor129 (`0x700c491c`) first required `getpagesize`;
+after the checked native page-size adapter, it reaches unresolved indirect
+target `0x708f27cc` from the signed table at RVA `0xf50540` / BR `0x8f27c8`.
+`unity-bootstrap-ctor129*` preserves both diagnostics and translation metadata.
+Every prior constructor ran; JNI_OnLoad has not run yet.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact

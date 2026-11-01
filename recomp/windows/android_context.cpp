@@ -7,11 +7,11 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
       config.native_library_dir.empty() || config.native_library_dir.front() != u'/' ||
       config.data_dir.empty() || config.data_dir.front() != u'/' || config.target_sdk <= 0)
     throw std::invalid_argument("Android context needs actual package/SDK metadata and absolute virtual Android paths");
-  host.DefineClass("android/content/Context");
-  host.DefineClass("android/app/Activity", {}, "android/content/Context");
+  host.DefineClass("android/content/Context", {}, "java/lang/Object", true);
+  host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
-  host.DefineClass("android/content/pm/ApplicationInfo");
-  host.DefineClass("android/content/res/AssetManager");
+  host.DefineClass("android/content/pm/ApplicationInfo", {}, "java/lang/Object", true);
+  host.DefineClass("android/content/res/AssetManager", {}, "java/lang/Object", true);
   for (const char *field : {"sourceDir", "nativeLibraryDir", "dataDir", "packageName"})
     host.DefineField("android/content/pm/ApplicationInfo", field, "Ljava/lang/String;");
   host.DefineField("android/content/pm/ApplicationInfo", "targetSdkVersion", "I");
