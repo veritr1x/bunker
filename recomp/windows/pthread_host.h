@@ -48,6 +48,10 @@ class Pthreads {
   // Native calling-thread ID, checked for Android pid_t width. This is not
   // the lifetime-unique opaque pthread_self token or a Linux process-group ID.
   int32_t GetTid();
+  // Bounded prctl: PR_SET_NAME only. Linux ignores the other variadic arguments.
+  // The first 15 bytes are truncated before strict UTF-8 conversion to Windows.
+  // Errors return -1 through the configured guest errno sink; no PID effects.
+  int Prctl(int32_t option, const char *name);
   int Create(uint64_t *thread, const AndroidThreadAttr *, addr_t entry, addr_t arg);
   int Join(uint64_t thread, uint64_t *result);
   int Detach(uint64_t thread);
