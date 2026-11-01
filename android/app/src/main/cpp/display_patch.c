@@ -66,6 +66,7 @@
 #include "play_services.h"
 #include "remain_days.h"
 #include "guerrilla_unlock.h"
+#include "bunker_button.h"
 #include "camera_edge.h"
 #include "roulette_ads.h"
 #include "text_buffer.h"
@@ -375,6 +376,20 @@ static void hook_roulette_ads(uint8_t *base) {
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Special Gift Roulette: unsupported game binary; the video ad stays");
 }
 
+// The in-game Bunker button opens the launcher through GameProcessProvider.openBunker(),
+// called on Unity's thread with the class found here (on the app's own class loader).
+static JavaVM *java;
+static jclass game_process;
+
+static void open_bunker(void) {
+    JNIEnv *env = NULL;
+    if (!java || !game_process) return;
+    if ((*java)->GetEnv(java, (void **)&env, JNI_VERSION_1_6) != JNI_OK && (*java)->AttachCurrentThread(java, &env, NULL) != JNI_OK) return;
+    jmethodID open = (*env)->GetStaticMethodID(env, game_process, "openBunker", "()V");
+    if (open) (*env)->CallStaticVoidMethod(env, game_process, open);
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+}
+
 static const char *apply(int fps, int size, char *message, size_t length) {
     Site list[8];
     int count = sites(fps, size, list);
@@ -388,6 +403,8 @@ static const char *apply(int fps, int size, char *message, size_t length) {
     uint8_t *base = info.dli_fbase;
     game_library = library;
     hook_roulette_ads(base);
+    if (bunker_button_init(game_symbol, bunker_log, open_bunker))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Bunker button: the game's IL2CPP API is missing; no button in the top row");
     uint32_t *snap = (uint32_t *)(base + kSnapArrive.rva);
     if (*snap == kSnapArrive.original) write_word(snap, kSnapArrive.patched);
     else if (*snap != kSnapArrive.patched)
@@ -446,6 +463,11 @@ static const char *apply(int fps, int size, char *message, size_t length) {
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *env, jclass cls, jint fps, jint size) {
     (void)cls;
     char message[160];
+    if (!java && (*env)->GetJavaVM(env, &java) == JNI_OK) {
+        jclass found = (*env)->FindClass(env, "org/veritr1x/bunker/GameProcessProvider");
+        if (found) game_process = (*env)->NewGlobalRef(env, found);
+        else (*env)->ExceptionClear(env);
+    }
     if ((fps && (fps < 30 || fps > 240)) || (size && (size < H540 || size > DeviceMax || size == 5)))
         return (*env)->NewStringUTF(env, "Unsupported display setting");
     return (*env)->NewStringUTF(env, apply(fps, size, message, sizeof message));
