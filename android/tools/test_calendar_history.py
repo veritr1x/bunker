@@ -330,22 +330,40 @@ if __name__ == "__main__":
 
 
 @unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
-class CharactersInTheGameData(unittest.TestCase):
-    def test_characters_are_listed_from_launch(self):
-        # The final game data dates when 33 characters (the starting cast among
-        # them) appear in character lists, from 2022 on, as when its list
-        # settings came: showing the original dates (2021), Enhance was empty.
+class ViewFromLaunch(unittest.TestCase):
+    """Tables the calendar doesn't move are all in the past in the loop's dates
+    (2026 on): characters listed, story chapters open. The copy for Show
+    original dates (2021) caps their start dates at launch so the game behaves
+    the same; before, Enhance > Characters was empty (m_character 2022)."""
+    @classmethod
+    def setUpClass(cls):
         import tempfile
         from tools import dump_masterdata
+        cls.schemas = dump_masterdata.load_schemas()
         with tempfile.TemporaryDirectory() as work:
-            out = Path(work) / "view.bin.e"
-            cal.build_master(ORIGINAL, out, 0)
-            toc, blob = cal.read_master(out)
-            otoc, oblob = cal.read_master(ORIGINAL)
-        schemas = dump_masterdata.load_schemas()
-        built = dict(cal._read(toc, blob, {}, schemas, "m_character", "CharacterId", "ListSettingDisplayStartDatetime"))
-        original = dict(cal._read(otoc, oblob, {}, schemas, "m_character", "CharacterId", "ListSettingDisplayStartDatetime"))
-        self.assertEqual(built.keys(), original.keys())
-        self.assertTrue(any(v > cal.LAUNCH for v in original.values()))
-        for character, start in original.items():
-            self.assertEqual(built[character], min(start, cal.LAUNCH), character)
+            view, loop = Path(work) / "view.bin.e", Path(work) / "loop.bin.e"
+            cal.build_master(ORIGINAL, view, 0, view=True)
+            cal.build_master(ORIGINAL, loop, 100 * cal.WEEK)
+            cls.view, cls.loop = cal.read_master(view), cal.read_master(loop)
+        cls.original = cal.read_master(ORIGINAL)
+
+    def rows(self, master, table, *names):
+        toc, blob = master
+        return cal._read(toc, blob, {}, self.schemas, table, *names)
+
+    def test_start_dates_are_capped_at_launch(self):
+        self.assertIn("m_character", cal.VIEW_FROM_LAUNCH)
+        self.assertIn("m_main_quest_chapter", cal.VIEW_FROM_LAUNCH)
+        for table, columns in cal.VIEW_FROM_LAUNCH.items():
+            for column in columns:
+                built = [r[0] for r in self.rows(self.view, table, column)]
+                original = [r[0] for r in self.rows(self.original, table, column)]
+                self.assertEqual(built, [min(v, cal.LAUNCH) for v in original], f"{table}.{column}")
+                self.assertTrue(any(v > cal.LAUNCH for v in original), f"{table}.{column} has nothing to cap")
+
+    def test_catalog_terms_keep_their_dates(self):
+        # The server compares them in the live service's dates (summon notices).
+        self.assertEqual(self.rows(self.view, "m_catalog_term", "StartDatetime"), self.rows(self.original, "m_catalog_term", "StartDatetime"))
+
+    def test_loop_data_is_not_capped(self):
+        self.assertEqual(self.rows(self.loop, "m_main_quest_chapter", "StartDatetime"), self.rows(self.original, "m_main_quest_chapter", "StartDatetime"))

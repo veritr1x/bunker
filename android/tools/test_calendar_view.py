@@ -26,7 +26,7 @@ class OriginalDates(unittest.TestCase):
             p.start()
         self.builds = []
 
-        def build(origin, out, offset):
+        def build(origin, out, offset, view=False):
             self.builds.append(offset)
             Path(out).write_bytes(b"view")
         self.build = mock.patch.object(cal, "build_master", build)
