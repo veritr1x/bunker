@@ -25,6 +25,9 @@ type Calendar struct {
 	SpeedSince int64   `json:"speedSince"`
 	Next       string  `json:"next,omitempty"`
 	NextLoop   int     `json:"nextLoop,omitempty"`
+	// OriginalDates shows the game its original dates (2021-2024): what it
+	// sees is moved back by the calendar's offset (ViewOffset).
+	OriginalDates bool `json:"originalDates,omitempty"`
 }
 
 // LoopWeeks is the length of one loop: global launch to the end of service.
@@ -175,4 +178,28 @@ func save(path string, c *Calendar) error {
 		return err
 	}
 	return os.Rename(pending, path)
+}
+
+// Times the original-dates view leaves alone: no time, the "forever" and
+// placeholder dates (2099 on) and anything before 2000.
+const (
+	viewNeverBefore int64 = 946684800000  // 2000-01-01
+	viewNeverFrom   int64 = 4070908800000 // 2099-01-01
+)
+
+// ViewOffset is how far the original-dates view moves what the game sees
+// back: the calendar's offset when it is on with OriginalDates, else 0.
+func ViewOffset() int64 {
+	if c := current.Load(); c != nil && c.OriginalDates {
+		return c.LoopStart - Launch
+	}
+	return 0
+}
+
+// ToView is a time as the game sees it in the original-dates view.
+func ToView(ms int64) int64 {
+	if ms < viewNeverBefore || ms >= viewNeverFrom {
+		return ms
+	}
+	return ms - ViewOffset()
 }
