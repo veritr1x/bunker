@@ -12,6 +12,12 @@ under its heading, down to the previous release.
   game (this loop's, or the original ones with "Show original dates").
   [dbb4a0b]
 
+### Android, iOS
+- The Bunker emblem replaces Bunker's other marks: the notification icon
+  (the crescent moon), the "Bunker menu" shortcut on the app icon, the iOS
+  home-screen quick action and the web builder's tab icon. The notification
+  reads "Bunker · Running". [5c4fb22]
+
 ## 1.6.0 (2026-11-01)
 
 A **Bunker** button in the game's own top row opens the launcher. The Schedule
