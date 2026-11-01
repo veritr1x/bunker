@@ -17,7 +17,14 @@ int main(){
   const char *name="com/unity3d/player/AudioVolumeHandler";State state{};state.gpr.x0.qword=java.EnvAddress();state.gpr.x1.qword=reinterpret_cast<addr_t>(name);java.InvokeEnv(6,state);auto clazz=state.gpr.x0.qword;
   const bunker::jni::NativeMethod method{reinterpret_cast<addr_t>("onAudioVolumeChanged"),reinterpret_cast<addr_t>("(I)V"),0x73000100};state={};state.gpr.x0.qword=java.EnvAddress();state.gpr.x1.qword=clazz;state.gpr.x2.qword=reinterpret_cast<addr_t>(&method);state.gpr.x3.qword=1;java.InvokeEnv(215,state);Check(state.gpr.x0.dword==0,"synthetic native callback registered");
   unsigned calls=0;auto owner=std::this_thread::get_id();
-  AudioVolumeSession session(java,[&](addr_t entry,const std::vector<addr_t>&args){Check(entry==0x73000100&&args.size()==3,"exact instance callback signature");Check(std::this_thread::get_id()==owner&&args[0]==java.EnvAddress(),"callback is dispatched on UI caller");Check(args[1]&&args[2]<=1,"typed callback receiver and explicit two-level profile");++calls;return 0;},context,player);
+  std::unique_ptr<AudioVolumeSession> active;
+  try{active=std::make_unique<AudioVolumeSession>(java,[&](addr_t entry,const std::vector<addr_t>&args){Check(entry==0x73000100&&args.size()==3,"exact instance callback signature");Check(std::this_thread::get_id()==owner&&args[0]==java.EnvAddress(),"callback is dispatched on UI caller");Check(args[1]&&args[2]<=1,"typed callback receiver and explicit two-level profile");++calls;return 0;},context,player);}
+  catch(const std::runtime_error &error){
+    const std::string reason=error.what();Check(reason.find("read-only audio endpoint/notification prerequisite is unavailable:")==0&&reason.find("status=")!=std::string::npos&&reason.find("callback=")!=std::string::npos,"unavailable native prerequisite retains HRESULT/registration diagnostics");
+    Check(calls==0&&!java.GetObjectFieldValue(player,"m_AudioVolumeHandler","Lcom/unity3d/player/AudioVolumeHandler;"),"failed real observer construction publishes no receiver/callback");Check(java.PendingException().empty(),"native device absence does not fabricate a Java exception");
+    std::printf("Read-only audio session: %u checks; real endpoint unavailable, checked constructor rejection: %s; available-endpoint lifecycle was not rerun\n",checks,error.what());return 0;
+  }
+  auto &session=*active;
   Check(calls==0,"constructor does not invent an initial native callback");auto initial=session.InitialSnapshot();Check(initial.available&&initial.volume_registered&&initial.defaults_registered,"real endpoint is subscribed");Check(!initial.device_id.empty()&&initial.owner_thread!=0,"real endpoint identity/MTA owner reported");
   auto field=java.GetObjectFieldValue(player,"m_AudioVolumeHandler","Lcom/unity3d/player/AudioVolumeHandler;");Check(field!=0,"real receiver is retained in actual player field");java.DeleteLocalReference(field);
   bool wrong_thread=false;std::thread worker([&]{try{session.Poll();}catch(const std::logic_error&){wrong_thread=true;}});worker.join();Check(wrong_thread,"COM/native worker cannot impersonate UI callback caller");

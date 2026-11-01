@@ -16,6 +16,7 @@ from elftools.elf.relocation import RelocationSection
 from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
 from inventory import Dex
 from application_metadata import read_application_metadata
+from intent_filters import read_main_activity_filters
 
 HERE=Path(__file__).resolve().parent
 def digest(path):
@@ -107,6 +108,7 @@ def main():
     version_code=int(re.search(r"^package: .* versionCode='(\d+)'",badging,re.M).group(1))
     if not 0<=version_code<1<<31:raise RuntimeError('Unsupported APK versionCode width')
     metadata=read_application_metadata(a.apk,a.aapt)
+    main_filters=read_main_activity_filters(a.apk,a.aapt,package)
     sdk=int(re.search(r"^targetSdkVersion:'(\d+)'",badging,re.M).group(1))
     activity=re.search(r"^launchable-activity: name='([^']+)'",badging,re.M).group(1).replace('.','/')
     groups=registration_tables(a.library)
@@ -129,7 +131,7 @@ def main():
             if len(declared)!=1 or not declared[0]['native']:raise RuntimeError('Native/DEX method mismatch: '+group['class']+'.'+method['name'])
             method['static']=declared[0]['static']
     (out/'jni_onload_catalog.json').write_text(json.dumps(groups,indent=2)+'\n')
-    (out/'application_metadata.json').write_text(json.dumps({'apk_sha256':digest(a.apk),'version_name':version_name,'version_code':version_code,'scope':'direct application children only','metadata':metadata},indent=2)+'\n')
+    (out/'application_metadata.json').write_text(json.dumps({'apk_sha256':digest(a.apk),'version_name':version_name,'version_code':version_code,'scope':'direct application metadata; complete MAIN/no-data activity-filter catalog','metadata':metadata,'main_activity_filters':main_filters},indent=2)+'\n')
     with a.library.open('rb') as f:
         elf=ELFFile(f);syms=elf.get_section_by_name('.dynsym')
         imports={s.name:s['st_info']['type']=='STT_OBJECT' for s in syms.iter_symbols() if s['st_shndx']=='SHN_UNDEF' and s.name}
@@ -167,6 +169,9 @@ def main():
         kind,data=value['type'],value['value']
         factory='String('+u16(data)+')' if kind=='string' else 'Integer('+str(data)+')' if kind=='int' else 'Boolean('+str(data).lower()+')'
         lines.append('    {'+u16(name)+',bunker::windows::LaunchExtra::'+factory+'},')
+    lines += ['  };','  config.main_activity_filters=std::vector<bunker::windows::AndroidContextConfig::MainActivityFilter>{']
+    for filter in main_filters:
+        lines.append('    {'+u16(filter['component'])+',{'+','.join(u16(category) for category in filter['categories'])+'},'+str(filter['enabled']).lower()+'},')
     lines += ['  };','}']
     (out/'unity_bootstrap_data.h').write_text('\n'.join(lines)+'\n')
     if complete and not a.metadata_only:

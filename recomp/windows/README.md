@@ -430,7 +430,7 @@ are bounded native lifecycle ports, not Java constructor or `<clinit>` execution
 host; `test_audio_volume_session.ps1` passes24 Windows checks with a real
 observer and explicitly synthetic guest callback.
 
-The actual first frame diagnostic has returned from nativeResume and entered
+The actual first frame diagnostic returned from nativeResume and entered
 nativeRender, then stopped at the original missing
 `Context.getPackageManager()PackageManager`, LR `0x70ab5d38`. No render result or
 image has been produced. The original exception history is preserved in
@@ -448,10 +448,46 @@ installed-profile boundary, not a bitmask inferred from manifest attributes.
 output in the reproducible preparation pipeline: android:value references
 resolve to typed values, while android:resource stays an integer resource ID.
 All16 actual APK entries match the independent audit. `test_package_manager.ps1`
-passes104 native Windows checks; the same actual NDK fixture passes104 on Linux
-(9 traces, zero unsupported). It covers direct/V/A calls, signed jint arguments,
+passes107 native Windows checks; the same actual NDK fixture passes107 on Linux.
+It covers direct/V/A calls, signed jint arguments,
 nonzero jvalue padding, GP-save/stack spill boundaries, ref/type/lifetime rules,
 SDK constants and honest absence of the Oculus package/low-latency feature.
+
+The next actual run accepted those package services, then stopped at the
+missing initialized Intent.ACTION_MAIN static String; preserved evidence is
+`unity-bootstrap-one-frame-intent-action-main.log` and its translation manifest.
+The later `gettid` request occurred while reporting that original exception;
+it now has a separately checked pthread provider adapter. ACTION_MAIN is now
+the actual SDK String and shares identity with the configured launch action.
+
+The reached caller0x41ad14 is a VR capability query: MAIN Intent constructor,
+Oculus VR category, GET_INTENT_FILTERS32, explicit current package, followed by
+queryIntentActivities and List.isEmpty. `intent_filters.py` derives the complete
+MAIN/no-data activity-filter catalog from AAPT. The actual APK has one enabled
+MAIN activity, with LAUNCHER/LEANBACK_LAUNCHER categories and no VR category.
+The host constructor supports MAIN/null; other actions fail explicitly. The
+query provider accepts only the evidenced MAIN/no-data/no-component explicit
+current-package shape and flags0/32. Unknown catalogs/queries/flags fail instead
+of returning an empty result. List.isEmpty reads computed match data; the
+positive actual MAIN/LAUNCHER control is nonempty. The `-IntentResolver` mode of
+`test_package_manager.ps1` passes95 checks on each host through15 strict NDK traces;
+the parser passes3 additional cases including the actual APK catalog. List
+iteration, Java collection bytecode and general Android activity resolution
+remain unimplemented.
+
+The actual resolver-enabled frame attempt stopped before nativeResume/render
+because the real default multimedia playback endpoint had become unavailable.
+It is preserved in `unity-bootstrap-one-frame-intent-resolver-result.log`; this
+does not prove that the native VR query has executed successfully. A subsequent
+independent COM comparison passed265 observer checks with available=false, and
+the session gate passed17 unavailable-endpoint checks with HRESULT0x80070490,
+no receiver publication and no fabricated native callback. The earlier real
+available-endpoint lifecycle24-check gate remains separately labeled; it was
+not rerun in the unavailable state. The session failure now retains native
+HRESULT and registration diagnostics. No audio/device state was changed.
+The same resolver-enabled combined executable independently exits0 for default,
+init and surface-only runs, including unload/both finalizers; see
+`unity-bootstrap-resolver-{default,init,surface}.log` and the parity manifest.
 
 Read-only disassembly of the actual APK is preserved under
 `work/windows-unity-bootstrap/java-startup/`. `startup-order.json` records exact
