@@ -10,6 +10,9 @@
 #include "../fastaes/elfload.h"
 #include "il2cpp_traces.h"
 #include "il2cpp_data.h"
+#ifdef IL2CPP_MODULE_EXPORT_PROOF
+#include "il2cpp_module_exports.h"
+#endif
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -59,18 +62,39 @@ template<class T>T Read(addr_t address){T result{};recomp::ReadGuestMemory(&resu
 }
 int main(int argc,char**argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
-  if((argc!=4&&argc!=5)||(argc==5&&std::strcmp(argv[4],"--gc-signal-init"))){std::fprintf(stderr,"Usage: il2cpp-bootstrap.exe original.so original.apk writable-storage [--gc-signal-init]\n");return 2;}
+  const bool module_gate=argc==5&&!std::strcmp(argv[4],"--module-load-exports");
+  const bool gc_signal_init=argc==5&&!std::strcmp(argv[4],"--gc-signal-init");
+  if((argc!=4&&argc!=5)||(argc==5&&!module_gate&&!gc_signal_init)){std::fprintf(stderr,"Usage: il2cpp-bootstrap.exe original.so original.apk writable-storage [--gc-signal-init | --module-load-exports]\n");return 2;}
   try{
     using namespace bunker::windows;namespace fs=std::filesystem;
     auto library=fs::canonical(fs::u8path(argv[1])),apk=fs::canonical(fs::u8path(argv[2])),storage=fs::absolute(fs::u8path(argv[3]));fs::create_directories(storage);
     if(Sha256(library)!=kIl2cppSha256||Sha256(apk)!=kApkSha256)throw std::runtime_error("actual inputs differ from verified IL2CPP/APK hashes");
+#ifndef IL2CPP_MODULE_EXPORT_PROOF
+    if(module_gate)throw std::runtime_error("module export profile requires the separately prepared Unity lookup proof");
+#else
+    if(module_gate&&(std::size(kUnityRequestedExports)!=222||std::strcmp(kUnityApiProofApkSha256,kApkSha256)))throw std::runtime_error("Unity API proof is not bound to the actual original APK");
+#endif
     if(std::size(kInitializers)!=9)throw std::runtime_error("actual IL2CPP constructor count differs");
     std::fprintf(stderr,"IL2CPP EXPLORATORY mixed snapshot: SHA256=%s; %zu traces,9 constructors,%u overlays,%u remaining unsupported traces; not a whole-library/game/GC proof\n",kIl2cppSha256,std::size(kTraces),unsigned(IL2CPP_OVERLAY_COUNT),unsigned(IL2CPP_REMAINING_UNSUPPORTED));
     recomp::Runtime runtime;runtime.AddTraces(kTraces,std::size(kTraces));
     FileSystem files;files.MountFile("/data/app/bunker/base.apk",apk);files.MountDirectory("/data/app/bunker/lib/arm64",library.parent_path());
     files.MountDirectory("/data/user/0/bunker",storage,true);files.SetWorkingDirectory("/data/user/0/bunker");auto error=[&](int e){files.SetError(e);};
     Pthreads *runner=nullptr;
-    ModuleRegistry modules([&](addr_t entry){runner->Run(entry);});
+    size_t finalized=0;
+    ModuleRegistry modules([&](addr_t entry){
+      if(module_gate){
+        if(completed<std::size(kInitializers)){
+          if(std::strcmp(stage,"module-open")||entry!=kInitializers[completed])throw std::runtime_error("module constructor order/owner differs");
+          std::fprintf(stderr,"IL2CPP module constructor %zu/9 guest=%#llx\n",completed+1,(unsigned long long)entry);
+          runner->Run(entry);++completed;return;
+        }
+        if(std::strcmp(stage,"module-close")||finalized>=std::size(kFinalizers)||
+           entry!=kFinalizers[std::size(kFinalizers)-1-finalized])throw std::runtime_error("module finalizer order/owner differs");
+        std::fprintf(stderr,"IL2CPP module finalizer %zu/2 guest=%#llx\n",finalized+1,(unsigned long long)entry);
+        runner->Run(entry);++finalized;return;
+      }
+      runner->Run(entry);
+    });
     LibC libc([&](addr_t entry,const std::vector<addr_t>&args){return runner->Run(entry,args);});libc.SetErrorSink(error);libc.SetEnvironment({});
     Logging logging;logging.SetErrorSink(error);logging.SetAllocator([&](uint64_t n){return libc.Malloc(n);});logging.SetStream([&](addr_t f,std::string_view text){return files.FWrite(text.data(),1,text.size(),f);});
     Pthreads threads(runtime,Translated);threads.SetErrorSink(error);runner=&threads;
@@ -115,17 +139,37 @@ int main(int argc,char**argv){
     if(image.span!=kIl2cppSpan)throw std::runtime_error("actual IL2CPP image span differs");
     Module module;module.name="libil2cpp.so";module.aliases={"/data/app/bunker/lib/arm64/libil2cpp.so"};
     for(auto &symbol:kExports){auto actual=(addr_t)elf_symbol(&image,symbol.name);if(actual!=symbol.address)throw std::runtime_error(std::string("ELF export differs: ")+symbol.name);module.exports.emplace(symbol.name,actual);}
-    // This harness owns lifecycle calls explicitly; libdl has no duplicated
-    // initializer/finalizer list and never overwrites the guest data image.
-    modules.Add(std::move(module));auto handle=modules.Open("libil2cpp.so",2);if(!handle)throw std::runtime_error("cannot register translated IL2CPP module");
-    stage="constructors";
-    for(auto entry:kInitializers){
+    // The new profile gives libdl sole lifecycle ownership. Default/GC-init
+    // modes retain their original explicit lifecycle calls for regression.
+    if(module_gate){module.initializers.assign(std::begin(kInitializers),std::end(kInitializers));module.finalizers.assign(std::begin(kFinalizers),std::end(kFinalizers));}
+    modules.Add(std::move(module));stage=module_gate?"module-open":"setup";
+    auto handle=modules.Open(module_gate?"/data/app/bunker/lib/arm64/libil2cpp.so":"libil2cpp.so",2);
+    if(!handle)throw std::runtime_error("cannot register translated IL2CPP module");
+    if(!module_gate){stage="constructors";for(auto entry:kInitializers){
       if(!Translated(entry))throw std::runtime_error("actual constructor entry is not translated");
       std::fprintf(stderr,"IL2CPP constructor %zu/9 guest=%#llx\n",completed+1,(unsigned long long)entry);threads.Run(entry);++completed;
       uint64_t pending=0;if(signals.Pending(primordial,&pending)||pending||SignalHost::NeedsPoll(signals.Lookup(primordial)))throw std::runtime_error("constructor requires unsupported unpolled signal effects");
-    }
+    }}
     std::fprintf(stderr,"IL2CPP ALL9 actual constructors completed in original order\n");
-    if(argc==5){
+    if(module_gate){
+#ifdef IL2CPP_MODULE_EXPORT_PROOF
+      if(completed!=9||finalized||modules.ReferenceCount("libil2cpp.so")!=1)throw std::runtime_error("module load did not own exactly one constructor cycle/reference");
+      uint64_t pending=0;if(signals.Pending(primordial,&pending)||pending||SignalHost::NeedsPoll(signals.Lookup(primordial)))throw std::runtime_error("module constructors require unpolled signal delivery");
+      stage="module-export-lookups";size_t lookups=0;
+      for(auto &request:kUnityRequestedExports){
+        auto address=modules.Symbol(handle,request.name);
+        if(!address||address!=request.address||address!=(addr_t)elf_symbol(&image,request.name)||!Translated(address))throw std::runtime_error(std::string("actual Unity-requested export differs: ")+request.name);
+        ++lookups;
+      }
+      if(modules.Error())throw std::runtime_error("successful module lookups left a libdl error");
+      auto second=modules.Open("libil2cpp.so",1);
+      if(second!=handle||modules.ReferenceCount("libil2cpp.so")!=2||completed!=9||finalized)throw std::runtime_error("repeat module load reran lifecycle or changed handle");
+      if(modules.Close(second)||modules.ReferenceCount("libil2cpp.so")!=1||completed!=9||finalized)throw std::runtime_error("nonfinal module close invoked finalizers");
+      if(modules.Symbol(handle,kUnityRequestedExports[0].name)!=kUnityRequestedExports[0].address)throw std::runtime_error("nonfinal close invalidated a live export");
+      std::fprintf(stderr,"IL2CPP module gate:222 exact Unity-requested export lookups,repeat alias load/refcount2,nonfinal close passed; API bodies NOT invoked; Unity source=%s\n",kUnityApiProofSha256);
+#endif
+    }
+    if(gc_signal_init){
       stage="GC-signal-init";
       const auto entry=kIl2cppBase+0x25b3020,ack=kIl2cppBase+0x7cb1e68;int32_t count=0;AndroidSignalAction before30{},before24{};
       signals.Action(30,nullptr,&before30);signals.Action(24,nullptr,&before24);
@@ -139,8 +183,16 @@ int main(int argc,char**argv){
       uint64_t mask=0;signals.Mask(primordial,0,nullptr,&mask);if(mask&(SignalHost::Bit(30)|SignalHost::Bit(24)))throw std::runtime_error("real GC setup did not unblock actual signals");
       std::fprintf(stderr,"IL2CPP real GC signal initialization passed:30/24 thunks/original handlers,empty semaphore,unblocked mask; suspension/collector correctness UNPROVED\n");
     }
-    stage="finalizers";for(auto i=std::rbegin(kFinalizers);i!=std::rend(kFinalizers);++i){std::fprintf(stderr,"IL2CPP finalizer guest=%#llx\n",(unsigned long long)*i);threads.Run(*i);}
-    libc.Finalize();modules.Close(handle);threads.ReleaseCurrent();signals.DropThread(primordial);
+    if(module_gate){
+      stage="module-close";
+      if(modules.Close(handle)||finalized!=2||completed!=9||modules.ReferenceCount("libil2cpp.so"))throw std::runtime_error("module final close did not own exactly one reverse finalizer cycle");
+      if(modules.Symbol(handle,"il2cpp_init")||!modules.Error()||modules.Error())throw std::runtime_error("stale module handle/dlerror behavior differs");
+      if(modules.Open("libil2cpp.so",2)||!modules.Error()||modules.Error()||completed!=9||finalized!=2)throw std::runtime_error("reopen without data reset must fail without lifecycle effects");
+      std::fprintf(stderr,"IL2CPP module gate:exact9 constructors+2 reverse finalizers once,stale handle rejected,reopen without reset rejected; no init/GC/startup-hook/API-body execution\n");
+    }else{
+      stage="finalizers";for(auto i=std::rbegin(kFinalizers);i!=std::rend(kFinalizers);++i){std::fprintf(stderr,"IL2CPP finalizer guest=%#llx\n",(unsigned long long)*i);threads.Run(*i);}
+    }
+    libc.Finalize();if(!module_gate)modules.Close(handle);threads.ReleaseCurrent();signals.DropThread(primordial);
     std::fprintf(stderr,"IL2CPP diagnostic lifecycle completed; il2cpp_init/game/GC collection were not executed\n");return 0;
   }catch(const std::exception&e){std::fprintf(stderr,"IL2CPP bootstrap failed: %s; stage=%s constructors=%zu/9\n",e.what(),stage,completed);return 1;}
 }
