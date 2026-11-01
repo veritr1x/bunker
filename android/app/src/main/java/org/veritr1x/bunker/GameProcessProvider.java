@@ -22,6 +22,7 @@ import java.net.URL;
  * - applies the frame rate and resolution chosen in Pod Programs (see DisplayPatch);
  * - sends the game's loopback requests past any phone proxy (see LoopbackProxy);
  * - clears the game's day markers when "Show original dates" changes (see ClientDays);
+ * - opens the launcher from the game's own Bunker button (openBunker, bunker_button.c);
  * - makes sure the local server is running when the game opens. The launcher
  *   starts the server before the game, but Android can also reopen the game
  *   directly, for example from Recent apps after an update or after the server
@@ -29,9 +30,12 @@ import java.net.URL;
  *   case the launcher is opened instead: it starts the server and the game.
  */
 public final class GameProcessProvider extends ContentProvider {
+    private static Application app;
+
     @Override public boolean onCreate() {
         LoopbackProxy.install();
         Application app = (Application) getContext().getApplicationContext();
+        GameProcessProvider.app = app;
         NoPlayServices.install(app);
         DisplayPatch.apply(app);
         refreshGameCodeAfterUpdate(app);
@@ -154,6 +158,17 @@ public final class GameProcessProvider extends ContentProvider {
         java.io.File[] children = file.listFiles();
         if (children != null) for (java.io.File child : children) delete(child);
         file.delete();
+    }
+
+    /**
+     * The game's top-row Bunker button (bunker_button.c, from Unity's thread):
+     * the launcher comes forward as from the app icon's "Bunker" shortcut,
+     * without starting the game again (manage).
+     */
+    static void openBunker() {
+        if (app == null) return;
+        app.startActivity(new Intent(app, MainActivity.class).setAction(Intent.ACTION_VIEW).putExtra("manage", true)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
     }
 
     private static String gameActivity(Application app) {
