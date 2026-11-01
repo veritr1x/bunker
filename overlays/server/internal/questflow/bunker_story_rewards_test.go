@@ -118,3 +118,39 @@ func TestFirstClearWeaponGiftStaysWhileTheQuestIsNotCleared(t *testing.T) {
 		t.Fatalf("moved %d before the quest's first clear", moved)
 	}
 }
+
+// The overflow gift expired (30 days) before the player updated: Rion's slot
+// is empty and the weapon is nowhere, so it is given again.
+func TestLostRionWeaponIsGivenAgainForTheEmptySlot(t *testing.T) {
+	h := storyRewardHandler()
+	u := testUser()
+	u.Costumes["rion"] = store.CostumeState{UserCostumeUuid: "rion", CostumeId: rionCostume}
+	u.DeckCharacters["rd"] = store.DeckCharacterState{UserDeckCharacterUuid: "rd", UserCostumeUuid: "rion"}
+	h.RepairOnGameStart(u, 1)
+	w, ok := u.Weapons[u.DeckCharacters["rd"].MainUserWeaponUuid]
+	if !ok || w.WeaponId != rionWeapon {
+		t.Fatal("Rion's weapon was not given again")
+	}
+	h.RepairOnGameStart(u, 2)
+	n := 0
+	for _, w := range u.Weapons {
+		if w.WeaponId == rionWeapon {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d copies after the second start, want 1", n)
+	}
+}
+
+// A player who gave Rion another weapon and sold Rion's gets nothing back.
+func TestRionWeaponNotGivenAgainWhenRionHasAWeapon(t *testing.T) {
+	h := storyRewardHandler()
+	u := testUser()
+	u.Costumes["rion"] = store.CostumeState{UserCostumeUuid: "rion", CostumeId: rionCostume}
+	u.DeckCharacters["rd"] = store.DeckCharacterState{UserDeckCharacterUuid: "rd", UserCostumeUuid: "rion", MainUserWeaponUuid: "w1"}
+	h.RepairOnGameStart(u, 1)
+	if ownsWeapon(u, rionWeapon) {
+		t.Fatal("Rion's weapon given again although Rion holds a weapon")
+	}
+}

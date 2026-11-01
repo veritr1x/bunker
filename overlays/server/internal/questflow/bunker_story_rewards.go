@@ -40,9 +40,16 @@ func (h *QuestHandler) grantFirstClearReward(user *store.UserState, possType mod
 func (h *QuestHandler) ReturnFirstClearRewardsFromGiftBox(user *store.UserState, nowMillis int64) int {
 	moved := h.moveFirstClearWeaponGifts(user, nowMillis)
 	for weaponId := range defaultDeckWeaponCostume {
-		equipDefaultDeckWeapon(user, weaponId)
+		h.equipDefaultDeckWeapon(user, weaponId, nowMillis)
 	}
 	return moved
+}
+
+// RepairOnGameStart fixes saves made by older versions: story weapons in the
+// gift box, the default deck's empty slot, memoirs without a sub-status.
+func (h *QuestHandler) RepairOnGameStart(user *store.UserState, nowMillis int64) {
+	h.ReturnFirstClearRewardsFromGiftBox(user, nowMillis)
+	h.Granter.RepairMemoirSubStatuses(user, nowMillis)
 }
 
 func (h *QuestHandler) moveFirstClearWeaponGifts(user *store.UserState, nowMillis int64) int {
@@ -100,29 +107,49 @@ func (h *QuestHandler) moveFirstClearWeaponGifts(user *store.UserState, nowMilli
 // Rion's weapon.
 var defaultDeckWeaponCostume = map[int32]int32{101001: 10100}
 
-// equipDefaultDeckWeapon gives an owned weapon to the deck character that
+// equipDefaultDeckWeapon gives the weapon to the deck character that
 // EnsureDefaultDeck built without it: the loadout tutorial's first step makes
 // deck 1 with Rion and Rion's weapon, and with that weapon in the gift box Rion
 // got no main weapon, so the tutorial's Select did nothing (even once the
-// weapon was back).
-func equipDefaultDeckWeapon(user *store.UserState, weaponId int32) {
+// weapon was back). A weapon owned nowhere (its overflow gift expired after 30
+// days) is given again; an empty slot shows it was never had.
+func (h *QuestHandler) equipDefaultDeckWeapon(user *store.UserState, weaponId int32, nowMillis int64) {
 	costumeId, ok := defaultDeckWeaponCostume[weaponId]
 	if !ok {
 		return
 	}
-	weaponUuid := ""
-	for k, w := range user.Weapons {
-		if w.WeaponId == weaponId {
-			weaponUuid = k
+	slot := ""
+	for k, dc := range user.DeckCharacters {
+		if dc.MainUserWeaponUuid == "" && user.Costumes[dc.UserCostumeUuid].CostumeId == costumeId {
+			slot = k
 			break
 		}
 	}
-	for k, dc := range user.DeckCharacters {
-		if dc.MainUserWeaponUuid == "" && user.Costumes[dc.UserCostumeUuid].CostumeId == costumeId && weaponUuid != "" {
-			dc.MainUserWeaponUuid = weaponUuid
-			user.DeckCharacters[k] = dc
-			log.Printf("[questflow] user %d: weapon %d given to its deck character", user.UserId, weaponId)
-			return
+	if slot == "" {
+		return
+	}
+	weaponUuid := ownedWeaponUuid(user, weaponId)
+	if weaponUuid == "" {
+		for _, gift := range user.Gifts.NotReceived {
+			if gift.GiftCommon.PossessionId == weaponId && model.PossessionType(gift.GiftCommon.PossessionType) == model.PossessionTypeWeapon {
+				return // still to be claimed
+			}
+		}
+		h.Granter.GrantWeapon(user, weaponId, nowMillis)
+		weaponUuid = ownedWeaponUuid(user, weaponId)
+		log.Printf("[questflow] user %d: weapon %d given again (owned nowhere)", user.UserId, weaponId)
+	}
+	dc := user.DeckCharacters[slot]
+	dc.MainUserWeaponUuid = weaponUuid
+	user.DeckCharacters[slot] = dc
+	log.Printf("[questflow] user %d: weapon %d given to its deck character", user.UserId, weaponId)
+}
+
+func ownedWeaponUuid(user *store.UserState, weaponId int32) string {
+	for k, w := range user.Weapons {
+		if w.WeaponId == weaponId {
+			return k
 		}
 	}
+	return ""
 }
