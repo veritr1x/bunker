@@ -114,3 +114,7 @@ uint64_t guest_nested_stack(void){
   for(unsigned i=0;i<128;++i)if(sentinel[i]!=0xabcdef0000000000ULL+i)return 2;
   return 0x6013;
 }
+uint64_t guest_boot_clock(struct timespec *out){
+  if(clock_gettime(CLOCK_BOOTTIME,out)||out->tv_sec<0||out->tv_nsec<0||out->tv_nsec>=1000000000)return 1;
+  return 0x6014;
+}

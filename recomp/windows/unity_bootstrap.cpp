@@ -148,6 +148,8 @@ int main(int argc,char **argv){
     auto version=threads.Run(onload,{java.VmAddress(),0});
     std::fprintf(stderr,"Unity bootstrap: real JNI_OnLoad returned %#llx, pending Java exception: %s\n",static_cast<unsigned long long>(version),java.PendingException().c_str());
     if(version!=bunker::jni::kVersion16||!java.PendingException().empty())return 5;
+    for(auto &binding:kUnityRegistrations)if(java.NativeEntry(binding.class_name,binding.name,binding.signature)!=binding.entry)throw std::runtime_error(std::string("actual JNI_OnLoad native registration mismatch: ")+binding.class_name+"."+binding.name);
+    std::fprintf(stderr,"Unity bootstrap: all %zu evidenced native bindings match original ELF/DEX\n",std::size(kUnityRegistrations));
     for(auto name:kUnityJavaClasses){auto count=java.NativeCount(name);if(count)std::fprintf(stderr,"Unity bootstrap: registered %zu natives on %s\n",count,name);}
     // Reaching this line proves constructors and JNI registration only. Surface,
     // graphics/audio initialization and the game lifecycle are separate gates.

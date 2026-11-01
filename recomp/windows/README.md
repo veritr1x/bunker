@@ -109,6 +109,17 @@ For host-driven calls use `Pthreads::Run`, or register an actual guest stack wit
 `AttachCurrentStack` before calling `Runtime::Run` directly. No raw guest code
 pointers are cast to Windows callbacks.
 
+Unity's actual JNI_OnLoad time-baseline path also calls `clock_gettime(7)`
+(`CLOCK_BOOTTIME`). This uses Windows' real biased boot interrupt counter via
+`QueryInterruptTimePrecise`, with the real `GetTickCount64` counter as a coarser
+fallback. These clocks include sleep/hibernation as documented by Microsoft:
+[interrupt time](https://learn.microsoft.com/windows/win32/sysinfo/interrupt-time),
+[precise counter](https://learn.microsoft.com/windows/win32/api/realtimeapiset/nf-realtimeapiset-queryinterrupttimeprecise),
+[Windows tick time](https://learn.microsoft.com/windows/win32/sysinfo/windows-time).
+The existing monotonic/condition epoch is preserved. Direct and actual NDK
+callers verify boot epoch, progress, guarded 16-byte LP64 output and explicit
+unsupported-ID errors; all 70 pthread checks pass. No suspend cycle was forced.
+
 File and pthread adapters now participate in the runtime's tracked guest-memory
 protocol. File paths/modes and write buffers are snapshotted; fd/stdio reads use
 64 KiB bounce buffers and publish only actual bytes read, including an incomplete
@@ -137,8 +148,10 @@ and its [condition implementation](https://android.googlesource.com/platform/bio
 
 `unity_bootstrap.cpp` combines the checked providers, loads the original Unity
 ELF as data, runs every one of its 417 constructors in order, then attempts its
-real `JNI_OnLoad`. Preparation extracts all 138 Unity class declarations from
-the actual APK and verifies ELF/translation hashes. The executable independently
+real `JNI_OnLoad`. Preparation extracts the 138 Unity class declarations plus
+the two AndroidGameSDK classes actually referenced by its nine registration
+helpers, all from the original APK. It derives and verifies all 42 native
+bindings against DEX declarations and verifies ELF/translation hashes. The executable independently
 hashes its actual APK/Unity input paths before execution. Unsupported imports
 abort with their name, guest address/return address and constructor progress;
 missing data imports are refused rather than fabricated. Complete Android Java
@@ -198,6 +211,16 @@ SurfaceView/holder callbacks, then starts UnityMain's Looper/Handler thread.
 Surface/state messages gate rendering. The Windows host has not yet executed
 this Java lifecycle; calling render/resume immediately after JNI_OnLoad would
 skip required setup evidenced in the APK.
+
+The nine JNI_OnLoad helpers perform `FindClass`/`RegisterNatives`, with
+`FatalError` on failure. They do not fetch additional framework fields or
+methods or initialize camera/VR/display hardware. Beyond the Unity-prefix
+catalog, the evidenced classes are `com/google/androidgamesdk/ChoreographerCallback`
+and `com/google/androidgamesdk/SwappyDisplayManager`. Descriptor types Activity,
+Context, InputEvent, Surface, Object and String were checked with the installed
+SDK/JDK `javap`. This is declaration and registration support, not Java bytecode
+execution; Java service side effects required by later native lifecycle calls
+remain separate host work.
 
 `libc.h/.cpp` provides Android-width allocation, memory/narrow-string functions,
 C-locale character classification, LP64 integer parsing and the scalar math

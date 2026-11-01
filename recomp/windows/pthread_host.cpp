@@ -46,6 +46,18 @@ int64_t NowNs(int clock) {
   if(clock==0) return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
+uint64_t BootTicks100ns(){
+  // Biased interrupt time includes sleep/hibernation. Keep CLOCK_MONOTONIC's
+  // existing epoch untouched: condition absolute deadlines depend on it.
+  // https://learn.microsoft.com/windows/win32/sysinfo/interrupt-time
+  // https://learn.microsoft.com/windows-hardware/drivers/ddi/wdm/nf-wdm-kequeryinterrupttimeprecise
+  using Query=VOID(WINAPI*)(PULONGLONG);
+  static auto precise=reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"QueryInterruptTimePrecise"));
+  if(precise){ULONGLONG ticks;precise(&ticks);return ticks;}
+  // The documented Win32 tick counter also includes suspend; this fallback has
+  // the real system timer's coarser resolution, not fabricated precision.
+  return GetTickCount64()*10000ULL;
+}
 }
 struct Pthreads::Impl {
   struct Mutex { std::mutex lock; std::condition_variable cv; uint64_t owner=0; uint32_t depth=0; unsigned waiters=0; int type=0; bool dead=false; };
@@ -269,7 +281,7 @@ int Pthreads::RwLock(void *p,bool write){auto r=impl_->GetRw(p);if(!r)return kIn
 int Pthreads::RwUnlock(void *p){auto r=impl_->GetRw(p);if(!r)return kInvalid;auto id=Self();std::lock_guard lock(r->lock);if(r->dead)return kInvalid;if(r->writer==id)r->writer=0;else{auto it=r->readers.find(id);if(it==r->readers.end())return kPerm;if(!--it->second)r->readers.erase(it);}r->cv.notify_all();return 0;}
 int Pthreads::SetName(uint64_t id,const char *name){if(!name)return kInvalid;std::string copy;for(unsigned i=0;i<16;++i){char c;recomp::ReadGuestMemory(&c,reinterpret_cast<addr_t>(name)+i,1);if(!c)break;copy+=c;}if(copy.size()==16)return kRange;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;auto handle=it->second->handle;using SetDescription=HRESULT(WINAPI*)(HANDLE,PCWSTR);auto fn=reinterpret_cast<SetDescription>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"SetThreadDescription"));if(!fn)return kNoSys;wchar_t text[32];int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,copy.c_str(),-1,text,32);if(!n)return kInvalid;return SUCCEEDED(fn(handle,text))?0:kPerm;}
 int Pthreads::Kill(uint64_t id,int signal){if(signal<0||signal>64)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;return signal==0?0:kNoSys;}
-int Pthreads::ClockGetTime(int clock,AndroidTimespec *out){if(!out||clock<0||clock>1)return -1;auto ns=NowNs(clock);AndroidTimespec value{ns/1000000000,ns%1000000000};WriteWire(out,value);return 0;}
+int Pthreads::ClockGetTime(int clock,AndroidTimespec *out){if(!out||(clock!=0&&clock!=1&&clock!=7))return -1;AndroidTimespec value;if(clock==7){auto ticks=BootTicks100ns();value={static_cast<int64_t>(ticks/10000000),static_cast<int64_t>(ticks%10000000*100)};}else{auto ns=NowNs(clock);value={ns/1000000000,ns%1000000000};}WriteWire(out,value);return 0;}
 void Pthreads::SetErrorSink(std::function<void(int)> sink){impl_->error_sink=std::move(sink);}
 
 void Pthreads::Install(){
@@ -318,7 +330,7 @@ void Pthreads::Install(){
   add("pthread_kill",recomp::MakeBridge<int32_t(uint64_t,int32_t)>([this](auto t,auto s){return Kill(t,s);}));
   add("pthread_sigmask",recomp::MakeBridge<int32_t(int32_t,void*,void*)>([](auto,auto,auto){return kNoSys;}));
   add("pthread_atfork",recomp::MakeBridge<int32_t(addr_t,addr_t,addr_t)>([](auto,auto,auto){return kNoSys;}));
-  add("clock_gettime",recomp::MakeBridge<int32_t(int32_t,AndroidTimespec*)>([this](auto c,auto p){if(!p||c<0||c>1){if(!impl_->error_sink){std::fprintf(stderr,"pthread clock_gettime requires guest errno sink for errors\n");std::abort();}impl_->error_sink(p?kInvalid:14);return -1;}return ClockGetTime(c,p);}));
+  add("clock_gettime",recomp::MakeBridge<int32_t(int32_t,AndroidTimespec*)>([this](auto c,auto p){if(!p||(c!=0&&c!=1&&c!=7)){if(!impl_->error_sink){std::fprintf(stderr,"pthread clock_gettime requires guest errno sink for errors\n");std::abort();}impl_->error_sink(p?kInvalid:14);return -1;}return ClockGetTime(c,p);}));
   impl_->installed=true;
 }
 } // namespace bunker::windows
