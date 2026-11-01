@@ -5,7 +5,7 @@
 
 namespace bunker::windows {
 // The evidenced Unity EGL subset backed by the pinned, real ANGLE Vulkan DLLs.
-// Own this before NativeWindows and retire all worker-thread current contexts
+// Destroy this before NativeWindows and retire all worker-thread current contexts
 // before destruction. Native handles stay private; guest function pointers are
 // Runtime markers, never Windows code addresses. Unknown GL signatures fail.
 class EglHost {
