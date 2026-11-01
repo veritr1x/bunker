@@ -67,6 +67,13 @@ part of the normal Bunker release. The game does not boot or render yet.
   frozen host uses an isolated checked Object.getClass adapter. Unity's whole
   API loader/startup queue, IL2CPP API bodies/init/GC and managed execution
   remain unrun. See [the bounded combined gate](windows/combined_modules.md).
+- The next isolated gate now executes Unity's original API-loader itself:
+  real dlopen, 222 ordered dlsym calls and publication of every original export
+  pointer. It observes an empty startup queue/JNI cleanup list, runs JNI unload
+  while IL2CPP is live, and closes through Unity's real cache helper. All 24
+  checks pass. Stale top slots and an empty-map allocation remain process-lifetime
+  diagnostic state; no reuse or full boot is claimed. See
+  [original-loader scope](windows/unity_api_loader.md).
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -139,9 +146,9 @@ unsupported instructions.
 
 ## Active work
 
-1. Connect the passing combined ClassLoader/module-provider path into Unity's
-   actual startup loader, then refresh IL2CPP's translation snapshot with
-   current semantics/root recovery when startup requires it.
+1. Continue the verified original-loader prefix through the actual runtime
+   configuration and managed-initialization path, then refresh IL2CPP's
+   translation snapshot with current semantics/root recovery when required.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
 2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
