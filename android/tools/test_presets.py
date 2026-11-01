@@ -56,5 +56,60 @@ class Presets(unittest.TestCase):
         self.assertEqual(kept(ap.arguments("Clear", CONFIG)), kept(["--event-quests", ap.expand(CONFIG, "EVENTS_MAIN")]))
 
 
+class Update(unittest.TestCase):
+    """After an update the preset's master data is built again (android_patcher.reapply_preset)."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        (self.dir / "saves").mkdir()
+        self.master = self.dir / "master.bin.e"
+        self.master.write_bytes(b"made by Story")
+        self.applied = []
+        for p in (mock.patch.object(config, "DATA_DIR", self.dir / "tools", create=True),
+                  mock.patch.object(config, "GAME_DB_PATH", self.dir / "saves/game.db", create=True),
+                  mock.patch.object(config, "find_master_data_bin", lambda: self.master, create=True),
+                  mock.patch.object(ap, "apply_preset", lambda preset, cfg: self.applied.append(preset)),
+                  mock.patch.object(ap, "get_config", lambda: CONFIG)):
+            p.start()
+            self.addCleanup(p.stop)
+        (self.dir / "tools").mkdir()
+
+    def made_by(self, label, data=b"made by Story"):
+        ap.runtime.write_json(ap.folder() / "active.json", {"label": label, "sha256": ap.runtime.fingerprint(self.master) if data is None else __import__("hashlib").sha256(data).hexdigest()})
+
+    def test_a_preset_is_applied_again_with_the_new_build(self):
+        self.made_by("Story")
+        self.assertTrue(ap.update_for("1.6.3"))
+        self.assertEqual(self.applied, ["Clear"])
+        self.assertEqual(ap.updated_file().read_text(), "1.6.3")
+
+    def test_once_per_version(self):
+        self.made_by("Record 2")
+        ap.update_for("1.6.3")
+        self.assertFalse(ap.update_for("1.6.3"))
+        self.assertEqual(self.applied, ["Rec_2"])
+
+    def test_master_data_changed_since_is_left_alone(self):
+        # Imported or restored after the preset: active.json no longer matches.
+        self.made_by("Story", data=b"something else")
+        ap.update_for("1.6.3")
+        self.assertEqual(self.applied, [])
+
+    def test_restored_snapshot_is_left_alone(self):
+        self.made_by("Restored snapshot", data=None)
+        ap.update_for("1.6.3")
+        self.assertEqual(self.applied, [])
+
+    def test_no_preset_is_left_alone(self):
+        self.assertTrue(ap.update_for("1.6.3"))
+        self.assertEqual(self.applied, [])
+
+    def test_with_the_calendar_on_the_preset_is_not_applied(self):
+        self.made_by("Story")
+        with mock.patch("android_calendar.read_state", lambda: {"loop": 1}):
+            ap.update_for("1.6.3")
+        self.assertEqual(self.applied, [])
+
+
 if __name__ == "__main__":
     unittest.main()

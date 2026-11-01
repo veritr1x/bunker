@@ -117,17 +117,19 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
     return url && token && (*url).length ? @"" : @"Tools could not start";
 }
 
-BOOL LTCalendarNeedsUpdate(NSString *saves, NSString *version) {
-    if (![NSFileManager.defaultManager fileExistsAtPath:[saves stringByAppendingPathComponent:@"calendar.json"]]) return NO;
-    NSString *updated = [NSString stringWithContentsOfFile:[saves stringByAppendingPathComponent:@"calendar.updated"] encoding:NSUTF8StringEncoding error:nil];
+BOOL LTDataNeedsUpdate(NSString *saves, NSString *toolsRoot, NSString *version) {
+    NSFileManager *files = NSFileManager.defaultManager;
+    if (![files fileExistsAtPath:[saves stringByAppendingPathComponent:@"calendar.json"]] &&
+        ![files fileExistsAtPath:[toolsRoot stringByAppendingPathComponent:@"patcher/active.json"]]) return NO;
+    NSString *updated = [NSString stringWithContentsOfFile:[saves stringByAppendingPathComponent:@"data.updated"] encoding:NSUTF8StringEncoding error:nil];
     return ![[updated stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] isEqualToString:version];
 }
 
-NSString *LTUpdateCalendar(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster, NSString *version) {
+NSString *LTUpdateData(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster, NSString *version) {
     NSString *error = LoadPython();
     if (error.length) return error;
     [NSFileManager.defaultManager createDirectoryAtPath:toolsRoot withIntermediateDirectories:YES attributes:nil error:nil];
-    NSDictionary *result = CallRuntime(@"update_calendar", @[saves, serverRoot, toolsRoot, originalMaster ?: @"", version]);
+    NSDictionary *result = CallRuntime(@"update_data", @[saves, serverRoot, toolsRoot, originalMaster ?: @"", version]);
     return [result[@"ok"] boolValue] ? @"" : result[@"error"];
 }
 

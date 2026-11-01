@@ -130,12 +130,12 @@ def _prepare(data_root, asset_root, tools_root, original_master):
     android_runtime.prepare_data()
 
 
-def update_calendar(data_root, asset_root, tools_root, original_master, version):
-    """Before the server starts after an update (LunarLauncher.m): the Original
-    calendar's game data for this build (android_calendar.update_for)."""
+def update_data(data_root, asset_root, tools_root, original_master, version):
+    """Before the server starts after an update (LunarLauncher.m): the game data
+    for this build, the calendar's or a preset's (android_patcher.update_for)."""
     _prepare(data_root, asset_root, tools_root, original_master)
-    import android_calendar
-    return android_calendar.update_for(version)
+    import android_patcher
+    return android_patcher.update_for(version)
 
 
 def start(data_root, asset_root, tools_root, original_master):

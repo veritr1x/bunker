@@ -20,14 +20,15 @@ UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(v
 NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text));
 // Stops the Archive's server so its tables leave the game's memory. Blocks; call off the main thread.
 NSString *LTArchiveStop(void);
-// After an update, the Original calendar's game data is brought up to this
-// build before the server starts (ios_runtime.update_calendar), once per
-// version; Android uses the same rule (CalendarUpdate.java). True when
-// saves/calendar.json is there and saves/calendar.updated names another version.
-BOOL LTCalendarNeedsUpdate(NSString *saves, NSString *version);
-// Starts Python and updates the calendar's game data. Blocks; call off the main
-// thread with the game server stopped. Returns "" or an error.
-NSString *LTUpdateCalendar(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster, NSString *version);
+// After an update, the game data is brought up to this build before the
+// server starts (ios_runtime.update_data): the Original calendar's, or the
+// Pod Programs preset's, once per version; Android uses the same rule
+// (DataUpdate.java). True when saves/calendar.json or
+// toolsRoot/patcher/active.json is there and saves/data.updated names another version.
+BOOL LTDataNeedsUpdate(NSString *saves, NSString *toolsRoot, NSString *version);
+// Starts Python and updates the game data. Blocks; call off the main thread
+// with the game server stopped. Returns "" or an error.
+NSString *LTUpdateData(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster, NSString *version);
 /** Builds the next Bunker IPA from the installed app and the release's bundles (bunker_ios_update.py). noticesZip
     is the release's notice pack, or "" to keep the app's. Returns "" or an error. */
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,
