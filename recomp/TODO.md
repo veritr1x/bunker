@@ -72,6 +72,9 @@ part of the normal Bunker release. The game does not boot or render yet.
   bucket boundary, FZ/DN/rounding modes and cumulative FPSR. Existing engine
   objects retain their earlier frozen semantics until refreshed.
   See [the exact estimate gate](whole/fp_estimates.md).
+- Immediate signed/unsigned SIMD right shifts match 245,760 ARM64 reference
+  records on each host, covering every legal shift amount, overlap, upper
+  clearing and unchanged flags. See [the shift gate](whole/right_shifts.md).
 - Proved direct setjmp import calls now seed executable post-call continuations
   in the compiler: 49 roots in Unity and one in IL2CPP. Native dispatch checks,
   normal context-save tests and whole-compiler regressions pass on both hosts.
