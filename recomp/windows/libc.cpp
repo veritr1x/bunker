@@ -1,5 +1,6 @@
 #include "libc.h"
 #include "../whole/bridge.h"
+#include "provider_memory.h"
 #include <algorithm>
 #include <cerrno>
 #include <cmath>
@@ -11,6 +12,7 @@
 #include <type_traits>
 
 namespace bunker::windows {
+namespace pm=provider_memory;
 namespace {
 thread_local int guest_error;
 const char *const imports[] = {
@@ -34,14 +36,25 @@ int Digit(int c) { if(c>='0'&&c<='9')return c-'0';c=Lower(c);return c>='a'&&c<='
 int CompareCase(const char *a,const char *b,uint64_t count) {
   for(uint64_t i=0;i<count;++i) { int x=Lower(static_cast<unsigned char>(a[i])),y=Lower(static_cast<unsigned char>(b[i]));if(x!=y)return x-y;if(!x)return 0; }return 0;
 }
-uint64_t Length(const char *s,uint64_t n) {uint64_t i=0;while(i<n&&s[i])++i;return i;}
 template <typename F,typename... A> auto Math(F function,A... args) {
   errno=0;auto result=function(args...);return std::make_pair(result,errno);
+}
+template <typename T> auto ParseFloating(const char *input,char **end){
+  auto text=pm::String(input);char *finish=nullptr;
+  auto result=Math([&]{
+    if constexpr(std::is_same_v<T,float>)return std::strtof(text.c_str(),&finish);
+    else return std::strtod(text.c_str(),&finish);
+  });
+  if(end)pm::Write(end,const_cast<char*>(input+(finish-text.c_str())));return result;
 }
 }
 LibC::LibC(Runner runner,addr_t base):runner_(std::move(runner)),marker_base_(base) {
   if((base&7)||base>UINT64_MAX-sizeof(imports)/sizeof(*imports)*8)throw std::invalid_argument("invalid libc marker base");
   BuildEnvironment();
+}
+LibC::~LibC(){
+  recomp::InvalidateGuestMemory(pm::Address(&environment_slot_),sizeof(environment_slot_));
+  Free(environment_array_);for(auto text:environment_strings_)Free(text);
 }
 int LibC::Error()const{return guest_error;}
 void LibC::Fail(int error)noexcept{guest_error=error;if(error_sink_)try{error_sink_(error);}catch(...){}}
@@ -64,48 +77,50 @@ template <typename Signature,typename F>void LibC::Add(recomp::Runtime &runtime,
   });
 }
 void *LibC::Malloc(uint64_t size){
-  if(size>INT64_MAX){Fail(12);return nullptr;}auto p=std::malloc(static_cast<size_t>(size?size:1));if(!p)Fail(12);return p;
+  if(size>INT64_MAX){Fail(12);return nullptr;}auto p=pm::Allocate(static_cast<size_t>(size));if(!p)Fail(12);return p;
 }
 void *LibC::Calloc(uint64_t n,uint64_t size){
   if(size&&n>uint64_t(INT64_MAX)/size){Fail(12);return nullptr;}uint64_t total=n*size;
-  auto p=std::calloc(1,static_cast<size_t>(total?total:1));if(!p)Fail(12);return p;
+  auto p=Malloc(total);if(p)pm::Fill(p,0,static_cast<size_t>(total?total:1));return p;
 }
 void LibC::Free(void *p){
   if(!p)return;std::lock_guard<std::recursive_mutex> lock(mutex_);auto i=aligned_.find(p);
-  if(i==aligned_.end())std::free(p);else{std::free(i->second.base);aligned_.erase(i);}
+  if(i==aligned_.end())pm::Free(p);else{pm::Free(i->second.base);aligned_.erase(i);}
 }
 void *LibC::AlignedAllocate(uint64_t alignment,uint64_t size,bool set_errno){
   if(!alignment||(alignment&(alignment-1))){if(set_errno)Fail(22);return nullptr;}
   alignment=std::max<uint64_t>(alignment,16);
   if(alignment>uint64_t(INT64_MAX)||size>uint64_t(INT64_MAX)-alignment){if(set_errno)Fail(12);return nullptr;}
-  void *base=std::malloc(static_cast<size_t>((size?size:1)+alignment));
+  void *base=pm::Allocate(static_cast<size_t>((size?size:1)+alignment));
   if(!base){if(set_errno)Fail(12);return nullptr;}
   auto p=reinterpret_cast<void *>((reinterpret_cast<uintptr_t>(base)+alignment-1)&~uintptr_t(alignment-1));
   try{std::lock_guard<std::recursive_mutex> lock(mutex_);aligned_.emplace(p,Aligned{base,size,alignment});}
-  catch(...){std::free(base);if(set_errno)Fail(12);return nullptr;}return p;
+  catch(...){pm::Free(base);if(set_errno)Fail(12);return nullptr;}return p;
 }
 void *LibC::Memalign(uint64_t alignment,uint64_t size){return AlignedAllocate(alignment,size,true);}
 int LibC::PosixMemalign(void **out,uint64_t alignment,uint64_t size){
   if(!out||alignment<sizeof(void*)||(alignment&(alignment-1)))return 22;
-  auto p=AlignedAllocate(alignment,size,false);if(!p)return 12;*out=p;return 0;
+  auto p=AlignedAllocate(alignment,size,false);if(!p)return 12;pm::Write(out,p);return 0;
 }
 void *LibC::Realloc(void *p,uint64_t size){
   if(!p)return Malloc(size);if(!size){Free(p);return nullptr;}if(size>INT64_MAX){Fail(12);return nullptr;}
   std::lock_guard<std::recursive_mutex> lock(mutex_);auto i=aligned_.find(p);
   if(i!=aligned_.end()){
     const auto old=i->second;auto q=AlignedAllocate(old.alignment,size,true);if(!q)return nullptr;
-    std::memcpy(q,p,static_cast<size_t>(std::min(size,old.size)));Free(p);return q;
+    try{pm::Copy(q,p,static_cast<size_t>(std::min(size,old.size)));}
+    catch(const std::bad_alloc&){Free(q);Fail(12);return nullptr;}
+    Free(p);return q;
   }
-  auto q=std::realloc(p,static_cast<size_t>(size));if(!q)Fail(12);return q;
+  auto q=pm::Reallocate(p,static_cast<size_t>(size));if(!q)Fail(12);return q;
 }
 uint64_t LibC::ParseInteger(const char *text,char **end,int base,bool is_signed){
-  if(end)*end=const_cast<char*>(text);
+  if(end)pm::Write(end,const_cast<char*>(text));
   if(!text||base<0||base==1||base>36){Fail(22);return 0;}
-  const char *p=text;while(Space(static_cast<unsigned char>(*p)))++p;
+  const auto snapshot=pm::String(text);const char *p=snapshot.c_str();while(Space(static_cast<unsigned char>(*p)))++p;
   bool negative=*p=='-';if(*p=='-'||*p=='+')++p;
   if((base==0||base==16)&&p[0]=='0'&&(p[1]=='x'||p[1]=='X')&&Digit(static_cast<unsigned char>(p[2]))<16){base=16;p+=2;}
-  // Modern Bionic also accepts the C23 binary prefix. Never use host Windows long.
-  if((base==0||base==2)&&p[0]=='0'&&(p[1]=='b'||p[1]=='B')&&p[2]>='0'&&p[2]<='9'){base=2;p+=2;}
+  // Target Android 13/API 33: only hex/octal prefixes. Binary prefixes were
+  // added in Android 14/API 34, so "0b2" consumes just its leading zero here.
   if(!base)base=*p=='0'?8:10;
   const uint64_t limit=is_signed?(negative?UINT64_C(1)<<63:uint64_t(INT64_MAX)):UINT64_MAX;
   uint64_t value=0;bool any=false,overflow=false;
@@ -113,30 +128,46 @@ uint64_t LibC::ParseInteger(const char *text,char **end,int base,bool is_signed)
     any=true;if(value>(limit-unsigned(digit))/unsigned(base))overflow=true;
     else if(!overflow)value=value*unsigned(base)+unsigned(digit);
   }
-  if(!any)return 0;if(end)*end=const_cast<char*>(p);
+  if(!any)return 0;if(end)pm::Write(end,const_cast<char*>(text+(p-snapshot.c_str())));
   if(overflow){Fail(34);return is_signed&&negative?UINT64_C(1)<<63:limit;}
   return negative?uint64_t(0)-value:value;
 }
 void LibC::BuildEnvironment(){
-  environment_text_.clear();environment_pointers_.clear();environment_text_.reserve(environment_.size());
-  for(const auto &v:environment_)environment_text_.push_back(v.first+'='+v.second);
-  for(auto &v:environment_text_)environment_pointers_.push_back(v.data());environment_pointers_.push_back(nullptr);environment_slot_=environment_pointers_.data();
+  std::vector<char*> next;
+  char **array=nullptr;
+  try{
+    next.reserve(environment_.size()+1);
+    for(const auto &entry:environment_){
+      auto value=entry.first+'='+entry.second;auto text=static_cast<char*>(Malloc(value.size()+1));
+      if(!text)throw std::bad_alloc();next.push_back(text);
+      recomp::WriteGuestMemory(pm::Address(text),value.c_str(),value.size()+1);
+    }
+    next.push_back(nullptr);array=static_cast<char**>(Malloc(next.size()*sizeof(char*)));
+    if(!array)throw std::bad_alloc();
+    recomp::WriteGuestMemory(pm::Address(array),next.data(),next.size()*sizeof(char*));next.pop_back();
+  }catch(...){Free(array);for(auto p:next)Free(p);throw;}
+  pm::Write(&environment_slot_,array);
+  auto previous=environment_array_;environment_array_=array;environment_strings_.swap(next);
+  Free(previous);for(auto text:next)Free(text);
 }
 void LibC::SetEnvironment(std::map<std::string,std::string> values){
   for(auto &v:values)if(v.first.empty()||v.first.find('=')!=std::string::npos||v.first.find('\0')!=std::string::npos||v.second.find('\0')!=std::string::npos)throw std::invalid_argument("invalid virtual environment");
   std::lock_guard<std::recursive_mutex> lock(mutex_);environment_=std::move(values);BuildEnvironment();
 }
 char *LibC::Getenv(const char *name){
-  if(!name)return nullptr;std::lock_guard<std::recursive_mutex> lock(mutex_);auto i=environment_.find(name);return i==environment_.end()?nullptr:i->second.data();
+  if(!name)return nullptr;auto key=pm::String(name);std::lock_guard<std::recursive_mutex> lock(mutex_);auto i=environment_.find(key);
+  return i==environment_.end()?nullptr:environment_strings_[std::distance(environment_.begin(),i)]+key.size()+1;
 }
 int LibC::Setenv(const char *name,const char *value,int overwrite){
-  if(!name||!*name||std::strchr(name,'=')||!value){Fail(22);return -1;}
-  std::lock_guard<std::recursive_mutex> lock(mutex_);if(!overwrite&&environment_.count(name))return 0;
-  environment_[name]=value;BuildEnvironment();return 0;
+  if(!name||!value){Fail(22);return -1;}auto key=pm::String(name),text=pm::String(value);
+  if(key.empty()||key.find('=')!=std::string::npos){Fail(22);return -1;}
+  std::lock_guard<std::recursive_mutex> lock(mutex_);if(!overwrite&&environment_.count(key))return 0;
+  environment_[key]=std::move(text);BuildEnvironment();return 0;
 }
 int LibC::Unsetenv(const char *name){
-  if(!name||!*name||std::strchr(name,'=')){Fail(22);return -1;}
-  std::lock_guard<std::recursive_mutex> lock(mutex_);environment_.erase(name);BuildEnvironment();return 0;
+  if(!name){Fail(22);return -1;}auto key=pm::String(name);
+  if(key.empty()||key.find('=')!=std::string::npos){Fail(22);return -1;}
+  std::lock_guard<std::recursive_mutex> lock(mutex_);environment_.erase(key);BuildEnvironment();return 0;
 }
 int LibC::RegisterExit(addr_t callback,addr_t argument,addr_t dso,bool plain){
   if(!runner_||!callback){Fail(22);return -1;}std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -157,37 +188,39 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<void*(uint64_t,uint64_t)>(runtime,"memalign",[this](auto a,auto n){return Memalign(a,n);});
   Add<int32_t(void**,uint64_t,uint64_t)>(runtime,"posix_memalign",[this](auto p,auto a,auto n){return PosixMemalign(p,a,n);});
   Add<void*(uint64_t,uint64_t)>(runtime,"aligned_alloc",[this](auto a,auto n)->void*{if(!a||n%a){Fail(22);return nullptr;}return Memalign(a,n);});
-  Add<void*(void*,const void*,uint64_t)>(runtime,"memcpy",[](auto d,auto s,auto n){return std::memcpy(d,s,n);});
-  Add<void*(void*,const void*,uint64_t)>(runtime,"memmove",[](auto d,auto s,auto n){return std::memmove(d,s,n);});
-  Add<void*(void*,int32_t,uint64_t)>(runtime,"memset",[](auto d,auto c,auto n){return std::memset(d,c,n);});
-  Add<int32_t(const void*,const void*,uint64_t)>(runtime,"memcmp",[](auto a,auto b,auto n){return std::memcmp(a,b,n);});
-  Add<const void*(const void*,int32_t,uint64_t)>(runtime,"memchr",[](auto p,auto c,auto n){return std::memchr(p,c,n);});
-  Add<const void*(const void*,int32_t,uint64_t)>(runtime,"memrchr",[](auto p,auto c,auto n)->const void*{auto b=static_cast<const unsigned char*>(p);while(n)if(b[--n]==static_cast<unsigned char>(c))return b+n;return nullptr;});
-  Add<uint64_t(const char*)>(runtime,"strlen",[](auto s){return uint64_t(std::strlen(s));});
-  Add<uint64_t(const char*,uint64_t)>(runtime,"strnlen",[](auto s,auto n){return Length(s,n);});
-  for(auto name:{"strcmp","strcoll"})Add<int32_t(const char*,const char*)>(runtime,name,[](auto a,auto b){return std::strcmp(a,b);});
-  Add<int32_t(const char*,const char*,uint64_t)>(runtime,"strncmp",[](auto a,auto b,auto n){return std::strncmp(a,b,n);});
-  Add<char*(char*,const char*)>(runtime,"strcpy",[](auto a,auto b){return std::strcpy(a,b);});
-  Add<char*(char*,const char*,uint64_t)>(runtime,"strncpy",[](auto a,auto b,auto n){return std::strncpy(a,b,n);});
-  Add<char*(char*,const char*)>(runtime,"strcat",[](auto a,auto b){return std::strcat(a,b);});
-  Add<char*(char*,const char*,uint64_t)>(runtime,"strncat",[](auto a,auto b,auto n){return std::strncat(a,b,n);});
-  Add<uint64_t(char*,const char*,uint64_t)>(runtime,"strlcpy",[](auto d,auto s,auto n){auto length=std::strlen(s);if(n){auto copy=std::min<uint64_t>(length,n-1);std::memcpy(d,s,copy);d[copy]=0;}return uint64_t(length);});
-  Add<uint64_t(char*,const char*,uint64_t)>(runtime,"strxfrm",[](auto d,auto s,auto n){auto length=std::strlen(s);if(n>length)std::memcpy(d,s,length+1);return uint64_t(length);});
-  Add<const char*(const char*,int32_t)>(runtime,"strchr",[](auto s,auto c){return std::strchr(s,c);});
-  Add<const char*(const char*,int32_t)>(runtime,"strrchr",[](auto s,auto c){return std::strrchr(s,c);});
-  Add<const char*(const char*,const char*)>(runtime,"strstr",[](auto s,auto t){return std::strstr(s,t);});
-  Add<const char*(const char*,const char*)>(runtime,"strpbrk",[](auto s,auto t){return std::strpbrk(s,t);});
-  Add<uint64_t(const char*,const char*)>(runtime,"strspn",[](auto s,auto t){return uint64_t(std::strspn(s,t));});
-  Add<uint64_t(const char*,const char*)>(runtime,"strcspn",[](auto s,auto t){return uint64_t(std::strcspn(s,t));});
+  for(auto name:{"memcpy","memmove"})Add<void*(void*,const void*,uint64_t)>(runtime,name,pm::Copy);
+  Add<void*(void*,int32_t,uint64_t)>(runtime,"memset",pm::Fill);
+  Add<int32_t(const void*,const void*,uint64_t)>(runtime,"memcmp",[](auto a,auto b,auto n){if(!n)return 0;auto x=pm::Bytes(a,n),y=pm::Bytes(b,n);return std::memcmp(x.data(),y.data(),n);});
+  Add<const void*(const void*,int32_t,uint64_t)>(runtime,"memchr",[](auto p,auto c,auto n)->const void*{if(!n)return nullptr;auto bytes=pm::Bytes(p,n);auto found=static_cast<const unsigned char*>(std::memchr(bytes.data(),c,n));return found?static_cast<const unsigned char*>(p)+(found-bytes.data()):nullptr;});
+  Add<const void*(const void*,int32_t,uint64_t)>(runtime,"memrchr",[](auto p,auto c,auto n)->const void*{auto bytes=pm::Bytes(p,n);while(n)if(bytes[--n]==static_cast<unsigned char>(c))return static_cast<const unsigned char*>(p)+n;return nullptr;});
+  Add<uint64_t(const char*)>(runtime,"strlen",[](auto s){return uint64_t(pm::String(s).size());});
+  Add<uint64_t(const char*,uint64_t)>(runtime,"strnlen",[](auto s,auto n){return uint64_t(pm::String(s,n).size());});
+  for(auto name:{"strcmp","strcoll"})Add<int32_t(const char*,const char*)>(runtime,name,[](auto a,auto b){auto x=pm::String(a),y=pm::String(b);return std::strcmp(x.c_str(),y.c_str());});
+  Add<int32_t(const char*,const char*,uint64_t)>(runtime,"strncmp",[](auto a,auto b,auto n){auto x=pm::String(a,n),y=pm::String(b,n);return std::strncmp(x.c_str(),y.c_str(),n);});
+  Add<char*(char*,const char*)>(runtime,"strcpy",[](auto a,auto b){auto text=pm::String(b);recomp::WriteGuestMemory(pm::Address(a),text.c_str(),text.size()+1);return a;});
+  Add<char*(char*,const char*,uint64_t)>(runtime,"strncpy",[](auto a,auto b,auto n){auto text=pm::String(b,n);std::vector<char> result(n,0);if(!text.empty())std::memcpy(result.data(),text.data(),text.size());recomp::WriteGuestMemory(pm::Address(a),result.data(),n);return a;});
+  Add<char*(char*,const char*)>(runtime,"strcat",[](auto a,auto b){auto prefix=pm::String(a),text=pm::String(b);recomp::WriteGuestMemory(pm::Address(a)+prefix.size(),text.c_str(),text.size()+1);return a;});
+  Add<char*(char*,const char*,uint64_t)>(runtime,"strncat",[](auto a,auto b,auto n){auto prefix=pm::String(a),text=pm::String(b,n);recomp::WriteGuestMemory(pm::Address(a)+prefix.size(),text.c_str(),text.size()+1);return a;});
+  Add<uint64_t(char*,const char*,uint64_t)>(runtime,"strlcpy",[](auto d,auto s,auto n){auto text=pm::String(s);auto length=text.size();if(n){text.resize(std::min<uint64_t>(length,n-1));recomp::WriteGuestMemory(pm::Address(d),text.c_str(),text.size()+1);}return uint64_t(length);});
+  Add<uint64_t(char*,const char*,uint64_t)>(runtime,"strxfrm",[](auto d,auto s,auto n){auto text=pm::String(s);if(n>text.size())recomp::WriteGuestMemory(pm::Address(d),text.c_str(),text.size()+1);return uint64_t(text.size());});
+  Add<const char*(const char*,int32_t)>(runtime,"strchr",[](auto s,auto c){auto text=pm::String(s);return pm::Locate(s,text,std::strchr(text.c_str(),c));});
+  Add<const char*(const char*,int32_t)>(runtime,"strrchr",[](auto s,auto c){auto text=pm::String(s);return pm::Locate(s,text,std::strrchr(text.c_str(),c));});
+  Add<const char*(const char*,const char*)>(runtime,"strstr",[](auto s,auto t){auto text=pm::String(s),needle=pm::String(t);return pm::Locate(s,text,std::strstr(text.c_str(),needle.c_str()));});
+  Add<const char*(const char*,const char*)>(runtime,"strpbrk",[](auto s,auto t){auto text=pm::String(s),set=pm::String(t);return pm::Locate(s,text,std::strpbrk(text.c_str(),set.c_str()));});
+  Add<uint64_t(const char*,const char*)>(runtime,"strspn",[](auto s,auto t){auto text=pm::String(s),set=pm::String(t);return uint64_t(std::strspn(text.c_str(),set.c_str()));});
+  Add<uint64_t(const char*,const char*)>(runtime,"strcspn",[](auto s,auto t){auto text=pm::String(s),set=pm::String(t);return uint64_t(std::strcspn(text.c_str(),set.c_str()));});
   for(auto name:{"strdup","strndup"}){
-    auto dup=[this](const char*s,uint64_t n)->char*{auto length=Length(s,n);auto d=static_cast<char*>(Malloc(length+1));if(d){std::memcpy(d,s,length);d[length]=0;}return d;};
+    auto dup=[this](const char*s,uint64_t n)->char*{auto text=pm::String(s,n);auto d=static_cast<char*>(Malloc(text.size()+1));if(d)recomp::WriteGuestMemory(pm::Address(d),text.c_str(),text.size()+1);return d;};
     if(std::strcmp(name,"strdup")==0)Add<char*(const char*)>(runtime,name,[dup](auto s){return dup(s,UINT64_MAX);});
     else Add<char*(const char*,uint64_t)>(runtime,name,dup);
   }
   Add<char*(char*,const char*,char**)>(runtime,"strtok_r",[](char*s,const char*sep,char**save)->char*{
-    if(!s)s=*save;if(!s)return nullptr;s+=std::strspn(s,sep);if(!*s){*save=s;return nullptr;}char *end=s+std::strcspn(s,sep);if(*end)*end++=0;*save=end;return s;});
-  Add<int32_t(const char*,const char*)>(runtime,"strcasecmp",[](auto a,auto b){return CompareCase(a,b,UINT64_MAX);});
-  Add<int32_t(const char*,const char*,uint64_t)>(runtime,"strncasecmp",CompareCase);
+    if(!s)s=pm::Read(save);if(!s)return nullptr;auto text=pm::String(s),set=pm::String(sep);
+    size_t start=std::strspn(text.c_str(),set.c_str());if(start==text.size()){pm::Write(save,s+start);return nullptr;}
+    size_t end=start+std::strcspn(text.c_str()+start,set.c_str());bool delimiter=end<text.size();
+    if(delimiter)pm::Write(s+end,char(0));pm::Write(save,s+end+size_t(delimiter));return s+start;});
+  Add<int32_t(const char*,const char*)>(runtime,"strcasecmp",[](auto a,auto b){auto x=pm::String(a),y=pm::String(b);return CompareCase(x.c_str(),y.c_str(),UINT64_MAX);});
+  Add<int32_t(const char*,const char*,uint64_t)>(runtime,"strncasecmp",[](auto a,auto b,auto n){auto x=pm::String(a,n),y=pm::String(b,n);return CompareCase(x.c_str(),y.c_str(),n);});
   for(auto name:{"isalnum","isalpha","isblank","iscntrl","isdigit","isgraph","islower","isprint","ispunct","isspace","isupper","isxdigit"}){
     Add<int32_t(int32_t)>(runtime,name,[name](int32_t c){bool lower=c>='a'&&c<='z',upper=c>='A'&&c<='Z',digit=c>='0'&&c<='9',graph=c>=33&&c<=126;
       if(!std::strcmp(name,"isalnum"))return int(lower||upper||digit);if(!std::strcmp(name,"isalpha"))return int(lower||upper);
@@ -202,9 +235,9 @@ void LibC::Install(recomp::Runtime &runtime){
   for(auto name:{"strtol","strtoll","strtoul","strtoull"})Add<uint64_t(const char*,char**,int32_t)>(runtime,name,[this,name](auto s,auto e,auto b){return ParseInteger(s,e,b,std::strcmp(name,"strtoul")&&std::strcmp(name,"strtoull"));});
   Add<int32_t(const char*)>(runtime,"atoi",[this](auto s){return static_cast<int32_t>(ParseInteger(s,nullptr,10,true));});
   for(auto name:{"atol","atoll"})Add<uint64_t(const char*)>(runtime,name,[this](auto s){return ParseInteger(s,nullptr,10,true);});
-  Add<double(const char*,char**)>(runtime,"strtod",[this](auto s,auto e){auto r=Math([](auto a,auto b){return std::strtod(a,b);},s,e);if(r.second)Fail(r.second==ERANGE?34:22);return r.first;});
-  Add<float(const char*,char**)>(runtime,"strtof",[this](auto s,auto e){auto r=Math([](auto a,auto b){return std::strtof(a,b);},s,e);if(r.second)Fail(r.second==ERANGE?34:22);return r.first;});
-  Add<double(const char*)>(runtime,"atof",[this](auto s){auto r=Math([](auto a){return std::strtod(a,nullptr);},s);if(r.second)Fail(r.second==ERANGE?34:22);return r.first;});
+  Add<double(const char*,char**)>(runtime,"strtod",[this](auto s,auto e){auto r=ParseFloating<double>(s,e);if(r.second)Fail(r.second==ERANGE?34:22);return r.first;});
+  Add<float(const char*,char**)>(runtime,"strtof",[this](auto s,auto e){auto r=ParseFloating<float>(s,e);if(r.second)Fail(r.second==ERANGE?34:22);return r.first;});
+  Add<double(const char*)>(runtime,"atof",[this](auto s){auto r=ParseFloating<double>(s,nullptr);if(r.second)Fail(r.second==ERANGE?34:22);return r.first;});
   Add<char*(const char*)>(runtime,"getenv",[this](auto n){return Getenv(n);});
   Add<int32_t(const char*,const char*,int32_t)>(runtime,"setenv",[this](auto n,auto v,auto o){return Setenv(n,v,o);});
   Add<int32_t(const char*)>(runtime,"unsetenv",[this](auto n){return Unsetenv(n);});
@@ -214,7 +247,7 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<void()>(runtime,"__stack_chk_fail",[this]{Fatal("stack protector check failed");});
   Add<void()>(runtime,"abort",[this]{Fatal("abort");});
   Add<void(int32_t)>(runtime,"exit",[this](auto code){Finalize();std::exit(code);});
-  Add<void(const char*)>(runtime,"android_set_abort_message",[this](auto s){std::lock_guard<std::recursive_mutex> lock(mutex_);abort_message_=s?s:"";});
+  Add<void(const char*)>(runtime,"android_set_abort_message",[this](auto s){auto message=s?pm::String(s):std::string();std::lock_guard<std::recursive_mutex> lock(mutex_);abort_message_=std::move(message);});
   Add<uint64_t()>(runtime,"__ctype_get_mb_cur_max",[]{return UINT64_C(1);});
 #define MATH1(name,type) Add<type(type)>(runtime,#name,[this](type x){auto r=Math([](type v){return ::name(v);},x);if(r.second)Fail(r.second==EDOM?33:34);return r.first;})
 #define MATH2(name,type) Add<type(type,type)>(runtime,#name,[this](type x,type y){auto r=Math([](type a,type b){return ::name(a,b);},x,y);if(r.second)Fail(r.second==EDOM?33:34);return r.first;})
@@ -229,9 +262,9 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<double(double,int32_t)>(runtime,"ldexp",[this](auto x,auto n){auto r=Math([](double a,int b){return std::ldexp(a,b);},x,n);if(r.second)Fail(34);return r.first;});
   Add<float(float,int32_t)>(runtime,"ldexpf",[this](auto x,auto n){auto r=Math([](float a,int b){return std::ldexp(a,b);},x,n);if(r.second)Fail(34);return r.first;});
   Add<double(double,int32_t)>(runtime,"scalbn",[this](auto x,auto n){auto r=Math([](double a,int b){return std::scalbn(a,b);},x,n);if(r.second)Fail(34);return r.first;});
-  Add<float(float,int32_t*)>(runtime,"frexpf",[](auto x,auto p){return std::frexp(x,p);});
-  Add<double(double,double*)>(runtime,"modf",[](auto x,auto p){return std::modf(x,p);});
-  Add<float(float,float*)>(runtime,"modff",[](auto x,auto p){return std::modf(x,p);});
+  Add<float(float,int32_t*)>(runtime,"frexpf",[](auto x,auto p){int32_t exponent;auto fraction=std::frexp(x,&exponent);pm::Write(p,exponent);return fraction;});
+  Add<double(double,double*)>(runtime,"modf",[](auto x,auto p){double integral;auto fraction=std::modf(x,&integral);pm::Write(p,integral);return fraction;});
+  Add<float(float,float*)>(runtime,"modff",[](auto x,auto p){float integral;auto fraction=std::modf(x,&integral);pm::Write(p,integral);return fraction;});
   installed_=true;
 }
 }  // namespace bunker::windows

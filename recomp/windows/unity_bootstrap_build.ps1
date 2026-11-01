@@ -5,12 +5,15 @@ param(
     [string]$Remill = (Join-Path $PSScriptRoot '..\work\remill-src'),
     [string]$Cxx = 'g++.exe',
     [string]$Cc = 'gcc.exe',
+    [string]$ZlibDirectory = (Join-Path $PSScriptRoot '..\work\zlib-native'),
     [switch]$CompileOnly,
     [switch]$Run
 )
 $ErrorActionPreference = 'Stop'
 $taskBuild = (Resolve-Path -LiteralPath $BuildDirectory).ProviderPath
 $taskRemill = (Resolve-Path -LiteralPath $Remill).ProviderPath
+$taskZlib = (Resolve-Path -LiteralPath $ZlibDirectory).ProviderPath
+if (-not (Test-Path -LiteralPath (Join-Path $taskZlib 'libz-inflate.a'))) { throw 'Prepare the verified static zlib backend with windows/prepare_zlib.py first.' }
 $taskManifest = $null
 if (-not $CompileOnly) {
     $taskManifest = Get-Content -Raw -LiteralPath (Join-Path $taskBuild 'unity_bootstrap_link.json') | ConvertFrom-Json
@@ -27,10 +30,10 @@ $taskLoader = Join-Path $taskBuild 'elfload.o'
 & $Cc '-O2' '-c' (Join-Path $PSScriptRoot '..\fastaes\elfload.c') '-o' $taskLoader
 if ($LASTEXITCODE -ne 0) { throw 'Unity bootstrap data-loader build failed.' }
 $taskExecutable = Join-Path $taskBuild 'bunker-unity-bootstrap.exe'
-$taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", '-static', $taskObject, $taskLoader)
-foreach ($taskSource in @('jni_host.cpp','android_context.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
+$taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$taskZlib\zlib-1.3.2", '-static', $taskObject, $taskLoader)
+foreach ($taskSource in @('jni_host.cpp','android_context.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
 foreach ($taskInput in $taskManifest.objects) { $taskArguments += Join-Path $taskBuild $taskInput }
-$taskArguments += @('-latomic', '-lbcrypt', '-o', $taskExecutable)
+$taskArguments += @((Join-Path $taskZlib 'libz-inflate.a'), '-latomic', '-lbcrypt', '-o', $taskExecutable)
 # Response files avoid Windows command-line limits for the full Unity shards.
 $taskResponse = Join-Path $taskBuild 'unity-bootstrap-link.rsp'
 $taskEscaped = foreach ($taskArgument in $taskArguments) { '"' + $taskArgument.Replace('\','/').Replace('"','\"') + '"' }

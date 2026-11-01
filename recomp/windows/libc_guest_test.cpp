@@ -23,7 +23,7 @@ int main(){
     auto initial_sp=state.gpr.sp.qword;runtime.Run(state,entry);
     if(state.gpr.pc.qword!=0xfeedffff||state.gpr.sp.qword!=initial_sp)std::abort();return state.gpr.x0.qword;
   };
-  bunker::windows::LibC libc(run);provider=&libc;libc.SetErrorSink([](int e){guest_errno=e;});libc.SetEnvironment({{"BUNKER_TEST","configured"}});
+  bunker::windows::LibC libc(run);provider=&libc;libc.SetErrorSink([](int e){recomp::WriteGuestMemory(reinterpret_cast<addr_t>(&guest_errno),&e,sizeof(e));});libc.SetEnvironment({{"BUNKER_TEST","configured"}});
   libc.Install(runtime);runtime.AddImport(0x7ffc00000000ULL,[](State&s){s.gpr.x0.qword=reinterpret_cast<addr_t>(&guest_errno);});
   runtime.AddTraces(kTraces,sizeof(kTraces)/sizeof(*kTraces));elf_image image;
   if(elf_load(LIBC_LIBRARY,0x62000000,resolve,&image))return 1;
