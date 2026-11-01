@@ -608,3 +608,37 @@ func TestPrizeBoxSummonsLinkToTheirTicketQuest(t *testing.T) {
 		t.Fatalf("summons not added: %v", want)
 	}
 }
+
+// A rerun borrows its lineup's medal only if that medal's exchange shop is
+// open for the rerun: 10107 and 10108 reran in May 2023 with medals whose
+// shops ran in March, and their Exchange opened the exchange with no shop.
+func TestRerunBorrowsAMedalOnlyWithItsShopOpen(t *testing.T) {
+	defer func() { medalShopOpen = nil }()
+	src := store.GachaCatalogEntry{GachaId: 10094, GachaMedalId: 94, MedalConsumableItemId: 8578, CeilingCount: 200}
+	file := summonRulesFile{New: []newSummon{{Id: 10107, Lineup: 10094, Start: 5_000, End: 6_000,
+		Steps: []ruleStep{{Cur: "gems", Draws: 1, Price: 300}}}}}
+	rerun := func() store.GachaCatalogEntry {
+		for _, e := range addNewSummonsFor([]store.GachaCatalogEntry{src}, file, 100, true) {
+			if e.GachaId == 10107 {
+				return e
+			}
+		}
+		t.Fatal("rerun not added")
+		return store.GachaCatalogEntry{}
+	}
+	medalShopOpen = func(item int32, start, end int64) bool { return item == 8578 && start == 5_100 && end == 6_100 }
+	if e := rerun(); e.GachaMedalId != 94 || e.MedalConsumableItemId != 8578 {
+		t.Fatalf("shop open: medal %d/%d", e.GachaMedalId, e.MedalConsumableItemId)
+	}
+	medalShopOpen = func(int32, int64, int64) bool { return false }
+	if e := rerun(); e.GachaMedalId != 0 || e.MedalConsumableItemId != 0 {
+		t.Fatalf("shop closed: medal %d/%d, want none", e.GachaMedalId, e.MedalConsumableItemId)
+	}
+}
+
+func TestMedalShopWindowsCoverARun(t *testing.T) {
+	open := medalShopOpenFrom(map[int32][][2]int64{8578: {{1_000, 2_000}, {5_000, 9_000}}})
+	if !open(8578, 5_500, 8_000) || open(8578, 1_500, 5_500) || open(8579, 5_500, 8_000) {
+		t.Fatal("wrong coverage")
+	}
+}

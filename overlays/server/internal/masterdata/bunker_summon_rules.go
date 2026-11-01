@@ -12,6 +12,7 @@ import (
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
+	"lunar-tear/server/internal/utils"
 )
 
 // summon_rules.json holds each summon's rules as the official notices (or,
@@ -261,6 +262,11 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 		return entries
 	}
 	entries = applySummonRules(entries, file.Rules)
+	if windows, err := loadMedalShopWindows(); err == nil {
+		medalShopOpen = medalShopOpenFrom(windows)
+	} else {
+		log.Printf("summon rules: medal shops: %v", err)
+	}
 	calendarOn := gametime.CurrentCalendar() != nil
 	entries = applyNoticeWindows(entries, file.Rules, gametime.CalendarOffset(), calendarOn)
 	entries = addNewSummonsFor(entries, file, gametime.CalendarOffset(), calendarOn)
@@ -342,7 +348,12 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 		// The Event tab shows To Quests; event chapter 0 opened the plain Event Quests list.
 		e.RelatedEventQuestChapterId = n.Event
 		if src, ok := byId[n.Lineup]; ok && n.Lineup != 0 {
-			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = src.GachaMedalId, src.MedalConsumableItemId, src.CeilingCount
+			e.CeilingCount = src.CeilingCount
+			// Its medal only while that medal's exchange is open for this
+			// run: the client's Exchange otherwise opened an exchange with no shop.
+			if medalShopOpen == nil || medalShopOpen(src.MedalConsumableItemId, n.Start+offset, n.End+offset) {
+				e.GachaMedalId, e.MedalConsumableItemId = src.GachaMedalId, src.MedalConsumableItemId
+			}
 		}
 		pair, paired := byId[n.Pair]
 		if paired {
@@ -551,4 +562,69 @@ func (pool *GachaCatalog) applyRuleFeatured(rules map[int32]summonRule) {
 		applied++
 	}
 	log.Printf("summon rules: %d summons featured as their notices list", applied)
+}
+
+// medalShopOpen is whether an exchange shop taking a medal is open for a whole
+// run (game data dates); nil: always. ApplySummonRules sets it.
+var medalShopOpen func(item int32, start, end int64) bool
+
+func medalShopOpenFrom(windows map[int32][][2]int64) func(int32, int64, int64) bool {
+	return func(item int32, start, end int64) bool {
+		for _, w := range windows[item] {
+			if w[0] <= start && end <= w[1] {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// loadMedalShopWindows is when each shop selling for an item is open, by the
+// item it takes (the client's CalculatorShop.GetShopIdByConsumableItemId looks
+// for an open shop this way).
+func loadMedalShopWindows() (map[int32][][2]int64, error) {
+	shops, err := utils.ReadTable[EntityMShop]("m_shop")
+	if err != nil {
+		return nil, err
+	}
+	groups, err := utils.ReadTable[EntityMShopItemCellGroup]("m_shop_item_cell_group")
+	if err != nil {
+		return nil, err
+	}
+	cells, err := utils.ReadTable[EntityMShopItemCell]("m_shop_item_cell")
+	if err != nil {
+		return nil, err
+	}
+	items, err := utils.ReadTable[EntityMShopItem]("m_shop_item")
+	if err != nil {
+		return nil, err
+	}
+	price := make(map[int32]int32, len(items))
+	for _, it := range items {
+		if it.PriceType == model.PriceTypeConsumableItem {
+			price[it.ShopItemId] = it.PriceId
+		}
+	}
+	cellPrices := map[int32][]int32{}
+	for _, c := range cells {
+		if p, ok := price[c.ShopItemId]; ok {
+			cellPrices[c.ShopItemCellId] = append(cellPrices[c.ShopItemCellId], p)
+		}
+	}
+	groupPrices := map[int32]map[int32]bool{}
+	for _, g := range groups {
+		for _, p := range cellPrices[g.ShopItemCellId] {
+			if groupPrices[g.ShopItemCellGroupId] == nil {
+				groupPrices[g.ShopItemCellGroupId] = map[int32]bool{}
+			}
+			groupPrices[g.ShopItemCellGroupId][p] = true
+		}
+	}
+	out := map[int32][][2]int64{}
+	for _, s := range shops {
+		for p := range groupPrices[s.ShopItemCellGroupId] {
+			out[p] = append(out[p], [2]int64{s.StartDatetime, s.EndDatetime})
+		}
+	}
+	return out, nil
 }
