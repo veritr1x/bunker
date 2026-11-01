@@ -16,6 +16,8 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Effects: shadows, reflections and bloom chosen off are cleared in every
+//   performance preset and the one in use is applied again (render_effects.c).
 // - Drawing: above 30 fps it draws 30 a second after 2 s without a touch
 //   outside battles, and 60 or 30 while the device is hot (render_pace.c,
 //   shared with Android; it fixes up stale presets itself).
@@ -45,6 +47,7 @@
 
 #include "flying_mom.h"
 #include "render_pace.h"
+#include "render_effects.h"
 #include "bunker_button.h"
 #include "roulette_ads.h"
 
@@ -68,6 +71,7 @@ static struct {
 } il2cpp;
 
 static int gFps, gSize;  // 0: the game's own.
+static int gEffects;  // render_effects.c: 0 none chosen off or done, else applying
 static int gFlyingMom = -1;  // flying_mom_route's result; -1 before flying_mom_init
 static int gAds;  // roulette_ads_route_agent: 0 until the agent exists, then 1 (or -1).
 static NSString *gStatusPath;
@@ -362,7 +366,9 @@ static BOOL UnityStarted(void) {
     }
     if (!gAds && (gAds = roulette_ads_route_agent()))
         NSLog(@"[LunarTear] Special Gift Roulette: %@", gAds > 0 ? @"video ad skipped" : [NSString stringWithFormat:@"not available (%d)", gAds]);
-    if (!zones.stay_update && !gFps && gAds) { [link invalidate]; gLink = nil; return; }  // Nothing more to watch.
+    // After PatchPresets, so applying the preset again keeps the chosen frame rate and resolution.
+    if (gEffects && render_effects_apply()) gEffects = 0;
+    if (!zones.stay_update && !gFps && gAds && !gEffects) { [link invalidate]; gLink = nil; return; }  // Nothing more to watch.
     if (!gFps) {  // The game's own 30 fps: only the story-event zones.
         if (zones.stay_update) WatchZones();
         return;
@@ -409,6 +415,7 @@ void LTDisplayStart(NSString *toolsRoot) {
     NSString *conf = [NSString stringWithContentsOfFile:[toolsRoot stringByAppendingPathComponent:@"display.conf"] encoding:NSUTF8StringEncoding error:nil];
     NSInteger screen = UIScreen.mainScreen.maximumFramesPerSecond;
     BOOL idle = YES, heat = YES;
+    int effectsOff = 0;
     for (NSString *line in [conf componentsSeparatedByString:@"\n"]) {
         NSArray *pair = [line componentsSeparatedByString:@"="];
         if (pair.count != 2) continue;
@@ -421,6 +428,9 @@ void LTDisplayStart(NSString *toolsRoot) {
         if ([key isEqual:@"resolution"]) gSize = RenderTargetSize(value);
         if ([key isEqual:@"idle"]) idle = ![value isEqual:@"off"];
         if ([key isEqual:@"heat"]) heat = ![value isEqual:@"off"];
+        if ([value isEqual:@"off"] && [key isEqual:@"shadows"]) effectsOff |= RENDER_EFFECTS_SHADOWS;
+        if ([value isEqual:@"off"] && [key isEqual:@"reflections"]) effectsOff |= RENDER_EFFECTS_REFLECTIONS;
+        if ([value isEqual:@"off"] && [key isEqual:@"bloom"]) effectsOff |= RENDER_EFFECTS_BLOOM;
     }
     // The story-event zone fix runs with the game's own settings too; display.status reports chosen settings only.
     BOOL chosen = gFps || gSize;
@@ -438,8 +448,9 @@ void LTDisplayStart(NSString *toolsRoot) {
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
         NSLog(@"[LunarTear] Flying Mama: the game's IL2CPP API is missing");
+    if (effectsOff && !render_effects_init(IL2CPPSymbol, GameLog, effectsOff)) gEffects = 1;
     if (gFps && (idle || heat)) {
-        if (render_pace_init(IL2CPPSymbol, GameLog, gFps, idle, heat))
+        if (render_pace_init(IL2CPPSymbol, GameLog, gFps, idle, heat, NULL))
             NSLog(@"[LunarTear] Frame pacing: the game's IL2CPP API is missing");
         // thermalState: 0 nominal, 1 fair, 2 serious, 3 critical, as render_pace_set_thermal takes it.
         render_pace_set_thermal((int)NSProcessInfo.processInfo.thermalState);

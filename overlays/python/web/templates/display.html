@@ -29,6 +29,11 @@
     <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
     <span class="note">Full screen also draws around the camera cutout. The game's buttons stay clear of it.</span>
   </div>
+  {% for name, title, about in [("shadows", "Shadows", "Characters' and scenery shadows."), ("reflections", "Reflections", "Reflections on floors and water."), ("bloom", "Bloom", "The soft glow around bright light. The scene looks a little flatter without it.")] %}<div class="setting">
+    <label for="{{ name }}">{{ title }}</label>
+    <select name="{{ name }}" id="{{ name }}">{% for key, label in effect_options %}<option value="{{ key }}"{% if settings[name] == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <span class="note">{{ about }} Off saves GPU work every frame, more at high resolutions.</span>
+  </div>{% endfor %}
   {% if texture_options|length > 1 %}<div class="setting">
     <label for="textures">Texture size</label>
     <select name="textures" id="textures">{% for key, title in texture_options %}<option value="{{ key }}"{% if settings.textures == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>

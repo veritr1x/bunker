@@ -23,26 +23,26 @@ class Settings(unittest.TestCase):
         self.dir.cleanup()
 
     def test_missing_file_keeps_the_game_defaults(self):
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
 
     def test_saved_choices_are_read_back(self):
         self.display.write_settings("60", "native", "full", self.conf)
-        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\nidle=on\nheat=on\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
+        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\nidle=on\nheat=on\nshadows=on\nreflections=on\nbloom=on\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
         self.display.write_settings("max", "1440", "safe", self.conf)
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full", "idle": "on", "heat": "on"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
 
     def test_lower_resolutions_and_texture_sizes_are_saved(self):
         self.display.write_settings("30", "540", "full", self.conf, textures="quarter")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter", "idle": "on", "heat": "on"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
         self.display.write_settings("60", "640", "safe", self.conf, textures="half")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half", "idle": "on", "heat": "on"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
         with self.assertRaises(ValueError):
             self.display.write_settings("30", "default", "full", self.conf, textures="tiny")
 
     def test_settings_saved_before_the_screen_choice_use_the_full_screen(self):
         self.conf.write_text("fps=60\nresolution=native\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
 
     def test_unknown_values_are_refused_and_ignored(self):
         with self.assertRaises(ValueError):
@@ -50,15 +50,22 @@ class Settings(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.display.write_settings("60", "native", "wide", self.conf)
         self.conf.write_text("fps=240\nresolution=8k\nscreen=wide\nnoise\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on"})
 
     def test_idle_and_heat_slow_downs_can_be_turned_off(self):
         self.display.write_settings("120", "native", "full", self.conf, idle="off", heat="off")
-        self.assertEqual(self.conf.read_text(), "fps=120\nresolution=native\nscreen=full\ntextures=full\nidle=off\nheat=off\n")
+        self.assertEqual(self.conf.read_text(), "fps=120\nresolution=native\nscreen=full\ntextures=full\nidle=off\nheat=off\nshadows=on\nreflections=on\nbloom=on\n")
         self.assertEqual(self.display.read_settings(self.conf)["idle"], "off")
         self.assertEqual(self.display.read_settings(self.conf)["heat"], "off")
         with self.assertRaises(ValueError):
             self.display.write_settings("120", "native", "full", self.conf, idle="sometimes")
+
+    def test_effects_can_be_turned_off(self):
+        self.display.write_settings("60", "1440", "full", self.conf, shadows="off", bloom="off")
+        settings = self.display.read_settings(self.conf)
+        self.assertEqual((settings["shadows"], settings["reflections"], settings["bloom"]), ("off", "on", "off"))
+        with self.assertRaises(ValueError):
+            self.display.write_settings("60", "1440", "full", self.conf, bloom="half")
 
 
 class Encodings(unittest.TestCase):
@@ -180,6 +187,64 @@ int main(void) {
 
     def test_heat_does_not_slow_a_rate_already_low_enough(self):
         self.assertEqual(self.run_frames([(None, 1 / 60, 1, 0, 2)], fps=60)[0], 1)
+
+
+class RenderEffects(unittest.TestCase):
+    """render_effects.c's flag clearing on Config.LevelConfig entries, built for this computer."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.TemporaryDirectory()
+        harness = Path(cls.dir.name) / "harness.c"
+        # Reads OFF then 12-byte entries as hex; prints them back after clearing.
+        harness.write_text(r"""
+#include <stdio.h>
+#include <stdlib.h>
+#include "render_effects.h"
+int main(int argc, char **argv) {
+    int off = atoi(argv[1]); size_t n = (size_t)(argc - 2) / 12;
+    uint8_t entries[12 * 8];
+    for (int i = 2; i < argc; i++) entries[i - 2] = (uint8_t)strtoul(argv[i], 0, 16);
+    render_effects_clear(entries, n, off);
+    for (size_t i = 0; i < n * 12; i++) printf("%02x", entries[i]);
+    printf("\n");
+    return 0;
+}
+""")
+        cls.binary = Path(cls.dir.name) / "harness"
+        cpp = root / "android/app/src/main/cpp"
+        subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-I", str(cpp), "-o", str(cls.binary), str(harness),
+                        str(cpp / "render_effects.c")], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def clear(self, off, entries):
+        # entries: (frame rate, size, shadow, reflection, vignette, bloom)
+        raw = []
+        for rate, size, *flags in entries:
+            raw += list(rate.to_bytes(4, "little")) + list(size.to_bytes(4, "little")) + flags
+        out = subprocess.run([str(self.binary), str(off), *(f"{b:x}" for b in raw)], check=True, capture_output=True, text=True).stdout.strip()
+        data = bytes.fromhex(out)
+        return [(int.from_bytes(data[i:i + 4], "little"), int.from_bytes(data[i + 4:i + 8], "little"), *data[i + 8:i + 12])
+                for i in range(0, len(data), 12)]
+
+    def test_nothing_off_keeps_every_preset(self):
+        presets = [(120, 8, 1, 1, 1, 1), (120, 6, 1, 0, 1, 1), (10, 5, 0, 0, 0, 0)]
+        self.assertEqual(self.clear(0, presets), presets)
+
+    def test_each_effect_is_turned_off_in_every_preset(self):
+        presets = [(120, 8, 1, 1, 1, 1), (60, 6, 1, 1, 1, 0)]
+        self.assertEqual(self.clear(1, presets), [(120, 8, 0, 1, 1, 1), (60, 6, 0, 1, 1, 0)])
+        self.assertEqual(self.clear(2, presets), [(120, 8, 1, 0, 1, 1), (60, 6, 1, 0, 1, 0)])
+        self.assertEqual(self.clear(4, presets), [(120, 8, 1, 1, 1, 0), (60, 6, 1, 1, 1, 0)])
+
+    def test_vignette_rate_and_size_are_never_changed(self):
+        self.assertEqual(self.clear(7, [(120, 8, 1, 1, 1, 1)]), [(120, 8, 0, 0, 1, 0)])
+
+    def test_an_effect_already_off_stays_off(self):
+        self.assertEqual(self.clear(0, [(30, 5, 0, 0, 0, 0)]), [(30, 5, 0, 0, 0, 0)])
 
 
 class FlyingMom(unittest.TestCase):
