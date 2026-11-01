@@ -75,6 +75,9 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Immediate signed/unsigned SIMD right shifts match 245,760 ARM64 reference
   records on each host, covering every legal shift amount, overlap, upper
   clearing and unchanged flags. See [the shift gate](whole/right_shifts.md).
+- SIMD TRN1/TRN2 transposes match 17,920 ARM64 reference records on each host,
+  including all allocated arrangements and source/destination overlaps.
+  See [the transpose gate](whole/transpose.md).
 - Proved direct setjmp import calls now seed executable post-call continuations
   in the compiler: 49 roots in Unity and one in IL2CPP. Native dispatch checks,
   normal context-save tests and whole-compiler regressions pass on both hosts.
