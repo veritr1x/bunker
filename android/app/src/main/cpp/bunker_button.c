@@ -64,12 +64,12 @@ static void (*report)(const char *message);
 static void (*open_bunker)(void);
 
 static void *k_object, *k_component, *k_gameobject, *k_transform, *k_rect, *k_behaviour, *k_header, *k_button,
-    *k_text, *k_image, *k_rawimage, *k_texture, *k_action, *k_byte, *k_layout;
+    *k_text, *k_image, *k_rawimage, *k_texture, *k_action, *k_byte, *k_layout, *k_counter, *k_vector3;
 static Method *m_start, *m_update, *m_on_tap_help, *m_name, *m_set_name, *m_component_go, *m_component_tr, *m_go_tr,
     *m_parent, *m_child_count, *m_child, *m_set_parent, *m_sibling, *m_instantiate, *m_set_active, *m_active_self,
     *m_components, *m_get_component, *m_add_component, *m_go_ctor, *m_set_enabled, *m_set_text, *m_tex_ctor,
     *m_load_image, *m_set_texture, *m_anchor_min, *m_anchor_max, *m_offset_min, *m_offset_max, *m_register_tap,
-    *m_is_enable, *m_set_is_enable, *m_rect, *m_get_spacing, *m_set_spacing;
+    *m_is_enable, *m_set_is_enable, *m_rect, *m_get_spacing, *m_set_spacing, *m_root, *m_corners, *m_in_hierarchy;
 static size_t f_notice, f_has_tap, f_method_ptr, f_target, f_method;
 static void (*start_original)(void *self, Method *method);
 static void (*update_original)(void *self, Method *method);
@@ -227,6 +227,17 @@ static void start_hook(void *self, Method *method) {
 // Per row: the copy's button, and the row's own gap (to narrow from).
 static struct { void *self, *button, *row, *layout; float gap; int enabled, frames; } seen;
 
+// A RectTransform's corners on screen: left, bottom, right, top. 0 on success.
+static int corners(void *transform, float out[4]) {
+    void *array = transform ? il2cpp.array_new(k_vector3, 4) : NULL;
+    if (!array) return -1;
+    call(m_corners, transform, (void *[]){array});  // returns nothing; fills the array
+    if (failed) return -1;
+    float *v = (float *)((uint8_t *)array + 32);  // 4 x (x, y, z): bottom-left, top-left, top-right, bottom-right
+    out[0] = v[0]; out[1] = v[1]; out[2] = v[6]; out[3] = v[4];
+    return 0;
+}
+
 static float rect_width(void *transform) {
     void *rect = transform ? call(m_rect, transform, NULL) : NULL;
     return rect ? ((float *)((uint8_t *)rect + 16))[2] : 0;  // Rect: x, y, width, height
@@ -256,19 +267,39 @@ static void update_hook(void *self, Method *method) {
         call(m_set_is_enable, seen.button, (void *[]){&value});
         seen.enabled = enabled;
     }
-    // Fit the row to its place twice a second.
+    // Fit the row twice a second: it grows to the left, and must stay clear of
+    // the counters on the same line (gems, medals, stamina: HeaderParameterBase).
     if (!seen.layout || seen.frames++ % 30) return;
-    float available = rect_width(call(m_parent, seen.row, NULL)), width = rect_width(seen.row);
+    float row[4], limit = -1e9f;
+    if (corners(seen.row, row)) return;
+    void *counters = components(call(m_component_go, call(m_root, seen.row, NULL), NULL), k_counter);
+    for (size_t i = 0; i < array_length(counters); i++) {
+        float box[4];
+        void *counter = array_item(counters, i);
+        if (!unboxed_bool(call(m_in_hierarchy, call(m_component_go, counter, NULL), NULL))) continue;
+        if (corners(call(m_component_tr, counter, NULL), box)) continue;
+        if (box[3] > row[1] && box[1] < row[3] && box[2] < row[2] && box[2] > limit) limit = box[2];  // on the row's line, left of it
+    }
+    float width = rect_width(seen.row);
+    if (limit < -1e8f || width <= 0 || row[2] <= row[0]) return;
+    float scale = (row[2] - row[0]) / width;  // world units per row unit
+    float margin = 6 * scale;
     void *count = call(m_child_count, seen.row, NULL);
     int shown = 0, n = count ? FIELD(count, 16, int) : 0;
     for (int i = 0; i < n; i++)
         shown += unboxed_bool(call(m_active_self, call(m_component_go, call(m_child, seen.row, (void *[]){&i}), NULL), NULL));
     void *now = call(m_get_spacing, seen.layout, NULL);
     float gap = now ? FIELD(now, 16, float) : seen.gap;
-    if (shown < 2 || available <= 0 || width <= 0) return;
+    if (shown < 2) return;
+    float available = width + (row[0] - limit - margin) / scale;
     float button = (width - gap * (float)(shown - 1)) / (float)shown;
     float want = bunker_row_gap(available, button, shown, seen.gap, 0);
-    if (want != gap) call(m_set_spacing, seen.layout, (void *[]){&want});
+    if (want != gap) {
+        call(m_set_spacing, seen.layout, (void *[]){&want});
+        char message[96];
+        snprintf(message, sizeof message, "Bunker button: row gap %.1f -> %.1f (room %.0f of %.0f)", gap, want, available, width);
+        say(message);
+    }
 }
 
 static int look_up(void) {
@@ -284,6 +315,7 @@ static int look_up(void) {
     CLASS(k_texture, "UnityEngine", "Texture2D") CLASS(k_rawimage, "UnityEngine.UI", "RawImage")
     CLASS(k_layout, "UnityEngine.UI", "HorizontalOrVerticalLayoutGroup")
     CLASS(k_action, "System", "Action") CLASS(k_byte, "System", "Byte")
+    CLASS(k_counter, "Dark.View.HeadUpDisplay.Header", "HeaderParameterBase") CLASS(k_vector3, "UnityEngine", "Vector3")
     void *conversion, *delegate;
     CLASS(conversion, "UnityEngine", "ImageConversion") CLASS(delegate, "System", "Delegate")
     METHOD(m_start, k_header, "Start", 0, NULL) METHOD(m_update, k_header, "Update", 0, NULL)
@@ -300,7 +332,8 @@ static int look_up(void) {
     METHOD(m_parent, k_transform, "get_parent", 0, NULL) METHOD(m_child_count, k_transform, "get_childCount", 0, NULL)
     METHOD(m_child, k_transform, "GetChild", 1, NULL) METHOD(m_sibling, k_transform, "SetSiblingIndex", 1, NULL)
     METHOD(m_set_parent, k_transform, "SetParent", 2, "UnityEngine.Transform")
-    METHOD(m_rect, k_rect, "get_rect", 0, NULL)
+    METHOD(m_rect, k_rect, "get_rect", 0, NULL) METHOD(m_corners, k_rect, "GetWorldCorners", 1, NULL)
+    METHOD(m_root, k_transform, "get_root", 0, NULL) METHOD(m_in_hierarchy, k_gameobject, "get_activeInHierarchy", 0, NULL)
     METHOD(m_anchor_min, k_rect, "set_anchorMin", 1, NULL) METHOD(m_anchor_max, k_rect, "set_anchorMax", 1, NULL)
     METHOD(m_offset_min, k_rect, "set_offsetMin", 1, NULL) METHOD(m_offset_max, k_rect, "set_offsetMax", 1, NULL)
     METHOD(m_set_enabled, k_behaviour, "set_enabled", 1, NULL)
