@@ -375,4 +375,7 @@ void EglHost::Invoke(const std::string &name,State &state){std::lock_guard lock(
 void EglHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("EGL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"EGL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 void EglHost::ReleaseCurrentThread(){std::lock_guard lock(impl_->mutex);impl_->ReleaseThread();}
 void EglHost::SetProcedureResolver(std::function<addr_t(const std::string&)> resolver){std::lock_guard lock(impl_->mutex);impl_->procedure_resolver=std::move(resolver);}
+addr_t EglHost::CurrentContextToken(){std::lock_guard lock(impl_->mutex);return impl_->Find(impl_->eglGetCurrentContext(),Impl::Context);}
+bool EglHost::ContextAlive(addr_t token){std::lock_guard lock(impl_->mutex);auto at=impl_->objects.find(token);return at!=impl_->objects.end()&&at->second.kind==Impl::Context&&!at->second.native_destroyed;}
+bool EglHost::UsesGlesModule(const void *module){std::lock_guard lock(impl_->mutex);return impl_->gles==module;}
 }  // namespace bunker::windows

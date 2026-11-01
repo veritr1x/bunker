@@ -13,6 +13,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 using namespace bunker::windows;
 static unsigned checks;
@@ -52,7 +53,7 @@ int main(){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   bunker::jni::Host java([](addr_t){return false;});NativeWindows windows(java);recomp::Runtime runtime;
   EglHost egl(windows,GL_SCALAR_DLL_DIRECTORY);egl_provider=&egl;egl.Install(runtime);
-  GlHost gl(GL_SCALAR_DLL_DIRECTORY);gl.Install(runtime);egl.SetProcedureResolver([&](const std::string &name){return gl.Marker(name);});
+  GlHost gl(egl,GL_SCALAR_DLL_DIRECTORY);gl.Install(runtime);egl.SetProcedureResolver([&](const std::string &name){return gl.Marker(name);});
   driver=GetModuleHandleW(L"libGLESv2.dll");Check(driver!=nullptr,"real pinned ANGLE DLL loaded");
   auto display=Invoke(egl,"eglGetDisplay",{0});Check(display&&Invoke(egl,"eglInitialize",{display,0,0}),"actual Vulkan display");
   const int attrs[]={0x3024,8,0x3023,8,0x3022,8,0x3021,8,0x3025,24,0x3026,8,0x3033,1,0x3040,0x40,0x3038};addr_t config=0;int count=0;
@@ -91,6 +92,38 @@ int main(){
   Check(!Invoke(gl,"glGetString",{0xffffffffU}),"query records a real pending enum error");
   Invoke(gl,"glViewport",{0,0,0xffffffffU,1});Invoke(gl,"glEnable",{GL_BLEND});
   Check(Invoke(gl,"glGetError")==GL_INVALID_ENUM&&Invoke(gl,"glGetError")==GL_INVALID_VALUE&&Invoke(gl,"glGetError")==0,"query-cached and new scalar errors combine without loss");
-  Check(Invoke(egl,"eglMakeCurrent",{display,0,0,0})&&Invoke(egl,"eglDestroySurface",{display,guest_surface})&&Invoke(egl,"eglDestroyContext",{display,guest_context})&&Invoke(egl,"eglDestroySurface",{display,surface})&&Invoke(egl,"eglDestroyContext",{display,context})&&Invoke(egl,"eglTerminate",{display}),"all real GLES resources retired");
+  Check(egl.UsesGlesModule(driver)&&!egl.UsesGlesModule(nullptr),"GL module identity is bound to the actual EGL provider");
+  Check(!Invoke(gl,"glGetString",{0xffffffffU}),"cache enum error on guest context B");
+  Check(Invoke(egl,"eglMakeCurrent",{display,surface,surface,context}),"switch current context B to A on same thread");
+  Check(Invoke(gl,"glGetError")==0,"cached B error never leaks to A");
+  Invoke(gl,"glViewport",{0,0,0xffffffffU,1});Invoke(gl,"glGetString",{GL_VENDOR});
+  Check(Invoke(egl,"eglMakeCurrent",{display,guest_surface,guest_surface,guest_context}),"restore current B");
+  Check(Invoke(gl,"glGetError")==GL_INVALID_ENUM&&Invoke(gl,"glGetError")==0,"B retains its own enum error across context switches");
+  Check(Invoke(egl,"eglMakeCurrent",{display,surface,surface,context})&&Invoke(gl,"glGetError")==GL_INVALID_VALUE&&Invoke(gl,"glGetError")==0,"A retains its separate value error");
+  Check(Invoke(egl,"eglMakeCurrent",{display,guest_surface,guest_surface,guest_context}),"select B for actual thread migration");
+  Invoke(gl,"glGetString",{0xffffffffU});Check(Invoke(egl,"eglMakeCurrent",{display,0,0,0}),"release B before migrating to another native thread");
+  std::exception_ptr worker_error;bool migrated=false;
+  std::thread worker([&]{try{
+    if(!Invoke(egl,"eglMakeCurrent",{display,guest_surface,guest_surface,guest_context}))throw std::runtime_error("worker cannot bind migrated B");
+    migrated=Invoke(gl,"glGetError")==GL_INVALID_ENUM&&Invoke(gl,"glGetError")==0;
+    Invoke(gl,"glViewport",{0,0,0xffffffffU,1});Invoke(gl,"glGetString",{GL_VENDOR});
+    egl.ReleaseCurrentThread();
+  }catch(...){worker_error=std::current_exception();try{egl.ReleaseCurrentThread();}catch(...){}}});worker.join();
+  if(worker_error)std::rethrow_exception(worker_error);
+  Check(migrated,"cached error follows actual EGL context migration to worker");
+  Check(Invoke(egl,"eglMakeCurrent",{display,guest_surface,guest_surface,guest_context})&&Invoke(gl,"glGetError")==GL_INVALID_VALUE&&Invoke(gl,"glGetError")==0,"worker-cached error follows B back to original thread");
+  Check(Invoke(egl,"eglMakeCurrent",{display,surface,surface,context}),"select A for deferred destruction");
+  Invoke(gl,"glGetString",{0xffffffffU});Check(Invoke(egl,"eglDestroyContext",{display,context}),"destroy current A is deferred");
+  Check(egl.ContextAlive(context)&&egl.CurrentContextToken()==context&&Invoke(gl,"glGetError")==GL_INVALID_ENUM,"deferred-deleted current context retains its own errors");
+  Invoke(gl,"glGetString",{0xffffffffU});Check(Invoke(egl,"eglMakeCurrent",{display,guest_surface,guest_surface,guest_context})&&!egl.ContextAlive(context),"unbind retires deleted context A");
+  auto replacement=Invoke(egl,"eglCreateContext",{display,config,0,reinterpret_cast<addr_t>(ca)});
+  Check(replacement&&replacement!=context&&Invoke(egl,"eglMakeCurrent",{display,surface,surface,replacement}),"replacement context has fresh provider identity");
+  Check(Invoke(gl,"glGetError")==0,"destroyed context errors never reach a fresh context");
+  Check(Invoke(egl,"eglMakeCurrent",{display,guest_surface,guest_surface,guest_context})&&Invoke(egl,"eglDestroyContext",{display,replacement}),"retire replacement after unbind");
+  GLint untouched=0x12345678;Check(!Invoke(egl,"eglGetConfigAttrib",{display,0xdeadbeef,0x3024,reinterpret_cast<addr_t>(&untouched)}),"establish real provider EGL_BAD_CONFIG");
+  Check(Invoke(gl,"glGetError")==0&&Invoke(egl,"eglGetError")==0x3005&&untouched==0x12345678,"GL context observation preserves pending EGL error and output");
+  Check(Invoke(egl,"eglMakeCurrent",{display,0,0,0}),"explicitly unbind final context");
+  rejected=false;try{Invoke(gl,"glGetError");}catch(const std::runtime_error&){rejected=true;}Check(rejected,"GL call without an owned current EGL context fails explicitly");
+  Check(Invoke(egl,"eglDestroySurface",{display,guest_surface})&&Invoke(egl,"eglDestroyContext",{display,guest_context})&&Invoke(egl,"eglDestroySurface",{display,surface})&&Invoke(egl,"eglTerminate",{display}),"all real GLES resources retired");
   egl.ReleaseCurrentThread();egl.SetProcedureResolver({});std::printf("GL scalar commands: %u checks passed; 28 actual NDK signatures, 64 real RGBA pixels, native state/error/ABI parity\n",checks);
 }

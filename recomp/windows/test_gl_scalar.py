@@ -28,8 +28,8 @@ def main():
         for file in (a.support_source/directory).iterdir():
             if file.is_file() and file.suffix in ('.h', '.cpp', '.c', '.inc'):
                 shutil.copyfile(file, target/file.name)
-    for name in ('gl_host.cpp', 'gl_host.h', 'gl_scalar_commands.inc',
-                 'gl_scalar_guest.c', 'gl_scalar_test.cpp'):
+    for name in ('gl_host.cpp', 'gl_host.h', 'egl_host.cpp', 'egl_host.h', 'gl_host_test.cpp',
+                 'gl_scalar_commands.inc', 'gl_scalar_guest.c', 'gl_scalar_test.cpp'):
         shutil.copyfile(HERE/name, source/'windows'/name)
     cc = a.ndk/'toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang'
     library = out/'scalar.so'

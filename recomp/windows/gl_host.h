@@ -6,12 +6,14 @@
 #include <vector>
 
 namespace bunker::windows {
+class EglHost;
 // GLES capability queries plus scalar state/clear commands. Native query
 // results use tracked guest memory; unsupported signatures/query widths fail.
 class GlHost {
  public:
   struct Query {uint32_t name;uint32_t count;uint32_t count_query=0;};
-  explicit GlHost(const std::wstring &absolute_dll_directory,
+  // EglHost must outlive this provider and every active GL call.
+  GlHost(EglHost &, const std::wstring &absolute_dll_directory,
                   addr_t marker_base=0x7ff450000000ULL);
   ~GlHost();
   GlHost(const GlHost&)=delete;

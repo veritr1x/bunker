@@ -19,7 +19,7 @@ No new command has a guest pointer, output buffer, object lifetime, client
 array or mapping to translate. Shader/draw/buffer APIs and guest `glReadPixels`
 remain unsupported. Unknown resolver signatures still fail explicitly.
 
-The Windows gate passes **320 checks** with the original pinned Vulkan ANGLE
+The Windows gate passes **342 checks** with the original pinned Vulkan ANGLE
 bundle, without changing either ANGLE bundle. Its actual Android NDK caller
 resolves and invokes all 28 signatures through `eglGetProcAddress`; its two
 translated traces have no unsupported instructions or unresolved direct
@@ -46,3 +46,13 @@ concurrent JNI edits. `--semantics-dir` supports an explicit compiler snapshot.
 Ignored evidence is `work/gl-scalar/acceptance.json` and
 `work/gl-scalar/query-regression.json`, including exact source, object, DLL and
 executable hashes. This is a real driver command gate, not a game frame.
+
+Cached errors belong to the actual EGL context, rather than its current native
+thread. `GlHost` now borrows its `EglHost`, checks that they use the same GLES
+module, and keys saved flags by never-reused provider context tokens. This
+fixes errors leaking across same-thread context switches or disappearing when
+a context moves to another thread. Deferred-deleted current contexts retain
+their flags until unbound; retired-context flags are discarded. A GL call
+without an owned current context fails explicitly. Read-only ownership checks
+do not consume EGL errors. Tests cover these cases on actual ANGLE contexts,
+including migration in both directions and replacement after destruction.

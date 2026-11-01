@@ -21,6 +21,12 @@ class EglHost {
   // Resolver must return an installed guest marker or reject the signature.
   // Called without guest-memory locks; it must not reenter this EglHost.
   void SetProcedureResolver(std::function<addr_t(const std::string&)>);
+  // Read-only context identity/lifetime for GL-side state. Tokens are never
+  // reused, include deferred-deleted current contexts, and reveal no native
+  // pointers. Neither operation consumes EGL error flags or calls guests.
+  addr_t CurrentContextToken();
+  bool ContextAlive(addr_t token);
+  bool UsesGlesModule(const void *native_module);
   // Call on the native worker itself before it exits. No guest callback runs.
   void ReleaseCurrentThread();
  private:
