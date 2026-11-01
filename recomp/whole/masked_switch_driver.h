@@ -10,10 +10,15 @@ static int run_masked_switch(masked_call call) {
 #ifdef _WIN32
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
+#ifdef SWITCH_MULTI_GUARD
+    const uint64_t selectors[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
+        21,22,23,24,25,UINT64_C(0x100000000),UINT64_C(0x100000014),UINT64_C(0x100000015),UINT64_MAX};
+#else
     const uint64_t selectors[] = {0,1,2,3,4,5,6,0x7fffffff,0x80000000,0xffffffff,
         UINT64_C(0x100000000),UINT64_C(0x100000001),UINT64_C(0x100000002),
         UINT64_C(0x100000003),UINT64_C(0x100000004),UINT64_C(0x100000005),
         UINT64_C(0x8000000100000003),UINT64_MAX};
+#endif
     uint64_t random = UINT64_C(0x36ef5c);
     for(unsigned i=0;i<sizeof(selectors)/sizeof(selectors[0]);++i)
         for(unsigned seed=0;seed<64;++seed) {
