@@ -33,6 +33,23 @@ int main(){
   require(elf_load(PTHREAD_GUEST_IMAGE,0x70000000,Resolve,&image)==0,"NDK pthread caller image");
   auto invoke=[&](const char *name){auto entry=reinterpret_cast<addr_t>(elf_symbol(&image,name));require(entry!=0,"fixture export");return host.Run(entry);};
   uint64_t self=host.Self();require(self==host.Self(),"stable calling-thread token");
+  require(host.GetTid()>0&&static_cast<DWORD>(host.GetTid())==GetCurrentThreadId(),"gettid matches independent actual Windows calling-thread ID");
+  require(guest_errno==123,"gettid preserves guest errno");
+  std::array<DWORD,12> actual_tids{};std::array<uint64_t,12> translated_tids{},virtual_threads{};
+  std::atomic<unsigned> tid_ready{0},tid_bad{0};std::atomic<bool> tid_release{false};std::vector<std::thread> tid_workers;
+  const auto tid_entry=reinterpret_cast<addr_t>(elf_symbol(&image,"guest_gettid"));
+  for(unsigned i=0;i<actual_tids.size();++i)tid_workers.emplace_back([&,i]{
+    actual_tids[i]=GetCurrentThreadId();virtual_threads[i]=host.Self();
+    for(unsigned repeat=0;repeat<32;++repeat){translated_tids[i]=host.Run(tid_entry);if(translated_tids[i]!=actual_tids[i]||host.GetTid()!=int32_t(actual_tids[i]))++tid_bad;}
+    ++tid_ready;while(!tid_release.load())std::this_thread::yield();
+    if(host.ReleaseCurrent())++tid_bad;
+  });
+  while(tid_ready.load()!=actual_tids.size())std::this_thread::yield();
+  tid_release=true;for(auto &thread:tid_workers)thread.join();
+  require(!tid_bad&&std::set<DWORD>(actual_tids.begin(),actual_tids.end()).size()==actual_tids.size(),"12 simultaneous NDK callers match distinct live native IDs");
+  require(std::set<uint64_t>(virtual_threads.begin(),virtual_threads.end()).size()==virtual_threads.size(),"virtual thread tokens remain independently unique");
+  require(!tid_bad,"external gettid worker cleanup");
+  {recomp::Runtime other_runtime;Pthreads other(other_runtime,[](addr_t){return false;});require(other.GetTid()==host.GetTid()&&other.Self()!=host.Self(),"native TID is shared across providers while virtual tokens stay distinct");}
   alignas(64) AndroidThreadAttr tracked_attr{};
   host.AttrInit(&tracked_attr);
   auto reserved=bunker::test::ReserveAcrossOperation(reinterpret_cast<addr_t>(&tracked_attr),8,[&]{if(host.AttrSetDetach(&tracked_attr,1)||host.AttrSetDetach(&tracked_attr,0))throw std::runtime_error("attr ABA failed");});
@@ -55,6 +72,7 @@ int main(){
   require(reserved.status==1&&tracked_result==0x6013,"same-value joined translated result is tracked");
   AndroidThreadAttr attr;uint64_t base,size;
   require(host.GetAttr(self,&attr)==95,"external thread stack initially unknown");
+  require(invoke("guest_gettid")==GetCurrentThreadId()&&self!=uint64_t(host.GetTid()),"actual NDK pid_t return is distinct from opaque pthread_t");
   require(host.AttrInit(&attr)==0&&attr.stack_size==1048576&&host.AttrSetStackSize(&attr,100)==22&&host.AttrSetDetach(&attr,2)==22,"Android attrs and minimum stack");
   require(host.AttrSetStackSize(&attr,65536)==0&&host.AttrGetStack(&attr,&base,&size)==0&&base==0&&size==65536,"Android 64-bit stack fields");
   require(host.AttrDestroy(&attr)==0&&host.AttrSetDetach(&attr,1)==22,"attribute lifetime");
