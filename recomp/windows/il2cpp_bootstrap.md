@@ -72,3 +72,48 @@ freezes host sources and verifies every copied object before linking. Its
 OverlayMetadata parameter accepts validated overlays without replacing any
 original file. The optional GcSignalInit run flag invokes initialization only;
 the resulting library still executes both finalizers.
+
+## Module lifetime and Unity export lookup profile
+
+The optional --module-load-exports profile gives ModuleRegistry sole ownership
+of the original nine constructor and two reverse finalizer entries. It opens the
+registered /data/app/bunker/lib/arm64/libil2cpp.so alias with flags2 and resolves
+all222 exact names requested by the original Unity API loader. Every result must
+match the rebased original ELF export and registered translated entry. A repeated
+basename open must retain the same handle, reach reference count2 and avoid
+constructors; the nonfinal close must avoid finalizers. Final close executes
+both finalizers once, rejects stale handles, and refuses reopening without a
+real data-image reset. No reset is supplied.
+
+This profile invokes no looked-up API body, il2cpp_init, startup-hook queue,
+managed code or GC setup. It is an isolated IL2CPP module-provider gate, not
+execution of Unity's Java ClassLoader/loader path or multi-module game startup.
+Default and --gc-signal-init modes keep their previous explicit lifecycle
+ownership and are regression-tested using the same new executable.
+
+Preparation uses --module-exports-only --unity-library original-libunity.so.
+It pins the audited Unity hash, proves the actual dlsym GOT/PLT/wrapper calls,
+extracts222 literal names and contiguous result slots from its real resolver,
+and checks the original IL2CPP ELF, manifest, supported trace entries and both
+native APK members. It writes il2cpp_module_exports.h/proof.json sidecars only.
+The original prepared header, metadata, objects and overlay remain untouched.
+
+il2cpp_exports_test.py checks the real proof and rejection of changed source,
+missing/mismatched/untranslated/unsupported exports. Build with
+il2cpp_build.ps1 -ModuleLoadExports and the previously validated OverlayMetadata.
+Separate module-exports source snapshot, build record, object, response file,
+executable and logs preserve earlier artifacts. test_il2cpp_module_exports.ps1
+runs all three modes and verifies hashes of the prior final-audit artifacts
+before and after. The189 remaining unsupported traces and old unpolled mixed
+snapshot are unchanged.
+
+The native module-export profile passed all222 lookups and lifecycle/refcount/
+stale-handle/reopen checks with exit0. The same new executable passed the default
+and real GC-signal-initializer regressions, each with9 constructors/2 finalizers
+and exit0. Twelve independent export-proof/rejection checks passed. Its SHA256 is
+244b7f111af71b9941cf054d8d5b308a74b7712a97f6cbb5d0e3dbb2c46396e9.
+The frozen host cohort provides170 imports and retains110 explicit strong
+failure markers. All prior artifact hashes and all new frozen source hashes
+were checked; later live provider changes are not attributed to this executable.
+Evidence is il2cpp_module_exports_build_record.json,
+il2cpp-module-exports-tests.json and il2cpp_module_exports_final_audit.json.
