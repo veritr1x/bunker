@@ -58,6 +58,7 @@ static struct {
     int32_t (*string_length)(void *string);
     uint16_t *(*string_chars)(void *string);
     void *(*thread_attach)(void *domain);
+    void *(*get_corlib)(void);
 } il2cpp;
 
 static void (*report)(const char *message);
@@ -354,9 +355,16 @@ static int look_up(void) {
 
 // IL2CPP starts on Unity's thread while this library is already loaded; its
 // classes are looked up only once it has finished (its assembly list has not
-// changed for 2 s): touching them earlier crashes the game.
+// changed for 2 s): touching them earlier crashes the game. Until its core
+// library exists, only il2cpp_get_corlib is asked (it changes nothing):
+// il2cpp_domain_get would create the domain IL2CPP is still setting up (on iOS
+// this library starts before Unity, and the game stayed on a black screen).
 static void *install(void *unused) {
     (void)unused;
+    for (int i = 0; !il2cpp.get_corlib(); i++) {
+        if (i > 1200) { say("Bunker button: the game did not start; no button"); return NULL; }
+        usleep(100000);
+    }
     size_t last = 0;
     for (int i = 0, steady = 0; steady < 20; i++) {
         if (i > 1200) { say("Bunker button: the game did not start; no button"); return NULL; }
@@ -383,7 +391,7 @@ int bunker_button_init(void *(*resolve)(const char *name), void (*log)(const cha
     LOAD(domain_get) LOAD(domain_get_assemblies) LOAD(assembly_get_image) LOAD(class_from_name) LOAD(class_get_methods)
     LOAD(method_get_name) LOAD(method_get_param_count) LOAD(method_get_param) LOAD(type_get_name)
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(class_get_type) LOAD(type_get_object) LOAD(runtime_invoke)
-    LOAD(object_new) LOAD(string_new) LOAD(array_new) LOAD(string_length) LOAD(string_chars) LOAD(thread_attach)
+    LOAD(object_new) LOAD(string_new) LOAD(array_new) LOAD(string_length) LOAD(string_chars) LOAD(thread_attach) LOAD(get_corlib)
 #undef LOAD
     pthread_t thread;
     if (pthread_create(&thread, NULL, install, NULL)) return -1;

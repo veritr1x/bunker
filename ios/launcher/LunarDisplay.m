@@ -41,6 +41,7 @@
 #include <string.h>
 
 #include "flying_mom.h"
+#include "bunker_button.h"
 #include "roulette_ads.h"
 
 typedef struct { void *pointer; } LTMethod;  // Il2Cpp MethodInfo starts with its code pointer.
@@ -396,6 +397,7 @@ static int RenderTargetSize(NSString *name) {
 }
 
 static void *IL2CPPSymbol(const char *name) { return dlsym(RTLD_DEFAULT, name); }
+void LTOpenBunker(void);  // LunarLauncher.m
 static void GameLog(const char *message) { NSLog(@"[LunarTear] %s", message); }
 
 void LTDisplayStart(NSString *toolsRoot) {
@@ -425,6 +427,8 @@ void LTDisplayStart(NSString *toolsRoot) {
         gAds = -1;
         NSLog(@"[LunarTear] Special Gift Roulette: the game's IL2CPP API is missing");
     }
+    if (bunker_button_init(IL2CPPSymbol, GameLog, LTOpenBunker))
+        NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
         NSLog(@"[LunarTear] Flying Mama: the game's IL2CPP API is missing");
     // IL2CPP starts while Unity finishes launching; the ticker begins once the app is active.
