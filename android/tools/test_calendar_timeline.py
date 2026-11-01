@@ -123,6 +123,7 @@ class Timeline(unittest.TestCase):
     def test_art_is_a_pod_programs_url(self):
         summons = cal.timeline(self.state, self.items(), self.now)["rows"][0]["items"]
         vol2 = next(i for i in summons if i["name"] == "Vol. 2")
+        self.assertEqual(vol2["kind"], "summon")
         self.assertEqual((vol2["art"], vol2["ref"]), ("/patcher/calendar/art?path=" + ART, "/schedule/summon/46"))
         self.assertEqual(next(i for i in summons if i["name"] == "Summon")["art"], "")
 
@@ -179,6 +180,32 @@ class Art(unittest.TestCase):
         with self.assertRaises(HTTPException) as refused:
             route.endpoint("../../saves/game.db")
         self.assertEqual(refused.exception.status_code, 404)
+
+
+class Page(unittest.TestCase):
+    TEMPLATES = Path(__file__).resolve().parents[2] / "overlays/python/web/templates"
+
+    def render(self, calendar):
+        import jinja2
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.TEMPLATES), autoescape=True)
+        return env.get_template("patcher.html").render(request=None, active="patcher", current="x", presets=[], splits=[],
+                                                       configuration="", history=[], calendar=calendar,
+                                                       start={"day": "d", "original": "o", "ends": "e"})
+
+    def test_the_schedule_shows_the_timeline_instead_of_open_now(self):
+        import json, re
+        state = {"loop": 1, "loopStart": cal.LAUNCH + 200 * WEEK}
+        now = state["loopStart"] + 20 * WEEK
+        data = cal.timeline(state, Timeline.items(type("T", (), {"now": now})()), now)
+        html = self.render({"loop": 1, "week": 21, "weeks": 144, "today": "t", "original": "o", "ends": "e", "progress": 10,
+                            "speed": "1", "originalDates": False, "timeline": data})
+        found = re.search(r'<script type="application/json" id="timeline-data">(.*?)</script>', html, re.S)
+        self.assertIsNotNone(found)
+        self.assertEqual(json.loads(found.group(1)), data)
+        self.assertNotIn("Open now", html)
+
+    def test_calendar_off_has_no_timeline(self):
+        self.assertNotIn("timeline-data", self.render(None))
 
 
 if __name__ == "__main__":

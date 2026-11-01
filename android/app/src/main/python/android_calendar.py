@@ -893,7 +893,7 @@ def timeline(state, items, now):
     labels = dict(TIMELINE_KINDS)
 
     def item(e):
-        return {"name": e.name or labels[e.kind].removesuffix("s"), "start": e.start - shift, "end": e.end - shift, "ref": e.ref,
+        return {"kind": e.kind, "name": e.name or labels[e.kind].removesuffix("s"), "start": e.start - shift, "end": e.end - shift, "ref": e.ref,
                 "art": "/patcher/calendar/art?path=" + quote(e.art, safe="/") if e.art else ""}
     shown = sorted((e for e in items if e.kind in labels and e.start < end and e.end > start), key=lambda e: (e.start, e.end))
     soon = sorted((e for e in shown if e.start <= now < e.end <= now + ENDING_SOON), key=lambda e: e.end)
@@ -943,8 +943,7 @@ def context(state):
     return {"state": state, "loop": state["loop"], "week": week_of(state, now), "weeks": LOOP_WEEKS,
             "progress": round(100 * (now - state["loopStart"]) / (LOOP_WEEKS * WEEK), 1),
             "today": day_label(shown), "originalDates": bool(state.get("originalDates")), "original": day_label(original(state, now)), "ends": day_label(loop_end(state)),
-            "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "open": summary(items, now), "now": now,
-            "timeline": timeline(state, items, now)}
+            "speed": str(state.get("speed", 1)), "speeds": SPEEDS, "now": now, "timeline": timeline(state, items, now)}
 
 
 @router.post("/patcher/calendar/on")

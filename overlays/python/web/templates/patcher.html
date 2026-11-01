@@ -36,24 +36,127 @@
   <p class="credit" style="margin: 12px 0 0">The calendar moves at the daily reset. Stamina and daily missions use normal time.</p>
 </div>
 
-<h2 class="bracket-header">Open now</h2>
-<div class="panel">
-  {% set groups = [("event", "Events"), ("summon", "Summons"), ("arena", "Arena"), ("pass", "Mission pass"), ("hunt", "Subjugation Battles"), ("shop", "Shops")] %}
-  {% set shown = namespace(any=false) %}
-  {% for kind, title in groups %}{% if calendar.open.get(kind) %}
-  <div class="label" {% if not shown.any %}style="margin-top: 0"{% endif %}>{{ title }} · {{ calendar.open[kind]|length }}</div>
-  {% set shown.any = true %}
-  <ul class="terms">{% for item in calendar.open[kind] %}<li>{{ item.name }}{% if item.until %} <span class="when">until {{ item.until }}</span>{% endif %}</li>{% endfor %}</ul>
-  {% endif %}{% endfor %}
-  {% if calendar.open.get("campaign") or calendar.open.get("expiry") %}
-  <div class="label">Also</div>
-  <ul class="terms">
-    {% if calendar.open.get("campaign") %}<li>{{ calendar.open["campaign"]|length }} campaigns</li>{% endif %}
-    {% if calendar.open.get("expiry") %}<li>{{ calendar.open["expiry"]|length }} event items expire <span class="when">first on {{ calendar.open["expiry"][0].until }}</span></li>{% endif %}
-  </ul>
-  {% endif %}
-  {% if not shown.any %}<p>Nothing is open right now.</p>{% endif %}
+<h2 class="bracket-header">Timeline</h2>
+<div class="panel timeline-panel">
+  <div id="tl-soon"></div>
+  <div class="tl-controls">
+    <div class="tl-chips" id="tl-kinds"></div>
+    <div class="tl-chips" id="tl-zoom"></div>
+  </div>
+  <div class="tl-box" id="tl-box"><div class="tl-inner" id="tl-inner"></div></div>
+  <p class="credit" style="margin: 10px 0 0">Times are in this phone's time zone. Tap a summon or an event to open it in the Archive.</p>
 </div>
+<script type="application/json" id="timeline-data">{{ calendar.timeline|tojson }}</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById("timeline-data").textContent);
+  const DAY = 86400000, HOUR = 3600000, MIN = 60000;
+  const ZOOMS = [["2 weeks", 14], ["6 weeks", 42], ["3 months", 92]];
+  const LABELS = {summon: "Summons", event: "Events", shop: "Shops", arena: "Arena"};
+  const PLAIN = {summon: "SUMMON", event: "EVENT", shop: "SHOP", arena: "ARENA"};
+  const KEY = "bunker.timeline.hidden";
+  let hidden = new Set(), zoom = 42;
+  try { hidden = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+  const year = new Date(data.now).getFullYear();
+  const day = ms => { const d = new Date(ms); return d.toLocaleDateString(undefined, d.getFullYear() === year ? {month: "short", day: "numeric"} : {month: "short", day: "numeric", year: "numeric"}); };
+  const span = ms => ms >= DAY ? `${Math.floor(ms / DAY)}d${ms % DAY >= HOUR ? " " + Math.floor(ms % DAY / HOUR) + "h" : ""}`
+                               : ms >= HOUR ? `${Math.floor(ms / HOUR)}h ${Math.floor(ms % HOUR / MIN)}m` : `${Math.max(1, Math.floor(ms / MIN))}m`;
+  const state = i => i.end <= data.now ? "ended" : i.start > data.now ? "next" : "open";
+  const tag = i => ({ended: "ended", next: "opens in " + span(i.start - data.now), open: span(i.end - data.now) + " left"})[state(i)];
+  // Art, or the plain label when there is none or it does not load.
+  const art = (i, kind, cls) => {
+    const box = el("div", cls);
+    const label = () => { box.textContent = PLAIN[kind]; box.classList.add("tl-plain"); };
+    if (!i.art) { label(); return box; }
+    const img = el("img"); img.alt = ""; img.loading = "lazy"; img.src = i.art; img.onerror = () => { img.remove(); label(); };
+    box.append(img); return box;
+  };
+  const link = (i, node) => { if (!i.ref) return node; const a = el("a", node.className); a.href = "bunker-archive:" + i.ref; a.append(...node.childNodes); return a; };
+  const text = i => {
+    const t = el("div", "tl-text");
+    t.append(el("b", "", i.name), el("span", "", `${day(i.start)} → ${day(i.end - 1)}`), el("em", "", tag(i)));
+    return t;
+  };
+
+  function soon() {
+    const box = document.getElementById("tl-soon"); box.replaceChildren();
+    if (!data.soon.length) return;
+    box.append(el("div", "label", "Ending in 7 days · " + data.soon.length));
+    const strip = el("div", "tl-strip");
+    for (const i of data.soon) {
+      const card = el("div", "tl-card"); card.append(art(i, i.kind, "tl-art small"), text(i));
+      strip.append(link(i, card));
+    }
+    box.append(strip);
+  }
+
+  function chips() {
+    const kinds = document.getElementById("tl-kinds"); kinds.replaceChildren();
+    for (const r of data.rows) {
+      const b = el("button", "tl-chip" + (hidden.has(r.kind) ? "" : " on"), `${LABELS[r.kind]} · ${r.items.length}`);
+      b.type = "button";
+      b.onclick = () => { hidden.has(r.kind) ? hidden.delete(r.kind) : hidden.add(r.kind); try { localStorage.setItem(KEY, JSON.stringify([...hidden])); } catch (e) {} chips(); draw(); };
+      kinds.append(b);
+    }
+    const zooms = document.getElementById("tl-zoom"); zooms.replaceChildren();
+    for (const [name, days] of ZOOMS) {
+      const b = el("button", "tl-chip" + (zoom === days ? " on" : ""), name); b.type = "button";
+      b.onclick = () => { zoom = days; chips(); draw(); };
+      zooms.append(b);
+    }
+  }
+
+  function draw() {
+    const box = document.getElementById("tl-box"), inner = document.getElementById("tl-inner");
+    const px = Math.max(box.clientWidth, 280) / (zoom * DAY);
+    const x = ms => (Math.min(Math.max(ms, data.from), data.to) - data.from) * px;
+    inner.replaceChildren(); inner.style.width = x(data.to) + "px";
+    // Month labels and week lines at local midnights.
+    const head = el("div", "tl-head"); inner.append(head);
+    for (let d = new Date(data.from); d.getTime() < data.to; d.setDate(d.getDate() + 1)) {
+      d.setHours(0, 0, 0, 0);
+      if (d.getTime() < data.from) continue;
+      if (d.getDate() === 1 || d.getTime() - data.from < DAY) {
+        const m = el("div", "tl-month", d.toLocaleDateString(undefined, d.getFullYear() === year ? {month: "short"} : {month: "short", year: "numeric"}));
+        m.style.left = x(d.getTime()) + "px"; head.append(m);
+      }
+      if (d.getDay() === 1) { const w = el("div", "tl-week"); w.style.left = x(d.getTime()) + "px"; inner.append(w); }
+    }
+    const today = el("div", "tl-today", "TODAY"); today.style.left = x(data.now) + "px"; inner.append(today);
+    for (const r of data.rows) {
+      if (hidden.has(r.kind) || !r.items.length) continue;
+      const lane = el("div", "tl-lane"); lane.append(el("div", "tl-lane-name", `${LABELS[r.kind].toUpperCase()} · ${r.items.length}`));
+      const body = el("div", "tl-lane-body"); lane.append(body); inner.append(lane);
+      const bars = r.items.map(i => {
+        // The art and text stay in view while a bar that began earlier scrolls past the left edge.
+        const content = el("div", "tl-content"); content.append(art(i, r.kind, "tl-art"), text(i));
+        const bar = el("div", "tl-bar " + state(i)); bar.append(content);
+        const node = link(i, bar); node.style.left = x(i.start) + "px"; body.append(node);
+        // A short bar widens to fit its text; its left edge stays on its start.
+        node.style.width = Math.max(x(i.end) - x(i.start), node.scrollWidth + 2) + "px";
+        return node;
+      });
+      // Stack: each bar goes on the first line whose last bar ends before it starts.
+      const lines = [];
+      for (const b of bars) {
+        const left = b.offsetLeft, right = left + b.offsetWidth;
+        let n = lines.findIndex(l => l.right + 6 <= left);
+        if (n < 0) { n = lines.length; lines.push({right: 0, height: 0, bars: []}); }
+        lines[n].right = right; lines[n].height = Math.max(lines[n].height, b.offsetHeight); lines[n].bars.push(b);
+      }
+      let top = 0;
+      for (const l of lines) { for (const b of l.bars) b.style.top = top + "px"; top += l.height + 6; }
+      body.style.height = top + "px";
+    }
+    box.scrollLeft = Math.max(0, x(data.now) - 24);
+  }
+
+  soon(); chips(); draw();
+  let width = window.innerWidth;
+  window.addEventListener("resize", () => { if (window.innerWidth !== width) { width = window.innerWidth; draw(); } });
+})();
+</script>
 <p class="credit">Presets are off while the calendar is on.</p>
 <form action="/patcher/calendar/off" method="post" class="actions"><button type="submit" class="secondary">Switch to everything open</button></form>
 {% else %}

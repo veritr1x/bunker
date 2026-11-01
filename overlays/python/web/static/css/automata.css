@@ -751,3 +751,35 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
 .setting label { display: block; margin: 0 0 6px; font-size: 15px; font-weight: 600; }
 .setting select { display: block; width: 100%; margin: 0; }
 .setting .note { display: block; margin-top: 6px; font-family: var(--mono); font-size: 11px; line-height: 1.5; color: var(--fg-mid); }
+
+/* Schedule timeline: summons, events, shops and Arena across the weeks (patcher.html). */
+.timeline-panel { padding: 14px; }
+.tl-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 4px; }
+.tl-card { flex: 0 0 auto; width: 230px; display: flex; gap: 8px; align-items: center; border: var(--border-thick); background: var(--bg-cream); padding: 6px; color: inherit; text-decoration: none; }
+.tl-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin: 10px 0; }
+.tl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tl-chip { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; padding: 4px 9px; min-height: 0; border: var(--border-thin); background: transparent; color: var(--fg-dark); }
+.tl-chip.on { background: var(--panel-inverse-bg); color: var(--panel-inverse-fg); }
+.tl-box { position: relative; overflow-x: auto; overflow-y: hidden; border: var(--border-thick); background: var(--bg-cream); -webkit-overflow-scrolling: touch; }
+.tl-inner { position: relative; min-height: 120px; padding-bottom: 8px; }
+.tl-head { position: relative; height: 22px; border-bottom: var(--border-thin); }
+.tl-month { position: absolute; top: 0; height: 22px; padding: 4px 6px; border-left: var(--border-thin); font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.tl-week { position: absolute; top: 22px; bottom: 0; border-left: 1px dashed var(--line); }
+.tl-today { position: absolute; top: 22px; bottom: 0; z-index: 2; border-left: 2px solid var(--danger); padding: 3px 4px; font-family: var(--mono); font-size: 9px; font-weight: 700; color: var(--danger); pointer-events: none; }
+.tl-lane { position: relative; border-bottom: var(--border-thin); padding: 6px 0 8px; }
+/* The row's name stays at the left edge while the timeline scrolls. */
+.tl-lane-name { position: sticky; left: 6px; display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; color: var(--fg-mid); }
+.tl-lane-body { position: relative; margin-top: 4px; }
+.tl-bar { position: absolute; display: flex; gap: 8px; align-items: center; box-sizing: border-box; min-height: 52px; padding: 5px; border: var(--border-thin); background: var(--panel-inverse-bg); color: var(--panel-inverse-fg); text-decoration: none; }
+.tl-content { position: sticky; left: 6px; display: flex; gap: 8px; align-items: center; }
+.tl-bar.next { background: transparent; color: var(--fg-dark); border-style: dashed; }
+.tl-bar.ended { opacity: 0.55; }
+.tl-art { flex: 0 0 80px; height: 40px; overflow: hidden; border: 1px solid currentColor; }
+.tl-art.small { flex-basis: 72px; height: 36px; }
+.tl-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tl-plain { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; }
+.tl-text { display: flex; flex-direction: column; gap: 1px; max-width: 200px; }
+.tl-text b { font-size: 12px; line-height: 1.25; }
+.tl-text span { font-family: var(--mono); font-size: 10px; opacity: 0.8; white-space: nowrap; }
+.tl-text em { align-self: flex-start; font-style: normal; font-family: var(--mono); font-size: 9px; padding: 0 4px; background: var(--panel-inverse-fg); color: var(--panel-inverse-bg); }
+.tl-bar.next em, .tl-card em { background: var(--panel-inverse-bg); color: var(--panel-inverse-fg); }
