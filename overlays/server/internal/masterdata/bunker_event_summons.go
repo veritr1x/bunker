@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 
 	"lunar-tear/server/internal/model"
@@ -73,6 +74,29 @@ var eventSummons struct {
 	sync.RWMutex
 	file   eventSummonsFile
 	byBase map[int32]int
+	runs   map[int32][]eventRun // by summon id: the event's chapter rows
+}
+
+// eventRun is one run of an event: its chapter row (the first run's, or a
+// copy the Original calendar adds for a rerun) and its dates.
+type eventRun struct {
+	chapter    int32
+	start, end int64
+}
+
+// EventSummonRunAt is the event run open at nowMillis for an event summon (its
+// chapter row, for To Quests) and whether one is; isEvent is false for other
+// summons. A run stays open for the summons' grace after it ends.
+func EventSummonRunAt(gachaId int32, nowMillis int64) (chapter int32, open, isEvent bool) {
+	eventSummons.RLock()
+	defer eventSummons.RUnlock()
+	runs, isEvent := eventSummons.runs[gachaId]
+	for _, r := range runs {
+		if r.start <= nowMillis && nowMillis < r.end+eventSummonGrace {
+			return r.chapter, true, true
+		}
+	}
+	return 0, false, isEvent
 }
 
 func setEventSummons(f eventSummonsFile) {
@@ -117,13 +141,15 @@ const eventSummonGrace = 2 * 24 * 60 * 60 * 1000
 // COPY_STEP).
 const chapterRunStep = 10_000_000
 
-// eventRuns is when an event chapter first opens and last closes, over its
-// own row and the rows the Original calendar gives its later runs.
-func eventRuns(chapters map[int32]EntityMEventQuestChapter, chapter int32) (start, end int64, ok bool) {
+// eventRuns is an event chapter's runs: its own row and the rows the Original
+// calendar gives its later runs, in date order; and when the first opens and
+// the last closes.
+func eventRuns(chapters map[int32]EntityMEventQuestChapter, chapter int32) (runs []eventRun, start, end int64, ok bool) {
 	for id, c := range chapters {
 		if id%chapterRunStep != chapter {
 			continue
 		}
+		runs = append(runs, eventRun{chapter: id, start: c.StartDatetime, end: c.EndDatetime})
 		if !ok || c.StartDatetime < start {
 			start = c.StartDatetime
 		}
@@ -132,7 +158,8 @@ func eventRuns(chapters map[int32]EntityMEventQuestChapter, chapter int32) (star
 		}
 		ok = true
 	}
-	return start, end, ok
+	sort.Slice(runs, func(i, j int) bool { return runs[i].start < runs[j].start })
+	return runs, start, end, ok
 }
 
 // AddEventSummons adds each event's summon for its event's dates (as the game
@@ -164,24 +191,33 @@ func addEventSummons(entries []store.GachaCatalogEntry, f eventSummonsFile, chap
 	for _, e := range entries {
 		taken[e.GachaId] = true
 	}
+	allRuns := map[int32][]eventRun{}
+	defer func() {
+		eventSummons.Lock()
+		eventSummons.runs = allRuns
+		eventSummons.Unlock()
+	}()
 	for _, ev := range f.Events {
 		if _, ok := chapters[ev.Chapter]; !ok || taken[ev.Base] || len(ev.Levels) == 0 || len(ev.Tickets) == 0 {
 			continue
 		}
-		start, end, _ := eventRuns(chapters, ev.Chapter)
+		runs, start, end, _ := eventRuns(chapters, ev.Chapter)
+		allRuns[ev.Base] = runs
 		e := store.GachaCatalogEntry{
-			GachaId:                    ev.Base,
-			GachaLabelType:             model.GachaLabelEvent,
-			GachaModeType:              model.GachaModeBox,
-			GachaAutoResetType:         model.GachaAutoResetNone,
-			IsUserGachaUnlock:          true,
-			StartDatetime:              start,
-			EndDatetime:                end + eventSummonGrace,
-			GachaDecorationType:        model.GachaDecorationNormal,
-			SortOrder:                  ev.Chapter,
-			BannerAssetName:            ev.Assets[0],
-			GroupId:                    ev.Base,
-			UnlockConditionType:        model.GachaUnlockNone,
+			GachaId:             ev.Base,
+			GachaLabelType:      model.GachaLabelEvent,
+			GachaModeType:       model.GachaModeBox,
+			GachaAutoResetType:  model.GachaAutoResetNone,
+			IsUserGachaUnlock:   true,
+			StartDatetime:       start,
+			EndDatetime:         end + eventSummonGrace,
+			GachaDecorationType: model.GachaDecorationNormal,
+			SortOrder:           ev.Chapter,
+			BannerAssetName:     ev.Assets[0],
+			GroupId:             ev.Base,
+			// Listed only while a run is on, and To Quests opens that run
+			// (service: bunkerGachaUnlockedFor, eventSummonLink).
+			UnlockConditionType:        model.GachaUnlockEventRun,
 			RelatedEventQuestChapterId: ev.Chapter,
 		}
 		phase := int32(1)
@@ -206,4 +242,19 @@ func addEventSummons(entries []store.GachaCatalogEntry, f eventSummonsFile, chap
 // SetEventSummonsForTest replaces the event summons (tests of other packages).
 func SetEventSummonsForTest(events []EventSummon, unlimited []BoxPrize) {
 	setEventSummons(eventSummonsFile{Events: events, Unlimited: unlimited})
+}
+
+// SetEventSummonRunsForTest sets an event summon's runs: chapter row -> start, end.
+func SetEventSummonRunsForTest(gachaId int32, runs map[int32][2]int64) {
+	eventSummons.Lock()
+	defer eventSummons.Unlock()
+	if eventSummons.runs == nil {
+		eventSummons.runs = map[int32][]eventRun{}
+	}
+	var rs []eventRun
+	for chapter, w := range runs {
+		rs = append(rs, eventRun{chapter: chapter, start: w[0], end: w[1]})
+	}
+	sort.Slice(rs, func(i, j int) bool { return rs[i].start < rs[j].start })
+	eventSummons.runs[gachaId] = rs
 }

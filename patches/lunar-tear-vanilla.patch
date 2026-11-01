@@ -2874,7 +2874,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
  }
  
  func matchesGachaLabel(labels []int32, label int32) bool {
-@@ -416,6 +428,51 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
+@@ -416,6 +428,52 @@ func gachaActiveAt(entry store.GachaCatalogEntry, nowMillis int64) bool {
  	return true
  }
  
@@ -2920,6 +2920,7 @@ diff --git a/server/internal/service/gacha.go b/server/internal/service/gacha.go
 +		mode.GachaModeBoxComposition.PromotionGachaOddsItem = boxPromotionItems(entry, &user)
 +	}
 +	prizeBoxMode(g, entry, bs) // Mama's Dream: the prizes' stock
++	eventSummonLink(g, entry)  // event summons: the run that is on
 +	return g
 +}
 +

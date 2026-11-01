@@ -102,6 +102,7 @@ type newSummon struct {
 	Plain  bool       `json:"plain"`  // its art has no appeal/ panel: drawn in the normal (not festival) style
 	Lineup int32      `json:"lineup"` // an earlier summon it reran: that summon's shards and lineup, its own dates
 	Cards  []int32    `json:"cards"`  // the costumes its banner art shows, for its panel's cards
+	Event  int32      `json:"event"`  // the event chapter its To Quests opens (a prize box: the daily quest that gave its tickets)
 }
 
 // Prize is one prize of a prize box (Mama's Dream): what it gives and how
@@ -338,6 +339,8 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 			// the prizes' stock) on the Event tab, which it unlocks.
 			e.GachaLabelType, e.GachaModeType = model.GachaLabelEvent, model.GachaModeBox
 		}
+		// The Event tab shows To Quests; event chapter 0 opened the plain Event Quests list.
+		e.RelatedEventQuestChapterId = n.Event
 		if src, ok := byId[n.Lineup]; ok && n.Lineup != 0 {
 			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = src.GachaMedalId, src.MedalConsumableItemId, src.CeilingCount
 		}
