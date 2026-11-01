@@ -81,14 +81,19 @@ part of the normal Bunker release. The game does not boot or render yet.
   This does not implement longjmp transfer or refresh existing engine objects.
   See [continuation proofs and boundaries](whole/nonlocal_roots.md).
 
-Latest three-library instruction-form audit with LLVM 18 / Remill `0e8b07b`
-(`windows-st1`):
+Latest three-library instruction-form audit with LLVM 18 / Remill source `c535b75`
+(`windows-estimate-shifts`, November 2):
 
 | Library | Supported forms | Unsupported occurrences | Weighted liftability |
 |---|---:|---:|---:|
-| `libunity.so` | 1,267 / 1,442 | 8,388 | 99.7167% |
-| `libil2cpp.so` | 917 / 941 | 177 | 99.9982% |
-| `libgrpc_csharp_ext.so` | 770 / 826 | 887 | 99.7753% |
+| `libunity.so` | 1,280 / 1,442 | 5,579 | 99.8115% |
+| `libil2cpp.so` | 918 / 941 | 176 | 99.9982% |
+| `libgrpc_csharp_ext.so` | 776 / 826 | 666 | 99.8313% |
+
+Compared with `windows-st1`, exactly the estimate/right-shift forms change:
+3,031 unsupported occurrences are removed and no previously supported forms
+are lost. The combined remaining count is 6,421. Hashes and per-form evidence
+are recorded in ignored `work/coverage-windows-estimate-shifts.json`.
 
 These sample one encoding per operand form and exclude control flow; they do
 not establish whole-program correctness or execution coverage. The first
