@@ -4,6 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.6.0 (2026-11-01)
+
+A **Bunker** button in the game's own top row opens the launcher. The Schedule
+page shows a timeline of summons, events, shops and Arena seasons with their
+banner art, and the Original calendar can show the dates the live service
+had (2021–2024).
+
 ## 2026-11-01
 
 ### Calendar
@@ -27,6 +34,13 @@ under its heading, down to the previous release.
   [dc41292, c956ea5, 0726b71, dee6a13, c8769cb, cf46134, 8cbc080]
 
 ### Android, iOS
+- A **Bunker** button, first in the game's top row (before Notices), opens
+  the Bunker launcher from any menu screen: Archive, Pod Programs and the
+  rest are a tap away. It is drawn like the game's own buttons, with the
+  Bunker's floor emblem as its icon, and locks with the row while the game
+  is busy. When the row would run into the counters (Summons shows Help and
+  Mission Pass too), its buttons move closer together. [61f0483, 9302494,
+  d45b237, 996303d]
 - When "Show original dates" changes, the game's own day markers (kept on
   the phone, outside the save) are cleared before it starts. They hold the
   last day the game showed something once a day, and after the clock moved
