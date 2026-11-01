@@ -70,6 +70,10 @@ class FileSystem {
   int Mkdir(const char *path, uint32_t mode);
   addr_t FOpen(const char *path, const char *mode);
   int FClose(addr_t stream);
+  // Exact reached Android setvbuf shape: owned stream, buffer0, mode2
+  // (_IONBF), size0 before I/O. Uses native CRT _IONBF; no guest buffer
+  // retained. Other valid modes/shapes are explicit unsupported diagnostics.
+  int FSetBuffer(addr_t stream, addr_t buffer, int32_t mode, uint64_t size);
   uint64_t FRead(void *buffer, uint64_t size, uint64_t count, addr_t stream);
   uint64_t FWrite(const void *buffer, uint64_t size, uint64_t count, addr_t stream);
   int FSeek(addr_t stream, int64_t offset, int whence);
