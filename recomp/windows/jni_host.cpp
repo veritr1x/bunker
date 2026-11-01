@@ -68,6 +68,7 @@ struct Host::Reference {
   std::shared_ptr<Object> Lock() const { return kind == 3 ? weak.lock() : strong; }
 };
 struct Host::Method {
+  enum Builtin { kNone, kClassLoader, kForName } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
   std::function<addr_t(addr_t)> object_handler;
@@ -77,6 +78,7 @@ struct Host::Field { std::string owner, name, signature; bool is_static; addr_t 
 struct Host::Class {
   std::shared_ptr<Object> object;
   std::string superclass;
+  bool bootstrap = false, initialized = false;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Method>> methods;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Field>> fields;
 };
@@ -95,12 +97,20 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   for (size_t i = 4; i < env_table_.size(); ++i) env_table_[i] = EnvMarker(i);
   for (size_t i = 3; i < vm_table_.size(); ++i) vm_table_[i] = VmMarker(i);
   vm_word_ = reinterpret_cast<addr_t>(vm_table_.data());
-  DefineClass("java/lang/Object", {}, "");
-  DefineClass("java/lang/Class");
-  DefineClass("java/lang/String");
+  DefineClass("java/lang/Object", {}, "", true);
+  DefineClass("java/lang/Class", {{"getClassLoader", "()Ljava/lang/ClassLoader;"},
+      {"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;", true}}, "java/lang/Object", true);
+  DefineClass("java/lang/ClassLoader", {}, "java/lang/Object", true);
+  DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
+  DefineClass("java/lang/String", {}, "java/lang/Object", true);
   for (const char *name : {"java/lang/Throwable", "java/lang/IllegalArgumentException", "java/lang/IllegalStateException",
       "java/lang/NoClassDefFoundError", "java/lang/NoSuchMethodError", "java/lang/NoSuchFieldError", "java/lang/NullPointerException",
-      "java/lang/StringIndexOutOfBoundsException", "java/lang/UnsatisfiedLinkError"}) DefineClass(name);
+      "java/lang/StringIndexOutOfBoundsException", "java/lang/UnsatisfiedLinkError", "java/lang/ClassNotFoundException",
+      "java/lang/UnsupportedOperationException"}) DefineClass(name, {}, "java/lang/Object", true);
+  classes_.at("java/lang/Class")->methods.at({"getClassLoader", "()Ljava/lang/ClassLoader;"})->builtin = Method::kClassLoader;
+  classes_.at("java/lang/Class")->methods.at({"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;"})->builtin = Method::kForName;
+  application_loader_ = std::make_shared<Object>(); application_loader_->class_name = "java/lang/ClassLoader";
+  bootstrap_loader_ = std::make_shared<Object>(); bootstrap_loader_->class_name = "java/lang/BootClassLoader";
   Current(true);
 }
 Host::~Host() = default;
@@ -117,12 +127,13 @@ void Host::RequireEnv(addr_t address) {
   auto &t = Current();
   if (!t.attached || address != reinterpret_cast<addr_t>(&t.env_word)) throw std::runtime_error("JNIEnv belongs to a different or detached thread");
 }
-void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> methods, const std::string &superclass) {
+void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> methods, const std::string &superclass, bool bootstrap) {
   std::lock_guard lock(mutex_);
   if (name.empty() || classes_.count(name) || (!superclass.empty() && !classes_.count(superclass))) throw std::invalid_argument("invalid or duplicate Java class");
   auto clazz = std::make_unique<Class>();
   clazz->object = std::make_shared<Object>(); clazz->object->kind = Object::kClass; clazz->object->class_name = name;
   clazz->superclass = superclass;
+  clazz->bootstrap = bootstrap; clazz->initialized = bootstrap;
   for (auto &declaration : methods) {
     if (declaration.name.empty() || declaration.signature.empty() || declaration.signature.front() != '(')
       throw std::invalid_argument("invalid method declaration");
@@ -133,6 +144,12 @@ void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> m
   }
   for (auto &method : clazz->methods) method_ids_[method.second->id] = method.second.get();
   classes_.emplace(name, std::move(clazz));
+}
+void Host::MarkClassInitialized(const std::string &name) {
+  std::lock_guard lock(mutex_);
+  auto found = classes_.find(name);
+  if (found == classes_.end()) throw std::invalid_argument("unknown Java class initialization");
+  found->second->initialized = true;
 }
 void Host::DefineObjectMethod(const std::string &class_name, const std::string &name,
                               const std::string &signature, std::function<addr_t(addr_t)> handler) {
@@ -294,22 +311,52 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-addr_t Host::CallObject(addr_t reference, addr_t id) {
+addr_t Host::CallObject(std::unique_lock<std::recursive_mutex> &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
   auto object = Get(reference); if (!object) return 0;
   auto &metadata = *method->second;
-  auto actual = object->kind == Object::kClass ? "java/lang/Class" : object->class_name;
-  if (metadata.declaration.is_static || !Assignable(actual, metadata.owner)) { Raise("java/lang/IllegalArgumentException", "JNI method receiver mismatch"); return 0; }
+  auto actual = is_static ? object->class_name : object->kind == Object::kClass ? "java/lang/Class" : object->class_name;
+  if (metadata.declaration.is_static != is_static || (is_static && object->kind != Object::kClass) || !Assignable(actual, metadata.owner)) { Raise("java/lang/IllegalArgumentException", "JNI method receiver mismatch"); return 0; }
+  if (metadata.builtin == Method::kClassLoader) {
+    if (object->kind != Object::kClass) { Raise("java/lang/IllegalArgumentException", "getClassLoader requires a class object"); return 0; }
+    return Local(classes_.at(object->class_name)->bootstrap ? bootstrap_loader_ : application_loader_);
+  }
+  if (metadata.builtin == Method::kForName) {
+    auto name = String(arguments[0]); if (!name) return 0;
+    auto loader = Get(arguments[2], true); if (arguments[2] && !loader) return 0;
+    if (loader && !Assignable(loader->kind == Object::kClass ? "java/lang/Class" : loader->class_name, "java/lang/ClassLoader")) { Raise("java/lang/IllegalArgumentException", "forName requires a ClassLoader"); return 0; }
+    if (loader && loader != application_loader_ && loader != bootstrap_loader_) { Raise("java/lang/UnsupportedOperationException", "unconfigured Java ClassLoader"); return 0; }
+    auto binary = Encode(name->text), internal = binary;
+    std::replace(internal.begin(), internal.end(), '.', '/');
+    auto found = classes_.find(internal);
+    if (binary.empty() || binary.find('/') != std::string::npos || binary.find('[') != std::string::npos ||
+        found == classes_.end() || (loader != application_loader_ && !found->second->bootstrap)) {
+      Raise("java/lang/ClassNotFoundException", binary); return 0;
+    }
+    if (static_cast<uint8_t>(arguments[1]) && !found->second->initialized) {
+      Raise("java/lang/UnsupportedOperationException", "Java class initialization is not implemented: " + internal); return 0;
+    }
+    return Local(found->second->object);
+  }
   if (!metadata.object_handler) throw std::runtime_error("Java method has no host implementation: " + metadata.owner + "." + metadata.declaration.name + metadata.declaration.signature);
-  auto result = metadata.object_handler(reference);
+  // Keep the receiver and callback alive, but never hold the host registry lock
+  // across external code. A callback may wait for another attached JNI thread.
+  auto handler = metadata.object_handler;
+  auto return_type = metadata.declaration.signature.substr(3, metadata.declaration.signature.size() - 4);
+  addr_t result;
+  lock.unlock();
+  try { result = handler(reference); }
+  catch (...) { lock.lock(); throw; }
+  lock.lock();
   auto returned = Get(result, true);
   if (result && !returned) return 0;
-  auto return_type = metadata.declaration.signature.substr(3, metadata.declaration.signature.size() - 4);
   if (returned && !Assignable(returned->kind == Object::kClass ? "java/lang/Class" : returned->class_name, return_type)) {
     Raise("java/lang/IllegalArgumentException", "host Java method returned wrong object type"); return 0;
   }
-  return result;
+  // The callback retains ownership of its reference; JNI calls return a new
+  // local reference owned by the invoking thread, including for global results.
+  return Local(returned);
 }
 int32_t Host::Register(addr_t handle, const NativeMethod *methods, int32_t count) {
   auto *clazz = GetClass(handle); if (!clazz) return kError;
@@ -366,7 +413,7 @@ void Host::InvokeVm(size_t slot, State &s) {
 }
 
 void Host::InvokeEnv(size_t slot, State &s) {
-  std::lock_guard lock(mutex_);
+  std::unique_lock lock(mutex_);
   RequireEnv(s.gpr.x0.qword);
   addr_t a = s.gpr.x1.qword, b = s.gpr.x2.qword, c = s.gpr.x3.qword, d = s.gpr.x4.qword;
   switch (slot) {
@@ -401,7 +448,26 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 31: { auto object = Get(a); if (!object) { s.gpr.x0.qword = 0; return; } s.gpr.x0.qword = Local(classes_.at(object->kind == Object::kClass ? "java/lang/Class" : object->class_name)->object); return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
     case 33: case 113: s.gpr.x0.qword = MethodId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 113); return;
-    case 34: case 35: case 36: s.gpr.x0.qword = CallObject(a, b); return;
+    case 34: case 35: case 36: s.gpr.x0.qword = CallObject(lock, a, b); return;
+    case 114: case 115: case 116: {
+      std::array<addr_t, 3> args{};
+      if (slot == 114) args = {c, d, s.gpr.x5.qword};
+      else {
+        if (!c) { Raise("java/lang/IllegalArgumentException", "null JNI argument list"); s.gpr.x0.qword = 0; return; }
+        if (slot == 116) { args = {Read<addr_t>(c), Read<uint8_t>(c + 8), Read<addr_t>(c + 16)}; }
+        else {
+          // Android AAPCS64 va_list: stack, gr_top, vr_top, gr_offs, vr_offs.
+          struct VaList { addr_t stack, gr_top, vr_top; int32_t gr_offs, vr_offs; };
+          static_assert(sizeof(VaList) == 32);
+          auto list = Read<VaList>(c);
+          for (auto &argument : args) {
+            if (list.gr_offs < 0) { argument = Read<addr_t>(list.gr_top + list.gr_offs); list.gr_offs += 8; }
+            else { argument = Read<addr_t>(list.stack); list.stack += 8; }
+          }
+        }
+      }
+      s.gpr.x0.qword = CallObject(lock, a, b, true, args); return;
+    }
     case 94: case 144: s.gpr.x0.qword = FieldId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 144); return;
     case 95: case 145: { auto target = FieldTarget(a, b, slot == 145, "object"); s.gpr.x0.qword = target ? Local(target->object_fields[b]) : 0; return; }
     case 100: case 150: { auto target = FieldTarget(a, b, slot == 150, "I"); IntResult(s, target ? static_cast<int32_t>(target->primitive_fields[b]) : 0); return; }
