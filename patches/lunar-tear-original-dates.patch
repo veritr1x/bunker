@@ -33,3 +33,31 @@ index 10efb18..988bc9e 100644
  }
  
  func sortedStringKeys[T any](rows map[string]T) []string {
+diff --git a/server/internal/service/data.go b/server/internal/service/data.go
+index f0ee106..0959f35 100644
+--- a/server/internal/service/data.go
++++ b/server/internal/service/data.go
+@@ -44,8 +44,8 @@ func NewDataServiceServerWithMasterPath(users store.UserRepository, sessions sto
+ 
+ func (s *DataServiceServer) GetLatestMasterDataVersion(ctx context.Context, _ *emptypb.Empty) (*pb.MasterDataGetLatestVersionResponse, error) {
+ 	version := masterDataBaseVersion
+-	if info, err := os.Stat(s.masterDataPath); err == nil {
+-		version = fmt.Sprintf("%s_%d", masterDataBaseVersion, info.ModTime().UnixMilli())
++	if info, err := os.Stat(viewMasterFile(s.masterDataPath)); err == nil {
++		version = fmt.Sprintf("%s_%d%s", masterDataBaseVersion, info.ModTime().UnixMilli(), viewMasterSuffix(s.masterDataPath))
+ 	} else {
+ 		log.Printf("[DataService] stat %s: %v (falling back to base version)", s.masterDataPath, err)
+ 	}
+diff --git a/server/internal/service/octo.go b/server/internal/service/octo.go
+index 638fe1d..0bad615 100644
+--- a/server/internal/service/octo.go
++++ b/server/internal/service/octo.go
+@@ -485,7 +485,7 @@ func (s *OctoHTTPServer) serveListBin(w http.ResponseWriter, filePath string) {
+ // DataService.GetLatestMasterDataVersion) but does not select a different file —
+ // there's only ever one bin.e on disk.
+ func (s *OctoHTTPServer) serveDatabaseBinE(w http.ResponseWriter, r *http.Request, _ string) {
+-	filePath := filepath.Join(s.BaseDir, "assets", "release", "20240404193219.bin.e")
++	filePath := viewMasterFile(filepath.Join(s.BaseDir, "assets", "release", "20240404193219.bin.e"))
+ 	w.Header().Set("Content-Type", "application/octet-stream")
+ 	http.ServeFile(w, r, filePath)
+ }
