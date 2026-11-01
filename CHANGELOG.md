@@ -17,12 +17,17 @@ under its heading, down to the previous release.
   character lists were empty: the game data lists the starting cast only
   from 2022. Characters are listed from launch, and so are filters,
   Character Viewer backgrounds and the like, as without the setting. The
-  copy for original dates is rebuilt the next time Pod Programs opens.
+  copy for original dates is rebuilt when the updated app starts.
   [427944d, 3c35230, 52866ff]
 - Story chapters open on their release dates in the first loop, as in the
   live game, with or without "Show original dates"; from the second loop
   all are open. Chapters a player has already reached stay open. The loop's
-  game data is rebuilt once the next time Pod Programs opens. [2c41097]
+  game data is rebuilt once when the updated app starts. [2c41097]
+- After an update, the calendar's game data is brought up to the new
+  version when the app starts, before the game connects; before, that
+  waited until Pod Programs opened, so calendar fixes did not reach the
+  game. The Bunker menu shows "Updating the calendar for this version…"
+  meanwhile on iPhone and iPad. [99053f2]
 
 ## 1.6.1 (2026-11-01)
 
