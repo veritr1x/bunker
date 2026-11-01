@@ -40,6 +40,7 @@
 //
 // The choices are read from tools/display.conf (android_display.py writes it).
 // The outcome goes to tools/display.status, which Pod Programs shows.
+#import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
 #include <dlfcn.h>
@@ -350,11 +351,46 @@ static BOOL UnityStarted(void) {
     return *timeManager != NULL;
 }
 
+// Developer check only: launched with LUNAR_GPU_CAPTURE=<seconds> (and METAL_CAPTURE_ENABLED=1),
+// the GPU work of one display frame that many seconds after Unity starts is saved to
+// Documents/frame.gputrace, for Xcode to replay. Players cannot set it.
+static void CaptureGPU(void) {
+    static double start, began;
+    static int state;  // 0 waiting, 1 capturing, 2 done
+    const char *after = getenv("LUNAR_GPU_CAPTURE");
+    if (!after || state == 2) return;
+    double now = CACurrentMediaTime();
+    if (!start) start = now;
+    MTLCaptureManager *manager = MTLCaptureManager.sharedCaptureManager;
+    if (state == 0 && now - start >= atof(after)) {
+        NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSURL *url = [NSURL fileURLWithPath:[documents stringByAppendingPathComponent:@"frame.gputrace"]];
+        [NSFileManager.defaultManager removeItemAtURL:url error:nil];
+        MTLCaptureDescriptor *descriptor = [MTLCaptureDescriptor new];
+        descriptor.captureObject = MTLCreateSystemDefaultDevice();
+        descriptor.destination = MTLCaptureDestinationGPUTraceDocument;
+        descriptor.outputURL = url;
+        NSError *error = nil;
+        if (![manager supportsDestination:MTLCaptureDestinationGPUTraceDocument] || ![manager startCaptureWithDescriptor:descriptor error:&error]) {
+            NSLog(@"[LunarTear] GPU capture: could not start (%@)", error.localizedDescription ?: @"documents not supported");
+            state = 2;
+            return;
+        }
+        NSLog(@"[LunarTear] GPU capture: started");
+        state = 1, began = now;
+    } else if (state == 1 && now - began >= 0.1) {
+        [manager stopCapture];
+        NSLog(@"[LunarTear] GPU capture: saved Documents/frame.gputrace");
+        state = 2;
+    }
+}
+
 @implementation LTDisplayTicker
 - (void)tick:(CADisplayLink *)link {
     static BOOL ready;
     static int waited;
     if (!UnityStarted()) { waited++; return; }
+    CaptureGPU();
     if (!ready) {
         if (waited) { NSLog(@"[LunarTear] display: waited %d frames for Unity to start", waited); waited = 0; }
         if (!il2cpp.domain_get()) return;
