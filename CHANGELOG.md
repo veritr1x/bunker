@@ -15,6 +15,14 @@ under its heading, down to the previous release.
   game data copy for it is built the first time it is switched on.
   [dc41292, c956ea5, 0726b71, dee6a13, c8769cb, cf46134, 8cbc080]
 
+### Android, iOS
+- When "Show original dates" changes, the game's own day markers (kept on
+  the phone, outside the save) are cleared before it starts. They hold the
+  last day the game showed something once a day, and after the clock moved
+  by years they hid the roulette's **FREE** badge, Mama's News and the other
+  once-a-day reminders. The game shows them again the next time it starts.
+  [cc0539a]
+
 ## 1.5.0 (2026-11-01)
 
 The update notice can be put off with **Later** or **Skip**, and a long press
