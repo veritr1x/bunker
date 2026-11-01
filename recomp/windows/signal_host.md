@@ -38,7 +38,15 @@ SIGKILL/SIGSTOP mask removal applies too. Sigaction's handler mask is deliberate
 not subjected to the Bionic reserved-signal filter.
 
 This subset accepts standard caught/ignored actions with SA_SIGINFO/SA_RESTART.
-Default process effects, real-time queuing, SA_NODEFER/RESETHAND/ONSTACK/RESTORER,
+SA_ONSTACK registration is also accepted while alternate stacks are disabled:
+Linux then uses the normal stack. No sigaltstack installation API is supplied;
+an attempt to configure/enable one remains an explicit missing import. The
+bounded frame adapter checks this disabled-stack precondition on delivery.
+InstallProcess exposes only sigaction and five pure sigset helpers, with a
+ProcessMarker lookup that rejects thread-dependent imports. It can support
+Unity's temporary action setup without enabling thread masks/delivery/waits.
+Hardware faults are still not routed from native Windows exceptions.
+Default process effects, real-time queuing, SA_NODEFER/RESETHAND/RESTORER,
 process-directed routing, hardware faults and cancellation are unsupported.
 Queue without supplied siginfo populates only the signal number; integration
 must provide truthful code/process/UID metadata when those fields matter.
@@ -85,6 +93,6 @@ pending requests during delivery, semaphore interruption/restart, timeout errors
 and overflow. The NDK test uses a separate copied State in its explicit callback
 boundary; it is not asynchronous delivery.
 
-Linux and native Windows each passed 155 foundation checks, 35 actual NDK
+Linux and native Windows each passed 159 foundation checks, 35 actual NDK
 result records and all four QEMU interruption/restart scenarios. The NDK image
 has 20 translated traces with zero unsupported instructions.

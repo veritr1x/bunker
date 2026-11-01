@@ -22,6 +22,8 @@ unsupported action modes, corrupted return SP/PC, PC redirection, non-NZCV
 PSTATE changes and alternate-stack policy changes fail explicitly. Restoration
 is transactional until validation completes. Normal guest stack bytes remain
 after delivery, as they would after a kernel frame is popped.
+SA_ONSTACK is accepted only with SS_DISABLE metadata, which uses the same
+normal stack; the NDK stop-handler fixture exercises this flag explicitly.
 
 The test builds an actual NDK stop handler, restart handler and import-free
 worker loop. Compiler-produced optimized objects run natively. A stop signal

@@ -20,6 +20,15 @@ uint64_t Mask(SignalHost&s,uint64_t t){uint64_t value=0;Check(!s.Mask(t,99,nullp
 }
 int main(){
   std::thread([]{std::this_thread::sleep_for(std::chrono::seconds(40));std::fputs("signal/semaphore watchdog\n",stderr);std::_Exit(95);}).detach();
+  {
+    SignalHost process;recomp::Runtime calls;process.InstallProcess(calls);
+    uint64_t masks[]={0x1122334455667788ULL,UINT64_MAX,0x8877665544332211ULL};
+    State state{};state.gpr.x0.qword=reinterpret_cast<addr_t>(&masks[1]);state.gpr.x30.qword=0xfeedfff0;
+    calls.Run(state,process.ProcessMarker("sigemptyset"));
+    Check(!state.gpr.x0.qword&&!masks[1]&&masks[0]==0x1122334455667788ULL&&masks[2]==0x8877665544332211ULL,"process-only sigset subset writes exact Android mask without thread binding");
+    bool rejected=false;try{process.ProcessMarker("pthread_kill");}catch(const std::invalid_argument&){rejected=true;}
+    Check(rejected,"process-only lookup never advertises thread delivery imports");
+  }
   std::atomic<unsigned> notifications{0};SignalHost *owner=nullptr;
   SignalHost model([&](uint64_t){++notifications;AndroidSignalAction a;Check(!owner->Action(30,nullptr,&a),"poll notification occurs after registry unlock");});owner=&model;
   Semaphores sem(model);signals=&model;semaphores=&sem;
@@ -32,7 +41,9 @@ int main(){
   uint64_t alias_mask=SignalHost::Bit(30);Check(!model.Mask(1,0,&alias_mask,&alias_mask)&&alias_mask==initial&&Mask(model,1)==(initial|SignalHost::Bit(30)),"mask input/output alias retains requested new bits");
   Check(!model.Mask(1,2,&initial,nullptr),"restore initial mask after alias test");
   Check(model.Action(9,&action,nullptr)==22&&model.Queue(1,9)==38&&model.Queue(1,35)==38,"uncatchable/realtime delivery modes explicit");
-  auto unsupported=action;unsupported.flags|=0x08000000;Check(model.Action(30,&unsupported,nullptr)==38,"alternate stack disposition requires later integration");
+  auto onstack=action;onstack.flags|=0x08000000;Check(!model.Action(30,&onstack,nullptr),"SA_ONSTACK registration with disabled alternate stack");
+  Check(!model.Action(30,&action,nullptr),"restore ordinary disposition after onstack registration");
+  auto unsupported=action;unsupported.flags|=0x40000000;Check(model.Action(30,&unsupported,nullptr)==38,"SA_NODEFER remains unsupported");
   Check(model.Queue(999,0)==3&&!model.Queue(1,0),"liveness uses stable thread tokens");
   uint64_t block=SignalHost::Bit(30);Check(!model.Mask(1,0,&block,nullptr),"block stop signal");
   SignalHost::Info info{},other{};info[16]=7;other[16]=9;

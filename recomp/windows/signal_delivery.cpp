@@ -15,7 +15,9 @@ std::optional<uint64_t> SignalDelivery::Deliver(const SignalHost::Delivery &deli
   auto *interrupted=recomp::CurrentExecutionState();
   if(!interrupted)throw std::invalid_argument("signal frame delivery outside materialized guest execution");
   if(!delivery.action.handler||!executable_(delivery.action.handler)||
-      (delivery.action.flags&~uint32_t(4|0x10000000)))throw std::invalid_argument("unsupported signal disposition at frame boundary");
+      (delivery.action.flags&~uint32_t(4|0x10000000|0x08000000)))throw std::invalid_argument("unsupported signal disposition at frame boundary");
+  if((delivery.action.flags&0x08000000)&&metadata_.altstack.flags!=2)
+    throw std::invalid_argument("SA_ONSTACK requires disabled alternate stack in bounded normal-stack delivery");
   Metadata saved=metadata_;
   Metadata context=saved;context.mask=delivery.saved_mask;context.siginfo=delivery.info;
   Request request{stack_,stack_,interrupted->gpr.sp.qword,delivery.action.handler,return_entry_,

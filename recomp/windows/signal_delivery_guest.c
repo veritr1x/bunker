@@ -32,7 +32,7 @@ static void stop_handler(int signal,siginfo_t *info,void *context){
 }
 int delivery_install(struct DeliveryReport *value){
   report=value;struct sigaction action={0};
-  action.sa_sigaction=stop_handler;action.sa_flags=SA_SIGINFO|SA_RESTART;
+  action.sa_sigaction=stop_handler;action.sa_flags=SA_SIGINFO|SA_RESTART|SA_ONSTACK;
   sigfillset(&action.sa_mask);
   if(sigaction(30,&action,0))return -1;
   action.sa_handler=restart_handler;action.sa_flags=SA_RESTART;

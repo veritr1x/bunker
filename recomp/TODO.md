@@ -44,6 +44,12 @@ part of the normal Bunker release. The game does not boot or render yet.
   diagnostic now returns cleanly with zero original JNI exception events,
   using checked Java strings, launch intents and the original APK boot.config.
   Rendering and the full Java/game lifecycle remain unexecuted.
+- Real IL2CPP completes all nine constructors and both finalizers. Its actual
+  parameterless GC signal-initialization routine also passes, installing the
+  evidenced actions and acknowledgment semaphore. A validated one-shard overlay
+  fixes old pair-exclusive instructions; this remains a mixed diagnostic
+  snapshot with 189 unsupported traces. No collection or il2cpp_init has run.
+  See [the exact lineage and boundary](windows/il2cpp_bootstrap.md).
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -119,10 +125,16 @@ unsupported instructions.
   rejection checks per platform.
   Host providers must participate in tracked reads/writes and allocation
   lifetime invalidation; untracked native/external writes remain a boundary.
-- A Windows window, actual EGL/GLES-compatible rendering, surface lifecycle,
-  frame scheduling, input and audio. A native Vulkan ANGLE probe passes GLES3.1
-  draw/compute readback, but fails the APK's required AEP capability because
-  ASTC LDR is missing. A complete pinned graphics dependency remains needed.
+- Real Windows HWND/Surface ownership passes 291 NDK/host checks. The checked
+  EGL bridge passes 49 checks, including real window/pbuffer draws, readback,
+  swap, tracked outputs and resource lifetimes. The actual Unity surface gate
+  now passes temporary crash-action setup and stops on missing setjmp, before
+  native window handoff. This is not a completed Unity surface gate.
+- Pinned Vulkan ANGLE now passes GLES3.2/AEP, shader, draw/compute and all 28
+  ASTC formats (239 samples/61,184 bytes), including correct sRGB behavior.
+  The typed query resolver passes 976 checks for six getter signatures and 133
+  enum widths. Rendering/client/mapped GL APIs, nondefault buffer-size scaling, Unity's full
+  surface/resume/frame lifecycle, input and audio remain unverified.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.
   The native APK reader passes 69 independent checks on both hosts and reads
