@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"lunar-tear/server/internal/gacha"
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
@@ -123,7 +124,7 @@ func stars(rarity int32) string {
 }
 
 func day(millis int64) string {
-	return time.UnixMilli(millis).UTC().Format("2006/01/02")
+	return time.UnixMilli(gametime.ToView(millis)).UTC().Format("2006/01/02") // the original-dates view
 }
 
 // openEnded is where a summon's end stands for "never": the always-open ends
