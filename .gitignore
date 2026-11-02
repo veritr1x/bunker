@@ -2,6 +2,7 @@
 /server/
 /.build/
 /artifacts/
+/.playwright-mcp/
 /client/
 /inputs/
 /phone-assets/
