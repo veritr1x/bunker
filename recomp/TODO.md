@@ -10,7 +10,8 @@ Windows playback endpoint is unavailable. Independent native queries reproduce
 that state; no audio values or device settings were substituted. Game10 remains
 the latest natural engine-startup checkpoint: real IL2CPP loading, 222 export
 lookups and byte-exact physical copying of all24 Managed files. Windows native
-TLS container teardown is also being repaired before the next full attempt.
+TLS container teardown has also been repaired and qualified before the next
+full attempt.
 
 ## Current checkout and tools
 
@@ -204,8 +205,10 @@ TLS container teardown is also being repaired before the next full attempt.
   362 actual NDK calls per host plus the existing locale/LibC/startup gates.
   The tests exposed a real Windows C++ TLS teardown ordering bug; the locale
   selection map now uses checked native thread storage, with19 actual cleanup
-  callbacks observed. The separate pthread/EGL/automatic-frame stores are being
-  repaired. Natural IL2CPP init entry remains unqualified. See
+  callbacks observed. The separate pthread/EGL/automatic-frame stores now pass
+  focused thread-exit and existing provider gates, with16 real native cleanup
+  callbacks per store plus six nonempty binding maps. Natural IL2CPP init entry
+  remains unqualified. See
   [locale semantics and lifetime evidence](windows/setlocale.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
