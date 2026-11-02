@@ -233,7 +233,7 @@ void Host::MarkClassInitialized(const std::string &name) {
 }
 void Host::DefineObjectMethod(const std::string &class_name, const std::string &name,
                               const std::string &signature, std::function<addr_t(addr_t)> handler) {
-  if(signature.rfind("()L",0)!=0||!handler)throw std::invalid_argument("zero-argument object handler requires an object signature");
+  if((signature.rfind("()L",0)!=0&&signature.rfind("()[",0)!=0)||!handler)throw std::invalid_argument("zero-argument object handler requires an object signature");
   DefineHandler(class_name,name,signature,'L',[handler=std::move(handler)](addr_t object,const MethodArguments&){return handler(object);});
 }
 void Host::DefineObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
@@ -287,7 +287,9 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
     auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(signature.substr(at,end-at+1));at=end+1;
   }
   auto returns=at<signature.size()?signature.substr(at+1):"";
-  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='L'&&(returns.size()<3||returns.front()!='L'||returns.back()!=';'||!classes_.count(returns.substr(1,returns.size()-2)))))throw std::invalid_argument("invalid host result descriptor");
+  const bool reference_result=result=='L'&&!returns.empty()&&(returns.front()=='['?FindReferenceArrayClass(returns)!=nullptr:
+      returns.size()>=3&&returns.front()=='L'&&returns.back()==';'&&classes_.count(returns.substr(1,returns.size()-2)));
+  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='L'&&!reference_result))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
   if(bind_existing){
@@ -518,7 +520,7 @@ addr_t Host::CallObject(ProviderLock &lock, addr_t reference, addr_t id, bool is
   }
   auto &metadata=*selected;
   auto close=metadata.declaration.signature.find(')');char result_kind=close==std::string::npos||close+1==metadata.declaration.signature.size()?0:metadata.declaration.signature[close+1];
-  if(result_kind!=expected_result||metadata.declaration.name=="<init>"){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch or constructor requires NewObject");return 0;}
+  if((result_kind!=expected_result&&!(expected_result=='L'&&result_kind=='['))||metadata.declaration.name=="<init>"){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch or constructor requires NewObject");return 0;}
   if(metadata.builtin==Method::kObjectClass)return ObjectClass(object);
   if(metadata.builtin==Method::kBuilderAppend||metadata.builtin==Method::kBuilderString){
     if(object->kind!=Object::kBuilder){Raise("java/lang/UnsupportedOperationException","StringBuilder constructor has not initialized this object");return 0;}
@@ -603,7 +605,8 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   // and instance kind, rather than the assignable/null object-method contract.
   const bool object_result=kind=='L'||kind=='N';
   auto handler=method.object_handler;const auto owner=method.owner;const auto close=method.declaration.signature.find(')');
-  const auto return_type=kind=='L'?method.declaration.signature.substr(close+2,method.declaration.signature.size()-close-3):std::string();
+  const auto descriptor=kind=='L'?method.declaration.signature.substr(close+1):std::string();
+  const auto return_type=kind=='L'&&!descriptor.empty()&&descriptor.front()=='L'?descriptor.substr(1,descriptor.size()-2):descriptor;
   const auto depth=thread.frames.size();thread.frames.emplace_back();
   try{thread.callback_floors.push_back(depth+1);}catch(...){thread.frames.pop_back();throw;}
   std::array<std::shared_ptr<Object>,3> retained_arguments{};MethodArguments callee=arguments;
