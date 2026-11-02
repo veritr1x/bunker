@@ -111,6 +111,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
     {"onServiceDisconnected","(Landroid/content/ComponentName;)V"},
     {"onBindingDied","(Landroid/content/ComponentName;)V"},
     {"onNullBinding","(Landroid/content/ComponentName;)V"}});
+  host.DefineInterface("android/media/AudioManager$OnAudioFocusChangeListener",{{"onAudioFocusChange","(I)V"}});
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
   host.DefineClass("android/content/pm/PackageItemInfo", {}, "java/lang/Object", true);
   host.DefineClass("android/content/pm/ApplicationInfo", {}, "android/content/pm/PackageItemInfo", true);
