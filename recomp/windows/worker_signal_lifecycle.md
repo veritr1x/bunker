@@ -47,3 +47,14 @@ tool/artifact hashes; no game or original collector execution is claimed.
 Captured closed base hooks are also invoked after their original adapter and
 SignalHost have been destroyed, using actual retired worker metadata; the closed
 guard must reject before dereferencing the expired provider dependency.
+
+The accepted `work/worker-signal-lifecycle4/acceptance.json` SHA256 is
+`2cbb01b03b7388712bcac9427811f01134c72d2867c6e651abf66df7903b2080`.
+The actual Windows run passes270 checks over15 translated heads/two objects,
+four real workers and three separately observed native abort boundaries.
+Independent review revalidates every executed input and confirms the frozen
+support uses the earlier Pthreads implementation, excluding new wait overlays.
+Composition with the new wait transport and the real game remains pending.
+Earlier candidates remain preserved:1 is a fixture compilation error;2 excludes
+a valid top-of-stack SP;3 captures a constructor-local mask by reference past
+its lifetime. Candidate4 captures that mask by value and completes the gate.

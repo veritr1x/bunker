@@ -1,8 +1,9 @@
 # IL2CPP GC suspension: evidence and implementation requirements
 
 **Status: production signal delivery and GC suspension are unimplemented.**
-The isolated signal/semaphore providers and opt-in polling are not installed in
-the Unity harness. Its nonzero `pthread_kill` and `pthread_sigmask` are not a working stop-world mechanism.
+The combined game harness still rejects nonzero `pthread_kill`. Its installed
+mask/action/semaphore primitives and isolated opt-in polling are not a working
+stop-world mechanism.
 The current Windows startup/resource gates do not establish GC correctness.
 The linked collector resembles upstream Boehm's POSIX implementation, including
 its resumed-epoch bit, but its exact version has not been proved.
@@ -13,7 +14,20 @@ foundations, optimized cooperative polling, AArch64 frame serialization, and
 gate performs 16 stop/acknowledgment/restart/acknowledgment cycles using actual
 NDK test handlers, preserving live GPR/SIMD roots and returning to the original
 loop. These test handlers are not the game's actual collector handlers, and
-provider transition roots/interruptible waits remain unimplemented.
+general provider transition roots and game wait integration remain unimplemented.
+
+An optional [condition-wait transport](pthread_wait.md) now passes its separate
+native Windows/NDK gate, including same-worker checkpoints during the released
+wait and pinned-mutex reacquisition. Existing default pthread and worker
+lifecycle regressions also pass. Its callback API consumes no signal itself;
+admission, real frame/root publication and actual collector execution remain
+integration requirements. Other blocking pthread providers remain unchanged.
+
+The separate [worker signal-lifecycle adapter](worker_signal_lifecycle.md)
+also passes270 native Windows checks with real NDK workers and TLS teardown.
+It owns creator-time inheritance, child binding and retirement, but is not yet
+installed in the game. Its gate excludes the new wait overlays; actual composed
+wait/frame/collector behavior still requires a game integration gate.
 
 ## Actual binary behavior
 

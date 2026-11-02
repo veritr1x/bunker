@@ -25,6 +25,20 @@ admission policy also passes focused Linux/Windows tests and the unchanged
 provider root publication, interruptible waits and actual collector suspension
 remain required before enabling signal30 delivery.
 
+The optional native Windows condition-wait transport now passes397 focused
+checks plus unchanged pthread78 and worker-lifecycle566 regressions. It can
+service a qualified callback with the guest mutex released, including during
+contended reacquisition, while preserving real condition notifications and
+absolute deadlines. It is not installed in the game yet; other blocking
+pthread routes and general nested-provider root publication remain incomplete.
+
+The separate worker signal-lifecycle adapter passes270 native Windows checks:
+creator-time mask inheritance, actual child ownership, fresh pending/alternate
+stack state, all TLS rounds, cancellation and guarded retirement. It is also
+not installed in the game. The next composed gate must use these actual worker
+contexts and wait callbacks with a qualified real signal frame, retaining the
+original collector's stop/acknowledgment/restart/acknowledgment protocol.
+
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 it does not disable backend initialization or qualify persistent gain/output.
 A real scalar FCSEL transport bug found by master mute is fixed and tested

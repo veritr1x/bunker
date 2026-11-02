@@ -11,3 +11,15 @@ The fixture uses the same Android NDK object for lifted Windows execution and a 
 The component callback is a labelled test signal-model boundary, not an original collector handler. No GC records, collector acknowledgements, stop-world operation, physical root publication or production game delivery are synthesized or qualified. Future composition must admit only separately qualified provider phases before consuming a signal. In particular a list of State pointers does not publish parent/native-only roots. The adapter and its channels must outlive worker drain.
 
 All candidates are immutable, archive the support commit and only the nine owned overlays, pin the toolpair, preserve output, and rehash executed source/binary/log inputs before acceptance. Game18 observations are in `work/game18-condwait-plan/REPORT.md`; Android no-EINTR evidence is pinned there.
+
+The accepted `work/pthread-wait3/acceptance.json` SHA256 is
+`b0ff2dcf8d2340b12fecbf924e443cd0d6aa36f53dabc84d076b6571e205dd32`.
+The actual Windows focused run passes397 checks across21 translated heads/two
+objects; unchanged default pthread and worker-lifecycle regressions pass78 and566
+checks, respectively. ARM64 native reference records normal0 and timeout110,
+with the mutex owned on return; Linux execution qualifies the portable channel
+only. Earlier fixture mistakes remain preserved: candidate1 used blocked-only
+sigpending as a deliverable-pending witness; candidate2 probed condition
+destruction after its enrollment had ended during mutex reacquisition. Neither
+required a production transport change. Independent source/artifact review and
+all final executed-input hash checks pass. Game integration remains pending.
