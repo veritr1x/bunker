@@ -176,6 +176,8 @@ int main(int argc,char **argv){
     Require(original_helper_present,"current IL2CPP automatic save helper is absent from union");
     recomp::Runtime runtime;runtime.AddTraces(selected.data(),selected.size());
     FileSystem files;
+    files.EnableGrowdownMappings();
+    std::fprintf(stderr,"Game bootstrap: explicit owned Windows MAP_GROWSDOWN profile enabled\n");
     files.MountFile("/data/app/bunker/base.apk",apk);
     files.MountDirectory("/data/app/bunker/lib/arm64",library.parent_path());
     files.MountDirectory("/data/user/0/bunker",storage,true);
