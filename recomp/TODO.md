@@ -11,6 +11,10 @@ public IL2CPP initialization API naturally. All 24 copied Managed files match
 the APK. It now stops at an unimplemented dup import in IL2CPP; initialization
 has not returned and no frame has rendered. The earlier audio-unavailable
 attempts and the qualified Windows thread-storage repairs remain preserved.
+Game14 includes the qualified Dup implementation and passes all three
+non-render profiles, but its frame attempt again stops at the real unavailable
+HDMI audio endpoint. A temporary display-awake experiment did not restore that
+endpoint and was fully cleared; physical TV/input confirmation is pending.
 
 ## Current checkout and tools
 
