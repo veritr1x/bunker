@@ -455,3 +455,27 @@ Game17 aggregate SHA256 is
 `67cd9cf1cc02317acdad2854cefb92ab6e3418144c11ad164204d76e6d25349c`;
 read-only storage result SHA256 is
 `779ea337d7e720ec3f7d5a6d54497695bd160926116a8348669b07bb89a4b814`.
+
+`work/windows-game18` freezes observer hostf2c080a and the same guest objects
+as Game17. Its executable SHA256 is
+`287fa3c4d93f1170becdaa3bf4ce0928356efe1471d072e135e30f7307eae875`.
+Three non-render lifecycle profiles pass; the muted attempt again returns
+from the original mute request and reaches the unchanged signal30 guard.
+Audio backend initialization, persistent gain and execution with no playback
+endpoint remain unqualified. No HDMI volume observer is created.
+
+Creator-time observations, made before the child can free its payload, identify
+the actual worker3 user callback0x825c3ed0 with argument0. Same-thread worker
+lifecycle and import wrappers record mutex-lock returns followed by entry into
+pthread_cond_wait at LR0x825505d8. The condition address is0x28 beyond its mutex,
+matching the original finalizer wait object's offsets. An outstanding ENTER
+does not prove the exact physical blocking state or current State at signal
+request time. These wrappers dispatch the original provider with the same
+State; no signal binding, queue, polling or suspension is enabled.
+
+All24 Managed files/24570231 bytes and unity.ver match the original inputs.
+The read-only storage audit SHA256 is
+`b54ddb70c9f1e4de21c44ab1c4d46e8cb57a799e969d01a49d1535fc22da7ce0`;
+the Game18 aggregate SHA256 is
+`5f75085d0c8e2f20ecefdc31dbdbbf0eeae3b2a1173f150d1dc1fb0f4c94a9f1`.
+Initialization, collection and nativeRender have not completed.

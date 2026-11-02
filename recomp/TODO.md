@@ -4,7 +4,7 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game17 passes constructor/JNI, initJni and surface lifecycle profiles. Its
+Game18 passes constructor/JNI, initJni and surface lifecycle profiles. Its
 explicit muted diagnostic returns from original nativeResume and master mute
 without creating a Windows hardware-volume observer. Startup naturally reads
 and saves PlayerPrefs, copies all24 Managed files exactly, parses buildDate,
@@ -14,6 +14,16 @@ intentionally rejected nonzero signal30 to guest worker3 at LR0x825b2d1c.
 The translated engine cohorts are still unpolled. Real worker signal binding,
 safe provider transitions and original stop/restart handling must be qualified
 before this guard can be removed. Initialization has not returned or rendered.
+
+Read-only observations now identify worker3's actual user callback as the
+original finalizer function0x825c3ed0. Its last observed provider entry is
+pthread_cond_wait at caller LR0x825505d8; this is a call observation, not a
+snapshot proving its physical state at the later signal request. The Game18
+guest objects remain identical to Game17. The optional cooperative-poll
+admission policy also passes focused Linux/Windows tests and the unchanged
+27349-check/260-pause regression on each host. It can defer unsafe sites;
+provider root publication, interruptible waits and actual collector suspension
+remain required before enabling signal30 delivery.
 
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 it does not disable backend initialization or qualify persistent gain/output.
