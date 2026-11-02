@@ -234,9 +234,9 @@ int main(int argc,char **argv){
     stage="asset-pack wrapper setup";AndroidAssetPackWrapper asset_packs(java,{kApkSha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
     stage="native providers setup";
     // Real policy/semaphores for explicitly bound threads. These cohorts are
-    // unpolled: delivery and unknown worker contexts fail rather than queueing
+    // without a delivery binding: unknown contexts fail rather than queueing
     // a request that cannot receive a real same-worker acknowledgment.
-    SignalHost process_signals([](uint64_t token){std::fprintf(stderr,"Game bootstrap: unsupported unpolled delivery target=%#llx\n",(unsigned long long)token);std::abort();},0x7ff600100000ULL,
+    SignalHost process_signals([](uint64_t token){std::fprintf(stderr,"Game bootstrap: unsupported unbound delivery target=%#llx\n",(unsigned long long)token);std::abort();},0x7ff600100000ULL,
       [&files](addr_t address,size_t size)->std::optional<SignalHost::StackRegion>{
         auto mapping=files.MappingRegion(address,size,true);
         if(!mapping)return {};
@@ -356,7 +356,7 @@ int main(int argc,char **argv){
     if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
     zlib.Install(runtime);
     recomp::Runtime signal_bridges,jump_bridges;
-    auto no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("unpolled frame profile cannot deliver a target signal");};
+    auto no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("frame profile has no qualified target signal delivery binding");};
     process_signals.Install(signal_bridges,current_signal_thread,no_delivery);
     for(const char *name:{"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember","sigaltstack"}){auto marker=process_signals.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"pthread_kill")&&s.gpr.x1.dword){std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}
       const auto input=s.gpr.x0.qword,output=s.gpr.x1.qword;

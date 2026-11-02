@@ -16,11 +16,17 @@ def main():
  expected={**m['original_object_hashes'],**m['input_hashes'],**{x['path']:x['sha256']for x in m['objects']},**{str(b/'sources'/k):v for k,v in m['source_sha256'].items()},**{str(b/k):v for field in ['frozen_support_sha256','generated_header_sha256']for k,v in m[field].items()},str(b/'game_inputs.json'):record['inputs_sha256'],str(b/'bunker-game-bootstrap.exe'):record['executable_sha256'],str(b/'libz-inflate.a'):m['zlib_sha256'],str(b/'host-source.tar'):m['host_archive_sha256']}
  expected.update({str(pathlib.Path(m['angle_directory'])/k):v for k,v in m['angle_dll_sha256'].items()})
  expected.update({str(b/'native'/('lib'+mod['name']+'.so')):mod['sha256']for mod in m['modules']})
+ poll_cohort=m.get('cooperative_poll_cohort')
+ if poll_cohort:expected[poll_cohort['acceptance_path']]=poll_cohort['acceptance_sha256']
  def verify():
   win=[pathlib.Path(k)for k in expected if k.startswith('/mnt/')];actual=hashes(win)
   assert all(actual[str(absolute(k))]==expected[str(k)]for k in win),'frozen Windows artifact differs'
   assert all(sha(k)==v for k,v in expected.items()if not k.startswith('/mnt/')),'frozen WSL artifact differs'
  verify()
+ if poll_cohort:
+  proof=json.loads(pathlib.Path(poll_cohort['acceptance_path']).read_text())
+  assert proof['trace_heads']==456684 and proof['unique_definitions'] is True and proof['missing_direct_targets']==[]
+  assert [(x['path'],x['sha256'])for x in proof['objects']]==[(x['path'],x['sha256'])for x in m['objects']]
  if a.verify_only:print('All accepted objects, source/support, inputs, native data and executable verified; no guest execution');return
  def wp(path):return subprocess.check_output(['wslpath','-m',str(pathlib.Path(path).resolve())],text=True).strip()
  storage=b/('data-'+a.profile)
@@ -43,7 +49,9 @@ def main():
  muted='Game bootstrap: explicit muted diagnostic; original nativeMuteMasterAudio(true) returned; hardware-volume observer disabled; no endpoint/volume or audio-output qualification'in text
  assert not muted or a.profile=='frame-muted','muted mode must be requested explicitly'
  complete=run.returncode==0 and terminal and unity_complete and lifecycle_order and(frame or lazy)and(not frame or(frame_returned and len(ctors)==9))and(a.profile!='frame-muted'or muted)
- result=dict(status='profile passed'if complete else'original startup boundary reached; incomplete',profile=a.profile,exit_code=run.returncode,normal_terminal_record=terminal,unity_constructors_and_jni_complete=unity_complete,host_commit=m['host_commit'],executable_sha256=record['executable_sha256'],inputs_sha256=record['inputs_sha256'],log_sha256=sha(log),il2cpp_constructors=len(ctors),il2cpp_finalizers=len(finis),lifecycle_order=lifecycle_order,il2cpp_lazy_before_frame=lazy,native_render_returned=frame_returned,all_frozen_inputs_and_original_objects_reverified=True,limits='Unpolled exploratory cohorts; no stop-world/collection, rendered-image, full Java lifecycle or playable-game claim')
+ result=dict(status='profile passed'if complete else'original startup boundary reached; incomplete',profile=a.profile,exit_code=run.returncode,normal_terminal_record=terminal,unity_constructors_and_jni_complete=unity_complete,host_commit=m['host_commit'],executable_sha256=record['executable_sha256'],inputs_sha256=record['inputs_sha256'],log_sha256=sha(log),il2cpp_constructors=len(ctors),il2cpp_finalizers=len(finis),lifecycle_order=lifecycle_order,il2cpp_lazy_before_frame=lazy,native_render_returned=frame_returned,all_frozen_inputs_and_original_objects_reverified=True,limits='Exploratory cohorts without production target signal delivery; no stop-world/collection, rendered-image, full Java lifecycle or playable-game claim')
+ result['cooperative_poll_instrumented']=bool(poll_cohort)
+ result['target_signal_delivery_enabled']=False
  result['audio_profile']='explicit-muted' if a.profile=='frame-muted' else 'normal'
  result['original_master_mute_request_returned']=muted
  result['hardware_volume_observer_created']='real read-only music-volume observer ready' in text
