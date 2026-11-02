@@ -58,7 +58,8 @@ part of the normal Bunker release. The game does not boot or render yet.
   The latest dual-engine frame creates real ServiceConnection, audio-focus and
   LocationListener proxies and returns from the original sigaltstack query.
   It now stops at AssetPackManagerWrapper.init, with preceding missing
-  LOCATION_SERVICE, Build.VERSION and getObbDirs metadata recorded.
+  getSystemService and getObbDirs recorded. The service-name constant and an
+  explicit Android13 compatibility SDK profile resolve the earlier lookups.
   IL2CPP is still unloaded at that boundary.
   No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
@@ -149,6 +150,19 @@ part of the normal Bunker release. The game does not boot or render yet.
   explicit boundary; no GPS, provider or coordinate result is supplied. The
   original factory's actual singleton Class[] is now captured in game8. See
   [LocationListener scope](windows/location_proxy.md).
+- Typed host JNI reference-array results pass 2,289 checks per host, preserving
+  result assignability and owned callback frames. The OBB directory getters use
+  an explicit ordered volume catalog and preserve unavailable null slots;
+  Windows passes 106 focused checks with real mapped directories, Linux 88 with
+  a labelled injected verifier. See [array returns](windows/jni_array_result.md)
+  and [external-volume scope](windows/android_obb.md).
+- AssetPackManagerWrapper's original missing-PlayCore branch passes 209 focused
+  checks and eight explicit boundaries per host. The exact APK code catalog
+  includes all four DEX containers and split metadata; the actual factory is
+  absent from that supplied code scope. A real nonnull singleton reports the
+  missing API, allowing original native branching without fabricated pack
+  results. A natural frame has not yet qualified this port. See
+  [wrapper initialization and ownership](windows/asset_pack_wrapper.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old
@@ -280,6 +294,10 @@ unsupported instructions.
   failed-restore/unmap behavior. Three measured QEMU-user differences remain
   explicitly separated from the pinned Android contract. See
   [alternate-stack ownership and limits](windows/signal_altstack.md).
+- Original Unity's alternate-stack allocation requests valid MAP_GROWSDOWN.
+  The current Windows mapping provider rejects that bit before installation;
+  game8/8b therefore qualify only the stack query. Genuine owned downward growth
+  and its lifetime/guard constraints remain required before full stack setup.
 - Finish provider memory integration and exercise paired exclusives in real
   Unity startup. The replacement single/pair reservation protocol passes 90,112
   instruction comparisons per platform plus 97 runtime checks and five

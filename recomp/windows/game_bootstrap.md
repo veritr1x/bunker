@@ -15,7 +15,7 @@ ELF constructor/finalizer arrays, disjoint executable ranges, exact union of
 All prior artifacts remain in place. Final preparation requires an explicit
 accepted committed host containing AndroidContext::BindUnityPlayer.
 
-The next host checkpoint explicitly selects the Android13 framework compatibility
+The host explicitly selects the Android13 framework compatibility
 profile: Build.VERSION.SDK_INT is 33. This selection is independent of the APK's
 targetSdk and Windows identity; unported API bodies still stop explicitly.
 Only the reached integer field is supplied, with no invented RELEASE,
@@ -25,7 +25,7 @@ JNI144/150, and the native startup compares it with API21 before its OBB path.
 is pinned in `work/android-api-profile-audit`, SHA256
 `77d6b4a7fef0ac88197bd269a2a9c1c4e37d20a3fa026b3b0654930187147e95`.
 The selected field is set and read back through the real JNI static-field table;
-a later natural game variant must qualify the resulting startup behavior.
+the game8b natural profiles qualify setup and the recorded startup boundary below.
 
 `game_bootstrap_prepare.py --plan-only` makes a fresh static plan without
 freezing providers or executing guests. Omit it and provide `--host-commit` only
@@ -157,3 +157,28 @@ AssetPackManagerWrapper.init(Context). All four profiles reverify frozen inputs
 after execution. Aggregate audit `work/windows-game8/game_final_audit.json`
 SHA256 is `aa3defdf89901451cd44d706c3ad6b4617660fdf064e304129594c8d3fa8c951`.
 IL2CPP remains uninitialized/unloaded on this path; nativeRender has not returned.
+
+`work/windows-game8b` freezes host f6e472a and executable SHA256
+`6f29aca6dd84cb7ca622ceb9f06fd797d48f095bd0fcf5122663d09c5b66eea9`.
+All three non-render profiles pass normal completion and full post-run input
+verification. The frame no longer raises the earlier LOCATION_SERVICE or
+Build.VERSION lookup errors. It now records missing getSystemService and
+getObbDirs, then stops at the same AssetPackManagerWrapper.init boundary.
+All three proxy requests and the successful disabled sigaltstack query remain
+captured. Aggregate audit SHA256 is
+`599dc5b4121faaccf38a30d8a801014eb8a16f1a57661bb57aed10eddcf512b9`.
+
+An independent audit explains the query-only behavior: original mmap at
+7040ee68 requests flags0x20122, including MAP_GROWSDOWN. This frozen FileSystem
+rejects the valid growth bit with EINVAL, so original Unity returns false before
+installing its stack. Successful original stack setup is still unqualified.
+New host wiring logs actual mmap arguments/results through the unchanged typed
+provider bridge; it adds no guest allocation or successful fallback.
+
+The next combined host includes typed JNI reference-array results, verified OBB
+getters and the exact APK's missing-PlayCore wrapper branch. Its explicit mount
+profile supplies zero Android external volumes, independently of APK file names.
+The wrapper profile requires the exact runtime-verified APK and complete closed
+code-catalog proof, including all four DEX containers and split metadata.
+Native stack-growth support remains a prerequisite to qualifying the next
+natural startup path. These component gates do not establish a returned frame.
