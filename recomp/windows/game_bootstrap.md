@@ -106,3 +106,17 @@ key19 free callback remains owned until actual runner retirement; no TLS value
 is cleared to bypass it. Surface handoff still observes 2+2=4 reference calls.
 This variant executes no nativeResume/nativeRender. The earlier game6 compile
 failure is preserved; game6b is a fresh immutable source/build variant.
+
+`work/windows-game7a` freezes host 11d2dca and executable SHA256
+`b7ce26fae2c22a31a37b9072d8c6a5ede5730233aabcf4edd43ed6081df7b610`.
+Default, initJni and paused surface profiles again pass normal terminal
+completion, with all inputs reverified after each run. The real frame now creates
+both singleton interface proxies from original native handles and actual
+Class[] arguments: ServiceConnection, then
+AudioManager$OnAudioFocusChangeListener. The next missing Java class is
+android/location/LocationListener. Original Unity then calls sigaltstack at
+LR7040ee3c, where this immutable variant stops at its unknown import boundary.
+Its aggregate audit is `work/windows-game7a/game_final_audit.json`, SHA256
+`a8772c687ca5b13e7f5605557f5021fcf6c86c0ca3677ba97258011c9826efd4`.
+IL2CPP constructors/finalizers remain zero, nativeRender has not returned and
+no game image has rendered. Earlier game7 and all other variants are preserved.

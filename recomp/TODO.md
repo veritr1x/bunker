@@ -55,8 +55,9 @@ part of the normal Bunker release. The game does not boot or render yet.
   services now have checked implementations. Windows now exposes a real default
   audio endpoint; the frame attempt passes resume and enters engine startup.
   Resolver, ServiceConnection and disabled-AR implementations pass focused gates.
-  The latest dual-engine frame passes those calls and reaches Settings.Secure
-  plus JNI NewObjectArray. IL2CPP is still unloaded at that boundary.
+  The latest dual-engine frame creates real ServiceConnection and audio-focus
+  proxies, then reaches missing LocationListener metadata and sigaltstack.
+  IL2CPP is still unloaded at that boundary.
   No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
   invented initial native callback. The full Java/game lifecycle remains open.
@@ -129,9 +130,17 @@ part of the normal Bunker release. The game does not boot or render yet.
   retirement. Settings.Secure's exact Android-ID query now reads an explicit
   per-user Windows store; actual missing rows reach the original nullable
   fallback. Its focused checks and six Java/JNI regressions pass on both hosts.
-  Neither component has yet qualified a later frame. See
+  A later natural frame passes those earlier lookup/factory boundaries but still
+  stops before nativeRender returns. See
   [reference arrays](windows/jni_object_array.md) and
   [settings and identity scope](windows/settings_secure.md).
+- The exact singleton ServiceConnection and audio-focus proxy profiles preserve
+  original native handles, interface arrays, class-loader identity and explicit
+  disable/ownership. Active callbacks remain unsupported; no service or focus
+  event is invented. Both profiles pass Windows/Linux focused and regression
+  gates and are reached by the original first-frame path. See
+  [proxy scope](windows/jni_interface_proxy.md) and
+  [the latest natural startup result](windows/game_bootstrap.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old
