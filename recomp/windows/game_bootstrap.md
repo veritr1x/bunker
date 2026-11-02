@@ -559,3 +559,33 @@ Game20 aggregate SHA256 is
 `0f43bd64f2fefb7632e974326a7e129693f286c056b4568fcd40a3c3c8fdeceb`.
 This qualifies control isolation and preserves the incomplete runtime result;
 original stop/restart handlers, root frames and acknowledgments remain unrun.
+
+Game21 freezes hostff6c86b and the qualified sparse-prefetch v2 cohort. Only
+selected object1553 changes; all456684 heads and79436 closed direct targets
+remain. The cohort has1439 unsupported heads and122089 cycle cuts. Its input
+SHA256 is `c0acea4f97433b29f7f3a5bfcf5123db091ac28700df2fef0c8ec30eab32a96d`;
+the native collector-capable executable SHA256 is
+`2b1aef8ffc40cd5b8dbb08fe1e2faad726d35ccf5072a197dd67a5e2fc493ec7`.
+Default/init/surface controls pass, and standard muted startup retains the
+signal30 guard. Both frame profiles return from the original focus callback,
+resume and master mute, then execute all9 IL2CPP constructors. The endpoint
+volume observer remains omitted; no TV power-state or audio-output result is
+inferred from the failed cursor/screenshot capture.
+
+The separate collector run now creates the captured original finalizer,
+observes its actual condition-wait checkpoint and sends original signal30 at
+epoch4. The actual pthread_kill provider returns0. Execution then stops at
+the ordinary wait-mask check before any original handler or physical signal
+frame runs. The delivery boundary repeats that check after SignalHost has
+already installed the action mask; a phase-aware check must validate the
+saved interrupted mask and the current installed mask separately. No guest
+mask should be changed to bypass this diagnostic.
+
+There are zero original handler returns, posts, frame checks or collector
+acknowledgments in this attempt. Both outputs again contain exactly24
+APK-identical Managed files/24570231 bytes and matching unity.ver. Frame-GC
+log SHA256 is
+`54db68d4931a5deae77ea9227b487d3e401c55c37ed5a9332ac858c5e5eb5203`;
+aggregate SHA256 is
+`44922616c66243110f97daf8713f6f57376178b128c6e2552602630ba50f9179`.
+Initialization, collection and nativeRender return remain incomplete.
