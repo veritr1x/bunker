@@ -112,6 +112,14 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
     {"onBindingDied","(Landroid/content/ComponentName;)V"},
     {"onNullBinding","(Landroid/content/ComponentName;)V"}});
   host.DefineInterface("android/media/AudioManager$OnAudioFocusChangeListener",{{"onAudioFocusChange","(I)V"}});
+  host.DefineClass("android/location/Location",{},"java/lang/Object",true);
+  host.DefineInterface("android/location/LocationListener",{
+    {"onLocationChanged","(Landroid/location/Location;)V"},
+    {"onLocationChanged","(Ljava/util/List;)V"},
+    {"onFlushComplete","(I)V"},
+    {"onStatusChanged","(Ljava/lang/String;ILandroid/os/Bundle;)V"},
+    {"onProviderEnabled","(Ljava/lang/String;)V"},
+    {"onProviderDisabled","(Ljava/lang/String;)V"}});
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
   host.DefineClass("android/content/pm/PackageItemInfo", {}, "java/lang/Object", true);
   host.DefineClass("android/content/pm/ApplicationInfo", {}, "android/content/pm/PackageItemInfo", true);
