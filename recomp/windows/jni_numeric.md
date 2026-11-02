@@ -57,8 +57,13 @@ not proof of PlayerPrefs storage or a rendered frame.
 The known proxy hashCode()I declaration remains unimplemented. Once slot49 has
 generic integer transport, its reached error moves from unsupported JNIEnv slot
 to the actual Java method having no host implementation. No default hash/body
-was added. Old frozen proxy evidence is preserved; its runner expectation string
-needs this explicit diagnostic update when rerun against the new core.
+was added. Live proxy runners select one exact expected diagnostic from the
+frozen core's numeric capability. Old frozen cores retain the slot49 boundary;
+numeric cores require the exact unimplemented owner/method diagnostic.
+`work/runnable-numeric1` freezes a4a99d9 plus unchanged proxy providers/fixtures
+and the updated runner. All four proxy gates pass on both hosts, including108
+total negative cases and the newly reached ServiceConnection/Runnable hashCode
+guards. This changes diagnostic qualification, without supplying a method body.
 
 Candidate1 stopped during build because its freeze script omitted the new header;
 it is preserved and makes no host-runtime claim. Candidate2 includes both core
