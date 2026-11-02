@@ -124,6 +124,14 @@ part of the normal Bunker release. The game does not boot or render yet.
   each host plus JNI/Context/PackageManager/callback/constructor regressions.
   Enabled AR remains an explicit unsupported native-effects boundary. See
   [the Java scope](windows/java_init.md).
+- Reached JNI reference arrays pass 1,450 checks per host, covering owned
+  elements, covariance, local/global/weak references, threads and unlocked
+  retirement. Settings.Secure's exact Android-ID query now reads an explicit
+  per-user Windows store; actual missing rows reach the original nullable
+  fallback. Its focused checks and six Java/JNI regressions pass on both hosts.
+  Neither component has yet qualified a later frame. See
+  [reference arrays](windows/jni_object_array.md) and
+  [settings and identity scope](windows/settings_secure.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old
@@ -233,6 +241,10 @@ unsupported instructions.
   provider supplies checked masks and queued delivery; the older pthread-only
   provider leaves nonzero delivery/masks and atfork unsupported. Actual collector
   integration, thread records and root scanning remain unverified.
+  Optional real-worker lifecycle hooks now pass 566 focused/78 existing checks,
+  preserving creator mask snapshots, actual worker/TLS lifetimes and separate
+  provider-destructor validation. The game harness has not enabled those hooks
+  or production polling. See [worker ownership](windows/worker_lifecycle.md).
   [The binary/ABI evidence and required gates](windows/GC-SUSPENSION.md) are
   preserved for the implementation; both stop and resume acknowledgments are
   needed by this collector's default retry mode.
