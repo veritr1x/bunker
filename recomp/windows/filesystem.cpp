@@ -675,8 +675,15 @@ int FileSystem::FFlush(addr_t stream) {
 }
 addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset) {
   std::unique_lock lock(impl_->mutex);
-  constexpr int allowed = 3 | 0x10 | 0x20 | 0x4000 | 0x20000 | 0x100000;
+  constexpr int allowed = 3 | 0x10 | 0x20 | linux_flags::map_growdown | 0x4000 | 0x20000 | 0x100000;
   if (!length || length > SIZE_MAX - kPage || protection & ~7 || flags & ~allowed || (flags & 3) == 0 || (flags & 3) == 3 || offset < 0 || offset % kPage) { impl_->Error(22); return kMapFailed; }
+  if(flags & linux_flags::map_growdown){
+    // Linux rejects growing shared/file VMAs. Private anonymous growth is a
+    // genuine VM capability, not an ignorable hint or allocation failure.
+    if((flags & 3)==linux_flags::map_shared || !(flags & linux_flags::map_anonymous) ||
+       ((flags & linux_flags::map_fixed_no_replace) && address % kPage)){impl_->Error(22);return kMapFailed;}
+    throw std::runtime_error("unsupported mmap MAP_GROWSDOWN: owned downward expansion is not implemented");
+  }
   if (flags & linux_flags::map_fixed) { impl_->Error(95); return kMapFailed; }
   const bool no_replace = flags & linux_flags::map_fixed_no_replace;
   if (no_replace && (!address || address % kPage)) { impl_->Error(22); return kMapFailed; }
