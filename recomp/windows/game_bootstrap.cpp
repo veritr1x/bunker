@@ -211,7 +211,8 @@ int main(int argc,char **argv){
     logging.SetAllocator([&](uint64_t size){return libc.Malloc(size);});
     libc.SetErrorSink(error);libc.SetEnvironment({});
     // Destroy/join guest workers before the providers they may still call.
-    Pthreads threads(runtime,[&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
+    Pthreads threads(runtime,Translated,0x7ff900000000ULL,
+      [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
     const auto parent_token=threads.Self();Require(!process_signals.RegisterThread(parent_token)&&!process_signals.BindCurrent(parent_token),"cannot bind actual UI virtual signal context");
     auto current_signal_thread=[&]{auto token=threads.Self();Require(bool(process_signals.Lookup(token)),"guest-created worker lacks proved SignalHost lifecycle hooks");return token;};
     auto current_jump_thread=[&](){
