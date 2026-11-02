@@ -81,6 +81,11 @@ under its heading, down to the previous release.
   - Six recovered summons had another event's dates; they have their own.
   - The i button on the regular Abstract Ruler, Subjugation Conquest and
     Paid Only Automata Vol. 2 step-up summons opens their own notice. [48d07f9]
+  - Summons Details and the Archive's Schedule title summons where the game
+    text has another summon's title (the two Abstract Ruler summons are
+    swapped, Subjugation Conquest is called Paid Only: Yuletide Snowfall,
+    the Replicant and SINoALICE step-ups each carry the next one's), only a
+    Japanese title, or none; festival volumes are numbered. [21d5272]
 
 ### Sources
 - Summon, event box and panel mission data note their sources as an event
