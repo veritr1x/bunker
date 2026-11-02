@@ -3,6 +3,7 @@
 #include "android_context.h"
 #include "android_internal_storage.h"
 #include "windows_android_id.h"
+#include "jni_interface_proxy.h"
 #include "java_native_libraries.h"
 #include "apk_assets.h"
 #include "native_window.h"
@@ -183,6 +184,7 @@ int main(int argc,char **argv){
     context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
+    JniInterfaceProxy interface_proxies(java);
     // Real policy/semaphores for explicitly bound threads. These cohorts are
     // unpolled: delivery and unknown worker contexts fail rather than queueing
     // a request that cannot receive a real same-worker acknowledgment.
@@ -432,7 +434,12 @@ int main(int argc,char **argv){
     }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
     Require(!tls_audit.PendingModuleCallbacks(threads),"JNI_OnUnload created UI TLS requiring an unproved teardown order");
+    stage="interface proxy ownership before module finalizers";
+    try{interface_proxies.CheckNoEnabledProxies();}catch(const std::exception &error){
+      std::fprintf(stderr,"Game bootstrap: retained-module proxy ownership boundary: %s; Unity refs=%zu IL2CPP refs=%zu; no native delete/finalizer forced\n",error.what(),modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 8;
+    }
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
+    interface_proxies.CheckNoEnabledProxies();
     std::fprintf(stderr,"Game bootstrap: actual lazy IL2CPP lifecycle constructors=%zu finalizers=%zu remaining refs=%zu; no host-forced guest handle close\n",il2cpp_ledger.constructed,il2cpp_ledger.finalized,modules.ReferenceCount("libil2cpp.so"));
     Require(!tls_audit.PendingModuleCallbacks(threads),"actual module finalizers created surviving UI TLS; callback lifetime is unproved");
     if(modules.ReferenceCount("libunity.so")||modules.ReferenceCount("libil2cpp.so")){
@@ -440,7 +447,7 @@ int main(int argc,char **argv){
       Require(!threads.ReleaseCurrent(),"actual UI retirement with retained modules failed");if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement with retained modules failed");native_catalog->Revoke();
       std::fprintf(stderr,"Game bootstrap: reached teardown boundary: actual module references remain Unity=%zu IL2CPP=%zu; globals retained until process exit, no host-forced finalizers\n",modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 7;
     }
-    libc.Finalize();Require(!tls_audit.PendingModuleCallbacks(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
+    libc.Finalize();interface_proxies.CheckNoEnabledProxies();Require(!tls_audit.PendingModuleCallbacks(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
     if(jumps)jumps->DropThread(current_token,current_token);
     if(process_signals.Lookup(current_token)&&process_signals.DropThread(current_token))throw std::runtime_error("parent signal-thread cleanup failed");
     native_catalog->Revoke();
