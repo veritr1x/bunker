@@ -217,3 +217,43 @@ func TestBarrierWeaponSummons(t *testing.T) {
 		}
 	}
 }
+
+// Summons whose art or notice names a lineup no longer draw from the standard
+// pool alone: Bloody daily free summon, Abyssal Weapon, a fire weapon
+// summon, the Healer & Support summons.
+func TestSummonLineupsFromArtAndNotices(t *testing.T) {
+	holder, _ := harness(t)
+	c := holder.Get()
+	ss := int32(40)
+	bp := func(id int32) *masterdata.BannerPool {
+		b := c.GachaPool.BannerPools[id]
+		if b == nil {
+			t.Fatalf("no summon %d", id)
+		}
+		return b
+	}
+	if l := bp(456).CostumesByRarity[ss]; len(l) != 10 {
+		t.Errorf("456 ★4 characters: %d, want the 10 Bloody costumes", len(l))
+	}
+	if l := bp(424).CostumesByRarity[ss]; len(l) != 1 || l[0].PossessionId != 32020 {
+		t.Errorf("424 ★4 characters: %+v", l)
+	}
+	if len(bp(71).Featured) == 0 {
+		t.Error("71 has no featured fire weapons")
+	}
+	for _, f := range bp(71).Featured {
+		if masterdata.ElementOf(f) != 2 {
+			t.Errorf("71 featured %d is not fire", f.PossessionId)
+		}
+	}
+	if l := bp(9505071).WeaponsByRarity[ss]; len(l) != 33 {
+		t.Errorf("9505071 ★4 weapons: %d", len(l))
+	}
+	for _, e := range c.GachaEntries {
+		if e.GachaId == 9505061 {
+			if r, _ := masterdata.PhaseRuleFor(e.PricePhases[0].PhaseId); r.Guar != "r4w" || e.GachaAutoResetType == 0 {
+				t.Errorf("9505061: guarantee %q reset %d", r.Guar, e.GachaAutoResetType)
+			}
+		}
+	}
+}

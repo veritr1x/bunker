@@ -697,7 +697,7 @@ func TestWeaponAbilityLineup(t *testing.T) {
 		}},
 	}
 	abilities := map[int32][]int32{1: {2000003, 9150004}, 2: {2000111, 9150004}, 3: {2000111, 9150014}, 4: {9150002}}
-	pool.applyWeaponLineups(map[int32]int32{468: 9150004}, abilities)
+	pool.applyWeaponLineups(map[int32]weaponLineup{468: {Ability: 9150004}}, abilities)
 	bp := pool.BannerPools[468]
 	var got []int32
 	for _, it := range bp.WeaponsByRarity[ss] {
@@ -706,5 +706,26 @@ func TestWeaponAbilityLineup(t *testing.T) {
 	sort.Slice(got, func(i, j int) bool { return got[i] < got[j] })
 	if fmt.Sprint(got) != "[1 2]" || len(bp.WeaponsByRarity[s]) != 1 || len(bp.CostumesByRarity[ss]) != 1 {
 		t.Fatalf("lineup: %v ★3 %v ★4 chars %v", got, bp.WeaponsByRarity[s], bp.CostumesByRarity[ss])
+	}
+}
+
+// A summon whose ★4 weapons are a listed selection (w4: the Healer & Support
+// summons, the exchange's weapons of their elements) gives only those.
+func TestListedWeaponLineup(t *testing.T) {
+	ss := model.RaritySSRare
+	w := func(id int32) GachaPoolItem {
+		return GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: id, RarityType: ss}
+	}
+	pool := &GachaCatalog{
+		WeaponById:  map[int32]GachaPoolItem{1: w(1), 2: w(2), 3: w(3)},
+		BannerPools: map[int32]*BannerPool{9505061: {WeaponsByRarity: map[int32][]GachaPoolItem{ss: {w(1)}}}},
+	}
+	pool.applyWeaponLineups(map[int32]weaponLineup{9505061: {Ids: []int32{3, 2, 404}}}, nil)
+	var got []int32
+	for _, it := range pool.BannerPools[9505061].WeaponsByRarity[ss] {
+		got = append(got, it.PossessionId)
+	}
+	if fmt.Sprint(got) != "[2 3]" {
+		t.Fatalf("listed lineup: %v", got)
 	}
 }
