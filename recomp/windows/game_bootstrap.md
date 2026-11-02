@@ -129,3 +129,19 @@ Its aggregate audit is `work/windows-game7a/game_final_audit.json`, SHA256
 `a8772c687ca5b13e7f5605557f5021fcf6c86c0ca3677ba97258011c9826efd4`.
 IL2CPP constructors/finalizers remain zero, nativeRender has not returned and
 no game image has rendered. Earlier game7 and all other variants are preserved.
+
+`work/windows-game8` freezes host bac1ecb and executable SHA256
+`dae0f5932345fbc43e9ce1c3517d594d47208edb07f803f8ddc6af6f7ca2f35c`.
+Default, init and surface again pass normal completion. The actual frame logs
+all three supplied singleton Class[] profiles, now including LocationListener,
+and the original sigaltstack query at LR7040ee3c returns zero with the genuine
+disabled tuple. No stack installation or signal delivery is claimed for this
+game run; those remain separately qualified component behavior.
+
+Original Java diagnostics next record missing Context.LOCATION_SERVICE,
+android/os/Build$VERSION and Context.getObbDirs()[Ljava/io/File;. The terminal
+boundary is the unimplemented actual APK method
+AssetPackManagerWrapper.init(Context). All four profiles reverify frozen inputs
+after execution. Aggregate audit `work/windows-game8/game_final_audit.json`
+SHA256 is `aa3defdf89901451cd44d706c3ad6b4617660fdf064e304129594c8d3fa8c951`.
+IL2CPP remains uninitialized/unloaded on this path; nativeRender has not returned.

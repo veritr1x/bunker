@@ -28,3 +28,9 @@ The new Android NDK fixture checks genuine interface identity, null superclass, 
 Twenty-two new subprocess boundaries require active failures for every signature and JNI form, mixed Service/Audio lists, duplicate Location list and enabled-unload ownership. Existing unchanged Audio217/six-negative, Service237/ten-negative, Context14 and Java141 gates run on both Windows and Linux. The runner freezes committed714daef support plus only the owned Context/proxy/fixture/test overlays. No live JNI core, FS, SignalHost or harness change is captured. Candidate directories and logs are preserved; acceptance hashes the exact executed source, fixture, translator semantics and binaries. Component tests do not claim a rendered game frame or an actual runtime Location Class[] capture.
 
 Candidate1 passed on Windows and Linux: Location547, unchanged Audio217 and Service237, Context14 and Java141 checks per host. All22 Location, six Audio and ten Service expected fatal subprocesses passed per host. The49-trace NDK union has zero unsupported traces and unresolved direct targets. Frozen support commit `714daeff64880209eb9de33b99a7164ea237557d`. Acceptance `work/location-proxy1/acceptance.json` SHA256 `2e1ffd36e389d5d995f2401560846c8810737de6d2ed1642d91d4ace64f4964a`; fixture SHA256 `229e7b8f5ec84bf3022f7d2a1e0a1f46eb962c98838de57500d78fbc22e2231d`. The same original process/run was preserved across the agent turn interruption; no duplicate candidate was started or frozen source changed.
+
+The later natural game8 frame captures the actual LocationListener singleton
+Class[] and original nonzero native handle at runtime. It then reaches
+Context.LOCATION_SERVICE, followed by other documented startup boundaries.
+This confirms the factory profile; it supplies no location event or value. See
+[the natural startup checkpoint](game_bootstrap.md).
