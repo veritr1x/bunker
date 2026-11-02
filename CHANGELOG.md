@@ -12,8 +12,11 @@ under its heading, down to the previous release.
   size in them. [1dcdfd0]
 - Pages for summons whose original notice is lost: rebuilt from the game's
   own data and surviving notices, with their artwork, under the summon's own
-  title. The tools that build and check them are in scripts/; the pages
-  themselves are not in the default notice pack yet. [1dcdfd0, b28ba09]
+  title. The tools that build and check them are in scripts/.
+  [1dcdfd0, b28ba09]
+- Notice pack 4: the 951 original notices and 203 rebuilt summon pages
+  (1,154 notices, 2,701 images). Builds now fetch it; it is twice the size
+  of pack 3 (135 MB). [de85587]
 - The notice tools' tests run in CI (Pillow and BeautifulSoup in
   scripts/requirements-notices.txt). [b772a20]
 
