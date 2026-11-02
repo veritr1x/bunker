@@ -39,6 +39,7 @@ class LibC {
   int64_t ProcessClock();
   int64_t Sysconf(int32_t name);
   int32_t GetTimeOfDay(addr_t timeval, addr_t timezone);
+  int32_t ProcessId() const;
  private:
   struct Aligned { void *base; uint64_t size, alignment; };
   struct Exit { addr_t callback, argument, dso; bool plain, called; };

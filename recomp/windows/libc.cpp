@@ -44,7 +44,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -160,6 +160,18 @@ int32_t LibC::GetTimeOfDay(addr_t output,addr_t timezone){
   value={static_cast<int64_t>(native.tv_sec),static_cast<int64_t>(native.tv_usec)};
 #endif
   recomp::WriteGuestMemory(output,&value,sizeof(value));return 0;
+}
+int32_t LibC::ProcessId()const{
+#ifdef _WIN32
+  const uint64_t native=GetCurrentProcessId();
+#else
+  const auto value=::getpid();
+  if(value<=0)throw std::runtime_error("native getpid returned an invalid process ID");
+  const uint64_t native=static_cast<uint64_t>(value);
+#endif
+  if(!native||native>uint64_t(INT32_MAX))
+    throw std::runtime_error("native process ID is not representable as Android signed32 pid_t");
+  return static_cast<int32_t>(native);
 }
 int64_t LibC::Sysconf(int32_t name){
   if(name!=39&&name!=40&&name!=97){
@@ -420,6 +432,7 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<int64_t()>(runtime,"clock",[this]{return ProcessClock();});
   Add<int64_t(int32_t)>(runtime,"sysconf",[this](auto name){return Sysconf(name);});
   Add<int32_t(addr_t,addr_t)>(runtime,"gettimeofday",[this](auto value,auto zone){return GetTimeOfDay(value,zone);});
+  Add<int32_t()>(runtime,"getpid",[this]{return ProcessId();});
   installed_=true;
 }
 }  // namespace bunker::windows
