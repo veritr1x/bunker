@@ -76,6 +76,9 @@ type summonRule struct {
 	// W4Ability: every ★4 weapon the summon gives has this ability (a
 	// barrier weapon summon's rank 4 barrier skill); they are its ★4 weapons.
 	W4Ability int32 `json:"w4ability"`
+	// W4: the ★4 weapons the summon gives, a listed selection (the Healer &
+	// Support summons: their exchange's weapons of their elements).
+	W4 []int32 `json:"w4"`
 }
 
 type ruleFeatured struct {
@@ -91,9 +94,15 @@ type ruleFeatured struct {
 // onlyLineups are the summons whose ★4 characters are their lineup only.
 var onlyLineups = map[int32]bool{}
 
-// weaponLineups are the summons whose ★4 weapons are those with an ability
-// (summon id -> ability id; summon_rules.json w4ability).
-var weaponLineups = map[int32]int32{}
+// weaponLineup is a summon's ★4 weapons: those with an ability, or a list.
+type weaponLineup struct {
+	Ability int32
+	Ids     []int32
+}
+
+// weaponLineups are the summons whose ★4 weapons are a lineup
+// (summon_rules.json w4ability, w4).
+var weaponLineups = map[int32]weaponLineup{}
 
 // newSummon is a summon the game data lacks but its notice and banner art
 // recover: the paid-only twins. Its window is the notice's (original game
@@ -258,19 +267,22 @@ func (pool *GachaCatalog) applyOnlyLineups() {
 	}
 }
 
-// applyWeaponLineups makes a summon's ★4 weapons the ★4 weapons with its
-// ability (lineups: summon -> ability), once BuildBannerPools has given it the
+// applyWeaponLineups makes a summon's ★4 weapons its lineup: the ★4 weapons
+// with its ability, or its listed ones, once BuildBannerPools has given it the
 // standard pool. abilities is each weapon's abilities. Characters and ★3
 // weapons stay.
-func (pool *GachaCatalog) applyWeaponLineups(lineups map[int32]int32, abilities map[int32][]int32) {
-	for id, ability := range lineups {
+func (pool *GachaCatalog) applyWeaponLineups(lineups map[int32]weaponLineup, abilities map[int32][]int32) {
+	for id, l := range lineups {
 		bp := pool.BannerPools[id]
 		if bp == nil {
 			continue
 		}
 		var lineup []GachaPoolItem
 		for wid, w := range pool.WeaponById {
-			if w.RarityType == model.RaritySSRare && slices.Contains(abilities[wid], ability) {
+			if w.RarityType != model.RaritySSRare {
+				continue
+			}
+			if (l.Ability != 0 && slices.Contains(abilities[wid], l.Ability)) || slices.Contains(l.Ids, wid) {
 				lineup = append(lineup, w)
 			}
 		}
@@ -359,15 +371,15 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 	}
 	entries = applySummonRules(entries, file.Rules)
 	artCards = file.ArtCards
-	weaponLineups = map[int32]int32{}
+	weaponLineups = map[int32]weaponLineup{}
 	for id, r := range file.Rules {
-		if r.W4Ability != 0 {
-			weaponLineups[id] = r.W4Ability
+		if r.W4Ability != 0 || len(r.W4) > 0 {
+			weaponLineups[id] = weaponLineup{Ability: r.W4Ability, Ids: r.W4}
 		}
 	}
 	for _, n := range file.New {
 		if n.W4Ability != 0 {
-			weaponLineups[n.Id] = n.W4Ability
+			weaponLineups[n.Id] = weaponLineup{Ability: n.W4Ability}
 		}
 	}
 	if windows, err := loadMedalShopWindows(); err == nil {
