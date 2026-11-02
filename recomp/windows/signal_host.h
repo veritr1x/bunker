@@ -23,10 +23,18 @@ class SignalWake {
 };
 struct AndroidSignalAction {uint32_t flags=0,padding=0;addr_t handler=0;uint64_t mask=0;addr_t restorer=0;};
 static_assert(sizeof(AndroidSignalAction)==32);
+struct AndroidSignalStack {addr_t pointer=0;int32_t flags=2;uint32_t padding=0;uint64_t size=0;};
+static_assert(sizeof(AndroidSignalStack)==24&&alignof(AndroidSignalStack)==8);
+static_assert(offsetof(AndroidSignalStack,flags)==8&&offsetof(AndroidSignalStack,size)==16);
 class SignalHost {
  public:
   using Info=std::array<uint8_t,128>;
-  struct Delivery {uint64_t token;int signal;AndroidSignalAction action;Info info;uint64_t saved_mask;};
+  struct StackRegion {addr_t low=0,high=0;uint64_t generation=0;};
+  struct StackLease {StackRegion region;std::shared_ptr<void> lifetime;};
+  using StackResolver=std::function<std::optional<StackRegion>(addr_t,size_t)>;
+  using StackAcquire=std::function<std::optional<StackLease>(addr_t,size_t,uint64_t)>;
+  struct StackSnapshot {AndroidSignalStack configured;std::optional<StackRegion> region;uint64_t epoch=0;};
+  struct Delivery {uint64_t token;int signal;AndroidSignalAction action;Info info;uint64_t saved_mask;StackSnapshot stack;};
   // Return a mask only when an explicit user-context edit overrides restoration.
   using Boundary=std::function<std::optional<uint64_t>(const Delivery&)>;
   using Notify=std::function<void(uint64_t)>;
@@ -34,7 +42,8 @@ class SignalHost {
   struct Dispatch {int error=0;bool handled=false,restart=false;};
   struct Thread;
   using ThreadRef=std::shared_ptr<Thread>;
-  explicit SignalHost(Notify request_poll={},addr_t marker_base=0x7ff600100000ULL);
+  explicit SignalHost(Notify request_poll={},addr_t marker_base=0x7ff600100000ULL,
+                      StackResolver stack_resolver={},StackAcquire stack_acquire={});
   // Primitive status returns are positive Android errno values; Install adapts
   // POSIX -1/errno versus pthread direct-error conventions. Lifecycle is explicit:
   // owner must DropThread on exit and keep this host alive through all callbacks.
@@ -47,6 +56,13 @@ class SignalHost {
   int Action(int signal,const AndroidSignalAction *set,AndroidSignalAction *old);
   int Mask(uint64_t token,int how,const uint64_t *set,uint64_t *old);
   int Pending(uint64_t token,uint64_t *out);
+  // Typed arguments are host snapshots, not unvalidated guest pointers. The
+  // import snapshots/tracks the real 24-byte ARM64 wire object separately.
+  int AltStack(uint64_t token,addr_t current_sp,const AndroidSignalStack *set,AndroidSignalStack *old);
+  StackSnapshot AlternateStack(uint64_t token);
+  StackLease AcquireAlternateStack(uint64_t token,const StackSnapshot&);
+  void RestoreAlternateStack(uint64_t token,addr_t restored_sp,const StackSnapshot&);
+  static bool OnAlternateStack(const AndroidSignalStack&,addr_t sp);
   int Queue(uint64_t token,int signal,const Info *info=nullptr);
   Dispatch DispatchOne(uint64_t token,const Boundary&);
   int Suspend(uint64_t token,uint64_t temporary_mask,const Boundary&); // positive EINTR normally
@@ -65,5 +81,6 @@ class SignalHost {
   std::mutex mutex_;std::map<uint64_t,ThreadRef> threads_;
   std::array<AndroidSignalAction,32> actions_{};
   Notify request_poll_;std::function<void(int)> error_sink_;addr_t marker_base_;bool installed_=false,process_installed_=false;
+  StackResolver stack_resolver_;StackAcquire stack_acquire_;
 };
 }  // namespace bunker::windows
