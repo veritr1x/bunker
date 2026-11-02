@@ -3,7 +3,8 @@
 #include <memory>
 namespace bunker::windows {
 // APK JNIBridge factory/disable port for exact singleton ServiceConnection[]
-// and OnAudioFocusChangeListener[] profiles, with distinct implementing classes.
+// OnAudioFocusChangeListener[] and LocationListener[] profiles, each with its
+// own distinct implementing class.
 // Host/context metadata must outlive this adapter and its callbacks.
 // Owner drains workers first and destroys this on an attached JNI thread.
 // This owns no native handle and never runs a native callback or finalizer.
