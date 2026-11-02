@@ -172,6 +172,8 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineBooleanMethod("java/lang/Class","isInterface","()Z",[this](addr_t reference,const MethodArguments&){
     ProviderLock lock(*this);auto clazz=GetClass(reference);return clazz&&clazz->is_interface;
   });
+  // Android Object.<init>()V has an empty Java body; allocation is real and exact-owner.
+  DefineConstructor("java/lang/Object","()V",[this](const MethodArguments&){return NewInstance("java/lang/Object");});
   builtin("java/lang/Object","toString",Method::kObjectString);builtin("java/lang/String","toString",Method::kStringString);
   auto &equals=*classes_.at("java/lang/String")->methods.at({"equals","(Ljava/lang/Object;)Z"});equals.builtin=Method::kStringEquals;equals.argument_types={"Ljava/lang/Object;"};
   builtin("java/lang/Throwable","toString",Method::kThrowableString);builtin("java/lang/Throwable","getMessage",Method::kMessage);builtin("java/lang/Throwable","getLocalizedMessage",Method::kLocalizedMessage);
