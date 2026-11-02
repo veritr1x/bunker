@@ -68,6 +68,17 @@ under its heading, down to the previous release.
   and Belle, and Lacrima Soldier step-ups. Each has its art's prices, steps,
   bonuses and lineup, on its run's dates from its notice or the event guide;
   none repeats a summon open at the same time. [e22a986]
+- Twins and volumes as their notices give them [6f4a16b]:
+  - Paid Only: Abyssal Assassin had Abyssal Festival Vol. 3's art; it shows
+    its own and Abyssal Festival Vol. 2 and 3 are added (Vol. 1 gives only
+    its three characters, as the notice says).
+  - The regular Abstract Ruler summon ran the paid-only one's rules, and a
+    November Subjugation Conquest summon ran Paid Only: Yuletide Snowfall's;
+    each now has its own, and the paid-only ones run separately.
+  - The Merry[in]carnation festival's three volumes give only their three
+    characters each; New Year Countdown Vol. 1 has its ×1.5 rate and
+    featured character and weapons.
+  - Six recovered summons had another event's dates; they have their own.
 
 ### Sources
 - Summon, event box and panel mission data note their sources as an event
