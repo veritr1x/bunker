@@ -327,12 +327,58 @@ func TestRecoveredSummons(t *testing.T) {
 		}
 		got[e.GachaId] = true
 	}
-	for _, id := range []int32{123, 413, 417, 438, 444, 445, 467, 471, 546, 476, 144, 450, 451, 557001, 558001, 560001, 563001, 523001, 531001, 581001, 582001, 586001, 587001, 900003} {
+	for _, id := range []int32{123, 413, 417, 473, 474, 438, 444, 445, 467, 471, 546, 476, 144, 450, 451, 557001, 558001, 560001, 563001, 523001, 531001, 581001, 582001, 586001, 587001, 900003} {
 		if !got[id] {
 			t.Errorf("summon %d missing", id)
 		}
 	}
 	if bp := c.GachaPool.BannerPools[586001]; bp == nil || len(bp.Featured) == 0 {
 		t.Error("586001 features nothing")
+	}
+}
+
+// Twins the notices tell apart: Bunker's paid Abyssal Assassin is 413 (its
+// art), 474 is Abyssal Festival Vol. 3; 416 is the regular Abstract Ruler
+// summon and 417 the paid one; 428 is the Subjugation Conquest Summons.
+func TestSummonTwinsFromNotices(t *testing.T) {
+	holder, _ := harness(t)
+	c := holder.Get()
+	only := func(id int32, want ...int32) {
+		got := map[int32]bool{}
+		for _, x := range c.GachaPool.BannerPools[id].CostumesByRarity[40] {
+			got[x.PossessionId] = true
+		}
+		if len(got) != len(want) {
+			t.Errorf("%d: %d ★4 characters, want %v", id, len(got), want)
+		}
+		for _, w := range want {
+			if !got[w] {
+				t.Errorf("%d: no %d", id, w)
+			}
+		}
+	}
+	only(474, 32020, 33017, 31019)
+	only(473, 34032, 32015, 32019)
+	only(445, 32013, 31017, 34027)
+	for _, e := range c.GachaEntries {
+		r, _ := masterdata.PhaseRuleFor(e.PricePhases[0].PhaseId)
+		switch e.GachaId {
+		case 413, 417:
+			if e.PricePhases[0].PriceType != 3 || e.PricePhases[0].LimitExecCount != 10 {
+				t.Errorf("%d: %+v", e.GachaId, e.PricePhases[0])
+			}
+		case 416:
+			if e.PricePhases[0].Price != 300 {
+				t.Errorf("416 is not the regular summon: %+v", e.PricePhases)
+			}
+		case 428:
+			if r.Rate != 2 || len(e.PricePhases[0].Bonuses) != 4 {
+				t.Errorf("428: %+v %+v", r, e.PricePhases[0])
+			}
+		case 449:
+			if r.Rate != 1.5 {
+				t.Errorf("449 rate %v", r.Rate)
+			}
+		}
 	}
 }
