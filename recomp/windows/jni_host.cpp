@@ -162,6 +162,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
       {"java/lang/ArrayStoreException","java/lang/RuntimeException"},
       {"java/lang/ArrayIndexOutOfBoundsException","java/lang/IndexOutOfBoundsException"},
       {"java/lang/StringIndexOutOfBoundsException","java/lang/IndexOutOfBoundsException"},{"java/lang/UnsupportedOperationException","java/lang/RuntimeException"},
+      {"java/util/NoSuchElementException","java/lang/RuntimeException"},
       {"java/lang/ClassNotFoundException","java/lang/Exception"},{"java/lang/Error","java/lang/Throwable"},
       {"java/lang/OutOfMemoryError","java/lang/Error"},
       {"java/lang/LinkageError","java/lang/Error"},{"java/lang/IncompatibleClassChangeError","java/lang/LinkageError"},

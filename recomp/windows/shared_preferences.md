@@ -75,7 +75,7 @@ and follows Java UTF8 malformed-surrogate replacement. It does not use form
 encoding, Base64, or URLEncoder.
 
 `test_shared_preferences.py --out <NEW-directory> --host <accepted-numeric-commit>`
-freezes committed support plus only the seven owned executable overlays.
+freezes committed support plus only the current owned executable overlays.
 Strict NDK TEST callers exercise direct/V/A, real store/editor data flow and
 the decoded migration API sequence. They do not execute Unity's original
 migration body or substitute for the later natural game frame. Windows tests
@@ -99,3 +99,28 @@ Existing JNI36/callback464/constructor362 passed once per host. The runner
 rehashed every frozen support/owned source and all evidence after execution.
 Windows-only extra checks use real exclusively owned registry keys; Linux's
 backing is explicitly TEST memory and does not claim Windows persistence.
+
+Game11 exposed an avoidable composition gap in that first focused fixture:
+its minimal Context omitted AndroidAssets, which already declared
+java.util.NoSuchElementException. The preference adapter also declared it,
+so the real game stopped during setup, before any constructor or preference
+I/O. The canonical declaration now belongs to Host's existing standard
+exception catalog with the same RuntimeException superclass/bootstrap=true;
+both provider declarations are removed. Strict duplicate rejection is retained.
+
+The revised gate pins game11's exact APK Java catalog and real APK, and first
+constructs the actual SDK33/native-library catalog, configured ApkAssets
+AndroidContext, Preferences, Proxy and AssetPackWrapper composition. It rejects
+all preference read/write callbacks during setup, checks the exception's actual
+superclass and duplicate guard, then runs focused preferences plus affected
+AssetManager/Scanner and JNI regressions on both hosts. Candidate2's omitted
+ASSET_CONTEXT_IMAGE build macro is preserved as a runner-only failure; the
+production ownership fix is unchanged in candidate3.
+
+Candidate3 froze accepted support6ee0358 with only the three production moves,
+new composition regression and runner overlay. Both hosts passed composed16,
+Assets/Scanner65, JNI36/callback464/constructor362. Focused preferences passed
+Windows1,052/Linux643 plus five named boundaries each. All frozen sources,
+actual APK/catalog/zlib inputs and evidence were rehashed after execution.
+Game11 and failed candidate2 remain preserved; no production preferences I/O
+was performed by the composition regression.

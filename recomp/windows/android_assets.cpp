@@ -12,7 +12,6 @@ bool Charset(const std::u16string &name){auto n=name;for(auto &c:n)if(c>=u'A'&&c
 addr_t CreateJavaAssets(jni::Host &host,std::shared_ptr<ApkAssets> reader){
   host.DefineClass("java/io/IOException",{},"java/lang/Exception",true);
   host.DefineClass("java/io/FileNotFoundException",{},"java/io/IOException",true);
-  host.DefineClass("java/util/NoSuchElementException",{},"java/lang/RuntimeException",true);
   host.DefineClass("java/io/InputStream",{},"java/lang/Object",true);
   host.DefineClass("android/content/res/AssetManager",{},"java/lang/Object",true);
   host.DefineClass("android/content/res/AssetManager$AssetInputStream",{},"java/io/InputStream",true);
