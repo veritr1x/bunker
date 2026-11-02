@@ -1,5 +1,6 @@
 #pragma once
 #include "jni_host.h"
+#include "android_obb_storage.h"
 #include <set>
 
 namespace bunker::windows {
@@ -38,6 +39,12 @@ struct AndroidContextConfig {
   // JNI/provider locks; 0 means a real directory was verified, otherwise a
   // positive Android errno. An absent callback cannot return a directory File.
   std::function<int32_t(const std::u16string&)> prepare_internal_directory;
+  // Explicit ordered external OBB capability catalog. Unset is unsupported;
+  // an explicitly empty vector exposes no Android external volumes. Available
+  // entries require a real verifier; failures/unavailable volumes retain null
+  // array slots. This does not observe or infer an Android device's volumes.
+  std::optional<std::vector<ExternalObbVolume>> external_obb_volumes;
+  std::function<int32_t(const std::u16string&)> prepare_obb_directory;
   // Exact Settings.Secure android_id backing. nullopt is proved row absence;
   // an unset reader is unsupported, never an invented absent value.
   std::function<std::optional<std::u16string>()> read_android_id;
