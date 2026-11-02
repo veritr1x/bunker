@@ -2,7 +2,7 @@
 """Compare a notice pack with saved Guide and preservation-source records.
 
 This is an offline audit. It keeps missing original files separate from blank
-thumbnails, Twitter stand-ins and supplemental artwork extracted from the game.
+thumbnails, social-post stand-ins and supplemental artwork extracted from the game.
 Fetch the pinned pack with scripts/notices.py.
 """
 import argparse
@@ -177,7 +177,7 @@ def audit(pack, sources):
         if not n.get("thumbnail_path") or n["notification_id"] not in notices:
             continue
         thumb = notices[n["notification_id"]].get("thumb", "")
-        style = ("blank" if not thumb else "twitter_stand_in" if thumb.startswith("tw_") else
+        style = ("blank" if not thumb else "social_post_stand_in" if thumb.startswith("tw_") else
                  "source_thumbnail" if thumb == image_key(canonical_image_path(n["thumbnail_path"])) else
                  "another_packed_image")
         thumb_styles[style] += 1

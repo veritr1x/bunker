@@ -276,7 +276,7 @@ func TestOutsideSourceLineupKeepsTheFeaturedWeapons(t *testing.T) {
 	w2 := pool.WeaponById[2002]
 	pool.FeaturedByGacha[5] = FeaturedSet{Costumes: []GachaPoolItem{pool.CostumeById[1002]}, Weapons: []GachaPoolItem{w2}}
 	// Outside sources name characters only: the weapons stay.
-	pool.applyRuleFeatured(map[int32]summonRule{5: {Featured: &ruleFeatured{Costumes: []int32{1001}, Src: "web: tweet"}}})
+	pool.applyRuleFeatured(map[int32]summonRule{5: {Featured: &ruleFeatured{Costumes: []int32{1001}, Src: "web: social post"}}})
 	if fs := pool.FeaturedByGacha[5]; len(fs.Costumes) != 1 || fs.Costumes[0].PossessionId != 1001 || len(fs.Weapons) != 1 || fs.Weapons[0].PossessionId != 2002 {
 		t.Fatalf("outside source: %+v", fs)
 	}

@@ -722,7 +722,7 @@ screen around the camera.
   story events. Each is open for its event's dates plus two days, and any
   of the event's tickets can draw from it. Each level shows its main
   prizes. Level Up opens once they're all drawn, and the last level has
-  Prize Replenishment. The main prizes come from nierrein.guide where it
+  Prize Replenishment. The main prizes come from an event guide where it
   lists them (17 events). Otherwise they are the event's own weapons and
   Advanced Handbooks. The rest of each box is modelled on the only box on
   record (Aurora Dynast, 2021): a level prize 35% of the time (30% on the
@@ -755,7 +755,7 @@ screen around the camera.
   regular or paid gems, free draws, use limits, daily draws and step-up
   steps (158 summons; Bunker had priced 81 of them differently). For
   2021-22 summons without a notice, the details come from archived
-  in-game screenshots and tweets. [af52e6e, b15c461]
+  in-game screenshots and social posts. [af52e6e, b15c461]
 - Featured characters and weapons are the ones each notice lists (145
   summons). [ccf46d7]
 - Guaranteed slots give what the notice promises (the featured character,

@@ -18,7 +18,7 @@ import (
 // their tickets and a summon id per level (340001, 340002, ...; art
 // event_340_01, ...), but not what the boxes held: the client fetched that
 // from the game's web API. summon_events.json holds each level's main prizes
-// as nierrein.guide lists them where it does, else the event's weapons and
+// as an event guide lists them where it does, else the event's weapons and
 // Advanced Handbooks, and filler and odds after the one box on record (the
 // JP Variation: Aurora Dynast, 2021). All of an event's ticket tiers draw from
 // one box.

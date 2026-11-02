@@ -881,7 +881,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Aurora Dynast (Resurrected)",
+   "src": "main prizes: event guide Variation: Aurora Dynast (Resurrected)",
    "tickets": [
     6055,
     6056,
@@ -1773,7 +1773,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Blazing Resentful Witch (Resurrected)",
+   "src": "main prizes: event guide Variation: Blazing Resentful Witch (Resurrected)",
    "tickets": [
     6061,
     6062,
@@ -12482,7 +12482,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Cascading Mage",
+   "src": "main prizes: event guide Variation: Cascading Mage",
    "tickets": [
     6023,
     6024,
@@ -13373,7 +13373,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Aurora Phantom",
+   "src": "main prizes: event guide Variation: Aurora Phantom",
    "tickets": [
     6026,
     6027,
@@ -14264,7 +14264,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Blazing Dynast",
+   "src": "main prizes: event guide Variation: Blazing Dynast",
    "tickets": [
     6033,
     6034,
@@ -15155,7 +15155,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Tempestuous Daemon",
+   "src": "main prizes: event guide Variation: Tempestuous Daemon",
    "tickets": [
     6036,
     6037,
@@ -16046,7 +16046,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Aurora Senior Officer",
+   "src": "main prizes: event guide Variation: Aurora Senior Officer",
    "tickets": [
     6039,
     6040,
@@ -16937,7 +16937,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Gloomy Dynast",
+   "src": "main prizes: event guide Variation: Gloomy Dynast",
    "tickets": [
     6046,
     6047,
@@ -17828,7 +17828,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Cascading Resentful Witch",
+   "src": "main prizes: event guide Variation: Cascading Resentful Witch",
    "tickets": [
     6049,
     6050,
@@ -18719,7 +18719,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Blazing Personality Amalgam",
+   "src": "main prizes: event guide Variation: Blazing Personality Amalgam",
    "tickets": [
     6052,
     6053,
@@ -19610,7 +19610,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Gloomy Binding Oculus",
+   "src": "main prizes: event guide Variation: Gloomy Binding Oculus",
    "tickets": [
     6058,
     6059,
@@ -20413,7 +20413,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Blazing Mage",
+   "src": "main prizes: event guide Variation: Blazing Mage",
    "tickets": [
     6065
    ],
@@ -21026,7 +21026,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Nelgel the Netherfiend",
+   "src": "main prizes: event guide Variation: Nelgel the Netherfiend",
    "tickets": [
     6066
    ],
@@ -21647,7 +21647,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Cascading Phantom",
+   "src": "main prizes: event guide Variation: Cascading Phantom",
    "tickets": [
     6067
    ],
@@ -22268,7 +22268,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Tempestuous Armed Aberration",
+   "src": "main prizes: event guide Variation: Tempestuous Armed Aberration",
    "tickets": [
     6068
    ],
@@ -22889,7 +22889,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Cascading Personality Amalgam",
+   "src": "main prizes: event guide Variation: Cascading Personality Amalgam",
    "tickets": [
     6070
    ],
@@ -23510,7 +23510,7 @@
      ]
     }
    ],
-   "src": "main prizes: nierrein.guide Variation: Blazing Binding Oculus",
+   "src": "main prizes: event guide Variation: Blazing Binding Oculus",
    "tickets": [
     6071
    ],
@@ -23519,7 +23519,7 @@
    ]
   }
  ],
- "src": "levels and tickets: game data; main prizes: nierrein.guide where listed; filler and odds: the JP Aurora Dynast box (2021)",
+ "src": "levels and tickets: game data; main prizes: event guide where listed; filler and odds: the JP Aurora Dynast box (2021)",
  "unlimited": [
   {
    "id": 100002,
