@@ -60,6 +60,11 @@ under its heading, down to the previous release.
   guarantee and free daily draws above also apply to the summons the game
   data lacks (they were left at placeholder prices). [e46060e]
 
+### Sources
+- Summon, event box and panel mission data note their sources as an event
+  guide, gameplay video, player or social post, without naming sites or
+  linking to them. [b91d989]
+
 ## 1.7.0 (2026-11-02)
 
 Below the screen's own resolution, the picture can be upscaled instead of
