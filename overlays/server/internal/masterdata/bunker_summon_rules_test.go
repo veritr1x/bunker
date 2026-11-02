@@ -642,3 +642,36 @@ func TestMedalShopWindowsCoverARun(t *testing.T) {
 		t.Fatal("wrong coverage")
 	}
 }
+
+// A summon with no promotion cards shows the characters its appeal art shows
+// (art_cards): otherwise its panel has one page, which the client's arrows
+// turn onto itself and leave empty. Summons with cards keep theirs.
+func TestArtCardsFillSummonsWithoutCards(t *testing.T) {
+	ss := model.RaritySSRare
+	c := func(id int32) GachaPoolItem { return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss} }
+	pool := &GachaCatalog{
+		CostumeById:      map[int32]GachaPoolItem{1001: c(1001), 1002: c(1002)},
+		CostumeWeaponMap: map[int32]int32{1002: 2002},
+		WeaponById:       map[int32]GachaPoolItem{3001: {PossessionType: int32(model.PossessionTypeWeapon), PossessionId: 3001, RarityType: ss}},
+	}
+	entries := []store.GachaCatalogEntry{
+		{GachaId: 554},
+		{GachaId: 557, PromotionItems: []store.GachaPromotionItem{{PossessionType: 1, PossessionId: 9}}},
+		{GachaId: 600},
+		{GachaId: 468},
+	}
+	applyArtCards(entries, map[int32][]int32{554: {1002, 1001, 7777}, 557: {1001}, 468: {3001}}, pool)
+	if w := entries[3].PromotionItems; len(w) != 1 || w[0].PossessionId != 3001 || w[0].PossessionType != int32(model.PossessionTypeWeapon) {
+		t.Fatalf("weapon art card: %+v", w)
+	}
+	var got []int32
+	for _, p := range entries[0].PromotionItems {
+		got = append(got, p.PossessionId)
+	}
+	if fmt.Sprint(got) != "[1002 1001]" || entries[0].PromotionItems[0].BonusPossessionId != 2002 || entries[0].PromotionItems[0].IsTarget {
+		t.Fatalf("art cards: %v %+v", got, entries[0].PromotionItems)
+	}
+	if len(entries[1].PromotionItems) != 1 || entries[1].PromotionItems[0].PossessionId != 9 || len(entries[2].PromotionItems) != 0 {
+		t.Fatalf("others changed: %+v %+v", entries[1].PromotionItems, entries[2].PromotionItems)
+	}
+}

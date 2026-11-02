@@ -125,6 +125,11 @@ var plainSummons = map[int32]bool{}
 // bannerCards are the costumes a plain summon's banner art shows.
 var bannerCards = map[int32][]int32{}
 
+// artCards are the costumes (or, for a weapon summon, the weapons) the game
+// data's summons' appeal art shows, for the summons with no promotion cards
+// (summon_rules.json art_cards).
+var artCards = map[int32][]int32{}
+
 // panelCards is how many promotion cards a plain summon's panel shows.
 const panelCostumeCards, panelWeaponCards = 3, 2
 
@@ -195,6 +200,30 @@ func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog)
 		}
 		entries[i].PromotionItems = cards
 	}
+	applyArtCards(entries, artCards, pool)
+}
+
+// applyArtCards gives the summons with no promotion cards the characters
+// their appeal art shows, in its order, with their weapons. Without a card the
+// panel has one page (the appeal image), which the client's arrows turn onto
+// itself and leave empty. They are not featured: the draws keep their odds.
+func applyArtCards(entries []store.GachaCatalogEntry, cards map[int32][]int32, pool *GachaCatalog) {
+	for i, e := range entries {
+		if len(e.PromotionItems) > 0 {
+			continue
+		}
+		for _, id := range cards[e.GachaId] {
+			item, ok := pool.CostumeById[id]
+			if !ok {
+				item, ok = pool.WeaponById[id] // a weapon summon's art shows weapons
+			}
+			if ok {
+				card := toPromoItemWithBonus(item, pool)
+				card.IsTarget = false
+				entries[i].PromotionItems = append(entries[i].PromotionItems, card)
+			}
+		}
+	}
 }
 
 // applyOnlyLineups makes a summon's ★4 characters its lineup only (onlyLineups),
@@ -225,19 +254,28 @@ func PrizeBoxFor(gachaId int32) ([]Prize, bool) {
 }
 
 type summonRulesFile struct {
-	Rules map[int32]summonRule
-	New   []newSummon
+	Rules    map[int32]summonRule
+	New      []newSummon
+	ArtCards map[int32][]int32
 }
 
 func loadSummonRulesFile() (summonRulesFile, error) {
 	var raw struct {
-		Rules map[string]summonRule `json:"rules"`
-		New   []newSummon           `json:"new"`
+		Rules    map[string]summonRule `json:"rules"`
+		New      []newSummon           `json:"new"`
+		ArtCards map[string][]int32    `json:"art_cards"`
 	}
 	if err := json.Unmarshal(summonRulesJSON, &raw); err != nil {
 		return summonRulesFile{}, fmt.Errorf("summon_rules.json: %w", err)
 	}
-	file := summonRulesFile{Rules: make(map[int32]summonRule, len(raw.Rules)), New: raw.New}
+	file := summonRulesFile{Rules: make(map[int32]summonRule, len(raw.Rules)), New: raw.New, ArtCards: map[int32][]int32{}}
+	for k, ids := range raw.ArtCards {
+		id, err := strconv.Atoi(k)
+		if err != nil {
+			return summonRulesFile{}, fmt.Errorf("summon_rules.json: art_cards summon id %q", k)
+		}
+		file.ArtCards[int32(id)] = ids
+	}
 	for k, r := range raw.Rules {
 		id, err := strconv.Atoi(k)
 		if err != nil {
@@ -262,6 +300,7 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 		return entries
 	}
 	entries = applySummonRules(entries, file.Rules)
+	artCards = file.ArtCards
 	if windows, err := loadMedalShopWindows(); err == nil {
 		medalShopOpen = medalShopOpenFrom(windows)
 	} else {
