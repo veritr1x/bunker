@@ -302,3 +302,11 @@ func TestNoticesFollowTheOriginalCalendar(t *testing.T) {
 		t.Fatalf("the summon notice's date is not the original one:\n%s", page)
 	}
 }
+
+// Notice images show at their own size, up to the page's width: a small
+// title logo or banner is not stretched across the window.
+func TestNoticeImagesAreNotStretched(t *testing.T) {
+	if strings.Contains(noticeCSS, "article .info-largeimage img{display:block;width:100%") || !strings.Contains(noticeCSS, "article .info-largeimage img{display:block;max-width:100%") {
+		t.Fatal("info-largeimage images still stretch to the window")
+	}
+}
