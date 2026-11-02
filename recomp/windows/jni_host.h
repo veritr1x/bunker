@@ -30,8 +30,9 @@ class Host {
   struct Object;
   class ProviderLock;
  public:
-  // Descriptor-checked reference/jint arguments. jint uses the low32 bits of
-  // its AAPCS64/jvalue slot; no FP/long/array method arguments are implied.
+  // Descriptor-checked reference/jint/jlong arguments. jint uses low32 bits;
+  // jlong retains all64 bits. Reference arrays retain their full descriptor.
+  // Each uses one AAPCS64/jvalue GP slot; FP/primitive arrays are unsupported.
   using MethodArguments=std::array<addr_t,3>;
   // Strong references used inside host-supplied Java object state. They are
   // opaque C++ graph edges, not guest JNI handles or global-reference slots.
@@ -45,7 +46,8 @@ class Host {
   // Application metadata defaults to an uninitialized application-loader class.
   // bootstrap=true is for initialized framework classes implemented by this host.
   void DefineClass(const std::string &name, std::vector<MethodDeclaration> methods = {},
-                   const std::string &superclass = "java/lang/Object", bool bootstrap = false);
+                   const std::string &superclass = "java/lang/Object", bool bootstrap = false,
+                   std::vector<std::string> interfaces = {});
   // A genuine interface has no superclass and cannot be instantiated. This
   // catalog does not invent implementing classes or execute default bodies.
   void DefineInterface(const std::string &name, std::vector<MethodDeclaration> methods,
@@ -63,6 +65,10 @@ class Host {
                           std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void DefineStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                 std::function<addr_t(addr_t,const MethodArguments&)> handler);
+  void BindStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                              std::function<addr_t(addr_t,const MethodArguments&)> handler);
+  void BindStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                            std::function<void(addr_t,const MethodArguments&)> handler);
   void DefineBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
                            std::function<bool(addr_t,const MethodArguments&)> handler);
   // Attach a supplied body to an existing, unimplemented nonnative declaration.
@@ -87,6 +93,8 @@ class Host {
   ObjectValue CaptureValue(addr_t reference);
   addr_t LocalValue(const ObjectValue &value);
   std::optional<std::u16string> StringValue(addr_t reference);
+  // Exact metadata name (including array descriptors), with no Java execution.
+  std::optional<std::string> ClassNameValue(addr_t reference);
   addr_t NewGlobalReference(addr_t reference);
   addr_t NewLocalReference(addr_t reference);
   void DeleteGlobalReference(addr_t reference);
