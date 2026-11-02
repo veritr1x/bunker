@@ -128,6 +128,20 @@ struct LocalFrame {
   explicit LocalFrame(bunker::jni::Host &value):host(value){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=64;host.InvokeEnv(19,s);if(s.gpr.x0.dword)throw std::runtime_error("initJni local frame allocation failed");}
   ~LocalFrame(){State s{};s.gpr.x0.qword=host.EnvAddress();host.InvokeEnv(20,s);}
 };
+void DefineGameAndroidApiProfile(bunker::jni::Host &host){
+  // Chosen framework compatibility contract, independent of APK targetSdk and
+  // Windows identity. This catalog still rejects unported API bodies explicitly.
+  constexpr int32_t api_level=33;
+  LocalFrame locals(host);
+  host.DefineClass("android/os/Build$VERSION",{},"java/lang/Object",true);
+  host.DefineField("android/os/Build$VERSION","SDK_INT","I",true);
+  auto env=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;host.InvokeEnv(slot,s);Require(host.PendingException().empty(),"Android compatibility SDK field setup failed");return s.gpr.x0.qword;};
+  const auto clazz=env(6,reinterpret_cast<addr_t>("android/os/Build$VERSION"));
+  const auto field=env(144,clazz,reinterpret_cast<addr_t>("SDK_INT"),reinterpret_cast<addr_t>("I"));
+  env(159,clazz,field,api_level);
+  Require(env(150,clazz,field)==api_level,"Android compatibility SDK field differs from selected profile");
+  std::fprintf(stderr,"Game bootstrap: explicit Android13 compatibility profile SDK_INT=%d; APK targetSdk and host identity are separate\n",api_level);
+}
 }
 extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return GameOriginalSaveHelper(s,pc,memory);}
 int main(int argc,char **argv){
@@ -170,6 +184,7 @@ int main(int argc,char **argv){
     logging.SetStream([&](addr_t stream,std::string_view text){return files.FWrite(text.data(),1,text.size(),stream);});
     bunker::jni::Host java(Translated);
     DefineUnityJavaCatalog(java);
+    DefineGameAndroidApiProfile(java);
     std::unique_ptr<JavaNativeLibraries> native_catalog;
     {LocalFrame locals(java);auto call=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=java.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;java.InvokeEnv(slot,s);Require(java.PendingException().empty(),"native catalog setup raised a Java exception");return s.gpr.x0.qword;};
       auto app=call(6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer")),clazz=call(6,reinterpret_cast<addr_t>("java/lang/Class"));
