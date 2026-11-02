@@ -3,6 +3,7 @@
 #include "provider_memory.h"
 #include "libc_process_detail.h"
 #include "libc_wall_time_detail.h"
+#include "unicode.h"
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -74,7 +75,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -220,6 +221,45 @@ int32_t LibC::ProcessId()const{
   if(!native||native>uint64_t(INT32_MAX))
     throw std::runtime_error("native process ID is not representable as Android signed32 pid_t");
   return static_cast<int32_t>(native);
+}
+int64_t LibC::ReadLink(const char *path,void *output,uint64_t size){
+  // Android13 readlinkat enters a kernel int bufsiz, despite public size_t.
+  // Its signed low32 nonpositive check precedes all pointer/path access.
+  const uint32_t capacity=static_cast<uint32_t>(size);
+  if(!capacity||capacity>uint32_t(INT32_MAX)){Fail(22);return -1;}
+  if(!path){Fail(14);return -1;}
+  const auto name=pm::String(path,4096);
+  if(name.size()==4096){Fail(36);return -1;}
+  if(name.empty()){Fail(2);return -1;}
+  if(name!="/proc/self/exe"&&name!="/proc/"+std::to_string(ProcessId())+"/exe")
+    throw std::runtime_error("unsupported readlink path outside current-process executable profile");
+  if(!output){Fail(14);return -1;}
+  std::string target;
+#ifdef _WIN32
+  std::vector<wchar_t> native(256);
+  for(;;){
+    const DWORD count=GetModuleFileNameW(nullptr,native.data(),static_cast<DWORD>(native.size()));
+    if(!count)throw std::runtime_error("native process image query failed: Win32="+std::to_string(GetLastError()));
+    if(count<native.size()){
+      std::u16string wide;wide.reserve(count);for(DWORD i=0;i<count;++i)wide.push_back(static_cast<char16_t>(native[i]));
+      target=Utf8(wide);std::replace(target.begin(),target.end(),'\\','/');break;
+    }
+    if(native.size()>=32768)throw std::runtime_error("native process image path exceeds supported Windows WCHAR range");
+    native.resize(native.size()*2);
+  }
+#else
+  std::vector<char> native(256);
+  for(;;){
+    const auto count=::readlink("/proc/self/exe",native.data(),native.size());
+    if(count<0){const int error=errno;Fail(error?error:5);return -1;}
+    if(static_cast<size_t>(count)<native.size()){target.assign(native.data(),static_cast<size_t>(count));break;}
+    if(native.size()>=1048576)throw std::runtime_error("native process image path exceeds supported Linux range");
+    native.resize(native.size()*2);
+  }
+#endif
+  const auto bytes=std::min<uint64_t>(target.size(),capacity);
+  recomp::WriteGuestMemory(reinterpret_cast<addr_t>(output),target.data(),bytes);
+  return static_cast<int64_t>(bytes);
 }
 int64_t LibC::Sysconf(int32_t name){
   if(name!=39&&name!=40&&name!=97){
@@ -538,6 +578,7 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<int64_t(int32_t)>(runtime,"sysconf",[this](auto name){return Sysconf(name);});
   Add<int32_t(addr_t,addr_t)>(runtime,"gettimeofday",[this](auto value,auto zone){return GetTimeOfDay(value,zone);});
   Add<int32_t()>(runtime,"getpid",[this]{return ProcessId();});
+  Add<int64_t(const char*,void*,uint64_t)>(runtime,"readlink",[this](auto path,auto output,auto size){return ReadLink(path,output,size);});
   installed_=true;
 }
 }  // namespace bunker::windows

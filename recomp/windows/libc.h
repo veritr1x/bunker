@@ -45,6 +45,10 @@ class LibC {
   int64_t Sysconf(int32_t name);
   int32_t GetTimeOfDay(addr_t timeval, addr_t timezone);
   int32_t ProcessId() const;
+  // Current-process /proc/self/exe or /proc/<actual-pid>/exe only. Returns the
+  // real native image path as UTF-8 (Windows separators rendered as '/'). This
+  // metadata query creates no Android VFS mount or permission to reopen it.
+  int64_t ReadLink(const char *path,void *output,uint64_t size);
  private:
   struct Aligned { void *base; uint64_t size, alignment; };
   struct Exit { addr_t callback, argument, dso; bool plain, called; };
