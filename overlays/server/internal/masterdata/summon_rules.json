@@ -1346,11 +1346,11 @@
   },
   {
    "asset": "limited_413",
-   "end": 1665453540000,
+   "end": 1665532799000,
    "id": 413,
-   "notice": 0,
-   "pair": 0,
-   "src": "art: ★★★★ rate x1.5, limited-time character guaranteed upon summoning a ★★★★ (w/ character), Zenith x2; dates: event guide \"Premium Summons: Abyssal Assassin\"",
+   "notice": 718,
+   "pair": 412,
+   "src": "notice 718",
    "start": 1663812000000,
    "steps": [
     {
@@ -1368,8 +1368,8 @@
        "t": 5
       }
      ],
-     "price": 3000,
-     "rate": 1.5
+     "limit": 10,
+     "price": 3000
     }
    ]
   },
@@ -1393,12 +1393,12 @@
   },
   {
    "asset": "limited_417",
-   "end": 1682647140000,
+   "end": 1665626399000,
    "id": 417,
-   "notice": 0,
+   "notice": 734,
    "pair": 0,
-   "src": "art: ★★★★ rate x1.5, new character guaranteed upon summoning a ★★★★ (w/ character), Zenith x2; dates: event guide \"Premium Summons: Bonus Summons\"",
-   "start": 1681696800000,
+   "src": "notice 734 and art",
+   "start": 1664503200000,
    "steps": [
     {
      "bonus": [
@@ -1415,8 +1415,8 @@
        "t": 5
       }
      ],
-     "price": 3000,
-     "rate": 1.5
+     "limit": 10,
+     "price": 3000
     }
    ]
   },
@@ -1567,9 +1567,9 @@
    "asset": "limited_438",
    "end": 1672019940000,
    "id": 438,
-   "notice": 0,
+   "notice": 839,
    "pair": 0,
-   "src": "art: ★★★★ (w/ character) rate 7.5%, limited-time character guaranteed upon summoning a ★★★★, Zenith x2; dates: event guide \"Premium Summons: Yuletide Snowfall\"",
+   "src": "notice 839 and art",
    "start": 1669773600000,
    "steps": [
     {
@@ -1587,8 +1587,7 @@
        "t": 5
       }
      ],
-     "price": 3000,
-     "rate": 1.5
+     "price": 3000
     }
    ]
   },
@@ -1622,12 +1621,12 @@
   },
   {
    "asset": "limited_444",
-   "end": 1646881140000,
+   "end": 1672019999000,
    "id": 444,
-   "notice": 0,
+   "notice": 874,
    "pair": 0,
-   "src": "art: featured character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x2.5; dates: event guide \"Premium Summons: Fortune's Dress\"",
-   "start": 1645149600000,
+   "src": "notice 874 (Vol. 2) and art",
+   "start": 1671760800000,
    "steps": [
     {
      "cur": "gems",
@@ -1648,12 +1647,12 @@
   },
   {
    "asset": "limited_445",
-   "end": 1658368740000,
+   "end": 1672019999000,
    "id": 445,
-   "notice": 0,
+   "notice": 874,
    "pair": 0,
-   "src": "art: featured character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x2.5; dates: event guide \"Premium Summons: Evening Sun Swimwear\"",
-   "start": 1657504800000,
+   "src": "notice 874 (Vol. 3) and art",
+   "start": 1671760800000,
    "steps": [
     {
      "cur": "gems",
@@ -1939,17 +1938,17 @@
    ]
   },
   {
-   "asset": "limited_474",
-   "end": 1665532799000,
-   "id": 474,
-   "notice": 718,
-   "pair": 412,
-   "src": "notice 718",
-   "start": 1663812000000,
+   "asset": "limited_473",
+   "end": 1678067999000,
+   "id": 473,
+   "notice": 989,
+   "pair": 0,
+   "src": "notice 989 (Vol. 2) and art",
+   "start": 1677204000000,
    "steps": [
     {
      "bonus": [
-      "Piece: Zenith's Brilliance x2"
+      "Piece: Black Pearl x2"
      ],
      "cur": "paid",
      "draws": 10,
@@ -1957,24 +1956,51 @@
      "guar": "r3w",
      "items": [
       {
-       "id": 501001,
+       "id": 501002,
        "n": 2,
        "t": 5
       }
      ],
-     "limit": 10,
+     "price": 3000
+    }
+   ]
+  },
+  {
+   "asset": "limited_474",
+   "end": 1678067999000,
+   "id": 474,
+   "notice": 989,
+   "pair": 0,
+   "src": "notice 989 (Vol. 3) and art",
+   "start": 1677204000000,
+   "steps": [
+    {
+     "bonus": [
+      "Piece: Black Pearl x2"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "feat4": true,
+     "guar": "r3w",
+     "items": [
+      {
+       "id": 501002,
+       "n": 2,
+       "t": 5
+      }
+     ],
      "price": 3000
     }
    ]
   },
   {
    "asset": "limited_476",
-   "end": 1647309540000,
+   "end": 1683511199000,
    "id": 476,
-   "notice": 0,
+   "notice": 1052,
    "pair": 0,
-   "src": "art: featuring 2P, Fio and Akeha, Automata Crossover shard; dates: event guide \"Premium Summons: NieR Automata Vol. 2 (Resurrected Crossover)\"",
-   "start": 1645581600000,
+   "src": "notice 1052 (Vol. 2) and art",
+   "start": 1680228000000,
    "steps": [
     {
      "cur": "gems",
@@ -4807,12 +4833,12 @@
   },
   {
    "asset": "step_up_558001",
-   "end": 1647309540000,
+   "end": 1683511199000,
    "id": 558001,
-   "notice": 0,
+   "notice": 1052,
    "pair": 0,
-   "src": "art: steps 1-3, ★★★★ rate doubled, featuring 2P, Fio and Akeha, featured character guaranteed in step 3; dates: event guide \"Premium Summons: NieR Automata Vol. 2 (Resurrected Crossover)\"",
-   "start": 1645581600000,
+   "src": "art: steps 1-3, ★★★★ rate doubled, featuring 2P, Fio and Akeha, featured character guaranteed in step 3; dates: notice 1052",
+   "start": 1680228000000,
    "steps": [
     {
      "bonus": [
@@ -4978,12 +5004,12 @@
   },
   {
    "asset": "step_up_563001",
-   "end": 1670810340000,
+   "end": 1686275999000,
    "id": 563001,
    "notice": 0,
    "pair": 0,
-   "src": "art: steps 1-3, ★★★★ rate doubled, featuring Fabled Witch, Weapon and Assassin, featured character guaranteed in step 3; dates: event guide \"Premium Summons: SINoALICE (Crossover)\"",
-   "start": 1668132000000,
+   "src": "art: steps 1-3, ★★★★ rate doubled, featuring Fabled Witch, Weapon and Assassin, featured character guaranteed in step 3; dates: event guide \"SINoALICE (Resurrected Crossover)\"",
+   "start": 1683511200000,
    "steps": [
     {
      "bonus": [
@@ -8947,7 +8973,10 @@
     "c": [
      34018
     ],
-    "src": "art"
+    "src": "notice 1509000035 (Yuletide Wishes)",
+    "w": [
+     340351
+    ]
    },
    "src": "art: limited-time character and weapons, Yuletide Wishes shard; dates: event guide \"Premium Summons: Yuletide Wishes\""
   },
@@ -9429,15 +9458,6 @@
     }
    ]
   },
-  "413": {
-   "featured": {
-    "c": [
-     33017
-    ],
-    "src": "art"
-   },
-   "src": "art: ★★★★ rate x1.5, limited-time character guaranteed upon summoning a ★★★★ (w/ character), Zenith x2; dates: event guide \"Premium Summons: Abyssal Assassin\""
-  },
   "414": {
    "featured": {
     "c": [
@@ -9482,31 +9502,24 @@
     "c": [
      34031
     ],
-    "src": "notice 734",
+    "src": "notice 733",
     "w": [
      340541,
      340551,
      240261
     ]
    },
-   "src": "notice 734",
+   "src": "notice 733",
    "steps": [
     {
-     "bonus": [
-      "Piece: Zenith's Brilliance x2"
-     ],
-     "cur": "paid",
+     "cur": "gems",
+     "draws": 1,
+     "price": 300
+    },
+    {
+     "cur": "gems",
      "draws": 10,
-     "feat4": true,
      "guar": "r3w",
-     "items": [
-      {
-       "id": 501001,
-       "n": 2,
-       "t": 5
-      }
-     ],
-     "limit": 10,
      "price": 3000
     }
    ]
@@ -9516,9 +9529,14 @@
     "c": [
      34031
     ],
-    "src": "art"
+    "src": "notice 734",
+    "w": [
+     340541,
+     340551,
+     240261
+    ]
    },
-   "src": "art: ★★★★ rate x1.5, new character guaranteed upon summoning a ★★★★ (w/ character), Zenith x2; dates: event guide \"Premium Summons: Bonus Summons\""
+   "src": "notice 734"
   },
   "418": {
    "featured": {
@@ -9728,33 +9746,57 @@
   "428": {
    "featured": {
     "c": [
-     35021,
-     35022
+     31015,
+     31014,
+     31004,
+     31009,
+     32008,
+     32014,
+     33011,
+     33015,
+     33016,
+     33006,
+     34003,
+     35014
     ],
-    "src": "notice 839",
-    "w": [
-     350431,
-     350441
-    ]
+    "src": "notice 801"
    },
-   "src": "notice 839",
+   "src": "notice 801",
    "steps": [
     {
      "bonus": [
-      "Piece: Zenith's Brilliance x2"
+      "Large Cursed-God Antler Bit x40",
+      "Medium Cursed-God Antler Bit x300",
+      "Small Cursed-God Antler Bit x600",
+      "Advanced Handbook x2"
      ],
      "cur": "paid",
      "draws": 10,
-     "feat4": true,
      "guar": "r3w",
      "items": [
       {
-       "id": 501001,
+       "id": 402003,
+       "n": 40,
+       "t": 5
+      },
+      {
+       "id": 402002,
+       "n": 300,
+       "t": 5
+      },
+      {
+       "id": 402001,
+       "n": 600,
+       "t": 5
+      },
+      {
+       "id": 311003,
        "n": 2,
        "t": 5
       }
      ],
-     "price": 3000
+     "price": 3000,
+     "rate": 2
     }
    ]
   },
@@ -9897,9 +9939,13 @@
      35021,
      35022
     ],
-    "src": "art"
+    "src": "notice 839",
+    "w": [
+     350431,
+     350441
+    ]
    },
-   "src": "art: ★★★★ (w/ character) rate 7.5%, limited-time character guaranteed upon summoning a ★★★★, Zenith x2; dates: event guide \"Premium Summons: Yuletide Snowfall\""
+   "src": "notice 839"
   },
   "439": {
    "featured": {
@@ -9983,6 +10029,15 @@
    ]
   },
   "443": {
+   "featured": {
+    "c": [
+     32015,
+     34021,
+     35016
+    ],
+    "only": true,
+    "src": "notice 874 (Vol. 1)"
+   },
    "src": "notice 874",
    "steps": [
     {
@@ -10003,10 +10058,12 @@
   "444": {
    "featured": {
     "c": [
+     35017,
      34020,
-     35017
+     31016
     ],
-    "src": "art"
+    "only": true,
+    "src": "notice 874 (Vol. 2)"
    },
    "src": "art: featured character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x2.5; dates: event guide \"Premium Summons: Fortune's Dress\""
   },
@@ -10014,9 +10071,11 @@
    "featured": {
     "c": [
      32013,
+     31017,
      34027
     ],
-    "src": "art"
+    "only": true,
+    "src": "notice 874 (Vol. 3)"
    },
    "src": "art: featured character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x2.5; dates: event guide \"Premium Summons: Evening Sun Swimwear\""
   },
@@ -10077,6 +10136,16 @@
    ]
   },
   "449": {
+   "featured": {
+    "c": [
+     31014
+    ],
+    "src": "notice 890 (Vol. 1)",
+    "w": [
+     310331,
+     320311
+    ]
+   },
    "src": "notice 890",
    "steps": [
     {
@@ -10084,7 +10153,8 @@
      "draws": 10,
      "feat4": true,
      "guar": "r3w",
-     "price": 3000
+     "price": 3000,
+     "rate": 1.5
     }
    ]
   },
@@ -10392,6 +10462,15 @@
    "src": "art: featuring new Japanese 2nd Anniversary Celebratory characters, Resolute Dress shard; dates: event guide \"Premium Summons: Resolute Dress\""
   },
   "472": {
+   "featured": {
+    "c": [
+     34026,
+     35017,
+     33019
+    ],
+    "only": true,
+    "src": "notice 989 (Vol. 1)"
+   },
    "src": "notice 989",
    "steps": [
     {
@@ -10412,6 +10491,30 @@
      "price": 3000
     }
    ]
+  },
+  "473": {
+   "featured": {
+    "c": [
+     34032,
+     32015,
+     32019
+    ],
+    "only": true,
+    "src": "notice 989 (Vol. 2)"
+   },
+   "src": "notice 989 (Vol. 2)"
+  },
+  "474": {
+   "featured": {
+    "c": [
+     32020,
+     33017,
+     31019
+    ],
+    "only": true,
+    "src": "notice 989 (Vol. 3)"
+   },
+   "src": "notice 989 (Vol. 3)"
   },
   "475": {
    "src": "notice 1052",
@@ -11735,11 +11838,16 @@
   "531001": {
    "featured": {
     "c": [
-     35018,
      31018,
-     32017
+     32017,
+     35018
     ],
-    "src": "art"
+    "src": "notice 1500000402 (Blessed Dress)",
+    "w": [
+     310421,
+     320351,
+     350391
+    ]
    },
    "src": "art: steps 1-5, featuring new limited-time characters, Blessed Dress shards; dates: event guide \"Premium Summons: Blessed Dress\""
   },
