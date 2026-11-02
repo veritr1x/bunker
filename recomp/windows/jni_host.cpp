@@ -54,13 +54,14 @@ bool SupportedVersion(int32_t version) { return version == 0x10001 || version ==
 }  // namespace
 
 struct Host::Object {
-  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder } kind = kInstance;
+  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray } kind = kInstance;
   std::string class_name, message;
   bool message_present = true;
   uint32_t identity_hash = 0;
   std::type_index host_type=typeid(void);
   std::shared_ptr<void> host_state;
   std::u16string text;
+  std::vector<std::shared_ptr<Object>> elements;
   std::map<addr_t, std::shared_ptr<Object>> object_fields;
   std::map<addr_t, uint64_t> primitive_fields;
 };
@@ -83,7 +84,7 @@ struct Host::Method {
 struct Host::Field { std::string owner, name, signature; bool is_static; addr_t id; };
 struct Host::Class {
   std::shared_ptr<Object> object;
-  std::string superclass;
+  std::string superclass, array_component;
   bool bootstrap = false, initialized = false, is_interface = false;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Method>> methods;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Field>> fields;
@@ -139,6 +140,8 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
       {"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;", true}}, "java/lang/Object", true);
   DefineClass("java/lang/ClassLoader", {}, "java/lang/Object", true);
   DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
+  DefineInterface("java/lang/Cloneable",{});
+  DefineInterface("java/io/Serializable",{});
   DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"}}, "java/lang/Object", true);
   DefineClass("java/lang/AbstractStringBuilder", {}, "java/lang/Object", true);
   DefineClass("java/lang/StringBuilder", {{"<init>","()V"},{"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"},{"toString","()Ljava/lang/String;"}}, "java/lang/AbstractStringBuilder", true);
@@ -153,8 +156,12 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
       {"java/lang/IllegalArgumentException","java/lang/RuntimeException"},{"java/lang/IllegalStateException","java/lang/RuntimeException"},
       {"java/lang/NullPointerException","java/lang/RuntimeException"},{"java/lang/IndexOutOfBoundsException","java/lang/RuntimeException"},
       {"java/lang/InstantiationException","java/lang/Exception"},
+      {"java/lang/NegativeArraySizeException","java/lang/RuntimeException"},
+      {"java/lang/ArrayStoreException","java/lang/RuntimeException"},
+      {"java/lang/ArrayIndexOutOfBoundsException","java/lang/IndexOutOfBoundsException"},
       {"java/lang/StringIndexOutOfBoundsException","java/lang/IndexOutOfBoundsException"},{"java/lang/UnsupportedOperationException","java/lang/RuntimeException"},
       {"java/lang/ClassNotFoundException","java/lang/Exception"},{"java/lang/Error","java/lang/Throwable"},
+      {"java/lang/OutOfMemoryError","java/lang/Error"},
       {"java/lang/LinkageError","java/lang/Error"},{"java/lang/IncompatibleClassChangeError","java/lang/LinkageError"},
       {"java/lang/NoClassDefFoundError","java/lang/LinkageError"},{"java/lang/NoSuchMethodError","java/lang/IncompatibleClassChangeError"},
       {"java/lang/NoSuchFieldError","java/lang/IncompatibleClassChangeError"},{"java/lang/UnsatisfiedLinkError","java/lang/LinkageError"}})
@@ -323,6 +330,19 @@ Host::Class *Host::GetClass(addr_t handle) {
   if (object->kind != Object::kClass) { Raise("java/lang/IllegalArgumentException", "expected jclass"); return nullptr; }
   return classes_.at(object->class_name).get();
 }
+Host::Class *Host::FindReferenceArrayClass(const std::string &name){
+  if(name.size()<3||name.front()!='['||name.find_first_not_of('[')>255)return nullptr;
+  auto found=classes_.find(name);if(found!=classes_.end())return found->second.get();
+  std::string component;
+  if(name[1]=='['){component=name.substr(1);if(!FindReferenceArrayClass(component))return nullptr;}
+  else if(name[1]=='L'&&name.back()==';'&&name.size()>3){component=name.substr(2,name.size()-3);if(!classes_.count(component))return nullptr;}
+  else return nullptr; // Primitive arrays have no provider in this catalog.
+  auto clazz=std::make_unique<Class>();clazz->object=std::make_shared<Object>();
+  clazz->object->kind=Object::kClass;clazz->object->class_name=name;
+  clazz->superclass="java/lang/Object";clazz->array_component=std::move(component);
+  clazz->bootstrap=classes_.at(clazz->array_component)->bootstrap;clazz->initialized=true;
+  auto *result=clazz.get();classes_.emplace(name,std::move(clazz));return result;
+}
 addr_t Host::NewString(const std::u16string &value) {
   ProviderLock lock(*this);
   auto object = std::make_shared<Object>(); object->kind = Object::kString; object->class_name = "java/lang/String"; object->text = value;
@@ -331,7 +351,7 @@ addr_t Host::NewString(const std::u16string &value) {
 addr_t Host::NewInstance(const std::string &name) {
   ProviderLock lock(*this);
   if (!classes_.count(name)) throw std::invalid_argument("unknown Java class");
-  if(classes_.at(name)->is_interface){Raise("java/lang/InstantiationException","cannot instantiate Java interface: "+name);return 0;}
+  if(classes_.at(name)->is_interface||!classes_.at(name)->array_component.empty()){Raise("java/lang/InstantiationException","cannot instantiate interface/array without its allocation API: "+name);return 0;}
   auto object = std::make_shared<Object>(); object->class_name = name; return Local(object);
 }
 addr_t Host::HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state){
@@ -354,10 +374,17 @@ void Host::DeleteGlobalReference(addr_t reference) { ProviderLock lock(*this); D
 void Host::DeleteLocalReference(addr_t reference) { ProviderLock lock(*this); Delete(reference, 1); }
 bool Host::Assignable(const std::string &actual, const std::string &expected) const {
   auto original=classes_.find(actual);
+  if(original!=classes_.end()&&!original->second->array_component.empty()){
+    if(expected=="java/lang/Object"||expected=="java/lang/Cloneable"||expected=="java/io/Serializable")return true;
+    auto target=classes_.find(expected);
+    return target!=classes_.end()&&!target->second->array_component.empty()&&Assignable(original->second->array_component,target->second->array_component);
+  }
   if(original!=classes_.end()&&original->second->is_interface&&expected=="java/lang/Object")return true;
   std::string name = actual;
   while (!name.empty()) {
     if (name == expected) return true;
+    if(expected=="java/io/Serializable"&&(name=="java/lang/String"||name=="java/lang/Class"||name=="java/lang/Throwable"||name=="java/lang/StringBuilder"||name=="java/io/File"))return true;
+    if(expected=="java/lang/Cloneable"&&(name=="android/content/Intent"||name=="android/content/ComponentName"||name=="android/os/Bundle"))return true;
     auto found = classes_.find(name); if (found == classes_.end()) return false; name = found->second->superclass;
   }
   return false;
@@ -590,7 +617,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
 }
 addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
-  if(clazz->is_interface){Raise("java/lang/InstantiationException","cannot construct Java interface: "+clazz->object->class_name);return 0;}
+  if(clazz->is_interface||!clazz->array_component.empty()){Raise("java/lang/InstantiationException","cannot construct Java interface/array: "+clazz->object->class_name);return 0;}
   auto found=method_ids_.find(id);if(found==method_ids_.end()){Raise("java/lang/NoSuchMethodError","invalid JNI constructor ID");return 0;}
   auto &method=*found->second;
   if(method.owner!=clazz->object->class_name||method.declaration.is_static||method.declaration.name!="<init>"||method.declaration.signature.back()!='V'){
@@ -681,6 +708,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 4: IntResult(s, kVersion16); return;
     case 6: {
       const auto name = a ? recomp::ReadGuestString(a) : std::string("null class name");
+      if(a&&!name.empty()&&name.front()=='[')FindReferenceArrayClass(name);
       auto found = a ? classes_.find(name) : classes_.end();
       if (found == classes_.end()) { Raise("java/lang/NoClassDefFoundError", name); s.gpr.x0.qword = 0; }
       else s.gpr.x0.qword = Local(found->second->object);
@@ -707,7 +735,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 24: { auto first = Get(a, true), second = Get(b, true); s.gpr.x0.qword = first == second; return; }
     case 25: s.gpr.x0.qword = Ref(a, 1); return;
     case 26: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else IntResult(s, kOk); return;
-    case 27: {auto clazz=GetClass(a);if(!clazz){s.gpr.x0.qword=0;return;}if(clazz->is_interface){Raise("java/lang/InstantiationException","cannot allocate Java interface: "+clazz->object->class_name);s.gpr.x0.qword=0;return;}throw std::runtime_error("unsupported JNI AllocObject for Java class");}
+    case 27: {auto clazz=GetClass(a);if(!clazz){s.gpr.x0.qword=0;return;}if(clazz->is_interface||!clazz->array_component.empty()){Raise("java/lang/InstantiationException","cannot AllocObject Java interface/array: "+clazz->object->class_name);s.gpr.x0.qword=0;return;}throw std::runtime_error("unsupported JNI AllocObject for Java class");}
     case 28: case 29: case 30: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot,count,args)?Construct(lock,a,b,args):0;return;}
     case 31: { auto object=Get(a);s.gpr.x0.qword=object?ObjectClass(object):0;return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
@@ -755,6 +783,39 @@ void Host::InvokeEnv(size_t slot, State &s) {
       utf_leases_.emplace(ptr, UtfLease{object, std::move(data)}); if (b) Write<uint8_t>(b, 1); s.gpr.x0.qword = ptr; return;
     }
     case 170: { auto object = String(a); auto lease = utf_leases_.find(b); if (!object || lease == utf_leases_.end() || lease->second.owner != object) Raise("java/lang/IllegalArgumentException", "invalid UTF-8 lease"); else recomp::WithGuestMemoryWrite(b, lease->second.data->size() + 1, [&] { utf_leases_.erase(lease); }); return; }
+    case 172: {
+      const auto length=static_cast<int32_t>(a);
+      if(length<0){Raise("java/lang/NegativeArraySizeException","negative object array length");s.gpr.x0.qword=0;return;}
+      auto component=GetClass(b);if(!component){s.gpr.x0.qword=0;return;}
+      auto initial=Get(c,true);if(c&&!initial&&Current().exception){s.gpr.x0.qword=0;return;}
+      const auto &component_name=component->object->class_name;
+      if(initial&&!Assignable(initial->kind==Object::kClass?"java/lang/Class":initial->class_name,component_name)){
+        Raise("java/lang/ArrayStoreException","object array initial value type mismatch");s.gpr.x0.qword=0;return;
+      }
+      const auto name=component_name.front()=='['?"["+component_name:"[L"+component_name+";";
+      try{
+        if(!FindReferenceArrayClass(name))throw std::logic_error("object array component catalog is inconsistent");
+        auto array=std::make_shared<Object>();array->kind=Object::kObjectArray;array->class_name=name;
+        array->elements.assign(static_cast<size_t>(length),initial);s.gpr.x0.qword=Local(array);
+      }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","object array allocation failed");s.gpr.x0.qword=0;}
+      return;
+    }
+    case 171: case 173: case 174: {
+      auto array=Get(a);if(!array){s.gpr.x0.qword=0;return;}
+      if(array->kind!=Object::kObjectArray)throw std::runtime_error("JNI object-array operation requires an allocated reference array");
+      if(slot==171){IntResult(s,static_cast<int32_t>(array->elements.size()));return;}
+      const auto index=static_cast<int32_t>(b);
+      if(index<0||static_cast<size_t>(index)>=array->elements.size()){
+        Raise("java/lang/ArrayIndexOutOfBoundsException","object array index outside length");s.gpr.x0.qword=0;return;
+      }
+      if(slot==173){s.gpr.x0.qword=Local(array->elements[index]);return;}
+      auto value=Get(c,true);if(c&&!value&&Current().exception)return;
+      const auto &component=classes_.at(array->class_name)->array_component;
+      if(value&&!Assignable(value->kind==Object::kClass?"java/lang/Class":value->class_name,component)){
+        Raise("java/lang/ArrayStoreException","object array element type mismatch");return;
+      }
+      RetireObject(array->elements[index]);array->elements[index]=std::move(value);return;
+    }
     case 215: IntResult(s, Register(a, reinterpret_cast<const NativeMethod *>(b), static_cast<int32_t>(c))); return;
     case 216: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } for (auto &method : clazz->methods) method.second->native = 0; IntResult(s, kOk); return; }
     case 219: if (!a) { IntResult(s, kError); return; } Write(a, VmAddress()); IntResult(s, kOk); return;

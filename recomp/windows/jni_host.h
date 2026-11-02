@@ -125,6 +125,7 @@ class Host {
   std::shared_ptr<Object> Get(addr_t reference, bool allow_null = false);
   std::shared_ptr<Object> String(addr_t reference);
   Class *GetClass(addr_t reference);
+  Class *FindReferenceArrayClass(const std::string &name);
   addr_t ObjectClass(const std::shared_ptr<Object> &object);
   void RetireReference(addr_t reference);
   void RetireObject(std::shared_ptr<Object> &object);
