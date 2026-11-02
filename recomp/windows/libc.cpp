@@ -2,6 +2,7 @@
 #include "../whole/bridge.h"
 #include "provider_memory.h"
 #include "libc_process_detail.h"
+#include "libc_wall_time_detail.h"
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -20,6 +21,7 @@
 #else
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 #endif
 
 namespace bunker::windows {
@@ -42,7 +44,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -146,6 +148,18 @@ int64_t LibC::ProcessClock(){
   if(whole>uint64_t(INT64_MAX)-fraction){Fail(75);return -1;}
   return static_cast<int64_t>(whole+fraction);
 #endif
+}
+int32_t LibC::GetTimeOfDay(addr_t output,addr_t timezone){
+  if(!output||timezone)throw std::runtime_error("unsupported gettimeofday shape: requires time output and NULL timezone");
+  libc_detail::Timeval value{};
+#ifdef _WIN32
+  FILETIME native{};GetSystemTimePreciseAsFileTime(&native);
+  value=libc_detail::UnixTimeval((uint64_t(native.dwHighDateTime)<<32)|native.dwLowDateTime);
+#else
+  timeval native{};if(::gettimeofday(&native,nullptr)){Fail(errno?errno:5);return -1;}
+  value={static_cast<int64_t>(native.tv_sec),static_cast<int64_t>(native.tv_usec)};
+#endif
+  recomp::WriteGuestMemory(output,&value,sizeof(value));return 0;
 }
 int64_t LibC::Sysconf(int32_t name){
   if(name!=39&&name!=40&&name!=97){
@@ -405,6 +419,7 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<addr_t(addr_t)>(runtime,"uselocale",[this](auto locale){return UseLocale(locale);});
   Add<int64_t()>(runtime,"clock",[this]{return ProcessClock();});
   Add<int64_t(int32_t)>(runtime,"sysconf",[this](auto name){return Sysconf(name);});
+  Add<int32_t(addr_t,addr_t)>(runtime,"gettimeofday",[this](auto value,auto zone){return GetTimeOfDay(value,zone);});
   installed_=true;
 }
 }  // namespace bunker::windows
