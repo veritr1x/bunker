@@ -35,6 +35,8 @@ import axml  # noqa: E402
 import build_info  # noqa: E402
 import notice_pack  # noqa: E402
 import privacy  # noqa: E402
+import game_patch  # noqa: E402
+import branding  # noqa: E402
 from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -94,20 +96,23 @@ def run_cli(module, *args):
 
 
 def patch_game_files(game, work, port_offset=0):
-    """Apply lunar-scripts' library and metadata patches, plus local reachability and the
-    telemetry controls, to copies in work. Returns their paths: the 127 MB library is never
-    held whole (the browser build keeps files in memory)."""
+    """Hash-check the region, then patch copies without reading the whole library."""
     for name in (LIB, METADATA):
-        (work / name).parent.mkdir(parents=True, exist_ok=True)
-        with game.open(name) as source, open(work / name, "wb") as target:
-            shutil.copyfileobj(source, target, 1 << 20)
-    # The upstream patcher also edits a text manifest; that change is made
-    # on the binary manifest below instead.
-    (work / "AndroidManifest.xml").write_text("<application >")
-    grpc, http = addresses(port_offset)
-    run_cli(load("patch_apk", SCRIPTS / "android/patch_apk.py"), work, "--grpc-addr", grpc, "--http-addr", http)
-    load("package_game", ROOT / "android/tools/package_game.py").patch_local_reachability(work)
-    privacy.patch_library_file(work / LIB)
+        target = work / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with game.open(name) as source, open(target, "wb") as dest:
+            shutil.copyfileobj(source, dest, 1 << 20)
+    root = axml.parse(game.read("AndroidManifest.xml")).root
+    expected = game_patch.profile_for_manifest(root.get("package", ns=None).raw, root.get("versionName").raw)
+    with open(work / LIB, "rb") as handle:
+        digest = hashlib.sha256()
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    metadata = (work / METADATA).read_bytes()
+    profile = game_patch.identify_hashes(digest.hexdigest(), hashlib.sha256(metadata).hexdigest(), expected)
+    game_patch.patch_library_file(work / LIB, profile, port_offset)
+    (work / METADATA).write_bytes(game_patch.patch_metadata(metadata, profile, port_offset))
+    privacy.patch_library_file(work / LIB, profile=profile)
     return work / LIB, work / METADATA
 
 
@@ -135,6 +140,7 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
     doc = axml.parse(game_manifest)
     companion = axml.parse(companion_manifest).root
     manifest = doc.root
+    package = manifest.get("package", ns=None).raw
     app = manifest.find_all("application")[0]
     for sdk in manifest.find_all("uses-sdk"):
         sdk.set(Attr.integer("minSdkVersion", 28, MIN_SDK))
@@ -160,7 +166,9 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
     if not game_activity:
         raise RuntimeError("Cannot find the game's launcher activity")
     if game_activity.startswith("."):
-        game_activity = PACKAGE + game_activity
+        game_activity = package + game_activity
+    elif "." not in game_activity:
+        game_activity = package + "." + game_activity
     for provider in app.find_all("provider"):
         if provider.get("name").raw in SDK_PROVIDERS:
             app.children.remove(provider)
@@ -180,9 +188,10 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
             if source.name == "activity":
                 source.set(Attr.reference("theme", THEME_MATERIAL_LIGHT_NO_ACTION_BAR, THEME))
             if source.name == "provider":  # Authorities are unique per device: use the game's.
-                source.set(Attr.string("authorities", PACKAGE + ".lunar_loopback", AUTHORITIES))
+                source.set(Attr.string("authorities", package + ".lunar_loopback", AUTHORITIES))
             app.children.append(source)
     privacy.harden_manifest(manifest)
+    branding.manifest(app)
     return axml.serialize(doc), game_activity
 
 
@@ -275,6 +284,7 @@ class ApkWriter:
 
 def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None):
     with zipfile.ZipFile(apk) as game, zipfile.ZipFile(companion_apk) as companion, open(apk, "rb") as raw:
+        build_info.check_companion(companion)
         names = set(game.namelist())
         for required in ("AndroidManifest.xml", LIB, METADATA, SETTINGS, "resources.arsc"):
             if required not in names:
@@ -288,7 +298,8 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
             log("Patching master data…")
             original_master = Path(master).read_bytes()
             patched_master = patch_master(original_master)
-            replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
+            replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS)),
+                        "resources.arsc": branding.resources(game.read("resources.arsc"))}
             dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]
             next_dex = max(int(n[7:-4] or 1) for n in dex) + 1
             # output is a path, or something to write to (apk_sign.StreamSigner in the browser).
@@ -304,10 +315,10 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
                         continue
                     if name in replaced:
                         if isinstance(replaced[name], Path):
-                            writer.add_file(name, replaced[name], compress=name != LIB or info.compress_type != 0)
+                            writer.add_file(name, replaced[name], compress=info.compress_type != 0)
                             replaced[name].unlink()  # In the browser this frees its memory.
                         else:
-                            writer.add(name, replaced[name], compress=name != LIB or info.compress_type != 0)
+                            writer.add(name, replaced[name], compress=info.compress_type != 0)
                     else:
                         writer.copy(raw, info)
                 for name in sorted(companion.namelist(), key=lambda n: (len(n), n)):
@@ -329,6 +340,7 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
                 info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None)
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
                 writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
+                writer.add(branding.ICON_PATH, branding.icon())
                 writer.close()
         finally:
             shutil.rmtree(patched_files, ignore_errors=True)
@@ -345,6 +357,7 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
     and the game's original manifest stay, and so do the notices unless a new
     notice pack is given. Returns the new build.json."""
     with zipfile.ZipFile(installed_apk) as game, zipfile.ZipFile(companion_apk) as companion, open(installed_apk, "rb") as raw:
+        build_info.check_companion(companion)
         names = set(game.namelist())
         if "assets/lunar/build.json" not in names or "assets/lunar/game-manifest.xml" not in names:
             raise RuntimeError("This update needs the web builder: this build is older than Bunker 1.0.0")
@@ -354,6 +367,8 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
         if LIB not in names:
             raise RuntimeError("Not the ARM64 game APK: " + LIB + " is missing")
         log("Updating the manifest…")
+        identity = axml.parse(game.read("assets/lunar/game-manifest.xml")).root
+        profile = game_patch.profile_for_manifest(identity.get("package", ns=None).raw, identity.get("versionName").raw)
         manifest, _ = patch_manifest(game.read("assets/lunar/game-manifest.xml"), companion.read("AndroidManifest.xml"),
                                      old["portOffset"])
         kept = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
@@ -370,7 +385,9 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                     if name == "AndroidManifest.xml":
                         writer.add(name, manifest)
                     elif name == LIB:
-                        writer.add(name, privacy.patch_library(game.read(name)), compress=info.compress_type != zipfile.ZIP_STORED)
+                        writer.add(name, privacy.patch_library(game.read(name), profile=profile), compress=info.compress_type != zipfile.ZIP_STORED)
+                    elif name == "resources.arsc":
+                        writer.add(name, branding.resources(game.read(name)), compress=False)
                     elif name == SETTINGS:  # Earlier builds left Unity Connect on.
                         writer.add(name, patch_unity_connect(game.read(name)), compress=info.compress_type != zipfile.ZIP_STORED)
                     elif notices and name.startswith(notice_pack.PREFIX):
@@ -392,6 +409,7 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                 info = build_info.describe(companion, old["gameDex"], old["portOffset"],
                                            notice_pack.sha256(notices) if notices else old.get("notices"))
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
+                writer.add(branding.ICON_PATH, branding.icon())
                 writer.close()
             os.replace(temporary, output)
         finally:
@@ -405,9 +423,10 @@ def main():
     p.add_argument("--companion-apk", type=Path, required=True, help="Built launcher APK (android/app)")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--port-offset", type=int, default=0, help="Move the game's ports 8003/8080/3000 by this amount")
+    p.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip", help="Pinned notice pack (scripts/notices.py)")
     args = p.parse_args()
     game_activity = assemble(args.apk.resolve(strict=True), args.master.resolve(strict=True), args.companion_apk.resolve(strict=True),
-                             args.output.resolve(), port_offset=args.port_offset)
+                             args.output.resolve(), port_offset=args.port_offset, notices=args.notices.resolve(strict=True))
     print(f"Unsigned APK: {args.output}\nGame activity: {game_activity}\nSign it before installing.")
 
 

@@ -10,7 +10,7 @@ import shutil
 import sys
 import zipfile
 
-REPO = Path("/repo")
+REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "android/tools"))
 sys.path.insert(0, str(REPO / "ios/tools"))
 
@@ -33,7 +33,9 @@ def build_android(apk, master, companion, output, log=print, port_offset=0, noti
     """output is a path, or a function that takes the signed APK in pieces: it is then signed
     as it is written and never held whole (a browser keeps every file in memory)."""
     addresses(port_offset)  # Validate before the slow steps.
-    notices = Path(notices) if notices else None
+    if not notices or not Path(notices).is_file():
+        raise ValueError("The notice pack is missing; download the builder's notices bundle before building the APK")
+    notices = Path(notices)
     if callable(output):
         pieces = _Pieces(output)
         log("Signing with the public Bunker key as the APK is written…")

@@ -24,6 +24,7 @@
 // game's IL2CPP metadata. Every word is checked first; on any unknown
 // instruction nothing is changed.
 #include "camera_edge.h"
+#include "game_region.h"
 
 static const struct { uint32_t rva, original, patched; } kSites[] = {
     {0x3808EDC, 0x9455bba7u, 0x97bda3bdu},  // bl Screen.get_width -> bl GetCurrentAspectRatioWithoutBlackBelt (0x2771DD0)
@@ -34,12 +35,12 @@ static const struct { uint32_t rva, original, patched; } kSites[] = {
 int camera_edge_fix(uint8_t *base, int (*write_word)(uint32_t *address, uint32_t value)) {
     const int count = sizeof kSites / sizeof kSites[0];
     for (int i = 0; i < count; i++) {
-        uint32_t now = *(uint32_t *)(base + kSites[i].rva);
-        if (now != kSites[i].original && now != kSites[i].patched) return -1;
+        uint32_t now = *(uint32_t *)(base + game_rva(kSites[i].rva));
+        if (now != game_original(kSites[i].rva, kSites[i].original) && now != game_patched(kSites[i].rva, kSites[i].patched)) return -1;
     }
     for (int i = 0; i < count; i++) {
-        uint32_t *address = (uint32_t *)(base + kSites[i].rva);
-        if (*address != kSites[i].patched && write_word(address, kSites[i].patched)) return -1;
+        uint32_t *address = (uint32_t *)(base + game_rva(kSites[i].rva));
+        if (*address != game_patched(kSites[i].rva, kSites[i].patched) && write_word(address, game_patched(kSites[i].rva, kSites[i].patched))) return -1;
     }
     return 0;
 }

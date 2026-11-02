@@ -13,6 +13,7 @@ mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
 # Bunker's version for the launcher APK (build_info.py reads it into build.json).
 mkdir -p ../android/app/src/main/assets/lunar
 printf '%s\n' "$version" > ../android/app/src/main/assets/lunar/bunker-version.txt
+python3 "$root_dir/android/tools/build_info.py" > ../android/app/src/main/assets/lunar/game-patch.txt
 # The Bunker emblem for the notification and the launcher shortcut (Look.java; drawn by bunker_icon.py).
 cp ../android/emblem/bunker-emblem-notification.png ../android/emblem/bunker-emblem-shortcut.png ../android/app/src/main/assets/lunar/
 # Licences of the upscaling shaders (render_scale_shaders.h), shipped with them.
@@ -21,8 +22,8 @@ cp ../android/licenses/*.txt ../android/app/src/main/assets/lunar/licenses/
 # The launcher rebuilds itself for an update (bunker_update.py) with the same
 # tools and public signing key as the web builder.
 rm -rf ../android/app/src/main/python/bunker_tools && mkdir -p ../android/app/src/main/python/bunker_tools ../android/app/src/main/assets/lunar/signing
-cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/tools/notice_pack.py ../android/app/src/main/python/bunker_tools/
-cp ../android/tools/privacy.py ../android/tools/telemetry_patches.json ../android/app/src/main/python/bunker_tools/
+cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/tools/notice_pack.py ../android/tools/game_patch.py ../android/tools/branding.py ../android/app/src/main/python/bunker_tools/
+cp ../android/tools/privacy.py ../android/tools/telemetry_patches.json ../android/tools/telemetry_patches_jp.json ../android/app/src/main/python/bunker_tools/
 : > ../android/app/src/main/python/bunker_tools/__init__.py
 cp ../web/signing/bunker-key.pem ../web/signing/bunker-cert.der ../android/app/src/main/assets/lunar/signing/
 # The game's Play services waits (Firebase start-up, Lilium attestation)

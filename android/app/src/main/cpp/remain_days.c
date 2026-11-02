@@ -12,6 +12,7 @@
 // RVAs from the 3.7.1 ARM64 game's IL2CPP metadata. Every word is checked first;
 // on any unknown instruction nothing is changed.
 #include "remain_days.h"
+#include "game_region.h"
 
 static const struct { uint32_t rva, original, patched; } kSites[] = {
     {0x2967CE8, 0xf94002a8u, 0x52807ce8u},  // GetRemainTimeString: ldr x8, [x21] -> mov w8, #999
@@ -27,12 +28,12 @@ static const struct { uint32_t rva, original, patched; } kSites[] = {
 int remain_days_cap(uint8_t *base, int (*write_word)(uint32_t *address, uint32_t value)) {
     const int count = sizeof kSites / sizeof kSites[0];
     for (int i = 0; i < count; i++) {
-        uint32_t now = *(uint32_t *)(base + kSites[i].rva);
-        if (now != kSites[i].original && now != kSites[i].patched) return -1;
+        uint32_t now = *(uint32_t *)(base + game_rva(kSites[i].rva));
+        if (now != game_original(kSites[i].rva, kSites[i].original) && now != game_patched(kSites[i].rva, kSites[i].patched)) return -1;
     }
     for (int i = 0; i < count; i++) {
-        uint32_t *address = (uint32_t *)(base + kSites[i].rva);
-        if (*address != kSites[i].patched && write_word(address, kSites[i].patched)) return -1;
+        uint32_t *address = (uint32_t *)(base + game_rva(kSites[i].rva));
+        if (*address != game_patched(kSites[i].rva, kSites[i].patched) && write_word(address, game_patched(kSites[i].rva, kSites[i].patched))) return -1;
     }
     return 0;
 }

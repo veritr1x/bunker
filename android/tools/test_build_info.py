@@ -37,6 +37,12 @@ class BuildInfoTests(unittest.TestCase):
         for name in ["classes.dex", "classes2.dex", "lib/arm64-v8a/libil2cpp.so", "assets/bin/Data/x", "AndroidManifest.xml"]:
             self.assertFalse(build_info.is_bunker_entry(name, info), name)
 
+    def test_old_launcher_bundle_cannot_claim_new_game_patch(self):
+        for entries in [{}, {build_info.COMPANION_PATCH_ENTRY: "1"}]:
+            with self.assertRaisesRegex(RuntimeError, "launcher bundle is out of date"):
+                build_info.check_companion(zip_of(entries))
+        build_info.check_companion(zip_of({build_info.COMPANION_PATCH_ENTRY: str(build_info.GAME_PATCH)}))
+
 
 if __name__ == "__main__":
     unittest.main()

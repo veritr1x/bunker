@@ -4,8 +4,11 @@
 
 You need your own **original Android ARM64 game APK, version 3.7.1**, the original
 `20240404193219.bin.e` master-data file, and an extracted Android resource dump.
-The guarded binary patch supports the tested 3.7.1 ARM64 APK. It may reject
-other binaries. The scripts read your original files and change only copies.
+The guarded binary patch recognizes the tested Global (English/Korean) and
+Japanese 3.7.1 ARM64 APKs. Japanese support is experimental: packaging and opening
+gameplay are checked on an emulator. See [Android regions](ANDROID-REGIONS.md)
+for verified binaries and remaining checks. The scripts read your original files
+and change only copies.
 
 ## 2. Install the build tools
 

@@ -8,11 +8,20 @@ The notices (assets/notices/, notice_pack.py) stay unless the update brings a
 new pack; build.json's "notices" names the pack the APK carries.
 """
 import re
+import branding
 
 # Bump when a release changes how the game itself is patched (its library,
 # metadata, master data or manifest edits): such an update needs the web builder.
-GAME_PATCH = 1
+GAME_PATCH = 2
 VERSION_ENTRY = "assets/lunar/bunker-version.txt"
+COMPANION_PATCH_ENTRY = "assets/lunar/game-patch.txt"
+
+
+def check_companion(companion):
+    """A newer web patcher must not package an older on-device updater."""
+    names = companion.namelist()
+    if COMPANION_PATCH_ENTRY not in names or companion.read(COMPANION_PATCH_ENTRY).decode().strip() != str(GAME_PATCH):
+        raise RuntimeError("The launcher bundle is out of date for this game patch. Rebuild the launcher with this builder before packaging.")
 
 
 def describe(companion, game_dex, port_offset, notices=None):
@@ -31,4 +40,8 @@ def is_bunker_entry(name, info):
     m = re.fullmatch(r"classes(\d*)\.dex", name)
     if m:
         return int(m.group(1) or 1) > info["gameDex"]
-    return name in info["bunkerLibs"] or name.startswith(("assets/chaquopy/", "assets/lunar/"))
+    return name == branding.ICON_PATH or name in info["bunkerLibs"] or name.startswith(("assets/chaquopy/", "assets/lunar/"))
+
+
+if __name__ == "__main__":
+    print(GAME_PATCH)

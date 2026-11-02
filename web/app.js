@@ -13,7 +13,7 @@ const platform = () => document.querySelector("input[name=platform]:checked").va
 
 function update() {
   const ios = platform() === "ios";
-  $("game-help").textContent = ios ? "Your decrypted 3.7.1 game IPA." : "The original 3.7.1 ARM64 game APK.";
+  $("game-help").textContent = ios ? "Your decrypted 3.7.1 game IPA." : "Original 3.7.1 ARM64 APK: Global (English/Korean) or Japanese (experimental).";
   $("game").accept = ios ? ".ipa" : ".apk";
   $("build").disabled = !($("game").files[0] && $("master").files[0]);
   for (const id of ["game", "master"]) {

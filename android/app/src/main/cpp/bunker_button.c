@@ -183,7 +183,7 @@ static void put_emblem(void *icon) {
     call(m_tex_ctor, texture, (void *[]){&side, &side});
     void *bytes = il2cpp.array_new(k_byte, kBunkerIconPngSize);
     memcpy((uint8_t *)bytes + 32, kBunkerIconPng, kBunkerIconPngSize);
-    if (unboxed_bool(call(m_load_image, NULL, (void *[]){texture, bytes}))) call(m_set_texture, raw, (void *[]){texture});
+    if (unboxed_bool(call(m_load_image, NULL, (void *[]){texture, bytes, &no}))) call(m_set_texture, raw, (void *[]){texture});
 }
 
 static void add_button(void *self) {
@@ -304,8 +304,8 @@ static void update_hook(void *self, Method *method) {
 }
 
 static int look_up(void) {
-#define CLASS(var, ns, name) if (!(var = find_class(ns, name))) return -1;
-#define METHOD(var, klass, name, args, first) if (!(var = find_method(klass, name, args, first))) return -1;
+#define CLASS(var, ns, name) if (!(var = find_class(ns, name))) { say("Bunker button: missing class " ns "." name); return -1; }
+#define METHOD(var, klass, name, args, first) if (!(var = find_method(klass, name, args, first))) { say("Bunker button: missing method " #klass "." name); return -1; }
     CLASS(k_header, "Dark.View.HeadUpDisplay.Header", "HeaderButtons")
     CLASS(k_button, "Dark.View.UserInterface.Parts", "DarkButton")
     CLASS(k_text, "Dark.View.UserInterface.Parts", "DarkTextMeshPro")
@@ -340,7 +340,9 @@ static int look_up(void) {
     METHOD(m_set_enabled, k_behaviour, "set_enabled", 1, NULL)
     METHOD(m_set_text, k_text, "SetText", 1, "System.String")
     METHOD(m_tex_ctor, k_texture, ".ctor", 2, "System.Int32")
-    METHOD(m_load_image, conversion, "LoadImage", 2, NULL)
+    // The two-argument wrapper is stripped from Japanese 3.7.1; both games
+    // retain the native overload. Keep its texture readable, like the wrapper.
+    METHOD(m_load_image, conversion, "LoadImage", 3, NULL)
     METHOD(m_set_texture, k_rawimage, "set_texture", 1, NULL)
     METHOD(m_register_tap, k_button, "RegisterTapEvent", 1, NULL)
     METHOD(m_is_enable, k_button, "get_IsEnable", 0, NULL) METHOD(m_set_is_enable, k_button, "set_IsEnable", 1, NULL)

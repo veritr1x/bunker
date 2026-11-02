@@ -27,10 +27,8 @@ async function fetchBytes(url, label) {
   return bytes;
 }
 
-// The notices are optional: a site built without the notice pack makes builds without Notices.
+// A missing pack is a build failure, rather than a silently incomplete APK.
 async function fetchNotices(pyodide) {
-  const head = await fetch("bundles/notices.zip", { method: "HEAD" }).catch(() => null);
-  if (!head || !head.ok) return null;
   writeFile(pyodide, "/bundles/notices.zip", await fetchBytes("bundles/notices.zip", "the notices"));
   return "/bundles/notices.zip";
 }

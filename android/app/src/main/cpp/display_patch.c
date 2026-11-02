@@ -78,6 +78,9 @@
 #include "camera_edge.h"
 #include "roulette_ads.h"
 #include "text_buffer.h"
+#include "game_region.h"
+
+int bunker_game_japanese;
 
 // RenderTargetSize, from the game's metadata: H320 1, H450 2, H540 3, H640 4, HD 5 (its own), FullHD 6, WQHD 7, DeviceMax 8.
 enum { H540 = 3, H640 = 4, FullHD = 6, WQHD = 7, DeviceMax = 8 };
@@ -275,7 +278,7 @@ static void route_stay_update(void *klass, uint8_t *base) {
     uintptr_t *slots = klass;
     for (int i = 0; i < 0x100; i++) {
         if (slots[i] != stay_begin) continue;
-        if (slots[i + 2] == (uintptr_t)(base + 0x3A05C64)) {
+        if (slots[i + 2] == (uintptr_t)(base + game_rva(0x3A05C64))) {
             stay_update_original = slots[i + 2];
             slots[i + 2] = (uintptr_t)stay_update;
         }
@@ -352,23 +355,23 @@ __attribute__((naked)) static void trigger_enter_hook(void) {
 
 static int hook_event_zones(uint8_t *base) {
     game_base = base;
-    stay_on_stay = (void (*)(void *, void *, void *))(base + 0x2984420);
-    stay_begin = (uintptr_t)(base + 0x2984210);
-    change_state_resume = (uintptr_t)(base + 0x3A0ECF8 + 16);
-    trigger_enter_resume = (uintptr_t)(base + 0x363082C + 16);
-    if (hook((uint32_t *)(base + 0x3A0ECF8), kChangeState, change_state_hook)) return -1;
-    return hook((uint32_t *)(base + 0x363082C), kTriggerEnter, trigger_enter_hook);
+    stay_on_stay = (void (*)(void *, void *, void *))(base + game_rva(0x2984420));
+    stay_begin = (uintptr_t)(base + game_rva(0x2984210));
+    change_state_resume = (uintptr_t)(base + game_rva(0x3A0ECF8) + 16);
+    trigger_enter_resume = (uintptr_t)(base + game_rva(0x363082C) + 16);
+    if (hook((uint32_t *)(base + game_rva(0x3A0ECF8)), kChangeState, change_state_hook)) return -1;
+    return hook((uint32_t *)(base + game_rva(0x363082C)), kTriggerEnter, trigger_enter_hook);
 }
 
 static int hook_frame_rate(uint8_t *base) {
-    time_unscaled_delta = (float (*)(void *))(base + 0x4D7ED90);
-    time_fixed_delta = (float (*)(void *))(base + 0x4D7EDC4);
-    time_set_fixed_delta = (void (*)(float, void *))(base + 0x4D7EDF8);
-    time_frame_count = (int (*)(void *))(base + 0x4D7EF50);
-    fixed_process_resume = (uintptr_t)(base + 0x2D5F7A0 + 16);
-    battle_process = (uintptr_t)(base + 0x37DC3D0);
-    if (hook((uint32_t *)(base + 0x2D5F7A0), kFixedProcessPrologue, fixed_process_hook)) return -1;
-    return hook((uint32_t *)(base + 0x2A6530C), kBattleStepCall, battle_step_hook);
+    time_unscaled_delta = (float (*)(void *))(base + game_rva(0x4D7ED90));
+    time_fixed_delta = (float (*)(void *))(base + game_rva(0x4D7EDC4));
+    time_set_fixed_delta = (void (*)(float, void *))(base + game_rva(0x4D7EDF8));
+    time_frame_count = (int (*)(void *))(base + game_rva(0x4D7EF50));
+    fixed_process_resume = (uintptr_t)(base + game_rva(0x2D5F7A0) + 16);
+    battle_process = (uintptr_t)(base + game_rva(0x37DC3D0));
+    if (hook((uint32_t *)(base + game_rva(0x2D5F7A0)), kFixedProcessPrologue, fixed_process_hook)) return -1;
+    return hook((uint32_t *)(base + game_rva(0x2A6530C)), kBattleStepCall, battle_step_hook);
 }
 
 static void *game_library;
@@ -380,7 +383,7 @@ static void bunker_log(const char *message) { __android_log_print(ANDROID_LOG_IN
 static const uint32_t kShowRewardedVideo[4] = {0xa9be4ff4u, 0xa9017bfdu, 0x910043fdu, 0xd00237f4u};
 
 static void hook_roulette_ads(uint8_t *base) {
-    if (roulette_ads_init(game_symbol, bunker_log, NULL) || hook((uint32_t *)(base + 0x3291FB4), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
+    if (roulette_ads_init(game_symbol, bunker_log, NULL) || hook((uint32_t *)(base + game_rva(0x3291FB4)), kShowRewardedVideo, (void (*)(void))roulette_ads_show))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Special Gift Roulette: unsupported game binary; the video ad stays");
 }
 
@@ -411,11 +414,16 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
         return message;
     }
     uint8_t *base = info.dli_fbase;
+    uintptr_t init_rva = (uintptr_t)symbol - (uintptr_t)base;
+    if (init_rva != 0x254D094 && init_rva != 0x24F7944)
+        return "Unsupported game library: runtime patches were not applied";
+    bunker_game_japanese = init_rva == 0x24F7944;
     game_library = library;
-    hook_roulette_ads(base);
+    // JP does not contain IronSource. Never touch its unrelated global RVA.
+    if (!bunker_game_japanese) hook_roulette_ads(base);
     if (bunker_button_init(game_symbol, bunker_log, open_bunker))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Bunker button: the game's IL2CPP API is missing; no button in the top row");
-    uint32_t *snap = (uint32_t *)(base + kSnapArrive.rva);
+    uint32_t *snap = (uint32_t *)(base + game_rva(kSnapArrive.rva));
     if (*snap == kSnapArrive.original) write_word(snap, kSnapArrive.patched);
     else if (*snap != kSnapArrive.patched)
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Snapping lists: unsupported game binary; summon buttons can stop answering above 30 fps");
@@ -437,7 +445,7 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
         {0x3A0ECF8, kChangeState}, {0x363082C, kTriggerEnter}};
     // The event-zone hooks (2 and 3) go in at every frame rate; the frame-timing ones only above 30.
     for (int h = fps > 30 ? 0 : 2; h < 4; h++) {
-        uint32_t *at = (uint32_t *)(base + hooks[h].rva);
+        uint32_t *at = (uint32_t *)(base + game_rva(hooks[h].rva));
         if (at[0] == 0x58000050u) continue;
         for (int i = 0; i < 4; i++) if (at[i] != hooks[h].original[i]) {
             snprintf(message, length, "Unsupported game binary at 0x%X; nothing changed", hooks[h].rva);
@@ -445,14 +453,14 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
         }
     }
     for (int i = 0; i < count; i++) {
-        uint32_t now = *(uint32_t *)(base + list[i].rva);
+        uint32_t now = *(uint32_t *)(base + game_rva(list[i].rva));
         if (now != list[i].original && now != list[i].patched) {
             snprintf(message, length, "Unsupported game binary at 0x%X (found %08X); nothing changed", list[i].rva, now);
             return message;
         }
     }
     for (int i = 0; i < count; i++) {
-        uint32_t *address = (uint32_t *)(base + list[i].rva);
+        uint32_t *address = (uint32_t *)(base + game_rva(list[i].rva));
         if (*address != list[i].patched && write_word(address, list[i].patched)) {
             snprintf(message, length, "Could not write the game code at 0x%X", list[i].rva);
             return message;
