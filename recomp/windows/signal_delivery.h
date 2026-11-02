@@ -10,9 +10,14 @@ class SignalDelivery {
   using Metadata=recomp::signal_frame::Metadata;
   SignalDelivery(recomp::Runtime &,std::function<bool(addr_t)> executable,
                  addr_t normal_return_entry,Bounds registered_stack);
+  // Full alternate-stack mode. The model's real acquire callback must pin the
+  // complete saved mapping through handler execution and checked restoration.
+  SignalDelivery(recomp::Runtime &,std::function<bool(addr_t)> executable,
+                 addr_t normal_return_entry,Bounds registered_stack,SignalHost&,uint64_t token);
   // Runs on the actual worker inside a materialized Runtime context. The
   // handler uses a separate State and a real frame below the interrupted SP.
-  // Supports the registered normal stack and normal C return only. The return
+  // Supports normal or qualified leased alternate stacks and normal C return.
+  // The legacy constructor supports only a disabled alternate registration. The return
   // entry is a verified translated control boundary, intercepted before its
   // instructions execute; no Linux rt_sigreturn syscall is claimed.
   std::optional<uint64_t> Deliver(const SignalHost::Delivery &);
@@ -24,5 +29,6 @@ class SignalDelivery {
   Bounds stack_;
   Metadata metadata_;
   std::thread::id owner_;
+  SignalHost *signals_=nullptr;uint64_t token_=0;
 };
 }  // namespace bunker::windows
