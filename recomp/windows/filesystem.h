@@ -65,6 +65,7 @@ class FileSystem {
   addr_t StandardStreamsAddress();
   int Open(const char *path, int flags, uint32_t mode = 0666);
   int Close(int descriptor);
+  int32_t Dup(int32_t descriptor);
   int64_t Read(int descriptor, void *buffer, uint64_t count);
   int64_t Write(int descriptor, const void *buffer, uint64_t count);
   int64_t Seek(int descriptor, int64_t offset, int whence);
