@@ -12,6 +12,8 @@ constexpr const char *kFocus="android/media/AudioManager$OnAudioFocusChangeListe
 constexpr const char *kFocusProxy="bitter/jnibridge/HostAudioFocusChangeProxy";
 constexpr const char *kLocation="android/location/LocationListener";
 constexpr const char *kLocationProxy="bitter/jnibridge/HostLocationListenerProxy";
+constexpr const char *kRunnable="java/lang/Runnable";
+constexpr const char *kRunnableProxy="bitter/jnibridge/HostRunnableProxy";
 constexpr const char *kFactorySignature="(J[Ljava/lang/Class;)Ljava/lang/Object;";
 using Value=jni::Host::ObjectValue;
 addr_t Env(jni::Host &h,size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=h.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;h.InvokeEnv(slot,s);return s.gpr.x0.qword;}
@@ -46,9 +48,9 @@ struct JniInterfaceProxy::State {
     for(int32_t i=0;i<count;++i){auto item=Env(host,173,classes,i);auto name=host.ClassNameValue(item);Healthy(host);names.push_back(name?*name:"<null>");snapshot.push_back(Keep(host,item));}
     std::fprintf(stderr,"JNI interface proxy: actual handle=%#llx loader=%#llx Class[] count=%d [",(unsigned long long)handle,(unsigned long long)loader,count);
     for(size_t i=0;i<names.size();++i)std::fprintf(stderr,"%s%s",i?",":"",names[i].c_str());std::fprintf(stderr,"]\n");
-    const bool service_profile=names==std::vector<std::string>{kService},focus_profile=names==std::vector<std::string>{kFocus},location_profile=names==std::vector<std::string>{kLocation};
-    if(!service_profile&&!focus_profile&&!location_profile)throw std::runtime_error("JNI interface proxy unsupported loader/interface profile (requires actual app loader and a supported singleton interface[])");
-    const char *proxy_class=service_profile?kProxy:focus_profile?kFocusProxy:kLocationProxy,*interface_class=service_profile?kService:focus_profile?kFocus:kLocation;
+    const bool service_profile=names==std::vector<std::string>{kService},focus_profile=names==std::vector<std::string>{kFocus},location_profile=names==std::vector<std::string>{kLocation},runnable_profile=names==std::vector<std::string>{kRunnable};
+    if(!service_profile&&!focus_profile&&!location_profile&&!runnable_profile)throw std::runtime_error("JNI interface proxy unsupported loader/interface profile (requires actual app loader and a supported singleton interface[])");
+    const char *proxy_class=service_profile?kProxy:focus_profile?kFocusProxy:location_profile?kLocationProxy:kRunnableProxy,*interface_class=service_profile?kService:focus_profile?kFocus:location_profile?kLocation:kRunnable;
     auto expected_proxy=Env(host,6,reinterpret_cast<addr_t>(proxy_class));auto proxy_loader=Env(host,34,expected_proxy,method);Healthy(host);
     const bool actual_loader=loader&&Env(host,24,loader,proxy_loader);Healthy(host);
     if(!actual_loader)throw std::runtime_error("JNI interface proxy unsupported loader/interface profile (requires actual app loader)");
@@ -82,11 +84,17 @@ struct JniInterfaceProxy::State {
     if(!handle)return;
     throw std::runtime_error("JNI interface proxy active location callback is unsupported: "+method+"; original native/reflected Method dispatch is not ported");
   }
+  void RunnableCall(addr_t proxy){
+    RequireActive();auto payload=Proxy(proxy);uint64_t handle=0;{std::lock_guard monitor(payload->passive->monitor);handle=payload->passive->handle;}
+    if(!handle)return;
+    throw std::runtime_error("JNI interface proxy active Runnable callback is unsupported: run()V; original native/reflected Method dispatch is not ported");
+  }
   [[noreturn]] void ObjectCall(const char *name){RequireActive();throw std::runtime_error(std::string("JNI interface proxy Object callback is unsupported: ")+name);}
 };
 JniInterfaceProxy::JniInterfaceProxy(jni::Host &host):state_(std::make_shared<State>(host)){
   Healthy(host);
   host.DefineInterface("android/os/IBinder",{});
+  host.DefineInterface(kRunnable,{{"run","()V"}});
   host.DefineInterface("java/lang/reflect/InvocationHandler",{{"invoke","(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;"}});
   host.DefineClass("java/lang/reflect/Proxy",{},"java/lang/Object",true,{"java/io/Serializable"});
   host.DefineClass(kHandler,{{"<init>","(J)V"},{"a","()V"},{"finalize","()V"},{"invoke","(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;"}},"java/lang/Object",false,{"java/lang/reflect/InvocationHandler"});
@@ -95,6 +103,7 @@ JniInterfaceProxy::JniInterfaceProxy(jni::Host &host):state_(std::make_shared<St
   host.DefineClass(kProxy,{{"hashCode","()I"}},"java/lang/reflect/Proxy",false,{kService});
   host.DefineClass(kFocusProxy,{{"hashCode","()I"}},"java/lang/reflect/Proxy",false,{kFocus});
   host.DefineClass(kLocationProxy,{{"hashCode","()I"}},"java/lang/reflect/Proxy",false,{kLocation});
+  host.DefineClass(kRunnableProxy,{{"hashCode","()I"}},"java/lang/reflect/Proxy",false,{kRunnable});
   std::weak_ptr<State> weak=state_;
   auto get=[weak]{auto state=weak.lock();if(!state)throw std::runtime_error("JNI interface proxy adapter owner expired");return state;};
   host.BindStaticObjectMethod(kBridge,"newInterfaceProxy",kFactorySignature,[get](addr_t,const jni::Host::MethodArguments &args){return get()->Create(args[0],args[1]);});
@@ -102,6 +111,7 @@ JniInterfaceProxy::JniInterfaceProxy(jni::Host &host):state_(std::make_shared<St
   for(const auto &[name,sig]:std::vector<std::pair<const char*,const char*>>{{"onServiceConnected","(Landroid/content/ComponentName;Landroid/os/IBinder;)V"},{"onServiceDisconnected","(Landroid/content/ComponentName;)V"},{"onBindingDied","(Landroid/content/ComponentName;)V"},{"onNullBinding","(Landroid/content/ComponentName;)V"}})
     host.DefineVoidMethod(kProxy,name,sig,[get,method_name=name](addr_t proxy,const jni::Host::MethodArguments&){get()->ServiceCall(proxy,method_name);});
   host.DefineVoidMethod(kFocusProxy,"onAudioFocusChange","(I)V",[get](addr_t proxy,const jni::Host::MethodArguments&){get()->FocusCall(proxy);});
+  host.DefineVoidMethod(kRunnableProxy,"run","()V",[get](addr_t proxy,const jni::Host::MethodArguments&){get()->RunnableCall(proxy);});
   for(const auto &[name,sig]:std::vector<std::pair<const char*,const char*>>{
       {"onLocationChanged","(Landroid/location/Location;)V"},
       {"onLocationChanged","(Ljava/util/List;)V"},
@@ -110,7 +120,7 @@ JniInterfaceProxy::JniInterfaceProxy(jni::Host &host):state_(std::make_shared<St
       {"onProviderEnabled","(Ljava/lang/String;)V"},
       {"onProviderDisabled","(Ljava/lang/String;)V"}})
     host.DefineVoidMethod(kLocationProxy,name,sig,[get,method_name=std::string(name)+sig](addr_t proxy,const jni::Host::MethodArguments&){get()->LocationCall(proxy,method_name);});
-  for(const char *proxy_class:{kProxy,kFocusProxy,kLocationProxy}){
+  for(const char *proxy_class:{kProxy,kFocusProxy,kLocationProxy,kRunnableProxy}){
     host.DefineObjectMethod(proxy_class,"toString","()Ljava/lang/String;",[get](addr_t,const jni::Host::MethodArguments&)->addr_t{get()->ObjectCall("toString");});
     host.DefineBooleanMethod(proxy_class,"equals","(Ljava/lang/Object;)Z",[get](addr_t,const jni::Host::MethodArguments&)->bool{get()->ObjectCall("equals");});
   }
