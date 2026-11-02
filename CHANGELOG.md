@@ -20,6 +20,17 @@ under its heading, down to the previous release.
 - The notice tools' tests run in CI (Pillow and BeautifulSoup in
   scripts/requirements-notices.txt). [b772a20]
 
+### Summons
+- The i button on the Event tab's summons (31 event box summons and the
+  three Mama's Dream summons) opened an empty page. It now opens the
+  summon's notice: the event's own notice, Mama's Dream's announcement, or
+  for 14 early events their rebuilt summon page. [3412d48]
+- Their Summons Details (from the notice, and the Rates button) list every
+  level's prizes with its targets, the player's level and what is left in
+  it, and the shared prizes; Mama's Dream lists only its prizes. Neither
+  shows the premium summons' rates any more, which they never drew from.
+  An event summon's dates are its event's run. [3412d48]
+
 ## 1.7.0 (2026-11-02)
 
 Below the screen's own resolution, the picture can be upscaled instead of
