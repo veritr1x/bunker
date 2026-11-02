@@ -152,9 +152,10 @@ extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
-  const bool frame_gate=argc==8&&!std::strcmp(argv[4],"--frame-gate");
+  const bool mute_audio=argc==9&&!std::strcmp(argv[8],"--mute-audio");
+  const bool frame_gate=(argc==8||mute_audio)&&!std::strcmp(argv[4],"--frame-gate");
   const bool surface_gate=frame_gate||(argc==7&&!std::strcmp(argv[4],"--surface-gate"));
-  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory>]\n");return 2;}
+  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio]]\n");return 2;}
   const bool init_jni=argc!=4;
   bool frame_continues=true;
   try{
@@ -451,10 +452,22 @@ int main(int argc,char **argv){
         std::fprintf(stderr,"Unity bootstrap: %ssurface-only host lifecycle port; actual HWND client=%dx%d; APK sensorLandscape; resumed=false; no Java class-init or render/resume claim\n",kExploratory?"EXPLORATORY ":"",actual_width,actual_height);
         uint64_t worker_token=0;bool worker_registered=false;
         const auto actual_render=frame_gate?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeRender","()Z"):0;
+        const auto actual_resume=mute_audio?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeResume","()V"):0;
+        const auto actual_mute=mute_audio?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeMuteMasterAudio","(Z)V"):0;
+        if(mute_audio&&(!Translated(actual_resume)||!Translated(actual_mute)))throw std::runtime_error("original resume/master-mute entries are not translated");
         UnitySurfaceLifecycle lifecycle(java,[&](addr_t target,const std::vector<addr_t>&args){
           if(actual_render&&target==actual_render)std::fprintf(stderr,"Game bootstrap: before original nativeRender IL2CPP constructors=%zu refs=%zu\n",il2cpp_ledger.constructed,modules.ReferenceCount("libil2cpp.so"));
           std::fprintf(stderr,"Unity bootstrap: UnityMain host-thread=%lu native=%#llx argc=%zu env=%#llx receiver=%#llx display=%#llx surface=%#llx\n",GetCurrentThreadId(),static_cast<unsigned long long>(target),args.size(),static_cast<unsigned long long>(args.at(0)),static_cast<unsigned long long>(args.at(1)),static_cast<unsigned long long>(args.size()>2?args[2]:0),static_cast<unsigned long long>(args.size()>3?args[3]:0));
-          auto result=threads.Run(target,args);std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));return result;
+          auto result=threads.Run(target,args);std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));
+          if(mute_audio&&target==actual_resume){
+            // An explicit user control after resume, using the worker's actual
+            // JNI environment/receiver. It is not a synthetic volume event.
+            if(!java.PendingException().empty())throw std::runtime_error("original nativeResume raised a Java exception before master mute");
+            threads.Run(actual_mute,{args.at(0),args.at(1),1});
+            if(!java.PendingException().empty())throw std::runtime_error("original master-mute request raised a Java exception");
+            std::fprintf(stderr,"Game bootstrap: explicit muted diagnostic; original nativeMuteMasterAudio(true) returned; hardware-volume observer disabled; no endpoint/volume or audio-output qualification\n");
+          }
+          return result;
         },{recreate,changed},player,[&]{
           const auto token=worker_token;
           if(!token)return;
@@ -492,10 +505,16 @@ int main(int argc,char **argv){
           std::fprintf(stderr,"Unity bootstrap: UI resume prerequisite nativeRestartActivityIndicator entry=%#llx\n",static_cast<unsigned long long>(indicator));
           threads.Run(indicator,{java.EnvAddress(),player});
           if(!java.PendingException().empty()||init_java_errors.load())throw std::runtime_error("UI resume prerequisite raised an original Java exception");
-          AudioVolumeSession volume(java,[&](addr_t address,const std::vector<addr_t>&args){return threads.Run(address,args);},activity,player);
-          auto audio=volume.InitialSnapshot();
-          std::fprintf(stderr,"Unity bootstrap: real read-only music-volume observer ready scalar=%g muted=%d profile-index=%d; no initial native callback; no playback/system mutation\n",double(audio.scalar),audio.muted,AudioVolumeSession::MusicIndex(audio));
-          volume.Poll();lifecycle.ActivityResumed();
+          std::unique_ptr<AudioVolumeSession> volume;
+          if(mute_audio){
+            std::fprintf(stderr,"Game bootstrap: explicit muted diagnostic requested; hardware-volume observer omitted; original master mute requested after nativeResume; later engine audio initialization remains unqualified\n");
+          }else{
+            volume=std::make_unique<AudioVolumeSession>(java,[&](addr_t address,const std::vector<addr_t>&args){return threads.Run(address,args);},activity,player);
+            auto audio=volume->InitialSnapshot();
+            std::fprintf(stderr,"Unity bootstrap: real read-only music-volume observer ready scalar=%g muted=%d profile-index=%d; no initial native callback; no playback/system mutation\n",double(audio.scalar),audio.muted,AudioVolumeSession::MusicIndex(audio));
+          }
+          auto poll_volume=[&]{if(volume)volume->Poll();};
+          poll_volume();lifecycle.ActivityResumed();
           auto lease=native_windows->FromSurface(surface);auto hwnd=static_cast<HWND>(native_windows->NativeHandle(lease));native_windows->Release(lease);
           if(GetForegroundWindow()!=hwnd)std::fprintf(stderr,"Unity bootstrap: real foreground activation requested, accepted=%d\n",int(SetForegroundWindow(hwnd)!=0));
           bool focused=false;auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
@@ -508,10 +527,10 @@ int main(int argc,char **argv){
             if(!focused)std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
           if(!focused)throw std::runtime_error("no real HWND focus event; native frame prerequisite remains unmet");
-          bool keep_running=false;while(true){try{keep_running=lifecycle.WaitForFrame();break;}catch(const std::runtime_error &e){if(std::string(e.what())!="one-frame diagnostic timed out before nativeRender completed")throw;std::fprintf(stderr,"Game bootstrap: first nativeRender observation window expired; retaining same live worker/window and waiting, not restarting\n");volume.Poll();}}
-          frame_continues=keep_running;lifecycle.WaitIdle();volume.Poll();
+          bool keep_running=false;while(true){try{keep_running=lifecycle.WaitForFrame();break;}catch(const std::runtime_error &e){if(std::string(e.what())!="one-frame diagnostic timed out before nativeRender completed")throw;std::fprintf(stderr,"Game bootstrap: first nativeRender observation window expired; retaining same live worker/window and waiting, not restarting\n");poll_volume();}}
+          frame_continues=keep_running;lifecycle.WaitIdle();poll_volume();
           std::fprintf(stderr,"Unity bootstrap: first nativeRender returned continue=%d; requesting finishing PAUSE at diagnostic frame boundary\n",int(keep_running));
-          volume.Pause();lifecycle.PauseNative(true);
+          if(volume)volume->Pause();lifecycle.PauseNative(true);
         }
         stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
         if(egl)egl->SetProcedureResolver({});
@@ -561,6 +580,6 @@ int main(int argc,char **argv){
     native_catalog->Revoke();
     if(released)throw std::runtime_error("main runner TLS/stack cleanup failed");
     if(frame_gate&&!frame_continues){std::fprintf(stderr,"Unity bootstrap: nativeRender returned false/requested Activity finish; one-frame startup was not successful\n");return 6;}
-    std::fprintf(stderr,"Game bootstrap: normal profile completion=%s; original constructors/JNI, lifecycle and ownership checks complete\n",frame_gate?"frame":surface_gate?"surface":init_jni?"init":"default");return 0;
+    std::fprintf(stderr,"Game bootstrap: normal profile completion=%s; original constructors/JNI, lifecycle and ownership checks complete\n",frame_gate?(mute_audio?"frame-muted":"frame"):surface_gate?"surface":init_jni?"init":"default");return 0;
   }catch(const std::exception &error){std::fprintf(stderr,"Unity bootstrap: %s; stage=%s completed constructors=%zu\n",error.what(),stage,constructor_index);return 1;}
 }

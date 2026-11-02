@@ -396,3 +396,20 @@ matching the APK and the same eight-byte unity.ver. Its result SHA256 is
 `47fd64931db8b8830e31b018e9e35cdaa0b10b2fde545870504264f0603b9cf6`.
 The Game15 aggregate game_final_audit.json SHA256 is
 `18e4ded9a625bce754ec1953e382db14111d59c9a297521817be7e3a1805700e`.
+
+The optional `frame-muted` runner profile adds `--mute-audio` to the frame
+command. It omits the Windows hardware-volume observer and its Java handler,
+so a missing HDMI playback endpoint no longer blocks this diagnostic before
+resume. On UnityMain, immediately after the original nativeResume returns,
+it requests the game's registered nativeMuteMasterAudio(true) using the same
+JNI environment/player. It reports the returned request, checks exceptions
+and then permits the normal nativeRender call. No volume event, endpoint or
+successful audio device is invented. The default `frame` profile retains its
+real observer and audio prerequisite.
+
+This is an explicitly different diagnostic lifecycle. Master mute is not a
+backend-disable operation: later original resume/initialization code can reset
+the gain, and output remains unqualified. The mode allows current non-audio
+startup work while the TV is off; later audio initialization and actual output
+need their own checks. Use `frame` again when HDMI playback is available.
+The new mode still requires the normal graphics/window prerequisites.
