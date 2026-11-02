@@ -4,6 +4,14 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
+The latest game12 build passes constructor/JNI, initJni and surface lifecycle
+profiles. Its two frame attempts stop before resume/render because the actual
+Windows playback endpoint is unavailable. Independent native queries reproduce
+that state; no audio values or device settings were substituted. Game10 remains
+the latest natural engine-startup checkpoint: real IL2CPP loading, 222 export
+lookups and byte-exact physical copying of all24 Managed files. Windows native
+TLS container teardown is also being repaired before the next full attempt.
+
 ## Current checkout and tools
 
 - Windows source: `C:\GitRepos\bunker`. The replaced checkout is preserved at
@@ -173,7 +181,10 @@ part of the normal Bunker release. The game does not boot or render yet.
   Windows qualification uses isolated real registry stores; decoded TEST
   migration calls do not establish original Unity initialization. Game11 setup
   exposed duplicate NoSuchElementException ownership with configured APK assets;
-  the next run requires canonical ownership and a combined regression. See
+  canonical ownership and the combined16-check regression now pass on both
+  hosts, and game12 passes its three non-render lifecycle profiles. Original
+  preference access remains unqualified because audio setup stops its frame
+  attempt before nativeRender. See
   [preferences storage and ownership](windows/shared_preferences.md).
 - AssetPackManagerWrapper's original missing-PlayCore branch passes 209 focused
   checks and eight explicit boundaries per host. The exact APK code catalog
@@ -189,6 +200,13 @@ part of the normal Bunker release. The game does not boot or render yet.
   limit, unsigned overflow/errno and tracked eight-byte assignment behavior.
   The next natural run must qualify this parser in original startup. See
   [the bounded parser](windows/libc_sscanf.md).
+- Bionic's process-global C/C.UTF-8 locale state passes3,927 focused checks and
+  362 actual NDK calls per host plus the existing locale/LibC/startup gates.
+  The tests exposed a real Windows C++ TLS teardown ordering bug; the locale
+  selection map now uses checked native thread storage, with19 actual cleanup
+  callbacks observed. The separate pthread/EGL/automatic-frame stores are being
+  repaired. Natural IL2CPP init entry remains unqualified. See
+  [locale semantics and lifetime evidence](windows/setlocale.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old
