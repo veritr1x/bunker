@@ -322,3 +322,26 @@ The aggregate audit SHA256 is
 `59e491e13b34458bc42dd7fb1a6f5bc0f886842a4915b73762bdf1411806da3a`.
 Read-only storage proof work/game13-storage-audit/result.json has SHA256
 `58c7be3e67758bd1264e343efb635182df54a7e05cf75d4231d839d95ef0af62`.
+
+`work/windows-game14` freezes0a5bdf2 and executable SHA256
+`e89d3b9d64311f298ef5c47ba01cd73bb27374d7b5f1f5b0f70c785d49e502a3`.
+The qualified Dup provider is linked, and constructor/JNI, initJni and surface
+profiles pass. Its frame attempt stops before resume/render at actual audio
+unavailable/0x80070490, so it supplies no natural Dup/init evidence. The complete
+attempt remains under attempts/frame-audio-unavailable1. The audio-boundary
+audit SHA256 is
+`5df3d37aba5bfc30600bc5b107c5e91e9b7b0c5c9f0004701c9df1257ce838d1`.
+
+Read-only power diagnosis found34-minute input idle against an AC900-second
+display timeout, with no display-required request. This suggested a possible
+HDMI power interaction but did not establish causality. A separate controlled
+helper then held a checked display+system request on a dedicated native thread
+for120 seconds, observing only the real frozen audio provider. No endpoint
+returned and no game process was launched. The same thread successfully cleared
+its request, joined and stopped the observer; aggregate execution state returned
+from0x3 to0x1 and the helper exited. Persistent power/audio settings were never
+changed. Its reported result2 is distinct from the unavailable .NET OS-exit
+code. Evidence is work/audio-power-game14-controlled/REPORT.md, SHA256
+`8feb13d6fde368ccf32fb96235c2fe3ebc99e21df109eab08a2e49537275fa1b`.
+All temporary requests/helpers are retired; a fresh frame awaits a real
+available playback endpoint.
