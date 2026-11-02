@@ -9,8 +9,12 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Only for "use in place": the player turns it on in Settings to keep the game files in their own folder. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-    <queries><package android:name="com.square_enix.android_googleplay.nierspww" /></queries>
-    <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Lunar Tear"
+    <queries>
+        <package android:name="com.square_enix.android_googleplay.nierspww" />
+        <package android:name="com.square_enix.android_googleplay.nierspjp" />
+    </queries>
+    <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Bunker"
+        android:icon="@drawable/bunker_icon" android:roundIcon="@drawable/bunker_icon"
         android:allowBackup="false" android:usesCleartextTraffic="true" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:process=":lunar_server" android:exported="true" android:resizeableActivity="true">
             <intent-filter>

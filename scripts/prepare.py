@@ -70,12 +70,12 @@ def prepare():
         grant = output / "server/internal/lunarbase"
         grant.mkdir()
         for path in (base / "tools/grant/src").glob("*.go"):
-            (grant / path.name).write_text(path.read_text().replace("package main", "package lunarbase"))
+            (grant / path.name).write_text(path.read_text().replace("package main", "package lunarbase"), newline="\n")
         shutil.copy2(base / "LICENSE", grant / "LICENSE")
         shutil.copytree(ROOT / "overlays/server", output / "server", dirs_exist_ok=True)
         shutil.copytree(ROOT / "overlays/python", python, dirs_exist_ok=True)
         for patch in sorted((ROOT / "patches").glob("*.patch")):
-            subprocess.run(["git", "apply", "--directory=" + str(output.relative_to(ROOT)), str(patch)], cwd=ROOT, check=True)
+            subprocess.run(["git", "apply", "--directory=" + output.relative_to(ROOT).as_posix(), str(patch)], cwd=ROOT, check=True)
 
         files = {str(path.relative_to(output)): digest(path) for path in output.rglob("*") if path.is_file()}
         # Validate the entire update before replacing any generated source.

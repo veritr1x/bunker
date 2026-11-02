@@ -1,0 +1,47 @@
+{
+  "client": "Japanese 3.7.1 ARM64",
+  "sites": [
+    {
+      "name": "Unity Analytics startup",
+      "rva": 85926308,
+      "original": "ff8302d1fc6f04a9fa6705a9f85f06a9",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics initialization",
+      "rva": 86809588,
+      "original": "f30f1ef8fd7b01a9fd430091132e01d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics log",
+      "rva": 86809784,
+      "original": "f44fbea9fd7b01a9fd430091142e01d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics user ID",
+      "rva": 86809904,
+      "original": "f44fbea9fd7b01a9fd430091142e01d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Crashlytics exception",
+      "rva": 86810024,
+      "original": "f44fbea9fd7b01a9fd430091142e01d0",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Adjust automatic startup",
+      "rva": 66363188,
+      "original": "f70f1cf8f65701a9f44f02a9fd7b03a9",
+      "replacement": "c0035fd6"
+    },
+    {
+      "name": "Adjust startup",
+      "rva": 66363984,
+      "original": "f44fbea9fd7b01a9fd430091b4c901d0",
+      "replacement": "c0035fd6"
+    }
+  ]
+}

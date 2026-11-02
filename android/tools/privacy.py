@@ -14,6 +14,7 @@ from axml import Element
 
 PATCH_FILE = Path(__file__).with_name("telemetry_patches.json")
 SITES = json.loads(PATCH_FILE.read_text(encoding="utf-8"))["sites"]
+JP_SITES = json.loads(PATCH_FILE.with_name("telemetry_patches_jp.json").read_text(encoding="utf-8"))["sites"]
 
 TRACKING_RECEIVERS = {"com.adjust.sdk.AdjustReferrerReceiver"}
 AD_PERMISSIONS = {"com.google.android.gms.permission.AD_ID"}
@@ -79,10 +80,10 @@ def file_segments(handle):
     return _segments(handle.read(min(size, table + stride * count)), size)
 
 
-def _changes(segments, read):
+def _changes(segments, read, profile="global"):
     """Where each site goes, checked first: read(offset, length) gives the library's bytes."""
     changes = []
-    for site in SITES:
+    for site in JP_SITES if profile == "jp" else SITES:
         expected = bytes.fromhex(site["original"])
         replacement = bytes.fromhex(site["replacement"])
         offset = next((file + site["rva"] - address for file, address, size in segments
@@ -97,7 +98,7 @@ def _changes(segments, read):
     return changes
 
 
-def patch_library(data):
+def patch_library(data, profile="global"):
     """Validate every site first, then patch. Recognize our own output idempotently.
 
     Return a new bytearray without changing the input. Keeping the mutable buffer
@@ -107,20 +108,20 @@ def patch_library(data):
     metadata; instruction guards include unchanged surrounding instructions.
     No task-returning method is replaced with null or an incomplete task.
     """
-    changes = _changes(_segments(data), lambda offset, length: bytes(data[offset:offset + length]))
+    changes = _changes(_segments(data), lambda offset, length: bytes(data[offset:offset + length]), profile)
     result = bytearray(data)
     for offset, replacement in changes:
         result[offset:offset + len(replacement)] = replacement
     return result
 
 
-def patch_library_file(path):
+def patch_library_file(path, profile="global"):
     """patch_library on the file at path, where it lies: only the ELF headers and the sites are read."""
     with open(path, "r+b") as handle:
         def read(offset, length):
             handle.seek(offset)
             return handle.read(length)
-        changes = _changes(file_segments(handle), read)
+        changes = _changes(file_segments(handle), read, profile)
         for offset, replacement in changes:
             handle.seek(offset)
             handle.write(replacement)

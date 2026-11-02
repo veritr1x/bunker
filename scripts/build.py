@@ -47,10 +47,13 @@ def android_sdk(parser, env):
 
 
 def notices_args(args):
-    if args.notices.is_file():
-        return ["--notices", args.notices.resolve()]
-    print(f"No notice pack at {args.notices}: the build has no Notices.")
-    return []
+    if not args.notices.is_file():
+        if args.notices == ROOT / "inputs/bunker-notices.zip":
+            from notices import fetch
+            fetch()
+        else:
+            raise FileNotFoundError(f"Notice pack is missing: {args.notices}")
+    return ["--notices", args.notices.resolve(strict=True)]
 
 
 def build_android(args, env, python, master, sdk):
@@ -61,9 +64,9 @@ def build_android(args, env, python, master, sdk):
     with tempfile.TemporaryDirectory(prefix="game-", dir=work) as temp:
         decoded = Path(temp) / "decoded"
         run("apktool", "d", args.apk, "-o", decoded, env=env)
-        grpc, http, auth = addresses(args.port_offset)
-        run(python, ROOT / "upstream/lunar-scripts/android/patch_apk.py", decoded,
-            "--grpc-addr", grpc, "--http-addr", http, "--auth-host", auth, env=env)
+        _, _, auth = addresses(args.port_offset)
+        run(python, ROOT / "android/tools/game_patch.py", "--decoded-dir", decoded, "--game-apk", args.apk,
+            "--port-offset", args.port_offset, "--auth-host", auth, env=env)
         run(python, ROOT / "android/tools/package_game.py", "--decoded-dir", decoded,
             "--companion-apk", ROOT / "android/app/build/outputs/apk/debug/app-debug.apk", "--game-apk", args.apk,
             "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), "--port-offset", args.port_offset,
@@ -98,7 +101,7 @@ def build_ios(args, env, python, master):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument("--apk", type=Path, help="Original ARM64 game 3.7.1 APK (builds Android)")
+    target.add_argument("--apk", type=Path, help="Original Global (English/Korean) or Japanese ARM64 game 3.7.1 APK (builds Android)")
     target.add_argument("--ipa", type=Path, help="Original decrypted game 3.7.1 IPA (builds iPhone)")
     parser.add_argument("--master", type=Path, required=True, help="Original 20240404193219.bin.e")
     parser.add_argument("--keystore", type=Path, default=ROOT / "inputs/lunar-local.keystore", help="Android signing key")
@@ -107,7 +110,7 @@ def main():
     parser.add_argument("--sign-identity", help="iPhone: codesign identity; requires --profile")
     parser.add_argument("--profile", type=Path, help="iPhone: provisioning profile for --bundle-id")
     parser.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip",
-                        help="The notice pack for the game's Notices screen; left out if the file is missing")
+                        help="The notice pack for Notices; the default pinned pack is fetched if missing")
     parser.add_argument("--port-offset", type=int, default=0,
                         help="Move the game's local ports 8003/8080/3000 by this amount, for devices where another app uses them")
     args = parser.parse_args()

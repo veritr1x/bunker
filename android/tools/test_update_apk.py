@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Rebuilding an installed Bunker APK with a newer launcher (assemble_apk.update)."""
 import json
+import struct
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,7 +16,7 @@ import privacy
 from test_privacy import elf
 
 ROOT = Path(__file__).resolve().parents[2]
-GAME_APK = ROOT / "inputs/game-3.7.1.apk"
+GAME_APK = Path(os.environ.get("BUNKER_GLOBAL_APK", ROOT / "inputs/game-3.7.1.apk"))
 COMPANION_APK = ROOT / "android/app/build/outputs/apk/debug/app-debug.apk"
 MASTER = "assets/lunar/20240404193219.bin.e"
 SETTINGS = b"prefix" + b"\x01\0\0\0\x2b\0\0\0https://api.uca.cloud.unity3d.com/v1/events" + b"suffix"
@@ -41,6 +43,8 @@ def manifests():
     ])
     companion = Element("manifest", children=[Element("application", children=[
         named("activity", "org.veritr1x.bunker.MainActivity")])])
+    game.set(Attr("package", ns=None, raw=assemble_apk.PACKAGE))
+    game.set(Attr.string("versionName", "3.7.1", 0x0101021C))
     return tuple(axml.serialize(Document(root, [("android", axml.ANDROID_NS, 0)])) for root in (game, companion))
 
 
@@ -58,6 +62,18 @@ class UpdateTests(unittest.TestCase):
         info.update(info_changes)
         path = self.work / "installed.apk"
         with zipfile.ZipFile(path, "w") as z:
+            if GAME_APK.is_file():
+                with zipfile.ZipFile(GAME_APK) as original:
+                    resources = original.read("resources.arsc")
+            else:
+                pool = axml._encode_pool([], True)
+                types, keys = axml._encode_pool(["string"], True), axml._encode_pool([], True)
+                header = struct.pack("<HHII", 0x0200, 288, 288 + len(types) + len(keys), 0x7F)
+                header += "game".encode("utf-16-le").ljust(256, b"\0")
+                header += struct.pack("<5I", 288, 1, 288 + len(types), 0, 0)
+                package = header + types + keys
+                resources = struct.pack("<HHII", 2, 12, 12 + len(pool) + len(package), 1) + pool + package
+            z.writestr("resources.arsc", resources)
             z.writestr("AndroidManifest.xml", b"patched manifest, replaced by the update")
             z.writestr("classes.dex", b"game dex")
             z.writestr(assemble_apk.LIB, self.game_library if library is None else library, compress_type=compression)
@@ -93,6 +109,7 @@ class UpdateTests(unittest.TestCase):
             z.writestr("lib/arm64-v8a/libnew.so", b"new library")
             z.writestr("assets/chaquopy/new.zip", b"new python")
             z.writestr("assets/lunar/bunker-version.txt", b"1.1.0\n")
+            z.writestr(build_info.COMPANION_PATCH_ENTRY, str(build_info.GAME_PATCH))
         return path
 
     def test_update_replaces_bunker_files_keeps_game(self):
@@ -124,13 +141,13 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(written, info)
         self.assertEqual(info["version"], "1.1.0")
         self.assertEqual(info["gameDex"], 1)
-        self.assertEqual(info["gamePatch"], 1)
+        self.assertEqual(info["gamePatch"], build_info.GAME_PATCH)
         self.assertEqual(info["bunkerLibs"], ["lib/arm64-v8a/liblunar.so", "lib/arm64-v8a/libnew.so"])
 
-    def test_update_applies_telemetry_to_revision_one_and_can_repeat(self):
+    def test_update_applies_telemetry_to_current_revision_and_can_repeat(self):
         for compression in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
             with self.subTest(compression=compression):
-                installed = self.installed(gamePatch=1, compression=compression)
+                installed = self.installed(compression=compression)
                 original = installed.read_bytes()
                 out, again = self.work / "out.apk", self.work / "again.apk"
                 assemble_apk.update(installed, self.companion(), out, log=lambda m: None)
@@ -141,7 +158,7 @@ class UpdateTests(unittest.TestCase):
                         self.assertEqual(first.read(name), second.read(name), name)
                     self.assertEqual(second.read(assemble_apk.LIB), privacy.patch_library(self.game_library))
                     self.assertEqual(second.getinfo(assemble_apk.LIB).compress_type, compression)
-                    self.assertEqual(json.loads(second.read("assets/lunar/build.json"))["gamePatch"], 1)
+                    self.assertEqual(json.loads(second.read("assets/lunar/build.json"))["gamePatch"], build_info.GAME_PATCH)
 
     def test_unknown_library_does_not_replace_output_or_leave_partial(self):
         library, offsets = elf()

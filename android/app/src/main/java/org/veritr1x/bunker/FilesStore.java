@@ -393,7 +393,7 @@ final class FilesStore {
      * stay in place; the launcher asks for it again if it disappears.
      */
     static void linkAssets(Context c, Uri tree, Progress progress) throws Exception {
-        if (!canUseInPlace()) throw new IOException("Allow All files access for NieR in Settings to use a folder in place, or copy it instead.");
+        if (!canUseInPlace()) throw new IOException("Allow All files access for Bunker in Settings to use a folder in place, or copy it instead.");
         if (!"com.android.externalstorage.documents".equals(tree.getAuthority()))
             throw new IOException("Use in place works with folders on this phone's storage or SD card. Copy the folder instead.");
         String revision = findRevisionZero(c, tree, DocumentsContract.getTreeDocumentId(tree));
@@ -403,7 +403,7 @@ final class FilesStore {
         String volume = revision.substring(0, colon), relative = revision.substring(colon + 1);
         File base = "primary".equalsIgnoreCase(volume) ? android.os.Environment.getExternalStorageDirectory() : new File("/storage", volume);
         File folder = new File(base, relative);
-        if (!folder.isDirectory() || folder.list() == null) throw new IOException("Cannot read " + folder + ". Allow All files access for NieR in Settings.");
+        if (!folder.isDirectory() || folder.list() == null) throw new IOException("Cannot read " + folder + ". Allow All files access for Bunker in Settings.");
         File root = root(c); mkdir(root);
         recover(c);
         File stage = new File(root, "assets.importing");

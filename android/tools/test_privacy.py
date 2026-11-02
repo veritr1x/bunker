@@ -38,10 +38,11 @@ def manifest():
         *(Element("uses-permission", [Attr.string("name", name, 0x01010003)]) for name in sorted(privacy.AD_PERMISSIONS)), app])
 
 
-def elf():
+def elf(sites=None):
+    sites = privacy.SITES if sites is None else sites
     # Small synthetic ELF: each original instruction sequence gets its own
     # executable mapping at the real RVA; no copyrighted game file is needed.
-    count = len(privacy.SITES)
+    count = len(sites)
     start = 64 + count * 56
     data = bytearray(start + count * 32)
     data[:6] = b"\x7fELF\x02\x01"
@@ -49,7 +50,7 @@ def elf():
     struct.pack_into("<Q", data, 32, 64)
     struct.pack_into("<HH", data, 54, 56, count)
     offsets = []
-    for index, site in enumerate(privacy.SITES):
+    for index, site in enumerate(sites):
         offset = start + index * 32
         struct.pack_into("<IIQQQQQQ", data, 64 + index * 56, 1, 5, offset, site["rva"], 0, 16, 16, 4)
         data[offset:offset + 16] = bytes.fromhex(site["original"])
@@ -58,6 +59,16 @@ def elf():
 
 
 class PrivacyTests(unittest.TestCase):
+    def test_japanese_guards_and_idempotence(self):
+        data, offsets = elf(privacy.JP_SITES)
+        patched = privacy.patch_library(data, profile="jp")
+        for site, offset in zip(privacy.JP_SITES, offsets):
+            replacement = bytes.fromhex(site["replacement"])
+            self.assertEqual(patched[offset:offset + len(replacement)], replacement)
+        self.assertEqual(privacy.patch_library(patched, profile="jp"), patched)
+        with self.assertRaises(ValueError):
+            privacy.patch_library(data)  # Never apply global SDK addresses to JP.
+
     def test_manifest_removals_preserve_sdk_settings_and_other_components(self):
         root = manifest()
         app = root.find_all("application")[0]

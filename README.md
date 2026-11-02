@@ -91,6 +91,9 @@ Limitations:
 - **The resource dump is not part of the build.** Put its `.7z` on the phone and choose it in
   the app. The app unpacks only the files the game uses. On Android, you can do all of this
   without a computer. On iPhone and iPad, you usually need a computer once to sideload the IPA.
+- **Android regions:** Global (English/Korean) and Japanese 3.7.1 ARM64 APKs are
+  detected automatically. Japanese support is experimental; emulator startup and
+  opening gameplay are checked. See [Android regions](docs/ANDROID-REGIONS.md).
 
 To build everything locally instead, follow the step-by-step guide below.
 

@@ -16,6 +16,7 @@
 //
 // RVAs from the 3.7.1 ARM64 game's IL2CPP metadata. Every word is checked first.
 #include "guerrilla_unlock.h"
+#include "game_region.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -52,8 +53,8 @@ __attribute__((naked)) static void timetable_shown_hook(void) {
 }
 
 int guerrilla_unlock_button(uint8_t *base, int (*hook)(uint32_t *at, const uint32_t original[4], void (*target)(void))) {
-    try_get_free_open = (bool (*)(void **, const void *))(base + kTryGetFreeOpen);
-    get_game_object = (void *(*)(void *, const void *))(base + kGetGameObject);
-    set_active = (void (*)(void *, bool, const void *))(base + kSetActive);
-    return hook((uint32_t *)(base + kTimetableEnd), kEpilogue, timetable_shown_hook);
+    try_get_free_open = (bool (*)(void **, const void *))(base + game_rva(kTryGetFreeOpen));
+    get_game_object = (void *(*)(void *, const void *))(base + game_rva(kGetGameObject));
+    set_active = (void (*)(void *, bool, const void *))(base + game_rva(kSetActive));
+    return hook((uint32_t *)(base + game_rva(kTimetableEnd)), kEpilogue, timetable_shown_hook);
 }

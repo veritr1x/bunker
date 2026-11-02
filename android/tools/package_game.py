@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge the locally built launcher/server into a user-supplied decoded game.
 
-Run the upstream lunar-scripts patcher on the decoded directory first. This tool
+Run game_patch.py on the decoded directory first. This tool
 does not download or distribute game files. It never edits the source APK.
 """
 import argparse
@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 import re
 import shutil
-import struct
 import subprocess
 import privacy
 import xml.etree.ElementTree as ET
@@ -20,6 +19,7 @@ import zipfile
 from assemble_apk import SDK_PROVIDERS, SDK_SWITCHES, patch_unity_connect
 import build_info
 import notice_pack
+import branding
 
 NS = "http://schemas.android.com/apk/res/android"
 ET.register_namespace("android", NS)
@@ -59,14 +59,19 @@ def main():
     p.add_argument("--output",type=Path,required=True)
     p.add_argument("--keystore",type=Path,required=True)
     p.add_argument("--port-offset",type=int,default=0,help="The offset the game was patched with (ports 8003/8080/3000)")
-    p.add_argument("--notices",type=Path,help="The notice pack (notice_pack.py) for the game's Notices screen")
+    p.add_argument("--notices",type=Path,default=Path(__file__).resolve().parents[2]/"inputs/bunker-notices.zip",help="The notice pack (scripts/notices.py) for the game's Notices screen")
     args=p.parse_args()
+    args.notices=args.notices.resolve(strict=True)
     root=Path(__file__).resolve().parents[2]
+    with zipfile.ZipFile(args.companion_apk) as bundle:build_info.check_companion(bundle)
     game=args.decoded_dir.resolve();output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
-    patch_local_reachability(game)
     settings=game/"assets/bin/Data/globalgamemanagers";settings.write_bytes(patch_unity_connect(settings.read_bytes()))
     library = game / "lib/arm64-v8a/libil2cpp.so"
-    privacy.patch_library_file(library)
+    import game_patch, axml
+    with zipfile.ZipFile(args.game_apk) as original_apk:
+        identity = axml.parse(original_apk.read("AndroidManifest.xml")).root
+    region = game_patch.profile_for_manifest(identity.get("package", ns=None).raw, identity.get("versionName").raw)
+    privacy.patch_library_file(library, profile=region)
     manifest=game/"AndroidManifest.xml";tree=ET.parse(manifest);doc=tree.getroot();app=doc.find("application")
     if app is None: raise RuntimeError("Game manifest has no application")
     package=doc.attrib["package"]
@@ -96,7 +101,13 @@ def main():
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.
     app.set(attr("pageSizeCompat"),"enabled")
-    # Keep the game's own name ("NieR"), as the iOS build does.
+    app.set(attr("label"),branding.LABEL)
+    app.set(attr("icon"),"@drawable/bunker_icon")
+    app.set(attr("roundIcon"),"@drawable/bunker_icon")
+    for component in list(app.findall("activity"))+list(app.findall("activity-alias")):
+        for name,value in [("label",branding.LABEL),("icon","@drawable/bunker_icon"),("roundIcon","@drawable/bunker_icon")]:
+            if component.get(attr(name)) is not None:component.set(attr(name),value)
+    icon=game/branding.ICON_PATH;icon.parent.mkdir(parents=True,exist_ok=True);icon.write_bytes(branding.icon())
     companion=ET.parse(root/"android/app/src/main/AndroidManifest.xml").getroot()
     permissions={x.get(attr("name")) for x in doc.findall("uses-permission")}
     for permission in companion.findall("uses-permission"):
@@ -122,7 +133,7 @@ def main():
     # What an update in place needs (build_info.py): the game's own manifest and dex count.
     with zipfile.ZipFile(args.game_apk) as original,zipfile.ZipFile(args.companion_apk) as source:
         game_dex=sum(1 for n in original.namelist() if re.fullmatch(r"classes\d*\.dex",n))
-        (notices/"build.json").write_text(json.dumps(build_info.describe(source,game_dex,args.port_offset),indent=1))
+        (notices/"build.json").write_text(json.dumps(build_info.describe(source,game_dex,args.port_offset,notice_pack.sha256(args.notices) if args.notices else None),indent=1))
         (notices/"game-manifest.xml").write_bytes(original.read("AndroidManifest.xml"))
     privacy.harden_text_manifest(manifest)
     unsigned=output.with_suffix(".unsigned.apk");merged=output.with_suffix(".merged.apk")

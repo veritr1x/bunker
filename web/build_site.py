@@ -22,10 +22,13 @@ PYTHON = [
     "android/tools/apk_sign.py",
     "android/tools/axml.py",
     "android/tools/assemble_apk.py",
+    "android/tools/game_patch.py",
+    "android/tools/branding.py",
     "android/tools/build_info.py",
     "android/tools/notice_pack.py",
     "android/tools/privacy.py",
     "android/tools/telemetry_patches.json",
+    "android/tools/telemetry_patches_jp.json",
     "android/tools/package_game.py",
     "ios/tools/package_ipa.py",
     "ios/tools/ipa_stream.py",
@@ -70,8 +73,10 @@ def main():
     p.add_argument("--framework", type=Path, required=True, help="LunarTear.framework from ios/tools/build_framework.sh")
     p.add_argument("--python", type=Path, required=True, help="Output of ios/tools/build_python.py")
     p.add_argument("--output", type=Path, default=ROOT / ".build/site")
-    p.add_argument("--notices", type=Path, help="The notice pack (scripts/notices.py); without it, builds have no Notices")
+    p.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip", help="Pinned notice pack (scripts/notices.py)")
     args = p.parse_args()
+    if not args.notices.is_file():
+        p.error("The notice pack is missing. Run python scripts/notices.py before building the site.")
     out = args.output.resolve()
     shutil.rmtree(out, ignore_errors=True)
     (out / "bundles").mkdir(parents=True)
