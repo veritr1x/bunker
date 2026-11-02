@@ -48,17 +48,20 @@ part of the normal Bunker release. The game does not boot or render yet.
   calls against the same actual HWND-backed token before close. The separate
   bounded first-frame diagnostic now receives actual HWND focus, returns from
   nativeResume and enters nativeRender. Reached PackageManager and Intent
-  services now have checked implementations. The latest frame attempt stops
-  earlier because Windows has no default audio output (`E_NOTFOUND`); no frame
-  has completed or rendered. A read-only native
+  services now have checked implementations. Windows now exposes a real default
+  audio endpoint; the frame attempt passes resume and enters engine startup.
+  The latest executed frame stops at reached Java services, whose resolver,
+  ServiceConnection and disabled-AR implementations now pass focused gates.
+  No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
   invented initial native callback. The full Java/game lifecycle remains open.
 - Real IL2CPP completes all nine constructors and both finalizers. Its actual
   parameterless GC signal-initialization routine also passes, installing the
-  evidenced actions and acknowledgment semaphore. A validated one-shard overlay
-  fixes old pair-exclusive instructions; this remains a mixed diagnostic
-  snapshot with 189 unsupported traces. No collection or il2cpp_init has run.
-  See [the exact lineage and boundary](windows/il2cpp_bootstrap.md).
+  evidenced actions and acknowledgment semaphore. A fresh full cohort now has
+  397,058 traces/3,105 objects and 101 unsupported heads, closed direct targets
+  and accepted native constructor/signal-init/finalizer parity. Earlier mixed
+  cohorts remain preserved. No collection or il2cpp_init has run. See
+  [the current lineage and boundary](windows/il2cpp_snapshot_current.md).
 - A separate combined native Windows gate now runs both accepted module
   cohorts together: 417+9 constructors, Unity JNI/initJni, its actual ClassLoader
   findLibrary helper and NativeString destructor, then host-registry loading
@@ -89,7 +92,12 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Unity's reached APK setvbuf shape passes 76 native checks, and real rooted
   unlink/rmdir pass 138 checks; each retains the 116-check file regression.
   Real directory streams now pass 16,309 checks and 2,839 NDK calls, retaining
-  that file regression. Original ZIP-backed managed-data copying remains open.
+  that file regression. Real absent-destination quarantine moves pass 103 checks.
+  The original ZIP-backed Managed-copy component now copies all 24 APK files
+  (24,570,231 bytes), checks every size/CRC/SHA and actual metadata read/mmap,
+  and retires its original owners and streams. Normal engine initialization
+  and IL2CPP initialization remain separate. See
+  [the copy component](windows/unity_managed_copy.md).
   See [directory streams](windows/filesystem_directory.md),
   [buffering](windows/filesystem_setvbuf.md) and
   [single-entry removal](windows/filesystem_remove.md).
@@ -102,6 +110,20 @@ part of the normal Bunker release. The game does not boot or render yet.
   two finalizers and thread retirement. Collector state and all 256 thread
   buckets remain pristine. No save callback, init or collection executes. See
   [the original stack helper](windows/il2cpp_stack.md).
+- The original IL2CPP save-only helper passes 3,929 checks using its real
+  automatic environment and callback. Its lifetime is revoked at actual helper
+  return; the raw trailing global is not a surviving root. No collection runs.
+  See [the save-helper boundary](windows/il2cpp_save.md).
+- Reached gettimeofday/getpid use real host time and process identity.
+  Reached resolver/interface/disabled-AR Java behavior passes 141 checks on
+  each host plus JNI/Context/PackageManager/callback/constructor regressions.
+  Enabled AR remains an explicit unsupported native-effects boundary. See
+  [the Java scope](windows/java_init.md).
+- Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
+  host and 260 decode controls. The accepted sparse Unity shard replacement
+  fixes the actual ZIP enumerator reached during copying; it retains all old
+  heads and reduces Unity's remaining unsupported heads to 1,342. See
+  [unsigned widening](whole/ushll.md).
 - Windows JNI, module loading, mounted files, Android context metadata,
   logging/formatting, scalar ABI, libc and pthread providers have direct and
   NDK-translated caller tests. See [windows/README.md](windows/README.md)
@@ -179,18 +201,17 @@ unsupported instructions.
 
 ## Active work
 
-1. Continue the verified original-loader prefix through the actual runtime
-   configuration and managed-initialization path. A separate IL2CPP refresh
-   is compiling with current semantics and callback/setjmp root recovery;
-   the accepted older diagnostic cohorts remain preserved until lineage and
-   native lifecycle checks pass.
+1. Continue actual normal nativeRender through engine configuration and managed
+   initialization. The refreshed IL2CPP cohort has passed lineage and native
+   lifecycle gates. The new dual-engine diagnostic combines it with the accepted
+   Unity hash-tail entries and unsigned-widening replacement, preserving older
+   diagnostic cohorts. IL2CPP loads only when original Unity code requests it.
    Inspect reached unsupported traces and unresolved targets. Unity has 417
    initializers/344 imports; IL2CPP has nine initializers/280 imports.
 2. Preserve the passing actual `initJni(Context)`/APK asset/surface handoff paths
-   and continue the bounded focus/resume/frame/pause/done UnityMain flow after
-   the machine has a real default audio output again. Connect the actual
-   application ClassLoader/IL2CPP module path and audited internal file/cache
-   services in parallel.
+   and continue the bounded focus/resume/frame/pause/done UnityMain flow with
+   the real default audio endpoint. Exercise the application ClassLoader/IL2CPP
+   module path and audited internal file/cache services on this natural path.
    Keep the passing 417-constructor/JNI/shutdown gate. Never turn unknown
    imports or unsupported Java effects into successful no-ops.
 3. Close instruction gaps reached by startup, then remaining SIMD
