@@ -30,6 +30,8 @@ class LibC {
   void *Memalign(uint64_t alignment, uint64_t size);
   int PosixMemalign(void **, uint64_t alignment, uint64_t size);
   uint64_t ParseInteger(const char *, char **, int base, bool is_signed);
+  // Exact Android 13 %llu profile: one unsigned64 output, no general scanf claims.
+  int32_t ScanUnsignedLongLong(const char *input, const char *format, uint64_t *output);
   int RegisterExit(addr_t callback, addr_t argument, addr_t dso, bool plain = false);
   void Finalize(addr_t dso = 0);
   addr_t NewLocale(int32_t mask, const char *name, addr_t base);
