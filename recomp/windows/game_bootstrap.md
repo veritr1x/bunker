@@ -343,5 +343,29 @@ from0x3 to0x1 and the helper exited. Persistent power/audio settings were never
 changed. Its reported result2 is distinct from the unavailable .NET OS-exit
 code. Evidence is work/audio-power-game14-controlled/REPORT.md, SHA256
 `8feb13d6fde368ccf32fb96235c2fe3ebc99e21df109eab08a2e49537275fa1b`.
-All temporary requests/helpers are retired; a fresh frame awaits a real
-available playback endpoint.
+All temporary requests/helpers are retired.
+
+A subsequent read-only query found the LG TV endpoint available. The same
+frozen Game14 executable was retried with a fresh data directory. The real v2
+preference store is now present with one entry; original startup writes its
+integer marker with status0. No legacy read is observed on this path. Both
+original scans return638477124699603280, the24 physical Managed files still
+match the APK, and unity.ver retains the exact eight-byte value.
+
+Natural public initialization now executes dup(1026), returning1000 at
+LR82553f20, followed by a successful23318528-byte file mmap at LR8255410c and
+four262144-byte anonymous mappings at LR825b255c. Successful calls preserve
+errno2; it does not indicate failure. The fd alone does not establish the
+mapped pathname. Original initialization then stops at PRFUM PLDL1STRM,
+[X20,#-0x70] at825ae0c8 (wordf8990281). The reported unliftable address825ae0cc
+is the next PC, where the ordinary LDR is supported. The same original
+function contains five unsigned-immediate PRFM sites requiring qualification.
+
+The three non-render profiles pass and all four profiles reverify their
+frozen inputs and original objects. Aggregate game_final_audit.json SHA256 is
+`a298be3a48811d90819dc599ecd644ee9a0657a872e9234f0f314c3e7f596d08`.
+Read-only storage result work/game14-storage-audit/result.json has SHA256
+`bf9bc87d4c3c3c1000994173ebe1412f32a966a847a4cb5ce1607df67e3a4453`.
+The earlier unavailable-audio attempt remains unchanged. Initialization,
+collection and nativeRender have not completed; no rendered image or managed
+execution is claimed. The new prefetch lifter is not part of this Game14 run.

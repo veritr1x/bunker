@@ -4,17 +4,17 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-The latest game13 build passes constructor/JNI, initJni and surface lifecycle
-profiles. With the LG TV playback endpoint available, original startup opens
-and saves PlayerPrefs, parses buildDate, publishes unity.ver and enters the
-public IL2CPP initialization API naturally. All 24 copied Managed files match
-the APK. It now stops at an unimplemented dup import in IL2CPP; initialization
-has not returned and no frame has rendered. The earlier audio-unavailable
-attempts and the qualified Windows thread-storage repairs remain preserved.
-Game14 includes the qualified Dup implementation and passes all three
-non-render profiles, but its frame attempt again stops at the real unavailable
-HDMI audio endpoint. A temporary display-awake experiment did not restore that
-endpoint and was fully cleared; physical TV/input confirmation is pending.
+Game14 passes constructor/JNI, initJni and surface lifecycle profiles. With the
+LG TV playback endpoint available, its fresh frame retry naturally reads and
+saves PlayerPrefs, parses buildDate, publishes unity.ver and enters public
+IL2CPP initialization. All 24 copied Managed files match the APK. The real
+dup(1026) returns 1000, followed by a successful file mapping and four anonymous
+mappings. Startup now stops at unsupported PRFUM at 0x825ae0c8; the diagnostic
+reports its next PC, 0x825ae0cc. The same original function also needs immediate
+PRFM support. Initialization has not returned and no frame has rendered.
+The earlier audio-unavailable attempt and fully retired temporary display-awake
+experiment remain preserved. A new lifter and strict ARM64-reference tests for
+the two prefetch forms are in progress; the game has not yet run with them.
 
 ## Current checkout and tools
 
