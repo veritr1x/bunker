@@ -354,7 +354,7 @@ int main(int argc,char **argv){
           if(!token)return;
           int released=0;std::exception_ptr release_error;
           try{if(egl)egl->ReleaseCurrentThread();}catch(...){release_error=std::current_exception();}
-          try{if(tls_audit.Pending(threads))Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"real UnityMain TLS survives an already finalized module; safe callback lifetime is unproved");released=threads.ReleaseCurrent();}catch(...){if(!release_error)release_error=std::current_exception();}
+          try{if(tls_audit.PendingModuleCallbacks(threads))Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"real UnityMain TLS survives an already finalized module; safe callback lifetime is unproved");released=threads.ReleaseCurrent();}catch(...){if(!release_error)release_error=std::current_exception();}
           jumps->DropThread(token,token);
           const auto dropped=worker_registered?process_signals.DropThread(token):0;
           if(release_error)std::rethrow_exception(release_error);
