@@ -28,11 +28,15 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Parallel, resumable Windows COFF translation with hash-verified caches and
   immutable lifter/semantics snapshots. Unknown targets and unliftable
   instructions fail explicitly.
-- Guard-proven jump-table recovery finds 5,238 Unity and 13,473 IL2CPP case
+- Guard-proven jump-table recovery finds 5,262 Unity and 13,473 IL2CPP case
   entries, including width-equivalent masked indices,
   bounded loop closure and joined guard paths.
   Byte/halfword/signed-word, masked-loop and joined layouts pass 9,984
   ARM64-reference checks per platform. Ambiguous patterns remain unresolved.
+  Local snapshot proofs now recover the reached hash-tail table even when
+  earlier loop expressions are ambiguous; 57,344 additional translated records
+  match ARM64 across both hosts and every older table proof remains unchanged.
+  See [the exact new proof](whole/snapshot_jump_tables.md).
 - Real `libFastAES.so` executes as native Windows x86_64 code: all 48 calls
   match the original ARM64 reference and OpenSSL.
 - Real `libmain.so` translated `JNI_OnLoad` registers its original loader
@@ -50,8 +54,9 @@ part of the normal Bunker release. The game does not boot or render yet.
   nativeResume and enters nativeRender. Reached PackageManager and Intent
   services now have checked implementations. Windows now exposes a real default
   audio endpoint; the frame attempt passes resume and enters engine startup.
-  The latest executed frame stops at reached Java services, whose resolver,
-  ServiceConnection and disabled-AR implementations now pass focused gates.
+  Resolver, ServiceConnection and disabled-AR implementations pass focused gates.
+  The latest dual-engine frame passes those calls and reaches Settings.Secure
+  plus JNI NewObjectArray. IL2CPP is still unloaded at that boundary.
   No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
   invented initial native callback. The full Java/game lifecycle remains open.

@@ -18,8 +18,10 @@ the same recursive State layout. Its SHA256 is
 `43598bdadbb1f295c3c6981e49225eb4be1f45c43c57a2849e151e489e9d40be`.
 The resulting union has 59,626 heads in 470 objects. The frozen lifter and
 semantics remain the indexed-FP base versions. Generic compiler recovery of
-this pattern remains a separate reproducibility task; the additive proof is
-explicitly required, rather than silently pretending the base contains it.
+this pattern now passes the [snapshot-index proof gate](../whole/snapshot_jump_tables.md),
+preserving all 692 old table proofs and recovering these 16 entries plus two
+neighboring four-case tables. Existing engine artifacts remain unchanged;
+their additive proof is still an explicit composition input.
 
 Native7 passed that original dispatch and stopped at real `getpid`. Native8
 includes the tested process-identity provider and reaches the next Java
@@ -69,3 +71,10 @@ additions with the [current full IL2CPP cohort](il2cpp_snapshot_current.md).
 Its 456,684 heads/3,575 objects have closed direct references; IL2CPP constructors
 remain lazy until requested by original code. A static composition or component
 pass does not establish a completed game frame, collection or managed execution.
+
+Its first executed corrected variant, `work/windows-game4`, passes constructors
+and JNI registration. initJni and the paused surface handoff return, then record
+an explicit TLS teardown boundary. The actual frame reaches Settings.Secure and
+JNI NewObjectArray after the earlier Java fixes. IL2CPP has zero constructors
+and references immediately before that nativeRender. See the natural diagnostic
+document for exact source/executable hashes and retained failure variants.
