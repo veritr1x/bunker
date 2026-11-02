@@ -15,6 +15,18 @@ ELF constructor/finalizer arrays, disjoint executable ranges, exact union of
 All prior artifacts remain in place. Final preparation requires an explicit
 accepted committed host containing AndroidContext::BindUnityPlayer.
 
+The next host checkpoint explicitly selects the Android13 framework compatibility
+profile: Build.VERSION.SDK_INT is 33. This selection is independent of the APK's
+targetSdk and Windows identity; unported API bodies still stop explicitly.
+Only the reached integer field is supplied, with no invented RELEASE,
+INCREMENTAL or device properties. Original helpers resolve SDK_INT through
+JNI144/150, and the native startup compares it with API21 before its OBB path.
+[Android13 Build.java](https://android.googlesource.com/platform/frameworks/base/+/android-13.0.0_r1/core/java/android/os/Build.java)
+is pinned in `work/android-api-profile-audit`, SHA256
+`77d6b4a7fef0ac88197bd269a2a9c1c4e37d20a3fa026b3b0654930187147e95`.
+The selected field is set and read back through the real JNI static-field table;
+a later natural game variant must qualify the resulting startup behavior.
+
 `game_bootstrap_prepare.py --plan-only` makes a fresh static plan without
 freezing providers or executing guests. Omit it and provide `--host-commit` only
 after the parent accepts the Java/PID/provider checkpoint. Build with
