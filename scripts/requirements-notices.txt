@@ -1,0 +1,3 @@
+# Notice recovery tools and their tests (not needed to build Bunker)
+Pillow==11.3.0
+beautifulsoup4==4.13.4

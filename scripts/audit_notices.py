@@ -3,8 +3,7 @@
 
 This is an offline audit. It keeps missing original files separate from blank
 thumbnails, Twitter stand-ins and supplemental artwork extracted from the game.
-Fetch the pinned pack with scripts/notices.py; see docs/NOTICES-RECOVERY.md for
-collecting the source records.
+Fetch the pinned pack with scripts/notices.py.
 """
 import argparse
 from collections import Counter
