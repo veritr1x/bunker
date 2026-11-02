@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$BuildDirectory,[string]$Cxx='C:\mingw64\bin\g++.exe',[string]$Cc='C:\mingw64\bin\gcc.exe')
+param([Parameter(Mandatory=$true)][string]$BuildDirectory,[string]$Cxx='C:\mingw64\bin\g++.exe',[string]$Cc='C:\mingw64\bin\gcc.exe',[switch]$EnableCollectorDelivery)
 $ErrorActionPreference='Stop'
 $taskBuild=(Resolve-Path -LiteralPath $BuildDirectory).ProviderPath
 $taskInput=Get-Content -Raw -LiteralPath (Join-Path $taskBuild 'game_inputs.json')|ConvertFrom-Json
@@ -10,6 +10,7 @@ foreach($taskGroup in @(@{root=(Join-Path $taskBuild 'sources');values=$taskInpu
 }
 foreach($taskObject in $taskInput.objects){if((Game-Hash (Game-Path $taskObject.path)) -ne $taskObject.sha256){throw "Accepted object differs: $($taskObject.path)"}}
 $taskPollCohort=$taskInput.cooperative_poll_cohort
+if($EnableCollectorDelivery -and $null -eq $taskPollCohort){throw 'Original collector delivery requires the accepted fully cooperative cohort'}
 if($null -ne $taskPollCohort){
  $taskPollProofPath=Game-Path $taskPollCohort.acceptance_path
  if((Game-Hash $taskPollProofPath) -ne $taskPollCohort.acceptance_sha256){throw 'Cooperative cohort acceptance differs'}
@@ -25,6 +26,8 @@ if($null -ne $taskPollCohort){
 if((Game-Hash (Join-Path $taskBuild 'libz-inflate.a')) -ne $taskInput.zlib_sha256){throw 'Frozen zlib backend differs'}
 $taskSource=Join-Path $taskBuild 'sources\recomp'
 $taskCommon=@('-std=c++17','-O2','-DADDRESS_SIZE_BITS=64',"-I$taskBuild\remill-include","-I$taskBuild","-I$taskBuild\zlib-include","-I$taskBuild\angle-include",'-Wa,-mbig-obj')
+if($null -ne $taskPollCohort){$taskCommon+='-DBUNKER_GAME_COOPERATIVE_POLLS=1'}
+if($EnableCollectorDelivery){$taskCommon+='-DBUNKER_GAME_COLLECTOR_DELIVERY=1'}
 $taskHarness=Join-Path $taskBuild 'game-bootstrap.o';$taskLoader=Join-Path $taskBuild 'elfload.o';$taskExe=Join-Path $taskBuild 'bunker-game-bootstrap.exe'
 & $Cxx @taskCommon '-c' (Join-Path $taskSource 'windows\game_bootstrap.cpp') '-o' $taskHarness
 if($LASTEXITCODE){throw 'Game bootstrap harness compile failed'}
@@ -35,6 +38,10 @@ foreach($taskName in @('jni_host.cpp','java_native_libraries.cpp','android_conte
 $taskGrowdownSource=Join-Path $taskSource 'windows\growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArgs+=$taskGrowdownSource}
 foreach($taskName in @('runtime.cpp','format.cpp')){$taskArgs+=Join-Path $taskSource ('whole\'+$taskName)}
 if($null -ne $taskPollCohort){$taskArgs+=Join-Path $taskSource 'whole\cooperative_poll.cpp'}
+if($EnableCollectorDelivery){
+ foreach($taskName in @('worker_signal_lifecycle.cpp','signal_delivery.cpp')){$taskArgs+=Join-Path $taskSource ('windows\'+$taskName)}
+ $taskArgs+=Join-Path $taskSource 'whole\signal_frame.cpp'
+}
 foreach($taskObject in $taskInput.objects){$taskArgs+=Game-Path $taskObject.path}
 $taskArgs+=@((Join-Path $taskBuild 'libz-inflate.a'),'-Wl,--wrap=sub_825b0544','-latomic','-lbcrypt','-luser32','-lgdi32','-lole32','-luuid','-ladvapi32','-o',$taskExe)
 $taskResponse=Join-Path $taskBuild 'game-bootstrap-link.rsp'
@@ -42,6 +49,6 @@ $taskEscaped=foreach($taskArgument in $taskArgs){'"'+$taskArgument.Replace('\','
 [System.IO.File]::WriteAllLines($taskResponse,[string[]]$taskEscaped,[System.Text.UTF8Encoding]::new($false))
 & $Cxx "@$taskResponse"
 if($LASTEXITCODE){throw 'Dual-engine natural-frame native link failed'}
-$taskRecord=[ordered]@{status='native link passed';inputs_sha256=(Game-Hash (Join-Path $taskBuild 'game_inputs.json'));executable_sha256=(Game-Hash $taskExe);response_sha256=(Game-Hash $taskResponse);host_commit=$taskInput.host_commit;cxx_version=(& $Cxx --version|Select-Object -First 1);trace_count=$taskInput.union_trace_count;objects=$taskInput.objects.Count}
+$taskRecord=[ordered]@{status='native link passed';inputs_sha256=(Game-Hash (Join-Path $taskBuild 'game_inputs.json'));executable_sha256=(Game-Hash $taskExe);response_sha256=(Game-Hash $taskResponse);host_commit=$taskInput.host_commit;cxx_version=(& $Cxx --version|Select-Object -First 1);trace_count=$taskInput.union_trace_count;objects=$taskInput.objects.Count;collector_delivery_profile=if($EnableCollectorDelivery){'original-finalizer-single-condwait-v1'}else{$null}}
 [System.IO.File]::WriteAllText((Join-Path $taskBuild 'game_build.json'),($taskRecord|ConvertTo-Json -Depth 8),[System.Text.UTF8Encoding]::new($false))
 Write-Output $taskExe

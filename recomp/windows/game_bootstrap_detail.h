@@ -106,6 +106,7 @@ struct GameWorkerObservation {
 };
 struct GameTlsAudit {
   addr_t free_callback=0;
+  std::function<void(State&,const std::function<void(State&)> &)> create_boundary;
   std::mutex mutex;std::map<int32_t,addr_t> destructors;
   addr_t Marker(const std::string &name)const{
     if(name=="pthread_key_create")return 0x7ffc60000000ULL;
@@ -127,7 +128,7 @@ struct GameTlsAudit {
       if(entry&&!Translated(entry)){std::fprintf(stderr,"Game bootstrap: reached unregistered real pthread start=%#llx\n",(unsigned long long)entry);std::abort();}
       auto result=threads.Create(out,attr,entry,arg);if(!result)std::fprintf(stderr,"Game bootstrap: actual guest worker created token=%#llx entry=%#llx; no synthetic SignalHost binding\n",(unsigned long long)Read<uint64_t>(reinterpret_cast<addr_t>(out)),(unsigned long long)entry);return result;
     });
-    runtime.AddImport(Marker("pthread_create"),[create](State &s){try{GameWorkerObservation::BeforeCreate(s);create(s);}catch(const std::exception &error){std::fprintf(stderr,"Game bootstrap: worker creation observer/provider failed:%s\n",error.what());std::abort();}catch(...){std::fprintf(stderr,"Game bootstrap: worker creation observer/provider failed:unknown host exception\n");std::abort();}});
+    runtime.AddImport(Marker("pthread_create"),[this,create](State &s){try{if(create_boundary)create_boundary(s,create);else{GameWorkerObservation::BeforeCreate(s);create(s);}}catch(const std::exception &error){std::fprintf(stderr,"Game bootstrap: worker creation observer/provider failed:%s\n",error.what());std::abort();}catch(...){std::fprintf(stderr,"Game bootstrap: worker creation observer/provider failed:unknown host exception\n");std::abort();}});
   }
   size_t PendingModuleCallbacks(bunker::windows::Pthreads &threads){
     std::vector<std::pair<int32_t,addr_t>> keys;{std::lock_guard lock(mutex);for(auto entry:destructors)if(entry.second)keys.push_back(entry);}

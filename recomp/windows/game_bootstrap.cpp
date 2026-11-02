@@ -53,6 +53,15 @@
 #include <windows.h>
 #include <pthread.h>
 #include <bcrypt.h>
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+#if !defined(BUNKER_GAME_COOPERATIVE_POLLS) || !BUNKER_GAME_COOPERATIVE_POLLS
+#error Original collector delivery requires the qualified cooperative cohort
+#endif
+#include "worker_signal_lifecycle.h"
+#include "signal_delivery.h"
+#include "../whole/cooperative_poll.h"
+#include <condition_variable>
+#endif
 extern "C" Memory *__real_sub_825b0544(State &,addr_t,Memory *);
 
 namespace {
@@ -125,6 +134,9 @@ bool Executable(addr_t address){
   return false;
 }
 #include "game_bootstrap_detail.h"
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+#include "game_collector_delivery.h"
+#endif
 LONG WINAPI Crash(EXCEPTION_POINTERS *exception){
   std::fprintf(stderr,"Unity bootstrap: native exception %#lx at %p; stage=%s, completed constructors=%zu/%zu\n",
       exception->ExceptionRecord->ExceptionCode,exception->ExceptionRecord->ExceptionAddress,stage,constructor_index,std::size(kInitializers));
@@ -154,10 +166,14 @@ extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
-  const bool mute_audio=argc==9&&!std::strcmp(argv[8],"--mute-audio");
+  const bool collector_delivery=argc==10&&!std::strcmp(argv[8],"--mute-audio")&&!std::strcmp(argv[9],"--collector-delivery");
+  const bool mute_audio=(argc==9&&!std::strcmp(argv[8],"--mute-audio"))||collector_delivery;
   const bool frame_gate=(argc==8||mute_audio)&&!std::strcmp(argv[4],"--frame-gate");
   const bool surface_gate=frame_gate||(argc==7&&!std::strcmp(argv[4],"--surface-gate"));
-  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio]]\n");return 2;}
+  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio [--collector-delivery]]]\n");return 2;}
+#if !defined(BUNKER_GAME_COLLECTOR_DELIVERY) || !BUNKER_GAME_COLLECTOR_DELIVERY
+  if(collector_delivery){std::fputs("Game GC: original delivery profile is unavailable in this build\n",stderr);return 2;}
+#endif
   const bool init_jni=argc!=4;
   bool frame_continues=true;
   try{
@@ -173,6 +189,7 @@ int main(int argc,char **argv){
     auto library=native_directory/"libunity.so",il2cpp_library=native_directory/"libil2cpp.so";
     auto apk=fs::canonical(fs::u8path(argv[2]));
     if(Sha256(library)!=kUnitySha256||Sha256(il2cpp_library)!=il2cpp_image::kIl2cppSha256||Sha256(apk)!=kApkSha256)throw std::runtime_error("runtime original Unity/IL2CPP/APK SHA256 differs from verified translation/metadata");
+    if(collector_delivery)Require(std::string(il2cpp_image::kIl2cppSha256)=="ff5c66ad2fdaa957fa005f1957988b3277331abefcdedcdb0c82e59ba2e80522"&&il2cpp_image::kIl2cppBase==0x80000000,"original collector profile byte/base pins differ");
     if(kExploratory)std::fprintf(stderr,"Unity bootstrap: EXPLORATORY DIAGNOSTIC ONLY: %zu unsupported translated traces remain; every real constructor will still execute\n",kUnsupportedTraces);
     else if(kUnsupportedTraces)throw std::runtime_error("strict bootstrap refuses unsupported translated traces");
     auto storage=fs::absolute(fs::u8path(argv[3]));fs::create_directories(storage);
@@ -236,7 +253,14 @@ int main(int argc,char **argv){
     // Real policy/semaphores for explicitly bound threads. These cohorts are
     // without a delivery binding: unknown contexts fail rather than queueing
     // a request that cannot receive a real same-worker acknowledgment.
-    SignalHost process_signals([](uint64_t token){std::fprintf(stderr,"Game bootstrap: unsupported unbound delivery target=%#llx\n",(unsigned long long)token);std::abort();},0x7ff600100000ULL,
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    GameCollectorDelivery *collector_notify=nullptr;
+#endif
+    SignalHost process_signals([&](uint64_t token){
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+      if(collector_notify){collector_notify->Notify(token);return;}
+#endif
+      std::fprintf(stderr,"Game bootstrap: unsupported unbound delivery target=%#llx\n",(unsigned long long)token);std::abort();},0x7ff600100000ULL,
       [&files](addr_t address,size_t size)->std::optional<SignalHost::StackRegion>{
         auto mapping=files.MappingRegion(address,size,true);
         if(!mapping)return {};
@@ -272,10 +296,17 @@ int main(int argc,char **argv){
     libc.SetErrorSink(error);libc.SetEnvironment({});
     // Import callbacks can reference this audit until every worker has joined.
     GameTlsAudit tls_audit;tls_audit.free_callback=libc.Marker("free");
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    std::unique_ptr<GameCollectorDelivery> collector;
+#endif
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
-    // Observation only: no signal registration, delivery, polling or guest call.
+    // Existing profiles retain observation-only hooks and the nonzero guard.
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    if(collector_delivery){collector=std::make_unique<GameCollectorDelivery>(threads,process_signals,semaphores,runtime);collector_notify=collector.get();tls_audit.create_boundary=[&](State &s,const auto &invoke){collector->WithCreate(s,invoke);};}
+    else
+#endif
     threads.SetWorkerLifecycleHooks({
       [](const Pthreads::WorkerInfo &info){GameWorkerObservation::Lifecycle("prepare",info);return Pthreads::WorkerLease{};},
       [](const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &){GameWorkerObservation::Enter(info);},
@@ -301,8 +332,14 @@ int main(int argc,char **argv){
       std::fprintf(stderr,"Unity bootstrap: unknown jmp_buf allocation=%#llx bytes=%zu; owned guest stack=[%#llx,%#llx); no mmap/stack lifetime; heap/subobject provenance is not invented\n",static_cast<unsigned long long>(environment),size,static_cast<unsigned long long>(current.stack_low),static_cast<unsigned long long>(current.stack_high));
       return {};
     },[&](){uint64_t mask=0;auto token=threads.Self();if(process_signals.Mask(token,0,nullptr,&mask))throw std::runtime_error("setjmp signal mask is not registered for this virtual thread");return mask;},Executable);
+    // Every referenced dispatcher outlives worker drain, including exception
+    // unwinding, guest TLS, and Zlib's genuine guest allocator cleanup calls.
+    recomp::Runtime module_bridges,signal_bridges,jump_bridges;
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
-    struct Drain {Pthreads &threads;~Drain(){if(threads.Shutdown())std::abort();}} drain{threads};
+    struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    if(collector)drain.close=[&]{collector->CloseAfterShutdown();};
+#endif
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);
     constexpr addr_t mmap_audit_marker=0x7ffc68000000ULL;
     auto mmap_bridge=recomp::MakeBridge<addr_t(addr_t,uint64_t,int32_t,int32_t,int32_t,int64_t)>([&files](auto address,auto length,auto protection,auto flags,auto descriptor,auto offset){return files.Mmap(address,length,protection,flags,descriptor,offset);});
@@ -347,18 +384,31 @@ int main(int argc,char **argv){
       catch(...){std::fprintf(stderr,"Game bootstrap: original dup LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
     });
     tls_audit.Install(runtime,threads);
-    recomp::Runtime module_bridges;modules.Install(module_bridges);
+    modules.Install(module_bridges);
     for(const char *name:{"dlopen","dlsym","dlclose","dlerror"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
       const auto argument=s.gpr.x0.qword,caller=s.gpr.x30.qword;
       const auto text=!std::strcmp(name,"dlopen")?(argument?recomp::ReadGuestString(argument):"<null>"):!std::strcmp(name,"dlsym")?(s.gpr.x1.qword?recomp::ReadGuestString(s.gpr.x1.qword):"<null>"):std::string();
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+      GameCollectorDelivery::Opaque opaque{bool(collector)};
+#endif
       module_bridges.Dispatch(s,marker,nullptr);std::fprintf(stderr,"Game bootstrap: original %s argument=%#llx name=%s result=%#llx LR=%#llx Unity refs=%zu IL2CPP refs=%zu\n",name,(unsigned long long)argument,text.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)caller,modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));
     }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: module bridge %s failed:%s\n",name,e.what());std::abort();}});}
     if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
     zlib.Install(runtime);
-    recomp::Runtime signal_bridges,jump_bridges;
     auto no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("frame profile has no qualified target signal delivery binding");};
-    process_signals.Install(signal_bridges,current_signal_thread,no_delivery);
-    for(const char *name:{"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember","sigaltstack"}){auto marker=process_signals.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"pthread_kill")&&s.gpr.x1.dword){std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}
+    SignalHost::Boundary signal_boundary=no_delivery;
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    SignalHost::SenderSnapshot sender;
+    if(collector){signal_boundary=[&](const auto &delivery){return collector->Deliver(delivery);};sender=[&]{return SignalHost::SenderIdentity{libc.ProcessId(),GameCollectorDelivery::kVirtualRealUid};};}
+    process_signals.Install(signal_bridges,current_signal_thread,signal_boundary,std::move(sender));
+#else
+    process_signals.Install(signal_bridges,current_signal_thread,signal_boundary);
+#endif
+    for(const char *name:{"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember","sigaltstack"}){auto marker=process_signals.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"pthread_kill")&&s.gpr.x1.dword){
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+      if(collector){GameWorkerObservation::NativeEnvironment native;const auto target=s.gpr.x0.qword;const auto signal=s.gpr.x1.dword;collector->Send(s,[&]{signal_bridges.Dispatch(s,marker,nullptr);});std::fprintf(stderr,"Game GC: actual pthread_kill returned signal=%u target=%#llx status=%d; no queue inference from pre-call witness\n",signal,(unsigned long long)target,int32_t(s.gpr.x0.dword));return;}else
+#endif
+      {std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}}
       const auto input=s.gpr.x0.qword,output=s.gpr.x1.qword;
       signal_bridges.Dispatch(s,marker,nullptr);
       if(!std::strcmp(name,"sigaltstack")){
@@ -366,7 +416,11 @@ int main(int argc,char **argv){
         std::fprintf(stderr,"Game bootstrap: original sigaltstack new=%#llx old=%#llx SP=%#llx LR=%#llx result=%d configured=%#llx flags=%u size=%llu\n",(unsigned long long)input,(unsigned long long)output,(unsigned long long)s.gpr.sp.qword,(unsigned long long)s.gpr.x30.qword,int32_t(s.gpr.x0.dword),(unsigned long long)stack.pointer,uint32_t(stack.flags),(unsigned long long)stack.size);
       }
     }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: signal bridge %s failed:%s\n",name,e.what());std::abort();}});}
-    semaphores.Install(runtime,current_signal_thread,no_delivery);
+    semaphores.Install(runtime,current_signal_thread,signal_boundary);
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    constexpr addr_t ack_audit=0x7ffc60000100ULL;
+    if(collector)runtime.AddImport(ack_audit,[&](State &s){try{GameWorkerObservation::NativeEnvironment native;collector->BeforePost(s);runtime.Dispatch(s,semaphores.Marker("sem_post"),nullptr);collector->AfterPost(s);}catch(const std::exception&e){std::fprintf(stderr,"Game GC: original post observation failed:%s\n",e.what());std::abort();}catch(...){std::abort();}});
+#endif
     for(const char *name:{"pthread_cond_wait","pthread_cond_timedwait","pthread_mutex_lock","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_once","pthread_join","sem_wait","sem_timedwait","sigsuspend"}){
       const std::string identity=name;
       const auto actual=identity=="sigsuspend"?process_signals.Marker(identity):identity=="sem_wait"||identity=="sem_timedwait"?semaphores.Marker(identity):threads.Marker(identity);
@@ -375,11 +429,18 @@ int main(int argc,char **argv){
         const auto token=GameWorkerObservation::Wait("ENTER",identity.c_str(),s);
         // Dispatch the existing checked provider. No nested Runtime::Run or
         // new guest State is introduced; original arguments/results survive.
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+        if(collector)collector->WithWait(identity,s,[&]{runtime.Dispatch(s,actual,nullptr);});else
+#endif
         runtime.Dispatch(s,actual,nullptr);
         if(token)GameWorkerObservation::Wait("RETURN",identity.c_str(),s);
       });
     }
-    if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"setjmp"))automatic_environments.BeforeSetjmp(s,current_signal_thread());jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
+    if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+      if(collector)collector->BeforeNonlocal();
+#endif
+      if(!std::strcmp(name,"setjmp"))automatic_environments.BeforeSetjmp(s,current_signal_thread());jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
     if(graphics){
       graphics->Install(gl_bridges);
       for(const auto &name:GlHost::Commands()){
@@ -408,7 +469,11 @@ int main(int argc,char **argv){
     auto load=[&](const char *module_name,const auto &imports,const fs::path &path,addr_t base,size_t span,elf_image &target){
       resolved.clear();size_t provided=0,weak=0;
       for(const auto &import:imports){
-        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
+        std::string name=import.name;addr_t address=tls_audit.Marker(name);
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+        if(collector&&name=="sem_post")address=ack_audit;
+#endif
+        if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
         if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
@@ -569,6 +634,9 @@ int main(int argc,char **argv){
       }
     }
     Require(!threads.Shutdown(),"actual guest workers did not drain before JNI/module teardown");
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    if(collector)collector->CloseAfterShutdown();
+#endif
     preferences->CheckPersistence();
     if(auto pending=tls_audit.PendingModuleCallbacks(threads)){
       // A real callback must run before JNI/module globals are retired. If
@@ -601,6 +669,6 @@ int main(int argc,char **argv){
     native_catalog->Revoke();
     if(released)throw std::runtime_error("main runner TLS/stack cleanup failed");
     if(frame_gate&&!frame_continues){std::fprintf(stderr,"Unity bootstrap: nativeRender returned false/requested Activity finish; one-frame startup was not successful\n");return 6;}
-    std::fprintf(stderr,"Game bootstrap: normal profile completion=%s; original constructors/JNI, lifecycle and ownership checks complete\n",frame_gate?(mute_audio?"frame-muted":"frame"):surface_gate?"surface":init_jni?"init":"default");return 0;
+    std::fprintf(stderr,"Game bootstrap: normal profile completion=%s; original constructors/JNI, lifecycle and ownership checks complete\n",frame_gate?(collector_delivery?"frame-muted-gc":mute_audio?"frame-muted":"frame"):surface_gate?"surface":init_jni?"init":"default");return 0;
   }catch(const std::exception &error){std::fprintf(stderr,"Unity bootstrap: %s; stage=%s completed constructors=%zu\n",error.what(),stage,constructor_index);return 1;}
 }
