@@ -17,7 +17,7 @@ import (
 )
 
 // summon_rules.json holds each summon's rules as the official notices (or,
-// for 2021–22, outside sources: tweets, in-game screenshots, guides) state
+// for 2021–22, outside sources: social posts, in-game screenshots, guides) state
 // them: per draw or step its price, gem type, use limit, guarantee, ★4 rate
 // and bonus items. It is compiled from the summon ledger outside this
 // repository and carries facts only.

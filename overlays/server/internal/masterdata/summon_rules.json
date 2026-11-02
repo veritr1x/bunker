@@ -6713,7 +6713,7 @@
    "lineup": 10094,
    "notice": 0,
    "pair": 0,
-   "src": "nierrein.guide: Weekly Summons 04-30-2023, rerun of 10094",
+   "src": "event guide: Weekly Summons 04-30-2023, rerun of 10094",
    "start": 1682906400000,
    "steps": [
     {
@@ -6738,7 +6738,7 @@
    "lineup": 10095,
    "notice": 0,
    "pair": 0,
-   "src": "nierrein.guide: Weekly Summons 04-30-2023, rerun of 10095",
+   "src": "event guide: Weekly Summons 04-30-2023, rerun of 10095",
    "start": 1682906400000,
    "steps": [
     {
@@ -6798,7 +6798,7 @@
    "id": 124,
    "notice": 0,
    "pair": 0,
-   "src": "tweet 2022-01-01; Reddit rt9h5v",
+   "src": "social post 2022-01-01; player post",
    "start": 1641002400000,
    "steps": [
     {
@@ -6816,7 +6816,7 @@
    "id": 970124,
    "notice": 0,
    "pair": 0,
-   "src": "in-game screenshot; Reddit rvs1c0 (second chance)",
+   "src": "in-game screenshot; player post (second chance)",
    "start": 1641693600000,
    "steps": [
     {
@@ -7833,7 +7833,7 @@
     "c": [
      32008
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-traveler",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7843,7 +7843,7 @@
     "c": [
      35011
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-weapon",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7853,7 +7853,7 @@
     "c": [
      35013
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-monster",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7863,7 +7863,7 @@
     "c": [
      32012
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abstract-werebeast",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7873,7 +7873,7 @@
     "c": [
      33012
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-assassin",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7884,7 +7884,7 @@
      34022,
      34023
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-captain-and-hunter",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7896,7 +7896,7 @@
      34011,
      34012
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-2-resurrected-crossover",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7908,7 +7908,7 @@
      34000,
      35000
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-1-resurrected-crossover",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7918,7 +7918,7 @@
     "c": [
      35014
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-girl",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7928,7 +7928,7 @@
     "c": [
      31014
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-captive",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7938,7 +7938,7 @@
     "c": [
      33013
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-weapon",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7950,7 +7950,7 @@
      32002,
      33001
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-nier-replicant-resurrected-crossover",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7960,7 +7960,7 @@
     "c": [
      32014
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-witch",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7970,7 +7970,7 @@
     "c": [
      33014
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abstract-songstress",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7980,7 +7980,7 @@
     "c": [
      31015
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-assassin",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -7990,7 +7990,7 @@
     "c": [
      32015
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abyssal-gunman",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8000,7 +8000,7 @@
     "c": [
      33015
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-traveler",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8010,7 +8010,7 @@
     "c": [
      32016
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-soldier",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8022,7 +8022,7 @@
      34004,
      35005
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-drakengard-3-resurrected-crossover",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8032,7 +8032,7 @@
     "c": [
      34026
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abyssal-girl",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8070,7 +8070,7 @@
      31017,
      34027
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-evening-sun-swimwear",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8132,7 +8132,7 @@
     "c": [
      35017
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abyssal-monster",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8142,7 +8142,7 @@
     "c": [
      34028
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-captain",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8176,7 +8176,7 @@
      34004,
      35005
     ],
-    "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/q3r8oh/",
+    "src": "player posts: player post",
     "w": []
    },
    "steps": []
@@ -8186,7 +8186,7 @@
     "c": [
      31004
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abstract-captain",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8196,7 +8196,7 @@
     "c": [
      32004
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abstract-weapon",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8206,10 +8206,10 @@
     "c": [
      31005
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-prisoner",
+    "src": "web: event guide",
     "w": []
    },
-   "src": "screens: reddit image 2kxh1hjsc0l71.jpg (Wayback)",
+   "src": "screens: player post 2kxh1hjsc0l71.jpg (Wayback)",
    "steps": [
     {
      "cur": "ticket",
@@ -8229,7 +8229,7 @@
     "c": [
      33003
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-hunter",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -8804,10 +8804,10 @@
      33005,
      34009
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-sunset-swimwear",
+    "src": "web: event guide",
     "w": []
    },
-   "src": "screens: reddit image hgylpvtuqdk71.jpg + 1gze4fsuz9i71.jpg",
+   "src": "screens: player post hgylpvtuqdk71.jpg + 1gze4fsuz9i71.jpg",
    "steps": [
     {
      "cur": "gems",
@@ -8944,7 +8944,7 @@
      34000,
      35000
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-1",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -9093,7 +9093,7 @@
      34011,
      34012
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-nier-automata-vol-2",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -9174,10 +9174,10 @@
     "c": [
      32005
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-gunman",
+    "src": "web: event guide",
     "w": []
    },
-   "src": "screens: reddit image caakil76czy71.jpg (Wayback)",
+   "src": "screens: player post caakil76czy71.jpg (Wayback)",
    "steps": [
     {
      "cur": "gems",
@@ -9451,7 +9451,7 @@
    ]
   },
   "49": {
-   "src": "screens: reddit image ki6njupoc7q71.jpg + scozfbt0auu71.jpg",
+   "src": "screens: player post ki6njupoc7q71.jpg + scozfbt0auu71.jpg",
    "steps": [
     {
      "cur": "gems",
@@ -9595,7 +9595,7 @@
     "c": [
      35006
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abstract-monster",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -10046,7 +10046,7 @@
      34020,
      34021
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fortunes-dress",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -12995,10 +12995,10 @@
      34013,
      34014
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-half-year-anniversary",
+    "src": "web: event guide",
     "w": []
    },
-   "src": "screens: reddit image 34mulzrq7zl71.jpg",
+   "src": "screens: player post 34mulzrq7zl71.jpg",
    "steps": [
     {
      "cur": "gems",
@@ -13762,7 +13762,7 @@
     "c": [
      33009
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-soldier",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14017,7 +14017,7 @@
      32002,
      33001
     ],
-    "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/pkl8dn/",
+    "src": "player posts: player post",
     "w": []
    },
    "steps": []
@@ -14027,7 +14027,7 @@
     "c": [
      34016
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-soldier",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14064,7 +14064,7 @@
     "c": [
      33006
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-captive",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14104,7 +14104,7 @@
      32009,
      34017
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-yuletide-prayers",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14114,7 +14114,7 @@
     "c": [
      34015
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-assassin",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14342,7 +14342,7 @@
     "c": [
      34018
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-yuletide-wishes",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14354,7 +14354,7 @@
      32011,
      34019
     ],
-    "src": "web: https://twitter.com/NieRReinEN/status/1477117374243479555",
+    "src": "web: social post",
     "w": []
    },
    "steps": []
@@ -14366,10 +14366,10 @@
      32011,
      34019
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-festive-dress",
+    "src": "web: event guide",
     "w": []
    },
-   "src": "screens: reddit image 6m9xu9vuu0981.jpg",
+   "src": "screens: player post 6m9xu9vuu0981.jpg",
    "steps": [
     {
      "cur": "gems",
@@ -14389,7 +14389,7 @@
     "c": [
      31009
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-lacrima-captain",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14399,7 +14399,7 @@
     "c": [
      35009
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-weapon",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14409,7 +14409,7 @@
     "c": [
      25002
     ],
-    "src": "web: https://twitter.com/NieRReinEN/status/1484722493805973508",
+    "src": "web: social post",
     "w": []
    },
    "steps": []
@@ -14419,7 +14419,7 @@
     "c": [
      33009
     ],
-    "src": "web: https://twitter.com/NieRReinEN/status/1485447269973381120",
+    "src": "web: social post",
     "w": []
    },
    "steps": []
@@ -14439,7 +14439,7 @@
     "c": [
      31005
     ],
-    "src": "web: https://twitter.com/NieRReinEN/status/1486172044920168450",
+    "src": "web: social post",
     "w": []
    },
    "steps": []
@@ -14449,7 +14449,7 @@
     "c": [
      31010
     ],
-    "src": "web: https://twitter.com/NieRReinEN/status/1486534432492191744",
+    "src": "web: social post",
     "w": []
    },
    "steps": []
@@ -14459,7 +14459,7 @@
     "c": [
      31009
     ],
-    "src": "web: https://twitter.com/NieRReinEN/status/1486911914458292227",
+    "src": "web: social post",
     "w": []
    },
    "steps": []
@@ -14469,7 +14469,7 @@
     "c": [
      33011
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-fractured-gunman",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14490,7 +14490,7 @@
     "c": [
      33010
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloody-captive",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14500,7 +14500,7 @@
     "c": [
      31008
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-bloodless-monster",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []
@@ -14688,7 +14688,7 @@
     "c": [
      31010
     ],
-    "src": "web: https://nierrein.guide/event/premium-summons-abstract-witch",
+    "src": "web: event guide",
     "w": []
    },
    "steps": []

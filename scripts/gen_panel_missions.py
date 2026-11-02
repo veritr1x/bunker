@@ -4,7 +4,7 @@
 Anecdotes were web panel missions: each page a sheet of panels ("Clear a
 dungeon 10 times: XL Weapon Enhancement x100") whose web page and data lived on
 the old web server. scripts/anecdote_sheets.json holds the sheets as recorded:
-nierrein.guide for Stars, The Moon, Emperor and Doll; gameplay videos for
+an event guide for Stars, The Moon, Emperor and Doll; gameplay videos for
 Empress, The World, Judgment and Tower (Tower from its Japanese run). This
 script turns each panel's wording into a mission rule the server's missions
 engine counts (the same rule format as rules.json, from gen_mission_rules.py)

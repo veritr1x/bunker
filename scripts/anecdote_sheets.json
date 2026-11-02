@@ -1,6 +1,6 @@
 {
  "Doll": {
-  "source": "https://nierrein.guide/event/anecdote-doll-resurrected-3rd-appearance",
+  "source": "event guide",
   "sheets": [
    {
     "sheet": 1,
@@ -75,7 +75,7 @@
      "Dolls",
      "Tale"
     ],
-    "words_source": "https://www.youtube.com/watch?v=eamDI08ZqvA@59s (Mission Complete 60s)"
+    "words_source": "gameplay video (59s) (Mission Complete 60s)"
    },
    {
     "sheet": 2,
@@ -150,13 +150,13 @@
      "Dolls",
      "Tale"
     ],
-    "words_source": "https://www.youtube.com/watch?v=eamDI08ZqvA@145s (Mission Complete 146s)"
+    "words_source": "gameplay video (145s) (Mission Complete 146s)"
    }
   ],
   "confidence": "guide text"
  },
  "Stars": {
-  "source": "https://nierrein.guide/event/anecdote-stars-resurrected-3",
+  "source": "event guide",
   "sheets": [
    {
     "sheet": 1,
@@ -232,7 +232,7 @@
      "Jewel",
      "Vision"
     ],
-    "words_source": "https://www.youtube.com/watch?v=6dXS9o6-lSs@58s (Mission Complete 59s)"
+    "words_source": "gameplay video (58s) (Mission Complete 59s)"
    },
    {
     "sheet": 2,
@@ -356,13 +356,13 @@
      "Tonight",
      "World"
     ],
-    "words_source": "https://www.youtube.com/watch?v=6dXS9o6-lSs@188s (Mission Complete 189s)"
+    "words_source": "gameplay video (188s) (Mission Complete 189s)"
    }
   ],
   "confidence": "guide text"
  },
  "Emperor": {
-  "source": "https://nierrein.guide/event/anecdote-emperor-resurrected",
+  "source": "event guide",
   "sheets": [
    {
     "sheet": 1,
@@ -437,7 +437,7 @@
      "Sunrise",
      "Highest Point"
     ],
-    "words_source": "https://www.youtube.com/watch?v=kBb5S9cfgIg@62s (Mission Complete 63.8s)"
+    "words_source": "gameplay video (62s) (Mission Complete 63.8s)"
    },
    {
     "sheet": 2,
@@ -512,13 +512,13 @@
      "Arrogant",
      "In Time"
     ],
-    "words_source": "https://www.youtube.com/watch?v=kBb5S9cfgIg@150.5s (Mission Complete 152.5s)"
+    "words_source": "gameplay video@150.5s (Mission Complete 152.5s)"
    }
   ],
   "confidence": "guide text"
  },
  "The Moon": {
-  "source": "https://nierrein.guide/event/anecdote-the-moon-resurrected",
+  "source": "event guide",
   "sheets": [
    {
     "sheet": 1,
@@ -593,7 +593,7 @@
      "Way of Life",
      "Tragedies"
     ],
-    "words_source": "https://www.youtube.com/watch?v=bSTAM6hFHoY@61s (Mission Complete 62s)"
+    "words_source": "gameplay video (61s) (Mission Complete 62s)"
    },
    {
     "sheet": 2,
@@ -668,13 +668,13 @@
      "Way of Life",
      "Flames"
     ],
-    "words_source": "https://www.youtube.com/watch?v=bSTAM6hFHoY@148s (Mission Complete 150s)"
+    "words_source": "gameplay video (148s) (Mission Complete 150s)"
    }
   ],
   "confidence": "guide text"
  },
  "Empress": {
-  "source": "https://www.youtube.com/watch?v=cHVnvoqARSc",
+  "source": "gameplay video",
   "region": "global",
   "duration": "2021-10-26 22:00 - 2021-11-03 21:59 (video local time)",
   "confidence": "high (read from video); sheet 1 complete: Tanzanite x50 seen in gift box, other four gems inferred from icons",
@@ -756,7 +756,7 @@
      "Luxury",
      "Family"
     ],
-    "words_source": "https://www.youtube.com/watch?v=cHVnvoqARSc@53s (Mission Complete 54s)"
+    "words_source": "gameplay video (53s) (Mission Complete 54s)"
    },
    {
     "sheet": 2,
@@ -830,13 +830,13 @@
      "Prisoner",
      "Cycle of War"
     ],
-    "words_source": "https://www.youtube.com/watch?v=cHVnvoqARSc@160s (Mission Complete) / 160.7s (dialog closed)"
+    "words_source": "gameplay video (160s) (Mission Complete) / 160.7s (dialog closed)"
    }
   ],
   "sourced_from": "video"
  },
  "The World": {
-  "source": "https://www.youtube.com/watch?v=DX9KtSK9s-0",
+  "source": "gameplay video",
   "region": "global",
   "duration": "2022-02-09 20:00 - 2022-02-17 19:59 (video local time)",
   "confidence": "high for conditions/rewards; sheet 2 panel order partly inferred; sheet 2 complete = final 'Mission Complete' dialog",
@@ -913,7 +913,7 @@
      "Finale",
      "Curtains"
     ],
-    "words_source": "https://www.youtube.com/watch?v=DX9KtSK9s-0@56s (Mission Complete 58s)"
+    "words_source": "gameplay video (56s) (Mission Complete 58s)"
    },
    {
     "sheet": 2,
@@ -988,13 +988,13 @@
      "Black Wings",
      "Detests"
     ],
-    "words_source": "https://www.youtube.com/watch?v=DX9KtSK9s-0@147s (Mission Complete 150s)"
+    "words_source": "gameplay video (147s) (Mission Complete 150s)"
    }
   ],
   "sourced_from": "video"
  },
  "Judgment": {
-  "source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y",
+  "source": "gameplay video",
   "region": "global",
   "duration": "2022-08-07 21:00 - 2022-08-25 20:59 (video local time)",
   "confidence": "high (all 18 panels and both complete dialogs read from video)",
@@ -1072,7 +1072,7 @@
      "Glimmers",
      "Towers"
     ],
-    "words_source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y@59s (Mission Complete 60s)"
+    "words_source": "gameplay video (59s) (Mission Complete 60s)"
    },
    {
     "sheet": 2,
@@ -1147,13 +1147,13 @@
      "Might",
      "Towers"
     ],
-    "words_source": "https://www.youtube.com/watch?v=EdBkT2Zv58Y@136s (Mission Complete 137s)"
+    "words_source": "gameplay video (136s) (Mission Complete 137s)"
    }
   ],
   "sourced_from": "video"
  },
  "Tower": {
-  "source": "https://www.youtube.com/watch?v=ifddldoPnZw (sheet 1), https://www.youtube.com/watch?v=ZS6WZCCkmMg (sheet 2)",
+  "source": "gameplay video (sheet 1), gameplay video (sheet 2)",
   "region": "JAPAN run 2021-08-18 11:00 - 2021-09-06 10:59 JST; no global panel video found",
   "confidence": "high for the JP sheets (read from video, translated); global reruns (Apr/Jul 2022) not verified. The ten sheet-2 'conditional quest' panels: each is 'Clear Main Quest (Hard) Chapter N QUEST k with <character> (any costume)' - partly read: Dimis, 063y, Akeha, Fenrir? (フレンリーゼ) seen; exact chapter/quest per panel not fully legible",
   "sheets": [
@@ -1229,7 +1229,7 @@
      "Casualty",
      "Regret"
     ],
-    "words_source": "https://www.youtube.com/watch?v=y6cLJQyUL_M@65s (Mission Complete 66s)"
+    "words_source": "gameplay video (65s) (Mission Complete 66s)"
    },
    {
     "sheet": 2,
@@ -1353,7 +1353,7 @@
      "Dripping",
      "Irony"
     ],
-    "words_source": "https://www.youtube.com/watch?v=y6cLJQyUL_M@201.7s (Mission Complete 202s)"
+    "words_source": "gameplay video@201.7s (Mission Complete 202s)"
    }
   ],
   "sourced_from": "video"
