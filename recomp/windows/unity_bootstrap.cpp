@@ -289,6 +289,7 @@ int main(int argc,char **argv){
       if(!entry||!Translated(entry))throw std::runtime_error("verified instance-native initJni(Context) entry is unavailable");
       auto player=java.NewInstance("com/unity3d/player/UnityPlayer"),activity=context.Activity();
       if(!player||!activity||!java.PendingException().empty())throw std::runtime_error("typed initJni receiver/context creation failed");
+      context.BindUnityPlayer(player);
       std::fprintf(stderr,"Unity bootstrap: %sisolated instance-native initJni(Context)V gate entry=%#llx; host-typed UnityPlayer/Activity objects; Java <clinit>/constructors are not executed or marked initialized\n",kExploratory?"EXPLORATORY ":"",static_cast<unsigned long long>(entry));
       init_java_errors=0;init_java_diagnostic_active=true;
       threads.Run(entry,{java.EnvAddress(),player,activity});

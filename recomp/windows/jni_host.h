@@ -46,6 +46,10 @@ class Host {
   // bootstrap=true is for initialized framework classes implemented by this host.
   void DefineClass(const std::string &name, std::vector<MethodDeclaration> methods = {},
                    const std::string &superclass = "java/lang/Object", bool bootstrap = false);
+  // A genuine interface has no superclass and cannot be instantiated. This
+  // catalog does not invent implementing classes or execute default bodies.
+  void DefineInterface(const std::string &name, std::vector<MethodDeclaration> methods,
+                       bool bootstrap = true);
   // Only call after the host has supplied the class's initialization effects.
   // A metadata declaration alone does not execute Java <clinit>.
   void MarkClassInitialized(const std::string &name);
@@ -61,6 +65,10 @@ class Host {
                                 std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void DefineBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
                            std::function<bool(addr_t,const MethodArguments&)> handler);
+  // Attach a supplied body to an existing, unimplemented nonnative declaration.
+  // DefineBooleanMethod retains its duplicate-declaration rejection.
+  void BindBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
+                         std::function<bool(addr_t,const MethodArguments&)> handler);
   void DefineVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
                         std::function<void(addr_t,const MethodArguments&)> handler);
   // Factories use the same owned frame and borrowed argument rules. Return a
@@ -111,7 +119,7 @@ class Host {
   addr_t HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state);
   std::shared_ptr<void> HostState(addr_t reference,std::type_index type);
   void DefineHandler(const std::string &owner,const std::string &name,const std::string &signature,char result,
-                     std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static=false);
+                     std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static=false,bool bind_existing=false);
   void Raise(const std::string &type, const std::string &message, bool message_present = true);
   addr_t Local(const std::shared_ptr<Object> &object);
   std::shared_ptr<Object> Get(addr_t reference, bool allow_null = false);
