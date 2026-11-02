@@ -1,0 +1,82 @@
+.text
+.global collector_save_probe
+.type collector_save_probe,%function
+// x0=actual helper, x1=translated callback, x2=528-byte observation/input.
+// The helper creates its own environment. This caller never writes one.
+collector_save_probe:
+  sub sp,sp,#288
+  stp x18,x19,[sp,#0]
+  stp x20,x21,[sp,#16]
+  stp x22,x23,[sp,#32]
+  stp x24,x25,[sp,#48]
+  stp x26,x27,[sp,#64]
+  stp x28,x29,[sp,#80]
+  str x30,[sp,#96]
+  stp q8,q9,[sp,#112]
+  stp q10,q11,[sp,#144]
+  stp q12,q13,[sp,#176]
+  stp q14,q15,[sp,#208]
+  stp x0,x1,[sp,#240]
+  str x2,[sp,#256]
+  mov x9,x2
+  str x18,[x9,#0]
+  ldr x19,[x9,#8]
+  ldp x20,x21,[x9,#16]
+  ldp x22,x23,[x9,#32]
+  ldp x24,x25,[x9,#48]
+  ldp x26,x27,[x9,#64]
+  ldr x28,[x9,#80]
+  mov x29,sp
+  str x29,[x9,#88]
+  ldp q8,q9,[x9,#128]
+  ldp q10,q11,[x9,#160]
+  ldp q12,q13,[x9,#192]
+  ldp q14,q15,[x9,#224]
+  mov x10,sp
+  str x10,[x9,#96]
+  adr x10,1f
+  str x10,[x9,#104]
+  mrs x10,fpcr
+  str x10,[x9,#112]
+  mrs x10,fpsr
+  str x10,[x9,#120]
+  ldr x10,[sp,#240]
+  ldr x0,[sp,#248]
+  mov x1,x9
+  blr x10
+1:
+  ldr x9,[sp,#256]
+  str x0,[x9,#256]
+  str x18,[x9,#272]
+  stp x19,x20,[x9,#280]
+  stp x21,x22,[x9,#296]
+  stp x23,x24,[x9,#312]
+  stp x25,x26,[x9,#328]
+  stp x27,x28,[x9,#344]
+  str x29,[x9,#360]
+  mov x10,sp
+  str x10,[x9,#368]
+  str x30,[x9,#376]
+  stp q8,q9,[x9,#384]
+  stp q10,q11,[x9,#416]
+  stp q12,q13,[x9,#448]
+  stp q14,q15,[x9,#480]
+  mrs x10,fpcr
+  str x10,[x9,#512]
+  mrs x10,fpsr
+  str x10,[x9,#520]
+  ldp x18,x19,[sp,#0]
+  ldp x20,x21,[sp,#16]
+  ldp x22,x23,[sp,#32]
+  ldp x24,x25,[sp,#48]
+  ldp x26,x27,[sp,#64]
+  ldp x28,x29,[sp,#80]
+  ldr x30,[sp,#96]
+  ldp q8,q9,[sp,#112]
+  ldp q10,q11,[sp,#144]
+  ldp q12,q13,[sp,#176]
+  ldp q14,q15,[sp,#208]
+  add sp,sp,#288
+  ret
+.size collector_save_probe,.-collector_save_probe
+.section .note.GNU-stack,"",%progbits
