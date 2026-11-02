@@ -166,3 +166,24 @@ func TestSummonTitleFromItsNotice(t *testing.T) {
 		t.Fatalf("%.600s", page)
 	}
 }
+
+// The DQX crossover's free summons (554) show the three characters its appeal
+// art shows, so its panel has more than one page; none of them is featured.
+func TestFreeSummonShowsItsArtCharacters(t *testing.T) {
+	holder, _ := harness(t)
+	for _, e := range holder.Get().GachaEntries {
+		if e.GachaId != 554 {
+			continue
+		}
+		if len(e.PromotionItems) != 3 {
+			t.Fatalf("554 cards: %+v", e.PromotionItems)
+		}
+		for _, p := range e.PromotionItems {
+			if p.IsTarget || p.BonusPossessionId == 0 {
+				t.Fatalf("554 card: %+v", p)
+			}
+		}
+		return
+	}
+	t.Fatal("no summon 554")
+}
