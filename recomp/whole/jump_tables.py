@@ -26,6 +26,13 @@ class MaskedIndex:
 
 
 @dataclass(frozen=True)
+class RegisterSnapshot:
+    register: str
+    width: int
+    before: int
+
+
+@dataclass(frozen=True)
 class Table:
     address: int
     size: int
@@ -33,6 +40,7 @@ class Table:
     index: object
     stride: int
     load: int
+    source: RegisterSnapshot
 
 
 @dataclass(frozen=True)
@@ -46,6 +54,7 @@ class Target:
 class BoundProof:
     count: int
     guards: tuple
+    snapshots: tuple = ()
 
 
 def _register(ins, reg):
@@ -170,6 +179,8 @@ class Function:
         return reached
 
     def equivalent_index(self, lhs, rhs):
+        if lhs is None or rhs is None:
+            return False
         if lhs == rhs:
             return True
         if not isinstance(lhs, MaskedIndex) or not isinstance(rhs, MaskedIndex):
@@ -182,6 +193,33 @@ class Function:
             return False
         return (self.unchanged_between(lhs.register, lhs.before, rhs.before) or
                 self.unchanged_between(lhs.register, rhs.before, lhs.before))
+
+    def same_snapshot(self, compare, snapshot):
+        # A local guard can bound a value whose history through an earlier
+        # loop/join is unknown. Compare the reads, not their global expressions.
+        # The indexed load consumes this value before writing its destination.
+        reg, width = _register(compare, compare.operands[0].reg)
+        if (reg != snapshot.register or width != snapshot.width or
+                reg not in {str(r) for r in range(31)} or
+                not self.dominates(compare.address, snapshot.before)):
+            return False
+        pending, visited, reached = [snapshot.before], set(), False
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            parents = self.parents(current)
+            if current == self.lo or not parents or len(visited) > 4096:
+                return False
+            for pc in parents:
+                if pc == compare.address:
+                    reached = True
+                elif self.writes_register(self.ins[pc], reg):
+                    return False
+                else:
+                    pending.append(pc)
+        return reached
 
     def unique_reaching_definition(self, reg, before):
         key = reg, before
@@ -278,9 +316,12 @@ class Function:
             mem = ops[1].mem
             base = self.read(mem.base, ins.address, ins)
             if mem.index and base and isinstance(base, tuple) and base[0] == 'constant':
-                index = self.read(mem.index, ins.address, ins, 32 if ops[1].ext in (ARM64_EXT_UXTW, ARM64_EXT_SXTW) else None)
+                source, source_width = _register(ins, mem.index)
+                if ops[1].ext in (ARM64_EXT_UXTW, ARM64_EXT_SXTW):
+                    source_width = 32
+                index = self.read(mem.index, ins.address, ins, source_width)
                 result = Table(base[1] + mem.disp, {'ldrb': 1, 'ldrh': 2, 'ldrsw': 4}[name], name == 'ldrsw', index,
-                               1 << ops[1].shift.value, ins.address)
+                               1 << ops[1].shift.value, ins.address, RegisterSnapshot(source, source_width, ins.address))
         if result is None:
             result = ('definition', ins.address, reg, min(width, written_width))
         elif width == 32 and written_width == 64 and not isinstance(result, MaskedIndex):
@@ -288,9 +329,15 @@ class Function:
         return result
 
     def bound(self, table):
+        # Preserve an existing symbolic proof exactly; a newly available local
+        # snapshot must not replace it with a different/broader guarded range.
+        proof = self._bound(table, False)
+        return proof if proof is not None else self._bound(table, True)
+
+    def _bound(self, table, snapshots):
         if self.block.get(table.load) not in self.dom:
             return None
-        guarded_edges = {}
+        guarded_edges, snapshot_edges = {}, {}
         for pc, branch in sorted(self.ins.items(), reverse=True):
             if branch.mnemonic not in ('b.hi', 'b.hs', 'b.ls', 'b.lo'):
                 continue
@@ -310,15 +357,18 @@ class Function:
                     break
                 if candidate.update_flags or 'nzcv' in {candidate.reg_name(r) for r in candidate.regs_access()[1]} or candidate.mnemonic in ('bl', 'blr'):
                     break
-            if compare is None or compare.operands[1].type != ARM64_OP_IMM:
+            if compare is None or compare.operands[0].type != ARM64_OP_REG or compare.operands[1].type != ARM64_OP_IMM:
                 continue
             index = self.read(compare.operands[0].reg, compare.address, compare)
-            if not self.equivalent_index(index, table.index):
+            symbolic = self.equivalent_index(index, table.index)
+            if not symbolic and (not snapshots or not self.same_snapshot(compare, table.source)):
                 continue
             count = compare.operands[1].imm << compare.operands[1].shift.value
             count += branch.mnemonic in ('b.hi', 'b.ls')
             if 0 < count <= 65536:
                 guarded_edges[pc, allowed] = count
+                if not symbolic:
+                    snapshot_edges[pc, allowed] = compare.address
         # Cut the CFG at every edge which independently proves a bound for
         # this exact index. Every remaining path into the load must hit one of
         # those edges before reaching the function entry or an unknown root.
@@ -343,7 +393,8 @@ class Function:
             return None
         # Incoming ranges are a union: choosing their minimum would miss
         # legal larger indices on another guarded path.
-        return BoundProof(max(used.values()), tuple(sorted(used)))
+        return BoundProof(max(used.values()), tuple(sorted(used)),
+                          tuple(sorted((pc, snapshot_edges[pc, allowed]) for pc, allowed in snapshot_edges if pc in used)))
 
 
 def _recover_table(function, ins, read, code):
@@ -351,11 +402,10 @@ def _recover_table(function, ins, read, code):
     target = function.read(ins.operands[0].reg, pc, ins)
     if not isinstance(target, Target):
         return None, 'indirect target is not a supported relative-table expression'
-    if target.table.index is None:
-        return None, 'table index has ambiguous reaching definitions'
     proof = function.bound(target.table)
     if proof is None:
-        return None, 'no dominating unsigned index bound proven'
+        return None, ('table index has ambiguous reaching definitions' if target.table.index is None else
+                      'no dominating unsigned index bound proven')
     if target.table.stride != target.table.size:
         return None, 'indexed load stride does not match table element size'
     count, guard = proof.count, proof.guards[0]
@@ -371,6 +421,11 @@ def _recover_table(function, ins, read, code):
                   case_base=target.base, shift=target.shift, guard=guard, targets=targets)
     if len(proof.guards) > 1:
         record['guards'] = list(proof.guards)
+    if proof.snapshots:
+        source = target.table.source
+        record['index_snapshot'] = dict(register=('w' if source.width == 32 else 'x') + source.register,
+                                        width=source.width, load=source.before,
+                                        guards=[dict(branch=branch, compare=compare) for branch, compare in proof.snapshots])
     return record, None
 
 
