@@ -79,6 +79,17 @@ The original sigaltstack call log records the actual translated SP, LR, result
 and configured tuple. Installing this provider does not enable production
 signal delivery or collector polling.
 
+The preferences adapter is constructed after the actual Context and before
+guest workers/modules. Its backing is the real per-user Windows package store;
+construction performs no storage access. Only original getSharedPreferences and
+apply calls cause reads/writes. Native observations record store labels, entry
+counts, persistence status and the public Unity version marker, without logging
+saved values. CheckPersistence rejects any recorded write failure after callers
+quiesce, including JNI/module/global finalization and final TLS retirement before
+normal completion. The adapter outlives workers on an attached Host thread.
+This wiring requires a new executed checkpoint to qualify original initialization.
+See [the storage contract and component evidence](shared_preferences.md).
+
 The actual Unity constructor at 700d9044 registers installed LibC::free as a
 void(void*) TLS destructor. Its exact marker is admitted alongside translated
 callbacks; pthread_create starts remain translated-only. Earlier component

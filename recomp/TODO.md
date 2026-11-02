@@ -161,12 +161,24 @@ part of the normal Bunker release. The game does not boot or render yet.
   Windows passes 106 focused checks with real mapped directories, Linux 88 with
   a labelled injected verifier. See [array returns](windows/jni_array_result.md)
   and [external-volume scope](windows/android_obb.md).
+- JNI integer and binary32 methods pass 11,125 focused checks per host plus
+  existing JNI/frame regressions. Actual Base/interface method IDs resolve the
+  implementation before decoding independent GP/FP or va_list argument banks.
+  Float promotion is checked against the original ARM64 object; no Java numeric
+  method body is implied. See [numeric transport](windows/jni_numeric.md).
+- Persistent SharedPreferences passes 1,052 Windows and 643 Linux focused
+  checks, five explicit boundaries and JNI/frame regressions on each host.
+  Windows qualification uses isolated real registry stores; decoded TEST
+  migration calls do not establish original Unity initialization. Game wiring
+  now waits for a fresh executed checkpoint. See
+  [preferences storage and ownership](windows/shared_preferences.md).
 - AssetPackManagerWrapper's original missing-PlayCore branch passes 209 focused
   checks and eight explicit boundaries per host. The exact APK code catalog
   includes all four DEX containers and split metadata; the actual factory is
   absent from that supplied code scope. A real nonnull singleton reports the
   missing API, allowing original native branching without fabricated pack
-  results. A natural frame has not yet qualified this port. See
+  results. Game9 and game10 pass the previous natural startup boundary by
+  original flow, without separately instrumented native callback claims. See
   [wrapper initialization and ownership](windows/asset_pack_wrapper.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
