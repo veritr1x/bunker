@@ -82,6 +82,9 @@ class FileSystem {
   // parent traversal and final reparse points remain protected; never recursive.
   int Unlink(const char *path);
   int Rmdir(const char *path);
+  // Reached absent-destination rename profile: one same-mount native move.
+  // Replacement is explicitly unsupported; neither path's contents are deleted.
+  int Rename(const char *source,const char *destination);
   // Forward-only native directory streams. The returned tracked record lasts
   // until this stream's next ReadDir or CloseDir. Offsets are opaque cookies;
   // seekdir/telldir and concurrent consumption of one returned record are absent.

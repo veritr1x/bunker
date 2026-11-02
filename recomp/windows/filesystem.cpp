@@ -44,7 +44,7 @@ bool SnapshotString(const char *source, std::string &value, size_t limit) {
   return false;
 }
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
-  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf", "unlink", "rmdir", "opendir", "readdir", "closedir"};
+  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf", "unlink", "rmdir", "opendir", "readdir", "closedir", "rename"};
 int GuestCrtError(int error) {
   switch (error) {
     case 0: return 0;
@@ -453,6 +453,44 @@ int FileSystem::Mkdir(const char *path,uint32_t mode) {
 }
 int FileSystem::Unlink(const char *path){return impl_->Remove(path,false);}
 int FileSystem::Rmdir(const char *path){return impl_->Remove(path,true);}
+int FileSystem::Rename(const char *source,const char *destination){
+  std::lock_guard lock(impl_->mutex);
+  std::string names[2];const char *inputs[]={source,destination};
+  fs::path paths[2];const Impl::Mount *mounts[2]{};
+  for(unsigned i=0;i<2;++i){
+    if(!inputs[i]){impl_->Error(14);return -1;}
+    if(!SnapshotString(inputs[i],names[i],4096)){impl_->Error(36);return -1;}
+    if(names[i].empty()){impl_->Error(2);return -1;}
+    if(names[i].back()=='/'||names[i]=="."||(names[i].size()>=2&&names[i].compare(names[i].size()-2,2,"/.")==0))
+      throw std::runtime_error("rename trailing separator/dot is outside the reached ordinary-path profile");
+    for(size_t start=0;start<=names[i].size();){
+      auto end=names[i].find('/',start);if(end==std::string::npos)end=names[i].size();
+      if(names[i].compare(start,end-start,"..")==0){impl_->Error(13);return -1;}
+      if(end==names[i].size())break;start=end+1;
+    }
+    try{if(!impl_->Resolve(names[i].c_str(),true,paths[i],mounts[i],true))return -1;}
+    catch(const fs::filesystem_error &){impl_->Error(22);return -1;}
+    if(paths[i]==mounts[i]->host){impl_->Error(16);return -1;}
+    fs::path parent=mounts[i]->host;const auto relative=paths[i].lexically_relative(parent);
+    for(auto at=relative.begin();at!=relative.end();++at){
+      auto next=at;++next;if(next==relative.end())break;
+      parent/=*at;auto attributes=GetFileAttributesW(parent.c_str());
+      if(attributes==INVALID_FILE_ATTRIBUTES){impl_->Error(DirectoryError(GetLastError()));return -1;}
+      if(!(attributes&FILE_ATTRIBUTE_DIRECTORY)){impl_->Error(20);return -1;}
+    }
+  }
+  if(mounts[0]->device!=mounts[1]->device){impl_->Error(18);return -1;}
+  const auto source_attributes=GetFileAttributesW(paths[0].c_str());
+  if(source_attributes==INVALID_FILE_ATTRIBUTES){impl_->Error(DirectoryError(GetLastError()));return -1;}
+  if(!(source_attributes&FILE_ATTRIBUTE_DIRECTORY)&&names[0].back()=='/'){impl_->Error(20);return -1;}
+  const auto destination_attributes=GetFileAttributesW(paths[1].c_str());
+  if(destination_attributes!=INVALID_FILE_ATTRIBUTES)throw std::runtime_error("rename replacement is outside the reached absent-destination profile");
+  const auto absent_error=GetLastError();
+  if(absent_error!=ERROR_FILE_NOT_FOUND&&absent_error!=ERROR_PATH_NOT_FOUND){impl_->Error(DirectoryError(absent_error));return -1;}
+  // No COPY_ALLOWED or replacement flags: the OS must perform one real move.
+  if(!MoveFileExW(paths[0].c_str(),paths[1].c_str(),0)){const auto error=GetLastError();impl_->Error(error==ERROR_NOT_SAME_DEVICE?18:DirectoryError(error));return -1;}
+  return 0;
+}
 addr_t FileSystem::OpenDir(const char *path){
   std::lock_guard lock(impl_->mutex);
   if(!path){impl_->Error(14);return 0;}
@@ -772,6 +810,7 @@ void FileSystem::Install(recomp::Runtime &runtime) {
   runtime.AddImport(Marker("opendir"), recomp::MakeBridge<addr_t(const char*)>([this](auto path){return OpenDir(path);}));
   runtime.AddImport(Marker("readdir"), recomp::MakeBridge<addr_t(addr_t)>([this](auto directory){return ReadDir(directory);}));
   runtime.AddImport(Marker("closedir"), recomp::MakeBridge<int32_t(addr_t)>([this](auto directory){return CloseDir(directory);}));
+  runtime.AddImport(Marker("rename"), recomp::MakeBridge<int32_t(const char*,const char*)>([this](auto source,auto destination){return Rename(source,destination);}));
   impl_->installed = true;
 }
 }  // namespace bunker::windows
