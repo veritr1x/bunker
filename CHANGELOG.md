@@ -59,6 +59,15 @@ under its heading, down to the previous release.
   whose art names characters feature them. The ★★★★ rates, featured weapon
   guarantee and free daily draws above also apply to the summons the game
   data lacks (they were left at placeholder prices). [e46060e]
+- 24 summons the game data has art for but no summon: Yuletide Wishes,
+  Abyssal Assassin, Abstract Ruler, Yuletide Snowfall, two Merry[in]carnation
+  festivals, the Congratulatory and Resolute Dress summons, the YoRHa Stage
+  Play free summon, Automata Vol. 2 (2023), the 220 free summons, New Year
+  Countdown Vol. 2 and 3 (2022), and the Automata, Replicant, SINoALICE,
+  Drakengard 3, Blessed Dress, Mechanical Hunter and Weapon, Oathbound Exile
+  and Belle, and Lacrima Soldier step-ups. Each has its art's prices, steps,
+  bonuses and lineup, on its run's dates from its notice or the event guide;
+  none repeats a summon open at the same time. [e22a986]
 
 ### Sources
 - Summon, event box and panel mission data note their sources as an event
