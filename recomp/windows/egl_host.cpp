@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <pthread.h>
 #include "egl_host.h"
 #include "../whole/bridge.h"
 #include <algorithm>
@@ -27,7 +28,27 @@ const char *const names[]={"eglQuerySurface","eglChooseConfig","eglSwapBuffers",
   "eglCreatePbufferSurface","eglDestroySurface","eglGetCurrentSurface","eglInitialize"};
 std::atomic<addr_t> next_handle{0x7ff430000000ULL};
 std::atomic<uint64_t> next_owner{1};
-thread_local std::map<uint64_t,I> errors;
+using ErrorMap=std::map<uint64_t,I>;
+#ifdef _WIN32
+void DestroyEglErrors(void *value) noexcept {delete static_cast<ErrorMap*>(value);}
+ErrorMap &Errors(){
+  static const pthread_key_t key=[] {
+    pthread_key_t result{};const int error=pthread_key_create(&result,DestroyEglErrors);
+    if(error)throw std::runtime_error("EGL errors storage key creation failed: "+std::to_string(error));
+    return result;
+  }();
+  auto *value=static_cast<ErrorMap*>(pthread_getspecific(key));
+  if(!value){
+    auto next=std::make_unique<ErrorMap>();const int error=pthread_setspecific(key,next.get());
+    if(error)throw std::runtime_error("EGL errors storage publication failed: "+std::to_string(error));
+    value=next.release();
+  }
+  return *value;
+}
+#else
+thread_local ErrorMap errors;
+ErrorMap &Errors(){return errors;}
+#endif
 addr_t Token(){auto token=next_handle.load();do{
   if(token>UINT64_MAX-8)throw std::overflow_error("EGL token exhausted");
 }while(!next_handle.compare_exchange_weak(token,token+8));return token;}
@@ -130,9 +151,9 @@ struct EglHost::Impl {
     for(const auto &[key,value]:strings)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(value.get()),key.size()+1);
     if(gles)FreeLibrary(gles);
     if(egl)FreeLibrary(egl);
-    errors.erase(owner);
+    Errors().erase(owner);
   }
-  void Error(I error){if(error!=Success)errors[owner]=error;}
+  void Error(I error){if(error!=Success)Errors()[owner]=error;}
   void Capture(){Error(eglGetError());}
   E Native(addr_t token,Kind kind,addr_t display=0,bool allow_deleted=false){
     auto it=objects.find(token);
@@ -196,8 +217,8 @@ struct EglHost::Impl {
   }
   std::set<I> WindowFormats(addr_t token,E display){
     // Internal capability queries must not change the guest EGL error flag.
-    Capture();const I saved=errors[owner];
-    struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*this,saved};
+    Capture();const I saved=Errors()[owner];
+    struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();Errors()[host.owner]=saved;}} restore{*this,saved};
     const I attrs[]={0x3033,4,None};I count=0;
     if(!eglChooseConfig(display,attrs,nullptr,0,&count)||count<0||count>4096)return {};
     std::vector<E> configs(count);
@@ -245,8 +266,8 @@ struct EglHost::Impl {
       if(!target_display||!display_fixed_size[target_display])return -38;
       auto native_window=windows.NativeHandle(window);if(!native_window)return -19;
       WindowDpiScope dpi(native_window);
-      Capture();const I saved=errors[owner];
-      struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*this,saved};
+      Capture();const I saved=Errors()[owner];
+      struct Restore {Impl &host;I saved;~Restore(){host.eglGetError();Errors()[host.owner]=saved;}} restore{*this,saved};
       E display=Native(target_display,Display);
       if(existing){
         for(const auto &[thread,current]:currents){
@@ -352,7 +373,7 @@ struct EglHost::Impl {
       object.deleted=true;Prune();return U(1);});
     Bind<U(addr_t)>("eglTerminate",[this](addr_t d){E display=Native(d,Display);if(!display)return U(0);U ok=eglTerminate(display);Capture();
       if(ok){display_window_formats.erase(d);display_window_configs.erase(d);display_fixed_size.erase(d);for(auto &[token,o]:objects){(void)token;if(o.display==d){o.deleted=true;o.native_destroyed=true;}}Prune();}return ok;});
-    Bind<I()>("eglGetError",[this]{auto &error=errors[owner];I value=error?error:Success;error=Success;return value;});
+    Bind<I()>("eglGetError",[this]{auto &error=Errors()[owner];I value=error?error:Success;error=Success;return value;});
     Bind<addr_t(addr_t,I)>("eglQueryString",[this](addr_t d,I name){E display=d?Native(d,Display):nullptr;if(d&&!display)return addr_t(0);
       const char *native=eglQueryString(display,name);Capture();if(!native)return addr_t(0);std::string value=native;
       if(name==0x3055){std::istringstream input(value);std::string extension;value.clear();while(input>>extension){
@@ -380,8 +401,8 @@ bool EglHost::ContextAlive(addr_t token){std::lock_guard lock(impl_->mutex);auto
 bool EglHost::UsesGlesModule(const void *module){std::lock_guard lock(impl_->mutex);return impl_->gles==module;}
 std::optional<EglHost::ReadPbufferExtent> EglHost::CurrentReadPbufferExtent(){
   std::lock_guard lock(impl_->mutex);
-  impl_->Capture();const auto saved=errors[impl_->owner];
-  struct Restore{Impl &host;I saved;~Restore(){host.eglGetError();errors[host.owner]=saved;}} restore{*impl_,saved};
+  impl_->Capture();const auto saved=Errors()[impl_->owner];
+  struct Restore{Impl &host;I saved;~Restore(){host.eglGetError();Errors()[host.owner]=saved;}} restore{*impl_,saved};
   auto owned=[&](E native,Impl::Kind kind){for(const auto &[token,o]:impl_->objects)if(o.kind==kind&&o.native==native&&!o.native_destroyed)return token;return addr_t(0);};
   const auto context=owned(impl_->eglGetCurrentContext(),Impl::Context);
   const auto surface=owned(impl_->eglGetCurrentSurface(0x305a),Impl::Surface);

@@ -49,6 +49,7 @@
 #include <thread>
 #include <vector>
 #include <windows.h>
+#include <pthread.h>
 #include <bcrypt.h>
 extern "C" Memory *__real_sub_825b0544(State &,addr_t,Memory *);
 
