@@ -3,7 +3,7 @@ import argparse,ast,hashlib,json,subprocess
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 HERE=Path(__file__).resolve().parent
-OWN=('game_bootstrap.cpp','game_bootstrap_detail.h','game_collector_delivery.h','game_bootstrap_build.ps1','test_game_bootstrap.py','game_collector_profile.md','test_game_collector_source.py')
+OWN=('game_bootstrap.cpp','game_bootstrap_detail.h','game_collector_delivery.h','game_collector_mask.h','game_bootstrap_build.ps1','test_game_bootstrap.py','game_collector_profile.md','test_game_collector_source.py')
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--build-support',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);support=a.build_support.resolve();root=HERE.parent.parent

@@ -1,4 +1,5 @@
 #pragma once
+#include "game_collector_mask.h"
 // Included inside the harness namespace, after its checked Read/Require helpers.
 // This is the explicit original-finalizer/single-CondWait profile only.
 class GameCollectorDelivery {
@@ -52,7 +53,7 @@ class GameCollectorDelivery {
     Check(Read<addr_t>(0x879a7788)==0x825b2af4&&Read<addr_t>(0x879a7758)==0x825b2c70,"original handler table differs");
     int32_t count=0;Check(!semaphores_.GetValue(kAck,&count),"original acknowledgment semaphore is not initialized");
   }
-  void ValidateWait(Owner &owner,const Pthreads::WaitContext &context){
+  void ValidateWait(Owner &owner,const Pthreads::WaitContext &context,const SignalHost::Delivery *selected=nullptr){
     const auto &info=owner.context->PreparedWorker();auto *state=recomp::CurrentExecutionState();
     Check(owner.finalizer&&owner.context->CurrentPhase()==Lifecycle::Phase::entered&&Current()==&owner,"wait has no entered original finalizer owner");
     Check(context.token==info.token&&context.active_state&&context.active_state==state&&threads_.Self()==info.token&&owner.context->NativeThreadId()==GetCurrentThreadId(),"wait active State/native identity differs");
@@ -63,7 +64,9 @@ class GameCollectorDelivery {
     Check(condition>=0x2c&&mutex==condition-0x28&&Read<addr_t>(0x879a7a40)==condition-0x2c&&state->gpr.pc.qword==0x7ffc60000020ULL,"actual finalizer event/import identity or condition/mutex geometry differs");
     Check(!(state->gpr.sp.qword&15)&&state->gpr.sp.qword>=info.stack_low&&state->gpr.sp.qword<=info.stack_high&&state->gpr.sp.qword-info.stack_low>=9504&&state->sr.tpidr_el0.qword==info.tls_address,"normal stack/TLS or two-frame capacity differs");
     const auto stack=signals_.AlternateStack(info.token).configured;Check(stack.flags==2&&!stack.pointer&&!stack.size,"target alternate stack is not fresh disabled");
-    uint64_t mask=0;Check(!signals_.Mask(info.token,0,nullptr,&mask)&&!(mask&(SignalHost::Bit(30)|SignalHost::Bit(24))),"ordinary wait blocks original stop/restart signals");
+    uint64_t mask=0;Check(!signals_.Mask(info.token,0,nullptr,&mask),"wait signal mask query failed");
+    Check(selected?GameCollectorWaitMask::SelectedStop(info.token,mask,*selected):GameCollectorWaitMask::Ordinary(mask),selected?"selected stop action/saved/current mask differs":"ordinary wait blocks original stop/restart signals");
+    if(selected)std::fprintf(stderr,"Game GC: selected outer mask verified target=%#llx saved=%#llx current=%#llx action=%#llx signal=%d; no host mask mutation\n",(unsigned long long)info.token,(unsigned long long)selected->saved_mask,(unsigned long long)mask,(unsigned long long)selected->action.mask,selected->signal);
   }
   bool Admit(const recomp::PollAdmissionContext &context) noexcept {
     auto *owner=Current();if(!owner||!owner->checkpoint||context.site.ordinal!=kProviderOrdinal)return false;
@@ -188,7 +191,7 @@ class GameCollectorDelivery {
     auto *owner=Current();Check(owner&&owner->finalizer&&delivery.token==owner->context->PreparedWorker().token,"delivery has wrong original worker");Dispositions();
     const auto token=delivery.token;auto use=lifecycle_.AcquireUse(token);const auto record=owner->record.load();Check(record&&Read<uint64_t>(record+8)==token,"delivery record was not the validated original record");
     if(!owner->depth){
-      Check(delivery.signal==30&&owner->checkpoint,"outer delivery is not qualified stop30");ValidateWait(*owner,*owner->checkpoint);const auto epoch=Read<uint64_t>(kEpoch);const bool duplicate=(Read<uint64_t>(record+0x10)&~uint64_t(1))==epoch;
+      Check(delivery.signal==30&&owner->checkpoint,"outer delivery is not qualified stop30");ValidateWait(*owner,*owner->checkpoint,&delivery);const auto epoch=Read<uint64_t>(kEpoch);const bool duplicate=(Read<uint64_t>(record+0x10)&~uint64_t(1))==epoch;
       Check(epoch&&!(epoch&1)&&(duplicate||Read<uint64_t>(kStopped)==1),"new stop has no live original stopped epoch");
       owner->interrupted=*recomp::CurrentExecutionState();owner->frame_base=owner->interrupted.gpr.sp.qword-4704;owner->posts=0;owner->stop_epoch=epoch;owner->begun_epoch=epoch;owner->stop_live=!duplicate;owner->depth=1;
       auto result=owner->delivery->Deliver(delivery);

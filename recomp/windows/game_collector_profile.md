@@ -116,3 +116,14 @@ the missing-cohort rejection, pin the original byte/audit evidence and parse
 the builder/runner. They execute no game or original collector code. An actual
 new profile run requires the separate reviewed cohort/prerequisite seal and
 explicit run authorization.
+
+Mask checks distinguish the interrupted wait from an already selected stop.
+Before selection, both stop 30 and restart 24 must remain unblocked. Once
+SignalHost selects 30, it has installed the original action mask and self-bit
+before calling the delivery boundary. The boundary checks the saved interrupted
+mask for the original eligibility condition, checks the selected action itself
+against the original thunk/flags/mask, and requires the current mask to equal
+the exact normalized saved/action/self union. Stack, State, roots and lifetime
+checks are unchanged. It logs these actual mask values after validation; it
+does not change any mask or queue state. The exact nested restart/sigsuspend
+scope retains its separate original mask rules.
