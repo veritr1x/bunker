@@ -32,6 +32,8 @@ class LibC {
   uint64_t ParseInteger(const char *, char **, int base, bool is_signed);
   // Exact Android 13 %llu profile: one unsigned64 output, no general scanf claims.
   int32_t ScanUnsignedLongLong(const char *input, const char *format, uint64_t *output);
+  // Comparator is an original guest address dispatched through the owned Runner.
+  void *BinarySearch(const void *key, const void *base, uint64_t count, uint64_t size, addr_t comparator);
   int RegisterExit(addr_t callback, addr_t argument, addr_t dso, bool plain = false);
   void Finalize(addr_t dso = 0);
   addr_t NewLocale(int32_t mask, const char *name, addr_t base);

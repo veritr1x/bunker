@@ -74,7 +74,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -267,6 +267,31 @@ template <typename Signature,typename F>void LibC::Add(recomp::Runtime &runtime,
     }
   });
 }
+void *LibC::BinarySearch(const void *key,const void *base,uint64_t count,uint64_t size,addr_t comparator){
+  // Android 13's NetBSD implementation never evaluates unused arguments for an
+  // empty search. Width zero still invokes comparators and halves the count.
+  if(!count)return nullptr;
+  const addr_t original=pm::Address(base);
+  if((size&&count>UINT64_MAX/size)||original>UINT64_MAX-count*size)
+    throw std::overflow_error("bsearch array span is not representable");
+  if(!comparator||!runner_)
+    throw std::invalid_argument("bsearch requires a guest comparator runner and nonzero target");
+  // Preserve pointer identity and comparator side effects. No key/array snapshot,
+  // provider lock, tracked write, errno reset, or host function-pointer cast.
+  std::vector<addr_t> arguments{pm::Address(key),0};
+  addr_t first=original;
+  uint64_t remaining=count;
+  while(remaining){
+    const addr_t element=first+(remaining>>1)*size;
+    arguments[1]=element;
+    const uint32_t comparison=static_cast<uint32_t>(runner_(comparator,arguments));
+    if(!comparison)return reinterpret_cast<void*>(element);
+    // AAPCS64 int result is signed W0; X0's high bits carry no ordering meaning.
+    if(!(comparison&UINT32_C(0x80000000))){first=element+size;--remaining;}
+    remaining>>=1;
+  }
+  return nullptr;
+}
 void *LibC::Malloc(uint64_t size){
   if(size>INT64_MAX){Fail(12);return nullptr;}auto p=pm::Allocate(static_cast<size_t>(size));if(!p)Fail(12);return p;
 }
@@ -412,6 +437,7 @@ void LibC::Finalize(addr_t dso){
 void LibC::Install(recomp::Runtime &runtime){
   if(installed_)throw std::logic_error("libc imports already installed");
   Add<char*(int32_t,const char*)>(runtime,"setlocale",[this](auto category,auto name){return SetLocale(category,name);});
+  Add<void*(const void*,const void*,uint64_t,uint64_t,addr_t)>(runtime,"bsearch",[this](auto key,auto base,auto count,auto size,auto comparator){return BinarySearch(key,base,count,size,comparator);});
   Add<int32_t(const char*,const char*,uint64_t*)>(runtime,"sscanf",[this](auto input,auto format,auto output){return ScanUnsignedLongLong(input,format,output);});
   Add<void*(uint64_t)>(runtime,"malloc",[this](auto n){return Malloc(n);});
   Add<void*(uint64_t,uint64_t)>(runtime,"calloc",[this](auto n,auto s){return Calloc(n,s);});

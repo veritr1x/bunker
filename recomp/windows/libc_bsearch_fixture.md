@@ -1,0 +1,7 @@
+The bsearch fixture calls the real installed provider from strict NDK callers and translated comparators. The reference links the same NDK fixture object with the exact pinned Android13 Bionic implementation under ARM64 QEMU; comparison order and duplicate selection are checked independently against a Python midpoint oracle.
+
+The fixture uses original key/element pointer identities, negative/extreme low-W0 results and deliberately poisoned upper-X0 bits. It includes the exact four original instructions at IL2CPP comparator82580bd0 as a labelled component, retaining 32-bit subtraction wrap rather than substituting host integer ordering. It does not manually initialize or call the original game search wrapper.
+
+The native ABI caller seeds and observes X19–X29 and D8–D15 around the real search, and restores the native caller's prior registers. Nested comparisons invoke bsearch again on real guest-owned arrays. Zero-element calls invoke no comparator, zero-width arrays follow the finite Bionic algorithm, callback errno effects remain visible, and an actual write through the returned element pointer verifies its backing identity. Provider validation and callback failures are separate explicit boundaries, not successful null searches. No exclusive-reservation claim is made across nested Runtime.Run.
+
+Every immutable candidate records sources, tools, objects, original-body/primary inputs and terminal success markers. Failed variants remain intact. Runtime results are established by candidate acceptance, not by this document.
