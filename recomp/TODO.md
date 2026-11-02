@@ -212,6 +212,12 @@ attempts and the qualified Windows thread-storage repairs remain preserved.
   setlocale6/empty call at LR8254d0b4 qualifies public IL2CPP init entry, without
   proving inner initialization or its return. See
   [locale semantics and lifetime evidence](windows/setlocale.md).
+- Real descriptor duplication passes 14,215 focused checks and 4,164 actual
+  NDK calls, plus file/mapping regressions. Native proof confirms separate
+  descriptors/handles sharing file position, independent close/CLOEXEC state,
+  and removal of native handle inheritance. The managed descriptor namespace
+  remains explicitly bounded; the next natural run must qualify the actual
+  IL2CPP call. See [descriptor lifetime and scope](windows/filesystem_dup.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old

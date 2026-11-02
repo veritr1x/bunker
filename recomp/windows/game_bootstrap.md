@@ -105,6 +105,12 @@ establishing inner initialization or its return. No host init call is inserted.
 The Windows locale, pthread-binding, EGL-error and automatic-frame containers
 use qualified native thread storage; see [the lifetime repair](passive_thread_storage.md).
 
+The Dup observer forwards the original signed descriptor through the accepted
+FileSystem implementation once, recording its actual result, LR and Android
+errno. Its marker is separate from mmap/sscanf/setlocale and it performs no
+extra descriptor/path/stat operation. This observation does not establish the
+original pathname. See [the bounded duplication contract](filesystem_dup.md).
+
 The actual Unity constructor at 700d9044 registers installed LibC::free as a
 void(void*) TLS destructor. Its exact marker is admitted alongside translated
 callbacks; pthread_create starts remain translated-only. Earlier component
