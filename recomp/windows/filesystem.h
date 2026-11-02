@@ -26,6 +26,16 @@ static_assert(offsetof(AndroidStat, access_time) == 72);
 static_assert(offsetof(AndroidStat, modification_time) == 88);
 static_assert(offsetof(AndroidStat, change_time) == 104);
 
+struct AndroidDirent {
+  uint64_t inode;
+  int64_t offset;
+  uint16_t record_length;
+  uint8_t type;
+  char name[256];
+};
+static_assert(sizeof(AndroidDirent)==280);
+static_assert(offsetof(AndroidDirent,name)==19);
+
 // Exact Android AArch64 constants, verified with the installed NDK preprocessor.
 namespace linux_flags {
 constexpr int read_only = 0, write_only = 1, read_write = 2;
@@ -72,6 +82,12 @@ class FileSystem {
   // parent traversal and final reparse points remain protected; never recursive.
   int Unlink(const char *path);
   int Rmdir(const char *path);
+  // Forward-only native directory streams. The returned tracked record lasts
+  // until this stream's next ReadDir or CloseDir. Offsets are opaque cookies;
+  // seekdir/telldir and concurrent consumption of one returned record are absent.
+  addr_t OpenDir(const char *path);
+  addr_t ReadDir(addr_t directory);
+  int CloseDir(addr_t directory);
   addr_t FOpen(const char *path, const char *mode);
   int FClose(addr_t stream);
   // Exact reached Android setvbuf shape: owned stream, buffer0, mode2

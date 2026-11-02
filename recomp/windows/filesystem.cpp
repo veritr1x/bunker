@@ -17,6 +17,7 @@
 #include <sddl.h>
 
 #include "filesystem.h"
+#include "unicode.h"
 #include "../whole/bridge.h"
 
 namespace bunker::windows {
@@ -43,7 +44,7 @@ bool SnapshotString(const char *source, std::string &value, size_t limit) {
   return false;
 }
 const char *names[] = {"__errno", "open", "close", "read", "write", "lseek", "lseek64", "stat", "lstat", "fstat", "access",
-  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf", "unlink", "rmdir"};
+  "fopen", "fclose", "fread", "fwrite", "fseek", "fseeko", "ftell", "ftello", "feof", "ferror", "fflush", "mmap", "munmap", "mprotect", "madvise", "mkdir", "setvbuf", "unlink", "rmdir", "opendir", "readdir", "closedir"};
 int GuestCrtError(int error) {
   switch (error) {
     case 0: return 0;
@@ -141,11 +142,22 @@ struct FileSystem::Impl {
     Stream(FILE *n,bool w,uint64_t d):native(n),writable(w),device(d){}
     ~Stream(){if(native)std::fclose(native);}
   };
+  struct Directory {
+    std::mutex io;HANDLE native;
+    alignas(8) std::array<uint8_t,65536> batch{};
+    AndroidDirent record{};
+    size_t position=0;int64_t cookie=0;
+    bool next_batch=true,eof=false,record_live=true;
+    explicit Directory(HANDLE h):native(h){recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(&record),sizeof(record));}
+    void Retire(){if(record_live){recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(&record),sizeof(record));record_live=false;}}
+    ~Directory(){Retire();if(native!=INVALID_HANDLE_VALUE)CloseHandle(native);}
+  };
   struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation; };
   std::recursive_mutex mutex;
   std::vector<Mount> mounts;
   std::map<int, std::shared_ptr<Descriptor>> descriptors;
   std::map<addr_t, std::shared_ptr<Stream>> streams;
+  std::map<addr_t, std::shared_ptr<Directory>> directories;
   alignas(8) std::array<uint8_t, 3*152> standard_objects{};
   bool standards_ready = false;
   std::map<addr_t, Mapping> mappings;
@@ -167,6 +179,8 @@ struct FileSystem::Impl {
   void Error(int value) {std::lock_guard lock(mutex);auto &slot=errors[ThreadKey()];recomp::WriteGuestMemory(reinterpret_cast<addr_t>(&slot),&value,sizeof(value));}
   std::shared_ptr<Descriptor> GetDescriptor(int descriptor){std::lock_guard lock(mutex);auto it=descriptors.find(descriptor);if(it==descriptors.end()){Error(9);return {};}return it->second;}
   std::shared_ptr<Stream> GetStream(addr_t stream){std::lock_guard lock(mutex);auto it=streams.find(stream);if(it==streams.end()){Error(9);return {};}return it->second;}
+  std::shared_ptr<Directory> GetDirectory(addr_t token){std::lock_guard lock(mutex);auto it=directories.find(token);if(it==directories.end()){Error(9);return {};}return it->second;}
+  addr_t OpaqueToken(){if(next_stream>=0x7ff800000000ULL){Error(75);return 0;}return next_stream++;}
   void CrtError() { Error(GuestCrtError(errno)); }
   void WinError() { Error(GuestWinError(GetLastError())); }
   std::string Normalize(const std::string &raw) {
@@ -439,6 +453,91 @@ int FileSystem::Mkdir(const char *path,uint32_t mode) {
 }
 int FileSystem::Unlink(const char *path){return impl_->Remove(path,false);}
 int FileSystem::Rmdir(const char *path){return impl_->Remove(path,true);}
+addr_t FileSystem::OpenDir(const char *path){
+  std::lock_guard lock(impl_->mutex);
+  if(!path){impl_->Error(14);return 0;}
+  std::string snapshot;
+  if(!SnapshotString(path,snapshot,4096)){impl_->Error(36);return 0;}
+  if(snapshot.empty()){impl_->Error(2);return 0;}
+  fs::path host;const Impl::Mount *mount;
+  try{
+    Utf16(snapshot); // Reject unrepresentable byte paths, never silently replace.
+    if(!impl_->Resolve(snapshot.c_str(),false,host,mount,true))return 0;
+  }catch(const std::invalid_argument &){impl_->Error(84);return 0;}
+  catch(const fs::filesystem_error &){impl_->Error(22);return 0;}
+  if(mount->directory){
+    fs::path parent=mount->host;const auto relative=host.lexically_relative(parent);
+    for(auto at=relative.begin();at!=relative.end();++at){
+      auto next=at;++next;if(next==relative.end())break;
+      parent/=*at;auto attributes=GetFileAttributesW(parent.c_str());
+      if(attributes==INVALID_FILE_ATTRIBUTES){impl_->Error(DirectoryError(GetLastError()));return 0;}
+      if(!(attributes&FILE_ATTRIBUTE_DIRECTORY)){impl_->Error(20);return 0;}
+    }
+  }
+  struct OwnedHandle{HANDLE value=INVALID_HANDLE_VALUE;~OwnedHandle(){if(value!=INVALID_HANDLE_VALUE)CloseHandle(value);}}handle;
+  handle.value=CreateFileW(host.c_str(),FILE_LIST_DIRECTORY|FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+  if(handle.value==INVALID_HANDLE_VALUE){impl_->Error(DirectoryError(GetLastError()));return 0;}
+  BY_HANDLE_FILE_INFORMATION info{};
+  if(!GetFileInformationByHandle(handle.value,&info)){impl_->WinError();return 0;}
+  if(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT){impl_->Error(95);return 0;}
+  if(!(info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)){impl_->Error(20);return 0;}
+  try{
+    auto directory=std::make_shared<Impl::Directory>(handle.value);handle.value=INVALID_HANDLE_VALUE;
+    auto token=impl_->OpaqueToken();if(!token)return 0;
+    impl_->directories.emplace(token,std::move(directory));return token;
+  }catch(const std::bad_alloc &){impl_->Error(12);return 0;}
+}
+addr_t FileSystem::ReadDir(addr_t token){
+  auto directory=impl_->GetDirectory(token);if(!directory)return 0;
+  std::lock_guard lock(directory->io);
+  if(directory->native==INVALID_HANDLE_VALUE){impl_->Error(9);return 0;}
+  if(directory->eof)return 0;
+  if(directory->next_batch){
+    directory->batch.fill(0);
+    if(!GetFileInformationByHandleEx(directory->native,FileIdBothDirectoryInfo,directory->batch.data(),DWORD(directory->batch.size()))){
+      const auto error=GetLastError();
+      if(error==ERROR_NO_MORE_FILES){directory->eof=true;return 0;}
+      if(error==ERROR_INVALID_FUNCTION||error==ERROR_NOT_SUPPORTED||error==ERROR_INVALID_PARAMETER)
+        throw std::runtime_error("native FileIdBothDirectoryInfo enumeration is unsupported: "+std::to_string(error));
+      impl_->Error(DirectoryError(error));return 0;
+    }
+    directory->position=0;directory->next_batch=false;
+  }
+  static_assert(sizeof(wchar_t)==2);
+  constexpr auto header_size=offsetof(FILE_ID_BOTH_DIR_INFO,FileName);
+  if(directory->position>directory->batch.size())throw std::runtime_error("malformed native directory cursor");
+  const auto remaining=directory->batch.size()-directory->position;
+  if(remaining<header_size)throw std::runtime_error("malformed native directory header range");
+  FILE_ID_BOTH_DIR_INFO entry{};std::memcpy(&entry,directory->batch.data()+directory->position,header_size);
+  const auto length=size_t(entry.FileNameLength),next=size_t(entry.NextEntryOffset);
+  if(!length||(length%2)||length>remaining-header_size||(next&&(next%8||next<header_size+length||next>remaining-header_size)))
+    throw std::runtime_error("malformed native directory entry bounds/alignment");
+  const auto source=directory->batch.data()+directory->position+header_size;
+  if(reinterpret_cast<uintptr_t>(source)%alignof(wchar_t))throw std::runtime_error("unaligned native UTF16 directory name");
+  std::u16string wide(length/2,0);std::memcpy(wide.data(),source,length);
+  if(wide.find_first_of(u"\0/\\",0,3)!=std::u16string::npos)throw std::runtime_error("malformed native directory name");
+  std::string name;
+  try{name=Utf8(wide);}catch(const std::invalid_argument &){throw std::runtime_error("native directory name has unsupported invalid UTF16");}
+  if(name.size()>=sizeof(AndroidDirent::name))throw std::runtime_error("native directory name exceeds Android dirent UTF8 capacity");
+  if(directory->cookie==INT64_MAX)throw std::overflow_error("directory stream cookie exhausted");
+  AndroidDirent result{};result.inode=static_cast<uint64_t>(entry.FileId.QuadPart);result.offset=directory->cookie+1;
+  result.record_length=uint16_t((offsetof(AndroidDirent,name)+name.size()+1+7)&~size_t(7));
+  result.type=(entry.FileAttributes&(FILE_ATTRIBUTE_REPARSE_POINT|FILE_ATTRIBUTE_DEVICE))?0:(entry.FileAttributes&FILE_ATTRIBUTE_DIRECTORY)?4:8;
+  std::memcpy(result.name,name.data(),name.size());
+  const auto address=reinterpret_cast<addr_t>(&directory->record);
+  recomp::WriteGuestMemory(address,&result,sizeof(result));
+  directory->cookie=result.offset;
+  if(next)directory->position+=next;else directory->next_batch=true;
+  return address;
+}
+int FileSystem::CloseDir(addr_t token){
+  std::shared_ptr<Impl::Directory> directory;
+  {std::lock_guard lock(impl_->mutex);auto found=impl_->directories.find(token);if(found==impl_->directories.end()){impl_->Error(9);return -1;}directory=found->second;impl_->directories.erase(found);}
+  std::lock_guard lock(directory->io);directory->Retire();
+  const auto handle=directory->native;directory->native=INVALID_HANDLE_VALUE;
+  if(handle==INVALID_HANDLE_VALUE){impl_->Error(9);return -1;}
+  if(!CloseHandle(handle)){impl_->WinError();return -1;}return 0;
+}
 addr_t FileSystem::FOpen(const char *path, const char *mode) {
   std::lock_guard lock(impl_->mutex);
   std::string mode_copy;if(!SnapshotString(mode,mode_copy,16)){impl_->Error(22);return 0;}mode=mode_copy.c_str();
@@ -462,7 +561,7 @@ addr_t FileSystem::FOpen(const char *path, const char *mode) {
   std::wstring native_mode(1, static_cast<wchar_t>(*mode)); if (plus) native_mode += L'+'; native_mode += L'b';
   FILE *file = _wfdopen(native, native_mode.c_str());
   if (!file) { impl_->CrtError(); _close(native); return 0; }
-  auto handle = impl_->next_stream++; impl_->streams.emplace(handle,std::make_shared<Impl::Stream>(file,mount->writable,mount->device)); return handle;
+  auto handle=impl_->OpaqueToken();if(!handle){std::fclose(file);return 0;}impl_->streams.emplace(handle,std::make_shared<Impl::Stream>(file,mount->writable,mount->device));return handle;
 }
 int FileSystem::FClose(addr_t stream) {
   std::shared_ptr<Impl::Stream> file;
@@ -670,6 +769,9 @@ void FileSystem::Install(recomp::Runtime &runtime) {
   runtime.AddImport(Marker("setvbuf"), recomp::MakeBridge<int32_t(addr_t, addr_t, int32_t, uint64_t)>([this](auto stream, auto buffer, auto mode, auto size) { return FSetBuffer(stream, buffer, mode, size); }));
   runtime.AddImport(Marker("unlink"), recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Unlink(path);}));
   runtime.AddImport(Marker("rmdir"), recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Rmdir(path);}));
+  runtime.AddImport(Marker("opendir"), recomp::MakeBridge<addr_t(const char*)>([this](auto path){return OpenDir(path);}));
+  runtime.AddImport(Marker("readdir"), recomp::MakeBridge<addr_t(addr_t)>([this](auto directory){return ReadDir(directory);}));
+  runtime.AddImport(Marker("closedir"), recomp::MakeBridge<int32_t(addr_t)>([this](auto directory){return CloseDir(directory);}));
   impl_->installed = true;
 }
 }  // namespace bunker::windows
