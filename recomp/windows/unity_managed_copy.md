@@ -133,3 +133,20 @@ That final audit rehashed prior artifacts,3547 inherited objects, the one
 accepted replacement, frozen sources and the six then-current gate files.
 This outcome documentation was updated afterward; the executed frozen source
 snapshot and its recorded hashes remain unchanged.
+
+## Natural startup physical copy
+
+The subsequent frozen game10 frame run naturally loads IL2CPP and resolves all
+222 APIs, then stops at an unported sscanf. A read-only follow-up finds all24
+Managed files already present in its unique originally empty DataRoot. Every
+file is byte-identical to the original APK, totaling24570231 bytes, including
+23317064-byte metadata with the SHA256 above; no extra physical files appear.
+No host extraction or repair populated that tree. The report
+`work/game10-managed-readonly/acceptance.json` has SHA256
+`dcefccb34c52a195ac50f0c824d378dc60196de1d42fde16620b89339d72aeee`.
+
+This qualifies natural physical copying. It does not establish the copy helper
+return, unity.ver publication, later ownership cleanup, IL2CPP initialization or
+a rendered frame. Four original buildDate scan sites surround the copy path,
+so the old terminal LR alone does not identify its parent site. See
+[the frozen natural startup record](game_bootstrap.md).

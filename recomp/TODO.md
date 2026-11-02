@@ -109,8 +109,10 @@ part of the normal Bunker release. The game does not boot or render yet.
   that file regression. Real absent-destination quarantine moves pass 103 checks.
   The original ZIP-backed Managed-copy component now copies all 24 APK files
   (24,570,231 bytes), checks every size/CRC/SHA and actual metadata read/mmap,
-  and retires its original owners and streams. Normal engine initialization
-  and IL2CPP initialization remain separate. See
+  and retires its original owners and streams. A read-only follow-up of game10's
+  unique original-process DataRoot also verifies the natural physical copy:
+  exactly those 24 files, with every byte matching the original APK. This does
+  not qualify the later copy helper return/cleanup or IL2CPP initialization. See
   [the copy component](windows/unity_managed_copy.md).
   See [directory streams](windows/filesystem_directory.md),
   [buffering](windows/filesystem_setvbuf.md) and

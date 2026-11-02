@@ -239,6 +239,20 @@ IL2CPP initialization, nativeRender return, signal delivery and a rendered image
 remain unqualified. Aggregate audit SHA256 is
 `8ae2475ec3ad51de8dbd9e2ece6cc28ef3ee4b433a1aacd51268e947150a8be2`.
 
+A later read-only inventory of that same game10 DataRoot qualifies the natural
+physical Managed copy. The runner created an empty unique directory before the
+original process; no host copy or repair populated it. Its files/il2cpp tree
+contains exactly all24 original APK Managed members, totaling24570231 bytes,
+with exact byte/CRC/SHA parity and no extra files. Metadata is23317064 bytes,
+SHA256 `7ae75b594082b3a603a82f68d497d6c3aea30881b94496b2c11d8de71f8321d2`.
+The original startup can reach the terminal sscanf after physically copying;
+the log alone does not identify which of four buildDate scan sites called it.
+No helper return, unity.ver write, later copy-stage cleanup or IL2CPP init is
+claimed. The independent read-only supplement
+`work/game10-managed-readonly/acceptance.json` has SHA256
+`dcefccb34c52a195ac50f0c824d378dc60196de1d42fde16620b89339d72aeee`;
+the original frozen game audit remains unchanged.
+
 `work/windows-game11` freezes ccf8c84 and executable SHA256
 `657e01c77bc2a8f326478597a1e0e81302cd405dbf1ff9e6ddaa09eb6f36c8b3`.
 Its default profile fails during setup before any original constructor:
