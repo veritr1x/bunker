@@ -4,11 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## 1.6.5 (2026-11-02)
+## 1.7.0 (2026-11-02)
 
-On iPhone and iPad, the picture can be upscaled with MetalFX: 1080p with
-MetalFX looks close to the screen's own resolution for about half the GPU
-work.
+Below the screen's own resolution, the picture can be upscaled instead of
+stretched: MetalFX on iPhone and iPad, FSR 1 or SGSR on Android. 1080p
+upscaled looks close to the screen's own resolution for about half the GPU
+work. The Display page is grouped into sections.
 
 ## 2026-11-02
 
@@ -21,7 +22,8 @@ work.
 - Android: Upscaling › FSR 1 or SGSR (AMD FidelityFX FSR 1, Qualcomm
   Snapdragon Game Super Resolution). Below the screen's own resolution, each
   frame is upscaled with the chosen one instead of being stretched by the
-  display hardware. Off by default. [cbc1b79]
+  display hardware. Off by default. Their licences ship in the APK and are
+  credited in About. [cbc1b79]
 - The Display page is grouped under Frame rate, Resolution, Effects and
   Screen. [2dfa2d5]
 
