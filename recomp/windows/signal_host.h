@@ -73,6 +73,10 @@ class SignalHost {
   // identity failure throws before queue mutation, without a synthetic fallback.
   int ThreadKill(uint64_t token,int signal,const SenderSnapshot&);
   Dispatch DispatchOne(uint64_t token,const Boundary&);
+  // Select only allowed unmasked pending signals, atomically before consuming.
+  // Unallowed pending/info and global NeedsPoll remain intact; no predicate runs
+  // under the signal mutex. Zero permits no delivery.
+  Dispatch DispatchOneAllowed(uint64_t token,uint64_t allowed_signal_bits,const Boundary&);
   int Suspend(uint64_t token,uint64_t temporary_mask,const Boundary&); // positive EINTR normally
   // Dispositions and pure sigset helpers only; does not enable thread signals.
   void InstallProcess(recomp::Runtime&);
@@ -83,7 +87,7 @@ class SignalHost {
   void SetErrorSink(std::function<void(int)> sink){error_sink_=std::move(sink);}
   static uint64_t Bit(int signal);
  private:
-  Dispatch DispatchImpl(uint64_t,const Boundary&,std::optional<uint64_t> saved_override);
+  Dispatch DispatchImpl(uint64_t,const Boundary&,std::optional<uint64_t> saved_override,uint64_t allowed_signal_bits=UINT64_MAX);
   void Publish(const ThreadRef&);
   void NotifyAfterUnlock(const ThreadRef&);
   int SyscallError(int);

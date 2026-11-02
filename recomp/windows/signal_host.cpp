@@ -207,11 +207,12 @@ int SignalHost::ThreadKill(uint64_t token,int signal,const SenderSnapshot &snaps
   return Queue(token,signal,&info);
 }
 SignalHost::Dispatch SignalHost::DispatchOne(uint64_t token,const Boundary &boundary){return DispatchImpl(token,boundary,{});}
-SignalHost::Dispatch SignalHost::DispatchImpl(uint64_t token,const Boundary &boundary,std::optional<uint64_t> saved_override){
+SignalHost::Dispatch SignalHost::DispatchOneAllowed(uint64_t token,uint64_t allowed_signal_bits,const Boundary &boundary){return DispatchImpl(token,boundary,{},allowed_signal_bits);}
+SignalHost::Dispatch SignalHost::DispatchImpl(uint64_t token,const Boundary &boundary,std::optional<uint64_t> saved_override,uint64_t allowed_signal_bits){
   ThreadRef t;Delivery delivery{};uint64_t old;
   {std::lock_guard lock(mutex_);auto i=threads_.find(token);if(i==threads_.end()||!i->second->alive)return {3};t=i->second;
     if(t->owner!=std::this_thread::get_id())return {1};
-    uint64_t eligible=t->pending&~t->mask;if(!eligible){Publish(t);return {};}
+    uint64_t eligible=t->pending&~t->mask&allowed_signal_bits;if(!eligible){Publish(t);return {};}
     int signal=1;while(!(eligible&Bit(signal)))++signal;
     auto action=actions_[signal];if(action.handler<=1)return {38};if(!boundary)return {38};
     old=t->mask;delivery={token,signal,action,t->info[signal],saved_override.value_or(old),t->stack};
