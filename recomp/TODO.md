@@ -55,8 +55,10 @@ part of the normal Bunker release. The game does not boot or render yet.
   services now have checked implementations. Windows now exposes a real default
   audio endpoint; the frame attempt passes resume and enters engine startup.
   Resolver, ServiceConnection and disabled-AR implementations pass focused gates.
-  The latest dual-engine frame creates real ServiceConnection and audio-focus
-  proxies, then reaches missing LocationListener metadata and sigaltstack.
+  The latest dual-engine frame creates real ServiceConnection, audio-focus and
+  LocationListener proxies and returns from the original sigaltstack query.
+  It now stops at AssetPackManagerWrapper.init, with preceding missing
+  LOCATION_SERVICE, Build.VERSION and getObbDirs metadata recorded.
   IL2CPP is still unloaded at that boundary.
   No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
@@ -141,6 +143,12 @@ part of the normal Bunker release. The game does not boot or render yet.
   gates and are reached by the original first-frame path. See
   [proxy scope](windows/jni_interface_proxy.md) and
   [the latest natural startup result](windows/game_bootstrap.md).
+- The reached LocationListener now has its exact six-method interface and a
+  distinct singleton proxy profile. Both hosts pass 547 focused checks and all
+  existing proxy/Context/Java regressions. Every active callback remains an
+  explicit boundary; no GPS, provider or coordinate result is supplied. The
+  original factory's actual singleton Class[] is now captured in game8. See
+  [LocationListener scope](windows/location_proxy.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old
@@ -266,6 +274,12 @@ unsupported instructions.
   [A bounded combined gate](windows/signal_delivery.md) passes 16 same-worker
   stop/restart cycles on both hosts with NDK handlers and actual guest-stack
   contexts. The game's collector handlers remain a separate required gate.
+  Virtual alternate stacks now pass 193 focused checks per host plus the existing
+  signal, semaphore, delivery and frame gates. Active frames pin real mapping
+  allocations; installed metadata remains unpinned, preserving original Unity's
+  failed-restore/unmap behavior. Three measured QEMU-user differences remain
+  explicitly separated from the pinned Android contract. See
+  [alternate-stack ownership and limits](windows/signal_altstack.md).
 - Finish provider memory integration and exercise paired exclusives in real
   Unity startup. The replacement single/pair reservation protocol passes 90,112
   instruction comparisons per platform plus 97 runtime checks and five
