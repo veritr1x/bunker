@@ -392,7 +392,7 @@ class RichNotices:
                     li=doc.new_tag('li');li.extend(list(p.contents));ul.append(li);p.decompose()
                 wrap.append(ul);notes.append(wrap)
         doc=self.fidelity.finish(doc,entry,mapping)
-        n={**n,'title':'[Reconstructed] '+entry['title'],'body':body(doc)}
+        n={**n,'title':entry['title'],'body':body(doc)}
         mapping['rich_content']={'title_graphic':logo,'promotion_panels':appeals,'character_cards':len(chosen),
             'weapon_cards':len(weapons),'configured_phase_facts':facts,'text_chars_before':len(original_text),
             'native_event_bonus_rows':bonus_facts,

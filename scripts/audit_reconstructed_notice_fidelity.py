@@ -18,7 +18,7 @@ def audit(pack,mappings,members,before=None,promotions=None):
         if not heads or heads[-1]!='Notes':errors.append('Notes must finish the page')
         if len(d.select('.attention_content li'))<3:errors.append('Missing useful Notes')
         if not d.select_one(f'a[href="/web/en/gacha-details?gachaId={m["gacha_id"]}"]'):errors.append('Missing correct live Details / Rates link')
-        if n['title']!='[Reconstructed] '+m['target_title']:errors.append('Title differs from target identity')
+        if n['title']!=m['target_title']:errors.append('Title differs from target identity')
         if m['target_title'] not in text:errors.append('Target name missing from opening')
         if not rich['configured_phase_facts'] and f.get('phase_source')!='withheld_payment_conflict':errors.append('No usable draw options')
         if f.get('phase_source')=='withheld_payment_conflict' and rich['configured_phase_facts']:errors.append('Disputed phase pricing published')

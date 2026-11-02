@@ -170,7 +170,7 @@ def body(r, thumb):
 def make_notice(r, thumb):
     assert not r.get('direct_notice_id'), 'Use the verified surviving notice instead of generating a duplicate.'
     start = r['baseline']['start']
-    return {'id': r['synthetic_notice_id'], 'type': 3, 'title': '[Generated] '+r['display_title'],
+    return {'id': r['synthetic_notice_id'], 'type': 3, 'title': r['display_title'],
             'publish': start if valid_date(start) else LAUNCH,
             **({'thumb': thumb} if thumb else {}), 'body': body(r, thumb)}
 
@@ -245,7 +245,7 @@ def build(args):
     assert len({n['id'] for n in pack['notices']}) == len(pack['notices'])
     assert all(v in ids for v in pack['gacha'].values())
     for n in pack['notices'][len(original['notices']):]:
-        assert n['title'].startswith('[Generated]') and 'Generated data summary' in n['body']
+        assert 'Generated data summary' in n['body']
         for member in re.findall(r'src="(img/[^"<>]+)"', n['body']):
             assert member in images or member in source.namelist()
         assert n['publish'] < HISTORICAL_CUTOFF
