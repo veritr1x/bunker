@@ -45,6 +45,15 @@ under its heading, down to the previous release.
   skill (Debilitating Bane, Miasma of Indolence, Curtain of Darkness), as
   the notice says: 80, 79 and 77 weapons. Vol. 2 and 3, missing from the
   game data, are added with their art and the weapons it shows. [2a05d9e]
+- 23 summons drew from the standard pool alone though their art or notice
+  names a lineup. They now feature or give what it names: the element
+  weapon summons their element's ★★★★ weapons; the Sun and the Moon
+  countdowns their three characters at double ★★★★ rate, with 10 Skip
+  Tickets; the Abyssal, Abyssal Weapon/Prisoner and NieR Lineage summons
+  only those characters at ★★★★, at 1.5× rate; the New Year daily free
+  summons an Abstract, Bloody or Fractured character at ★★★★, free once a
+  day; the Healer & Support summons only their exchange's weapons of their
+  elements, a ★★★★ weapon guaranteed, once a day. [c905c84]
 
 ## 1.7.0 (2026-11-02)
 
