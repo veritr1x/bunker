@@ -1,6 +1,8 @@
+#include <cfenv>
 #include "signal_host.h"
 #include "../whole/bridge.h"
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -171,6 +173,39 @@ int SignalHost::Queue(uint64_t token,int signal,const Info *info){
     t->pending|=Bit(signal);Publish(t);}
   NotifyAfterUnlock(t);return 0;
 }
+int SignalHost::ThreadKill(uint64_t token,int signal,const SenderSnapshot &snapshot){
+  // Preserve Queue's existing status ordering and avoid identity work on probes
+  // or dispositions which do not enqueue. Revalidate after the unlocked snapshot.
+  if(signal<0||signal>64)return 22;
+  {std::lock_guard lock(mutex_);auto i=threads_.find(token);if(i==threads_.end()||!i->second->alive)return 3;
+    if(!signal)return 0;
+    if(signal>=32||signal==9||signal==19)return 38;
+    if(actions_[signal].handler==0)return 38;
+    if(actions_[signal].handler==1)return 0;}
+  if(!snapshot)throw std::invalid_argument("pthread_kill explicit sender snapshot is missing");
+  SenderIdentity identity;
+  {
+    struct NativeEnvironment {
+      int error=errno;fenv_t environment{};
+#ifdef _WIN32
+      DWORD last_error=GetLastError();
+#endif
+      NativeEnvironment(){std::fegetenv(&environment);}
+      ~NativeEnvironment(){std::fesetenv(&environment);errno=error;
+#ifdef _WIN32
+        SetLastError(last_error);
+#endif
+      }
+    } preserve;
+    identity=snapshot();
+  }
+  if(identity.process_id<=0)throw std::runtime_error("pthread_kill sender PID is not a positive Android signed32 process ID");
+  Info info{};
+  auto store=[&](size_t offset,uint32_t value){for(size_t byte=0;byte<4;++byte)info[offset+byte]=uint8_t(value>>(8*byte));};
+  store(0,uint32_t(signal));store(4,0);store(8,uint32_t(-6)); // SI_TKILL
+  store(16,uint32_t(identity.process_id));store(20,identity.real_uid);
+  return Queue(token,signal,&info);
+}
 SignalHost::Dispatch SignalHost::DispatchOne(uint64_t token,const Boundary &boundary){return DispatchImpl(token,boundary,{});}
 SignalHost::Dispatch SignalHost::DispatchImpl(uint64_t token,const Boundary &boundary,std::optional<uint64_t> saved_override){
   ThreadRef t;Delivery delivery{};uint64_t old;
@@ -217,12 +252,12 @@ void SignalHost::InstallProcess(recomp::Runtime &runtime){
   for(auto name:{"sigaddset","sigdelset","sigismember"})add(name,recomp::MakeBridge<int32_t(addr_t,int32_t)>([this,name](auto out,auto sig){if(!out||!Bit(sig))return SyscallError(22);auto value=Read<uint64_t>(out);if(!std::strcmp(name,"sigismember"))return int(bool(value&Bit(sig)));value=std::strcmp(name,"sigaddset")?value&~Bit(sig):value|Bit(sig);Write(out,value);return 0;}));
   process_installed_=true;
 }
-void SignalHost::Install(recomp::Runtime &runtime,Current current,Boundary boundary){
+void SignalHost::Install(recomp::Runtime &runtime,Current current,Boundary boundary,SenderSnapshot sender){
   if(installed_||!current)throw std::logic_error("signal imports need one explicit current-token binding");
   if(!process_installed_)InstallProcess(runtime);
   auto add=[&](const char *name,auto bridge){runtime.AddImport(Marker(name),[name,bridge](State&s){try{bridge(s);}catch(const std::exception&e){std::fprintf(stderr,"signal foundation %s: %s\n",name,e.what());std::abort();}catch(...){std::abort();}});};
   for(auto name:{"pthread_sigmask","sigprocmask"})add(name,recomp::MakeBridge<int32_t(int32_t,addr_t,addr_t)>([this,current,name](auto how,auto set,auto old){uint64_t value=set?Read<uint64_t>(set):0,previous=0;int e=Mask(current(),how,set?&value:nullptr,old?&previous:nullptr);if(!e&&old)Write(old,previous);return std::string(name)=="pthread_sigmask"?e:SyscallError(e);}));
-  add("pthread_kill",recomp::MakeBridge<int32_t(uint64_t,int32_t)>([this](auto token,auto sig){return Queue(token,sig);}));
+  add("pthread_kill",recomp::MakeBridge<int32_t(uint64_t,int32_t)>([this,sender=std::move(sender)](auto token,auto sig){return sender?ThreadKill(token,sig,sender):Queue(token,sig);}));
   add("sigsuspend",recomp::MakeBridge<int32_t(addr_t)>([this,current,boundary](auto mask){return SyscallError(mask?Suspend(current(),Read<uint64_t>(mask),boundary):14);}));
   add("sigpending",recomp::MakeBridge<int32_t(addr_t)>([this,current](auto out){uint64_t pending=0;int e=out?Pending(current(),&pending):14;if(!e)Write(out,pending);return SyscallError(e);}));
   add("sigaltstack",[this,current](State&s){

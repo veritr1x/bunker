@@ -39,6 +39,11 @@ class SignalHost {
   using Boundary=std::function<std::optional<uint64_t>(const Delivery&)>;
   using Notify=std::function<void(uint64_t)>;
   using Current=std::function<uint64_t()>;
+  struct SenderIdentity { int32_t process_id=0; uint32_t real_uid=0; };
+  // Explicit virtual-process identity, never a pthread token/native target TID.
+  // Must be read-only and preserve guest errno; captured owners outlive imports.
+  // Called outside provider locks; native errno/fenv/LastError are restored.
+  using SenderSnapshot=std::function<SenderIdentity()>;
   struct Dispatch {int error=0;bool handled=false,restart=false;};
   struct Thread;
   using ThreadRef=std::shared_ptr<Thread>;
@@ -64,12 +69,16 @@ class SignalHost {
   void RestoreAlternateStack(uint64_t token,addr_t restored_sp,const StackSnapshot&);
   static bool OnAlternateStack(const AndroidSignalStack&,addr_t sp);
   int Queue(uint64_t token,int signal,const Info *info=nullptr);
+  // Optional pthread_kill profile. Invalid/zero/ignored paths do not snapshot;
+  // identity failure throws before queue mutation, without a synthetic fallback.
+  int ThreadKill(uint64_t token,int signal,const SenderSnapshot&);
   Dispatch DispatchOne(uint64_t token,const Boundary&);
   int Suspend(uint64_t token,uint64_t temporary_mask,const Boundary&); // positive EINTR normally
   // Dispositions and pure sigset helpers only; does not enable thread signals.
   void InstallProcess(recomp::Runtime&);
   addr_t ProcessMarker(const std::string&)const;
-  void Install(recomp::Runtime&,Current,Boundary);
+  // Empty sender retains the legacy bounded Queue siginfo profile unchanged.
+  void Install(recomp::Runtime&,Current,Boundary,SenderSnapshot sender={});
   addr_t Marker(const std::string&)const;
   void SetErrorSink(std::function<void(int)> sink){error_sink_=std::move(sink);}
   static uint64_t Bit(int signal);
