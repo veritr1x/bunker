@@ -22,13 +22,26 @@ class PollRequest {
   friend struct PollBindingState;
 };
 struct PollSite { addr_t trace; uint64_t ordinal, epoch; };
+struct PollAdmissionContext {
+  const State &state;
+  PollSite site;
+  // At ordinal zero this is the incoming trace PC, before Remill's prologue
+  // updates state.gpr.pc. State.pc is unmodified and can still name the caller.
+  addr_t program_counter;
+  const std::vector<const State *> &frames;
+};
 class PollBinding {
  public:
   using Handler = std::function<void(State &, PollSite, const std::vector<State *> &)>;
+  using Admission = std::function<bool(const PollAdmissionContext &)>;
   // Bind on the guest's native worker, surrounding Runtime::Run. One request
   // object can bind to only one worker at a time. Nested bindings restore their
   // predecessor; nested guest calls inside a handler do not recursively poll it.
-  PollBinding(PollRequest &, Handler);
+  // Optional admission runs before any State/reservation change or delivery.
+  // False or throw leaves the request pending and restores native errno/fenv.
+  // It must be bounded and read-only: no parking, guest execution or locks.
+  // Context references are borrowed only for the duration of this decision.
+  PollBinding(PollRequest &, Handler, Admission = {});
   ~PollBinding();
   PollBinding(const PollBinding &) = delete;
   PollBinding &operator=(const PollBinding &) = delete;

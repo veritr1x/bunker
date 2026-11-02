@@ -42,6 +42,19 @@ with guest rounding reapplied from the resumed FPCR. A nested Runtime call
 retains all parent State pointers, including roots absent from the child.
 Native provider temporaries are **not** enumerated by that chain.
 
+`PollBinding` also accepts an optional read-only admission policy. Its borrowed
+context contains the materialized State, a const State chain, the captured site
+and epoch, and the authoritative `program_counter`. At a trace-entry site the
+State's PC still precedes Remill's prologue update; admission must use that
+separate PC field rather than assuming State.pc already names the entry.
+Returning false or throwing defers the request without invoking the handler,
+acknowledging the epoch, clearing an exclusive reservation, or editing State.
+Native errno and the exact native floating-point environment are restored on
+that path. A later admitted poll on the same worker handles the pending request.
+The policy must be bounded and read-only, without locks, parking or guest calls.
+An absent policy retains normal delivery. This option does not publish provider
+roots, make a native wait interruptible, or enable production signal delivery.
+
 The gate runs production compiler objects and verifies optimized IR/native hook
 retention, coherent loop State, same-worker delivery, nested roots, reservation
 invalidation, epochs, failed callbacks and FPCR changes. Separate LLVM fixtures
