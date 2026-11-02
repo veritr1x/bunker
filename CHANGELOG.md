@@ -17,6 +17,12 @@ under its heading, down to the previous release.
 - Notice pack 4: the 951 original notices and 203 rebuilt summon pages
   (1,154 notices, 2,701 images). Builds now fetch it; it is twice the size
   of pack 3 (135 MB). [de85587]
+- Notice pack 5: 13 summons without a notice (Yuletide Wishes, the 220 free
+  summons, the Congratulatory and Resolute Dress summons, the YoRHa Stage
+  Play free summon and eight step-ups) have one written from their banner
+  art and game data: their title logo, period, promotional panel, featured
+  characters and weapons, and each step's cost, guarantee and bonus. Their
+  i button opens it. [70d02d2]
 - The notice tools' tests run in CI (Pillow and BeautifulSoup in
   scripts/requirements-notices.txt). [b772a20]
 
