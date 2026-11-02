@@ -5,6 +5,7 @@
 #include <cctype>
 #include <climits>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <io.h>
@@ -152,7 +153,17 @@ struct FileSystem::Impl {
     void Retire(){if(record_live){recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(&record),sizeof(record));record_live=false;}}
     ~Directory(){Retire();if(native!=INVALID_HANDLE_VALUE)CloseHandle(native);}
   };
-  struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation; };
+  struct MappingPins {std::atomic<uint64_t> uses{0};};
+  struct MappingLease {
+    std::shared_ptr<MappingPins> pins;
+    explicit MappingLease(std::shared_ptr<MappingPins> owner):pins(std::move(owner)){
+      auto count=pins->uses.load(std::memory_order_relaxed);
+      do{if(count==UINT64_MAX)throw std::overflow_error("mapping-use pin count exhausted");}
+      while(!pins->uses.compare_exchange_weak(count,count+1,std::memory_order_acq_rel,std::memory_order_relaxed));
+    }
+    ~MappingLease(){pins->uses.fetch_sub(1,std::memory_order_release);}
+  };
+  struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation;std::shared_ptr<MappingPins> pins; };
   std::recursive_mutex mutex;
   std::vector<Mount> mounts;
   std::map<int, std::shared_ptr<Descriptor>> descriptors;
@@ -168,6 +179,12 @@ struct FileSystem::Impl {
   bool installed = false;
   explicit Impl(addr_t base) : marker_base(base) {}
   ~Impl() {
+    // Owner lifetime is required: never retire even an earlier mapping before
+    // diagnosing a live frame's physical pin. Lease release has no Impl pointer.
+    for(const auto &entry:mappings)if(entry.second.pins->uses.load(std::memory_order_acquire)){
+      std::fprintf(stderr,"FileSystem destruction with active mapping use: base=%#llx generation=%llu\n",(unsigned long long)entry.first,(unsigned long long)entry.second.generation);
+      std::fflush(stderr);std::abort();
+    }
     for(auto &entry:errors)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(&entry.second),sizeof(entry.second));
     recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(standard_objects.data()),standard_objects.size());
     for (auto &entry : mappings) {
@@ -665,13 +682,14 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   if (no_replace && (!address || address % kPage)) { impl_->Error(22); return kMapFailed; }
   uint64_t rounded = RoundPage(length);
   const auto generation=MappingGeneration();
+  const auto pins=std::make_shared<Impl::MappingPins>();
   if (flags & linux_flags::map_anonymous) {
     if (offset || (flags & 3) == linux_flags::map_shared) { impl_->Error(95); return kMapFailed; }
     void *result = VirtualAlloc(reinterpret_cast<void *>(address), rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result && address && !no_replace) result = VirtualAlloc(nullptr, rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result) { if (no_replace && GetLastError() == ERROR_INVALID_ADDRESS) impl_->Error(17); else impl_->WinError(); return kMapFailed; }
     if (no_replace && reinterpret_cast<addr_t>(result) != address) { VirtualFree(result, 0, MEM_RELEASE); impl_->Error(17); return kMapFailed; }
-    auto pointer = reinterpret_cast<addr_t>(result);recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false,generation}); return pointer;
+    auto pointer = reinterpret_cast<addr_t>(result);recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false,generation,pins}); return pointer;
   }
   auto found = impl_->descriptors.find(descriptor);
   if (found == impl_->descriptors.end() || (found->second->flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
@@ -700,13 +718,14 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   auto pointer = reinterpret_cast<addr_t>(view) + delta;
   DWORD previous;
   if (!VirtualProtect(reinterpret_cast<void *>(pointer), length, Protection(protection, private_file), &previous)) { impl_->WinError(); UnmapViewOfFile(view); CloseHandle(object); return kMapFailed; }
-  recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{view, object, rounded, true, private_file,generation}); return pointer;
+  recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{view, object, rounded, true, private_file,generation,pins}); return pointer;
 }
 int FileSystem::Munmap(addr_t address, uint64_t length) {
   std::lock_guard lock(impl_->mutex); auto found = impl_->mappings.find(address);
   if (!length || length > UINT64_MAX - kPage || address % kPage) { impl_->Error(22); return -1; }
   if (found == impl_->mappings.end()) { impl_->Error(22); return -1; }
   if (RoundPage(length) != found->second.rounded_length) { impl_->Error(95); return -1; }
+  if(found->second.pins->uses.load(std::memory_order_acquire))throw std::runtime_error("unsupported munmap of active mapping use");
   recomp::InvalidateGuestMemory(address,found->second.rounded_length);
   bool result = found->second.file ? !!UnmapViewOfFile(found->second.native) : !!VirtualFree(found->second.native, 0, MEM_RELEASE);
   if (!result) { impl_->WinError(); return -1; }
@@ -715,6 +734,14 @@ int FileSystem::Munmap(addr_t address, uint64_t length) {
 int FileSystem::Mprotect(addr_t address, uint64_t length, int protection) {
   std::lock_guard lock(impl_->mutex);
   if (!length || length > UINT64_MAX - kPage || address % kPage || protection & ~7) { impl_->Error(22); return -1; }
+  const auto rounded=RoundPage(length);
+  if(address>UINT64_MAX-rounded){impl_->Error(12);return -1;}
+  // Check every intersecting owner before any native protection change, even
+  // when the requested shape later fails the existing single-owner profile.
+  for(const auto &entry:impl_->mappings){
+    const bool intersects=address>=entry.first?address-entry.first<entry.second.rounded_length:entry.first-address<rounded;
+    if(intersects&&entry.second.pins->uses.load(std::memory_order_acquire))throw std::runtime_error("unsupported mprotect of active mapping use");
+  }
   for (auto &entry : impl_->mappings) {
     if (address >= entry.first && address - entry.first <= entry.second.rounded_length && RoundPage(length) <= entry.second.rounded_length - (address - entry.first)) {
       DWORD previous;
@@ -743,6 +770,14 @@ std::optional<FileSystem::MappingInfo> FileSystem::MappingRegion(addr_t address,
     cursor+=std::min<uint64_t>(address+length-cursor,info.RegionSize-(cursor-region));
   }
   return MappingInfo{base,size,found->second.generation};
+}
+std::optional<FileSystem::MappingUse> FileSystem::AcquireMappingUse(addr_t address,uint64_t length,bool writable)const{
+  std::lock_guard lock(impl_->mutex);
+  auto region=MappingRegion(address,length,writable);if(!region)return {};
+  auto found=impl_->mappings.find(region->base);
+  if(found==impl_->mappings.end()||found->second.generation!=region->generation)throw std::logic_error("mapping-use owner changed under mapping mutex");
+  auto lease=std::make_shared<Impl::MappingLease>(found->second.pins);
+  return MappingUse{*region,std::move(lease)};
 }
 addr_t FileSystem::Marker(const std::string &name) const {
   if (name == "__sF") return const_cast<FileSystem *>(this)->StandardStreamsAddress();

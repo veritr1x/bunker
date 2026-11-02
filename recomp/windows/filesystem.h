@@ -112,6 +112,12 @@ class FileSystem {
   // Identifies an owned mmap lifetime and verifies actual page permissions.
   // This is not a lease or evidence of a Unity arena subobject's C lifetime.
   std::optional<MappingInfo> MappingRegion(addr_t address,uint64_t length,bool writable)const;
+  struct MappingUse {MappingInfo region;std::shared_ptr<void> lease;};
+  // Validates the complete span and pins its entire owning mmap until the last
+  // copied lease is released. Munmap/Mprotect reject any pinned-owner mutation.
+  // FileSystem must outlive all uses; destruction with a live pin is fatal.
+  // Final lease release is atomic-only and never calls back into FileSystem.
+  std::optional<MappingUse> AcquireMappingUse(addr_t address,uint64_t length,bool writable)const;
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
