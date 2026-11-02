@@ -5,6 +5,26 @@ $taskInput=Get-Content -Raw -LiteralPath (Join-Path $taskBuild 'game_inputs.json
 if($taskInput.status -ne 'prepared' -or $taskInput.union_trace_count -ne 456684 -or $taskInput.objects.Count -ne 3575){throw 'Incomplete final dual-engine input proof'}
 function Game-Path([string]$path){if($path.StartsWith('/mnt/c/')){return 'C:\'+$path.Substring(7).Replace('/','\')}return $path}
 function Game-Hash([string]$path){return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()}
+function Game-ValidatePollContract($proof,$descriptor,$objects){
+ if($proof.trace_heads -ne 456684 -or $proof.objects.Count -ne 3575 -or $objects.Count -ne 3575 -or $proof.unique_definitions -isnot [bool] -or -not $proof.unique_definitions -or $proof.PSObject.Properties.Name -notcontains 'missing_direct_targets' -or $null -eq $proof.missing_direct_targets -or $proof.missing_direct_targets.Count -ne 0){throw 'Incomplete cooperative cohort'}
+ for($index=0;$index -lt $objects.Count;$index++){if($proof.objects[$index].path -cne $objects[$index].path -or $proof.objects[$index].sha256 -cne $objects[$index].sha256){throw "Cooperative cohort object selection differs at $index"}}
+ $contract=$proof.contract;$version=1
+ if($contract.PSObject.Properties.Name -contains 'version'){if($contract.version -isnot [int] -and $contract.version -isnot [long]){throw 'Unknown cooperative contract version'};$version=$contract.version}
+ if($version -ne 1 -and $version -ne 2){throw 'Unknown cooperative contract version'}
+ if($contract.poll_instrument_sha256 -isnot [string] -or $contract.poll_instrument_sha256 -cne '716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa' -or $contract.target -isnot [string] -or $contract.target -cne 'x86_64-w64-windows-gnu'){throw 'Unqualified cooperative instrumentation profile'}
+ if($version -eq 1){
+  if($contract.input_plan_sha256 -isnot [string] -or $contract.input_plan_sha256 -cne '14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9' -or $contract.no_relift -isnot [bool] -or -not $contract.no_relift -or $contract.source_ir_and_semantics_preserved -isnot [bool] -or -not $contract.source_ir_and_semantics_preserved){throw 'Unqualified original cooperative contract'}
+ }else{
+  if($descriptor.acceptance_sha256 -isnot [string] -or $descriptor.acceptance_sha256 -cne '7ce11b6bfd936334be8b7e8c7fe7691435830f818392a9a21d9f499120662549'){throw 'Unqualified sparse cooperative proof hash'}
+  $required=@{profile='qualified-sparse-prefetch-v2';input_plan_sha256='9152d0cbf46a20aa86ee33cc48de63a1dece3647efe015b0aaed872c7e36bd95';base_input_plan_sha256='14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9';base_cohort_acceptance_sha256='0a5e6b164855d7c745962ec744d2e7bf1c7209a679065cc117c0575446d9687d';sparse_overlay_sha256='7fdc6f8b2e6eef9f5bafc9a4c5168318bf092ae1ec7e8988b44cd4b60b4dee7f';prefetch_fixture_acceptance_sha256='e387dc78d1f3c2d21999b8e105916faa1c53f86e67084cc31ffa6aebbddb71fc';prefetch_lifter_sha256='7e3e484c165a1308890d482fdb48baa9db0cb959867197bc02f607cd7a6a8126';prefetch_semantics_sha256='c5f0d94e6b234f5f0f376eeb999bc9bfbaee62d654381751c3080e5c621ac3b5';old_polled_object_sha256='f1dfc4ccd067c68f509bd067766deff504d225bd17754742035ec86c849e2ee6';new_polled_object_sha256='e8ed4af6efde5f9df1d73905baf5f1f934931ded38327a1f36110b9dfe100358'}
+  foreach($key in $required.Keys){if($contract.$key -isnot [string] -or $contract.$key -cne $required[$key]){throw "Unqualified sparse cooperative provenance: $key"}}
+  if($contract.no_relift -isnot [bool] -or $contract.no_relift -or $contract.source_ir_and_semantics_preserved -isnot [bool] -or $contract.source_ir_and_semantics_preserved){throw 'Sparse cooperative contract must disclose changed source/semantics'}
+  foreach($entry in @(@{key='qualified_sparse_relifts';value=1},@{key='replaced_object_index';value=1553},@{key='unchanged_objects';value=3574})){$value=$contract.($entry.key);if(($value -isnot [int] -and $value -isnot [long]) -or $value -ne $entry.value){throw "Sparse cooperative replacement scope differs: $($entry.key)"}}
+  if($proof.objects[1553].sha256 -cne $required.new_polled_object_sha256){throw 'Sparse cooperative replacement object differs'}
+  if($contract.input_plan_path -isnot [string] -or [string]::IsNullOrEmpty($contract.input_plan_path)){throw 'Sparse cooperative plan path is absent'}
+ }
+ return $version
+}
 foreach($taskGroup in @(@{root=(Join-Path $taskBuild 'sources');values=$taskInput.source_sha256},@{root=$taskBuild;values=$taskInput.frozen_support_sha256},@{root=$taskBuild;values=$taskInput.generated_header_sha256})){
  foreach($taskProperty in $taskGroup.values.PSObject.Properties){if((Game-Hash (Join-Path $taskGroup.root $taskProperty.Name)) -ne $taskProperty.Value){throw "Frozen source/support differs: $($taskProperty.Name)"}}
 }
@@ -15,13 +35,8 @@ if($null -ne $taskPollCohort){
  $taskPollProofPath=Game-Path $taskPollCohort.acceptance_path
  if((Game-Hash $taskPollProofPath) -ne $taskPollCohort.acceptance_sha256){throw 'Cooperative cohort acceptance differs'}
  $taskPollProof=Get-Content -Raw -LiteralPath $taskPollProofPath|ConvertFrom-Json
- if($taskPollProof.trace_heads -ne 456684 -or $taskPollProof.objects.Count -ne 3575 -or $taskPollProof.unique_definitions -isnot [bool] -or -not $taskPollProof.unique_definitions -or $taskPollProof.PSObject.Properties.Name -notcontains 'missing_direct_targets' -or $null -eq $taskPollProof.missing_direct_targets -or $taskPollProof.missing_direct_targets.Count -ne 0){throw 'Incomplete cooperative cohort'}
- $taskPollContract=$taskPollProof.contract
- if($taskPollContract.input_plan_sha256 -cne '14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9' -or $taskPollContract.poll_instrument_sha256 -cne '716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa' -or $taskPollContract.target -cne 'x86_64-w64-windows-gnu' -or $taskPollContract.no_relift -isnot [bool] -or -not $taskPollContract.no_relift -or $taskPollContract.source_ir_and_semantics_preserved -isnot [bool] -or -not $taskPollContract.source_ir_and_semantics_preserved){throw 'Cooperative cohort uses an unqualified input or instrumentation profile'}
- for($taskPollIndex=0;$taskPollIndex -lt $taskInput.objects.Count;$taskPollIndex++){
-  $taskExpectedPollObject=$taskPollProof.objects[$taskPollIndex];$taskActualPollObject=$taskInput.objects[$taskPollIndex]
-  if($taskExpectedPollObject.path -cne $taskActualPollObject.path -or $taskExpectedPollObject.sha256 -cne $taskActualPollObject.sha256){throw "Cooperative cohort object selection differs at $taskPollIndex"}
- }
+ $taskPollVersion=Game-ValidatePollContract $taskPollProof $taskPollCohort $taskInput.objects
+ if($taskPollVersion -eq 2 -and (Game-Hash (Game-Path $taskPollProof.contract.input_plan_path)) -cne $taskPollProof.contract.input_plan_sha256){throw 'Sparse cooperative plan file differs'}
 }
 if((Game-Hash (Join-Path $taskBuild 'libz-inflate.a')) -ne $taskInput.zlib_sha256){throw 'Frozen zlib backend differs'}
 $taskSource=Join-Path $taskBuild 'sources\recomp'

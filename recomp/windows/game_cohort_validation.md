@@ -1,0 +1,13 @@
+# Versioned cooperative-cohort validation
+
+The builder and startup observer distinguish the original instrumented cohort from a derived cohort containing one qualified sparse prefetch repair. The contract version is independent of the original-finalizer delivery profile version.
+
+An absent contract version, or explicit version 1, keeps the original input-plan 14e68811/poll 716410d1/Windows target contract and requires true `no_relift` and `source_ir_and_semantics_preserved` flags. Version 2 requires the exact derived acceptance and plan hashes, the original base anchors, the qualified prefetch fixture and exact lifter/semantics pair, and the one replacement at global index 1553. Its global preservation flags must both be false. The old selected polled COFF and replacement polled COFF are distinct pins; the unpolled producer is not substituted for either.
+
+Both branches require the exact ordered 3575 selected object paths/hashes, 456684 unique heads and no missing direct targets. The existing artifact hash checks run before these predicates. Version 2 also verifies the actual derived plan file; the observer retains that file in its post-run verification set. The PowerShell guard precedes compilation, and the Python guard precedes verify-only return, storage creation and process launch.
+
+`test_game_cohort_validation.py` imports only the actual Python predicate through its AST and uses PowerShell's AST to extract the actual production predicate. It checks real version 1/version 2 proofs and deliberately altered anchors, flags, selection order/count/hash and version fields. These are static/host validator tests, not new ISA, cohort runtime, signal delivery or collector qualification. A proof-byte or plan-byte change also fails the pinned digest independently of the structural predicates. No game process is launched by this gate.
+
+Candidate 2 passed 49 cases in each language: three positives and 46 negatives. It also ran the complete extracted PowerShell acceptance-loading/hash/contract/plan block with both real proofs and an altered-proof rejection. Candidate 1 is preserved: Python cases passed, then Windows PowerShell could not discover its utility module under WSL's inherited module search path. The fixture now imports that PowerShell installation's own utility module explicitly; it does not replace the production hash function. The builder and observer were unchanged between these two focused candidates.
+
+The separate source gate 4 passed default/enabled C++ syntax, missing-cohort rejection, PowerShell/Python parsing and the unavailable-profile check against the old Game19 executable. No C++ collector implementation changed. These checks do not execute the new collector profile.

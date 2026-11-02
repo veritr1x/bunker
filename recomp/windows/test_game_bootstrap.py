@@ -10,6 +10,24 @@ HERE=pathlib.Path(__file__).resolve().parent
 def sha(path):
  with pathlib.Path(path).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def validate_cooperative_contract(proof,descriptor,objects):
+ assert proof['trace_heads']==456684 and len(proof['objects'])==len(objects)==3575 and proof['unique_definitions'] is True and proof['missing_direct_targets']==[],'incomplete cooperative cohort'
+ assert [(x['path'],x['sha256'])for x in proof['objects']]==[(x['path'],x['sha256'])for x in objects],'cooperative cohort object selection differs'
+ contract=proof['contract'];version=contract.get('version',1)
+ assert type(version)is int and version in(1,2),'unknown cooperative contract version'
+ assert contract['poll_instrument_sha256']=='716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa'and contract['target']=='x86_64-w64-windows-gnu','unqualified cooperative instrumentation profile'
+ if version==1:
+  assert contract['input_plan_sha256']=='14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9'and contract['no_relift']is True and contract['source_ir_and_semantics_preserved']is True,'unqualified original cooperative contract'
+ else:
+  expected={'profile':'qualified-sparse-prefetch-v2','input_plan_sha256':'9152d0cbf46a20aa86ee33cc48de63a1dece3647efe015b0aaed872c7e36bd95','base_input_plan_sha256':'14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9','base_cohort_acceptance_sha256':'0a5e6b164855d7c745962ec744d2e7bf1c7209a679065cc117c0575446d9687d','sparse_overlay_sha256':'7fdc6f8b2e6eef9f5bafc9a4c5168318bf092ae1ec7e8988b44cd4b60b4dee7f','prefetch_fixture_acceptance_sha256':'e387dc78d1f3c2d21999b8e105916faa1c53f86e67084cc31ffa6aebbddb71fc','prefetch_lifter_sha256':'7e3e484c165a1308890d482fdb48baa9db0cb959867197bc02f607cd7a6a8126','prefetch_semantics_sha256':'c5f0d94e6b234f5f0f376eeb999bc9bfbaee62d654381751c3080e5c621ac3b5','old_polled_object_sha256':'f1dfc4ccd067c68f509bd067766deff504d225bd17754742035ec86c849e2ee6','new_polled_object_sha256':'e8ed4af6efde5f9df1d73905baf5f1f934931ded38327a1f36110b9dfe100358'}
+  assert descriptor['acceptance_sha256']=='7ce11b6bfd936334be8b7e8c7fe7691435830f818392a9a21d9f499120662549','unqualified sparse cooperative proof hash'
+  assert all(contract.get(k)==v for k,v in expected.items()),'unqualified sparse cooperative provenance'
+  assert contract['no_relift']is False and contract['source_ir_and_semantics_preserved']is False,'sparse cooperative contract must disclose changed source/semantics'
+  assert all(type(contract.get(k))is int and contract[k]==v for k,v in {'qualified_sparse_relifts':1,'replaced_object_index':1553,'unchanged_objects':3574}.items()),'sparse cooperative replacement scope differs'
+  assert proof['objects'][1553]['sha256']==expected['new_polled_object_sha256'],'sparse cooperative replacement object differs'
+  assert isinstance(contract.get('input_plan_path'),str)and contract['input_plan_path'],'sparse cooperative plan path is absent'
+ return version
+
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=pathlib.Path,required=True);p.add_argument('--profile',choices=['default','init','surface','frame','frame-muted','frame-muted-gc'],default='default');p.add_argument('--width',type=int,default=1280);p.add_argument('--height',type=int,default=720);p.add_argument('--verify-only',action='store_true');a=p.parse_args();b=a.build.resolve();frame=a.profile in ('frame','frame-muted','frame-muted-gc');gc=a.profile=='frame-muted-gc';muted_profile=a.profile in ('frame-muted','frame-muted-gc')
  m=json.loads((b/'game_inputs.json').read_text());record=json.loads((b/'game_build.json').read_text());assert m['status']=='prepared'and m['union_trace_count']==456684 and len(m['objects'])==3575
@@ -26,10 +44,9 @@ def main():
  verify()
  if poll_cohort:
   proof=json.loads(pathlib.Path(poll_cohort['acceptance_path']).read_text())
-  assert proof['trace_heads']==456684 and proof['unique_definitions'] is True and proof['missing_direct_targets']==[]
-  assert [(x['path'],x['sha256'])for x in proof['objects']]==[(x['path'],x['sha256'])for x in m['objects']]
-  if gc:
-   contract=proof['contract'];assert contract['input_plan_sha256']=='14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9'and contract['poll_instrument_sha256']=='716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa'and contract['target']=='x86_64-w64-windows-gnu'and contract['no_relift']is True and contract['source_ir_and_semantics_preserved']is True,'original collector profile has an unqualified cooperative contract'
+  version=validate_cooperative_contract(proof,poll_cohort,m['objects'])
+  if version==2:
+   plan=proof['contract']['input_plan_path'];plan_hash=proof['contract']['input_plan_sha256'];assert sha(plan)==plan_hash,'sparse cooperative plan file differs';expected[plan]=plan_hash
  if a.verify_only:print('All accepted objects, source/support, inputs, native data and executable verified; no guest execution');return
  def wp(path):return subprocess.check_output(['wslpath','-m',str(pathlib.Path(path).resolve())],text=True).strip()
  storage=b/('data-'+a.profile)
