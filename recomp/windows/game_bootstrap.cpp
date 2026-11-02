@@ -2,6 +2,7 @@
 #include "jni_host.h"
 #include "android_context.h"
 #include "android_internal_storage.h"
+#include "windows_android_id.h"
 #include "java_native_libraries.h"
 #include "apk_assets.h"
 #include "native_window.h"
@@ -179,6 +180,7 @@ int main(int argc,char **argv){
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
     ApplyUnityPackageMetadata(context_config);
     context_config.prepare_internal_directory=MakeInternalDirectoryPreparer(files,context_config.data_dir);
+    context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
     // Real policy/semaphores for explicitly bound threads. These cohorts are
