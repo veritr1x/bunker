@@ -11,10 +11,9 @@ under its heading, down to the previous release.
   widths the notices were written for, and gem and weapon icons keep their
   size in them. [1dcdfd0]
 - Pages for summons whose original notice is lost: rebuilt from the game's
-  own data and surviving notices, with their artwork, and marked
-  [Reconstructed] or [Generated]. The tools that build and check them are in
-  scripts/; the pages themselves are not in the default notice pack yet.
-  [1dcdfd0]
+  own data and surviving notices, with their artwork, under the summon's own
+  title. The tools that build and check them are in scripts/; the pages
+  themselves are not in the default notice pack yet. [1dcdfd0, b28ba09]
 - The notice tools' tests run in CI (Pillow and BeautifulSoup in
   scripts/requirements-notices.txt). [b772a20]
 
