@@ -33,6 +33,13 @@ under its heading, down to the previous release.
 - Summons Details name each event's tickets (Bronze, Silver and Gold
   where an event has three) instead of "Summon Ticket", and Mama's Dream
   summons are named after their announcement. [bf14e2d]
+- 75 premium summons (the daily and campaign free 10x summons, the DQX
+  crossover's, element and campaign summons) had one appeal image and no
+  character cards, and the panel's arrows turned that one page onto itself,
+  leaving it empty. Each now shows the characters its appeal art shows
+  (matched to the costume art), with their weapons; the Debilitating Bane
+  weapon summon shows its three weapons. They are not featured: the odds
+  are unchanged. [8b10c49]
 
 ## 1.7.0 (2026-11-02)
 
