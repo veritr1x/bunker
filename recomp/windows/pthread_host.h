@@ -53,6 +53,36 @@ class Pthreads {
   // revoke any partial preparation by token. Lease destruction must be passive;
   // provider callbacks belong in explicit retire, never a shared_ptr destructor.
   void SetWorkerLifecycleHooks(WorkerLifecycleHooks);
+  enum class WaitPhase { ConditionReleased, MutexReacquire };
+  struct WaitContext {
+    uint64_t token;
+    State *active_state;
+    void *condition, *mutex;
+    const AndroidTimespec *original_deadline;
+    WaitPhase phase;
+  };
+  struct WaitWake {
+    std::function<uint64_t()> generation;
+    std::function<void()> notify;
+    // Must return if generation differs, including a change before enrollment.
+    // Positive relative nanoseconds bound this call; zero permits infinity.
+    std::function<void(uint64_t,uint64_t)> wait;
+  };
+  struct WaitHooks {
+    std::function<std::shared_ptr<const WaitWake>(uint64_t)> acquire;
+    std::function<void(const WaitContext &)> checkpoint;
+  };
+  // Optional condition-wait transport, immutable before the first Create or
+  // CondWait attempt. Every configured waiter requires a complete live channel.
+  // Callbacks run outside provider locks; checkpoint runs only on the waiter,
+  // with its guest mutex released (possibly owned by another thread). It must
+  // return normally; no pthread_exit/nonlocal transfer. Admission and physical
+  // root publication belong to the caller, not this transport. No signal is
+  // consumed or condition notification synthesized by a channel wake.
+  // Hooks/channels must outlive workers; final payload destruction is passive.
+  // Transport callbacks preserve native errno/fenv. A dispatch implementation
+  // must scope its own native environment separately from guest context edits.
+  void SetWaitHooks(WaitHooks);
   addr_t Marker(const std::string &) const;
   uint64_t Run(addr_t entry, std::initializer_list<addr_t> args = {});
   uint64_t Run(addr_t entry, const std::vector<addr_t> &args);

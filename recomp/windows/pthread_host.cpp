@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <limits>
 #include <map>
 #include <mutex>
@@ -61,8 +62,9 @@ uint64_t BootTicks100ns(){
 }
 }
 struct Pthreads::Impl {
-  struct Mutex { std::mutex lock; std::condition_variable cv; uint64_t owner=0; uint32_t depth=0; unsigned waiters=0; int type=0; bool dead=false; };
-  struct Cond { std::mutex lock; std::condition_variable cv; unsigned waiters=0; uint64_t sequence=0; int clock=0; bool dead=false; };
+  struct Waiter { std::shared_ptr<const WaitWake> wake; bool signaled=false; };
+  struct Mutex { std::mutex lock; std::condition_variable cv; uint64_t owner=0; uint32_t depth=0; unsigned waiters=0; int type=0; bool dead=false; std::vector<std::shared_ptr<Waiter>> channels; };
+  struct Cond { std::mutex lock; std::condition_variable cv; unsigned waiters=0; uint64_t sequence=0; int clock=0; bool dead=false; std::vector<std::shared_ptr<Waiter>> channels; };
   struct OnceState { std::mutex lock; std::condition_variable cv; uint64_t owner=0; bool done=false; };
   struct Rw { std::mutex lock; std::condition_variable cv; uint64_t writer=0; std::map<uint64_t,unsigned> readers; unsigned waiters=0; bool dead=false; };
   struct Key { bool live=false; uint64_t generation=0; addr_t destructor=0; };
@@ -84,9 +86,10 @@ struct Pthreads::Impl {
   std::function<bool(addr_t)> translated;
   std::function<bool(addr_t)> tls_callable;
   std::shared_ptr<const WorkerLifecycleHooks> hooks;
+  std::shared_ptr<const WaitHooks> wait_hooks;
   std::function<void(int)> error_sink;
   const uint64_t instance=next_instance++;
-  addr_t markers; bool installed=false,stopping=false,worker_attempted=false;
+  addr_t markers; bool installed=false,stopping=false,worker_attempted=false,wait_attempted=false;
   std::mutex registry;
   std::map<uint64_t,std::unique_ptr<Thread>> threads;
   std::map<void*,std::shared_ptr<Mutex>> mutexes;
@@ -96,6 +99,11 @@ struct Pthreads::Impl {
   std::array<Key,128> keys{};
   Impl(recomp::Runtime &r,std::function<bool(addr_t)> t,addr_t m,std::function<bool(addr_t)> d)
       :runtime(r),translated(std::move(t)),tls_callable(d?std::move(d):translated),markers(m){}
+  static void Notify(const std::vector<std::shared_ptr<Waiter>> &waiters){
+    std::exception_ptr failure;
+    for(const auto &waiter:waiters)try{waiter->wake->notify();}catch(...){if(!failure)failure=std::current_exception();}
+    if(failure)std::rethrow_exception(failure);
+  }
   static WorkerInfo Info(const Thread &t){return {t.id,t.parent,t.stack_base,t.stack_base+t.stack_size,reinterpret_cast<addr_t>(t.tls),t.native_id};}
   void Retire(Thread &t,WorkerRetirement reason){
     if(!t.prepared)return;
@@ -333,17 +341,95 @@ int Pthreads::MutexAttrSetType(int64_t *a,int type){if(!a||type<0||type>2)return
 int Pthreads::MutexInit(void *p,const int64_t *a){if(!p)return kInvalid;int64_t type=a?ReadWire(a):0;if(type<0||type>2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->mutexes.count(p))return kBusy;auto m=std::make_shared<Impl::Mutex>();m->type=static_cast<int>(type);InitializeOpaque(p,40,static_cast<uint32_t>(type)<<14);impl_->mutexes.emplace(p,m);return 0;}
 int Pthreads::MutexDestroy(void *p){auto m=impl_->GetMutex(p);if(!m)return kInvalid;std::lock_guard lock(m->lock);if(m->dead)return kInvalid;if(m->owner||m->waiters)return kBusy;m->dead=true;{std::lock_guard guard(impl_->registry);impl_->mutexes.erase(p);SetWord(p,kDead);}return 0;}
 int Pthreads::MutexLock(void *p,bool attempt){auto m=impl_->GetMutex(p);if(!m)return kInvalid;auto id=Self();std::unique_lock lock(m->lock);if(m->dead)return kInvalid;if(m->owner==id&&m->type==1){if(m->depth==UINT32_MAX)return kAgain;++m->depth;return 0;}if(m->owner&&attempt)return kBusy;if(m->owner==id&&m->type==2)return kDeadlock;++m->waiters;m->cv.wait(lock,[&]{return !m->owner||m->dead;});--m->waiters;if(m->dead)return kInvalid;m->owner=id;m->depth=1;return 0;}
-int Pthreads::MutexUnlock(void *p){auto m=impl_->GetMutex(p);if(!m)return kInvalid;std::lock_guard lock(m->lock);if(m->dead)return kInvalid;if(m->owner!=Self())return kPerm;if(--m->depth==0){m->owner=0;m->cv.notify_one();}return 0;}
+int Pthreads::MutexUnlock(void *p){
+  auto m=impl_->GetMutex(p);if(!m)return kInvalid;auto id=Self();
+  std::vector<std::shared_ptr<Impl::Waiter>> notify;
+  {std::lock_guard lock(m->lock);if(m->dead)return kInvalid;if(m->owner!=id)return kPerm;
+    if(m->depth==1)notify=m->channels; // Allocate before changing ownership.
+    if(--m->depth==0){m->owner=0;m->cv.notify_one();}}
+  Impl::Notify(notify);return 0;
+}
 int Pthreads::CondAttrInit(int64_t *a){if(!a)return kInvalid;WriteWire(a,int64_t(0));return 0;}
 int Pthreads::CondAttrDestroy(int64_t *a){if(!a)return kInvalid;auto v=ReadWire(a);if(v!=0&&v!=2)return kInvalid;WriteWire(a,int64_t(0xdeada11d));return 0;}
 int Pthreads::CondAttrSetClock(int64_t *a,int clock){if(!a||clock<0||clock>1)return kInvalid;auto v=ReadWire(a);if(v!=0&&v!=2)return kInvalid;WriteWire(a,int64_t(clock<<1));return 0;}
 int Pthreads::CondInit(void *p,const int64_t *a){if(!p)return kInvalid;auto flags=a?ReadWire(a):0;if(flags!=0&&flags!=2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->conditions.count(p))return kBusy;auto c=std::make_shared<Impl::Cond>();c->clock=static_cast<int>(flags>>1);InitializeOpaque(p,48,static_cast<uint32_t>(flags));impl_->conditions.emplace(p,c);return 0;}
 int Pthreads::CondDestroy(void *p){auto c=impl_->GetCond(p);if(!c)return kInvalid;std::lock_guard lock(c->lock);if(c->dead)return kInvalid;if(c->waiters)return kBusy;c->dead=true;{std::lock_guard guard(impl_->registry);impl_->conditions.erase(p);SetWord(p,kDead);}return 0;}
-int Pthreads::CondWake(void *p,bool all){auto c=impl_->GetCond(p);if(!c)return kInvalid;std::lock_guard lock(c->lock);if(c->dead)return kInvalid;++c->sequence;if(all)c->cv.notify_all();else c->cv.notify_one();return 0;}
+int Pthreads::CondWake(void *p,bool all){
+  auto c=impl_->GetCond(p);if(!c)return kInvalid;
+  std::vector<std::shared_ptr<Impl::Waiter>> notify;
+  {std::lock_guard lock(c->lock);if(c->dead)return kInvalid;
+    // Allocate first, then publish a real notification to distinct waiters.
+    for(const auto &w:c->channels)if(!w->signaled){notify.push_back(w);if(!all)break;}
+    ++c->sequence;for(const auto &w:notify)w->signaled=true;
+    if(all)c->cv.notify_all();else c->cv.notify_one();}
+  Impl::Notify(notify);return 0;
+}
 int Pthreads::CondWait(void *p,void *mp,const AndroidTimespec *deadline){
+  std::shared_ptr<const WaitHooks> hooks;
+  {std::lock_guard guard(impl_->registry);impl_->wait_attempted=true;hooks=impl_->wait_hooks;}
+  const auto *original_deadline=deadline;
   AndroidTimespec copied;if(deadline){copied=ReadWire(deadline);deadline=&copied;}
   if(deadline&&(deadline->nanoseconds<0||deadline->nanoseconds>=1000000000))return kInvalid;
   auto c=impl_->GetCond(p);auto m=impl_->GetMutex(mp);if(!c||!m)return kInvalid;
+  if(hooks){
+    auto &thread=impl_->Current();const auto id=thread.id;
+    auto wake=hooks->acquire(id);
+    if(!wake||!wake->generation||!wake->notify||!wake->wait)throw std::logic_error("pthread condition wait requires a complete live wake channel");
+    auto ticket=std::make_shared<Impl::Waiter>();ticket->wake=std::move(wake);
+    // generation is an external callback too; qualify it before releasing the
+    // mutex. All later callback failures reacquire before propagating.
+    (void)ticket->wake->generation();
+    std::vector<std::shared_ptr<Impl::Waiter>> notify;
+    {std::unique_lock lock(c->lock);if(c->dead)return kInvalid;
+      std::lock_guard guard(m->lock);if(m->dead)return kInvalid;if(m->owner!=id)return kPerm;if(m->depth!=1)return kNotSupported;
+      notify=m->channels;c->channels.push_back(ticket);++c->waiters;
+      // Count the released condition waiter against destruction of its pinned
+      // mutex, including the entire callback and reacquisition interval.
+      ++m->waiters;m->owner=0;m->depth=0;m->cv.notify_one();}
+    auto context=WaitContext{id,thread.active,p,mp,original_deadline,WaitPhase::ConditionReleased};
+    std::exception_ptr failure;int result=0;
+    try{
+      Impl::Notify(notify);
+      for(;;){
+        const auto generation=ticket->wake->generation();uint64_t relative=1000000000;
+        {std::lock_guard lock(c->lock);if(ticket->signaled)break;
+          if(deadline){auto now=NowNs(c->clock);auto sec=now/1000000000,ns=now%1000000000;
+            if(deadline->seconds<sec||(deadline->seconds==sec&&deadline->nanoseconds<=ns)){result=kTimedOut;break;}
+            int64_t delta=1000000000;if(deadline->seconds==sec)delta=deadline->nanoseconds-ns;else if(sec!=INT64_MAX&&deadline->seconds==sec+1)delta=1000000000-ns+deadline->nanoseconds;
+            relative=static_cast<uint64_t>(std::min<int64_t>(delta,1000000000));}}
+        hooks->checkpoint(context);
+        // Recheck after a handler: its duration counts against the original
+        // absolute deadline; never start a fresh timeout after interruption.
+        {std::lock_guard lock(c->lock);if(ticket->signaled)break;
+          if(deadline){auto now=NowNs(c->clock);auto sec=now/1000000000,ns=now%1000000000;
+            if(deadline->seconds<sec||(deadline->seconds==sec&&deadline->nanoseconds<=ns)){result=kTimedOut;break;}
+            int64_t delta=1000000000;if(deadline->seconds==sec)delta=deadline->nanoseconds-ns;else if(sec!=INT64_MAX&&deadline->seconds==sec+1)delta=1000000000-ns+deadline->nanoseconds;
+            relative=static_cast<uint64_t>(std::min<int64_t>(delta,1000000000));}}
+        ticket->wake->wait(generation,relative);
+      }
+    }catch(...){failure=std::current_exception();}
+    {std::lock_guard lock(c->lock);auto it=std::find(c->channels.begin(),c->channels.end(),ticket);c->channels.erase(it);--c->waiters;}
+    // Retain the exact mutex control, never resolve a possibly reused address.
+    // A callback failure changes to ordinary reacquisition, then propagates.
+    bool enrolled=false;
+    context.phase=WaitPhase::MutexReacquire;
+    try{
+      if(!failure){std::lock_guard lock(m->lock);m->channels.push_back(ticket);enrolled=true;}
+      for(;;){
+        uint64_t generation=0;if(!failure)generation=ticket->wake->generation();
+        std::unique_lock lock(m->lock);
+        if(!m->owner){m->owner=id;m->depth=1;break;}
+        if(failure){m->cv.wait(lock,[&]{return !m->owner;});continue;}
+        lock.unlock();hooks->checkpoint(context);ticket->wake->wait(generation,1000000000);
+      }
+    }catch(...){
+      if(!failure)failure=std::current_exception();
+      std::unique_lock lock(m->lock);m->cv.wait(lock,[&]{return !m->owner;});m->owner=id;m->depth=1;
+    }
+    {std::lock_guard lock(m->lock);if(enrolled){auto it=std::find(m->channels.begin(),m->channels.end(),ticket);m->channels.erase(it);}--m->waiters;}
+    if(failure)std::rethrow_exception(failure);
+    return result;
+  }
   std::unique_lock lock(c->lock);if(c->dead)return kInvalid;
   {std::lock_guard guard(m->lock);if(m->owner!=Self())return kPerm;if(m->depth!=1)return kNotSupported;}
   uint64_t seq=c->sequence;++c->waiters;int result=MutexUnlock(mp);if(result){--c->waiters;return result;}
@@ -384,6 +470,13 @@ int Pthreads::SetName(uint64_t id,const char *name){if(!name)return kInvalid;std
 int Pthreads::Kill(uint64_t id,int signal){if(signal<0||signal>64)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;return signal==0?0:kNoSys;}
 int Pthreads::ClockGetTime(int clock,AndroidTimespec *out){if(!out||(clock!=0&&clock!=1&&clock!=7))return -1;AndroidTimespec value;if(clock==7){auto ticks=BootTicks100ns();value={static_cast<int64_t>(ticks/10000000),static_cast<int64_t>(ticks%10000000*100)};}else{auto ns=NowNs(clock);value={ns/1000000000,ns%1000000000};}WriteWire(out,value);return 0;}
 void Pthreads::SetErrorSink(std::function<void(int)> sink){impl_->error_sink=std::move(sink);}
+void Pthreads::SetWaitHooks(WaitHooks hooks){
+  if(!hooks.acquire||!hooks.checkpoint)throw std::invalid_argument("pthread wait transport requires acquire and checkpoint callbacks");
+  auto pending=std::make_shared<const WaitHooks>(std::move(hooks));
+  std::lock_guard lock(impl_->registry);
+  if(impl_->worker_attempted||impl_->wait_attempted||impl_->wait_hooks)throw std::logic_error("pthread wait transport is immutable before the first Create or CondWait attempt");
+  impl_->wait_hooks=std::move(pending);
+}
 void Pthreads::SetWorkerLifecycleHooks(WorkerLifecycleHooks hooks){
   if(!hooks.prepare||!hooks.enter||!hooks.before_tls||!hooks.retire)throw std::invalid_argument("pthread lifecycle requires all four callbacks");
   auto pending=std::make_shared<const WorkerLifecycleHooks>(std::move(hooks));
