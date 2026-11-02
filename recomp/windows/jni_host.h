@@ -30,9 +30,10 @@ class Host {
   struct Object;
   class ProviderLock;
  public:
-  // Descriptor-checked reference/jint/jlong arguments. jint uses low32 bits;
-  // jlong retains all64 bits. Reference arrays retain their full descriptor.
-  // Each uses one AAPCS64/jvalue GP slot; FP/primitive arrays are unsupported.
+  // Descriptor-checked reference/jint/jlong/jfloat arguments. I/F use low32
+  // bits (F is raw binary32, not a numeric integer); J retains all64 bits.
+  // Reference arrays retain their full descriptor. Three Java arguments max;
+  // actual AAPCS64 GP/FP allocation is separate. D/primitive arrays unsupported.
   using MethodArguments=std::array<addr_t,3>;
   // Strong references used inside host-supplied Java object state. They are
   // opaque C++ graph edges, not guest JNI handles or global-reference slots.
@@ -71,6 +72,16 @@ class Host {
                             std::function<void(addr_t,const MethodArguments&)> handler);
   void DefineBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
                            std::function<bool(addr_t,const MethodArguments&)> handler);
+  void DefineIntMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                       std::function<int32_t(addr_t,const MethodArguments&)> handler);
+  void DefineStaticIntMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                             std::function<int32_t(addr_t,const MethodArguments&)> handler);
+  // The callback returns exact binary32 bits; never numerically cast bits to
+  // float. The guest result is S0. Scalar callbacks share owned-frame cleanup.
+  void DefineFloatBitsMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                             std::function<uint32_t(addr_t,const MethodArguments&)> handler);
+  void DefineStaticFloatBitsMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                                   std::function<uint32_t(addr_t,const MethodArguments&)> handler);
   // Attach a supplied body to an existing, unimplemented nonnative declaration.
   // DefineBooleanMethod retains its duplicate-declaration rejection.
   void BindBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
@@ -145,12 +156,13 @@ class Host {
   std::shared_ptr<Object> FieldTarget(addr_t object, addr_t field, bool is_static, const std::string &signature_kind);
   bool Assignable(const std::string &actual, const std::string &expected) const;
   addr_t CallObject(ProviderLock &lock, addr_t object, addr_t method, bool is_static = false,
-                    const std::array<addr_t, 3> &arguments = {},char expected_result = 'L');
+                    MethodArguments arguments = {},char expected_result = 'L',
+                    State *argument_state=nullptr,size_t argument_form=0);
   addr_t Construct(ProviderLock &lock,addr_t clazz, addr_t method,const MethodArguments &arguments);
   addr_t InvokeHandler(ProviderLock&,std::shared_ptr<Object> receiver,const Method&,const MethodArguments&,char result);
   void DrainCallbackFrame(ProviderLock&,size_t depth,std::shared_ptr<Object> &exception);
   bool ValidateArguments(const Method &method,const MethodArguments &arguments);
-  bool Arguments(State &state, size_t slot, size_t count, std::array<addr_t,3> &arguments);
+  bool Arguments(State &state,size_t slot,size_t count,MethodArguments &arguments,const Method *method);
   int32_t Register(addr_t clazz, const NativeMethod *methods, int32_t count);
 
   mutable std::recursive_mutex mutex_;
