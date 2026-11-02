@@ -17,6 +17,9 @@ struct StorageState {
   std::mutex mutex;std::u16string files,cache;
   std::function<int32_t(const std::u16string&)> prepare;
   Cached files_file,cache_file;
+  struct Obb {std::u16string path;bool available;};
+  std::optional<std::vector<Obb>> obb;
+  std::function<int32_t(const std::u16string&)> prepare_obb;
 };
 struct FileState {std::u16string path;Value text;};
 struct ResolverState {Value package;std::function<std::optional<std::u16string>()> read_android_id;};
@@ -69,6 +72,27 @@ addr_t InternalDirectory(jni::Host &host,const std::shared_ptr<StorageState> &st
 addr_t Env(jni::Host &host,size_t slot,addr_t a=0,addr_t b=0,addr_t c=0,addr_t d=0){
   State state{};state.gpr.x0.qword=host.EnvAddress();state.gpr.x1.qword=a;state.gpr.x2.qword=b;state.gpr.x3.qword=c;state.gpr.x4.qword=d;host.InvokeEnv(slot,state);return state.gpr.x0.qword;
 }
+addr_t ObbDirectories(jni::Host &host,const std::shared_ptr<StorageState> &storage,bool first){
+  if(!storage->obb){host.ThrowException("java/lang/UnsupportedOperationException",u"external OBB volume catalog is not configured");return 0;}
+  std::vector<addr_t> values;values.reserve(storage->obb->size());
+  for(const auto &entry:*storage->obb){
+    addr_t value=0;
+    if(entry.available){
+      if(!storage->prepare_obb){host.ThrowException("java/lang/UnsupportedOperationException",u"OBB directory backing is not configured");return 0;}
+      // No JNI registry or storage cache lock spans the backing callback.
+      const auto status=storage->prepare_obb(entry.path);
+      if(status<0){host.ThrowException("java/lang/IllegalStateException",u"invalid OBB directory verifier status");return 0;}
+      if(!status){auto file=std::make_shared<FileState>();file->path=entry.path;file->text=Keep(host,host.NewString(entry.path));value=host.NewHostInstance("java/io/File",std::move(file));}
+    }
+    values.push_back(value);
+  }
+  if(first)return values.empty()?addr_t(0):values.front();
+  auto clazz=Env(host,6,reinterpret_cast<addr_t>("java/io/File"));
+  auto array=Env(host,172,values.size(),clazz,0);host.DeleteLocalReference(clazz);
+  if(!array||!host.PendingException().empty())return 0;
+  for(size_t i=0;i<values.size();++i){Env(host,174,array,i,values[i]);if(!host.PendingException().empty())return 0;}
+  return array;
+}
 addr_t Call(jni::Host &host,addr_t receiver,const char *name,const char *signature,const jni::Host::MethodArguments &args={},bool boolean=false){
   if(!receiver){host.ThrowException("java/lang/NullPointerException");return 0;}
   auto clazz=Env(host,31,receiver);if(!clazz||!host.PendingException().empty())return 0;
@@ -100,6 +124,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
       config.data_dir.empty() || config.data_dir.front() != u'/' || config.target_sdk <= 0)
     throw std::invalid_argument("Android context needs actual package/SDK metadata and absolute virtual Android paths");
   if(config.main_activity_filters)for(const auto &filter:*config.main_activity_filters)if(filter.component.empty())throw std::invalid_argument("MAIN activity-filter catalog needs component names");
+  if(config.external_obb_volumes){std::set<std::u16string> roots;if(config.external_obb_volumes->size()>INT32_MAX)throw std::invalid_argument("OBB volume catalog exceeds JNI array capacity");for(const auto &volume:*config.external_obb_volumes){ObbDirectoryPath(volume.root,config.package_name);if(!roots.insert(volume.root).second)throw std::invalid_argument("duplicate OBB volume root");}}
   host.DefineClass("android/content/Context", {}, "java/lang/Object", true);
   host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
   host.DefineClass("android/content/ContentResolver",{},"java/lang/Object",true);
@@ -200,6 +225,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   auto resolver=std::make_shared<ResolverState>();resolver->package=state->package;resolver->read_android_id=config.read_android_id;
   state->resolver=Keep(host,host.NewHostInstance("android/app/ContextImpl$ApplicationContentResolver",resolver));
   state->storage=std::make_shared<StorageState>();auto base=config.data_dir;while(base.size()>1&&base.back()==u'/')base.pop_back();if(base.back()!=u'/')base+=u'/';state->storage->files=base+u"files";state->storage->cache=base+u"cache";state->storage->prepare=config.prepare_internal_directory;
+  if(config.external_obb_volumes){state->storage->obb.emplace();for(const auto &volume:*config.external_obb_volumes)state->storage->obb->push_back({ObbDirectoryPath(volume.root,config.package_name),volume.available});}state->storage->prepare_obb=config.prepare_obb_directory;
   // LoadedApk stores its installed app path independently of the public mutable
   // ApplicationInfo record. Snapshot the original immutable String object.
   state->code_path=Keep(host,host.GetObjectFieldValue(info_,"sourceDir","Ljava/lang/String;"));
@@ -209,6 +235,8 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineObjectMethod("android/content/Context","getContentResolver","()Landroid/content/ContentResolver;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->resolver):0;});
   host.DefineObjectMethod("android/content/Context","getPackageCodePath","()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->code_path):0;});
   for(bool cache:{false,true})host.DefineObjectMethod("android/content/Context",cache?"getCacheDir":"getFilesDir","()Ljava/io/File;",[&host,cache](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?InternalDirectory(host,state->storage,cache):0;});
+  host.DefineObjectMethod("android/content/Context","getObbDirs","()[Ljava/io/File;",[&host](addr_t object,const jni::Host::MethodArguments&){auto state=host.ReadHostState<ContextState>(object);return state?ObbDirectories(host,state->storage,false):0;});
+  host.DefineObjectMethod("android/content/Context","getObbDir","()Ljava/io/File;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?ObbDirectories(host,state->storage,true):0;});
   host.DefineObjectMethod("android/content/Context","getExternalFilesDir","(Ljava/lang/String;)Ljava/io/File;",[&host](addr_t object,const jni::Host::MethodArguments&){host.ReadHostState<ContextState>(object);return addr_t(0);});
   host.DefineObjectMethod("android/content/Context","getExternalCacheDir","()Ljava/io/File;",[&host](addr_t object){host.ReadHostState<ContextState>(object);return addr_t(0);});
   for(const char *method:{"getPath","getAbsolutePath"})host.DefineObjectMethod("java/io/File",method,"()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<FileState>(object);return state?host.LocalValue(state->text):0;});
