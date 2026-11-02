@@ -70,6 +70,9 @@ struct Pthreads::Impl {
     Impl *host=nullptr; uint64_t id=0; HANDLE handle=nullptr; unsigned native_id=0;
     bool worker=false, detached=false, joining=false, joined=false, complete=false;
     addr_t entry=0,arg=0,result=0; State *active=nullptr;
+    uint64_t parent=0;bool prepared=false,entered=false,finishing=false,retired=false;
+    std::shared_ptr<const WorkerLifecycleHooks> hooks;
+    WorkerLease lease;
     void *stack_allocation=nullptr; alignas(16) uint8_t tls[256]{};
     addr_t stack_base=0; uint64_t stack_size=0,guard_size=0;
     std::map<int32_t,Value> values;
@@ -78,9 +81,11 @@ struct Pthreads::Impl {
   };
   recomp::Runtime &runtime;
   std::function<bool(addr_t)> translated;
+  std::function<bool(addr_t)> tls_callable;
+  std::shared_ptr<const WorkerLifecycleHooks> hooks;
   std::function<void(int)> error_sink;
   const uint64_t instance=next_instance++;
-  addr_t markers; bool installed=false,stopping=false;
+  addr_t markers; bool installed=false,stopping=false,worker_attempted=false;
   std::mutex registry;
   std::map<uint64_t,std::unique_ptr<Thread>> threads;
   std::map<void*,std::shared_ptr<Mutex>> mutexes;
@@ -88,7 +93,23 @@ struct Pthreads::Impl {
   std::map<void*,std::shared_ptr<OnceState>> once;
   std::map<void*,std::shared_ptr<Rw>> rwlocks;
   std::array<Key,128> keys{};
-  Impl(recomp::Runtime &r,std::function<bool(addr_t)> t,addr_t m):runtime(r),translated(std::move(t)),markers(m){}
+  Impl(recomp::Runtime &r,std::function<bool(addr_t)> t,addr_t m,std::function<bool(addr_t)> d)
+      :runtime(r),translated(std::move(t)),tls_callable(d?std::move(d):translated),markers(m){}
+  static WorkerInfo Info(const Thread &t){return {t.id,t.parent,t.stack_base,t.stack_base+t.stack_size,reinterpret_cast<addr_t>(t.tls),t.native_id};}
+  void Retire(Thread &t,WorkerRetirement reason){
+    if(!t.prepared)return;
+    if(t.retired)throw std::logic_error("pthread worker lifecycle retired twice");
+    t.retired=true;
+    // Release the last lease outside registry/once locks, even if retire throws.
+    auto lease=std::move(t.lease);
+    t.hooks->retire(Info(t),lease,reason);
+  }
+  void Enter(Thread &t){
+    if(!t.hooks)return;
+    if(!t.prepared||t.entered||t.retired||t.native_id!=GetCurrentThreadId())throw std::logic_error("pthread actual worker lifecycle identity differs");
+    try{t.hooks->enter(Info(t),t.lease);t.entered=true;}
+    catch(...){Retire(t,WorkerRetirement::cancelled);throw;}
+  }
   static std::map<uint64_t,Thread*> &Bindings() { static thread_local std::map<uint64_t,Thread*> bound; return bound; }
   Thread &Current() {
     auto &bound=Bindings(); auto it=bound.find(instance); if(it!=bound.end()) return *it->second;
@@ -110,8 +131,8 @@ struct Pthreads::Impl {
   // handles and owned guest stacks only after actual OS thread termination.
   void ReapDetached(){for(auto &item:threads){auto &t=*item.second;if(t.worker&&t.detached&&t.complete&&t.handle&&WaitForSingleObject(t.handle,0)==WAIT_OBJECT_0){ReleaseStack(t);CloseHandle(t.handle);t.handle=nullptr;}}}
   bool IsAlive(const Thread &t)const{return !t.complete&&t.handle&&WaitForSingleObject(t.handle,0)==WAIT_TIMEOUT;}
-  uint64_t Run(Thread &t,addr_t entry,const addr_t *args,size_t count) {
-    if(!entry||!translated(entry)) throw std::invalid_argument("pthread callback is not a registered translated entry");
+  uint64_t Run(Thread &t,addr_t entry,const addr_t *args,size_t count,bool destructor=false) {
+    if(!entry||!(destructor?tls_callable(entry):translated(entry))) throw std::invalid_argument("pthread callback is not a registered callable for its role");
     State s{};
     if(t.active) s=*t.active;
     else {{std::lock_guard lock(registry);if(!t.stack_base) AllocateStack(t,kStackSize);}s.gpr.sp.qword=t.stack_base+t.stack_size;s.sr.tpidr_el0.qword=reinterpret_cast<addr_t>(t.tls);}
@@ -127,6 +148,9 @@ struct Pthreads::Impl {
     return s.gpr.x0.qword;
   }
   void Finish(Thread &t,uint64_t result) {
+    if(t.finishing||t.complete)throw std::logic_error("pthread recursive or repeated finish is unsupported");
+    t.finishing=true;
+    if(t.hooks){if(!t.entered||t.retired)throw std::logic_error("pthread worker TLS has no live lifecycle");t.hooks->before_tls(Info(t),t.lease);}
     // pthread_exit from a once callback must release blocked initializers before
     // destructors can themselves call once. No C++ unwind crosses lifted IR.
     for(auto pair:t.active_once) {auto &o=*pair.second;std::lock_guard lock(o.lock);o.owner=0;SetWord(pair.first,0);o.cv.notify_all();}
@@ -141,16 +165,17 @@ struct Pthreads::Impl {
             callback=keys[i].destructor;value=v->second.value;v->second.value=0;
           }
         }
-        if(callback) {ran=true;Run(t,callback,&value,1);}
+        if(callback) {ran=true;Run(t,callback,&value,1,true);}
       }
       if(!ran) break;
     }
     t.values.clear();
+    if(t.hooks)Retire(t,WorkerRetirement::normal);
     {std::lock_guard guard(registry);t.result=result;t.complete=true;t.active=nullptr;}
   }
   static unsigned __stdcall Worker(void *arg) {
     auto *t=static_cast<Thread*>(arg);auto *h=t->host;Bindings()[h->instance]=t;
-    try {auto value=h->Run(*t,t->entry,&t->arg,1);h->Finish(*t,value);}
+    try {h->Enter(*t);auto value=h->Run(*t,t->entry,&t->arg,1);h->Finish(*t,value);}
     catch(const std::exception &e){std::fprintf(stderr,"pthread translated worker: %s\n",e.what());std::abort();}
     return 0;
   }
@@ -172,7 +197,7 @@ struct Pthreads::Impl {
     auto r=std::make_shared<Rw>();rwlocks.emplace(p,r);return r;
   }
 };
-Pthreads::Pthreads(recomp::Runtime &r,std::function<bool(addr_t)> v,addr_t base):impl_(std::make_unique<Impl>(r,std::move(v),base)){}
+Pthreads::Pthreads(recomp::Runtime &r,std::function<bool(addr_t)> v,addr_t base,std::function<bool(addr_t)> d):impl_(std::make_unique<Impl>(r,std::move(v),base,std::move(d))){}
 Pthreads::~Pthreads() {
   // The host owns native handles until actual OS termination, including detached
   // workers. Stable token tombstones prevent OS thread-id reuse aliasing.
@@ -236,6 +261,8 @@ int Pthreads::AttrSetStackSize(AndroidThreadAttr *a,uint64_t size){if(!a||size<k
 int Pthreads::AttrGetStack(const AndroidThreadAttr *a,uint64_t *base,uint64_t *size){if(!a||!base||!size)return kInvalid;auto v=ReadWire(a);if(v.flags==kDead)return kInvalid;WriteWire(base,v.stack_base);WriteWire(size,v.stack_size);return 0;}
 int Pthreads::GetAttr(uint64_t id,AndroidThreadAttr *a){if(!a)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;auto &t=*it->second;if(!t.stack_base)return kNotSupported;AndroidThreadAttr v{};v.flags=t.detached?1:0;v.stack_base=t.stack_base;v.stack_size=t.stack_size;v.guard_size=t.guard_size;WriteWire(a,v);return 0;}
 int Pthreads::Create(uint64_t *out,const AndroidThreadAttr *attr,addr_t entry,addr_t arg) {
+  std::shared_ptr<const WorkerLifecycleHooks> hooks;
+  {std::lock_guard lock(impl_->registry);impl_->worker_attempted=true;hooks=impl_->hooks;}
   if(!out||!entry||!impl_->translated(entry))return kInvalid;
   AndroidThreadAttr a;AttrInit(&a);if(attr)a=ReadWire(attr);
   if(a.flags&~1U||a.stack_size<kStackMin)return kInvalid;
@@ -245,12 +272,27 @@ int Pthreads::Create(uint64_t *out,const AndroidThreadAttr *attr,addr_t entry,ad
   try{t=std::make_unique<Impl::Thread>();}catch(const std::bad_alloc&){return kAgain;}
   t->host=impl_.get();t->id=0x7ffa00000000ULL+next_thread++;t->entry=entry;t->arg=arg;t->worker=true;t->detached=a.flags&1;
   try{impl_->AllocateStack(*t,a.stack_size,a.guard_size);}catch(const std::bad_alloc&){return kAgain;}
-  std::lock_guard lock(impl_->registry);if(impl_->stopping)return kAgain;impl_->ReapDetached();
+  t->hooks=hooks;
+  if(hooks){t->parent=Self();t->prepared=true;try{t->lease=hooks->prepare(Impl::Info(*t));}catch(...){impl_->Retire(*t,WorkerRetirement::cancelled);throw;}}
   auto *raw=t.get();auto id=t->id;
-  try{impl_->threads.emplace(id,std::move(t));}catch(const std::bad_alloc&){return kAgain;}
-  auto handle=_beginthreadex(nullptr,0,Impl::Worker,raw,CREATE_SUSPENDED,&raw->native_id);
-  if(!handle){impl_->threads.erase(id);return kAgain;}raw->handle=reinterpret_cast<HANDLE>(handle);WriteWire(out,id);
-  if(ResumeThread(raw->handle)==DWORD(-1)){std::fprintf(stderr,"pthread ResumeThread failed\n");std::abort();}return 0;
+  int failure=0;
+  {
+    std::lock_guard lock(impl_->registry);
+    if(impl_->stopping)failure=kAgain;
+    else{
+      impl_->ReapDetached();
+      try{auto inserted=impl_->threads.try_emplace(id,std::move(t));if(!inserted.second)failure=kAgain;}
+      catch(const std::bad_alloc&){failure=kAgain;}
+      if(!failure){
+        auto handle=_beginthreadex(nullptr,0,Impl::Worker,raw,CREATE_SUSPENDED,&raw->native_id);
+        if(!handle){t=std::move(impl_->threads.at(id));impl_->threads.erase(id);failure=kAgain;}
+        else{raw->handle=reinterpret_cast<HANDLE>(handle);WriteWire(out,id);
+          if(ResumeThread(raw->handle)==DWORD(-1)){std::fprintf(stderr,"pthread ResumeThread failed\n");std::abort();}}
+      }
+    }
+  }
+  if(failure)impl_->Retire(*raw,WorkerRetirement::cancelled);
+  return failure;
 }
 int Pthreads::Join(uint64_t id,uint64_t *result) {
   if(id==Self())return kDeadlock;
@@ -306,7 +348,7 @@ int Pthreads::Once(int32_t *p,addr_t callback){
   try {impl_->Run(t,callback,nullptr,0);}catch(...){lock.lock();o->owner=0;SetWord(p,0);t.active_once.pop_back();o->cv.notify_all();throw;}
   lock.lock();t.active_once.pop_back();o->owner=0;o->done=true;SetWord(p,2);o->cv.notify_all();return 0;
 }
-int Pthreads::KeyCreate(int32_t *out,addr_t callback){if(!out||(callback&&!impl_->translated(callback)))return kInvalid;std::lock_guard lock(impl_->registry);for(int32_t i=0;i<128;++i)if(!impl_->keys[i].live){auto &k=impl_->keys[i];k.live=true;++k.generation;k.destructor=callback;WriteWire(out,i);return 0;}return kAgain;}
+int Pthreads::KeyCreate(int32_t *out,addr_t callback){if(!out||(callback&&!impl_->tls_callable(callback)))return kInvalid;std::lock_guard lock(impl_->registry);for(int32_t i=0;i<128;++i)if(!impl_->keys[i].live){auto &k=impl_->keys[i];k.live=true;++k.generation;k.destructor=callback;WriteWire(out,i);return 0;}return kAgain;}
 int Pthreads::KeyDelete(int32_t key){if(key<0||key>=128)return kInvalid;std::lock_guard lock(impl_->registry);auto &k=impl_->keys[key];if(!k.live)return kInvalid;k.live=false;k.destructor=0;return 0;}
 int Pthreads::SetSpecific(int32_t key,uint64_t value){if(key<0||key>=128)return kInvalid;auto &t=impl_->Current();std::lock_guard lock(impl_->registry);auto &k=impl_->keys[key];if(!k.live)return kInvalid;try{t.values[key]={k.generation,value};}catch(const std::bad_alloc&){return kNoMemory;}return 0;}
 uint64_t Pthreads::GetSpecific(int32_t key){if(key<0||key>=128)return 0;auto &t=impl_->Current();std::lock_guard lock(impl_->registry);auto &k=impl_->keys[key];auto it=t.values.find(key);return k.live&&it!=t.values.end()&&it->second.generation==k.generation?it->second.value:0;}
@@ -318,6 +360,13 @@ int Pthreads::SetName(uint64_t id,const char *name){if(!name)return kInvalid;std
 int Pthreads::Kill(uint64_t id,int signal){if(signal<0||signal>64)return kInvalid;std::lock_guard lock(impl_->registry);auto it=impl_->threads.find(id);if(it==impl_->threads.end()||!impl_->IsAlive(*it->second))return kNoThread;return signal==0?0:kNoSys;}
 int Pthreads::ClockGetTime(int clock,AndroidTimespec *out){if(!out||(clock!=0&&clock!=1&&clock!=7))return -1;AndroidTimespec value;if(clock==7){auto ticks=BootTicks100ns();value={static_cast<int64_t>(ticks/10000000),static_cast<int64_t>(ticks%10000000*100)};}else{auto ns=NowNs(clock);value={ns/1000000000,ns%1000000000};}WriteWire(out,value);return 0;}
 void Pthreads::SetErrorSink(std::function<void(int)> sink){impl_->error_sink=std::move(sink);}
+void Pthreads::SetWorkerLifecycleHooks(WorkerLifecycleHooks hooks){
+  if(!hooks.prepare||!hooks.enter||!hooks.before_tls||!hooks.retire)throw std::invalid_argument("pthread lifecycle requires all four callbacks");
+  auto pending=std::make_shared<const WorkerLifecycleHooks>(std::move(hooks));
+  std::lock_guard lock(impl_->registry);
+  if(impl_->worker_attempted||impl_->hooks)throw std::logic_error("pthread worker lifecycle is immutable before the first Create attempt");
+  impl_->hooks=std::move(pending);
+}
 
 void Pthreads::Install(){
   if(impl_->installed)throw std::logic_error("pthread imports already installed");
