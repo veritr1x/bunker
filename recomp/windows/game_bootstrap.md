@@ -264,3 +264,23 @@ exception ownership and a combined setup regression are required before the
 next natural attempt. Frozen inputs and all original objects are reverified.
 The failed-setup audit SHA256 is
 `2b7043f43b00e97da5760294a85cc97e79f7fec70968a9286e8e9f997b90866f`.
+
+`work/windows-game12` freezes 5bb1bee and executable SHA256
+`6bc22d01fa78fd4da4a7f567b0b0d26382496ab9eea17e05b3bed95aaad18310`.
+Canonical NoSuchElementException ownership resolves the setup collision. Its
+constructor/JNI, initJni and surface profiles pass normal completion and full
+post-run input verification. Both frame attempts stop earlier than game10:
+the actual read-only audio observer returns unavailable/0x80070490 before
+nativeResume/nativeRender. No preference opening, sscanf execution or new
+IL2CPP initialization is claimed. Both complete attempts, including their data
+directories, remain under attempts/frame-audio-unavailable1 and2.
+
+Independent native queries observed the LG TV active briefly, then reproduced
+zero active playback endpoints/all three playback roles unavailable while
+capture remained active. Services stayed running; no OS setting, volume or
+provider changed. The exact external cause is unproved. A bounded15-minute
+notification watch also ended without availability and stopped cleanly.
+The two-attempt audit game_audio_boundary_audit.json has SHA256
+`66c3c3277b3aac1d4836697bb383dc119a322ef77e7902d19a85ed1666d71b63`.
+Read-only device evidence is in work/audio-endpoint-game12-audit and
+work/audio-watch-game12. A fresh real frame requires an available endpoint.
