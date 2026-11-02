@@ -157,6 +157,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineField("android/content/pm/PackageManager","FEATURE_AUDIO_LOW_LATENCY","Ljava/lang/String;",true);
   // Reached Unity lookup abc49c/abc4a4 uses the Intent class cache130e0f8.
   // This is the SDK's actual initialized String constant, not a Java body.
+  host.DefineField("android/content/Context","LOCATION_SERVICE","Ljava/lang/String;",true);
   host.DefineField("android/content/Intent","ACTION_MAIN","Ljava/lang/String;",true);
   host.DefineField("android/os/Environment","MEDIA_MOUNTED","Ljava/lang/String;",true);
   host.DefineField("android/provider/Settings$Secure","ANDROID_ID","Ljava/lang/String;",true);
@@ -164,6 +165,8 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   auto manager_class=env(6,reinterpret_cast<addr_t>("android/content/pm/PackageManager"));
   for(const auto &[name,value]:std::initializer_list<std::pair<const char*,int32_t>>{{"GET_META_DATA",128},{"GET_ACTIVITIES",1},{"GET_INTENT_FILTERS",32}}){auto field=env(144,manager_class,reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>("I"));env(159,manager_class,field,static_cast<uint32_t>(value));}
   auto feature_field=env(144,manager_class,reinterpret_cast<addr_t>("FEATURE_AUDIO_LOW_LATENCY"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto feature=host.NewString(u"android.hardware.audio.low_latency");env(154,manager_class,feature_field,feature);host.DeleteLocalReference(feature);host.DeleteLocalReference(manager_class);
+  auto context_class=env(6,reinterpret_cast<addr_t>("android/content/Context")),location_field=env(144,context_class,reinterpret_cast<addr_t>("LOCATION_SERVICE"),reinterpret_cast<addr_t>("Ljava/lang/String;")),location_key=host.NewString(u"location");
+  env(154,context_class,location_field,location_key);host.DeleteLocalReference(location_key);host.DeleteLocalReference(context_class);
   auto intent_class=env(6,reinterpret_cast<addr_t>("android/content/Intent")),action_field=env(144,intent_class,reinterpret_cast<addr_t>("ACTION_MAIN"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto main=host.NewString(u"android.intent.action.MAIN");env(154,intent_class,action_field,main);auto main_action=Keep(host,main);host.DeleteLocalReference(intent_class);
   auto environment=env(6,reinterpret_cast<addr_t>("android/os/Environment")),mounted_field=env(144,environment,reinterpret_cast<addr_t>("MEDIA_MOUNTED"),reinterpret_cast<addr_t>("Ljava/lang/String;")),mounted=host.NewString(u"mounted");env(154,environment,mounted_field,mounted);host.DeleteLocalReference(mounted);host.DeleteLocalReference(environment);
   auto unmounted=Keep(host,host.NewString(u"unmounted"));
