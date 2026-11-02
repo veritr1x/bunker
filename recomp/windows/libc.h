@@ -37,6 +37,7 @@ class LibC {
   addr_t NewLocale(int32_t mask, const char *name, addr_t base);
   void FreeLocale(addr_t locale);
   addr_t UseLocale(addr_t locale);
+  char *SetLocale(int32_t category, const char *name);
   uint64_t LocaleMbCurMax();
   int64_t ProcessClock();
   int64_t Sysconf(int32_t name);
@@ -64,6 +65,7 @@ class LibC {
   std::map<addr_t, Locale> locales_;
   uint64_t locale_owner_;
   addr_t marker_base_;
+  bool global_locale_is_utf8_ = true;  // Protected by mutex_; one guest-process locale.
   bool installed_ = false;
 };
 }  // namespace bunker::windows

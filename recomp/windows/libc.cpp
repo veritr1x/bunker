@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <type_traits>
 #ifdef _WIN32
@@ -18,6 +19,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <pthread.h>
 #else
 #include <unistd.h>
 #include <time.h>
@@ -29,7 +31,35 @@ namespace pm=provider_memory;
 namespace {
 thread_local int guest_error;
 std::atomic<uint64_t> next_locale_owner{1};
-thread_local std::map<uint64_t, addr_t> current_locales;
+using LocaleSelections=std::map<uint64_t,addr_t>;
+#ifdef _WIN32
+void DestroyLocaleSelections(void *value) noexcept {
+  // Native pthread TSS cleanup runs before emutls storage is reclaimed. The
+  // heap map contains only provider IDs/values; no provider or guest is called.
+  delete static_cast<LocaleSelections*>(value);
+}
+LocaleSelections &CurrentLocales(){
+  // One checked process-lifetime native-thread key, not nontrivial C++ TLS.
+  // C++ static initialization may throw here; no pthread C callback may throw.
+  static const pthread_key_t key=[] {
+    pthread_key_t result{};
+    const int error=pthread_key_create(&result,DestroyLocaleSelections);
+    if(error)throw std::runtime_error("locale thread storage key creation failed: "+std::to_string(error));
+    return result;
+  }();
+  auto *value=static_cast<LocaleSelections*>(pthread_getspecific(key));
+  if(!value){
+    auto next=std::make_unique<LocaleSelections>();
+    const int error=pthread_setspecific(key,next.get());
+    if(error)throw std::runtime_error("locale thread storage publication failed: "+std::to_string(error));
+    value=next.release();
+  }
+  return *value;
+}
+#else
+thread_local LocaleSelections current_locales;
+LocaleSelections &CurrentLocales(){return current_locales;}
+#endif
 constexpr addr_t global_locale = UINT64_MAX;
 const char *const imports[] = {
   "malloc", "calloc", "realloc", "free", "memalign", "posix_memalign", "aligned_alloc",
@@ -44,7 +74,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -73,7 +103,7 @@ LibC::LibC(Runner runner,addr_t base):runner_(std::move(runner)),marker_base_(ba
 }
 LibC::~LibC(){
   for(const auto &entry:locales_)Free(entry.second.storage);
-  current_locales.erase(locale_owner_);
+  CurrentLocales().erase(locale_owner_);
   recomp::InvalidateGuestMemory(pm::Address(&environment_slot_),sizeof(environment_slot_));
   Free(environment_array_);for(auto text:environment_strings_)Free(text);
 }
@@ -114,16 +144,34 @@ addr_t LibC::UseLocale(addr_t locale){
     if(found==locales_.end()||!found->second.active)
       throw std::invalid_argument("uselocale requires an active locale owned by this provider");
   }
-  auto old=current_locales.find(locale_owner_);
-  const addr_t previous=old==current_locales.end()?global_locale:old->second;
-  if(locale)current_locales[locale_owner_]=locale;
+  auto &selections=CurrentLocales();
+  auto old=selections.find(locale_owner_);
+  const addr_t previous=old==selections.end()?global_locale:old->second;
+  if(locale)selections[locale_owner_]=locale;
   return previous;
+}
+char *LibC::SetLocale(int32_t category,const char *name){
+  // Bionic validates the category before touching the optional name. All valid
+  // categories share one global C/UTF8 mode; the empty name is UTF8, not getenv.
+  if(category<0||category>12){Fail(22);return nullptr;}
+  std::string text;
+  if(name){
+    text=pm::String(name);
+    if(text!=""&&text!="C"&&text!="POSIX"&&text!="C.UTF-8"&&text!="en_US.UTF-8"){
+      Fail(2);return nullptr;
+    }
+  }
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if(name)global_locale_is_utf8_=text.empty()||text.find("UTF-8")!=std::string::npos;
+  // Like Bionic's literal results, these immutable canonical bytes have process
+  // lifetime. They are neither caller-owned nor a view of the input snapshot.
+  return const_cast<char*>(global_locale_is_utf8_?"C.UTF-8":"C");
 }
 uint64_t LibC::LocaleMbCurMax(){
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   const auto locale=UseLocale(0);
-  // Android starts in C.UTF-8; no host process locale is consulted or changed.
-  if(locale==global_locale)return 4;
+  // Android starts in C.UTF-8; only this guest process global selection changes.
+  if(locale==global_locale)return global_locale_is_utf8_?4:1;
   auto found=locales_.find(locale);
   if(found==locales_.end()||!found->second.active)
     throw std::invalid_argument("current locale has been retired");
@@ -363,6 +411,7 @@ void LibC::Finalize(addr_t dso){
 }
 void LibC::Install(recomp::Runtime &runtime){
   if(installed_)throw std::logic_error("libc imports already installed");
+  Add<char*(int32_t,const char*)>(runtime,"setlocale",[this](auto category,auto name){return SetLocale(category,name);});
   Add<int32_t(const char*,const char*,uint64_t*)>(runtime,"sscanf",[this](auto input,auto format,auto output){return ScanUnsignedLongLong(input,format,output);});
   Add<void*(uint64_t)>(runtime,"malloc",[this](auto n){return Malloc(n);});
   Add<void*(uint64_t,uint64_t)>(runtime,"calloc",[this](auto n,auto s){return Calloc(n,s);});
