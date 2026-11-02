@@ -79,6 +79,8 @@ under its heading, down to the previous release.
     characters each; New Year Countdown Vol. 1 has its ×1.5 rate and
     featured character and weapons.
   - Six recovered summons had another event's dates; they have their own.
+  - The i button on the regular Abstract Ruler, Subjugation Conquest and
+    Paid Only Automata Vol. 2 step-up summons opens their own notice. [48d07f9]
 
 ### Sources
 - Summon, event box and panel mission data note their sources as an event
