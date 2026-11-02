@@ -100,3 +100,55 @@ func prizeBoxMode(g *pb.Gacha, entry store.GachaCatalogEntry, bs *store.GachaBan
 	mode.GachaModeBoxComposition.IsResettableByDrawingAllTargets = false
 	mode.GachaModeBoxComposition.IsCurrentBoxResettable = false
 }
+
+// eventBoxHTML lists an event summon's boxes for its "i" page: each level's
+// prizes (targets in bold), the player's level and what is left in it (the
+// game passes the player as userId), and the prizes every level shares.
+func eventBoxHTML(r *http.Request, t *gameText, box masterdata.EventSummon) string {
+	level, known := int32(0), false
+	var bs store.GachaBannerState
+	if webUsers != nil {
+		if id, err := strconv.ParseInt(r.URL.Query().Get("userId"), 10, 64); err == nil && id > 0 {
+			if user, err := webUsers.LoadUser(id); err == nil {
+				bs, known = user.Gacha.BannerStates[box.Base], true
+				level = gacha.EventLevel(bs)
+			}
+		}
+	}
+	esc := html.EscapeString
+	var b strings.Builder
+	b.WriteString("<p class=k>Draw every target (in bold) of a level to move up to the next. The last level refills once it is emptied.</p>")
+	for i, l := range box.Levels {
+		n := int32(i + 1)
+		head := fmt.Sprintf("LEVEL %d", n)
+		if known && n == level {
+			head += " · Your level"
+		}
+		fmt.Fprintf(&b, "<h2>%s</h2><p class=k>%s of draws take one of this level's prizes, every one left alike; the rest take a shared prize.</p><table>", head, percent(l.Chance))
+		for j, p := range l.Items {
+			have := "stock " + thousands(p.Stock)
+			if known && n == level {
+				have = fmt.Sprintf("%s of %s left", thousands(gacha.EventPrizeLeft(bs, j, p)), thousands(p.Stock))
+			}
+			name, class := esc(possessionName(t, p.Type, p.Id)), ""
+			if p.Target {
+				class, have = " class=f", have+" · target"
+			}
+			fmt.Fprintf(&b, "<tr><td%s>%s ×%s</td><td class=n>%s</td></tr>", class, name, thousands(max(p.Count, 1)), have)
+		}
+		b.WriteString("</table>")
+	}
+	if shared := masterdata.EventSummonUnlimited(); len(shared) > 0 {
+		b.WriteString("<h2>SHARED PRIZES</h2><p class=k>Unlimited, every one alike.</p><table>")
+		for _, p := range shared {
+			fmt.Fprintf(&b, "<tr><td>%s ×%s</td><td class=n>unlimited</td></tr>", esc(possessionName(t, p.Type, p.Id)), thousands(max(p.Count, 1)))
+		}
+		b.WriteString("</table>")
+	}
+	return b.String()
+}
+
+// percent is a chance as a whole percentage where it is one (0.35: "35%").
+func percent(f float64) string {
+	return strconv.FormatFloat(f*100, 'f', -1, 64) + "%"
+}

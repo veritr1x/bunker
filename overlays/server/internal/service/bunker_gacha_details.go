@@ -144,6 +144,32 @@ func periodHTML(e store.GachaCatalogEntry, ticket bool) string {
 	return fmt.Sprintf("<p class=k>From %s (UTC) · no end date%s</p>", day(e.StartDatetime), note)
 }
 
+// eventPeriodHTML is an event summon's dates: its event's run open now,
+// else the next, else the last. The calendar can move a run's row so that it
+// ends before it starts; such a row is no run.
+func eventPeriodHTML(runs [][2]int64, now int64) string {
+	var open, next, last *[2]int64
+	for i := range runs {
+		r := &runs[i]
+		switch {
+		case r[1] < r[0]:
+			continue
+		case r[0] <= now && now < r[1]:
+			open = r
+		case r[0] > now && (next == nil || r[0] < next[0]):
+			next = r
+		case r[1] <= now && (last == nil || r[1] > last[1]):
+			last = r
+		}
+	}
+	for _, r := range []*[2]int64{open, next, last} {
+		if r != nil {
+			return fmt.Sprintf("<p class=k>%s – %s (UTC), with its event</p>", day(r[0]), day(r[1]))
+		}
+	}
+	return "<p class=k>Opens when its event runs.</p>"
+}
+
 func (t *gameText) price(p store.GachaPricePhaseEntry) string {
 	if p.Price == 0 {
 		return "Free"
@@ -370,7 +396,11 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 	for _, p := range entry.PricePhases {
 		ticket = ticket || (p.PriceType == model.PriceTypeConsumableItem && p.Price > 0)
 	}
-	fmt.Fprintf(&b, "<h1>%s</h1>%s", esc(title), periodHTML(*entry, ticket))
+	period := periodHTML(*entry, ticket)
+	if _, _, ok := masterdata.EventSummonFor(entry.GachaId); ok {
+		period = eventPeriodHTML(masterdata.EventSummonRuns(entry.GachaId), gametime.NowMillis())
+	}
+	fmt.Fprintf(&b, "<h1>%s</h1>%s", esc(title), period)
 	b.WriteString(summonNoticeHTML(*entry))
 
 	if len(entry.PricePhases) > 0 {
@@ -395,8 +425,18 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 		b.WriteString("</table>")
 	}
 
+	// Box summons draw only from their boxes: no premium pool rates.
 	if prizes, ok := masterdata.PrizeBoxFor(entry.GachaId); ok {
 		b.WriteString(prizeSectionHTML(r, entry.GachaId, prizes))
+		b.WriteString("</body></html>")
+		writeHTML(w, b.String())
+		return
+	}
+	if box, _, ok := masterdata.EventSummonFor(entry.GachaId); ok {
+		b.WriteString(eventBoxHTML(r, t, box))
+		b.WriteString("</body></html>")
+		writeHTML(w, b.String())
+		return
 	}
 
 	if entry.MedalConsumableItemId != 0 {
@@ -490,4 +530,28 @@ func writeHTML(w http.ResponseWriter, page string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(page))
+}
+
+// serveGachaBoxPage is a box summon's "i" button (/web/<lang>/gacha/box): the
+// summon's notice when it has one, else its details. The Rates button opens
+// the same page with tab=Rate, and keeps the details with the prizes.
+func serveGachaBoxPage(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if q.Get("tab") != "Rate" && bunkerHolder != nil {
+		id, _ := strconv.Atoi(q.Get("gachaId"))
+		if entry, _ := resolveGachaId(bunkerHolder.Get().GachaEntries, int32(id)); entry != nil {
+			activeNoticesMu.RLock()
+			n := activeNotices
+			activeNoticesMu.RUnlock()
+			if notice := summonNotice(*entry); notice != 0 && n != nil && n.Title(notice) != "" {
+				lang := "en"
+				if parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/"); len(parts) > 2 && parts[0] == "web" {
+					lang = parts[1]
+				}
+				http.Redirect(w, r, fmt.Sprintf("/%s/information/?informationId=%d&isIngame=1", lang, notice), http.StatusFound)
+				return
+			}
+		}
+	}
+	serveGachaDetailsPage(w, r)
 }

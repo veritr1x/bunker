@@ -126,6 +126,17 @@ func EventSummonFor(gachaId int32) (EventSummon, int32, bool) {
 	return EventSummon{}, 0, false
 }
 
+// EventSummonRuns is an event summon's runs (start, end), in date order.
+func EventSummonRuns(gachaId int32) [][2]int64 {
+	eventSummons.RLock()
+	defer eventSummons.RUnlock()
+	out := make([][2]int64, 0, len(eventSummons.runs[gachaId]))
+	for _, r := range eventSummons.runs[gachaId] {
+		out = append(out, [2]int64{r.start, r.end})
+	}
+	return out
+}
+
 // EventSummonUnlimited is the unlimited prizes every event summon shares.
 func EventSummonUnlimited() []BoxPrize {
 	eventSummons.RLock()
