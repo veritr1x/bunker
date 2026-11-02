@@ -460,6 +460,11 @@ passes107 native Windows checks; the same actual NDK fixture passes107 on Linux.
 It covers direct/V/A calls, signed jint arguments,
 nonzero jvalue padding, GP-save/stack spill boundaries, ref/type/lifetime rules,
 SDK constants and honest absence of the Oculus package/low-latency feature.
+The reached [PackageItemInfo hierarchy](package_item_info.md) now declares
+ApplicationInfo's actual platform superclass and moves its inherited metadata/
+package fields to their real owner. The expanded PM suite passes155 checks per
+host, including48 new actual NDK hierarchy/base-field checks. A later frame run
+must verify progress beyond this catalog correction.
 
 The next actual run accepted those package services, then stopped at the
 missing initialized Intent.ACTION_MAIN static String; preserved evidence is

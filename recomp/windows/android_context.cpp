@@ -75,7 +75,8 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineClass("android/content/Context", {}, "java/lang/Object", true);
   host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
-  host.DefineClass("android/content/pm/ApplicationInfo", {}, "java/lang/Object", true);
+  host.DefineClass("android/content/pm/PackageItemInfo", {}, "java/lang/Object", true);
+  host.DefineClass("android/content/pm/ApplicationInfo", {}, "android/content/pm/PackageItemInfo", true);
   // File overrides Object.toString in Android. Declare the unsupported override
   // so virtual dispatch cannot silently substitute Object's identity formatter.
   host.DefineClass("java/io/File",{{"toString","()Ljava/lang/String;"}},"java/lang/Object",true);
@@ -94,11 +95,12 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineClass("java/util/List",{},"java/lang/Object",true);
   host.DefineClass("android/net/Uri",{},"java/lang/Object",true);
   host.DefineClass("android/net/Uri$StringUri",{},"android/net/Uri",true);
-  for (const char *field : {"sourceDir", "nativeLibraryDir", "dataDir", "packageName"})
+  for (const char *field : {"sourceDir", "nativeLibraryDir", "dataDir"})
     host.DefineField("android/content/pm/ApplicationInfo", field, "Ljava/lang/String;");
+  host.DefineField("android/content/pm/PackageItemInfo","packageName","Ljava/lang/String;");
   host.DefineField("android/content/pm/ApplicationInfo", "targetSdkVersion", "I");
   host.DefineField("android/content/pm/ApplicationInfo", "flags", "I");
-  host.DefineField("android/content/pm/ApplicationInfo","metaData","Landroid/os/Bundle;");
+  host.DefineField("android/content/pm/PackageItemInfo","metaData","Landroid/os/Bundle;");
   host.DefineField("android/content/pm/ApplicationInfo","splitPublicSourceDirs","[Ljava/lang/String;");
   host.DefineField("android/content/pm/PackageInfo","packageName","Ljava/lang/String;");
   host.DefineField("android/content/pm/PackageInfo","versionName","Ljava/lang/String;");
