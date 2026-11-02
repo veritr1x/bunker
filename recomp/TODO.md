@@ -56,11 +56,16 @@ part of the normal Bunker release. The game does not boot or render yet.
   audio endpoint; the frame attempt passes resume and enters engine startup.
   Resolver, ServiceConnection and disabled-AR implementations pass focused gates.
   The latest dual-engine frame creates real ServiceConnection, audio-focus and
-  LocationListener proxies and returns from the original sigaltstack query.
-  It now stops at AssetPackManagerWrapper.init, with preceding missing
-  getSystemService and getObbDirs recorded. The service-name constant and an
-  explicit Android13 compatibility SDK profile resolve the earlier lookups.
-  IL2CPP is still unloaded at that boundary.
+  LocationListener proxies. Game9 also returns from the original 256 KiB
+  downward-growing mmap and alternate signal-stack installation. The exact
+  missing-PlayCore branch and OBB getters pass the earlier startup boundary.
+  Game10 resolves MODE_PRIVATE and creates both reached Runnable proxies.
+  Unity now naturally loads IL2CPP, executes its nine constructors and resolves
+  all 222 original API export requests. It stops at an unported sscanf call at
+  Unity LR709bede8. IL2CPP initialization has not run. Original Java catches
+  permit startup to continue past missing getSystemService, runOnUiThread,
+  getSharedPreferences, system-UI listener and Handler APIs; these remain work
+  to finish, including persistent preferences.
   No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
   invented initial native callback. The full Java/game lifecycle remains open.
@@ -295,9 +300,13 @@ unsupported instructions.
   explicitly separated from the pinned Android contract. See
   [alternate-stack ownership and limits](windows/signal_altstack.md).
 - Original Unity's alternate-stack allocation requests valid MAP_GROWSDOWN.
-  The current Windows mapping provider rejects that bit before installation;
-  game8/8b therefore qualify only the stack query. Genuine owned downward growth
-  and its lifetime/guard constraints remain required before full stack setup.
+  The opt-in Windows profile now commits real downward growth on native access
+  faults, with fixed owner generations, guards and physical mapping leases.
+  Qualification includes 535 positive checks, native guard faults and targeted
+  production import boundaries. Game9 genuinely allocates and installs the
+  original stack; in-game growth faults, delivery and collector use remain
+  unqualified. The unenabled profile still stops explicitly. See
+  [the native growth contract](windows/growdown_memory.md).
 - Finish provider memory integration and exercise paired exclusives in real
   Unity startup. The replacement single/pair reservation protocol passes 90,112
   instruction comparisons per platform plus 97 runtime checks and five

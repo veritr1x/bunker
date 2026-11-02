@@ -171,7 +171,7 @@ captured. Aggregate audit SHA256 is
 An independent audit explains the query-only behavior: original mmap at
 7040ee68 requests flags0x20122, including MAP_GROWSDOWN. This frozen FileSystem
 rejects the valid growth bit with EINVAL, so original Unity returns false before
-installing its stack. Successful original stack setup is still unqualified.
+installing its stack. That checkpoint does not qualify original stack setup.
 New host wiring logs actual mmap arguments/results through the unchanged typed
 provider bridge; it adds no guest allocation or successful fallback.
 
@@ -180,5 +180,43 @@ getters and the exact APK's missing-PlayCore wrapper branch. Its explicit mount
 profile supplies zero Android external volumes, independently of APK file names.
 The wrapper profile requires the exact runtime-verified APK and complete closed
 code-catalog proof, including all four DEX containers and split metadata.
-Native stack-growth support remains a prerequisite to qualifying the next
-natural startup path. These component gates do not establish a returned frame.
+The subsequently accepted native stack-growth profile and game9 execution below
+qualify the original allocation and installation. These gates do not establish a
+returned frame.
+
+`work/windows-game9` freezes host 3eddad8 and executable SHA256
+`9c0c1b16458e15e12cbeb558a72b9a3764dc319db5086c949e4a535917ad2991`.
+All three non-render profiles pass normal completion and full post-run input
+verification. The frame retains the three original singleton proxy requests.
+Original mmap at LR7040ee6c returns real 262144-byte storage for flags0x20122;
+original sigaltstack at LR7040ee98 installs that same address and returns zero.
+This qualifies installation, without claiming an in-game downward-growth fault
+or signal delivery. The explicit Windows profile and its separate fault tests
+are documented in [the growth contract](growdown_memory.md).
+
+Startup passes the earlier AssetPackManagerWrapper.init boundary by original
+flow. It next reports missing Runnable and MODE_PRIVATE, then reaches a null
+strlen input at LR70432174 in the original package-name getter after the pending
+field exception. No preferences store is opened. MODE_PRIVATE and the exact
+Runnable singleton profile have since been supplied for a fresh natural run.
+getSystemService remains unported. IL2CPP remains unloaded and nativeRender has
+not returned. Aggregate audit SHA256 is
+`bc5bd9a66ee5022f4df30ba1a33bc80fef8728d12b31ae5a1c125b825026f2bc`.
+
+`work/windows-game10` freezes host 11cc5b2 and executable SHA256
+`5c913e1814184f3d2529e108ddbe851a4566cec58167a4d9429ae3606703abae`.
+The three non-render profiles pass normal completion and all frozen inputs and
+original objects are reverified after every profile. The frame repeats original
+stack installation and captures two additional genuine singleton Runnable
+Class[] requests. The MODE_PRIVATE and null-strlen failures are gone.
+
+After original Java catches report missing getSystemService, runOnUiThread,
+getSharedPreferences, View.OnSystemUiVisibilityChangeListener and Handler,
+startup continues. Original Unity dlopen at LR70384720 naturally requests
+libil2cpp.so through the application library catalog. All nine actual IL2CPP
+constructors execute; all 222 subsequent dlsym results match the frozen original
+export proof in exact order. No host loader or initialization call is inserted.
+The next fatal boundary is Unity's unsupported sscanf import at LR709bede8.
+IL2CPP initialization, nativeRender return, signal delivery and a rendered image
+remain unqualified. Aggregate audit SHA256 is
+`8ae2475ec3ad51de8dbd9e2ece6cc28ef3ee4b433a1aacd51268e947150a8be2`.

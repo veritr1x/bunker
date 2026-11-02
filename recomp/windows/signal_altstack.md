@@ -51,8 +51,14 @@ Game8 and game8b qualify only the original query. Their FileSystem rejects the
 next valid mmap flags0x20122 because MAP_GROWSDOWN is unimplemented, so original
 Unity takes its allocation-failure branch before installation. The focused
 stack tests use real ordinary writable mappings and do not establish that
-original growing-map allocation. See `work/growdown-audit/PROPOSAL.md` and the
-[natural startup record](game_bootstrap.md).
+original growing-map allocation.
+
+Game9 enables the separately qualified [Windows growth profile](growdown_memory.md).
+Its original mmap at LR7040ee6c returns actual 256 KiB writable storage, and
+sigaltstack at LR7040ee98 installs that same address with flags0/size262144 and
+returns zero. This qualifies original installation. In-game downward-growth
+faults, cleanup, signal delivery and collector use remain unqualified. See the
+[natural startup record](game_bootstrap.md) for the frozen inputs and next boundary.
 
 ## Evidence and limits
 
