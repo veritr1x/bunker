@@ -382,3 +382,21 @@ func TestSummonTwinsFromNotices(t *testing.T) {
 		}
 	}
 }
+
+// A summon's rule can name its notice over the notice pack's link: the
+// regular Abstract Ruler summon (416) opens notice 733, not the paid one's.
+func TestRuleNamesTheSummonsNotice(t *testing.T) {
+	holder, _ := harness(t)
+	for _, e := range holder.Get().GachaEntries {
+		switch e.GachaId {
+		case 416:
+			if e.InformationId != 733 {
+				t.Errorf("416 notice %d", e.InformationId)
+			}
+		case 428:
+			if e.InformationId != 801 {
+				t.Errorf("428 notice %d", e.InformationId)
+			}
+		}
+	}
+}
