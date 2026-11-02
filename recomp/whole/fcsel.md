@@ -1,0 +1,7 @@
+The FCSEL fixture qualifies scalar F32/F64 selection of raw source bits. It does not change or diagnose FMOV immediate as a new feature. The actual original regression is TST W20,#1; FMOV S0,#1.0; FMOV S1,WZR; FCSEL S0,S1,S0,NE, with both W20 bit values.
+
+The old immutable pair's compiled FCSEL implementation incorrectly treats selected scalar bits as an address. A preserved earlier isolated baseline confirmed the exact0x3f800000 fault. The corrected-pair gate runs normal functional checks of both original input values and the complete source-bit matrix; it installs no fault observer and allocates no artificial guard.
+
+The same strict NDK core object is linked into ARM64/QEMU and lifted on both hosts. The matrix covers all16 conditions/all16 NZCV values, opaque IEEE bit patterns including signed zeros, infinities and signaling/quiet NaN payloads, scalar source/destination aliasing and high registers. Local raw-bit oracles validate the complete observed GPR/SIMD/SP/flag state before producing compact record hashes. Native snapshots preserve the caller's ABI, and flag setup uses the native-only wrapper or lifted State rather than unsupported guest NZCV system-register accesses. FPCR.AH remains zero; this is not a qualification of merging/alternate features.
+
+No original engine initialization, mute bypass, arbitrary guest-PC skip, cache behavior or playable-game claim is made. Acceptance files contain actual results and exact immutable source/tool/object inputs; failed candidates remain preserved.
