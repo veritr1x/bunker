@@ -58,6 +58,15 @@ is fatal. Remaining unsupported traces (Unity 1342, IL2CPP 101) retain their rea
 failure behavior. Passing a bounded process does not establish stop-world GC,
 Java constructor completion, a rendered image or a playable game.
 
+Virtual alternate-stack registrations use actual writable FileSystem mappings
+and their allocation generations. Registration itself holds no active mapping
+lease; bounded signal-frame delivery must acquire a physical lease first. Fresh
+virtual threads start disabled. The harness supplies no invented prior ART stack
+and does not clear installed metadata when original code unmaps its storage.
+The original sigaltstack call log records the actual translated SP, LR, result
+and configured tuple. Installing this provider does not enable production
+signal delivery or collector polling.
+
 The actual Unity constructor at 700d9044 registers installed LibC::free as a
 void(void*) TLS destructor. Its exact marker is admitted alongside translated
 callbacks; pthread_create starts remain translated-only. Earlier component
