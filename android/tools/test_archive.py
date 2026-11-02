@@ -24,6 +24,14 @@ class Parsing(unittest.TestCase):
         self.assertFalse(span(2217758400000, 2218881599000)["ran"])  # a placeholder date after the service
 
 
+    def test_summon_titles_fix_the_game_text(self):
+        from archive.schedule import Schedule
+        texts = {"gacha.title.limited_416": "Paid Only: Abstract Ruler Summons", "gacha.title.limited_418": "Automata Cameo Celebration Festival Summons"}
+        s = Schedule(lambda table: [], lambda prefix: {k: v for k, v in texts.items() if k.startswith(prefix)}, lambda path: False)
+        self.assertEqual(s.summon_title(416, "limited_416"), "Abstract Ruler Summons")  # the game text swaps 416 and 417
+        self.assertEqual(s.summon_title(581001, "step_up_581001"), "Paid Only: Mechanical Hunter Multi-Step Summons")  # Japanese only
+        self.assertEqual(s.summon_title(418, "limited_418"), "Automata Cameo Celebration Festival Summons")
+
     def test_main_scenes_by_season_chapter_and_scene(self):
         self.assertEqual(index.describe_scene("main", "main/season01", "MID_a120_3060g"),
                          {"kind": "mid", "season": 1, "chapter": 12, "group": "a120", "sort": 30600})

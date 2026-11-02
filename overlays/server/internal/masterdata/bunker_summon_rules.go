@@ -147,6 +147,15 @@ var plainSummons = map[int32]bool{}
 // bannerCards are the costumes a plain summon's banner art shows.
 var bannerCards = map[int32][]int32{}
 
+// summonTitles are summon titles by banner asset (summon_rules.json titles),
+// where the game text has none, has Japanese only, or names another summon
+// (limited_416 and limited_417's are swapped; limited_428's names the summon
+// a month later). archive/schedule.py keeps the same list for game-data summons.
+var summonTitles = map[string]string{}
+
+// SummonTitle is a summon's title from that list, or "".
+func SummonTitle(asset string) string { return summonTitles[asset] }
+
 // artCards are the costumes (or, for a weapon summon, the weapons) the game
 // data's summons' appeal art shows, for the summons with no promotion cards
 // (summon_rules.json art_cards).
@@ -337,10 +346,12 @@ func loadSummonRulesFile() (summonRulesFile, error) {
 		Rules    map[string]summonRule `json:"rules"`
 		New      []newSummon           `json:"new"`
 		ArtCards map[string][]int32    `json:"art_cards"`
+		Titles   map[string]string     `json:"titles"`
 	}
 	if err := json.Unmarshal(summonRulesJSON, &raw); err != nil {
 		return summonRulesFile{}, fmt.Errorf("summon_rules.json: %w", err)
 	}
+	summonTitles = raw.Titles
 	file := summonRulesFile{Rules: make(map[int32]summonRule, len(raw.Rules)), New: raw.New, ArtCards: map[int32][]int32{}}
 	for k, ids := range raw.ArtCards {
 		id, err := strconv.Atoi(k)
