@@ -40,6 +40,11 @@ under its heading, down to the previous release.
   (matched to the costume art), with their weapons; the Debilitating Bane
   weapon summon shows its three weapons. They are not featured: the odds
   are unchanged. [8b10c49]
+- The barrier weapon summons (Vol. 1-3) gave any ★4 weapon of the standard
+  pool. Every ★4 weapon each gives now has its volume's rank 4 barrier
+  skill (Debilitating Bane, Miasma of Indolence, Curtain of Darkness), as
+  the notice says: 80, 79 and 77 weapons. Vol. 2 and 3, missing from the
+  game data, are added with their art and the weapons it shows. [2a05d9e]
 
 ## 1.7.0 (2026-11-02)
 
