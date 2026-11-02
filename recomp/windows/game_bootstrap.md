@@ -413,3 +413,45 @@ the gain, and output remains unqualified. The mode allows current non-audio
 startup work while the TV is off; later audio initialization and actual output
 need their own checks. Use `frame` again when HDMI playback is available.
 The new mode still requires the normal graphics/window prerequisites.
+
+`work/windows-game16` freezes6bc0f27 and executable SHA256
+`6eed62d3e807e7c788c6dd3462e9892177327ab09f87f5b6c47a0ace83948cbd`.
+The three non-render profiles pass. Its first muted attempt omits the volume
+observer, then faults during original master mute before nativeRender or any
+IL2CPP constructor. Native logging and the sole separate debugger replay locate
+the read violation at float bits0x3f800000. FMOV is correct; FCSEL at7043a78c
+misinterprets selected scalar bits as a pointer. The compiled then-current
+semantics also has this bug, despite a source comment suggesting raw bits.
+The preserved muted-boundary audit SHA256 is
+`4e6d62aa58c4471e3a7669721e5dd1bd4bf7badb8c014ba1689104582dc987be`.
+
+A separate normal-audio Game16 attempt includes the qualified Bsearch provider
+and reaches the intentional signal30 guard at LR825b2d1c, target worker3. There
+is no per-call Bsearch observer or metadata-completion claim. All24 Managed
+members and unity.ver still match their inputs. The combined Game16 audit
+SHA256 is `be4576c1dc77dea7436317f660492d82f05f146de33f9b23cc711b75a7a04bc1`.
+
+`work/windows-game17` retains the same host and replaces only Unity shard00168
+using the qualified numeric FCSEL source carriers. Existing Unity USHLL and
+IL2CPP prefetch overlays remain. All456684 heads/3575 objects and79436 direct
+targets are preserved, with no duplicate/missing heads and the same State ABI.
+The executable SHA256 is
+`7d410819899f43c5dee9ea296cec141ce4c85eded1687a05f7c494d0efaf6747`;
+pre-run FCSEL acceptance SHA256 is
+`2cd0fa670cf1dbf1d54361e929757ec76cecb5dc1355223fdc1f715695aa119d`.
+See [the scalar-select qualification](../whole/fcsel.md).
+
+Game17's three non-render profiles pass. Its muted attempt returns from the
+original master-mute request on UnityMain after nativeResume, creates no
+hardware-volume observer, and naturally executes all9 IL2CPP constructors and
+the222 export lookups. Scans, locale, Dup, mappings, all24 physical Managed files
+and unity.ver remain qualified. Startup reaches the same intentional signal30
+rejection at LR825b2d1c. No signal is queued/delivered and no suspension,
+collection, completed initialization or returned/rendered frame is claimed.
+The actual unavailable-endpoint condition was not measured in this run;
+observer omission, not a fabricated device, removes its volume prerequisite.
+
+Game17 aggregate SHA256 is
+`67cd9cf1cc02317acdad2854cefb92ab6e3418144c11ad164204d76e6d25349c`;
+read-only storage result SHA256 is
+`779ea337d7e720ec3f7d5a6d54497695bd160926116a8348669b07bb89a4b814`.

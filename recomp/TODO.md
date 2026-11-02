@@ -4,24 +4,33 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game15 passes constructor/JNI, initJni and surface lifecycle profiles. With the
-LG TV playback endpoint available, its fresh frame retry naturally reads and
-saves PlayerPrefs, parses buildDate, publishes unity.ver and enters public
-IL2CPP initialization. All 24 copied Managed files match the APK. The real
-dup(1026) returns 1000, followed by a successful file mapping and four anonymous
-mappings. Qualified PRFUM and unsigned-immediate PRFM support now passes the
-earlier instruction boundary. Original startup creates another guest worker,
-then stops at the unimplemented bsearch import in IL2CPP at LR0x82577480.
-Initialization has not returned and no frame has rendered.
-The earlier audio-unavailable attempt and fully retired temporary display-awake
-experiment remain preserved. The new prefetch lifter passes strict ARM64
-reference comparisons on Windows/Linux and replaces only IL2CPP shard01082;
-all other game objects remain unchanged. The bsearch callback adapter is next.
+Game17 passes constructor/JNI, initJni and surface lifecycle profiles. Its
+explicit muted diagnostic returns from original nativeResume and master mute
+without creating a Windows hardware-volume observer. Startup naturally reads
+and saves PlayerPrefs, copies all24 Managed files exactly, parses buildDate,
+publishes unity.ver and enters public IL2CPP initialization. Dup and mapping
+work; prefetch and bsearch have qualified implementations. It now reaches an
+intentionally rejected nonzero signal30 to guest worker3 at LR0x825b2d1c.
+The translated engine cohorts are still unpolled. Real worker signal binding,
+safe provider transitions and original stop/restart handling must be qualified
+before this guard can be removed. Initialization has not returned or rendered.
+
+The muted profile avoids the HDMI volume prerequisite for this diagnostic;
+it does not disable backend initialization or qualify persistent gain/output.
+A real scalar FCSEL transport bug found by master mute is fixed and tested
+against ARM64 on both hosts. Only Unity shard00168 is replaced for this fix;
+the earlier Unity USHLL and IL2CPP prefetch replacements remain intact.
+Earlier failures, including Game16's original muted crash, remain preserved.
 
 ## Current checkout and tools
 
-- Windows source: `C:\GitRepos\bunker`. The replaced checkout is preserved at
-  `C:\GitRepos\bunker-backup-before-replace`.
+- Active isolated source: `C:\Users\user\.codex\worktrees\bunker-recomp\bunker`,
+  branch `recomp-x86_64`. The shared `C:\GitRepos\bunker` checkout is used by
+  separate support work; preserve its branch and edits. The replaced original
+  checkout remains at `C:\GitRepos\bunker-backup-before-replace`.
+- The isolated `recomp/work` is an ignored junction to the original checkout's
+  artifact directory. Existing immutable builds and separate Remill repository
+  remain there; do not recursively delete through this junction.
 - Remill fork: `recomp/work/remill-src`, branch `bunker`, remote
   `veritr1x/remill`. This is a separate Git repository, ignored by Bunker.
   Preserve Remill changes there as well as Bunker changes here.
