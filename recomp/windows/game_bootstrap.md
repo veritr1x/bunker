@@ -292,3 +292,27 @@ The two-attempt audit game_audio_boundary_audit.json has SHA256
 `66c3c3277b3aac1d4836697bb383dc119a322ef77e7902d19a85ed1666d71b63`.
 Read-only device evidence is in work/audio-endpoint-game12-audit and
 work/audio-watch-game12. A fresh real frame requires an available endpoint.
+
+`work/windows-game13` freezes319fda9 and executable SHA256
+`7e3c0fcc684a2f7810e8e435b096904c13779f117bc2e90e049053b01b01fd4a`.
+All three non-render profiles pass and every profile revalidates frozen inputs
+and original objects. With the actual LG TV endpoint available, the frame
+enters original startup. Its real preferences backend observes v2 and legacy
+stores absent, then writes one integer marker1 to v2 with RegSet/RegFlush status0.
+No production registry query, reset or host migration is used.
+
+Both original sscanf calls return1/value638477124699603280. All24 Managed
+members still match the APK exactly, and the sole extra cachefile unity.ver is
+the eight-byte little-endian value50c1eee68f53dc08. Original Unity naturally
+loads IL2CPP, executes its nine constructors and resolves all222 exports.
+The actual setlocale6/empty call returns C.UTF-8 at LR8254d0b4, establishing
+public il2cpp_init entry beyond lookup. Its next fatal is IL2CPP's unimplemented
+dup at LR82553f20 with guestfd0x402. Initialization and nativeRender have not
+returned; no metadata execution, GC, managed code or rendered image is claimed.
+Native success preserves prior errno2, which is not an error for the successful
+scan/locale calls. The normal CheckPersistence/teardown barrier is not reached.
+
+The aggregate audit SHA256 is
+`59e491e13b34458bc42dd7fb1a6f5bc0f886842a4915b73762bdf1411806da3a`.
+Read-only storage proof work/game13-storage-audit/result.json has SHA256
+`58c7be3e67758bd1264e343efb635182df54a7e05cf75d4231d839d95ef0af62`.

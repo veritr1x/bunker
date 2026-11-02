@@ -4,14 +4,13 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-The latest game12 build passes constructor/JNI, initJni and surface lifecycle
-profiles. Its two frame attempts stop before resume/render because the actual
-Windows playback endpoint is unavailable. Independent native queries reproduce
-that state; no audio values or device settings were substituted. Game10 remains
-the latest natural engine-startup checkpoint: real IL2CPP loading, 222 export
-lookups and byte-exact physical copying of all24 Managed files. Windows native
-TLS container teardown has also been repaired and qualified before the next
-full attempt.
+The latest game13 build passes constructor/JNI, initJni and surface lifecycle
+profiles. With the LG TV playback endpoint available, original startup opens
+and saves PlayerPrefs, parses buildDate, publishes unity.ver and enters the
+public IL2CPP initialization API naturally. All 24 copied Managed files match
+the APK. It now stops at an unimplemented dup import in IL2CPP; initialization
+has not returned and no frame has rendered. The earlier audio-unavailable
+attempts and the qualified Windows thread-storage repairs remain preserved.
 
 ## Current checkout and tools
 
@@ -70,11 +69,12 @@ full attempt.
   missing-PlayCore branch and OBB getters pass the earlier startup boundary.
   Game10 resolves MODE_PRIVATE and creates both reached Runnable proxies.
   Unity now naturally loads IL2CPP, executes its nine constructors and resolves
-  all 222 original API export requests. It stops at an unported sscanf call at
-  Unity LR709bede8. IL2CPP initialization has not run. Original Java catches
+  all 222 original API export requests. Game13 additionally executes the real
+  parser and enters public il2cpp_init, then stops at dup LR82553f20. IL2CPP
+  initialization has not returned. Original Java catches
   permit startup to continue past missing getSystemService, runOnUiThread,
-  getSharedPreferences, system-UI listener and Handler APIs; these remain work
-  to finish, including persistent preferences.
+  system-UI listener and Handler APIs; these remain work to finish. Original
+  preference initialization now opens both actual stores and saves its marker.
   No frame has completed or rendered. A read-only native
   volume observer supplies resume's cached initial music/mute state without an
   invented initial native callback. The full Java/game lifecycle remains open.
@@ -183,9 +183,9 @@ full attempt.
   migration calls do not establish original Unity initialization. Game11 setup
   exposed duplicate NoSuchElementException ownership with configured APK assets;
   canonical ownership and the combined16-check regression now pass on both
-  hosts, and game12 passes its three non-render lifecycle profiles. Original
-  preference access remains unqualified because audio setup stops its frame
-  attempt before nativeRender. See
+  hosts. Game13 genuinely reads absent v2/legacy stores and writes the v2
+  integer version marker1 with native persistence status0; no direct production
+  registry readback or completed teardown is claimed. See
   [preferences storage and ownership](windows/shared_preferences.md).
 - AssetPackManagerWrapper's original missing-PlayCore branch passes 209 focused
   checks and eight explicit boundaries per host. The exact APK code catalog
@@ -199,7 +199,8 @@ full attempt.
   actual NDK calls on each host, existing LibC/startup regressions and four
   production fatal-format boundaries. It preserves Bionic's 512-character token
   limit, unsigned overflow/errno and tracked eight-byte assignment behavior.
-  The next natural run must qualify this parser in original startup. See
+  Game13 executes two original scans successfully, parsing638477124699603280
+  and writing that uint64 value to unity.ver. See
   [the bounded parser](windows/libc_sscanf.md).
 - Bionic's process-global C/C.UTF-8 locale state passes3,927 focused checks and
   362 actual NDK calls per host plus the existing locale/LibC/startup gates.
@@ -207,8 +208,9 @@ full attempt.
   selection map now uses checked native thread storage, with19 actual cleanup
   callbacks observed. The separate pthread/EGL/automatic-frame stores now pass
   focused thread-exit and existing provider gates, with16 real native cleanup
-  callbacks per store plus six nonempty binding maps. Natural IL2CPP init entry
-  remains unqualified. See
+  callbacks per store plus six nonempty binding maps. Game13's actual
+  setlocale6/empty call at LR8254d0b4 qualifies public IL2CPP init entry, without
+  proving inner initialization or its return. See
   [locale semantics and lifetime evidence](windows/setlocale.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
