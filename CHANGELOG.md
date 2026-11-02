@@ -30,6 +30,9 @@ under its heading, down to the previous release.
   it, and the shared prizes; Mama's Dream lists only its prizes. Neither
   shows the premium summons' rates any more, which they never drew from.
   An event summon's dates are its event's run. [3412d48]
+- Summons Details name each event's tickets (Bronze, Silver and Gold
+  where an event has three) instead of "Summon Ticket", and Mama's Dream
+  summons are named after their announcement. [bf14e2d]
 
 ## 1.7.0 (2026-11-02)
 
