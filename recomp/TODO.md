@@ -4,7 +4,7 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game19 passes constructor/JNI, initJni and surface lifecycle profiles. Its
+Game20 passes constructor/JNI, initJni and surface lifecycle profiles. Its
 explicit muted diagnostic returns from original nativeResume and master mute
 without creating a Windows hardware-volume observer. Startup naturally reads
 and saves PlayerPrefs, copies all24 Managed files exactly, parses buildDate,
@@ -17,6 +17,15 @@ No PollBinding or production target delivery is installed in Game19. Game
 integration of real worker bindings, safe provider transitions and original
 stop/restart handling must be qualified before enabling collector delivery.
 Initialization has not returned or rendered.
+
+Game20 also builds an explicit `frame-muted-gc` option while retaining the
+default guard. Its first opt-in run stops earlier, before worker creation or
+any collector send: original PRFM PLDL1STRM,[X0] at0x825af89c is still an old
+unsupported body (diagnostic next-PC0x825af8a0). This is the already-qualified
+prefetch family. A reviewed sparse candidate replaces only local IL2CPP
+shard01083/global1553:128 heads,127 raw bodies identical and only0x825af884
+repaired. Its new complete cohort and native integration are being qualified;
+no original handler, acknowledgment or completed collection is claimed yet.
 
 Read-only observations now identify worker3's actual user callback as the
 original finalizer function0x825c3ed0. Its last observed provider entry is
@@ -34,21 +43,24 @@ The optional native Windows condition-wait transport now passes397 focused
 checks plus unchanged pthread78 and worker-lifecycle566 regressions. It can
 service a qualified callback with the guest mutex released, including during
 contended reacquisition, while preserving real condition notifications and
-absolute deadlines. It is not installed in the game yet; other blocking
+absolute deadlines. It is installed only by the opt-in profile; its composed
+runtime path has not yet been reached. Other blocking
 pthread routes and general nested-provider root publication remain incomplete.
 
 The separate worker signal-lifecycle adapter passes270 native Windows checks:
 creator-time mask inheritance, actual child ownership, fresh pending/alternate
 stack state, all TLS rounds, cancellation and guarded retirement. It is also
-not installed in the game. The next composed gate must use these actual worker
+installed only by the opt-in profile; no real child context was reached there.
+The next composed gate must use these actual worker
 contexts and wait callbacks with a qualified real signal frame, retaining the
 original collector's stop/acknowledgment/restart/acknowledgment protocol.
 
 Explicit pthread signal sender metadata also passes the real static ARM64
 Bionic reference and translated Linux/Windows gates (3207/3209 checks), plus
 the unchanged signal/semaphore and frame-delivery regressions. It has no
-production UID default or game activation; a Windows compatibility profile
-must choose a consistent virtual Android identity when wiring it in.
+general production UID default; the opt-in game profile explicitly chooses
+virtual Android UID10000 and the real process PID. No queued signal reached
+that sender snapshot in the failed run.
 
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 it does not disable backend initialization or qualify persistent gain/output.

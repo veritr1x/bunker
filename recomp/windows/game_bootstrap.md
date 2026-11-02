@@ -531,3 +531,31 @@ Poll hooks are present but unbound. No nonzero signal is queued, collector
 record synthesized, worker suspended, collection/init completed, nativeRender
 returned or rendered image claimed. The first opt-in collector profile and
 composed worker/wait/frame behavior remain separate, unqualified work.
+
+Game20 freezes the reviewed opt-in collector source5a6a7c2 over the unchanged
+Game19 polled cohort. Its inputs SHA256 is
+`6f692f83a846e1b695d42ab08d67f3226d9ac680caf9ba0bc6be43403816cf70`;
+collector-capable executable SHA256 is
+`a7a4d87d3aeeba6a6a2aa661fe5c9a297623dd55f5d351f2d267287a4e0b1d3e`.
+Default/init/surface controls pass. Standard muted startup, after two preserved
+focus-unavailable attempts and a fresh real-focus retry, still reaches the
+unchanged nonzero signal30 guard. Build capability alone enables no delivery.
+
+The separate first `frame-muted-gc` attempt returns resume/master mute and
+executes all9 IL2CPP constructors, but reaches the old unsupported PRFM at
+825af89c (F9800001) before any worker or collector request. The diagnostic
+reports its next-PC825af8a0. The containing head825af884 belongs to old local
+shard01083/global selected index1553. Its caller scans heap-filtered pointer
+candidates; actualX0/scanned range was not captured, so a particular changed
+mmap is not asserted to cause the branch. No signal is queued or handled.
+
+Both frame attempts have exactly24 APK-identical Managed files/24570231 bytes
+and matching unity.ver. Metadata file size is23317064; its mapped extent is
+23318528. Physical summary SHA256 is
+`0129fd62e481a46acd51ceef626e820eb3ce9fcf7dad5b392b18e3f620a3eb87`.
+The opt-in frame log SHA256 is
+`b75d118199741fad051e2e93cec0e30167102091be63f7b22c1a6383859a925c`;
+Game20 aggregate SHA256 is
+`0f43bd64f2fefb7632e974326a7e129693f286c056b4568fcd40a3c3c8fdeceb`.
+This qualifies control isolation and preserves the incomplete runtime result;
+original stop/restart handlers, root frames and acknowledgments remain unrun.

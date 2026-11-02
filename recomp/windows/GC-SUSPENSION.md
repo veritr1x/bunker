@@ -1,6 +1,9 @@
 # IL2CPP GC suspension: evidence and implementation requirements
 
 **Status: production signal delivery and GC suspension are unimplemented.**
+An experimental opt-in implementation is now built and source-reviewed, but
+its first Game20 run stops at an old PRFM translation before worker creation
+or a collector request. No original handler/acknowledgment has executed yet.
 The combined game harness still rejects nonzero `pthread_kill`. Its installed
 mask/action/semaphore primitives and full Game19 poll hooks have no production
 delivery binding and are not a working stop-world mechanism.
@@ -25,8 +28,9 @@ integration requirements. Other blocking pthread providers remain unchanged.
 
 The separate [worker signal-lifecycle adapter](worker_signal_lifecycle.md)
 also passes270 native Windows checks with real NDK workers and TLS teardown.
-It owns creator-time inheritance, child binding and retirement, but is not yet
-installed in the game. Its gate excludes the new wait overlays; actual composed
+It owns creator-time inheritance, child binding and retirement. The opt-in
+Game20 profile installs it, but stopped before any child entered. Its component
+gate excludes the new wait overlays; actual composed
 wait/frame/collector behavior still requires a game integration gate.
 
 ## Actual binary behavior
