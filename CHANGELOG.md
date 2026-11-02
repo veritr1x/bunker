@@ -54,6 +54,11 @@ under its heading, down to the previous release.
   summons an Abstract, Bloody or Fractured character at ★★★★, free once a
   day; the Healer & Support summons only their exchange's weapons of their
   elements, a ★★★★ weapon guaranteed, once a day. [c905c84]
+- Seven step-up summons had placeholder steps (or one 50x draw): each step
+  now has its art's price, ★★★★ guarantee and bonus items, and the summons
+  whose art names characters feature them. The ★★★★ rates, featured weapon
+  guarantee and free daily draws above also apply to the summons the game
+  data lacks (they were left at placeholder prices). [e46060e]
 
 ## 1.7.0 (2026-11-02)
 
