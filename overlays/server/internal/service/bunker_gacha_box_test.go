@@ -257,3 +257,49 @@ func TestSummonLineupsFromArtAndNotices(t *testing.T) {
 		}
 	}
 }
+
+// Step-up summons take their steps from their art: 525001 was one 50x pull
+// in the game data; 522001 has three steps, not five; bonuses and guarantees
+// are per step.
+func TestStepUpsFromArt(t *testing.T) {
+	holder, _ := harness(t)
+	want := map[int32]int32{514001: 4, 519001: 3, 522001: 3, 525001: 4, 9000016: 5, 9000054: 5, 9000073: 5}
+	for _, e := range holder.Get().GachaEntries {
+		n, ok := want[e.GachaId]
+		if !ok {
+			continue
+		}
+		delete(want, e.GachaId)
+		if e.MaxStepNumber != n || len(e.PricePhases) != int(n) {
+			t.Errorf("%d: %d steps, %d phases, want %d", e.GachaId, e.MaxStepNumber, len(e.PricePhases), n)
+			continue
+		}
+		if e.GachaId == 514001 {
+			first := e.PricePhases[0]
+			if r, _ := masterdata.PhaseRuleFor(first.PhaseId); r.Guar != "r4w" || len(first.Bonuses) != 2 || first.Price != 3000 {
+				t.Errorf("514001 step 1: %+v %q", first, r.Guar)
+			}
+		}
+	}
+	if len(want) > 0 {
+		t.Errorf("missing step-ups %v", want)
+	}
+}
+
+// Added summons take their steps from their own entries: Abyssal Weapon's
+// ★4 rate x1.5, the Bloody daily summon free once a day.
+func TestAddedSummonStepsFromArt(t *testing.T) {
+	holder, _ := harness(t)
+	for _, e := range holder.Get().GachaEntries {
+		switch e.GachaId {
+		case 424:
+			if r, _ := masterdata.PhaseRuleFor(e.PricePhases[0].PhaseId); r.Rate != 1.5 || !r.Feat4 {
+				t.Errorf("424 rule %+v", r)
+			}
+		case 456:
+			if len(e.PricePhases) != 1 || e.PricePhases[0].Price != 0 || e.GachaAutoResetType == 0 {
+				t.Errorf("456 phases %+v reset %d", e.PricePhases, e.GachaAutoResetType)
+			}
+		}
+	}
+}

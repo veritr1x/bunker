@@ -104,7 +104,8 @@ func TestEmbeddedSummonRulesAreValid(t *testing.T) {
 		t.Fatalf("only %d summon rules", len(rules))
 	}
 	for id, r := range rules {
-		if (len(r.Steps) == 0 && r.Featured == nil) || len(r.Steps) > 9 {
+		lineup := r.Featured != nil || r.W4Ability != 0 || len(r.W4) > 0
+		if (len(r.Steps) == 0 && !lineup) || len(r.Steps) > 9 {
 			t.Fatalf("summon %d: %d steps, featured %v", id, len(r.Steps), r.Featured)
 		}
 		stepped := len(r.Steps) > 0 && r.Steps[0].Step > 0

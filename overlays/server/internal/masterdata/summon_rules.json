@@ -545,7 +545,7 @@
    "id": 425,
    "notice": 776,
    "pair": 0,
-   "src": "notice 776",
+   "src": "notice 776; art: ★★★★ appearance rate x1.5",
    "start": 1666317600000,
    "steps": [
     {
@@ -563,7 +563,8 @@
        "t": 5
       }
      ],
-     "price": 3000
+     "price": 3000,
+     "rate": 1.5
     }
    ]
   },
@@ -573,7 +574,7 @@
    "id": 424,
    "notice": 777,
    "pair": 0,
-   "src": "notice 777",
+   "src": "notice 777; art: ★★★★ appearance rate x1.5",
    "start": 1666317600000,
    "steps": [
     {
@@ -591,7 +592,8 @@
        "t": 5
       }
      ],
-     "price": 3000
+     "price": 3000,
+     "rate": 1.5
     }
    ]
   },
@@ -984,7 +986,7 @@
    "id": 488,
    "notice": 1094,
    "pair": 0,
-   "src": "notice 1094",
+   "src": "notice 1094; art: ★★★★ appearance rate x1.5",
    "start": 1682042400000,
    "steps": [
     {
@@ -1008,7 +1010,8 @@
        "t": 6
       }
      ],
-     "price": 3000
+     "price": 3000,
+     "rate": 1.5
     }
    ]
   },
@@ -4127,13 +4130,97 @@
    "id": 9000016,
    "notice": 0,
    "pair": 0,
-   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/r2idia/; https://www.reddit.com/r/NieRReincarnation/comments/r1o22m/",
+   "src": "art: Multi-Step Summons, steps 1-5, featured character guaranteed in step 4",
    "start": 1637913600000,
    "steps": [
     {
+     "bonus": [
+      "XL Character Enhancement x3,500"
+     ],
      "cur": "paid",
-     "draws": 50,
-     "price": 12500
+     "draws": 10,
+     "items": [
+      {
+       "id": 100004,
+       "n": 3500,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Piece: Zenith's Brilliance x1",
+      "XL Weapon Enhancement x1,000"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "items": [
+      {
+       "id": 501001,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
+     "price": 2000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Black Pearl x1",
+      "Small Slab Fragment x905",
+      "Medium Slab Fragment x45"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 401001,
+       "n": 905,
+       "t": 5
+      },
+      {
+       "id": 401002,
+       "n": 45,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r4c_feat",
+     "price": 3000,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x10"
+     ],
+     "cur": "paid",
+     "draws": 10,
+     "items": [
+      {
+       "id": 311003,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 5
     }
    ]
   },
@@ -4221,19 +4308,31 @@
    "id": 9000030,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: ★★★★ appearance rate doubled, Skip Ticket x10 included",
    "start": 1639101600000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
-     "price": 300
+     "price": 300,
+     "rate": 2
     },
     {
+     "bonus": [
+      "Skip Ticket x10"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 2003,
+       "n": 10,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "rate": 2
     }
    ]
   },
@@ -4243,19 +4342,31 @@
    "id": 9000031,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: ★★★★ appearance rate doubled, Skip Ticket x10 included",
    "start": 1639101600000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
-     "price": 300
+     "price": 300,
+     "rate": 2
     },
     {
+     "bonus": [
+      "Skip Ticket x10"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 2003,
+       "n": 10,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "rate": 2
     }
    ]
   },
@@ -4293,19 +4404,31 @@
    "id": 9000032,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: ★★★★ appearance rate doubled, Skip Ticket x10 included",
    "start": 1639360800000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
-     "price": 300
+     "price": 300,
+     "rate": 2
     },
     {
+     "bonus": [
+      "Skip Ticket x10"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 2003,
+       "n": 10,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "rate": 2
     }
    ]
   },
@@ -4315,19 +4438,31 @@
    "id": 9000033,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: ★★★★ appearance rate doubled, Skip Ticket x10 included",
    "start": 1639360800000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
-     "price": 300
+     "price": 300,
+     "rate": 2
     },
     {
+     "bonus": [
+      "Skip Ticket x10"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 2003,
+       "n": 10,
+       "t": 6
+      }
+     ],
+     "price": 3000,
+     "rate": 2
     }
    ]
   },
@@ -4437,14 +4572,125 @@
    "id": 9000054,
    "notice": 0,
    "pair": 0,
-   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/s6xnes/",
+   "src": "art: steps 1-5, ★★★★ guaranteed on the 10th summon of step 5",
    "start": 1642471200000,
    "steps": [
     {
+     "bonus": [
+      "Small Cursed-God Antler Bit x250",
+      "Medium Cursed-God Antler Bit x100"
+     ],
      "cur": "gems",
-     "draws": 50,
-     "guar": "r4c",
-     "price": 13000
+     "draws": 10,
+     "items": [
+      {
+       "id": 402001,
+       "n": 250,
+       "t": 5
+      },
+      {
+       "id": 402002,
+       "n": 100,
+       "t": 5
+      }
+     ],
+     "price": 2000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Small Cursed-God Antler Bit x250",
+      "Medium Cursed-God Antler Bit x100"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "items": [
+      {
+       "id": 402001,
+       "n": 250,
+       "t": 5
+      },
+      {
+       "id": 402002,
+       "n": 100,
+       "t": 5
+      }
+     ],
+     "price": 2000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Small Cursed-God Antler Bit x350",
+      "Medium Cursed-God Antler Bit x150"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "items": [
+      {
+       "id": 402001,
+       "n": 350,
+       "t": 5
+      },
+      {
+       "id": 402002,
+       "n": 150,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Skip Ticket x50",
+      "Small Cursed-God Antler Bit x350",
+      "Medium Cursed-God Antler Bit x150"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "items": [
+      {
+       "id": 2003,
+       "n": 50,
+       "t": 6
+      },
+      {
+       "id": 402001,
+       "n": 350,
+       "t": 5
+      },
+      {
+       "id": 402002,
+       "n": 150,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
+    },
+    {
+     "bonus": [
+      "Small Cursed-God Antler Bit x400",
+      "Medium Cursed-God Antler Bit x150"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r4",
+     "items": [
+      {
+       "id": 402001,
+       "n": 400,
+       "t": 5
+      },
+      {
+       "id": 402002,
+       "n": 150,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 5
     }
    ]
   },
@@ -4520,17 +4766,19 @@
    "id": 9000062,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: featured weapon guaranteed upon summoning a ★★★★",
    "start": 1643076000000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
+     "feat4": true,
      "price": 300
     },
     {
      "cur": "gems",
      "draws": 10,
+     "feat4": true,
      "guar": "r3w",
      "price": 3000
     }
@@ -4608,38 +4856,125 @@
    "id": 9000073,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "art: steps 1-5, ★★★★ appearance rate doubled, featured character guaranteed in step 4",
    "start": 1643335200000,
    "steps": [
     {
+     "bonus": [
+      "Skip Ticket x30",
+      "XL Character Enhancement x3,500"
+     ],
      "cur": "paid",
      "draws": 10,
-     "price": 2000,
+     "items": [
+      {
+       "id": 2003,
+       "n": 30,
+       "t": 6
+      },
+      {
+       "id": 100004,
+       "n": 3500,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "rate": 2,
      "step": 1
     },
     {
-     "cur": "free",
+     "bonus": [
+      "Piece: Zenith's Brilliance x2",
+      "Skip Ticket x30",
+      "XL Weapon Enhancement x1,000"
+     ],
+     "cur": "paid",
      "draws": 10,
-     "price": 0,
+     "items": [
+      {
+       "id": 501001,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 2003,
+       "n": 30,
+       "t": 6
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
+     "price": 1500,
+     "rate": 2,
      "step": 2
     },
     {
+     "bonus": [
+      "Black Pearl x1",
+      "Skip Ticket x30",
+      "Medium Slab Fragment x160",
+      "Small Slab Fragment x905"
+     ],
      "cur": "paid",
      "draws": 10,
-     "price": 3000,
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 2003,
+       "n": 30,
+       "t": 6
+      },
+      {
+       "id": 401002,
+       "n": 160,
+       "t": 5
+      },
+      {
+       "id": 401001,
+       "n": 905,
+       "t": 5
+      }
+     ],
+     "price": 2000,
+     "rate": 2,
      "step": 3
     },
     {
-     "cur": "free",
+     "cur": "paid",
      "draws": 10,
-     "price": 0,
+     "guar": "r4c_feat",
+     "price": 3000,
+     "rate": 2,
      "step": 4
     },
     {
+     "bonus": [
+      "Skip Ticket x30",
+      "Advanced Handbook x10"
+     ],
      "cur": "paid",
      "draws": 10,
-     "guar": "r4",
-     "price": 5000,
+     "items": [
+      {
+       "id": 2003,
+       "n": 30,
+       "t": 6
+      },
+      {
+       "id": 311003,
+       "n": 10,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "rate": 2,
      "step": 5
     }
    ]
@@ -4758,31 +5093,96 @@
    "id": 514001,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "art: Featuring top arena characters and weapons; steps 1-4",
    "start": 1649728800000,
    "steps": [
     {
+     "bonus": [
+      "Skip Ticket x100",
+      "Small BP Recovery x50"
+     ],
      "cur": "gems",
      "draws": 10,
+     "guar": "r4w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 100,
+       "t": 6
+      },
+      {
+       "id": 4001,
+       "n": 50,
+       "t": 6
+      }
+     ],
      "price": 3000,
      "step": 1
     },
     {
+     "bonus": [
+      "Insignia of Skill x1",
+      "Insignia of Quality x2",
+      "Piece: Black Pearl x5"
+     ],
      "cur": "gems",
      "draws": 10,
+     "items": [
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300024,
+       "n": 2,
+       "t": 5
+      },
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
      "price": 3000,
      "step": 2
     },
     {
+     "bonus": [
+      "Advanced Handbook x5",
+      "Piece: Black Pearl x5"
+     ],
      "cur": "gems",
      "draws": 10,
+     "items": [
+      {
+       "id": 311003,
+       "n": 5,
+       "t": 5
+      },
+      {
+       "id": 501002,
+       "n": 5,
+       "t": 5
+      }
+     ],
      "price": 3000,
      "step": 3
     },
     {
+     "bonus": [
+      "Advanced Handbook x5"
+     ],
      "cur": "gems",
      "draws": 10,
-     "guar": "r4",
+     "guar": "r4c",
+     "items": [
+      {
+       "id": 311003,
+       "n": 5,
+       "t": 5
+      }
+     ],
      "price": 3000,
      "step": 4
     }
@@ -4816,26 +5216,85 @@
    "id": 519001,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "art: steps 1-3, specific character guaranteed in the 10th slot of step 3, no featured rates",
    "start": 1654221600000,
    "steps": [
     {
+     "bonus": [
+      "Topaz x50",
+      "Tanzanite x50",
+      "XL Weapon Enhancement x1,000"
+     ],
      "cur": "paid",
      "draws": 10,
+     "guar": "r4w",
+     "items": [
+      {
+       "id": 321010,
+       "n": 50,
+       "t": 5
+      },
+      {
+       "id": 321011,
+       "n": 50,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
      "price": 3000,
      "step": 1
     },
     {
+     "bonus": [
+      "Black Pearl x1",
+      "XL Weapon Enhancement x1,000"
+     ],
      "cur": "paid",
      "draws": 10,
+     "items": [
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
      "price": 3000,
      "step": 2
     },
     {
+     "bonus": [
+      "Skip Ticket x100",
+      "XL Weapon Enhancement x1,000"
+     ],
      "cur": "paid",
      "draws": 10,
-     "guar": "r4",
+     "guar": "set10",
+     "items": [
+      {
+       "id": 2003,
+       "n": 100,
+       "t": 6
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
      "price": 3000,
+     "set": [
+      35009,
+      33012
+     ],
      "step": 3
     }
    ]
@@ -4846,39 +5305,88 @@
    "id": 522001,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "art: steps 1-3, no featured rates",
    "start": 1656295200000,
    "steps": [
     {
+     "bonus": [
+      "Skip Ticket x100",
+      "XL Weapon Enhancement x1,000"
+     ],
      "cur": "paid",
      "draws": 10,
-     "price": 2000,
+     "guar": "r4w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 100,
+       "t": 6
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
+     "price": 3000,
      "step": 1
     },
     {
-     "cur": "free",
+     "bonus": [
+      "Insignia of Skill x1",
+      "Insignia of Quality x1",
+      "XL Weapon Enhancement x1,000"
+     ],
+     "cur": "paid",
      "draws": 10,
-     "price": 0,
+     "items": [
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300024,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
+     "price": 3000,
      "step": 2
     },
     {
+     "bonus": [
+      "Advanced Handbook x10",
+      "Black Pearl x1",
+      "Piece: Zenith's Brilliance x5"
+     ],
      "cur": "paid",
      "draws": 10,
+     "guar": "r4c",
+     "items": [
+      {
+       "id": 311003,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 501001,
+       "n": 5,
+       "t": 5
+      }
+     ],
      "price": 3000,
      "step": 3
-    },
-    {
-     "cur": "free",
-     "draws": 10,
-     "price": 0,
-     "step": 4
-    },
-    {
-     "cur": "paid",
-     "draws": 10,
-     "guar": "r4",
-     "price": 5000,
-     "step": 5
     }
    ]
   },
@@ -4910,13 +5418,104 @@
    "id": 525001,
    "notice": 0,
    "pair": 0,
-   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/w1ivlh/",
+   "src": "art: steps 1-4, no featured rates",
    "start": 1657836000000,
    "steps": [
     {
+     "bonus": [
+      "Skip Ticket x100",
+      "XL Weapon Enhancement x1,000"
+     ],
      "cur": "gems",
-     "draws": 50,
-     "price": 12000
+     "draws": 10,
+     "guar": "r4w",
+     "items": [
+      {
+       "id": 2003,
+       "n": 100,
+       "t": 6
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 1
+    },
+    {
+     "bonus": [
+      "Insignia of Quality x1",
+      "Insignia of Skill x1",
+      "XL Weapon Enhancement x1,000"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "items": [
+      {
+       "id": 300024,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 300023,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 200004,
+       "n": 1000,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 2
+    },
+    {
+     "bonus": [
+      "Advanced Handbook x10",
+      "Black Pearl x1"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "items": [
+      {
+       "id": 311003,
+       "n": 10,
+       "t": 5
+      },
+      {
+       "id": 312003,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 3
+    },
+    {
+     "bonus": [
+      "Zenith's Brilliance x1",
+      "Advanced Handbook x5"
+     ],
+     "cur": "gems",
+     "draws": 10,
+     "guar": "r4c",
+     "items": [
+      {
+       "id": 322002,
+       "n": 1,
+       "t": 5
+      },
+      {
+       "id": 311003,
+       "n": 5,
+       "t": 5
+      }
+     ],
+     "price": 3000,
+     "step": 4
     }
    ]
   },
@@ -4926,19 +5525,21 @@
    "id": 194,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: ★★★★ appearance rate doubled",
    "start": 1659578400000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
-     "price": 300
+     "price": 300,
+     "rate": 2
     },
     {
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 3000,
+     "rate": 2
     }
    ]
   },
@@ -5010,19 +5611,21 @@
    "id": 405,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; usual prices; art: ★★★★ appearance rate x1.5",
    "start": 1661479200000,
    "steps": [
     {
      "cur": "gems",
      "draws": 1,
-     "price": 300
+     "price": 300,
+     "rate": 1.5
     },
     {
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 3000,
+     "rate": 1.5
     }
    ]
   },
@@ -5308,19 +5911,15 @@
    "id": 456,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "notice 903 and art: free 10x every day",
    "start": 1673078400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -5330,19 +5929,15 @@
    "id": 457,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "notice 903 and art: free 10x every day",
    "start": 1673683200000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -7560,22 +8155,7 @@
     ],
     "src": "art"
    },
-   "src": "art: Featuring specific characters, ★★★★ appearance rate doubled",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 2
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "guar": "r3w",
-     "price": 3000,
-     "rate": 2
-    }
-   ]
+   "src": "art: Featuring specific characters, ★★★★ appearance rate doubled"
   },
   "199": {
    "src": "notice 643",
@@ -7676,22 +8256,7 @@
     "only": true,
     "src": "art"
    },
-   "src": "art: Previously available Abyssal costume guaranteed upon summoning a ★★★★, ★★★★ rate x1.5; Rion (Abyssal Exile) excluded",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 1.5
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "guar": "r3w",
-     "price": 3000,
-     "rate": 1.5
-    }
-   ]
+   "src": "art: Previously available Abyssal costume guaranteed upon summoning a ★★★★, ★★★★ rate x1.5; Rion (Abyssal Exile) excluded"
   },
   "407": {
    "featured": {
@@ -8000,23 +8565,7 @@
     "only": true,
     "src": "art"
    },
-   "src": "art: Limited-time character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x1.5",
-   "steps": [
-    {
-     "cur": "paid",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 501001,
-       "n": 2,
-       "t": 5
-      }
-     ],
-     "price": 3000,
-     "rate": 1.5
-    }
-   ]
+   "src": "art: Limited-time character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x1.5"
   },
   "425": {
    "featured": {
@@ -8026,23 +8575,7 @@
     "only": true,
     "src": "art"
    },
-   "src": "art: Limited-time character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x1.5",
-   "steps": [
-    {
-     "cur": "paid",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 501001,
-       "n": 2,
-       "t": 5
-      }
-     ],
-     "price": 3000,
-     "rate": 1.5
-    }
-   ]
+   "src": "art: Limited-time character guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x1.5"
   },
   "426": {
    "featured": {
@@ -8507,16 +9040,7 @@
     "only": true,
     "src": "art"
    },
-   "src": "notice 903 and art: free 10x every day, Bloody character guaranteed upon summoning a ★★★★ (w/ character)",
-   "steps": [
-    {
-     "cur": "free",
-     "daily": true,
-     "draws": 10,
-     "guar": "r3w",
-     "price": 0
-    }
-   ]
+   "src": "notice 903 and art: free 10x every day, Bloody character guaranteed upon summoning a ★★★★ (w/ character)"
   },
   "457": {
    "featured": {
@@ -8533,16 +9057,7 @@
     "only": true,
     "src": "art"
    },
-   "src": "notice 903 and art: free 10x every day, Fractured character guaranteed upon summoning a ★★★★ (w/ character)",
-   "steps": [
-    {
-     "cur": "free",
-     "daily": true,
-     "draws": 10,
-     "guar": "r3w",
-     "price": 0
-    }
-   ]
+   "src": "notice 903 and art: free 10x every day, Fractured character guaranteed upon summoning a ★★★★ (w/ character)"
   },
   "458": {
    "featured": {
@@ -8906,28 +9421,7 @@
     "only": true,
     "src": "art"
    },
-   "src": "art: Brand-new NieR Lineage costume guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x1.5",
-   "steps": [
-    {
-     "cur": "paid",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 501001,
-       "n": 2,
-       "t": 5
-      },
-      {
-       "id": 2003,
-       "n": 50,
-       "t": 6
-      }
-     ],
-     "price": 3000,
-     "rate": 1.5
-    }
-   ]
+   "src": "art: Brand-new NieR Lineage costume guaranteed upon summoning a ★★★★ (w/ character), ★★★★ rate x1.5"
   },
   "489": {
    "featured": {
@@ -9641,6 +10135,16 @@
     }
    ]
   },
+  "514001": {
+   "featured": {
+    "c": [
+     35009,
+     31009
+    ],
+    "src": "art"
+   },
+   "src": "art: Featuring top arena characters and weapons; steps 1-4"
+  },
   "515": {
    "src": "notice 1197",
    "steps": [
@@ -9801,16 +10305,6 @@
       35023,
       32026
      ]
-    }
-   ]
-  },
-  "525001": {
-   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/w1ivlh/",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 50,
-     "price": 12000
     }
    ]
   },
@@ -13594,14 +14088,15 @@
    "src": "art: Featuring fire-affinity weapons"
   },
   "9000016": {
-   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/r2idia/; https://www.reddit.com/r/NieRReincarnation/comments/r1o22m/",
-   "steps": [
-    {
-     "cur": "paid",
-     "draws": 50,
-     "price": 12500
-    }
-   ]
+   "featured": {
+    "c": [
+     33009,
+     33003,
+     32004
+    ],
+    "src": "art"
+   },
+   "src": "art: Multi-Step Summons, steps 1-5, featured character guaranteed in step 4"
   },
   "9000022": {
    "featured": {
@@ -13796,29 +14291,7 @@
     ],
     "src": "art"
    },
-   "src": "art: ★★★★ appearance rate doubled, featuring Rion Gayle Dimos, Skip Ticket x10 included",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 2
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 2003,
-       "n": 10,
-       "t": 6
-      }
-     ],
-     "price": 3000,
-     "rate": 2
-    }
-   ]
+   "src": "art: ★★★★ appearance rate doubled, featuring Rion Gayle Dimos, Skip Ticket x10 included"
   },
   "9000031": {
    "featured": {
@@ -13833,29 +14306,7 @@
     ],
     "src": "art"
    },
-   "src": "art: ★★★★ appearance rate doubled, featuring Akeha Argo Levania, Skip Ticket x10 included",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 2
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 2003,
-       "n": 10,
-       "t": 6
-      }
-     ],
-     "price": 3000,
-     "rate": 2
-    }
-   ]
+   "src": "art: ★★★★ appearance rate doubled, featuring Akeha Argo Levania, Skip Ticket x10 included"
   },
   "9000032": {
    "featured": {
@@ -13866,29 +14317,7 @@
     ],
     "src": "art"
    },
-   "src": "art: ★★★★ appearance rate doubled, featuring 063y F66x Lars, Skip Ticket x10 included",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 2
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 2003,
-       "n": 10,
-       "t": 6
-      }
-     ],
-     "price": 3000,
-     "rate": 2
-    }
-   ]
+   "src": "art: ★★★★ appearance rate doubled, featuring 063y F66x Lars, Skip Ticket x10 included"
   },
   "9000033": {
    "featured": {
@@ -13906,29 +14335,7 @@
     ],
     "src": "art"
    },
-   "src": "art: ★★★★ appearance rate doubled, featuring Griff Noelle Fio, Skip Ticket x10 included",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 2
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "guar": "r3w",
-     "items": [
-      {
-       "id": 2003,
-       "n": 10,
-       "t": 6
-      }
-     ],
-     "price": 3000,
-     "rate": 2
-    }
-   ]
+   "src": "art: ★★★★ appearance rate doubled, featuring Griff Noelle Fio, Skip Ticket x10 included"
   },
   "9000035": {
    "featured": {
@@ -13997,17 +14404,6 @@
    },
    "steps": []
   },
-  "9000054": {
-   "src": "reddit: https://www.reddit.com/r/NieRReincarnation/comments/s6xnes/",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 50,
-     "guar": "r4c",
-     "price": 13000
-    }
-   ]
-  },
   "9000059": {
    "featured": {
     "c": [
@@ -14036,22 +14432,7 @@
      340001
     ]
    },
-   "src": "art: Featured weapon guaranteed upon summoning a ★★★★; Three-Wing Sword and Sword of the Titan",
-   "steps": [
-    {
-     "cur": "gems",
-     "draws": 1,
-     "feat4": true,
-     "price": 300
-    },
-    {
-     "cur": "gems",
-     "draws": 10,
-     "feat4": true,
-     "guar": "r3w",
-     "price": 3000
-    }
-   ]
+   "src": "art: Featured weapon guaranteed upon summoning a ★★★★; Three-Wing Sword and Sword of the Titan"
   },
   "9000063": {
    "featured": {
@@ -14093,6 +14474,17 @@
    },
    "steps": []
   },
+  "9000073": {
+   "featured": {
+    "c": [
+     31009,
+     31010,
+     35006
+    ],
+    "src": "art"
+   },
+   "src": "art: steps 1-5, ★★★★ appearance rate doubled, featured character guaranteed in step 4"
+  },
   "9000078": {
    "featured": {
     "c": [
@@ -14115,15 +14507,6 @@
   },
   "9505061": {
    "src": "notice 1300: once a day, ★★★★ weapon guaranteed, ★★★★ weapons from the Healer & Support lineup (the medal exchange's, by element)",
-   "steps": [
-    {
-     "cur": "gems",
-     "daily": true,
-     "draws": 10,
-     "guar": "r4w",
-     "price": 3000
-    }
-   ],
    "w4": [
     310141,
     310251,
@@ -14175,15 +14558,6 @@
   },
   "9505062": {
    "src": "notice 1620: once a day, ★★★★ weapon guaranteed, ★★★★ weapons from the Healer & Support lineup (the medal exchange's, by element)",
-   "steps": [
-    {
-     "cur": "gems",
-     "daily": true,
-     "draws": 10,
-     "guar": "r4w",
-     "price": 3000
-    }
-   ],
    "w4": [
     310141,
     310251,
@@ -14235,15 +14609,6 @@
   },
   "9505071": {
    "src": "notice 1300: once a day, ★★★★ weapon guaranteed, ★★★★ weapons from the Healer & Support lineup (the medal exchange's, by element)",
-   "steps": [
-    {
-     "cur": "gems",
-     "daily": true,
-     "draws": 10,
-     "guar": "r4w",
-     "price": 3000
-    }
-   ],
    "w4": [
     340061,
     340151,
@@ -14282,15 +14647,6 @@
   },
   "9505072": {
    "src": "notice 1620: once a day, ★★★★ weapon guaranteed, ★★★★ weapons from the Healer & Support lineup (the medal exchange's, by element)",
-   "steps": [
-    {
-     "cur": "gems",
-     "daily": true,
-     "draws": 10,
-     "guar": "r4w",
-     "price": 3000
-    }
-   ],
    "w4": [
     340061,
     340151,
