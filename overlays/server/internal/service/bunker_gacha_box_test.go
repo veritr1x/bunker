@@ -76,9 +76,9 @@ func TestEventSummonPeriod(t *testing.T) {
 		now  int64
 		want string
 	}{
-		{105 * day, "1970/04/11 – 1970/04/21"},  // open now
-		{150 * day, "1970/07/20 – 1970/08/04"},  // the next
-		{400 * day, "1970/07/20 – 1970/08/04"},  // the last
+		{105 * day, "1970/04/11 – 1970/04/21"}, // open now
+		{150 * day, "1970/07/20 – 1970/08/04"}, // the next
+		{400 * day, "1970/07/20 – 1970/08/04"}, // the last
 	} {
 		if got := eventPeriodHTML(runs, c.now); !strings.Contains(got, c.want) {
 			t.Errorf("now day %d: %s, want %s", c.now/day, got, c.want)
@@ -397,6 +397,21 @@ func TestRuleNamesTheSummonsNotice(t *testing.T) {
 			if e.InformationId != 801 {
 				t.Errorf("428 notice %d", e.InformationId)
 			}
+		}
+	}
+}
+
+// Summons Details takes a summon's title from summon_rules.json's titles
+// over the game text where that text is wrong (416's says it is the paid
+// one) or missing or Japanese.
+func TestSummonTitlesFixed(t *testing.T) {
+	holder, _ := harness(t)
+	bunkerHolder = holder
+	defer func() { bunkerHolder = nil }()
+	archiveText(t, map[string]string{"gacha.title.limited_416": "Paid Only: Abstract Ruler Summons"})
+	for id, want := range map[string]string{"416": "Abstract Ruler Summons", "428": "Subjugation Conquest Summons", "586001": "Paid Only: Oathbound Exile Multi-Step Summons"} {
+		if page := boxPage(t, "/web/en/gacha-details?gachaId="+id); !strings.Contains(page, "<h1>"+want+"</h1>") {
+			t.Errorf("%s: %.400s", id, page[strings.Index(page, "<body>"):])
 		}
 	}
 }

@@ -36,6 +36,35 @@ SHARED_MEDALS = {46: 45, 151: 150}
 MEDAL_ITEMS = {401: 8087, 501: 8168, 535: 8192, 541: 8192, 542: 8192, 543: 8193, 549: 8197, 550: 8197,
                555: 8203, 556: 8203, 582: 8222, 583: 8222, 585: 8222, 510001: 8030, 513001: 8033,
                515001: 8045, 536001: 8110, 537001: 8133, 9000035: 8021}
+# Summon titles where the game text is wrong (limited_416 and limited_417's are swapped,
+# limited_428's names the summon a month later), Japanese only or missing. Keyed by banner
+# asset; the server's summon_rules.json "titles" holds the same list.
+FIXED_TITLES = {
+    "limited_416": "Abstract Ruler Summons",
+    "limited_417": "Paid Only: Abstract Ruler Summons",
+    "limited_428": "Subjugation Conquest Summons",
+    "step_up_560001": "Paid Only: NieR Replicant ver.1.22 Crossover Multi-Step Summons",
+    "step_up_563001": "SINoALICE Paid-Only Resurrected Crossover Summons",
+    "step_up_900003": "Paid Only: Lacrima Soldier Multi-Step Summons",
+    "limited_546": "YoRHa Stage Play Crossover 10x Free Summons",
+    "step_up_581001": "Paid Only: Mechanical Hunter Multi-Step Summons",
+    "step_up_582001": "Paid Only: Mechanical Weapon Multi-Step Summons",
+    "step_up_586001": "Paid Only: Oathbound Exile Multi-Step Summons",
+    "step_up_587001": "Paid Only: Oathbound Belle Multi-Step Summons",
+    "limited_123": "Yuletide Wishes Summons",
+    "limited_144": "Up to 220 Free Summons",
+    "limited_413": "Paid Only: Abyssal Assassin Summons",
+    "limited_438": "Paid Only: Yuletide Snowfall Summons",
+    "limited_443": "Mama's Exciting Festival Summons Vol. 1",
+    "limited_444": "Mama's Exciting Festival Summons Vol. 2",
+    "limited_445": "Mama's Exciting Festival Summons Vol. 3",
+    "limited_449": "Paid Only: New Year Countdown Summons Vol. 1",
+    "limited_450": "Paid Only: New Year Countdown Summons Vol. 2",
+    "limited_451": "Paid Only: New Year Countdown Summons Vol. 3",
+    "limited_472": "Paid Only: Abyssal Festival Summons Vol. 1",
+    "limited_473": "Paid Only: Abyssal Festival Summons Vol. 2",
+    "limited_474": "Paid Only: Abyssal Festival Summons Vol. 3",
+}
 # Summons the game text has no title for: the title is drawn into the banner art only (read from
 # ui/gacha/en/<asset>/mom_banner). Keyed by banner asset.
 ART_TITLES = {
@@ -252,6 +281,8 @@ class Schedule:
 
     # ---- Summons ----------------------------------------------------------------
     def summon_title(self, gacha: int, asset: str) -> str:
+        if asset in FIXED_TITLES:
+            return FIXED_TITLES[asset]
         for key in (asset, f"limited_{gacha}", f"limited_{gacha:02d}"):
             if key and self.text("gacha.title.", key):
                 return self.text("gacha.title.", key)

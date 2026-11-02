@@ -390,7 +390,10 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 		writeHTML(w, b.String())
 		return
 	}
-	title := t.text("gacha.title." + entry.BannerAssetName)
+	title := masterdata.SummonTitle(entry.BannerAssetName)
+	if title == "" {
+		title = t.text("gacha.title." + entry.BannerAssetName)
+	}
 	if title == "" {
 		title = noticeSummonTitle(*entry)
 	}
