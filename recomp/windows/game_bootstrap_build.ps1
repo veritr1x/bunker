@@ -9,6 +9,19 @@ foreach($taskGroup in @(@{root=(Join-Path $taskBuild 'sources');values=$taskInpu
  foreach($taskProperty in $taskGroup.values.PSObject.Properties){if((Game-Hash (Join-Path $taskGroup.root $taskProperty.Name)) -ne $taskProperty.Value){throw "Frozen source/support differs: $($taskProperty.Name)"}}
 }
 foreach($taskObject in $taskInput.objects){if((Game-Hash (Game-Path $taskObject.path)) -ne $taskObject.sha256){throw "Accepted object differs: $($taskObject.path)"}}
+$taskPollCohort=$taskInput.cooperative_poll_cohort
+if($null -ne $taskPollCohort){
+ $taskPollProofPath=Game-Path $taskPollCohort.acceptance_path
+ if((Game-Hash $taskPollProofPath) -ne $taskPollCohort.acceptance_sha256){throw 'Cooperative cohort acceptance differs'}
+ $taskPollProof=Get-Content -Raw -LiteralPath $taskPollProofPath|ConvertFrom-Json
+ if($taskPollProof.trace_heads -ne 456684 -or $taskPollProof.objects.Count -ne 3575 -or $taskPollProof.unique_definitions -isnot [bool] -or -not $taskPollProof.unique_definitions -or $taskPollProof.PSObject.Properties.Name -notcontains 'missing_direct_targets' -or $null -eq $taskPollProof.missing_direct_targets -or $taskPollProof.missing_direct_targets.Count -ne 0){throw 'Incomplete cooperative cohort'}
+ $taskPollContract=$taskPollProof.contract
+ if($taskPollContract.input_plan_sha256 -cne '14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9' -or $taskPollContract.poll_instrument_sha256 -cne '716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa' -or $taskPollContract.target -cne 'x86_64-w64-windows-gnu' -or $taskPollContract.no_relift -isnot [bool] -or -not $taskPollContract.no_relift -or $taskPollContract.source_ir_and_semantics_preserved -isnot [bool] -or -not $taskPollContract.source_ir_and_semantics_preserved){throw 'Cooperative cohort uses an unqualified input or instrumentation profile'}
+ for($taskPollIndex=0;$taskPollIndex -lt $taskInput.objects.Count;$taskPollIndex++){
+  $taskExpectedPollObject=$taskPollProof.objects[$taskPollIndex];$taskActualPollObject=$taskInput.objects[$taskPollIndex]
+  if($taskExpectedPollObject.path -cne $taskActualPollObject.path -or $taskExpectedPollObject.sha256 -cne $taskActualPollObject.sha256){throw "Cooperative cohort object selection differs at $taskPollIndex"}
+ }
+}
 if((Game-Hash (Join-Path $taskBuild 'libz-inflate.a')) -ne $taskInput.zlib_sha256){throw 'Frozen zlib backend differs'}
 $taskSource=Join-Path $taskBuild 'sources\recomp'
 $taskCommon=@('-std=c++17','-O2','-DADDRESS_SIZE_BITS=64',"-I$taskBuild\remill-include","-I$taskBuild","-I$taskBuild\zlib-include","-I$taskBuild\angle-include",'-Wa,-mbig-obj')
@@ -21,6 +34,7 @@ $taskArgs=$taskCommon+@('-static',$taskHarness,$taskLoader)
 foreach($taskName in @('jni_host.cpp','java_native_libraries.cpp','android_context.cpp','windows_android_id.cpp','jni_interface_proxy.cpp','android_asset_pack_wrapper.cpp','android_shared_preferences.cpp','windows_shared_preferences.cpp','android_internal_storage.cpp','android_obb_storage.cpp','android_assets.cpp','apk_assets.cpp','native_window.cpp','unity_lifecycle.cpp','signal_host.cpp','semaphore_host.cpp','nonlocal_jmp.cpp','audio_volume.cpp','audio_volume_session.cpp','egl_host.cpp','gl_host.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp')){$taskArgs+=Join-Path $taskSource ('windows\'+$taskName)}
 $taskGrowdownSource=Join-Path $taskSource 'windows\growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArgs+=$taskGrowdownSource}
 foreach($taskName in @('runtime.cpp','format.cpp')){$taskArgs+=Join-Path $taskSource ('whole\'+$taskName)}
+if($null -ne $taskPollCohort){$taskArgs+=Join-Path $taskSource 'whole\cooperative_poll.cpp'}
 foreach($taskObject in $taskInput.objects){$taskArgs+=Game-Path $taskObject.path}
 $taskArgs+=@((Join-Path $taskBuild 'libz-inflate.a'),'-Wl,--wrap=sub_825b0544','-latomic','-lbcrypt','-luser32','-lgdi32','-lole32','-luuid','-ladvapi32','-o',$taskExe)
 $taskResponse=Join-Path $taskBuild 'game-bootstrap-link.rsp'

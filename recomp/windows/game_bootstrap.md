@@ -479,3 +479,20 @@ The read-only storage audit SHA256 is
 the Game18 aggregate SHA256 is
 `5f75085d0c8e2f20ecefdc31dbdbbf0eeae3b2a1173f150d1dc1fb0f4c94a9f1`.
 Initialization, collection and nativeRender have not completed.
+
+The native build script can now consume an optional `cooperative_poll_cohort`
+descriptor with `acceptance_path` and `acceptance_sha256`. It validates the
+proof hash, exact ordered3575-object selection, closed456684-head set, qualified
+input-plan/poll-instrument hashes, Windows target and preserved-IR contract
+before linking `whole/cooperative_poll.cpp`. Omitting the descriptor preserves
+the existing link. This does not install a PollBinding or enable signal delivery.
+
+The actual PowerShell guard AST passes14 bounded positive/negative cases,
+including absent metadata and rejection of mismatched contracts/objects. Its
+source SHA256 is
+`4306003b138a1f665c88bbd4057065531ed9c0257e8ff7a811383373e93af6db`;
+`work/game19-cooperative-build-guard/acceptance.json` SHA256 is
+`f39b0451febbe67b36627cf8fe95e807f833d98b94c6d224fc61a3dc4acaa2e5`.
+These use explicitly synthetic object labels and do not qualify a native link.
+The new full cohort is being built separately from the hash-verified original
+IR inventory; full-cohort and actual native startup qualification are pending.
