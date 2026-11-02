@@ -188,7 +188,17 @@ int main(int argc,char **argv){
     // Real policy/semaphores for explicitly bound threads. These cohorts are
     // unpolled: delivery and unknown worker contexts fail rather than queueing
     // a request that cannot receive a real same-worker acknowledgment.
-    SignalHost process_signals([](uint64_t token){std::fprintf(stderr,"Game bootstrap: unsupported unpolled delivery target=%#llx\n",(unsigned long long)token);std::abort();});process_signals.SetErrorSink(error);
+    SignalHost process_signals([](uint64_t token){std::fprintf(stderr,"Game bootstrap: unsupported unpolled delivery target=%#llx\n",(unsigned long long)token);std::abort();},0x7ff600100000ULL,
+      [&files](addr_t address,size_t size)->std::optional<SignalHost::StackRegion>{
+        auto mapping=files.MappingRegion(address,size,true);
+        if(!mapping)return {};
+        return SignalHost::StackRegion{mapping->base,mapping->base+mapping->size,mapping->generation};
+      },
+      [&files](addr_t address,size_t size,uint64_t generation)->std::optional<SignalHost::StackLease>{
+        auto use=files.AcquireMappingUse(address,size,true);
+        if(!use||use->region.generation!=generation)return {};
+        return SignalHost::StackLease{{use->region.base,use->region.base+use->region.size,use->region.generation},std::move(use->lease)};
+      });process_signals.SetErrorSink(error);
     Semaphores semaphores(process_signals);semaphores.SetErrorSink(error);
     std::unique_ptr<NonlocalJumps> jumps;
     recomp::Runtime window_bridges;
@@ -251,7 +261,14 @@ int main(int argc,char **argv){
     recomp::Runtime signal_bridges,jump_bridges;
     auto no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("unpolled frame profile cannot deliver a target signal");};
     process_signals.Install(signal_bridges,current_signal_thread,no_delivery);
-    for(const char *name:{"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember"}){auto marker=process_signals.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"pthread_kill")&&s.gpr.x1.dword){std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}signal_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: signal bridge %s failed:%s\n",name,e.what());std::abort();}});}
+    for(const char *name:{"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember","sigaltstack"}){auto marker=process_signals.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"pthread_kill")&&s.gpr.x1.dword){std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}
+      const auto input=s.gpr.x0.qword,output=s.gpr.x1.qword;
+      signal_bridges.Dispatch(s,marker,nullptr);
+      if(!std::strcmp(name,"sigaltstack")){
+        const auto stack=process_signals.AlternateStack(current_signal_thread()).configured;
+        std::fprintf(stderr,"Game bootstrap: original sigaltstack new=%#llx old=%#llx SP=%#llx LR=%#llx result=%d configured=%#llx flags=%u size=%llu\n",(unsigned long long)input,(unsigned long long)output,(unsigned long long)s.gpr.sp.qword,(unsigned long long)s.gpr.x30.qword,int32_t(s.gpr.x0.dword),(unsigned long long)stack.pointer,uint32_t(stack.flags),(unsigned long long)stack.size);
+      }
+    }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: signal bridge %s failed:%s\n",name,e.what());std::abort();}});}
     semaphores.Install(runtime,current_signal_thread,no_delivery);
     if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"setjmp"))automatic_environments.BeforeSetjmp(s,current_signal_thread());jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
     if(graphics){
