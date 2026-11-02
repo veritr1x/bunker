@@ -4,17 +4,19 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game14 passes constructor/JNI, initJni and surface lifecycle profiles. With the
+Game15 passes constructor/JNI, initJni and surface lifecycle profiles. With the
 LG TV playback endpoint available, its fresh frame retry naturally reads and
 saves PlayerPrefs, parses buildDate, publishes unity.ver and enters public
 IL2CPP initialization. All 24 copied Managed files match the APK. The real
 dup(1026) returns 1000, followed by a successful file mapping and four anonymous
-mappings. Startup now stops at unsupported PRFUM at 0x825ae0c8; the diagnostic
-reports its next PC, 0x825ae0cc. The same original function also needs immediate
-PRFM support. Initialization has not returned and no frame has rendered.
+mappings. Qualified PRFUM and unsigned-immediate PRFM support now passes the
+earlier instruction boundary. Original startup creates another guest worker,
+then stops at the unimplemented bsearch import in IL2CPP at LR0x82577480.
+Initialization has not returned and no frame has rendered.
 The earlier audio-unavailable attempt and fully retired temporary display-awake
-experiment remain preserved. A new lifter and strict ARM64-reference tests for
-the two prefetch forms are in progress; the game has not yet run with them.
+experiment remain preserved. The new prefetch lifter passes strict ARM64
+reference comparisons on Windows/Linux and replaces only IL2CPP shard01082;
+all other game objects remain unchanged. The bsearch callback adapter is next.
 
 ## Current checkout and tools
 
@@ -87,7 +89,9 @@ the two prefetch forms are in progress; the game has not yet run with them.
   evidenced actions and acknowledgment semaphore. A fresh full cohort now has
   397,058 traces/3,105 objects and 101 unsupported heads, closed direct targets
   and accepted native constructor/signal-init/finalizer parity. Earlier mixed
-  cohorts remain preserved. No collection or il2cpp_init has run. See
+  cohorts remain preserved. These isolated gates do not execute collection or
+  il2cpp_init; later natural startup has entered initialization as described
+  above, without returning. See
   [the current lineage and boundary](windows/il2cpp_snapshot_current.md).
 - A separate combined native Windows gate now runs both accepted module
   cohorts together: 417+9 constructors, Unity JNI/initJni, its actual ClassLoader

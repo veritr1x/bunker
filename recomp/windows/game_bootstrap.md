@@ -369,3 +369,30 @@ Read-only storage result work/game14-storage-audit/result.json has SHA256
 The earlier unavailable-audio attempt remains unchanged. Initialization,
 collection and nativeRender have not completed; no rendered image or managed
 execution is claimed. The new prefetch lifter is not part of this Game14 run.
+
+`work/windows-game15` freezes hostc8014f3 and executable SHA256
+`b13c4afbfa9713e17e0d47d7cfb928a13614c4579f113cfa6d51daf8f645ea7a`.
+It replaces only IL2CPP shard01082 with the qualified PRFM/PRFUM implementation
+described in [the prefetch gate](../whole/prefetch.md). The joint cohort keeps
+456684 heads/3575 objects, all79436 direct targets closed, and the same State
+ABI. Other3574 objects retain their existing frozen semantics. IL2CPP's static
+unsupported-head count falls from101 to98; this is not a full-library refresh.
+The pre-run acceptance SHA256 is
+`1ad7cf34c7c64ed19fc9ff4b01ed03d1558f052d628b35948680651a154e2229`.
+It closes the build-time pending qualification without rewriting frozen inputs.
+
+All three non-render lifecycle profiles pass and every profile revalidates
+frozen inputs and original objects. With the actual LG TV endpoint available,
+original startup repeats its real preference read/write, scans, locale, Dup and
+mappings. It passes the prior prefetch boundary and creates an additional guest
+worker: token0x7ffa00000003, entry0x82556a94, with no synthetic SignalHost binding.
+It then stops at the missing libil2cpp.so bsearch import, PC0x7ffc00000400,
+LR0x82577480. Worker creation does not establish collector completion, signal
+binding or stop-world correctness. Initialization and nativeRender have not
+returned; no rendered image is claimed.
+
+Read-only comparison again finds exactly24 Managed members/24570231 bytes
+matching the APK and the same eight-byte unity.ver. Its result SHA256 is
+`47fd64931db8b8830e31b018e9e35cdaa0b10b2fde545870504264f0603b9cf6`.
+The Game15 aggregate game_final_audit.json SHA256 is
+`18e4ded9a625bce754ec1953e382db14111d59c9a297521817be7e3a1805700e`.
