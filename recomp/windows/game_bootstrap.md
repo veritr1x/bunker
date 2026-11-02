@@ -27,10 +27,16 @@ Each module owns its exact constructors and reverse finalizers. Merely registeri
 IL2CPP executes nothing. The catalog and providers stay alive through all guest
 callbacks. A host-owned Unity handle is the only handle the harness closes;
 guest IL2CPP handles and reference counts are observed, never forced to zero.
-Actual remaining UI TLS destructors are retired before JNI/global teardown and
-end at an explicit retained-module boundary rather than claiming unload/reuse.
-If natural code already finalized a module while TLS survives, callbacks stop
-with an unproved-lifetime diagnostic.
+Remaining UI TLS callbacks owned by modules are retired before JNI/global
+teardown and end at an explicit retained-module boundary. The exact installed
+LibC free callback can remain until actual ReleaseCurrent: its provider and
+allocator state outlive the thread and its body accesses no guest module globals.
+No key is cleared, deleted or manually freed to force this path. Guest PLT aliases
+and every other callback remain module-owned. Each teardown barrier rechecks the
+real UI values, including after global finalization; no query recreates a thread
+after ReleaseCurrent. The import audit itself outlives worker draining/Pthreads.
+If natural code already finalized a module while a module-owned callback survives,
+callbacks stop with an unproved-lifetime diagnostic.
 
 The original IL2CPP 825b0544 wrapper preserves actual execution and callbacks.
 GNU `--wrap=sub_825b0544` covers both external direct calls and runtime-table

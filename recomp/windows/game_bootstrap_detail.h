@@ -67,8 +67,12 @@ struct GameTlsAudit {
       auto result=threads.Create(out,attr,entry,arg);if(!result)std::fprintf(stderr,"Game bootstrap: actual guest worker created token=%#llx entry=%#llx; no synthetic SignalHost binding\n",(unsigned long long)Read<uint64_t>(reinterpret_cast<addr_t>(out)),(unsigned long long)entry);return result;
     }));
   }
-  size_t Pending(bunker::windows::Pthreads &threads){
+  size_t PendingModuleCallbacks(bunker::windows::Pthreads &threads){
     std::vector<std::pair<int32_t,addr_t>> keys;{std::lock_guard lock(mutex);for(auto entry:destructors)if(entry.second)keys.push_back(entry);}
-    size_t pending=0;for(auto [key,dtor]:keys)if(auto value=threads.GetSpecific(key)){++pending;std::fprintf(stderr,"Game bootstrap: actual UI TLS destructor remains key=%d callback=%#llx value=%#llx\n",key,(unsigned long long)dtor,(unsigned long long)value);}return pending;
+    size_t pending=0;for(auto [key,dtor]:keys)if(auto value=threads.GetSpecific(key)){
+      const bool provider_owned=free_callback&&dtor==free_callback;
+      if(!provider_owned)++pending;
+      std::fprintf(stderr,"Game bootstrap: actual UI TLS %s destructor remains key=%d callback=%#llx value=%#llx\n",provider_owned?"provider-free":"module-owned",key,(unsigned long long)dtor,(unsigned long long)value);
+    }return pending;
   }
 };

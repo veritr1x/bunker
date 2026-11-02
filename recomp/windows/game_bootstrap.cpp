@@ -210,6 +210,8 @@ int main(int argc,char **argv){
     LibC libc([&](addr_t entry,const std::vector<addr_t> &args){return runner->Run(entry,args);});
     logging.SetAllocator([&](uint64_t size){return libc.Malloc(size);});
     libc.SetErrorSink(error);libc.SetEnvironment({});
+    // Import callbacks can reference this audit until every worker has joined.
+    GameTlsAudit tls_audit;tls_audit.free_callback=libc.Marker("free");
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
@@ -235,7 +237,7 @@ int main(int argc,char **argv){
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;~Drain(){if(threads.Shutdown())std::abort();}} drain{threads};
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);
-    GameTlsAudit tls_audit;tls_audit.free_callback=libc.Marker("free");tls_audit.Install(runtime,threads);
+    tls_audit.Install(runtime,threads);
     recomp::Runtime module_bridges;modules.Install(module_bridges);
     for(const char *name:{"dlopen","dlsym","dlclose","dlerror"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
       const auto argument=s.gpr.x0.qword,caller=s.gpr.x30.qword;
@@ -421,7 +423,7 @@ int main(int argc,char **argv){
       }
     }
     Require(!threads.Shutdown(),"actual guest workers did not drain before JNI/module teardown");
-    if(auto pending=tls_audit.Pending(threads)){
+    if(auto pending=tls_audit.PendingModuleCallbacks(threads)){
       // A real callback must run before JNI/module globals are retired. If
       // natural guest code already retired an owner, do not invoke stale code.
       Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"real UI TLS survives an already finalized module; safe callback lifetime is unproved");
@@ -429,16 +431,16 @@ int main(int argc,char **argv){
       std::fprintf(stderr,"Game bootstrap: reached teardown boundary: %zu real UI TLS destructor(s) retired before JNI/global teardown; modules retained until process exit, Unity refs=%zu IL2CPP refs=%zu; no forced finalizers/reuse claim\n",pending,modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 7;
     }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
-    Require(!tls_audit.Pending(threads),"JNI_OnUnload created UI TLS requiring an unproved teardown order");
+    Require(!tls_audit.PendingModuleCallbacks(threads),"JNI_OnUnload created UI TLS requiring an unproved teardown order");
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
     std::fprintf(stderr,"Game bootstrap: actual lazy IL2CPP lifecycle constructors=%zu finalizers=%zu remaining refs=%zu; no host-forced guest handle close\n",il2cpp_ledger.constructed,il2cpp_ledger.finalized,modules.ReferenceCount("libil2cpp.so"));
-    Require(!tls_audit.Pending(threads),"actual module finalizers created surviving UI TLS; callback lifetime is unproved");
+    Require(!tls_audit.PendingModuleCallbacks(threads),"actual module finalizers created surviving UI TLS; callback lifetime is unproved");
     if(modules.ReferenceCount("libunity.so")||modules.ReferenceCount("libil2cpp.so")){
-      Require(!tls_audit.Pending(threads),"module finalization created UI TLS requiring an unproved teardown order");
+      Require(!tls_audit.PendingModuleCallbacks(threads),"module finalization created UI TLS requiring an unproved teardown order");
       Require(!threads.ReleaseCurrent(),"actual UI retirement with retained modules failed");if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement with retained modules failed");native_catalog->Revoke();
       std::fprintf(stderr,"Game bootstrap: reached teardown boundary: actual module references remain Unity=%zu IL2CPP=%zu; globals retained until process exit, no host-forced finalizers\n",modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 7;
     }
-    libc.Finalize();Require(!tls_audit.Pending(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
+    libc.Finalize();Require(!tls_audit.PendingModuleCallbacks(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
     if(jumps)jumps->DropThread(current_token,current_token);
     if(process_signals.Lookup(current_token)&&process_signals.DropThread(current_token))throw std::runtime_error("parent signal-thread cleanup failed");
     native_catalog->Revoke();
