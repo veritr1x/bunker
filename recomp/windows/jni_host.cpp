@@ -20,6 +20,7 @@ uint64_t ThreadKey() {
 template <typename T> T Read(addr_t at) { T value; recomp::ReadGuestMemory(&value, at, sizeof(value)); return value; }
 template <typename T> void Write(addr_t at, T value) { recomp::WriteGuestMemory(at, &value, sizeof(value)); }
 void IntResult(State &s, int32_t value) { s.gpr.x0.qword = static_cast<uint32_t>(value); }
+void FloatResult(State &s,uint32_t bits){std::memset(&s.simd.v[0],0,sizeof(s.simd.v[0]));std::memcpy(&s.simd.v[0],&bits,sizeof(bits));}
 std::string Encode(const std::u16string &text) {
   std::string result;
   for (uint16_t c : text) {
@@ -252,6 +253,18 @@ void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,
   if(!handler)throw std::invalid_argument("missing boolean handler");
   DefineHandler(owner,name,signature,'Z',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){return handler(object,arguments)?1:0;});
 }
+void Host::DefineIntMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<int32_t(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing int handler");DefineHandler(owner,name,signature,'I',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return static_cast<uint32_t>(handler(object,args));});
+}
+void Host::DefineStaticIntMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<int32_t(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing static int handler");DefineHandler(owner,name,signature,'I',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return static_cast<uint32_t>(handler(object,args));},true);
+}
+void Host::DefineFloatBitsMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<uint32_t(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing float-bits handler");DefineHandler(owner,name,signature,'F',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return handler(object,args);});
+}
+void Host::DefineStaticFloatBitsMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<uint32_t(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing static float-bits handler");DefineHandler(owner,name,signature,'F',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return handler(object,args);},true);
+}
 void Host::BindBooleanMethod(const std::string &owner,const std::string &name,const std::string &signature,
                              std::function<bool(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing boolean implementation");
@@ -274,7 +287,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   std::vector<std::string> arguments;size_t at=1;
   while(at<signature.size()&&signature[at]!=')'){
     if(arguments.size()==3)throw std::invalid_argument("host handlers support at most three fixed arguments");
-    if(signature[at]=='I'||signature[at]=='J'){arguments.push_back(signature.substr(at,1));++at;continue;}
+    if(signature[at]=='I'||signature[at]=='J'||signature[at]=='F'){arguments.push_back(signature.substr(at,1));++at;continue;}
     if(signature[at]=='['){
       const auto start=at;while(at<signature.size()&&signature[at]=='[')++at;
       if(at==signature.size()||signature[at]!='L')throw std::invalid_argument("host handlers support only reference-array arguments");
@@ -282,14 +295,14 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
       auto descriptor=signature.substr(start,end-start+1);if(!FindReferenceArrayClass(descriptor))throw std::invalid_argument("unknown or invalid host array argument class");
       arguments.push_back(std::move(descriptor));at=end+1;continue;
     }
-    if(signature[at]!='L')throw std::invalid_argument("host handlers support only references, jint and jlong arguments");
+    if(signature[at]!='L')throw std::invalid_argument("host handlers support only references, jint, jlong and jfloat arguments");
     auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host argument descriptor");
     auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(signature.substr(at,end-at+1));at=end+1;
   }
   auto returns=at<signature.size()?signature.substr(at+1):"";
   const bool reference_result=result=='L'&&!returns.empty()&&(returns.front()=='['?FindReferenceArrayClass(returns)!=nullptr:
       returns.size()>=3&&returns.front()=='L'&&returns.back()==';'&&classes_.count(returns.substr(1,returns.size()-2)));
-  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='L'&&!reference_result))throw std::invalid_argument("invalid host result descriptor");
+  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='I'&&returns!="I")||(result=='F'&&returns!="F")||(result=='L'&&!reference_result))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
   if(bind_existing){
@@ -499,13 +512,13 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I"||type=="J")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;const auto expected=type.front()=='['?type:type.substr(1,type.size()-2);if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,expected)){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
+bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I"||type=="J"||type=="F")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;const auto expected=type.front()=='['?type:type.substr(1,type.size()-2);if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,expected)){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
 addr_t Host::ObjectClass(const std::shared_ptr<Object> &object){
   const auto &name=object->kind==Object::kClass?std::string("java/lang/Class"):object->class_name;
   auto found=classes_.find(name);if(found==classes_.end()){Raise("java/lang/NoClassDefFoundError",name);return 0;}
   return Local(found->second->object);
 }
-addr_t Host::CallObject(ProviderLock &lock, addr_t reference, addr_t id, bool is_static, const std::array<addr_t, 3> &arguments,char expected_result) {
+addr_t Host::CallObject(ProviderLock &lock,addr_t reference,addr_t id,bool is_static,MethodArguments arguments,char expected_result,State *argument_state,size_t argument_form) {
   auto method = method_ids_.find(id);
   if (method == method_ids_.end()) { Raise("java/lang/NoSuchMethodError", "invalid JNI method ID"); return 0; }
   auto object = Get(reference); if (!object) return 0;
@@ -521,6 +534,13 @@ addr_t Host::CallObject(ProviderLock &lock, addr_t reference, addr_t id, bool is
   auto &metadata=*selected;
   auto close=metadata.declaration.signature.find(')');char result_kind=close==std::string::npos||close+1==metadata.declaration.signature.size()?0:metadata.declaration.signature[close+1];
   if((result_kind!=expected_result&&!(expected_result=='L'&&result_kind=='['))||metadata.declaration.name=="<init>"){Raise("java/lang/IllegalArgumentException","JNI method result type mismatch or constructor requires NewObject");return 0;}
+  // A Base/interface MethodID may declare no host body. Decode only after
+  // resolving the actual receiver's implementation, whose signature/argument
+  // metadata was validated when that body was installed. No predecode zeros.
+  if(argument_state){
+    const auto count=metadata.builtin==Method::kForName?3:metadata.argument_types.size();
+    if(!Arguments(*argument_state,argument_form,count,arguments,&metadata))return 0;
+  }
   if(metadata.builtin==Method::kObjectClass)return ObjectClass(object);
   if(metadata.builtin==Method::kBuilderAppend||metadata.builtin==Method::kBuilderString){
     if(object->kind!=Object::kBuilder){Raise("java/lang/UnsupportedOperationException","StringBuilder constructor has not initialized this object");return 0;}
@@ -613,7 +633,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   std::shared_ptr<Object> returned,exception;std::exception_ptr failure;addr_t result=0;
   try{
     auto callee_receiver=Local(receiver);
-    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="I"&&method.argument_types[i]!="J"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
+    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="I"&&method.argument_types[i]!="J"&&method.argument_types[i]!="F"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
     lock.unlock();
     try{result=handler(callee_receiver,callee);}catch(...){failure=std::current_exception();}
     lock.lock();exception=thread.exception;
@@ -642,7 +662,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   if((failure||exception)&&promoted){RetireReference(promoted);promoted=0;DrainCallbackFrame(lock,depth,exception);}
   thread.frames.pop_back();thread.callback_floors.pop_back();
   if(failure)std::rethrow_exception(failure);
-  return exception?0:object_result?promoted:kind=='Z'?(result?1:0):0;
+  return exception?0:object_result?promoted:kind=='Z'?(result?1:0):(kind=='I'||kind=='F')?static_cast<uint32_t>(result):0;
 }
 addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
@@ -660,18 +680,35 @@ addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const Metho
   auto object=std::make_shared<Object>();object->kind=Object::kBuilder;object->class_name="java/lang/StringBuilder";object->text.reserve(16);
   return Local(object);
 }
-bool Host::Arguments(State &state,size_t slot,size_t count,std::array<addr_t,3> &arguments){
+bool Host::Arguments(State &state,size_t slot,size_t count,MethodArguments &arguments,const Method *method){
   if(!count)return true;
   if(count>arguments.size())throw std::logic_error("unsupported JNI host argument count");
   const bool direct=slot==28||slot==34||slot==114, array=slot==30||slot==36||slot==116;
-  if(direct){const addr_t regs[]={state.gpr.x3.qword,state.gpr.x4.qword,state.gpr.x5.qword};std::copy_n(regs,count,arguments.begin());return true;}
+  auto floating=[&](size_t i){return method&&i<method->argument_types.size()&&method->argument_types[i]=="F";};
+  auto narrowed=[](double wide)->addr_t{float value=static_cast<float>(wide);uint32_t bits;std::memcpy(&bits,&value,sizeof(bits));return bits;};
+  if(direct){
+    const addr_t regs[]={state.gpr.x3.qword,state.gpr.x4.qword,state.gpr.x5.qword};size_t gp=0,fp=0;
+    for(size_t i=0;i<count;++i)if(floating(i)){double wide;std::memcpy(&wide,&state.simd.v[fp++],sizeof(wide));arguments[i]=narrowed(wide);}else arguments[i]=regs[gp++];
+    return true;
+  }
   auto pointer=state.gpr.x3.qword;
   if(!pointer){Raise("java/lang/IllegalArgumentException","null JNI argument list");return false;}
-  if(array){for(size_t i=0;i<count;++i)arguments[i]=Read<addr_t>(pointer+i*8);return true;}
+  if(pointer%8||pointer>UINT64_MAX-(array?count*8:32)){Raise("java/lang/IllegalArgumentException","invalid JNI argument-list alignment/range");return false;}
+  if(array){for(size_t i=0;i<count;++i)arguments[i]=floating(i)?Read<uint32_t>(pointer+i*8):Read<addr_t>(pointer+i*8);return true;}
   // Android AAPCS64 va_list: stack, gr_top, vr_top, gr_offs, vr_offs.
   struct VaList {addr_t stack,gr_top,vr_top;int32_t gr_offs,vr_offs;};static_assert(sizeof(VaList)==32);
   auto list=Read<VaList>(pointer);
-  for(size_t i=0;i<count;++i){if(list.gr_offs<0){arguments[i]=Read<addr_t>(list.gr_top+list.gr_offs);list.gr_offs+=8;}else{arguments[i]=Read<addr_t>(list.stack);list.stack+=8;}}
+  for(size_t i=0;i<count;++i){
+    const bool fp=floating(i);auto &offset=fp?list.vr_offs:list.gr_offs;const auto top=fp?list.vr_top:list.gr_top;const int stride=fp?16:8;addr_t address=0;
+    if(offset<0){
+      if(offset<-(fp?128:64)||offset%stride||top%stride||top<static_cast<uint64_t>(-static_cast<int64_t>(offset))){Raise("java/lang/IllegalArgumentException","invalid JNI va_list register cursor");return false;}
+      address=top-static_cast<uint64_t>(-static_cast<int64_t>(offset));offset+=stride;
+    }else{
+      if(!list.stack||list.stack%8||list.stack>UINT64_MAX-8){Raise("java/lang/IllegalArgumentException","invalid JNI va_list stack cursor");return false;}
+      address=list.stack;list.stack+=8;
+    }
+    arguments[i]=fp?narrowed(Read<double>(address)):Read<addr_t>(address);
+  }
   return true;
 }
 int32_t Host::Register(addr_t handle, const NativeMethod *methods, int32_t count) {
@@ -765,21 +802,26 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 25: s.gpr.x0.qword = Ref(a, 1); return;
     case 26: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else IntResult(s, kOk); return;
     case 27: {auto clazz=GetClass(a);if(!clazz){s.gpr.x0.qword=0;return;}if(clazz->is_interface||!clazz->array_component.empty()){Raise("java/lang/InstantiationException","cannot AllocObject Java interface/array: "+clazz->object->class_name);s.gpr.x0.qword=0;return;}throw std::runtime_error("unsupported JNI AllocObject for Java class");}
-    case 28: case 29: case 30: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot,count,args)?Construct(lock,a,b,args):0;return;}
+    case 28: case 29: case 30: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot,count,args,method==method_ids_.end()?nullptr:method->second)?Construct(lock,a,b,args):0;return;}
     case 31: { auto object=Get(a);s.gpr.x0.qword=object?ObjectClass(object):0;return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
     case 33: case 113: s.gpr.x0.qword = MethodId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 113); return;
     case 34: case 35: case 36: case 37: case 38: case 39: {
-      std::array<addr_t,3> args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();
-      s.gpr.x0.qword=Arguments(s,slot>=37?slot-3:slot,count,args)?CallObject(lock,a,b,false,args,slot>=37?'Z':'L'):0;return;
+      s.gpr.x0.qword=CallObject(lock,a,b,false,{},slot>=37?'Z':'L',&s,slot>=37?slot-3:slot);return;
     }
-    case 61: case 62: case 63: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot-27,count,args)?CallObject(lock,a,b,false,args,'V'):0;return;}
+    case 49: case 50: case 51: case 129: case 130: case 131: {
+      uint32_t bits=static_cast<uint32_t>(CallObject(lock,a,b,slot>=129,{},'I',&s,slot-15));
+      int32_t value;std::memcpy(&value,&bits,sizeof(value));IntResult(s,value);return;
+    }
+    case 55: case 56: case 57: case 135: case 136: case 137: {
+      auto bits=static_cast<uint32_t>(CallObject(lock,a,b,slot>=135,{},'F',&s,slot-21));
+      FloatResult(s,bits);return;
+    }
+    case 61: case 62: case 63: {s.gpr.x0.qword=CallObject(lock,a,b,false,{},'V',&s,slot-27);return;}
     case 114: case 115: case 116: {
-      std::array<addr_t, 3> args{};
-      auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->builtin==Method::kForName?3:method->second->argument_types.size();
-      s.gpr.x0.qword=Arguments(s,slot,count,args)?CallObject(lock,a,b,true,args):0;return;
+      s.gpr.x0.qword=CallObject(lock,a,b,true,{},'L',&s,slot);return;
     }
-    case 141: case 142: case 143: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot-27,count,args)?CallObject(lock,a,b,true,args,'V'):0;return;}
+    case 141: case 142: case 143: {s.gpr.x0.qword=CallObject(lock,a,b,true,{},'V',&s,slot-27);return;}
     case 94: case 144: s.gpr.x0.qword = FieldId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 144); return;
     case 95: case 145: { auto target = FieldTarget(a, b, slot == 145, "object"); s.gpr.x0.qword = target ? Local(target->object_fields[b]) : 0; return; }
     case 100: case 150: { auto target = FieldTarget(a, b, slot == 150, "I"); IntResult(s, target ? static_cast<int32_t>(target->primitive_fields[b]) : 0); return; }
