@@ -2,7 +2,7 @@
 import argparse,hashlib,io,json,shutil,subprocess,sys,tarfile
 from pathlib import Path
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parent.parent
-OWNED=('filesystem.h','filesystem.cpp','mmap_growdown_guest.c','mmap_growdown_test.cpp','test_mmap_growdown.py')
+OWNED=('filesystem.h','filesystem.cpp','growdown_memory.h','growdown_memory.cpp','mmap_growdown_guest.c','mmap_growdown_test.cpp','test_mmap_growdown.py')
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def run(cmd,log,**kwargs):
  with log.open('w')as f:r=subprocess.run(list(map(str,cmd)),stdout=f,stderr=subprocess.STDOUT,**kwargs)
@@ -16,7 +16,7 @@ def main():
  support={str(f.relative_to(src)):sha(f)for f in src.rglob('*')if f.is_file()};result={'host':commit,'owned':owned,'support_sources':support};(out/'source-pin.json').write_text(json.dumps(result,indent=2)+'\n');print('Frozen '+commit,flush=True)
  cc=a.ndk/'toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang';library=out/'growdown.so';run([cc,'-shared','-nostdlib','-O1','-fPIC','-fno-stack-protector','-fno-builtin',src/'windows/mmap_growdown_guest.c','-o',library],out/'ndk-build.log');guest=out/'guest';run([sys.executable,src/'whole/compile.py',library,'--out',guest,'--base','0x7a000000','--lift',a.lift,'--semantics-dir',a.lift.parent,'--target','x86_64-w64-windows-gnu','--cxx','clang++-18'],out/'lift.log');m=json.loads((guest/'manifest.json').read_text());assert not m['unsupported_traces']and not m['unresolved_direct_targets']
  def hp(p):return subprocess.check_output(['wslpath','-m',str(Path(p).resolve())],text=True).strip()
- loader=out/'elfload.o';run(['/mnt/c/mingw64/bin/gcc.exe','-O2','-c',hp(src/'fastaes/elfload.c'),'-o',hp(loader)],out/'loader-build.log');binary=out/'growdown.exe';run(['/mnt/c/mingw64/bin/g++.exe','-std=c++17','-static','-O2','-DADDRESS_SIZE_BITS=64','-isystem',hp(HERE.parent/'work/remill-src/include'),'-I'+hp(guest),f'-DGROWDOWN_IMAGE="{hp(library)}"',f'-DGROWDOWN_ROOT="{hp(out)}"',*[hp(src/x)for x in('windows/mmap_growdown_test.cpp','windows/filesystem.cpp','whole/runtime.cpp')],hp(loader),*map(hp,m['objects']),'-pthread','-latomic','-o',hp(binary)],out/'host-build.log');positive=run([binary],out/'focused.log',timeout=30);assert 'checks passed'in positive;print(positive,flush=True)
+ loader=out/'elfload.o';run(['/mnt/c/mingw64/bin/gcc.exe','-O2','-c',hp(src/'fastaes/elfload.c'),'-o',hp(loader)],out/'loader-build.log');binary=out/'growdown.exe';run(['/mnt/c/mingw64/bin/g++.exe','-std=c++17','-static','-O2','-DADDRESS_SIZE_BITS=64','-isystem',hp(HERE.parent/'work/remill-src/include'),'-I'+hp(guest),f'-DGROWDOWN_IMAGE="{hp(library)}"',f'-DGROWDOWN_ROOT="{hp(out)}"',*[hp(src/x)for x in('windows/mmap_growdown_test.cpp','windows/filesystem.cpp','windows/growdown_memory.cpp','whole/runtime.cpp')],hp(loader),*map(hp,m['objects']),'-pthread','-latomic','-o',hp(binary)],out/'host-build.log');positive=run([binary],out/'focused.log',timeout=30);assert 'checks passed'in positive;print(positive,flush=True)
  boundaries={}
  for mode in('original','zero-noreplace'):
   log=out/(mode+'-request.log')

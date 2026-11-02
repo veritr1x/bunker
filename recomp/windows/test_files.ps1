@@ -10,6 +10,7 @@ $taskBuild = (Resolve-Path -LiteralPath $BuildDirectory).ProviderPath
 $taskRemill = (Resolve-Path -LiteralPath $Remill).ProviderPath
 $taskExecutable = Join-Path $taskBuild 'test-windows-files.exe'
 $taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-DFILES_ROOT=`"$($taskBuild.Replace('\', '/'))`"", "-I$taskRemill\include", "-I$taskBuild", (Join-Path $PSScriptRoot 'filesystem_test.cpp'), (Join-Path $PSScriptRoot 'filesystem.cpp'), (Join-Path $PSScriptRoot '..\whole\runtime.cpp'))
+$taskGrowdownSource=Join-Path $PSScriptRoot 'growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArguments+=$taskGrowdownSource}
 if (Test-Path -LiteralPath (Join-Path $taskBuild 'guest\manifest.json')) {
     $taskManifest = Get-Content -Raw -LiteralPath (Join-Path $taskBuild 'guest\manifest.json') | ConvertFrom-Json
     if ($taskManifest.target -ne 'x86_64-w64-windows-gnu' -or $taskManifest.base -ne 0x60000000 -or $taskManifest.unsupported_traces.Count -or $taskManifest.unresolved_direct_targets.Count) { throw 'Incomplete or wrong-target NDK caller manifest.' }

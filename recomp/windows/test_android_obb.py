@@ -30,6 +30,7 @@ def main():
   flags=['-std=c++17','-O2','-DADDRESS_SIZE_BITS=64','-isystem',path(work/'remill-src/include'),'-I'+path(out),'-I'+path(guest),'-I'+path(work/'zlib-native/zlib-1.3.2'),f'-DPACKAGE_IMAGE="{path(fixture)}"',f'-DARRAY_IMAGE="{path(fixture)}"',f'-DOBB_ROOT="{path(build/"real-volumes")}"',f'-DSTORAGE_TEST_DIRECTORY="{path(build/"internal-storage")}"']
   objects=[];sources=['windows/jni_host.cpp','windows/android_context.cpp','windows/android_assets.cpp','windows/apk_assets.cpp','whole/runtime.cpp']
   if win:sources+=['windows/filesystem.cpp','windows/android_obb_storage.cpp','windows/android_internal_storage.cpp']
+  if win and (windows/'growdown_memory.cpp').is_file():sources.append('windows/growdown_memory.cpp')
   for rel in sources:
    obj=build/(Path(rel).stem+'.o');run([cxx,*flags,'-c',path(source/'recomp'/rel),'-o',path(obj)],build/(Path(rel).stem+'-build.log'));objects.append(obj)
   tests={};backend=work/('zlib-native/libz-inflate.a'if win else'zlib-linux/backend/libz-inflate.a')

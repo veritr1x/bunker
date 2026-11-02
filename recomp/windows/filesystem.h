@@ -105,11 +105,18 @@ class FileSystem {
   int FError(addr_t stream);
   int FFlush(addr_t stream);
   addr_t Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset);
+  // Opt in to real native downward fault growth: 8MiB additional capacity,
+  // 1MiB lower gap, 128 process-active owners/4096 retained lifetime records.
+  // Default is a named unsupported MAP_GROWSDOWN boundary. Windows workers
+  // and all mapping uses must quiesce before owner/provider destruction.
+  void EnableGrowdownMappings();
   int Munmap(addr_t address, uint64_t length);
   int Mprotect(addr_t address, uint64_t length, int protection);
   int Madvise(addr_t address, uint64_t length, int advice);
   struct MappingInfo {addr_t base;uint64_t size,generation;};
   // Identifies an owned mmap lifetime and verifies actual page permissions.
+  // Growdown owners use stable reserved usable bounds, while the requested
+  // span must be actually committed/protected. Bounds alone imply no access.
   // This is not a lease or evidence of a Unity arena subobject's C lifetime.
   std::optional<MappingInfo> MappingRegion(addr_t address,uint64_t length,bool writable)const;
   struct MappingUse {MappingInfo region;std::shared_ptr<void> lease;};

@@ -21,6 +21,7 @@ foreach($o in $taskMeta.objects){Verify-Hash (Native-Path $o.path) $o.sha256}
 if($LASTEXITCODE){throw 'Original ELF loader compilation failed'}
 $taskArgs=$taskCommon+@('-static','-Wl,--wrap=sub_7024c6e4,--wrap=sub_7024c36c,--wrap=sub_70e71d10,--wrap=sub_70e71dcc',(Join-Path $taskBuild 'managed-harness.o'),(Join-Path $taskBuild 'managed-elfload.o'),(Join-Path $taskBuild 'once-component.o'))
 foreach($name in @('jni_host','android_context','android_internal_storage','android_assets','apk_assets','java_native_libraries','filesystem','module_registry','pthread_host','libc','logging','zlib_host','signal_host','semaphore_host')){$taskArgs+=Join-Path $taskBuild ("sources\windows\$name.cpp")}
+$taskGrowdownSource=Join-Path $taskBuild 'sources\windows\growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArgs+=$taskGrowdownSource}
 foreach($name in @('runtime','format')){$taskArgs+=Join-Path $taskBuild ("sources\whole\$name.cpp")}
 foreach($o in $taskMeta.objects){$taskArgs+=Native-Path $o.path}
 $taskExe=Join-Path $taskBuild 'bunker-unity-managed-copy.exe';$taskArgs+=@((Native-Path $taskMeta.zlib_backend),'-latomic','-lbcrypt','-o',$taskExe)

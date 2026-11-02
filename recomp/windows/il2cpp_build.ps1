@@ -50,6 +50,7 @@ foreach($taskMetadata in $OverlayMetadata){
 $taskSnapshot=Join-Path $taskBuild $(if($ModuleLoadExports){'module-exports-sources'}elseif($taskOverlayRecords.Count){'overlay-sources'}else{'sources'})
 foreach($taskDirectory in @('windows','whole','fastaes')){[System.IO.Directory]::CreateDirectory((Join-Path $taskSnapshot $taskDirectory))|Out-Null}
 $taskSources=@('il2cpp_bootstrap.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','signal_host.cpp','semaphore_host.cpp')
+if(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'growdown_memory.cpp')){$taskSources+='growdown_memory.cpp'}
 foreach($taskName in $taskSources){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $taskName) -Destination (Join-Path $taskSnapshot ('windows\'+$taskName))}
 if($ModuleLoadExports){Copy-Item -LiteralPath (Join-Path $taskBuild 'il2cpp_module_exports.h') -Destination (Join-Path $taskSnapshot 'windows\il2cpp_module_exports.h')}
 Get-ChildItem -LiteralPath $PSScriptRoot -File|Where-Object{$_.Extension -in @('.h','.inc')}|ForEach-Object{Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $taskSnapshot ('windows\'+$_.Name))}

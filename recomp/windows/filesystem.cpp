@@ -13,11 +13,13 @@
 #include <mutex>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 #include <sys/stat.h>
 #include <windows.h>
 #include <sddl.h>
 
 #include "filesystem.h"
+#include "growdown_memory.h"
 #include "unicode.h"
 #include "../whole/bridge.h"
 
@@ -163,7 +165,7 @@ struct FileSystem::Impl {
     }
     ~MappingLease(){pins->uses.fetch_sub(1,std::memory_order_release);}
   };
-  struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation;std::shared_ptr<MappingPins> pins; };
+  struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation;std::shared_ptr<MappingPins> pins;GrowdownMemory::Control *grow=nullptr; };
   std::recursive_mutex mutex;
   std::vector<Mount> mounts;
   std::map<int, std::shared_ptr<Descriptor>> descriptors;
@@ -176,7 +178,7 @@ struct FileSystem::Impl {
   std::string cwd = "/";
   int next_descriptor = 1000;
   addr_t next_stream = 0x7ff700000000ULL, marker_base;
-  bool installed = false;
+  bool installed = false,growdown_enabled=false;
   explicit Impl(addr_t base) : marker_base(base) {}
   ~Impl() {
     // Owner lifetime is required: never retire even an earlier mapping before
@@ -185,9 +187,17 @@ struct FileSystem::Impl {
       std::fprintf(stderr,"FileSystem destruction with active mapping use: base=%#llx generation=%llu\n",(unsigned long long)entry.first,(unsigned long long)entry.second.generation);
       std::fflush(stderr);std::abort();
     }
+    for(const auto &entry:mappings)if(entry.second.grow&&GrowdownMemory::HasFaultReaders(entry.second.grow)){
+      std::fputs("FileSystem destruction with active growdown native fault reader\n",stderr);std::abort();
+    }
+    // Close every growdown owner before any earlier mapping/epoch is retired.
+    // The callback never waits for this closed state or takes the runtime lock.
+    try{for(const auto &entry:mappings)if(entry.second.grow)GrowdownMemory::Close(entry.second.grow);}
+    catch(...){std::fputs("FileSystem destruction raced with growdown native fault reader\n",stderr);std::abort();}
     for(auto &entry:errors)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(&entry.second),sizeof(entry.second));
     recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(standard_objects.data()),standard_objects.size());
     for (auto &entry : mappings) {
+      if(entry.second.grow){auto region=GrowdownMemory::Inspect(entry.second.grow);recomp::InvalidateGuestMemory(region.reservation,region.reservation_size);if(!GrowdownMemory::ReleaseClosed(entry.second.grow))std::abort();continue;}
       recomp::InvalidateGuestMemory(entry.first,entry.second.rounded_length);
       if (entry.second.file) { UnmapViewOfFile(entry.second.native); CloseHandle(entry.second.object); }
       else VirtualFree(entry.second.native, 0, MEM_RELEASE);
@@ -673,6 +683,7 @@ int FileSystem::FFlush(addr_t stream) {
   auto file=impl_->GetStream(stream);if(!file)return -1;std::lock_guard lock(file->io);if(!file->native){impl_->Error(9);return -1;}
   file->io_started=true;int result=std::fflush(file->native);if(result)impl_->CrtError();return result;
 }
+void FileSystem::EnableGrowdownMappings(){std::lock_guard lock(impl_->mutex);GrowdownMemory::Enable();impl_->growdown_enabled=true;}
 addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset) {
   std::unique_lock lock(impl_->mutex);
   constexpr int allowed = 3 | 0x10 | 0x20 | linux_flags::map_growdown | 0x4000 | 0x20000 | 0x100000;
@@ -682,16 +693,34 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
     // genuine VM capability, not an ignorable hint or allocation failure.
     if((flags & 3)==linux_flags::map_shared || !(flags & linux_flags::map_anonymous) ||
        ((flags & linux_flags::map_fixed_no_replace) && address % kPage)){impl_->Error(22);return kMapFailed;}
-    throw std::runtime_error("unsupported mmap MAP_GROWSDOWN: owned downward expansion is not implemented");
+    if(!impl_->growdown_enabled)throw std::runtime_error("unsupported mmap MAP_GROWSDOWN: owned downward expansion is not implemented");
+    if(address||offset||protection!=3||(flags&~(linux_flags::map_private|linux_flags::map_anonymous|linux_flags::map_growdown|0x20000)))
+      throw std::runtime_error("unsupported mmap MAP_GROWSDOWN profile: requires address0/private-anonymous/RW/offset0 and optional MAP_STACK");
+    auto pins=std::make_shared<Impl::MappingPins>();const auto generation=MappingGeneration();
+    uint32_t native_error=0;auto *control=GrowdownMemory::Reserve(RoundPage(length),generation,native_error);if(!control){impl_->Error(GuestWinError(native_error));return kMapFailed;}
+    auto region=GrowdownMemory::Inspect(control);
+    try{
+      recomp::InvalidateGuestMemory(region.reservation,region.reservation_size);
+      impl_->mappings.emplace(region.low,Impl::Mapping{reinterpret_cast<void*>(region.reservation),nullptr,region.high-region.low,false,false,generation,std::move(pins),control});
+    }catch(...){if(!GrowdownMemory::ReleaseClosed(control))std::abort();throw;}
+    GrowdownMemory::Publish(control);return region.initial;
   }
   if (flags & linux_flags::map_fixed) { impl_->Error(95); return kMapFailed; }
   const bool no_replace = flags & linux_flags::map_fixed_no_replace;
   if (no_replace && (!address || address % kPage)) { impl_->Error(22); return kMapFailed; }
   uint64_t rounded = RoundPage(length);
+  auto fixed_collision=[&]{if(!no_replace)return false;
+    const auto collision=GrowdownMemory::FixedCollision(address,rounded);
+    if(collision==GrowdownMemory::Collision::Committed){impl_->Error(17);return true;}
+    if(collision==GrowdownMemory::Collision::Reserved)throw std::runtime_error("unsupported MAP_FIXED_NOREPLACE into growdown reserved-only window");
+    return false;
+  };
   const auto generation=MappingGeneration();
   const auto pins=std::make_shared<Impl::MappingPins>();
   if (flags & linux_flags::map_anonymous) {
     if (offset || (flags & 3) == linux_flags::map_shared) { impl_->Error(95); return kMapFailed; }
+    std::optional<GrowdownMemory::AllocationGuard> allocation;if(no_replace)allocation.emplace();
+    if(fixed_collision())return kMapFailed;
     void *result = VirtualAlloc(reinterpret_cast<void *>(address), rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result && address && !no_replace) result = VirtualAlloc(nullptr, rounded, MEM_RESERVE | MEM_COMMIT, Protection(protection));
     if (!result) { if (no_replace && GetLastError() == ERROR_INVALID_ADDRESS) impl_->Error(17); else impl_->WinError(); return kMapFailed; }
@@ -711,6 +740,8 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   uint64_t aligned_offset = static_cast<uint64_t>(offset) / system.dwAllocationGranularity * system.dwAllocationGranularity;
   uint64_t delta = offset - aligned_offset;
   if (no_replace && (address < delta || (address - delta) % system.dwAllocationGranularity)) { impl_->Error(95); return kMapFailed; }
+  std::optional<GrowdownMemory::AllocationGuard> allocation;if(no_replace)allocation.emplace();
+  if(fixed_collision())return kMapFailed;
   DWORD object_protection = private_file ? (protection & 4 ? PAGE_EXECUTE_WRITECOPY : PAGE_WRITECOPY) :
       (protection & 2 ? (protection & 4 ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE) : (protection & 4 ? PAGE_EXECUTE_READ : PAGE_READONLY));
   HANDLE object = CreateFileMappingW(native, nullptr, object_protection, 0, 0, nullptr);
@@ -730,6 +761,20 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
 int FileSystem::Munmap(addr_t address, uint64_t length) {
   std::lock_guard lock(impl_->mutex); auto found = impl_->mappings.find(address);
   if (!length || length > UINT64_MAX - kPage || address % kPage) { impl_->Error(22); return -1; }
+  const auto unmap_size=RoundPage(length);
+  for(auto owner=impl_->mappings.begin();owner!=impl_->mappings.end();++owner){
+    const bool intersects=address>=owner->first?address-owner->first<owner->second.rounded_length:owner->first-address<unmap_size;
+    if(owner->second.grow&&intersects){
+      if(owner->second.pins->uses.load(std::memory_order_acquire))throw std::runtime_error("unsupported munmap of active mapping use");
+      auto *control=owner->second.grow;auto region=GrowdownMemory::Inspect(control);
+      if(address!=region.committed||RoundPage(length)!=region.high-region.committed)throw std::runtime_error("unsupported partial munmap of growdown logical span");
+      GrowdownMemory::Close(control);region=GrowdownMemory::Inspect(control);
+      if(address!=region.committed||RoundPage(length)!=region.high-region.committed){GrowdownMemory::Reopen(control);throw std::runtime_error("unsupported partial munmap after concurrent growdown extension");}
+      try{recomp::InvalidateGuestMemory(region.reservation,region.reservation_size);}catch(...){GrowdownMemory::Reopen(control);throw;}
+      uint32_t native_error=0;if(!GrowdownMemory::ReleaseClosed(control,&native_error)){GrowdownMemory::Reopen(control);impl_->Error(GuestWinError(native_error));return -1;}
+      impl_->mappings.erase(owner);return 0;
+    }
+  }
   if (found == impl_->mappings.end()) { impl_->Error(22); return -1; }
   if (RoundPage(length) != found->second.rounded_length) { impl_->Error(95); return -1; }
   if(found->second.pins->uses.load(std::memory_order_acquire))throw std::runtime_error("unsupported munmap of active mapping use");
@@ -749,6 +794,17 @@ int FileSystem::Mprotect(addr_t address, uint64_t length, int protection) {
     const bool intersects=address>=entry.first?address-entry.first<entry.second.rounded_length:entry.first-address<rounded;
     if(intersects&&entry.second.pins->uses.load(std::memory_order_acquire))throw std::runtime_error("unsupported mprotect of active mapping use");
   }
+  for(const auto &entry:impl_->mappings){
+    const bool intersects=address>=entry.first?address-entry.first<entry.second.rounded_length:entry.first-address<rounded;
+    if(!intersects||!entry.second.grow)continue;
+    auto *control=entry.second.grow;auto region=GrowdownMemory::Inspect(control);
+    if(protection&4)throw std::runtime_error("unsupported executable mprotect of growdown owner");
+    if(address!=region.committed||rounded!=region.high-region.committed)throw std::runtime_error("unsupported partial mprotect of growdown logical span");
+    GrowdownMemory::Close(control);region=GrowdownMemory::Inspect(control);
+    if(address!=region.committed||rounded!=region.high-region.committed){GrowdownMemory::Reopen(control);throw std::runtime_error("unsupported partial mprotect after concurrent growdown extension");}
+    const auto result=GrowdownMemory::ProtectClosed(control,protection);GrowdownMemory::Reopen(control);
+    if(!result){impl_->WinError();return -1;}return 0;
+  }
   for (auto &entry : impl_->mappings) {
     if (address >= entry.first && address - entry.first <= entry.second.rounded_length && RoundPage(length) <= entry.second.rounded_length - (address - entry.first)) {
       DWORD previous;
@@ -764,6 +820,7 @@ std::optional<FileSystem::MappingInfo> FileSystem::MappingRegion(addr_t address,
   if(found==impl_->mappings.begin())return {};--found;
   const auto base=found->first,size=found->second.rounded_length;
   if(address<base||address-base>size||length>size-(address-base)||size>UINT64_MAX-base)return {};
+  if(found->second.grow&&address<GrowdownMemory::Inspect(found->second.grow).committed)return {};
   for(auto cursor=address;cursor<address+length;){
     MEMORY_BASIC_INFORMATION info{};
     if(!VirtualQuery(reinterpret_cast<const void*>(cursor),&info,sizeof(info))||info.State!=MEM_COMMIT||(info.Protect&PAGE_GUARD))return {};
@@ -823,36 +880,46 @@ int FileSystem::Madvise(addr_t address, uint64_t length, int advice) {
 }
 void FileSystem::Install(recomp::Runtime &runtime) {
   std::lock_guard lock(impl_->mutex); if (impl_->installed) throw std::logic_error("file system already installed");
-  runtime.AddImport(Marker("__errno"), recomp::MakeBridge<addr_t()>([this] { return ErrnoAddress(); }));
-  runtime.AddImport(Marker("open"), recomp::MakeBridge<int32_t(const char *, int32_t, uint32_t)>([this](auto path, auto flags, auto mode) { return Open(path, flags, mode); }));
-  runtime.AddImport(Marker("close"), recomp::MakeBridge<int32_t(int32_t)>([this](auto fd) { return Close(fd); }));
-  runtime.AddImport(Marker("read"), recomp::MakeBridge<int64_t(int32_t, void *, uint64_t)>([this](auto fd, auto buffer, auto count) { return Read(fd, buffer, count); }));
-  runtime.AddImport(Marker("write"), recomp::MakeBridge<int64_t(int32_t, const void *, uint64_t)>([this](auto fd, auto buffer, auto count) { return Write(fd, buffer, count); }));
-  for (const char *name : {"lseek", "lseek64"}) runtime.AddImport(Marker(name), recomp::MakeBridge<int64_t(int32_t, int64_t, int32_t)>([this](auto fd, auto offset, auto whence) { return Seek(fd, offset, whence); }));
-  for (const char *name : {"stat", "lstat"}) runtime.AddImport(Marker(name), recomp::MakeBridge<int32_t(const char *, AndroidStat *)>([this, follow = std::string(name) == "lstat"](auto path, auto result) { return Stat(path, result, follow); }));
-  runtime.AddImport(Marker("fstat"), recomp::MakeBridge<int32_t(int32_t, AndroidStat *)>([this](auto fd, auto result) { return FStat(fd, result); }));
-  runtime.AddImport(Marker("access"), recomp::MakeBridge<int32_t(const char *, int32_t)>([this](auto path, auto mode) { return Access(path, mode); }));
-  runtime.AddImport(Marker("mkdir"), recomp::MakeBridge<int32_t(const char *, uint32_t)>([this](auto path, auto mode) { return Mkdir(path, mode); }));
-  runtime.AddImport(Marker("fopen"), recomp::MakeBridge<addr_t(const char *, const char *)>([this](auto path, auto mode) { return FOpen(path, mode); }));
-  runtime.AddImport(Marker("fclose"), recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FClose(stream); }));
-  runtime.AddImport(Marker("fread"), recomp::MakeBridge<uint64_t(void *, uint64_t, uint64_t, addr_t)>([this](auto buffer, auto size, auto count, auto stream) { return FRead(buffer, size, count, stream); }));
-  runtime.AddImport(Marker("fwrite"), recomp::MakeBridge<uint64_t(const void *, uint64_t, uint64_t, addr_t)>([this](auto buffer, auto size, auto count, auto stream) { return FWrite(buffer, size, count, stream); }));
-  for (const char *name : {"fseek", "fseeko"}) runtime.AddImport(Marker(name), recomp::MakeBridge<int32_t(addr_t, int64_t, int32_t)>([this](auto stream, auto offset, auto whence) { return FSeek(stream, offset, whence); }));
-  for (const char *name : {"ftell", "ftello"}) runtime.AddImport(Marker(name), recomp::MakeBridge<int64_t(addr_t)>([this](auto stream) { return FTell(stream); }));
-  runtime.AddImport(Marker("feof"), recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FEof(stream); }));
-  runtime.AddImport(Marker("ferror"), recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FError(stream); }));
-  runtime.AddImport(Marker("fflush"), recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FFlush(stream); }));
-  runtime.AddImport(Marker("mmap"), recomp::MakeBridge<addr_t(addr_t, uint64_t, int32_t, int32_t, int32_t, int64_t)>([this](auto address, auto length, auto prot, auto flags, auto fd, auto offset) { return Mmap(address, length, prot, flags, fd, offset); }));
-  runtime.AddImport(Marker("munmap"), recomp::MakeBridge<int32_t(addr_t, uint64_t)>([this](auto address, auto length) { return Munmap(address, length); }));
-  runtime.AddImport(Marker("mprotect"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto prot) { return Mprotect(address, length, prot); }));
-  runtime.AddImport(Marker("madvise"), recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto advice) { return Madvise(address, length, advice); }));
-  runtime.AddImport(Marker("setvbuf"), recomp::MakeBridge<int32_t(addr_t, addr_t, int32_t, uint64_t)>([this](auto stream, auto buffer, auto mode, auto size) { return FSetBuffer(stream, buffer, mode, size); }));
-  runtime.AddImport(Marker("unlink"), recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Unlink(path);}));
-  runtime.AddImport(Marker("rmdir"), recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Rmdir(path);}));
-  runtime.AddImport(Marker("opendir"), recomp::MakeBridge<addr_t(const char*)>([this](auto path){return OpenDir(path);}));
-  runtime.AddImport(Marker("readdir"), recomp::MakeBridge<addr_t(addr_t)>([this](auto directory){return ReadDir(directory);}));
-  runtime.AddImport(Marker("closedir"), recomp::MakeBridge<int32_t(addr_t)>([this](auto directory){return CloseDir(directory);}));
-  runtime.AddImport(Marker("rename"), recomp::MakeBridge<int32_t(const char*,const char*)>([this](auto source,auto destination){return Rename(source,destination);}));
+  // Keep host exceptions inside this C++ import boundary: translated LLVM
+  // continuations are nounwind and must never receive a diagnostic unwind.
+  // All names below point to static-lifetime import-name string literals.
+  auto add=[&](const char *name,auto bridge){
+    runtime.AddImport(Marker(name),[name,bridge=std::move(bridge)](State &state){
+      try{bridge(state);}
+      catch(const std::exception &error){std::fprintf(stderr,"file system %s: %s\n",name,error.what());std::fflush(stderr);std::abort();}
+      catch(...){std::fprintf(stderr,"file system %s: unknown host exception\n",name);std::fflush(stderr);std::abort();}
+    });
+  };
+  add("__errno", recomp::MakeBridge<addr_t()>([this] { return ErrnoAddress(); }));
+  add("open", recomp::MakeBridge<int32_t(const char *, int32_t, uint32_t)>([this](auto path, auto flags, auto mode) { return Open(path, flags, mode); }));
+  add("close", recomp::MakeBridge<int32_t(int32_t)>([this](auto fd) { return Close(fd); }));
+  add("read", recomp::MakeBridge<int64_t(int32_t, void *, uint64_t)>([this](auto fd, auto buffer, auto count) { return Read(fd, buffer, count); }));
+  add("write", recomp::MakeBridge<int64_t(int32_t, const void *, uint64_t)>([this](auto fd, auto buffer, auto count) { return Write(fd, buffer, count); }));
+  for (const char *name : {"lseek", "lseek64"}) add(name, recomp::MakeBridge<int64_t(int32_t, int64_t, int32_t)>([this](auto fd, auto offset, auto whence) { return Seek(fd, offset, whence); }));
+  for (const char *name : {"stat", "lstat"}) add(name, recomp::MakeBridge<int32_t(const char *, AndroidStat *)>([this, follow = std::string(name) == "lstat"](auto path, auto result) { return Stat(path, result, follow); }));
+  add("fstat", recomp::MakeBridge<int32_t(int32_t, AndroidStat *)>([this](auto fd, auto result) { return FStat(fd, result); }));
+  add("access", recomp::MakeBridge<int32_t(const char *, int32_t)>([this](auto path, auto mode) { return Access(path, mode); }));
+  add("mkdir", recomp::MakeBridge<int32_t(const char *, uint32_t)>([this](auto path, auto mode) { return Mkdir(path, mode); }));
+  add("fopen", recomp::MakeBridge<addr_t(const char *, const char *)>([this](auto path, auto mode) { return FOpen(path, mode); }));
+  add("fclose", recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FClose(stream); }));
+  add("fread", recomp::MakeBridge<uint64_t(void *, uint64_t, uint64_t, addr_t)>([this](auto buffer, auto size, auto count, auto stream) { return FRead(buffer, size, count, stream); }));
+  add("fwrite", recomp::MakeBridge<uint64_t(const void *, uint64_t, uint64_t, addr_t)>([this](auto buffer, auto size, auto count, auto stream) { return FWrite(buffer, size, count, stream); }));
+  for (const char *name : {"fseek", "fseeko"}) add(name, recomp::MakeBridge<int32_t(addr_t, int64_t, int32_t)>([this](auto stream, auto offset, auto whence) { return FSeek(stream, offset, whence); }));
+  for (const char *name : {"ftell", "ftello"}) add(name, recomp::MakeBridge<int64_t(addr_t)>([this](auto stream) { return FTell(stream); }));
+  add("feof", recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FEof(stream); }));
+  add("ferror", recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FError(stream); }));
+  add("fflush", recomp::MakeBridge<int32_t(addr_t)>([this](auto stream) { return FFlush(stream); }));
+  add("mmap", recomp::MakeBridge<addr_t(addr_t, uint64_t, int32_t, int32_t, int32_t, int64_t)>([this](auto address, auto length, auto prot, auto flags, auto fd, auto offset) { return Mmap(address, length, prot, flags, fd, offset); }));
+  add("munmap", recomp::MakeBridge<int32_t(addr_t, uint64_t)>([this](auto address, auto length) { return Munmap(address, length); }));
+  add("mprotect", recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto prot) { return Mprotect(address, length, prot); }));
+  add("madvise", recomp::MakeBridge<int32_t(addr_t, uint64_t, int32_t)>([this](auto address, auto length, auto advice) { return Madvise(address, length, advice); }));
+  add("setvbuf", recomp::MakeBridge<int32_t(addr_t, addr_t, int32_t, uint64_t)>([this](auto stream, auto buffer, auto mode, auto size) { return FSetBuffer(stream, buffer, mode, size); }));
+  add("unlink", recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Unlink(path);}));
+  add("rmdir", recomp::MakeBridge<int32_t(const char*)>([this](auto path){return Rmdir(path);}));
+  add("opendir", recomp::MakeBridge<addr_t(const char*)>([this](auto path){return OpenDir(path);}));
+  add("readdir", recomp::MakeBridge<addr_t(addr_t)>([this](auto directory){return ReadDir(directory);}));
+  add("closedir", recomp::MakeBridge<int32_t(addr_t)>([this](auto directory){return CloseDir(directory);}));
+  add("rename", recomp::MakeBridge<int32_t(const char*,const char*)>([this](auto source,auto destination){return Rename(source,destination);}));
   impl_->installed = true;
 }
 }  // namespace bunker::windows

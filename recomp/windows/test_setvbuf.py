@@ -20,7 +20,7 @@ def main():
         target=source/directory;target.mkdir(parents=True,exist_ok=True)
         for file in(a.support_source/directory).iterdir():
             if file.is_file()and file.suffix in('.h','.cpp','.c','.inc'):shutil.copyfile(file,target/file.name)
-    for name in('filesystem.cpp','filesystem.h','setvbuf_guest.c','setvbuf_test.cpp','filesystem_test.cpp'):
+    for name in('filesystem.cpp','filesystem.h','growdown_memory.h','growdown_memory.cpp','setvbuf_guest.c','setvbuf_test.cpp','filesystem_test.cpp'):
         shutil.copyfile(HERE/name,source/'windows'/name)
     cc=a.ndk/'toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang';guest=out/'setvbuf.so'
     subprocess.run([str(cc),'-shared','-nostdlib','-fPIC','-O1','-fno-stack-protector','-fno-builtin',str(source/'windows/setvbuf_guest.c'),'-o',str(guest)],check=True)
@@ -30,7 +30,7 @@ def main():
     loader=out/'elfload.o';subprocess.run(['/mnt/c/mingw64/bin/gcc.exe','-O2','-c',hp(source/'fastaes/elfload.c'),'-o',hp(loader)],check=True)
     base=['/mnt/c/mingw64/bin/g++.exe','-std=c++17','-O2','-DADDRESS_SIZE_BITS=64','-isystem',hp(a.remill/'include'),'-I'+hp(out/'guest'),f'-DSETVBUF_IMAGE="{hp(guest)}"',f'-DSETVBUF_ROOT="{hp(out)}"']
     objects=[]
-    for rel in('windows/setvbuf_test.cpp','windows/filesystem.cpp','whole/runtime.cpp'):
+    for rel in('windows/setvbuf_test.cpp','windows/filesystem.cpp','windows/growdown_memory.cpp','whole/runtime.cpp'):
         obj=out/(Path(rel).stem+'.o');strict=['-Wall','-Wextra','-Werror']if rel.endswith('setvbuf_test.cpp')else[]
         subprocess.run([*base,*strict,'-c',hp(source/rel),'-o',hp(obj)],check=True);objects.append(obj)
     binary=out/'test.exe';command=[base[0],'-static',*map(hp,objects),hp(loader),*map(hp,m['objects']),'-pthread','-latomic','-o',hp(binary)]

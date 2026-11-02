@@ -78,6 +78,7 @@ def main():
         binary=work/('test.exe'if win else'test')
         sources=[windows/'signal_altstack_test.cpp',windows/'signal_host.cpp',windows/'signal_delivery.cpp',whole/'signal_frame.cpp',whole/'runtime.cpp']
         if win:sources.extend([windows/'filesystem.cpp',whole/'format.cpp'])
+        if win and (windows/'growdown_memory.cpp').is_file():sources.append(windows/'growdown_memory.cpp')
         command=[cxx,'-std=c++17','-O2','-DADDRESS_SIZE_BITS=64',f'-I{hp(a.remill/"include")}',f'-I{hp(guest)}',f'-DALT_LIBRARY="{hp(library)}"',*map(hp,sources),hp(loader),*map(hp,manifest['objects']),'-pthread','-latomic','-o',hp(binary)]
         if win:command[1:1]=['-static'];command+=['-ladvapi32','-lbcrypt']
         run(command,work/'host-build.log');print(f'{platform}: built {len(manifest["objects"])} real fixture objects',flush=True)

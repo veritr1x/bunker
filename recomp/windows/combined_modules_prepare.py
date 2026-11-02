@@ -93,6 +93,7 @@ def main():
                                   '--','recomp/windows','recomp/whole','recomp/fastaes'],text=True)
     blobs={line.split('\t',1)[1]:line.split()[2]for line in tree.splitlines()}
     selected=[a.host_source/'windows'/n for n in WINDOWS_SOURCES]
+    if (a.host_source/'windows/growdown_memory.cpp').is_file():selected.append(a.host_source/'windows/growdown_memory.cpp')
     selected.append(a.host_source/'windows/il2cpp_prepare.py')
     selected+=list((a.host_source/'windows').glob('*.h'))+list((a.host_source/'whole').glob('*.h'))
     selected +=[a.host_source/'whole'/n for n in ['runtime.cpp','format.cpp']]

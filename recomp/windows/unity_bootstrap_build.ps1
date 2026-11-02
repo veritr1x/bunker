@@ -41,6 +41,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Unity bootstrap data-loader build failed.' }
 $taskExecutable = Join-Path $taskBuild 'bunker-unity-bootstrap.exe'
 $taskArguments = @('-std=c++17', '-O2', '-DADDRESS_SIZE_BITS=64', "-I$taskRemill\include", "-I$taskZlib\zlib-1.3.2", "-I$taskAngle\src\include", '-static', $taskObject, $taskLoader)
 foreach ($taskSource in @('jni_host.cpp','android_context.cpp','android_internal_storage.cpp','android_assets.cpp','apk_assets.cpp','native_window.cpp','unity_lifecycle.cpp','signal_host.cpp','nonlocal_jmp.cpp','audio_volume.cpp','audio_volume_session.cpp','egl_host.cpp','gl_host.cpp','filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','..\whole\runtime.cpp','..\whole\format.cpp')) { $taskArguments += Join-Path $PSScriptRoot $taskSource }
+$taskGrowdownSource=Join-Path $PSScriptRoot 'growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArguments+=$taskGrowdownSource}
 foreach ($taskInput in $taskManifest.objects) { $taskArguments += Join-Path $taskBuild $taskInput }
 $taskArguments += @((Join-Path $taskZlib 'libz-inflate.a'), '-latomic', '-lbcrypt', '-luser32', '-lgdi32', '-lole32', '-luuid', '-ladvapi32', '-o', $taskExecutable)
 # Response files avoid Windows command-line limits for the full Unity shards.
