@@ -1,12 +1,17 @@
 package service
 
 import (
+	"database/sql"
+	"fmt"
 	"io"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
+	"lunar-tear/server/internal/utils"
 )
 
 // boxPage is the page the game opens from a box summon's "i" button.
@@ -101,5 +106,63 @@ func TestBoxSummonInfoOpensItsNotice(t *testing.T) {
 	}
 	if page := boxPage(t, "/web/en/gacha/box?gachaId=613&nowPlayingId=613&tab=Rate"); !strings.Contains(page, "SUMMONS DETAILS") && !strings.Contains(page, "<h2>COST</h2>") {
 		t.Fatalf("Rates button:\n%.300s", page)
+	}
+}
+
+// archiveText stands in for the Archive's English text until the test ends.
+func archiveText(t *testing.T, text map[string]string) {
+	t.Helper()
+	dir := t.TempDir()
+	db, err := sql.Open("sqlite", filepath.Join(dir, "archive.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Exec(`CREATE TABLE text (key TEXT PRIMARY KEY, value TEXT)`)
+	for k, v := range text {
+		db.Exec(`INSERT INTO text VALUES (?, ?)`, k, v)
+	}
+	db.Close()
+	saved := archivePaths
+	archivePaths = []string{filepath.Join(dir, "archive.db")}
+	t.Cleanup(func() { archivePaths = saved })
+}
+
+// An event summon's cost names each of its tickets.
+func TestEventSummonCostNamesItsTickets(t *testing.T) {
+	holder, _ := harness(t)
+	bunkerHolder = holder
+	defer func() { bunkerHolder = nil }()
+	box, _, _ := masterdata.EventSummonFor(329001)
+	text := map[string]string{}
+	rows, _ := utils.ReadTable[masterdata.EntityMConsumableItem]("m_consumable_item")
+	for _, c := range rows {
+		for i, ticket := range box.Tickets {
+			if c.ConsumableItemId == ticket {
+				text[fmt.Sprintf("consumable_item.name.%d%03d", c.AssetCategoryId, c.AssetVariationId)] = fmt.Sprintf("Ticket Tier %d", i+1)
+			}
+		}
+	}
+	if len(text) != len(box.Tickets) {
+		t.Fatalf("tickets %v: %d named", box.Tickets, len(text))
+	}
+	archiveText(t, text)
+	page := boxPage(t, "/web/en/gacha-details?gachaId=329001")
+	for i := range box.Tickets {
+		if want := fmt.Sprintf("10 × Ticket Tier %d", i+1); !strings.Contains(page, want) {
+			t.Fatalf("missing %q in:\n%.2000s", want, page)
+		}
+	}
+}
+
+// A summon without a title in the game text is named by its notice.
+func TestSummonTitleFromItsNotice(t *testing.T) {
+	holder, _ := harness(t)
+	bunkerHolder = holder
+	defer func() { bunkerHolder = nil }()
+	SetNotices(NewNotices(writeNoticePack(t), func() int64 { return 5_000 }))
+	defer SetNotices(nil)
+	archiveText(t, nil)
+	if page := boxPage(t, "/web/en/gacha-details?gachaId=613"); !strings.Contains(page, "<h1>Abstract Savior Summons</h1>") {
+		t.Fatalf("%.600s", page)
 	}
 }

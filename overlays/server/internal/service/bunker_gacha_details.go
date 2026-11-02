@@ -181,7 +181,9 @@ func (t *gameText) price(p store.GachaPricePhaseEntry) string {
 		return fmt.Sprintf("%d paid gems", p.Price)
 	case model.PriceTypeConsumableItem:
 		name := "Summon Ticket"
-		if p.PriceId == model.ConsumableIdPremiumTicket {
+		if n := possessionName(t, int32(model.PossessionTypeConsumableItem), p.PriceId); n != "" && !strings.HasPrefix(n, "Item ") {
+			name = n // each event's own tickets
+		} else if p.PriceId == model.ConsumableIdPremiumTicket {
 			if n := t.text("consumable_item.name.200002"); n != "" {
 				name = n
 			}
@@ -390,6 +392,9 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 	}
 	title := t.text("gacha.title." + entry.BannerAssetName)
 	if title == "" {
+		title = noticeSummonTitle(*entry)
+	}
+	if title == "" {
 		title = fmt.Sprintf("Summons %d", entry.GachaId)
 	}
 	ticket := false
@@ -554,4 +559,17 @@ func serveGachaBoxPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	serveGachaDetailsPage(w, r)
+}
+
+// noticeSummonTitle names a summon the game text has no title for by its
+// notice ("Mama's Dream Summons On Now": "Mama's Dream Summons"); "" if none.
+func noticeSummonTitle(entry store.GachaCatalogEntry) string {
+	id := summonNotice(entry)
+	activeNoticesMu.RLock()
+	n := activeNotices
+	activeNoticesMu.RUnlock()
+	if id == 0 || n == nil {
+		return ""
+	}
+	return strings.TrimSuffix(n.Title(id), " On Now")
 }
