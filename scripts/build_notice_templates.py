@@ -344,7 +344,7 @@ def adapt(n,entry,base,mapping):
         if original and original.get('class'):attrs=' class="'+common.esc(' '.join(original['class']))+'"'
         rendered.append(f'<section><h3{attrs}>{labels[role]}</h3>{blocks[role]}</section>')
     provenance='<details><summary>Reconstruction sources</summary>'+blocks['provenance']+'<p>Base notice '+str(base['id'])+': section order and generic Notes text only. Its dates, featured roster, artwork, stats, odds, guarantees and rewards were not copied.</p></details>'
-    updated={**n,'title':'[Reconstructed] '+entry['title'],
+    updated={**n,'title':entry['title'],
              'body':player_body(disclosure+''.join(rendered)+provenance,entry,mapping)}
     mapping['source_headings']=[h.get_text(' ',strip=True) for h in heads]
     mapping['adapted_section_order']=[r for r in order if blocks.get(r)]

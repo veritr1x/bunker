@@ -104,7 +104,7 @@ class NoticeTemplates(unittest.TestCase):
         n,m=self.adapted(124,903)
         self.assertNotIn('maximum of x200',n['body'])
         self.assertNotIn('per day',n['body'])
-        self.assertTrue(n['title'].startswith('[Reconstructed]'))
+        self.assertFalse(n['title'].startswith('['))
 
 
 if __name__=='__main__':unittest.main()

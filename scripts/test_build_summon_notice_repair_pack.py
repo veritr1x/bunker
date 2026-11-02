@@ -56,7 +56,7 @@ class RepairTests(unittest.TestCase):
         self.assertIn('200 shards', notice['body'])
         self.assertNotIn('Step 3', notice['body'])
         self.assertNotIn('Awakening Stone', notice['body'])
-        self.assertTrue(notice['title'].startswith('[Reconstructed]'))
+        self.assertFalse(notice['title'].startswith('['))
 
     def test_free_and_paid_ffxiv_currency_and_prices_remain_distinct(self):
         free, paid = TARGETS[159], TARGETS[517001]

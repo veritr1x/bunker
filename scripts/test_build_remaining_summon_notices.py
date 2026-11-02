@@ -24,7 +24,7 @@ class GeneratedNotices(unittest.TestCase):
         for r in ROWS.values():
             if r.get('direct_notice_id'):continue
             page = generated.make_notice(r, 'native' if r['native_banner'] else None)
-            self.assertTrue(page['title'].startswith('[Generated]'))
+            self.assertFalse(page['title'].startswith('['))
             self.assertIn('original announcement text has not been recovered', page['body'])
 
     def test_historical_roster_contamination_is_rejected(self):

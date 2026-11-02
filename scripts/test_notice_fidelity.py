@@ -114,7 +114,7 @@ class Fidelity(unittest.TestCase):
 
     def test_unrelated_catalog_guarantee_is_removed_from_nier_day_title(self):
         n=self.notices[1500000049]
-        self.assertEqual(n['title'],'[Reconstructed] NieR Day Bonus Summons')
+        self.assertEqual(n['title'],'NieR Day Bonus Summons')
         self.assertIn('Advanced Handbook',self.doc(49).get_text(' ',strip=True))
 
 

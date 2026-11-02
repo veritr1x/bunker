@@ -119,7 +119,7 @@ def reconstructed_notice(target, thumb):
 <p>This page is placed at the run’s start in the offline archive. The original publication time is unknown. The banner is extracted native artwork.</p>
 </details></section>'''
     return {'id': target['synthetic_notice_id'], 'type': 3,
-            'title': '[Reconstructed] '+target['display_title'],
+            'title': target['display_title'],
             'publish': target['start'], 'thumb': thumb, 'body': body}
 
 
