@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,6 +73,9 @@ type summonRule struct {
 	// dates by its home banner, which showed for 3 days of a longer run.
 	Start int64 `json:"start"`
 	End   int64 `json:"end"`
+	// W4Ability: every ★4 weapon the summon gives has this ability (a
+	// barrier weapon summon's rank 4 barrier skill); they are its ★4 weapons.
+	W4Ability int32 `json:"w4ability"`
 }
 
 type ruleFeatured struct {
@@ -86,6 +90,10 @@ type ruleFeatured struct {
 
 // onlyLineups are the summons whose ★4 characters are their lineup only.
 var onlyLineups = map[int32]bool{}
+
+// weaponLineups are the summons whose ★4 weapons are those with an ability
+// (summon id -> ability id; summon_rules.json w4ability).
+var weaponLineups = map[int32]int32{}
 
 // newSummon is a summon the game data lacks but its notice and banner art
 // recover: the paid-only twins. Its window is the notice's (original game
@@ -104,6 +112,8 @@ type newSummon struct {
 	Lineup int32      `json:"lineup"` // an earlier summon it reran: that summon's shards and lineup, its own dates
 	Cards  []int32    `json:"cards"`  // the costumes its banner art shows, for its panel's cards
 	Event  int32      `json:"event"`  // the event chapter its To Quests opens (a prize box: the daily quest that gave its tickets)
+	// W4Ability: as summonRule's, for an added summon.
+	W4Ability int32 `json:"w4ability"`
 }
 
 // Prize is one prize of a prize box (Mama's Dream): what it gives and how
@@ -141,6 +151,7 @@ const panelCostumeCards, panelWeaponCards = 3, 2
 // ApplyRuleFeatured, which runs first.
 func ApplyPanelPromotions(entries []store.GachaCatalogEntry, pool *GachaCatalog) {
 	pool.applyOnlyLineups()
+	pool.applyWeaponLineups(weaponLineups, weaponAbilities())
 	// Released items: those some summon featured. The data also holds
 	// costumes that never came out, with placeholder names.
 	released := map[int32]bool{}
@@ -247,6 +258,53 @@ func (pool *GachaCatalog) applyOnlyLineups() {
 	}
 }
 
+// applyWeaponLineups makes a summon's ★4 weapons the ★4 weapons with its
+// ability (lineups: summon -> ability), once BuildBannerPools has given it the
+// standard pool. abilities is each weapon's abilities. Characters and ★3
+// weapons stay.
+func (pool *GachaCatalog) applyWeaponLineups(lineups map[int32]int32, abilities map[int32][]int32) {
+	for id, ability := range lineups {
+		bp := pool.BannerPools[id]
+		if bp == nil {
+			continue
+		}
+		var lineup []GachaPoolItem
+		for wid, w := range pool.WeaponById {
+			if w.RarityType == model.RaritySSRare && slices.Contains(abilities[wid], ability) {
+				lineup = append(lineup, w)
+			}
+		}
+		sort.Slice(lineup, func(a, b int) bool { return lineup[a].PossessionId < lineup[b].PossessionId })
+		if len(lineup) > 0 {
+			bp.WeaponsByRarity[model.RaritySSRare] = lineup
+		}
+	}
+}
+
+// weaponAbilities is each weapon's abilities, from the game data.
+func weaponAbilities() map[int32][]int32 {
+	out := map[int32][]int32{}
+	if len(weaponLineups) == 0 {
+		return out
+	}
+	groups, err := utils.ReadTable[EntityMWeaponAbilityGroup]("m_weapon_ability_group")
+	if err != nil {
+		return out
+	}
+	weapons, err := utils.ReadTable[EntityMWeapon]("m_weapon")
+	if err != nil {
+		return out
+	}
+	byGroup := map[int32][]int32{}
+	for _, g := range groups {
+		byGroup[g.WeaponAbilityGroupId] = append(byGroup[g.WeaponAbilityGroupId], g.AbilityId)
+	}
+	for _, w := range weapons {
+		out[w.WeaponId] = byGroup[w.WeaponAbilityGroupId]
+	}
+	return out
+}
+
 // PrizeBoxFor is a prize box summon's prizes, if the summon is one.
 func PrizeBoxFor(gachaId int32) ([]Prize, bool) {
 	p, ok := prizeBoxes[gachaId]
@@ -301,6 +359,17 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 	}
 	entries = applySummonRules(entries, file.Rules)
 	artCards = file.ArtCards
+	weaponLineups = map[int32]int32{}
+	for id, r := range file.Rules {
+		if r.W4Ability != 0 {
+			weaponLineups[id] = r.W4Ability
+		}
+	}
+	for _, n := range file.New {
+		if n.W4Ability != 0 {
+			weaponLineups[n.Id] = n.W4Ability
+		}
+	}
 	if windows, err := loadMedalShopWindows(); err == nil {
 		medalShopOpen = medalShopOpenFrom(windows)
 	} else {

@@ -2,6 +2,7 @@ package masterdata
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -566,7 +567,9 @@ func TestPlainSummonPanelShowsItsBannerCharacters(t *testing.T) {
 	defer SetElementsForTest(nil, nil)
 	SetElementsForTest(nil, map[int32]int32{1001: 2, 1002: 2, 1003: 2})
 	ss := model.RaritySSRare
-	c := func(id int32) GachaPoolItem { return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss} }
+	c := func(id int32) GachaPoolItem {
+		return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss}
+	}
 	pool := &GachaCatalog{
 		StandardCostumesByRarity: map[int32][]GachaPoolItem{ss: {c(1001)}},
 		CostumesByRarity:         map[int32][]GachaPoolItem{ss: {c(1001), c(1002), c(1003)}},
@@ -648,7 +651,9 @@ func TestMedalShopWindowsCoverARun(t *testing.T) {
 // turn onto itself and leave empty. Summons with cards keep theirs.
 func TestArtCardsFillSummonsWithoutCards(t *testing.T) {
 	ss := model.RaritySSRare
-	c := func(id int32) GachaPoolItem { return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss} }
+	c := func(id int32) GachaPoolItem {
+		return GachaPoolItem{PossessionType: int32(model.PossessionTypeCostume), PossessionId: id, RarityType: ss}
+	}
 	pool := &GachaCatalog{
 		CostumeById:      map[int32]GachaPoolItem{1001: c(1001), 1002: c(1002)},
 		CostumeWeaponMap: map[int32]int32{1002: 2002},
@@ -673,5 +678,33 @@ func TestArtCardsFillSummonsWithoutCards(t *testing.T) {
 	}
 	if len(entries[1].PromotionItems) != 1 || entries[1].PromotionItems[0].PossessionId != 9 || len(entries[2].PromotionItems) != 0 {
 		t.Fatalf("others changed: %+v %+v", entries[1].PromotionItems, entries[2].PromotionItems)
+	}
+}
+
+// A barrier weapon summon's ★4 weapons are those with its barrier skill
+// (w4ability: every ★4 weapon it gives has it); its characters and ★3
+// weapons stay as the standard pool has them.
+func TestWeaponAbilityLineup(t *testing.T) {
+	ss, s := model.RaritySSRare, model.RaritySRare
+	w := func(id, r int32) GachaPoolItem {
+		return GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: id, RarityType: r}
+	}
+	pool := &GachaCatalog{
+		WeaponById: map[int32]GachaPoolItem{1: w(1, ss), 2: w(2, ss), 3: w(3, ss), 4: w(4, s)},
+		BannerPools: map[int32]*BannerPool{468: {
+			WeaponsByRarity:  map[int32][]GachaPoolItem{ss: {w(1, ss), w(3, ss)}, s: {w(4, s)}},
+			CostumesByRarity: map[int32][]GachaPoolItem{ss: {{PossessionId: 99, RarityType: ss}}},
+		}},
+	}
+	abilities := map[int32][]int32{1: {2000003, 9150004}, 2: {2000111, 9150004}, 3: {2000111, 9150014}, 4: {9150002}}
+	pool.applyWeaponLineups(map[int32]int32{468: 9150004}, abilities)
+	bp := pool.BannerPools[468]
+	var got []int32
+	for _, it := range bp.WeaponsByRarity[ss] {
+		got = append(got, it.PossessionId)
+	}
+	sort.Slice(got, func(i, j int) bool { return got[i] < got[j] })
+	if fmt.Sprint(got) != "[1 2]" || len(bp.WeaponsByRarity[s]) != 1 || len(bp.CostumesByRarity[ss]) != 1 {
+		t.Fatalf("lineup: %v ★3 %v ★4 chars %v", got, bp.WeaponsByRarity[s], bp.CostumesByRarity[ss])
 	}
 }
