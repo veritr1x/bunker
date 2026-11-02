@@ -35,6 +35,7 @@ foreach($object in $taskMeta.objects){Verify-Hash (Native-Path $object.path) $ob
 if($LASTEXITCODE){throw 'Combined ELF loader compile failed.'}
 $taskArgs=$taskCommon+@('-static',(Join-Path $taskBuild 'api-loader-harness.o'),(Join-Path $taskBuild 'api-loader-elfload.o'))
 foreach($name in @('jni_host','android_context','android_assets','apk_assets','java_native_libraries','filesystem','module_registry','pthread_host','libc','logging','zlib_host','signal_host','semaphore_host')){$taskArgs+=Join-Path $taskBuild ("sources\windows\$name.cpp")}
+$taskGrowdownSource=Join-Path $taskBuild 'sources\windows\growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArgs+=$taskGrowdownSource}
 foreach($name in @('runtime','format')){$taskArgs+=Join-Path $taskBuild ("sources\whole\$name.cpp")}
 foreach($object in $taskMeta.objects){$taskArgs+=Native-Path $object.path}
 $taskExe=Join-Path $taskBuild 'bunker-unity-api-loader.exe'

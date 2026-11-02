@@ -19,6 +19,7 @@ if($LASTEXITCODE){throw 'Stack harness compile failed'}
 if($LASTEXITCODE){throw 'Stack ELF data loader compile failed'}
 $taskArgs=$taskCommon+@("-I$taskBuild\zlib",'-static',$taskHarness,$taskLoader)
 foreach($taskName in @('filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','signal_host.cpp','semaphore_host.cpp')){$taskArgs+=Join-Path $taskSource ('windows\'+$taskName)}
+$taskGrowdownSource=Join-Path $taskSource 'windows\growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArgs+=$taskGrowdownSource}
 foreach($taskName in @('runtime.cpp','format.cpp')){$taskArgs+=Join-Path $taskSource ('whole\'+$taskName)}
 foreach($taskObject in $taskInput.objects){$taskArgs+=Join-Path $taskBaseline $taskObject.path}
 $taskArgs+=@((Join-Path $taskBuild 'zlib\libz-inflate.a'),'-latomic','-lbcrypt','-o',$taskExe)

@@ -19,6 +19,7 @@ if($LASTEXITCODE){throw 'Save harness compile failed'}
 if($LASTEXITCODE){throw 'Save ELF data loader compile failed'}
 $taskArgs=$taskCommon+@("-I$taskBuild\zlib",'-static',$taskHarness,$taskLoader)
 foreach($taskName in @('filesystem.cpp','module_registry.cpp','pthread_host.cpp','libc.cpp','logging.cpp','zlib_host.cpp','signal_host.cpp','semaphore_host.cpp','nonlocal_jmp.cpp')){$taskArgs+=Join-Path $taskSource ('windows\'+$taskName)}
+$taskGrowdownSource=Join-Path $taskSource 'windows\growdown_memory.cpp';if(Test-Path -LiteralPath $taskGrowdownSource){$taskArgs+=$taskGrowdownSource}
 foreach($taskName in @('runtime.cpp','format.cpp')){$taskArgs+=Join-Path $taskSource ('whole\'+$taskName)}
 foreach($taskObject in $taskInput.objects){$taskArgs+=Join-Path $taskBaseline $taskObject.path}
 foreach($taskObject in $taskInput.fixture.objects){$taskPath=Save-Path $taskObject.path;if((Save-Hash $taskPath) -ne $taskObject.sha256){throw 'Strict NDK object changed'};$taskArgs+=$taskPath}

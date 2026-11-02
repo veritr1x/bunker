@@ -2,7 +2,7 @@
 from pathlib import Path
 import argparse,hashlib,json,shutil,subprocess,sys
 HERE=Path(__file__).resolve().parent
-OWN=('filesystem.h','filesystem.cpp','mapping_use_guest.c','mapping_use_test.cpp')
+OWN=('filesystem.h','filesystem.cpp','growdown_memory.h','growdown_memory.cpp','mapping_use_guest.c','mapping_use_test.cpp')
 def sha(p):
  with Path(p).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 def main():
@@ -21,7 +21,7 @@ def main():
  m=json.loads((guest/'manifest.json').read_text());assert not m['unsupported_traces']and not m['unresolved_direct_targets']
  cxx='/mnt/c/mingw64/bin/g++.exe';cc='/mnt/c/mingw64/bin/gcc.exe';loader=out/'elfload.o';run([cc,'-O2','-c',wp(source/'fastaes/elfload.c'),'-o',wp(loader)])
  flags=['-std=c++17','-O2','-DADDRESS_SIZE_BITS=64','-isystem',wp(work/'remill-src/include'),'-I'+wp(guest),f'-DMAPPING_IMAGE="{wp(fixture)}"',f'-DMAPPING_ROOT="{wp(out)}"'];objects=[]
- for rel in('windows/filesystem.cpp','whole/runtime.cpp'):
+ for rel in('windows/filesystem.cpp','windows/growdown_memory.cpp','whole/runtime.cpp'):
   obj=out/(Path(rel).stem+'.o');run([cxx,*flags,'-c',wp(source/rel),'-o',wp(obj)]);objects.append(obj)
  exe=out/'mapping-use.exe';run([cxx,*flags,'-Wall','-Wextra','-Werror',wp(source/'windows/mapping_use_test.cpp'),*map(wp,objects),wp(loader),*map(wp,m['objects']),'-latomic','-pthread','-static','-o',wp(exe)])
  observed=subprocess.run([str(exe)],capture_output=True,text=True,timeout=90);(out/'stdout.log').write_text(observed.stdout);(out/'stderr.log').write_text(observed.stderr);print(observed.stdout,end='',flush=True);print(observed.stderr,end='',file=sys.stderr,flush=True);observed.check_returncode()

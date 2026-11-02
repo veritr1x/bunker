@@ -12,7 +12,7 @@ def main():
   target=source/directory;target.mkdir(exist_ok=True,parents=True)
   for f in(a.support_source/directory).iterdir():
    if f.is_file() and f.suffix in('.h','.cpp','.c','.inc'):shutil.copyfile(f,target/f.name)
- for name in('filesystem.h','filesystem.cpp','filesystem_remove_test.cpp','filesystem_remove_guest.c','filesystem_test.cpp'):
+ for name in('filesystem.h','filesystem.cpp','growdown_memory.h','growdown_memory.cpp','filesystem_remove_test.cpp','filesystem_remove_guest.c','filesystem_test.cpp'):
   shutil.copyfile(HERE/name,source/'windows'/name)
  cc=a.ndk/'toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang';library=out/'remove.so'
  subprocess.run([str(cc),'-shared','-nostdlib','-fPIC','-O1','-fno-stack-protector','-fno-builtin',str(source/'windows/filesystem_remove_guest.c'),'-o',str(library)],check=True)
@@ -24,7 +24,7 @@ def main():
  subprocess.run([gcc,'-O2','-c',hp(source/'fastaes/elfload.c'),'-o',hp(loader)],check=True)
  base=[gxx,'-std=c++17','-O2','-DADDRESS_SIZE_BITS=64','-isystem',hp(a.remill/'include'),'-I'+hp(out/'guest'),f'-DREMOVE_IMAGE="{hp(library)}"',f'-DREMOVE_ROOT="{hp(out)}"']
  objects=[]
- for rel in('windows/filesystem_remove_test.cpp','windows/filesystem.cpp','whole/runtime.cpp'):
+ for rel in('windows/filesystem_remove_test.cpp','windows/filesystem.cpp','windows/growdown_memory.cpp','whole/runtime.cpp'):
   obj=out/(Path(rel).stem+'.o');strict=['-Wall','-Wextra','-Werror'] if rel.endswith('_test.cpp') else []
   subprocess.run([*base,*strict,'-c',hp(source/rel),'-o',hp(obj)],check=True);objects.append(obj)
  exe=out/'test.exe';subprocess.run([gxx,'-static',*map(hp,objects),hp(loader),*map(hp,m['objects']),'-pthread','-latomic','-o',hp(exe)],check=True)
