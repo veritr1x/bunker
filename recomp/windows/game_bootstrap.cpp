@@ -207,7 +207,8 @@ int main(int argc,char **argv){
     context_config.external_obb_volumes=std::vector<ExternalObbVolume>{};
     context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
-    AndroidContext context(java,context_config);
+    stage="Android Context setup";AndroidContext context(java,context_config);
+    stage="SharedPreferences setup";
     auto preferences_backend=MakeWindowsSharedPreferencesBackend(context_config.package_name);
     auto read_preferences=std::move(preferences_backend.read);
     preferences_backend.read=[read=std::move(read_preferences),package=context_config.package_name](const std::u16string &name){
@@ -223,10 +224,11 @@ int main(int argc,char **argv){
     };
     std::unique_ptr<AndroidSharedPreferences> preferences;
     {LocalFrame locals(java);preferences=std::make_unique<AndroidSharedPreferences>(java,context.Activity(),context_config.package_name,std::move(preferences_backend));}
-    JniInterfaceProxy interface_proxies(java);
+    stage="interface proxy setup";JniInterfaceProxy interface_proxies(java);
     // The input APK was SHA256-verified above. No extra split/JAR/DEX sources or
     // dynamic Java code loader are exposed by this diagnostic's closed catalog.
-    AndroidAssetPackWrapper asset_packs(java,{kApkSha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
+    stage="asset-pack wrapper setup";AndroidAssetPackWrapper asset_packs(java,{kApkSha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
+    stage="native providers setup";
     // Real policy/semaphores for explicitly bound threads. These cohorts are
     // unpolled: delivery and unknown worker contexts fail rather than queueing
     // a request that cannot receive a real same-worker acknowledgment.
@@ -298,6 +300,18 @@ int main(int argc,char **argv){
       try{mmap_bridge(s);std::fprintf(stderr,"Game bootstrap: original mmap length=%llu flags=%#x LR=%#llx result=%#llx errno=%d\n",(unsigned long long)length,flags,(unsigned long long)caller,(unsigned long long)s.gpr.x0.qword,files.Error());}
       catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original mmap length=%llu flags=%#x LR=%#llx failed:%s\n",(unsigned long long)length,flags,(unsigned long long)caller,e.what());std::abort();}
     });
+    constexpr addr_t sscanf_audit_marker=0x7ffc68000008ULL;
+    auto sscanf_bridge=recomp::MakeBridge<int32_t(const char*,const char*,uint64_t*)>([&libc](auto input,auto format,auto output){return libc.ScanUnsignedLongLong(input,format,output);});
+    runtime.AddImport(sscanf_audit_marker,[&,sscanf_bridge](State &s){
+      const auto caller=s.gpr.x30.qword,output=s.gpr.x2.qword;
+      try{
+        const auto format=recomp::ReadGuestString(s.gpr.x1.qword);
+        sscanf_bridge(s);const auto count=static_cast<int32_t>(s.gpr.x0.dword);
+        const auto value=count==1?Read<uint64_t>(output):0;
+        std::fprintf(stderr,"Game bootstrap: original sscanf format=%s LR=%#llx result=%d assigned=%d value=%llu errno=%d\n",format.c_str(),(unsigned long long)caller,count,int(count==1),(unsigned long long)value,files.Error());
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original sscanf LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original sscanf LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
+    });
     tls_audit.Install(runtime,threads);
     recomp::Runtime module_bridges;modules.Install(module_bridges);
     for(const char *name:{"dlopen","dlsym","dlclose","dlerror"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
@@ -348,7 +362,7 @@ int main(int argc,char **argv){
     auto load=[&](const char *module_name,const auto &imports,const fs::path &path,addr_t base,size_t span,elf_image &target){
       resolved.clear();size_t provided=0,weak=0;
       for(const auto &import:imports){
-        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address&&name=="mmap")address=mmap_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
+        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
         if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }

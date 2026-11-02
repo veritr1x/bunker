@@ -169,8 +169,9 @@ part of the normal Bunker release. The game does not boot or render yet.
 - Persistent SharedPreferences passes 1,052 Windows and 643 Linux focused
   checks, five explicit boundaries and JNI/frame regressions on each host.
   Windows qualification uses isolated real registry stores; decoded TEST
-  migration calls do not establish original Unity initialization. Game wiring
-  now waits for a fresh executed checkpoint. See
+  migration calls do not establish original Unity initialization. Game11 setup
+  exposed duplicate NoSuchElementException ownership with configured APK assets;
+  the next run requires canonical ownership and a combined regression. See
   [preferences storage and ownership](windows/shared_preferences.md).
 - AssetPackManagerWrapper's original missing-PlayCore branch passes 209 focused
   checks and eight explicit boundaries per host. The exact APK code catalog
@@ -180,6 +181,12 @@ part of the normal Bunker release. The game does not boot or render yet.
   results. Game9 and game10 pass the previous natural startup boundary by
   original flow, without separately instrumented native callback claims. See
   [wrapper initialization and ownership](windows/asset_pack_wrapper.md).
+- The reached exact sscanf %llu profile passes 2,319 focused checks and 225
+  actual NDK calls on each host, existing LibC/startup regressions and four
+  production fatal-format boundaries. It preserves Bionic's 512-character token
+  limit, unsigned overflow/errno and tracked eight-byte assignment behavior.
+  The next natural run must qualify this parser in original startup. See
+  [the bounded parser](windows/libc_sscanf.md).
 - Unsigned SIMD widening (USHLL/USHLL2) passes 121,088 reference records per
   host and 260 decode controls. The accepted sparse Unity shard replacement
   fixes the actual ZIP enumerator reached during copying; it retains all old

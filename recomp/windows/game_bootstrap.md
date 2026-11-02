@@ -90,6 +90,13 @@ normal completion. The adapter outlives workers on an attached Host thread.
 This wiring requires a new executed checkpoint to qualify original initialization.
 See [the storage contract and component evidence](shared_preferences.md).
 
+The reached sscanf import uses the same accepted typed LibC implementation.
+Its disjoint diagnostic marker forwards the actual X0/X1/X2 arguments, catches
+host exceptions before translated continuation, and logs LR, assignment count,
+the assigned value and actual Android errno. It reads output only after a real
+assignment and supplies no parsed value or fallback. Other formats retain the
+named unsupported boundary. See [the exact parser contract](libc_sscanf.md).
+
 The actual Unity constructor at 700d9044 registers installed LibC::free as a
 void(void*) TLS destructor. Its exact marker is admitted alongside translated
 callbacks; pthread_create starts remain translated-only. Earlier component
@@ -231,3 +238,15 @@ The next fatal boundary is Unity's unsupported sscanf import at LR709bede8.
 IL2CPP initialization, nativeRender return, signal delivery and a rendered image
 remain unqualified. Aggregate audit SHA256 is
 `8ae2475ec3ad51de8dbd9e2ece6cc28ef3ee4b433a1aacd51268e947150a8be2`.
+
+`work/windows-game11` freezes ccf8c84 and executable SHA256
+`657e01c77bc2a8f326478597a1e0e81302cd405dbf1ff9e6ddaa09eb6f36c8b3`.
+Its default profile fails during setup before any original constructor:
+AndroidAssets and the new preferences adapter both declare
+java.util.NoSuchElementException. No preference read/write or game startup is
+claimed, and the other profiles were not started. The focused preferences
+fixture omitted configured APK assets, so it missed this composition. Canonical
+exception ownership and a combined setup regression are required before the
+next natural attempt. Frozen inputs and all original objects are reverified.
+The failed-setup audit SHA256 is
+`2b7043f43b00e97da5760294a85cc97e79f7fec70968a9286e8e9f997b90866f`.
