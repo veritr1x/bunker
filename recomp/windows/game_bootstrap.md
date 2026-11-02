@@ -589,3 +589,40 @@ log SHA256 is
 aggregate SHA256 is
 `44922616c66243110f97daf8713f6f57376178b128c6e2552602630ba50f9179`.
 Initialization, collection and nativeRender return remain incomplete.
+
+Game22 freezes the qualified phase-aware mask fix at host91c4b67. Its inputs
+SHA256 is `905d3ac4455ec1511fe8ecaecf2bae73eeaeb062a7261b786985ed745b445071`;
+executable SHA256 is
+`f1f01efa652b4ca30a8c8f02704960414574024fb44d9ade62b6c6e29d2a4360`.
+All3575 guest objects and generated headers remain identical to Game21.
+Default/init/surface pass, and standard muted startup retains the signal30
+guard. Both frame profiles receive the original focus callback, return from
+resume/master mute and execute all9 IL2CPP constructors.
+
+The explicit collector profile completes its first original E4 stop/restart
+handshake. The saved wait mask is80000000; the selected current mask equals
+the original action maskfffffffffffbbed9. Actual original30 and24 sends return0.
+Both original handlers execute at the qualified finalizer condition wait.
+Before each of the two real sem_post calls, all31 GPR and32 Q-register bytes
+are verified in the physical interrupted frame above the original published
+FP. The nested restart handler and sigsuspend return, then the outer stop
+handler returns with actual_posts2 and observed record epoch5. These are
+original-code observations; no host collector record, epoch or acknowledgment
+is generated. The post logs precede the original epoch stores, so the later
+observed record5 is recorded separately.
+
+Startup continues through another mmap and then stops at unsupported
+`readlink`, callerLR82554214. Original code constructs `/proc/<actual PID>/exe`
+and reads4096 bytes into a prezeroed4097-byte buffer. It needs the real process
+image, with forward-slash separators for its original dirname/basename logic.
+Returning a shared-library or APK path would misidentify the executable.
+
+Both frame outputs retain the exact24 APK Managed members/24570231 bytes and
+original unity.ver. Physical summary SHA256 is
+`b0d8741a6ac72ed14135c8888f10fd52cc1e02d9b7a9587b4c34af4d84ead732`;
+aggregate SHA256 is
+`29e97b009d4eca63698f1d71b7b0daa602e7d50f7d5d89eb6f0151685f6b3651`.
+This qualifies one bounded original finalizer handshake. General roots,
+repeated cycles, retention/reclamation, initialization return, a rendered
+image and a playable game remain unqualified. The fatal boundary also prevents
+completed persistence checks and normal worker/TLS/module teardown.

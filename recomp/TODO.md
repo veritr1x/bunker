@@ -4,73 +4,51 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game21 passes constructor/JNI, initJni and surface lifecycle profiles. Its
-explicit muted diagnostic returns from original nativeResume and master mute
-without creating a Windows hardware-volume observer. Startup naturally reads
-and saves PlayerPrefs, copies all24 Managed files exactly, parses buildDate,
-publishes unity.ver and enters public IL2CPP initialization. Dup and mapping
-work; prefetch and bsearch have qualified implementations. It now reaches an
-intentionally rejected nonzero signal30 to guest worker3 at LR0x825b2d1c.
-All3575 translated objects now contain cooperative polls, covering456684 trace
-entries and122089 cycle-cut blocks, with the same79436 closed direct targets.
-No PollBinding or production target delivery is installed in Game19. Game
-integration of real worker bindings, safe provider transitions and original
-stop/restart handling must be qualified before enabling collector delivery.
-Initialization has not returned or rendered.
+Game22 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+muted frame profiles return from original nativeResume and master mute without
+creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
+copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
+enters public IL2CPP initialization. Standard muted startup still rejects
+nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-Game20 also builds an explicit `frame-muted-gc` option while retaining the
-default guard. Its first opt-in run stops earlier, before worker creation or
-any collector send: original PRFM PLDL1STRM,[X0] at0x825af89c is still an old
-unsupported body (diagnostic next-PC0x825af8a0). This is the already-qualified
-prefetch family. A reviewed sparse candidate replaces only local IL2CPP
-shard01083/global1553:128 heads,127 raw bodies identical and only0x825af884
-repaired. The complete replacement cohort and its versioned native validators
-are qualified: all456684 heads and79436 closed direct targets remain, with
-1439 unsupported heads and122089 cycle cuts. Game21 links this cohort and
-passes the three controls. Standard muted startup still reaches the original
-signal30 guard. Its opt-in collector run now creates the actual finalizer,
-queues the original signal30 successfully, then stops before the handler at
-the bounded wait-mask check. This check is repeated after SignalHost has
-installed the action mask; its expected mask must distinguish that phase from
-the interrupted wait. No original handler, acknowledgment or completed
-collection is claimed.
+The explicit `frame-muted-gc` run now executes its first original stop/restart
+cycle. The captured finalizer0x825c3ed0 enters the exact untimed CondWait at
+LR0x825505d8. Original signals30/24 both return success from pthread_kill;
+the real stop/restart handlers execute, make both original semaphore posts,
+and return with record epoch4→5. Actual31 GPR/32 Q-register bytes are checked
+in the real interrupted stack frame above the original published FP before
+both posts. The phase-aware mask fix validates saved0x80000000 against the
+actual installed action mask0xfffffffffffbbed9; no host mask rewrite is used.
+This proves one bounded handler cycle, not general collector safety, managed
+retention/reclamation, completed initialization or a rendered frame.
 
-Read-only observations now identify worker3's actual user callback as the
-original finalizer function0x825c3ed0. Its last observed provider entry is
-pthread_cond_wait at caller LR0x825505d8; this is a call observation, not a
-snapshot proving its physical state at the later signal request. Game18 retains
-Game17's objects; Game19 mechanically instruments their exact original IR,
-preserving each selected shard's semantics, heads, errors and State type graph.
-The optional cooperative-poll
-admission policy also passes focused Linux/Windows tests and the unchanged
-27349-check/260-pause regression on each host. It can defer unsafe sites;
-provider root publication, interruptible waits and actual collector suspension
-remain required before enabling signal30 delivery.
+Startup then reaches the unsupported `readlink` import at LR0x82554214.
+Original code constructs `/proc/<actual getpid>/exe` and reads4096 bytes into
+a prezeroed4097-byte buffer. Its consumers expect forward-slash executable
+paths and derive DLL/config/Data/SymbolMap locations. Current work adds the
+actual native process-image query; the existing virtual filesystem does not
+yet reopen arbitrary native Windows paths. No APK/shared-library identity or
+invented Android executable path should substitute for this query.
 
-The optional native Windows condition-wait transport now passes397 focused
-checks plus unchanged pthread78 and worker-lifecycle566 regressions. It can
-service a qualified callback with the guest mutex released, including during
-contended reacquisition, while preserving real condition notifications and
-absolute deadlines. It is installed only by the opt-in profile; Game21 reaches
-its actual finalizer checkpoint and the first queued stop. Other blocking
-pthread routes and general nested-provider root publication remain incomplete.
+The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
+closed direct targets, with1439 unsupported heads. Game21 replaced only
+IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22
+retains every guest object/header and changes only host mask-phase validation.
+Older cohorts, failed attempts and original source/semantics remain preserved.
 
-The separate worker signal-lifecycle adapter passes270 native Windows checks:
-creator-time mask inheritance, actual child ownership, fresh pending/alternate
-stack state, all TLS rounds, cancellation and guarded retirement. It is also
-installed only by the opt-in profile; Game21 reaches the actual child's prepare
-and enter phases, with handler delivery still blocked by the mask-phase check.
-The next composed gate must use these actual worker
-contexts and wait callbacks with a qualified real signal frame, retaining the
-original collector's stop/acknowledgment/restart/acknowledgment protocol.
+Component prerequisites remain separately qualified: cooperative polling
+27349 checks/260 pauses per host; native condition transport397 checks;
+worker signal-lifecycle270 checks; sender metadata3207/3209 checks against
+static Bionic ARM64; and mask-phase133 checks per host. The game profile uses
+explicit virtual Android UID10000 and the real process PID. General parent or
+native-only root publication, other blocking pthread routes, repeated-cycle
+stress and managed retention/reclamation still require work.
 
-Explicit pthread signal sender metadata also passes the real static ARM64
-Bionic reference and translated Linux/Windows gates (3207/3209 checks), plus
-the unchanged signal/semaphore and frame-delivery regressions. It has no
-general production UID default; the opt-in game profile explicitly chooses
-virtual Android UID10000 and the real process PID. Game20 reached no queued
-signal; Game21's first original stop send now returns success from the actual
-pthread_kill provider.
+The isolated four-form scalar FRINTP/M candidate passes65536 matching records
+on each ARM64/Linux/Windows host and4118 decoder checks. It is not selected
+in the game cohort. A separate USHLL2 candidate exposes later UADDW in the
+same head and optimizer changes in24 other bodies; it is preserved as an
+audit, not an accepted replacement or unsupported-head reduction.
 
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 continue with it while the TV is off. It does not disable backend initialization
@@ -402,13 +380,14 @@ unsupported instructions.
   required by this APK. JNI support is an explicit catalog, not a Java interpreter.
 - IL2CPP GC suspension/signals and needed Bionic/ELF TLS. The separate signal
   provider supplies checked masks and queued delivery; the older pthread-only
-  provider leaves nonzero delivery/masks and atfork unsupported. Actual collector
-  integration, thread records and root scanning remain unverified.
+  provider leaves nonzero delivery/masks and atfork unsupported. Game22 executes
+  one bounded original finalizer stop/restart cycle; general collector
+  integration, root scanning and managed retention/reclamation remain unverified.
   Optional real-worker lifecycle hooks now pass 566 focused/78 existing checks,
   preserving creator mask snapshots, actual worker/TLS lifetimes and separate
   provider-destructor validation. The opt-in game profile installs these hooks
-  and bounded polling bindings. Game21 reaches an actual finalizer and queues
-  its first original stop, but has not entered the original handler.
+  and bounded polling bindings. Game22 executes both original handlers and
+  posts with a physically verified interrupted frame; broader paths remain open.
   See [worker ownership](windows/worker_lifecycle.md).
   [The binary/ABI evidence and required gates](windows/GC-SUSPENSION.md) are
   preserved for the implementation; both stop and resume acknowledgments are
@@ -417,11 +396,12 @@ unsupported instructions.
   on each host, including optimized register roots and irregular CFG cycles.
   [Its contract](whole/cooperative_poll.md) leaves provider transition roots
   and interruptible waits explicit. Signal-frame byte gates also pass;
-  production integration and collector correctness remain unverified. See
+  general production integration and collector correctness remain unverified. See
   [the frame contract](whole/signal_frame.md).
   [A bounded combined gate](windows/signal_delivery.md) passes 16 same-worker
   stop/restart cycles on both hosts with NDK handlers and actual guest-stack
-  contexts. The game's collector handlers remain a separate required gate.
+  contexts. Game22 now executes the game's original handlers in the bounded
+  finalizer profile; repeated cycles and other worker/provider shapes remain open.
   Virtual alternate stacks now pass 193 focused checks per host plus the existing
   signal, semaphore, delivery and frame gates. Active frames pin real mapping
   allocations; installed metadata remains unpinned, preserving original Unity's
