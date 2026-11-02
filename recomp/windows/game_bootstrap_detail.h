@@ -67,6 +67,43 @@ Memory *GameOriginalSaveHelper(State &s,addr_t pc,Memory *memory){try{
   // trailing raw global is left untouched; no collector callback is replaced.
   return result;
  }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original automatic-context owner failed:%s\n",e.what());std::abort();}}
+struct GameWorkerObservation {
+  struct NativeEnvironment {
+    DWORD last_error=GetLastError();int native_errno=errno;fenv_t environment{};
+    NativeEnvironment(){std::fegetenv(&environment);}
+    ~NativeEnvironment(){std::fesetenv(&environment);errno=native_errno;SetLastError(last_error);}
+  };
+  // Scalar only: no destructor or provider access at native TLS retirement.
+  static uint64_t &Token(){static thread_local uint64_t token=0;return token;}
+  static void Lifecycle(const char *phase,const bunker::windows::Pthreads::WorkerInfo &info){
+    NativeEnvironment preserve;
+    std::fprintf(stderr,"Game bootstrap: worker lifecycle phase=%s token=%#llx parent=%#llx native_tid=%u stack_low=%#llx stack_high=%#llx tls=%#llx; observation only\n",phase,(unsigned long long)info.token,(unsigned long long)info.parent_token,info.native_tid,(unsigned long long)info.stack_low,(unsigned long long)info.stack_high,(unsigned long long)info.tls_address);
+  }
+  static void Enter(const bunker::windows::Pthreads::WorkerInfo &info){NativeEnvironment preserve;Token()=info.token;Lifecycle("enter",info);}
+  static void Retire(const bunker::windows::Pthreads::WorkerInfo &info,bunker::windows::Pthreads::WorkerRetirement reason){
+    NativeEnvironment preserve;Lifecycle(reason==bunker::windows::Pthreads::WorkerRetirement::normal?"retire_normal":"retire_cancelled",info);
+    if(Token()==info.token)Token()=0;
+  }
+  static uint64_t Wait(const char *phase,const char *name,const State &s){
+    NativeEnvironment preserve;const auto token=Token();if(!token)return 0;
+    std::fprintf(stderr,"Game bootstrap: worker wait phase=%s import=%s token=%#llx native_tid=%lu PC=%#llx SP=%#llx FP=%#llx LR=%#llx x0=%#llx x1=%#llx x2=%#llx; call observation, not blocked-state proof\n",phase,name,(unsigned long long)token,GetCurrentThreadId(),(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.sp.qword,(unsigned long long)s.gpr.x29.qword,(unsigned long long)s.gpr.x30.qword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword);
+    return token;
+  }
+  static void BeforeCreate(const State &s){
+    NativeEnvironment preserve;
+    if(s.gpr.x30.qword!=0x82556a64||s.gpr.x2.qword!=0x82556a94||!s.gpr.x3.qword)return;
+    const auto record=s.gpr.x3.qword;Require(record<=UINT64_MAX-0x20,"observed thread record prefix overflow");
+    // Only initialized fields in the binary-proved 0x68-byte allocation. Read
+    // before Create: the child may immediately free the nested 0x18 payload.
+    const auto callback=Read<addr_t>(record+0x10),payload=Read<addr_t>(record+0x18);
+    std::fprintf(stderr,"Game bootstrap: original worker create witness LR=%#llx entry=%#llx record=%#llx callback=%#llx payload=%#llx; before child start\n",(unsigned long long)s.gpr.x30.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)record,(unsigned long long)callback,(unsigned long long)payload);
+    if(callback==0x82557c80&&payload){
+      Require(payload<=UINT64_MAX-0x18,"observed thread payload overflow");
+      const auto owner=Read<addr_t>(payload),function=Read<addr_t>(payload+8),argument=Read<addr_t>(payload+16);
+      std::fprintf(stderr,"Game bootstrap: original worker payload owner=%#llx function=%#llx argument=%#llx bytes=24; before child start, no post-create read\n",(unsigned long long)owner,(unsigned long long)function,(unsigned long long)argument);
+    }
+  }
+};
 struct GameTlsAudit {
   addr_t free_callback=0;
   std::mutex mutex;std::map<int32_t,addr_t> destructors;
@@ -75,6 +112,8 @@ struct GameTlsAudit {
     if(name=="pthread_key_delete")return 0x7ffc60000008ULL;
     if(name=="pthread_setspecific")return 0x7ffc60000010ULL;
     if(name=="pthread_create")return 0x7ffc60000018ULL;
+    const char *waits[]={"pthread_cond_wait","pthread_cond_timedwait","pthread_mutex_lock","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_once","pthread_join","sem_wait","sem_timedwait","sigsuspend"};
+    for(size_t i=0;i<std::size(waits);++i)if(name==waits[i])return 0x7ffc60000020ULL+i*8;
     return 0;
   }
   void Install(recomp::Runtime &runtime,bunker::windows::Pthreads &threads){
@@ -84,10 +123,11 @@ struct GameTlsAudit {
     }));
     runtime.AddImport(Marker("pthread_key_delete"),recomp::MakeBridge<int32_t(int32_t)>([&threads,this](auto key){auto result=threads.KeyDelete(key);if(!result){std::lock_guard lock(mutex);destructors.erase(key);}return result;}));
     runtime.AddImport(Marker("pthread_setspecific"),recomp::MakeBridge<int32_t(int32_t,uint64_t)>([&threads](auto key,auto value){return threads.SetSpecific(key,value);}));
-    runtime.AddImport(Marker("pthread_create"),recomp::MakeBridge<int32_t(uint64_t*,const bunker::windows::AndroidThreadAttr*,addr_t,addr_t)>([&threads](auto out,auto attr,auto entry,auto arg){
+    auto create=recomp::MakeBridge<int32_t(uint64_t*,const bunker::windows::AndroidThreadAttr*,addr_t,addr_t)>([&threads](auto out,auto attr,auto entry,auto arg){
       if(entry&&!Translated(entry)){std::fprintf(stderr,"Game bootstrap: reached unregistered real pthread start=%#llx\n",(unsigned long long)entry);std::abort();}
       auto result=threads.Create(out,attr,entry,arg);if(!result)std::fprintf(stderr,"Game bootstrap: actual guest worker created token=%#llx entry=%#llx; no synthetic SignalHost binding\n",(unsigned long long)Read<uint64_t>(reinterpret_cast<addr_t>(out)),(unsigned long long)entry);return result;
-    }));
+    });
+    runtime.AddImport(Marker("pthread_create"),[create](State &s){try{GameWorkerObservation::BeforeCreate(s);create(s);}catch(const std::exception &error){std::fprintf(stderr,"Game bootstrap: worker creation observer/provider failed:%s\n",error.what());std::abort();}catch(...){std::fprintf(stderr,"Game bootstrap: worker creation observer/provider failed:unknown host exception\n");std::abort();}});
   }
   size_t PendingModuleCallbacks(bunker::windows::Pthreads &threads){
     std::vector<std::pair<int32_t,addr_t>> keys;{std::lock_guard lock(mutex);for(auto entry:destructors)if(entry.second)keys.push_back(entry);}

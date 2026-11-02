@@ -32,6 +32,8 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cerrno>
+#include <cfenv>
 #include <atomic>
 #include <charconv>
 #include <chrono>
@@ -273,6 +275,13 @@ int main(int argc,char **argv){
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
+    // Observation only: no signal registration, delivery, polling or guest call.
+    threads.SetWorkerLifecycleHooks({
+      [](const Pthreads::WorkerInfo &info){GameWorkerObservation::Lifecycle("prepare",info);return Pthreads::WorkerLease{};},
+      [](const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &){GameWorkerObservation::Enter(info);},
+      [](const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &){GameWorkerObservation::Lifecycle("before_tls",info);},
+      [](const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &,Pthreads::WorkerRetirement reason){GameWorkerObservation::Retire(info,reason);}
+    });
     const auto parent_token=threads.Self();Require(!process_signals.RegisterThread(parent_token)&&!process_signals.BindCurrent(parent_token),"cannot bind actual UI virtual signal context");
     auto current_signal_thread=[&]{auto token=threads.Self();Require(bool(process_signals.Lookup(token)),"guest-created worker lacks proved SignalHost lifecycle hooks");return token;};
     auto current_jump_thread=[&](){
@@ -358,6 +367,18 @@ int main(int argc,char **argv){
       }
     }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: signal bridge %s failed:%s\n",name,e.what());std::abort();}});}
     semaphores.Install(runtime,current_signal_thread,no_delivery);
+    for(const char *name:{"pthread_cond_wait","pthread_cond_timedwait","pthread_mutex_lock","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_once","pthread_join","sem_wait","sem_timedwait","sigsuspend"}){
+      const std::string identity=name;
+      const auto actual=identity=="sigsuspend"?process_signals.Marker(identity):identity=="sem_wait"||identity=="sem_timedwait"?semaphores.Marker(identity):threads.Marker(identity);
+      const auto observed=tls_audit.Marker(identity);
+      runtime.AddImport(observed,[&,identity,actual](State &s){
+        const auto token=GameWorkerObservation::Wait("ENTER",identity.c_str(),s);
+        // Dispatch the existing checked provider. No nested Runtime::Run or
+        // new guest State is introduced; original arguments/results survive.
+        runtime.Dispatch(s,actual,nullptr);
+        if(token)GameWorkerObservation::Wait("RETURN",identity.c_str(),s);
+      });
+    }
     if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"setjmp"))automatic_environments.BeforeSetjmp(s,current_signal_thread());jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
     if(graphics){
       graphics->Install(gl_bridges);
