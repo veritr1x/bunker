@@ -462,6 +462,9 @@ article section{margin-bottom:6px}
 article p{margin:0 0 8px}
 article .info-largeimage{margin:0 0 10px}
 article .info-largeimage img{display:block;width:100%;border:1px solid #8a817c}
+.notice-title-panel{margin:0 0 12px;padding:22px 16px;text-align:center;border:3px double #8a817c;background:linear-gradient(135deg,#332e2d,#1b1918 65%,#3b3433)}
+article .notice-title-panel p{font-size:10px;letter-spacing:.24em;margin:0 0 8px;color:var(--dim)}
+article .notice-title-panel h2{font-size:20px;line-height:1.4;margin:0;padding:0;border:0}
 article img.stand-in{max-width:640px;margin:0 auto}
 article h2{text-align:center;font-size:13px;margin:22px 0 12px;padding:2px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 article h3{position:relative;margin:26px 0 12px;padding:3px 10px 2px 12px;font-size:12px;line-height:16px;background:var(--bar);color:var(--bar-ink)}
@@ -475,11 +478,13 @@ article ul{margin:4px 0 8px;padding-left:18px}
 .al-center{text-align:center!important}
 .holding-period{text-align:center;padding:6px 0 5px;margin:4px 0;background:linear-gradient(90deg,transparent,rgba(115,107,104,.55) 25%,rgba(115,107,104,.55) 75%,transparent)}
 .information_table{margin:8px 0 14px;overflow-x:auto}
-article table{border-collapse:collapse;font-size:12px}
+article table{width:100%!important;table-layout:auto;border-collapse:collapse;font-size:12px}
+article th,article td{width:auto!important;overflow-wrap:normal;word-break:normal}
 article th{background:var(--bar-ink);color:var(--ink);text-align:left;padding:2px 6px;border:1px solid var(--line)}
 article td{border:1px solid var(--line);padding:2px 6px;vertical-align:middle}
 article td img,article .weapon_icon,article .coin_icon{vertical-align:middle;max-height:48px}
-article .gem_icon{height:16px;vertical-align:-3px}
+article .weapon_icon,article .coin_icon{object-fit:contain}
+article .gem_icon{width:auto!important;height:16px;vertical-align:-3px}
 article img.star,article .star img{width:12px;vertical-align:-1px}
 article .status_icon{width:12px;margin-right:4px;vertical-align:-1px}
 .attention_content{color:var(--dim);font-size:12px}
