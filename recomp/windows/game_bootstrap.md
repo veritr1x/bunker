@@ -89,3 +89,20 @@ images, APK, ANGLE and executable after execution. Earlier game1/2/3 variants
 remain untouched, including the game2 compile failure and game3 callback guard
 failure. The final linked caller825af208 disassembly confirms an actual call to
 __wrap_sub_825b0544; the body itself was not reached in this frame.
+
+`work/windows-game5` includes the accepted reference arrays and read-only secure
+settings backend (host c85b5e6). Its actual frame next reaches the unimplemented
+JNIBridge.newInterfaceProxy(J,Class[]) factory; no later IL2CPP load or returned
+nativeRender is established. Executable SHA256 is
+`d1b3065e1bacbb5a2e0c41817108e04304f31a1d61b4b869f4900c39684cf7a9`.
+
+`work/windows-game6b` qualifies the exact provider-free TLS policy described
+above, with host 610492e and executable SHA256
+`c46544f71aac590606b9ff98e66d6d09070d4bbd642f47414140bf014fe0c80a`.
+Default, initJni and paused surface profiles each pass terminal completion,
+417 constructors/42 JNI bindings/two reverse Unity finalizers, zero IL2CPP
+constructors/references, and full post-run frozen-input verification. The real
+key19 free callback remains owned until actual runner retirement; no TLS value
+is cleared to bypass it. Surface handoff still observes 2+2=4 reference calls.
+This variant executes no nativeResume/nativeRender. The earlier game6 compile
+failure is preserved; game6b is a fresh immutable source/build variant.
