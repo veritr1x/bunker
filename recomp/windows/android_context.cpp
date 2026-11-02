@@ -19,7 +19,8 @@ struct StorageState {
   Cached files_file,cache_file;
 };
 struct FileState {std::u16string path;Value text;};
-struct ContextState {Value info,assets,package,intent,manager,code_path;std::shared_ptr<StorageState> storage;};
+struct ResolverState {Value package;};
+struct ContextState {Value info,assets,package,intent,manager,code_path,resolver;std::shared_ptr<StorageState> storage;};
 struct PackageState {AndroidContextConfig config;};
 struct ActivityListState {std::set<std::u16string> components;};
 Value Keep(jni::Host &host,addr_t local){auto value=host.CaptureValue(local);host.DeleteLocalReference(local);return value;}
@@ -65,6 +66,33 @@ addr_t InternalDirectory(jni::Host &host,const std::shared_ptr<StorageState> &st
   }
   return host.LocalValue(value);
 }
+addr_t Env(jni::Host &host,size_t slot,addr_t a=0,addr_t b=0,addr_t c=0,addr_t d=0){
+  State state{};state.gpr.x0.qword=host.EnvAddress();state.gpr.x1.qword=a;state.gpr.x2.qword=b;state.gpr.x3.qword=c;state.gpr.x4.qword=d;host.InvokeEnv(slot,state);return state.gpr.x0.qword;
+}
+addr_t Call(jni::Host &host,addr_t receiver,const char *name,const char *signature,const jni::Host::MethodArguments &args={},bool boolean=false){
+  if(!receiver){host.ThrowException("java/lang/NullPointerException");return 0;}
+  auto clazz=Env(host,31,receiver);if(!clazz||!host.PendingException().empty())return 0;
+  auto method=Env(host,33,clazz,reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>(signature));host.DeleteLocalReference(clazz);
+  if(!method||!host.PendingException().empty())return 0;
+  return Env(host,boolean?39:36,receiver,method,reinterpret_cast<addr_t>(args.data()));
+}
+bool TangoEnabled(jni::Host &host,addr_t player){
+  auto context=host.GetObjectFieldValue(player,"mContext","Landroid/content/Context;");
+  auto manager=Call(host,context,"getPackageManager","()Landroid/content/pm/PackageManager;");
+  auto package=host.PendingException().empty()?Call(host,context,"getPackageName","()Ljava/lang/String;"):0;
+  auto info=host.PendingException().empty()?Call(host,manager,"getApplicationInfo","(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;",{package,128,0}):0;
+  auto bundle=info&&host.PendingException().empty()?host.GetObjectFieldValue(info,"metaData","Landroid/os/Bundle;"):0;
+  auto key=host.NewString(u"unity.tango-enable");
+  const bool enabled=host.PendingException().empty()&&Call(host,bundle,"getBoolean","(Ljava/lang/String;)Z",{key,0,0},true);
+  // The original private helper catches java.lang.Exception, not Error.
+  if(!host.PendingException().empty()){
+    auto exception=Env(host,15),base=Env(host,6,reinterpret_cast<addr_t>("java/lang/Exception"));
+    if(Env(host,32,exception,base))host.ClearException();
+    if(exception)host.DeleteLocalReference(exception);if(base)host.DeleteLocalReference(base);
+  }
+  for(auto local:{context,manager,package,info,bundle,key})if(local)host.DeleteLocalReference(local);
+  return enabled&&host.PendingException().empty();
+}
 }
 AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &config) : host_(host) {
   if (config.package_name.empty() || config.source_dir.empty() || config.source_dir.front() != u'/' ||
@@ -74,6 +102,13 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   if(config.main_activity_filters)for(const auto &filter:*config.main_activity_filters)if(filter.component.empty())throw std::invalid_argument("MAIN activity-filter catalog needs component names");
   host.DefineClass("android/content/Context", {}, "java/lang/Object", true);
   host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
+  host.DefineClass("android/content/ContentResolver",{},"java/lang/Object",true);
+  host.DefineClass("android/app/ContextImpl$ApplicationContentResolver",{},"android/content/ContentResolver",true);
+  host.DefineInterface("android/content/ServiceConnection",{
+    {"onServiceConnected","(Landroid/content/ComponentName;Landroid/os/IBinder;)V"},
+    {"onServiceDisconnected","(Landroid/content/ComponentName;)V"},
+    {"onBindingDied","(Landroid/content/ComponentName;)V"},
+    {"onNullBinding","(Landroid/content/ComponentName;)V"}});
   if (config.activity_class != "android/app/Activity") host.DefineClass(config.activity_class, {}, "android/app/Activity");
   host.DefineClass("android/content/pm/PackageItemInfo", {}, "java/lang/Object", true);
   host.DefineClass("android/content/pm/ApplicationInfo", {}, "android/content/pm/PackageItemInfo", true);
@@ -136,6 +171,8 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
     for(auto &[name,extra]:config.launch_extras){if(extra.kind<LaunchExtra::kNull||extra.kind>LaunchExtra::kBoolean)throw std::invalid_argument("unsupported configured Intent extra type");ExtraState value;value.kind=extra.kind;value.integer=extra.integer;value.boolean=extra.boolean;if(extra.kind==LaunchExtra::kString)value.text=Keep(host,host.NewString(extra.text));intent->extras->values.emplace(name,std::move(value));}
   }
   auto state=std::make_shared<ContextState>();state->info=host.CaptureValue(info_);state->assets=host.CaptureValue(assets_);state->package=host.CaptureValue(package_);
+  auto resolver=std::make_shared<ResolverState>();resolver->package=state->package;
+  state->resolver=Keep(host,host.NewHostInstance("android/app/ContextImpl$ApplicationContentResolver",resolver));
   state->storage=std::make_shared<StorageState>();auto base=config.data_dir;while(base.size()>1&&base.back()==u'/')base.pop_back();if(base.back()!=u'/')base+=u'/';state->storage->files=base+u"files";state->storage->cache=base+u"cache";state->storage->prepare=config.prepare_internal_directory;
   // LoadedApk stores its installed app path independently of the public mutable
   // ApplicationInfo record. Snapshot the original immutable String object.
@@ -143,6 +180,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   auto packages=std::make_shared<PackageState>();packages->config=config;state->manager=Keep(host,host.NewHostInstance("android/app/ApplicationPackageManager",packages));
   state->intent=Keep(host,host.NewHostInstance("android/content/Intent",intent));activity_=global(host.NewHostInstance(config.activity_class,state));
   host.DefineObjectMethod("android/content/Context","getApplicationInfo","()Landroid/content/pm/ApplicationInfo;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->info):0;});
+  host.DefineObjectMethod("android/content/Context","getContentResolver","()Landroid/content/ContentResolver;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->resolver):0;});
   host.DefineObjectMethod("android/content/Context","getPackageCodePath","()Ljava/lang/String;",[&host](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?host.LocalValue(state->code_path):0;});
   for(bool cache:{false,true})host.DefineObjectMethod("android/content/Context",cache?"getCacheDir":"getFilesDir","()Ljava/io/File;",[&host,cache](addr_t object){auto state=host.ReadHostState<ContextState>(object);return state?InternalDirectory(host,state->storage,cache):0;});
   host.DefineObjectMethod("android/content/Context","getExternalFilesDir","(Ljava/lang/String;)Ljava/io/File;",[&host](addr_t object,const jni::Host::MethodArguments&){host.ReadHostState<ContextState>(object);return addr_t(0);});
@@ -208,4 +246,31 @@ AndroidContext::~AndroidContext() {
   host_.DeleteGlobalReference(activity_); host_.DeleteGlobalReference(info_); host_.DeleteGlobalReference(assets_); host_.DeleteGlobalReference(package_);
 }
 addr_t AndroidContext::Activity() { return host_.NewLocalReference(activity_); }
+void AndroidContext::BindUnityPlayer(addr_t player){
+  auto &host=host_;
+  if(!unity_methods_bound_){
+    host.DefineField("com/unity3d/player/UnityPlayer","mContext","Landroid/content/Context;");
+    host.DefineField("com/unity3d/player/UnityPlayer","currentActivity","Landroid/app/Activity;",true);
+    host.DefineField("com/unity3d/player/UnityPlayer","m_ARCoreApi","Lcom/unity3d/player/GoogleARCoreApi;");
+    host.BindBooleanMethod("com/unity3d/player/UnityPlayer","initializeGoogleAr","()Z",[&host](addr_t receiver,const jni::Host::MethodArguments&){
+      auto api=host.GetObjectFieldValue(receiver,"m_ARCoreApi","Lcom/unity3d/player/GoogleARCoreApi;");
+      if(api){host.DeleteLocalReference(api);return false;}
+      auto clazz=Env(host,6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer"));
+      auto field=Env(host,144,clazz,reinterpret_cast<addr_t>("currentActivity"),reinterpret_cast<addr_t>("Landroid/app/Activity;"));
+      auto activity=Env(host,145,clazz,field);host.DeleteLocalReference(clazz);
+      if(!activity)return false;host.DeleteLocalReference(activity);
+      if(TangoEnabled(host,receiver))throw std::runtime_error("enabled Google ARCore requires original native initialize/resume side effects; no host implementation");
+      return false;
+    });
+    unity_methods_bound_=true;
+  }
+  auto previous=host.GetObjectFieldValue(player,"mContext","Landroid/content/Context;");
+  if(previous){host.DeleteLocalReference(previous);throw std::invalid_argument("UnityPlayer context facts are already bound");}
+  if(!host.PendingException().empty())throw std::invalid_argument("UnityPlayer binding requires a live typed receiver");
+  host.SetObjectFieldValue(player,"mContext","Landroid/content/Context;",activity_);
+  host.SetObjectFieldValue(player,"m_ARCoreApi","Lcom/unity3d/player/GoogleARCoreApi;",0);
+  auto clazz=Env(host,6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer"));
+  auto field=Env(host,144,clazz,reinterpret_cast<addr_t>("currentActivity"),reinterpret_cast<addr_t>("Landroid/app/Activity;"));Env(host,154,clazz,field,activity_);host.DeleteLocalReference(clazz);
+  if(!host.PendingException().empty())throw std::runtime_error("Unity AR Activity/context binding failed: "+host.PendingException());
+}
 }  // namespace bunker::windows

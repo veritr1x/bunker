@@ -51,8 +51,12 @@ class AndroidContext {
   AndroidContext(const AndroidContext &) = delete;
   AndroidContext &operator=(const AndroidContext &) = delete;
   addr_t Activity();
+  // Port only the original constructor's Activity/mContext/initial AR binding
+  // facts for this player. Must precede its first normal native frame.
+  void BindUnityPlayer(addr_t player);
  private:
   jni::Host &host_;
   addr_t activity_ = 0, info_ = 0, assets_ = 0, package_ = 0;
+  bool unity_methods_bound_ = false;
 };
 }  // namespace bunker::windows

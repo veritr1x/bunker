@@ -84,7 +84,7 @@ struct Host::Field { std::string owner, name, signature; bool is_static; addr_t 
 struct Host::Class {
   std::shared_ptr<Object> object;
   std::string superclass;
-  bool bootstrap = false, initialized = false;
+  bool bootstrap = false, initialized = false, is_interface = false;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Method>> methods;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Field>> fields;
 };
@@ -152,6 +152,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
       {"java/lang/Exception","java/lang/Throwable"},{"java/lang/RuntimeException","java/lang/Exception"},
       {"java/lang/IllegalArgumentException","java/lang/RuntimeException"},{"java/lang/IllegalStateException","java/lang/RuntimeException"},
       {"java/lang/NullPointerException","java/lang/RuntimeException"},{"java/lang/IndexOutOfBoundsException","java/lang/RuntimeException"},
+      {"java/lang/InstantiationException","java/lang/Exception"},
       {"java/lang/StringIndexOutOfBoundsException","java/lang/IndexOutOfBoundsException"},{"java/lang/UnsupportedOperationException","java/lang/RuntimeException"},
       {"java/lang/ClassNotFoundException","java/lang/Exception"},{"java/lang/Error","java/lang/Throwable"},
       {"java/lang/LinkageError","java/lang/Error"},{"java/lang/IncompatibleClassChangeError","java/lang/LinkageError"},
@@ -160,6 +161,9 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
     DefineClass(name, {}, superclass, true);
   auto builtin=[&](const char *owner,const char *name,Method::Builtin kind){classes_.at(owner)->methods.at({name,"()Ljava/lang/String;"})->builtin=kind;};
   classes_.at("java/lang/Object")->methods.at({"getClass","()Ljava/lang/Class;"})->builtin=Method::kObjectClass;
+  DefineBooleanMethod("java/lang/Class","isInterface","()Z",[this](addr_t reference,const MethodArguments&){
+    ProviderLock lock(*this);auto clazz=GetClass(reference);return clazz&&clazz->is_interface;
+  });
   builtin("java/lang/Object","toString",Method::kObjectString);builtin("java/lang/String","toString",Method::kStringString);
   auto &equals=*classes_.at("java/lang/String")->methods.at({"equals","(Ljava/lang/Object;)Z"});equals.builtin=Method::kStringEquals;equals.argument_types={"Ljava/lang/Object;"};
   builtin("java/lang/Throwable","toString",Method::kThrowableString);builtin("java/lang/Throwable","getMessage",Method::kMessage);builtin("java/lang/Throwable","getLocalizedMessage",Method::kLocalizedMessage);
@@ -186,6 +190,7 @@ void Host::RequireEnv(addr_t address) {
 void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> methods, const std::string &superclass, bool bootstrap) {
   ProviderLock lock(*this);
   if (name.empty() || classes_.count(name) || (!superclass.empty() && !classes_.count(superclass))) throw std::invalid_argument("invalid or duplicate Java class");
+  if(!superclass.empty()&&classes_.at(superclass)->is_interface)throw std::invalid_argument("a Java class cannot extend an interface");
   auto clazz = std::make_unique<Class>();
   clazz->object = std::make_shared<Object>(); clazz->object->kind = Object::kClass; clazz->object->class_name = name;
   clazz->superclass = superclass;
@@ -201,6 +206,11 @@ void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> m
   }
   for (auto &method : clazz->methods) method_ids_[method.second->id] = method.second.get();
   classes_.emplace(name, std::move(clazz));
+}
+void Host::DefineInterface(const std::string &name,std::vector<MethodDeclaration> methods,bool bootstrap){
+  ProviderLock lock(*this);
+  for(const auto &method:methods)if(method.name=="<init>")throw std::invalid_argument("Java interface cannot declare an instance constructor");
+  DefineClass(name,std::move(methods),"",bootstrap);classes_.at(name)->is_interface=true;
 }
 void Host::MarkClassInitialized(const std::string &name) {
   ProviderLock lock(*this);
@@ -222,6 +232,11 @@ void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,
   if(!handler)throw std::invalid_argument("missing boolean handler");
   DefineHandler(owner,name,signature,'Z',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){return handler(object,arguments)?1:0;});
 }
+void Host::BindBooleanMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                             std::function<bool(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing boolean implementation");
+  DefineHandler(owner,name,signature,'Z',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){return handler(object,arguments)?1:0;},false,true);
+}
 void Host::DefineVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<void(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing void handler");DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;});
 }
@@ -231,7 +246,7 @@ void Host::DefineConstructor(const std::string &owner,const std::string &signatu
 void Host::ThrowException(const std::string &type,const std::u16string &message){ProviderLock lock(*this);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,Encode(message));}
 void Host::ThrowException(const std::string &type){ProviderLock lock(*this);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,"",false);}
 void Host::DefineHandler(const std::string &class_name,const std::string &name,const std::string &signature,char result,
-                         std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static){
+                         std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static,bool bind_existing){
   ProviderLock lock(*this);
   auto clazz = classes_.find(class_name);
   if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
@@ -248,6 +263,11 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='L'&&(returns.size()<3||returns.front()!='L'||returns.back()!=';'||!classes_.count(returns.substr(1,returns.size()-2)))))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
+  if(bind_existing){
+    if(found==clazz->second->methods.end()||found->second->declaration.is_static!=is_static||found->second->declaration.is_native||found->second->builtin!=Method::kNone||found->second->object_handler)
+      throw std::invalid_argument("implementation requires an existing unimplemented nonnative method");
+    found->second->object_handler=std::move(handler);found->second->argument_types=std::move(arguments);return;
+  }
   if (found != clazz->second->methods.end()) throw std::invalid_argument("duplicate host method");
   auto method = std::make_unique<Method>(); method->declaration = {name, signature, is_static, false};
   method->owner = class_name; method->id = next_method_++; method->object_handler = std::move(handler);
@@ -311,11 +331,12 @@ addr_t Host::NewString(const std::u16string &value) {
 addr_t Host::NewInstance(const std::string &name) {
   ProviderLock lock(*this);
   if (!classes_.count(name)) throw std::invalid_argument("unknown Java class");
+  if(classes_.at(name)->is_interface){Raise("java/lang/InstantiationException","cannot instantiate Java interface: "+name);return 0;}
   auto object = std::make_shared<Object>(); object->class_name = name; return Local(object);
 }
 addr_t Host::HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state){
   if(!state)throw std::invalid_argument("host instance requires initialized state");
-  ProviderLock lock(*this);auto reference=NewInstance(name);auto object=Get(reference);object->host_type=type;object->host_state=std::move(state);return reference;
+  ProviderLock lock(*this);auto reference=NewInstance(name);if(!reference)return 0;auto object=Get(reference);object->host_type=type;object->host_state=std::move(state);return reference;
 }
 std::shared_ptr<void> Host::HostState(addr_t reference,std::type_index type){
   ProviderLock lock(*this);auto object=Get(reference);if(!object)return {};
@@ -332,6 +353,8 @@ addr_t Host::NewLocalReference(addr_t reference) { ProviderLock lock(*this); ret
 void Host::DeleteGlobalReference(addr_t reference) { ProviderLock lock(*this); Delete(reference, 2); }
 void Host::DeleteLocalReference(addr_t reference) { ProviderLock lock(*this); Delete(reference, 1); }
 bool Host::Assignable(const std::string &actual, const std::string &expected) const {
+  auto original=classes_.find(actual);
+  if(original!=classes_.end()&&original->second->is_interface&&expected=="java/lang/Object")return true;
   std::string name = actual;
   while (!name.empty()) {
     if (name == expected) return true;
@@ -567,6 +590,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
 }
 addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
+  if(clazz->is_interface){Raise("java/lang/InstantiationException","cannot construct Java interface: "+clazz->object->class_name);return 0;}
   auto found=method_ids_.find(id);if(found==method_ids_.end()){Raise("java/lang/NoSuchMethodError","invalid JNI constructor ID");return 0;}
   auto &method=*found->second;
   if(method.owner!=clazz->object->class_name||method.declaration.is_static||method.declaration.name!="<init>"||method.declaration.signature.back()!='V'){
@@ -683,6 +707,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
     case 24: { auto first = Get(a, true), second = Get(b, true); s.gpr.x0.qword = first == second; return; }
     case 25: s.gpr.x0.qword = Ref(a, 1); return;
     case 26: if (static_cast<int32_t>(a) < 0) { Raise("java/lang/IllegalArgumentException", "negative local capacity"); IntResult(s, kError); } else IntResult(s, kOk); return;
+    case 27: {auto clazz=GetClass(a);if(!clazz){s.gpr.x0.qword=0;return;}if(clazz->is_interface){Raise("java/lang/InstantiationException","cannot allocate Java interface: "+clazz->object->class_name);s.gpr.x0.qword=0;return;}throw std::runtime_error("unsupported JNI AllocObject for Java class");}
     case 28: case 29: case 30: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot,count,args)?Construct(lock,a,b,args):0;return;}
     case 31: { auto object=Get(a);s.gpr.x0.qword=object?ObjectClass(object):0;return; }
     case 32: { auto *clazz = GetClass(b); auto object = Get(a, true); s.gpr.x0.qword = clazz && (!object || Assignable(object->kind == Object::kClass ? "java/lang/Class" : object->class_name, clazz->object->class_name)); return; }
