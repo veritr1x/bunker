@@ -187,3 +187,33 @@ func TestFreeSummonShowsItsArtCharacters(t *testing.T) {
 	}
 	t.Fatal("no summon 554")
 }
+
+// The barrier weapon summons (notice 962, Vol. 1-3): every ★4 weapon has the
+// volume's rank 4 barrier skill, the weapons their art shows among them.
+func TestBarrierWeaponSummons(t *testing.T) {
+	holder, _ := harness(t)
+	c := holder.Get()
+	for id, want := range map[int32][]int32{468: {320131, 350201, 350391}, 469: {330361, 330281, 340331}, 470: {320251, 350311, 340511}} {
+		bp := c.GachaPool.BannerPools[id]
+		if bp == nil {
+			t.Fatalf("no summon %d", id)
+		}
+		lineup := map[int32]bool{}
+		for _, w := range bp.WeaponsByRarity[40] {
+			lineup[w.PossessionId] = true
+		}
+		if len(lineup) < 70 {
+			t.Fatalf("%d: %d ★4 weapons", id, len(lineup))
+		}
+		for _, w := range want {
+			if !lineup[w] {
+				t.Errorf("%d: art weapon %d not in its lineup", id, w)
+			}
+		}
+		for _, e := range c.GachaEntries {
+			if e.GachaId == id && len(e.PromotionItems) != 3 {
+				t.Errorf("%d: cards %+v", id, e.PromotionItems)
+			}
+		}
+	}
+}
