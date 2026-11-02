@@ -303,3 +303,36 @@ func TestAddedSummonStepsFromArt(t *testing.T) {
 		}
 	}
 }
+
+// Summons recovered from their art and the event guide's dates: the DQX
+// Oathbound Exile step-up, the New Year Countdown Vol. 2, the 220 free summons.
+func TestRecoveredSummons(t *testing.T) {
+	holder, _ := harness(t)
+	c := holder.Get()
+	got := map[int32]bool{}
+	for _, e := range c.GachaEntries {
+		switch e.GachaId {
+		case 586001:
+			if e.MaxStepNumber != 3 {
+				t.Errorf("586001: %d steps", e.MaxStepNumber)
+			}
+		case 450:
+			if r, _ := masterdata.PhaseRuleFor(e.PricePhases[0].PhaseId); r.Rate != 1.5 || !r.Feat4 {
+				t.Errorf("450 rule %+v", r)
+			}
+		case 144:
+			if e.PricePhases[0].Price != 0 || len(e.PromotionItems) != 3 {
+				t.Errorf("144: %+v cards %d", e.PricePhases, len(e.PromotionItems))
+			}
+		}
+		got[e.GachaId] = true
+	}
+	for _, id := range []int32{123, 413, 417, 438, 444, 445, 467, 471, 546, 476, 144, 450, 451, 557001, 558001, 560001, 563001, 523001, 531001, 581001, 582001, 586001, 587001, 900003} {
+		if !got[id] {
+			t.Errorf("summon %d missing", id)
+		}
+	}
+	if bp := c.GachaPool.BannerPools[586001]; bp == nil || len(bp.Featured) == 0 {
+		t.Error("586001 features nothing")
+	}
+}
