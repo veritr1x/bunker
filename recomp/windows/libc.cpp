@@ -44,7 +44,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -275,6 +275,35 @@ uint64_t LibC::ParseInteger(const char *text,char **end,int base,bool is_signed)
   if(overflow){Fail(34);return is_signed&&negative?UINT64_C(1)<<63:limit;}
   return negative?uint64_t(0)-value:value;
 }
+int32_t LibC::ScanUnsignedLongLong(const char *input,const char *format,uint64_t *output){
+  // Snapshot both strings before any output effects, including input/output aliases.
+  // Android 13 vfscanf copies at most BUF-1 (512) token bytes before strtoumax.
+  const auto pattern=pm::String(format);
+  if(pattern!="%llu")throw std::runtime_error("sscanf format is outside the exact %llu profile");
+  const auto text=pm::String(input);
+  size_t first=0;
+  while(first<text.size()&&Space(static_cast<unsigned char>(text[first])))++first;
+  if(first==text.size())return -1;
+  size_t cursor=first;
+  const bool negative=text[cursor]=='-';
+  if(text[cursor]=='+'||text[cursor]=='-')++cursor;
+  bool any=false,overflow=false;
+  uint64_t value=0;
+  while(cursor<text.size()&&cursor-first<512){
+    const unsigned char c=static_cast<unsigned char>(text[cursor]);
+    if(c<'0'||c>'9')break;
+    any=true;
+    const unsigned digit=c-'0';
+    if(value>(UINT64_MAX-digit)/10)overflow=true;
+    else if(!overflow)value=value*10+digit;
+    ++cursor;
+  }
+  if(!any)return 0;
+  if(overflow){value=UINT64_MAX;Fail(34);}
+  else if(negative)value=uint64_t(0)-value;
+  pm::Write(output,value);
+  return 1;
+}
 void LibC::BuildEnvironment(){
   std::vector<char*> next;
   char **array=nullptr;
@@ -334,6 +363,7 @@ void LibC::Finalize(addr_t dso){
 }
 void LibC::Install(recomp::Runtime &runtime){
   if(installed_)throw std::logic_error("libc imports already installed");
+  Add<int32_t(const char*,const char*,uint64_t*)>(runtime,"sscanf",[this](auto input,auto format,auto output){return ScanUnsignedLongLong(input,format,output);});
   Add<void*(uint64_t)>(runtime,"malloc",[this](auto n){return Malloc(n);});
   Add<void*(uint64_t,uint64_t)>(runtime,"calloc",[this](auto n,auto s){return Calloc(n,s);});
   Add<void*(void*,uint64_t)>(runtime,"realloc",[this](auto p,auto n){return Realloc(p,n);});
