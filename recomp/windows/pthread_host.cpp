@@ -15,6 +15,7 @@
 #include <vector>
 #include <windows.h>
 #include <process.h>
+#include <pthread.h>
 
 namespace bunker::windows {
 namespace {
@@ -110,7 +111,30 @@ struct Pthreads::Impl {
     try{t.hooks->enter(Info(t),t.lease);t.entered=true;}
     catch(...){Retire(t,WorkerRetirement::cancelled);throw;}
   }
-  static std::map<uint64_t,Thread*> &Bindings() { static thread_local std::map<uint64_t,Thread*> bound; return bound; }
+  using BindingMap=std::map<uint64_t,Thread*>;
+#ifdef _WIN32
+  static void DestroyBindings(void *value) noexcept {
+    // Values are borrowed raw Thread pointers. Delete ONLY map storage, never
+    // Thread/payloads, guest TLS callbacks, provider state or native handles.
+    delete static_cast<BindingMap*>(value);
+  }
+  static BindingMap &Bindings(){
+    static const pthread_key_t key=[] {
+      pthread_key_t result{};const int error=pthread_key_create(&result,DestroyBindings);
+      if(error)throw std::runtime_error("pthread bindings storage key creation failed: "+std::to_string(error));
+      return result;
+    }();
+    auto *value=static_cast<BindingMap*>(pthread_getspecific(key));
+    if(!value){
+      auto next=std::make_unique<BindingMap>();const int error=pthread_setspecific(key,next.get());
+      if(error)throw std::runtime_error("pthread bindings storage publication failed: "+std::to_string(error));
+      value=next.release();
+    }
+    return *value;
+  }
+#else
+  static BindingMap &Bindings(){static thread_local BindingMap bound;return bound;}
+#endif
   Thread &Current() {
     auto &bound=Bindings(); auto it=bound.find(instance); if(it!=bound.end()) return *it->second;
     auto t=std::make_unique<Thread>(); t->host=this;t->id=0x7ffa00000000ULL+next_thread++;t->native_id=GetCurrentThreadId();
@@ -174,8 +198,8 @@ struct Pthreads::Impl {
     {std::lock_guard guard(registry);t.result=result;t.complete=true;t.active=nullptr;}
   }
   static unsigned __stdcall Worker(void *arg) {
-    auto *t=static_cast<Thread*>(arg);auto *h=t->host;Bindings()[h->instance]=t;
-    try {h->Enter(*t);auto value=h->Run(*t,t->entry,&t->arg,1);h->Finish(*t,value);}
+    auto *t=static_cast<Thread*>(arg);auto *h=t->host;
+    try {Bindings()[h->instance]=t;h->Enter(*t);auto value=h->Run(*t,t->entry,&t->arg,1);h->Finish(*t,value);}
     catch(const std::exception &e){std::fprintf(stderr,"pthread translated worker: %s\n",e.what());std::abort();}
     return 0;
   }
@@ -370,7 +394,7 @@ void Pthreads::SetWorkerLifecycleHooks(WorkerLifecycleHooks hooks){
 
 void Pthreads::Install(){
   if(impl_->installed)throw std::logic_error("pthread imports already installed");
-  auto add=[&](const char *name,std::function<void(State&)> f){impl_->runtime.AddImport(Marker(name),[this,f=std::move(f)](State &s){auto &t=impl_->Current();auto *previous=t.active;t.active=&s;try{f(s);}catch(const std::exception &e){std::fprintf(stderr,"pthread import: %s\n",e.what());std::abort();}t.active=previous;});};
+  auto add=[&](const char *name,std::function<void(State&)> f){impl_->runtime.AddImport(Marker(name),[this,f=std::move(f)](State &s){try{auto &t=impl_->Current();auto *previous=t.active;t.active=&s;f(s);t.active=previous;}catch(const std::exception &e){std::fprintf(stderr,"pthread import: %s\n",e.what());std::abort();}});};
   add("pthread_attr_init",recomp::MakeBridge<int32_t(AndroidThreadAttr*)>([this](auto a){return AttrInit(a);}));
   add("pthread_attr_destroy",recomp::MakeBridge<int32_t(AndroidThreadAttr*)>([this](auto a){return AttrDestroy(a);}));
   add("pthread_attr_setdetachstate",recomp::MakeBridge<int32_t(AndroidThreadAttr*,int32_t)>([this](auto a,auto d){return AttrSetDetach(a,d);}));

@@ -17,7 +17,29 @@ struct GameAutomaticEnvironments {
   bunker::windows::NonlocalJumps *jumps=nullptr;recomp::Entry original=nullptr;
   std::function<bunker::windows::NonlocalJumps::Thread()> current;
   std::atomic<uint64_t> next_generation{1};
-  static std::vector<Frame> &Frames(){static thread_local std::vector<Frame> frames;return frames;}
+  using FrameVector=std::vector<Frame>;
+#ifdef _WIN32
+  static void DestroyFrames(void *value) noexcept {
+    // Scalar bookkeeping only: no Forget, jumps, guest callback or owner access.
+    delete static_cast<FrameVector*>(value);
+  }
+  static FrameVector &Frames(){
+    static const pthread_key_t key=[] {
+      pthread_key_t result{};const int error=pthread_key_create(&result,DestroyFrames);
+      if(error)throw std::runtime_error("automatic frames storage key creation failed: "+std::to_string(error));
+      return result;
+    }();
+    auto *value=static_cast<FrameVector*>(pthread_getspecific(key));
+    if(!value){
+      auto next=std::make_unique<FrameVector>();const int error=pthread_setspecific(key,next.get());
+      if(error)throw std::runtime_error("automatic frames storage publication failed: "+std::to_string(error));
+      value=next.release();
+    }
+    return *value;
+  }
+#else
+  static FrameVector &Frames(){static thread_local FrameVector frames;return frames;}
+#endif
   void BeforeSetjmp(State &s,uint64_t token){
     if(s.gpr.x30.qword!=0x825b0580)return;
     auto &frames=Frames();Require(!frames.empty()&&frames.back().token==token,"IL2CPP automatic setjmp has no live original helper invocation");
