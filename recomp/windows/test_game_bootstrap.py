@@ -48,6 +48,7 @@ def main():
  result['actual_preferences_reads']=[dict(store=match[1],observed=match[2],entries=int(match[3]))for match in re.finditer(r'Game bootstrap: original preferences read store=(legacy|v2) observed=(present|absent) entries=(\d+)',text)]
  result['actual_preferences_writes']=[dict(store=match[1],entries=int(match[2]),version_kind=int(match[3]),version_bits=match[4],status=int(match[5]))for match in re.finditer(r'Game bootstrap: original preferences write store=(legacy|v2) entries=(\d+) version_kind=(\d+) version_bits=(0x[0-9a-f]+|0) status=(\d+)',text)]
  result['actual_sscanf_calls']=[dict(format=match[1],lr=match[2],result=int(match[3]),assigned=bool(int(match[4])),value=int(match[5]),errno=int(match[6]))for match in re.finditer(r'Game bootstrap: original sscanf format=([^\r\n]*?) LR=(0x[0-9a-f]+|0) result=(-?\d+) assigned=([01]) value=(\d+) errno=(-?\d+)',text)]
+ result['actual_setlocale_calls']=[dict(category=int(match[1]),name_null=bool(int(match[2])),name_read=bool(int(match[3])),requested=match[4],result_null=bool(int(match[5])),returned=match[6],lr=match[7],errno=int(match[8]))for match in re.finditer(r'Game bootstrap: original setlocale category=(-?\d+) name_null=([01]) name_read=([01]) requested=\[([^\]\r\n]*)\] result_null=([01]) returned=\[([^\]\r\n]*)\] LR=(0x[0-9a-f]+|0) errno=(-?\d+)',text)]
  (b/('game-'+a.profile+'-audit.json')).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));print('Full log:',log)
  if not complete:raise SystemExit(1)
 if __name__=='__main__':main()

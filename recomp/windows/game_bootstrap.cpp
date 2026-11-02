@@ -313,6 +313,19 @@ int main(int argc,char **argv){
       }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original sscanf LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
       catch(...){std::fprintf(stderr,"Game bootstrap: original sscanf LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
     });
+    constexpr addr_t setlocale_audit_marker=0x7ffc68000010ULL;
+    auto setlocale_bridge=recomp::MakeBridge<char*(int32_t,const char*)>([&libc](auto category,auto name){return libc.SetLocale(category,name);});
+    runtime.AddImport(setlocale_audit_marker,[&,setlocale_bridge](State &s){
+      const auto caller=s.gpr.x30.qword,name=s.gpr.x1.qword;const auto category=static_cast<int32_t>(s.gpr.x0.dword);
+      try{
+        // Keep the real API's category-before-name validation, including bad pointers.
+        const bool name_read=name&&category>=0&&category<=12;
+        const auto requested=name_read?recomp::ReadGuestString(name):std::string();
+        setlocale_bridge(s);const auto returned=s.gpr.x0.qword?recomp::ReadGuestString(s.gpr.x0.qword):std::string();
+        std::fprintf(stderr,"Game bootstrap: original setlocale category=%d name_null=%d name_read=%d requested=[%s] result_null=%d returned=[%s] LR=%#llx errno=%d\n",category,int(!name),int(name_read),requested.c_str(),int(!s.gpr.x0.qword),returned.c_str(),(unsigned long long)caller,files.Error());
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original setlocale LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original setlocale LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
+    });
     tls_audit.Install(runtime,threads);
     recomp::Runtime module_bridges;modules.Install(module_bridges);
     for(const char *name:{"dlopen","dlsym","dlclose","dlerror"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
@@ -363,7 +376,7 @@ int main(int argc,char **argv){
     auto load=[&](const char *module_name,const auto &imports,const fs::path &path,addr_t base,size_t span,elf_image &target){
       resolved.clear();size_t provided=0,weak=0;
       for(const auto &import:imports){
-        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
+        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
         if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }

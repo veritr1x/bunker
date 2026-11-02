@@ -97,6 +97,14 @@ the assigned value and actual Android errno. It reads output only after a real
 assignment and supplies no parsed value or fallback. Other formats retain the
 named unsupported boundary. See [the exact parser contract](libc_sscanf.md).
 
+The setlocale observer likewise forwards real W0/X1 through the accepted LibC
+implementation at a disjoint marker. Invalid categories are rejected before
+the observer reads a name pointer. Its log records the actual result and LR;
+the predicted call at LR8254d0b4 would establish public il2cpp_init entry, without
+establishing inner initialization or its return. No host init call is inserted.
+The Windows locale, pthread-binding, EGL-error and automatic-frame containers
+use qualified native thread storage; see [the lifetime repair](passive_thread_storage.md).
+
 The actual Unity constructor at 700d9044 registers installed LibC::free as a
 void(void*) TLS destructor. Its exact marker is admitted alongside translated
 callbacks; pthread_create starts remain translated-only. Earlier component
