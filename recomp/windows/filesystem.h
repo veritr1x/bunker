@@ -41,7 +41,7 @@ namespace linux_flags {
 constexpr int read_only = 0, write_only = 1, read_write = 2;
 constexpr int create = 0x40, exclusive = 0x80, truncate = 0x200, append = 0x400;
 constexpr int directory = 0x4000, no_follow = 0x8000, large_file = 0x20000, close_on_exec = 0x80000;
-constexpr int map_shared = 1, map_private = 2, map_fixed = 0x10, map_anonymous = 0x20, map_fixed_no_replace = 0x100000;
+constexpr int map_shared = 1, map_private = 2, map_fixed = 0x10, map_anonymous = 0x20, map_growdown = 0x100, map_fixed_no_replace = 0x100000;
 }
 
 // Virtual Android paths map only to explicitly mounted Windows paths. Guest
