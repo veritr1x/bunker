@@ -8,6 +8,8 @@ constexpr const char *kBridge="bitter/jnibridge/JNIBridge";
 constexpr const char *kHandler="bitter/jnibridge/JNIBridge$a";
 constexpr const char *kProxy="bitter/jnibridge/HostServiceConnectionProxy";
 constexpr const char *kService="android/content/ServiceConnection";
+constexpr const char *kFocus="android/media/AudioManager$OnAudioFocusChangeListener";
+constexpr const char *kFocusProxy="bitter/jnibridge/HostAudioFocusChangeProxy";
 constexpr const char *kFactorySignature="(J[Ljava/lang/Class;)Ljava/lang/Object;";
 using Value=jni::Host::ObjectValue;
 addr_t Env(jni::Host &h,size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=h.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;h.InvokeEnv(slot,s);return s.gpr.x0.qword;}
@@ -37,16 +39,19 @@ struct JniInterfaceProxy::State {
     auto class_class=Env(host,6,reinterpret_cast<addr_t>("java/lang/Class"));
     auto method=Env(host,33,class_class,reinterpret_cast<addr_t>("getClassLoader"),reinterpret_cast<addr_t>("()Ljava/lang/ClassLoader;"));
     auto loader=Env(host,34,bridge,method);Healthy(host);
-    auto expected_proxy=Env(host,6,reinterpret_cast<addr_t>(kProxy));auto proxy_loader=Env(host,34,expected_proxy,method);Healthy(host);
-    const bool actual_loader=loader&&Env(host,24,loader,proxy_loader);Healthy(host);
     std::vector<std::string> names;std::vector<Value> snapshot;
     const auto count=classes?static_cast<int32_t>(Env(host,171,classes)):-1;Healthy(host);
     for(int32_t i=0;i<count;++i){auto item=Env(host,173,classes,i);auto name=host.ClassNameValue(item);Healthy(host);names.push_back(name?*name:"<null>");snapshot.push_back(Keep(host,item));}
     std::fprintf(stderr,"JNI interface proxy: actual handle=%#llx loader=%#llx Class[] count=%d [",(unsigned long long)handle,(unsigned long long)loader,count);
     for(size_t i=0;i<names.size();++i)std::fprintf(stderr,"%s%s",i?",":"",names[i].c_str());std::fprintf(stderr,"]\n");
-    if(!actual_loader||names!=std::vector<std::string>{kService})throw std::runtime_error("JNI interface proxy unsupported loader/interface profile (requires actual app loader and singleton ServiceConnection[])");
-    auto service=Env(host,6,reinterpret_cast<addr_t>(kService));auto actual=host.LocalValue(snapshot[0]);
-    if(!Env(host,24,service,actual))throw std::runtime_error("JNI interface proxy ServiceConnection Class identity differs");Healthy(host);
+    const bool service_profile=names==std::vector<std::string>{kService},focus_profile=names==std::vector<std::string>{kFocus};
+    if(!service_profile&&!focus_profile)throw std::runtime_error("JNI interface proxy unsupported loader/interface profile (requires actual app loader and a supported singleton interface[])");
+    const char *proxy_class=service_profile?kProxy:kFocusProxy,*interface_class=service_profile?kService:kFocus;
+    auto expected_proxy=Env(host,6,reinterpret_cast<addr_t>(proxy_class));auto proxy_loader=Env(host,34,expected_proxy,method);Healthy(host);
+    const bool actual_loader=loader&&Env(host,24,loader,proxy_loader);Healthy(host);
+    if(!actual_loader)throw std::runtime_error("JNI interface proxy unsupported loader/interface profile (requires actual app loader)");
+    auto service=Env(host,6,reinterpret_cast<addr_t>(interface_class));auto actual=host.LocalValue(snapshot[0]);
+    if(!Env(host,24,service,actual))throw std::runtime_error("JNI interface proxy interface Class identity differs");Healthy(host);
     auto passive=std::make_shared<Passive>();passive->handle=handle;passive->interfaces=names;
     {std::lock_guard lock(mutex);if(!active)throw std::runtime_error("JNI interface proxy adapter is no longer active");passive->generation=next_generation++;}
     if(!passive->generation)throw std::runtime_error("JNI interface proxy generation exhausted");
@@ -54,7 +59,7 @@ struct JniInterfaceProxy::State {
     auto handler=std::make_shared<HandlerPayload>();handler->passive=passive;handler->monitor_object=Keep(host,monitor);
     auto handler_object=host.NewHostInstance(kHandler,handler);Healthy(host);
     auto payload=std::make_shared<ProxyPayload>();payload->passive=passive;payload->handler=Keep(host,handler_object);payload->loader=Keep(host,loader);payload->interfaces=std::move(snapshot);
-    auto result=host.NewHostInstance(kProxy,payload);Healthy(host);auto weak=Env(host,226,result);Healthy(host);
+    auto result=host.NewHostInstance(proxy_class,payload);Healthy(host);auto weak=Env(host,226,result);Healthy(host);
     {std::lock_guard lock(mutex);ledger.push_back({weak,passive});}
     for(auto local:{bridge,class_class,expected_proxy,proxy_loader,service,actual,monitor_class})if(local)host.DeleteLocalReference(local);
     return result;
@@ -64,6 +69,11 @@ struct JniInterfaceProxy::State {
     RequireActive();auto payload=Proxy(proxy);uint64_t handle=0;{std::lock_guard monitor(payload->passive->monitor);handle=payload->passive->handle;}
     if(!handle)return;
     throw std::runtime_error(std::string("JNI interface proxy active ServiceConnection callback is unsupported: ")+name+"; original native/reflected Method dispatch is not ported");
+  }
+  void FocusCall(addr_t proxy){
+    RequireActive();auto payload=Proxy(proxy);uint64_t handle=0;{std::lock_guard monitor(payload->passive->monitor);handle=payload->passive->handle;}
+    if(!handle)return;
+    throw std::runtime_error("JNI interface proxy active audio-focus callback is unsupported: onAudioFocusChange; original native/reflected Method dispatch is not ported");
   }
   [[noreturn]] void ObjectCall(const char *name){RequireActive();throw std::runtime_error(std::string("JNI interface proxy Object callback is unsupported: ")+name);}
 };
@@ -76,14 +86,18 @@ JniInterfaceProxy::JniInterfaceProxy(jni::Host &host):state_(std::make_shared<St
   // Explicit Object declarations prevent identity/default behavior from leaking
   // through Proxy.toString/hashCode/equals. Active callbacks/defaults are unported.
   host.DefineClass(kProxy,{{"hashCode","()I"}},"java/lang/reflect/Proxy",false,{kService});
+  host.DefineClass(kFocusProxy,{{"hashCode","()I"}},"java/lang/reflect/Proxy",false,{kFocus});
   std::weak_ptr<State> weak=state_;
   auto get=[weak]{auto state=weak.lock();if(!state)throw std::runtime_error("JNI interface proxy adapter owner expired");return state;};
   host.BindStaticObjectMethod(kBridge,"newInterfaceProxy",kFactorySignature,[get](addr_t,const jni::Host::MethodArguments &args){return get()->Create(args[0],args[1]);});
   host.BindStaticVoidMethod(kBridge,"disableInterfaceProxy","(Ljava/lang/Object;)V",[get](addr_t,const jni::Host::MethodArguments &args){get()->Disable(args[0]);});
   for(const auto &[name,sig]:std::vector<std::pair<const char*,const char*>>{{"onServiceConnected","(Landroid/content/ComponentName;Landroid/os/IBinder;)V"},{"onServiceDisconnected","(Landroid/content/ComponentName;)V"},{"onBindingDied","(Landroid/content/ComponentName;)V"},{"onNullBinding","(Landroid/content/ComponentName;)V"}})
     host.DefineVoidMethod(kProxy,name,sig,[get,method_name=name](addr_t proxy,const jni::Host::MethodArguments&){get()->ServiceCall(proxy,method_name);});
-  host.DefineObjectMethod(kProxy,"toString","()Ljava/lang/String;",[get](addr_t,const jni::Host::MethodArguments&)->addr_t{get()->ObjectCall("toString");});
-  host.DefineBooleanMethod(kProxy,"equals","(Ljava/lang/Object;)Z",[get](addr_t,const jni::Host::MethodArguments&)->bool{get()->ObjectCall("equals");});
+  host.DefineVoidMethod(kFocusProxy,"onAudioFocusChange","(I)V",[get](addr_t proxy,const jni::Host::MethodArguments&){get()->FocusCall(proxy);});
+  for(const char *proxy_class:{kProxy,kFocusProxy}){
+    host.DefineObjectMethod(proxy_class,"toString","()Ljava/lang/String;",[get](addr_t,const jni::Host::MethodArguments&)->addr_t{get()->ObjectCall("toString");});
+    host.DefineBooleanMethod(proxy_class,"equals","(Ljava/lang/Object;)Z",[get](addr_t,const jni::Host::MethodArguments&)->bool{get()->ObjectCall("equals");});
+  }
 }
 JniInterfaceProxy::~JniInterfaceProxy(){if(state_){std::vector<State::Entry> retired;{std::lock_guard lock(state_->mutex);state_->active=false;retired.swap(state_->ledger);}for(auto &entry:retired)if(entry.weak)Env(state_->host,227,entry.weak);}}
 JniInterfaceProxy::Snapshot JniInterfaceProxy::Inspect(addr_t proxy)const{
