@@ -461,7 +461,7 @@ article{overflow-wrap:anywhere}
 article section{margin-bottom:6px}
 article p{margin:0 0 8px}
 article .info-largeimage{margin:0 0 10px}
-article .info-largeimage img{display:block;width:100%;border:1px solid #8a817c}
+article .info-largeimage img{display:block;max-width:100%;width:auto;height:auto;margin:0 auto;border:1px solid #8a817c}
 .notice-title-panel{margin:0 0 12px;padding:22px 16px;text-align:center;border:3px double #8a817c;background:linear-gradient(135deg,#332e2d,#1b1918 65%,#3b3433)}
 article .notice-title-panel p{font-size:10px;letter-spacing:.24em;margin:0 0 8px;color:var(--dim)}
 article .notice-title-panel h2{font-size:20px;line-height:1.4;margin:0;padding:0;border:0}
