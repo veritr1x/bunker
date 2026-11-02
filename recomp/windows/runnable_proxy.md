@@ -80,3 +80,15 @@ bytes before acceptance; the final six-file held manifest also pins this doc
 and primary/static evidence. See `work/runnable-proxy3/acceptance.json` and
 `work/runnable-proxy-held.json`. These are component results; an actual next
 game run must still capture its own interface list and any active dispatch gap.
+
+The frozen game10 run subsequently captures two genuine singleton Runnable
+Class[] requests and constructs both proxies before natural IL2CPP loading.
+It does not execute their active callbacks; runOnUiThread and Handler remain
+unported. See [the natural startup record](game_bootstrap.md).
+
+After the separately accepted numeric JNI core, `work/runnable-numeric1` reruns
+all four unchanged proxy providers/fixtures against frozen a4a99d9. The same
+positive checks and108 total negative cases pass across both hosts. The runner
+selects the exact unimplemented hashCode owner/method diagnostic for this core;
+older frozen cores retain their original unsupported-slot expectation. All
+source, binary, log and native Windows status hashes are reverified.
