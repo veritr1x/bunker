@@ -4,6 +4,20 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-02 (after 1.7.0)
+
+### Notices
+- Tables fill the page on wide screens instead of stopping at the column
+  widths the notices were written for, and gem and weapon icons keep their
+  size in them. [1dcdfd0]
+- Pages for summons whose original notice is lost: rebuilt from the game's
+  own data and surviving notices, with their artwork, and marked
+  [Reconstructed] or [Generated]. The tools that build and check them are in
+  scripts/; the pages themselves are not in the default notice pack yet.
+  [1dcdfd0]
+- The notice tools' tests run in CI (Pillow and BeautifulSoup in
+  scripts/requirements-notices.txt). [b772a20]
+
 ## 1.7.0 (2026-11-02)
 
 Below the screen's own resolution, the picture can be upscaled instead of
