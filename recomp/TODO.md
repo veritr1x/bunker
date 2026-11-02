@@ -39,6 +39,12 @@ not installed in the game. The next composed gate must use these actual worker
 contexts and wait callbacks with a qualified real signal frame, retaining the
 original collector's stop/acknowledgment/restart/acknowledgment protocol.
 
+Explicit pthread signal sender metadata also passes the real static ARM64
+Bionic reference and translated Linux/Windows gates (3207/3209 checks), plus
+the unchanged signal/semaphore and frame-delivery regressions. It has no
+production UID default or game activation; a Windows compatibility profile
+must choose a consistent virtual Android identity when wiring it in.
+
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 it does not disable backend initialization or qualify persistent gain/output.
 A real scalar FCSEL transport bug found by master mute is fixed and tested

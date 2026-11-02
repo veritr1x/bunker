@@ -11,3 +11,14 @@ Primary Android13 Bionic pthread_kill/tgkill, siginfo headers and Linux5.15 do_t
 Focused tests execute actual NDK direct/volatile-indirect pthread_kill calls and SA_SIGINFO handlers through real same-worker SignalDelivery/owned guest-stack frames; preserve ABI, error state and bounds; test coalescing, identity failures, UID edges and real concurrent SignalHost target retirement. Three import-boundary negatives must abort within the actual installed production fence. Existing signal/semaphore and combined signal-delivery gates qualify backward compatibility. These gates do not qualify production collector registration, game delivery, GC roots or a playable frame.
 
 Results and exact hashes will be recorded in a fresh ignored candidate; failed prechecks/candidates remain preserved. No natural game execution is performed by this component workflow.
+
+The accepted `work/signal-sender5/acceptance.json` SHA256 is
+`86d2f5d1b9292d1e089b94de3fd32071f6d78ebfa6104aad9c497b2e2286d410`.
+Focused Linux/Windows runs pass3207/3209 checks, respectively. The unchanged
+signal/semaphore gate passes159 checks and combined frame delivery passes305
+checks/16 cycles on each host. Independent review reconstructs all128 bytes
+for six reference/translated records and revalidates every executed source,
+tool, reused input and evidence file. The static Bionic reference input proof
+SHA256 is `248740cd64958e38334e05e4d99e8a90fbbc75c4b4002b09dd3a705fc385eb51`,
+recorded by `work/signal-sender-held.json`. Earlier setup/fixture failures remain
+preserved; production game activation remains pending.
