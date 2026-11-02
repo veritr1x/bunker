@@ -2,6 +2,8 @@
 #include "jni_host.h"
 #include "android_context.h"
 #include "android_internal_storage.h"
+#include "android_obb_storage.h"
+#include "android_asset_pack_wrapper.h"
 #include "windows_android_id.h"
 #include "jni_interface_proxy.h"
 #include "java_native_libraries.h"
@@ -196,10 +198,16 @@ int main(int argc,char **argv){
     context_config.package_name=kPackageName;context_config.target_sdk=kTargetSdk;context_config.activity_class=kLaunchActivity;
     ApplyUnityPackageMetadata(context_config);
     context_config.prepare_internal_directory=MakeInternalDirectoryPreparer(files,context_config.data_dir);
+    // This closed mount profile exposes APK/native/internal data only. Its
+    // external-volume catalog is independent of APK expansion-file inventory.
+    context_config.external_obb_volumes=std::vector<ExternalObbVolume>{};
     context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
     JniInterfaceProxy interface_proxies(java);
+    // The input APK was SHA256-verified above. No extra split/JAR/DEX sources or
+    // dynamic Java code loader are exposed by this diagnostic's closed catalog.
+    AndroidAssetPackWrapper asset_packs(java,{kApkSha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
     // Real policy/semaphores for explicitly bound threads. These cohorts are
     // unpolled: delivery and unknown worker contexts fail rather than queueing
     // a request that cannot receive a real same-worker acknowledgment.
@@ -264,6 +272,13 @@ int main(int argc,char **argv){
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;~Drain(){if(threads.Shutdown())std::abort();}} drain{threads};
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);
+    constexpr addr_t mmap_audit_marker=0x7ffc68000000ULL;
+    auto mmap_bridge=recomp::MakeBridge<addr_t(addr_t,uint64_t,int32_t,int32_t,int32_t,int64_t)>([&files](auto address,auto length,auto protection,auto flags,auto descriptor,auto offset){return files.Mmap(address,length,protection,flags,descriptor,offset);});
+    runtime.AddImport(mmap_audit_marker,[&,mmap_bridge](State &s){
+      const auto length=s.gpr.x1.qword,caller=s.gpr.x30.qword;const auto flags=s.gpr.x3.dword;
+      try{mmap_bridge(s);std::fprintf(stderr,"Game bootstrap: original mmap length=%llu flags=%#x LR=%#llx result=%#llx errno=%d\n",(unsigned long long)length,flags,(unsigned long long)caller,(unsigned long long)s.gpr.x0.qword,files.Error());}
+      catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original mmap length=%llu flags=%#x LR=%#llx failed:%s\n",(unsigned long long)length,flags,(unsigned long long)caller,e.what());std::abort();}
+    });
     tls_audit.Install(runtime,threads);
     recomp::Runtime module_bridges;modules.Install(module_bridges);
     for(const char *name:{"dlopen","dlsym","dlclose","dlerror"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
@@ -314,7 +329,7 @@ int main(int argc,char **argv){
     auto load=[&](const char *module_name,const auto &imports,const fs::path &path,addr_t base,size_t span,elf_image &target){
       resolved.clear();size_t provided=0,weak=0;
       for(const auto &import:imports){
-        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
+        std::string name=import.name;addr_t address=tls_audit.Marker(name);if(!address&&name=="mmap")address=mmap_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
         if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }

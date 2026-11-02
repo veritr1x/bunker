@@ -47,6 +47,13 @@ ENOMEM and unmap leaves a stale registration. This behavior is preserved; a pure
 query can still read that tuple, while later attempted delivery rejects its stale
 owner. No artificial ART registration or automatic disable is supplied.
 
+Game8 and game8b qualify only the original query. Their FileSystem rejects the
+next valid mmap flags0x20122 because MAP_GROWSDOWN is unimplemented, so original
+Unity takes its allocation-failure branch before installation. The focused
+stack tests use real ordinary writable mappings and do not establish that
+original growing-map allocation. See `work/growdown-audit/PROPOSAL.md` and the
+[natural startup record](game_bootstrap.md).
+
 ## Evidence and limits
 
 Run `test_signal_altstack.py --out <new-directory>` in WSL with the repository's
