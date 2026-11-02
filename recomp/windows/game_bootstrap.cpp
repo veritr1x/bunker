@@ -4,6 +4,8 @@
 #include "android_internal_storage.h"
 #include "android_obb_storage.h"
 #include "android_asset_pack_wrapper.h"
+#include "android_shared_preferences.h"
+#include "windows_shared_preferences.h"
 #include "windows_android_id.h"
 #include "jni_interface_proxy.h"
 #include "java_native_libraries.h"
@@ -206,6 +208,21 @@ int main(int argc,char **argv){
     context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     AndroidContext context(java,context_config);
+    auto preferences_backend=MakeWindowsSharedPreferencesBackend(context_config.package_name);
+    auto read_preferences=std::move(preferences_backend.read);
+    preferences_backend.read=[read=std::move(read_preferences),package=context_config.package_name](const std::u16string &name){
+      auto snapshot=read(name);
+      std::fprintf(stderr,"Game bootstrap: original preferences read store=%s observed=%s entries=%zu\n",name==package?"legacy":"v2",snapshot?"present":"absent",snapshot?snapshot->size():0);
+      return snapshot;
+    };
+    auto write_preferences=std::move(preferences_backend.write);
+    preferences_backend.write=[write=std::move(write_preferences),package=context_config.package_name](const std::u16string &name,const SharedPreferencesSnapshot &snapshot){
+      auto status=write(name,snapshot);auto version=snapshot.find(u"__UNITY_PLAYERPREFS_VERSION__");
+      std::fprintf(stderr,"Game bootstrap: original preferences write store=%s entries=%zu version_kind=%u version_bits=%#llx status=%u\n",name==package?"legacy":"v2",snapshot.size(),version==snapshot.end()?0:unsigned(version->second.kind),(unsigned long long)(version==snapshot.end()?0:version->second.bits),status);
+      return status;
+    };
+    std::unique_ptr<AndroidSharedPreferences> preferences;
+    {LocalFrame locals(java);preferences=std::make_unique<AndroidSharedPreferences>(java,context.Activity(),context_config.package_name,std::move(preferences_backend));}
     JniInterfaceProxy interface_proxies(java);
     // The input APK was SHA256-verified above. No extra split/JAR/DEX sources or
     // dynamic Java code loader are exposed by this diagnostic's closed catalog.
@@ -474,29 +491,33 @@ int main(int argc,char **argv){
       }
     }
     Require(!threads.Shutdown(),"actual guest workers did not drain before JNI/module teardown");
+    preferences->CheckPersistence();
     if(auto pending=tls_audit.PendingModuleCallbacks(threads)){
       // A real callback must run before JNI/module globals are retired. If
       // natural guest code already retired an owner, do not invoke stale code.
       Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"real UI TLS survives an already finalized module; safe callback lifetime is unproved");
-      Require(!threads.ReleaseCurrent(),"actual UI TLS retirement failed");if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement failed");native_catalog->Revoke();
+      Require(!threads.ReleaseCurrent(),"actual UI TLS retirement failed");preferences->CheckPersistence();if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement failed");native_catalog->Revoke();
       std::fprintf(stderr,"Game bootstrap: reached teardown boundary: %zu real UI TLS destructor(s) retired before JNI/global teardown; modules retained until process exit, Unity refs=%zu IL2CPP refs=%zu; no forced finalizers/reuse claim\n",pending,modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 7;
     }
     stage="JNI_OnUnload";auto onunload=modules.Symbol(module,"JNI_OnUnload");if(onunload)threads.Run(onunload,{java.VmAddress(),0});
+    preferences->CheckPersistence();
     Require(!tls_audit.PendingModuleCallbacks(threads),"JNI_OnUnload created UI TLS requiring an unproved teardown order");
     stage="interface proxy ownership before module finalizers";
     try{interface_proxies.CheckNoEnabledProxies();}catch(const std::exception &error){
       std::fprintf(stderr,"Game bootstrap: retained-module proxy ownership boundary: %s; Unity refs=%zu IL2CPP refs=%zu; no native delete/finalizer forced\n",error.what(),modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 8;
     }
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
+    preferences->CheckPersistence();
     interface_proxies.CheckNoEnabledProxies();
     std::fprintf(stderr,"Game bootstrap: actual lazy IL2CPP lifecycle constructors=%zu finalizers=%zu remaining refs=%zu; no host-forced guest handle close\n",il2cpp_ledger.constructed,il2cpp_ledger.finalized,modules.ReferenceCount("libil2cpp.so"));
     Require(!tls_audit.PendingModuleCallbacks(threads),"actual module finalizers created surviving UI TLS; callback lifetime is unproved");
     if(modules.ReferenceCount("libunity.so")||modules.ReferenceCount("libil2cpp.so")){
       Require(!tls_audit.PendingModuleCallbacks(threads),"module finalization created UI TLS requiring an unproved teardown order");
-      Require(!threads.ReleaseCurrent(),"actual UI retirement with retained modules failed");if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement with retained modules failed");native_catalog->Revoke();
+      Require(!threads.ReleaseCurrent(),"actual UI retirement with retained modules failed");preferences->CheckPersistence();if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement with retained modules failed");native_catalog->Revoke();
       std::fprintf(stderr,"Game bootstrap: reached teardown boundary: actual module references remain Unity=%zu IL2CPP=%zu; globals retained until process exit, no host-forced finalizers\n",modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 7;
     }
     libc.Finalize();interface_proxies.CheckNoEnabledProxies();Require(!tls_audit.PendingModuleCallbacks(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
+    preferences->CheckPersistence();
     if(jumps)jumps->DropThread(current_token,current_token);
     if(process_signals.Lookup(current_token)&&process_signals.DropThread(current_token))throw std::runtime_error("parent signal-thread cleanup failed");
     native_catalog->Revoke();
