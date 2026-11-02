@@ -496,3 +496,38 @@ source SHA256 is
 These use explicitly synthetic object labels and do not qualify a native link.
 The new full cohort is being built separately from the hash-verified original
 IR inventory; full-cohort and actual native startup qualification are pending.
+
+That pending cohort qualification is now closed by Game19. All3575 exact
+original raw IR modules were copied into a new cohort, instrumented with the
+qualified716410d1 poll tool and compiled for Windows. No recovery or relift
+ran. All456684 unique heads, the per-module unsupported sets (1440 total),
+the shared State graph and all79436 closed direct targets remain unchanged.
+There are122086 cycle-cut blocks. The static cohort acceptance SHA256 is
+`0a5e6b164855d7c745962ec744d2e7bf1c7209a679065cc117c0575446d9687d`.
+
+Game19 freezes hosta7a0463 with inputs SHA256
+`da35bb827d9cf868a422938bd2a72a61f265468fe701008f964fb43205d4df05`;
+native executable SHA256 is
+`1ed9301388db6e4beadbf0bfe467c59aee9b4cb6bc43aaf5b694f8be0edf95e3`.
+Default/init/surface profiles pass. The first muted frame attempt could not
+obtain actual HWND focus and stopped before resume or IL2CPP constructors;
+its log, runner output, audit and data directory remain preserved under
+`attempts/frame-focus-unavailable1`, index SHA256
+`43e9ab63ef47de20844d195d62f9a0d84b18ce0043d2bc7f035af3b209321b8d`.
+
+A separate fresh retry receives real focus, returns from original resume and
+master mute, naturally executes all9 IL2CPP constructors and repeats the same
+actual finalizer callback/condition-wait observations before the signal30
+guard at LR825b2d1c. All frozen inputs are reverified before/after execution.
+The frame log SHA256 is
+`50e072328fc40865da8a9c2a02bbde293341d5428c120bdf673c3d725d7b3b25`;
+aggregate SHA256 is
+`e8f5625dcc7dc2ace948c11fdb9efa393e5c679f9058e2bf6b3c2377a5551f43`.
+All24 Managed files and unity.ver again match their original inputs; storage
+audit SHA256 is
+`c7dbde7f92fcdb9c0b22aa690ddfbb4618be419a88ac896b29c4ce1e945144de`.
+
+Poll hooks are present but unbound. No nonzero signal is queued, collector
+record synthesized, worker suspended, collection/init completed, nativeRender
+returned or rendered image claimed. The first opt-in collector profile and
+composed worker/wait/frame behavior remain separate, unqualified work.

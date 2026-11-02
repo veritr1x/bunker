@@ -2,8 +2,8 @@
 
 **Status: production signal delivery and GC suspension are unimplemented.**
 The combined game harness still rejects nonzero `pthread_kill`. Its installed
-mask/action/semaphore primitives and isolated opt-in polling are not a working
-stop-world mechanism.
+mask/action/semaphore primitives and full Game19 poll hooks have no production
+delivery binding and are not a working stop-world mechanism.
 The current Windows startup/resource gates do not establish GC correctness.
 The linked collector resembles upstream Boehm's POSIX implementation, including
 its resumed-epoch bit, but its exact version has not been proved.

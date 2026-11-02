@@ -42,6 +42,22 @@ with guest rounding reapplied from the resumed FPCR. A nested Runtime call
 retains all parent State pointers, including roots absent from the child.
 Native provider temporaries are **not** enumerated by that chain.
 
+The exact Game17 source cohort has now been mechanically instrumented without
+relifting or refreshing its mixed frozen semantics:3575 objects,456684 trace
+entries and122086 cycle-cut blocks. Every original per-object head/error set
+and reachable State graph is unchanged, and actual new COFF symbols close the
+same79436 direct targets. Static acceptance is
+`work/game17-polled-cohort1/acceptance.json`, SHA256
+`0a5e6b164855d7c745962ec744d2e7bf1c7209a679065cc117c0575446d9687d`.
+Original objects, IR, caches and tool snapshots remain intact.
+
+Game19 links that complete new cohort and passes default/init/surface profiles.
+Its separate muted frame retry repeats original resume/master mute, nine IL2CPP
+constructors and the actual finalizer condition-wait observation, then reaches
+the unchanged nonzero signal30 guard. No PollBinding is installed; this qualifies
+insertion/link/startup compatibility through that boundary, not production
+suspension or GC roots. See [the game audit](../windows/game_bootstrap.md).
+
 `PollBinding` also accepts an optional read-only admission policy. Its borrowed
 context contains the materialized State, a const State chain, the captured site
 and epoch, and the authoritative `program_counter`. At a trace-entry site the

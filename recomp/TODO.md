@@ -4,22 +4,27 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game18 passes constructor/JNI, initJni and surface lifecycle profiles. Its
+Game19 passes constructor/JNI, initJni and surface lifecycle profiles. Its
 explicit muted diagnostic returns from original nativeResume and master mute
 without creating a Windows hardware-volume observer. Startup naturally reads
 and saves PlayerPrefs, copies all24 Managed files exactly, parses buildDate,
 publishes unity.ver and enters public IL2CPP initialization. Dup and mapping
 work; prefetch and bsearch have qualified implementations. It now reaches an
 intentionally rejected nonzero signal30 to guest worker3 at LR0x825b2d1c.
-The translated engine cohorts are still unpolled. Real worker signal binding,
-safe provider transitions and original stop/restart handling must be qualified
-before this guard can be removed. Initialization has not returned or rendered.
+All3575 translated objects now contain cooperative polls, covering456684 trace
+entries and122086 cycle-cut blocks, with the same79436 closed direct targets.
+No PollBinding or production target delivery is installed in Game19. Game
+integration of real worker bindings, safe provider transitions and original
+stop/restart handling must be qualified before enabling collector delivery.
+Initialization has not returned or rendered.
 
 Read-only observations now identify worker3's actual user callback as the
 original finalizer function0x825c3ed0. Its last observed provider entry is
 pthread_cond_wait at caller LR0x825505d8; this is a call observation, not a
-snapshot proving its physical state at the later signal request. The Game18
-guest objects remain identical to Game17. The optional cooperative-poll
+snapshot proving its physical state at the later signal request. Game18 retains
+Game17's objects; Game19 mechanically instruments their exact original IR,
+preserving each selected shard's semantics, heads, errors and State type graph.
+The optional cooperative-poll
 admission policy also passes focused Linux/Windows tests and the unchanged
 27349-check/260-pause regression on each host. It can defer unsafe sites;
 provider root publication, interruptible waits and actual collector suspension
@@ -72,7 +77,7 @@ Earlier failures, including Game16's original muted crash, remain preserved.
 - Original APK, extracted libraries, reference tools, reports, generated
   objects and executables remain in ignored work/input directories.
 
-## Completed gates (November 2, 2026)
+## Completed gates (November 3, 2026)
 
 - Whole-library ELF planning, relocation-backed function pointers, translated
   address dispatch, recursive/direct/indirect/tail calls, constructors and
