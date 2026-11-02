@@ -166,7 +166,9 @@ The reached [setvbuf adapter](filesystem_setvbuf.md) translates Android's
 unbuffered constant to the real Windows CRT mode, with76 focused checks.
 [Rooted unlink/rmdir](filesystem_remove.md) remove one file or empty directory
 per call, passing138 checks; both changes retain the116-check file regression.
-Directory enumeration and the original ZIP/managed-copy path remain separate.
+The [native directory adapter](filesystem_directory.md) passes16,309 checks and
+2,839 actual NDK calls, with real names/FileIds, Android dirent records, EOF errno
+and tracked stream lifetimes. The original ZIP/managed-copy path remains separate.
 
 Pthread attributes, key/thread result outputs, opaque initializer/once words,
 clock outputs and allocation lifetimes are tracked; timed waits copy their
