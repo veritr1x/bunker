@@ -85,6 +85,7 @@ struct Host::Field { std::string owner, name, signature; bool is_static; addr_t 
 struct Host::Class {
   std::shared_ptr<Object> object;
   std::string superclass, array_component;
+  std::vector<std::string> interfaces;
   bool bootstrap = false, initialized = false, is_interface = false;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Method>> methods;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Field>> fields;
@@ -194,13 +195,16 @@ void Host::RequireEnv(addr_t address) {
   auto &t = Current();
   if (!t.attached || address != reinterpret_cast<addr_t>(&t.env_word)) throw std::runtime_error("JNIEnv belongs to a different or detached thread");
 }
-void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> methods, const std::string &superclass, bool bootstrap) {
+void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> methods, const std::string &superclass, bool bootstrap,std::vector<std::string> interfaces) {
   ProviderLock lock(*this);
   if (name.empty() || classes_.count(name) || (!superclass.empty() && !classes_.count(superclass))) throw std::invalid_argument("invalid or duplicate Java class");
   if(!superclass.empty()&&classes_.at(superclass)->is_interface)throw std::invalid_argument("a Java class cannot extend an interface");
+  std::set<std::string> seen_interfaces;
+  for(const auto &interface:interfaces){auto found=classes_.find(interface);if(found==classes_.end()||!found->second->is_interface||!seen_interfaces.insert(interface).second)throw std::invalid_argument("class interfaces require distinct declared Java interfaces");}
   auto clazz = std::make_unique<Class>();
   clazz->object = std::make_shared<Object>(); clazz->object->kind = Object::kClass; clazz->object->class_name = name;
   clazz->superclass = superclass;
+  clazz->interfaces = std::move(interfaces);
   clazz->bootstrap = bootstrap; clazz->initialized = bootstrap;
   for (auto &declaration : methods) {
     if (declaration.name.empty() || declaration.signature.empty() || declaration.signature.front() != '(')
@@ -234,6 +238,13 @@ void Host::DefineObjectMethod(const std::string &owner,const std::string &name,c
                               std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler));}
 void Host::DefineStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                     std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler),true);}
+void Host::BindStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                                  std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler),true,true);}
+void Host::BindStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                                std::function<void(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing static void implementation");
+  DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;},true,true);
+}
 void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                std::function<bool(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing boolean handler");
@@ -261,8 +272,15 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   std::vector<std::string> arguments;size_t at=1;
   while(at<signature.size()&&signature[at]!=')'){
     if(arguments.size()==3)throw std::invalid_argument("host handlers support at most three fixed arguments");
-    if(signature[at]=='I'){arguments.push_back("I");++at;continue;}
-    if(signature[at]!='L')throw std::invalid_argument("host handlers support only object-reference and jint arguments");
+    if(signature[at]=='I'||signature[at]=='J'){arguments.push_back(signature.substr(at,1));++at;continue;}
+    if(signature[at]=='['){
+      const auto start=at;while(at<signature.size()&&signature[at]=='[')++at;
+      if(at==signature.size()||signature[at]!='L')throw std::invalid_argument("host handlers support only reference-array arguments");
+      auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host array argument descriptor");
+      auto descriptor=signature.substr(start,end-start+1);if(!FindReferenceArrayClass(descriptor))throw std::invalid_argument("unknown or invalid host array argument class");
+      arguments.push_back(std::move(descriptor));at=end+1;continue;
+    }
+    if(signature[at]!='L')throw std::invalid_argument("host handlers support only references, jint and jlong arguments");
     auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host argument descriptor");
     auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(signature.substr(at,end-at+1));at=end+1;
   }
@@ -368,6 +386,10 @@ std::optional<std::u16string> Host::StringValue(addr_t reference){
   ProviderLock lock(*this);auto object=Get(reference,true);if(!object)return std::nullopt;
   if(object->kind!=Object::kString){Raise("java/lang/IllegalArgumentException","expected initialized jstring");return std::nullopt;}return object->text;
 }
+std::optional<std::string> Host::ClassNameValue(addr_t reference){
+  ProviderLock lock(*this);auto object=Get(reference,true);if(!object)return std::nullopt;
+  if(object->kind!=Object::kClass){Raise("java/lang/IllegalArgumentException","expected jclass metadata");return std::nullopt;}return object->class_name;
+}
 addr_t Host::NewGlobalReference(addr_t reference) { ProviderLock lock(*this); return Ref(reference, 2); }
 addr_t Host::NewLocalReference(addr_t reference) { ProviderLock lock(*this); return Ref(reference, 1); }
 void Host::DeleteGlobalReference(addr_t reference) { ProviderLock lock(*this); Delete(reference, 2); }
@@ -385,7 +407,9 @@ bool Host::Assignable(const std::string &actual, const std::string &expected) co
     if (name == expected) return true;
     if(expected=="java/io/Serializable"&&(name=="java/lang/String"||name=="java/lang/Class"||name=="java/lang/Throwable"||name=="java/lang/StringBuilder"||name=="java/io/File"))return true;
     if(expected=="java/lang/Cloneable"&&(name=="android/content/Intent"||name=="android/content/ComponentName"||name=="android/os/Bundle"))return true;
-    auto found = classes_.find(name); if (found == classes_.end()) return false; name = found->second->superclass;
+    auto found = classes_.find(name); if (found == classes_.end()) return false;
+    for(const auto &interface:found->second->interfaces)if(Assignable(interface,expected))return true;
+    name = found->second->superclass;
   }
   return false;
 }
@@ -471,7 +495,7 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,type.substr(1,type.size()-2))){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
+bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I"||type=="J")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;const auto expected=type.front()=='['?type:type.substr(1,type.size()-2);if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,expected)){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
 addr_t Host::ObjectClass(const std::shared_ptr<Object> &object){
   const auto &name=object->kind==Object::kClass?std::string("java/lang/Class"):object->class_name;
   auto found=classes_.find(name);if(found==classes_.end()){Raise("java/lang/NoClassDefFoundError",name);return 0;}
@@ -584,7 +608,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   std::shared_ptr<Object> returned,exception;std::exception_ptr failure;addr_t result=0;
   try{
     auto callee_receiver=Local(receiver);
-    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="I"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
+    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="I"&&method.argument_types[i]!="J"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
     lock.unlock();
     try{result=handler(callee_receiver,callee);}catch(...){failure=std::current_exception();}
     lock.lock();exception=thread.exception;
@@ -750,6 +774,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
       auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->builtin==Method::kForName?3:method->second->argument_types.size();
       s.gpr.x0.qword=Arguments(s,slot,count,args)?CallObject(lock,a,b,true,args):0;return;
     }
+    case 141: case 142: case 143: {MethodArguments args{};auto method=method_ids_.find(b);size_t count=method==method_ids_.end()?0:method->second->argument_types.size();s.gpr.x0.qword=Arguments(s,slot-27,count,args)?CallObject(lock,a,b,true,args,'V'):0;return;}
     case 94: case 144: s.gpr.x0.qword = FieldId(a, reinterpret_cast<const char *>(b), reinterpret_cast<const char *>(c), slot == 144); return;
     case 95: case 145: { auto target = FieldTarget(a, b, slot == 145, "object"); s.gpr.x0.qword = target ? Local(target->object_fields[b]) : 0; return; }
     case 100: case 150: { auto target = FieldTarget(a, b, slot == 150, "I"); IntResult(s, target ? static_cast<int32_t>(target->primitive_fields[b]) : 0); return; }
