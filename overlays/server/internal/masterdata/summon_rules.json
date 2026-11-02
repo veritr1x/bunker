@@ -4835,9 +4835,9 @@
    "asset": "step_up_558001",
    "end": 1683511199000,
    "id": 558001,
-   "notice": 1052,
+   "notice": 1053,
    "pair": 0,
-   "src": "art: steps 1-3, ★★★★ rate doubled, featuring 2P, Fio and Akeha, featured character guaranteed in step 3; dates: notice 1052",
+   "src": "art: steps 1-3, ★★★★ rate doubled, featuring 2P, Fio and Akeha, featured character guaranteed in step 3; dates: notice 1053",
    "start": 1680228000000,
    "steps": [
     {
@@ -9509,6 +9509,7 @@
      240261
     ]
    },
+   "notice": 733,
    "src": "notice 733",
    "steps": [
     {
@@ -9761,6 +9762,7 @@
     ],
     "src": "notice 801"
    },
+   "notice": 801,
    "src": "notice 801",
    "steps": [
     {

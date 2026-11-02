@@ -79,6 +79,9 @@ type summonRule struct {
 	// W4: the ★4 weapons the summon gives, a listed selection (the Healer &
 	// Support summons: their exchange's weapons of their elements).
 	W4 []int32 `json:"w4"`
+	// Notice: the summon's notice, over the notice pack's link (twins the
+	// pack links the other way round).
+	Notice int32 `json:"notice"`
 }
 
 type ruleFeatured struct {
@@ -536,6 +539,9 @@ func applySummonRules(entries []store.GachaCatalogEntry, rules map[int32]summonR
 	for i := range entries {
 		e := &entries[i]
 		rule, ok := rules[e.GachaId]
+		if ok && rule.Notice != 0 {
+			e.InformationId = rule.Notice
+		}
 		if !ok || len(rule.Steps) == 0 {
 			continue
 		}
