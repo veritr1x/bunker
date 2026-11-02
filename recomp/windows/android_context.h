@@ -38,6 +38,9 @@ struct AndroidContextConfig {
   // JNI/provider locks; 0 means a real directory was verified, otherwise a
   // positive Android errno. An absent callback cannot return a directory File.
   std::function<int32_t(const std::u16string&)> prepare_internal_directory;
+  // Exact Settings.Secure android_id backing. nullopt is proved row absence;
+  // an unset reader is unsupported, never an invented absent value.
+  std::function<std::optional<std::u16string>()> read_android_id;
 };
 
 // Explicit host implementations of the Java context metadata Unity requests.

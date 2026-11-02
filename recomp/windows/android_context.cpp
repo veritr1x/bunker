@@ -19,7 +19,7 @@ struct StorageState {
   Cached files_file,cache_file;
 };
 struct FileState {std::u16string path;Value text;};
-struct ResolverState {Value package;};
+struct ResolverState {Value package;std::function<std::optional<std::u16string>()> read_android_id;};
 struct ContextState {Value info,assets,package,intent,manager,code_path,resolver;std::shared_ptr<StorageState> storage;};
 struct PackageState {AndroidContextConfig config;};
 struct ActivityListState {std::set<std::u16string> components;};
@@ -104,6 +104,8 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   host.DefineClass("android/app/Activity", {}, "android/content/Context", true);
   host.DefineClass("android/content/ContentResolver",{},"java/lang/Object",true);
   host.DefineClass("android/app/ContextImpl$ApplicationContentResolver",{},"android/content/ContentResolver",true);
+  host.DefineClass("android/provider/Settings$NameValueTable",{},"java/lang/Object",true);
+  host.DefineClass("android/provider/Settings$Secure",{},"android/provider/Settings$NameValueTable",true);
   host.DefineInterface("android/content/ServiceConnection",{
     {"onServiceConnected","(Landroid/content/ComponentName;Landroid/os/IBinder;)V"},
     {"onServiceDisconnected","(Landroid/content/ComponentName;)V"},
@@ -148,6 +150,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   // This is the SDK's actual initialized String constant, not a Java body.
   host.DefineField("android/content/Intent","ACTION_MAIN","Ljava/lang/String;",true);
   host.DefineField("android/os/Environment","MEDIA_MOUNTED","Ljava/lang/String;",true);
+  host.DefineField("android/provider/Settings$Secure","ANDROID_ID","Ljava/lang/String;",true);
   auto env=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=host.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;host.InvokeEnv(slot,s);return s.gpr.x0.qword;};
   auto manager_class=env(6,reinterpret_cast<addr_t>("android/content/pm/PackageManager"));
   for(const auto &[name,value]:std::initializer_list<std::pair<const char*,int32_t>>{{"GET_META_DATA",128},{"GET_ACTIVITIES",1},{"GET_INTENT_FILTERS",32}}){auto field=env(144,manager_class,reinterpret_cast<addr_t>(name),reinterpret_cast<addr_t>("I"));env(159,manager_class,field,static_cast<uint32_t>(value));}
@@ -155,6 +158,17 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
   auto intent_class=env(6,reinterpret_cast<addr_t>("android/content/Intent")),action_field=env(144,intent_class,reinterpret_cast<addr_t>("ACTION_MAIN"),reinterpret_cast<addr_t>("Ljava/lang/String;"));auto main=host.NewString(u"android.intent.action.MAIN");env(154,intent_class,action_field,main);auto main_action=Keep(host,main);host.DeleteLocalReference(intent_class);
   auto environment=env(6,reinterpret_cast<addr_t>("android/os/Environment")),mounted_field=env(144,environment,reinterpret_cast<addr_t>("MEDIA_MOUNTED"),reinterpret_cast<addr_t>("Ljava/lang/String;")),mounted=host.NewString(u"mounted");env(154,environment,mounted_field,mounted);host.DeleteLocalReference(mounted);host.DeleteLocalReference(environment);
   auto unmounted=Keep(host,host.NewString(u"unmounted"));
+  auto secure=env(6,reinterpret_cast<addr_t>("android/provider/Settings$Secure")),android_id_field=env(144,secure,reinterpret_cast<addr_t>("ANDROID_ID"),reinterpret_cast<addr_t>("Ljava/lang/String;")),android_id=host.NewString(u"android_id");
+  env(154,secure,android_id_field,android_id);host.DeleteLocalReference(android_id);host.DeleteLocalReference(secure);
+  host.DefineStaticObjectMethod("android/provider/Settings$Secure","getString","(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;",[&host](addr_t,const jni::Host::MethodArguments &args){
+    if(!args[0])throw std::runtime_error("Settings.Secure requires an actual context-owned ContentResolver");
+    auto resolver=host.ReadHostState<ResolverState>(args[0]);
+    if(!resolver)throw std::runtime_error("Settings.Secure rejects an unrecognized ContentResolver");
+    auto name=host.StringValue(args[1]);
+    if(!name||*name!=u"android_id")throw std::runtime_error("Settings.Secure supports only the reached android_id query");
+    if(!resolver->read_android_id)throw std::runtime_error("Settings.Secure android_id backing is not configured");
+    auto value=resolver->read_android_id();return value?host.NewString(*value):addr_t(0);
+  });
   host.DefineStaticObjectMethod("android/os/Environment","getExternalStorageState","()Ljava/lang/String;",[&host,unmounted](addr_t,const jni::Host::MethodArguments&){return host.LocalValue(unmounted);});
   auto global = [&](addr_t local) { auto result = host.NewGlobalReference(local); host.DeleteLocalReference(local); return result; };
   info_ = global(ApplicationInfo(host,config,true));
@@ -171,7 +185,7 @@ AndroidContext::AndroidContext(jni::Host &host, const AndroidContextConfig &conf
     for(auto &[name,extra]:config.launch_extras){if(extra.kind<LaunchExtra::kNull||extra.kind>LaunchExtra::kBoolean)throw std::invalid_argument("unsupported configured Intent extra type");ExtraState value;value.kind=extra.kind;value.integer=extra.integer;value.boolean=extra.boolean;if(extra.kind==LaunchExtra::kString)value.text=Keep(host,host.NewString(extra.text));intent->extras->values.emplace(name,std::move(value));}
   }
   auto state=std::make_shared<ContextState>();state->info=host.CaptureValue(info_);state->assets=host.CaptureValue(assets_);state->package=host.CaptureValue(package_);
-  auto resolver=std::make_shared<ResolverState>();resolver->package=state->package;
+  auto resolver=std::make_shared<ResolverState>();resolver->package=state->package;resolver->read_android_id=config.read_android_id;
   state->resolver=Keep(host,host.NewHostInstance("android/app/ContextImpl$ApplicationContentResolver",resolver));
   state->storage=std::make_shared<StorageState>();auto base=config.data_dir;while(base.size()>1&&base.back()==u'/')base.pop_back();if(base.back()!=u'/')base+=u'/';state->storage->files=base+u"files";state->storage->cache=base+u"cache";state->storage->prepare=config.prepare_internal_directory;
   // LoadedApk stores its installed app path independently of the public mutable
