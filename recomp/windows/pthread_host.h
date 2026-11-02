@@ -26,12 +26,33 @@ static_assert(offsetof(AndroidThreadAttr, sched_policy) == 32 && sizeof(AndroidT
 class Pthreads {
  public:
   Pthreads(recomp::Runtime &, std::function<bool(addr_t)> translated_entry,
-           addr_t marker_base = 0x7ff900000000ULL);
+           addr_t marker_base = 0x7ff900000000ULL,
+           std::function<bool(addr_t)> tls_destructor_callable = {});
   ~Pthreads();
   Pthreads(const Pthreads &) = delete;
   Pthreads &operator=(const Pthreads &) = delete;
   void Install();
   void SetErrorSink(std::function<void(int)>);
+  struct WorkerInfo {
+    uint64_t token=0,parent_token=0;
+    addr_t stack_low=0,stack_high=0,tls_address=0;
+    uint32_t native_tid=0;  // Zero during creator-side preparation.
+  };
+  enum class WorkerRetirement { normal,cancelled };
+  using WorkerLease=std::shared_ptr<void>;
+  struct WorkerLifecycleHooks {
+    std::function<WorkerLease(const WorkerInfo &)> prepare;
+    std::function<void(const WorkerInfo &,const WorkerLease &)> enter,before_tls;
+    std::function<void(const WorkerInfo &,const WorkerLease &,WorkerRetirement)> retire;
+  };
+  // Optional transport only; no signals/collector/Java records are synthesized.
+  // Install once before the first Create attempt. All callbacks run without
+  // provider locks. Prepare/creation cancellation run on the creator; enter,
+  // enter-failure cancellation, before_tls and normal retire run on the child.
+  // prepare may throw: retire(cancelled) then receives an empty lease and must
+  // revoke any partial preparation by token. Lease destruction must be passive;
+  // provider callbacks belong in explicit retire, never a shared_ptr destructor.
+  void SetWorkerLifecycleHooks(WorkerLifecycleHooks);
   addr_t Marker(const std::string &) const;
   uint64_t Run(addr_t entry, std::initializer_list<addr_t> args = {});
   uint64_t Run(addr_t entry, const std::vector<addr_t> &args);
