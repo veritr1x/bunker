@@ -165,5 +165,16 @@ class OriginalDates(unittest.TestCase):
             self.assertEqual(cal.context(self.state())["today"], cal.day_label(now))
 
 
+
+class MissedText(unittest.TestCase):
+    """What a jump skips, as the Jump to page lists it."""
+    def test_lists_only_what_is_missed_with_singular_and_plural(self):
+        self.assertEqual(cal.missed_text({"event": 10, "summon": 11, "shop": 13, "arena": 1}),
+                         "10 events, 11 summons, 13 shops, 1 Arena season")
+        self.assertEqual(cal.missed_text({"pass": 1, "event": 1}), "1 event, 1 monthly pass")
+        self.assertEqual(cal.missed_text({"arena": 2}), "2 Arena seasons")
+        self.assertEqual(cal.missed_text({}), "")
+
+
 if __name__ == "__main__":
     unittest.main()

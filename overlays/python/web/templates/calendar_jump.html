@@ -38,7 +38,7 @@
   {% if view.paid %}<div class="label">You still get</div>
   <ul class="terms">{% for name in view.paid %}<li>{{ name }} rewards</li>{% endfor %}</ul>{% endif %}
   {% if view.missed %}<div class="label">You miss</div>
-  <ul class="terms"><li>{% for kind, title in [("event", "events"), ("summon", "summons"), ("shop", "shops"), ("arena", "Arena seasons"), ("pass", "passes")] %}{% if view.missed.get(kind) %}{{ view.missed[kind] }} {{ title }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}</li></ul>{% endif %}
+  <ul class="terms"><li>{{ view.missedText }}</li></ul>{% endif %}
   <div class="actions">
     <button type="submit">Jump</button>
     <a href="/patcher" class="button secondary">Cancel</a>
