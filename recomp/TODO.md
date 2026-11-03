@@ -43,8 +43,12 @@ and installed masks pass validation. A concurrent physical-frame log line is
 incomplete; no complete frame check, semaphore post, restart24 or handler
 return is recorded in this attempt. It does not reach dladdr. Timing and
 scheduling can expose an earlier missing import; Game23's completed bounded
-cycle remains separate evidence. Implement the real interruptible delay
-before retrying; do not replace it with immediate success or a fixed GC ack.
+cycle remains separate evidence. The new interruptible delay passes16 actual
+Bionic/translated call records,176 focused checks per host and the existing
+default/allowed signal regressions. Its Windows clock uses the actual precise
+KernelBase API. The game adapter admits no signals at the timed-delay boundary
+and leaves the exact finalizer-wait profile intact. A frozen native retry is
+next; component success does not yet establish an executed game call.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive
@@ -72,11 +76,15 @@ host and4118 decoder checks. Six UADDW/UADDW2 forms pass12544 records per host
 and782 decoder checks. Eight unsigned CMHI forms pass16640 matching full-state
 records per host and1038 decoder checks. Their source/fixtures are checkpointed;
 these new toolchains are not selected in the game cohort. A new isolated lift
-of head8261b5ac now clears its USHLL2/UADDW/CMHI instruction gaps. Its complete
-body still needs exact splicing, neighbor/type/closure checks, cooperative
-instrumentation and native qualification before any accepted replacement or
-unsupported-head reduction. A previous whole-shard lift changed24 neighboring
-bodies through optimization and remains unselected.
+of head8261b5ac now clears its USHLL2/UADDW/CMHI instruction gaps. Exact splicing
+preserves127 neighboring raw and polled bodies, attributes, types and direct
+closure; a Windows COFF candidate retains all128 definitions and poll coverage.
+Twenty-three focused cases match the actual original ARM64 prefix against
+Linux/Windows raw and polled targets, including guarded and overlapping inputs.
+Nineteen cases stop without returning at the real snprintf boundary; binary128
+formatting and the tail are not qualified. The candidate remains unselected,
+with no game-cohort unsupported-head reduction claimed. A previous whole-shard
+lift changed24 neighboring bodies through optimization and remains unselected.
 
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 continue with it while the TV is off. It does not disable backend initialization

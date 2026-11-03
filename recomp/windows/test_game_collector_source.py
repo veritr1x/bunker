@@ -10,9 +10,14 @@ def main():
  def wp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()
  owned={n:sha(HERE/n)for n in OWN};prerequisites={}
  # Accepted component manifests pin the actual production inputs used here.
- for manifest,field,names in [('worker-signal-lifecycle-held4.json','seven_live_hashes',('worker_signal_lifecycle.h','worker_signal_lifecycle.cpp')),('pthread-wait-held.json','live_sources',('pthread_host.h','pthread_host.cpp')),('signal-dispatch-allowed-held.json','five_live_hashes',('signal_host.h','signal_host.cpp'))]:
+ for manifest,field,names in [('worker-signal-lifecycle-held4.json','seven_live_hashes',('worker_signal_lifecycle.h','worker_signal_lifecycle.cpp')),('pthread-wait-held.json','live_sources',('pthread_host.h','pthread_host.cpp')),('signal-sleep-held5.json','core_sources',('signal_host.h','signal_host.cpp','signal_sleep.h','signal_sleep.cpp'))]:
   path=HERE.parent/'work'/manifest;record=json.loads(path.read_text());prerequisites[str(path)]=sha(path)
   for name in names:assert sha(HERE/name)==record[field][name],name;prerequisites[str(HERE/name)]=record[field][name]
+  if manifest=='signal-sleep-held5.json':
+   focused=Path(record['acceptance_path']);assert record['passed']and sha(focused)==record['acceptance_sha256'];prerequisites[str(focused)]=record['acceptance_sha256'];qualified=json.loads(focused.read_text())
+   assert qualified['passed']and qualified['core']==record['core_sources']and qualified['arm64_records']==16
+   for platform in ('linux','windows'):
+    observed=qualified['platforms'][platform];assert'USLEEP-HOST-SUCCESS records=16'in observed['stdout']and'SIGNAL-DISPATCH-ALLOWED-SUCCESS'in observed['legacy_allowed_stdout']and'159 checks; NDK'in observed['legacy_default_stdout']
  audit=HERE.parent/'work/game20-first-gc-profile-audit/evidence.json';assert sha(audit)=='b4cf7340df35ab38d3e31b8dec70f5164356cd941590f70bd38f4893425052ca';data=json.loads(audit.read_text());original={str(audit):sha(audit)}
  for path,digest in data['files'].items():
   if '/work/' in path:assert sha(path)==digest,path;original[path]=digest

@@ -45,6 +45,9 @@ bool SignalWake::Wait(uint64_t generation,std::optional<std::chrono::system_cloc
   if(deadline)return condition_.wait_until(lock,*deadline,changed);
   condition_.wait(lock,changed);return true;
 }
+bool SignalWake::WaitRelative(uint64_t generation,std::chrono::nanoseconds maximum){
+  std::unique_lock lock(mutex_);return condition_.wait_for(lock,maximum,[&]{return generation_!=generation;});
+}
 struct SignalHost::Thread {
   uint64_t token,mask=0,pending=0;bool alive=true;
   std::thread::id owner;
@@ -208,11 +211,14 @@ int SignalHost::ThreadKill(uint64_t token,int signal,const SenderSnapshot &snaps
 }
 SignalHost::Dispatch SignalHost::DispatchOne(uint64_t token,const Boundary &boundary){return DispatchImpl(token,boundary,{});}
 SignalHost::Dispatch SignalHost::DispatchOneAllowed(uint64_t token,uint64_t allowed_signal_bits,const Boundary &boundary){return DispatchImpl(token,boundary,{},allowed_signal_bits);}
-SignalHost::Dispatch SignalHost::DispatchImpl(uint64_t token,const Boundary &boundary,std::optional<uint64_t> saved_override,uint64_t allowed_signal_bits){
+SignalHost::Dispatch SignalHost::DispatchOneAdmitted(uint64_t token,uint64_t allowed_signal_bits,const Boundary &boundary){return DispatchImpl(token,boundary,{},allowed_signal_bits,true);}
+SignalHost::Dispatch SignalHost::DispatchImpl(uint64_t token,const Boundary &boundary,std::optional<uint64_t> saved_override,uint64_t allowed_signal_bits,bool reject_unallowed){
   ThreadRef t;Delivery delivery{};uint64_t old;
   {std::lock_guard lock(mutex_);auto i=threads_.find(token);if(i==threads_.end()||!i->second->alive)return {3};t=i->second;
     if(t->owner!=std::this_thread::get_id())return {1};
-    uint64_t eligible=t->pending&~t->mask&allowed_signal_bits;if(!eligible){Publish(t);return {};}
+    const uint64_t all_eligible=t->pending&~t->mask;
+    if(reject_unallowed&&(all_eligible&~allowed_signal_bits))return {95};
+    uint64_t eligible=all_eligible&allowed_signal_bits;if(!eligible){Publish(t);return {};}
     int signal=1;while(!(eligible&Bit(signal)))++signal;
     auto action=actions_[signal];if(action.handler<=1)return {38};if(!boundary)return {38};
     old=t->mask;delivery={token,signal,action,t->info[signal],saved_override.value_or(old),t->stack};

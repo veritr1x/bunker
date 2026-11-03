@@ -13,6 +13,7 @@
 #include "native_window.h"
 #include "unity_lifecycle.h"
 #include "signal_host.h"
+#include "signal_sleep.h"
 #include "semaphore_host.h"
 #include "nonlocal_jmp.h"
 #include "audio_volume_session.h"
@@ -336,6 +337,14 @@ int main(int argc,char **argv){
     // Every referenced dispatcher outlives worker drain, including exception
     // unwinding, guest TLS, and Zlib's genuine guest allocator cleanup calls.
     recomp::Runtime module_bridges,signal_bridges,jump_bridges;
+    // Timed delays publish no coordinator/finalizer roots. Keep an eligible
+    // signal pending and fail before consuming it at this provider boundary.
+    // These providers and their callbacks must outlive Drain's worker shutdown.
+    auto sleep_no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("timed-delay signal roots are not qualified");};
+    SignalSleeps sleeps(process_signals,current_signal_thread,sleep_no_delivery,
+                        [](uint64_t){return uint64_t{0};});
+    sleeps.SetErrorSink(error);
+    recomp::Runtime sleep_bridges;
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
@@ -419,6 +428,17 @@ int main(int argc,char **argv){
       }
     }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: signal bridge %s failed:%s\n",name,e.what());std::abort();}});}
     semaphores.Install(runtime,current_signal_thread,signal_boundary);
+    // Collector delivery remains limited to its qualified condition wait.
+    sleeps.Install(sleep_bridges);
+    const auto usleep_marker=sleeps.Marker("usleep");
+    runtime.AddImport(usleep_marker,[&,usleep_marker](State &s){
+      const auto microseconds=s.gpr.x0.dword;const auto caller=s.gpr.x30.qword;
+      try{
+        sleep_bridges.Dispatch(s,usleep_marker,nullptr);
+        std::fprintf(stderr,"Game bootstrap: original usleep microseconds=%u LR=%#llx result=%d errno=%d\n",microseconds,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original usleep LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original usleep LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
+    });
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     constexpr addr_t ack_audit=0x7ffc60000100ULL;
     if(collector)runtime.AddImport(ack_audit,[&](State &s){try{GameWorkerObservation::NativeEnvironment native;collector->BeforePost(s);runtime.Dispatch(s,semaphores.Marker("sem_post"),nullptr);collector->AfterPost(s);}catch(const std::exception&e){std::fprintf(stderr,"Game GC: original post observation failed:%s\n",e.what());std::abort();}catch(...){std::abort();}});
@@ -476,7 +496,7 @@ int main(int argc,char **argv){
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
         if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
-        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
+        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
         if(address){++provided;if(egl&&Try(*egl,name)==address&&forwarded_egl.insert(address).second)runtime.AddImport(address,[&,address,name](State &s){std::fprintf(stderr,"Game bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx LR=%#llx\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)s.gpr.x30.qword);egl_bridges.Dispatch(s,address,nullptr);});}
