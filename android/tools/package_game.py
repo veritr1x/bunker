@@ -19,7 +19,6 @@ import zipfile
 from assemble_apk import SDK_PROVIDERS, SDK_SWITCHES, patch_unity_connect
 import build_info
 import notice_pack
-import branding
 
 NS = "http://schemas.android.com/apk/res/android"
 ET.register_namespace("android", NS)
@@ -101,13 +100,6 @@ def main():
     # The original Unity libraries use 4 KB ELF pages. Request Android's
     # compatibility loader explicitly, including after an APK update.
     app.set(attr("pageSizeCompat"),"enabled")
-    app.set(attr("label"),branding.LABEL)
-    app.set(attr("icon"),"@drawable/bunker_icon")
-    app.set(attr("roundIcon"),"@drawable/bunker_icon")
-    for component in list(app.findall("activity"))+list(app.findall("activity-alias")):
-        for name,value in [("label",branding.LABEL),("icon","@drawable/bunker_icon"),("roundIcon","@drawable/bunker_icon")]:
-            if component.get(attr(name)) is not None:component.set(attr(name),value)
-    icon=game/branding.ICON_PATH;icon.parent.mkdir(parents=True,exist_ok=True);icon.write_bytes(branding.icon())
     companion=ET.parse(root/"android/app/src/main/AndroidManifest.xml").getroot()
     permissions={x.get(attr("name")) for x in doc.findall("uses-permission")}
     for permission in companion.findall("uses-permission"):

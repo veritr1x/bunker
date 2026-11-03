@@ -14,7 +14,6 @@ import zipfile
 import assemble_apk
 import axml
 import game_patch
-import branding
 from axml import Attr, Document, Element
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -203,11 +202,8 @@ class OriginalApks(unittest.TestCase):
                         root = axml.parse(apk.read("AndroidManifest.xml")).root
                         self.assertEqual(root.get("package", ns=None).raw, game_patch.PROFILES[region]["package"])
                         app = root.find_all("application")[0]
-                        self.assertEqual(app.get("label").raw, "Bunker")
-                        self.assertEqual(app.get("icon").data, branding.ICON_ID)
-                        self.assertEqual(apk.read(branding.ICON_PATH), branding.icon())
+                        self.assertNotEqual(app.get("label").raw, "Bunker")  # the game keeps its own name and icon
                         self.assertIn("assets/notices/notices.json", apk.namelist())
-                        self.assertEqual(branding.resources(apk.read("resources.arsc")), apk.read("resources.arsc"))
                     import privacy
                     with zipfile.ZipFile(path) as original:
                         expected_lib = privacy.patch_library(game_patch.patch_library(original.read(game_patch.LIB), region, 30000), profile=region)

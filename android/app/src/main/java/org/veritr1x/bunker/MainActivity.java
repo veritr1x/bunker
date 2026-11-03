@@ -225,7 +225,7 @@ public final class MainActivity extends Activity {
         else if("Saves exported".equals(serverState))message="Backup saved.";
         else if("Save imported".equals(serverState))message=serverDetail;
         else if(hasAssets&&!hasMaster){message="Import master data from the ⋮ menu.";warning=true;}
-        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Your game files folder is missing: "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for Bunker in Settings to read your game files folder, or choose the files again.";}
+        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Your game files folder is missing: "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings to read your game files folder, or choose the files again.";}
         else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty()&&!serverDetail.equals("Import your game files to get started.")&&!serverDetail.equals("Tap Play to restart.")&&!serverDetail.equals("Your saves are stored on this phone."))message=serverDetail;
         if(message.isEmpty())message=tools?"Close Pod Programs to deploy again.":running?"Lunar Tear is running. The game connects to it on this phone. No internet is needed.":ready?"Deploy starts Lunar Tear, then opens the game.":"Choose the game files to begin: the resource dump's .7z or its extracted folder.";
         detail.setText(warning?"> "+message:message);detail.setTextColor(warning?look.alert:look.ink);
@@ -247,7 +247,7 @@ public final class MainActivity extends Activity {
         if(Build.VERSION.SDK_INT<30){dialog().setTitle("Use in place").setMessage("Using a folder in place needs Android 11 or later. Copy it into the app instead.").setPositiveButton("OK",null).show();return;}
         if(FilesStore.canUseInPlace()){chooseFolder(LINK);return;}
         dialog().setTitle("Allow All files access")
-            .setMessage("To read the game files where they are, Bunker needs All files access. It only reads the folder you choose next.\n\nTurn on the switch in Settings, then come back. Do not move or delete the folder afterwards. If you do, choose it again.")
+            .setMessage("To read the game files where they are, NieR needs All files access. It only reads the folder you choose next.\n\nTurn on the switch in Settings, then come back. Do not move or delete the folder afterwards. If you do, choose it again.")
             .setNegativeButton("Cancel",null)
             .setPositiveButton("Open Settings",(dialog,which)->{
                 awaitingAccess=true;
@@ -392,7 +392,7 @@ public final class MainActivity extends Activity {
     private void startUpdate(){
         if(Updater.current==null)return;
         if(!getPackageManager().canRequestPackageInstalls()){
-            dialog().setTitle("Allow updates").setMessage("To install the update, allow Bunker to install apps. Turn on the switch, then come back and tap Update again.")
+            dialog().setTitle("Allow updates").setMessage("To install the update, allow NieR to install apps. Turn on the switch, then come back and tap Update again.")
                 .setPositiveButton("Open Settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
                 .setNegativeButton("Cancel",null).show();
             return;

@@ -552,11 +552,7 @@ func serveGachaBoxPage(w http.ResponseWriter, r *http.Request) {
 			n := activeNotices
 			activeNoticesMu.RUnlock()
 			if notice := summonNotice(*entry); notice != 0 && n != nil && n.Title(notice) != "" {
-				lang := "en"
-				if parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/"); len(parts) > 2 && parts[0] == "web" {
-					lang = parts[1]
-				}
-				http.Redirect(w, r, fmt.Sprintf("/%s/information/?informationId=%d&isIngame=1", lang, notice), http.StatusFound)
+				http.Redirect(w, r, fmt.Sprintf("/%s/information/?informationId=%d&isIngame=1", webLanguage(r.URL.Path), notice), http.StatusFound)
 				return
 			}
 		}
@@ -574,5 +570,19 @@ func noticeSummonTitle(entry store.GachaCatalogEntry) string {
 	if id == 0 || n == nil {
 		return ""
 	}
-	return strings.TrimSuffix(n.Title(id), " On Now")
+	return trimNoticeTitle(n.Title(id))
+}
+
+// trimNoticeTitle is a notice title as a summon's ("… Summons On Now" and
+// "… Summons Updated" read "… Summons").
+func trimNoticeTitle(title string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(title, " On Now"), " Updated")
+}
+
+// webLanguage is the language of a /web/<lang>/... path, else English.
+func webLanguage(path string) string {
+	if parts := strings.Split(strings.TrimPrefix(path, "/"), "/"); len(parts) > 2 && parts[0] == "web" && noticePath.MatchString("/"+parts[1]+"/information/") {
+		return parts[1]
+	}
+	return "en"
 }

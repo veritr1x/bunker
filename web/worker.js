@@ -5,7 +5,7 @@ let ready = null;
 const post = (type, value) => self.postMessage({ type, value });
 
 async function fetchBytes(url, label) {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: "no-cache" });  // revalidated: a release must not mix with cached files
   if (!response.ok) throw new Error(`Cannot download ${label} (${response.status})`);
   const total = Number(response.headers.get("Content-Length")) || 0;
   const reader = response.body.getReader();
@@ -29,7 +29,7 @@ async function fetchBytes(url, label) {
 
 // A missing pack is a build failure, rather than a silently incomplete APK.
 async function fetchNotices(pyodide) {
-  const response = await fetch("bundles/notices.json");
+  const response = await fetch("bundles/notices.json", { cache: "no-cache" });
   if (!response.ok) throw new Error(`Cannot download the notice manifest (${response.status})`);
   const { parts, size } = await response.json();
   if (!Array.isArray(parts) || !parts.length || !Number.isSafeInteger(size) || size <= 0) {
@@ -76,9 +76,9 @@ async function setup() {
   await pyodide.loadPackage(["pycryptodome", "msgpack", "lz4"]);
   pyodide.setStdout({ batched: (line) => post("log", line) });
   pyodide.setStderr({ batched: (line) => post("log", line) });
-  const manifest = await (await fetch("py/manifest.json")).json();
+  const manifest = await (await fetch("py/manifest.json", { cache: "no-cache" })).json();
   for (const file of manifest) {
-    writeFile(pyodide, "/repo/" + file, new Uint8Array(await (await fetch("py/" + file)).arrayBuffer()));
+    writeFile(pyodide, "/repo/" + file, new Uint8Array(await (await fetch("py/" + file, { cache: "no-cache" })).arrayBuffer()));
   }
   pyodide.runPython("import sys; sys.path.insert(0, '/repo/web'); import webbuild");
   return pyodide;

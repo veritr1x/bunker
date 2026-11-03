@@ -57,13 +57,8 @@ private inputs or the IL2CPP dumps are included in Git or the published builder.
 - `GAME_PATCH` stays 1. For Global, the shared patcher differs from the old one
   only at the port getter (now patched without touching the next method) and
   the API host branch (Japanese only needs it); both old builds keep working,
-  and in-place updates re-apply branding and privacy patches, so Global and
-  iOS players update in the app.
-- Merged APKs use the Bunker label and emblem icon, including component
-  overrides. The direct binary builder adds a drawable type to the existing
-  game resource package, preserving original IDs, strings and styles. Keeping
-  the icon in that package matters: Firebase discovers its resource package
-  from the application icon, and a separate icon package breaks startup.
+  and in-place updates re-apply the privacy patches, so Global and iOS
+  players update in the app.
 - CLI builds fetch the pinned notice pack when absent; web builds require it
   and fail clearly if it cannot be downloaded. Both packaging paths record its
   hash for later updates. Launcher bundles carry their game-patch revision so
