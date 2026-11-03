@@ -31,6 +31,16 @@ under its heading, down to the previous release.
   stay English. Completion stories no longer come out empty on the Japanese
   master. The Archive index rebuilds once and grows by about 45 MB. [c7c7736]
 
+### Archive
+- On Android, the launcher checks the Archive's index before it starts the
+  game. When the index is missing or out of date (new game files, or an update
+  that indexes more), it builds it first and shows the progress in a new
+  ARCHIVE row under System, then starts the game; a current index starts the
+  game as before. Panel pages and summon details name things from the index,
+  so they no longer show raw IDs before the Archive is opened. Opening the
+  Archive during the build shows the same build. Tapping Deploy starts the
+  game without waiting. [f249379]
+
 ### Master data
 - Import master data accepts the file by its contents, not its name: a
   browser's second download, `20240405123139.bin (1).e`, was refused with a
