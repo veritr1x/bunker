@@ -73,6 +73,13 @@ static Method *m_start, *m_update, *m_on_tap_help, *m_name, *m_set_name, *m_comp
     *m_load_image, *m_set_texture, *m_anchor_min, *m_anchor_max, *m_offset_min, *m_offset_max, *m_register_tap,
     *m_is_enable, *m_set_is_enable, *m_rect, *m_get_spacing, *m_set_spacing, *m_root, *m_corners, *m_in_hierarchy;
 static size_t f_notice, f_has_tap, f_method_ptr, f_target, f_method;
+// The game's own buttons in the row. Each screen shows some of them
+// (HeaderButtons.SetupHeaderButton sets each one's GameObject active); the
+// copy shows while any does, and hides with them (the art viewer hides all).
+static const char *const kRowButtons[] = {"_noticeButton", "_giftButton", "_shopButton", "_missionButton",
+                                          "_friendButton", "_helpButton", "_missionPassButton"};
+#define ROW_BUTTONS (sizeof kRowButtons / sizeof kRowButtons[0])
+static size_t f_row[ROW_BUTTONS];
 static void (*start_original)(void *self, Method *method);
 static void (*update_original)(void *self, Method *method);
 
@@ -228,7 +235,7 @@ static void start_hook(void *self, Method *method) {
 }
 
 // Per row: the copy's button, and the row's own gap (to narrow from).
-static struct { void *self, *button, *row, *layout; float gap; int enabled, frames; } seen;
+static struct { void *self, *button, *copy, *row, *layout, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } seen;
 
 // A RectTransform's corners on screen: left, bottom, right, top. 0 on success.
 static int corners(void *transform, float out[4]) {
@@ -256,12 +263,26 @@ static void update_hook(void *self, Method *method) {
         if (!copy) return;  // Start has not added it (yet)
         seen.self = self;
         seen.row = row;
-        seen.button = call(m_get_component, call(m_component_go, copy, NULL), (void *[]){type_of(k_button)});
+        seen.copy = call(m_component_go, copy, NULL);
+        seen.button = call(m_get_component, seen.copy, (void *[]){type_of(k_button)});
+        for (size_t i = 0; i < ROW_BUTTONS; i++) {
+            void *own = FIELD(self, f_row[i], void *);
+            seen.own[i] = own ? call(m_component_go, own, NULL) : NULL;
+        }
+        seen.shown = -1;
         seen.layout = call(m_get_component, call(m_component_go, row, NULL), (void *[]){type_of(k_layout)});
         void *gap = seen.layout ? call(m_get_spacing, seen.layout, NULL) : NULL;
         seen.gap = gap ? FIELD(gap, 16, float) : 0;
         seen.enabled = -1;
         seen.frames = 0;
+    }
+    int visible = 0;
+    for (size_t i = 0; i < ROW_BUTTONS && !visible; i++)
+        visible = seen.own[i] && unboxed_bool(call(m_active_self, seen.own[i], NULL));
+    if (seen.copy && visible != seen.shown) {
+        uint8_t value = (uint8_t)visible;
+        call(m_set_active, seen.copy, (void *[]){&value});
+        seen.shown = visible;
     }
     void *notice = FIELD(self, f_notice, void *);
     int enabled = notice && unboxed_bool(call(m_is_enable, notice, NULL));
@@ -350,6 +371,8 @@ static int look_up(void) {
     METHOD(m_is_enable, k_button, "get_IsEnable", 0, NULL) METHOD(m_set_is_enable, k_button, "set_IsEnable", 1, NULL)
     METHOD(m_get_spacing, k_layout, "get_spacing", 0, NULL) METHOD(m_set_spacing, k_layout, "set_spacing", 1, NULL)
     if (find_offset(k_header, "_noticeButton", &f_notice) || find_offset(k_header, "_hasTapEvent", &f_has_tap)) return -1;
+    for (size_t i = 0; i < ROW_BUTTONS; i++)
+        if (find_offset(k_header, kRowButtons[i], &f_row[i])) return -1;
     if (find_offset(delegate, "method_ptr", &f_method_ptr) || find_offset(delegate, "m_target", &f_target) ||
         find_offset(delegate, "method", &f_method)) return -1;
 #undef CLASS
