@@ -60,9 +60,13 @@ includes relocation positions/types/symbols/addends, and confirms whole
 code-section coverage through real symbol boundaries.
 
 The complete 3,576-object cohort passes final validation, with 687 guard
-cases per language in Python and PowerShell. Windows linking and a new
-original game startup remain required before this candidate can be
-reported as a working repair; a game frame has not yet been produced.
+cases per language in Python and PowerShell. The selected Windows build
+`windows-first-frame-fcsel-batch1` links successfully. Its original muted
+startup exits native3/controller1 at reported PC `70752174`, following
+original `70752170` (`4c008d40`, ST2 through X10). That instruction belongs
+to the existing qualified ST2 family, but its retained function has not
+yet been refreshed. There are no EGL/GL calls or frame witness. The earlier
+FCSEL access violation does not recur; a game frame remains unverified.
 
 Current artifacts under `work/`:
 

@@ -7,9 +7,13 @@ Current candidate: the selected FCSEL transport batch repairs 5,766 copies
 in 2,164 functions across 556 objects. Its instruction, condition, source,
 complete native-byte and code-coverage checks pass. The full 3,576-object
 cohort is assembled, and 687 guard cases pass in each of Python and
-PowerShell. Windows linking and the next original startup remain pending.
-The last executed build is still
-`work/windows-first-frame-st2-1`, whose failure is recorded below.
+PowerShell. The selected Windows build
+`work/windows-first-frame-fcsel-batch1` links and its original muted startup
+exits native3/controller1 at reported unsupported PC `70752174`. There are
+no EGL/GL calls, returned nativeRender, successful presentation or PNG.
+The prior FCSEL access violation does not recur. The reported PC follows
+original `70752170`, word `4c008d40`, another already-qualified
+`ST2 {V0.2D,V1.2D},[X10]` base store retained in an older selected body.
 
 The first display-enabled build is `work/windows-first-frame-attempt1`,
 host commit `e48ee60b1e920c9079fa744bddce851a39121a24`. It includes the
@@ -130,6 +134,18 @@ resolved data, required alignment and every other instruction byte; the
 original failed comparison remains preserved. Raw and polled neighboring
 bodies stay exact. Final cohort validation and integrated startup remain
 separate gates; these results do not establish a frame.
+
+That batch is selected in `work/windows-first-frame-fcsel-batch1`, host
+`55056035c9f77e52c4bb5de27d1bfec8278e85fb`, executable SHA256
+`d3f499bfa14c59a7d8827695098edb986a687bfb0c7a96df5fc9181d0fbf075c`.
+Its actual original startup exits native3/controller1 at reported
+`70752174`, with the first-frame witness false. The original previous word
+is `4c008d40` at `70752170`: ST2 2D/base through X10, already supported by
+the held ST2 tool pair. The following instruction is a supported B.NE.
+The next prerequisite is applying the existing translation to this
+retained original function, with current FCSEL repairs preserved. The
+exact reached word still needs its function-specific execution check;
+no repeat of the generic ST2 family campaign is required.
 
 The next host build also expands only the native Crash handler's logging
 to include the actual module base, thread, accessed address/operation and
