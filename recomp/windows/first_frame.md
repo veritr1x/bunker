@@ -3,7 +3,29 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: original `FCVTZU X9,S0,#10` at `70362a44`,
+Current execution frontier: missing static `android/os/Build.MODEL`
+String. Build `work/windows-first-frame-fcvtzu-fixed1`, host
+`3fc7304f51b6a78d9cd182a049f5f8ac4de9bc8a`, executable
+`28048f7ca5104cb3f43bb7b7e32387c7cdc3539881dd819d913e94aa5e574ec0`,
+reaches original native window width/height queries without an unliftable
+instruction diagnostic; a direct entry/return witness for the preceding
+repaired function was not captured. Actual startup exits native3/controller1
+after `NoSuchFieldError: MODEL:Ljava/lang/String;` and guest `strlen`
+rejects null X0, with recorded return `700f4ecc`. Original master mute
+returns and9 IL2CPP constructors execute. There are still no EGL/GL calls,
+nativeRender return, successful presentation or frame PNG. This requires
+the reached typed Build field in the explicit absent-product-property
+profile, followed by another original execution. That additive profile
+extension now passes45 checks each on Linux and Windows through actual
+NDK JNI callers, including typed field lookup, static String/UTF8 and
+lifetime checks, MANUFACTURER regression and retained SDK33. Its receipt
+is `work/build-model-qualification1/acceptance.json`, SHA256
+`5d8357b570a0c4acc984d8d2f6f2e95c7d9c8acad991c7005d7bb27912fa8b83`.
+The next build is `work/windows-first-frame-build-model1`; its guest code
+and v10 cohort remain unchanged. The exact preceding-run audit is
+`work/first-frame-fcvtzu-model-boundary2`.
+
+The preceding execution frontier was `FCVTZU X9,S0,#10` at `70362a44`,
 word `9e19d809`, reports the following PC `70362a48`. It is in original
 function `70362a2c..70362a8c`, selected object123. The frozen Windows
 executable `c40327523b766606112244abd7e15208d6f030704ac828d977e72c7adb71c23c`
@@ -12,8 +34,8 @@ initializer repairs. Its actual muted execution passes the real focus
 event gate and returns from original master mute, then exits
 native3/controller1 at this conversion. There are no EGL/GL calls,
 returned nativeRender, successful presentation or PNG. The four unsigned
-fixed-point scalar conversion forms are now implemented and qualified;
-Windows integration of the one repaired function is pending. Existing
+fixed-point scalar conversion forms are now implemented, qualified and
+selected in the build above. Existing
 FCSEL repairs in object123 remain exact. The same function also
 contains unscaled `FCVTZU X8,S0` at `70362a5c`, word `9e390008`.
 Actual pinned compiled semantics dereference its numeric float carrier.
@@ -39,7 +61,8 @@ actual parent and new-plan file-integrity checks, in
 the corrected fresh run passes completely. The frozen v10 cohort is
 `work/first-frame-fcvtzu-fixed-cooperative-cohort1`, acceptance
 `0b43fb3dcee223186d0a6023d56f2de769ccc35612fcab805a672943db44d7e5`.
-The next Windows build is `work/windows-first-frame-fcvtzu-fixed1`.
+The actual Windows build and execution are recorded above; these
+component checks alone did not establish that outcome.
 
 The first display-enabled build is `work/windows-first-frame-attempt1`,
 host commit `e48ee60b1e920c9079fa744bddce851a39121a24`. It includes the
