@@ -4,14 +4,14 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game24 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game25 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
 enters public IL2CPP initialization. Standard muted startup still rejects
 nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-Game22 and Game23 execute their first original stop/restart cycle in the
+Game22, Game23 and Game25 execute their first original stop/restart cycle in the
 explicit `frame-muted-gc` profile. The captured finalizer0x825c3ed0 enters the
 exact untimed CondWait at LR0x825505d8. Original signals30/24 both return success from pthread_kill;
 the real stop/restart handlers execute, make both original semaphore posts,
@@ -47,8 +47,20 @@ cycle remains separate evidence. The new interruptible delay passes16 actual
 Bionic/translated call records,176 focused checks per host and the existing
 default/allowed signal regressions. Its Windows clock uses the actual precise
 KernelBase API. The game adapter admits no signals at the timed-delay boundary
-and leaves the exact finalizer-wait profile intact. A frozen native retry is
-next; component success does not yet establish an executed game call.
+and leaves the exact finalizer-wait profile intact. Game25 completes its E4
+handshake without entering that retry-delay path; no original game usleep
+call/return is observed.
+
+Game25 now observes original dlsym("end") returning87cb1e78 and dladdr returning0
+at LR0x70432a8c, consistent with the exclusive PT_LOAD endpoint. The next fatal
+import is Unity `syscall`, LR0x702ad510, with X0=98 and a dynamic address in X1.
+The original caller statically supplies FUTEX_WAIT_PRIVATE/op0x80, expected
+word in W3 and null timeout. W3, the current syscall thread/token and its
+application role are not logged; nearby worker lines are interleavable.
+Implement a real private futex wait/wake provider with compare/enrollment and
+actual wake counts, keeping signal admission/root limits explicit. A returned
+public initialization value, nativeRender return and rendered image remain
+unobserved.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive
@@ -60,7 +72,7 @@ the image-query growth branch remains unexecuted.
 The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
 closed direct targets, with1439 unsupported heads. Game21 replaced only
 IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22,
-Game23 and Game24 retain every guest object/header and change host providers only.
+Game23, Game24 and Game25 retain every guest object/header and change host providers only.
 Older cohorts, failed attempts and original source/semantics remain preserved.
 
 Component prerequisites remain separately qualified: cooperative polling
@@ -485,6 +497,12 @@ unsupported instructions.
   full surface/resume/frame lifecycle, input and audio remain unverified.
 - Real APK/data/decompression paths and Bunker backend/launcher services,
   including required networking and Android service behavior.
+  The Windows harness does not yet start embedded Go Lunar Tear, configure
+  matching loopback ports/asset roots or provide socket imports. The backend's
+  required owned master/revision files are absent from the specifically checked
+  project/APK paths; their location has been requested. Docker alone is not the
+  mobile backend runtime. See `work/backend-readiness1/REPORT.md` for the dated
+  read-only snapshot and exact source anchors.
   The native APK reader passes 69 independent checks on both hosts and reads
   the actual 149-byte boot.config exactly; checked Java stream/Scanner wiring
   now clears the actual native initJni gate.

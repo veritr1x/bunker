@@ -699,3 +699,45 @@ physical output sets. Aggregate SHA256 is
 `559f4f66495d34ac2f240f67c6c8db97456c86efd5b2eade83d62a621790ba9c`;
 read-only report `work/game24-runtime-boundary-audit/REPORT.md` SHA256 is
 `c570d219ecb35c6ee22cffd0e438af0503bba2e9b6fc9e31c77765e5229195f9`.
+
+Game25 freezes the qualified interruptible delay at host54678aac. Input SHA256
+is `aa2870e4d287c1687b669755e640b5e4029062441b67ac1e4bfe20c2342042b6`;
+executable SHA256 is
+`2e52ea2416e94a126b94709c954c80f82a4b492dbc34071f03ffcfb08947d14e`.
+The3575 guest objects,456684 heads and v2 cooperative contract remain unchanged;
+the separate complete CMHI candidate is not selected. Default/init/surface pass,
+and standard muted startup retains the signal30 guard. Both frame profiles
+return original focus/resume/master mute without a hardware-volume observer.
+
+The collector attempt again completes its original E4 stop/restart handshake:
+30/24 sends return0, both physical GPR31/Q32 checks precede two real semaphore
+posts, and the outer handler returns with observed record5. No usleep call or
+return is logged in this schedule. The new provider is component-qualified;
+this particular original handshake does not exercise the retry-delay path.
+
+Original dlsym("end") now returns Bionic-biased87cb1e78 at LR70432a7c, and actual
+dladdr at LR70432a8c returns0. That is the original segment's exclusive endpoint,
+so no owner is fabricated from reservation padding. The unchanged helper's
+static call graph supports only the prior bounded public-init-return inference;
+its actual result and successful initialization remain unobserved.
+
+The next fatal import is Unity syscall, PC7ffc00000110, LR702ad510,
+X0=62hex(98), X1=186001b72b0. Original FDE702ad480..702ad584 statically supplies
+FUTEX_WAIT_PRIVATE/op80hex, a dynamically loaded expected word in W3 and null
+timeout. W3 and the calling virtual/native thread are not captured. A new
+worker token4/entry70383624 is observed after dladdr, but interleaved logs do
+not establish its role or identify it as the syscall caller. The final text
+fragment is incomplete. A real futex provider must preserve compare/enrollment,
+wake counts and the existing signal/root admission limits.
+
+Both terminal frame outputs match the24 original Managed files/24570231 bytes,
+metadata23317064/version24 and original unity.ver638477124699603280. The new
+audit independently rehashes215 delta/build/seal files, including181 new
+snapshots, and links unchanged object/header/module metadata to Game24's full
+audit and the new builder/runner complete input checks. It does not repeat or
+claim a fresh8370-file physical rehash. Aggregate SHA256 is
+`2636716e899cfd9650c50947c2b2880487c97f90eb1edaf420ee38569b22a43b`;
+report `work/game25-runtime-boundary-audit/REPORT.md` SHA256 is
+`265a1056b8823766538dd77d681c7a78c5aa591aa62ba73a0a1d81e2866e90fd`.
+General GC/roots, retention/reclamation, initialization, nativeRender return,
+an actual image, gameplay and normal shutdown/persistence remain open.
