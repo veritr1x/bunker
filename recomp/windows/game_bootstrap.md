@@ -626,3 +626,37 @@ This qualifies one bounded original finalizer handshake. General roots,
 repeated cycles, retention/reclamation, initialization return, a rendered
 image and a playable game remain unqualified. The fatal boundary also prevents
 completed persistence checks and normal worker/TLS/module teardown.
+
+Game23 freezes the qualified native process-image query at host40a290b. Its
+inputs SHA256 is
+`1005b0f05af576d8e861319fc6d191feb2d8932c8d0c13c199b3ea2c7bdbfca1`;
+executable SHA256 is
+`3b60d9024d4a5b77a05fda0b21262d06836e5f61c6bc74f99a49e71d0bc567c5`.
+The3575 guest objects and headers remain identical. Default/init/surface pass;
+standard muted startup retains its guard, while the explicit collector run
+again executes one genuine E4 stop/restart cycle with two original posts and
+physical register checks, returning with record5.
+
+Startup advances beyond the old readlink boundary; returned pathname bytes
+are not directly logged. The next actual calls are Unity's dlsym("end") at
+LR70432a7c, returning raw7cb1e78, and unsupported dladdr atLR70432a8c. Original
+code uses a32-byte Dl_info, stores its base field only on success and otherwise
+stores0. Both raw and Bionic-biased end87cb1e78 are outside logical PT_LOAD
+ranges; the biased address is exactly the final segment's exclusive endpoint.
+The actual64K-rounded mapping includes padding beyond it, which is not valid
+ownership evidence. Android's dlsym bias also affects later backtrace filtering
+and two real IL2CPP GLOB_DAT relocations; a new explicit policy is being
+qualified rather than forcing a successful dladdr result.
+
+The original natural call graph places this helper after the public
+il2cpp_init call returns. This is static-path inference, not a direct return
+observation; the returned value and successful initialization remain unproved.
+No backtrace callback execution or returned nativeRender is claimed.
+
+Both frame outputs again match the24 original Managed files and unity.ver.
+Physical summary SHA256 is
+`a2ea2a00c08ad286083d40d273675ab5856bc0aea56ebe87fc21764e5dd50310`;
+aggregate SHA256 is
+`f4e65904540b2f1f546e55fba95bc144b73997d2fac47c2ca1ee9d4775bb6a6e`.
+General GC/roots, retention/reclamation, completed initialization, a rendered
+image, gameplay and normal persistence/worker/module teardown remain open.

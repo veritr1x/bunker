@@ -4,7 +4,7 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game22 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game23 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
@@ -22,18 +22,33 @@ actual installed action mask0xfffffffffffbbed9; no host mask rewrite is used.
 This proves one bounded handler cycle, not general collector safety, managed
 retention/reclamation, completed initialization or a rendered frame.
 
-Startup then reaches the unsupported `readlink` import at LR0x82554214.
-Original code constructs `/proc/<actual getpid>/exe` and reads4096 bytes into
-a prezeroed4097-byte buffer. Its consumers expect forward-slash executable
-paths and derive DLL/config/Data/SymbolMap locations. Current work adds the
-actual native process-image query; the existing virtual filesystem does not
-yet reopen arbitrary native Windows paths. No APK/shared-library identity or
-invented Android executable path should substitute for this query.
+Game23 adds the qualified native process-image `readlink` and advances beyond
+the previous boundary at LR0x82554214. The actual run does not log returned
+pathname bytes. It now reaches Unity's `dladdr` at LR0x70432a8c, querying the
+raw `dlsym("end")` value0x7cb1e78. The natural static call graph places this
+helper after public `il2cpp_init` returns; its returned value and success are
+not observed, and nativeRender still has not returned.
+
+Current work adds real ELF metadata for `dladdr` and Android's absolute-symbol
+rules. Both raw end0x7cb1e78 and Bionic-biased end0x87cb1e78 are outside logical
+PT_LOAD ranges; the latter is the exclusive segment endpoint. A rounded
+reservation must not manufacture ownership. Android's symbol resolver also
+changes two real IL2CPP GLOB_DAT entries (`end` and `__stop_il2cpp`), so the
+explicit Bionic loader profile and public dlsym policy are qualified together.
+The generic loader and explicitly declared export maps retain their original
+behavior. These changes have not yet run in the game.
+
+The process-image query returns the actual native executable with forward
+slashes, not an APK/shared-library substitute. Its consumers derive
+DLL/config/Data/SymbolMap locations. The existing virtual filesystem does not
+yet reopen arbitrary native Windows paths. Short Unicode-path execution is
+qualified; the native launcher rejected the longer path before execution, so
+the image-query growth branch remains unexecuted.
 
 The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
 closed direct targets, with1439 unsupported heads. Game21 replaced only
-IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22
-retains every guest object/header and changes only host mask-phase validation.
+IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22 and
+Game23 retain every guest object/header and change host providers only.
 Older cohorts, failed attempts and original source/semantics remain preserved.
 
 Component prerequisites remain separately qualified: cooperative polling
@@ -44,11 +59,12 @@ explicit virtual Android UID10000 and the real process PID. General parent or
 native-only root publication, other blocking pthread routes, repeated-cycle
 stress and managed retention/reclamation still require work.
 
-The isolated four-form scalar FRINTP/M candidate passes65536 matching records
-on each ARM64/Linux/Windows host and4118 decoder checks. It is not selected
-in the game cohort. A separate USHLL2 candidate exposes later UADDW in the
-same head and optimizer changes in24 other bodies; it is preserved as an
-audit, not an accepted replacement or unsupported-head reduction.
+Four scalar FRINTP/M forms pass65536 matching records per ARM64/Linux/Windows
+host and4118 decoder checks. Six UADDW/UADDW2 forms pass12544 records per host
+and782 decoder checks. Their source/fixtures are checkpointed, but neither
+new toolchain is selected in the game cohort. A separate USHLL2 candidate
+exposes later UADDW in the same head and optimizer changes in24 other bodies;
+it remains an audit, not an accepted replacement or unsupported-head reduction.
 
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 continue with it while the TV is off. It does not disable backend initialization
