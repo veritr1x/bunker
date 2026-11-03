@@ -40,6 +40,10 @@ under its heading, down to the previous release.
   so they no longer show raw IDs before the Archive is opened. Opening the
   Archive during the build shows the same build. Tapping Deploy starts the
   game without waiting. [f249379]
+- On iPhone and iPad the game starts with the app, so the index builds in the
+  background as the app starts instead, with the same ARCHIVE row in the
+  Bunker. When nothing it depends on has changed, the check is skipped without
+  loading the Archive's code into the game's memory. [d48ba61]
 
 ### Master data
 - Import master data accepts the file by its contents, not its name: a
