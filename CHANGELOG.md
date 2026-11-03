@@ -15,6 +15,15 @@ under its heading, down to the previous release.
   makes the change. Closing Pod Programs without such a change leaves the
   game playing. Restore is no longer disabled while the game runs. [6edb1e8]
 
+- Summon Rates: Save works with the default costume shares. The page shows
+  the ★3 costume share as 33.33, which its field refused (it allowed only one
+  decimal place); both costume shares now take any decimal. [9038060]
+
+### Archive
+- On Android, the launcher's ARCHIVE row no longer says NOT CHECKED when it
+  is opened from the game or reopens after Pod Programs: it shows the check
+  made before the game started, or checks (and builds if needed) then. [9038060]
+
 ## 1.8.2 (2026-11-03)
 
 Japanese APKs work with the Japanese master data (20240405123139.bin.e):
