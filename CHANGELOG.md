@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-03 (after 1.8.2)
+
+### Pod Programs
+- Pod Programs opens while the game keeps running, on Android and on iPhone
+  and iPad. Browsing, summon and roulette rates, Display, the timeline filter
+  and new backups need nothing closed. A change to the save (editors, players,
+  Restore), the master data or the calendar first asks "Close the game?";
+  confirming stops the server, backs up the save and closes the game, then
+  makes the change. Closing Pod Programs without such a change leaves the
+  game playing. Restore is no longer disabled while the game runs. [6edb1e8]
+
 ## 1.8.2 (2026-11-03)
 
 Japanese APKs work with the Japanese master data (20240405123139.bin.e):
