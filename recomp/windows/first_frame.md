@@ -26,6 +26,22 @@ two new zero/nonzero target cases. Qualification:
 The corresponding source-pin supersession passes19 cases, including16
 tamper rejections; old receipts and archives remain unchanged. State PC
 may be a next-PC value and does not itself identify a failing instruction.
+The bounded static caller walk identifies `glGetInternalformativ` as the
+next candidate: its loader result is zero at slot `0x758`, and the subsequent
+format-init path calls that slot at `7048c114`, using GL_RENDERBUFFER,
+GL_SAMPLES and capacity8. This is static attribution, not a captured fatal LR.
+The new appended marker115 bridges only GL_NUM_SAMPLE_COUNTS/GL_SAMPLES,
+using native validation and exact bounded output publication. It passes384
+real ANGLE checks,61 NDK calls and48 native-oracle records, including the
+old115 marker prefix, typed service/procedure lookup, guards and tracked writes.
+Receipt: `work/gl-internalformat-qualification2/acceptance.json`, SHA256
+`e8bbd6d2674bbed4d8d74491ce6794e6ce44083ad0c6ffb2ec2ce8176338babe`.
+The first component attempt is preserved; its assertion incorrectly required
+a zero-count format on this driver. The corrected fixture reports native
+count3 for all three formats and does not claim that branch was exercised.
+Capacity-zero and truncated/full-output paths are covered. Production code
+is unchanged between those component attempts. The next actual startup is
+`work/windows-first-frame-internalformat1`.
 
 The preceding execution frontier was `glGetIntegerv(GL_RED_BITS=0x0d52)`, original
 return `7048dafc`, is rejected before native forwarding because its width

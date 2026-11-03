@@ -121,6 +121,9 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_INDEXED_COMMAND(name,type) #name,
 #include "gl_indexed_commands.inc"
 #undef GL_INDEXED_COMMAND
+#define GL_INTERNALFORMAT_COMMAND(name,type) #name,
+#include "gl_internalformat_commands.inc"
+#undef GL_INTERNALFORMAT_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -156,6 +159,9 @@ struct GlHost::Impl {
 #define GL_INDEXED_COMMAND(name,type) type indexed_##name=nullptr;
 #include "gl_indexed_commands.inc"
 #undef GL_INDEXED_COMMAND
+#define GL_INTERNALFORMAT_COMMAND(name,type) type internalformat_##name=nullptr;
+#include "gl_internalformat_commands.inc"
+#undef GL_INTERNALFORMAT_COMMAND
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
@@ -191,6 +197,9 @@ struct GlHost::Impl {
 #define GL_INDEXED_COMMAND(name,type) indexed_##name=Symbol<type>(module,#name);
 #include "gl_indexed_commands.inc"
 #undef GL_INDEXED_COMMAND
+#define GL_INTERNALFORMAT_COMMAND(name,type) internalformat_##name=Symbol<type>(module,#name);
+#include "gl_internalformat_commands.inc"
+#undef GL_INTERNALFORMAT_COMMAND
       Bindings();
     }catch(...){FreeLibrary(module);throw;}
   }
@@ -387,6 +396,7 @@ struct GlHost::Impl {
 #include "gl_framebuffer_impl.inc"
 #include "gl_misc_impl.inc"
 #include "gl_indexed_impl.inc"
+#include "gl_internalformat_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -431,6 +441,7 @@ struct GlHost::Impl {
     BindFramebufferCommands();
     BindMiscCommands();
     BindIndexedCommands();
+    BindInternalFormatCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
