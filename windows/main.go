@@ -113,6 +113,9 @@ func main() {
 	}
 	p := newPanel(os.Stdout, console(os.Stdout), version)
 	s := newSteps(p)
+	if useWaydroid() {
+		s = waydroidSteps(p)
+	}
 	f, err := run(s)
 	// Its own adb server would otherwise keep running and hold files in the
 	// folder, which could then not be moved or deleted. The keyboard helper
@@ -148,6 +151,7 @@ func run(s *steps) (folders, error) {
 	dataDir := flag.String("data", filepath.Join(exeDir, "BunkerData"), "folder for the emulator, the phone and its data")
 	apkPath := flag.String("apk", filepath.Join(exeDir, "bunker.apk"), "Bunker's Android build, from the web builder")
 	ramMB := flag.Int("ram", 0, "the phone's memory in MB (default: from the computer's memory)")
+	flag.Bool("emulator", false, "on Linux with Waydroid: use Google's Android Emulator instead of Waydroid")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: Bunker [options] [resource_dump_android.7z]\n\n"+
 			"Drop resource_dump_android.7z on Bunker.exe to add the game files to the phone.\n\n")
@@ -165,7 +169,11 @@ func run(s *steps) (folders, error) {
 		s.say("The emulator may fail to start if the folder path has non-English letters.\n" +
 			"If it does, move this folder to a path like C:\\Games\\Bunker.")
 	}
-	for _, dir := range []string{f.sdk, f.avd, f.downloads, f.logs} {
+	dirs := []string{f.sdk, f.avd, f.downloads, f.logs}
+	if useWaydroid() {
+		dirs = []string{root}
+	}
+	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return f, err
 		}
@@ -212,6 +220,9 @@ func run(s *steps) (folders, error) {
 		}
 	}
 
+	if useWaydroid() {
+		return f, runWaydroid(s, root, apk, dump, &st, save)
+	}
 	if err := ensureSDK(f, s); err != nil {
 		return f, err
 	}
@@ -284,6 +295,16 @@ func run(s *steps) (folders, error) {
 	s.say("NieR is open in the emulator window. To stop, close that window.\n" +
 		"The next start is quick. This window closes by itself.")
 	return f, nil
+}
+
+// useWaydroid: on Linux with Waydroid installed, unless started with -emulator.
+func useWaydroid() bool {
+	for _, arg := range os.Args[1:] {
+		if arg == "-emulator" || arg == "--emulator" || arg == "-emulator=true" || arg == "--emulator=true" {
+			return false
+		}
+	}
+	return runtime.GOOS == "linux" && waydroidAvailable()
 }
 
 func ascii(s string) bool {

@@ -123,6 +123,12 @@ class ChangelogTests(unittest.TestCase):
         self.assertIn("`Bunker-1.3.0.exe`", text)
         self.assertIn("update.json", text)
 
+    def test_downloads_name_the_linux_builds(self):
+        text = release_assets.downloads("1.3.0")
+        self.assertIn("`Bunker-1.3.0-linux-x86_64`", text)
+        self.assertIn("`Bunker-1.3.0-linux-arm64`", text)
+        self.assertIn("Waydroid", text)
+
 
 if __name__ == "__main__":
     unittest.main()
