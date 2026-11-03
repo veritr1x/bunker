@@ -1,0 +1,20 @@
+diff --git a/lib/Arch/AArch64/Semantics/SIMD.cpp b/lib/Arch/AArch64/Semantics/SIMD.cpp
+index 4228384..fb9247c 100644
+--- a/lib/Arch/AArch64/Semantics/SIMD.cpp
++++ b/lib/Arch/AArch64/Semantics/SIMD.cpp
+@@ -846,11 +846,10 @@ DEF_SEM(EXT, V128W dst, T src1, T src2, I32 src3) {
+   auto vn = UReadV8(src1);
+   auto vm = UReadV8(src2);
+   uint8v16_t result = {};
+-  _Pragma("unroll") for (size_t i = 0, max_i = count; i + lsb < max_i; ++i) {
+-    result.elems[count - 1 - i] = UExtractV8(vm, i + lsb);
+-  }
+-  _Pragma("unroll") for (size_t i = lsb; i < count; ++i) {
+-    result.elems[count - 1 - i] = UExtractV8(vn, i - lsb);
++  _Pragma("unroll") for (size_t i = 0; i < count; ++i) {
++    const auto index = i + lsb;
++    result.elems[i] = index < count ? UExtractV8(vn, index)
++                                  : UExtractV8(vm, index - count);
+   }
+   UWriteV8(dst, result);
+   return memory;

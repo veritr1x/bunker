@@ -4,6 +4,16 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
+The separate Game29 debugger diagnostic identifies a mistranslated ARM `EXT`
+in Unity's pointer sort. The corrected instruction passes 12,352 ARM/Bionic,
+Linux and Windows records per host; the complete original sort's insertion
+paths pass 140 differential cases, including the exact full 128-function Windows
+object. Only the sort function changes. A v3 cohort preserves the existing
+prefetch repair and permits one additional shard 78 replacement. The next
+checkpoint is a fresh muted native startup with that qualified replacement;
+these component passes do not establish a frame or completed initialization.
+See [the EXT/sort evidence](windows/unity_ext_sort.md).
+
 Game29 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
