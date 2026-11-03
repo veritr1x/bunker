@@ -3,17 +3,43 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current candidate: the selected FCSEL transport batch repairs 5,766 copies
-in 2,164 functions across 556 objects. Its instruction, condition, source,
-complete native-byte and code-coverage checks pass. The full 3,576-object
-cohort is assembled, and 687 guard cases pass in each of Python and
-PowerShell. The selected Windows build
-`work/windows-first-frame-fcsel-batch1` links and its original muted startup
-exits native3/controller1 at reported unsupported PC `70752174`. There are
-no EGL/GL calls, returned nativeRender, successful presentation or PNG.
-The prior FCSEL access violation does not recur. The reported PC follows
-original `70752170`, word `4c008d40`, another already-qualified
-`ST2 {V0.2D,V1.2D},[X10]` base store retained in an older selected body.
+Current execution frontier: original `FCVTZU X9,S0,#10` at `70362a44`,
+word `9e19d809`, reports the following PC `70362a48`. It is in original
+function `70362a2c..70362a8c`, selected object123. The frozen Windows
+executable `c40327523b766606112244abd7e15208d6f030704ac828d977e72c7adb71c23c`
+includes the global FCSEL transport repairs and both qualified ST2
+initializer repairs. Its actual muted execution passes the real focus
+event gate and returns from original master mute, then exits
+native3/controller1 at this conversion. There are no EGL/GL calls,
+returned nativeRender, successful presentation or PNG. The four unsigned
+fixed-point scalar conversion forms are now implemented and qualified;
+Windows integration of the one repaired function is pending. Existing
+FCSEL repairs in object123 remain exact. The same function also
+contains unscaled `FCVTZU X8,S0` at `70362a5c`, word `9e390008`.
+Actual pinned compiled semantics dereference its numeric float carrier.
+The bounded toolchain repair therefore includes numeric transport for
+the four unsigned unscaled S/D-to-W/X forms, retaining the existing
+integer conversion and exception helper byte for byte. Signed forms,
+FP16 and vector conversions remain outside this repair.
+
+The [conversion family gate](../whole/fcvtzu_fixed.md) matches43,008
+records per ARM/Linux/Windows platform and passes531 decoder checks.
+The [original-function gate](../whole/unity_fcvtzu_fixed_function.md)
+matches16 cases on ARM and Windows/Linux raw/polled variants, with full
+architectural captures and independent host State checks. Its zero-result
+path calling real `703631a8` remains explicitly outside the dynamic gate.
+Only `70362a2c` in object123 is replaced; all127 neighboring IR/native
+bodies, including the existing FCSEL repair, remain exact. The v10 cohort
+retains456689 heads and3576 objects and removes only this unsupported head.
+Component results do not establish nativeRender return or a game image.
+Both production build/runner guards pass907 cases each, including the
+actual parent and new-plan file-integrity checks, in
+`work/cohort-v10-validation2`. The first validation attempt preserved all
+907 predicate results but stopped at a stale test-driver plan locator;
+the corrected fresh run passes completely. The frozen v10 cohort is
+`work/first-frame-fcvtzu-fixed-cooperative-cohort1`, acceptance
+`0b43fb3dcee223186d0a6023d56f2de769ccc35612fcab805a672943db44d7e5`.
+The next Windows build is `work/windows-first-frame-fcvtzu-fixed1`.
 
 The first display-enabled build is `work/windows-first-frame-attempt1`,
 host commit `e48ee60b1e920c9079fa744bddce851a39121a24`. It includes the
@@ -157,8 +183,16 @@ allocation canaries, normal return and the declared ABI-defined register
 subset. The current FCSEL vector remains selected. Its new loop adds one
 cooperative poll site; the complete cohort retains 456689 heads and removes
 only this unsupported head. All 794 v9 guard cases pass in each of Python
-and PowerShell. The next build is `work/windows-first-frame-st2-2`;
-Windows linking and integrated startup remain separate from these results.
+and PowerShell. Build `work/windows-first-frame-st2-2` links successfully
+under host `089a79354540b707fff7c53057749c3ace72470f`. Its first execution
+times out waiting for a real Windows focus event before engine resume;
+that execution alone does not establish progress through the repaired
+constructor. A fresh observational run of the same frozen binary and
+inputs, `work/windows-first-frame-st2-focus1`, passes the real focus gate
+and reaches the fixed-point FCVTZU frontier above. It completes417 Unity
+constructors/JNI and9 IL2CPP constructors; original master mute returns.
+The earlier unsupported ST2 no longer terminates this execution. The
+exact frontier audit is `work/first-frame-st2-focus-fcvtzu-boundary2`.
 
 The next host build also expands only the native Crash handler's logging
 to include the actual module base, thread, accessed address/operation and
