@@ -12,6 +12,15 @@ void gl_draw_resolve(uint64_t *out){
 #include "gl_draw_commands.inc"
 #undef GL_DRAW
 }
+uint64_t gl_draw_object_resolve(void){return (uint64_t)eglGetProcAddress("glIsVertexArray");}
+uint64_t gl_draw_is_vertex_array_direct(uint32_t name){return glIsVertexArray(name);}
+uint64_t gl_draw_is_vertex_array_pointer(uint64_t procedure,uint32_t name){
+ return ((PFNGLISVERTEXARRAYPROC)procedure)(name);
+}
+uint64_t gl_draw_is_vertex_array_procedure(uint32_t name){
+ PFNGLISVERTEXARRAYPROC query=(PFNGLISVERTEXARRAYPROC)eglGetProcAddress("glIsVertexArray");
+ return query(name);
+}
 #endif
 void gl_draw_upload(const struct DrawInput *in,struct DrawObjects *out){
 #define GL_DRAW(n,t) LOAD(n,t);

@@ -3,7 +3,32 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing `glBindSampler`, original BLR `70491348`,
+Current execution frontier: missing `glIsVertexArray`, original BLR
+`70490734`, captured State LR `70490738`. Actual build
+`work/windows-first-frame-renderer-state1`, host
+`1c5c247fa310e3a567b959181148490a5fc56ee3`, executable
+`165c5098c93ea05bcc75ade8d247930e0102a7abc383b9df804a7b1eb6869521`,
+advances through sampler/indexed-buffer reset and texture/framebuffer state.
+Native exit3/controller1; still no draw, swap, nativeRender return or image.
+Loader slot `0x610` and its zero dlsym result identify the captured call.
+The exact wrapper FDE returns a GLboolean for a GLuint name. Its bounded
+continuation uses existing Gen/BindVertexArrays and DisableVertexAttribArray;
+no other missing name was found before initialization returns. The actual
+queried name, context values and result remain unobserved.
+Audit: `work/renderer-state-vao-query-followup1/summary.json`, SHA256
+`08a9a654b1e4d0d443a00fa1f50d7e1e13f1b141b7f237e40151bdfa4120cd82`.
+The next addition is that native boolean query, tested within the existing
+draw fixture. Its first gate passes544 checks,33 NDK boolean calls and10
+lifecycle records, including native zero/reserved/bound/unbound/deleted/
+arbitrary/context-local behavior, function-pointer/procedure paths, narrow
+return ABI and pending errors. Existing draw/readback/guard/sharing/tracked
+write controls also pass. Receipt:
+`work/gl-vao-query-qualification1/acceptance.json`, SHA256
+`ffe5f99b0e8c37f23b44b0780eacc4219d2eb66961f90c2cabe442150cd1d8f5`.
+The next actual startup is `work/windows-first-frame-vao-query1`; the
+component's synthetic draw is not an original game frame.
+
+The preceding execution frontier was missing `glBindSampler`, original BLR `70491348`,
 captured State LR `7049134c`. Actual build
 `work/windows-first-frame-internalformat1`, host
 `e1ad2955559b3281883a41c43d0d553f3280b16c`, executable

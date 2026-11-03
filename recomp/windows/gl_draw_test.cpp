@@ -8,6 +8,7 @@
 #include "tracked_memory_test.h"
 #include "../fastaes/elfload.h"
 #include "traces.h"
+#include "gl_draw_old_commands.h"
 #include <array>
 #include <cstdio>
 #include <cstring>
@@ -18,6 +19,7 @@ using namespace bunker::windows;
 static unsigned checks;
 static HMODULE driver;
 static EglHost *egl_provider;
+static GlHost *gl_provider;
 static void Check(bool good,const char *why){if(!good)throw std::runtime_error(why);++checks;}
 template<class T>static T NativeSymbol(const char *name){auto p=GetProcAddress(driver,name);if(!p)throw std::runtime_error(name);T result;std::memcpy(&result,&p,sizeof result);return result;}
 #define GL_NATIVE_REFERENCE
@@ -44,7 +46,7 @@ template<class T>static addr_t Invoke(T &host,const char *name,std::initializer_
  for(auto value:args)(state.gpr.*regs[at++]).qword=value;
  host.Invoke(name,state);return state.gpr.x0.qword;
 }
-static void *Resolve(const char *name){return reinterpret_cast<void*>(egl_provider->Marker(name));}
+static void *Resolve(const char *name){return reinterpret_cast<void*>(!std::strcmp(name,"eglGetProcAddress")?egl_provider->Marker(name):gl_provider->Marker(name));}
 static addr_t Address(const void *p){return reinterpret_cast<addr_t>(p);}
 // Every input occupies its own guarded allocation. Protecting it immediately
 // after upload proves neither ANGLE nor our bridge retains a guest CPU pointer.
@@ -74,7 +76,7 @@ int main(){try{
  SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
  bunker::jni::Host java([](addr_t){return false;});NativeWindows windows(java);recomp::Runtime runtime;
  EglHost egl(windows,GL_DRAW_DLL_DIRECTORY);egl_provider=&egl;egl.Install(runtime);
- GlHost gl(egl,GL_DRAW_DLL_DIRECTORY);gl.Install(runtime);egl.SetProcedureResolver([&](const std::string &name){return gl.Marker(name);});
+ GlHost gl(egl,GL_DRAW_DLL_DIRECTORY);gl_provider=&gl;gl.Install(runtime);egl.SetProcedureResolver([&](const std::string &name){return gl.Marker(name);});
  driver=GetModuleHandleW(L"libGLESv2.dll");Check(driver!=nullptr,"pinned GLES module loaded");
  auto display=Invoke(egl,"eglGetDisplay",{0});Check(display&&Invoke(egl,"eglInitialize",{display,0,0}),"real Vulkan display initialized");
  const int attrs[]={EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_DEPTH_SIZE,24,EGL_STENCIL_SIZE,8,EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,0x40,EGL_NONE};addr_t config=0;int count=0;
@@ -105,12 +107,40 @@ int main(){try{
 #undef GL_DRAW
  Check(names.before==0x1122334455667788ULL&&names.after==0x8877665544332211ULL,"resolver output exact eight-byte entries");
  Check(gl.Marker("glGetString")==0x7ff450000000ULL&&gl.Marker("glGetError")==0x7ff450000028ULL,"old GL marker identities unchanged");
+ Check(std::size(kOldDrawCommands)==121&&GlHost::Commands().size()==122,"exact old121 plus single VAO predicate");
+ for(size_t i=0;i<121;++i)Check(GlHost::Commands()[i]==kOldDrawCommands[i]&&gl.Marker(kOldDrawCommands[i])==gl.Marker(kOldDrawCommands[0])+i*8,"every previous command name and marker retained");
+ const auto object_marker=gl.Marker("glIsVertexArray");
+ Check(GlHost::Commands()[121]=="glIsVertexArray"&&object_marker==gl.Marker(kOldDrawCommands[0])+121*8,"VAO predicate appended last");
+ Check(Guest("gl_draw_object_resolve")==object_marker&&object_marker!=reinterpret_cast<addr_t>(GetProcAddress(driver,"glIsVertexArray")),"actual NDK procedure lookup returns typed marker, never native pointer");
  struct Guard{uint64_t before=0x123456789abcdef0ULL;DrawObjects objects{};uint64_t after=0xfedcba9876543210ULL;} guard;
  Inputs inputs;Guest("gl_draw_upload",{Address(&inputs.input),Address(&guard.objects)});inputs.Hide();
  Check(guard.before==0x123456789abcdef0ULL&&guard.after==0xfedcba9876543210ULL,"GLuint generation writes exact four-byte outputs");
  const auto &o=guard.objects;Check(o.vs&&o.fs&&o.program&&o.buffers[0]&&o.buffers[1]&&o.vao,"native shader/program/buffer/VAO object names");
  DrawStatus status{};Guest("gl_draw_compile",{Address(&o),Address(&status)});
  Check(!std::memcmp(&status,&reference_status,sizeof status),"NDK shader status and deferred deletion match independent native reference");
+ static_assert(sizeof(GLboolean)==1);
+ unsigned object_calls=0,object_records=0;
+ const auto native_is_vao=NativeSymbol<PFNGLISVERTEXARRAYPROC>("glIsVertexArray");
+ auto ObjectQuery=[&](GLuint name,GLboolean expected){
+  const auto actual_native=native_is_vao(name);Check(actual_native==expected,"independent native VAO lifecycle state");
+  Check(Guest("gl_draw_is_vertex_array_direct",{UINT64_C(0x1234567800000000)|name})==uint64_t(actual_native),"NDK direct import returns exact native boolean");++object_calls;
+  Check(Guest("gl_draw_is_vertex_array_pointer",{object_marker,UINT64_C(0xa5a5a5a500000000)|name})==uint64_t(actual_native),"NDK function pointer returns exact native boolean");++object_calls;
+  Check(Guest("gl_draw_is_vertex_array_procedure",{name})==uint64_t(actual_native),"NDK procedure lookup/call returns exact native boolean");++object_calls;
+  State abi{};abi.gpr.x0.qword=UINT64_C(0xfedcba9800000000)|name;gl.Invoke("glIsVertexArray",abi);
+  Check(abi.gpr.x0.qword==uint64_t(actual_native),"GLboolean bridge clears stale high return bits and consumes GLuint low32");
+  Check(Invoke(gl,"glGetError")==0,"VAO predicate creates no native error");++object_records;
+ };
+ GLuint reserved_vao=0;Invoke(gl,"glGenVertexArrays",{1,Address(&reserved_vao)});Check(reserved_vao!=0,"actual native VAO name reserved");
+ ObjectQuery(0,GL_FALSE);ObjectQuery(reserved_vao,GL_FALSE);ObjectQuery(0xffffffffU,GL_FALSE);ObjectQuery(o.vao,GL_TRUE);
+ Invoke(gl,"glBindVertexArray",{reserved_vao});ObjectQuery(reserved_vao,GL_TRUE);
+ Invoke(gl,"glBindVertexArray",{0});ObjectQuery(reserved_vao,GL_TRUE);
+ Invoke(gl,"glBindVertexArray",{reserved_vao});Invoke(gl,"glDeleteVertexArrays",{1,Address(&reserved_vao)});ObjectQuery(reserved_vao,GL_FALSE);
+ GLint bound_vao=-1;NativeSymbol<PFNGLGETINTEGERVPROC>("glGetIntegerv")(GL_VERTEX_ARRAY_BINDING,&bound_vao);Check(bound_vao==0,"deleting bound VAO really unbinds it");
+ NativeSymbol<PFNGLENABLEPROC>("glEnable")(0xffffffffU);
+ for(const char *wrapper:{"gl_draw_is_vertex_array_direct","gl_draw_is_vertex_array_procedure"}){Check(Guest(wrapper,{o.vao})==GL_TRUE,"valid boolean query succeeds with pending native error");++object_calls;}
+ Check(Guest("gl_draw_is_vertex_array_pointer",{object_marker,o.vao})==GL_TRUE,"pointer boolean query preserves pending native error");++object_calls;
+ Check(Invoke(gl,"glGetError")==GL_INVALID_ENUM&&Invoke(gl,"glGetError")==0,"VAO query preserves existing error exactly once");
+ Invoke(gl,"glBindVertexArray",{o.vao});
  struct Image{uint64_t before=0xaabbccdd12345678ULL;std::array<uint8_t,256> pixels{};uint64_t after=0x87654321ddccbbaaULL;} actual;
  for(unsigned indexed=0;indexed<2;++indexed){Guest("gl_draw_render",{Address(&o),indexed,Address(actual.pixels.data())});
   Check(actual.pixels==reference_pixels,"all actual NDK triangle RGBA pixels match raw native reference");
@@ -195,7 +225,9 @@ int main(){try{
  const auto shared=Create(context),shared_surface=Surface();Bind(shared,shared_surface);
  Check(NativeSymbol<PFNGLISPROGRAMPROC>("glIsProgram")(o.program)==GL_TRUE&&NativeSymbol<PFNGLISBUFFERPROC>("glIsBuffer")(o.buffers[0])==GL_TRUE,"programs/buffers shared by actual ANGLE group");
  Check(NativeSymbol<PFNGLISVERTEXARRAYPROC>("glIsVertexArray")(o.vao)==GL_FALSE,"VAO namespace genuinely context-local");
+ ObjectQuery(o.vao,GL_FALSE);
  GLuint shared_vao=0;Invoke(gl,"glGenVertexArrays",{1,Address(&shared_vao)});Invoke(gl,"glBindVertexArray",{shared_vao});Invoke(gl,"glBindBuffer",{GL_ARRAY_BUFFER,o.buffers[0]});
+ ObjectQuery(shared_vao,GL_TRUE);
  Invoke(gl,"glVertexAttribPointer",{0,2,GL_FLOAT,0,8,16});Invoke(gl,"glEnableVertexAttribArray",{0});Invoke(gl,"glBindBuffer",{GL_ELEMENT_ARRAY_BUFFER,o.buffers[1]});
  DrawObjects shared_objects=o;shared_objects.vao=shared_vao;Guest("gl_draw_render",{Address(&shared_objects),1,Address(actual.pixels.data())});Check(actual.pixels==reference_pixels,"NDK draw through shared program/VBO and local VAO");
  Invoke(gl,"glUseProgram",{0});Invoke(gl,"glDeleteVertexArrays",{1,Address(&shared_vao)});
@@ -215,6 +247,7 @@ int main(){try{
  Check(input_reservation.status==0&&source_word==0x3f800000,"buffer upload snapshots input without invalidating read-only guest reservation");
  Bind(context,surface);Invoke(gl,"glDeleteBuffers",{1,Address(&temporary)});Invoke(gl,"glBindBuffer",{GL_ARRAY_BUFFER,o.buffers[0]});
  const auto unshared=Create(0),unshared_surface=Surface();Bind(unshared,unshared_surface);Invoke(gl,"glUseProgram",{o.program});Check(Invoke(gl,"glGetError")==GL_INVALID_VALUE,"unshared GLuint validity comes from native context");
+ ObjectQuery(o.vao,GL_FALSE);
  Bind(context,surface);Guest("gl_draw_delete_program",{o.program});Check(NativeSymbol<PFNGLISPROGRAMPROC>("glIsProgram")(o.program)==GL_TRUE,"delete current program remains driver-live until unbound");
  DrawObjects retired=o;retired.program=0;Guest("gl_draw_cleanup",{Address(&retired)});Check(NativeSymbol<PFNGLISPROGRAMPROC>("glIsProgram")(o.program)==GL_FALSE,"program retired when final current binding removed");
  Check(Invoke(egl,"eglDestroySurface",{display,surface}),"deleting current read pbuffer deferred");Check(egl.CurrentReadPbufferExtent().has_value(),"deferred-deleted current read pbuffer retains live extent");
@@ -224,5 +257,6 @@ int main(){try{
  for(auto c:{reference_context,context,shared,unshared})Check(Invoke(egl,"eglDestroyContext",{display,c}),"context retired");
  for(auto s:{reference_surface,shared_surface,unshared_surface})Check(Invoke(egl,"eglDestroySurface",{display,s}),"pbuffer retired");
  Check(Invoke(egl,"eglTerminate",{display}),"real EGL display terminated");egl.ReleaseCurrentThread();egl.SetProcedureResolver({});
- std::printf("GL typed draw: %u checks passed; 29 strict NDK signatures, shader/VBO/VAO indexed+array triangles, exact packed readback, real native lifetime/errors\n",checks);return 0;
+ std::printf("GL VAO predicate: %u NDK calls, %u lifecycle records; direct/pointer/procedure/native boolean ABI and context-local lifetime\n",object_calls,object_records);
+ std::printf("GL typed draw: %u checks passed; 29 existing strict NDK signatures plus one GLboolean object query, shader/VBO/VAO indexed+array triangles, exact packed readback, real native lifetime/errors\n",checks);return 0;
  }catch(const std::exception &e){std::fprintf(stderr,"GL typed draw failure: %s\n",e.what());return 1;}}
