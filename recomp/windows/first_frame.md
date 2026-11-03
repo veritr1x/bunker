@@ -3,8 +3,38 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: the public Bionic `sched_getaffinity` import is
-absent. Actual build `work/windows-first-frame-window-manager1`, host
+Current execution frontier: missing `glTexStorage2D` during texture creation.
+Actual build `work/windows-first-frame-getaffinity1`, host
+`f9506de773d3ebca8796802c18627d8278db9b69`, executable
+`9cac123d3243ecd24092409cb4250f27a03b4653b237a957f289bbb2186c8ba3`,
+passes public sched_getaffinity and both observed worker sched_setaffinity
+calls with result0. It then creates a native texture and configures swizzles,
+filters and mip bounds before unresolved target0, StatePC0, LR `7048e8e4`.
+Original FDE `7048e20c..7048e8e8`, BLR `7048e8e0`, loads slot `0x520`;
+both core and EXT-alias lookups for that slot returned0. The same FDE contains
+the related TexStorage3D/2DMultisample/3DMultisample calls. The next batch
+adds those four pointer-free native storage APIs in a separate typed table,
+preserving all122 old marker indices and143 query rows. Native exit3/controller1;
+still no original draw, successful
+swap, nativeRender return or game image. Inputs SHA256
+`b162795ca33e24d571f5a548baff806c7bcfa881f65f9bf915be2b50d199f711`;
+log SHA256 `60771f392b31b59d841420a88cac94850df34169d591a2ad081172cc1ba792b8`.
+Bounded audit: `work/getaffinity-texture-creation-boundary1/summary.json`, SHA256
+`aa09808757057f8841968866ae6762442970be95e6cbb7c76298a51ab853838c`.
+Optional EXT lookups are skipped when the core pointer is valid, and null
+EXT results never replace a stored pointer; no alias bridges are required.
+The first storage component gate passes858 checks/61 NDK calls/42 records
+through10 heads and2 objects. The actual native context is GLES3.2; all four
+families have positive allocations, with mip/sample/immutable metadata and
+initialized FBO pixels/MS resolve checked against direct native calls.
+Low8-bit boolean ABI, invalid arguments, poisoned unpack/PBO state, pending
+errors and all122 old markers also pass. This is component QA, not a game
+frame. Receipt: `work/gl-storage-qualification1/acceptance.json`, SHA256
+`ed195460a007e66e52cd3cbf912276fb54986b01be8ca9fd5ae13153c07bc873`.
+The next actual startup is `work/windows-first-frame-storage1`.
+
+The preceding execution frontier was the missing public Bionic
+`sched_getaffinity` import. Actual build `work/windows-first-frame-window-manager1`, host
 `51046016c712835c3f6fdebec6a14e7be59639fc`, executable
 `cda0ecb26b831df800b4623d300fc6cdc079e54699543f8d3470453c3d75bbbd`,
 passes the repaired Activity/WindowManager/Display chain and reads the actual

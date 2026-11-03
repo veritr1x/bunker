@@ -133,6 +133,9 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_OBJECT_COMMAND(name,native_type,signature) #name,
 #include "gl_object_commands.inc"
 #undef GL_OBJECT_COMMAND
+#define GL_STORAGE_COMMAND(name,native_type,signature) #name,
+#include "gl_storage_commands.inc"
+#undef GL_STORAGE_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -470,6 +473,9 @@ struct GlHost::Impl {
 #define GL_OBJECT_COMMAND(name,native_type,signature) {using GuestSignature=signature;static_assert(std::is_same_v<native_type,GuestSignature*>);Bind<signature>(#name,Symbol<native_type>(module,#name));}
 #include "gl_object_commands.inc"
 #undef GL_OBJECT_COMMAND
+#define GL_STORAGE_COMMAND(name,native_type,signature) {using GuestSignature=signature;static_assert(std::is_same_v<native_type,GuestSignature*>);Bind<signature>(#name,Symbol<native_type>(module,#name));}
+#include "gl_storage_commands.inc"
+#undef GL_STORAGE_COMMAND
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
