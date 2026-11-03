@@ -51,5 +51,9 @@ NDK instruction claim. The failed first attempt remains preserved. Acceptance
 held package `work/signal-futex-timed-held2.json` SHA256 is
 `fb7891a20d92fb914978f0fe50d458f7c17651bce7858d38f21914f0c9b434e2`.
 
-An original game execution of this timed provider remains pending. No new
-blocking signal-root phase, general collector safety or rendered frame is claimed.
+Game29 executes timeout parsing twice and records actual snapshots4294967s +
+295000000ns with valid deadlines. No timed Return, futex return/wake or wait
+blocking outcome occurs before an unhandled native access violation whose
+thread/context is absent from the original log. This does not attribute the
+fault to the wait provider. No new blocking signal-root phase, general collector
+safety or rendered frame is claimed.

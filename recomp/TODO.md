@@ -4,14 +4,14 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game28 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game29 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
 enters public IL2CPP initialization. Standard muted startup still rejects
 nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-Game22, Game23, Game25, Game26, Game27 and Game28 execute their first original stop/restart cycle in the
+Game22, Game23, Game25, Game26, Game27, Game28 and Game29 execute their first original stop/restart cycle in the
 explicit `frame-muted-gc` profile. The captured finalizer0x825c3ed0 enters the
 exact untimed CondWait at LR0x825505d8. Original signals30/24 both return success from pthread_kill;
 the real stop/restart handlers execute, make both original semaphore posts,
@@ -105,8 +105,15 @@ possible49.7-day interval; the particular argument remains unknown.
 The new timed provider passes38 matching ARM64/Linux/Windows records, the
 existing23 untimed records/2921 checks per host, and handler-overrun EINTR cases.
 It uses real fixed deadlines and queue withdrawal, with no new signal/root
-admission. Its original game execution is next. A returned public initialization
-value, nativeRender return and rendered image remain unobserved.
+admission. Game29 copies two actual16-byte snapshots, both4294967 seconds and
+295000000 nanoseconds, with valid fixed deadlines. Neither logs a timed result;
+no wait enrollment, blocking or completion is established. Startup reaches19
+real affinity operations before an unhandled native access violation. The
+original log records only native instruction address7ff6ddc600db, without its
+loaded ASLR base, accessed address, thread/register context or guest PC. An
+exact-executable debugger diagnostic with fresh data is being prepared; no
+cause or fix is inferred from the preceding log line. A returned public
+initialization value, nativeRender return and rendered image remain unobserved.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive

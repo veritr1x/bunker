@@ -861,3 +861,45 @@ report `work/game28-runtime-boundary-audit/REPORT.md` SHA256 is
 `775ae0d1bebdd4dd2f4be26e6dca1f9d1f5cb10199b6df6de312d62e78ca7e89`.
 The returned public initialization result, nativeRender return, actual image,
 gameplay, general collector safety and normal shutdown/persistence remain open.
+
+Game29 freezes relative timed private WAIT at hoste040d70d. Input SHA256 is
+`864d57d6d045eb7f44303e3af8432f389f9a6bf64ce33d27c8130d85b8a9ed93`;
+executable SHA256 is
+`d39f4bf9eca96e9a6bc17c6235ba9e2be79f422e4653f7dcdfabf9c6bb8cd802`.
+Guest objects/456684 heads, v2 cohort, State/header contracts and all prior
+non-futex providers remain unchanged. Default/init/surface pass. Standard muted
+startup retains the signal30 guard; both frame profiles return focus/resume/
+master mute without a hardware-volume observer. The collector profile retains
+its bounded two-post/two-physical-check E4 cycle and observed record5.
+
+Nineteen real affinity operations/readbacks return0, with requestFFFFFFFF and
+native process/system/effective/previous/readbackFFFF. Thirty-five complete
+priority setter/query pairs report18level0, onelevel1 and16level10. Seventeen
+untimed futex entries have no RETURN/WAKE. Two additional timed entries from
+native TIDs1367524/1367564 copy actual4294967s +295000000ns snapshots, with valid
+active-monotonic deadlines4408240276570800/4408240283775500. This confirms the
+parse/deadline witnesses, not ticket enrollment, physical blocking or return.
+There is no timed RESULT before process failure.
+
+The final original-run record is native exceptionC0000005 at7ff6ddc600db during
+the frame stage, constructors417/417. The canonical run exits native5. Its
+exception logger supplies only the instruction address, not the actual loaded
+module base, access kind, accessed address, register context, native TID or
+active guest State. The PE is ASLR-enabled, so its preferred140000000 base
+cannot normalize that address. The last logged worker/main activity does not
+identify the faulting thread. Read-only wait ownership review found no concrete
+defect; no wait-provider or translation cause is assigned from these artifacts.
+Any later exact-executable debugger replay uses separate fresh data/evidence.
+
+Both terminal frame trees retain the24 APK-identical Managed files/24570231
+bytes, metadata23317064/version24 and unity.ver638477124699603280. Preference
+reads see the existing one-entry store; version writes return status0. Final
+persistence/teardown checks remain unreached. The independent audit checks1976
+bounded pins, including1910 new snapshots, and inherits the unchanged old
+object proof without physical COFF replay. Canonical aggregate
+`work/windows-game29/game_final_audit.json` SHA256 is
+`fc1f75a9399124b4338011a8f1dcd7c45c3eed010895fb59f8de5878ca6ea6fa`;
+report `work/game29-runtime-boundary-audit/REPORT.md` SHA256 is
+`6e2e54fbabb7a3afec6ac81555b5a2c9a5f29d29c1cda0dd1d8106ca79d87d00`.
+No public initialization result, nativeRender return, image, gameplay, general
+collector safety or normal shutdown/persistence is established.
