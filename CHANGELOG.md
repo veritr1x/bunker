@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.8.3 (2026-11-04)
+
+Pod Programs opens while the game keeps running. Browsing and settings the
+game reads later need nothing closed; a change to the save, the master data
+or the calendar asks first, backs up the save and closes the game. Summon
+Rates saves with its default costume shares, and the Android launcher's
+ARCHIVE row shows the index check when opened from the game.
+
 ## 2026-11-03 (after 1.8.2)
 
 ### Pod Programs
