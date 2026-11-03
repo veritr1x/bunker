@@ -415,3 +415,19 @@ func TestSummonTitlesFixed(t *testing.T) {
 		}
 	}
 }
+
+// The box page's redirect keeps a language only when the path has one, and a
+// notice title's "On Now" or "Updated" is dropped from a summon's title.
+func TestBoxRedirectLanguageAndNoticeTitleSuffixes(t *testing.T) {
+	if got := webLanguage("/web/gacha/box"); got != "en" {
+		t.Errorf("no language segment: %q", got)
+	}
+	if got := webLanguage("/web/ja/gacha/box"); got != "ja" {
+		t.Errorf("ja: %q", got)
+	}
+	for in, want := range map[string]string{"X Summons On Now": "X Summons", "X Summons Updated": "X Summons", "X Summons": "X Summons"} {
+		if got := trimNoticeTitle(in); got != want {
+			t.Errorf("%q -> %q", in, got)
+		}
+	}
+}

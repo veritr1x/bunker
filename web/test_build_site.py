@@ -65,5 +65,14 @@ class SiteFilesTest(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+class WorkerFetchTest(unittest.TestCase):
+    def test_worker_revalidates_what_it_downloads(self):
+        # A release must not run with Python files or bundles a browser cached from the last one.
+        worker = (build_site.ROOT / "web/worker.js").read_text()
+        fetches = [line for line in worker.splitlines() if "await fetch(" in line]
+        self.assertTrue(fetches)
+        self.assertEqual([line for line in fetches if 'cache: "no-cache"' not in line], [])
+
+
 if __name__ == "__main__":
     unittest.main()

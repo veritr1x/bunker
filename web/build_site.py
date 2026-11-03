@@ -23,7 +23,6 @@ PYTHON = [
     "android/tools/axml.py",
     "android/tools/assemble_apk.py",
     "android/tools/game_patch.py",
-    "android/tools/branding.py",
     "android/tools/build_info.py",
     "android/tools/notice_pack.py",
     "android/tools/privacy.py",

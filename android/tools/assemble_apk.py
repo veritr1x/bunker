@@ -36,7 +36,6 @@ import build_info  # noqa: E402
 import notice_pack  # noqa: E402
 import privacy  # noqa: E402
 import game_patch  # noqa: E402
-import branding  # noqa: E402
 from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -191,7 +190,6 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
                 source.set(Attr.string("authorities", package + ".lunar_loopback", AUTHORITIES))
             app.children.append(source)
     privacy.harden_manifest(manifest)
-    branding.manifest(app)
     return axml.serialize(doc), game_activity
 
 
@@ -298,8 +296,7 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
             log("Patching master data…")
             original_master = Path(master).read_bytes()
             patched_master = patch_master(original_master)
-            replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS)),
-                        "resources.arsc": branding.resources(game.read("resources.arsc"))}
+            replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
             dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]
             next_dex = max(int(n[7:-4] or 1) for n in dex) + 1
             # output is a path, or something to write to (apk_sign.StreamSigner in the browser).
@@ -340,7 +337,6 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
                 info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None)
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
                 writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
-                writer.add(branding.ICON_PATH, branding.icon())
                 writer.close()
         finally:
             shutil.rmtree(patched_files, ignore_errors=True)
@@ -386,8 +382,6 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                         writer.add(name, manifest)
                     elif name == LIB:
                         writer.add(name, privacy.patch_library(game.read(name), profile=profile), compress=info.compress_type != zipfile.ZIP_STORED)
-                    elif name == "resources.arsc":
-                        writer.add(name, branding.resources(game.read(name)), compress=False)
                     elif name == SETTINGS:  # Earlier builds left Unity Connect on.
                         writer.add(name, patch_unity_connect(game.read(name)), compress=info.compress_type != zipfile.ZIP_STORED)
                     elif notices and name.startswith(notice_pack.PREFIX):
@@ -409,7 +403,6 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                 info = build_info.describe(companion, old["gameDex"], old["portOffset"],
                                            notice_pack.sha256(notices) if notices else old.get("notices"))
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
-                writer.add(branding.ICON_PATH, branding.icon())
                 writer.close()
             os.replace(temporary, output)
         finally:

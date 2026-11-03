@@ -691,13 +691,14 @@ func TestWeaponAbilityLineup(t *testing.T) {
 		return GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: id, RarityType: r}
 	}
 	pool := &GachaCatalog{
-		WeaponById: map[int32]GachaPoolItem{1: w(1, ss), 2: w(2, ss), 3: w(3, ss), 4: w(4, s)},
+		WeaponById:      map[int32]GachaPoolItem{1: w(1, ss), 2: w(2, ss), 3: w(3, ss), 4: w(4, s), 5: w(5, ss)},
+		WeaponsByRarity: map[int32][]GachaPoolItem{ss: {w(1, ss), w(2, ss), w(3, ss)}, s: {w(4, s)}}, // 5: restricted, in no pool
 		BannerPools: map[int32]*BannerPool{468: {
 			WeaponsByRarity:  map[int32][]GachaPoolItem{ss: {w(1, ss), w(3, ss)}, s: {w(4, s)}},
 			CostumesByRarity: map[int32][]GachaPoolItem{ss: {{PossessionId: 99, RarityType: ss}}},
 		}},
 	}
-	abilities := map[int32][]int32{1: {2000003, 9150004}, 2: {2000111, 9150004}, 3: {2000111, 9150014}, 4: {9150002}}
+	abilities := map[int32][]int32{1: {2000003, 9150004}, 2: {2000111, 9150004}, 3: {2000111, 9150014}, 4: {9150002}, 5: {9150004}}
 	pool.applyWeaponLineups(map[int32]weaponLineup{468: {Ability: 9150004}}, abilities)
 	bp := pool.BannerPools[468]
 	var got []int32
@@ -718,8 +719,9 @@ func TestListedWeaponLineup(t *testing.T) {
 		return GachaPoolItem{PossessionType: int32(model.PossessionTypeWeapon), PossessionId: id, RarityType: ss}
 	}
 	pool := &GachaCatalog{
-		WeaponById:  map[int32]GachaPoolItem{1: w(1), 2: w(2), 3: w(3)},
-		BannerPools: map[int32]*BannerPool{9505061: {WeaponsByRarity: map[int32][]GachaPoolItem{ss: {w(1)}}}},
+		WeaponById:      map[int32]GachaPoolItem{1: w(1), 2: w(2), 3: w(3)},
+		WeaponsByRarity: map[int32][]GachaPoolItem{ss: {w(1), w(2), w(3)}},
+		BannerPools:     map[int32]*BannerPool{9505061: {WeaponsByRarity: map[int32][]GachaPoolItem{ss: {w(1)}}}},
 	}
 	pool.applyWeaponLineups(map[int32]weaponLineup{9505061: {Ids: []int32{3, 2, 404}}}, nil)
 	var got []int32
@@ -728,5 +730,26 @@ func TestListedWeaponLineup(t *testing.T) {
 	}
 	if fmt.Sprint(got) != "[2 3]" {
 		t.Fatalf("listed lineup: %v", got)
+	}
+}
+
+// An added summon's rules entry can name its notice too; an added summon's
+// w4ability is ignored when the game data already has that summon.
+func TestRuleNoticeOnAddedSummonAndLineupOnlyWhenAdded(t *testing.T) {
+	file := summonRulesFile{
+		Rules: map[int32]summonRule{970050: {Src: "x", Notice: 4242}},
+		New: []newSummon{
+			{Id: 970050, Asset: "limited_970050", Start: 1, End: 2, Notice: 1, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid"}}},
+			{Id: 71, Asset: "limited_71", Start: 1, End: 2, W4Ability: 9150004, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid"}}},
+		},
+	}
+	entries := addNewSummons([]store.GachaCatalogEntry{{GachaId: 71}}, file, 0)
+	for _, e := range entries {
+		if e.GachaId == 970050 && e.InformationId != 4242 {
+			t.Errorf("added summon notice %d", e.InformationId)
+		}
+	}
+	if _, ok := newWeaponLineups(file, []store.GachaCatalogEntry{{GachaId: 71}})[71]; ok {
+		t.Error("w4ability applied to the game data's summon 71")
 	}
 }
