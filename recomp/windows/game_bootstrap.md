@@ -741,3 +741,42 @@ report `work/game25-runtime-boundary-audit/REPORT.md` SHA256 is
 `265a1056b8823766538dd77d681c7a78c5aa591aa62ba73a0a1d81e2866e90fd`.
 General GC/roots, retention/reclamation, initialization, nativeRender return,
 an actual image, gameplay and normal shutdown/persistence remain open.
+
+Game26 freezes the private futex provider at host4137c3bb. Input SHA256 is
+`8439c46c0d5d53117abe66f9dbf81123f647871054e22723df152fb3c82a8ad1`;
+executable SHA256 is
+`cfab26a5462f45216b02b428b69ff459ae7d25acca2ceb3c0d796d8717317579`.
+The3575 guest objects/456684 heads and v2 cooperative contract are unchanged;
+the complete CMHI candidate remains unselected. Default/init/surface pass.
+Standard muted startup retains the nonzero signal30 guard; the separate
+collector profile completes the original E4 stop/restart with both physical
+register checks, both original posts and observed record5. Both muted frame
+profiles return focus/resume/master mute without a hardware-volume observer.
+
+Original dlsym("end") again returns87cb1e78 and dladdr returns0. Worker4,
+entry70383624/native TID1197904, then enters the actual futex dispatcher:
+number98, op80hex, expected word0, null timeout. The owned stack contains
+saved caller702f161c at SP+24 under LR702ad510. This establishes the syscall
+caller identity, rather than inferring it from adjacent interleaved output.
+No syscall return, wake, explicit enrollment or physical-blocking outcome is
+recorded before a different thread reaches the fatal getpriority import.
+
+JNI lookup leaves NoClassDefFoundError for android/os/Process. Unity then
+calls getpriority with which0 and who1197904 at LR70438a80, matching worker4's
+native TID; the query's calling thread is not logged. Original FDE70438a4c
+first invokes static Process.setThreadPriority(II)V through70438d44, then
+unconditionally verifies native priority. The actual requested enum/nice is
+not observed. The next provider must share one real owned-thread service
+between JNI and native query, preserve Android errno/exception behavior and
+explicitly bound its Windows scheduling translation.
+
+Both frame outputs retain24 APK-identical Managed files/24570231 bytes,
+metadata23317064/version24 and original unity.ver638477124699603280. The
+independent delta audit checks220 new files/192 snapshots and links unchanged
+guest artifacts to the prior full proof; it does not replay all old objects.
+Aggregate `work/windows-game26/game_final_audit.json` SHA256 is
+`4f4a8222c06a3f57eb88845581ad8c63fbc70e4f6ff6399919cee2f855aad757`;
+report `work/game26-runtime-boundary-audit/REPORT.md` SHA256 is
+`378c272b069f09cd0ea7f3b4b3d66c8ad3c3332c06fd5cd1bac76c0ec74aa050`.
+No public initialization result, nativeRender return, image, gameplay, general
+collector safety or normal persistence/teardown is claimed.

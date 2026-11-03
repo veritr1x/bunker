@@ -4,14 +4,14 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game25 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game26 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
 enters public IL2CPP initialization. Standard muted startup still rejects
 nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-Game22, Game23 and Game25 execute their first original stop/restart cycle in the
+Game22, Game23, Game25 and Game26 execute their first original stop/restart cycle in the
 explicit `frame-muted-gc` profile. The captured finalizer0x825c3ed0 enters the
 exact untimed CondWait at LR0x825505d8. Original signals30/24 both return success from pthread_kill;
 the real stop/restart handlers execute, make both original semaphore posts,
@@ -62,8 +62,20 @@ records and2921 checks per translated host. It uses atomic comparison/enrollment
 actual wake counts and a fault-safe readonly Runtime memory helper. Number/op/
 value decoding follows the kernel's low32 semantics. The game adapter admits
 zero signals and captures actual registers/thread identity plus the owned
-saved caller for this exact frame. A frozen native retry is next; the new
-provider has not executed in the game. A returned public initialization value,
+saved caller for this exact frame. Game26 executes that provider from worker4,
+native TID1197904, with expected word0, null timeout and saved caller702f161c.
+No futex return, wake or enrollment outcome is logged before a different
+thread's fatal import, so blocking success is not established. The completed
+E4 handshake and actual dladdr return0 remain observed in this attempt.
+
+The next Game26 fatal import is Unity getpriority(PRIO_PROCESS,1197904),
+LR70438a80. JNI lookup also leaves a NoClassDefFoundError for android/os/Process.
+Original code calls static Process.setThreadPriority(II)V and then always
+queries that same native TID; the query is not a fallback for missing Java.
+An owned-thread priority service and the real Android method/exception contract
+are being qualified together. Windows uses an explicit four-level translation
+under NORMAL_PRIORITY_CLASS, with real native set/query/readback; Linux nice
+scheduling equivalence is not claimed. A returned public initialization value,
 nativeRender return and rendered image remain unobserved.
 
 The process-image query returns the actual native executable with forward
@@ -76,7 +88,7 @@ the image-query growth branch remains unexecuted.
 The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
 closed direct targets, with1439 unsupported heads. Game21 replaced only
 IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22,
-Game23, Game24 and Game25 retain every guest object/header and change host providers only.
+Game23, Game24, Game25 and Game26 retain every guest object/header and change host providers only.
 Older cohorts, failed attempts and original source/semantics remain preserved.
 
 Component prerequisites remain separately qualified: cooperative polling
