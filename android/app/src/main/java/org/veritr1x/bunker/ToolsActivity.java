@@ -92,9 +92,10 @@ public final class ToolsActivity extends Activity {
         startService(new Intent(this,ServerService.class).setAction(ServerService.CLOSE_TOOLS));
     }
     private void returnToLauncher(){
-        // Python and WebView cannot be unloaded, and this process serves the game next. The server
-        // is stopped now, so the launcher reopens in a fresh process.
-        if(com.chaquo.python.Python.isStarted())RestartActivity.restart(this);
+        // Python and WebView cannot be unloaded, and this process serves the game next. When the server
+        // was stopped for a change, the launcher reopens in a fresh process; when the game played on,
+        // this process still serves it and stays.
+        if(com.chaquo.python.Python.isStarted()&&!ServerService.running)RestartActivity.restart(this);
         else startActivity(new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP));
         finish();
     }

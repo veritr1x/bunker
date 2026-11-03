@@ -147,6 +147,10 @@ def start(data_root, asset_root, tools_root, original_master):
         return json.dumps(_state)
     _prepare(data_root, asset_root, tools_root, original_master)
     _adapt_patcher()
+    _process.LunarToolsGameLive.restype = ctypes.c_int
+    _process.LunarToolsCloseGame.restype = ctypes.c_void_p
+    android_runtime.game_live = lambda: bool(_process.LunarToolsGameLive())
+    android_runtime.close_game = _close_game
     import uvicorn
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -165,6 +169,15 @@ def start(data_root, asset_root, tools_root, original_master):
         time.sleep(.02)
     sock.close()
     raise RuntimeError("Tools could not start")
+
+
+def _close_game():
+    """Before a change to the save or the game's data: the launcher stops the game's server. "" or an error."""
+    pointer = _process.LunarToolsCloseGame()
+    try:
+        return ctypes.string_at(pointer).decode()
+    finally:
+        _process.free(pointer)
 
 
 def _go(function, *arguments):

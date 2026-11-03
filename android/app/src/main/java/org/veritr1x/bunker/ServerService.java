@@ -12,6 +12,9 @@ import java.util.concurrent.Executors;
 public final class ServerService extends Service {
     static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools", SAVE="save", ARCHIVE="archive", LINK="link";
     static volatile boolean running=false, busy=false, tools=false;
+    // Pod Programs opened beside the running game, which it has not closed yet. Cleared only once
+    // the server is stopped and the save backed up, so a failed backup leaves changes refused.
+    static volatile boolean toolsBesideGame=false;
     // Import progress, 0-1000, or -1 when there is no measured copy in progress.
     static volatile int permille=-1;
     static volatile String state="Server stopped", detail="Import your game files to get started.";
@@ -20,6 +23,8 @@ public final class ServerService extends Service {
     private volatile boolean cancelled=false;
     private PowerManager.WakeLock wake;
     private long lastNotification;
+    // The running service, for Pod Programs' Python (closeGameForTools).
+    private static volatile ServerService instance;
     private final Runnable monitor=new Runnable() { public void run() {
         if(!running) return;
         try {
@@ -32,6 +37,7 @@ public final class ServerService extends Service {
     }};
     @Override public void onCreate() {
         super.onCreate();
+        instance=this;
         NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());logLastExit();NativeBridge.setBackupDir(new java.io.File(new java.io.File(getFilesDir(),"tools"),"backups").getAbsolutePath());
         NotificationChannel channel=new NotificationChannel("server","Local game server",NotificationManager.IMPORTANCE_LOW);
         channel.setDescription("Server status and Stop control while you play.");
@@ -105,20 +111,21 @@ public final class ServerService extends Service {
         String action=intent.getAction();
         if(TOOLS.equals(action)) {
             if(tools||busy)return START_NOT_STICKY;
-            tools=true;busy=true;cancelled=false;state="Preparing tools";detail="Stopping the game…";
+            // With the game running, Pod Programs opens beside it; the first change that
+            // needs the game closed closes it then (closeGameForTools).
+            final boolean live=running;
+            toolsBesideGame=live;
+            tools=true;busy=true;cancelled=false;state="Preparing tools";detail=live?"Opening Pod Programs…":"Stopping the game…";
             if(Build.VERSION.SDK_INT>=34)startForeground(1,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(1,notification());
             wake.acquire(12*60*60*1000L);
-            main.removeCallbacks(monitor);
+            if(!live)main.removeCallbacks(monitor);
             worker.execute(()->{
                 try {
-                    NativeBridge.stop();running=false;
-                    String error=NativeBridge.prepareBackup(FilesStore.data(this).getAbsolutePath());
-                    if(!error.isEmpty())throw new IllegalStateException(error);
-                    closeGame();
+                    if(!live)stopGameForTools();
                     ToolsRuntime.start(this,this::update);
-                    if(cancelled){ToolsRuntime.stop();tools=false;state="Server stopped";}
-                    else {state="Tools ready";detail="Close Pod Programs to return to the game.";}
+                    if(cancelled){ToolsRuntime.stop();tools=false;state=running?"Server running":"Server stopped";}
+                    else {state="Tools ready";detail=running?"The game is still running. Changes to your save close it first.":"Close Pod Programs to return to the game.";}
                 } catch(Exception|LinkageError error) {
                     tools=false;state="Needs attention";detail=error.getMessage()==null?error.toString():error.getMessage();
                     android.util.Log.e("LunarTear","Tools startup failed",error);
@@ -126,6 +133,16 @@ public final class ServerService extends Service {
                     busy=false;
                     if(tools)getSystemService(NotificationManager.class).notify(1,notification());else finishForeground();
                 }
+            });
+            return START_NOT_STICKY;
+        }
+        if(CLOSE_TOOLS.equals(action)&&running&&toolsBesideGame) {
+            // The game was never closed: Pod Programs closes and the game plays on.
+            busy=true;state="Closing Pod Programs";detail="The game keeps running.";
+            worker.execute(()->{
+                try {ToolsRuntime.stop();tools=false;toolsBesideGame=false;state="Server running";detail="Ready to play";}
+                catch(Exception error){state="Needs attention";detail=error.getMessage();}
+                finally {busy=false;}
             });
             return START_NOT_STICKY;
         }
@@ -202,6 +219,34 @@ public final class ServerService extends Service {
     // The launcher, Tools and this service share a process apart from the game.
     // Close the paused Unity process so its cached save/master cannot survive
     // the change.
+    /** Stops the server, backs up the save and closes the game, before Pod Programs changes them. */
+    private void stopGameForTools() {
+        main.removeCallbacks(monitor);
+        NativeBridge.stop();running=false;
+        String error=NativeBridge.prepareBackup(FilesStore.data(this).getAbsolutePath());
+        if(!error.isEmpty())throw new IllegalStateException(error);
+        closeGame();
+    }
+    /** Pod Programs: whether the game and its server are still running beside it. */
+    public static boolean gameLive(){return tools&&toolsBesideGame;}
+    /** Pod Programs, before a change to the save or the game's data: closes the game. Returns "" or why not. */
+    public static String closeGameForTools(){
+        ServerService service=instance;
+        if(service==null)return "The Bunker's service is not running";
+        synchronized(ServerService.class){
+            if(!toolsBesideGame)return "";
+            try {
+                state="Preparing tools";detail="Stopping the game…";
+                service.stopGameForTools();
+                toolsBesideGame=false;
+                state="Tools ready";detail="Close Pod Programs to return to the game.";
+                return "";
+            } catch(Exception|LinkageError error) {
+                android.util.Log.e("LunarTear","Closing the game for Pod Programs failed",error);
+                return error.getMessage()==null?error.toString():error.getMessage();
+            }
+        }
+    }
     private void closeGame() {
         ActivityManager manager=getSystemService(ActivityManager.class);
         for(ActivityManager.RunningAppProcessInfo process:manager.getRunningAppProcesses())
@@ -227,6 +272,7 @@ public final class ServerService extends Service {
         stopSelf();
     }
     @Override public void onDestroy() {
+        if(instance==this)instance=null;
         cancelled=true;main.removeCallbacks(monitor);
         if(wake!=null&&wake.isHeld()) wake.release();
         // Never block the main thread waiting for Go's graceful shutdown.

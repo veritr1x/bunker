@@ -100,6 +100,10 @@ def adapt_services():
     service_control.available = lambda: False
     service_control.unavailable_reason = lambda: "The game is stopped while Tools is open."
     service_control.is_active = lambda: False
+    # Restore is offered while the game runs: restoring is a change the game
+    # guard asks to close the game for (install_game_guard), not a reason to
+    # disable the button because the game's server is listening.
+    backup_service.detect_lunar_tear_running = lambda: ""
     # The desktop tool uses second-resolution filenames, which collide on a
     # fast sequence of edits. Retain every snapshot with microsecond precision.
     # Switching players is backed up like any other edit.
@@ -251,6 +255,48 @@ def prepare_data():
     write_json(marker, signature)
 
 
+# Pod Programs opens while the game keeps running. These changes are read by
+# the server or the game later (summon rates and roulette before each draw,
+# display at the next launch, the timeline's filter, a backup copied with
+# SQLite's online backup), so they need nothing closed. Any other change edits
+# the save, the master data or the calendar: the game holds its own copy of the
+# save until it signs in again, and the server and game read master data only
+# as they start, so the game is closed first (ServerService.closeGameForTools,
+# or the iOS launcher), and the server's save editor refuses while it runs.
+LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
+CLOSE_MESSAGE = "This change closes the game first. Confirm to close it and continue."
+
+# Set as Pod Programs starts: whether the game and its server are running, and
+# a call that stops them (returns "" or an error). Without them, nothing runs.
+game_live = lambda: False
+close_game = lambda: ""
+
+
+def install_game_guard(app, live, close):
+    from fastapi.responses import JSONResponse
+    from starlette.concurrency import run_in_threadpool
+
+    @app.get("/bunker/state")
+    def state():
+        return {"live": bool(live()), "safe": sorted(LIVE_SAFE)}
+
+    @app.post("/bunker/close-game")
+    async def close_now():
+        if not live():
+            return {"ok": True}
+        error = await run_in_threadpool(close)
+        if error:
+            return JSONResponse({"ok": False, "error": error}, status_code=500)
+        return {"ok": True}
+
+    @app.middleware("http")
+    async def needs_closed_game(request, call_next):
+        path = request.url.path
+        if request.method not in ("GET", "HEAD") and path not in LIVE_SAFE and path != "/bunker/close-game" and live():
+            return JSONResponse({"ok": False, "error": CLOSE_MESSAGE, "closeGame": True}, status_code=409)
+        return await call_next(request)
+
+
 def create_app(token, origin):
     from fastapi.responses import JSONResponse
     from web.app import create_app as base_app
@@ -265,6 +311,8 @@ def create_app(token, origin):
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
     android_players.install(app)
+    # Inside the session check below: middleware added later runs first.
+    install_game_guard(app, lambda: game_live(), lambda: close_game())
     serial = asyncio.Lock()
     @app.middleware("http")
     async def private_session(request, call_next):
@@ -290,8 +338,12 @@ def start(data_root, asset_root, tools_root, reporter):
     global _server, _thread, _base_url, _token, TEXTURE
     if _thread and _thread.is_alive():
         return json.dumps({"url": _base_url, "token": _token})
+    global game_live, close_game
     from java import jclass
     native = jclass("org.veritr1x.bunker.NativeBridge")
+    service = jclass("org.veritr1x.bunker.ServerService")
+    game_live = lambda: bool(service.gameLive())
+    close_game = lambda: str(service.closeGameForTools())
     TEXTURE = lambda bundle, target, size: native.texture(bundle, target, size)
     configure(data_root, asset_root, tools_root, native.edit, reporter.report)
     prepare_data()
