@@ -660,3 +660,42 @@ aggregate SHA256 is
 `f4e65904540b2f1f546e55fba95bc144b73997d2fac47c2ca1ee9d4775bb6a6e`.
 General GC/roots, retention/reclamation, completed initialization, a rendered
 image, gameplay and normal persistence/worker/module teardown remain open.
+
+Game24 freezes the qualified ELF metadata, dladdr and Bionic absolute-symbol
+policy at host9c2e899. Inputs SHA256 is
+`0e21eb0bccd84f5430a8782ef0bfd64ad595fbc2a72b361b9505fa6f2623db10`;
+executable SHA256 is
+`b3f67f42e93155c315a5b4756bc48779bf88e0fb2ad8b648bfb58350a55a62da`.
+All3575 guest objects and generated headers remain unchanged. Default,
+init and surface pass; standard muted startup retains the nonzero signal30
+guard. Both frame runs return from the actual focus callback, resume and
+master mute, without creating the HDMI-dependent hardware-volume observer.
+
+The separate collector run reaches a different, earlier boundary:
+unsupported `usleep`, LR825b394c, with W0=3000 microseconds. One genuine E4
+signal30 request and its actual pthread_kill return0 are logged, followed by
+the selected saved80000000/current=actionfffffffffffbbed9 mask check. The
+concurrent physical-frame line is incomplete. There is no complete physical
+frame record, original semaphore post, restart24 request or handler return in
+this run; Game22/23's completed bounded cycles remain separate evidence.
+Neither dlsym("end") nor dladdr is observed in Game24, so their component
+qualification must not be presented as an executed game-path result.
+
+Collector log SHA256 is
+`aba6f314226a3a9981d63dd911e1afd4fc8e4928fed97ec1a09cf0c66a94d01f`;
+standard muted log SHA256 is
+`59c7da99777f6fadad1a38614fa32c727fcc9dee3dada9be1cc29216c1f33c79`.
+The next provider must implement a real interruptible timed delay, preserving
+the signal-delivery guards and actual collector acknowledgments. A forced
+success or synthetic acknowledgment would bypass the original protocol.
+Audio backend initialization remains enabled and unqualified; master mute
+allows current startup tests to continue while HDMI is unavailable. No
+nativeRender return, successful initialization or rendered image is claimed.
+
+Both frame outputs retain24 APK-identical Managed files/24570231 bytes,
+metadata23317064/version24 and original unity.ver638477124699603280. The
+independent audit rehashes8370 frozen inputs and preserves both terminal
+physical output sets. Aggregate SHA256 is
+`559f4f66495d34ac2f240f67c6c8db97456c86efd5b2eade83d62a621790ba9c`;
+read-only report `work/game24-runtime-boundary-audit/REPORT.md` SHA256 is
+`c570d219ecb35c6ee22cffd0e438af0503bba2e9b6fc9e31c77765e5229195f9`.

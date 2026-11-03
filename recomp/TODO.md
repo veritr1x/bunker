@@ -4,16 +4,16 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game23 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game24 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
 enters public IL2CPP initialization. Standard muted startup still rejects
 nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-The explicit `frame-muted-gc` run now executes its first original stop/restart
-cycle. The captured finalizer0x825c3ed0 enters the exact untimed CondWait at
-LR0x825505d8. Original signals30/24 both return success from pthread_kill;
+Game22 and Game23 execute their first original stop/restart cycle in the
+explicit `frame-muted-gc` profile. The captured finalizer0x825c3ed0 enters the
+exact untimed CondWait at LR0x825505d8. Original signals30/24 both return success from pthread_kill;
 the real stop/restart handlers execute, make both original semaphore posts,
 and return with record epoch4→5. Actual31 GPR/32 Q-register bytes are checked
 in the real interrupted stack frame above the original published FP before
@@ -29,14 +29,22 @@ raw `dlsym("end")` value0x7cb1e78. The natural static call graph places this
 helper after public `il2cpp_init` returns; its returned value and success are
 not observed, and nativeRender still has not returned.
 
-Current work adds real ELF metadata for `dladdr` and Android's absolute-symbol
+Game24 adds qualified real ELF metadata for `dladdr` and Android's absolute-symbol
 rules. Both raw end0x7cb1e78 and Bionic-biased end0x87cb1e78 are outside logical
 PT_LOAD ranges; the latter is the exclusive segment endpoint. A rounded
 reservation must not manufacture ownership. Android's symbol resolver also
 changes two real IL2CPP GLOB_DAT entries (`end` and `__stop_il2cpp`), so the
 explicit Bionic loader profile and public dlsym policy are qualified together.
 The generic loader and explicitly declared export maps retain their original
-behavior. These changes have not yet run in the game.
+behavior. The new native build runs the original startup, but this attempt
+stops earlier at a newly observed timing import: `usleep(3000)`,
+LR0x825b394c. The original E4 signal30 send returns0 and its target's saved
+and installed masks pass validation. A concurrent physical-frame log line is
+incomplete; no complete frame check, semaphore post, restart24 or handler
+return is recorded in this attempt. It does not reach dladdr. Timing and
+scheduling can expose an earlier missing import; Game23's completed bounded
+cycle remains separate evidence. Implement the real interruptible delay
+before retrying; do not replace it with immediate success or a fixed GC ack.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive
@@ -47,8 +55,8 @@ the image-query growth branch remains unexecuted.
 
 The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
 closed direct targets, with1439 unsupported heads. Game21 replaced only
-IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22 and
-Game23 retain every guest object/header and change host providers only.
+IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22,
+Game23 and Game24 retain every guest object/header and change host providers only.
 Older cohorts, failed attempts and original source/semantics remain preserved.
 
 Component prerequisites remain separately qualified: cooperative polling
@@ -61,10 +69,14 @@ stress and managed retention/reclamation still require work.
 
 Four scalar FRINTP/M forms pass65536 matching records per ARM64/Linux/Windows
 host and4118 decoder checks. Six UADDW/UADDW2 forms pass12544 records per host
-and782 decoder checks. Their source/fixtures are checkpointed, but neither
-new toolchain is selected in the game cohort. A separate USHLL2 candidate
-exposes later UADDW in the same head and optimizer changes in24 other bodies;
-it remains an audit, not an accepted replacement or unsupported-head reduction.
+and782 decoder checks. Eight unsigned CMHI forms pass16640 matching full-state
+records per host and1038 decoder checks. Their source/fixtures are checkpointed;
+these new toolchains are not selected in the game cohort. A new isolated lift
+of head8261b5ac now clears its USHLL2/UADDW/CMHI instruction gaps. Its complete
+body still needs exact splicing, neighbor/type/closure checks, cooperative
+instrumentation and native qualification before any accepted replacement or
+unsupported-head reduction. A previous whole-shard lift changed24 neighboring
+bodies through optimization and remains unselected.
 
 The muted profile avoids the HDMI volume prerequisite for this diagnostic;
 continue with it while the TV is off. It does not disable backend initialization
