@@ -101,6 +101,36 @@ static NSString *ArchiveRoot(void) {
     return [support stringByAppendingPathComponent:@"LunarArchive"];
 }
 
+#pragma mark - Pod Programs beside the game
+
+// Pod Programs opened while the game ran, and nothing has closed it yet. Cleared
+// only once the server is stopped and the save backed up, so a failed backup
+// leaves changes refused (android_runtime.install_game_guard).
+static BOOL gToolsBesideGame = NO;
+
+// Pod Programs' Python asks these (ios_runtime): whether the game still runs
+// beside it, and, before a change to the save or the game's data, to stop it.
+// The game shares this process, so it restarts afterwards (gRestartNeeded).
+__attribute__((visibility("default"))) int LunarToolsGameLive(void) { return gToolsOpen && gToolsBesideGame; }
+
+// Not on gQueue: closing Pod Programs waits there for Python's server thread,
+// which may be in this call. Go serializes the stop and the backup itself.
+__attribute__((visibility("default"))) char *LunarToolsCloseGame(void) {
+    static NSObject *closing;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ closing = [NSObject new]; });
+    NSString *error = @"";
+    @synchronized (closing) {
+        if (gToolsBesideGame) {
+            LunarStop();
+            error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
+            if (!error.length) gToolsBesideGame = NO;
+        }
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)]; });
+    return strdup(error.UTF8String);
+}
+
 #pragma mark - The Archive's index
 
 // As the app starts, the Archive's index is built in the background when it is
@@ -1575,7 +1605,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)confirmTools {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Pod Programs?"
-        message:@"Pod Programs stops Lunar Tear so it can edit your saves and content. When you close Pod Programs, the game restarts to load your changes."
+        message:@"The game keeps running while you look around. A change to your saves or content stops Lunar Tear first, and the game then restarts to load it."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Open Pod Programs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
@@ -1583,12 +1613,18 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)openTools {
     gToolsOpen = YES;
+    // With the game running, Pod Programs opens beside it; the first change that
+    // needs the game closed stops it then (LunarToolsCloseGame).
+    BOOL live = Running();
+    gToolsBesideGame = live;
     __block NSString *url = nil, *token = nil;
     NSString *original = [[NSBundle bundleForClass:self.class] pathForResource:@"original-master" ofType:@"bin.e"];
-    [self busy:@"Stopping Lunar Tear…" work:^NSString *{
-        LunarStop();
-        NSString *error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
-        if (error.length) return error;
+    [self busy:live ? @"Opening Pod Programs…" : @"Stopping Lunar Tear…" work:^NSString *{
+        if (!live) {
+            LunarStop();
+            NSString *error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
+            if (error.length) return error;
+        }
         return LTToolsStart(gSaves, gServerRoot, ToolsRoot(), original, &url, &token, ^(NSString *text) {
             dispatch_async(dispatch_get_main_queue(), ^{ gMessage = text; [self refresh]; });
         });
@@ -1596,12 +1632,13 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         if (error.length) {
             // Nothing was edited, so the game can carry on.
             gToolsOpen = NO;
+            gToolsBesideGame = NO;
             gMessage = [@"Pod Programs could not open: " stringByAppendingString:error];
-            dispatch_async(gQueue, ^{ StartServer(); dispatch_async(dispatch_get_main_queue(), ^{ [self refresh]; }); });
+            if (!live) dispatch_async(gQueue, ^{ StartServer(); dispatch_async(dispatch_get_main_queue(), ^{ [self refresh]; }); });
             [self refresh];
             return;
         }
-        gMessage = @"Pod Programs is open.";
+        gMessage = live ? @"Pod Programs is open. The game keeps running until a change needs it closed." : @"Pod Programs is open.";
         [self refresh];
         __weak typeof(self) weakSelf = self;
         __block __weak UIViewController *tools = nil;
@@ -1644,7 +1681,9 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     [self dismissViewControllerAnimated:YES completion:nil];
     [self busy:@"Closing Pod Programs…" work:^NSString *{ return LTToolsStop(); } done:^(NSString *error) {
         gToolsOpen = NO;
-        gRestartNeeded = YES;
+        // The game restarts only when a change closed it; otherwise it plays on.
+        if (!gToolsBesideGame) gRestartNeeded = YES;
+        gToolsBesideGame = NO;
         gMessage = error.length ? [@"Pod Programs closed with an error: " stringByAppendingString:error] : @"";
         [self refresh];
     }];
