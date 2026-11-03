@@ -20,6 +20,7 @@
 #include "gl_host.h"
 #include "filesystem.h"
 #include "module_registry.h"
+#include "module_registry_elf.h"
 #include "pthread_host.h"
 #include "libc.h"
 #include "logging.h"
@@ -385,13 +386,14 @@ int main(int argc,char **argv){
     });
     tls_audit.Install(runtime,threads);
     modules.Install(module_bridges);
-    for(const char *name:{"dlopen","dlsym","dlclose","dlerror"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
-      const auto argument=s.gpr.x0.qword,caller=s.gpr.x30.qword;
+    for(const char *name:{"dlopen","dlsym","dlclose","dlerror","dladdr"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
+      const auto argument=s.gpr.x0.qword,output=s.gpr.x1.qword,caller=s.gpr.x30.qword;
       const auto text=!std::strcmp(name,"dlopen")?(argument?recomp::ReadGuestString(argument):"<null>"):!std::strcmp(name,"dlsym")?(s.gpr.x1.qword?recomp::ReadGuestString(s.gpr.x1.qword):"<null>"):std::string();
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
       GameCollectorDelivery::Opaque opaque{bool(collector)};
 #endif
       module_bridges.Dispatch(s,marker,nullptr);std::fprintf(stderr,"Game bootstrap: original %s argument=%#llx name=%s result=%#llx LR=%#llx Unity refs=%zu IL2CPP refs=%zu\n",name,(unsigned long long)argument,text.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)caller,modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));
+      if(!std::strcmp(name,"dladdr")&&s.gpr.x0.dword){const auto info=Read<AndroidDlInfo>(output);const auto file=info.filename?recomp::ReadGuestString(info.filename):std::string();const auto symbol=info.symbol_name?recomp::ReadGuestString(info.symbol_name):std::string();std::fprintf(stderr,"Game bootstrap: original dladdr info filename=%s base=%#llx symbol=%s address=%#llx; registered ELF metadata, not native PE ownership\n",file.c_str(),(unsigned long long)info.base,symbol.c_str(),(unsigned long long)info.symbol_address);}
     }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: module bridge %s failed:%s\n",name,e.what());std::abort();}});}
     if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
     zlib.Install(runtime);
@@ -482,18 +484,25 @@ int main(int argc,char **argv){
         else{Require(!import.object,"missing strong data import; fabricated storage is forbidden");address=0x7ffc00000000ULL+missing++*8;runtime.AddImport(address,[name,module_name](State &s){std::fprintf(stderr,"Game bootstrap: unsupported import module=%s name=%s PC=%#llx LR=%#llx x0=%#llx x1=%#llx stage=%s\n",module_name,name.c_str(),(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,stage);std::fflush(stderr);std::abort();});}
         Require(resolved.emplace(name,address).second,"duplicate import inventory entry");
       }
-      Require(!elf_load(path.u8string().c_str(),base,Resolve,&target)&&target.span==span,"verified module data-image/span load failed");
+      Require(!elf_load_bionic(path.u8string().c_str(),base,Resolve,&target)&&target.span==span,"verified Bionic module data-image/span load failed");
       std::fprintf(stderr,"Game bootstrap: mapped %s imports=%zu real/%zu weak-zero; cumulative failure markers=%zu; constructors remain lazy\n",module_name,provided,weak,missing);
     };
     elf_image image{},il2cpp_image_data{};
     load("libunity.so",unity_image::kGameImports,library,kUnityBase,kUnityImageSpan,image);
     load("libil2cpp.so",il2cpp_image::kGameImports,il2cpp_library,il2cpp_image::kIl2cppBase,il2cpp_image::kIl2cppSpan,il2cpp_image_data);
     Module unity;unity.name="libunity.so";unity.aliases={"/data/app/bunker/lib/arm64/libunity.so"};
+    const auto unity_file_bytes=fs::file_size(library),il2cpp_file_bytes=fs::file_size(il2cpp_library);
+    Require(unity_file_bytes<=SIZE_MAX&&il2cpp_file_bytes<=SIZE_MAX,"verified ELF byte length exceeds native size_t");
+    unity.address_image=DescribeModuleElf(image.file,static_cast<size_t>(unity_file_bytes),kUnityBase,unity.aliases.front());
+    unity.export_policy=Module::ExportPolicy::BionicRawSymbols;
+    // Keep the raw ELF integrity check separate from public Bionic dlsym.
     for(auto &symbol:kUnityExports){auto actual=reinterpret_cast<addr_t>(elf_symbol(&image,symbol.name));if(actual!=symbol.address)throw std::runtime_error(std::string("loaded export differs from translation: ")+symbol.name);unity.exports.emplace(symbol.name,actual);}
     unity.initializers.assign(std::begin(kInitializers),std::end(kInitializers));
     unity.finalizers.assign(std::begin(kUnityFinalizers),std::end(kUnityFinalizers));
     modules.Add(std::move(unity));
     Module il2cpp;il2cpp.name="libil2cpp.so";il2cpp.aliases={"/data/app/bunker/lib/arm64/libil2cpp.so"};
+    il2cpp.address_image=DescribeModuleElf(il2cpp_image_data.file,static_cast<size_t>(il2cpp_file_bytes),il2cpp_image::kIl2cppBase,il2cpp.aliases.front());
+    il2cpp.export_policy=Module::ExportPolicy::BionicRawSymbols;
     for(auto &symbol:il2cpp_image::kExports){auto actual=reinterpret_cast<addr_t>(elf_symbol(&il2cpp_image_data,symbol.name));Require(actual==symbol.address,"IL2CPP export differs from verified ELF");il2cpp.exports.emplace(symbol.name,actual);}
     il2cpp.initializers=il2cpp_ledger.constructors;il2cpp.finalizers=il2cpp_ledger.finalizers;modules.Add(std::move(il2cpp));
     Require(modules.ReferenceCount("libil2cpp.so")==0&&!il2cpp_ledger.constructed,"IL2CPP constructor state was made eager");

@@ -1,0 +1,13 @@
+.global fixture_abs
+.type fixture_abs,%object
+.set fixture_abs,0x1234
+.size fixture_abs,8
+.global fixture_zero
+.type fixture_zero,%object
+.set fixture_zero,0
+.size fixture_zero,0
+.global fixture_end
+.type fixture_end,%object
+.set fixture_end,0x900000
+.size fixture_end,0
+.section .note.GNU-stack,"",%progbits

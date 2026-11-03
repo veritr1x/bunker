@@ -31,7 +31,7 @@ static uint8_t *read_file(const char *path) {
     return data;
 }
 
-static int relocate(struct elf_image *image, const Elf64_Rela *rela, size_t count, elf_resolver resolve) {
+static int relocate(struct elf_image *image, const Elf64_Rela *rela, size_t count, elf_resolver resolve, int bias_absolute_symbols) {
     const Elf64_Sym *syms = image->dynsym;
     for (size_t i = 0; i < count; i++) {
         uint64_t *slot = (uint64_t *)(image->base + rela[i].r_offset);
@@ -40,7 +40,7 @@ static int relocate(struct elf_image *image, const Elf64_Rela *rela, size_t coun
             *slot = (uint64_t)image->base + rela[i].r_addend;
         } else if (type == R_AARCH64_GLOB_DAT || type == R_AARCH64_JUMP_SLOT || type == R_AARCH64_ABS64) {
             const char *name = image->dynstr + syms[sym].st_name;
-            void *target = syms[sym].st_shndx == SHN_ABS ? (void *)(uintptr_t)syms[sym].st_value :
+            void *target = syms[sym].st_shndx == SHN_ABS && !bias_absolute_symbols ? (void *)(uintptr_t)syms[sym].st_value :
                 syms[sym].st_shndx != SHN_UNDEF ? image->base + syms[sym].st_value : resolve(name);
             if (!target && syms[sym].st_shndx == SHN_UNDEF && ELF64_ST_BIND(syms[sym].st_info) != STB_WEAK) {
                 fprintf(stderr, "elfload: unresolved import %s\n", name);
@@ -55,7 +55,7 @@ static int relocate(struct elf_image *image, const Elf64_Rela *rela, size_t coun
     return 0;
 }
 
-int elf_load(const char *path, uintptr_t base, elf_resolver resolve, struct elf_image *image) {
+static int elf_load_impl(const char *path, uintptr_t base, elf_resolver resolve, struct elf_image *image, int bias_absolute_symbols) {
     memset(image, 0, sizeof *image);
     const uint8_t *file = read_file(path);
     if (!file) return perror(path), -1;
@@ -109,13 +109,21 @@ int elf_load(const char *path, uintptr_t base, elf_resolver resolve, struct elf_
         case DT_PLTRELSZ: pltrelsz = dyn->d_un.d_val; break;
         }
     }
-    if (relocate(image, rela, relasz / sizeof(Elf64_Rela), resolve) ||
-        relocate(image, jmprel, pltrelsz / sizeof(Elf64_Rela), resolve))
+    if (relocate(image, rela, relasz / sizeof(Elf64_Rela), resolve, bias_absolute_symbols) ||
+        relocate(image, jmprel, pltrelsz / sizeof(Elf64_Rela), resolve, bias_absolute_symbols))
         return -1;
 #ifndef _WIN32
     __builtin___clear_cache((char *)image->base, (char *)image->base + span);
 #endif
     return 0;
+}
+
+int elf_load(const char *path, uintptr_t base, elf_resolver resolve, struct elf_image *image) {
+    return elf_load_impl(path, base, resolve, image, 0);
+}
+
+int elf_load_bionic(const char *path, uintptr_t base, elf_resolver resolve, struct elf_image *image) {
+    return elf_load_impl(path, base, resolve, image, 1);
 }
 
 void *elf_symbol(const struct elf_image *image, const char *name) {

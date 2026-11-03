@@ -22,6 +22,13 @@ struct elf_image {
 
 // Returns 0 on success; prints the reason and returns -1 otherwise.
 int elf_load(const char *path, uintptr_t base, elf_resolver resolve, struct elf_image *image);
+// Android Bionic's soinfo::resolve_symbol_address adds the load bias to defined
+// SHN_ABS symbols during relocation as well. The default loader keeps generic
+// ELF behavior. This explicit variant changes relocation only; elf_symbol is
+// still the raw integrity lookup below, while ModuleRegistry models dlsym.
+int elf_load_bionic(const char *path, uintptr_t base, elf_resolver resolve, struct elf_image *image);
+// Raw ELF lookup: SHN_ABS returns st_value. Public Android dlsym resolution is
+// a separate ModuleRegistry policy and must not infer it from this helper.
 void *elf_symbol(const struct elf_image *image, const char *name);
 
 #ifdef __cplusplus

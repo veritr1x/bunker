@@ -1,8 +1,10 @@
 #pragma once
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -10,7 +12,31 @@
 #include "../whole/runtime.h"
 
 namespace bunker::windows {
+struct AndroidDlInfo {
+  addr_t filename,base,symbol_name,symbol_address;
+};
+static_assert(sizeof(AndroidDlInfo)==32);
+static_assert(offsetof(AndroidDlInfo,base)==8&&offsetof(AndroidDlInfo,symbol_name)==16&&offsetof(AndroidDlInfo,symbol_address)==24);
+struct ModuleLoadSegment {uint64_t virtual_address,memory_size;};
+struct ModuleAddressSymbol {
+  std::string name;
+  uint64_t value,size;
+  uint16_t section;
+  uint8_t type;
+  uint8_t binding=0,visibility=0;
+  uint16_t version=0;
+  bool lookup_eligible=true;
+};
+struct ModuleAddressImage {
+  std::string filename;
+  addr_t base,load_bias;
+  uint64_t span;
+  std::vector<ModuleLoadSegment> loads;
+  // Complete GNU bucket/chain or SysV index traversal order, not name order.
+  std::vector<ModuleAddressSymbol> symbols;
+};
 struct Module {
+  enum class ExportPolicy {DeclaredAddresses,BionicRawSymbols};
   std::string name;
   std::vector<std::string> aliases;
   std::map<std::string, addr_t> exports;
@@ -19,6 +45,8 @@ struct Module {
   // Required for reopening a module after its last dlclose.
   // Publish restored guest bytes through recomp::WriteGuestMemory.
   std::function<void()> reset_image;
+  std::optional<ModuleAddressImage> address_image;
+  ExportPolicy export_policy=ExportPolicy::DeclaredAddresses;
 };
 
 // Guest libdl resolves only modules explicitly registered as translated code.
@@ -33,6 +61,7 @@ class ModuleRegistry {
   addr_t Symbol(addr_t handle, const char *name);
   int Close(addr_t handle);
   addr_t Error();
+  int32_t Address(addr_t address,AndroidDlInfo *output);
   addr_t Marker(const std::string &name) const;
   void Install(recomp::Runtime &runtime);
   size_t ReferenceCount(const std::string &name) const;
