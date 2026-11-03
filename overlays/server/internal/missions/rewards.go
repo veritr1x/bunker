@@ -29,11 +29,12 @@ func (cat *Catalog) grant(u *store.UserState, g *store.PossessionGranter, r Rewa
 // ReceiveMissions pays the rewards of cleared missions and marks them received.
 func (cat *Catalog) ReceiveMissions(u *store.UserState, g *store.PossessionGranter, ids []int32, now int64) []Reward {
 	u.Ext.EnsureMaps()
+	cat.reconcileRules(u, now)
 	var out []Reward
 	for _, id := range ids {
 		m, ok := cat.ById[id]
 		rec := u.Missions[id]
-		if !ok || rec.MissionProgressStatusType != StatusClear {
+		if !ok || rec.MissionProgressStatusType != StatusClear || (m.Rule.Kind == "" && cat.ruleChanges[id] != "") {
 			continue
 		}
 		for _, r := range cat.Rewards[m.MissionRewardId] {

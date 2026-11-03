@@ -11,9 +11,12 @@ import (
 // need no migration.
 type ExtState struct {
 	MissionsVersion int32 `json:"missionsVersion,omitempty"`
-	TimeKeysVersion int32 `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
-	CalendarLoop    int32 `json:"calendarLoop,omitempty"`    // Original calendar loop the rotating progress belongs to
-	ChapterGachaIds int32 `json:"chapterGachaIds,omitempty"` // 1: chapter summon progress moved to model.ChapterGachaIdBase
+	// Rules differing from the legacy Global ID-only mission rules. This
+	// prevents stale regional completions from paying after an update/import.
+	MissionRuleRevisions map[int32]string `json:"missionRuleRevisions,omitempty"`
+	TimeKeysVersion      int32            `json:"timeKeysVersion,omitempty"` // 1: daily timestamps moved to the GMT-8 day
+	CalendarLoop         int32            `json:"calendarLoop,omitempty"`    // Original calendar loop the rotating progress belongs to
+	ChapterGachaIds      int32            `json:"chapterGachaIds,omitempty"` // 1: chapter summon progress moved to model.ChapterGachaIdBase
 	// GachaExec counts draws of summon price options that have a limit
 	// (free once a day, one-time guaranteed): GachaPricePhaseId -> count.
 	GachaExec           map[int32]GachaExecState        `json:"gachaExec,omitempty"`
@@ -181,6 +184,7 @@ func (p PanelMissionState) equal(o PanelMissionState) bool {
 
 func (e ExtState) Clone() ExtState {
 	out := e
+	out.MissionRuleRevisions = maps.Clone(e.MissionRuleRevisions)
 	out.MissionPass = maps.Clone(e.MissionPass)
 	out.GachaExec = maps.Clone(e.GachaExec)
 	out.SceneChoices = maps.Clone(e.SceneChoices)
@@ -206,6 +210,7 @@ func (e ExtState) Clone() ExtState {
 func (e ExtState) Equal(o ExtState) bool {
 	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.CalendarLoop == o.CalendarLoop && e.ChapterGachaIds == o.ChapterGachaIds && e.DailyGroupReward == o.DailyGroupReward &&
 		maps.Equal(e.MissionPass, o.MissionPass) && maps.Equal(e.GachaExec, o.GachaExec) &&
+		maps.Equal(e.MissionRuleRevisions, o.MissionRuleRevisions) &&
 		maps.Equal(e.SceneChoices, o.SceneChoices) &&
 		maps.Equal(e.SceneChoiceHistory, o.SceneChoiceHistory) &&
 		maps.Equal(e.LevelBonusConfirmed, o.LevelBonusConfirmed) &&
