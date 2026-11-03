@@ -104,6 +104,8 @@ under its heading, down to the previous release.
 - Japanese 3.7.1 APKs (experimental) build alongside Global (English and
   Korean) ones: the builder recognises the client from its files and patches
   each with its own addresses. [a1b9179]
+- The standalone companion app is named Bunker instead of Lunar Tear.
+  [4a427ba]
 - An icon test compares pixels instead of PNG bytes, so it passes with any
   encoder. [dc117a4]
 
