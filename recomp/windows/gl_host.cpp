@@ -124,6 +124,12 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_INTERNALFORMAT_COMMAND(name,type) #name,
 #include "gl_internalformat_commands.inc"
 #undef GL_INTERNALFORMAT_COMMAND
+#define GL_SAMPLER_COMMAND(name,type) #name,
+#include "gl_sampler_commands.inc"
+#undef GL_SAMPLER_COMMAND
+#define GL_BUFFER_INDEXED_COMMAND(name,type) #name,
+#include "gl_buffer_indexed_commands.inc"
+#undef GL_BUFFER_INDEXED_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -162,6 +168,12 @@ struct GlHost::Impl {
 #define GL_INTERNALFORMAT_COMMAND(name,type) type internalformat_##name=nullptr;
 #include "gl_internalformat_commands.inc"
 #undef GL_INTERNALFORMAT_COMMAND
+#define GL_SAMPLER_COMMAND(name,type) type sampler_##name=nullptr;
+#include "gl_sampler_commands.inc"
+#undef GL_SAMPLER_COMMAND
+#define GL_BUFFER_INDEXED_COMMAND(name,type) type buffer_indexed_##name=nullptr;
+#include "gl_buffer_indexed_commands.inc"
+#undef GL_BUFFER_INDEXED_COMMAND
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
@@ -200,6 +212,12 @@ struct GlHost::Impl {
 #define GL_INTERNALFORMAT_COMMAND(name,type) internalformat_##name=Symbol<type>(module,#name);
 #include "gl_internalformat_commands.inc"
 #undef GL_INTERNALFORMAT_COMMAND
+#define GL_SAMPLER_COMMAND(name,type) sampler_##name=Symbol<type>(module,#name);
+#include "gl_sampler_commands.inc"
+#undef GL_SAMPLER_COMMAND
+#define GL_BUFFER_INDEXED_COMMAND(name,type) buffer_indexed_##name=Symbol<type>(module,#name);
+#include "gl_buffer_indexed_commands.inc"
+#undef GL_BUFFER_INDEXED_COMMAND
       Bindings();
     }catch(...){FreeLibrary(module);throw;}
   }
@@ -397,6 +415,8 @@ struct GlHost::Impl {
 #include "gl_misc_impl.inc"
 #include "gl_indexed_impl.inc"
 #include "gl_internalformat_impl.inc"
+#include "gl_sampler_impl.inc"
+#include "gl_buffer_indexed_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -442,6 +462,8 @@ struct GlHost::Impl {
     BindMiscCommands();
     BindIndexedCommands();
     BindInternalFormatCommands();
+    BindSamplerCommands();
+    BindIndexedBufferCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}

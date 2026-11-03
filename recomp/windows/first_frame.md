@@ -3,7 +3,33 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: unresolved indirect target0 after the default
+Current execution frontier: missing `glBindSampler`, original BLR `70491348`,
+captured State LR `7049134c`. Actual build
+`work/windows-first-frame-internalformat1`, host
+`e1ad2955559b3281883a41c43d0d553f3280b16c`, executable
+`3193cc0e58701a0cb226a5b9c6291111c326041adadcb65d1a24dd6caa76c514`,
+passes internal-format initialization and reaches VAO creation and renderer
+depth/blend/stencil/cull state. The new failure diagnostic reports target0,
+StatePC0 and LR `7049134c`; original loader slot `0x738` maps to the observed
+zero-result `glBindSampler` lookup. Native exit3/controller1; still no draw,
+swap, nativeRender return or game image. The exact bounded audit is
+`work/internalformat-renderer-state-followup1/summary.json`, SHA256
+`efb2b72a996b10aa616457af98dc9f50e967738fa9bdc4fc3679ec56de486048`.
+The same FDE has four later guarded `glBindBufferBase` sites with a zero
+lookup. Other subsequent GL slots in that FDE resolve nonzero. Their later
+execution is not claimed. The next batch covers the four observed sampler
+APIs and that indexed-buffer binding API. Both first driver gates pass:
+samplers301 checks/39 NDK calls and indexed buffers947 checks/110 NDK calls.
+Receipts are `work/gl-sampler-qualification1/acceptance.json`, SHA256
+`421eb25c3a54ee71897b8f92e17fb7dcd92db68c52b7b513ee762034bad787b5`,
+and `work/gl-buffer-indexed-qualification1/acceptance.json`, SHA256
+`bce4fc573e6eccecd8aa1dbe313b933cd6d13561e03b2e4c8732b9df8d54d2e7`.
+Both compile the same held composition, preserve the old116 marker prefix
+and143 query rows, and append five markers to121. The existing indexed
+guest-query whitelist and Runtime remain unchanged. The next original
+startup build is `work/windows-first-frame-renderer-state1`.
+
+The preceding execution frontier was unresolved indirect target0 after the default
 framebuffer properties query. Actual build
 `work/windows-first-frame-platform-query1`, host
 `87bc34552f720aeab334e13ca51684597eb25697`, executable
