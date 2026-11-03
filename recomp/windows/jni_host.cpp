@@ -263,6 +263,10 @@ void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,
 void Host::DefineIntMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<int32_t(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing int handler");DefineHandler(owner,name,signature,'I',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return static_cast<uint32_t>(handler(object,args));});
 }
+void Host::DefineLongMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<int64_t(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing long handler");
+  DefineHandler(owner,name,signature,'J',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return static_cast<addr_t>(handler(object,args));});
+}
 void Host::DefineStaticIntMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<int32_t(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing static int handler");DefineHandler(owner,name,signature,'I',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return static_cast<uint32_t>(handler(object,args));},true);
 }
@@ -309,7 +313,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   auto returns=at<signature.size()?signature.substr(at+1):"";
   const bool reference_result=result=='L'&&!returns.empty()&&(returns.front()=='['?FindReferenceArrayClass(returns)!=nullptr:
       returns.size()>=3&&returns.front()=='L'&&returns.back()==';'&&classes_.count(returns.substr(1,returns.size()-2)));
-  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='I'&&returns!="I")||(result=='F'&&returns!="F")||(result=='L'&&!reference_result))throw std::invalid_argument("invalid host result descriptor");
+  if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='I'&&returns!="I")||(result=='J'&&returns!="J")||(result=='F'&&returns!="F")||(result=='L'&&!reference_result))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
   if(platform_native){
@@ -676,7 +680,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   if((failure||exception)&&promoted){RetireReference(promoted);promoted=0;DrainCallbackFrame(lock,depth,exception);}
   thread.frames.pop_back();thread.callback_floors.pop_back();
   if(failure)std::rethrow_exception(failure);
-  return exception?0:object_result?promoted:kind=='Z'?(result?1:0):(kind=='I'||kind=='F')?static_cast<uint32_t>(result):0;
+  return exception?0:object_result?promoted:kind=='Z'?(result?1:0):kind=='J'?result:(kind=='I'||kind=='F')?static_cast<uint32_t>(result):0;
 }
 addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const MethodArguments &arguments){
   auto *clazz=GetClass(reference);if(!clazz)return 0;
@@ -828,6 +832,7 @@ void Host::InvokeEnv(size_t slot, State &s) {
       uint32_t bits=static_cast<uint32_t>(CallObject(lock,a,b,slot>=129,{},'I',&s,slot-15));
       int32_t value;std::memcpy(&value,&bits,sizeof(value));IntResult(s,value);return;
     }
+    case 52: case 53: case 54: {s.gpr.x0.qword=CallObject(lock,a,b,false,{},'J',&s,slot-18);return;}
     case 55: case 56: case 57: case 135: case 136: case 137: {
       auto bits=static_cast<uint32_t>(CallObject(lock,a,b,slot>=135,{},'F',&s,slot-21));
       FloatResult(s,bits);return;

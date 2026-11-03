@@ -4,10 +4,13 @@
 #include <GLES3/gl32.h>
 #include "gl_host.h"
 #include "egl_host.h"
+#include "frame_png.h"
 #include "../whole/bridge.h"
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
+#include <cerrno>
+#include <cfenv>
 #include <cstring>
 #include <map>
 #include <limits>
@@ -115,6 +118,8 @@ struct GlHost::Impl {
 #undef DRAW_FIELD
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
+  std::wstring diagnostic_png;
+  FrameDiagnostics diagnostic;
   Impl(EglHost &egl,const std::wstring &directory,addr_t marker):egl(egl),marker(marker){
     static_assert(sizeof(GLboolean)==1&&sizeof(GLint)==4&&sizeof(GLfloat)==4);
     static_assert(sizeof(GLuint)==4&&sizeof(GLsizei)==4&&sizeof(GLchar)==1&&sizeof(GLsizeiptr)==8&&sizeof(GLintptr)==8);
@@ -181,6 +186,49 @@ struct GlHost::Impl {
     return bytes;
   }
   template<class F>bool Call(F function){CollectErrors();function();return !CollectErrors();}
+  void CaptureWindow(){
+    if(diagnostic_png.empty()||diagnostic.frame_png)return;
+    auto extent=egl.CurrentDrawWindowExtent();if(!extent)return;
+    SelectContext();if(extent->context!=current_context)throw std::runtime_error("Capture context changed");
+    if(uint64_t(extent->width)*uint64_t(extent->height)*4>TransferLimit)throw std::runtime_error("Capture exceeds64MiB");
+    if(diagnostic.first_present_png&&!diagnostic.draw_submissions)return;
+    if(++diagnostic.capture_attempts>64)return;
+    CollectErrors();const auto saved_errors=pending_errors[current_context];
+    struct ErrorRestore {Impl &host;std::set<GLenum> saved;~ErrorRestore(){
+      for(unsigned i=0;i<32&&host.getError()!=GL_NO_ERROR;++i){}
+      if(saved.empty())host.pending_errors.erase(host.current_context);else host.pending_errors[host.current_context]=saved;
+    }} errors{*this,saved_errors};
+    auto check=[&](const char *operation){const auto error=getError();if(error!=GL_NO_ERROR)throw std::runtime_error(std::string(operation)+" GL error="+Hex(error));};
+    const auto *version=getString(GL_VERSION);check("capture version");
+    const bool es3=version&&std::strstr(reinterpret_cast<const char*>(version),"OpenGL ES 3");
+    const auto *vendor=getString(GL_VENDOR),*renderer=getString(GL_RENDERER);check("capture renderer");
+    std::fprintf(stderr,"First frame: readback context=%#llx surface=%#llx %dx%d vendor=%s renderer=%s version=%s\n",(unsigned long long)extent->context,(unsigned long long)extent->surface,extent->width,extent->height,vendor?reinterpret_cast<const char*>(vendor):"",renderer?reinterpret_cast<const char*>(renderer):"",version?reinterpret_cast<const char*>(version):"");
+    auto bindFramebuffer=Symbol<PFNGLBINDFRAMEBUFFERPROC>(module,"glBindFramebuffer");
+    PFNGLREADBUFFERPROC readBuffer=es3?Symbol<PFNGLREADBUFFERPROC>(module,"glReadBuffer"):nullptr;
+    GLint framebuffer=0,pack=4,pbo=0,row=0,skiprows=0,skippixels=0,default_read=GL_BACK;
+    getInteger(es3?GL_READ_FRAMEBUFFER_BINDING:GL_FRAMEBUFFER_BINDING,&framebuffer);getInteger(GL_PACK_ALIGNMENT,&pack);
+    if(es3){getInteger(GL_PIXEL_PACK_BUFFER_BINDING,&pbo);getInteger(GL_PACK_ROW_LENGTH,&row);getInteger(GL_PACK_SKIP_ROWS,&skiprows);getInteger(GL_PACK_SKIP_PIXELS,&skippixels);}check("capture saved state");
+    struct StateRestore {
+      Impl &host;PFNGLBINDFRAMEBUFFERPROC bind;PFNGLREADBUFFERPROC read;bool es3;GLint framebuffer,pack,pbo,row,skiprows,skippixels,default_read=GL_BACK;bool bound=false;
+      ~StateRestore(){
+        if(bound){if(es3)read(GLenum(default_read));bind(es3?GL_READ_FRAMEBUFFER:GL_FRAMEBUFFER,GLuint(framebuffer));}
+        host.draw_glPixelStorei(GL_PACK_ALIGNMENT,pack);
+        if(es3){host.draw_glPixelStorei(GL_PACK_ROW_LENGTH,row);host.draw_glPixelStorei(GL_PACK_SKIP_ROWS,skiprows);host.draw_glPixelStorei(GL_PACK_SKIP_PIXELS,skippixels);host.draw_glBindBuffer(GL_PIXEL_PACK_BUFFER,GLuint(pbo));}
+      }
+    } restore{*this,bindFramebuffer,readBuffer,es3,framebuffer,pack,pbo,row,skiprows,skippixels};
+    bindFramebuffer(es3?GL_READ_FRAMEBUFFER:GL_FRAMEBUFFER,0);check("capture default framebuffer");restore.bound=true;
+    if(es3){getInteger(GL_READ_BUFFER,&default_read);check("capture default read state");restore.default_read=default_read;readBuffer(GL_BACK);draw_glBindBuffer(GL_PIXEL_PACK_BUFFER,0);draw_glPixelStorei(GL_PACK_ROW_LENGTH,0);draw_glPixelStorei(GL_PACK_SKIP_ROWS,0);draw_glPixelStorei(GL_PACK_SKIP_PIXELS,0);}
+    draw_glPixelStorei(GL_PACK_ALIGNMENT,1);check("capture pack state");
+    std::vector<uint8_t> pixels(size_t(extent->width)*size_t(extent->height)*4);
+    draw_glReadPixels(0,0,extent->width,extent->height,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());check("capture read pixels");
+    bool nonuniform=false;for(size_t i=4;i<pixels.size();i+=4)if(std::memcmp(pixels.data(),pixels.data()+i,4)){nonuniform=true;break;}
+    diagnostic.width=extent->width;diagnostic.height=extent->height;diagnostic.nonuniform=nonuniform;
+    std::filesystem::path path(diagnostic_png);const bool candidate=nonuniform&&diagnostic.draw_submissions;
+    if(!candidate){if(diagnostic.first_present_png)return;path=path.parent_path()/L"first-present.png";}
+    WriteFramePng(path,uint32_t(extent->width),uint32_t(extent->height),pixels);
+    diagnostic.first_present_png=true;if(candidate)diagnostic.frame_png=true;
+    std::fprintf(stderr,"First frame: PNG=%s draws=%llu clears=%llu nonuniform=%d candidate=%d; presentation outcome follows\n",path.u8string().c_str(),(unsigned long long)diagnostic.draw_submissions,(unsigned long long)diagnostic.clear_submissions,int(nonuniform),int(candidate));
+  }
   GLint Integer(GLenum name){
     GLint value=0;if(!Call([&]{getInteger(name,&value);}))throw std::runtime_error("Internal GL state query failed: "+Hex(name));return value;
   }
@@ -324,9 +372,19 @@ GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(s
 GlHost::~GlHost()=default;
 const std::vector<GlHost::Query> &GlHost::Queries(){return queries;}
 const std::vector<std::string> &GlHost::Commands(){static const std::vector<std::string> commands(std::begin(names),std::end(names));return commands;}
-size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);impl_->SelectContext();auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
+size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();impl_->SelectContext();auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
 addr_t GlHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::runtime_error("Unsupported typed GL resolver signature: "+name);}
-void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();found->second(state);}
+void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();
+  if(!impl_->diagnostic_png.empty()){++impl_->diagnostic.calls;if(impl_->diagnostic.calls<=24||impl_->diagnostic.calls%1000==0)std::fprintf(stderr,"First frame: GL call=%llu %s context=%#llx\n",(unsigned long long)impl_->diagnostic.calls,name.c_str(),(unsigned long long)impl_->current_context);}
+  found->second(state);
+  if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
+void GlHost::EnableFrameDiagnostics(const std::wstring &path){std::lock_guard lock(impl_->mutex);if(path.empty()||!std::filesystem::path(path).is_absolute())throw std::invalid_argument("Absolute frame PNG path required");impl_->diagnostic_png=path;}
+GlHost::FrameDiagnostics GlHost::DescribeFrameDiagnostics(){std::lock_guard lock(impl_->mutex);return impl_->diagnostic;}
+void GlHost::CaptureWindowBeforePresent(){std::lock_guard lock(impl_->mutex);
+  const int saved_errno=errno;const DWORD saved_error=GetLastError();std::fenv_t environment;std::feholdexcept(&environment);
+  struct Restore{int error;DWORD native_error;std::fenv_t environment;~Restore(){std::fesetenv(&environment);errno=error;SetLastError(native_error);}} restore{saved_errno,saved_error,environment};
+  auto dpi=impl_->egl.CurrentWindowDpiScope();
+  try{impl_->CaptureWindow();}catch(const std::exception &e){impl_->diagnostic.failure=e.what();std::fprintf(stderr,"First frame: capture failed: %s\n",e.what());}}
 void GlHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("GL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"GL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 }  // namespace bunker::windows
 #undef GL_DRAW_API

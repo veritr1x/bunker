@@ -32,6 +32,13 @@ class EglHost {
   // Read-only, actual owned EGL_READ pbuffer. Window/surfaceless/foreign
   // surfaces are excluded. Internal queries preserve the public EGL error.
   std::optional<ReadPbufferExtent> CurrentReadPbufferExtent();
+  struct DrawWindowExtent {addr_t context,surface;int32_t width,height;};
+  std::optional<DrawWindowExtent> CurrentDrawWindowExtent();
+  std::unique_ptr<WindowDpiScope> CurrentWindowDpiScope();
+  // Opt-in diagnostic hook, called outside EGL locks before/after a bridge.
+  // It must not execute guest code. Existing profiles install no observer.
+  using DiagnosticObserver=std::function<void(const std::string&,const State&,bool)>;
+  void SetDiagnosticObserver(DiagnosticObserver);
   // Call on the native worker itself before it exits. No guest callback runs.
   void ReleaseCurrentThread();
  private:

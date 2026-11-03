@@ -78,7 +78,8 @@ def load_cooperative_parent(proof):
  return parent
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=pathlib.Path,required=True);p.add_argument('--profile',choices=['default','init','surface','frame','frame-muted','frame-muted-gc'],default='default');p.add_argument('--width',type=int,default=1280);p.add_argument('--height',type=int,default=720);p.add_argument('--verify-only',action='store_true');a=p.parse_args();b=a.build.resolve();frame=a.profile in ('frame','frame-muted','frame-muted-gc');gc=a.profile=='frame-muted-gc';muted_profile=a.profile in ('frame-muted','frame-muted-gc')
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=pathlib.Path,required=True);p.add_argument('--profile',choices=['default','init','surface','frame','frame-muted','frame-muted-gc'],default='default');p.add_argument('--width',type=int,default=1280);p.add_argument('--height',type=int,default=720);p.add_argument('--verify-only',action='store_true');p.add_argument('--first-frame',action='store_true');a=p.parse_args();b=a.build.resolve();frame=a.profile in ('frame','frame-muted','frame-muted-gc');gc=a.profile=='frame-muted-gc';muted_profile=a.profile in ('frame-muted','frame-muted-gc')
+ if a.first_frame and not gc:p.error('--first-frame requires --profile frame-muted-gc')
  m=json.loads((b/'game_inputs.json').read_text());record=json.loads((b/'game_build.json').read_text());assert m['status']=='prepared'and (m['union_trace_count'],len(m['objects']))in((456684,3575),(456689,3576))
  expected={**m['original_object_hashes'],**m['input_hashes'],**{x['path']:x['sha256']for x in m['objects']},**{str(b/'sources'/k):v for k,v in m['source_sha256'].items()},**{str(b/k):v for field in ['frozen_support_sha256','generated_header_sha256']for k,v in m[field].items()},str(b/'game_inputs.json'):record['inputs_sha256'],str(b/'bunker-game-bootstrap.exe'):record['executable_sha256'],str(b/'libz-inflate.a'):m['zlib_sha256'],str(b/'host-source.tar'):m['host_archive_sha256']}
  expected.update({str(pathlib.Path(m['angle_directory'])/k):v for k,v in m['angle_dll_sha256'].items()})
@@ -115,6 +116,7 @@ def main():
   command+=['--frame-gate',str(a.width),str(a.height),wp(m['angle_directory'])]
   if muted_profile:command+=['--mute-audio']
   if gc:command+=['--collector-delivery']
+  if a.first_frame:command+=['--first-frame']
  with log.open('wb')as out:run=subprocess.run(command,stdout=out,stderr=subprocess.STDOUT)
  verify();text=log.read_text(errors='replace')
  ctors=re.findall(r'Game bootstrap: IL2CPP constructor (\d+)/9 entry=',text);finis=re.findall(r'Game bootstrap: IL2CPP finalizer (\d+)/2 entry=',text)
@@ -134,6 +136,10 @@ def main():
  result['target_signal_delivery_enabled']=gc and configured
  result['collector_delivery_profile']=record.get('collector_delivery_profile')if gc else None
  result['audio_profile']='explicit-muted' if muted_profile else 'normal'
+ result['first_frame_diagnostic_requested']=a.first_frame
+ result['successful_presentations']=[int(n)for n in re.findall(r'First frame: EGL RETURN eglSwapBuffers x0=0x1 successfulPresentations=(\d+)',text)]
+ result['first_frame_witness']='First frame: witness=1 'in text
+ result['first_frame_png_sha256']=sha(storage/'first-frame.png')if(storage/'first-frame.png').is_file()else None
  result['original_master_mute_request_returned']=muted
  result['hardware_volume_observer_created']='real read-only music-volume observer ready' in text
  if muted_profile:assert not result['hardware_volume_observer_created'],'muted mode must not create the hardware-volume observer'

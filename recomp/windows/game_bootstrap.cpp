@@ -1,6 +1,8 @@
 // Natural native-frame diagnostic with lazy real Unity and IL2CPP modules.
 #include "jni_host.h"
 #include "android_context.h"
+#include "android_build_manufacturer.h"
+#include "windows_display_service.h"
 #include "android_internal_storage.h"
 #include "android_obb_storage.h"
 #include "android_asset_pack_wrapper.h"
@@ -172,10 +174,13 @@ extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
+  const bool first_frame=argc==11&&!std::strcmp(argv[10],"--first-frame");
+  if(first_frame)--argc;
   const bool collector_delivery=argc==10&&!std::strcmp(argv[8],"--mute-audio")&&!std::strcmp(argv[9],"--collector-delivery");
   const bool mute_audio=(argc==9&&!std::strcmp(argv[8],"--mute-audio"))||collector_delivery;
   const bool frame_gate=(argc==8||mute_audio)&&!std::strcmp(argv[4],"--frame-gate");
   const bool surface_gate=frame_gate||(argc==7&&!std::strcmp(argv[4],"--surface-gate"));
+  if(first_frame&&!collector_delivery){std::fputs("First frame diagnostic requires the explicit muted collector profile\n",stderr);return 2;}
   if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio [--collector-delivery]]]\n");return 2;}
 #if !defined(BUNKER_GAME_COLLECTOR_DELIVERY) || !BUNKER_GAME_COLLECTOR_DELIVERY
   if(collector_delivery){std::fputs("Game GC: original delivery profile is unavailable in this build\n",stderr);return 2;}
@@ -218,6 +223,8 @@ int main(int argc,char **argv){
     bunker::jni::Host java(Translated);
     DefineUnityJavaCatalog(java);
     DefineGameAndroidApiProfile(java);
+    AndroidBuildManufacturerProfile manufacturer_profile(java,AndroidBuildManufacturerProfile::PropertyPolicy::AbsentAndroidProductProperties);
+    if(first_frame)std::fputs("First frame: manufacturer=unknown; explicit absent Android product properties, AOSP fallback; no Windows vendor inference\n",stderr);
     std::unique_ptr<JavaNativeLibraries> native_catalog;
     {LocalFrame locals(java);auto call=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=java.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;java.InvokeEnv(slot,s);Require(java.PendingException().empty(),"native catalog setup raised a Java exception");return s.gpr.x0.qword;};
       auto app=call(6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer")),clazz=call(6,reinterpret_cast<addr_t>("java/lang/Class"));
@@ -235,6 +242,9 @@ int main(int argc,char **argv){
     context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     stage="Android Context setup";AndroidContext context(java,context_config);
+    WindowsDisplayService displays(java,[&](const WindowsDisplayService::DisplayInfo &info){
+      if(first_frame)std::fprintf(stderr,"First frame: Windows display id=%d pixels=%dx%d rotation=%d densityDpi=%d refresh=%u/%u appOffsetNs=%lld nominalPresentationBudgetNs=%lld; native-port scheduling policy, SDR window capability\n",info.id,info.width,info.height,info.rotation,info.density_dpi,info.refresh_numerator,info.refresh_denominator,(long long)info.app_vsync_offset_ns,(long long)info.nominal_presentation_budget_ns);
+    });
     stage="SharedPreferences setup";
     auto preferences_backend=MakeWindowsSharedPreferencesBackend(context_config.package_name);
     auto read_preferences=std::move(preferences_backend.read);
@@ -285,11 +295,24 @@ int main(int argc,char **argv){
     std::unique_ptr<NativeWindows> native_windows;
     std::unique_ptr<EglHost> egl;
     std::unique_ptr<GlHost> graphics;
+    std::atomic<uint64_t> observed_egl_calls{0},observed_presentations{0};
     // ModuleRegistry owns 0x7ff400000000; keep this combined provider disjoint.
     if(surface_gate)native_windows=std::make_unique<NativeWindows>(java,0x7ff440000000ULL);
     if(frame_gate){
       auto dlls=fs::canonical(fs::u8path(argv[7]));
       egl=std::make_unique<EglHost>(*native_windows,dlls.wstring());graphics=std::make_unique<GlHost>(*egl,dlls.wstring());
+      if(first_frame){
+        graphics->EnableFrameDiagnostics((storage/L"first-frame.png").wstring());
+        egl->SetDiagnosticObserver([&](const std::string &name,const State &state,bool completed){
+          if(!completed){++observed_egl_calls;std::fprintf(stderr,"First frame: EGL ENTER %s native_tid=%lu guestLR=%#llx\n",name.c_str(),GetCurrentThreadId(),(unsigned long long)state.gpr.x30.qword);
+            if(name=="eglSwapBuffers")graphics->CaptureWindowBeforePresent();
+          }else{
+            if(name=="eglSwapBuffers"&&state.gpr.x0.dword)++observed_presentations;
+            std::fprintf(stderr,"First frame: EGL RETURN %s x0=%#llx successfulPresentations=%llu\n",name.c_str(),(unsigned long long)state.gpr.x0.qword,(unsigned long long)observed_presentations.load());
+          }
+        });
+        std::fputs("First frame: diagnostics enabled; original EGL/GLES only, window readback before original presentation; initial EGL/draw/presentation counts=0\n",stderr);
+      }
       egl->SetProcedureResolver([&](const std::string &name){
         std::fprintf(stderr,"Unity bootstrap: requested typed GL procedure %s\n",name.c_str());return graphics->Marker(name);
       });
@@ -724,13 +747,23 @@ int main(int argc,char **argv){
             if(!focused)std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
           if(!focused)throw std::runtime_error("no real HWND focus event; native frame prerequisite remains unmet");
+          if(first_frame)std::fputs("First frame: waiting for original nativeRender; no manual initialization or skipped guest calls\n",stderr);
           bool keep_running=false;while(true){try{keep_running=lifecycle.WaitForFrame();break;}catch(const std::runtime_error &e){if(std::string(e.what())!="one-frame diagnostic timed out before nativeRender completed")throw;std::fprintf(stderr,"Game bootstrap: first nativeRender observation window expired; retaining same live worker/window and waiting, not restarting\n");poll_volume();}}
           frame_continues=keep_running;lifecycle.WaitIdle();poll_volume();
           std::fprintf(stderr,"Unity bootstrap: first nativeRender returned continue=%d; requesting finishing PAUSE at diagnostic frame boundary\n",int(keep_running));
+          if(first_frame){
+            auto diagnostic=graphics->DescribeFrameDiagnostics();const bool witness=diagnostic.frame_png&&diagnostic.nonuniform&&diagnostic.draw_submissions&&observed_presentations.load();
+            std::fprintf(stderr,"First frame: witness=%d nativeRenderReturned=1 EGLcalls=%llu successfulPresentations=%llu GLcalls=%llu drawSubmissions=%llu clears=%llu PNG=%d nonuniform=%d size=%dx%d captureFailure=%s\n",int(witness),(unsigned long long)observed_egl_calls.load(),(unsigned long long)observed_presentations.load(),(unsigned long long)diagnostic.calls,(unsigned long long)diagnostic.draw_submissions,(unsigned long long)diagnostic.clear_submissions,int(diagnostic.frame_png),int(diagnostic.nonuniform),diagnostic.width,diagnostic.height,diagnostic.failure.c_str());
+            if(witness){
+              std::fputs("First frame: retaining original surface/window for ten seconds before normal diagnostic pause\n",stderr);
+              const auto hold_until=std::chrono::steady_clock::now()+std::chrono::seconds(10);bool close=false;
+              while(!close&&std::chrono::steady_clock::now()<hold_until){for(const auto &event:native_windows->DrainEvents(window)){if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);if(event.kind==NativeWindows::Event::CloseRequested)close=true;}poll_volume();std::this_thread::sleep_for(std::chrono::milliseconds(10));}
+            }
+          }
           if(volume)volume->Pause();lifecycle.PauseNative(true);
         }
         stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
-        if(egl)egl->SetProcedureResolver({});
+        if(egl){egl->SetDiagnosticObserver({});egl->SetProcedureResolver({});}
         init_java_diagnostic_active=false;
         if(init_java_errors.load())throw std::runtime_error("surface native calls encountered original Java exceptions");
         auto state=lifecycle.Describe();if(state.resumed||state.surface||state.started)throw std::runtime_error("surface lifecycle did not finish paused and detached");

@@ -80,6 +80,10 @@ class Host {
                            std::function<bool(addr_t,const MethodArguments&)> handler);
   void DefineIntMethod(const std::string &owner,const std::string &name,const std::string &signature,
                        std::function<int32_t(addr_t,const MethodArguments&)> handler);
+  // Instance jlong callbacks return the exact signed 64-bit value in X0.
+  // The existing borrowed arguments/owned callback frame rules apply.
+  void DefineLongMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                        std::function<int64_t(addr_t,const MethodArguments&)> handler);
   void DefineStaticIntMethod(const std::string &owner,const std::string &name,const std::string &signature,
                              std::function<int32_t(addr_t,const MethodArguments&)> handler);
   // The callback returns exact binary32 bits; never numerically cast bits to

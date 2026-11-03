@@ -112,6 +112,7 @@ struct EglHost::Impl {
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
   std::function<addr_t(const std::string&)> procedure_resolver;
+  DiagnosticObserver diagnostic_observer;
 #define DECL(ret,name,args) using name##T=ret(WINAPI*)args;name##T name=nullptr;
   EGL_API(DECL)
 #undef DECL
@@ -392,13 +393,32 @@ struct EglHost::Impl {
 EglHost::EglHost(NativeWindows &windows,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(windows,directory,marker)){}
 EglHost::~EglHost()=default;
 addr_t EglHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::invalid_argument("Unsupported EGL import: "+name);}
-void EglHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported EGL import: "+name);std::unique_ptr<WindowDpiScope> dpi;if(auto window=impl_->DpiWindow(name,&state))dpi=std::make_unique<WindowDpiScope>(window);found->second(state);}
+void EglHost::Invoke(const std::string &name,State &state){
+  DiagnosticObserver observer;{std::lock_guard lock(impl_->mutex);observer=impl_->diagnostic_observer;}
+  if(observer)observer(name,state,false);
+  {std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported EGL import: "+name);std::unique_ptr<WindowDpiScope> dpi;if(auto window=impl_->DpiWindow(name,&state))dpi=std::make_unique<WindowDpiScope>(window);found->second(state);}
+  if(observer)observer(name,state,true);
+}
 void EglHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("EGL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"EGL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 void EglHost::ReleaseCurrentThread(){std::lock_guard lock(impl_->mutex);impl_->ReleaseThread();}
 void EglHost::SetProcedureResolver(std::function<addr_t(const std::string&)> resolver){std::lock_guard lock(impl_->mutex);impl_->procedure_resolver=std::move(resolver);}
 addr_t EglHost::CurrentContextToken(){std::lock_guard lock(impl_->mutex);return impl_->Find(impl_->eglGetCurrentContext(),Impl::Context);}
 bool EglHost::ContextAlive(addr_t token){std::lock_guard lock(impl_->mutex);auto at=impl_->objects.find(token);return at!=impl_->objects.end()&&at->second.kind==Impl::Context&&!at->second.native_destroyed;}
 bool EglHost::UsesGlesModule(const void *module){std::lock_guard lock(impl_->mutex);return impl_->gles==module;}
+void EglHost::SetDiagnosticObserver(DiagnosticObserver observer){std::lock_guard lock(impl_->mutex);impl_->diagnostic_observer=std::move(observer);}
+std::unique_ptr<WindowDpiScope> EglHost::CurrentWindowDpiScope(){std::lock_guard lock(impl_->mutex);if(auto window=impl_->DpiWindow(""))return std::make_unique<WindowDpiScope>(window);return {};}
+std::optional<EglHost::DrawWindowExtent> EglHost::CurrentDrawWindowExtent(){
+  std::lock_guard lock(impl_->mutex);impl_->Capture();const auto saved=Errors()[impl_->owner];
+  struct Restore{Impl&host;I saved;~Restore(){host.eglGetError();Errors()[host.owner]=saved;}} restore{*impl_,saved};
+  auto current=impl_->currents.find(std::this_thread::get_id());if(current==impl_->currents.end())return std::nullopt;
+  auto surface=impl_->objects.find(current->second.draw),context=impl_->objects.find(current->second.context);
+  if(surface==impl_->objects.end()||context==impl_->objects.end()||!surface->second.window||surface->second.native_destroyed||context->second.native_destroyed)return std::nullopt;
+  auto display=impl_->objects.find(surface->second.display);if(display==impl_->objects.end()||display->second.native_destroyed)return std::nullopt;
+  if(impl_->eglGetCurrentContext()!=context->second.native||impl_->eglGetCurrentSurface(0x3059)!=surface->second.native)return std::nullopt;
+  std::unique_ptr<WindowDpiScope> dpi;if(auto hwnd=impl_->DpiWindow(""))dpi=std::make_unique<WindowDpiScope>(hwnd);
+  I width=0,height=0;if(!impl_->eglQuerySurface(display->second.native,surface->second.native,0x3057,&width)||!impl_->eglQuerySurface(display->second.native,surface->second.native,0x3056,&height)||width<=0||height<=0)throw std::runtime_error("Cannot query current window framebuffer extent");
+  return DrawWindowExtent{current->second.context,current->second.draw,width,height};
+}
 std::optional<EglHost::ReadPbufferExtent> EglHost::CurrentReadPbufferExtent(){
   std::lock_guard lock(impl_->mutex);
   impl_->Capture();const auto saved=Errors()[impl_->owner];

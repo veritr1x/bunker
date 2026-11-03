@@ -1,0 +1,34 @@
+#include "android_build_manufacturer.h"
+#include "../fastaes/elfload.h"
+#include "traces.h"
+#include <jni.h>
+#include <array>
+#include <cstdio>
+static_assert(offsetof(JNINativeInterface,GetStaticFieldID)/8==144);
+static_assert(offsetof(JNINativeInterface,GetStaticObjectField)/8==145);
+static_assert(offsetof(JNINativeInterface,SetStaticObjectField)/8==154);
+static_assert(offsetof(JNINativeInterface,GetStringUTFChars)/8==169);
+static_assert(offsetof(JNINativeInterface,ReleaseStringUTFChars)/8==170);
+using Profile=bunker::windows::AndroidBuildManufacturerProfile;
+static addr_t env(bunker::jni::Host &h,size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=h.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;h.InvokeEnv(slot,s);return s.gpr.x0.qword;}
+int main(){try{
+ unsigned checks=0;auto check=[&](bool v,const char*why){if(!v)throw std::runtime_error(why);++checks;};
+ {bunker::jni::Host h([](addr_t){return false;});bool rejected=false;try{Profile p(h,static_cast<Profile::PropertyPolicy>(1));}catch(const std::invalid_argument&){rejected=true;}check(rejected,"invalid policy rejected");check(!env(h,6,reinterpret_cast<addr_t>("android/os/Build"))&&h.PendingException().find("NoClassDefFoundError")!=std::string::npos,"invalid policy did not define Build");h.ClearException();}
+ {bunker::jni::Host h([](addr_t){return false;});h.ThrowException("java/lang/IllegalStateException",u"existing");const auto prior=h.PendingException();bool rejected=false;try{Profile p(h,Profile::PropertyPolicy::AbsentAndroidProductProperties);}catch(const std::invalid_argument&){rejected=true;}check(rejected&&h.PendingException()==prior,"pending exception preserved before setup mutation");h.ClearException();check(!env(h,6,reinterpret_cast<addr_t>("android/os/Build")),"pending setup did not define Build");h.ClearException();}
+ elf_image image{};check(!elf_load(MANUFACTURER_IMAGE,0x74000000,nullptr,&image),"actual NDK JNI caller loads");bunker::jni::Host h([](addr_t){return false;});recomp::Runtime runtime;h.Install(runtime);runtime.AddTraces(kTraces,std::size(kTraces));
+ auto run=[&](const char*name,std::initializer_list<addr_t>args){alignas(16)std::array<uint8_t,65536>stack{};State s{};Reg GPR::*regs[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3};size_t i=0;for(auto a:args)(s.gpr.*regs[i++]).qword=a;s.gpr.sp.qword=reinterpret_cast<addr_t>(stack.data()+stack.size());s.gpr.x30.qword=0xfeedffff;auto*m=reinterpret_cast<Memory*>(UINT64_C(0x1234567887654320));check(runtime.Run(s,reinterpret_cast<addr_t>(elf_symbol(&image,name)),m)==m&&s.gpr.sp.qword==reinterpret_cast<addr_t>(stack.data()+stack.size())&&s.gpr.pc.qword==0xfeedffff,"actual NDK caller token/PC/SP");return s.gpr.x0.qword;};
+ h.DefineClass("android/os/Build$VERSION",{},"java/lang/Object",true);h.DefineField("android/os/Build$VERSION","SDK_INT","I",true);auto sdk=env(h,6,reinterpret_cast<addr_t>("android/os/Build$VERSION"));auto sdkfield=env(h,144,sdk,reinterpret_cast<addr_t>("SDK_INT"),reinterpret_cast<addr_t>("I"));env(h,159,sdk,sdkfield,33);
+ addr_t weak=0,global=0;
+ {Profile p(h,Profile::PropertyPolicy::AbsentAndroidProductProperties);auto value=run("manufacturer_lookup",{h.EnvAddress()});check(value&&h.StringValue(value)==std::optional<std::u16string>(u"unknown"),"AOSP absent-property fallback exact String");check(run("manufacturer_utf8",{h.EnvAddress(),value})==1,"actual NDK UTF8 acquisition/release is nonnull unknown");global=h.NewGlobalReference(value);weak=env(h,226,value);h.DeleteLocalReference(value);}
+ check(env(h,150,sdk,sdkfield)==33,"Build VERSION SDK33 unchanged");h.DeleteLocalReference(sdk);
+ auto owner=env(h,6,reinterpret_cast<addr_t>("android/os/Build"));auto field=run("manufacturer_field",{h.EnvAddress(),owner,reinterpret_cast<addr_t>("Ljava/lang/String;")});check(field&&h.PendingException().empty(),"static field owned by Build");
+ h.DefineClass("bunker/BuildProbe",{},"android/os/Build",true);auto child=env(h,6,reinterpret_cast<addr_t>("bunker/BuildProbe"));check(run("manufacturer_field",{h.EnvAddress(),child,reinterpret_cast<addr_t>("Ljava/lang/String;")})==field,"inherited static lookup retains declaring owner");
+ for(unsigned n=0;n<4;++n){auto value=run("manufacturer_get",{h.EnvAddress(),owner,field});check(value!=global&&env(h,232,value)==1&&env(h,24,value,global)&&h.StringValue(value)==std::optional<std::u16string>(u"unknown"),"fresh local and stable class String identity");h.DeleteLocalReference(value);}
+ for(const char*s:{"I","Ljava/lang/Object;"}){check(!run("manufacturer_field",{h.EnvAddress(),owner,reinterpret_cast<addr_t>(s)})&&h.PendingException().find("NoSuchFieldError")!=std::string::npos,"wrong descriptor rejected");h.ClearException();}
+ check(!env(h,94,owner,reinterpret_cast<addr_t>("MANUFACTURER"),reinterpret_cast<addr_t>("Ljava/lang/String;"))&&h.PendingException().find("NoSuchFieldError")!=std::string::npos,"instance lookup rejected");h.ClearException();
+ auto other=env(h,6,reinterpret_cast<addr_t>("java/lang/Object"));check(!run("manufacturer_get",{h.EnvAddress(),other,field})&&h.PendingException().find("IllegalArgumentException")!=std::string::npos,"wrong declaring owner rejected");h.ClearException();h.DeleteLocalReference(other);
+ bool duplicate=false;try{Profile p(h,Profile::PropertyPolicy::AbsentAndroidProductProperties);}catch(const std::invalid_argument&){duplicate=true;}check(duplicate,"duplicate owner rejected");auto after=run("manufacturer_get",{h.EnvAddress(),owner,field});check(env(h,24,after,global),"duplicate setup leaves original static value");h.DeleteLocalReference(after);
+ check(!env(h,144,owner,reinterpret_cast<addr_t>("MODEL"),reinterpret_cast<addr_t>("Ljava/lang/String;"))&&h.PendingException().find("NoSuchFieldError")!=std::string::npos,"unrepresented Build properties remain unsupported");h.ClearException();
+ h.DeleteGlobalReference(global);check(!env(h,24,weak,0),"class retains fallback after profile/global/local teardown");after=run("manufacturer_lookup",{h.EnvAddress()});check(env(h,24,after,weak)&&run("manufacturer_utf8",{h.EnvAddress(),after})==1,"retained static fallback still returns valid C string");h.DeleteLocalReference(after);h.DeleteLocalReference(child);h.DeleteLocalReference(owner);env(h,227,weak);check(h.PendingException().empty(),"no hidden setup or field exception");
+ std::printf("Android Build manufacturer: %u checks; actual NDK JNI static String/UTF8, explicit absent-property AOSP fallback unknown, SDK33 preserved; no vendor query\n",checks);
+}catch(const std::exception&e){std::fprintf(stderr,"manufacturer test: %s\n",e.what());return 1;}}

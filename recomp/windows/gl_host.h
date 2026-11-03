@@ -27,6 +27,11 @@ class GlHost {
   static const std::vector<Query> &Queries();
   // Every supported typed command, in append-only marker order.
   static const std::vector<std::string> &Commands();
+  struct FrameDiagnostics {uint64_t calls=0,draw_submissions=0,clear_submissions=0,capture_attempts=0;bool first_present_png=false,frame_png=false,nonuniform=false;int32_t width=0,height=0;std::string failure;};
+  void EnableFrameDiagnostics(const std::wstring &absolute_png_path);
+  FrameDiagnostics DescribeFrameDiagnostics();
+  // Called on the render worker before an original window eglSwapBuffers.
+  void CaptureWindowBeforePresent();
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
