@@ -24,7 +24,10 @@ unchanged. An offscreen framebuffer is not a presented window. Object cleanup
 runs through explicit native deletes while its context is current, or through
 native context lifetime; no wrong-context provider-destructor deletion is added.
 
-The focused fixture is drafted, **not yet executed**. It compiles actual NDK
+The first actual focused execution passes168 checks, receipt
+`work/gl-framebuffer-qualification1/acceptance.json`, SHA256
+`2983c34747d5ca1e2e950e4b4db9d91d30e205f341bc4f686547e941ebbae8df`.
+It compiles actual NDK
 callers and compares their translated calls against direct native ANGLE in a
 separate owned context. It covers real RGBA4 storage, completeness, nine
 renderbuffer and four texture-attachment query parameters, 2D/cube-face

@@ -17,7 +17,23 @@ PC/LR; attribution of this null target remains a static inference.
 Read-only audit: `work/first-frame-gles-query-width-boundary1`, summary
 SHA256 `951857451feae6b4a5455791465b97e040c22bd4bb13be6138979d81ff9ddde2`.
 The next provider batch covers51 observed missing GLES2 core names and
-the narrow indexed compute-limit getter; component checks are pending.
+the narrow indexed compute-limit getter, appended after the old63 markers.
+All six real ANGLE/NDK component gates pass: textures270 checks,
+uniforms1923, framebuffer/renderbuffer168, miscellaneous290,
+indexed limits88 and the expanded115-export service module192.
+Receipts are `work/gl-texture-qualification2`,
+`work/gl-uniform-qualification1`, `work/gl-framebuffer-qualification1`,
+`work/gl-misc-qualification1`, `work/gl-indexed-qualification1` and
+`work/gl-core-module-qualification1`, each `acceptance.json`.
+Texture qualification1 is preserved: it expected a poisoned compressed-PBO
+upload to succeed, while actual ANGLE rejects it. Qualification2 corrects
+only that fixture expectation with a native error oracle and a separate
+valid upload/texel comparison; production code is unchanged.
+The central source projection preserves every old implementation and
+query row. Source proof: `work/gl-core-composition-preparation1/source-proof.json`,
+SHA256 `05c093adcb92d5f6b455d61e3b84fce1fe0467816bfdf409abf2cb91d8c1cf4d`.
+These gates establish component behavior, not an original game frame.
+The next actual startup build is `work/windows-first-frame-gles-core1`.
 
 The preceding execution frontier was missing scalar query width for
 `glGetIntegerv(0x90d9)`, original return `70488370`. Actual build

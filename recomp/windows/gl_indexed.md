@@ -14,7 +14,10 @@ and retains the actual error. A successful result publishes exactly four tracked
 guest bytes. Other indexed targets remain named unsupported, including targets
 whose other widths have not been qualified. No native value is synthesized.
 
-The fixture is drafted, **not yet executed**. It uses strict NDK calls and direct
+The first actual fixture execution passes88 checks, receipt
+`work/gl-indexed-qualification1/acceptance.json`, SHA256
+`09d8be9ba1d3206270a21680f601218e708214b8de5c954ce632f1894e850316`.
+It uses strict NDK calls and direct
 native ANGLE comparisons for both targets at indices 0..2 and invalid indices
 3/UINT_MAX, a four-byte output ending at a no-access page, prior-error
 preservation, a real cross-thread guest-exclusive invalidation check, and an
