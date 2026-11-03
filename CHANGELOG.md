@@ -4,6 +4,15 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.8.2 (2026-11-03)
+
+Japanese APKs work with the Japanese master data (20240405123139.bin.e):
+missions follow its own rules and the Yuletide multi-step summon is offered.
+The Anecdotes' panel pages show in the game's language, with item names
+instead of raw IDs. The Archive's index now builds by itself: on Android
+before the game starts, on iPhone and iPad in the background. Master data
+files are accepted by their contents, so a renamed download works.
+
 ## 2026-11-03 (after 1.8.1)
 
 ### Japanese
