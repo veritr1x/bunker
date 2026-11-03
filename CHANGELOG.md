@@ -15,6 +15,14 @@ under its heading, down to the previous release.
   Unclaimed progress recorded under a mismatched rule resets before rewards
   can be claimed; already received rewards stay received. [b04cd9a]
 
+### Master data
+- Import master data accepts the file by its contents, not its name: a
+  browser's second download, `20240405123139.bin (1).e`, was refused with a
+  message naming only the Global file. The message now names both
+  `20240404193219.bin.e` (Global) and `20240405123139.bin.e` (Japanese), and a
+  file over 64 MB (the resource dump picked by mistake) is refused without
+  being read. [123bfe9]
+
 ### Web builder
 - The master data line says which file goes with which APK:
   `20240404193219.bin.e` for Global, `20240405123139.bin.e` for Japanese. [76ec585]
