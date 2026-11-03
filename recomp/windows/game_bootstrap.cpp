@@ -15,6 +15,8 @@
 #include "signal_host.h"
 #include "signal_sleep.h"
 #include "signal_futex.h"
+#include "thread_priority.h"
+#include "android_process.h"
 #include "semaphore_host.h"
 #include "nonlocal_jmp.h"
 #include "audio_volume_session.h"
@@ -351,6 +353,14 @@ int main(int argc,char **argv){
                          [](uint64_t){return uint64_t{0};});
     futexes.SetErrorSink(error);
     recomp::Runtime futex_bridges;
+    ThreadPriorities priorities(threads,ThreadPriorities::Profile::UnityNormalClass);
+    priorities.SetErrorSink(error);
+    recomp::Runtime priority_bridges;
+    AndroidProcess android_process(java,priorities,[](const AndroidProcess::Observation &observation){
+      GameWorkerObservation::NativeEnvironment native;
+      std::fprintf(stderr,"Game bootstrap: original Process.setThreadPriority %s caller_native_tid=%lu target_tid=%u nice=%d error=%d; explicit Windows Unity4/NORMAL translation\n",observation.phase==AndroidProcess::Observation::Phase::Enter?"ENTER":"RETURN",GetCurrentThreadId(),observation.tid,observation.nice,observation.error);
+      std::fflush(stderr);
+    });
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
@@ -472,6 +482,22 @@ int main(int argc,char **argv){
       }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original syscall failed:%s\n",e.what());std::abort();}
       catch(...){std::fprintf(stderr,"Game bootstrap: original syscall failed:unknown host exception\n");std::abort();}
     });
+    priorities.Install(priority_bridges);
+    const auto getpriority_marker=priorities.Marker("getpriority");
+    runtime.AddImport(getpriority_marker,[&,getpriority_marker](State &s){
+      const auto which=s.gpr.x0.dword,who=s.gpr.x1.dword;const auto caller=s.gpr.x30.qword;
+      try{
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original getpriority ENTER caller_native_tid=%lu which=%u who=%u LR=%#llx\n",GetCurrentThreadId(),which,who,(unsigned long long)caller);
+          std::fflush(stderr);
+        }
+        priority_bridges.Dispatch(s,getpriority_marker,nullptr);
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original getpriority RETURN who=%u LR=%#llx result=%d errno=%d\n",who,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());
+        }
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original getpriority failed:%s\n",e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original getpriority failed:unknown host exception\n");std::abort();}
+    });
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     constexpr addr_t ack_audit=0x7ffc60000100ULL;
     if(collector)runtime.AddImport(ack_audit,[&](State &s){try{GameWorkerObservation::NativeEnvironment native;collector->BeforePost(s);runtime.Dispatch(s,semaphores.Marker("sem_post"),nullptr);collector->AfterPost(s);}catch(const std::exception&e){std::fprintf(stderr,"Game GC: original post observation failed:%s\n",e.what());std::abort();}catch(...){std::abort();}});
@@ -529,7 +555,7 @@ int main(int argc,char **argv){
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
         if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
-        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
+        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
         if(address){++provided;if(egl&&Try(*egl,name)==address&&forwarded_egl.insert(address).second)runtime.AddImport(address,[&,address,name](State &s){std::fprintf(stderr,"Game bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx LR=%#llx\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)s.gpr.x30.qword);egl_bridges.Dispatch(s,address,nullptr);});}

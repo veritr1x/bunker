@@ -70,6 +70,12 @@ class Host {
                               std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void BindStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
                             std::function<void(addr_t,const MethodArguments&)> handler);
+  // Explicit platform implementation of an existing initialized bootstrap
+  // class's static native void declaration. Native modifier remains true;
+  // this does not fabricate a translated native-entry address or registration.
+  // Guest RegisterNatives/UnregisterNatives cannot replace/remove this owner.
+  void BindPlatformNativeStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                                        std::function<void(addr_t,const MethodArguments&)> handler);
   void DefineBooleanMethod(const std::string &class_name,const std::string &name,const std::string &signature,
                            std::function<bool(addr_t,const MethodArguments&)> handler);
   void DefineIntMethod(const std::string &owner,const std::string &name,const std::string &signature,
@@ -138,7 +144,7 @@ class Host {
   addr_t HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state);
   std::shared_ptr<void> HostState(addr_t reference,std::type_index type);
   void DefineHandler(const std::string &owner,const std::string &name,const std::string &signature,char result,
-                     std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static=false,bool bind_existing=false);
+                     std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static=false,bool bind_existing=false,bool platform_native=false);
   void Raise(const std::string &type, const std::string &message, bool message_present = true);
   addr_t Local(const std::shared_ptr<Object> &object);
   std::shared_ptr<Object> Get(addr_t reference, bool allow_null = false);

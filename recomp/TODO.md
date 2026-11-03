@@ -73,9 +73,13 @@ LR70438a80. JNI lookup also leaves a NoClassDefFoundError for android/os/Process
 Original code calls static Process.setThreadPriority(II)V and then always
 queries that same native TID; the query is not a fallback for missing Java.
 An owned-thread priority service and the real Android method/exception contract
-are being qualified together. Windows uses an explicit four-level translation
+now pass248 Windows checks and13 actual ARM64/Bionic reference records. Existing
+JNI tests pass on both hosts, plus Windows thread and signal-lifecycle regressions.
+The bootstrap exception catalog includes SecurityException as a RuntimeException
+subclass; a real Java throwable roundtrip is tested without simulating OS denial.
+Windows uses an explicit four-level translation
 under NORMAL_PRIORITY_CLASS, with real native set/query/readback; Linux nice
-scheduling equivalence is not claimed. A returned public initialization value,
+scheduling equivalence is not claimed. A native game retry is next. A returned public initialization value,
 nativeRender return and rendered image remain unobserved.
 
 The process-image query returns the actual native executable with forward

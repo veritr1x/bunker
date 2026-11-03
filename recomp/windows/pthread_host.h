@@ -99,6 +99,26 @@ class Pthreads {
   // Native calling-thread ID, checked for Android pid_t width. This is not
   // the lifetime-unique opaque pthread_self token or a Linux process-group ID.
   int32_t GetTid();
+  // Optional native-only lease for the closed owned-thread capability. WHO=0
+  // is actual current; other values are native TIDs, never pthread tokens.
+  // Empty means a known retired target or negative Android pid_t. Unowned
+  // identifiers are unsupported, not evidence of foreign OS thread absence.
+  class NativeThreadLease {
+   public:
+    NativeThreadLease()=default;
+    explicit operator bool() const noexcept { return bool(storage_); }
+    uintptr_t NativeHandleBits() const noexcept;
+    uint32_t NativeTid() const noexcept;
+   private:
+    friend class Pthreads;
+    struct Storage;
+    explicit NativeThreadLease(std::shared_ptr<Storage> value):storage_(std::move(value)){}
+    std::shared_ptr<Storage> storage_;
+  };
+  // Retains a real DuplicateHandle under registry/liveness protection. No
+  // callbacks run while locked. Handle release preserves native errno/fenv/
+  // LastError; callers must not close or mutate ownership of its borrowed bits.
+  NativeThreadLease AcquireNativeThread(uint32_t who);
   // Bounded prctl: PR_SET_NAME only. Linux ignores the other variadic arguments.
   // The first 15 bytes are truncated before strict UTF-8 conversion to Windows.
   // Errors return -1 through the configured guest errno sink; no PID effects.

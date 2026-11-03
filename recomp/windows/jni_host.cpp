@@ -156,6 +156,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   for (auto [name,superclass] : std::vector<std::pair<const char *,const char *>>{
       {"java/lang/Exception","java/lang/Throwable"},{"java/lang/RuntimeException","java/lang/Exception"},
       {"java/lang/IllegalArgumentException","java/lang/RuntimeException"},{"java/lang/IllegalStateException","java/lang/RuntimeException"},
+      {"java/lang/SecurityException","java/lang/RuntimeException"},
       {"java/lang/NullPointerException","java/lang/RuntimeException"},{"java/lang/IndexOutOfBoundsException","java/lang/RuntimeException"},
       {"java/lang/InstantiationException","java/lang/Exception"},
       {"java/lang/NegativeArraySizeException","java/lang/RuntimeException"},
@@ -249,6 +250,11 @@ void Host::BindStaticVoidMethod(const std::string &owner,const std::string &name
   if(!handler)throw std::invalid_argument("missing static void implementation");
   DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;},true,true);
 }
+void Host::BindPlatformNativeStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                                            std::function<void(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing platform-native static void implementation");
+  DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;},true,true,true);
+}
 void Host::DefineBooleanMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                std::function<bool(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing boolean handler");
@@ -280,7 +286,7 @@ void Host::DefineConstructor(const std::string &owner,const std::string &signatu
 void Host::ThrowException(const std::string &type,const std::u16string &message){ProviderLock lock(*this);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,Encode(message));}
 void Host::ThrowException(const std::string &type){ProviderLock lock(*this);if(!Assignable(type,"java/lang/Throwable"))throw std::invalid_argument("host exception needs a declared Throwable class");Raise(type,"",false);}
 void Host::DefineHandler(const std::string &class_name,const std::string &name,const std::string &signature,char result,
-                         std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static,bool bind_existing){
+                         std::function<addr_t(addr_t,const MethodArguments&)> handler,bool is_static,bool bind_existing,bool platform_native){
   ProviderLock lock(*this);
   auto clazz = classes_.find(class_name);
   if(clazz==classes_.end()||name.empty()||signature.empty()||signature[0]!='('||!handler)throw std::invalid_argument("host method requires a known class and handler");
@@ -306,6 +312,13 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   if((result=='Z'&&returns!="Z")||(result=='V'&&returns!="V")||(result=='I'&&returns!="I")||(result=='F'&&returns!="F")||(result=='L'&&!reference_result))throw std::invalid_argument("invalid host result descriptor");
   auto key = std::make_pair(name, signature);
   auto found = clazz->second->methods.find(key);
+  if(platform_native){
+    if(!bind_existing||!is_static||result!='V'||!clazz->second->bootstrap||!clazz->second->initialized||clazz->second->is_interface||
+       found==clazz->second->methods.end()||!found->second->declaration.is_static||!found->second->declaration.is_native||
+       found->second->builtin!=Method::kNone||found->second->object_handler||found->second->native)
+      throw std::invalid_argument("platform-native body requires an unowned static native void bootstrap declaration");
+    found->second->object_handler=std::move(handler);found->second->argument_types=std::move(arguments);return;
+  }
   if(bind_existing){
     if(found==clazz->second->methods.end()||found->second->declaration.is_static!=is_static||found->second->declaration.is_native||found->second->builtin!=Method::kNone||found->second->object_handler)
       throw std::invalid_argument("implementation requires an existing unimplemented nonnative method");
@@ -727,6 +740,7 @@ int32_t Host::Register(addr_t handle, const NativeMethod *methods, int32_t count
     if (found == clazz->methods.end() || !found->second->declaration.is_native) {
       Raise("java/lang/NoSuchMethodError", native_name + native_signature); return kError;
     }
+    if(found->second->object_handler){Raise("java/lang/UnsatisfiedLinkError","native method is owned by the platform: "+native_name+native_signature);return kError;}
     if (!wire.entry || !native_entry_validator_(wire.entry)) { Raise("java/lang/UnsatisfiedLinkError", native_name); return kError; }
     if (!seen.insert(found->second.get()).second) { Raise("java/lang/IllegalArgumentException", "duplicate native registration"); return kError; }
     updates.emplace_back(found->second.get(), wire.entry);
@@ -890,7 +904,9 @@ void Host::InvokeEnv(size_t slot, State &s) {
       RetireObject(array->elements[index]);array->elements[index]=std::move(value);return;
     }
     case 215: IntResult(s, Register(a, reinterpret_cast<const NativeMethod *>(b), static_cast<int32_t>(c))); return;
-    case 216: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } for (auto &method : clazz->methods) method.second->native = 0; IntResult(s, kOk); return; }
+    case 216: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; }
+      for(const auto &method:clazz->methods)if(method.second->declaration.is_native&&method.second->object_handler){Raise("java/lang/UnsatisfiedLinkError","native method is owned by the platform");IntResult(s,kError);return;}
+      for (auto &method : clazz->methods) method.second->native = 0; IntResult(s, kOk); return; }
     case 219: if (!a) { IntResult(s, kError); return; } Write(a, VmAddress()); IntResult(s, kOk); return;
     case 220: case 221: {
       auto object = String(a); auto start = static_cast<int32_t>(b), length = static_cast<int32_t>(c);

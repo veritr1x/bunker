@@ -1,9 +1,11 @@
+#include <cfenv>
 #include "pthread_host.h"
 #include "../whole/bridge.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cerrno>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -61,6 +63,21 @@ uint64_t BootTicks100ns(){
   return GetTickCount64()*10000ULL;
 }
 }
+namespace {
+struct LeaseEnvironment {
+  int error=errno;DWORD last_error=GetLastError();fenv_t fp{};
+  LeaseEnvironment(){std::fegetenv(&fp);}
+  ~LeaseEnvironment(){std::fesetenv(&fp);errno=error;SetLastError(last_error);}
+};
+}
+struct Pthreads::NativeThreadLease::Storage {
+  HANDLE handle=nullptr;uint32_t tid=0;
+  ~Storage(){LeaseEnvironment preserve;if(handle)CloseHandle(handle);}
+};
+uintptr_t Pthreads::NativeThreadLease::NativeHandleBits() const noexcept {
+  return storage_?reinterpret_cast<uintptr_t>(storage_->handle):0;
+}
+uint32_t Pthreads::NativeThreadLease::NativeTid() const noexcept {return storage_?storage_->tid:0;}
 struct Pthreads::Impl {
   struct Waiter { std::shared_ptr<const WaitWake> wake; bool signaled=false; };
   struct Mutex { std::mutex lock; std::condition_variable cv; uint64_t owner=0; uint32_t depth=0; unsigned waiters=0; int type=0; bool dead=false; std::vector<std::shared_ptr<Waiter>> channels; };
@@ -244,6 +261,30 @@ int32_t Pthreads::GetTid(){
   if(!native||native>static_cast<DWORD>(INT32_MAX)||thread.native_id!=native)
     throw std::runtime_error("current native thread ID does not match a representable Android pid_t");
   return static_cast<int32_t>(native);
+}
+Pthreads::NativeThreadLease Pthreads::AcquireNativeThread(uint32_t who){
+  LeaseEnvironment preserve;
+  if(who>uint32_t(INT32_MAX))return {};
+  if(!who||who==GetCurrentThreadId())who=static_cast<uint32_t>(GetTid());
+  auto storage=std::make_shared<NativeThreadLease::Storage>();
+  bool known=false,failed=false;DWORD error=0;
+  {
+    std::lock_guard lock(impl_->registry);
+    for(const auto &item:impl_->threads){
+      const auto &thread=*item.second;if(thread.native_id!=who)continue;
+      known=true;if(thread.complete||!thread.handle)continue;
+      const auto status=WaitForSingleObject(thread.handle,0);
+      if(status==WAIT_OBJECT_0)continue;
+      if(status!=WAIT_TIMEOUT){failed=true;error=GetLastError();break;}
+      if(!DuplicateHandle(GetCurrentProcess(),thread.handle,GetCurrentProcess(),&storage->handle,0,FALSE,DUPLICATE_SAME_ACCESS)){failed=true;error=GetLastError();}
+      else storage->tid=who;
+      break;
+    }
+  }
+  if(failed)throw std::runtime_error("owned thread native handle lease failed: "+std::to_string(error));
+  if(storage->handle)return NativeThreadLease(std::move(storage));
+  if(!known)throw std::runtime_error("unsupported priority target outside owned thread catalog");
+  return {};
 }
 int Pthreads::Prctl(int32_t option,const char *name){
   auto fail=[&](int error){
