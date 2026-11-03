@@ -88,9 +88,12 @@ Startup then reaches syscall122, sched_setaffinity, at LR70438a10, targeting
 the same worker with length4 and a pointer to the original owned stack. No mask
 bytes are read or affinity operation/return observed in this attempt. Original
 code can supply a dynamic mask or -1, and maps zero to all32 bits; the log does
-not distinguish those paths. A real owned-thread Windows affinity adapter is
-next. A returned public initialization value, nativeRender return and rendered
-image remain unobserved.
+not distinguish those paths. An owned-thread Windows affinity adapter now
+passes158 checks/32 records, with22 shared cases matching native Linux four-byte
+kernel calls. ARM64/QEMU rejects length4 before copying despite the real Android
+kernel accepting it; its records and separate length8 controls are explicitly
+separated from that comparison. A native game retry is next. A returned public
+initialization value, nativeRender return and rendered image remain unobserved.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive

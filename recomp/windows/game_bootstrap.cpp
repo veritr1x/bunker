@@ -17,6 +17,7 @@
 #include "signal_futex.h"
 #include "thread_priority.h"
 #include "android_process.h"
+#include "thread_affinity.h"
 #include "semaphore_host.h"
 #include "nonlocal_jmp.h"
 #include "audio_volume_session.h"
@@ -361,6 +362,17 @@ int main(int argc,char **argv){
       std::fprintf(stderr,"Game bootstrap: original Process.setThreadPriority %s caller_native_tid=%lu target_tid=%u nice=%d error=%d; explicit Windows Unity4/NORMAL translation\n",observation.phase==AndroidProcess::Observation::Phase::Enter?"ENTER":"RETURN",GetCurrentThreadId(),observation.tid,observation.nice,observation.error);
       std::fflush(stderr);
     });
+    ThreadAffinities affinities(threads,ThreadAffinities::Profile::WindowsSingleGroupNativeIndices,0x7ff600600000ULL,[](const ThreadAffinities::Observation &observation){
+      GameWorkerObservation::NativeEnvironment native;
+      if(observation.phase==ThreadAffinities::Observation::Phase::MaskCopied){
+        std::fprintf(stderr,"Game bootstrap: original sched_setaffinity MASK-COPIED caller_native_tid=%lu pid=%d size=%u pointer=%#llx copied=%d requested=%#x; exact provider copy, no return claim\n",GetCurrentThreadId(),observation.pid,observation.size,(unsigned long long)observation.user_mask,int(observation.mask_copied),observation.requested_mask);
+      }else{
+        std::fprintf(stderr,"Game bootstrap: original sched_setaffinity RESULT caller_native_tid=%lu pid=%d resolved_tid=%u copied=%d target=%d topology=%d native_set=%d readback_valid=%d requested=%#x process=%#llx system=%#llx effective=%#llx previous=%#llx readback=%#llx result=%lld operation_error=%d\n",GetCurrentThreadId(),observation.pid,observation.resolved_tid,int(observation.mask_copied),int(observation.target_resolved),int(observation.topology_valid),int(observation.native_set_called),int(observation.readback_valid),observation.requested_mask,(unsigned long long)observation.process_mask,(unsigned long long)observation.system_mask,(unsigned long long)observation.effective_mask,(unsigned long long)observation.previous_mask,(unsigned long long)observation.readback_mask,(long long)observation.result,observation.error);
+      }
+      std::fflush(stderr);
+    });
+    affinities.SetErrorSink(error);
+    recomp::Runtime affinity_bridges;
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
@@ -457,6 +469,7 @@ int main(int argc,char **argv){
     });
     // The forwarding import below owns the complete original-call witness.
     futexes.Install(futex_bridges,[](const State&,uint64_t){});
+    affinities.Install(affinity_bridges);
     const auto syscall_marker=futexes.Marker("syscall");
     runtime.AddImport(syscall_marker,[&,syscall_marker](State &s){
       try{
@@ -475,7 +488,8 @@ int main(int argc,char **argv){
         }
         std::fflush(stderr);
         }
-        futex_bridges.Dispatch(s,syscall_marker,nullptr);
+        if(uint32_t(args[0])==122)affinity_bridges.Dispatch(s,affinities.Marker("syscall"),nullptr);
+        else futex_bridges.Dispatch(s,syscall_marker,nullptr);
         {GameWorkerObservation::NativeEnvironment native;
         std::fprintf(stderr,"Game bootstrap: original syscall RETURN token=%#llx LR=%#llx result=%lld errno=%d\n",(unsigned long long)token,(unsigned long long)caller,(long long)int64_t(s.gpr.x0.qword),files.Error());
         }

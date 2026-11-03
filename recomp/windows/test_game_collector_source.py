@@ -22,6 +22,16 @@ def main():
  base_archive=Path(priority['base_archive_path']);assert sha(base_archive)==priority['base_archive_sha256']==peer['base_archive_sha256'];prerequisites[str(base_archive)]=sha(base_archive)
  with tarfile.open(base_archive)as archive:
   old_pthreads={n:hashlib.sha256(archive.extractfile('recomp/windows/'+n).read()).hexdigest()for n in('pthread_host.h','pthread_host.cpp')}
+ affinity_path=HERE.parent/'work/thread-affinity-held1.json';affinity=json.loads(affinity_path.read_text());assert affinity['passed'];prerequisites[str(affinity_path)]=sha(affinity_path)
+ affinity_acceptance=Path(affinity['acceptance_path']);assert sha(affinity_acceptance)==affinity['acceptance_sha256'];affinity_qualified=json.loads(affinity_acceptance.read_text());assert affinity_qualified['passed']and affinity_qualified['core_sources']==affinity['core_sources']and affinity_qualified['fixture_sources']==affinity['fixture_sources'];prerequisites[str(affinity_acceptance)]=sha(affinity_acceptance)
+ assert set(affinity['core_sources'])=={'windows/thread_affinity.h','windows/thread_affinity.cpp'}and len(affinity['fixture_sources'])==9
+ affinity_peer=Path(affinity['source_peer_path']);assert sha(affinity_peer)==affinity['source_peer_sha256'];affinity_review=json.loads(affinity_peer.read_text());assert affinity_review['passed']and affinity_review['source_files']==affinity['core_sources'];prerequisites[str(affinity_peer)]=sha(affinity_peer)
+ for name,digest in affinity['core_sources'].items():
+  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+ for name,digest in affinity['fixture_sources'].items():
+  path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+ for name,digest in affinity['protected_base_sources'].items():
+  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  # Accepted component manifests pin the actual production inputs used here.
  for manifest,field,names in [('worker-signal-lifecycle-held4.json','seven_live_hashes',('worker_signal_lifecycle.h','worker_signal_lifecycle.cpp')),('pthread-wait-held.json','live_sources',('pthread_host.h','pthread_host.cpp')),('signal-sleep-held5.json','core_sources',('signal_host.h','signal_host.cpp','signal_sleep.h','signal_sleep.cpp'))]:
   path=HERE.parent/'work'/manifest;record=json.loads(path.read_text());prerequisites[str(path)]=sha(path)
