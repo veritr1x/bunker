@@ -3,7 +3,29 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: guest `dlopen("libGLESv2.so",2)` and its
+Current execution frontier: the configured EGL procedure resolver throws
+on `glDebugMessageControl`. Actual build
+`work/windows-first-frame-gles-module1`, host
+`0bf472dc4f45a9ae929fe540a88685eccd4fdbd1`, executable
+`84263022c5c5ce94346665dbb97b1d8e9960b4eddf5bb64f417839e890fce04e`,
+now resolves the GLES module and dispatches188 real typed GL queries
+(one GetString, one GetIntegerv and186 GetStringi calls). It stops at
+`eglGetProcAddress`, with no drawing, swap, nativeRender return or PNG.
+Original `7047363c` explicitly accepts a null result before storing the
+optional debug pointer. The next repair makes the configured typed lookup
+return zero for unsupported names, consistent with the
+[EGL procedure-lookup contract](https://registry.khronos.org/EGL/specs/eglspec.1.5.withchanges.pdf),
+while preserving known markers and the default unconfigured-resolver fence.
+No debug API or callback is replaced with successful stub behavior.
+The extended actual NDK/ANGLE component passes140 checks, including
+known GL/EGL markers, null optional results, unchanged default fence
+and pending-error behavior. The previous registry22-case results per
+host are source-hash-verified and reused rather than rerun. Receipt:
+`work/gl-nullable-proc-qualification1/acceptance.json`, SHA256
+`71c3725f9d88db882a122a132b4292ae7ec2c77acee41410e1d00d53a4a364c9`.
+The next build is `work/windows-first-frame-gles-procedure1`.
+
+The preceding execution frontier was guest `dlopen("libGLESv2.so",2)` and its
 three `dlsym` requests return zero, followed by an unresolved indirect
 target0. The graphics provider already has typed `glGetString`,
 `glGetIntegerv` and `glGetStringi`; the module-loader path does not yet

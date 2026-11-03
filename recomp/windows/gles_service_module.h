@@ -4,6 +4,12 @@
 #include <stdexcept>
 
 namespace bunker::windows {
+// Optional procedure probes expose only installed typed commands. Unknown
+// signatures remain unavailable; no native function address is returned.
+inline addr_t FindTypedGlesProcedure(const GlHost &graphics,const std::string &name) {
+  for(const auto &supported:GlHost::Commands())if(name==supported)return graphics.Marker(name);
+  return 0;
+}
 // Install GlHost's typed markers in the guest Runtime before registration.
 // GlHost/EglHost retain backend ownership and must outlive active imports.
 // This is a stateless service facade, not a mapped Android ELF or native DLL.

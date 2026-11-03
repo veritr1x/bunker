@@ -128,8 +128,7 @@ addr_t TryProcess(bunker::windows::SignalHost &provider,const std::string &name)
   try{return provider.ProcessMarker(name);}catch(const std::invalid_argument&){return 0;}
 }
 addr_t TryGlImport(bunker::windows::GlHost &provider,const std::string &name){
-  for(const auto &supported:bunker::windows::GlHost::Commands())if(name==supported)return provider.Marker(name);
-  return 0;
+  return bunker::windows::FindTypedGlesProcedure(provider,name);
 }
 bool Translated(addr_t entry){
   // Generated trace table is ordered. Data exports are intentionally excluded.
@@ -331,7 +330,7 @@ int main(int argc,char **argv){
         std::fputs("First frame: diagnostics enabled; original EGL/GLES only, window readback before original presentation; initial EGL/draw/presentation counts=0\n",stderr);
       }
       egl->SetProcedureResolver([&](const std::string &name){
-        std::fprintf(stderr,"Unity bootstrap: requested typed GL procedure %s\n",name.c_str());return graphics->Marker(name);
+        std::fprintf(stderr,"Unity bootstrap: requested typed GL procedure %s\n",name.c_str());return FindTypedGlesProcedure(*graphics,name);
       });
     }
     GameModuleLedger unity_ledger{"Unity",{std::begin(unity_image::kConstructors),std::end(unity_image::kConstructors)},{std::begin(unity_image::kUnityFinalizers),std::end(unity_image::kUnityFinalizers)}};
