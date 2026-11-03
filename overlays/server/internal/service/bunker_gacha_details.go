@@ -39,20 +39,26 @@ func SetArchiveRoot(dataRoot string) {
 
 // gameText looks up English text by key, and costume assets (ch008001) by costume id.
 type gameText struct {
-	db *sql.DB
+	db   *sql.DB
+	lang string // ja, ko: names from text_local first; en or "": English only
+
+	missions []missionName // mission names in English and lang, read once for missionText
 }
 
-func openGameText() *gameText {
+func openGameText() *gameText { return openGameTextIn("en") }
+
+// openGameTextIn opens the Archive's text for pages in lang (ja, ko or en).
+func openGameTextIn(lang string) *gameText {
 	for _, p := range archivePaths {
 		if _, err := os.Stat(p); err != nil {
 			continue
 		}
 		db, err := sql.Open("sqlite", "file:"+p+"?mode=ro")
 		if err == nil {
-			return &gameText{db: db}
+			return &gameText{db: db, lang: lang}
 		}
 	}
-	return &gameText{}
+	return &gameText{lang: lang}
 }
 
 func (t *gameText) close() {
@@ -64,6 +70,9 @@ func (t *gameText) close() {
 func (t *gameText) text(key string) string {
 	if t.db == nil {
 		return ""
+	}
+	if v := t.local(key); v != "" {
+		return v
 	}
 	var v string
 	t.db.QueryRow(`SELECT value FROM text WHERE key = ?`, key).Scan(&v)

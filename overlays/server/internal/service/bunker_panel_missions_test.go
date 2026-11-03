@@ -136,11 +136,11 @@ func TestPanelMissionWebAPI(t *testing.T) {
 	users.u.EnsureMaps()
 	users.u.Ext.EnsureMaps()
 	users.u.Ext.PanelMissions[8] = store.PanelMissionState{Progress: map[int32]int64{100: 10, 101: 4}}
-	defer func(p func() *missions.Panels, u panelUserStore, n func() int64, s func(*missions.Panels, missions.PanelRun, int32) string) {
+	defer func(p func() *missions.Panels, u panelUserStore, n func() int64, s func(*missions.Panels, missions.PanelRun, int32, string) string) {
 		panelSheets, panelUsers, panelNow, panelStoryText = p, u, n, s
 	}(panelSheets, panelUsers, panelNow, panelStoryText)
 	panelSheets, panelUsers, panelNow = testPanels, users, func() int64 { return 5000 }
-	panelStoryText = func(*missions.Panels, missions.PanelRun, int32) string {
+	panelStoryText = func(*missions.Panels, missions.PanelRun, int32, string) string {
 		return "She fights.\nShe channels quiet will into her blade."
 	}
 	common := map[string]any{"userIdString": "1", "sessionKey": "x"}

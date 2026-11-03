@@ -158,7 +158,7 @@ func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserSt
 			fmt.Fprintf(&b, `<p class="complete">Sheet reward: %s</p>`, html.EscapeString(rewardText(text, pg.Complete)))
 		}
 		if done {
-			if story := panelStory(p, run, pg.Page); story != "" {
+			if story := panelStory(p, run, pg.Page, "en"); story != "" {
 				fmt.Fprintf(&b, `<blockquote>%s</blockquote>`, html.EscapeString(story))
 			}
 		}
@@ -167,7 +167,7 @@ func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserSt
 }
 
 // panelStory is a completed page's story (English), from the game data.
-func panelStory(p *missions.Panels, run missions.PanelRun, page int32) string {
+func panelStory(p *missions.Panels, run missions.PanelRun, page int32, lang string) string {
 	pageId := p.PageId(run.Target, page)
 	var flavor int32
 	if rows, err := utils.ReadTable[masterdata.EntityMWebviewPanelMissionPage]("m_webview_panel_mission_page"); err == nil {
@@ -177,14 +177,15 @@ func panelStory(p *missions.Panels, run missions.PanelRun, page int32) string {
 			}
 		}
 	}
+	byLanguage := map[int32]string{}
 	if rows, err := utils.ReadTable[masterdata.EntityMWebviewPanelMissionCompleteFlavorText]("m_webview_panel_mission_complete_flavor_text"); err == nil {
 		for _, r := range rows {
-			if r.WebviewPanelMissionCompleteFlavorTextId == flavor && r.LanguageType == 2 {
-				return r.CompleteFlavorText
+			if r.WebviewPanelMissionCompleteFlavorTextId == flavor {
+				byLanguage[r.LanguageType] = r.CompleteFlavorText
 			}
 		}
 	}
-	return ""
+	return flavorIn(byLanguage, lang)
 }
 
 func rewardText(t *gameText, rewards []missions.PanelReward) string {
@@ -199,6 +200,9 @@ func possessionName(t *gameText, kind, id int32) string {
 	key := ""
 	switch model.PossessionType(kind) {
 	case model.PossessionTypeFreeGem, model.PossessionTypePaidGem:
+		if name := t.text("gem.name"); name != "" {
+			return name
+		}
 		return "Gems"
 	case model.PossessionTypeWeapon:
 		return t.weaponName(id)
