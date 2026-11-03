@@ -3,6 +3,7 @@
 #define GL_GLES_PROTOTYPES 0
 #include <GLES3/gl32.h>
 #include "gl_host.h"
+#include "gl_query_expected.h"
 #include "egl_host.h"
 #include "../whole/bridge.h"
 #include "../fastaes/elfload.h"
@@ -48,7 +49,14 @@ int main(){
   Symbol<PFNGLCLEARCOLORPROC>(module,"glClearColor")(0.125f,0.5f,0.75f,1.0f);Symbol<PFNGLCOLORMASKPROC>(module,"glColorMask")(0,1,0,1);
   Check(getError()==GL_NO_ERROR,"nondefault vector state initialized");
   std::printf("GL driver: %s; %s\n",getString(GL_VERSION),getString(GL_RENDERER));
-  const auto &catalog=GlHost::Queries();std::vector<uint32_t> names;std::vector<size_t> counts;size_t largest=0;
+  const auto &catalog=GlHost::Queries();
+  Check(catalog.size()==std::size(kOldQueries)+4,"exactly four scalar query rows appended");
+  for(size_t i=0;i<std::size(kOldQueries);++i)Check(catalog[i].name==kOldQueries[i].name&&catalog[i].count==kOldQueries[i].count&&catalog[i].count_query==kOldQueries[i].count_query,"old query prefix and widths preserved");
+  for(GLenum name:{0x90d9u,0x90d8u,0x90d7u,0x84ffu}){
+    auto found=std::find_if(catalog.begin(),catalog.end(),[&](const auto&q){return q.name==name;});
+    Check(found!=catalog.end()&&found->count==1&&!found->count_query&&std::count_if(catalog.begin(),catalog.end(),[&](const auto&q){return q.name==name;})==1,"new query is exactly one scalar row");
+  }
+std::vector<uint32_t> names;std::vector<size_t> counts;size_t largest=0;
   constexpr size_t stride=4096;std::vector<uint8_t> storage(catalog.size()*3*stride,0xa5),expected(storage.size(),0xa5);
   for(size_t i=0;i<catalog.size();++i){const auto &query=catalog[i];names.push_back(query.name);const auto count=gl.QueryComponents(query.name);counts.push_back(count);largest=std::max(largest,count);Check(count*4+16<stride,"query fits bounded guarded fixture");
     std::vector<GLint> integers(std::max<size_t>(1,count));std::vector<GLfloat> floats(std::max<size_t>(1,count));std::vector<GLboolean> booleans(std::max<size_t>(1,count));

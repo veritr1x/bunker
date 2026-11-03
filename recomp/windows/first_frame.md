@@ -3,7 +3,28 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: the configured EGL procedure resolver throws
+Current execution frontier: missing scalar query width for
+`glGetIntegerv(0x90d9)`, original return `70488370`. Actual build
+`work/windows-first-frame-gles-procedure1`, host
+`367977430191d3e04b619c815d6e334b9cc30530`, executable
+`eec19b0e2967dd01f24eb919132539d9412bed972abf4d0c747a97f665dc0df0`,
+returns null from all27 optional procedure lookups and reaches the
+capability scan. It records2758 paired EGL calls and201 GL dispatch
+attempts; the terminal query is rejected before native forwarding.
+There is no presentation, nativeRender return or frame PNG. The bounded
+audit is `work/first-frame-gles-procedure-width-boundary1`.
+
+The four identified scalar query entries are now qualified against real
+ANGLE:1142 checks,137 enum rows and all three typed getter widths. The
+old133 rows are an exact prefix and all other GL source bytes are exact.
+Receipt `work/gl-query-width-qualification1/acceptance.json` has SHA256
+`d57dc87c9210b6802c9b133315c5001cbf4b33959a6bea4a46f2a3ff61392515`.
+One terminal runner CR was normalized after execution with exact AST and
+single-byte proof; no functional test was replayed or claimed for that
+format-only change. The next build is
+`work/windows-first-frame-gles-query-width1`.
+
+The preceding execution frontier was the configured EGL procedure resolver throwing
 on `glDebugMessageControl`. Actual build
 `work/windows-first-frame-gles-module1`, host
 `0bf472dc4f45a9ae929fe540a88685eccd4fdbd1`, executable
