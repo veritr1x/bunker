@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <list>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <stdexcept>
@@ -14,6 +15,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <time.h>
 #include <sys/uio.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -62,6 +64,66 @@ bool ReadWord(addr_t address,uint32_t&value){
  if(unsupported)throw std::runtime_error("unsupported futex native fault-safe read API failure "+std::to_string(unsupported));
  return okay;
 }
+struct Timeout {int64_t seconds,nanoseconds;};
+static_assert(sizeof(Timeout)==16&&offsetof(Timeout,nanoseconds)==8);
+int TimeoutRangeError(addr_t address){
+ const auto low=address&kUntagMask;
+ if(low>=kUserLimit||sizeof(Timeout)>kUserLimit-low)return 14;
+ if(address!=low)throw std::runtime_error("unsupported syscall98 tagged timeout-address ABI profile");
+ return 0;
+}
+bool ReadTimeout(addr_t address,Timeout&value){
+ bool okay=false;uint64_t unsupported=0;
+ recomp::WithGuestMemoryRead([&]{
+#ifdef _WIN32
+  SIZE_T bytes=0;const BOOL success=ReadProcessMemory(GetCurrentProcess(),reinterpret_cast<const void*>(address),&value,sizeof(value),&bytes);
+  if(success&&bytes==sizeof(value)){okay=true;return;}
+  const auto error=GetLastError();
+  if(error==ERROR_PARTIAL_COPY||error==ERROR_NOACCESS||error==ERROR_INVALID_ADDRESS)return;
+  unsupported=error?error:UINT64_MAX;
+#else
+  iovec local{&value,sizeof(value)},remote{reinterpret_cast<void*>(address),sizeof(value)};
+  const auto bytes=process_vm_readv(getpid(),&local,1,&remote,1,0);
+  if(bytes==ssize_t(sizeof(value))){okay=true;return;}
+  if(bytes>=0||errno==EFAULT)return;
+  unsupported=errno?uint64_t(errno):UINT64_MAX;
+#endif
+ });
+ if(unsupported)throw std::runtime_error("unsupported futex timeout native fault-safe read API failure "+std::to_string(unsupported));
+ return okay;
+}
+uint64_t ActiveNanoseconds(){
+#ifdef _WIN32
+ // Same qualified active-monotonic budget as SignalSleeps: sleep/hibernate
+ // time is excluded. Resolve only the actual documented KernelBase export.
+ using Query=VOID(WINAPI*)(PULONGLONG);
+ static const auto query=[] {
+  auto address=GetProcAddress(GetModuleHandleW(L"kernelbase.dll"),"QueryUnbiasedInterruptTimePrecise");
+  Query function=nullptr;static_assert(sizeof(function)==sizeof(address));
+  std::memcpy(&function,&address,sizeof(function));return function;
+ }();
+ if(!query)throw std::runtime_error("unsupported timed futex: Windows10 precise active-monotonic clock is unavailable");
+ ULONGLONG ticks=0;query(&ticks);
+ if(ticks>UINT64_MAX/100)throw std::overflow_error("futex active-monotonic clock overflow");
+ return uint64_t(ticks)*100;
+#else
+ timespec now{};if(clock_gettime(CLOCK_MONOTONIC,&now))throw std::runtime_error("futex native CLOCK_MONOTONIC failed");
+ if(now.tv_sec<0||now.tv_nsec<0||now.tv_nsec>=1000000000||uint64_t(now.tv_sec)>UINT64_MAX/1000000000)throw std::overflow_error("futex monotonic clock range");
+ const auto whole=uint64_t(now.tv_sec)*1000000000;
+ if(whole>UINT64_MAX-uint64_t(now.tv_nsec))throw std::overflow_error("futex monotonic clock sum overflow");
+ return whole+uint64_t(now.tv_nsec);
+#endif
+}
+uint64_t MakeDeadline(const Timeout&timeout){
+ constexpr auto maximum=uint64_t(INT64_MAX),scale=UINT64_C(1000000000);
+ const auto start=ActiveNanoseconds();
+ if(start>maximum)throw std::overflow_error("futex active-monotonic clock outside signed ktime profile");
+ // Linux timespec64_to_ktime/ktime_add_safe saturate valid large values.
+ const auto seconds=uint64_t(timeout.seconds),nanos=uint64_t(timeout.nanoseconds);
+ const auto duration=seconds>=maximum/scale?maximum:
+    (seconds*scale>maximum-nanos?maximum:seconds*scale+nanos);
+ return duration>maximum-start?maximum:start+duration;
+}
 uint64_t NativeTid(){
 #ifdef _WIN32
  return GetCurrentThreadId();
@@ -73,7 +135,7 @@ uint64_t NativeTid(){
 struct SignalFutexes::Impl {
  struct Ticket {addr_t key;std::shared_ptr<SignalWake>wake;bool linked=false,woken=false;};
  SignalHost&signals;SignalHost::Current current;SignalHost::Boundary boundary;Admission admission;
- std::function<void(int)>error_sink;addr_t marker;bool installed=false,closing=false;
+ std::function<void(int)>error_sink;WaitObserver wait_observer;addr_t marker;bool installed=false,closing=false;
  std::mutex mutex;std::map<addr_t,std::list<std::shared_ptr<Ticket>>>queues;size_t callers=0;
  Impl(SignalHost&s,SignalHost::Current c,SignalHost::Boundary b,Admission a,addr_t m):signals(s),current(std::move(c)),boundary(std::move(b)),admission(std::move(a)),marker(m){if(!current||!admission||m%8)throw std::invalid_argument("futex provider requires explicit current/admission and aligned marker");}
  struct Call {
@@ -104,6 +166,81 @@ struct SignalFutexes::Impl {
   // under the one queue lock. Never synthesize a guest word or signal/GC ack.
   for(auto&w:notify)w->Notify();
   return int64_t(notify.size());
+ }
+ void ObserveWait(const WaitObservation&observation){
+  if(wait_observer){Environment preserve;wait_observer(observation);}
+ }
+ int64_t TimedWait(addr_t address,uint32_t expected,uint64_t token,uint64_t deadline,Environment&environment,WaitObservation&observation){
+  auto fail=[&](int error){observation.error=error;return Fail(error);};
+  auto retained=signals.Lookup(token);auto wake=signals.Wake(token);
+  if(!retained||!wake)throw std::runtime_error("futex timed wait lost actual signal lifetime");
+  auto ticket=std::make_shared<Ticket>();ticket->key=address;ticket->wake=wake;
+  int setup_error=0;
+  {std::lock_guard lock(mutex);uint32_t word=0;
+   if(!ReadWord(address,word))setup_error=14;
+   else if(word!=expected)setup_error=11;
+   else{
+    auto inserted=queues.try_emplace(address);
+    try{inserted.first->second.push_back(ticket);}catch(...){if(inserted.second&&inserted.first->second.empty())queues.erase(inserted.first);throw;}
+    ticket->linked=true;
+   }
+  }
+  if(setup_error)return fail(setup_error);
+  Registration registration{*this,ticket};
+  for(;;){
+   const auto generation=wake->Generation();bool expired=false;
+   {std::lock_guard lock(mutex);
+    // A genuine Wake selected under this same lock wins, even if the clock
+    // has since passed the deadline. Otherwise retire before timeout return.
+    if(ticket->woken)return 0;
+    if(ActiveNanoseconds()>=deadline){RemoveLocked(ticket);expired=true;}
+   }
+   if(expired)return fail(110);
+   const auto allowed=admission(token);
+   {std::lock_guard lock(mutex);
+    if(ticket->woken)return 0;
+    if(ActiveNanoseconds()>=deadline){RemoveLocked(ticket);expired=true;}
+   }
+   if(expired)return fail(110);
+   enum class Cause {None,Wake,Timeout,Interrupt};Cause cause=Cause::None;
+   const auto result=signals.DispatchOneAdmitted(token,allowed,[&](const auto&delivery){
+    {std::lock_guard lock(mutex);
+     // Latch the syscall's outcome before the actual caught handler. Linux
+     // may still deliver a pending handler before returning a wake/timeout
+     // result to userspace. Handler duration cannot change this selection.
+     cause=ticket->woken?Cause::Wake:
+         ActiveNanoseconds()>=deadline?Cause::Timeout:Cause::Interrupt;
+     RemoveLocked(ticket);
+    }
+    if(!boundary)throw std::runtime_error("unsupported futex caught handler without qualified boundary");
+    auto restored=boundary(delivery);environment.handled=true;return restored;
+   });
+   if(result.error){
+    {std::lock_guard lock(mutex);
+     if(ticket->woken)return 0;
+     // Rejected admission consumed no signal. A deadline reached during the
+     // eligibility check can retire the wait while leaving that signal pending.
+     if(result.error==95&&ActiveNanoseconds()>=deadline){RemoveLocked(ticket);expired=true;}
+    }
+    if(expired)return fail(110);
+    if(result.error==95)throw std::runtime_error("unsupported futex eligible signal outside admitted provider phase");
+    throw std::runtime_error("unsupported futex signal ownership or handler boundary");
+   }
+   if(result.handled){
+    if(cause==Cause::Wake)return 0;
+    if(cause==Cause::Timeout)return fail(110);
+    if(cause!=Cause::Interrupt)throw std::logic_error("timed futex handler without selected cause");
+    // Timed FUTEX_WAIT uses ERESTART_RESTARTBLOCK: caught handlers produce
+    // EINTR even with SA_RESTART. No relative timeout rearm after the handler.
+    return fail(4);
+   }
+   {std::lock_guard lock(mutex);if(ticket->woken)return 0;}
+   const auto now=ActiveNanoseconds();if(now>=deadline)continue;
+   // Bound native duration arithmetic while the one fixed active deadline,
+   // not channel notifications or spurious wakeups, decides completion.
+   const auto remaining=std::min<uint64_t>(deadline-now,UINT64_C(1000000000));
+   wake->WaitRelative(generation,std::chrono::nanoseconds(remaining));
+  }
  }
  int64_t Wait(addr_t address,uint32_t expected,uint64_t token,Environment&environment){
   auto retained=signals.Lookup(token);auto wake=signals.Wake(token);if(!retained||!wake)throw std::runtime_error("futex wait lost actual signal lifetime");
@@ -156,12 +293,33 @@ struct SignalFutexes::Impl {
 SignalFutexes::SignalFutexes(SignalHost&s,SignalHost::Current c,SignalHost::Boundary b,Admission a,addr_t m):impl_(std::make_unique<Impl>(s,std::move(c),std::move(b),std::move(a),m)){}
 SignalFutexes::~SignalFutexes(){std::lock_guard lock(impl_->mutex);impl_->closing=true;if(impl_->callers||!impl_->queues.empty()){std::fputs("futex provider destroyed before calls/handlers quiesced\n",stderr);std::abort();}}
 void SignalFutexes::SetErrorSink(std::function<void(int)>sink){impl_->error_sink=std::move(sink);}
+void SignalFutexes::SetWaitObserver(WaitObserver observer){
+ WaitObserver retired;
+ {std::lock_guard lock(impl_->mutex);
+  if(impl_->closing||impl_->callers)throw std::logic_error("futex wait observer requires quiescent calls");
+  retired=std::move(impl_->wait_observer);impl_->wait_observer=std::move(observer);
+ }
+ // Captured resources in the previous callback retire outside the queue lock.
+}
 addr_t SignalFutexes::Marker(const std::string&name)const{if(name!="syscall")throw std::invalid_argument("unsupported private futex import: "+name);return impl_->marker;}
 int64_t SignalFutexes::Syscall(int64_t number,addr_t address,int32_t operation,uint32_t value,addr_t timeout,addr_t address2,uint32_t value3){
  Environment environment;Impl::Call call(*impl_);(void)address2;(void)value3;
  if(uint32_t(number)!=98)throw std::runtime_error("unsupported Android syscall low32 number outside98");
  if(operation!=0x80&&operation!=0x81)throw std::runtime_error("unsupported syscall98 outside private WAIT/WAKE");
- if(operation==0x80&&timeout)throw std::runtime_error("unsupported private futex WAIT timeout profile");
+ if(operation==0x80&&timeout){
+  WaitObservation observation;observation.timeout_pointer=timeout;
+  auto finish=[&](int64_t result,int error=0){observation.phase=WaitPhase::Return;observation.result=result;observation.error=error?error:observation.error;impl_->ObserveWait(observation);return result;};
+  if(const auto error=TimeoutRangeError(timeout))return finish(impl_->Fail(error),error);
+  Timeout snapshot{};if(!ReadTimeout(timeout,snapshot))return finish(impl_->Fail(14),14);
+  observation.seconds=snapshot.seconds;observation.nanoseconds=snapshot.nanoseconds;observation.copied=true;
+  const bool valid=snapshot.seconds>=0&&snapshot.nanoseconds>=0&&snapshot.nanoseconds<1000000000;
+  if(valid){observation.deadline_nanoseconds=MakeDeadline(snapshot);observation.deadline_valid=true;}
+  impl_->ObserveWait(observation);
+  if(!valid)return finish(impl_->Fail(22),22);
+  if(const auto error=KeyError(address))return finish(impl_->Fail(error),error);
+  const auto token=impl_->Current();
+  return finish(impl_->TimedWait(address,value,token,observation.deadline_nanoseconds,environment,observation));
+ }
  if(const auto error=KeyError(address))return impl_->Fail(error);
  const auto token=impl_->Current();if(operation==0x81)return impl_->Wake(address,value);
  return impl_->Wait(address,value,token,environment);

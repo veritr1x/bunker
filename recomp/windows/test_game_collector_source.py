@@ -22,6 +22,20 @@ def main():
  base_archive=Path(priority['base_archive_path']);assert sha(base_archive)==priority['base_archive_sha256']==peer['base_archive_sha256'];prerequisites[str(base_archive)]=sha(base_archive)
  with tarfile.open(base_archive)as archive:
   old_pthreads={n:hashlib.sha256(archive.extractfile('recomp/windows/'+n).read()).hexdigest()for n in('pthread_host.h','pthread_host.cpp')}
+ timed_path=HERE.parent/'work/signal-futex-timed-held2.json';timed=json.loads(timed_path.read_text());assert timed['passed'];prerequisites[str(timed_path)]=sha(timed_path)
+ timed_acceptance=Path(timed['acceptance_path']);assert sha(timed_acceptance)==timed['acceptance_sha256'];timed_qualified=json.loads(timed_acceptance.read_text());assert timed_qualified['passed']and timed_qualified['core_sources']==timed['core_sources']and timed_qualified['fixture_sources']==timed['fixture_sources'];prerequisites[str(timed_acceptance)]=sha(timed_acceptance)
+ assert set(timed['core_sources'])=={'windows/signal_futex.h','windows/signal_futex.cpp'}and set(timed['fixture_sources'])=={'futex_timed_ref.c','futex_timed_test.cpp','test_futex_timed.py'}
+ timed_peer_path=Path(timed['source_peer_path']);assert sha(timed_peer_path)==timed['source_peer_sha256'];timed_review=json.loads(timed_peer_path.read_text());assert timed_review['passed']and timed_review['source_files']==timed['core_sources']and all(timed_review['exact_old_function_bodies'].values());prerequisites[str(timed_peer_path)]=sha(timed_peer_path)
+ timed_archive=Path(timed['base_archive_path']);assert sha(timed_archive)==timed['base_archive_sha256'];prerequisites[str(timed_archive)]=sha(timed_archive)
+ with tarfile.open(timed_archive)as archive:
+  timed_base_hashes={n:hashlib.sha256(archive.extractfile('recomp/'+n).read()).hexdigest()for n in timed['core_sources']}
+ for name,digest in timed['core_sources'].items():
+  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+ for name,digest in timed['fixture_sources'].items():
+  path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+ assert len(timed_qualified['canonical_records'])==timed_qualified['arm64_records']==38
+ for platform in ('linux','windows'):
+  observed=timed_qualified['platforms'][platform];assert observed['timed_records']==timed_qualified['canonical_records']and len(observed['timed_races'])==16 and observed['untimed_checks']==2921
  affinity_path=HERE.parent/'work/thread-affinity-held1.json';affinity=json.loads(affinity_path.read_text());assert affinity['passed'];prerequisites[str(affinity_path)]=sha(affinity_path)
  affinity_acceptance=Path(affinity['acceptance_path']);assert sha(affinity_acceptance)==affinity['acceptance_sha256'];affinity_qualified=json.loads(affinity_acceptance.read_text());assert affinity_qualified['passed']and affinity_qualified['core_sources']==affinity['core_sources']and affinity_qualified['fixture_sources']==affinity['fixture_sources'];prerequisites[str(affinity_acceptance)]=sha(affinity_acceptance)
  assert set(affinity['core_sources'])=={'windows/thread_affinity.h','windows/thread_affinity.cpp'}and len(affinity['fixture_sources'])==9
@@ -31,7 +45,10 @@ def main():
  for name,digest in affinity['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  for name,digest in affinity['protected_base_sources'].items():
-  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+  path=HERE.parent/name
+  if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
+  else:assert sha(path)==digest,name
+  prerequisites[str(path)]=sha(path)
  # Accepted component manifests pin the actual production inputs used here.
  for manifest,field,names in [('worker-signal-lifecycle-held4.json','seven_live_hashes',('worker_signal_lifecycle.h','worker_signal_lifecycle.cpp')),('pthread-wait-held.json','live_sources',('pthread_host.h','pthread_host.cpp')),('signal-sleep-held5.json','core_sources',('signal_host.h','signal_host.cpp','signal_sleep.h','signal_sleep.cpp'))]:
   path=HERE.parent/'work'/manifest;record=json.loads(path.read_text());prerequisites[str(path)]=sha(path)
@@ -50,7 +67,11 @@ def main():
  focused=Path(futex['acceptance_path']);assert futex['passed']and sha(focused)==futex['acceptance_sha256'];prerequisites[str(focused)]=futex['acceptance_sha256'];qualified=json.loads(focused.read_text())
  assert qualified['passed']and qualified['core_sources']==futex['core_sources']and len(qualified['canonical_records'])==qualified['arm64_records']==23
  for name,digest in futex['core_sources'].items():
-  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+  path=HERE.parent/name
+  if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
+  else:assert sha(path)==digest,name
+  prerequisites[str(path)]=sha(path)
+ assert timed['untimed_fixture_sources']==futex['fixture_sources']
  for name,digest in futex['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  for platform in ('linux','windows'):

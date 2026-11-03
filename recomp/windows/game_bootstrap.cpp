@@ -353,6 +353,15 @@ int main(int argc,char **argv){
     SignalFutexes futexes(process_signals,current_signal_thread,futex_no_delivery,
                          [](uint64_t){return uint64_t{0};});
     futexes.SetErrorSink(error);
+    futexes.SetWaitObserver([](const SignalFutexes::WaitObservation &observation){
+      GameWorkerObservation::NativeEnvironment native;
+      if(observation.phase==SignalFutexes::WaitPhase::Copied){
+        std::fprintf(stderr,"Game bootstrap: original timed futex COPIED caller_native_tid=%lu timeout=%#llx copied=%d seconds=%lld nanoseconds=%lld deadline_valid=%d deadline_ns=%llu; fixed active-monotonic snapshot, no blocking claim\n",GetCurrentThreadId(),(unsigned long long)observation.timeout_pointer,int(observation.copied),(long long)observation.seconds,(long long)observation.nanoseconds,int(observation.deadline_valid),(unsigned long long)observation.deadline_nanoseconds);
+      }else{
+        std::fprintf(stderr,"Game bootstrap: original timed futex RESULT caller_native_tid=%lu timeout=%#llx copied=%d seconds=%lld nanoseconds=%lld deadline_valid=%d deadline_ns=%llu result=%lld operation_error=%d\n",GetCurrentThreadId(),(unsigned long long)observation.timeout_pointer,int(observation.copied),(long long)observation.seconds,(long long)observation.nanoseconds,int(observation.deadline_valid),(unsigned long long)observation.deadline_nanoseconds,(long long)observation.result,observation.error);
+      }
+      std::fflush(stderr);
+    });
     recomp::Runtime futex_bridges;
     ThreadPriorities priorities(threads,ThreadPriorities::Profile::UnityNormalClass);
     priorities.SetErrorSink(error);

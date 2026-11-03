@@ -5,7 +5,10 @@ FUTEX_WAIT_PRIVATE/op0x80 and FUTEX_WAKE_PRIVATE/op0x81. It retains the public
 signed64 return convention and actual raw X0–X6 witness. The ARM64 kernel
 narrows the syscall number to32 bits; operation/value fields likewise use their
 low32 bits. It never forwards Android syscall numbers to the host kernel.
-Other syscall numbers, operations and nonnull WAIT timeouts stop explicitly.
+Other syscall numbers and operations stop explicitly. The subsequently
+qualified [relative timed WAIT extension](signal_futex_timed.md) handles nonnull
+timeouts; the original untimed bodies and this baseline qualification remain
+preserved.
 
 One provider owns a process-private numeric-address namespace. Its queue lock
 covers fault-safe word comparison and ticket enrollment, preventing a wake
