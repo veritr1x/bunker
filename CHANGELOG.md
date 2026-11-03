@@ -22,6 +22,23 @@ under its heading, down to the previous release.
   once. The list shows each banner once, its first summon; the Original
   calendar still runs each rerun on its dates. [3dd64df]
 
+### Linux
+- Releases include the desktop Bunker for Linux (`Bunker-<version>-linux-x86_64`
+  and `-linux-arm64`). With Waydroid installed it uses Waydroid: it starts
+  the session, installs `bunker.apk`, and unpacks revision 0 from the `.7z`
+  straight into the Bunker's own storage in Waydroid, so no shared folder has
+  to be mounted after each Waydroid start. It asks for the sudo password once
+  (Waydroid's root shell needs it) and keeps the container awake while it
+  works: Waydroid froze it when no app was on screen and the copy stopped.
+  Without Waydroid, or with `-emulator`, it uses Google's Android Emulator as
+  on Windows. Tested in an arm64 Ubuntu 24.04 VM with Waydroid 1.6.3: first
+  start to the title screen in 11.5 minutes, later starts in 15 seconds.
+  See docs/LINUX.md. [9244bb4]
+- Game files copied in before NieR's first start (the desktop Bunker on
+  Windows or Linux) left NieR's files folder owned by root, and the Bunker
+  could not make its saves folder ("permission denied"). It is NieR's now.
+  [9244bb4]
+
 ### Calendar
 - Jump to lists what a jump skips in singular and plural without a trailing
   comma ("1 Arena season", not "1 Arena seasons,"). [812b347]
