@@ -14,6 +14,14 @@ under its heading, down to the previous release.
   The game's own title text is added for them on Android and iPhone/iPad; no
   game code or data changes. [812b347]
 
+### Summons
+- With the calendar off (Everything open), a summon Bunker reran showed its
+  banner two or three times in the list: each run it added (506 and 507's
+  2023 and 2024 reruns, 124's second chance, the weekly 10094 and 10095
+  reruns) is a summon of its own with its own dates, and all were open at
+  once. The list shows each banner once, its first summon; the Original
+  calendar still runs each rerun on its dates. [3dd64df]
+
 ### Calendar
 - Jump to lists what a jump skips in singular and plural without a trailing
   comma ("1 Arena season", not "1 Arena seasons,"). [812b347]
