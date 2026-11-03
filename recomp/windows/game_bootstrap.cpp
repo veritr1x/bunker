@@ -789,7 +789,7 @@ int main(int argc,char **argv){
           poll_volume();lifecycle.ActivityResumed();
           auto lease=native_windows->FromSurface(surface);auto hwnd=static_cast<HWND>(native_windows->NativeHandle(lease));native_windows->Release(lease);
           if(GetForegroundWindow()!=hwnd)std::fprintf(stderr,"Unity bootstrap: real foreground activation requested, accepted=%d\n",int(SetForegroundWindow(hwnd)!=0));
-          bool focused=false;auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+          bool focused=false;auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(first_frame?60:3);
           while(!focused&&std::chrono::steady_clock::now()<deadline){
             for(const auto &event:native_windows->DrainEvents(window)){
               if(event.kind==NativeWindows::Event::Focus){lifecycle.WindowFocusChanged(event.focused);focused=event.focused;}

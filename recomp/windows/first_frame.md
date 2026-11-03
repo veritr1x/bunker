@@ -3,7 +3,23 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: a missing native graphics object-label setter.
+Current execution frontier: the real foreground/focus prerequisite, before
+nativeRender. Actual build `work/windows-first-frame-label1`, host
+`cbfd33b57ee3653e2f1605861a7256828b64e5ac`, executable
+`f5d07ac77d283cd763d07caa3503fb16bec2c8074d6a1b5660ca2db1bf0b24f5`,
+logs SetForegroundWindow accepted0, then exits after the three-second wait
+without a real HWND focus event. Native exit1/controller1, IL2CPPctors0;
+the new label calls and original nativeRender were not reached. No draw,
+swap or game image. Inputs SHA256
+`689884e86c3bf9f8a1ab541ac14c1b57ebf7f29bebcdf2ccf785fed895007bed`;
+log SHA256 `3e22d5c3f8a495767062fd3a38cdf5778d5b836054b4f5ba0dcc6919a7148fd1`.
+The next diagnostic increases only --first-frame's observed-focus wait to
+60 seconds, retaining the default three seconds and every real focus check.
+The same qualified GL/collector/affinity sources and all27 receipts remain
+unchanged. An actual window activation can then deliver the OS focus event;
+no guest focus is synthesized. Next startup: `work/windows-first-frame-label2`.
+
+The preceding execution frontier was a missing native graphics object-label setter.
 Actual build `work/windows-first-frame-storage1`, host
 `86e55e87e0310f27e3b2635f97a9c21ddba370c7`, executable
 `2225f47d4997c41d89fc7c3756a16f971f339f95454d51a317f8a53521105531`,
