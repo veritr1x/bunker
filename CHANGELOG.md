@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.8.1 (2026-11-03)
+
+Linux builds: with Waydroid installed they install the APK and put the game
+files into Waydroid for you, with no folder to mount. The Bunker button hides
+in the art viewer and the 3D viewer. Early Subjugation Battles are named
+instead of "unknown", and with the calendar off each summon banner is listed
+once.
+
 ## 2026-11-03 (after 1.8.0)
 
 ### Subjugations
