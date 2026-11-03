@@ -29,9 +29,11 @@ public final class MainActivity extends Activity {
     private Look look;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView status,detail,files,ports,save,archiveLine,progressText;
-    // The Archive's index, checked once before the game starts (and built then if missing or out of date).
-    private boolean indexChecked=false,indexing=false,openedWhileIndexing=false;
-    private String indexText="NOT CHECKED";
+    // The Archive's index, checked once per launcher process (and built then if missing or out of date):
+    // before the game starts, or when the launcher opens from the game. Static, so a launcher opened from
+    // the game's Bunker button (a new screen in the same process) shows the result instead of NOT CHECKED.
+    private static volatile boolean indexChecked=false,indexing=false,openedWhileIndexing=false;
+    private static volatile String indexText="NOT CHECKED";
     private Button assetButton,play,pods,archive;
     // Updates (Updater.java keeps their state, so it survives the screen being recreated).
     private LinearLayout updatePanel;
@@ -199,6 +201,9 @@ public final class MainActivity extends Activity {
     private void refresh(){
         boolean hasAssets=FilesStore.list(this).length()>0,hasMaster=FilesStore.master(this).length()>0,ready=hasAssets&&hasMaster;
         String key=serverState+serverDetail+busy+running+tools+hasAssets+hasMaster+permille;
+        if(archiveLine!=null&&!indexText.contentEquals(archiveLine.getText()))archiveLine.setText(indexText);
+        // Opened from the game: no launch step checks the index, so check it now (built in the background if needed).
+        if(!indexChecked&&!indexing&&!launchWhenReady&&!tools&&FilesStore.ready(this))checkIndex(false);
         if(key.equals(last))return;last=key;
         boolean importing=busy&&"Importing files".equals(serverState);
         if(importing)look.chip(files,"IMPORTING",look.chip,look.ink);
@@ -362,6 +367,10 @@ public final class MainActivity extends Activity {
      */
     private void launchAfterIndex(){
         if(indexChecked||indexing){if(!indexing)openGame();return;}
+        checkIndex(true);
+    }
+    /** Checks the Archive's index, building it when missing or out of date; with thenOpen, starts the game afterwards. */
+    private void checkIndex(boolean thenOpen){
         indexing=true;openedWhileIndexing=false;indexText="CHECKING";archiveLine.setText(indexText);
         final File assets=FilesStore.root(this),data=new File(getFilesDir(),"archive");
         new Thread(()->{
@@ -373,7 +382,7 @@ public final class MainActivity extends Activity {
                 while(st.optBoolean("running")){
                     int total=st.optInt("total"),pct=total>0?Math.min(99,st.optInt("done")*100/total):0;
                     final String line="INDEXING "+pct+"% · "+st.optString("step");
-                    runOnUiThread(()->{indexText=line;archiveLine.setText(line);});
+                    indexText=line;
                     Thread.sleep(500);
                     st=new JSONObject(archive.callAttr("index_status",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
                 }
@@ -386,7 +395,7 @@ public final class MainActivity extends Activity {
             final String result=done;
             runOnUiThread(()->{
                 indexing=false;indexChecked=true;indexText=result;archiveLine.setText(result);
-                if(foreground&&running&&!tools&&!openedWhileIndexing)openGame();
+                if(thenOpen&&foreground&&running&&!tools&&!openedWhileIndexing)openGame();
             });
         },"archive-index-check").start();
     }

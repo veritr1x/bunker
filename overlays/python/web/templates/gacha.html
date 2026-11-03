@@ -15,8 +15,8 @@
   </div>
   <p id="two-star">★2: {{ two_star }}%</p>
   <div class="pair">
-    <label>Costumes in ★4 (%)<input type="number" name="four_costume" min="0" max="100" step="0.1" value="{{ settings.fourStarCostumeShare }}"></label>
-    <label>Costumes in ★3 (%)<input type="number" name="three_costume" min="0" max="100" step="0.1" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
+    <label>Costumes in ★4 (%)<input type="number" name="four_costume" min="0" max="100" step="any" value="{{ settings.fourStarCostumeShare }}"></label>
+    <label>Costumes in ★3 (%)<input type="number" name="three_costume" min="0" max="100" step="any" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
   </div>
   <label>Featured share (%)<input type="number" name="featured" min="0" max="100" step="1" value="{{ settings.featuredPercent }}"></label>
   <p>If a draw gets a rarity and type that has featured items, this is the chance that it is a featured item.</p>
