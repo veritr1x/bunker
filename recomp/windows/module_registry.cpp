@@ -62,6 +62,12 @@ void ModuleRegistry::Add(Module module) {
   for (auto entry : module.initializers) if (!entry) throw std::invalid_argument("null initializer");
   for (auto entry : module.finalizers) if (!entry) throw std::invalid_argument("null finalizer");
   if(module.export_policy!=Module::ExportPolicy::DeclaredAddresses&&module.export_policy!=Module::ExportPolicy::BionicRawSymbols)throw std::invalid_argument("unknown translated export policy");
+  if(module.kind!=Module::Kind::TranslatedElf&&module.kind!=Module::Kind::TypedService)throw std::invalid_argument("unknown registered module kind");
+  if(module.kind==Module::Kind::TypedService){
+    if(module.address_image||!module.initializers.empty()||!module.finalizers.empty()||module.export_policy!=Module::ExportPolicy::DeclaredAddresses)
+      throw std::invalid_argument("typed service cannot declare an ELF image or guest lifecycle");
+    for(const auto &entry:module.exports)if(!entry.second||(entry.second&7))throw std::invalid_argument("invalid typed service function marker");
+  }
   if(module.export_policy==Module::ExportPolicy::BionicRawSymbols&&!module.address_image)throw std::invalid_argument("Bionic raw export policy requires complete ELF metadata");
   if(module.address_image){
     ValidateAddressImage(*module.address_image);
@@ -158,13 +164,13 @@ addr_t ModuleRegistry::Error() {
 }
 int32_t ModuleRegistry::Address(addr_t address,AndroidDlInfo *output){
   std::lock_guard lock(mutex_);
-  for(const auto &entry:images_)if(entry.second->status!=Image::kUnloaded&&!entry.second->module.address_image)
+  for(const auto &entry:images_)if(entry.second->status!=Image::kUnloaded&&entry.second->module.kind!=Module::Kind::TypedService&&!entry.second->module.address_image)
     throw std::runtime_error("unsupported dladdr with incomplete active translated ELF catalog");
   // Android13 untags only membership; symbol lookup below receives the original
   // argument, exactly as do_dladdr/find_symbol_by_address do on AArch64.
   const addr_t membership=address&UINT64_C(0x00ffffffffffffff);
   for(const auto &entry:images_){
-    if(entry.second->status==Image::kUnloaded)continue;
+    if(entry.second->status==Image::kUnloaded||entry.second->module.kind==Module::Kind::TypedService)continue;
     const auto &image=*entry.second->module.address_image;
     if(membership<image.base||membership-image.base>=image.span)continue;
     bool contains=false;

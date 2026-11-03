@@ -37,6 +37,7 @@ struct ModuleAddressImage {
 };
 struct Module {
   enum class ExportPolicy {DeclaredAddresses,BionicRawSymbols};
+  enum class Kind {TranslatedElf,TypedService};
   std::string name;
   std::vector<std::string> aliases;
   std::map<std::string, addr_t> exports;
@@ -47,9 +48,12 @@ struct Module {
   std::function<void()> reset_image;
   std::optional<ModuleAddressImage> address_image;
   ExportPolicy export_policy=ExportPolicy::DeclaredAddresses;
+  // Explicit non-ELF typed marker exports have no guest address-image owner.
+  // Keep this trailing/defaulted so existing Module aggregates remain ELF.
+  Kind kind=Kind::TranslatedElf;
 };
 
-// Guest libdl resolves only modules explicitly registered as translated code.
+// Guest libdl resolves explicitly registered translated images or typed services.
 // It never LoadLibrary/dlopen's ARM64 bytes or falls back to native execution.
 class ModuleRegistry {
  public:

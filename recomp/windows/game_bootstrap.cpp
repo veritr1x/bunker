@@ -25,6 +25,7 @@
 #include "audio_volume_session.h"
 #include "egl_host.h"
 #include "gl_host.h"
+#include "gles_service_module.h"
 #include "filesystem.h"
 #include "module_registry.h"
 #include "module_registry_elf.h"
@@ -593,6 +594,7 @@ int main(int argc,char **argv){
       }
     }
     if(egl)egl->Install(egl_bridges);
+    if(graphics)modules.Add(MakeGlesServiceModule(*graphics));
     if(native_windows){
       // Forward the original checked provider bridges without adding a nested
       // Runtime::Run/ExecutionContext. Observe actual guest imports, not our

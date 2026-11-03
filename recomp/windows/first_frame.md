@@ -3,7 +3,33 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing static `android/os/Build.MODEL`
+Current execution frontier: guest `dlopen("libGLESv2.so",2)` and its
+three `dlsym` requests return zero, followed by an unresolved indirect
+target0. The graphics provider already has typed `glGetString`,
+`glGetIntegerv` and `glGetStringi`; the module-loader path does not yet
+expose them. The final indirect caller/State was not captured, so its
+exact consumer is not attributed.
+
+Actual build `work/windows-first-frame-build-model1`, host
+`7c1ecf9519cc5d5bafb180a4bf55afdfb42d9819`, executable
+`49306b94f1bee1b2a836df1db9008f13bb8e3163f2580f1948a970323ec607f9`,
+records2731 paired original EGL calls, including successful context and
+window-surface creation, MakeCurrent and SwapInterval. There is no guest
+GL dispatch, eglSwapBuffers, successful presentation, nativeRender return
+or PNG. The next repair registers the existing typed GLES functions as
+an explicit service module, preserving real ELF ownership/dladdr rules.
+The exact run audit is `work/first-frame-build-model-gles-boundary1`.
+The typed-service repair now passes130 real Windows ANGLE/NDK loader
+checks, plus the unchanged22-case registry suite on Linux and Windows.
+It exposes the existing63 GL markers, preserves Open/Symbol/Close, and
+keeps typed-service markers outside ELF address ownership. The ordinary
+incomplete-ELF catalog guard remains active. The receipt is
+`work/gl-module-qualification1/acceptance.json`, SHA256
+`a0e4d39898323a00760f3a118ccdec1471859cfd20849a151f78b1a17178793d`.
+No GL implementations or guest objects are changed by this repair.
+The next build is `work/windows-first-frame-gles-module1`.
+
+The preceding execution frontier was missing static `android/os/Build.MODEL`
 String. Build `work/windows-first-frame-fcvtzu-fixed1`, host
 `3fc7304f51b6a78d9cd182a049f5f8ac4de9bc8a`, executable
 `28048f7ca5104cb3f43bb7b7e32387c7cdc3539881dd819d913e94aa5e574ec0`,
