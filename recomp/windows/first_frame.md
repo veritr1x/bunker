@@ -3,7 +3,36 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: the legacy Android display JNI chain is absent.
+Current execution frontier: the public Bionic `sched_getaffinity` import is
+absent. Actual build `work/windows-first-frame-window-manager1`, host
+`51046016c712835c3f6fdebec6a14e7be59639fc`, executable
+`cda0ecb26b831df800b4623d300fc6cdc079e54699543f8d3470453c3d75bbbd`,
+passes the repaired Activity/WindowManager/Display chain and reads the actual
+associated output at3840x2160,224 DPI and120/1 Hz. It then stops at
+`sched_getaffinity`, captured LR `708f173c`, PID `0x1bf95c`, size128.
+Native exit3/controller1; still no original draw, successful swap,
+nativeRender return or game image. Frozen inputs SHA256
+`6e317a725626bd74f403602812e70b70b542a66fb27b1d09f07d08a267614adf`;
+log SHA256 `cd20d800694b82efc794c87450832a965a7f9e0c369d13c18dd7a7e72ead30e1`.
+The bounded caller zeroes128 bytes atSP, calls the public getter for the
+current native TID, ignores its return and scans for the first clear CPU bit.
+Its count is a trailing-one prefix, not a popcount; no dense mask or CPU count
+may be fabricated. The next addition is an owned-thread Windows affinity
+query with the public Bionic return and output-buffer contract. The immediate
+worker caller also conditionally reaches the adjacent public128-byte
+`sched_setaffinity` helper, BL `708f17d8`. That companion is included in the
+same build with actual native mutation and readback; its execution has not
+yet been observed. The existing raw four-byte affinity syscall stays exact.
+The public Get/Set gate passes599 Windows checks and28 records through8 NDK
+heads, with26 Bionic return/errno records matched. The existing Windows raw
+setter regression passes158 checks/32 records against the new provider.
+Receipt: `work/affinity-public-qualification2/acceptance.json`, SHA256
+`d53e2045cba776791bf684e17674cc8020dfd9eb03e4b3b0d190932a163deb26`.
+Q1 retains a fixture assumption failure about partial copies; Q2 compares
+effects with an independent same-size native copy. Provider sources stay
+unchanged. The next actual startup is `work/windows-first-frame-getaffinity1`.
+
+The preceding execution frontier was the absent legacy Android display JNI chain.
 Actual build `work/windows-first-frame-vao-query1`, host
 `5525d90ef65ab7576a9f11ce43ceb1fab9514659`, executable
 `12c64eddda4740428140ce8e5af1a08131183ce6be5e7b4982e09c305c9e5e17`,

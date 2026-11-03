@@ -30,6 +30,13 @@ class ThreadAffinities {
   // the three unused syscall argument registers are ignored without reads.
   int64_t Syscall(int64_t number,int32_t pid,uint32_t cpusetsize,addr_t user_mask,
                   addr_t unused4,addr_t unused5,addr_t unused6);
+  // Public Bionic getter: exact128B software profile, raw8B kernel word then
+  // libc zero-tail. Other valid sizes are unsupported; invalid sizes EINVAL.
+  // A tail-only copy fault is a fatal libc boundary, not kernel EFAULT.
+  int32_t Get(int32_t pid,uint64_t cpusetsize,addr_t user_mask);
+  // Public128 setter copies only the explicit kernel64 word before PID lookup.
+  // Remaining120 input bytes are ignored; old raw122/len4 stays separate.
+  int32_t Set(int32_t pid,uint64_t cpusetsize,addr_t user_mask);
   addr_t Marker(const std::string&)const;
   void Install(recomp::Runtime&);
  private:

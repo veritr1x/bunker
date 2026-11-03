@@ -518,7 +518,41 @@ int main(int argc,char **argv){
     // The forwarding import below owns the complete original-call witness.
     futexes.Install(futex_bridges,[](const State&,uint64_t){});
     affinities.Install(affinity_bridges);
+    const auto getaffinity_marker=affinities.Marker("sched_getaffinity");
+    runtime.AddImport(getaffinity_marker,[&,getaffinity_marker](State &s){
+      const auto caller=s.gpr.x30.qword,pointer=s.gpr.x2.qword,size=s.gpr.x1.qword;
+      const auto pid=int32_t(s.gpr.x0.dword);
+      try{
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original sched_getaffinity ENTER caller_native_tid=%lu pid=%d size=%llu pointer=%#llx LR=%#llx\n",GetCurrentThreadId(),pid,(unsigned long long)size,(unsigned long long)pointer,(unsigned long long)caller);
+          std::fflush(stderr);
+        }
+        affinity_bridges.Dispatch(s,getaffinity_marker,nullptr);
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original sched_getaffinity RETURN pid=%d LR=%#llx result=%d errno=%d\n",pid,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());
+          std::fflush(stderr);
+        }
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original sched_getaffinity failed:%s\n",e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original sched_getaffinity failed:unknown host exception\n");std::abort();}
+    });
     const auto syscall_marker=futexes.Marker("syscall");
+    const auto setaffinity_marker=affinities.Marker("sched_setaffinity");
+    runtime.AddImport(setaffinity_marker,[&,setaffinity_marker](State &s){
+      const auto caller=s.gpr.x30.qword,pointer=s.gpr.x2.qword,size=s.gpr.x1.qword;
+      const auto pid=int32_t(s.gpr.x0.dword);
+      try{
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original sched_setaffinity ENTER caller_native_tid=%lu pid=%d size=%llu pointer=%#llx LR=%#llx\n",GetCurrentThreadId(),pid,(unsigned long long)size,(unsigned long long)pointer,(unsigned long long)caller);
+          std::fflush(stderr);
+        }
+        affinity_bridges.Dispatch(s,setaffinity_marker,nullptr);
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original sched_setaffinity RETURN pid=%d LR=%#llx result=%d errno=%d\n",pid,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());
+          std::fflush(stderr);
+        }
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original sched_setaffinity failed:%s\n",e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original sched_setaffinity failed:unknown host exception\n");std::abort();}
+    });
     runtime.AddImport(syscall_marker,[&,syscall_marker](State &s){
       try{
         uint64_t token=0;const auto caller=s.gpr.x30.qword,sp=s.gpr.sp.qword;
@@ -617,7 +651,7 @@ int main(int argc,char **argv){
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
-        if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
+        if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address&&name=="sched_getaffinity")address=getaffinity_marker;if(!address&&name=="sched_setaffinity")address=setaffinity_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
         if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }

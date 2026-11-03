@@ -39,6 +39,53 @@ def qualified_runtime_source(path,legacy_digest,prerequisites=None,qualification
   prerequisites[str(proof_path)]=record['inverse_proof_sha256']
   prerequisites[proof['old_runtime_path']]=RUNTIME_DIAGNOSTIC_OLD
  return RUNTIME_DIAGNOSTIC_NEW
+PUBLIC_AFFINITY_BASE_CORE={'windows/thread_affinity.h':'a7ee15512cefd1cf5cb64279cd3a56b5cffebc76f9ba684d69ebcd033bae1ef7','windows/thread_affinity.cpp':'59f38f6ad52bb0d18a296213d7642bdc08ad3db9c18b4f89b9dd4990aa00ea24'}
+PUBLIC_AFFINITY_CORE={'windows/thread_affinity.h':'e9a35ad8bebd8dd8259ddea2313a4d97d057f19b9acb0b2fe12d9b4b63c89684','windows/thread_affinity.cpp':'29953aa90178eee58e9fc84d7cda68019916004d6f6f15c879a907492cdee9e5'}
+PUBLIC_AFFINITY_QUALIFICATION='d53e2045cba776791bf684e17674cc8020dfd9eb03e4b3b0d190932a163deb26'
+PUBLIC_AFFINITY_PROOF='ef640e0dab997275342e67a86b8ed05e81b64c318656fe1d0b4d49e6079e57bf'
+PUBLIC_AFFINITY_QUALIFICATION_PATH=str(HERE.parent/'work/affinity-public-qualification2/acceptance.json')
+
+def verify_public_affinity_projection(name,body,proof):
+ assert name in PUBLIC_AFFINITY_BASE_CORE and proof['passed']is True
+ assert proof['base_core_sources']==PUBLIC_AFFINITY_BASE_CORE and proof['core_sources']==PUBLIC_AFFINITY_CORE
+ assert proof['public_affinity_additions_only']is True and proof['legacy_raw_setter_bodies_byte_exact']is True
+ assert proof['public_apis']==['Get','Set'] and proof['old_file_recovered_byte_exact']is True
+ assert proof['kernel_mask_profile_bytes']==8 and proof['public_mask_bytes']==128
+ assert proof['base_commit']=='51046016c712835c3f6fdebec6a14e7be59639fc'
+ assert hashlib.sha256(body).hexdigest()==PUBLIC_AFFINITY_CORE[name]
+ records=sorted(proof['insertions'][name],key=lambda item:item['new_offset']);assert records
+ blocks=[]
+ for item in records:
+  value=item['bytes_hex'];assert isinstance(value,str)and value
+  added=bytes.fromhex(value);assert added.hex()==value and added
+  assert type(item['old_offset'])is type(item['new_offset'])is int
+  blocks.append(added)
+ old_size=len(body)-sum(map(len,blocks));delta=0;previous_end=0
+ for item,added in zip(records,blocks):
+  old_offset,new_offset=item['old_offset'],item['new_offset']
+  assert 0<=old_offset<=old_size and new_offset>=previous_end and new_offset==old_offset+delta
+  assert body[new_offset:new_offset+len(added)]==added
+  delta+=len(added);previous_end=new_offset+len(added)
+ projected=body
+ for item,added in reversed(list(zip(records,blocks))):
+  offset=item['new_offset'];assert projected[offset:offset+len(added)]==added
+  projected=projected[:offset]+projected[offset+len(added):]
+ assert hashlib.sha256(projected).hexdigest()==PUBLIC_AFFINITY_BASE_CORE[name]
+
+def qualified_public_affinity_source(path,name,legacy_digest,prerequisites=None,qualification_path=None):
+ assert name in PUBLIC_AFFINITY_BASE_CORE and legacy_digest==PUBLIC_AFFINITY_BASE_CORE[name]
+ path=Path(path);qualification_path=Path(qualification_path)if qualification_path is not None else Path(PUBLIC_AFFINITY_QUALIFICATION_PATH)
+ assert sha(qualification_path)==PUBLIC_AFFINITY_QUALIFICATION
+ record=json.loads(qualification_path.read_text());assert record['passed']is True
+ assert record['commit']=='51046016c712835c3f6fdebec6a14e7be59639fc'
+ assert record['core_sources']==PUBLIC_AFFINITY_CORE and record['source_proof_sha256']==PUBLIC_AFFINITY_PROOF
+ proof_path=Path(record['source_proof_path']);assert sha(proof_path)==PUBLIC_AFFINITY_PROOF
+ proof=json.loads(proof_path.read_text());verify_public_affinity_projection(name,path.read_bytes(),proof)
+ if prerequisites is not None:
+  prerequisites[str(qualification_path)]=PUBLIC_AFFINITY_QUALIFICATION
+  prerequisites[str(proof_path)]=PUBLIC_AFFINITY_PROOF
+ return PUBLIC_AFFINITY_CORE[name]
+
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--build-support',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);support=a.build_support.resolve();root=HERE.parent.parent
  def wp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()
@@ -75,7 +122,7 @@ def main():
  assert set(affinity['core_sources'])=={'windows/thread_affinity.h','windows/thread_affinity.cpp'}and len(affinity['fixture_sources'])==9
  affinity_peer=Path(affinity['source_peer_path']);assert sha(affinity_peer)==affinity['source_peer_sha256'];affinity_review=json.loads(affinity_peer.read_text());assert affinity_review['passed']and affinity_review['source_files']==affinity['core_sources'];prerequisites[str(affinity_peer)]=sha(affinity_peer)
  for name,digest in affinity['core_sources'].items():
-  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+  path=HERE.parent/name;assert sha(path)==qualified_public_affinity_source(path,name,digest,prerequisites),name;prerequisites[str(path)]=sha(path)
  for name,digest in affinity['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  for name,digest in affinity['protected_base_sources'].items():
