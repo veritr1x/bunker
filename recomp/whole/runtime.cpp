@@ -247,6 +247,7 @@ Memory *recomp::Runtime::Dispatch(State &state, addr_t address, Memory *memory) 
     state.gpr.pc.qword = state.gpr.x30.qword;
     return memory;
   }
+  std::fprintf(stderr, "recomp: unresolved indirect context target=%#llx StatePC=%#llx LR=%#llx SP=%#llx\n", static_cast<unsigned long long>(address), static_cast<unsigned long long>(state.gpr.pc.qword), static_cast<unsigned long long>(state.gpr.x30.qword), static_cast<unsigned long long>(state.gpr.sp.qword));
   fail("unresolved indirect target", address);
 }
 

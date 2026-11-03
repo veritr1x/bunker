@@ -74,6 +74,17 @@ void write_value(uint64_t value, unsigned size, unsigned offset = 0) {
 
 int main(int argc, char **argv) {
   auto runtime = make_runtime();
+  if (argc > 1 && (!std::strcmp(argv[1], "unresolved-zero") || !std::strcmp(argv[1], "unresolved-nonzero"))) {
+    const bool zero = !std::strcmp(argv[1], "unresolved-zero");
+    run(runtime, [&](State &state) {
+      state.gpr.pc.qword = zero ? UINT64_C(0x1234567876543210) : UINT64_C(0x56789abc9abcdef0);
+      state.gpr.x30.qword = zero ? UINT64_C(0x2345678987654321) : UINT64_C(0x6789abcdaabcdef1);
+      state.gpr.sp.qword = zero ? UINT64_C(0x3456789a98765432) : UINT64_C(0x789abcdebbcdef12);
+      if (zero) __remill_jump(state, 0, nullptr);
+      else __remill_function_call(state, UINT64_C(0x456789ab89abcdef), nullptr);
+    });
+    return 2;
+  }
   if (argc > 1) {
     run(runtime, [&](State &state) {
       if (!std::strncmp(argv[1], "pair-", 5)) {

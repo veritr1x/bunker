@@ -3,7 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: `glGetIntegerv(GL_RED_BITS=0x0d52)`, original
+Current execution frontier: unresolved indirect target0 after the default
+framebuffer properties query. Actual build
+`work/windows-first-frame-platform-query1`, host
+`87bc34552f720aeab334e13ca51684597eb25697`, executable
+`7c2f5051f61cf3e7d192e7ac9bcfc9eff9be947eeed32ca40596606de1d6b1e6`,
+records231 GL entry attempts and2758 paired EGL calls. Its final eight
+queries are RGBA/depth/stencil bits and SAMPLES/SAMPLE_BUFFERS; the final
+logged original return is `7048db74`. The previous ID/RELEASE/INCREMENTAL
+missing-field errors are absent. Native exit3/controller1, with no draw,
+swap, nativeRender return or frame PNG. The fatal diagnostic does not
+capture guest State PC/LR/SP, so its exact null caller remains unattributed.
+Saved audit: `work/first-frame-platform-query-null-boundary1/summary.json`,
+SHA256 `2ed82eb5087f2acea9119d913e0c98dc84010e0c679f1904ffc1acbe6f0723b3`.
+The next build adds one failure-only Runtime line printing target and State
+PC/LR/SP before the existing unresolved-target abort. Exact inverse proof
+recovers the previous Runtime byte for byte, and runtime.h is unchanged.
+Linux and Windows each pass97 prior checks, five prior fatal cases and
+two new zero/nonzero target cases. Qualification:
+`work/runtime-unresolved-diagnostic1/qualification4/acceptance.json`, SHA256
+`ca33662cafb9743a433972d84be2aaedbb0a698581115cf3b9f2ae5e66dc91cd`.
+The corresponding source-pin supersession passes19 cases, including16
+tamper rejections; old receipts and archives remain unchanged. State PC
+may be a next-PC value and does not itself identify a failing instruction.
+
+The preceding execution frontier was `glGetIntegerv(GL_RED_BITS=0x0d52)`, original
 return `7048dafc`, is rejected before native forwarding because its width
 is absent. Actual build `work/windows-first-frame-gles-core1`, host
 `981cea5f75ba130ec746d0aef8f0a72ab5b38ccd`, executable

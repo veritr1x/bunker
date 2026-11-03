@@ -5,6 +5,40 @@ from elftools.elf.elffile import ELFFile
 HERE=Path(__file__).resolve().parent
 OWN=('game_bootstrap.cpp','game_bootstrap_detail.h','game_collector_delivery.h','game_collector_mask.h','game_bootstrap_build.ps1','test_game_bootstrap.py','game_collector_profile.md','test_game_collector_source.py')
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+RUNTIME_DIAGNOSTIC_OLD='4c1609ebd11565fb45a55b4488428cbcff94851eea9bba58f4e160cc07850860'
+RUNTIME_DIAGNOSTIC_NEW='56c28270e218dcb62ddecc6048dda9e9e727a876478eaa4b0f87823881c5ace1'
+RUNTIME_DIAGNOSTIC_HEADER='c7f0d6c4cb446e78c2aecb2d8b7f078c4da03d949e7d7d15e05fe0b5b420248c'
+RUNTIME_DIAGNOSTIC_QUALIFICATION='ca33662cafb9743a433972d84be2aaedbb0a698581115cf3b9f2ae5e66dc91cd'
+RUNTIME_DIAGNOSTIC_INSERTION='016c0c45605f11fc0aa5078bd0f9472b8ca96997ca241b914b94695af0a965cb'
+
+def verify_runtime_diagnostic_projection(body,proof):
+ assert proof['passed']is True and proof['old_runtime_sha256']==RUNTIME_DIAGNOSTIC_OLD
+ assert proof['new_runtime_sha256']==RUNTIME_DIAGNOSTIC_NEW and proof['runtime_header_sha256']==RUNTIME_DIAGNOSTIC_HEADER
+ for field in ('exactly_one_fprintf_insertion','old_file_recovered_byte_exact','success_and_collector_paths_source_exact'):assert proof[field]is True,field
+ insertion=proof['insertion'].encode('utf-8')
+ assert hashlib.sha256(insertion).hexdigest()==RUNTIME_DIAGNOSTIC_INSERTION
+ assert body.count(insertion)==1 and hashlib.sha256(body).hexdigest()==RUNTIME_DIAGNOSTIC_NEW
+ assert hashlib.sha256(body.replace(insertion,b'',1)).hexdigest()==RUNTIME_DIAGNOSTIC_OLD
+
+def qualified_runtime_source(path,legacy_digest,prerequisites=None,qualification_path=None):
+ assert legacy_digest==RUNTIME_DIAGNOSTIC_OLD
+ path=Path(path);qualification_path=Path(qualification_path)if qualification_path is not None else HERE.parent/'work/runtime-unresolved-diagnostic1/qualification4/acceptance.json'
+ assert sha(qualification_path)==RUNTIME_DIAGNOSTIC_QUALIFICATION
+ record=json.loads(qualification_path.read_text());assert record['passed']is True
+ assert record['old_runtime_sha256']==RUNTIME_DIAGNOSTIC_OLD and record['new_runtime_sha256']==RUNTIME_DIAGNOSTIC_NEW
+ assert record['runtime_header_sha256']==RUNTIME_DIAGNOSTIC_HEADER and sha(path.with_name('runtime.h'))==RUNTIME_DIAGNOSTIC_HEADER
+ assert set(record['platforms'])=={'linux','windows'}
+ for observed in record['platforms'].values():
+  assert observed['legacy_negative_cases']==5 and set(observed['diagnostics'])=={'unresolved-zero','unresolved-nonzero'}
+ proof_path=Path(record['inverse_proof_path']);assert sha(proof_path)==record['inverse_proof_sha256']
+ proof=json.loads(proof_path.read_text());verify_runtime_diagnostic_projection(path.read_bytes(),proof)
+ assert sha(proof['old_runtime_path'])==RUNTIME_DIAGNOSTIC_OLD
+ if prerequisites is not None:
+  prerequisites[str(qualification_path)]=RUNTIME_DIAGNOSTIC_QUALIFICATION
+  prerequisites[str(proof_path)]=record['inverse_proof_sha256']
+  prerequisites[proof['old_runtime_path']]=RUNTIME_DIAGNOSTIC_OLD
+ return RUNTIME_DIAGNOSTIC_NEW
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--build-support',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);support=a.build_support.resolve();root=HERE.parent.parent
  def wp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()
@@ -47,6 +81,7 @@ def main():
  for name,digest in affinity['protected_base_sources'].items():
   path=HERE.parent/name
   if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
+  elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
   else:assert sha(path)==digest,name
   prerequisites[str(path)]=sha(path)
  # Accepted component manifests pin the actual production inputs used here.
@@ -69,6 +104,7 @@ def main():
  for name,digest in futex['core_sources'].items():
   path=HERE.parent/name
   if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
+  elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
   else:assert sha(path)==digest,name
   prerequisites[str(path)]=sha(path)
  assert timed['untimed_fixture_sources']==futex['fixture_sources']
