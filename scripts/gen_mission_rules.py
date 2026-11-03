@@ -9,7 +9,8 @@ script reads each name and writes a rule the server can evaluate:
 
   {"id": mission, "k": kind, "q": quest filter, "c": costumes, "w": weapons, "ch": characters,
    "ex": explore ids, "bh": subjugation boss ids, "bg": Mythic Slab group types, "lt": concert live type,
-   "nt": tutorials never played, "wd": profile message word}
+   "nt": tutorials never played, "wd": profile message word,
+   "mc": [condition type, counter group, option group, option-detail group]}
 
 A mission whose name doesn't match a known pattern gets no rule and stays at 0.
 
@@ -19,6 +20,11 @@ Usage:
 
 DIR holds the master data as JSON (lunar-base tools/dump_masterdata.py).
 archive.db is the Bunker Archive index, which holds the game's English text.
+
+To bind existing rules to their original definitions and generate the checked
+Japanese variants without rebuilding the English text rules:
+  python scripts/gen_mission_rules.py --master-json GLOBAL_DIR --bind-existing
+    --regional-master-json JAPANESE_DIR
 """
 import argparse
 import collections
@@ -56,6 +62,48 @@ LIVE_TYPE = {1: 2, 10: 3}
 WEAPON_KINDS = {6: "weapon_skill", 7: "weapon_evolve", 8: "weapon_limit_break", 43: "weapon_level"}
 COSTUME_KINDS = {10: "costume_skill", 11: "costume_limit_break", 40: "costume_level", 66: "costume_awaken"}
 DIFFICULTY = {"normal": 1, "hard": 2, "very hard": 3, "ex hard": 4}
+
+
+def condition(mission):
+    return [mission[key] for key in ("MissionClearConditionType", "MissionClearConditionGroupId",
+                                    "MissionClearConditionOptionGroupId", "MissionClearConditionOptionDetailGroupId")]
+
+
+def write_rules(path, rules):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = ",\n".join(json.dumps(r, separators=(",", ":"), sort_keys=True) for r in rules)
+    path.write_text("[\n" + body + "\n]\n", encoding="utf-8", newline="\n")
+
+
+def regional_rules(master, base):
+    """Extra definitions in the checked 20240405123139 JP master.
+
+    Other shifted IDs resolve by exact counter/filter identity at runtime.
+    These filters agree with the neighbouring named costume/weapon counters
+    (197/199 and 200/202), the existing Flying Mama option 7, and the existing
+    daily-quest option 101030801. Do not infer filters from an ID alone.
+    JP's profile-comment option 394 has no verified phrase here and stays
+    unsupported rather than inheriting Global's English option 392.
+    """
+    known = {tuple(r["mc"]) for r in base}
+    templates = {
+        (10, 198, 0): {"k": "costume_skill", "c": [25002]},
+        (6, 201, 0): {"k": "weapon_skill", "w": [250011, 250012]},
+        (29, 7, 0): {"k": "explore_score", "ex": [2]},
+        (1, 101030801, 0): {"k": "quest", "q": {"event_types": [3]}},
+    }
+    out = []
+    for m in load(master, "MMission"):
+        sig = condition(m)
+        if tuple(sig) in known:
+            continue
+        kind, _, option, detail = sig
+        rule = templates.get((kind, option, detail))
+        if kind == 65 and option == detail == 0:
+            rule = {"k": "stamina"}
+        if rule:
+            out.append({"id": m["MissionId"], "mc": sig, **rule})
+    return out
 
 
 def load(master: Path, name: str) -> list[dict]:
@@ -347,10 +395,24 @@ def loadout(name: str, n: Names) -> tuple[str, list[int], bool] | None:
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--master-json", type=Path, required=True)
-    p.add_argument("--text-db", type=Path, required=True)
+    p.add_argument("--text-db", type=Path)
     p.add_argument("--output", type=Path, default=ROOT / "overlays/server/internal/missions/rules.json")
+    p.add_argument("--bind-existing", action="store_true", help="Bind the existing output rules to this master; no text DB needed")
+    p.add_argument("--regional-master-json", type=Path, help="Generate checked Japanese filter variants from these tables")
+    p.add_argument("--regional-output", type=Path, default=ROOT / "overlays/server/internal/missions/rules_regional.json")
     args = p.parse_args()
 
+    if args.bind_existing:
+        rows = {m["MissionId"]: m for m in load(args.master_json, "MMission")}
+        rules = json.loads(args.output.read_text(encoding="utf-8"))
+        for r in rules:
+            r["mc"] = condition(rows[r["id"]])
+        write_rules(args.output, rules)
+        if args.regional_master_json:
+            write_rules(args.regional_output, regional_rules(args.regional_master_json, rules))
+        return
+    if not args.text_db:
+        p.error("--text-db is required unless --bind-existing is used")
     texts = dict(sqlite3.connect(args.text_db).execute("SELECT key, value FROM text"))
     names = Names(args.master_json, texts)
     rules, unknown = [], collections.Counter()
@@ -360,7 +422,7 @@ def main():
     for mission in load(args.master_json, "MMission"):
         kind_type = mission["MissionClearConditionType"]
         name = texts.get(f"mission.name.{mission['NameMissionTextId']}", "")
-        rule: dict = {"id": mission["MissionId"]}
+        rule: dict = {"id": mission["MissionId"], "mc": condition(mission)}
         if kind_type in (1, 2, 62):
             text = name
             only = False
@@ -480,9 +542,9 @@ def main():
             continue
         rules.append(rule)
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    body = ",\n".join(json.dumps(r, separators=(",", ":"), sort_keys=True) for r in rules)
-    args.output.write_text("[\n" + body + "\n]\n")
+    write_rules(args.output, rules)
+    if args.regional_master_json:
+        write_rules(args.regional_output, regional_rules(args.regional_master_json, rules))
     total = len(rules) + sum(unknown.values())
     print(f"{len(rules)} of {total} missions have a rule; without one, by clear condition type: {dict(unknown.most_common())}")
 

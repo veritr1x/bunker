@@ -93,6 +93,34 @@ and fourth Missions tab. Notices are the recovered English archive, not
 Japanese or Korean translations. Japanese has no video-ad roulette hook; its
 roulette behaviour is unverified.
 
+## Japanese master-data missions
+
+Mission rules are selected from the loaded master data, independently of the
+client's language or package. The Japanese `20240405123139.bin.e` reuses some
+Global mission IDs for different conditions. The server checks the condition
+type, counter group and both filter groups before applying a rule. It reuses a
+counter's rule only when its filters are unambiguous, and supplies verified
+Japanese variants for the shifted costume/weapon skills, mission-pass quests,
+Flying Mama scores and seven Japanese-only stamina missions.
+
+When a rule changes, unclaimed progress from the previous interpretation is
+reset before it can pay a reward. State-based missions are evaluated again from
+the save; counted actions start from zero because the old counter cannot prove
+which actions satisfied the new condition. Received rewards remain received.
+The save records these revisions so reopening the game does not reset valid
+new progress, including after changing master-data regions.
+
+The Japanese master has no Collection Bonus mission rows. Loading it does not
+restore that feature. The Japanese client also omits the Collection Bonus
+list code retained by Global; Global master data can expose its `unknown` tab
+in Japanese without making the collection list work. Japanese profile-comment
+mission 7011 remains unsupported: its option 394 has no verified required
+phrase in the rule source, so it does not inherit Global's English option 392.
+
+With Everything open, both masters still expose 21 historical stamina missions
+worth 3 million coins each. This can pay 63 million coins once. Regional rule
+selection does not change those original rewards or their patched dates.
+
 ## Tests
 
 Run the private-input tests with:
@@ -103,3 +131,20 @@ export BUNKER_JP_APK=/private/jp-3.7.1.apk
 cd android/tools
 python -m unittest test_game_regions -v
 ```
+
+For server mission tests against the private master files (neither is modified):
+
+```sh
+export BUNKER_TEST_JP_MASTER=/private/20240405123139.bin.e
+export BUNKER_TEST_GLOBAL_MASTER=/private/20240404193219.bin.e
+python scripts/prepare.py
+cd server
+go test ./internal/missions ./internal/store ./internal/userdata ./internal/interceptor ./internal/service
+```
+
+The November 3, 2026 checks exercised the supplied Japanese master, its normal
+content patch and a patched Global control on a copied Japanese emulator save.
+The real local gRPC server returned mission and inventory diffs, the weapon
+level no longer completed Japanese costume mission 1166, the 63-million payout
+remained one-time, and SQLite integrity passed. These server checks do not
+establish game UI or full campaign compatibility with Japanese master data.

@@ -10,7 +10,6 @@ package missions
 
 import (
 	_ "embed"
-	"encoding/json"
 	"log"
 	"sync"
 
@@ -36,6 +35,9 @@ const (
 //go:embed rules.json
 var rulesJSON []byte
 
+//go:embed rules_regional.json
+var regionalRulesJSON []byte
+
 // QuestFilter selects the quests a quest-clear mission counts. The kinds (Main,
 // Event, EventTypes, EventChapters, MainChapters, DailyLimited, Quests) are
 // alternatives; with none set, every quest counts. Diff, Order and Characters
@@ -56,19 +58,20 @@ type QuestFilter struct {
 }
 
 type Rule struct {
-	MissionId  int32        `json:"id"`
-	Kind       string       `json:"k"`
-	Quest      *QuestFilter `json:"q"`
-	Costumes   []int32      `json:"c"` // negative: any costume of that character
-	Weapons    []int32      `json:"w"`
-	Characters []int32      `json:"ch"`
-	NoSkip     bool         `json:"ns"`
-	Only       bool         `json:"co"` // every costume in the deck must match Costumes
-	Gacha      string       `json:"g"`
-	Explores   []int32      `json:"ex"` // explore ids
-	Bosses     []int32      `json:"bh"` // subjugation boss ids
-	BoardTypes []int32      `json:"bg"` // Mythic Slab CharacterBoardGroupType
-	LiveType   int32        `json:"lt"` // concert: client enum LiveType
+	MissionId  int32         `json:"id"`
+	Condition  ruleCondition `json:"mc"` // type, counter group, option group, option-detail group
+	Kind       string        `json:"k"`
+	Quest      *QuestFilter  `json:"q"`
+	Costumes   []int32       `json:"c"` // negative: any costume of that character
+	Weapons    []int32       `json:"w"`
+	Characters []int32       `json:"ch"`
+	NoSkip     bool          `json:"ns"`
+	Only       bool          `json:"co"` // every costume in the deck must match Costumes
+	Gacha      string        `json:"g"`
+	Explores   []int32       `json:"ex"` // explore ids
+	Bosses     []int32       `json:"bh"` // subjugation boss ids
+	BoardTypes []int32       `json:"bg"` // Mythic Slab CharacterBoardGroupType
+	LiveType   int32         `json:"lt"` // concert: client enum LiveType
 	// NoTutorials are tutorials (TutorialType) the player must never have
 	// played for a quest clear to count.
 	NoTutorials []int32 `json:"nt"`
@@ -122,6 +125,7 @@ type Catalog struct {
 	exploreGroups map[int32]int32      // ExploreId -> ExploreGroupId
 	boards        map[int32]boardPlace // CharacterBoardId -> owner and group type
 	encyclopedia  encyclopedia
+	ruleChanges   map[int32]string // revisions differing from the old, ID-only rules
 }
 
 // boardPlace is whose Mythic Slab a board is and which of its groups (Stone
@@ -175,13 +179,9 @@ func read[T any](key string) []T {
 }
 
 func load() (*Catalog, error) {
-	var rules []Rule
-	if err := json.Unmarshal(rulesJSON, &rules); err != nil {
+	rules, err := loadRules()
+	if err != nil {
 		return nil, err
-	}
-	ruleById := make(map[int32]Rule, len(rules))
-	for _, r := range rules {
-		ruleById[r.MissionId] = r
 	}
 	groups := map[int32]masterdata.EntityMMissionGroup{}
 	for _, g := range read[masterdata.EntityMMissionGroup]("m_mission_group") {
@@ -196,6 +196,7 @@ func load() (*Catalog, error) {
 		unlocks[u.MissionUnlockConditionId] = u
 	}
 	c := &Catalog{
+		ruleChanges:   map[int32]string{},
 		ByKind:        map[string][]*Mission{},
 		ById:          map[int32]*Mission{},
 		Rewards:       map[int32][]masterdata.EntityMMissionReward{},
@@ -221,9 +222,12 @@ func load() (*Catalog, error) {
 		t := terms[row.MissionTermId]
 		m := &Mission{EntityMMission: row, Category: g.MissionCategoryType, SubCategoryId: g.MissionSubCategoryId,
 			Start: t.StartDatetime, End: t.EndDatetime, Unlock: unlocks[row.MissionUnlockConditionId]}
-		if r, ok := ruleById[row.MissionId]; ok {
+		if r, ok := rules.find(row); ok {
 			m.Rule = r
 			c.ByKind[r.Kind] = append(c.ByKind[r.Kind], m)
+		}
+		if revision := rules.change(row.MissionId, m.Rule); revision != "" {
+			c.ruleChanges[row.MissionId] = revision
 		}
 		c.Missions = append(c.Missions, m)
 		c.ById[row.MissionId] = m
@@ -339,7 +343,7 @@ func load() (*Catalog, error) {
 	for _, r := range read[masterdata.EntityMCatalogThought]("m_catalog_thought") {
 		e.thoughts[r.ThoughtId] = true
 	}
-	log.Printf("[missions] %d missions, %d with rules", len(c.Missions), len(rules))
+	log.Printf("[missions] %d missions, %d rule revisions", len(c.Missions), len(c.ruleChanges))
 	return c, nil
 }
 

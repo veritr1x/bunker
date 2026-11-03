@@ -607,6 +607,7 @@ func set(u *store.UserState, m *Mission, value int64, now int64) {
 // the request; after is the save after it, and is updated in place.
 func (cat *Catalog) Track(before, after *store.UserState, method string, req any, now int64) {
 	after.Ext.EnsureMaps()
+	cat.reconcileRules(after, now)
 	tracked := after.Ext.MissionsVersion
 	today := startOfDay(now)
 	recordLogin(after, now, today)

@@ -28,6 +28,9 @@
 #include "big_hunt_season.h"
 #include "bunker_button_layout.h"
 #include "bunker_icon.h"
+#ifdef __ANDROID__
+#include "game_region.h"
+#endif
 
 #include <pthread.h>
 #include <stdint.h>
@@ -213,9 +216,13 @@ static void add_button(void *self) {
         if (named(gameobject, "badge_middle")) { call(m_set_active, gameobject, (void *[]){&no}); break; }
     }
     void *texts = components(copy, k_text);
+    const char *title = "Bunker";
+#ifdef __ANDROID__
+    if (bunker_game_japanese) title = "バンカー";
+#endif
     for (size_t i = 0; i < array_length(texts); i++)
         if (named(call(m_component_go, array_item(texts, i), NULL), "button_title"))
-            call(m_set_text, array_item(texts, i), (void *[]){il2cpp.string_new("Bunker")});
+            call(m_set_text, array_item(texts, i), (void *[]){il2cpp.string_new(title)});
     void *images = components(copy, k_image);
     for (size_t i = 0; i < array_length(images); i++)
         if (named(call(m_component_go, array_item(images, i), NULL), "image")) { put_emblem(array_item(images, i)); break; }
