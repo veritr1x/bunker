@@ -22,6 +22,12 @@ under its heading, down to the previous release.
   once. The list shows each banner once, its first summon; the Original
   calendar still runs each rerun on its dates. [3dd64df]
 
+### Bunker button
+- The art viewer (the magnifier on a character, weapon or companion) hides
+  the game's top row, but the Bunker button stayed on the picture. It now
+  shows only while one of the game's own top-row buttons does, so it hides
+  and comes back with them. [5c941ca]
+
 ### Linux
 - Releases include the desktop Bunker for Linux (`Bunker-<version>-linux-x86_64`
   and `-linux-arm64`). With Waydroid installed it uses Waydroid: it starts
