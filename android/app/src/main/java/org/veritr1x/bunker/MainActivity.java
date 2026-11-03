@@ -14,6 +14,8 @@ import android.os.*;
 import android.provider.Settings;
 import android.view.*;
 import android.widget.*;
+import com.chaquo.python.Python;
+import com.chaquo.python.android.AndroidPlatform;
 import org.json.JSONObject;
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -26,7 +28,10 @@ public final class MainActivity extends Activity {
     private boolean awaitingAccess;
     private Look look;
     private final Handler handler=new Handler(Looper.getMainLooper());
-    private TextView status,detail,files,ports,save,progressText;
+    private TextView status,detail,files,ports,save,archiveLine,progressText;
+    // The Archive's index, checked once before the game starts (and built then if missing or out of date).
+    private boolean indexChecked=false,indexing=false,openedWhileIndexing=false;
+    private String indexText="NOT CHECKED";
     private Button assetButton,play,pods,archive;
     // Updates (Updater.java keeps their state, so it survives the screen being recreated).
     private LinearLayout updatePanel;
@@ -44,7 +49,7 @@ public final class MainActivity extends Activity {
         refresh();
         if(message.what==2) displayLog(b.getString("native","{}"));
         if(message.what==3) showServerCheck(b.getString("selftest",""));
-        if(foreground&&running&&!tools&&launchWhenReady){launchWhenReady=false;openGame();}
+        if(foreground&&running&&!tools&&launchWhenReady){launchWhenReady=false;launchAfterIndex();}
         else if(foreground&&!busy&&!running&&!tools&&!autoAttempted&&FilesStore.ready(this)){autoAttempted=true;run(ServerService.START,null);}
         return true;
     }));
@@ -124,6 +129,7 @@ public final class MainActivity extends Activity {
         row(system,"LUNAR TEAR",status,progress);
         ports=look.monoText("",13,look.ink);row(system,"PORTS",ports);
         save=look.monoText("",13,look.ink);row(system,"SAVE",save);
+        archiveLine=look.monoText(indexText,13,look.ink);row(system,"ARCHIVE",archiveLine);
         bar=new Look.Segments(look);LinearLayout.LayoutParams barParams=new LinearLayout.LayoutParams(-1,dp(14));barParams.setMargins(0,dp(10),0,dp(6));system.addView(bar,barParams);
         progressText=look.monoText("",12,look.ink);system.addView(progressText);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);pp.setMargins(0,0,0,dp(20));body.addView(system,pp);
@@ -349,7 +355,43 @@ public final class MainActivity extends Activity {
         // Stopping never puts the service in the foreground, so it must not be started as a foreground service.
         if(ServerService.STOP.equals(action)||ServerService.CLOSE_TOOLS.equals(action))startService(intent);else startForegroundService(intent);
     }
+    /**
+     * Starts the game, first building the Archive's index when it is missing or
+     * out of date (new game files, or an update that indexes more), so the
+     * Archive and the pages that name things from it are ready in the game.
+     */
+    private void launchAfterIndex(){
+        if(indexChecked||indexing){if(!indexing)openGame();return;}
+        indexing=true;openedWhileIndexing=false;indexText="CHECKING";archiveLine.setText(indexText);
+        final File assets=FilesStore.root(this),data=new File(getFilesDir(),"archive");
+        new Thread(()->{
+            String done="READY";
+            try{
+                if(!Python.isStarted())Python.start(new AndroidPlatform(getApplicationContext()));
+                com.chaquo.python.PyObject archive=Python.getInstance().getModule("android_archive");
+                JSONObject st=new JSONObject(archive.callAttr("build_index",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
+                while(st.optBoolean("running")){
+                    int total=st.optInt("total"),pct=total>0?Math.min(99,st.optInt("done")*100/total):0;
+                    final String line="INDEXING "+pct+"% · "+st.optString("step");
+                    runOnUiThread(()->{indexText=line;archiveLine.setText(line);});
+                    Thread.sleep(500);
+                    st=new JSONObject(archive.callAttr("index_status",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
+                }
+                if(!st.optBoolean("possible"))done="NO GAME TEXT";
+                else if(!st.optBoolean("ready"))done="NOT BUILT"+(st.optString("error").isEmpty()?"":" · "+st.optString("error"));
+            }catch(Exception|LinkageError error){
+                android.util.Log.e("LunarTear","Archive index failed",error);
+                done="NOT BUILT";
+            }
+            final String result=done;
+            runOnUiThread(()->{
+                indexing=false;indexChecked=true;indexText=result;archiveLine.setText(result);
+                if(foreground&&running&&!tools&&!openedWhileIndexing)openGame();
+            });
+        },"archive-index-check").start();
+    }
     private void openGame(){
+        if(indexing)openedWhileIndexing=true;
         Intent intent=null;
         try {
             android.content.pm.ApplicationInfo info=getPackageManager().getApplicationInfo(getPackageName(),PackageManager.GET_META_DATA);
