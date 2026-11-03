@@ -96,6 +96,72 @@ static NSString *ToolsRoot(void) {
     return [support stringByAppendingPathComponent:@"LunarTools"];
 }
 
+static NSString *ArchiveRoot(void) {
+    NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+    return [support stringByAppendingPathComponent:@"LunarArchive"];
+}
+
+#pragma mark - The Archive's index
+
+// As the app starts, the Archive's index is built in the background when it is
+// missing or out of date, so the Archive and the pages that name things from
+// it are ready. The check itself runs in Python (Tools), which the game then
+// carries in its memory; index.checked remembers what a current index was
+// checked against, so an unchanged install skips Python altogether.
+static NSString *gIndexText = @"NOT CHECKED";
+static BOOL gIndexChecking = NO;
+
+static NSArray *FileStamp(NSString *path) {
+    NSDictionary *a = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
+    return a ? @[@(a.fileSize), @((long long)a.fileModificationDate.timeIntervalSince1970)] : @[];
+}
+
+// What the index depends on: this install of the app, the catalog and the master data the
+// Archive reads (android_archive.original_master: the game's own, kept by Tools, else the one
+// in use; the one in use is rewritten as the app starts, so it counts only without the other).
+static NSString *IndexInputs(void) {
+    NSMutableArray *stamps = [NSMutableArray arrayWithObjects:BunkerVersion(), FileStamp(NSBundle.mainBundle.executablePath), nil];
+    for (NSString *p in @[@"assets/revisions/0/ios/list.bin", @"assets/revisions/0/list.bin"])
+        [stamps addObject:FileStamp([gServerRoot stringByAppendingPathComponent:p])];
+    NSString *origin = [ToolsRoot() stringByAppendingPathComponent:@"patcher/origin.bin.e"];
+    [stamps addObject:FileSize(origin) > 0 ? FileStamp(origin) : FileStamp(MasterPath())];
+    return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:stamps options:0 error:nil] encoding:NSUTF8StringEncoding];
+}
+
+static void ShowIndex(NSString *text) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        gIndexText = text;
+        if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)];
+    });
+}
+
+static void CheckArchiveIndex(void) {
+    if (gIndexChecking || !LTToolsAvailable() || !HasCatalog()) return;
+    NSString *checked = [ArchiveRoot() stringByAppendingPathComponent:@"index.checked"];
+    NSString *inputs = IndexInputs();
+    if ([[NSString stringWithContentsOfFile:checked encoding:NSUTF8StringEncoding error:nil] isEqualToString:inputs] &&
+        FileSize([ArchiveRoot() stringByAppendingPathComponent:@"archive.db"]) > 0) { ShowIndex(@"READY"); return; }
+    gIndexChecking = YES;
+    ShowIndex(@"CHECKING");
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *error = nil;
+        NSDictionary *st = LTArchiveIndex(gServerRoot, ArchiveRoot(), YES, &error);
+        while (st && [st[@"running"] boolValue]) {
+            long total = [st[@"total"] longValue], done = [st[@"done"] longValue];
+            ShowIndex([NSString stringWithFormat:@"INDEXING %ld%% · %@", total > 0 ? MIN(99, done * 100 / total) : 0, st[@"step"] ?: @""]);
+            [NSThread sleepForTimeInterval:.5];
+            st = LTArchiveIndex(gServerRoot, ArchiveRoot(), NO, &error);
+        }
+        NSString *text = @"READY";
+        if (!st) text = [@"NOT BUILT · " stringByAppendingString:error ?: @""];
+        else if (![st[@"possible"] boolValue]) text = @"NO GAME TEXT";
+        else if (![st[@"ready"] boolValue]) text = [st[@"error"] length] ? [@"NOT BUILT · " stringByAppendingString:st[@"error"]] : @"NOT BUILT";
+        if ([text isEqualToString:@"READY"]) [inputs writeToFile:checked atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        gIndexChecking = NO;
+        ShowIndex(text);
+    });
+}
+
 #pragma mark - Game files used in place
 
 // A folder chosen with "Use in place" stays where the player keeps it. Its
@@ -888,7 +954,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 }
 
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
-@property(nonatomic, strong) UILabel *ports, *save, *detail, *sign;
+@property(nonatomic, strong) UILabel *ports, *save, *archiveLine, *detail, *sign;
 @property(nonatomic, strong) LTChip *files, *server;
 @property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
 @property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
@@ -1117,6 +1183,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     self.spinner.hidesWhenStopped = YES;
     self.ports = [self mono:@"" size:13 color:Ink()];
     self.save = [self mono:@"" size:13 color:Ink()];
+    self.archiveLine = [self mono:@"" size:13 color:Ink()];
     self.bar = [LTSegments new];
     [self.bar.heightAnchor constraintEqualToConstant:14].active = YES;
     self.bar.hidden = YES;
@@ -1125,6 +1192,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [self row:@"LUNAR TEAR" values:@[self.server, self.spinner]],
         [self row:@"PORTS" values:@[self.ports]],
         [self row:@"SAVE" values:@[self.save]],
+        [self row:@"ARCHIVE" values:@[self.archiveLine]],
         self.bar]];
     // [ PLAY ]: what happens next, and the way back into the game.
     self.detail = [self mono:@"" size:12 color:Ink()];
@@ -1212,6 +1280,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     else SetChip(self.server, catalog ? @"NOT RUNNING" : @"WAITING FOR FILES", ChipFill(), Ink());
     int offset = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"] intValue];
     self.ports.attributedText = Tracked([NSString stringWithFormat:@"%d · %d · %d", 8003 + offset, 8080 + offset, 3000 + offset], Mono(13), Ink(), .8);
+    self.archiveLine.attributedText = Tracked(gIndexText, Mono(13), Ink(), .8);
     unsigned long long saved = FileSize([gSaves stringByAppendingPathComponent:@"game.db"]);
     self.save.attributedText = Tracked(saved ? [NSString stringWithFormat:@"game.db · %@", [NSByteCountFormatter stringFromByteCount:(long long)saved countStyle:NSByteCountFormatterCountStyleFile]] : @"none yet", Mono(13), Ink(), .8);
     self.back.hidden = !running || gImporting;
@@ -1550,8 +1619,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 // The Archive, on its home page or a timeline link's page, over the launcher or Pod Programs.
 - (void)openArchiveAt:(NSString *)path from:(UIViewController *)presenter {
     __block NSString *url = nil, *token = nil;
-    NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
-    NSString *root = [support stringByAppendingPathComponent:@"LunarArchive"];
+    NSString *root = ArchiveRoot();
     self.archive.enabled = NO;
     [self busy:@"Opening the Archive…" work:^NSString *{
         return LTArchiveStart(gServerRoot, root, &url, &token, ^(NSString *text) {
@@ -2085,6 +2153,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             }
             NSString *error = StartServer();
             gMessage = error.length ? error : update;
+            if (!error.length) CheckArchiveIndex();
             // An import at launch may have left the launcher open; show the result.
             dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; });
         });
