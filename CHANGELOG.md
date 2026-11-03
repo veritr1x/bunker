@@ -15,6 +15,22 @@ under its heading, down to the previous release.
   Unclaimed progress recorded under a mismatched rule resets before rewards
   can be claimed; already received rewards stay received. [b04cd9a]
 
+### Japanese master
+- The Yuletide multi-step summon is offered on the Japanese master, which
+  keeps it under its own ID (503001) with no medal row of its own; it gets
+  the Yuletide medal it ran beside. Global's summon list is unchanged. Three
+  server tests that check Global's dates skip on the Japanese master, so
+  `build.py` builds with it. [1031577]
+
+### Anecdote panel pages
+- The panel sheets follow the game's language. The Archive also indexes the
+  game's Japanese and Korean text, and on a Japanese or Korean page the sheet
+  title, panel titles, reward names, gems and completion stories are the
+  game's own words in that language. Panel titles come from the game's
+  mission names (with the panel's numbers); the few with no matching text
+  stay English. Completion stories no longer come out empty on the Japanese
+  master. The Archive index rebuilds once and grows by about 45 MB. [c7c7736]
+
 ### Master data
 - Import master data accepts the file by its contents, not its name: a
   browser's second download, `20240405123139.bin (1).e`, was refused with a
