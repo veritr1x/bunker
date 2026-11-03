@@ -15,6 +15,10 @@ struct Trace { addr_t address; Entry entry; };
 // APIs to participate in exclusive reservations and shared-memory ordering.
 void ReadGuestMemory(void *destination, addr_t address, size_t size);
 void WriteGuestMemory(addr_t address, const void *source, size_t size);
+// Short fault-safe native read under the shared-memory lock. No epoch changes.
+// Callback may only read native memory into owned host storage; no guest/runtime
+// calls, waits, guest writes or allocation. It must not reenter this protocol.
+void WithGuestMemoryRead(const std::function<void()> &read);
 // Allocation lifetime changes invalidate stale reservations without touching
 // bytes. Providers must supply the complete known allocation range.
 void InvalidateGuestMemory(addr_t address, size_t size);

@@ -57,10 +57,14 @@ import is Unity `syscall`, LR0x702ad510, with X0=98 and a dynamic address in X1.
 The original caller statically supplies FUTEX_WAIT_PRIVATE/op0x80, expected
 word in W3 and null timeout. W3, the current syscall thread/token and its
 application role are not logged; nearby worker lines are interleavable.
-Implement a real private futex wait/wake provider with compare/enrollment and
-actual wake counts, keeping signal admission/root limits explicit. A returned
-public initialization value, nativeRender return and rendered image remain
-unobserved.
+A private futex wait/wake provider now passes23 matching Bionic/Linux/Windows
+records and2921 checks per translated host. It uses atomic comparison/enrollment,
+actual wake counts and a fault-safe readonly Runtime memory helper. Number/op/
+value decoding follows the kernel's low32 semantics. The game adapter admits
+zero signals and captures actual registers/thread identity plus the owned
+saved caller for this exact frame. A frozen native retry is next; the new
+provider has not executed in the game. A returned public initialization value,
+nativeRender return and rendered image remain unobserved.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive

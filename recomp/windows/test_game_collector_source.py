@@ -18,6 +18,15 @@ def main():
    assert qualified['passed']and qualified['core']==record['core_sources']and qualified['arm64_records']==16
    for platform in ('linux','windows'):
     observed=qualified['platforms'][platform];assert'USLEEP-HOST-SUCCESS records=16'in observed['stdout']and'SIGNAL-DISPATCH-ALLOWED-SUCCESS'in observed['legacy_allowed_stdout']and'159 checks; NDK'in observed['legacy_default_stdout']
+ futex_path=HERE.parent/'work/signal-futex-held1.json';futex=json.loads(futex_path.read_text());prerequisites[str(futex_path)]=sha(futex_path)
+ focused=Path(futex['acceptance_path']);assert futex['passed']and sha(focused)==futex['acceptance_sha256'];prerequisites[str(focused)]=futex['acceptance_sha256'];qualified=json.loads(focused.read_text())
+ assert qualified['passed']and qualified['core_sources']==futex['core_sources']and len(qualified['canonical_records'])==qualified['arm64_records']==23
+ for name,digest in futex['core_sources'].items():
+  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+ for name,digest in futex['fixture_sources'].items():
+  path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+ for platform in ('linux','windows'):
+  observed=qualified['platforms'][platform];assert'FUTEX-HOST-SUCCESS records=23'in observed['stdout']and observed['canonical_records']==qualified['canonical_records']
  audit=HERE.parent/'work/game20-first-gc-profile-audit/evidence.json';assert sha(audit)=='b4cf7340df35ab38d3e31b8dec70f5164356cd941590f70bd38f4893425052ca';data=json.loads(audit.read_text());original={str(audit):sha(audit)}
  for path,digest in data['files'].items():
   if '/work/' in path:assert sha(path)==digest,path;original[path]=digest

@@ -14,6 +14,7 @@
 #include "unity_lifecycle.h"
 #include "signal_host.h"
 #include "signal_sleep.h"
+#include "signal_futex.h"
 #include "semaphore_host.h"
 #include "nonlocal_jmp.h"
 #include "audio_volume_session.h"
@@ -345,6 +346,11 @@ int main(int argc,char **argv){
                         [](uint64_t){return uint64_t{0};});
     sleeps.SetErrorSink(error);
     recomp::Runtime sleep_bridges;
+    auto futex_no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("private-futex signal roots are not qualified");};
+    SignalFutexes futexes(process_signals,current_signal_thread,futex_no_delivery,
+                         [](uint64_t){return uint64_t{0};});
+    futexes.SetErrorSink(error);
+    recomp::Runtime futex_bridges;
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
@@ -439,6 +445,33 @@ int main(int argc,char **argv){
       }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original usleep LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
       catch(...){std::fprintf(stderr,"Game bootstrap: original usleep LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
     });
+    // The forwarding import below owns the complete original-call witness.
+    futexes.Install(futex_bridges,[](const State&,uint64_t){});
+    const auto syscall_marker=futexes.Marker("syscall");
+    runtime.AddImport(syscall_marker,[&,syscall_marker](State &s){
+      try{
+        uint64_t token=0;const auto caller=s.gpr.x30.qword,sp=s.gpr.sp.qword;
+        const std::array<uint64_t,7> args={s.gpr.x0.qword,s.gpr.x1.qword,s.gpr.x2.qword,s.gpr.x3.qword,s.gpr.x4.qword,s.gpr.x5.qword,s.gpr.x6.qword};
+        {GameWorkerObservation::NativeEnvironment native;
+        token=current_signal_thread();
+        std::fprintf(stderr,"Game bootstrap: original syscall ENTER token=%#llx native_tid=%lu PC=%#llx SP=%#llx LR=%#llx x0=%#llx x1=%#llx x2=%#llx x3=%#llx x4=%#llx x5=%#llx x6=%#llx; arguments only, not a blocked-state record\n",(unsigned long long)token,GetCurrentThreadId(),(unsigned long long)s.gpr.pc.qword,(unsigned long long)sp,(unsigned long long)caller,(unsigned long long)args[0],(unsigned long long)args[1],(unsigned long long)args[2],(unsigned long long)args[3],(unsigned long long)args[4],(unsigned long long)args[5],(unsigned long long)args[6]);
+        if(caller==0x702ad510&&args[0]==98&&uint32_t(args[2])==0x80){
+          AndroidThreadAttr attr{};const auto status=threads.GetAttr(token,&attr);
+          const bool owned=!status&&attr.stack_base&&attr.stack_size<=UINT64_MAX-attr.stack_base;
+          const auto high=owned?attr.stack_base+attr.stack_size:0;
+          const bool readable=owned&&!(sp&15)&&sp>=attr.stack_base&&sp<=high&&high-sp>=32;
+          const auto saved_caller=readable?Read<addr_t>(sp+24):0;
+          std::fprintf(stderr,"Game bootstrap: original syscall callsite token=%#llx attr_status=%d stack_low=%#llx stack_high=%#llx saved_caller_read=%d saved_caller=%#llx; exact original 32-byte frame only\n",(unsigned long long)token,status,(unsigned long long)attr.stack_base,(unsigned long long)high,int(readable),(unsigned long long)saved_caller);
+        }
+        std::fflush(stderr);
+        }
+        futex_bridges.Dispatch(s,syscall_marker,nullptr);
+        {GameWorkerObservation::NativeEnvironment native;
+        std::fprintf(stderr,"Game bootstrap: original syscall RETURN token=%#llx LR=%#llx result=%lld errno=%d\n",(unsigned long long)token,(unsigned long long)caller,(long long)int64_t(s.gpr.x0.qword),files.Error());
+        }
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original syscall failed:%s\n",e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original syscall failed:unknown host exception\n");std::abort();}
+    });
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     constexpr addr_t ack_audit=0x7ffc60000100ULL;
     if(collector)runtime.AddImport(ack_audit,[&](State &s){try{GameWorkerObservation::NativeEnvironment native;collector->BeforePost(s);runtime.Dispatch(s,semaphores.Marker("sem_post"),nullptr);collector->AfterPost(s);}catch(const std::exception&e){std::fprintf(stderr,"Game GC: original post observation failed:%s\n",e.what());std::abort();}catch(...){std::abort();}});
@@ -496,7 +529,7 @@ int main(int argc,char **argv){
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
         if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
-        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
+        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
         if(address){++provided;if(egl&&Try(*egl,name)==address&&forwarded_egl.insert(address).second)runtime.AddImport(address,[&,address,name](State &s){std::fprintf(stderr,"Game bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx LR=%#llx\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)s.gpr.x30.qword);egl_bridges.Dispatch(s,address,nullptr);});}

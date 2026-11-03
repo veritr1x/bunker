@@ -155,6 +155,10 @@ void recomp::ReadGuestMemory(void *destination, addr_t address, size_t size) {
   std::lock_guard<std::mutex> lock(memory_tracking().lock);
   std::memmove(destination, reinterpret_cast<const void *>(address), size);
 }
+void recomp::WithGuestMemoryRead(const std::function<void()> &read) {
+  std::lock_guard<std::mutex> lock(memory_tracking().lock);
+  read();
+}
 void recomp::WriteGuestMemory(addr_t address, const void *source, size_t size) {
   check_range(address, size);
   if (!size) return;
