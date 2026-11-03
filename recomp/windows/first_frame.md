@@ -147,6 +147,19 @@ retained original function, with current FCSEL repairs preserved. The
 exact reached word still needs its function-specific execution check;
 no repeat of the generic ST2 family campaign is required.
 
+The constructor repair is now qualified in
+[the original-function gate](../whole/unity_st2_constructor.md). It
+replaces only `707520c4` in object 249 and preserves all 127 neighboring
+functions in raw, polled and complete native code. Sixteen cases match
+across the untouched ARM64/Bionic function and Linux/Windows raw/polled
+translations, including genuine memset effects, every object byte,
+allocation canaries, normal return and the declared ABI-defined register
+subset. The current FCSEL vector remains selected. Its new loop adds one
+cooperative poll site; the complete cohort retains 456689 heads and removes
+only this unsupported head. All 794 v9 guard cases pass in each of Python
+and PowerShell. The next build is `work/windows-first-frame-st2-2`;
+Windows linking and integrated startup remain separate from these results.
+
 The next host build also expands only the native Crash handler's logging
 to include the actual module base, thread, accessed address/operation and
 x64 register context. Its MinGW syntax check passes, and reversing that
