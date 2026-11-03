@@ -1,7 +1,9 @@
 # Native Windows host gates
 
-These adapters support the ARM64-to-x86_64 recompilation path. They do not yet
-boot the real Unity player, initialize its graphics/audio host, or run the game.
+These adapters support the ARM64-to-x86_64 recompilation path. The Windows
+bootstrap executes original constructors and JNI startup, but native startup
+remains incomplete and no game frame is verified. See the
+[current first-frame status](first_frame.md) for the latest execution boundary.
 Unsupported JNI methods and unavailable translated modules fail explicitly.
 
 Logging snapshots its configuration under its provider lock, then invokes

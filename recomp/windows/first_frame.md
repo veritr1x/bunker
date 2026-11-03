@@ -61,6 +61,25 @@ independent ARM opcode checks cover the same selection outcomes.
 These use labelled controlled getter/SDK seams and establish the
 candidate behavior; the next integrated startup remains necessary.
 
+The combined repair is selected in `work/windows-first-frame-fcsel2`,
+host `36db3922df5dbd0fd0fe16695f9c2918473cde9a`, executable SHA256
+`50674f04a6e5d13d807e313a2cd266196107164cf75d61dd0c364ff6e896626e`.
+The native build and412-case checks for each consumer pass. Its actual
+startup exits native3/controller1 at `unliftable instruction707bb4bc`.
+Neither earlier native access violation recurs. There are still no
+EGL/GL calls, successful presentations, returned nativeRender or frame PNG.
+
+The reported PC is the next PC after original `707bb4b8`, word `4c008d80`,
+`ST2 {V0.2D,V1.2D},[X12]`. The decoder currently rejects this multiple-
+structure store; the latest qualified toolchain has no matching selector.
+Original FDE `707bb458..707bb55c` initializes a0x498-byte object with a
+finite interleaving loop and no calls. Only head `707bb458` is selected
+in shard270. The run has no captured dynamic caller/thread context for
+this instruction, so a returned display constructor is not inferred.
+Proper ST2 translation and ARM memory/writeback reference checks are the
+next prerequisite. The original bytes and read-only attribution are in
+`work/first-frame-st2-audit1`.
+
 First-frame acceptance requires an image captured from the original GL
 window framebuffer, original drawing activity, a successful original
 `eglSwapBuffers`, and a returned original `nativeRender`. A synthetic
