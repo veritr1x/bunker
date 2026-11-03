@@ -24,6 +24,9 @@ func TestSummonCatalogRules(t *testing.T) {
 	if _, ok := byId[45]; !ok || byId[45].EndDatetime > 2_000_000_000_000 {
 		t.Skip("needs the original master data")
 	}
+	if japaneseMaster(t) {
+		t.Skip("Global's summon IDs; the Japanese master keeps the original ones")
+	}
 	// Multi-step summons: one entry each, steps from the game's step pages.
 	if e := byId[9000041]; e.GachaModeType != model.GachaModeStepup || e.MaxStepNumber != 5 || len(e.PricePhases) != 5 {
 		t.Errorf("Festive Dress step-up: mode %d steps %d phases %d", e.GachaModeType, e.MaxStepNumber, len(e.PricePhases))
@@ -198,6 +201,9 @@ func TestBannerlessSummons(t *testing.T) {
 	if w.EndDatetime > 1_700_000_000_000 {
 		t.Skip("needs the original master data")
 	}
+	if japaneseMaster(t) {
+		t.Skip("Global's summon dates; the Japanese master has its own")
+	}
 	if w.BannerAssetName != "limited_10001" || w.StartDatetime != 1647914400000 || w.EndDatetime != 1648432799000 || w.CeilingCount != 150 {
 		t.Errorf("weekly summon 10001: %+v", w)
 	}
@@ -221,5 +227,20 @@ func TestBannerlessSummons(t *testing.T) {
 		if _, ok := byId[id]; ok {
 			t.Errorf("summon %d without art offered", id)
 		}
+	}
+}
+
+// The Japanese master keeps the Yuletide multi-step summon under its own ID,
+// 503001 (Global moved it to 9000035), with its 2021 dates and no medal row
+// of its own: it shares medal 8021 with the Yuletide summon 123 it ran beside.
+func TestJapaneseYuletideStepUp(t *testing.T) {
+	byId, _ := catalogById(t)
+	if byId[123].MedalConsumableItemId != 8021 {
+		t.Skip("needs the original Japanese master data")
+	}
+	e, ok := byId[503001]
+	if !ok || e.GachaModeType != model.GachaModeStepup || e.MaxStepNumber != 5 || e.MedalConsumableItemId != 8021 ||
+		e.StartDatetime != 1640224800000 {
+		t.Fatalf("Yuletide step-up 503001: %v %+v", ok, e)
 	}
 }
