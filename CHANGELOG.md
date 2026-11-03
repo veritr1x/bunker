@@ -4,6 +4,20 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-03 (after 1.8.0)
+
+### Subjugations
+- The first five Subjugation schedules (October 2021 to February 2022) came
+  before named seasons, so the Subjugations screen headed them "unknown On
+  Now"; Everything open keeps the first of them open. They are now
+  "Subjugation Battles On Now", and the Results dialog names them the same.
+  The game's own title text is added for them on Android and iPhone/iPad; no
+  game code or data changes. [812b347]
+
+### Calendar
+- Jump to lists what a jump skips in singular and plural without a trailing
+  comma ("1 Arena season", not "1 Arena seasons,"). [812b347]
+
 ## 1.8.0 (2026-11-03)
 
 Summons give what their banners promised: 24 summons the game data lacked
