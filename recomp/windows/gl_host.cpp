@@ -100,6 +100,21 @@ const char *const names[]={"glGetString","glGetStringi","glGetIntegerv","glGetFl
 #define DRAW_NAME(name,type) #name,
 GL_DRAW_API(DRAW_NAME)
 #undef DRAW_NAME
+#define GL_TEXTURE_COMMAND(name,type) #name,
+#include "gl_texture_commands.inc"
+#undef GL_TEXTURE_COMMAND
+#define GL_UNIFORM_COMMAND(name,type) #name,
+#include "gl_uniform_commands.inc"
+#undef GL_UNIFORM_COMMAND
+#define GL_FRAMEBUFFER_COMMAND(name,type) #name,
+#include "gl_framebuffer_commands.inc"
+#undef GL_FRAMEBUFFER_COMMAND
+#define GL_MISC_COMMAND(name,type) #name,
+#include "gl_misc_commands.inc"
+#undef GL_MISC_COMMAND
+#define GL_INDEXED_COMMAND(name,type) #name,
+#include "gl_indexed_commands.inc"
+#undef GL_INDEXED_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -120,6 +135,21 @@ struct GlHost::Impl {
 #define DRAW_FIELD(name,type) type draw_##name=nullptr;
   GL_DRAW_API(DRAW_FIELD)
 #undef DRAW_FIELD
+#define GL_TEXTURE_COMMAND(name,type) type texture_##name=nullptr;
+#include "gl_texture_commands.inc"
+#undef GL_TEXTURE_COMMAND
+#define GL_UNIFORM_COMMAND(name,type) type uniform_##name=nullptr;
+#include "gl_uniform_commands.inc"
+#undef GL_UNIFORM_COMMAND
+#define GL_FRAMEBUFFER_COMMAND(name,type) type framebuffer_##name=nullptr;
+#include "gl_framebuffer_commands.inc"
+#undef GL_FRAMEBUFFER_COMMAND
+#define GL_MISC_COMMAND(name,type) type misc_##name=nullptr;
+#include "gl_misc_commands.inc"
+#undef GL_MISC_COMMAND
+#define GL_INDEXED_COMMAND(name,type) type indexed_##name=nullptr;
+#include "gl_indexed_commands.inc"
+#undef GL_INDEXED_COMMAND
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
@@ -140,6 +170,21 @@ struct GlHost::Impl {
 #define DRAW_LOAD(name,type) draw_##name=Symbol<type>(module,#name);
       GL_DRAW_API(DRAW_LOAD)
 #undef DRAW_LOAD
+#define GL_TEXTURE_COMMAND(name,type) texture_##name=Symbol<type>(module,#name);
+#include "gl_texture_commands.inc"
+#undef GL_TEXTURE_COMMAND
+#define GL_UNIFORM_COMMAND(name,type) uniform_##name=Symbol<type>(module,#name);
+#include "gl_uniform_commands.inc"
+#undef GL_UNIFORM_COMMAND
+#define GL_FRAMEBUFFER_COMMAND(name,type) framebuffer_##name=Symbol<type>(module,#name);
+#include "gl_framebuffer_commands.inc"
+#undef GL_FRAMEBUFFER_COMMAND
+#define GL_MISC_COMMAND(name,type) misc_##name=Symbol<type>(module,#name);
+#include "gl_misc_commands.inc"
+#undef GL_MISC_COMMAND
+#define GL_INDEXED_COMMAND(name,type) indexed_##name=Symbol<type>(module,#name);
+#include "gl_indexed_commands.inc"
+#undef GL_INDEXED_COMMAND
       Bindings();
     }catch(...){FreeLibrary(module);throw;}
   }
@@ -331,6 +376,11 @@ struct GlHost::Impl {
     if(stride<=row_bytes)recomp::WriteGuestMemory(output+prefix,pixels.data()+prefix,size_t(span-prefix));
     else for(GLsizei row=0;row<height;++row){const auto offset=prefix+uint64_t(row)*stride;recomp::WriteGuestMemory(output+offset,pixels.data()+offset,size_t(row_bytes));}
   }
+#include "gl_texture_impl.inc"
+#include "gl_uniform_impl.inc"
+#include "gl_framebuffer_impl.inc"
+#include "gl_misc_impl.inc"
+#include "gl_indexed_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -370,6 +420,11 @@ struct GlHost::Impl {
     Bind<void(uint32_t,addr_t)>("glGetBooleanv",[this](GLenum name,addr_t out){QueryValues<GLboolean>(name,out,getBoolean);});
     Bind<uint32_t()>("glGetError",[this]{CollectErrors();auto at=pending_errors.find(current_context);if(at==pending_errors.end())return GLenum(GL_NO_ERROR);
       const GLenum value=*at->second.begin();at->second.erase(at->second.begin());if(at->second.empty())pending_errors.erase(at);return value;});
+    BindTextureCommands();
+    BindUniformCommands();
+    BindFramebufferCommands();
+    BindMiscCommands();
+    BindIndexedCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}

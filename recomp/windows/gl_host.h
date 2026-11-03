@@ -7,9 +7,10 @@
 
 namespace bunker::windows {
 class EglHost;
-// Typed GLES queries, scalar state, shader/program and buffer-backed draws.
-// Transfers use tracked snapshots/publication. No retained client arrays,
-// mapping, textures, uniforms/FBO APIs or compute execution are implemented.
+// Typed GLES queries/state, shader/program, GLES2 texture/uniform/FBO APIs
+// and buffer-backed draws. Transfers use tracked snapshots/publication.
+// Indexed queries cover only compute-workgroup limits. Retained client
+// arrays, mapping and compute execution remain outside the provider scope.
 // Readback is in-bounds RGBA8/default-FBO/no-PBO on owned immutable pbuffers.
 class GlHost {
  public:

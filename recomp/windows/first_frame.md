@@ -3,7 +3,23 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing scalar query width for
+Current execution frontier: unresolved indirect graphics target0 after
+`glGetIntegerv(0x90eb)`, original return `70488458`. Build
+`work/windows-first-frame-gles-query-width1`, host
+`d781f6afddefd2bdf61e5d5c15a6f42e4be8d726`, executable
+`c47520ea749abf5377b5d0874a497c160a76f7a202eb0a6be026957fe9057990`,
+passes the previously rejected three scalar SSBO widths and records204
+GL entry attempts and2758 paired EGL calls. Native exit3/controller1;
+there is no swap, frame PNG or nativeRender return. Static following
+BLR at `70488474` loads table slot `0x5f8` with enum `0x91bf`, index0,
+then repeats indices1/2. The runtime did not capture the failing guest
+PC/LR; attribution of this null target remains a static inference.
+Read-only audit: `work/first-frame-gles-query-width-boundary1`, summary
+SHA256 `951857451feae6b4a5455791465b97e040c22bd4bb13be6138979d81ff9ddde2`.
+The next provider batch covers51 observed missing GLES2 core names and
+the narrow indexed compute-limit getter; component checks are pending.
+
+The preceding execution frontier was missing scalar query width for
 `glGetIntegerv(0x90d9)`, original return `70488370`. Actual build
 `work/windows-first-frame-gles-procedure1`, host
 `367977430191d3e04b619c815d6e334b9cc30530`, executable
@@ -21,8 +37,7 @@ Receipt `work/gl-query-width-qualification1/acceptance.json` has SHA256
 `d57dc87c9210b6802c9b133315c5001cbf4b33959a6bea4a46f2a3ff61392515`.
 One terminal runner CR was normalized after execution with exact AST and
 single-byte proof; no functional test was replayed or claimed for that
-format-only change. The next build is
-`work/windows-first-frame-gles-query-width1`.
+format-only change. That repair is exercised by the build above.
 
 The preceding execution frontier was the configured EGL procedure resolver throwing
 on `glDebugMessageControl`. Actual build
