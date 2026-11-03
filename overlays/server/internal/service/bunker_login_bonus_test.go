@@ -13,6 +13,9 @@ import (
 func TestEventLoginBonusesStampDaily(t *testing.T) {
 	holder, users := harness(t)
 	srv := NewLoginBonusServiceServer(users, users, holder)
+	if japaneseMaster(t) {
+		t.Skip("Global's launch dates; the Japanese master has its own")
+	}
 	ctx := context.Background()
 	const day = int64(86400000)
 	launchEvent := int64(1627509600000) // login bonus 2 opens (launch), ends 2021-09-08

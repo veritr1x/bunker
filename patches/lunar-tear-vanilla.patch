@@ -742,7 +742,7 @@ diff --git a/server/internal/masterdata/dup_exchange.go b/server/internal/master
 diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/gacha.go
 --- a/server/internal/masterdata/gacha.go
 +++ b/server/internal/masterdata/gacha.go
-@@ -17,7 +17,50 @@ type GachaMedalInfo struct {
+@@ -17,7 +17,70 @@ type GachaMedalInfo struct {
  	ConversionRate      int32
  }
  
@@ -782,6 +782,26 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +
 +const defaultStepUpSteps = 5
 +
++// regionalMedalItemGachas are like medalItemGachas, for summons the Japanese
++// master keeps under their own IDs where Global moved them to a new ID and
++// parked the old banner row in 2099. They apply only while that row has the
++// summon's real dates, so Global gains no parked copy.
++var regionalMedalItemGachas = map[int32]int32{
++	503001: 8021, // Yuletide multi-step (Global: 9000035), beside Yuletide summon 123
++}
++
++// parkedBannerStart is where the 2099 placeholder banner rows begin.
++const parkedBannerStart = 4_000_000_000_000
++
++func ranUnderOwnId(banners []EntityMMomBanner, gachaId int32) bool {
++	for _, b := range banners {
++		if b.DestinationDomainType == model.MomBannerDomainGacha && b.DestinationDomainId == gachaId && b.StartDatetime < parkedBannerStart {
++			return true
++		}
++	}
++	return false
++}
++
 +// parkedReruns are summons whose only banner rows start in 2099. They ran
 +// while their exchange shop was open: from the shop's start (this long before
 +// the medal's AutoConvertDatetime) to two days before the medals convert.
@@ -794,7 +814,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  
  func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, error) {
  	medals, err := utils.ReadTable[EntityMGachaMedal]("m_gacha_medal")
-@@ -30,10 +73,28 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -30,10 +93,35 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  	}
  
  	gachaToMedal := make(map[int32]EntityMGachaMedal)
@@ -819,13 +839,20 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +			}
 +		}
 +	}
++	for gacha, item := range regionalMedalItemGachas {
++		if m, ok := medalByItem[item]; ok && ranUnderOwnId(banners, gacha) {
++			if _, own := gachaToMedal[gacha]; !own {
++				gachaToMedal[gacha] = m
++			}
++		}
++	}
 +	medalInfoByGacha := make(map[int32]GachaMedalInfo, len(gachaToMedal))
 +	for gacha, m := range gachaToMedal {
 +		medalInfoByGacha[gacha] = GachaMedalInfo{
  			GachaMedalId:        m.GachaMedalId,
  			ConsumableItemId:    m.ConsumableItemId,
  			AutoConvertDatetime: m.AutoConvertDatetime,
-@@ -41,124 +102,96 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
+@@ -41,124 +129,96 @@ func LoadGachaCatalog() ([]store.GachaCatalogEntry, map[int32]GachaMedalInfo, er
  		}
  	}
  
@@ -984,10 +1011,10 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 -		medal := gachaToMedal[first.DestinationDomainId]
 -		medalId := medal.GachaMedalId
 -		medalConsumableId := medal.ConsumableItemId
--
--		pricePhases := buildStepUpPricePhases(gachaId, len(steps))
 +	entries = append(entries, bannerlessSummons(medals, seen)...)
  
+-		pricePhases := buildStepUpPricePhases(gachaId, len(steps))
+-
 -		var maxStep int32
 -		for _, p := range pricePhases {
 -			if p.StepNumber > maxStep {
@@ -1022,7 +1049,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  	}
  
  	return entries, medalInfoByGacha, nil
-@@ -290,21 +323,30 @@ func buildPremiumBasicPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -290,21 +350,30 @@ func buildPremiumBasicPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
  	}
  }
  
@@ -1061,7 +1088,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			fixedRarityMin = model.RaritySSRare
  			fixedCount = 1
  		}
-@@ -324,12 +366,45 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
+@@ -324,12 +393,45 @@ func buildStepUpPricePhases(gachaId int32, totalSteps int) []store.GachaPricePha
  	return phases
  }
  
@@ -1109,7 +1136,7 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
  			Price:        1,
  			RegularPrice: 1,
  			DrawCount:    1,
-@@ -337,10 +412,105 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
+@@ -337,10 +439,105 @@ func buildChapterPricePhases(gachaId int32) []store.GachaPricePhaseEntry {
  		{
  			PhaseId:      gachaId*model.PhaseIdMultiplier + 2,
  			PriceType:    model.PriceTypeConsumableItem,
