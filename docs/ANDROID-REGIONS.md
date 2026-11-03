@@ -244,3 +244,11 @@ alignment checks and were reinstalled through ADB for a final login, notices,
 summons-menu and Bunker-button smoke test. The broader screen/transaction audit
 above remains a separate earlier pass; this verification does not establish
 full campaign compatibility.
+
+The actual Chromium page/worker also built and downloaded both Android APKs in
+one session, using local file selection and offset 30000. Their signatures,
+alignment, region-specific payloads, notice content and branding were checked.
+The notice archive is published as 64 MiB parts to fit the static host's file
+limit. A forced missing-part download produced a visible error, then retry
+completed successfully. Platform switching, invalid-offset validation and
+desktop/mobile layouts were checked without browser console or page errors.

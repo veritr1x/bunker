@@ -1,5 +1,9 @@
 import ast
 import unittest
+import json
+from pathlib import Path
+import tempfile
+import zipfile
 
 import build_site
 
@@ -16,6 +20,30 @@ def added_paths(source):
 
 
 class SiteFilesTest(unittest.TestCase):
+    def test_notice_parts_preserve_the_archive_and_fit_the_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("notices/notices.json", b"[]" * 100)
+            for limit in (64, source.stat().st_size):
+                out = Path(tmp) / str(limit)
+                build_site.notice_bundle(source, out, part_size=limit)
+                manifest = json.loads((out / "notices.json").read_text())
+                chunks = [(out / name).read_bytes() for name in manifest["parts"]]
+                self.assertTrue(all(len(chunk) <= limit for chunk in chunks))
+                self.assertEqual(b"".join(chunks), source.read_bytes())
+                self.assertEqual(manifest["size"], source.stat().st_size)
+                if limit == source.stat().st_size:
+                    self.assertEqual(manifest["parts"], ["notices.zip"])
+
+    def test_split_notices_cannot_publish_master_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("private/master.bin.e", b"private")
+            with self.assertRaisesRegex(SystemExit, "master data"):
+                build_site.notice_bundle(source, Path(tmp) / "out", part_size=16)
+
     def test_every_local_import_is_published(self):
         published = {path for path in build_site.PYTHON if path.endswith(".py")}
         missing = []
