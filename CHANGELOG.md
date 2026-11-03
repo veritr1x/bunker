@@ -4,15 +4,20 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## Unreleased
+## 2026-11-03 (after 1.8.1)
 
-- The Japanese APK's in-game Bunker button is labelled "バンカー".
+### Japanese
+- The Japanese APK's in-game Bunker button is labelled "バンカー". [b04cd9a]
 - Mission rules check the loaded mission definitions before using a Global or
   Japanese rule. Japanese master data no longer lets a levelled weapon complete
   a costume-ascension mission with the same ID. Shifted skill, exploration and
   mission-pass conditions and seven Japanese-only stamina missions are covered.
   Unclaimed progress recorded under a mismatched rule resets before rewards
-  can be claimed; already received rewards stay received.
+  can be claimed; already received rewards stay received. [b04cd9a]
+
+### Web builder
+- The master data line says which file goes with which APK:
+  `20240404193219.bin.e` for Global, `20240405123139.bin.e` for Japanese. [76ec585]
 
 ## 1.8.1 (2026-11-03)
 
