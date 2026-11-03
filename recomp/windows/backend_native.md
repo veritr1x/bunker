@@ -32,8 +32,37 @@ returned C strings are freed after verifying the host and DLL resolve free to
 the same UCRT function. Receipt `work/windows-backend1/dll-smoke1/acceptance.json`
 SHA256 is `7093b7ebb3c2b152b93169f493bd8fb6b7187647a6c95e8a2d87445f7bc3eb6e`.
 
-These are archive-I/O fixtures, rather than a usable game catalog. The test
-starts no service and binds no port; status stays stopped. Actual backend
-startup with owned master/revision files, matching client endpoint/port setup,
-native networking and game integration remain pending. The smoke keeps the
-Go DLL loaded until child exit and does not qualify DLL unloading.
+Those first tests are archive-I/O fixtures; their test starts no service and
+binds no port. The Go DLL stays loaded until child exit; unloading is unqualified.
+
+The actual Downloads inputs have now been prepared separately under
+`work/download-assets1/backend-root`: resource_dump_android.7z is imported
+through the same native DLL path API, selecting only revision0. All201073
+output paths/sizes match the real archive inventory, totaling20907771934 bytes;
+the catalog and five compressed-stream samples also pass CRC checks. Original
+archive size/mtime/header are unchanged; no full archive hash comparison is
+claimed. Receipt `work/download-assets1/acceptance.json` SHA256 is
+`287498d406a598b36577a1dec98c3c6fcd18b26e92de2acf92757e75acffa949`.
+
+Pinned Lunar Scripts942dced617ea836a0e3abcfc0e0befec42baab11 patches a separate
+master copy with the existing build recipe. Original master SHA256 remains
+`60555788242de9a0580b0d86f6d109d67bd9cabd16d7bcda9b9a99745f270778`;
+the patched7763264-byte output SHA256 is
+`bfe4b83eb69cc907c028ed4b627c2b6861abfcd28e27973d93a88ed1522f7385`.
+Neither Downloads original is replaced.
+
+The real DLL now passes Start, SelfTest and Stop with those assets and fresh
+`work/download-assets1/backend-data1` save storage. Explicit offset30000 uses
+loopback38003/38080/33000. Actual gRPC game health and both HTTP service checks
+pass, with status stopped→running→stopped. Selected listeners are absent before
+startup, after Stop while the child is alive, and after child exit. The actual
+new SQLite databases pass read-only integrity/migration checks. No existing
+save or account rows are inspected. Receipt
+`work/windows-backend1/backend-smoke1/acceptance.json` SHA256 is
+`576d29c0047a75bd5b5cee10fbaa65da6601599bb916a5942126687ad15ad3e6`.
+The test leaves no service running and does not qualify DLL unloading.
+
+The game has not connected to this backend. Matching client endpoints, a
+separately qualified derived application profile, real native networking and
+actual login/catalog/download/gameplay integration remain pending. The current
+game cohort still uses the original ELF and APK/metadata bytes.
