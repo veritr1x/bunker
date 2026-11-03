@@ -820,3 +820,44 @@ report `work/game27-runtime-boundary-audit/REPORT.md` SHA256 is
 `400f6ac0044ced18e78596d6de3b3fa15f7bf2b561fbbc6bb4180140dd23304a`.
 No public initialization result, nativeRender return, rendered image, gameplay,
 general collector safety or normal persistence/teardown is established.
+
+Game28 freezes the qualified native affinity provider at host4f7db3e1. Input
+SHA256 is `fb62b0cf1f0521c9459a41bd1f701b3000a5328147a18f54b5769766638341da`;
+executable SHA256 is
+`c4213257a98172dc50fa8d4fa6915705f238bc2923f01c3b48d006b61ea5bbc9`.
+All3575 guest descriptors/456684 heads, v2 cohort, State and four headers remain
+unchanged. Default/init/surface pass, standard muted startup retains signal30's
+guard, and the collector profile completes the bounded E4 cycle with two
+physical register checks, two original posts and observed record5. Both muted
+profiles return original focus/resume/master mute without a volume observer.
+
+The collector run now observes17 real SetThreadAffinityMask calls. Each actual
+four-byte snapshot isFFFFFFFF; native process/system/effective masks areFFFF,
+and native previous/readback masks areFFFF. Every call reports native_set1,
+readback_valid1, result0 and actual syscall return0/errno0. These are real native
+operations on already equal effective masks, not evidence of a changed mask.
+More workers start. Thirty-four complete priority setter records and33 complete
+native query records are logged (17return0,16return10); the final getter line is
+incomplete and supplies no complete additional result.
+
+Seventeen untimed futex ENTER records have no corresponding RETURN/WAKE; no
+enrollment/blocking/wake result is inferred. Worker token15hex/native TID1344644
+then enters syscall98 at LR708f2f14, uaddr1ec40012590, op80, expected0 and nonnull
+timeout1ed1ea50ef0, equal to its actual SP. The existing untimed-only provider
+rejects that shape. No timespec bytes, timeout duration, timed wait outcome or
+application role is logged. Original FDE708f2ec8..708f2f20 converts a uint32
+millisecond input to16 bytes of relative seconds/nanoseconds; its largest input
+is49.7 days. Static callers do not identify this particular dynamic input.
+
+Both terminal frame trees retain24 APK-identical Managed files/24570231 bytes,
+metadata23317064/version24/mapped23318528 and unity.ver638477124699603280. Both
+read an existing one-entry v2 preference store and perform original version
+marker writes/status0; final CheckPersistence is not reached. The independent
+audit checks297 bounded inputs/build artifacts and links the unchanged old
+guest proof without replaying its physical COFF files. Final aggregate
+`work/windows-game28/game_final_audit.json` SHA256 is
+`a0d4719a6ec58b48f5b79eb4d0e21a3049a21c25fa0a6f405e5b554bdbf540c3`;
+report `work/game28-runtime-boundary-audit/REPORT.md` SHA256 is
+`775ae0d1bebdd4dd2f4be26e6dca1f9d1f5cb10199b6df6de312d62e78ca7e89`.
+The returned public initialization result, nativeRender return, actual image,
+gameplay, general collector safety and normal shutdown/persistence remain open.

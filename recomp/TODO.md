@@ -4,14 +4,14 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game27 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game28 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
 enters public IL2CPP initialization. Standard muted startup still rejects
 nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-Game22, Game23, Game25, Game26 and Game27 execute their first original stop/restart cycle in the
+Game22, Game23, Game25, Game26, Game27 and Game28 execute their first original stop/restart cycle in the
 explicit `frame-muted-gc` profile. The captured finalizer0x825c3ed0 enters the
 exact untimed CondWait at LR0x825505d8. Original signals30/24 both return success from pthread_kill;
 the real stop/restart handlers execute, make both original semaphore posts,
@@ -92,8 +92,21 @@ not distinguish those paths. An owned-thread Windows affinity adapter now
 passes158 checks/32 records, with22 shared cases matching native Linux four-byte
 kernel calls. ARM64/QEMU rejects length4 before copying despite the real Android
 kernel accepting it; its records and separate length8 controls are explicitly
-separated from that comparison. A native game retry is next. A returned public
-initialization value, nativeRender return and rendered image remain unobserved.
+separated from that comparison. Game28 observes17 actual native affinity calls:
+requestedFFFFFFFF, process/system/effectiveFFFF and native previous/readbackFFFF,
+with result0/errno0. The operation is real, though the effective mask was already
+set to those16 CPUs. Seventeen untimed futex entries still have no observed
+return/wake. More workers start; the next fatal boundary is a timed private
+FUTEX_WAIT at LR708f2f14 from token21/native TID1344644, expected0, with a nonnull
+timespec pointer at its actual SP. Timeout bytes/duration and worker role are
+not observed. Static code converts a uint32 millisecond argument, including a
+possible49.7-day interval; the particular argument remains unknown.
+
+The new timed provider passes38 matching ARM64/Linux/Windows records, the
+existing23 untimed records/2921 checks per host, and handler-overrun EINTR cases.
+It uses real fixed deadlines and queue withdrawal, with no new signal/root
+admission. Its original game execution is next. A returned public initialization
+value, nativeRender return and rendered image remain unobserved.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive
@@ -105,7 +118,7 @@ the image-query growth branch remains unexecuted.
 The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
 closed direct targets, with1439 unsupported heads. Game21 replaced only
 IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22,
-Game23, Game24, Game25, Game26 and Game27 retain every guest object/header and change host providers only.
+Game23, Game24, Game25, Game26, Game27 and Game28 retain every guest object/header and change host providers only.
 Older cohorts, failed attempts and original source/semantics remain preserved.
 
 Component prerequisites remain separately qualified: cooperative polling
