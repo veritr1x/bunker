@@ -1068,6 +1068,16 @@ def updates(state, items, after):
              "more": v["count"] - 1, "all": " ".join(v["names"])} for k, v in sorted(days.items())]
 
 
+# What a jump skips, by kind, in the order the Jump to page lists them.
+MISSED_NAMES = (("event", "event", "events"), ("summon", "summon", "summons"), ("shop", "shop", "shops"),
+                ("arena", "Arena season", "Arena seasons"), ("pass", "monthly pass", "monthly passes"))
+
+
+def missed_text(missed):
+    """preview's missed counts as text: "10 events, 1 Arena season"."""
+    return ", ".join(f"{missed[kind]} {one if missed[kind] == 1 else many}" for kind, one, many in MISSED_NAMES if missed.get(kind))
+
+
 def preview(state, items, now, target):
     """What a jump from now to target opens, still pays out, and skips."""
     arrive = now + -(-(target - now) // DAY) * DAY
@@ -1080,7 +1090,8 @@ def preview(state, items, now, target):
         elif start > now and kind in ("event", "summon", "shop", "arena", "pass"):
             missed[kind] = missed.get(kind, 0) + 1
     return {"arrive": arrive, "day": day_label(arrive), "original": day_label(original(state, arrive)), "week": week_of(state, arrive),
-            "days": (arrive - now) // DAY, "open": summary(items, arrive), "paid": paid, "missed": missed}
+            "days": (arrive - now) // DAY, "open": summary(items, arrive), "paid": paid, "missed": missed,
+            "missedText": missed_text(missed)}
 
 
 # --- Pages -------------------------------------------------------------------
