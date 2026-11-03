@@ -4,6 +4,16 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.8.0 (2026-11-03)
+
+Summons give what their banners promised: 24 summons the game data lacked
+are back on their original dates, element, character and barrier summons
+draw from their own lineups, step-ups have their real steps, and blank
+summon panels show their characters. The i button on event and Mama's
+Dream summons opens their notice. Notice pack 5 adds 13 summon notices.
+Japanese 3.7.1 APKs can be built (experimental), and the companion app is
+named Bunker.
+
 ## 2026-11-02 (after 1.7.0)
 
 ### Notices
