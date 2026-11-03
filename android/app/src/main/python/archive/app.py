@@ -53,6 +53,26 @@ class Builder:
                 self.state["running"] = False
         threading.Thread(target=run, name="archive-index", daemon=True).start()
 
+    def status(self) -> dict:
+        return {**self.state, "ready": self.ready()}
+
+
+# One builder per index, so a build the launcher starts before the game is the
+# one the Archive's setup page shows when it opens meanwhile.
+_builders: dict = {}
+_builders_lock = threading.Lock()
+
+
+def shared_builder(revision: Path, master: Path, db_path: Path, scenario=None) -> Builder:
+    with _builders_lock:
+        key = Path(db_path).resolve()
+        builder = _builders.get(key)
+        if builder is None or (builder.revision, builder.master) != (revision, master) and not builder.state["running"]:
+            builder = _builders[key] = Builder(revision, master, db_path, scenario)
+        elif scenario is not None and builder.scenario is None:
+            builder.scenario = scenario
+        return builder
+
 
 def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None, model=None,
                motion=None, scenario=None, original=True) -> FastAPI:
@@ -62,7 +82,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     master is the game's own master data; patched master data moves the Schedule's dates."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
-    builder = Builder(revision, master, db_path, scenario)
+    builder = shared_builder(revision, master, db_path, scenario)
     archive = Archive(db_path, revision)
     textures = Textures(revision / "assetbundle", data_dir / "images", decode)
     sounds = Sounds(revision / "assetbundle", data_dir / "sounds", sound)

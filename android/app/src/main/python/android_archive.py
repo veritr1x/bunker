@@ -59,6 +59,47 @@ def original_master(asset_root: Path, archive_root: Path) -> tuple[Path, bool]:
     return asset_root / "assets" / "release" / "20240404193219.bin.e", False
 
 
+def _tools_on_path():
+    """Lunar Base's extract_names and dump_masterdata, which the Archive's index imports."""
+    tools = str(packaged("tools"))
+    if tools not in sys.path:
+        sys.path.insert(0, tools)
+
+
+def _builder(asset_root: str, archive_root: str, scenario=None):
+    """The Archive's index builder for these game files, or None when they have no English text to index."""
+    _tools_on_path()
+    from archive import app as archive_app
+    master, _ = original_master(Path(asset_root), Path(archive_root))
+    revision = revision_root(Path(asset_root))
+    if not (revision / "assetbundle" / "text" / "en").is_dir() or not master.is_file():
+        return None
+    return archive_app.shared_builder(revision, master, Path(archive_root) / "archive.db", scenario)
+
+
+def index_status(asset_root: str, archive_root: str) -> str:
+    """JSON: possible (there are game files to index), ready (the index is current), running, done, total, step, error."""
+    builder = _builder(asset_root, archive_root)
+    if builder is None:
+        return json.dumps({"possible": False, "ready": False, "running": False, "done": 0, "total": 0, "step": "", "error": ""})
+    return json.dumps({"possible": True, **builder.status()})
+
+
+_ANDROID = object()
+
+
+def build_index(asset_root: str, archive_root: str, scenario=_ANDROID) -> str:
+    """The launcher, before it starts the game: builds the index when it is missing or out of date. Returns index_status."""
+    if scenario is _ANDROID:
+        scenario = None
+        if _builder(asset_root, archive_root) is not None:
+            scenario = android_converters()["scenario"]
+    builder = _builder(asset_root, archive_root, scenario)
+    if builder is not None and not builder.ready():
+        builder.start()
+    return index_status(asset_root, archive_root)
+
+
 def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, converters=None):
     from fastapi.responses import JSONResponse
     from archive.app import create_app as archive_app
@@ -84,9 +125,7 @@ def start(asset_root: str, archive_root: str, converters=None) -> str:
     global _server, _thread, _base_url, _token
     if _thread and _thread.is_alive():
         return json.dumps({"url": _base_url, "token": _token})
-    tools = str(packaged("tools"))  # Lunar Base's extract_names and dump_masterdata
-    if tools not in sys.path:
-        sys.path.insert(0, tools)
+    _tools_on_path()
     import uvicorn
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
