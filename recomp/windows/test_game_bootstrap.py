@@ -10,12 +10,12 @@ HERE=pathlib.Path(__file__).resolve().parent
 def sha(path):
  with pathlib.Path(path).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
-def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,grandparent_proof=None,great_grandparent_proof=None):
+def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,grandparent_proof=None,great_grandparent_proof=None,ancestor_chain=None):
  assert (proof['trace_heads'],len(proof['objects']),len(objects))in((456684,3575,3575),(456689,3576,3576))and proof['unique_definitions'] is True and proof['missing_direct_targets']==[],'incomplete cooperative cohort'
  assert [(x['path'],x['sha256'])for x in proof['objects']]==[(x['path'],x['sha256'])for x in objects],'cooperative cohort object selection differs'
  contract=proof['contract'];version=contract.get('version',1)
- assert type(version)is int and version in(1,2,3,4,5),'unknown cooperative contract version'
- assert (proof['trace_heads'],len(objects))==((456689,3576)if version in(4,5)else(456684,3575)),'cooperative contract version/shape differs'
+ assert type(version)is int and version in(1,2,3,4,5,6),'unknown cooperative contract version'
+ assert (proof['trace_heads'],len(objects))==((456689,3576)if version in(4,5,6)else(456684,3575)),'cooperative contract version/shape differs'
  assert contract['poll_instrument_sha256']=='716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa'and contract['target']=='x86_64-w64-windows-gnu','unqualified cooperative instrumentation profile'
  if version==1:
   assert contract['input_plan_sha256']=='14e68811df426a9ce6488e1d724eed76cb5d6c95f95d9b4c70ead64ada87fea9'and contract['no_relift']is True and contract['source_ir_and_semantics_preserved']is True,'unqualified original cooperative contract'
@@ -62,7 +62,7 @@ def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,gra
   assert all((current['path'],current['sha256'])==(previous['path'],previous['sha256'])for current,previous in zip(proof['objects'][:3575],parent_proof['objects'])),'v4 changed an existing parent object'
   assert type(proof.get('trace_heads'))is int and proof['trace_heads']==456689,'v4 trace count differs'
   assert type(objects[3575].get('path'))is str and objects[3575]['path']and objects[3575]['sha256']==expected['new_polled_object_sha256'],'v4 additive object differs'
- else:
+ elif version==5:
   # Exact qualified single-wrapper FCSEL repair over the pinned additive v4.
   acceptance='9bf9e6bc5df6c932f552b81456559d28d6fa0d9c1cc1a65b3afa00deff9ade14'
   expected={'profile':'qualified-sparse-unity-fcsel-refresh-v5','input_plan_sha256':'6bf5af7262febc4fa10ff452c06a938d3089504b8a136ab808f2ce52fe6dc3d9','parent_acceptance_sha256':'5aa51b995facc9b9e1dc18997f667c4d7918754d91fc60ae675abda0957b3fd3','parent_input_plan_sha256':'57fa0c40d52a3e1e175cff2dd8133935d873d481038845c7aca734352b9d35ae','sparse_overlay_sha256':'8911f23e4fa017fda6148a1883b176bc841749f73c6e2d900e75dee92d4dd838','fcsel_fixture_acceptance_sha256':'4a0af97c4130ee43c294addde6fba772f4ae792a7c24c7c050b5459864cc6cf7','fcsel_lifter_sha256':'7e3e484c165a1308890d482fdb48baa9db0cb959867197bc02f607cd7a6a8126','fcsel_semantics_sha256':'316ab92e11637e57e1f7e7521d44ef1fa24881595d28871ccd47de6cf3aeefa3','old_polled_object_sha256':'142b008353679001d265e7288cd2a37d16062b39eebf28f9cdfd246c6fa8d5c3','new_polled_object_sha256':'61dac83d8cb59610d51924673888f4d4c4ab7ad3960d277717100cbde48215c2','target_head':'0x70acc13c','target_end_exclusive':'0x70acc1d0','optimization':'-O2'}
@@ -80,20 +80,48 @@ def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,gra
   assert type(proof.get('trace_heads'))is int and proof['trace_heads']==456689,'v5 trace count differs'
   assert parent_proof['objects'][459]['sha256']==expected['old_polled_object_sha256']and objects[459]['sha256']==expected['new_polled_object_sha256'],'v5 replacement object differs'
   assert all((current['path'],current['sha256'])==(previous['path'],previous['sha256'])for index,(current,previous)in enumerate(zip(proof['objects'],parent_proof['objects']))if index!=459),'v5 changed a second parent object'
+ else:
+  # Exact qualified five-definition caller repair over the pinned v5 cohort.
+  acceptance='1df01bf6d53e33b0b34372306d48141e48b08d798f550136fed2ad651051a893'
+  expected={'profile':'qualified-sparse-unity-fcsel-callers-v6','input_plan_sha256':'3b6023a4952b82c3bed4e60580e8f52232e4f0a71071dd05a0506fcc07a1690b','parent_acceptance_sha256':'9bf9e6bc5df6c932f552b81456559d28d6fa0d9c1cc1a65b3afa00deff9ade14','parent_input_plan_sha256':'6bf5af7262febc4fa10ff452c06a938d3089504b8a136ab808f2ce52fe6dc3d9','sparse_overlay_sha256':'5af486e926556cfa0de9d1cfeb01db7ae8e7f73253a076c6fe0f92735d4248bc','fcsel_fixture_acceptance_sha256':'5d7d768ad4332255d483f4c939fd2f9abde75c538a88ecb3ba474e85bc368ede','fcsel_lifter_sha256':'7e3e484c165a1308890d482fdb48baa9db0cb959867197bc02f607cd7a6a8126','fcsel_semantics_sha256':'316ab92e11637e57e1f7e7521d44ef1fa24881595d28871ccd47de6cf3aeefa3','old_polled_object_sha256':'ab19f24618b5fe9cda0ba6716bd47e2da87026de4427029e377056146cc916e1','new_polled_object_sha256':'d33641796aa959871443201ac2f8ffccc067a19326a5ad0c1f8afe6a73e99e9e','optimization':'-O2'}
+  assert re.fullmatch('[0-9a-f]{64}',acceptance)and all(re.fullmatch('[0-9a-f]{64}',v)for k,v in expected.items()if k.endswith('_sha256')),'v6 cooperative pins are not qualified'
+  assert type(descriptor.get('acceptance_sha256'))is str and descriptor['acceptance_sha256']==acceptance,'unqualified v6 cooperative proof hash'
+  assert all(type(contract.get(k))is str and contract[k]==v for k,v in expected.items()),'unqualified v6 cooperative provenance'
+  assert all(contract.get(k)is v for k,v in {'no_relift':False,'source_ir_and_semantics_preserved':False,'no_global_semantics_refresh':True,'production_signal_delivery_enabled':False}.items()),'v6 cooperative policy disclosure differs'
+  assert all(type(contract.get(k))is int and contract[k]==v for k,v in {'incremental_sparse_relifts':1,'cumulative_qualified_sparse_relifts':4,'replaced_object_index':161,'unchanged_objects':3575,'changed_function_count':5,'unchanged_functions_in_shard':123}.items()),'v6 cooperative replacement scope differs'
+  assert type(contract.get('cumulative_changed_indices'))is list and all(type(x)is int for x in contract['cumulative_changed_indices'])and contract['cumulative_changed_indices']==[78,161,459,1553],'v6 cumulative replacement set differs'
+  assert type(contract.get('target_heads'))is list and all(type(x)is str for x in contract['target_heads'])and contract['target_heads']==['0x7042377c','0x704238f4','0x70423908','0x70423918','0x70423928'],'v6 exact changed definitions differ'
+  assert all(type(contract.get(k))is str and contract[k]for k in ('input_plan_path','parent_acceptance_path','parent_input_plan_path')),'v6 cooperative plan/parent path is absent'
+  assert type(ancestor_chain)is list and len(ancestor_chain)==4 and type(ancestor_chain[0])is dict and ancestor_chain[0]['contract'].get('version')==5,'v6 exact ancestor chain is absent'
+  parent=ancestor_chain[0];parent_descriptor={'acceptance_path':contract['parent_acceptance_path'],'acceptance_sha256':contract['parent_acceptance_sha256']}
+  assert validate_cooperative_contract(parent,parent_descriptor,parent['objects'],*ancestor_chain[1:])==5,'v6 parent contract differs'
+  assert parent['contract']['input_plan_sha256']==contract['parent_input_plan_sha256'],'v6 parent plan differs'
+  assert type(proof.get('trace_heads'))is int and proof['trace_heads']==456689,'v6 trace count differs'
+  assert parent['objects'][161]['sha256']==expected['old_polled_object_sha256']and objects[161]['sha256']==expected['new_polled_object_sha256'],'v6 replacement object differs'
+  assert all((current['path'],current['sha256'])==(previous['path'],previous['sha256'])for index,(current,previous)in enumerate(zip(proof['objects'],parent['objects']))if index!=161),'v6 changed a second parent object'
  return version
 
 
 def load_cooperative_parent(proof):
  version=proof['contract'].get('version',1)
- if type(version)is not int or version not in(3,4,5):return None
+ if type(version)is not int or version not in(3,4,5,6):return None
  contract=proof['contract']
- anchors={3:('7ce11b6bfd936334be8b7e8c7fe7691435830f818392a9a21d9f499120662549','9152d0cbf46a20aa86ee33cc48de63a1dece3647efe015b0aaed872c7e36bd95'),4:('68017f198f7745a3e31056bf15a01ee9a8c9f11c12bd4b21ec1ab80efa589b67','4e01e9169f4265e1147dc3917e9acd8c7ecd7c5e73a5f9ad4c2b45a09e03cfeb'),5:('5aa51b995facc9b9e1dc18997f667c4d7918754d91fc60ae675abda0957b3fd3','57fa0c40d52a3e1e175cff2dd8133935d873d481038845c7aca734352b9d35ae')}
+ anchors={3:('7ce11b6bfd936334be8b7e8c7fe7691435830f818392a9a21d9f499120662549','9152d0cbf46a20aa86ee33cc48de63a1dece3647efe015b0aaed872c7e36bd95'),4:('68017f198f7745a3e31056bf15a01ee9a8c9f11c12bd4b21ec1ab80efa589b67','4e01e9169f4265e1147dc3917e9acd8c7ecd7c5e73a5f9ad4c2b45a09e03cfeb'),5:('5aa51b995facc9b9e1dc18997f667c4d7918754d91fc60ae675abda0957b3fd3','57fa0c40d52a3e1e175cff2dd8133935d873d481038845c7aca734352b9d35ae'),6:('9bf9e6bc5df6c932f552b81456559d28d6fa0d9c1cc1a65b3afa00deff9ade14','6bf5af7262febc4fa10ff452c06a938d3089504b8a136ab808f2ce52fe6dc3d9')}
  assert (contract.get('parent_acceptance_sha256'),contract.get('parent_input_plan_sha256'))==anchors[version],f'v{version} parent anchors differ'
  assert all(type(contract.get(k))is str and contract[k]for k in ('parent_acceptance_path','parent_input_plan_path')),f'v{version} parent path is absent'
  assert sha(contract['parent_acceptance_path'])==contract['parent_acceptance_sha256'],f'v{version} parent proof file differs'
  parent=json.loads(pathlib.Path(contract['parent_acceptance_path']).read_text())
  assert sha(contract['parent_input_plan_path'])==contract['parent_input_plan_sha256'],f'v{version} parent plan file differs'
  return parent
+
+def load_cooperative_ancestors(proof):
+ assert type(proof['contract'].get('version'))is int and proof['contract']['version']==6,'v6 ancestor loading requires v6'
+ result=[];current=proof
+ for expected_version in (5,4,3,2):
+  parent=load_cooperative_parent(current)
+  assert type(parent)is dict and type(parent['contract'].get('version'))is int and parent['contract']['version']==expected_version,'v6 ancestor version differs'
+  result.append(parent);current=parent
+ return result
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=pathlib.Path,required=True);p.add_argument('--profile',choices=['default','init','surface','frame','frame-muted','frame-muted-gc'],default='default');p.add_argument('--width',type=int,default=1280);p.add_argument('--height',type=int,default=720);p.add_argument('--verify-only',action='store_true');p.add_argument('--first-frame',action='store_true');a=p.parse_args();b=a.build.resolve();frame=a.profile in ('frame','frame-muted','frame-muted-gc');gc=a.profile=='frame-muted-gc';muted_profile=a.profile in ('frame-muted','frame-muted-gc')
@@ -113,10 +141,16 @@ def main():
  verify()
  if poll_cohort:
   proof=json.loads(pathlib.Path(poll_cohort['acceptance_path']).read_text())
-  parent_proof=load_cooperative_parent(proof)
-  grandparent_proof=load_cooperative_parent(parent_proof)if proof['contract'].get('version')in(4,5)else None
-  great_grandparent_proof=load_cooperative_parent(grandparent_proof)if proof['contract'].get('version')==5 else None
-  version=validate_cooperative_contract(proof,poll_cohort,m['objects'],parent_proof,grandparent_proof,great_grandparent_proof)
+  if proof['contract'].get('version')==6:
+   ancestor_chain=load_cooperative_ancestors(proof)
+   version=validate_cooperative_contract(proof,poll_cohort,m['objects'],ancestor_chain=ancestor_chain)
+   for node in [proof]+ancestor_chain[:-1]:
+    expected[node['contract']['parent_acceptance_path']]=node['contract']['parent_acceptance_sha256'];expected[node['contract']['parent_input_plan_path']]=node['contract']['parent_input_plan_sha256']
+  else:
+   parent_proof=load_cooperative_parent(proof)
+   grandparent_proof=load_cooperative_parent(parent_proof)if proof['contract'].get('version')in(4,5)else None
+   great_grandparent_proof=load_cooperative_parent(grandparent_proof)if proof['contract'].get('version')==5 else None
+   version=validate_cooperative_contract(proof,poll_cohort,m['objects'],parent_proof,grandparent_proof,great_grandparent_proof)
   assert m['union_trace_count']==proof['trace_heads'],'manifest/cohort head count differs'
   if version in(3,4,5):
    expected[proof['contract']['parent_acceptance_path']]=proof['contract']['parent_acceptance_sha256'];expected[proof['contract']['parent_input_plan_path']]=proof['contract']['parent_input_plan_sha256']
@@ -124,7 +158,7 @@ def main():
    expected[parent_proof['contract']['parent_acceptance_path']]=parent_proof['contract']['parent_acceptance_sha256'];expected[parent_proof['contract']['parent_input_plan_path']]=parent_proof['contract']['parent_input_plan_sha256']
   if version==5:
    expected[grandparent_proof['contract']['parent_acceptance_path']]=grandparent_proof['contract']['parent_acceptance_sha256'];expected[grandparent_proof['contract']['parent_input_plan_path']]=grandparent_proof['contract']['parent_input_plan_sha256']
-  if version in(2,3,4,5):
+  if version in(2,3,4,5,6):
    plan=proof['contract']['input_plan_path'];plan_hash=proof['contract']['input_plan_sha256'];assert sha(plan)==plan_hash,'sparse cooperative plan file differs';expected[plan]=plan_hash
  if a.verify_only:print('All accepted objects, source/support, inputs, native data and executable verified; no guest execution');return
  def wp(path):return subprocess.check_output(['wslpath','-m',str(pathlib.Path(path).resolve())],text=True).strip()
