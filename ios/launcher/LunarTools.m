@@ -35,7 +35,18 @@ BOOL LTToolsAvailable(void) {
     return [files fileExistsAtPath:PythonLibrary()] && [files fileExistsAtPath:[PythonHome() stringByAppendingPathComponent:@"app/ios_runtime.py"]];
 }
 
+static NSString *LoadPythonLocked(void);
+
+// Python starts once, though the Archive's index is checked from its own thread.
 static NSString *LoadPython(void) {
+    static NSLock *starting;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ starting = [NSLock new]; });
+    [starting lock];
+    @try { return LoadPythonLocked(); } @finally { [starting unlock]; }
+}
+
+static NSString *LoadPythonLocked(void) {
     if (gPythonReady) return @"";
     if (!LTToolsAvailable()) return @"This build does not include Tools.";
     void *library = dlopen(PythonLibrary().fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL);
@@ -73,9 +84,21 @@ static NSString *LoadPython(void) {
     return failed ? @"Python could not find the Tools code" : @"";
 }
 
+static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments);
+
 // Runs one ios_runtime call. Arguments and results travel as JSON. Python
 // copies the environment once at startup, so arguments go in the code itself.
 static NSDictionary *CallRuntime(NSString *function, NSArray *arguments) {
+    // One call at a time: the result comes back through gResult, and the
+    // Archive's index is checked from its own thread while the launcher runs.
+    static NSLock *calls;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ calls = [NSLock new]; });
+    [calls lock];
+    @try { return CallRuntimeLocked(function, arguments); } @finally { [calls unlock]; }
+}
+
+static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"function": function, @"arguments": arguments} options:0 error:nil];
     NSString *code = [NSString stringWithFormat:
         @"def _lunar_call(encoded):\n"
@@ -159,6 +182,17 @@ NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString *
     *url = state[@"url"];
     *token = state[@"token"];
     return url && token && (*url).length ? @"" : @"The Archive could not start";
+}
+
+NSDictionary *LTArchiveIndex(NSString *serverRoot, NSString *archiveRoot, BOOL build, NSString **error) {
+    NSString *failure = LoadPython();
+    if (failure.length) { *error = failure; return nil; }
+    [NSFileManager.defaultManager createDirectoryAtPath:archiveRoot withIntermediateDirectories:YES attributes:nil error:nil];
+    NSDictionary *result = CallRuntime(build ? @"archive_build_index" : @"archive_index_status", @[serverRoot, archiveRoot]);
+    if (![result[@"ok"] boolValue]) { *error = result[@"error"] ?: @"Tools did not respond"; return nil; }
+    NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    if (!state) *error = @"Tools did not respond";
+    return state;
 }
 
 NSString *LTArchiveStop(void) {

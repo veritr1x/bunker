@@ -20,6 +20,10 @@ UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(v
 NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text));
 // Stops the Archive's server so its tables leave the game's memory. Blocks; call off the main thread.
 NSString *LTArchiveStop(void);
+// The Archive's index: with build, starts building it in the background when it
+// is missing or out of date. Returns its status (possible, ready, running, done,
+// total, step, error), or nil with *error set when Tools could not run.
+NSDictionary *LTArchiveIndex(NSString *serverRoot, NSString *archiveRoot, BOOL build, NSString **error);
 // After an update, the game data is brought up to this build before the
 // server starts (ios_runtime.update_data): the Original calendar's, or the
 // Pod Programs preset's, once per version; Android uses the same rule

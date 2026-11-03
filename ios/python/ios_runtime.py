@@ -176,15 +176,32 @@ def _go(function, *arguments):
         _process.free(pointer)
 
 
-def archive_start(asset_root, archive_root):
-    """The Archive: read only, so it runs beside Lunar Tear and the game. Returns url and token as JSON."""
-    import android_archive
-    return android_archive.start(asset_root, archive_root, dict(
+def _archive_converters():
+    """Textures, sounds, models and story scenes convert in the Go library, in this process."""
+    return dict(
         decode=lambda bundle, target, size: _go(_process.LunarTexture, bundle, target, int(size)),
         sound=lambda bundle, target: _go(_process.LunarAudio, bundle, target),
         model=lambda actor, target: _go(_process.LunarModel, actor, target),
         motion=lambda clip, actor, target: _go(_process.LunarMotion, clip, actor, target),
-        scenario=lambda folder, target: _go(_process.LunarScenario, folder, target)))
+        scenario=lambda folder, target: _go(_process.LunarScenario, folder, target))
+
+
+def archive_start(asset_root, archive_root):
+    """The Archive: read only, so it runs beside Lunar Tear and the game. Returns url and token as JSON."""
+    import android_archive
+    return android_archive.start(asset_root, archive_root, _archive_converters())
+
+
+def archive_build_index(asset_root, archive_root):
+    """As the app starts: builds the Archive's index in the background when it is missing or out of
+    date, beside the game. Returns its status as JSON (android_archive.index_status)."""
+    import android_archive
+    return android_archive.build_index(asset_root, archive_root, scenario=_archive_converters()["scenario"])
+
+
+def archive_index_status(asset_root, archive_root):
+    import android_archive
+    return android_archive.index_status(asset_root, archive_root)
 
 
 def archive_stop():
