@@ -111,6 +111,8 @@ under its heading, down to the previous release.
 - Notice packs over GitHub Pages' 100 MB file limit (packs 4 and 5 are) are
   published in 64 MiB parts the page joins before building; web builds need
   the notice pack. [b93a10e]
+- The page fetches its Python files and bundles fresh each time, so after a
+  release a browser can't build with files cached from the last one. [7a6daa3]
 
 ## 1.7.0 (2026-11-02)
 
