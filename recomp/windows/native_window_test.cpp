@@ -24,6 +24,17 @@ int main(){
   auto surface=windows.NewSurface(window);Check(surface&&!java.PendingException().size(),"typed Surface owns actual HWND");
   const auto token=windows.FromSurface(surface);
   Check(token&&IsWindow(static_cast<HWND>(windows.NativeHandle(token))),"acquired ANativeWindow resolves real HWND");
+  const auto initial_owners=window.use_count();
+  auto reader=windows.NativeHandleReader(window);
+  Check(reader()==windows.NativeHandle(token)&&window.use_count()==initial_owners,"reader observes owned HWND without retaining Window or acquiring native reference");
+  bool invalid_reader=false;try{windows.NativeHandleReader({});}catch(const std::invalid_argument&){invalid_reader=true;}
+  Check(invalid_reader,"reader rejects null Handle");
+  {
+    bunker::jni::Host foreign_java([](addr_t){return false;});NativeWindows foreign(foreign_java);
+    auto other=foreign.Create(320,240,u"Bunker foreign reader",false);
+    bool rejected=false;try{windows.NativeHandleReader(other);}catch(const std::invalid_argument&){rejected=true;}
+    Check(rejected,"reader rejects another provider's live Handle");
+  }
   WindowDpiScope dpi(windows.NativeHandle(token));
   RECT rectangle{};Check(GetClientRect(static_cast<HWND>(windows.NativeHandle(token)),&rectangle)&&rectangle.right==640&&rectangle.bottom==360,"native client pixel dimensions exact");
   auto geometry=windows.Describe(token);Check(geometry.width==640&&geometry.height==360&&geometry.format==1&&!geometry.fixed_size,"default Android buffer geometry");
@@ -57,13 +68,34 @@ int main(){
   Check(close_requested&&IsWindow(hwnd),"UI close waits for lifecycle to retire EGL resources");
   windows.Close(window);Check(!IsWindow(hwnd)&&windows.Width(token)==-19,"explicit lifecycle close destroys actual HWND");
   Check(windows.FromSurface(surface)==0,"closed native Surface does not reacquire live window");
+  Check(reader()==nullptr,"reader returns null for closed window still held by Java/native references");
+  bool closed_reader=false;try{windows.NativeHandleReader(window);}catch(const std::invalid_argument&){closed_reader=true;}
+  Check(closed_reader,"new reader rejects a closed owned Handle");
   windows.Release(token);java.DeleteLocalReference(surface);window.reset();
   Check(windows.Width(token)==-19,"expired window token cannot alias a later window");
+  Check(reader()==nullptr,"reader returns null for expired Window");
   bool rejected=false;try{windows.Release(token);}catch(const std::invalid_argument&){rejected=true;}Check(rejected,"double native release rejected");
   auto retained=windows.Create(320,240,u"Bunker retained window",false);auto local=windows.NewSurface(retained);auto native=windows.FromSurface(local);
   retained.reset();java.DeleteLocalReference(local);
   Check(windows.Width(native)==320&&IsWindow(static_cast<HWND>(windows.NativeHandle(native))),"native reference retains window after Java and host references drop");
   windows.Release(native);Check(windows.Width(native)==-19,"last native release joins and retires UI window");
+  {
+    auto weak_only=windows.Create(320,240,u"Bunker weak reader",false);
+    std::weak_ptr<NativeWindows::Window> weak=weak_only;
+    auto observe=windows.NativeHandleReader(weak_only);auto hwnd=static_cast<HWND>(observe());
+    weak_only.reset();
+    Check(weak.expired()&&!IsWindow(hwnd)&&observe()==nullptr,"reader alone cannot retain Window or native HWND");
+  }
+  {
+    bunker::jni::Host separate_java([](addr_t){return false;});
+    auto separate=std::make_unique<NativeWindows>(separate_java);
+    auto surviving=separate->Create(320,240,u"Bunker provider reader",false);
+    auto observe=separate->NativeHandleReader(surviving);auto hwnd=static_cast<HWND>(observe());
+    separate.reset();
+    Check(observe()==hwnd&&IsWindow(hwnd),"reader remains safe after provider destruction while Window has a real owner");
+    surviving.reset();
+    Check(observe()==nullptr&&!IsWindow(hwnd),"reader after provider and Window destruction is safely null");
+  }
   auto wrong=java.NewString(u"not a surface");Check(!windows.FromSurface(wrong)&&!java.PendingException().empty(),"wrong Java object fails checked host state");java.ClearException();java.DeleteLocalReference(wrong);
   Check(windows.Marker("ANativeWindow_getWidth")!=windows.Marker("ANativeWindow_getHeight"),"distinct native import markers");
   std::printf("Native Windows window provider: %u checks, six imports through actual NDK caller, real HWND/lifetime/events; scaled buffer backend remains explicit.\n",checks.load());

@@ -71,15 +71,32 @@ std::vector<NativeInfo> NativeDisplays(){
  }
  std::sort(result.begin(),result.end(),[](const NativeInfo&a,const NativeInfo&b){return a.value.device<b.value.device;});return result;
 }
+std::u16string WindowDevice(void *native){
+ Environment preserve;auto window=static_cast<HWND>(native);
+ if(!window||!IsWindow(window))throw std::runtime_error("Activity window is closed or unavailable");
+ DWORD process=0;if(!GetWindowThreadProcessId(window,&process)||process!=GetCurrentProcessId())throw std::runtime_error("Activity window is not owned by this process");
+ auto monitor=MonitorFromWindow(window,MONITOR_DEFAULTTONULL);if(!monitor)throw std::runtime_error("Activity window has no associated monitor");
+ MONITORINFOEXW info{};info.cbSize=sizeof(info);if(!GetMonitorInfoW(monitor,&info))throw std::runtime_error("Activity window monitor information unavailable");
+ return std::u16string(info.szDevice,info.szDevice+std::wcslen(info.szDevice));
+}
 #else
 std::vector<NativeInfo> NativeDisplays(){throw std::runtime_error("Windows display service requires native Windows");}
+std::u16string WindowDevice(void*){throw std::runtime_error("Windows activity window requires native Windows");}
 #endif
 }
 struct WindowsDisplayService::Impl {
  struct Display {std::weak_ptr<Impl> owner;int32_t id;std::mutex mutex;Info last;};
  struct Manager {std::weak_ptr<Impl> owner;};
+ struct WindowManager {std::weak_ptr<Impl> owner;std::function<void*()> reader;};
+ struct ActivityWindow {jni::Host::ObjectValue activity,manager;};
  jni::Host &host;Observer observer;std::mutex mutex;std::map<std::u16string,int32_t> ids;int64_t next_id=1;jni::Host::ObjectValue manager;std::map<int32_t,jni::Host::ObjectValue> objects;
  Impl(jni::Host&h,Observer o):host(h),observer(std::move(o)){}
+ std::vector<ActivityWindow> activity_windows;
+ addr_t Jni(size_t slot,addr_t a=0,addr_t b=0){State state{};state.gpr.x0.qword=host.EnvAddress();state.gpr.x1.qword=a;state.gpr.x2.qword=b;host.InvokeEnv(slot,state);return state.gpr.x0.qword;}
+ bool IsActivity(addr_t object){auto clazz=Jni(6,reinterpret_cast<addr_t>("android/app/Activity"));auto result=clazz&&Jni(32,object,clazz);if(clazz)host.DeleteLocalReference(clazz);return object&&result&&host.PendingException().empty();}
+ jni::Host::ObjectValue Associated(addr_t activity){std::vector<ActivityWindow> entries;{std::lock_guard lock(mutex);entries=activity_windows;}for(const auto&entry:entries){auto local=host.LocalValue(entry.activity);auto same=Jni(24,activity,local);host.DeleteLocalReference(local);if(same)return entry.manager;}return {};}
+ addr_t ActivityManager(addr_t activity){Environment preserve;auto value=Associated(activity);auto local=host.LocalValue(value);if(!local)host.ThrowException("java/lang/IllegalStateException",u"Activity has no Windows window association");return local;}
+ int32_t WindowDisplay(const std::function<void*()>&reader){Environment preserve;auto window=reader();auto device=WindowDevice(window);auto inventory=Inventory();if(!window||reader()!=window)throw std::runtime_error("Activity window closed during display query");for(const auto&info:inventory)if(info.device==device)return info.id;throw std::runtime_error("Activity window monitor is absent from display inventory");}
  std::vector<Info> Inventory(){auto native=NativeDisplays();std::vector<Info> result;unsigned primaries=0;{std::lock_guard lock(mutex);for(auto &x:native){if(x.primary){x.value.id=0;++primaries;}else{auto it=ids.find(x.value.device);if(it==ids.end()){if(next_id>INT32_MAX)throw std::runtime_error("Windows display ID space exhausted");it=ids.emplace(x.value.device,static_cast<int32_t>(next_id++)).first;}x.value.id=it->second;}result.push_back(std::move(x.value));}}if(!result.empty()&&primaries!=1)throw std::runtime_error("Windows desktop has no unique primary display");return result;}
  std::optional<Info> Find(int32_t id){if(id<0)return std::nullopt;for(auto &x:Inventory())if(x.id==id)return x;return std::nullopt;}
  void Observe(const Info&info){if(observer){Environment preserve;observer(info);}}
@@ -90,6 +107,19 @@ WindowsDisplayService::WindowsDisplayService(jni::Host&host,Observer observer){
  auto self=std::make_shared<Impl>(host,std::move(observer));impl_=self;std::weak_ptr<Impl> weak=self;
  auto owner=[weak](){auto state=weak.lock();if(!state)throw std::runtime_error("Windows display adapter owner expired");return state;};
  host.DefineClass("android/hardware/display/DisplayManager",{},"java/lang/Object",true);host.DefineClass("android/view/Display",{},"java/lang/Object",true);host.DefineClass("android/util/DisplayMetrics",{},"java/lang/Object",true);
+ // Only the reached framework metadata/method surface is represented. The
+ // configured launch Activity keeps its original class and ContextState.
+ host.DefineClass("android/app/NativeActivity",{},"android/app/Activity",true);
+ host.DefineInterface("android/view/WindowManager",{{"getDefaultDisplay","()Landroid/view/Display;"}});
+ host.DefineClass("android/view/WindowManagerImpl",{},"java/lang/Object",true,{"android/view/WindowManager"});
+ host.DefineObjectMethod("android/app/Activity","getWindowManager","()Landroid/view/WindowManager;",[weak,&host](addr_t activity,const jni::Host::MethodArguments&){Environment preserve;auto state=weak.lock();if(!state){host.ThrowException("java/lang/IllegalStateException",u"Windows display adapter owner expired");return addr_t(0);}return state->ActivityManager(activity);});
+ host.DefineObjectMethod("android/view/WindowManagerImpl","getDefaultDisplay","()Landroid/view/Display;",[weak,&host](addr_t object,const jni::Host::MethodArguments&){
+  Environment preserve;auto state=weak.lock();if(!state){host.ThrowException("java/lang/IllegalStateException",u"Windows display adapter owner expired");return addr_t(0);}
+  auto manager=host.ReadHostState<Impl::WindowManager>(object);if(!manager)return addr_t(0); // Preserve the pending typed-state error.
+  if(manager->owner.lock()!=state){host.ThrowException("java/lang/IllegalStateException",u"WindowManager owner expired or mismatched");return addr_t(0);}
+  try{auto result=state->Get(state,state->WindowDisplay(manager->reader));if(!result)host.ThrowException("java/lang/IllegalStateException",u"Activity window display became unavailable");return result;}
+  catch(const std::runtime_error&error){const std::string message=error.what();host.ThrowException("java/lang/IllegalStateException",std::u16string(message.begin(),message.end()));return addr_t(0);}
+ });
  for(const char *field:{"widthPixels","heightPixels","densityDpi"})host.DefineField("android/util/DisplayMetrics",field,"I");
  auto manager=host.NewHostInstance("android/hardware/display/DisplayManager",std::make_shared<Impl::Manager>(Impl::Manager{weak}));self->manager=host.CaptureValue(manager);host.DeleteLocalReference(manager);
  host.DefineObjectMethod("android/content/Context","getSystemService","(Ljava/lang/String;)Ljava/lang/Object;",[owner](addr_t,const jni::Host::MethodArguments&args){auto state=owner();if(!args[0])return addr_t(0);auto name=state->host.StringValue(args[0]);if(!name)return addr_t(0);if(*name!=u"display"){state->host.ThrowException("java/lang/UnsupportedOperationException",u"Windows display adapter supports only Context.getSystemService(display)");return addr_t(0);}return state->host.LocalValue(state->manager);});
@@ -104,4 +134,15 @@ WindowsDisplayService::WindowsDisplayService(jni::Host&host,Observer observer){
 }
 WindowsDisplayService::~WindowsDisplayService()=default;
 std::vector<WindowsDisplayService::DisplayInfo> WindowsDisplayService::Displays(){return impl_->Inventory();}
+void WindowsDisplayService::BindActivityWindow(addr_t activity,std::function<void*()> reader){
+ Environment preserve;auto state=impl_;
+ if(!state->host.PendingException().empty())throw std::invalid_argument("Activity window binding requires no pending Java exception");
+ if(!reader||!state->IsActivity(activity))throw std::invalid_argument("Activity window binding requires an actual Activity and weak native window reader");
+ (void)state->WindowDisplay(reader);
+ auto existing=state->host.LocalValue(state->Associated(activity));if(existing){state->host.DeleteLocalReference(existing);throw std::invalid_argument("Activity window already associated");}
+ auto value=state->host.CaptureValue(activity);
+ auto local=state->host.NewHostInstance("android/view/WindowManagerImpl",std::make_shared<Impl::WindowManager>(Impl::WindowManager{state,std::move(reader)}));
+ auto manager=state->host.CaptureValue(local);state->host.DeleteLocalReference(local);
+ {std::lock_guard lock(state->mutex);state->activity_windows.push_back({std::move(value),std::move(manager)});}
+}
 }

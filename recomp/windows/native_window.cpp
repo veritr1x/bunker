@@ -198,6 +198,11 @@ NativeWindows::Geometry NativeWindows::Describe(addr_t token)const{
 int32_t NativeWindows::Width(addr_t token)const{try{return Describe(token).width;}catch(const std::invalid_argument&){return -19;}}
 int32_t NativeWindows::Height(addr_t token)const{try{return Describe(token).height;}catch(const std::invalid_argument&){return -19;}}
 void *NativeWindows::NativeHandle(addr_t token)const{return impl_->Find(token)->Native();}
+std::function<void*()> NativeWindows::NativeHandleReader(const Handle &window)const{
+  if(!window||window->owner!=impl_->owner||!window->Native())throw std::invalid_argument("native handle reader needs a live owned window");
+  std::weak_ptr<Window> weak=window;
+  return [weak]()->void*{auto current=weak.lock();return current?current->Native():nullptr;};
+}
 void NativeWindows::SetGeometryBackend(ApplyGeometry apply){std::lock_guard lock(impl_->mutex);impl_->apply=std::move(apply);}
 int NativeWindows::SetBuffersGeometry(addr_t token,int32_t width,int32_t height,int32_t format){
   if(width<0||height<0||bool(width)!=bool(height)||width>32767||height>32767)return -22;

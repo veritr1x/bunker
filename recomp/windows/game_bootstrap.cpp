@@ -683,6 +683,7 @@ int main(int argc,char **argv){
         if(!Translated(recreate)||!Translated(changed))throw std::runtime_error("verified surface natives are not translated");
         auto window=native_windows->Create(width,height,frame_gate?u"Bunker":u"Bunker native surface diagnostic",frame_gate);
         auto surface=native_windows->NewSurface(window);
+        {LocalFrame locals(java);displays.BindActivityWindow(context.Activity(),native_windows->NativeHandleReader(window));}
         auto token=native_windows->FromSurface(surface);
         auto actual_width=native_windows->Width(token),actual_height=native_windows->Height(token);native_windows->Release(token);
         if(actual_width!=width||actual_height!=height)throw std::runtime_error("actual HWND client geometry differs from configured landscape pixels");

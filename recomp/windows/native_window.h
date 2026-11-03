@@ -47,6 +47,9 @@ class NativeWindows {
   Geometry Describe(addr_t native_window)const;
   // Actual native HWND, represented opaquely here so headers stay lightweight.
   void *NativeHandle(addr_t native_window)const;
+  // Weak observation only: no provider/window retention or native token lease.
+  // Creation requires a live owned handle; later close/expiry returns nullptr.
+  std::function<void*()> NativeHandleReader(const Handle &)const;
   void SetGeometryBackend(ApplyGeometry);
   std::vector<Event> DrainEvents(const Handle &);
   void ResizeClient(const Handle &,int32_t width,int32_t height);

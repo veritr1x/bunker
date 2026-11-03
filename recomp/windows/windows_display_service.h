@@ -28,6 +28,11 @@ class WindowsDisplayService {
   WindowsDisplayService(const WindowsDisplayService&)=delete;
   WindowsDisplayService&operator=(const WindowsDisplayService&)=delete;
   std::vector<DisplayInfo> Displays();
+  // Quiescent setup only, once per Activity. Retains Java object values, not
+  // borrowed JNI locals. The reader must be the owning NativeWindows weak
+  // HWND reader; it returns null after close/expiry. No window is retained.
+  // This owner and Host must outlive calls. No Activity lifecycle is invented.
+  void BindActivityWindow(addr_t activity,std::function<void*()> native_handle_reader);
  private:
   struct Impl;
   std::shared_ptr<Impl> impl_;

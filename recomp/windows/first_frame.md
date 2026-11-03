@@ -3,7 +3,37 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing `glIsVertexArray`, original BLR
+Current execution frontier: the legacy Android display JNI chain is absent.
+Actual build `work/windows-first-frame-vao-query1`, host
+`5525d90ef65ab7576a9f11ce43ceb1fab9514659`, executable
+`12c64eddda4740428140ce8e5af1a08131183ce6be5e7b4982e09c305c9e5e17`,
+passes VAO setup and creates/uploads native GPU buffers. Missing NativeActivity
+and WindowManager metadata leads to null method/receiver errors in the
+Activity.getWindowManager → WindowManager.getDefaultDisplay → Display refresh
+chain. Native exit5/controller1 is a null8-byte read in __remill_read_memory_64;
+the exact final guest instruction is not proven. Original static teardown can
+leave a JavaVM field null when that display setup fails. There is still no
+draw, swap, nativeRender return or game image. Pinned audits:
+`work/first-frame-vao-display-jni-boundary1/summary.json` (`bede3e4b…f7628a`)
+and `work/vao-query-native-av-audit1/summary.json` (`21f2fd75…a9eb4c`).
+The next build adds the two real JNI methods and NativeActivity inheritance
+metadata, using the existing Windows display provider and a weak reader for
+the actual owned HWND. Its monitor/device selects the existing Display object;
+no primary-display assumption or invented hardware values are used. Existing
+topology, caching, refresh, SDR and host-scheduling policies remain exact.
+Reader qualification passes300 checks; display-chain qualification passes165
+checks through19 NDK heads and observes one native associated output at120/1 Hz.
+Receipts: `work/native-window-reader-qualification2/acceptance.json`, SHA256
+`9c3d4e4e09613cebecdfc1316253f60e112e47b0cd4ae02055f2ab849f402e0c`,
+and `work/activity-window-display-qualification2/acceptance.json`, SHA256
+`3f4ed33364a5562c36c9e4d1e430fceeb8df33732189b330fb2ea39215e94781`.
+ReaderQ1 preserves a minimum-window-size fixture failure, fixed only by using
+supported320x240 test windows. DisplayQ1 preserves a new callback error-path
+bug; Q2 reports Java errors for invalid/closed/expired backing. No original
+guest function, Runtime, JNI core or GL command changes are included. The next
+actual startup is `work/windows-first-frame-window-manager1`.
+
+The preceding execution frontier was missing `glIsVertexArray`, original BLR
 `70490734`, captured State LR `70490738`. Actual build
 `work/windows-first-frame-renderer-state1`, host
 `1c5c247fa310e3a567b959181148490a5fc56ee3`, executable
