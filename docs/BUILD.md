@@ -73,6 +73,11 @@ python3.11 scripts/notices.py
 It downloads the file named in `notices.lock.json` to `inputs/bunker-notices.zip`.
 `build.py` uses that file. To use another path, pass `--notices`.
 
+The static web builder publishes large notice archives in 64 MiB parts listed
+in `bundles/notices.json`, keeping each file below GitHub Pages' limit. Its
+worker reassembles the original archive before packaging; a missing part or
+incomplete download fails the build and allows a retry.
+
 ## 4. Prepare the phone's game files
 
 Copy `resource_dump_android.7z` to the phone and choose it in the launcher

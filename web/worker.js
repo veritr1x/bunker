@@ -29,8 +29,27 @@ async function fetchBytes(url, label) {
 
 // A missing pack is a build failure, rather than a silently incomplete APK.
 async function fetchNotices(pyodide) {
-  writeFile(pyodide, "/bundles/notices.zip", await fetchBytes("bundles/notices.zip", "the notices"));
-  return "/bundles/notices.zip";
+  const response = await fetch("bundles/notices.json");
+  if (!response.ok) throw new Error(`Cannot download the notice manifest (${response.status})`);
+  const { parts, size } = await response.json();
+  if (!Array.isArray(parts) || !parts.length || !Number.isSafeInteger(size) || size <= 0) {
+    throw new Error("Invalid notice manifest");
+  }
+  const FS = pyodide.FS, path = "/bundles/notices.zip";
+  FS.mkdirTree("/bundles");
+  const stream = FS.open(path, "w");
+  let received = 0;
+  try {
+    for (let i = 0; i < parts.length; i++) {
+      const bytes = await fetchBytes("bundles/" + parts[i], `the notices (${i + 1}/${parts.length})`);
+      FS.write(stream, bytes, 0, bytes.length);
+      received += bytes.length;
+    }
+    if (received !== size) throw new Error("The notice download is incomplete");
+  } finally {
+    FS.close(stream);
+  }
+  return path;
 }
 
 // The finished file goes to the page as a Blob built from pieces, so it is never

@@ -44,6 +44,7 @@ PYTHON = [
     "web/signing/bunker-cert.der",
 ]
 PAGES_LIMIT = 100 * 1024 * 1024  # GitHub Pages refuses larger files.
+NOTICE_PART_SIZE = 64 * 1024 * 1024
 
 
 def is_master(name):
@@ -65,6 +66,25 @@ def folder_bundle(folder, target, prefix=""):
         for path in sorted(folder.rglob("*")):
             if path.is_file() and not is_master(path.name):
                 out.write(path, prefix + str(path.relative_to(folder)))
+
+
+def notice_bundle(source, folder, part_size=NOTICE_PART_SIZE):
+    """Publish the archive in bounded files, keeping its original ZIP bytes."""
+    source, folder = Path(source), Path(folder)
+    if not 0 < part_size <= PAGES_LIMIT:
+        raise ValueError("Notice parts must fit GitHub Pages' file limit")
+    with zipfile.ZipFile(source) as archive:
+        if any(is_master(name) for name in archive.namelist()):
+            raise SystemExit("The notice pack contains master data")
+    folder.mkdir(parents=True, exist_ok=True)
+    size = source.stat().st_size
+    parts = []
+    with source.open("rb") as stream:
+        while chunk := stream.read(part_size):
+            name = "notices.zip" if size <= part_size else f"notices.zip.{len(parts) + 1:03d}"
+            (folder / name).write_bytes(chunk)
+            parts.append(name)
+    (folder / "notices.json").write_text(json.dumps({"parts": parts, "size": size}))
 
 
 def main():
@@ -95,8 +115,7 @@ def main():
     (out / "version.json").write_text(json.dumps({"version": version}))
     folder_bundle(args.framework, out / "bundles/ios-framework.zip", "LunarTear.framework/")
     folder_bundle(args.python, out / "bundles/ios-python.zip")
-    if args.notices:
-        shutil.copy2(args.notices, out / "bundles/notices.zip")
+    notice_bundle(args.notices, out / "bundles")
     for path in out.rglob("*"):
         if path.is_file() and path.stat().st_size > PAGES_LIMIT:
             raise SystemExit(f"{path.name} is over GitHub Pages' 100 MB limit")
