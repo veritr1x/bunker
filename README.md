@@ -74,7 +74,8 @@ runs in your browser; your files are never uploaded. No tools to install.
 Limitations:
 
 - **You still need your own files**: the original 3.7.1 ARM64 APK or a decrypted 3.7.1 IPA, the
-  `20240404193219.bin.e` master data, and the resource dump. Other versions are refused.
+  `20240404193219.bin.e` master data (`20240405123139.bin.e` for the Japanese APK), and the resource
+  dump. Other versions are refused.
 - **The Android APK is signed with a public key**, so you can install it directly. Every web build
   installs over the previous one. The key ([`web/signing/bunker-key.p12`](web/signing/bunker-key.p12),
   password and alias `bunker`) is public: anyone can sign a build that installs over yours. To

@@ -15,6 +15,8 @@ function update() {
   const ios = platform() === "ios";
   $("game-help").textContent = ios ? "Your decrypted 3.7.1 game IPA." : "Original 3.7.1 ARM64 APK: Global (English/Korean) or Japanese (experimental).";
   $("game").accept = ios ? ".ipa" : ".apk";
+  $("master-help").innerHTML = ios ? "The original master data, <code>20240404193219.bin.e</code>."
+    : "The original master data: <code>20240404193219.bin.e</code> for the Global APK, <code>20240405123139.bin.e</code> for the Japanese APK.";
   $("build").disabled = !($("game").files[0] && $("master").files[0]);
   for (const id of ["game", "master"]) {
     const file = $(id).files[0], chip = $(id + "-name");
