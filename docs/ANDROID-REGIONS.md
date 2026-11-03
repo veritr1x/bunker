@@ -54,8 +54,11 @@ private inputs or the IL2CPP dumps are included in Git or the published builder.
   Japanese roulette behavior remains unverified. Facebook Android telemetry
   methods are also absent in the Japanese method map; its seven Unity
   Analytics, Crashlytics and Adjust entry points have separately checked guards.
-- `GAME_PATCH` is 2. Builds with the previous patch revision require rebuilding
-  through the web builder before later in-place updates.
+- `GAME_PATCH` stays 1. For Global, the shared patcher differs from the old one
+  only at the port getter (now patched without touching the next method) and
+  the API host branch (Japanese only needs it); both old builds keep working,
+  and in-place updates re-apply branding and privacy patches, so Global and
+  iOS players update in the app.
 - Merged APKs use the Bunker label and emblem icon, including component
   overrides. The direct binary builder adds a drawable type to the existing
   game resource package, preserving original IDs, strings and styles. Keeping
