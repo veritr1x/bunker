@@ -100,6 +100,20 @@ under its heading, down to the previous release.
   guide, gameplay video, player or social post, without naming sites or
   linking to them. [b91d989]
 
+### Android
+- Japanese 3.7.1 APKs (experimental) build alongside Global (English and
+  Korean) ones: the builder recognises the client from its files and patches
+  each with its own addresses. Built APKs and the companion app are named
+  Bunker with its emblem. The game patch is now revision 2, so earlier builds
+  update through the web builder. [a1b9179]
+- An icon test compares pixels instead of PNG bytes, so it passes with any
+  encoder. [dc117a4]
+
+### Web builder
+- Notice packs over GitHub Pages' 100 MB file limit (packs 4 and 5 are) are
+  published in 64 MiB parts the page joins before building; web builds need
+  the notice pack. [b93a10e]
+
 ## 1.7.0 (2026-11-02)
 
 Below the screen's own resolution, the picture can be upscaled instead of
