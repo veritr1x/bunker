@@ -903,3 +903,53 @@ report `work/game29-runtime-boundary-audit/REPORT.md` SHA256 is
 `6e2e54fbabb7a3afec6ac81555b5a2c9a5f29d29c1cda0dd1d8106ca79d87d00`.
 No public initialization result, nativeRender return, image, gameplay, general
 collector safety or normal shutdown/persistence is established.
+
+Game30 freezes the EXT sort repair at host2d127bb04. Input SHA256 is
+`5b40e5c06b6ca1fb163d7ee66d940768bae1ca1daf89037f88d91c29862fa2a6`;
+executable SHA256 is
+`4ebd473283f9b2226132aaaa3467c7f80a68e2744ce7a3e3bc7350c7f08f5e86`.
+The v3 cohort retains the existing prefetch repair and replaces only Unity
+shard78, with only the complete original sort FDE changed. Its other127 raw,
+polled and native function bodies remain identical. Other3574 guest-object
+descriptors, original ELF/APK bytes, State and providers are unchanged.
+The corrected instruction removes one semantic loop:456684 heads,
+122088 cycle cuts and578772 poll sites. Component and original-prefix
+evidence is in [the EXT/sort audit](unity_ext_sort.md).
+
+Default/init/surface each return native0/controller0. Standard muted startup
+retains the signal30 guard at LR825b2d1c. The collector profile returns
+native3/controller1 at `recomp: unresolved indirect target at 0x70b5b648`.
+No native exception record or returned nativeRender is observed. The error
+does not identify the active caller, thread, LR, table index or a returned
+original sort call; those are not inferred from neighboring worker logs.
+
+Static original/selected-code audit identifies70b5b648 as executable Unity
+.text inside FDE70b5ae80..70b5c138. Original BR X15 at70b5b644 uses a bounded
+ten-entry signed-offset table at70fd0134. Its five unique destinations are
+70b5b488,70b5b4b0,70b5b4bc,70b5b648 and70b5b674, all absent from the selected
+catalog. Selected shard386 retains the original table load/add and
+`__remill_jump` dispatch. This establishes missing continuation coverage,
+not a PLT import or permission to route an internal case to the FDE prologue.
+Read-only target proof `work/game30-indirect-target-audit1/proof.json` has
+SHA256 `67218fa4852147b98ee60a42a0456c2ae139051d8ea19ee660b1bb985cd9ea74`.
+
+The collector run again records the bounded E4 cycle: two physical register
+checks, both original posts and observed record5. Nineteen real affinity
+operations/readbacks return0;35 priority pairs report18level0,onelevel1 and
+16level10. Seventeen untimed and two timed futex entries have no observed
+RETURN/RESULT/WAKE. Both timed copies are4294967s +295000000ns, with actual
+deadlines4414098153472500 and4414098160526600. No wait enrollment, physical
+blocking, expiration or return follows from these copy records.
+
+Both terminal output trees contain24 APK-identical Managed files/24570231
+bytes, metadata23317064/version24 and unity.ver638477124699603280. Original
+one-entry v2 preference reads and version-marker writes/status0 are observed;
+final persistence checks remain unreached. The incremental audit checks98
+fresh pins and preserves the old1910-snapshot map without copying/replaying
+those snapshots or old COFF files. Canonical aggregate
+`work/windows-game30/game_final_audit.json` has SHA256
+`8f51c5216b33194ed6d83ff224d0047f4cfc291d72ceb92c6161c6b9bf6f4b7f`;
+report `work/game30-runtime-boundary-audit/REPORT.md` has SHA256
+`a66cb4e117d4535dce18ece6bad8e4fa829ba6ec26df579c52f9a33669ac128c`.
+Public initialization result, nativeRender return, image, gameplay, general
+collector safety and normal shutdown/persistence remain open.

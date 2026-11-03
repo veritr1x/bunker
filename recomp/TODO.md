@@ -9,9 +9,13 @@ in Unity's pointer sort. The corrected instruction passes 12,352 ARM/Bionic,
 Linux and Windows records per host; the complete original sort's insertion
 paths pass 140 differential cases, including the exact full 128-function Windows
 object. Only the sort function changes. A v3 cohort preserves the existing
-prefetch repair and permits one additional shard 78 replacement. The next
-checkpoint is a fresh muted native startup with that qualified replacement;
-these component passes do not establish a frame or completed initialization.
+prefetch repair and permits one additional shard 78 replacement. Game30's
+constructor/JNI, initJni and surface controls pass; its collector-profile
+startup stops at unresolved target `0x70b5b648`, with no native exception
+record. The target is one of five valid original formatter jump-table
+destinations missing from the catalog. The next checkpoint is qualified
+additive recovery of those five entries, preserving the current guest objects.
+There is still no returned frame or completed initialization result.
 See [the EXT/sort evidence](windows/unity_ext_sort.md).
 
 Game29 passes constructor/JNI, initJni and surface lifecycle profiles. Both
