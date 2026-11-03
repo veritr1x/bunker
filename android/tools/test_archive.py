@@ -7,12 +7,38 @@ build the index from real game files and open every page. Needs lz4,
 pycryptodome and msgpack; the page test also needs fastapi and jinja2.
 """
 from pathlib import Path
-import os, re, shutil, sys, tempfile, unittest
+import os, re, shutil, sqlite3, sys, tempfile, unittest
 
 root = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(root / "android/app/src/main/python"), str(root / "upstream/lunar-base/tools")]
 from archive import index  # noqa: E402
 from archive.content import plain, prose, rich  # noqa: E402
+
+
+class LocalText(unittest.TestCase):
+    """Japanese and Korean names, for pages shown in the game's language."""
+
+    def test_indexes_names_but_not_story_lines(self):
+        with tempfile.TemporaryDirectory() as folder:
+            assetbundle = Path(folder)
+            for lang, area in (("ja", "possession"), ("ko", "mission"), ("ja", "main"), ("ru", "possession")):
+                (assetbundle / "text" / lang / area).mkdir(parents=True, exist_ok=True)
+                (assetbundle / "text" / lang / area / "a.assetbundle").write_bytes(b"")
+            (assetbundle / "text/ja/possession/._a.assetbundle").write_bytes(b"")  # macOS copy junk
+            words = {"ja/possession": "// header\nconsumable_item.name.117004:1202110\u671fx\n",
+                     "ko/mission": "mission.name.1:\uc218\ub77d\n",
+                     "ja/main": "story.line.1:\u3042\n"}
+
+            def read(bundle, root):
+                if bundle.name.startswith("._"):
+                    raise ValueError("not a bundle")
+                return [("a", words[bundle.parent.relative_to(root / "text").as_posix()])]
+
+            db = sqlite3.connect(":memory:")
+            db.execute("CREATE TABLE text_local(lang TEXT, key TEXT, value TEXT, PRIMARY KEY(lang, key))")
+            index.index_local_text(db, assetbundle, read=read)
+            self.assertEqual(sorted(db.execute("SELECT lang, key, value FROM text_local")),
+                             [("ja", "consumable_item.name.117004", "1202110\u671fx"), ("ko", "mission.name.1", "\uc218\ub77d")])
 
 
 class Parsing(unittest.TestCase):

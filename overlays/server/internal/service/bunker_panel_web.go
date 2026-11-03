@@ -259,6 +259,7 @@ func panelRewardData(t *gameText, r missions.PanelReward) panelRewardJSON {
 type panelRequest struct {
 	CommonRequest struct {
 		UserIdString string `json:"userIdString"`
+		Language     string `json:"language"` // the page's: "Japanese", "English", "Korean"
 	} `json:"commonRequest"`
 	WebviewMissionId json.Number `json:"webviewMissionId"`
 	Page             int32       `json:"page"`
@@ -290,7 +291,8 @@ func servePanelAPI(w http.ResponseWriter, r *http.Request, call string) {
 		panelError(w, 199999)
 		return
 	}
-	text := openGameText()
+	lang := panelLanguage(req.CommonRequest.Language)
+	text := openGameTextIn(lang)
 	defer text.close()
 	var data any
 	if call == "pages" {
@@ -330,7 +332,7 @@ func servePanelAPI(w http.ResponseWriter, r *http.Request, call string) {
 				list = append(list, panelRewardData(text, rw))
 			}
 			out["pageData"] = map[string]any{"imageFileName": panelFile("card_full.jpg"),
-				"compFlavorText": storyHTML(panelStoryText(p, run, req.Page), pg.Words), "rewardList": list}
+				"compFlavorText": storyHTML(panelStoryText(p, run, req.Page, text.lang), pg.Words), "rewardList": list}
 		}
 		data = out
 	}
@@ -372,20 +374,21 @@ func panelPagesData(p *missions.Panels, run missions.PanelRun, u *store.UserStat
 			case st.Progress[key] >= panel.N:
 				status = 2
 			}
+			title := text.missionText(panel.Text)
 			word := ""
 			if i < len(pg.Words) {
 				word = pg.Words[i]
 			}
 			panels = append(panels, map[string]any{"positionId": i + 1, "panelGroupId": p.PageId(run.Target, pg.Page),
-				"title": panel.Text, "longTitle": panel.Text, "flavorText": word, "conditions": []string{}, "lockText": "",
+				"title": title, "longTitle": title, "flavorText": word, "conditions": []string{}, "lockText": "",
 				"panelMissionProgressStatusType": status, "numerator": min(st.Progress[key], panel.N), "denominator": panel.N,
 				"reward": panelRewardData(text, panel.Rewards[0])})
 		}
 		page := map[string]any{"pageNumber": pg.Page, "isComplete": done, "isTermOver": termOver,
 			"imageFileName": panelFile("card_full.jpg"), "bgParts": parts, "panels": panels,
-			"compFlavorText": storyHTML(panelStoryText(p, run, pg.Page), pg.Words)}
+			"compFlavorText": storyHTML(panelStoryText(p, run, pg.Page, text.lang), pg.Words)}
 		pages = append(pages, page)
 	}
-	return map[string]any{"webviewMissionId": run.Mission, "webviewPanelMissionId": run.Mission, "eventTitle": sheets.Name,
+	return map[string]any{"webviewMissionId": run.Mission, "webviewPanelMissionId": run.Mission, "eventTitle": panelTitle(run, text.lang, sheets.Name),
 		"startDate": run.Start, "endDate": run.End, "isAllComplete": all, "pages": pages}
 }

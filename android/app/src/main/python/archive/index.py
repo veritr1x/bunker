@@ -18,8 +18,11 @@ from pathlib import Path
 from . import schedule
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 17
+FORMAT = 18
 SCENE_AREAS = ("main", "sub", "side")
+# Languages besides English whose names the server's pages can show (the
+# Anecdotes' panel sheets in the game's language). Story lines stay English.
+LOCAL_LANGUAGES = ("ja", "ko")
 MASTER_TABLES = ("m_report", "m_cage_memory", "m_library_movie", "m_library_movie_category", "m_movie",
                  "m_character", "m_main_quest_season", "m_event_quest_chapter", "m_costume",
                  "m_character_voice_unlock_condition", "m_dokan", "m_dokan_content_group", "m_dokan_text",
@@ -45,6 +48,29 @@ _MAP_GROUP = re.compile(r"(?:mid|pid)_([a-z]\d{3})", re.I)
 def mask_name(bundle: Path, assetbundle_root: Path) -> str:
     """The Octo mask name: the path under assetbundle/, without the suffix, joined by ')'."""
     return ")".join(bundle.relative_to(assetbundle_root).with_suffix("").parts)
+
+
+def index_local_text(db, assetbundle: Path, read=None, progress=lambda done, total: None) -> int:
+    """Japanese and Korean text, except story lines, into text_local. Returns the bundles it could not read."""
+    read = read or read_text_bundle
+    bundles = [b for lang in LOCAL_LANGUAGES if (assetbundle / "text" / lang).is_dir()
+               for b in sorted((assetbundle / "text" / lang).rglob("*.assetbundle"))
+               if b.relative_to(assetbundle / "text" / lang).parts[0] not in SCENE_AREAS]
+    failures = 0
+    for done, bundle in enumerate(bundles, 1):
+        lang = bundle.relative_to(assetbundle / "text").parts[0]
+        try:
+            assets = read(bundle, assetbundle)
+        except Exception:
+            failures += 1
+            continue
+        for _, text in assets:
+            entries = extract_names.parse_text_asset_lines(text)
+            db.executemany("INSERT OR REPLACE INTO text_local VALUES (?,?,?)",
+                           [(lang, k, clean(v)) for k, v in entries.items() if not k.startswith("//")])
+        if done % 50 == 0 or done == len(bundles):
+            progress(done, len(bundles))
+    return failures
 
 
 def read_text_bundle(bundle: Path, assetbundle_root: Path) -> list[tuple[str, str]]:
@@ -605,6 +631,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     db.executescript("""
         CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE text(key TEXT PRIMARY KEY, value TEXT, folder TEXT);
+        CREATE TABLE text_local(lang TEXT, key TEXT, value TEXT, PRIMARY KEY(lang, key));
         CREATE TABLE scene(id INTEGER PRIMARY KEY, area TEXT, kind TEXT, season INT, chapter INT, grp TEXT,
                            name TEXT, sort INT, lines INT);
         CREATE TABLE line(scene INT, seq INT, text TEXT, voice TEXT, key TEXT, speaker TEXT);
@@ -645,6 +672,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                 db.executemany("INSERT OR REPLACE INTO text VALUES (?,?,?)", [(k, clean(v), folder) for k, v in entries.items()])
         if done % 50 == 0 or done == len(bundles):
             progress(done, len(bundles), "Story text")
+    failures += index_local_text(db, assetbundle, progress=lambda done, total: progress(done, total, "Names in other languages"))
     progress(len(bundles), len(bundles), "Master data")
     tables = load_master(master)
     if "m_dokan_text" in tables:  # announcement captions: English only (LanguageType 2)
