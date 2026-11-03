@@ -12,7 +12,7 @@ import branding
 
 # Bump when a release changes how the game itself is patched (its library,
 # metadata, master data or manifest edits): such an update needs the web builder.
-GAME_PATCH = 2
+GAME_PATCH = 1
 VERSION_ENTRY = "assets/lunar/bunker-version.txt"
 COMPANION_PATCH_ENTRY = "assets/lunar/game-patch.txt"
 
