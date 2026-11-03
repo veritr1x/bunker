@@ -3,7 +3,7 @@
 rules (bunker_button_layout.c). The icon tests need Pillow; the C tests a host
 C compiler (cc)."""
 from pathlib import Path
-import io, re, shutil, subprocess, sys, tempfile, unittest
+import base64, io, re, shutil, subprocess, sys, tempfile, unittest
 
 root = Path(__file__).resolve().parents[2]
 HEADER = root / "android/app/src/main/cpp/bunker_icon.h"
@@ -21,6 +21,13 @@ def header_png(text):
     return bytes(int(x) for x in data.split(","))
 
 
+def same_png_pixels(actual, expected):
+    # PNG compression differs between platforms even with the same Pillow
+    # version. The generated mark must match in dimensions and every pixel.
+    with Image.open(io.BytesIO(actual)) as a, Image.open(io.BytesIO(expected)) as b:
+        return a.size == b.size and a.convert("RGBA").tobytes() == b.convert("RGBA").tobytes()
+
+
 @unittest.skipUnless(Image, "needs Pillow")
 class Icon(unittest.TestCase):
     def test_icon_header_matches_the_generator(self):
@@ -28,7 +35,10 @@ class Icon(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "bunker_icon.h"
             bunker_icon.write_header(out)
-            self.assertEqual(out.read_text(), HEADER.read_text())
+            expected = HEADER.read_text()
+            self.assertTrue(same_png_pixels(header_png(out.read_text()), header_png(expected)))
+            declared = int(re.search(r"kBunkerIconPngSize = (\d+)", expected).group(1))
+            self.assertEqual(declared, len(header_png(expected)))
 
     def test_icon_is_128_square_with_its_plate(self):
         icon = Image.open(io.BytesIO(header_png(HEADER.read_text())))
@@ -53,7 +63,7 @@ class EmblemElsewhere(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             bunker_icon.write_assets(Path(tmp))
             for name, made in bunker_icon.asset_files(Path(tmp)).items():
-                self.assertEqual(made.read_bytes(), bunker_icon.asset_files(root)[name].read_bytes(), name)
+                self.assertTrue(same_png_pixels(made.read_bytes(), bunker_icon.asset_files(root)[name].read_bytes()), name)
 
     def test_notification_icon_is_white_on_transparent(self):
         icon = Image.open(ASSETS / "bunker-emblem-notification.png").convert("RGBA")
@@ -87,7 +97,10 @@ class EmblemElsewhere(unittest.TestCase):
     def test_web_builder_tab_icon(self):
         import bunker_icon
         page = (root / "web/index.html").read_text()
-        self.assertIn('<link rel="icon" href="' + bunker_icon.favicon_data_uri() + '">', page)
+        icon = re.search(r'<link rel="icon" href="data:image/png;base64,([^"\s]+)">', page)
+        self.assertIsNotNone(icon)
+        self.assertTrue(same_png_pixels(base64.b64decode(bunker_icon.favicon_data_uri().split(",", 1)[1]),
+                                        base64.b64decode(icon.group(1))))
 
 
 @unittest.skipUnless(shutil.which("cc"), "needs a C compiler")
