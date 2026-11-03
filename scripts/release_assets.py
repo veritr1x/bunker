@@ -97,6 +97,10 @@ def downloads(version):
             f"- `Bunker-{version}.exe` plays the Android build on Windows, in Google's Android Emulator. "
             f"Put it in one folder with your `bunker.apk` and `resource_dump_android.7z`. "
             f"See [Windows](https://github.com/veritr1x/bunker/blob/main/docs/WINDOWS.md).\n"
+            f"- `Bunker-{version}-linux-x86_64` and `Bunker-{version}-linux-arm64` do the same on Linux. "
+            f"With Waydroid installed they use Waydroid: they install `bunker.apk` and put the game files "
+            f"into it, with no shared folder to mount. "
+            f"See [Linux](https://github.com/veritr1x/bunker/blob/main/docs/LINUX.md).\n"
             f"- The `bunker-*.zip` files and `update.json` are for the Bunker's own updates. "
             f"You don't need to download them.")
 

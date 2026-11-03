@@ -148,7 +148,7 @@ Tap **⋮** for Lunar Tear control, master-data import, save backup and restore,
 ## Play on a Mac
 
 The iPhone/iPad build runs natively on a Mac with Apple silicon (M1 or later), as an iPad app.
-For Windows, see [Play on Windows](#play-on-windows).
+For Windows and Linux, see [Play on Windows](#play-on-windows) and [Play on Linux](#play-on-linux).
 
 1. Sign the IPA with your own Apple developer team (see [iOS](docs/IOS.md#build)). The
    provisioning profile must include the Mac: add its **Provisioning UDID** (System Information ›
@@ -178,6 +178,14 @@ Android Emulator. The first time, it downloads the emulator and an Android 16 im
 installs your `bunker.apk`, copies in the game files from the resource dump's `.7z` and opens
 the game. Later starts need no Internet. You need Windows 10 or 11 on an Intel or AMD processor,
 with Windows Hypervisor Platform turned on. See [Windows](docs/WINDOWS.md).
+
+## Play on Linux
+
+Experimental. Each release includes the same program for Linux (`Bunker-<version>-linux-x86_64`
+and `-linux-arm64`). With Waydroid installed, it installs your `bunker.apk` in Waydroid and copies
+the game files from the `.7z` into the Bunker's own storage there, so no shared folder has to be
+mounted. Without Waydroid, it uses Google's Android Emulator as on Windows. See
+[Linux](docs/LINUX.md).
 
 ## Build it yourself, step by step
 

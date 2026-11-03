@@ -203,7 +203,7 @@ func (p *panel) draw() {
 	b.WriteString("\x1b[H")
 	line := func(s string) { b.WriteString(s + "\x1b[K\n") }
 	// About 20 lines, to fit a console window's default height.
-	line(dim + "  LUNAR TEAR // WINDOWS" + reset)
+	line(dim + "  LUNAR TEAR // " + platformName + reset)
 	line(bold + "  B U N K E R" + reset + strings.Repeat(" ", max(1, width-13-len(p.title))) + dim + p.title + reset)
 	line("")
 	section := ""

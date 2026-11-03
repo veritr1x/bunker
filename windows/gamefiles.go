@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +18,23 @@ const (
 	serverDir  = "/data/data/" + gamePackage + "/files/server"
 	masterData = "20240404193219.bin.e"
 )
+
+// phone is where the game files go: the emulator through adb, or Waydroid
+// through its shell (waydroid.go).
+type phone interface {
+	// shell runs a command as root once root() has succeeded, and returns its output.
+	shell(command string) (string, error)
+	// stream runs a script as root that reads the computer's stream on its stdin.
+	stream(script string) *exec.Cmd
+	root() error
+	unroot()
+}
+
+// stream for the emulator: adb exec-in, which passes stdin through untouched.
+func (d device) stream(script string) *exec.Cmd { return d.command("exec-in", script) }
+
+// filesTarget is where the console says the game files go.
+var filesTarget = "the phone"
 
 // archiveID names an archive by file name and size, to tell whether it was sent.
 func archiveID(dump string) string {
@@ -37,7 +55,7 @@ func archiveID(dump string) string {
 // emulator's Google APIs image allows, and does what the Bunker's import does
 // when it installs files (FilesStore.install): it keeps the master data and the
 // calendar's next loop, and swaps the new files in only once they are complete.
-func sendGameFiles(dev device, dump string, s *steps) error {
+func sendGameFiles(dev phone, dump string, s *steps) error {
 	s.set(s.files, busy, "PREPARING", "")
 	if err := dev.root(); err != nil {
 		return err
@@ -60,7 +78,7 @@ func sendGameFiles(dev device, dump string, s *steps) error {
 	}
 
 	stage := serverDir + "/assets.importing"
-	cmd := dev.command("exec-in", "rm -rf "+stage+" && mkdir -p "+stage+" && tar -xf - -C "+stage)
+	cmd := dev.stream("rm -rf " + stage + " && mkdir -p " + stage + " && tar -xf - -C " + stage)
 	pipe, err := cmd.StdinPipe()
 	if err != nil {
 		return err
@@ -71,8 +89,7 @@ func sendGameFiles(dev device, dump string, s *steps) error {
 	buffered := bufio.NewWriterSize(pipe, 4<<20)
 	stream := newTarSink(buffered, uid, gid)
 	s.set(s.files, busy, "STREAMING", "")
-	s.say("Copying the game files into the phone (21 GB).\n" +
-		"Keep this window open.")
+	s.say("Copying the game files into %s (21 GB).\nKeep this window open.", filesTarget)
 	count, err := unpackGameFiles(dump, stream, func(done, total int64) { s.progress(s.files, done, total, "") })
 	if err == nil {
 		err = stream.close()
@@ -96,8 +113,25 @@ func sendGameFiles(dev device, dump string, s *steps) error {
 		dev.shell("rm -rf " + stage)
 		return fmt.Errorf("only %s of %d game files reached the phone. Start Bunker again to retry", strings.TrimSpace(got), count)
 	}
+	script := installScript(stage, uid, gid, label)
+	s.set(s.files, busy, "INSTALLING", "")
+	if out, err := dev.shell(script); err != nil || !strings.HasSuffix(out, "installed") {
+		return fmt.Errorf("could not install the game files in the phone: %s", out)
+	}
+	s.set(s.files, good, "IN PLACE", fmt.Sprintf("%d files from %s", count, filepath.Base(dump)))
+	s.say("")
+	return nil
+}
+
+// installScript swaps the unpacked files in, as the Bunker's import does, and
+// gives them to NieR. They can arrive before NieR has ever started, when its
+// files folder did not exist and was made as root: that folder is given to
+// NieR too, or the Bunker could not make its saves folder. label is NieR's
+// SELinux label, or "?" when SELinux is off (Waydroid) and there is none to set.
+func installScript(stage string, uid, gid int, label string) string {
+	files := "/data/data/" + gamePackage + "/files"
 	assets, previous := serverDir+"/assets", serverDir+"/assets.previous"
-	script := strings.Join([]string{
+	lines := []string{
 		"set -e",
 		"mkdir -p " + stage + "/release",
 		keep(assets+"/release/"+masterData, stage+"/release/"+masterData),
@@ -106,17 +140,13 @@ func sendGameFiles(dev device, dump string, s *steps) error {
 		"if [ -e " + assets + " ]; then mv " + assets + " " + previous + "; fi",
 		"mv " + stage + " " + assets,
 		"rm -rf " + previous,
+		fmt.Sprintf("chown %d:%d %s", uid, gid, files),
 		fmt.Sprintf("chown -R %d:%d %s", uid, gid, serverDir),
-		"chcon -R " + label + " " + serverDir,
-		"echo installed",
-	}, "\n")
-	s.set(s.files, busy, "INSTALLING", "")
-	if out, err := dev.shell(script); err != nil || !strings.HasSuffix(out, "installed") {
-		return fmt.Errorf("could not install the game files in the phone: %s", out)
 	}
-	s.set(s.files, good, "IN PLACE", fmt.Sprintf("%d files from %s", count, filepath.Base(dump)))
-	s.say("")
-	return nil
+	if label != "" && label != "?" {
+		lines = append(lines, "chcon "+label+" "+files, "chcon -R "+label+" "+serverDir)
+	}
+	return strings.Join(append(lines, "echo installed"), "\n")
 }
 
 // keep copies a file the Bunker already has into the new files, unless they
