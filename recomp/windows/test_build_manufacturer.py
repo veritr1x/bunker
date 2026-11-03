@@ -1,9 +1,9 @@
-"""Explicit absent-product-property MODEL/MANUFACTURER fallback; focused actual NDK JNI only."""
+"""Five explicit absent Android String properties; focused actual NDK JNI only."""
 from pathlib import Path
 import argparse,hashlib,io,json,shutil,subprocess,sys,tarfile
 HERE=Path(__file__).resolve().parent
 W=Path('/mnt/c/GitRepos/bunker/recomp/work')
-BASE='3fc7304f51b6a78d9cd182a049f5f8ac4de9bc8a'
+BASE='981cea5f75ba130ec746d0aef8f0a72ab5b38ccd'
 OWNED=('android_build_manufacturer.h','build_manufacturer_guest.c','build_manufacturer_test.cpp','test_build_manufacturer.py')
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);a=p.parse_args();O=a.out.resolve();O.mkdir(exist_ok=False)
@@ -24,6 +24,7 @@ def main():
  assert sha(T/'remill-lift')=='2aa44c206c3c36b1724deb4eb828f5e99916c2dd5f5eacfec6578474adeeec0e'and sha(T/'aarch64.bc')=='06d153f92cbfe3aa4a37e47a2b6563af2c86a266f6525923eb13ee1eb6486d5a'
  primary=W/'android-api-profile-audit/Android13-Build.java';assert sha(primary)=='77d6b4a7fef0ac88197bd269a2a9c1c4e37d20a3fa026b3b0654930187147e95'
  text=primary.read_text();assert 'public static final String UNKNOWN = "unknown";'in text and 'public static final String MANUFACTURER = getString("ro.product.manufacturer");'in text and 'return SystemProperties.get(property, UNKNOWN);'in text and 'public static final String MODEL = getString("ro.product.model");'in text
+ for declaration in ('public static final String ID = getString("ro.build.id");','public static final String RELEASE = getString("ro.build.version.release");','public static final String INCREMENTAL = getString("ro.build.version.incremental");'):assert declaration in text
  jni=NDK/'toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/jni.h';shutil.copy2(jni,O/'jni.h')
  sources={str(f):sha(f)for f in S.rglob('*')if f.is_file()}
  inputs={str(f):sha(f)for f in[primary,jni,CC.resolve(),T/'remill-lift',T/'aarch64.bc',Path('/mnt/c/mingw64/bin/g++.exe'),Path('/mnt/c/mingw64/bin/gcc.exe'),Path(shutil.which('clang-18')).resolve(),Path(shutil.which('clang++-18')).resolve()]}
@@ -42,12 +43,12 @@ def main():
   for rel in('windows/jni_host.cpp','whole/runtime.cpp'):
    obj=D/(Path(rel).stem+'.o');run([cxx,*flags,'-c',conv(S/rel),'-o',conv(obj)],label+'-'+obj.stem);objs.append(obj)
   exe=D/('manufacturer.exe'if windows else'manufacturer');run([cxx,*flags,'-Wall','-Wextra','-Werror',conv(S/'windows/build_manufacturer_test.cpp'),*map(conv,objs),conv(loader),*map(conv,m['objects']),'-latomic','-pthread',*(['-static']if windows else[]),'-o',conv(exe)],label+'-link')
-  result=run([exe],label+'-focused');assert 'MODEL and MANUFACTURER absent-property unknown, SDK33 preserved; no vendor query'in result;results[label]=dict(stdout=result,executable_sha256=sha(exe))
+  result=run([exe],label+'-focused');assert 'MODEL/MANUFACTURER/ID/RELEASE/INCREMENTAL absent-property unknown, SDK33 preserved; no vendor or Android version inference'in result;results[label]=dict(stdout=result,executable_sha256=sha(exe))
  sourcepin=dict(base_commit=BASE,base_archive_sha256=sha(O/'base-recomp.tar'),sources=sources,inputs=inputs,owned_sources={n:sha(S/'windows'/n)for n in OWNED})
  (O/'source-pin.json').write_text(json.dumps(sourcepin,indent=2)+'\n')
  for group in(sources,inputs):
   for n,h in group.items():assert sha(n)==h,n
  (O/'commands.json').write_text(json.dumps(commands,indent=2)+'\n')
- r=dict(passed=True,base_commit=BASE,owned_sources=sourcepin['owned_sources'],source_pin_sha256=sha(O/'source-pin.json'),primary_path=str(primary),primary_sha256=sha(primary),policy='Explicit absent Android product properties; exact AOSP MODEL/MANUFACTURER fallback unknown',platforms=results,manifests=manifests,evidence={str(f):sha(f)for f in O.rglob('*')if f.is_file()and'source'not in f.relative_to(O).parts},scope='MODEL/MANUFACTURER static Strings only; actual NDK field/StringUTF8 and ownership/lifetime/error tests. No Android property/device vendor query, display API, game run or unrelated matrix.')
- (O/'acceptance.json').write_text(json.dumps(r,indent=2)+'\n');print('BUILD-MODEL-MANUFACTURER-PASS',sha(O/'acceptance.json'),flush=True)
+ r=dict(passed=True,base_commit=BASE,owned_sources=sourcepin['owned_sources'],source_pin_sha256=sha(O/'source-pin.json'),primary_path=str(primary),primary_sha256=sha(primary),policy='Explicit absence of the five represented Android build/product String properties; AOSP getString default Build.UNKNOWN',platforms=results,manifests=manifests,evidence={str(f):sha(f)for f in O.rglob('*')if f.is_file()and'source'not in f.relative_to(O).parts},scope='Five static Strings only: Build MANUFACTURER/MODEL/ID and Build.VERSION RELEASE/INCREMENTAL. Actual NDK field/StringUTF8 ownership/lifetime/errors; independent SDK33 retained. No Android property/device/version query, graphics change, game run or unrelated matrix.')
+ (O/'acceptance.json').write_text(json.dumps(r,indent=2)+'\n');print('BUILD-INFO-PASS',sha(O/'acceptance.json'),flush=True)
 if __name__=='__main__':main()

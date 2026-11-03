@@ -50,9 +50,9 @@ int main(){
   Check(getError()==GL_NO_ERROR,"nondefault vector state initialized");
   std::printf("GL driver: %s; %s\n",getString(GL_VERSION),getString(GL_RENDERER));
   const auto &catalog=GlHost::Queries();
-  Check(catalog.size()==std::size(kOldQueries)+4,"exactly four scalar query rows appended");
+  Check(catalog.size()==std::size(kOldQueries)+std::size(kAddedScalarQueries),"exactly the requested scalar query rows appended");
   for(size_t i=0;i<std::size(kOldQueries);++i)Check(catalog[i].name==kOldQueries[i].name&&catalog[i].count==kOldQueries[i].count&&catalog[i].count_query==kOldQueries[i].count_query,"old query prefix and widths preserved");
-  for(GLenum name:{0x90d9u,0x90d8u,0x90d7u,0x84ffu}){
+  for(GLenum name:kAddedScalarQueries){
     auto found=std::find_if(catalog.begin(),catalog.end(),[&](const auto&q){return q.name==name;});
     Check(found!=catalog.end()&&found->count==1&&!found->count_query&&std::count_if(catalog.begin(),catalog.end(),[&](const auto&q){return q.name==name;})==1,"new query is exactly one scalar row");
   }
@@ -61,6 +61,7 @@ std::vector<uint32_t> names;std::vector<size_t> counts;size_t largest=0;
   for(size_t i=0;i<catalog.size();++i){const auto &query=catalog[i];names.push_back(query.name);const auto count=gl.QueryComponents(query.name);counts.push_back(count);largest=std::max(largest,count);Check(count*4+16<stride,"query fits bounded guarded fixture");
     std::vector<GLint> integers(std::max<size_t>(1,count));std::vector<GLfloat> floats(std::max<size_t>(1,count));std::vector<GLboolean> booleans(std::max<size_t>(1,count));
     getInteger(query.name,integers.data());Check(getError()==GL_NO_ERROR,"native integer query catalog is valid");getFloat(query.name,floats.data());Check(getError()==GL_NO_ERROR,"native float query catalog is valid");getBoolean(query.name,booleans.data());Check(getError()==GL_NO_ERROR,"native boolean query catalog is valid");
+    if(std::find(std::begin(kAddedScalarQueries),std::end(kAddedScalarQueries),query.name)!=std::end(kAddedScalarQueries))std::printf("GL added scalar: %#x integer=%d\n",query.name,integers[0]);
     if(count){std::memcpy(expected.data()+(i*3+0)*stride+16,integers.data(),count*4);std::memcpy(expected.data()+(i*3+1)*stride+16,floats.data(),count*4);std::memcpy(expected.data()+(i*3+2)*stride+16,booleans.data(),count);}
   }
   elf_image image{};Check(!elf_load(GL_HOST_LIBRARY,0x5c000000,Resolve,&image),"NDK typed GL resolver caller loads");runtime.AddTraces(kTraces,std::size(kTraces));

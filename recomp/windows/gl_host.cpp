@@ -92,6 +92,12 @@ const std::vector<GlHost::Query> queries={
   {GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS,1},
   {GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS,1},
   {0x84ff,1}, // GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GLES2/gl2ext.h.
+  {GL_RED_BITS,1},
+  {GL_GREEN_BITS,1},
+  {GL_BLUE_BITS,1},
+  {GL_ALPHA_BITS,1},
+  {GL_DEPTH_BITS,1},
+  {GL_STENCIL_BITS,1},
 };
 const char *const names[]={"glGetString","glGetStringi","glGetIntegerv","glGetFloatv","glGetBooleanv","glGetError",
 #define GL_SCALAR(name, native_type, signature) #name,

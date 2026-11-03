@@ -3,7 +3,37 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: unresolved indirect graphics target0 after
+Current execution frontier: `glGetIntegerv(GL_RED_BITS=0x0d52)`, original
+return `7048dafc`, is rejected before native forwarding because its width
+is absent. Actual build `work/windows-first-frame-gles-core1`, host
+`981cea5f75ba130ec746d0aef8f0a72ab5b38ccd`, executable
+`62caf1fafe673db1abe4a56f90e3f55d4d490b600c44b3db60d006a34f53f03a`,
+records224 typed GL attempts and2758 paired EGL calls. It advances through
+the three indexed workgroup-size queries at indices0/1/2 and past the
+capability scan. Native exit3/controller1; no draw, swap, nativeRender
+return or game PNG. Saved audit:
+`work/first-frame-gles-core-bit-width-boundary1/summary.json`, SHA256
+`33d5898978d47cf7e9d5e3cdba7c85a62fdecb7422839b4b3c50124c538c9fcc`.
+The six adjacent original queries are RGBA/depth/stencil bit counts.
+Their additive width repair passes1190 actual NDK/ANGLE checks,
+137 old rows preserved as a prefix of143; all graphics implementations
+and fragments are unchanged. Receipt:
+`work/gl-framebuffer-bit-width-qualification1/acceptance.json`, SHA256
+`656d489a557627e538b6193cf1b78a06de7072d4cbf28006c972fd9abc1f057f`.
+This run also requests static String fields RELEASE, ID and INCREMENTAL;
+each missing-field exception is cleared before the terminal GL query.
+The qualified profile now supplies `Build.ID`, `Build$VERSION.RELEASE` and
+`Build$VERSION.INCREMENTAL` using each property's AOSP absent-value default
+`"unknown"`. It reuses the existing VERSION class and retains SDK33 and its
+field identity. The first actual NDK/JNI gate passes89 checks on each of
+Linux and Windows, including old MODEL/MANUFACTURER behavior, class/type
+ownership, UTF8 lifetime and the negative BRAND probe. Receipt:
+`work/build-info-qualification1/acceptance.json`, SHA256
+`7bab3d58a32c84b8840abdb982a0622f9fd37c6e45549a9031a22b6022bca2e2`.
+No Android release or device identity is inferred. The next actual startup
+build combines both repairs: `work/windows-first-frame-platform-query1`.
+
+The preceding execution frontier was unresolved indirect graphics target0 after
 `glGetIntegerv(0x90eb)`, original return `70488458`. Build
 `work/windows-first-frame-gles-query-width1`, host
 `d781f6afddefd2bdf61e5d5c15a6f42e4be8d726`, executable
