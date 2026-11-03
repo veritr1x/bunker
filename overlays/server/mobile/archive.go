@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 
 	"github.com/bodgit/sevenzip"
 )
@@ -68,15 +67,6 @@ func importFile(f *os.File, stage string) string {
 		return e.Error()
 	}
 	return ""
-}
-
-// dupFile wraps a duplicate of fd, so closing it leaves the caller's open.
-func dupFile(fd int, name string) (*os.File, error) {
-	dup, e := syscall.Dup(fd)
-	if e != nil {
-		return nil, e
-	}
-	return os.NewFile(uintptr(dup), name), nil
 }
 
 // ImportProgress reports bytes ("done", "total") and files ("files",

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,8 @@ func closeLog() {
 		logFile.f = nil
 	}
 	logFile.Unlock()
+	// SetCrashOutput keeps its own descriptor; release it before TempDir cleanup.
+	debug.SetCrashOutput(nil, debug.CrashOptions{})
 }
 
 func TestLogFileKeptAcrossSessions(t *testing.T) {
