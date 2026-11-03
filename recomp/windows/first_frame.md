@@ -3,7 +3,35 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing `glTexStorage2D` during texture creation.
+Current execution frontier: a missing native graphics object-label setter.
+Actual build `work/windows-first-frame-storage1`, host
+`86e55e87e0310f27e3b2635f97a9c21ddba370c7`, executable
+`2225f47d4997c41d89fc7c3756a16f971f339f95454d51a317f8a53521105531`,
+passes glTexStorage2D and uploads its first texture through glTexSubImage2D.
+It stops at target0/StatePC0, LR `7047b1c4`. The outer function calls the label
+helper, which restores its frame and tail-branches through slot `0x340`
+(glObjectLabel, core/KHR) or `0x360` (glLabelObjectEXT). Both reached lookup
+names returned0. The two APIs copy label text with different length rules;
+the next batch adds exactly those setters, using native getter oracles only
+in the component test. Native exit3/controller1; still no original draw,
+successful swap, nativeRender return or game image. Inputs SHA256
+`72400b52457eafd0c7d63873365f250dfc4e694fac936dddeb688a71a271a6fd`;
+log SHA256 `d97188caad1f9c301e8750b2786df53f7a31a48f1b67efcc530a791e585289a2`.
+Bounded audit: `work/storage1-next-texture-boundary1/summary.json`, SHA256
+`d96bb6081f7202fabfc1b291af10c4ef0ad555e3acd7aaa483e869a4adb22a1b`.
+Because the helper tail-branches after restoring its frame, the fatal LR
+cannot establish which of the two label slots was selected at runtime.
+The first label component gate passes653 checks/56 NDK calls/53 records
+through7 heads and2 objects. Both setters match native byte/length and error
+oracles, including NULL/explicit/NUL conventions, embedded NULs, guard edges,
+copy lifetime, invalid-object-before-copy ordering and duplicate pending
+errors. Actual native maximum label length is1024. Old126 markers remain
+exact and two setters append to128; no label getter or unobserved alias is
+exposed to the guest. Receipt: `work/gl-label-qualification1/acceptance.json`,
+SHA256 `95afb7768194d0c319c5c28846f795e2df0c16bcdf87aef62ecfed22e5d3d6b8`.
+The next actual startup is `work/windows-first-frame-label1`.
+
+The preceding execution frontier was missing `glTexStorage2D` during texture creation.
 Actual build `work/windows-first-frame-getaffinity1`, host
 `f9506de773d3ebca8796802c18627d8278db9b69`, executable
 `9cac123d3243ecd24092409cb4250f27a03b4653b237a957f289bbb2186c8ba3`,

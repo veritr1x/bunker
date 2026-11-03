@@ -2,10 +2,12 @@
 #include <windows.h>
 #define GL_GLES_PROTOTYPES 0
 #include <GLES3/gl32.h>
+#include <GLES2/gl2ext.h>
 #include "gl_host.h"
 #include "egl_host.h"
 #include "frame_png.h"
 #include "../whole/bridge.h"
+#include "../whole/guest_memory.h"
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
@@ -136,6 +138,9 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_STORAGE_COMMAND(name,native_type,signature) #name,
 #include "gl_storage_commands.inc"
 #undef GL_STORAGE_COMMAND
+#define GL_LABEL_COMMAND(name,type) #name,
+#include "gl_label_commands.inc"
+#undef GL_LABEL_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -423,6 +428,7 @@ struct GlHost::Impl {
 #include "gl_internalformat_impl.inc"
 #include "gl_sampler_impl.inc"
 #include "gl_buffer_indexed_impl.inc"
+#include "gl_label_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -476,6 +482,7 @@ struct GlHost::Impl {
 #define GL_STORAGE_COMMAND(name,native_type,signature) {using GuestSignature=signature;static_assert(std::is_same_v<native_type,GuestSignature*>);Bind<signature>(#name,Symbol<native_type>(module,#name));}
 #include "gl_storage_commands.inc"
 #undef GL_STORAGE_COMMAND
+    BindLabelCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
