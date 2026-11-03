@@ -6,7 +6,7 @@ def sha(p):
  with Path(p).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--derived-proof',type=Path,required=True);p.add_argument('--sparse-proof',type=Path);p.add_argument('--additive-proof',type=Path);p.add_argument('--fcsel-proof',type=Path);p.add_argument('--fcsel-callers-proof',type=Path);p.add_argument('--st2-proof',type=Path);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--derived-proof',type=Path,required=True);p.add_argument('--sparse-proof',type=Path);p.add_argument('--additive-proof',type=Path);p.add_argument('--fcsel-proof',type=Path);p.add_argument('--fcsel-callers-proof',type=Path);p.add_argument('--st2-proof',type=Path);p.add_argument('--fcsel-batch-proof',type=Path);a=p.parse_args()
  here=Path(__file__).resolve().parent;out=a.out.resolve();out.mkdir(exist_ok=False)
  python=here/'test_game_bootstrap.py';powershell=here/'game_bootstrap_build.ps1'
  w=here.parent/'work';v1=w/'game17-polled-cohort1/acceptance.json';v2=a.derived_proof.resolve()
@@ -29,7 +29,10 @@ def main():
  if a.st2_proof:
   assert a.fcsel_callers_proof,'ST2 proof requires the actual v6 parent'
   v7=a.st2_proof.resolve();base[7]=json.loads(v7.read_text());descriptors[7]=dict(acceptance_path=str(v7),acceptance_sha256=sha(v7));assert base[7]['contract']['version']==7
- initial_input_pins={str(file):sha(file)for file in [v1,v2]+([v3]if a.sparse_proof else[])+([v4]if a.additive_proof else[])+([v5]if a.fcsel_proof else[])+([v6]if a.fcsel_callers_proof else[])+([v7]if a.st2_proof else[])+[Path(proof['contract']['input_plan_path'])for version,proof in base.items()if version>=2]}
+ if a.fcsel_batch_proof:
+  assert a.st2_proof,'FCSEL batch proof requires the actual v7 parent'
+  v8=a.fcsel_batch_proof.resolve();base[8]=json.loads(v8.read_text());descriptors[8]=dict(acceptance_path=str(v8),acceptance_sha256=sha(v8));assert base[8]['contract']['version']==8
+ initial_input_pins={str(file):sha(file)for file in [v1,v2]+([v3]if a.sparse_proof else[])+([v4]if a.additive_proof else[])+([v5]if a.fcsel_proof else[])+([v6]if a.fcsel_callers_proof else[])+([v7]if a.st2_proof else[])+([v8]if a.fcsel_batch_proof else[])+[Path(proof['contract']['input_plan_path'])for version,proof in base.items()if version>=2]}
  cases=[]
  def case(name,version,passed=False,*ops):cases.append(dict(name=name,version=version,passed=passed,ops=list(ops)))
  def change(root,path,value):return dict(root=root,path=path,value=value)
@@ -37,7 +40,7 @@ def main():
  case('v1-original',1,True);case('v1-explicit-version',1,True,change('proof',['contract','version'],1));case('v2-qualified-sparse',2,True)
  for version in sorted(base):
   prefix=f'v{version}-'
-  for name,path,value in [('heads',['trace_heads'],456683),('unique',['unique_definitions'],False),('missing',['missing_direct_targets'],[0x825a60c4]),('instrument',['contract','poll_instrument_sha256'],zero),('array-instrument',['contract','poll_instrument_sha256'],[]),('target',['contract','target'],'x86_64-linux-gnu'),('version',['contract','version'],8),('boolean-version',['contract','version'],True),('null-version',['contract','version'],None)]:case(prefix+name,version,False,change('proof',path,value))
+  for name,path,value in [('heads',['trace_heads'],456683),('unique',['unique_definitions'],False),('missing',['missing_direct_targets'],[0x825a60c4]),('instrument',['contract','poll_instrument_sha256'],zero),('array-instrument',['contract','poll_instrument_sha256'],[]),('target',['contract','target'],'x86_64-linux-gnu'),('version',['contract','version'],9),('boolean-version',['contract','version'],True),('null-version',['contract','version'],None)]:case(prefix+name,version,False,change('proof',path,value))
   case(prefix+'order',version,False,dict(root='objects',path=[],swap=[0,1]))
   case(prefix+'object-hash',version,False,change('objects',[1553,'sha256'],zero))
   case(prefix+'object-count',version,False,dict(root='objects',path=[],pop=True))
@@ -161,9 +164,46 @@ def main():
   case('v7-replacement-both-tables',7,False,change('proof',['objects',270,'sha256'],zero),change('objects',[270,'sha256'],zero))
   case('v7-parent-old-object',7,False,change('ancestors',[0,'objects',270,'sha256'],zero))
   case('v7-reorder-both',7,False,dict(root='proof',path=['objects'],swap=[270,271]),dict(root='objects',path=[],swap=[270,271]))
+ if a.fcsel_batch_proof:
+  case('v8-qualified-fcsel-vector-batch',8,True)
+  for field in ('input_plan_sha256','parent_acceptance_sha256','parent_input_plan_sha256','batch_acceptance_sha256','batch_manifest_sha256','checker_qualification_sha256','fcsel_fixture_acceptance_sha256','fcsel_lifter_sha256','fcsel_semantics_sha256','compiled_identity_sha256','condition_qualification_sha256','replacement_vector_sha256'):
+   for value in (zero,[]):case('v8-'+field+'-'+repr(value),8,False,change('proof',['contract',field],value))
+  for field,value in [('profile','wrong'),('proof_mode','wrong'),('optimization','-O0'),('input_plan_path',None),('parent_acceptance_path',''),('parent_input_plan_path',[])]:case('v8-'+field,8,False,change('proof',['contract',field],value))
+  for field,value in {'no_relift':True,'source_ir_and_semantics_preserved':False,'no_global_semantics_refresh':True,'production_signal_delivery_enabled':False,'non_fcsel_instructions_preserved':True,'all_replacements_qualified':True}.items():
+   case('v8-policy-'+field,8,False,change('proof',['contract',field],not value));case('v8-policy-type-'+field,8,False,change('proof',['contract',field],int(value)))
+  for field,value in {'replacement_count':556,'unchanged_objects':3020,'changed_function_count':2164,'legacy_fcsel_copy_count':5766}.items():
+   for wrong in(value+1,True,str(value),None,[]):case('v8-count-'+field+'-'+repr(wrong),8,False,change('proof',['contract',field],wrong))
+  case('v8-acceptance-hash',8,False,change('descriptor',['acceptance_sha256'],zero))
+  case('v8-chain-missing',8,False,change('ancestors',[],None));case('v8-chain-short',8,False,dict(root='ancestors',path=[],pop=True));case('v8-chain-order',8,False,dict(root='ancestors',path=[],swap=[0,1]))
+  for depth in range(6):
+   case('v8-ancestor-missing-'+str(depth),8,False,change('ancestors',[depth],None));case('v8-ancestor-version-'+str(depth),8,False,change('ancestors',[depth,'contract','version'],1))
+  vector=base[8]['contract']['replacement_vector'];first=vector[0];index=first['index'];unchanged=next(i for i in range(3576)if i not in {r['index']for r in vector})
+  case('v8-vector-null',8,False,change('proof',['contract','replacement_vector'],None));case('v8-vector-dict',8,False,change('proof',['contract','replacement_vector'],{}))
+  case('v8-vector-short',8,False,dict(root='proof',path=['contract','replacement_vector'],pop=True));case('v8-vector-extra',8,False,dict(root='proof',path=['contract','replacement_vector'],append=first))
+  case('v8-vector-order',8,False,dict(root='proof',path=['contract','replacement_vector'],swap=[0,1]));case('v8-vector-duplicate',8,False,change('proof',['contract','replacement_vector',1],first))
+  case('v8-vector-null-row',8,False,change('proof',['contract','replacement_vector',0],None));case('v8-vector-row-list',8,False,change('proof',['contract','replacement_vector',0],[]))
+  case('v8-vector-extra-key',8,False,change('proof',['contract','replacement_vector',0],dict(first,extra='no')))
+  for field in first:
+   case('v8-vector-missing-'+field,8,False,change('proof',['contract','replacement_vector',0],{k:v for k,v in first.items()if k!=field}))
+  for value in(-1,3576,True,str(index),None,[]):case('v8-vector-index-'+repr(value),8,False,change('proof',['contract','replacement_vector',0,'index'],value))
+  for field in('old_path','new_path','old_sha256','new_sha256'):
+   for value in(None,[], '',first[field]+'\t',first[field]+'\n',first[field]+'\r',first[field]+'\x00',first[field]+'\x7f',first[field]+'\x85',first[field]+'\ud800'):
+    case('v8-vector-field-'+field+'-'+repr(value),8,False,change('proof',['contract','replacement_vector',0,field],value))
+  for field in('old_sha256','new_sha256'):
+   for value in('g'*64,'A'*64,'0'*63):case('v8-vector-sha-'+field+'-'+value,8,False,change('proof',['contract','replacement_vector',0,field],value))
+  for field,wrong in [('sha256',zero),('path',first['new_path']+'-tamper')]:
+   case('v8-new-'+field+'-both-tables',8,False,change('proof',['objects',index,field],wrong),change('objects',[index,field],wrong))
+   # A self-consistent vector and two object tables still cannot change its pinned payload.
+   key='new_sha256'if field=='sha256'else'new_path'
+   ops=[change('proof',['contract','replacement_vector',0,key],wrong),change('proof',['objects',index,field],wrong),change('objects',[index,field],wrong)]
+   case('v8-new-'+field+'-vector-and-both-tables',8,False,*ops)
+   altered=copy.deepcopy(vector);altered[0][key]=wrong;payload=''.join(str(r['index'])+'\t'+r['old_path']+'\t'+r['old_sha256']+'\t'+r['new_path']+'\t'+r['new_sha256']+'\n'for r in altered)
+   case('v8-new-'+field+'-self-rehashed-vector',8,False,*ops,change('proof',['contract','replacement_vector_sha256'],hashlib.sha256(payload.encode('utf-8')).hexdigest()))
+   oldkey='old_sha256'if field=='sha256'else'old_path';case('v8-old-'+field+'-vector-and-parent',8,False,change('proof',['contract','replacement_vector',0,oldkey],wrong),change('ancestors',[0,'objects',index,field],wrong))
+   case('v8-unchanged-'+field+'-both-tables',8,False,change('proof',['objects',unchanged,field],wrong),change('objects',[unchanged,field],wrong))
  results=[]
  for c in cases:
-  data={'proof':copy.deepcopy(base[c['version']]),'descriptor':dict(descriptors[c['version']]),'objects':copy.deepcopy(base[c['version']]['objects']),'parent':copy.deepcopy(base[c['version']-1])if c['version']in(3,4,5)else None,'grandparent':copy.deepcopy(base[c['version']-2])if c['version']in(4,5)else None,'greatgrandparent':copy.deepcopy(base[2])if c['version']==5 else None,'ancestors':copy.deepcopy([base[v]for v in range(c['version']-1,1,-1)])if c['version']in(6,7)else None}
+  data={'proof':copy.deepcopy(base[c['version']]),'descriptor':dict(descriptors[c['version']]),'objects':copy.deepcopy(base[c['version']]['objects']),'parent':copy.deepcopy(base[c['version']-1])if c['version']in(3,4,5)else None,'grandparent':copy.deepcopy(base[c['version']-2])if c['version']in(4,5)else None,'greatgrandparent':copy.deepcopy(base[2])if c['version']==5 else None,'ancestors':copy.deepcopy([base[v]for v in range(c['version']-1,1,-1)])if c['version']in(6,7,8)else None}
   for op in c['ops']:
    target=data[op['root']]
    for key in op['path'][:-1]:target=target[key]
@@ -193,7 +233,7 @@ def main():
    except AssertionError as error:assert str(error)==message
    else:raise AssertionError('actual parent hash subguard accepted altered bytes')
    python_io.append(dict(name='v3-altered-'+field+'-source-subguard',passed=False))
-  plan_guard=next(n for n in ast.walk(tree)if isinstance(n,ast.If)and ast.unparse(n.test)=='version in (2, 3, 4, 5, 6, 7)')
+  plan_guard=next(n for n in ast.walk(tree)if isinstance(n,ast.If)and ast.unparse(n.test)=='version in (2, 3, 4, 5, 6, 7, 8)')
   q=copy.deepcopy(base[3]);q['contract']['input_plan_path']=str(tampered_v3_plan);scope=dict(env,version=3,proof=q,expected={})
   try:exec(compile(ast.Module(body=[plan_guard],type_ignores=[]),str(python),'exec'),scope)
   except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
@@ -269,11 +309,28 @@ def main():
   except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
   else:raise AssertionError('actual v7 plan IO subguard accepted altered bytes')
   python_io.append(dict(name='v7-altered-new-plan-source-subguard',passed=False))
+ if a.fcsel_batch_proof:
+  c=base[8]['contract'];ancestors=env['load_cooperative_ancestors'](base[8]);assert validate(base[8],descriptors[8],base[8]['objects'],ancestor_chain=ancestors)==8
+  python_io.append(dict(name='v8-six-ancestor-load-source-subguard',passed=True))
+  tampered_v8_parent=out/'tampered-v8-parent.json';tampered_v8_parent.write_bytes(Path(c['parent_acceptance_path']).read_bytes()+b'\n')
+  tampered_v8_parent_plan=out/'tampered-v8-parent-plan.json';tampered_v8_parent_plan.write_bytes(Path(c['parent_input_plan_path']).read_bytes()+b'\n')
+  tampered_v8_plan=out/'tampered-v8-plan.json';tampered_v8_plan.write_bytes(Path(c['input_plan_path']).read_bytes()+b'\n')
+  for field,file,message in [('parent_acceptance_path',tampered_v8_parent,'v8 parent proof file differs'),('parent_input_plan_path',tampered_v8_parent_plan,'v8 parent plan file differs')]:
+   q=copy.deepcopy(base[8]);q['contract'][field]=str(file)
+   try:env['load_cooperative_ancestors'](q)
+   except AssertionError as error:assert str(error)==message
+   else:raise AssertionError('actual v8 ancestor hash subguard accepted altered bytes')
+   python_io.append(dict(name='v8-altered-'+field+'-source-subguard',passed=False))
+  q=copy.deepcopy(base[8]);q['contract']['input_plan_path']=str(tampered_v8_plan);scope=dict(env,version=8,proof=q,expected={})
+  try:exec(compile(ast.Module(body=[plan_guard],type_ignores=[]),str(python),'exec'),scope)
+  except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
+  else:raise AssertionError('actual v8 plan IO subguard accepted altered bytes')
+  python_io.append(dict(name='v8-altered-new-plan-source-subguard',passed=False))
  (out/'python-io-results.json').write_text(json.dumps(python_io,indent=2)+'\n')
  tampered=out/'tampered-proof.json';tampered.write_bytes(v2.read_bytes()+b'\n');assert sha(tampered)!=descriptors[2]['acceptance_sha256']
  def windows(path):return subprocess.check_output(['wslpath','-w',str(Path(path).resolve())],text=True).strip()
  # PowerShell's own AST extracts the exact production function; no duplicate predicate.
- driver=r'''param([string]$Source,[string]$Original,[string]$Derived,[string]$Sparse,[string]$Additive,[string]$Fcsel,[string]$FcselCallers,[string]$St2,[string]$TamperedV7Parent,[string]$TamperedV7ParentPlan,[string]$TamperedV7Plan,[string]$TamperedV6Parent,[string]$TamperedV6ParentPlan,[string]$TamperedV6Plan,[string]$TamperedV5Parent,[string]$TamperedV5ParentPlan,[string]$TamperedV5Plan,[string]$TamperedV4Parent,[string]$TamperedV4ParentPlan,[string]$TamperedV4Plan,[string]$TamperedParent,[string]$TamperedParentPlan,[string]$TamperedV3Plan,[string]$Cases,[string]$Tampered,[string]$Output)
+ driver=r'''param([string]$Source,[string]$Original,[string]$Derived,[string]$Sparse,[string]$Additive,[string]$Fcsel,[string]$FcselCallers,[string]$St2,[string]$FcselBatch,[string]$TamperedV8Parent,[string]$TamperedV8ParentPlan,[string]$TamperedV8Plan,[string]$TamperedV7Parent,[string]$TamperedV7ParentPlan,[string]$TamperedV7Plan,[string]$TamperedV6Parent,[string]$TamperedV6ParentPlan,[string]$TamperedV6Plan,[string]$TamperedV5Parent,[string]$TamperedV5ParentPlan,[string]$TamperedV5Plan,[string]$TamperedV4Parent,[string]$TamperedV4ParentPlan,[string]$TamperedV4Plan,[string]$TamperedParent,[string]$TamperedParentPlan,[string]$TamperedV3Plan,[string]$Cases,[string]$Tampered,[string]$Output)
 $ErrorActionPreference='Stop'
 # WSL can inherit PowerShell7's PSModulePath when launching WindowsPowerShell5.
 # Load its own real utility module explicitly; never replace Game-Hash.
@@ -292,16 +349,17 @@ if($Additive){$raw[4]=Get-Content -Raw -LiteralPath $Additive;$paths[4]=$Additiv
 if($Fcsel){$raw[5]=Get-Content -Raw -LiteralPath $Fcsel;$paths[5]=$Fcsel;$hashes[5]=(Get-FileHash -LiteralPath $Fcsel -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=5}
 if($FcselCallers){$raw[6]=Get-Content -Raw -LiteralPath $FcselCallers;$paths[6]=$FcselCallers;$hashes[6]=(Get-FileHash -LiteralPath $FcselCallers -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=6}
 if($St2){$raw[7]=Get-Content -Raw -LiteralPath $St2;$paths[7]=$St2;$hashes[7]=(Get-FileHash -LiteralPath $St2 -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=7}
+if($FcselBatch){$raw[8]=Get-Content -Raw -LiteralPath $FcselBatch;$paths[8]=$FcselBatch;$hashes[8]=(Get-FileHash -LiteralPath $FcselBatch -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=8}
 $results=@()
 foreach($case in (Get-Content -Raw -LiteralPath $Cases|ConvertFrom-Json)){
- $v=[int]$case.version;$data=@{proof=($raw[$v]|ConvertFrom-Json);descriptor=[pscustomobject]@{acceptance_path=$paths[$v];acceptance_sha256=$hashes[$v]};objects=($raw[$v]|ConvertFrom-Json).objects;parent=$null;grandparent=$null;greatgrandparent=$null;ancestors=$null};if($v -eq 3 -or $v -eq 4 -or $v -eq 5){$data.parent=$raw[$v-1]|ConvertFrom-Json};if($v -eq 4 -or $v -eq 5){$data.grandparent=$raw[$v-2]|ConvertFrom-Json};if($v -eq 5){$data.greatgrandparent=$raw[2]|ConvertFrom-Json};if($v -eq 6 -or $v -eq 7){$data.ancestors=@();for($ancestor=$v-1;$ancestor -ge 2;$ancestor--){$data.ancestors+=,($raw[$ancestor]|ConvertFrom-Json)}}
+ $v=[int]$case.version;$data=@{proof=($raw[$v]|ConvertFrom-Json);descriptor=[pscustomobject]@{acceptance_path=$paths[$v];acceptance_sha256=$hashes[$v]};objects=($raw[$v]|ConvertFrom-Json).objects;parent=$null;grandparent=$null;greatgrandparent=$null;ancestors=$null};if($v -eq 3 -or $v -eq 4 -or $v -eq 5){$data.parent=$raw[$v-1]|ConvertFrom-Json};if($v -eq 4 -or $v -eq 5){$data.grandparent=$raw[$v-2]|ConvertFrom-Json};if($v -eq 5){$data.greatgrandparent=$raw[2]|ConvertFrom-Json};if($v -eq 6 -or $v -eq 7 -or $v -eq 8){$data.ancestors=@();for($ancestor=$v-1;$ancestor -ge 2;$ancestor--){$data.ancestors+=,($raw[$ancestor]|ConvertFrom-Json)}}
  foreach($op in $case.ops){
   $target=$data[$op.root]
   for($i=0;$i -lt $op.path.Count-1;$i++){$k=$op.path[$i];if($k -is [long] -or $k -is [int]){$target=$target[[int]$k]}else{$target=$target.$k}}
   if($null -ne $op.swap -or $null -ne $op.append -or $op.pop){
-   if($op.path.Count){$key=$op.path[-1];$target=$target.$key}
+   if($op.path.Count){$key=$op.path[-1];$collectionOwner=$target;if($key -is [long] -or $key -is [int]){$target=$target[[int]$key]}else{$target=$target.$key}}
    if($null -ne $op.swap){$i=[int]$op.swap[0];$j=[int]$op.swap[1];$saved=$target[$i];$target[$i]=$target[$j];$target[$j]=$saved}
-   else{if($op.pop){$replacement=@($target[0..($target.Count-2)])}else{$replacement=@($target)+@($op.append)};if($op.path.Count){$data[$op.root].($op.path[-1])=$replacement}else{$data[$op.root]=$replacement}}
+   else{if($op.pop){$replacement=@($target[0..($target.Count-2)])}else{$replacement=@($target)+@($op.append)};if($op.path.Count){if($key -is [long] -or $key -is [int]){$collectionOwner[[int]$key]=$replacement}else{$collectionOwner|Add-Member -Force -NotePropertyName $key -NotePropertyValue $replacement}}else{$data[$op.root]=$replacement}}
   }
   elseif($op.path.Count -eq 0){$data[$op.root]=$op.value}
   else{$k=$op.path[-1];if($k -is [long] -or $k -is [int]){$target[[int]$k]=$op.value}else{$target|Add-Member -Force -NotePropertyName $k -NotePropertyValue $op.value}}
@@ -335,7 +393,7 @@ if($Sparse){
  if(-not $rejected){throw 'Actual parent plan IO subguard accepted altered bytes'};$io+=@{name='v3-altered-parent-plan-source-subguard';passed=$false}
  # Execute the actual final plan hash block independently, after the separate
  # complete v3 positive. No hash stub and no production file is changed.
- $planBegin=$text.IndexOf(' if(($taskPollVersion -eq 2 -or $taskPollVersion -eq 3 -or $taskPollVersion -eq 4 -or $taskPollVersion -eq 5 -or $taskPollVersion -eq 6 -or $taskPollVersion -eq 7) -and');$planEnd=$text.IndexOf("`n}",$planBegin)
+ $planBegin=$text.IndexOf(' if(($taskPollVersion -eq 2 -or $taskPollVersion -eq 3 -or $taskPollVersion -eq 4 -or $taskPollVersion -eq 5 -or $taskPollVersion -eq 6 -or $taskPollVersion -eq 7 -or $taskPollVersion -eq 8) -and');$planEnd=$text.IndexOf("`n}",$planBegin)
  if($planBegin -lt 0 -or $planEnd -le $planBegin){throw 'Actual production plan subguard missing'}
  $planGuard=[ScriptBlock]::Create($text.Substring($planBegin,$planEnd-$planBegin));$taskPollVersion=3;$taskPollProof=$raw[3]|ConvertFrom-Json;$taskPollProof.contract.input_plan_path=$TamperedV3Plan;$rejected=$false
  try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
@@ -393,6 +451,19 @@ if($St2){
  try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
  if(-not $rejected){throw 'Actual v7 new plan IO subguard accepted altered bytes'};$io+=@{name='v7-altered-new-plan-source-subguard';passed=$false}
 }
+if($FcselBatch){
+ $q=$raw[8]|ConvertFrom-Json;$ancestors=Game-LoadPollAncestors $q
+ if((Game-ValidatePollContract $q ([pscustomobject]@{acceptance_path=$FcselBatch;acceptance_sha256=$hashes[8]}) $q.objects $null $null $null $ancestors) -ne 8){throw 'Actual v8 ancestry positive failed'}
+ $io+=@{name='v8-six-ancestor-load-source-subguard';passed=$true}
+ foreach($entry in @(@{key='parent_acceptance_path';file=$TamperedV8Parent;message='v8 parent proof file differs'},@{key='parent_input_plan_path';file=$TamperedV8ParentPlan;message='v8 parent plan file differs'})){
+  $q=$raw[8]|ConvertFrom-Json;$q.contract.($entry.key)=$entry.file;$rejected=$false
+  try{$null=Game-LoadPollAncestors $q}catch{if($_.Exception.Message -ne $entry.message){throw};$rejected=$true}
+  if(-not $rejected){throw 'Actual v8 ancestor hash subguard accepted altered bytes'};$io+=@{name=('v8-altered-'+$entry.key+'-source-subguard');passed=$false}
+ }
+ $taskPollVersion=8;$taskPollProof=$raw[8]|ConvertFrom-Json;$taskPollProof.contract.input_plan_path=$TamperedV8Plan;$rejected=$false
+ try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
+ if(-not $rejected){throw 'Actual v8 new plan IO subguard accepted altered bytes'};$io+=@{name='v8-altered-new-plan-source-subguard';passed=$false}
+}
 [IO.File]::WriteAllText(($Output+'.io.json'),($io|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
 Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
 '''
@@ -403,6 +474,7 @@ Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
  if a.fcsel_proof:command+=['-Fcsel',windows(v5),'-TamperedV5Parent',windows(tampered_v5_parent),'-TamperedV5ParentPlan',windows(tampered_v5_parent_plan),'-TamperedV5Plan',windows(tampered_v5_plan)]
  if a.fcsel_callers_proof:command+=['-FcselCallers',windows(v6),'-TamperedV6Parent',windows(tampered_v6_parent),'-TamperedV6ParentPlan',windows(tampered_v6_parent_plan),'-TamperedV6Plan',windows(tampered_v6_plan)]
  if a.st2_proof:command+=['-St2',windows(v7),'-TamperedV7Parent',windows(tampered_v7_parent),'-TamperedV7ParentPlan',windows(tampered_v7_parent_plan),'-TamperedV7Plan',windows(tampered_v7_plan)]
+ if a.fcsel_batch_proof:command+=['-FcselBatch',windows(v8),'-TamperedV8Parent',windows(tampered_v8_parent),'-TamperedV8ParentPlan',windows(tampered_v8_parent_plan),'-TamperedV8Plan',windows(tampered_v8_plan)]
  with(out/'powershell.log').open('w')as f:subprocess.run(command,stdout=f,stderr=subprocess.STDOUT,check=True)
  ps_results=json.loads((out/'powershell-results.json').read_text());assert len(ps_results)==len(results)
  assert {x['name']:x['passed']for x in ps_results}=={x['name']:x['passed']for x in results}
@@ -420,7 +492,7 @@ Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
  assert all(sha(p)==h for p,h in initial_input_pins.items())
  evidence={str(x):sha(x)for x in out.iterdir()if x.is_file()}
  receipt=dict(passed=True,scope='actual extracted Python/PowerShell validator predicates and static guard placement only; no compiler/native game/guest execution',cases_per_language=len(cases),positive_cases=sum(c['passed']for c in cases),negative_cases=sum(not c['passed']for c in cases),owned_sources=sources,input_pins=initial_input_pins,v3_actual_proof_executed=bool(a.sparse_proof),actual_parent_and_new_plan_source_IO_subguards=bool(a.sparse_proof),v3_placeholder_rejection_only=not bool(a.sparse_proof),v4_actual_proof_executed=bool(a.additive_proof),v4_placeholder_rejection_only=not bool(a.additive_proof),v5_actual_proof_executed=bool(a.fcsel_proof),v5_placeholder_rejection_only=not bool(a.fcsel_proof),v6_actual_proof_executed=bool(a.fcsel_callers_proof),v6_placeholder_rejection_only=not bool(a.fcsel_callers_proof),commands=[command],evidence=evidence)
- receipt.update(v7_actual_proof_executed=bool(a.st2_proof),v7_placeholder_rejection_only=not bool(a.st2_proof))
+ receipt.update(v7_actual_proof_executed=bool(a.st2_proof),v7_placeholder_rejection_only=not bool(a.st2_proof),v8_actual_proof_executed=bool(a.fcsel_batch_proof),v8_placeholder_rejection_only=not bool(a.fcsel_batch_proof))
  (out/'acceptance.json').write_text(json.dumps(receipt,indent=2)+'\n');print('COHORT-VALIDATOR-PASS',len(cases),sha(out/'acceptance.json'),flush=True)
 
 if __name__=='__main__':main()

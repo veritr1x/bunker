@@ -148,6 +148,22 @@ bool Executable(addr_t address){
 LONG WINAPI Crash(EXCEPTION_POINTERS *exception){
   std::fprintf(stderr,"Unity bootstrap: native exception %#lx at %p; stage=%s, completed constructors=%zu/%zu\n",
       exception->ExceptionRecord->ExceptionCode,exception->ExceptionRecord->ExceptionAddress,stage,constructor_index,std::size(kInitializers));
+  std::fprintf(stderr,"Unity bootstrap: native crash thread=%lu module=%p\n",
+      GetCurrentThreadId(),static_cast<void*>(GetModuleHandleW(nullptr)));
+  const auto &record=*exception->ExceptionRecord;
+  if((record.ExceptionCode==EXCEPTION_ACCESS_VIOLATION||record.ExceptionCode==EXCEPTION_IN_PAGE_ERROR)&&record.NumberParameters>=2)
+    std::fprintf(stderr,"Unity bootstrap: native memory fault operation=%llu address=%#llx (0=read,1=write,8=execute)\n",
+        static_cast<unsigned long long>(record.ExceptionInformation[0]),static_cast<unsigned long long>(record.ExceptionInformation[1]));
+  if(const auto *context=exception->ContextRecord){
+    std::fprintf(stderr,"Unity bootstrap: native context RIP=%#llx RSP=%#llx RBP=%#llx EFLAGS=%#lx\n",
+        static_cast<unsigned long long>(context->Rip),static_cast<unsigned long long>(context->Rsp),static_cast<unsigned long long>(context->Rbp),context->EFlags);
+    std::fprintf(stderr,"Unity bootstrap: native context RAX=%#llx RBX=%#llx RCX=%#llx RDX=%#llx RSI=%#llx RDI=%#llx\n",
+        static_cast<unsigned long long>(context->Rax),static_cast<unsigned long long>(context->Rbx),static_cast<unsigned long long>(context->Rcx),
+        static_cast<unsigned long long>(context->Rdx),static_cast<unsigned long long>(context->Rsi),static_cast<unsigned long long>(context->Rdi));
+    std::fprintf(stderr,"Unity bootstrap: native context R8=%#llx R9=%#llx R10=%#llx R11=%#llx R12=%#llx R13=%#llx R14=%#llx R15=%#llx\n",
+        static_cast<unsigned long long>(context->R8),static_cast<unsigned long long>(context->R9),static_cast<unsigned long long>(context->R10),static_cast<unsigned long long>(context->R11),
+        static_cast<unsigned long long>(context->R12),static_cast<unsigned long long>(context->R13),static_cast<unsigned long long>(context->R14),static_cast<unsigned long long>(context->R15));
+  }
   std::fflush(stderr);return EXCEPTION_EXECUTE_HANDLER;
 }
 struct LocalFrame {

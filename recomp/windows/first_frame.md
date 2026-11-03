@@ -3,6 +3,14 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
+Current candidate: the selected FCSEL transport batch repairs 5,766 copies
+in 2,164 functions across 556 objects. Its instruction, condition, source,
+complete native-byte and code-coverage checks pass. The full 3,576-object
+cohort is assembled, and 687 guard cases pass in each of Python and
+PowerShell. Windows linking and the next original startup remain pending.
+The last executed build is still
+`work/windows-first-frame-st2-1`, whose failure is recorded below.
+
 The first display-enabled build is `work/windows-first-frame-attempt1`,
 host commit `e48ee60b1e920c9079fa744bddce851a39121a24`. It includes the
 Windows display adapter, explicit AOSP unknown-manufacturer profile, JNI
@@ -106,6 +114,29 @@ selected body, with existing ST2/EXT/prefetch repairs and neighboring code
 preserved. A single batch replaces admitted bodies; unrelated differences
 remain excluded. This addresses the common legacy defect across the
 selected code rather than fixing only the newest caller.
+
+The completed inventory identifies 5,766 faulty copies in 2,164 functions
+across 556 objects. A full fresh-proposal pass generates all 556 modules but
+holds 304 function comparisons; none is selected. The separate
+[exact transport repair](../whole/fcsel_batch.md) changes only each
+erroneous scalar-load line, retaining the original predicate, SSA names,
+upper clear and all other bytes. Its 32 focused checks and real LLVM module
+parses pass. All 5,766 original conditions pass evaluation for all 16 NZCV
+combinations (92,256 checks, zero unknowns), and all 2,164 candidates pass
+their inverse checks. All 556 objects compile. Native preservation is
+byte-exact except nine constant-pool relocation addends in seven unchanged
+functions of object2598. A separate saved-object check proves identical
+resolved data, required alignment and every other instruction byte; the
+original failed comparison remains preserved. Raw and polled neighboring
+bodies stay exact. Final cohort validation and integrated startup remain
+separate gates; these results do not establish a frame.
+
+The next host build also expands only the native Crash handler's logging
+to include the actual module base, thread, accessed address/operation and
+x64 register context. Its MinGW syntax check passes, and reversing that
+single function span recovers the previous source byte for byte. This
+supports diagnosis from the next original execution without assuming a
+faulting register's value.
 
 First-frame acceptance requires an image captured from the original GL
 window framebuffer, original drawing activity, a successful original
