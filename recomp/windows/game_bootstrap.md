@@ -780,3 +780,43 @@ report `work/game26-runtime-boundary-audit/REPORT.md` SHA256 is
 `378c272b069f09cd0ea7f3b4b3d66c8ad3c3332c06fd5cd1bac76c0ec74aa050`.
 No public initialization result, nativeRender return, image, gameplay, general
 collector safety or normal persistence/teardown is claimed.
+
+Game27 freezes the owned native priority/JNI provider at hostbc438ce66. Input
+SHA256 is `b2788343fc48c65cacc1bb0b764fc0e2ed124f8a7c6e894129bc5fda1f96cc1f`;
+executable SHA256 is
+`c6d5e51878ff228563d4632b54e80b6db178056570d022d7b340f0473e5c97fe`.
+The3575 guest objects/456684 heads, v2 cohort and State/header contracts are
+unchanged. Default/init/surface pass and standard muted startup retains the
+signal30 guard. Both frame profiles return actual focus/resume/master mute
+without a hardware-volume observer. The collector profile again completes
+the bounded E4 cycle with both physical register checks, both original posts
+and observed record5; dlsym("end") returns87cb1e78 and dladdr returns0.
+
+Worker4 enters the existing private futex syscall98 with expected0/null
+timeout from native TID1321820, owned stack bounds and saved caller702f161c.
+There is still no observed futex RETURN/wake or explicit blocking outcome.
+The original Process.setThreadPriority callback now observes caller1322936,
+target1321820, nice0 and return error0. Actual getpriority(PRIO_PROCESS,
+1321820) at LR70438a80 returns0/errno0. No missing Process-class exception
+occurs. These records do not expose the setter's before-query value or prove
+whether native SetThreadPriority was invoked, omitted or changed a level.
+The equal-priority shortcut is a source-consistent inference, not an observed
+branch. Actual native changes/readback are separately component-qualified.
+
+The next syscall ENTER is token2/native TID1322936, number122, target1321820,
+length4 and pointer2377a60f980 at LR70438a10. The existing futex-only dispatcher
+correctly rejects it. Original FDE7043890c..70438a4c stores a four-byte affinity
+mask at SP+60, maps zero toFFFFFFFF and ignores the syscall return. A dynamic
+wrapper and a fixed-1 wrapper share the same child entry, so this run cannot
+establish actual mask bytes or wrapper selection. No sched_setaffinity
+operation/return or native scheduling change is observed.
+
+Both terminal frame trees retain24 APK-identical Managed files/24570231 bytes,
+metadata23317064/version24 and unity.ver638477124699603280. The delta audit
+checks317 new/bounded files and inherits Game26's full proof without replaying
+old guest objects. Aggregate `work/windows-game27/game_final_audit.json`
+SHA256 is `8e2c3819ee3a680bbbc099c95145680eb37408004ada3dbb0162ac624c564adc`;
+report `work/game27-runtime-boundary-audit/REPORT.md` SHA256 is
+`400f6ac0044ced18e78596d6de3b3fa15f7bf2b561fbbc6bb4180140dd23304a`.
+No public initialization result, nativeRender return, rendered image, gameplay,
+general collector safety or normal persistence/teardown is established.

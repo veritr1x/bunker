@@ -4,14 +4,14 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
-Game26 passes constructor/JNI, initJni and surface lifecycle profiles. Both
+Game27 passes constructor/JNI, initJni and surface lifecycle profiles. Both
 muted frame profiles return from original nativeResume and master mute without
 creating a hardware-volume observer. Startup reads and saves PlayerPrefs,
 copies all24 Managed files exactly, parses buildDate, publishes unity.ver and
 enters public IL2CPP initialization. Standard muted startup still rejects
 nonzero signal30 at LR0x825b2d1c, preserving the default guard.
 
-Game22, Game23, Game25 and Game26 execute their first original stop/restart cycle in the
+Game22, Game23, Game25, Game26 and Game27 execute their first original stop/restart cycle in the
 explicit `frame-muted-gc` profile. The captured finalizer0x825c3ed0 enters the
 exact untimed CondWait at LR0x825505d8. Original signals30/24 both return success from pthread_kill;
 the real stop/restart handlers execute, make both original semaphore posts,
@@ -79,8 +79,18 @@ The bootstrap exception catalog includes SecurityException as a RuntimeException
 subclass; a real Java throwable roundtrip is tested without simulating OS denial.
 Windows uses an explicit four-level translation
 under NORMAL_PRIORITY_CLASS, with real native set/query/readback; Linux nice
-scheduling equivalence is not claimed. A native game retry is next. A returned public initialization value,
-nativeRender return and rendered image remain unobserved.
+scheduling equivalence is not claimed. Game27 observes the original Java setter
+request nice0/return error0 and native getpriority return0/errno0 for worker4,
+TID1321820, from caller TID1322936. The diagnostics do not reveal the setter's
+before-query value or prove a particular branch/native priority mutation.
+
+Startup then reaches syscall122, sched_setaffinity, at LR70438a10, targeting
+the same worker with length4 and a pointer to the original owned stack. No mask
+bytes are read or affinity operation/return observed in this attempt. Original
+code can supply a dynamic mask or -1, and maps zero to all32 bits; the log does
+not distinguish those paths. A real owned-thread Windows affinity adapter is
+next. A returned public initialization value, nativeRender return and rendered
+image remain unobserved.
 
 The process-image query returns the actual native executable with forward
 slashes, not an APK/shared-library substitute. Its consumers derive
@@ -92,7 +102,7 @@ the image-query growth branch remains unexecuted.
 The selected3575 objects cover456684 trace entries,122089 cycle cuts and79436
 closed direct targets, with1439 unsupported heads. Game21 replaced only
 IL2CPP local shard01083/global1553 for the qualified prefetch fix; Game22,
-Game23, Game24, Game25 and Game26 retain every guest object/header and change host providers only.
+Game23, Game24, Game25, Game26 and Game27 retain every guest object/header and change host providers only.
 Older cohorts, failed attempts and original source/semantics remain preserved.
 
 Component prerequisites remain separately qualified: cooperative polling
@@ -519,10 +529,14 @@ unsupported instructions.
   including required networking and Android service behavior.
   The Windows harness does not yet start embedded Go Lunar Tear, configure
   matching loopback ports/asset roots or provide socket imports. The backend's
-  required owned master/revision files are absent from the specifically checked
-  project/APK paths; their location has been requested. Docker alone is not the
-  mobile backend runtime. See `work/backend-readiness1/REPORT.md` for the dated
-  read-only snapshot and exact source anchors.
+  required master/resource dump was found in Downloads. A separate patched
+  master and all201073 revision0 files/20907771934 bytes now pass preparation
+  and inventory/CRC checks. The native Go DLL passes real Start/SelfTest/Stop
+  with fresh save storage and explicit loopback ports38003/38080/33000; the
+  listeners are released before child exit. No game connection is claimed.
+  Matching client transport changes and real native socket providers remain
+  pending; prepared private-server derivatives are not selected in the game.
+  See [the backend preparation and receipts](windows/backend_native.md).
   The native APK reader passes 69 independent checks on both hosts and reads
   the actual 149-byte boot.config exactly; checked Java stream/Scanner wiring
   now clears the actual native initJni gate.
