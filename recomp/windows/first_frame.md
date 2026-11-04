@@ -26,8 +26,11 @@ log SHA256 `a2e8dbcc26d57608525183e072bc9849ab24f0ad6f49207f21397610b5d5bb79`.
 The20-check terminal peer passes, SHA256
 `6ec09e1f9b9f229ed7b91293f00357b99e27266d4ce9ecd1c8b16edd8abe87ae`.
 See [the numeric minimum/maximum gate](../whole/fp_numeric_minmax.md).
-The next step is implementing the reached system-information query using
-actual Windows host facts and the original Bionic output ABI.
+The reached system-information query now has a qualified implementation
+using actual Windows host facts and the original Bionic output ABI. Its
+219-check Windows gate executes24 NDK calls and eight layout checks;
+the next step is the original game integration run. See
+[the uname gate](libc_uname.md).
 
 Preceding original execution: `work/windows-first-frame-guest-transfer1`, host
 `4b08f113d6d694dfabccbd7f2db276cf8dad30b8`, uses the complete freshly

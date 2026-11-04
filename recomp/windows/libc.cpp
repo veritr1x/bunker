@@ -1,8 +1,10 @@
+#include <cfenv>
 #include "libc.h"
 #include "../whole/bridge.h"
 #include "provider_memory.h"
 #include "libc_process_detail.h"
 #include "libc_wall_time_detail.h"
+#include "libc_uname_detail.h"
 #include "unicode.h"
 #include <algorithm>
 #include <atomic>
@@ -75,7 +77,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -579,6 +581,7 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<int32_t(addr_t,addr_t)>(runtime,"gettimeofday",[this](auto value,auto zone){return GetTimeOfDay(value,zone);});
   Add<int32_t()>(runtime,"getpid",[this]{return ProcessId();});
   Add<int64_t(const char*,void*,uint64_t)>(runtime,"readlink",[this](auto path,auto output,auto size){return ReadLink(path,output,size);});
+  Add<int32_t(addr_t)>(runtime,"uname",[this](addr_t output){return libc_detail::Uname(output,[this](int error){Fail(error);});});
   installed_=true;
 }
 }  // namespace bunker::windows
