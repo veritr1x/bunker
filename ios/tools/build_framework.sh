@@ -33,7 +33,7 @@ rm -rf "$framework"; mkdir -p "$framework"
     -dynamiclib -install_name @rpath/LunarTear.framework/LunarTear -I "$work" -I "$root_dir/ios/launcher" -I "$root_dir/android/app/src/main/cpp" \
     "$root_dir/ios/launcher/LunarLauncher.m" "$root_dir/ios/launcher/LunarTools.m" "$root_dir/ios/launcher/LunarDisplay.m" "$root_dir/ios/launcher/LunarUpscale.m" "$root_dir/ios/launcher/rebind.c" \
     "$root_dir/android/app/src/main/cpp/roulette_ads.c" "$root_dir/android/app/src/main/cpp/flying_mom.c" "$root_dir/android/app/src/main/cpp/render_pace.c" "$root_dir/android/app/src/main/cpp/render_effects.c" \
-    "$root_dir/android/app/src/main/cpp/bunker_button.c" "$root_dir/android/app/src/main/cpp/bunker_button_layout.c" "$root_dir/android/app/src/main/cpp/big_hunt_season.c" "$work/liblunar.a" \
+    "$root_dir/android/app/src/main/cpp/bunker_button.c" "$root_dir/android/app/src/main/cpp/bunker_button_layout.c" "$root_dir/android/app/src/main/cpp/big_hunt_season.c" "$root_dir/android/app/src/main/cpp/arena_season.c" "$work/liblunar.a" \
     -framework UIKit -framework QuartzCore -framework Metal -weak_framework MetalFX -framework WebKit -framework AVKit -framework AVFoundation -framework CoreMedia -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"

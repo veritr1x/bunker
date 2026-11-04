@@ -1,5 +1,31 @@
 # Validation
 
+## Arena season dates in the game — 2026-11-04
+
+- The game reads a season's dates from its master data, so the Arena's
+  Period line showed 2099. `arena_season.c` (Android and iOS, called when
+  the top row starts) gives the loaded master data's turn seasons the dates
+  of their four-week turns: the season in force its current turn, the others
+  their last turn, or their first when it is still to come. The season the
+  game sees in force matches the server: a host build of the same code
+  against the server's `Season` at 20,468 times from 2021 to 2029 (every
+  3 h 17 min) picked the same season every time with Bunker's patched Global
+  and Japanese master data, and changed nothing with the original Global and
+  Japanese master data, a calendar loop's data and the original-dates view.
+- Android emulator, global 3.7.1 APK built with this change, Everything open:
+  the log said "9 season dates set to their four-week turns; season 202037
+  in force", and the Arena showed Season 036 with the Period 10/26 13:30 to
+  11/23 13:30 (India time, Monday 00:00 GMT-8), the turn holding 4 November.
+- Same build with the Original calendar at 7× speed, moved to week 9 (game
+  date Tuesday 5 January 2027, 62 days ahead of real time; original
+  28 September 2021): the log said "the game's own dates (no turns)" and the
+  Arena showed Season 002 with the Period 01/04 13:30 to 02/01 13:29, that
+  season's dates as the calendar moved them. The emulator's save and master
+  data were restored afterwards.
+- Not checked in the game: the season-end reward screen from the game's own
+  season check (it now sees an ended turn's end date pass), and iPhone or
+  iPad (the iOS build compiles; it runs the same file).
+
 ## Arena season turns — 2026-11-04
 
 - With Bunker's patched master data, 38 seasons are open at once (all end in
@@ -22,7 +48,7 @@
   change, Season 037 before: the game numbers seasons one below the id's last
   digits). The first Arena visit moved it to 202037 with 0 points and rank
   4931, and kept 202038's final rank for its reward. The Period line still
-  shows the master data's dates (to 2099).
+  showed the master data's dates (to 2099); see the entry below.
 - No reward screen appeared, on that visit or after a restart. The client's
   `CalculatorArena.HasRewardReceiveArena` (disassembled) asks for Arena
   rewards only when the latest weekly result is for a finished week (else it
