@@ -4,6 +4,23 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-04 (after 1.8.3)
+
+### Arena
+- Seasons end. Bunker's content patcher keeps every Arena season open, so
+  one season used to last forever and its rank reward was never paid. Now the
+  seasons with the latest season's grades and rewards take turns, four weeks
+  each, changing at the Arena's weekly reset (Monday 00:00 GMT-8). When a
+  season ends, its final rank pays the season rank reward with the week's
+  rewards, and the next season starts from 0 points with its own ladder of
+  computer players. Battle points, the defense deck and past weekly results
+  carry over. The Original calendar keeps the game's own season dates.
+  The first visit after updating ends the season in progress; its reward
+  comes with that week's rewards once the week is over, as the game claims
+  Arena rewards only for finished weeks. [e395b33]
+- A season that ends mid-week no longer leaves two results for one week.
+  [e395b33]
+
 ## 1.8.3 (2026-11-04)
 
 Pod Programs opens while the game keeps running. Browsing and settings the
