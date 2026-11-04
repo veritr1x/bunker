@@ -17,7 +17,7 @@
   from its rank 1001-5000 tier (three items), the week's result kept and
   season 202038 started from 0 points. The other Arena tests pass with the
   patched and the original master data.
-- BlueStacks (Android 9), global 1.7.0 APK with this server: the level-100
+- An Android 9 emulator, global 1.7.0 APK with this server: the level-100
   test player had 47 points in season 202038 (shown as Season 036 after the
   change, Season 037 before: the game numbers seasons one below the id's last
   digits). The first Arena visit moved it to 202037 with 0 points and rank
