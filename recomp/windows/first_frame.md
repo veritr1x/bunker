@@ -3,32 +3,29 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-compute-stage1`, host
-`1cd36a1837df908aed5ba8f769ed2690991e2442`, stops at the existing collector
-guard `nonzero send has no real worker owner`. It completes two original render
-calls and enters the third, but does not reach compute-shader creation in this
-execution. Native exit3/controller1; no draw, clear, swap or PNG. There are3576
-GL calls,2788 balanced EGL calls and32 successful nanosleeps.
+Latest original execution: `work/windows-first-frame-gc-owner1`, host
+`bfa4e8e650408d740e861b10e4c2bebaf26d0aa0`, stops at the existing collector
+guard `nonzero send has no real worker owner`. Two original render calls return
+continue=true; the third has no returned result. No draw, clear, swap or PNG.
+The diagnostic identifies stop signal30 from the original Boehm sender
+LR `825b2d1c`, targeting the real external UnityMain token `7ffa00000002`.
+Its original registry traversal points at the static main record `879a7330`.
 
-Inputs SHA256 `cee81abc577dbc0452e23e33b0f5c4f2e4b627c27a955a667af733778c1b2db7`;
-executable SHA256 `e6ce3f25b8a3770ececc4d3e060e3f678a6f882dd25074e3d0121ab682d4159c`;
-log SHA256 `705d110c537c7cb69c205f32433a5bdadfa8e907de1bdcbfcdba6426c86c83d1`.
-Frozen inputs and original objects reverify. Sampled wait observations are
-nonexhaustive; their entry/return counts do not establish blocked thread state.
+Inputs SHA256 `b9146952cf27d3605119f5651154df1b091598ebe75f0216fbfc1dbdcd1f8e1e`;
+executable SHA256 `4dd7b855c346b0760a79af2d28e8a3f123c7c70a9ad42e1d4132604b5eae39a1`;
+log SHA256 `d4a8900bcef11a5ce87528535d118ac299c4dec686413cf6039f52fbe44ec442`.
+Frozen inputs and original objects reverify. Sampled wait observations remain
+nonexhaustive and do not establish blocked thread state.
 
-The failing guard runs before checking the signal, sender LR, original registry
-or target role. The log therefore cannot identify the target or establish that
-this is a Boehm stop/restart send. External UI/UnityMain threads, retired workers
-and invalid tokens can all lack this adapter's owner entry. Adding an owner alone
-would not establish a safe signal-delivery phase.
-
-The next build adds argument-only pre-send logs, including target, signal,
-native caller, PC/SP/FP/LR and the original sender's record registers. It also
-logs the actual UI token after SignalHost registration. These observations pass
-the existing static checks and leave all27 protected sources, actual Send,
-ownership checks, guest arguments and collector acknowledgments unchanged.
-The next original execution is diagnostic: target classification must precede
-any new collector ownership or delivery implementation.
+The additive external-main profile attaches to that actual thread and admits
+collector delivery only in the original job-drain helper's nanosleep boundary.
+It requires the original stop/restart handlers, epoch writes and semaphore
+posts, and physical saved GPR/vector registers inside the original scanner's
+stack range. Main flags6 select the global upper bound at `879a6ac0`, rather
+than the ordinary child record's `+28` field. No guest collector record or
+acknowledgment is fabricated. Existing child-finalizer delivery stays separate.
+Focused qualification and the next original execution must establish whether
+this integration gets past the observed collector stop; no frame is claimed.
 
 The preceding original execution `work/windows-first-frame-nanosleep1`, host
 `ebeef029afc8e128bae67a3b9e47de457b5c8bb9`, completes two original render calls

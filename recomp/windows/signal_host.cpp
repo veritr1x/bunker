@@ -212,6 +212,26 @@ int SignalHost::ThreadKill(uint64_t token,int signal,const SenderSnapshot &snaps
 SignalHost::Dispatch SignalHost::DispatchOne(uint64_t token,const Boundary &boundary){return DispatchImpl(token,boundary,{});}
 SignalHost::Dispatch SignalHost::DispatchOneAllowed(uint64_t token,uint64_t allowed_signal_bits,const Boundary &boundary){return DispatchImpl(token,boundary,{},allowed_signal_bits);}
 SignalHost::Dispatch SignalHost::DispatchOneAdmitted(uint64_t token,uint64_t allowed_signal_bits,const Boundary &boundary){return DispatchImpl(token,boundary,{},allowed_signal_bits,true);}
+SignalHost::Dispatch SignalHost::DispatchOneAdmittedSubset(uint64_t token,uint64_t admitted_signal_bits,uint64_t selected_signal_bits,const Boundary &boundary){
+  if(selected_signal_bits&~admitted_signal_bits)return {22};
+  ThreadRef t;Delivery delivery{};uint64_t old;
+  {std::lock_guard lock(mutex_);auto i=threads_.find(token);if(i==threads_.end()||!i->second->alive)return {3};t=i->second;
+    if(t->owner!=std::this_thread::get_id())return {1};
+    const uint64_t all_eligible=t->pending&~t->mask;
+    if(all_eligible&~admitted_signal_bits)return {95};
+    uint64_t eligible=all_eligible&selected_signal_bits;if(!eligible){Publish(t);return {};}
+    int signal=1;while(!(eligible&Bit(signal)))++signal;
+    auto action=actions_[signal];if(action.handler<=1)return {38};if(!boundary)return {38};
+    old=t->mask;delivery={token,signal,action,t->info[signal],old,t->stack};
+    t->pending&=~Bit(signal);t->mask=(old|action.mask|Bit(signal))&~kUnblockable;Publish(t);
+  }
+  std::optional<uint64_t> restored;
+  try{restored=boundary(delivery);}catch(...){
+    {std::lock_guard lock(mutex_);t->mask=old;Publish(t);}NotifyAfterUnlock(t);throw;
+  }
+  {std::lock_guard lock(mutex_);t->mask=restored.value_or(delivery.saved_mask)&~kUnblockable;Publish(t);}
+  NotifyAfterUnlock(t);return {0,true,bool(delivery.action.flags&kRestart)};
+}
 SignalHost::Dispatch SignalHost::DispatchImpl(uint64_t token,const Boundary &boundary,std::optional<uint64_t> saved_override,uint64_t allowed_signal_bits,bool reject_unallowed){
   ThreadRef t;Delivery delivery{};uint64_t old;
   {std::lock_guard lock(mutex_);auto i=threads_.find(token);if(i==threads_.end()||!i->second->alive)return {3};t=i->second;

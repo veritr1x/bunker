@@ -80,6 +80,11 @@ class SignalHost {
   Dispatch DispatchOneAllowed(uint64_t token,uint64_t allowed_signal_bits,const Boundary&);
   // Reject any eligible excluded signal with95 before selecting/consuming any.
   Dispatch DispatchOneAdmitted(uint64_t token,uint64_t allowed_signal_bits,const Boundary&);
+  // Atomically reject eligible signals outside admitted, then select only the
+  // requested subset. Admitted/unselected pending bits and siginfo remain.
+  // selected must be a subset of admitted; invalid masks return22 unchanged.
+  Dispatch DispatchOneAdmittedSubset(uint64_t token,uint64_t admitted_signal_bits,
+                                    uint64_t selected_signal_bits,const Boundary&);
   int Suspend(uint64_t token,uint64_t temporary_mask,const Boundary&); // positive EINTR normally
   // Dispositions and pure sigset helpers only; does not enable thread signals.
   void InstallProcess(recomp::Runtime&);

@@ -147,6 +147,7 @@ bool Executable(addr_t address){
 #include "game_bootstrap_detail.h"
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
 #include "game_collector_delivery.h"
+#include "game_unity_main_collector.h"
 #endif
 LONG WINAPI Crash(EXCEPTION_POINTERS *exception){
   std::fprintf(stderr,"Unity bootstrap: native exception %#lx at %p; stage=%s, completed constructors=%zu/%zu\n",
@@ -291,9 +292,11 @@ int main(int argc,char **argv){
     // a request that cannot receive a real same-worker acknowledgment.
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     GameCollectorDelivery *collector_notify=nullptr;
+    GameUnityMainCollector *main_collector_notify=nullptr;
 #endif
     SignalHost process_signals([&](uint64_t token){
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+      if(main_collector_notify&&main_collector_notify->Owns(token)){main_collector_notify->Notify(token);return;}
       if(collector_notify){collector_notify->Notify(token);return;}
 #endif
       std::fprintf(stderr,"Game bootstrap: unsupported unbound delivery target=%#llx\n",(unsigned long long)token);std::abort();},0x7ff600100000ULL,
@@ -361,13 +364,14 @@ int main(int argc,char **argv){
     GameTlsAudit tls_audit;tls_audit.free_callback=libc.Marker("free");
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     std::unique_ptr<GameCollectorDelivery> collector;
+    std::unique_ptr<GameUnityMainCollector> main_collector;
 #endif
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
     // Existing profiles retain observation-only hooks and the nonzero guard.
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
-    if(collector_delivery){collector=std::make_unique<GameCollectorDelivery>(threads,process_signals,semaphores,runtime);collector_notify=collector.get();tls_audit.create_boundary=[&](State &s,const auto &invoke){collector->WithCreate(s,invoke);};}
+    if(collector_delivery){collector=std::make_unique<GameCollectorDelivery>(threads,process_signals,semaphores,runtime);collector_notify=collector.get();main_collector=std::make_unique<GameUnityMainCollector>(threads,process_signals,semaphores,runtime);main_collector_notify=main_collector.get();tls_audit.create_boundary=[&](State &s,const auto &invoke){collector->WithCreate(s,invoke);};}
     else
 #endif
     threads.SetWorkerLifecycleHooks({
@@ -407,8 +411,18 @@ int main(int argc,char **argv){
     SignalSleeps sleeps(process_signals,current_signal_thread,sleep_no_delivery,
                         [](uint64_t){return uint64_t{0};});
     sleeps.SetErrorSink(error);
-    SignalNanoSleeps nanosleeps(process_signals,current_signal_thread,sleep_no_delivery,
-                               [](uint64_t){return uint64_t{0};});
+    SignalHost::Boundary nanosleep_boundary=sleep_no_delivery;
+    SignalNanoSleeps::Admission nanosleep_admission=[](uint64_t){return uint64_t{0};};
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    if(main_collector){
+      nanosleep_boundary=[&](const auto &delivery){return main_collector->Deliver(delivery);};
+      nanosleep_admission=[&](uint64_t token){return main_collector->Owns(token)?main_collector->NanoSleepAdmission(token):uint64_t{0};};
+    }
+#endif
+    SignalNanoSleeps nanosleeps(process_signals,current_signal_thread,nanosleep_boundary,nanosleep_admission);
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    if(main_collector)nanosleeps.SetDispatcher([&](uint64_t token,uint64_t allowed,const SignalHost::Boundary&boundary){return main_collector->Owns(token)?main_collector->DispatchNanoSleep(token,allowed,boundary):process_signals.DispatchOneAdmitted(token,allowed,boundary);});
+#endif
     nanosleeps.SetErrorSink(error);
     nanosleeps.SetRequestObserver([](const SignalNanoSleeps::Observation &observation){
       GameWorkerObservation::NativeEnvironment native;
@@ -452,7 +466,7 @@ int main(int argc,char **argv){
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
     struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
-    if(collector)drain.close=[&]{collector->CloseAfterShutdown();};
+    if(collector)drain.close=[&]{collector->CloseAfterShutdown();main_collector->Close();};
 #endif
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);
     sensors.Install(runtime);
@@ -506,6 +520,7 @@ int main(int argc,char **argv){
       const auto text=!std::strcmp(name,"dlopen")?(argument?recomp::ReadGuestString(argument):"<null>"):!std::strcmp(name,"dlsym")?(s.gpr.x1.qword?recomp::ReadGuestString(s.gpr.x1.qword):"<null>"):std::string();
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
       GameCollectorDelivery::Opaque opaque{bool(collector)};
+      GameUnityMainCollector::Opaque main_opaque{bool(main_collector)};
 #endif
       module_bridges.Dispatch(s,marker,nullptr);std::fprintf(stderr,"Game bootstrap: original %s argument=%#llx name=%s result=%#llx LR=%#llx Unity refs=%zu IL2CPP refs=%zu\n",name,(unsigned long long)argument,text.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)caller,modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));
       if(!std::strcmp(name,"dladdr")&&s.gpr.x0.dword){const auto info=Read<AndroidDlInfo>(output);const auto file=info.filename?recomp::ReadGuestString(info.filename):std::string();const auto symbol=info.symbol_name?recomp::ReadGuestString(info.symbol_name):std::string();std::fprintf(stderr,"Game bootstrap: original dladdr info filename=%s base=%#llx symbol=%s address=%#llx; registered ELF metadata, not native PE ownership\n",file.c_str(),(unsigned long long)info.base,symbol.c_str(),(unsigned long long)info.symbol_address);}
@@ -516,7 +531,7 @@ int main(int argc,char **argv){
     SignalHost::Boundary signal_boundary=no_delivery;
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     SignalHost::SenderSnapshot sender;
-    if(collector){signal_boundary=[&](const auto &delivery){return collector->Deliver(delivery);};sender=[&]{return SignalHost::SenderIdentity{libc.ProcessId(),GameCollectorDelivery::kVirtualRealUid};};}
+    if(collector){signal_boundary=[&](const auto &delivery){return main_collector->Owns(delivery.token)?main_collector->Deliver(delivery):collector->Deliver(delivery);};sender=[&]{return SignalHost::SenderIdentity{libc.ProcessId(),GameCollectorDelivery::kVirtualRealUid};};}
     process_signals.Install(signal_bridges,current_signal_thread,signal_boundary,std::move(sender));
 #else
     process_signals.Install(signal_bridges,current_signal_thread,signal_boundary);
@@ -526,7 +541,7 @@ int main(int argc,char **argv){
       if(collector){GameWorkerObservation::NativeEnvironment native;const auto target=s.gpr.x0.qword;const auto signal=s.gpr.x1.dword;
         std::fprintf(stderr,"Game GC: nonzero send ENTRY caller_native_tid=%lu observed_worker_token=%#llx signal=%u target=%#llx PC=%#llx SP=%#llx FP=%#llx LR=%#llx x19=%#llx x20=%#llx x21=%#llx x22=%#llx x26=%#llx x27=%#llx x28=%#llx; arguments only before ownership validation\n",GetCurrentThreadId(),(unsigned long long)GameWorkerObservation::Token(),signal,(unsigned long long)target,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.sp.qword,(unsigned long long)s.gpr.x29.qword,(unsigned long long)s.gpr.x30.qword,(unsigned long long)s.gpr.x19.qword,(unsigned long long)s.gpr.x20.qword,(unsigned long long)s.gpr.x21.qword,(unsigned long long)s.gpr.x22.qword,(unsigned long long)s.gpr.x26.qword,(unsigned long long)s.gpr.x27.qword,(unsigned long long)s.gpr.x28.qword);
         std::fflush(stderr);
-        collector->Send(s,[&]{signal_bridges.Dispatch(s,marker,nullptr);});std::fprintf(stderr,"Game GC: actual pthread_kill returned signal=%u target=%#llx status=%d; no queue inference from pre-call witness\n",signal,(unsigned long long)target,int32_t(s.gpr.x0.dword));return;}else
+        if(main_collector->Owns(target))main_collector->Send(s,[&]{signal_bridges.Dispatch(s,marker,nullptr);});else collector->Send(s,[&]{signal_bridges.Dispatch(s,marker,nullptr);});std::fprintf(stderr,"Game GC: actual pthread_kill returned signal=%u target=%#llx status=%d; no queue inference from pre-call witness\n",signal,(unsigned long long)target,int32_t(s.gpr.x0.dword));return;}else
 #endif
       {std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}}
       const auto input=s.gpr.x0.qword,output=s.gpr.x1.qword;
@@ -555,6 +570,9 @@ int main(int argc,char **argv){
       try{
         {GameWorkerObservation::NativeEnvironment native;
           std::fprintf(stderr,"Game bootstrap: original nanosleep ENTER caller_native_tid=%lu request=%#llx remaining=%#llx LR=%#llx\n",GetCurrentThreadId(),(unsigned long long)request,(unsigned long long)remaining,(unsigned long long)caller);}
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+        if(main_collector&&main_collector->Owns(threads.Self()))main_collector->WithNanoSleep(s,[&]{sleep_bridges.Dispatch(s,nanosleep_marker,nullptr);});else
+#endif
         sleep_bridges.Dispatch(s,nanosleep_marker,nullptr);
         {GameWorkerObservation::NativeEnvironment native;
           std::fprintf(stderr,"Game bootstrap: original nanosleep RETURN caller_native_tid=%lu request=%#llx remaining=%#llx LR=%#llx result=%d errno=%d\n",GetCurrentThreadId(),(unsigned long long)request,(unsigned long long)remaining,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());}
@@ -642,7 +660,7 @@ int main(int argc,char **argv){
     });
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     constexpr addr_t ack_audit=0x7ffc60000100ULL;
-    if(collector)runtime.AddImport(ack_audit,[&](State &s){try{GameWorkerObservation::NativeEnvironment native;collector->BeforePost(s);runtime.Dispatch(s,semaphores.Marker("sem_post"),nullptr);collector->AfterPost(s);}catch(const std::exception&e){std::fprintf(stderr,"Game GC: original post observation failed:%s\n",e.what());std::abort();}catch(...){std::abort();}});
+    if(collector)runtime.AddImport(ack_audit,[&](State &s){try{GameWorkerObservation::NativeEnvironment native;if(main_collector->Owns(threads.Self()))main_collector->BeforePost(s);else collector->BeforePost(s);runtime.Dispatch(s,semaphores.Marker("sem_post"),nullptr);if(main_collector->Owns(threads.Self()))main_collector->AfterPost(s);else collector->AfterPost(s);}catch(const std::exception&e){std::fprintf(stderr,"Game GC: original post observation failed:%s\n",e.what());std::abort();}catch(...){std::abort();}});
 #endif
     for(const char *name:{"pthread_cond_wait","pthread_cond_timedwait","pthread_mutex_lock","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_once","pthread_join","sem_wait","sem_timedwait","sigsuspend"}){
       const std::string identity=name;
@@ -666,6 +684,7 @@ int main(int argc,char **argv){
         // Dispatch the existing checked provider. No nested Runtime::Run or
         // new guest State is introduced; original arguments/results survive.
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+        if(main_collector&&main_collector->Owns(threads.Self()))main_collector->WithWait(identity,s,[&]{runtime.Dispatch(s,actual,nullptr);});else
         if(collector)collector->WithWait(identity,s,[&]{runtime.Dispatch(s,actual,nullptr);});else
 #endif
         runtime.Dispatch(s,actual,nullptr);
@@ -675,6 +694,7 @@ int main(int argc,char **argv){
     if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
       if(collector)collector->BeforeNonlocal();
+      if(main_collector)main_collector->BeforeNonlocal();
 #endif
       if(!std::strcmp(name,"setjmp"))automatic_environments.BeforeSetjmp(s,current_signal_thread());jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
     if(graphics){
@@ -804,6 +824,9 @@ int main(int argc,char **argv){
           if(!token)return;
           int released=0;std::exception_ptr release_error;
           try{if(egl)egl->ReleaseCurrentThread();}catch(...){release_error=std::current_exception();}
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+          if(main_collector&&main_collector->Owns(token))main_collector->DetachCurrent();
+#endif
           try{if(tls_audit.PendingModuleCallbacks(threads))Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"real UnityMain TLS survives an already finalized module; safe callback lifetime is unproved");released=threads.ReleaseCurrent();}catch(...){if(!release_error)release_error=std::current_exception();}
           jumps->DropThread(token,token);
           const auto dropped=worker_registered?process_signals.DropThread(token):0;
@@ -825,6 +848,9 @@ int main(int argc,char **argv){
           if(process_signals.RegisterThread(worker_token,parent_token))throw std::runtime_error("cannot register UnityMain virtual signal-mask lifetime");
           worker_registered=true;
           if(process_signals.BindCurrent(worker_token)||process_signals.Mask(worker_token,2,&parent_mask,nullptr))throw std::runtime_error("cannot inherit UnityMain signal mask");
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+          if(main_collector)main_collector->AttachCurrent(worker_token,parent_token);
+#endif
           std::fprintf(stderr,"Unity bootstrap: UnityMain virtual-thread=%llu generation=%llu inherited mask=%#llx; alternate stack disabled\n",static_cast<unsigned long long>(worker_token),static_cast<unsigned long long>(worker_token),static_cast<unsigned long long>(parent_mask));
         });init_java_errors=0;init_java_diagnostic_active=true;
         stage="surfaceCreated/recreate";lifecycle.SurfaceCreated(surface);lifecycle.WaitIdle();
@@ -923,6 +949,7 @@ int main(int argc,char **argv){
     Require(!threads.Shutdown(),"actual guest workers did not drain before JNI/module teardown");
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     if(collector)collector->CloseAfterShutdown();
+    if(main_collector)main_collector->Close();
 #endif
     preferences->CheckPersistence();
     if(auto pending=tls_audit.PendingModuleCallbacks(threads)){

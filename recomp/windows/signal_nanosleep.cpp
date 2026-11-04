@@ -142,7 +142,7 @@ int32_t SignalNanoSleeps::NanoSleep(addr_t request,addr_t remaining){
  for(;;){
   const auto generation=wake->Generation(),allowed=admission_(token);
   bool remainder_fault=false,expired_with_remainder=false;std::exception_ptr copy_failure;
-  const auto result=signals_.DispatchOneAdmitted(token,allowed,[&](const SignalHost::Delivery&delivery){
+  const SignalHost::Boundary selected_boundary=[&](const SignalHost::Delivery&delivery){
    // The kernel copies relative remainder before returning to the real handler.
    // Snapshot it before a handler that can itself wait or overwrite this buffer.
    if(remaining){
@@ -151,7 +151,8 @@ int32_t SignalNanoSleeps::NanoSleep(addr_t request,addr_t remaining){
     }catch(...){copy_failure=std::current_exception();}
    }
    return boundary_(delivery); // A failed remainder copy never swallows a signal.
-  });
+  };
+  const auto result=dispatcher_?dispatcher_(token,allowed,selected_boundary):signals_.DispatchOneAdmitted(token,allowed,selected_boundary);
   if(result.error==95)throw std::runtime_error("unsupported nanosleep eligible signal outside admitted provider phase");
   if(result.error)throw std::runtime_error("unsupported nanosleep signal ownership or delivery boundary");
   if(result.handled){preserve.handled=true;if(copy_failure)std::rethrow_exception(copy_failure);if(expired_with_remainder)return 0;return fail(remainder_fault?14:4);}

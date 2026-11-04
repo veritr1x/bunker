@@ -3,7 +3,7 @@ import argparse,ast,hashlib,json,subprocess,tarfile
 from pathlib import Path
 from elftools.elf.elffile import ELFFile
 HERE=Path(__file__).resolve().parent
-OWN=('game_bootstrap.cpp','game_bootstrap_detail.h','game_collector_delivery.h','game_collector_mask.h','game_bootstrap_build.ps1','test_game_bootstrap.py','game_collector_profile.md','test_game_collector_source.py')
+OWN=('game_bootstrap.cpp','game_bootstrap_detail.h','game_collector_delivery.h','game_unity_main_collector.h','game_collector_mask.h','game_bootstrap_build.ps1','test_game_bootstrap.py','game_collector_profile.md','test_game_collector_source.py')
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 RUNTIME_DIAGNOSTIC_OLD='4c1609ebd11565fb45a55b4488428cbcff94851eea9bba58f4e160cc07850860'
@@ -159,6 +159,45 @@ def qualified_jni_object_source(path,name,legacy_digest,prerequisites=None,quali
  return JNI_OBJECT_BIND_CORE[name]
 
 
+SIGNAL_SUBSET_BASE={'windows/signal_host.h':'b7cbcfe4ee63c53eaef932b42e9d4f6bdaa8376e50af1c89d72b7c31fb944174','windows/signal_host.cpp':'888e8b10aea824f1bd23e2d9e376db7e38a3b41f3ecf42fb3ccf372b1f6a31da'}
+SIGNAL_SUBSET_CORE={'windows/signal_host.h':'12bc3d308e6ea6f86ac4dbe75f1c711a1f82a374458d2c6741d07f099fa07c58','windows/signal_host.cpp':'309a8bd7aff3c4203dd901b3e68d8bf22b1783a3e20e0ef8579d71fdfe97afa6'}
+SIGNAL_SUBSET_QUALIFICATION='af404bb61a36d7e91b91aad11b6ec177b243a9f8180f02b30745c667c090274d'
+SIGNAL_SUBSET_QUALIFICATION_PATH=str(HERE.parent/'work/signal-admitted-subset-qualification1/acceptance.json')
+SIGNAL_SUBSET_PROOF='c748f2f660587ab63f1837c15911fa3e9565abc713c2b56b11673e486ec2c436'
+SIGNAL_SUBSET_INSERTION_SHA={'windows/signal_host.h':'501216f3b40530bc9168785c79f7c0b2930f40fff6828fccb8003ead5e97d73e','windows/signal_host.cpp':'95d1632695b94e85a088c632e00f180236776464208feaff88e3dd25468a9f53'}
+
+def verify_signal_subset_projection(name,body,proof):
+ assert name in SIGNAL_SUBSET_BASE and proof['passed']is True and proof['base_commit']=='bfa4e8e650408d740e861b10e4c2bebaf26d0aa0'
+ assert proof['all_existing_function_bodies_and_layout_byte_exact']is proof['new_dispatch_function_copies_existing_ownership_callback_mask_restore_and_notify_semantics']is proof['admitted_vs_selected_atomic_before_consume']is True
+ assert set(proof['files'])==set(SIGNAL_SUBSET_CORE)
+ row=proof['files'][name]
+ assert row['old_sha256']==SIGNAL_SUBSET_BASE[name]and row['new_sha256']==SIGNAL_SUBSET_CORE[name]and row['whole_file_inverse_byte_exact']is True
+ assert hashlib.sha256(body).hexdigest()==SIGNAL_SUBSET_CORE[name]
+ records=row['insertions'];assert isinstance(records,list)and len(records)==1
+ item=records[0];assert type(item['old_offset'])is type(item['new_offset'])is int
+ value=item['bytes_hex'];assert isinstance(value,str)and value
+ added=bytes.fromhex(value);assert added.hex()==value and hashlib.sha256(added).hexdigest()==SIGNAL_SUBSET_INSERTION_SHA[name]
+ assert item['lines']==added.count(b'\n')=={'windows/signal_host.h':5,'windows/signal_host.cpp':20}[name]
+ at=item['new_offset'];assert at==item['old_offset']and 0<=at<=len(body)-len(added)and body[at:at+len(added)]==added
+ projected=body[:at]+body[at+len(added):]
+ assert hashlib.sha256(projected).hexdigest()==SIGNAL_SUBSET_BASE[name]
+ return projected
+
+def qualified_signal_subset_source(path,name,legacy_digest,prerequisites=None,qualification_path=None):
+ assert name in SIGNAL_SUBSET_BASE and legacy_digest==SIGNAL_SUBSET_BASE[name]
+ path=Path(path);assert path.name==Path(name).name
+ qualification_path=Path(qualification_path)if qualification_path is not None else Path(SIGNAL_SUBSET_QUALIFICATION_PATH)
+ assert sha(qualification_path)==SIGNAL_SUBSET_QUALIFICATION
+ record=json.loads(qualification_path.read_text());assert record['passed']is True and record['commit']=='bfa4e8e650408d740e861b10e4c2bebaf26d0aa0'
+ assert all(record['owned_sources'][key]==value for key,value in SIGNAL_SUBSET_CORE.items())
+ for field in ('actual_queue_mask_siginfo_and_real_boundary_callbacks','atomic_all_eligible_unknown_rejection_before_subset_selection','admitted_unselected_24_retained','invalid_selected_subset_returns22_before_mutation','foreign_retired_default_and_missing_boundary_controls','restored_mask_callback_edits_throw_cleanup_and_NeedsPoll_verified','existing_allowed_and_admitted_API_regressions','all_old_core_function_bodies_and_layout_byte_exact','no_NDK_lift_or_original_game_execution'):assert record[field]is True,field
+ assert set(record['platforms'])=={'linux','windows'}
+ for observed in record['platforms'].values():assert type(observed['exit_code'])is int and observed['exit_code']==0 and observed['checks']==256 and 'SIGNAL-ADMITTED-SUBSET-PASS checks=256'in observed['stdout']
+ proof_path=Path(record['source_proof']['path']);assert record['source_proof']['sha256']==SIGNAL_SUBSET_PROOF and sha(proof_path)==SIGNAL_SUBSET_PROOF
+ proof=json.loads(proof_path.read_text());verify_signal_subset_projection(name,path.read_bytes(),proof)
+ if prerequisites is not None:prerequisites[str(qualification_path)]=SIGNAL_SUBSET_QUALIFICATION;prerequisites[str(proof_path)]=SIGNAL_SUBSET_PROOF
+ return SIGNAL_SUBSET_CORE[name]
+
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--build-support',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);support=a.build_support.resolve();root=HERE.parent.parent
  def wp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()
@@ -171,7 +210,7 @@ def main():
  lease_path=Path(next(k for k in peer['evidence']if k.endswith('priority-source-peer1/peer.json')));assert sha(lease_path)==peer['evidence'][str(lease_path)];lease=json.loads(lease_path.read_text());assert lease['passed']and lease['pthread_old_cpp_body_exact_after_only_additions']and lease['pthread_old_header_exact_after_only_additions'];prerequisites[str(lease_path)]=sha(lease_path)
  for name,digest in priority['core_sources'].items():
   path=HERE.parent/name
-  expected=qualified_jni_object_source(path,name,digest,prerequisites)if name in JNI_OBJECT_BIND_CORE else digest
+  expected=qualified_signal_subset_source(path,name,digest,prerequisites)if name in SIGNAL_SUBSET_CORE else qualified_jni_object_source(path,name,digest,prerequisites)if name in JNI_OBJECT_BIND_CORE else digest
   assert sha(path)==expected,name;prerequisites[str(path)]=sha(path)
  for name,digest in priority['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
@@ -204,6 +243,7 @@ def main():
   path=HERE.parent/name
   if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
   elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
+  elif name in SIGNAL_SUBSET_CORE:assert sha(path)==qualified_signal_subset_source(path,name,digest,prerequisites),name
   else:assert sha(path)==digest,name
   prerequisites[str(path)]=sha(path)
  # Accepted component manifests pin the actual production inputs used here.
@@ -213,6 +253,7 @@ def main():
    if manifest=='pthread-wait-held.json':
     assert old_pthreads[name]==record[field][name],name
     assert sha(HERE/name)==lease['sources'][name]==priority['core_sources']['windows/'+name],name
+   elif 'windows/'+name in SIGNAL_SUBSET_CORE:assert sha(HERE/name)==qualified_signal_subset_source(HERE/name,'windows/'+name,record[field][name],prerequisites),name
    else:assert sha(HERE/name)==record[field][name],name
    prerequisites[str(HERE/name)]=sha(HERE/name)
   if manifest=='signal-sleep-held5.json':
@@ -227,6 +268,7 @@ def main():
   path=HERE.parent/name
   if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
   elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
+  elif name in SIGNAL_SUBSET_CORE:assert sha(path)==qualified_signal_subset_source(path,name,digest,prerequisites),name
   else:assert sha(path)==digest,name
   prerequisites[str(path)]=sha(path)
  assert timed['untimed_fixture_sources']==futex['fixture_sources']
