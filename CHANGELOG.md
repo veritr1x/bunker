@@ -10,7 +10,7 @@ under its heading, down to the previous release.
 - The Arena validation notes and the Windows guide no longer name other
   Android emulators. [4b7867f]
 - Validation notes: the Arena's dates checked on an iPad with the Original
-  calendar. [6f7765d]
+  calendar [6f7765d] and on an iPhone with Everything open [52abf9e].
 
 ### Arena
 - The Arena's Period line shows the season's four-week turn (for example
