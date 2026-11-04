@@ -3,7 +3,56 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: the real foreground/focus prerequisite, before
+Current execution frontier: unsupported ST3 multiple-structure store in the
+recompiler. Actual build `work/windows-first-frame-label2`, host
+`eeb2abf184e065c4a434a849f5a2efb00fe67f89`, executable
+`6f28b19fa35fe750991d6d851497b9d918ea6b3077b02029aadd09199efa1e41`,
+passes real focus, resumes/mutes, initializes IL2CPP and returns from four
+observed texture-label calls. It then reports unliftablePC `704fdb3c`.
+The selected body proves this is NEXT_PC after word `4c004154` at `704fdb38`:
+ST3 {V20.16B,V21.16B,V22.16B},[X10]. Exact head `704fd850`, FDE end `704fdb60`,
+global selected object200; the following B.NE is not the missing instruction.
+Native exit3/controller1; no original draw, successful swap, nativeRender
+return or game image. Inputs SHA256
+`9b8728fa851ec2dca5dd7f3bc52ae4020857f6573a6d2133de5e48f1eafcadbf`;
+log SHA256 `36d64de5b2e3b68191a3539591f1dbce3a8b441d607c4fcb799f70a09c89c26c`.
+Bounded audit: `work/label2-st3-boundary1/summary.json`, SHA256
+`2f45df77786639df19fa4daa7f0fc1e198f6783797f3710c39a0d73928986821`.
+The focused ST3 family passes1152 identical ARM/QEMU/Linux/Windows records,
+687 decoder controls and72 full1200-State/token/memory controls per host.
+Receipt: `work/st3-qualification1/acceptance.json`, SHA256
+`15404cfbfca518caa3393c428e9585d0456086232892ff95e75b73d6cfabfa98`.
+Remill commit `cda2d3f2b9ff89260f4db997b24e47e40d2b86cc` adds three decoder
+delegates and21 selectors; all1248 old compiled functions/1401 selectors and
+the State ABI remain exact. The actual original prefix and the one-object
+replacement are qualified separately, preserving3575 other objects.
+The v11 cohort is sealed: `work/first-frame-st3-store-cooperative-cohort1/acceptance.json`,
+SHA256 `64498bd829e9b92c7f4867a6fe3a1fc5a8a162c6b937a4cfdd23aa9404ae969e`.
+It preserves456689 heads/79438 direct references and replaces one function
+while127 other definitions in object200 stay exact in raw/polled IR and full
+native bytes/relocations. Poll sites578789 and cycle cuts122100 each rise1;
+unsupported heads fall1436→1435. Actual new polled COFF SHA256
+`cddd5852024875161cef458b8b3d1e825721a32965ad79f66fc7157d92ab53b6`.
+The exact original prefix through its real helper call matches16 records on
+ARM and Linux/Windows raw+polled projections: all800 architectural bytes,
+64KiB global/index/output/canary memory and64-byte saved frame. Receipt:
+`work/unity-st3-block-qualification2/acceptance.json`, SHA256
+`4f6bfd4533f5c04514e433fb6ddef2592823d403454f32aa17ff465589c68b25`.
+This captures before helper execution, not a full-FDE return or execution of
+the full selected128-function COFF. Q1 preserves a fixture FPSR-packing bug;
+Q2 uses the same six-field architecture packing as MRS FPSR, with unchanged
+candidate code. The mandatory next helper is already lifted without errors.
+The one new Runtime barrier declaration uses the existing unchanged fence
+implementation; the overlay whole-file inverse includes that declaration.
+The actual v11 consumer guards pass1023 cases per language (12 positive,
+1011 negative), Python36 and PowerShell47 source-I/O controls. All907 old
+case payloads/order and pass/fail/returned-version results remain exact;
+ten old mutations to version11 now reject under the known-but-unqualified
+version's shape/hash checks. Receipt: `work/cohort-v11-validation1/acceptance.json`,
+SHA256 `4104a0e1264482dc5697116b96a56df5c5603651fa521b2432cd95fb04eea52d`.
+Next startup: `work/windows-first-frame-st3-1`.
+
+The preceding execution frontier was the real foreground/focus prerequisite, before
 nativeRender. Actual build `work/windows-first-frame-label1`, host
 `cbfd33b57ee3653e2f1605861a7256828b64e5ac`, executable
 `f5d07ac77d283cd763d07caa3503fb16bec2c8074d6a1b5660ca2db1bf0b24f5`,
