@@ -3,7 +3,37 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-exception1`, host
+Latest original execution: `work/windows-first-frame-raise1`, host
+`64a5ba3bda612c56953c51cf1f1cbfd6bb0d6b5f`, confirms the EH-return failure.
+Original Raise enters with LR `8260d5a0`, SP `1e559d70780`, X21/header
+`1e811ca2a80`, and unwind object `1e811ca2ae0`. It returns with StatePC/X30
+`83f4275c`, SP `1e559d70880`, and X21 `8799a000`. The same original header
+remains initialized before/after: exception class `434c4e47432b2b00`, typeinfo
+`87205830`, bounded name `22Il2CppExceptionWrapper`, and terminate handler
+`82610b88`. The host caller then incorrectly enters its failure continuation,
+using restored X21 as a header, and reaches the same null-target abort.
+This establishes destination loss rather than corruption of the original
+exception record. The selected landing pad `83f4275c` is also absent from the
+compiled trace table; its original LSDA identifies an actual catch path.
+
+The complete original EH metadata audit finds 138,657 absent landing-pad heads
+(496 Unity, 138,161 IL2CPP), with zero encoding/coverage errors across all
+435,292 FDEs and 213,718 callsite rows. Adding them to the current selection
+would produce 595,390 heads. The call-lowering correction must run before
+Remill's guest-function inliner; cached raw IR already contains guest inlining.
+Runtime and LLVM call-lowering prototypes are being prepared separately from
+the selected game build. No transfer correction or landing-pad code is selected
+yet, and no original draw, swap or PNG is observed.
+
+Inputs SHA256 `97c6546a5b9e8d3db41490f823c84c8b29fcd72ea45c45f48e67d9bff6bfab20`;
+executable SHA256 `14adf7d0ce6e67111029c31b6bf60d8691049a82f843e1308e86a265a92821ab`;
+log SHA256 `eb591c8a56c593b0e6a249db9f5f5c7d456787ee357383779eb95b17ce2c9b68`.
+Native exit3/controller1; posthashes match. Terminal peer SHA256
+`2100124edde2b1ee4cafb27d754d189b139ba3bb2bd4ab9a2225cecd55f73b18`.
+Landing-pad audit SHA256
+`4912d35b0a18d32ca899753feb58c7cc8f21616facafab0ba3331b5f6d5746b5`.
+
+Preceding original execution: `work/windows-first-frame-exception1`, host
 `af73a50918170e995488850bada1d9c12e7c5626`, captures the same null-target
 failure without changing the translated objects or continuing past it.
 The live GOT entry `87408e50` contains `87985200`, whose handler is correctly
