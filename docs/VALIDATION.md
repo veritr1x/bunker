@@ -41,6 +41,12 @@
   on the moved clock reopened straight into the Arena and skipped the login
   pop-ups (no login bonus either), so the claim came at the next login.
   Automatic time was switched back on afterwards.
+- Original calendar at 7×, with the original Japanese master data
+  (`TestCalendarSpeedPaysSeasonEnd`): visiting once a real day, the game
+  clock jumped a week three times; the visit after it passed season 202042's
+  end recorded rank 3801 and the last week it was played (1,500 points),
+  that week was over so the game would claim, the season reward (three
+  items) and week were due once, and 202043 followed. Not run in the game.
 
 ## Arena against computer players — 2026-10-08
 
