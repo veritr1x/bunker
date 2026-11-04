@@ -40,6 +40,7 @@
 #include "../fastaes/elfload.h"
 #include "../whole/bridge.h"
 #include "../whole/guest_memory.h"
+#include "game_exception_diagnostic.h"
 #include "game_traces.h"
 #include "game_metadata.h"
 #include <algorithm>
@@ -231,6 +232,12 @@ int main(int argc,char **argv){
     std::vector<recomp::Trace> selected(std::begin(kTraces),std::end(kTraces));bool original_helper_present=false;for(auto &trace:selected)if(trace.address==0x825b0544){original_helper_present=true;trace.entry=GameOriginalSaveHelper;}
     Require(original_helper_present,"current IL2CPP automatic save helper is absent from union");
     recomp::Runtime runtime;runtime.AddTraces(selected.data(),selected.size());
+    if(first_frame)runtime.AddImport(0,[](State &s){
+      GameExceptionDiagnostic::ReportNull(s);
+      std::fprintf(stderr,"recomp: unresolved indirect context target=0 StatePC=%#llx LR=%#llx SP=%#llx\n",(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword,(unsigned long long)s.gpr.sp.qword);
+      std::fputs("recomp: unresolved indirect target at 0\n",stderr);
+      std::fflush(stderr);std::abort();
+    });
     FileSystem files;
     files.EnableGrowdownMappings();
     std::fprintf(stderr,"Game bootstrap: explicit owned Windows MAP_GROWSDOWN profile enabled\n");
