@@ -13,6 +13,12 @@ direct-call inventory now contains 595,404 heads. Its full fresh native
 rebuild is in progress; linking, original startup and the first game image
 remain to be verified. The execution notes below retain earlier checkpoints.
 
+The matching pre-inliner compiler hook and pass are checkpointed locally in
+the Remill fork at `3fd14f3f64d4ab37b36bd985d1b492cec6e1f1bb`. Those three source
+files match the qualified tool. The added CMake source-list entry still needs
+a normal build check; the running candidate continues using its frozen,
+qualified compiler binary.
+
 The separate Game29 debugger diagnostic identifies a mistranslated ARM `EXT`
 in Unity's pointer sort. The corrected instruction passes 12,352 ARM/Bionic,
 Linux and Windows records per host; the complete original sort's insertion
