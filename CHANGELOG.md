@@ -19,6 +19,10 @@ under its heading, down to the previous release.
   season check also sees an ended turn's end date pass. With the Original
   calendar, at any speed, nothing changes: its seasons keep the game's own
   dates. [5f6f483]
+- A season reward is no longer lost when a second season ends before the
+  first one's reward is claimed (an Arena visit after a turn, then no Home
+  visit for four weeks): both stay due and are paid together; the game's
+  report shows the later season. [03c2ea4]
 - Seasons end. Bunker's content patcher keeps every Arena season open, so
   one season used to last forever and its rank reward was never paid. Now the
   seasons with the latest season's grades and rewards take turns, four weeks
