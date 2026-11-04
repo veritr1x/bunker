@@ -48,6 +48,13 @@ Receipts:
   comparison failure is preserved. Unrelated default and opted-in final IR
   matches the qualified guest-transfer tool.
 
+The three qualified Remill source files are checkpointed locally on branch
+`bunker`, commit `df627afa707566cfdf932c2225345e6241802257`. All769 other
+tracked files are preserved; the canonical fork is clean. Receipt:
+`work/fp-numeric-minmax-preparation1/checkpoint1/acceptance.json`, SHA256
+`2c99a1bc7dd6c0d54e52305b1e1656e74881fa565613dfefdc755621efa228af`.
+No dependency rebuild or remote push is part of this checkpoint.
+
 A fresh lift of all128 heads also permutes private scratch allocations and
 local names in six neighboring functions. That full object remains held.
 The selected diagnostic candidate instead splices only the freshly qualified
