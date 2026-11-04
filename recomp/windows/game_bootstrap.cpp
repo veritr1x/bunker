@@ -377,6 +377,8 @@ int main(int argc,char **argv){
       [](const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &,Pthreads::WorkerRetirement reason){GameWorkerObservation::Retire(info,reason);}
     });
     const auto parent_token=threads.Self();Require(!process_signals.RegisterThread(parent_token)&&!process_signals.BindCurrent(parent_token),"cannot bind actual UI virtual signal context");
+    if(first_frame){GameWorkerObservation::NativeEnvironment native;
+      std::fprintf(stderr,"Game bootstrap: UI virtual thread registered token=%#llx native_tid=%lu; observation only\n",(unsigned long long)parent_token,GetCurrentThreadId());std::fflush(stderr);}
     auto current_signal_thread=[&]{auto token=threads.Self();Require(bool(process_signals.Lookup(token)),"guest-created worker lacks proved SignalHost lifecycle hooks");return token;};
     auto current_jump_thread=[&](){
       auto token=threads.Self();AndroidThreadAttr attr{};
@@ -521,7 +523,10 @@ int main(int argc,char **argv){
 #endif
     for(const char *name:{"sigaction","pthread_sigmask","sigprocmask","pthread_kill","sigsuspend","sigpending","sigemptyset","sigfillset","sigaddset","sigdelset","sigismember","sigaltstack"}){auto marker=process_signals.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{if(!std::strcmp(name,"pthread_kill")&&s.gpr.x1.dword){
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
-      if(collector){GameWorkerObservation::NativeEnvironment native;const auto target=s.gpr.x0.qword;const auto signal=s.gpr.x1.dword;collector->Send(s,[&]{signal_bridges.Dispatch(s,marker,nullptr);});std::fprintf(stderr,"Game GC: actual pthread_kill returned signal=%u target=%#llx status=%d; no queue inference from pre-call witness\n",signal,(unsigned long long)target,int32_t(s.gpr.x0.dword));return;}else
+      if(collector){GameWorkerObservation::NativeEnvironment native;const auto target=s.gpr.x0.qword;const auto signal=s.gpr.x1.dword;
+        std::fprintf(stderr,"Game GC: nonzero send ENTRY caller_native_tid=%lu observed_worker_token=%#llx signal=%u target=%#llx PC=%#llx SP=%#llx FP=%#llx LR=%#llx x19=%#llx x20=%#llx x21=%#llx x22=%#llx x26=%#llx x27=%#llx x28=%#llx; arguments only before ownership validation\n",GetCurrentThreadId(),(unsigned long long)GameWorkerObservation::Token(),signal,(unsigned long long)target,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.sp.qword,(unsigned long long)s.gpr.x29.qword,(unsigned long long)s.gpr.x30.qword,(unsigned long long)s.gpr.x19.qword,(unsigned long long)s.gpr.x20.qword,(unsigned long long)s.gpr.x21.qword,(unsigned long long)s.gpr.x22.qword,(unsigned long long)s.gpr.x26.qword,(unsigned long long)s.gpr.x27.qword,(unsigned long long)s.gpr.x28.qword);
+        std::fflush(stderr);
+        collector->Send(s,[&]{signal_bridges.Dispatch(s,marker,nullptr);});std::fprintf(stderr,"Game GC: actual pthread_kill returned signal=%u target=%#llx status=%d; no queue inference from pre-call witness\n",signal,(unsigned long long)target,int32_t(s.gpr.x0.dword));return;}else
 #endif
       {std::fprintf(stderr,"Game bootstrap: unsupported nonzero signal delivery signal=%u target=%#llx guestPC=%#llx LR=%#llx\n",s.gpr.x1.dword,(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.pc.qword,(unsigned long long)s.gpr.x30.qword);std::abort();}}
       const auto input=s.gpr.x0.qword,output=s.gpr.x1.qword;

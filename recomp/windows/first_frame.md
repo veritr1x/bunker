@@ -3,7 +3,34 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-nanosleep1`, host
+Latest original execution: `work/windows-first-frame-compute-stage1`, host
+`1cd36a1837df908aed5ba8f769ed2690991e2442`, stops at the existing collector
+guard `nonzero send has no real worker owner`. It completes two original render
+calls and enters the third, but does not reach compute-shader creation in this
+execution. Native exit3/controller1; no draw, clear, swap or PNG. There are3576
+GL calls,2788 balanced EGL calls and32 successful nanosleeps.
+
+Inputs SHA256 `cee81abc577dbc0452e23e33b0f5c4f2e4b627c27a955a667af733778c1b2db7`;
+executable SHA256 `e6ce3f25b8a3770ececc4d3e060e3f678a6f882dd25074e3d0121ab682d4159c`;
+log SHA256 `705d110c537c7cb69c205f32433a5bdadfa8e907de1bdcbfcdba6426c86c83d1`.
+Frozen inputs and original objects reverify. Sampled wait observations are
+nonexhaustive; their entry/return counts do not establish blocked thread state.
+
+The failing guard runs before checking the signal, sender LR, original registry
+or target role. The log therefore cannot identify the target or establish that
+this is a Boehm stop/restart send. External UI/UnityMain threads, retired workers
+and invalid tokens can all lack this adapter's owner entry. Adding an owner alone
+would not establish a safe signal-delivery phase.
+
+The next build adds argument-only pre-send logs, including target, signal,
+native caller, PC/SP/FP/LR and the original sender's record registers. It also
+logs the actual UI token after SignalHost registration. These observations pass
+the existing static checks and leave all27 protected sources, actual Send,
+ownership checks, guest arguments and collector acknowledgments unchanged.
+The next original execution is diagnostic: target classification must precede
+any new collector ownership or delivery implementation.
+
+The preceding original execution `work/windows-first-frame-nanosleep1`, host
 `ebeef029afc8e128bae67a3b9e47de457b5c8bb9`, completes two original render calls
 and reaches `glCreateShader(GL_COMPUTE_SHADER)` in the third. The graphics host
 rejects that stage before calling the driver: stage `91b9`, guest LR `7048c838`.
