@@ -47,6 +47,16 @@ optimized-IR guard checks. The full fresh build is running as the unselected
 `work/guest-eh-candidate5`, controlled by
 `work/guest-eh-rebuild-preparation10`. This is code generation, not a linked
 Windows game or first-frame result.
+The host now interposes the explicit call facade for the original automatic
+save helper. Its caller and helper share one new object, where the older
+callee-symbol wrap misses the local reference. The Windows host fixture
+reproduces that bypass, then checks same-object, cross-object and dynamic
+routing through the unchanged ownership helper, live nonlocal registration
+and revocation, all State/token bytes and native environment forwarding.
+The adapter passes 91 checks; the complete host's default and collector
+source/syntax gates also pass. Qualification:
+`work/guest-call-routing-qualification1`, SHA256
+`6bd1f85fd5c507131ed1b89f34e16a281c299544d6c2073e1efca2330ab6f195`.
 The promoted runtime also passes the original Windows collector regression
 (three processes, 350 checks, six stop/restart cycles). The static source
 gate admits this exact runtime pair through its pinned runtime and collector

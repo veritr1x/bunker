@@ -41,6 +41,7 @@
 #include "../whole/bridge.h"
 #include "../whole/guest_memory.h"
 #include "game_exception_diagnostic.h"
+#include "game_guest_call_routing.h"
 #include "game_traces.h"
 #include "game_metadata.h"
 #include <algorithm>
@@ -77,6 +78,7 @@
 #include <condition_variable>
 #endif
 extern "C" Memory *__real_sub_825b0544(State &,addr_t,Memory *);
+extern "C" Memory *__real___bunker_guest_call(State &,addr_t,Memory *,addr_t,addr_t,recomp::Entry) noexcept;
 
 namespace {
 using namespace unity_image;
@@ -194,6 +196,9 @@ void DefineGameAndroidApiProfile(bunker::jni::Host &host){
 }
 }
 extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return GameOriginalSaveHelper(s,pc,memory);}
+extern "C" Memory *__wrap___bunker_guest_call(State &s,addr_t target,Memory *memory,addr_t expected,addr_t sp,recomp::Entry direct) noexcept {
+  return bunker::windows::GuestCallRouting::Forward(__real___bunker_guest_call,GameOriginalSaveHelper,s,target,memory,expected,sp,direct);
+}
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);

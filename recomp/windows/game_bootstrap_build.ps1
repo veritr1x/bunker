@@ -400,7 +400,7 @@ if($EnableCollectorDelivery){
  $taskArgs+=Join-Path $taskSource 'whole\signal_frame.cpp'
 }
 foreach($taskObject in $taskInput.objects){$taskArgs+=Game-Path $taskObject.path}
-$taskArgs+=@((Join-Path $taskBuild 'libz-inflate.a'),'-Wl,--wrap=sub_825b0544','-latomic','-lbcrypt','-luser32','-lgdi32','-lole32','-luuid','-ladvapi32','-o',$taskExe)
+$taskArgs+=@((Join-Path $taskBuild 'libz-inflate.a'),'-Wl,--wrap=sub_825b0544','-Wl,--wrap=__bunker_guest_call','-latomic','-lbcrypt','-luser32','-lgdi32','-lole32','-luuid','-ladvapi32','-o',$taskExe)
 $taskResponse=Join-Path $taskBuild 'game-bootstrap-link.rsp'
 $taskEscaped=foreach($taskArgument in $taskArgs){'"'+$taskArgument.Replace('\','/').Replace('"','\"')+'"'}
 [System.IO.File]::WriteAllLines($taskResponse,[string[]]$taskEscaped,[System.Text.UTF8Encoding]::new($false))
