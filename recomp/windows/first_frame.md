@@ -3,7 +3,32 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-numeric-minmax1` uses an
+Latest original execution: `work/windows-first-frame-uname1`, source patch
+`15f6b158864cc740c6993b181ef15d41f597d496`, includes the qualified Windows
+`uname` provider. Native exit3/controller1 reaches unresolved indirect
+target `83f373c4`, StatePC equal to that target, LR `83f37378`, and
+SP `24ebde30290`. Two original renders return continue=true; there is no
+draw, clear, successful presentation, first-frame witness or PNG. Parent
+pre/post verification and every overlay pin recheck pass. The log contains
+no direct observation of the `uname` return.
+
+Overlay SHA256 `1705a37df835e42b545ae8a4e2ad7e3589996991863550260f5e44049161ac2f`;
+executable SHA256 `38e20d80a87794b2fd80c95f2e1b3fdec7266d72dff8e4ab9c10ea56e89952a7`;
+log SHA256 `736f11e2a52bea832745967224dabd0c5caeb720b852b40b20ec2398958b5d5bb79`.
+Terminal peer SHA256
+`19e8b81ea347ba086bb2a7b4e6b49fe8703042f53446ee9de186b5c4f89cf862`.
+
+The original FDE `83f372b8..83f374cc` has two bounded four-entry signed-offset
+jump tables. Its first table, `85a84938`, is guarded by `(W26-1)<=3` and
+dispatches at `83f373a4`. All four case heads are absent:
+`83f373a8`, `83f373bc`, `83f373c4`, `83f3745c`. The second table's four heads
+already exist. Selected raw/polled/optimized IR stores the computed target
+and correctly calls `__remill_jump`; this is missing entry coverage, rather
+than a lost return. The next integration adds the complete missing group.
+Audit: `work/uname1-indirect-boundary1/acceptance.json`, SHA256
+`2575e245ed586caba98838dc16169a54c54f2c3fec612531996c2dfef18142df`.
+
+Preceding original execution: `work/windows-first-frame-numeric-minmax1` uses an
 explicit sparse diagnostic overlay over host
 `4b08f113d6d694dfabccbd7f2db276cf8dad30b8`. One qualified function replaces
 `709a1280` in object343; all127 neighboring native function projections and
