@@ -144,6 +144,9 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_TEXTURE3D_COMMAND(name,type) #name,
 #include "gl_texture3d_commands.inc"
 #undef GL_TEXTURE3D_COMMAND
+#define GL_UNIFORM_BLOCK_COMMAND(name,type) #name,
+#include "gl_uniform_block_commands.inc"
+#undef GL_UNIFORM_BLOCK_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -188,6 +191,9 @@ struct GlHost::Impl {
 #define GL_BUFFER_INDEXED_COMMAND(name,type) type buffer_indexed_##name=nullptr;
 #include "gl_buffer_indexed_commands.inc"
 #undef GL_BUFFER_INDEXED_COMMAND
+#define GL_UNIFORM_BLOCK_COMMAND(name,type) type uniform_block_##name=nullptr;
+#include "gl_uniform_block_commands.inc"
+#undef GL_UNIFORM_BLOCK_COMMAND
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
@@ -239,6 +245,9 @@ struct GlHost::Impl {
 #define GL_BUFFER_INDEXED_COMMAND(name,type) buffer_indexed_##name=Symbol<type>(module,#name);
 #include "gl_buffer_indexed_commands.inc"
 #undef GL_BUFFER_INDEXED_COMMAND
+#define GL_UNIFORM_BLOCK_COMMAND(name,type) uniform_block_##name=Symbol<type>(module,#name);
+#include "gl_uniform_block_commands.inc"
+#undef GL_UNIFORM_BLOCK_COMMAND
       Bindings();
     }catch(...){FreeLibrary(module);throw;}
   }
@@ -468,6 +477,7 @@ struct GlHost::Impl {
 #include "gl_buffer_indexed_impl.inc"
 #include "gl_label_impl.inc"
 #include "gl_texture3d_impl.inc"
+#include "gl_uniform_block_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -523,6 +533,7 @@ struct GlHost::Impl {
 #undef GL_STORAGE_COMMAND
     BindLabelCommands();
     BindTexture3DCommands();
+    BindUniformBlockCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}

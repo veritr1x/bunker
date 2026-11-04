@@ -3,7 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-yield1`, host
+Latest original execution: `work/windows-first-frame-main-altstack1`, host
+`4848f6d69cca97822b25aebabbdbd5e0e3935bd1`, completes the real external
+UnityMain epoch6 stop/restart cycle: both normal-stack 31 GPR/32 Q checks,
+two original posts, genuine handler return and NanoSleep EINTR. Two original
+renders return continue=true; the third later fails at a null indirect call,
+LR `7047f360`. No original draw, clear, swap or PNG is produced. Native
+exit3/controller1; frozen inputs and original objects reverify.
+
+Inputs SHA256 `91b8a0e6aae4933eea94c80065b2bb7e3efa1e6883b5e88fc05abe025fa65099`;
+executable SHA256 `5dc915f704d9702f575b376c2ad3c5786ab7e1949395f61f56757150b7294da8`;
+log SHA256 `3c9ede46e337ca050c89a343db519da1f28bcc6ee22a6b2077a732c4eaeab913`.
+The reached API is `glGetActiveUniformBlockiv`, proven by the original call's
+dispatch slot, resolver string and actual null lookup. Its first pname is
+GL_UNIFORM_BLOCK_BINDING. The same original reflection function directly uses
+five previously missing uniform-block APIs. The typed real-driver correction
+passes 534 focused checks and 139 NDK calls, plus 597 existing draw checks.
+Independent std140 expectations and native comparisons cover dynamic output,
+names, bindings, aliasing and error handling. All 131 existing command markers
+remain exact and the five new commands are appended. Capabilities, capture and
+other bindings remain unchanged. Game use of this correction remains pending.
+Original compute-shader creation is observed in
+this run, alongside 95 textures and no frame witness. This does not qualify
+original heap scanning/reclamation or complete initialization.
+
+Preceding original execution: `work/windows-first-frame-yield1`, host
 `5eded1608599a5ce49712bee74cd2155d0c00293`, returns two original renders with
 continue=true and enters the third. The first NanoSleep then fails the external
 profile's disabled-only alternate-stack check, before copying its request or
