@@ -38,6 +38,15 @@ function `705b985c`. All nine are original executable helpers without symbols
 or FDE coverage. The 595,390-head metadata union therefore needs a reachable
 direct-call closure pass before another complete native build. Failed builds
 and completed shards remain preserved.
+That architectural preflight now passes across 16,497,957 original
+instructions, with zero invalid decodes, unknown controls or out-of-executable
+edges. It adds the nine Unity helpers and five IL2CPP import stubs, producing
+595,404 heads in 4,652 objects. The focused native build of all 14 additions
+and the previous 128-head failing batch passes its direct-reference and
+optimized-IR guard checks. The full fresh build is running as the unselected
+`work/guest-eh-candidate5`, controlled by
+`work/guest-eh-rebuild-preparation10`. This is code generation, not a linked
+Windows game or first-frame result.
 The promoted runtime also passes the original Windows collector regression
 (three processes, 350 checks, six stop/restart cycles). The static source
 gate admits this exact runtime pair through its pinned runtime and collector
