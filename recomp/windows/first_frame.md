@@ -3,7 +3,69 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: a retained older translation of an unsigned vector
+Current execution frontier: an unresolved indirect original-code target.
+Actual build `work/windows-first-frame-ushll-mask1`, host
+`c58d7a149e3e100d91bc513af37fa4f8db9d3208`, executable
+`08877479365ecf5b0cb98170fb2e1c6a13d36ed40f7d0ecec46e18c7a006a3b1`,
+passes the mask initializer and reaches texture labels through id20. It then
+reports target/StatePC `70ae3f84`, LR `70ae3a44`, SP `20175a0f470`.
+The original caller at `70ae3a40` calls dispatcher `70ae3f04` with mode2.
+Its signed-relative table at `70fab758` has13 guarded slots and11 distinct
+case entries; all11 are missing from the selected dispatch set. The logical
+dispatcher region is `70ae3f04..70ae443c`, with sole RET at4438 and epilogue
+at4428. This region has no covering .eh_frame FDE; these are control-flow
+bounds. Audit `work/ushll-mask1-indirect-boundary1/summary.json`, SHA256
+`c72430414b2e20e17b50000c192b9aeda64a78ac1a04df74b545d03683a46448`.
+The next batch adds those11 original case entries and checks all13 slots,
+unsigned out-of-range and disabled-object controls through the real dispatcher.
+Its real rebuild helper `70ae31f0` in object466 also retains an unsupported
+scalar FADDP S0,V0.2S at `70ae33bc`. That finite-input path is included in the
+repair scope, with separate instruction-family and original-dispatch checks;
+it is not replaced by a successful helper stub or excluded as a sqrt fallback.
+All3575 other old objects will remain exact; the case object is additive.
+The completed combined dispatcher gate matches16 cases across original ARM,
+Linux raw/polled and Windows raw/polled: all13 slots, unsigned out-of-range
+and disabled-object controls, full64KiB object/canaries and the defined
+return/callee-saved ABI. The optional resource pointer is NULL; the excluded
+sqrtf fallback is never reached. Windows-polled testing executes the actual
+new11-entry COFF and actual106-function helper COFF. Other105 helper functions
+are statically byte-exact, without a claim that the fixture executes them.
+The old helper returns normally for mode2 but reproduces unsupported
+`70ae33c0` for mode3; that same mode3 passes with the repair. Receipt
+`work/unity-plane-dispatch-qualification1/acceptance.json`, SHA256
+`a0f5edc580780807c0e5b6050ef514f25825b45194691a1614a333c563e39659`.
+The scalar instruction gate separately passes16384 records per ARM/Linux/
+Windows host,2057 decoder checks and8 independent full1200-State checks per
+host. See [scalar FADDP](../whole/faddp_scalar.md). One new LLVM signed-max
+declaration uses an unchanged attribute group; removing that exact line and
+restoring the target recovers the old helper module. The saved successful
+lift is reused, with no second lift for that declaration follow-up.
+The sealed v13 cohort is
+`work/first-frame-plane-switch-cooperative-cohort1/acceptance.json`, SHA256
+`02d5545fd8da4a4103e3e64e364786d2fc8629f84fb88a855ada5afee8dfd16a`,
+source plan SHA256
+`2dac17b452eab5e5d01419a5ca8c80fb201641724f1a24213bf84312a678aebb`.
+It contains3577 objects/456700 heads and79438 direct references; poll sites
+578820/cycle cuts122120, with1433 retained unsupported heads. Only old object
+466 changes, preserving105 neighboring functions; index3576 adds11 entries.
+The focused v13 production-guard campaign passes205 cases per language
+(14 positive/191 negative), including every historical positive, new-version
+policy/shape/type/ancestry/tamper cases and actual source-I/O guards. All1142
+historical case payloads/order remain exact;1129 unchanged historical negatives
+are preserved as prior evidence and are explicitly not claimed as rerun.
+Receipt `work/cohort-v13-validation2/acceptance.json`, SHA256
+`b6f19ff58bc05ff095d5e2930844fe583c259dd5ba8a4d552748f1c652a3266d`.
+The first guard campaign stopped in its test-only plan selector, which still
+listed versions only through12. The corrected selector uses the actual
+production AST node; production Python/PowerShell predicates and all native
+fixture/candidate bytes are unchanged. That failed campaign remains saved.
+Next startup: `work/windows-first-frame-plane-switch1`.
+Native exit3/controller1; all frozen inputs and original objects reverify.
+There is still no original draw, successful swap, nativeRender return or PNG.
+Inputs SHA256 `fbbbbda1ebb959f32333eae42359a2f058345c37df57f6756367b573cb0ad857`;
+log SHA256 `4fa82c01b9750f13a0d3675b0c1671806a56ba4bb29ad08ce2ad7d5329c36bad`.
+
+The preceding execution frontier was a retained older translation of an unsigned vector
 widening operation. Actual build `work/windows-first-frame-texture3d1`, host
 `7248183ae21f621f1a48f255602933ede177e2a9`, executable
 `0cf9861508368f249d69d4a31e6d62d4a8479124cc883dfd723bb8744f282a6c`,
