@@ -14,6 +14,19 @@ X19 and X8 both contain `8799a000`; two bounded 128-byte reads there return
 all zero words. RTTI is unreadable at0, so no exception type is established.
 Why the exception-record area is zero remains under investigation.
 
+The native/IR audit finds a concrete exception-transfer gap: successful
+`_Unwind_RaiseException` can restore catch-frame registers and rewrite its
+guest RET destination to a landing pad. `__remill_function_return` simply
+returns its memory token to the host caller, whose lifted throw then enters
+the post-call failure helper unconditionally. Consequently the observed X21
+may be a restored caller register rather than the original exception header.
+`8799a000` also matches an original managed caller's BSS page; the emergency
+exception arena is elsewhere. This run has not yet measured the actual Raise
+entry/return PC or success branch. The next diagnostic must capture those
+values and the original header before/after, preserving the current failure.
+Audit: `work/exception1-zero-header-boundary1`, SHA256
+`ed163a817b30c883b20b01e5c7427aa426686d14fadf4062535ee884eade1667`.
+
 Main epoch6 and four worker collector cycles complete; two renders return
 continue=true. There is no original draw, clear, swap, PNG or soft-input native
 report. Native exit3/controller1 and posthash verification match.
