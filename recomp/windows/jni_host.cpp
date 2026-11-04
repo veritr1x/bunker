@@ -243,6 +243,8 @@ void Host::DefineObjectMethod(const std::string &owner,const std::string &name,c
                               std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler));}
 void Host::DefineStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                     std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler),true);}
+void Host::BindObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                            std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler),false,true);}
 void Host::BindStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                   std::function<addr_t(addr_t,const MethodArguments&)> handler){DefineHandler(owner,name,signature,'L',std::move(handler),true,true);}
 void Host::BindStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,

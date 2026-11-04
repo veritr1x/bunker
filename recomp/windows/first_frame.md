@@ -3,9 +3,10 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: unsupported `ASensorManager_getInstance`, reached
-by original `70411a20` with LR `70411a24` after disabling audio through the real
-project setting. The preceding FMOD/audio-enabled frontier is retained below.
+Current execution frontier: missing host implementation of
+`UnityPlayer.getLaunchURL()String`, after passing the unavailable-sensor path
+and disabling audio through the real project setting. The preceding sensor
+and FMOD/audio-enabled frontiers are retained below.
 The preceding actual build
 `work/windows-first-frame-plane-switch1`, host
 `ad6c6d71225ca4859e64c769a48f0279d3046eb8`, executable
@@ -87,6 +88,23 @@ That gate now passes four original cases across ARM and Windows/Linux raw/polled
 execution, including post-null capability queries and translated NDK callers.
 The next original startup is `work/windows-first-frame-sensors1`, retaining
 the same audio-disabled APK, guest objects, collector and graphics code.
+That original build runs under host `14aa64f0a0f2e67e7066aca1f5a9531086f31c59`,
+executable SHA256 `bfe77469edcc8c4a39a44f7a379d2e8aad7fed7465ab6506e2f794592f4ebc66`.
+It passes the sensor frontier and stops at JNI Env35 because
+`com/unity3d/player/UnityPlayer.getLaunchURL()Ljava/lang/String;` has no host body.
+No native caller LR/register tuple is logged for this failure or inferred.
+Native exit3/controller1; all frozen inputs/objects reverify; no draw, successful
+swap, nativeRender return or PNG. Inputs SHA256
+`633ddda7238d6733a1a52e751415f0a5a7a5b42d2af7499b3f495b47b4e13da7`;
+log SHA256 `3c1d011dac17dcf94f97b2b340d9553b90a794ac4469b0f55a653c491749d74c`.
+Earlier cleared JNI diagnostics name POWER_SERVICE, InputDevice,
+InputDeviceListener and AUDIO_SERVICE; they are not the final fatal callback.
+The next change qualifies the [retained launch-URL getter](unity_launch_url.md)
+and constructor snapshot against the original APK method.
+The launch-URL/JNI binding gate now passes1262 checks per Windows/Linux host,
+including the retained URI behavior and existing Intent/AR/JNI frame regressions.
+The next original build is `work/windows-first-frame-launch-url1`, after the
+collector source guard admits the exact qualified JNI wrapper additions.
 The preceding plane-switch run exits native3/controller1; all frozen inputs
 and original objects reverify.
 There is still no original draw, successful swap, nativeRender return or PNG.

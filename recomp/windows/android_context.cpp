@@ -310,6 +310,13 @@ void AndroidContext::BindUnityPlayer(addr_t player){
     host.DefineField("com/unity3d/player/UnityPlayer","mContext","Landroid/content/Context;");
     host.DefineField("com/unity3d/player/UnityPlayer","currentActivity","Landroid/app/Activity;",true);
     host.DefineField("com/unity3d/player/UnityPlayer","m_ARCoreApi","Lcom/unity3d/player/GoogleARCoreApi;");
+    host.DefineField("com/unity3d/player/UnityPlayer","m_launchUri","Landroid/net/Uri;");
+    host.BindObjectMethod("com/unity3d/player/UnityPlayer","getLaunchURL","()Ljava/lang/String;",[&host](addr_t receiver,const jni::Host::MethodArguments&){
+      auto uri=host.GetObjectFieldValue(receiver,"m_launchUri","Landroid/net/Uri;");
+      if(!uri)return addr_t(0);
+      auto result=host.PendingException().empty()?Call(host,uri,"toString","()Ljava/lang/String;"):0;
+      host.DeleteLocalReference(uri);return result;
+    });
     host.BindBooleanMethod("com/unity3d/player/UnityPlayer","initializeGoogleAr","()Z",[&host](addr_t receiver,const jni::Host::MethodArguments&){
       auto api=host.GetObjectFieldValue(receiver,"m_ARCoreApi","Lcom/unity3d/player/GoogleARCoreApi;");
       if(api){host.DeleteLocalReference(api);return false;}
@@ -329,6 +336,13 @@ void AndroidContext::BindUnityPlayer(addr_t player){
   host.SetObjectFieldValue(player,"m_ARCoreApi","Lcom/unity3d/player/GoogleARCoreApi;",0);
   auto clazz=Env(host,6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer"));
   auto field=Env(host,144,clazz,reinterpret_cast<addr_t>("currentActivity"),reinterpret_cast<addr_t>("Landroid/app/Activity;"));Env(host,154,clazz,field,activity_);host.DeleteLocalReference(clazz);
+  // The constructor snapshots Intent.getData into m_launchUri. The getter
+  // reads that field; newIntent has additional native/job side effects and is
+  // not replaced by a setter or a live read of currentActivity's Intent.
+  auto intent=host.PendingException().empty()?Call(host,activity_,"getIntent","()Landroid/content/Intent;"):0;
+  auto uri=host.PendingException().empty()?Call(host,intent,"getData","()Landroid/net/Uri;"):0;
+  if(host.PendingException().empty())host.SetObjectFieldValue(player,"m_launchUri","Landroid/net/Uri;",uri);
+  if(uri)host.DeleteLocalReference(uri);if(intent)host.DeleteLocalReference(intent);
   if(!host.PendingException().empty())throw std::runtime_error("Unity AR Activity/context binding failed: "+host.PendingException());
 }
 }  // namespace bunker::windows

@@ -64,6 +64,8 @@ class Host {
                           const std::string &signature, std::function<addr_t(addr_t)> handler);
   void DefineObjectMethod(const std::string &class_name,const std::string &name,const std::string &signature,
                           std::function<addr_t(addr_t,const MethodArguments&)> handler);
+  void BindObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                        std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void DefineStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                 std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void BindStaticObjectMethod(const std::string &owner,const std::string &name,const std::string &signature,

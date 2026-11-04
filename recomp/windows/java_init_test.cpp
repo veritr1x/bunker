@@ -7,7 +7,7 @@ int main(int argc,char **){
  for(int profile=0;profile<5;++profile){
   if((profile==2)!=(argc>1))continue;
   Session h(image);
-  h.host.DefineClass("com/unity3d/player/UnityPlayer",{{"initializeGoogleAr","()Z"},{"nativeProbe","()Z",false,true}});
+  h.host.DefineClass("com/unity3d/player/UnityPlayer",{{"initializeGoogleAr","()Z"},{"getLaunchURL","()Ljava/lang/String;"},{"nativeProbe","()Z",false,true}});
   h.host.DefineClass("com/unity3d/player/GoogleARCoreApi",{{"initializeARCore","(Landroid/app/Activity;)V",false,true},{"pauseARCore","()V",false,true},{"resumeARCore","()V",false,true}});
   AndroidContextConfig config;config.package_name=kPackageName;config.target_sdk=kTargetSdk;config.activity_class=kLaunchActivity;
   if(profile==0)ApplyActualMetadata(config);
