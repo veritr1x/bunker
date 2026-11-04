@@ -6,6 +6,10 @@ under its heading, down to the previous release.
 
 ## 2026-11-04 (after 1.8.3)
 
+### Docs
+- The Arena validation notes and the Windows guide no longer name other
+  Android emulators. [4b7867f]
+
 ### Arena
 - Seasons end. Bunker's content patcher keeps every Arena season open, so
   one season used to last forever and its rank reward was never paid. Now the
