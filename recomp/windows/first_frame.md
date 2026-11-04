@@ -3,7 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-raise1`, host
+Latest original execution: `work/windows-first-frame-guest-transfer1`, host
+`4b08f113d6d694dfabccbd7f2db276cf8dad30b8`, uses the complete freshly
+compiled guest-transfer cohort. Native startup reaches original OpenGL
+texture creation and uploads, then exits3 at an unliftable-instruction
+report at `709a12c4`. Two original `nativeRender` calls return continue=true;
+there is no successful presentation, first-frame witness or PNG. All frozen
+inputs and selected original objects reverify after execution. The next
+step is translating the original `FMINNM S0,S0,S1` at `709a12c0`
+(bytes `0078211e`). In the selected function `709a1280`, the invalid-instruction
+path advances PC before reporting the error; `709a12c4` is the following
+instruction, which was not executed. The owning FDE ends at `709a12ec`.
+Raw, polled and optimized IR plus selected object343 establish this boundary:
+`work/first-frame-guest-transfer-frontier1/acceptance.json`, SHA256
+`d9a42f9b7ea1a9dca1789f1c04c4130a1373943af7eded2651edd83c3b1cba0c`.
+
+Inputs SHA256 `6bab47988c2023ed73fae9430cba3b796d1b0805d0e7cf0f02ac4905a6828006`;
+executable SHA256 `eaf86037272300df2bde1b59207d65ae088d36e9cf5512b07bd79a28c298943c`;
+log SHA256 `5eb5fab0286035ed2d031376199ac9fbbfd62f866221e1730a7da06828531420`.
+The controller exits1 and preserves the failed attempt without retry.
+The terminal peer passes26 checks, SHA256
+`6a981c01c2e09abd15a6ff6ddc58d8e6f7f8a021cd63108354ff4a57386f93d4`.
+The actual Raise return again selects `83f4275c` and restores SP by0x100;
+the log does not directly observe catch dispatch or completion.
+
+Preceding original execution: `work/windows-first-frame-raise1`, host
 `64a5ba3bda612c56953c51cf1f1cbfd6bb0d6b5f`, confirms the EH-return failure.
 Original Raise enters with LR `8260d5a0`, SP `1e559d70780`, X21/header
 `1e811ca2a80`, and unwind object `1e811ca2ae0`. It returns with StatePC/X30
@@ -52,7 +76,8 @@ There are 903 traces with explicit unsupported paths (866 Unity, 37 IL2CPP);
 the startup landing pad `83f4275c` has none. The v17 Python and PowerShell
 guards pass 17 actual positive versions and 34 rejection cases each, and the
 complete current host passes the static default/collector syntax gates.
-Freezing, linking and running this Windows game build remain next.
+Freezing and linking this Windows game build subsequently pass; its original
+execution is recorded above.
 The host now interposes the explicit call facade for the original automatic
 save helper. Its caller and helper share one new object, where the older
 callee-symbol wrap misses the local reference. The Windows host fixture
@@ -67,8 +92,8 @@ The promoted runtime also passes the original Windows collector regression
 (three processes, 350 checks, six stop/restart cycles). The static source
 gate admits this exact runtime pair through its pinned runtime and collector
 qualifications while retaining the historical diagnostic-source checks.
-No corrected game cohort or landing-pad code is selected yet, and no original
-draw, swap or PNG is observed. Real C++ EH receipt:
+The latest run selects this corrected game cohort and landing-pad code.
+No original draw, successful swap or PNG is observed. Real C++ EH receipt:
 `work/guest-eh-reference-translation1/qualification1`, SHA256
 `897837d9ab05d50e517820e59e55d96590806cb8af72cfe29a93d2eeed5d68f2`.
 
