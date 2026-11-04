@@ -3,8 +3,10 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: a missing original FMOD callback entry, with
-separate late Android audio/permission JNI gaps. Actual build
+Current execution frontier: missing original FMOD callback `70b3bd80` and
+its helper `70b3c1e8`, observed in `windows-first-frame-fmod-callbacks1`
+below. Separate late Android audio/permission JNI gaps remain.
+The preceding actual build
 `work/windows-first-frame-plane-switch1`, host
 `ad6c6d71225ca4859e64c769a48f0279d3046eb8`, executable
 `b3db46519430b8d7c43ae6abbb2b5b3097515b135a0e3ee18be441c5d74f8224`,
@@ -38,14 +40,40 @@ claimed as rerun. Receipt `work/cohort-v14-validation1/acceptance.json`, SHA256
 `2dcfb3ab45a0bf36fbec2bb72f0732eac19fa9a0df54b30838950f1fe7d9b10c`.
 The source-I/O selectors now identify the unique actual Python/PowerShell AST
 plan guards, allowing each new version to be tested without copied version lists.
-Next startup: `work/windows-first-frame-fmod-callbacks1`.
+The selected build `work/windows-first-frame-fmod-callbacks1` uses host
+`62b20a57225487edf00e2dc5709c3e8580bb2f2b`, executable SHA256
+`c4b64d5db2e7c1cc5559b3af054bb259615177a0c6873d365770b3534d71af4e`.
+Its original startup passes the repaired `70b3bd90` callback and stops at
+another descriptor callback, `70b3bd80`, LR `70ae5df8`, SP `1dd4fcbf1c0`.
+That callback rebases the owner and tail-calls original helper `70b3c1e8`;
+it is one of the ten explicitly excluded nonleaf callbacks. Native exit is3,
+controller exit1, with all frozen inputs and original objects reverified.
+Inputs SHA256 `142c71c93037ad37664af50ee6c97de7eade14e69d496348363de2353e9ff287`;
+log SHA256 `ba4e556b542ce4ebc763cbef0343dac6fb11012a04b764dd4d10c6cfca477b70`.
+There is still no original draw, successful swap, nativeRender return or PNG.
+The remaining nonleaf descriptor callbacks and their helpers are audited as
+a group; none is selected by the audio-disabled diagnostic below.
 Late JNI diagnostics also report missing Context.AUDIO_SERVICE,
 android/media/AudioManager, checkCallingOrSelfPermission(String)I and a null
 reference. Their causal relationship to the final stop is not assumed.
 The explicit-muted option calls original nativeMuteMasterAudio(true); it does
-not disable FMOD initialization. A genuine original no-sound startup option
-is being investigated separately, with no guessed flags or OS audio changes.
-Native exit3/controller1; all frozen inputs and original objects reverify.
+not disable FMOD initialization. A read-only audit found no established original
+no-sound launch option; no guessed flags or OS audio changes are used.
+The next diagnostic instead uses the engine's serialized
+`AudioManager.m_DisableAudio` project setting. Its separate, verified asset
+variant changes one byte from0 to1; every DEX/native entry remains identical.
+The original deserializer stores the flag at owner+`359`, and original
+`701fd66c/701fd670` exits before creating FMOD when it is set. This exercises
+the game's genuine audio-disabled path, without replacing a callback or
+reporting a successful audio device. See [asset-only input derivation](asset_pack_wrapper.md).
+Both generated APK hashes and the bounded PlayCore profile must match the new
+exact APK hash; a fresh relink is required. Existing guest objects and collector
+behavior remain selected. Both APK profiles pass209 wrapper checks and eight
+rejection boundaries per Windows/Linux host. The next original execution is
+`work/windows-first-frame-audio-disabled1`; this configuration has not yet been
+executed.
+The preceding plane-switch run exits native3/controller1; all frozen inputs
+and original objects reverify.
 There is still no original draw, successful swap, nativeRender return or PNG.
 Inputs SHA256 `00ea9cacd474e9d389bf147ae844c6d12cd9024545ff5c9c653f46da4d9c2849`;
 log SHA256 `88fd2bfc0cffe3a9a0cd9993e44d0f312555e64ac41fdff0e28e141649d67761`.

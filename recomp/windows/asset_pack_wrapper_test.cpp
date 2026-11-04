@@ -23,9 +23,13 @@ struct Session {
  addr_t find(const char*n){return call(6,reinterpret_cast<addr_t>(n));}
  addr_t run(const char*n,std::initializer_list<addr_t> args={}){alignas(16)std::array<uint8_t,65536> stack{};::State s{};Reg GPR::*r[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3};size_t at=0;for(auto a:args)(s.gpr.*r[at++]).qword=a;const auto high=reinterpret_cast<addr_t>(stack.data()+stack.size());s.gpr.sp.qword=high;s.gpr.x30.qword=0xfeedffff;const auto pc=reinterpret_cast<addr_t>(elf_symbol(&image,n));Check(Executable(pc),"strict NDK asset function is actually translated");runtime.Run(s,pc);Check(s.gpr.sp.qword==high&&s.gpr.pc.qword==0xfeedffff,"strict NDK asset caller preserves PC/SP");return s.gpr.x0.qword;}
 };
-AndroidAssetPackWrapper::Profile Profile(){return{kAssetApkSha256,kAssetCatalogSha256,true};}
+const char *activeApkSha256=kAssetApkSha256;
+AndroidAssetPackWrapper::Profile Profile(){return{activeApkSha256,kAssetCatalogSha256,true};}
 }
 int main(int argc,char**argv){
+#ifdef ASSET_DERIVED_APK_SHA256
+ if(argc>1&&std::string(argv[1])=="--derived-profile"){activeApkSha256=ASSET_DERIVED_APK_SHA256;--argc;++argv;}
+#endif
  elf_image image{};Check(!elf_load(ASSET_LIBRARY,0x78000000,nullptr,&image),"actual NDK asset wrapper fixture mapped");
  if(argc>1&&std::string(argv[1])=="--retired-owner"){Session h(image);addr_t object=0;{AndroidAssetPackWrapper adapter(h.host,Profile());object=h.run("asset_init",{h.env(),0,0});}h.run("asset_missing",{h.env(),object,0});throw std::runtime_error("expired owner boundary returned");}
  if(argc>1){Session h(image);auto p=Profile();std::string mode=argv[1];if(mode=="--changed-apk")p.apk_sha256[0]^=1;if(mode=="--unknown-code")p.code_catalog_sha256.clear();if(mode=="--present-code")p.code_catalog_sha256="present Factory definition";if(mode=="--open-scope")p.apk_only_closed_application_code=false;AndroidAssetPackWrapper adapter(h.host,p);if(mode=="--visible-factory")h.host.DefineClass("com/google/android/play/core/assetpacks/AssetPackManagerFactory");auto o=h.run("asset_init",{h.env(),0,0});if(mode=="--path")h.run("asset_path",{h.env(),o});if(mode=="--get-instance")h.run("asset_get_instance",{h.env()});throw std::runtime_error("expected asset wrapper boundary returned");}

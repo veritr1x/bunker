@@ -9,6 +9,9 @@ constexpr const char *kWrapperType="Lcom/unity3d/player/AssetPackManagerWrapper;
 constexpr const char *kInit="(Landroid/content/Context;)Lcom/unity3d/player/AssetPackManagerWrapper;";
 constexpr const char *kManager="Lcom/google/android/play/core/assetpacks/AssetPackManager;";
 constexpr const char *kApk="9ded0797ee607b6892b531ba3a02f4c4510774f5fe098ccada78ccff881c9209";
+// The verified asset-only variant sets AudioManager.m_DisableAudio. Its four
+// DEX containers and every other uncompressed APK entry remain identical.
+constexpr const char *kAudioDisabledApk="36e15676053734a225f55bdf89acd375adaf298872d4d1dfc06c140e5a0ed394";
 constexpr const char *kCatalog="b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689";
 constexpr const char *kReinit="AssetPackManagerWrapper.init() should be called only once. Use getInstance() instead.";
 struct EmptyHashSet {std::unordered_set<uint64_t> contents;};
@@ -43,7 +46,7 @@ struct AndroidAssetPackWrapper::State {
   bool Missing(addr_t receiver){auto manager=host.GetObjectFieldValue(receiver,"b",kManager);Healthy(host);const bool missing=!manager;if(manager)host.DeleteLocalReference(manager);return missing;}
 };
 AndroidAssetPackWrapper::AndroidAssetPackWrapper(jni::Host &host,const Profile &profile){
-  if(profile.apk_sha256!=kApk||profile.code_catalog_sha256!=kCatalog||!profile.apk_only_closed_application_code)
+  if((profile.apk_sha256!=kApk&&profile.apk_sha256!=kAudioDisabledApk)||profile.code_catalog_sha256!=kCatalog||!profile.apk_only_closed_application_code)
     throw std::runtime_error("asset pack wrapper unsupported or unknown complete APK code-catalog profile");
   Healthy(host);state_=std::make_shared<State>(host);std::weak_ptr<State> weak=state_;
   auto get=[weak]{auto state=weak.lock();if(!state)throw std::runtime_error("asset pack wrapper adapter owner expired");return state;};

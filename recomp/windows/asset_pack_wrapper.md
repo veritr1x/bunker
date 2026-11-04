@@ -84,3 +84,25 @@ are retained under `work/asset-pack-wrapper1` and `work/asset-pack-wrapper2`.
 The original DEX/native evidence and proposed scope are in
 `work/assetpack-version-audit`; the independent complete APK proof is in
 `work/playcore-init-audit`.
+
+The audio-disabled diagnostic also admits APK SHA256
+`36e15676053734a225f55bdf89acd375adaf298872d4d1dfc06c140e5a0ed394`.
+This separate APK changes only `AudioManager.m_DisableAudio` from0 to1 at
+byte223600 of `assets/bin/Data/globalgamemanagers` (class11, pathID4).
+All4968 uncompressed ZIP entries are compared:4967 are identical and the
+remaining entry differs by that one byte. The original APK stays unchanged;
+all DEX/native code and the accepted code-catalog profile remain identical.
+The target ZIP stream/CRC and central-directory offsets change; this is a
+Windows diagnostic asset variant, without an Android signature/install claim.
+Derivation receipt `work/audio-disabled-config1/acceptance.json`, SHA256
+`befd3b4a79777c3f4c9104c316bb647ca2e5596c71ea0c127dd38e745a5b7f98`.
+The wrapper accepts those two exact APK hashes, with its existing code-catalog
+and closed-application predicates unchanged. Unknown APK hashes remain rejected.
+The targeted gate passes209 checks and all eight rejection boundaries for each
+APK profile on Windows and Linux. It reuses the qualified13-trace NDK fixture,
+checks its State layout against the current1200-byte ABI, and rebuilds current
+JNI/Runtime support. Receipt
+`work/asset-pack-wrapper-audio-disabled-qualification2/acceptance.json`, SHA256
+`71358a2883f989e4bab12961c1b38fcfa07a24d0bee7cc7da8f6c69aabbe655d`.
+The first controller attempt stops before compilation on a WSL git/worktree
+path issue; the preserved second attempt uses `git.exe` and passes.
