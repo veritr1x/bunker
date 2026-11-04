@@ -21,6 +21,18 @@ uint64_t gl_draw_is_vertex_array_procedure(uint32_t name){
  PFNGLISVERTEXARRAYPROC query=(PFNGLISVERTEXARRAYPROC)eglGetProcAddress("glIsVertexArray");
  return query(name);
 }
+uint32_t gl_draw_create_shader_direct(uint32_t stage){return glCreateShader(stage);}
+uint32_t gl_draw_create_shader_pointer(uint64_t procedure,uint32_t stage){return ((PFNGLCREATESHADERPROC)procedure)(stage);}
+uint32_t gl_draw_create_shader_procedure(uint32_t stage){PFNGLCREATESHADERPROC create=(PFNGLCREATESHADERPROC)eglGetProcAddress("glCreateShader");return create(stage);}
+void gl_draw_compute_pipeline(uint32_t shader,uint32_t program,const char*source,int32_t*out){
+ LOAD(glShaderSource,PFNGLSHADERSOURCEPROC);LOAD(glCompileShader,PFNGLCOMPILESHADERPROC);LOAD(glGetShaderiv,PFNGLGETSHADERIVPROC);
+ LOAD(glAttachShader,PFNGLATTACHSHADERPROC);LOAD(glLinkProgram,PFNGLLINKPROGRAMPROC);LOAD(glGetProgramiv,PFNGLGETPROGRAMIVPROC);
+ LOAD(glUseProgram,PFNGLUSEPROGRAMPROC);LOAD(glGetIntegerv,PFNGLGETINTEGERVPROC);
+ glShaderSource(shader,1,&source,0);glCompileShader(shader);
+ glGetShaderiv(shader,GL_SHADER_TYPE,out);glGetShaderiv(shader,GL_COMPILE_STATUS,out+1);
+ glAttachShader(program,shader);glLinkProgram(program);glGetProgramiv(program,GL_LINK_STATUS,out+2);
+ glUseProgram(program);glGetIntegerv(GL_CURRENT_PROGRAM,out+3);
+}
 #endif
 void gl_draw_upload(const struct DrawInput *in,struct DrawObjects *out){
 #define GL_DRAW(n,t) LOAD(n,t);

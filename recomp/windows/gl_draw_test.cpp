@@ -107,10 +107,10 @@ int main(){try{
 #undef GL_DRAW
  Check(names.before==0x1122334455667788ULL&&names.after==0x8877665544332211ULL,"resolver output exact eight-byte entries");
  Check(gl.Marker("glGetString")==0x7ff450000000ULL&&gl.Marker("glGetError")==0x7ff450000028ULL,"old GL marker identities unchanged");
- Check(std::size(kOldDrawCommands)==121&&GlHost::Commands().size()==122,"exact old121 plus single VAO predicate");
- for(size_t i=0;i<121;++i)Check(GlHost::Commands()[i]==kOldDrawCommands[i]&&gl.Marker(kOldDrawCommands[i])==gl.Marker(kOldDrawCommands[0])+i*8,"every previous command name and marker retained");
+ Check(std::size(kOldDrawCommands)==GlHost::Commands().size(),"complete parent command namespace retained");
+ for(size_t i=0;i<std::size(kOldDrawCommands);++i)Check(GlHost::Commands()[i]==kOldDrawCommands[i]&&gl.Marker(kOldDrawCommands[i])==gl.Marker(kOldDrawCommands[0])+i*8,"every previous command name and marker retained");
  const auto object_marker=gl.Marker("glIsVertexArray");
- Check(GlHost::Commands()[121]=="glIsVertexArray"&&object_marker==gl.Marker(kOldDrawCommands[0])+121*8,"VAO predicate appended last");
+ Check(GlHost::Commands()[kOldObjectIndex]=="glIsVertexArray"&&object_marker==gl.Marker(kOldDrawCommands[0])+kOldObjectIndex*8,"existing VAO predicate position retained");
  Check(Guest("gl_draw_object_resolve")==object_marker&&object_marker!=reinterpret_cast<addr_t>(GetProcAddress(driver,"glIsVertexArray")),"actual NDK procedure lookup returns typed marker, never native pointer");
  struct Guard{uint64_t before=0x123456789abcdef0ULL;DrawObjects objects{};uint64_t after=0xfedcba9876543210ULL;} guard;
  Inputs inputs;Guest("gl_draw_upload",{Address(&inputs.input),Address(&guard.objects)});inputs.Hide();
@@ -176,7 +176,6 @@ int main(){try{
  auto Reject=[&](const std::function<void()> &call,const char *why){bool rejected=false;try{call();}catch(const std::exception&){rejected=true;}Check(rejected,why);};
  Reject([&]{Invoke(gl,"glGetProgramiv",{o.program,0xffffffffU,1});},"unknown object query width explicit before output access");
  Reject([&]{gl.Marker("glMapBufferRange");},"unknown mapped signature remains explicit");
- Reject([&]{Invoke(gl,"glCreateShader",{GL_COMPUTE_SHADER});},"compute shader stage outside typed scope");
  Invoke(gl,"glBindBuffer",{GL_ARRAY_BUFFER,0});Reject([&]{Invoke(gl,"glVertexAttribPointer",{0,2,GL_FLOAT,0,8,1});},"CPU client vertex pointer rejected");Invoke(gl,"glBindBuffer",{GL_ARRAY_BUFFER,o.buffers[0]});
  Invoke(gl,"glBindBuffer",{GL_ELEMENT_ARRAY_BUFFER,0});Reject([&]{Invoke(gl,"glDrawElements",{GL_TRIANGLES,3,GL_UNSIGNED_SHORT,1});},"CPU client index pointer rejected");Invoke(gl,"glBindBuffer",{GL_ELEMENT_ARRAY_BUFFER,o.buffers[1]});
  Reject([&]{Invoke(gl,"glReadPixels",{0,0,9,8,GL_RGBA,GL_UNSIGNED_BYTE,1});},"clipped read footprint rejected");
@@ -202,13 +201,35 @@ int main(){try{
  Invoke(gl,"glDeleteShader",{edge_shader});
  std::array<uint8_t,8> unaligned;unaligned.fill(0xa5);Invoke(gl,"glGenBuffers",{1,Address(unaligned.data()+1)});
  GLuint unaligned_name=0;std::memcpy(&unaligned_name,unaligned.data()+1,4);Check(unaligned_name&&unaligned[0]==0xa5&&unaligned[5]==0xa5,"unaligned name output writes exact four bytes through staging");Invoke(gl,"glDeleteBuffers",{1,Address(unaligned.data()+1)});
- // Three-component query width is exercised with a native-only compiled
- // compute program, without exposing a guest compute-stage or dispatch API.
- GLuint cs=NativeSymbol<PFNGLCREATESHADERPROC>("glCreateShader")(GL_COMPUTE_SHADER),cp=NativeSymbol<PFNGLCREATEPROGRAMPROC>("glCreateProgram")();
+ // Compute object creation/compile/link/query uses the same real ES3.1 backend.
+ // No dispatch or compute workload executes in this fixture.
+ GLint major=0,minor=0;NativeSymbol<PFNGLGETINTEGERVPROC>("glGetIntegerv")(GL_MAJOR_VERSION,&major);NativeSymbol<PFNGLGETINTEGERVPROC>("glGetIntegerv")(GL_MINOR_VERSION,&minor);
+ Check(major>3||(major==3&&minor>=1),"actual backend context supports ES3.1 compute stages");
  const char *compute="#version 310 es\nlayout(local_size_x=2,local_size_y=3,local_size_z=1) in;void main(){}";
- NativeSymbol<PFNGLSHADERSOURCEPROC>("glShaderSource")(cs,1,&compute,nullptr);NativeSymbol<PFNGLCOMPILESHADERPROC>("glCompileShader")(cs);NativeSymbol<PFNGLATTACHSHADERPROC>("glAttachShader")(cp,cs);NativeSymbol<PFNGLLINKPROGRAMPROC>("glLinkProgram")(cp);
- std::array<int32_t,5> workgroup={0x12345678,0,0,0,0x76543210};Guest("gl_draw_query",{cp,GL_COMPUTE_WORK_GROUP_SIZE,Address(workgroup.data()+1)});
- Check(workgroup==std::array<int32_t,5>{0x12345678,2,3,1,0x76543210},"three-component program query publishes exact 12-byte output");NativeSymbol<PFNGLDELETEPROGRAMPROC>("glDeleteProgram")(cp);NativeSymbol<PFNGLDELETESHADERPROC>("glDeleteShader")(cs);
+ Bind(reference_context,reference_surface);
+ const GLuint native_cs=NativeSymbol<PFNGLCREATESHADERPROC>("glCreateShader")(GL_COMPUTE_SHADER),native_cp=NativeSymbol<PFNGLCREATEPROGRAMPROC>("glCreateProgram")();
+ NativeSymbol<PFNGLSHADERSOURCEPROC>("glShaderSource")(native_cs,1,&compute,nullptr);NativeSymbol<PFNGLCOMPILESHADERPROC>("glCompileShader")(native_cs);NativeSymbol<PFNGLATTACHSHADERPROC>("glAttachShader")(native_cp,native_cs);NativeSymbol<PFNGLLINKPROGRAMPROC>("glLinkProgram")(native_cp);
+ GLint native_type=0,native_compiled=0,native_linked=0;std::array<int32_t,3> native_group{};
+ NativeSymbol<PFNGLGETSHADERIVPROC>("glGetShaderiv")(native_cs,GL_SHADER_TYPE,&native_type);NativeSymbol<PFNGLGETSHADERIVPROC>("glGetShaderiv")(native_cs,GL_COMPILE_STATUS,&native_compiled);NativeSymbol<PFNGLGETPROGRAMIVPROC>("glGetProgramiv")(native_cp,GL_LINK_STATUS,&native_linked);NativeSymbol<PFNGLGETPROGRAMIVPROC>("glGetProgramiv")(native_cp,GL_COMPUTE_WORK_GROUP_SIZE,native_group.data());
+ Check(native_cs&&native_cp&&native_type==GL_COMPUTE_SHADER&&native_compiled&&native_linked&&native_group==std::array<int32_t,3>{2,3,1},"independent native compute creation compilation link and local size");
+ const auto native_invalid=NativeSymbol<PFNGLCREATESHADERPROC>("glCreateShader")(0xffffffffU),native_invalid_error=NativeSymbol<PFNGLGETERRORPROC>("glGetError")();
+ Check(!native_invalid&&native_invalid_error==GL_INVALID_ENUM,"backend validates invalid shader stage");
+ NativeSymbol<PFNGLDELETEPROGRAMPROC>("glDeleteProgram")(native_cp);NativeSymbol<PFNGLDELETESHADERPROC>("glDeleteShader")(native_cs);Bind(context,surface);
+ for(unsigned mode=0;mode<3;++mode){
+  const auto create_marker=gl.Marker("glCreateShader");
+  auto CreateStage=[&](uint32_t stage){const auto poisoned=UINT64_C(0xa5a5a5a500000000)|stage;return mode==0?Guest("gl_draw_create_shader_direct",{poisoned}):mode==1?Guest("gl_draw_create_shader_pointer",{create_marker,poisoned}):Guest("gl_draw_create_shader_procedure",{poisoned});};
+  const auto shader=CreateStage(GL_COMPUTE_SHADER);Check(shader&&shader<=UINT32_MAX,"NDK GLenum low32 and GLuint result are exact through direct pointer and procedure calls");
+  const auto program=Invoke(gl,"glCreateProgram");std::array<int32_t,6> statuses{0x12345678,0,0,0,0,0x76543210};
+  Guest("gl_draw_compute_pipeline",{shader,program,Address(compute),Address(statuses.data()+1)});
+  Check(statuses==std::array<int32_t,6>{0x12345678,native_type,native_compiled,native_linked,int32_t(program),0x76543210},"actual NDK shader source compile attach link use and exact query footprints match native backend");
+  std::array<int32_t,5> workgroup{0x12345678,0,0,0,0x76543210};Guest("gl_draw_query",{program,GL_COMPUTE_WORK_GROUP_SIZE,Address(workgroup.data()+1)});
+  Check(workgroup==std::array<int32_t,5>{0x12345678,2,3,1,0x76543210},"NDK compute-program workgroup query publishes exact 12 bytes");
+  Check(!CreateStage(0xffffffffU)&&Invoke(gl,"glGetError")==native_invalid_error&&Invoke(gl,"glGetError")==0,"NDK invalid stage delegates native error exactly once");
+  Invoke(gl,"glUseProgram",{o.program});Invoke(gl,"glDeleteProgram",{program});Invoke(gl,"glDeleteShader",{shader});
+ }
+ State stage_abi{};stage_abi.gpr.x0.qword=UINT64_C(0xdeadbeef000091b9);gl.Invoke("glCreateShader",stage_abi);
+ Check(stage_abi.gpr.x0.qword&&stage_abi.gpr.x0.qword<=UINT32_MAX,"typed GLenum32 to GLuint32 bridge clears stale high result bits");Invoke(gl,"glDeleteShader",{stage_abi.gpr.x0.qword});
+ std::printf("GL compute stage: 3 NDK create paths and compile/link/query; native invalid-stage errors; no dispatch\n");
  Check(Invoke(gl,"glGetError")==0,"bounded shape/negative/unaligned cases leave no native errors");
  // Native EGL errors are moved into the public cache, never fabricated back
  // into the native driver. Both existing cached and native-pending errors survive.

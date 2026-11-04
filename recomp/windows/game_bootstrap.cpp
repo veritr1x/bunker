@@ -644,7 +644,20 @@ int main(int argc,char **argv){
       const auto actual=identity=="sigsuspend"?process_signals.Marker(identity):identity=="sem_wait"||identity=="sem_timedwait"?semaphores.Marker(identity):threads.Marker(identity);
       const auto observed=tls_audit.Marker(identity);
       runtime.AddImport(observed,[&,identity,actual](State &s){
-        const auto token=GameWorkerObservation::Wait("ENTER",identity.c_str(),s);
+        bool record_wait=true;
+        if(first_frame){
+          GameWorkerObservation::NativeEnvironment native;
+          // Per-thread diagnostic counters contain no guest addresses. Bound
+          // repeated fast-lock output while retaining complete sampled pairs.
+          static thread_local std::array<uint64_t,4> calls{};
+          const size_t slot=identity=="pthread_mutex_lock"?0:identity=="pthread_rwlock_rdlock"?1:identity=="pthread_rwlock_wrlock"?2:identity=="pthread_once"?3:4;
+          if(slot<calls.size()&&GameWorkerObservation::Token()){
+            auto &seen=calls[slot];if(seen!=UINT64_MAX)++seen;
+            record_wait=seen<=64||seen%4096==0;
+            if(record_wait)std::fprintf(stderr,"First frame: sampled worker wait import=%s native_tid=%lu calls=%llu; first64 then every4096, observations only\n",identity.c_str(),GetCurrentThreadId(),(unsigned long long)seen);
+          }
+        }
+        const auto token=record_wait?GameWorkerObservation::Wait("ENTER",identity.c_str(),s):0;
         // Dispatch the existing checked provider. No nested Runtime::Run or
         // new guest State is introduced; original arguments/results survive.
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY

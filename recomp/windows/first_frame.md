@@ -3,7 +3,35 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-continuation1`, host
+Latest original execution: `work/windows-first-frame-nanosleep1`, host
+`ebeef029afc8e128bae67a3b9e47de457b5c8bb9`, completes two original render calls
+and reaches `glCreateShader(GL_COMPUTE_SHADER)` in the third. The graphics host
+rejects that stage before calling the driver: stage `91b9`, guest LR `7048c838`.
+Native exit3/controller1; no original draw, clear, swap or PNG. The run has3577
+GL calls,2788 balanced EGL calls and95 texture allocations.
+
+All1765 observed nanosleep calls return0 after copying a valid request of
+0 seconds/9999000 nanoseconds with a null remainder. Their elapsed durations
+are not established by those logs. A read-only stack sample and original code
+identify a Unity job-drain loop; the separate background worker progresses into
+IL2CPP code before the later shader-stage stop.
+
+Inputs SHA256 `21bab761d2d3b7cb464ced0a8ff2d8033ecd458659385399ac9b9ae88b655e94`;
+executable SHA256 `100143ece506f616231e242efac497cb5f30d0f27077c1e92675d81792da4f96`;
+log SHA256 `a272f5bb5fc810e833f450df525bf0e7a808cb7a065d8e3c997fc72518238514`.
+Frozen inputs and original objects reverify.
+
+The next repair delegates typed shader creation to the real driver for compute
+stages too. Its component gate passes592 checks, including actual NDK creation,
+compilation, linking and queries alongside the existing vertex/fragment draw
+tests. Compute dispatch remains a separate unsupported operation. See
+[shader-stage qualification](gl_draw.md). The first-frame diagnostic also bounds
+repeated mutex/rwlock/once observations to the first64 calls and each4096th call
+per native thread/import. Other waits remain fully observed. This reduces log
+output without changing provider calls or collector hooks; speedup is unmeasured.
+A fresh original execution is still required to pass shader creation.
+
+The preceding original execution `work/windows-first-frame-continuation1`, host
 `df179927722c32566e881497247ea853904849f4`, completes two original render calls
 with `continue=true` on the same UnityMain. The third call stops at unsupported
 `nanosleep`, PC `7ffc000000a0`, LR `70383878`, request pointer `1f4620b0f50`
@@ -29,8 +57,8 @@ documented scopes. The existing protected27-source map remains exact and the
 game admits no new signal-delivery phase. Receipt
 `work/nanosleep-qualification2/acceptance.json`, SHA256
 `596efcd8c20d899f4783d97b8fbef7ca1aee352fe0e464a3c7f2a0117b16aa09`.
-A fresh original execution is still needed to pass the reached timer import
-and continue toward a presented frame.
+The subsequent original run above passes the reached timer import; its later
+shader-stage frontier still prevents a presented frame.
 
 The preceding execution `work/windows-first-frame-launch-url1`, host
 `ab351e2314be540c52ea7c5dea5dbd7261393d50`, passes the launch-URL callback and

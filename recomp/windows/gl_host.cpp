@@ -474,7 +474,7 @@ struct GlHost::Impl {
 #define GL_SCALAR(name, native_type, signature) {using GuestSignature=signature;static_assert(std::is_same_v<native_type,GuestSignature*>);Bind<signature>(#name,Symbol<native_type>(module,#name));}
 #include "gl_scalar_commands.inc"
 #undef GL_SCALAR
-    Bind<GLuint(GLenum)>("glCreateShader",[this](GLenum type){if(type==GL_COMPUTE_SHADER)throw std::runtime_error("Compute shader stage is outside typed draw scope");return draw_glCreateShader(type);});
+    Bind<GLuint(GLenum)>("glCreateShader",draw_glCreateShader);
     Bind<void(GLuint,GLsizei,addr_t,addr_t)>("glShaderSource",[this](auto s,auto n,auto strings,auto lengths){ShaderSource(s,n,strings,lengths);});
     Bind<void(GLuint)>("glCompileShader",draw_glCompileShader);Bind<void(GLuint)>("glDeleteShader",draw_glDeleteShader);
     Bind<void(GLuint,GLenum,addr_t)>("glGetShaderiv",[this](auto s,auto p,auto out){ObjectQuery(s,p,out,false,draw_glGetShaderiv);});

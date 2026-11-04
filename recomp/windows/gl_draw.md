@@ -2,6 +2,25 @@
 
 This gate expands `GlHost` by the 29 exact signatures in `gl_draw_commands.inc`. It runs actual Android NDK callers recompiled to native Windows against the accepted, pinned `work/angle-native/bundle/bin` Vulkan ANGLE build. It does not execute a Unity frame.
 
+The current provider also forwards compute shader creation through the existing
+typed `GLuint(GLenum)` native binding. The original game reached stage `0x91b9`
+and was stopped by an earlier host policy guard. Removing that guard leaves
+native stage validation, errors and context capabilities to the actual driver.
+Shader source copying, compilation, program linking/use and reflection already
+use the same typed paths. Compute dispatch and workload execution remain outside
+this qualification.
+
+`work/gl-compute-stage-qualification2/acceptance.json`, SHA256
+`8211a15a1beaa16799578064eeb6caa090009e5b7674ed6a36ec9ff8aae3065b`,
+passes592 checks on real ANGLE/Vulkan. Actual NDK direct, pointer and procedure
+calls create compute objects and compile/link/query a program against independent
+native calls. Invalid-stage errors, scalar widths and the existing vertex/fragment
+indexed/array triangle, shader-error, readback and lifetime checks pass. Reversing
+the single production binding line recovers the entire parent GL source; command
+order, capabilities and capture code remain exact. These tests establish no
+compute dispatch or original game frame. The first controller attempt stopped
+at a namespace-parser regex before compilation and is retained.
+
 The existing six query and 28 scalar-command marker indices remain unchanged. `eglGetProcAddress` resolves these supported names to installed guest import markers, never native code pointers. Unknown names still fail explicitly.
 
 The Unity bootstrap uses `GlHost::Commands()` for both direct-import selection
@@ -13,7 +32,7 @@ all 286 native draw-gate checks. This integration has not executed a Unity draw.
 
 ## Guest memory and ABI
 
-GL enums, GLuint names, signed GLint/GLsizei values and output lengths occupy four bytes; GLboolean occupies one byte; ARM64 guest pointer tables and signed GLsizeiptr/GLintptr values occupy eight. Shader/program query widths are enumerated explicitly, including the three-component compute-work-group-size information query; unknown widths are rejected before touching output memory. Compute shader creation/execution remains outside the guest bridge.
+GL enums, GLuint names, signed GLint/GLsizei values and output lengths occupy four bytes; GLboolean occupies one byte; ARM64 guest pointer tables and signed GLsizeiptr/GLintptr values occupy eight. Shader/program query widths are enumerated explicitly, including the three-component compute-work-group-size information query; unknown widths are rejected before touching output memory. Compute shader objects are supported; compute dispatch/execution remains outside the guest bridge.
 
 Shader source tables and optional signed lengths are copied through tracked reads. Nonnegative lengths copy exactly that many bytes, including embedded NUL bytes; negative or omitted lengths use a bounded NUL scan. The native call receives owned staging storage. Buffer uploads likewise snapshot their inputs; NULL `BufferData` allocates native storage, and zero-size/count operations do not read guest arrays. Staging is bounded to 64 MiB per transfer and 4096 shader-source strings. These are explicit host scope limits, not reported GLES capabilities.
 
