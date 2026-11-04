@@ -16,6 +16,7 @@ def native_render_returns(text):
  return [{'frame':int(m[1]),'continue':m[2]=='1'}for m in re.finditer(r'First frame: original nativeRender returned frame=(\d+) continue=([01])(?:\s|$)',text)]
 
 def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,grandparent_proof=None,great_grandparent_proof=None,ancestor_chain=None):
+ if type(proof.get('contract'))is dict and type(proof['contract'].get('version'))is int and proof['contract']['version']==17:return _validate_cooperative_contract_v17(proof,descriptor,objects,ancestor_chain)
  assert (proof['trace_heads'],len(proof['objects']),len(objects))in((456684,3575,3575),(456689,3576,3576),(456700,3577,3577),(456706,3578,3578),(456733,3579,3579))and proof['unique_definitions'] is True and proof['missing_direct_targets']==[],'incomplete cooperative cohort'
  assert [(x['path'],x['sha256'])for x in proof['objects']]==[(x['path'],x['sha256'])for x in objects],'cooperative cohort object selection differs'
  contract=proof['contract'];version=contract.get('version',1)
@@ -285,7 +286,52 @@ def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,gra
  return version
 
 
+def _validate_cooperative_contract_v17(proof,descriptor,objects,ancestor_chain):
+ expected_strings={'profile': 'qualified-full-guest-call-transfer-v17', 'parent_acceptance_sha256': 'ba9dcd5884e2e03dde2706698bff36b6d7f48aee4b6d19803580d7f1b2a7a868', 'parent_input_plan_sha256': '99cb2b489ad4bda4158cd231d60be87f7f0e9a54c70954b09f1adcd9b6100dde', 'parent_inputs_sha256': '97c6546a5b9e8d3db41490f823c84c8b29fcd72ea45c45f48e67d9bff6bfab20', 'base_LSDA_union_sha256': 'd34636ed7e903e34624f9fe157cd094fa712db4cbabe3314004a867bbdb37d73', 'full_candidate_sha256': '095ce7ceb97bae3da64e7548e827657897843f7a069fe78762f6187df6ac7eb8', 'candidate_inventory_sha256': 'b1fcf8e405fbb512e8689cc149587cfeffd68155c9bff1709a1cdc118ecb2dfc', 'all_heads_sha256': 'd7fa779342075417cce0269f350bc5482c58c6b00d6ec4fa46f378b63d7abc54', 'object_inventory_sha256': '2103d243fa0093f94ab408ccbc59f5ff93d28a5affcd910fe3dfaa19cf20bfe7', 'actual_unsupported_inventory_sha256': '245d7d97048f380a0b9e75d83ef225f075b07dc017254041de65c9e3746523d9', 'native_callback_accounting_sha256': '82c41fede3a1224ef7e5ac31e2dd95b40105a1505a71f7a525c0c03902467a08', 'optimized_guard_audit_inventory_sha256': '252d982d141f4890e551f1afd916822685a0bd569e26ab33cf10e7466473415c', 'lifter_sha256': '3daa9c8df6aed34e49ef20fb8b1b4d959b372d662ce611ea64a0fe31b91cff94', 'semantics_sha256': '5a9c6807083a60b93500ea54a081368f4f177ffe42946662e868f257692aae19', 'poll_instrument_sha256': '716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa', 'runtime_header_sha256': '7a3ee02b9ffbe0213f0ef514ae54a02d5bfd131271d4dd39b714a3d03e87ec54', 'runtime_source_sha256': '052411ac09dd05a6dd229d17f1f991a93ee984ae1f447416cefdf610629f1c56', 'original_LSDA_audit_sha256': '4912d35b0a18d32ca899753feb58c7cc8f21616facafab0ba3331b5f6d5746b5', 'lowering_qualification_sha256': '906954a8fbc61b461cac52823afd0bc2c2edafd74bb180438afd24bb7f8fa33a', 'runtime_qualification_sha256': 'f4e534b9b6c18ca2b5fd7b514598af5aa6a93376d55859120b74f88e7dc4ce8f', 'original_CXX_fixture_sha256': '897837d9ab05d50e517820e59e55d96590806cb8af72cfe29a93d2eeed5d68f2', 'original_A64_RET_fixture_sha256': '5bb999740233426199e7864d0b2c404efc63013aa39b85f8b4e2af756ebd7eb3', 'original_direct_call_closure_sha256': 'e3ef6b0f8c4e44801231c19167b9ba8750ae352fc66244d14d8efdd0e2a74c69', 'original_direct_call_closure_peer_sha256': '3c4bffe0431da7eea617fe8f8fda3067278688a07fab23e0571405abf971127b', 'producer_focused_qualification_sha256': '5024f2fee92ec38b88e3d77892f67f1fbf85c76abc3cd17e292b837015a50c79', 'source_to_selected_objects_sha256': '3e6aeb1b6d90cff0a395b14d962045cfafd1ea2f40740983353e2f53ff03a246', 'optimized_auditor_binary_sha256': '54533fc54e17e7f1141e71f29022613621b24731619d6a739b6c6c1301b16556', 'optimized_auditor_source_sha256': 'fe2c16672360a6bc7ff9135f0c63486ac294658ccf1255eb580fcb342ce1bc58', 'optimized_auditor_qualification_sha256': '56b9a1debd25791c34cc769c0243714d6976ffa192cfdaa482a40c7e31e4b45d', 'target': 'x86_64-w64-windows-gnu', 'optimization': '-O2', 'deriver_sha256': 'f705868bf4b596fbc104a9f961f0eb837fe114b2dc3ec0b3aa4d8bc19eda7f82', 'input_plan_sha256': '24a693222ea44c324623e7d73a3a68869dbbe220ca204b19fdc05a3819bd8997'}
+ expected_integers={'version': 17, 'trace_heads': 595404, 'objects': 4652, 'parent_trace_heads': 456733, 'added_trace_count': 138671, 'added_LSDA_trace_count': 138657, 'added_direct_closure_trace_count': 14, 'actual_unsupported_total': 903}
+ expected_booleans={'all_native_objects_replaced': True, 'existing_objects_preserved': False, 'no_relift': False, 'no_global_semantics_refresh': True, 'source_ir_and_semantics_preserved': False, 'poll_after_guard_lowering': True, 'explicit_transfer_no_host_EH': True, 'production_signal_delivery_enabled': False}
+ expected_evidence={'full_candidate': {'path': '/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/evidence/full-candidate.json', 'sha256': '095ce7ceb97bae3da64e7548e827657897843f7a069fe78762f6187df6ac7eb8', 'bytes': 69575905}, 'candidate_inventory': {'path': '/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/evidence/candidate-inventory.json', 'sha256': 'b1fcf8e405fbb512e8689cc149587cfeffd68155c9bff1709a1cdc118ecb2dfc', 'bytes': 35044}, 'actual_unsupported_inventory': {'path': '/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/actual-unsupported.txt', 'sha256': '245d7d97048f380a0b9e75d83ef225f075b07dc017254041de65c9e3746523d9', 'bytes': 9933}, 'native_callback_accounting': {'path': '/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/native-callback-accounting.json', 'sha256': '82c41fede3a1224ef7e5ac31e2dd95b40105a1505a71f7a525c0c03902467a08', 'bytes': 5055781}, 'optimized_guard_audit_inventory': {'path': '/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/optimized-guard-audit-inventory.json', 'sha256': '252d982d141f4890e551f1afd916822685a0bd569e26ab33cf10e7466473415c', 'bytes': 2529313}, 'source_to_selected_objects': {'path': '/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/source-to-selected-objects.json', 'sha256': '3e6aeb1b6d90cff0a395b14d962045cfafd1ea2f40740983353e2f53ff03a246', 'bytes': 2198237}}
+ contract=proof['contract']
+ assert type(descriptor.get('acceptance_sha256'))is str and descriptor['acceptance_sha256']=='d832d715b89815bcbe3052c6ab4ded47a0951ecb47f3f1d60d79572c0348aab6','unqualified v17 acceptance'
+ assert all(type(contract.get(k))is str and contract[k]==v for k,v in expected_strings.items()),'v17 provenance differs'
+ assert all(type(contract.get(k))is int and contract[k]==v for k,v in expected_integers.items()),'v17 integer scope differs'
+ assert all(type(contract.get(k))is bool and contract[k]is v for k,v in expected_booleans.items()),'v17 policy differs'
+ evidence=proof.get('admission_evidence')
+ assert type(evidence)is dict and all(type(evidence.get(k))is dict and type(evidence[k].get('path'))is str and evidence[k]['path']==v['path']and type(evidence[k].get('sha256'))is str and evidence[k]['sha256']==v['sha256']for k,v in expected_evidence.items()),'v17 evidence links differ'
+ assert type(proof.get('trace_heads'))is int and proof['trace_heads']==595404,'v17 trace count differs'
+ assert proof.get('passed')is True and proof.get('unique_definitions')is True and type(proof.get('missing_direct_targets'))is list and proof['missing_direct_targets']==[],'v17 cohort incomplete'
+ assert type(proof.get('objects'))is list and type(objects)is list and len(objects)==len(proof['objects'])==4652,'v17 object count differs'
+ lines=[]
+ for index,(actual,selected)in enumerate(zip(proof['objects'],objects)):
+  assert type(actual)is dict and type(selected)is dict,'v17 object descriptor differs'
+  path=actual.get('path');digest=actual.get('sha256')
+  assert type(path)is str and path and not any(x in path for x in '\t\r\n')and type(digest)is str and re.fullmatch('[0-9a-f]{64}',digest),'v17 object descriptor invalid'
+  assert selected.get('path')==path and selected.get('sha256')==digest,'v17 selected object differs'
+  lines.append(f'{index}\t{path}\t{digest}\n')
+ assert len({row['path']for row in proof['objects']})==4652,'v17 duplicate object path'
+ assert hashlib.sha256(''.join(lines).encode('utf-8')).hexdigest()==expected_strings['object_inventory_sha256'],'v17 full replacement inventory differs'
+ unsupported=proof.get('unsupported_heads')
+ assert type(unsupported)is list and all(type(x)is int and x>=0 for x in unsupported)and unsupported==sorted(set(unsupported)),'v17 unsupported inventory type/order differs'
+ assert type(proof.get('actual_unsupported_total'))is int and len(unsupported)==proof['actual_unsupported_total']==expected_integers['actual_unsupported_total'],'v17 unsupported count differs'
+ assert hashlib.sha256(''.join(str(x)+'\n'for x in unsupported).encode('ascii')).hexdigest()==expected_strings['actual_unsupported_inventory_sha256'],'v17 unsupported inventory differs'
+ state=proof.get('State')
+ assert type(state)is dict and type(state.get('bytes'))is int and state['bytes']==1200 and type(state.get('align'))is int and state['align']==16 and type(state.get('type_closure_sha256'))is str and state['type_closure_sha256']=='26ad0f8c6163e8eeae69a5cb4e0325ebf44e7f4dd61fb5b274913f09ce8c9137','v17 State ABI differs'
+ for key in('input_plan_path','parent_acceptance_path','parent_input_plan_path'):
+  assert type(contract.get(key))is str and contract[key],'v17 plan/parent path absent'
+ assert type(ancestor_chain)is list and len(ancestor_chain)==15 and type(ancestor_chain[0])is dict and type(ancestor_chain[0]['contract'].get('version'))is int and ancestor_chain[0]['contract']['version']==16,'v17 exact ancestor chain absent'
+ parent=ancestor_chain[0];parent_descriptor={'acceptance_path':contract['parent_acceptance_path'],'acceptance_sha256':contract['parent_acceptance_sha256']}
+ assert validate_cooperative_contract(parent,parent_descriptor,parent['objects'],ancestor_chain=ancestor_chain[1:])==16 and parent['contract']['input_plan_sha256']==contract['parent_input_plan_sha256'],'v17 parent contract/plan differs'
+ for evidence in expected_evidence.values():assert sha(evidence['path'])==evidence['sha256'],'v17 evidence bytes differ'
+ return 17
+
+
 def load_cooperative_parent(proof):
+ if type(proof.get('contract'))is dict and type(proof['contract'].get('version'))is int and proof['contract']['version']==17:
+  contract=proof['contract']
+  assert type(contract.get('parent_acceptance_sha256'))is str and contract['parent_acceptance_sha256']=='ba9dcd5884e2e03dde2706698bff36b6d7f48aee4b6d19803580d7f1b2a7a868'and type(contract.get('parent_input_plan_sha256'))is str and contract['parent_input_plan_sha256']=='99cb2b489ad4bda4158cd231d60be87f7f0e9a54c70954b09f1adcd9b6100dde','v17 parent anchors differ'
+  for key in('parent_acceptance_path','parent_input_plan_path'):assert type(contract.get(key))is str and contract[key],'v17 parent path absent'
+  assert sha(contract['parent_acceptance_path'])==contract['parent_acceptance_sha256']and sha(contract['parent_input_plan_path'])==contract['parent_input_plan_sha256'],'v17 parent files differ'
+  return json.loads(pathlib.Path(contract['parent_acceptance_path']).read_bytes())
  version=proof['contract'].get('version',1)
  if type(version)is not int or version not in(3,4,5,6,7,8,9,10,11,12,13,14,15,16):return None
  contract=proof['contract']
@@ -308,6 +354,10 @@ def load_cooperative_parent(proof):
  return parent
 
 def load_cooperative_ancestors(proof):
+ if type(proof.get('contract'))is dict and type(proof['contract'].get('version'))is int and proof['contract']['version']==17:
+  parent=load_cooperative_parent(proof)
+  assert type(parent['contract'].get('version'))is int and parent['contract']['version']==16,'v17 ancestor version differs'
+  return [parent]+load_cooperative_ancestors(parent)
  version=proof['contract'].get('version')
  assert type(version)is int and version in(6,7,8,9,10,11,12,13,14,15,16),'ancestor loading requires v6 through v16'
  result=[];current=proof
@@ -320,12 +370,12 @@ def load_cooperative_ancestors(proof):
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--build',type=pathlib.Path,required=True);p.add_argument('--profile',choices=['default','init','surface','frame','frame-muted','frame-muted-gc'],default='default');p.add_argument('--width',type=int,default=1280);p.add_argument('--height',type=int,default=720);p.add_argument('--verify-only',action='store_true');p.add_argument('--first-frame',action='store_true');a=p.parse_args();b=a.build.resolve();frame=a.profile in ('frame','frame-muted','frame-muted-gc');gc=a.profile=='frame-muted-gc';muted_profile=a.profile in ('frame-muted','frame-muted-gc')
  if a.first_frame and not gc:p.error('--first-frame requires --profile frame-muted-gc')
- m=json.loads((b/'game_inputs.json').read_text());record=json.loads((b/'game_build.json').read_text());assert m['status']=='prepared'and (m['union_trace_count'],len(m['objects']))in((456684,3575),(456689,3576),(456700,3577),(456706,3578),(456733,3579))
+ m=json.loads((b/'game_inputs.json').read_text());record=json.loads((b/'game_build.json').read_text());assert m['status']=='prepared'and (m['union_trace_count'],len(m['objects']))in((456684,3575),(456689,3576),(456700,3577),(456706,3578),(456733,3579),(595404,4652))
  expected={**m['original_object_hashes'],**m['input_hashes'],**{x['path']:x['sha256']for x in m['objects']},**{str(b/'sources'/k):v for k,v in m['source_sha256'].items()},**{str(b/k):v for field in ['frozen_support_sha256','generated_header_sha256']for k,v in m[field].items()},str(b/'game_inputs.json'):record['inputs_sha256'],str(b/'bunker-game-bootstrap.exe'):record['executable_sha256'],str(b/'libz-inflate.a'):m['zlib_sha256'],str(b/'host-source.tar'):m['host_archive_sha256']}
  expected.update({str(pathlib.Path(m['angle_directory'])/k):v for k,v in m['angle_dll_sha256'].items()})
  expected.update({str(b/'native'/('lib'+mod['name']+'.so')):mod['sha256']for mod in m['modules']})
  poll_cohort=m.get('cooperative_poll_cohort')
- assert m['union_trace_count']not in(456689,456700,456706)or poll_cohort,'additive shape requires an accepted cooperative cohort'
+ assert m['union_trace_count']not in(456689,456700,456706,595404)or poll_cohort,'additive shape requires an accepted cooperative cohort'
  if gc and(not poll_cohort or record.get('collector_delivery_profile')!='original-finalizer-single-condwait-v1'):raise RuntimeError('Original collector profile is unavailable: explicit build option and accepted cooperative cohort are required')
  if poll_cohort:expected[poll_cohort['acceptance_path']]=poll_cohort['acceptance_sha256']
  def verify():
@@ -335,7 +385,7 @@ def main():
  verify()
  if poll_cohort:
   proof=json.loads(pathlib.Path(poll_cohort['acceptance_path']).read_text())
-  if proof['contract'].get('version')in(6,7,8,9,10,11,12,13,14,15,16):
+  if proof['contract'].get('version')in(6,7,8,9,10,11,12,13,14,15,16,17):
    ancestor_chain=load_cooperative_ancestors(proof)
    version=validate_cooperative_contract(proof,poll_cohort,m['objects'],ancestor_chain=ancestor_chain)
    for node in [proof]+ancestor_chain[:-1]:
@@ -346,13 +396,14 @@ def main():
    great_grandparent_proof=load_cooperative_parent(grandparent_proof)if proof['contract'].get('version')==5 else None
    version=validate_cooperative_contract(proof,poll_cohort,m['objects'],parent_proof,grandparent_proof,great_grandparent_proof)
   assert m['union_trace_count']==proof['trace_heads'],'manifest/cohort head count differs'
+  if version==17:expected.update({row['path']:row['sha256']for row in proof['admission_evidence'].values()})
   if version in(3,4,5):
    expected[proof['contract']['parent_acceptance_path']]=proof['contract']['parent_acceptance_sha256'];expected[proof['contract']['parent_input_plan_path']]=proof['contract']['parent_input_plan_sha256']
   if version in(4,5):
    expected[parent_proof['contract']['parent_acceptance_path']]=parent_proof['contract']['parent_acceptance_sha256'];expected[parent_proof['contract']['parent_input_plan_path']]=parent_proof['contract']['parent_input_plan_sha256']
   if version==5:
    expected[grandparent_proof['contract']['parent_acceptance_path']]=grandparent_proof['contract']['parent_acceptance_sha256'];expected[grandparent_proof['contract']['parent_input_plan_path']]=grandparent_proof['contract']['parent_input_plan_sha256']
-  if version in(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16):
+  if version in(2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17):
    plan=proof['contract']['input_plan_path'];plan_hash=proof['contract']['input_plan_sha256'];assert sha(plan)==plan_hash,'sparse cooperative plan file differs';expected[plan]=plan_hash
  if a.verify_only:print('All accepted objects, source/support, inputs, native data and executable verified; no guest execution');return
  def wp(path):return subprocess.check_output(['wslpath','-m',str(pathlib.Path(path).resolve())],text=True).strip()

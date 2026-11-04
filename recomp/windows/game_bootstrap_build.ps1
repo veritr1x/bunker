@@ -2,10 +2,11 @@ param([Parameter(Mandatory=$true)][string]$BuildDirectory,[string]$Cxx='C:\mingw
 $ErrorActionPreference='Stop'
 $taskBuild=(Resolve-Path -LiteralPath $BuildDirectory).ProviderPath
 $taskInput=Get-Content -Raw -LiteralPath (Join-Path $taskBuild 'game_inputs.json')|ConvertFrom-Json
-if($taskInput.status -ne 'prepared' -or -not (($taskInput.union_trace_count -eq 456684 -and $taskInput.objects.Count -eq 3575) -or ($taskInput.union_trace_count -eq 456689 -and $taskInput.objects.Count -eq 3576 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 456700 -and $taskInput.objects.Count -eq 3577 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 456706 -and $taskInput.objects.Count -eq 3578 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 456733 -and $taskInput.objects.Count -eq 3579 -and $null -ne $taskInput.cooperative_poll_cohort))){throw 'Incomplete final dual-engine input proof'}
+if($taskInput.status -ne 'prepared' -or -not (($taskInput.union_trace_count -eq 456684 -and $taskInput.objects.Count -eq 3575) -or ($taskInput.union_trace_count -eq 456689 -and $taskInput.objects.Count -eq 3576 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 456700 -and $taskInput.objects.Count -eq 3577 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 456706 -and $taskInput.objects.Count -eq 3578 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 456733 -and $taskInput.objects.Count -eq 3579 -and $null -ne $taskInput.cooperative_poll_cohort) -or ($taskInput.union_trace_count -eq 595404 -and $taskInput.objects.Count -eq 4652 -and $null -ne $taskInput.cooperative_poll_cohort))){throw 'Incomplete final dual-engine input proof'}
 function Game-Path([string]$path){if($path.StartsWith('/mnt/c/')){return 'C:\'+$path.Substring(7).Replace('/','\')}return $path}
 function Game-Hash([string]$path){return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()}
 function Game-ValidatePollContract($proof,$descriptor,$objects,$parentProof=$null,$grandparentProof=$null,$greatGrandparentProof=$null,$ancestorProofs=$null){
+ if(($proof.contract.version -is [int] -or $proof.contract.version -is [long]) -and $proof.contract.version -eq 17){return Game-ValidatePollContractV17 $proof $descriptor $objects $ancestorProofs}
  if(-not (($proof.trace_heads -eq 456684 -and $proof.objects.Count -eq 3575 -and $objects.Count -eq 3575) -or ($proof.trace_heads -eq 456689 -and $proof.objects.Count -eq 3576 -and $objects.Count -eq 3576) -or ($proof.trace_heads -eq 456700 -and $proof.objects.Count -eq 3577 -and $objects.Count -eq 3577) -or ($proof.trace_heads -eq 456706 -and $proof.objects.Count -eq 3578 -and $objects.Count -eq 3578) -or ($proof.trace_heads -eq 456733 -and $proof.objects.Count -eq 3579 -and $objects.Count -eq 3579)) -or $proof.unique_definitions -isnot [bool] -or -not $proof.unique_definitions -or $proof.PSObject.Properties.Name -notcontains 'missing_direct_targets' -or $null -eq $proof.missing_direct_targets -or $proof.missing_direct_targets.Count -ne 0){throw 'Incomplete cooperative cohort'}
  for($index=0;$index -lt $objects.Count;$index++){if($proof.objects[$index].path -cne $objects[$index].path -or $proof.objects[$index].sha256 -cne $objects[$index].sha256){throw "Cooperative cohort object selection differs at $index"}}
  $contract=$proof.contract;$version=1
@@ -326,7 +327,145 @@ function Game-ValidatePollContract($proof,$descriptor,$objects,$parentProof=$nul
  }
  return $version
 }
+function Game-ValidatePollContractV17($proof,$descriptor,$objects,$ancestorProofs){
+ $strings=@'
+{
+  "profile": "qualified-full-guest-call-transfer-v17",
+  "parent_acceptance_sha256": "ba9dcd5884e2e03dde2706698bff36b6d7f48aee4b6d19803580d7f1b2a7a868",
+  "parent_input_plan_sha256": "99cb2b489ad4bda4158cd231d60be87f7f0e9a54c70954b09f1adcd9b6100dde",
+  "parent_inputs_sha256": "97c6546a5b9e8d3db41490f823c84c8b29fcd72ea45c45f48e67d9bff6bfab20",
+  "base_LSDA_union_sha256": "d34636ed7e903e34624f9fe157cd094fa712db4cbabe3314004a867bbdb37d73",
+  "full_candidate_sha256": "095ce7ceb97bae3da64e7548e827657897843f7a069fe78762f6187df6ac7eb8",
+  "candidate_inventory_sha256": "b1fcf8e405fbb512e8689cc149587cfeffd68155c9bff1709a1cdc118ecb2dfc",
+  "all_heads_sha256": "d7fa779342075417cce0269f350bc5482c58c6b00d6ec4fa46f378b63d7abc54",
+  "object_inventory_sha256": "2103d243fa0093f94ab408ccbc59f5ff93d28a5affcd910fe3dfaa19cf20bfe7",
+  "actual_unsupported_inventory_sha256": "245d7d97048f380a0b9e75d83ef225f075b07dc017254041de65c9e3746523d9",
+  "native_callback_accounting_sha256": "82c41fede3a1224ef7e5ac31e2dd95b40105a1505a71f7a525c0c03902467a08",
+  "optimized_guard_audit_inventory_sha256": "252d982d141f4890e551f1afd916822685a0bd569e26ab33cf10e7466473415c",
+  "lifter_sha256": "3daa9c8df6aed34e49ef20fb8b1b4d959b372d662ce611ea64a0fe31b91cff94",
+  "semantics_sha256": "5a9c6807083a60b93500ea54a081368f4f177ffe42946662e868f257692aae19",
+  "poll_instrument_sha256": "716410d1dc2498041e90804bcee9ebe632263e82ad32ba827adfb09f1c85d7aa",
+  "runtime_header_sha256": "7a3ee02b9ffbe0213f0ef514ae54a02d5bfd131271d4dd39b714a3d03e87ec54",
+  "runtime_source_sha256": "052411ac09dd05a6dd229d17f1f991a93ee984ae1f447416cefdf610629f1c56",
+  "original_LSDA_audit_sha256": "4912d35b0a18d32ca899753feb58c7cc8f21616facafab0ba3331b5f6d5746b5",
+  "lowering_qualification_sha256": "906954a8fbc61b461cac52823afd0bc2c2edafd74bb180438afd24bb7f8fa33a",
+  "runtime_qualification_sha256": "f4e534b9b6c18ca2b5fd7b514598af5aa6a93376d55859120b74f88e7dc4ce8f",
+  "original_CXX_fixture_sha256": "897837d9ab05d50e517820e59e55d96590806cb8af72cfe29a93d2eeed5d68f2",
+  "original_A64_RET_fixture_sha256": "5bb999740233426199e7864d0b2c404efc63013aa39b85f8b4e2af756ebd7eb3",
+  "original_direct_call_closure_sha256": "e3ef6b0f8c4e44801231c19167b9ba8750ae352fc66244d14d8efdd0e2a74c69",
+  "original_direct_call_closure_peer_sha256": "3c4bffe0431da7eea617fe8f8fda3067278688a07fab23e0571405abf971127b",
+  "producer_focused_qualification_sha256": "5024f2fee92ec38b88e3d77892f67f1fbf85c76abc3cd17e292b837015a50c79",
+  "source_to_selected_objects_sha256": "3e6aeb1b6d90cff0a395b14d962045cfafd1ea2f40740983353e2f53ff03a246",
+  "optimized_auditor_binary_sha256": "54533fc54e17e7f1141e71f29022613621b24731619d6a739b6c6c1301b16556",
+  "optimized_auditor_source_sha256": "fe2c16672360a6bc7ff9135f0c63486ac294658ccf1255eb580fcb342ce1bc58",
+  "optimized_auditor_qualification_sha256": "56b9a1debd25791c34cc769c0243714d6976ffa192cfdaa482a40c7e31e4b45d",
+  "target": "x86_64-w64-windows-gnu",
+  "optimization": "-O2",
+  "deriver_sha256": "f705868bf4b596fbc104a9f961f0eb837fe114b2dc3ec0b3aa4d8bc19eda7f82",
+  "input_plan_sha256": "24a693222ea44c324623e7d73a3a68869dbbe220ca204b19fdc05a3819bd8997"
+}
+'@|ConvertFrom-Json
+ $integers=@'
+{
+  "version": 17,
+  "trace_heads": 595404,
+  "objects": 4652,
+  "parent_trace_heads": 456733,
+  "added_trace_count": 138671,
+  "added_LSDA_trace_count": 138657,
+  "added_direct_closure_trace_count": 14,
+  "actual_unsupported_total": 903
+}
+'@|ConvertFrom-Json
+ $booleans=@'
+{
+  "all_native_objects_replaced": true,
+  "existing_objects_preserved": false,
+  "no_relift": false,
+  "no_global_semantics_refresh": true,
+  "source_ir_and_semantics_preserved": false,
+  "poll_after_guard_lowering": true,
+  "explicit_transfer_no_host_EH": true,
+  "production_signal_delivery_enabled": false
+}
+'@|ConvertFrom-Json
+ $evidence=@'
+{
+  "full_candidate": {
+    "path": "/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/evidence/full-candidate.json",
+    "sha256": "095ce7ceb97bae3da64e7548e827657897843f7a069fe78762f6187df6ac7eb8",
+    "bytes": 69575905
+  },
+  "candidate_inventory": {
+    "path": "/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/evidence/candidate-inventory.json",
+    "sha256": "b1fcf8e405fbb512e8689cc149587cfeffd68155c9bff1709a1cdc118ecb2dfc",
+    "bytes": 35044
+  },
+  "actual_unsupported_inventory": {
+    "path": "/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/actual-unsupported.txt",
+    "sha256": "245d7d97048f380a0b9e75d83ef225f075b07dc017254041de65c9e3746523d9",
+    "bytes": 9933
+  },
+  "native_callback_accounting": {
+    "path": "/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/native-callback-accounting.json",
+    "sha256": "82c41fede3a1224ef7e5ac31e2dd95b40105a1505a71f7a525c0c03902467a08",
+    "bytes": 5055781
+  },
+  "optimized_guard_audit_inventory": {
+    "path": "/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/optimized-guard-audit-inventory.json",
+    "sha256": "252d982d141f4890e551f1afd916822685a0bd569e26ab33cf10e7466473415c",
+    "bytes": 2529313
+  },
+  "source_to_selected_objects": {
+    "path": "/mnt/c/GitRepos/bunker/recomp/work/first-frame-guest-transfer-cohort1/source-to-selected-objects.json",
+    "sha256": "3e6aeb1b6d90cff0a395b14d962045cfafd1ea2f40740983353e2f53ff03a246",
+    "bytes": 2198237
+  }
+}
+'@|ConvertFrom-Json
+ $contract=$proof.contract
+ if($descriptor.acceptance_sha256 -isnot [string] -or $descriptor.acceptance_sha256 -cne 'd832d715b89815bcbe3052c6ab4ded47a0951ecb47f3f1d60d79572c0348aab6'){throw 'Unqualified v17 acceptance'}
+ foreach($entry in $strings.PSObject.Properties){$value=$contract.($entry.Name);if($value -isnot [string] -or $value -cne $entry.Value){throw "v17 provenance differs: $($entry.Name)"}}
+ foreach($entry in $integers.PSObject.Properties){$value=$contract.($entry.Name);if(($value -isnot [int] -and $value -isnot [long]) -or $value -ne $entry.Value){throw "v17 integer scope differs: $($entry.Name)"}}
+ foreach($entry in $booleans.PSObject.Properties){$value=$contract.($entry.Name);if($value -isnot [bool] -or $value -ne $entry.Value){throw "v17 policy differs: $($entry.Name)"}}
+ foreach($entry in $evidence.PSObject.Properties){$actual=$proof.admission_evidence.($entry.Name);if($actual.path -isnot [string] -or $actual.path -cne $entry.Value.path -or $actual.sha256 -isnot [string] -or $actual.sha256 -cne $entry.Value.sha256){throw "v17 evidence links differ: $($entry.Name)"}}
+ if(($proof.trace_heads -isnot [int] -and $proof.trace_heads -isnot [long]) -or $proof.trace_heads -ne 595404){throw 'v17 trace count differs'}
+ if($proof.passed -isnot [bool] -or -not $proof.passed -or $proof.unique_definitions -isnot [bool] -or -not $proof.unique_definitions -or $proof.missing_direct_targets -isnot [array] -or $proof.missing_direct_targets.Count -ne 0){throw 'v17 cohort incomplete'}
+ if($proof.objects -isnot [array] -or $objects -isnot [array] -or $proof.objects.Count -ne 4652 -or $objects.Count -ne 4652){throw 'v17 object count differs'}
+ function Game-V17HashText([string]$text){$algorithm=[Security.Cryptography.SHA256]::Create();try{$bytes=([Text.UTF8Encoding]::new($false)).GetBytes($text);return [BitConverter]::ToString($algorithm.ComputeHash($bytes)).Replace('-','').ToLowerInvariant()}finally{$algorithm.Dispose()}}
+ $lines=[Text.StringBuilder]::new();$paths=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+ for($index=0;$index -lt 4652;$index++){
+  $actual=$proof.objects[$index];$selected=$objects[$index];$path=$actual.path;$digest=$actual.sha256
+  if($path -isnot [string] -or [string]::IsNullOrEmpty($path) -or $path.IndexOfAny([char[]]"`t`r`n") -ge 0 -or $digest -isnot [string] -or $digest -cnotmatch '^[0-9a-f]{64}$'){throw 'v17 object descriptor invalid'}
+  if($selected.path -cne $path -or $selected.sha256 -cne $digest){throw 'v17 selected object differs'}
+  if(-not $paths.Add($path)){throw 'v17 duplicate object path'}
+  [void]$lines.Append($index.ToString([Globalization.CultureInfo]::InvariantCulture)).Append("`t").Append($path).Append("`t").Append($digest).Append("`n")
+ }
+ if((Game-V17HashText $lines.ToString()) -cne $strings.object_inventory_sha256){throw 'v17 full replacement inventory differs'}
+ $unsupported=$proof.unsupported_heads
+ if($unsupported -isnot [array]){throw 'v17 unsupported inventory absent'}
+ $numbers=[Text.StringBuilder]::new();$last=-1L
+ foreach($head in $unsupported){if(($head -isnot [int] -and $head -isnot [long]) -or $head -lt 0 -or $head -le $last){throw 'v17 unsupported inventory type/order differs'};[void]$numbers.Append($head.ToString([Globalization.CultureInfo]::InvariantCulture)).Append("`n");$last=$head}
+ if(($proof.actual_unsupported_total -isnot [int] -and $proof.actual_unsupported_total -isnot [long]) -or $proof.actual_unsupported_total -ne $unsupported.Count -or $unsupported.Count -ne $integers.actual_unsupported_total){throw 'v17 unsupported count differs'}
+ if((Game-V17HashText $numbers.ToString()) -cne $strings.actual_unsupported_inventory_sha256){throw 'v17 unsupported inventory differs'}
+ $state=$proof.State
+ if(($state.bytes -isnot [int] -and $state.bytes -isnot [long]) -or $state.bytes -ne 1200 -or ($state.align -isnot [int] -and $state.align -isnot [long]) -or $state.align -ne 16 -or $state.type_closure_sha256 -isnot [string] -or $state.type_closure_sha256 -cne '26ad0f8c6163e8eeae69a5cb4e0325ebf44e7f4dd61fb5b274913f09ce8c9137'){throw 'v17 State ABI differs'}
+ foreach($key in @('input_plan_path','parent_acceptance_path','parent_input_plan_path')){if($contract.$key -isnot [string] -or [string]::IsNullOrEmpty($contract.$key)){throw 'v17 plan/parent path absent'}}
+ if($ancestorProofs -isnot [array] -or $ancestorProofs.Count -ne 15 -or ($ancestorProofs[0].contract.version -isnot [int] -and $ancestorProofs[0].contract.version -isnot [long]) -or $ancestorProofs[0].contract.version -ne 16){throw 'v17 exact ancestor chain absent'}
+ $parent=$ancestorProofs[0];$parentDescriptor=[pscustomobject]@{acceptance_path=$contract.parent_acceptance_path;acceptance_sha256=$contract.parent_acceptance_sha256};$parentAncestors=@($ancestorProofs|Select-Object -Skip 1)
+ if((Game-ValidatePollContract $parent $parentDescriptor $parent.objects $null $null $null $parentAncestors) -ne 16 -or $parent.contract.input_plan_sha256 -cne $contract.parent_input_plan_sha256){throw 'v17 parent contract/plan differs'}
+ foreach($entry in $evidence.PSObject.Properties){if((Game-Hash (Game-Path $entry.Value.path)) -cne $entry.Value.sha256){throw 'v17 evidence bytes differ'}}
+ return 17
+}
+
 function Game-LoadPollParent($proof){
+ if(($proof.contract.version -is [int] -or $proof.contract.version -is [long]) -and $proof.contract.version -eq 17){
+  $contract=$proof.contract
+  if($contract.parent_acceptance_sha256 -isnot [string] -or $contract.parent_acceptance_sha256 -cne 'ba9dcd5884e2e03dde2706698bff36b6d7f48aee4b6d19803580d7f1b2a7a868' -or $contract.parent_input_plan_sha256 -isnot [string] -or $contract.parent_input_plan_sha256 -cne '99cb2b489ad4bda4158cd231d60be87f7f0e9a54c70954b09f1adcd9b6100dde'){throw 'v17 parent anchors differ'}
+  foreach($key in @('parent_acceptance_path','parent_input_plan_path')){if($contract.$key -isnot [string] -or [string]::IsNullOrEmpty($contract.$key)){throw 'v17 parent path absent'}}
+  if((Game-Hash (Game-Path $contract.parent_acceptance_path)) -cne $contract.parent_acceptance_sha256 -or (Game-Hash (Game-Path $contract.parent_input_plan_path)) -cne $contract.parent_input_plan_sha256){throw 'v17 parent files differ'}
+  return Get-Content -Raw -LiteralPath (Game-Path $contract.parent_acceptance_path)|ConvertFrom-Json
+ }
  if(($proof.contract.version -isnot [int] -and $proof.contract.version -isnot [long]) -or ($proof.contract.version -ne 3 -and $proof.contract.version -ne 4 -and $proof.contract.version -ne 5 -and $proof.contract.version -ne 6 -and $proof.contract.version -ne 7 -and $proof.contract.version -ne 8 -and $proof.contract.version -ne 9 -and $proof.contract.version -ne 10 -and $proof.contract.version -ne 11 -and $proof.contract.version -ne 12 -and $proof.contract.version -ne 13 -and $proof.contract.version -ne 14 -and $proof.contract.version -ne 15 -and $proof.contract.version -ne 16)){return $null}
  $contract=$proof.contract;$version=$contract.version
  $anchors=@{3=@('7ce11b6bfd936334be8b7e8c7fe7691435830f818392a9a21d9f499120662549','9152d0cbf46a20aa86ee33cc48de63a1dece3647efe015b0aaed872c7e36bd95');4=@('68017f198f7745a3e31056bf15a01ee9a8c9f11c12bd4b21ec1ab80efa589b67','4e01e9169f4265e1147dc3917e9acd8c7ecd7c5e73a5f9ad4c2b45a09e03cfeb');5=@('5aa51b995facc9b9e1dc18997f667c4d7918754d91fc60ae675abda0957b3fd3','57fa0c40d52a3e1e175cff2dd8133935d873d481038845c7aca734352b9d35ae');6=@('9bf9e6bc5df6c932f552b81456559d28d6fa0d9c1cc1a65b3afa00deff9ade14','6bf5af7262febc4fa10ff452c06a938d3089504b8a136ab808f2ce52fe6dc3d9')}
@@ -349,6 +488,12 @@ function Game-LoadPollParent($proof){
 }
 
 function Game-LoadPollAncestors($proof){
+ if(($proof.contract.version -is [int] -or $proof.contract.version -is [long]) -and $proof.contract.version -eq 17){
+  $parent=Game-LoadPollParent $proof
+  if(($parent.contract.version -isnot [int] -and $parent.contract.version -isnot [long]) -or $parent.contract.version -ne 16){throw 'v17 ancestor version differs'}
+  $oldAncestors=Game-LoadPollAncestors $parent
+  return ,(@($parent)+@($oldAncestors))
+ }
  if(($proof.contract.version -isnot [int] -and $proof.contract.version -isnot [long]) -or ($proof.contract.version -ne 6 -and $proof.contract.version -ne 7 -and $proof.contract.version -ne 8 -and $proof.contract.version -ne 9 -and $proof.contract.version -ne 10 -and $proof.contract.version -ne 11 -and $proof.contract.version -ne 12 -and $proof.contract.version -ne 13 -and $proof.contract.version -ne 14 -and $proof.contract.version -ne 15 -and $proof.contract.version -ne 16)){throw 'Ancestor loading requires v6 through v16'}
  $result=@();$current=$proof
  for($version=$proof.contract.version-1;$version -ge 2;$version--){
@@ -368,7 +513,7 @@ if($null -ne $taskPollCohort){
  $taskPollProofPath=Game-Path $taskPollCohort.acceptance_path
  if((Game-Hash $taskPollProofPath) -ne $taskPollCohort.acceptance_sha256){throw 'Cooperative cohort acceptance differs'}
  $taskPollProof=Get-Content -Raw -LiteralPath $taskPollProofPath|ConvertFrom-Json
- if($taskPollProof.contract.version -eq 6 -or $taskPollProof.contract.version -eq 7 -or $taskPollProof.contract.version -eq 8 -or $taskPollProof.contract.version -eq 9 -or $taskPollProof.contract.version -eq 10 -or $taskPollProof.contract.version -eq 11 -or $taskPollProof.contract.version -eq 12 -or $taskPollProof.contract.version -eq 13 -or $taskPollProof.contract.version -eq 14 -or $taskPollProof.contract.version -eq 15 -or $taskPollProof.contract.version -eq 16){
+ if($taskPollProof.contract.version -eq 6 -or $taskPollProof.contract.version -eq 7 -or $taskPollProof.contract.version -eq 8 -or $taskPollProof.contract.version -eq 9 -or $taskPollProof.contract.version -eq 10 -or $taskPollProof.contract.version -eq 11 -or $taskPollProof.contract.version -eq 12 -or $taskPollProof.contract.version -eq 13 -or $taskPollProof.contract.version -eq 14 -or $taskPollProof.contract.version -eq 15 -or $taskPollProof.contract.version -eq 16 -or $taskPollProof.contract.version -eq 17){
   $taskAncestors=Game-LoadPollAncestors $taskPollProof
   $taskPollVersion=Game-ValidatePollContract $taskPollProof $taskPollCohort $taskInput.objects $null $null $null $taskAncestors
  }else{
@@ -378,7 +523,7 @@ if($null -ne $taskPollCohort){
   $taskPollVersion=Game-ValidatePollContract $taskPollProof $taskPollCohort $taskInput.objects $taskParentProof $taskGrandparentProof $taskGreatGrandparentProof
  }
  if($taskInput.union_trace_count -ne $taskPollProof.trace_heads){throw 'Manifest/cohort head count differs'}
- if(($taskPollVersion -eq 2 -or $taskPollVersion -eq 3 -or $taskPollVersion -eq 4 -or $taskPollVersion -eq 5 -or $taskPollVersion -eq 6 -or $taskPollVersion -eq 7 -or $taskPollVersion -eq 8 -or $taskPollVersion -eq 9 -or $taskPollVersion -eq 10 -or $taskPollVersion -eq 11 -or $taskPollVersion -eq 12 -or $taskPollVersion -eq 13 -or $taskPollVersion -eq 14 -or $taskPollVersion -eq 15 -or $taskPollVersion -eq 16) -and (Game-Hash (Game-Path $taskPollProof.contract.input_plan_path)) -cne $taskPollProof.contract.input_plan_sha256){throw 'Sparse cooperative plan file differs'}
+ if(($taskPollVersion -eq 2 -or $taskPollVersion -eq 3 -or $taskPollVersion -eq 4 -or $taskPollVersion -eq 5 -or $taskPollVersion -eq 6 -or $taskPollVersion -eq 7 -or $taskPollVersion -eq 8 -or $taskPollVersion -eq 9 -or $taskPollVersion -eq 10 -or $taskPollVersion -eq 11 -or $taskPollVersion -eq 12 -or $taskPollVersion -eq 13 -or $taskPollVersion -eq 14 -or $taskPollVersion -eq 15 -or $taskPollVersion -eq 16 -or $taskPollVersion -eq 17) -and (Game-Hash (Game-Path $taskPollProof.contract.input_plan_path)) -cne $taskPollProof.contract.input_plan_sha256){throw 'Sparse cooperative plan file differs'}
 }
 if((Game-Hash (Join-Path $taskBuild 'libz-inflate.a')) -ne $taskInput.zlib_sha256){throw 'Frozen zlib backend differs'}
 $taskSource=Join-Path $taskBuild 'sources\recomp'

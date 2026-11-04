@@ -13,7 +13,7 @@ remains initialized before/after: exception class `434c4e47432b2b00`, typeinfo
 `82610b88`. The host caller then incorrectly enters its failure continuation,
 using restored X21 as a header, and reaches the same null-target abort.
 This establishes destination loss rather than corruption of the original
-exception record. The selected landing pad `83f4275c` is also absent from the
+exception record. In that build, landing pad `83f4275c` is absent from the
 compiled trace table; its original LSDA identifies an actual catch path.
 
 The complete original EH metadata audit finds 138,657 absent landing-pad heads
@@ -30,12 +30,12 @@ and ordinary platform boundaries remain explicit in the fixture receipts.
 The repository runtime unit runner passes both hosts (15 cases, 220 checks,
 seven fail-closed controls each).
 
-The full rebuild remains an unselected candidate. Optimized-IR guard checks
+The complete fresh rebuild is now statically admitted. Optimized-IR guard checks
 now account for compiler call merging and private native shadow-slot cleanup;
 native callback counts are telemetry under the qualified LLVM backend.
-The next stopped build exposes nine missing direct-call targets in Unity
+An earlier stopped build exposed nine missing direct-call targets in Unity
 function `705b985c`. All nine are original executable helpers without symbols
-or FDE coverage. The 595,390-head metadata union therefore needs a reachable
+or FDE coverage. The 595,390-head metadata union needed a reachable
 direct-call closure pass before another complete native build. Failed builds
 and completed shards remain preserved.
 That architectural preflight now passes across 16,497,957 original
@@ -43,10 +43,16 @@ instructions, with zero invalid decodes, unknown controls or out-of-executable
 edges. It adds the nine Unity helpers and five IL2CPP import stubs, producing
 595,404 heads in 4,652 objects. The focused native build of all 14 additions
 and the previous 128-head failing batch passes its direct-reference and
-optimized-IR guard checks. The full fresh build is running as the unselected
-`work/guest-eh-candidate5`, controlled by
-`work/guest-eh-rebuild-preparation10`. This is code generation, not a linked
-Windows game or first-frame result.
+optimized-IR guard checks. The full fresh build `work/guest-eh-candidate5`
+completed all 4,652 objects, controlled by `work/guest-eh-rebuild-preparation10`.
+Its complete inventory and Windows-readable object copies pass static admission
+in `work/first-frame-guest-transfer-cohort1`, SHA256
+`d832d715b89815bcbe3052c6ab4ded47a0951ecb47f3f1d60d79572c0348aab6`.
+There are 903 traces with explicit unsupported paths (866 Unity, 37 IL2CPP);
+the startup landing pad `83f4275c` has none. The v17 Python and PowerShell
+guards pass 17 actual positive versions and 34 rejection cases each, and the
+complete current host passes the static default/collector syntax gates.
+Freezing, linking and running this Windows game build remain next.
 The host now interposes the explicit call facade for the original automatic
 save helper. Its caller and helper share one new object, where the older
 callee-symbol wrap misses the local reference. The Windows host fixture

@@ -10,8 +10,9 @@ restores a landing-pad PC and SP, but the old lifted caller loses that
 destination. The runtime and pre-inliner call-lowering correction pass real
 ARM/Windows/Linux exception fixtures. A complete metadata and reachable
 direct-call inventory now contains 595,404 heads. Its full fresh native
-rebuild is in progress; linking, original startup and the first game image
-remain to be verified. The execution notes below retain earlier checkpoints.
+rebuild and its static cohort/guard checks now pass; freezing, linking,
+original startup and the first game image remain to be verified. The execution
+notes below retain earlier checkpoints.
 
 The matching pre-inliner compiler hook and pass are checkpointed locally in
 the Remill fork at `3fd14f3f64d4ab37b36bd985d1b492cec6e1f1bb`. Those three source
