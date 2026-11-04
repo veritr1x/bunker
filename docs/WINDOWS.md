@@ -145,7 +145,7 @@ Options, for running `Bunker.exe` from a command prompt:
 | --- | --- |
 | **NieR isn't responding** in the emulator | The phone ran out of memory. Close the emulator window and start `Bunker.exe` again: it now gives the phone more memory if the computer has it. You can also set it with `-ram 6144`. |
 | **The emulator cannot use hardware acceleration** | Turn on virtualization in the BIOS and Windows Hypervisor Platform in Windows features. Then restart. |
-| **Android took too long to start** | Read `BunkerData\logs\emulator.log`. Close other emulators (BlueStacks, LDPlayer) and start again. |
+| **Android took too long to start** | Read `BunkerData\logs\emulator.log`. Close any other Android emulator and start again. |
 | **different signing key** | The NieR in the phone came from an APK signed with another key. Use an APK signed with the same key. Bunker will not uninstall it for you, because that would delete the save. |
 | **older than the NieR in the phone** | NieR updated itself in the phone. Remove the old `bunker.apk` from the folder, or build a new one. |
 | The emulator window is black, or the game looks wrong | Update the graphics driver. |
