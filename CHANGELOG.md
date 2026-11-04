@@ -11,6 +11,14 @@ under its heading, down to the previous release.
   Android emulators. [4b7867f]
 
 ### Arena
+- The Arena's Period line shows the season's four-week turn (for example
+  10/26 to 11/23) instead of 2099, on Android and on iPhone and iPad. The
+  game reads season dates from its master data, so when the game starts,
+  Bunker gives the seasons that take turns the dates of their turns, the
+  same seasons on the same weekly resets as the server. The game's own
+  season check also sees an ended turn's end date pass. With the Original
+  calendar, at any speed, nothing changes: its seasons keep the game's own
+  dates. [5f6f483]
 - Seasons end. Bunker's content patcher keeps every Arena season open, so
   one season used to last forever and its rank reward was never paid. Now the
   seasons with the latest season's grades and rewards take turns, four weeks
