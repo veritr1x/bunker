@@ -20,6 +20,7 @@ struct UnitySurfaceLifecycle::Impl {
   std::thread worker;Status status;bool stopping=false,attached=false,requested_surface=false;
   std::exception_ptr failure;
   FrameEntries frame_entries{};
+  std::function<void()> execute_gl_jobs;
   enum FocusState {Unfocused,PendingFocus,Focused};FocusState focus=Unfocused;
   bool frame_configured=false,activity_paused=true,activity_focused=false,activity_running=false;
   bool resume_job=false,frame_queued=false,frame_signaled=false,frame_active=false,active_job=false;
@@ -74,6 +75,7 @@ struct UnitySurfaceLifecycle::Impl {
     bool invoke_resume=false,render=false,canceled=false;
     {std::lock_guard<std::mutex> lock(mutex);frame_queued=false;if(frame_signaled)return;frame_active=true;invoke_resume=resume_job;resume_job=false;}
     // DEX NEXT_FRAME drains GL jobs before checking resumed/surface flags.
+    if(execute_gl_jobs)execute_gl_jobs();
     if(invoke_resume)Native(frame_entries.resume,receiver);
     {std::lock_guard<std::mutex> lock(mutex);canceled=stopping||activity_paused||(!requested_surface&&status.surface);render=!canceled&&status.initialized&&status.resumed&&status.surface&&requested_surface&&activity_focused&&(job.explicit_frame||!status.rendered);}
     if(render){
@@ -149,10 +151,10 @@ UnitySurfaceLifecycle::~UnitySurfaceLifecycle(){
 }
 void UnitySurfaceLifecycle::AfterInitJni(){auto &p=*impl_;std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(p.status.initialized||p.status.started)throw std::logic_error("duplicate post-init transition");if(!p.java.PendingException().empty())throw std::logic_error("post-init transition with pending Java exception");p.status.initialized=true;}
 void UnitySurfaceLifecycle::Start(WorkerEnter enter){auto &p=*impl_;std::promise<void> start;auto done=start.get_future();{std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(!p.status.initialized||p.status.started||p.stopping)throw std::logic_error("invalid UnityMain start ordering");p.status.started=true;p.worker=std::thread([&p,start=std::move(start),enter=std::move(enter)]()mutable{p.Work(std::move(start),std::move(enter));});}done.get();}
-void UnitySurfaceLifecycle::ConfigureOneFrame(FrameEntries entries){
+void UnitySurfaceLifecycle::ConfigureOneFrame(FrameEntries entries,std::function<void()> execute_gl_jobs){
   auto &p=*impl_;std::lock_guard<std::mutex> lock(p.mutex);p.Check();
   if(p.status.started||p.frame_configured||!entries.resume||!entries.focus||!entries.render||!entries.pause||!entries.done)throw std::invalid_argument("one-frame profile needs all native entries before UnityMain starts");
-  p.frame_entries=entries;p.frame_configured=true;p.frame_done=std::make_shared<std::promise<bool>>();p.frame_result=p.frame_done->get_future().share();p.status.requested_frames=1;
+  p.frame_entries=entries;p.execute_gl_jobs=std::move(execute_gl_jobs);p.frame_configured=true;p.frame_done=std::make_shared<std::promise<bool>>();p.frame_result=p.frame_done->get_future().share();p.status.requested_frames=1;
 }
 void UnitySurfaceLifecycle::ActivityResumed(){auto &p=*impl_;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(p.status.rendered)throw std::logic_error("one-frame diagnostic budget exhausted");p.activity_paused=false;p.MaybeResumeLocked();}p.ready.notify_one();}
 void UnitySurfaceLifecycle::WindowFocusChanged(bool focused){auto &p=*impl_;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();if(!p.frame_configured)throw std::logic_error("native frame lifecycle is not configured");p.activity_focused=focused;if(!p.status.initialized)return;p.jobs.push_back({focused?Impl::Job::FocusGained:Impl::Job::FocusLost,{},{}});p.MaybeResumeLocked();}p.ready.notify_one();}

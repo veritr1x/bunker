@@ -3,7 +3,33 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-program-resource1`, host
+Latest original execution: `work/windows-first-frame-image-uniform1`, host
+`3ef041dc3e4c858aaa8602e101fcafcfab5f0a31`, passes image-uniform reflection
+for programs 2, 4, 6 and 8. It then stops at the missing Java implementation
+`com/unity3d/player/UnityPlayer.hideSoftInput()V` (JNI environment slot62).
+The main epoch6 collector cycle returns normally; two original renders return
+continue=true. Native exit3/controller1; frozen inputs and original objects
+reverify. No original draw, clear, swap or PNG exists.
+
+Inputs SHA256 `3e5aba6cdf5e39d2edac6bf10f706fb0ae94949ff572870326ab12645ffa6c7a`;
+executable SHA256 `0f1d8d338da48cd002df601c3bd8ad3f0262326cbf38c6ffcb6ccfbd7bf9a5c6`;
+log SHA256 `da2abc82465fcdc57f024e9e71e41b57f4fd43a6d3914f47140a41fc32912f5c`.
+This qualifies passage of the reached image getters, not GPU image dispatch
+or a presented frame. The next repair must preserve hideSoftInput's original
+UI scheduling and keyboard area/visibility callbacks even when its dialog is
+null; a generic no-op implementation is insufficient.
+
+The correction ports that initial-null-dialog path with an always-deferred UI
+post, then ordered native area(0,0,0,0) and visibility(false) reports at the
+original NEXT_FRAME GL-job drain point on the attached UnityMain. Native-loaded
+and finishing gates are explicit lifecycle state; a nonnull keyboard dialog
+remains unsupported. The focused Windows gate passes 260 checks, 17 actual NDK
+JNI calls and 15 TEST native reports. The render FIFO gate passes 279 checks,
+including ordering, continuation and failure propagation. These component
+callbacks do not execute the original native report bodies. Original game
+execution of this correction remains pending.
+
+Preceding original execution: `work/windows-first-frame-program-resource1`, host
 `973ab9e8c362319f5d9cf63fb7064d1b34464f44`, passes the original resource
 Interfaceiv call and continues to uniform reflection. The existing GetUniformiv
 width classifier then rejects `GL_IMAGE_3D` (`904e`) at LR `7047f904`, before
@@ -20,8 +46,8 @@ image assignments; existing sampler, vector, matrix and setter helpers remain
 byte-exact. The native-driver gate passes 2,286 checks/517 NDK calls across all
 twelve types, 108 guarded getters and 324 write-rejection controls, plus retained
 uniform-query/draw regressions. Namespace139 and capabilities remain unchanged.
-Original game execution of this correction is pending; no image binding or GPU
-dispatch behavior is added or claimed.
+The subsequent execution above passes the reached image getter calls; no image
+binding or GPU dispatch behavior is added or claimed.
 
 Preceding original execution: `work/windows-first-frame-uniform-block1`, host
 `37a23e6e5ee02c81168ed2af3f5364e58dca25c7`, executes two new Blockiv calls

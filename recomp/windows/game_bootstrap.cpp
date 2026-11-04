@@ -15,6 +15,7 @@
 #include "apk_assets.h"
 #include "native_window.h"
 #include "unity_lifecycle.h"
+#include "unity_soft_input.h"
 #include "signal_host.h"
 #include "signal_sleep.h"
 #include "signal_nanosleep.h"
@@ -802,6 +803,18 @@ int main(int argc,char **argv){
         if(actual_width!=width||actual_height!=height)throw std::runtime_error("actual HWND client geometry differs from configured landscape pixels");
         std::fprintf(stderr,"Unity bootstrap: %ssurface-only host lifecycle port; actual HWND client=%dx%d; APK sensorLandscape; resumed=false; no Java class-init or render/resume claim\n",kExploratory?"EXPLORATORY ":"",actual_width,actual_height);
         uint64_t worker_token=0;bool worker_registered=false;
+        std::unique_ptr<UnitySoftInputSession> soft_input;
+        if(frame_gate){
+          soft_input=std::make_unique<UnitySoftInputSession>(java,player,[&](addr_t target,const std::vector<addr_t>&args){
+            Require(Translated(target),"soft-input native entry is not translated");
+            std::fprintf(stderr,"Game soft input: original native=%#llx argc=%zu UnityMain=%lu\n",(unsigned long long)target,args.size(),GetCurrentThreadId());
+            return threads.Run(target,args);
+          });
+          // The original Unity module has completed JNI_OnLoad and initJni;
+          // its registered entries remain live until after UnityMain stops.
+          Require(modules.ReferenceCount("libunity.so")!=0,"soft-input native-loaded state requires the real Unity module");
+          soft_input->SetNativeLoaded(true);
+        }
         const auto actual_render=frame_gate?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeRender","()Z"):0;
         const auto actual_resume=mute_audio?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeResume","()V"):0;
         const auto actual_mute=mute_audio?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeMuteMasterAudio","(Z)V"):0;
@@ -835,7 +848,7 @@ int main(int argc,char **argv){
         });
         if(frame_gate){
           auto native=[&](const char *name,const char *signature){auto address=java.NativeEntry("com/unity3d/player/UnityPlayer",name,signature);if(!Translated(address))throw std::runtime_error(std::string("required frame native is not translated: ")+name);return address;};
-          lifecycle.ConfigureOneFrame({native("nativeResume","()V"),native("nativeFocusChanged","(Z)V"),native("nativeRender","()Z"),native("nativePause","()Z"),native("nativeDone","()Z")});
+          lifecycle.ConfigureOneFrame({native("nativeResume","()V"),native("nativeFocusChanged","(Z)V"),native("nativeRender","()Z"),native("nativePause","()Z"),native("nativeDone","()Z")},[&]{soft_input->DrainGlThreadJobs();});
         }
         lifecycle.AfterInitJni();
         // A real model mask is captured at Start, then inherited by the child.
@@ -845,6 +858,7 @@ int main(int argc,char **argv){
         uint64_t parent_mask=0;if(process_signals.Mask(parent_token,0,nullptr,&parent_mask))throw std::runtime_error("cannot snapshot parent virtual signal mask");
         lifecycle.Start([&,parent_token,parent_mask]{
           worker_token=threads.Self();
+          if(soft_input)soft_input->SetUnityMainCurrent();
           if(process_signals.RegisterThread(worker_token,parent_token))throw std::runtime_error("cannot register UnityMain virtual signal-mask lifetime");
           worker_registered=true;
           if(process_signals.BindCurrent(worker_token)||process_signals.Mask(worker_token,2,&parent_mask,nullptr))throw std::runtime_error("cannot inherit UnityMain signal mask");
@@ -870,12 +884,13 @@ int main(int argc,char **argv){
             auto audio=volume->InitialSnapshot();
             std::fprintf(stderr,"Unity bootstrap: real read-only music-volume observer ready scalar=%g muted=%d profile-index=%d; no initial native callback; no playback/system mutation\n",double(audio.scalar),audio.muted,AudioVolumeSession::MusicIndex(audio));
           }
-          auto poll_volume=[&]{if(volume)volume->Poll();};
+          auto poll_volume=[&]{if(soft_input)soft_input->DrainUiJobs();if(volume)volume->Poll();};
           poll_volume();lifecycle.ActivityResumed();
           auto lease=native_windows->FromSurface(surface);auto hwnd=static_cast<HWND>(native_windows->NativeHandle(lease));native_windows->Release(lease);
           if(GetForegroundWindow()!=hwnd)std::fprintf(stderr,"Unity bootstrap: real foreground activation requested, accepted=%d\n",int(SetForegroundWindow(hwnd)!=0));
           bool focused=false;auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(first_frame?60:3);
           while(!focused&&std::chrono::steady_clock::now()<deadline){
+            if(soft_input)soft_input->DrainUiJobs();
             for(const auto &event:native_windows->DrainEvents(window)){
               if(event.kind==NativeWindows::Event::Focus){lifecycle.WindowFocusChanged(event.focused);focused=event.focused;}
               if(event.kind==NativeWindows::Event::CloseRequested)throw std::runtime_error("window close requested before first native frame");
@@ -929,9 +944,10 @@ int main(int argc,char **argv){
               while(!close&&std::chrono::steady_clock::now()<hold_until){for(const auto &event:native_windows->DrainEvents(window)){if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);if(event.kind==NativeWindows::Event::CloseRequested)close=true;}poll_volume();std::this_thread::sleep_for(std::chrono::milliseconds(10));}
             }
           }
-          if(volume)volume->Pause();lifecycle.PauseNative(true);
+          if(volume)volume->Pause();soft_input->SetFinishing(true);lifecycle.PauseNative(true);
         }
         stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
+        if(soft_input){soft_input->SetNativeLoaded(false);soft_input->CheckIdle();}
         if(egl){egl->SetDiagnosticObserver({});egl->SetProcedureResolver({});}
         init_java_diagnostic_active=false;
         if(init_java_errors.load())throw std::runtime_error("surface native calls encountered original Java exceptions");

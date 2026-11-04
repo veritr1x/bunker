@@ -252,6 +252,11 @@ void Host::BindStaticVoidMethod(const std::string &owner,const std::string &name
   if(!handler)throw std::invalid_argument("missing static void implementation");
   DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;},true,true);
 }
+void Host::BindVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                          std::function<void(addr_t,const MethodArguments&)> handler){
+  if(!handler)throw std::invalid_argument("missing void implementation");
+  DefineHandler(owner,name,signature,'V',[handler=std::move(handler)](addr_t object,const MethodArguments &arguments){handler(object,arguments);return 0;},false,true);
+}
 void Host::BindPlatformNativeStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
                                             std::function<void(addr_t,const MethodArguments&)> handler){
   if(!handler)throw std::invalid_argument("missing platform-native static void implementation");

@@ -129,5 +129,25 @@ int main(){
     Check(q.Describe().requested_frames==1&&q.Describe().rendered==1&&std::count(f.log.begin(),f.log.end(),"resume")==1,"focus recovery does not create another request or nativeResume");
     q.PauseNative(false);q.SurfaceDestroyed();q.Stop();
   }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;
+    q.ConfigureOneFrame({3,4,5,6,7},[&]{
+      Check(std::this_thread::get_id()==f.worker,"GL jobs execute on the same attached UnityMain as native callbacks");
+      Check(f.java.EnvAddress()!=0,"GL jobs retain the worker JNI environment");f.log.push_back("gljobs");
+    });
+    q.AfterInitJni();q.Start();q.SurfaceCreated(f.surface);q.ActivityResumed();q.WindowFocusChanged(true);q.WaitForFrame();q.WaitIdle();
+    Check(f.log==std::vector<std::string>{"surface","focus+","gljobs","resume","render"},"NEXT_FRAME drains GL jobs before nativeResume and nativeRender");
+    Check(q.RequestNextFrame()&&q.WaitForFrame(),"continuation executes the original render after another drain");q.WaitIdle();
+    Check(f.log[f.log.size()-2]=="gljobs"&&f.log.back()=="render","each explicit NEXT_FRAME drains once before rendering");
+    q.PauseNative(false);q.SurfaceDestroyed();q.Stop();
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;
+    q.ConfigureOneFrame({3,4,5,6,7},[]{throw std::runtime_error("GL job dependency failed");});
+    q.AfterInitJni();q.Start();q.SurfaceCreated(f.surface);q.ActivityResumed();q.WindowFocusChanged(true);
+    Reject([&]{q.WaitForFrame();},"GL job failure reaches frame waiter");Reject([&]{q.Stop();},"GL job failure remains visible through stop");
+    Check(std::find(f.log.begin(),f.log.end(),"resume")==f.log.end()&&std::find(f.log.begin(),f.log.end(),"render")==f.log.end(),"failed GL job cannot fall through to nativeResume or nativeRender");
+    Check(f.cleaned==1,"GL job failure retires the attached worker once");
+  }
   std::printf("Bounded native frame FIFO: %u checks passed (synthetic callbacks; no real rendering claim)\n",checks.load());
 }

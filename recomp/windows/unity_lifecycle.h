@@ -34,7 +34,9 @@ class UnitySurfaceLifecycle {
   // Optional bounded native lifecycle port. The owner must complete the real
   // UI resume prerequisites before ActivityResumed, and supply actual platform
   // focus events. It does not implement Java constructors, views or services.
-  void ConfigureOneFrame(FrameEntries);
+  // APK NEXT_FRAME drains the GL-event FIFO before resume/render checks. The
+  // optional port runs on the attached UnityMain; an absent port stays inert.
+  void ConfigureOneFrame(FrameEntries,std::function<void()> execute_gl_jobs={});
   void ActivityResumed();
   void WindowFocusChanged(bool focused);
   bool WaitForFrame();

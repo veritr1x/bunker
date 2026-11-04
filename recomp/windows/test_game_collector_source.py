@@ -159,6 +159,57 @@ def qualified_jni_object_source(path,name,legacy_digest,prerequisites=None,quali
  return JNI_OBJECT_BIND_CORE[name]
 
 
+JNI_VOID_BIND_CORE={'windows/jni_host.h':'2d6412c90ccf50b7153caa1cdcf13e4b859d43640467a1bd5c48c938d980348c','windows/jni_host.cpp':'59c4e7e2eebe4f99c997db13decd7fa15e47e9b2b41498a7ac48db2cb85cb85d'}
+JNI_VOID_BIND_PROOF='23dfaea67c82301c4934069200cd60ae123752239f482e4d1c1968309ef0ce40'
+JNI_VOID_BIND_INSERTION_SHA={'windows/jni_host.h':'3bee21640325a25785863036c3774e0f9a048f322f692f6326b6825d7e50eb22','windows/jni_host.cpp':'f5865ecbf4be3819138e61ba6be4a5f6fa3788861d96638706070afa730eddf0'}
+
+def verify_jni_void_binding_projection(name,body,proof):
+ assert name in JNI_VOID_BIND_CORE and proof['passed']is True and proof['base_commit']=='3ef041dc3e4c858aaa8602e101fcafcfab5f0a31'
+ assert proof['base_core_sources']==JNI_OBJECT_BIND_CORE and proof['core_sources']==JNI_VOID_BIND_CORE and set(proof['files'])==set(JNI_VOID_BIND_CORE)
+ assert proof['all_existing_JNI_source_bytes_recovered_exact']is True
+ assert proof['source_forwarding']==dict(result_kind='V',is_static=False,bind_existing=True,platform_native=False,null_handler_rejected=True,callback_arguments_forwarded=True,void_callback_adapter_returns_zero=True)
+ assert all(type(proof['source_forwarding'][key])is bool for key in ('is_static','bind_existing','platform_native','null_handler_rejected','callback_arguments_forwarded','void_callback_adapter_returns_zero'))
+ row=proof['files'][name];assert row['old_sha256']==JNI_OBJECT_BIND_CORE[name]and row['new_sha256']==JNI_VOID_BIND_CORE[name]and row['whole_file_inverse_byte_exact']is True
+ assert hashlib.sha256(body).hexdigest()==JNI_VOID_BIND_CORE[name]
+ records=row['insertions'];assert type(records)is list and len(records)==1
+ item=records[0];assert type(item['old_offset'])is type(item['new_offset'])is int
+ value=item['bytes_hex'];assert type(value)is str and value
+ added=bytes.fromhex(value);assert added and added.hex()==value and hashlib.sha256(added).hexdigest()==item['insertion_sha256']==JNI_VOID_BIND_INSERTION_SHA[name]
+ assert type(item['lines'])is int and item['lines']==added.count(b'\n')=={'windows/jni_host.h':2,'windows/jni_host.cpp':5}[name]
+ at=item['new_offset'];assert at==item['old_offset']and 0<=at<=len(body)-len(added)and body[at:at+len(added)]==added
+ projected=body[:at]+body[at+len(added):]
+ assert hashlib.sha256(projected).hexdigest()==JNI_OBJECT_BIND_CORE[name]
+ return projected
+
+JNI_VOID_BIND_QUALIFICATION='98305efbd8e85e207c21df9ffead02cdcb5b54b55d515eb39d4fa2f7637a676f'
+JNI_VOID_BIND_QUALIFICATION_PATH=str(HERE.parent/'work/unity-soft-input-qualification2/acceptance.json')
+JNI_VOID_BIND_PEER='97783f637660854926fb93eea2ecbc78a30ffb0a3cc39fee97617b924859b5b6'
+JNI_VOID_BIND_PEER_PATH=str(HERE.parent/'work/jni-bind-void-independent-peer1/peer.json')
+
+def qualified_jni_void_source(path,name,legacy_digest,prerequisites=None,qualification_path=None,peer_path=None):
+ assert name in JNI_VOID_BIND_CORE and legacy_digest in(JNI_OBJECT_BIND_CORE[name],JNI_OBJECT_BIND_BASE[name],JNI_PRIORITY_CORE[name])
+ path=Path(path);assert path.name==Path(name).name
+ qualification_path=Path(qualification_path)if qualification_path is not None else Path(JNI_VOID_BIND_QUALIFICATION_PATH)
+ assert sha(qualification_path)==JNI_VOID_BIND_QUALIFICATION
+ record=json.loads(qualification_path.read_text());assert record['passed']is True and record['jni_sources']==JNI_VOID_BIND_CORE
+ assert type(record['results']['windows']['exit_code'])is int and record['results']['windows']['exit_code']==0 and record['binder_controls']and record['queue_controls']
+ proof_path=Path(record['source_proof']['path']);assert record['source_proof']['sha256']==JNI_VOID_BIND_PROOF and sha(proof_path)==JNI_VOID_BIND_PROOF
+ proof=json.loads(proof_path.read_text());projected=verify_jni_void_binding_projection(name,path.read_bytes(),proof)
+ frozen=HERE.parent/'work/windows-first-frame-image-uniform1/sources/recomp'/name
+ assert sha(frozen)==JNI_OBJECT_BIND_CORE[name]and frozen.read_bytes()==projected
+ # Keep every historical JNI qualification and projection in its original
+ # function. Only this exact current addition is removed before that chain.
+ historical=legacy_digest if legacy_digest!=JNI_OBJECT_BIND_CORE[name]else JNI_OBJECT_BIND_BASE[name]
+ assert qualified_jni_object_source(frozen,name,historical,prerequisites)==JNI_OBJECT_BIND_CORE[name]
+ peer_path=Path(peer_path)if peer_path is not None else Path(JNI_VOID_BIND_PEER_PATH)
+ assert sha(peer_path)==JNI_VOID_BIND_PEER
+ peer=json.loads(peer_path.read_text());assert peer['passed']is True and peer['findings']==[]and peer['jni_sources']==JNI_VOID_BIND_CORE
+ assert peer['source_proof']['sha256']==JNI_VOID_BIND_PROOF and peer['qualification']['sha256']==JNI_VOID_BIND_QUALIFICATION
+ if prerequisites is not None:
+  prerequisites[str(qualification_path)]=JNI_VOID_BIND_QUALIFICATION;prerequisites[str(proof_path)]=JNI_VOID_BIND_PROOF;prerequisites[str(peer_path)]=JNI_VOID_BIND_PEER;prerequisites[str(frozen)]=JNI_OBJECT_BIND_CORE[name]
+ return JNI_VOID_BIND_CORE[name]
+
+
 SIGNAL_SUBSET_BASE={'windows/signal_host.h':'b7cbcfe4ee63c53eaef932b42e9d4f6bdaa8376e50af1c89d72b7c31fb944174','windows/signal_host.cpp':'888e8b10aea824f1bd23e2d9e376db7e38a3b41f3ecf42fb3ccf372b1f6a31da'}
 SIGNAL_SUBSET_CORE={'windows/signal_host.h':'12bc3d308e6ea6f86ac4dbe75f1c711a1f82a374458d2c6741d07f099fa07c58','windows/signal_host.cpp':'309a8bd7aff3c4203dd901b3e68d8bf22b1783a3e20e0ef8579d71fdfe97afa6'}
 SIGNAL_SUBSET_QUALIFICATION='af404bb61a36d7e91b91aad11b6ec177b243a9f8180f02b30745c667c090274d'
@@ -210,7 +261,7 @@ def main():
  lease_path=Path(next(k for k in peer['evidence']if k.endswith('priority-source-peer1/peer.json')));assert sha(lease_path)==peer['evidence'][str(lease_path)];lease=json.loads(lease_path.read_text());assert lease['passed']and lease['pthread_old_cpp_body_exact_after_only_additions']and lease['pthread_old_header_exact_after_only_additions'];prerequisites[str(lease_path)]=sha(lease_path)
  for name,digest in priority['core_sources'].items():
   path=HERE.parent/name
-  expected=qualified_signal_subset_source(path,name,digest,prerequisites)if name in SIGNAL_SUBSET_CORE else qualified_jni_object_source(path,name,digest,prerequisites)if name in JNI_OBJECT_BIND_CORE else digest
+  expected=qualified_signal_subset_source(path,name,digest,prerequisites)if name in SIGNAL_SUBSET_CORE else qualified_jni_void_source(path,name,digest,prerequisites)if name in JNI_OBJECT_BIND_CORE else digest
   assert sha(path)==expected,name;prerequisites[str(path)]=sha(path)
  for name,digest in priority['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest

@@ -72,6 +72,8 @@ class Host {
                               std::function<addr_t(addr_t,const MethodArguments&)> handler);
   void BindStaticVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
                             std::function<void(addr_t,const MethodArguments&)> handler);
+  void BindVoidMethod(const std::string &owner,const std::string &name,const std::string &signature,
+                      std::function<void(addr_t,const MethodArguments&)> handler);
   // Explicit platform implementation of an existing initialized bootstrap
   // class's static native void declaration. Native modifier remains true;
   // this does not fabricate a translated native-entry address or registration.
