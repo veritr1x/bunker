@@ -231,6 +231,12 @@ int main(int argc,char **argv){
     automatic_environments.original=__real_sub_825b0544;
     std::vector<recomp::Trace> selected(std::begin(kTraces),std::end(kTraces));bool original_helper_present=false;for(auto &trace:selected)if(trace.address==0x825b0544){original_helper_present=true;trace.entry=GameOriginalSaveHelper;}
     Require(original_helper_present,"current IL2CPP automatic save helper is absent from union");
+    bool original_raise_present=false;
+    if(first_frame)for(auto &trace:selected)if(trace.address==0x826263cc){
+      GameExceptionDiagnostic::ConfigureRaise(trace.entry,true);
+      trace.entry=GameExceptionDiagnostic::Raise;original_raise_present=true;
+    }
+    Require(!first_frame||original_raise_present,"original Raise observation entry is absent from union");
     recomp::Runtime runtime;runtime.AddTraces(selected.data(),selected.size());
     if(first_frame)runtime.AddImport(0,[](State &s){
       GameExceptionDiagnostic::ReportNull(s);
