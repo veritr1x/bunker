@@ -3,7 +3,28 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-phdr1`, host
+Latest original execution: `work/windows-first-frame-unwind1`, host
+`28bbc4fb706b31168f990299a544676410ce6cdb`, gets past the missing unwind
+target with the appended object. Twelve original program-header callbacks
+complete. Execution stops at indirect target0, StatePC0, LR `8260df44`;
+the original BLR X0 at `8260df40` calls a null terminate-handler argument.
+The current log does not establish whether that argument came from a saved
+exception header or the global fallback. Main epoch6 and worker epochs8/10/12/14
+complete. Three render entries and two continue=true returns are observed;
+there is no original draw, clear, swap, PNG or soft-input native report.
+Native exit3/controller1; frozen input and executable posthashes match.
+
+Inputs SHA256 `2695e1352e43696dbd5a031b745475a1a70eb27f19d5946e096af07eb017a9be`;
+executable SHA256 `f44a54813ffa4b35838658dc173ef51ffc236c12f9384a60510cdf55f79ba24d`;
+log SHA256 `5df4c808399b6940e2ed741e78c42f40e875901e11a2c216ae69bf2fdd75c467`.
+Terminal peer: `work/unwind1-run-peer1`, SHA256
+`e5c0048917c9856b874003d82056ff9bc431abd82ae9eb8e450210fc0165d9ff`.
+The v16 admission passes 218 cases per language (16 positive, 202 negative),
+and the collector macro syntax gate passes. This run does not qualify the
+complete unwinder or exception handling. The next diagnostic must identify
+the null handler's source and the exception leading to termination.
+
+Preceding original execution: `work/windows-first-frame-phdr1`, host
 `a15fc1c16752eb4e6549c8db12bb2fe49af216e1`, executes the original program-header
 callback with real modern64 records: Unity returns0, IL2CPP returns1, and
 dl_iterate_phdr returns1 at LR `82628130`. This is not a complete-unwind result.
