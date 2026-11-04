@@ -6,6 +6,7 @@ import (
 
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
+	"lunar-tear/server/internal/store"
 )
 
 const testDay = 24 * 3600 * 1000
@@ -174,3 +175,109 @@ func TestMidWeekSeasonChangeKeepsOneResultPerWeek(t *testing.T) {
 		t.Fatalf("week's end: %+v", p.Weekly)
 	}
 }
+
+// With the Original calendar at 7× speed the game clock gains a week at most
+// daily resets. A visit after a jump past a season's end still records that
+// season's final rank and the week the player was in, the game can claim
+// them (that week is over), and they are paid once. Needs the original
+// (unpatched) master data, whose seasons end.
+func TestCalendarSpeedPaysSeasonEnd(t *testing.T) {
+	c, u := realSave(t)
+	// A season of three weeks or more, followed within a day by one of two
+	// weeks or more, so a one-week jump past its end lands in the next.
+	var season masterdata.EntityMPvpSeason
+	for _, s := range c.seasons {
+		if s.IsInvalid || s.SeasonEndDatetime >= patchedSeasonEnd || s.SeasonEndDatetime-s.SeasonStartDatetime < 21*testDay {
+			continue
+		}
+		for _, n := range c.seasons {
+			if !n.IsInvalid && n.SeasonStartDatetime >= s.SeasonEndDatetime && n.SeasonStartDatetime-s.SeasonEndDatetime < testDay &&
+				n.SeasonEndDatetime-n.SeasonStartDatetime >= 14*testDay && s.SeasonStartDatetime > season.SeasonStartDatetime {
+				season = s
+			}
+		}
+	}
+	if season.PvpSeasonId == 0 {
+		t.Skip("needs the original master data, where seasons end")
+	}
+	// Loop 1 starts at launch, so the game data keeps its dates; the speed is
+	// chosen ten days into the season, when real time and game time agree.
+	real := season.SeasonStartDatetime + 10*testDay
+	cal := &gametime.Calendar{Loop: 1, LoopStart: gametime.Launch, Speed: 7, SpeedSince: gametime.StartOfDay(real)}
+	game := func(real int64) int64 { return real + cal.Shift(real) }
+
+	p := &u.Ext.Pvp
+	*p = store.PvpState{}
+	if s, _, ok := c.Sync(&u, game(real)); !ok || s.PvpSeasonId != season.PvpSeasonId {
+		t.Fatalf("start: season %d %v, want %d", s.PvpSeasonId, ok, season.PvpSeasonId)
+	}
+	// Visit once a real day until the game clock passes the season's end.
+	jumps := 0
+	for {
+		p.Point = 1500
+		next := real + testDay
+		if game(next)-game(real) > testDay {
+			jumps++
+		}
+		if game(next) >= season.SeasonEndDatetime {
+			real = next
+			break
+		}
+		real = next
+		if s, _, _ := c.Sync(&u, game(real)); s.PvpSeasonId != season.PvpSeasonId {
+			t.Fatalf("left season %d early, at %s", season.PvpSeasonId, time.UnixMilli(game(real)).UTC())
+		}
+	}
+	if jumps == 0 {
+		t.Fatal("7× speed never moved the game clock a week ahead")
+	}
+	lastWeek, want := p.WeekVersion, c.Ladder(season.PvpSeasonId).Rank(p.Point)
+	now := game(real)
+	next, _, ok := c.Sync(&u, now)
+	if !ok || next.PvpSeasonId == season.PvpSeasonId || p.Point != 0 {
+		t.Fatalf("after the end: season %d %v, points %d", next.PvpSeasonId, ok, p.Point)
+	}
+	if r := p.SeasonResult; r == nil || r.SeasonId != season.PvpSeasonId || r.FinalRank != want {
+		t.Fatalf("season result %+v, want season %d rank %d", r, season.PvpSeasonId, want)
+	}
+	seen := map[int64]bool{}
+	for _, w := range p.Weekly {
+		if seen[w.WeekVersion] {
+			t.Fatalf("week %d recorded twice: %+v", w.WeekVersion, p.Weekly)
+		}
+		seen[w.WeekVersion] = true
+	}
+	last := p.Weekly[len(p.Weekly)-1]
+	if last.WeekVersion != lastWeek || last.SeasonId != season.PvpSeasonId || last.FinalPoint != 1500 {
+		t.Fatalf("last week's result %+v, want week %d of season %d at 1500 points", last, lastWeek, season.PvpSeasonId)
+	}
+	// The game claims only when the latest result's week is a week old.
+	if now-last.WeekVersion < weekMillis {
+		t.Fatalf("the season's last week is not over at %s: the game would not claim", time.UnixMilli(now).UTC())
+	}
+	reward, ok := c.PendingSeason(p)
+	if !ok || len(reward.Rewards) == 0 {
+		t.Fatalf("season reward %+v %v", reward, ok)
+	}
+	pending := c.PendingWeekly(p)
+	if len(pending) == 0 || pending[len(pending)-1].Result.WeekVersion != lastWeek {
+		t.Fatalf("weekly rewards due: %+v", pending)
+	}
+	// The claim (ReceivePvpReward) marks both received; the next day's visit
+	// owes nothing more for that season.
+	p.SeasonResult, p.RewardSeasonId = nil, p.SeasonId
+	p.RewardWeekVersion = pending[len(pending)-1].Result.WeekVersion
+	c.Sync(&u, game(real+testDay))
+	if _, ok := c.PendingSeason(p); ok {
+		t.Fatal("season reward due again")
+	}
+	for _, w := range c.PendingWeekly(p) {
+		if w.Result.SeasonId == season.PvpSeasonId {
+			t.Fatalf("week of season %d due again: %+v", season.PvpSeasonId, w.Result)
+		}
+	}
+	t.Logf("season %d ended at rank %d after %d one-week jumps: %v; then season %d", season.PvpSeasonId, want, jumps, reward.Rewards, next.PvpSeasonId)
+}
+
+// patchedSeasonEnd is where Bunker's patched seasons end (2099-01-01).
+const patchedSeasonEnd int64 = 4070908800000
