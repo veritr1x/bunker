@@ -1,5 +1,47 @@
 # Validation
 
+## Arena season turns — 2026-11-04
+
+- With Bunker's patched master data, 38 seasons are open at once (all end in
+  2099), so the one that started last (202038) never ended. Nine of them use
+  its grade, season rank and weekly rank tables (202029-202032,
+  202034-202038); they now take four-week turns from 202038's first Monday,
+  changing at the weekly reset. With the original master data at most one
+  season is open at a time, and that season is used as before.
+- `internal/pvp` unit tests: turns change only on a Monday reset, in order,
+  every four weeks, and wrap around; seasons with other reward tables, invalid
+  seasons and seasons not yet started are never chosen; with the game's own
+  dates seasons follow each other and close after the last one.
+- With the patched master data and the emulator's save: 6,000 points in season
+  202037 gave final rank 2911 at the end of its turn, a pending season reward
+  from its rank 1001-5000 tier (three items), the week's result kept and
+  season 202038 started from 0 points. The other Arena tests pass with the
+  patched and the original master data.
+- BlueStacks (Android 9), global 1.7.0 APK with this server: the level-100
+  test player had 47 points in season 202038 (shown as Season 036 after the
+  change, Season 037 before: the game numbers seasons one below the id's last
+  digits). The first Arena visit moved it to 202037 with 0 points and rank
+  4931, and kept 202038's final rank for its reward. The Period line still
+  shows the master data's dates (to 2099).
+- No reward screen appeared, on that visit or after a restart. The client's
+  `CalculatorArena.HasRewardReceiveArena` (disassembled) asks for Arena
+  rewards only when the latest weekly result is for a finished week (else it
+  looks at the one before) and its weekly version is not yet received; the
+  season-only path also needs the season's master end date to have passed,
+  which the patched 2099 dates never do. So the season reward is paid with
+  the weekly claim. Turns change on the weekly reset, so the closing week is
+  already finished then; the mid-week change after updating waits for the
+  week's end. That second week result for the same week is now merged.
+- With the emulator clock moved to Tuesday 10 November (after that week's
+  reset), the game called `ReceivePvpReward` from the Home pop-ups at login,
+  which paid 4 items. It then showed three reports in turn: Season 037
+  (202038) at rank 4689 with its three season rewards; the closing week at
+  weekly rank 4600 with its rank reward; and its 95 points (that grade pays
+  nothing). Every reward said it was sent to the gift box. The first start
+  on the moved clock reopened straight into the Arena and skipped the login
+  pop-ups (no login bonus either), so the claim came at the next login.
+  Automatic time was switched back on afterwards.
+
 ## Arena against computer players — 2026-10-08
 
 - The server had no Arena support at all: none of the nine PvP calls, the
@@ -539,13 +581,14 @@ newly packaged APK has not had another full emulator playthrough.
 
 ## Still unverified
 
-- Physical Samsung Fold behavior, folding/resizing, sustained performance,
-  battery use and Samsung background-process management.
+Updated 2026-11-04. Earlier items now covered by later checks: the Galaxy
+Z Fold (120 fps play, a 20.9 GB folder import through the document picker,
+use in place and a 15 GB `.7z` import, see 2026-10-03 and 2026-10-06), and
+importing an exported save ZIP, which is implemented and passed on the
+Fold, the iPad and the iOS Simulator.
+
+- Folding and resizing on the Fold, sustained performance, battery use and
+  Samsung background-process management.
 - Full campaign and battle coverage.
-- Full-size import through a physical phone's document picker. The 20.9 GB
-  emulator test used development access to put files into app storage. Normal
-  app use does not need root.
-- Physical-phone Tools document import/export. Internal game-save snapshots can
-  be restored, but importing the separately exported save ZIP is not implemented.
 
 Private game files, saved games, screenshots and runtime logs remain outside Git.

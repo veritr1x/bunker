@@ -108,10 +108,18 @@ func (c *Catalog) closeWeek(p *store.PvpState, ladder *Ladder) {
 	if s, ok := c.seasonById(p.SeasonId); ok {
 		group = c.GroupId(s)
 	}
-	p.Weekly = append(p.Weekly, store.PvpWeeklyResult{
+	result := store.PvpWeeklyResult{
 		WeekVersion: p.WeekVersion, SeasonId: p.SeasonId, GroupId: group,
 		FinalPoint: p.Point, FinalRank: ladder.Rank(p.Point),
-	})
+	}
+	// A season that ends mid-week (the first start after updating, or a
+	// calendar change) already recorded this week; the game keeps one result
+	// per week, so the week's end replaces it.
+	if n := len(p.Weekly); n > 0 && p.Weekly[n-1].WeekVersion == result.WeekVersion {
+		p.Weekly[n-1] = result
+		return
+	}
+	p.Weekly = append(p.Weekly, result)
 	if len(p.Weekly) > weeklyLimit {
 		p.Weekly = p.Weekly[len(p.Weekly)-weeklyLimit:]
 	}

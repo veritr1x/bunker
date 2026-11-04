@@ -1,0 +1,176 @@
+package pvp
+
+import (
+	"testing"
+	"time"
+
+	"lunar-tear/server/internal/gametime"
+	"lunar-tear/server/internal/masterdata"
+)
+
+const testDay = 24 * 3600 * 1000
+
+// mondayAt is Monday 00:00 GMT-8 of the week holding the given UTC date.
+func mondayAt(y int, m time.Month, d int) int64 {
+	return gametime.WeeklyVersion(time.Date(y, m, d, 12, 0, 0, 0, time.UTC).UnixMilli())
+}
+
+func testSeason(id int32, start, end int64, rankGroup int32) masterdata.EntityMPvpSeason {
+	return masterdata.EntityMPvpSeason{
+		PvpSeasonId: id, SeasonStartDatetime: start, SeasonEndDatetime: end,
+		PvpGradeGroupId: 2, PvpSeasonRankRewardRankGroupId: rankGroup, PvpWeeklyRankRewardRankGroupId: 1,
+	}
+}
+
+// With every season extended (Bunker's content patcher), the seasons with
+// the latest season's tables take four-week turns, latest first.
+func TestSeasonRotation(t *testing.T) {
+	far := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+	s1, s2, s3 := mondayAt(2023, 8, 7), mondayAt(2023, 9, 4), mondayAt(2024, 2, 19)
+	c := &Catalog{seasons: []masterdata.EntityMPvpSeason{
+		testSeason(1, mondayAt(2022, 1, 3), far, 2), // other reward tables: never in turn
+		testSeason(2, s1, far, 4),
+		testSeason(3, s2, far, 4),
+		testSeason(4, s3, far, 4),
+		{PvpSeasonId: 5, SeasonStartDatetime: s3, SeasonEndDatetime: far, IsInvalid: true},
+		testSeason(6, far, far+30*testDay, 4), // not started
+	}}
+	week := int64(weekMillis)
+	for _, tc := range []struct {
+		at   int64
+		want int32
+	}{
+		{s3 + testDay, 4},
+		{s3 + 4*week - 1, 4},
+		{s3 + 4*week, 2},             // the turn changes on the weekly reset
+		{s3 + 8*week + 3*testDay, 3}, // then the next, in order
+		{s3 + 12*week, 4},            // and around again
+		{s3 + 16*week, 2},
+	} {
+		if s, ok := c.Season(tc.at); !ok || s.PvpSeasonId != tc.want {
+			t.Errorf("at %s: season %d %v, want %d", time.UnixMilli(tc.at).UTC(), s.PvpSeasonId, ok, tc.want)
+		}
+	}
+	// A turn always lasts SeasonWeeks whole weeks.
+	at := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC).UnixMilli()
+	cur, _ := c.Season(at)
+	changes := 0
+	for d := int64(0); d < 12*7; d++ {
+		s, _ := c.Season(at + d*testDay)
+		if s.PvpSeasonId != cur.PvpSeasonId {
+			if gametime.WeeklyVersion(at+d*testDay) > at+d*testDay-testDay {
+				changes++
+			} else {
+				t.Errorf("season changed mid-week on day %d", d)
+			}
+			cur = s
+		}
+	}
+	if changes != 3 {
+		t.Errorf("%d season changes in 12 weeks, want 3", changes)
+	}
+}
+
+// With the game's own dates, seasons follow each other: no turns.
+func TestSeasonOriginalDates(t *testing.T) {
+	a, b := mondayAt(2023, 8, 7), mondayAt(2023, 8, 28)
+	c := &Catalog{seasons: []masterdata.EntityMPvpSeason{
+		testSeason(1, a, b, 4),
+		testSeason(2, b, b+21*testDay, 4),
+	}}
+	for _, tc := range []struct {
+		at   int64
+		want int32
+		open bool
+	}{
+		{a + testDay, 1, true},
+		{b + testDay, 2, true},
+		{b + 22*testDay, 0, false},
+	} {
+		s, ok := c.Season(tc.at)
+		if ok != tc.open || s.PvpSeasonId != tc.want {
+			t.Errorf("at %s: season %d %v, want %d %v", time.UnixMilli(tc.at).UTC(), s.PvpSeasonId, ok, tc.want, tc.open)
+		}
+	}
+}
+
+// With patched master data, the end of a turn ends the season: its final
+// rank is due as a season reward, the week's result is kept and the next
+// season starts from 0 points.
+func TestSeasonTurnPaysFinalRank(t *testing.T) {
+	c, u := realSave(t)
+	now := time.Now().UnixMilli()
+	first, ok := c.Season(now)
+	if !ok {
+		t.Skip("no Arena season open now: needs patched master data")
+	}
+	end := gametime.WeeklyVersion(now)
+	for {
+		end += weekMillis
+		if s, _ := c.Season(end); s.PvpSeasonId != first.PvpSeasonId {
+			break
+		}
+		if end > now+SeasonWeeks*weekMillis {
+			t.Skip("this master data has a single Arena season: no turns")
+		}
+	}
+	if _, _, ok := c.Sync(&u, now); !ok {
+		t.Fatal("sync")
+	}
+	p := &u.Ext.Pvp
+	p.Point = 6000
+	want := c.Ladder(first.PvpSeasonId).Rank(p.Point)
+	next, _, _ := c.Sync(&u, end+3600_000)
+	if next.PvpSeasonId == first.PvpSeasonId || p.SeasonId != next.PvpSeasonId || p.Point != 0 {
+		t.Fatalf("after the turn: season %d -> %d, points %d", first.PvpSeasonId, next.PvpSeasonId, p.Point)
+	}
+	if p.SeasonResult == nil || p.SeasonResult.SeasonId != first.PvpSeasonId || p.SeasonResult.FinalRank != want {
+		t.Fatalf("season result %+v, want season %d rank %d", p.SeasonResult, first.PvpSeasonId, want)
+	}
+	reward, ok := c.PendingSeason(p)
+	if !ok || len(reward.Rewards) == 0 {
+		t.Fatalf("season reward %+v %v", reward, ok)
+	}
+	if len(p.Weekly) == 0 || p.Weekly[len(p.Weekly)-1].SeasonId != first.PvpSeasonId {
+		t.Fatalf("last week's result not kept: %+v", p.Weekly)
+	}
+	t.Logf("season %d ended at rank %d: %v; season %d next", first.PvpSeasonId, want, reward.Rewards, next.PvpSeasonId)
+}
+
+// A season that ends mid-week (the first start after updating from a build
+// that kept season 038) records that week; the week's own end must not add
+// a second result for it, as the game keeps one per week.
+func TestMidWeekSeasonChangeKeepsOneResultPerWeek(t *testing.T) {
+	c, u := realSave(t)
+	now := time.Now().UnixMilli()
+	cur, ok := c.Season(now)
+	if !ok {
+		t.Skip("no Arena season open now: needs patched master data")
+	}
+	var other int32
+	for _, s := range c.seasons {
+		if !s.IsInvalid && s.PvpSeasonId != cur.PvpSeasonId && s.SeasonStartDatetime < now {
+			other = s.PvpSeasonId
+		}
+	}
+	week := gametime.WeeklyVersion(now)
+	c.Sync(&u, now)
+	p := &u.Ext.Pvp
+	p.SeasonId, p.Point, p.WeekVersion, p.Weekly = other, 47, week, nil
+	c.Sync(&u, now)
+	if p.SeasonResult == nil || p.SeasonResult.SeasonId != other || len(p.Weekly) != 1 || p.Weekly[0].WeekVersion != week {
+		t.Fatalf("mid-week change: result %+v, weekly %+v", p.SeasonResult, p.Weekly)
+	}
+	p.Point = 120 // defense battles during the week move it further
+	c.Sync(&u, week+weekMillis+3600_000)
+	seen := map[int64]bool{}
+	for _, w := range p.Weekly {
+		if seen[w.WeekVersion] {
+			t.Fatalf("week %d recorded twice: %+v", w.WeekVersion, p.Weekly)
+		}
+		seen[w.WeekVersion] = true
+	}
+	if last := p.Weekly[len(p.Weekly)-1]; last.WeekVersion != week || last.SeasonId != cur.PvpSeasonId || last.FinalPoint == 0 {
+		t.Fatalf("week's end: %+v", p.Weekly)
+	}
+}
