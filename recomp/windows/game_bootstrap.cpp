@@ -21,6 +21,7 @@
 #include "android_process.h"
 #include "thread_affinity.h"
 #include "semaphore_host.h"
+#include "sensor_service.h"
 #include "nonlocal_jmp.h"
 #include "audio_volume_session.h"
 #include "egl_host.h"
@@ -304,6 +305,7 @@ int main(int argc,char **argv){
         return SignalHost::StackLease{{use->region.base,use->region.base+use->region.size,use->region.generation},std::move(use->lease)};
       });process_signals.SetErrorSink(error);
     Semaphores semaphores(process_signals);semaphores.SetErrorSink(error);
+    SensorService sensors(SensorService::Profile::Unavailable);
     std::unique_ptr<NonlocalJumps> jumps;
     recomp::Runtime window_bridges;
     recomp::Runtime egl_bridges,gl_bridges;
@@ -427,6 +429,8 @@ int main(int argc,char **argv){
     if(collector)drain.close=[&]{collector->CloseAfterShutdown();};
 #endif
     files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);
+    sensors.Install(runtime);
+    std::fputs("Game bootstrap: Android sensor service unavailable in this port; original Unity NULL-manager branch; no hardware inventory or sensor samples claimed\n",stderr);
     constexpr addr_t mmap_audit_marker=0x7ffc68000000ULL;
     auto mmap_bridge=recomp::MakeBridge<addr_t(addr_t,uint64_t,int32_t,int32_t,int32_t,int64_t)>([&files](auto address,auto length,auto protection,auto flags,auto descriptor,auto offset){return files.Mmap(address,length,protection,flags,descriptor,offset);});
     runtime.AddImport(mmap_audit_marker,[&,mmap_bridge](State &s){
@@ -652,7 +656,7 @@ int main(int argc,char **argv){
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
         if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address&&name=="sched_getaffinity")address=getaffinity_marker;if(!address&&name=="sched_setaffinity")address=setaffinity_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
-        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
+        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),Try(sensors,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
         if(address){++provided;if(egl&&Try(*egl,name)==address&&forwarded_egl.insert(address).second)runtime.AddImport(address,[&,address,name](State &s){std::fprintf(stderr,"Game bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx LR=%#llx\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)s.gpr.x30.qword);egl_bridges.Dispatch(s,address,nullptr);});}

@@ -3,9 +3,9 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing original FMOD callback `70b3bd80` and
-its helper `70b3c1e8`, observed in `windows-first-frame-fmod-callbacks1`
-below. Separate late Android audio/permission JNI gaps remain.
+Current execution frontier: unsupported `ASensorManager_getInstance`, reached
+by original `70411a20` with LR `70411a24` after disabling audio through the real
+project setting. The preceding FMOD/audio-enabled frontier is retained below.
 The preceding actual build
 `work/windows-first-frame-plane-switch1`, host
 `ad6c6d71225ca4859e64c769a48f0279d3046eb8`, executable
@@ -70,8 +70,23 @@ Both generated APK hashes and the bounded PlayCore profile must match the new
 exact APK hash; a fresh relink is required. Existing guest objects and collector
 behavior remain selected. Both APK profiles pass209 wrapper checks and eight
 rejection boundaries per Windows/Linux host. The next original execution is
-`work/windows-first-frame-audio-disabled1`; this configuration has not yet been
-executed.
+`work/windows-first-frame-audio-disabled1` runs with host
+`d52821f908ecb2cabb0669160b48e13caa2a7ee9`, executable SHA256
+`21eb25d16ca1aedc01dbfb550a476c0c8d8b2644ff526bbbd54c3d9834dc6217`.
+It passes the earlier FMOD frontier and reaches sensor initialization, where
+`ASensorManager_getInstance` is unsupported (PC `7ffc00000120`, LR `70411a24`).
+Native exit3/controller1; all frozen inputs/objects reverify. There is still no
+original draw, swap, nativeRender return or PNG. Input SHA256
+`65e496475e6d14b6abb8e4bcfed10ffba88a5e9701f30a8435defa64d7016aae`;
+log SHA256 `4b266b93cfeb58fc36419feb22c16ba1f0d5f3c2f8cce26e79a76b7492cf0ea0`.
+A missing Context.POWER_SERVICE field is a separate preceding JNI diagnostic;
+causality is not inferred. The next bounded change qualifies the original
+[unavailable sensor-service branch](sensor_service.md) as an explicit desktop
+port capability policy, with Android hardware/service behavior left unclaimed.
+That gate now passes four original cases across ARM and Windows/Linux raw/polled
+execution, including post-null capability queries and translated NDK callers.
+The next original startup is `work/windows-first-frame-sensors1`, retaining
+the same audio-disabled APK, guest objects, collector and graphics code.
 The preceding plane-switch run exits native3/controller1; all frozen inputs
 and original objects reverify.
 There is still no original draw, successful swap, nativeRender return or PNG.
