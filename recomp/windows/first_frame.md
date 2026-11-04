@@ -3,7 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-main-altstack1`, host
+Latest original execution: `work/windows-first-frame-uniform-block1`, host
+`37a23e6e5ee02c81168ed2af3f5364e58dca25c7`, executes two new Blockiv calls
+and one BlockName call past the previous shader-reflection failure. It later
+stops at another null indirect call, LR `7047f550`. The real external-main
+epoch6 collector cycle returns with two posts; two original renders return
+continue=true. Native exit3/controller1; frozen inputs and original objects
+reverify. There is no original draw, clear, swap or PNG.
+
+Inputs SHA256 `008a9ac0a1d7b0cc14fa9728972cfd23a24733ecb061e608d417cd62bda8150d`;
+executable SHA256 `da82014522b96550e7b197f6ad9467ce830646755865cb882c0528abe16464f5`;
+log SHA256 `570d50dc5a5d716892a1a5939cd2cf8b801a7997616eeaccb04a53d9d146b449`.
+The next call is `glGetProgramInterfaceiv` for GL_ATOMIC_COUNTER_BUFFER and
+GL_ACTIVE_RESOURCES. A complete inventory of the original reflection FDE finds
+21 indirect call sites and 13 GL names. Exactly three remain missing:
+Interfaceiv, ResourceName and Resourceiv. Their real-driver bridge passes 638
+checks and 158 NDK calls, plus the prior uniform-block and draw regressions.
+The eight-argument Resourceiv transport, variable/truncated output, aliases,
+names, atomic bindings and SSBO layout match the native driver. The independent
+std430 accessed extent is 28 bytes; BUFFER_DATA_SIZE remains the driver's
+implementation-dependent minimum, not a portable rounded aggregate size.
+All 136 old markers remain exact and the three new commands are appended.
+Original game execution of this correction is pending. No compute dispatch or
+capability suppression is needed to fix this metadata-query frontier.
+
+Preceding original execution: `work/windows-first-frame-main-altstack1`, host
 `4848f6d69cca97822b25aebabbdbd5e0e3935bd1`, completes the real external
 UnityMain epoch6 stop/restart cycle: both normal-stack 31 GPR/32 Q checks,
 two original posts, genuine handler return and NanoSleep EINTR. Two original
