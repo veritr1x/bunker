@@ -66,5 +66,9 @@ change. All direct references remain closed against the same595404 heads.
 
 Scope receipt: `work/unity-numeric-minmax-scope3/acceptance.json`, SHA256
 `0f14c8a50d4704a6a3a8ef8f40481120e72941781efc90e9ed058ad1b281b98b`.
-The first execution of this sparse diagnostic remains a separate gate;
-component qualification alone establishes no frame or playable game.
+The sparse diagnostic runs in `work/windows-first-frame-numeric-minmax1`.
+It exits native3/controller1 at the next observed missing import, `uname`,
+LR `825520f0`, with no draw, successful presentation or PNG. Parent pre/post
+verification and overlay pin rechecks pass. This is a different startup
+frontier; the run does not directly trace the repaired instruction's PC.
+See [the current first-frame status](../windows/first_frame.md).

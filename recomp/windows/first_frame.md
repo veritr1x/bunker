@@ -3,7 +3,33 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-guest-transfer1`, host
+Latest original execution: `work/windows-first-frame-numeric-minmax1` uses an
+explicit sparse diagnostic overlay over host
+`4b08f113d6d694dfabccbd7f2db276cf8dad30b8`. One qualified function replaces
+`709a1280` in object343; all127 neighboring native function projections and
+the other4651 guest objects are preserved. The final link changes only that
+object token and the output executable path. The unchanged runtime source
+is recompiled with the original frozen compiler flags. This overlay does
+not claim new production v17/v18 admission; its retained903 header count is
+a conservative upper bound on902 actual remaining unsupported heads.
+
+Native exit3/controller1 now stops at missing `uname` in libil2cpp,
+PC `7ffc000005f0`, LR `825520f0`. Two original renders return continue=true;
+there is no draw, successful swap, first-frame witness or PNG. Parent
+verification passes before/after, and all overlay pins reverify. The new
+frontier differs from the preceding run; no direct dynamic observation of
+the repaired instruction's PC is claimed.
+
+Overlay SHA256 `238fc27780c871885511bf6682089f4ee47b8d35795dbbb718d5f87236f65311`;
+executable SHA256 `13152b76ba8c2a1d94eb810b3878760c13b9c936dd464c5ae28f7ad53a4b9cc0`;
+log SHA256 `a2e8dbcc26d57608525183e072bc9849ab24f0ad6f49207f21397610b5d5bb79`.
+The20-check terminal peer passes, SHA256
+`6ec09e1f9b9f229ed7b91293f00357b99e27266d4ce9ecd1c8b16edd8abe87ae`.
+See [the numeric minimum/maximum gate](../whole/fp_numeric_minmax.md).
+The next step is implementing the reached system-information query using
+actual Windows host facts and the original Bionic output ABI.
+
+Preceding original execution: `work/windows-first-frame-guest-transfer1`, host
 `4b08f113d6d694dfabccbd7f2db276cf8dad30b8`, uses the complete freshly
 compiled guest-transfer cohort. Native startup reaches original OpenGL
 texture creation and uploads, then exits3 at an unliftable-instruction
