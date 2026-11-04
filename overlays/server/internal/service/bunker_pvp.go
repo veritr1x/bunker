@@ -292,16 +292,15 @@ func (s *RewardServiceServer) ReceivePvpReward(ctx context.Context, _ *emptypb.E
 		if _, _, ok := c.Sync(u, now); !ok {
 			return
 		}
-		if s, ok := c.PendingSeason(&u.Ext.Pvp); ok {
-			for _, r := range s.Rewards {
-				granter.GrantFull(u, r.PossessionType, r.PossessionId, r.Count, now)
-				paid++
-			}
+		shown, rewards, ok := c.ClaimSeasons(&u.Ext.Pvp)
+		for _, r := range rewards {
+			granter.GrantFull(u, r.PossessionType, r.PossessionId, r.Count, now)
+			paid++
+		}
+		if ok {
 			resp.SeasonRankResult = &pb.SeasonRankResult{
-				TargetSeasonId: s.Result.SeasonId, Rank: s.Result.FinalRank, PvpSeasonRankRewardGroupId: s.RankGroup,
+				TargetSeasonId: shown.Result.SeasonId, Rank: shown.Result.FinalRank, PvpSeasonRankRewardGroupId: shown.RankGroup,
 			}
-			u.Ext.Pvp.SeasonResult = nil
-			u.Ext.Pvp.RewardSeasonId = u.Ext.Pvp.SeasonId
 			u.Ext.Pvp.LatestVersion = now
 		}
 		pending := c.PendingWeekly(&u.Ext.Pvp)

@@ -75,7 +75,9 @@ type PvpState struct {
 	RewardWeekVersion  int64             `json:"rewardWeekVersion,omitempty"` // weekly rewards paid up to this week
 	RewardSeasonId     int32             `json:"rewardSeasonId,omitempty"`
 	SeasonResult       *PvpWeeklyResult  `json:"seasonResult,omitempty"` // an ended season whose rank reward is not paid yet
-	LatestVersion      int64             `json:"latestVersion,omitempty"`
+	// Seasons that ended before SeasonResult's and are not paid yet either, oldest first.
+	EarlierSeasonResults []PvpWeeklyResult `json:"earlierSeasonResults,omitempty"`
+	LatestVersion        int64             `json:"latestVersion,omitempty"`
 }
 
 type PvpLog struct {
