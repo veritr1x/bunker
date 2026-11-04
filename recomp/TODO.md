@@ -4,6 +4,15 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
+The latest execution boundary and build evidence are in
+[the first-frame status](windows/first_frame.md). Original exception unwinding
+restores a landing-pad PC and SP, but the old lifted caller loses that
+destination. The runtime and pre-inliner call-lowering correction pass real
+ARM/Windows/Linux exception fixtures. A complete metadata and reachable
+direct-call inventory now contains 595,404 heads. Its full fresh native
+rebuild is in progress; linking, original startup and the first game image
+remain to be verified. The execution notes below retain earlier checkpoints.
+
 The separate Game29 debugger diagnostic identifies a mistranslated ARM `EXT`
 in Unity's pointer sort. The corrected instruction passes 12,352 ARM/Bionic,
 Linux and Windows records per host; the complete original sort's insertion
@@ -469,8 +478,11 @@ unsupported instructions.
 
 ## Active work
 
-1. Continue actual normal nativeRender through engine configuration and managed
-   initialization. The refreshed IL2CPP cohort has passed lineage and native
+1. Finish the fresh exception-transfer cohort, integrate it into the Windows
+   host, and run original startup to the first captured and presented game
+   frame. Use [the current boundary](windows/first_frame.md), not the historical
+   Game30 boundary above. Then continue actual normal nativeRender through
+   engine configuration and managed initialization. The refreshed IL2CPP cohort has passed lineage and native
    lifecycle gates. The new dual-engine diagnostic combines it with the accepted
    Unity hash-tail entries and unsigned-widening replacement, preserving older
    diagnostic cohorts. IL2CPP loads only when original Unity code requests it.
