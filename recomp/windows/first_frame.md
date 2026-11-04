@@ -3,7 +3,29 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-external-main1`, host
+Latest original execution: `work/windows-first-frame-yield1`, host
+`5eded1608599a5ce49712bee74cd2155d0c00293`, returns two original renders with
+continue=true and enters the third. The first NanoSleep then fails the external
+profile's disabled-only alternate-stack check, before copying its request or
+delivering a collector signal. Native exit3/controller1; all frozen inputs and
+original objects reverify. There are 29 texture allocations and no original draw,
+clear, swap or PNG.
+
+Inputs SHA256 `fcb8123a819d912d5e708a4e9750594719c0a2afb4523c830153690465f6a629`;
+executable SHA256 `81fd7e7873c3993bdbd4aee12ab87871542d67ddb9ba658bcd0a99d962686f65`;
+log SHA256 `d0afbfc81ca693f1546fd8155d9d4b41301b9673d86d7bf0d951325794502a3f`.
+Original Unity successfully enables a mapped 262,144-byte alternate signal stack
+with flags0 at LR `7040ee98`. The original collector stop/restart dispositions do
+not request SA_ONSTACK, and the interrupted SP is on the owned normal stack.
+The profile correction preserves that enabled configuration and its real mapping
+lease while keeping collector frames and roots on the normal stack. Disabled
+and enabled-inactive controls pass two genuine original stop/resume cycles each,
+with eight original posts in total. The enabled case preserves all 262,144 bytes
+and its configuration/generation, acquires five real mapping leases and rejects
+eight mapping mutations while delivery is active. The core providers remain
+unchanged. Original game execution of this correction remains pending.
+
+Preceding original execution: `work/windows-first-frame-external-main1`, host
 `44b0184010c431b8da5f40613a503f7bc9b097eb`, stops at an unliftable original
 instruction at `703835e8`. No nativeRender call returns, external-main collector
 send is observed, or original draw/swap/PNG is produced. Native exit3/controller1;

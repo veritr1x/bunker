@@ -66,7 +66,15 @@ class GameUnityMainCollector {
     Check(state->gpr.pc.qword==kNanoSleep&&state->gpr.x30.qword==0x70383878&&state->gpr.x0.qword==state->gpr.sp.qword&&!state->gpr.x1.qword,"phase is not original null-rem helper NanoSleep");
     const auto sp=state->gpr.sp.qword;Check(!(sp&15)&&sp>=owner.low&&sp<=owner.high&&sp-owner.low>=9504&&owner.high-sp>=32,"actual normal stack lacks helper/two-frame bounds");
     Check(owner.tls&&state->sr.tpidr_el0.qword==owner.tls,"materialized external TLS identity changed");
-    const auto stack=signals_.AlternateStack(owner.token).configured;Check(stack.flags==2&&!stack.pointer&&!stack.size,"alternate stack is not fresh disabled");
+    const auto alternate=signals_.AlternateStack(owner.token);const auto &stack=alternate.configured;
+    if(stack.flags==2)Check(!stack.pointer&&!stack.size&&!alternate.region,"disabled alternate stack is not canonical");
+    else{
+      Check(stack.flags==0&&stack.pointer&&stack.size>=5120&&stack.size<=UINT64_MAX-stack.pointer&&alternate.region&&alternate.region->generation&&alternate.region->low&&alternate.region->high>alternate.region->low&&stack.pointer>=alternate.region->low&&stack.pointer<=alternate.region->high&&stack.size<=alternate.region->high-stack.pointer,"enabled alternate stack has no registered mapping owner");
+      Check(!SignalHost::OnAlternateStack(stack,sp)&&(stack.pointer+stack.size<=owner.low||stack.pointer>=owner.high),"enabled alternate stack is active or overlaps normal main stack");
+      // Exact original dispositions omit SA_ONSTACK. SignalDelivery acquires
+      // and revalidates this mapping's real lease while both frames use the
+      // normal main stack, then restores the unchanged alternate metadata.
+    }
     uint64_t mask=0;Check(!signals_.Mask(owner.token,0,nullptr,&mask),"actual signal mask query failed");
     Check(selected?GameCollectorWaitMask::SelectedStop(owner.token,mask,*selected):GameCollectorWaitMask::Ordinary(mask),"ordinary/selected original stop masks differ");
   }

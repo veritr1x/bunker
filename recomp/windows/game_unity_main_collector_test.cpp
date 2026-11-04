@@ -6,6 +6,7 @@
 #include "signal_nanosleep.h"
 #include "signal_sleep.h"
 #include "semaphore_host.h"
+#include "signal_altstack_mapping.h"
 #include "../whole/cooperative_poll.h"
 #include "../whole/bridge.h"
 #include <windows.h>
@@ -62,9 +63,15 @@ Memory *Setup(State&s,addr_t,Memory*m){s.gpr.pc.qword=s.gpr.x30.qword;return m;}
 Memory *SleepEntry(State&,addr_t,Memory*);
 struct Harness {
   recomp::Runtime runtime;
+  AltMappings maps;const bool enabled_alternate;addr_t alternate_pointer=0;
+  static constexpr size_t alternate_size=262144;
+  SignalHost::StackSnapshot alternate_snapshot{};
+  std::atomic<unsigned> alternate_acquires{0},lease_guards{0};
   Pthreads threads{runtime,Translated};
   std::unique_ptr<GameUnityMainCollector> profile;
-  SignalHost signals{[this](auto token){if(profile&&profile->Owns(token))profile->Notify(token);}};
+  SignalHost signals{[this](auto token){if(profile&&profile->Owns(token))profile->Notify(token);},0x7ff600100000ULL,
+    [this](addr_t p,size_t size){return maps.Region(p,size);},
+    [this](addr_t p,size_t size,uint64_t generation){auto lease=maps.Acquire(p,size,generation);if(lease)++alternate_acquires;return lease;}};
   Semaphores sem{signals};
   SignalNanoSleeps nano{signals,[this]{return threads.Self();},[this](const auto&d){return Boundary(d);},[this](auto token){return profile->NanoSleepAdmission(token);}};
   SignalSleeps sleeps{signals,[this]{return threads.Self();},[this](const auto&d){return Boundary(d);},[](uint64_t){return uint64_t(0);}};
@@ -79,7 +86,7 @@ struct Harness {
     else if(d.signal==24){++restarts;if(d.info[100]==24)++seen_late24;}
     return profile->Deliver(d);
   }
-  Harness(){
+  explicit Harness(bool enabled):enabled_alternate(enabled){
     host=this;Check(VirtualAlloc(reinterpret_cast<void*>(0x87980000ULL),0x40000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87980000ULL),"TEST original-GC data range reserved exactly");
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87cb0000ULL),0x10000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87cb0000ULL),"TEST original acknowledgment range reserved exactly");
     runtime.AddTraces(originals,std::size(originals));const recomp::Trace fixture[]={{kSetup,Setup},{kSleepEntry,SleepEntry}};runtime.AddTraces(fixture,2);
@@ -102,16 +109,31 @@ struct Harness {
     for(int signal:{30,24}){AndroidSignalAction action{};action.handler=0x825beb3c;action.flags=signal==30?0x10000004:0x10000000;action.mask=mask;Check(!signals.Action(signal,&action,nullptr),"actual original-shaped thunk disposition installed");}
     Check(!sem.Init(kAck,0,0),"real original ack semaphore initialized for component");
   }
+  void CheckAlternate(){
+    const auto now=signals.AlternateStack(target);const auto &saved=alternate_snapshot;
+    Check(now.epoch==saved.epoch&&now.configured.pointer==saved.configured.pointer&&now.configured.flags==saved.configured.flags&&now.configured.size==saved.configured.size&&bool(now.region)==bool(saved.region),"original nested delivery preserves actual alternate configuration/epoch");
+    if(enabled_alternate){
+      Check(now.region&&saved.region&&now.region->low==saved.region->low&&now.region->high==saved.region->high&&now.region->generation==saved.region->generation,"original nested delivery preserves registered mapping generation");
+      std::vector<uint8_t> bytes(alternate_size);recomp::ReadGuestMemory(bytes.data(),alternate_pointer,bytes.size());Check(std::all_of(bytes.begin(),bytes.end(),[](uint8_t b){return b==0x6d;}),"entire inactive alternate stack remains untouched");
+    }
+  }
   void Target(){
     target=threads.Self();Check(target!=parent,"external std::thread gets actual distinct Pthreads token");Check(!signals.RegisterThread(target,parent)&&!signals.BindCurrent(target),"actual external signal lifetime bound");
     threads.Run(kSetup);AndroidThreadAttr attr{};Check(!threads.GetAttr(target,&attr)&&attr.stack_base&&attr.stack_size,"actual owned external guest stack allocated by Pthreads");
     const auto high=attr.stack_base+attr.stack_size;
+    if(enabled_alternate){
+      alternate_pointer=maps.Map(alternate_size);std::vector<uint8_t> bytes(alternate_size,0x6d);recomp::WriteGuestMemory(alternate_pointer,bytes.data(),bytes.size());
+      const AndroidSignalStack alternate{alternate_pointer,0,0,alternate_size};Check(!signals.AltStack(target,high,&alternate,nullptr),"real262144byte FileSystem-owned inactive alternate stack registered");
+    }
+    alternate_snapshot=signals.AlternateStack(target);Check(enabled_alternate?alternate_snapshot.configured.flags==0&&alternate_snapshot.region.has_value():alternate_snapshot.configured.flags==2&&!alternate_snapshot.region,"actual disabled/enabled alternate control selected");CheckAlternate();
     Write<addr_t>(kRecord,0);Write<uint64_t>(kRecord+8,target);Write<uint64_t>(kRecord+0x10,0);Write<addr_t>(kRecord+0x18,high-16);Write<uint32_t>(kRecord+0x20,6);
     Write<addr_t>(kRecord+0x28,0x1111111111111111ULL);Write<addr_t>(0x879a6ac0,high); // Poison ordinary bound: actual main profile must use global.
     uint32_t hash=uint32_t(target>>8)^uint32_t(target);hash^=hash>>16;Write<addr_t>(0x879a6b28+(hash&255)*8,kRecord);
     profile->AttachCurrent(target,parent);Check(profile->Owns(target),"explicit attached external owner is live");Reject([&]{profile->AttachCurrent(target,parent);},"duplicate external attachment rejected");attached.set_value();
-    for(unsigned n=0;n<2;++n){proceed[n].get_future().get();cycle=n+1;guest_error=731;const auto result=threads.Run(kSleepEntry);Check(int32_t(result)==-1&&guest_error==4,"original caught stop returns genuine NanoSleep EINTR");Check(Read<uint64_t>(kRecord+0x10)==uint64_t((n+1)*2+1),"original second post followed by actual E|1 store");finished[n].set_value();}
-    Check(!SignalHost::NeedsPoll(signals.Lookup(target)),"no target model signals lost at retirement");profile->DetachCurrent();Check(!profile->Owns(target),"real external detach revokes profile owner");Check(!threads.ReleaseCurrent()&&!signals.DropThread(target),"external Pthreads and SignalHost lifetimes retired on owner");
+    for(unsigned n=0;n<2;++n){proceed[n].get_future().get();cycle=n+1;guest_error=731;const auto result=threads.Run(kSleepEntry);Check(int32_t(result)==-1&&guest_error==4,"original caught stop returns genuine NanoSleep EINTR");Check(Read<uint64_t>(kRecord+0x10)==uint64_t((n+1)*2+1),"original second post followed by actual E|1 store");CheckAlternate();finished[n].set_value();}
+    Check(!SignalHost::NeedsPoll(signals.Lookup(target)),"no target model signals lost at retirement");profile->DetachCurrent();Check(!profile->Owns(target),"real external detach revokes profile owner");
+    if(enabled_alternate){const AndroidSignalStack off{};Check(!signals.AltStack(target,high,&off,nullptr),"explicit test cleanup disables alternate after genuine cycles");maps.Unmap(alternate_pointer,alternate_size);Check(!maps.Region(alternate_pointer,alternate_size),"inactive mapping lease released after all genuine frames return");}
+    Check(!threads.ReleaseCurrent()&&!signals.DropThread(target),"external Pthreads and SignalHost lifetimes retired on owner");
   }
   Memory *PLT(State&s,Memory*m,const char*name){
     addr_t marker=0;
@@ -127,7 +149,11 @@ struct Harness {
       if(++suspend_entries[n]==n+1)suspend_ready[n].set_value();
       profile->WithWait(name,s,[&]{runtime.Dispatch(s,marker,m);});
     }
-    else if(!std::strcmp(name,"sem_post")){profile->BeforePost(s);runtime.Dispatch(s,marker,m);profile->AfterPost(s);++posts;}
+    else if(!std::strcmp(name,"sem_post")){
+      CheckAlternate();
+      if(enabled_alternate){Reject([&]{maps.Unmap(alternate_pointer,alternate_size);},"real delivery lease prevents alternate munmap while normal-frame roots are live");Reject([&]{maps.Protect(alternate_pointer,alternate_size,false);},"real delivery lease prevents alternate mprotect while normal-frame roots are live");lease_guards+=2;}
+      profile->BeforePost(s);runtime.Dispatch(s,marker,m);profile->AfterPost(s);++posts;
+    }
     else runtime.Dispatch(s,marker,m);
     return m;
   }
@@ -147,9 +173,11 @@ struct Harness {
       threads.Run(0x825aae3c);Check(Read<uint64_t>(kStopped)==0,"original resume coordinator cleared worldStopped");finished[n].get_future().get();
     }
     child.join();Check(posts==4&&stops==2&&restarts>=2,"two genuine stop cycles produced exactly four original posts and nested restarts");Check(sends30>=2&&sends24>=2,"original sender instructions reached real SignalHost kill bridges");Check(seen_late30==1&&seen_late24==1,"retained late info delivered once after new epoch certification");
+    Check(enabled_alternate?alternate_acquires>=stops+restarts&&lease_guards==8:alternate_acquires==0&&lease_guards==0,"actual enabled mapping leases or disabled no-lease control witnessed");
     int32_t count=-1;Check(!sem.GetValue(kAck,&count)&&count==0,"actual original coordinators consumed their acknowledgments");
     profile->Close();profile.reset();Check(!sem.Destroy(kAck)&&!threads.Shutdown()&&!threads.ReleaseCurrent()&&!signals.DropThread(parent),"parent providers close after genuine external retirement");
     std::printf("EXTERNAL-UNITYMAIN-ORIGINAL-GC-SUCCESS cycles=2 posts=%u stops=%u restarts=%u checks=%u actual-external-thread/current-polled-original-code/physical31GPR32Q/main-global-bound\n",posts.load(),stops.load(),restarts.load(),checks.load());
+    std::printf("EXTERNAL-UNITYMAIN-ALTSTACK mode=%s size=%zu acquires=%u lease-guards=%u canaries=unchanged configuration=preserved normal-root-frames=4\n",enabled_alternate?"enabled-inactive":"disabled",enabled_alternate?alternate_size:size_t(0),alternate_acquires.load(),lease_guards.load());
   }
 };
 Memory *SleepEntry(State&s,addr_t,Memory*m){
@@ -175,8 +203,8 @@ Memory *sub_820cbb10(State&,addr_t,Memory*){Unsupported("original abort");}
 Memory *sub_825a66a4(State&,addr_t,Memory*){Unsupported("original diagnostic logging");}
 Memory *sub_825b3020(State&,addr_t,Memory*){Unsupported("original unexpected reinitialization");}
 }
-int main(){
+int main(int argc,char**argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
   std::thread([]{std::this_thread::sleep_for(std::chrono::seconds(45));std::fputs("external original GC component watchdog\n",stderr);std::_Exit(98);}).detach();
-  try{Harness h;h.Run();return 0;}catch(const std::exception&e){std::fprintf(stderr,"external original GC fixture: %s\n",e.what());std::_Exit(91);}
+  try{Check(argc==2&&(!std::strcmp(argv[1],"disabled")||!std::strcmp(argv[1],"enabled")),"explicit alternate-stack fixture mode");Harness h(!std::strcmp(argv[1],"enabled"));h.Run();return 0;}catch(const std::exception&e){std::fprintf(stderr,"external original GC fixture: %s\n",e.what());std::_Exit(91);}
 }
