@@ -1,0 +1,21 @@
+{
+  "module": "il2cpp",
+  "base": "0x80000000",
+  "original_elf_sha256": "ff5c66ad2fdaa957fa005f1957988b3277331abefcdedcdb0c82e59ba2e80522",
+  "original_fde": ["0x83f372b8", "0x83f374cc"],
+  "additional_trace_heads": [
+    "0x83f373a8",
+    "0x83f373bc",
+    "0x83f373c4",
+    "0x83f3745c"
+  ],
+  "source": {
+    "table": "0x85a84938",
+    "entry_bytes": 4,
+    "offsets": "signed offsets relative to the table address",
+    "guard": "unsigned (W26-1) <= 3",
+    "computed_branch": "0x83f373a4",
+    "audit_sha256": "2575e245ed586caba98838dc16169a54c54f2c3fec612531996c2dfef18142df"
+  },
+  "limits": "Only these four original entries are admitted by this record. The separate conservative table inventory does not authorize selecting other targets. No instruction or dispatch behavior is rewritten."
+}

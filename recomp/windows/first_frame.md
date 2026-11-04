@@ -3,7 +3,32 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-uname1`, source patch
+Latest original execution: `work/windows-first-frame-uname-indirect1` appends
+the complete four-entry computed-table group, retaining all4652 prior guest
+objects and rebuilding unchanged bootstrap source against595408 sorted trace
+heads. Native exit3/controller1 now stops at missing `mktime` in libil2cpp,
+PC `7ffc00000480`, LR `82556df0`, input pointer `1f42b920178`. Two renders
+return continue=true; there is no draw, presentation, witness or PNG. Parent
+pre/post verification and all overlay pin checks pass. No direct trace of
+each new entry or the `uname` return was captured. The observed process
+exited before the external module-base query; no actual base is inferred.
+
+Overlay SHA256 `bd4182d36e63a265501e8b5862e6f0815a0b356eee1cb5d4c3e819b35632fb01`;
+executable SHA256 `6417a5098fcee963eafbed3783b53b9c3f42414c04a64adf68e23ba67c8c8d02`;
+log SHA256 `bca37ddaa884ee6fb0609ab7d77dae2e6d40fe9b66bb41d07929951838bac42b`.
+See [the computed-entry gate](../whole/il2cpp_computed_entries.md).
+
+The reached caller `82556d90..82557138` discovers timezone rules using
+`mktime`, `time`, `localtime`, `gmtime`, `difftime` and `strftime("%Z")`;
+the original Unity imports also require the two reentrant variants.
+The group needs Bionic's56-byte `tm`, signed64 timestamps, consistent DST
+normalization and real host timezone data. A Windows CRT-only `mktime`
+wrapper rejects valid negative epochs required by the caller. The next
+component gate implements this calendar family against actual Bionic
+reference behavior. Boundary audit SHA256
+`1d19eed3c9e49e2bc1457e4e9263d202e7104efb5b5433a7b9526f0fe0adff8b`.
+
+Preceding original execution: `work/windows-first-frame-uname1`, source patch
 `15f6b158864cc740c6993b181ef15d41f597d496`, includes the qualified Windows
 `uname` provider. Native exit3/controller1 reaches unresolved indirect
 target `83f373c4`, StatePC equal to that target, LR `83f37378`, and
