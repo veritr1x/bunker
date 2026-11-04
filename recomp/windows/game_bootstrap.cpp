@@ -374,6 +374,19 @@ int main(int argc,char **argv){
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
+    modules.SetProgramHeaderRunner([&](addr_t callback,addr_t info,uint64_t size,addr_t data){
+      Require(Translated(callback),"program-header callback is not translated");
+      {
+        GameWorkerObservation::NativeEnvironment native;
+        Require(size==sizeof(AndroidDlPhdrInfo),"program-header callback ABI extent differs from Android13");
+        const auto entry=Read<AndroidDlPhdrInfo>(info);
+        const auto name=entry.dlpi_name?recomp::ReadGuestString(entry.dlpi_name):std::string();
+        std::fprintf(stderr,"Game bootstrap: original phdr callback=%#llx info=%#llx size=%llu data=%#llx module=%s bias=%#llx phdr=%#llx phnum=%u adds=%llu subs=%llu; actual active guest ELF metadata\n",(unsigned long long)callback,(unsigned long long)info,(unsigned long long)size,(unsigned long long)data,name.c_str(),(unsigned long long)entry.dlpi_addr,(unsigned long long)entry.dlpi_phdr,unsigned(entry.dlpi_phnum),(unsigned long long)entry.dlpi_adds,(unsigned long long)entry.dlpi_subs);
+      }
+      const auto result=static_cast<int32_t>(threads.Run(callback,{info,size,data}));
+      {GameWorkerObservation::NativeEnvironment native;std::fprintf(stderr,"Game bootstrap: original phdr callback=%#llx returned=%d\n",(unsigned long long)callback,result);}
+      return result;
+    });
     // Existing profiles retain observation-only hooks and the nonzero guard.
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     if(collector_delivery){
@@ -545,7 +558,7 @@ int main(int argc,char **argv){
     });
     tls_audit.Install(runtime,threads);
     modules.Install(module_bridges);
-    for(const char *name:{"dlopen","dlsym","dlclose","dlerror","dladdr"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
+    for(const char *name:{"dlopen","dlsym","dlclose","dlerror","dladdr","dl_iterate_phdr"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
       const auto argument=s.gpr.x0.qword,output=s.gpr.x1.qword,caller=s.gpr.x30.qword;
       const auto text=!std::strcmp(name,"dlopen")?(argument?recomp::ReadGuestString(argument):"<null>"):!std::strcmp(name,"dlsym")?(s.gpr.x1.qword?recomp::ReadGuestString(s.gpr.x1.qword):"<null>"):std::string();
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY

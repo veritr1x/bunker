@@ -9,7 +9,7 @@
 namespace bunker::windows {
 namespace {
 struct Header {uint8_t ident[16];uint16_t type,machine;uint32_t version;uint64_t entry,phoff,shoff;uint32_t flags;uint16_t ehsize,phentsize,phnum,shentsize,shnum,shstrndx;};
-struct Program {uint32_t type,flags;uint64_t offset,vaddr,paddr,filesz,memsz,align;};
+using Program=AndroidElf64Phdr;
 struct Dynamic {int64_t tag;uint64_t value;};
 struct Symbol {uint32_t name;uint8_t info,other;uint16_t section;uint64_t value,size;};
 static_assert(sizeof(Header)==64&&sizeof(Program)==56&&sizeof(Dynamic)==16&&sizeof(Symbol)==24);
@@ -28,8 +28,9 @@ ModuleAddressImage DescribeModuleElf(const uint8_t *file,size_t length,addr_t bi
  Reader r{file,length};const auto header=r.At<Header>(0);
  if(std::memcmp(header.ident,"\177ELF",4)||header.ident[4]!=2||header.ident[5]!=1||header.ident[6]!=1||header.machine!=183||header.version!=1||(header.type!=2&&header.type!=3)||header.ehsize!=64||header.phentsize!=56||!header.phnum||header.phnum==0xffff)Bad("ELF64 AArch64 header/profile");
  r.Span(header.phoff,Mul(header.phnum,sizeof(Program)));
- std::vector<Program> loads;std::optional<Program> dynamic;uint64_t low=UINT64_MAX,high=0;
+ std::vector<Program> loads,programs;programs.reserve(header.phnum);std::optional<Program> dynamic;uint64_t low=UINT64_MAX,high=0;
  for(uint64_t i=0;i<header.phnum;++i){const auto p=r.At<Program>(Add(header.phoff,Mul(i,sizeof(Program))));
+  programs.push_back(p);
   if(p.type==1){r.Span(p.offset,p.filesz);if(p.filesz>p.memsz)Bad("PT_LOAD file size exceeds memory size");const auto end=Add(p.vaddr,p.memsz);Add(bias,end);low=std::min(low,p.vaddr&~UINT64_C(4095));high=std::max(high,end);loads.push_back(p);}
   if(p.type==2){if(dynamic)Bad("multiple PT_DYNAMIC tables");r.Span(p.offset,p.filesz);if(p.filesz%sizeof(Dynamic))Bad("PT_DYNAMIC size");dynamic=p;}
  }
@@ -67,6 +68,13 @@ ModuleAddressImage DescribeModuleElf(const uint8_t *file,size_t length,addr_t bi
  }
  const auto symbols=Offset(tags.at(6),Mul(count,sizeof(Symbol)));std::optional<uint64_t> versions;if(tags.count(0x6ffffff0))versions=Offset(tags.at(0x6ffffff0),Mul(count,2));
  ModuleAddressImage image;image.filename=std::move(filename);image.base=Add(bias,low);image.load_bias=bias;image.span=(Add(high,4095)&~UINT64_C(4095))-low;Add(image.base,image.span);
+ image.program_headers=std::move(programs);
+ const auto table_bytes=Mul(header.phnum,sizeof(Program));
+ for(const auto&p:loads)if(header.phoff>=p.offset&&header.phoff-p.offset<=p.filesz&&table_bytes<=p.filesz-(header.phoff-p.offset)){
+  const auto address=Add(Add(bias,p.vaddr),header.phoff-p.offset);
+  if(image.mapped_program_headers&&image.mapped_program_headers!=address)Bad("ambiguous mapped program header table");
+  image.mapped_program_headers=address;
+ }
  for(const auto &p:loads)image.loads.push_back({p.vaddr,p.memsz});
  image.symbols.reserve(order.size());
  for(auto index:order){const auto symbol=r.At<Symbol>(Add(symbols,Mul(index,sizeof(Symbol))));if(symbol.name>=string_size||symbol.size>UINT64_MAX-symbol.value)Bad("symbol string/range bounds");

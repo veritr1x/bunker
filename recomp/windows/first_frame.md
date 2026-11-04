@@ -3,7 +3,35 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-soft-input1`, host
+Latest original execution: `work/windows-first-frame-worker-futex1`, host
+`12ceb5d2e686acdb18c938472d6fcabfe388452b`, completes four genuine worker19
+stop/restart cycles at epochs8/10/12/14. Eight physical 31-GPR/32-Q root checks,
+eight original posts and four timed-futex EINTR returns are observed. Main
+epoch6 also completes. Execution later stops on missing `dl_iterate_phdr` in
+libil2cpp, LR `82628130`, callback `82627024`. Two renders return continue=true;
+no original draw, clear, swap, PNG or soft-input native report is observed.
+Native exit3/controller1; frozen inputs and original objects reverify.
+
+Inputs SHA256 `099b15b831cf800fd635fa7ae870deb3e8f02545234c9a412e0eada6f3691c6c`;
+executable SHA256 `ea58082c3f3bfa27bb2a8fa697ff51158f3b6d89f0bc11f36e40e96fc5f988de`;
+log SHA256 `8b6634be9b6db197a38441bcfa4b172136c455eb64f4500498c5ddd1051a1e35`.
+The callback performs original unwind/FDE lookup using PT_LOAD,
+PT_GNU_EH_FRAME and PT_DYNAMIC. The next port must expose the real mapped
+program headers of active guest ELFs in load-generation order. The chosen
+Android13 profile requires the 64-byte info record with real load/unload
+counters. Both current game ELFs have no PT_TLS; no synthetic Android/PE module
+or empty enumeration is used to bypass lookup.
+
+The correction passes 183 focused checks, eight real NDK calls and ten genuine
+original FDE queries over both mapped game ELFs. The retained original callback
+fixture includes all 22 polled heads within ten audited helper families and
+both complete indirect decoder tables. Live load order, reentrant load/unload,
+counters, early termination and unsupported TLS/catalog controls pass, alongside
+22 existing registry and 843 retained dladdr checks. Old seven method bodies,
+five markers and all 27 protected sources remain exact. Original game execution
+of this correction is pending; complete stack unwinding is not yet qualified.
+
+Preceding original execution: `work/windows-first-frame-soft-input1`, host
 `13f50c04038e11ebe04afe92690eaa49898ae195`, passes the missing hideSoftInput
 binding and reaches collector epoch8. The original stop30 at LR `825b2d1c`
 targets a real Unity-created worker (`token19`, entry `70383624`), which the
@@ -31,7 +59,8 @@ ticket, fixed deadline and wake/timeout precedence; focused Windows/Linux tests
 and the retained 38 timed/23 untimed NDK records pass. The lifecycle composition
 recovers the entire old header and preserves sixteen finalizer method bodies
 byte-for-byte. Other 26 protected sources remain exact. These are component
-results; original game execution of this correction is pending.
+results. The subsequent execution above validates four ordinary-worker stop
+cycles; original scanner/reclamation completeness is not inferred from them.
 
 Preceding original execution: `work/windows-first-frame-image-uniform1`, host
 `3ef041dc3e4c858aaa8602e101fcafcfab5f0a31`, passes image-uniform reflection

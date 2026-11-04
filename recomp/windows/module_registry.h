@@ -17,6 +17,20 @@ struct AndroidDlInfo {
 };
 static_assert(sizeof(AndroidDlInfo)==32);
 static_assert(offsetof(AndroidDlInfo,base)==8&&offsetof(AndroidDlInfo,symbol_name)==16&&offsetof(AndroidDlInfo,symbol_address)==24);
+struct AndroidElf64Phdr {
+  uint32_t type,flags;
+  uint64_t offset,vaddr,paddr,filesz,memsz,align;
+};
+static_assert(sizeof(AndroidElf64Phdr)==56&&offsetof(AndroidElf64Phdr,vaddr)==16&&offsetof(AndroidElf64Phdr,memsz)==40);
+// Android13 AArch64 layout, including the additions since Android R.
+struct AndroidDlPhdrInfo {
+  addr_t dlpi_addr,dlpi_name,dlpi_phdr;
+  uint16_t dlpi_phnum;
+  uint8_t reserved[6];
+  uint64_t dlpi_adds,dlpi_subs,dlpi_tls_modid;
+  addr_t dlpi_tls_data;
+};
+static_assert(sizeof(AndroidDlPhdrInfo)==64&&offsetof(AndroidDlPhdrInfo,dlpi_phnum)==24&&offsetof(AndroidDlPhdrInfo,dlpi_adds)==32&&offsetof(AndroidDlPhdrInfo,dlpi_subs)==40&&offsetof(AndroidDlPhdrInfo,dlpi_tls_modid)==48&&offsetof(AndroidDlPhdrInfo,dlpi_tls_data)==56);
 struct ModuleLoadSegment {uint64_t virtual_address,memory_size;};
 struct ModuleAddressSymbol {
   std::string name;
@@ -34,6 +48,10 @@ struct ModuleAddressImage {
   std::vector<ModuleLoadSegment> loads;
   // Complete GNU bucket/chain or SysV index traversal order, not name order.
   std::vector<ModuleAddressSymbol> symbols;
+  // Every original program header in file order. The address is the real
+  // table inside a file-backed mapped PT_LOAD, never this vector's native data.
+  std::vector<AndroidElf64Phdr> program_headers;
+  addr_t mapped_program_headers=0;
 };
 struct Module {
   enum class ExportPolicy {DeclaredAddresses,BionicRawSymbols};
@@ -66,6 +84,11 @@ class ModuleRegistry {
   int Close(addr_t handle);
   addr_t Error();
   int32_t Address(addr_t address,AndroidDlInfo *output);
+  using ProgramHeaderRunner=std::function<int32_t(addr_t,addr_t,uint64_t,addr_t)>;
+  // Configure only while iteration callbacks are quiescent. The runner must
+  // call the translated callback on the actual current guest thread/stack.
+  void SetProgramHeaderRunner(ProgramHeaderRunner);
+  int32_t IterateProgramHeaders(addr_t callback,addr_t data);
   addr_t Marker(const std::string &name) const;
   void Install(recomp::Runtime &runtime);
   size_t ReferenceCount(const std::string &name) const;
@@ -80,6 +103,9 @@ class ModuleRegistry {
   std::map<addr_t, Image *> handles_;
   std::map<uint64_t, Errors> errors_;
   std::function<void(addr_t)> run_lifecycle_;
+  ProgramHeaderRunner program_header_runner_;
+  uint64_t load_counter_=0,unload_counter_=0;
+  size_t active_iterations_=0;
   addr_t marker_base_, next_handle_ = 0x7ff500000000ULL;
   bool installed_ = false;
 };

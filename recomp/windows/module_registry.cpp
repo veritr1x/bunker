@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <set>
 #include <stdexcept>
@@ -30,6 +31,29 @@ void ValidateAddressImage(const ModuleAddressImage &image){
 void PublishAddressNames(const ModuleAddressImage &image){
   recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(image.filename.c_str()),image.filename.size()+1);
   for(const auto &symbol:image.symbols)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(symbol.name.c_str()),symbol.name.size()+1);
+}
+void ValidateProgramHeaders(const ModuleAddressImage&image){
+  if(image.program_headers.empty()||image.program_headers.size()>=0xffff||!image.mapped_program_headers)
+    throw std::runtime_error("unsupported dl_iterate_phdr without complete original mapped program headers");
+  const auto count=image.program_headers.size(),bytes=count*sizeof(AndroidElf64Phdr);
+  if(bytes>std::numeric_limits<addr_t>::max()-image.mapped_program_headers)
+    throw std::overflow_error("dl_iterate_phdr program header range overflow");
+  bool contains=false;size_t load=0;
+  for(const auto&p:image.program_headers){
+    if(p.type==7)throw std::runtime_error("unsupported dl_iterate_phdr ELF TLS module");
+    if(p.type!=1)continue;
+    if(load>=image.loads.size()||image.loads[load].virtual_address!=p.vaddr||image.loads[load].memory_size!=p.memsz||p.filesz>p.memsz)
+      throw std::invalid_argument("inconsistent dl_iterate_phdr original PT_LOAD metadata");
+    ++load;
+    if(p.vaddr>std::numeric_limits<addr_t>::max()-image.load_bias)
+      throw std::overflow_error("dl_iterate_phdr PT_LOAD bias overflow");
+    const auto start=image.load_bias+p.vaddr;
+    if(image.mapped_program_headers>=start&&image.mapped_program_headers-start<=p.filesz&&bytes<=p.filesz-(image.mapped_program_headers-start))contains=true;
+  }
+  if(load!=image.loads.size()||!contains)throw std::invalid_argument("dl_iterate_phdr table is not a complete file-backed PT_LOAD range");
+  std::vector<AndroidElf64Phdr> actual(count);
+  recomp::ReadGuestMemory(actual.data(),image.mapped_program_headers,bytes);
+  if(std::memcmp(actual.data(),image.program_headers.data(),bytes))throw std::runtime_error("dl_iterate_phdr mapped headers differ from original ELF table");
 }
 }
 struct ModuleRegistry::Image {
@@ -104,11 +128,14 @@ addr_t ModuleRegistry::Open(const char *path, int flags) {
   if (image.loaded_before && !image.module.reset_image) { SetError("translated module cannot reopen without a data-image reset: " + image.module.name); return 0; }
   image.status = Image::kLoading; image.references = 1; image.handle = next_handle_++;
   handles_.emplace(image.handle, &image);
+  bool linked=false;
   try {
     if (image.module.reset_image) image.module.reset_image();
+    if(image.module.kind==Module::Kind::TranslatedElf){++load_counter_;linked=true;}
     for (auto entry : image.module.initializers) run_lifecycle_(entry);
   } catch (const std::exception &error) {
     handles_.erase(image.handle); image.handle = 0; image.references = 0; image.status = Image::kUnloaded;
+    if(linked)++unload_counter_;
     SetError("translated module initialization failed: " + image.module.name + ": " + error.what()); return 0;
   }
   image.loaded_before = true; image.status = Image::kLoaded; return image.handle;
@@ -152,7 +179,9 @@ int ModuleRegistry::Close(addr_t handle) {
     image.references = 1; image.status = Image::kLoaded;
     SetError("translated module finalization failed: " + image.module.name + ": " + error.what()); return -1;
   }
-  handles_.erase(found); image.handle = 0; image.status = Image::kUnloaded; return 0;
+  handles_.erase(found); image.handle = 0; image.status = Image::kUnloaded;
+  if(image.module.kind==Module::Kind::TranslatedElf)++unload_counter_;
+  return 0;
 }
 addr_t ModuleRegistry::Error() {
   std::lock_guard lock(mutex_);
@@ -198,6 +227,7 @@ addr_t ModuleRegistry::Marker(const std::string &name) const {
   if (name == "dlclose") return marker_base_ + 16;
   if (name == "dlerror") return marker_base_ + 24;
   if (name == "dladdr") return marker_base_ + 32;
+  if (name == "dl_iterate_phdr") return marker_base_ + 40;
   throw std::invalid_argument("unknown libdl bridge name");
 }
 void ModuleRegistry::Install(recomp::Runtime &runtime) {
@@ -210,7 +240,43 @@ void ModuleRegistry::Install(recomp::Runtime &runtime) {
   runtime.AddImport(Marker("dlerror"), recomp::MakeBridge<addr_t()>([this] { return Error(); }));
   auto address=recomp::MakeBridge<int32_t(addr_t,AndroidDlInfo*)>([this](auto value,auto output){return Address(value,output);});
   runtime.AddImport(Marker("dladdr"),[address](State &state){try{address(state);}catch(const std::exception &e){std::fprintf(stderr,"module registry dladdr: %s\n",e.what());std::fflush(stderr);std::abort();}catch(...){std::fputs("module registry dladdr: unknown exception\n",stderr);std::fflush(stderr);std::abort();}});
+  auto iterate=recomp::MakeBridge<int32_t(addr_t,addr_t)>([this](addr_t callback,addr_t data){return IterateProgramHeaders(callback,data);});
+  runtime.AddImport(Marker("dl_iterate_phdr"),[iterate](State &state){try{iterate(state);}catch(const std::exception&e){std::fprintf(stderr,"module registry dl_iterate_phdr: %s\n",e.what());std::fflush(stderr);std::abort();}catch(...){std::fputs("module registry dl_iterate_phdr: unknown exception\n",stderr);std::fflush(stderr);std::abort();}});
   installed_ = true;
+}
+void ModuleRegistry::SetProgramHeaderRunner(ProgramHeaderRunner runner){
+  ProgramHeaderRunner retired;
+  {std::lock_guard lock(mutex_);
+    if(active_iterations_)throw std::logic_error("program header runner requires quiescent callbacks");
+    retired=std::move(program_header_runner_);program_header_runner_=std::move(runner);
+  }
+}
+int32_t ModuleRegistry::IterateProgramHeaders(addr_t callback,addr_t data){
+  std::lock_guard lock(mutex_);
+  if(!callback||!program_header_runner_)throw std::invalid_argument("dl_iterate_phdr requires a translated callback runner");
+  ++active_iterations_;
+  struct Scope{size_t&count;~Scope(){--count;}}scope{active_iterations_};
+  addr_t cursor=0;
+  for(;;){
+    // Re-query the live handle-generation list after each callback. Recursive
+    // dlopen appends a generation; close removes it after its finalizers. Never
+    // retain an iterator across guest code or mistake name order for load order.
+    auto next=handles_.upper_bound(cursor);
+    while(next!=handles_.end()&&next->second->module.kind==Module::Kind::TypedService)++next;
+    if(next==handles_.end())return 0;
+    cursor=next->first;auto&image=*next->second;
+    if(!image.module.address_image)throw std::runtime_error("unsupported dl_iterate_phdr with incomplete active translated ELF catalog");
+    const auto&metadata=*image.module.address_image;ValidateProgramHeaders(metadata);
+    AndroidDlPhdrInfo value{};
+    value.dlpi_addr=metadata.load_bias;value.dlpi_name=reinterpret_cast<addr_t>(metadata.filename.c_str());
+    value.dlpi_phdr=metadata.mapped_program_headers;value.dlpi_phnum=static_cast<uint16_t>(metadata.program_headers.size());
+    value.dlpi_adds=load_counter_;value.dlpi_subs=unload_counter_;
+    // PT_TLS was rejected, so this real catalog has no TLS module or block.
+    AndroidDlPhdrInfo published{};
+    recomp::WriteGuestMemory(reinterpret_cast<addr_t>(&published),&value,sizeof(value));
+    const auto result=program_header_runner_(callback,reinterpret_cast<addr_t>(&published),sizeof(published),data);
+    if(result)return result;
+  }
 }
 size_t ModuleRegistry::ReferenceCount(const std::string &name) const {
   std::lock_guard lock(mutex_); auto found = images_.find(name); return found == images_.end() ? 0 : found->second->references;
