@@ -10,6 +10,11 @@ HERE=pathlib.Path(__file__).resolve().parent
 def sha(path):
  with pathlib.Path(path).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def native_render_returns(text):
+ # Record completed invocations in observed order, including actual false.
+ # An entered or requested render is not a returned frame.
+ return [{'frame':int(m[1]),'continue':m[2]=='1'}for m in re.finditer(r'First frame: original nativeRender returned frame=(\d+) continue=([01])(?:\s|$)',text)]
+
 def validate_cooperative_contract(proof,descriptor,objects,parent_proof=None,grandparent_proof=None,great_grandparent_proof=None,ancestor_chain=None):
  assert (proof['trace_heads'],len(proof['objects']),len(objects))in((456684,3575,3575),(456689,3576,3576),(456700,3577,3577),(456706,3578,3578))and proof['unique_definitions'] is True and proof['missing_direct_targets']==[],'incomplete cooperative cohort'
  assert [(x['path'],x['sha256'])for x in proof['objects']]==[(x['path'],x['sha256'])for x in objects],'cooperative cohort object selection differs'
@@ -327,7 +332,8 @@ def main():
  verify();text=log.read_text(errors='replace')
  ctors=re.findall(r'Game bootstrap: IL2CPP constructor (\d+)/9 entry=',text);finis=re.findall(r'Game bootstrap: IL2CPP finalizer (\d+)/2 entry=',text)
  lifecycle_order=ctors==list(map(str,range(1,len(ctors)+1)))and finis==list(map(str,range(1,len(finis)+1)))and len(ctors)<=9 and len(finis)<=2
- frame_returned='first nativeRender returned continue='in text
+ render_returns=native_render_returns(text)
+ frame_returned=bool(render_returns)or'first nativeRender returned continue='in text
  before=re.search(r'before original nativeRender IL2CPP constructors=(\d+) refs=(\d+)',text)
  lazy=(not int(before[1])and not int(before[2]))if before else(None if frame else not ctors and not finis)
  terminal='Game bootstrap: normal profile completion='+a.profile+'; original constructors/JNI, lifecycle and ownership checks complete'in text
@@ -343,6 +349,7 @@ def main():
  result['collector_delivery_profile']=record.get('collector_delivery_profile')if gc else None
  result['audio_profile']='explicit-muted' if muted_profile else 'normal'
  result['first_frame_diagnostic_requested']=a.first_frame
+ result['native_render_returns']=render_returns
  result['successful_presentations']=[int(n)for n in re.findall(r'First frame: EGL RETURN eglSwapBuffers x0=0x1 successfulPresentations=(\d+)',text)]
  result['first_frame_witness']='First frame: witness=1 'in text
  result['first_frame_png_sha256']=sha(storage/'first-frame.png')if(storage/'first-frame.png').is_file()else None

@@ -17,6 +17,7 @@
 #include "unity_lifecycle.h"
 #include "signal_host.h"
 #include "signal_sleep.h"
+#include "signal_nanosleep.h"
 #include "signal_futex.h"
 #include "thread_priority.h"
 #include "android_process.h"
@@ -404,6 +405,14 @@ int main(int argc,char **argv){
     SignalSleeps sleeps(process_signals,current_signal_thread,sleep_no_delivery,
                         [](uint64_t){return uint64_t{0};});
     sleeps.SetErrorSink(error);
+    SignalNanoSleeps nanosleeps(process_signals,current_signal_thread,sleep_no_delivery,
+                               [](uint64_t){return uint64_t{0};});
+    nanosleeps.SetErrorSink(error);
+    nanosleeps.SetRequestObserver([](const SignalNanoSleeps::Observation &observation){
+      GameWorkerObservation::NativeEnvironment native;
+      std::fprintf(stderr,"Game bootstrap: original nanosleep COPIED caller_native_tid=%lu request=%#llx remaining=%#llx copied=%d seconds=%lld nanoseconds=%lld; immutable input snapshot, no blocking claim\n",GetCurrentThreadId(),(unsigned long long)observation.request,(unsigned long long)observation.remaining,int(observation.copied),(long long)observation.seconds,(long long)observation.nanoseconds);
+      std::fflush(stderr);
+    });
     recomp::Runtime sleep_bridges;
     auto futex_no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("private-futex signal roots are not qualified");};
     SignalFutexes futexes(process_signals,current_signal_thread,futex_no_delivery,
@@ -533,6 +542,19 @@ int main(int argc,char **argv){
         std::fprintf(stderr,"Game bootstrap: original usleep microseconds=%u LR=%#llx result=%d errno=%d\n",microseconds,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());
       }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original usleep LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
       catch(...){std::fprintf(stderr,"Game bootstrap: original usleep LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
+    });
+    nanosleeps.Install(sleep_bridges);
+    const auto nanosleep_marker=nanosleeps.Marker("nanosleep");
+    runtime.AddImport(nanosleep_marker,[&,nanosleep_marker](State &s){
+      const auto request=s.gpr.x0.qword,remaining=s.gpr.x1.qword,caller=s.gpr.x30.qword;
+      try{
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original nanosleep ENTER caller_native_tid=%lu request=%#llx remaining=%#llx LR=%#llx\n",GetCurrentThreadId(),(unsigned long long)request,(unsigned long long)remaining,(unsigned long long)caller);}
+        sleep_bridges.Dispatch(s,nanosleep_marker,nullptr);
+        {GameWorkerObservation::NativeEnvironment native;
+          std::fprintf(stderr,"Game bootstrap: original nanosleep RETURN caller_native_tid=%lu request=%#llx remaining=%#llx LR=%#llx result=%d errno=%d\n",GetCurrentThreadId(),(unsigned long long)request,(unsigned long long)remaining,(unsigned long long)caller,int32_t(s.gpr.x0.dword),files.Error());}
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original nanosleep LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original nanosleep LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
     });
     // The forwarding import below owns the complete original-call witness.
     futexes.Install(futex_bridges,[](const State&,uint64_t){});
@@ -671,7 +693,7 @@ int main(int argc,char **argv){
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
         if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address&&name=="sched_getaffinity")address=getaffinity_marker;if(!address&&name=="sched_setaffinity")address=setaffinity_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
-        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),Try(sensors,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
+        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(nanosleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),Try(sensors,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
         if(address){++provided;if(egl&&Try(*egl,name)==address&&forwarded_egl.insert(address).second)runtime.AddImport(address,[&,address,name](State &s){std::fprintf(stderr,"Game bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx LR=%#llx\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)s.gpr.x30.qword);egl_bridges.Dispatch(s,address,nullptr);});}

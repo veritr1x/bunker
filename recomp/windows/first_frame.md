@@ -3,7 +3,36 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-launch-url1`, host
+Latest original execution: `work/windows-first-frame-continuation1`, host
+`df179927722c32566e881497247ea853904849f4`, completes two original render calls
+with `continue=true` on the same UnityMain. The third call stops at unsupported
+`nanosleep`, PC `7ffc000000a0`, LR `70383878`, request pointer `1f4620b0f50`
+and null remainder. The actual requested duration was not captured in that run.
+There is still no original draw, clear, swap or PNG. The next change supplies
+the genuine interruptible timer operation, preserving the existing collector
+admission policy. Its input snapshot must be logged before waiting.
+
+Inputs SHA256 `ddf84544acc9617915e1fc7f03fc8e09a346a9faeae766ba4e39ed0bf56f1ae3`;
+executable SHA256 `ac35027011d99c5424de7cbbb67311d131a99c4c2bf52a2502cfe6713da26dda`;
+log SHA256 `6cef4ad510f9fb93d0ca5647f52631c3ed3f223d0474307bed76a861ec21a7e0`.
+Native exit3/controller1; frozen inputs and original objects reverify.
+The saved audit's legacy `native_render_returned=false` only recognizes a final
+summary that this fatal run did not reach. Its ordered log explicitly records
+both returns. The updated runner records ordered returns, including actual
+false results, while preserving legacy summaries and the existing completion
+checks. Seven focused parsing cases pass; the saved run remains unchanged.
+
+The separate [nanosleep provider](signal_nanosleep.md) now passes30 call records
+on each translated host, with292 Windows checks and290 Linux checks. Its24
+supported ARM/Bionic records and all30 native Linux records match within their
+documented scopes. The existing protected27-source map remains exact and the
+game admits no new signal-delivery phase. Receipt
+`work/nanosleep-qualification2/acceptance.json`, SHA256
+`596efcd8c20d899f4783d97b8fbef7ca1aee352fe0e464a3c7f2a0117b16aa09`.
+A fresh original execution is still needed to pass the reached timer import
+and continue toward a presented frame.
+
+The preceding execution `work/windows-first-frame-launch-url1`, host
 `ab351e2314be540c52ea7c5dea5dbd7261393d50`, passes the launch-URL callback and
 returns from original `nativeRender` with `continue=true`. It submits no draw,
 clear or swap and produces no PNG. The existing one-frame diagnostic then
