@@ -45,8 +45,11 @@
   2021, as the original-dates view shows them. Nothing was changed, as with
   the calendar on Android. The device log shows the Arena line as
   `<private>` (the Subjugation line before it is readable). The user's save
-  was restored afterwards. The four-week turns on iOS (Everything open) were
-  not run on a device.
+  was restored afterwards.
+- iPhone 15 Pro, the same build, Everything open, a level-14 test player with
+  the Arena open (1,113 points in 202038): the Arena showed Season 036 with
+  the Period 10-26 13:30 to 11-23 13:30, the four-week turn holding
+  4 November, as on Android. The save was restored afterwards.
 
 ## Arena season turns — 2026-11-04
 
