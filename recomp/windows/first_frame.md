@@ -21,9 +21,22 @@ The complete original EH metadata audit finds 138,657 absent landing-pad heads
 435,292 FDEs and 213,718 callsite rows. Adding them to the current selection
 would produce 595,390 heads. The call-lowering correction must run before
 Remill's guest-function inliner; cached raw IR already contains guest inlining.
-Runtime and LLVM call-lowering prototypes are being prepared separately from
-the selected game build. No transfer correction or landing-pad code is selected
-yet, and no original draw, swap or PNG is observed.
+The tested runtime correction and pre-inliner pass are now in `whole/runtime.*`
+and `whole/GuestCallLowering.*`. Actual AArch64 rewritten-RET cases match on
+Windows/Linux (eight cases, 520 checks each); six genuine C++ EH cases match
+the ARM reference on both hosts, raw and polled (24 executions). These execute
+original C++ ABI, personality, unwind, and emutls code. Unsupported cold paths
+and ordinary platform boundaries remain explicit in the fixture receipts.
+The repository runtime unit runner passes both hosts (15 cases, 220 checks,
+seven fail-closed controls each).
+
+The full 595,390-head rebuild remains an unselected candidate. Native codegen
+verification is being adjusted for compiler call merging and private native
+shadow-slot cleanup; both stopped attempts and completed shards are preserved.
+No corrected game cohort or landing-pad code is selected yet, and no original
+draw, swap or PNG is observed. Real C++ EH receipt:
+`work/guest-eh-reference-translation1/qualification1`, SHA256
+`897837d9ab05d50e517820e59e55d96590806cb8af72cfe29a93d2eeed5d68f2`.
 
 Inputs SHA256 `97c6546a5b9e8d3db41490f823c84c8b29fcd72ea45c45f48e67d9bff6bfab20`;
 executable SHA256 `14adf7d0ce6e67111029c31b6bf60d8691049a82f843e1308e86a265a92821ab`;

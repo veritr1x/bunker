@@ -33,12 +33,71 @@ struct Reservation {
   bool pair = false;
   std::shared_ptr<MemoryVersion> version;
 };
+struct GuestCallFrame {
+  GuestCallFrame *previous;
+  addr_t expected_pc;
+  addr_t caller_sp;
+  bool root;
+};
+struct PendingGuestTransfer {
+  bool active = false;
+  addr_t pc = 0;
+  addr_t sp = 0;
+  Memory *memory = nullptr;
+};
 struct ExecutionContext {
   State *state;
   Reservation reservation;
   ExecutionContext *previous;
+  GuestCallFrame *calls = nullptr;
+  PendingGuestTransfer transfer{};
+  bool call_protocol_used = false;
 };
 thread_local ExecutionContext *execution;
+
+bool returns_to(const State &state, const GuestCallFrame &frame) {
+  return state.gpr.pc.qword == frame.expected_pc && state.gpr.sp.qword == frame.caller_sp;
+}
+GuestCallFrame *matching_return(ExecutionContext &context, addr_t pc, addr_t sp) {
+  for (auto *frame=context.calls; frame; frame=frame->previous)
+    if (frame->expected_pc==pc && frame->caller_sp==sp) return frame;
+  return nullptr;
+}
+Memory *finish_guest_call(ExecutionContext &context, GuestCallFrame &frame,
+                          State &state, Memory *memory) {
+  for (;;) {
+    if (context.transfer.active) {
+      if (state.gpr.pc.qword!=context.transfer.pc || state.gpr.sp.qword!=context.transfer.sp ||
+          memory!=context.transfer.memory)
+        fail("pending guest transfer State/token changed during propagation",state.gpr.pc.qword);
+    } else {
+      if (returns_to(state,frame)) return memory;
+      context.transfer={true,state.gpr.pc.qword,state.gpr.sp.qword,memory};
+    }
+    auto *destination=matching_return(context,context.transfer.pc,context.transfer.sp);
+    if (destination==&frame) {
+      context.transfer={};
+      return memory;
+    }
+    if (destination) return memory; // The caller's IR guard unwinds one host frame.
+    if (frame.caller_sp!=context.transfer.sp) {
+      if (frame.root) fail("guest transfer has no owner in this Run",context.transfer.pc);
+      return memory;
+    }
+    const auto resume=context.transfer;
+    if (!active || !active->HasGuestTrace(resume.pc))
+      fail("unselectable guest resume target",resume.pc);
+    // The intervening native guest frames have already returned via their
+    // guards. Dispatch only at the frame with the restored caller SP, without
+    // resetting FENV, constructing a new Run, or changing architectural State.
+    context.transfer={};
+    memory=active->Dispatch(state,resume.pc,memory);
+    if (!context.transfer.active && state.gpr.pc.qword==resume.pc && state.gpr.sp.qword==resume.sp)
+      fail("guest resume returned without a continuation",resume.pc);
+    // A nested rethrow may have installed a distinct pending transfer while
+    // this landing body was running. The same loop handles it independently.
+  }
+}
 struct MemoryTracking {
   std::mutex lock;
   // Only currently reserved granules have entries; ordinary game heap writes
@@ -202,6 +261,8 @@ State *recomp::CurrentExecutionState() noexcept { return execution ? execution->
 Memory *recomp::Runtime::Run(State &state, addr_t address, Memory *memory) {
   clear_current_reservation();
   ExecutionContext context{&state, {}, execution};
+  GuestCallFrame root_call{nullptr,state.gpr.x30.qword,state.gpr.sp.qword,true};
+  context.calls=&root_call;
   struct Scope {
     Runtime *previous;
     ExecutionContext *previous_execution;
@@ -221,7 +282,13 @@ Memory *recomp::Runtime::Run(State &state, addr_t address, Memory *memory) {
   std::feclearexcept(FE_ALL_EXCEPT);
   explicit_denormal = 0;
   std::fesetround(host_rounding(state.fpcr.rmode));
-  return Dispatch(state, address, memory);
+  auto *result=Dispatch(state,address,memory);
+  if (context.transfer.active || context.call_protocol_used)
+    result=finish_guest_call(context,root_call,state,result);
+  return result;
+}
+bool recomp::Runtime::HasGuestTrace(addr_t address) const noexcept {
+  return traces_.find(address)!=traces_.end();
 }
 Memory *recomp::Runtime::Dispatch(State &state, addr_t address, Memory *memory) {
   if (auto found = traces_.find(address); found != traces_.end())
@@ -249,6 +316,37 @@ Memory *recomp::Runtime::Dispatch(State &state, addr_t address, Memory *memory) 
   }
   std::fprintf(stderr, "recomp: unresolved indirect context target=%#llx StatePC=%#llx LR=%#llx SP=%#llx\n", static_cast<unsigned long long>(address), static_cast<unsigned long long>(state.gpr.pc.qword), static_cast<unsigned long long>(state.gpr.x30.qword), static_cast<unsigned long long>(state.gpr.sp.qword));
   fail("unresolved indirect target", address);
+}
+
+extern "C" Memory *__bunker_guest_call(State &state,addr_t target,Memory *memory,
+                                      addr_t expected_pc,addr_t caller_sp,
+                                      recomp::Entry direct_entry) noexcept {
+  if (!active || !execution || execution->state!=&state)
+    fail("guest call outside its active Run/State",target);
+  auto &context=*execution;
+  if (context.transfer.active || state.gpr.sp.qword!=caller_sp)
+    fail("guest call entered with pending transfer or wrong captured SP",target);
+  context.call_protocol_used=true;
+  GuestCallFrame frame{context.calls,expected_pc,caller_sp,false};
+  context.calls=&frame;
+  struct Unlink {
+    ExecutionContext &context;GuestCallFrame *previous;
+    ~Unlink(){context.calls=previous;}
+  } unlink{context,frame.previous};
+  try {
+    auto *result=direct_entry?direct_entry(state,target,memory):active->Dispatch(state,target,memory);
+    return finish_guest_call(context,frame,state,result);
+  } catch (const std::exception &error) {
+    std::fprintf(stderr,"recomp: native exception at explicit guest-call boundary: %s\n",error.what());
+    fail("native exception cannot cross lifted nounwind call",target);
+  } catch (...) {
+    fail("unknown native exception cannot cross lifted nounwind call",target);
+  }
+}
+extern "C" uint32_t __bunker_guest_transfer_pending(State &state) noexcept {
+  if (!execution || execution->state!=&state)
+    fail("guest transfer query outside its active Run/State",state.gpr.pc.qword);
+  return execution->transfer.active?1U:0U;
 }
 
 extern "C" {

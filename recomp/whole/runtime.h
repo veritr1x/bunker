@@ -37,11 +37,20 @@ class Runtime {
   void AddImport(addr_t address, std::function<void(State &)> bridge);
   Memory *Run(State &state, addr_t address, Memory *memory = nullptr);
   Memory *Dispatch(State &state, addr_t address, Memory *memory);
+  bool HasGuestTrace(addr_t address) const noexcept;
  private:
   std::map<addr_t, Entry> traces_;
   std::map<addr_t, std::function<void(State &)>> imports_;
 };
 }  // namespace recomp
+
+// Explicit call protocol for pre-inlining lifted call sites. No host exception
+// represents a guest transfer. An abnormal result must be returned immediately
+// by the caller before it resets a local RETURN_PC or executes more guest code.
+extern "C" Memory *__bunker_guest_call(State &, addr_t argument_pc, Memory *,
+                                      addr_t expected_return_pc, addr_t caller_sp,
+                                      recomp::Entry direct_entry) noexcept;
+extern "C" uint32_t __bunker_guest_transfer_pending(State &) noexcept;
 
 extern "C" uint64_t __remill_aarch64_load_exclusive(State &, addr_t, uint64_t size, uint64_t acquire);
 extern "C" uint32_t __remill_aarch64_store_exclusive(State &, addr_t, uint64_t value, uint64_t size, uint64_t release);
