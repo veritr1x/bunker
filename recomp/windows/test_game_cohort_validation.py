@@ -6,7 +6,7 @@ def sha(p):
  with Path(p).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--derived-proof',type=Path,required=True);p.add_argument('--sparse-proof',type=Path);p.add_argument('--additive-proof',type=Path);p.add_argument('--fcsel-proof',type=Path);p.add_argument('--fcsel-callers-proof',type=Path);p.add_argument('--st2-proof',type=Path);p.add_argument('--fcsel-batch-proof',type=Path);p.add_argument('--st2-constructor-proof',type=Path);p.add_argument('--fcvtzu-fixed-proof',type=Path);p.add_argument('--st3-store-proof',type=Path);p.add_argument('--ushll-mask-proof',type=Path);p.add_argument('--additive-cases-proof',type=Path);p.add_argument('--fmod-callbacks-proof',type=Path);p.add_argument('--focus-version',type=int);p.add_argument('--historical-acceptance',type=Path);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--derived-proof',type=Path,required=True);p.add_argument('--sparse-proof',type=Path);p.add_argument('--additive-proof',type=Path);p.add_argument('--fcsel-proof',type=Path);p.add_argument('--fcsel-callers-proof',type=Path);p.add_argument('--st2-proof',type=Path);p.add_argument('--fcsel-batch-proof',type=Path);p.add_argument('--st2-constructor-proof',type=Path);p.add_argument('--fcvtzu-fixed-proof',type=Path);p.add_argument('--st3-store-proof',type=Path);p.add_argument('--ushll-mask-proof',type=Path);p.add_argument('--additive-cases-proof',type=Path);p.add_argument('--fmod-callbacks-proof',type=Path);p.add_argument('--yield-repair-proof',type=Path);p.add_argument('--focus-version',type=int);p.add_argument('--historical-acceptance',type=Path);a=p.parse_args()
  here=Path(__file__).resolve().parent;out=a.out.resolve();out.mkdir(exist_ok=False)
  python=here/'test_game_bootstrap.py';powershell=here/'game_bootstrap_build.ps1'
  w=here.parent/'work';v1=w/'game17-polled-cohort1/acceptance.json';v2=a.derived_proof.resolve()
@@ -50,7 +50,10 @@ def main():
  if a.fmod_callbacks_proof:
   assert a.additive_cases_proof,'FMOD callback proof requires actual v13 parent'
   v14=a.fmod_callbacks_proof.resolve();base[14]=json.loads(v14.read_text());descriptors[14]=dict(acceptance_path=str(v14),acceptance_sha256=sha(v14));assert base[14]['contract']['version']==14
- initial_input_pins={str(file):sha(file)for file in [v1,v2]+([v3]if a.sparse_proof else[])+([v4]if a.additive_proof else[])+([v5]if a.fcsel_proof else[])+([v6]if a.fcsel_callers_proof else[])+([v7]if a.st2_proof else[])+([v8]if a.fcsel_batch_proof else[])+([v9]if a.st2_constructor_proof else[])+([v10]if a.fcvtzu_fixed_proof else[])+([v11]if a.st3_store_proof else[])+([v12]if a.ushll_mask_proof else[])+([v13]if a.additive_cases_proof else[])+([v14]if a.fmod_callbacks_proof else[])+[Path(proof['contract']['input_plan_path'])for version,proof in base.items()if version>=2]}
+ if a.yield_repair_proof:
+  assert a.fmod_callbacks_proof,'YIELD repair proof requires actual v15 parent'
+  v15=a.yield_repair_proof.resolve();base[15]=json.loads(v15.read_text());descriptors[15]=dict(acceptance_path=str(v15),acceptance_sha256=sha(v15));assert base[15]['contract']['version']==15
+ initial_input_pins={str(file):sha(file)for file in [v1,v2]+([v3]if a.sparse_proof else[])+([v4]if a.additive_proof else[])+([v5]if a.fcsel_proof else[])+([v6]if a.fcsel_callers_proof else[])+([v7]if a.st2_proof else[])+([v8]if a.fcsel_batch_proof else[])+([v9]if a.st2_constructor_proof else[])+([v10]if a.fcvtzu_fixed_proof else[])+([v11]if a.st3_store_proof else[])+([v12]if a.ushll_mask_proof else[])+([v13]if a.additive_cases_proof else[])+([v14]if a.fmod_callbacks_proof else[])+([v15]if a.yield_repair_proof else[])+[Path(proof['contract']['input_plan_path'])for version,proof in base.items()if version>=2]}
  cases=[]
  def case(name,version,passed=False,*ops):cases.append(dict(name=name,version=version,passed=passed,ops=list(ops)))
  def change(root,path,value):return dict(root=root,path=path,value=value)
@@ -358,6 +361,29 @@ def main():
   case('v14-reorder-both',14,False,dict(root='proof',path=['objects'],swap=[3576,3577]),dict(root='objects',path=[],swap=[3576,3577]))
   case('v14-missing-object-both',14,False,dict(root='proof',path=['objects'],pop=True),dict(root='objects',path=[],pop=True))
   case('v14-extra-object-both',14,False,dict(root='proof',path=['objects'],append=base[14]['objects'][-1]),dict(root='objects',path=[],append=base[14]['objects'][-1]))
+ if a.yield_repair_proof:
+  case('v15-qualified-yield-mask',15,True)
+  for field in ('input_plan_sha256','parent_acceptance_sha256','parent_input_plan_sha256','sparse_overlay_sha256','yield_fixture_acceptance_sha256','original_block_fixture_acceptance_sha256','compiled_identity_sha256','yield_lifter_sha256','yield_semantics_sha256','old_polled_object_sha256','new_polled_object_sha256'):
+   for value in (zero,[]):case('v15-'+field+'-'+repr(value),15,False,change('proof',['contract',field],value))
+  for field,value in [('profile','wrong'),('target_head','0x703835a4'),('target_end_exclusive','0x70383624'),('optimization','-O0'),('no_relift',True),('source_ir_and_semantics_preserved',True),('no_global_semantics_refresh',False),('production_signal_delivery_enabled',True),('input_plan_path',None),('parent_acceptance_path',''),('parent_input_plan_path',[])]:
+   case('v15-'+field+'-'+repr(value),15,False,change('proof',['contract',field],value))
+  for field in ('no_relift','source_ir_and_semantics_preserved','no_global_semantics_refresh','production_signal_delivery_enabled'):
+   case('v15-bool-type-'+field,15,False,change('proof',['contract',field],0))
+  for field,value in {'incremental_sparse_relifts':1,'inherited_vector_replacements':556,'replaced_object_index':129,'unchanged_objects':3577,'changed_function_count':1,'unchanged_functions_in_shard':127}.items():
+   for wrong in (value+1,True,str(value),None,[]):case('v15-count-'+field+'-'+repr(wrong),15,False,change('proof',['contract',field],wrong))
+  case('v15-acceptance-hash',15,False,change('descriptor',['acceptance_sha256'],zero))
+  case('v15-chain-missing',15,False,change('ancestors',[],None))
+  case('v15-chain-short',15,False,dict(root='ancestors',path=[],pop=True))
+  case('v15-chain-order',15,False,dict(root='ancestors',path=[],swap=[0,1]))
+  for depth in range(13):
+   case('v15-ancestor-missing-'+str(depth),15,False,change('ancestors',[depth],None))
+   case('v15-ancestor-version-'+str(depth),15,False,change('ancestors',[depth,'contract','version'],1))
+  for index in (0,78,94,123,128,130,161,200,249,270,466,1553,3575,3576,3577):case('v15-neighbor-both-tables-'+str(index),15,False,change('proof',['objects',index,'sha256'],zero),change('objects',[index,'sha256'],zero))
+  case('v15-replacement-both-tables',15,False,change('proof',['objects',129,'sha256'],zero),change('objects',[94,'sha256'],zero))
+  case('v15-parent-old-object',15,False,change('ancestors',[0,'objects',129,'sha256'],zero))
+  case('v15-reorder-both',15,False,dict(root='proof',path=['objects'],swap=[129,130]),dict(root='objects',path=[],swap=[129,130]))
+  for value in(None,'',[]):case('v15-replacement-path-'+repr(value),15,False,change('proof',['objects',129,'path'],value),change('objects',[129,'path'],value))
+  case('v15-unknown-version',15,False,change('proof',['contract','version'],16))
  historical_receipt=None;historical_cases=[]
  if a.focus_version is not None:
   assert a.focus_version in base and a.historical_acceptance,'focused campaign requires an actual loaded version and historical acceptance'
@@ -389,7 +415,7 @@ def main():
  (out/'cases.json').write_text(json.dumps(cases,indent=2)+'\n');(out/'executed-cases.json').write_text(json.dumps(executed_cases,indent=2)+'\n')
  results=[]
  for c in executed_cases:
-  data={'proof':copy.deepcopy(base[c['version']]),'descriptor':dict(descriptors[c['version']]),'objects':copy.deepcopy(base[c['version']]['objects']),'parent':copy.deepcopy(base[c['version']-1])if c['version']in(3,4,5)else None,'grandparent':copy.deepcopy(base[c['version']-2])if c['version']in(4,5)else None,'greatgrandparent':copy.deepcopy(base[2])if c['version']==5 else None,'ancestors':copy.deepcopy([base[v]for v in range(c['version']-1,1,-1)])if c['version']in(6,7,8,9,10,11,12,13,14)else None}
+  data={'proof':copy.deepcopy(base[c['version']]),'descriptor':dict(descriptors[c['version']]),'objects':copy.deepcopy(base[c['version']]['objects']),'parent':copy.deepcopy(base[c['version']-1])if c['version']in(3,4,5)else None,'grandparent':copy.deepcopy(base[c['version']-2])if c['version']in(4,5)else None,'greatgrandparent':copy.deepcopy(base[2])if c['version']==5 else None,'ancestors':copy.deepcopy([base[v]for v in range(c['version']-1,1,-1)])if c['version']in(6,7,8,9,10,11,12,13,14,15)else None}
   for op in c['ops']:
    target=data[op['root']]
    for key in op['path'][:-1]:target=target[key]
@@ -615,11 +641,28 @@ def main():
   except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
   else:raise AssertionError('actual v14 plan IO subguard accepted altered bytes')
   python_io.append(dict(name='v14-altered-new-plan-source-subguard',passed=False))
+ if a.yield_repair_proof:
+  c=base[15]['contract'];ancestors=env['load_cooperative_ancestors'](base[15]);assert validate(base[15],descriptors[15],base[15]['objects'],ancestor_chain=ancestors)==15
+  python_io.append(dict(name='v15-thirteen-ancestor-load-source-subguard',passed=True))
+  tampered_v15_parent=out/'tampered-v15-parent.json';tampered_v15_parent.write_bytes(Path(c['parent_acceptance_path']).read_bytes()+b'\n')
+  tampered_v15_parent_plan=out/'tampered-v15-parent-plan.json';tampered_v15_parent_plan.write_bytes(Path(c['parent_input_plan_path']).read_bytes()+b'\n')
+  tampered_v15_plan=out/'tampered-v15-plan.json';tampered_v15_plan.write_bytes(Path(c['input_plan_path']).read_bytes()+b'\n')
+  for field,file,message in [('parent_acceptance_path',tampered_v15_parent,'v15 parent proof file differs'),('parent_input_plan_path',tampered_v15_parent_plan,'v15 parent plan file differs')]:
+   q=copy.deepcopy(base[15]);q['contract'][field]=str(file)
+   try:env['load_cooperative_ancestors'](q)
+   except AssertionError as error:assert str(error)==message
+   else:raise AssertionError('actual v15 ancestor hash subguard accepted altered bytes')
+   python_io.append(dict(name='v15-altered-'+field+'-source-subguard',passed=False))
+  q=copy.deepcopy(base[15]);q['contract']['input_plan_path']=str(tampered_v15_plan);scope=dict(env,version=15,proof=q,expected={})
+  try:exec(compile(ast.Module(body=[plan_guard],type_ignores=[]),str(python),'exec'),scope)
+  except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
+  else:raise AssertionError('actual v15 plan IO subguard accepted altered bytes')
+  python_io.append(dict(name='v15-altered-new-plan-source-subguard',passed=False))
  (out/'python-io-results.json').write_text(json.dumps(python_io,indent=2)+'\n')
  tampered=out/'tampered-proof.json';tampered.write_bytes(v2.read_bytes()+b'\n');assert sha(tampered)!=descriptors[2]['acceptance_sha256']
  def windows(path):return subprocess.check_output(['wslpath','-w',str(Path(path).resolve())],text=True).strip()
  # PowerShell's own AST extracts the exact production function; no duplicate predicate.
- driver=r'''param([string]$Source,[string]$Original,[string]$Derived,[string]$Sparse,[string]$Additive,[string]$Fcsel,[string]$FcselCallers,[string]$St2,[string]$FcselBatch,[string]$St2Constructor,[string]$FcvtzuFixed,[string]$St3Store,[string]$UshllMask,[string]$AdditiveCases,[string]$FmodCallbacks,[string]$TamperedV14Parent,[string]$TamperedV14ParentPlan,[string]$TamperedV14Plan,[string]$TamperedV13Parent,[string]$TamperedV13ParentPlan,[string]$TamperedV13Plan,[string]$TamperedV12Parent,[string]$TamperedV12ParentPlan,[string]$TamperedV12Plan,[string]$TamperedV11Parent,[string]$TamperedV11ParentPlan,[string]$TamperedV11Plan,[string]$TamperedV10Parent,[string]$TamperedV10ParentPlan,[string]$TamperedV10Plan,[string]$TamperedV9Parent,[string]$TamperedV9ParentPlan,[string]$TamperedV9Plan,[string]$TamperedV8Parent,[string]$TamperedV8ParentPlan,[string]$TamperedV8Plan,[string]$TamperedV7Parent,[string]$TamperedV7ParentPlan,[string]$TamperedV7Plan,[string]$TamperedV6Parent,[string]$TamperedV6ParentPlan,[string]$TamperedV6Plan,[string]$TamperedV5Parent,[string]$TamperedV5ParentPlan,[string]$TamperedV5Plan,[string]$TamperedV4Parent,[string]$TamperedV4ParentPlan,[string]$TamperedV4Plan,[string]$TamperedParent,[string]$TamperedParentPlan,[string]$TamperedV3Plan,[string]$Cases,[string]$Tampered,[string]$Output)
+ driver=r'''param([string]$Source,[string]$Original,[string]$Derived,[string]$Sparse,[string]$Additive,[string]$Fcsel,[string]$FcselCallers,[string]$St2,[string]$FcselBatch,[string]$St2Constructor,[string]$FcvtzuFixed,[string]$St3Store,[string]$UshllMask,[string]$AdditiveCases,[string]$FmodCallbacks,[string]$YieldRepair,[string]$TamperedV15Parent,[string]$TamperedV15ParentPlan,[string]$TamperedV15Plan,[string]$TamperedV14Parent,[string]$TamperedV14ParentPlan,[string]$TamperedV14Plan,[string]$TamperedV13Parent,[string]$TamperedV13ParentPlan,[string]$TamperedV13Plan,[string]$TamperedV12Parent,[string]$TamperedV12ParentPlan,[string]$TamperedV12Plan,[string]$TamperedV11Parent,[string]$TamperedV11ParentPlan,[string]$TamperedV11Plan,[string]$TamperedV10Parent,[string]$TamperedV10ParentPlan,[string]$TamperedV10Plan,[string]$TamperedV9Parent,[string]$TamperedV9ParentPlan,[string]$TamperedV9Plan,[string]$TamperedV8Parent,[string]$TamperedV8ParentPlan,[string]$TamperedV8Plan,[string]$TamperedV7Parent,[string]$TamperedV7ParentPlan,[string]$TamperedV7Plan,[string]$TamperedV6Parent,[string]$TamperedV6ParentPlan,[string]$TamperedV6Plan,[string]$TamperedV5Parent,[string]$TamperedV5ParentPlan,[string]$TamperedV5Plan,[string]$TamperedV4Parent,[string]$TamperedV4ParentPlan,[string]$TamperedV4Plan,[string]$TamperedParent,[string]$TamperedParentPlan,[string]$TamperedV3Plan,[string]$Cases,[string]$Tampered,[string]$Output)
 $ErrorActionPreference='Stop'
 # WSL can inherit PowerShell7's PSModulePath when launching WindowsPowerShell5.
 # Load its own real utility module explicitly; never replace Game-Hash.
@@ -645,9 +688,10 @@ if($St3Store){$raw[11]=Get-Content -Raw -LiteralPath $St3Store;$paths[11]=$St3St
 if($UshllMask){$raw[12]=Get-Content -Raw -LiteralPath $UshllMask;$paths[12]=$UshllMask;$hashes[12]=(Get-FileHash -LiteralPath $UshllMask -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=12}
 if($AdditiveCases){$raw[13]=Get-Content -Raw -LiteralPath $AdditiveCases;$paths[13]=$AdditiveCases;$hashes[13]=(Get-FileHash -LiteralPath $AdditiveCases -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=13}
 if($FmodCallbacks){$raw[14]=Get-Content -Raw -LiteralPath $FmodCallbacks;$paths[14]=$FmodCallbacks;$hashes[14]=(Get-FileHash -LiteralPath $FmodCallbacks -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=14}
+if($YieldRepair){$raw[15]=Get-Content -Raw -LiteralPath $YieldRepair;$paths[15]=$YieldRepair;$hashes[15]=(Get-FileHash -LiteralPath $YieldRepair -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=15}
 $results=@()
 foreach($case in (Get-Content -Raw -LiteralPath $Cases|ConvertFrom-Json)){
- $v=[int]$case.version;$data=@{proof=($raw[$v]|ConvertFrom-Json);descriptor=[pscustomobject]@{acceptance_path=$paths[$v];acceptance_sha256=$hashes[$v]};objects=($raw[$v]|ConvertFrom-Json).objects;parent=$null;grandparent=$null;greatgrandparent=$null;ancestors=$null};if($v -eq 3 -or $v -eq 4 -or $v -eq 5){$data.parent=$raw[$v-1]|ConvertFrom-Json};if($v -eq 4 -or $v -eq 5){$data.grandparent=$raw[$v-2]|ConvertFrom-Json};if($v -eq 5){$data.greatgrandparent=$raw[2]|ConvertFrom-Json};if($v -eq 6 -or $v -eq 7 -or $v -eq 8 -or $v -eq 9 -or $v -eq 10 -or $v -eq 11 -or $v -eq 12 -or $v -eq 13 -or $v -eq 14){$data.ancestors=@();for($ancestor=$v-1;$ancestor -ge 2;$ancestor--){$data.ancestors+=,($raw[$ancestor]|ConvertFrom-Json)}}
+ $v=[int]$case.version;$data=@{proof=($raw[$v]|ConvertFrom-Json);descriptor=[pscustomobject]@{acceptance_path=$paths[$v];acceptance_sha256=$hashes[$v]};objects=($raw[$v]|ConvertFrom-Json).objects;parent=$null;grandparent=$null;greatgrandparent=$null;ancestors=$null};if($v -eq 3 -or $v -eq 4 -or $v -eq 5){$data.parent=$raw[$v-1]|ConvertFrom-Json};if($v -eq 4 -or $v -eq 5){$data.grandparent=$raw[$v-2]|ConvertFrom-Json};if($v -eq 5){$data.greatgrandparent=$raw[2]|ConvertFrom-Json};if($v -eq 6 -or $v -eq 7 -or $v -eq 8 -or $v -eq 9 -or $v -eq 10 -or $v -eq 11 -or $v -eq 12 -or $v -eq 13 -or $v -eq 14 -or $v -eq 15){$data.ancestors=@();for($ancestor=$v-1;$ancestor -ge 2;$ancestor--){$data.ancestors+=,($raw[$ancestor]|ConvertFrom-Json)}}
  foreach($op in $case.ops){
   $target=$data[$op.root]
   for($i=0;$i -lt $op.path.Count-1;$i++){$k=$op.path[$i];if($k -is [long] -or $k -is [int]){$target=$target[[int]$k]}else{$target=$target.$k}}
@@ -837,6 +881,19 @@ if($FmodCallbacks){
  try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
  if(-not $rejected){throw 'Actual v14 new plan IO subguard accepted altered bytes'};$io+=@{name='v14-altered-new-plan-source-subguard';passed=$false}
 }
+if($YieldRepair){
+ $q=$raw[15]|ConvertFrom-Json;$ancestors=Game-LoadPollAncestors $q
+ if((Game-ValidatePollContract $q ([pscustomobject]@{acceptance_path=$YieldRepair;acceptance_sha256=$hashes[15]}) $q.objects $null $null $null $ancestors) -ne 15){throw 'Actual v15 ancestry positive failed'}
+ $io+=@{name='v15-thirteen-ancestor-load-source-subguard';passed=$true}
+ foreach($entry in @(@{key='parent_acceptance_path';file=$TamperedV15Parent;message='v15 parent proof file differs'},@{key='parent_input_plan_path';file=$TamperedV15ParentPlan;message='v15 parent plan file differs'})){
+  $q=$raw[15]|ConvertFrom-Json;$q.contract.($entry.key)=$entry.file;$rejected=$false
+  try{$null=Game-LoadPollAncestors $q}catch{if($_.Exception.Message -ne $entry.message){throw};$rejected=$true}
+  if(-not $rejected){throw 'Actual v15 ancestor hash subguard accepted altered bytes'};$io+=@{name=('v15-altered-'+$entry.key+'-source-subguard');passed=$false}
+ }
+ $taskPollVersion=15;$taskPollProof=$raw[15]|ConvertFrom-Json;$taskPollProof.contract.input_plan_path=$TamperedV15Plan;$rejected=$false
+ try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
+ if(-not $rejected){throw 'Actual v15 new plan IO subguard accepted altered bytes'};$io+=@{name='v15-altered-new-plan-source-subguard';passed=$false}
+}
 [IO.File]::WriteAllText(($Output+'.io.json'),($io|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
 Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
 '''
@@ -854,6 +911,7 @@ Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
  if a.ushll_mask_proof:command+=['-UshllMask',windows(v12),'-TamperedV12Parent',windows(tampered_v12_parent),'-TamperedV12ParentPlan',windows(tampered_v12_parent_plan),'-TamperedV12Plan',windows(tampered_v12_plan)]
  if a.additive_cases_proof:command+=['-AdditiveCases',windows(v13),'-TamperedV13Parent',windows(tampered_v13_parent),'-TamperedV13ParentPlan',windows(tampered_v13_parent_plan),'-TamperedV13Plan',windows(tampered_v13_plan)]
  if a.fmod_callbacks_proof:command+=['-FmodCallbacks',windows(v14),'-TamperedV14Parent',windows(tampered_v14_parent),'-TamperedV14ParentPlan',windows(tampered_v14_parent_plan),'-TamperedV14Plan',windows(tampered_v14_plan)]
+ if a.yield_repair_proof:command+=['-YieldRepair',windows(v15),'-TamperedV15Parent',windows(tampered_v15_parent),'-TamperedV15ParentPlan',windows(tampered_v15_parent_plan),'-TamperedV15Plan',windows(tampered_v15_plan)]
  with(out/'powershell.log').open('w')as f:subprocess.run(command,stdout=f,stderr=subprocess.STDOUT,check=True)
  ps_results=json.loads((out/'powershell-results.json').read_text());assert len(ps_results)==len(results)
  assert {x['name']:x['passed']for x in ps_results}=={x['name']:x['passed']for x in results}
@@ -877,6 +935,7 @@ Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
  receipt.update(v12_actual_proof_executed=bool(a.ushll_mask_proof),v12_placeholder_rejection_only=not bool(a.ushll_mask_proof))
  receipt.update(v13_actual_proof_executed=bool(a.additive_cases_proof),v13_placeholder_rejection_only=not bool(a.additive_cases_proof))
  receipt.update(v14_actual_proof_executed=bool(a.fmod_callbacks_proof),v14_placeholder_rejection_only=not bool(a.fmod_callbacks_proof))
+ receipt.update(v15_actual_proof_executed=bool(a.yield_repair_proof),v15_placeholder_rejection_only=not bool(a.yield_repair_proof))
  (out/'acceptance.json').write_text(json.dumps(receipt,indent=2)+'\n');print('COHORT-VALIDATOR-PASS',len(executed_cases),sha(out/'acceptance.json'),flush=True)
 
 if __name__=='__main__':main()

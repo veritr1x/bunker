@@ -3,7 +3,43 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-gc-owner1`, host
+Latest original execution: `work/windows-first-frame-external-main1`, host
+`44b0184010c431b8da5f40613a503f7bc9b097eb`, stops at an unliftable original
+instruction at `703835e8`. No nativeRender call returns, external-main collector
+send is observed, or original draw/swap/PNG is produced. Native exit3/controller1;
+all frozen inputs and original objects reverify. This execution does not exercise
+the new external-main delivery path.
+
+Inputs SHA256 `72f72bd803ba63f1ad63ac3b62a2097d9f94c21e0a2f287bb10757d4102bee8c`;
+executable SHA256 `a6cdf5a09b6492ed70b73e6093c62aea8b2e41e70d88610af5de83fe8bf3f118`;
+log SHA256 `44ddef2369555194260a0c6668facb924503cb006cc67296b403ed2644b837af`.
+The exact original fault is valid `YIELD` at `703835e4` (`3f2003d5`). The rejected
+decode advances PC before reporting the error; `703835e8` contains a valid branch.
+The selected object is shard129, head `703835a0`. The qualified repair adds normal
+fall-through hint decoding and existing no-op semantics, then rebuilds that one
+function while preserving its original branch/loop and 127 neighboring functions.
+
+The YIELD fixture passes 16 cases on each of ARM, Linux raw/polled and Windows
+raw/polled translations. It executes the original YIELD/branch interval, with a
+reversible capture before the following lock operations. All 1,264 prior compiled
+semantic functions and 1,424 prior selectors remain exact; only one selector is
+added. The v15 cohort changes only object129, preserving the other 3,577 objects,
+all 456,706 heads and existing polling. This does not claim full lock-function
+execution, native exclusive-monitor testing, scheduler fairness or a game frame.
+
+The external-main component qualification passes two genuine original stop/resume
+cycles with four original posts, three nested restarts and 97 checks. It validates
+physical 31 GPR/32 Q roots and retained late30/24 delivery through the next original
+epoch/nested wait. TEST registry initialization and a helper-shaped caller do not
+qualify original heap scanning, reclamation, arbitrary pending-signal shutdown or
+a game frame. Default NanoSleep passes 30 records each on Windows and Linux with
+the optional dispatcher unset; original ARM24/nativeLinux30 references are reused.
+
+All recompilation sources now live on `recomp-x86_64` in the managed worktree
+`C:\Users\user\.codex\worktrees\bunker-recomp-native\bunker`; the shared
+`recomp/work` junction retains the frozen builds, test artifacts and assets.
+
+Preceding original execution: `work/windows-first-frame-gc-owner1`, host
 `bfa4e8e650408d740e861b10e4c2bebaf26d0aa0`, stops at the existing collector
 guard `nonzero send has no real worker owner`. Two original render calls return
 continue=true; the third has no returned result. No draw, clear, swap or PNG.
