@@ -86,6 +86,79 @@ def qualified_public_affinity_source(path,name,legacy_digest,prerequisites=None,
   prerequisites[str(proof_path)]=PUBLIC_AFFINITY_PROOF
  return PUBLIC_AFFINITY_CORE[name]
 
+JNI_OBJECT_BIND_BASE={'windows/jni_host.h':'366f9292fc4d037b8f5da42a1dd241381485f1741d5b6ee64b2c2e6475a2c3a9','windows/jni_host.cpp':'376343cc6a78e64019b5ef43a4211ccc47a26f9d5a3ae826af6b6a6bf156e4ee'}
+JNI_OBJECT_BIND_CORE={'windows/jni_host.h':'606a188ec507bf8c49acbb611ac4f8d769dde3b01dc3b77a3109471930d86f30','windows/jni_host.cpp':'0fad8c9cdc4fb66b4074a4d3ef248ee7ff8d4855e237f0a1adc4b16d4796e8a6'}
+JNI_PRIORITY_CORE={'windows/jni_host.h':'1bce9fb6a449dfd5ec2eff8df16b4b813d3febfd99e165ea5aee618027c47de4','windows/jni_host.cpp':'782f5af9f336155a0689b129128cfdcc7a60b10b4487fe9e8801b2dc6077daea'}
+JNI_OBJECT_BIND_QUALIFICATION='5751e2f3ec2d12e8ce0bf962e0ce8000072a9400a0f03f341f810f1068fa4a93'
+JNI_OBJECT_BIND_PROOF='604b7c4202a57bb6d892b287d23f3c406086ec54faa88e7a5627c28366c8dbb5'
+JNI_OBJECT_BIND_PEER='585d5cb428186d5f276a10fbb3144426ca555011c06b2c3050c2c2866f62468c'
+JNI_LONG_QUALIFICATION='71094a77a4f5eb3432736e63762209aabffd8fbe7433fcf7fbe4ce13e15e39ae'
+JNI_OBJECT_BIND_QUALIFICATION_PATH=str(HERE.parent/'work/unity-launch-url-qualification3/acceptance.json')
+JNI_OBJECT_BIND_INSERTION_SHA={'windows/jni_host.h':'9767197d448e86555d5882a2e569f5b648047d73115d6594204ed19666d6d966','windows/jni_host.cpp':'07998ddae07ae96cd48fdefa4fd608fdc1e57b658d8151a26c6aea7293c01c5e'}
+
+def verify_jni_object_binding_projection(name,body,proof):
+ assert name in JNI_OBJECT_BIND_BASE and proof['passed']is True and proof['base_commit']=='14aa64f0a0f2e67e7066aca1f5a9531086f31c59'
+ assert proof['existing_all_JNI_core_bodies_byte_exact']is True and set(proof['core_source_additions'])==set(JNI_OBJECT_BIND_CORE)
+ assert all(proof['owned_sources'][key]==value for key,value in JNI_OBJECT_BIND_CORE.items())
+ row=proof['core_source_additions'][name]
+ assert row['old_sha256']==JNI_OBJECT_BIND_BASE[name]and row['new_sha256']==JNI_OBJECT_BIND_CORE[name]and row['entire_old_file_recovered_byte_exact']is True
+ assert hashlib.sha256(body).hexdigest()==JNI_OBJECT_BIND_CORE[name]
+ records=row['insertions'];assert isinstance(records,list)and len(records)==1
+ item=records[0];assert type(item['old_offset'])is type(item['new_offset'])is int
+ value=item['bytes_hex'];assert isinstance(value,str)and value
+ added=bytes.fromhex(value);assert added and added.hex()==value and added.count(b'\n')==2
+ assert hashlib.sha256(added).hexdigest()==JNI_OBJECT_BIND_INSERTION_SHA[name]
+ old_offset,new_offset=item['old_offset'],item['new_offset'];assert old_offset==new_offset and 0<=old_offset<=len(body)-len(added)
+ assert body[new_offset:new_offset+len(added)]==added
+ projected=body[:new_offset]+body[new_offset+len(added):]
+ assert hashlib.sha256(projected).hexdigest()==JNI_OBJECT_BIND_BASE[name]
+ return projected
+
+def project_qualified_jni_long_source(name,body):
+ # The earlier, separately qualified instance-long extension is retained, not
+ # rerun or waived. Its exact inverse connects current base to priority history.
+ assert name in JNI_OBJECT_BIND_BASE and hashlib.sha256(body).hexdigest()==JNI_OBJECT_BIND_BASE[name]
+ if name=='windows/jni_host.h':
+  changes=[(b'  // Instance jlong callbacks return the exact signed 64-bit value in X0.\n  // The existing borrowed arguments/owned callback frame rules apply.\n  void DefineLongMethod(const std::string &owner,const std::string &name,const std::string &signature,\n                        std::function<int64_t(addr_t,const MethodArguments&)> handler);\n',b'')]
+ else:
+  changes=[(b'void Host::DefineLongMethod(const std::string &owner,const std::string &name,const std::string &signature,std::function<int64_t(addr_t,const MethodArguments&)> handler){\n  if(!handler)throw std::invalid_argument("missing long handler");\n  DefineHandler(owner,name,signature,\'J\',[handler=std::move(handler)](addr_t object,const MethodArguments &args){return static_cast<addr_t>(handler(object,args));});\n}\n',b''),(b'||(result==\'J\'&&returns!="J")',b''),(b":kind=='J'?result",b''),(b"    case 52: case 53: case 54: {s.gpr.x0.qword=CallObject(lock,a,b,false,{},'J',&s,slot-18);return;}\n",b'')]
+ for before,after in changes:
+  assert body.count(before)==1;body=body.replace(before,after,1)
+ assert hashlib.sha256(body).hexdigest()==JNI_PRIORITY_CORE[name]
+ return body
+
+def qualified_jni_object_source(path,name,legacy_digest,prerequisites=None,qualification_path=None):
+ assert name in JNI_OBJECT_BIND_BASE and legacy_digest in(JNI_OBJECT_BIND_BASE[name],JNI_PRIORITY_CORE[name])
+ path=Path(path);assert path.name==Path(name).name
+ qualification_path=Path(qualification_path)if qualification_path is not None else Path(JNI_OBJECT_BIND_QUALIFICATION_PATH)
+ assert sha(qualification_path)==JNI_OBJECT_BIND_QUALIFICATION
+ record=json.loads(qualification_path.read_text());assert record['passed']is True and record['commit']=='14aa64f0a0f2e67e7066aca1f5a9531086f31c59'
+ assert all(record['owned_sources'][key]==value for key,value in JNI_OBJECT_BIND_CORE.items())
+ assert record['new_BindObjectMethod_strict_declaration_negative_controls']is record['existing_JNI_core_and_callback_constructor_frames_rechecked']is record['actual_NDK_JNI_direct_V_A_and_field_get_set']is True
+ assert set(record['platforms'])=={'linux','windows'}
+ for observed in record['platforms'].values():
+  tests=observed['tests'];assert set(tests)=={'unity_launch_url','context_intent','java_init','jni_host','jni_callback_frame','jni_constructor_frame'}
+  assert all(test['exit_code']==0 and type(test['exit_code'])is int for test in tests.values())
+  assert tests['unity_launch_url']['checks']==176 and 'JNI host: 36 checks'in tests['jni_host']['stdout']and 'JNI callback frames: 464 checks'in tests['jni_callback_frame']['stdout']and 'JNI constructor frames: 362 checks'in tests['jni_constructor_frame']['stdout']
+ proof_path=Path(record['source_proof']['path']);assert record['source_proof']['sha256']==JNI_OBJECT_BIND_PROOF and sha(proof_path)==JNI_OBJECT_BIND_PROOF
+ proof=json.loads(proof_path.read_text());projected=verify_jni_object_binding_projection(name,path.read_bytes(),proof)
+ peer_path=HERE.parent/'work/unity-launch-url-binder-peer1/peer.json';assert sha(peer_path)==JNI_OBJECT_BIND_PEER
+ peer=json.loads(peer_path.read_text());assert peer['passed']is peer['source_review_only']is True
+ for key in JNI_OBJECT_BIND_CORE:
+  row=peer['files'][Path(key).name];assert row['old_sha256']==JNI_OBJECT_BIND_BASE[key]and row['new_sha256']==JNI_OBJECT_BIND_CORE[key]and row['whole_file_inverse_byte_exact']is True and row['added_lines']==2
+ assert peer['forwarding']['result_kind']=='L'and peer['forwarding']['is_static']is peer['forwarding']['platform_native']is False and peer['forwarding']['bind_existing']is True
+ if legacy_digest==JNI_PRIORITY_CORE[name]:
+  long_path=HERE.parent/'work/jni-long-method-qualification1/acceptance.json';assert sha(long_path)==JNI_LONG_QUALIFICATION
+  long_record=json.loads(long_path.read_text());assert long_record['passed']is True and all(long_record['owned_source_hashes'][Path(key).name]==value for key,value in JNI_OBJECT_BIND_BASE.items())
+  assert set(long_record['platforms'])=={'linux','windows'}
+  for observed in long_record['platforms'].values():assert observed['tests']['jni_long_method']['record_count']==54 and '626 checks'in observed['tests']['jni_long_method']['final_line']and '11125 checks'in observed['tests']['jni_numeric']['final_line']
+  assert hashlib.sha256(project_qualified_jni_long_source(name,projected)).hexdigest()==legacy_digest
+  if prerequisites is not None:prerequisites[str(long_path)]=JNI_LONG_QUALIFICATION
+ if prerequisites is not None:
+  prerequisites[str(qualification_path)]=JNI_OBJECT_BIND_QUALIFICATION;prerequisites[str(proof_path)]=JNI_OBJECT_BIND_PROOF;prerequisites[str(peer_path)]=JNI_OBJECT_BIND_PEER
+ return JNI_OBJECT_BIND_CORE[name]
+
+
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--build-support',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);support=a.build_support.resolve();root=HERE.parent.parent
  def wp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()
@@ -97,7 +170,9 @@ def main():
  assert peer['security_exception_catalog_delta_exact']and peer['security_exception_superclass']=='java/lang/RuntimeException'
  lease_path=Path(next(k for k in peer['evidence']if k.endswith('priority-source-peer1/peer.json')));assert sha(lease_path)==peer['evidence'][str(lease_path)];lease=json.loads(lease_path.read_text());assert lease['passed']and lease['pthread_old_cpp_body_exact_after_only_additions']and lease['pthread_old_header_exact_after_only_additions'];prerequisites[str(lease_path)]=sha(lease_path)
  for name,digest in priority['core_sources'].items():
-  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+  path=HERE.parent/name
+  expected=qualified_jni_object_source(path,name,digest,prerequisites)if name in JNI_OBJECT_BIND_CORE else digest
+  assert sha(path)==expected,name;prerequisites[str(path)]=sha(path)
  for name,digest in priority['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  base_archive=Path(priority['base_archive_path']);assert sha(base_archive)==priority['base_archive_sha256']==peer['base_archive_sha256'];prerequisites[str(base_archive)]=sha(base_archive)
