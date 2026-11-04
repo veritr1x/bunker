@@ -22,9 +22,23 @@
   Arena showed Season 002 with the Period 01/04 13:30 to 02/01 13:29, that
   season's dates as the calendar moved them. The emulator's save and master
   data were restored afterwards.
-- Not checked in the game: the season-end reward screen from the game's own
-  season check (it now sees an ended turn's end date pass), and iPhone or
-  iPad (the iOS build compiles; it runs the same file).
+- Season end in the game: the emulator save was given 1,113 points in
+  202037 and the clock moved to Tuesday 24 November, after that turn. The
+  game asked for no reward at login: its check (`HasRewardReceiveArena`)
+  needs a finished weekly result, which the server records at the first
+  Arena visit after the turn. The Arena then showed Season 037 (202038),
+  Period 11/23 13:30 to 12/21 13:30, and on the way back to Home the game
+  claimed: the Season 036 report (rank 3919, three season rewards) and the
+  week's report (1,113 points), paid once. That claim comes from the weekly
+  check, which already worked before the dates change. The save and clock
+  were restored afterwards.
+- Two season ends before a claim (an Arena visit after a turn, then no Home
+  visit until the next turn has ended) used to replace the first season's
+  unpaid reward with the second's. The earlier one now stays due and the
+  claim pays both (`TestTwoSeasonEndsBeforeAClaimKeepBothRewards`, patched
+  Global and Japanese master data; it fails without the change).
+- Not checked: iPhone or iPad (the iOS build compiles; it runs the same
+  file).
 
 ## Arena season turns — 2026-11-04
 

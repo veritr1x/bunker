@@ -138,6 +138,50 @@ func TestSeasonTurnPaysFinalRank(t *testing.T) {
 	t.Logf("season %d ended at rank %d: %v; season %d next", first.PvpSeasonId, want, reward.Rewards, next.PvpSeasonId)
 }
 
+// Two turns can end before the game claims (no Home visit in between): the
+// earlier season's reward stays due with the later one, and both are paid.
+func TestTwoSeasonEndsBeforeAClaimKeepBothRewards(t *testing.T) {
+	c, u := realSave(t)
+	now := time.Now().UnixMilli()
+	first, ok := c.Season(now)
+	if !ok {
+		t.Skip("no Arena season open now: needs patched master data")
+	}
+	// The weekly resets where the next two turns start.
+	var ends []int64
+	for at := gametime.WeeklyVersion(now) + weekMillis; len(ends) < 2 && at < now+3*SeasonWeeks*weekMillis; at += weekMillis {
+		before, _ := c.Season(at - 1)
+		if s, _ := c.Season(at); s.PvpSeasonId != before.PvpSeasonId {
+			ends = append(ends, at)
+		}
+	}
+	if len(ends) < 2 {
+		t.Skip("this master data has a single Arena season: no turns")
+	}
+	c.Sync(&u, now)
+	p := &u.Ext.Pvp
+	p.SeasonResult, p.EarlierSeasonResults = nil, nil // the test save's own ended season, if any
+	p.Point = 6000
+	second, _, _ := c.Sync(&u, ends[0]+3600_000)
+	p.Point = 2500
+	c.Sync(&u, ends[1]+3600_000)
+	if p.SeasonResult == nil || p.SeasonResult.SeasonId != second.PvpSeasonId {
+		t.Fatalf("latest season result %+v, want season %d", p.SeasonResult, second.PvpSeasonId)
+	}
+	earlier := c.PendingEarlierSeasons(p)
+	if len(earlier) != 1 || earlier[0].Result.SeasonId != first.PvpSeasonId || earlier[0].Result.FinalRank != c.Ladder(first.PvpSeasonId).Rank(6000) || len(earlier[0].Rewards) == 0 {
+		t.Fatalf("earlier season rewards %+v, want season %d's", earlier, first.PvpSeasonId)
+	}
+	latest, _ := c.PendingSeason(p)
+	shown, rewards, ok := c.ClaimSeasons(p)
+	if !ok || shown.Result.SeasonId != second.PvpSeasonId || len(rewards) != len(earlier[0].Rewards)+len(latest.Rewards) {
+		t.Fatalf("claim: shown %+v, %d rewards, want season %d's report and both seasons' rewards", shown.Result, len(rewards), second.PvpSeasonId)
+	}
+	if _, rewards, ok := c.ClaimSeasons(p); ok || len(rewards) != 0 || p.RewardSeasonId != p.SeasonId {
+		t.Fatalf("claimed again: %d rewards %v, reward season %d", len(rewards), ok, p.RewardSeasonId)
+	}
+}
+
 // A season that ends mid-week (the first start after updating from a build
 // that kept season 038) records that week; the week's own end must not add
 // a second result for it, as the game keeps one per week.
