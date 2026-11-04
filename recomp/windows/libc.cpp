@@ -5,6 +5,7 @@
 #include "libc_process_detail.h"
 #include "libc_wall_time_detail.h"
 #include "libc_uname_detail.h"
+#include "libc_calendar_detail.h"
 #include "unicode.h"
 #include <algorithm>
 #include <atomic>
@@ -77,7 +78,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -582,6 +583,20 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<int32_t()>(runtime,"getpid",[this]{return ProcessId();});
   Add<int64_t(const char*,void*,uint64_t)>(runtime,"readlink",[this](auto path,auto output,auto size){return ReadLink(path,output,size);});
   Add<int32_t(addr_t)>(runtime,"uname",[this](addr_t output){return libc_detail::Uname(output,[this](int error){Fail(error);});});
+  // Snapshot only this virtual environment; never mutate the native process TZ.
+  auto calendar=[this]{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    auto at=environment_.find("TZ");
+    return libc_calendar::Calendar([this](int error){Fail(error);},{},at==environment_.end()?std::string():at->second,at!=environment_.end());
+  };
+  Add<int64_t(addr_t)>(runtime,"time",[calendar](addr_t output){libc_calendar::NativeEnvironment native;return calendar().Time(output);});
+  Add<int64_t(addr_t)>(runtime,"mktime",[calendar](addr_t value){libc_calendar::NativeEnvironment native;return calendar().Mktime(value);});
+  Add<addr_t(addr_t)>(runtime,"localtime",[calendar](addr_t value){libc_calendar::NativeEnvironment native;return calendar().Localtime(value);});
+  Add<addr_t(addr_t,addr_t)>(runtime,"localtime_r",[calendar](addr_t value,addr_t output){libc_calendar::NativeEnvironment native;return calendar().LocaltimeR(value,output);});
+  Add<addr_t(addr_t)>(runtime,"gmtime",[calendar](addr_t value){libc_calendar::NativeEnvironment native;return calendar().Gmtime(value);});
+  Add<addr_t(addr_t,addr_t)>(runtime,"gmtime_r",[calendar](addr_t value,addr_t output){libc_calendar::NativeEnvironment native;return calendar().GmtimeR(value,output);});
+  Add<uint64_t(addr_t,uint64_t,addr_t,addr_t)>(runtime,"strftime",[calendar](addr_t output,uint64_t capacity,addr_t format,addr_t value){libc_calendar::NativeEnvironment native;return calendar().Strftime(output,capacity,format,value);});
+  Add<double(int64_t,int64_t)>(runtime,"difftime",[](int64_t a,int64_t b){return libc_calendar::Calendar::Difftime(a,b);});
   installed_=true;
 }
 }  // namespace bunker::windows

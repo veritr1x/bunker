@@ -23,9 +23,10 @@ The reached caller `82556d90..82557138` discovers timezone rules using
 the original Unity imports also require the two reentrant variants.
 The group needs Bionic's56-byte `tm`, signed64 timestamps, consistent DST
 normalization and real host timezone data. A Windows CRT-only `mktime`
-wrapper rejects valid negative epochs required by the caller. The next
-component gate implements this calendar family against actual Bionic
-reference behavior. Boundary audit SHA256
+wrapper rejects valid negative epochs required by the caller. The calendar
+family now passes96 Bionic conversion comparisons,100 formatting comparisons
+and26 actual translated NDK calls. Its next gate is original game startup;
+see [the calendar qualification](libc_calendar.md). Boundary audit SHA256
 `1d19eed3c9e49e2bc1457e4e9263d202e7104efb5b5433a7b9526f0fe0adff8b`.
 
 Preceding original execution: `work/windows-first-frame-uname1`, source patch
