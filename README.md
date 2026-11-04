@@ -37,8 +37,10 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   several quests at once, and story choices.
 - **Arena**: battles against computer players on a ladder of 5,000, with decks
   raised to match yours. Points, grades, rank, win rewards, battle points,
-  history, defense battles while you are away and weekly rewards. Opens after
-  quest 61, as in the original. Season rewards are not paid: seasons never end.
+  history, defense battles while you are away, weekly rewards and season
+  rewards. Each season lasts four weeks, then the next starts from 0 points
+  with a new ladder; your final rank pays the season's rank reward. Opens
+  after quest 61, as in the original.
 - **Summon rates** (Pod Programs, experimental): the ★4 and ★3 rates, the
   costume and featured shares, the 10-draw guarantee and the multi-step boost;
   the game's Rates page shows them.

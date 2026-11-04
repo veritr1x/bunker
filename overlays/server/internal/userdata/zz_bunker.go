@@ -5,6 +5,7 @@ package userdata
 
 import (
 	"log"
+	"slices"
 	"sort"
 	"sync"
 
@@ -281,7 +282,7 @@ func bunkerChangedTables(before, after *store.UserState) []string {
 	if before.Ext.Pvp.DefenseDeckNumber != after.Ext.Pvp.DefenseDeckNumber {
 		out = append(out, "IUserPvpDefenseDeck")
 	}
-	if len(before.Ext.Pvp.Weekly) != len(after.Ext.Pvp.Weekly) {
+	if !slices.Equal(before.Ext.Pvp.Weekly, after.Ext.Pvp.Weekly) {
 		out = append(out, "IUserPvpWeeklyResult")
 	}
 	out = append(out, costumeChangedTables(before, after)...)

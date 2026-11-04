@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync"
 
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/runtime"
@@ -193,20 +194,51 @@ func load(cats *runtime.Catalogs) *Catalog {
 	return c
 }
 
-// Season is the season in force: Bunker's content patcher extends every
-// season to 2030, so of those open now, the one that started last.
+// SeasonWeeks is how long a season lasts when Bunker rotates them: four
+// weeks, as most of the game's own seasons did.
+const SeasonWeeks = 4
+
+const weekMillis = 7 * 24 * 3600 * 1000
+
+// Season is the season in force. With the game's own dates (the Original
+// calendar) seasons follow each other and at most one is open. Bunker's
+// content patcher extends every season to 2099, so they would all stay open
+// and none would ever end; then the seasons that use the latest season's
+// grades and reward tables take turns, SeasonWeeks each, changing on the
+// Arena's weekly reset (Monday 00:00 GMT-8). The latest season comes first
+// and the turns repeat in order, so a season ends, pays its final-rank
+// reward and the next starts from 0 points.
 func (c *Catalog) Season(now int64) (masterdata.EntityMPvpSeason, bool) {
-	var best masterdata.EntityMPvpSeason
-	found := false
+	var open []masterdata.EntityMPvpSeason
 	for _, s := range c.seasons {
 		if s.IsInvalid || s.SeasonStartDatetime > now || now >= s.SeasonEndDatetime {
 			continue
 		}
-		if !found || s.SeasonStartDatetime > best.SeasonStartDatetime {
-			best, found = s, true
+		open = append(open, s)
+	}
+	if len(open) == 0 {
+		return masterdata.EntityMPvpSeason{}, false
+	}
+	sort.SliceStable(open, func(i, j int) bool { return open[i].SeasonStartDatetime < open[j].SeasonStartDatetime })
+	latest := open[len(open)-1]
+	if len(open) == 1 {
+		return latest, true
+	}
+	var turns []masterdata.EntityMPvpSeason
+	for _, s := range open {
+		if s.PvpGradeGroupId == latest.PvpGradeGroupId &&
+			s.PvpSeasonRankRewardRankGroupId == latest.PvpSeasonRankRewardRankGroupId &&
+			s.PvpWeeklyRankRewardRankGroupId == latest.PvpWeeklyRankRewardRankGroupId {
+			turns = append(turns, s)
 		}
 	}
-	return best, found
+	first := gametime.WeeklyVersion(latest.SeasonStartDatetime)
+	week := gametime.WeeklyVersion(now)
+	if week < first {
+		return latest, true
+	}
+	turn := (week - first) / (SeasonWeeks * weekMillis)
+	return turns[(int64(len(turns)-1)+turn)%int64(len(turns))], true
 }
 
 func (c *Catalog) seasonById(id int32) (masterdata.EntityMPvpSeason, bool) {
