@@ -3,7 +3,30 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-unwind1`, host
+Latest original execution: `work/windows-first-frame-exception1`, host
+`af73a50918170e995488850bada1d9c12e7c5626`, captures the same null-target
+failure without changing the translated objects or continuing past it.
+The live GOT entry `87408e50` contains `87985200`, whose handler is correctly
+`82610b88`. The exact original wrapper frame saves caller LR `8260d628`,
+followed by `8260d5a8`, `8457a074`, and `8250bf3c`. This identifies the path
+through the failed-raise helper `8260d608`, rather than the global fallback.
+X19 and X8 both contain `8799a000`; two bounded 128-byte reads there return
+all zero words. RTTI is unreadable at0, so no exception type is established.
+Why the exception-record area is zero remains under investigation.
+
+Main epoch6 and four worker collector cycles complete; two renders return
+continue=true. There is no original draw, clear, swap, PNG or soft-input native
+report. Native exit3/controller1 and posthash verification match.
+Inputs SHA256 `80cf214c7660c0881b2b202c381f5913360eb37f2756e1c40d37f61e49f31f46`;
+executable SHA256 `723df4a6f82ae004fe8f57b72172587bcd02db5874d355f3093546ec59aa52b0`;
+log SHA256 `0231673635785be16582597c6da0f740b9b1ff654340ff55e4d487b94999e46b`.
+Terminal peer: `work/exception1-run-peer1`, SHA256
+`f954914cc3e8261059d63fe14c6ce0f71e80d1a106c5d2ccd14b25195bdce477`.
+The terminal observer passes 40 Windows checks over three TEST snapshots;
+these prove read-only state/environment preservation and fault-safe bounded
+reads, not original exception handling or a rendered game frame.
+
+Preceding original execution: `work/windows-first-frame-unwind1`, host
 `28bbc4fb706b31168f990299a544676410ce6cdb`, gets past the missing unwind
 target with the appended object. Twelve original program-header callbacks
 complete. Execution stops at indirect target0, StatePC0, LR `8260df44`;
