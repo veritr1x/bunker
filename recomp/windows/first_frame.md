@@ -3,7 +3,37 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-worker-futex1`, host
+Latest original execution: `work/windows-first-frame-phdr1`, host
+`a15fc1c16752eb4e6549c8db12bb2fe49af216e1`, executes the original program-header
+callback with real modern64 records: Unity returns0, IL2CPP returns1, and
+dl_iterate_phdr returns1 at LR `82628130`. This is not a complete-unwind result.
+Execution subsequently stops at unresolved indirect target `82625f08`, caller
+LR `82625eb4`. Main epoch6 and four ordinary-worker collector cycles complete.
+Two renders return continue=true; no original draw, clear, swap, PNG or
+soft-input native report is observed. Native exit3/controller1; frozen inputs
+and original objects reverify.
+
+Inputs SHA256 `41a52d658e5a5a92ac0bbb713cb3a313f9c61e8d68b48294540a83c45a9ec229`;
+executable SHA256 `1736fb560bd3ee4600488b0d657ce3f331a2635e6c47e918073076cb8f878687`;
+log SHA256 `aa52fd9da5d2c3206003d7044a5505d477078df23169ec2d5a5143068bf64213`.
+The reached target belongs to a register-rule computed branch. An inventory
+of its expression helpers finds 27 missing destinations across three tables;
+the other 38 unique destinations across six tables are already compiled.
+The additive candidate appends one object and preserves all 3,578 old objects.
+Its expression suffixes retain the existing unsupported LDURSH instructions
+at `82625a98` and `82625d78`. These valid ISA omissions are not repaired or
+bypassed; the successful table-case qualification excludes their paths.
+
+The 27-head candidate passes 55 original-code cases on ARM and translated
+Linux/Windows, each both raw and polled. All 800-byte architectural snapshots
+and context/memory effects match ARM; complete 1,200-byte host states match
+between raw and polled runs. Every new head executes in each translated mode,
+including the exact prospective Windows object. One abort-prefix case captures
+before the original abort body. These are component results, not a complete
+unwind or original game frame. Receipt: `work/unwind-entries-qualification2`,
+SHA256 `77addfe3cca4122a5283354684476dd9c3dbd12f26cb10064727af44dab7af3a`.
+
+Preceding original execution: `work/windows-first-frame-worker-futex1`, host
 `12ceb5d2e686acdb18c938472d6fcabfe388452b`, completes four genuine worker19
 stop/restart cycles at epochs8/10/12/14. Eight physical 31-GPR/32-Q root checks,
 eight original posts and four timed-futex EINTR returns are observed. Main
@@ -29,7 +59,8 @@ both complete indirect decoder tables. Live load order, reentrant load/unload,
 counters, early termination and unsupported TLS/catalog controls pass, alongside
 22 existing registry and 843 retained dladdr checks. Old seven method bodies,
 five markers and all 27 protected sources remain exact. Original game execution
-of this correction is pending; complete stack unwinding is not yet qualified.
+above validates original program-header enumeration. Complete stack unwinding
+remains unqualified.
 
 Preceding original execution: `work/windows-first-frame-soft-input1`, host
 `13f50c04038e11ebe04afe92690eaa49898ae195`, passes the missing hideSoftInput
