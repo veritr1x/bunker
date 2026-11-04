@@ -4,6 +4,15 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.8.4 (2026-11-04)
+
+Arena seasons end. With Everything open, the seasons that share the latest
+season's rewards take four-week turns; a season's final rank pays its season
+reward and the next starts from 0 points. The Arena's Period line shows the
+turn's dates instead of 2099, and a season reward still unclaimed when the
+next season ends is kept and paid with it. The Original calendar, at any
+speed, keeps the game's own season dates.
+
 ## 2026-11-04 (after 1.8.3)
 
 ### Docs
