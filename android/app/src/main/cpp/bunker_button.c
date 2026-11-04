@@ -25,6 +25,7 @@
 // copy is Instantiate(Object) + Transform.SetParent, and the emblem is a
 // RawImage with a Texture2D over the hidden icon image.
 #include "bunker_button.h"
+#include "arena_season.h"
 #include "big_hunt_season.h"
 #include "bunker_button_layout.h"
 #include "bunker_icon.h"
@@ -238,6 +239,7 @@ static void add_button(void *self) {
 static void start_hook(void *self, Method *method) {
     start_original(self, method);
     big_hunt_season_name();  // the top row is up before any Subjugations screen
+    arena_season_dates();    // and before the Arena
     if (!failed) add_button(self);
 }
 
@@ -428,6 +430,7 @@ int bunker_button_init(void *(*resolve)(const char *name), void (*log)(const cha
     LOAD(object_new) LOAD(string_new) LOAD(array_new) LOAD(string_length) LOAD(string_chars) LOAD(thread_attach) LOAD(get_corlib)
 #undef LOAD
     big_hunt_season_init(resolve, log);
+    arena_season_init(resolve, log);
     pthread_t thread;
     if (pthread_create(&thread, NULL, install, NULL)) return -1;
     pthread_detach(thread);
