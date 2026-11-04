@@ -249,6 +249,61 @@ def qualified_signal_subset_source(path,name,legacy_digest,prerequisites=None,qu
  if prerequisites is not None:prerequisites[str(qualification_path)]=SIGNAL_SUBSET_QUALIFICATION;prerequisites[str(proof_path)]=SIGNAL_SUBSET_PROOF
  return SIGNAL_SUBSET_CORE[name]
 
+FUTEX_DISPATCH_BASE={'windows/signal_futex.h':'60f48b313475c0129fbb9bef197869ab7fe8a24435488ce52be628d22727f7b5','windows/signal_futex.cpp':'16ca0a9bdceb3b5bb61c13f3211c03c8f85f64a897430ea3d1cdc58a957aa1e9'}
+FUTEX_DISPATCH_CORE={'windows/signal_futex.h':'c77809d868c3a37f9d6c9667a0ded004d0d15510b2e2d81921f433cc8cd5ead8','windows/signal_futex.cpp':'a3b98d60cbfca26cba0c32ee29f9193e5e62257a2b544d7dfd8b9ebc6678064a'}
+FUTEX_DISPATCH_QUALIFICATION='f9d6714285dda794da3d023589957dd38c38d334c24f3fa201e08edbca39a6fa'
+FUTEX_DISPATCH_QUALIFICATION_PATH=str(HERE.parent/'work/futex-dispatcher-qualification1/acceptance.json')
+FUTEX_DISPATCH_PROOF='69bd7eca6eae9ad34d40ae4d42cbf6064fabdfc5d40760774c444516eb0b78d2'
+FUTEX_DISPATCH_PEER='e0aa06f99e0997fc5727c621cd7fd421c3a61c7e0c76c98929f9b8bef3f538f1'
+FUTEX_DISPATCH_PEER_PATH=str(HERE.parent/'work/futex-dispatcher-independent-peer1/peer.json')
+
+def verify_futex_dispatcher_projection(name,body,proof):
+ assert name in FUTEX_DISPATCH_CORE and proof['passed']is True and proof['base_core_sources']==FUTEX_DISPATCH_BASE and proof['core_sources']==FUTEX_DISPATCH_CORE
+ assert proof['timed_wait_body_preserved_except_dispatch_callee']is proof['untimed_wait_body_preserved_except_dispatch_callee']is proof['wrapped_boundary_not_raw_boundary']is True
+ assert proof['default_dispatch']=='signals.DispatchOneAdmitted(token,allowed,wrapped)'and set(proof['files'])==set(FUTEX_DISPATCH_CORE)
+ row=proof['files'][name];assert row['old_sha256']==FUTEX_DISPATCH_BASE[name]and row['new_sha256']==FUTEX_DISPATCH_CORE[name]and row['exact_whole_file_inverse']is True
+ assert hashlib.sha256(body).hexdigest()==FUTEX_DISPATCH_CORE[name]
+ operations=row['operations'];assert type(operations)is list and len(operations)=={'windows/signal_futex.h':1,'windows/signal_futex.cpp':7}[name]
+ blocks=[];delta=0;previous_end=0
+ for item in operations:
+  assert type(item['old_offset'])is type(item['new_offset'])is int and type(item['old_hex'])is type(item['new_hex'])is str
+  before,after=bytes.fromhex(item['old_hex']),bytes.fromhex(item['new_hex']);assert before or after
+  assert before.hex()==item['old_hex']and after.hex()==item['new_hex']and item['old_offset']>=previous_end and item['new_offset']==item['old_offset']+delta
+  previous_end=item['old_offset']+len(before);delta+=len(after)-len(before);blocks.append((item['new_offset'],before,after))
+ projected=body
+ for at,before,after in reversed(blocks):
+  assert 0<=at<=len(projected)-len(after)and projected[at:at+len(after)]==after
+  projected=projected[:at]+before+projected[at+len(after):]
+ assert hashlib.sha256(projected).hexdigest()==FUTEX_DISPATCH_BASE[name]
+ return projected
+
+def qualified_futex_dispatcher_source(path,name,legacy_digest,prerequisites=None,qualification_path=None,peer_path=None):
+ assert name in FUTEX_DISPATCH_BASE and legacy_digest==FUTEX_DISPATCH_BASE[name]
+ path=Path(path);assert path.name==Path(name).name
+ qualification_path=Path(qualification_path)if qualification_path is not None else Path(FUTEX_DISPATCH_QUALIFICATION_PATH)
+ assert sha(qualification_path)==FUTEX_DISPATCH_QUALIFICATION
+ record=json.loads(qualification_path.read_text());assert record['passed']is True and record['core_sources']==FUTEX_DISPATCH_CORE and record['default_dispatcher_unset_regression']is record['no_guest_relift']is True
+ proof_path=Path(record['source_proof']['path']);assert record['source_proof']['sha256']==FUTEX_DISPATCH_PROOF and sha(proof_path)==FUTEX_DISPATCH_PROOF
+ proof=json.loads(proof_path.read_text());projected=verify_futex_dispatcher_projection(name,path.read_bytes(),proof)
+ frozen=HERE.parent/'work/windows-first-frame-soft-input1/sources/recomp'/name
+ assert sha(frozen)==FUTEX_DISPATCH_BASE[name]and frozen.read_bytes()==projected
+ references={}
+ for field,h,count in [('retained_native_timed_reference','bd680027ad0578d98b491001930e2afd1a1786b63faf3a90f477352e8a517c64',38),('retained_native_untimed_reference','3d1bd842e61a88dd162b3a59e454ea3a7e8e921b99bcd0f94bc9b900a90f87ac',23)]:
+  ref=record[field];assert ref['sha256']==h and sha(ref['path'])==h;data=json.loads(Path(ref['path']).read_text());assert data['passed']is True and len(data['canonical_records'])==count;references[field]=data['canonical_records']
+  if prerequisites is not None:prerequisites[ref['path']]=h
+ assert set(record['platforms'])=={'linux','windows'}
+ for platform,checks,default_checks in [('windows',245,4355),('linux',248,4379)]:
+  tests=record['platforms'][platform];assert set(tests)=={'futex_dispatcher_test','futex_timed_test'}
+  for test in tests.values():assert type(test['exit_code'])is int and test['exit_code']==0
+  assert tests['futex_dispatcher_test']['checks']==checks and 'cases=12'in tests['futex_dispatcher_test']['stdout']and tests['futex_timed_test']['checks']==default_checks
+  assert tests['futex_timed_test']['timed_records']==references['retained_native_timed_reference']and tests['futex_timed_test']['untimed_records']==references['retained_native_untimed_reference']
+ peer_path=Path(peer_path)if peer_path is not None else Path(FUTEX_DISPATCH_PEER_PATH);assert sha(peer_path)==FUTEX_DISPATCH_PEER
+ peer=json.loads(peer_path.read_text());assert peer['passed']is True and peer['findings']==[]and peer['core_sources']==FUTEX_DISPATCH_CORE and len(peer['checks'])==8 and all(value is True for value in peer['checks'].values())
+ assert peer['source_proof']['sha256']==FUTEX_DISPATCH_PROOF and peer['qualification']['sha256']==FUTEX_DISPATCH_QUALIFICATION
+ if prerequisites is not None:
+  prerequisites[str(qualification_path)]=FUTEX_DISPATCH_QUALIFICATION;prerequisites[str(proof_path)]=FUTEX_DISPATCH_PROOF;prerequisites[str(peer_path)]=FUTEX_DISPATCH_PEER;prerequisites[str(frozen)]=FUTEX_DISPATCH_BASE[name]
+ return FUTEX_DISPATCH_CORE[name]
+
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--build-support',type=Path,required=True);a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False);support=a.build_support.resolve();root=HERE.parent.parent
  def wp(path):return subprocess.check_output(['wslpath','-m',str(Path(path).resolve())],text=True).strip()
@@ -276,7 +331,7 @@ def main():
  with tarfile.open(timed_archive)as archive:
   timed_base_hashes={n:hashlib.sha256(archive.extractfile('recomp/'+n).read()).hexdigest()for n in timed['core_sources']}
  for name,digest in timed['core_sources'].items():
-  path=HERE.parent/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
+  path=HERE.parent/name;assert sha(path)==qualified_futex_dispatcher_source(path,name,digest,prerequisites),name;prerequisites[str(path)]=sha(path)
  for name,digest in timed['fixture_sources'].items():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  assert len(timed_qualified['canonical_records'])==timed_qualified['arm64_records']==38
@@ -292,7 +347,7 @@ def main():
   path=HERE/name;assert sha(path)==digest,name;prerequisites[str(path)]=digest
  for name,digest in affinity['protected_base_sources'].items():
   path=HERE.parent/name
-  if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
+  if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==qualified_futex_dispatcher_source(path,name,timed['core_sources'][name],prerequisites),name
   elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
   elif name in SIGNAL_SUBSET_CORE:assert sha(path)==qualified_signal_subset_source(path,name,digest,prerequisites),name
   else:assert sha(path)==digest,name
@@ -317,7 +372,7 @@ def main():
  assert qualified['passed']and qualified['core_sources']==futex['core_sources']and len(qualified['canonical_records'])==qualified['arm64_records']==23
  for name,digest in futex['core_sources'].items():
   path=HERE.parent/name
-  if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==timed['core_sources'][name],name
+  if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==qualified_futex_dispatcher_source(path,name,timed['core_sources'][name],prerequisites),name
   elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
   elif name in SIGNAL_SUBSET_CORE:assert sha(path)==qualified_signal_subset_source(path,name,digest,prerequisites),name
   else:assert sha(path)==digest,name

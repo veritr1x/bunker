@@ -11,6 +11,12 @@ class SignalFutexes {
   // Read-only policy; no guest execution or queue/mask changes. A zero policy
   // is the actual bootstrap profile: no new provider root/safepoint admission.
   using Admission=std::function<uint64_t(uint64_t)>;
+  // Optional qualified owner dispatch. The supplied boundary is the provider's
+  // real wrapper: only invoking it withdraws the ticket/latches the timed cause.
+  // A deferred result must leave pending bits and the fixed deadline intact.
+  using Dispatcher=std::function<SignalHost::Dispatch(uint64_t,uint64_t,const SignalHost::Boundary&)>;
+  // Quiescent configuration; an empty hook retains DispatchOneAdmitted exactly.
+  void SetDispatcher(Dispatcher);
   using Observe=std::function<void(const State&,uint64_t)>;
   SignalFutexes(SignalHost&,SignalHost::Current,SignalHost::Boundary,Admission,
                 addr_t marker_base=0x7ff600400000ULL);

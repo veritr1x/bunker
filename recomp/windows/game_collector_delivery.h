@@ -7,6 +7,17 @@ class GameCollectorDelivery {
   using SignalHost=bunker::windows::SignalHost;
   using SignalDelivery=bunker::windows::SignalDelivery;
   using Lifecycle=bunker::windows::WorkerSignalLifecycle;
+ public:
+  // Optional composition at the already installed lifecycle/wait hooks. The
+  // extension owns its admission policy; the finalizer profile stays separate.
+  struct WorkerExtension {
+    std::function<void(const Pthreads::WorkerInfo&,Lifecycle&)> prepare;
+    std::function<void(const Pthreads::WorkerInfo&)> enter,before_tls;
+    std::function<void(const Pthreads::WorkerInfo&,Pthreads::WorkerRetirement)> retire;
+    std::function<bool(uint64_t)> owns;
+    std::function<void(const Pthreads::WaitContext&)> checkpoint;
+  };
+ private:
   struct Channel {
     std::mutex mutex;std::condition_variable condition;uint64_t generation=0;
     uint64_t Generation(){std::lock_guard lock(mutex);return generation;}
@@ -29,7 +40,7 @@ class GameCollectorDelivery {
   struct Witness {bool finalizer=false;};
   struct ProviderDeferred {}; // Caught only by the direct C++ provider site.
   Pthreads &threads_;SignalHost &signals_;bunker::windows::Semaphores &semaphores_;recomp::Runtime &runtime_;
-  Lifecycle lifecycle_;std::mutex mutex_;std::map<uint64_t,std::shared_ptr<Owner>> owners_;bool closed_=false;
+  Lifecycle lifecycle_;WorkerExtension extension_;std::mutex mutex_;std::map<uint64_t,std::shared_ptr<Owner>> owners_;bool closed_=false;
   static Owner *&Current(){static thread_local Owner *owner=nullptr;return owner;}
   static const Witness *&Creating(){static thread_local const Witness *witness=nullptr;return witness;}
   static unsigned &OpaqueDepth(){static thread_local unsigned depth=0;return depth;}
@@ -87,6 +98,7 @@ class GameCollectorDelivery {
     auto result=signals_.DispatchOneAllowed(owner.context->PreparedWorker().token,SignalHost::Bit(30),[&](const auto&delivery){return Deliver(delivery);});Check(!result.error,"admitted original signal dispatch failed");(void)state;
   }
   void Retire(const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &lease,Pthreads::WorkerRetirement reason,const Pthreads::WorkerLifecycleHooks &hooks){
+    if(extension_.retire)extension_.retire(info,reason);
     auto owner=Lookup(info.token);
     if(owner){Check(!owner->depth&&!owner->wait_live&&!owner->stop_live,"worker retires through active provider/signal frame");if(owner->binding||owner->delivery){Check(owner->context->NativeThreadId()==GetCurrentThreadId()&&(!owner->binding||Current()==owner.get()),"poll binding retirement on wrong worker");Check(!Pending(*owner),"worker retires with an original pending signal");owner->binding.reset();owner->delivery.reset();Current()=nullptr;}}
     hooks.retire(info,lease,reason);
@@ -105,12 +117,14 @@ class GameCollectorDelivery {
  public:
   struct Opaque {bool active;explicit Opaque(bool enabled):active(enabled){if(active)++OpaqueDepth();}~Opaque(){if(active)--OpaqueDepth();}};
   static constexpr uint32_t kVirtualRealUid=10000; // Explicit sandbox, not Windows/device identity.
-  GameCollectorDelivery(Pthreads &threads,SignalHost &signals,bunker::windows::Semaphores &sem,recomp::Runtime &runtime):threads_(threads),signals_(signals),semaphores_(sem),runtime_(runtime),lifecycle_(signals){
+  GameCollectorDelivery(Pthreads &threads,SignalHost &signals,bunker::windows::Semaphores &sem,recomp::Runtime &runtime,WorkerExtension extension={}):threads_(threads),signals_(signals),semaphores_(sem),runtime_(runtime),lifecycle_(signals),extension_(std::move(extension)){
+    const bool any_extension=extension_.prepare||extension_.enter||extension_.before_tls||extension_.retire||extension_.owns||extension_.checkpoint;
+    Check(!any_extension||(extension_.prepare&&extension_.enter&&extension_.before_tls&&extension_.retire&&extension_.owns&&extension_.checkpoint),"worker extension hooks are incomplete");
     Check(Translated(kReturn)&&Executable(kReturn)&&Translated(0x825beb3c)&&Translated(0x825b2af4)&&Translated(0x825b2c70),"original normal-return/handler heads missing from final cohort");
     auto hooks=lifecycle_.TakeHooks();auto installed=hooks;
-    installed.prepare=[this,hooks](const auto &info){auto lease=hooks.prepare(info);auto owner=std::make_shared<Owner>();owner->context=lifecycle_.Lookup(info.token);owner->finalizer=Creating()&&Creating()->finalizer;{std::lock_guard lock(mutex_);Check(!closed_&&owners_.emplace(info.token,owner).second,"duplicate/closed worker owner");}GameWorkerObservation::Lifecycle("prepare",info);return lease;};
-    installed.enter=[this,hooks](const auto &info,const auto &lease){hooks.enter(info,lease);auto owner=Lookup(info.token);Check(owner&&Current()==nullptr,"worker owner entry is not cold");owner->delivery=std::make_unique<SignalDelivery>(runtime_,Translated,kReturn,recomp::signal_frame::Bounds{info.stack_low,info.stack_high},signals_,info.token);owner->binding=std::make_unique<recomp::PollBinding>(owner->context->PollRequests(),[this,owner](State &s,recomp::PollSite,const auto&){try{Pump(*owner,s);}catch(const ProviderDeferred&){throw;}catch(const std::exception&e){Fail(e.what());}catch(...){Fail("unknown original delivery exception");}},[this](const auto &context){return Admit(context);});Current()=owner.get();GameWorkerObservation::Enter(info);};
-    installed.before_tls=[this,hooks](const auto &info,const auto &lease){auto owner=Lookup(info.token);Check(owner&&!owner->depth&&!owner->wait_live&&!Pending(*owner),"worker reaches TLS with active/pending stop");hooks.before_tls(info,lease);GameWorkerObservation::Lifecycle("before_tls",info);};
+    installed.prepare=[this,hooks](const auto &info){auto lease=hooks.prepare(info);auto owner=std::make_shared<Owner>();owner->context=lifecycle_.Lookup(info.token);owner->finalizer=Creating()&&Creating()->finalizer;{std::lock_guard lock(mutex_);Check(!closed_&&owners_.emplace(info.token,owner).second,"duplicate/closed worker owner");}if(extension_.prepare)extension_.prepare(info,lifecycle_);GameWorkerObservation::Lifecycle("prepare",info);return lease;};
+    installed.enter=[this,hooks](const auto &info,const auto &lease){hooks.enter(info,lease);auto owner=Lookup(info.token);Check(owner&&Current()==nullptr,"worker owner entry is not cold");owner->delivery=std::make_unique<SignalDelivery>(runtime_,Translated,kReturn,recomp::signal_frame::Bounds{info.stack_low,info.stack_high},signals_,info.token);owner->binding=std::make_unique<recomp::PollBinding>(owner->context->PollRequests(),[this,owner](State &s,recomp::PollSite,const auto&){try{Pump(*owner,s);}catch(const ProviderDeferred&){throw;}catch(const std::exception&e){Fail(e.what());}catch(...){Fail("unknown original delivery exception");}},[this](const auto &context){return Admit(context);});Current()=owner.get();if(extension_.enter)extension_.enter(info);GameWorkerObservation::Enter(info);};
+    installed.before_tls=[this,hooks](const auto &info,const auto &lease){if(extension_.before_tls)extension_.before_tls(info);auto owner=Lookup(info.token);Check(owner&&!owner->depth&&!owner->wait_live&&!Pending(*owner),"worker reaches TLS with active/pending stop");hooks.before_tls(info,lease);GameWorkerObservation::Lifecycle("before_tls",info);};
     installed.retire=[this,hooks](const auto &i,const auto&l,auto r){Retire(i,l,r,hooks);};threads_.SetWorkerLifecycleHooks(std::move(installed));
     threads_.SetWaitHooks({[this](uint64_t token){auto owner=Lookup(token);auto channel=owner?owner->channel:std::make_shared<Channel>();return std::make_shared<const Pthreads::WaitWake>(Pthreads::WaitWake{[channel]{return channel->Generation();},[channel]{channel->Notify();},[channel](auto generation,auto relative){channel->Wait(generation,relative);}});},[this](const auto &context){Checkpoint(context);}});
     std::fprintf(stderr,"Game GC: explicit original-finalizer single-condwait profile configured; virtual Android real UID=%u; no Windows/device UID claim\n",kVirtualRealUid);
@@ -139,6 +153,7 @@ class GameCollectorDelivery {
   }
   void Checkpoint(const Pthreads::WaitContext &context){
     GameWorkerObservation::NativeEnvironment native;
+    if(extension_.owns&&extension_.owns(context.token)){extension_.checkpoint(context);return;}
     auto owner=Lookup(context.token);if(!owner||!owner->finalizer){if(owner)Check(!Pending(*owner),"unknown-role worker has pending delivery");return;}
     // Basic wait publication does not walk the original registry. It can run
     // while unrelated original registrations/unlinks mutate their buckets.

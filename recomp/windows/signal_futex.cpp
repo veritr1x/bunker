@@ -136,6 +136,7 @@ struct SignalFutexes::Impl {
  struct Ticket {addr_t key;std::shared_ptr<SignalWake>wake;bool linked=false,woken=false;};
  SignalHost&signals;SignalHost::Current current;SignalHost::Boundary boundary;Admission admission;
  std::function<void(int)>error_sink;WaitObserver wait_observer;addr_t marker;bool installed=false,closing=false;
+ Dispatcher dispatcher;
  std::mutex mutex;std::map<addr_t,std::list<std::shared_ptr<Ticket>>>queues;size_t callers=0;
  Impl(SignalHost&s,SignalHost::Current c,SignalHost::Boundary b,Admission a,addr_t m):signals(s),current(std::move(c)),boundary(std::move(b)),admission(std::move(a)),marker(m){if(!current||!admission||m%8)throw std::invalid_argument("futex provider requires explicit current/admission and aligned marker");}
  struct Call {
@@ -170,6 +171,9 @@ struct SignalFutexes::Impl {
  void ObserveWait(const WaitObservation&observation){
   if(wait_observer){Environment preserve;wait_observer(observation);}
  }
+ SignalHost::Dispatch Dispatch(uint64_t token,uint64_t allowed,const SignalHost::Boundary&wrapped){
+  return dispatcher?dispatcher(token,allowed,wrapped):signals.DispatchOneAdmitted(token,allowed,wrapped);
+ }
  int64_t TimedWait(addr_t address,uint32_t expected,uint64_t token,uint64_t deadline,Environment&environment,WaitObservation&observation){
   auto fail=[&](int error){observation.error=error;return Fail(error);};
   auto retained=signals.Lookup(token);auto wake=signals.Wake(token);
@@ -203,7 +207,7 @@ struct SignalFutexes::Impl {
    }
    if(expired)return fail(110);
    enum class Cause {None,Wake,Timeout,Interrupt};Cause cause=Cause::None;
-   const auto result=signals.DispatchOneAdmitted(token,allowed,[&](const auto&delivery){
+   const auto result=Dispatch(token,allowed,[&](const auto&delivery){
     {std::lock_guard lock(mutex);
      // Latch the syscall's outcome before the actual caught handler. Linux
      // may still deliver a pending handler before returning a wake/timeout
@@ -264,7 +268,7 @@ struct SignalFutexes::Impl {
     const auto generation=wake->Generation();
     {std::lock_guard lock(mutex);if(ticket->woken)return 0;}
     const auto allowed=admission(token);
-    const auto result=signals.DispatchOneAdmitted(token,allowed,[&](const auto&delivery){
+    const auto result=Dispatch(token,allowed,[&](const auto&delivery){
      // Linux withdraws the ticket before a caught handler. A genuine wake
      // which already selected this ticket still wins syscall success.
      {std::lock_guard lock(mutex);RemoveLocked(ticket);}
@@ -298,6 +302,14 @@ void SignalFutexes::SetWaitObserver(WaitObserver observer){
  {std::lock_guard lock(impl_->mutex);
   if(impl_->closing||impl_->callers)throw std::logic_error("futex wait observer requires quiescent calls");
   retired=std::move(impl_->wait_observer);impl_->wait_observer=std::move(observer);
+ }
+ // Captured resources in the previous callback retire outside the queue lock.
+}
+void SignalFutexes::SetDispatcher(Dispatcher dispatcher){
+ Dispatcher retired;
+ {std::lock_guard lock(impl_->mutex);
+  if(impl_->closing||impl_->callers)throw std::logic_error("futex dispatcher requires quiescent calls");
+  retired=std::move(impl_->dispatcher);impl_->dispatcher=std::move(dispatcher);
  }
  // Captured resources in the previous callback retire outside the queue lock.
 }

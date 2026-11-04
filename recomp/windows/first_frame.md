@@ -3,7 +3,37 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-image-uniform1`, host
+Latest original execution: `work/windows-first-frame-soft-input1`, host
+`13f50c04038e11ebe04afe92690eaa49898ae195`, passes the missing hideSoftInput
+binding and reaches collector epoch8. The original stop30 at LR `825b2d1c`
+targets a real Unity-created worker (`token19`, entry `70383624`), which the
+captured-finalizer profile rejects. Its last observed syscall is timed private
+futex WAIT at LR `708f2f14`; the log alone does not prove its blocking phase or
+unrecorded collector fields. Main epoch6 completes its genuine stop/restart
+cycle. Two renders return continue=true; there are no original draws, clears,
+swaps, PNGs or executed soft-input native reports before the failure.
+Native exit3/controller1; frozen inputs and original objects reverify.
+
+Inputs SHA256 `da7cd13f417536774740f133f4a975556a544a49db6eefd8e52f6c800768f5d2`;
+executable SHA256 `df430038ea1e5fa69d092a0816a662ea8afaa84f5c50433c7c27e61f0e4b7b11`;
+log SHA256 `6973c03d23620629b2af3e618da317205a48b14294ca39b7f3a48d199c9097d8`.
+The next correction must validate the worker's real ownership, ordinary GC
+record and complete physical roots at an exact enrolled futex boundary, then
+execute the original stop/restart handlers and posts. Callback naming is not
+required for this bounded stack contract. No host acknowledgment is substituted.
+
+The correction passes 111 checks on a real prepared Pthreads worker: two
+original stop/restart cycles, four original posts, four physical 31-GPR/32-Q
+root frames and actual predecessor poll-binding restoration at retirement.
+Four ordinary wait controls preserve short/invalid/mismatched requests and
+retained restart signals. An optional futex dispatcher preserves the provider's
+ticket, fixed deadline and wake/timeout precedence; focused Windows/Linux tests
+and the retained 38 timed/23 untimed NDK records pass. The lifecycle composition
+recovers the entire old header and preserves sixteen finalizer method bodies
+byte-for-byte. Other 26 protected sources remain exact. These are component
+results; original game execution of this correction is pending.
+
+Preceding original execution: `work/windows-first-frame-image-uniform1`, host
 `3ef041dc3e4c858aaa8602e101fcafcfab5f0a31`, passes image-uniform reflection
 for programs 2, 4, 6 and 8. It then stops at the missing Java implementation
 `com/unity3d/player/UnityPlayer.hideSoftInput()V` (JNI environment slot62).
@@ -26,8 +56,9 @@ and finishing gates are explicit lifecycle state; a nonnull keyboard dialog
 remains unsupported. The focused Windows gate passes 260 checks, 17 actual NDK
 JNI calls and 15 TEST native reports. The render FIFO gate passes 279 checks,
 including ordering, continuation and failure propagation. These component
-callbacks do not execute the original native report bodies. Original game
-execution of this correction remains pending.
+callbacks do not execute the original native report bodies. The subsequent run
+above installs the binding; its queued report-native execution remains blocked
+by the next collector frontier.
 
 Preceding original execution: `work/windows-first-frame-program-resource1`, host
 `973ab9e8c362319f5d9cf63fb7064d1b34464f44`, passes the original resource
