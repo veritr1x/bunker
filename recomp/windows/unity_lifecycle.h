@@ -2,6 +2,7 @@
 #include "jni_host.h"
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace bunker::windows {
@@ -16,7 +17,7 @@ class UnitySurfaceLifecycle {
   using WorkerEnter=std::function<void()>;
   struct Entries {addr_t recreate=0,changed=0;};
   struct FrameEntries {addr_t resume=0,focus=0,render=0,pause=0,done=0;};
-  struct Status {bool initialized=false,started=false,surface=false,resumed=false;uint64_t completed=0,rendered=0;bool native_done=false,process_kill_requested=false;};
+  struct Status {bool initialized=false,started=false,surface=false,resumed=false;uint64_t completed=0,rendered=0,requested_frames=0;bool native_done=false,process_kill_requested=false;};
   // WorkerExit releases the runner's per-thread TLS/stack while JNI remains
   // attached (for Pthreads, call ReleaseCurrent and check its return).
   UnitySurfaceLifecycle(jni::Host &,Runner,Entries,addr_t unity_player,WorkerExit);
@@ -37,6 +38,13 @@ class UnitySurfaceLifecycle {
   void ActivityResumed();
   void WindowFocusChanged(bool focused);
   bool WaitForFrame();
+  // Poll the current request without blocking the window/event owner. A ready
+  // false is the original render result; pending is nullopt, failures throw.
+  std::optional<bool> PollFrame()const;
+  // Explicitly continue after a completed true result, on the same UnityMain.
+  // False means a transient surface/focus/FIFO prerequisite is not ready.
+  // Duplicate, in-flight, prior-false and invalid lifecycle requests throw.
+  bool RequestNextFrame();
   // Native PAUSE + acknowledgment Runnable only. Finishing selects the APK's
   // shutdown/nativeDone branch; a normal pause calls nativePause first.
   void PauseNative(bool finishing);

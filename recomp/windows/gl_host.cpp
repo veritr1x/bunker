@@ -192,6 +192,13 @@ struct GlHost::Impl {
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
   FrameDiagnostics diagnostic;
+  struct PendingPresent {
+    uint64_t serial=0;DWORD thread=0;addr_t display=0,surface=0,context=0;
+    int32_t width=0,height=0;bool nonuniform=false,candidate=false;
+    uint64_t draws=0,clears=0;std::vector<uint8_t> pixels;
+  };
+  uint64_t next_present_serial=0;
+  std::map<uint64_t,PendingPresent> pending_presents;
   Impl(EglHost &egl,const std::wstring &directory,addr_t marker):egl(egl),marker(marker){
     static_assert(sizeof(GLboolean)==1&&sizeof(GLint)==4&&sizeof(GLfloat)==4);
     static_assert(sizeof(GLuint)==4&&sizeof(GLsizei)==4&&sizeof(GLchar)==1&&sizeof(GLsizeiptr)==8&&sizeof(GLintptr)==8);
@@ -282,13 +289,20 @@ struct GlHost::Impl {
     return bytes;
   }
   template<class F>bool Call(F function){CollectErrors();function();return !CollectErrors();}
-  void CaptureWindow(){
-    if(diagnostic_png.empty()||diagnostic.frame_png)return;
-    auto extent=egl.CurrentDrawWindowExtent();if(!extent)return;
+  uint64_t CaptureWindow(addr_t display,addr_t surface){
+    const auto thread=GetCurrentThreadId();
+    // There can be only one outstanding original swap on each native thread.
+    // A new ENTER abandons any unmatched previous ticket on that thread.
+    for(auto at=pending_presents.begin();at!=pending_presents.end();)
+      if(at->second.thread==thread)at=pending_presents.erase(at);else ++at;
+    if(diagnostic_png.empty()||diagnostic.frame_png)return 0;
+    auto extent=egl.CurrentDrawWindowExtent();if(!extent||extent->surface!=surface)return 0;
     SelectContext();if(extent->context!=current_context)throw std::runtime_error("Capture context changed");
     if(uint64_t(extent->width)*uint64_t(extent->height)*4>TransferLimit)throw std::runtime_error("Capture exceeds64MiB");
-    if(diagnostic.first_present_png&&!diagnostic.draw_submissions)return;
-    if(++diagnostic.capture_attempts>64)return;
+    if(diagnostic.first_present_png&&!diagnostic.draw_submissions)return 0;
+    if(next_present_serial==UINT64_MAX)throw std::overflow_error("Capture serial exhausted");
+    const auto serial=++next_present_serial;
+    ++diagnostic.capture_attempts;
     CollectErrors();const auto saved_errors=pending_errors[current_context];
     struct ErrorRestore {Impl &host;std::set<GLenum> saved;~ErrorRestore(){
       for(unsigned i=0;i<32&&host.getError()!=GL_NO_ERROR;++i){}
@@ -318,13 +332,34 @@ struct GlHost::Impl {
     std::vector<uint8_t> pixels(size_t(extent->width)*size_t(extent->height)*4);
     draw_glReadPixels(0,0,extent->width,extent->height,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());check("capture read pixels");
     bool nonuniform=false;for(size_t i=4;i<pixels.size();i+=4)if(std::memcmp(pixels.data(),pixels.data()+i,4)){nonuniform=true;break;}
-    diagnostic.width=extent->width;diagnostic.height=extent->height;diagnostic.nonuniform=nonuniform;
-    std::filesystem::path path(diagnostic_png);const bool candidate=nonuniform&&diagnostic.draw_submissions;
-    if(!candidate){if(diagnostic.first_present_png)return;path=path.parent_path()/L"first-present.png";}
-    WriteFramePng(path,uint32_t(extent->width),uint32_t(extent->height),pixels);
-    diagnostic.first_present_png=true;if(candidate)diagnostic.frame_png=true;
-    std::fprintf(stderr,"First frame: PNG=%s draws=%llu clears=%llu nonuniform=%d candidate=%d; presentation outcome follows\n",path.u8string().c_str(),(unsigned long long)diagnostic.draw_submissions,(unsigned long long)diagnostic.clear_submissions,int(nonuniform),int(candidate));
+    PendingPresent pending;pending.serial=serial;pending.thread=thread;pending.display=display;
+    pending.surface=surface;pending.context=extent->context;pending.width=extent->width;pending.height=extent->height;
+    pending.nonuniform=nonuniform;pending.candidate=nonuniform&&diagnostic.draw_submissions;
+    pending.draws=diagnostic.draw_submissions;pending.clears=diagnostic.clear_submissions;
+    if(pending.candidate||!diagnostic.first_present_png)pending.pixels=std::move(pixels);
+    pending_presents.emplace(serial,std::move(pending));
+    std::fprintf(stderr,"First frame: capture ticket=%llu native_tid=%lu display=%#llx context=%#llx surface=%#llx nonuniform=%d candidate=%d; awaiting same original swap outcome\n",(unsigned long long)serial,thread,(unsigned long long)display,(unsigned long long)extent->context,(unsigned long long)surface,int(nonuniform),int(nonuniform&&diagnostic.draw_submissions));
+    return serial;
   }
+  void FinishPresent(uint64_t serial,addr_t display,addr_t surface,uint32_t actual_result){
+    if(!serial)return;
+    auto at=pending_presents.find(serial);if(at==pending_presents.end())return;
+    auto pending=std::move(at->second);pending_presents.erase(at); // consume even a failed/mismatched return
+    const auto thread=GetCurrentThreadId();bool matched=pending.thread==thread&&pending.display==display&&pending.surface==surface;
+    if(matched){auto extent=egl.CurrentDrawWindowExtent();matched=extent&&extent->context==pending.context&&extent->surface==pending.surface&&extent->width==pending.width&&extent->height==pending.height;}
+    std::fprintf(stderr,"First frame: capture outcome ticket=%llu native_tid=%lu display=%#llx context=%#llx surface=%#llx EGLresult=%u matched=%d candidate=%d\n",(unsigned long long)serial,thread,(unsigned long long)display,(unsigned long long)pending.context,(unsigned long long)surface,actual_result,int(matched),int(pending.candidate));
+    if(!matched||actual_result!=1||pending.pixels.empty()||diagnostic.frame_png)return;
+    std::filesystem::path path(diagnostic_png);
+    if(!pending.candidate){if(diagnostic.first_present_png)return;path=path.parent_path()/L"first-present.png";}
+    WriteFramePng(path,uint32_t(pending.width),uint32_t(pending.height),pending.pixels);
+    diagnostic.first_present_png=true;diagnostic.width=pending.width;diagnostic.height=pending.height;
+    diagnostic.nonuniform=pending.nonuniform;diagnostic.failure.clear();
+    if(pending.candidate){diagnostic.frame_png=true;diagnostic.presented_capture_serial=serial;
+      diagnostic.presented_native_thread=thread;diagnostic.presented_display=display;
+      diagnostic.presented_context=pending.context;diagnostic.presented_surface=surface;}
+    std::fprintf(stderr,"First frame: PNG=%s ticket=%llu native_tid=%lu display=%#llx context=%#llx surface=%#llx draws=%llu clears=%llu nonuniform=%d candidate=%d same_original_swap_EGL_TRUE=1\n",path.u8string().c_str(),(unsigned long long)serial,thread,(unsigned long long)display,(unsigned long long)pending.context,(unsigned long long)surface,(unsigned long long)pending.draws,(unsigned long long)pending.clears,int(pending.nonuniform),int(pending.candidate));
+  }
+
   GLint Integer(GLenum name){
     GLint value=0;if(!Call([&]{getInteger(name,&value);}))throw std::runtime_error("Internal GL state query failed: "+Hex(name));return value;
   }
@@ -502,11 +537,17 @@ void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(i
   if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
 void GlHost::EnableFrameDiagnostics(const std::wstring &path){std::lock_guard lock(impl_->mutex);if(path.empty()||!std::filesystem::path(path).is_absolute())throw std::invalid_argument("Absolute frame PNG path required");impl_->diagnostic_png=path;}
 GlHost::FrameDiagnostics GlHost::DescribeFrameDiagnostics(){std::lock_guard lock(impl_->mutex);return impl_->diagnostic;}
-void GlHost::CaptureWindowBeforePresent(){std::lock_guard lock(impl_->mutex);
+uint64_t GlHost::BeginWindowPresent(addr_t display,addr_t surface){std::lock_guard lock(impl_->mutex);
   const int saved_errno=errno;const DWORD saved_error=GetLastError();std::fenv_t environment;std::feholdexcept(&environment);
   struct Restore{int error;DWORD native_error;std::fenv_t environment;~Restore(){std::fesetenv(&environment);errno=error;SetLastError(native_error);}} restore{saved_errno,saved_error,environment};
   auto dpi=impl_->egl.CurrentWindowDpiScope();
-  try{impl_->CaptureWindow();}catch(const std::exception &e){impl_->diagnostic.failure=e.what();std::fprintf(stderr,"First frame: capture failed: %s\n",e.what());}}
+  try{return impl_->CaptureWindow(display,surface);}catch(const std::exception &e){impl_->diagnostic.failure=e.what();std::fprintf(stderr,"First frame: capture failed: %s\n",e.what());return 0;}}
+void GlHost::FinishWindowPresent(uint64_t ticket,addr_t display,addr_t surface,uint32_t actual_result){std::lock_guard lock(impl_->mutex);
+  const int saved_errno=errno;const DWORD saved_error=GetLastError();std::fenv_t environment;std::feholdexcept(&environment);
+  struct Restore{int error;DWORD native_error;std::fenv_t environment;~Restore(){std::fesetenv(&environment);errno=error;SetLastError(native_error);}} restore{saved_errno,saved_error,environment};
+  auto dpi=impl_->egl.CurrentWindowDpiScope();
+  try{impl_->FinishPresent(ticket,display,surface,actual_result);}catch(const std::exception &e){impl_->diagnostic.failure=e.what();std::fprintf(stderr,"First frame: capture completion failed: %s\n",e.what());}}
+
 void GlHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("GL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"GL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 }  // namespace bunker::windows
 #undef GL_DRAW_API

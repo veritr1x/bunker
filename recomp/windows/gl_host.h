@@ -28,11 +28,14 @@ class GlHost {
   static const std::vector<Query> &Queries();
   // Every supported typed command, in append-only marker order.
   static const std::vector<std::string> &Commands();
-  struct FrameDiagnostics {uint64_t calls=0,draw_submissions=0,clear_submissions=0,capture_attempts=0;bool first_present_png=false,frame_png=false,nonuniform=false;int32_t width=0,height=0;std::string failure;};
+  struct FrameDiagnostics {uint64_t calls=0,draw_submissions=0,clear_submissions=0,capture_attempts=0,presented_capture_serial=0;uint32_t presented_native_thread=0;addr_t presented_display=0,presented_context=0,presented_surface=0;bool first_present_png=false,frame_png=false,nonuniform=false;int32_t width=0,height=0;std::string failure;};
   void EnableFrameDiagnostics(const std::wstring &absolute_png_path);
   FrameDiagnostics DescribeFrameDiagnostics();
-  // Called on the render worker before an original window eglSwapBuffers.
-  void CaptureWindowBeforePresent();
+  // Pair one original eglSwapBuffers ENTER/RETURN on its native thread.
+  // A nonzero ticket owns one pre-swap readback; only its matching EGL_TRUE
+  // return can publish a PNG. Failed/unmatched tickets cannot be reused.
+  uint64_t BeginWindowPresent(addr_t display,addr_t surface);
+  void FinishWindowPresent(uint64_t ticket,addr_t display,addr_t surface,uint32_t actual_result);
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

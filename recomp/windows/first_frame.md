@@ -3,10 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing host implementation of
-`UnityPlayer.getLaunchURL()String`, after passing the unavailable-sensor path
-and disabling audio through the real project setting. The preceding sensor
-and FMOD/audio-enabled frontiers are retained below.
+Latest original execution: `work/windows-first-frame-launch-url1`, host
+`ab351e2314be540c52ea7c5dea5dbd7261393d50`, passes the launch-URL callback and
+returns from original `nativeRender` with `continue=true`. It submits no draw,
+clear or swap and produces no PNG. The existing one-frame diagnostic then
+requests finishing PAUSE; that cleanup fails at the missing static Java body
+`ReflectionHelper.endUnityLaunch()V`. This is diagnostic-requested shutdown,
+not evidence that the original game requested exit.
+
+Inputs SHA256 `f6256539018e656bccb5e4fa308510b490e8314c3cf1253def6aafd224942be2`;
+executable SHA256 `9af0e50d5e46f77dc603ffa66c490b3b045365272f4e78fef56c123c96a11b25`;
+log SHA256 `ab6d91497084fd0cb51576918434627b666f6240770feeb129103e090878ac66`.
+Native exit3/controller1; all frozen inputs and original objects reverify.
+The returned render has1749 GL calls and2761 EGL calls;22 additional GL calls
+are cleanup. There is still no presented game frame.
+
+The next change keeps the same UnityMain, window, guest stack and TLS, requesting
+another original render only after the prior call returns true and actual focus
+and surface prerequisites are satisfied. Window events must continue to be
+pumped while a call is pending. Frame proof must pair a captured image with that
+same original swap's successful result; an earlier unrelated successful swap
+cannot validate a later failed capture. Component qualification now passes;
+a fresh original execution is still required. See
+[continuation and capture checks](first_frame_continuation.md).
+
+The preceding sensor and FMOD/audio-enabled frontiers are retained below.
 The preceding actual build
 `work/windows-first-frame-plane-switch1`, host
 `ad6c6d71225ca4859e64c769a48f0279d3046eb8`, executable

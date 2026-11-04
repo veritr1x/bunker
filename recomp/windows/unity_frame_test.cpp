@@ -1,7 +1,9 @@
 #include "unity_lifecycle.h"
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <future>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -17,7 +19,8 @@ struct Fixture {
   addr_t player=0,surface=0;
   std::vector<std::string> log;
   UnitySurfaceLifecycle *queue=nullptr;
-  bool pause_result=false,done_result=false,render_result=true,throw_resume=false;
+  bool pause_result=false,done_result=false,render_result=true,throw_resume=false,throw_render=false;
+  std::function<void()> render_hook,focus_hook;
   unsigned cleaned=0;
   std::thread::id caller=std::this_thread::get_id(),worker;
   Fixture(){java.DefineClass("com/unity3d/player/UnityPlayer");java.DefineClass("android/view/Surface");player=java.NewInstance("com/unity3d/player/UnityPlayer");surface=java.NewInstance("android/view/Surface");}
@@ -29,8 +32,8 @@ struct Fixture {
       case 1:log.push_back(args.at(3)?"surface":"detach");return 0;
       case 2:log.push_back("changed");return 0;
       case 3:log.push_back("resume");if(throw_resume)throw std::runtime_error("unsupported resume dependency");return 0;
-      case 4:log.push_back(args.at(2)?"focus+":"focus-");return 0;
-      case 5:Check(queue->Describe().resumed&&queue->Describe().surface,"render requires both resumed and surface");log.push_back("render");return render_result;
+      case 4:log.push_back(args.at(2)?"focus+":"focus-");if(focus_hook)focus_hook();return 0;
+      case 5:Check(queue->Describe().resumed&&queue->Describe().surface,"render requires both resumed and surface");log.push_back("render");if(render_hook)render_hook();if(throw_render)throw std::runtime_error("original render dependency failed");return render_result;
       case 6:Check(!queue->Describe().resumed,"PAUSE message precedes nativePause Runnable");log.push_back("pause");return pause_result;
       case 7:Check(!queue->Describe().resumed,"PAUSE message precedes shutdown/nativeDone Runnable");log.push_back("done");return done_result;
       default:throw std::runtime_error("unexpected diagnostic native entry");
@@ -74,6 +77,57 @@ int main(){
   {
     Fixture f;f.throw_resume=true;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;q.ConfigureOneFrame({3,4,5,6,7});q.AfterInitJni();q.Start();q.SurfaceCreated(f.surface);q.ActivityResumed();q.WindowFocusChanged(true);
     Reject([&]{q.WaitForFrame();},"resume failure reaches frame waiter instead of claiming a completed frame");Reject([&]{q.Stop();},"resume failure remains decisive through worker teardown");Check(f.cleaned==1,"failed resume cleans worker before JNI detach");
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;q.ConfigureOneFrame({3,4,5,6,7});q.AfterInitJni();q.Start();
+    Check(!q.PollFrame().has_value(),"pending first frame is distinct from an original false result");
+    Reject([&]{q.RequestNextFrame();},"cannot continue before initial frame completes");
+    q.SurfaceCreated(f.surface);q.ActivityResumed();q.WindowFocusChanged(true);Check(q.WaitForFrame(),"first frame returns true before continuation");q.WaitIdle();
+    auto original_worker=f.worker;
+    q.WindowFocusChanged(false);q.WaitIdle();Check(!q.RequestNextFrame(),"known lost focus cannot grant continuation");
+    std::promise<void> focus_entered,focus_release;auto focus_released=focus_release.get_future().share();std::atomic<bool> focus_held{false};
+    f.focus_hook=[&]{if(!focus_held.exchange(true)){focus_entered.set_value();focus_released.wait();}};
+    q.WindowFocusChanged(true);focus_entered.get_future().get();
+    Check(!q.RequestNextFrame(),"owner focus cannot bypass pending worker focus acknowledgment");focus_release.set_value();q.WaitIdle();f.focus_hook={};
+    std::promise<void> entered,release;auto released=release.get_future().share();
+    f.render_hook=[&]{entered.set_value();Reject([&]{q.RequestNextFrame();},"UnityMain cannot request its own continuation");released.wait();};
+    Check(q.RequestNextFrame(),"completed true result permits one explicit request");entered.get_future().get();
+    Check(!q.PollFrame().has_value(),"fresh request does not reuse ready prior future");
+    Reject([&]{q.RequestNextFrame();},"duplicate in-flight continuation rejected");
+    Check(q.Describe().requested_frames==2&&q.Describe().rendered==1,"requested and completed frame counters remain cumulative");
+    release.set_value();Check(q.WaitForFrame(),"second actual result reaches its own promise");q.WaitIdle();f.render_hook={};
+    Check(q.PollFrame()==std::optional<bool>(true),"poll returns actual completed true result");
+    Check(f.worker==original_worker&&std::count(f.log.begin(),f.log.end(),"resume")==1&&std::count(f.log.begin(),f.log.end(),"render")==2,"continuation preserves worker and performs no second nativeResume");
+    q.WaitIdle();Check(q.Describe().rendered==2,"explicit second request does not start a third frame");
+    q.SurfaceDestroyed();Check(!q.RequestNextFrame(),"detached surface cannot grant continuation");
+    q.PauseNative(false);Reject([&]{q.RequestNextFrame();},"paused Activity cannot grant continuation");q.Stop();
+    Reject([&]{q.RequestNextFrame();},"stopped lifecycle cannot grant continuation");Check(f.cleaned==1,"continued lifecycle cleans worker exactly once");
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;q.ConfigureOneFrame({3,4,5,6,7});q.AfterInitJni();q.Start();q.SurfaceCreated(f.surface);q.ActivityResumed();q.WindowFocusChanged(true);q.WaitForFrame();q.WaitIdle();
+    f.render_result=false;Check(q.RequestNextFrame(),"next render may return a different actual boolean");Check(!q.WaitForFrame(),"second native false is retained");q.WaitIdle();
+    Check(q.PollFrame()==std::optional<bool>(false),"ready original false is not pending");Reject([&]{q.RequestNextFrame();},"original false permanently refuses continuation");
+    q.PauseNative(false);q.SurfaceDestroyed();q.Stop();
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;q.ConfigureOneFrame({3,4,5,6,7});q.AfterInitJni();q.Start();q.SurfaceCreated(f.surface);q.ActivityResumed();q.WindowFocusChanged(true);q.WaitForFrame();q.WaitIdle();
+    std::promise<void> entered,release;auto released=release.get_future().share();f.render_hook=[&]{entered.set_value();released.wait();};f.throw_render=true;
+    Check(q.RequestNextFrame(),"render-failure request admitted before original call");entered.get_future().get();Check(!q.PollFrame().has_value(),"in-flight failing call remains pending until it throws");release.set_value();
+    Reject([&]{q.WaitForFrame();},"second render exception reaches current waiter");Reject([&]{q.PollFrame();},"ready render exception reaches poller");Reject([&]{q.Stop();},"render exception preserved through stop");Check(f.cleaned==1,"failed continuation cleans worker exactly once");
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;q.ConfigureOneFrame({3,4,5,6,7});q.AfterInitJni();q.Start();
+    q.PauseNative(false);Reject([&]{q.WaitForFrame();},"pause settles an unused initial frame request");q.Stop();Check(f.cleaned==1,"canceled unused request still cleans worker");
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;q.ConfigureOneFrame({3,4,5,6,7});q.AfterInitJni();q.Start();q.SurfaceCreated(f.surface);q.ActivityResumed();
+    std::promise<void> entered,release;auto released=release.get_future().share();std::atomic<bool> held{false};
+    f.focus_hook=[&]{if(!held.exchange(true)){entered.set_value();released.wait();}};
+    q.WindowFocusChanged(true);entered.get_future().get();q.WindowFocusChanged(false);release.set_value();q.WaitIdle();
+    Check(q.Describe().rendered==0&&!q.PollFrame().has_value(),"lost focus before first render preserves the initial pending request");
+    f.focus_hook={};q.WindowFocusChanged(true);Check(q.WaitForFrame(),"regaining focus reschedules the same initial pending request");q.WaitIdle();
+    Check(q.Describe().requested_frames==1&&q.Describe().rendered==1&&std::count(f.log.begin(),f.log.end(),"resume")==1,"focus recovery does not create another request or nativeResume");
+    q.PauseNative(false);q.SurfaceDestroyed();q.Stop();
   }
   std::printf("Bounded native frame FIFO: %u checks passed (synthetic callbacks; no real rendering claim)\n",checks.load());
 }

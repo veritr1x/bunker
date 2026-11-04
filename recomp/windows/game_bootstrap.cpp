@@ -10,6 +10,7 @@
 #include "windows_shared_preferences.h"
 #include "windows_android_id.h"
 #include "jni_interface_proxy.h"
+#include "reflection_launch_epoch.h"
 #include "java_native_libraries.h"
 #include "apk_assets.h"
 #include "native_window.h"
@@ -239,6 +240,7 @@ int main(int argc,char **argv){
     logging.SetStream([&](addr_t stream,std::string_view text){return files.FWrite(text.data(),1,text.size(),stream);});
     bunker::jni::Host java(Translated);
     DefineUnityJavaCatalog(java);
+    ReflectionLaunchEpoch reflection_launch_epoch(java);
     DefineGameAndroidApiProfile(java);
     AndroidBuildManufacturerProfile manufacturer_profile(java,AndroidBuildManufacturerProfile::PropertyPolicy::AbsentAndroidProductProperties);
     if(first_frame)std::fputs("First frame: manufacturer=unknown; explicit absent Android product properties, AOSP fallback; no Windows vendor inference\n",stderr);
@@ -314,6 +316,8 @@ int main(int argc,char **argv){
     std::unique_ptr<EglHost> egl;
     std::unique_ptr<GlHost> graphics;
     std::atomic<uint64_t> observed_egl_calls{0},observed_presentations{0};
+    struct WindowPresent {uint64_t ticket;addr_t display,surface;};
+    std::mutex present_mutex;std::map<DWORD,WindowPresent> pending_window_presentations;
     // ModuleRegistry owns 0x7ff400000000; keep this combined provider disjoint.
     if(surface_gate)native_windows=std::make_unique<NativeWindows>(java,0x7ff440000000ULL);
     if(frame_gate){
@@ -323,9 +327,20 @@ int main(int argc,char **argv){
         graphics->EnableFrameDiagnostics((storage/L"first-frame.png").wstring());
         egl->SetDiagnosticObserver([&](const std::string &name,const State &state,bool completed){
           if(!completed){++observed_egl_calls;std::fprintf(stderr,"First frame: EGL ENTER %s native_tid=%lu guestLR=%#llx\n",name.c_str(),GetCurrentThreadId(),(unsigned long long)state.gpr.x30.qword);
-            if(name=="eglSwapBuffers")graphics->CaptureWindowBeforePresent();
+            if(name=="eglSwapBuffers"){
+              WindowPresent pending{0,state.gpr.x0.qword,state.gpr.x1.qword};
+              pending.ticket=graphics->BeginWindowPresent(pending.display,pending.surface);
+              std::lock_guard<std::mutex> lock(present_mutex);
+              if(!pending_window_presentations.emplace(GetCurrentThreadId(),pending).second)throw std::logic_error("nested original window presentation observation");
+            }
           }else{
-            if(name=="eglSwapBuffers"&&state.gpr.x0.dword)++observed_presentations;
+            if(name=="eglSwapBuffers"){
+              WindowPresent pending{};
+              {std::lock_guard<std::mutex> lock(present_mutex);auto found=pending_window_presentations.find(GetCurrentThreadId());
+                if(found!=pending_window_presentations.end()){pending=found->second;pending_window_presentations.erase(found);}}
+              graphics->FinishWindowPresent(pending.ticket,pending.display,pending.surface,state.gpr.x0.dword);
+              if(state.gpr.x0.dword==1)++observed_presentations;
+            }
             std::fprintf(stderr,"First frame: EGL RETURN %s x0=%#llx successfulPresentations=%llu\n",name.c_str(),(unsigned long long)state.gpr.x0.qword,(unsigned long long)observed_presentations.load());
           }
         });
@@ -804,12 +819,44 @@ int main(int argc,char **argv){
           }
           if(!focused)throw std::runtime_error("no real HWND focus event; native frame prerequisite remains unmet");
           if(first_frame)std::fputs("First frame: waiting for original nativeRender; no manual initialization or skipped guest calls\n",stderr);
-          bool keep_running=false;while(true){try{keep_running=lifecycle.WaitForFrame();break;}catch(const std::runtime_error &e){if(std::string(e.what())!="one-frame diagnostic timed out before nativeRender completed")throw;std::fprintf(stderr,"Game bootstrap: first nativeRender observation window expired; retaining same live worker/window and waiting, not restarting\n");poll_volume();}}
-          frame_continues=keep_running;lifecycle.WaitIdle();poll_volume();
-          std::fprintf(stderr,"Unity bootstrap: first nativeRender returned continue=%d; requesting finishing PAUSE at diagnostic frame boundary\n",int(keep_running));
+          bool keep_running=false,render_returned=false;
           if(first_frame){
-            auto diagnostic=graphics->DescribeFrameDiagnostics();const bool witness=diagnostic.frame_png&&diagnostic.nonuniform&&diagnostic.draw_submissions&&observed_presentations.load();
-            std::fprintf(stderr,"First frame: witness=%d nativeRenderReturned=1 EGLcalls=%llu successfulPresentations=%llu GLcalls=%llu drawSubmissions=%llu clears=%llu PNG=%d nonuniform=%d size=%dx%d captureFailure=%s\n",int(witness),(unsigned long long)observed_egl_calls.load(),(unsigned long long)observed_presentations.load(),(unsigned long long)diagnostic.calls,(unsigned long long)diagnostic.draw_submissions,(unsigned long long)diagnostic.clear_submissions,int(diagnostic.frame_png),int(diagnostic.nonuniform),diagnostic.width,diagnostic.height,diagnostic.failure.c_str());
+            bool next_frame=false,close=false;uint64_t completed_frames=0;
+            while(!close){
+              for(const auto &event:native_windows->DrainEvents(window)){
+                if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);
+                if(event.kind==NativeWindows::Event::CloseRequested)close=true;
+                if(event.kind==NativeWindows::Event::Resized&&(event.width!=actual_width||event.height!=actual_height))throw std::runtime_error("first-frame client resized; explicit startup dimensions no longer match");
+              }
+              poll_volume();
+              if(close)break;
+              if(!next_frame){
+                if(auto result=lifecycle.PollFrame()){
+                  keep_running=*result;render_returned=true;frame_continues=keep_running;++completed_frames;
+                  auto diagnostic=graphics->DescribeFrameDiagnostics();
+                  const bool witness=diagnostic.frame_png&&diagnostic.nonuniform&&diagnostic.draw_submissions&&diagnostic.presented_capture_serial;
+                  std::fprintf(stderr,"First frame: original nativeRender returned frame=%llu continue=%d presentedCandidate=%d draws=%llu\n",(unsigned long long)completed_frames,int(keep_running),int(witness),(unsigned long long)diagnostic.draw_submissions);
+                  if(witness||!keep_running)break;
+                  next_frame=true;
+                }
+              }
+              if(next_frame&&lifecycle.RequestNextFrame()){
+                next_frame=false;
+                if(completed_frames<=8||completed_frames%60==0)std::fprintf(stderr,"First frame: requesting next original nativeRender after frame=%llu; same UnityMain/window, no repeated nativeResume\n",(unsigned long long)completed_frames);
+              }
+              std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+          }else{
+            while(true){try{keep_running=lifecycle.WaitForFrame();render_returned=true;break;}catch(const std::runtime_error &e){if(std::string(e.what())!="one-frame diagnostic timed out before nativeRender completed")throw;std::fprintf(stderr,"Game bootstrap: first nativeRender observation window expired; retaining same live worker/window and waiting, not restarting\n");poll_volume();}}
+          }
+          lifecycle.WaitIdle();poll_volume();
+          if(first_frame){if(auto result=lifecycle.PollFrame()){keep_running=*result;render_returned=true;}}
+          frame_continues=keep_running;
+          if(render_returned)std::fprintf(stderr,"Unity bootstrap: first nativeRender returned continue=%d; requesting finishing PAUSE at diagnostic frame boundary\n",int(keep_running));
+          else std::fputs("Unity bootstrap: window closed before nativeRender returned; requesting finishing PAUSE\n",stderr);
+          if(first_frame){
+            auto diagnostic=graphics->DescribeFrameDiagnostics();const bool witness=render_returned&&diagnostic.frame_png&&diagnostic.nonuniform&&diagnostic.draw_submissions&&diagnostic.presented_capture_serial;
+            std::fprintf(stderr,"First frame: witness=%d nativeRenderReturned=%d EGLcalls=%llu successfulPresentations=%llu GLcalls=%llu drawSubmissions=%llu clears=%llu PNG=%d nonuniform=%d size=%dx%d captureFailure=%s\n",int(witness),int(render_returned),(unsigned long long)observed_egl_calls.load(),(unsigned long long)observed_presentations.load(),(unsigned long long)diagnostic.calls,(unsigned long long)diagnostic.draw_submissions,(unsigned long long)diagnostic.clear_submissions,int(diagnostic.frame_png),int(diagnostic.nonuniform),diagnostic.width,diagnostic.height,diagnostic.failure.c_str());
             if(witness){
               std::fputs("First frame: retaining original surface/window for ten seconds before normal diagnostic pause\n",stderr);
               const auto hold_until=std::chrono::steady_clock::now()+std::chrono::seconds(10);bool close=false;
