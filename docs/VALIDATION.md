@@ -37,8 +37,16 @@
   unpaid reward with the second's. The earlier one now stays due and the
   claim pays both (`TestTwoSeasonEndsBeforeAClaimKeepBothRewards`, patched
   Global and Japanese master data; it fails without the change).
-- Not checked: iPhone or iPad (the iOS build compiles; it runs the same
-  file).
+- iPad Pro 11-inch (M4), iPadOS 26.6.2, a build of f422c7e installed over
+  the user's app (Original calendar with original dates, loop 1, real-time
+  speed). A copy of the save was given a cleared quest 61 to open the Arena.
+  The Arena showed Season 001 with the Period 09/01 07:30 to 08/31 07:29
+  (India time): season 202001's own dates, 1 September 2020 to 31 August
+  2021, as the original-dates view shows them. Nothing was changed, as with
+  the calendar on Android. The device log shows the Arena line as
+  `<private>` (the Subjugation line before it is readable). The user's save
+  was restored afterwards. The four-week turns on iOS (Everything open) were
+  not run on a device.
 
 ## Arena season turns — 2026-11-04
 
