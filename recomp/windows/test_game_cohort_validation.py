@@ -1,12 +1,12 @@
 """Exercise actual Python/PowerShell cohort guards only; never compile/run a game."""
 from pathlib import Path
-import argparse,ast,copy,hashlib,json,subprocess
+import argparse,ast,copy,hashlib,json,re,subprocess
 
 def sha(p):
  with Path(p).open('rb')as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--derived-proof',type=Path,required=True);p.add_argument('--sparse-proof',type=Path);p.add_argument('--additive-proof',type=Path);p.add_argument('--fcsel-proof',type=Path);p.add_argument('--fcsel-callers-proof',type=Path);p.add_argument('--st2-proof',type=Path);p.add_argument('--fcsel-batch-proof',type=Path);p.add_argument('--st2-constructor-proof',type=Path);p.add_argument('--fcvtzu-fixed-proof',type=Path);p.add_argument('--st3-store-proof',type=Path);p.add_argument('--ushll-mask-proof',type=Path);p.add_argument('--additive-cases-proof',type=Path);p.add_argument('--focus-version',type=int);p.add_argument('--historical-acceptance',type=Path);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--derived-proof',type=Path,required=True);p.add_argument('--sparse-proof',type=Path);p.add_argument('--additive-proof',type=Path);p.add_argument('--fcsel-proof',type=Path);p.add_argument('--fcsel-callers-proof',type=Path);p.add_argument('--st2-proof',type=Path);p.add_argument('--fcsel-batch-proof',type=Path);p.add_argument('--st2-constructor-proof',type=Path);p.add_argument('--fcvtzu-fixed-proof',type=Path);p.add_argument('--st3-store-proof',type=Path);p.add_argument('--ushll-mask-proof',type=Path);p.add_argument('--additive-cases-proof',type=Path);p.add_argument('--fmod-callbacks-proof',type=Path);p.add_argument('--focus-version',type=int);p.add_argument('--historical-acceptance',type=Path);a=p.parse_args()
  here=Path(__file__).resolve().parent;out=a.out.resolve();out.mkdir(exist_ok=False)
  python=here/'test_game_bootstrap.py';powershell=here/'game_bootstrap_build.ps1'
  w=here.parent/'work';v1=w/'game17-polled-cohort1/acceptance.json';v2=a.derived_proof.resolve()
@@ -47,7 +47,10 @@ def main():
  if a.additive_cases_proof:
   assert a.ushll_mask_proof,'additive cases proof requires the actual v12 parent'
   v13=a.additive_cases_proof.resolve();base[13]=json.loads(v13.read_text());descriptors[13]=dict(acceptance_path=str(v13),acceptance_sha256=sha(v13));assert base[13]['contract']['version']==13
- initial_input_pins={str(file):sha(file)for file in [v1,v2]+([v3]if a.sparse_proof else[])+([v4]if a.additive_proof else[])+([v5]if a.fcsel_proof else[])+([v6]if a.fcsel_callers_proof else[])+([v7]if a.st2_proof else[])+([v8]if a.fcsel_batch_proof else[])+([v9]if a.st2_constructor_proof else[])+([v10]if a.fcvtzu_fixed_proof else[])+([v11]if a.st3_store_proof else[])+([v12]if a.ushll_mask_proof else[])+([v13]if a.additive_cases_proof else[])+[Path(proof['contract']['input_plan_path'])for version,proof in base.items()if version>=2]}
+ if a.fmod_callbacks_proof:
+  assert a.additive_cases_proof,'FMOD callback proof requires actual v13 parent'
+  v14=a.fmod_callbacks_proof.resolve();base[14]=json.loads(v14.read_text());descriptors[14]=dict(acceptance_path=str(v14),acceptance_sha256=sha(v14));assert base[14]['contract']['version']==14
+ initial_input_pins={str(file):sha(file)for file in [v1,v2]+([v3]if a.sparse_proof else[])+([v4]if a.additive_proof else[])+([v5]if a.fcsel_proof else[])+([v6]if a.fcsel_callers_proof else[])+([v7]if a.st2_proof else[])+([v8]if a.fcsel_batch_proof else[])+([v9]if a.st2_constructor_proof else[])+([v10]if a.fcvtzu_fixed_proof else[])+([v11]if a.st3_store_proof else[])+([v12]if a.ushll_mask_proof else[])+([v13]if a.additive_cases_proof else[])+([v14]if a.fmod_callbacks_proof else[])+[Path(proof['contract']['input_plan_path'])for version,proof in base.items()if version>=2]}
  cases=[]
  def case(name,version,passed=False,*ops):cases.append(dict(name=name,version=version,passed=passed,ops=list(ops)))
  def change(root,path,value):return dict(root=root,path=path,value=value)
@@ -331,6 +334,30 @@ def main():
   case('v13-added-object-path-both',13,False,change('proof',['objects',3576,'path'],None),change('objects',[3576,'path'],None))
   case('v13-missing-object-both',13,False,dict(root='proof',path=['objects'],pop=True),dict(root='objects',path=[],pop=True))
   case('v13-extra-object-both',13,False,dict(root='proof',path=['objects'],append=base[13]['objects'][-1]),dict(root='objects',path=[],append=base[13]['objects'][-1]))
+ if a.fmod_callbacks_proof:
+  case('v14-qualified-fmod-pure-callbacks',14,True)
+  for field in('input_plan_sha256','parent_acceptance_sha256','parent_input_plan_sha256','additive_candidate_sha256','original_callbacks_fixture_acceptance_sha256','lifter_sha256','semantics_sha256','new_polled_object_sha256'):
+   for value in(zero,[]):case('v14-'+field+'-'+repr(value),14,False,change('proof',['contract',field],value))
+  for field,value in[('profile','wrong'),('optimization','-O0'),('optimization',[]),('input_plan_path',None),('parent_acceptance_path',''),('parent_input_plan_path',[])]:case('v14-'+field+'-'+repr(value),14,False,change('proof',['contract',field],value))
+  for field,right in{'no_relift':False,'source_ir_and_semantics_preserved':False,'existing_objects_preserved':True,'no_global_semantics_refresh':True,'production_signal_delivery_enabled':False}.items():
+   for wrong in(not right,0 if right else 1,None):case('v14-policy-'+field+'-'+repr(wrong),14,False,change('proof',['contract',field],wrong))
+  for field,value in{'added_object_index':3577,'added_objects':1,'added_trace_count':6,'preserved_objects':3577,'parent_trace_heads':456700,'inherited_vector_replacements':556}.items():
+   for wrong in(value+1,True,str(value),None,[]):case('v14-count-'+field+'-'+repr(wrong),14,False,change('proof',['contract',field],wrong))
+  heads=['0x70b3bbfc','0x70b3bc5c','0x70b3bd90','0x70b3be80','0x70b3bef8','0x70b3bf1c']
+  for value in(heads[::-1],heads[:-1],heads+[heads[-1]],[int(h,16)for h in heads],heads[:-1]+['0x70b3bf20'],None,[],heads[:-1]+[True]):case('v14-head-list-'+repr(value),14,False,change('proof',['contract','added_trace_heads'],value))
+  for value in(456700,456707,'456706',True,None):case('v14-trace-shape-'+repr(value),14,False,change('proof',['trace_heads'],value))
+  case('v14-acceptance-hash',14,False,change('descriptor',['acceptance_sha256'],zero))
+  case('v14-unknown-version',14,False,change('proof',['contract','version'],15))
+  case('v14-chain-missing',14,False,change('ancestors',[],None));case('v14-chain-short',14,False,dict(root='ancestors',path=[],pop=True));case('v14-chain-order',14,False,dict(root='ancestors',path=[],swap=[0,1]))
+  for depth in range(12):
+   case('v14-ancestor-missing-'+str(depth),14,False,change('ancestors',[depth],None));case('v14-ancestor-version-'+str(depth),14,False,change('ancestors',[depth,'contract','version'],1))
+  for index in(0,78,94,123,161,200,249,270,466,1553,3575,3576):case('v14-parent-prefix-both-'+str(index),14,False,change('proof',['objects',index,'sha256'],zero),change('objects',[index,'sha256'],zero))
+  case('v14-added-object-both',14,False,change('proof',['objects',3577,'sha256'],zero),change('objects',[3577,'sha256'],zero))
+  for value in(None,'',[]):case('v14-added-path-both-'+repr(value),14,False,change('proof',['objects',3577,'path'],value),change('objects',[3577,'path'],value))
+  case('v14-parent-last-object',14,False,change('ancestors',[0,'objects',3576,'sha256'],zero))
+  case('v14-reorder-both',14,False,dict(root='proof',path=['objects'],swap=[3576,3577]),dict(root='objects',path=[],swap=[3576,3577]))
+  case('v14-missing-object-both',14,False,dict(root='proof',path=['objects'],pop=True),dict(root='objects',path=[],pop=True))
+  case('v14-extra-object-both',14,False,dict(root='proof',path=['objects'],append=base[14]['objects'][-1]),dict(root='objects',path=[],append=base[14]['objects'][-1]))
  historical_receipt=None;historical_cases=[]
  if a.focus_version is not None:
   assert a.focus_version in base and a.historical_acceptance,'focused campaign requires an actual loaded version and historical acceptance'
@@ -340,16 +367,29 @@ def main():
   assert sha(historical_cases_path)==historical_receipt['evidence'][str(historical_cases_path)]
   historical_cases=json.loads(historical_cases_path.read_text());historical_names={c['name']for c in historical_cases}
   assert len(historical_names)==len(historical_cases)==historical_receipt.get('generated_cases_per_language',historical_receipt['cases_per_language'])
+  # A previous focused campaign appended its membership probes after the
+  # ordinary version cases. Preserve those exact payloads as historical data.
+  # Missing ordinary cases still fail the comparison below.
+  generated_names={c['name']for c in cases}
+  for old_case in historical_cases:
+   if old_case['name']in generated_names:continue
+   match=re.fullmatch(r'focus-v(\d+)-as-v(\d+)',old_case['name'])
+   assert match,'ordinary historical case is missing'
+   source,target=map(int,match.groups())
+   assert source<target<a.focus_version and source in base and target in base
+   expected=dict(name=old_case['name'],version=source,passed=False,ops=[change('proof',['contract','version'],target)])
+   assert old_case==expected,'historical focus probe payload differs'
+   cases.append(copy.deepcopy(old_case));generated_names.add(old_case['name'])
   assert [c for c in cases if c['name']in historical_names]==historical_cases,'historical case payload/order changed'
   initial_input_pins[str(historical_path)]=sha(historical_path);initial_input_pins[str(historical_cases_path)]=sha(historical_cases_path)
   for version in sorted(base):
    if version<a.focus_version:case(f'focus-v{version}-as-v{a.focus_version}',version,False,change('proof',['contract','version'],a.focus_version))
- executed_cases=cases if a.focus_version is None else[c for c in cases if c['version']==a.focus_version or c['passed']or c['name'].startswith('focus-')]
+ executed_cases=cases if a.focus_version is None else[c for c in cases if c['version']==a.focus_version or c['passed']or(c['name'].startswith('focus-')and c['name'].endswith('-as-v'+str(a.focus_version)))]
  assert executed_cases and len({c['name']for c in cases})==len(cases)
  (out/'cases.json').write_text(json.dumps(cases,indent=2)+'\n');(out/'executed-cases.json').write_text(json.dumps(executed_cases,indent=2)+'\n')
  results=[]
  for c in executed_cases:
-  data={'proof':copy.deepcopy(base[c['version']]),'descriptor':dict(descriptors[c['version']]),'objects':copy.deepcopy(base[c['version']]['objects']),'parent':copy.deepcopy(base[c['version']-1])if c['version']in(3,4,5)else None,'grandparent':copy.deepcopy(base[c['version']-2])if c['version']in(4,5)else None,'greatgrandparent':copy.deepcopy(base[2])if c['version']==5 else None,'ancestors':copy.deepcopy([base[v]for v in range(c['version']-1,1,-1)])if c['version']in(6,7,8,9,10,11,12,13)else None}
+  data={'proof':copy.deepcopy(base[c['version']]),'descriptor':dict(descriptors[c['version']]),'objects':copy.deepcopy(base[c['version']]['objects']),'parent':copy.deepcopy(base[c['version']-1])if c['version']in(3,4,5)else None,'grandparent':copy.deepcopy(base[c['version']-2])if c['version']in(4,5)else None,'greatgrandparent':copy.deepcopy(base[2])if c['version']==5 else None,'ancestors':copy.deepcopy([base[v]for v in range(c['version']-1,1,-1)])if c['version']in(6,7,8,9,10,11,12,13,14)else None}
   for op in c['ops']:
    target=data[op['root']]
    for key in op['path'][:-1]:target=target[key]
@@ -379,7 +419,8 @@ def main():
    except AssertionError as error:assert str(error)==message
    else:raise AssertionError('actual parent hash subguard accepted altered bytes')
    python_io.append(dict(name='v3-altered-'+field+'-source-subguard',passed=False))
-  plan_guard=next(n for n in ast.walk(tree)if isinstance(n,ast.If)and ast.unparse(n.test)in('version in (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)','version in (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)'))
+  plan_guards=[n for n in ast.walk(tree)if isinstance(n,ast.If)and isinstance(n.test,ast.Compare)and isinstance(n.test.left,ast.Name)and n.test.left.id=='version'and len(n.test.ops)==1 and isinstance(n.test.ops[0],ast.In)and any(isinstance(b,ast.Assert)and isinstance(b.msg,ast.Constant)and b.msg.value=='sparse cooperative plan file differs'for b in n.body)]
+  assert len(plan_guards)==1,'actual Python plan guard missing or duplicated';plan_guard=plan_guards[0]
   q=copy.deepcopy(base[3]);q['contract']['input_plan_path']=str(tampered_v3_plan);scope=dict(env,version=3,proof=q,expected={})
   try:exec(compile(ast.Module(body=[plan_guard],type_ignores=[]),str(python),'exec'),scope)
   except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
@@ -557,11 +598,28 @@ def main():
   except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
   else:raise AssertionError('actual v13 plan IO subguard accepted altered bytes')
   python_io.append(dict(name='v13-altered-new-plan-source-subguard',passed=False))
+ if a.fmod_callbacks_proof:
+  c=base[14]['contract'];ancestors=env['load_cooperative_ancestors'](base[14]);assert validate(base[14],descriptors[14],base[14]['objects'],ancestor_chain=ancestors)==14
+  python_io.append(dict(name='v14-twelve-ancestor-load-source-subguard',passed=True))
+  tampered_v14_parent=out/'tampered-v14-parent.json';tampered_v14_parent.write_bytes(Path(c['parent_acceptance_path']).read_bytes()+b'\n')
+  tampered_v14_parent_plan=out/'tampered-v14-parent-plan.json';tampered_v14_parent_plan.write_bytes(Path(c['parent_input_plan_path']).read_bytes()+b'\n')
+  tampered_v14_plan=out/'tampered-v14-plan.json';tampered_v14_plan.write_bytes(Path(c['input_plan_path']).read_bytes()+b'\n')
+  for field,file,message in [('parent_acceptance_path',tampered_v14_parent,'v14 parent proof file differs'),('parent_input_plan_path',tampered_v14_parent_plan,'v14 parent plan file differs')]:
+   q=copy.deepcopy(base[14]);q['contract'][field]=str(file)
+   try:env['load_cooperative_ancestors'](q)
+   except AssertionError as error:assert str(error)==message
+   else:raise AssertionError('actual v14 ancestor hash subguard accepted altered bytes')
+   python_io.append(dict(name='v14-altered-'+field+'-source-subguard',passed=False))
+  q=copy.deepcopy(base[14]);q['contract']['input_plan_path']=str(tampered_v14_plan);scope=dict(env,version=14,proof=q,expected={})
+  try:exec(compile(ast.Module(body=[plan_guard],type_ignores=[]),str(python),'exec'),scope)
+  except AssertionError as error:assert str(error)=='sparse cooperative plan file differs'
+  else:raise AssertionError('actual v14 plan IO subguard accepted altered bytes')
+  python_io.append(dict(name='v14-altered-new-plan-source-subguard',passed=False))
  (out/'python-io-results.json').write_text(json.dumps(python_io,indent=2)+'\n')
  tampered=out/'tampered-proof.json';tampered.write_bytes(v2.read_bytes()+b'\n');assert sha(tampered)!=descriptors[2]['acceptance_sha256']
  def windows(path):return subprocess.check_output(['wslpath','-w',str(Path(path).resolve())],text=True).strip()
  # PowerShell's own AST extracts the exact production function; no duplicate predicate.
- driver=r'''param([string]$Source,[string]$Original,[string]$Derived,[string]$Sparse,[string]$Additive,[string]$Fcsel,[string]$FcselCallers,[string]$St2,[string]$FcselBatch,[string]$St2Constructor,[string]$FcvtzuFixed,[string]$St3Store,[string]$UshllMask,[string]$AdditiveCases,[string]$TamperedV13Parent,[string]$TamperedV13ParentPlan,[string]$TamperedV13Plan,[string]$TamperedV12Parent,[string]$TamperedV12ParentPlan,[string]$TamperedV12Plan,[string]$TamperedV11Parent,[string]$TamperedV11ParentPlan,[string]$TamperedV11Plan,[string]$TamperedV10Parent,[string]$TamperedV10ParentPlan,[string]$TamperedV10Plan,[string]$TamperedV9Parent,[string]$TamperedV9ParentPlan,[string]$TamperedV9Plan,[string]$TamperedV8Parent,[string]$TamperedV8ParentPlan,[string]$TamperedV8Plan,[string]$TamperedV7Parent,[string]$TamperedV7ParentPlan,[string]$TamperedV7Plan,[string]$TamperedV6Parent,[string]$TamperedV6ParentPlan,[string]$TamperedV6Plan,[string]$TamperedV5Parent,[string]$TamperedV5ParentPlan,[string]$TamperedV5Plan,[string]$TamperedV4Parent,[string]$TamperedV4ParentPlan,[string]$TamperedV4Plan,[string]$TamperedParent,[string]$TamperedParentPlan,[string]$TamperedV3Plan,[string]$Cases,[string]$Tampered,[string]$Output)
+ driver=r'''param([string]$Source,[string]$Original,[string]$Derived,[string]$Sparse,[string]$Additive,[string]$Fcsel,[string]$FcselCallers,[string]$St2,[string]$FcselBatch,[string]$St2Constructor,[string]$FcvtzuFixed,[string]$St3Store,[string]$UshllMask,[string]$AdditiveCases,[string]$FmodCallbacks,[string]$TamperedV14Parent,[string]$TamperedV14ParentPlan,[string]$TamperedV14Plan,[string]$TamperedV13Parent,[string]$TamperedV13ParentPlan,[string]$TamperedV13Plan,[string]$TamperedV12Parent,[string]$TamperedV12ParentPlan,[string]$TamperedV12Plan,[string]$TamperedV11Parent,[string]$TamperedV11ParentPlan,[string]$TamperedV11Plan,[string]$TamperedV10Parent,[string]$TamperedV10ParentPlan,[string]$TamperedV10Plan,[string]$TamperedV9Parent,[string]$TamperedV9ParentPlan,[string]$TamperedV9Plan,[string]$TamperedV8Parent,[string]$TamperedV8ParentPlan,[string]$TamperedV8Plan,[string]$TamperedV7Parent,[string]$TamperedV7ParentPlan,[string]$TamperedV7Plan,[string]$TamperedV6Parent,[string]$TamperedV6ParentPlan,[string]$TamperedV6Plan,[string]$TamperedV5Parent,[string]$TamperedV5ParentPlan,[string]$TamperedV5Plan,[string]$TamperedV4Parent,[string]$TamperedV4ParentPlan,[string]$TamperedV4Plan,[string]$TamperedParent,[string]$TamperedParentPlan,[string]$TamperedV3Plan,[string]$Cases,[string]$Tampered,[string]$Output)
 $ErrorActionPreference='Stop'
 # WSL can inherit PowerShell7's PSModulePath when launching WindowsPowerShell5.
 # Load its own real utility module explicitly; never replace Game-Hash.
@@ -586,9 +644,10 @@ if($FcvtzuFixed){$raw[10]=Get-Content -Raw -LiteralPath $FcvtzuFixed;$paths[10]=
 if($St3Store){$raw[11]=Get-Content -Raw -LiteralPath $St3Store;$paths[11]=$St3Store;$hashes[11]=(Get-FileHash -LiteralPath $St3Store -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=11}
 if($UshllMask){$raw[12]=Get-Content -Raw -LiteralPath $UshllMask;$paths[12]=$UshllMask;$hashes[12]=(Get-FileHash -LiteralPath $UshllMask -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=12}
 if($AdditiveCases){$raw[13]=Get-Content -Raw -LiteralPath $AdditiveCases;$paths[13]=$AdditiveCases;$hashes[13]=(Get-FileHash -LiteralPath $AdditiveCases -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=13}
+if($FmodCallbacks){$raw[14]=Get-Content -Raw -LiteralPath $FmodCallbacks;$paths[14]=$FmodCallbacks;$hashes[14]=(Get-FileHash -LiteralPath $FmodCallbacks -Algorithm SHA256).Hash.ToLowerInvariant();$versions+=14}
 $results=@()
 foreach($case in (Get-Content -Raw -LiteralPath $Cases|ConvertFrom-Json)){
- $v=[int]$case.version;$data=@{proof=($raw[$v]|ConvertFrom-Json);descriptor=[pscustomobject]@{acceptance_path=$paths[$v];acceptance_sha256=$hashes[$v]};objects=($raw[$v]|ConvertFrom-Json).objects;parent=$null;grandparent=$null;greatgrandparent=$null;ancestors=$null};if($v -eq 3 -or $v -eq 4 -or $v -eq 5){$data.parent=$raw[$v-1]|ConvertFrom-Json};if($v -eq 4 -or $v -eq 5){$data.grandparent=$raw[$v-2]|ConvertFrom-Json};if($v -eq 5){$data.greatgrandparent=$raw[2]|ConvertFrom-Json};if($v -eq 6 -or $v -eq 7 -or $v -eq 8 -or $v -eq 9 -or $v -eq 10 -or $v -eq 11 -or $v -eq 12 -or $v -eq 13){$data.ancestors=@();for($ancestor=$v-1;$ancestor -ge 2;$ancestor--){$data.ancestors+=,($raw[$ancestor]|ConvertFrom-Json)}}
+ $v=[int]$case.version;$data=@{proof=($raw[$v]|ConvertFrom-Json);descriptor=[pscustomobject]@{acceptance_path=$paths[$v];acceptance_sha256=$hashes[$v]};objects=($raw[$v]|ConvertFrom-Json).objects;parent=$null;grandparent=$null;greatgrandparent=$null;ancestors=$null};if($v -eq 3 -or $v -eq 4 -or $v -eq 5){$data.parent=$raw[$v-1]|ConvertFrom-Json};if($v -eq 4 -or $v -eq 5){$data.grandparent=$raw[$v-2]|ConvertFrom-Json};if($v -eq 5){$data.greatgrandparent=$raw[2]|ConvertFrom-Json};if($v -eq 6 -or $v -eq 7 -or $v -eq 8 -or $v -eq 9 -or $v -eq 10 -or $v -eq 11 -or $v -eq 12 -or $v -eq 13 -or $v -eq 14){$data.ancestors=@();for($ancestor=$v-1;$ancestor -ge 2;$ancestor--){$data.ancestors+=,($raw[$ancestor]|ConvertFrom-Json)}}
  foreach($op in $case.ops){
   $target=$data[$op.root]
   for($i=0;$i -lt $op.path.Count-1;$i++){$k=$op.path[$i];if($k -is [long] -or $k -is [int]){$target=$target[[int]$k]}else{$target=$target.$k}}
@@ -765,6 +824,19 @@ if($AdditiveCases){
  try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
  if(-not $rejected){throw 'Actual v13 new plan IO subguard accepted altered bytes'};$io+=@{name='v13-altered-new-plan-source-subguard';passed=$false}
 }
+if($FmodCallbacks){
+ $q=$raw[14]|ConvertFrom-Json;$ancestors=Game-LoadPollAncestors $q
+ if((Game-ValidatePollContract $q ([pscustomobject]@{acceptance_path=$FmodCallbacks;acceptance_sha256=$hashes[14]}) $q.objects $null $null $null $ancestors) -ne 14){throw 'Actual v14 ancestry positive failed'}
+ $io+=@{name='v14-twelve-ancestor-load-source-subguard';passed=$true}
+ foreach($entry in @(@{key='parent_acceptance_path';file=$TamperedV14Parent;message='v14 parent proof file differs'},@{key='parent_input_plan_path';file=$TamperedV14ParentPlan;message='v14 parent plan file differs'})){
+  $q=$raw[14]|ConvertFrom-Json;$q.contract.($entry.key)=$entry.file;$rejected=$false
+  try{$null=Game-LoadPollAncestors $q}catch{if($_.Exception.Message -ne $entry.message){throw};$rejected=$true}
+  if(-not $rejected){throw 'Actual v14 ancestor hash subguard accepted altered bytes'};$io+=@{name=('v14-altered-'+$entry.key+'-source-subguard');passed=$false}
+ }
+ $taskPollVersion=14;$taskPollProof=$raw[14]|ConvertFrom-Json;$taskPollProof.contract.input_plan_path=$TamperedV14Plan;$rejected=$false
+ try{& $planGuard}catch{if($_.Exception.Message -ne 'Sparse cooperative plan file differs'){throw};$rejected=$true}
+ if(-not $rejected){throw 'Actual v14 new plan IO subguard accepted altered bytes'};$io+=@{name='v14-altered-new-plan-source-subguard';passed=$false}
+}
 [IO.File]::WriteAllText(($Output+'.io.json'),($io|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
 Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
 '''
@@ -781,6 +853,7 @@ Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
  if a.st3_store_proof:command+=['-St3Store',windows(v11),'-TamperedV11Parent',windows(tampered_v11_parent),'-TamperedV11ParentPlan',windows(tampered_v11_parent_plan),'-TamperedV11Plan',windows(tampered_v11_plan)]
  if a.ushll_mask_proof:command+=['-UshllMask',windows(v12),'-TamperedV12Parent',windows(tampered_v12_parent),'-TamperedV12ParentPlan',windows(tampered_v12_parent_plan),'-TamperedV12Plan',windows(tampered_v12_plan)]
  if a.additive_cases_proof:command+=['-AdditiveCases',windows(v13),'-TamperedV13Parent',windows(tampered_v13_parent),'-TamperedV13ParentPlan',windows(tampered_v13_parent_plan),'-TamperedV13Plan',windows(tampered_v13_plan)]
+ if a.fmod_callbacks_proof:command+=['-FmodCallbacks',windows(v14),'-TamperedV14Parent',windows(tampered_v14_parent),'-TamperedV14ParentPlan',windows(tampered_v14_parent_plan),'-TamperedV14Plan',windows(tampered_v14_plan)]
  with(out/'powershell.log').open('w')as f:subprocess.run(command,stdout=f,stderr=subprocess.STDOUT,check=True)
  ps_results=json.loads((out/'powershell-results.json').read_text());assert len(ps_results)==len(results)
  assert {x['name']:x['passed']for x in ps_results}=={x['name']:x['passed']for x in results}
@@ -803,6 +876,7 @@ Write-Output "POWERSHELL-COHORT-GUARD-PASS $($results.Count)"
  receipt.update(v11_actual_proof_executed=bool(a.st3_store_proof),v11_placeholder_rejection_only=not bool(a.st3_store_proof))
  receipt.update(v12_actual_proof_executed=bool(a.ushll_mask_proof),v12_placeholder_rejection_only=not bool(a.ushll_mask_proof))
  receipt.update(v13_actual_proof_executed=bool(a.additive_cases_proof),v13_placeholder_rejection_only=not bool(a.additive_cases_proof))
+ receipt.update(v14_actual_proof_executed=bool(a.fmod_callbacks_proof),v14_placeholder_rejection_only=not bool(a.fmod_callbacks_proof))
  (out/'acceptance.json').write_text(json.dumps(receipt,indent=2)+'\n');print('COHORT-VALIDATOR-PASS',len(executed_cases),sha(out/'acceptance.json'),flush=True)
 
 if __name__=='__main__':main()

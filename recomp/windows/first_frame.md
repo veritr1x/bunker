@@ -3,7 +3,54 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: an unresolved indirect original-code target.
+Current execution frontier: a missing original FMOD callback entry, with
+separate late Android audio/permission JNI gaps. Actual build
+`work/windows-first-frame-plane-switch1`, host
+`ad6c6d71225ca4859e64c769a48f0279d3046eb8`, executable
+`b3db46519430b8d7c43ae6abbb2b5b3097515b135a0e3ee18be441c5d74f8224`,
+passes the repaired plane dispatcher. It then reports target/StatePC
+`70b3bd90`, LR `70ae87b0`, SP `1c63e3df410`. This is a genuine six-instruction
+FMOD callback: it rebases its owner pointer, stores the supplied user value and
+returns0. The descriptor has16 missing callbacks; six complete call-free
+bodies are the bounded next repair. Ten nonleaf callbacks and their six
+additional JNI/device helpers remain explicit requirements. Audit:
+`work/plane-switch1-jni-audio-boundary1/summary.json`, SHA256
+`a55c585d45e97ffa91fbaeeeca6887daec4b9df9858e15d69afdd28bc9310263`.
+The six-entry candidate and original callback gate pass35 records on ARM,
+Linux raw/polled and Windows raw/polled. All800 architectural and65536 memory
+bytes match, with independent full1200-State/token checks, aliases, optional
+output guards, ARM-defined SDIV edge cases and unsigned ring arithmetic.
+Windows-polled executes the actual six-function COFF. Receipt:
+`work/unity-fmod-pure-qualification1/acceptance.json`, SHA256
+`b1f943a722126baa3687c8a9c85bb9adf193e3f823460a27221725b76b0bcb40`.
+The v14 cohort is sealed at
+`work/first-frame-fmod-callbacks-cooperative-cohort1/acceptance.json`, SHA256
+`0496c62a7a1db0e6325c94b946c93fca8427847c4972cc6748dbc85a673b3f30`;
+source plan SHA256
+`d506ef966942e3858c3f8b991f33d6a91c0a4390a07c26d3aff65d67bbb50bbe`.
+All3577 old objects remain exact; index3577 adds6 entries. Totals3578 objects,
+456706 heads/79438 references,578826 polls/122120 cuts and1433 unsupported
+heads. Only six declarations and dispatch rows change in the trace header.
+The focused v14 guard campaign passes169 cases in each language (15 positive,
+154 negative), plus actual source-I/O guards. All1334 historical payloads/order
+are retained, including old focus probes;1320 historical negatives are not
+claimed as rerun. Receipt `work/cohort-v14-validation1/acceptance.json`, SHA256
+`2dcfb3ab45a0bf36fbec2bb72f0732eac19fa9a0df54b30838950f1fe7d9b10c`.
+The source-I/O selectors now identify the unique actual Python/PowerShell AST
+plan guards, allowing each new version to be tested without copied version lists.
+Next startup: `work/windows-first-frame-fmod-callbacks1`.
+Late JNI diagnostics also report missing Context.AUDIO_SERVICE,
+android/media/AudioManager, checkCallingOrSelfPermission(String)I and a null
+reference. Their causal relationship to the final stop is not assumed.
+The explicit-muted option calls original nativeMuteMasterAudio(true); it does
+not disable FMOD initialization. A genuine original no-sound startup option
+is being investigated separately, with no guessed flags or OS audio changes.
+Native exit3/controller1; all frozen inputs and original objects reverify.
+There is still no original draw, successful swap, nativeRender return or PNG.
+Inputs SHA256 `00ea9cacd474e9d389bf147ae844c6d12cd9024545ff5c9c653f46da4d9c2849`;
+log SHA256 `88fd2bfc0cffe3a9a0cd9993e44d0f312555e64ac41fdff0e28e141649d67761`.
+
+The preceding execution frontier was an unresolved indirect original-code target.
 Actual build `work/windows-first-frame-ushll-mask1`, host
 `c58d7a149e3e100d91bc513af37fa4f8db9d3208`, executable
 `08877479365ecf5b0cb98170fb2e1c6a13d36ed40f7d0ecec46e18c7a006a3b1`,
