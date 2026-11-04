@@ -141,6 +141,9 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_LABEL_COMMAND(name,type) #name,
 #include "gl_label_commands.inc"
 #undef GL_LABEL_COMMAND
+#define GL_TEXTURE3D_COMMAND(name,type) #name,
+#include "gl_texture3d_commands.inc"
+#undef GL_TEXTURE3D_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -429,6 +432,7 @@ struct GlHost::Impl {
 #include "gl_sampler_impl.inc"
 #include "gl_buffer_indexed_impl.inc"
 #include "gl_label_impl.inc"
+#include "gl_texture3d_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -483,6 +487,7 @@ struct GlHost::Impl {
 #include "gl_storage_commands.inc"
 #undef GL_STORAGE_COMMAND
     BindLabelCommands();
+    BindTexture3DCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}

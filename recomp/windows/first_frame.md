@@ -3,7 +3,38 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: unsupported ST3 multiple-structure store in the
+Current execution frontier: missing 3D texture upload at a shared indirect seam.
+Actual build `work/windows-first-frame-st3-1`, host
+`dd47b9b677ebf6956d0ff291b5f0c09a543d0de9`, executable
+`2ec4502664c0ee53b7511d938b701a3613a9dffe44b55e15cb2b74e4502508f9`,
+passes ST3 initialization, reaches texture labels through id12, then allocates
+texture id13 at GL_TEXTURE_3D through glTexStorage3D. It stops at target0/
+StatePC0, LR `7048f26c`. The shared BLR `7048f268` can load slot `0x518`
+(glTexSubImage3D) or `0x550` (glCompressedTexSubImage3D); the fatal LR cannot
+distinguish them. Both lookups returned0. The next batch covers exactly
+those two uploads and the observed mutable glTexImage3D fallback, with real
+row/image/slice strides and CPU/PBO transfer distinctions. Native exit3/
+controller1; still no original draw, successful swap, nativeRender return
+or game image. Inputs SHA256
+`3f621f5a8f935dd44a5e2f7e975f63541caa912fc46107298f49666931884e56`;
+log SHA256 `673a774e88edc254511b10eca169f9ef1f3d6ec5020119a5814b1602aa82ab32`.
+Bounded audit: `work/st3-1-texture3d-boundary1/summary.json`, SHA256
+`e297533046db2e137c1a1b7f271375d36bee8558dc369e4119ddf5c07e0ca574`.
+Existing OES fallback guards retain a valid core slot, so no alias bridge is
+required. The 11-argument uploads place format/type-or-size/pixels at guest
+SP/SP+8/SP+16; the full64-bit pointer/offset must survive that stack transfer.
+The first3D transfer gate passes900 checks/46 NDK calls/45 records through8
+heads and2 objects. Actual GPU3D/array layers, packedRGB565 and ETC2 sampling
+match native calls; row/image/slice skips, overlap, inaccessible padding,
+tight compressed imageSize, CPU/PBO offsets0/32/high64, NULL/zero/native
+errors and old128 markers all pass. Native PBO validation retains real unpack
+state even though compressedCPU decoding uses tight default unpack. Existing
+2D helpers and every v11/collector/affinity/Runtime source remain exact.
+Receipt: `work/gl-texture3d-qualification1/acceptance.json`, SHA256
+`b7ab35fa4821deadf0d3eff636060786f26f683df3a55f47c665d98f657d247a`.
+Next startup: `work/windows-first-frame-texture3d1`.
+
+The preceding execution frontier was an unsupported ST3 multiple-structure store in the
 recompiler. Actual build `work/windows-first-frame-label2`, host
 `eeb2abf184e065c4a434a849f5a2efb00fe67f89`, executable
 `6f28b19fa35fe750991d6d851497b9d918ea6b3077b02029aadd09199efa1e41`,
