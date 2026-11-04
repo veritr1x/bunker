@@ -3,7 +3,60 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current execution frontier: missing 3D texture upload at a shared indirect seam.
+Current execution frontier: a retained older translation of an unsigned vector
+widening operation. Actual build `work/windows-first-frame-texture3d1`, host
+`7248183ae21f621f1a48f255602933ede177e2a9`, executable
+`0cf9861508368f249d69d4a31e6d62d4a8479124cc883dfd723bb8744f282a6c`,
+passes eight observed glTexSubImage3D calls (3D, array and cube-array targets)
+and texture labels through id17. It reports unliftablePC `702b3ec0`, the next
+PC after USHLL V2.8H,V1.8B,#0 at `702b3ebc`, word `2f08a422`.
+Original FDE `702b3d34..702b4034`, selected object94, contains fourteen
+USHLL/USHLL2 operations across all six widening forms. Existing qualified
+semantics already support these; no new instruction semantics are required.
+The current compiled six selectors and their complete functions match the
+previous ARM/Linux/Windows-qualified pair exactly. That source-only proof is
+`work/ushll-current-pair-identity1/proof.json`, SHA256
+`d2918f90adb54fa2d720b9ca9a6e7c776fed66bb0fe58af54ad5065feb7899b8`.
+The next repair applies this existing support to the one retained function,
+preserving its neighboring functions and checking actual original behavior.
+The candidate passes full static preservation of all127 neighboring functions,
+including six earlier FCSEL repairs, in raw/polled IR and complete COFF bytes.
+No declaration or direct guest reference changes; the target gains two cycle
+polls. Candidate `work/unity-ushll-mask-overlay1/candidate.json`, SHA256
+`03b57f5e4a16488f364975e9f79c406308454fafe46f5a47056a5f30caedeebf`;
+new object SHA256
+`c28559fea099d8d2091ec876061345fd7b6aa80e6740745cf30586e9930ea5d5`.
+The exact original block `702b3e98..702b3f78` and readonly16-byte table match
+16 records across ARM, Linux raw/polled and Windows raw/polled. All800
+architectural bytes and256 output bytes agree; an independent integer model
+also checks full1200-byte host State, memory token and allocation canaries.
+All16 initial NZCV patterns, four FPCR modes and sticky FPSR cases pass.
+Receipt `work/unity-ushll-mask-block-qualification1/acceptance.json`, SHA256
+`be35d41e14bd385469ddb11778e1cb4ff2a22936765b658d83b4a0d7824fbecd`.
+The fixture captures before original BL70346214; preceding platform calls,
+the helper body and full-FDE return are excluded from this dynamic claim.
+The whole selected COFF is statically compared, not executed by the fixture.
+The v12 cohort is sealed at
+`work/first-frame-ushll-mask-cooperative-cohort1/acceptance.json`, SHA256
+`34a41fc3f8fa21e5df3d23d702d455e52805bfd21a6f33161b5176245d241601`;
+source plan SHA256
+`0385129c17c6b2db060aa938127edf2993490b78b4adcbd551d24840fa006aea`.
+It retains456689 heads and79438 direct references. The one changed function
+removes one unsupported head (1435 to1434), and poll sites/cycle cuts rise
+by two to578791/122102. All3575 other objects remain exact.
+The actual Python and PowerShell guards pass1142 cases each (13 positive,
+1129 negative), including real v12 ancestry and source-I/O checks. All1023
+historical case payloads/order and pass/fail/returned-version results stay
+exact; the old v11 mutation to version12 now rejects under the known version's
+qualification checks. Receipt `work/cohort-v12-validation1/acceptance.json`,
+SHA256 `cf86f1301e9bb7bc4152773f4e5f837bc11650eb7f3139e13ecb5ea2c5d6b582`.
+Next startup: `work/windows-first-frame-ushll-mask1`.
+Native exit3/controller1; all frozen inputs and original objects reverify.
+There is still no original draw, successful swap, nativeRender return or PNG.
+Inputs SHA256 `66faf4355d6283e097c2ee440b5e6e877ef4e607b67bbf5cb26b2bd44de36adb`;
+log SHA256 `44b7b316dfe191fc807ef8b29e2141d254e8d4ead17d262c4b4754406c332a34`.
+
+The preceding execution frontier was missing 3D texture upload at a shared indirect seam.
 Actual build `work/windows-first-frame-st3-1`, host
 `dd47b9b677ebf6956d0ff291b5f0c09a543d0de9`, executable
 `2ec4502664c0ee53b7511d938b701a3613a9dffe44b55e15cb2b74e4502508f9`,
