@@ -20,6 +20,10 @@ under its heading, down to the previous release.
   Arena rewards only for finished weeks. [e395b33]
 - A season that ends mid-week no longer leaves two results for one week.
   [e395b33]
+- A server test covers season ends with the Original calendar at 7× speed:
+  when the game clock jumps a week past a season's end, the next Arena visit
+  still records the final rank and the last week played, and the next login
+  claims them once. [b62da3d]
 
 ## 1.8.3 (2026-11-04)
 
