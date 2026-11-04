@@ -12,6 +12,56 @@ RUNTIME_DIAGNOSTIC_HEADER='c7f0d6c4cb446e78c2aecb2d8b7f078c4da03d949e7d7d15e05fe
 RUNTIME_DIAGNOSTIC_QUALIFICATION='ca33662cafb9743a433972d84be2aaedbb0a698581115cf3b9f2ae5e66dc91cd'
 RUNTIME_DIAGNOSTIC_INSERTION='016c0c45605f11fc0aa5078bd0f9472b8ca96997ca241b914b94695af0a965cb'
 
+GUEST_TRANSFER_RUNTIME={
+ 'whole/runtime.h':'7a3ee02b9ffbe0213f0ef514ae54a02d5bfd131271d4dd39b714a3d03e87ec54',
+ 'whole/runtime.cpp':'052411ac09dd05a6dd229d17f1f991a93ee984ae1f447416cefdf610629f1c56',
+}
+
+def qualified_guest_transfer_runtime(path,legacy_digest,prerequisites=None):
+ # This replaces two protected runtime files. Historical diagnostic checks
+ # still apply to their immutable predecessor, rather than mutable live paths.
+ assert legacy_digest==RUNTIME_DIAGNOSTIC_OLD
+ path=Path(path);work=HERE.parent/'work';inputs={}
+ for name,digest in GUEST_TRANSFER_RUNTIME.items():
+  source=path.with_name(Path(name).name);assert sha(source)==digest,name
+  inputs[str(source)]=digest
+ records={}
+ for label,relative,digest in (
+  ('unit','guest-transfer-production-unit2/acceptance.json','97e840269aae5b28622c6a037c1abc55ecbac3dde7ebc484c4026aece5b66f6e'),
+  ('collector','guest-transfer-collector-regression1/acceptance.json','3ba671dae7c77c6325f549a5ae812326073c77f37822e9c1489d52e49862a196'),
+ ):
+  receipt=work/relative;assert sha(receipt)==digest
+  record=json.loads(receipt.read_text());assert record['passed']is True
+  records[label]=record;inputs[str(receipt)]=digest
+ unit=records['unit'];assert set(unit['results'])=={'linux','windows'}
+ for name,digest in GUEST_TRANSFER_RUNTIME.items():
+  assert [value for key,value in unit['owned_sources'].items()if key.endswith('/'+name)]==[digest]
+ for result in unit['results'].values():
+  assert (result['positive_cases'],result['checks'],result['negative_controls'])==(15,220,7)
+  assert all(test['expected_result_observed']is True for test in result['tests'].values())
+ collector=records['collector'];assert collector['runtime_sources']==GUEST_TRANSFER_RUNTIME
+ assert collector['protected_other25_current_exact']is True
+ assert (collector['processes'],collector['checks'],collector['cycles'])==(3,350,6)
+ for name,digest in collector['other25_protected_implementation_source_sha256'].items():
+  source=HERE.parent/name;assert sha(source)==digest,name;inputs[str(source)]=digest
+ old=work/'guest-transfer-promotion1/old-runtime.cpp'
+ assert sha(old)==RUNTIME_DIAGNOSTIC_NEW
+ qualification=work/'runtime-unresolved-diagnostic1/qualification4/acceptance.json'
+ assert sha(qualification)==RUNTIME_DIAGNOSTIC_QUALIFICATION
+ diagnostic=json.loads(qualification.read_text());proof_path=Path(diagnostic['inverse_proof_path'])
+ assert sha(proof_path)==diagnostic['inverse_proof_sha256']
+ verify_runtime_diagnostic_projection(old.read_bytes(),json.loads(proof_path.read_text()))
+ inputs.update({str(old):RUNTIME_DIAGNOSTIC_NEW,str(qualification):RUNTIME_DIAGNOSTIC_QUALIFICATION,str(proof_path):diagnostic['inverse_proof_sha256']})
+ if prerequisites is not None:prerequisites.update(inputs)
+ return GUEST_TRANSFER_RUNTIME['whole/runtime.cpp']
+
+def qualified_runtime_header(path,legacy_digest,prerequisites=None):
+ assert legacy_digest==RUNTIME_DIAGNOSTIC_HEADER
+ if sha(path)==GUEST_TRANSFER_RUNTIME['whole/runtime.h']:
+  qualified_guest_transfer_runtime(Path(path).with_name('runtime.cpp'),RUNTIME_DIAGNOSTIC_OLD,prerequisites)
+  return GUEST_TRANSFER_RUNTIME['whole/runtime.h']
+ return legacy_digest
+
 def verify_runtime_diagnostic_projection(body,proof):
  assert proof['passed']is True and proof['old_runtime_sha256']==RUNTIME_DIAGNOSTIC_OLD
  assert proof['new_runtime_sha256']==RUNTIME_DIAGNOSTIC_NEW and proof['runtime_header_sha256']==RUNTIME_DIAGNOSTIC_HEADER
@@ -22,6 +72,8 @@ def verify_runtime_diagnostic_projection(body,proof):
  assert hashlib.sha256(body.replace(insertion,b'',1)).hexdigest()==RUNTIME_DIAGNOSTIC_OLD
 
 def qualified_runtime_source(path,legacy_digest,prerequisites=None,qualification_path=None):
+ if sha(path)==GUEST_TRANSFER_RUNTIME['whole/runtime.cpp']:
+  return qualified_guest_transfer_runtime(path,legacy_digest,prerequisites)
  assert legacy_digest==RUNTIME_DIAGNOSTIC_OLD
  path=Path(path);qualification_path=Path(qualification_path)if qualification_path is not None else HERE.parent/'work/runtime-unresolved-diagnostic1/qualification4/acceptance.json'
  assert sha(qualification_path)==RUNTIME_DIAGNOSTIC_QUALIFICATION
@@ -349,6 +401,7 @@ def main():
   path=HERE.parent/name
   if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==qualified_futex_dispatcher_source(path,name,timed['core_sources'][name],prerequisites),name
   elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
+  elif name=='whole/runtime.h':assert sha(path)==qualified_runtime_header(path,digest,prerequisites),name
   elif name in SIGNAL_SUBSET_CORE:assert sha(path)==qualified_signal_subset_source(path,name,digest,prerequisites),name
   else:assert sha(path)==digest,name
   prerequisites[str(path)]=sha(path)
@@ -374,6 +427,7 @@ def main():
   path=HERE.parent/name
   if name in timed['core_sources']:assert digest==timed_base_hashes[name]and sha(path)==qualified_futex_dispatcher_source(path,name,timed['core_sources'][name],prerequisites),name
   elif name=='whole/runtime.cpp':assert sha(path)==qualified_runtime_source(path,digest,prerequisites),name
+  elif name=='whole/runtime.h':assert sha(path)==qualified_runtime_header(path,digest,prerequisites),name
   elif name in SIGNAL_SUBSET_CORE:assert sha(path)==qualified_signal_subset_source(path,name,digest,prerequisites),name
   else:assert sha(path)==digest,name
   prerequisites[str(path)]=sha(path)

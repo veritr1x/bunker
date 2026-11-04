@@ -30,9 +30,18 @@ and ordinary platform boundaries remain explicit in the fixture receipts.
 The repository runtime unit runner passes both hosts (15 cases, 220 checks,
 seven fail-closed controls each).
 
-The full 595,390-head rebuild remains an unselected candidate. Native codegen
-verification is being adjusted for compiler call merging and private native
-shadow-slot cleanup; both stopped attempts and completed shards are preserved.
+The full rebuild remains an unselected candidate. Optimized-IR guard checks
+now account for compiler call merging and private native shadow-slot cleanup;
+native callback counts are telemetry under the qualified LLVM backend.
+The next stopped build exposes nine missing direct-call targets in Unity
+function `705b985c`. All nine are original executable helpers without symbols
+or FDE coverage. The 595,390-head metadata union therefore needs a reachable
+direct-call closure pass before another complete native build. Failed builds
+and completed shards remain preserved.
+The promoted runtime also passes the original Windows collector regression
+(three processes, 350 checks, six stop/restart cycles). The static source
+gate admits this exact runtime pair through its pinned runtime and collector
+qualifications while retaining the historical diagnostic-source checks.
 No corrected game cohort or landing-pad code is selected yet, and no original
 draw, swap or PNG is observed. Real C++ EH receipt:
 `work/guest-eh-reference-translation1/qualification1`, SHA256
