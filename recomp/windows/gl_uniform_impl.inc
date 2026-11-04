@@ -1,7 +1,16 @@
 // Included inside GlHost::Impl. Native calls use the existing current context
 // and error queue; no helper re-enters the non-recursive provider mutex.
 struct UniformInfo {GLenum type;size_t components,remaining;bool array;};
+static bool UniformImage(GLenum type){
+  switch(type){
+    case GL_IMAGE_2D:case GL_IMAGE_3D:case GL_IMAGE_CUBE:case GL_IMAGE_2D_ARRAY:
+    case GL_INT_IMAGE_2D:case GL_INT_IMAGE_3D:case GL_INT_IMAGE_CUBE:case GL_INT_IMAGE_2D_ARRAY:
+    case GL_UNSIGNED_INT_IMAGE_2D:case GL_UNSIGNED_INT_IMAGE_3D:case GL_UNSIGNED_INT_IMAGE_CUBE:case GL_UNSIGNED_INT_IMAGE_2D_ARRAY:return true;
+    default:return false;
+  }
+}
 static size_t UniformComponents(GLenum type){
+  if(UniformImage(type))return 1; // Getter width only; ES3.1 forbids all Uniform* image loads.
   switch(type){
     case GL_FLOAT:case GL_INT:case GL_BOOL:case GL_SAMPLER_2D:case GL_SAMPLER_CUBE:return 1;
     case GL_FLOAT_VEC2:case GL_INT_VEC2:case GL_BOOL_VEC2:return 2;

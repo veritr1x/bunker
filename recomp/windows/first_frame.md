@@ -3,7 +3,27 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-uniform-block1`, host
+Latest original execution: `work/windows-first-frame-program-resource1`, host
+`973ab9e8c362319f5d9cf63fb7064d1b34464f44`, passes the original resource
+Interfaceiv call and continues to uniform reflection. The existing GetUniformiv
+width classifier then rejects `GL_IMAGE_3D` (`904e`) at LR `7047f904`, before
+native value transfer. The main epoch6 collector cycle returns normally; two
+original renders return continue=true. Native exit3/controller1; frozen inputs
+and original objects reverify. No original draw, clear, swap or PNG exists.
+
+Inputs SHA256 `0cd41723a46d900bc95435b9eb0bcd5ca2508e9186cf7014fa33cc8e8cf093bc`;
+executable SHA256 `7736bd5e4978e67581d7201ee433666d212e64d6cec77117ec2ace5ff8c3e48c`;
+log SHA256 `294146c183efd49b73c1acb25ad7f6648008e738e066bce7e06b85be4f3395b0`.
+The correction recognizes the twelve core ES3.1 image types as one GLint32 getter
+component per real scalar/array-element location. ES3.1 forbids all Uniform*
+image assignments; existing sampler, vector, matrix and setter helpers remain
+byte-exact. The native-driver gate passes 2,286 checks/517 NDK calls across all
+twelve types, 108 guarded getters and 324 write-rejection controls, plus retained
+uniform-query/draw regressions. Namespace139 and capabilities remain unchanged.
+Original game execution of this correction is pending; no image binding or GPU
+dispatch behavior is added or claimed.
+
+Preceding original execution: `work/windows-first-frame-uniform-block1`, host
 `37a23e6e5ee02c81168ed2af3f5364e58dca25c7`, executes two new Blockiv calls
 and one BlockName call past the previous shader-reflection failure. It later
 stops at another null indirect call, LR `7047f550`. The real external-main
