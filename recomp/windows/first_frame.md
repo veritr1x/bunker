@@ -3,7 +3,27 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed candidate: `work/windows-first-frame-gl-mapping-batch1`, manifest
+Latest completed candidate: `work/windows-first-frame-neg2s1`, manifest
+`a07beb8c0288020ee409532fe07a243dd58154585b5e4c1dd30559f9e3f5b1d4`,
+EXE `2129104189f65440d4d2768f1699c215073343b190c32ade45be483ae3b7d895`.
+The reached NEG.2S function now progresses. This run naturally exits native3
+at reported PC `7065185c`, following integer `NEG V17.4S,V17.4S` at
+`70651858`, in recursive FDE `7065175c..70651884`. Four renders return,
+with no draw, successful swap or PNG; all input and parent pre/post checks pass.
+Boundary: `work/neg2s1-unliftable-boundary1/acceptance.json`, SHA256
+`00ef152859e731d6de5420cc4f8e610be0978023c69e18b282c40617fa28bb40`.
+
+The isolated four-lane addition passes8704 exact original-ARM/raw-Windows/
+polled-kernel records, including the two-lane regression. It is documented in
+[vector_neg_4s.md](../whole/vector_neg_4s.md). The proposed single container231
+repair preserves the prior `70652c68` FMAXNM body. Its other127 raw/polled
+bodies remain exact. Native code has122 exact projections and five whose ten
+constant-pool relocation words move by32 bytes; an exact whole-pool inverse
+and unchanged referenced payloads prove this data placement, with no COFF edits.
+The kernel gate does not claim dynamic execution of the whole recursive
+function. Integration and the first frame remain pending.
+
+Preceding completed candidate: `work/windows-first-frame-gl-mapping-batch1`, manifest
 `01869d0f314745be2c5d19d5836b5fef23a74e2defca40c43427e440b63c96f9`,
 EXE `f475d8a42a69712cc8197a1d2d9bf2cf668e34c45c39e53cda78fc7ab41d10f5`.
 It passes the previous null map call twice and then naturally exits native3 at

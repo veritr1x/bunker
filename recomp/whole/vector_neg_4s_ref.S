@@ -1,0 +1,46 @@
+.text
+.global neg4_native_call
+.type neg4_native_call,%function
+neg4_native_call:
+ stp x19,x20,[sp,#-96]!
+ stp x21,x22,[sp,#16]
+ stp x23,x24,[sp,#32]
+ stp x29,x30,[sp,#48]
+ mov x29,sp
+ mov x19,x0
+ mov x20,x4
+ mov x21,x1
+ mov x22,x2
+ mrs x23,fpcr
+ mrs x24,fpsr
+ mrs x9,nzcv
+ str x9,[sp,#64]
+ ldr x9,[x3]
+ msr fpcr,x9
+ ldr x9,[x3,#8]
+ msr fpsr,x9
+ ldr x9,[x3,#16]
+ msr nzcv,x9
+ mov x0,x21
+ mov x1,x22
+ blr x19
+ mrs x9,fpcr
+ str x9,[x20]
+ mrs x9,fpsr
+ str x9,[x20,#8]
+ mrs x9,nzcv
+ str x9,[x20,#16]
+ mov x9,sp
+ cmp x9,x29
+ cset x9,eq
+ str x9,[x20,#24]
+ msr fpcr,x23
+ msr fpsr,x24
+ ldr x9,[sp,#64]
+ msr nzcv,x9
+ ldp x29,x30,[sp,#48]
+ ldp x23,x24,[sp,#32]
+ ldp x21,x22,[sp,#16]
+ ldp x19,x20,[sp],#96
+ ret
+.size neg4_native_call,.-neg4_native_call
