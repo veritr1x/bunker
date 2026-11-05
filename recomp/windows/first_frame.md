@@ -3,7 +3,55 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-clock1` includes the
+Latest original execution: `work/windows-first-frame-jni-byte-array1`, source
+commit `e348a02`, recompiles bootstrap and all 42 host/runtime sources against
+the new JNI Host header. Its 993-file snapshot changes only JNI cpp/header
+and the failure-only bootstrap diagnostic; the other 990 source files, all
+4,653 guest objects, 595,408 trace heads and metadata headers remain exact.
+The selected bootstrap is the newly compiled object, SHA256
+`2cf99b9f3f6c765112a71addc34ce12a172c36c5937cb710fc30215ec957958e`.
+
+Native exit 3/controller 1 now reaches a constructor lookup error
+`<init>([BLjava/lang/String;)V` at Env slot 33, return `70ab5d38`, then stops
+at Env slot 38: missing host implementation of instance
+`com/unity3d/player/UnityPlayer.loadLibrary(Ljava/lang/String;)Z`.
+The failure diagnostic captures PC `7ff000000130`, LR `70410910`,
+SP `23639370100`, x1 `7ff10000004b`, x2 `7ff200000169`,
+x3 `236393701b0`, x4 `17a`, pendingBefore=1. The requested library name is
+not observed, and this is not evidence of a failed native library load.
+The preceding `android.util.Log` lookup failure also remains.
+
+Three renders enter and two return continue=true; there are zero draws,
+clears, successful presentations, PNGs or first-frame witnesses. Parent
+pre/post verification and all overlay pins pass. The module observer records
+PID 2641144, actual base `7ff612b10000`, image size 1,055,068,160 bytes.
+Overlay SHA256 `57a0fafc5da0f8cdd09fa21d5c06ef314c4f9fd96c6f435b2ff2635249396ba4`;
+executable SHA256 `9fec88180d8605cefd32be581b0aa4ddc4d70dee2f784ef69fcfd8ab95dce7c8`;
+log SHA256 `4c78e13a185bc3825198dd90f06a24689d3d3d1231dda60a463927d99928d472`.
+Run peer: `work/jni-byte-array1-run-peer1/peer.json`, SHA256
+`7569748245c367ed8c0706427179c0b5f442033396fbc951220b695d1797e432`.
+There is no direct return log for the six byte-array APIs in this game run;
+their successful component tests do not prove each original call executed.
+
+The next work is the real byte-array/charset String constructor and native
+library loading. Seven direct callers of native constructor wrapper
+`70ad4060` statically supply `UTF-8`; this does not identify the live failing
+caller or its charset. The byte builder copies an explicit length, preserving
+embedded NUL. The existing generic constructor factory rejects a String-kind
+result, so adding a declaration alone would still fail. JDK 24 is installed
+for a real reference profile; malformed input behavior must not be claimed
+as ART equivalence. String audit:
+`work/jni-byte-array1-string-boundary1/acceptance.json`, SHA256
+`fd2bc77d0eef777f7b278556368e166df8965ee26e47fe4ba3806957ae812b54`.
+
+The original DEX loadLibrary wrapper returns true only after
+System.loadLibrary succeeds; native module constructors alone are insufficient.
+It needs Java loader ownership, cached JNI_OnLoad results and adoption of the
+Unity JNI_OnLoad already executed by bootstrap, so that entry is not replayed.
+See `work/jni-byte-array1-native-library-boundary1/acceptance.json`, SHA256
+`78d821624d258baea4db09d3d6578d26362c414dccb8f3016f7da829c0d48dd9`.
+
+Preceding original execution: `work/windows-first-frame-clock1` includes the
 qualified `clock_getres` provider for native realtime and monotonic clocks.
 All 4,653 guest objects, 595,408 trace heads and compiled bootstrap remain
 unchanged. Native exit 3/controller 1 now stops at unsupported JNIEnv slot
@@ -29,8 +77,24 @@ the new import now preserves the complete callback boundary. Existing thread
 and clock-sampling methods remain unchanged. Qualification:
 `work/pthread-clock-qualification2/acceptance.json`, SHA256
 `942155e2ac5c7c7036a4eecb2f912487d03b13d8e1cdd72101dcd4775a3b6408`.
-The next step is attribution and implementation of the reached JNI array API,
-without fabricating success for the preceding Java class lookup.
+The reached JNI byte-array family is now implemented in source commit
+`e348a02`. Slots 171/176/184/192/200/208 pass 132 actual NDK caller invocations
+on each of Windows and Linux, including copy/commit/abort, tracked retirement,
+reference ownership, primitive/reference-array identity and State/Memory ABI
+checks. These are host component checks, not an ART runtime comparison or an
+original frame. See [the JNI byte-array contract](jni_byte_array.md).
+Qualification: `work/jni-byte-array-qualification2/acceptance.json`, SHA256
+`02e9a49e53b996fc4923cdeeb82d18a05901297f2c3f2c16e8500b09a1eb5dbf`.
+
+The new dedicated lease map changes the Host class layout. The next executable
+must recompile bootstrap and all 42 host/runtime source files against one new
+header snapshot; retaining the old bootstrap object would be invalid. The
+original 4,653 guest objects and trace/metadata headers stay unchanged. The
+bootstrap also gains failure-only JNI PC/LR/SP/argument diagnostics because
+the last slot-176 error omitted the actual caller and requested length.
+That consistent rebuild and original startup are recorded above. The missing
+Java constructor/library behavior is the next boundary; no preceding class
+lookup or library load is treated as successful without implementation.
 
 Preceding original execution: `work/windows-first-frame-calendar1` includes the
 qualified eight-API calendar provider, preserving all 4,653 guest objects,

@@ -11,12 +11,18 @@ The current exploratory executable retains 4,653 guest objects and 595,408
 trace heads, including the qualified numeric min/max repair and four original
 computed-table entries. With Windows identity and calendar APIs added,
 clock-resolution support passes 66 translated NDK calls and an actual static
-Bionic reference. The latest original startup stops at unsupported JNIEnv
-slot 176, after an `android.util.Log` lookup failure. Two original renders
-return, but there is still no successful swap or captured game image. The
-next step is the reached JNI array API. Initialization, rendering, gameplay,
+Bionic reference. The JNI byte-array family passes focused translated NDK
+callers on Windows and Linux. The consistent full host/bootstrap rebuild
+and original startup now reach the missing byte-array/charset String
+constructor and `UnityPlayer.loadLibrary(String)` implementation. The latter
+is called with a Java exception already pending; the library name is unknown.
+Two original renders return, but there is still no successful swap or captured
+game image. The next work is real String construction and Java native-library
+ownership/initialization behavior. Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
-Execution notes below retain earlier checkpoints.
+The network inventory still identifies 32 missing imports plus four file APIs
+that need socket-aware ownership/dispatch; the prepared backend has not been
+connected to the real client. Execution notes below retain earlier checkpoints.
 
 All recomp source work is in the `recomp-x86_64` worktree at
 `C:/Users/user/.codex/worktrees/bunker-recomp-native/bunker`.
