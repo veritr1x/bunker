@@ -4,6 +4,28 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-05 (after 1.8.4)
+
+### Pod Programs
+- Changes reach the running game without restarting it. Pod Programs opened
+  beside the game no longer closes the game for a change to the save, the
+  players, the master data or the calendar: Lunar Tear stops for the change,
+  starts again, and the game's next call shows its own "Refresh / Process
+  failed. Returning to title screen." dialog. OK returns to the title screen,
+  and signing in again loads the change, with fresh master data when it
+  changed. A battle or exploration result still in flight is kept. On Android
+  and iPhone/iPad alike; only "Show original dates" and turning the calendar
+  off still close the game, because the game reads them as it launches.
+  [913f155]
+- The Archive's index no longer fails with "unable to open database file"
+  when the launcher builds it before the Archive has ever been opened.
+  [c9e3d1f]
+
+### Server
+- Tables built from the master data are built again whenever Lunar Tear
+  starts in the same process, so a server restarted after a master data
+  change no longer mixes old and new data. [b607091]
+
 ## 1.8.4 (2026-11-04)
 
 Arena seasons end. With Everything open, the seasons that share the latest
