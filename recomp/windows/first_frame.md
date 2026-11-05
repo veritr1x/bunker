@@ -22,6 +22,10 @@ two char-buffer outputs. It belongs to URL/scheme parsing. The actual input
 URL is unobserved. The next work is correct scanset/character conversion and
 matching variadic argument/output handling; the existing uint64-only bridge
 and audit must both change, rather than treating these buffers as integers.
+The same original function contains three additional URL/IPv6 scan profiles;
+their exact formats, output ABI and buffer provenance are sealed in
+`work/sched-yield1-sscanf-boundary1/acceptance.json`, SHA256
+`62e95990002c9e28e210c528277844bba65bdbccefeefad87546296b3a36a7d2`.
 
 Overlay SHA256 `9176b71822793a8d6a44e70e44ff5bd9e332db3c8a46282f97a34202f5ff9f04`;
 EXE `8e7dac13b19d5c45b37e10b74ed193f300d5cf60b9406e83f191e0fc124c2995`;
