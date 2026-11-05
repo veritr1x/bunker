@@ -1,0 +1,30 @@
+#include <jni.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <string.h>
+extern uintptr_t choreo_TEST_record(uintptr_t,uint64_t,uintptr_t,uintptr_t,uintptr_t);
+extern void choreo_TEST_delete(uint64_t);
+JNIEXPORT jobject JNICALL choreo_TEST_native_invoke(JNIEnv*e,jclass bridge,jlong handle,jclass owner,jobject reflected,jobjectArray arguments){(void)bridge;jmethodID method=(*e)->FromReflectedMethod(e,reflected);return(jobject)choreo_TEST_record((uintptr_t)e,(uint64_t)handle,(uintptr_t)owner,(uintptr_t)method,(uintptr_t)arguments);}
+JNIEXPORT void JNICALL choreo_TEST_native_delete(JNIEnv*e,jclass bridge,jlong handle){(void)e;(void)bridge;choreo_TEST_delete((uint64_t)handle);}
+jint choreo_TEST_register(JNIEnv*e){jclass c=(*e)->FindClass(e,"bitter/jnibridge/JNIBridge");JNINativeMethod methods[]={{"invoke","(JLjava/lang/Class;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;",(void*)choreo_TEST_native_invoke},{"delete","(J)V",(void*)choreo_TEST_native_delete}};jint status=(*e)->RegisterNatives(e,c,methods,2);(*e)->DeleteLocalRef(e,c);return status;}
+jclass choreo_find(JNIEnv*e,const char*name){return(*e)->FindClass(e,name);}
+jmethodID choreo_method(JNIEnv*e,jclass c,const char*name,const char*signature,jint is_static){return is_static?(*e)->GetStaticMethodID(e,c,name,signature):(*e)->GetMethodID(e,c,name,signature);}
+static jobject new_v(JNIEnv*e,jclass c,jmethodID m,...){va_list values;va_start(values,m);jobject result=(*e)->NewObjectV(e,c,m,values);va_end(values);return result;}
+jobject choreo_new(JNIEnv*e,jclass c,jmethodID m,jobject a,jobject b,jint count,jint form){if(form==0)return count==2?(*e)->NewObject(e,c,m,a,b):count?(*e)->NewObject(e,c,m,a):(*e)->NewObject(e,c,m);if(form==1)return count==2?new_v(e,c,m,a,b):count?new_v(e,c,m,a):new_v(e,c,m);jvalue values[2];values[0].l=a;values[1].l=b;return(*e)->NewObjectA(e,c,m,count?values:0);}
+static jobject object_v(JNIEnv*e,jobject target,jmethodID m,jint stat,...){va_list values;va_start(values,stat);jobject result=stat?(*e)->CallStaticObjectMethodV(e,(jclass)target,m,values):(*e)->CallObjectMethodV(e,target,m,values);va_end(values);return result;}
+jobject choreo_object(JNIEnv*e,jobject target,jmethodID m,uintptr_t argument,jint kind,jint stat,jint form){
+ if(form==0){if(stat)return kind==2?(*e)->CallStaticObjectMethod(e,(jclass)target,m,(jint)argument):kind?(*e)->CallStaticObjectMethod(e,(jclass)target,m,(jobject)argument):(*e)->CallStaticObjectMethod(e,(jclass)target,m);return kind==2?(*e)->CallObjectMethod(e,target,m,(jint)argument):kind?(*e)->CallObjectMethod(e,target,m,(jobject)argument):(*e)->CallObjectMethod(e,target,m);}
+ if(form==1)return kind==2?object_v(e,target,m,stat,(jint)argument):kind?object_v(e,target,m,stat,(jobject)argument):object_v(e,target,m,stat);
+ jvalue value;if(kind==2)value.i=(jint)argument;else value.l=(jobject)argument;return stat?(*e)->CallStaticObjectMethodA(e,(jclass)target,m,kind?&value:0):(*e)->CallObjectMethodA(e,target,m,kind?&value:0);
+}
+static void void_v(JNIEnv*e,jobject target,jmethodID m,...){va_list values;va_start(values,m);(*e)->CallVoidMethodV(e,target,m,values);va_end(values);}
+void choreo_void(JNIEnv*e,jobject target,jmethodID m,uintptr_t argument,jint kind,jint form){if(form==0){if(kind==2)(*e)->CallVoidMethod(e,target,m,(jlong)argument);else if(kind)(*e)->CallVoidMethod(e,target,m,(jobject)argument);else(*e)->CallVoidMethod(e,target,m);}else if(form==1){if(kind==2)void_v(e,target,m,(jlong)argument);else if(kind)void_v(e,target,m,(jobject)argument);else void_v(e,target,m);}else{jvalue value;if(kind==2)value.j=(jlong)argument;else value.l=(jobject)argument;(*e)->CallVoidMethodA(e,target,m,kind?&value:0);}}
+static jboolean boolean_v(JNIEnv*e,jobject target,jmethodID m,...){va_list values;va_start(values,m);jboolean result=(*e)->CallBooleanMethodV(e,target,m,values);va_end(values);return result;}
+jint choreo_boolean(JNIEnv*e,jobject target,jmethodID m,jobject argument,jint has_argument,jint form){if(form==0)return has_argument?(*e)->CallBooleanMethod(e,target,m,argument):(*e)->CallBooleanMethod(e,target,m);if(form==1)return has_argument?boolean_v(e,target,m,argument):boolean_v(e,target,m);jvalue value;value.l=argument;return(*e)->CallBooleanMethodA(e,target,m,has_argument?&value:0);}
+jint choreo_get_what(JNIEnv*e,jobject message){jclass c=(*e)->FindClass(e,"android/os/Message");jfieldID what=(*e)->GetFieldID(e,c,"what","I");jint result=(*e)->GetIntField(e,message,what);(*e)->DeleteLocalRef(e,c);return result;}
+jlong choreo_unbox_long(JNIEnv*e,jobject value){jclass c=(*e)->FindClass(e,"java/lang/Long");jmethodID method=(*e)->GetMethodID(e,c,"longValue","()J");jlong result=(*e)->CallLongMethod(e,value,method);(*e)->DeleteLocalRef(e,c);return result;}
+jobject choreo_reflected(JNIEnv*e,jclass owner,jmethodID method){return(*e)->ToReflectedMethod(e,owner,method,JNI_FALSE);}
+jmethodID choreo_from_reflected(JNIEnv*e,jobject reflected){return(*e)->FromReflectedMethod(e,reflected);}
+jobject choreo_box_boolean(JNIEnv*e,jint value,jint form){jclass c=(*e)->FindClass(e,"java/lang/Boolean");jmethodID method=(*e)->GetMethodID(e,c,"<init>","(Z)V");jobject result;if(form==0)result=(*e)->NewObject(e,c,method,(jboolean)value);else if(form==1)result=new_v(e,c,method,(jboolean)value);else{jvalue argument;memset(&argument,0xd6,sizeof(argument));argument.z=(jboolean)value;result=(*e)->NewObjectA(e,c,method,&argument);}(*e)->DeleteLocalRef(e,c);return result;}
+jobject choreo_interfaces(JNIEnv*e,jint singleton){jclass classes=(*e)->FindClass(e,"java/lang/Class"),handler=(*e)->FindClass(e,"android/os/Handler$Callback");jobjectArray result=(*e)->NewObjectArray(e,singleton?1:2,classes,handler);if(!singleton){jclass frame=(*e)->FindClass(e,"android/view/Choreographer$FrameCallback");(*e)->SetObjectArrayElement(e,result,1,frame);(*e)->DeleteLocalRef(e,frame);}(*e)->DeleteLocalRef(e,handler);(*e)->DeleteLocalRef(e,classes);return result;}
+jobject choreo_reflect_any(JNIEnv*e,jclass owner,jmethodID method,jint stat){return(*e)->ToReflectedMethod(e,owner,method,(jboolean)stat);}
