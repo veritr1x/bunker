@@ -27,6 +27,21 @@ their exact formats, output ABI and buffer provenance are sealed in
 `work/sched-yield1-sscanf-boundary1/acceptance.json`, SHA256
 `62e95990002c9e28e210c528277844bba65bdbccefeefad87546296b3a36a7d2`.
 
+The scanner and bootstrap bridge now implement all four audited string formats
+while retaining the existing `%llu` conversion. The Windows qualification
+passes 387 checks and 51 genuine NDK calls; all 51 complete output/status/errno
+records match actual static Bionic byte for byte. Native scanning uses owned
+temporary buffers and checked, sequential publication of assigned outputs.
+The six-GP bridge handles all four possible output pointers; the character
+audit logs escaped formats/counts without reading outputs as integers.
+Qualification: `work/libc-scan-profiles-qualification3/acceptance.json`, SHA256
+`7e10534c3ebd9a92eeb400f1b311637092409dab38d4ba1783e14f8829d8c57b`.
+Integration/source inverses: `work/sscanf-integration1/proof.json`, SHA256
+`688f0457b05e5a0cace2413b2721d77e4cc8ed023d137aaae0ed4d7cbeb5b80c`.
+Q1's invalid-input fixture assumption and canceled Q2 remain preserved;
+valid readable C input/format strings are required. The fresh original-game
+build/run is pending; this does not yet establish that URL parsing completes.
+
 Overlay SHA256 `9176b71822793a8d6a44e70e44ff5bd9e332db3c8a46282f97a34202f5ff9f04`;
 EXE `8e7dac13b19d5c45b37e10b74ed193f300d5cf60b9406e83f191e0fc124c2995`;
 log `257bc10c2ebd4a879c59d3594257efac6a201fa873e70928bfc6a73202906e88`.

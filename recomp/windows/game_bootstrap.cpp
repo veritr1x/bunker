@@ -555,16 +555,24 @@ int main(int argc,char **argv){
       catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original mmap length=%llu flags=%#x LR=%#llx failed:%s\n",(unsigned long long)length,flags,(unsigned long long)caller,e.what());std::abort();}
     });
     constexpr addr_t sscanf_audit_marker=0x7ffc68000008ULL;
-    auto sscanf_bridge=recomp::MakeBridge<int32_t(const char*,const char*,uint64_t*)>([&libc](auto input,auto format,auto output){return libc.ScanUnsignedLongLong(input,format,output);});
+    auto sscanf_bridge=recomp::MakeBridge<int32_t(const char*,const char*,addr_t,addr_t,addr_t,addr_t)>([&libc](auto input,auto format,auto a,auto b,auto c,auto d){return libc.Scan(input,format,a,b,c,d);});
     runtime.AddImport(sscanf_audit_marker,[&,sscanf_bridge](State &s){
+      GameWorkerObservation::NativeEnvironment native;
       const auto caller=s.gpr.x30.qword,output=s.gpr.x2.qword;
+      std::string format_label="<unread>";
       try{
         const auto format=recomp::ReadGuestString(s.gpr.x1.qword);
+        format_label.clear();
+        for(char ch:format){if(ch=='\n')format_label+="\\n";else if(ch=='\r')format_label+="\\r";else if(ch=='\\')format_label+="\\\\";else format_label+=ch;}
         sscanf_bridge(s);const auto count=static_cast<int32_t>(s.gpr.x0.dword);
-        const auto value=count==1?Read<uint64_t>(output):0;
-        std::fprintf(stderr,"Game bootstrap: original sscanf format=%s LR=%#llx result=%d assigned=%d value=%llu errno=%d\n",format.c_str(),(unsigned long long)caller,count,int(count==1),(unsigned long long)value,files.Error());
-      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original sscanf LR=%#llx failed:%s\n",(unsigned long long)caller,e.what());std::abort();}
-      catch(...){std::fprintf(stderr,"Game bootstrap: original sscanf LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
+        if(format=="%llu"){
+          const auto value=count==1?Read<uint64_t>(output):0;
+          std::fprintf(stderr,"Game bootstrap: original sscanf format=%s LR=%#llx result=%d assigned=%d value=%llu errno=%d\n",format_label.c_str(),(unsigned long long)caller,count,int(count==1),(unsigned long long)value,files.Error());
+        }else{
+          std::fprintf(stderr,"Game bootstrap: original sscanf format=%s LR=%#llx result=%d assigned=%d characterProfile=1; input/output contents not logged\n",format_label.c_str(),(unsigned long long)caller,count,std::max(count,0));
+        }
+      }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original sscanf format=%s LR=%#llx failed:%s\n",format_label.c_str(),(unsigned long long)caller,e.what());std::abort();}
+      catch(...){std::fprintf(stderr,"Game bootstrap: original sscanf format=%s LR=%#llx failed:unknown host exception\n",format_label.c_str(),(unsigned long long)caller);std::abort();}
     });
     constexpr addr_t setlocale_audit_marker=0x7ffc68000010ULL;
     auto setlocale_bridge=recomp::MakeBridge<char*(int32_t,const char*)>([&libc](auto category,auto name){return libc.SetLocale(category,name);});

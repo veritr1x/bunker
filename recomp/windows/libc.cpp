@@ -8,6 +8,7 @@
 #include "libc_calendar_detail.h"
 #include "unicode.h"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cerrno>
 #include <cmath>
@@ -421,6 +422,58 @@ int32_t LibC::ScanUnsignedLongLong(const char *input,const char *format,uint64_t
   pm::Write(output,value);
   return 1;
 }
+int32_t LibC::Scan(const char *input,const char *format,addr_t output0,addr_t output1,addr_t output2,addr_t output3){
+  libc_calendar::NativeEnvironment native;
+  const auto pattern=pm::String(format);
+  if(pattern=="%llu")return ScanUnsignedLongLong(input,format,reinterpret_cast<uint64_t*>(output0));
+  enum class Profile { Scheme,Authority,NoScheme,Bracket };
+  Profile profile;
+  size_t conversions;
+  if(pattern=="%15[^:]:%[^\n]"){profile=Profile::Scheme;conversions=2;}
+  else if(pattern=="%15[^\n:]:%3[/]%[^\n/?#]%[^\n]"){profile=Profile::Authority;conversions=4;}
+  else if(pattern=="%[^\n/?#]%[^\n]"){profile=Profile::NoScheme;conversions=2;}
+  else if(pattern=="[%*45[0123456789abcdefABCDEF:.]%c"){profile=Profile::Bracket;conversions=1;}
+  else throw std::runtime_error("sscanf format is outside the exact qualified profiles");
+  // Never expose guest output pointers to the native variadic CRT. Snapshot
+  // input and format before output effects, including input/format aliases.
+  const auto text=pm::String(input);
+  if(text.size()==SIZE_MAX)throw std::overflow_error("sscanf staging size overflows");
+  std::array<std::vector<char>,4> buffers;
+  for(size_t i=0;i<conversions;++i)buffers[i].resize(text.size()+1);
+  int result;
+  switch(profile){
+    case Profile::Scheme:result=std::sscanf(text.c_str(),"%15[^:]:%[^\n]",buffers[0].data(),buffers[1].data());break;
+    case Profile::Authority:result=std::sscanf(text.c_str(),"%15[^\n:]:%3[/]%[^\n/?#]%[^\n]",buffers[0].data(),buffers[1].data(),buffers[2].data(),buffers[3].data());break;
+    case Profile::NoScheme:result=std::sscanf(text.c_str(),"%[^\n/?#]%[^\n]",buffers[0].data(),buffers[1].data());break;
+    case Profile::Bracket:result=std::sscanf(text.c_str(),"[%*45[0123456789abcdefABCDEF:.]%c",buffers[0].data());break;
+  }
+  if(result<EOF||result>static_cast<int>(conversions))throw std::runtime_error("native sscanf returned an invalid assignment count");
+  const addr_t outputs[]={output0,output1,output2,output3};
+  // Publish only actual assignments, in conversion order. This is not a
+  // transaction across output fields; a later invalid pointer can reject after
+  // a preceding assignment was published. Suppressed/unassigned fields have no
+  // output access. Pointer misuse remains outside the valid C scanf contract.
+  for(int i=0;i<result;++i){
+    const auto size=profile==Profile::Bracket?size_t{1}:std::strlen(buffers[i].data())+1;
+    const auto address=outputs[i];
+    if(!address||address>std::numeric_limits<addr_t>::max()-size)throw std::runtime_error("sscanf assigned output address/range is invalid");
+    bool copied=false;
+    recomp::WithGuestMemoryWrite(address,size,[&]{
+#ifdef _WIN32
+      if(!libc_detail::uname_detail::Writable(address,size))return;
+      SIZE_T count=0;
+      copied=WriteProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(address),buffers[i].data(),size,&count)&&count==size;
+#else
+      iovec local{buffers[i].data(),size};
+      iovec remote{reinterpret_cast<void*>(address),size};
+      const auto count=::syscall(SYS_process_vm_writev,::getpid(),&local,1,&remote,1,0);
+      copied=count==static_cast<decltype(count)>(size);
+#endif
+    });
+    if(!copied)throw std::runtime_error("sscanf assigned output is not fully writable");
+  }
+  return static_cast<int32_t>(result);
+}
 void LibC::BuildEnvironment(){
   std::vector<char*> next;
   char **array=nullptr;
@@ -482,7 +535,7 @@ void LibC::Install(recomp::Runtime &runtime){
   if(installed_)throw std::logic_error("libc imports already installed");
   Add<char*(int32_t,const char*)>(runtime,"setlocale",[this](auto category,auto name){return SetLocale(category,name);});
   Add<void*(const void*,const void*,uint64_t,uint64_t,addr_t)>(runtime,"bsearch",[this](auto key,auto base,auto count,auto size,auto comparator){return BinarySearch(key,base,count,size,comparator);});
-  Add<int32_t(const char*,const char*,uint64_t*)>(runtime,"sscanf",[this](auto input,auto format,auto output){return ScanUnsignedLongLong(input,format,output);});
+  Add<int32_t(const char*,const char*,addr_t,addr_t,addr_t,addr_t)>(runtime,"sscanf",[this](auto input,auto format,auto a,auto b,auto c,auto d){return Scan(input,format,a,b,c,d);});
   Add<void*(uint64_t)>(runtime,"malloc",[this](auto n){return Malloc(n);});
   Add<void*(uint64_t,uint64_t)>(runtime,"calloc",[this](auto n,auto s){return Calloc(n,s);});
   Add<void*(void*,uint64_t)>(runtime,"realloc",[this](auto p,auto n){return Realloc(p,n);});

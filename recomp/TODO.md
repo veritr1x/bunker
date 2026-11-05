@@ -23,8 +23,9 @@ Scheduler yield support passes 436 Windows checks and 48 translated NDK calls
 and is included in the latest full host build. The original game now completes
 its HTTPS proxy-property query. It next stops at the sscanf adapter, which
 supports only `%llu`: original URL parsing requests `%15[^:]:%[^\n]` and two
-char-buffer outputs. The next work is correct scanset/character parsing and
-the corresponding variadic ABI/bootstrap audit. Two original renders return,
+char-buffer outputs. The new scanner and six-GP bridge now pass 387 Windows
+checks and 51 exact output/status/errno comparisons against actual Bionic;
+the fresh host build and original-game run are next. Two original renders return,
 but there is still no successful swap or captured game image. Windows
 auto-detection remains unresolved and is not a proven direct route.
 Initialization, rendering, gameplay,
