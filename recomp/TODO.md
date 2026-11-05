@@ -19,8 +19,10 @@ without replay. The actual FirebaseCppApp-9_6_0 request fails because that
 APK library has not been translated. The recorded fatal is the unimplemented
 UnityPlayer.getNetworkProxySettings(String) method, with no pending exception
 at entry. Two original renders return, but there is still no successful swap
-or captured game image. The next work is its real property source/formatting;
-Windows auto-detection must not be mistaken for a proven direct route.
+or captured game image. Its real manual-property adapter now passes 789 Windows
+checks and 151 translated NDK calls; the bootstrap binding is ready for a fresh
+full-host build and original-game execution. Windows auto-detection remains
+unresolved and must not be mistaken for a proven direct route.
 Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
 The network inventory still identifies 32 missing imports plus four file APIs

@@ -52,6 +52,23 @@ formatting without an unconditional null or invented PAC result.
 Audit: `work/java-string-loader1-proxy-boundary1/acceptance.json`, SHA256
 `f77a58c170ea58530dc9b0da59bf7710c6518bbb1a18f03be8ffcd8730e4643e`.
 
+The manual-property adapter and bootstrap binding are now implemented. The
+focused Windows qualification passes 789 checks and 151 genuine translated
+NDK calls across direct/V/A JNI forms, with nine traces, one object and no
+unsupported or unresolved targets. It independently compares the live manual
+settings and automatic-configuration metadata to WinHTTP; no network request
+or automatic proxy resolution occurs. Qualification:
+`work/unity-network-proxy-qualification3/acceptance.json`, SHA256
+`140eb112eed1346d26891262063001cf98c85d8f57fa0ef16db5f2f6ffee291a`.
+Q1's path-conversion and Q2's repeated fixture-mapping failures are preserved;
+Q3 fixes only the harness. The provider uses real Windows manual settings,
+preserves the DEX null/empty distinction and fails explicitly on unsupported
+manual configuration forms. The bootstrap binding outlives worker draining
+and installs before initJni. Integration proof:
+`work/network-proxy-integration1/proof.json`, SHA256
+`44532ffde0dfa5301048e71a9f6c24c97bd25cf5d684e09fa3811e395bafdb94`.
+It has not yet run in the original game executable.
+
 After this run, source `7f18d15` corrects the loader's version predicate to
 reject JNI 1.1 as ART does. Fresh Windows/Linux NDK tests verify the 1.1
 failure cache and adoption rejection; Unity's observed 1.6 is unaffected.

@@ -13,6 +13,7 @@
 #include "reflection_launch_epoch.h"
 #include "java_native_libraries.h"
 #include "java_native_loader.h"
+#include "unity_network_proxy.h"
 #include "unicode.h"
 #include "apk_assets.h"
 #include "native_window.h"
@@ -405,6 +406,7 @@ int main(int argc,char **argv){
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
     // Declared before Drain so all guest workers stop before this service is revoked.
     std::unique_ptr<JavaNativeLoader> native_loader;
+    std::unique_ptr<UnityNetworkProxy> network_proxy;
     modules.SetProgramHeaderRunner([&](addr_t callback,addr_t info,uint64_t size,addr_t data){
       Require(Translated(callback),"program-header callback is not translated");
       {
@@ -881,6 +883,19 @@ int main(int argc,char **argv){
       // another dlopen, constructor cycle or JNI_OnLoad execution.
       native_loader->Adopt(u"unity",module,static_cast<int32_t>(version));
       native_loader->BindUnityPlayer();
+      UnityNetworkProxy::Config proxy_config;
+      proxy_config.observer=[](const UnityNetworkProxy::Event &event){
+        GameWorkerObservation::NativeEnvironment native;
+        const auto *properties=event.manual_properties?&*event.manual_properties:nullptr;
+        int host_present=-1,automatic=-1,pac_configured=-1;
+        if(properties){
+          const auto &host=event.scheme=="https"?properties->httpsHost:properties->httpHost;
+          host_present=int(host&&!host->empty());automatic=int(properties->autoDetect);
+          pac_configured=int(properties->autoConfigUrl&&!properties->autoConfigUrl->empty());
+        }
+        std::fprintf(stderr,"Game network proxy: scheme=%s readerUsed=%d manualHostPresent=%d resultPresent=%d autoDetect=%d pacConfigured=%d; manual properties only, automatic resolution not performed\n",event.scheme.c_str(),int(event.reader_used),host_present,int(event.result.has_value()),automatic,pac_configured);
+      };
+      network_proxy=std::make_unique<UnityNetworkProxy>(java,std::move(proxy_config));
     }
     std::fprintf(stderr,"Unity bootstrap: all %zu evidenced native bindings match original ELF/DEX\n",std::size(kUnityRegistrations));
     for(auto name:kUnityJavaClasses){auto count=java.NativeCount(name);if(count)std::fprintf(stderr,"Unity bootstrap: registered %zu natives on %s\n",count,name);}
