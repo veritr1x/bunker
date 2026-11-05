@@ -12,6 +12,7 @@
 #include "jni_interface_proxy.h"
 #include "reflection_launch_epoch.h"
 #include "reflection_helper.h"
+#include "firebase_app.h"
 #include "java_native_libraries.h"
 #include "java_native_loader.h"
 #include "unity_network_proxy.h"
@@ -259,6 +260,8 @@ extern "C" Memory *__wrap___bunker_guest_call(State &s,addr_t target,Memory *mem
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
+  const char *firebase_dll_argument=nullptr;
+  if(argc==13&&!std::strcmp(argv[11],"--firebase-app-dll")){firebase_dll_argument=argv[12];argc-=2;}
   const bool first_frame=argc==11&&!std::strcmp(argv[10],"--first-frame");
   if(first_frame)--argc;
   const bool collector_delivery=argc==10&&!std::strcmp(argv[8],"--mute-audio")&&!std::strcmp(argv[9],"--collector-delivery");
@@ -266,6 +269,7 @@ int main(int argc,char **argv){
   const bool frame_gate=(argc==8||mute_audio)&&!std::strcmp(argv[4],"--frame-gate");
   const bool surface_gate=frame_gate||(argc==7&&!std::strcmp(argv[4],"--surface-gate"));
   if(first_frame&&!collector_delivery){std::fputs("First frame diagnostic requires the explicit muted collector profile\n",stderr);return 2;}
+  if(firebase_dll_argument&&!first_frame){std::fputs("Windows Firebase SDK requires the explicit first-frame profile\n",stderr);return 2;}
   if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio [--collector-delivery]]]\n");return 2;}
 #if !defined(BUNKER_GAME_COLLECTOR_DELIVERY) || !BUNKER_GAME_COLLECTOR_DELIVERY
   if(collector_delivery){std::fputs("Game GC: original delivery profile is unavailable in this build\n",stderr);return 2;}
@@ -284,6 +288,7 @@ int main(int argc,char **argv){
     auto native_directory=fs::canonical(fs::u8path(argv[1]));
     auto library=native_directory/"libunity.so",il2cpp_library=native_directory/"libil2cpp.so";
     auto apk=fs::canonical(fs::u8path(argv[2]));
+    const auto firebase_dll=firebase_dll_argument?fs::canonical(fs::u8path(firebase_dll_argument)):fs::path{};
     const auto runtime_apk_sha256=Sha256(apk);
     // This exact data-only Windows variant preserves the verified DEX/native catalog.
     const bool windows_presentation_apk=first_frame&&collector_delivery&&runtime_apk_sha256=="fd0d0d357a4e8c316d0e732783d795f0e100a675d0c7a0fcf252873deb84f538";
@@ -342,7 +347,9 @@ int main(int argc,char **argv){
       auto app=call(6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer")),clazz=call(6,reinterpret_cast<addr_t>("java/lang/Class"));
       auto method=call(33,clazz,reinterpret_cast<addr_t>("getClassLoader"),reinterpret_cast<addr_t>("()Ljava/lang/ClassLoader;"));auto loader=call(34,app,method);
       application_loader=java.CaptureValue(loader);
-      native_catalog=std::make_unique<JavaNativeLibraries>(java,JavaNativeLibraries::Config{loader,app,{{u"unity",u"/data/app/bunker/lib/arm64/libunity.so"},{u"il2cpp",u"/data/app/bunker/lib/arm64/libil2cpp.so"}}});
+      JavaNativeLibraries::Config catalog_config{loader,app,{{u"unity",u"/data/app/bunker/lib/arm64/libunity.so"},{u"il2cpp",u"/data/app/bunker/lib/arm64/libil2cpp.so"}}};
+      if(!firebase_dll.empty())catalog_config.libraries.push_back({u"FirebaseCppApp-9_6_0",u"/data/app/bunker/lib/arm64/libFirebaseCppApp-9_6_0.so"});
+      native_catalog=std::make_unique<JavaNativeLibraries>(java,catalog_config);
     }
     if(frame_gate)AudioVolumeSession::DeclareFields(java);
     AndroidContextConfig context_config;
@@ -456,6 +463,8 @@ int main(int argc,char **argv){
     GameModuleLedger il2cpp_ledger{"IL2CPP",{std::begin(il2cpp_image::kConstructors),std::end(il2cpp_image::kConstructors)},{std::begin(il2cpp_image::kFinalizers),std::end(il2cpp_image::kFinalizers)}};
     ModuleRegistry modules([&](addr_t entry){try{Require(runner,"module lifecycle runner is unavailable");auto *owner=unity_ledger.Owns(entry)?&unity_ledger:il2cpp_ledger.Owns(entry)?&il2cpp_ledger:nullptr;Require(owner,"module lifecycle entry has no verified owner");owner->Run(entry,*runner);constructor_index=unity_ledger.constructed;}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: module lifecycle failed:%s entry=%#llx\n",e.what(),(unsigned long long)entry);std::abort();}});
     LibC libc([&](addr_t entry,const std::vector<addr_t> &args){return runner->Run(entry,args);});
+    // The native SDK service and its retained trampolines outlive guest drain.
+    std::unique_ptr<FirebaseAppService> firebase;
     logging.SetAllocator([&](uint64_t size){return libc.Malloc(size);});
     libc.SetErrorSink(error);libc.SetEnvironment({});
     // Import callbacks can reference this audit until every worker has joined.
@@ -682,6 +691,26 @@ int main(int argc,char **argv){
       catch(...){std::fprintf(stderr,"Game bootstrap: original dup LR=%#llx failed:unknown host exception\n",(unsigned long long)caller);std::abort();}
     });
     tls_audit.Install(runtime,threads);
+    if(!firebase_dll.empty()){
+      FirebaseAppService::Config config;
+      config.dll_path=firebase_dll.wstring();
+      config.verify_library=[](const std::wstring &path,const std::string &expected){Require(Sha256(fs::path(path))==expected,"Windows Firebase DLL differs from the exact official SDK pin");};
+      config.translated_entry=Translated;
+      config.admitted_thread=[&]{return recomp::CurrentExecutionState()&&bool(process_signals.Lookup(threads.Self()))&&modules.ReferenceCount("libil2cpp.so")&&!il2cpp_ledger.finalized;};
+      config.runner=[&](addr_t entry,const std::vector<addr_t>&arguments){
+        Require(recomp::CurrentExecutionState()&&Translated(entry)&&bool(process_signals.Lookup(threads.Self()))&&modules.ReferenceCount("libil2cpp.so")&&!il2cpp_ledger.finalized,"Firebase reverse P/Invoke has no admitted live translated owner");
+        return threads.Run(entry,arguments);
+      };
+      stage="genuine Windows Firebase SDK setup";firebase=std::make_unique<FirebaseAppService>(std::move(config));
+      for(const auto &name:FirebaseAppService::Commands())runtime.AddImport(firebase->Marker(name),[&,name](State&s){
+        const auto caller=s.gpr.x30.qword;
+        firebase->Invoke(name,s);
+        GameWorkerObservation::NativeEnvironment native;
+        std::fprintf(stderr,"Windows Firebase SDK: original P/Invoke %s returned=%#llx LR=%#llx; genuine desktop SDK result, no Android JNI_OnLoad\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)caller);
+      });
+      modules.Add(firebase->MakeModule());
+      std::fputs("Windows Firebase SDK: exact official 9.6.0 DLL admitted as a typed platform service; original Android code and scene flow preserved\n",stderr);
+    }
     modules.Install(module_bridges);
     for(const char *name:{"dlopen","dlsym","dlclose","dlerror","dladdr","dl_iterate_phdr"}){auto marker=modules.Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
       const auto argument=s.gpr.x0.qword,output=s.gpr.x1.qword,caller=s.gpr.x30.qword;
@@ -1013,6 +1042,7 @@ int main(int argc,char **argv){
       JavaNativeLoader::Config config;
       config.application_class=app_state.gpr.x0.qword;config.application_loader=java.LocalValue(application_loader);
       config.libraries={{u"unity","/data/app/bunker/lib/arm64/libunity.so",onload},{u"il2cpp","/data/app/bunker/lib/arm64/libil2cpp.so",0}};
+      if(firebase)config.libraries.push_back({u"FirebaseCppApp-9_6_0","/data/app/bunker/lib/arm64/libFirebaseCppApp-9_6_0.so",0});
       config.runner=[&threads](addr_t entry,const std::vector<addr_t>&args){
         Require(Translated(entry),"Java JNI_OnLoad target is not translated");
         auto result=threads.Run(entry,args);
@@ -1111,6 +1141,7 @@ int main(int argc,char **argv){
           if(actual_render&&target==actual_render)std::fprintf(stderr,"Game bootstrap: before original nativeRender IL2CPP constructors=%zu refs=%zu\n",il2cpp_ledger.constructed,modules.ReferenceCount("libil2cpp.so"));
           std::fprintf(stderr,"Unity bootstrap: UnityMain host-thread=%lu native=%#llx argc=%zu env=%#llx receiver=%#llx display=%#llx surface=%#llx\n",GetCurrentThreadId(),static_cast<unsigned long long>(target),args.size(),static_cast<unsigned long long>(args.at(0)),static_cast<unsigned long long>(args.at(1)),static_cast<unsigned long long>(args.size()>2?args[2]:0),static_cast<unsigned long long>(args.size()>3?args[3]:0));
           auto result=threads.Run(target,args);
+          if(firebase)firebase->CheckHealthy();
           if(first_frame&&actual_render&&target==actual_render&&render_observation_calls==4&&ObserveFourthFrameThread()){
             FourthFrameNativeEnvironment environment;fourth_frame_observation_thread.store(0,std::memory_order_relaxed);
             std::fputs("Fourth-frame observation: original render returned; exhaustive JNI/synchronization observation completed\n",stderr);

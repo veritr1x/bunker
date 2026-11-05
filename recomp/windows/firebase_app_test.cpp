@@ -1,0 +1,82 @@
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <bcrypt.h>
+#include "firebase_app.h"
+#include "../whole/bridge.h"
+#include "../whole/guest_memory.h"
+#include "../fastaes/elfload.h"
+#include "traces.h"
+#include <array>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
+#include <cfenv>
+#include <fstream>
+#include <stdexcept>
+#include <thread>
+#include <set>
+using namespace bunker::windows;
+namespace {
+unsigned checks=0,calls=0,callback_runs=0,replay_count=0,allocations=0,frees=0,verified=0,installed=0;
+std::set<addr_t> sdk_markers;
+void Check(bool v,const char*m){++checks;if(!v)throw std::runtime_error(m);}
+addr_t A(const void*p){return reinterpret_cast<addr_t>(p);}
+using E=void(*)(const char*);using B=void(*)(const char*,const char*);using S=const char*(*)(const char*);using L=void(*)(int32_t,const char*);
+using RE=void(*)(E,E,E,E,E,E,E,E,E,E,E);using RB=void(*)(B,B,B);
+RE real_e=nullptr;RB real_b=nullptr;void(*real_s)(S)=nullptr;void(*real_l)(L)=nullptr;
+std::array<E,11>saved_e{};std::array<B,3>saved_b{};S saved_s=nullptr;L saved_l=nullptr;
+void ObserveE(E a,E b,E c,E d,E e,E f,E g,E h,E i,E j,E k){saved_e={a,b,c,d,e,f,g,h,i,j,k};real_e(a,b,c,d,e,f,g,h,i,j,k);}
+void ObserveB(B a,B b,B c){saved_b={a,b,c};real_b(a,b,c);}
+void ObserveS(S p){saved_s=p;real_s(p);}void ObserveL(L p){saved_l=p;real_l(p);}
+template<class F>F Fn(HMODULE h,const char*n){auto p=GetProcAddress(h,n);Check(p!=nullptr,"actual official DLL export exists");F f;memcpy(&f,&p,sizeof(f));return f;}
+const char*NativeCopy(const char*s){auto n=std::strlen(s)+1;auto p=static_cast<char*>(std::malloc(n));std::memcpy(p,s,n);return p;}
+uint64_t Hash(const char*s){uint64_t h=0;while(*s)h=h*131+static_cast<unsigned char>(*s++);return h;}
+std::string Sha(const std::wstring&p){BCRYPT_ALG_HANDLE a{};BCRYPT_HASH_HANDLE h{};Check(BCryptOpenAlgorithmProvider(&a,BCRYPT_SHA256_ALGORITHM,nullptr,0)==0,"native SHA provider");DWORD size=0,n=0;Check(BCryptGetProperty(a,BCRYPT_OBJECT_LENGTH,reinterpret_cast<PUCHAR>(&size),sizeof(size),&n,0)==0,"native SHA object length");std::vector<unsigned char>storage(size);Check(BCryptCreateHash(a,&h,storage.data(),size,nullptr,0,0)==0,"native SHA create");HANDLE f=CreateFileW(p.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);Check(f!=INVALID_HANDLE_VALUE,"verified native DLL file opens");std::array<unsigned char,65536>b{};DWORD got;do{Check(ReadFile(f,b.data(),DWORD(b.size()),&got,nullptr)!=0,"native DLL bytes read");if(got)Check(BCryptHashData(h,b.data(),got,0)==0,"native SHA update");}while(got);CloseHandle(f);std::array<unsigned char,32>digest{};Check(BCryptFinishHash(h,digest.data(),32,0)==0,"native SHA finalize");BCryptDestroyHash(h);BCryptCloseAlgorithmProvider(a,0);char text[65];for(unsigned i=0;i<32;i++)std::snprintf(text+2*i,3,"%02x",digest[i]);return text;}
+struct Env {int e=errno;DWORD w=GetLastError();std::fenv_t fp{};Env(){std::fegetenv(&fp);}~Env(){std::fesetenv(&fp);errno=e;SetLastError(w);}};
+template<class F>uint64_t Preserve(F f){Env old;std::fesetround(FE_UPWARD);std::feclearexcept(FE_ALL_EXCEPT);std::feraiseexcept(FE_INVALID|FE_DIVBYZERO);auto flags=std::fetestexcept(FE_ALL_EXCEPT);errno=EDOM;SetLastError(0xf1aeb453);auto result=f();if(!(errno==EDOM&&GetLastError()==0xf1aeb453&&std::fegetround()==FE_UPWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags))std::fprintf(stderr,"ENV errno=%d last=%lu round=%d flags=%d expectedflags=%d\\n",errno,GetLastError(),std::fegetround(),std::fetestexcept(FE_ALL_EXCEPT),flags);Check(errno==EDOM&&GetLastError()==0xf1aeb453&&std::fegetround()==FE_UPWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags,"SDK import/callback preserves complete caller native environment");return result;}
+addr_t replay_marker=0x7fee00000010ULL,malloc_marker=0x7fee00000018ULL,free_marker=0x7fee00000020ULL;
+void*Resolve(const char*n){if(!strcmp(n,"TEST_replay"))return reinterpret_cast<void*>(replay_marker);if(!strcmp(n,"malloc"))return reinterpret_cast<void*>(malloc_marker);if(!strcmp(n,"free"))return reinterpret_cast<void*>(free_marker);throw std::runtime_error(std::string("unqualified NDK import: ")+n);}
+}
+extern "C" FARPROC(WINAPI*RealGetProcAddress)(HMODULE,LPCSTR) __asm__("__real___imp_GetProcAddress");
+extern "C" FARPROC WINAPI ObserveGetProcAddress(HMODULE h,LPCSTR n){auto p=RealGetProcAddress(h,n);if(p&&reinterpret_cast<uintptr_t>(n)>65535){
+#define OBS(NAME,REAL,OBSERVER) if(!strcmp(n,NAME)){memcpy(&REAL,&p,sizeof(REAL));auto q=&OBSERVER;memcpy(&p,&q,sizeof(q));}
+OBS("SWIGRegisterExceptionCallbacks_AppUtil",real_e,ObserveE)
+OBS("SWIGRegisterExceptionArgumentCallbacks_AppUtil",real_b,ObserveB)
+OBS("SWIGRegisterStringCallback_AppUtil",real_s,ObserveS)
+OBS("Firebase_App_CSharp_SetLogFunction",real_l,ObserveL)
+#undef OBS
+}return p;}
+extern "C" {FARPROC(WINAPI*__wrap___imp_GetProcAddress)(HMODULE,LPCSTR)=ObserveGetProcAddress;}
+extern "C" void RealAddImport(recomp::Runtime*,addr_t,std::function<void(State&)>) __asm__("__real__ZN6recomp7Runtime9AddImportEySt8functionIFvR5StateEE");
+extern "C" void WrapAddImport(recomp::Runtime*,addr_t,std::function<void(State&)>) __asm__("__wrap__ZN6recomp7Runtime9AddImportEySt8functionIFvR5StateEE");
+extern "C" void WrapAddImport(recomp::Runtime*r,addr_t p,std::function<void(State&)> fn){if(sdk_markers.count(p)){auto original=std::move(fn);fn=[original=std::move(original),p](State&s){++installed;std::fprintf(stderr,"SDK-CALL marker=%#llx\n",(unsigned long long)p);Preserve([&]{original(s);return uint64_t(0);});};}RealAddImport(r,p,std::move(fn));}
+int main(int argc,char**argv){try{
+ Check(sizeof(State)==1200&&sizeof(addr_t)==8,"actual State1200/Memory64 ABI");bool foreign=argc==2&&!strcmp(argv[1],"foreign");recomp::Runtime runtime;elf_image image{};Check(!elf_load(FIREBASE_GUEST,0x62000000,Resolve,&image),"real NDK Firebase callback ELF mapped");runtime.AddTraces(kTraces,std::size(kTraces));std::map<void*,size_t>owned;
+ runtime.AddImport(malloc_marker,recomp::MakeBridge<addr_t(addr_t)>([&](addr_t n){void*p=std::malloc(n);Check(p&&owned.emplace(p,n).second,"actual callback C allocation owned");recomp::InvalidateGuestMemory(A(p),n);++allocations;return A(p);}));
+ runtime.AddImport(free_marker,recomp::MakeBridge<void(addr_t)>([&](addr_t p){auto it=owned.find(reinterpret_cast<void*>(p));Check(it!=owned.end(),"original-style caller frees the exact returned callback allocation");recomp::InvalidateGuestMemory(p,it->second);std::free(it->first);owned.erase(it);++frees;}));
+ auto execute=[&](addr_t entry,const std::vector<addr_t>&args){++calls;alignas(16)std::array<unsigned char,65536>stack{};State state{};auto top=A(stack.data()+stack.size()-128);Reg GPR::*r[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3,&GPR::x4,&GPR::x5,&GPR::x6,&GPR::x7};for(size_t i=0;i<args.size();i++)if(i<8)(state.gpr.*r[i]).qword=args[i];else memcpy(reinterpret_cast<void*>(top+8*(i-8)),&args[i],8);state.gpr.sp.qword=top;state.gpr.x30.qword=0xfeed7830;state.gpr.x19.qword=0xfedcba9876543210ULL;state.gpr.x29.qword=0xabcdef0123456789ULL;reinterpret_cast<unsigned char*>(&state)[1199]=0x6d;std::array<uint64_t,8>memory;memory.fill(0xa7a7a7a7a7a7a7a7ULL);auto before=memory;auto*token=reinterpret_cast<Memory*>(memory.data());Check(runtime.Run(state,entry,token)==token&&before==memory,"actual NDK Memory64 bytes and token preserved");Check(state.gpr.pc.qword==0xfeed7830&&state.gpr.sp.qword==top&&state.gpr.x19.qword==0xfedcba9876543210ULL&&state.gpr.x29.qword==0xabcdef0123456789ULL,"NDK saved high64 PC/SP/GPR preserved");Check(reinterpret_cast<unsigned char*>(&state)[1199]==0x6d,"State1200 terminal guard preserved");return state.gpr.x0.qword;};
+ auto symbol=[&](const char*n){auto p=A(elf_symbol(&image,n));Check(p&&runtime.HasGuestTrace(p),"genuine translated NDK symbol");return p;};
+ std::wstring dll=FIREBASE_DLL;FirebaseAppService service({dll,[&](const std::wstring&p,const std::string&expected){Check(expected==FirebaseAppService::kDllSha256&&Sha(p)==expected,"requested and actually loaded official DLL exact native SHA");++verified;},[&](addr_t entry,const std::vector<addr_t>&args){++callback_runs;Check(recomp::CurrentExecutionState()!=nullptr,"reverse callback retains genuine guest owner frame");return execute(entry,args);},[&]{return recomp::CurrentExecutionState()!=nullptr;},[&](addr_t p){return runtime.HasGuestTrace(p);}});for(const auto&n:service.Commands())sdk_markers.insert(service.Marker(n));service.Install(runtime);
+ auto module=service.MakeModule();Check(module.kind==Module::Kind::TypedService&&!module.address_image&&module.initializers.empty()&&module.finalizers.empty(),"Windows SDK service does not claim Android ELF/JNI_OnLoad");ModuleRegistry registry([](addr_t){throw std::runtime_error("typed SDK fabricated lifecycle");});registry.Add(module);auto handle=registry.Open("FirebaseCppApp-9_6_0",2);Check(handle!=0,"actual registered module alias opens");for(const auto&n:service.Commands())Check(registry.Symbol(handle,n.c_str())==service.Marker(n),"all closed native names resolve typed markers");Check(!registry.Symbol(handle,"Firebase_App_CSharp_FixAndroidDependencies")&&registry.Error()!=0,"unimplemented Future/dependency repair remains unavailable");Check(registry.Error()==0,"loader error consumed once");registry.Close(handle);
+ auto run=[&](const char*n,std::initializer_list<addr_t>a){return execute(symbol(n),std::vector<addr_t>(a));};
+ auto call0=[&](const char*n){return run("call0",{service.Marker(n)});};auto call1=[&](const char*n,addr_t a){return run("call1",{service.Marker(n),a});};auto call2=[&](const char*n,addr_t a,addr_t b){return run("call2",{service.Marker(n),a,b});};
+ HMODULE native=GetModuleHandleW(dll.c_str());Check(native!=nullptr,"same verified native module visible");auto native_register_string=Fn<void(*)(S)>(native,"SWIGRegisterStringCallback_AppUtil");native_register_string(&NativeCopy);auto native_text=Fn<const char*(*)()>(native,"Firebase_App_CSharp_FirebaseApp_DefaultName_get")();Check(native_text!=nullptr,"actual native default name callback allocation");std::string expected_default=native_text;std::free(const_cast<char*>(native_text));native_register_string(nullptr);
+ std::array<uint64_t,48>record{};run("register_all",{service.Marker("SWIGRegisterExceptionCallbacks_AppUtil"),service.Marker("SWIGRegisterExceptionArgumentCallbacks_AppUtil"),service.Marker("SWIGRegisterStringCallback_AppUtil"),service.Marker("Firebase_App_CSharp_SetLogFunction"),A(record.data())});
+ std::set<E>distinct;for(unsigned i=0;i<11;i++){Check(saved_e[i]&&A(reinterpret_cast<void*>(saved_e[i]))!=symbol((std::string("exception")+std::to_string(i)).c_str()),"all11 registered native callbacks are host trampolines, not ARM pointers");distinct.insert(saved_e[i]);}Check(distinct.size()==11&&saved_b[0]&&saved_b[1]&&saved_b[2]&&saved_s&&saved_l,"11+3+string+log real registrations forwarded");
+ if(foreign){saved_e[0]("foreign callback");bool rejected=false;try{service.CheckHealthy();}catch(const std::exception&){rejected=true;}Check(rejected&&record[0]==0,"foreign callback fails without implicit guest execution/native unwind");bool pending=false;try{State s{};service.Invoke("Firebase_App_CSharp_GetLogLevel",s);}catch(const std::exception&){pending=true;}Check(pending,"deferred callback failure rejects later SDK imports");service.Revoke();std::printf("FIREBASE-FOREIGN-PASS checks=%u\n",checks);return 0;}
+ bool replayed=false;runtime.AddImport(replay_marker,recomp::MakeBridge<void()>([&]{if(replayed)return;replayed=true;for(auto cb:saved_e){cb("callback-message");++replay_count;}for(auto cb:saved_b){cb("argument-message","parameter-name");++replay_count;}saved_l(4,"native-log-message");++replay_count;
+ bool concurrent_rejected=false;std::thread t([&]{try{State s{};service.Invoke("Firebase_App_CSharp_GetLogLevel",s);}catch(const std::exception&){concurrent_rejected=true;}});t.join();Check(concurrent_rejected,"another guest import cannot race process-global SDK ownership");
+ bool registration_rejected=false;try{State s{};s.gpr.x0.qword=symbol("string_copy");service.Invoke("SWIGRegisterStringCallback_AppUtil",s);}catch(const std::exception&){registration_rejected=true;}Check(registration_rejected,"callback registration rejected during reentrant callback, no partial SDK update");bool revoke_rejected=false;try{service.Revoke();}catch(const std::exception&){revoke_rejected=true;}Check(revoke_rejected,"active actual SDK/callback import cannot revoke lifetime");State s{};service.Invoke("Firebase_App_CSharp_GetLogLevel",s);Check(recomp::CurrentExecutionState()!=nullptr,"same-owner ordinary SDK reentry preserves active guest owner");}));
+ auto native_dependency=Fn<int32_t(*)()>(native,"Firebase_App_CSharp_CheckAndroidDependencies");auto expected=native_dependency();Check(static_cast<int32_t>(call0("Firebase_App_CSharp_CheckAndroidDependencies"))==expected,"real Windows dependency status exact, not forced Available");std::printf("NATIVE-DEPENDENCY status=%d\n",expected);
+ for(int v:{0,1,2,3,4}){call1("Firebase_App_CSharp_SetLogLevel",uint32_t(v));auto n=Fn<int32_t(*)()>(native,"Firebase_App_CSharp_GetLogLevel")();Check(static_cast<int32_t>(call0("Firebase_App_CSharp_GetLogLevel"))==n,"typed logging state is genuine native SDK state");call1("Firebase_App_CSharp_FirebaseApp_SetLogLevelInternal",uint32_t(v));n=Fn<int32_t(*)()>(native,"Firebase_App_CSharp_FirebaseApp_GetLogLevelInternal")();Check(static_cast<int32_t>(call0("Firebase_App_CSharp_FirebaseApp_GetLogLevelInternal"))==n,"internal App logging state exact");}
+ call1("Firebase_App_CSharp_AppEnableLogCallback",1);Check(static_cast<int32_t>(call0("Firebase_App_CSharp_AppGetLogLevel"))==Fn<int32_t(*)()>(native,"Firebase_App_CSharp_AppGetLogLevel")(),"app log level exact native state");const char name[]="AuthStateChanged";for(auto bit:{0u,1u,0x80000000u}){call1("Firebase_App_CSharp_SetEnabledAllAppCallbacks",bit);call2("Firebase_App_CSharp_SetEnabledAppCallbackByName",A(name),bit);auto n=Fn<uint32_t(*)(const char*)>(native,"Firebase_App_CSharp_GetEnabledAppCallbackByName")(name);Check(uint32_t(call1("Firebase_App_CSharp_GetEnabledAppCallbackByName",A(name)))==n,"SWIG bool32/name snapshot equals native platform callback policy");}
+ call2("Firebase_App_CSharp_FirebaseApp_RegisterLibraryInternal",A("fixture-library"),A("9.6.0"));call0("Firebase_App_CSharp_PollCallbacks");call0("Firebase_App_CSharp_InitializePlayServicesInternal");
+ for(unsigned i=0;i<3;i++)Check(run("default_name",{service.Marker("Firebase_App_CSharp_FirebaseApp_DefaultName_get")})==Hash(expected_default.c_str()),"genuine SDK DefaultName flows through translated allocating callback and original-style free");
+ for(unsigned i=0;i<11;i++){Check(record[i]==1&&record[20+i]==Hash("callback-message"),"all11 actual callback slots including3 AArch64 stack arguments route distinctly");}
+ for(unsigned i=0;i<3;i++){Check(record[11+i]==1&&record[31+i]==Hash("argument-message")&&record[34+i]==Hash("parameter-name"),"all3 argument callbacks publish both strings");}
+Check(record[14]>=1&&record[15]==3&&record[16]==3&&record[39]==Hash(expected_default.c_str())&&record[40]==record[41]&&allocations==3&&frees==3&&owned.empty(),"actual native string return ownership and call-lifetime payloads exact");service.CheckHealthy();
+ bool invalid=false;try{call1("SWIGRegisterStringCallback_AppUtil",0x12345678);}catch(const std::exception&){invalid=true;}Check(invalid,"nontranslated callback address fails before native registration");service.CheckHealthy();service.Revoke();Check(!saved_s&&!saved_l&&std::all_of(saved_e.begin(),saved_e.end(),[](E x){return !x;})&&std::all_of(saved_b.begin(),saved_b.end(),[](B x){return !x;}),"quiescent revoke actually clears all native callback registrations");bool revoked=false;try{State s{};service.Invoke("Firebase_App_CSharp_PollCallbacks",s);}catch(const std::exception&){revoked=true;}Check(revoked,"revoked SDK marker fails closed");Check(verified==2,"requested and loaded image both verified");
+ std::printf("FIREBASE-PASS checks=%u actual_NDK_calls=%u callback_runs=%u replayed_callbacks=%u allocations=%u frees=%u installed_calls=%u commands=%zu native_dependency=%d State=%zu Memory64=%zu\n",checks,calls,callback_runs,replay_count,allocations,frees,installed,service.Commands().size(),expected,sizeof(State),sizeof(addr_t));return 0;
+ }catch(const std::exception&e){std::fprintf(stderr,"FIREBASE-FAIL %s\n",e.what());return 1;}}

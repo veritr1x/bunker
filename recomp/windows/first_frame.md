@@ -18,10 +18,15 @@ Read-only process samples and original disassembly narrow startup to
 The next prerequisite, `ConfirmAppTrackingTransparency`, and the later
 `ApplicationApi.Run` have unset metadata guards. These are asynchronous
 per-method metadata observations, not function-completion witnesses. The
-notification permission path and Firebase class initialization are under
-investigation; missing Firebase library loads alone do not yet distinguish the
-failing call. The original scene contains an active opaque black startup
-overlay, which is preserved. No forced scene transition or alpha change is used.
+original native permission wrapper clears its missing-method exception and
+returns zero, which compares equal to its sampled zero permission constant.
+This explains the skipped permission-request helper without a host permission
+grant. Firebase class initialization is the next missing prerequisite. A
+genuine [Windows Firebase SDK service](firebase_app.md) passes 1051 focused
+checks through 58 actual NDK calls, preserving real dependency status 7. Its
+integrated build and original startup test remain pending. The scene contains
+an active opaque black startup overlay, which is preserved. No forced scene
+transition or alpha change is used.
 Evidence is in `work/windows-first-frame-native-presentation4` and
 `work/il2cpp-method-map1`. The first Locale failure's bounded saved-frame
 candidates map to optional Unity Analytics, so Locale is not assumed to be the
