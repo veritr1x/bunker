@@ -783,3 +783,35 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
 .tl-text span { font-family: var(--mono); font-size: 10px; opacity: 0.8; white-space: nowrap; }
 .tl-text em { align-self: flex-start; font-style: normal; font-family: var(--mono); font-size: 9px; padding: 0 4px; background: var(--panel-inverse-fg); color: var(--panel-inverse-bg); }
 .tl-bar.next em, .tl-card em { background: var(--panel-inverse-bg); color: var(--panel-inverse-fg); }
+
+/* Landscape with little height (a phone on its side): the tabs become a column
+   on the left that scrolls by itself, the page takes the rest of the width, and
+   the sign-off leaves the bottom edge, so a page shows more than a few lines.
+   Tablets and unfolded phones in landscape keep the tabs on top. */
+@media (orientation: landscape) and (max-height: 540px) {
+  nav.primary {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 11;
+    width: 184px;
+    box-sizing: border-box;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 2px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 8px 8px 16px;
+    background: var(--bg-cream);
+    border-bottom: none;
+    border-right: 1px solid var(--accent);
+  }
+  nav.primary a { padding: 10px 12px; white-space: normal; line-height: 1.35; }
+  main { margin-left: 184px; max-width: none; padding: 0 24px 16px; }
+  main > h1 { margin: 12px 0 10px; }
+  .bracket-header { margin: 16px 0 10px; }
+  .banner { margin: 8px 0; padding: 8px 12px; }
+  footer { display: none; }
+  body { padding-bottom: 0; }
+}

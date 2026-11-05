@@ -233,6 +233,9 @@ static NSString *ArchivePath(NSString *link) {
 @property(nonatomic, copy) NSString *startPath;
 @property(nonatomic, strong) WKWebView *web;
 @property(nonatomic, strong) UIButton *closeButton;
+// The top bar's parts that change on a phone on its side (applyCompact).
+@property(nonatomic, strong) UILabel *captionLabel, *titleLabel;
+@property(nonatomic, strong) NSLayoutConstraint *closeHeight, *barTop;
 @end
 
 @implementation LTToolsViewController
@@ -257,6 +260,8 @@ static NSString *ArchivePath(NSString *link) {
     title.attributedText = [[NSAttributedString alloc] initWithString:self.heading attributes:@{
         NSFontAttributeName: [UIFont boldSystemFontOfSize:22], NSForegroundColorAttributeName: ink, NSKernAttributeName: @6.2}];
     title.accessibilityTraits = UIAccessibilityTraitHeader;
+    self.captionLabel = caption;
+    self.titleLabel = title;
     UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
     titles.axis = UILayoutConstraintAxisVertical;
     self.closeButton = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -265,7 +270,8 @@ static NSString *ArchivePath(NSString *link) {
     self.closeButton.layer.borderWidth = 2;
     self.closeButton.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
     [self.closeButton addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside];
-    [self.closeButton.heightAnchor constraintEqualToConstant:44].active = YES;
+    self.closeHeight = [self.closeButton.heightAnchor constraintEqualToConstant:44];
+    self.closeHeight.active = YES;
     [self.closeButton setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     UIStackView *bar = [[UIStackView alloc] initWithArrangedSubviews:@[titles, self.closeButton]];
     bar.alignment = UIStackViewAlignmentCenter;
@@ -297,15 +303,17 @@ static NSString *ArchivePath(NSString *link) {
     self.web.backgroundColor = self.view.backgroundColor;
     self.web.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.web];
+    self.barTop = [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:12];
     [NSLayoutConstraint activateConstraints:@[
         [self.web.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.web.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [bar.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:18],
         [bar.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-18],
-        [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:12],
+        self.barTop,
         [self.web.topAnchor constraintEqualToAnchor:bar.bottomAnchor constant:4],
         [self.web.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
+    [self applyCompact];
     NSURL *origin = [NSURL URLWithString:self.origin];
     NSHTTPCookie *cookie = [NSHTTPCookie cookieWithProperties:@{
         NSHTTPCookieName: self.cookie, NSHTTPCookieValue: self.token, NSHTTPCookieDomain: origin.host,
@@ -330,6 +338,17 @@ static NSString *ArchivePath(NSString *link) {
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
     [super traitCollectionDidChange:previous];
     [self updateBorder];
+    [self applyCompact];
+}
+// On a phone on its side (compact height) the top bar shrinks to one short
+// line, so the page keeps the height; the page's own tabs move to a column on
+// the left then (automata.css). iPads keep the full bar.
+- (void)applyCompact {
+    BOOL compact = self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
+    self.captionLabel.hidden = compact;
+    self.titleLabel.font = [UIFont boldSystemFontOfSize:compact ? 15 : 22];
+    self.closeHeight.constant = compact ? 40 : 44;
+    self.barTop.constant = compact ? 4 : 12;
 }
 - (BOOL)local:(NSURL *)url {
     NSURL *origin = [NSURL URLWithString:self.origin];
