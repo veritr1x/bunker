@@ -1,0 +1,59 @@
+.text
+.global original_gpu_cleanup
+.type original_gpu_cleanup,%function
+original_gpu_cleanup:
+ stp x19,x20,[sp,#-96]!
+ stp x21,x22,[sp,#16]
+ stp x23,x24,[sp,#32]
+ stp x29,x30,[sp,#48]
+ stp d8,d9,[sp,#64]
+ str d10,[sp,#80]
+ mov x29,sp
+ mov x21,x3
+ mrs x23,fpcr
+ mrs x24,fpsr
+ msr fpcr,x1
+ msr fpsr,x2
+ mov x9,#0xa0000000
+ msr nzcv,x9
+ ldp q0,q1,[x21,#32]
+ ldp q2,q3,[x21,#64]
+ mov x19,#0x1919
+ mov x20,#0x2020
+ ldp q8,q9,[x21,#96]
+ ldr q10,[x21,#128]
+ mov x9,#0x818
+ movk x9,#0x7047,lsl #16
+ blr x9
+ str x0,[x21]
+ mrs x9,fpsr
+ str x9,[x21,#8]
+ mrs x9,nzcv
+ str x9,[x21,#16]
+ mrs x9,fpcr
+ str x9,[x21,#24]
+ stp q0,q1,[x21,#32]
+ stp q2,q3,[x21,#64]
+ stp q8,q9,[x21,#96]
+ str q10,[x21,#128]
+ mov x10,#0x1919
+ cmp x19,x10
+ cset w9,eq
+ mov x10,#0x2020
+ cmp x20,x10
+ cset w10,eq
+ and w9,w9,w10
+ mov x10,sp
+ cmp x10,x29
+ cset w10,eq
+ and w9,w9,w10
+ str x9,[x21,#144]
+ msr fpcr,x23
+ msr fpsr,x24
+ ldp d8,d9,[sp,#64]
+ ldr d10,[sp,#80]
+ ldp x29,x30,[sp,#48]
+ ldp x23,x24,[sp,#32]
+ ldp x21,x22,[sp,#16]
+ ldp x19,x20,[sp],#96
+ ret

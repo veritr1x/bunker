@@ -3,7 +3,26 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed original attempt: `work/windows-first-frame-program-cache1`,
+Latest completed original attempt: `work/windows-first-frame-gpu-sync1`,
+manifest `c62ddba1488dfd41b9fc73385714f124e26ba19a34b7d0ab09931b6b560e892a`,
+EXE `ecd56a8f10b54b83afb692b58f2c37496e35299fe51941b6381cc950f2b455f5`.
+Nine original renders return;42 draw dispatches are observed including the
+failed tenth render. Native fences, polling and deletion now execute. The
+tenth render naturally exits native3 at reported PC `704708b0`, after original
+`FMINNM S0,S0,S9` at `704708ac` in FDE `70470818..70470a68` (592B).
+No swap or PNG is recorded. Selected runtime and original-parent checks pass.
+Log SHA256 `24172a6831a16f0487811a65af13d57da94ba81cff02da3f2f981ca261f6002b`;
+audit `9e697be1cc7a41291e6c01b457bc9be0dddb24f18e0b9edd5a78ac3e32b3fcb8`.
+Boundary `work/gpu-sync1-cleanup-boundary1/acceptance.json`, SHA256
+`5c259914f37c74863a5f285ca8fd6b9b709fe6fb6bafcb4621ebf7ae15a66576`.
+The [cleanup repair](gpu_cleanup_rounding.md) changes only this function in
+guest container186; all127 neighbors remain exact. Its retained-node finite
+profile passes2048 exact records per platform; deletion/arbitrary-tree paths
+and live input values are not claimed. A separately guarded external read-only
+observer will sample presentation metadata during the next run. Actual guard
+returns remain unobserved; no forced swap is introduced. Integration is pending.
+
+Preceding completed original attempt: `work/windows-first-frame-program-cache1`,
 manifest `d8a7ad96acd008a523a7b8d071f768b9c4741f0056b6101b520f9042ab591c9c`,
 EXE `712462e7e1349ba2e43cd986a87e588184f080dcaf9d02576952906031557104`.
 The original program hints and binary retrievals now run. Seven original draw
