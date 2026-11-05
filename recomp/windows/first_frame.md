@@ -3,12 +3,27 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current candidate: `work/windows-first-frame-frame-rounding1`, manifest
-`d44d478b73046f00de89d4eb31d45b441ee9221cdde441d426c15b98b512d12a`,
-EXE `663a07ec6ee03533d8d5afd4b40b3cbbb6f1474b874aec026cc49479b075c697`.
-It combines logging retirement after the actual fourth render returns with
-the single original function repair at `70167bbc`. All127 neighboring functions
-remain exact. A fresh controlled original run is pending its outcome.
+Latest completed candidate: `work/windows-first-frame-leaf-rounding1`, manifest
+`29eb3b23864ea4d3a8dd0dfa19694c6716f09613148f864919f07e9fe90b6088`,
+EXE `76ad6ff29b3d70843f87ae9161baa27c12ad1c2a64960bd555fa8043d3faf468`.
+The original UnityChoreographer constructor and recurring callbacks work, four
+nativeRender calls return, and both reached numeric leaves (`70167bbc` and
+`70167fc4`) progress. Exhaustive synchronization/JNI logging retires after the
+fourth actual render returns. The fifth render naturally exits native3 at a
+null graphics procedure; all child/runtime and original-parent postchecks pass.
+There is no original draw, successful presentation or PNG yet.
+
+The null procedure is proved to be `glMapBufferRange`: loader `70473024`
+requested the core name and stored zero at context offset `0x5e0`; wrapper
+`70490250` branches through that slot at `704902fc`, retaining LR `7046fdfc`.
+The live arguments are target `0x8f37` (COPY_WRITE_BUFFER), offset0, length96,
+access `0x36`. The earlier recorded Raise returned before this GL progress.
+Boundary receipt: `work/leaf-rounding1-null-call-boundary1/acceptance.json`,
+SHA256 `bf7adc7519412b88f3d392a9088e5a1b4f3685ffbb31dddafce0bfd023470b03`.
+The next repair supplies real ANGLE map/flush/unmap operations and their actual
+buffer/share-group lifetimes; native GPU qualification and integration remain
+pending. Four additional bounded numeric-leaf repairs are qualified separately
+and remain unselected until that next composite build.
 
 The preceding scanner build completed three actual `(%u)` assignments, then
 naturally stopped on render5 at reported unliftable PC `70167c1c`: the retained
