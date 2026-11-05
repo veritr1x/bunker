@@ -16,6 +16,11 @@ Completed log SHA256:
 `c2038920950d2734a81f559e9164ddf42e01735621f707c90b66cb9947a802f2`.
 Audit SHA256:
 `3ee0f722ad4e8fe3d2ae3c8b11e20b6e075f1f152566f79bf9902c81fc95e98b`.
+The host-only repair adds the real core `glDrawBuffers` command after the142
+existing markers. Its component gate passes2794 checks and real ANGLE FBO/GPU
+routing through32 NDK calls in three call forms. [gl_drawbuffers.md](gl_drawbuffers.md)
+records the exact source and gate pins. This component image is not a game
+frame; the next original integration is pending.
 
 Preceding completed candidate: `work/windows-first-frame-main-nanosleep-sites1`,
 manifest `2c16ac72a336ae5e3c0707d3a600503e77423547dfad27cae3f0a8bb596c3d11`,
