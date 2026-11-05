@@ -3,7 +3,70 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-jni-byte-array1`, source
+Latest original execution: `work/windows-first-frame-java-string-loader1`,
+source `2b8477c`, builds String byte/charset construction and encoding plus
+the closed Java native-library loader. Its 996-file snapshot has five changed
+parent files, three additions and 988 unchanged source files. Bootstrap and
+all 43 host/runtime source files are freshly compiled; the same 4,653 guest
+objects, 595,408 trace heads and metadata headers remain selected.
+
+The String-constructor and loadLibrary dispatch failures do not recur.
+Bootstrap's original Unity JNI_OnLoad returns `0x10006` once; the loader
+adopts that completed load without reopening or replaying it. The actual
+subsequent request is `FirebaseCppApp-9_6_0`, which returns false because it
+is outside the registered translated catalog. That library is present in
+the frozen APK: 5,502,344 bytes, SHA256
+`b233de431376efde3ba16be810e4d63c65f9be98d0285c4f330d8b0bb0332ce1`,
+JNI_OnLoad RVA `16011c`, 8,468 FDEs. This is an untranslated dependency,
+not evidence of a missing APK file; it is not the recorded fatal boundary.
+Inventory: `work/firebase-native-boundary1/acceptance.json`, SHA256
+`09412cca74538d8a05017a160380b16c38e87b38395abf1ea03f2239c912c057`.
+
+Native exit 3/controller 1 stops at Env slot 35, missing instance method
+`UnityPlayer.getNetworkProxySettings(Ljava/lang/String;)Ljava/lang/String;`.
+The diagnostic at log line 19247 captures PC `7ff000000118`, LR `7040efa8`,
+SP `2a391820a30`, x1 `7ff100000051`, x2 `7ff200000160`,
+x3 `2a391820ae0`, x4 `17a`, pendingBefore=0. Later EGL output is another
+thread's interleaved/inflight tail, not the fatal cause. Three renders enter,
+two return continue=true, and there are zero draws, clears, swaps, PNGs or
+first-frame witnesses. All overlay pin checks and parent pre/post checks pass.
+
+Actual module snapshot: PID 2660276, base `7ff786910000`,
+image size 1,055,125,504 bytes. Overlay SHA256
+`b4a1135732548721ca235cd79b8a4c288af936fa1725fed5ef6a7e4b24aa198f`;
+EXE SHA256 `372d222b9d8c6552ca6b20330b41d8e749f3f5e5aca21a85342281e82d87b9cf`;
+log SHA256 `29d523240260767a413a32d443324c6f73ba5eeb29a94e992c02da8cfc09ead2`.
+Run peer: `work/java-string-loader1-run-peer1/peer.json`, SHA256
+`cac8f44b0f7ae8a9845c20677c9e9343efafae5dda6acadd888449703152eafe`.
+The specific `java_string_loader_host_revision` identifies current code;
+inherited revision fields explicitly describe historical parent layers.
+
+The next method is pure property formatting: case-sensitive `http:`/`https:`,
+their proxyHost/proxyPort, and raw `http.nonProxyHosts` for both. Missing or
+empty host returns Java null; otherwise the result is host, optional colon
+and port, then optional newline and bypass string. It does no URL-host parsing,
+bypass matching or PAC resolution. The current URL is unobserved. Windows has
+no explicit manual proxy but auto-detection is enabled: that does not prove
+an effective direct route. Implement the property's real data source and
+formatting without an unconditional null or invented PAC result.
+Audit: `work/java-string-loader1-proxy-boundary1/acceptance.json`, SHA256
+`f77a58c170ea58530dc9b0da59bf7710c6518bbb1a18f03be8ffcd8730e4643e`.
+
+After this run, source `7f18d15` corrects the loader's version predicate to
+reject JNI 1.1 as ART does. Fresh Windows/Linux NDK tests verify the 1.1
+failure cache and adoption rejection; Unity's observed 1.6 is unaffected.
+This correction is not in the completed game executable. Qualification:
+`work/java-native-loader-qualification2/acceptance.json`, SHA256
+`3ef616702480fa7ef7f9e930169f201135c6aeca178f4e2e1da49d530696ccc4`.
+
+For subsequent edits, mutable workspace inputs referenced by the completed
+manifest were copied byte-exact after successful postverification and before
+editing. `work/java-string-loader1-frozen-workspace-inputs1/relocation.json`
+(SHA256 `cb54e8431f4cd17cc531624857c64ac99078d36198016104c1b80ac6d69f9409`)
+records 11 unchanged path/hash/byte relocations. Future child verification
+must verify those immutable copies, not weaken hashes or rewrite this run.
+
+Preceding original execution: `work/windows-first-frame-jni-byte-array1`, source
 commit `e348a02`, recompiles bootstrap and all 42 host/runtime sources against
 the new JNI Host header. Its 993-file snapshot changes only JNI cpp/header
 and the failure-only bootstrap diagnostic; the other 990 source files, all

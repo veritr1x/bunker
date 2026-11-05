@@ -13,12 +13,15 @@ computed-table entries. With Windows identity and calendar APIs added,
 clock-resolution support passes 66 translated NDK calls and an actual static
 Bionic reference. The JNI byte-array family passes focused translated NDK
 callers on Windows and Linux. The consistent full host/bootstrap rebuild
-and original startup now reach the missing byte-array/charset String
-constructor and `UnityPlayer.loadLibrary(String)` implementation. The latter
-is called with a Java exception already pending; the library name is unknown.
-Two original renders return, but there is still no successful swap or captured
-game image. The next work is real String construction and Java native-library
-ownership/initialization behavior. Initialization, rendering, gameplay,
+and original startup now include real byte-array/charset String construction
+and Java native-library loading. Unity's completed JNI_OnLoad is adopted
+without replay. The actual FirebaseCppApp-9_6_0 request fails because that
+APK library has not been translated. The recorded fatal is the unimplemented
+UnityPlayer.getNetworkProxySettings(String) method, with no pending exception
+at entry. Two original renders return, but there is still no successful swap
+or captured game image. The next work is its real property source/formatting;
+Windows auto-detection must not be mistaken for a proven direct route.
+Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
 The network inventory still identifies 32 missing imports plus four file APIs
 that need socket-aware ownership/dispatch; the prepared backend has not been
