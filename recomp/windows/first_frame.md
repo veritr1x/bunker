@@ -3,7 +3,29 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed candidate: `work/windows-first-frame-neg2s1`, manifest
+Latest completed candidate: `work/windows-first-frame-neg4s1`, manifest
+`b41a7a2c5933e532e252b9c42e3bd59f13d77823f4b9dd80da1b043244ae66ed`,
+EXE `493a97e6d9adf241e65992abd9b0f9b8fc6ccc6d8f64ba564f6b61f9c185717b`.
+Both reached integer NEG repairs now progress. Four original renders return;
+the fifth naturally exits native3 at missing indirect entry `849b02c0`,
+LR `849af378`. There is no draw, successful swap or PNG. All child/runtime
+and original-parent pre/post checks pass.
+
+The missing address is an interior target in selected IL2CPP FDE
+`849b021c..849b0490`. Its caller makes a genuine direct call at `849af374`;
+two guarded signed-offset tables dispatch to twelve unselected interior
+entries. Boundary `work/neg4s1-il2cpp-indirect-boundary1/acceptance.json`,
+SHA256 `171de3d47bdeeb3fe5f6d64b851834c01bb58f52264149597a4657c7c579fb9b`.
+The proposed coherent append preserves all4656 existing objects and1011 host
+sources, adds one17974-byte object and twelve trace entries (595458 to595470).
+Its raw/polled code has no unsupported instructions and the trace header has
+an exact24-line inverse. Finite valid-capacity execution now passes84 exact
+records on original ARM, raw Windows and the exact polled entry object;
+all twelve entries execute. The next original integration remains pending.
+Resize/null-buffer/bounds-exception paths are excluded from this gate.
+No original frame is claimed.
+
+Preceding completed candidate: `work/windows-first-frame-neg2s1`, manifest
 `a07beb8c0288020ee409532fe07a243dd58154585b5e4c1dd30559f9e3f5b1d4`,
 EXE `2129104189f65440d4d2768f1699c215073343b190c32ade45be483ae3b7d895`.
 The reached NEG.2S function now progresses. This run naturally exits native3
