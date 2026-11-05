@@ -6,6 +6,25 @@ under its heading, down to the previous release.
 
 ## 2026-11-05 (after 1.8.4)
 
+### Mods
+- Pod Programs has a Mods program: changes to how the game plays, for the
+  whole device, each off until you turn it on. Free stamina; stamina items
+  that arrive as gold and premium summon tickets that arrive as free gems
+  (items received from then on; items already held stay); shop items that
+  restock daily, weekly or monthly never run out; Lost Items give 100 to
+  1,000 free gems; quest drops and gold ×2 to ×10 (not Dark Memory quests,
+  memoirs, costumes, weapons or limit-break materials); no duplicate ★4
+  from a premium summon until you own every one; every 100 summon medals
+  become 1,000 paid gems and 100 Mama Points in the gift box. Presets:
+  Original (every mod off) and Comfort (every mod on, ×10). Changes apply
+  without a restart, also while the game runs. Most mods come from the
+  Lunar Tear Comfort Mod by NavHobbyDev (MIT). [2160919] [86aa0f4]
+
+### Server
+- The player level no longer falls back when exp is added to a save whose
+  level is higher than its exp (a save edited to level 100 dropped to
+  level 1 on its next quest). [ac954a3]
+
 ### Pod Programs
 - Changes reach the running game without restarting it. Pod Programs opened
   beside the game no longer closes the game for a change to the save, the
