@@ -34,9 +34,12 @@ public final class MainActivity extends Activity {
     // the game's Bunker button (a new screen in the same process) shows the result instead of NOT CHECKED.
     private static volatile boolean indexChecked=false,indexing=false,openedWhileIndexing=false;
     private static volatile String indexText="NOT CHECKED";
-    private Button assetButton,play,pods,archive;
+    private Button assetButton,play;
+    private View pods,archive;
     // Updates (Updater.java keeps their state, so it survives the screen being recreated).
     private LinearLayout updatePanel;
+    /** A phone on its side: a shorter top bar, tighter rows, no footer. */
+    private boolean compact;
     private TextView updateText;
     private Button updateButton,updateWeb,updateLater,updateSkip;
     private ProgressBar progress;
@@ -69,8 +72,27 @@ public final class MainActivity extends Activity {
         int pad=look.framePadding();p.setPadding(pad,pad-dp(4),pad,pad-dp(4));return p;
     }
     /** One LABEL  value row of a panel; a button in the row sits at the far right. */
+    /** A row in a panel that opens something: its name, what it holds, and a chevron. */
+    private View link(LinearLayout panel,String name,String what,View.OnClickListener open){
+        LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setMinimumHeight(dp(48));r.setPadding(dp(4),dp(4),dp(4),dp(4));
+        r.setBackground(new RippleDrawable(ColorStateList.valueOf(look.line),null,new android.graphics.drawable.ColorDrawable(0xffffffff)));
+        LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);
+        TextView title=look.monoText(name,13,look.ink);title.setLetterSpacing(.12f);title.setTypeface(null,Typeface.BOLD);words.addView(title);
+        TextView note=look.monoText(what,11,look.mid);LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(0,dp(2),0,0);words.addView(note,np);
+        r.addView(words,new LinearLayout.LayoutParams(0,-2,1));
+        TextView chevron=look.text("›",22,look.ink);r.addView(chevron);
+        r.setOnClickListener(open);r.setFocusable(true);
+        r.setAccessibilityDelegate(new View.AccessibilityDelegate(){@Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info){super.onInitializeAccessibilityNodeInfo(host,info);info.setClassName(Button.class.getName());}});
+        panel.addView(r,new LinearLayout.LayoutParams(-1,-2));
+        return r;
+    }
+    /** A [ HEADER ] and its panel, with gapAfter dp below. */
+    private void block(LinearLayout parent,String header,View panel,int gapAfter){
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(0,0,0,dp(compact?6:8));parent.addView(look.header(header),hp);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);pp.setMargins(0,0,0,dp(gapAfter));parent.addView(panel,pp);
+    }
     private void row(LinearLayout panel,String label,View... values){
-        LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setMinimumHeight(dp(40));
+        LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setMinimumHeight(dp(compact?34:40));
         TextView name=look.monoText(label,11,look.mid);name.setLetterSpacing(.1f);r.addView(name,new LinearLayout.LayoutParams(dp(104),-2));
         for(View v:values){
             if(v instanceof Button){r.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));r.addView(v,new LinearLayout.LayoutParams(-2,dp(40)));}
@@ -86,20 +108,25 @@ public final class MainActivity extends Activity {
         addMenuShortcut();
         autoAttempted=state!=null?state.getBoolean("attempted"):getIntent().getBooleanExtra("manage",false);
         launchWhenReady=state!=null?state.getBoolean("launch"):!getIntent().getBooleanExtra("manage",false);
+        // A screen on its side with room for two columns puts the panels side
+        // by side; a short one (a phone) also tightens and drops the footer.
+        android.content.res.Configuration config=getResources().getConfiguration();
+        boolean twoColumns=config.orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE&&config.screenWidthDp>=600;
+        compact=twoColumns&&config.screenHeightDp<600;
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackground(look.paper());
         FrameLayout frame=new FrameLayout(this);scroll.addView(frame,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(18),dp(18),0);
-        frame.addView(body,new FrameLayout.LayoutParams(Math.min(getResources().getDisplayMetrics().widthPixels,dp(520)),-1,Gravity.CENTER_HORIZONTAL));
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(compact?10:18),dp(18),dp(compact?10:0));
+        frame.addView(body,new FrameLayout.LayoutParams(Math.min(getResources().getDisplayMetrics().widthPixels,dp(twoColumns?960:520)),-1,Gravity.CENTER_HORIZONTAL));
         scroll.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
         // Top bar: where you are, and the options.
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
-        TextView caption=look.monoText("LUNAR TEAR // 127.0.0.1",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
-        TextView title=look.text("BUNKER",22,look.ink);title.setTypeface(null,Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
+        TextView caption=look.monoText("LUNAR TEAR // 127.0.0.1",10,look.mid);caption.setLetterSpacing(.2f);if(!compact)titles.addView(caption);
+        TextView title=look.text("BUNKER",compact?18:22,look.ink);title.setTypeface(null,Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         top.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
         Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
-        top.addView(more,new LinearLayout.LayoutParams(dp(44),dp(44)));
-        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(20));body.addView(top,tp);
+        top.addView(more,new LinearLayout.LayoutParams(dp(compact?40:44),dp(compact?40:44)));
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(compact?8:20));body.addView(top,tp);
         // [ UPDATE ]: shown when a newer Bunker is released. Two rows: the message with WHAT'S NEW,
         // then UPDATE (or WEB BUILDER when this app can't update itself), LATER and SKIP.
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
@@ -121,9 +148,8 @@ public final class MainActivity extends Activity {
         }
         ((LinearLayout.LayoutParams)updateSkip.getLayoutParams()).setMargins(0,0,0,dp(4));
         updatePanel.addView(actions);
-        LinearLayout.LayoutParams upp=new LinearLayout.LayoutParams(-1,-2);upp.setMargins(0,0,0,dp(20));body.addView(updatePanel,upp);
+        LinearLayout.LayoutParams upp=new LinearLayout.LayoutParams(-1,-2);upp.setMargins(0,0,0,dp(compact?12:20));body.addView(updatePanel,upp);
         // [ SYSTEM ]: game files, Lunar Tear, ports and save.
-        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(0,0,0,dp(8));body.addView(look.header("System"),hp);
         LinearLayout system=panel();
         files=look.chip();assetButton=look.outlined("CHOOSE");assetButton.setContentDescription("Choose game files");assetButton.setOnClickListener(v->chooseAssets());
         row(system,"GAME FILES",files,assetButton);
@@ -134,35 +160,52 @@ public final class MainActivity extends Activity {
         archiveLine=look.monoText(indexText,13,look.ink);row(system,"ARCHIVE",archiveLine);
         bar=new Look.Segments(look);LinearLayout.LayoutParams barParams=new LinearLayout.LayoutParams(-1,dp(14));barParams.setMargins(0,dp(10),0,dp(6));system.addView(bar,barParams);
         progressText=look.monoText("",12,look.ink);system.addView(progressText);
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);pp.setMargins(0,0,0,dp(20));body.addView(system,pp);
         // [ PLAY ]: what happens next, and Deploy.
-        LinearLayout.LayoutParams hp2=new LinearLayout.LayoutParams(-1,-2);hp2.setMargins(0,0,0,dp(8));body.addView(look.header("Play"),hp2);
         LinearLayout launch=panel();
-        detail=look.monoText("",12,look.ink);LinearLayout.LayoutParams dp1=new LinearLayout.LayoutParams(-1,-2);dp1.setMargins(0,dp(6),0,dp(12));launch.addView(detail,dp1);
+        detail=look.monoText("",12,look.ink);LinearLayout.LayoutParams dp1=new LinearLayout.LayoutParams(-1,-2);dp1.setMargins(0,dp(6),0,dp(compact?8:12));launch.addView(detail,dp1);
         play=look.solid("DEPLOY  ▶");play.setContentDescription("Deploy: start the game");
         play.setOnClickListener(v->{launchWhenReady=true;autoAttempted=true;if(running){launchWhenReady=false;openGame();}else run(ServerService.START,null);});
-        LinearLayout.LayoutParams bp2=new LinearLayout.LayoutParams(-1,dp(56));bp2.setMargins(0,0,0,dp(6));launch.addView(play,bp2);
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,0,0,dp(20));body.addView(launch,lp);
-        // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
-        LinearLayout.LayoutParams hp3=new LinearLayout.LayoutParams(-1,-2);hp3.setMargins(0,0,0,dp(8));body.addView(look.header("Pod Programs"),hp3);
-        LinearLayout programs=panel();
-        TextView about=look.monoText("Edit your save and choose which events and shops appear.",12,look.ink);
-        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,-2);ap.setMargins(0,dp(6),0,dp(12));programs.addView(about,ap);
-        pods=look.outlined("OPEN POD PROGRAMS  ›");pods.setTextSize(13);pods.setContentDescription("Open Pod Programs");
-        pods.setOnClickListener(v->onOption(8));
-        LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,dp(48));pb.setMargins(0,0,0,dp(6));programs.addView(pods,pb);
-        LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,-2);gp.setMargins(0,0,0,dp(20));body.addView(programs,gp);
-        // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
-        LinearLayout.LayoutParams hp4=new LinearLayout.LayoutParams(-1,-2);hp4.setMargins(0,0,0,dp(8));body.addView(look.header("Archive"),hp4);
-        LinearLayout records=panel();
-        TextView story=look.monoText("Read the story, meet the characters, watch and listen.",12,look.ink);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(6),0,dp(12));records.addView(story,sp);
-        archive=look.outlined("OPEN ARCHIVE  ›");archive.setTextSize(13);archive.setContentDescription("Open the Archive");
-        archive.setOnClickListener(v->startActivity(new Intent(this,ArchiveActivity.class)));
-        LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,0,0,dp(6));records.addView(archive,rb);
-        body.addView(records,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout.LayoutParams bp2=new LinearLayout.LayoutParams(-1,dp(compact?48:56));bp2.setMargins(0,0,0,dp(6));launch.addView(play,bp2);
+        if(twoColumns){
+            // On its side: System on the left; Play and the two programs on the right,
+            // both columns ending level. The programs are rows in one panel, each with
+            // what it holds, instead of two boxed buttons.
+            LinearLayout links=panel();
+            pods=link(links,"POD PROGRAMS","Save, events, shops and mods",v->onOption(8));pods.setContentDescription("Open Pod Programs");
+            View rule=new View(this);rule.setBackgroundColor(look.line);links.addView(rule,new LinearLayout.LayoutParams(-1,1));
+            archive=link(links,"ARCHIVE","Story, characters, movies and music",v->startActivity(new Intent(this,ArchiveActivity.class)));archive.setContentDescription("Open the Archive");
+            LinearLayout left=new LinearLayout(this);left.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout right=new LinearLayout(this);right.setOrientation(LinearLayout.VERTICAL);
+            block(left,"System",system,0);
+            ((LinearLayout.LayoutParams)system.getLayoutParams()).height=0;((LinearLayout.LayoutParams)system.getLayoutParams()).weight=1;
+            block(right,"Play",launch,compact?12:20);
+            block(right,"Programs",links,0);
+            LinearLayout columns=new LinearLayout(this);
+            LinearLayout.LayoutParams lc=new LinearLayout.LayoutParams(0,-1,1);lc.setMargins(0,0,dp(18),0);columns.addView(left,lc);
+            columns.addView(right,new LinearLayout.LayoutParams(0,-2,1));
+            body.addView(columns,new LinearLayout.LayoutParams(-1,-2));
+        }else{
+            // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
+            LinearLayout programs=panel();
+            TextView about=look.monoText("Edit your save and choose which events and shops appear.",12,look.ink);
+            LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,-2);ap.setMargins(0,dp(6),0,dp(12));programs.addView(about,ap);
+            Button podsButton=look.outlined("OPEN POD PROGRAMS  ›");podsButton.setTextSize(13);podsButton.setContentDescription("Open Pod Programs");
+            podsButton.setOnClickListener(v->onOption(8));pods=podsButton;
+            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,dp(48));pb.setMargins(0,0,0,dp(6));programs.addView(podsButton,pb);
+            // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
+            LinearLayout records=panel();
+            TextView story=look.monoText("Read the story, meet the characters, watch and listen.",12,look.ink);
+            LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(6),0,dp(12));records.addView(story,sp);
+            Button archiveButton=look.outlined("OPEN ARCHIVE  ›");archiveButton.setTextSize(13);archiveButton.setContentDescription("Open the Archive");
+            archiveButton.setOnClickListener(v->startActivity(new Intent(this,ArchiveActivity.class)));archive=archiveButton;
+            LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,0,0,dp(6));records.addView(archiveButton,rb);
+            block(body,"System",system,20);
+            block(body,"Play",launch,20);
+            block(body,"Pod Programs",programs,20);
+            block(body,"Archive",records,0);
+        }
         body.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.setMargins(0,dp(28),0,0);body.addView(look.footer(),fp);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.setMargins(0,dp(28),0,0);if(!compact)body.addView(look.footer(),fp);
         setContentView(scroll);
         refresh();
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
