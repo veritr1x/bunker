@@ -1,0 +1,17 @@
+# Bounded integer NEG.2S support
+
+The original stopped at reported PC `0x70161a7c`; the preceding instruction at `0x70161a78` is word `0x2ea0b800`, `NEG V0.2S,V0.2S`. This is integer negation of two 32-bit lanes. It is not a floating-point operation or saturating SQNEG.
+
+`integer_neg2s_source.py` applies only three checked edits to an isolated copy of the qualified 14f6/6dd sources: append the restricted decoder in Arch.cpp, remove its exact rejecting stub in Decode.cpp, and append the integer semantics in SIMD_INTEGER.cpp. Only Q=0,size=2 is admitted, with generic Rd/Rn. Both source lanes are captured before writing; unsigned zero-minus-lane gives modulo 2^32 results, including INT_MIN. A full 128-bit destination write clears its upper 64 bits. NZCV, FPCR and FPSR stay unchanged. Other arrangements/scalar NEG/SQNEG remain outside this addition.
+
+`build_integer_neg2s_toolchain.py --execute` is the recorded isolated recipe. It rebuilds Arch.cpp, Decode.cpp and Instructions semantics with at most two workers, borrowing the existing Lift, guest-call lowering, extraction, passes and remaining libraries. It never replaces a frozen baseline or selects a game cohort. Preserve its accepted output directories; reproduction requires fresh isolated locations. Build receipt `work/integer-neg2s-preparation1/build1/acceptance.json` SHA256 `c48c6bb6b37fc1e61cf834f3bdbc3f95c590be98eaa5d4b668e5914097a2e0b3` binds the source patch and compiled identity: all 1268 old semantic operations match after attribute-ID resolution (only inline-assembly source coordinates excluded), and all 1429 old selectors are byte-exact. One semantic function and one selector are added.
+
+The frozen pair is under `work/integer-neg2s-preparation1/toolchains/2d9d500910aed891-19b132f204deb697`: lifter `2d9d500910aed89181206f568f90be6e8948c756c307edd36e902d8e6c5e763b`, semantics `19b132f204deb69717f0f76650fae8ee02a02717826b1fdfe4809250e26ff610`.
+
+## Instruction-kernel qualification
+
+`test_vector_neg_2s.py` passed `work/vector-neg2s-qualification2/acceptance.json`, SHA256 `0ec57170401d1d62c808955e0ba49c83cc6273d33cc69bd18b38f212dfb0568a`. Actual static NDK/Bionic ARM execution, raw Windows and the exact polled Windows kernel objects each produced 4352 identical records. The same NDK kernel object is linked into the ARM reference and lifted Windows library; the actual instruction word is checked against the original Unity ELF.
+
+The matrix covers 272 integer lane pairs (edge Cartesian cases plus deterministic arbitrary bit patterns, including INT_MIN and the 8/16 pair), actual V0-source/destination aliasing and distinct V3/V5, distinct and in-place memory, and four seeded NZCV/FPCR/FPSR profiles. An independent unsigned 32 lane model checks modulo wrap and upper 64 zeroing. Complete input/output guards and every nonoutput byte of State1200 are checked, including all other registers and status; a real opaque 64-byte Memory token retains its contents and identity. No floating-point normal-domain filter is applied to integer inputs.
+
+This is an instruction-kernel gate, **not an execution test of the entire 4456-byte Unity function or its helpers**. The selected-function instruction lowering, guarded calls and 127-neighbor preservation require separate static evidence; actual game integration remains separate. Qualification1 is preserved as a controller path error before Windows compilation, not a semantic failure. No whole-game frame, new floating-point behavior or unrelated NEG arrangement is claimed.

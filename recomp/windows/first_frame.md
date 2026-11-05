@@ -3,7 +3,22 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed candidate: `work/windows-first-frame-leaf-rounding1`, manifest
+Latest completed candidate: `work/windows-first-frame-gl-mapping-batch1`, manifest
+`01869d0f314745be2c5d19d5836b5fef23a74e2defca40c43427e440b63c96f9`,
+EXE `f475d8a42a69712cc8197a1d2d9bf2cf668e34c45c39e53cda78fc7ab41d10f5`.
+It passes the previous null map call twice and then naturally exits native3 at
+reported PC `70161a7c`: unsupported integer SIMD `NEG V0.2S,V0.2S` at
+`70161a78`, inside FDE `70161998..70162b00`, selected object30. Four renders
+return, with no draw, successful swap or PNG. All child/runtime and parent
+pre/post checks pass. Boundary receipt
+`work/gl-mapping-batch1-unliftable-boundary1/acceptance.json`, SHA256
+`2c5eda9e7eec37ab6b62238cb8edbbc0f2e83889ce0ee3cb7bc6820c5c9e777f`.
+The real mapping family and four bounded numeric leaves are selected; a narrow
+integer NEG.2S decoder/semantics repair is next. Other NEG-family functions
+remain unselected. The mapping's component gate is documented in
+[gl_mapping.md](gl_mapping.md); its GPU triangle is not an original-game frame.
+
+Preceding completed candidate: `work/windows-first-frame-leaf-rounding1`, manifest
 `29eb3b23864ea4d3a8dd0dfa19694c6716f09613148f864919f07e9fe90b6088`,
 EXE `76ad6ff29b3d70843f87ae9161baa27c12ad1c2a64960bd555fa8043d3faf468`.
 The original UnityChoreographer constructor and recurring callbacks work, four
@@ -20,10 +35,10 @@ The live arguments are target `0x8f37` (COPY_WRITE_BUFFER), offset0, length96,
 access `0x36`. The earlier recorded Raise returned before this GL progress.
 Boundary receipt: `work/leaf-rounding1-null-call-boundary1/acceptance.json`,
 SHA256 `bf7adc7519412b88f3d392a9088e5a1b4f3685ffbb31dddafce0bfd023470b03`.
-The next repair supplies real ANGLE map/flush/unmap operations and their actual
-buffer/share-group lifetimes; native GPU qualification and integration remain
-pending. Four additional bounded numeric-leaf repairs are qualified separately
-and remain unselected until that next composite build.
+Its successor supplies real ANGLE map/flush/unmap operations and their actual
+buffer/share-group lifetimes. Native GPU qualification passed and the original
+run above progresses beyond the old null call. Four additional bounded
+numeric-leaf repairs are also selected in that composite.
 
 The preceding scanner build completed three actual `(%u)` assignments, then
 naturally stopped on render5 at reported unliftable PC `70167c1c`: the retained
