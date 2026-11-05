@@ -1,0 +1,165 @@
+diff --git a/server/internal/gacha/handler.go b/server/internal/gacha/handler.go
+--- a/server/internal/gacha/handler.go
++++ b/server/internal/gacha/handler.go
+@@ -127,6 +127,9 @@
+ 			applyOwnedRules(user, items, bp, h.Pool, rule, int(phase.FixedCount))
+ 		}
+ 	}
++	if !prizeBox && !isEventBox {
++		h.applyNoDuplicateFourStar(user, entry, items)
++	}
+ 
+ 	if entry.GachaModeType == model.GachaModeStepup {
+ 		bs.StepNumber = CurrentStep(entry, bs) + 1
+@@ -180,6 +183,7 @@
+ 
+ 	if medalBonus > 0 && entry.MedalConsumableItemId != 0 {
+ 		h.Granter.GrantCapped(user, model.PossessionTypeConsumableItem, entry.MedalConsumableItemId, medalBonus, nowMillis, store.GiftTextSummons)
++		h.applyPityRewards(user, entry, nowMillis)
+ 	}
+ 
+ 	return result, nil
+diff --git a/server/internal/questflow/quest.go b/server/internal/questflow/quest.go
+--- a/server/internal/questflow/quest.go
++++ b/server/internal/questflow/quest.go
+@@ -8,6 +8,7 @@
+ 	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/masterdata"
+ 	"lunar-tear/server/internal/model"
++	"lunar-tear/server/internal/mods"
+ 	"lunar-tear/server/internal/store"
+ )
+ 
+@@ -370,7 +371,7 @@
+ 		allDrops = append(allDrops, drops...)
+ 
+ 		if questDef.Gold != 0 {
+-			user.ConsumableItems[h.Config.ConsumableItemIdForGold] += questDef.Gold
++			user.ConsumableItems[h.Config.ConsumableItemIdForGold] += modScaleGold(questDef.Gold)
+ 		}
+ 		h.applyExpRewards(user, questId, nowMillis)
+ 	}
+@@ -402,7 +403,7 @@
+ 	}
+ 	probe := *user
+ 	store.SettleStamina(&probe, maxMillis, nowMillis)
+-	if need := int64(perSkipStamina) * int64(skipCount) * 1000; int64(probe.Status.StaminaMilliValue) < need {
++	if need := int64(perSkipStamina) * int64(skipCount) * 1000; !mods.Get().StaminaFree && int64(probe.Status.StaminaMilliValue) < need {
+ 		return fmt.Errorf("%w: stamina %d/1000, %d needed", ErrSkipRefused, probe.Status.StaminaMilliValue, need/1000)
+ 	}
+ 	return nil
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -154,7 +154,7 @@
+ 		}
+ 	}
+ 	drops = h.appendBonusDrops(user, drops, target, nowMillis)
+-	return h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)
++	return modScaleDrops(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n), target)
+ }
+ 
+ func (h *QuestHandler) applyExpRewards(user *store.UserState, questId int32, nowMillis int64) {
+@@ -270,8 +270,9 @@
+ 	h.applyExpRewards(user, questId, nowMillis)
+ 
+ 	if questDef.Gold != 0 {
+-		user.ConsumableItems[h.Config.ConsumableItemIdForGold] += questDef.Gold
+-		log.Printf("[applyQuestRewards] questId=%d gold: +%d -> total=%d", questId, questDef.Gold, user.ConsumableItems[h.Config.ConsumableItemIdForGold])
++		gold := modScaleGold(questDef.Gold)
++		user.ConsumableItems[h.Config.ConsumableItemIdForGold] += gold
++		log.Printf("[applyQuestRewards] questId=%d gold: +%d -> total=%d", questId, gold, user.ConsumableItems[h.Config.ConsumableItemIdForGold])
+ 	}
+ }
+ 
+diff --git a/server/internal/service/gimmick.go b/server/internal/service/gimmick.go
+--- a/server/internal/service/gimmick.go
++++ b/server/internal/service/gimmick.go
+@@ -135,7 +135,7 @@
+ 			//   * type 2 — "Lost Items" in the cage
+ 			//   * type 8 — Lost Items (map variant)
+ 			// cageDrop draws from the Cage's ornament rewards instead.
+-			dropType, dropId, dropCount := cageDrop()
++			dropType, dropId, dropCount := lostItemDrop(cat.Gimmick.GimmickType(req.GimmickId))
+ 			cat.QuestHandler.Granter.GrantFull(user, dropType, dropId, dropCount, nowMillis)
+ 			ornamentRewards = append(ornamentRewards, &pb.GimmickReward{
+ 				PossessionType: int32(dropType),
+diff --git a/server/internal/service/shop.go b/server/internal/service/shop.go
+--- a/server/internal/service/shop.go
++++ b/server/internal/service/shop.go
+@@ -48,7 +48,7 @@
+ 				continue
+ 			}
+ 			if maxCount, limited := catalog.LimitedStock[item.ShopItemLimitedStockId]; limited && item.ShopItemLimitedStockId > 0 &&
+-				user.ShopItems[shopItemId].BoughtCount+qty > maxCount {
++				!modUnlimitedStock(catalog, item) && user.ShopItems[shopItemId].BoughtCount+qty > maxCount {
+ 				log.Printf("[ShopService] Buy: shopItemId=%d out of stock (bought %d of %d), skipping", shopItemId, user.ShopItems[shopItemId].BoughtCount, maxCount)
+ 				continue
+ 			}
+@@ -74,7 +74,9 @@
+ 
+ 			si := user.ShopItems[shopItemId]
+ 			si.ShopItemId = shopItemId
+-			si.BoughtCount += qty
++			if !modUnlimitedStock(catalog, item) {
++				si.BoughtCount += qty
++			}
+ 			si.LatestBoughtCountChangedDatetime = nowMillis
+ 			si.LatestVersion = nowMillis
+ 			user.ShopItems[shopItemId] = si
+@@ -257,7 +259,9 @@
+ 
+ 		si := user.ShopItems[req.ShopItemId]
+ 		si.ShopItemId = req.ShopItemId
+-		si.BoughtCount++
++		if !modUnlimitedStock(catalog, item) {
++			si.BoughtCount++
++		}
+ 		if item.ShopItemLimitedStockId > 0 && !limited {
+ 			if maxCount, ok := catalog.LimitedStock[item.ShopItemLimitedStockId]; ok && si.BoughtCount >= maxCount {
+ 				si.BoughtCount = 0
+diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
+--- a/server/internal/store/helpers.go
++++ b/server/internal/store/helpers.go
+@@ -208,6 +208,9 @@
+ 	// GachaMedalItemIds are the consumable items of ConsumableItemType
+ 	// GACHA_MEDAL, limited by Limits.GachaMedal instead of ConsumableItem.
+ 	GachaMedalItemIds map[int32]bool
++	// Rewrite, when set, changes what is granted before it is (Pod Programs >
++	// Mods: an item that arrives as another).
++	Rewrite func(possessionType model.PossessionType, possessionId, count int32) (model.PossessionType, int32, int32)
+ 
+ 	LastChangedStoryWeaponIds []int32
+ }
+@@ -289,6 +292,9 @@
+ // box with giftTextId. Other possession types are granted as GrantPossession
+ // does. For summons, which grant stackables directly.
+ func (g *PossessionGranter) GrantCapped(user *UserState, possessionType model.PossessionType, possessionId, count int32, nowMillis int64, giftTextId int32) {
++	if g.Rewrite != nil {
++		possessionType, possessionId, count = g.Rewrite(possessionType, possessionId, count)
++	}
+ 	if have, limit, ok := g.stackLimit(user, possessionType, possessionId); ok && limit > 0 && count > 0 {
+ 		room := max(int64(limit)-have, 0)
+ 		if int64(count) > room {
+diff --git a/server/internal/store/stamina.go b/server/internal/store/stamina.go
+--- a/server/internal/store/stamina.go
++++ b/server/internal/store/stamina.go
+@@ -4,6 +4,7 @@
+ 	"log"
+ 
+ 	"lunar-tear/server/internal/model"
++	"lunar-tear/server/internal/mods"
+ )
+ 
+ const StaminaRecoveryDivisor int64 = 180
+@@ -25,6 +26,10 @@
+ }
+ 
+ func ConsumeStamina(user *UserState, costUnits int32, maxStaminaMillis int32, nowMillis int64) {
++	if mods.Get().StaminaFree { // Pod Programs > Mods
++		log.Printf("[ConsumeStamina] cost=%d free (mod)", costUnits)
++		return
++	}
+ 	SettleStamina(user, maxStaminaMillis, nowMillis)
+ 	user.Status.StaminaMilliValue = max(user.Status.StaminaMilliValue-costUnits*1000, 0)
+ 	user.Status.StaminaUpdateDatetime = nowMillis

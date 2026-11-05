@@ -27,6 +27,7 @@ import (
 	"lunar-tear/server/internal/gacha"
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/interceptor"
+	"lunar-tear/server/internal/mods"
 	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/service"
 	"lunar-tear/server/internal/store/sqlite"
@@ -270,6 +271,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	service.SetArchiveRoot(dataRoot)
 	gacha.SetRatesPath(filepath.Join(dataRoot, "gacha_rates.json"))
 	gacha.SetRouletteRatesPath(filepath.Join(dataRoot, "roulette_rates.json"))
+	mods.SetPath(filepath.Join(dataRoot, "mods.json")) // Pod Programs > Mods
 	registerServices(s.grpc, local(8003), cdnURL, "http://"+local(3000), filepath.Join(assetRoot, "assets", "release", MasterName), store, holder, false)
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
