@@ -3,7 +3,26 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed candidate: `work/windows-first-frame-il2cpp-format1`, manifest
+Latest completed candidate: `work/windows-first-frame-main-nanosleep-sites1`,
+manifest `2c16ac72a336ae5e3c0707d3a600503e77423547dfad27cae3f0a8bb596c3d11`,
+EXE `ffb787231957682a7f4f4840f25bea9d722140d49539001fbfa16699d00f9a8f`.
+Four renders return with no sleep-routing abort, but the next render naturally
+exits native3 at reported PC `7033b784`: missing integer `CNT V0.8B,V0.8B`
+at `7033b780`, immediately followed by missing `UADDLV H0,V0.8B`.
+The source FDE `7033b734..7033b868` counts bits over seven64-bit words before
+calling its real helpers. There is no draw, swap or image; all pre/post checks
+pass. The new backoff LR was not observed in this run, so its live exercise
+is not claimed. Formatter-case execution is not instrumented or inferred.
+
+Boundary `work/main-nanosleep-sites1-unliftable-boundary1/acceptance.json`,
+SHA256 `a8635773b57f0c7c8fccaee761b6da57d92bc15971864aeac0968fe629cbe04e`.
+The proposed coherent repair updates eight functions in containers72/119/125/333
+for this same integer pair. [vector_cnt_8b.md](../whole/vector_cnt_8b.md)
+records13,056 exact ARM/raw-Windows/polled-kernel cases, including the actual
+helper-free56-byte loop prefix. It does not claim whole-function execution of
+the eight helper-using functions. Original integration remains pending.
+
+Preceding completed candidate: `work/windows-first-frame-il2cpp-format1`, manifest
 `d55512b91b677f412427cf993e7f62e4b5b844120287c61916e6b4a7559589c4`,
 EXE `63e71d95ae2bf8725fad51c86c1e644c9aba7673317e58a306744c689aa1dfe2`.
 The twelve formatter entries are selected (4657 objects,595470 heads), but
