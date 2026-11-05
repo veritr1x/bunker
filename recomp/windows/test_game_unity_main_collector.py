@@ -93,8 +93,8 @@ def main():
         command += [out / "original-handlers.o", "-static", "-pthread", "-latomic", "-ladvapi32", "-lbcrypt", "-o", out / "original-main-gc.exe"]
         run("compile", command)
         cases = {}
-        for mode in ("disabled", "enabled"):
-            result = run("run-" + mode, [out / "original-main-gc.exe", mode])
+        for mode,site in ((m,s) for m in ("disabled","enabled") for s in ("unity","backoff")):
+            result = run("run-" + mode + "-" + site, [out / "original-main-gc.exe", mode, site])
             stdout = result.stdout.decode("utf-8", errors="replace")
             stderr = result.stderr.decode("utf-8", errors="replace")
             match = re.search(r"EXTERNAL-UNITYMAIN-ORIGINAL-GC-SUCCESS cycles=2 posts=4 stops=2 restarts=(\d+) checks=(\d+)", stdout)
@@ -110,7 +110,10 @@ def main():
                 assert label == "enabled-inactive" and size == 262144 and acquires >= 2 + int(match[1]) and guards == 8
             else:
                 assert label == "disabled" and size == acquires == guards == 0
-            cases[mode] = {"cycles": 2, "actual_posts": 4, "stop_deliveries": 2, "nested_restarts": int(match[1]), "checks": int(match[2]), "alternate_size": size, "actual_mapping_acquires": acquires, "lease_mutation_guards": guards, "configuration_preserved": True, "alternate_canaries_unchanged": True, "normal_physical_root_frames": 4, "stdout": stdout, "stderr": stderr}
+            site_match=re.search(r"EXTERNAL-UNITYMAIN-SITES site=(\S+) ordinary-calls=1 guard-rejections=5 retained-pair=consumed-next-epoch",stdout)
+            if not site_match or site_match[1] != ("825a7230" if site=="backoff" else "70383878"):
+                raise RuntimeError("missing exact recognized/ordinary site witness")
+            cases[mode+"-"+site] = {"site":site_match[1],"ordinary_calls":1,"guard_rejections":5,"cycles": 2, "actual_posts": 4, "stop_deliveries": 2, "nested_restarts": int(match[1]), "checks": int(match[2]), "alternate_size": size, "actual_mapping_acquires": acquires, "lease_mutation_guards": guards, "configuration_preserved": True, "alternate_canaries_unchanged": True, "normal_physical_root_frames": 4, "stdout": stdout, "stderr": stderr}
         for name, digest in source_hashes.items():
             pin(repo / name, digest)
         for path, digest in list(evidence.items()):
@@ -118,7 +121,7 @@ def main():
         for path in out.rglob("*"):
             if path.is_file():
                 pin(path)
-        receipt = {"passed": True, "scope": "Two fresh Windows processes: disabled alternate control and actual FileSystem-owned262144byte enabled inactive alternate; genuine retained original stop/resume coordinators and handlers perform two cycles each with normal-stack31GPR32Q roots and unchanged exact no-SA_ONSTACK dispositions. Enabled alternate tuple/epoch/generation and all canaries preserved; real core mapping leases reject unmap/protection while original normal-stack frames run", "limitations": ["TEST initial registry/globals and helper-shaped interrupted caller; no game or original scanner execution, heap scan, reclamation or first-frame claim", "Same-epoch duplicate zero-post delivery is deferred and not qualified", "Enabled alternate is registered and inactive; actual SA_ONSTACK switching is not admitted by this main collector profile"], "owned_sources": {name: source_hashes[name] for name in OWNED}, "source_hashes": source_hashes, "cases": cases, "case_count": 2, "cycles": 4, "actual_posts": 8, "stop_deliveries": 4, "nested_restarts": sum(c["nested_restarts"] for c in cases.values()), "checks": sum(c["checks"] for c in cases.values()), "default_nanosleep_receipt": {"path": str(default), "sha256": DEFAULT_SHA}, "original_extraction": {"path": str(extraction), "sha256": EXTRACTION_SHA, "windows_object_sha256": OBJECT_SHA}, "evidence": evidence}
+        receipt = {"passed": True, "production_sources": {"windows/game_unity_main_collector.h":source_hashes["windows/game_unity_main_collector.h"]}, "bootstrap_source": {"path":str(repo/"windows/game_bootstrap.cpp"),"sha256":pin(repo/"windows/game_bootstrap.cpp","c889a72090d9162fe324858f170fc6ed1fd3dd7e415a45474c3c859cfb92b9c0")}, "scope": "Four fresh Windows processes: old Unity32byte and IL2CPP64byte/FP+48 backoff sites each with disabled alternate control and actual FileSystem-owned262144byte enabled inactive alternate; genuine retained original stop/resume coordinators and handlers perform two cycles each with normal-stack31GPR32Q roots and unchanged exact no-SA_ONSTACK dispositions. Enabled alternate tuple/epoch/generation and all canaries preserved; real core mapping leases reject unmap/protection while original normal-stack frames run", "limitations": ["TEST initial registry/globals and caller-shaped32/64byte interrupted frames; no execution of full caller helper; no game or original scanner execution, heap scan, reclamation or first-frame claim", "Same-epoch duplicate zero-post delivery is deferred and not qualified", "Enabled alternate is registered and inactive; actual SA_ONSTACK switching is not admitted by this main collector profile"], "owned_sources": {name: source_hashes[name] for name in OWNED}, "source_hashes": source_hashes, "cases": cases, "case_count": 4, "cycles": 8, "actual_posts": 16, "stop_deliveries": 8, "ordinary_calls":4, "guard_rejections":20, "nested_restarts": sum(c["nested_restarts"] for c in cases.values()), "checks": sum(c["checks"] for c in cases.values()), "default_nanosleep_receipt": {"path": str(default), "sha256": DEFAULT_SHA}, "original_extraction": {"path": str(extraction), "sha256": EXTRACTION_SHA, "windows_object_sha256": OBJECT_SHA}, "evidence": evidence}
         write(out / "acceptance.json", receipt)
         print(f"PASS {out / 'acceptance.json'} sha256={sha(out / 'acceptance.json')}")
     except BaseException as exc:

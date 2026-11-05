@@ -3,7 +3,27 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed candidate: `work/windows-first-frame-neg4s1`, manifest
+Latest completed candidate: `work/windows-first-frame-il2cpp-format1`, manifest
+`d55512b91b677f412427cf993e7f62e4b5b844120287c61916e6b4a7559589c4`,
+EXE `63e71d95ae2bf8725fad51c86c1e644c9aba7673317e58a306744c689aa1dfe2`.
+The twelve formatter entries are selected (4657 objects,595470 heads), but
+this run ends earlier: two renders return, then an adapter guard aborts at
+ordinary original IL2CPP backoff `nanosleep`, LR `825a7230`, before request
+copying. The owned-main wrapper routed every sleep into a phase accepting
+only Unity LR `70383878`. This proves a routing/site mismatch; neither a race
+nor a formatter regression is established. All input and parent pre/post
+checks pass, with no draw, successful swap or image.
+
+Causal receipt `work/il2cpp-format1-nanosleep-boundary1/final-acceptance.json`,
+SHA256 `921062afb49cad80e0563623f78e0fbd9fd615702359120626bff2e66e2fb8ef`.
+The proposed fix qualifies the original64-byte IL2CPP backoff frame alongside
+the old32-byte Unity frame and routes other sleeps through the real ordinary
+provider, preserving pending collector signals. Four fresh test processes pass
+550 checks and eight original stop/restart signal cycles, including physical
+register roots. This does not claim a complete heap collection, whole backoff
+helper execution or original-game progression. Next integration remains pending.
+
+Preceding completed candidate: `work/windows-first-frame-neg4s1`, manifest
 `b41a7a2c5933e532e252b9c42e3bd59f13d77823f4b9dd80da1b043244ae66ed`,
 EXE `493a97e6d9adf241e65992abd9b0f9b8fc6ccc6d8f64ba564f6b61f9c185717b`.
 Both reached integer NEG repairs now progress. Four original renders return;

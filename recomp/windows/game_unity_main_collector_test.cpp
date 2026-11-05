@@ -63,7 +63,7 @@ Memory *Setup(State&s,addr_t,Memory*m){s.gpr.pc.qword=s.gpr.x30.qword;return m;}
 Memory *SleepEntry(State&,addr_t,Memory*);
 struct Harness {
   recomp::Runtime runtime;
-  AltMappings maps;const bool enabled_alternate;addr_t alternate_pointer=0;
+  AltMappings maps;const bool enabled_alternate,backoff;addr_t alternate_pointer=0;
   static constexpr size_t alternate_size=262144;
   SignalHost::StackSnapshot alternate_snapshot{};
   std::atomic<unsigned> alternate_acquires{0},lease_guards{0};
@@ -79,14 +79,15 @@ struct Harness {
   std::array<std::promise<void>,2> entered,finished,proceed,suspend_ready;
   std::array<std::atomic<unsigned>,2> suspend_entries{};
   std::promise<void> attached,late_checked;
-  std::atomic<bool> late_published{false};
+  std::atomic<bool> late_published{false},ordinary_sleep{false};
+  unsigned ordinary_calls=0,site_rejections=0;
   State interrupted{};
   std::optional<uint64_t> Boundary(const SignalHost::Delivery&d){
     if(d.signal==30){++stops;if(d.info[100]==30)++seen_late30;}
     else if(d.signal==24){++restarts;if(d.info[100]==24)++seen_late24;}
     return profile->Deliver(d);
   }
-  explicit Harness(bool enabled):enabled_alternate(enabled){
+  explicit Harness(bool enabled,bool new_site):enabled_alternate(enabled),backoff(new_site){
     host=this;Check(VirtualAlloc(reinterpret_cast<void*>(0x87980000ULL),0x40000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87980000ULL),"TEST original-GC data range reserved exactly");
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87cb0000ULL),0x10000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87cb0000ULL),"TEST original acknowledgment range reserved exactly");
     runtime.AddTraces(originals,std::size(originals));const recomp::Trace fixture[]={{kSetup,Setup},{kSleepEntry,SleepEntry}};runtime.AddTraces(fixture,2);
@@ -96,8 +97,14 @@ struct Harness {
     const auto boundary=[this](const auto&d){return Boundary(d);};
     signals.Install(runtime,[this]{return threads.Self();},boundary,[]{return SignalHost::SenderIdentity{int32_t(GetCurrentProcessId()),10000};});
     sem.Install(runtime,[this]{return threads.Self();},boundary);nano.Install(runtime);sleeps.Install(runtime);
-    nano.SetDispatcher([this](auto token,auto allowed,const auto&boundary){auto result=profile->DispatchNanoSleep(token,allowed,boundary);if(cycle==2&&!late_published.exchange(true)){Check(!result.handled&&SignalHost::NeedsPoll(signals.Lookup(token)),"late30/24 remain pending before new original epoch certification");Check(stops==1&&restarts==1&&!seen_late30&&!seen_late24,"late pair not delivered before new epoch");late_checked.set_value();}return result;});
-    nano.SetRequestObserver([this](const auto&value){Check(value.copied&&value.remaining==0&&value.seconds==0&&value.nanoseconds==500000000,"actual NanoSleep copied TEST helper-shaped request");interrupted=*recomp::CurrentExecutionState();entered[cycle.load()-1].set_value();});
+    nano.SetDispatcher([this](auto token,auto allowed,const auto&boundary){auto result=profile->DispatchNanoSleep(token,allowed,boundary);if(cycle==2&&!ordinary_sleep&&!late_published.exchange(true)){Check(!result.handled&&SignalHost::NeedsPoll(signals.Lookup(token)),"late30/24 remain pending before new original epoch certification");Check(stops==1&&restarts==1&&!seen_late30&&!seen_late24,"late pair not delivered before new epoch");late_checked.set_value();if(backoff){const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);while(sends30<2){if(std::chrono::steady_clock::now()>=deadline)Check(false,"real next epoch stop arrives after deferred-dispatch TEST witness");std::this_thread::yield();}}}return result;});
+    nano.SetRequestObserver([this](const auto&value){
+      Check(value.copied&&value.remaining==0&&value.seconds==0,"actual NanoSleep copied stack request/null remainder");
+      if(ordinary_sleep){Check(value.nanoseconds==0&&!profile->NanoSleepAdmission(target)&&SignalHost::NeedsPoll(signals.Lookup(target)),"unknown owned-main site is ordinary and retains pending stop/restart");++ordinary_calls;return;}
+      Check(value.nanoseconds==(backoff?16777216:500000000),"actual original-site-shaped request duration");
+      interrupted=*recomp::CurrentExecutionState();entered[cycle.load()-1].set_value();
+      if(backoff&&cycle==1){const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);while(sends30<cycle.load()||!SignalHost::NeedsPoll(signals.Lookup(target))){if(std::chrono::steady_clock::now()>=deadline)Check(false,"real original stop arrives at copied-request TEST scheduling gate");std::this_thread::yield();}}
+    });
     runtime.AddImport(kErrno,[](State&s){s.gpr.x0.qword=reinterpret_cast<addr_t>(&guest_error);});
     // Explicit TEST initial state only. Epoch/world transitions after this
     // point are performed by the retained original coordinators, never host ack.
@@ -178,18 +185,36 @@ struct Harness {
     profile->Close();profile.reset();Check(!sem.Destroy(kAck)&&!threads.Shutdown()&&!threads.ReleaseCurrent()&&!signals.DropThread(parent),"parent providers close after genuine external retirement");
     std::printf("EXTERNAL-UNITYMAIN-ORIGINAL-GC-SUCCESS cycles=2 posts=%u stops=%u restarts=%u checks=%u actual-external-thread/current-polled-original-code/physical31GPR32Q/main-global-bound\n",posts.load(),stops.load(),restarts.load(),checks.load());
     std::printf("EXTERNAL-UNITYMAIN-ALTSTACK mode=%s size=%zu acquires=%u lease-guards=%u canaries=unchanged configuration=preserved normal-root-frames=4\n",enabled_alternate?"enabled-inactive":"disabled",enabled_alternate?alternate_size:size_t(0),alternate_acquires.load(),lease_guards.load());
+    std::printf("EXTERNAL-UNITYMAIN-SITES site=%s ordinary-calls=%u guard-rejections=%u retained-pair=consumed-next-epoch\n",backoff?"825a7230":"70383878",ordinary_calls,site_rejections);
   }
 };
 Memory *SleepEntry(State&s,addr_t,Memory*m){
-  const auto top=s.gpr.sp.qword,return_pc=s.gpr.x30.qword;
+  const auto top=s.gpr.sp.qword,return_pc=s.gpr.x30.qword,caller_fp=s.gpr.x29.qword;
+  if(host->cycle==2){
+    s.gpr.sp.qword=top-32;s.gpr.x0.qword=s.gpr.sp.qword;s.gpr.x1.qword=0;s.gpr.x30.qword=0x5d00fff0;s.gpr.pc.qword=host->nano.Marker("nanosleep");
+    const int64_t zero[2]={0,0};recomp::WriteGuestMemory(s.gpr.sp.qword,zero,sizeof(zero));
+    Check(!GameUnityMainCollector::NanoSleepSite(s),"unknown real NanoSleep caller is not classified as collector phase");
+    host->ordinary_sleep=true;host->runtime.Dispatch(s,host->nano.Marker("nanosleep"),m);host->ordinary_sleep=false;
+    Check(s.gpr.x0.qword==0&&guest_error==731&&host->stops==1&&host->restarts==1&&SignalHost::NeedsPoll(host->signals.Lookup(host->target)),"ordinary zero wait completes without delivering retained30/24 or inventing EINTR");
+  }
   for(unsigned i=0;i<31;++i){const uint64_t value=0x1234000000000000ULL+i*0x10101ULL;std::memcpy(reinterpret_cast<uint8_t*>(&s.gpr)+i*16+8,&value,8);}
   for(unsigned i=0;i<32;++i)for(unsigned b=0;b<16;++b)reinterpret_cast<uint8_t*>(&s.simd.v[i])[b]=uint8_t(i*7+b);
-  s.gpr.sp.qword=top-32;s.gpr.x0.qword=s.gpr.sp.qword;s.gpr.x1.qword=0;s.gpr.x29.qword=top-16;s.gpr.x30.qword=0x70383878;s.gpr.pc.qword=host->nano.Marker("nanosleep");
-  const int64_t request[2]={0,500000000};recomp::WriteGuestMemory(s.gpr.sp.qword,request,sizeof(request));Write<addr_t>(s.gpr.sp.qword+16,return_pc);
-  host->profile->WithNanoSleep(s,[&]{host->runtime.Dispatch(s,host->nano.Marker("nanosleep"),m);});
+  const addr_t frame=host->backoff?64:32,lr=host->backoff?0x825a7230:0x70383878;
+  s.gpr.sp.qword=top-frame;s.gpr.x0.qword=s.gpr.sp.qword;s.gpr.x1.qword=0;s.gpr.x29.qword=top-16;s.gpr.x30.qword=lr;s.gpr.pc.qword=host->nano.Marker("nanosleep");
+  const int64_t request[2]={0,host->backoff?16777216:500000000};recomp::WriteGuestMemory(s.gpr.sp.qword,request,sizeof(request));
+  if(host->backoff){Write<addr_t>(s.gpr.sp.qword+16,s.gpr.x22.qword);Write<addr_t>(s.gpr.sp.qword+24,s.gpr.x21.qword);Write<addr_t>(s.gpr.sp.qword+32,s.gpr.x20.qword);Write<addr_t>(s.gpr.sp.qword+40,s.gpr.x19.qword);}
+  Write<addr_t>(top-16,caller_fp);Write<addr_t>(top-8,return_pc);
+  Check(GameUnityMainCollector::NanoSleepSite(s),"exact marker and original LR classify genuine site");
+  if(host->cycle==1){
+    const State saved=s;
+    for(unsigned n=0;n<5;++n){s=saved;if(n==0)s.gpr.x0.qword+=16;else if(n==1)s.gpr.x1.qword=s.gpr.sp.qword;else if(n==2)s.gpr.x30.qword+=4;else if(n==3)s.gpr.pc.qword+=8;else{s.gpr.sp.qword=top-16;s.gpr.x0.qword=s.gpr.sp.qword;}
+      bool invoked=false;Reject([&]{host->profile->WithNanoSleep(s,[&]{invoked=true;});},"malformed phase rejected before NanoSleep body");Check(!invoked,"strict guard rejects malformed caller before request/provider entry");++host->site_rejections;
+    }s=saved;
+  }
+  if(GameUnityMainCollector::NanoSleepSite(s))host->profile->WithNanoSleep(s,[&]{host->runtime.Dispatch(s,host->nano.Marker("nanosleep"),m);});else host->runtime.Dispatch(s,host->nano.Marker("nanosleep"),m);
   for(unsigned i=1;i<31;++i){uint64_t value=0;std::memcpy(&value,reinterpret_cast<uint8_t*>(&s.gpr)+i*16+8,8);uint64_t expected=0;std::memcpy(&expected,reinterpret_cast<const uint8_t*>(&host->interrupted.gpr)+i*16+8,8);Check(value==expected,"actual original nested handlers restored interrupted GPR");}
   Check(!std::memcmp(&s.simd,&host->interrupted.simd,sizeof(s.simd)),"actual nested original handlers restored all32Q");
-  Check(s.gpr.sp.qword==top-32&&s.gpr.pc.qword==0x70383878,"actual NanoSleep preserved helper continuation SP/PC");s.gpr.sp.qword=top;s.gpr.x30.qword=return_pc;s.gpr.pc.qword=return_pc;return m;
+  Check(s.gpr.sp.qword==top-frame&&s.gpr.pc.qword==lr,"actual NanoSleep preserved original-site continuation SP/PC");s.gpr.sp.qword=top;s.gpr.x30.qword=return_pc;s.gpr.pc.qword=return_pc;return m;
 }
 [[noreturn]]void Unsupported(const char*name){std::fprintf(stderr,"TEST-only unsupported original error/reinitialization path: %s\n",name);std::abort();}
 }
@@ -206,5 +231,5 @@ Memory *sub_825b3020(State&,addr_t,Memory*){Unsupported("original unexpected rei
 int main(int argc,char**argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
   std::thread([]{std::this_thread::sleep_for(std::chrono::seconds(45));std::fputs("external original GC component watchdog\n",stderr);std::_Exit(98);}).detach();
-  try{Check(argc==2&&(!std::strcmp(argv[1],"disabled")||!std::strcmp(argv[1],"enabled")),"explicit alternate-stack fixture mode");Harness h(!std::strcmp(argv[1],"enabled"));h.Run();return 0;}catch(const std::exception&e){std::fprintf(stderr,"external original GC fixture: %s\n",e.what());std::_Exit(91);}
+  try{Check(argc==3&&(!std::strcmp(argv[1],"disabled")||!std::strcmp(argv[1],"enabled"))&&(!std::strcmp(argv[2],"unity")||!std::strcmp(argv[2],"backoff")),"explicit alternate-stack and original-site fixture mode");Harness h(!std::strcmp(argv[1],"enabled"),!std::strcmp(argv[2],"backoff"));h.Run();return 0;}catch(const std::exception&e){std::fprintf(stderr,"external original GC fixture: %s\n",e.what());std::_Exit(91);}
 }

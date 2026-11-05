@@ -781,7 +781,7 @@ int main(int argc,char **argv){
         {GameWorkerObservation::NativeEnvironment native;
           std::fprintf(stderr,"Game bootstrap: original nanosleep ENTER caller_native_tid=%lu request=%#llx remaining=%#llx LR=%#llx\n",GetCurrentThreadId(),(unsigned long long)request,(unsigned long long)remaining,(unsigned long long)caller);}
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
-        if(main_collector&&main_collector->Owns(threads.Self()))main_collector->WithNanoSleep(s,[&]{sleep_bridges.Dispatch(s,nanosleep_marker,nullptr);});else
+        if(main_collector&&main_collector->Owns(threads.Self())&&GameUnityMainCollector::NanoSleepSite(s))main_collector->WithNanoSleep(s,[&]{sleep_bridges.Dispatch(s,nanosleep_marker,nullptr);});else
 #endif
         sleep_bridges.Dispatch(s,nanosleep_marker,nullptr);
         {GameWorkerObservation::NativeEnvironment native;

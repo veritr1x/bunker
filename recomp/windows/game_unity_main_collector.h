@@ -69,8 +69,11 @@ class GameUnityMainCollector {
     auto *state=recomp::CurrentExecutionState();Check(owner.live&&Current()==&owner&&owner.native_tid==GetCurrentThreadId()&&threads_.Self()==owner.token,"phase is not on attached actual external thread");
     Check(owner.phase&&owner.sleep_state&&state==owner.sleep_state&&!OpaqueDepth(),"phase has no exact live NanoSleep State");
     const auto frames=recomp::CurrentExecutionFrames(*state);Check(frames.size()==1&&frames[0]==state,"phase has enclosing Runtime roots");
-    Check(state->gpr.pc.qword==kNanoSleep&&state->gpr.x30.qword==0x70383878&&state->gpr.x0.qword==state->gpr.sp.qword&&!state->gpr.x1.qword,"phase is not original null-rem helper NanoSleep");
-    const auto sp=state->gpr.sp.qword;Check(!(sp&15)&&sp>=owner.low&&sp<=owner.high&&sp-owner.low>=9504&&owner.high-sp>=32,"actual normal stack lacks helper/two-frame bounds");
+    // Both original helpers pass their stack timespec and a null remainder.
+    // The IL2CPP lock-backoff helper reserves 64 bytes, versus Unity's 32.
+    const bool il2cpp_backoff=state->gpr.x30.qword==0x825a7230;
+    Check(NanoSleepSite(*state)&&state->gpr.x0.qword==state->gpr.sp.qword&&!state->gpr.x1.qword,"phase is not original null-rem helper NanoSleep");
+    const auto sp=state->gpr.sp.qword;Check(!(sp&15)&&sp>=owner.low&&sp<=owner.high&&sp-owner.low>=9504&&owner.high-sp>=(il2cpp_backoff?64u:32u),"actual normal stack lacks helper/two-frame bounds");
     Check(owner.tls&&state->sr.tpidr_el0.qword==owner.tls,"materialized external TLS identity changed");
     const auto alternate=signals_.AlternateStack(owner.token);const auto &stack=alternate.configured;
     if(stack.flags==2)Check(!stack.pointer&&!stack.size&&!alternate.region,"disabled alternate stack is not canonical");
@@ -107,6 +110,9 @@ class GameUnityMainCollector {
   GameUnityMainCollector(Pthreads&threads,SignalHost&signals,bunker::windows::Semaphores&sem,recomp::Runtime&runtime):threads_(threads),signals_(signals),semaphores_(sem),runtime_(runtime){Check(Translated(kReturn)&&Executable(kReturn)&&Translated(0x825beb3c)&&Translated(0x825b2af4)&&Translated(0x825b2c70),"genuine original signal heads are unavailable");}
   ~GameUnityMainCollector(){if(!closed_||owner_)std::terminate();}
   bool Owns(uint64_t token){auto owner=Lookup(token);return owner&&owner->live;}
+  static bool NanoSleepSite(const State&state)noexcept{
+    return state.gpr.pc.qword==kNanoSleep&&(state.gpr.x30.qword==0x70383878||state.gpr.x30.qword==0x825a7230);
+  }
   void AttachCurrent(uint64_t token,uint64_t parent){
     Check(token&&parent&&token!=parent&&threads_.Self()==token&&Current()==nullptr,"external attachment requires actual distinct current token");
     Check(!signals_.DispatchOneAllowed(token,0,{}).error&&signals_.Lookup(parent),"external SignalHost registration/binding is absent");
