@@ -38,6 +38,18 @@ class LauncherIndex(unittest.TestCase):
     def setUp(self):
         app._builders.clear()
 
+    def test_the_real_build_makes_the_archive_folder(self):
+        # A fresh install: the launcher builds the index before the Archive
+        # page has ever opened, so files/archive does not exist yet.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+            assets, archive = game_files(Path(d))
+            self.assertFalse(archive.exists())
+            try:
+                index.build(assets / "assets/revisions/0", assets / "assets/release/20240404193219.bin.e", archive / "archive.db")
+            except Exception as exc:  # the fake master data stops it later
+                self.assertNotIn("unable to open database file", str(exc))
+            self.assertTrue(archive.is_dir())
+
     def test_nothing_to_build_without_game_text(self):
         with tempfile.TemporaryDirectory() as folder:
             status = json.loads(android_archive.index_status(str(Path(folder) / "server"), str(Path(folder) / "archive")))

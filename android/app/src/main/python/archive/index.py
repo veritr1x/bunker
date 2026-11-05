@@ -625,6 +625,8 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     if not master.is_file():
         raise FileNotFoundError("Master data is missing.")
     started = time.time()
+    # The launcher can build the index before the Archive has ever opened (and made its folder).
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     pending = db_path.with_name(db_path.name + ".pending")
     pending.unlink(missing_ok=True)
     db = sqlite3.connect(pending)
