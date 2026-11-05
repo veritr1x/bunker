@@ -3,8 +3,8 @@ package service
 import (
 	"log"
 	"sort"
-	"sync"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
@@ -21,7 +21,7 @@ import (
 // Only with the Original calendar: with everything open, the patched game
 // data keeps every card open forever, which would stamp all of them each day.
 
-var loginBonuses = sync.OnceValue(func() []masterdata.EntityMLoginBonus {
+var loginBonuses = bunkercache.Value(func() []masterdata.EntityMLoginBonus {
 	rows := table[masterdata.EntityMLoginBonus]("m_login_bonus")
 	sort.Slice(rows, func(i, j int) bool { return rows[i].LoginBonusId < rows[j].LoginBonusId })
 	return rows

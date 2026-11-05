@@ -9,8 +9,8 @@ package userdata
 import (
 	"log"
 	"sort"
-	"sync"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
@@ -120,7 +120,7 @@ type costumeTables struct {
 	targetStatus  map[int32][]masterdata.EntityMCostumeLotteryEffectTargetStatusUp
 }
 
-var costumeDerivedTables = sync.OnceValue(func() costumeTables {
+var costumeDerivedTables = bunkercache.Value(func() costumeTables {
 	t := costumeTables{
 		characterId:   map[int32]int32{},
 		levelBonusId:  map[int32]int32{},

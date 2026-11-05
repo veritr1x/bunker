@@ -7,8 +7,8 @@ import (
 	"log"
 	"slices"
 	"sort"
-	"sync"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/utils"
@@ -184,7 +184,7 @@ type levelBonusTables struct {
 	levels  map[int32][]int32 // CostumeLevelBonusId -> bonus levels, ascending
 }
 
-var levelBonuses = sync.OnceValue(func() levelBonusTables {
+var levelBonuses = bunkercache.Value(func() levelBonusTables {
 	t := levelBonusTables{bonusId: map[int32]int32{}, levels: map[int32][]int32{}}
 	costumes, err := utils.ReadTable[masterdata.EntityMCostume]("m_costume")
 	if err != nil {

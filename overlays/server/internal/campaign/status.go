@@ -2,9 +2,9 @@ package campaign
 
 import (
 	"log"
-	"sync"
 	"time"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/utils"
@@ -22,7 +22,7 @@ import (
 
 const dayMillis = int64(24 * time.Hour / time.Millisecond)
 
-var beginnerCampaigns = sync.OnceValue(func() []masterdata.EntityMBeginnerCampaign {
+var beginnerCampaigns = bunkercache.Value(func() []masterdata.EntityMBeginnerCampaign {
 	rows, err := utils.ReadTable[masterdata.EntityMBeginnerCampaign]("m_beginner_campaign")
 	if err != nil {
 		log.Printf("[campaign] m_beginner_campaign: %v", err)
@@ -30,7 +30,7 @@ var beginnerCampaigns = sync.OnceValue(func() []masterdata.EntityMBeginnerCampai
 	return rows
 })
 
-var comebackCampaigns = sync.OnceValue(func() []masterdata.EntityMComebackCampaign {
+var comebackCampaigns = bunkercache.Value(func() []masterdata.EntityMComebackCampaign {
 	rows, err := utils.ReadTable[masterdata.EntityMComebackCampaign]("m_comeback_campaign")
 	if err != nil {
 		log.Printf("[campaign] m_comeback_campaign: %v", err)

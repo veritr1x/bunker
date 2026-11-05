@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"sync"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/utils"
@@ -241,7 +241,7 @@ func chapterGachaEntry(t ChapterTicket) store.GachaCatalogEntry {
 // (chapterBoxCounts by rarity); the rarest are its targets.
 var chapterBoxCounts = map[int32]int32{model.RarityNormal: 10, model.RarityRare: 6, model.RaritySRare: 3, model.RaritySSRare: 1}
 
-var materialRarity = sync.OnceValue(func() map[int32]int32 {
+var materialRarity = bunkercache.Value(func() map[int32]int32 {
 	rows, err := utils.ReadTable[EntityMMaterial]("m_material")
 	if err != nil {
 		log.Printf("[ChapterGacha] m_material: %v", err)

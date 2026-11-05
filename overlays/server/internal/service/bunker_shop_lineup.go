@@ -2,8 +2,8 @@ package service
 
 import (
 	"sort"
-	"sync"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
@@ -15,7 +15,7 @@ import (
 // number of the next refresh, from 1: the game prices the refresh from it
 // (and fails on 0), and it goes back to 1 at the daily reset.
 
-var replaceableGems = sync.OnceValue(func() []masterdata.EntityMShopReplaceableGem {
+var replaceableGems = bunkercache.Value(func() []masterdata.EntityMShopReplaceableGem {
 	rows := table[masterdata.EntityMShopReplaceableGem]("m_shop_replaceable_gem")
 	sort.Slice(rows, func(i, j int) bool { return rows[i].LineupUpdateCountLowerLimit < rows[j].LineupUpdateCountLowerLimit })
 	return rows

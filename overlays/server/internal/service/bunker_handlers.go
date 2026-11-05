@@ -10,9 +10,9 @@ import (
 	"log"
 	"math/rand"
 	"sort"
-	"sync"
 
 	pb "lunar-tear/server/gen/proto"
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/missions"
@@ -114,7 +114,7 @@ func (s *RewardServiceServer) ReceiveMissionPassRemainingReward(ctx context.Cont
 	return &pb.ReceiveMissionPassRemainingRewardResponse{RewardReceivedMissionPassId: passId}, nil
 }
 
-var labyrinthSeasons = sync.OnceValue(func() map[int32][]masterdata.EntityMEventQuestLabyrinthSeason {
+var labyrinthSeasons = bunkercache.Value(func() map[int32][]masterdata.EntityMEventQuestLabyrinthSeason {
 	rows, err := utils.ReadTable[masterdata.EntityMEventQuestLabyrinthSeason]("m_event_quest_labyrinth_season")
 	if err != nil {
 		log.Printf("[RewardService] m_event_quest_labyrinth_season: %v", err)
@@ -174,7 +174,7 @@ type dailyGroupTables struct {
 	rewards map[int32][]masterdata.EntityMEventQuestDailyGroupCompleteReward
 }
 
-var dailyGroups = sync.OnceValue(func() dailyGroupTables {
+var dailyGroups = bunkercache.Value(func() dailyGroupTables {
 	t := dailyGroupTables{rewards: map[int32][]masterdata.EntityMEventQuestDailyGroupCompleteReward{}}
 	var err error
 	if t.groups, err = utils.ReadTable[masterdata.EntityMEventQuestDailyGroup]("m_event_quest_daily_group"); err != nil {
@@ -247,7 +247,7 @@ func (s *CostumeServiceServer) RegisterLevelBonusConfirmed(ctx context.Context, 
 
 type sceneChoiceKey struct{ sceneId, flowType, choice int32 }
 
-var sceneChoices = sync.OnceValue(func() map[sceneChoiceKey]masterdata.EntityMQuestSceneChoiceEffect {
+var sceneChoices = bunkercache.Value(func() map[sceneChoiceKey]masterdata.EntityMQuestSceneChoiceEffect {
 	effects := map[int32]masterdata.EntityMQuestSceneChoiceEffect{}
 	rows, _ := utils.ReadTable[masterdata.EntityMQuestSceneChoiceEffect]("m_quest_scene_choice_effect")
 	for _, e := range rows {
@@ -307,7 +307,7 @@ func (s *PortalCageServiceServer) GetDropItem(context.Context, *emptypb.Empty) (
 	return &pb.GetDropItemResponse{PortalCageDropItem: []*pb.PortalCageDropItem{}}, nil
 }
 
-var cageDropPool = sync.OnceValue(func() []masterdata.EntityMCageOrnamentReward {
+var cageDropPool = bunkercache.Value(func() []masterdata.EntityMCageOrnamentReward {
 	rows, err := utils.ReadTable[masterdata.EntityMCageOrnamentReward]("m_cage_ornament_reward")
 	if err != nil {
 		log.Printf("[GimmickService] m_cage_ornament_reward: %v", err)

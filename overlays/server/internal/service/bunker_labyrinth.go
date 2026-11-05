@@ -1,9 +1,8 @@
 package service
 
 import (
-	"sync"
-
 	pb "lunar-tear/server/gen/proto"
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
@@ -17,7 +16,7 @@ import (
 // over time) are kept.
 
 // labyrinthQuests are the quest ids of each labyrinth chapter.
-var labyrinthQuests = sync.OnceValue(func() map[int32]map[int32]bool {
+var labyrinthQuests = bunkercache.Value(func() map[int32]map[int32]bool {
 	sequences := map[int32][]int32{}
 	for _, s := range table[masterdata.EntityMEventQuestSequence]("m_event_quest_sequence") {
 		sequences[s.EventQuestSequenceId] = append(sequences[s.EventQuestSequenceId], s.QuestId)
