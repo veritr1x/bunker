@@ -3,7 +3,21 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed candidate: `work/windows-first-frame-main-nanosleep-sites1`,
+Latest original attempt: `work/windows-first-frame-vector-popcount-batch1`,
+manifest `3e3b35aa19e51618b7e424eeb2cf2fec278b8ea6406ad81c4a0276e535921e82`,
+EXE `22e0edddf7bdbd44d10f08c673d77c6d55f01e90c2b59ef325f68f9524389bf0`.
+The corrected nine-function integer batch is selected. Four original renders
+return; the fifth naturally exits native3 on an unresolved null indirect call,
+LR `70498ddc`, after framebuffer creation and texture attachment calls. No draw,
+successful presentation or image is recorded. Original ELF attribution identifies
+the missing core `glDrawBuffers` bridge; the provider fix is in progress. All
+child input and original-parent pre/post checks pass.
+Completed log SHA256:
+`c2038920950d2734a81f559e9164ddf42e01735621f707c90b66cb9947a802f2`.
+Audit SHA256:
+`3ee0f722ad4e8fe3d2ae3c8b11e20b6e075f1f152566f79bf9902c81fc95e98b`.
+
+Preceding completed candidate: `work/windows-first-frame-main-nanosleep-sites1`,
 manifest `2c16ac72a336ae5e3c0707d3a600503e77423547dfad27cae3f0a8bb596c3d11`,
 EXE `ffb787231957682a7f4f4840f25bea9d722140d49539001fbfa16699d00f9a8f`.
 Four renders return with no sleep-routing abort, but the next render naturally
@@ -23,7 +37,7 @@ helper-free56-byte loop prefix. It does not claim whole-function execution of
 the nine helper-using functions. The initial rough inventory incorrectly
 excluded `7033bdac`; canonical function extraction and original instruction
 bytes prove the same pair there, so it is included before integration.
-Original integration remains pending.
+The next attempt above integrates this corrected batch.
 
 Preceding completed candidate: `work/windows-first-frame-il2cpp-format1`, manifest
 `d55512b91b677f412427cf993e7f62e4b5b844120287c61916e6b4a7559589c4`,
