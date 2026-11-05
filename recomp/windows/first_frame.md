@@ -3,7 +3,34 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-network-proxy1`, source
+Latest original execution: `work/windows-first-frame-sched-yield1`, source
+`62b3992`, adds the qualified real scheduler-yield binding. Its 998-file
+snapshot changes only libc.cpp; the other 997 files, all headers, guest objects
+and trace heads remain exact. Bootstrap and all 44 host/runtime sources are
+freshly compiled. The unchanged bootstrap produces the same object hash.
+
+The original game now calls the proxy adapter: HTTPS, reader used, no manual
+host, Java null result, autoDetect=true, explicit PAC URL absent. This is a
+manual-property result, not a resolved direct route. The previous missing
+proxy-method dispatch does not recur. The run stops at bootstrap's narrow
+sscanf adapter: LR `70b624b4`, format outside its sole `%llu` profile. Two
+original renders return continue=true without draws; there is no successful
+swap, PNG or first-frame witness. Overlay and parent pre/post checks pass.
+
+The exact first format at the original callsite is `%15[^:]:%[^\n]`, with
+two char-buffer outputs. It belongs to URL/scheme parsing. The actual input
+URL is unobserved. The next work is correct scanset/character conversion and
+matching variadic argument/output handling; the existing uint64-only bridge
+and audit must both change, rather than treating these buffers as integers.
+
+Overlay SHA256 `9176b71822793a8d6a44e70e44ff5bd9e332db3c8a46282f97a34202f5ff9f04`;
+EXE `8e7dac13b19d5c45b37e10b74ed193f300d5cf60b9406e83f191e0fc124c2995`;
+log `257bc10c2ebd4a879c59d3594257efac6a201fa873e70928bfc6a73202906e88`.
+Actual module: PID 2694608, base `7ff7a1d10000`, image size 1,055,162,368.
+Run peer: `work/sched-yield1-run-peer1/acceptance.json`, SHA256
+`4e266258df4c6d96c70ca7fcf8a427e1342de1c3b51cd57f6da2126cb694611d`.
+
+Preceding original execution: `work/windows-first-frame-network-proxy1`, source
 `6277fe4`, includes the qualified manual-proxy adapter and JNI 1.1 rejection.
 Bootstrap and all 44 host/runtime sources are freshly compiled against one
 998-file snapshot: bootstrap and loader version policy change, two proxy
@@ -38,7 +65,7 @@ Qualification: `work/libc-sched-yield-qualification1/acceptance.json`, SHA256
 Exact source inverse/import-ordinal proof:
 `work/sched-yield-source-preparation1/source-proof.json`, SHA256
 `0b484657e1ad20cabae628c54d40696a2a254bd85de34fac0e3edb183791ca5c`.
-It awaits a fresh host build and original-game execution.
+It is included in the latest original-game execution described above.
 
 Preceding original execution: `work/windows-first-frame-java-string-loader1`,
 source `2b8477c`, builds String byte/charset construction and encoding plus

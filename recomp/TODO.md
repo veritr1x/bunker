@@ -19,12 +19,14 @@ without replay. The actual FirebaseCppApp-9_6_0 request fails because that
 APK library has not been translated. The manual-proxy property adapter passes
 789 Windows checks and 151 translated NDK calls. A fresh consistent bootstrap
 and all-44-source host build includes it and the corrected JNI version policy.
-The latest original execution stops earlier at the unsupported libil2cpp.so
-import `sched_yield`, LR `825a720c`, before any proxy-method call. Two original
-renders return, but there is still no successful swap or captured game image.
-Scheduler yield support now passes 436 Windows checks and 48 translated NDK
-calls; its original-game run is next. Windows auto-detection remains
-unresolved and must not be mistaken for a proven direct route.
+Scheduler yield support passes 436 Windows checks and 48 translated NDK calls
+and is included in the latest full host build. The original game now completes
+its HTTPS proxy-property query. It next stops at the sscanf adapter, which
+supports only `%llu`: original URL parsing requests `%15[^:]:%[^\n]` and two
+char-buffer outputs. The next work is correct scanset/character parsing and
+the corresponding variadic ABI/bootstrap audit. Two original renders return,
+but there is still no successful swap or captured game image. Windows
+auto-detection remains unresolved and is not a proven direct route.
 Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
 The network inventory still identifies 32 missing imports plus four file APIs
