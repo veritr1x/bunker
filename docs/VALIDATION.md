@@ -1,5 +1,38 @@
 # Validation
 
+## Changes beside the running game — 2026-11-05
+
+- The 3.7.1 client's error handling, read from `libil2cpp.so` with the NDK's
+  `llvm-objdump`, Il2CppDumper's `script.json` and the library's relative
+  relocations: `ErrorHandlingInterceptor.ErrorHandling` reads the response
+  trailers (`ResponseContextExtensions.GetCommonResponse`) and, for
+  `x-apb-screen-transition-type: 3`, calls `HandleNet.ShowMoveTitleError`.
+  The dialog's text comes from `x-apb-message-text-id`
+  (`NetworkTextKey.ConvertTextKey`, falling back to the title error text);
+  without it the game hides its menus and waits forever. Codes 100000-100002,
+  102002 and 103000 open other dialogs, and 290041/290043/290044 are ignored.
+  The server sends code 104000 (`HandleNet.DateUpdateId`) with text 900000.
+- Android 16 emulator, Google APIs image, a save from 2026-11-03 (player
+  level 100): from the home screen, the in-game Bunker button and Open Pod
+  Programs; the banner said the game returns to its title screen. The Item
+  Editor granted 1,000 paid gems with no prompt to close the game; the log
+  showed Lunar Tear stop and start, and the game process kept its PID.
+  Back in the game, opening the Gift Box showed "Refresh / Process failed.
+  Returning to title screen."; OK reached the title screen, Tap to Start
+  signed in with GetLatestMasterDataVersion and a full GetUserData, and the
+  gems showed 1,098,000 (from 1,097,000).
+- Same emulator, master data reloaded on the running server: the version
+  changed and, after the title screen, the game cached a new copy of the
+  master data (`cache/mst-…`).
+- Go tests: `internal/bunkercache` (values built again after Invalidate),
+  `internal/interceptor` (one call fails with the three trailers; battle
+  results pass and keep it pending; signing in ends it), and the server's
+  existing tests with the patched master data. Python: Pod Programs' guard
+  (`android/tools/test_tools_live.py`, 11 tests).
+- Not checked: iPhone/iPad (the launcher's pause and resume are built but not
+  run), the content patcher's Apply and the calendar on the device, and a
+  change made while a battle is in progress.
+
 ## Arena season dates in the game — 2026-11-04
 
 - The game reads a season's dates from its master data, so the Arena's
