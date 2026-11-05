@@ -56,7 +56,7 @@ bool SupportedVersion(int32_t version) { return version == 0x10001 || version ==
 }  // namespace
 
 struct Host::Object {
-  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray, kByteArray, kReflectedMethod } kind = kInstance;
+  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray, kByteArray, kReflectedMethod, kReflectedField } kind = kInstance;
   std::string class_name, message;
   bool message_present = true;
   uint32_t identity_hash = 0;
@@ -66,6 +66,7 @@ struct Host::Object {
   std::vector<std::shared_ptr<Object>> elements;
   std::vector<uint8_t> bytes;
   addr_t reflected_method=0;
+  addr_t reflected_field=0;
   std::shared_ptr<Object> reflected_declaring_class;
   ~Object(){if(!bytes.empty())recomp::WithGuestMemoryWrite(reinterpret_cast<addr_t>(bytes.data()),bytes.size(),[&]{std::vector<uint8_t>().swap(bytes);});}
   std::map<addr_t, std::shared_ptr<Object>> object_fields;
@@ -80,7 +81,7 @@ struct Host::Reference {
 };
 struct Host::Method {
   enum Builtin { kNone, kClassLoader, kForName, kObjectClass, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString, kStringEquals,
-    kBuilderConstructor, kBuilderAppend, kBuilderString, kStringBytesConstructor, kStringGetBytes } builtin = kNone;
+    kBuilderConstructor, kBuilderAppend, kBuilderString, kStringBytesConstructor, kStringGetBytes, kFieldDeclaringClass, kFieldName } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
   std::function<addr_t(addr_t,const MethodArguments&)> object_handler;
@@ -171,6 +172,10 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   // remains unported; explicit overrides prevent Object defaults leaking out.
   for(const char *name:{"java/lang/reflect/Method","java/lang/reflect/Constructor"})
     DefineClass(name,{{"toString","()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"}},"java/lang/reflect/Executable",true);
+  DefineClass("java/lang/reflect/Field",{{"toString","()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"},{"getDeclaringClass","()Ljava/lang/Class;"},{"getName","()Ljava/lang/String;"}},"java/lang/reflect/AccessibleObject",true,{"java/lang/reflect/Member"});
+  classes_.at("java/lang/reflect/Field")->methods.at({"getDeclaringClass","()Ljava/lang/Class;"})->builtin=Method::kFieldDeclaringClass;
+  classes_.at("java/lang/reflect/Field")->methods.at({"getName","()Ljava/lang/String;"})->builtin=Method::kFieldName;
+  DefineInterface("java/lang/reflect/InvocationHandler",{{"invoke","(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;"}});
   if(!FindReferenceArrayClass("[B"))throw std::logic_error("byte array class catalog initialization failed");
   DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"},
       {"<init>","([BLjava/lang/String;)V"},{"getBytes","(Ljava/lang/String;)[B"}}, "java/lang/Object", true);
@@ -346,7 +351,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   if(class_name!="java/lang/Object"&&name=="getClass"&&signature=="()Ljava/lang/Class;")throw std::invalid_argument("java.lang.Object.getClass() is final; catalog override/hiding is invalid");
   std::vector<std::string> arguments;size_t at=1;
   while(at<signature.size()&&signature[at]!=')'){
-    if(arguments.size()==3)throw std::invalid_argument("host handlers support at most three fixed arguments");
+    if(arguments.size()==MethodArguments{}.size())throw std::invalid_argument("host handlers support at most four fixed arguments");
     if(signature[at]=='Z'||signature[at]=='I'||signature[at]=='J'||signature[at]=='F'){arguments.push_back(signature.substr(at,1));++at;continue;}
     if(signature[at]=='['){
       const auto start=at;while(at<signature.size()&&signature[at]=='[')++at;
@@ -475,6 +480,44 @@ std::optional<std::u16string> Host::StringValue(addr_t reference){
 std::optional<std::string> Host::ClassNameValue(addr_t reference){
   ProviderLock lock(*this);auto object=Get(reference,true);if(!object)return std::nullopt;
   if(object->kind!=Object::kClass){Raise("java/lang/IllegalArgumentException","expected jclass metadata");return std::nullopt;}return object->class_name;
+}
+std::optional<Host::ReflectedFieldInfo> Host::DescribeReflectedField(addr_t reference){
+  ProviderLock lock(*this);if(Current().exception)return std::nullopt;
+  auto object=Get(reference);if(!object)return std::nullopt;
+  auto found=field_ids_.find(object->reflected_field);
+  if(object->kind!=Object::kReflectedField||found==field_ids_.end()||
+     object->class_name!="java/lang/reflect/Field"||
+     object->reflected_declaring_class!=classes_.at(found->second->owner)->object){
+    Raise("java/lang/IllegalArgumentException","field description requires a backed Field");return std::nullopt;
+  }
+  const auto &field=*found->second;
+  return ReflectedFieldInfo{field.owner,field.name,field.signature,field.is_static};
+}
+std::optional<Host::ReflectedMethodInfo> Host::DescribeReflectedMethod(addr_t reference){
+  ProviderLock lock(*this);if(Current().exception)return std::nullopt;
+  auto object=Get(reference);if(!object)return std::nullopt;
+  auto found=method_ids_.find(object->reflected_method);
+  if(object->kind!=Object::kReflectedMethod||found==method_ids_.end()||
+     object->reflected_declaring_class!=classes_.at(found->second->owner)->object||
+     object->class_name!=(found->second->declaration.name=="<init>"?"java/lang/reflect/Constructor":"java/lang/reflect/Method")){
+    Raise("java/lang/IllegalArgumentException","method description requires a backed Method or Constructor");return std::nullopt;
+  }
+  const auto &method=*found->second;
+  return ReflectedMethodInfo{method.owner,method.declaration.name,method.declaration.signature,method.declaration.is_static};
+}
+std::vector<Host::ReflectedFieldInfo> Host::DeclaredFields(addr_t reference){
+  ProviderLock lock(*this);if(Current().exception)return {};
+  auto clazz=GetClass(reference);if(!clazz)return {};
+  std::vector<ReflectedFieldInfo> result;result.reserve(clazz->fields.size());
+  for(const auto &entry:clazz->fields){const auto &field=*entry.second;result.push_back({field.owner,field.name,field.signature,field.is_static});}
+  return result;
+}
+std::vector<Host::ReflectedMethodInfo> Host::DeclaredMethods(addr_t reference){
+  ProviderLock lock(*this);if(Current().exception)return {};
+  auto clazz=GetClass(reference);if(!clazz)return {};
+  std::vector<ReflectedMethodInfo> result;result.reserve(clazz->methods.size());
+  for(const auto &entry:clazz->methods){const auto &method=*entry.second;result.push_back({method.owner,method.declaration.name,method.declaration.signature,method.declaration.is_static});}
+  return result;
 }
 addr_t Host::NewGlobalReference(addr_t reference) { ProviderLock lock(*this); return Ref(reference, 2); }
 addr_t Host::NewLocalReference(addr_t reference) { ProviderLock lock(*this); return Ref(reference, 1); }
@@ -613,6 +656,14 @@ addr_t Host::CallObject(ProviderLock &lock,addr_t reference,addr_t id,bool is_st
     if(!Arguments(*argument_state,argument_form,count,arguments,&metadata))return 0;
   }
   if(metadata.builtin==Method::kObjectClass)return ObjectClass(object);
+  if(metadata.builtin==Method::kFieldDeclaringClass||metadata.builtin==Method::kFieldName){
+    auto found=field_ids_.find(object->reflected_field);
+    if(object->kind!=Object::kReflectedField||found==field_ids_.end()||
+       object->reflected_declaring_class!=classes_.at(found->second->owner)->object){
+      Raise("java/lang/IllegalArgumentException","Field metadata access requires a backed Field");return 0;
+    }
+    return metadata.builtin==Method::kFieldName?NewString(Decode(found->second->name.c_str())):Local(object->reflected_declaring_class);
+  }
   if(metadata.builtin==Method::kBuilderAppend||metadata.builtin==Method::kBuilderString){
     if(object->kind!=Object::kBuilder){Raise("java/lang/UnsupportedOperationException","StringBuilder constructor has not initialized this object");return 0;}
     if(metadata.builtin==Method::kBuilderString)return object->text.empty()?Local(empty_string_):NewString(object->text);
@@ -720,7 +771,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   const auto return_type=kind=='L'&&!descriptor.empty()&&descriptor.front()=='L'?descriptor.substr(1,descriptor.size()-2):descriptor;
   const auto depth=thread.frames.size();thread.frames.emplace_back();
   try{thread.callback_floors.push_back(depth+1);}catch(...){thread.frames.pop_back();throw;}
-  std::array<std::shared_ptr<Object>,3> retained_arguments{};MethodArguments callee=arguments;
+  std::array<std::shared_ptr<Object>,MethodArguments{}.size()> retained_arguments{};MethodArguments callee=arguments;
   std::shared_ptr<Object> returned,exception;std::exception_ptr failure;addr_t result=0;
   try{
     auto callee_receiver=Local(receiver);
@@ -799,7 +850,7 @@ bool Host::Arguments(State &state,size_t slot,size_t count,MethodArguments &argu
   auto scalar=[&](size_t i,addr_t value){return boolean(i)?value&addr_t{0xff}:value;};
   auto narrowed=[](double wide)->addr_t{float value=static_cast<float>(wide);uint32_t bits;std::memcpy(&bits,&value,sizeof(bits));return bits;};
   if(direct){
-    const addr_t regs[]={state.gpr.x3.qword,state.gpr.x4.qword,state.gpr.x5.qword};size_t gp=0,fp=0;
+    const addr_t regs[]={state.gpr.x3.qword,state.gpr.x4.qword,state.gpr.x5.qword,state.gpr.x6.qword};size_t gp=0,fp=0;
     for(size_t i=0;i<count;++i)if(floating(i)){double wide;std::memcpy(&wide,&state.simd.v[fp++],sizeof(wide));arguments[i]=narrowed(wide);}else arguments[i]=scalar(i,regs[gp++]);
     return true;
   }
@@ -905,6 +956,18 @@ void Host::InvokeEnv(size_t slot, State &s) {
       }
       s.gpr.x0.qword=found->second->id;return;
     }
+    case 8: {
+      s.gpr.x0.qword=0;
+      if(Current().exception)return;
+      auto object=Get(a);if(!object)return;
+      auto found=field_ids_.find(object->reflected_field);
+      if(object->kind!=Object::kReflectedField||found==field_ids_.end()||
+         object->class_name!="java/lang/reflect/Field"||
+         object->reflected_declaring_class!=classes_.at(found->second->owner)->object){
+        Raise("java/lang/IllegalArgumentException","FromReflectedField requires a backed Field");return;
+      }
+      s.gpr.x0.qword=found->second->id;return;
+    }
     case 9: {
       s.gpr.x0.qword=0;
       if(Current().exception)return;
@@ -927,6 +990,23 @@ void Host::InvokeEnv(size_t slot, State &s) {
     }
     case 10: { auto *clazz = GetClass(a); s.gpr.x0.qword = clazz && !clazz->superclass.empty() ? Local(classes_.at(clazz->superclass)->object) : 0; return; }
     case 11: { auto *first = GetClass(a), *second = GetClass(b); s.gpr.x0.qword = first && second && Assignable(first->object->class_name, second->object->class_name); return; }
+    case 12: {
+      s.gpr.x0.qword=0;
+      if(Current().exception)return;
+      auto *clazz=GetClass(a);if(!clazz)return;
+      auto found=field_ids_.find(b);
+      if(found==field_ids_.end()){Raise("java/lang/NoSuchFieldError","invalid reflected JNI field ID");return;}
+      const auto &field=*found->second;
+      if(field.is_static!=bool(c&0xff)||!Assignable(clazz->object->class_name,field.owner)){
+        Raise("java/lang/IllegalArgumentException","ToReflectedField class/static mismatch");return;
+      }
+      try{
+        auto object=std::make_shared<Object>();object->kind=Object::kReflectedField;object->class_name="java/lang/reflect/Field";
+        object->reflected_field=field.id;object->reflected_declaring_class=classes_.at(field.owner)->object;
+        s.gpr.x0.qword=Local(object);
+      }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","reflected field allocation failed");}
+      return;
+    }
     case 13: { auto object = Get(a); if (!object || object->kind != Object::kThrowable) { IntResult(s, kError); return; } RetireObject(Current().exception);Current().exception = object; IntResult(s, kOk); return; }
     case 14: { auto *clazz = GetClass(a); if (!clazz) { IntResult(s, kError); return; } if(!Assignable(clazz->object->class_name,"java/lang/Throwable")){Raise("java/lang/IllegalArgumentException","ThrowNew requires a Throwable subclass");IntResult(s,kError);return;}Raise(clazz->object->class_name, b ? recomp::ReadGuestString(b) : "",b!=0); IntResult(s, kOk); return; }
     case 15: s.gpr.x0.qword = Local(Current().exception); return;

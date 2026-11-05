@@ -11,6 +11,7 @@
 #include "windows_android_id.h"
 #include "jni_interface_proxy.h"
 #include "reflection_launch_epoch.h"
+#include "reflection_helper.h"
 #include "java_native_libraries.h"
 #include "java_native_loader.h"
 #include "unity_network_proxy.h"
@@ -149,6 +150,11 @@ void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
     if(!pending.empty()&&pending!=prior){
       if(init_java_diagnostic_active.load())++init_java_errors;
       std::fprintf(stderr,"Unity bootstrap: original pending Java exception after %s slot%zu return=%#llx: %s\n",vm?"VM":"Env",slot,static_cast<unsigned long long>(state.gpr.x30.qword),pending.c_str());
+      if(!vm&&slot==6&&pending.find("java/util/Locale")!=std::string::npos){
+        static std::atomic<unsigned> reports{0};auto observed=reports.load(std::memory_order_relaxed);
+        while(observed<2&&!reports.compare_exchange_weak(observed,observed+1,std::memory_order_relaxed)){}
+        if(observed<2)GameExceptionDiagnostic::ReportJavaFailureFrames(state);
+      }
     }
     if(observe)ObserveFourthFrameJni("COMPLETE",vm,slot,sequence,pc,lr,sp,arguments,state.gpr.x0.qword);
   };
@@ -372,6 +378,7 @@ int main(int argc,char **argv){
     std::unique_ptr<AndroidSharedPreferences> preferences;
     {LocalFrame locals(java);preferences=std::make_unique<AndroidSharedPreferences>(java,context.Activity(),context_config.package_name,std::move(preferences_backend));}
     std::unique_ptr<JniInterfaceProxy> interface_proxies;
+    std::unique_ptr<ReflectionHelper> reflection_helper;
     // The input APK was SHA256-verified above. No extra split/JAR/DEX sources or
     // dynamic Java code loader are exposed by this diagnostic's closed catalog.
     stage="asset-pack wrapper setup";AndroidAssetPackWrapper asset_packs(java,{runtime_apk_sha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
@@ -740,6 +747,9 @@ int main(int argc,char **argv){
     JniInterfaceProxy::Config proxy_config;
     proxy_config.run_native=[&](addr_t entry,const std::vector<addr_t> &arguments){Require(runner&&Translated(entry)&&modules.ReferenceCount("libunity.so")&&!unity_ledger.finalized,"proxy callback has no live original Unity native owner");return runner->Run(entry,arguments);};
     stage="interface proxy setup";interface_proxies=std::make_unique<JniInterfaceProxy>(java,std::move(proxy_config));
+    ReflectionHelper::Config reflection_config;
+    reflection_config.run_native=[&](addr_t entry,const std::vector<addr_t> &arguments){Require(runner&&Translated(entry)&&modules.ReferenceCount("libunity.so")&&!unity_ledger.finalized,"ReflectionHelper callback has no live original Unity native owner");return runner->Run(entry,arguments);};
+    stage="ReflectionHelper setup";reflection_helper=std::make_unique<ReflectionHelper>(java,reflection_launch_epoch,std::move(reflection_config));
     auto no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("frame profile has no qualified target signal delivery binding");};
     SignalHost::Boundary signal_boundary=no_delivery;
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY

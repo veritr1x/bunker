@@ -2,6 +2,7 @@
 #include "jni_host.h"
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 namespace bunker::windows {
@@ -29,6 +30,10 @@ class ReflectionLaunchEpoch {
   ReflectionLaunchEpoch(const ReflectionLaunchEpoch&)=delete;
   ReflectionLaunchEpoch& operator=(const ReflectionLaunchEpoch&)=delete;
   uint64_t Inspect() const { return bits_->load(std::memory_order_relaxed); }
+  // Retained by ReflectionHelper proxy handlers; shares endUnityLaunch's owner.
+  std::function<uint64_t()> Reader() const {
+    return [bits=bits_] { return bits->load(std::memory_order_relaxed); };
+  }
  private:
   std::shared_ptr<std::atomic<uint64_t>> bits_;
 };

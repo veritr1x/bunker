@@ -49,6 +49,12 @@ class GameExceptionDiagnostic {
       else Header(x8_label,s.gpr.x8.qword);
     });
   }
+  static void ReportJavaFailureFrames(const State&s)noexcept{
+    Observe([&]{
+      std::fprintf(stderr,"Game exception diagnostic: Java Locale failure PC=%#llx LR=%#llx SP=%#llx FP=%#llx; read-only bounded frame candidates\n",U(s.gpr.pc.qword),U(s.gpr.x30.qword),U(s.gpr.sp.qword),U(s.gpr.x29.qword));
+      Frames(s,12);
+    });
+  }
  private:
   struct NativeEnvironment {
     int native_errno=errno;DWORD last_error=GetLastError();std::fenv_t environment{};
@@ -78,9 +84,9 @@ class GameExceptionDiagnostic {
     const auto*base=reinterpret_cast<const uint8_t*>(&s.gpr.x0);
     for(unsigned i=0;i<31;++i){uint64_t value=0;std::memcpy(&value,base+i*16,8);std::fprintf(stderr,"Game exception diagnostic: X%u=%#llx\n",i,U(value));}
   }
-  static void Frames(const State&s){
+  static void Frames(const State&s,unsigned limit=4){
     auto fp=s.gpr.x29.qword;const auto sp=s.gpr.sp.qword;
-    for(unsigned depth=0;depth<4;++depth){
+    for(unsigned depth=0;depth<limit;++depth){
       if((fp&15)||fp<sp||fp-sp>65536){std::fprintf(stderr,"Game exception diagnostic: frame depth=%u stopped outside bounded SP window\n",depth);return;}
       uint64_t pair[2]{};if(!Read(fp,pair,sizeof(pair))){std::fprintf(stderr,"Game exception diagnostic: frame depth=%u address=%#llx unreadable\n",depth,U(fp));return;}
       std::fprintf(stderr,"Game exception diagnostic: frame depth=%u address=%#llx savedFP=%#llx savedLR=%#llx; bounded bytes, not unwind proof\n",depth,U(fp),U(pair[0]),U(pair[1]));

@@ -33,10 +33,10 @@ class Host {
   // Descriptor-checked reference/jboolean/jint/jlong/jfloat arguments. Z uses
   // its JNI low8 bits (promoted to int in direct/V calls). I/F use low32
   // bits (F is raw binary32, not a numeric integer); J retains all64 bits.
-  // Reference arrays retain their full descriptor. Three Java arguments max;
+  // Reference arrays retain their full descriptor. Four Java arguments max;
   // actual AAPCS64 GP/FP allocation is separate. Byte arrays are supported;
   // D and other primitive-array families remain unsupported.
-  using MethodArguments=std::array<addr_t,3>;
+  using MethodArguments=std::array<addr_t,4>;
   // Strong references used inside host-supplied Java object state. They are
   // opaque C++ graph edges, not guest JNI handles or global-reference slots.
   class ObjectValue { friend class Host; const Host *owner_=nullptr;std::shared_ptr<Object> object_; };
@@ -122,6 +122,16 @@ class Host {
   std::optional<std::u16string> StringValue(addr_t reference);
   // Exact metadata name (including array descriptors), with no Java execution.
   std::optional<std::string> ClassNameValue(addr_t reference);
+  struct ReflectedFieldInfo {std::string declaring_class,name,signature;bool is_static;};
+  // Copied metadata from a real JNI-backed Field; plain instances are rejected.
+  std::optional<ReflectedFieldInfo> DescribeReflectedField(addr_t reference);
+  struct ReflectedMethodInfo {std::string declaring_class,name,signature;bool is_static;};
+  // Method/Constructor conversion metadata, copied without invoking Java code.
+  std::optional<ReflectedMethodInfo> DescribeReflectedMethod(addr_t reference);
+  // Only members declared by this exact Class, copied in catalog key order.
+  // Constructors/static initializers remain explicit method names for callers.
+  std::vector<ReflectedFieldInfo> DeclaredFields(addr_t clazz);
+  std::vector<ReflectedMethodInfo> DeclaredMethods(addr_t clazz);
   addr_t NewGlobalReference(addr_t reference);
   addr_t NewLocalReference(addr_t reference);
   void DeleteGlobalReference(addr_t reference);

@@ -3,7 +3,33 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current live attempt: `work/windows-first-frame-native-presentation2`, using
+Current live attempt: `work/windows-first-frame-native-presentation4`, using
+build manifest `193ba6f5135a73043cc3ada73d82016d164e5f933206e7dde87731dc39853ca4`
+and executable `e590b5b601b303b700fce105677837bf77043e7b5bdf339bd1e4c9b9525325d9`.
+The [reflection adapter](reflection_helper.md), backed JNI fields and four Java
+arguments are integrated with a freshly compiled bootstrap and all dependent
+host code. The previous System/Field/AndroidReflection/AndroidJavaProxy
+type-initializer errors no longer appear. Original draws, returned renders and
+successful EGL swaps continue, but the first eight captures remain uniform;
+captures 2 through 8 are opaque black. There is no accepted first-frame image.
+
+Read-only process samples and original disassembly narrow startup to
+`Generator.OnEntrypoint` -> `OnlyWhenStarting` -> `Notification.SetupNotification`.
+The next prerequisite, `ConfirmAppTrackingTransparency`, and the later
+`ApplicationApi.Run` have unset metadata guards. These are asynchronous
+per-method metadata observations, not function-completion witnesses. The
+notification permission path and Firebase class initialization are under
+investigation; missing Firebase library loads alone do not yet distinguish the
+failing call. The original scene contains an active opaque black startup
+overlay, which is preserved. No forced scene transition or alpha change is used.
+Evidence is in `work/windows-first-frame-native-presentation4` and
+`work/il2cpp-method-map1`. The first Locale failure's bounded saved-frame
+candidates map to optional Unity Analytics, so Locale is not assumed to be the
+game-startup blocker.
+
+Earlier presentation attempts follow for comparison.
+
+Attempt `work/windows-first-frame-native-presentation2` used
 build manifest `5f3462dab135e349b23c5c52ffd7cd436778678d29bfb9dca1604a538aef8846`
 and executable `ae91a4d5af17be7bed5e5ffe5e53738f97c73ce1f4679cc8d1061423c3bd4aae`.
 The data-only Swappy configuration now reaches genuine `eglSwapBuffers` at

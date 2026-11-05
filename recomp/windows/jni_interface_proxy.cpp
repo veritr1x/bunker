@@ -166,7 +166,7 @@ JniInterfaceProxy::JniInterfaceProxy(jni::Host &host,Config config):state_(std::
   Healthy(host);
   host.DefineInterface("android/os/IBinder",{});
   host.DefineInterface(kRunnable,{{"run","()V"}});
-  host.DefineInterface("java/lang/reflect/InvocationHandler",{{"invoke","(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;"}});
+  if(!ClassExists(host,"java/lang/reflect/InvocationHandler"))host.DefineInterface("java/lang/reflect/InvocationHandler",{{"invoke","(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;"}});
   host.DefineClass("java/lang/reflect/Proxy",{},"java/lang/Object",true,{"java/io/Serializable"});
   host.DefineClass(kHandler,{{"<init>","(J)V"},{"a","()V"},{"finalize","()V"},{"invoke","(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;"}},"java/lang/Object",false,{"java/lang/reflect/InvocationHandler"});
   // Explicit Object declarations prevent identity/default behavior from leaking
