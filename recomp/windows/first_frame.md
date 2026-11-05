@@ -13,8 +13,8 @@ again, and the previous inet_pton failure does not recur.
 Native exit 3/controller 1 now stops at missing libunity.so `getaddrinfo`,
 PC `7ffc00000178`, LR `70e16b00`, x0=`1e8936e5d10`, x1=`1e894940f9c`.
 The actual hostname, service, hints and output contents are unlogged.
-The next work is genuine name/service resolution with Android LP64 address
-structures, Windows flag/error mapping and correct result ownership/freeing.
+The required next boundary is genuine name/service resolution with Android
+LP64 address structures, Windows flag/error mapping and correct result ownership.
 Two original renders return continue=true with zero draws; no successful
 swap, PNG or first-frame witness exists. All overlay and parent pre/post
 checks pass. The root run session was collected to terminal state.
@@ -28,6 +28,30 @@ Built peer: `work/inet-pton-admission-peer1/built-acceptance.json`, SHA256
 `3f8f4d8d609597a3bf5e3154b9a92fb26a00bbe9483faa97464e8f3dac8d9a3d`.
 Run audit: `work/windows-first-frame-inet-pton1/game-frame-muted-gc-audit.json`,
 SHA256 `10fabeb3b6677b924b9a2010bec8272c1396423ebbba1f17a1af2060adbf5a72`.
+
+The real resolver family is now implemented and qualified: getaddrinfo,
+freeaddrinfo and gai_strerror. Windows uses checked Winsock startup and the
+native resolver, with owned Android-layout chains, explicit family/flag/error
+conversion and native-list cleanup. Valid suffix release and cross-thread
+freeing are supported. The qualification passes 2,100 checks and 304 actual
+NDK calls: 272 differential calls plus 32 concurrent calls. Complete sorted
+chain/status/canonical/error-string records, failure errno and free errno
+match actual static Bionic. Only unspecified successful-result errno is
+normalized; the raw logs retain the one first-strdup errno 22 versus 0
+observation and isolated probes. No warmup or synthetic errno was added.
+Real Windows localhost resolution is checked separately; external DNS,
+socket connectivity and actual game networking remain unverified.
+Qualification: `work/libc-getaddrinfo-qualification3/acceptance.json`, SHA256
+`e3efad6f2b0b36389fa3cae45303353a6b3cc509b06aa0d911496e6609785f9a`.
+Source inverses/append-only imports and added header:
+`work/resolver-source-preparation1/source-proof.json`, SHA256
+`755e7d082b8a29fe9f467d95bbc88a55f8e7e8b8985e0ba61dcefa76bec34998`.
+The full resolver host build and original-game execution are pending.
+Original-callsite audit: `work/inet-pton1-getaddrinfo-boundary1/acceptance.json`,
+SHA256 `0c5c28e3cf2f6fb53c5af2031a46cc181083240fafd5a12b31def2d9edc7c021`.
+The reached wrapper reads the qualified 48-byte Bionic layout, copies usable
+IPv4 results into its own allocations, then calls freeaddrinfo. Static callers
+do not establish the latest execution's unlogged hostname or hints values.
 
 The user restarted Windows before this build. The boot changed to
 2026-11-05 10:07:52 +05:30 and available RAM recovered to about 44 GiB;

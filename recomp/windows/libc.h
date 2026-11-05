@@ -52,6 +52,9 @@ class LibC {
   // real native image path as UTF-8 (Windows separators rendered as '/'). This
   // metadata query creates no Android VFS mount or permission to reopen it.
   int64_t ReadLink(const char *path,void *output,uint64_t size);
+  int32_t ResolveAddresses(const char *node,const char *service,addr_t hints,addr_t output);
+  void ReleaseAddresses(addr_t list);
+  const char *GaiStrError(int32_t error);
  private:
   struct Aligned { void *base; uint64_t size, alignment; };
   struct Exit { addr_t callback, argument, dso; bool plain, called; };
@@ -72,6 +75,9 @@ class LibC {
   char **environment_slot_ = nullptr;
   std::string abort_message_;
   std::map<addr_t, Locale> locales_;
+  // Every node owns one private block. A valid suffix can be released on a
+  // different guest thread without imposing an artificial head-only handle.
+  std::map<addr_t, void *> resolver_nodes_;
   uint64_t locale_owner_;
   addr_t marker_base_;
   bool global_locale_is_utf8_ = true;  // Protected by mutex_; one guest-process locale.

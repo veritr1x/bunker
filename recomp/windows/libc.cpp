@@ -1,4 +1,5 @@
 #include <cfenv>
+#include "libc_resolver_detail.h"
 #include "libc.h"
 #include "../whole/bridge.h"
 #include "provider_memory.h"
@@ -81,7 +82,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime", "sched_yield", "inet_pton"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime", "sched_yield", "inet_pton", "getaddrinfo", "freeaddrinfo", "gai_strerror"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -109,6 +110,7 @@ LibC::LibC(Runner runner,addr_t base):runner_(std::move(runner)),marker_base_(ba
   BuildEnvironment();
 }
 LibC::~LibC(){
+  for(const auto &entry:resolver_nodes_)pm::Free(entry.second);
   for(const auto &entry:locales_)Free(entry.second.storage);
   CurrentLocales().erase(locale_owner_);
   recomp::InvalidateGuestMemory(pm::Address(&environment_slot_),sizeof(environment_slot_));
@@ -348,6 +350,127 @@ void *LibC::Calloc(uint64_t n,uint64_t size){
 void LibC::Free(void *p){
   if(!p)return;std::lock_guard<std::recursive_mutex> lock(mutex_);auto i=aligned_.find(p);
   if(i==aligned_.end())pm::Free(p);else{pm::Free(i->second.base);aligned_.erase(i);}
+}
+int32_t LibC::ResolveAddresses(const char *node,const char *service,addr_t hints,addr_t output){
+  libc_calendar::NativeEnvironment native_environment;
+  // Android returns this particular error before accessing hints or *res.
+  if(!node&&!service)return 8;
+  const auto h=hints?pm::Read(reinterpret_cast<const libc_resolver::AddrInfo*>(hints)):libc_resolver::AddrInfo{};
+  const auto node_text=node?pm::String(node):std::string{};
+  const auto service_text=service?pm::String(service):std::string{};
+  auto publish=[&](addr_t value){
+    if(!output||output>UINT64_MAX-sizeof(value))throw std::runtime_error("getaddrinfo output range is invalid");
+    bool copied=false;
+    recomp::WithGuestMemoryWrite(output,sizeof(value),[&]{
+#ifdef _WIN32
+      if(!libc_detail::uname_detail::Writable(output,sizeof(value)))return;
+      SIZE_T count=0;copied=WriteProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(output),&value,sizeof(value),&count)&&count==sizeof(value);
+#else
+      iovec local{&value,sizeof(value)},remote{reinterpret_cast<void*>(output),sizeof(value)};
+      const auto count=::syscall(SYS_process_vm_writev,::getpid(),&local,1,&remote,1,0);
+      copied=count==static_cast<ssize_t>(sizeof(value));
+#endif
+    });
+    if(!copied)throw std::runtime_error("getaddrinfo output is not fully writable");
+  };
+  publish(0);
+  if(const auto error=libc_resolver::Validate(h,service!=nullptr))return error;
+  const auto parsed=libc_resolver::ParseService(service_text);
+  if(service&&parsed.sets_error)Fail(parsed.error);
+  if(service&&parsed.numeric&&parsed.value>65535)return 9;
+  if(service&&!parsed.numeric&&(h.flags&8))return 8;
+  if(service&&service_text.empty())return 9;
+  if(node&&node_text.empty())return 8;
+  const auto native_service=service&&parsed.numeric?std::to_string(parsed.value):service_text;
+  try{
+    libc_resolver::Native native;
+    std::string normalized=node_text;
+    int numeric_family=0;
+    if(node){
+      const auto scope=node_text.find('%');
+      const auto address=libc_resolver::NormalizeAddress(node_text.substr(0,scope));
+      std::array<unsigned char,16> binary{};
+      if(scope==node_text.npos&&native.PtonAddress(2,address,binary.data())==1)numeric_family=2;
+      else if(native.PtonAddress(10,address,binary.data())==1)numeric_family=10;
+      if(numeric_family)normalized=address+(scope==node_text.npos?std::string{}:node_text.substr(scope));
+      if(numeric_family&&h.family&&h.family!=numeric_family)return 8;
+      if(!numeric_family&&(h.flags&4))return 8;
+    }
+    std::vector<std::pair<int,int>> modes;
+    if((h.type==0||h.type==2)&&(!h.protocol||h.protocol==17))modes.emplace_back(2,17);
+    if((h.type==0||h.type==1)&&(!h.protocol||h.protocol==6))modes.emplace_back(1,6);
+    if(h.type==3)modes.emplace_back(3,h.protocol);
+    if(modes.empty())return !node?7:(h.flags&4)?8:10;
+    std::vector<libc_resolver::Node> nodes;
+    int final_error=8;
+    for(const auto &mode:modes){
+      std::vector<libc_resolver::Node> found;
+      const int query_flags=node?(numeric_family?((h.flags&3)|4):h.flags):(h.flags&1);
+      // Raw results need address/protocol metadata, not a raw native socket.
+      // Native resolution through UDP yields those same address bytes; retain
+      // the caller's raw protocol in the translated addrinfo metadata.
+      int system_error=0;
+      const int error=native.Query(node?normalized.c_str():nullptr,service?native_service.c_str():nullptr,
+        numeric_family?numeric_family:h.family,mode.first==3?2:mode.first,mode.first==3?17:mode.second,query_flags,found,system_error);
+      if(error){if(error==11)Fail(system_error);final_error=error;continue;}
+      for(auto &entry:found){
+        entry.type=mode.first;entry.protocol=mode.second;
+        if(node&&numeric_family&&(h.flags&2)){entry.canonical=node_text;entry.has_canonical=true;}
+        if(!node||!(h.flags&2)){entry.canonical.clear();entry.has_canonical=false;}
+        nodes.push_back(std::move(entry));
+      }
+    }
+    if(nodes.empty())return final_error;
+    struct Block {void *pointer=nullptr;~Block(){pm::Free(pointer);}Block()=default;Block(const Block&)=delete;Block&operator=(const Block&)=delete;Block(Block&&b)noexcept:pointer(b.pointer){b.pointer=nullptr;}};
+    std::vector<Block> blocks;blocks.reserve(nodes.size());
+    for(const auto &entry:nodes){
+      const auto canonical_size=entry.has_canonical?entry.canonical.size()+1:size_t{0};
+      if(canonical_size>SIZE_MAX-sizeof(libc_resolver::AddrInfo)-entry.address.size()){Fail(12);return 6;}
+      blocks.emplace_back();blocks.back().pointer=pm::Allocate(sizeof(libc_resolver::AddrInfo)+entry.address.size()+canonical_size);
+      if(!blocks.back().pointer){Fail(12);return 6;}
+    }
+    for(size_t i=0;i<nodes.size();++i){
+      const auto &entry=nodes[i];const auto address=pm::Address(blocks[i].pointer);
+      libc_resolver::AddrInfo value{h.flags,entry.family,entry.type,entry.protocol,static_cast<uint32_t>(entry.address.size()),0,
+        entry.has_canonical?address+sizeof(libc_resolver::AddrInfo)+entry.address.size():0,address+sizeof(libc_resolver::AddrInfo),
+        i+1<nodes.size()?pm::Address(blocks[i+1].pointer):0};
+      recomp::WriteGuestMemory(address,&value,sizeof(value));
+      recomp::WriteGuestMemory(value.address,entry.address.data(),entry.address.size());
+      if(entry.has_canonical)recomp::WriteGuestMemory(value.canon,entry.canonical.c_str(),entry.canonical.size()+1);
+    }
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    std::vector<addr_t> inserted;inserted.reserve(blocks.size());
+    try{
+      for(const auto &block:blocks){
+        const auto address=pm::Address(block.pointer);
+        if(!resolver_nodes_.emplace(address,block.pointer).second)throw std::logic_error("resolver allocation identity collision");
+        inserted.push_back(address);
+      }
+      publish(pm::Address(blocks.front().pointer));
+    }catch(...){for(const auto address:inserted)resolver_nodes_.erase(address);throw;}
+    for(auto &block:blocks)block.pointer=nullptr;
+    return 0;
+  }catch(const std::bad_alloc&){Fail(12);return 6;}
+}
+void LibC::ReleaseAddresses(addr_t list){
+  libc_calendar::NativeEnvironment native_environment;
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  // Follow the current caller-visible chain, as Bionic does. A detached suffix
+  // is independently releasable; do not rewrite a caller's predecessor node.
+  while(list){
+    const auto found=resolver_nodes_.find(list);
+    if(found==resolver_nodes_.end())throw std::invalid_argument("freeaddrinfo requires a live node owned by this provider");
+    const auto value=pm::Read(reinterpret_cast<const libc_resolver::AddrInfo*>(list));
+    auto *block=found->second;resolver_nodes_.erase(found);pm::Free(block);list=value.next;
+  }
+}
+const char *LibC::GaiStrError(int32_t error){
+  libc_calendar::NativeEnvironment native_environment;
+  const auto *text=libc_resolver::ErrorText(error);
+  // String literals are immutable process-lifetime values, but invalidate any
+  // preexisting guest-memory cache before their first publication.
+  recomp::InvalidateGuestMemory(pm::Address(text),std::strlen(text)+1);
+  return text;
 }
 void *LibC::AlignedAllocate(uint64_t alignment,uint64_t size,bool set_errno){
   if(!alignment||(alignment&(alignment-1))){if(set_errno)Fail(22);return nullptr;}
@@ -736,6 +859,9 @@ void LibC::Install(recomp::Runtime &runtime){
     if(!copied)throw std::runtime_error("inet_pton output is not fully writable");
     return int32_t{1};
   });
+  Add<int32_t(const char*,const char*,addr_t,addr_t)>(runtime,"getaddrinfo",[this](auto node,auto service,auto hints,auto output){return ResolveAddresses(node,service,hints,output);});
+  Add<void(addr_t)>(runtime,"freeaddrinfo",[this](auto list){ReleaseAddresses(list);});
+  Add<const char*(int32_t)>(runtime,"gai_strerror",[this](auto error){return GaiStrError(error);});
   installed_=true;
 }
 }  // namespace bunker::windows

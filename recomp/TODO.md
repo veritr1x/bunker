@@ -29,7 +29,11 @@ restart restored available RAM to about 44 GiB. The converter passes 1,344
 Windows checks and 190 exact Bionic comparison records. Original startup now
 passes that boundary and stops at missing libunity.so `getaddrinfo`,
 LR `70e16b00`. Genuine name/service resolution, Android/Windows structure and
-flag/error conversion, and result ownership/freeing are the next work.
+flag/error conversion, and result ownership/freeing now pass 2,100 checks and
+304 actual NDK calls across getaddrinfo/freeaddrinfo/gai_strerror. The 272
+cross-Bionic records retain complete chains/status/canonical/error strings and
+failure/free errno; only unspecified success errno is normalized, with raw
+observations preserved. Its full host build and original-game run are next.
 Two original renders return,
 but there is still no successful swap or captured game image. Windows
 auto-detection remains unresolved and is not a proven direct route.
