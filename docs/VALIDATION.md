@@ -1,5 +1,16 @@
 # Validation
 
+## Bunker menu in landscape — 2026-11-06
+
+- Android 16 emulator on its side (about 914×411 dp): the Bunker menu
+  showed BUNKER and the options button on one line, System on the left
+  and Play (Deploy) above a Programs panel on the right, both columns
+  ending level, with nothing below the screen. Tapping the Pod Programs
+  row opened Pod Programs and the Archive row opened the Archive.
+  Turned to portrait, the menu was as before.
+- Not checked: a tablet on its side (two columns with the longer top bar
+  and the footer) and the update panel shown in landscape.
+
 ## Spendable event medals — 2026-11-06
 
 - Master data (2024-04-04): event chapter 508 (Coffin of Repose) links shop

@@ -6,6 +6,13 @@ under its heading, down to the previous release.
 
 ## 2026-11-06 (after 1.8.4)
 
+### Bunker menu
+- Landscape on a phone: System on the left; Play and a Programs panel on
+  the right, with Pod Programs and Archive as rows that say what each
+  holds. Everything fits on one screen, Deploy included. A tablet on its
+  side gets the same two columns with the full top bar; portrait is
+  unchanged. [b538fa4]
+
 ### Server
 - Coffin of Repose and Rhythm's Citadel medals can be spent. The events
   dropped medal variants (Coffin of Repose 53 and 54, Rhythm's Citadel 63,
