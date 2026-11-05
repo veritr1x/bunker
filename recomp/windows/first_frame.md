@@ -3,7 +3,42 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-socket1`, source
+Latest original execution: `work/windows-first-frame-socket-tls1`, source
+`41e47bb`, selects Windows public-root export and the 40 recovered original
+computed-table entries. The snapshot has 1007 source files: three changed,
+two added, and 1002 byte-exact from socket1. Bootstrap and all 46 host sources
+are freshly compiled. All 4653 prior guest objects remain exact, with one
+qualified object appended; the header has 595448 entry heads.
+
+The original caller now executes getDefaultAlgorithm, getInstance, init,
+getTrustManagers, getAcceptedIssuers and 60 getEncoded calls. The default
+Windows reader supplies 60 public DER certificates. The prior missing-class,
+Curl51 and unresolved `70b4c100` failures do not recur. This is actual CA-export
+and later network-path evidence, not proof of a successful peer/hostname
+verification or an authenticated backend connection. The runtime hostname,
+input status line and parsed status remain unlogged.
+
+The three original render calls return continue=true with zero draws.
+There is no successful swap, PNG or first-frame witness. Native exit3,
+controller1 stops at the actual `sscanf` format ` HTTP/%d.%d %d` (including
+its leading ASCII space), LR `70b5680c`: outside the qualified scanner profiles.
+The next work implements that original HTTP status parser with Bionic-compatible
+numeric conversion and verifies it with actual Android/Windows callers.
+
+Overlay SHA256 `25d625c39abe4f9e67826d53fcd4275d645e9e48227a4ce1564db9311184e162`;
+EXE `61bfcf119594fb42e7abb8b27623a3a874b568c0aaafd53861b7e79ef092c1cd`;
+bootstrap `9477fcecda97b4a9f7512d456efc84dd70416331fbe52dc01f1903bdc9daa76b`;
+log `72f8dbd8ea066575ab9bd02523d648938ffc8238f7d874acfabb0ae2875ea3db`.
+Actual module: PID243356, base `7ff6c0900000`, image1055412224 bytes.
+The process has exited and its controller session is collected. All overlay
+pins and original-parent pre/post verification pass. Run audit:
+`work/windows-first-frame-socket-tls1/game-frame-muted-gc-audit.json`, SHA256
+`934f6b710fc5458e5cc622a971c3794f899a78f38f0ce80299d6c83b31bc49d4`.
+Independent built-input review passes48 checks:
+`work/socket-tls-built-peer1/acceptance.json`, SHA256
+`6e632446b1fcdef0bcba4beb3b911d7b41e1e0fd9d3080697730e2b254934a9a`.
+
+Preceding original execution: `work/windows-first-frame-socket1`, source
 `79df7fe`, selects the qualified connected-client and collector-wait cohort.
 Its 1005-file snapshot changes six parent files and adds six; the other 993
 remain exact. Bootstrap and all 45 host/runtime sources are freshly compiled.
@@ -27,7 +62,7 @@ inferred from this error alone.
 
 Native exit 3/controller 1 stops at unresolved original Unity target
 `70b4c100`, StatePC `70b4c100`, LR `70b47730`, SP `2028daa0c00`.
-The next composite build combines two qualified changes. The bounded original
+The subsequent composite build combines two qualified changes. The bounded original
 computed-table recovery adds 40 original entry points in one object, with all
 240 seeded executions agreeing across original ARM, raw Windows and the
 selected polled Windows object. Its trace header adds 80 lines and preserves
@@ -47,8 +82,8 @@ direct/V/A call forms and complete DER-byte comparison, plus 237 existing JNI
 interface-proxy regression checks. Receipt:
 `work/java-tls-trust-qualification3/acceptance.json`, SHA256
 `3df59e64ee17277eee80e224649e84f316b359f89797534900749906f5c64efb`.
-The new original executable and live TLS outcome remain pending. Neither
-component gate establishes a first frame.
+Those qualified changes are selected in the latest original executable above.
+Neither component gate establishes a first frame or successful peer verification.
 
 Overlay SHA256 `cfea157227771b0774a03f0c6ab952c07d6c603a9e979815aa53df6e009cc1c3`;
 EXE `dbb5180987a4b95bf2c045f2a201d3b9b75070ba3a2948afa6857a239ef9fbaa`;
