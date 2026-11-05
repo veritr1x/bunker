@@ -8,6 +8,7 @@
 
 #include "../whole/runtime.h"
 #include "android_types.h"
+#include "guest_descriptors.h"
 
 namespace bunker::windows {
 struct AndroidStat {
@@ -56,10 +57,11 @@ class FileSystem {
   void MountDirectory(const std::string &guest, const std::filesystem::path &host, bool writable = false);
   void SetWorkingDirectory(const std::string &guest);
   addr_t Marker(const std::string &name) const;
-  void Install(recomp::Runtime &runtime);
+  void Install(recomp::Runtime &runtime,DescriptorImportInterceptor interceptor={});
   addr_t ErrnoAddress();
   int Error();
   void SetError(int);
+  std::shared_ptr<GuestDescriptors> DescriptorTable() const;
   // Android's legacy __sF is three opaque 152-byte FILE objects. Their guest
   // addresses identify independently owned binary duplicates of host stdio.
   addr_t StandardStreamsAddress();

@@ -28,6 +28,67 @@ coordinated namespace. Preparation only:
 `b77ce30c74f8120ce5f00d7bf8a2ef84a85d930a3d4bb9a8df09e25eceed4fa0`.
 Actual connected callsites and needed flags are being audited before selection.
 
+The connected-client cohort is now implemented and qualified, but has not yet
+been selected in an original-game executable. SocketTransport adds 23 imports
+and shares one descriptor table with FileSystem. Native SOCKET values stay
+owned and pinned behind Android int descriptors. Real Winsock TCP/UDP and
+address formatting, nonblocking controls, options, endpoint queries, vectored
+transfers and mixed readiness are exercised by actual NDK callers. Pipes use
+an owned bounded byte queue with real host synchronization and PIPE_BUF
+atomicity, rather than claiming a TCP stream has pipe atomicity.
+
+Functional qualification: `work/socket-transport-qualification6/acceptance.json`,
+SHA256 `100f7e8857e4163c0d9f53dd02527ca192038bca95836aa5ba2d5dac12e58061`.
+It passes 3,913 focused checks and 445 actual NDK entries across 29 APIs and
+both call forms, including 324 canonical entries and 124 comparison records.
+Real native peers verify bulk TCP and vectored I/O plus blocking and concurrent
+pipe transfers. The existing file regressions pass 14,187 duplication/OFD/race
+checks and 116 file ABI/stdio/mapping checks. Raw QEMU observations are retained:
+six F_GETFL results contain an emulator-injected target-invalid flag. Only
+three named Bionic record types remove that proven emulator bit; Windows flags
+remain exact. An additional invalid socket-flag case uses primary kernel
+evidence instead of reproducing QEMU's dropped-flag error. See
+[the transport qualification](socket_transport.md) for precise comparison limits.
+
+The separate network-wait collector gate preserves the existing lifetime,
+record and epoch owners while adding a certified socket-provider phase. Its
+actual NDK poll waits pass 157 checks across three roles, six genuine GC cycles,
+12 original posts and 12 physical GPR31/Q32 root frames, including late-pending
+handoff and negative admission controls. Receipt:
+`work/socket-wait-collector-qualification2/acceptance.json`, SHA256
+`02f9ca52206b5703a0cd8768462ea100ce8b8c5607087328eedbe69f8b5b78cc`.
+Three unchanged legacy native processes also pass 350 checks:
+`work/socket-collector-regressions1/acceptance.json`, SHA256
+`0d711835d0f01c5ad34587feead382af4588f4fddacf8e1eb3f2f39c40774a97`.
+The three old collector headers change only by insertions; their previous
+branch bytes remain exact. This is not a new standalone native qualification
+of the old finalizer-condition profile. Actual socket caller role, protocol,
+destination and optional branches still require the next original execution.
+
+Bootstrap now retains its filesystem interceptor by value so worker shutdown
+cannot call a destroyed local std::function. Providers and collector owners
+outlive Drain. The broken-pipe policy queries the actual guest disposition:
+SIG_IGN returns EPIPE, unblocked SIG_DFL terminates with explicit Windows-adapter
+status 141, and custom or blocked-default delivery remains an unsupported
+diagnostic. Its ten isolated child processes exercise both NDK call forms,
+including ignored blocked13, unblocked default termination, MSG_NOSIGNAL,
+and unchanged disposition/mask with no queued signal on rejected profiles.
+Receipt: `work/socket-sigpipe-qualification5/acceptance.json`, SHA256
+`04be97622981c7873fce9be9a81b8cf5453b29a47a66a396bde53addfd32d6ed`.
+The combined 12-source proof binds six existing-file inverses and six added
+files, all component receipts and the final collector-enabled bootstrap syntax:
+`work/socket-source-preparation1/source-proof.json`, SHA256
+`225d76f4736d27266f7221247c0f0beb30c01b1890fae0bf3f906886d08b9ba7`.
+The next snapshot has 1005 files (993 unchanged), one new host CPP and fresh
+bootstrap/all-45-host compilation. Its full build and original-game execution
+are pending; no original frame or network connectivity is claimed here.
+
+Reproducibility/package work remains open: the canonical preparation/build
+scripts still describe the historical guest cohort and omit newer host
+providers. The next exploratory controller must explicitly freeze the current
+4,653-object cohort and add the new host source. Its success alone will not
+establish a portable release build or package.
+
 Overlay SHA256 `ce1fb4c1f02193f86b9d8e0626f0b9e25a5417e8f1048060c251f8f9da2f5e53`;
 EXE `d6a86afc537f958bf13866e66810aa1d9721822db8e736bc215d2b23782ffc01`;
 bootstrap `de09f6fb08e19862eb6507409f85a6f76170cbd62b7916532091dbc5cb585b9c`;

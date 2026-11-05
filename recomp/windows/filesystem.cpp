@@ -21,6 +21,7 @@
 #include "filesystem.h"
 #include "growdown_memory.h"
 #include "unicode.h"
+#include "libc_uname_detail.h"
 #include "../whole/bridge.h"
 
 namespace bunker::windows {
@@ -145,11 +146,12 @@ struct FileSystem::Impl {
     std::mutex io;int flags;bool writable;uint64_t device;
     OpenDescription(int f,bool w,uint64_t d):flags(f&~linux_flags::close_on_exec),writable(w),device(d){}
   };
-  struct Descriptor {
-    int native;bool close_on_exec;std::shared_ptr<OpenDescription> description;
-    Descriptor(int n,int f,bool w,uint64_t d):native(n),close_on_exec(bool(f&linux_flags::close_on_exec)),description(std::make_shared<OpenDescription>(f,w,d)){}
-    Descriptor(int n,std::shared_ptr<OpenDescription> shared):native(n),close_on_exec(false),description(std::move(shared)){}
+  struct Descriptor : GuestDescriptor {
+    int native;std::shared_ptr<OpenDescription> description;
+    Descriptor(int n,int f,bool w,uint64_t d):GuestDescriptor(Kind::File,bool(f&linux_flags::close_on_exec)),native(n),description(std::make_shared<OpenDescription>(f,w,d)){}
+    Descriptor(int n,std::shared_ptr<OpenDescription> shared):GuestDescriptor(Kind::File),native(n),description(std::move(shared)){}
     ~Descriptor(){if(native>=0)_close(native);}
+    int StatusFlags()const override{return description->flags;}
   };
   struct Stream {
     std::mutex io;FILE *native;bool writable;uint64_t device;bool io_started=false;
@@ -177,9 +179,10 @@ struct FileSystem::Impl {
     ~MappingLease(){pins->uses.fetch_sub(1,std::memory_order_release);}
   };
   struct Mapping { void *native; HANDLE object; uint64_t rounded_length; bool file, private_file; uint64_t generation;std::shared_ptr<MappingPins> pins;GrowdownMemory::Control *grow=nullptr; };
-  std::recursive_mutex mutex;
+  std::shared_ptr<GuestDescriptors> descriptor_table=std::make_shared<GuestDescriptors>();
+  std::recursive_mutex &mutex=descriptor_table->mutex;
   std::vector<Mount> mounts;
-  std::map<int, std::shared_ptr<Descriptor>> descriptors;
+  std::map<int,std::shared_ptr<GuestDescriptor>> &descriptors=descriptor_table->entries;
   std::map<addr_t, std::shared_ptr<Stream>> streams;
   std::map<addr_t, std::shared_ptr<Directory>> directories;
   alignas(8) std::array<uint8_t, 3*152> standard_objects{};
@@ -215,7 +218,7 @@ struct FileSystem::Impl {
     }
   }
   void Error(int value) {std::lock_guard lock(mutex);auto &slot=errors[ThreadKey()];recomp::WriteGuestMemory(reinterpret_cast<addr_t>(&slot),&value,sizeof(value));}
-  std::shared_ptr<Descriptor> GetDescriptor(int descriptor){std::lock_guard lock(mutex);auto it=descriptors.find(descriptor);if(it==descriptors.end()){Error(9);return {};}return it->second;}
+  std::shared_ptr<Descriptor> GetDescriptor(int descriptor){std::lock_guard lock(mutex);auto it=descriptors.find(descriptor);if(it==descriptors.end()){Error(9);return {};}auto value=std::dynamic_pointer_cast<Descriptor>(it->second);if(!value)Error(95);return value;}
   std::shared_ptr<Stream> GetStream(addr_t stream){std::lock_guard lock(mutex);auto it=streams.find(stream);if(it==streams.end()){Error(9);return {};}return it->second;}
   std::shared_ptr<Directory> GetDirectory(addr_t token){std::lock_guard lock(mutex);auto it=directories.find(token);if(it==directories.end()){Error(9);return {};}return it->second;}
   addr_t OpaqueToken(){if(next_stream>=0x7ff800000000ULL){Error(75);return 0;}return next_stream++;}
@@ -372,6 +375,7 @@ void FileSystem::SetWorkingDirectory(const std::string &guest) {
 addr_t FileSystem::ErrnoAddress() { std::lock_guard lock(impl_->mutex); return reinterpret_cast<addr_t>(&impl_->errors[ThreadKey()]); }
 int FileSystem::Error() {std::lock_guard lock(impl_->mutex);int32_t result;auto &slot=impl_->errors[ThreadKey()];recomp::ReadGuestMemory(&result,reinterpret_cast<addr_t>(&slot),sizeof(result));return result;}
 void FileSystem::SetError(int value){impl_->Error(value);}
+std::shared_ptr<GuestDescriptors> FileSystem::DescriptorTable()const{return impl_->descriptor_table;}
 addr_t FileSystem::StandardStreamsAddress() {
   std::lock_guard lock(impl_->mutex);
   auto base = reinterpret_cast<addr_t>(impl_->standard_objects.data());
@@ -413,11 +417,24 @@ int FileSystem::Open(const char *path, int flags, uint32_t mode) {
   }catch(const std::bad_alloc&){impl_->Error(12);return -1;}
 }
 int FileSystem::Close(int descriptor) {
+  auto external=impl_->descriptor_table->Lookup(descriptor);
+  if(external&&external->kind!=GuestDescriptor::Kind::File){
+    std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);
+    if(found==impl_->descriptors.end()||found->second!=external){impl_->Error(9);return -1;}
+    impl_->descriptors.erase(found);return 0;
+  }
   std::shared_ptr<Impl::Descriptor> file;
-  {std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);if(found==impl_->descriptors.end()){impl_->Error(9);return -1;}file=found->second;impl_->descriptors.erase(found);}
+  {std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);if(found==impl_->descriptors.end()){impl_->Error(9);return -1;}file=std::dynamic_pointer_cast<Impl::Descriptor>(found->second);if(!file){impl_->Error(9);return -1;}impl_->descriptors.erase(found);}
   std::lock_guard lock(file->description->io);int result=_close(file->native);file->native=-1;if(result<0)impl_->CrtError();return result;
 }
 int32_t FileSystem::Dup(int32_t descriptor){
+  auto external=impl_->descriptor_table->Lookup(descriptor);
+  if(external&&external->kind!=GuestDescriptor::Kind::File){
+    int error=0;auto copy=external->Duplicate(error);if(!copy){impl_->Error(error);return -1;}
+    std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);
+    if(found==impl_->descriptors.end()||found->second!=external){impl_->Error(9);return -1;}
+    auto result=impl_->descriptor_table->Allocate(std::move(copy));if(result<0)impl_->Error(24);return result;
+  }
   auto source=impl_->GetDescriptor(descriptor);if(!source)return -1;
   // Match file-Mmap's io->registry order. Close/reuse can win the lookup gap,
   // so revalidate the exact pinned object before native duplication/publication.
@@ -446,6 +463,8 @@ int32_t FileSystem::Dup(int32_t descriptor){
   }catch(const std::bad_alloc&){impl_->Error(12);return -1;}
 }
 int64_t FileSystem::Read(int descriptor, void *buffer, uint64_t count) {
+  auto external=impl_->descriptor_table->Lookup(descriptor);
+  if(external&&external->kind!=GuestDescriptor::Kind::File){int error=0;auto result=external->Read(reinterpret_cast<addr_t>(buffer),count,error);if(result<0)impl_->Error(error);return result;}
   auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);
   if (file->native<0 || (file->description->flags & 3) == 1) { impl_->Error(9); return -1; }
   if ((!buffer && count) || count > INT64_MAX) { impl_->Error(!buffer ? 14 : 22); return -1; }
@@ -461,6 +480,8 @@ int64_t FileSystem::Read(int descriptor, void *buffer, uint64_t count) {
   return static_cast<int64_t>(total);
 }
 int64_t FileSystem::Write(int descriptor, const void *buffer, uint64_t count) {
+  auto external=impl_->descriptor_table->Lookup(descriptor);
+  if(external&&external->kind!=GuestDescriptor::Kind::File){int error=0;auto result=external->Write(reinterpret_cast<addr_t>(buffer),count,error);if(result<0)impl_->Error(error);return result;}
   auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);
   if(file->native<0||!(file->description->flags&3)){impl_->Error(9);return -1;}
   if ((!buffer && count) || count > INT64_MAX) { impl_->Error(!buffer ? 14 : 22); return -1; }
@@ -477,6 +498,7 @@ int64_t FileSystem::Write(int descriptor, const void *buffer, uint64_t count) {
   return static_cast<int64_t>(total);
 }
 int64_t FileSystem::Seek(int descriptor, int64_t offset, int whence) {
+  auto external=impl_->descriptor_table->Lookup(descriptor);if(external&&external->kind!=GuestDescriptor::Kind::File){impl_->Error(29);return -1;}
   auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);if(file->native<0){impl_->Error(9);return -1;}
   if (whence < 0 || whence > 2) { impl_->Error(22); return -1; }
   auto position = _lseeki64(file->native,offset,whence); if (position < 0) impl_->CrtError(); return position;
@@ -489,6 +511,8 @@ int FileSystem::Stat(const char *path, AndroidStat *result, bool no_follow) {
   bool filled = impl_->Fill(file, mount->device, mount->writable, result); CloseHandle(file); return filled ? 0 : -1;
 }
 int FileSystem::FStat(int descriptor, AndroidStat *result) {
+  auto external=impl_->descriptor_table->Lookup(descriptor);
+  if(external&&external->kind!=GuestDescriptor::Kind::File){if(!result){impl_->Error(14);return -1;}AndroidStat value{};value.inode=external->Identity();value.mode=external->kind==GuestDescriptor::Kind::Socket?0140777:0010600;value.links=1;value.uid=value.gid=10000;value.block_size=4096;recomp::WriteGuestMemory(reinterpret_cast<addr_t>(result),&value,sizeof(value));return 0;}
   auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);if(file->native<0){impl_->Error(9);return -1;}
   return impl_->Fill(reinterpret_cast<HANDLE>(_get_osfhandle(file->native)),file->description->device,file->description->writable,result)?0:-1;
 }
@@ -775,8 +799,9 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
     auto pointer = reinterpret_cast<addr_t>(result);recomp::InvalidateGuestMemory(pointer,rounded);impl_->mappings.emplace(pointer, Impl::Mapping{result, nullptr, rounded, false, false,generation,pins}); return pointer;
   }
   auto found = impl_->descriptors.find(descriptor);
-  if (found == impl_->descriptors.end() || (found->second->description->flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
-  auto file=found->second;lock.unlock();std::lock_guard io_lock(file->description->io);lock.lock();if(file->native<0){impl_->Error(9);return kMapFailed;}
+  auto file=found==impl_->descriptors.end()?nullptr:std::dynamic_pointer_cast<Impl::Descriptor>(found->second);
+  if (!file || (file->description->flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
+  lock.unlock();std::lock_guard io_lock(file->description->io);lock.lock();if(file->native<0){impl_->Error(9);return kMapFailed;}
   const bool private_file = (flags & 3) == linux_flags::map_private;
   if (!private_file && protection & 2 && !(file->description->flags & 3)) { impl_->Error(13); return kMapFailed; }
   auto native = reinterpret_cast<HANDLE>(_get_osfhandle(file->native));
@@ -925,14 +950,16 @@ int FileSystem::Madvise(addr_t address, uint64_t length, int advice) {
   // protection or lifetime. Never reset/decommit pages or invalidate stores.
   return 0;
 }
-void FileSystem::Install(recomp::Runtime &runtime) {
+void FileSystem::Install(recomp::Runtime &runtime,DescriptorImportInterceptor interceptor) {
   std::lock_guard lock(impl_->mutex); if (impl_->installed) throw std::logic_error("file system already installed");
   // Keep host exceptions inside this C++ import boundary: translated LLVM
   // continuations are nounwind and must never receive a diagnostic unwind.
   // All names below point to static-lifetime import-name string literals.
   auto add=[&](const char *name,auto bridge){
-    runtime.AddImport(Marker(name),[name,bridge=std::move(bridge)](State &state){
-      try{bridge(state);}
+    runtime.AddImport(Marker(name),[name,bridge=std::move(bridge),interceptor](State &state){
+      libc_detail::uname_detail::NativeEnvironment native_environment;
+      DescriptorImportScope active(&state);
+      try{if(interceptor)interceptor(name,state,[&]{bridge(state);});else bridge(state);}
       catch(const std::exception &error){std::fprintf(stderr,"file system %s: %s\n",name,error.what());std::fflush(stderr);std::abort();}
       catch(...){std::fprintf(stderr,"file system %s: unknown host exception\n",name);std::fflush(stderr);std::abort();}
     });

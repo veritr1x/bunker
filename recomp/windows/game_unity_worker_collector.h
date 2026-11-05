@@ -1,5 +1,6 @@
 #pragma once
 #include "game_collector_mask.h"
+#include "game_socket_wait_context.h"
 // Included in the harness namespace after Read/Translated/Executable helpers.
 // Actual prepared Unity-wrapper workers at one exact timed-private-futex phase.
 // Ordinary GC records remain original-owned. No callback role, record, epoch,
@@ -22,6 +23,7 @@ class GameUnityWorkerCollector {
     std::atomic<uint64_t> certified_epoch{0},begun_epoch{0},stop_epoch{0};
     std::atomic<bool> certified_new_epoch{false},stop_live{false};
     State *sleep_state=nullptr;bool phase=false,copied=false,returned=false,eligible=false;uint64_t deadline=0;
+    std::atomic<GameSocketWaitContext*> socket_wait{nullptr};
     bunker::windows::SignalFutexes::WaitObservation observation{};
     const SignalHost::Boundary *provider_boundary=nullptr;
     SignalHost::Dispatch selected{};State interrupted{};addr_t frame_base=0;
@@ -65,6 +67,10 @@ class GameUnityWorkerCollector {
     int32_t count=0;Check(!semaphores_.GetValue(kAck,&count),"original acknowledgment semaphore is unavailable");
   }
   void Phase(Owner&owner,const SignalHost::Delivery *selected=nullptr){
+    if(auto*socket=owner.socket_wait.load()){
+      Check(owner.live&&owner.context&&owner.context->CurrentPhase()==Lifecycle::Phase::entered&&Current()==&owner&&owner.native_tid==GetCurrentThreadId()&&threads_.Self()==owner.token&&owner.phase&&owner.sleep_state==&socket->StateRef()&&!OpaqueDepth(),"socket phase has no actual entered nonopaque owner");
+      socket->Validate(threads_,signals_,selected);return;
+    }
     auto *state=recomp::CurrentExecutionState();Check(owner.live&&owner.context&&owner.context->CurrentPhase()==Lifecycle::Phase::entered&&Current()==&owner&&owner.native_tid==GetCurrentThreadId()&&threads_.Self()==owner.token,"phase is not on actual entered prepared worker");
     Check(owner.phase&&owner.sleep_state&&state==owner.sleep_state&&!OpaqueDepth(),"phase has no exact live syscall State");
     const auto frames=recomp::CurrentExecutionFrames(*state);Check(frames.size()==1&&frames[0]==state,"phase has enclosing Runtime roots");
@@ -77,6 +83,7 @@ class GameUnityWorkerCollector {
     Check(selected?GameCollectorWaitMask::SelectedStop(owner.token,mask,*selected):GameCollectorWaitMask::Ordinary(mask),"ordinary/selected original stop masks differ");
   }
   bool Admit(const recomp::PollAdmissionContext&context)const noexcept{
+    if(const auto*owner=Current())if(const auto*socket=owner->socket_wait.load())return owner->live&&owner->phase&&!OpaqueDepth()&&socket->Admit(context);
     const auto *owner=Current();return owner&&owner->live&&owner->phase&&owner->eligible&&owner->copied&&!owner->returned&&owner->provider_boundary&&!OpaqueDepth()&&context.site.ordinal==kOrdinal&&context.frames.size()==1&&context.frames[0]==&context.state&&owner->sleep_state==&context.state&&context.program_counter==context.state.gpr.pc.qword&&context.site.trace==context.state.gpr.pc.qword;
   }
   void Pump(Owner&owner){
@@ -128,6 +135,28 @@ class GameUnityWorkerCollector {
   void Checkpoint(const Pthreads::WaitContext&context){auto owner=Lookup(context.token);if(owner){const auto retained=signals_.DispatchOneAdmittedSubset(context.token,SignalHost::Bit(30)|SignalHost::Bit(24),0,{});Check(!retained.error,"unknown eligible signal at unqualified Pthreads wait phase");}}
   void Notify(uint64_t token){auto owner=Lookup(token);Check(owner&&owner->live,"notify has no attached worker lifetime");if(SignalHost::NeedsPoll(owner->signal_thread))owner->requests.Request();}
   uint64_t FutexAdmission(uint64_t token)const noexcept{auto *owner=Current();return owner&&owner->token==token&&owner->live&&owner->phase&&owner->eligible&&owner->copied&&!owner->returned&&!owner->depth&&!OpaqueDepth()&&SignalHost::NeedsPoll(owner->signal_thread)?SignalHost::Bit(30):0;}
+  template<class F>void WithSocketWait(const std::string&name,State&state,F&&invoke,const GameSocketWaitContext::SitePolicy&policy={}){
+    auto owner=Lookup(threads_.Self());Check(owner&&Current()==owner.get()&&owner->native_tid==GetCurrentThreadId()&&!owner->phase&&!owner->depth&&!owner->socket_wait.load(),"socket import has no idle actual worker owner");
+    auto use=owner->lifecycle->AcquireUse(owner->token);ActualBounds(*owner);
+    GameSocketWaitContext socket(state,name,owner->token,owner->low,owner->high,owner->tls,false,policy);
+    {std::lock_guard lock(owner->sender_mutex);owner->phase=true;owner->sleep_state=&state;owner->socket_wait=&socket;}
+    struct Scope{Owner&owner;~Scope(){std::lock_guard lock(owner.sender_mutex);owner.socket_wait=nullptr;owner.phase=false;owner.sleep_state=nullptr;owner.provider_boundary=nullptr;}}scope{*owner};
+    invoke();socket.Complete();
+  }
+  GameSocketWaitContext::Decision ObserveSocketWait(const GameSocketWaitContext::Observation&observation){
+    auto*owner=Current();if(!owner||!owner->socket_wait.load())return{};auto*socket=owner->socket_wait.load();
+    return socket->Observe(observation,[&]{
+      Phase(*owner);const auto epoch=Read<uint64_t>(kEpoch);
+      if(!SignalHost::NeedsPoll(owner->signal_thread)||owner->certified_epoch!=epoch||!owner->certified_new_epoch||owner->begun_epoch==epoch||Read<uint64_t>(kStopped)!=1||Read<uint8_t>(0x879a62a8)!=1)return GameSocketWaitContext::Decision{};
+      const auto record=Record(owner->token);Check(record&&record==owner->record,"socket sender-certified ordinary record changed");GameSocketWaitContext::PollCertificate certificate(*socket,record,epoch);
+      owner->selected={};const SignalHost::Boundary boundary=[this](const auto&delivery){return Deliver(delivery);};owner->provider_boundary=&boundary;
+      struct Scope{Owner&owner;~Scope(){owner.provider_boundary=nullptr;}}scope{*owner};
+      if(SignalHost::NeedsPoll(owner->signal_thread))owner->requests.Request();
+      try{if(__bunker_guest_poll_requested())__bunker_guest_poll_slow(&socket->StateRef(),socket->StateRef().gpr.pc.qword,GameSocketWaitContext::kOrdinal,socket->StateRef().gpr.pc.qword);}
+      catch(const Deferred&){return GameSocketWaitContext::Decision{};}
+      return GameSocketWaitContext::Decision{owner->selected.handled,owner->selected.restart};
+    });
+  }
   static bool Shape(const State&state){return state.gpr.pc.qword==kSyscall&&state.gpr.x30.qword==0x708f2f14&&uint32_t(state.gpr.x0.qword)==98&&state.gpr.x2.dword==0x80&&state.gpr.x4.qword==state.gpr.sp.qword&&state.gpr.x4.qword!=0;}
   template<class F>void WithSyscall(State&state,F&&invoke){
     auto owner=Lookup(threads_.Self());Check(owner&&Current()==owner.get()&&owner->native_tid==GetCurrentThreadId()&&!owner->phase&&!owner->depth,"syscall owner/phase is invalid");
@@ -189,6 +218,7 @@ class GameUnityWorkerCollector {
   void BeforePost(const State&state){
     auto *owner=Current();if(!owner||!owner->depth)return;
     Check(owner->depth==1&&owner->stop_live&&state.gpr.x0.qword==kAck&&state.gpr.x30.qword==(owner->posts?0x825b2c50ULL:0x825b2c04ULL)&&owner->posts<2,"original acknowledgment caller differs");
+    if(auto*socket=owner->socket_wait.load()){socket->PhysicalRoots(owner->interrupted,owner->frame_base,owner->record.load());return;}
     const auto record=owner->record.load();OrdinaryRecord(*owner,record);const auto fp=Read<addr_t>(record+0x18);Check(fp==owner->frame_base-0x30,"actual original published ordinary FP differs");
     const addr_t saved=owner->frame_base+recomp::signal_frame::kMachineOffset+8;
     Check(fp<=saved&&saved+31*8<=owner->high,"physical GPR range is outside original ordinary scan bounds");

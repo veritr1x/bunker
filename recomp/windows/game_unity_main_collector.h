@@ -1,5 +1,6 @@
 #pragma once
 #include "game_collector_mask.h"
+#include "game_socket_wait_context.h"
 // Included in the harness namespace after Read/Translated/Executable helpers.
 // One explicitly attached external UnityMain lifetime. This does not create a
 // Pthreads worker, finalizer role, guest GC record or collector acknowledgment.
@@ -18,6 +19,7 @@ class GameUnityMainCollector {
     std::atomic<uint64_t> certified_epoch{0},begun_epoch{0},stop_epoch{0};
     std::atomic<bool> certified_new_epoch{false},stop_live{false};
     State *sleep_state=nullptr;bool phase=false;
+    std::atomic<GameSocketWaitContext*> socket_wait{nullptr};
     const SignalHost::Boundary *provider_boundary=nullptr;
     SignalHost::Dispatch selected{};State interrupted{};addr_t frame_base=0;
     unsigned depth=0,posts=0;
@@ -60,6 +62,10 @@ class GameUnityMainCollector {
     int32_t count=0;Check(!semaphores_.GetValue(kAck,&count),"original acknowledgment semaphore is unavailable");
   }
   void Phase(Owner&owner,const SignalHost::Delivery *selected=nullptr){
+    if(auto*socket=owner.socket_wait.load()){
+      Check(owner.live&&Current()==&owner&&owner.native_tid==GetCurrentThreadId()&&threads_.Self()==owner.token&&owner.phase&&owner.sleep_state==&socket->StateRef()&&!OpaqueDepth(),"socket phase has no actual attached nonopaque main owner");
+      socket->Validate(threads_,signals_,selected);return;
+    }
     auto *state=recomp::CurrentExecutionState();Check(owner.live&&Current()==&owner&&owner.native_tid==GetCurrentThreadId()&&threads_.Self()==owner.token,"phase is not on attached actual external thread");
     Check(owner.phase&&owner.sleep_state&&state==owner.sleep_state&&!OpaqueDepth(),"phase has no exact live NanoSleep State");
     const auto frames=recomp::CurrentExecutionFrames(*state);Check(frames.size()==1&&frames[0]==state,"phase has enclosing Runtime roots");
@@ -79,6 +85,7 @@ class GameUnityMainCollector {
     Check(selected?GameCollectorWaitMask::SelectedStop(owner.token,mask,*selected):GameCollectorWaitMask::Ordinary(mask),"ordinary/selected original stop masks differ");
   }
   bool Admit(const recomp::PollAdmissionContext&context)const noexcept{
+    if(const auto*owner=Current())if(const auto*socket=owner->socket_wait.load())return owner->live&&owner->phase&&!OpaqueDepth()&&socket->Admit(context);
     const auto *owner=Current();return owner&&owner->live&&owner->phase&&owner->provider_boundary&&!OpaqueDepth()&&context.site.ordinal==kOrdinal&&context.frames.size()==1&&context.frames[0]==&context.state&&owner->sleep_state==&context.state&&context.program_counter==context.state.gpr.pc.qword&&context.site.trace==context.state.gpr.pc.qword;
   }
   void Pump(Owner&owner){
@@ -110,6 +117,29 @@ class GameUnityMainCollector {
   }
   void Notify(uint64_t token){auto owner=Lookup(token);Check(owner&&owner->live,"notify has no attached external lifetime");if(SignalHost::NeedsPoll(owner->signal_thread))owner->requests.Request();}
   uint64_t NanoSleepAdmission(uint64_t token)const noexcept{auto *owner=Current();return owner&&owner->token==token&&owner->live&&owner->phase&&!owner->depth&&!OpaqueDepth()?SignalHost::Bit(30):0;}
+  template<class F>void WithSocketWait(const std::string&name,State&state,F&&invoke,const GameSocketWaitContext::SitePolicy&policy={}){
+    auto owner=Lookup(threads_.Self());Check(owner&&Current()==owner.get()&&owner->native_tid==GetCurrentThreadId()&&!owner->phase&&!owner->depth&&!owner->socket_wait.load(),"socket import has no idle actual main owner");
+    ActualBounds(*owner);const auto tls=state.sr.tpidr_el0.qword;Check(tls,"socket main TLS absent");if(!owner->tls)owner->tls=tls;
+    GameSocketWaitContext socket(state,name,owner->token,owner->low,owner->high,owner->tls,true,policy);
+    {std::lock_guard lock(owner->sender_mutex);owner->phase=true;owner->sleep_state=&state;owner->socket_wait=&socket;}
+    struct Scope{Owner&owner;~Scope(){std::lock_guard lock(owner.sender_mutex);owner.socket_wait=nullptr;owner.phase=false;owner.sleep_state=nullptr;owner.provider_boundary=nullptr;}}scope{*owner};
+    if(!owner->delivery)owner->delivery=std::make_unique<SignalDelivery>(runtime_,Translated,kReturn,recomp::signal_frame::Bounds{owner->low,owner->high},signals_,owner->token);
+    invoke();socket.Complete();
+  }
+  GameSocketWaitContext::Decision ObserveSocketWait(const GameSocketWaitContext::Observation&observation){
+    auto*owner=Current();if(!owner||!owner->socket_wait.load())return{};auto*socket=owner->socket_wait.load();
+    return socket->Observe(observation,[&]{
+      Phase(*owner);const auto epoch=Read<uint64_t>(kEpoch);
+      if(!SignalHost::NeedsPoll(owner->signal_thread)||owner->certified_epoch!=epoch||!owner->certified_new_epoch||owner->begun_epoch==epoch||Read<uint64_t>(kStopped)!=1||Read<uint8_t>(0x879a62a8)!=1)return GameSocketWaitContext::Decision{};
+      const auto record=Record(owner->token);Check(record&&record==owner->record,"socket sender-certified main record changed");GameSocketWaitContext::PollCertificate certificate(*socket,record,epoch);
+      owner->selected={};const SignalHost::Boundary boundary=[this](const auto&delivery){return Deliver(delivery);};owner->provider_boundary=&boundary;
+      struct Scope{Owner&owner;~Scope(){owner.provider_boundary=nullptr;}}scope{*owner};
+      if(SignalHost::NeedsPoll(owner->signal_thread))owner->requests.Request();
+      try{if(__bunker_guest_poll_requested())__bunker_guest_poll_slow(&socket->StateRef(),socket->StateRef().gpr.pc.qword,GameSocketWaitContext::kOrdinal,socket->StateRef().gpr.pc.qword);}
+      catch(const Deferred&){return GameSocketWaitContext::Decision{};}
+      return GameSocketWaitContext::Decision{owner->selected.handled,owner->selected.restart};
+    });
+  }
   template<class F>void WithNanoSleep(State&state,F&&invoke){
     auto owner=Lookup(threads_.Self());Check(owner&&Current()==owner.get()&&owner->native_tid==GetCurrentThreadId()&&!owner->phase&&!owner->depth,"NanoSleep owner/phase is invalid");
     ActualBounds(*owner);const auto tls=state.sr.tpidr_el0.qword;Check(tls!=0,"materialized external Pthreads TLS is absent");if(!owner->tls)owner->tls=tls;
@@ -159,6 +189,7 @@ class GameUnityMainCollector {
   void BeforePost(const State&state){
     auto *owner=Current();if(!owner||!owner->depth)return;
     Check(owner->depth==1&&owner->stop_live&&state.gpr.x0.qword==kAck&&state.gpr.x30.qword==(owner->posts?0x825b2c50ULL:0x825b2c04ULL)&&owner->posts<2,"original acknowledgment caller differs");
+    if(auto*socket=owner->socket_wait.load()){socket->PhysicalRoots(owner->interrupted,owner->frame_base,owner->record.load());return;}
     const auto record=owner->record.load();MainRecord(*owner,record);const auto fp=Read<addr_t>(record+0x18);Check(fp==owner->frame_base-0x30,"actual original published main FP differs");
     const addr_t saved=owner->frame_base+recomp::signal_frame::kMachineOffset+8;
     Check(fp<=saved&&saved+31*8<=owner->high,"physical GPR range is outside original main scan bounds");

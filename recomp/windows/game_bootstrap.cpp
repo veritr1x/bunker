@@ -34,6 +34,7 @@
 #include "gl_host.h"
 #include "gles_service_module.h"
 #include "filesystem.h"
+#include "socket_transport.h"
 #include "module_registry.h"
 #include "module_registry_elf.h"
 #include "pthread_host.h"
@@ -159,10 +160,12 @@ bool Executable(addr_t address){
   return false;
 }
 #include "game_bootstrap_detail.h"
+#include "game_socket_sigpipe.h"
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
 #include "game_collector_delivery.h"
 #include "game_unity_main_collector.h"
 #include "game_unity_worker_collector.h"
+#include "game_socket_wait.h"
 #endif
 LONG WINAPI Crash(EXCEPTION_POINTERS *exception){
   std::fprintf(stderr,"Unity bootstrap: native exception %#lx at %p; stage=%s, completed constructors=%zu/%zu\n",
@@ -260,6 +263,9 @@ int main(int argc,char **argv){
       std::fflush(stderr);std::abort();
     });
     FileSystem files;
+    // Network descriptors share the file namespace. Both providers outlive
+    // Pthreads/Drain, so guest workers finish before resources are revoked.
+    SocketTransport sockets(files);
     files.EnableGrowdownMappings();
     std::fprintf(stderr,"Game bootstrap: explicit owned Windows MAP_GROWSDOWN profile enabled\n");
     files.MountFile("/data/app/bunker/base.apk",apk);
@@ -400,6 +406,7 @@ int main(int argc,char **argv){
     std::unique_ptr<GameUnityWorkerCollector> worker_collector;
     std::unique_ptr<GameCollectorDelivery> collector;
     std::unique_ptr<GameUnityMainCollector> main_collector;
+    std::unique_ptr<GameSocketWaitCollector> socket_wait_collector;
 #endif
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
@@ -433,6 +440,7 @@ int main(int argc,char **argv){
       extension.checkpoint=[&](const auto&context){worker_collector->Checkpoint(context);};
       collector=std::make_unique<GameCollectorDelivery>(threads,process_signals,semaphores,runtime,std::move(extension));collector_notify=collector.get();
       main_collector=std::make_unique<GameUnityMainCollector>(threads,process_signals,semaphores,runtime);main_collector_notify=main_collector.get();
+      socket_wait_collector=std::make_unique<GameSocketWaitCollector>(threads,*collector,*main_collector,*worker_collector);
       tls_audit.create_boundary=[&](State &s,const auto &invoke){worker_collector->WithCreate(s,[&](State&t){collector->WithCreate(t,invoke);});};
     }
     else
@@ -544,7 +552,23 @@ int main(int argc,char **argv){
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     if(collector)drain.close=[&]{collector->CloseAfterShutdown();main_collector->Close();worker_collector->Close();};
 #endif
-    files.Install(runtime);threads.Install();libc.Install(runtime);logging.Install(runtime);
+    DescriptorImportInterceptor network_invocation=[&](const char *name,State &state,const std::function<void()> &invoke){
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+      if(socket_wait_collector){socket_wait_collector->WithSocketWait(name,state,invoke);return;}
+#endif
+      (void)name;(void)state;invoke();
+    };
+#if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
+    if(socket_wait_collector)sockets.SetWaitObserver([&](const SocketTransport::WaitObservation &observation){return socket_wait_collector->Observe(observation);});
+#endif
+    sockets.SetBrokenPipeNotification([&](State *state){
+      GameSocketSigpipe::Notify(process_signals,threads.Self(),state);
+    });
+    files.Install(runtime,[network_invocation](const char *name,State &state,const std::function<void()> &invoke){
+      if(!std::strcmp(name,"read")||!std::strcmp(name,"write")){network_invocation(name,state,invoke);return;}
+      invoke();
+    });
+    sockets.Install(runtime,network_invocation);threads.Install();libc.Install(runtime);logging.Install(runtime);
     sensors.Install(runtime);
     std::fputs("Game bootstrap: Android sensor service unavailable in this port; original Unity NULL-manager branch; no hardware inventory or sensor samples claimed\n",stderr);
     constexpr addr_t mmap_audit_marker=0x7ffc68000000ULL;
@@ -823,7 +847,7 @@ int main(int argc,char **argv){
         if(collector&&name=="sem_post")address=ack_audit;
 #endif
         if(!address&&name=="mmap")address=mmap_audit_marker;if(!address&&name=="sscanf")address=sscanf_audit_marker;if(!address&&name=="setlocale")address=setlocale_audit_marker;if(!address&&name=="dup")address=dup_audit_marker;if(!address&&name=="sched_getaffinity")address=getaffinity_marker;if(!address&&name=="sched_setaffinity")address=setaffinity_marker;if(!address)address=Try(process_signals,name);if(!address)address=Try(semaphores,name);
-        if(!address)for(addr_t candidate:{Try(files,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(nanosleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),Try(sensors,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
+        if(!address)for(addr_t candidate:{Try(files,name),Try(sockets,name),Try(threads,name),Try(libc,name),Try(sleeps,name),Try(nanosleeps,name),Try(futexes,name),Try(priorities,name),Try(logging,name),Try(modules,name),Try(zlib,name),Try(sensors,name),native_windows?Try(*native_windows,name):0,jumps?Try(*jumps,name):0,egl?Try(*egl,name):0,graphics?TryGlImport(*graphics,name):0}){
           if(candidate){if(address&&address!=candidate)throw std::runtime_error("ambiguous import provider: "+name);address=candidate;}
         }
         if(address){++provided;if(egl&&Try(*egl,name)==address&&forwarded_egl.insert(address).second)runtime.AddImport(address,[&,address,name](State &s){std::fprintf(stderr,"Game bootstrap: guest %s x0=%#llx x1=%#llx x2=%#llx LR=%#llx\n",name.c_str(),(unsigned long long)s.gpr.x0.qword,(unsigned long long)s.gpr.x1.qword,(unsigned long long)s.gpr.x2.qword,(unsigned long long)s.gpr.x30.qword);egl_bridges.Dispatch(s,address,nullptr);});}

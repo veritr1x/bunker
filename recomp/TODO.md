@@ -35,8 +35,13 @@ failure/free errno; only unspecified success errno is normalized, with raw
 observations preserved. Its full host/bootstrap build and original execution
 now pass the previous getaddrinfo boundary and stop at missing libunity.so
 `socket`, LR `70b4a1b8`, AF_INET=2/SOCK_STREAM=1 (protocol unlogged).
-The next work is genuine socket transport, readiness and socket-aware shared
-descriptor ownership/dispatch as a connected-client cohort.
+The connected-client socket/readiness/shared-descriptor cohort now passes
+3,913 focused checks across 29 APIs and 445 actual NDK entries; prior file
+regressions also pass. Its separate collector phase passes actual physical
+root/stop/restart tests and the legacy native collector regressions. Bootstrap
+integration and the actual-disposition SIGPIPE policy now pass their focused
+checks, with an exact combined 12-source proof. The next full build and
+original-game execution remain pending. No frame is established.
 Two original renders return,
 but there is still no successful swap or captured game image. Windows
 auto-detection remains unresolved and is not a proven direct route.
@@ -44,8 +49,8 @@ Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
 The historical network inventory identifies 32 missing imports plus four file
 APIs needing socket-aware ownership/dispatch. Three inventory names are now
-implemented (inet_pton/getaddrinfo/freeaddrinfo); socket transport remains
-unimplemented. The prepared backend has not been
+implemented (inet_pton/getaddrinfo/freeaddrinfo); socket transport is qualified
+in component fixtures but has not run in the original game. The prepared backend has not been
 connected to the real client. Execution notes below retain earlier checkpoints.
 
 All recomp source work is in the `recomp-x86_64` worktree at
