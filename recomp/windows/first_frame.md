@@ -17,7 +17,12 @@ audit `a6ea2fb4e56d4ddf942b7e54437924a75be6e62460fc68686f54953754b3f802`.
 The [selected-runtime launcher](qualified_runtime_run.md) passes its current
 runtime pre/post checks and the unchanged original-parent checks. Its historical
 rehash flags are deliberately false; the completed build retained full checks.
-Framebuffer invalidation/discard integration is pending; no first frame is claimed.
+Boundary `work/label-query1-fbo-boundary1/acceptance.json`, SHA256
+`a615014c8248908656ea061f89338def03a1d99038458a6ef28b3a6d643e4f37`.
+The two real [framebuffer hints](gl_framebuffer_invalidate.md) pass43 NDK calls,
+42 native comparisons and9334 checks. Discarded contents remain undefined;
+only nondiscarded and explicitly redrawn pixels were checked. Original
+integration is pending; no first frame is claimed.
 
 Preceding completed original attempt: `work/windows-first-frame-draw-buffers1`,
 manifest `1d825a0954d73363ccdbf0756d164c15216f35ddec9e3df54c70f00df54ccebd`,

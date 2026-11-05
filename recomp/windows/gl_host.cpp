@@ -161,6 +161,8 @@ GL_DRAW_API(DRAW_NAME)
 "glDrawBuffers",
 "glGetObjectLabel",
 "glGetObjectLabelEXT",
+"glInvalidateFramebuffer",
+"glDiscardFramebufferEXT",
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -489,6 +491,16 @@ struct GlHost::Impl {
     std::memcpy(values.data(),bytes.data(),bytes.size());
     drawBuffers(count,values.data());
   }
+  template<class Native>void FramebufferHint(GLenum target,GLsizei count,addr_t input,bool core,Native native){
+    // Native target/count validation precedes all attachment-array reads.
+    // Repeated attachments are valid; the API has no maximum list count.
+    const bool valid_target=target==GL_FRAMEBUFFER||(core&&(target==GL_READ_FRAMEBUFFER||target==GL_DRAW_FRAMEBUFFER));
+    if(!valid_target||count<=0){native(target,count,nullptr);return;}
+    auto bytes=Snapshot(input,static_cast<size_t>(count)*sizeof(GLenum));
+    std::vector<GLenum> attachments(static_cast<size_t>(count));
+    std::memcpy(attachments.data(),bytes.data(),bytes.size());
+    native(target,count,attachments.data());
+  }
   void VertexBuffers(){
     const GLint count=Integer(GL_MAX_VERTEX_ATTRIBS);if(count<0||count>4096)throw std::runtime_error("GL vertex attribute count outside scope");
     for(GLint i=0;i<count;++i){GLint enabled=0,buffer=0;
@@ -588,6 +600,10 @@ struct GlHost::Impl {
     BindProgramResourceCommands();
     BindMappingCommands();
     Bind<void(GLsizei,addr_t)>("glDrawBuffers",[this](GLsizei n,addr_t input){DrawBuffers(n,input);});
+    const auto invalidate=Symbol<PFNGLINVALIDATEFRAMEBUFFERPROC>(module,"glInvalidateFramebuffer");
+    Bind<void(GLenum,GLsizei,addr_t)>("glInvalidateFramebuffer",[this,invalidate](GLenum target,GLsizei n,addr_t input){FramebufferHint(target,n,input,true,invalidate);});
+    const auto discard=Symbol<PFNGLDISCARDFRAMEBUFFEREXTPROC>(module,"glDiscardFramebufferEXT");
+    Bind<void(GLenum,GLsizei,addr_t)>("glDiscardFramebufferEXT",[this,discard](GLenum target,GLsizei n,addr_t input){FramebufferHint(target,n,input,false,discard);});
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
