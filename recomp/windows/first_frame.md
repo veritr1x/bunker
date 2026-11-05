@@ -24,8 +24,24 @@ Replacement `work/windows-first-frame-choreographer1` is linked and independentl
 reviewed with53 checks. Its manifest is
 `35707ea61acfe2f6664da876041f66fc66c4ad8362dfbda5e5eeac93e22d9814`,
 executable `b62f233d7ba31bfa748a1b6374b2fa97b86dd53d3d388de3f0ffb3b1b56d8d46`.
-One fresh controlled original run is starting with the same explicitly muted
-inputs. The build's pending-runtime fields remain historical; the separate
+Its one fresh controlled original run naturally exits native3/controller1
+at untranslated indirect entry `7022c0ec`, LR `7022c0b8`, on render5. The real
+UnityChoreographer initialization message dispatches on its actual child,
+the constructor condition wait returns0, render4 returns continue=true, and
+the original FrameCallback repeatedly posts itself. Startup is repaired.
+There is still no draw, presentation or PNG. The actual boundary receipt is
+`work/choreographer1-original-boundary1/acceptance.json`, SHA256
+`5afb3e81c1b8536a29a4ce2130bb5dc8f9eb16786ff55f67c8c86b22afd7f3e6`.
+All overlay/runtime pins and original-parent pre/post checks pass.
+
+The next repair recovers the coherent four-way guarded table in original FDE
+`7022c0a4..7022c188`: entries `7022c0d8`, `7022c0ec`, `7022c104`, `7022c158`.
+The current4655 objects and595454 heads are preserved as the exact prefix;
+the proposed single object adds four heads. Qualification and selection are
+pending. The isolated638-function fixture is incomplete at a setup-only
+dynamic dependency; it is not represented as passed or as a production defect.
+
+The build's pending-runtime fields remain historical; the separate
 `runtime-admission.json` records the actual generic gate and integration scope.
 
 The previous run's native255/controller1 records manual termination, with all
