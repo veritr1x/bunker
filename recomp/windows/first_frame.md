@@ -3,7 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed original attempt: `work/windows-first-frame-fbo-invalidate1`,
+Latest completed original attempt: `work/windows-first-frame-program-cache1`,
+manifest `d8a7ad96acd008a523a7b8d071f768b9c4741f0056b6101b520f9042ab591c9c`,
+EXE `712462e7e1349ba2e43cd986a87e588184f080dcaf9d02576952906031557104`.
+The original program hints and binary retrievals now run. Seven original draw
+dispatches are observed (six indexed and one array draw). The fifth render
+then naturally exits native3 before presentation at null `glFenceSync`,
+LR `70470630`, condition `9117`, flags0. Four earlier renders return; no
+successful swap or PNG is recorded. The same original function connects
+64-bit fence creation/storage, zero-timeout polling and deletion, justifying
+the three core fence APIs. Extra sync query/server-wait APIs are excluded.
+Log SHA256 `1b68f0f2ad7741d967f6ac42696913d67a9a4c0d8a04b27cec5281415e2b6bba`;
+audit `caa0698c349f5bf630a29d3f1e0b9565453548e3c373bdf82cf91d9c6e0c8a9b`.
+Selected runtime and unchanged original-parent pre/post checks pass.
+Boundary `work/program-cache1-sync-boundary1/acceptance.json`, SHA256
+`02a045ff67f83b57240c0f25553c9fb8e85104ea17d76b3927d170483fd56186`.
+An earlier speculative cleanup-timing interpretation of terminal X22 was
+rejected: the original load occurs after the failed call, so current cleanup
+timing is unproven. No additional guest head is selected from that speculation.
+The [native GPU sync component](gl_gpu_sync.md) passes954 checks and66 NDK
+calls, including genuine completion, full-width timeout observation and progress
+of an independent context while the copied wait callback is outside the host
+mutex. Native ANGLE retains its own share-group serialization. Original
+integration remains pending; no first frame is claimed.
+
+Preceding completed original attempt: `work/windows-first-frame-fbo-invalidate1`,
 manifest `d47440efb7473d7e31ba431772b532713764de2044195f344f94a36063782acd`,
 EXE `e4f5afcc255dc91c803bcca5d1a5a0658f384535c9a7bcd5156019749e83dc40`.
 Four renders return. The reached core `glInvalidateFramebuffer` now returns;

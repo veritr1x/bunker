@@ -1,0 +1,85 @@
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#define GL_GLES_PROTOTYPES 0
+#include <GLES3/gl32.h>
+#include <EGL/egl.h>
+#include "gles_service_module.h"
+#include "egl_host.h"
+#include "../fastaes/elfload.h"
+#include "traces.h"
+#include "gpu_sync_old_commands.h"
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cerrno>
+#include <cfenv>
+#include <cstdio>
+#include <cstring>
+#include <stdexcept>
+#include <vector>
+#include <set>
+#include <chrono>
+#include <thread>
+#include <mutex>
+#include <future>
+#include <cstdlib>
+using namespace bunker::windows;
+namespace {
+std::atomic<unsigned>checks{0};unsigned ndk_calls=0;std::atomic<unsigned>installed_sync_calls{0};GlHost*graphics=nullptr;EglHost*egl_provider=nullptr;HMODULE driver=nullptr;
+std::array<addr_t,3>sync_markers{};
+void Check(bool value,const char*why){++checks;if(!value)throw std::runtime_error(why);}
+addr_t A(const void*p){return reinterpret_cast<addr_t>(p);}
+template<class F>F N(const char*name){auto p=GetProcAddress(driver,name);Check(p!=nullptr,"actual ANGLE symbol exists");F value;memcpy(&value,&p,sizeof(value));return value;}
+template<class H>addr_t I(H&host,const char*name,std::initializer_list<addr_t>args={}){State s{};Reg GPR::*r[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3,&GPR::x4,&GPR::x5,&GPR::x6,&GPR::x7};unsigned at=0;for(auto a:args)(s.gpr.*r[at++]).qword=a;host.Invoke(name,s);return s.gpr.x0.qword;}
+void*Resolve(const char*name){return reinterpret_cast<void*>(!strcmp(name,"eglGetProcAddress")?egl_provider->Marker(name):graphics->Marker(name));}
+template<class F>addr_t EnvInvoke(F function){std::fenv_t old;std::fegetenv(&old);const int old_errno=errno;const DWORD old_error=GetLastError();std::fesetround(FE_UPWARD);std::feclearexcept(FE_ALL_EXCEPT);std::feraiseexcept(FE_INVALID|FE_DIVBYZERO);const int flags=std::fetestexcept(FE_ALL_EXCEPT);errno=EDOM;SetLastError(0x70470630);auto result=function();const bool intact=errno==EDOM&&GetLastError()==0x70470630&&std::fegetround()==FE_UPWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags;std::fesetenv(&old);errno=old_errno;SetLastError(old_error);Check(intact,"complete direct Invoke including EGL retirement observer preserves native environment");return result;}
+struct Guest {
+ recomp::Runtime&runtime;elf_image image{};
+ explicit Guest(recomp::Runtime&r):runtime(r){Check(!elf_load(GL_GPU_SYNC_LIBRARY,0x5e000000,Resolve,&image),"actual typed NDK library loads");runtime.AddTraces(kTraces,std::size(kTraces));}
+ uint64_t Call(const char*name,std::initializer_list<addr_t>args={}){
+  ++ndk_calls;State s{};alignas(16)std::array<unsigned char,65536>stack{};Reg GPR::*r[]={&GPR::x0,&GPR::x1,&GPR::x2,&GPR::x3,&GPR::x4,&GPR::x5,&GPR::x6,&GPR::x7};unsigned at=0;for(auto a:args)(s.gpr.*r[at++]).qword=a;const auto sp=A(stack.data()+stack.size());s.gpr.sp.qword=sp;s.gpr.x30.qword=0xfeedffff;s.gpr.x19.qword=0xf123456789abcdefULL;s.gpr.x29.qword=0xe123456789abcdefULL;std::array<unsigned char,16>v;v.fill(0xd9);memcpy(&s.simd.v[31],v.data(),16);reinterpret_cast<unsigned char*>(&s)[1199]=0x6d;std::array<uint64_t,8>memory;memory.fill(0xa7a7a7a7a7a7a7a7ULL);auto before=memory;auto*token=reinterpret_cast<Memory*>(memory.data());auto*entry=elf_symbol(&image,name);Check(entry!=nullptr,"actual NDK export exists");Check(runtime.Run(s,A(entry),token)==token&&memory==before,"actual Memory64 pointer and bytes preserved");Check(s.gpr.pc.qword==0xfeedffff&&s.gpr.sp.qword==sp&&s.gpr.x19.qword==0xf123456789abcdefULL&&s.gpr.x29.qword==0xe123456789abcdefULL,"NDK PC/SP and high64 saved registers");Check(!memcmp(v.data(),&s.simd.v[31],16)&&reinterpret_cast<unsigned char*>(&s)[1199]==0x6d,"State1200 SIMD/highcell preserved");return s.gpr.x0.qword;
+ }
+ addr_t Fence(unsigned mode,GLenum condition,GLbitfield flags){return Call("gs_fence",{mode,sync_markers[0],condition,flags});}
+ GLenum Wait(unsigned mode,addr_t handle,GLbitfield flags,uint64_t timeout){return GLenum(Call("gs_wait",{mode,sync_markers[1],handle,flags,timeout}));}
+ void Delete(unsigned mode,addr_t handle){Check(Call("gs_delete",{mode,sync_markers[2],handle})==0xf123456789abcdefULL,"sync delete void returns through high64 NDK continuation");}
+
+};
+}
+extern "C" void RealAddImport(recomp::Runtime*,addr_t,std::function<void(State&)>) __asm__("__real__ZN6recomp7Runtime9AddImportEySt8functionIFvR5StateEE");
+extern "C" void WrapAddImport(recomp::Runtime*,addr_t,std::function<void(State&)>) __asm__("__wrap__ZN6recomp7Runtime9AddImportEySt8functionIFvR5StateEE");
+extern "C" void WrapAddImport(recomp::Runtime*r,addr_t marker,std::function<void(State&)>callback){if(std::find(sync_markers.begin(),sync_markers.end(),marker)!=sync_markers.end()){auto original=std::move(callback);callback=[original=std::move(original)](State&s){++installed_sync_calls;std::fesetround(FE_DOWNWARD);std::feclearexcept(FE_ALL_EXCEPT);std::feraiseexcept(FE_INVALID|FE_DIVBYZERO);const int flags=std::fetestexcept(FE_ALL_EXCEPT);errno=EDOM;SetLastError(0x70470630);original(s);Check(errno==EDOM&&GetLastError()==0x70470630,"installed GPU sync callback restores native errno/LastError around context selection and driver");Check(std::fegetround()==FE_DOWNWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags,"installed GPU sync callback restores nondefault FENV");};}RealAddImport(r,marker,std::move(callback));}
+
+namespace {
+struct NativeWaitObservation{addr_t handle;GLbitfield flags;GLuint64 timeout;GLenum result;};
+std::mutex observe_mutex;NativeWaitObservation last_wait{};unsigned observed_waits=0;
+PFNGLCLIENTWAITSYNCPROC real_client_wait=nullptr;std::atomic<bool>pause_next_wait{false};
+std::promise<void>*pause_entered=nullptr;std::shared_future<void>pause_release;
+struct ObserverEnvironment{int error=errno;DWORD last=GetLastError();std::fenv_t env;ObserverEnvironment(){std::fegetenv(&env);}~ObserverEnvironment(){std::fesetenv(&env);errno=error;SetLastError(last);}};
+GLenum GL_APIENTRY ObserveClientWait(GLsync handle,GLbitfield flags,GLuint64 timeout){
+ {ObserverEnvironment preserve;if(pause_next_wait.exchange(false)){pause_entered->set_value();if(pause_release.wait_for(std::chrono::seconds(5))!=std::future_status::ready){std::fputs("independent-context host-mutex progress timed out\n",stderr);std::_Exit(97);}}}
+ const auto result=real_client_wait(handle,flags,timeout);
+ {ObserverEnvironment preserve;std::lock_guard lock(observe_mutex);last_wait={reinterpret_cast<addr_t>(handle),flags,timeout,result};++observed_waits;std::fprintf(stderr,"NATIVE-CLIENT-WAIT handle=%#llx flags=%#x timeout=%#llx result=%#x\n",(unsigned long long)reinterpret_cast<addr_t>(handle),flags,(unsigned long long)timeout,result);}
+ return result;
+}
+void Observed(addr_t handle,GLbitfield flags,uint64_t timeout,GLenum result){std::lock_guard lock(observe_mutex);Check(last_wait.handle==handle&&last_wait.flags==flags&&last_wait.timeout==timeout&&last_wait.result==result,"transparent observer sees exact native opaque64/flags/unsigned64timeout and unchanged real result");}
+}
+extern "C" FARPROC (WINAPI *RealGetProcAddress)(HMODULE,LPCSTR) __asm__("__real___imp_GetProcAddress");
+extern "C" FARPROC WINAPI ObservedGetProcAddress(HMODULE module,LPCSTR name){auto result=RealGetProcAddress(module,name);if(result&&reinterpret_cast<uintptr_t>(name)>65535&&!std::strcmp(name,"glClientWaitSync")){std::memcpy(&real_client_wait,&result,sizeof(result));auto observer=&ObserveClientWait;std::memcpy(&result,&observer,sizeof(result));}return result;}
+extern "C" {FARPROC (WINAPI *__wrap___imp_GetProcAddress)(HMODULE,LPCSTR)=ObservedGetProcAddress;}
+int main(){try{
+ static_assert(sizeof(State)==1200&&alignof(State)==16);SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);bunker::jni::Host java([](addr_t){return false;});NativeWindows windows(java);recomp::Runtime runtime;EglHost egl(windows,GL_GPU_SYNC_DLL_DIRECTORY);egl_provider=&egl;egl.Install(runtime);GlHost gl(egl,GL_GPU_SYNC_DLL_DIRECTORY);graphics=&gl;const char*apis[]={"glFenceSync","glClientWaitSync","glDeleteSync"};for(unsigned i=0;i<3;i++)sync_markers[i]=gl.Marker(apis[i]);gl.Install(runtime);egl.SetProcedureResolver([&](const std::string&n){return FindTypedGlesProcedure(gl,n);});Check(GlHost::Commands().size()==std::size(kOldGpuSyncCommands)+3,"only3 observed lifecycle APIs appended");for(size_t i=0;i<std::size(kOldGpuSyncCommands);i++)Check(GlHost::Commands()[i]==kOldGpuSyncCommands[i]&&gl.Marker(kOldGpuSyncCommands[i])==gl.Marker(kOldGpuSyncCommands[0])+i*8,"all150 old commands and markers exact");auto service=MakeGlesServiceModule(gl);for(unsigned i=0;i<3;i++)Check(service.exports.at(apis[i])==sync_markers[i]&&FindTypedGlesProcedure(gl,apis[i])==sync_markers[i],"service/procedure expose installed typed marker");
+ auto display=I(egl,"eglGetDisplay");Check(display&&I(egl,"eglInitialize",{display,0,0}),"actual ANGLE display");const GLint attrs[]={EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_NONE};addr_t config=0;GLint count=0;Check(I(egl,"eglChooseConfig",{display,A(attrs),A(&config),1,A(&count)})&&count==1,"actual GLES3 config");const GLint ca[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_CONTEXT_MINOR_VERSION,2,EGL_NONE},sa[]={EGL_WIDTH,8,EGL_HEIGHT,8,EGL_NONE};auto context=I(egl,"eglCreateContext",{display,config,0,A(ca)}),surface=I(egl,"eglCreatePbufferSurface",{display,config,A(sa)});Check(context&&surface&&I(egl,"eglMakeCurrent",{display,surface,surface,context}),"actual owned current context");driver=GetModuleHandleW(L"libGLESv2.dll");Guest guest(runtime);auto fence=N<PFNGLFENCESYNCPROC>(apis[0]);auto wait=N<PFNGLCLIENTWAITSYNCPROC>(apis[1]);auto erase=N<PFNGLDELETESYNCPROC>(apis[2]);auto is_sync=N<PFNGLISSYNCPROC>("glIsSync");auto query=N<PFNGLGETSYNCIVPROC>("glGetSynciv");auto flush=N<PFNGLFLUSHPROC>("glFlush");auto finish=N<PFNGLFINISHPROC>("glFinish");auto error=N<PFNGLGETERRORPROC>("glGetError");auto Flags=[&](bool raw){std::set<GLenum>v;for(unsigned i=0;i<32;i++){auto e=raw?error():GLenum(I(gl,"glGetError"));if(!e)return v;v.insert(e);}throw std::runtime_error("GL flags failed to drain");};auto Status=[&](addr_t p,GLenum name){GLint v=-1;GLsizei n=-1;query(reinterpret_cast<GLsync>(p),name,1,&n,&v);Check(Flags(true).empty()&&n==1,"independent real native sync query");return v;};std::array<uint64_t,5>resolved;resolved.fill(UINT64_C(0xa5a5a5a5a5a5a5a5));guest.Call("gs_resolve",{A(resolved.data()+1)});Check(resolved.front()==resolved.back(),"resolver completeoutput canaries");for(unsigned i=0;i<3;i++)Check(resolved[i+1]==sync_markers[i],"actual NDK resolver finds same typed marker");
+ unsigned lifecycle=0,completed_waits=0,errors=0;for(unsigned mode=0;mode<3;mode++){
+  N<PFNGLCLEARCOLORPROC>("glClearColor")(0,1,0,1);N<PFNGLCLEARPROC>("glClear")(GL_COLOR_BUFFER_BIT);auto h=guest.Fence(mode,GL_SYNC_GPU_COMMANDS_COMPLETE,0);Check(h&&is_sync(reinterpret_cast<GLsync>(h))==GL_TRUE&&Flags(false).empty(),"returned opaque64 value is accepted by actual native sync registry");Check(Status(h,GL_OBJECT_TYPE)==GL_SYNC_FENCE&&Status(h,GL_SYNC_CONDITION)==GL_SYNC_GPU_COMMANDS_COMPLETE&&Status(h,GL_SYNC_FLAGS)==0,"native fence properties match real creation arguments");flush();const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);GLenum result=0;do{result=guest.Wait(mode,h,0,0);Observed(h,0,0,result);Check(result==GL_ALREADY_SIGNALED||result==GL_CONDITION_SATISFIED||result==GL_TIMEOUT_EXPIRED,"valid poll retains actual native status domain without normalization");Check(Flags(false).empty(),"real poll has no GLerror");if(result==GL_TIMEOUT_EXPIRED)Check(std::chrono::steady_clock::now()<deadline,"actual flushed GPU fence completes within bounded fixture budget");}while(result==GL_TIMEOUT_EXPIRED);Check(Status(h,GL_SYNC_STATUS)==GL_SIGNALED,"native status confirms actual completion");std::array<unsigned char,256>pixels{};N<PFNGLREADPIXELSPROC>("glReadPixels")(0,0,8,8,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());for(unsigned i=0;i<64;i++)Check(pixels[i*4]==0&&pixels[i*4+1]==255&&pixels[i*4+2]==0&&pixels[i*4+3]==255,"real commands preceding fence produced defined GPU pixels");finish();
+  const uint64_t timeouts[]={0,1,UINT64_C(0xffffffff),UINT64_C(0x1122334455667788),UINT64_C(0x8000000000000000),UINT64_MAX};for(auto timeout:timeouts)for(GLbitfield bits:{GLbitfield(0),GLbitfield(GL_SYNC_FLUSH_COMMANDS_BIT)}){auto expected=wait(reinterpret_cast<GLsync>(h),bits,timeout);Check(expected==GL_ALREADY_SIGNALED&&Flags(true).empty(),"completed native fence makes long timeouts nonblocking");auto actual=guest.Wait(mode,h,bits,timeout);Observed(h,bits,timeout,actual);Check(actual==expected&&Flags(false).empty(),"typed completedwait equals actual native result with every uint64timeout bit preserved");++completed_waits;}
+  for(unsigned bad=0;bad<2;bad++){addr_t handle=bad?0:h;GLbitfield bits=bad?0:0x80000000U;auto expected=wait(reinterpret_cast<GLsync>(handle),bits,0);auto flags=Flags(true);auto actual=guest.Wait(mode,handle,bits,0);Observed(handle,bits,0,actual);Check(actual==expected&&actual==GL_WAIT_FAILED&&Flags(false)==flags&&!flags.empty(),"native invalidflags/NULL sync waitstatus and errors exact");++errors;}
+  guest.Delete(mode,h);Check(is_sync(reinterpret_cast<GLsync>(h))==GL_FALSE&&Flags(false).empty(),"real typed delete retires actual native sync");erase(reinterpret_cast<GLsync>(h));auto flags=Flags(true);guest.Delete(mode,h);Check(Flags(false)==flags,"stale native handle delete validation exact before any new sync creation");erase(nullptr);flags=Flags(true);guest.Delete(mode,0);Check(Flags(false)==flags,"NULLdelete behavior is actual native behavior");++lifecycle;
+  const GLenum conditions[]={0xffffffffU,GL_SYNC_GPU_COMMANDS_COMPLETE};for(unsigned bad=0;bad<2;bad++){GLbitfield bits=bad?1:0;auto expected=fence(conditions[bad],bits);auto flags2=Flags(true);auto actual=guest.Fence(mode,conditions[bad],bits);Check(!expected&&!actual&&Flags(false)==flags2&&!flags2.empty(),"invalid fence condition/flags return real NULL/error");++errors;}
+ }
+ // Pause only the test observer before forwarding a completed-fence native wait.
+ auto h=guest.Fence(0,GL_SYNC_GPU_COMMANDS_COMPLETE,0);finish();Check(Status(h,GL_SYNC_STATUS)==GL_SIGNALED,"progress probe uses already completed real fence");auto other=I(egl,"eglCreateContext",{display,config,0,A(ca)}),other_surface=I(egl,"eglCreatePbufferSurface",{display,config,A(sa)});Check(other&&other_surface,"second actual independent NONsharing context");std::promise<void>ready,entered,release,progress;auto entered_future=entered.get_future();auto progress_future=progress.get_future();pause_entered=&entered;pause_release=release.get_future().share();std::exception_ptr worker_error;
+ std::thread worker([&]{try{Check(I(egl,"eglMakeCurrent",{display,other_surface,other_surface,other}),"independent context current on its actual owner");ready.set_value();entered_future.wait();EnvInvoke([&]{return I(gl,"glFlush");});Check(Flags(false).empty(),"independent context typed native Flush progresses during pausedwait");progress.set_value();egl.ReleaseCurrentThread();}catch(...){worker_error=std::current_exception();try{ready.set_value();}catch(...){}try{progress.set_value();}catch(...){}}});ready.get_future().get();pause_next_wait=true;Check(progress_future.wait_for(std::chrono::milliseconds(0))==std::future_status::timeout,"progress occurs only after real clientwait phase enters");
+ // A small coordinator releases the observer only after independent Flush.
+ std::thread coordinator([&]{if(progress_future.wait_for(std::chrono::seconds(3))!=std::future_status::ready){std::fputs("independent typed Flush blocked behind ClientWait mutex\n",stderr);std::_Exit(96);}release.set_value();});auto status=EnvInvoke([&]{return I(gl,"glClientWaitSync",{h,0,UINT64_C(0xfedcba9876543210)});});coordinator.join();worker.join();if(worker_error)std::rethrow_exception(worker_error);Observed(h,0,UINT64_C(0xfedcba9876543210),GLenum(status));Check(status==GL_ALREADY_SIGNALED&&Flags(false).empty(),"completed native wait returns unchanged after independent context progress");guest.Delete(2,h);Check(!is_sync(reinterpret_cast<GLsync>(h))&&Flags(false).empty(),"progress-probe fence deleted");Check(I(egl,"eglDestroySurface",{display,other_surface})&&I(egl,"eglDestroyContext",{display,other}),"independent context retired after owner unbind");
+ Check(I(egl,"eglMakeCurrent",{display,0,0,0})&&I(egl,"eglDestroySurface",{display,surface})&&I(egl,"eglDestroyContext",{display,context})&&I(egl,"eglTerminate",{display}),"owned EGLlifetimes retired");std::FILE*f=std::fopen(GL_GPU_SYNC_RESULT,"w");Check(f!=nullptr,"result artifact opens");std::fprintf(f,"GL-GPU-SYNC-PASS checks=%u actual_NDK_calls=%u installed_sync_calls=%u APIs=3 forms=3 lifecycle=%u completed_waits=%u error_cases=%u observed_waits=%u independent_context_progress=1 State=1200 Memory64=1\n",checks.load(),ndk_calls,installed_sync_calls.load(),lifecycle,completed_waits,errors,observed_waits);std::fclose(f);return 0;
+ }catch(const std::exception&e){std::fprintf(stderr,"GPU sync fixture: %s\n",e.what());return 1;}}

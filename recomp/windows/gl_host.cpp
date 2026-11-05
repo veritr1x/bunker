@@ -166,6 +166,9 @@ GL_DRAW_API(DRAW_NAME)
 "glProgramParameteri",
 "glGetProgramBinary",
 "glProgramBinary",
+"glFenceSync",
+"glClientWaitSync",
+"glDeleteSync",
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -632,6 +635,13 @@ struct GlHost::Impl {
     BindProgramResourceCommands();
     BindMappingCommands();
     Bind<void(GLsizei,addr_t)>("glDrawBuffers",[this](GLsizei n,addr_t input){DrawBuffers(n,input);});
+    static_assert(sizeof(GLsync)==sizeof(addr_t)&&sizeof(GLuint64)==8);
+    const auto fenceSync=Symbol<PFNGLFENCESYNCPROC>(module,"glFenceSync");
+    Bind<addr_t(GLenum,GLbitfield)>("glFenceSync",[fenceSync](GLenum condition,GLbitfield flags){return reinterpret_cast<addr_t>(fenceSync(condition,flags));});
+    const auto clientWaitSync=Symbol<PFNGLCLIENTWAITSYNCPROC>(module,"glClientWaitSync");
+    Bind<GLenum(addr_t,GLbitfield,GLuint64)>("glClientWaitSync",[clientWaitSync](addr_t sync,GLbitfield flags,GLuint64 timeout){return clientWaitSync(reinterpret_cast<GLsync>(sync),flags,timeout);});
+    const auto deleteSync=Symbol<PFNGLDELETESYNCPROC>(module,"glDeleteSync");
+    Bind<void(addr_t)>("glDeleteSync",[deleteSync](addr_t sync){deleteSync(reinterpret_cast<GLsync>(sync));});
     Bind<void(GLuint,GLenum,GLint)>("glProgramParameteri",Symbol<PFNGLPROGRAMPARAMETERIPROC>(module,"glProgramParameteri"));
     const auto getBinary=Symbol<PFNGLGETPROGRAMBINARYPROC>(module,"glGetProgramBinary");
     Bind<void(GLuint,GLsizei,addr_t,addr_t,addr_t)>("glGetProgramBinary",[this,getBinary](GLuint p,GLsizei n,addr_t length,addr_t format,addr_t output){GetProgramBinary(p,n,length,format,output,getBinary);});
@@ -649,8 +659,12 @@ const std::vector<GlHost::Query> &GlHost::Queries(){return queries;}
 const std::vector<std::string> &GlHost::Commands(){static const std::vector<std::string> commands(std::begin(names),std::end(names));return commands;}
 size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();impl_->SelectContext();auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
 addr_t GlHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::runtime_error("Unsupported typed GL resolver signature: "+name);}
-void GlHost::Invoke(const std::string &name,State &state){GlNativeEnvironment environment;std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();
+void GlHost::Invoke(const std::string &name,State &state){GlNativeEnvironment environment;std::unique_lock lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();
   if(!impl_->diagnostic_png.empty()){++impl_->diagnostic.calls;if(impl_->diagnostic.calls<=24||impl_->diagnostic.calls%1000==0)std::fprintf(stderr,"First frame: GL call=%llu %s context=%#llx\n",(unsigned long long)impl_->diagnostic.calls,name.c_str(),(unsigned long long)impl_->current_context);}
+  // A native client wait may block; its immutable bridge uses only the current
+  // thread's native context. Leave other contexts free to make progress.
+  // Native ANGLE retains its own share-group synchronization and object lifetime.
+  if(name=="glClientWaitSync"){auto call=found->second;lock.unlock();call(state);return;}
   found->second(state);
   if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
 void GlHost::EnableFrameDiagnostics(const std::wstring &path){std::lock_guard lock(impl_->mutex);if(path.empty()||!std::filesystem::path(path).is_absolute())throw std::invalid_argument("Absolute frame PNG path required");impl_->diagnostic_png=path;}
