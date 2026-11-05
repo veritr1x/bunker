@@ -2,8 +2,8 @@ package masterdata
 
 import (
 	"log"
-	"sync"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/utils"
 )
 
@@ -22,7 +22,7 @@ type LimitedOffer struct {
 }
 
 // LimitedOffers are the limited-time offers and their shops' windows.
-var LimitedOffers = sync.OnceValues(func() ([]LimitedOffer, map[int32]LimitedOffer) {
+var LimitedOffers = bunkercache.Values(func() ([]LimitedOffer, map[int32]LimitedOffer) {
 	read := func(err error, name string) {
 		if err != nil {
 			log.Printf("[LimitedOpen] %s: %v", name, err)

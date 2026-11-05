@@ -1,0 +1,112 @@
+diff --git a/server/internal/masterdata/gimmick.go b/server/internal/masterdata/gimmick.go
+--- a/server/internal/masterdata/gimmick.go
++++ b/server/internal/masterdata/gimmick.go
+@@ -4,8 +4,8 @@
+ 	"fmt"
+ 	"log"
+ 	"sort"
+-	"sync"
+ 
++	"lunar-tear/server/internal/bunkercache"
+ 	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/store"
+@@ -66,7 +66,7 @@
+ 	bySequence map[int32]model.GimmickType
+ }
+ 
+-var gimmickTypes = sync.OnceValue(loadGimmickTypes)
++var gimmickTypes = bunkercache.Value(loadGimmickTypes)
+ 
+ func loadGimmickTypes() gimmickTypeTables {
+ 	empty := gimmickTypeTables{
+diff --git a/server/internal/userdata/proj_gimmick.go b/server/internal/userdata/proj_gimmick.go
+--- a/server/internal/userdata/proj_gimmick.go
++++ b/server/internal/userdata/proj_gimmick.go
+@@ -2,18 +2,18 @@
+ 
+ import (
+ 	"sort"
+-	"sync"
+ 
++	"lunar-tear/server/internal/bunkercache"
+ 	"lunar-tear/server/internal/masterdata"
+ 	"lunar-tear/server/internal/store"
+ 	"lunar-tear/server/internal/utils"
+ )
+ 
+-var gimmickOrnamentRefs = sync.OnceValue(masterdata.LoadGimmickOrnamentRefs)
+-var gimmickSequenceChains = sync.OnceValue(masterdata.LoadGimmickSequenceChains)
+-var hiddenSequenceSet = sync.OnceValue(masterdata.LoadHiddenGimmickSequenceIDs)
+-var gimmickSequenceRanks = sync.OnceValue(masterdata.LoadGimmickSequenceRanks)
+-var birdGimmicks = sync.OnceValue(masterdata.LoadBirdGimmickIDs)
++var gimmickOrnamentRefs = bunkercache.Value(masterdata.LoadGimmickOrnamentRefs)
++var gimmickSequenceChains = bunkercache.Value(masterdata.LoadGimmickSequenceChains)
++var hiddenSequenceSet = bunkercache.Value(masterdata.LoadHiddenGimmickSequenceIDs)
++var gimmickSequenceRanks = bunkercache.Value(masterdata.LoadGimmickSequenceRanks)
++var birdGimmicks = bunkercache.Value(masterdata.LoadBirdGimmickIDs)
+ 
+ const birdDefaultBaseDatetime int64 = 1577836800000 // 2020-01-01 00:00:00 UTC in ms
+ 
+diff --git a/server/internal/userdata/proj_labyrinth.go b/server/internal/userdata/proj_labyrinth.go
+--- a/server/internal/userdata/proj_labyrinth.go
++++ b/server/internal/userdata/proj_labyrinth.go
+@@ -1,14 +1,13 @@
+ package userdata
+ 
+ import (
+-	"sync"
+-
++	"lunar-tear/server/internal/bunkercache"
+ 	"lunar-tear/server/internal/masterdata"
+ 	"lunar-tear/server/internal/store"
+ 	"lunar-tear/server/internal/utils"
+ )
+ 
+-var labyrinthCatalog = sync.OnceValue(masterdata.LoadLabyrinthCatalog)
++var labyrinthCatalog = bunkercache.Value(masterdata.LoadLabyrinthCatalog)
+ 
+ func init() {
+ 	register("IUserEventQuestLabyrinthSeason", func(user store.UserState) string {
+diff --git a/server/internal/userdata/proj_user.go b/server/internal/userdata/proj_user.go
+--- a/server/internal/userdata/proj_user.go
++++ b/server/internal/userdata/proj_user.go
+@@ -2,8 +2,8 @@
+ 
+ import (
+ 	"sort"
+-	"sync"
+ 
++	"lunar-tear/server/internal/bunkercache"
+ 	"lunar-tear/server/internal/gametime"
+ 	"lunar-tear/server/internal/masterdata"
+ 	"lunar-tear/server/internal/model"
+@@ -209,7 +209,7 @@
+ 	return records
+ }
+ 
+-var hiddenStoryRequirements = sync.OnceValue(masterdata.LoadHiddenStoryRequirements)
++var hiddenStoryRequirements = bunkercache.Value(masterdata.LoadHiddenStoryRequirements)
+ 
+ func sortedMissionRecords(user store.UserState) []map[string]any {
+ 	missions := make(map[int32]store.UserMissionState, len(user.Missions))
+diff --git a/server/internal/userdata/proj_webview.go b/server/internal/userdata/proj_webview.go
+--- a/server/internal/userdata/proj_webview.go
++++ b/server/internal/userdata/proj_webview.go
+@@ -1,14 +1,13 @@
+ package userdata
+ 
+ import (
+-	"sync"
+-
++	"lunar-tear/server/internal/bunkercache"
+ 	"lunar-tear/server/internal/masterdata"
+ 	"lunar-tear/server/internal/store"
+ 	"lunar-tear/server/internal/utils"
+ )
+ 
+-var webviewPanelMissionCatalog = sync.OnceValue(masterdata.LoadWebviewPanelMissionCatalog)
++var webviewPanelMissionCatalog = bunkercache.Value(masterdata.LoadWebviewPanelMissionCatalog)
+ 
+ func init() {
+ 	register("IUserWebviewPanelMission", func(user store.UserState) string {

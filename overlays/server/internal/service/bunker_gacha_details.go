@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/gacha"
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
@@ -91,21 +91,19 @@ func (t *gameText) costumeName(id int32) string {
 	return fmt.Sprintf("Costume %d", id)
 }
 
-var (
-	weaponAssetsOnce sync.Once
-	weaponAssets     map[int32]string // weapon id -> asset (wp001060), for its name
-)
+// weaponAssets maps a weapon id to its asset (wp001060), for its name.
+var weaponAssets = bunkercache.Value(func() map[int32]string {
+	assets := map[int32]string{}
+	if rows, err := utils.ReadTable[masterdata.EntityMWeapon]("m_weapon"); err == nil {
+		for _, w := range rows {
+			assets[w.WeaponId] = fmt.Sprintf("wp%03d%03d", w.WeaponType, w.AssetVariationId)
+		}
+	}
+	return assets
+})
 
 func (t *gameText) weaponName(id int32) string {
-	weaponAssetsOnce.Do(func() {
-		weaponAssets = map[int32]string{}
-		if rows, err := utils.ReadTable[masterdata.EntityMWeapon]("m_weapon"); err == nil {
-			for _, w := range rows {
-				weaponAssets[w.WeaponId] = fmt.Sprintf("wp%03d%03d", w.WeaponType, w.AssetVariationId)
-			}
-		}
-	})
-	if a, ok := weaponAssets[id]; ok {
+	if a, ok := weaponAssets()[id]; ok {
 		if name := t.text("weapon.name." + a + ".1"); name != "" {
 			return name
 		}
