@@ -27,6 +27,26 @@ EXE `84670b7fd400a94b4b0180fcf86fad15b7ca6493760b5dc956ce1f257aa73f99`;
 bootstrap `fa07455a786f41b72add015e1b001551ac42f38c2f30c31c752168859e271a23`;
 log `5414397834884903b445f3a38afb513d6d0ec71eb8081b6367c61211c04e304a`.
 Actual module: PID 2713104, base `7ff6bff70000`, image size 1,055,186,944.
+Run peer: `work/sscanf1-run-peer1/acceptance.json`, SHA256
+`9f5de0677030969a064f64e268a46816b0be26876e4e91d540951c459862eb35`.
+
+The real address-conversion adapter now passes 1,344 Windows checks and 190
+genuine NDK calls, with all complete status/errno/output records matching
+actual static Bionic. IPv4 decimal leading zeroes are normalized, preserving
+the original four-character limit on the first IPv6 dotted-tail component.
+Windows maps Android AF_INET6=10 to its native 23; output is staged and only
+four or sixteen network-order bytes are published after successful conversion.
+There is no DNS, socket startup or network request. Qualification:
+`work/libc-inet-pton-qualification2/acceptance.json`, SHA256
+`f1cc2ed3f046fbef0e8b15243180da22484fc822da5ceda8c11a5eb13a06df69`.
+Source inverse/unchanged header/import-ordinal proof:
+`work/inet-pton-source-preparation1/source-proof.json`, SHA256
+`7904761ac914e0beaf6f729bfa4c41da7a57ef6aefef8ce6f5dfff48ca36881d`.
+The full host build and original-game run are pending. At the user's request,
+host memory cleanup precedes that build: idle WSL was shut down and a signed
+RAMMap capture saved under `work/memory-cleanup-20261105-1`. It records about
+20.4 GiB of page tables and 22.4 GiB of active unclassified pages. No application
+or network service was terminated, and no original game/compiler remains live.
 
 Preceding original execution: `work/windows-first-frame-sched-yield1`, source
 `62b3992`, adds the qualified real scheduler-yield binding. Its 998-file

@@ -28,6 +28,7 @@
 #else
 #include <unistd.h>
 #include <sched.h>
+#include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
 #endif
@@ -80,7 +81,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime", "sched_yield"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime", "sched_yield", "inet_pton"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -663,6 +664,77 @@ void LibC::Install(recomp::Runtime &runtime){
     if(result<0)Fail(errno?errno:5);
     return static_cast<int32_t>(result);
 #endif
+  });
+  Add<int32_t(int32_t,const char*,addr_t)>(runtime,"inet_pton",[this](int32_t family,const char *source,addr_t output){
+    libc_calendar::NativeEnvironment native;
+    // Android/Linux AF_INET=2, AF_INET6=10. Reject unsupported families before
+    // reading either pointer. This operation does no DNS or socket activity.
+    if(family!=2&&family!=10){Fail(97);return int32_t{-1};}
+    auto text=pm::String(source);
+    // Bionic's dotted-decimal parser accepts leading zeroes as decimal, while
+    // Windows rejects them for AF_INET and Linux rejects them in both families.
+    // Canonicalize a complete four-octet suffix, never hexadecimal/shorthand,
+    // before delegating binary conversion to the real native parser.
+    auto decimal_quad=[](const std::string &source,std::string &canonical){
+      size_t at=0;
+      for(unsigned octet=0;octet<4;++octet){
+        const auto begin=at;unsigned value=0;
+        while(at<source.size()&&source[at]>='0'&&source[at]<='9'){
+          value=value*10+static_cast<unsigned>(source[at++]-'0');
+          if(value>255)return false;
+        }
+        if(at==begin)return false;
+        if(octet)canonical.push_back('.');canonical+=std::to_string(value);
+        if(octet==3)return at==source.size();
+        if(at==source.size()||source[at++]!='.')return false;
+      }
+      return false;
+    };
+    const auto dot=text.find('.');
+    if(family==2||dot!=text.npos){
+      const auto colon=family==10?text.rfind(':',dot):text.npos;
+      const auto first=colon==text.npos?size_t{0}:colon+1;
+      // Bionic scans the first IPv6 dotted-tail component as a hextet until
+      // encountering '.', so its original lexical width cannot exceed four.
+      // Subsequent decimal octets and bare IPv4 do not have this lexical cap.
+      if(family==10&&dot-first>4)return int32_t{0};
+      std::string canonical;
+      if(!decimal_quad(text.substr(first),canonical))return int32_t{0};
+      text.replace(first,text.size()-first,canonical);
+    }
+    std::array<uint8_t,16> staged{};
+    const size_t size=family==2?4:16;
+    int result;
+#ifdef _WIN32
+    struct Module {HMODULE value=nullptr;~Module(){if(value)FreeLibrary(value);}} module;
+    module.value=LoadLibraryExW(L"ws2_32.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if(!module.value)throw std::runtime_error("inet_pton cannot load System32 ws2_32.dll");
+    using Convert=int (WINAPI*)(int,const char*,void*);
+    auto symbol=GetProcAddress(module.value,"inet_pton");
+    Convert convert=nullptr;static_assert(sizeof(convert)==sizeof(symbol));std::memcpy(&convert,&symbol,sizeof(convert));
+    if(!convert)throw std::runtime_error("native inet_pton conversion API unavailable");
+    // The ANSI InetPtonA export is named inet_pton. It needs no WSAStartup.
+    result=convert(family==2?2:23,text.c_str(),staged.data());
+#else
+    result=::inet_pton(family==2?AF_INET:AF_INET6,text.c_str(),staged.data());
+#endif
+    if(result==0)return int32_t{0};
+    if(result!=1)throw std::runtime_error("native inet_pton failed for a qualified address family and owned buffers");
+    if(!output||output>std::numeric_limits<addr_t>::max()-size)throw std::runtime_error("inet_pton output address/range is invalid");
+    bool copied=false;
+    recomp::WithGuestMemoryWrite(output,size,[&]{
+#ifdef _WIN32
+      if(!libc_detail::uname_detail::Writable(output,size))return;
+      SIZE_T count=0;
+      copied=WriteProcessMemory(GetCurrentProcess(),reinterpret_cast<void*>(output),staged.data(),size,&count)&&count==size;
+#else
+      iovec local{staged.data(),size};iovec remote{reinterpret_cast<void*>(output),size};
+      const auto count=::syscall(SYS_process_vm_writev,::getpid(),&local,1,&remote,1,0);
+      copied=count==static_cast<decltype(count)>(size);
+#endif
+    });
+    if(!copied)throw std::runtime_error("inet_pton output is not fully writable");
+    return int32_t{1};
   });
   installed_=true;
 }

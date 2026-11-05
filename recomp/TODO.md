@@ -25,7 +25,9 @@ its HTTPS proxy-property query and the recorded URL scanner calls. The scanner
 and six-GP bridge pass 387 Windows checks and 51 exact output/status/errno
 comparisons against actual Bionic. The latest consistent bootstrap/all-host
 build now stops at missing libunity.so `inet_pton`, LR `70b4b574`, with address
-family 2. Real IPv4/IPv6 text-to-binary conversion is next. Two original renders return,
+family 2. IPv4/IPv6 conversion now passes 1,344 Windows checks and 190 exact
+Bionic comparison records; its full host build/run follows the requested host
+memory cleanup. Two original renders return,
 but there is still no successful swap or captured game image. Windows
 auto-detection remains unresolved and is not a proven direct route.
 Initialization, rendering, gameplay,
