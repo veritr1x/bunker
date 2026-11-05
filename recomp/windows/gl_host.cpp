@@ -357,6 +357,7 @@ struct GlHost::Impl {
     const auto serial=++next_present_serial;
     ++diagnostic.capture_attempts;
     CollectErrors();const auto saved_errors=pending_errors[current_context];
+    const bool observe_capture=diagnostic.capture_attempts<=8;
     struct ErrorRestore {Impl &host;std::set<GLenum> saved;~ErrorRestore(){
       for(unsigned i=0;i<32&&host.getError()!=GL_NO_ERROR;++i){}
       if(saved.empty())host.pending_errors.erase(host.current_context);else host.pending_errors[host.current_context]=saved;
@@ -366,6 +367,26 @@ struct GlHost::Impl {
     const bool es3=version&&std::strstr(reinterpret_cast<const char*>(version),"OpenGL ES 3");
     const auto *vendor=getString(GL_VENDOR),*renderer=getString(GL_RENDERER);check("capture renderer");
     std::fprintf(stderr,"First frame: readback context=%#llx surface=%#llx %dx%d vendor=%s renderer=%s version=%s\n",(unsigned long long)extent->context,(unsigned long long)extent->surface,extent->width,extent->height,vendor?reinterpret_cast<const char*>(vendor):"",renderer?reinterpret_cast<const char*>(renderer):"",version?reinterpret_cast<const char*>(version):"");
+    // Bounded observation only: no setters, validation calls or guest writes.
+    // Saved original errors remain owned by the unchanged ErrorRestore above.
+    if(observe_capture){
+      GLint draw_fbo=0,read_fbo=0,draw_buffer=GL_NONE,read_buffer=GL_NONE,viewport[4]{},scissor[4]{};
+      GLboolean color_mask[4]{},depth_mask=GL_FALSE,blend=GL_FALSE,cull=GL_FALSE,depth=GL_FALSE,scissor_test=GL_FALSE,stencil=GL_FALSE,rasterizer_discard=GL_FALSE;
+      getInteger(es3?GL_DRAW_FRAMEBUFFER_BINDING:GL_FRAMEBUFFER_BINDING,&draw_fbo);
+      getInteger(es3?GL_READ_FRAMEBUFFER_BINDING:GL_FRAMEBUFFER_BINDING,&read_fbo);
+      if(es3){getInteger(GL_DRAW_BUFFER0,&draw_buffer);getInteger(GL_READ_BUFFER,&read_buffer);getBoolean(GL_RASTERIZER_DISCARD,&rasterizer_discard);}
+      getInteger(GL_VIEWPORT,viewport);getInteger(GL_SCISSOR_BOX,scissor);
+      getBoolean(GL_COLOR_WRITEMASK,color_mask);getBoolean(GL_DEPTH_WRITEMASK,&depth_mask);
+      getBoolean(GL_BLEND,&blend);getBoolean(GL_CULL_FACE,&cull);getBoolean(GL_DEPTH_TEST,&depth);
+      getBoolean(GL_SCISSOR_TEST,&scissor_test);getBoolean(GL_STENCIL_TEST,&stencil);
+      std::fprintf(stderr,"First frame: capture state ticket=%llu original_errors=[",(unsigned long long)serial);
+      bool separator=false;for(const auto error:saved_errors){std::fprintf(stderr,"%s%#x",separator?",":"",unsigned(error));separator=true;}
+      std::fprintf(stderr,"] query_errors=[");
+      // Diagnostic-query errors are not original guest command errors. Consume
+      // them here so the pre-existing capture checks see their original state.
+      separator=false;for(unsigned i=0;i<32;++i){const auto error=getError();if(error==GL_NO_ERROR)break;std::fprintf(stderr,"%s%#x",separator?",":"",unsigned(error));separator=true;}
+      std::fprintf(stderr,"] draw_fbo=%d read_fbo=%d es3=%d draw_buffer=%#x read_buffer=%#x viewport=[%d,%d,%d,%d] scissor=[%d,%d,%d,%d] color_mask=[%u,%u,%u,%u] depth_mask=%u enables=[blend:%u,cull:%u,depth:%u,scissor:%u,stencil:%u,rasterizer_discard:%u]\n",draw_fbo,read_fbo,int(es3),unsigned(draw_buffer),unsigned(read_buffer),viewport[0],viewport[1],viewport[2],viewport[3],scissor[0],scissor[1],scissor[2],scissor[3],unsigned(color_mask[0]),unsigned(color_mask[1]),unsigned(color_mask[2]),unsigned(color_mask[3]),unsigned(depth_mask),unsigned(blend),unsigned(cull),unsigned(depth),unsigned(scissor_test),unsigned(stencil),unsigned(rasterizer_discard));
+    }
     auto bindFramebuffer=Symbol<PFNGLBINDFRAMEBUFFERPROC>(module,"glBindFramebuffer");
     PFNGLREADBUFFERPROC readBuffer=es3?Symbol<PFNGLREADBUFFERPROC>(module,"glReadBuffer"):nullptr;
     GLint framebuffer=0,pack=4,pbo=0,row=0,skiprows=0,skippixels=0,default_read=GL_BACK;
@@ -384,6 +405,11 @@ struct GlHost::Impl {
     draw_glPixelStorei(GL_PACK_ALIGNMENT,1);check("capture pack state");
     std::vector<uint8_t> pixels(size_t(extent->width)*size_t(extent->height)*4);
     draw_glReadPixels(0,0,extent->width,extent->height,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());check("capture read pixels");
+    if(observe_capture){
+      uint8_t minimum[4]={255,255,255,255},maximum[4]{};
+      for(size_t i=0;i<pixels.size();++i){const auto channel=i%4;minimum[channel]=std::min(minimum[channel],pixels[i]);maximum[channel]=std::max(maximum[channel],pixels[i]);}
+      std::fprintf(stderr,"First frame: capture pixels ticket=%llu first_RGBA=[%u,%u,%u,%u] minimum_RGBA=[%u,%u,%u,%u] maximum_RGBA=[%u,%u,%u,%u]\n",(unsigned long long)serial,unsigned(pixels[0]),unsigned(pixels[1]),unsigned(pixels[2]),unsigned(pixels[3]),unsigned(minimum[0]),unsigned(minimum[1]),unsigned(minimum[2]),unsigned(minimum[3]),unsigned(maximum[0]),unsigned(maximum[1]),unsigned(maximum[2]),unsigned(maximum[3]));
+    }
     bool nonuniform=false;for(size_t i=4;i<pixels.size();i+=4)if(std::memcmp(pixels.data(),pixels.data()+i,4)){nonuniform=true;break;}
     PendingPresent pending;pending.serial=serial;pending.thread=thread;pending.display=display;
     pending.surface=surface;pending.context=extent->context;pending.width=extent->width;pending.height=extent->height;

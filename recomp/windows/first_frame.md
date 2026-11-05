@@ -3,6 +3,52 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
+Current live attempt: `work/windows-first-frame-native-presentation2`, using
+build manifest `5f3462dab135e349b23c5c52ffd7cd436778678d29bfb9dca1604a538aef8846`
+and executable `ae91a4d5af17be7bed5e5ffe5e53738f97c73ce1f4679cc8d1061423c3bd4aae`.
+The data-only Swappy configuration now reaches genuine `eglSwapBuffers` at
+original LR `70412a4c`, returns EGL_TRUE, and completes original renders with
+draw submissions. Readback remains uniform, so this is not a visible-frame
+witness. The saved first-present image is uniformly RGBA zero. Source review
+and native hostile-state capture tests found no concrete readback defect.
+Original logs also show a missing `java/lang/System` followed by an
+`AndroidJavaProxy` type-initializer exception. The scoped
+[identity-hash implementation](system_identity.md) and first-eight-capture
+state diagnostics pass their component checks. Combined build manifest
+`1ad104b6a16f244f8b2619881263b17b938d251b0f8464904d17a9d7552c1bdf`
+passes current-input pre/post verification and independent built review; it
+reuses the unchanged bootstrap, guest objects and generated headers. Historical
+executables are explicitly excluded from these checks. Its fresh original run
+is `work/windows-first-frame-native-presentation3`; integration is pending.
+
+Latest execution: `work/windows-first-frame-native-presentation1` reused the
+qualified executable with the data-only [Windows presentation APK](windows_presentation.md).
+The executable's internal APK pin rejected the new container during setup,
+before any constructors ran. It exited native1; runtime and original-parent
+pre/post checks passed. The bootstrap and asset-pack wrapper now additionally
+admit only the exact qualified APK, with its first-frame collector profile and
+closed code catalog required. The admission contract passes 96 bootstrap cases
+and 12 actual wrapper profiles. Rebuilding and original presentation testing
+remain pending; no first frame is claimed.
+
+Preceding completed attempt: `work/windows-first-frame-gpu-cleanup-rounding1`,
+manifest `b722cafd8d9443a7a55fb67064c9accdf4e6dfb10ff6bcd887064db17f5a45c5`,
+EXE `56acd5d083fef4ca067931e38a0ef559324bdd8461b77518b99d6053b86e3175`.
+The cleanup repair is integrated. The same process completed 1,556 original
+renders and submitted 10,864 draws,
+with no recorded `eglSwapBuffers` entry or captured image. External read-only
+samples show the dimension-comparison enable flag remains zero and the stored
+EGL dimensions are 1280 by 720. These samples are asynchronous, not observed
+function return values. Later guarded read-only samples show Swappy selected
+(settings byte +0x41e is 1, bypass byte is 0), its singleton is null, and the
+initialization-attempt word is 1. The original null-singleton path returns
+failure before EGL presentation. These are stable sampled conditions and
+static control-flow evidence, not directly observed function return values.
+The run ended after an identity-guarded graceful window-close request. Shutdown
+then exited native3 on the collector's non-quiescent worker-retirement check.
+Runtime and unchanged original-parent pre/post checks passed. Sealed log SHA256
+`c9361bd908f334461ad3ef953f5e77f960efdcb739ae19a62268e7c06e654f85`.
+
 Latest completed original attempt: `work/windows-first-frame-gpu-sync1`,
 manifest `c62ddba1488dfd41b9fc73385714f124e26ba19a34b7d0ab09931b6b560e892a`,
 EXE `ecd56a8f10b54b83afb692b58f2c37496e35299fe51941b6381cc950f2b455f5`.

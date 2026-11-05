@@ -11,6 +11,7 @@ def main():
  source=O/'source';(source/'windows').mkdir(parents=True);(source/'whole').mkdir()
  needed=['frame_capture_smoke_test.cpp','egl_host.cpp','egl_host.h','gl_host.cpp','gl_host.h','gl_scalar_commands.inc','gl_draw_commands.inc','native_window.cpp','native_window.h','jni_host.cpp','jni_host.h','frame_png.h']
  needed=sorted(set(needed)|{f.name for f in HERE.glob('gl_*.inc')})
+ needed=sorted(set(needed)|{f.name for f in HERE.glob('*.h')})
  for n in needed:shutil.copy2(HERE/n,source/'windows'/n)
  for f in(HERE.parent/'whole').iterdir():
   if f.is_file()and(f.suffix in('.h','.inc')or f.name=='runtime.cpp'):shutil.copy2(f,source/'whole'/f.name)

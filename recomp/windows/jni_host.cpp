@@ -211,6 +211,14 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   });
   // Android Object.<init>()V has an empty Java body; allocation is real and exact-owner.
   DefineConstructor("java/lang/Object","()V",[this](const MethodArguments&){return NewInstance("java/lang/Object");});
+  DefineClass("java/lang/System",{},"java/lang/Object",true);
+  DefineStaticIntMethod("java/lang/System","identityHashCode","(Ljava/lang/Object;)I",[this](addr_t,const MethodArguments &arguments){
+    ProviderLock lock(*this);auto object=Get(arguments[0],true);if(!object)return int32_t{0};
+    // Share Object.toString's stable identity across every reference alias;
+    // System.identityHashCode never dispatches an object's hashCode override.
+    if(!object->identity_hash){if(!next_identity_hash_)++next_identity_hash_;object->identity_hash=next_identity_hash_++;}
+    int32_t value;std::memcpy(&value,&object->identity_hash,sizeof(value));return value;
+  });
   builtin("java/lang/Object","toString",Method::kObjectString);builtin("java/lang/String","toString",Method::kStringString);
   auto &equals=*classes_.at("java/lang/String")->methods.at({"equals","(Ljava/lang/Object;)Z"});equals.builtin=Method::kStringEquals;equals.argument_types={"Ljava/lang/Object;"};
   builtin("java/lang/Throwable","toString",Method::kThrowableString);builtin("java/lang/Throwable","getMessage",Method::kMessage);builtin("java/lang/Throwable","getLocalizedMessage",Method::kLocalizedMessage);

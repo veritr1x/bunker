@@ -278,7 +278,10 @@ int main(int argc,char **argv){
     auto native_directory=fs::canonical(fs::u8path(argv[1]));
     auto library=native_directory/"libunity.so",il2cpp_library=native_directory/"libil2cpp.so";
     auto apk=fs::canonical(fs::u8path(argv[2]));
-    if(Sha256(library)!=kUnitySha256||Sha256(il2cpp_library)!=il2cpp_image::kIl2cppSha256||Sha256(apk)!=kApkSha256)throw std::runtime_error("runtime original Unity/IL2CPP/APK SHA256 differs from verified translation/metadata");
+    const auto runtime_apk_sha256=Sha256(apk);
+    // This exact data-only Windows variant preserves the verified DEX/native catalog.
+    const bool windows_presentation_apk=first_frame&&collector_delivery&&runtime_apk_sha256=="fd0d0d357a4e8c316d0e732783d795f0e100a675d0c7a0fcf252873deb84f538";
+    if(Sha256(library)!=kUnitySha256||Sha256(il2cpp_library)!=il2cpp_image::kIl2cppSha256||(runtime_apk_sha256!=kApkSha256&&!windows_presentation_apk))throw std::runtime_error("runtime original Unity/IL2CPP/APK SHA256 differs from verified translation/metadata");
     if(collector_delivery)Require(std::string(il2cpp_image::kIl2cppSha256)=="ff5c66ad2fdaa957fa005f1957988b3277331abefcdedcdb0c82e59ba2e80522"&&il2cpp_image::kIl2cppBase==0x80000000,"original collector profile byte/base pins differ");
     if(kExploratory)std::fprintf(stderr,"Unity bootstrap: EXPLORATORY DIAGNOSTIC ONLY: %zu unsupported translated traces remain; every real constructor will still execute\n",kUnsupportedTraces);
     else if(kUnsupportedTraces)throw std::runtime_error("strict bootstrap refuses unsupported translated traces");
@@ -371,7 +374,7 @@ int main(int argc,char **argv){
     std::unique_ptr<JniInterfaceProxy> interface_proxies;
     // The input APK was SHA256-verified above. No extra split/JAR/DEX sources or
     // dynamic Java code loader are exposed by this diagnostic's closed catalog.
-    stage="asset-pack wrapper setup";AndroidAssetPackWrapper asset_packs(java,{kApkSha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
+    stage="asset-pack wrapper setup";AndroidAssetPackWrapper asset_packs(java,{runtime_apk_sha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
     stage="native providers setup";
     // Real policy/semaphores for explicitly bound threads. These cohorts are
     // without a delivery binding: unknown contexts fail rather than queueing
