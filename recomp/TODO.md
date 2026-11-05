@@ -16,12 +16,13 @@ callers on Windows and Linux. The consistent full host/bootstrap rebuild
 and original startup now include real byte-array/charset String construction
 and Java native-library loading. Unity's completed JNI_OnLoad is adopted
 without replay. The actual FirebaseCppApp-9_6_0 request fails because that
-APK library has not been translated. The recorded fatal is the unimplemented
-UnityPlayer.getNetworkProxySettings(String) method, with no pending exception
-at entry. Two original renders return, but there is still no successful swap
-or captured game image. Its real manual-property adapter now passes 789 Windows
-checks and 151 translated NDK calls; the bootstrap binding is ready for a fresh
-full-host build and original-game execution. Windows auto-detection remains
+APK library has not been translated. The manual-proxy property adapter passes
+789 Windows checks and 151 translated NDK calls. A fresh consistent bootstrap
+and all-44-source host build includes it and the corrected JNI version policy.
+The latest original execution stops earlier at the unsupported libil2cpp.so
+import `sched_yield`, LR `825a720c`, before any proxy-method call. Two original
+renders return, but there is still no successful swap or captured game image.
+The next work is real scheduler yield support. Windows auto-detection remains
 unresolved and must not be mistaken for a proven direct route.
 Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.

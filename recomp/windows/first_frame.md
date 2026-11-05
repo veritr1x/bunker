@@ -3,7 +3,31 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-java-string-loader1`,
+Latest original execution: `work/windows-first-frame-network-proxy1`, source
+`6277fe4`, includes the qualified manual-proxy adapter and JNI 1.1 rejection.
+Bootstrap and all 44 host/runtime sources are freshly compiled against one
+998-file snapshot: bootstrap and loader version policy change, two proxy
+sources are added, and the other 994 parent files remain exact. All 4,653 guest
+objects, 595,408 trace heads and metadata headers are unchanged.
+
+Native exit 3/controller 1 now stops at unsupported import `sched_yield` in
+libil2cpp.so, PC `7ffc00000358`, LR `825a720c`, x0=0,
+x1=`155c97f9a94`. Two original renders return continue=true without draws;
+there is no successful swap, PNG or first-frame witness. The run makes no
+proxy-method call before stopping, so it does not establish that the preceding
+proxy boundary has been cleared. All overlay and parent pre/post checks pass.
+The next work is genuine host scheduler-yield support, preserving guest errno
+and the caller's native environment.
+
+Overlay SHA256 `5257bdda6b5c69cabbce77def06b61c487521ce29bddb366d905995d4e040c34`;
+EXE `701032fee96bd94e6f54ffc589ea09ee0b383fad5dec5c03aba47057bdacaee2`;
+bootstrap object `51e259ad576303fd8f83be30ad274fb017c46ce17048c8abefa919db38029cc7`;
+log `0b13b44056a7c5e18d5bf8e6c24b3bef47ae4e96a19049bf7103b4a20e7aec08`.
+Actual module: PID 2686744, base `7ff6b3210000`, image size 1,055,162,368.
+Run peer: `work/network-proxy1-run-peer1/acceptance.json`, SHA256
+`2ba2219c4e9077d7349edc02ad38f7168dbbbcc06fdad4837ae3d4069c248758`.
+
+Preceding original execution: `work/windows-first-frame-java-string-loader1`,
 source `2b8477c`, builds String byte/charset construction and encoding plus
 the closed Java native-library loader. Its 996-file snapshot has five changed
 parent files, three additions and 988 unchanged source files. Bootstrap and
@@ -67,12 +91,13 @@ manual configuration forms. The bootstrap binding outlives worker draining
 and installs before initJni. Integration proof:
 `work/network-proxy-integration1/proof.json`, SHA256
 `44532ffde0dfa5301048e71a9f6c24c97bd25cf5d684e09fa3811e395bafdb94`.
-It has not yet run in the original game executable.
+The new executable includes it, but its run stops before the first proxy call.
 
 After this run, source `7f18d15` corrects the loader's version predicate to
 reject JNI 1.1 as ART does. Fresh Windows/Linux NDK tests verify the 1.1
 failure cache and adoption rejection; Unity's observed 1.6 is unaffected.
-This correction is not in the completed game executable. Qualification:
+This correction is absent from java-string-loader1 and included in
+network-proxy1. Qualification:
 `work/java-native-loader-qualification2/acceptance.json`, SHA256
 `3ef616702480fa7ef7f9e930169f201135c6aeca178f4e2e1da49d530696ccc4`.
 
