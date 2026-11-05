@@ -33,7 +33,8 @@ class Host {
   // Descriptor-checked reference/jint/jlong/jfloat arguments. I/F use low32
   // bits (F is raw binary32, not a numeric integer); J retains all64 bits.
   // Reference arrays retain their full descriptor. Three Java arguments max;
-  // actual AAPCS64 GP/FP allocation is separate. D/primitive arrays unsupported.
+  // actual AAPCS64 GP/FP allocation is separate. Byte arrays are supported;
+  // D and other primitive-array families remain unsupported.
   using MethodArguments=std::array<addr_t,3>;
   // Strong references used inside host-supplied Java object state. They are
   // opaque C++ graph edges, not guest JNI handles or global-reference slots.
@@ -147,6 +148,7 @@ class Host {
   struct Thread;
   struct UtfLease;
   struct CharLease;
+  struct ByteLease;
   Thread &Current(bool attach = false);
   void RequireEnv(addr_t address);
   addr_t HostInstance(const std::string &name,std::type_index type,std::shared_ptr<void> state);
@@ -194,6 +196,7 @@ class Host {
   std::map<addr_t, Field *> field_ids_;
   std::map<addr_t, UtfLease> utf_leases_;
   std::map<addr_t, CharLease> char_leases_;
+  std::map<addr_t, ByteLease> byte_leases_;
   std::shared_ptr<Object> application_loader_;
   std::shared_ptr<Object> bootstrap_loader_;
   std::shared_ptr<Object> empty_string_;

@@ -55,7 +55,7 @@ bool SupportedVersion(int32_t version) { return version == 0x10001 || version ==
 }  // namespace
 
 struct Host::Object {
-  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray } kind = kInstance;
+  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray, kByteArray } kind = kInstance;
   std::string class_name, message;
   bool message_present = true;
   uint32_t identity_hash = 0;
@@ -63,6 +63,8 @@ struct Host::Object {
   std::shared_ptr<void> host_state;
   std::u16string text;
   std::vector<std::shared_ptr<Object>> elements;
+  std::vector<uint8_t> bytes;
+  ~Object(){if(!bytes.empty())recomp::WithGuestMemoryWrite(reinterpret_cast<addr_t>(bytes.data()),bytes.size(),[&]{std::vector<uint8_t>().swap(bytes);});}
   std::map<addr_t, std::shared_ptr<Object>> object_fields;
   std::map<addr_t, uint64_t> primitive_fields;
 };
@@ -87,9 +89,20 @@ struct Host::Class {
   std::shared_ptr<Object> object;
   std::string superclass, array_component;
   std::vector<std::string> interfaces;
-  bool bootstrap = false, initialized = false, is_interface = false;
+  bool bootstrap = false, initialized = false, is_interface = false, byte_array = false;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Method>> methods;
   std::map<std::pair<std::string, std::string>, std::unique_ptr<Field>> fields;
+};
+// Copied primitive-array elements have their own typed ownership/lifetime map.
+// Commit staging is allocated at acquisition, so cleanup never allocates a copy.
+struct Host::ByteLease {
+  std::shared_ptr<Object> owner;
+  std::unique_ptr<uint8_t[]> data, snapshot;
+  size_t length;
+  ByteLease(std::shared_ptr<Object> object,std::unique_ptr<uint8_t[]> buffer,std::unique_ptr<uint8_t[]> stage,size_t size)
+      :owner(std::move(object)),data(std::move(buffer)),snapshot(std::move(stage)),length(size){}
+  ByteLease(ByteLease&&)=default;
+  ~ByteLease(){if(data)recomp::WithGuestMemoryWrite(reinterpret_cast<addr_t>(data.get()),std::max<size_t>(length,1),[&]{data.reset();});}
 };
 struct Host::Thread {
   addr_t env_word = 0;
@@ -101,6 +114,7 @@ struct Host::Thread {
   bool flushing=false;
   std::map<addr_t,Reference> retired_references;
   std::vector<std::shared_ptr<Object>> retired_objects;
+  std::map<addr_t,ByteLease> retired_byte_leases;
 };
 // Count actual scoped provider acquisitions, not recursive mutex unlock guesses.
 // Reference nodes and acquired objects survive until the outer provider unlock;
@@ -118,10 +132,11 @@ class Host::ProviderLock {
     if(thread_->flushing&&!nested)return;
     const bool previous=thread_->flushing;
     thread_->flushing=true;
-    while(!thread_->retired_references.empty()||!thread_->retired_objects.empty()){
+    while(!thread_->retired_references.empty()||!thread_->retired_objects.empty()||!thread_->retired_byte_leases.empty()){
       std::map<addr_t,Reference> references;references.swap(thread_->retired_references);
       std::vector<std::shared_ptr<Object>> objects;objects.swap(thread_->retired_objects);
-      references.clear();objects.clear();
+      std::map<addr_t,ByteLease> byte_leases;byte_leases.swap(thread_->retired_byte_leases);
+      references.clear();objects.clear();byte_leases.clear();
       if(thread_->retired_objects.empty())objects.swap(thread_->retired_objects);
     }
     thread_->flushing=previous;
@@ -144,6 +159,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
   DefineInterface("java/lang/Cloneable",{});
   DefineInterface("java/io/Serializable",{});
+  if(!FindReferenceArrayClass("[B"))throw std::logic_error("byte array class catalog initialization failed");
   DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"}}, "java/lang/Object", true);
   DefineClass("java/lang/AbstractStringBuilder", {}, "java/lang/Object", true);
   DefineClass("java/lang/StringBuilder", {{"<init>","()V"},{"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"},{"toString","()Ljava/lang/String;"}}, "java/lang/AbstractStringBuilder", true);
@@ -308,8 +324,8 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
     if(signature[at]=='I'||signature[at]=='J'||signature[at]=='F'){arguments.push_back(signature.substr(at,1));++at;continue;}
     if(signature[at]=='['){
       const auto start=at;while(at<signature.size()&&signature[at]=='[')++at;
-      if(at==signature.size()||signature[at]!='L')throw std::invalid_argument("host handlers support only reference-array arguments");
-      auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host array argument descriptor");
+      if(at==signature.size()||(signature[at]!='L'&&signature[at]!='B'))throw std::invalid_argument("host handlers support only reference/byte-array arguments");
+      auto end=signature[at]=='B'?at:signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host array argument descriptor");
       auto descriptor=signature.substr(start,end-start+1);if(!FindReferenceArrayClass(descriptor))throw std::invalid_argument("unknown or invalid host array argument class");
       arguments.push_back(std::move(descriptor));at=end+1;continue;
     }
@@ -344,8 +360,8 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
 void Host::DefineField(const std::string &class_name, const std::string &name, const std::string &signature, bool is_static) {
   ProviderLock lock(*this);
   auto clazz = classes_.find(class_name);
-  if (clazz == classes_.end() || name.empty() || (signature != "I" && signature!="[Ljava/lang/String;" && !(signature.size() > 2 && signature.front() == 'L' && signature.back() == ';')))
-    throw std::invalid_argument("JNI fields support int, object and nullable String-array signatures on known classes");
+  if (clazz == classes_.end() || name.empty() || (signature != "I" && !(!signature.empty()&&signature.front()=='['&&FindReferenceArrayClass(signature)) && !(signature.size() > 2 && signature.front() == 'L' && signature.back() == ';')))
+    throw std::invalid_argument("JNI fields support int, object and supported array signatures on known classes");
   auto key = std::make_pair(name, signature);
   if (clazz->second->fields.count(key)) throw std::invalid_argument("duplicate JNI field");
   auto field = std::make_unique<Field>(Field{class_name, name, signature, is_static, next_method_++});
@@ -391,16 +407,18 @@ Host::Class *Host::GetClass(addr_t handle) {
   return classes_.at(object->class_name).get();
 }
 Host::Class *Host::FindReferenceArrayClass(const std::string &name){
-  if(name.size()<3||name.front()!='['||name.find_first_not_of('[')>255)return nullptr;
+  if(name.size()<2||name.front()!='['||name.find_first_not_of('[')>255)return nullptr;
   auto found=classes_.find(name);if(found!=classes_.end())return found->second.get();
   std::string component;
-  if(name[1]=='['){component=name.substr(1);if(!FindReferenceArrayClass(component))return nullptr;}
-  else if(name[1]=='L'&&name.back()==';'&&name.size()>3){component=name.substr(2,name.size()-3);if(!classes_.count(component))return nullptr;}
-  else return nullptr; // Primitive arrays have no provider in this catalog.
+  if(name=="[B")component="B";
+  else if(name[1]=='['){component=name.substr(1);if(!FindReferenceArrayClass(component))return nullptr;}
+  else if(name[1]=='L'&&name.back()==';'&&name.size()>3){component=name.substr(2,name.size()-3);if(component.front()=='['||!classes_.count(component))return nullptr;}
+  else return nullptr; // Other primitive arrays have no provider in this catalog.
   auto clazz=std::make_unique<Class>();clazz->object=std::make_shared<Object>();
   clazz->object->kind=Object::kClass;clazz->object->class_name=name;
   clazz->superclass="java/lang/Object";clazz->array_component=std::move(component);
-  clazz->bootstrap=classes_.at(clazz->array_component)->bootstrap;clazz->initialized=true;
+  clazz->byte_array=name=="[B";
+  clazz->bootstrap=clazz->byte_array||classes_.at(clazz->array_component)->bootstrap;clazz->initialized=true;
   auto *result=clazz.get();classes_.emplace(name,std::move(clazz));return result;
 }
 addr_t Host::NewString(const std::u16string &value) {
@@ -441,7 +459,9 @@ bool Host::Assignable(const std::string &actual, const std::string &expected) co
   if(original!=classes_.end()&&!original->second->array_component.empty()){
     if(expected=="java/lang/Object"||expected=="java/lang/Cloneable"||expected=="java/io/Serializable")return true;
     auto target=classes_.find(expected);
-    return target!=classes_.end()&&!target->second->array_component.empty()&&Assignable(original->second->array_component,target->second->array_component);
+    if(target==classes_.end()||target->second->array_component.empty())return false;
+    if(original->second->byte_array||target->second->byte_array)return actual==expected;
+    return Assignable(original->second->array_component,target->second->array_component);
   }
   if(original!=classes_.end()&&original->second->is_interface&&expected=="java/lang/Object")return true;
   std::string name = actual;
@@ -640,7 +660,7 @@ void Host::DrainCallbackFrame(ProviderLock &lock,size_t depth,std::shared_ptr<Ob
     if(thread.exception!=exception){RetireObject(thread.exception);thread.exception=exception;}
     lock.unlock();lock.FlushRetirements();lock.lock();
     if(!exception&&thread.exception)exception=thread.exception;
-    if(thread.frames.size()==depth+1&&thread.frames.back().empty()&&thread.retired_references.empty()&&thread.retired_objects.empty()&&thread.exception==exception)break;
+    if(thread.frames.size()==depth+1&&thread.frames.back().empty()&&thread.retired_references.empty()&&thread.retired_objects.empty()&&thread.retired_byte_leases.empty()&&thread.exception==exception)break;
   }
 }
 addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,const Method &method,const MethodArguments &arguments,char kind){
@@ -882,6 +902,80 @@ void Host::InvokeEnv(size_t slot, State &s) {
       utf_leases_.emplace(ptr, UtfLease{object, std::move(data)}); if (b) Write<uint8_t>(b, 1); s.gpr.x0.qword = ptr; return;
     }
     case 170: { auto object = String(a); auto lease = utf_leases_.find(b); if (!object || lease == utf_leases_.end() || lease->second.owner != object) Raise("java/lang/IllegalArgumentException", "invalid UTF-8 lease"); else recomp::WithGuestMemoryWrite(b, lease->second.data->size() + 1, [&] { utf_leases_.erase(lease); }); return; }
+    case 176: {
+      s.gpr.x0.qword=0;
+      if(Current().exception)return; // Bounded host policy for invalid pending-call use.
+      const auto length=static_cast<int32_t>(a);
+      if(length<0){Raise("java/lang/NegativeArraySizeException","negative byte array length");return;}
+      try{
+        auto array=std::make_shared<Object>();array->kind=Object::kByteArray;array->class_name="[B";
+        array->bytes.assign(static_cast<size_t>(length),uint8_t{0});
+        if(length)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(array->bytes.data()),array->bytes.size());
+        s.gpr.x0.qword=Local(array);
+      }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","byte array allocation failed");}
+      return;
+    }
+    case 184: {
+      s.gpr.x0.qword=0;
+      if(Current().exception)return;
+      auto array=Get(a);if(!array)return;
+      if(array->kind!=Object::kByteArray){Raise("java/lang/IllegalArgumentException","expected allocated byte array");return;}
+      addr_t acquired_pointer=0;
+      try{
+        const auto length=array->bytes.size(),storage=std::max<size_t>(length,1);
+        auto data=std::make_unique<uint8_t[]>(storage),snapshot=std::make_unique<uint8_t[]>(storage);
+        if(length)recomp::ReadGuestMemory(snapshot.get(),reinterpret_cast<addr_t>(array->bytes.data()),length);
+        const auto pointer=reinterpret_cast<addr_t>(data.get());acquired_pointer=pointer;
+        recomp::WriteGuestMemory(pointer,snapshot.get(),storage);
+        const auto inserted=byte_leases_.emplace(pointer,ByteLease(array,std::move(data),std::move(snapshot),length));
+        if(!inserted.second)throw std::logic_error("duplicate live byte lease buffer");
+        if(b)Write<uint8_t>(b,1);
+        s.gpr.x0.qword=pointer;
+      }catch(const std::bad_alloc&){
+        auto lease=byte_leases_.find(acquired_pointer);
+        if(lease!=byte_leases_.end())Current().retired_byte_leases.insert(byte_leases_.extract(lease));
+        Raise("java/lang/OutOfMemoryError","byte array elements allocation failed");
+      }
+      return;
+    }
+    case 192: {
+      // Release is valid exception cleanup. Never replace an existing pending exception.
+      auto pending=Current().exception;
+      auto array=Get(a);
+      if(pending&&Current().exception!=pending){RetireObject(Current().exception);Current().exception=pending;}
+      if(!array)return;
+      const auto mode=static_cast<int32_t>(c);auto lease=byte_leases_.find(b);
+      if(array->kind!=Object::kByteArray||lease==byte_leases_.end()||lease->second.owner!=array||(mode!=0&&mode!=1&&mode!=2)){
+        if(!pending)Raise("java/lang/IllegalArgumentException","invalid byte array elements lease or release mode");
+        return;
+      }
+      if(mode!=2&&lease->second.length){
+        recomp::ReadGuestMemory(lease->second.snapshot.get(),b,lease->second.length);
+        recomp::WriteGuestMemory(reinterpret_cast<addr_t>(array->bytes.data()),lease->second.snapshot.get(),lease->second.length);
+      }
+      if(mode!=1)Current().retired_byte_leases.insert(byte_leases_.extract(lease));
+      return;
+    }
+    case 200: case 208: {
+      if(Current().exception)return;
+      auto array=Get(a);if(!array)return;
+      if(array->kind!=Object::kByteArray){Raise("java/lang/IllegalArgumentException","expected allocated byte array");return;}
+      const auto start=static_cast<int32_t>(b),length=static_cast<int32_t>(c);
+      if(start<0||length<0||static_cast<size_t>(start)>array->bytes.size()||static_cast<size_t>(length)>array->bytes.size()-static_cast<size_t>(start)){
+        Raise("java/lang/ArrayIndexOutOfBoundsException","byte array region outside length");return;
+      }
+      if(!d){Raise("java/lang/NullPointerException","null byte array region buffer");return;}
+      try{
+        std::vector<uint8_t> snapshot(static_cast<size_t>(length));
+        if(length){
+          const auto backing=reinterpret_cast<addr_t>(array->bytes.data()+start);
+          const auto source=slot==200?backing:d,destination=slot==200?d:backing;
+          recomp::ReadGuestMemory(snapshot.data(),source,static_cast<size_t>(length));
+          recomp::WriteGuestMemory(destination,snapshot.data(),static_cast<size_t>(length));
+        }
+      }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","byte array region staging allocation failed");}
+      return;
+    }
     case 172: {
       const auto length=static_cast<int32_t>(a);
       if(length<0){Raise("java/lang/NegativeArraySizeException","negative object array length");s.gpr.x0.qword=0;return;}
@@ -900,7 +994,9 @@ void Host::InvokeEnv(size_t slot, State &s) {
       return;
     }
     case 171: case 173: case 174: {
+      if(slot==171&&Current().exception){IntResult(s,0);return;}
       auto array=Get(a);if(!array){s.gpr.x0.qword=0;return;}
+      if(slot==171&&array->kind==Object::kByteArray){IntResult(s,static_cast<int32_t>(array->bytes.size()));return;}
       if(array->kind!=Object::kObjectArray)throw std::runtime_error("JNI object-array operation requires an allocated reference array");
       if(slot==171){IntResult(s,static_cast<int32_t>(array->elements.size()));return;}
       const auto index=static_cast<int32_t>(b);

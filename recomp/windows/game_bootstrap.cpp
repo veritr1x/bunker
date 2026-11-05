@@ -95,8 +95,15 @@ void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
   auto invoke=[&host](bool vm,size_t slot,State &state){
     if(!jni_diagnostic_reached.exchange(true))std::fprintf(stderr,"Unity bootstrap: opt-in JNI dispatch diagnostic reached\n");
     auto prior=host.PendingException();
+    const auto pc=state.gpr.pc.qword,lr=state.gpr.x30.qword,sp=state.gpr.sp.qword;
+    const std::array<addr_t,4> arguments={state.gpr.x1.qword,state.gpr.x2.qword,state.gpr.x3.qword,state.gpr.x4.qword};
     try{if(vm)host.InvokeVm(slot,state);else host.InvokeEnv(slot,state);}
-    catch(const std::exception &error){std::fprintf(stderr,"Unity bootstrap: JNI diagnostic %s slot%zu failed: %s\n",vm?"VM":"Env",slot,error.what());std::abort();}
+    catch(const std::exception &error){
+      std::fprintf(stderr,"Unity bootstrap: JNI diagnostic %s slot%zu failed: %s; PC=%#llx LR=%#llx SP=%#llx x1=%#llx x2=%#llx x3=%#llx x4=%#llx pendingBefore=%d\n",
+        vm?"VM":"Env",slot,error.what(),static_cast<unsigned long long>(pc),static_cast<unsigned long long>(lr),static_cast<unsigned long long>(sp),
+        static_cast<unsigned long long>(arguments[0]),static_cast<unsigned long long>(arguments[1]),static_cast<unsigned long long>(arguments[2]),static_cast<unsigned long long>(arguments[3]),int(!prior.empty()));
+      std::abort();
+    }
     auto pending=host.PendingException();
     if(!pending.empty()&&pending!=prior){
       if(init_java_diagnostic_active.load())++init_java_errors;
