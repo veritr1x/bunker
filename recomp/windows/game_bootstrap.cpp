@@ -12,6 +12,8 @@
 #include "jni_interface_proxy.h"
 #include "reflection_launch_epoch.h"
 #include "java_native_libraries.h"
+#include "java_native_loader.h"
+#include "unicode.h"
 #include "apk_assets.h"
 #include "native_window.h"
 #include "unity_lifecycle.h"
@@ -274,9 +276,11 @@ int main(int argc,char **argv){
     AndroidBuildManufacturerProfile manufacturer_profile(java,AndroidBuildManufacturerProfile::PropertyPolicy::AbsentAndroidProductProperties);
     if(first_frame)std::fputs("First frame: manufacturer=unknown; explicit absent Android product properties, AOSP fallback; no Windows vendor inference\n",stderr);
     std::unique_ptr<JavaNativeLibraries> native_catalog;
+    bunker::jni::Host::ObjectValue application_loader;
     {LocalFrame locals(java);auto call=[&](size_t slot,addr_t a=0,addr_t b=0,addr_t c=0){State s{};s.gpr.x0.qword=java.EnvAddress();s.gpr.x1.qword=a;s.gpr.x2.qword=b;s.gpr.x3.qword=c;java.InvokeEnv(slot,s);Require(java.PendingException().empty(),"native catalog setup raised a Java exception");return s.gpr.x0.qword;};
       auto app=call(6,reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer")),clazz=call(6,reinterpret_cast<addr_t>("java/lang/Class"));
       auto method=call(33,clazz,reinterpret_cast<addr_t>("getClassLoader"),reinterpret_cast<addr_t>("()Ljava/lang/ClassLoader;"));auto loader=call(34,app,method);
+      application_loader=java.CaptureValue(loader);
       native_catalog=std::make_unique<JavaNativeLibraries>(java,JavaNativeLibraries::Config{loader,app,{{u"unity",u"/data/app/bunker/lib/arm64/libunity.so"},{u"il2cpp",u"/data/app/bunker/lib/arm64/libil2cpp.so"}}});
     }
     if(frame_gate)AudioVolumeSession::DeclareFields(java);
@@ -399,6 +403,8 @@ int main(int argc,char **argv){
     // Destroy/join guest workers before the providers they may still call.
     Pthreads threads(runtime,Translated,0x7ff900000000ULL,
       [&libc](addr_t entry){return Translated(entry)||entry==libc.Marker("free");});threads.SetErrorSink(error);runner=&threads;
+    // Declared before Drain so all guest workers stop before this service is revoked.
+    std::unique_ptr<JavaNativeLoader> native_loader;
     modules.SetProgramHeaderRunner([&](addr_t callback,addr_t info,uint64_t size,addr_t data){
       Require(Translated(callback),"program-header callback is not translated");
       {
@@ -845,6 +851,37 @@ int main(int argc,char **argv){
     std::fprintf(stderr,"Unity bootstrap: real JNI_OnLoad returned %#llx, pending Java exception: %s\n",static_cast<unsigned long long>(version),java.PendingException().c_str());
     if(version!=bunker::jni::kVersion16||!java.PendingException().empty())return 5;
     for(auto &binding:kUnityRegistrations)if(java.NativeEntry(binding.class_name,binding.name,binding.signature)!=binding.entry)throw std::runtime_error(std::string("actual JNI_OnLoad native registration mismatch: ")+binding.class_name+"."+binding.name);
+    {
+      LocalFrame locals(java);
+      State app_state{};app_state.gpr.x0.qword=java.EnvAddress();app_state.gpr.x1.qword=reinterpret_cast<addr_t>("com/unity3d/player/UnityPlayer");java.InvokeEnv(6,app_state);
+      Require(java.PendingException().empty()&&app_state.gpr.x0.qword,"native loader application class is unavailable");
+      JavaNativeLoader::Config config;
+      config.application_class=app_state.gpr.x0.qword;config.application_loader=java.LocalValue(application_loader);
+      config.libraries={{u"unity","/data/app/bunker/lib/arm64/libunity.so",onload},{u"il2cpp","/data/app/bunker/lib/arm64/libil2cpp.so",0}};
+      config.runner=[&threads](addr_t entry,const std::vector<addr_t>&args){
+        Require(Translated(entry),"Java JNI_OnLoad target is not translated");
+        auto result=threads.Run(entry,args);
+        {GameWorkerObservation::NativeEnvironment native;std::fprintf(stderr,"Game Java native loader: original JNI_OnLoad entry=%#llx returned=%#llx\n",static_cast<unsigned long long>(entry),static_cast<unsigned long long>(result));}
+        return result;
+      };
+      config.observer=[](const JavaNativeLoader::Event &event){
+        GameWorkerObservation::NativeEnvironment native;
+        try{
+          auto name=Utf8(event.name);
+          std::fprintf(stderr,"Game Java native loader: name=%s path=%s success=%d cached=%d recursive=%d adopted=%d handle=%#llx onload=%#llx detail=%s\n",name.c_str(),event.path.c_str(),int(event.success),int(event.cached),int(event.recursive),int(event.adopted),static_cast<unsigned long long>(event.handle),static_cast<unsigned long long>(event.onload),event.detail.c_str());
+        }catch(...){std::fputs("Game Java native loader: diagnostic text could not be represented\n",stderr);}
+      };
+      config.diagnostic=[](int priority,const std::u16string &message){
+        GameWorkerObservation::NativeEnvironment native;
+        try{auto text=Utf8(message);std::fprintf(stderr,"Game Java native loader: priority=%d %s\n",priority,text.c_str());}
+        catch(...){std::fputs("Game Java native loader: failure text could not be represented\n",stderr);}
+      };
+      native_loader=std::make_unique<JavaNativeLoader>(java,modules,config);
+      // This real call already completed above. Adopt its handle/result without
+      // another dlopen, constructor cycle or JNI_OnLoad execution.
+      native_loader->Adopt(u"unity",module,static_cast<int32_t>(version));
+      native_loader->BindUnityPlayer();
+    }
     std::fprintf(stderr,"Unity bootstrap: all %zu evidenced native bindings match original ELF/DEX\n",std::size(kUnityRegistrations));
     for(auto name:kUnityJavaClasses){auto count=java.NativeCount(name);if(count)std::fprintf(stderr,"Unity bootstrap: registered %zu natives on %s\n",count,name);}
     // Reaching this line proves constructors and JNI registration only. Surface,

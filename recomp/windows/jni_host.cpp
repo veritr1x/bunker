@@ -1,4 +1,5 @@
 #include "jni_host.h"
+#include "jni_string_codec_detail.h"
 #include "../whole/guest_memory.h"
 
 #include <algorithm>
@@ -77,7 +78,7 @@ struct Host::Reference {
 };
 struct Host::Method {
   enum Builtin { kNone, kClassLoader, kForName, kObjectClass, kObjectString, kThrowableString, kMessage, kLocalizedMessage, kStringString, kStringEquals,
-    kBuilderConstructor, kBuilderAppend, kBuilderString } builtin = kNone;
+    kBuilderConstructor, kBuilderAppend, kBuilderString, kStringBytesConstructor, kStringGetBytes } builtin = kNone;
   MethodDeclaration declaration;
   std::string owner;
   std::function<addr_t(addr_t,const MethodArguments&)> object_handler;
@@ -160,7 +161,12 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineInterface("java/lang/Cloneable",{});
   DefineInterface("java/io/Serializable",{});
   if(!FindReferenceArrayClass("[B"))throw std::logic_error("byte array class catalog initialization failed");
-  DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"}}, "java/lang/Object", true);
+  DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"},
+      {"<init>","([BLjava/lang/String;)V"},{"getBytes","(Ljava/lang/String;)[B"}}, "java/lang/Object", true);
+  auto &string_constructor=*classes_.at("java/lang/String")->methods.at({"<init>","([BLjava/lang/String;)V"});
+  string_constructor.builtin=Method::kStringBytesConstructor;string_constructor.argument_types={"[B","Ljava/lang/String;"};
+  auto &string_bytes=*classes_.at("java/lang/String")->methods.at({"getBytes","(Ljava/lang/String;)[B"});
+  string_bytes.builtin=Method::kStringGetBytes;string_bytes.argument_types={"Ljava/lang/String;"};
   DefineClass("java/lang/AbstractStringBuilder", {}, "java/lang/Object", true);
   DefineClass("java/lang/StringBuilder", {{"<init>","()V"},{"append","(Ljava/lang/String;)Ljava/lang/StringBuilder;"},{"toString","()Ljava/lang/String;"}}, "java/lang/AbstractStringBuilder", true);
   classes_.at("java/lang/StringBuilder")->methods.at({"<init>","()V"})->builtin=Method::kBuilderConstructor;
@@ -171,6 +177,7 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineClass("java/lang/Throwable", {{"toString", "()Ljava/lang/String;"}, {"getMessage", "()Ljava/lang/String;"}, {"getLocalizedMessage", "()Ljava/lang/String;"}}, "java/lang/Object", true);
   for (auto [name,superclass] : std::vector<std::pair<const char *,const char *>>{
       {"java/lang/Exception","java/lang/Throwable"},{"java/lang/RuntimeException","java/lang/Exception"},
+      {"java/io/IOException","java/lang/Exception"},{"java/io/UnsupportedEncodingException","java/io/IOException"},
       {"java/lang/IllegalArgumentException","java/lang/RuntimeException"},{"java/lang/IllegalStateException","java/lang/RuntimeException"},
       {"java/lang/SecurityException","java/lang/RuntimeException"},
       {"java/lang/NullPointerException","java/lang/RuntimeException"},{"java/lang/IndexOutOfBoundsException","java/lang/RuntimeException"},
@@ -599,6 +606,26 @@ addr_t Host::CallObject(ProviderLock &lock,addr_t reference,addr_t id,bool is_st
   if(metadata.builtin==Method::kStringString){
     if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}return Local(object);
   }
+  if(metadata.builtin==Method::kStringGetBytes){
+    if(Current().exception)return 0;
+    if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}
+    if(!ValidateArguments(metadata,arguments))return 0;
+    auto name=Get(arguments[0],true);if(Current().exception)return 0;
+    if(!name){Raise("java/lang/NullPointerException","null charset name");return 0;}
+    if(name->kind!=Object::kString){Raise("java/lang/IllegalArgumentException","expected initialized charset String");return 0;}
+    try{
+    const auto charset=string_codec_detail::Find(name->text);
+    if(!charset){
+      if(!string_codec_detail::LegalName(name->text)){Raise("java/io/UnsupportedEncodingException","illegal charset name");return 0;}
+      throw std::runtime_error("unqualified Java String charset: "+Encode(name->text));
+    }
+      auto bytes=string_codec_detail::Encode(object->text,*charset);
+      if(bytes.size()>static_cast<size_t>(INT_MAX)){Raise("java/lang/OutOfMemoryError","encoded byte array exceeds JNI length");return 0;}
+      auto array=std::make_shared<Object>();array->kind=Object::kByteArray;array->class_name="[B";array->bytes=std::move(bytes);
+      if(!array->bytes.empty())recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(array->bytes.data()),array->bytes.size());
+      return Local(array);
+    }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","String encoding allocation failed");return 0;}
+  }
   if(metadata.builtin==Method::kStringEquals){
     if(object->kind!=Object::kString){Raise("java/lang/UnsupportedOperationException","String object has no initialized string value");return 0;}
     auto argument=Get(arguments[0],true);if(Current().exception)return 0;
@@ -716,6 +743,25 @@ addr_t Host::Construct(ProviderLock &lock,addr_t reference,addr_t id,const Metho
   auto &method=*found->second;
   if(method.owner!=clazz->object->class_name||method.declaration.is_static||method.declaration.name!="<init>"||method.declaration.signature.back()!='V'){
     Raise("java/lang/IllegalArgumentException","JNI constructor class/method mismatch");return 0;
+  }
+  if(method.builtin==Method::kStringBytesConstructor){
+    if(Current().exception)return 0;
+    if(!ValidateArguments(method,arguments))return 0;
+    auto array=Get(arguments[0],true),name=Get(arguments[1],true);if(Current().exception)return 0;
+    if(!array||!name){Raise("java/lang/NullPointerException","null byte array or charset name");return 0;}
+    if(array->kind!=Object::kByteArray||name->kind!=Object::kString){Raise("java/lang/IllegalArgumentException","expected byte array and initialized charset String");return 0;}
+    try{
+    const auto charset=string_codec_detail::Find(name->text);
+    if(!charset){
+      if(!string_codec_detail::LegalName(name->text)){Raise("java/io/UnsupportedEncodingException","illegal charset name");return 0;}
+      throw std::runtime_error("unqualified Java String charset: "+Encode(name->text));
+    }
+      std::vector<uint8_t> bytes(array->bytes.size());
+      if(!bytes.empty())recomp::ReadGuestMemory(bytes.data(),reinterpret_cast<addr_t>(array->bytes.data()),bytes.size());
+      auto text=string_codec_detail::Decode(bytes,*charset);
+      if(text.size()>static_cast<size_t>(INT_MAX)){Raise("java/lang/OutOfMemoryError","decoded String exceeds JNI length");return 0;}
+      return NewString(text);
+    }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","String decoding allocation failed");return 0;}
   }
   if(method.builtin!=Method::kBuilderConstructor){
     if(!method.object_handler)throw std::runtime_error("Java constructor has no host implementation: "+method.owner+method.declaration.signature);

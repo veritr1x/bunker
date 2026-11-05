@@ -10,7 +10,7 @@ struct Scanner {std::mutex mutex;jni::Host::ObjectValue source;std::shared_ptr<S
 bool Charset(const std::u16string &name){auto n=name;for(auto &c:n)if(c>=u'A'&&c<=u'Z')c+=u'a'-u'A';return n==u"utf-8"||n==u"utf8";}
 }
 addr_t CreateJavaAssets(jni::Host &host,std::shared_ptr<ApkAssets> reader){
-  host.DefineClass("java/io/IOException",{},"java/lang/Exception",true);
+  // IOException is a shared core type, also used by String charset failures.
   host.DefineClass("java/io/FileNotFoundException",{},"java/io/IOException",true);
   host.DefineClass("java/io/InputStream",{},"java/lang/Object",true);
   host.DefineClass("android/content/res/AssetManager",{},"java/lang/Object",true);

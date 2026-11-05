@@ -281,4 +281,11 @@ int32_t ModuleRegistry::IterateProgramHeaders(addr_t callback,addr_t data){
 size_t ModuleRegistry::ReferenceCount(const std::string &name) const {
   std::lock_guard lock(mutex_); auto found = images_.find(name); return found == images_.end() ? 0 : found->second->references;
 }
+bool ModuleRegistry::IsOpenHandleFor(const std::string &path,addr_t handle) const {
+  std::lock_guard lock(mutex_);
+  if(path.empty()||path.find('\0')!=std::string::npos||!handle)return false;
+  auto alias=aliases_.find(Path(path));auto opened=handles_.find(handle);
+  return alias!=aliases_.end()&&opened!=handles_.end()&&alias->second==opened->second&&
+      opened->second->references&&opened->second->status==Image::kLoaded;
+}
 }  // namespace bunker::windows

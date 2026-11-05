@@ -92,6 +92,9 @@ class ModuleRegistry {
   addr_t Marker(const std::string &name) const;
   void Install(recomp::Runtime &runtime);
   size_t ReferenceCount(const std::string &name) const;
+  // Identity query for adopting an already completed Java native-library load.
+  // Does not open/close a module or consume/set the thread's dlerror state.
+  bool IsOpenHandleFor(const std::string &path,addr_t handle) const;
  private:
   struct Image;
   struct Errors { std::string pending, retrieved; };
