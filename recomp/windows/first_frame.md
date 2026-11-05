@@ -3,8 +3,8 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current diagnostic `work/windows-first-frame-main-observe1` remains in its
-fourth original nativeRender. The missing Handler.Callback class leaves a
+Diagnostic `work/windows-first-frame-main-observe1` was manually ended with its
+fourth original nativeRender pending. The missing Handler.Callback class leaves a
 pending JNI exception, preventing the original constructor from queueing its
 initialization message. UnityChoreographer then waits with its ready payload
 still null at LR `704372c8`. The causal audit is
@@ -14,9 +14,26 @@ The replacement implements real asynchronous HandlerThread queues, the
 registered JNIBridge native callback route and an owned UnityMain Looper.
 It preserves original native initialization and condition signaling. Six
 recovered original entries append to the existing guest cohort. The native
-UnityMain FIFO passes294 checks; combined syntax passes. Final framework and
-original-constructor component qualification, the composite build and a new
-original execution remain pending. No first frame is claimed.
+UnityMain FIFO passes294 checks; combined syntax passes. Final framework
+qualification passes880 focused checks,180 actual NDK calls and11 registered
+TEST native invocations, plus237 existing proxy and11125 JNI numeric checks.
+The separate original-constructor component remains pending; the actual game
+execution is the integration test. No first frame is claimed.
+
+Replacement `work/windows-first-frame-choreographer1` is linked and independently
+reviewed with53 checks. Its manifest is
+`35707ea61acfe2f6664da876041f66fc66c4ad8362dfbda5e5eeac93e22d9814`,
+executable `b62f233d7ba31bfa748a1b6374b2fa97b86dd53d3d388de3f0ffb3b1b56d8d46`.
+One fresh controlled original run is starting with the same explicitly muted
+inputs. The build's pending-runtime fields remain historical; the separate
+`runtime-admission.json` records the actual generic gate and integration scope.
+
+The previous run's native255/controller1 records manual termination, with all
+overlay pins and original-parent pre/post checks passing. It completed three
+renders with zero drawing/presentation/image. Audit SHA256
+`e4a2d6d94518d17b50b5e5bed96f0b9a3c7708a6ce8c213d9276e2e743ab9b2a`;
+manual-stop receipt `work/main-observe1-manual-stop1/receipt.json`, SHA256
+`f34b9326df555393adacdd6f7cc69f450020fd76de2b401503f97cfc4d6d566f`.
 
 ## Earlier execution evidence
 
