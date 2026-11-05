@@ -53,7 +53,7 @@ class Host {
   // A genuine interface has no superclass and cannot be instantiated. This
   // catalog does not invent implementing classes or execute default bodies.
   void DefineInterface(const std::string &name, std::vector<MethodDeclaration> methods,
-                       bool bootstrap = true);
+                       bool bootstrap = true, std::vector<std::string> parent_interfaces = {});
   // Only call after the host has supplied the class's initialization effects.
   // A metadata declaration alone does not execute Java <clinit>.
   void MarkClassInitialized(const std::string &name);

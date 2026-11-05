@@ -246,10 +246,10 @@ void Host::DefineClass(const std::string &name, std::vector<MethodDeclaration> m
   for (auto &method : clazz->methods) method_ids_[method.second->id] = method.second.get();
   classes_.emplace(name, std::move(clazz));
 }
-void Host::DefineInterface(const std::string &name,std::vector<MethodDeclaration> methods,bool bootstrap){
+void Host::DefineInterface(const std::string &name,std::vector<MethodDeclaration> methods,bool bootstrap,std::vector<std::string> parent_interfaces){
   ProviderLock lock(*this);
   for(const auto &method:methods)if(method.name=="<init>")throw std::invalid_argument("Java interface cannot declare an instance constructor");
-  DefineClass(name,std::move(methods),"",bootstrap);classes_.at(name)->is_interface=true;
+  DefineClass(name,std::move(methods),"",bootstrap,std::move(parent_interfaces));classes_.at(name)->is_interface=true;
 }
 void Host::MarkClassInitialized(const std::string &name) {
   ProviderLock lock(*this);

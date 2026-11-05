@@ -27,10 +27,28 @@ inferred from this error alone.
 
 Native exit 3/controller 1 stops at unresolved original Unity target
 `70b4c100`, StatePC `70b4c100`, LR `70b47730`, SP `2028daa0c00`.
-The next work audits and recovers that original computed entry/closure and
-implements the actual JCA trust-manager call path using real Windows trust
-material and validation. Certificate verification must remain functional;
-accept-all responses or disabling verification are not a repair.
+The next composite build combines two qualified changes. The bounded original
+computed-table recovery adds 40 original entry points in one object, with all
+240 seeded executions agreeing across original ARM, raw Windows and the
+selected polled Windows object. Its trace header adds 80 lines and preserves
+all 4,653 prior objects. See [the entry audit](../whole/unity_curl_computed_entries.md).
+
+The reached Java path exports CA certificates to original UnityTLS; it does
+not ask Java to verify the peer. The new adapter supplies the actual
+TrustManagerFactory, manager/interface and Certificate.getEncoded call path
+using public Windows roots. Its default reader exports 60 eligible DER roots,
+matching an independent native oracle: 84 enumerated, 16 excluded by usage,
+eight by cached explicit distrust. No trust-store changes or accept-all path
+are introduced. Original UnityTLS continues peer verification; complete Windows
+trust-policy equivalence is not claimed. See [the adapter scope](java_tls_trust.md).
+
+TLS qualification passes 6,630 focused checks with 1,420 actual NDK entries,
+direct/V/A call forms and complete DER-byte comparison, plus 237 existing JNI
+interface-proxy regression checks. Receipt:
+`work/java-tls-trust-qualification3/acceptance.json`, SHA256
+`3df59e64ee17277eee80e224649e84f316b359f89797534900749906f5c64efb`.
+The new original executable and live TLS outcome remain pending. Neither
+component gate establishes a first frame.
 
 Overlay SHA256 `cfea157227771b0774a03f0c6ab952c07d6c603a9e979815aa53df6e009cc1c3`;
 EXE `dbb5180987a4b95bf2c045f2a201d3b9b75070ba3a2948afa6857a239ef9fbaa`;

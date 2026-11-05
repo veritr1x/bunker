@@ -14,6 +14,7 @@
 #include "java_native_libraries.h"
 #include "java_native_loader.h"
 #include "unity_network_proxy.h"
+#include "java_tls_trust.h"
 #include "unicode.h"
 #include "apk_assets.h"
 #include "native_window.h"
@@ -280,6 +281,13 @@ int main(int argc,char **argv){
     DefineUnityJavaCatalog(java);
     ReflectionLaunchEpoch reflection_launch_epoch(java);
     DefineGameAndroidApiProfile(java);
+    JavaTlsTrust::Config tls_config;
+    tls_config.observer=[](const JavaTlsTrust::Event &event){
+      GameWorkerObservation::NativeEnvironment native;
+      std::fprintf(stderr,"Game TLS trust: operation=%s nativeReaderUsed=%d publicCertificates=%zu; original UnityTLS retains peer verification\n",event.operation.c_str(),int(event.reader_used),event.certificate_count);
+    };
+    // The service and Host outlive Pthreads/Drain and every native TLS callback.
+    JavaTlsTrust tls_trust(java,std::move(tls_config));
     AndroidBuildManufacturerProfile manufacturer_profile(java,AndroidBuildManufacturerProfile::PropertyPolicy::AbsentAndroidProductProperties);
     if(first_frame)std::fputs("First frame: manufacturer=unknown; explicit absent Android product properties, AOSP fallback; no Windows vendor inference\n",stderr);
     std::unique_ptr<JavaNativeLibraries> native_catalog;
