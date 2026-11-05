@@ -169,7 +169,7 @@
   <label class="choice"><input type="radio" name="schedule" onchange="document.getElementById('turn-on').hidden = false"><span><strong>Original calendar</strong><span class="note">Replays the game from launch day, starting when the first summons opened. Events, summons and seasons open and close on their original dates.</span></span></label>
 </div>
 <form id="turn-on" action="/patcher/calendar/on" method="post" class="panel" data-busy hidden>
-  <p><strong>The game restarts from launch on your next Deploy.</strong></p>
+  <p><strong>The game restarts from launch: at its title screen if it is running, or on your next Deploy.</strong></p>
   <dl class="kv plain">
     <dt>Starts</dt><dd>{{ start.day }} <span class="when">{{ start.original }} in the original</span></dd>
     <dt>Length</dt><dd>144 weeks, until {{ start.ends }}</dd>

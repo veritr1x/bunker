@@ -1115,7 +1115,7 @@ def context(state):
 def calendar_on():
     try:
         turn_on()
-        return redirect(message="Calendar on. Close Pod Programs and tap Deploy.")
+        return redirect(message="Calendar on. " + runtime.next_step())
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -1134,7 +1134,7 @@ def calendar_speed(speed: str = Form(...)):
     try:
         set_speed(state, speed)
         write_state(state)
-        return redirect(message="Speed saved. Close Pod Programs and tap Deploy.")
+        return redirect(message="Speed saved. " + runtime.next_step())
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -1199,7 +1199,7 @@ def calendar_jump(target: int = Form(...)):
     try:
         jump(state, target)
         write_state(state)
-        return redirect(message=f"Moved to week {week_of(state, game_now(state))}. Close Pod Programs and tap Deploy.")
+        return redirect(message=f"Moved to week {week_of(state, game_now(state))}. " + runtime.next_step())
     except Exception as exc:
         return redirect(error=str(exc))
 

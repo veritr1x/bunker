@@ -11,6 +11,7 @@ import hashlib
 import importlib
 import io
 import json
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -21,6 +22,7 @@ import sys
 import threading
 import time
 
+log = logging.getLogger("bunker.tools")
 _server = None
 _thread = None
 _base_url = ""
@@ -258,27 +260,42 @@ def prepare_data():
 # Pod Programs opens while the game keeps running. These changes are read by
 # the server or the game later (summon rates and roulette before each draw,
 # display at the next launch, the timeline's filter, a backup copied with
-# SQLite's online backup), so they need nothing closed. Any other change edits
-# the save, the master data or the calendar: the game holds its own copy of the
-# save until it signs in again, and the server and game read master data only
-# as they start, so the game is closed first (ServerService.closeGameForTools,
-# or the iOS launcher), and the server's save editor refuses while it runs.
+# SQLite's online backup), so they need nothing closed.
 LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
+# These change what the game reads only as it launches ("Show original dates"
+# resets its own day markers then: GameProcessProvider), so the game is closed
+# first (ServerService.closeGameForTools, or the iOS launcher).
+CLOSES = frozenset(("/patcher/calendar/view", "/patcher/calendar/off"))
+# Any other change edits the save, the master data or the calendar, which the
+# server reads as it starts and the game as it signs in: the server stops for
+# the change and starts again after it (pause_game, resume_game), and the game
+# goes back to its title screen to sign in again (interceptor.ReturnToTitle).
+# The game keeps running throughout.
 CLOSE_MESSAGE = "This change closes the game first. Confirm to close it and continue."
 
-# Set as Pod Programs starts: whether the game and its server are running, and
-# a call that stops them (returns "" or an error). Without them, nothing runs.
+# Set as Pod Programs starts: whether the game and its server are running, a
+# call that stops them, and the two around a change beside the game (each
+# returns "" or an error). Without them, nothing runs.
 game_live = lambda: False
 close_game = lambda: ""
+pause_game = lambda: ""
+resume_game = lambda: ""
 
 
-def install_game_guard(app, live, close):
+def next_step():
+    """How a change reaches the game, for the message after it."""
+    if game_live():
+        return "The game returns to its title screen to load it."
+    return "Close Pod Programs and tap Deploy."
+
+
+def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lambda: resume_game()):
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool
 
     @app.get("/bunker/state")
     def state():
-        return {"live": bool(live()), "safe": sorted(LIVE_SAFE)}
+        return {"live": bool(live()), "safe": sorted(LIVE_SAFE), "closes": sorted(CLOSES)}
 
     @app.post("/bunker/close-game")
     async def close_now():
@@ -292,9 +309,19 @@ def install_game_guard(app, live, close):
     @app.middleware("http")
     async def needs_closed_game(request, call_next):
         path = request.url.path
-        if request.method not in ("GET", "HEAD") and path not in LIVE_SAFE and path != "/bunker/close-game" and live():
+        if request.method in ("GET", "HEAD") or path in LIVE_SAFE or path == "/bunker/close-game" or not live():
+            return await call_next(request)
+        if path in CLOSES:
             return JSONResponse({"ok": False, "error": CLOSE_MESSAGE, "closeGame": True}, status_code=409)
-        return await call_next(request)
+        error = await run_in_threadpool(pause)
+        if error:
+            return JSONResponse({"ok": False, "error": error}, status_code=500)
+        try:
+            return await call_next(request)
+        finally:
+            error = await run_in_threadpool(resume)
+            if error:
+                log.warning("The server did not start again beside the game: %s", error)
 
 
 def create_app(token, origin):
@@ -338,12 +365,14 @@ def start(data_root, asset_root, tools_root, reporter):
     global _server, _thread, _base_url, _token, TEXTURE
     if _thread and _thread.is_alive():
         return json.dumps({"url": _base_url, "token": _token})
-    global game_live, close_game
+    global game_live, close_game, pause_game, resume_game
     from java import jclass
     native = jclass("org.veritr1x.bunker.NativeBridge")
     service = jclass("org.veritr1x.bunker.ServerService")
     game_live = lambda: bool(service.gameLive())
     close_game = lambda: str(service.closeGameForTools())
+    pause_game = lambda: str(service.pauseForTools())
+    resume_game = lambda: str(service.resumeForTools())
     TEXTURE = lambda bundle, target, size: native.texture(bundle, target, size)
     configure(data_root, asset_root, tools_root, native.edit, reporter.report)
     prepare_data()
