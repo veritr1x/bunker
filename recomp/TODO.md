@@ -27,20 +27,25 @@ comparisons against actual Bionic. The latest consistent bootstrap/all-host
 build included the qualified IPv4/IPv6 converter after the user's Windows
 restart restored available RAM to about 44 GiB. The converter passes 1,344
 Windows checks and 190 exact Bionic comparison records. Original startup now
-passes that boundary and stops at missing libunity.so `getaddrinfo`,
-LR `70e16b00`. Genuine name/service resolution, Android/Windows structure and
-flag/error conversion, and result ownership/freeing now pass 2,100 checks and
+passes that boundary. Genuine name/service resolution, Android/Windows
+structure and flag/error conversion, and result ownership/freeing pass 2,100 checks and
 304 actual NDK calls across getaddrinfo/freeaddrinfo/gai_strerror. The 272
 cross-Bionic records retain complete chains/status/canonical/error strings and
 failure/free errno; only unspecified success errno is normalized, with raw
-observations preserved. Its full host build and original-game run are next.
+observations preserved. Its full host/bootstrap build and original execution
+now pass the previous getaddrinfo boundary and stop at missing libunity.so
+`socket`, LR `70b4a1b8`, AF_INET=2/SOCK_STREAM=1 (protocol unlogged).
+The next work is genuine socket transport, readiness and socket-aware shared
+descriptor ownership/dispatch as a connected-client cohort.
 Two original renders return,
 but there is still no successful swap or captured game image. Windows
 auto-detection remains unresolved and is not a proven direct route.
 Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
-The network inventory still identifies 32 missing imports plus four file APIs
-that need socket-aware ownership/dispatch; the prepared backend has not been
+The historical network inventory identifies 32 missing imports plus four file
+APIs needing socket-aware ownership/dispatch. Three inventory names are now
+implemented (inet_pton/getaddrinfo/freeaddrinfo); socket transport remains
+unimplemented. The prepared backend has not been
 connected to the real client. Execution notes below retain earlier checkpoints.
 
 All recomp source work is in the `recomp-x86_64` worktree at

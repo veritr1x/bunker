@@ -3,7 +3,42 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-inet-pton1`, source
+Latest original execution: `work/windows-first-frame-resolver1`, source
+`f546d51`, includes getaddrinfo/freeaddrinfo/gai_strerror. Its 999-file
+snapshot changes libc.cpp and libc.h and adds the resolver detail header;
+the other 996 parent files, all 4,653 guest objects and all four generated
+headers remain exact. Bootstrap and all 44 host/runtime sources are freshly
+compiled against the changed LibC class layout.
+
+The previous getaddrinfo failure does not recur. Native exit 3/controller 1
+now stops at missing libunity.so `socket`, PC `7ffc000000e0`, LR `70b4a1b8`,
+x0=2 (Android AF_INET), x1=1 (SOCK_STREAM). The protocol argument is unlogged.
+Two original renders return continue=true with zero draws; no successful swap,
+PNG or first-frame witness exists. All overlay pins and parent pre/post checks
+pass. The original process exited and its controller session was collected.
+Real game socket connectivity and complete initialization remain unverified.
+
+The next work is a coherent real socket/connected-client path, including
+readiness and socket-aware shared descriptor dispatch. An independent socket
+namespace would conflict with files, and raw Windows SOCKET values are not
+Android int descriptors. Existing file descriptors start at 1000, whereas
+Android fd_set has only 1024 bits; socket allocation and select need a
+coordinated namespace. Preparation only:
+`work/socket-transport-design-preparation1/acceptance.json`, SHA256
+`b77ce30c74f8120ce5f00d7bf8a2ef84a85d930a3d4bb9a8df09e25eceed4fa0`.
+Actual connected callsites and needed flags are being audited before selection.
+
+Overlay SHA256 `ce1fb4c1f02193f86b9d8e0626f0b9e25a5417e8f1048060c251f8f9da2f5e53`;
+EXE `d6a86afc537f958bf13866e66810aa1d9721822db8e736bc215d2b23782ffc01`;
+bootstrap `de09f6fb08e19862eb6507409f85a6f76170cbd62b7916532091dbc5cb585b9c`;
+log `a5c490a42fbb23058dce9c96e99a475416a9734eceea2975b09b88403bb6067b`.
+Actual module: PID 62704, base `7ff657a50000`, image size 1,055,219,712.
+Built peer: `work/resolver-overlay-preparation1/built-peer-acceptance.json`, SHA256
+`844f8bf0ec820d8e63b4c33d97e5260577456e93f925aa489ddccf8934ea66a9`.
+Run audit: `work/windows-first-frame-resolver1/game-frame-muted-gc-audit.json`,
+SHA256 `c3260a146af99660e10ccc49b3f2717e9f830ac562a0f33bf8024bbd7e75cd30`.
+
+Preceding original execution: `work/windows-first-frame-inet-pton1`, source
 `a248584`, includes the qualified numeric address converter. Only libc.cpp
 changes among 998 source files; the other 997, all guest objects and all
 generated headers remain exact. Bootstrap and all 44 host/runtime sources
@@ -46,7 +81,7 @@ Qualification: `work/libc-getaddrinfo-qualification3/acceptance.json`, SHA256
 Source inverses/append-only imports and added header:
 `work/resolver-source-preparation1/source-proof.json`, SHA256
 `755e7d082b8a29fe9f467d95bbc88a55f8e7e8b8985e0ba61dcefa76bec34998`.
-The full resolver host build and original-game execution are pending.
+The full resolver host build and original-game execution are recorded above.
 Original-callsite audit: `work/inet-pton1-getaddrinfo-boundary1/acceptance.json`,
 SHA256 `0c5c28e3cf2f6fb53c5af2031a46cc181083240fafd5a12b31def2d9edc7c021`.
 The reached wrapper reads the qualified 48-byte Bionic layout, copies usable
