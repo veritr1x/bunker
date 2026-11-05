@@ -4,6 +4,20 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-06 (after 1.8.4)
+
+### Server
+- Coffin of Repose and Rhythm's Citadel medals can be spent. The events
+  dropped medal variants (Coffin of Repose 53 and 54, Rhythm's Citadel 63,
+  64 and 65) that their exchanges do not take; drops now arrive as the
+  medal the exchange takes (22 and 29), and medals already held are turned
+  into it, one for one. As in the Lunar Tear Comfort Mod by NavHobbyDev
+  (MIT). [bc8f5ca]
+
+### Mods
+- Each mod's description no longer ends with when it applies ("From the
+  next quest." and the like). [821b8cd]
+
 ## 2026-11-05 (after 1.8.4)
 
 ### Pod Programs

@@ -1,5 +1,27 @@
 # Validation
 
+## Spendable event medals — 2026-11-06
+
+- Master data (2024-04-04): event chapter 508 (Coffin of Repose) links shop
+  6005, priced in medal 22, but its quests' pickup drops are 53 (33) and 54
+  (2); chapter 513 (Rhythm's Citadel) links shop 6010, priced in 29, and
+  drops 63 (35), 64 (4) and 65 (2). Only shop 6030 takes 63–65, and no
+  chapter links to it; no shop takes 53 or 54.
+- Go tests: `questflow` (53/54 drops become 22, 63–65 become 29, counts
+  kept, other possession types untouched); full `go test ./...` in the
+  build passed.
+- The migration on a copy of the table: 22 ×10, 53 ×5, 54 ×2, 63 ×1,
+  64 ×1 became 22 ×17 and 29 ×2, and another user's 65 ×7 became 29 ×7.
+- Android 16 emulator, the save from 2026-11-03 with 53 ×5, 54 ×2 and
+  63 ×3 added: after installing the build and starting the game, the save
+  held 22 ×7 and 29 ×3 and none of the variants.
+- Not checked in game: a drop from either event (neither was scheduled).
+- Not changed: cage ornament visits and big hunt knocked-out costumes.
+  The client has no table for either (no `IUserCageOrnament` access table;
+  the big hunt report has no alive field), so storing them would show
+  nothing. Story replay: the server already writes
+  `IUserMainQuestReplayFlowStatus`, the only replay state the client reads.
+
 ## Pod Programs in landscape — 2026-11-06
 
 - Android 16 emulator on its side (CSS height about 390 px): Pod Programs
