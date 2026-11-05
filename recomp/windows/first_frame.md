@@ -3,7 +3,27 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-uname-indirect1` appends
+Latest original execution: `work/windows-first-frame-calendar1` includes the
+qualified eight-API calendar provider, preserving all 4,653 guest objects,
+595,408 trace heads and the compiled bootstrap. Native exit 3/controller 1
+now stops at missing `clock_getres` in libil2cpp, PC `7ffc000005a0`,
+LR `8255441c`, clock ID 1 (`CLOCK_MONOTONIC`), output `879a5588`.
+Three renders enter and two return continue=true; there are no original
+draws, clears, successful presentations, first-frame witness or PNG.
+Parent pre/post verification and every overlay pin recheck pass. A read-only
+observer captured PID 2609892, actual image base `7ff77f250000` and image
+size 1,055,055,872 bytes. The log does not directly record calendar returns;
+the later frontier does not establish execution of every calendar API.
+
+Overlay SHA256 `b549ddd070222a30fc5d1a7b25e106eef09839b819d2fbf5c1fd91c0262bf963`;
+executable SHA256 `de61c6428368b045b680b9da0ad097065101e9a7205829385fe123b05983a52b`;
+log SHA256 `50821a670b2c8318cc8f27c4a04f81a9bd73eda764aa9d874b73a917d5d1389b`.
+Run peer: `work/calendar1-run-peer1/peer.json`, SHA256
+`c73ee0811ffe9c12924be2f69f98eece4d5b85833b403fc79e69522a1d25af34`.
+The next step is the matching clock-resolution provider and another original
+startup attempt after its focused ABI and error-path checks.
+
+Preceding original execution: `work/windows-first-frame-uname-indirect1` appends
 the complete four-entry computed-table group, retaining all4652 prior guest
 objects and rebuilding unchanged bootstrap source against595408 sorted trace
 heads. Native exit3/controller1 now stops at missing `mktime` in libil2cpp,
@@ -25,7 +45,8 @@ The group needs Bionic's56-byte `tm`, signed64 timestamps, consistent DST
 normalization and real host timezone data. A Windows CRT-only `mktime`
 wrapper rejects valid negative epochs required by the caller. The calendar
 family now passes96 Bionic conversion comparisons,100 formatting comparisons
-and26 actual translated NDK calls. Its next gate is original game startup;
+and26 actual translated NDK calls. Original startup now reaches the later
+clock-resolution boundary described above;
 see [the calendar qualification](libc_calendar.md). Boundary audit SHA256
 `1d19eed3c9e49e2bc1457e4e9263d202e7104efb5b5433a7b9526f0fe0adff8b`.
 

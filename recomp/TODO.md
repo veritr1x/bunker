@@ -5,18 +5,28 @@ game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The game does not boot or render yet.
 
 The latest execution boundary and build evidence are in
-[the first-frame status](windows/first_frame.md). Original exception unwinding
-restores a landing-pad PC and SP, but the old lifted caller loses that
-destination. The runtime and pre-inliner call-lowering correction pass real
-ARM/Windows/Linux exception fixtures. A complete metadata and reachable
-direct-call inventory now contains 595,404 heads. Its full fresh native
-rebuild and its static cohort/guard checks now pass; freezing, linking,
-original startup and the first game image remain to be verified. The execution
-notes below retain earlier checkpoints.
+[the first-frame status](windows/first_frame.md). The exception-transfer
+correction, full fresh guest rebuild and original Windows startup have run.
+The current exploratory executable retains 4,653 guest objects and 595,408
+trace heads, including the qualified numeric min/max repair and four original
+computed-table entries. With Windows identity and calendar APIs added,
+startup stops at missing `clock_getres(CLOCK_MONOTONIC)` at LR `8255441c`.
+Two original renders return, but there are still no draws, successful swaps
+or captured game image. The next step is clock-resolution support, followed
+by another original run. Initialization, rendering, gameplay, client/backend
+integration and standalone packaging remain unfinished. Execution notes below
+retain earlier checkpoints.
+
+All recomp source work is in the `recomp-x86_64` worktree at
+`C:/Users/user/.codex/worktrees/bunker-recomp-native/bunker`.
+Its `recomp/work` junction retains the existing artifacts at
+`C:/GitRepos/bunker/recomp/work`; the previous worktree is clean and detached.
+Migration receipt: `work/worktree-migration-20261104-1/acceptance.json`.
 
 The matching pre-inliner compiler hook and pass are checkpointed locally in
-the Remill fork at `3fd14f3f64d4ab37b36bd985d1b492cec6e1f1bb`. Those three source
-files match the qualified tool. The CMake executable target builds against
+the Remill fork, whose latest local checkpoint is
+`df627afa707566cfdf932c2225345e6241802257` including scalar numeric min/max.
+The CMake executable target builds against
 the existing qualified dependency archives; default and guarded Leaf/Exercise
 IR match the qualified tool byte for byte. A fresh dependency build has not
 been run. The running candidate continues using its frozen compiler binary.
