@@ -3,7 +3,40 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-sscanf1`, source
+Latest original execution: `work/windows-first-frame-inet-pton1`, source
+`a248584`, includes the qualified numeric address converter. Only libc.cpp
+changes among 998 source files; the other 997, all guest objects and all
+generated headers remain exact. Bootstrap and all 44 host/runtime sources
+are freshly compiled. The actual URL scanner and manual proxy query complete
+again, and the previous inet_pton failure does not recur.
+
+Native exit 3/controller 1 now stops at missing libunity.so `getaddrinfo`,
+PC `7ffc00000178`, LR `70e16b00`, x0=`1e8936e5d10`, x1=`1e894940f9c`.
+The actual hostname, service, hints and output contents are unlogged.
+The next work is genuine name/service resolution with Android LP64 address
+structures, Windows flag/error mapping and correct result ownership/freeing.
+Two original renders return continue=true with zero draws; no successful
+swap, PNG or first-frame witness exists. All overlay and parent pre/post
+checks pass. The root run session was collected to terminal state.
+
+Overlay SHA256 `6bccc12990895589b468c3dd3b0b2a775ed600b889eb71f03d85833690bab6c1`;
+EXE `d506c0556fca56fcf0c16f0b0e544e7d986541fc05476505d45cbe7cbed1ebec`;
+bootstrap `fa07455a786f41b72add015e1b001551ac42f38c2f30c31c752168859e271a23`;
+log `c1232ab5a2054a80ae99f25ec8d1a6e86f234a94553cf6591234f96fa2e4b40d`.
+Actual module: PID 24512, base `7ff621e80000`, image size 1,055,191,040.
+Built peer: `work/inet-pton-admission-peer1/built-acceptance.json`, SHA256
+`3f8f4d8d609597a3bf5e3154b9a92fb26a00bbe9483faa97464e8f3dac8d9a3d`.
+Run audit: `work/windows-first-frame-inet-pton1/game-frame-muted-gc-audit.json`,
+SHA256 `10fabeb3b6677b924b9a2010bec8272c1396423ebbba1f17a1af2060adbf5a72`.
+
+The user restarted Windows before this build. The boot changed to
+2026-11-05 10:07:52 +05:30 and available RAM recovered to about 44 GiB;
+it remained above 38 GiB during compilation. Read-only receipt:
+`work/memory-cleanup-20261105-1/after-restart.json`, SHA256
+`f1f7a6dfe52cd571b452c20a4569e9aa175eab53723dfe2c3ae096519a49d333`.
+No Windows service, audio setting or user application was changed.
+
+Preceding original execution: `work/windows-first-frame-sscanf1`, source
 `dd11a78`, includes the qualified scanner and six-GP bridge. Its 998-file
 snapshot changes libc.cpp, libc.h and bootstrap; the other 995 files and all
 guest objects, trace heads and metadata headers remain exact. Bootstrap and
@@ -42,8 +75,8 @@ There is no DNS, socket startup or network request. Qualification:
 Source inverse/unchanged header/import-ordinal proof:
 `work/inet-pton-source-preparation1/source-proof.json`, SHA256
 `7904761ac914e0beaf6f729bfa4c41da7a57ef6aefef8ce6f5dfff48ca36881d`.
-The full host build and original-game run are pending. At the user's request,
-host memory cleanup precedes that build: idle WSL was shut down and a signed
+The full host build and original-game run are recorded above. At the user's
+request, host memory cleanup preceded that build: idle WSL was shut down and a signed
 RAMMap capture saved under `work/memory-cleanup-20261105-1`. It records about
 20.4 GiB of page tables and 22.4 GiB of active unclassified pages. No application
 or network service was terminated, and no original game/compiler remains live.
