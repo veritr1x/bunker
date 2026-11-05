@@ -149,8 +149,12 @@ def start(data_root, asset_root, tools_root, original_master):
     _adapt_patcher()
     _process.LunarToolsGameLive.restype = ctypes.c_int
     _process.LunarToolsCloseGame.restype = ctypes.c_void_p
+    _process.LunarToolsPauseGame.restype = ctypes.c_void_p
+    _process.LunarToolsResumeGame.restype = ctypes.c_void_p
     android_runtime.game_live = lambda: bool(_process.LunarToolsGameLive())
     android_runtime.close_game = _close_game
+    android_runtime.pause_game = lambda: _launcher(_process.LunarToolsPauseGame)
+    android_runtime.resume_game = lambda: _launcher(_process.LunarToolsResumeGame)
     import uvicorn
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -172,8 +176,13 @@ def start(data_root, asset_root, tools_root, original_master):
 
 
 def _close_game():
-    """Before a change to the save or the game's data: the launcher stops the game's server. "" or an error."""
-    pointer = _process.LunarToolsCloseGame()
+    """Before a change the game reads only as it launches: the launcher stops the game's server. "" or an error."""
+    return _launcher(_process.LunarToolsCloseGame)
+
+
+def _launcher(function):
+    """Calls a launcher export that returns "" or an error as a C string the caller frees."""
+    pointer = function()
     try:
         return ctypes.string_at(pointer).decode()
     finally:

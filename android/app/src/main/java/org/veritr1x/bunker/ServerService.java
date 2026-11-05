@@ -115,6 +115,7 @@ public final class ServerService extends Service {
             // needs the game closed closes it then (closeGameForTools).
             final boolean live=running;
             toolsBesideGame=live;
+            toolsPaused=false;toolsBackedUp=false;
             tools=true;busy=true;cancelled=false;state="Preparing tools";detail=live?"Opening Pod Programs…":"Stopping the game…";
             if(Build.VERSION.SDK_INT>=34)startForeground(1,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(1,notification());
@@ -246,6 +247,56 @@ public final class ServerService extends Service {
                 return error.getMessage()==null?error.toString():error.getMessage();
             }
         }
+    }
+    // Pod Programs beside the game: a change to the save or the game's data
+    // stops the server for the change (pauseForTools) and starts it again
+    // after (resumeForTools), which sends the game back to its title screen to
+    // sign in again and load it. The game keeps running throughout.
+    private static boolean toolsPaused=false, toolsBackedUp=false;
+    /** Pod Programs, before a change beside the running game: stops the server, backing the save up once. Returns "" or why not. */
+    public static String pauseForTools(){
+        ServerService service=instance;
+        if(service==null)return "The Bunker's service is not running";
+        synchronized(ServerService.class){
+            if(!toolsBesideGame||toolsPaused)return "";
+            service.main.removeCallbacks(service.monitor);
+            NativeBridge.stop();running=false;
+            if(!toolsBackedUp){
+                String error=NativeBridge.prepareBackup(FilesStore.data(service).getAbsolutePath());
+                if(!error.isEmpty()){
+                    // Nothing was changed yet: the game plays on as it was.
+                    error=resumeServer(service).isEmpty()?error:error+" The game could not reconnect: close it and tap Deploy.";
+                    return error;
+                }
+                toolsBackedUp=true;
+            }
+            toolsPaused=true;state="Applying a change";detail="The game returns to its title screen to load it.";
+            return "";
+        }
+    }
+    /** Pod Programs, after a change beside the running game: starts the server and sends the game to its title screen. Returns "" or why not. */
+    public static String resumeForTools(){
+        ServerService service=instance;
+        if(service==null)return "The Bunker's service is not running";
+        synchronized(ServerService.class){
+            if(!toolsPaused)return "";
+            toolsPaused=false;
+            String error=resumeServer(service);
+            if(error.isEmpty()){NativeBridge.requestTitle();state="Tools ready";detail="The game returns to its title screen to load your change.";return "";}
+            // The game cannot reach a server: close it, as before this change could run beside it.
+            android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+error);
+            toolsBesideGame=false;service.closeGame();
+            state="Tools ready";detail="Close Pod Programs to return to the game.";
+            return error;
+        }
+    }
+    private static String resumeServer(ServerService service){
+        String error=NativeBridge.start(FilesStore.data(service).getAbsolutePath(),FilesStore.root(service).getAbsolutePath());
+        if(error==null||!error.isEmpty())return error==null?"Native server did not respond":error;
+        String failure=selfTestFailure(NativeBridge.selfTest());
+        if(failure!=null){NativeBridge.stop();return failure;}
+        running=true;service.main.post(service.monitor);
+        return "";
     }
     private void closeGame() {
         ActivityManager manager=getSystemService(ActivityManager.class);

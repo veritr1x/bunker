@@ -250,7 +250,7 @@ def apply(preset: str = Form(...), configuration: str = Form("")):
             raise ValueError("Configuration must be a JSON object")
         apply_preset(preset, cfg)
         runtime.write_json(folder() / "config.json", cfg, indent=2)
-        return redirect(message="Applied. Close Pod Programs and tap Deploy.")
+        return redirect(message="Applied. " + runtime.next_step())
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -263,7 +263,7 @@ def restore(filename: str = Form(...)):
     try:
         shutil.copyfile(folder() / filename, candidate)
         activate(candidate, "Restored snapshot")
-        return redirect(message="Master data restored. Close Pod Programs and tap Deploy.")
+        return redirect(message="Master data restored. " + runtime.next_step())
     except Exception as exc:
         return redirect(error=str(exc))
     finally:

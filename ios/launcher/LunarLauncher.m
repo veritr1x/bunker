@@ -131,6 +131,53 @@ __attribute__((visibility("default"))) char *LunarToolsCloseGame(void) {
     return strdup(error.UTF8String);
 }
 
+// A change beside the running game that the game can load by signing in again
+// (android_runtime's refresh): Lunar Tear stops for the change, with the save
+// backed up once, and starts again after it, sending the game back to its
+// title screen. The game keeps running, so it needs no restart.
+static BOOL gToolsPaused = NO, gToolsBackedUp = NO;
+static NSString *StartServer(void);
+
+static NSObject *ToolsChangeLock(void) {
+    static NSObject *lock;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ lock = [NSObject new]; });
+    return lock;
+}
+
+__attribute__((visibility("default"))) char *LunarToolsPauseGame(void) {
+    NSString *error = @"";
+    @synchronized (ToolsChangeLock()) {
+        if (gToolsBesideGame && !gToolsPaused) {
+            LunarStop();
+            if (!gToolsBackedUp) error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
+            if (error.length) {
+                // Nothing was changed yet: the game plays on as it was.
+                NSString *restart = StartServer();
+                if (restart.length) gToolsBesideGame = NO;
+            } else {
+                gToolsBackedUp = YES;
+                gToolsPaused = YES;
+            }
+        }
+    }
+    return strdup(error.UTF8String);
+}
+
+__attribute__((visibility("default"))) char *LunarToolsResumeGame(void) {
+    NSString *error = @"";
+    @synchronized (ToolsChangeLock()) {
+        if (gToolsPaused) {
+            gToolsPaused = NO;
+            error = StartServer();
+            if (error.length) gToolsBesideGame = NO;  // The game cannot reach a server: it restarts after Pod Programs, as before.
+            else LunarRequestTitle();
+        }
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)]; });
+    return strdup(error.UTF8String);
+}
+
 #pragma mark - The Archive's index
 
 // As the app starts, the Archive's index is built in the background when it is
@@ -1576,7 +1623,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         @"Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. Lunar Tear, the game's server, starts with the game and runs only on this device.\n\n"
         @"Three-finger double-tap during play opens this screen. Export a save backup before deleting the app.\n\n"
         @"Import save backup (in ⋮) restores a backup from this or another device, including Android.\n\n"
-        @"Pod Programs (in ⋮) edits your saves and unlocks content. It stops Lunar Tear while open, and the game restarts afterwards to load the changes.\n\n"
+        @"Pod Programs (in ⋮) edits your saves and unlocks content. Opened while you play, it sends the game back to its title screen to load each change; opened with the game stopped, the game restarts afterwards.\n\n"
         @"Stopping Lunar Tear, importing master data or exporting saves disconnects the game. Close NieR from the app switcher and open it again to continue."];
 }
 - (void)about {
@@ -1605,7 +1652,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)confirmTools {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Pod Programs?"
-        message:@"The game keeps running while you look around. A change to your saves or content stops Lunar Tear first, and the game then restarts to load it."
+        message:@"The game keeps running while you look around and while you make changes. After a change to your saves or content, the game returns to its title screen to load it."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Open Pod Programs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
@@ -1617,6 +1664,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     // needs the game closed stops it then (LunarToolsCloseGame).
     BOOL live = Running();
     gToolsBesideGame = live;
+    gToolsPaused = NO;
+    gToolsBackedUp = NO;
     __block NSString *url = nil, *token = nil;
     NSString *original = [[NSBundle bundleForClass:self.class] pathForResource:@"original-master" ofType:@"bin.e"];
     [self busy:live ? @"Opening Pod Programs…" : @"Stopping Lunar Tear…" work:^NSString *{

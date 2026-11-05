@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"lunar-tear/server/internal/auth"
+	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/bunkerversion"
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/gacha"
@@ -183,6 +184,9 @@ func Start(dataRoot, assetRoot string) (err error) {
 		log.Printf("calendar: move to the first summons: %v", e)
 	}
 	gametime.SetCalendar(calendar)
+	// A start in the same process after a change (Pod Programs beside the
+	// running game) builds every table derived from the master data again.
+	bunkercache.Invalidate()
 	holder, e := runtime.NewHolder(filepath.Join(assetRoot, "assets", "release", MasterName))
 	if e != nil {
 		return fmt.Errorf("load master data: %w", e)
@@ -254,7 +258,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	s.grpc = grpc.NewServer(
 		// Accept keepalive pings down to 1s apart, also between calls, instead of closing the connection (gRPC default: 5 min).
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Second, PermitWithoutStream: true}),
-		grpc.ChainUnaryInterceptor(interceptor.Recover, interceptor.Platform, interceptor.Logging, interceptor.NewDiffInterceptor(store, store), interceptor.NewMissionInterceptor(store, store), interceptor.ViewTimes, interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
+		grpc.ChainUnaryInterceptor(interceptor.Recover, interceptor.Platform, interceptor.Logging, interceptor.ReturnToTitle, interceptor.NewDiffInterceptor(store, store), interceptor.NewMissionInterceptor(store, store), interceptor.ViewTimes, interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
 	service.InitBunker(holder)
 	summonNotices := map[int32]int32{}
 	for _, e := range holder.Get().GachaEntries {
@@ -387,3 +391,8 @@ func PrepareBackup(root string) string {
 	}
 	return ""
 }
+
+// RequestTitle sends the running game back to its title screen on its next
+// call, so it signs in again and loads a change made beside it (its save, the
+// master data, the calendar). See interceptor.ReturnToTitle.
+func RequestTitle() { interceptor.RequestTitle() }

@@ -81,6 +81,7 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_start(JNIEnv *en
     return result(env, error);
 }
 JNIEXPORT void JNICALL Java_org_veritr1x_bunker_NativeBridge_stop(JNIEnv *env, jclass type) { LunarStop(); }
+JNIEXPORT void JNICALL Java_org_veritr1x_bunker_NativeBridge_requestTitle(JNIEnv *env, jclass type) { LunarRequestTitle(); }
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_status(JNIEnv *env, jclass type) { return result(env, LunarStatus()); }
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_checkDatabase(JNIEnv *env, jclass type, jstring root) {
     const char *r = (*env)->GetStringUTFChars(env, root, NULL);

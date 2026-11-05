@@ -36,6 +36,12 @@ func LunarSelfTest() *C.char { return C.CString(mobile.SelfTest()) }
 //export LunarStop
 func LunarStop() { mobile.Stop() }
 
+// LunarRequestTitle sends the running game back to its title screen on its
+// next call, so it loads a change Pod Programs made beside it.
+//
+//export LunarRequestTitle
+func LunarRequestTitle() { mobile.RequestTitle() }
+
 //export LunarStatus
 func LunarStatus() *C.char { return C.CString(mobile.Status()) }
 
