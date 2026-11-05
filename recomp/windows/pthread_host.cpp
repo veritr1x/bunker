@@ -40,7 +40,7 @@ const char *const names[]={
   "pthread_cond_init","pthread_cond_destroy","pthread_cond_wait","pthread_cond_timedwait","pthread_cond_signal","pthread_cond_broadcast",
   "pthread_once","pthread_key_create","pthread_key_delete","pthread_getspecific","pthread_setspecific",
   "pthread_rwlock_init","pthread_rwlock_destroy","pthread_rwlock_rdlock","pthread_rwlock_wrlock","pthread_rwlock_unlock",
-  "pthread_kill","pthread_sigmask","pthread_atfork","clock_gettime","gettid","prctl"};
+  "pthread_kill","pthread_sigmask","pthread_atfork","clock_gettime","gettid","prctl","clock_getres"};
 template<class T>T ReadWire(const T *p){T v;recomp::ReadGuestMemory(&v,reinterpret_cast<addr_t>(p),sizeof(v));return v;}
 template<class T>void WriteWire(T *p,const T &v){recomp::WriteGuestMemory(reinterpret_cast<addr_t>(p),&v,sizeof(v));}
 uint32_t Word(const void *p){return ReadWire(static_cast<const uint32_t*>(p));}
@@ -69,6 +69,34 @@ struct LeaseEnvironment {
   LeaseEnvironment(){std::fegetenv(&fp);}
   ~LeaseEnvironment(){std::fesetenv(&fp);errno=error;SetLastError(last_error);}
 };
+// Unlike pthread object operations, clock_getres is a kernel-style libc query:
+// NULL output is allowed, and an inaccessible non-NULL output returns EFAULT.
+// Keep the write inside the same guest-memory transaction used by the runtime.
+int PublishClockResolution(AndroidTimespec *output,const AndroidTimespec &value){
+  const auto address=reinterpret_cast<addr_t>(output);
+  if(address>UINT64_MAX-sizeof(value))return 14;
+  bool copied=false;
+  recomp::WithGuestMemoryWrite(address,sizeof(value),[&]{
+    auto cursor=address;
+    const auto end=address+sizeof(value);
+    while(cursor<end){
+      MEMORY_BASIC_INFORMATION info{};
+      if(!VirtualQuery(reinterpret_cast<const void*>(cursor),&info,sizeof(info))||
+         info.State!=MEM_COMMIT||(info.Protect&(PAGE_GUARD|PAGE_NOACCESS)))return;
+      const auto protection=info.Protect&0xff;
+      if(protection!=PAGE_READWRITE&&protection!=PAGE_WRITECOPY&&
+         protection!=PAGE_EXECUTE_READWRITE&&protection!=PAGE_EXECUTE_WRITECOPY)return;
+      const auto base=reinterpret_cast<addr_t>(info.BaseAddress);
+      if(base>UINT64_MAX-info.RegionSize)return;
+      const auto next=base+info.RegionSize;
+      if(next<=cursor)return;
+      cursor=next;
+    }
+    SIZE_T count=0;
+    copied=WriteProcessMemory(GetCurrentProcess(),output,&value,sizeof(value),&count)&&count==sizeof(value);
+  });
+  return copied?0:14;
+}
 }
 struct Pthreads::NativeThreadLease::Storage {
   HANDLE handle=nullptr;uint32_t tid=0;
@@ -575,6 +603,34 @@ void Pthreads::Install(){
   add("pthread_sigmask",recomp::MakeBridge<int32_t(int32_t,void*,void*)>([](auto,auto,auto){return kNoSys;}));
   add("pthread_atfork",recomp::MakeBridge<int32_t(addr_t,addr_t,addr_t)>([](auto,auto,auto){return kNoSys;}));
   add("clock_gettime",recomp::MakeBridge<int32_t(int32_t,AndroidTimespec*)>([this](auto c,auto p){if(!p||(c!=0&&c!=1&&c!=7)){if(!impl_->error_sink){std::fprintf(stderr,"pthread clock_gettime requires guest errno sink for errors\n");std::abort();}impl_->error_sink(p?kInvalid:14);return -1;}return ClockGetTime(c,p);}));
+  auto clock_resolution=recomp::MakeBridge<int32_t(int32_t,AndroidTimespec*)>([this](auto c,auto p){
+    // Winpthreads supplies the same realtime/monotonic clocks used by the
+    // existing std::chrono-based ClockGetTime path. Its resolution query is
+    // read-only: no timer-period or system-clock setting is changed.
+    int error=0;
+    if(c!=0&&c!=1)error=kInvalid;
+    else{
+      timespec native{};
+      if(::clock_getres(c,&native))error=errno==EINVAL?kInvalid:5;
+      else if(native.tv_sec<0||native.tv_nsec<0||native.tv_nsec>=1000000000||
+              (!native.tv_sec&&!native.tv_nsec))error=5;
+      else if(p)error=PublishClockResolution(p,{static_cast<int64_t>(native.tv_sec),static_cast<int64_t>(native.tv_nsec)});
+    }
+    if(!error)return int32_t(0);
+    if(!impl_->error_sink){std::fprintf(stderr,"pthread clock_getres requires guest errno sink for errors\n");std::abort();}
+    impl_->error_sink(error);return int32_t(-1);
+  });
+  impl_->runtime.AddImport(Marker("clock_getres"),[this,bridge=std::move(clock_resolution)](State &s){
+    // Native TLS lookup can itself change LastError. Preserve the complete
+    // clock import, including current-thread lookup and guest errno delivery.
+    LeaseEnvironment preserve;
+    try{
+      auto &thread=impl_->Current();auto *previous=thread.active;
+      thread.active=&s;bridge(s);thread.active=previous;
+    }catch(const std::exception &e){
+      std::fprintf(stderr,"pthread clock_getres import: %s\n",e.what());std::abort();
+    }
+  });
   impl_->installed=true;
 }
 } // namespace bunker::windows
