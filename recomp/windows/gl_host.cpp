@@ -163,6 +163,9 @@ GL_DRAW_API(DRAW_NAME)
 "glGetObjectLabelEXT",
 "glInvalidateFramebuffer",
 "glDiscardFramebufferEXT",
+"glProgramParameteri",
+"glGetProgramBinary",
+"glProgramBinary",
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -440,7 +443,7 @@ struct GlHost::Impl {
       case GL_COMPUTE_WORK_GROUP_SIZE:return 3;
       case GL_DELETE_STATUS:case GL_LINK_STATUS:case GL_VALIDATE_STATUS:case GL_INFO_LOG_LENGTH:case GL_ATTACHED_SHADERS:
       case GL_ACTIVE_ATTRIBUTES:case GL_ACTIVE_ATTRIBUTE_MAX_LENGTH:case GL_ACTIVE_UNIFORMS:case GL_ACTIVE_UNIFORM_MAX_LENGTH:
-      case GL_PROGRAM_BINARY_LENGTH:case GL_ACTIVE_UNIFORM_BLOCKS:case GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH:
+      case GL_PROGRAM_BINARY_RETRIEVABLE_HINT:case GL_PROGRAM_BINARY_LENGTH:case GL_ACTIVE_UNIFORM_BLOCKS:case GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH:
       case GL_TRANSFORM_FEEDBACK_BUFFER_MODE:case GL_TRANSFORM_FEEDBACK_VARYINGS:case GL_TRANSFORM_FEEDBACK_VARYING_MAX_LENGTH:return 1;
     }}
     throw std::runtime_error("Unsupported GL object query output width: "+Hex(pname));
@@ -490,6 +493,35 @@ struct GlHost::Impl {
     std::vector<GLenum> values(static_cast<size_t>(count));
     std::memcpy(values.data(),bytes.data(),bytes.size());
     drawBuffers(count,values.data());
+  }
+  void ProgramBinary(GLuint program,GLenum format,addr_t input,GLsizei length,PFNGLPROGRAMBINARYPROC native){
+    // The pinned driver converts a negative length to size_t without validating
+    // it. Such a span cannot be copied under the checked guest-memory contract.
+    if(length<0)throw std::runtime_error("Negative program-binary input length is outside checked transfer scope");
+    if(!length){native(program,format,nullptr,0);return;}
+    auto bytes=Snapshot(input,static_cast<size_t>(length));
+    native(program,format,bytes.data(),length);
+  }
+  void GetProgramBinary(GLuint program,GLsizei capacity,addr_t length,addr_t format,addr_t output,PFNGLGETPROGRAMBINARYPROC native){
+    // ANGLE's serializer writes format first, binary bytes second, length last.
+    // Insufficient capacity writes format and length=0 even while raising an error.
+    std::vector<uint8_t> bytes;
+    if(capacity>0&&output){
+      if(static_cast<size_t>(capacity)>TransferLimit)throw std::runtime_error("Program-binary output exceeds64MiB scope");
+      bytes.resize(static_cast<size_t>(capacity));
+    }
+    // Neither sentinel can be a result from the pinned ANGLE serializer:
+    // its sole format is GL_PROGRAM_BINARY_ANGLE (0x93a6), lengths are nonnegative.
+    GLenum native_format=GL_NONE;GLsizei written=-1;
+    const bool okay=Call([&]{native(program,capacity,&written,&native_format,bytes.empty()?nullptr:bytes.data());});
+    if(okay&&(native_format==GL_NONE||written<0))throw std::runtime_error("Invalid native program-binary outputs");
+    if(written>0&&!bytes.empty()&&static_cast<size_t>(written)>bytes.size())throw std::runtime_error("Native program-binary length exceeds staging capacity");
+    if(native_format!=GL_NONE&&format)Range(format,sizeof(GLenum));
+    if(written>0&&!bytes.empty())Range(output,static_cast<size_t>(written));
+    if(written>=0&&length)Range(length,sizeof(GLsizei));
+    if(native_format!=GL_NONE&&format)recomp::WriteGuestMemory(format,&native_format,sizeof(native_format));
+    if(written>0&&!bytes.empty())recomp::WriteGuestMemory(output,bytes.data(),static_cast<size_t>(written));
+    if(written>=0&&length)recomp::WriteGuestMemory(length,&written,sizeof(written));
   }
   template<class Native>void FramebufferHint(GLenum target,GLsizei count,addr_t input,bool core,Native native){
     // Native target/count validation precedes all attachment-array reads.
@@ -600,6 +632,11 @@ struct GlHost::Impl {
     BindProgramResourceCommands();
     BindMappingCommands();
     Bind<void(GLsizei,addr_t)>("glDrawBuffers",[this](GLsizei n,addr_t input){DrawBuffers(n,input);});
+    Bind<void(GLuint,GLenum,GLint)>("glProgramParameteri",Symbol<PFNGLPROGRAMPARAMETERIPROC>(module,"glProgramParameteri"));
+    const auto getBinary=Symbol<PFNGLGETPROGRAMBINARYPROC>(module,"glGetProgramBinary");
+    Bind<void(GLuint,GLsizei,addr_t,addr_t,addr_t)>("glGetProgramBinary",[this,getBinary](GLuint p,GLsizei n,addr_t length,addr_t format,addr_t output){GetProgramBinary(p,n,length,format,output,getBinary);});
+    const auto setBinary=Symbol<PFNGLPROGRAMBINARYPROC>(module,"glProgramBinary");
+    Bind<void(GLuint,GLenum,addr_t,GLsizei)>("glProgramBinary",[this,setBinary](GLuint p,GLenum format,addr_t input,GLsizei n){ProgramBinary(p,format,input,n,setBinary);});
     const auto invalidate=Symbol<PFNGLINVALIDATEFRAMEBUFFERPROC>(module,"glInvalidateFramebuffer");
     Bind<void(GLenum,GLsizei,addr_t)>("glInvalidateFramebuffer",[this,invalidate](GLenum target,GLsizei n,addr_t input){FramebufferHint(target,n,input,true,invalidate);});
     const auto discard=Symbol<PFNGLDISCARDFRAMEBUFFEREXTPROC>(module,"glDiscardFramebufferEXT");

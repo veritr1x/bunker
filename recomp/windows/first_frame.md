@@ -3,7 +3,28 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed original attempt: `work/windows-first-frame-label-query1`,
+Latest completed original attempt: `work/windows-first-frame-fbo-invalidate1`,
+manifest `d47440efb7473d7e31ba431772b532713764de2044195f344f94a36063782acd`,
+EXE `e4f5afcc255dc91c803bcca5d1a5a0658f384535c9a7bcd5156019749e83dc40`.
+Four renders return. The reached core `glInvalidateFramebuffer` now returns;
+the game compiles its original vertex and fragment shaders, queries their
+status and creates a program. It naturally exits native3 at null slot220,
+LR `70493e8c`, with program11/pname `8257`/value1: `glProgramParameteri` for
+the binary-retrieval hint. The same original function has cache read/write
+helpers using `glProgramBinary` and `glGetProgramBinary`, so those three core
+APIs form the next coherent repair. Binary payload/cache-branch execution was
+not logged. No draw, swap or image is recorded. Selected runtime and unchanged
+original-parent pre/post checks pass; historical rehash flags remain false.
+Log SHA256 `bb61de6164e29bf971dd77d6f088c469ff8493f7e1bfc6863ecb29d0968cdadf`;
+audit `4d9ca082660ef32104bb93f2806877b5dd0a4b9e040c803f688400dc2c01872f`.
+Boundary `work/fbo-invalidate1-program-boundary1/acceptance.json`, SHA256
+`5f1de7ce9b8c8e08a34cee058fece4d238c1bcf08b715779b77bee2156a17859`.
+The [program-cache component gate](gl_program_cache.md) now passes1379 checks
+and68 NDK calls, including same-driver opaque binary round-trips, native GPU
+draws and real insufficient-capacity output writes. Original integration remains
+pending; no first frame is claimed.
+
+Preceding completed original attempt: `work/windows-first-frame-label-query1`,
 manifest `8ea67647f4d5f63b600c8fc4d779f26656971a8a78d534c1c8b5d86c7ceda302`,
 EXE `03807d4928c9e79639f52ce704f9127f92d5400eba7e478016884c6d81e46b99`.
 Four renders return. Both reached EXT object-label queries now return, and
