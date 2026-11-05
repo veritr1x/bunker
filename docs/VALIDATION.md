@@ -1,5 +1,33 @@
 # Validation
 
+## Mods — 2026-11-05
+
+- Go tests: `internal/mods` (no file means no mods, the file is read again
+  when it changes, an invalid file turns every mod off), `questflow` (the
+  multiplier scales consumables, materials and free gems but not memoirs,
+  costumes or important items, nor Dark Memory quests; gold; the player
+  level never falls back), `service` (unlimited stock only for daily,
+  weekly and monthly restocks; Lost Item gems only for Lost Items, by
+  weight), `gacha` (owned ★4 swapped for missing ones, also within one
+  summon, only in premium summons and only with the mod; medals traded in
+  whole hundreds for paid gems and Mama Points), `runtime` (stamina items
+  to gold and tickets to gems only with their mods and only for items the
+  master data has). Python: the Mods page and mods.json (8 tests).
+- Android 16 emulator, the save from 2026-11-03, the game running beside
+  Pod Programs: the Comfort preset saved with no prompt and no restart.
+  In the Premium Shop, Anniversary Eve Pack D (lifetime stock 3, with 50
+  stamina items, 30 skip tickets and 980 paid gems) gave 6,000 gold instead
+  of the stamina items, the tickets and the gems; Remaining went 3 to 2.
+  Skipping Story Quest 1-3 cost no stamina (999 stayed 999), paid 1,000
+  gold (100 ×10) and showed its two drops as 10 each. A 10-summon of
+  Mama's Exciting Festival ran with every mod on.
+- That skip also showed the save's level 100 falling to 1: the save had
+  been edited to level 100 with 0 exp. With the level set back to 100 and
+  this build, the same skip showed Player Lv. 100 ▶ 100 (exp 40 → 80).
+- Not checked in the game: restocking shop items, tickets arriving as gems,
+  Lost Items, a duplicate ★4 swap and the medal trade (the summon used has
+  no medals). Unit tests cover them.
+
 ## Changes beside the running game — 2026-11-05
 
 - The 3.7.1 client's error handling, read from `libil2cpp.so` with the NDK's
