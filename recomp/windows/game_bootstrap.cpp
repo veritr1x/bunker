@@ -1097,7 +1097,12 @@ int main(int argc,char **argv){
           }
           if(actual_render&&target==actual_render)std::fprintf(stderr,"Game bootstrap: before original nativeRender IL2CPP constructors=%zu refs=%zu\n",il2cpp_ledger.constructed,modules.ReferenceCount("libil2cpp.so"));
           std::fprintf(stderr,"Unity bootstrap: UnityMain host-thread=%lu native=%#llx argc=%zu env=%#llx receiver=%#llx display=%#llx surface=%#llx\n",GetCurrentThreadId(),static_cast<unsigned long long>(target),args.size(),static_cast<unsigned long long>(args.at(0)),static_cast<unsigned long long>(args.at(1)),static_cast<unsigned long long>(args.size()>2?args[2]:0),static_cast<unsigned long long>(args.size()>3?args[3]:0));
-          auto result=threads.Run(target,args);std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));
+          auto result=threads.Run(target,args);
+          if(first_frame&&actual_render&&target==actual_render&&render_observation_calls==4&&ObserveFourthFrameThread()){
+            FourthFrameNativeEnvironment environment;fourth_frame_observation_thread.store(0,std::memory_order_relaxed);
+            std::fputs("Fourth-frame observation: original render returned; exhaustive JNI/synchronization observation completed\n",stderr);
+          }
+          std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));
           if(mute_audio&&target==actual_resume){
             // An explicit user control after resume, using the worker's actual
             // JNI environment/receiver. It is not a synthetic volume event.
