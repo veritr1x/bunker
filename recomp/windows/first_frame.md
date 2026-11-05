@@ -25,6 +25,16 @@ its leading ASCII space), LR `70b5680c`: outside the qualified scanner profiles.
 The next work implements that original HTTP status parser with Bionic-compatible
 numeric conversion and verifies it with actual Android/Windows callers.
 
+The connected four-format HTTP/RTSP caller cohort is now implemented in one
+LibC source change. Its 208 complete Android/Windows records match exactly,
+including errno and output canaries, without normalization. Focused checks
+pass1384 with228 actual NDK calls; the existing scanner regression passes387
+checks with51 calls. See [the scanner qualification](libc_http_scan.md).
+Source receipt `work/http-scanner-source-preparation2/source-proof.json`, SHA256
+`f6071fcd7b1275877769c897c1c05c134666bb4ef08f3d2d18d6b1eab547478b`,
+binds that one-file inverse to the immutable parent. The next full executable
+and original-game scanner result remain pending.
+
 Overlay SHA256 `25d625c39abe4f9e67826d53fcd4275d645e9e48227a4ce1564db9311184e162`;
 EXE `61bfcf119594fb42e7abb8b27623a3a874b568c0aaafd53861b7e79ef092c1cd`;
 bootstrap `9477fcecda97b4a9f7512d456efc84dd70416331fbe52dc01f1903bdc9daa76b`;

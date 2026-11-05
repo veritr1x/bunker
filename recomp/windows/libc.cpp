@@ -550,26 +550,74 @@ int32_t LibC::Scan(const char *input,const char *format,addr_t output0,addr_t ou
   libc_calendar::NativeEnvironment native;
   const auto pattern=pm::String(format);
   if(pattern=="%llu")return ScanUnsignedLongLong(input,format,reinterpret_cast<uint64_t*>(output0));
-  enum class Profile { Scheme,Authority,NoScheme,Bracket };
+  enum class Profile { Scheme,Authority,NoScheme,Bracket,HttpStatus };
   Profile profile;
   size_t conversions;
   if(pattern=="%15[^:]:%[^\n]"){profile=Profile::Scheme;conversions=2;}
   else if(pattern=="%15[^\n:]:%3[/]%[^\n/?#]%[^\n]"){profile=Profile::Authority;conversions=4;}
   else if(pattern=="%[^\n/?#]%[^\n]"){profile=Profile::NoScheme;conversions=2;}
   else if(pattern=="[%*45[0123456789abcdefABCDEF:.]%c"){profile=Profile::Bracket;conversions=1;}
+  else if(pattern==" HTTP/%d.%d %d"||pattern==" RTSP/%d.%d %3d"){profile=Profile::HttpStatus;conversions=3;}
+  else if(pattern==" HTTP/2 %d"||pattern==" HTTP %3d"){profile=Profile::HttpStatus;conversions=1;}
   else throw std::runtime_error("sscanf format is outside the exact qualified profiles");
   // Never expose guest output pointers to the native variadic CRT. Snapshot
   // input and format before output effects, including input/format aliases.
   const auto text=pm::String(input);
   if(text.size()==SIZE_MAX)throw std::overflow_error("sscanf staging size overflows");
   std::array<std::vector<char>,4> buffers;
-  for(size_t i=0;i<conversions;++i)buffers[i].resize(text.size()+1);
+  for(size_t i=0;i<conversions;++i)buffers[i].resize(profile==Profile::HttpStatus?sizeof(uint32_t):text.size()+1);
   int result;
   switch(profile){
     case Profile::Scheme:result=std::sscanf(text.c_str(),"%15[^:]:%[^\n]",buffers[0].data(),buffers[1].data());break;
     case Profile::Authority:result=std::sscanf(text.c_str(),"%15[^\n:]:%3[/]%[^\n/?#]%[^\n]",buffers[0].data(),buffers[1].data(),buffers[2].data(),buffers[3].data());break;
     case Profile::NoScheme:result=std::sscanf(text.c_str(),"%[^\n/?#]%[^\n]",buffers[0].data(),buffers[1].data());break;
     case Profile::Bracket:result=std::sscanf(text.c_str(),"[%*45[0123456789abcdefABCDEF:.]%c",buffers[0].data());break;
+    case Profile::HttpStatus: {
+      // Android13 vfscanf uses a 512-byte numeric token and strtoimax (LP64),
+      // then narrows the result to int32. Native Windows %d has different
+      // overflow behavior. Only the four admitted original HTTP/RTSP formats
+      // reach this literal/whitespace/%d interpreter; %3d includes the sign in
+      // its three-byte width. This does not admit arbitrary scanf grammar.
+      size_t cursor=0,format_cursor=0;
+      auto whitespace=[&]{while(cursor<text.size()&&Space(static_cast<unsigned char>(text[cursor])))++cursor;};
+      result=0;
+      while(format_cursor<pattern.size()){
+        const auto expected=static_cast<unsigned char>(pattern[format_cursor++]);
+        if(Space(expected)){whitespace();continue;}
+        if(expected!='%'){
+          if(cursor==text.size()){if(!result)result=-1;break;}
+          if(static_cast<unsigned char>(text[cursor])!=expected)break;
+          ++cursor;
+          continue;
+        }
+        size_t width=512;
+        if(pattern[format_cursor]=='3'){width=3;++format_cursor;}
+        if(pattern[format_cursor++]!='d')throw std::logic_error("invalid admitted HTTP scanner conversion");
+        whitespace();
+        if(cursor==text.size()){if(!result)result=-1;break;}
+        const auto first=cursor;
+        const bool negative=text[cursor]=='-';
+        if(text[cursor]=='+'||text[cursor]=='-')++cursor;
+        const uint64_t limit=negative?(UINT64_C(1)<<63):uint64_t(INT64_MAX);
+        uint64_t value=0;
+        bool any=false,overflow=false;
+        while(cursor<text.size()&&cursor-first<width){
+          const auto c=static_cast<unsigned char>(text[cursor]);
+          if(c<'0'||c>'9')break;
+          any=true;
+          const unsigned digit=c-'0';
+          if(value>(limit-digit)/10)overflow=true;
+          else if(!overflow)value=value*10+digit;
+          ++cursor;
+        }
+        if(!any)break;
+        if(overflow){value=limit;Fail(34);}
+        const auto bits=static_cast<uint32_t>(negative?uint64_t(0)-value:value);
+        std::memcpy(buffers[result].data(),&bits,sizeof(bits));
+        ++result;
+      }
+      break;
+    }
   }
   if(result<EOF||result>static_cast<int>(conversions))throw std::runtime_error("native sscanf returned an invalid assignment count");
   const addr_t outputs[]={output0,output1,output2,output3};
@@ -578,7 +626,7 @@ int32_t LibC::Scan(const char *input,const char *format,addr_t output0,addr_t ou
   // a preceding assignment was published. Suppressed/unassigned fields have no
   // output access. Pointer misuse remains outside the valid C scanf contract.
   for(int i=0;i<result;++i){
-    const auto size=profile==Profile::Bracket?size_t{1}:std::strlen(buffers[i].data())+1;
+    const auto size=profile==Profile::HttpStatus?sizeof(uint32_t):profile==Profile::Bracket?size_t{1}:std::strlen(buffers[i].data())+1;
     const auto address=outputs[i];
     if(!address||address>std::numeric_limits<addr_t>::max()-size)throw std::runtime_error("sscanf assigned output address/range is invalid");
     bool copied=false;
