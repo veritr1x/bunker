@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Mods{% endblock %}
+{% block content %}
+<h1>Mods</h1>
+<p>Changes to how the game plays, for every player on this device. Every mod is off until you turn it on; turning it off again
+  goes back to the original game. Mods never change your save on their own, and they apply without a restart.</p>
+
+<h2 class="bracket-header">Preset</h2>
+<form action="/mods/preset" method="post" class="panel">
+  {% for key, (title, what, _) in presets.items() %}
+  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
+  {% endfor %}
+  {% if not current %}<p class="credit">Current: your own choice of mods below.</p>{% endif %}
+  <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Use preset</button></div>
+</form>
+
+<form action="/mods" method="post">
+  {% for group, mods in groups %}
+  <h2 class="bracket-header">{{ group }}</h2>
+  <div class="panel">
+    {% for key, title, what, when in mods %}
+    {% if key == "rewardMultiplier" %}
+    <div class="setting">
+      <label for="{{ key }}">{{ title }}</label>
+      <select name="{{ key }}" id="{{ key }}">
+        {% for n in range(1, max_multiplier + 1) %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>{% if n == 1 %}Off (×1){% else %}×{{ n }}{% endif %}</option>{% endfor %}
+      </select>
+      <span class="note">{{ what }} {{ when }}</span>
+    </div>
+    {% else %}
+    <label class="choice"><input type="checkbox" name="{{ key }}"{% if settings[key] %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }} {{ when }}</span></span></label>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+  <div class="actions"><button type="submit">Save</button></div>
+</form>
+<p class="credit">Most mods come from the <a href="{{ source }}">Lunar Tear Comfort Mod</a> by NavHobbyDev (MIT).</p>
+{% endblock %}

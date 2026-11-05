@@ -23,6 +23,11 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   - **Players**: choose which player the game signs in as, or start a new one.
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
   - **Summon rates**: the odds of the next summons.
+  - **Mods**: optional changes to how the game plays, all off until you turn them on: free
+    stamina, stamina items and premium tickets that arrive as gold and gems, unlimited restocking
+    shop items, Lost Items that give gems, quest rewards ×2 to ×10, no duplicate ★4 in summons,
+    and summon medals traded for gems. "Comfort" turns them all on. Most come from the
+    [Lunar Tear Comfort Mod](https://github.com/NavHobbyDev/lunar-tear-comfort-mod) by NavHobbyDev.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking, battles and the Flying Mama minigame keep their normal speed.
     Experimental: it uses more battery.
