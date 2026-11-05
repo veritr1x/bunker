@@ -3,7 +3,23 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest completed original attempt: `work/windows-first-frame-draw-buffers1`,
+Latest completed original attempt: `work/windows-first-frame-label-query1`,
+manifest `8ea67647f4d5f63b600c8fc4d779f26656971a8a78d534c1c8b5d86c7ceda302`,
+EXE `03807d4928c9e79639f52ce704f9127f92d5400eba7e478016884c6d81e46b99`.
+Four renders return. Both reached EXT object-label queries now return, and
+the next original framebuffer-preparation call naturally exits native3 at
+LR `70499978`. Slot `228` is loaded for an indirect call; the original loader
+fills it with core `glInvalidateFramebuffer` or the EXT discard fallback.
+The selected variant is unlogged. Actual target is `8d40`, count3, and the
+logged stack array contains `8ce0/8d00/8d20`. No draw, swap or image is recorded.
+Log SHA256 `bcd4f78d9c2b69e7ec8cb757522752b800d4fef5b423e4de01151b210aa9127f`;
+audit `a6ea2fb4e56d4ddf942b7e54437924a75be6e62460fc68686f54953754b3f802`.
+The [selected-runtime launcher](qualified_runtime_run.md) passes its current
+runtime pre/post checks and the unchanged original-parent checks. Its historical
+rehash flags are deliberately false; the completed build retained full checks.
+Framebuffer invalidation/discard integration is pending; no first frame is claimed.
+
+Preceding completed original attempt: `work/windows-first-frame-draw-buffers1`,
 manifest `1d825a0954d73363ccdbf0756d164c15216f35ddec9e3df54c70f00df54ccebd`,
 EXE `a878e3aee876e861785f8cd29cdd4799a4112699a48fbc71d32c3b938cc3ea0c`.
 Four renders return. The fifth calls the real `glDrawBuffers` bridge, then
