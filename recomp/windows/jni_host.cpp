@@ -56,7 +56,7 @@ bool SupportedVersion(int32_t version) { return version == 0x10001 || version ==
 }  // namespace
 
 struct Host::Object {
-  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray, kByteArray } kind = kInstance;
+  enum Kind { kClass, kString, kInstance, kThrowable, kBuilder, kObjectArray, kByteArray, kReflectedMethod } kind = kInstance;
   std::string class_name, message;
   bool message_present = true;
   uint32_t identity_hash = 0;
@@ -65,6 +65,8 @@ struct Host::Object {
   std::u16string text;
   std::vector<std::shared_ptr<Object>> elements;
   std::vector<uint8_t> bytes;
+  addr_t reflected_method=0;
+  std::shared_ptr<Object> reflected_declaring_class;
   ~Object(){if(!bytes.empty())recomp::WithGuestMemoryWrite(reinterpret_cast<addr_t>(bytes.data()),bytes.size(),[&]{std::vector<uint8_t>().swap(bytes);});}
   std::map<addr_t, std::shared_ptr<Object>> object_fields;
   std::map<addr_t, uint64_t> primitive_fields;
@@ -160,6 +162,15 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   DefineClass("java/lang/BootClassLoader", {}, "java/lang/ClassLoader", true);
   DefineInterface("java/lang/Cloneable",{});
   DefineInterface("java/io/Serializable",{});
+  DefineInterface("java/lang/reflect/AnnotatedElement",{});
+  DefineInterface("java/lang/reflect/Member",{});
+  DefineInterface("java/lang/reflect/GenericDeclaration",{});
+  DefineClass("java/lang/reflect/AccessibleObject",{},"java/lang/Object",true,{"java/lang/reflect/AnnotatedElement"});
+  DefineClass("java/lang/reflect/Executable",{},"java/lang/reflect/AccessibleObject",true,{"java/lang/reflect/Member","java/lang/reflect/GenericDeclaration"});
+  // JNI conversion objects retain actual metadata. Other reflection execution
+  // remains unported; explicit overrides prevent Object defaults leaking out.
+  for(const char *name:{"java/lang/reflect/Method","java/lang/reflect/Constructor"})
+    DefineClass(name,{{"toString","()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"}},"java/lang/reflect/Executable",true);
   if(!FindReferenceArrayClass("[B"))throw std::logic_error("byte array class catalog initialization failed");
   DefineClass("java/lang/String", {{"toString", "()Ljava/lang/String;"},{"equals","(Ljava/lang/Object;)Z"},
       {"<init>","([BLjava/lang/String;)V"},{"getBytes","(Ljava/lang/String;)[B"}}, "java/lang/Object", true);
@@ -328,7 +339,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
   std::vector<std::string> arguments;size_t at=1;
   while(at<signature.size()&&signature[at]!=')'){
     if(arguments.size()==3)throw std::invalid_argument("host handlers support at most three fixed arguments");
-    if(signature[at]=='I'||signature[at]=='J'||signature[at]=='F'){arguments.push_back(signature.substr(at,1));++at;continue;}
+    if(signature[at]=='Z'||signature[at]=='I'||signature[at]=='J'||signature[at]=='F'){arguments.push_back(signature.substr(at,1));++at;continue;}
     if(signature[at]=='['){
       const auto start=at;while(at<signature.size()&&signature[at]=='[')++at;
       if(at==signature.size()||(signature[at]!='L'&&signature[at]!='B'))throw std::invalid_argument("host handlers support only reference/byte-array arguments");
@@ -336,7 +347,7 @@ void Host::DefineHandler(const std::string &class_name,const std::string &name,c
       auto descriptor=signature.substr(start,end-start+1);if(!FindReferenceArrayClass(descriptor))throw std::invalid_argument("unknown or invalid host array argument class");
       arguments.push_back(std::move(descriptor));at=end+1;continue;
     }
-    if(signature[at]!='L')throw std::invalid_argument("host handlers support only references, jint, jlong and jfloat arguments");
+    if(signature[at]!='L')throw std::invalid_argument("host handlers support only references, jboolean, jint, jlong and jfloat arguments");
     auto end=signature.find(';',at);if(end==std::string::npos)throw std::invalid_argument("invalid host argument descriptor");
     auto type=signature.substr(at+1,end-at-1);if(!classes_.count(type))throw std::invalid_argument("unknown host argument class");arguments.push_back(signature.substr(at,end-at+1));at=end+1;
   }
@@ -564,7 +575,7 @@ addr_t Host::MethodId(addr_t handle, const char *name, const char *signature, bo
   }
   Raise("java/lang/NoSuchMethodError", method_name + method_signature); return 0;
 }
-bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="I"||type=="J"||type=="F")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;const auto expected=type.front()=='['?type:type.substr(1,type.size()-2);if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,expected)){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
+bool Host::ValidateArguments(const Method &method,const MethodArguments &arguments){for(size_t i=0;i<method.argument_types.size();++i){const auto &type=method.argument_types[i];if(type=="Z"||type=="I"||type=="J"||type=="F")continue;auto argument=Get(arguments[i],true);if(Current().exception)return false;const auto expected=type.front()=='['?type:type.substr(1,type.size()-2);if(argument&&!Assignable(argument->kind==Object::kClass?"java/lang/Class":argument->class_name,expected)){Raise("java/lang/IllegalArgumentException","JNI method argument type mismatch");return false;}}return true;}
 addr_t Host::ObjectClass(const std::shared_ptr<Object> &object){
   const auto &name=object->kind==Object::kClass?std::string("java/lang/Class"):object->class_name;
   auto found=classes_.find(name);if(found==classes_.end()){Raise("java/lang/NoClassDefFoundError",name);return 0;}
@@ -705,7 +716,7 @@ addr_t Host::InvokeHandler(ProviderLock &lock,std::shared_ptr<Object> receiver,c
   std::shared_ptr<Object> returned,exception;std::exception_ptr failure;addr_t result=0;
   try{
     auto callee_receiver=Local(receiver);
-    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="I"&&method.argument_types[i]!="J"&&method.argument_types[i]!="F"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
+    for(size_t i=0;i<method.argument_types.size();++i)if(method.argument_types[i]!="Z"&&method.argument_types[i]!="I"&&method.argument_types[i]!="J"&&method.argument_types[i]!="F"){retained_arguments[i]=Get(arguments[i],true);callee[i]=Local(retained_arguments[i]);}
     lock.unlock();
     try{result=handler(callee_receiver,callee);}catch(...){failure=std::current_exception();}
     lock.lock();exception=thread.exception;
@@ -776,16 +787,18 @@ bool Host::Arguments(State &state,size_t slot,size_t count,MethodArguments &argu
   if(count>arguments.size())throw std::logic_error("unsupported JNI host argument count");
   const bool direct=slot==28||slot==34||slot==114, array=slot==30||slot==36||slot==116;
   auto floating=[&](size_t i){return method&&i<method->argument_types.size()&&method->argument_types[i]=="F";};
+  auto boolean=[&](size_t i){return method&&i<method->argument_types.size()&&method->argument_types[i]=="Z";};
+  auto scalar=[&](size_t i,addr_t value){return boolean(i)?value&addr_t{0xff}:value;};
   auto narrowed=[](double wide)->addr_t{float value=static_cast<float>(wide);uint32_t bits;std::memcpy(&bits,&value,sizeof(bits));return bits;};
   if(direct){
     const addr_t regs[]={state.gpr.x3.qword,state.gpr.x4.qword,state.gpr.x5.qword};size_t gp=0,fp=0;
-    for(size_t i=0;i<count;++i)if(floating(i)){double wide;std::memcpy(&wide,&state.simd.v[fp++],sizeof(wide));arguments[i]=narrowed(wide);}else arguments[i]=regs[gp++];
+    for(size_t i=0;i<count;++i)if(floating(i)){double wide;std::memcpy(&wide,&state.simd.v[fp++],sizeof(wide));arguments[i]=narrowed(wide);}else arguments[i]=scalar(i,regs[gp++]);
     return true;
   }
   auto pointer=state.gpr.x3.qword;
   if(!pointer){Raise("java/lang/IllegalArgumentException","null JNI argument list");return false;}
   if(pointer%8||pointer>UINT64_MAX-(array?count*8:32)){Raise("java/lang/IllegalArgumentException","invalid JNI argument-list alignment/range");return false;}
-  if(array){for(size_t i=0;i<count;++i)arguments[i]=floating(i)?Read<uint32_t>(pointer+i*8):Read<addr_t>(pointer+i*8);return true;}
+  if(array){for(size_t i=0;i<count;++i)arguments[i]=floating(i)?Read<uint32_t>(pointer+i*8):boolean(i)?Read<uint8_t>(pointer+i*8):Read<addr_t>(pointer+i*8);return true;}
   // Android AAPCS64 va_list: stack, gr_top, vr_top, gr_offs, vr_offs.
   struct VaList {addr_t stack,gr_top,vr_top;int32_t gr_offs,vr_offs;};static_assert(sizeof(VaList)==32);
   auto list=Read<VaList>(pointer);
@@ -798,7 +811,7 @@ bool Host::Arguments(State &state,size_t slot,size_t count,MethodArguments &argu
       if(!list.stack||list.stack%8||list.stack>UINT64_MAX-8){Raise("java/lang/IllegalArgumentException","invalid JNI va_list stack cursor");return false;}
       address=list.stack;list.stack+=8;
     }
-    arguments[i]=fp?narrowed(Read<double>(address)):Read<addr_t>(address);
+    arguments[i]=fp?narrowed(Read<double>(address)):scalar(i,Read<addr_t>(address));
   }
   return true;
 }
@@ -870,6 +883,38 @@ void Host::InvokeEnv(size_t slot, State &s) {
       auto found = a ? classes_.find(name) : classes_.end();
       if (found == classes_.end()) { Raise("java/lang/NoClassDefFoundError", name); s.gpr.x0.qword = 0; }
       else s.gpr.x0.qword = Local(found->second->object);
+      return;
+    }
+    case 7: {
+      s.gpr.x0.qword=0;
+      if(Current().exception)return;
+      auto object=Get(a);if(!object)return;
+      auto found=method_ids_.find(object->reflected_method);
+      if(object->kind!=Object::kReflectedMethod||found==method_ids_.end()||
+         object->reflected_declaring_class!=classes_.at(found->second->owner)->object||
+         object->class_name!=(found->second->declaration.name=="<init>"?"java/lang/reflect/Constructor":"java/lang/reflect/Method")){
+        Raise("java/lang/IllegalArgumentException","FromReflectedMethod requires a backed Method or Constructor");return;
+      }
+      s.gpr.x0.qword=found->second->id;return;
+    }
+    case 9: {
+      s.gpr.x0.qword=0;
+      if(Current().exception)return;
+      auto *clazz=GetClass(a);if(!clazz)return;
+      auto found=method_ids_.find(b);
+      if(found==method_ids_.end()){Raise("java/lang/NoSuchMethodError","invalid reflected JNI method ID");return;}
+      const auto &method=*found->second;
+      if(method.declaration.name=="<clinit>"||method.declaration.is_static!=bool(c&0xff)||
+         (method.declaration.name=="<init>"&&clazz->object->class_name!=method.owner)||
+         !Assignable(clazz->object->class_name,method.owner)){
+        Raise("java/lang/IllegalArgumentException","ToReflectedMethod class/static mismatch");return;
+      }
+      try{
+        auto object=std::make_shared<Object>();object->kind=Object::kReflectedMethod;
+        object->class_name=method.declaration.name=="<init>"?"java/lang/reflect/Constructor":"java/lang/reflect/Method";
+        object->reflected_method=method.id;object->reflected_declaring_class=classes_.at(method.owner)->object;
+        s.gpr.x0.qword=Local(object);
+      }catch(const std::bad_alloc&){Raise("java/lang/OutOfMemoryError","reflected method allocation failed");}
       return;
     }
     case 10: { auto *clazz = GetClass(a); s.gpr.x0.qword = clazz && !clazz->superclass.empty() ? Local(classes_.at(clazz->superclass)->object) : 0; return; }

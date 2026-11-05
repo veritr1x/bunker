@@ -30,7 +30,8 @@ class Host {
   struct Object;
   class ProviderLock;
  public:
-  // Descriptor-checked reference/jint/jlong/jfloat arguments. I/F use low32
+  // Descriptor-checked reference/jboolean/jint/jlong/jfloat arguments. Z uses
+  // its JNI low8 bits (promoted to int in direct/V calls). I/F use low32
   // bits (F is raw binary32, not a numeric integer); J retains all64 bits.
   // Reference arrays retain their full descriptor. Three Java arguments max;
   // actual AAPCS64 GP/FP allocation is separate. Byte arrays are supported;

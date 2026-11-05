@@ -15,6 +15,7 @@
 #include "java_native_loader.h"
 #include "unity_network_proxy.h"
 #include "java_tls_trust.h"
+#include "android_choreographer.h"
 #include "unicode.h"
 #include "apk_assets.h"
 #include "native_window.h"
@@ -94,6 +95,10 @@ const char *stage="setup";
 std::atomic<bool> jni_diagnostic_reached{false};
 std::atomic<bool> init_java_diagnostic_active{false};
 std::atomic<size_t> init_java_errors{0};
+struct GameChoreographerParent {uint64_t token=0,mask=0;};
+struct GameChoreographerWorker {uint64_t token=0;const void *parent=nullptr;bool registered=false;};
+struct GameUnityLooperDispatcher {std::mutex mutex;bunker::windows::UnitySurfaceLifecycle *owner=nullptr;};
+thread_local GameChoreographerWorker game_choreographer_worker;
 std::atomic<DWORD> fourth_frame_observation_thread{0};
 std::atomic<uint64_t> fourth_frame_observation_token{0};
 bool ObserveFourthFrameThread(){return fourth_frame_observation_thread.load(std::memory_order_relaxed)==GetCurrentThreadId();}
@@ -341,7 +346,10 @@ int main(int argc,char **argv){
     context_config.read_android_id=MakeWindowsAndroidIdReader(context_config.package_name);
     context_config.apk_assets=std::make_shared<ApkAssets>(apk);
     stage="Android Context setup";AndroidContext context(java,context_config);
+    std::atomic<uint64_t> choreographer_refresh_ratio{0};
     WindowsDisplayService displays(java,[&](const WindowsDisplayService::DisplayInfo &info){
+      if(info.id==0&&info.refresh_numerator&&info.refresh_denominator)
+        choreographer_refresh_ratio.store((uint64_t(info.refresh_numerator)<<32)|info.refresh_denominator,std::memory_order_relaxed);
       if(first_frame)std::fprintf(stderr,"First frame: Windows display id=%d pixels=%dx%d rotation=%d densityDpi=%d refresh=%u/%u appOffsetNs=%lld nominalPresentationBudgetNs=%lld; native-port scheduling policy, SDR window capability\n",info.id,info.width,info.height,info.rotation,info.density_dpi,info.refresh_numerator,info.refresh_denominator,(long long)info.app_vsync_offset_ns,(long long)info.nominal_presentation_budget_ns);
     });
     stage="SharedPreferences setup";
@@ -360,7 +368,7 @@ int main(int argc,char **argv){
     };
     std::unique_ptr<AndroidSharedPreferences> preferences;
     {LocalFrame locals(java);preferences=std::make_unique<AndroidSharedPreferences>(java,context.Activity(),context_config.package_name,std::move(preferences_backend));}
-    stage="interface proxy setup";JniInterfaceProxy interface_proxies(java);
+    std::unique_ptr<JniInterfaceProxy> interface_proxies;
     // The input APK was SHA256-verified above. No extra split/JAR/DEX sources or
     // dynamic Java code loader are exposed by this diagnostic's closed catalog.
     stage="asset-pack wrapper setup";AndroidAssetPackWrapper asset_packs(java,{kApkSha256,"b2be67185a866f3489146d9864ca40d1de5c2668037f026609890afe12940689",true});
@@ -454,6 +462,7 @@ int main(int argc,char **argv){
     // Declared before Drain so all guest workers stop before this service is revoked.
     std::unique_ptr<JavaNativeLoader> native_loader;
     std::unique_ptr<UnityNetworkProxy> network_proxy;
+    std::unique_ptr<AndroidChoreographer> choreographer;
     modules.SetProgramHeaderRunner([&](addr_t callback,addr_t info,uint64_t size,addr_t data){
       Require(Translated(callback),"program-header callback is not translated");
       {
@@ -588,7 +597,8 @@ int main(int argc,char **argv){
     affinities.SetErrorSink(error);
     recomp::Runtime affinity_bridges;
     Zlib zlib([&](addr_t entry,const std::vector<addr_t> &args){return threads.Run(entry,args);});
-    struct Drain {Pthreads &threads;std::function<void()> close;~Drain(){if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{}};
+    struct Drain {Pthreads &threads;std::function<void()> before,close;~Drain(){if(before)before();if(threads.Shutdown())std::abort();if(close)close();}} drain{threads,{},{}};
+    drain.before=[&]{if(choreographer)try{choreographer->Stop();}catch(const std::exception &e){std::fprintf(stderr,"Game Choreographer shutdown failed:%s\n",e.what());std::abort();}};
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     if(collector)drain.close=[&]{collector->CloseAfterShutdown();main_collector->Close();worker_collector->Close();};
 #endif
@@ -676,6 +686,57 @@ int main(int argc,char **argv){
     }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: module bridge %s failed:%s\n",name,e.what());std::abort();}});}
     if(init_jni)InstallDiagnosticJni(java,runtime);else java.Install(runtime);
     zlib.Install(runtime);
+    AndroidChoreographer::Config choreographer_config;
+    choreographer_config.prepare_worker=[&](const std::u16string&)->AndroidChoreographer::Config::WorkerLease{
+      GameWorkerObservation::NativeEnvironment native;
+      auto parent=std::make_shared<GameChoreographerParent>();parent->token=threads.Self();
+      Require(bool(process_signals.Lookup(parent->token)),"Choreographer creator has no real signal lifetime");
+      Require(!process_signals.Mask(parent->token,0,nullptr,&parent->mask),"cannot capture Choreographer creator signal mask");return parent;
+    };
+    auto leave_choreographer_worker=[&](const AndroidChoreographer::Config::WorkerLease &lease){
+      GameWorkerObservation::NativeEnvironment native;
+      auto &worker=game_choreographer_worker;
+      Require(worker.token&&worker.parent==lease.get(),"Choreographer worker lease/lifetime mismatch");
+      const auto token=worker.token;std::exception_ptr failure;
+      try{
+        if(tls_audit.PendingModuleCallbacks(threads))Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"Choreographer TLS callback outlived its original module");
+        Require(!threads.ReleaseCurrent(),"Choreographer translated stack/TLS retirement failed");
+      }catch(...){failure=std::current_exception();}
+      try{if(java.EnvAddress()){State state{};state.gpr.x0.qword=java.VmAddress();java.InvokeVm(5,state);Require(int32_t(state.gpr.x0.dword)==bunker::jni::kOk,"Choreographer VM detach failed");}}catch(...){if(!failure)failure=std::current_exception();}
+      if(jumps)jumps->DropThread(token,token);
+      if(worker.registered&&process_signals.DropThread(token)&&!failure)failure=std::make_exception_ptr(std::runtime_error("Choreographer signal lifetime retirement failed"));
+      worker={};
+      std::fprintf(stderr,"Game Choreographer worker: retired token=%#llx native_tid=%lu; original TLS before VM detach\n",(unsigned long long)token,GetCurrentThreadId());
+      if(failure)std::rethrow_exception(failure);
+    };
+    choreographer_config.enter_worker=[&,leave_choreographer_worker](const std::u16string&,const AndroidChoreographer::Config::WorkerLease &lease){
+      GameWorkerObservation::NativeEnvironment native;
+      auto parent=std::static_pointer_cast<GameChoreographerParent>(lease);
+      Require(bool(parent)&&!game_choreographer_worker.token,"invalid or repeated Choreographer worker entry");
+      auto &worker=game_choreographer_worker;worker.token=threads.Self();worker.parent=lease.get();
+      try{
+        Require(!process_signals.RegisterThread(worker.token,parent->token),"Choreographer signal registration failed");worker.registered=true;
+        Require(!process_signals.BindCurrent(worker.token)&&!process_signals.Mask(worker.token,2,&parent->mask,nullptr),"Choreographer signal inheritance failed");
+        addr_t environment=0;State state{};state.gpr.x0.qword=java.VmAddress();state.gpr.x1.qword=reinterpret_cast<addr_t>(&environment);java.InvokeVm(4,state);
+        Require(int32_t(state.gpr.x0.dword)==bunker::jni::kOk&&environment==java.EnvAddress()&&environment,"Choreographer VM attach failed");
+        std::fprintf(stderr,"Game Choreographer worker: entered token=%#llx parent=%#llx native_tid=%lu mask=%#llx; actual external thread, no fabricated collector record\n",(unsigned long long)worker.token,(unsigned long long)parent->token,GetCurrentThreadId(),(unsigned long long)parent->mask);
+      }catch(...){auto failure=std::current_exception();leave_choreographer_worker(lease);std::rethrow_exception(failure);}
+    };
+    choreographer_config.exit_worker=leave_choreographer_worker;
+    choreographer_config.read_frame_clock=[&]{
+      GameWorkerObservation::NativeEnvironment native;
+      auto ratio=choreographer_refresh_ratio.load(std::memory_order_relaxed);
+      if(!ratio){(void)displays.Displays();ratio=choreographer_refresh_ratio.load(std::memory_order_relaxed);}
+      Require(ratio&&uint32_t(ratio)&&uint32_t(ratio>>32),"no observed Windows primary refresh ratio for Choreographer port clock");
+      const auto now=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+      return AndroidChoreographer::ClockSample{now,uint32_t(ratio>>32),uint32_t(ratio)};
+    };
+    choreographer_config.observer=[](const AndroidChoreographer::Event &event){GameWorkerObservation::NativeEnvironment native;std::fprintf(stderr,"Game Choreographer: operation=%s native_tid=%lu what=%d frameTimeNs=%lld nameUnits=%zu; asynchronous native-port clock, not Android/DWM vsync\n",event.operation.c_str(),GetCurrentThreadId(),event.what,(long long)event.frame_time_ns,event.thread_name.size());};
+    choreographer_config.failure=[](std::exception_ptr failure){try{std::rethrow_exception(failure);}catch(const std::exception&e){std::fprintf(stderr,"Game Choreographer worker failed:%s\n",e.what());}catch(...){std::fputs("Game Choreographer worker failed:unknown exception\n",stderr);}std::abort();};
+    stage="asynchronous Choreographer setup";choreographer=std::make_unique<AndroidChoreographer>(java,std::move(choreographer_config));
+    JniInterfaceProxy::Config proxy_config;
+    proxy_config.run_native=[&](addr_t entry,const std::vector<addr_t> &arguments){Require(runner&&Translated(entry)&&modules.ReferenceCount("libunity.so")&&!unity_ledger.finalized,"proxy callback has no live original Unity native owner");return runner->Run(entry,arguments);};
+    stage="interface proxy setup";interface_proxies=std::make_unique<JniInterfaceProxy>(java,std::move(proxy_config));
     auto no_delivery=[](const SignalHost::Delivery&)->std::optional<uint64_t>{throw std::runtime_error("frame profile has no qualified target signal delivery binding");};
     SignalHost::Boundary signal_boundary=no_delivery;
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
@@ -1008,7 +1069,8 @@ int main(int argc,char **argv){
         auto actual_width=native_windows->Width(token),actual_height=native_windows->Height(token);native_windows->Release(token);
         if(actual_width!=width||actual_height!=height)throw std::runtime_error("actual HWND client geometry differs from configured landscape pixels");
         std::fprintf(stderr,"Unity bootstrap: %ssurface-only host lifecycle port; actual HWND client=%dx%d; APK sensorLandscape; resumed=false; no Java class-init or render/resume claim\n",kExploratory?"EXPLORATORY ":"",actual_width,actual_height);
-        uint64_t worker_token=0;bool worker_registered=false;
+        uint64_t worker_token=0;bool worker_registered=false,unity_looper_prepared=false;
+        auto looper_dispatcher=std::make_shared<GameUnityLooperDispatcher>();
         std::unique_ptr<UnitySoftInputSession> soft_input;
         if(frame_gate){
           soft_input=std::make_unique<UnitySoftInputSession>(java,player,[&](addr_t target,const std::vector<addr_t>&args){
@@ -1045,16 +1107,20 @@ int main(int argc,char **argv){
             std::fprintf(stderr,"Game bootstrap: explicit muted diagnostic; original nativeMuteMasterAudio(true) returned; hardware-volume observer disabled; no endpoint/volume or audio-output qualification\n");
           }
           return result;
-        },{recreate,changed},player,[&]{
+        },{recreate,changed},player,[&,looper_dispatcher]{
+          {std::lock_guard lock(looper_dispatcher->mutex);looper_dispatcher->owner=nullptr;}
           if(ObserveFourthFrameThread())fourth_frame_observation_thread.store(0,std::memory_order_relaxed);
           const auto token=worker_token;
-          if(!token)return;
+          if(!token){if(unity_looper_prepared){choreographer->ReleaseCurrentLooper();unity_looper_prepared=false;}return;}
           int released=0;std::exception_ptr release_error;
           try{if(egl)egl->ReleaseCurrentThread();}catch(...){release_error=std::current_exception();}
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
           if(main_collector&&main_collector->Owns(token))main_collector->DetachCurrent();
 #endif
           try{if(tls_audit.PendingModuleCallbacks(threads))Require(!unity_ledger.finalized&&!il2cpp_ledger.finalized,"real UnityMain TLS survives an already finalized module; safe callback lifetime is unproved");released=threads.ReleaseCurrent();}catch(...){if(!release_error)release_error=std::current_exception();}
+          // Original TLS callbacks still have the actual prepared Looper/JNI
+          // owner. Retire its queue after those callbacks, before VM detach.
+          try{if(unity_looper_prepared){choreographer->ReleaseCurrentLooper();unity_looper_prepared=false;}}catch(...){if(!release_error)release_error=std::current_exception();}
           jumps->DropThread(token,token);
           const auto dropped=worker_registered?process_signals.DropThread(token):0;
           if(release_error)std::rethrow_exception(release_error);
@@ -1070,12 +1136,17 @@ int main(int argc,char **argv){
         // because these translated cohorts do not poll for suspension.
         Require(threads.Self()==parent_token&&bool(process_signals.Lookup(parent_token)),"actual UI virtual signal lifetime changed before UnityMain start");
         uint64_t parent_mask=0;if(process_signals.Mask(parent_token,0,nullptr,&parent_mask))throw std::runtime_error("cannot snapshot parent virtual signal mask");
-        lifecycle.Start([&,parent_token,parent_mask]{
+        {std::lock_guard lock(looper_dispatcher->mutex);looper_dispatcher->owner=&lifecycle;}
+        lifecycle.Start([&,parent_token,parent_mask,looper_dispatcher]{
           worker_token=threads.Self();
           if(soft_input)soft_input->SetUnityMainCurrent();
           if(process_signals.RegisterThread(worker_token,parent_token))throw std::runtime_error("cannot register UnityMain virtual signal-mask lifetime");
           worker_registered=true;
           if(process_signals.BindCurrent(worker_token)||process_signals.Mask(worker_token,2,&parent_mask,nullptr))throw std::runtime_error("cannot inherit UnityMain signal mask");
+          choreographer->PrepareCurrentLooper(u"UnityMain",[&,looper_dispatcher]{
+            std::lock_guard lock(looper_dispatcher->mutex);
+            return looper_dispatcher->owner&&looper_dispatcher->owner->Post([&]{choreographer->PumpCurrentLooper();});
+          });unity_looper_prepared=true;
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
           if(main_collector)main_collector->AttachCurrent(worker_token,parent_token);
 #endif
@@ -1176,6 +1247,7 @@ int main(int argc,char **argv){
         else std::fprintf(stderr,"Unity bootstrap: bounded native frame diagnostic completed: rendered=%llu continue=%d nativeDone=%d process-kill-requested=%d; Java class-init/constructor completion, a rendered image and a playable game are not claimed\n",static_cast<unsigned long long>(state.rendered),int(frame_continues),int(state.native_done),int(state.process_kill_requested));
       }
     }
+    if(choreographer){choreographer->Stop();choreographer->CheckHealthy();}
     Require(!threads.Shutdown(),"actual guest workers did not drain before JNI/module teardown");
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
     if(collector)collector->CloseAfterShutdown();
@@ -1194,12 +1266,12 @@ int main(int argc,char **argv){
     preferences->CheckPersistence();
     Require(!tls_audit.PendingModuleCallbacks(threads),"JNI_OnUnload created UI TLS requiring an unproved teardown order");
     stage="interface proxy ownership before module finalizers";
-    try{interface_proxies.CheckNoEnabledProxies();}catch(const std::exception &error){
+    try{interface_proxies->CheckNoEnabledProxies();}catch(const std::exception &error){
       std::fprintf(stderr,"Game bootstrap: retained-module proxy ownership boundary: %s; Unity refs=%zu IL2CPP refs=%zu; no native delete/finalizer forced\n",error.what(),modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 8;
     }
     stage="finalizers";if(modules.Close(module))throw std::runtime_error("Unity module finalization failed");
     preferences->CheckPersistence();
-    interface_proxies.CheckNoEnabledProxies();
+    interface_proxies->CheckNoEnabledProxies();
     std::fprintf(stderr,"Game bootstrap: actual lazy IL2CPP lifecycle constructors=%zu finalizers=%zu remaining refs=%zu; no host-forced guest handle close\n",il2cpp_ledger.constructed,il2cpp_ledger.finalized,modules.ReferenceCount("libil2cpp.so"));
     Require(!tls_audit.PendingModuleCallbacks(threads),"actual module finalizers created surviving UI TLS; callback lifetime is unproved");
     if(modules.ReferenceCount("libunity.so")||modules.ReferenceCount("libil2cpp.so")){
@@ -1207,7 +1279,7 @@ int main(int argc,char **argv){
       Require(!threads.ReleaseCurrent(),"actual UI retirement with retained modules failed");preferences->CheckPersistence();if(jumps)jumps->DropThread(parent_token,parent_token);Require(!process_signals.DropThread(parent_token),"actual UI signal retirement with retained modules failed");native_catalog->Revoke();
       std::fprintf(stderr,"Game bootstrap: reached teardown boundary: actual module references remain Unity=%zu IL2CPP=%zu; globals retained until process exit, no host-forced finalizers\n",modules.ReferenceCount("libunity.so"),modules.ReferenceCount("libil2cpp.so"));return 7;
     }
-    libc.Finalize();interface_proxies.CheckNoEnabledProxies();Require(!tls_audit.PendingModuleCallbacks(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
+    libc.Finalize();interface_proxies->CheckNoEnabledProxies();Require(!tls_audit.PendingModuleCallbacks(threads),"actual global finalizers created surviving UI TLS; callback lifetime is unproved");const auto current_token=parent_token;auto released=threads.ReleaseCurrent();
     preferences->CheckPersistence();
     if(jumps)jumps->DropThread(current_token,current_token);
     if(process_signals.Lookup(current_token)&&process_signals.DropThread(current_token))throw std::runtime_error("parent signal-thread cleanup failed");

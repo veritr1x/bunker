@@ -14,7 +14,7 @@
 
 namespace bunker::windows {
 struct UnitySurfaceLifecycle::Impl {
-  struct Job {enum Kind{Recreate,Acquire,Lost,Changed,Barrier,Resume,FocusGained,FocusLost,Frame,Pause,PauseNative};Kind kind; jni::Host::ObjectValue surface; std::shared_ptr<std::promise<void>> ack;bool finishing=false;std::shared_ptr<std::promise<bool>> frame{};bool explicit_frame=false;};
+  struct Job {enum Kind{Recreate,Acquire,Lost,Changed,Barrier,Resume,FocusGained,FocusLost,Frame,Pause,PauseNative,Task};Kind kind; jni::Host::ObjectValue surface; std::shared_ptr<std::promise<void>> ack;bool finishing=false;std::shared_ptr<std::promise<bool>> frame{};bool explicit_frame=false;std::function<void()> action{};};
   jni::Host &java;Runner run;WorkerExit worker_exit;Entries entries;jni::Host::ObjectValue player;
   mutable std::mutex mutex;std::condition_variable ready;std::deque<Job> jobs;
   std::thread worker;Status status;bool stopping=false,attached=false,requested_surface=false;
@@ -119,6 +119,7 @@ struct UnitySurfaceLifecycle::Impl {
         {std::unique_lock<std::mutex> lock(mutex);ready.wait(lock,[&]{return stopping||!jobs.empty();});if(jobs.empty()&&stopping)break;job=std::move(jobs.front());jobs.pop_front();active_job=true;}
         if(job.kind==Job::Barrier){std::lock_guard<std::mutex> lock(mutex);if(frame_queued){jobs.push_back(std::move(job));active_job=false;continue;}}
         try{
+          if(job.kind==Job::Task){job.action();if(!java.PendingException().empty())throw std::runtime_error("UnityMain queued native work raised: "+java.PendingException());}
           if(job.kind==Job::Recreate||job.kind==Job::Changed)Call(job,receiver);
           {std::lock_guard<std::mutex> lock(mutex);if(job.kind==Job::Acquire)status.surface=true;if(job.kind==Job::Lost)status.surface=false;if(job.kind==Job::Resume)status.resumed=true;if(job.kind==Job::Pause)status.resumed=false;++status.completed;}
           if(job.kind==Job::Acquire){MaybeFocus(receiver);ScheduleFrame();}
@@ -151,6 +152,13 @@ UnitySurfaceLifecycle::~UnitySurfaceLifecycle(){
 }
 void UnitySurfaceLifecycle::AfterInitJni(){auto &p=*impl_;std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(p.status.initialized||p.status.started)throw std::logic_error("duplicate post-init transition");if(!p.java.PendingException().empty())throw std::logic_error("post-init transition with pending Java exception");p.status.initialized=true;}
 void UnitySurfaceLifecycle::Start(WorkerEnter enter){auto &p=*impl_;std::promise<void> start;auto done=start.get_future();{std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(!p.status.initialized||p.status.started||p.stopping)throw std::logic_error("invalid UnityMain start ordering");p.status.started=true;p.worker=std::thread([&p,start=std::move(start),enter=std::move(enter)]()mutable{p.Work(std::move(start),std::move(enter));});}done.get();}
+bool UnitySurfaceLifecycle::Post(std::function<void()> action){
+  if(!action)throw std::invalid_argument("UnityMain queued action is empty");
+  auto &p=*impl_;{
+    std::lock_guard<std::mutex> lock(p.mutex);p.Check();if(!p.status.started||p.stopping)return false;
+    Impl::Job job{Impl::Job::Task,{},{}};job.action=std::move(action);p.jobs.push_back(std::move(job));
+  }p.ready.notify_one();return true;
+}
 void UnitySurfaceLifecycle::ConfigureOneFrame(FrameEntries entries,std::function<void()> execute_gl_jobs){
   auto &p=*impl_;std::lock_guard<std::mutex> lock(p.mutex);p.Check();
   if(p.status.started||p.frame_configured||!entries.resume||!entries.focus||!entries.render||!entries.pause||!entries.done)throw std::invalid_argument("one-frame profile needs all native entries before UnityMain starts");

@@ -3,6 +3,23 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
+Current diagnostic `work/windows-first-frame-main-observe1` remains in its
+fourth original nativeRender. The missing Handler.Callback class leaves a
+pending JNI exception, preventing the original constructor from queueing its
+initialization message. UnityChoreographer then waits with its ready payload
+still null at LR `704372c8`. The causal audit is
+`work/main-observe1-cond-boundary1/final-acceptance.json`.
+
+The replacement implements real asynchronous HandlerThread queues, the
+registered JNIBridge native callback route and an owned UnityMain Looper.
+It preserves original native initialization and condition signaling. Six
+recovered original entries append to the existing guest cohort. The native
+UnityMain FIFO passes294 checks; combined syntax passes. Final framework and
+original-constructor component qualification, the composite build and a new
+original execution remain pending. No first frame is claimed.
+
+## Earlier execution evidence
+
 Latest completed controlled execution: `work/windows-first-frame-http-scan1`,
 source `2a74491`, was manually ended with its fourth nativeRender pending. Its three
 completed renders return continue=true and draw zero times. There is no

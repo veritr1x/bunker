@@ -149,5 +149,28 @@ int main(){
     Check(std::find(f.log.begin(),f.log.end(),"resume")==f.log.end()&&std::find(f.log.begin(),f.log.end(),"render")==f.log.end(),"failed GL job cannot fall through to nativeResume or nativeRender");
     Check(f.cleaned==1,"GL job failure retires the attached worker once");
   }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;
+    Check(!q.Post([]{}),"unstarted UnityMain refuses queued framework work");
+    q.AfterInitJni();q.Start([&]{f.worker=std::this_thread::get_id();});
+    std::vector<int> order;std::promise<void> completed;auto completion=completed.get_future();
+    Check(q.Post([&]{
+      Check(std::this_thread::get_id()==f.worker&&f.java.EnvAddress()!=0,"framework work runs on attached owning UnityMain");
+      order.push_back(1);
+      Check(q.Post([&]{Check(std::this_thread::get_id()==f.worker,"nested queued framework work retains owner affinity");order.push_back(3);completed.set_value();}),"UnityMain may enqueue its next native task");
+      Check(order==std::vector<int>{1},"owner-thread Post never invokes nested work synchronously");
+      order.push_back(2);
+    }),"external sender enqueues real UnityMain work");
+    completion.get();q.WaitIdle();
+    Check(order==std::vector<int>({1,2,3}),"framework tasks preserve FIFO and finish after their posting callback");
+    q.Stop();Check(!q.Post([]{}),"stopped UnityMain refuses wake-owner tasks");Check(f.cleaned==1,"queued framework work retires its actual attached owner once");
+  }
+  {
+    Fixture f;UnitySurfaceLifecycle q(f.java,f.Runner(),{1,2},f.player,f.Cleanup());f.queue=&q;
+    q.AfterInitJni();q.Start([&]{f.worker=std::this_thread::get_id();});
+    Check(q.Post([]{throw std::runtime_error("native queue task failed");}),"failing native task is admitted before execution");
+    Reject([&]{q.WaitIdle();},"queued native task failure reaches the owner barrier");
+    Reject([&]{q.Stop();},"queued native task failure remains visible after joining");Check(f.cleaned==1,"failed queued work cleans its owner once");
+  }
   std::printf("Bounded native frame FIFO: %u checks passed (synthetic callbacks; no real rendering claim)\n",checks.load());
 }

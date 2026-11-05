@@ -31,6 +31,9 @@ class UnitySurfaceLifecycle {
   // Capture inherited state on the caller immediately before Start; the hook
   // executes on UnityMain and may not assume its guest stack is allocated yet.
   void Start(WorkerEnter enter={});
+  // Enqueue native framework work on the actual UnityMain FIFO. Never executes
+  // synchronously, including calls from UnityMain itself. False after stop.
+  bool Post(std::function<void()> action);
   // Optional bounded native lifecycle port. The owner must complete the real
   // UI resume prerequisites before ActivityResumed, and supply actual platform
   // focus events. It does not implement Java constructors, views or services.
