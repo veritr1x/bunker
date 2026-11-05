@@ -10,12 +10,13 @@ correction, full fresh guest rebuild and original Windows startup have run.
 The current exploratory executable retains 4,653 guest objects and 595,408
 trace heads, including the qualified numeric min/max repair and four original
 computed-table entries. With Windows identity and calendar APIs added,
-startup stops at missing `clock_getres(CLOCK_MONOTONIC)` at LR `8255441c`.
-Two original renders return, but there are still no draws, successful swaps
-or captured game image. The next step is clock-resolution support, followed
-by another original run. Initialization, rendering, gameplay, client/backend
-integration and standalone packaging remain unfinished. Execution notes below
-retain earlier checkpoints.
+clock-resolution support passes 66 translated NDK calls and an actual static
+Bionic reference. The latest original startup stops at unsupported JNIEnv
+slot 176, after an `android.util.Log` lookup failure. Two original renders
+return, but there is still no successful swap or captured game image. The
+next step is the reached JNI array API. Initialization, rendering, gameplay,
+client/backend integration and standalone packaging remain unfinished.
+Execution notes below retain earlier checkpoints.
 
 All recomp source work is in the `recomp-x86_64` worktree at
 `C:/Users/user/.codex/worktrees/bunker-recomp-native/bunker`.

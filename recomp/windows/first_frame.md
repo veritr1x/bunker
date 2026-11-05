@@ -3,7 +3,36 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-calendar1` includes the
+Latest original execution: `work/windows-first-frame-clock1` includes the
+qualified `clock_getres` provider for native realtime and monotonic clocks.
+All 4,653 guest objects, 595,408 trace heads and compiled bootstrap remain
+unchanged. Native exit 3/controller 1 now stops at unsupported JNIEnv slot
+176, after a pending `android.util.Log` ClassNotFoundException reported at
+Env slot 13, return `70ab524c`. Two renders return continue=true; there is
+no successful presentation, first-frame witness or PNG. The later frontier
+does not directly trace the clock query's return value.
+
+Parent pre/post verification and all overlay pin checks pass. The read-only
+observer captured PID 2621080, actual image base `7ff657980000` and image
+size 1,055,059,968 bytes. Overlay SHA256
+`15853dd7e5927263cec89dca65eefdcb01320dc40736d93339fd6017f0e0e6fa`;
+executable SHA256 `17f6bf2fcac142dcbfd863b82d653ea5cde999c12c992b348af964e26ed225d7`;
+log SHA256 `296313d46db15dd1e9cbb065315b96c54276a08ad9ec3eb7daf51b99520115ec`.
+Run peer: `work/clock1-run-peer1/peer.json`, SHA256
+`f954a9f3e0adca7251cac9549ac94e32963080e788abc5cdea7f76283193b4ed`.
+It confirms zero draw/clear/swap submissions and no clock-return log.
+
+The [clock provider](pthread_clock.md) passes 66 actual translated NDK calls
+and 12 calls against actual static Bionic under QEMU. Its first Windows test
+caught a native LastError preservation bug before current-thread lookup;
+the new import now preserves the complete callback boundary. Existing thread
+and clock-sampling methods remain unchanged. Qualification:
+`work/pthread-clock-qualification2/acceptance.json`, SHA256
+`942155e2ac5c7c7036a4eecb2f912487d03b13d8e1cdd72101dcd4775a3b6408`.
+The next step is attribution and implementation of the reached JNI array API,
+without fabricating success for the preceding Java class lookup.
+
+Preceding original execution: `work/windows-first-frame-calendar1` includes the
 qualified eight-API calendar provider, preserving all 4,653 guest objects,
 595,408 trace heads and the compiled bootstrap. Native exit 3/controller 1
 now stops at missing `clock_getres` in libil2cpp, PC `7ffc000005a0`,
