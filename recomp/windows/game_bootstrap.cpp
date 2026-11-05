@@ -94,14 +94,44 @@ const char *stage="setup";
 std::atomic<bool> jni_diagnostic_reached{false};
 std::atomic<bool> init_java_diagnostic_active{false};
 std::atomic<size_t> init_java_errors{0};
+std::atomic<DWORD> fourth_frame_observation_thread{0};
+std::atomic<uint64_t> fourth_frame_observation_token{0};
+bool ObserveFourthFrameThread(){return fourth_frame_observation_thread.load(std::memory_order_relaxed)==GetCurrentThreadId();}
+struct FourthFrameNativeEnvironment {
+  DWORD last_error=GetLastError();int saved_errno=errno;fenv_t floating{};
+  FourthFrameNativeEnvironment(){std::fegetenv(&floating);}
+  ~FourthFrameNativeEnvironment(){std::fesetenv(&floating);errno=saved_errno;SetLastError(last_error);}
+};
+void ObserveFourthFrameJni(const char *phase,bool vm,size_t slot,uint64_t sequence,
+                          addr_t pc,addr_t lr,addr_t sp,const std::array<addr_t,4> &arguments,addr_t result){
+  FourthFrameNativeEnvironment environment;
+  std::fprintf(stderr,"Fourth-frame JNI: phase=%s native_tid=%lu sequence=%llu kind=%s slot=%zu PC=%#llx LR=%#llx SP=%#llx x1=%#llx x2=%#llx x3=%#llx x4=%#llx x0=%#llx; register observation only\n",
+    phase,GetCurrentThreadId(),(unsigned long long)sequence,vm?"VM":"Env",slot,
+    (unsigned long long)pc,(unsigned long long)lr,(unsigned long long)sp,
+    (unsigned long long)arguments[0],(unsigned long long)arguments[1],
+    (unsigned long long)arguments[2],(unsigned long long)arguments[3],(unsigned long long)result);
+}
+void ObserveFourthFrameWait(const char *phase,const char *name,uint64_t sequence,const State &state){
+  FourthFrameNativeEnvironment environment;
+  std::fprintf(stderr,"Fourth-frame wait: phase=%s native_tid=%lu registered_token=%#llx sequence=%llu import=%s PC=%#llx LR=%#llx SP=%#llx FP=%#llx x0=%#llx x1=%#llx x2=%#llx x3=%#llx; register observation, not a blocked-state proof\n",
+    phase,GetCurrentThreadId(),(unsigned long long)fourth_frame_observation_token.load(std::memory_order_relaxed),
+    (unsigned long long)sequence,name,(unsigned long long)state.gpr.pc.qword,
+    (unsigned long long)state.gpr.x30.qword,(unsigned long long)state.gpr.sp.qword,
+    (unsigned long long)state.gpr.x29.qword,(unsigned long long)state.gpr.x0.qword,
+    (unsigned long long)state.gpr.x1.qword,(unsigned long long)state.gpr.x2.qword,(unsigned long long)state.gpr.x3.qword);
+}
 void Require(bool condition,const char *message){if(!condition)throw std::runtime_error(message);}
 template<class T>T Read(addr_t address){T result{};recomp::ReadGuestMemory(&result,address,sizeof(result));return result;}
 void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
   auto invoke=[&host](bool vm,size_t slot,State &state){
     if(!jni_diagnostic_reached.exchange(true))std::fprintf(stderr,"Unity bootstrap: opt-in JNI dispatch diagnostic reached\n");
-    auto prior=host.PendingException();
     const auto pc=state.gpr.pc.qword,lr=state.gpr.x30.qword,sp=state.gpr.sp.qword;
     const std::array<addr_t,4> arguments={state.gpr.x1.qword,state.gpr.x2.qword,state.gpr.x3.qword,state.gpr.x4.qword};
+    const bool observe=ObserveFourthFrameThread();
+    static thread_local uint64_t observation_sequence=0;
+    const auto sequence=observe?++observation_sequence:0;
+    if(observe)ObserveFourthFrameJni("ENTRY",vm,slot,sequence,pc,lr,sp,arguments,state.gpr.x0.qword);
+    auto prior=host.PendingException();
     try{if(vm)host.InvokeVm(slot,state);else host.InvokeEnv(slot,state);}
     catch(const std::exception &error){
       std::fprintf(stderr,"Unity bootstrap: JNI diagnostic %s slot%zu failed: %s; PC=%#llx LR=%#llx SP=%#llx x1=%#llx x2=%#llx x3=%#llx x4=%#llx pendingBefore=%d\n",
@@ -109,11 +139,13 @@ void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
         static_cast<unsigned long long>(arguments[0]),static_cast<unsigned long long>(arguments[1]),static_cast<unsigned long long>(arguments[2]),static_cast<unsigned long long>(arguments[3]),int(!prior.empty()));
       std::abort();
     }
+    if(observe)ObserveFourthFrameJni("BODY_RETURN",vm,slot,sequence,pc,lr,sp,arguments,state.gpr.x0.qword);
     auto pending=host.PendingException();
     if(!pending.empty()&&pending!=prior){
       if(init_java_diagnostic_active.load())++init_java_errors;
       std::fprintf(stderr,"Unity bootstrap: original pending Java exception after %s slot%zu return=%#llx: %s\n",vm?"VM":"Env",slot,static_cast<unsigned long long>(state.gpr.x30.qword),pending.c_str());
     }
+    if(observe)ObserveFourthFrameJni("COMPLETE",vm,slot,sequence,pc,lr,sp,arguments,state.gpr.x0.qword);
   };
   for(size_t slot=4;slot<bunker::jni::kEnvSlots;++slot)runtime.AddImport(host.EnvMarker(slot),[invoke,slot](State &state){invoke(false,slot,state);});
   for(size_t slot=3;slot<bunker::jni::kVmSlots;++slot)runtime.AddImport(host.VmMarker(slot),[invoke,slot](State &state){invoke(true,slot,state);});
@@ -802,6 +834,12 @@ int main(int argc,char **argv){
             if(record_wait)std::fprintf(stderr,"First frame: sampled worker wait import=%s native_tid=%lu calls=%llu; first64 then every4096, observations only\n",identity.c_str(),GetCurrentThreadId(),(unsigned long long)seen);
           }
         }
+        // UnityMain is an external Pthreads lifetime, not a prepared worker.
+        // Its own diagnostic must not rely on GameWorkerObservation::Token.
+        const bool observe_main=first_frame&&ObserveFourthFrameThread();
+        static thread_local uint64_t main_wait_sequence=0;
+        const auto main_sequence=observe_main?++main_wait_sequence:0;
+        if(observe_main)ObserveFourthFrameWait("ENTRY",identity.c_str(),main_sequence,s);
         const auto token=record_wait?GameWorkerObservation::Wait("ENTER",identity.c_str(),s):0;
         // Dispatch the existing checked provider. No nested Runtime::Run or
         // new guest State is introduced; original arguments/results survive.
@@ -812,6 +850,7 @@ int main(int argc,char **argv){
 #endif
         runtime.Dispatch(s,actual,nullptr);
         if(token)GameWorkerObservation::Wait("RETURN",identity.c_str(),s);
+        if(observe_main)ObserveFourthFrameWait("RETURN",identity.c_str(),main_sequence,s);
       });
     }
     if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
@@ -986,7 +1025,14 @@ int main(int argc,char **argv){
         const auto actual_resume=mute_audio?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeResume","()V"):0;
         const auto actual_mute=mute_audio?java.NativeEntry("com/unity3d/player/UnityPlayer","nativeMuteMasterAudio","(Z)V"):0;
         if(mute_audio&&(!Translated(actual_resume)||!Translated(actual_mute)))throw std::runtime_error("original resume/master-mute entries are not translated");
+        uint64_t render_observation_calls=0;
         UnitySurfaceLifecycle lifecycle(java,[&](addr_t target,const std::vector<addr_t>&args){
+          if(first_frame&&actual_render&&target==actual_render&&++render_observation_calls==4){
+            fourth_frame_observation_token.store(worker_token,std::memory_order_relaxed);
+            fourth_frame_observation_thread.store(GetCurrentThreadId(),std::memory_order_relaxed);
+            FourthFrameNativeEnvironment environment;
+            std::fprintf(stderr,"Fourth-frame observation: UnityMain=%lu; JNI phases and all existing synchronization ENTER/RETURN observations enabled; no guest control\n",GetCurrentThreadId());
+          }
           if(actual_render&&target==actual_render)std::fprintf(stderr,"Game bootstrap: before original nativeRender IL2CPP constructors=%zu refs=%zu\n",il2cpp_ledger.constructed,modules.ReferenceCount("libil2cpp.so"));
           std::fprintf(stderr,"Unity bootstrap: UnityMain host-thread=%lu native=%#llx argc=%zu env=%#llx receiver=%#llx display=%#llx surface=%#llx\n",GetCurrentThreadId(),static_cast<unsigned long long>(target),args.size(),static_cast<unsigned long long>(args.at(0)),static_cast<unsigned long long>(args.at(1)),static_cast<unsigned long long>(args.size()>2?args[2]:0),static_cast<unsigned long long>(args.size()>3?args[3]:0));
           auto result=threads.Run(target,args);std::fprintf(stderr,"Unity bootstrap: UnityMain native=%#llx returned\n",static_cast<unsigned long long>(target));
@@ -1000,6 +1046,7 @@ int main(int argc,char **argv){
           }
           return result;
         },{recreate,changed},player,[&]{
+          if(ObserveFourthFrameThread())fourth_frame_observation_thread.store(0,std::memory_order_relaxed);
           const auto token=worker_token;
           if(!token)return;
           int released=0;std::exception_ptr release_error;

@@ -3,7 +3,48 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-socket-tls1`, source
+Current original execution: `work/windows-first-frame-http-scan1`, source
+`2a74491`, is still alive with its fourth nativeRender pending. Its three
+completed renders return continue=true and draw zero times. There is no
+successful presentation or captured image. The actual HTTP scanner now returns
+three assignments at LR `70b5680c`; execution proceeds beyond the previous stop.
+
+The log also records a missing `android/os/Handler$Callback` lookup immediately
+after entering frame four. That is a confirmed compatibility gap, not a proved
+cause of the wait. The last GC epoch38 completes before render3. A worker's
+read entry is followed by a dispatcher futex entry on the same thread; an
+outstanding network read is not established. Windows WCT reports one blocked
+thread node for UnityMain and two workers, with no wait object or owner.
+The causal wait and UnityMain continuation remain unresolved.
+
+Input overlay SHA256
+`32293ce23aacf1be89a89b1bbe4ff2639a423efe090de945f01e1540e7e68a21`;
+EXE `283b2c91f6d91ed0393bc09098aae6cc74c84cde936475b8dad8901d824550b2`.
+Built-input review: `work/http-scanner-built-peer1/acceptance.json`, SHA256
+`57859a4094c6200b509c6377c8748d0482457d0ebb914cd0de303ac5c34c29b6`.
+Actual PID282764, module base `7ff6afbd0000`, image1055412224 bytes.
+This running execution has no terminal exit/audit yet.
+
+Read-only evidence:
+`work/http-scan1-wait-boundary1/acceptance.json`, SHA256
+`68e4c8ac85c5029348609689ba42b2686a0b25133b70b63d7e589cb0f1f38df2`;
+`work/http-scan1-live-waits1/receipt.json`, SHA256
+`a1a6b8e5e89c6853a1eb29c67141403c07199e91a6f5f02375637a23fc72fbff`.
+The preserved live log and corrected67-thread snapshot are in
+`work/http-scan1-live-preservation1`; use `live-threads2.json` (SHA256
+`4dca366655800acc44b04cffb91b4c267cfd32281e6afb7879893d275475ed0a`).
+The initial thread-snapshot script error is retained separately in `live.json`.
+
+The next executable adds observation only: actual UnityMain JNI entry,
+body-return and completion, plus unsampled real main-thread synchronization
+entry/return from the fourth render onward. It does not add Handler support,
+change guest calls or return values, wake a waiter, or control process lifetime.
+Strict syntax and an eight-check independent source review pass. Source proof:
+`work/main-observe-source-preparation1/source-proof.json`, SHA256
+`907577df40c2e28da84ef52f0502d31d6a1455dbbf4f8b26d7d951fc82e28b53`.
+The diagnostic executable and its original execution remain pending.
+
+Preceding original execution: `work/windows-first-frame-socket-tls1`, source
 `41e47bb`, selects Windows public-root export and the 40 recovered original
 computed-table entries. The snapshot has 1007 source files: three changed,
 two added, and 1002 byte-exact from socket1. Bootstrap and all 46 host sources
