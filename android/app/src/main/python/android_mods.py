@@ -26,22 +26,22 @@ templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 COMFORT_MOD = "https://github.com/NavHobbyDev/lunar-tear-comfort-mod"
 MAX_MULTIPLIER = 10
 
-# (group, [(key, title, what it does, when it applies)]). Booleans unless the
+# (group, [(key, title, what it does)]). Booleans unless the
 # key is rewardMultiplier. Keys match internal/mods.Settings.
 GROUPS = [
     ("Economy", [
-        ("staminaFree", "Free stamina", "Quests and skips cost no stamina.", "From the next quest."),
-        ("staminaItemsToGold", "Stamina items become gold", "Stamina recovery items you receive arrive as gold instead. Items you already hold stay.", "For items received from now on."),
-        ("ticketsToGems", "Premium tickets become gems", "Premium summon tickets you receive arrive as free gems instead. Tickets you already hold stay.", "For items received from now on."),
-        ("shopUnlimited", "Unlimited shop stock", "Shop items that restock daily, weekly or monthly never run out. Items with a lifetime limit keep it.", "From the next purchase."),
-        ("lostItemGems", "Lost Items give gems", "Picking up a Lost Item gives a random amount of free gems.", "From the next Lost Item."),
+        ("staminaFree", "Free stamina", "Quests and skips cost no stamina."),
+        ("staminaItemsToGold", "Stamina items become gold", "Stamina recovery items you receive arrive as gold instead. Items you already hold stay."),
+        ("ticketsToGems", "Premium tickets become gems", "Premium summon tickets you receive arrive as free gems instead. Tickets you already hold stay."),
+        ("shopUnlimited", "Unlimited shop stock", "Shop items that restock daily, weekly or monthly never run out. Items with a lifetime limit keep it."),
+        ("lostItemGems", "Lost Items give gems", "Picking up a Lost Item gives a random amount of free gems."),
     ]),
     ("Quests", [
-        ("rewardMultiplier", "Reward multiplier", "Multiplies a quest's drops, gold and gems. Dark Memory quests, memoirs, costumes and weapons stay as they are.", "From the next quest."),
+        ("rewardMultiplier", "Reward multiplier", "Multiplies a quest's drops, gold and gems. Dark Memory quests, memoirs, costumes and weapons stay as they are."),
     ]),
     ("Summons", [
-        ("noDuplicateFourStar", "No duplicate ★4", "A ★4 costume or weapon you already own is swapped for one you don't from the same summon, until you own them all.", "From the next summon."),
-        ("pityRewards", "Medals become gems", "Every 100 summon medals become 1,000 paid gems and 100 Mama Points, sent to the gift box.", "From the next summon."),
+        ("noDuplicateFourStar", "No duplicate ★4", "A ★4 costume or weapon you already own is swapped for one you don't from the same summon, until you own them all."),
+        ("pityRewards", "Medals become gems", "Every 100 summon medals become 1,000 paid gems and 100 Mama Points, sent to the gift box."),
     ]),
 ]
 KEYS = [key for _, mods in GROUPS for key, *_ in mods]

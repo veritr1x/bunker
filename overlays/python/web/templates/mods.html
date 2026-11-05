@@ -18,17 +18,17 @@
   {% for group, mods in groups %}
   <h2 class="bracket-header">{{ group }}</h2>
   <div class="panel">
-    {% for key, title, what, when in mods %}
+    {% for key, title, what in mods %}
     {% if key == "rewardMultiplier" %}
     <div class="setting">
       <label for="{{ key }}">{{ title }}</label>
       <select name="{{ key }}" id="{{ key }}">
         {% for n in range(1, max_multiplier + 1) %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>{% if n == 1 %}Off (×1){% else %}×{{ n }}{% endif %}</option>{% endfor %}
       </select>
-      <span class="note">{{ what }} {{ when }}</span>
+      <span class="note">{{ what }}</span>
     </div>
     {% else %}
-    <label class="choice"><input type="checkbox" name="{{ key }}"{% if settings[key] %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }} {{ when }}</span></span></label>
+    <label class="choice"><input type="checkbox" name="{{ key }}"{% if settings[key] %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
     {% endif %}
     {% endfor %}
   </div>
