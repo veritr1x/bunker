@@ -16,11 +16,14 @@ is not claimed. Formatter-case execution is not instrumented or inferred.
 
 Boundary `work/main-nanosleep-sites1-unliftable-boundary1/acceptance.json`,
 SHA256 `a8635773b57f0c7c8fccaee761b6da57d92bc15971864aeac0968fe629cbe04e`.
-The proposed coherent repair updates eight functions in containers72/119/125/333
+The proposed coherent repair updates nine functions in containers72/119/125/333
 for this same integer pair. [vector_cnt_8b.md](../whole/vector_cnt_8b.md)
 records13,056 exact ARM/raw-Windows/polled-kernel cases, including the actual
 helper-free56-byte loop prefix. It does not claim whole-function execution of
-the eight helper-using functions. Original integration remains pending.
+the nine helper-using functions. The initial rough inventory incorrectly
+excluded `7033bdac`; canonical function extraction and original instruction
+bytes prove the same pair there, so it is included before integration.
+Original integration remains pending.
 
 Preceding completed candidate: `work/windows-first-frame-il2cpp-format1`, manifest
 `d55512b91b677f412427cf993e7f62e4b5b844120287c61916e6b4a7559589c4`,
