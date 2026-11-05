@@ -3,6 +3,30 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
+Current candidate: `work/windows-first-frame-frame-rounding1`, manifest
+`d44d478b73046f00de89d4eb31d45b441ee9221cdde441d426c15b98b512d12a`,
+EXE `663a07ec6ee03533d8d5afd4b40b3cbbb6f1474b874aec026cc49479b075c697`.
+It combines logging retirement after the actual fourth render returns with
+the single original function repair at `70167bbc`. All127 neighboring functions
+remain exact. A fresh controlled original run is pending its outcome.
+
+The preceding scanner build completed three actual `(%u)` assignments, then
+naturally stopped on render5 at reported unliftable PC `70167c1c`: the retained
+error stub is for preceding FMINNM `70167c18`. The final completed-run receipt is
+`work/paren-scan1-fp-boundary1/final-acceptance.json`, SHA256
+`a6f646f55f58102fbd183c165d082166385a2bfbd83c3b243ed20a2af7d81fc9`.
+All child/runtime and original-parent pre/post checks pass; no image exists.
+Rendering had paused after render3 on a real focus loss and continued on the
+same process when the user brought Bunker forward.
+
+[The repaired function's qualification](frame_rounding.md) covers only a
+predefined normal/zero geometry domain, with336 exact ARM/raw/polled records
+and1344 exact ARM/production-polled records across16FPCR configurations.
+All96 broader edge-case mismatches remain preserved. Live operands/FPCR are
+unknown; universal floating-point equivalence is not claimed. Exhaustive
+per-call tracing was also observed beyond render4; its overhead is suspected,
+not established as the cause of the long fifth render.
+
 Diagnostic `work/windows-first-frame-main-observe1` was manually ended with its
 fourth original nativeRender pending. The missing Handler.Callback class leaves a
 pending JNI exception, preventing the original constructor from queueing its
