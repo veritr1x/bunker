@@ -1,5 +1,16 @@
 # Validation
 
+## Pod Programs in landscape — 2026-11-06
+
+- Android 16 emulator on its side (CSS height about 390 px): Pod Programs
+  showed one short top bar (POD PROGRAMS, Close) and the tabs in a column
+  on the left; the program list filled the rest of the screen. Turned to
+  portrait, the screen rebuilt with the full top bar, the row of tabs and
+  the sign-off at the bottom, as before.
+- The same pages in a browser at 844×390 and 375×812, light and dark.
+- Not checked: iPhone (the bar follows the compact height size class) and
+  iPad, built but not run.
+
 ## Mods — 2026-11-05
 
 - Go tests: `internal/mods` (no file means no mods, the file is read again
