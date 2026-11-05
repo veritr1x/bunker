@@ -1,0 +1,12 @@
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -154,7 +154,7 @@
+ 		}
+ 	}
+ 	drops = h.appendBonusDrops(user, drops, target, nowMillis)
+-	return modScaleDrops(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n), target)
++	return modScaleDrops(spendableMedals(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)), target)
+ }
+ 
+ func (h *QuestHandler) applyExpRewards(user *store.UserState, questId int32, nowMillis int64) {
