@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
+#include <cerrno>
+#include <cfenv>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -17,6 +19,11 @@
 
 namespace bunker::windows {
 namespace {
+struct EglNativeEnvironment {
+  DWORD error=GetLastError();int saved_errno=errno;std::fenv_t floating{};
+  EglNativeEnvironment(){std::feholdexcept(&floating);}
+  ~EglNativeEnvironment(){std::fesetenv(&floating);errno=saved_errno;SetLastError(error);}
+};
 using I=int32_t;using U=uint32_t;using E=void*;
 constexpr I Success=0x3000,BadAccess=0x3002,BadAttribute=0x3004,BadConfig=0x3005,
   BadContext=0x3006,BadDisplay=0x3008,BadMatch=0x3009,BadWindow=0x300b,
@@ -99,7 +106,7 @@ struct EglHost::Impl {
   // No guest callbacks or guest-memory lock span native EGL operations.
   std::mutex mutex;
   enum Kind{Display,Config,Context,Surface};
-  struct Object {Kind kind;E native;addr_t display=0,window=0;bool deleted=false,native_destroyed=false;I format=0;bool fixed=false;I width=0,height=0;};
+  struct Object {Kind kind;E native;addr_t display=0,window=0;bool deleted=false,native_destroyed=false;I format=0;bool fixed=false;I width=0,height=0;addr_t share_group=0;};
   struct Current {addr_t context=0,draw=0,read=0;};
   struct GeometryLife {std::mutex mutex;Impl *owner=nullptr;};
   std::shared_ptr<GeometryLife> geometry_life=std::make_shared<GeometryLife>();
@@ -113,6 +120,7 @@ struct EglHost::Impl {
   std::map<std::string,std::function<void(State&)>> bridges;
   std::function<addr_t(const std::string&)> procedure_resolver;
   DiagnosticObserver diagnostic_observer;
+  StorageRetirementObserver storage_retirement_observer;
 #define DECL(ret,name,args) using name##T=ret(WINAPI*)args;name##T name=nullptr;
   EGL_API(DECL)
 #undef DECL
@@ -164,7 +172,7 @@ struct EglHost::Impl {
   }
   addr_t Add(Kind kind,E native,addr_t display=0,addr_t window=0,I format=0,bool fixed=false,I width=0,I height=0){
     for(const auto &[token,o]:objects)if(!o.deleted&&o.kind==kind&&o.native==native&&o.display==display)return token;
-    const auto token=Token();objects.emplace(token,Object{kind,native,display,window,false,false,format,fixed,width,height});return token;
+    const auto token=Token();objects.emplace(token,Object{kind,native,display,window,false,false,format,fixed,width,height});if(kind==Context)objects.at(token).share_group=token;return token;
   }
   addr_t Find(E native,Kind kind){if(!native)return 0;for(const auto &[token,o]:objects)if(o.kind==kind&&o.native==native)return token;
     throw std::runtime_error("Native current EGL object is outside provider ownership");}
@@ -326,7 +334,7 @@ struct EglHost::Impl {
       return ok;});
     Bind<addr_t(addr_t,addr_t,addr_t,addr_t)>("eglCreateContext",[this](addr_t d,addr_t c,addr_t share,addr_t attrs){
       E display=Native(d,Display),config=Native(c,Config,d),shared=share?Native(share,Context,d):nullptr;if(!display||!config||(share&&!shared))return addr_t(0);
-      auto list=Attributes(attrs);if(!eglBindAPI(0x30a0)){Capture();return addr_t(0);}E context=eglCreateContext(display,config,shared,list.empty()?nullptr:list.data());Capture();return context?Add(Context,context,d):0;});
+      auto list=Attributes(attrs);if(!eglBindAPI(0x30a0)){Capture();return addr_t(0);}E context=eglCreateContext(display,config,shared,list.empty()?nullptr:list.data());Capture();if(!context)return addr_t(0);const auto token=Add(Context,context,d);if(share)objects.at(token).share_group=objects.at(share).share_group;return token;});
     Bind<addr_t(addr_t,addr_t,addr_t)>("eglCreatePbufferSurface",[this](addr_t d,addr_t c,addr_t attrs){
       E display=Native(d,Display),config=Native(c,Config,d);if(!display||!config)return addr_t(0);auto list=Attributes(attrs);
       E surface=eglCreatePbufferSurface(display,config,list.empty()?nullptr:list.data());Capture();return surface?Add(Surface,surface,d):0;});
@@ -394,16 +402,21 @@ EglHost::EglHost(NativeWindows &windows,const std::wstring &directory,addr_t mar
 EglHost::~EglHost()=default;
 addr_t EglHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::invalid_argument("Unsupported EGL import: "+name);}
 void EglHost::Invoke(const std::string &name,State &state){
-  DiagnosticObserver observer;{std::lock_guard lock(impl_->mutex);observer=impl_->diagnostic_observer;}
+  EglNativeEnvironment environment;
+  DiagnosticObserver observer;StorageRetirementObserver storage_observer;{std::lock_guard lock(impl_->mutex);observer=impl_->diagnostic_observer;if(name=="eglDestroyContext"||name=="eglDestroySurface"||name=="eglMakeCurrent"||name=="eglTerminate")storage_observer=impl_->storage_retirement_observer;}
   if(observer)observer(name,state,false);
   {std::lock_guard lock(impl_->mutex);auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported EGL import: "+name);std::unique_ptr<WindowDpiScope> dpi;if(auto window=impl_->DpiWindow(name,&state))dpi=std::make_unique<WindowDpiScope>(window);found->second(state);}
+  if(storage_observer)storage_observer();
   if(observer)observer(name,state,true);
 }
 void EglHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("EGL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"EGL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
-void EglHost::ReleaseCurrentThread(){std::lock_guard lock(impl_->mutex);impl_->ReleaseThread();}
+void EglHost::ReleaseCurrentThread(){EglNativeEnvironment environment;StorageRetirementObserver observer;{std::lock_guard lock(impl_->mutex);impl_->ReleaseThread();observer=impl_->storage_retirement_observer;}if(observer)observer();}
 void EglHost::SetProcedureResolver(std::function<addr_t(const std::string&)> resolver){std::lock_guard lock(impl_->mutex);impl_->procedure_resolver=std::move(resolver);}
 addr_t EglHost::CurrentContextToken(){std::lock_guard lock(impl_->mutex);return impl_->Find(impl_->eglGetCurrentContext(),Impl::Context);}
 bool EglHost::ContextAlive(addr_t token){std::lock_guard lock(impl_->mutex);auto at=impl_->objects.find(token);return at!=impl_->objects.end()&&at->second.kind==Impl::Context&&!at->second.native_destroyed;}
+addr_t EglHost::CurrentShareGroupToken(){std::lock_guard lock(impl_->mutex);const auto token=impl_->Find(impl_->eglGetCurrentContext(),Impl::Context);return token?impl_->objects.at(token).share_group:0;}
+bool EglHost::ShareGroupAlive(addr_t group){std::lock_guard lock(impl_->mutex);for(const auto &[token,o]:impl_->objects)if(o.kind==Impl::Context&&o.share_group==group&&(!o.native_destroyed||impl_->Held(token)))return true;return false;}
+void EglHost::SetStorageRetirementObserver(StorageRetirementObserver observer){std::lock_guard lock(impl_->mutex);if(observer&&impl_->storage_retirement_observer)throw std::logic_error("EGL storage retirement observer already installed");impl_->storage_retirement_observer=std::move(observer);}
 bool EglHost::UsesGlesModule(const void *module){std::lock_guard lock(impl_->mutex);return impl_->gles==module;}
 void EglHost::SetDiagnosticObserver(DiagnosticObserver observer){std::lock_guard lock(impl_->mutex);impl_->diagnostic_observer=std::move(observer);}
 std::unique_ptr<WindowDpiScope> EglHost::CurrentWindowDpiScope(){std::lock_guard lock(impl_->mutex);if(auto window=impl_->DpiWindow(""))return std::make_unique<WindowDpiScope>(window);return {};}

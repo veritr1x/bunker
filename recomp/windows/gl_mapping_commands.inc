@@ -1,0 +1,4 @@
+// Append-only actual core mapping closure reached by original Unity.
+GL_MAPPING_COMMAND(glMapBufferRange,PFNGLMAPBUFFERRANGEPROC)
+GL_MAPPING_COMMAND(glUnmapBuffer,PFNGLUNMAPBUFFERPROC)
+GL_MAPPING_COMMAND(glFlushMappedBufferRange,PFNGLFLUSHMAPPEDBUFFERRANGEPROC)

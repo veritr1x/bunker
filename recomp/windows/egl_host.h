@@ -27,6 +27,14 @@ class EglHost {
   // pointers. Neither operation consumes EGL error flags or calls guests.
   addr_t CurrentContextToken();
   bool ContextAlive(addr_t token);
+  // Actual native context sharing, derived only from successful CreateContext
+  // and its share argument. Deferred-deleted current contexts keep the group.
+  addr_t CurrentShareGroupToken();
+  bool ShareGroupAlive(addr_t group);
+  // Notify after operations which can release native buffer storage, outside
+  // EGL locks and before the API returns. The observer must not call guests.
+  using StorageRetirementObserver=std::function<void()>;
+  void SetStorageRetirementObserver(StorageRetirementObserver);
   bool UsesGlesModule(const void *native_module);
   struct ReadPbufferExtent {addr_t context,surface;int32_t width,height;};
   // Read-only, actual owned EGL_READ pbuffer. Window/surfaceless/foreign

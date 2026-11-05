@@ -24,6 +24,11 @@
 
 namespace bunker::windows {
 namespace {
+struct GlNativeEnvironment {
+  DWORD error=GetLastError();int saved_errno=errno;std::fenv_t floating{};
+  GlNativeEnvironment(){std::feholdexcept(&floating);}
+  ~GlNativeEnvironment(){std::fesetenv(&floating);errno=saved_errno;SetLastError(error);}
+};
 #define GL_DRAW_API(X) \
  X(glCreateShader,PFNGLCREATESHADERPROC) X(glShaderSource,PFNGLSHADERSOURCEPROC) \
  X(glCompileShader,PFNGLCOMPILESHADERPROC) X(glGetShaderiv,PFNGLGETSHADERIVPROC) \
@@ -150,6 +155,9 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_PROGRAM_RESOURCE_COMMAND(name,type) #name,
 #include "gl_program_resource_commands.inc"
 #undef GL_PROGRAM_RESOURCE_COMMAND
+#define GL_MAPPING_COMMAND(name,type) #name,
+#include "gl_mapping_commands.inc"
+#undef GL_MAPPING_COMMAND
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -160,6 +168,10 @@ template<class T>T Symbol(HMODULE module,const char *name){
 struct GlHost::Impl {
   EglHost &egl;
   addr_t current_context=0;
+  addr_t current_share_group=0;
+  struct MappedRange {addr_t address;size_t length;};
+  using MappedKey=std::pair<addr_t,GLuint>;
+  std::map<MappedKey,MappedRange> mapped_ranges;
   std::map<addr_t,std::set<GLenum>> pending_errors;
   HMODULE module=nullptr;addr_t marker;bool installed=false;
   std::mutex mutex;
@@ -200,6 +212,9 @@ struct GlHost::Impl {
 #define GL_PROGRAM_RESOURCE_COMMAND(name,type) type program_resource_##name=nullptr;
 #include "gl_program_resource_commands.inc"
 #undef GL_PROGRAM_RESOURCE_COMMAND
+#define GL_MAPPING_COMMAND(name,type) type mapping_##name=nullptr;
+#include "gl_mapping_commands.inc"
+#undef GL_MAPPING_COMMAND
   std::map<std::string,std::unique_ptr<char[]>> strings;
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
@@ -257,15 +272,22 @@ struct GlHost::Impl {
 #define GL_PROGRAM_RESOURCE_COMMAND(name,type) program_resource_##name=Symbol<type>(module,#name);
 #include "gl_program_resource_commands.inc"
 #undef GL_PROGRAM_RESOURCE_COMMAND
+#define GL_MAPPING_COMMAND(name,type) mapping_##name=Symbol<type>(module,#name);
+#include "gl_mapping_commands.inc"
+#undef GL_MAPPING_COMMAND
       Bindings();
+      egl.SetStorageRetirementObserver([this]{GlNativeEnvironment environment;std::lock_guard lock(mutex);InvalidateMappings(true);});
     }catch(...){FreeLibrary(module);throw;}
   }
-  ~Impl(){for(const auto &[text,value]:strings)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(value.get()),text.size()+1);FreeLibrary(module);}
+  ~Impl(){egl.SetStorageRetirementObserver({});InvalidateMappings(false);for(const auto &[text,value]:strings)recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(value.get()),text.size()+1);FreeLibrary(module);}
   void SelectContext(){
     // Provider tokens stay unique even if ANGLE recycles a native pointer.
     // Stored flags follow a context when it migrates between native threads.
     current_context=egl.CurrentContextToken();
     if(!current_context)throw std::runtime_error("GL requires an owned current EGL context");
+    current_share_group=egl.CurrentShareGroupToken();
+    if(!current_share_group)throw std::runtime_error("GL current context has no owned share group");
+    PruneMappings();
     for(auto at=pending_errors.begin();at!=pending_errors.end();)
       if(!egl.ContextAlive(at->first))at=pending_errors.erase(at);else ++at;
   }
@@ -442,8 +464,9 @@ struct GlHost::Impl {
     auto bytes=Snapshot(input,size_t(count)*4);std::vector<GLuint> names(count);std::memcpy(names.data(),bytes.data(),bytes.size());native(count,names.data());
   }
   void Upload(GLenum target,int64_t size,addr_t data,GLenum usage){
-    if(size<=0||!data){draw_glBufferData(target,size,nullptr,usage);return;}
-    auto bytes=Snapshot(data,static_cast<uint64_t>(size));draw_glBufferData(target,size,bytes.data(),usage);
+    std::vector<uint8_t> bytes;if(size>0&&data)bytes=Snapshot(data,static_cast<uint64_t>(size));
+    const auto key=BoundMappedKey(target);
+    if(Call([&]{draw_glBufferData(target,size,bytes.empty()?nullptr:bytes.data(),usage);})&&key)RetireMapping(*key);
   }
   void SubUpload(GLenum target,int64_t offset,int64_t size,addr_t data){
     if(offset<0||size<=0){draw_glBufferSubData(target,offset,size,nullptr);return;}
@@ -488,6 +511,7 @@ struct GlHost::Impl {
 #include "gl_texture3d_impl.inc"
 #include "gl_uniform_block_impl.inc"
 #include "gl_program_resource_impl.inc"
+#include "gl_mapping_impl.inc"
   void Bindings(){
     // Scalar commands delegate validation/error flags to the same current
     // ANGLE context. They neither drain errors nor expose driver pointers.
@@ -504,7 +528,7 @@ struct GlHost::Impl {
     Bind<void(GLuint,GLenum,addr_t)>("glGetProgramiv",[this](auto s,auto p,auto out){ObjectQuery(s,p,out,true,draw_glGetProgramiv);});
     Bind<void(GLuint,GLsizei,addr_t,addr_t)>("glGetProgramInfoLog",[this](auto s,auto n,auto length,auto out){InfoLog(s,n,length,out,draw_glGetProgramInfoLog);});
     Bind<void(GLsizei,addr_t)>("glGenBuffers",[this](auto n,auto out){Generate(n,out,draw_glGenBuffers);});
-    Bind<void(GLsizei,addr_t)>("glDeleteBuffers",[this](auto n,auto in){DeleteNames(n,in,draw_glDeleteBuffers);});
+    Bind<void(GLsizei,addr_t)>("glDeleteBuffers",[this](auto n,auto in){DeleteMappedBuffers(n,in);});
     Bind<void(GLenum,GLuint)>("glBindBuffer",draw_glBindBuffer);
     Bind<void(GLenum,int64_t,addr_t,GLenum)>("glBufferData",[this](auto t,auto n,auto in,auto u){Upload(t,n,in,u);});
     Bind<void(GLenum,int64_t,int64_t,addr_t)>("glBufferSubData",[this](auto t,auto o,auto n,auto in){SubUpload(t,o,n,in);});
@@ -545,6 +569,7 @@ struct GlHost::Impl {
     BindTexture3DCommands();
     BindUniformBlockCommands();
     BindProgramResourceCommands();
+    BindMappingCommands();
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
@@ -553,7 +578,7 @@ const std::vector<GlHost::Query> &GlHost::Queries(){return queries;}
 const std::vector<std::string> &GlHost::Commands(){static const std::vector<std::string> commands(std::begin(names),std::end(names));return commands;}
 size_t GlHost::QueryComponents(uint32_t name){std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();impl_->SelectContext();auto count=impl_->Components(name);if(!count)throw std::runtime_error("Native GL query-size error");return *count;}
 addr_t GlHost::Marker(const std::string &name)const{for(size_t i=0;i<std::size(names);++i)if(name==names[i])return impl_->marker+i*8;throw std::runtime_error("Unsupported typed GL resolver signature: "+name);}
-void GlHost::Invoke(const std::string &name,State &state){std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();
+void GlHost::Invoke(const std::string &name,State &state){GlNativeEnvironment environment;std::lock_guard lock(impl_->mutex);auto dpi=impl_->egl.CurrentWindowDpiScope();auto found=impl_->bridges.find(name);if(found==impl_->bridges.end())throw std::invalid_argument("Unsupported GL import: "+name);impl_->SelectContext();
   if(!impl_->diagnostic_png.empty()){++impl_->diagnostic.calls;if(impl_->diagnostic.calls<=24||impl_->diagnostic.calls%1000==0)std::fprintf(stderr,"First frame: GL call=%llu %s context=%#llx\n",(unsigned long long)impl_->diagnostic.calls,name.c_str(),(unsigned long long)impl_->current_context);}
   found->second(state);
   if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
