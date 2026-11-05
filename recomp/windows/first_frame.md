@@ -3,7 +3,23 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-vector-popcount-batch1`,
+Latest completed original attempt: `work/windows-first-frame-draw-buffers1`,
+manifest `1d825a0954d73363ccdbf0756d164c15216f35ddec9e3df54c70f00df54ccebd`,
+EXE `a878e3aee876e861785f8cd29cdd4799a4112699a48fbc71d32c3b938cc3ea0c`.
+Four renders return. The fifth calls the real `glDrawBuffers` bridge, then
+naturally exits native3 at null target/LR `70498f04`. The reached wrapper
+selects core or EXT object-label getter; the selector flag was not logged, so
+the precise variant is unproven. Both getter pointers were null. Actual capacity
+is128 with a null length pointer and stack-backed label output. No draw, swap
+or image is recorded; all current input and original-parent pre/post checks pass.
+Log SHA256 `b01e0f86ca2598b5c002bc5e4696f02b2b79ae8680a6b26701a0d13e7f2ef0ec`;
+audit `a35838eb0e51985c6a6ff6cbac310f0ac2d0ebdcc28c1ea5343a89f88b2d20ef`.
+Boundary `work/draw-buffers1-label-query-boundary1/acceptance.json`,
+SHA256 `76b3b381f451d6da468e3475fa0c0c300b75a83cab4c15368f820367a688788e`.
+The two real getters pass1021 component checks,87 NDK calls and86 native output
+comparisons. Original integration and the first frame remain pending.
+
+Preceding original attempt: `work/windows-first-frame-vector-popcount-batch1`,
 manifest `3e3b35aa19e51618b7e424eeb2cf2fec278b8ea6406ad81c4a0276e535921e82`,
 EXE `22e0edddf7bdbd44d10f08c673d77c6d55f01e90c2b59ef325f68f9524389bf0`.
 The corrected nine-function integer batch is selected. Four original renders

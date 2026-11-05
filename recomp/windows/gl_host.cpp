@@ -159,6 +159,8 @@ GL_DRAW_API(DRAW_NAME)
 #include "gl_mapping_commands.inc"
 #undef GL_MAPPING_COMMAND
 "glDrawBuffers",
+"glGetObjectLabel",
+"glGetObjectLabelEXT",
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
