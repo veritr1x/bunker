@@ -40,8 +40,14 @@ The connected-client socket/readiness/shared-descriptor cohort now passes
 regressions also pass. Its separate collector phase passes actual physical
 root/stop/restart tests and the legacy native collector regressions. Bootstrap
 integration and the actual-disposition SIGPIPE policy now pass their focused
-checks, with an exact combined 12-source proof. The next full build and
-original-game execution remain pending. No frame is established.
+checks, with an exact combined 12-source proof. Its full bootstrap/all-45-host
+build and original execution now reach socket/options/connect/poll/send/recv
+on an actual prepared Unity-worker lifetime. Three original renders return,
+all with zero draws. The TLS path reports missing
+`javax/net/ssl/TrustManagerFactory` and Curl51/not-trusted; the fatal boundary
+is unresolved original Unity target `70b4c100`, LR `70b47730`. Original-entry
+recovery and genuine Windows-backed JCA trust support are the next work.
+No frame is established.
 Two original renders return,
 but there is still no successful swap or captured game image. Windows
 auto-detection remains unresolved and is not a proven direct route.
@@ -50,7 +56,8 @@ client/backend integration and standalone packaging remain unfinished.
 The historical network inventory identifies 32 missing imports plus four file
 APIs needing socket-aware ownership/dispatch. Three inventory names are now
 implemented (inet_pton/getaddrinfo/freeaddrinfo); socket transport is qualified
-in component fixtures but has not run in the original game. The prepared backend has not been
+and its client API path now executes in the original game. Complete TLS and
+client/backend integration remain unverified. The prepared backend has not been
 connected to the real client. Execution notes below retain earlier checkpoints.
 
 All recomp source work is in the `recomp-x86_64` worktree at

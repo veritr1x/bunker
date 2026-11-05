@@ -3,7 +3,48 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-resolver1`, source
+Latest original execution: `work/windows-first-frame-socket1`, source
+`79df7fe`, selects the qualified connected-client and collector-wait cohort.
+Its 1005-file snapshot changes six parent files and adds six; the other 993
+remain exact. Bootstrap and all 45 host/runtime sources are freshly compiled.
+All 4,653 guest objects, 595,408 heads and four generated headers are unchanged.
+
+Original execution reaches socket creation, inet_ntop, options, fcntl, connect,
+poll, send and recv. The actual caller is a prepared Unity-worker lifetime,
+token `7ffa00000006`, native TID 147340. This identifies the lifetime, not an
+inferred GC record. No new network-wait physical-root marker is observed in
+this run; that admission remains proved by its separate native component gate.
+Operation entry logs alone do not certify every return value or a working
+client/backend connection.
+
+The third original render now returns continue=true, still with zero draws.
+There are no successful presentations, PNGs or first-frame witness. The TLS
+path records NoClassDefFoundError for `javax/net/ssl/TrustManagerFactory`
+after Env slot 6 at LR `70ab5478` and slot 13 at `70ab524c`, then reports
+Curl error 51 / `UNITYTLS_X509VERIFY_FLAG_NOT_TRUSTED`. The hostname, chain
+and destination remain unlogged; an expired or otherwise invalid peer is not
+inferred from this error alone.
+
+Native exit 3/controller 1 stops at unresolved original Unity target
+`70b4c100`, StatePC `70b4c100`, LR `70b47730`, SP `2028daa0c00`.
+The next work audits and recovers that original computed entry/closure and
+implements the actual JCA trust-manager call path using real Windows trust
+material and validation. Certificate verification must remain functional;
+accept-all responses or disabling verification are not a repair.
+
+Overlay SHA256 `cfea157227771b0774a03f0c6ab952c07d6c603a9e979815aa53df6e009cc1c3`;
+EXE `dbb5180987a4b95bf2c045f2a201d3b9b75070ba3a2948afa6857a239ef9fbaa`;
+bootstrap `9c521bd28d1a10ca74cf86dc3a1571d1a3a07555092b5399d644ee8483a67dde`;
+log `7395f3cdbc388ea200466391f54fc35f3ae468d75c7925f2791c738633df2c27`.
+Actual module: PID 147544, base `7ff7c0ed0000`, image size 1,055,354,880.
+All overlay pins and parent pre/post checks pass; the process exited and its
+controller session was collected. Run audit:
+`work/windows-first-frame-socket1/game-frame-muted-gc-audit.json`, SHA256
+`fce727bf2a8cbbbdf1bde214ab7523b8d926ad784a60778ede67dd025a043425`.
+Independent build peer: `work/socket-built-peer1/acceptance.json`, SHA256
+`f9b67fe370ed279c1e32c38ad1a415e57c929295e54d311a8f81e4ddfca6e1ec`.
+
+Preceding original execution: `work/windows-first-frame-resolver1`, source
 `f546d51`, includes getaddrinfo/freeaddrinfo/gai_strerror. Its 999-file
 snapshot changes libc.cpp and libc.h and adds the resolver detail header;
 the other 996 parent files, all 4,653 guest objects and all four generated
@@ -28,8 +69,8 @@ coordinated namespace. Preparation only:
 `b77ce30c74f8120ce5f00d7bf8a2ef84a85d930a3d4bb9a8df09e25eceed4fa0`.
 Actual connected callsites and needed flags are being audited before selection.
 
-The connected-client cohort is now implemented and qualified, but has not yet
-been selected in an original-game executable. SocketTransport adds 23 imports
+The connected-client cohort is implemented and qualified, and is selected in
+the latest original-game executable above. SocketTransport adds 23 imports
 and shares one descriptor table with FileSystem. Native SOCKET values stay
 owned and pinned behind Android int descriptors. Real Winsock TCP/UDP and
 address formatting, nonblocking controls, options, endpoint queries, vectored
@@ -79,9 +120,9 @@ The combined 12-source proof binds six existing-file inverses and six added
 files, all component receipts and the final collector-enabled bootstrap syntax:
 `work/socket-source-preparation1/source-proof.json`, SHA256
 `225d76f4736d27266f7221247c0f0beb30c01b1890fae0bf3f906886d08b9ba7`.
-The next snapshot has 1005 files (993 unchanged), one new host CPP and fresh
+The selected snapshot has 1005 files (993 unchanged), one new host CPP and fresh
 bootstrap/all-45-host compilation. Its full build and original-game execution
-are pending; no original frame or network connectivity is claimed here.
+are recorded above; no original frame or complete networking is established.
 
 Reproducibility/package work remains open: the canonical preparation/build
 scripts still describe the historical guest cohort and omit newer host
