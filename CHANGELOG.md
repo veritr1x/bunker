@@ -6,6 +6,12 @@ under its heading, down to the previous release.
 
 ## 2026-11-05 (after 1.8.4)
 
+### Pod Programs
+- Landscape on a phone: the top bar shrinks to one short line and the tabs
+  move to a column on the left, so a page shows its content instead of a
+  strip under the tabs. Tablets and unfolded phones keep the tabs on top;
+  portrait is unchanged. On Android and iPhone. [851da47]
+
 ### Mods
 - Pod Programs has a Mods program: changes to how the game plays, for the
   whole device, each off until you turn it on. Free stamina; stamina items
