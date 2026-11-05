@@ -259,9 +259,10 @@ def prepare_data():
 
 # Pod Programs opens while the game keeps running. These changes are read by
 # the server or the game later (summon rates and roulette before each draw,
+# mods as each is used,
 # display at the next launch, the timeline's filter, a backup copied with
 # SQLite's online backup), so they need nothing closed.
-LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
+LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/mods/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
 # These change what the game reads only as it launches ("Show original dates"
 # resets its own day markers then: GameProcessProvider), so the game is closed
 # first (ServerService.closeGameForTools, or the iOS launcher).
@@ -330,6 +331,7 @@ def create_app(token, origin):
     from android_patcher import router
     import android_display
     import android_gacha
+    import android_mods
     import android_players
     app = base_app()
     app.include_router(router)
@@ -337,6 +339,7 @@ def create_app(token, origin):
     app.include_router(android_calendar.router)
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
+    app.include_router(android_mods.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.
     install_game_guard(app, lambda: game_live(), lambda: close_game())
