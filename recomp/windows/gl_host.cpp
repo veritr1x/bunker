@@ -158,6 +158,7 @@ GL_DRAW_API(DRAW_NAME)
 #define GL_MAPPING_COMMAND(name,type) #name,
 #include "gl_mapping_commands.inc"
 #undef GL_MAPPING_COMMAND
+"glDrawBuffers",
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -167,6 +168,7 @@ template<class T>T Symbol(HMODULE module,const char *name){
 }
 struct GlHost::Impl {
   EglHost &egl;
+  PFNGLDRAWBUFFERSPROC drawBuffers=nullptr;
   addr_t current_context=0;
   addr_t current_share_group=0;
   struct MappedRange {addr_t address;size_t length;};
@@ -228,7 +230,7 @@ struct GlHost::Impl {
   std::map<uint64_t,PendingPresent> pending_presents;
   Impl(EglHost &egl,const std::wstring &directory,addr_t marker):egl(egl),marker(marker){
     static_assert(sizeof(GLboolean)==1&&sizeof(GLint)==4&&sizeof(GLfloat)==4);
-    static_assert(sizeof(GLuint)==4&&sizeof(GLsizei)==4&&sizeof(GLchar)==1&&sizeof(GLsizeiptr)==8&&sizeof(GLintptr)==8);
+    static_assert(sizeof(GLenum)==4&&sizeof(GLuint)==4&&sizeof(GLsizei)==4&&sizeof(GLchar)==1&&sizeof(GLsizeiptr)==8&&sizeof(GLintptr)==8);
     if((marker&7)||marker>UINT64_MAX-std::size(names)*8)throw std::invalid_argument("GL marker range/alignment");
     if(directory.size()<3||directory[1]!=L':'||!(directory[2]==L'\\'||directory[2]==L'/'))throw std::invalid_argument("ANGLE GL DLL directory must be absolute");
     module=LoadLibraryExW((directory+L"\\libGLESv2.dll").c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);
@@ -275,6 +277,7 @@ struct GlHost::Impl {
 #define GL_MAPPING_COMMAND(name,type) mapping_##name=Symbol<type>(module,#name);
 #include "gl_mapping_commands.inc"
 #undef GL_MAPPING_COMMAND
+      drawBuffers=Symbol<PFNGLDRAWBUFFERSPROC>(module,"glDrawBuffers");
       Bindings();
       egl.SetStorageRetirementObserver([this]{GlNativeEnvironment environment;std::lock_guard lock(mutex);InvalidateMappings(true);});
     }catch(...){FreeLibrary(module);throw;}
@@ -472,6 +475,18 @@ struct GlHost::Impl {
     if(offset<0||size<=0){draw_glBufferSubData(target,offset,size,nullptr);return;}
     auto bytes=Snapshot(data,static_cast<uint64_t>(size));draw_glBufferSubData(target,offset,size,bytes.data());
   }
+  void DrawBuffers(GLsizei count,addr_t input){
+    // ANGLE validates negative/over-limit counts and nonzero null pointers
+    // before reading the array. Zero also belongs to native FBO validation.
+    if(count<=0||!input){drawBuffers(count,nullptr);return;}
+    const GLint maximum=Integer(GL_MAX_DRAW_BUFFERS);
+    if(maximum<=0)throw std::runtime_error("Invalid native maximum draw-buffer count");
+    if(count>maximum){drawBuffers(count,nullptr);return;}
+    auto bytes=Snapshot(input,static_cast<size_t>(count)*sizeof(GLenum));
+    std::vector<GLenum> values(static_cast<size_t>(count));
+    std::memcpy(values.data(),bytes.data(),bytes.size());
+    drawBuffers(count,values.data());
+  }
   void VertexBuffers(){
     const GLint count=Integer(GL_MAX_VERTEX_ATTRIBS);if(count<0||count>4096)throw std::runtime_error("GL vertex attribute count outside scope");
     for(GLint i=0;i<count;++i){GLint enabled=0,buffer=0;
@@ -570,6 +585,7 @@ struct GlHost::Impl {
     BindUniformBlockCommands();
     BindProgramResourceCommands();
     BindMappingCommands();
+    Bind<void(GLsizei,addr_t)>("glDrawBuffers",[this](GLsizei n,addr_t input){DrawBuffers(n,input);});
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
