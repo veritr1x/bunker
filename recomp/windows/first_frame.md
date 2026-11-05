@@ -3,8 +3,8 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current original execution: `work/windows-first-frame-http-scan1`, source
-`2a74491`, is still alive with its fourth nativeRender pending. Its three
+Latest completed controlled execution: `work/windows-first-frame-http-scan1`,
+source `2a74491`, was manually ended with its fourth nativeRender pending. Its three
 completed renders return continue=true and draw zero times. There is no
 successful presentation or captured image. The actual HTTP scanner now returns
 three assignments at LR `70b5680c`; execution proceeds beyond the previous stop.
@@ -23,7 +23,15 @@ EXE `283b2c91f6d91ed0393bc09098aae6cc74c84cde936475b8dad8901d824550b2`.
 Built-input review: `work/http-scanner-built-peer1/acceptance.json`, SHA256
 `57859a4094c6200b509c6377c8748d0482457d0ebb914cd0de303ac5c34c29b6`.
 Actual PID282764, module base `7ff6afbd0000`, image1055412224 bytes.
-This running execution has no terminal exit/audit yet.
+The stalled process was manually terminated only after its preserved evidence
+and the replacement diagnostic executable passed review. Controller/native
+status1/255 records that intervention, not a natural game failure. All overlay
+pins and original-parent pre/post checks pass. Run audit:
+`work/windows-first-frame-http-scan1/game-frame-muted-gc-audit.json`, SHA256
+`22771b5b797a628863343b2953e909c560ec2856acabbdb0b8b45d17a2892c90`;
+log `1cf4f4c77cb64af6cb4e71da156bc95c740e18da17224c52309e9ef50a525f78`.
+Explicit manual-stop record: `work/http-scan1-manual-stop1/receipt.json`, SHA256
+`a9a88faf578b783e533e77587c54ca45e559fbf4097f1775d707eb48f813d3a9`.
 
 Read-only evidence:
 `work/http-scan1-wait-boundary1/acceptance.json`, SHA256
@@ -33,7 +41,8 @@ Read-only evidence:
 The preserved live log and corrected67-thread snapshot are in
 `work/http-scan1-live-preservation1`; use `live-threads2.json` (SHA256
 `4dca366655800acc44b04cffb91b4c267cfd32281e6afb7879893d275475ed0a`).
-The initial thread-snapshot script error is retained separately in `live.json`.
+The initial `live.json` lacks a valid thread collection; the corrected file
+records that limitation.
 
 The next executable adds observation only: actual UnityMain JNI entry,
 body-return and completion, plus unsampled real main-thread synchronization
@@ -42,7 +51,16 @@ change guest calls or return values, wake a waiter, or control process lifetime.
 Strict syntax and an eight-check independent source review pass. Source proof:
 `work/main-observe-source-preparation1/source-proof.json`, SHA256
 `907577df40c2e28da84ef52f0502d31d6a1455dbbf4f8b26d7d951fc82e28b53`.
-The diagnostic executable and its original execution remain pending.
+The diagnostic executable is built in `work/windows-first-frame-main-observe1`,
+source `18100cf`. Overlay SHA256
+`44dca262a816f33738a90cfd3a968083affb0c5e5b2bedf8daec93fb9a906c46`;
+EXE `da5c66522df28e4817858b3ffdc59b599de182baed831ce8b725ed9784ff402c`;
+bootstrap `ffc370ac150a67ad0f54aed870bdc3f5bf159930f269af2b87c1394dea3874b3`.
+Its independent42-check built-input review passes:
+`work/main-observe-built-peer1/acceptance.json`, SHA256
+`ed45e424f671671bc1295abe9f531c41063901c0dcb2caada217b443257c4507`.
+The diagnostic original-run controller is launched; its new game execution
+remains pending launch integrity checks.
 
 Preceding original execution: `work/windows-first-frame-socket-tls1`, source
 `41e47bb`, selects Windows public-root export and the 40 recovered original
