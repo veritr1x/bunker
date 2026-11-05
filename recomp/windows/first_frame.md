@@ -41,6 +41,22 @@ the proposed single object adds four heads. Qualification and selection are
 pending. The isolated638-function fixture is incomplete at a setup-only
 dynamic dependency; it is not represented as passed or as a production defect.
 
+That table repair is now selected in `work/windows-first-frame-frame-pacing1`,
+manifest `a54c0b321938144b620cd0ca38b5df37cdf81b41177f443f95d67866db31c745`,
+EXE `152a5cad0e925bdb0b5db8fbcf06d08bb68083ed3735f209b696d29827f60ad2`.
+Its36 finite cases per originalARM/rawWindows/exactpolled platform match.
+The controlled original run progresses beyond the old indirect entry and
+naturally exits native3/controller1 on render5 at unsupported exact scanner
+format `(%u)`, LR `701b61c0`. Four renders return, with no presented image.
+All child/runtime and original-parent pre/post checks pass. The actual boundary
+is `work/frame-pacing1-paren-boundary1/acceptance.json`, SHA256
+`3a9c1261006789ea3eff416d1abd2087099df43312bfeb47c0cf08ef9767760e`.
+
+The single-file scanner repair is committed as `42506d7` and qualified in
+[libc_paren_scan.md](libc_paren_scan.md). Its318 Bionic differential records
+match exactly; old scanner regressions pass. Host integration and the next
+original execution remain pending. No input value or first frame is inferred.
+
 The build's pending-runtime fields remain historical; the separate
 `runtime-admission.json` records the actual generic gate and integration scope.
 
