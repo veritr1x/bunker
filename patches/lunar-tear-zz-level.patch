@@ -1,0 +1,12 @@
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -165,7 +165,7 @@
+ 
+ 	oldLevel := user.Status.Level
+ 	user.Status.Exp += questDef.UserExp
+-	user.Status.Level, user.Status.Exp = gameutil.LevelAndCap(user.Status.Exp, h.UserExpThresholds)
++	user.Status.Level, user.Status.Exp = playerLevel(oldLevel, user.Status.Exp, h.UserExpThresholds)
+ 	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, questDef.UserExp, user.Status.Exp, user.Status.Level)
+ 
+ 	if user.Status.Level > oldLevel {
