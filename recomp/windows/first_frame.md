@@ -3,7 +3,32 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original execution: `work/windows-first-frame-sched-yield1`, source
+Latest original execution: `work/windows-first-frame-sscanf1`, source
+`dd11a78`, includes the qualified scanner and six-GP bridge. Its 998-file
+snapshot changes libc.cpp, libc.h and bootstrap; the other 995 files and all
+guest objects, trace heads and metadata headers remain exact. Bootstrap and
+all 44 host/runtime sources are freshly compiled.
+
+The original URL parser now returns normal scanf assignment counts: two at
+LR `70b624b4`, three at `70b625a0`, and zero at `70b630f8`. The HTTPS proxy
+query also completes with null manual properties and unresolved automatic
+configuration. No input URL or character-buffer contents are logged.
+
+Native exit 3/controller 1 stops at missing import `inet_pton` in libunity.so,
+PC `7ffc000000f0`, LR `70b4b574`, x0=2 (Android AF_INET),
+x1=`2778ad8b890`. The next work is real IPv4/IPv6 text-to-binary conversion,
+with exact status, address-family, errno and output semantics. No network
+request is needed to implement this conversion. Two original renders return
+continue=true without draws; no successful swap, PNG or first-frame witness
+exists. All overlay and parent pre/post checks pass.
+
+Overlay SHA256 `81c3f665efd4f36524ef4825c94478714be3cb31d4f8a4056cf81cd722906875`;
+EXE `84670b7fd400a94b4b0180fcf86fad15b7ca6493760b5dc956ce1f257aa73f99`;
+bootstrap `fa07455a786f41b72add015e1b001551ac42f38c2f30c31c752168859e271a23`;
+log `5414397834884903b445f3a38afb513d6d0ec71eb8081b6367c61211c04e304a`.
+Actual module: PID 2713104, base `7ff6bff70000`, image size 1,055,186,944.
+
+Preceding original execution: `work/windows-first-frame-sched-yield1`, source
 `62b3992`, adds the qualified real scheduler-yield binding. Its 998-file
 snapshot changes only libc.cpp; the other 997 files, all headers, guest objects
 and trace heads remain exact. Bootstrap and all 44 host/runtime sources are
@@ -39,8 +64,8 @@ Qualification: `work/libc-scan-profiles-qualification3/acceptance.json`, SHA256
 Integration/source inverses: `work/sscanf-integration1/proof.json`, SHA256
 `688f0457b05e5a0cace2413b2721d77e4cc8ed023d137aaae0ed4d7cbeb5b80c`.
 Q1's invalid-input fixture assumption and canceled Q2 remain preserved;
-valid readable C input/format strings are required. The fresh original-game
-build/run is pending; this does not yet establish that URL parsing completes.
+valid readable C input/format strings are required. The latest original-game
+run executes the scanner profiles before reaching the inet_pton boundary.
 
 Overlay SHA256 `9176b71822793a8d6a44e70e44ff5bd9e332db3c8a46282f97a34202f5ff9f04`;
 EXE `8e7dac13b19d5c45b37e10b74ed193f300d5cf60b9406e83f191e0fc124c2995`;
