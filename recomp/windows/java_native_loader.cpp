@@ -29,7 +29,7 @@ std::string Utf8(const std::u16string&s){
     else{out+=char(0xf0|(c>>18));out+=char(0x80|((c>>12)&63));out+=char(0x80|((c>>6)&63));out+=char(0x80|(c&63));}
   }return out;
 }
-bool Version(int32_t v){return v==0x10001||v==0x10002||v==0x10004||v==jni::kVersion16;}
+bool Version(int32_t v){return v==0x10002||v==0x10004||v==jni::kVersion16;}
 bool Path(const std::string&p){
   if(p.empty()||p.front()!='/'||p.find_first_of("\\:!")!=p.npos||p.find('\0')!=p.npos)return false;
   size_t at=1;

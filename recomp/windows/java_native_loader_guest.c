@@ -1,10 +1,10 @@
 #include <jni.h>
 #include <stdarg.h>
 #include <stdint.h>
-static volatile unsigned counts[8];
+static volatile unsigned counts[9];
 __attribute__((constructor,visibility("default"))) void loader_ctor(void){++counts[0];}
 __attribute__((destructor,visibility("default"))) void loader_dtor(void){++counts[7];}
-__attribute__((visibility("default"))) unsigned loader_count(unsigned i){return i<8?counts[i]:0;}
+__attribute__((visibility("default"))) unsigned loader_count(unsigned i){return i<9?counts[i]:0;}
 static jboolean via_v(JNIEnv*e,jobject p,jmethodID m,...){va_list ap;va_start(ap,m);jboolean v=(*e)->CallBooleanMethodV(e,p,m,ap);va_end(ap);return v;}
 __attribute__((visibility("default"))) jboolean loader_call(JNIEnv*e,jobject p,jmethodID m,jstring name,unsigned mode){
  if(mode==0)return(*e)->CallBooleanMethod(e,p,m,name);
@@ -20,4 +20,5 @@ __attribute__((visibility("default"))) jint loader_recursive_onload(JavaVM*vm,vo
 __attribute__((visibility("default"))) jint loader_parallel_onload(JavaVM*vm,void*r){(void)r;++counts[4];return hook(vm,2);}
 __attribute__((visibility("default"))) jint loader_pending_onload(JavaVM*vm,void*r){(void)r;JNIEnv*e=0;++counts[5];if(env(vm,&e)||!e)return JNI_ERR;jclass c=(*e)->FindClass(e,"java/lang/IllegalStateException");(*e)->ThrowNew(e,c,"original OnLoad pending fixture");return JNI_VERSION_1_6;}
 __attribute__((visibility("default"))) jint loader_error_onload(JavaVM*vm,void*r){(void)r;JNIEnv*e=0;++counts[6];if(env(vm,&e)||!e)return JNI_ERR;jclass c=(*e)->FindClass(e,"java/lang/OutOfMemoryError");(*e)->ThrowNew(e,c,"original uncaught Error fixture");return JNI_VERSION_1_6;}
+__attribute__((visibility("default"))) jint loader_legacy_onload(JavaVM*vm,void*r){(void)vm;(void)r;++counts[8];return JNI_VERSION_1_1;}
 #endif
