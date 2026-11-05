@@ -27,6 +27,19 @@ Actual module: PID 2686744, base `7ff6b3210000`, image size 1,055,162,368.
 Run peer: `work/network-proxy1-run-peer1/acceptance.json`, SHA256
 `2ba2219c4e9077d7349edc02ad38f7168dbbbcc06fdad4837ae3d4069c248758`.
 
+The scheduler binding now passes 436 Windows checks and 48 translated NDK
+calls on the main thread and two native workers. The same NDK caller object
+also makes 16 successful calls through actual static Bionic under QEMU.
+Windows calls SwitchToThread once; Linux uses native sched_yield. Success
+preserves guest errno, and the callback preserves native errno, LastError
+and floating state. No sleep, fairness or forced context-switch claim is made.
+Qualification: `work/libc-sched-yield-qualification1/acceptance.json`, SHA256
+`6872178a0f7cfcb3f67023e9e31cba0a8afbb8ed1d63fabb886c59d6403f8aed`.
+Exact source inverse/import-ordinal proof:
+`work/sched-yield-source-preparation1/source-proof.json`, SHA256
+`0b484657e1ad20cabae628c54d40696a2a254bd85de34fac0e3edb183791ca5c`.
+It awaits a fresh host build and original-game execution.
+
 Preceding original execution: `work/windows-first-frame-java-string-loader1`,
 source `2b8477c`, builds String byte/charset construction and encoding plus
 the closed Java native-library loader. Its 996-file snapshot has five changed

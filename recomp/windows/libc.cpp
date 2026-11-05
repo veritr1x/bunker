@@ -26,6 +26,7 @@
 #include <pthread.h>
 #else
 #include <unistd.h>
+#include <sched.h>
 #include <time.h>
 #include <sys/time.h>
 #endif
@@ -78,7 +79,7 @@ const char *const imports[] = {
   "sin", "sinf", "cos", "cosf", "tan", "tanf", "asin", "asinf", "acos", "acosf", "atan", "atanf", "atan2", "atan2f",
   "exp", "expf", "exp2f", "log", "logf", "log10", "log10f", "log2f", "logb", "pow", "powf", "sqrt", "sqrtf", "hypot",
   "fmod", "fmodf", "remainderf", "nearbyintf", "ldexp", "ldexpf", "scalbn", "frexpf", "modf", "modff", "getpagesize",
-  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime"
+  "newlocale", "freelocale", "uselocale", "clock", "sysconf", "gettimeofday", "getpid", "sscanf", "setlocale", "bsearch", "readlink", "uname", "time", "mktime", "localtime", "localtime_r", "gmtime", "gmtime_r", "strftime", "difftime", "sched_yield"
 };
 bool Space(int c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 int Lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
@@ -597,6 +598,19 @@ void LibC::Install(recomp::Runtime &runtime){
   Add<addr_t(addr_t,addr_t)>(runtime,"gmtime_r",[calendar](addr_t value,addr_t output){libc_calendar::NativeEnvironment native;return calendar().GmtimeR(value,output);});
   Add<uint64_t(addr_t,uint64_t,addr_t,addr_t)>(runtime,"strftime",[calendar](addr_t output,uint64_t capacity,addr_t format,addr_t value){libc_calendar::NativeEnvironment native;return calendar().Strftime(output,capacity,format,value);});
   Add<double(int64_t,int64_t)>(runtime,"difftime",[](int64_t a,int64_t b){return libc_calendar::Calendar::Difftime(a,b);});
+  Add<int32_t()>(runtime,"sched_yield",[this]{
+    libc_calendar::NativeEnvironment native;
+#ifdef _WIN32
+    // A zero result means no ready thread was selected, not a failed yield.
+    // Invoke the scheduler once; do not turn this into a sleep or busy wait.
+    (void)::SwitchToThread();
+    return int32_t{0};
+#else
+    const int result=::sched_yield();
+    if(result<0)Fail(errno?errno:5);
+    return static_cast<int32_t>(result);
+#endif
+  });
   installed_=true;
 }
 }  // namespace bunker::windows

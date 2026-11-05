@@ -22,7 +22,8 @@ and all-44-source host build includes it and the corrected JNI version policy.
 The latest original execution stops earlier at the unsupported libil2cpp.so
 import `sched_yield`, LR `825a720c`, before any proxy-method call. Two original
 renders return, but there is still no successful swap or captured game image.
-The next work is real scheduler yield support. Windows auto-detection remains
+Scheduler yield support now passes 436 Windows checks and 48 translated NDK
+calls; its original-game run is next. Windows auto-detection remains
 unresolved and must not be mistaken for a proven direct route.
 Initialization, rendering, gameplay,
 client/backend integration and standalone packaging remain unfinished.
