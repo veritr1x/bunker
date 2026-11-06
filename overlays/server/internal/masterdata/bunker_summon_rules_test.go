@@ -832,6 +832,25 @@ func TestEmbeddedSummonsMatchTheirArt(t *testing.T) {
 	if s := byId[554].Steps; len(s) != 1 || s[0].Cur != "free" || s[0].Draws != 10 || s[0].Limit != 1 {
 		t.Errorf("summon 554 (10 free summons): %+v", s)
 	}
+	// "Perform a 10x summon for 2,000 gems", a bonus "five times only" (Advanced
+	// Handbook) or "20 times only" (Piece: Black Pearl).
+	for id, limit := range map[int32]int32{9000021: 5, 9000034: 20, 9000046: 5, 9000060: 20, 9000069: 5, 9000091: 5, 9000100: 5, 9000104: 5} {
+		if s := byId[id].Steps; len(s) != 1 || s[0].Cur != "gems" || s[0].Price != 2000 || s[0].Draws != 10 || s[0].Limit != limit || len(s[0].Items) != 1 {
+			t.Errorf("summon %d (10x for 2,000 gems, %d times): %+v", id, limit, s)
+		}
+	}
+	// The element summons: "Perform a 10x summon for 1,500 paid gems".
+	for _, id := range []int32{43, 52, 60, 85, 9000007} {
+		if s := file.Rules[id].Steps; len(s) != 1 || s[0].Cur != "paid" || s[0].Price != 1500 || s[0].Draws != 10 {
+			t.Errorf("summon %d (10x for 1,500 paid gems): %+v", id, s)
+		}
+	}
+	if s := file.Rules[9000082].Steps; len(s) != 1 || s[0].Cur != "free" || !s[0].Daily || s[0].Limit != 1 {
+		t.Errorf("summon 9000082 (a 10x summon for free): %+v", s)
+	}
+	if s := byId[9002].Steps; len(s) != 2 || s[1].Limit != 10 || len(s[1].Items) != 1 {
+		t.Errorf("summon 9002 (Advanced Handbook x2, 10 times only): %+v", s)
+	}
 	for _, id := range []int32{600, 601, 602, 603, 604, 605, 609, 610} {
 		if s := byId[id].Steps; len(s) != 1 || s[0].Cur != "free" || !s[0].Daily || s[0].Draws != 10 {
 			t.Errorf("summon %d (x10 free per day): %+v", id, s)

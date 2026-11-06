@@ -3097,7 +3097,7 @@
    "id": 9002,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; notice 1500009002 and art: Advanced Handbook x2 as a bonus (10 times only)",
    "start": 1635300000000,
    "steps": [
     {
@@ -3106,9 +3106,20 @@
      "price": 300
     },
     {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 10,
      "price": 3000
     }
    ]
@@ -7973,19 +7984,25 @@
    "id": 9000021,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Advanced Handbook x2 as a bonus (five times only)",
    "start": 1638086400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 2000
     }
    ]
   },
@@ -8271,19 +8288,25 @@
    "id": 9000034,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Piece: Black Pearl x1 as a bonus (20 times only)",
    "start": 1640152800000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Piece: Black Pearl x1"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 501002,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 20,
+     "price": 2000
     }
    ]
   },
@@ -8293,19 +8316,25 @@
    "id": 9000046,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Advanced Handbook x2 as a bonus (five times only)",
    "start": 1640678400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 2000
     }
    ]
   },
@@ -8465,19 +8494,25 @@
    "id": 9000060,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Piece: Black Pearl x1 as a bonus (20 times only)",
    "start": 1642730400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Piece: Black Pearl x1"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 501002,
+       "n": 1,
+       "t": 5
+      }
+     ],
+     "limit": 20,
+     "price": 2000
     }
    ]
   },
@@ -8599,19 +8634,25 @@
    "id": 9000069,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Advanced Handbook x2 as a bonus (five times only)",
    "start": 1643356800000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 2000
     }
    ]
   },
@@ -8792,19 +8833,25 @@
    "id": 9000091,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Advanced Handbook x2 as a bonus (five times only)",
    "start": 1646035200000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 2000
     }
    ]
   },
@@ -8814,19 +8861,25 @@
    "id": 9000100,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Advanced Handbook x2 as a bonus (five times only)",
    "start": 1648454400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 2000
     }
    ]
   },
@@ -8836,19 +8889,25 @@
    "id": 9000104,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: 10x summon for 2,000 gems, Advanced Handbook x2 as a bonus (five times only)",
    "start": 1651132800000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
+     "bonus": [
+      "Advanced Handbook x2"
+     ],
      "cur": "gems",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "items": [
+      {
+       "id": 311003,
+       "n": 2,
+       "t": 5
+      }
+     ],
+     "limit": 5,
+     "price": 2000
     }
    ]
   },
@@ -9804,7 +9863,15 @@
      330151
     ]
    },
-   "src": "art: Featuring wind-affinity weapons"
+   "src": "art: Featuring wind-affinity weapons; notice 1500000043 and art: Perform a 10x summon for 1,500 paid gems",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500
+    }
+   ]
   },
   "430": {
    "src": "notice 833",
@@ -11524,7 +11591,15 @@
      350161
     ]
    },
-   "src": "art: Featuring dark-affinity weapons"
+   "src": "art: Featuring dark-affinity weapons; notice 1500000052 and art: Perform a 10x summon for 1,500 paid gems",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500
+    }
+   ]
   },
   "520": {
    "featured": {
@@ -14783,6 +14858,17 @@
     }
    ]
   },
+  "60": {
+   "src": "notice 1500000060 and art: Perform a 10x summon for 1,500 paid gems",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500
+    }
+   ]
+  },
   "606": {
    "end": 1711785599999,
    "featured": {
@@ -15327,6 +15413,17 @@
    },
    "steps": []
   },
+  "85": {
+   "src": "art (JA limited_85): 「10回」ガチャが有償限定1500ジェムで引ける, a 10x summon for 1,500 paid gems, as the other element summons (43, 52, 60)",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500
+    }
+   ]
+  },
   "9000007": {
    "featured": {
     "src": "art",
@@ -15343,7 +15440,15 @@
      320131
     ]
    },
-   "src": "art: Featuring water-affinity weapons"
+   "src": "art: Featuring water-affinity weapons; notice 1509000007 and art (limited_60): Perform a 10x summon for 1,500 paid gems",
+   "steps": [
+    {
+     "cur": "paid",
+     "draws": 10,
+     "guar": "r3w",
+     "price": 1500
+    }
+   ]
   },
   "9000008": {
    "featured": {
@@ -15808,6 +15913,19 @@
     "w": []
    },
    "steps": []
+  },
+  "9000082": {
+   "src": "notice 1509000082 (10x summon Free, Mama's Exciting Festival Medal x10) and art: Perform a 10x summon for free; once a day, as this art's free 10x summons elsewhere (64, 581)",
+   "steps": [
+    {
+     "cur": "free",
+     "daily": true,
+     "draws": 10,
+     "guar": "r3w",
+     "limit": 1,
+     "price": 0
+    }
+   ]
   },
   "9505061": {
    "featured": {
