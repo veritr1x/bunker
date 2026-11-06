@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 )
@@ -91,5 +92,27 @@ func TestWeaponRoomCountsOwnedAndWaiting(t *testing.T) {
 	addBunkerGift(user, model.PossessionTypeWeapon, 101021, 2, 1000)
 	if got := giftRoom(user, g, model.PossessionTypeWeapon, 101031); got != 5 {
 		t.Fatalf("room %d, want 10-3-2", got)
+	}
+}
+
+// The shim's granter has no possession limits of its own (the server adds
+// them in runtime.wireGranter): a gift's room takes them from the game data.
+func TestGiftLimitsComeFromTheGameData(t *testing.T) {
+	g := &store.PossessionGranter{}
+	cfg := &masterdata.GameConfig{PossessionCountLimitConsumableItem: 99999, PossessionCountLimitMaterial: 99999, PossessionCountLimitMoney: 999999999,
+		PossessionCountLimitGachaMedal: 9999999, PossessionCountLimitWeapon: 2000, PossessionCountLimitParts: 999, PossessionCountLimitImportantItem: 999,
+		ConsumableItemIdForGold: 1}
+	withLimits(g, cfg, []masterdata.EntityMConsumableItem{{ConsumableItemId: 8001, ConsumableItemType: 120}, {ConsumableItemId: 1002, ConsumableItemType: 200}})
+	user := store.SeedUserState(1, "u", 0, model.DefaultPlatform)
+	user.ConsumableItems[1002] = 10
+	for _, c := range []struct {
+		t    model.PossessionType
+		id   int32
+		want int64
+	}{{model.PossessionTypeConsumableItem, 1002, 99989}, {model.PossessionTypeConsumableItem, 8001, 9999999},
+		{model.PossessionTypeConsumableItem, 1, 999999999}, {model.PossessionTypeMaterial, 100001, 99999}} {
+		if got := giftRoom(user, g, c.t, c.id); got != c.want {
+			t.Errorf("%d %d: room %d, want %d", c.t, c.id, got, c.want)
+		}
 	}
 }
