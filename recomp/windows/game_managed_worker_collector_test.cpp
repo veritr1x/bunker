@@ -116,8 +116,12 @@ struct Harness {
   alignas(16)std::array<uint64_t,3>payload{};
   uint64_t parent=0,target=0;std::atomic<unsigned>cycle{0},posts{0},stops{0},restarts{0},checkpoints{0},physical{0},environment_checks{0};
   std::array<std::promise<void>,2>entered,finished,proceed,suspended;
-  std::promise<void>finish_reached,reacquire_ready,retired_ready,retired_release;
-  std::atomic<bool>sender_certified{false},finish_returned{false},finish_published{false},reacquire_published{false},retired_published{false},main_mutex_released{false};
+  std::promise<void>finish_reached,reacquire_ready;
+  std::promise<void>timeout_completed,enter_mutex;
+  alignas(16)std::array<uint8_t,128>queue_object{};
+  std::atomic<bool>fresh_mutex_started{false},fresh_mutex_returned{false},mutex_probe_done{false};
+  State fresh_interrupted{};std::atomic<unsigned>fresh_checkpoints{0};
+  std::atomic<bool>sender_certified{false},finish_returned{false},finish_published{false},reacquire_published{false},main_mutex_released{false};
   std::atomic<unsigned>finish_calls{0},finish_environment_checks{0},queue_calls{0};
   std::array<std::atomic<bool>,2>published{};
   State interrupted{};AndroidTimespec request{};
@@ -126,9 +130,11 @@ struct Harness {
   addr_t Mutex()const{return reinterpret_cast<addr_t>(native_helper?native_mutex.data():event.data()+4);}
   bool RaceTimeout()const{return mode=="race-timeout";}
   bool RaceReacquire()const{return mode=="race-reacquire";}
-  bool RetireFirst()const{return mode=="bad-retired-send";}
-  unsigned Cycles()const{return timed&&!ordinary&&!RaceTimeout()&&!RetireFirst()?2:1;}
-  std::optional<uint64_t>Boundary(const SignalHost::Delivery&d){return profile->Deliver(d);}
+  bool Between()const{return mode.rfind("between-",0)==0||mode.rfind("bad-mutex-",0)==0;}
+  bool QueueMutex()const{return mode=="between-queue-a"||mode=="between-queue-b";}
+  addr_t FreshMutex()const{return QueueMutex()?reinterpret_cast<addr_t>(queue_object.data()+0x20):Mutex();}
+  unsigned Cycles()const{return timed&&!ordinary&&!RaceTimeout()&&!Between()?2:1;}
+  std::optional<uint64_t>Boundary(const SignalHost::Delivery&d){if(Between()&&d.signal==30){auto*s=recomp::CurrentExecutionState();Check(bool(s),"real fresh receiver State exists");Check(s->gpr.x12.qword==0xfedcba980000000cULL&&reinterpret_cast<uint8_t*>(&s->simd)[0]==0x89,"delivery uses changed post-timeout GPR/Q roots");}return profile->Deliver(d);}
   explicit Harness(std::string selected):mode(std::move(selected)),finalizer(mode=="finalizer"),timed(mode!="finalizer"&&mode!="untimed"&&mode!="native-untimed"&&mode!="race-reacquire"),native_helper(mode.find("native-")!=std::string::npos),ordinary(mode=="unknown"||mode=="opaque"||mode=="nested"){
     host=this;
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87980000ULL),0x40000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87980000ULL),"TEST initial registry range");
@@ -141,6 +147,8 @@ struct Harness {
     signals.Install(runtime,[this]{return threads.Self();},boundary,[]{return SignalHost::SenderIdentity{int32_t(GetCurrentProcessId()),10000};});sem.Install(runtime,[this]{return threads.Self();},boundary);sleeps.Install(runtime);
     runtime.AddImport(kErrno,[](State&s){s.gpr.x0.qword=reinterpret_cast<addr_t>(&guest_error);});
     Check(!threads.MutexInit(reinterpret_cast<void*>(Mutex()),nullptr)&&!threads.CondInit(reinterpret_cast<void*>(Condition()),nullptr),"real condition/mutex initialized");
+    if(QueueMutex())Check(!threads.MutexInit(reinterpret_cast<void*>(FreshMutex()),nullptr),"fresh original queue mutex initialized");
+    if(QueueMutex())Write<addr_t>(0x879a78c0,reinterpret_cast<addr_t>(queue_object.data()));
     if(finalizer)Write<addr_t>(0x879a7a40,reinterpret_cast<addr_t>(event.data()));
     else Write<addr_t>(0x879a7a40,0x1111111111111111ULL);
     payload={reinterpret_cast<addr_t>(this),finalizer?0x825c3ed0ULL:0x8258aa94ULL,finalizer?0ULL:reinterpret_cast<addr_t>(event.data())};
@@ -159,6 +167,7 @@ struct Harness {
   }
   void Observed(const Pthreads::WaitContext&context){
     const auto n=cycle.load();if(!n||context.token!=target)return;
+    if(context.phase==Pthreads::WaitPhase::MutexLock){if(Between()&&fresh_mutex_started){Check(!context.condition&&!context.original_deadline&&context.mutex==reinterpret_cast<void*>(FreshMutex()),"fresh actual mutex-only context");Check(context.active_state==recomp::CurrentExecutionState()&&threads.Self()==target,"fresh mutex checkpoint owns actual State/thread");fresh_interrupted=*context.active_state;++fresh_checkpoints;}return;}
     ++checkpoints;
     Check(context.active_state==recomp::CurrentExecutionState()&&threads.Self()==target,"observer runs on actual provider State/owner");
     Check(context.condition==reinterpret_cast<void*>(Condition())&&context.mutex==reinterpret_cast<void*>(Mutex()),"actual provider object pair retained");
@@ -171,6 +180,7 @@ struct Harness {
   }
   void Checkpoint(const std::function<void(const Pthreads::WaitContext&)>&original,const Pthreads::WaitContext&context){
     GameWorkerObservation::NativeEnvironment restore;
+    if(context.phase==Pthreads::WaitPhase::MutexLock&&Between()&&fresh_mutex_started&&!mutex_probe_done.exchange(true)){std::thread probe([&]{Check(threads.MutexDestroy(reinterpret_cast<void*>(FreshMutex()))==16,"real mutex waiter pins control through callback");Check(threads.MutexLock(reinterpret_cast<void*>(FreshMutex()),true)==16,"independent native thread can inspect genuinely contended mutex outside provider locks");Check(!threads.ReleaseCurrent(),"independent mutex probe identity released");});probe.join();}
     std::fesetround(FE_DOWNWARD);std::feclearexcept(FE_ALL_EXCEPT);std::feraiseexcept(FE_INVALID|FE_DIVBYZERO);const int flags=std::fetestexcept(FE_ALL_EXCEPT);errno=EDOM;SetLastError(0x82550574);
     original(context);
     Check(errno==EDOM&&GetLastError()==0x82550574&&std::fegetround()==FE_DOWNWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags,"actual collector checkpoint preserves native errno/last-error/FENV");++environment_checks;
@@ -178,8 +188,10 @@ struct Harness {
   }
   void Finish(const std::function<void(const Pthreads::WaitContext&)>&original,const Pthreads::WaitContext&context){
     GameWorkerObservation::NativeEnvironment restore;
+    if(context.phase==Pthreads::WaitPhase::MutexLock&&(!Between()||!fresh_mutex_started)){if(original)original(context);return;}
     Check(context.token==target&&context.active_state==recomp::CurrentExecutionState()&&threads.Self()==target,"real finish executes on pinned current waiter State");
-    Check(context.condition==reinterpret_cast<void*>(Condition())&&context.mutex==reinterpret_cast<void*>(Mutex()),"real finish retains actual condition/mutex identities");
+    Check(context.phase==Pthreads::WaitPhase::MutexLock?(!context.condition&&!context.original_deadline):context.condition==reinterpret_cast<void*>(Condition()),"real finish retains actual condition identity");
+    Check(context.mutex==reinterpret_cast<void*>(context.phase==Pthreads::WaitPhase::MutexLock&&Between()?FreshMutex():Mutex()),"real finish retains actual mutex identity");
     const bool raced=(RaceTimeout()&&context.phase==Pthreads::WaitPhase::ConditionReleased)||(RaceReacquire()&&context.phase==Pthreads::WaitPhase::MutexReacquire&&sender_certified);
     if(raced&&!finish_published.exchange(true)){
       Check(sender_certified,"sender was actually certified before provider finish");
@@ -191,7 +203,26 @@ struct Harness {
     Check(errno==EDOM&&GetLastError()==0x82550164&&std::fegetround()==FE_DOWNWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags,"actual collector finish preserves native errno/last-error/FENV");++finish_environment_checks;
     ++finish_calls;
     if(raced)finish_returned=true;
-    if(RetireFirst()&&context.phase==Pthreads::WaitPhase::ConditionReleased&&!retired_published.exchange(true)){retired_ready.set_value();retired_release.get_future().get();}
+  }
+  Memory*BetweenBody(State&s,Memory*m,const State&initial){
+    AndroidThreadAttr attr{};Check(!threads.GetAttr(target,&attr),"fresh-phase worker actual stack attribute");
+    proceed[0].get_future().get();cycle=1;
+    Check(!threads.MutexLock(reinterpret_cast<void*>(Mutex())),"initial timed waiter owns its actual mutex");
+    s=initial;s.gpr.sp.qword=initial.gpr.sp.qword-0x70;s.gpr.x29.qword=s.gpr.sp.qword+0x60;s.gpr.x30.qword=0x82550574;s.gpr.pc.qword=0x7ffc60000028ULL;s.gpr.x0.qword=Condition();s.gpr.x1.qword=Mutex();s.gpr.x2.qword=s.gpr.sp.qword;
+    Check(!Pthreads::ClockGetTime(0,&request),"between-waits actual absolute deadline");request.nanoseconds+=500000000;if(request.nanoseconds>=1000000000){++request.seconds;request.nanoseconds-=1000000000;}Write<AndroidTimespec>(s.gpr.sp.qword,request);
+    profile->WithWait("pthread_cond_timedwait",s,[&]{runtime.Dispatch(s,threads.Marker("pthread_cond_timedwait"),m);});
+    Check(int32_t(s.gpr.x0.dword)==110&&!posts&&!stops&&!restarts,"old real timed condition returns110 with no collector requests");Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"old timed-wait mutex released after return");timeout_completed.set_value();enter_mutex.get_future().get();
+    s=initial;for(unsigned i=0;i<31;++i){const uint64_t v=0xfedcba9800000000ULL+i;std::memcpy(reinterpret_cast<uint8_t*>(&s.gpr)+i*16+8,&v,8);}for(unsigned i=0;i<512;i++)reinterpret_cast<uint8_t*>(&s.simd)[i]=uint8_t(0x89+i*13);
+    s.gpr.sp.qword=initial.gpr.sp.qword-(QueueMutex()?0x60:0x70);s.gpr.x29.qword=s.gpr.sp.qword+(QueueMutex()?0x50:0x60);s.gpr.x30.qword=mode=="between-queue-a"?0x825bf1cc:mode=="between-queue-b"?0x825bf018:mode=="bad-mutex-LR"?0x82550460:0x8255045c;s.gpr.pc.qword=0x7ffc60000030ULL;s.gpr.x0.qword=FreshMutex();s.gpr.x19.qword=FreshMutex();s.gpr.x21.qword=reinterpret_cast<addr_t>(event.data());s.fpcr.flat=0x03c00000;s.fpsr.flat=0x0800009f;s.sr.ioc=1;s.sr.dzc=1;s.sr.ofc=1;s.sr.ufc=1;s.sr.ixc=1;s.sr.idc=1;
+    if(mode=="bad-mutex-FP")s.gpr.x29.qword+=16;
+    if(mode=="bad-mutex-TLS")s.sr.tpidr_el0.qword+=16;
+    auto expected=s;fresh_mutex_started=true;profile->WithWait("pthread_mutex_lock",s,[&]{runtime.Dispatch(s,threads.Marker("pthread_mutex_lock"),m);});fresh_mutex_returned=true;
+    Check(int32_t(s.gpr.x0.dword)==0&&posts==2&&stops==1&&restarts==1,"real contended mutex returns0 only after original stop/restart");expected.gpr.x0.qword=0;expected.gpr.pc.qword=expected.gpr.x30.qword;Check(!std::memcmp(&s,&expected,sizeof(s)),"fresh complete interruptedState restored with genuine lock result");Check(fresh_checkpoints&&fresh_interrupted.gpr.x12.qword==0xfedcba980000000cULL,"fresh mutex checkpoint used changed live registers");Check(!threads.MutexUnlock(reinterpret_cast<void*>(FreshMutex())),"new owner releases actual acquired mutex");finished[0].set_value();s=initial;s.gpr.x0.qword=0x1234;s.gpr.pc.qword=s.gpr.x30.qword;return m;
+  }
+  void RunBetween(){
+    proceed[0].set_value();entered[0].get_future().get();timeout_completed.get_future().get();Check(!threads.MutexLock(reinterpret_cast<void*>(FreshMutex())),"coordinator retains real fresh mutex across stop/restart");
+    if(mode.rfind("bad-mutex-",0)==0)std::fprintf(stderr,"EXPECT-PRODUCTION-REJECTION %s\n",mode.c_str());
+    threads.Run(0x825aad50);suspended[0].get_future().get();Check(Read<uint64_t>(kEpoch)==2&&Read<uint64_t>(kStopped)==1&&!fresh_mutex_returned,"original coordinator stopped fresh contended waiter");threads.Run(0x825aae3c);Check(!fresh_mutex_returned,"signal wake cannot acquire a still-owned mutex");Check(!threads.MutexUnlock(reinterpret_cast<void*>(FreshMutex())),"only real mutex unlock permits target acquisition");finished[0].get_future().get();addr_t result=0;Check(!threads.Join(target,&result)&&result==0x1234,"fresh-phase worker joins and retires normally");Check(posts==2&&physical==2&&stops==1&&restarts==1&&queue_calls==2,"fresh phase uses only two original queued signals/posts/physicalframes");int32_t value=-1;Check(!sem.GetValue(kAck,&value)&&!value,"real original coordinators consumed both actual acknowledgments");Check(!threads.Shutdown(),"fresh phase worker drain");profile->CloseAfterShutdown();profile.reset();if(QueueMutex())Check(!threads.MutexDestroy(reinterpret_cast<void*>(FreshMutex())),"fresh queue mutex destroyed after join");Check(!threads.CondDestroy(reinterpret_cast<void*>(Condition()))&&!threads.MutexDestroy(reinterpret_cast<void*>(Mutex()))&&!sem.Destroy(kAck),"fresh wait resources destroyed after join");Check(!threads.ReleaseCurrent()&&!signals.DropThread(parent),"fresh test parent identity retired");std::printf("MANAGED-BETWEEN-WAITS-PASS mode=%s cycles=1 posts=2 stops=1 restarts=1 physical=2 checks=%u timeout_result=110 mutex_result=0 fresh_checkpoints=%u State=%zu Memory64=%zu\n",mode.c_str(),checks.load(),fresh_checkpoints.load(),sizeof(State),sizeof(addr_t));
   }
   Memory*Body(State&s,Memory*m){
     const auto initial=s;AndroidThreadAttr attr{};
@@ -199,6 +230,8 @@ struct Harness {
     const auto high=attr.stack_base+attr.stack_size;
     Write<addr_t>(kRecord,0);Write<uint64_t>(kRecord+8,target);Write<uint64_t>(kRecord+0x10,0);Write<addr_t>(kRecord+0x18,high);Write<uint32_t>(kRecord+0x20,2);Write<addr_t>(kRecord+0x28,high);
     uint32_t hash=uint32_t(target>>8)^uint32_t(target);hash^=hash>>16;Write<addr_t>(0x879a6b28+(hash&255)*8,kRecord);
+    if(mode=="bad-actually-retired"){s=initial;s.gpr.x0.qword=0x1234;s.gpr.pc.qword=s.gpr.x30.qword;return m;}
+    if(Between())return BetweenBody(s,m,initial);
     for(unsigned n=0;n<Cycles();++n){
       proceed[n].get_future().get();cycle=n+1;
       Check(!threads.MutexLock(reinterpret_cast<void*>(Mutex())),"waiter owns real mutex before wait");
@@ -236,6 +269,7 @@ struct Harness {
     if(!std::strcmp(name,"pthread_kill"))profile->Send(s,[&]{
       if(s.gpr.x1.dword==30&&(RaceTimeout()||RaceReacquire())){sender_certified=true;if(RaceReacquire()){Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"real owning coordinator releases mutex after certification");main_mutex_released=true;}finish_reached.get_future().get();Check(!finish_returned,"provider finish cannot retire sender-certified request before Queue");}
       ++queue_calls;std::fprintf(stderr,"ACTUAL-SIGNAL-QUEUE signal=%u\n",s.gpr.x1.dword);invoke();
+      if(Between()&&s.gpr.x1.dword==30){Check(!s.gpr.x0.dword&&SignalHost::NeedsPoll(signals.Lookup(target))&&!fresh_mutex_started,"actual successful stop queue retains eligible delivery before fresh mutex admission");Check(!posts&&!stops,"queued between-waits stop has no early handler/ack");enter_mutex.set_value();}
     });
     else if(!std::strcmp(name,"sigsuspend")){const auto n=cycle.load();if(n&&!suspended_done[n-1].exchange(true))suspended[n-1].set_value();profile->WithWait(name,s,invoke);}
     else if(!std::strcmp(name,"sem_post")){profile->BeforePost(s);++physical;invoke();profile->AfterPost(s);++posts;}
@@ -245,13 +279,14 @@ struct Harness {
   std::array<std::atomic<bool>,2>suspended_done{};
   void Run(){
     Check(!threads.Run(kCreate),"creator-shaped call invokes actual Pthreads Create");
+    if(mode=="bad-actually-retired"){addr_t result=0;Check(!threads.Join(target,&result)&&result==0x1234,"target actually joins and retires before original stop request");std::fprintf(stderr,"EXPECT-PRODUCTION-REJECTION bad-actually-retired\n");threads.Run(0x825aad50);throw std::runtime_error("retired target incorrectly accepted");}
+    if(Between()){RunBetween();return;}
     for(unsigned n=0;n<Cycles();++n){
       proceed[n].set_value();entered[n].get_future().get();
       Check(!threads.MutexLock(reinterpret_cast<void*>(Mutex())),"provider actually released guest mutex");
       if(ordinary){uint64_t pending=1;Check(!signals.Pending(target,&pending)&&!pending&&!SignalHost::NeedsPoll(signals.Lookup(target)),"unknown helper has no pending collector signal");Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"ordinary unknown helper uses real condition notification");std::this_thread::sleep_for(std::chrono::milliseconds(15));Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"ordinary notifier releases real mutex");finished[n].get_future().get();continue;}
       if(mode.rfind("bad-",0)==0){std::fprintf(stderr,"EXPECT-PRODUCTION-REJECTION %s\n",mode.c_str());std::fflush(stderr);}
       if(RaceReacquire()){Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"actual notifier releases condition into contended reacquisition");reacquire_ready.get_future().get();}
-      if(RetireFirst())retired_ready.get_future().get();
       threads.Run(0x825aad50);Check(Read<uint64_t>(kEpoch)==uint64_t((n+1)*2)&&Read<uint64_t>(kStopped)==1,"original coordinator stopped world");suspended[n].get_future().get();
       if(timed&&!n&&!RaceTimeout())std::this_thread::sleep_for(std::chrono::milliseconds(600));
       threads.Run(0x825aae3c);

@@ -53,7 +53,7 @@ class Pthreads {
   // revoke any partial preparation by token. Lease destruction must be passive;
   // provider callbacks belong in explicit retire, never a shared_ptr destructor.
   void SetWorkerLifecycleHooks(WorkerLifecycleHooks);
-  enum class WaitPhase { ConditionReleased, MutexReacquire };
+  enum class WaitPhase { ConditionReleased, MutexReacquire, MutexLock };
   struct WaitContext {
     uint64_t token;
     State *active_state;
@@ -76,6 +76,10 @@ class Pthreads {
     // after the wait decision, and before each free-mutex ownership claim.
     // The latter rechecks mutex ownership after this callback returns.
     std::function<void(const WaitContext &)> finish={};
+    // Optional selector for a separately qualified ordinary mutex-lock import.
+    // Empty/false preserves the legacy path. Runs without provider locks;
+    // selected contexts have condition/deadline null and phase MutexLock.
+    std::function<bool(const WaitContext &)> admit_mutex={};
   };
   // Optional condition-wait transport, immutable before the first Create or
   // CondWait attempt. Every configured waiter requires a complete live channel.

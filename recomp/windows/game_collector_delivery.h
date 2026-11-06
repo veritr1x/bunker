@@ -39,6 +39,9 @@ class GameCollectorDelivery {
       default:return ManagedWait::unknown;
     }
   }
+  static unsigned ManagedMutexSite(const State&state){
+    switch(state.gpr.x30.qword){case 0x8255045c:return 1;case 0x825bf1cc:return 2;case 0x825bf018:return 3;default:return 0;}
+  }
   static bool ManagedContext(State&state){
     if(OpaqueDepth()||recomp::CurrentExecutionState()!=&state)return false;
     const auto frames=recomp::CurrentExecutionFrames(state);
@@ -49,7 +52,7 @@ class GameCollectorDelivery {
     std::shared_ptr<Channel> channel=std::make_shared<Channel>();
     std::unique_ptr<recomp::PollBinding> binding;
     std::unique_ptr<SignalDelivery> delivery;
-    std::atomic<bool> wait_live{false},stop_live{false};
+    std::atomic<bool> wait_live{false},stop_live{false},queue_blocked{false},retiring{false};
     std::atomic<addr_t> record{0};std::atomic<uint64_t> stop_epoch{0};
     std::atomic<uint64_t> certified_epoch{0},begun_epoch{0};
     std::atomic<bool> certified_new_epoch{false};uint64_t pump_calls=0;
@@ -74,6 +77,15 @@ class GameCollectorDelivery {
   static void Check(bool value,const char *message){if(!value)Fail(message);}
   std::shared_ptr<Owner> Lookup(uint64_t token){std::lock_guard lock(mutex_);auto i=owners_.find(token);return i==owners_.end()?nullptr:i->second;}
   bool Pending(const Owner &owner){uint64_t blocked=0;Check(!signals_.Pending(owner.context->PreparedWorker().token,&blocked),"signal owner is not live");return blocked||SignalHost::NeedsPoll(owner.context->SignalThread());}
+  void RetainManagedKnown(Owner &owner){
+    const auto result=signals_.DispatchOneAdmittedSubset(owner.context->PreparedWorker().token,SignalHost::Bit(30)|SignalHost::Bit(24),0,{});
+    Check(!result.error,"unknown eligible signal outside a managed delivery phase");
+  }
+  bool SelectMutex(const Pthreads::WaitContext &context){
+    auto *owner=Current();return owner&&owner->role==Role::managed_worker&&!owner->socket_wait.load()&&!owner->depth&&
+      context.phase==Pthreads::WaitPhase::MutexLock&&context.active_state&&owner->wait_state==context.active_state&&
+      ManagedMutexSite(*context.active_state)&&ManagedContext(*context.active_state);
+  }
   addr_t Record(uint64_t token){
     Check(Read<uint32_t>(0x879a62a0)==1,"original GC registry is not initialized");
     uint32_t hash=uint32_t(token>>8)^uint32_t(token);hash^=hash>>16;
@@ -93,11 +105,18 @@ class GameCollectorDelivery {
     Check(ConditionRole(owner)&&owner.context->CurrentPhase()==Lifecycle::Phase::entered&&Current()==&owner,"wait has no entered creator-certified condition owner");
     Check(context.token==info.token&&context.active_state&&context.active_state==state&&threads_.Self()==info.token&&owner.context->NativeThreadId()==GetCurrentThreadId(),"wait active State/native identity differs");
     const auto frames=recomp::CurrentExecutionFrames(*state);Check(frames.size()==1&&frames[0]==state&&!OpaqueDepth(),"parent/native opaque root phase is not qualified");
-    Check(context.phase==Pthreads::WaitPhase::ConditionReleased||context.phase==Pthreads::WaitPhase::MutexReacquire,"unknown native wait phase");
+    Check(context.phase==Pthreads::WaitPhase::ConditionReleased||context.phase==Pthreads::WaitPhase::MutexReacquire||(owner.role==Role::managed_worker&&context.phase==Pthreads::WaitPhase::MutexLock),"unknown native wait phase");
     const addr_t condition=reinterpret_cast<addr_t>(context.condition),mutex=reinterpret_cast<addr_t>(context.mutex);
     if(owner.role==Role::finalizer){
       Check(!context.original_deadline&&!state->gpr.x2.qword&&state->gpr.x30.qword==0x825505d8&&state->gpr.x0.qword==reinterpret_cast<addr_t>(context.condition)&&state->gpr.x1.qword==reinterpret_cast<addr_t>(context.mutex),"original untimed condition arguments/return differ");
       Check(condition>=0x2c&&mutex==condition-0x28&&Read<addr_t>(0x879a7a40)==condition-0x2c&&state->gpr.pc.qword==0x7ffc60000020ULL,"actual finalizer event/import identity or condition/mutex geometry differs");
+    }else if(context.phase==Pthreads::WaitPhase::MutexLock){
+      const auto site=ManagedMutexSite(*state);Check(owner.role==Role::managed_worker&&site,"managed mutex caller is unqualified");
+      Check(!context.condition&&!context.original_deadline&&mutex&&state->gpr.x0.qword==mutex&&state->gpr.pc.qword==0x7ffc60000030ULL,"managed mutex actual import/context differs");
+      const uint64_t frame_size=site==1?0x70:0x60,frame_pointer=site==1?0x60:0x50;
+      Check(state->gpr.sp.qword<=info.stack_high&&info.stack_high-state->gpr.sp.qword>=frame_size&&state->gpr.x29.qword==state->gpr.sp.qword+frame_pointer,"original managed mutex helper frame differs");
+      if(site==1)Check(state->gpr.x21.qword<=UINT64_MAX-4&&state->gpr.x19.qword==mutex&&state->gpr.x21.qword+4==mutex,"original event mutex geometry differs");
+      else{const auto queue=Read<addr_t>(0x879a78c0);Check(queue&&queue<=UINT64_MAX-0x20&&mutex==queue+0x20,"original managed queue mutex identity differs");}
     }else{
       Check(owner.role==Role::managed_worker,"condition owner has no certified role");
       const auto site=ManagedSite(*state);Check(site!=ManagedWait::unknown,"managed-worker condition caller is unqualified");
@@ -141,11 +160,15 @@ class GameCollectorDelivery {
     const auto record=Record(owner.context->PreparedWorker().token);Check(record&&record==owner.record&&Read<addr_t>(record+0x28)==owner.context->PreparedWorker().stack_high,"pending request has no matching original record");Dispositions();
     // Selection and eligibility intersection are atomic inside SignalHost.
     // A late24 is not cleared by this outer30-only provider boundary.
-    auto result=signals_.DispatchOneAllowed(owner.context->PreparedWorker().token,SignalHost::Bit(30),[&](const auto&delivery){return Deliver(delivery);});Check(!result.error,"admitted original signal dispatch failed");(void)state;
+    auto result=owner.role==Role::managed_worker?
+      signals_.DispatchOneAdmittedSubset(owner.context->PreparedWorker().token,SignalHost::Bit(30)|SignalHost::Bit(24),SignalHost::Bit(30),[&](const auto&delivery){return Deliver(delivery);}):
+      signals_.DispatchOneAllowed(owner.context->PreparedWorker().token,SignalHost::Bit(30),[&](const auto&delivery){return Deliver(delivery);});
+    Check(!result.error,"admitted original signal dispatch failed");(void)state;
   }
   void Retire(const Pthreads::WorkerInfo &info,const Pthreads::WorkerLease &lease,Pthreads::WorkerRetirement reason,const Pthreads::WorkerLifecycleHooks &hooks){
     if(extension_.retire)extension_.retire(info,reason);
     auto owner=Lookup(info.token);
+    if(owner&&owner->role==Role::managed_worker){std::lock_guard claim(owner->socket_sender_mutex);owner->retiring=true;Check(!Pending(*owner),"managed owner retires with queued collector delivery");}
     if(owner){Check(!owner->depth&&!owner->wait_live&&!owner->stop_live,"worker retires through active provider/signal frame");if(owner->binding||owner->delivery){Check(owner->context->NativeThreadId()==GetCurrentThreadId()&&(!owner->binding||Current()==owner.get()),"poll binding retirement on wrong worker");Check(!Pending(*owner),"worker retires with an original pending signal");owner->binding.reset();owner->delivery.reset();Current()=nullptr;}}
     hooks.retire(info,lease,reason);
     {std::lock_guard lock(mutex_);owners_.erase(info.token);}
@@ -170,9 +193,11 @@ class GameCollectorDelivery {
     auto hooks=lifecycle_.TakeHooks();auto installed=hooks;
     installed.prepare=[this,hooks](const auto &info){auto lease=hooks.prepare(info);auto owner=std::make_shared<Owner>();owner->context=lifecycle_.Lookup(info.token);owner->role=Creating()?Creating()->role:Role::unknown;{std::lock_guard lock(mutex_);Check(!closed_&&owners_.emplace(info.token,owner).second,"duplicate/closed worker owner");}if(extension_.prepare)extension_.prepare(info,lifecycle_);GameWorkerObservation::Lifecycle("prepare",info);return lease;};
     installed.enter=[this,hooks](const auto &info,const auto &lease){hooks.enter(info,lease);auto owner=Lookup(info.token);Check(owner&&Current()==nullptr,"worker owner entry is not cold");owner->delivery=std::make_unique<SignalDelivery>(runtime_,Translated,kReturn,recomp::signal_frame::Bounds{info.stack_low,info.stack_high},signals_,info.token);owner->binding=std::make_unique<recomp::PollBinding>(owner->context->PollRequests(),[this,owner](State &s,recomp::PollSite,const auto&){try{Pump(*owner,s);}catch(const ProviderDeferred&){throw;}catch(const std::exception&e){Fail(e.what());}catch(...){Fail("unknown original delivery exception");}},[this](const auto &context){return Admit(context);});Current()=owner.get();if(extension_.enter)extension_.enter(info);GameWorkerObservation::Enter(info);};
-    installed.before_tls=[this,hooks](const auto &info,const auto &lease){if(extension_.before_tls)extension_.before_tls(info);auto owner=Lookup(info.token);Check(owner&&!owner->depth&&!owner->wait_live&&!Pending(*owner),"worker reaches TLS with active/pending stop");hooks.before_tls(info,lease);GameWorkerObservation::Lifecycle("before_tls",info);};
+    installed.before_tls=[this,hooks](const auto &info,const auto &lease){if(extension_.before_tls)extension_.before_tls(info);auto owner=Lookup(info.token);
+      if(owner&&owner->role==Role::managed_worker){std::lock_guard claim(owner->socket_sender_mutex);owner->retiring=true;Check(!owner->depth&&!owner->wait_live&&!Pending(*owner),"managed worker reaches TLS with active/pending stop");hooks.before_tls(info,lease);GameWorkerObservation::Lifecycle("before_tls",info);return;}
+      Check(owner&&!owner->depth&&!owner->wait_live&&!Pending(*owner),"worker reaches TLS with active/pending stop");hooks.before_tls(info,lease);GameWorkerObservation::Lifecycle("before_tls",info);};
     installed.retire=[this,hooks](const auto &i,const auto&l,auto r){Retire(i,l,r,hooks);};threads_.SetWorkerLifecycleHooks(std::move(installed));
-    threads_.SetWaitHooks({[this](uint64_t token){auto owner=Lookup(token);auto channel=owner?owner->channel:std::make_shared<Channel>();return std::make_shared<const Pthreads::WaitWake>(Pthreads::WaitWake{[channel]{return channel->Generation();},[channel]{channel->Notify();},[channel](auto generation,auto relative){channel->Wait(generation,relative);}});},[this](const auto &context){Checkpoint(context);},[this](const auto &context){Finish(context);}});
+    threads_.SetWaitHooks({[this](uint64_t token){auto owner=Lookup(token);auto channel=owner?owner->channel:std::make_shared<Channel>();return std::make_shared<const Pthreads::WaitWake>(Pthreads::WaitWake{[channel]{return channel->Generation();},[channel]{channel->Notify();},[channel](auto generation,auto relative){channel->Wait(generation,relative);}});},[this](const auto &context){Checkpoint(context);},[this](const auto &context){Finish(context);},[this](const auto &context){return SelectMutex(context);}});
     std::fprintf(stderr,"Game GC: creator-certified finalizer untimed and managed-worker timed/untimed condition profiles configured; virtual Android real UID=%u; no Windows/device UID claim\n",kVirtualRealUid);
   }
   ~GameCollectorDelivery(){Check(closed_,"collector adapter destroyed before worker drain");}
@@ -183,7 +208,9 @@ class GameCollectorDelivery {
     // cleared that condition; an obsolete wake is not another GC request.
     if(!SignalHost::NeedsPoll(signals_.Lookup(token)))return;
     if(auto owner=Lookup(token))if(owner->socket_wait.load()){owner->context->PollRequests().Request();return;}
-    auto owner=Lookup(token);Check(owner&&ConditionRole(*owner)&&(owner->wait_live.load()||owner->stop_live.load()),"queued target has left its qualified wait/stop lifetime");owner->context->PollRequests().Request();owner->channel->Notify();
+    auto owner=Lookup(token);
+    if(owner&&owner->role==Role::managed_worker){Check(owner->context->CurrentPhase()==Lifecycle::Phase::entered&&!owner->retiring&&!owner->queue_blocked,"queued managed target has no supported live owner");owner->context->PollRequests().Request();owner->channel->Notify();return;}
+    Check(owner&&ConditionRole(*owner)&&(owner->wait_live.load()||owner->stop_live.load()),"queued target has left its qualified wait/stop lifetime");owner->context->PollRequests().Request();owner->channel->Notify();
   }
   void WithCreate(State &state,const std::function<void(State&)> &invoke){
     GameWorkerObservation::BeforeCreate(state);Witness witness;
@@ -193,12 +220,18 @@ class GameCollectorDelivery {
   void WithWait(const std::string &name,State &state,const std::function<void()> &invoke){
     auto *owner=Current();
     if(owner&&owner->socket_wait.load()&&name=="sigsuspend"){NestedSuspend(*owner,state);invoke();return;}
-    if(owner&&owner->role==Role::managed_worker&&!owner->socket_wait.load()&&!owner->depth&&
-       ((name!="pthread_cond_wait"&&name!="pthread_cond_timedwait")||ManagedSite(state)==ManagedWait::unknown||!ManagedContext(state))){
-      // An outer certificate is not live while nested/opaque ordinary roots run.
-      // Only a later fully qualified checkpoint may publish it again.
-      owner->wait_live=false;
-      Check(!Pending(*owner),"unqualified managed wait has pending collector delivery");
+    if(owner&&owner->role==Role::managed_worker&&!owner->socket_wait.load()&&!owner->depth){
+      const bool condition=(name=="pthread_cond_wait"||name=="pthread_cond_timedwait")&&ManagedSite(state)!=ManagedWait::unknown;
+      const bool mutex=name=="pthread_mutex_lock"&&ManagedMutexSite(state);
+      if((condition||mutex)&&ManagedContext(state)){
+        Check(!owner->wait_state,"nested managed provider invocation is unqualified");owner->wait_state=&state;
+        struct Phase {Owner &owner;~Phase(){std::lock_guard claim(owner.socket_sender_mutex);owner.wait_live=false;owner.checkpoint=nullptr;owner.wait_state=nullptr;}}phase{*owner};
+        invoke();std::lock_guard claim(owner->socket_sender_mutex);owner->wait_live=false;RetainManagedKnown(*owner);return;
+      }
+      // A live owner may retain a request between certified providers, but an
+      // unsupported blocking/native continuation cannot promise progress.
+      {std::lock_guard claim(owner->socket_sender_mutex);owner->wait_live=false;Check(!Pending(*owner),"unqualified managed wait has pending collector delivery");owner->queue_blocked=true;}
+      struct Blocked {Owner &owner;~Blocked(){std::lock_guard claim(owner.socket_sender_mutex);owner.queue_blocked=false;}}blocked{*owner};
       invoke();Check(!Pending(*owner),"pending collector delivery raced an unqualified managed wait");return;
     }
     if(name=="sigsuspend"){Check(owner&&ConditionRole(*owner),"sigsuspend has no owned original stop");NestedSuspend(*owner,state);invoke();return;}
@@ -211,13 +244,14 @@ class GameCollectorDelivery {
     GameWorkerObservation::NativeEnvironment native;
     if(extension_.owns&&extension_.owns(context.token)){extension_.checkpoint(context);return;}
     auto owner=Lookup(context.token);if(!owner||!ConditionRole(*owner)){if(owner)Check(!Pending(*owner),"unknown-role worker has pending delivery");return;}
-    if(owner->role==Role::managed_worker&&(!context.active_state||ManagedSite(*context.active_state)==ManagedWait::unknown||!ManagedContext(*context.active_state))){
+    if(owner->role==Role::managed_worker&&(!context.active_state||(context.phase==Pthreads::WaitPhase::MutexLock?!ManagedMutexSite(*context.active_state):ManagedSite(*context.active_state)==ManagedWait::unknown)||!ManagedContext(*context.active_state))){
       owner->wait_live=false;
       Check(!Pending(*owner),"unqualified managed checkpoint has pending collector delivery");return;
     }
     // Basic wait publication does not walk the original registry. It can run
     // while unrelated original registrations/unlinks mutate their buckets.
     ValidateWait(*owner,context);Check(owner->wait_state==context.active_state,"checkpoint is outside actual observed import invocation");
+    if(owner->role==Role::managed_worker)RetainManagedKnown(*owner);
     auto use=lifecycle_.AcquireUse(context.token);owner->wait_live=true;owner->checkpoint=&context;
     struct Scope {Owner &owner;~Scope(){owner.checkpoint=nullptr;}} scope{*owner};
     for(unsigned count=0;__bunker_guest_poll_requested();++count){
@@ -243,7 +277,7 @@ class GameCollectorDelivery {
     GameWorkerObservation::NativeEnvironment native;
     auto owner=Lookup(context.token);
     if(!owner||owner->role!=Role::managed_worker||owner->socket_wait.load())return;
-    if(!context.active_state||ManagedSite(*context.active_state)==ManagedWait::unknown||!ManagedContext(*context.active_state)){
+    if(!context.active_state||(context.phase==Pthreads::WaitPhase::MutexLock?!ManagedMutexSite(*context.active_state):ManagedSite(*context.active_state)==ManagedWait::unknown)||!ManagedContext(*context.active_state)){
       std::lock_guard claim(owner->socket_sender_mutex);owner->wait_live=false;
       Check(!Pending(*owner),"unqualified managed retirement has pending collector delivery");return;
     }
@@ -253,7 +287,11 @@ class GameCollectorDelivery {
       Check(count<16,"managed retirement could not drain the qualified pending request");
       std::unique_lock claim(owner->socket_sender_mutex);
       if(!Pending(*owner)){owner->wait_live=false;return;}
-      Check(owner->wait_live,"pending managed request has no live provider certificate");
+      const auto epoch=Read<uint64_t>(kEpoch);
+      if(owner->certified_epoch!=epoch||!owner->certified_new_epoch||owner->begun_epoch==epoch||Read<uint64_t>(kStopped)!=1||Read<uint8_t>(0x879a62a8)!=1){RetainManagedKnown(*owner);owner->wait_live=false;return;}
+      // This actual retirement/claim callback is itself a fresh live context,
+      // even when an earlier finish callback already withdrew its certificate.
+      owner->wait_live=true;
       // Send owns this same claim through BeforeKill -> real Queue -> Notify.
       // Never hold it while the original stop handler waits for restart24.
       claim.unlock();Checkpoint(context);
@@ -272,14 +310,15 @@ class GameCollectorDelivery {
     Check(state.gpr.x30.qword==(signal==30?0x825b2d1cULL:0x825b2f74ULL),"nonzero send is outside audited original caller");
     auto *active=recomp::CurrentExecutionState();Check(active==&state&&!OpaqueDepth(),"collector sender is inside an opaque native continuation");const auto sender_frames=recomp::CurrentExecutionFrames(*active);Check(sender_frames.size()==1&&sender_frames[0]==active,"collector sender has unqualified parent Runtime roots");
     const auto epoch=Read<uint64_t>(kEpoch);Check(epoch&&!(epoch&1)&&Read<uint8_t>(0x879a62a8)==1&&token!=threads_.Self(),"original epoch/registry-lock consistency differs");
-    if(signal==30)Check(state.gpr.x30.qword==0x825b2d1c&&owner->wait_live&&Read<uint64_t>(kStopped)==1,"original stop caller/live wait cycle differs");
+    if(owner->role==Role::managed_worker)Check(!owner->retiring&&!owner->queue_blocked,"managed stop target is retiring or inside an unsupported blocking phase");
+    if(signal==30)Check(state.gpr.x30.qword==0x825b2d1c&&(owner->role==Role::managed_worker||owner->wait_live)&&Read<uint64_t>(kStopped)==1,"original stop caller/live wait cycle differs");
     else Check(state.gpr.x30.qword==0x825b2f74&&owner->stop_live&&owner->stop_epoch==epoch&&!Read<uint64_t>(kStopped),"original restart caller/owned stop differs");
     // Only the audited sender paths, paused under their original collector
     // registry lock, may authorize this host bucket walk.
     Dispositions();
     const auto record=Record(token);const auto actual=signal==30?state.gpr.x26.qword:state.gpr.x27.qword;
     Check(record&&actual==record&&Read<uint64_t>(record+8)==token&&Read<addr_t>(record+0x28)==owner->context->PreparedWorker().stack_high,"actual original traversal record/owned stack differs");
-    if(signal==30){Check(state.gpr.x30.qword==0x825b2d1c&&owner->wait_live&&Read<uint64_t>(kStopped)==1&&!(Read<uint8_t>(record+0x20)&1)&&!Read<uint8_t>(record+0x21),"original stop sender/eligible wait differs");}
+    if(signal==30){Check(state.gpr.x30.qword==0x825b2d1c&&(owner->role==Role::managed_worker||owner->wait_live)&&Read<uint64_t>(kStopped)==1&&!(Read<uint8_t>(record+0x20)&1)&&!Read<uint8_t>(record+0x21),"original stop sender/eligible wait differs");}
     else Check(state.gpr.x30.qword==0x825b2f74&&owner->stop_live&&owner->stop_epoch==epoch&&!Read<uint64_t>(kStopped),"original restart sender/owned stop differs");
     owner->record=record;
     if(signal==30){owner->certified_new_epoch=(Read<uint64_t>(record+0x10)&~uint64_t(1))!=epoch;owner->certified_epoch=epoch;}
@@ -288,6 +327,8 @@ class GameCollectorDelivery {
   void Send(State &state,const std::function<void()> &invoke){
     auto owner=Lookup(state.gpr.x0.qword);Check(bool(owner),"nonzero send has no real worker owner");
     std::unique_lock socket_guard(owner->socket_sender_mutex);if(!owner->socket_wait.load()&&owner->role!=Role::managed_worker)socket_guard.unlock();
+    // Shared Owner/Context plus this claim span real Queue/Notify. Managed
+    // before_tls/retire take the same claim. No receiver State is read here.
     BeforeKill(state);invoke();
   }
   void BeforeNonlocal(){auto *owner=Current();if(owner&&owner->depth)Fail("nonlocal capture/transfer attempted inside an active collector frame");}

@@ -13,8 +13,10 @@ queue's mutex calls, and entered a new event-mutex import at LR `8255045c`.
 The old condition certificate has retired. The compound guard does not reveal
 whether its live-wait predicate failed or its stopped-state predicate differed;
 the log alone cannot distinguish them. A fresh controlled mutex checkpoint and
-stable-lifetime sender certification are being implemented. No old wait State
-may be reused for the stop. There are two returned renders, one successful swap,
+stable-lifetime sender certification now pass the focused extension gate: 1,037
+checks, twelve original stop/restart cycles and three fresh contended mutex
+sites. The ordinary Pthreads regression passes 397 checks. Integration is pending.
+No old wait State may be reused for the stop. There are two returned renders, one successful swap,
 no accepted game image, and no unresolved Regex error in this execution.
 Original-parent pre/post and selected-runtime checks pass.
 Evidence: `work/runtime10-managed-gap-boundary1`.

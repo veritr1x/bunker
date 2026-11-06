@@ -409,7 +409,52 @@ int Pthreads::MutexAttrDestroy(int64_t *a){if(!a)return kInvalid;auto v=ReadWire
 int Pthreads::MutexAttrSetType(int64_t *a,int type){if(!a||type<0||type>2)return kInvalid;auto v=ReadWire(a);if(v<0||v>2)return kInvalid;WriteWire(a,int64_t(type));return 0;}
 int Pthreads::MutexInit(void *p,const int64_t *a){if(!p)return kInvalid;int64_t type=a?ReadWire(a):0;if(type<0||type>2)return kNotSupported;std::lock_guard lock(impl_->registry);if(impl_->mutexes.count(p))return kBusy;auto m=std::make_shared<Impl::Mutex>();m->type=static_cast<int>(type);InitializeOpaque(p,40,static_cast<uint32_t>(type)<<14);impl_->mutexes.emplace(p,m);return 0;}
 int Pthreads::MutexDestroy(void *p){auto m=impl_->GetMutex(p);if(!m)return kInvalid;std::lock_guard lock(m->lock);if(m->dead)return kInvalid;if(m->owner||m->waiters)return kBusy;m->dead=true;{std::lock_guard guard(impl_->registry);impl_->mutexes.erase(p);SetWord(p,kDead);}return 0;}
-int Pthreads::MutexLock(void *p,bool attempt){auto m=impl_->GetMutex(p);if(!m)return kInvalid;auto id=Self();std::unique_lock lock(m->lock);if(m->dead)return kInvalid;if(m->owner==id&&m->type==1){if(m->depth==UINT32_MAX)return kAgain;++m->depth;return 0;}if(m->owner&&attempt)return kBusy;if(m->owner==id&&m->type==2)return kDeadlock;++m->waiters;m->cv.wait(lock,[&]{return !m->owner||m->dead;});--m->waiters;if(m->dead)return kInvalid;m->owner=id;m->depth=1;return 0;}
+int Pthreads::MutexLock(void *p,bool attempt){
+  std::shared_ptr<const WaitHooks> hooks;
+  {LeaseEnvironment native;std::lock_guard guard(impl_->registry);hooks=impl_->wait_hooks;}
+  if(!attempt&&hooks&&hooks->admit_mutex){
+    LeaseEnvironment native;
+    auto &thread=impl_->Current();
+    auto context=WaitContext{thread.id,thread.active,nullptr,p,nullptr,WaitPhase::MutexLock};
+    if(hooks->admit_mutex(context)){
+      auto m=impl_->GetMutex(p);if(!m)return kInvalid;
+      auto wake=hooks->acquire(thread.id);
+      if(!wake||!wake->generation||!wake->notify||!wake->wait)throw std::logic_error("pthread mutex wait requires a complete live wake channel");
+      auto ticket=std::make_shared<Impl::Waiter>();ticket->wake=std::move(wake);
+      (void)ticket->wake->generation();
+      {std::lock_guard lock(m->lock);
+        if(m->dead)return kInvalid;
+        if(m->owner==thread.id&&m->type==1){if(m->depth==UINT32_MAX)return kAgain;++m->depth;return 0;}
+        if(m->owner==thread.id&&m->type==2)return kDeadlock;
+        m->channels.push_back(ticket);++m->waiters;
+      }
+      // The actual native mutex model and wake ticket remain pinned across
+      // callbacks and the final ownership claim. Destruction stays busy.
+      struct Enrollment {
+        std::shared_ptr<Impl::Mutex> mutex;std::shared_ptr<Impl::Waiter> ticket;
+        ~Enrollment(){std::lock_guard lock(mutex->lock);auto i=std::find(mutex->channels.begin(),mutex->channels.end(),ticket);if(i!=mutex->channels.end())mutex->channels.erase(i);--mutex->waiters;}
+      } enrollment{m,ticket};
+      for(;;){
+        const auto generation=ticket->wake->generation();
+        hooks->checkpoint(context); // Never under registry or mutex locks.
+        std::unique_lock lock(m->lock);
+        if(m->dead)return kInvalid;
+        if(!m->owner){
+          if(hooks->finish){
+            lock.unlock();hooks->finish(context);lock.lock();
+            if(m->owner)continue; // A real competing owner won during delivery.
+          }
+          if(m->dead)return kInvalid;
+          m->owner=thread.id;m->depth=1;return 0;
+        }
+        lock.unlock();
+        // Both real MutexUnlock and collector transport advance this channel.
+        // No synthetic lock result, timeout or condition notification is made.
+        ticket->wake->wait(generation,0);
+      }
+    }
+  }
+auto m=impl_->GetMutex(p);if(!m)return kInvalid;auto id=Self();std::unique_lock lock(m->lock);if(m->dead)return kInvalid;if(m->owner==id&&m->type==1){if(m->depth==UINT32_MAX)return kAgain;++m->depth;return 0;}if(m->owner&&attempt)return kBusy;if(m->owner==id&&m->type==2)return kDeadlock;++m->waiters;m->cv.wait(lock,[&]{return !m->owner||m->dead;});--m->waiters;if(m->dead)return kInvalid;m->owner=id;m->depth=1;return 0;}
 int Pthreads::MutexUnlock(void *p){
   auto m=impl_->GetMutex(p);if(!m)return kInvalid;auto id=Self();
   std::vector<std::shared_ptr<Impl::Waiter>> notify;
