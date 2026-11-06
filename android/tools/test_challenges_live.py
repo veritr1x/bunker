@@ -109,6 +109,32 @@ class Live(unittest.TestCase):
         self.assertTrue(android_mods.save_settings({}))
         self.assertEqual(self.master.read_bytes(), before)
 
+    def test_failed_reapply_keeps_the_settings_and_retries(self):
+        self.activate_copy_of(ORIGINAL)
+        with mock.patch.object(ch, "reapply", side_effect=RuntimeError("disk full")):
+            with self.assertRaises(RuntimeError):
+                android_mods.save_settings({"hardEnemies": 2})
+        self.assertEqual(android_mods.read_settings()["hardEnemies"], 1)  # mods.json is as the game data
+        self.assertEqual(self.live_level(), self.level)
+        # The same choice again is applied, not taken as already done.
+        self.mods(hardEnemies=2)  # e.g. written by an older build, or a save that failed after writing
+        self.assertTrue(android_mods.save_settings({"hardEnemies": 2}))
+        self.assertEqual(self.live_level(), self.level * 2)
+
+    def test_rollback_keeps_the_challenges(self):
+        self.mods(hardEnemies=2)
+        self.activate_copy_of(ORIGINAL)
+        calls = []
+
+        def prepare():
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError("catalog failed")
+        with mock.patch.object(android_runtime, "prepare_data", prepare):
+            with self.assertRaises(RuntimeError):
+                self.activate_copy_of(ORIGINAL, "Preset")
+        self.assertEqual(self.live_level(), self.level * 2)
+
 
 if __name__ == "__main__":
     unittest.main()

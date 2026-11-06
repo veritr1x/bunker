@@ -92,3 +92,13 @@
  		return day - (days%int64(period))*dayMillis, true
  	case masterdata.ShopAutoResetMonthly:
  		t := time.UnixMilli(nowMillis).In(gametime.Zone)
+--- a/server/internal/service/user.go
++++ b/server/internal/service/user.go
+@@ -138,6 +138,7 @@
+ 				resetShopStock(cats.Shop, user, user.GameStartDatetime)
+ 			}
+ 		}
++		resetDailyCounts(user, user.GameStartDatetime) // Start a new day (bunker_new_day.go)
+ 	})
+ 
+ 	return &pb.GameStartResponse{}, nil
