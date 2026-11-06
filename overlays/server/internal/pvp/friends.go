@@ -34,7 +34,7 @@ func newDay(f *store.FriendState, day int64) {
 }
 
 // IsFriend reports whether a player is the player's friend.
-func IsFriend(f *store.FriendState, playerId int64) bool { return slices.Contains(f.Friends, playerId) }
+func IsFriend(f *store.FriendState, playerId int64) bool { return slices.Contains(FriendIds(f), playerId) }
 
 // AddFriend makes a computer player a friend; false if it is not one, is
 // already a friend or the friend list is full.
@@ -103,7 +103,7 @@ func (c *Catalog) ReceiveCheer(f *store.FriendState, playerId, day int64) bool {
 func (c *Catalog) Recommend(f *store.FriendState, ladder *Ladder, point int32, userId, day int64) []CPU {
 	r := rand.New(rand.NewPCG(uint64(userId), uint64(day)))
 	skip := map[int64]bool{}
-	for _, id := range f.Friends {
+	for _, id := range FriendIds(f) {
 		skip[id] = true
 	}
 	var out []CPU
