@@ -857,3 +857,17 @@ func TestEmbeddedSummonsMatchTheirArt(t *testing.T) {
 		}
 	}
 }
+
+// A summon at its usual price is not shown as a sale: the client strikes
+// through any regular price but 0.
+func TestNoSaleWithoutADiscount(t *testing.T) {
+	entries := []store.GachaCatalogEntry{{GachaId: 1, PricePhases: []store.GachaPricePhaseEntry{
+		{Price: 300, RegularPrice: 300}, {Price: 3000, RegularPrice: 3000}, {Price: 1, RegularPrice: 1},
+		{Price: 0, RegularPrice: 0}, {Price: 2000, RegularPrice: 3000}}}}
+	got := withoutFalseSales(entries)[0].PricePhases
+	for i, want := range []int32{0, 0, 0, 0, 3000} {
+		if got[i].RegularPrice != want {
+			t.Errorf("phase %d (price %d): regular price %d, want %d", i, got[i].Price, got[i].RegularPrice, want)
+		}
+	}
+}

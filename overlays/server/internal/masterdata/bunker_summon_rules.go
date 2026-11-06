@@ -429,7 +429,23 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 	calendarOn := gametime.CurrentCalendar() != nil
 	entries = applyNoticeWindows(entries, file.Rules, gametime.CalendarOffset(), calendarOn)
 	entries = addNewSummonsFor(entries, file, gametime.CalendarOffset(), calendarOn)
-	return AddEventSummons(entries)
+	return withoutFalseSales(AddEventSummons(entries))
+}
+
+// withoutFalseSales leaves a price phase's regular price only where it is
+// above the price. The client's draw button (GachaDrawButton.SetData) shows any
+// regular price but 0 (kInvalidRegularPrice) as a sale, the regular price
+// struck through beside the price; Lunar Tear gave every phase its own price
+// as the regular one, so each summon read "300 300" and "3000 3000".
+func withoutFalseSales(entries []store.GachaCatalogEntry) []store.GachaCatalogEntry {
+	for i := range entries {
+		for j := range entries[i].PricePhases {
+			if p := &entries[i].PricePhases[j]; p.RegularPrice <= p.Price {
+				p.RegularPrice = 0
+			}
+		}
+	}
+	return entries
 }
 
 // applyNoticeWindows runs the summons whose rule has a notice window for that
