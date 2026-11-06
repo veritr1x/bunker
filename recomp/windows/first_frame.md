@@ -11,7 +11,11 @@ interior target `84315bd4`, with LR `843167fc`, inside the original
 `RegexInterpreter.Go` FDE `84315734..84316890`. The selected body has no retained
 unsupported instructions. Its three guarded switch tables contain 83 rows and
 58 unique interior targets, all absent from the current lookup header. The next
-repair appends exactly those heads while preserving the existing guest objects.
+repair [appends exactly those heads](../whole/regex_nonleaf_entries.md) while
+preserving the existing guest objects. Its focused ARM/raw/polled execution gate
+passes 16 exact profiles per platform through the reached TrackPush and Stop
+paths with genuine helpers. Static coverage is all 58 heads; dynamic coverage
+is two. The integrated rebuild is pending.
 There are two returned renders, one successful presentation and no accepted
 first-frame image. Original-parent pre/post checks pass. A successful preference
 write is logged, but entropy/encryption completion is not directly instrumented.
