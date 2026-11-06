@@ -56,6 +56,7 @@
 #include "badge_pace.h"
 #include "render_effects.h"
 #include "bunker_button.h"
+#include "title_now.h"
 #include "roulette_ads.h"
 
 typedef struct { void *pointer; } LTMethod;  // Il2Cpp MethodInfo starts with its code pointer.
@@ -489,6 +490,10 @@ void LTDisplayStart(NSString *toolsRoot) {
         gAds = -1;
         NSLog(@"[LunarTear] Special Gift Roulette: the game's IL2CPP API is missing");
     }
+    NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *marker = [documents stringByAppendingPathComponent:@"saves/title.now"];  // gSaves: Lunar Tear writes it
+    if (title_now_init(IL2CPPSymbol, GameLog, marker.fileSystemRepresentation))
+        NSLog(@"[LunarTear] Title now: the game's IL2CPP API is missing; the next call returns to the title screen");
     if (bunker_button_init(IL2CPPSymbol, GameLog, LTOpenBunker))
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))

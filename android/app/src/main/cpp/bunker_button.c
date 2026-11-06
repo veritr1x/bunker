@@ -29,6 +29,7 @@
 #include "big_hunt_season.h"
 #include "bunker_button_layout.h"
 #include "bunker_icon.h"
+#include "title_now.h"
 #ifdef __ANDROID__
 #include "game_region.h"
 #endif
@@ -284,6 +285,7 @@ static float rect_width(void *transform) {
 
 static void update_hook(void *self, Method *method) {
     update_original(self, method);
+    title_now_tick();  // a change in Pod Programs: back to the title screen now
     if (failed) return;
     Row *seen = row_for(self);
     if (seen->self != self) {

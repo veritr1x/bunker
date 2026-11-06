@@ -30,6 +30,7 @@ package interceptor
 import (
 	"context"
 	"log"
+	"os"
 	"strings"
 	"sync/atomic"
 
@@ -48,10 +49,65 @@ var titleTrailer = metadata.Pairs(
 
 var titlePending atomic.Bool
 
-// RequestTitle sends the game back to its title screen on its next call.
+// titleMarker is a file written with each request, for the game's own process
+// to see (title_now.c): it shows the title dialog at once and removes the
+// file, and the next call then goes through. "" without one.
+var titleMarker atomic.Pointer[string]
+
+// markerWritten is set while the pending return's marker was written.
+var markerWritten atomic.Bool
+
+// SetTitleMarker names the marker file; a stale one is removed unless a return
+// is pending.
+func SetTitleMarker(path string) {
+	titleMarker.Store(&path)
+	if path != "" && !titlePending.Load() {
+		os.Remove(path)
+	}
+}
+
+func markerPath() string {
+	if p := titleMarker.Load(); p != nil {
+		return *p
+	}
+	return ""
+}
+
+// RequestTitle sends the game back to its title screen on its next call, or
+// sooner where the game sees the marker.
 func RequestTitle() {
 	titlePending.Store(true)
+	if path := markerPath(); path != "" {
+		err := os.WriteFile(path, nil, 0o644)
+		markerWritten.Store(err == nil)
+		if err != nil {
+			log.Printf("[Title] marker %s: %v", path, err)
+		}
+	}
 	log.Printf("[Title] the game returns to its title screen on its next call")
+}
+
+// endTitle ends a pending return, and its marker with it.
+func endTitle() bool {
+	if !titlePending.Swap(false) {
+		return false
+	}
+	markerWritten.Store(false)
+	if path := markerPath(); path != "" {
+		os.Remove(path)
+	}
+	return true
+}
+
+// shownInGame reports a return the game already made: the marker was written
+// and is gone, so the game showed the title dialog itself.
+func shownInGame() bool {
+	path := markerPath()
+	if path == "" || !markerWritten.Load() {
+		return false
+	}
+	_, err := os.Stat(path)
+	return os.IsNotExist(err)
 }
 
 // TitlePending reports whether the game has yet to be sent back.
@@ -82,12 +138,18 @@ func ReturnToTitle(ctx context.Context, req any, info *grpc.UnaryServerInfo, han
 		return handler(ctx, req)
 	}
 	if keep, signsIn := titleKeeps(info.FullMethod); keep {
-		if signsIn && titlePending.Swap(false) {
+		if signsIn && endTitle() {
 			log.Printf("[Title] %s: the game is signing in again", info.FullMethod)
 		}
 		return handler(ctx, req)
 	}
-	if !titlePending.Swap(false) {
+	if shownInGame() {
+		titlePending.Store(false)
+		markerWritten.Store(false)
+		log.Printf("[Title] %s: the game already went back to its title screen", info.FullMethod)
+		return handler(ctx, req)
+	}
+	if !endTitle() {
 		return handler(ctx, req)
 	}
 	if err := grpc.SetTrailer(ctx, titleTrailer); err != nil {
