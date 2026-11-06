@@ -172,6 +172,47 @@ def redirect(**kwargs):
     return RedirectResponse("/patcher?" + urlencode(kwargs), status_code=303)
 
 
+# Start a new day: day-start.json beside the save holds when it was pressed
+# (real time); the server's day starts there until the next game day
+# (gametime.StartOfDay), so everything daily starts over. The game keeps day
+# markers in memory, so it is closed (android_runtime.CLOSES) and the markers
+# are cleared before it starts again (client-days.reset).
+def day_start_file():
+    return config.GAME_DB_PATH.parent / "day-start.json"
+
+
+def start_new_day(now_ms=None):
+    import android_calendar as calendar
+    now_ms = calendar.now_ms() if now_ms is None else int(now_ms)
+    pending = day_start_file().with_suffix(".tmp")
+    pending.write_text(json.dumps({"pressedRealMillis": now_ms}) + "\n")
+    os.replace(pending, day_start_file())
+    calendar.mark_client_days_reset()
+
+
+def new_day_today(now_ms=None):
+    """Whether Start a new day was pressed on today's game day (it pauses the
+    challenge bonus until the next one, as gametime.NewDayPausesBonus)."""
+    import android_calendar as calendar
+    saved = runtime.read_json(day_start_file())
+    pressed = saved.get("pressedRealMillis") if isinstance(saved, dict) else None
+    if not isinstance(pressed, int) or pressed <= 0:
+        return False
+    now_ms = calendar.now_ms() if now_ms is None else int(now_ms)
+    state = calendar.read_state()
+    game = (lambda real: calendar.game_now(state, real)) if state else (lambda real: real)
+    return calendar.start_of_day(game(now_ms)) <= game(pressed) <= game(now_ms)
+
+
+@router.post("/patcher/new-day")
+def new_day():
+    try:
+        start_new_day()
+    except Exception as exc:
+        return redirect(error=str(exc))
+    return redirect(message="A new day has started: everything daily starts over. Tap Deploy to play.")
+
+
 @router.get("/patcher")
 def view(request: Request, message: str = "", error: str = ""):
     current = "Imported master data"

@@ -146,7 +146,12 @@ def clock_moved(before, after):
     new one. When its clock goes back they would hide those until the old day
     came round again, so they are cleared."""
     if after < before:
-        client_days_file().write_text("")
+        mark_client_days_reset()
+
+
+def mark_client_days_reset():
+    """Clears the game's day markers before it next starts."""
+    client_days_file().write_text("")
 
 
 # --- Game data ---------------------------------------------------------------

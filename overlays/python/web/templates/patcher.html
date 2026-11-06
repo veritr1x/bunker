@@ -2,6 +2,12 @@
 {% block title %}Content patcher{% endblock %}
 {% block content %}
 <h1>Content patcher</h1>
+<h2 class="bracket-header">Today</h2>
+<form action="/patcher/new-day" method="post" class="panel new-day">
+  <span><strong>Start a new day</strong><br><span class="note">Resets everything daily now: quest plays, missions, shop restocks, free summons, cheers and the login bonus. Weekly limits and the calendar stay where they are. The game closes; tap Deploy to play.</span></span>
+  <button type="submit" class="secondary">NEW DAY</button>
+</form>
+<style>.new-day{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}</style>
 {% if calendar %}
 <div class="title-row"><p>Current: <strong>{{ current }}</strong></p><span class="status-pill online">Calendar on</span></div>
 
