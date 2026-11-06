@@ -4,6 +4,23 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-06 (after 1.9.0)
+
+### Summons
+- Banners give the shards and medals their notices and art name. Vol. 2
+  and 3 of four summons and five shard summons (59, 123, 467, 471, 531001
+  and 546) got the medal another summon has; 186, 194 and 405 take paid
+  gems only; 554 is one free 10x; 600-605, 609 and 610 a free 10x every
+  day. [a906ed5] Ten paid-only twins whose own notices name a shard get it.
+  [b81b4df]
+- Every summon in the Global and Japanese masters checked against its
+  notice and art: 17 more give their shard, among them the Healer & Support
+  summons and their reruns, the May 2023 weekly summons, the DQX, Tale of
+  Resistance and Never-Ending Adventure multi-steps and the free
+  Hallowed Winter's Night 10x. The Healer & Support reruns offer the ★4
+  weapons their exchange had when each began; the August 2023 one also
+  listed February 2024's. [84e8758]
+
 ## 1.9.0 (2026-11-06)
 
 Mods and changes that reach the running game. Pod Programs has a Mods
