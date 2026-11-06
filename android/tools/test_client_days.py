@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""The game's own day markers, cleared when "Show original dates" changes.
-
-The Java test needs a JDK (javac and java on PATH).
-"""
+"""The game's own day markers, cleared when Pod Programs moves the game's clock
+back: the same keys in both launchers."""
 from pathlib import Path
-import re, shutil, subprocess, tempfile, unittest
+import re, unittest
 
 root = Path(__file__).resolve().parents[2]
 JAVA = root / "android/app/src/main/java/org/veritr1x/bunker/ClientDays.java"
@@ -35,28 +33,6 @@ class Keys(unittest.TestCase):
 
     def test_ios_clears_the_same_markers(self):
         self.assertEqual(keys(IOS.read_text(), "kClientDayKeys[] = {", "};"), MARKERS)
-
-
-@unittest.skipUnless(shutil.which("javac") and shutil.which("java"), "needs a JDK")
-class Mode(unittest.TestCase):
-    CASES = {
-        "": False,
-        '{"loop": 1, "loopStart": 1793152800000}': False,
-        '{\n  "loopStart": 1793152800000,\n  "originalDates": false\n}': False,
-        '{\n  "loopStart": 1793152800000,\n  "originalDates": true\n}': True,
-        '{"loopStart":1793152800000,"originalDates":true}': True,
-    }
-
-    def test_original_dates_read_from_calendar_json(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            main = Path(tmp) / "Main.java"
-            # Each argument is a calendar.json text; "-" stands for no file.
-            main.write_text("package org.veritr1x.bunker;\npublic class Main { public static void main(String[] args) {\n"
-                            "for (String a : args) System.out.println(ClientDays.originalDates(a.equals(\"-\") ? null : a));\n"
-                            "} }\n")
-            subprocess.run(["javac", "-d", tmp, str(JAVA), str(main)], check=True)
-            out = subprocess.run(["java", "-cp", tmp, "org.veritr1x.bunker.Main", *self.CASES, "-"], check=True, capture_output=True, text=True).stdout.split()
-        self.assertEqual(out, [str(v).lower() for v in self.CASES.values()] + ["false"])
 
 
 if __name__ == "__main__":

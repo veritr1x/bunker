@@ -21,7 +21,7 @@ import java.net.URL;
  * - lets the game start without Google Play services (see NoPlayServices);
  * - applies the frame rate and resolution chosen in Pod Programs (see DisplayPatch);
  * - sends the game's loopback requests past any phone proxy (see LoopbackProxy);
- * - clears the game's day markers when "Show original dates" changes (see ClientDays);
+ * - clears the game's day markers after Pod Programs moved its clock back (see ClientDays);
  * - opens the launcher from the game's own Bunker button (openBunker, bunker_button.c);
  * - makes sure the local server is running when the game opens. The launcher
  *   starts the server before the game, but Android can also reopen the game
@@ -40,7 +40,7 @@ public final class GameProcessProvider extends ContentProvider {
         DisplayPatch.apply(app);
         refreshGameCodeAfterUpdate(app);
         forgetListOnPortChange(app);
-        forgetClientDaysOnDatesChange(app);
+        forgetClientDaysAfterClockChange(app);
         dropEmptyCachedAssets(app);
         String game = gameActivity(app);
         if (game != null) app.registerActivityLifecycleCallbacks(new ServerCheck(game, Ports.assets(app)));
@@ -82,23 +82,19 @@ public final class GameProcessProvider extends ContentProvider {
     }
 
     /**
-     * "Show original dates" moves the game's clock by years; the game's own day
-     * markers (see ClientDays) are cleared when it changes. Opening Pod Programs
-     * closes the game, so the next start runs this.
+     * When Pod Programs moves the game's clock back (the calendar turned off,
+     * "Show original dates" switched on, a new loop with it on), it leaves
+     * client-days.reset beside the save and closes the game if it runs (it
+     * keeps them in memory too, android_runtime.CLOSES). They are cleared
+     * here, before it starts again.
      */
-    private static void forgetClientDaysOnDatesChange(Application app) {
-        android.content.SharedPreferences prefs = app.getSharedPreferences("lunar_ports", android.content.Context.MODE_PRIVATE);
-        String calendar = null;
-        try {
-            calendar = new String(java.nio.file.Files.readAllBytes(new java.io.File(FilesStore.data(app), "calendar.json").toPath()), java.nio.charset.StandardCharsets.UTF_8);
-        } catch (java.io.IOException ignored) {}  // No file: the calendar is off.
-        boolean on = ClientDays.originalDates(calendar);
-        if (prefs.getBoolean("originalDates", false) == on) return;
+    private static void forgetClientDaysAfterClockChange(Application app) {
+        java.io.File reset = new java.io.File(FilesStore.data(app), ClientDays.RESET_FILE);
+        if (!reset.exists()) return;
         android.content.SharedPreferences.Editor game = app.getSharedPreferences(app.getPackageName() + ".v2.playerprefs", android.content.Context.MODE_PRIVATE).edit();
         for (String key : ClientDays.KEYS) game.remove(key);
-        game.commit();
-        prefs.edit().putBoolean("originalDates", on).commit();
-        android.util.Log.i("Bunker", "original dates " + (on ? "on" : "off") + ": cleared the game's day markers");
+        if (game.commit() && reset.delete())
+            android.util.Log.i("Bunker", "the clock went back: cleared the game's day markers");
     }
 
     /**

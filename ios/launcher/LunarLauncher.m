@@ -405,10 +405,12 @@ static void DropEmptyCachedAssets(void) {
 
 // The game keeps its own day and time markers in its PlayerPrefs (the app's
 // user defaults), compared with the server's clock: only a later day counts as
-// a new one. "Show original dates" moves that clock by years, so after a switch
-// a marker can hide the roulette's FREE badge for the whole loop. They are
-// cleared when the setting changes, before the game starts. Same keys as
-// Android's ClientDays.KEYS (android/tools/test_client_days.py).
+// a new one. When Pod Programs moves that clock back (the calendar turned off
+// after a jump, "Show original dates", a new loop with it) it leaves
+// client-days.reset beside the save and closes the game if it runs (it keeps
+// them in memory too), and the markers are cleared here before it starts
+// again. Same keys as Android's ClientDays.KEYS
+// (android/tools/test_client_days.py).
 static const char *kClientDayKeys[] = {
     "login_bonus_spanning_day_key", "roulette_badge_spanning_day_key",
     "mom_promotion_spanning_day_key", "function_promotion_spanning_day_key",
@@ -420,16 +422,14 @@ static const char *kClientDayKeys[] = {
     "last_limited_open_notification_unix_time",
 };
 
-static void ForgetClientDaysOnDatesChange(void) {
-    NSData *data = [NSData dataWithContentsOfFile:[gSaves stringByAppendingPathComponent:@"calendar.json"]];
-    NSDictionary *calendar = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-    BOOL on = [calendar isKindOfClass:NSDictionary.class] && [calendar[@"originalDates"] isEqual:@YES];
+static void ForgetClientDaysAfterClockChange(void) {
+    NSString *reset = [gSaves stringByAppendingPathComponent:@"client-days.reset"];
+    if (![NSFileManager.defaultManager fileExistsAtPath:reset]) return;
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    if ([defaults boolForKey:@"BunkerOriginalDates"] == on) return;
     for (size_t i = 0; i < sizeof(kClientDayKeys) / sizeof(kClientDayKeys[0]); i++)
         [defaults removeObjectForKey:@(kClientDayKeys[i])];
-    [defaults setBool:on forKey:@"BunkerOriginalDates"];
-    NSLog(@"[LunarTear] original dates %@: cleared the game's day markers", on ? @"on" : @"off");
+    [NSFileManager.defaultManager removeItemAtPath:reset error:nil];
+    NSLog(@"[LunarTear] the clock went back: cleared the game's day markers");
 }
 
 static void DiscardStage(void) {
@@ -2332,7 +2332,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         gSaves = [gServerRoot stringByAppendingPathComponent:@"saves"];
         RecoverImport();
         DropEmptyCachedAssets();
-        ForgetClientDaysOnDatesChange();
+        ForgetClientDaysAfterClockChange();
         // Automation only: developer tools can launch with this variable to run
         // the same import the folder picker uses. Players cannot set it.
         const char *importFrom = getenv("LUNAR_IMPORT_FROM");

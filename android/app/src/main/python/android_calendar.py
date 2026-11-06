@@ -124,6 +124,31 @@ def original(state, game):
     return game - (state["loopStart"] - LAUNCH)
 
 
+def shown_clock(state, real=None):
+    """The time the game sees: real time with the calendar off, else the
+    calendar's, moved back to the original service by "Show original dates"."""
+    real = now_ms() if real is None else real
+    if not state:
+        return real
+    game = game_now(state, real)
+    return original(state, game) if state.get("originalDates") else game
+
+
+def client_days_file():
+    """Beside the save: the launcher clears the game's day markers before the
+    game next starts (GameProcessProvider, LunarLauncher.m)."""
+    return config.GAME_DB_PATH.parent / "client-days.reset"
+
+
+def clock_moved(before, after):
+    """The game keeps day markers (the last day it showed the login bonus,
+    Mama's News, the roulette's FREE badge...) and counts only a later day as a
+    new one. When its clock goes back they would hide those until the old day
+    came round again, so they are cleared."""
+    if after < before:
+        client_days_file().write_text("")
+
+
 # --- Game data ---------------------------------------------------------------
 
 # Runs the final game data lost: a rerun overwrote the original dates, or a
@@ -763,7 +788,9 @@ def set_original_dates(state, on):
     """Turns "Show original dates" on or off, building the game's copy when needed."""
     if on and view_outdated(state):
         build_view(state)
+    before = shown_clock(state)
     state["originalDates"] = bool(on)
+    clock_moved(before, shown_clock(state))
 
 
 def old_next_file():
@@ -809,6 +836,7 @@ def roll_over(state, real=None):
     """Starts the next loop if this one has ended. Returns True when it did."""
     if game_now(state, real) < loop_end(state):
         return False
+    before = shown_clock(state, real)
     while game_now(state, real) >= loop_end(state):
         state["loop"] += 1
         state["loopStart"] += LOOP_WEEKS * WEEK
@@ -817,6 +845,7 @@ def roll_over(state, real=None):
     state.pop("next", None)
     prepare_next(state)
     write_state(state)
+    clock_moved(before, shown_clock(state, real))  # with original dates, back to launch
     return True
 
 
@@ -853,11 +882,13 @@ def turn_on(real=None):
 
 
 def turn_off():
+    before = shown_clock(read_state())
     state_path().unlink(missing_ok=True)
     next_file().unlink(missing_ok=True)
     view_file().unlink(missing_ok=True)
     view_version_file().unlink(missing_ok=True)
     old_next_file().unlink(missing_ok=True)
+    clock_moved(before, now_ms())
 
 
 def set_speed(state, speed, real=None):
@@ -1123,7 +1154,7 @@ def calendar_on():
 @router.post("/patcher/calendar/off")
 def calendar_off():
     turn_off()
-    return redirect(message="Calendar off. Choose content and tap Apply.")
+    return redirect(message="Calendar off. Choose content and tap Apply. " + runtime.next_step())
 
 
 @router.post("/patcher/calendar/speed")
@@ -1186,7 +1217,7 @@ def calendar_view(on: str = Form("")):
     try:
         set_original_dates(state, on == "1")
         write_state(state)
-        return redirect(message="Saved. Close Pod Programs and tap Deploy.")
+        return redirect(message="Saved. " + runtime.next_step())
     except Exception as exc:
         return redirect(error=str(exc))
 

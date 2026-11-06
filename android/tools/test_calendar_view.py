@@ -166,6 +166,28 @@ class OriginalDates(unittest.TestCase):
 
 
 
+    def test_the_game_forgets_its_day_markers_when_its_clock_goes_back(self):
+        reset = cal.client_days_file()
+        self.assertEqual(reset.parent, self.dir / "saves")  # beside the save, where the launchers look
+        state = self.state()
+        # Showing original dates moves the clock back by the loop's offset.
+        cal.set_original_dates(state, True)
+        self.assertTrue(reset.exists())
+        reset.unlink()
+        # Back to this loop's dates: forward, the markers stay.
+        cal.set_original_dates(state, False)
+        self.assertFalse(reset.exists())
+        # Turning the calendar off after a jump ahead: back to real time.
+        cal.write_state(dict(state, jumpMillis=100 * WEEK))
+        cal.turn_off()
+        self.assertTrue(reset.exists())
+        reset.unlink()
+        # Off from a calendar at real time: no change.
+        cal.write_state(self.state())
+        cal.turn_off()
+        self.assertFalse(reset.exists())
+
+
 class MissedText(unittest.TestCase):
     """What a jump skips, as the Jump to page lists it."""
     def test_lists_only_what_is_missed_with_singular_and_plural(self):
