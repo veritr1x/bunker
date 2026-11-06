@@ -44,18 +44,18 @@ The source and whole-file inverse are frozen in
 `work/urandom-source-preparation1/production-sources1.json` (SHA-256
 `9ec4a5f01506a302a8debc392b1b09074c943c78930c6535a1d92f531925d80a`).
 Its syntax qualification covers the candidate with the existing header closure.
-The focused runtime qualification is separate; a successful component test does
-not establish a visible game frame or a statistical randomness claim.
-
 The focused gate `work/urandom-qualification2/acceptance.json` (SHA-256
 `25b13a7b887f846f6fd2e21f435d13f85cc491c39a7c30e1f61bf3092c75183a`)
-passes 597 checks. It executes the two original RNG functions, observes real
+passes 597 checks across 15 NDK calls, 34 installed callbacks, three original
+RNG calls and 11 real BCrypt calls. It executes the two original RNG functions, observes real
 BCrypt output through installed filesystem imports, and checks two genuine
 native failures without publishing the failed chunks. It also checks descriptor
 duplication/cleanup and one ordinary-file regression. The fixture's failure route
 deliberately omits the algorithm handle while clearing the system-RNG flag; it is test-only and
 does not describe an observed production OS failure. The retained fixture and
 runner are `urandom_guest.c`, `urandom_test.cpp`, and `test_urandom.py`.
+These component observations do not establish a game frame or statistical
+randomness quality.
 
 The native API contract is documented by
 [Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptgenrandom).

@@ -3,7 +3,21 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current original attempt: `work/windows-first-frame-native-presentation8`, using
+Latest original attempt: `work/windows-first-frame-native-presentation9`, using
+manifest `71ae305452fbc7a3436ff825e79cdf5c0b4fbbe78da810a8ca3ca4cec0f17de6`
+and executable `6850c634f058f1d4df347978d4d1788f2371c508c756ec533bfb064028ad8dbe`.
+The Windows entropy device is integrated. This run exits native3 at unresolved
+interior target `84315bd4`, with LR `843167fc`, inside the original
+`RegexInterpreter.Go` FDE `84315734..84316890`. The selected body has no retained
+unsupported instructions. Its three guarded switch tables contain 83 rows and
+58 unique interior targets, all absent from the current lookup header. The next
+repair appends exactly those heads while preserving the existing guest objects.
+There are two returned renders, one successful presentation and no accepted
+first-frame image. Original-parent pre/post checks pass. A successful preference
+write is logged, but entropy/encryption completion is not directly instrumented.
+Evidence: `work/runtime9-unresolved-boundary1` and `work/runtime9-regex-boundary1`.
+
+Preceding attempt: `work/windows-first-frame-native-presentation8`, using
 manifest `a79c255a3e50214dcb4c4afe41f6ac83ccd2542c035a56ea72e41964dde0dcd5`
 and executable `9e349ab806dcc905e3d8ac67906851981be458994f0265d743a52b20de5c9950`.
 The collector retirement fix is integrated: original managed workers stop and
@@ -20,15 +34,17 @@ to its virtual no-argument encryptor creation call at `836ea5f4`. The original
 random provider opens `/dev/urandom` read-only at `825513ac`, caches its descriptor
 at `879821f8`, then reads through `825513cc`. The running process has cached -1;
 this device previously had no Windows host implementation. The genuine Windows
-system RNG [device bridge](urandom.md) now passes its focused original-code gate;
-the integrated build is finishing. No preference key or ciphertext was inspected.
+system RNG [device bridge](urandom.md) passes its focused original-code gate and
+is integrated in the next build. No preference key or ciphertext was inspected.
 The shared metadata guard used by language setup and camera setup does not prove
 camera entry. Separate translation inspection found no defect in the examined
 system-language return path. Evidence: this run's `preference-singleton-fields1`,
 `preference-ctor-metadata-flags1`, `preference-base-metadata-flags1`, and
 `language-metadata-flags1` and `entropy-descriptor-boundary1` JSON observations, plus
 `work/runtime8-language-boundary1` and `work/runtime8-language-translation-audit1`.
-The process remains active; final exit and post-run checks are pending.
+After replacement verification, one identity-checked graceful close ends this
+diagnostic run. It exits native3 at the existing worker-retirement shutdown
+guard, with no accepted image. Original-parent pre/post checks pass.
 
 Preceding attempt: `work/windows-first-frame-native-presentation7`, using
 manifest `8b84d24fa10f8f817137e92e5554830006a6f60db76bfeca84c741671cda98b5`
