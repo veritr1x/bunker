@@ -484,6 +484,7 @@
    "asset": "limited_59",
    "end": 1629597599000,
    "id": 59,
+   "medal": 8007,
    "notice": 0,
    "pair": 0,
    "src": "banner row; usual prices",
@@ -718,6 +719,7 @@
    "asset": "limited_123",
    "end": 1640570340000,
    "id": 123,
+   "medal": 8021,
    "notice": 0,
    "pair": 0,
    "src": "art: limited-time character and weapons, Yuletide Wishes shard; dates: event guide \"Premium Summons: Yuletide Wishes\"",
@@ -1093,16 +1095,11 @@
    "id": 186,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Paid Gems Only",
    "start": 1656900000000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "paid",
      "draws": 10,
      "guar": "r3w",
      "price": 3000
@@ -1172,17 +1169,11 @@
    "id": 194,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices; art: ★★★★ appearance rate doubled",
+   "src": "banner row; art: Paid Gems Only; art: ★★★★ appearance rate doubled",
    "start": 1659578400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 2
-    },
-    {
-     "cur": "gems",
+     "cur": "paid",
      "draws": 10,
      "guar": "r3w",
      "price": 3000,
@@ -1215,17 +1206,11 @@
    "id": 405,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices; art: ★★★★ appearance rate x1.5",
+   "src": "banner row; art: Paid Gems Only; art: ★★★★ appearance rate x1.5",
    "start": 1661479200000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300,
-     "rate": 1.5
-    },
-    {
-     "cur": "gems",
+     "cur": "paid",
      "draws": 10,
      "guar": "r3w",
      "price": 3000,
@@ -1623,6 +1608,7 @@
    "asset": "limited_444",
    "end": 1672019999000,
    "id": 444,
+   "medal": 8138,
    "notice": 874,
    "pair": 0,
    "src": "notice 874 (Vol. 2) and art",
@@ -1649,6 +1635,7 @@
    "asset": "limited_445",
    "end": 1672019999000,
    "id": 445,
+   "medal": 8138,
    "notice": 874,
    "pair": 0,
    "src": "notice 874 (Vol. 3) and art",
@@ -1704,6 +1691,7 @@
    "asset": "limited_450",
    "end": 1672365599000,
    "id": 450,
+   "medal": 8142,
    "notice": 890,
    "pair": 0,
    "src": "notice 890 (Vol. 2) and art",
@@ -1723,6 +1711,7 @@
    "asset": "limited_451",
    "end": 1672559999000,
    "id": 451,
+   "medal": 8142,
    "notice": 890,
    "pair": 0,
    "src": "notice 890 (Vol. 3) and art",
@@ -1863,6 +1852,7 @@
    "asset": "limited_467",
    "end": 1679450340000,
    "id": 467,
+   "medal": 8148,
    "notice": 0,
    "pair": 0,
    "src": "art: featuring Japanese 2nd Anniversary Celebratory characters, Congratulatory Dress shard; dates: event guide \"Premium Summons: Congratulatory Dress\"",
@@ -1919,6 +1909,7 @@
    "asset": "limited_471",
    "end": 1679450340000,
    "id": 471,
+   "medal": 8151,
    "notice": 0,
    "pair": 0,
    "src": "art: featuring new Japanese 2nd Anniversary Celebratory characters, Resolute Dress shard; dates: event guide \"Premium Summons: Resolute Dress\"",
@@ -1941,6 +1932,7 @@
    "asset": "limited_473",
    "end": 1678067999000,
    "id": 473,
+   "medal": 8153,
    "notice": 989,
    "pair": 0,
    "src": "notice 989 (Vol. 2) and art",
@@ -1969,6 +1961,7 @@
    "asset": "limited_474",
    "end": 1678067999000,
    "id": 474,
+   "medal": 8153,
    "notice": 989,
    "pair": 0,
    "src": "notice 989 (Vol. 3) and art",
@@ -1997,6 +1990,7 @@
    "asset": "limited_476",
    "end": 1683511199000,
    "id": 476,
+   "medal": 8154,
    "notice": 1052,
    "pair": 0,
    "src": "notice 1052 (Vol. 2) and art",
@@ -2666,6 +2660,7 @@
    "asset": "limited_546",
    "end": 1696557540000,
    "id": 546,
+   "medal": 8197,
    "notice": 0,
    "pair": 0,
    "src": "art: perform a 10 summon for free, YoRHa Stage Play shards x10; dates: event guide \"Premium Summons: YoRHa Stage Play\"",
@@ -2686,19 +2681,15 @@
    "id": 554,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Crossover Commemorative 10 Free Summons",
    "start": 1698372000000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "limit": 1,
+     "price": 0
     }
    ]
   },
@@ -2868,19 +2859,15 @@
    "id": 600,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1705996800000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -2890,19 +2877,15 @@
    "id": 601,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1706860800000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -2912,19 +2895,15 @@
    "id": 602,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1707465600000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -2934,19 +2913,15 @@
    "id": 603,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1708070400000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -2956,19 +2931,15 @@
    "id": 604,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1708675200000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -2978,19 +2949,15 @@
    "id": 605,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1709280000000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -3032,19 +2999,15 @@
    "id": 609,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1709884800000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -3054,19 +3017,15 @@
    "id": 610,
    "notice": 0,
    "pair": 0,
-   "src": "banner row; usual prices",
+   "src": "banner row; art: Story Completion Countdown x10 free per day",
    "start": 1710489600000,
    "steps": [
     {
-     "cur": "gems",
-     "draws": 1,
-     "price": 300
-    },
-    {
-     "cur": "gems",
+     "cur": "free",
+     "daily": true,
      "draws": 10,
      "guar": "r3w",
-     "price": 3000
+     "price": 0
     }
    ]
   },
@@ -4360,6 +4319,7 @@
    "asset": "step_up_531001",
    "end": 1661911140000,
    "id": 531001,
+   "medal": 8087,
    "notice": 0,
    "pair": 0,
    "src": "art: steps 1-5, featuring new limited-time characters, Blessed Dress shards; dates: event guide \"Premium Summons: Blessed Dress\"",

@@ -753,3 +753,77 @@ func TestRuleNoticeOnAddedSummonAndLineupOnlyWhenAdded(t *testing.T) {
 		t.Error("w4ability applied to the game data's summon 71")
 	}
 }
+
+// A later volume of a notice, or a summon that gave another's shard, gets the
+// medal its art names from the summon the game data gives it to, once that
+// medal's exchange is open as it starts.
+func TestAddedSummonGetsTheMedalItsArtNames(t *testing.T) {
+	first := basicEntry(443)
+	first.GachaMedalId, first.MedalConsumableItemId, first.CeilingCount = 8138, 8138, 150
+	twin := basicEntry(489)
+	twin.GachaMedalId, twin.MedalConsumableItemId = 77, 7700
+	file := summonRulesFile{New: []newSummon{
+		{Id: 444, Asset: "limited_444", Start: 1000, End: 2000, Medal: 8138, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "gems"}}},
+		{Id: 546, Asset: "limited_546", Start: 1500, End: 2500, Medal: 8138, Steps: []ruleStep{{Draws: 10, Cur: "free", Limit: 1}}},
+		{Id: 600, Asset: "limited_600", Start: 3000, End: 4000, Medal: 8138, Steps: []ruleStep{{Draws: 10, Cur: "free"}}},
+		{Id: 601, Asset: "limited_601", Start: 1000, End: 2000, Medal: 9999, Steps: []ruleStep{{Draws: 10, Cur: "free"}}},
+		{Id: 490, Asset: "limited_490", Pair: 489, Medal: 8138, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid"}}},
+	}}
+	saved := medalShopOpen
+	t.Cleanup(func() { medalShopOpen = saved })
+	medalShopOpen = medalShopOpenFrom(map[int32][][2]int64{8138: {{900, 2200}}}) // closes before 546 ends
+	byId := map[int32]store.GachaCatalogEntry{}
+	for _, e := range addNewSummonsFor([]store.GachaCatalogEntry{first, twin}, file, 0, true) {
+		byId[e.GachaId] = e
+	}
+	if e := byId[444]; e.GachaMedalId != 8138 || e.MedalConsumableItemId != 8138 || e.CeilingCount != 150 {
+		t.Fatalf("Vol. 2: %+v", e)
+	}
+	if e := byId[546]; e.MedalConsumableItemId != 8138 {
+		t.Fatalf("a run that outlasts its exchange lost the medal: %+v", e)
+	}
+	if e := byId[600]; e.MedalConsumableItemId != 0 {
+		t.Fatalf("a summon starting after its exchange closed got the medal: %+v", e)
+	}
+	if e := byId[601]; e.MedalConsumableItemId != 0 {
+		t.Fatalf("a medal no summon has was given: %+v", e)
+	}
+	if e := byId[490]; e.MedalConsumableItemId != 7700 {
+		t.Fatalf("a twin's own medal was replaced: %+v", e)
+	}
+}
+
+// The summons fixed from their banner art: medals the art names, and prices
+// the art states (Paid Gems Only, free 10x once, free 10x every day).
+func TestEmbeddedSummonsMatchTheirArt(t *testing.T) {
+	file, err := loadSummonRulesFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byId := map[int32]newSummon{}
+	for _, n := range file.New {
+		byId[n.Id] = n
+	}
+	medals := map[int32]int32{444: 8138, 445: 8138, 450: 8142, 451: 8142, 473: 8153, 474: 8153, 476: 8154,
+		59: 8007, 123: 8021, 467: 8148, 471: 8151, 531001: 8087, 546: 8197}
+	for id, item := range medals {
+		if byId[id].Medal != item {
+			t.Errorf("summon %d: medal %d, want %d", id, byId[id].Medal, item)
+		}
+	}
+	for _, id := range []int32{186, 194, 405} {
+		for _, s := range byId[id].Steps {
+			if s.Cur != "paid" {
+				t.Errorf("summon %d (Paid Gems Only): a %s step", id, s.Cur)
+			}
+		}
+	}
+	if s := byId[554].Steps; len(s) != 1 || s[0].Cur != "free" || s[0].Draws != 10 || s[0].Limit != 1 {
+		t.Errorf("summon 554 (10 free summons): %+v", s)
+	}
+	for _, id := range []int32{600, 601, 602, 603, 604, 605, 609, 610} {
+		if s := byId[id].Steps; len(s) != 1 || s[0].Cur != "free" || !s[0].Daily || s[0].Draws != 10 {
+			t.Errorf("summon %d (x10 free per day): %+v", id, s)
+		}
+	}
+}

@@ -126,6 +126,11 @@ type newSummon struct {
 	Event  int32      `json:"event"`  // the event chapter its To Quests opens (a prize box: the daily quest that gave its tickets)
 	// W4Ability: as summonRule's, for an added summon.
 	W4Ability int32 `json:"w4ability"`
+	// Medal: the medal (its consumable item) its art or notice names, when it
+	// is neither a twin nor a rerun: a later volume of a notice whose first
+	// volume has it, or a summon that gave the shard of another. It comes
+	// from the summon the game data gives it to (m_gacha_medal).
+	Medal int32 `json:"medal"`
 }
 
 // Prize is one prize of a prize box (Mama's Dream): what it gives and how
@@ -453,8 +458,12 @@ func addNewSummons(entries []store.GachaCatalogEntry, file summonRulesFile, offs
 // calendar's loop, or with the calendar off are always open.
 func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, offset int64, calendarOn bool) []store.GachaCatalogEntry {
 	byId := make(map[int32]store.GachaCatalogEntry, len(entries))
+	byMedal := make(map[int32]store.GachaCatalogEntry)
 	for _, e := range entries {
 		byId[e.GachaId] = e
+		if _, seen := byMedal[e.MedalConsumableItemId]; !seen && e.MedalConsumableItemId != 0 {
+			byMedal[e.MedalConsumableItemId] = e
+		}
 	}
 	rules := map[int32]summonRule{}
 	var added []store.GachaCatalogEntry
@@ -503,6 +512,13 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 		if paired {
 			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = pair.GachaMedalId, pair.MedalConsumableItemId, pair.CeilingCount
 			e.SortOrder, e.GachaDecorationType = pair.SortOrder, pair.GachaDecorationType
+		}
+		// The medal its art names, once its exchange is open as the summon
+		// starts. A run that outlasts the exchange (546) keeps giving it, as
+		// the game did; the medal then waits for its conversion.
+		if owner, ok := byMedal[n.Medal]; ok && n.Medal != 0 && e.MedalConsumableItemId == 0 &&
+			(medalShopOpen == nil || medalShopOpen(n.Medal, n.Start+offset, n.Start+offset)) {
+			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = owner.GachaMedalId, owner.MedalConsumableItemId, owner.CeilingCount
 		}
 		switch {
 		case paired:
