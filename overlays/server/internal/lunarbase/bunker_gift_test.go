@@ -3,7 +3,9 @@ package lunarbase
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
@@ -116,5 +118,44 @@ func TestGiftLimitsComeFromTheGameData(t *testing.T) {
 		if got := giftRoom(user, g, c.t, c.id); got != c.want {
 			t.Errorf("%d %d: room %d, want %d", c.t, c.id, got, c.want)
 		}
+	}
+}
+
+// With the server running, the room comes from the live server's granter:
+// no master data is loaded (the server's own is shared), and the mods'
+// conversions count, as they do when the gift is claimed.
+func TestGiftRoomUsesTheLiveGranter(t *testing.T) {
+	user, g := giftUser()
+	g.Limits.Money = 1000
+	g.GoldConsumableItemId = 1
+	user.ConsumableItems[1] = 400
+	g.Rewrite = func(pt model.PossessionType, id, n int32) (model.PossessionType, int32, int32) {
+		if pt == model.PossessionTypeConsumableItem && id == 3001 {
+			return model.PossessionTypeConsumableItem, 1, n * 120 // a stamina item arrives as 120 gold
+		}
+		return pt, id, n
+	}
+	saved := LiveGranter
+	t.Cleanup(func() { LiveGranter = saved })
+	LiveGranter = func() *store.PossessionGranter { return g }
+	got, err := giftGranter(&request{}) // no master_data_path: nothing loaded
+	if err != nil || got != g {
+		t.Fatalf("granter %p, %v; want the live one", got, err)
+	}
+	// 600 gold of room left: 5 stamina items (5×120), not the item's own cap.
+	if room := giftRoom(user, g, model.PossessionTypeConsumableItem, 3001); room != 5 {
+		t.Fatalf("room %d, want 5", room)
+	}
+}
+
+// A gift's grant time is the game's clock (the Original calendar's), like the
+// server's own gifts, not the device's.
+func TestGiftTimeIsTheGameClock(t *testing.T) {
+	saved := gametime.CurrentCalendar()
+	t.Cleanup(func() { gametime.SetCalendar(saved) })
+	year := int64(365 * 24 * 60 * 60 * 1000)
+	gametime.SetCalendar(&gametime.Calendar{Version: 1, Loop: 1, LoopStart: gametime.Launch, JumpMillis: year, Speed: 1})
+	if d := giftNow() - time.Now().UnixMilli(); d < year-60_000 || d > year+60_000 {
+		t.Fatalf("gift time is %d ms from the device's, want the calendar's year ahead", d)
 	}
 }

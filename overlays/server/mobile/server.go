@@ -29,6 +29,7 @@ import (
 	"lunar-tear/server/internal/mods"
 	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/service"
+	gamestore "lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/store/sqlite"
 	"lunar-tear/server/migrations"
 
@@ -98,6 +99,9 @@ type instance struct {
 	http      []*http.Server
 	listeners []net.Listener
 	dbs       []*sql.DB
+	// granter is the running server's possession granter (Pod Programs ›
+	// Gift checks gifts with it: liveGranter).
+	granter func() *gamestore.PossessionGranter
 }
 
 func (s *instance) close() {
@@ -276,6 +280,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	grpc_health_v1.RegisterHealthServer(s.grpc, healthServer)
+	s.granter = func() *gamestore.PossessionGranter { return holder.Get().QuestHandler.Granter }
 	active = s
 	serveError := func(e error) {
 		if e != nil && !errors.Is(e, http.ErrServerClosed) && !errors.Is(e, grpc.ErrServerStopped) && !errors.Is(e, net.ErrClosed) {

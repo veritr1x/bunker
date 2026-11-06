@@ -7,6 +7,7 @@ import (
 
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/lunarbase"
+	"lunar-tear/server/internal/store"
 )
 
 // Edit executes Lunar Base against this app's save, only while gameplay is
@@ -47,10 +48,20 @@ func Edit(dataRoot, assetRoot, raw string) string {
 		return fail("Player not found")
 	}
 	request["db_path"] = path
+	lunarbase.LiveGranter = liveGranter
 	request["master_data_path"] = filepath.Join(assetRoot, "assets", "release", MasterName)
 	encoded, err := json.Marshal(request)
 	if err != nil {
 		return fail(err.Error())
 	}
 	return lunarbase.Execute(encoded)
+}
+
+// liveGranter is the running server's granter, or nil when it is stopped; the
+// caller holds lifecycle.
+func liveGranter() *store.PossessionGranter {
+	if active == nil || active.granter == nil {
+		return nil
+	}
+	return active.granter()
 }

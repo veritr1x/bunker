@@ -9,14 +9,15 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/google/uuid"
 
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/masterdata/memorydb"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/questflow"
+	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/utils"
 )
@@ -66,8 +67,20 @@ func waitingBunker(user *store.UserState, t model.PossessionType, id int32, byKi
 }
 
 // giftRoom is how many more of a possession can be sent now so that every
-// Bunker gift of it can be claimed.
+// Bunker gift of it can be claimed. A possession the mods convert on arrival
+// (g.Rewrite: stamina items as gold, tickets as gems) is checked as what
+// arrives, as WouldOverflow does when the gift is claimed.
 func giftRoom(user *store.UserState, g *store.PossessionGranter, t model.PossessionType, id int32) int64 {
+	if g.Rewrite != nil {
+		if rt, rid, each := g.Rewrite(t, id, 1); (rt != t || rid != id || each != 1) && each > 0 {
+			room := rawGiftRoom(user, g, rt, rid) - waitingBunker(user, t, id, false)*int64(each)
+			return max(room, 0) / int64(each)
+		}
+	}
+	return rawGiftRoom(user, g, t, id)
+}
+
+func rawGiftRoom(user *store.UserState, g *store.PossessionGranter, t model.PossessionType, id int32) int64 {
 	left := func(have int64, limit int32, waiting int64) int64 {
 		if limit <= 0 {
 			limit = math.MaxInt32
@@ -131,8 +144,23 @@ func sendGift(user *store.UserState, g *store.PossessionGranter, t model.Possess
 	return nil
 }
 
-// giftGranter loads the game data a gift's limits come from.
+// LiveGranter, set by the app while its server runs (mobile.Edit), is the
+// running server's granter: with its game data, limits and the mods'
+// conversions. A gift's room is then read from it instead of loading the
+// master data again, which would replace the server's shared tables.
+var LiveGranter func() *store.PossessionGranter
+
+// giftNow is the game's clock (the Original calendar's), as the server's.
+func giftNow() int64 { return gametime.NowMillis() }
+
+// giftGranter is the granter a gift is checked with: the running server's,
+// else one built from the game data like the server's own.
 func giftGranter(req *request) (*store.PossessionGranter, error) {
+	if LiveGranter != nil {
+		if g := LiveGranter(); g != nil {
+			return g, nil
+		}
+	}
 	if req.MasterDataPath == "" {
 		return nil, errors.New("master_data_path required")
 	}
@@ -157,6 +185,7 @@ func giftGranter(req *request) (*store.PossessionGranter, error) {
 	}
 	g := questflow.BuildGranter(catalog, gameConfig)
 	withLimits(g, gameConfig, items)
+	g.Rewrite = runtime.ModRewrite(items, gameConfig.ConsumableItemIdForGold)
 	return g, nil
 }
 
@@ -201,7 +230,7 @@ func runSendGift(req *request) (int, error) {
 	var refused error
 	t := model.PossessionType(req.PossessionType)
 	if _, err := st.UpdateUser(req.UserID, func(u *store.UserState) {
-		refused = sendGift(u, g, t, req.PossessionID, req.Count, time.Now().UnixMilli())
+		refused = sendGift(u, g, t, req.PossessionID, req.Count, giftNow())
 	}); err != nil {
 		return 0, fmt.Errorf("send gift: %w", err)
 	}
