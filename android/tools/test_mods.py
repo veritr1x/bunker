@@ -120,17 +120,40 @@ class Settings(unittest.TestCase):
 
 class Page(unittest.TestCase):
     def test_the_page_renders_every_mod_and_credits_the_comfort_mod(self):
-        from jinja2 import Environment, FileSystemLoader
-        env = Environment(loader=FileSystemLoader(str(root / "overlays/python/web/templates")))
-        html = env.get_template("mods.html").render(active="mods", settings=dict(android_mods.OFF), groups=android_mods.GROUPS,
-                                                     presets=android_mods.PRESETS, current="original", max_multiplier=10, hard_enemies=android_mods.HARD_ENEMIES,
-                                                     source=android_mods.COMFORT_MOD, message="", error="")
+        html = self.render()
         for _, mods in android_mods.GROUPS:
             for key, _kind, title, *_ in mods:
                 self.assertIn(f'name="{key}"', html)
                 self.assertIn(title, html)
         self.assertIn("NavHobbyDev", html)
         self.assertIn(android_mods.COMFORT_MOD, html)
+
+    def render(self, settings=None, paused=False):
+        from jinja2 import Environment, FileSystemLoader
+        env = Environment(loader=FileSystemLoader(str(root / "overlays/python/web/templates")), autoescape=True)  # as the app
+        settings = {**android_mods.OFF, **(settings or {})}
+        return env.get_template("mods.html").render(active="mods", settings=settings, groups=android_mods.GROUPS,
+            presets=android_mods.PRESETS, current=android_mods.preset_of(settings), max_multiplier=10,
+            hard_enemies=android_mods.HARD_ENEMIES, source=android_mods.COMFORT_MOD, message="", error="",
+            **android_mods.bonus_view(settings, paused))
+
+    def test_page_groups_render_and_fold(self):
+        import re
+        html = self.render()
+        for group in ["Preset"] + [g for g, _ in android_mods.GROUPS]:
+            name = re.escape(group.replace("&", "&amp;"))
+            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open>\s*<summary[^>]*>[^<]*%s' % (name, name), group)
+        self.assertIn("localStorage", html)  # which groups are folded, per viewer
+        self.assertIn("Everything", html)
+
+    def test_bonus_line(self):
+        self.assertIn("Turn on a challenge to earn it.", self.render())
+        html = self.render({"hardEnemies": 2})
+        self.assertIn('id="bonus-x">×3<', html)
+        self.assertIn("Earned on every quest clear.", html)
+        self.assertIn("Paused: a Quests, Items &amp; shops or Summons mod is on.", self.render({"hardEnemies": 2, "freeSkips": True}))
+        self.assertIn("Paused until tomorrow: you started a new day.", self.render({"hardEnemies": 2}, paused=True))
+        self.assertIn('<option value="2" selected>Enemies ×2 — rewards ×3</option>', html)
 
     def test_changing_mods_leaves_the_game_running(self):
         # The server reads mods.json as each mod is used: nothing to restart.

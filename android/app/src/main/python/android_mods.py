@@ -80,6 +80,21 @@ def comfort_on(settings):
     return any(settings[k] > 1 if KIND[k] == "multiplier" else bool(settings[k]) for k in KEYS if k not in world)
 
 
+def bonus_view(settings, paused=False):
+    """The Challenges panel's bonus line: the bonus, and why it is what it is."""
+    on = HARD_ENEMIES.get(settings.get("hardEnemies"), 1) > 1 or settings.get("weaknessOnly") or settings.get("slowSkills")
+    full = challenge_bonus(settings) if not comfort_on(settings) else challenge_bonus({**OFF, **{k: settings[k] for k in CHALLENGE_KEYS}})
+    if not on:
+        reason = "Turn on a challenge to earn it."
+    elif comfort_on(settings):
+        reason = "Paused: a Quests, Items & shops or Summons mod is on."
+    elif paused:
+        reason = "Paused until tomorrow: you started a new day."
+    else:
+        reason = "Earned on every quest clear."
+    return {"bonus": full, "bonus_reason": reason, "bonus_paused": bool(on) and challenge_bonus(settings, paused) == 1}
+
+
 def challenge_bonus(settings, paused=False):
     """The reward bonus the challenges pay, as mods.Settings.ChallengeBonus."""
     if paused or comfort_on(settings):
@@ -148,8 +163,10 @@ def preset_of(settings):
 
 @router.get("/mods")
 def view(request: Request, message: str = "", error: str = ""):
+    import android_patcher
     settings = read_settings()
-    return templates.TemplateResponse(request, "mods.html", {"active": "mods", "settings": settings, "groups": GROUPS,
+    return templates.TemplateResponse(request, "mods.html", {**bonus_view(settings, android_patcher.new_day_today()),
+        "active": "mods", "settings": settings, "groups": GROUPS,
         "presets": PRESETS, "current": preset_of(settings), "max_multiplier": MAX_MULTIPLIER, "hard_enemies": HARD_ENEMIES, "source": COMFORT_MOD,
         "message": message, "error": error})
 
