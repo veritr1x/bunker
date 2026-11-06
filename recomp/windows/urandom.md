@@ -53,7 +53,7 @@ passes 597 checks. It executes the two original RNG functions, observes real
 BCrypt output through installed filesystem imports, and checks two genuine
 native failures without publishing the failed chunks. It also checks descriptor
 duplication/cleanup and one ordinary-file regression. The fixture's failure route
-deliberately calls the real native API with invalid flags; it is test-only and
+deliberately omits the algorithm handle while clearing the system-RNG flag; it is test-only and
 does not describe an observed production OS failure. The retained fixture and
 runner are `urandom_guest.c`, `urandom_test.cpp`, and `test_urandom.py`.
 
