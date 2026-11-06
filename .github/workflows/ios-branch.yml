@@ -1,0 +1,57 @@
+# Builds the iOS launcher framework and Python runtime from a branch, so a
+# change to the iOS launcher can be packaged and tried on a device before a
+# release (the framework needs Xcode). Nothing is published: the bundles are
+# a workflow artifact only, for scripts/build.py-style packaging with the
+# player's own game IPA.
+name: iOS branch build
+
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - "ios/**"
+      - "overlays/**"
+      - "patches/**"
+      - "android/app/src/main/python/**"
+      - ".github/workflows/ios-branch.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ios-branch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: iOS launcher and Tools runtime
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.8"
+          cache-dependency-path: server/go.sum
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare sources
+        run: |
+          python3.11 scripts/prepare.py
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+          make -C server proto
+          uv python install 3.13
+      - name: Build the launcher framework and Python runtime
+        run: |
+          ios/tools/build_framework.sh none out
+          python3.11 ios/tools/build_python.py out/python-bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-bundles
+          path: out
+          retention-days: 7
