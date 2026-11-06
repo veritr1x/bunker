@@ -20,8 +20,17 @@
   backups refused the reason "gift"; and a gift with no deadline made the
   game fetch the Gift Box but never open it (the same gift with a date
   opened, without one it did not), so Bunker gifts expire 2099-12-31.
-- `go test ./...` passes with either master; every Android tool test and the
-  notice and web builder tests pass. iOS not run.
+- After the branch review: with the server running, the room comes from the
+  running server's granter (32 ms, no second master-data load in the log);
+  with the Comfort mods on, Small Stamina Recovery's room was 7,783,272
+  (the gold cap left ÷ 120) and Premium Summon Ticket's 7,157,585 (gems ÷
+  300). A count of 50 against a room of 10 was refused ("That is more than
+  can be claimed now: up to 10.") with SEND disabled. The CI unit-test jobs
+  now prepare the sources; a clean checkout's web builder test failed without
+  that and passes with it.
+- `go test ./...` passes with either master; all 31 Android tool test files
+  and the notice and web builder tests pass. iOS not run; the Original
+  calendar's gift dates not checked on a device.
 
 ## Draw buttons without a false sale — 2026-11-06
 
