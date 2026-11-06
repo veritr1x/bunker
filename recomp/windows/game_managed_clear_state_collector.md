@@ -1,0 +1,13 @@
+# Managed ClearState collector wait
+
+Run27 reached original IL2CPP ClearState (`8258a510..8258a564`) with a pending original collector request at mutex return `8258a538`. The prior profile correctly rejected this previously uncertified wait.
+
+The new certificate admits only the creator-certified managed worker, one current State/native thread, the real mutex-lock phase/import, the original 48-byte frame with FP=SP+32, and saved worker returns `8258aaf0` or `8258abc8`. Both observed worker callers pass zero W1; X21 must remain zero. The object in X19 points through object+0x10 to inner, then inner+0xa0 to a mutex wrapper. X20 must equal that wrapper and the actual native mutex must equal the pointer stored in it. Nonnull/overflow/owned-stack/TLS checks precede admission. X1/X2 are not mutex-lock arguments and are unconstrained.
+
+The existing three mutex profiles, Q15 queue pointer indirection, condition/finalizer profiles, sender locking, epochs, masks, full31GPR/32Q roots, original signal handlers and acknowledgment path are retained. No host acknowledgment or pending-bit clear is introduced.
+
+`managed-clear-state-collector-qualification5` executes the tested final header against support sources frozen from parent d4c99. It passes 1,216 component checks across 15 original stop/restart cycles, 30 physical root frames/posts, 26 rejection cases, and the existing 397-check real pthread-wait regression. The three new positives cover both saved callers and a request queued during actual contention; eleven new negatives cover malformed caller/LR/FP/SP/mask/TLS/object/inner/wrapper/X20/mutex identity. Original8B pointer forwarding and real Pthreads providers execute in these Windows tests; the surrounding interrupted helper-shaped State is explicitly test-owned.
+
+The independent `runtime27-managed-clear-native1` fixture executes the genuine original84B helper and both pointer forwarders with Bionic: 159 checks, four contended lock/unlock calls, masks and 64-bit poison proving W1 zero-extension. This does not claim execution of the entire managed worker or a full Windows original-helper invocation. Original game integration remains a separate check.
+
+Failed attempts are preserved: Q1 and Q3 rejected incorrect supplied source pins before compilation; Q2 passed before twelve inserted CR bytes were normalized; Q4 completed the affected old mutex case but rejected an interleaved stdout/stderr log token. Q5 routes fixture summaries through stderr, preserving production behavior and all checks. The final production header is LF-only, SHA256 `08d73c05beae68ab93faf9311d6ef5eb37b62f902af59a9b5ba0cc0fefb1ac20`.

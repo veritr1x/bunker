@@ -40,7 +40,7 @@ class GameCollectorDelivery {
     }
   }
   static unsigned ManagedMutexSite(const State&state){
-    switch(state.gpr.x30.qword){case 0x8255045c:return 1;case 0x825bf1cc:return 2;case 0x825bf018:return 3;default:return 0;}
+    switch(state.gpr.x30.qword){case 0x8255045c:return 1;case 0x825bf1cc:return 2;case 0x825bf018:return 3;case 0x8258a538:return 4;default:return 0;}
   }
   static bool ManagedContext(State&state){
     if(OpaqueDepth()||recomp::CurrentExecutionState()!=&state)return false;
@@ -113,9 +113,21 @@ class GameCollectorDelivery {
     }else if(context.phase==Pthreads::WaitPhase::MutexLock){
       const auto site=ManagedMutexSite(*state);Check(owner.role==Role::managed_worker&&site,"managed mutex caller is unqualified");
       Check(!context.condition&&!context.original_deadline&&mutex&&state->gpr.x0.qword==mutex&&state->gpr.pc.qword==0x7ffc60000030ULL,"managed mutex actual import/context differs");
-      const uint64_t frame_size=site==1?0x70:0x60,frame_pointer=site==1?0x60:0x50;
+      const uint64_t frame_size=site==1?0x70:site==4?0x30:0x60,frame_pointer=site==1?0x60:site==4?0x20:0x50;
       Check(state->gpr.sp.qword<=info.stack_high&&info.stack_high-state->gpr.sp.qword>=frame_size&&state->gpr.x29.qword==state->gpr.sp.qword+frame_pointer,"original managed mutex helper frame differs");
       if(site==1)Check(state->gpr.x21.qword<=UINT64_MAX-4&&state->gpr.x19.qword==mutex&&state->gpr.x21.qword+4==mutex,"original event mutex geometry differs");
+      else if(site==4){
+        // Original ClearState 8258a510: both managed-worker callers pass W1=0.
+        // X20 is a wrapper pointer; the tail forwarder loads its stored mutex.
+        const auto sp=state->gpr.sp.qword,object=state->gpr.x19.qword;
+        Check(!(sp&15)&&sp>=info.stack_low&&object&&object<=UINT64_MAX-0x18&&state->gpr.x21.qword==0,"original managed ClearState object/mask/stack differs");
+        const auto caller=Read<addr_t>(sp+0x28);
+        Check(caller==0x8258aaf0||caller==0x8258abc8,"original managed ClearState caller differs");
+        const auto inner=Read<addr_t>(object+0x10);
+        Check(inner&&inner<=UINT64_MAX-0xa8,"original managed ClearState inner pointer differs");
+        const auto wrapper=Read<addr_t>(inner+0xa0);
+        Check(wrapper&&wrapper<=UINT64_MAX-8&&state->gpr.x20.qword==wrapper&&mutex==Read<addr_t>(wrapper),"original managed ClearState wrapper/mutex identity differs");
+      }
       else{const auto queue=Read<addr_t>(0x879a78c0);Check(queue&&queue<=UINT64_MAX-0x20&&mutex==Read<addr_t>(queue+0x20),"original managed queue mutex identity differs");}
     }else{
       Check(owner.role==Role::managed_worker,"condition owner has no certified role");
