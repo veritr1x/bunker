@@ -768,10 +768,13 @@ func TestAddedSummonGetsTheMedalItsArtNames(t *testing.T) {
 		{Id: 600, Asset: "limited_600", Start: 3000, End: 4000, Medal: 8138, Steps: []ruleStep{{Draws: 10, Cur: "free"}}},
 		{Id: 601, Asset: "limited_601", Start: 1000, End: 2000, Medal: 9999, Steps: []ruleStep{{Draws: 10, Cur: "free"}}},
 		{Id: 490, Asset: "limited_490", Pair: 489, Medal: 8138, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "paid"}}},
+		{Id: 506, Asset: "limited_506", Start: 1000, End: 2000, Medal: 8170, Steps: []ruleStep{{Draws: 10, Price: 3000, Cur: "gems"}}},
 	}}
-	saved := medalShopOpen
-	t.Cleanup(func() { medalShopOpen = saved })
-	medalShopOpen = medalShopOpenFrom(map[int32][][2]int64{8138: {{900, 2200}}}) // closes before 546 ends
+	saved, savedRows := medalShopOpen, medalRows
+	t.Cleanup(func() { medalShopOpen, medalRows = saved, savedRows })
+	medalShopOpen = medalShopOpenFrom(map[int32][][2]int64{8138: {{900, 2200}}, 8170: {{1000, 9000}}}) // 8138 closes before 546 ends
+	// No summon in the catalog gives 8170: it comes from its own row.
+	medalRows = map[int32]EntityMGachaMedal{8170: {GachaMedalId: 8170, ConsumableItemId: 8170, CeilingCount: 100}}
 	byId := map[int32]store.GachaCatalogEntry{}
 	for _, e := range addNewSummonsFor([]store.GachaCatalogEntry{first, twin}, file, 0, true) {
 		byId[e.GachaId] = e
@@ -791,6 +794,9 @@ func TestAddedSummonGetsTheMedalItsArtNames(t *testing.T) {
 	if e := byId[490]; e.MedalConsumableItemId != 7700 {
 		t.Fatalf("a twin's own medal was replaced: %+v", e)
 	}
+	if e := byId[506]; e.GachaMedalId != 8170 || e.MedalConsumableItemId != 8170 || e.CeilingCount != 100 {
+		t.Fatalf("a medal only its m_gacha_medal row has: %+v", e)
+	}
 }
 
 // The summons fixed from their banner art: medals the art names, and prices
@@ -807,7 +813,10 @@ func TestEmbeddedSummonsMatchTheirArt(t *testing.T) {
 	medals := map[int32]int32{444: 8138, 445: 8138, 450: 8142, 451: 8142, 473: 8153, 474: 8153, 476: 8154,
 		59: 8007, 123: 8021, 467: 8148, 471: 8151, 531001: 8087, 546: 8197,
 		// Paid-only twins with notices of their own that name the shard.
-		417: 8105, 424: 8109, 425: 8109, 438: 8134, 488: 8161, 534001: 8092, 551001: 8147, 557001: 8154, 558001: 8154, 560001: 8162}
+		417: 8105, 424: 8109, 425: 8109, 438: 8134, 488: 8161, 534001: 8092, 551001: 8147, 557001: 8154, 558001: 8154, 560001: 8162,
+		// The shard audit: the medal their notice (506, 507, their reruns, 10107, 10108) or art names.
+		506: 8170, 507: 8170, 10107: 8591, 10108: 8592, 554: 8205, 523001: 8064, 563001: 8165, 900003: 8012,
+		9505061: 8170, 9505062: 8170, 9505071: 8170, 9505072: 8170, 581001: 8198, 582001: 8198, 586001: 8204, 587001: 8204}
 	for id, item := range medals {
 		if byId[id].Medal != item {
 			t.Errorf("summon %d: medal %d, want %d", id, byId[id].Medal, item)

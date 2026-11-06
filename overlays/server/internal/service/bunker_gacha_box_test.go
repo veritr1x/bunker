@@ -168,20 +168,50 @@ func TestSummonTitleFromItsNotice(t *testing.T) {
 }
 
 // The DQX crossover's free summons (554) show the three characters its appeal
-// art shows, so its panel has more than one page; none of them is featured.
+// art shows, so its panel has more than one page. It gives Shard (DQX ONLINE -
+// All), so they come featured from that exchange, as on the paid summon (566).
+// The Healer & Support reruns feature their exchange's offers of their
+// attribute at their start (notices 1300, 1620).
 func TestFreeSummonShowsItsArtCharacters(t *testing.T) {
 	holder, _ := harness(t)
-	for _, e := range holder.Get().GachaEntries {
+	c := holder.Get()
+	for _, e := range c.GachaEntries {
 		if e.GachaId != 554 {
 			continue
 		}
-		if len(e.PromotionItems) != 3 {
+		got := map[int32]bool{}
+		for _, p := range e.PromotionItems {
+			if p.BonusPossessionId == 0 {
+				t.Fatalf("554 card without its weapon: %+v", p)
+			}
+			got[p.PossessionId] = true
+		}
+		if len(got) != 3 || !got[32032] || !got[33029] || !got[34044] {
 			t.Fatalf("554 cards: %+v", e.PromotionItems)
 		}
-		for _, p := range e.PromotionItems {
-			if p.IsTarget || p.BonusPossessionId == 0 {
-				t.Fatalf("554 card: %+v", p)
+		if e.MedalConsumableItemId != 8205 {
+			t.Fatalf("554 medal %d, want 8205", e.MedalConsumableItemId)
+		}
+		elements := func(id int32) map[int32]bool {
+			out := map[int32]bool{}
+			for _, it := range c.GachaPool.FeaturedByGacha[id].Costumes {
+				out[masterdata.ElementOf(it)] = true
 			}
+			return out
+		}
+		for id, first := range map[int32]int32{9505061: 506, 9505062: 506, 9505071: 507, 9505072: 507} {
+			fs, want := c.GachaPool.FeaturedByGacha[id], elements(first)
+			if len(fs.Costumes) == 0 || len(want) == 0 {
+				t.Fatalf("%d: nothing featured", id)
+			}
+			for _, it := range append(fs.Costumes, fs.Weapons...) {
+				if !want[masterdata.ElementOf(it)] {
+					t.Errorf("%d features %d, not of %d's attributes", id, it.PossessionId, first)
+				}
+			}
+		}
+		if n := len(c.GachaPool.FeaturedByGacha[9505062].Costumes); n <= len(c.GachaPool.FeaturedByGacha[9505061].Costumes) {
+			t.Errorf("the February rerun has %d characters, no more than August's", n)
 		}
 		return
 	}
@@ -246,8 +276,12 @@ func TestSummonLineupsFromArtAndNotices(t *testing.T) {
 			t.Errorf("71 featured %d is not fire", f.PossessionId)
 		}
 	}
-	if l := bp(9505071).WeaponsByRarity[ss]; len(l) != 33 {
+	// The exchange's offers when each rerun started: 2023-08-18, then 2024-02-18.
+	if l := bp(9505071).WeaponsByRarity[ss]; len(l) != 29 {
 		t.Errorf("9505071 ★4 weapons: %d", len(l))
+	}
+	if l := bp(9505072).WeaponsByRarity[ss]; len(l) != 33 {
+		t.Errorf("9505072 ★4 weapons: %d", len(l))
 	}
 	for _, e := range c.GachaEntries {
 		if e.GachaId == 9505061 {
