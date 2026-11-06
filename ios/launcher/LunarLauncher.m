@@ -16,6 +16,7 @@
 static NSString *const kMasterName = @"20240404193219.bin.e";
 static NSString *gServerRoot, *gSaves, *gMessage;
 static UIWindow *gWindow;
+UIInterfaceOrientationMask LTMenuOrientations(void);  // which way up the menu may turn
 static UIBackgroundTaskIdentifier gBackgroundTask;
 static dispatch_queue_t gQueue;
 // Tools edits the saves with the server stopped. The game keeps its own copy
@@ -1123,11 +1124,9 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 
 @implementation LTLauncherViewController
-// The game runs only on its side (its Info.plist), so the menu does too. Left
-// to the default, the menu's window turned upright on an iPad when the options
-// menu opened, while the game under it stayed on its side: part of the screen
-// went black.
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
+// The menu turns with the device (package_ipa.py adds portrait to the app);
+// the game's own screen stays on its side.
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return LTMenuOrientations(); }
 - (UILabel *)label:(NSString *)text size:(CGFloat)size color:(UIColor *)color bold:(BOOL)bold {
     UILabel *label = [UILabel new];
     label.text = text;
@@ -2007,6 +2006,7 @@ static UTType *MasterType(void) {
     gMessage = @"";
     gWindow.hidden = YES;
     gWindow = nil;
+    RecheckOrientation();
 }
 - (void)retry {
     self.check.enabled = NO;
@@ -2092,6 +2092,7 @@ static UTType *MasterType(void) {
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         gWindow.hidden = YES;
         gWindow = nil;
+        RecheckOrientation();
     }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -2135,6 +2136,22 @@ void LTOpenBunker(void) {
     dispatch_async(dispatch_get_main_queue(), ^{ gMessage = @""; ShowLauncher(); });
 }
 
+// What the menu and its screens allow: any way up on an iPad, not upside down on an iPhone.
+UIInterfaceOrientationMask LTMenuOrientations(void) {
+    return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? UIInterfaceOrientationMaskAll : UIInterfaceOrientationMaskAllButUpsideDown;
+}
+// After the menu opens or closes, the screen on top decides which way up the app
+// is: the menu turns with the device, the game goes back on its side.
+static void RecheckOrientation(void) {
+    if (@available(iOS 16.0, *)) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:UIWindowScene.class]) continue;
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) [window.rootViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+        }
+    } else {
+        [UIViewController attemptRotationToDeviceOrientation];
+    }
+}
 static void ShowLauncher(void) {
     if (gWindow) { [(LTLauncherViewController *)gWindow.rootViewController refresh]; return; }
     UIWindow *window = nil;
@@ -2148,6 +2165,7 @@ static void ShowLauncher(void) {
     window.rootViewController = [LTLauncherViewController new];
     window.hidden = NO;
     gWindow = window;
+    RecheckOrientation();
 }
 
 #pragma mark - Home Screen quick action

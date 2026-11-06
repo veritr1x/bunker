@@ -114,6 +114,13 @@ def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
     info["LSApplicationCategoryType"] = "public.app-category.games"
     info["LSSupportsGameMode"] = True
     info["GCSupportsGameMode"] = True
+    # The Bunker menu, Pod Programs and the Archive turn upright with the device.
+    # The game's own screen still allows only landscape (Unity's view controller
+    # asks for it), and landscape stays first, so the game starts on its side.
+    for key, upright in (("UISupportedInterfaceOrientations", ["UIInterfaceOrientationPortrait"]),
+                         ("UISupportedInterfaceOrientations~ipad", ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"])):
+        orientations = list(info.get(key) or info.get("UISupportedInterfaceOrientations") or [])
+        info[key] = orientations + [o for o in upright if o not in orientations]
     # Pod Programs > Display can raise the frame rate to 120 on ProMotion iPhones too.
     info["CADisableMinimumFrameDurationOnPhone"] = True
     ats = info.setdefault("NSAppTransportSecurity", {})

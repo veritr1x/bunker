@@ -62,6 +62,19 @@ class InfoTests(unittest.TestCase):
             with (app / "Info.plist").open("rb") as handle:
                 self.assertEqual(plistlib.load(handle)["CFBundleDisplayName"], "NieR")
 
+    def test_menu_may_turn_upright_but_the_game_starts_on_its_side(self):
+        with tempfile.TemporaryDirectory() as temp:
+            app = Path(temp)
+            landscape = ["UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationLandscapeLeft"]
+            with (app / "Info.plist").open("wb") as handle:
+                plistlib.dump({"CFBundleExecutable": "Game", "UISupportedInterfaceOrientations": landscape}, handle)
+            info = patch_info(app)
+            self.assertEqual(info["UISupportedInterfaceOrientations"], landscape + ["UIInterfaceOrientationPortrait"])
+            self.assertEqual(info["UISupportedInterfaceOrientations~ipad"],
+                             landscape + ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"])
+            # Packaging twice adds nothing more.
+            self.assertEqual(patch_info(app)["UISupportedInterfaceOrientations"], landscape + ["UIInterfaceOrientationPortrait"])
+
     def test_turns_analytics_off(self):
         with tempfile.TemporaryDirectory() as temp:
             app = Path(temp)
