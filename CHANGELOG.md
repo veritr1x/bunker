@@ -15,6 +15,9 @@ under its heading, down to the previous release.
   covers the same points in the same order, and the notification says the
   game goes to its title screen to load a change instead of closing.
   Copying an extracted folder on iPhone asks for 21 GB, as Android does.
+  [d8bdde1]
+- On a phone on its side, the whole Bunker fits on the screen. The
+  Programs panel's bottom sat under the edge until you scrolled. [a96e90d]
 
 ## 2026-11-06 (after 1.9.0)
 
@@ -58,14 +61,15 @@ under its heading, down to the previous release.
   for: Currency, Summoning, Character growth, Weapon growth, Collection and
   Everyday. It arrives in the game's own Gift Box as "From Bunker, with
   love." and is claimed there like any other gift; the game keeps running.
-  The count stops at what can still be claimed, and debris you already own
-  can't be sent. The Item, Costume and Weapon editors say how many gifts are
-  waiting.
+  [a6c5da2] A count above what can still be claimed is refused, not cut
+  down, and debris you already own or that is already waiting can't be
+  sent. [b250f00] The Item, Costume and Weapon editors say how many gifts
+  are waiting. [52e6392]
   Game data without the gift text (made before this version, imported or
   restored) gets it with the first gift, which sends the game to its title
-  screen once; there is nothing to apply first. Gift is also on the
-  Programs page. Choosing the Original calendar under Content now hides the
-  presets, which are off while it runs.
+  screen once; there is nothing to apply first. [3650b8f] Gift is also on
+  the Programs page. [da9e0fa] Choosing the Original calendar under Content
+  now hides the presets, which are off while it runs. [662745f]
 - Turning the calendar off and "Show original dates" close the game without
   asking; the "Close the game?" dialog is gone. Tap Deploy to start it again.
   [0ae30da]
