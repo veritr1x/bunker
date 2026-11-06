@@ -38,6 +38,34 @@ class GiftText(unittest.TestCase):
         ours = [[r["GiftTextId"], r["LanguageType"], r["Text"]] for r in rows if r["GiftTextId"] == 90000]
         self.assertEqual(ours, ROWS)
 
+    def test_gift_text_is_added_to_any_game_data(self):
+        # Game data made before this build, imported or restored: Gift adds the
+        # text itself (android_gift.add_gift_text), changing nothing else.
+        if not ORIGINAL.is_file():
+            self.skipTest("needs inputs/20240404193219.bin.e")
+        import android_calendar as cal
+        import android_gift
+        from tools import dump_masterdata
+
+        def gift_rows(path):
+            toc, blob = cal.read_master(path)
+            offset, length = toc["m_gift_text"]
+            rows = dump_masterdata.rows_to_dicts(dump_masterdata.decompress_table(blob, offset, length),
+                                                 dump_masterdata.load_schemas()["m_gift_text"][1])
+            return toc, blob, [[r["GiftTextId"], r["LanguageType"], r["Text"]] for r in rows]
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "out.bin.e"
+            self.assertTrue(android_gift.add_gift_text(ORIGINAL, out))
+            before_toc, before_blob, before = gift_rows(ORIGINAL)
+            after_toc, after_blob, after = gift_rows(out)
+            self.assertEqual(after, before + ROWS)
+            for table, (start, length) in before_toc.items():  # every other table byte for byte
+                if table != "m_gift_text":
+                    s2, l2 = after_toc[table]
+                    self.assertEqual(after_blob[s2:s2 + l2], before_blob[start:start + length], table)
+            again = Path(work) / "again.bin.e"
+            self.assertFalse(android_gift.add_gift_text(out, again))  # already there: nothing to do
+
 
 if __name__ == "__main__":
     unittest.main()

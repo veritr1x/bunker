@@ -674,13 +674,10 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
     view: the copy for "Show original dates" (VIEW_FROM_LAUNCH); open_chapters:
     story chapters open on their dates (moved by offset) except these (None: all open)."""
     import msgpack
-    from Crypto.Cipher import AES
-    from Crypto.Util.Padding import pad
     from patcher import patch_masterdata as pm
     from tools import dump_masterdata
     if offset % WEEK:
         raise ValueError("The calendar moves in whole weeks")
-    key, iv = bytes.fromhex(pm.DEFAULT_KEY), bytes.fromhex(pm.DEFAULT_IV)
     toc, blob = read_master(origin)
     schemas = dump_masterdata.load_schemas()
     changed = {}
@@ -708,6 +705,16 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
     for table, rows in pm.TABLE_ROW_ADDITIONS.items():
         pm.apply_to_table(toc, blob, changed, table, lambda b, r=rows: pm.add_table_rows(b, r))
     pm.apply_to_table(toc, blob, changed, "m_battle_group", pm.patch_wolf_chapter_battle_point)
+    write_master(toc, blob, changed, output)
+    return moved
+
+
+def write_master(toc, blob, changed, output):
+    """Writes a master data file from read_master's tables, with the changed ones replaced."""
+    import msgpack
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+    from patcher import patch_masterdata as pm
     parts, layout, offset_in_blob = [], {}, 0
     for table, (start, length) in sorted(toc.items(), key=lambda item: item[1][0]):
         part = changed.get(table, blob[start:start + length])
@@ -715,8 +722,7 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
         parts.append(part)
         offset_in_blob += len(part)
     plain = msgpack.packb(layout, use_bin_type=True) + b"".join(parts)
-    Path(output).write_bytes(AES.new(key, AES.MODE_CBC, iv).encrypt(pad(plain, AES.block_size)))
-    return moved
+    Path(output).write_bytes(AES.new(bytes.fromhex(pm.DEFAULT_KEY), AES.MODE_CBC, bytes.fromhex(pm.DEFAULT_IV)).encrypt(pad(plain, AES.block_size)))
 
 
 def origin_file():

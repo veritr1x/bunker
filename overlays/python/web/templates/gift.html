@@ -31,8 +31,9 @@
 </div>
 
 {% if not ready %}
-<div class="banner error">&gt; The game data has no gift text yet. Apply a content preset, or turn the calendar on, under Content first.</div>
-{% else %}
+<div class="banner">&gt; The first gift also adds its text to the game data, so the game returns to its title screen to load it.</div>
+{% endif %}
+
 <h2 class="bracket-header">1 :: Choose</h2>
 <div class="panel">
   <input id="q" type="search" placeholder="Search every category by name" style="width:100%">
@@ -50,7 +51,6 @@
   </div>
   <p class="note" id="hint" style="margin:8px 0 0">Pick a category, or search.</p>
 </div>
-{% endif %}
 
 <h2 class="bracket-header">Waiting in the Gift Box</h2>
 <div class="panel">
@@ -59,7 +59,6 @@
 {% else %}<p style="margin:0" class="note">Nothing from Bunker is waiting.</p>{% endif %}
 </div>
 
-{% if ready %}
 <script id="gift-data" type="application/json">{{ cards|tojson }}</script>
 <script>
 (() => {
@@ -134,5 +133,4 @@
   draw();
 })();
 </script>
-{% endif %}
 {% endblock %}

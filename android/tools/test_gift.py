@@ -166,12 +166,19 @@ class Sending(GameData):
         self.assertEqual(self.calls[0]["action"], "gift_room")
         self.assertEqual(self.backups, [])  # reading only
 
-    def test_without_gift_text_nothing_is_sent(self):
+    def test_without_gift_text_the_first_gift_adds_it(self):
         (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text(json.dumps([{"GiftTextId": 1, "LanguageType": 2, "Text": "x"}]))
         self.assertFalse(gift.has_gift_text())
-        with self.assertRaises(gift.GiftError):
-            gift.send(1, 5, 100001, 3)
-        self.assertEqual(self.calls, [])
+        added = []
+        with mock.patch.object(gift, "_add_gift_text_to_game", lambda: added.append(1)):
+            self.assertTrue(gift.send(1, 5, 100001, 3))  # the game must reload its data
+        self.assertEqual(added, [1])
+        self.assertEqual([c["action"] for c in self.calls], ["send_gift"])
+        added.clear()
+        (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text(json.dumps([{"GiftTextId": 90000, "LanguageType": 2, "Text": "x"}]))
+        with mock.patch.object(gift, "_add_gift_text_to_game", lambda: added.append(1)):
+            self.assertFalse(gift.send(1, 5, 100001, 3))  # already there: the game plays on
+        self.assertEqual(added, [])
 
     def test_routes(self):
         from fastapi import FastAPI
@@ -182,6 +189,10 @@ class Sending(GameData):
         r = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001, "count": 3})
         self.assertEqual((r.status_code, r.json()), (200, {"ok": True}))
         self.assertEqual(r.headers.get("x-bunker-keep-playing"), "1")
+        with mock.patch.object(gift, "send", lambda *a: True):  # the gift text was just added
+            r = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001, "count": 3})
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.headers.get("x-bunker-keep-playing"))  # back to the title screen to load it
         self.assertEqual(c.get("/gift/room", params={"user": 1, "type": 5, "id": 100001}).json(), {"room": 7})
         self.assertEqual(c.get("/gift/waiting-count", params={"user": 1}).json()["count"], 2)
         half = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001, "count": 2.5})
@@ -233,11 +244,12 @@ class Page(Sending):
         self.assertIn("more than can be claimed", page)
         self.assertIn("const sending = chosen", page)  # the item named after a send is the one sent
 
-    def test_without_gift_text_the_page_says_so(self):
+    def test_without_gift_text_the_page_works_as_usual(self):
         (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text("[]")
         page = self.page()
-        self.assertIn("Apply a content preset", page)
-        self.assertNotIn('id="send"', page)
+        self.assertNotIn("Apply a content preset", page)
+        self.assertIn('id="send"', page)
+        self.assertIn("returns to its title screen", page)  # the first gift says so
 
     def test_nav_and_editors_link_to_gift(self):
         templates = root / "overlays/python/web/templates"
