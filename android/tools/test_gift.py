@@ -242,6 +242,8 @@ class Page(Sending):
     def test_nav_and_editors_link_to_gift(self):
         templates = root / "overlays/python/web/templates"
         self.assertIn('href="/gift"', (templates / "base.html").read_text())
+        # and the Programs page's grid, which needs a save like the editors
+        self.assertIn('program("/gift", "Gift", "Send yourself anything")', (templates / "index.html").read_text())
         for name in ("user_items.html", "user_costumes.html", "user_weapons.html"):
             self.assertIn("/gift/waiting-count", (templates / name).read_text(), name)
 
