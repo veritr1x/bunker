@@ -3,7 +3,34 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-native-presentation7`, using
+Current original attempt: `work/windows-first-frame-native-presentation8`, using
+manifest `a79c255a3e50214dcb4c4afe41f6ac83ccd2542c035a56ea72e41964dde0dcd5`
+and executable `9e349ab806dcc905e3d8ac67906851981be458994f0265d743a52b20de5c9950`.
+The collector retirement fix is integrated: original managed workers stop and
+restart, the third render returns, and subsequent original renders and successful
+swaps continue. Captures remain uniformly black; no first game frame is claimed.
+The original `ApplicationApi.Run` creates and stores its active context, then
+enters preference construction through `Language.SetupLanguageForWorldWide`.
+Read-only observations show the preference singleton still null, its constructor
+and parameter-generation guards set, and the first float-preference constructor
+and language-getter guards unset. The failure lies in the initial store setup:
+`GeneratePrivateKey` calls `SetString`, which calls original `DES.Encryption`.
+The actual exception lands at `836ea808`; the original EH range attributes this
+to its virtual no-argument encryptor creation call at `836ea5f4`. The original
+random provider opens `/dev/urandom` read-only at `825513ac`, caches its descriptor
+at `879821f8`, then reads through `825513cc`. The running process has cached -1;
+this device previously had no Windows host implementation. The genuine Windows
+system RNG [device bridge](urandom.md) now passes its focused original-code gate;
+the integrated build is finishing. No preference key or ciphertext was inspected.
+The shared metadata guard used by language setup and camera setup does not prove
+camera entry. Separate translation inspection found no defect in the examined
+system-language return path. Evidence: this run's `preference-singleton-fields1`,
+`preference-ctor-metadata-flags1`, `preference-base-metadata-flags1`, and
+`language-metadata-flags1` and `entropy-descriptor-boundary1` JSON observations, plus
+`work/runtime8-language-boundary1` and `work/runtime8-language-translation-audit1`.
+The process remains active; final exit and post-run checks are pending.
+
+Preceding attempt: `work/windows-first-frame-native-presentation7`, using
 manifest `8b84d24fa10f8f817137e92e5554830006a6f60db76bfeca84c741671cda98b5`
 and executable `5fb89be501bdbe49da3c213b05202b1b5ad05bda82c6d10e049d7e3b49d99b67`.
 The additional native condition helper now returns normally. At epoch18, the

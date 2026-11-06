@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cerrno>
 #include <cctype>
+#include <cfenv>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -16,6 +17,7 @@
 #include <utility>
 #include <sys/stat.h>
 #include <windows.h>
+#include <bcrypt.h>
 #include <sddl.h>
 
 #include "filesystem.h"
@@ -35,6 +37,25 @@ uint64_t ThreadKey() {
 constexpr addr_t kMapFailed = UINT64_MAX;
 constexpr uint64_t kPage = 4096;
 constexpr size_t kIoChunk = 65536;
+// Capture before registry/TLS operations too; restore only for the new device.
+struct RandomEnvironment {
+  DWORD error=GetLastError();int saved_errno=errno;std::fenv_t floating{};bool active=false;
+  RandomEnvironment(){std::fegetenv(&floating);}
+  void Activate(){active=true;std::fenv_t held;std::feholdexcept(&held);}
+  ~RandomEnvironment(){if(active){std::fesetenv(&floating);errno=saved_errno;SetLastError(error);}}
+};
+int SystemRandom(uint8_t *output,ULONG size){
+  struct Api {
+    HMODULE module=LoadLibraryExW(L"bcrypt.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);
+    decltype(&BCryptGenRandom) generate=nullptr;
+    Api(){auto symbol=module?GetProcAddress(module,"BCryptGenRandom"):nullptr;static_assert(sizeof(generate)==sizeof(symbol));std::memcpy(&generate,&symbol,sizeof(generate));}
+    ~Api(){if(module)FreeLibrary(module);}
+  };
+  static const Api api;
+  if(!api.generate)return 95;
+  // NTSTATUS is signed: publish no part of a failed native chunk.
+  return api.generate(nullptr,output,size,BCRYPT_USE_SYSTEM_PREFERRED_RNG)>=0?0:5;
+}
 std::atomic<uint64_t> next_mapping_generation{1};
 uint64_t MappingGeneration(){
   auto current=next_mapping_generation.load(std::memory_order_relaxed);
@@ -147,10 +168,14 @@ struct FileSystem::Impl {
     OpenDescription(int f,bool w,uint64_t d):flags(f&~linux_flags::close_on_exec),writable(w),device(d){}
   };
   struct Descriptor : GuestDescriptor {
+    enum class Backend { Crt, SystemRandom };
+    Backend backend=Backend::Crt;bool random_closed=false;
     int native;std::shared_ptr<OpenDescription> description;
     Descriptor(int n,int f,bool w,uint64_t d):GuestDescriptor(Kind::File,bool(f&linux_flags::close_on_exec)),native(n),description(std::make_shared<OpenDescription>(f,w,d)){}
     Descriptor(int n,std::shared_ptr<OpenDescription> shared):GuestDescriptor(Kind::File),native(n),description(std::move(shared)){}
     ~Descriptor(){if(native>=0)_close(native);}
+    bool IsRandom()const{return backend==Backend::SystemRandom;}
+    bool IsOpen()const{return IsRandom()?!random_closed:native>=0;}
     int StatusFlags()const override{return description->flags;}
   };
   struct Stream {
@@ -286,6 +311,19 @@ struct FileSystem::Impl {
     result = canonical;
     return true;
   }
+  bool RandomPath(const char *raw){
+    std::string snapshot;if(!SnapshotString(raw,snapshot,4096)||Normalize(snapshot)!="/dev/urandom")return false;
+    // Explicit mounts keep their previous authority, including a mounted /dev.
+    for(const auto &mount:mounts)if(mount.guest=="/dev/urandom" ||
+        (mount.directory&&(mount.guest=="/"||mount.guest=="/dev")))return false;
+    return true;
+  }
+  bool RandomStat(AndroidStat *output){
+    if(!output){Error(14);return false;}
+    AndroidStat value{};value.inode=9;value.mode=0020444;value.links=1;
+    value.rdevice=0x109;value.block_size=4096;
+    recomp::WriteGuestMemory(reinterpret_cast<addr_t>(output),&value,sizeof(value));return true;
+  }
   int Remove(const char *path,bool directory) {
     std::lock_guard lock(mutex);
     if(!path){Error(14);return -1;}
@@ -398,8 +436,25 @@ addr_t FileSystem::StandardStreamsAddress() {
   return base;
 }
 int FileSystem::Open(const char *path, int flags, uint32_t mode) {
+  RandomEnvironment environment;
   std::lock_guard lock(impl_->mutex);
   int native_flags = impl_->NativeFlags(flags); if (native_flags < 0) return -1;
+  if(impl_->RandomPath(path)){
+    environment.Activate();
+    if(flags&3){impl_->Error(13);return -1;}
+    constexpr int hints=linux_flags::large_file|linux_flags::close_on_exec|linux_flags::no_follow|0x100|0x800;
+    if(flags&~hints){impl_->Error(95);return -1;}
+    auto candidate=impl_->next_descriptor;
+    while(candidate<=INT32_MAX&&impl_->descriptors.count(static_cast<int>(candidate)))++candidate;
+    if(candidate>INT32_MAX){impl_->Error(24);return -1;}
+    try{
+      auto file=std::make_shared<Impl::Descriptor>(-1,flags,false,0);
+      file->backend=Impl::Descriptor::Backend::SystemRandom;
+      const int guest=static_cast<int>(candidate);
+      if(!impl_->descriptors.emplace(guest,std::move(file)).second)throw std::logic_error("random descriptor publication collision");
+      impl_->next_descriptor=candidate+1;return guest;
+    }catch(const std::bad_alloc&){impl_->Error(12);return -1;}
+  }
   fs::path host; const Impl::Mount *mount;
   bool writing = (flags & 3) != 0 || flags & (linux_flags::create | linux_flags::truncate);
   if (!impl_->Resolve(path, writing, host, mount, flags & linux_flags::no_follow)) return -1;
@@ -417,6 +472,7 @@ int FileSystem::Open(const char *path, int flags, uint32_t mode) {
   }catch(const std::bad_alloc&){impl_->Error(12);return -1;}
 }
 int FileSystem::Close(int descriptor) {
+  RandomEnvironment environment;
   auto external=impl_->descriptor_table->Lookup(descriptor);
   if(external&&external->kind!=GuestDescriptor::Kind::File){
     std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);
@@ -425,9 +481,12 @@ int FileSystem::Close(int descriptor) {
   }
   std::shared_ptr<Impl::Descriptor> file;
   {std::lock_guard lock(impl_->mutex);auto found=impl_->descriptors.find(descriptor);if(found==impl_->descriptors.end()){impl_->Error(9);return -1;}file=std::dynamic_pointer_cast<Impl::Descriptor>(found->second);if(!file){impl_->Error(9);return -1;}impl_->descriptors.erase(found);}
-  std::lock_guard lock(file->description->io);int result=_close(file->native);file->native=-1;if(result<0)impl_->CrtError();return result;
+  std::lock_guard lock(file->description->io);
+  if(file->IsRandom()){environment.Activate();file->random_closed=true;return 0;}
+  int result=_close(file->native);file->native=-1;if(result<0)impl_->CrtError();return result;
 }
 int32_t FileSystem::Dup(int32_t descriptor){
+  RandomEnvironment environment;
   auto external=impl_->descriptor_table->Lookup(descriptor);
   if(external&&external->kind!=GuestDescriptor::Kind::File){
     int error=0;auto copy=external->Duplicate(error);if(!copy){impl_->Error(error);return -1;}
@@ -441,13 +500,23 @@ int32_t FileSystem::Dup(int32_t descriptor){
   std::lock_guard io(source->description->io);
   std::lock_guard registry(impl_->mutex);
   auto found=impl_->descriptors.find(descriptor);
-  if(found==impl_->descriptors.end()||found->second!=source||source->native<0){impl_->Error(9);return -1;}
+  if(found==impl_->descriptors.end()||found->second!=source||!source->IsOpen()){impl_->Error(9);return -1;}
   int64_t candidate=1000;
   for(const auto &entry:impl_->descriptors){
     if(entry.first==candidate)++candidate;
     else if(entry.first>candidate)break;
   }
   if(candidate>INT32_MAX){impl_->Error(24);return -1;}
+  if(source->IsRandom()){
+    environment.Activate();
+    try{
+      auto copy=std::make_shared<Impl::Descriptor>(-1,source->description);
+      copy->backend=Impl::Descriptor::Backend::SystemRandom;
+      const auto guest=static_cast<int32_t>(candidate);
+      if(!impl_->descriptors.emplace(guest,std::move(copy)).second)throw std::logic_error("random dup publication collision");
+      return guest;
+    }catch(const std::bad_alloc&){impl_->Error(12);return -1;}
+  }
   int native=_dup(source->native);
   if(native<0){const int error=errno;impl_->Error(GuestCrtError(error));return -1;}
   ScopedDescriptor unpublished(native);
@@ -463,15 +532,24 @@ int32_t FileSystem::Dup(int32_t descriptor){
   }catch(const std::bad_alloc&){impl_->Error(12);return -1;}
 }
 int64_t FileSystem::Read(int descriptor, void *buffer, uint64_t count) {
+  RandomEnvironment environment;
   auto external=impl_->descriptor_table->Lookup(descriptor);
   if(external&&external->kind!=GuestDescriptor::Kind::File){int error=0;auto result=external->Read(reinterpret_cast<addr_t>(buffer),count,error);if(result<0)impl_->Error(error);return result;}
   auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);
-  if (file->native<0 || (file->description->flags & 3) == 1) { impl_->Error(9); return -1; }
+  if(file->IsRandom())environment.Activate();
+  if (!file->IsOpen() || (file->description->flags & 3) == 1) { impl_->Error(9); return -1; }
   if ((!buffer && count) || count > INT64_MAX) { impl_->Error(!buffer ? 14 : 22); return -1; }
+  if(file->IsRandom()&&count&&count-1>UINT64_MAX-reinterpret_cast<addr_t>(buffer)){impl_->Error(14);return -1;}
   uint64_t total = 0;
   std::array<uint8_t,kIoChunk> bounce;
   while (total < count) {
     auto chunk = static_cast<unsigned>(std::min<uint64_t>(count - total, bounce.size()));
+    if(file->IsRandom()){
+      const int error=SystemRandom(bounce.data(),chunk);
+      if(error){impl_->Error(error);return total?static_cast<int64_t>(total):-1;}
+      recomp::WriteGuestMemory(reinterpret_cast<addr_t>(buffer)+total,bounce.data(),chunk);
+      total+=chunk;continue;
+    }
     int got = _read(file->native,bounce.data(),chunk);
     if (got < 0) { impl_->CrtError(); return total ? static_cast<int64_t>(total) : -1; }
     if(got)recomp::WriteGuestMemory(reinterpret_cast<addr_t>(buffer)+total,bounce.data(),got);
@@ -480,9 +558,11 @@ int64_t FileSystem::Read(int descriptor, void *buffer, uint64_t count) {
   return static_cast<int64_t>(total);
 }
 int64_t FileSystem::Write(int descriptor, const void *buffer, uint64_t count) {
+  RandomEnvironment environment;
   auto external=impl_->descriptor_table->Lookup(descriptor);
   if(external&&external->kind!=GuestDescriptor::Kind::File){int error=0;auto result=external->Write(reinterpret_cast<addr_t>(buffer),count,error);if(result<0)impl_->Error(error);return result;}
   auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);
+  if(file->IsRandom())environment.Activate();
   if(file->native<0||!(file->description->flags&3)){impl_->Error(9);return -1;}
   if ((!buffer && count) || count > INT64_MAX) { impl_->Error(!buffer ? 14 : 22); return -1; }
   uint64_t total = 0;
@@ -498,26 +578,38 @@ int64_t FileSystem::Write(int descriptor, const void *buffer, uint64_t count) {
   return static_cast<int64_t>(total);
 }
 int64_t FileSystem::Seek(int descriptor, int64_t offset, int whence) {
+  RandomEnvironment environment;
   auto external=impl_->descriptor_table->Lookup(descriptor);if(external&&external->kind!=GuestDescriptor::Kind::File){impl_->Error(29);return -1;}
-  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);if(file->native<0){impl_->Error(9);return -1;}
+  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);
+  if(file->IsRandom())environment.Activate();
+  if(!file->IsOpen()){impl_->Error(9);return -1;}
   if (whence < 0 || whence > 2) { impl_->Error(22); return -1; }
+  if(file->IsRandom())return 0; // Linux urandom's noop_llseek; no stream offset.
   auto position = _lseeki64(file->native,offset,whence); if (position < 0) impl_->CrtError(); return position;
 }
 int FileSystem::Stat(const char *path, AndroidStat *result, bool no_follow) {
+  RandomEnvironment environment;
   std::lock_guard lock(impl_->mutex); fs::path host; const Impl::Mount *mount;
+  if(impl_->RandomPath(path)){environment.Activate();return impl_->RandomStat(result)?0:-1;}
   if (!impl_->Resolve(path, false, host, mount, no_follow)) return -1;
   HANDLE file = CreateFileW(host.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (file == INVALID_HANDLE_VALUE) { impl_->WinError(); return -1; }
   bool filled = impl_->Fill(file, mount->device, mount->writable, result); CloseHandle(file); return filled ? 0 : -1;
 }
 int FileSystem::FStat(int descriptor, AndroidStat *result) {
+  RandomEnvironment environment;
   auto external=impl_->descriptor_table->Lookup(descriptor);
   if(external&&external->kind!=GuestDescriptor::Kind::File){if(!result){impl_->Error(14);return -1;}AndroidStat value{};value.inode=external->Identity();value.mode=external->kind==GuestDescriptor::Kind::Socket?0140777:0010600;value.links=1;value.uid=value.gid=10000;value.block_size=4096;recomp::WriteGuestMemory(reinterpret_cast<addr_t>(result),&value,sizeof(value));return 0;}
-  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);if(file->native<0){impl_->Error(9);return -1;}
+  auto file=impl_->GetDescriptor(descriptor);if(!file)return -1;std::lock_guard lock(file->description->io);
+  if(file->IsRandom())environment.Activate();
+  if(!file->IsOpen()){impl_->Error(9);return -1;}
+  if(file->IsRandom())return impl_->RandomStat(result)?0:-1;
   return impl_->Fill(reinterpret_cast<HANDLE>(_get_osfhandle(file->native)),file->description->device,file->description->writable,result)?0:-1;
 }
 int FileSystem::Access(const char *path, int mode) {
+  RandomEnvironment environment;
   std::lock_guard lock(impl_->mutex); if (mode & ~7) { impl_->Error(22); return -1; }
+  if(impl_->RandomPath(path)){environment.Activate();if(mode&3){impl_->Error(13);return -1;}return 0;}
   fs::path host; const Impl::Mount *mount;
   if (!impl_->Resolve(path, mode & 2, host, mount)) return -1;
   if (mode & 1 && !fs::is_directory(host)) { impl_->Error(13); return -1; }
@@ -801,7 +893,9 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
   auto found = impl_->descriptors.find(descriptor);
   auto file=found==impl_->descriptors.end()?nullptr:std::dynamic_pointer_cast<Impl::Descriptor>(found->second);
   if (!file || (file->description->flags & 3) == 1) { impl_->Error(9); return kMapFailed; }
-  lock.unlock();std::lock_guard io_lock(file->description->io);lock.lock();if(file->native<0){impl_->Error(9);return kMapFailed;}
+  lock.unlock();std::lock_guard io_lock(file->description->io);lock.lock();
+  if(!file->IsOpen()){impl_->Error(9);return kMapFailed;}
+  if(file->IsRandom()){impl_->Error(19);return kMapFailed;}
   const bool private_file = (flags & 3) == linux_flags::map_private;
   if (!private_file && protection & 2 && !(file->description->flags & 3)) { impl_->Error(13); return kMapFailed; }
   auto native = reinterpret_cast<HANDLE>(_get_osfhandle(file->native));
