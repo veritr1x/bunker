@@ -244,7 +244,7 @@ static void start_hook(void *self, Method *method) {
 }
 
 // Per row: the copy's button, and the row's own gap (to narrow from).
-typedef struct { void *self, *button, *copy, *row, *layout, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } Row;
+typedef struct { void *self, *button, *copy, *row, *layout, *scope, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } Row;
 // The game has two headers, in-game and out-game, and Unity updates both every
 // frame. Each keeps its own Row: with one shared Row, every frame looked the
 // row up again and searched the whole interface for the counters, which held a
@@ -298,6 +298,12 @@ static void update_hook(void *self, Method *method) {
         seen->gap = gap ? FIELD(gap, 16, float) : 0;
         seen->enabled = -1;
         seen->frames = 0;
+        // Where the counters are looked for: the top-level object holding the
+        // row (the heads-up display, with both headers' counters), not the
+        // whole interface under the root (1.3 ms a search against 0.2).
+        void *scope = row, *root = call(m_root, row, NULL);
+        for (void *up; scope && (up = call(m_parent, scope, NULL)) && up != root;) scope = up;
+        seen->scope = scope ? call(m_component_go, scope, NULL) : NULL;
     }
     int visible = 0;
     for (size_t i = 0; i < ROW_BUTTONS && !visible; i++)
@@ -319,7 +325,7 @@ static void update_hook(void *self, Method *method) {
     if (!seen->layout || seen->frames++ % 30) return;
     float row[4], limit = -1e9f;
     if (corners(seen->row, row)) return;
-    void *counters = components(call(m_component_go, call(m_root, seen->row, NULL), NULL), k_counter);
+    void *counters = seen->scope ? components(seen->scope, k_counter) : NULL;
     for (size_t i = 0; i < array_length(counters); i++) {
         float box[4];
         void *counter = array_item(counters, i);
