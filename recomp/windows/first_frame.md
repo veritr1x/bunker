@@ -3,7 +3,26 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Current live attempt: `work/windows-first-frame-native-presentation4`, using
+Latest original attempt: `work/windows-first-frame-native-presentation5`, using
+manifest `6086dc9999d8dc5967608a37760f8efeb73beecc2395e12416af76e7b6a3214e`
+and executable `ff662a4e83a460a31a783894f2a477fadab92fc00b1de0c8ab90e77658808fee`.
+The real Windows Firebase SDK now executes the original SWIG registrations and
+three original string reverse-P/Invoke callbacks. The Java load attempt still
+fails its translated-library path; the original P/Invoke fallback opens the
+explicit typed Windows service successfully. No Android JNI_OnLoad is claimed.
+The third render then stops at the collector guard when original signal 30
+targets managed thread `0x7ffa00000019`. Its sibling `0x7ffa0000001a` uses the
+same managed creator, distinct from the finalizer. The former waits in the
+timed-condition helper at LR `82550574`; the latter waits in the untimed helper
+at `825505d8`. The [managed-worker collector](managed_worker_collector.md) now
+passes 253 checks across both phases and the original finalizer, including four
+real stop/restart cycles and eight original posts. Its integrated rebuild is
+pending. No stop acknowledgment is synthesized. The run
+exits native3 with no first-frame witness; selected-runtime and unchanged
+parent pre/post checks pass. Entry into `ApplicationApi.Run` before this stop
+remains unknown. Evidence: `work/firebase-runtime5-worker-provenance1`.
+
+Preceding attempt: `work/windows-first-frame-native-presentation4`, using
 build manifest `193ba6f5135a73043cc3ada73d82016d164e5f933206e7dde87731dc39853ca4`
 and executable `e590b5b601b303b700fce105677837bf77043e7b5bdf339bd1e4c9b9525325d9`.
 The [reflection adapter](reflection_helper.md), backed JNI fields and four Java
@@ -21,10 +40,10 @@ per-method metadata observations, not function-completion witnesses. The
 original native permission wrapper clears its missing-method exception and
 returns zero, which compares equal to its sampled zero permission constant.
 This explains the skipped permission-request helper without a host permission
-grant. Firebase class initialization is the next missing prerequisite. A
-genuine [Windows Firebase SDK service](firebase_app.md) passes 1051 focused
-checks through 58 actual NDK calls, preserving real dependency status 7. Its
-integrated build and original startup test remain pending. The scene contains
+grant. Firebase class initialization was the next missing prerequisite, leading
+to the [Windows Firebase SDK service](firebase_app.md) used above. Its component
+gate passes 1051 checks through 58 actual NDK calls and preserves real dependency
+status 7. The scene contains
 an active opaque black startup overlay, which is preserved. No forced scene
 transition or alpha change is used.
 Evidence is in `work/windows-first-frame-native-presentation4` and
