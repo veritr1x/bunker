@@ -22,3 +22,7 @@ These cover 180 returned fixture callbacks, default stop at three, close at
 17, false return at seven, twenty parser negatives, focus interruption and
 one nativeResume per case. Transparent callbacks stand in for original game
 entries in this component test; it does not establish sustained game rendering.
+
+The subsequent original run24 completes all 180 renders and captures the
+publisher/developer splash. See [the original execution result](first_frame.md)
+for its actual build, image and audit pins and the remaining shutdown failure.

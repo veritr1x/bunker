@@ -11,7 +11,28 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation23`, using
+Latest original attempt: `work/windows-first-frame-native-presentation24`, using
+manifest `8e77087542e11799b2602b87de59164410999de01003f848a057d3b4e82d2942`
+and executable `915a509c3fd514bfda5055921f99dcfcbb74ed5efde6ceec59d0084c93b4efd8`.
+The explicit [180-frame continuation](frame_continuation.md) completes on the
+same UnityMain worker: 180 original render returns, 177 successful presentations
+and 2,288 draw calls. The first-frame witness passes. The original game advances
+from Notice to the SQUARE ENIX x applibot splash without input.
+
+The later capture, requested after render179 and fulfilled by the next genuine
+successful original swap, is
+`work/windows-first-frame-native-presentation24/data-frame-muted-gc/later-frame.png`,
+SHA256 `a4aec162e4e955595a508d600400a480477c8541afe08e2b523d2bb4228c019c`.
+Root viewed both original PNGs without adjustment. The later image has white
+publisher/developer logos on black at 1280x720. The runtime audit is
+`9fd95a2915a2c6eadb144cf3b39fb7f7ddee971f9b05443088403a5a949a534e`;
+root visual acceptance is
+`2ca4d6c728f8cdff078adb8edd0bc4bbf39aacf4037190f3e44f5a711755b60a`.
+Parent pre/post and selected runtime verification pass; controller exit is0.
+Native exit is3 at the same worker-retirement shutdown guard after the bounded
+render sequence. Title/input/backend behavior and clean shutdown remain open.
+
+First accepted image: `work/windows-first-frame-native-presentation23`, using
 manifest `382957667390947ffe8e7af58c38a980ea53bacf4221fb802ebf9cd74b1760e5`
 and executable `848805896ef3c361f71e5ea4cd0c73b9ad2b4342e8e6bf538e36c24da9ba5377`.
 **The first-frame witness passes.** Original render36 returns after 230 draw
@@ -28,8 +49,9 @@ nativeRender returns with `presentedCandidate=1`. Parent pre/post checks return
 0, selected-runtime verification passes and the runtime controller returns 0.
 Native exit is nevertheless 3: after the diagnostic's first-frame hold, worker
 shutdown reports `same-worker binding retirement is not quiescent`. That cleanup
-failure remains separate from the accepted frame; successful sustained startup,
-gameplay and a clean shutdown are not claimed.
+failure remains separate from the accepted frame. The later bounded rendering
+result above supersedes this initial diagnostic; gameplay and clean shutdown
+remain unverified.
 
 Preceding original attempt: `work/windows-first-frame-native-presentation22`, using
 manifest `11185c253e22d3986759794f8c422cff1453de60d1fbcfe012f3ce3810ef8a45`
