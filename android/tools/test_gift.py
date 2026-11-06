@@ -118,5 +118,76 @@ class Catalog(GameData):
         self.assertEqual([e.name for e in self.group("Collection", "Companions")], ["Bear: Indy"])
 
 
+GIFTS_SCHEMA = """CREATE TABLE user_gifts (user_id INTEGER NOT NULL, user_gift_uuid TEXT NOT NULL, is_received INTEGER NOT NULL DEFAULT 0,
+    possession_type INTEGER NOT NULL DEFAULT 0, possession_id INTEGER NOT NULL DEFAULT 0, count INTEGER NOT NULL DEFAULT 0,
+    grant_datetime INTEGER NOT NULL DEFAULT 0, description_gift_text_id INTEGER NOT NULL DEFAULT 0, equipment_data BLOB,
+    expiration_datetime INTEGER, received_datetime INTEGER, PRIMARY KEY (user_id, user_gift_uuid))"""
+
+
+class Sending(GameData):
+    def setUp(self):
+        super().setUp()
+        import sqlite3
+        self.db = self.dir / "game.db"
+        with sqlite3.connect(self.db) as db:
+            db.execute(GIFTS_SCHEMA)
+            rows = [(1, "a", 0, 5, 100001, 3, NOW, 90000, None), (1, "b", 1, 5, 100001, 9, NOW, 90000, None),
+                    (1, "c", 0, 6, 1002, 1, NOW - 1, 1, None), (1, "d", 0, 6, 1002, 1, NOW, 1, NOW - DAY),
+                    (2, "e", 0, 5, 100001, 4, NOW, 90000, None)]
+            db.executemany("INSERT INTO user_gifts (user_id, user_gift_uuid, is_received, possession_type, possession_id, count,"
+                           " grant_datetime, description_gift_text_id, expiration_datetime) VALUES (?,?,?,?,?,?,?,?,?)", rows)
+        (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text(json.dumps([{"GiftTextId": 90000, "LanguageType": 2, "Text": "x"}]))
+        self.calls = []
+        def shim(payload, **_):
+            self.calls.append(payload)
+            return {"ok": True, "applied": 7 if payload["action"] == "gift_room" else payload["count"]}
+        self.backups = []
+        for p in (mock.patch.object(config, "GAME_DB_PATH", self.db, create=True),
+                  mock.patch.object(gift, "_shim", shim),
+                  mock.patch.object(gift, "_backup", lambda: self.backups.append(1)),
+                  mock.patch.object(gift, "_master", lambda: "/master.bin.e")):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_waiting_lists_only_bunker_gifts(self):
+        waiting = gift.waiting(1)
+        self.assertEqual([(w["possession_type"], w["possession_id"], w["count"]) for w in waiting], [(5, 100001, 3)])
+        self.assertEqual(waiting[0]["name"], "Small Character Enhancement")
+        self.assertEqual(gift.waiting_count(1, now_ms=NOW), 2)  # every unclaimed, unexpired gift
+
+    def test_send_passes_the_request_to_the_shim(self):
+        gift.send(1, 5, 100001, 3)
+        self.assertEqual(self.calls, [{"action": "send_gift", "db_path": str(self.db), "master_data_path": "/master.bin.e",
+                                       "user_id": 1, "possession_type": 5, "possession_id": 100001, "count": 3}])
+        self.assertEqual(self.backups, [1])
+
+    def test_room_comes_from_the_shim(self):
+        self.assertEqual(gift.room(1, 5, 100001), 7)
+        self.assertEqual(self.calls[0]["action"], "gift_room")
+        self.assertEqual(self.backups, [])  # reading only
+
+    def test_without_gift_text_nothing_is_sent(self):
+        (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text(json.dumps([{"GiftTextId": 1, "LanguageType": 2, "Text": "x"}]))
+        self.assertFalse(gift.has_gift_text())
+        with self.assertRaises(gift.GiftError):
+            gift.send(1, 5, 100001, 3)
+        self.assertEqual(self.calls, [])
+
+    def test_routes(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(gift.router)
+        c = TestClient(app)
+        r = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001, "count": 3})
+        self.assertEqual((r.status_code, r.json()), (200, {"ok": True}))
+        self.assertEqual(r.headers.get("x-bunker-keep-playing"), "1")
+        self.assertEqual(c.get("/gift/room", params={"user": 1, "type": 5, "id": 100001}).json(), {"room": 7})
+        self.assertEqual(c.get("/gift/waiting-count", params={"user": 1}).json()["count"], 2)
+        bad = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001})
+        self.assertEqual(bad.status_code, 400)
+        self.assertFalse(bad.json()["ok"])
+
+
 if __name__ == "__main__":
     unittest.main()
