@@ -165,8 +165,8 @@
 
 <h2 class="bracket-header">Schedule</h2>
 <div class="panel">
-  <label class="choice"><input type="radio" name="schedule" checked onchange="document.getElementById('turn-on').hidden = true"><span><strong>Everything open</strong><span class="note">All events, summons and shops stay open.</span></span></label>
-  <label class="choice"><input type="radio" name="schedule" onchange="document.getElementById('turn-on').hidden = false"><span><strong>Original calendar</strong><span class="note">Replays the game from launch day, starting when the first summons opened. Events, summons and seasons open and close on their original dates.</span></span></label>
+  <label class="choice"><input type="radio" name="schedule" checked onchange="schedule(false)"><span><strong>Everything open</strong><span class="note">All events, summons and shops stay open.</span></span></label>
+  <label class="choice"><input type="radio" name="schedule" onchange="schedule(true)"><span><strong>Original calendar</strong><span class="note">Replays the game from launch day, starting when the first summons opened. Events, summons and seasons open and close on their original dates.</span></span></label>
 </div>
 <form id="turn-on" action="/patcher/calendar/on" method="post" class="panel" data-busy hidden>
   <p><strong>The game restarts from launch: at its title screen if it is running, or on your next Deploy.</strong></p>
@@ -189,6 +189,7 @@
   </div>
 </form>
 
+<section id="presets">
 <h2 class="bracket-header">Content</h2>
 <form action="/patcher/apply" method="post" class="panel" data-busy>
   <label for="preset">Content</label>
@@ -203,6 +204,14 @@
   <button type="submit">Apply</button>
   <span class="busy-note" hidden>Applying… Keep Pod Programs open.</span>
 </form>
+</section>
+<script>
+  // Presets are off while the calendar is on: choosing it shows its start panel in their place.
+  function schedule(calendar) {
+    document.getElementById('turn-on').hidden = !calendar;
+    document.getElementById('presets').hidden = calendar;
+  }
+</script>
 {% endif %}
 <details class="panel"><summary>Previous versions</summary>
   {% if history %}<form action="/patcher/restore" method="post" data-busy>

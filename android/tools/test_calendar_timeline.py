@@ -222,6 +222,19 @@ class Page(unittest.TestCase):
     def test_calendar_off_has_no_timeline(self):
         self.assertNotIn("timeline-data", self.render(None))
 
+    def test_choosing_the_calendar_hides_the_presets(self):
+        # Presets are off while the calendar is on: choosing "Original
+        # calendar" shows its start panel in place of the Content section.
+        import re
+        html = self.render(None)
+        self.assertRegex(html, r'<section id="presets">\s*<h2 class="bracket-header">Content</h2>')
+        radios = re.findall(r'<input type="radio" name="schedule"[^>]*>', html)
+        self.assertEqual(len(radios), 2)
+        self.assertIn('onchange="schedule(false)"', radios[0])
+        self.assertIn('onchange="schedule(true)"', radios[1])
+        self.assertIn("document.getElementById('presets').hidden = calendar", html)
+        self.assertIn("document.getElementById('turn-on').hidden = !calendar", html)
+
 
 class Filters(unittest.TestCase):
     """Hidden rows are kept beside Pod Programs' other settings: iOS keeps no page storage between sessions."""
