@@ -1,5 +1,21 @@
 # Validation
 
+## Back to the title screen at once — 2026-11-06
+
+- Android 16 emulator, the APK built at 9fea028: an item grant in Pod Programs
+  beside the game wrote saves/title.now; after Close and Deploy, with no touch
+  in the game, it showed "Process failed. Returning to title screen." at once
+  ("Title now: back to the title screen" in the log) and the marker was gone.
+  OK, Tap to Start: signed in (GetAndroidArgs ended the request), gold up by
+  1, and no call was failed in between.
+- iPad: the same, as checked by the player.
+- interceptor tests: the marker is written with a request, removed by the
+  redirect and by signing in, a removed marker lets the next call through,
+  a marker that could not be written still redirects, and a stale one is
+  removed when Lunar Tear starts.
+- Not checked: a change while a battle runs (the dialog should wait for the
+  battle to end).
+
 ## Review fixes on Android — 2026-11-06
 
 - Android 16 emulator (bunker_api36), the APK built at 1c8737f, signed with
