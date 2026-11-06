@@ -1,5 +1,27 @@
 # Validation
 
+## Calendar off without the dialog — 2026-11-06
+
+- Android emulator, 1.9.0 plus [0ae30da]. Before: after a jump to week 112
+  (December 2028) and Calendar off, the game's day markers stayed on the 2028
+  day (only "Show original dates" changes cleared them). With the clock moved
+  to 2026-11-07, signing in showed no login bonus, Mama's News or FREE badges;
+  with the markers cleared by hand, Mama's News and FREE on Gift Box and
+  Summons came back.
+- Tried first: clearing them inside the running game on its way to the title
+  screen (PlayerPrefs.DeleteKey, the cached PreferenceKeyValue states and
+  maps). The store was cleared, but signing in again in the same process still
+  showed no Mama's News; the next start did. So the game is closed instead.
+- After: calendar on and the jump with the game running (no reset file, the
+  game back at the title screen); Mama's News at the 2028 date. Calendar off
+  from the page's form: no dialog, the game process ended, client-days.reset
+  written. Applied All content, Deploy: "the clock went back: cleared the
+  game's day markers" before the game started, and Mama's News at
+  2026-11-06.
+- Android tool tests pass (test_calendar_view: the reset file only when the
+  clock goes back; test_tools_live: the game closed without asking). The iOS
+  launcher compiles (clang -fsyntax-only); not run on a device.
+
 ## Shards on every summon — 2026-11-06
 
 - Both masters (Global 20240404193219, Japan 20240405123139) loaded through

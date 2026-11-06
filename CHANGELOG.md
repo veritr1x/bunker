@@ -26,6 +26,16 @@ under its heading, down to the previous release.
   so their summons gave no shard and had no Exchange. Apply the preset again
   to get them. [d0641d4]
 
+### Pod Programs
+- Turning the calendar off and "Show original dates" close the game without
+  asking; the "Close the game?" dialog is gone. Tap Deploy to start it again.
+  [0ae30da]
+- After the calendar's clock goes back (turned off after a jump, "Show
+  original dates" on, a new loop with it on), the login bonus, Mama's News
+  and the FREE badges show again from the next start. The game kept the
+  jumped-to day as the last one it showed them, and turning the calendar off
+  never cleared it. [0ae30da]
+
 ## 1.9.0 (2026-11-06)
 
 Mods and changes that reach the running game. Pod Programs has a Mods
