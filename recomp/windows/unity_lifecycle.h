@@ -52,7 +52,16 @@ class UnitySurfaceLifecycle {
   bool RequestNextFrame();
   // Native PAUSE + acknowledgment Runnable only. Finishing selects the APK's
   // shutdown/nativeDone branch; a normal pause calls nativePause first.
+  // Legacy synchronous wait: a four-second timeout does not cancel the native
+  // job. Its genuine acknowledgment can still be observed with PollNativePause.
   void PauseNative(bool finishing);
+  // Enqueue once without waiting, retaining the same UnityMain/FIFO and native
+  // finishing branch. Duplicate outstanding requests and worker self-calls fail.
+  void BeginPauseNative(bool finishing);
+  // False means pending. True consumes the genuine successful acknowledgment;
+  // an acknowledged callback failure is consumed and rethrown. Polling before a
+  // request or after consumption fails. Keep HWND/providers alive while pending.
+  bool PollNativePause();
   void SurfaceCreated(addr_t surface);
   void SurfaceChanged(addr_t surface);
   // APK updateDisplayInternal waits up to four seconds for null-surface ack.

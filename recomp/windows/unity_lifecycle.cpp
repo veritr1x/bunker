@@ -25,6 +25,7 @@ struct UnitySurfaceLifecycle::Impl {
   bool frame_configured=false,activity_paused=true,activity_focused=false,activity_running=false;
   bool resume_job=false,frame_queued=false,frame_signaled=false,frame_active=false,active_job=false;
   std::shared_ptr<std::promise<bool>> frame_done;std::shared_future<bool> frame_result;
+  std::shared_future<void> pause_result;
   Impl(jni::Host &host,Runner runner,Entries addresses,addr_t receiver,WorkerExit exit):java(host),run(std::move(runner)),worker_exit(std::move(exit)),entries(addresses){
     if(!run||!worker_exit||!entries.recreate||!entries.changed)throw std::invalid_argument("surface lifecycle needs native entries, runner and worker cleanup");
     RequireType(receiver,"com/unity3d/player/UnityPlayer");player=java.CaptureValue(receiver);
@@ -164,7 +165,7 @@ void UnitySurfaceLifecycle::ConfigureOneFrame(FrameEntries entries,std::function
   if(p.status.started||p.frame_configured||!entries.resume||!entries.focus||!entries.render||!entries.pause||!entries.done)throw std::invalid_argument("one-frame profile needs all native entries before UnityMain starts");
   p.frame_entries=entries;p.execute_gl_jobs=std::move(execute_gl_jobs);p.frame_configured=true;p.frame_done=std::make_shared<std::promise<bool>>();p.frame_result=p.frame_done->get_future().share();p.status.requested_frames=1;
 }
-void UnitySurfaceLifecycle::ActivityResumed(){auto &p=*impl_;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(p.status.rendered)throw std::logic_error("one-frame diagnostic budget exhausted");p.activity_paused=false;p.MaybeResumeLocked();}p.ready.notify_one();}
+void UnitySurfaceLifecycle::ActivityResumed(){auto &p=*impl_;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(p.pause_result.valid())throw std::logic_error("Activity resume while native pause acknowledgment is outstanding");if(p.status.rendered)throw std::logic_error("one-frame diagnostic budget exhausted");p.activity_paused=false;p.MaybeResumeLocked();}p.ready.notify_one();}
 void UnitySurfaceLifecycle::WindowFocusChanged(bool focused){auto &p=*impl_;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();if(!p.frame_configured)throw std::logic_error("native frame lifecycle is not configured");p.activity_focused=focused;if(!p.status.initialized)return;p.jobs.push_back({focused?Impl::Job::FocusGained:Impl::Job::FocusLost,{},{}});p.MaybeResumeLocked();}p.ready.notify_one();}
 bool UnitySurfaceLifecycle::WaitForFrame(){auto &p=*impl_;std::shared_future<bool> result;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(std::this_thread::get_id()==p.worker.get_id())throw std::logic_error("UnityMain cannot wait for its own frame");result=p.frame_result;}if(result.wait_for(std::chrono::seconds(30))!=std::future_status::ready)throw std::runtime_error("one-frame diagnostic timed out before nativeRender completed");return result.get();}
 std::optional<bool> UnitySurfaceLifecycle::PollFrame()const{auto &p=*impl_;std::shared_future<bool> result;{std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(std::this_thread::get_id()==p.worker.get_id())throw std::logic_error("UnityMain cannot poll its own frame");result=p.frame_result;}if(result.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return std::nullopt;return result.get();}
@@ -180,10 +181,25 @@ bool UnitySurfaceLifecycle::RequestNextFrame(){
   }p.ready.notify_one();return true;
 }
 void UnitySurfaceLifecycle::PauseNative(bool finishing){
+  BeginPauseNative(finishing);
+  auto &p=*impl_;std::shared_future<void> done;
+  {std::lock_guard<std::mutex> lock(p.mutex);done=p.pause_result;}
+  if(done.wait_for(std::chrono::seconds(4))!=std::future_status::ready)throw std::runtime_error("timeout waiting for native pause/shutdown acknowledgment");
+  if(!PollNativePause())throw std::logic_error("ready native pause acknowledgment became pending");
+}
+void UnitySurfaceLifecycle::BeginPauseNative(bool finishing){
   auto &p=*impl_;auto ack=std::make_shared<std::promise<void>>();auto done=ack->get_future();
-  {std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(std::this_thread::get_id()==p.worker.get_id())throw std::logic_error("UnityMain cannot wait on its own pause acknowledgment");p.activity_paused=true;p.CancelFrameLocked("native frame canceled by Activity pause");p.jobs.push_back({Impl::Job::Pause,{},{}});p.jobs.push_back({Impl::Job::PauseNative,{},ack,finishing});}
-  p.ready.notify_one();if(done.wait_for(std::chrono::seconds(4))!=std::future_status::ready)throw std::runtime_error("timeout waiting for native pause/shutdown acknowledgment");done.get();
-  {std::lock_guard<std::mutex> lock(p.mutex);p.activity_paused=true;p.activity_running=false;}
+  {std::lock_guard<std::mutex> lock(p.mutex);p.RequireFrame();if(std::this_thread::get_id()==p.worker.get_id())throw std::logic_error("UnityMain cannot wait on its own pause acknowledgment");if(p.pause_result.valid())throw std::logic_error("native pause acknowledgment is already outstanding");p.activity_paused=true;p.CancelFrameLocked("native frame canceled by Activity pause");p.jobs.push_back({Impl::Job::Pause,{},{}});p.jobs.push_back({Impl::Job::PauseNative,{},ack,finishing});p.pause_result=done.share();}
+  p.ready.notify_one();
+}
+bool UnitySurfaceLifecycle::PollNativePause(){
+  auto &p=*impl_;std::lock_guard<std::mutex> lock(p.mutex);
+  if(std::this_thread::get_id()==p.worker.get_id())throw std::logic_error("UnityMain cannot poll its own pause acknowledgment");
+  if(!p.pause_result.valid())throw std::logic_error("no native pause acknowledgment is outstanding");
+  if(p.pause_result.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return false;
+  auto done=p.pause_result;p.pause_result={};
+  try{done.get();}catch(...){if(!p.failure)p.failure=std::current_exception();throw;}
+  p.activity_paused=true;p.activity_running=false;return true;
 }
 void UnitySurfaceLifecycle::SurfaceCreated(addr_t surface){auto &p=*impl_;p.RequireType(surface,"android/view/Surface");auto value=p.java.CaptureValue(surface);{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();p.requested_surface=true;p.jobs.push_back({Impl::Job::Recreate,value,{}});p.jobs.push_back({Impl::Job::Acquire,{},{}});}p.ready.notify_one();}
 void UnitySurfaceLifecycle::SurfaceChanged(addr_t surface){auto &p=*impl_;p.RequireType(surface,"android/view/Surface");auto value=p.java.CaptureValue(surface);{std::lock_guard<std::mutex> lock(p.mutex);p.RequireStarted();p.requested_surface=true;p.jobs.push_back({Impl::Job::Recreate,value,{}});p.jobs.push_back({Impl::Job::Acquire,{},{}});p.jobs.push_back({Impl::Job::Changed,{},{}});}p.ready.notify_one();}
