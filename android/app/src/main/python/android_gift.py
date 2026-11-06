@@ -268,7 +268,10 @@ def waiting_count_route(user: int = 0):
 @router.post("/gift/send")
 def send_route(payload: dict = Body(...)):
     try:
-        user, kind, ident, count = (int(payload[k]) for k in ("user", "possession_type", "possession_id", "count"))
+        values = [payload[k] for k in ("user", "possession_type", "possession_id", "count")]
+        if not all(isinstance(v, int) and not isinstance(v, bool) for v in values):
+            raise ValueError("whole numbers only")
+        user, kind, ident, count = values
     except (KeyError, TypeError, ValueError):
         return JSONResponse({"ok": False, "error": "user, possession_type, possession_id and count are required"}, status_code=400)
     try:
@@ -306,12 +309,24 @@ def _players():
         return []
 
 
+def page_cards(user_id: int) -> list[dict]:
+    """The catalog for the page; debris that can't be sent say why ("blocked"):
+    owned (the game gives nothing for a second one) or already in the Gift Box."""
+    owned = _owned_debris(user_id)
+    waiting_debris = {g["possession_id"] for g in waiting(user_id) if g["possession_type"] == THOUGHT}
+
+    def blocked(e):
+        if e.possession_type != THOUGHT:
+            return ""
+        return "Owned" if e.possession_id in owned else "In Gift Box" if e.possession_id in waiting_debris else ""
+    return [{"name": c.name, "groups": [{"name": g.name, "entries": [dict(asdict(e), blocked=blocked(e)) for e in g.entries]}
+                                        for g in c.groups]} for c in catalog(game_now())]
+
+
 @router.get("/gift")
 def page(request: Request, user: int = 0, message: str = "", error: str = ""):
     user_id = _user(user)
-    owned = _owned_debris(user_id)
-    cards = [{"name": c.name, "groups": [{"name": g.name, "entries": [dict(asdict(e), owned=e.possession_type == THOUGHT and e.possession_id in owned)
-                                                                     for e in g.entries]} for g in c.groups]} for c in catalog(game_now())]
+    cards = page_cards(user_id)
     return templates.TemplateResponse(request, "gift.html", {"active": "gift", "cards": cards, "user": user_id, "players": _players(),
                                                              "ready": has_gift_text(), "waiting": waiting(user_id),
                                                              "message": message, "error": error})
