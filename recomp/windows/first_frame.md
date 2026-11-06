@@ -10,7 +10,29 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation17`, using
+Latest original attempt: `work/windows-first-frame-native-presentation18`, using
+manifest `d41d151d302c58298240ac11c3486d31220d2783df3214233460bf1e58c4c6aa`
+and executable `57a8824d23e6395c7278974800ea8ae36d2d962b4976151b313651f6b6c143ae`.
+It returns 32 renders and 30 successful swaps; captured images remain uniform
+black and no first-frame witness exists. All 1,015 host sources are unchanged
+from run17. The eight parameter-switch targets are selected after 88 original
+ARM/Bionic versus Windows cases, but this run does not log their execution.
+
+The new fatal reports PC `70828c28`. The offending original instruction is the
+previous word, `1e264063` at `70828c24`: `FRINTA S3,S3`, inside the 288-byte
+function `70828b78..70828c98`. The reported PC points to the next FDIV, which
+has not executed. Scalar FRINTA S/D are still decoder stubs; a bounded scalar
+round-to-nearest, ties-away implementation and retained-copy inventory are
+next. Native exit is 3; parent pre/post checks return 0 and selected-runtime
+checks pass. Evidence is the run log and `game-frame-muted-gc-audit.json`.
+
+Run17's notification setup is a void background continuation whose Task is
+discarded by the title-entry caller chain. Analytics telemetry is also not
+established as a title-entry dependency, and renders continue after its
+exception. Those larger ports are deferred while the native render failures
+are repaired. Triage: `work/runtime17-java-boundary1/acceptance.json`.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation17`, using
 manifest `316aff1d73b5e6425c48c27e6c262ce8f1c6bcc132fe3fd19ec3b3617e8c26ee`
 and executable `2884d783253728aa46c6ca3afcf126455f2d05245f136718240b44d72c2d73a8`.
 It returns 35 renders and 33 successful swaps, with original draw submissions.
