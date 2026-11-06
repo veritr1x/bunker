@@ -18,8 +18,17 @@
   {% for group, mods in groups %}
   <h2 class="bracket-header">{{ group }}</h2>
   <div class="panel">
-    {% for key, title, what in mods %}
-    {% if key == "rewardMultiplier" %}
+    {% for key, kind, title, what in mods %}
+    {% if kind == "hard" %}
+    <div class="setting">
+      <label for="{{ key }}">{{ title }}</label>
+      <select name="{{ key }}" id="{{ key }}">
+        <option value="1"{% if settings[key] == 1 %} selected{% endif %}>Off</option>
+        {% for n, bonus in hard_enemies.items() %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>Enemies ×{{ n }} — rewards ×{{ bonus }}</option>{% endfor %}
+      </select>
+      <span class="note">{{ what }}</span>
+    </div>
+    {% elif kind == "multiplier" %}
     <div class="setting">
       <label for="{{ key }}">{{ title }}</label>
       <select name="{{ key }}" id="{{ key }}">
