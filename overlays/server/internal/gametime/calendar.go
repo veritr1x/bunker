@@ -79,7 +79,7 @@ func (c *Calendar) AutoWeeks(real int64) int64 {
 	if twice <= 2 || c.SpeedSince == 0 {
 		return 0
 	}
-	days := (StartOfDay(real) - c.SpeedSince) / dayMillis
+	days := (BaseStartOfDay(real) - c.SpeedSince) / dayMillis
 	if days <= 0 {
 		return 0
 	}
