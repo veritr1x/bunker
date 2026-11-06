@@ -38,6 +38,7 @@ def main():
   assert json.loads(extraction.read_text())['passed']and sha(original)=='c353c4bb96e6fba4081c522215771a563eb1f1680c23251b902f7ab5ecc4b8e0'
   shutil.copyfile(original,out/'original-protocol.o')
   provenance=W/'firebase-runtime5-worker-provenance1/acceptance.json';assert sha(provenance)=='844c352e0439406b1036cd6062adb37bf2f927cc4b68a7ac1a232e51f42586ff'
+  native_provenance=W/'runtime6-managed-wait-boundary1/acceptance.json';assert sha(native_provenance)=='638e4efb4100a60ba1925f0827440cafdb24def8e4c3973d6590eec10847e92d'
   cxx=Path('/mnt/c/mingw64/bin/g++.exe');tool=W/'remill-src/include';flags=['-std=c++17','-O2','-DADDRESS_SIZE_BITS=64','-isystem',wp(tool)]
   run('strict-fixture',[cxx,*flags,'-Wall','-Wextra','-Werror','-fmax-errors=6','-fsyntax-only',wp(source/COMPILE[0])])
   objects=[];jobs=[]
@@ -47,6 +48,7 @@ def main():
     old=args.reuse/obj.name
     assert sha(args.reuse/'source'/name)==hashes[name]
     for frozen in source.rglob('*.h'):
+     if frozen.relative_to(source).as_posix()=='windows/game_collector_delivery.h':continue # Included only by the freshly compiled fixture, never these provider units.
      previous=args.reuse/'source'/frozen.relative_to(source)
      assert previous.is_file()and sha(previous)==sha(frozen)
     obj=old;reused.append(desc(obj))
@@ -58,17 +60,18 @@ def main():
   exe=out/'managed-worker-gc.exe'
   run('link',[cxx,*map(wp,objects),wp(out/'original-protocol.o'),'-Wl,--wrap=_ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE','-static','-pthread','-latomic','-ladvapi32','-lbcrypt','-o',wp(exe)])
   results={}
-  for mode,cycles in [('timed',2),('untimed',1),('finalizer',1)]:
+  for mode,cycles in [('timed',2),('untimed',1),('native-timed',2),('native-untimed',1),('finalizer',1),('unknown',0),('opaque',0),('nested',0)]:
    result,text=run('original-GC-'+mode,[exe,mode]);match=re.search(r'MANAGED-WORKER-ORIGINAL-GC-PASS mode='+mode+r' cycles=(\d+) posts=(\d+) stops=(\d+) restarts=(\d+) physical=(\d+) checks=(\d+) State=1200 Memory64=8',text);assert match,text[-5000:]
-   c,posts,stops,restarts,physical,checks=map(int,match.groups());assert(c,posts,stops,restarts,physical)==(cycles,cycles*2,cycles,cycles,cycles*2)
+   c,posts,stops,restarts,physical,checks=map(int,match.groups());assert(c,posts,stops,restarts,physical)==(cycles or 1,cycles*2,cycles,cycles,cycles*2)
    assert text.count('physical interrupted roots verified')==physical
-   environment=re.search(r'checkpoint_env=(\d+) FPCR_FPSR=(\d+)',text);assert environment and int(environment[1])>=cycles*2 and int(environment[2])==cycles
-   result.update(cycles=c,actual_posts=posts,stop_deliveries=stops,restart_deliveries=restarts,physical_root_frames=physical,checks=checks,checkpoint_native_environment_checks=int(environment[1]),interrupted_FPCR_FPSR_checks=int(environment[2]));results[mode]=result
+   environment=re.search(r'checkpoint_env=(\d+) FPCR_FPSR=(\d+)',text);assert environment and int(environment[1])>=(cycles or 1)*2 and int(environment[2])==(cycles or 1)
+   result.update(cycles=cycles,actual_wait_calls=c,actual_posts=posts,stop_deliveries=stops,restart_deliveries=restarts,physical_root_frames=physical,checks=checks,checkpoint_native_environment_checks=int(environment[1]),interrupted_FPCR_FPSR_checks=int(environment[2]));results[mode]=result
   rejected={}
-  for mode in ['bad-function','bad-owner','bad-argument','bad-wrapper','bad-LR','bad-FP','bad-request','bad-TLS']:
+  for mode in ['bad-function','bad-owner','bad-argument','bad-wrapper','bad-LR','bad-FP','bad-request','bad-TLS','bad-native-FP','bad-native-TLS','bad-opaque-send']:
    rejected[mode],_=run('reject-'+mode,[exe,mode],True)
   for name,digest in hashes.items():assert sha(source/name)==digest and sha(REPO/name)==digest,name
-  receipt=dict(passed=True,production_sources={'windows/game_collector_delivery.h':args.header_sha},source_snapshot=hashes,owned_sources={n:hashes[n]for n in OWN},reused_support_objects=reused,original_protocol_extraction=desc(extraction),original_protocol_object=desc(out/'original-protocol.o'),original_managed_worker_provenance=desc(provenance),compiler=desc(cxx),binary=desc(exe),results=results,rejections=rejected,cycles=4,actual_posts=8,physical_root_frames=8,checks=sum(r['checks']for r in results.values()),negative_controls=len(rejected),scope='Actual Windows Pthreads creator-owned managed timed/untimed and legacy-finalizer condition waits; retained original GC coordinators/handlers perform four genuine stop/restart cycles and eight physical GPR/Q frames/posts. Transparent TEST SetWaitHooks wrapper forwards the installed production checkpoint before observing real provider contexts.',limits=['Initial GC registry, creator-shaped record/payload, and interrupted helper-shaped State are TEST-owned. Original managed thread trampoline, full 0x70-frame helper, heap scanner/reclamation and game are not executed.','No synthetic wait phase, wake, semaphore acknowledgment or signal completion. Original coordinator and handler code own all epoch/world/post transitions.','Only exact managed timed/untimed sites and retained finalizer profile are tested; no arbitrary compiler-poll or asynchronous native callback root admission.'])
+  receipt=dict(passed=True,production_sources={'windows/game_collector_delivery.h':args.header_sha},source_snapshot=hashes,owned_sources={n:hashes[n]for n in OWN},reused_support_objects=reused,original_protocol_extraction=desc(extraction),original_protocol_object=desc(out/'original-protocol.o'),original_managed_worker_provenance=desc(provenance),compiler=desc(cxx),binary=desc(exe),results=results,rejections=rejected,cycles=7,actual_posts=14,physical_root_frames=14,ordinary_unknown_waits=1,ordinary_opaque_waits=1,ordinary_nested_waits=1,ordinary_no_pending_waits=3,checks=sum(r['checks']for r in results.values()),negative_controls=len(rejected),scope='Actual Windows Pthreads creator-owned managed event/NativeCond timed/untimed and legacy-finalizer waits; retained original GC coordinators/handlers perform seven genuine stop/restart cycles and fourteen physical GPR/Q frames/posts. Unknown helper, opaque context and actual nested Runtime context each complete an ordinary wait with zero GC posts and no pending signal. Transparent TEST SetWaitHooks wrapper forwards the installed production checkpoint before observing real provider contexts.',limits=['Initial GC registry, creator-shaped record/payload, and interrupted helper-shaped State are TEST-owned. Original managed thread trampoline, full original wait helpers, heap scanner/reclamation and game are not executed.','No synthetic wait phase, wake, semaphore acknowledgment or signal completion. Original coordinator and handler code own all epoch/world/post transitions.','Only four exact managed return sites and retained finalizer profile are admitted; unknown helper ordinary completion grants no collector admission. No arbitrary compiler-poll or asynchronous native callback root admission.'])
+  receipt['native_condition_boundary']=desc(native_provenance)
   save(out/'acceptance.json',receipt);print(json.dumps(desc(out/'acceptance.json')),flush=True)
  except BaseException as error:save(out/'failure.json',dict(passed=False,error=str(error),traceback=traceback.format_exc(),source_hashes=hashes));raise
 if __name__=='__main__':main()

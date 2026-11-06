@@ -27,6 +27,23 @@ class GameCollectorDelivery {
     void Wait(uint64_t expected,uint64_t relative){std::unique_lock lock(mutex);if(relative)condition.wait_for(lock,std::chrono::nanoseconds(relative),[&]{return generation!=expected;});else condition.wait(lock,[&]{return generation!=expected;});}
   };
   enum class Role {unknown,finalizer,managed_worker};
+  enum class ManagedWait {unknown,event_timed,event_untimed,condition_timed,condition_untimed};
+  // Select by the proven caller, then validate all phase/argument/root fields.
+  // A malformed known caller must not escape validation as an ordinary wait.
+  static ManagedWait ManagedSite(const State&state){
+    switch(state.gpr.x30.qword){
+      case 0x82550574:return ManagedWait::event_timed;
+      case 0x825505d8:return ManagedWait::event_untimed;
+      case 0x82550164:return ManagedWait::condition_timed;
+      case 0x82550174:return ManagedWait::condition_untimed;
+      default:return ManagedWait::unknown;
+    }
+  }
+  static bool ManagedContext(State&state){
+    if(OpaqueDepth()||recomp::CurrentExecutionState()!=&state)return false;
+    const auto frames=recomp::CurrentExecutionFrames(state);
+    return frames.size()==1&&frames[0]==&state;
+  }
   struct Owner {
     Lifecycle::ContextRef context;Role role=Role::unknown;
     std::shared_ptr<Channel> channel=std::make_shared<Channel>();
@@ -83,10 +100,15 @@ class GameCollectorDelivery {
       Check(condition>=0x2c&&mutex==condition-0x28&&Read<addr_t>(0x879a7a40)==condition-0x2c&&state->gpr.pc.qword==0x7ffc60000020ULL,"actual finalizer event/import identity or condition/mutex geometry differs");
     }else{
       Check(owner.role==Role::managed_worker,"condition owner has no certified role");
-      if(context.original_deadline)Check(reinterpret_cast<addr_t>(context.original_deadline)==state->gpr.sp.qword&&state->gpr.x2.qword==state->gpr.sp.qword&&state->gpr.x30.qword==0x82550574&&state->gpr.pc.qword==0x7ffc60000028ULL,"original managed-worker timed condition phase/deadline differs");
-      else Check(state->gpr.x30.qword==0x825505d8&&state->gpr.pc.qword==0x7ffc60000020ULL,"original managed-worker untimed condition phase differs"); // X2 is not an untimed ABI argument.
-      Check(condition>=0x2c&&mutex==condition-0x28&&state->gpr.x0.qword==condition&&state->gpr.x1.qword==mutex,"original managed-worker event/condition/mutex geometry differs");
-      Check(state->gpr.sp.qword<=info.stack_high&&info.stack_high-state->gpr.sp.qword>=0x70&&state->gpr.x29.qword==state->gpr.sp.qword+0x60,"original managed-worker 0x70-byte helper frame differs");
+      const auto site=ManagedSite(*state);Check(site!=ManagedWait::unknown,"managed-worker condition caller is unqualified");
+      const bool timed=site==ManagedWait::event_timed||site==ManagedWait::condition_timed;
+      if(timed)Check(context.original_deadline&&reinterpret_cast<addr_t>(context.original_deadline)==state->gpr.sp.qword&&state->gpr.x2.qword==state->gpr.sp.qword&&state->gpr.pc.qword==0x7ffc60000028ULL,"original managed-worker timed condition phase/deadline differs");
+      else Check(!context.original_deadline&&state->gpr.pc.qword==0x7ffc60000020ULL,"original managed-worker untimed condition phase differs"); // X2 is not an untimed ABI argument.
+      Check(condition&&mutex&&state->gpr.x0.qword==condition&&state->gpr.x1.qword==mutex,"original managed-worker condition/mutex arguments differ");
+      const bool event=site==ManagedWait::event_timed||site==ManagedWait::event_untimed;
+      if(event)Check(condition>=0x2c&&mutex==condition-0x28,"original managed-worker event geometry differs");
+      const uint64_t frame_size=event?0x70:0x50,frame_pointer=event?0x60:0x40;
+      Check(state->gpr.sp.qword<=info.stack_high&&info.stack_high-state->gpr.sp.qword>=frame_size&&state->gpr.x29.qword==state->gpr.sp.qword+frame_pointer,"original managed-worker helper frame differs");
     }
     Check(!(state->gpr.sp.qword&15)&&state->gpr.sp.qword>=info.stack_low&&state->gpr.sp.qword<=info.stack_high&&state->gpr.sp.qword-info.stack_low>=9504&&state->sr.tpidr_el0.qword==info.tls_address,"normal stack/TLS or two-frame capacity differs");
     const auto stack=signals_.AlternateStack(info.token).configured;Check(stack.flags==2&&!stack.pointer&&!stack.size,"target alternate stack is not fresh disabled");
@@ -171,6 +193,14 @@ class GameCollectorDelivery {
   void WithWait(const std::string &name,State &state,const std::function<void()> &invoke){
     auto *owner=Current();
     if(owner&&owner->socket_wait.load()&&name=="sigsuspend"){NestedSuspend(*owner,state);invoke();return;}
+    if(owner&&owner->role==Role::managed_worker&&!owner->socket_wait.load()&&!owner->depth&&
+       ((name!="pthread_cond_wait"&&name!="pthread_cond_timedwait")||ManagedSite(state)==ManagedWait::unknown||!ManagedContext(state))){
+      // An outer certificate is not live while nested/opaque ordinary roots run.
+      // Only a later fully qualified checkpoint may publish it again.
+      owner->wait_live=false;
+      Check(!Pending(*owner),"unqualified managed wait has pending collector delivery");
+      invoke();Check(!Pending(*owner),"pending collector delivery raced an unqualified managed wait");return;
+    }
     if(name=="sigsuspend"){Check(owner&&ConditionRole(*owner),"sigsuspend has no owned original stop");NestedSuspend(*owner,state);invoke();return;}
     if(owner&&ConditionRole(*owner)&&(name=="sem_wait"||name=="sem_timedwait"))Fail("unqualified semaphore wait cannot consume a collector signal");
     if(owner&&ConditionRole(*owner)&&(name=="pthread_cond_wait"||name=="pthread_cond_timedwait")){
@@ -181,6 +211,10 @@ class GameCollectorDelivery {
     GameWorkerObservation::NativeEnvironment native;
     if(extension_.owns&&extension_.owns(context.token)){extension_.checkpoint(context);return;}
     auto owner=Lookup(context.token);if(!owner||!ConditionRole(*owner)){if(owner)Check(!Pending(*owner),"unknown-role worker has pending delivery");return;}
+    if(owner->role==Role::managed_worker&&(!context.active_state||ManagedSite(*context.active_state)==ManagedWait::unknown||!ManagedContext(*context.active_state))){
+      owner->wait_live=false;
+      Check(!Pending(*owner),"unqualified managed checkpoint has pending collector delivery");return;
+    }
     // Basic wait publication does not walk the original registry. It can run
     // while unrelated original registrations/unlinks mutate their buckets.
     ValidateWait(*owner,context);Check(owner->wait_state==context.active_state,"checkpoint is outside actual observed import invocation");

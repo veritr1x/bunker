@@ -3,7 +3,23 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-native-presentation5`, using
+Latest original attempt: `work/windows-first-frame-native-presentation6`, using
+manifest `da2f549ca797986cc3318a90549f7dd98dfd7b0894a545e2c103a909df3efc79`
+and executable `edb83b3e64f12652a06c516c1f42548d9fddd3bdfab9e9db6effeeb12a6f4404`.
+It exits native3 before the third render returns, at a newly created managed
+pool worker's ordinary timed wait, LR `82550164`. The initial managed-role
+extension incorrectly applied its limited wait validation to every checkpoint.
+There is no recorded GC send to that worker before the guard failure. This
+helper uses an 80-byte frame and independent condition/mutex pointers, unlike
+the previously observed event helper. Its untimed sibling returns at `82550174`.
+The [extended collector gate](managed_worker_collector.md) now passes 640 checks
+across both helper families and the finalizer. Unknown, opaque and nested
+ordinary contexts with no pending signal defer without publishing a collection
+certificate; actual unsupported collection sends still fail. The integrated
+rebuild is pending. There is still no accepted first-frame image.
+Evidence: `work/runtime6-managed-wait-boundary1`.
+
+Preceding attempt: `work/windows-first-frame-native-presentation5`, using
 manifest `6086dc9999d8dc5967608a37760f8efeb73beecc2395e12416af76e7b6a3214e`
 and executable `ff662a4e83a460a31a783894f2a477fadab92fc00b1de0c8ab90e77658808fee`.
 The real Windows Firebase SDK now executes the original SWIG registrations and

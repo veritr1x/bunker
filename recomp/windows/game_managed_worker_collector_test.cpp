@@ -46,6 +46,7 @@ template<class F>void Reject(F&&f,const char*why){bool rejected=false;try{f();}c
 template<class T>T Read(addr_t p){T v{};recomp::ReadGuestMemory(&v,p,sizeof(v));return v;}
 template<class T>void Write(addr_t p,const T&v){recomp::WriteGuestMemory(p,&v,sizeof(v));}
 constexpr addr_t kCreate=0x5d200000,kWorker=0x82556a94,kErrno=0x7ff400000000ULL;
+constexpr addr_t kNested=0x5d200008;
 constexpr addr_t kRecord=0x879b7000,kEpoch=0x879a6b08,kStopped=0x879a6b10,kAck=0x87cb1e68;
 Memory*CountStop(State&,addr_t,Memory*);Memory*CountRestart(State&,addr_t,Memory*);
 constexpr recomp::Trace originals[]={
@@ -57,7 +58,7 @@ ORIGINAL(825b2e84) ORIGINAL(825b3860) ORIGINAL(825beb3c)
 #undef ORIGINAL
 };
 
-bool Translated(addr_t p){return p==kCreate||p==kWorker||std::any_of(std::begin(originals),std::end(originals),[&](const auto&t){return t.address==p;});}
+bool Translated(addr_t p){return p==kCreate||p==kWorker||p==kNested||std::any_of(std::begin(originals),std::end(originals),[&](const auto&t){return t.address==p;});}
 bool Executable(addr_t p){return Translated(p);}
 struct GameWorkerObservation {
   struct NativeEnvironment {
@@ -101,15 +102,16 @@ struct GameWorkerObservation {
 #include "game_collector_delivery.h"
 thread_local int guest_error=731;
 struct Harness;Harness*host=nullptr;
-Memory*Create(State&,addr_t,Memory*);Memory*Worker(State&,addr_t,Memory*);
+Memory*Create(State&,addr_t,Memory*);Memory*Worker(State&,addr_t,Memory*);Memory*Nested(State&,addr_t,Memory*);
 struct Harness {
-  std::string mode;bool finalizer=false,timed=false;
+  std::string mode;bool finalizer=false,timed=false,native_helper=false,ordinary=false;
   recomp::Runtime runtime;Pthreads threads{runtime,Translated};
   std::unique_ptr<GameCollectorDelivery> profile;
   SignalHost signals{[this](uint64_t token){if(profile)profile->Notify(token);},0x7ff600100000ULL};
   Semaphores sem{signals};
   SignalSleeps sleeps{signals,[this]{return threads.Self();},[this](const auto&d){return Boundary(d);},[](uint64_t){return uint64_t(0);}};
   alignas(16)std::array<uint8_t,128>event{};
+  alignas(16)std::array<uint8_t,64>native_condition{},native_mutex{};
   alignas(16)std::array<uint64_t,13>creator{};
   alignas(16)std::array<uint64_t,3>payload{};
   uint64_t parent=0,target=0;std::atomic<unsigned>cycle{0},posts{0},stops{0},restarts{0},checkpoints{0},physical{0},environment_checks{0};
@@ -117,15 +119,15 @@ struct Harness {
   std::array<std::atomic<bool>,2>published{};
   State interrupted{};AndroidTimespec request{};
   std::atomic<bool>notification_reacquire{false};
-  addr_t Condition()const{return reinterpret_cast<addr_t>(event.data()+0x2c);}
-  addr_t Mutex()const{return reinterpret_cast<addr_t>(event.data()+4);}
-  unsigned Cycles()const{return timed?2:1;}
+  addr_t Condition()const{return reinterpret_cast<addr_t>(native_helper?native_condition.data():event.data()+0x2c);}
+  addr_t Mutex()const{return reinterpret_cast<addr_t>(native_helper?native_mutex.data():event.data()+4);}
+  unsigned Cycles()const{return timed&&!ordinary?2:1;}
   std::optional<uint64_t>Boundary(const SignalHost::Delivery&d){return profile->Deliver(d);}
-  explicit Harness(std::string selected):mode(std::move(selected)),finalizer(mode=="finalizer"),timed(mode!="finalizer"&&mode!="untimed"){
+  explicit Harness(std::string selected):mode(std::move(selected)),finalizer(mode=="finalizer"),timed(mode!="finalizer"&&mode!="untimed"&&mode!="native-untimed"),native_helper(mode.find("native-")!=std::string::npos),ordinary(mode=="unknown"||mode=="opaque"||mode=="nested"){
     host=this;
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87980000ULL),0x40000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87980000ULL),"TEST initial registry range");
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87cb0000ULL),0x10000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87cb0000ULL),"TEST initial acknowledgment range");
-    runtime.AddTraces(originals,std::size(originals));const recomp::Trace fixture[]={{kCreate,Create},{kWorker,Worker}};runtime.AddTraces(fixture,2);
+    runtime.AddTraces(originals,std::size(originals));const recomp::Trace fixture[]={{kCreate,Create},{kWorker,Worker},{kNested,Nested}};runtime.AddTraces(fixture,3);
     auto error=[](int e){Write(reinterpret_cast<addr_t>(&guest_error),e);};threads.SetErrorSink(error);threads.Install();signals.SetErrorSink(error);sem.SetErrorSink(error);sleeps.SetErrorSink(error);
     parent=threads.Self();Check(!signals.RegisterThread(parent)&&!signals.BindCurrent(parent),"actual parent SignalHost identity");
     profile=std::make_unique<GameCollectorDelivery>(threads,signals,sem,runtime);
@@ -180,26 +182,26 @@ struct Harness {
       s=initial;
       for(unsigned i=0;i<31;++i){const uint64_t value=0x1234000000000000ULL+i*0x10101ULL;std::memcpy(reinterpret_cast<uint8_t*>(&s.gpr)+i*16+8,&value,8);}
       for(unsigned i=0;i<32;++i)for(unsigned b=0;b<16;++b)reinterpret_cast<uint8_t*>(&s.simd.v[i])[b]=uint8_t(i*7+b);
-      s.gpr.sp.qword=initial.gpr.sp.qword-0x70;s.gpr.x29.qword=s.gpr.sp.qword+0x60;
-      s.gpr.x30.qword=timed?0x82550574:0x825505d8;s.gpr.pc.qword=timed?0x7ffc60000028ULL:0x7ffc60000020ULL;
+      s.gpr.sp.qword=initial.gpr.sp.qword-(native_helper?0x50:0x70);s.gpr.x29.qword=s.gpr.sp.qword+(native_helper?0x40:0x60);
+      s.gpr.x30.qword=native_helper?(timed?0x82550164:0x82550174):(timed?0x82550574:0x825505d8);s.gpr.pc.qword=timed?0x7ffc60000028ULL:0x7ffc60000020ULL;
       s.gpr.x0.qword=Condition();s.gpr.x1.qword=Mutex();s.gpr.x2.qword=timed?s.gpr.sp.qword:finalizer?0:1;
       if(timed){Check(!Pthreads::ClockGetTime(0,&request),"actual realtime deadline read");request.nanoseconds+=500000000;if(request.nanoseconds>=1000000000){++request.seconds;request.nanoseconds-=1000000000;}Write<AndroidTimespec>(s.gpr.sp.qword,request);}
-      if(mode=="bad-LR")s.gpr.x30.qword+=4;
-      if(mode=="bad-FP")s.gpr.x29.qword+=16;
+      if(mode=="bad-LR"||mode=="unknown")s.gpr.x30.qword=0x82550578;
+      if(mode=="bad-FP"||mode=="bad-native-FP")s.gpr.x29.qword+=16;
       if(mode=="bad-request"){Write<AndroidTimespec>(s.gpr.sp.qword+16,request);s.gpr.x2.qword+=16;}
-      if(mode=="bad-TLS")s.sr.tpidr_el0.qword+=16;
+      if(mode=="bad-TLS"||mode=="bad-native-TLS")s.sr.tpidr_el0.qword+=16;
       std::fesetround(FE_DOWNWARD);std::feclearexcept(FE_ALL_EXCEPT);std::feraiseexcept(FE_INVALID|FE_DIVBYZERO);errno=EDOM;SetLastError(0x82550574);
       const auto start=std::chrono::steady_clock::now();
-      profile->WithWait(timed?"pthread_cond_timedwait":"pthread_cond_wait",s,[&]{runtime.Dispatch(s,threads.Marker(timed?"pthread_cond_timedwait":"pthread_cond_wait"),m);});
+      {GameCollectorDelivery::Opaque opaque(mode=="opaque"||mode=="bad-opaque-send");profile->WithWait(timed?"pthread_cond_timedwait":"pthread_cond_wait",s,[&]{runtime.Dispatch(s,threads.Marker(timed?"pthread_cond_timedwait":"pthread_cond_wait"),m);});}
       const auto elapsed=std::chrono::steady_clock::now()-start;
-      Check(int32_t(s.gpr.x0.dword)==(timed&&!n?110:0),"actual timeout/notification result preserved");
+      Check(int32_t(s.gpr.x0.dword)==(timed&&!n&&!ordinary?110:0),"actual timeout/notification result preserved");
       std::fprintf(stderr,"OUTER-RUNTIME-NATIVE-OBSERVATION errno=%d last_error=%lu rounding=%d flags=%d; dispatcher clears FP flags before imports, no whole-dispatch preservation contract\n",errno,GetLastError(),std::fegetround(),std::fetestexcept(FE_ALL_EXCEPT));
-      if(timed){Check(!std::memcmp(&request,reinterpret_cast<void*>(s.gpr.sp.qword),sizeof(request)),"original request bytes unchanged");if(!n)Check(elapsed>=std::chrono::milliseconds(500)&&elapsed<std::chrono::seconds(3),"handler duration consumes original deadline");}
+      if(timed){Check(!std::memcmp(&request,reinterpret_cast<void*>(s.gpr.sp.qword),sizeof(request)),"original request bytes unchanged");if(!n&&!ordinary)Check(elapsed>=std::chrono::milliseconds(500)&&elapsed<std::chrono::seconds(3),"handler duration consumes original deadline");}
       for(unsigned i=1;i<31;++i){uint64_t a=0,b=0;std::memcpy(&a,reinterpret_cast<uint8_t*>(&s.gpr)+i*16+8,8);std::memcpy(&b,reinterpret_cast<uint8_t*>(&interrupted.gpr)+i*16+8,8);Check(a==b,"original handlers restore interrupted GPR");}
       Check(!std::memcmp(&s.simd,&interrupted.simd,sizeof(s.simd)),"original handlers restore all32Q");
       Check(!std::memcmp(&s.fpcr,&interrupted.fpcr,sizeof(s.fpcr))&&!std::memcmp(&s.fpsr,&interrupted.fpsr,sizeof(s.fpsr))&&!std::memcmp(&s.sr,&interrupted.sr,sizeof(s.sr)),"interrupted guest FPCR/FPSR/status/TLS preserved");
       Check(s.gpr.sp.qword==interrupted.gpr.sp.qword&&s.gpr.pc.qword==interrupted.gpr.x30.qword,"exact helper stack and return restored");
-      Check(Read<uint64_t>(kRecord+0x10)==uint64_t((n+1)*2+1),"original resume epoch stored");
+      Check(Read<uint64_t>(kRecord+0x10)==(ordinary?0:uint64_t((n+1)*2+1)),"original record epoch matches real collector activity");
       Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"real mutex reacquired before return");
       finished[n].set_value();
     }
@@ -220,6 +222,7 @@ struct Harness {
     for(unsigned n=0;n<Cycles();++n){
       proceed[n].set_value();entered[n].get_future().get();
       Check(!threads.MutexLock(reinterpret_cast<void*>(Mutex())),"provider actually released guest mutex");
+      if(ordinary){uint64_t pending=1;Check(!signals.Pending(target,&pending)&&!pending&&!SignalHost::NeedsPoll(signals.Lookup(target)),"unknown helper has no pending collector signal");Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"ordinary unknown helper uses real condition notification");std::this_thread::sleep_for(std::chrono::milliseconds(15));Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"ordinary notifier releases real mutex");finished[n].get_future().get();continue;}
       if(mode.rfind("bad-",0)==0){std::fprintf(stderr,"EXPECT-PRODUCTION-REJECTION %s\n",mode.c_str());std::fflush(stderr);}
       threads.Run(0x825aad50);Check(Read<uint64_t>(kEpoch)==uint64_t((n+1)*2)&&Read<uint64_t>(kStopped)==1,"original coordinator stopped world");suspended[n].get_future().get();
       if(timed&&!n)std::this_thread::sleep_for(std::chrono::milliseconds(600));
@@ -228,7 +231,7 @@ struct Harness {
       Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"notifier releases pinned mutex");finished[n].get_future().get();
     }
     addr_t result=0;Check(!threads.Join(target,&result)&&result==0x1234,"actual worker join/TLS retirement");
-    Check(posts==Cycles()*2&&physical==Cycles()*2&&stops==Cycles()&&restarts==Cycles(),"only original stop/restart handlers acknowledge");
+    Check(posts==(ordinary?0:Cycles()*2)&&physical==(ordinary?0:Cycles()*2)&&stops==(ordinary?0:Cycles())&&restarts==(ordinary?0:Cycles()),"only real collector requests invoke original handlers and posts");
     Check(notification_reacquire&&environment_checks>=Cycles()*2,"provider observed real mutex reacquisition and checkpoint environment preservation");
     int32_t value=-1;Check(!sem.GetValue(kAck,&value)&&!value,"original coordinators consumed genuine posts");
     Check(!threads.Shutdown(),"actual worker drain");profile->CloseAfterShutdown();profile.reset();
@@ -238,7 +241,8 @@ struct Harness {
   }
 };
 Memory*Create(State&s,addr_t,Memory*m){const auto saved=s.gpr.x30.qword;s.gpr.x0.qword=reinterpret_cast<addr_t>(&host->target);s.gpr.x1.qword=0;s.gpr.x2.qword=kWorker;s.gpr.x3.qword=reinterpret_cast<addr_t>(host->creator.data());s.gpr.x30.qword=0x82556a64;s.gpr.pc.qword=host->threads.Marker("pthread_create");host->profile->WithCreate(s,[&](State&inner){host->runtime.Dispatch(inner,host->threads.Marker("pthread_create"),m);});s.gpr.x30.qword=saved;s.gpr.pc.qword=saved;return m;}
-Memory*Worker(State&s,addr_t,Memory*m){return host->Body(s,m);}
+Memory*Worker(State&s,addr_t,Memory*m){if(host->mode=="nested"){s.gpr.x0.qword=host->threads.Run(kNested);s.gpr.pc.qword=s.gpr.x30.qword;return m;}return host->Body(s,m);}
+Memory*Nested(State&s,addr_t,Memory*m){return host->Body(s,m);}
 Memory*CountStop(State&s,addr_t address,Memory*m){++host->stops;return sub_825b2af4(s,address,m);}
 Memory*CountRestart(State&s,addr_t address,Memory*m){++host->restarts;return sub_825b2c70(s,address,m);}
 [[noreturn]]void Unsupported(const char*name){std::fprintf(stderr,"TEST-only unsupported original path: %s\n",name);std::abort();}
