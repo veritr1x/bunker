@@ -231,6 +231,25 @@ Host::Host(std::function<bool(addr_t)> validator, addr_t marker_base)
   classes_.at("java/lang/Class")->methods.at({"forName", "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;"})->builtin = Method::kForName;
   application_loader_ = std::make_shared<Object>(); application_loader_->class_name = "java/lang/ClassLoader";
   bootstrap_loader_ = std::make_shared<Object>(); bootstrap_loader_->class_name = "java/lang/BootClassLoader";
+  DefineClass("android/util/Log",{},"java/lang/Object",true);
+  DefineStaticObjectMethod("android/util/Log","getStackTraceString","(Ljava/lang/Throwable;)Ljava/lang/String;",
+      [this](addr_t,const MethodArguments &arguments)->addr_t{
+    ProviderLock lock(*this);auto object=Get(arguments[0],true);if(Current().exception)return 0;
+    if(!object)return NewString(u"");
+    if(object->kind!=Object::kThrowable){Raise("java/lang/UnsupportedOperationException","Log requires initialized host Throwable state");return 0;}
+    // Host-generated Throwables have no captured Java frames, cause or suppressed
+    // exceptions. Format that actual state; never invent guest/Windows frames.
+    for(auto *clazz=classes_.at(object->class_name).get();clazz;clazz=clazz->superclass.empty()?nullptr:classes_.at(clazz->superclass).get())
+      for(const auto &method:clazz->methods)if(method.first.first=="getCause"||method.first.first=="printStackTrace"){
+        Raise("java/lang/UnsupportedOperationException","Log requires a qualified Throwable cause/stack implementation");return 0;
+      }
+    if(Assignable(object->class_name,"java/net/UnknownHostException"))return NewString(u"");
+    const auto id=classes_.at("java/lang/Throwable")->methods.at({"toString","()Ljava/lang/String;"})->id;
+    const auto rendered=CallObject(lock,arguments[0],id);if(Current().exception)return 0;
+    const auto text=StringValue(rendered);if(Current().exception)return 0;
+    auto result=text?*text:std::u16string(u"null");result+=u'\n';
+    if(rendered)Delete(rendered,1);return NewString(result);
+  });
   Current(true);
 }
 Host::~Host() = default;
