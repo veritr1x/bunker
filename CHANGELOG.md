@@ -25,6 +25,18 @@ under its heading, down to the previous release.
   Healer & Support, Tale of Resistance, Never-Ending Adventure and others),
   so their summons gave no shard and had no Exchange. Apply the preset again
   to get them. [d0641d4]
+- Summons whose prices were the usual ones by default, checked against their
+  art by eye (198 summons): the element summons (43, 52, 60, 85, 9000007) are
+  a 10x for 1,500 paid gems; eight bonus summons (9000021 and others) a 10x
+  for 2,000 gems, 5 or 20 times; 9000082 a free 10x once a day; 9002's 10x
+  gives Advanced Handbook x2, 10 times. [a9c4d27]
+
+### Notices
+- Reconstructed notices show the summon prices the server charges. Ten
+  showed old prices (Summer[in]carnation and Pre-1.5-Year Anniversary
+  summons as gems instead of paid gems only, multi-steps with the wrong
+  steps). The notice pack is brought in line with the summon rules as it is
+  fetched, so later price fixes reach the Notices screen too. [3ede598]
 
 ### Pod Programs
 - Turning the calendar off and "Show original dates" close the game without

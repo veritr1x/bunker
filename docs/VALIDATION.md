@@ -1,5 +1,24 @@
 # Validation
 
+## Summon prices against their art — 2026-11-06
+
+- Of 533 premium summons (Global), 235 take their prices from a recovered
+  notice and 90 from their art; the other 198 used the usual prices by
+  default. Their summon-screen art (297 images) read by eye on labelled
+  sheets beside the server's prices.
+- Wrong on the server: 43, 52, 60, 85 (Japanese art), 9000007 "10x summon for
+  1,500 paid gems"; 9000021, 9000034, 9000046, 9000060, 9000069, 9000091,
+  9000100, 9000104 "10x summon for 2,000 gems" with a bonus 5 or 20 times;
+  9000082 "a 10x summon for free"; 9002 Advanced Handbook x2, 10 times. Their
+  recovered notices agree. Fixed [a9c4d27]; both masters price them so.
+- 9000086 (anniversary multi-step): its art gives no prices; its notice's
+  steps (2,000 paid, free, 3,000 paid, free, 5,000 paid) are the server's.
+  186, 194, 405 have no limit on their art, which states limits elsewhere.
+- Notices: sync_notice_prices.py on the pinned pack rewrote 10 reconstructed
+  notices [3ede598]. Emulator, from the device's server: notice 1500000186 one 10x
+  for 3,000 paid gems with its bonuses, 1500000060 1,500 paid gems,
+  1509000082 free once a day; Summon Details for 60 "1500 paid gems".
+
 ## Calendar off without the dialog — 2026-11-06
 
 - Android emulator, 1.9.0 plus [0ae30da]. Before: after a jump to week 112
