@@ -235,7 +235,8 @@ func TestBannerlessSummons(t *testing.T) {
 // of its own: it shares medal 8021 with the Yuletide summon 123 it ran beside.
 func TestJapaneseYuletideStepUp(t *testing.T) {
 	byId, _ := catalogById(t)
-	if byId[123].MedalConsumableItemId != 8021 {
+	// Global's 123 also has 8021 now (summon_rules medal), so that no longer tells the masters apart.
+	if !japaneseMaster(t) {
 		t.Skip("needs the original Japanese master data")
 	}
 	e, ok := byId[503001]
