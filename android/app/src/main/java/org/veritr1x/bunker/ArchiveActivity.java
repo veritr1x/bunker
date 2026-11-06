@@ -55,7 +55,7 @@ public final class ArchiveActivity extends Activity {
         web.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return !local(request.getUrl().toString());}
             @Override public void onPageFinished(WebView view,String url){if(local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> Unable to open the Archive. Close and try again.");}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> Couldn't open the Archive. Close it and try again.");}
         });
         // Pictures from the page ("Save PNG", the 3D snapshot) go where the user picks; WebView ignores download links.
         web.addJavascriptInterface(new Object(){
@@ -100,7 +100,7 @@ public final class ArchiveActivity extends Activity {
                 });
             }catch(Exception|LinkageError error){
                 android.util.Log.e("LunarTear","Archive startup failed",error);
-                runOnUiThread(()->show("> The Archive could not start: "+(error.getMessage()==null?error.toString():error.getMessage())));
+                runOnUiThread(()->show("> The Archive couldn't start: "+(error.getMessage()==null?error.toString():error.getMessage())));
             }
         },"archive-start").start();
     }
@@ -135,7 +135,7 @@ public final class ArchiveActivity extends Activity {
         try(java.io.OutputStream out=getContentResolver().openOutputStream(data.getData())){
             out.write(png);
             Toast.makeText(this,"Picture saved",Toast.LENGTH_SHORT).show();
-        }catch(Exception e){Toast.makeText(this,"The picture could not be saved",Toast.LENGTH_LONG).show();}
+        }catch(Exception e){Toast.makeText(this,"Couldn't save the picture",Toast.LENGTH_LONG).show();}
     }
     @Override protected void onPause(){super.onPause();web.onPause();}
     @Override protected void onResume(){super.onResume();web.onResume();}
