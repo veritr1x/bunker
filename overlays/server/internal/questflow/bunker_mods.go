@@ -48,7 +48,7 @@ func modMultiplies(possessionType model.PossessionType, possessionId int32) bool
 
 // newDayPaused reports whether Start a new day was pressed on the game day of
 // now, which pauses the challenge bonus (gametime.NewDayPausesBonus).
-var newDayPaused = func(now int64) bool { return false }
+var newDayPaused = gametime.NewDayPausesBonus
 
 // rewardFactor multiplies a quest's drops and gold: the reward multiplier, or
 // with no comfort mods on, the challenge bonus.

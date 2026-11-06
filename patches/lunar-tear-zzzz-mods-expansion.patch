@@ -56,3 +56,39 @@
  			if thresholds, ok := h.CostumeExpByRarity[cm.RarityType]; ok {
  				row.Level, row.Exp = gameutil.ApplyExpWithMaxLevel(row.Exp, thresholds, maxLevel)
  			}
+--- a/server/internal/gametime/gametime.go
++++ b/server/internal/gametime/gametime.go
+@@ -26,8 +26,9 @@
+ 	return Now().UnixMilli()
+ }
+ 
+-// StartOfDay returns the start (00:00 GMT-8) of the game day containing millis.
+-func StartOfDay(millis int64) int64 {
++// BaseStartOfDay returns the start (00:00 GMT-8) of the game day containing
++// millis, without a press of Start a new day (StartOfDay, bunker_day.go).
++func BaseStartOfDay(millis int64) int64 {
+ 	t := time.UnixMilli(millis).In(Zone)
+ 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, Zone).UnixMilli()
+ }
+@@ -81,5 +82,5 @@
+ 	if !IsLegacyDayVersion(v) {
+ 		return v
+ 	}
+-	return StartOfDay(min(v+dayMillis-1, max(v, now)))
++	return BaseStartOfDay(min(v+dayMillis-1, max(v, now)))
+ }
+--- a/server/internal/service/shop.go
++++ b/server/internal/service/shop.go
+@@ -150,8 +150,10 @@
+ 			return gametime.WeeklyVersion(nowMillis), true
+ 		}
+ 		const dayMillis = 24 * 60 * 60 * 1000
+-		day := gametime.StartOfDay(nowMillis)
+-		days := (day - gametime.StartOfDay(0)) / dayMillis
++		// Periods of several days count whole days: Start a new day resets
++		// dailies only.
++		day := gametime.BaseStartOfDay(nowMillis)
++		days := (day - gametime.BaseStartOfDay(0)) / dayMillis
+ 		return day - (days%int64(period))*dayMillis, true
+ 	case masterdata.ShopAutoResetMonthly:
+ 		t := time.UnixMilli(nowMillis).In(gametime.Zone)
