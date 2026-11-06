@@ -1,0 +1,11 @@
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -153,6 +153,7 @@
+ 			}
+ 		}
+ 	}
++	drops = append(drops, slabDrops(target, dropRate.Apply, randInt64n)...)
+ 	drops = h.appendBonusDrops(user, drops, target, nowMillis)
+ 	return modScaleDrops(spendableMedals(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)), target)
+ }
