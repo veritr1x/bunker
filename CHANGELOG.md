@@ -21,7 +21,11 @@ under its heading, down to the previous release.
   headers, and with one shared state the button looked its row up again
   and searched the whole interface for the counters every frame; on an
   iPad at 120 fps that took about a third of the main thread on Quests.
-  [0c72350]
+  [0c72350] It now looks only under the heads-up display. [88c928f]
+- Above 30 fps, campaign badges ("Left: 999d") set their remaining time
+  once a second instead of every frame; each update rebuilt the label and
+  its layout, and open campaigns put a badge on many Subquests rows.
+  [a90b04a]
 
 ### Server
 - Coffin of Repose and Rhythm's Citadel medals can be spent. The events

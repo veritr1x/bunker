@@ -37,6 +37,18 @@
   and 16.7 ms) with the GPU at about 7–9 ms a frame.
 - `android/tools/test_bunker_button.py`: 13 tests passed. Not run on
   Android.
+- The search under the heads-up display [88c928f]: it holds the same 9
+  counters as the whole interface on Subquests; 0.2 ms a search against
+  1.3. Function names from the game's metadata (Il2CppDumper) put the
+  campaign badges' `UpdateRemainingTime` at 4.4% of the main thread and
+  the label rebuilds it caused at about 5%. With badges once a second
+  [a90b04a] the main thread was busy 39% of the time scrolling Subquests,
+  against 63% before and 95% on the first build; neither shows in the
+  profile. `test_display.py`: the badge tests and the frame pacing tests
+  passed (the Settings tests need fastapi, missing on this Mac).
+- Still 80 fps on Subquests. With the iPad cool, the field showed 109 fps
+  at 4.2 ms of GPU a frame and 80 fps at 9.4 ms while opening Quests: the
+  GPU is the limit there now. Not run on Android.
 
 ## Spendable event medals — 2026-11-06
 
