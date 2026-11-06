@@ -88,6 +88,8 @@
 #endif
 extern "C" Memory *__real_sub_825b0544(State &,addr_t,Memory *);
 extern "C" Memory *__real_sub_708d905c(State &,addr_t,Memory *);
+extern "C" Memory *__real_sub_70a8a5c4(State &,addr_t,Memory *);
+extern "C" Memory *__real_sub_70a8aa08(State &,addr_t,Memory *);
 extern "C" Memory *__real___bunker_guest_call(State &,addr_t,Memory *,addr_t,addr_t,recomp::Entry) noexcept;
 
 namespace {
@@ -257,8 +259,12 @@ void DefineGameAndroidApiProfile(bunker::jni::Host &host){
 }
 extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return GameOriginalSaveHelper(s,pc,memory);}
 extern "C" Memory *__wrap_sub_708d905c(State &s,addr_t pc,Memory *memory){return GameOriginalFontCmapHelper(s,pc,memory);}
+extern "C" Memory *__wrap_sub_70a8a5c4(State &s,addr_t pc,Memory *memory){return GameOriginalUnityDecodeOuter(s,pc,memory);}
+extern "C" Memory *__wrap_sub_70a8aa08(State &s,addr_t pc,Memory *memory){return GameOriginalUnityDecodeInner(s,pc,memory);}
 extern "C" Memory *__wrap___bunker_guest_call(State &s,addr_t target,Memory *memory,addr_t expected,addr_t sp,recomp::Entry direct) noexcept {
   if(target==0x708d905cULL&&direct)direct=GameOriginalFontCmapHelper;
+  if(target==0x70a8a5c4ULL&&direct)direct=GameOriginalUnityDecodeOuter;
+  if(target==0x70a8aa08ULL&&direct)direct=GameOriginalUnityDecodeInner;
   return bunker::windows::GuestCallRouting::Forward(__real___bunker_guest_call,GameOriginalSaveHelper,s,target,memory,expected,sp,direct);
 }
 int main(int argc,char **argv){
@@ -305,10 +311,15 @@ int main(int argc,char **argv){
     automatic_environments.original=__real_sub_825b0544;
     GameFontCmapEnvironments font_environments;game_font_environments=&font_environments;
     font_environments.original=__real_sub_708d905c;
+    GameUnityDecodeEnvironments decode_environments;game_unity_decode_environments=&decode_environments;
+    decode_environments.original_outer=__real_sub_70a8a5c4;decode_environments.original_inner=__real_sub_70a8aa08;
     std::vector<recomp::Trace> selected(std::begin(kTraces),std::end(kTraces));bool original_helper_present=false;for(auto &trace:selected)if(trace.address==0x825b0544){original_helper_present=true;trace.entry=GameOriginalSaveHelper;}
     Require(original_helper_present,"current IL2CPP automatic save helper is absent from union");
     bool font_helper_present=false;for(auto &trace:selected)if(trace.address==0x708d905c){font_helper_present=true;trace.entry=GameOriginalFontCmapHelper;}
     Require(font_helper_present,"current Unity font cmap helper is absent from union");
+    bool decode_outer_present=false,decode_inner_present=false;
+    for(auto &trace:selected){if(trace.address==0x70a8a5c4){decode_outer_present=true;trace.entry=GameOriginalUnityDecodeOuter;}if(trace.address==0x70a8aa08){decode_inner_present=true;trace.entry=GameOriginalUnityDecodeInner;}}
+    Require(decode_outer_present&&decode_inner_present,"current Unity decode automatic owner helpers are absent from union");
     bool original_raise_present=false;
     if(first_frame)for(auto &trace:selected)if(trace.address==0x826263cc){
       GameExceptionDiagnostic::ConfigureRaise(trace.entry,true);
@@ -539,6 +550,7 @@ int main(int argc,char **argv){
     };
     automatic_environments.current=current_jump_thread;
     font_environments.current=current_jump_thread;
+    decode_environments.current=current_jump_thread;
     if(surface_gate)jumps=std::make_unique<NonlocalJumps>(current_jump_thread,[&files,current_jump_thread](addr_t environment,size_t size)->std::optional<NonlocalJumps::Region>{
       if(auto mapping=files.MappingRegion(environment,size,true)){
         std::fprintf(stderr,"Unity bootstrap: jmp_buf=%#llx owned mmap=[%#llx,%#llx) generation=%llu\n",static_cast<unsigned long long>(environment),static_cast<unsigned long long>(mapping->base),static_cast<unsigned long long>(mapping->base+mapping->size),static_cast<unsigned long long>(mapping->generation));
@@ -547,6 +559,7 @@ int main(int argc,char **argv){
       auto current=current_jump_thread();
       if(auto owned=game_environments->Find(environment,size,current.token))return owned;
       if(auto owned=game_font_environments->Find(environment,size,current.token))return owned;
+      if(auto owned=game_unity_decode_environments->Find(environment,size,current.token))return owned;
       std::fprintf(stderr,"Unity bootstrap: unknown jmp_buf allocation=%#llx bytes=%zu; owned guest stack=[%#llx,%#llx); no mmap/stack lifetime; heap/subobject provenance is not invented\n",static_cast<unsigned long long>(environment),size,static_cast<unsigned long long>(current.stack_low),static_cast<unsigned long long>(current.stack_high));
       return {};
     },[&](){uint64_t mask=0;auto token=threads.Self();if(process_signals.Mask(token,0,nullptr,&mask))throw std::runtime_error("setjmp signal mask is not registered for this virtual thread");return mask;},Executable);
@@ -993,13 +1006,13 @@ int main(int argc,char **argv){
         if(observe_main)ObserveFourthFrameWait("RETURN",identity.c_str(),main_sequence,s);
       });
     }
-    if(jumps){automatic_environments.jumps=jumps.get();font_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
+    if(jumps){automatic_environments.jumps=jumps.get();font_environments.jumps=jumps.get();decode_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
       if(collector)collector->BeforeNonlocal();
       if(main_collector)main_collector->BeforeNonlocal();
       if(worker_collector)worker_collector->BeforeNonlocal();
 #endif
-      if(!std::strcmp(name,"setjmp")){const auto token=current_signal_thread();automatic_environments.BeforeSetjmp(s,token);font_environments.BeforeSetjmp(s,token);}jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
+      if(!std::strcmp(name,"setjmp")){const auto token=current_signal_thread();automatic_environments.BeforeSetjmp(s,token);font_environments.BeforeSetjmp(s,token);decode_environments.BeforeSetjmp(s,token);}jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
     if(graphics){
       graphics->Install(gl_bridges);
       for(const auto &name:GlHost::Commands()){

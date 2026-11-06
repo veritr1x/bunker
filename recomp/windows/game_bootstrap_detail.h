@@ -139,6 +139,76 @@ Memory *GameOriginalSaveHelper(State &s,addr_t pc,Memory *memory){try{
   // trailing raw global is left untouched; no collector callback is replaced.
   return result;
  }catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original automatic-context owner failed:%s\n",e.what());std::abort();}}
+// The buffer belongs to 70a8a5c4's automatic object, but setjmp saves the
+// nested 70a8aa08 frame. Both real invocations must remain live.
+struct GameUnityDecodeEnvironments {
+  struct Outer {const GameUnityDecodeEnvironments *owner;uint64_t token,thread_generation,generation;addr_t entry_sp,return_pc,environment,stack_low,stack_high;};
+  struct Inner {const GameUnityDecodeEnvironments *owner;uint64_t token,thread_generation,generation,outer_generation;addr_t entry_sp,return_pc,environment;bool saved=false;};
+  struct Frames {std::vector<Outer> outer;std::vector<Inner> inner;};
+  bunker::windows::NonlocalJumps *jumps=nullptr;
+  recomp::Entry original_outer=nullptr,original_inner=nullptr;
+  std::function<bunker::windows::NonlocalJumps::Thread()> current;
+  std::atomic<uint64_t> next_generation{1};
+#ifdef _WIN32
+  static void DestroyFrames(void *value) noexcept {delete static_cast<Frames*>(value);}
+  static Frames &Live(){
+    static const pthread_key_t key=[] {
+      pthread_key_t result{};const int error=pthread_key_create(&result,DestroyFrames);
+      if(error)throw std::runtime_error("Unity decode frames key creation failed: "+std::to_string(error));
+      return result;
+    }();
+    auto *value=static_cast<Frames*>(pthread_getspecific(key));
+    if(!value){auto next=std::make_unique<Frames>();const int error=pthread_setspecific(key,next.get());
+      if(error)throw std::runtime_error("Unity decode frames publication failed: "+std::to_string(error));
+      value=next.release();}
+    return *value;
+  }
+#else
+  static Frames &Live(){static thread_local Frames frames;return frames;}
+#endif
+  uint64_t Generation(){const auto value=next_generation.fetch_add(1);Require(value&&value!=UINT64_MAX,"Unity decode invocation generation exhausted");return value;}
+  void BeforeSetjmp(State &s,uint64_t token){
+    if(s.gpr.x30.qword!=0x70a8aa1c)return;
+    Require(bool(current),"Unity decode owner has no current thread");const auto thread=current();auto &live=Live();
+    Require(!live.outer.empty()&&!live.inner.empty(),"Unity decode setjmp has no live outer/inner invocation");auto &outer=live.outer.back();auto &inner=live.inner.back();
+    Require(outer.owner==this&&inner.owner==this&&thread.token==token&&inner.token==token&&outer.token==token&&thread.generation&&inner.thread_generation==thread.generation&&outer.thread_generation==thread.generation&&inner.outer_generation==outer.generation&&thread.stack_low==outer.stack_low&&thread.stack_high==outer.stack_high,"Unity decode setjmp invocation/thread differs");
+    Require(s.gpr.sp.qword==inner.entry_sp-0x20&&inner.entry_sp==outer.entry_sp-0x42a0&&s.gpr.x0.qword==outer.environment&&s.gpr.x19.qword==outer.environment&&!inner.saved,"original Unity decode setjmp frame/object shape differs");
+    inner.saved=true;
+  }
+  std::optional<bunker::windows::NonlocalJumps::Region> Find(addr_t env,size_t size,uint64_t token){
+    if(size!=256||!current)return {};
+    const auto thread=current();if(thread.token!=token||!thread.generation)return {};
+    const auto &live=Live();
+    for(auto i=live.inner.rbegin();i!=live.inner.rend();++i)if(i->owner==this&&i->token==token&&i->thread_generation==thread.generation&&i->saved&&i->environment==env){
+      const auto outer=std::find_if(live.outer.rbegin(),live.outer.rend(),[&](const auto &o){return o.owner==this&&o.generation==i->outer_generation&&o.token==token&&o.thread_generation==thread.generation&&o.environment==env&&o.stack_low==thread.stack_low&&o.stack_high==thread.stack_high;});
+      if(outer!=live.outer.rend())return bunker::windows::NonlocalJumps::Region{env,env+256,i->generation};
+    }
+    return {};
+  }
+  Memory *RunOuter(State &s,addr_t pc,Memory *memory){
+    Require(jumps&&original_outer&&bool(current),"Unity decode outer owner is not configured");const auto thread=current();
+    Require(pc==0x70a8a5c4&&thread.token&&thread.generation&&thread.stack_low&&thread.stack_high>thread.stack_low&&!(s.gpr.sp.qword&15)&&s.gpr.sp.qword>=thread.stack_low&&s.gpr.sp.qword-thread.stack_low>=0x42c0&&s.gpr.sp.qword<=thread.stack_high,"original Unity decode outer entry has no complete owned frame");
+    const auto generation=Generation();const auto entry_sp=s.gpr.sp.qword;Live().outer.push_back({this,thread.token,thread.generation,generation,entry_sp,s.gpr.x30.qword,entry_sp-0x42a0+0x10,thread.stack_low,thread.stack_high});
+    auto retire=[&]{auto &live=Live();Require(!live.outer.empty()&&live.outer.back().owner==this&&live.outer.back().generation==generation,"Unity decode outer nesting differs");Require(std::none_of(live.inner.begin(),live.inner.end(),[&](const auto &i){return i.owner==this&&i.outer_generation==generation;}),"Unity decode outer retired with a live inner invocation");live.outer.pop_back();};
+    Memory *result=nullptr;
+    try{result=original_outer(s,pc,memory);Require(!Live().outer.empty(),"Unity decode outer disappeared");const auto frame=Live().outer.back();Require(frame.owner==this&&frame.generation==generation&&frame.token==thread.token&&frame.thread_generation==thread.generation&&s.gpr.sp.qword==frame.entry_sp&&s.gpr.pc.qword==frame.return_pc,"original Unity decode outer did not return within its invocation");}
+    catch(...){retire();throw;}retire();return result;
+  }
+  Memory *RunInner(State &s,addr_t pc,Memory *memory){
+    Require(jumps&&original_inner&&bool(current),"Unity decode inner owner is not configured");const auto thread=current();auto &live=Live();
+    Require(!live.outer.empty(),"Unity decode inner has no original outer invocation");const auto outer=live.outer.back();
+    Require(pc==0x70a8aa08&&outer.owner==this&&thread.token&&thread.generation&&outer.token==thread.token&&outer.thread_generation==thread.generation&&outer.stack_low==thread.stack_low&&outer.stack_high==thread.stack_high&&s.gpr.sp.qword==outer.entry_sp-0x42a0&&s.gpr.x30.qword==0x70a8a8b0&&s.gpr.x0.qword==outer.environment,"original Unity decode inner call/object shape differs");
+    Require(std::none_of(live.inner.begin(),live.inner.end(),[&](const auto &i){return i.owner==this&&i.outer_generation==outer.generation;}),"Unity decode outer already has a live inner save invocation");
+    const auto generation=Generation();live.inner.push_back({this,thread.token,thread.generation,generation,outer.generation,s.gpr.sp.qword,s.gpr.x30.qword,outer.environment,false});
+    auto retire=[&]{auto &frames=Live().inner;Require(!frames.empty()&&frames.back().owner==this&&frames.back().generation==generation,"Unity decode inner nesting differs");if(frames.back().saved)jumps->Forget(frames.back().environment);frames.pop_back();};
+    Memory *result=nullptr;
+    try{result=original_inner(s,pc,memory);Require(!Live().inner.empty(),"Unity decode inner disappeared");const auto frame=Live().inner.back();Require(frame.owner==this&&frame.generation==generation&&frame.token==thread.token&&frame.thread_generation==thread.generation&&frame.saved&&s.gpr.sp.qword==frame.entry_sp&&s.gpr.pc.qword==frame.return_pc,"original Unity decode inner did not return within its saved invocation");}
+    catch(...){retire();throw;}retire();return result;
+  }
+};
+GameUnityDecodeEnvironments *game_unity_decode_environments=nullptr;
+[[maybe_unused]] Memory *GameOriginalUnityDecodeOuter(State &s,addr_t pc,Memory *memory){try{Require(game_unity_decode_environments,"Unity decode outer owner is unavailable");return game_unity_decode_environments->RunOuter(s,pc,memory);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original Unity decode outer owner failed:%s\n",e.what());std::abort();}}
+[[maybe_unused]] Memory *GameOriginalUnityDecodeInner(State &s,addr_t pc,Memory *memory){try{Require(game_unity_decode_environments,"Unity decode inner owner is unavailable");return game_unity_decode_environments->RunInner(s,pc,memory);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: original Unity decode inner owner failed:%s\n",e.what());std::abort();}}
 struct GameWorkerObservation {
   struct NativeEnvironment {
     DWORD last_error=GetLastError();int native_errno=errno;fenv_t environment{};
