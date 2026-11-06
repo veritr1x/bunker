@@ -168,37 +168,23 @@ class GameGuard(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(game.events, ["pause"])
 
-    def test_launch_only_changes_need_the_game_closed_first(self):
+    def test_launch_only_changes_close_the_game_without_asking(self):
         game = Game()
         c, calls = client(game)
-        for path in sorted(android_runtime.CLOSES):
-            r = c.post(path)
-            self.assertEqual(r.status_code, 409, path)
-            self.assertTrue(r.json()["closeGame"], path)
-            self.assertIn("closes the game", r.json()["error"])
-        self.assertEqual(calls, [])
-        self.assertEqual(game.closed, 0)
-
-    def test_closing_the_game_lets_changes_through(self):
-        game = Game()
-        c, calls = client(game)
-        self.assertEqual(c.get("/bunker/state").json(),
-                         {"live": True, "safe": sorted(android_runtime.LIVE_SAFE), "closes": sorted(android_runtime.CLOSES)})
-        r = c.post("/bunker/close-game")
-        self.assertEqual((r.status_code, r.json()), (200, {"ok": True}))
+        self.assertEqual(c.get("/bunker/state").json(), {"live": True, "safe": sorted(android_runtime.LIVE_SAFE)})
+        self.assertEqual(c.post("/patcher/calendar/off").status_code, 200)
+        self.assertEqual(calls, ["/patcher/calendar/off"])
+        self.assertEqual(game.closed, 1)
+        self.assertNotIn("pause", game.events)  # closed, not restarted around it
         self.assertFalse(c.get("/bunker/state").json()["live"])
         self.assertEqual(c.post("/patcher/calendar/view").status_code, 200)
-        self.assertEqual(calls, ["/patcher/calendar/view"])
-        # Closing again is harmless.
-        self.assertEqual(c.post("/bunker/close-game").json(), {"ok": True})
         self.assertEqual(game.closed, 1)
 
-    def test_a_failed_close_says_why_and_changes_stay_refused(self):
+    def test_a_failed_close_says_why_and_the_change_waits(self):
         game = Game(error="The game could not be closed")
         c, calls = client(game)
-        r = c.post("/bunker/close-game")
+        r = c.post("/patcher/calendar/view")
         self.assertEqual((r.status_code, r.json()), (500, {"ok": False, "error": "The game could not be closed"}))
-        self.assertEqual(c.post("/patcher/calendar/view").status_code, 409)
         self.assertEqual(calls, [])
 
     def test_without_a_running_game_nothing_changes(self):
@@ -206,7 +192,6 @@ class GameGuard(unittest.TestCase):
         c, calls = client(game)
         self.assertEqual(c.post("/users/1/edit/items/grant").status_code, 200)
         self.assertEqual(c.post("/patcher/calendar/view").status_code, 200)
-        self.assertEqual(c.post("/bunker/close-game").json(), {"ok": True})
         self.assertNotIn("pause", game.events)
         self.assertEqual(game.closed, 0)
 
@@ -228,12 +213,10 @@ class GameGuard(unittest.TestCase):
         android_runtime.adapt_services()
         self.assertFalse(backup_service.detect_lunar_tear_running())
 
-    def test_every_page_carries_the_close_step(self):
+    def test_every_page_says_whether_the_game_runs(self):
         page = (root / "overlays/python/web/templates/base.html").read_text()
-        self.assertIn("/bunker/close-game", page)
         self.assertIn("/bunker/state", page)
-        # Only the launch-only changes ask to close the game.
-        self.assertIn("s.closes", page)
+        self.assertNotIn("/bunker/close-game", page)  # nothing to confirm
         # Summon Rates names its buttons "action", which hides a form's action property.
         self.assertNotIn("form.action", page)
 

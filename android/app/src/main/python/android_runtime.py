@@ -263,16 +263,17 @@ def prepare_data():
 # display at the next launch, the timeline's filter, a backup copied with
 # SQLite's online backup), so they need nothing closed.
 LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/mods/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
-# These change what the game reads only as it launches ("Show original dates"
-# resets its own day markers then: GameProcessProvider), so the game is closed
-# first (ServerService.closeGameForTools, or the iOS launcher).
+# These change what the game reads only as it launches: they move its clock
+# back (the calendar turned off, "Show original dates"), and the game keeps
+# day markers in memory that only a fresh start clears (client-days.reset,
+# GameProcessProvider, LunarLauncher.m). The game is closed first, without
+# asking (ServerService.closeGameForTools, or the iOS launcher).
 CLOSES = frozenset(("/patcher/calendar/view", "/patcher/calendar/off"))
 # Any other change edits the save, the master data or the calendar, which the
 # server reads as it starts and the game as it signs in: the server stops for
 # the change and starts again after it (pause_game, resume_game), and the game
 # goes back to its title screen to sign in again (interceptor.ReturnToTitle).
 # The game keeps running throughout.
-CLOSE_MESSAGE = "This change closes the game first. Confirm to close it and continue."
 
 # Set as Pod Programs starts: whether the game and its server are running, a
 # call that stops them, and the two around a change beside the game (each
@@ -310,24 +311,18 @@ def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lamb
 
     @app.get("/bunker/state")
     def state():
-        return {"live": bool(live()), "safe": sorted(LIVE_SAFE), "closes": sorted(CLOSES)}
-
-    @app.post("/bunker/close-game")
-    async def close_now():
-        if not live():
-            return {"ok": True}
-        error = await run_in_threadpool(close)
-        if error:
-            return JSONResponse({"ok": False, "error": error}, status_code=500)
-        return {"ok": True}
+        return {"live": bool(live()), "safe": sorted(LIVE_SAFE)}
 
     @app.middleware("http")
     async def needs_closed_game(request, call_next):
         path = request.url.path
-        if request.method in ("GET", "HEAD") or path in LIVE_SAFE or path == "/bunker/close-game" or not live():
+        if request.method in ("GET", "HEAD") or path in LIVE_SAFE or not live():
             return await call_next(request)
         if path in CLOSES:
-            return JSONResponse({"ok": False, "error": CLOSE_MESSAGE, "closeGame": True}, status_code=409)
+            error = await run_in_threadpool(close)
+            if error:
+                return JSONResponse({"ok": False, "error": error}, status_code=500)
+            return await call_next(request)
         error = await run_in_threadpool(pause)
         if error:
             return JSONResponse({"ok": False, "error": error}, status_code=500)

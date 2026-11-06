@@ -1,16 +1,15 @@
 package org.veritr1x.bunker;
 
-import java.util.regex.Pattern;
-
 /**
  * The game keeps its own day and time markers in its PlayerPrefs, outside the
  * save: the last day it showed the roulette's FREE badge, the login bonus, a
  * promotion, and so on. It compares them with the server's clock, and only a
- * later day counts as a new one. "Show original dates" (Pod Programs › Content
- * › Schedule) moves that clock by years, so after a switch the markers are on
- * the wrong side of it: showing 2021, a 2026 marker hides the FREE badge for
- * the whole loop. The markers are cleared when the setting changes, before the
- * game starts; the game then treats the day as a new one.
+ * later day counts as a new one. Pod Programs can move that clock back (the
+ * calendar turned off after a jump, "Show original dates", a new loop with it):
+ * a 2028 marker then hides the FREE badge until 2028. Pod Programs leaves
+ * RESET_FILE beside the save then, closing the game if it runs (the game also
+ * keeps them in memory), and the markers are cleared before it starts again
+ * (GameProcessProvider). The game then treats the day as a new one.
  */
 final class ClientDays {
     // Key names from the 3.7.1 game code (android/tools/test_client_days.py).
@@ -26,12 +25,8 @@ final class ClientDays {
         "last_limited_open_notification_unix_time",
     };
 
-    private static final Pattern ON = Pattern.compile("\"originalDates\"\\s*:\\s*true");
+    /** android_calendar.client_days_file. */
+    static final String RESET_FILE = "client-days.reset";
 
     private ClientDays() {}
-
-    /** True when calendar.json (null when there is none) has "Show original dates" on. */
-    static boolean originalDates(String calendarJson) {
-        return calendarJson != null && ON.matcher(calendarJson).find();
-    }
 }

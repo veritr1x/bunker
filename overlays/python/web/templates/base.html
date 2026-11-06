@@ -32,92 +32,17 @@
     <a href="/memoirs" {% if active == "memoirs" %}class="active"{% endif %}>Memoir Editor</a>
   </nav>
   <main>
-    <div id="bunker-live" class="banner" hidden>&gt; The game is still running. After a change to your save or the game's data, it returns to its title screen to load it.</div>
+    <div id="bunker-live" class="banner" hidden>&gt; The game is still running. After a change to your save or the game's data, it returns to its title screen to load it. Turning the calendar off or switching "Show original dates" closes it.</div>
     {% if message %}<div class="banner success">&gt; {{ message }}</div>{% endif %}
     {% if error %}<div class="banner error">&gt; ERROR :: {{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
   <footer><span class="sign-light">End of transmission // Glory to mankind</span><span class="sign-dark">Operator link // Standing by</span></footer>
-  <div id="bunker-close" class="panel bunker-close" hidden role="dialog" aria-modal="true" aria-labelledby="bunker-close-title">
-    <p id="bunker-close-title"><strong>&gt; Close the game?</strong></p>
-    <p>The game reads this change only as it launches, so it closes first. When you are done, close Pod Programs and tap Deploy.</p>
-    <p class="banner error" data-error hidden></p>
-    <p><button type="button" class="danger" data-choice="close">Close the game</button> <button type="button" data-choice="cancel">Cancel</button></p>
-  </div>
-  <style>.bunker-close{position:fixed;left:16px;right:16px;bottom:16px;max-width:560px;margin:0 auto;z-index:1000;box-shadow:0 4px 24px rgba(0,0,0,.45)}</style>
   <script>
-  // Pod Programs opens while the game keeps running. Most changes go ahead at
-  // once and send the game back to its title screen (android_runtime). A
-  // change the game reads only as it launches (/bunker/state's closes list)
-  // asks first, closes the game, then goes ahead as it was made.
-  (() => {
-    const send = window.fetch.bind(window);
-    let state = send("/bunker/state").then(r => r.json()).catch(() => ({live: false, safe: [], closes: []}));
-    state.then(s => { document.getElementById("bunker-live").hidden = !s.live; });
-    let known = null;  // the state once it has arrived, for submits that need no closing
-    state.then(s => { known = s; });
-    const panel = document.getElementById("bunker-close"), error = panel.querySelector("[data-error]");
-    const closes = (s, method, url) => {
-      if (!method || /^(GET|HEAD)$/i.test(method)) return false;
-      const path = new URL(url, location.href).pathname;
-      return s.live && (s.closes || []).includes(path);
-    };
-    const needsClose = async (method, url) => closes(await state, method, url);
-    const ask = () => new Promise(done => {
-      error.hidden = true;
-      panel.hidden = false;
-      panel.querySelector('[data-choice="close"]').focus();
-      panel.onclick = async e => {
-        const choice = e.target.dataset && e.target.dataset.choice;
-        if (choice === "cancel") { panel.hidden = true; done(false); }
-        if (choice !== "close") return;
-        const button = e.target, label = button.textContent;
-        button.disabled = true;
-        button.textContent = "Closing the game…";
-        try {
-          const r = await send("/bunker/close-game", {method: "POST"}), j = await r.json();
-          if (!j.ok) throw new Error(j.error || "The game could not be closed");
-          const s = await state;
-          known = {...s, live: false};
-          state = Promise.resolve(known);
-          document.getElementById("bunker-live").hidden = true;
-          panel.hidden = true;
-          done(true);
-        } catch (err) {
-          error.textContent = "> ERROR :: " + err.message;
-          error.hidden = false;
-        } finally {
-          button.disabled = false;
-          button.textContent = label;
-        }
-      };
-    });
-    window.fetch = async (input, init = {}) => {
-      const url = typeof input === "string" ? input : input.url;
-      const method = init.method || (typeof input === "string" ? "GET" : input.method);
-      if (await needsClose(method, url) && !(await ask())) throw new Error("Cancelled: the game is still running.");
-      return send(input, init);
-    };
-    document.addEventListener("submit", async e => {
-      const form = e.target, by = e.submitter;
-      if (form.dataset.gameClosed) return;
-      const method = (by && by.getAttribute("formmethod")) || form.getAttribute("method") || "get";
-      // The attribute: a control named "action" (Summon Rates' buttons) hides the form's own property.
-      const action = (by && by.getAttribute("formaction")) || form.getAttribute("action") || location.href;
-      if (/^get$/i.test(method)) return;
-      // Nothing to close: the form submits as it always did.
-      if (known && !closes(known, method, action)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if (await needsClose(method, action) && !(await ask())) return;
-      // On a later task: while the browser is still delivering this submit
-      // event (a real tap), it ignores requestSubmit.
-      setTimeout(() => {
-        form.dataset.gameClosed = "1";
-        try { form.requestSubmit(by && by.form === form ? by : undefined); } finally { delete form.dataset.gameClosed; }
-      }, 0);
-    }, true);
-  })();
+  // Pod Programs opens while the game keeps running: a change sends the game
+  // back to its title screen to load it (android_runtime), or, for one it
+  // reads only as it launches, closes the game first.
+  fetch("/bunker/state").then(r => r.json()).then(s => { document.getElementById("bunker-live").hidden = !s.live; }).catch(() => {});
   </script>
 </body>
 </html>
