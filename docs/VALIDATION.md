@@ -30,6 +30,18 @@
   they already did with the calendar off. 183 and 184 start three days
   before their exchange opens, in the game's own dates too.
 - `go test ./...` passes with either master.
+- Android emulator, Global, calendar off, All content: 506's art showed the
+  medal but no Held/Exchange bar, and a draw gave none. The preset had
+  closed shop 8170 (end date 2020), with 134 other medal exchanges. After
+  the fix [d0641d4] and applying All content again, all 135 were open; 507's
+  daily draw gave Healer/Support medals 0 → 10 ("Held 10"), its two ★4s from
+  the Light/Dark lineup, and Exchange opened its offers.
+- Calendar on, loop from 2026-11-04, moved to week 112: 581001 (Tale of
+  Resistance, Mechanical Hunter) listed for 12/22-12/29/2028 with Held 95 /
+  Exchange; step 1 gave 10 shards (the Comfort mod then traded 100 for gems,
+  95 → 5), and Exchange opened Moonbow Gun and Type-0 Sword at 90, open
+  12/15/2028-01/07/2029. The Healer & Support rerun 9505071 showed Held 10 /
+  Exchange. Calendar off and All content restored afterwards.
 
 ## Mods on the Android emulator — 2026-11-06
 
