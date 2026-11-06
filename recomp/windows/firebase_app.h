@@ -49,6 +49,9 @@ class FirebaseAppService {
   // usable only while a real parent App reference lives. Frames/vectors own
   // their actual SDK allocations; vector item views revoke on mutation/delete.
   // Raw native pointer identity does not promise protection against ABA reuse.
+  // Messaging has independent callbacks and retains a live default-App owner
+  // until its listener is detached. Real message callback ownership transfers
+  // only on nonzero int32 return; owned messages must use native delete.
   // The native DLL remains loaded for process lifetime; no stale code unload.
   // A revoked service cannot be replaced by another generation in this process.
   void Revoke();

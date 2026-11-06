@@ -93,7 +93,14 @@ const std::vector<std::string> kCommands={
   "Firebase_Crashlytics_CSharp_delete_StackFrames",
   "Firebase_Crashlytics_CSharp_StackFrames_Add",
   "Firebase_Crashlytics_CSharp_StackFrames_size",
-  "Firebase_Crashlytics_CSharp_StackFrames_getitem"
+  "Firebase_Crashlytics_CSharp_StackFrames_getitem",
+  "SWIGRegisterExceptionCallbacks_FirebaseMessaging",
+  "SWIGRegisterExceptionArgumentCallbacks_FirebaseMessaging",
+  "SWIGRegisterStringCallback_FirebaseMessaging",
+  "Firebase_Messaging_CSharp_SetListenerCallbacks",
+  "Firebase_Messaging_CSharp_SetListenerCallbacksEnabled",
+  "Firebase_Messaging_CSharp_SendPendingEvents",
+  "Firebase_Messaging_CSharp_delete_FirebaseMessage"
 };
 }
 struct FirebaseAppService::Impl {
@@ -121,6 +128,11 @@ struct FirebaseAppService::Impl {
   std::vector<CrashInstance> crash_instances;
   std::vector<CrashFrame> crash_frames;
   std::vector<addr_t> crash_vectors;
+  std::array<addr_t,11> messaging_exceptions{};std::array<addr_t,3> messaging_arguments{};
+  addr_t messaging_string_callback=0,messaging_message_callback=0,messaging_token_callback=0,messaging_parent_app=0;
+  struct MessagingMessage {addr_t pointer;bool pending,deleted;};
+  std::vector<MessagingMessage> messaging_messages;
+  using MessageCallback=int32_t(*)(void*);using TokenCallback=void(*)(const char*);
   static std::mutex global_mutex;
   static std::shared_ptr<Impl> global;
   static bool generation_used;
@@ -160,17 +172,17 @@ struct FirebaseAppService::Impl {
     Need(entry&&config.translated_entry(entry),"Firebase callback target is not a live translated entry");
     return config.runner(entry,values);
   }
-  template<size_t Index,bool Crash=false>static void ExceptionThunk(const char *text)noexcept{
+  template<size_t Index,size_t Family=0>static void ExceptionThunk(const char *text)noexcept{
     std::shared_ptr<Impl> owner;
     try{Callback active;owner=active.owner;CallbackEnvironment environment;PublishedString message(text);
-      addr_t entry;{std::lock_guard lock(owner->mutex);entry=Crash?owner->crash_exceptions[Index]:owner->exceptions[Index];}
+      addr_t entry;{std::lock_guard lock(owner->mutex);entry=Family==2?owner->messaging_exceptions[Index]:Family?owner->crash_exceptions[Index]:owner->exceptions[Index];}
       owner->Run(entry,{message.Address()});
     }catch(...){Report(owner,std::current_exception());}
   }
-  template<size_t Index,bool Crash=false>static void ArgumentThunk(const char *text,const char *parameter)noexcept{
+  template<size_t Index,size_t Family=0>static void ArgumentThunk(const char *text,const char *parameter)noexcept{
     std::shared_ptr<Impl> owner;
     try{Callback active;owner=active.owner;CallbackEnvironment environment;PublishedString message(text),argument(parameter);
-      addr_t entry;{std::lock_guard lock(owner->mutex);entry=Crash?owner->crash_arguments[Index]:owner->arguments[Index];}
+      addr_t entry;{std::lock_guard lock(owner->mutex);entry=Family==2?owner->messaging_arguments[Index]:Family?owner->crash_arguments[Index]:owner->arguments[Index];}
       owner->Run(entry,{message.Address(),argument.Address()});
     }catch(...){Report(owner,std::current_exception());}
   }
@@ -190,6 +202,44 @@ struct FirebaseAppService::Impl {
       addr_t entry;{std::lock_guard lock(owner->mutex);entry=owner->crash_string_callback;}
       return reinterpret_cast<const char*>(owner->Run(entry,{message.Address()}));
     }catch(...){Report(owner,std::current_exception());return nullptr;}
+  }
+  static const char *MessagingStringThunk(const char *text)noexcept{
+    std::shared_ptr<Impl> owner;
+    try{Callback active;owner=active.owner;CallbackEnvironment environment;PublishedString message(text);
+      addr_t entry;{std::lock_guard lock(owner->mutex);entry=owner->messaging_string_callback;}
+      return reinterpret_cast<const char*>(owner->Run(entry,{message.Address()}));
+    }catch(...){Report(owner,std::current_exception());return nullptr;}
+  }
+  static int32_t MessageThunk(void *message)noexcept{
+    std::shared_ptr<Impl> owner;const auto pointer=reinterpret_cast<addr_t>(message);bool tracked=false;
+    try{Callback active;owner=active.owner;CallbackEnvironment environment;addr_t entry;
+      {std::lock_guard lock(owner->mutex);entry=owner->messaging_message_callback;
+        Need(pointer&&owner->messaging_parent_app,"Messaging callback has no real message/live listener");
+        Need(std::none_of(owner->messaging_messages.begin(),owner->messaging_messages.end(),[&](const auto&r){return r.pointer==pointer;}),"Messaging callback aliases an outstanding native message");
+        owner->messaging_messages.push_back({pointer,true,false});tracked=true;}
+      const auto result=static_cast<int32_t>(static_cast<uint32_t>(owner->Run(entry,{pointer})));
+      bool destroy=false;
+      {std::lock_guard lock(owner->mutex);auto row=std::find_if(owner->messaging_messages.begin(),owner->messaging_messages.end(),[&](const auto&r){return r.pointer==pointer;});
+        destroy=result&&row->deleted;
+        if(!result||row->deleted)owner->messaging_messages.erase(row);else row->pending=false;}
+      if(destroy){NativeCall native;owner->Function<void(*)(void*)>(kCommands[47])(message);}
+      return result;
+    }catch(...){auto error=std::current_exception();
+      // Pending guest Dispose requests are deferred. The native caller keeps
+      // ownership on zero or failed callback and deletes its actual copy.
+      if(owner&&tracked){std::lock_guard lock(owner->mutex);auto row=std::find_if(owner->messaging_messages.begin(),owner->messaging_messages.end(),[&](const auto&r){return r.pointer==pointer;});
+        if(row!=owner->messaging_messages.end())owner->messaging_messages.erase(row);}
+      Report(owner,error);return 0;
+    }
+  }
+  static void TokenThunk(const char *token)noexcept{
+    std::shared_ptr<Impl> owner;
+    try{Callback active;owner=active.owner;CallbackEnvironment environment;addr_t entry;
+      {std::lock_guard lock(owner->mutex);entry=owner->messaging_token_callback;Need(owner->messaging_parent_app!=0,"Messaging token has no live listener");}
+      // SWIG already passed its real allocating string callback result. Keep
+      // that exact pointer/ownership for the original reverse-PInvoke thunk.
+      owner->Run(entry,{reinterpret_cast<addr_t>(token)});
+    }catch(...){Report(owner,std::current_exception());}
   }
   static void LogThunk(int32_t level,const char *text)noexcept{
     std::shared_ptr<Impl> owner;
@@ -238,6 +288,38 @@ struct FirebaseAppService::Impl {
     Registration registration(*this,{entry});{std::lock_guard lock(mutex);crash_string_callback=entry;}
     Function<void(*)(StringCallback)>(kCommands[24])(&CrashStringThunk);
   }
+  void RegisterMessaging(const std::array<addr_t,11>&entries){
+    Registration registration(*this,{entries.begin(),entries.end()});{std::lock_guard lock(mutex);messaging_exceptions=entries;}
+    Function<RegisterExceptions>(kCommands[41])(&ExceptionThunk<0,2>,&ExceptionThunk<1,2>,&ExceptionThunk<2,2>,&ExceptionThunk<3,2>,&ExceptionThunk<4,2>,&ExceptionThunk<5,2>,&ExceptionThunk<6,2>,&ExceptionThunk<7,2>,&ExceptionThunk<8,2>,&ExceptionThunk<9,2>,&ExceptionThunk<10,2>);
+  }
+  void RegisterMessaging(const std::array<addr_t,3>&entries){
+    Registration registration(*this,{entries.begin(),entries.end()});{std::lock_guard lock(mutex);messaging_arguments=entries;}
+    Function<RegisterArguments>(kCommands[42])(&ArgumentThunk<0,2>,&ArgumentThunk<1,2>,&ArgumentThunk<2,2>);
+  }
+  void RegisterMessaging(addr_t entry){
+    Registration registration(*this,{entry});{std::lock_guard lock(mutex);messaging_string_callback=entry;}
+    Function<void(*)(StringCallback)>(kCommands[43])(&MessagingStringThunk);
+  }
+  void MessagingReady(){
+    std::lock_guard lock(mutex);
+    Need(messaging_string_callback&&std::all_of(messaging_exceptions.begin(),messaging_exceptions.end(),[](addr_t e){return e!=0;})&&
+        std::all_of(messaging_arguments.begin(),messaging_arguments.end(),[](addr_t e){return e!=0;}),"Messaging call requires its separate original SWIG callback cohort");
+  }
+  void SetMessagingListener(addr_t message,addr_t token){
+    MessagingReady();Registration registration(*this,{message,token},true);addr_t parent=0;
+    // SDK stores each callback independently even when a partial registration
+    // destroys its listener. Already queued deliveries can still use that slot.
+    if(message||token){std::lock_guard lock(mutex);Need(apps.size()==1&&apps[0].second,"Messaging callback registration requires its real default App reference");parent=apps[0].first;}
+    Function<void(*)(MessageCallback,TokenCallback)>(kCommands[44])(message?&MessageThunk:nullptr,token?&TokenThunk:nullptr);
+    {std::lock_guard lock(mutex);messaging_message_callback=message;messaging_token_callback=token;messaging_parent_app=parent;}
+  }
+  void DeleteMessage(addr_t pointer){
+    MessagingReady();{std::lock_guard lock(mutex);auto row=std::find_if(messaging_messages.begin(),messaging_messages.end(),[&](const auto&r){return r.pointer==pointer&&!r.deleted;});
+      Need(pointer&&row!=messaging_messages.end(),"Messaging delete requires a native callback-owned message");
+      if(row->pending){row->deleted=true;return;}}
+    Function<void(*)(void*)>(kCommands[47])(reinterpret_cast<void*>(pointer));
+    {std::lock_guard lock(mutex);auto row=std::find_if(messaging_messages.begin(),messaging_messages.end(),[&](const auto&r){return r.pointer==pointer;});messaging_messages.erase(row);}
+  }
   void AppCall() {
     std::lock_guard lock(mutex);
     Need(imports==1&&callbacks==0&&call_owner==std::this_thread::get_id(),
@@ -280,6 +362,8 @@ struct FirebaseAppService::Impl {
   }
   void ReleaseApp(addr_t address) {
     RequireApp(address,false);
+    {std::lock_guard lock(mutex);auto row=std::find_if(apps.begin(),apps.end(),[&](const auto&r){return r.first==address;});
+      Need(row->second!=1||messaging_parent_app!=address,"detach the native Messaging listener before releasing its last App reference");}
     Function<void(*)(void*)>(kCommands[21])(reinterpret_cast<void*>(address));
     // A deferred callback error does not undo a completed native release.
     std::lock_guard lock(mutex);
@@ -350,8 +434,12 @@ struct FirebaseAppService::Impl {
       if(found==crash_frames.end())crash_frames.push_back({result,vector});}return result;
   }
   void Revoke(){
-    {std::lock_guard lock(mutex);if(revoked)return;Need(imports==0&&callbacks==0&&!registering,"Firebase revoke requires actual SDK import/callback quiescence");Need(apps.empty(),"Firebase revoke requires all native App references released");Need(crash_vectors.empty()&&crash_frames.empty(),"Firebase revoke requires all native Crashlytics frame/vector objects released");revoked=true;}
+    {std::lock_guard lock(mutex);if(revoked)return;Need(imports==0&&callbacks==0&&!registering,"Firebase revoke requires actual SDK import/callback quiescence");Need(apps.empty(),"Firebase revoke requires all native App references released");Need(crash_vectors.empty()&&crash_frames.empty(),"Firebase revoke requires all native Crashlytics frame/vector objects released");Need(!messaging_parent_app&&messaging_messages.empty(),"Firebase revoke requires detached Messaging listener and released native messages");revoked=true;}
     NativeCall native;
+    Function<void(*)(MessageCallback,TokenCallback)>(kCommands[44])(nullptr,nullptr);
+    Function<void(*)(StringCallback)>(kCommands[43])(nullptr);
+    Function<RegisterArguments>(kCommands[42])(nullptr,nullptr,nullptr);
+    Function<RegisterExceptions>(kCommands[41])(nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr);
     Function<void(*)(LogCallback)>(kCommands[3])(nullptr);
     Function<void(*)(StringCallback)>(kCommands[2])(nullptr);
     Function<RegisterArguments>(kCommands[1])(nullptr,nullptr,nullptr);
@@ -439,6 +527,13 @@ void FirebaseAppService::Invoke(const std::string&name,State&state){
     else if(name==kCommands[38])recomp::MakeBridge<void(A,A)>([&](A vector,A frame){owner->AddFrame(vector,frame);})(state);
     else if(name==kCommands[39])recomp::MakeBridge<uint32_t(A)>([&](A vector){owner->RequireVector(vector);return owner->Function<uint32_t(*)(void*)>(name)(reinterpret_cast<void*>(vector));})(state);
     else if(name==kCommands[40])recomp::MakeBridge<A(A,int32_t)>([&](A vector,int32_t index){return owner->ItemFrame(vector,index);})(state);
+    else if(name==kCommands[41])recomp::MakeBridge<void(A,A,A,A,A,A,A,A,A,A,A)>([&](A a,A b,A c,A d,A e,A f,A g,A h,A i,A j,A k){owner->RegisterMessaging(std::array<A,11>{a,b,c,d,e,f,g,h,i,j,k});})(state);
+    else if(name==kCommands[42])recomp::MakeBridge<void(A,A,A)>([&](A a,A b,A c){owner->RegisterMessaging(std::array<A,3>{a,b,c});})(state);
+    else if(name==kCommands[43])recomp::MakeBridge<void(A)>([&](A entry){owner->RegisterMessaging(entry);})(state);
+    else if(name==kCommands[44])recomp::MakeBridge<void(A,A)>([&](A message,A token){owner->SetMessagingListener(message,token);})(state);
+    else if(name==kCommands[45])recomp::MakeBridge<void(uint32_t,uint32_t)>([&](uint32_t message,uint32_t token){owner->MessagingReady();owner->Function<void(*)(uint32_t,uint32_t)>(name)(message?1u:0u,token?1u:0u);})(state);
+    else if(name==kCommands[46]){owner->MessagingReady();owner->Function<void(*)()>(name)();}
+    else if(name==kCommands[47])recomp::MakeBridge<void(A)>([&](A message){owner->DeleteMessage(message);})(state);
     else throw std::logic_error("unbound typed Firebase SDK export");
   }
   owner->Healthy();

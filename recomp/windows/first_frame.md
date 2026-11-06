@@ -24,11 +24,16 @@ The terminal indirect target is `701078e8`, LR `701078cc`. This is a computed
 switch inside original Unity function `701068d8..70107f10`, not an exception
 landing pad. Three guarded signed-offset tables contain 16 rows and 12 unique
 missing targets. An additive candidate preserves all 4,658 existing objects
-and adds one object plus twelve trace registrations; its functional block
-qualification is pending. No accepted image exists. Native exit is 3;
+and adds one object plus twelve trace registrations. Its functional block
+qualification now passes 3,861 checks across 384 original ARM/Bionic and
+Windows target cases; the compared memory corpora are byte exact. This covers
+the interior blocks through observed outgoing calls, not the complete outer
+function. Integration with the Messaging bridge is next. No accepted image
+exists. Native exit is 3;
 parent pre/post and selected-runtime checks pass. Evidence:
 `work/runtime16-unresolved-boundary1/acceptance.json`,
 `work/runtime16-sdk-boundary1/acceptance.json`, and the run audit.
+Switch qualification: `work/unity-switch-qualification-final1/acceptance.json`.
 
 Preceding original attempt: `work/windows-first-frame-native-presentation15`, using
 manifest `1f3689d93ff7e8f2f843c050fd59e68bdd810be06188bbf36d869a31d8cc2897`
