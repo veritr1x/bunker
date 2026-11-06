@@ -10,7 +10,24 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation19`, using
+Latest original attempt: `work/windows-first-frame-native-presentation20`, using
+manifest `6c4ef58053f5ce53644cf7bd9af080236a66fb9898ef5781802039fc294b00e5`
+and executable `6e10bb2a1bf35c1f3338f26200233567f9f33d6adc2020879019f5adda42d740`.
+It returns 34 renders and 32 successful swaps; captures remain uniformly black
+and the first-frame witness is false. Native exit is 3; parent pre/post checks
+return 0 and selected-runtime checks pass.
+
+The eight refreshed IL2CPP numeric min/max bodies and eight guarded text-mesh
+switch entries are selected. This attempt instead stops at an unregistered
+automatic `setjmp` buffer: environment `23877e3bca0`, original LR `70a8aa1c`,
+inside the owned guest stack `23877d41000..23877e41000`. Being inside that stack
+does not establish the automatic object's lifetime. The next repair must bind
+this exact original caller invocation and retire the buffer on its actual
+return, as the separate FreeType cmap owner already does. This run does not
+establish execution past run19's text-mesh frontier. Evidence is the run's log,
+`original-module.json` and `game-frame-muted-gc-audit.json`.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation19`, using
 manifest `beb2c6cecab5afea86c14609ea05ed1c56758f005fc0d36df9e1f8e796eb4ff8`
 and executable `2e6fb11f13f1b28790f13b73365e81c1e404c35ee707739a3fe99b41269bd03d`.
 It returns 36 renders and 34 successful swaps, with the image still uniformly
