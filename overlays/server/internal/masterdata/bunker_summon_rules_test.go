@@ -805,7 +805,9 @@ func TestEmbeddedSummonsMatchTheirArt(t *testing.T) {
 		byId[n.Id] = n
 	}
 	medals := map[int32]int32{444: 8138, 445: 8138, 450: 8142, 451: 8142, 473: 8153, 474: 8153, 476: 8154,
-		59: 8007, 123: 8021, 467: 8148, 471: 8151, 531001: 8087, 546: 8197}
+		59: 8007, 123: 8021, 467: 8148, 471: 8151, 531001: 8087, 546: 8197,
+		// Paid-only twins with notices of their own that name the shard.
+		417: 8105, 424: 8109, 425: 8109, 438: 8134, 488: 8161, 534001: 8092, 551001: 8147, 557001: 8154, 558001: 8154, 560001: 8162}
 	for id, item := range medals {
 		if byId[id].Medal != item {
 			t.Errorf("summon %d: medal %d, want %d", id, byId[id].Medal, item)
