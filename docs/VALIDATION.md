@@ -1,5 +1,34 @@
 # Validation
 
+## Mods expansion — 2026-11-07
+
+- Android emulator, Global, Comfort mods, game running. Mods page: six
+  groups (Preset, Quests, Items & shops, Summons, World, Challenges), open,
+  each folding; the bonus line read "×1 Turn on a challenge to earn it.".
+- Hard enemies ×2 and Slow skills saved on the page: "Saved. Challenges are
+  in the game data. The game returns to its title screen to load it." The
+  device's game data then had 9,459 of 9,553 enemy costume rows at twice
+  their level and 28,314 skill cooldowns ×1.5, with the gift text kept; an
+  unchallenged copy sat beside it. The game showed its "Returning to title
+  screen" and signed in again on the challenged data with no crash.
+- Challenges off: the game data's SHA-256 matched the unchallenged original
+  (a204a35b…) and no copy was left.
+- Start a new day: saves/day-start.json and client-days.reset written beside
+  mods.json, the game closed; after Deploy, Mama's News played again and the
+  friend list's cheers read 0/100.
+- Friends from the story: 2B and 9S in the game's friend list with their
+  portraits, 28/100 friends.
+- Not checked on the device: the feel of a battle with each challenge, a
+  daily-limited quest's count, a skip with no tickets, the EXP result screen,
+  and the login bonus after Start a new day.
+- Tests: 9,000+ enemy levels doubled on the real master, subjugation and
+  player-range costumes untouched, ×1.5 rounding and the 66 cubic-curve
+  enemies within 2%, weakness halving only the player's normal-battle table,
+  27,000+ player cooldowns ×1.5 with enemy-only ones and the shared fill
+  tables untouched, stat curves byte-identical; challenges applied once
+  through activate, restore, gift text and the calendar's next loop, and
+  removed exactly.
+
 ## Pod Programs › Gift — 2026-11-07
 
 - Android emulator, Global, All content, game running throughout. Gift
