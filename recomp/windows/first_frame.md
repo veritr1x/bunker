@@ -11,7 +11,33 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation25`, using
+Latest original attempt: `work/windows-first-frame-native-presentation26`, using
+manifest `d4c99ca5999c40bd018843b1b9ab13684de91149fa380cec64de68c7a30ad601`
+and executable `73e59913a4d2735ac3b9eac9683d619b8ca29e37af6a2b0fa2387e5c23d82ab4`.
+The eight [worker-state switch entries](../whole/unity_worker_state_entries.md)
+are selected as one appended object. The cohort now has 4,662 objects and
+595,564 heads; all 4,661 preceding objects remain exact. Rendering again
+completes180 returns,177 successful presentations and2,288 draws. Root viewed
+both untouched captures, including the same publisher/developer splash image.
+
+Original workers25 and26 now retire normally, as do the previously fixed17/18.
+The missing switch target fatal is absent. Finishing now invokes original
+`nativeDone` at `70439e18`; the host's four-second acknowledgment wait expires
+while real cleanup continues. The original call later returns with
+`NoClassDefFoundError: android/view/View`. Exception unwind then reaches the
+Firebase destructor's generic fail-closed message; which Revoke guard term
+failed is not proven. Native exit is3 and the render controller exits0.
+Parent pre/post and selected-runtime verification pass.
+
+The native audit SHA256 is
+`3b311112568b9a94b04f2e1faa86bdc54a582e7dcaa7d88e2792beb3399fa1d3`;
+root visual/worker acceptance is
+`3191bf087292f8e88827a99f0da3a36364f0246539cc4125524c7b01ce4df29e`.
+The next work is retaining the lifecycle/providers until genuine finishing
+completion or exception, and implementing the actual requested View contract.
+Clean shutdown, title/input/backend behavior and gameplay remain unverified.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation25`, using
 manifest `57430fa2285cb1bc9400e82ea3c1ed296e49ff28498cf4709ce0524e95643581`
 and executable `65c4aa9f2740de8a4800630cf31513e82d90233d4898b68a8178ebbbccbf0e99`.
 The [terminal worker-exit fix](../whole/thread_exit_domain.md) preserves the

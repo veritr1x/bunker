@@ -4,24 +4,25 @@ The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
 part of the normal Bunker release. The first original game frame is now verified.
 
-Run25 completes 180 original render returns, 2,288 draws and 177 successful
+Run26 completes 180 original render returns, 2,288 draws and 177 successful
 presentations. Its untouched later 1280x720 capture shows SQUARE ENIX x applibot
 logos; the game advances beyond Notice naturally. The first-frame and later
 snapshot witnesses pass. The current build retains
-4,661 guest objects and 595,556 trace heads. See
+4,662 guest objects and 595,564 trace heads. See
 [the authoritative frame results](windows/first_frame.md) for exact pins.
 
 The worker-retirement shutdown failure is fixed in actual original workers.
-Finishing now stops at unresolved native entry `0x70ddd5a0`, LR `0x70ddd54c`.
-It is case0 of an original bounded eight-case switch in existing object450;
-all eight case entries need dispatch coverage. Immediate remaining work is
-those guarded entries, continued startup beyond the publisher
+The eight bounded switch entries now execute and the affected worker and child
+retire normally. Finishing exceeds the host's four-second acknowledgment wait;
+original nativeDone subsequently returns with missing `android/view/View`.
+Immediate work is preserving the finishing wait and supplying the actual View
+contract, then continued startup beyond the publisher
 splash, input and real client/backend behavior,
 and a usable standalone Windows bundle. Audio remains explicitly muted while
 the HDMI endpoint is unavailable. A visible frame does not establish gameplay.
 
 The execution narrative below preserves earlier checkpoints; its historical
-object counts and failure boundaries are superseded by the linked run25 result.
+object counts and failure boundaries are superseded by the linked run26 result.
 
 The latest execution boundary and build evidence are in
 [the first-frame status](windows/first_frame.md). The exception-transfer
