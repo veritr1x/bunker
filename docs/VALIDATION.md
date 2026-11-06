@@ -12,8 +12,13 @@
   and the footer) and the update panel shown in landscape.
 - iOS: the launcher with the two-column layout compiled on a macOS runner
   (`ios-branch.yml`, Xcode, `-Wall`), and an unsigned IPA was packaged from
-  it and the game's decrypted 3.7.1 IPA as the web builder does. Not yet run
-  on a device.
+  it and the game's decrypted 3.7.1 IPA as the web builder does.
+- iPad, installed with iloader: on its side the menu showed the two columns
+  as on Android. Turned upright it stayed on its side (the game allows only
+  landscape), and opening ⋮ then turned the menu upright inside part of the
+  screen with the rest black. The menu, Pod Programs and the Archive now
+  allow only landscape [219bfbf]; that build is packaged but not yet
+  installed.
 
 ## Spendable event medals — 2026-11-06
 
