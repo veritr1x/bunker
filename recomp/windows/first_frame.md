@@ -10,7 +10,29 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation14`, using
+Latest original attempt: `work/windows-first-frame-native-presentation15`, using
+manifest `1f3689d93ff7e8f2f843c050fd59e68bdd810be06188bbf36d869a31d8cc2897`
+and executable `c8b695dc8cfdc9486a77fc1b4111d97763ddeb49f1a62cdba6346ff048928ea8`.
+It returns 30 original renders and 28 successful original swaps, with real
+draws but a uniform black image. The original 3,632-byte desktop Firebase
+configuration is staged unchanged. Its virtual asset path maps to the native
+directory; the genuine SDK creates two nonnull Apps, returns their names, and
+releases the dependency-probe reference. The next managed lookup failure is
+`SWIGRegisterExceptionCallbacks_CrashlyticsInternal`; that genuine export is
+present in the same selected DLL and needs its own callback family.
+
+The previous font-buffer lifetime stop is passed. This attempt then stops at
+an unsupported signed widening instruction: SSHLL V0.2D,V0.2S,#0 at
+`708d13d8`, bytes `00 a4 20 0f`. The reported fatal PC `708d13dc` is the NEXT
+instruction (STR Q0), which has not executed. The 940-byte original function
+is `708d13a8..708d1754`, selected shard301. Its old IR ends at this SSHLL;
+current decoder/semantics support only the unsigned family. A signed widening
+repair and independent ARM/Bionic comparison are being prepared. No image is
+accepted. Native exit is 3; parent pre/post and selected-runtime checks pass.
+Evidence: `work/runtime15-sshll-frontier1/acceptance.json`,
+`work/runtime15-firebase-boundary1/acceptance.json`, and the run audit.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation14`, using
 manifest `be77e0c6cba83639c5f2b73d3098b8c4e611c08ad64c62f5f0ce0bedca418afa`.
 The original GC's fixed anonymous discards now succeed. There are 31 returned
 original renders, 29 successful original swaps, and real draw submissions.
