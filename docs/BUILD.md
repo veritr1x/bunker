@@ -70,8 +70,10 @@ pack before building, or the build has no notices:
 python3.11 scripts/notices.py
 ```
 
-It downloads the file named in `notices.lock.json` to `inputs/bunker-notices.zip`.
-`build.py` uses that file. To use another path, pass `--notices`.
+It downloads the file named in `notices.lock.json` to `inputs/bunker-notices-pinned.zip`
+and writes `inputs/bunker-notices.zip` from it, with the reconstructed notices'
+summon prices brought in line with `summon_rules.json` (`scripts/sync_notice_prices.py`).
+`build.py` does the same and uses that file. To use another path, pass `--notices`.
 
 The static web builder publishes large notice archives in 64 MiB parts listed
 in `bundles/notices.json`, keeping each file below GitHub Pages' limit. Its

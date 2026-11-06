@@ -47,12 +47,11 @@ def android_sdk(parser, env):
 
 
 def notices_args(args):
-    if not args.notices.is_file():
-        if args.notices == ROOT / "inputs/bunker-notices.zip":
-            from notices import fetch
-            fetch()
-        else:
-            raise FileNotFoundError(f"Notice pack is missing: {args.notices}")
+    if args.notices == ROOT / "inputs/bunker-notices.zip":
+        from notices import fetch_synced
+        fetch_synced()  # the pinned pack, its prices synced to the summon rules
+    elif not args.notices.is_file():
+        raise FileNotFoundError(f"Notice pack is missing: {args.notices}")
     return ["--notices", args.notices.resolve(strict=True)]
 
 
