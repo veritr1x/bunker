@@ -1,5 +1,16 @@
 # Validation
 
+## Draw buttons without a false sale — 2026-11-06
+
+- Cause, from the iOS UnityFramework the dump was made from:
+  GachaDrawButton.SetData(priceType, regularPrice, price) shows the sale group
+  and the regular price, and colours the price, whenever regularPrice differs
+  from kInvalidRegularPrice; the class has no static constructor, so that is 0.
+  Lunar Tear sent each phase's price as its regular price.
+- Fix [38629bd]: the regular price is cleared unless it is above the price. Tests
+  pass with either master. Emulator: Mama's Exciting Festival shows "1 time
+  300" and "10 times 3000", nothing struck through.
+
 ## Summon prices against their art — 2026-11-06
 
 - Of 533 premium summons (Global), 235 take their prices from a recovered
