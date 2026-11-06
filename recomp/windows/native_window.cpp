@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <windowsx.h>
 #include "native_window.h"
 #include "../whole/bridge.h"
 #include <atomic>
@@ -90,7 +91,15 @@ class NativeWindows::Window {
             std::deque<std::function<void()>> commands;
             {std::lock_guard lock(command_mutex);commands.swap(queue);}
             for(auto &command:commands)command();
-          }else{TranslateMessage(&message);DispatchMessageW(&message);}
+          }else{
+            // Observe only messages dequeued for this owned HWND. In
+            // particular, retain MSG.time rather than sampling a later clock.
+            if(message.hwnd==Native()){
+              Event event{};
+              if(CaptureInput(message,event)){std::lock_guard lock(mutex);events.push_back(event);}
+            }
+            TranslateMessage(&message);DispatchMessageW(&message);
+          }
         }
       }catch(...){try{ready.set_exception(std::current_exception());}catch(...){} }
     });
@@ -120,6 +129,48 @@ class NativeWindows::Window {
     {std::lock_guard lock(command_mutex);queue.emplace_back([task]{(*task)();});}
     if(!PostThreadMessageW(thread_id,kCommand,0,0))throw std::runtime_error("native window UI thread unavailable");
     done.get();
+  }
+  static bool CaptureInput(const MSG &source,Event &event){
+    const auto message=source.message;const auto wparam=source.wParam;const auto lparam=source.lParam;
+    switch(message){
+      case WM_MOUSEMOVE:event.kind=Event::MouseMove;break;
+      case WM_LBUTTONDOWN:case WM_LBUTTONDBLCLK:case WM_RBUTTONDOWN:case WM_RBUTTONDBLCLK:
+      case WM_MBUTTONDOWN:case WM_MBUTTONDBLCLK:case WM_XBUTTONDOWN:case WM_XBUTTONDBLCLK:
+        event.kind=Event::MouseButtonDown;break;
+      case WM_LBUTTONUP:case WM_RBUTTONUP:case WM_MBUTTONUP:case WM_XBUTTONUP:
+        event.kind=Event::MouseButtonUp;break;
+      case WM_MOUSEWHEEL:case WM_MOUSEHWHEEL:event.kind=Event::MouseWheel;break;
+      case WM_KEYDOWN:case WM_SYSKEYDOWN:case WM_KEYUP:case WM_SYSKEYUP:{
+        event.kind=message==WM_KEYDOWN||message==WM_SYSKEYDOWN?Event::KeyDown:Event::KeyUp;
+        auto &key=event.key;const auto bits=static_cast<uintptr_t>(lparam);
+        key.virtual_key=static_cast<uint32_t>(wparam);key.repeat_count=static_cast<uint16_t>(bits);
+        key.scan_code=static_cast<uint8_t>(bits>>16);key.extended=(bits&(uintptr_t{1}<<24))!=0;
+        key.alt_context=(bits&(uintptr_t{1}<<29))!=0;key.previous_down=(bits&(uintptr_t{1}<<30))!=0;
+        key.transition_up=(bits&(uintptr_t{1}<<31))!=0;key.system=message==WM_SYSKEYDOWN||message==WM_SYSKEYUP;
+        event.native_message=message;event.message_time_ms=source.time;return true;
+      }
+      default:return false;
+    }
+    auto &mouse=event.mouse;mouse.button_state=GET_KEYSTATE_WPARAM(wparam);
+    POINT point{GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)};
+    if(event.kind==Event::MouseWheel){
+      mouse.screen_x=point.x;mouse.screen_y=point.y;mouse.screen_position_valid=true;
+      mouse.wheel_delta=GET_WHEEL_DELTA_WPARAM(wparam);mouse.horizontal_wheel=message==WM_MOUSEHWHEEL;
+      mouse.client_position_valid=ScreenToClient(source.hwnd,&point)!=0;
+      if(!mouse.client_position_valid)mouse.client_position_error=GetLastError();
+    }else mouse.client_position_valid=true;
+    if(mouse.client_position_valid){mouse.x=point.x;mouse.y=point.y;}
+    switch(message){
+      case WM_LBUTTONDOWN:case WM_LBUTTONUP:case WM_LBUTTONDBLCLK:mouse.button=MouseData::Button::Left;break;
+      case WM_RBUTTONDOWN:case WM_RBUTTONUP:case WM_RBUTTONDBLCLK:mouse.button=MouseData::Button::Right;break;
+      case WM_MBUTTONDOWN:case WM_MBUTTONUP:case WM_MBUTTONDBLCLK:mouse.button=MouseData::Button::Middle;break;
+      case WM_XBUTTONDOWN:case WM_XBUTTONUP:case WM_XBUTTONDBLCLK:
+        mouse.x_button_id=GET_XBUTTON_WPARAM(wparam);
+        if(mouse.x_button_id==XBUTTON1)mouse.button=MouseData::Button::X1;
+        if(mouse.x_button_id==XBUTTON2)mouse.button=MouseData::Button::X2;
+        break;
+    }
+    event.native_message=message;event.message_time_ms=source.time;return true;
   }
   static LRESULT CALLBACK Procedure(HWND window,UINT message,WPARAM wparam,LPARAM lparam){
     auto *self=reinterpret_cast<Window*>(GetWindowLongPtrW(window,GWLP_USERDATA));
