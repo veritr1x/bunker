@@ -193,6 +193,36 @@ def has_gift_text() -> bool:
     return any(r.get("GiftTextId") == GIFT_TEXT_ID for r in _table("GiftText"))
 
 
+def add_gift_text(source, output) -> bool:
+    """Writes source's game data to output with the gift text added (the
+    patcher's m_gift_text rows) and nothing else changed. False when source
+    has it already (output is not written)."""
+    import android_calendar as calendar
+    from patcher import patch_masterdata as pm
+    toc, blob = calendar.read_master(source)
+    changed = {}
+    if not pm.apply_to_table(toc, blob, changed, "m_gift_text", lambda b: pm.add_table_rows(b, pm.TABLE_ROW_ADDITIONS["m_gift_text"])):
+        return False
+    calendar.write_master(toc, blob, changed, output)
+    return True
+
+
+def _add_gift_text_to_game():
+    """Gives the game data in use the gift text: game data made before this
+    build, imported or restored has none. The old data is kept as a snapshot
+    (Content › Previous versions), and a preset stays a preset."""
+    import android_patcher as patcher
+    candidate = patcher.folder() / "candidate.bin.e"
+    try:
+        if not add_gift_text(config.find_master_data_bin(), candidate):
+            return
+        active = runtime.read_json(patcher.folder() / "active.json")
+        label = active.get("label") if isinstance(active, dict) and active.get("sha256") == runtime.fingerprint(config.find_master_data_bin()) else None
+        patcher.activate(candidate, label or "Imported master data")
+    finally:
+        candidate.unlink(missing_ok=True)
+
+
 def _request(action, user_id, possession_type, possession_id, **extra):
     return dict({"action": action, "db_path": str(config.GAME_DB_PATH), "master_data_path": _master(), "user_id": int(user_id),
                  "possession_type": int(possession_type), "possession_id": int(possession_id)}, **extra)
@@ -204,12 +234,15 @@ def room(user_id: int, possession_type: int, possession_id: int) -> int:
     return int(result.get("applied", 0))
 
 
-def send(user_id: int, possession_type: int, possession_id: int, count: int) -> None:
-    """Puts a gift in the game's Gift Box (one backup first)."""
-    if not has_gift_text():
-        raise GiftError("The game data has no gift text yet. Apply a content preset or the calendar first.")
+def send(user_id: int, possession_type: int, possession_id: int, count: int) -> bool:
+    """Puts a gift in the game's Gift Box (one backup first). Game data without
+    the gift text gets it first; True then: the game must load its data again."""
+    added = not has_gift_text()
+    if added:
+        _add_gift_text_to_game()
     _backup()
     _shim(_request("send_gift", user_id, possession_type, possession_id, count=int(count)))
+    return added
 
 
 def _gift_rows(user_id, where, *args):
@@ -275,9 +308,11 @@ def send_route(payload: dict = Body(...)):
     except (KeyError, TypeError, ValueError):
         return JSONResponse({"ok": False, "error": "user, possession_type, possession_id and count are required"}, status_code=400)
     try:
-        send(_user(user), kind, ident, count)
+        added = send(_user(user), kind, ident, count)
     except GiftError as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    if added:  # the game data changed too: the game goes back to its title screen to load it
+        return JSONResponse({"ok": True})
     # The save changed, but the game reads gifts from the server on its next
     # call: Lunar Tear restarts around the change and the game plays on.
     return JSONResponse({"ok": True}, headers={"X-Bunker-Keep-Playing": "1"})
