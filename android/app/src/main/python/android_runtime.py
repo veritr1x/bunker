@@ -118,6 +118,10 @@ def adapt_services():
     if "update" not in backup_service.VALID_REASONS:
         backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "update")
         backup_service.REASON_LABELS["update"] = "Before update"
+    # Pod Programs › Gift backs the save up before each gift (android_gift.send).
+    if "gift" not in backup_service.VALID_REASONS:
+        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "gift")
+        backup_service.REASON_LABELS["gift"] = "Gift"
     def prune(n):
         ordinary = [b for b in backup_service.list_backups() if b.reason != "update"]
         for b in ordinary[n:]:
