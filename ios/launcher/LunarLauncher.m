@@ -167,14 +167,15 @@ __attribute__((visibility("default"))) char *LunarToolsPauseGame(void) {
     return strdup(error.UTF8String);
 }
 
-__attribute__((visibility("default"))) char *LunarToolsResumeGame(void) {
+// title 0: the change was refused or changed nothing, so the game keeps its place.
+__attribute__((visibility("default"))) char *LunarToolsResumeGame(int title) {
     NSString *error = @"";
     @synchronized (ToolsChangeLock()) {
         if (gToolsPaused) {
             gToolsPaused = NO;
             error = StartServer();
             if (error.length) gToolsBesideGame = NO;  // The game cannot reach a server: it restarts after Pod Programs, as before.
-            else LunarRequestTitle();
+            else if (title) LunarRequestTitle();
         }
     }
     dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)]; });

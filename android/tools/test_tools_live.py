@@ -11,7 +11,8 @@ import asyncio, json, sys, unittest
 root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / "android/app/src/main/python"))
 import android_runtime  # noqa: E402
-from fastapi import FastAPI  # noqa: E402
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse, RedirectResponse  # noqa: E402
 
 
 class Response:
@@ -58,7 +59,7 @@ class Client:
 class Game:
     def __init__(self, live=True, error="", pause_error="", resume_error=""):
         self.live, self.error, self.closed = live, error, 0
-        self.pause_error, self.resume_error, self.events = pause_error, resume_error, []
+        self.pause_error, self.resume_error, self.events, self.titles = pause_error, resume_error, [], []
 
     def close(self):
         if self.error:
@@ -71,8 +72,9 @@ class Game:
         self.events.append("pause")
         return self.pause_error
 
-    def resume(self):
+    def resume(self, title=True):
         self.events.append("resume")
+        self.titles.append(title)
         return self.resume_error
 
 
@@ -89,12 +91,21 @@ def client(game):
             calls.append(p)
             if p == "/fails":
                 raise RuntimeError("the change failed")
+            if p == "/refused":
+                return JSONResponse({"ok": False, "error": "Nothing to do"}, status_code=400)
+            if p == "/back-with-error":
+                return RedirectResponse("/users/1?error=Not+valid", status_code=303)
+            if p == "/back-with-message":
+                return RedirectResponse("/users/1?message=Saved", status_code=303)
+            if p == "/unchanged":
+                return JSONResponse({"ok": True}, headers={"X-Bunker-Unchanged": "1"})
             return {"ok": True}
         return handle
 
     for path in ("/users/1/edit/items/grant", "/users/1/use", "/backups/restore", "/backups/create", "/patcher/apply",
                  "/patcher/calendar/on", "/patcher/calendar/view", "/patcher/calendar/off", "/patcher/calendar/timeline",
-                 "/gacha", "/gacha/roulette", "/gacha/preset", "/display", "/something/new", "/fails"):
+                 "/gacha", "/gacha/roulette", "/gacha/preset", "/display", "/something/new", "/fails",
+                 "/refused", "/back-with-error", "/back-with-message", "/unchanged"):
         app.post(path)(route(path))
     app.get("/users/1/edit/items")(lambda: {"page": True})
     android_runtime.install_game_guard(app, lambda: game.live, game.close, game.pause, game.resume)
@@ -132,6 +143,22 @@ class GameGuard(unittest.TestCase):
         except RuntimeError:
             pass
         self.assertEqual(game.events, ["pause", "/fails", "resume"])
+
+    def test_only_a_change_that_went_through_sends_the_game_to_its_title_screen(self):
+        game = Game()
+        c, _ = client(game)
+        for path in ("/users/1/edit/items/grant", "/back-with-message"):
+            c.post(path)
+        try:
+            c.post("/fails")  # failed part-way: the game loads the save again
+        except RuntimeError:
+            pass
+        self.assertEqual(game.titles, [True, True, True])
+        # Refused, sent back with an error, or marked unchanged: the server restarts, the game keeps its place.
+        for path in ("/refused", "/back-with-error", "/unchanged"):
+            c.post(path)
+        self.assertEqual(game.titles, [True, True, True, False, False, False])
+        self.assertEqual(game.events.count("pause"), game.events.count("resume"))
 
     def test_a_failed_stop_refuses_the_change_and_says_why(self):
         game = Game(pause_error="The save could not be backed up")

@@ -264,9 +264,14 @@ public final class ServerService extends Service {
             if(!toolsBackedUp){
                 String error=NativeBridge.prepareBackup(FilesStore.data(service).getAbsolutePath());
                 if(!error.isEmpty()){
-                    // Nothing was changed yet: the game plays on as it was.
-                    error=resumeServer(service).isEmpty()?error:error+" The game could not reconnect: close it and tap Deploy.";
-                    return error;
+                    // Nothing was changed yet: the game plays on as it was, if its server starts again.
+                    String restart=resumeServer(service);
+                    if(restart.isEmpty())return error;
+                    // It cannot reach a server: close it, as resumeForTools does.
+                    android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+restart);
+                    toolsBesideGame=false;service.closeGame();
+                    state="Tools ready";detail="Close Pod Programs to return to the game.";
+                    return error+" The game was closed: tap Deploy to play again.";
                 }
                 toolsBackedUp=true;
             }
@@ -275,14 +280,20 @@ public final class ServerService extends Service {
         }
     }
     /** Pod Programs, after a change beside the running game: starts the server and sends the game to its title screen. Returns "" or why not. */
-    public static String resumeForTools(){
+    public static String resumeForTools(){return resumeForTools(true);}
+    /** As resumeForTools; title false for a change that was refused or changed nothing, so the game keeps its place. */
+    public static String resumeForTools(boolean title){
         ServerService service=instance;
         if(service==null)return "The Bunker's service is not running";
         synchronized(ServerService.class){
             if(!toolsPaused)return "";
             toolsPaused=false;
             String error=resumeServer(service);
-            if(error.isEmpty()){NativeBridge.requestTitle();state="Tools ready";detail="The game returns to its title screen to load your change.";return "";}
+            if(error.isEmpty()){
+                if(title){NativeBridge.requestTitle();state="Tools ready";detail="The game returns to its title screen to load your change.";}
+                else{state="Tools ready";detail="Nothing changed; the game plays on.";}
+                return "";
+            }
             // The game cannot reach a server: close it, as before this change could run beside it.
             android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+error);
             toolsBesideGame=false;service.closeGame();
