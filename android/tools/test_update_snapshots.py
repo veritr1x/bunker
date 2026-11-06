@@ -29,6 +29,11 @@ class UpdateSnapshotTests(unittest.TestCase):
         self.assertIn("update", self.backups.VALID_REASONS)
         self.assertEqual(self.backups.reason_label("update"), "Before update")
 
+    def test_gift_reason_is_known(self):
+        # Pod Programs › Gift backs the save up before sending (android_gift.send).
+        self.assertIn("gift", self.backups.VALID_REASONS)
+        self.assertEqual(self.backups.reason_label("gift"), "Gift")
+
     def test_ordinary_pruning_keeps_update_snapshots(self):
         self.write("backup_2026-10-15T10-00-00-000000_update.db")
         for i in range(self.config.BACKUP_RETENTION + 2):
