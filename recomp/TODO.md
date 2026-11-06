@@ -2,7 +2,21 @@
 
 The target is a standalone Windows x86_64 executable running the original
 game's translated native libraries. Work is on `recomp-x86_64`; it is not yet
-part of the normal Bunker release. The game does not boot or render yet.
+part of the normal Bunker release. The first original game frame is now verified.
+
+Run23 returns original render36 after 230 draws and 33 successful presentations.
+The untouched 1280x720 capture shows the English Notice screen during its initial
+fade-in. Its matched swap/render/PNG witness passes. The current build retains
+4,661 guest objects and 595,556 trace heads. See
+[the authoritative first-frame result](windows/first_frame.md) for exact pins.
+
+Immediate remaining work is sustained rendering beyond the diagnostic stop,
+the worker-retirement shutdown failure, input and real client/backend behavior,
+and a usable standalone Windows bundle. Audio remains explicitly muted while
+the HDMI endpoint is unavailable. A visible frame does not establish gameplay.
+
+The execution narrative below preserves earlier checkpoints; its historical
+object counts and failure boundaries are superseded by the linked run23 result.
 
 The latest execution boundary and build evidence are in
 [the first-frame status](windows/first_frame.md). The exception-transfer
@@ -539,10 +553,11 @@ unsupported instructions.
 
 ## Active work
 
-1. Finish the fresh exception-transfer cohort, integrate it into the Windows
-   host, and run original startup to the first captured and presented game
-   frame. Use [the current boundary](windows/first_frame.md), not the historical
-   Game30 boundary above. Then continue actual normal nativeRender through
+1. The first captured and presented original game frame is verified in run23.
+   Continue actual normal nativeRender beyond the diagnostic stop and fix the
+   observed non-quiescent worker retirement during shutdown. Use
+   [the current result](windows/first_frame.md), not the historical checkpoints
+   above. Continue actual normal nativeRender through
    engine configuration and managed initialization. The refreshed IL2CPP cohort has passed lineage and native
    lifecycle gates. The new dual-engine diagnostic combines it with the accepted
    Unity hash-tail entries and unsigned-widening replacement, preserving older

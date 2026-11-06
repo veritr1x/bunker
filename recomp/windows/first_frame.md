@@ -1,7 +1,8 @@
 # Native Windows first-frame status
 
 The target is the original game running as a standalone Windows x86_64
-executable. A presented game image and working gameplay remain unverified.
+executable. The first presented original game image is now verified. Sustained
+gameplay and final standalone packaging remain unverified.
 
 The owned anonymous GC-discard correction passes 156 focused checks, including
 four remap/restore cases compared with real Android Bionic, whole-owner pin
@@ -10,7 +11,27 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation22`, using
+Latest original attempt: `work/windows-first-frame-native-presentation23`, using
+manifest `382957667390947ffe8e7af58c38a980ea53bacf4221fb802ebf9cd74b1760e5`
+and executable `848805896ef3c361f71e5ea4cd0c73b9ad2b4342e8e6bf538e36c24da9ba5377`.
+**The first-frame witness passes.** Original render36 returns after 230 draw
+calls; 33 original presentations succeed. Its matched 1280x720 PNG is at
+`work/windows-first-frame-native-presentation23/data-frame-muted-gc/first-frame.png`,
+SHA256 `afb17c3008182c2873f19fd328bb03e50a2ae25d3645fd14b5f1d0e9da3599af`.
+Root visually inspected the untouched image: it shows the English Notice screen
+at the start of its fade-in, with dim text against black. No image enhancement
+or game-state alteration was used.
+
+The original core base-vertex function resolves and executes at LR `70477af8`.
+The capture is nonuniform, its original swap succeeds, and the same original
+nativeRender returns with `presentedCandidate=1`. Parent pre/post checks return
+0, selected-runtime verification passes and the runtime controller returns 0.
+Native exit is nevertheless 3: after the diagnostic's first-frame hold, worker
+shutdown reports `same-worker binding retirement is not quiescent`. That cleanup
+failure remains separate from the accepted frame; successful sustained startup,
+gameplay and a clean shutdown are not claimed.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation22`, using
 manifest `11185c253e22d3986759794f8c422cff1453de60d1fbcfe012f3ce3810ef8a45`
 and executable `f2a87c07c0f57494e32f056bd47fb944e11404b362f153451c501fd7fd658a64`.
 It returns 35 renders and 33 successful swaps, with 219 draw calls and black

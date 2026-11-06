@@ -8,7 +8,9 @@ game's ARM64 libraries. Nothing here is part of the normal Bunker release yet.
 
 The sections below retain historical feasibility experiments and coverage
 measurements. Native Windows FastAES and host integration gates now execute;
-full game startup and rendering remain unverified.
+the first original Notice frame is now verified on Windows. Sustained gameplay
+and final standalone packaging remain unverified. See the
+[current frame evidence](windows/first_frame.md).
 
 ## Survey
 

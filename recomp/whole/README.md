@@ -6,8 +6,9 @@ objects. The original library supplies data and relocated guest pointers;
 `runtime.*` dispatches guest code addresses to linked x86_64 functions.
 Native Windows execution does not emulate ARM64 instructions.
 
-FastAES and synthetic integration gates execute. Full Unity/IL2CPP game startup
-remains unverified. See [../TODO.md](../TODO.md).
+FastAES and synthetic integration gates execute. Original Unity/IL2CPP startup
+has now produced a verified Notice frame on Windows. Sustained gameplay and
+clean shutdown remain unverified. See [../TODO.md](../TODO.md).
 
 ## Dependencies
 
