@@ -41,6 +41,14 @@ under its heading, down to the previous release.
   fetched, so later price fixes reach the Notices screen too. [3ede598]
 
 ### Pod Programs
+- **Gift**: send yourself anything the game can hold, from gems and summon
+  tickets to characters, weapons, memoirs and debris, sorted by what each is
+  for: Currency, Summoning, Character growth, Weapon growth, Collection and
+  Everyday. It arrives in the game's own Gift Box as "From Bunker, with
+  love." and is claimed there like any other gift; the game keeps running.
+  The count stops at what can still be claimed, and debris you already own
+  can't be sent. The Item, Costume and Weapon editors say how many gifts are
+  waiting.
 - Turning the calendar off and "Show original dates" close the game without
   asking; the "Close the game?" dialog is gone. Tap Deploy to start it again.
   [0ae30da]
