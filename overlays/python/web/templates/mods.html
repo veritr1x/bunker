@@ -1,11 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Mods{% endblock %}
 {% block content %}
+<style>
+  .mods-group > summary{cursor:pointer;list-style:none}
+  .mods-group > summary::-webkit-details-marker{display:none}
+  .mods-group > summary::after{content:"−";margin-left:auto;padding-left:12px}
+  .mods-group:not([open]) > summary::after{content:"+"}
+  .mods-group > summary{display:flex;align-items:center}
+  .bonus{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0 12px;border-bottom:1px solid var(--line)}
+  .bonus b{font-size:20px;letter-spacing:.06em}
+  .bonus.paused b{text-decoration:line-through;opacity:.5}
+  .setting .note{display:block;margin-top:4px}
+</style>
 <h1>Mods</h1>
 <p>Changes to how the game plays, for every player on this device. Every mod is off until you turn it on; turning it off again
-  goes back to the original game. Mods never change your save on their own, and they apply without a restart.</p>
+  goes back to the original game. Mods never change your save on their own, and they apply without a restart. Challenges change
+  the game data, so the game goes back to its title screen to load them.</p>
 
-<h2 class="bracket-header">Preset</h2>
+<details class="mods-group" data-group="Preset" open>
+<summary class="bracket-header">Preset</summary>
 <form action="/mods/preset" method="post" class="panel">
   {% for key, (title, what, _) in presets.items() %}
   <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
@@ -13,18 +26,23 @@
   {% if not current %}<p class="credit">Current: your own choice of mods below.</p>{% endif %}
   <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Use preset</button></div>
 </form>
+</details>
 
-<form action="/mods" method="post">
+<form action="/mods" method="post" id="mods-form">
   {% for group, mods in groups %}
-  <h2 class="bracket-header">{{ group }}</h2>
+  <details class="mods-group" data-group="{{ group }}" open>
+  <summary class="bracket-header">{{ group }}</summary>
   <div class="panel">
+    {% if group == "Challenges" %}
+    <div class="bonus{% if bonus_paused %} paused{% endif %}" id="bonus"><span>Challenge bonus on quest rewards<br><span class="note" id="bonus-why">{{ bonus_reason }}</span></span><b id="bonus-x">×{{ bonus }}</b></div>
+    {% endif %}
     {% for key, kind, title, what in mods %}
     {% if kind == "hard" %}
     <div class="setting">
       <label for="{{ key }}">{{ title }}</label>
       <select name="{{ key }}" id="{{ key }}">
         <option value="1"{% if settings[key] == 1 %} selected{% endif %}>Off</option>
-        {% for n, bonus in hard_enemies.items() %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>Enemies ×{{ n }} — rewards ×{{ bonus }}</option>{% endfor %}
+        {% for n, b in hard_enemies.items() %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>Enemies ×{{ n }} — rewards ×{{ b }}</option>{% endfor %}
       </select>
       <span class="note">{{ what }}</span>
     </div>
@@ -40,9 +58,50 @@
     <label class="choice"><input type="checkbox" name="{{ key }}"{% if settings[key] %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
     {% endif %}
     {% endfor %}
+    {% if group == "Challenges" %}
+    <p class="credit" style="margin:10px 0 0">Bonuses multiply, up to ×10. The bonus counts only while the Quests, Items &amp; shops and Summons mods are off; World mods don't matter. After Start a new day, it pauses until the next day. A change here sends the game to its title screen to load it.</p>
+    {% endif %}
   </div>
+  </details>
   {% endfor %}
   <div class="actions"><button type="submit">Save</button></div>
 </form>
 <p class="credit">Most mods come from the <a href="{{ source }}">Lunar Tear Comfort Mod</a> by NavHobbyDev (MIT).</p>
+<script>
+(() => {
+  // Folded groups are remembered on this device only.
+  const KEY = "bunker.mods.folded";
+  let folded = [];
+  try { folded = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) {}
+  document.querySelectorAll(".mods-group").forEach(d => {
+    if (folded.includes(d.dataset.group)) d.open = false;
+    d.addEventListener("toggle", () => {
+      const now = [...document.querySelectorAll(".mods-group")].filter(x => !x.open).map(x => x.dataset.group);
+      try { localStorage.setItem(KEY, JSON.stringify(now)); } catch (e) {}
+    });
+  });
+  // The bonus line follows the form before it is saved.
+  const HARD = {{ hard_enemies|tojson }}, PAUSED_TODAY = {{ (bonus_paused and not ("Paused:" in bonus_reason))|tojson }};
+  const form = document.getElementById("mods-form");
+  const CHALLENGES = ["hardEnemies", "weaknessOnly", "slowSkills"], WORLD = ["storyFriends"];
+  function update() {
+    const f = new FormData(form);
+    let x = HARD[f.get("hardEnemies")] || 1;
+    if (f.get("weaknessOnly")) x *= 2;
+    if (f.get("slowSkills")) x *= 2;
+    x = Math.min(x, 10);
+    let comfort = false;
+    form.querySelectorAll("input[type=checkbox], select").forEach(el => {
+      if (CHALLENGES.includes(el.name) || WORLD.includes(el.name)) return;
+      if (el.type === "checkbox" ? el.checked : Number(el.value) > 1) comfort = true;
+    });
+    document.getElementById("bonus-x").textContent = "×" + x;
+    document.getElementById("bonus").classList.toggle("paused", x > 1 && (comfort || PAUSED_TODAY));
+    document.getElementById("bonus-why").textContent = x === 1 ? "Turn on a challenge to earn it."
+      : comfort ? "Paused: a Quests, Items & shops or Summons mod is on."
+      : PAUSED_TODAY ? "Paused until tomorrow: you started a new day." : "Earned on every quest clear.";
+  }
+  form.addEventListener("change", update);
+})();
+</script>
 {% endblock %}
