@@ -26,8 +26,32 @@ under its heading, down to the previous release.
   once a second instead of every frame; each update rebuilt the label and
   its layout, and open campaigns put a badge on many Subquests rows.
   [a90b04a]
+- A header or campaign badge the game makes where a destroyed one was is
+  set up as new instead of taking the destroyed one's state. [160582d]
+
+### Pod Programs
+- After a change beside the running game, the game goes back to its title
+  screen at once instead of on its next call: its own "Returning to title
+  screen." dialog shows as you return to it. During a battle it waits for the
+  battle to end. Without that, the next call does it, as before. On Android
+  and iPhone/iPad. [9fea028]
+- A change that was refused, sent back with an error or changed nothing
+  (choosing the player already in use) no longer sends the game to its
+  title screen; Lunar Tear still starts again. [ea82989]
+- Two changes in a row no longer close the game: the launcher's own check
+  as Lunar Tear started again was taken for the game's next call and
+  failed. [1c8737f]
+- Android: when the save backup before a change fails and Lunar Tear then
+  cannot start again, the game is closed instead of being left without a
+  server. [ea82989]
 
 ### Server
+- The desktop server's master data reload builds the tables derived from
+  the master data again, as a restart does. [97135ff]
+- Mods: a gift that arrives as something else (a premium ticket as gems) is
+  checked against the limit of what arrives, not the ticket's. [4cd5f74]
+  mods.json is looked at once a second at most instead of for every item
+  granted; a change in Pod Programs is in use within a second. [1cd99ff]
 - Coffin of Repose and Rhythm's Citadel medals can be spent. The events
   dropped medal variants (Coffin of Repose 53 and 54, Rhythm's Citadel 63,
   64 and 65) that their exchanges do not take; drops now arrive as the
