@@ -1,0 +1,67 @@
+.text
+.p2align 4
+.global u17_call
+.type u17_call,%function
+u17_call:
+ sub sp,sp,#176
+ stp x19,x20,[sp,#0]
+ stp x21,x22,[sp,#16]
+ stp x23,x24,[sp,#32]
+ stp x25,x26,[sp,#48]
+ stp x27,x28,[sp,#64]
+ stp x29,x30,[sp,#80]
+ stp d8,d9,[sp,#96]
+ stp d10,d11,[sp,#112]
+ stp d12,d13,[sp,#128]
+ stp d14,d15,[sp,#144]
+ str x5,[sp,#160]
+ mov x16,x0
+ mov x0,x1
+ mov w1,w2
+ mov w2,w3
+ mov x3,x4
+ ldp x19,x20,[x5,#0]
+ ldp x21,x22,[x5,#16]
+ ldp x23,x24,[x5,#32]
+ ldp x25,x26,[x5,#48]
+ ldp x27,x28,[x5,#64]
+ ldr x29,[x5,#80]
+ ldp d8,d9,[x5,#88]
+ ldp d10,d11,[x5,#104]
+ ldp d12,d13,[x5,#120]
+ ldp d14,d15,[x5,#136]
+ blr x16
+.Lu17_return:
+ ldr x16,[sp,#160]
+ stp x19,x20,[x16,#0]
+ stp x21,x22,[x16,#16]
+ stp x23,x24,[x16,#32]
+ stp x25,x26,[x16,#48]
+ stp x27,x28,[x16,#64]
+ str x29,[x16,#80]
+ stp d8,d9,[x16,#88]
+ stp d10,d11,[x16,#104]
+ stp d12,d13,[x16,#120]
+ stp d14,d15,[x16,#136]
+ add x17,x16,#152
+ str q0,[x17]
+ mrs x17,nzcv
+ str x17,[x16,#168]
+ adr x17,.Lu17_return
+ cmp x17,x30
+ cset w17,eq
+ str x17,[x16,#176]
+ ldp x19,x20,[sp,#0]
+ ldp x21,x22,[sp,#16]
+ ldp x23,x24,[sp,#32]
+ ldp x25,x26,[sp,#48]
+ ldp x27,x28,[sp,#64]
+ ldp x29,x30,[sp,#80]
+ ldp d8,d9,[sp,#96]
+ ldp d10,d11,[sp,#112]
+ ldp d12,d13,[sp,#128]
+ ldp d14,d15,[sp,#144]
+ add sp,sp,#176
+ ret
+.size u17_call,.-u17_call
+.section .note.GNU-stack,"",%progbits
