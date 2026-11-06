@@ -116,7 +116,7 @@ class GameCollectorDelivery {
       const uint64_t frame_size=site==1?0x70:0x60,frame_pointer=site==1?0x60:0x50;
       Check(state->gpr.sp.qword<=info.stack_high&&info.stack_high-state->gpr.sp.qword>=frame_size&&state->gpr.x29.qword==state->gpr.sp.qword+frame_pointer,"original managed mutex helper frame differs");
       if(site==1)Check(state->gpr.x21.qword<=UINT64_MAX-4&&state->gpr.x19.qword==mutex&&state->gpr.x21.qword+4==mutex,"original event mutex geometry differs");
-      else{const auto queue=Read<addr_t>(0x879a78c0);Check(queue&&queue<=UINT64_MAX-0x20&&mutex==queue+0x20,"original managed queue mutex identity differs");}
+      else{const auto queue=Read<addr_t>(0x879a78c0);Check(queue&&queue<=UINT64_MAX-0x20&&mutex==Read<addr_t>(queue+0x20),"original managed queue mutex identity differs");}
     }else{
       Check(owner.role==Role::managed_worker,"condition owner has no certified role");
       const auto site=ManagedSite(*state);Check(site!=ManagedWait::unknown,"managed-worker condition caller is unqualified");

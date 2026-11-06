@@ -3,14 +3,14 @@ from pathlib import Path
 import argparse,concurrent.futures,hashlib,json,re,shutil,subprocess,threading,traceback
 HERE=Path(__file__).resolve().parent;REPO=HERE.parent;W=Path('/mnt/c/GitRepos/bunker/recomp/work')
 COMPILE=['windows/game_managed_worker_collector_test.cpp','windows/pthread_host.cpp','windows/signal_host.cpp','windows/signal_delivery.cpp','windows/signal_sleep.cpp','windows/semaphore_host.cpp','windows/worker_signal_lifecycle.cpp','whole/runtime.cpp','whole/signal_frame.cpp','whole/cooperative_poll.cpp']
-OWN=['windows/game_managed_worker_collector_test.cpp','windows/test_game_managed_worker_collector.py']
+OWN=['windows/game_managed_worker_collector_test.cpp','windows/test_game_managed_worker_collector.py','windows/managed_mutex_forwarder_ref.c']
 def sha(p):
  with Path(p).open('rb')as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
 def desc(p):return dict(path=str(p),sha256=sha(p),bytes=Path(p).stat().st_size)
 def save(p,value):Path(p).write_text(json.dumps(value,indent=2)+'\n')
 def wp(p):return subprocess.check_output(['wslpath','-m',str(Path(p).resolve())],text=True).strip()
 def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--out',type=Path,required=True);parser.add_argument('--header-sha',required=True);parser.add_argument('--pthread-header-sha',required=True);parser.add_argument('--pthread-source-sha',required=True);parser.add_argument('--reuse',type=Path);args=parser.parse_args();out=args.out.resolve();out.mkdir(exist_ok=False);source=out/'source';commands=[];lock=threading.Lock();hashes={};reused=[]
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--out',type=Path,required=True);parser.add_argument('--header-sha',required=True);parser.add_argument('--pthread-header-sha',required=True);parser.add_argument('--pthread-source-sha',required=True);parser.add_argument('--header-only',action='store_true');parser.add_argument('--reuse',type=Path);args=parser.parse_args();out=args.out.resolve();out.mkdir(exist_ok=False);source=out/'source';commands=[];lock=threading.Lock();hashes={};reused=[]
  def freeze(path):
   path=path.resolve();name=path.relative_to(REPO).as_posix()
   if name in hashes:return
@@ -41,6 +41,10 @@ def main():
   shutil.copyfile(original,out/'original-protocol.o')
   provenance=W/'firebase-runtime5-worker-provenance1/acceptance.json';assert sha(provenance)=='844c352e0439406b1036cd6062adb37bf2f927cc4b68a7ac1a232e51f42586ff'
   native_provenance=W/'runtime6-managed-wait-boundary1/acceptance.json';assert sha(native_provenance)=='638e4efb4100a60ba1925f0827440cafdb24def8e4c3973d6590eec10847e92d'
+  forwarder=W/'managed-mutex-original-forwarder1/acceptance.json';assert sha(forwarder)=='e5c144071f92a3e9e07949ca87ebcd4c351757b2b93e10b9cedcd8d186c97c14';forwarder_payload=json.loads(forwarder.read_text());forwarder_object=Path(forwarder_payload['object']['path']);assert sha(forwarder_object)==forwarder_payload['object']['sha256']
+  ndk=Path('/home/user/bunker-tools/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang');qemu=Path('/home/user/bunker-recomp/recomp/work/reference-tools/root/usr/bin/qemu-aarch64-static');elf=W/'windows-first-frame-guest-transfer1/native/libil2cpp.so';assert elf.stat().st_size==127359872
+  native_ref=out/'original-mutex-forwarder-ARM';run('compile-original-mutex-forwarder',[ndk,'-static','-O1','-fno-emulated-tls','-Wall','-Wextra','-Werror',source/'windows/managed_mutex_forwarder_ref.c','-o',native_ref]);arm,arm_text=run('actual-original-mutex-forwarder',[qemu,native_ref,elf]);assert 'ORIGINAL-MUTEX-FORWARDER-ARM-PASS bytes=8 field_distinct=1 actual_mutex_calls=1 contended=1 result=0 pointer_bits=64'in arm_text
+  arm.update(executable=desc(native_ref),compiler=desc(ndk),qemu=desc(qemu),original_ELF=dict(path=str(elf),sha256='ff5c66ad2fdaa957fa005f1957988b3277331abefcdedcdb0c82e59ba2e80522',bytes=elf.stat().st_size),original_bytes='000040f91ceced17',original_ELF_identity_reused=True,actual_Bionic_mutex_calls=1,field_address_distinct_from_mutex=True,actual_contention=True)
   cxx=Path('/mnt/c/mingw64/bin/g++.exe');tool=W/'remill-src/include';flags=['-std=c++17','-O2','-DADDRESS_SIZE_BITS=64','-isystem',wp(tool)]
   run('strict-fixture',[cxx,*flags,'-Wall','-Wextra','-Werror','-fmax-errors=6','-fsyntax-only',wp(source/COMPILE[0])])
   objects=[];jobs=[]
@@ -60,7 +64,7 @@ def main():
    futures=[pool.submit(run,label,argv)for label,argv in jobs]
    for future in futures:future.result()
   exe=out/'managed-worker-gc.exe'
-  run('link',[cxx,*map(wp,objects),wp(out/'original-protocol.o'),'-Wl,--wrap=_ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE','-static','-pthread','-latomic','-ladvapi32','-lbcrypt','-o',wp(exe)])
+  run('link',[cxx,*map(wp,objects),wp(out/'original-protocol.o'),wp(forwarder_object),'-Wl,--wrap=_ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE','-static','-pthread','-latomic','-ladvapi32','-lbcrypt','-o',wp(exe)])
   results={}
   for mode,cycles in [('race-timeout',1),('race-reacquire',1),('timed',2),('untimed',1),('native-timed',2),('native-untimed',1),('finalizer',1),('unknown',0),('opaque',0),('nested',0)]:
    result,text=run('original-GC-'+mode,[exe,mode]);match=re.search(r'MANAGED-WORKER-ORIGINAL-GC-PASS mode='+mode+r' cycles=(\d+) posts=(\d+) stops=(\d+) restarts=(\d+) physical=(\d+) checks=(\d+) State=1200 Memory64=8',text);assert match,text[-5000:]
@@ -90,6 +94,10 @@ def main():
   for name,digest in hashes.items():assert sha(source/name)==digest and sha(REPO/name)==digest,name
   receipt=dict(passed=True,production_sources=production,source_snapshot=hashes,owned_sources={n:hashes[n]for n in OWN},reused_support_objects=reused,original_protocol_extraction=desc(extraction),original_protocol_object=desc(out/'original-protocol.o'),original_managed_worker_provenance=desc(provenance),compiler=desc(cxx),binary=desc(exe),results=results,between_waits=between,rejections=rejected,existing_pthreads_regression=regression,cycles=12,actual_posts=24,physical_root_frames=24,ordinary_unknown_waits=1,ordinary_opaque_waits=1,ordinary_nested_waits=1,ordinary_no_pending_waits=3,checks=sum(r['checks']for r in results.values())+sum(r['checks']for r in between.values()),negative_controls=len(rejected),scope='Actual Windows Pthreads creator-owned managed waits with sender/provider-finish race handoff and new post-timeout queue-to-fresh-contended-mutex delivery. Twelve original stop/restart cycles and twenty-four physical GPR/Q frames/posts; all three original mutex sites. Timeout110 and later mutex0 unchanged; only real unlock permits acquisition. Existing finalizer and three ordinary no-pending modes retained.',limits=['Initial GC registry, creator-shaped record/payload, and interrupted helper-shaped State are TEST-owned. Original managed thread trampoline, full original wait helpers, heap scanner/reclamation and game are not executed.','No synthetic wait phase, wake, semaphore acknowledgment or signal completion. Original coordinator and handler code own all epoch/world/post transitions.','Q9 bad-retired-send was a live-worker restriction and is superseded by the positive between-waits ordering. New actual-worker-retired/wrong-role and malformed fresh mutex cases reject without acknowledgment. No arbitrary compiler-poll or asynchronous native callback root admission.'])
   receipt['native_condition_boundary']=desc(native_provenance)
+  receipt['original_queue_pointer_forwarder']=dict(extraction=desc(forwarder),object=desc(forwarder_object),original_ARM=arm,actual_Windows_calls=2,field_address_distinct_from_mutex=True,scope='Exact original8B LDR pointer then tailbranch; original ARM PLT GOT resolves to a transparent observer forwarding actual Bionic mutex call. Windows exact selected polled forwarder reaches real typed Pthreads lock through fixture PLT import, preserving original callerLR. No whole queue caller execution claim.')
+  if args.header_only:
+   receipt['dependency_production_sources']={n:h for n,h in production.items()if n!='windows/game_collector_delivery.h'}
+   receipt['production_sources']={'windows/game_collector_delivery.h':args.header_sha}
   save(out/'acceptance.json',receipt);print(json.dumps(desc(out/'acceptance.json')),flush=True)
  except BaseException as error:save(out/'failure.json',dict(passed=False,error=str(error),traceback=traceback.format_exc(),source_hashes=hashes));raise
 if __name__=='__main__':main()

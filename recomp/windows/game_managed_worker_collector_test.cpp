@@ -35,6 +35,7 @@ ORIGINAL(825aada0) ORIGINAL(825aad50) ORIGINAL(825aae3c)
 ORIGINAL(825b2af4) ORIGINAL(825b2b4c) ORIGINAL(825b2c70)
 ORIGINAL(825b2ca4) ORIGINAL(825b2f00) ORIGINAL(825b2da4)
 ORIGINAL(825b2e84) ORIGINAL(825b3860) ORIGINAL(825beb3c)
+ORIGINAL(82550e3c)
 #undef ORIGINAL
 }
 namespace {
@@ -55,6 +56,7 @@ ORIGINAL(825aada0) ORIGINAL(825aad50) ORIGINAL(825aae3c)
 {0x825b2af4ULL,CountStop}, ORIGINAL(825b2b4c) {0x825b2c70ULL,CountRestart},
 ORIGINAL(825b2ca4) ORIGINAL(825b2f00) ORIGINAL(825b2da4)
 ORIGINAL(825b2e84) ORIGINAL(825b3860) ORIGINAL(825beb3c)
+ORIGINAL(82550e3c)
 #undef ORIGINAL
 };
 
@@ -120,7 +122,7 @@ struct Harness {
   std::promise<void>timeout_completed,enter_mutex;
   alignas(16)std::array<uint8_t,128>queue_object{};
   std::atomic<bool>fresh_mutex_started{false},fresh_mutex_returned{false},mutex_probe_done{false};
-  State fresh_interrupted{};std::atomic<unsigned>fresh_checkpoints{0};
+  State fresh_interrupted{};std::atomic<unsigned>fresh_checkpoints{0},original_forwarder_calls{0};
   std::atomic<bool>sender_certified{false},finish_returned{false},finish_published{false},reacquire_published{false},main_mutex_released{false};
   std::atomic<unsigned>finish_calls{0},finish_environment_checks{0},queue_calls{0};
   std::array<std::atomic<bool>,2>published{};
@@ -132,7 +134,7 @@ struct Harness {
   bool RaceReacquire()const{return mode=="race-reacquire";}
   bool Between()const{return mode.rfind("between-",0)==0||mode.rfind("bad-mutex-",0)==0;}
   bool QueueMutex()const{return mode=="between-queue-a"||mode=="between-queue-b";}
-  addr_t FreshMutex()const{return QueueMutex()?reinterpret_cast<addr_t>(queue_object.data()+0x20):Mutex();}
+  addr_t FreshMutex()const{return QueueMutex()?reinterpret_cast<addr_t>(native_mutex.data()):Mutex();}
   unsigned Cycles()const{return timed&&!ordinary&&!RaceTimeout()&&!Between()?2:1;}
   std::optional<uint64_t>Boundary(const SignalHost::Delivery&d){if(Between()&&d.signal==30){auto*s=recomp::CurrentExecutionState();Check(bool(s),"real fresh receiver State exists");Check(s->gpr.x12.qword==0xfedcba980000000cULL&&reinterpret_cast<uint8_t*>(&s->simd)[0]==0x89,"delivery uses changed post-timeout GPR/Q roots");}return profile->Deliver(d);}
   explicit Harness(std::string selected):mode(std::move(selected)),finalizer(mode=="finalizer"),timed(mode!="finalizer"&&mode!="untimed"&&mode!="native-untimed"&&mode!="race-reacquire"),native_helper(mode.find("native-")!=std::string::npos),ordinary(mode=="unknown"||mode=="opaque"||mode=="nested"){
@@ -148,7 +150,7 @@ struct Harness {
     runtime.AddImport(kErrno,[](State&s){s.gpr.x0.qword=reinterpret_cast<addr_t>(&guest_error);});
     Check(!threads.MutexInit(reinterpret_cast<void*>(Mutex()),nullptr)&&!threads.CondInit(reinterpret_cast<void*>(Condition()),nullptr),"real condition/mutex initialized");
     if(QueueMutex())Check(!threads.MutexInit(reinterpret_cast<void*>(FreshMutex()),nullptr),"fresh original queue mutex initialized");
-    if(QueueMutex())Write<addr_t>(0x879a78c0,reinterpret_cast<addr_t>(queue_object.data()));
+    if(QueueMutex()){Write<addr_t>(0x879a78c0,reinterpret_cast<addr_t>(queue_object.data()));Write<addr_t>(reinterpret_cast<addr_t>(queue_object.data()+0x20),FreshMutex());Check(FreshMutex()!=reinterpret_cast<addr_t>(queue_object.data()+0x20),"original queue pointer field is distinct from native mutex storage");}
     if(finalizer)Write<addr_t>(0x879a7a40,reinterpret_cast<addr_t>(event.data()));
     else Write<addr_t>(0x879a7a40,0x1111111111111111ULL);
     payload={reinterpret_cast<addr_t>(this),finalizer?0x825c3ed0ULL:0x8258aa94ULL,finalizer?0ULL:reinterpret_cast<addr_t>(event.data())};
@@ -216,8 +218,8 @@ struct Harness {
     s.gpr.sp.qword=initial.gpr.sp.qword-(QueueMutex()?0x60:0x70);s.gpr.x29.qword=s.gpr.sp.qword+(QueueMutex()?0x50:0x60);s.gpr.x30.qword=mode=="between-queue-a"?0x825bf1cc:mode=="between-queue-b"?0x825bf018:mode=="bad-mutex-LR"?0x82550460:0x8255045c;s.gpr.pc.qword=0x7ffc60000030ULL;s.gpr.x0.qword=FreshMutex();s.gpr.x19.qword=FreshMutex();s.gpr.x21.qword=reinterpret_cast<addr_t>(event.data());s.fpcr.flat=0x03c00000;s.fpsr.flat=0x0800009f;s.sr.ioc=1;s.sr.dzc=1;s.sr.ofc=1;s.sr.ufc=1;s.sr.ixc=1;s.sr.idc=1;
     if(mode=="bad-mutex-FP")s.gpr.x29.qword+=16;
     if(mode=="bad-mutex-TLS")s.sr.tpidr_el0.qword+=16;
-    auto expected=s;fresh_mutex_started=true;profile->WithWait("pthread_mutex_lock",s,[&]{runtime.Dispatch(s,threads.Marker("pthread_mutex_lock"),m);});fresh_mutex_returned=true;
-    Check(int32_t(s.gpr.x0.dword)==0&&posts==2&&stops==1&&restarts==1,"real contended mutex returns0 only after original stop/restart");expected.gpr.x0.qword=0;expected.gpr.pc.qword=expected.gpr.x30.qword;Check(!std::memcmp(&s,&expected,sizeof(s)),"fresh complete interruptedState restored with genuine lock result");Check(fresh_checkpoints&&fresh_interrupted.gpr.x12.qword==0xfedcba980000000cULL,"fresh mutex checkpoint used changed live registers");Check(!threads.MutexUnlock(reinterpret_cast<void*>(FreshMutex())),"new owner releases actual acquired mutex");finished[0].set_value();s=initial;s.gpr.x0.qword=0x1234;s.gpr.pc.qword=s.gpr.x30.qword;return m;
+    auto expected=s;fresh_mutex_started=true;if(QueueMutex()){s.gpr.x0.qword=reinterpret_cast<addr_t>(queue_object.data()+0x20);runtime.Dispatch(s,0x82550e3c,m);}else profile->WithWait("pthread_mutex_lock",s,[&]{runtime.Dispatch(s,threads.Marker("pthread_mutex_lock"),m);});fresh_mutex_returned=true;
+    Check(int32_t(s.gpr.x0.dword)==0&&posts==2&&stops==1&&restarts==1,"real contended mutex returns0 only after original stop/restart");expected.gpr.x0.qword=0;expected.gpr.pc.qword=expected.gpr.x30.qword;Check(!std::memcmp(&s,&expected,sizeof(s)),"fresh complete interruptedState restored with genuine lock result");Check(fresh_checkpoints&&fresh_interrupted.gpr.x12.qword==0xfedcba980000000cULL,"fresh mutex checkpoint used changed live registers");Check(original_forwarder_calls==(QueueMutex()?1u:0u),"queue path executes original pointer forwarder exactly once");Check(!threads.MutexUnlock(reinterpret_cast<void*>(FreshMutex())),"new owner releases actual acquired mutex");finished[0].set_value();s=initial;s.gpr.x0.qword=0x1234;s.gpr.pc.qword=s.gpr.x30.qword;return m;
   }
   void RunBetween(){
     proceed[0].set_value();entered[0].get_future().get();timeout_completed.get_future().get();Check(!threads.MutexLock(reinterpret_cast<void*>(FreshMutex())),"coordinator retains real fresh mutex across stop/restart");
@@ -266,7 +268,8 @@ struct Harness {
   Memory*PLT(State&s,Memory*m,const char*name){
     addr_t marker=0;if(!std::strcmp(name,"__errno"))marker=kErrno;else if(!std::strncmp(name,"sem_",4))marker=sem.Marker(name);else if(!std::strcmp(name,"pthread_kill")||!std::strcmp(name,"sigsuspend"))marker=signals.Marker(name);else if(!std::strcmp(name,"usleep"))marker=sleeps.Marker(name);else marker=threads.Marker(name);s.gpr.pc.qword=marker;
     auto invoke=[&]{runtime.Dispatch(s,marker,m);};
-    if(!std::strcmp(name,"pthread_kill"))profile->Send(s,[&]{
+    if(!std::strcmp(name,"pthread_mutex_lock")){Check(QueueMutex()&&fresh_mutex_started&&s.gpr.x0.qword==FreshMutex()&&s.gpr.x0.qword!=reinterpret_cast<addr_t>(queue_object.data()+0x20),"actual original LDR forwards stored native mutex pointer");++original_forwarder_calls;s.gpr.pc.qword=0x7ffc60000030ULL;profile->WithWait(name,s,invoke);}
+    else if(!std::strcmp(name,"pthread_kill"))profile->Send(s,[&]{
       if(s.gpr.x1.dword==30&&(RaceTimeout()||RaceReacquire())){sender_certified=true;if(RaceReacquire()){Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"real owning coordinator releases mutex after certification");main_mutex_released=true;}finish_reached.get_future().get();Check(!finish_returned,"provider finish cannot retire sender-certified request before Queue");}
       ++queue_calls;std::fprintf(stderr,"ACTUAL-SIGNAL-QUEUE signal=%u\n",s.gpr.x1.dword);invoke();
       if(Between()&&s.gpr.x1.dword==30){Check(!s.gpr.x0.dword&&SignalHost::NeedsPoll(signals.Lookup(target))&&!fresh_mutex_started,"actual successful stop queue retains eligible delivery before fresh mutex admission");Check(!posts&&!stops,"queued between-waits stop has no early handler/ack");enter_mutex.set_value();}
@@ -320,6 +323,7 @@ void __wrap__ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE(bunker::wi
 PLT(820ca520,"__errno") PLT(820ca660,"pthread_self") PLT(820caa50,"sem_timedwait")
 PLT(820cb330,"sigsuspend") PLT(820cb440,"pthread_kill") PLT(820cbcf0,"sem_wait")
 PLT(820cbdc0,"clock_gettime") PLT(820cbdf0,"sem_getvalue") PLT(820cc110,"sem_post") PLT(820cc140,"usleep")
+PLT(820cbeb0,"pthread_mutex_lock")
 #undef PLT
 Memory*sub_820cbb10(State&,addr_t,Memory*){Unsupported("original abort");}
 Memory*sub_825a66a4(State&,addr_t,Memory*){Unsupported("original diagnostic logging");}

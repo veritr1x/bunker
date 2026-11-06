@@ -3,7 +3,22 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-native-presentation10`, using
+Latest original attempt: `work/windows-first-frame-native-presentation11`, using
+manifest `b67a121f2c07fb349903f50d2de359a091cbb6d654e73cce2c15f9fdc13a378b`
+and executable `66b14ec9dec4d69d686faa4226b7f34e9890d8a8c7a75a49af40ecdfbe743206`.
+This run exposes an incorrect queue-mutex certificate: it compares the inline
+field address, while the original eight-byte forwarding helper loads the mutex
+pointer stored there. The initial fixture mirrored that incorrect geometry.
+The corrected guard loads the stored pointer. Its Q15 gate uses distinct field
+and mutex storage, executes the selected forwarding helper in both Windows
+queue cases, and checks the original ARM/Bionic helper with real contention.
+It passes 1,044 focused checks; the provider sources remain unchanged. The
+corrected integrated build is pending. This attempt returns two renders and
+one successful swap before native3; no accepted game image exists. Original
+parent pre/post and selected-runtime checks pass.
+Evidence: `work/runtime11-queue-mutex-boundary1`.
+
+Preceding attempt: `work/windows-first-frame-native-presentation10`, using
 manifest `c7b02192590b4fe00386e955d1f8957070350800fd7721ad02fcb7b7173e6e89`
 and executable `8509f76a3f94f346bb498cda098c6a1ea191de851f91325a4a015f0ea0ee9de1`.
 The 58 Regex entries are integrated. This run stops at the collector's

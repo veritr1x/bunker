@@ -48,7 +48,7 @@ Three original `pthread_mutex_lock` sites have fresh controlled admission:
 | Return address | Frame | Additional actual argument certificate |
 | --- | --- | --- |
 | `0x8255045c` | `0x70`, FP = SP + `0x60` | Event mutex X0 = X19 = X21 + 4 |
-| `0x825bf1cc` | `0x60`, FP = SP + `0x50` | Queue mutex = original global `[0x879a78c0]` + `0x20` |
+| `0x825bf1cc` | `0x60`, FP = SP + `0x50` | Queue mutex = pointer stored at `[[0x879a78c0] + 0x20]` |
 | `0x825bf018` | `0x60`, FP = SP + `0x50` | Same original queue-mutex identity |
 
 All three require observed import PC `0x7ffc60000030`, the same real entered managed worker/native thread, a single current Runtime State, no opaque continuation, owned normal stack/TLS, disabled alternate stack and the existing signal-mask/physical-root checks. `WaitPhase::MutexLock` has no condition or deadline pointer. Only the actual current provider invocation can publish its State; provider exit withdraws and clears it.
@@ -59,9 +59,23 @@ Managed sender validation holds a shared owner/context and the per-owner claim t
 
 The creator wrapper `0x8258aa94` can invoke arbitrary managed callbacks, so this is not a universal progress guarantee for all running workers. Queue-only deferral to a later condition wait would be insufficient when a stopped thread owns an intervening mutex; the controlled contention checkpoints address the audited three-site family. Unknown blocking operations remain fail-closed. The new focused gate is separate from the historical Q9 evidence below and must qualify changed roots after a completed timeout, a genuinely contended fresh mutex, two original posts and real unlock before successful acquisition. No new game/frame claim follows from this implementation.
 
-## Qualified mutex extension
+## Runtime 11 pointer certificate correction
 
-The current focused Windows gate is `recomp/work/managed-worker-collector-qualification12/acceptance.json`, SHA-256 `041760b89056e309fc2f465360bf3d3649159c148f0cbd2ee43dae16ebe35630`. It binds the held collector/Pthreads source triplet and completes **1,037 focused checks**, twelve original stop/restart cycles, twenty-four original semaphore posts and twenty-four physical GPR/Q root-frame checks, plus the retained ordinary-provider regression's **397 checks**.
+Runtime 11 exposed a certificate error in the queue-site geometry: the queue object contains a mutex pointer at offset `0x20`; the mutex is not embedded there. Original `0x825befec` sets X22 to `0x879a7000`. Calls at `0x825bf014` and `0x825bf1c8` load the queue from `[X22 + 0x8c0]`, pass its `+0x20` slot to `0x82550e3c`, and that forwarder loads X0 from the slot before tail-calling `pthread_mutex_lock`. The corrected certificate compares the actual provider mutex with that loaded pointer. The provider, event-site geometry, sender protocol and root checks are unchanged.
+
+Q12 below is historical evidence for the earlier header: its queue fixture mirrored the incorrect inline geometry and does not qualify this pointer correction. Q15 below qualifies the correction using distinct mutex storage and the original forwarding helper; no new game or frame result is claimed here.
+
+## Qualified pointer correction
+
+The focused Windows gate is `recomp/work/managed-worker-collector-qualification15/acceptance.json`, SHA-256 `6d24a77d3146a68e8e480993350cedfba1fc84b7389fcffa46906890fdbe2d49`. It binds corrected collector header `a15fc6eef9eae3b357248767061f7252f5bb240bcd26796a73544cd12c990066` and the unchanged Pthreads pair. It completes **1,044 focused checks**, twelve original stop/restart cycles, twenty-four genuine posts and physical root frames, fifteen negative controls, and the retained ordinary-provider regression's **397 checks**.
+
+Both queue cases now keep the pointer slot and native mutex at distinct addresses. They execute the exact selected original `0x82550e3c` forwarder, whose load and tail branch reach the real typed Pthreads lock while preserving the original caller LR. A separate static NDK/Bionic reference executes the original eight instruction bytes and original PLT/GOT path under QEMU, with real mutex contention and a real owner unlock. This independently establishes pointer indirection; it does not execute the complete original queue caller. Verified unchanged support objects are reused; no full host build or game is part of this component gate.
+
+The three post-timeout modes retain result 110, acquire fresh physical GPR/Q roots, perform two original handler posts and return mutex result 0 only after real unlock. Actual retired/wrong-role owners and malformed contexts still reject. Initial registry/creator records and interrupted helper-shaped State remain fixture-owned; whole managed callback execution, heap scanning/reclamation, universal asynchronous progress and visible rendering remain outside this qualification.
+
+## Historical Q12 mutex extension
+
+The historical Q12 Windows gate is `recomp/work/managed-worker-collector-qualification12/acceptance.json`, SHA-256 `041760b89056e309fc2f465360bf3d3649159c148f0cbd2ee43dae16ebe35630`. It binds the held collector/Pthreads source triplet and completes **1,037 focused checks**, twelve original stop/restart cycles, twenty-four original semaphore posts and twenty-four physical GPR/Q root-frame checks, plus the retained ordinary-provider regression's **397 checks**.
 
 Each of the three new `between-*` cases completely returns the prior real timed wait with result 110 and leaves that old context. A deterministic barrier then permits the original coordinator's genuine signal Queue before fresh mutex admission. The target changes its interrupted GPR/Q roots and enters a genuinely contended real mutex. Independent TryLock/Destroy checks observe the real busy mutex/control pin outside provider locks. The original stop/restart handlers perform their two posts, and only an actual owner unlock permits the new lock call to return 0. No prior wait result, old State or old root canary supplies this positive evidence.
 
