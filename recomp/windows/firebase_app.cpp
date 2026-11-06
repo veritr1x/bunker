@@ -74,7 +74,26 @@ const std::vector<std::string> kCommands={
   "Firebase_App_CSharp_FirebaseApp_AppSetDefaultConfigPath",
   "Firebase_App_CSharp_FirebaseApp_CreateInternal__SWIG_0",
   "Firebase_App_CSharp_FirebaseApp_NameInternal_get",
-  "Firebase_App_CSharp_FirebaseApp_ReleaseReferenceInternal"
+  "Firebase_App_CSharp_FirebaseApp_ReleaseReferenceInternal",
+  "SWIGRegisterExceptionCallbacks_CrashlyticsInternal",
+  "SWIGRegisterExceptionArgumentCallbacks_CrashlyticsInternal",
+  "SWIGRegisterStringCallback_CrashlyticsInternal",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsInternal_GetInstance__SWIG_0",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsInternal_Log",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsInternal_SetCustomKey",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsInternal_SetUserId",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsInternal_LogException",
+  "Firebase_Crashlytics_CSharp_new_FirebaseCrashlyticsFrame",
+  "Firebase_Crashlytics_CSharp_delete_FirebaseCrashlyticsFrame",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsFrame_library_set",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsFrame_symbol_set",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsFrame_fileName_set",
+  "Firebase_Crashlytics_CSharp_FirebaseCrashlyticsFrame_lineNumber_set",
+  "Firebase_Crashlytics_CSharp_new_StackFrames__SWIG_0",
+  "Firebase_Crashlytics_CSharp_delete_StackFrames",
+  "Firebase_Crashlytics_CSharp_StackFrames_Add",
+  "Firebase_Crashlytics_CSharp_StackFrames_size",
+  "Firebase_Crashlytics_CSharp_StackFrames_getitem"
 };
 }
 struct FirebaseAppService::Impl {
@@ -95,6 +114,13 @@ struct FirebaseAppService::Impl {
   // successful default-create result. No forged pointer reaches the DLL.
   std::vector<std::pair<addr_t,size_t>> apps;
   unsigned config_observations=0,create_observations=0;
+  std::array<addr_t,11> crash_exceptions{};std::array<addr_t,3> crash_arguments{};
+  addr_t crash_string_callback=0;
+  struct CrashInstance {addr_t pointer,parent_app;};
+  struct CrashFrame {addr_t pointer,vector_owner;}; // zero owner: own native new/delete
+  std::vector<CrashInstance> crash_instances;
+  std::vector<CrashFrame> crash_frames;
+  std::vector<addr_t> crash_vectors;
   static std::mutex global_mutex;
   static std::shared_ptr<Impl> global;
   static bool generation_used;
@@ -134,17 +160,17 @@ struct FirebaseAppService::Impl {
     Need(entry&&config.translated_entry(entry),"Firebase callback target is not a live translated entry");
     return config.runner(entry,values);
   }
-  template<size_t Index>static void ExceptionThunk(const char *text)noexcept{
+  template<size_t Index,bool Crash=false>static void ExceptionThunk(const char *text)noexcept{
     std::shared_ptr<Impl> owner;
     try{Callback active;owner=active.owner;CallbackEnvironment environment;PublishedString message(text);
-      addr_t entry;{std::lock_guard lock(owner->mutex);entry=owner->exceptions[Index];}
+      addr_t entry;{std::lock_guard lock(owner->mutex);entry=Crash?owner->crash_exceptions[Index]:owner->exceptions[Index];}
       owner->Run(entry,{message.Address()});
     }catch(...){Report(owner,std::current_exception());}
   }
-  template<size_t Index>static void ArgumentThunk(const char *text,const char *parameter)noexcept{
+  template<size_t Index,bool Crash=false>static void ArgumentThunk(const char *text,const char *parameter)noexcept{
     std::shared_ptr<Impl> owner;
     try{Callback active;owner=active.owner;CallbackEnvironment environment;PublishedString message(text),argument(parameter);
-      addr_t entry;{std::lock_guard lock(owner->mutex);entry=owner->arguments[Index];}
+      addr_t entry;{std::lock_guard lock(owner->mutex);entry=Crash?owner->crash_arguments[Index]:owner->arguments[Index];}
       owner->Run(entry,{message.Address(),argument.Address()});
     }catch(...){Report(owner,std::current_exception());}
   }
@@ -155,6 +181,13 @@ struct FirebaseAppService::Impl {
       // The original reverse-P/Invoke thunk returns its genuine marshaled C
       // allocation. Pass it unchanged; the original P/Invoke caller owns/free's
       // it. Never return a pointer into the temporary input snapshot.
+      return reinterpret_cast<const char*>(owner->Run(entry,{message.Address()}));
+    }catch(...){Report(owner,std::current_exception());return nullptr;}
+  }
+  static const char *CrashStringThunk(const char *text)noexcept{
+    std::shared_ptr<Impl> owner;
+    try{Callback active;owner=active.owner;CallbackEnvironment environment;PublishedString message(text);
+      addr_t entry;{std::lock_guard lock(owner->mutex);entry=owner->crash_string_callback;}
       return reinterpret_cast<const char*>(owner->Run(entry,{message.Address()}));
     }catch(...){Report(owner,std::current_exception());return nullptr;}
   }
@@ -192,6 +225,18 @@ struct FirebaseAppService::Impl {
     Registration registration(*this,{entry},!string);{std::lock_guard lock(mutex);(string?string_callback:log_callback)=entry;}
     if(string)Function<void(*)(StringCallback)>(kCommands[2])(&StringThunk);
     else Function<void(*)(LogCallback)>(kCommands[3])(entry?&LogThunk:nullptr);
+  }
+  void RegisterCrash(const std::array<addr_t,11>&entries){
+    Registration registration(*this,{entries.begin(),entries.end()});{std::lock_guard lock(mutex);crash_exceptions=entries;}
+    Function<RegisterExceptions>(kCommands[22])(&ExceptionThunk<0,true>,&ExceptionThunk<1,true>,&ExceptionThunk<2,true>,&ExceptionThunk<3,true>,&ExceptionThunk<4,true>,&ExceptionThunk<5,true>,&ExceptionThunk<6,true>,&ExceptionThunk<7,true>,&ExceptionThunk<8,true>,&ExceptionThunk<9,true>,&ExceptionThunk<10,true>);
+  }
+  void RegisterCrash(const std::array<addr_t,3>&entries){
+    Registration registration(*this,{entries.begin(),entries.end()});{std::lock_guard lock(mutex);crash_arguments=entries;}
+    Function<RegisterArguments>(kCommands[23])(&ArgumentThunk<0,true>,&ArgumentThunk<1,true>,&ArgumentThunk<2,true>);
+  }
+  void RegisterCrash(addr_t entry){
+    Registration registration(*this,{entry});{std::lock_guard lock(mutex);crash_string_callback=entry;}
+    Function<void(*)(StringCallback)>(kCommands[24])(&CrashStringThunk);
   }
   void AppCall() {
     std::lock_guard lock(mutex);
@@ -239,15 +284,81 @@ struct FirebaseAppService::Impl {
     // A deferred callback error does not undo a completed native release.
     std::lock_guard lock(mutex);
     auto found=std::find_if(apps.begin(),apps.end(),[&](const auto &entry){return entry.first==address;});
-    if(!--found->second)apps.erase(found);
+    if(!--found->second){
+      apps.erase(found);
+      crash_instances.erase(std::remove_if(crash_instances.begin(),crash_instances.end(),[&](const auto &entry){return entry.parent_app==address;}),crash_instances.end());
+    }
+  }
+  void CrashCall(){
+    AppCall();std::lock_guard lock(mutex);
+    Need(crash_string_callback&&std::all_of(crash_exceptions.begin(),crash_exceptions.end(),[](addr_t entry){return entry!=0;})&&
+        std::all_of(crash_arguments.begin(),crash_arguments.end(),[](addr_t entry){return entry!=0;}),
+        "Crashlytics call requires its own original registered SWIG callback cohort");
+  }
+  addr_t CrashInstanceFor(addr_t app,addr_t status_address){
+    RequireApp(app,false);CrashCall();
+    Need(status_address&&!(status_address&3)&&status_address<=UINT64_MAX-sizeof(int32_t),"Crashlytics init result requires a nonnull aligned guest int32");
+    int32_t status=0;recomp::ReadGuestMemory(&status,status_address,sizeof(status));
+    {std::lock_guard lock(mutex);crash_instances.reserve(crash_instances.size()+1);}
+    const auto result=reinterpret_cast<addr_t>(Function<void*(*)(void*,int32_t*)>(kCommands[25])(reinterpret_cast<void*>(app),&status));
+    recomp::WriteGuestMemory(status_address,&status,sizeof(status));
+    if(result){std::lock_guard lock(mutex);auto found=std::find_if(crash_instances.begin(),crash_instances.end(),[&](const auto &entry){return entry.pointer==result;});
+      Need(found==crash_instances.end()||found->parent_app==app,"Crashlytics instance aliases another live App");
+      if(found==crash_instances.end())crash_instances.push_back({result,app});}
+    return result;
+  }
+  void RequireCrash(addr_t instance){
+    CrashCall();std::lock_guard lock(mutex);
+    auto found=std::find_if(crash_instances.begin(),crash_instances.end(),[&](const auto &entry){return entry.pointer==instance;});
+    Need(instance&&found!=crash_instances.end()&&std::any_of(apps.begin(),apps.end(),[&](const auto &entry){return entry.first==found->parent_app&&entry.second;}),"Crashlytics instance has no live owned parent App reference");
+  }
+  void RequireVector(addr_t pointer){
+    CrashCall();std::lock_guard lock(mutex);
+    Need(pointer&&std::find(crash_vectors.begin(),crash_vectors.end(),pointer)!=crash_vectors.end(),"Crashlytics vector is not a live owned native object");
+  }
+  CrashFrame RequireFrame(addr_t pointer){
+    CrashCall();std::lock_guard lock(mutex);auto found=std::find_if(crash_frames.begin(),crash_frames.end(),[&](const auto &entry){return entry.pointer==pointer;});
+    Need(pointer&&found!=crash_frames.end(),"Crashlytics frame is not a live owned object or current borrowed view");return *found;
+  }
+  addr_t NewCrashObject(bool vector){
+    CrashCall();{std::lock_guard lock(mutex);if(vector)crash_vectors.reserve(crash_vectors.size()+1);else crash_frames.reserve(crash_frames.size()+1);}
+    const auto result=reinterpret_cast<addr_t>(Function<void*(*)()>(kCommands[vector?36:30])());
+    if(result){std::lock_guard lock(mutex);if(vector)crash_vectors.push_back(result);else crash_frames.push_back({result,0});}return result;
+  }
+  void ForgetViews(addr_t vector){
+    crash_frames.erase(std::remove_if(crash_frames.begin(),crash_frames.end(),[&](const auto &entry){return entry.vector_owner==vector;}),crash_frames.end());
+  }
+  void DeleteCrashObject(addr_t pointer,bool vector){
+    if(vector)RequireVector(pointer);else Need(!RequireFrame(pointer).vector_owner,"borrowed Crashlytics frame must not be deleted");
+    Function<void(*)(void*)>(kCommands[vector?37:31])(reinterpret_cast<void*>(pointer));
+    std::lock_guard lock(mutex);
+    if(vector){ForgetViews(pointer);crash_vectors.erase(std::find(crash_vectors.begin(),crash_vectors.end(),pointer));}
+    else crash_frames.erase(std::find_if(crash_frames.begin(),crash_frames.end(),[&](const auto &entry){return entry.pointer==pointer;}));
+  }
+  void AddFrame(addr_t vector,addr_t frame){
+    RequireVector(vector);RequireFrame(frame);
+    // Native vector mutation may relocate all borrowed item addresses, even
+    // when the SDK reports an exception. Revoke those views conservatively.
+    {std::lock_guard lock(mutex);ForgetViews(vector);}
+    Function<void(*)(void*,void*)>(kCommands[38])(reinterpret_cast<void*>(vector),reinterpret_cast<void*>(frame));
+  }
+  addr_t ItemFrame(addr_t vector,int32_t index){
+    RequireVector(vector);{std::lock_guard lock(mutex);crash_frames.reserve(crash_frames.size()+1);}
+    const auto result=reinterpret_cast<addr_t>(Function<void*(*)(void*,int32_t)>(kCommands[40])(reinterpret_cast<void*>(vector),index));
+    if(result){std::lock_guard lock(mutex);auto found=std::find_if(crash_frames.begin(),crash_frames.end(),[&](const auto &entry){return entry.pointer==result;});
+      Need(found==crash_frames.end()||found->vector_owner==vector,"Crashlytics borrowed frame aliases another object");
+      if(found==crash_frames.end())crash_frames.push_back({result,vector});}return result;
   }
   void Revoke(){
-    {std::lock_guard lock(mutex);if(revoked)return;Need(imports==0&&callbacks==0&&!registering,"Firebase revoke requires actual SDK import/callback quiescence");Need(apps.empty(),"Firebase revoke requires all native App references released");revoked=true;}
+    {std::lock_guard lock(mutex);if(revoked)return;Need(imports==0&&callbacks==0&&!registering,"Firebase revoke requires actual SDK import/callback quiescence");Need(apps.empty(),"Firebase revoke requires all native App references released");Need(crash_vectors.empty()&&crash_frames.empty(),"Firebase revoke requires all native Crashlytics frame/vector objects released");revoked=true;}
     NativeCall native;
     Function<void(*)(LogCallback)>(kCommands[3])(nullptr);
     Function<void(*)(StringCallback)>(kCommands[2])(nullptr);
     Function<RegisterArguments>(kCommands[1])(nullptr,nullptr,nullptr);
     Function<RegisterExceptions>(kCommands[0])(nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr);
+    Function<void(*)(StringCallback)>(kCommands[24])(nullptr);
+    Function<RegisterArguments>(kCommands[23])(nullptr,nullptr,nullptr);
+    Function<RegisterExceptions>(kCommands[22])(nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr);
     {std::lock_guard lock(global_mutex);if(global.get()==this)global.reset();}
   }
 };
@@ -315,6 +426,19 @@ void FirebaseAppService::Invoke(const std::string&name,State&state){
     else if(name==kCommands[19])recomp::MakeBridge<A()>([&]{return owner->CreateApp();})(state);
     else if(name==kCommands[20])recomp::MakeBridge<A(A)>([&](A address){return owner->AppName(address);})(state);
     else if(name==kCommands[21])recomp::MakeBridge<void(A)>([&](A address){owner->ReleaseApp(address);})(state);
+    else if(name==kCommands[22])recomp::MakeBridge<void(A,A,A,A,A,A,A,A,A,A,A)>([&](A a,A b,A c,A d,A e,A f,A g,A h,A i,A j,A k){owner->RegisterCrash(std::array<A,11>{a,b,c,d,e,f,g,h,i,j,k});})(state);
+    else if(name==kCommands[23])recomp::MakeBridge<void(A,A,A)>([&](A a,A b,A c){owner->RegisterCrash(std::array<A,3>{a,b,c});})(state);
+    else if(name==kCommands[24])recomp::MakeBridge<void(A)>([&](A entry){owner->RegisterCrash(entry);})(state);
+    else if(name==kCommands[25])recomp::MakeBridge<A(A,A)>([&](A app,A status){return owner->CrashInstanceFor(app,status);})(state);
+    else if(name==kCommands[26]||name==kCommands[28])recomp::MakeBridge<void(A,A)>([&](A instance,A text){owner->RequireCrash(instance);auto copy=recomp::ReadGuestString(text);owner->Function<void(*)(void*,const char*)>(name)(reinterpret_cast<void*>(instance),copy.c_str());})(state);
+    else if(name==kCommands[27])recomp::MakeBridge<void(A,A,A)>([&](A instance,A key,A value){owner->RequireCrash(instance);auto first=recomp::ReadGuestString(key),second=recomp::ReadGuestString(value);owner->Function<void(*)(void*,const char*,const char*)>(name)(reinterpret_cast<void*>(instance),first.c_str(),second.c_str());})(state);
+    else if(name==kCommands[29])recomp::MakeBridge<void(A,A,A,A)>([&](A instance,A type,A message,A frames){owner->RequireCrash(instance);owner->RequireVector(frames);auto first=recomp::ReadGuestString(type),second=recomp::ReadGuestString(message);owner->Function<void(*)(void*,const char*,const char*,void*)>(name)(reinterpret_cast<void*>(instance),first.c_str(),second.c_str(),reinterpret_cast<void*>(frames));})(state);
+    else if(name==kCommands[30]||name==kCommands[36])recomp::MakeBridge<A()>([&]{return owner->NewCrashObject(name==kCommands[36]);})(state);
+    else if(name==kCommands[31]||name==kCommands[37])recomp::MakeBridge<void(A)>([&](A pointer){owner->DeleteCrashObject(pointer,name==kCommands[37]);})(state);
+    else if(name==kCommands[32]||name==kCommands[33]||name==kCommands[34]||name==kCommands[35])recomp::MakeBridge<void(A,A)>([&](A frame,A text){owner->RequireFrame(frame);auto copy=recomp::ReadGuestString(text);owner->Function<void(*)(void*,const char*)>(name)(reinterpret_cast<void*>(frame),copy.c_str());})(state);
+    else if(name==kCommands[38])recomp::MakeBridge<void(A,A)>([&](A vector,A frame){owner->AddFrame(vector,frame);})(state);
+    else if(name==kCommands[39])recomp::MakeBridge<uint32_t(A)>([&](A vector){owner->RequireVector(vector);return owner->Function<uint32_t(*)(void*)>(name)(reinterpret_cast<void*>(vector));})(state);
+    else if(name==kCommands[40])recomp::MakeBridge<A(A,int32_t)>([&](A vector,int32_t index){return owner->ItemFrame(vector,index);})(state);
     else throw std::logic_error("unbound typed Firebase SDK export");
   }
   owner->Healthy();
