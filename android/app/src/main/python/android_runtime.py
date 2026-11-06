@@ -280,7 +280,21 @@ CLOSE_MESSAGE = "This change closes the game first. Confirm to close it and cont
 game_live = lambda: False
 close_game = lambda: ""
 pause_game = lambda: ""
-resume_game = lambda: ""
+resume_game = lambda title=True: ""
+
+
+def changed_game(response):
+    """Whether a change's response may have changed what the game loads.
+    A refusal (4xx or 5xx), a redirect back with an error, or a handler's
+    X-Bunker-Unchanged leaves the save as it was: the server starts again,
+    but the game is not sent back to its title screen."""
+    if response.headers.get("x-bunker-unchanged"):
+        return False
+    if response.status_code >= 400:
+        return False
+    if 300 <= response.status_code < 400 and "error=" in response.headers.get("location", ""):
+        return False
+    return True
 
 
 def next_step():
@@ -290,7 +304,7 @@ def next_step():
     return "Close Pod Programs and tap Deploy."
 
 
-def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lambda: resume_game()):
+def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lambda title=True: resume_game(title)):
     from fastapi.responses import JSONResponse
     from starlette.concurrency import run_in_threadpool
 
@@ -317,10 +331,13 @@ def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lamb
         error = await run_in_threadpool(pause)
         if error:
             return JSONResponse({"ok": False, "error": error}, status_code=500)
+        title = True  # a handler that fails part-way: the game loads the save again
         try:
-            return await call_next(request)
+            response = await call_next(request)
+            title = changed_game(response)
+            return response
         finally:
-            error = await run_in_threadpool(resume)
+            error = await run_in_threadpool(resume, title)
             if error:
                 log.warning("The server did not start again beside the game: %s", error)
 
@@ -375,7 +392,7 @@ def start(data_root, asset_root, tools_root, reporter):
     game_live = lambda: bool(service.gameLive())
     close_game = lambda: str(service.closeGameForTools())
     pause_game = lambda: str(service.pauseForTools())
-    resume_game = lambda: str(service.resumeForTools())
+    resume_game = lambda title=True: str(service.resumeForTools(bool(title)))
     TEXTURE = lambda bundle, target, size: native.texture(bundle, target, size)
     configure(data_root, asset_root, tools_root, native.edit, reporter.report)
     prepare_data()

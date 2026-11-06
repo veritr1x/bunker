@@ -110,7 +110,9 @@ def use(user_id: int):
     except Exception as exc:
         return _back(user_id, error=str(exc))
     if not changed:
-        return _back(user_id, message="The game already uses this player.")
+        response = _back(user_id, message="The game already uses this player.")
+        response.headers["X-Bunker-Unchanged"] = "1"
+        return response
     return _back(user_id, message="The game will play as this player. " + runtime.next_step())
 
 

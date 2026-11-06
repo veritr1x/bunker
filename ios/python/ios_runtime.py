@@ -151,10 +151,11 @@ def start(data_root, asset_root, tools_root, original_master):
     _process.LunarToolsCloseGame.restype = ctypes.c_void_p
     _process.LunarToolsPauseGame.restype = ctypes.c_void_p
     _process.LunarToolsResumeGame.restype = ctypes.c_void_p
+    _process.LunarToolsResumeGame.argtypes = [ctypes.c_int]
     android_runtime.game_live = lambda: bool(_process.LunarToolsGameLive())
     android_runtime.close_game = _close_game
     android_runtime.pause_game = lambda: _launcher(_process.LunarToolsPauseGame)
-    android_runtime.resume_game = lambda: _launcher(_process.LunarToolsResumeGame)
+    android_runtime.resume_game = lambda title=True: _launcher(_process.LunarToolsResumeGame, 1 if title else 0)
     import uvicorn
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
@@ -180,9 +181,9 @@ def _close_game():
     return _launcher(_process.LunarToolsCloseGame)
 
 
-def _launcher(function):
+def _launcher(function, *arguments):
     """Calls a launcher export that returns "" or an error as a C string the caller frees."""
-    pointer = function()
+    pointer = function(*arguments)
     try:
         return ctypes.string_at(pointer).decode()
     finally:
