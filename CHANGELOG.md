@@ -49,6 +49,11 @@ under its heading, down to the previous release.
   The count stops at what can still be claimed, and debris you already own
   can't be sent. The Item, Costume and Weapon editors say how many gifts are
   waiting.
+  Game data without the gift text (made before this version, imported or
+  restored) gets it with the first gift, which sends the game to its title
+  screen once; there is nothing to apply first. Gift is also on the
+  Programs page. Choosing the Original calendar under Content now hides the
+  presets, which are off while it runs.
 - Turning the calendar off and "Show original dates" close the game without
   asking; the "Close the game?" dialog is gone. Tap Deploy to start it again.
   [0ae30da]
