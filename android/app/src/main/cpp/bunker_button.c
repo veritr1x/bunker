@@ -244,16 +244,23 @@ static void start_hook(void *self, Method *method) {
 }
 
 // Per row: the copy's button, and the row's own gap (to narrow from).
-typedef struct { void *self, *button, *copy, *row, *layout, *scope, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } Row;
+typedef struct { void *self, *notice, *button, *copy, *row, *layout, *scope, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } Row;
 // The game has two headers, in-game and out-game, and Unity updates both every
 // frame. Each keeps its own Row: with one shared Row, every frame looked the
 // row up again and searched the whole interface for the counters, which held a
 // 120 fps iPad near 80 on busy screens such as Quests and Summons.
 static Row rows[2];
+// A header is known by its address and its Notices button: a new header made
+// where a destroyed one was has a new button, so it is set up again instead of
+// using the destroyed one's objects.
 static Row *row_for(void *self) {
     static size_t last;
+    void *notice = FIELD(self, f_notice, void *);
     for (size_t i = 0; i < 2; i++)
-        if (rows[i].self == self) return &rows[last = i];
+        if (rows[i].self == self) {
+            if (rows[i].notice != notice) rows[i].self = NULL;  // set up again below
+            return &rows[last = i];
+        }
     for (size_t i = 0; i < 2; i++)
         if (!rows[i].self) return &rows[last = i];
     return &rows[last = !last];  // a header that went away: reuse the other slot
@@ -285,6 +292,7 @@ static void update_hook(void *self, Method *method) {
         void *copy = row ? child_named(row, "bunker_button") : NULL;
         if (!copy) return;  // Start has not added it (yet)
         seen->self = self;
+        seen->notice = notice;
         seen->row = row;
         seen->copy = call(m_component_go, copy, NULL);
         seen->button = call(m_get_component, seen->copy, (void *[]){type_of(k_button)});

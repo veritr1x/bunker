@@ -21,17 +21,19 @@
 #include <time.h>
 #include <unistd.h>
 
-int badge_pace_due(BadgePace *pace, void *self, int64_t second) {
+int badge_pace_due(BadgePace *pace, void *self, void *label, int64_t second) {
     size_t slot = ((uintptr_t)self >> 4) % BADGE_PACE_SLOTS;
     for (size_t probe = 0; probe < 8; probe++) {
         size_t i = (slot + probe) % BADGE_PACE_SLOTS;
         if (pace->self[i] == self) {
-            if (pace->second[i] == second) return 0;
+            if (pace->label[i] == label && pace->second[i] == second) return 0;
+            pace->label[i] = label;
             pace->second[i] = second;
             return 1;
         }
         if (!pace->self[i] || pace->second[i] < second - 2) {  // free, or a badge not seen for a while
             pace->self[i] = self;
+            pace->label[i] = label;
             pace->second[i] = second;
             return 1;
         }
@@ -47,6 +49,8 @@ static struct {
     void *(*assembly_get_image)(void *assembly);
     void *(*class_from_name)(void *image, const char *ns, const char *name);
     Method *(*class_get_method_from_name)(void *klass, const char *name, int args);
+    void *(*class_get_field_from_name)(void *klass, const char *name);
+    size_t (*field_get_offset)(void *field);
     void *(*thread_attach)(void *domain);
     void *(*get_corlib)(void);
 } il2cpp;
@@ -55,13 +59,15 @@ static void (*report)(const char *message);
 static Method *update;
 static void (*update_original)(void *self, Method *method);
 static BadgePace pace;  // Unity's main thread only
+static size_t label_offset;  // CampaignSingleBadge._remainingTimeLabel
 
 static void say(const char *message) { if (report) report(message); }
 
 static void update_hook(void *self, Method *method) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    if (badge_pace_due(&pace, self, (int64_t)now.tv_sec)) update_original(self, method);
+    void *label = *(void **)((uint8_t *)self + label_offset);
+    if (badge_pace_due(&pace, self, label, (int64_t)now.tv_sec)) update_original(self, method);
 }
 
 static void *find_class(const char *ns, const char *name) {
@@ -94,7 +100,9 @@ static void *install(void *unused) {
     il2cpp.thread_attach(il2cpp.domain_get());
     void *badge = find_class("Dark.View.UserInterface.Outgame", "CampaignSingleBadge");
     update = badge ? il2cpp.class_get_method_from_name(badge, "Update", 0) : NULL;
-    if (!update || !update->pointer) { say("Badge pacing: unsupported game; badges update every frame"); return NULL; }
+    void *label = badge ? il2cpp.class_get_field_from_name(badge, "_remainingTimeLabel") : NULL;
+    if (label) label_offset = il2cpp.field_get_offset(label);
+    if (!update || !update->pointer || !label) { say("Badge pacing: unsupported game; badges update every frame"); return NULL; }
     update_original = (void (*)(void *, Method *))update->pointer;
     update->pointer = (void *)update_hook;
     say("Badge pacing: ready");
@@ -105,7 +113,7 @@ int badge_pace_init(void *(*resolve)(const char *name), void (*log)(const char *
     report = log;
 #define LOAD(name) if (!(*(void **)&il2cpp.name = resolve("il2cpp_" #name))) return -1;
     LOAD(domain_get) LOAD(domain_get_assemblies) LOAD(assembly_get_image) LOAD(class_from_name) LOAD(class_get_method_from_name)
-    LOAD(thread_attach) LOAD(get_corlib)
+    LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(thread_attach) LOAD(get_corlib)
 #undef LOAD
     pthread_t thread;
     if (pthread_create(&thread, NULL, install, NULL)) return -1;
