@@ -40,7 +40,7 @@ ORIGINAL(825b2e84) ORIGINAL(825b3860) ORIGINAL(825beb3c)
 namespace {
 using namespace bunker::windows;
 std::atomic<unsigned> checks{0};
-void Check(bool value,const char*why){++checks;if(!value)throw std::runtime_error(why);}
+void Check(bool value,const char*why){++checks;if(!value){std::fprintf(stderr,"FOCUSED-ASSERTION: %s\n",why);throw std::runtime_error(why);}}
 void Require(bool value,const char*why){if(!value)throw std::runtime_error(why);}
 template<class F>void Reject(F&&f,const char*why){bool rejected=false;try{f();}catch(const std::exception&){rejected=true;}Check(rejected,why);}
 template<class T>T Read(addr_t p){T v{};recomp::ReadGuestMemory(&v,p,sizeof(v));return v;}
@@ -116,14 +116,20 @@ struct Harness {
   alignas(16)std::array<uint64_t,3>payload{};
   uint64_t parent=0,target=0;std::atomic<unsigned>cycle{0},posts{0},stops{0},restarts{0},checkpoints{0},physical{0},environment_checks{0};
   std::array<std::promise<void>,2>entered,finished,proceed,suspended;
+  std::promise<void>finish_reached,reacquire_ready,retired_ready,retired_release;
+  std::atomic<bool>sender_certified{false},finish_returned{false},finish_published{false},reacquire_published{false},retired_published{false},main_mutex_released{false};
+  std::atomic<unsigned>finish_calls{0},finish_environment_checks{0},queue_calls{0};
   std::array<std::atomic<bool>,2>published{};
   State interrupted{};AndroidTimespec request{};
   std::atomic<bool>notification_reacquire{false};
   addr_t Condition()const{return reinterpret_cast<addr_t>(native_helper?native_condition.data():event.data()+0x2c);}
   addr_t Mutex()const{return reinterpret_cast<addr_t>(native_helper?native_mutex.data():event.data()+4);}
-  unsigned Cycles()const{return timed&&!ordinary?2:1;}
+  bool RaceTimeout()const{return mode=="race-timeout";}
+  bool RaceReacquire()const{return mode=="race-reacquire";}
+  bool RetireFirst()const{return mode=="bad-retired-send";}
+  unsigned Cycles()const{return timed&&!ordinary&&!RaceTimeout()&&!RetireFirst()?2:1;}
   std::optional<uint64_t>Boundary(const SignalHost::Delivery&d){return profile->Deliver(d);}
-  explicit Harness(std::string selected):mode(std::move(selected)),finalizer(mode=="finalizer"),timed(mode!="finalizer"&&mode!="untimed"&&mode!="native-untimed"),native_helper(mode.find("native-")!=std::string::npos),ordinary(mode=="unknown"||mode=="opaque"||mode=="nested"){
+  explicit Harness(std::string selected):mode(std::move(selected)),finalizer(mode=="finalizer"),timed(mode!="finalizer"&&mode!="untimed"&&mode!="native-untimed"&&mode!="race-reacquire"),native_helper(mode.find("native-")!=std::string::npos),ordinary(mode=="unknown"||mode=="opaque"||mode=="nested"){
     host=this;
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87980000ULL),0x40000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87980000ULL),"TEST initial registry range");
     Check(VirtualAlloc(reinterpret_cast<void*>(0x87cb0000ULL),0x10000,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE)==reinterpret_cast<void*>(0x87cb0000ULL),"TEST initial acknowledgment range");
@@ -156,7 +162,7 @@ struct Harness {
     ++checkpoints;
     Check(context.active_state==recomp::CurrentExecutionState()&&threads.Self()==target,"observer runs on actual provider State/owner");
     Check(context.condition==reinterpret_cast<void*>(Condition())&&context.mutex==reinterpret_cast<void*>(Mutex()),"actual provider object pair retained");
-    if(context.phase==Pthreads::WaitPhase::MutexReacquire)notification_reacquire=true;
+    if(context.phase==Pthreads::WaitPhase::MutexReacquire){notification_reacquire=true;if(RaceReacquire()&&!reacquire_published.exchange(true))reacquire_ready.set_value();}
     if(context.phase==Pthreads::WaitPhase::ConditionReleased&&!published[n-1].exchange(true)){
       interrupted=*context.active_state;
       Check(timed?context.original_deadline==reinterpret_cast<AndroidTimespec*>(interrupted.gpr.sp.qword):!context.original_deadline,"actual timed/untimed provider shape");
@@ -169,6 +175,23 @@ struct Harness {
     original(context);
     Check(errno==EDOM&&GetLastError()==0x82550574&&std::fegetround()==FE_DOWNWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags,"actual collector checkpoint preserves native errno/last-error/FENV");++environment_checks;
     Observed(context);
+  }
+  void Finish(const std::function<void(const Pthreads::WaitContext&)>&original,const Pthreads::WaitContext&context){
+    GameWorkerObservation::NativeEnvironment restore;
+    Check(context.token==target&&context.active_state==recomp::CurrentExecutionState()&&threads.Self()==target,"real finish executes on pinned current waiter State");
+    Check(context.condition==reinterpret_cast<void*>(Condition())&&context.mutex==reinterpret_cast<void*>(Mutex()),"real finish retains actual condition/mutex identities");
+    const bool raced=(RaceTimeout()&&context.phase==Pthreads::WaitPhase::ConditionReleased)||(RaceReacquire()&&context.phase==Pthreads::WaitPhase::MutexReacquire&&sender_certified);
+    if(raced&&!finish_published.exchange(true)){
+      Check(sender_certified,"sender was actually certified before provider finish");
+      if(RaceTimeout()){AndroidTimespec now{};Check(!Pthreads::ClockGetTime(0,&now)&&(now.seconds>request.seconds||(now.seconds==request.seconds&&now.nanoseconds>=request.nanoseconds)),"actual absolute deadline expired before Queue");}
+      finish_reached.set_value();
+    }
+    std::fesetround(FE_DOWNWARD);std::feclearexcept(FE_ALL_EXCEPT);std::feraiseexcept(FE_INVALID|FE_DIVBYZERO);const int flags=std::fetestexcept(FE_ALL_EXCEPT);errno=EDOM;SetLastError(0x82550164);
+    if(original)original(context);
+    Check(errno==EDOM&&GetLastError()==0x82550164&&std::fegetround()==FE_DOWNWARD&&std::fetestexcept(FE_ALL_EXCEPT)==flags,"actual collector finish preserves native errno/last-error/FENV");++finish_environment_checks;
+    ++finish_calls;
+    if(raced)finish_returned=true;
+    if(RetireFirst()&&context.phase==Pthreads::WaitPhase::ConditionReleased&&!retired_published.exchange(true)){retired_ready.set_value();retired_release.get_future().get();}
   }
   Memory*Body(State&s,Memory*m){
     const auto initial=s;AndroidThreadAttr attr{};
@@ -210,7 +233,10 @@ struct Harness {
   Memory*PLT(State&s,Memory*m,const char*name){
     addr_t marker=0;if(!std::strcmp(name,"__errno"))marker=kErrno;else if(!std::strncmp(name,"sem_",4))marker=sem.Marker(name);else if(!std::strcmp(name,"pthread_kill")||!std::strcmp(name,"sigsuspend"))marker=signals.Marker(name);else if(!std::strcmp(name,"usleep"))marker=sleeps.Marker(name);else marker=threads.Marker(name);s.gpr.pc.qword=marker;
     auto invoke=[&]{runtime.Dispatch(s,marker,m);};
-    if(!std::strcmp(name,"pthread_kill"))profile->Send(s,invoke);
+    if(!std::strcmp(name,"pthread_kill"))profile->Send(s,[&]{
+      if(s.gpr.x1.dword==30&&(RaceTimeout()||RaceReacquire())){sender_certified=true;if(RaceReacquire()){Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"real owning coordinator releases mutex after certification");main_mutex_released=true;}finish_reached.get_future().get();Check(!finish_returned,"provider finish cannot retire sender-certified request before Queue");}
+      ++queue_calls;std::fprintf(stderr,"ACTUAL-SIGNAL-QUEUE signal=%u\n",s.gpr.x1.dword);invoke();
+    });
     else if(!std::strcmp(name,"sigsuspend")){const auto n=cycle.load();if(n&&!suspended_done[n-1].exchange(true))suspended[n-1].set_value();profile->WithWait(name,s,invoke);}
     else if(!std::strcmp(name,"sem_post")){profile->BeforePost(s);++physical;invoke();profile->AfterPost(s);++posts;}
     else invoke();
@@ -224,20 +250,25 @@ struct Harness {
       Check(!threads.MutexLock(reinterpret_cast<void*>(Mutex())),"provider actually released guest mutex");
       if(ordinary){uint64_t pending=1;Check(!signals.Pending(target,&pending)&&!pending&&!SignalHost::NeedsPoll(signals.Lookup(target)),"unknown helper has no pending collector signal");Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"ordinary unknown helper uses real condition notification");std::this_thread::sleep_for(std::chrono::milliseconds(15));Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"ordinary notifier releases real mutex");finished[n].get_future().get();continue;}
       if(mode.rfind("bad-",0)==0){std::fprintf(stderr,"EXPECT-PRODUCTION-REJECTION %s\n",mode.c_str());std::fflush(stderr);}
+      if(RaceReacquire()){Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"actual notifier releases condition into contended reacquisition");reacquire_ready.get_future().get();}
+      if(RetireFirst())retired_ready.get_future().get();
       threads.Run(0x825aad50);Check(Read<uint64_t>(kEpoch)==uint64_t((n+1)*2)&&Read<uint64_t>(kStopped)==1,"original coordinator stopped world");suspended[n].get_future().get();
-      if(timed&&!n)std::this_thread::sleep_for(std::chrono::milliseconds(600));
+      if(timed&&!n&&!RaceTimeout())std::this_thread::sleep_for(std::chrono::milliseconds(600));
       threads.Run(0x825aae3c);
-      if(!timed||n){Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"real condition notification");std::this_thread::sleep_for(std::chrono::milliseconds(15));}
-      Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"notifier releases pinned mutex");finished[n].get_future().get();
+      if((!timed||n)&&!RaceReacquire()){Check(!threads.CondWake(reinterpret_cast<void*>(Condition()),false),"real condition notification");std::this_thread::sleep_for(std::chrono::milliseconds(15));}
+      if(!main_mutex_released)Check(!threads.MutexUnlock(reinterpret_cast<void*>(Mutex())),"notifier releases pinned mutex");
+      finished[n].get_future().get();
     }
     addr_t result=0;Check(!threads.Join(target,&result)&&result==0x1234,"actual worker join/TLS retirement");
     Check(posts==(ordinary?0:Cycles()*2)&&physical==(ordinary?0:Cycles()*2)&&stops==(ordinary?0:Cycles())&&restarts==(ordinary?0:Cycles()),"only real collector requests invoke original handlers and posts");
-    Check(notification_reacquire&&environment_checks>=Cycles()*2,"provider observed real mutex reacquisition and checkpoint environment preservation");
+    Check((notification_reacquire||RaceTimeout())&&environment_checks>=Cycles(),"provider observed real mutex reacquisition and externally invoked checkpoint environment preservation");
+    Check(finish_calls>=Cycles()*2&&finish_environment_checks==finish_calls,"provider invoked both real finish boundaries with native environment preservation");
+    if(RaceTimeout()||RaceReacquire())Check(finish_published&&finish_returned&&queue_calls==2,"certified request survives real provider-finish race with only original stop/restart queue calls");
     int32_t value=-1;Check(!sem.GetValue(kAck,&value)&&!value,"original coordinators consumed genuine posts");
     Check(!threads.Shutdown(),"actual worker drain");profile->CloseAfterShutdown();profile.reset();
     Check(!threads.CondDestroy(reinterpret_cast<void*>(Condition()))&&!threads.MutexDestroy(reinterpret_cast<void*>(Mutex()))&&!sem.Destroy(kAck),"real wait resources destroyed after join");
     Check(!threads.ReleaseCurrent()&&!signals.DropThread(parent),"parent signal/TLS owner retired");
-    std::printf("MANAGED-WORKER-ORIGINAL-GC-PASS mode=%s cycles=%u posts=%u stops=%u restarts=%u physical=%u checks=%u State=%zu Memory64=%zu checkpoint_env=%u FPCR_FPSR=%u\n",mode.c_str(),Cycles(),posts.load(),stops.load(),restarts.load(),physical.load(),checks.load(),sizeof(State),sizeof(addr_t),environment_checks.load(),Cycles());
+    std::printf("MANAGED-WORKER-ORIGINAL-GC-PASS mode=%s cycles=%u posts=%u stops=%u restarts=%u physical=%u checks=%u State=%zu Memory64=%zu checkpoint_env=%u FPCR_FPSR=%u finish_calls=%u finish_env=%u\n",mode.c_str(),Cycles(),posts.load(),stops.load(),restarts.load(),physical.load(),checks.load(),sizeof(State),sizeof(addr_t),environment_checks.load(),Cycles(),finish_calls.load(),finish_environment_checks.load());
   }
 };
 Memory*Create(State&s,addr_t,Memory*m){const auto saved=s.gpr.x30.qword;s.gpr.x0.qword=reinterpret_cast<addr_t>(&host->target);s.gpr.x1.qword=0;s.gpr.x2.qword=kWorker;s.gpr.x3.qword=reinterpret_cast<addr_t>(host->creator.data());s.gpr.x30.qword=0x82556a64;s.gpr.pc.qword=host->threads.Marker("pthread_create");host->profile->WithCreate(s,[&](State&inner){host->runtime.Dispatch(inner,host->threads.Marker("pthread_create"),m);});s.gpr.x30.qword=saved;s.gpr.pc.qword=saved;return m;}
@@ -249,7 +280,7 @@ Memory*CountRestart(State&s,addr_t address,Memory*m){++host->restarts;return sub
 }
 extern "C" {
 void __real__ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE(bunker::windows::Pthreads*,bunker::windows::Pthreads::WaitHooks);
-void __wrap__ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE(bunker::windows::Pthreads*self,bunker::windows::Pthreads::WaitHooks hooks){auto original=hooks.checkpoint;hooks.checkpoint=[original](const auto&context){host->Checkpoint(original,context);};__real__ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE(self,std::move(hooks));}
+void __wrap__ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE(bunker::windows::Pthreads*self,bunker::windows::Pthreads::WaitHooks hooks){auto original=hooks.checkpoint;hooks.checkpoint=[original](const auto&context){host->Checkpoint(original,context);};auto finish=hooks.finish;hooks.finish=[finish](const auto&context){host->Finish(finish,context);};__real__ZN6bunker7windows8Pthreads12SetWaitHooksENS1_9WaitHooksE(self,std::move(hooks));}
 #define PLT(address,name) Memory *sub_##address(State&s,addr_t,Memory*m){return host->PLT(s,m,name);}
 PLT(820ca520,"__errno") PLT(820ca660,"pthread_self") PLT(820caa50,"sem_timedwait")
 PLT(820cb330,"sigsuspend") PLT(820cb440,"pthread_kill") PLT(820cbcf0,"sem_wait")

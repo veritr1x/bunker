@@ -71,6 +71,11 @@ class Pthreads {
   struct WaitHooks {
     std::function<std::shared_ptr<const WaitWake>(uint64_t)> acquire;
     std::function<void(const WaitContext &)> checkpoint;
+    // Optional retirement checkpoints, outside provider locks while the guest
+    // mutex remains released and State/arguments/control pins are still live:
+    // after the wait decision, and before each free-mutex ownership claim.
+    // The latter rechecks mutex ownership after this callback returns.
+    std::function<void(const WaitContext &)> finish={};
   };
   // Optional condition-wait transport, immutable before the first Create or
   // CondWait attempt. Every configured waiter requires a complete live channel.

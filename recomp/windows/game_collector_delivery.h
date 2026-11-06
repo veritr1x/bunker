@@ -172,7 +172,7 @@ class GameCollectorDelivery {
     installed.enter=[this,hooks](const auto &info,const auto &lease){hooks.enter(info,lease);auto owner=Lookup(info.token);Check(owner&&Current()==nullptr,"worker owner entry is not cold");owner->delivery=std::make_unique<SignalDelivery>(runtime_,Translated,kReturn,recomp::signal_frame::Bounds{info.stack_low,info.stack_high},signals_,info.token);owner->binding=std::make_unique<recomp::PollBinding>(owner->context->PollRequests(),[this,owner](State &s,recomp::PollSite,const auto&){try{Pump(*owner,s);}catch(const ProviderDeferred&){throw;}catch(const std::exception&e){Fail(e.what());}catch(...){Fail("unknown original delivery exception");}},[this](const auto &context){return Admit(context);});Current()=owner.get();if(extension_.enter)extension_.enter(info);GameWorkerObservation::Enter(info);};
     installed.before_tls=[this,hooks](const auto &info,const auto &lease){if(extension_.before_tls)extension_.before_tls(info);auto owner=Lookup(info.token);Check(owner&&!owner->depth&&!owner->wait_live&&!Pending(*owner),"worker reaches TLS with active/pending stop");hooks.before_tls(info,lease);GameWorkerObservation::Lifecycle("before_tls",info);};
     installed.retire=[this,hooks](const auto &i,const auto&l,auto r){Retire(i,l,r,hooks);};threads_.SetWorkerLifecycleHooks(std::move(installed));
-    threads_.SetWaitHooks({[this](uint64_t token){auto owner=Lookup(token);auto channel=owner?owner->channel:std::make_shared<Channel>();return std::make_shared<const Pthreads::WaitWake>(Pthreads::WaitWake{[channel]{return channel->Generation();},[channel]{channel->Notify();},[channel](auto generation,auto relative){channel->Wait(generation,relative);}});},[this](const auto &context){Checkpoint(context);}});
+    threads_.SetWaitHooks({[this](uint64_t token){auto owner=Lookup(token);auto channel=owner?owner->channel:std::make_shared<Channel>();return std::make_shared<const Pthreads::WaitWake>(Pthreads::WaitWake{[channel]{return channel->Generation();},[channel]{channel->Notify();},[channel](auto generation,auto relative){channel->Wait(generation,relative);}});},[this](const auto &context){Checkpoint(context);},[this](const auto &context){Finish(context);}});
     std::fprintf(stderr,"Game GC: creator-certified finalizer untimed and managed-worker timed/untimed condition profiles configured; virtual Android real UID=%u; no Windows/device UID claim\n",kVirtualRealUid);
   }
   ~GameCollectorDelivery(){Check(closed_,"collector adapter destroyed before worker drain");}
@@ -239,6 +239,26 @@ class GameCollectorDelivery {
       if(owner->pump_calls==previous)return; // Admission deferred: keep epoch.
     }
   }
+  void Finish(const Pthreads::WaitContext &context){
+    GameWorkerObservation::NativeEnvironment native;
+    auto owner=Lookup(context.token);
+    if(!owner||owner->role!=Role::managed_worker||owner->socket_wait.load())return;
+    if(!context.active_state||ManagedSite(*context.active_state)==ManagedWait::unknown||!ManagedContext(*context.active_state)){
+      std::lock_guard claim(owner->socket_sender_mutex);owner->wait_live=false;
+      Check(!Pending(*owner),"unqualified managed retirement has pending collector delivery");return;
+    }
+    ValidateWait(*owner,context);Check(owner->wait_state==context.active_state,"retirement is outside actual observed import invocation");
+    auto use=lifecycle_.AcquireUse(context.token);
+    for(unsigned count=0;;++count){
+      Check(count<16,"managed retirement could not drain the qualified pending request");
+      std::unique_lock claim(owner->socket_sender_mutex);
+      if(!Pending(*owner)){owner->wait_live=false;return;}
+      Check(owner->wait_live,"pending managed request has no live provider certificate");
+      // Send owns this same claim through BeforeKill -> real Queue -> Notify.
+      // Never hold it while the original stop handler waits for restart24.
+      claim.unlock();Checkpoint(context);
+    }
+  }
   void BeforeKill(const State &state){
     if(auto owner=Lookup(state.gpr.x0.qword))if(auto*socket=owner->socket_wait.load()){
       const auto signal=state.gpr.x1.dword;Check((signal==30||signal==24)&&state.gpr.x30.qword==(signal==30?0x825b2d1cULL:0x825b2f74ULL),"socket signal sender is outside original coordinator");
@@ -267,7 +287,7 @@ class GameCollectorDelivery {
   }
   void Send(State &state,const std::function<void()> &invoke){
     auto owner=Lookup(state.gpr.x0.qword);Check(bool(owner),"nonzero send has no real worker owner");
-    std::unique_lock socket_guard(owner->socket_sender_mutex);if(!owner->socket_wait.load())socket_guard.unlock();
+    std::unique_lock socket_guard(owner->socket_sender_mutex);if(!owner->socket_wait.load()&&owner->role!=Role::managed_worker)socket_guard.unlock();
     BeforeKill(state);invoke();
   }
   void BeforeNonlocal(){auto *owner=Current();if(owner&&owner->depth)Fail("nonlocal capture/transfer attempted inside an active collector frame");}

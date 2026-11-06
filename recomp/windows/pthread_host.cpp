@@ -476,6 +476,7 @@ int Pthreads::CondWait(void *p,void *mp,const AndroidTimespec *deadline){
             relative=static_cast<uint64_t>(std::min<int64_t>(delta,1000000000));}}
         ticket->wake->wait(generation,relative);
       }
+      if(hooks->finish)hooks->finish(context);
     }catch(...){failure=std::current_exception();}
     {std::lock_guard lock(c->lock);auto it=std::find(c->channels.begin(),c->channels.end(),ticket);c->channels.erase(it);--c->waiters;}
     // Retain the exact mutex control, never resolve a possibly reused address.
@@ -487,7 +488,13 @@ int Pthreads::CondWait(void *p,void *mp,const AndroidTimespec *deadline){
       for(;;){
         uint64_t generation=0;if(!failure)generation=ticket->wake->generation();
         std::unique_lock lock(m->lock);
-        if(!m->owner){m->owner=id;m->depth=1;break;}
+        if(!m->owner){
+          if(!failure&&hooks->finish){
+            lock.unlock();hooks->finish(context);lock.lock();
+            if(m->owner)continue; // Another thread won while retirement ran.
+          }
+          m->owner=id;m->depth=1;break;
+        }
         if(failure){m->cv.wait(lock,[&]{return !m->owner;});continue;}
         lock.unlock();hooks->checkpoint(context);ticket->wake->wait(generation,1000000000);
       }

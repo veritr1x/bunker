@@ -3,7 +3,26 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-native-presentation6`, using
+Latest original attempt: `work/windows-first-frame-native-presentation7`, using
+manifest `8b84d24fa10f8f817137e92e5554830006a6f60db76bfeca84c741671cda98b5`
+and executable `5fb89be501bdbe49da3c213b05202b1b5ad05bda82c6d10e049d7e3b49d99b67`.
+The additional native condition helper now returns normally. At epoch18, the
+original coordinator validates a stop send to managed thread19, then the queue
+notification finds that its wait certificate has retired. This exposes the
+check-to-enqueue lifetime race; no handler posts for that target are observed.
+The pending-bit value was not externally sampled. The next fix synchronizes
+sender certification/queuing with real provider retirement before condition
+ticket removal and before mutex acquisition. It retains original arguments,
+resource pins, timeout results and original stop/restart execution; it does not
+retag a returned wait or synthesize an acknowledgment. Its focused gate now
+passes 853 checks, nine original stop/restart cycles and both forced handoff
+races; the existing Pthreads wait regression passes 397 checks. The integrated
+rebuild remains pending.
+The run exits native3 with two returned renders, one successful swap and no
+first-frame witness. Runtime and original-parent pre/post checks pass.
+Evidence: `work/runtime7-managed-handoff-audit1`.
+
+Preceding attempt: `work/windows-first-frame-native-presentation6`, using
 manifest `da2f549ca797986cc3318a90549f7dd98dfd7b0894a545e2c103a909df3efc79`
 and executable `edb83b3e64f12652a06c516c1f42548d9fddd3bdfab9e9db6effeeb12a6f4404`.
 It exits native3 before the third render returns, at a newly created managed
