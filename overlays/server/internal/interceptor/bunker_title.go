@@ -75,7 +75,10 @@ func titleKeeps(method string) (keep, signsIn bool) {
 // ReturnToTitle fails the first call after RequestTitle with the title
 // transition; titleKeeps lists the calls that go through.
 func ReturnToTitle(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	if !titlePending.Load() {
+	// The launcher's own health check as Lunar Tear starts is not the game's
+	// call: failing it made a second change in a row stop the server and close
+	// the game, with the return still pending from the first.
+	if !titlePending.Load() || strings.HasPrefix(info.FullMethod, "/grpc.health.v1.Health/") {
 		return handler(ctx, req)
 	}
 	if keep, signsIn := titleKeeps(info.FullMethod); keep {

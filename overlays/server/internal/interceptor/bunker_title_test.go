@@ -71,3 +71,19 @@ func TestReturnToTitleEndsWhenTheGameSignsIn(t *testing.T) {
 		t.Fatal("signing in left the return pending")
 	}
 }
+
+func TestTheLaunchersHealthCheckIsNotTheGamesCall(t *testing.T) {
+	titlePending.Store(false)
+	RequestTitle()
+	// Two changes in a row: Lunar Tear starts again with the return pending and checks itself.
+	if err, _, ran := call("/grpc.health.v1.Health/Check"); err != nil || !ran {
+		t.Fatalf("health check: err=%v ran=%v", err, ran)
+	}
+	if !TitlePending() {
+		t.Fatal("the health check used up the return to the title screen")
+	}
+	if err, _, ran := call("/apb.api.gift.GiftService/GetGiftList"); ran || status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("the game's next call: err=%v ran=%v", err, ran)
+	}
+	titlePending.Store(false)
+}
