@@ -29,6 +29,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: python3 -m pip install pycryptodome msgpack lz4 -r scripts/requirements-notices.txt
+      # The web builder publishes Pod Programs' prepared patcher (scripts/prepare.py).
+      - run: python3 scripts/prepare.py
       - name: Unit tests
         run: |
           (cd scripts && python3 -m unittest test_version test_release_assets test_notices test_sync_notice_prices test_history_runs test_tower_floors test_audit_notices test_audit_summon_links test_build_remaining_summon_notices test_build_summon_notice_repair_pack test_native_notice_costume_bonus test_notice_event_bonuses test_notice_fidelity test_notice_icons test_notice_templates test_rich_notice_content)
