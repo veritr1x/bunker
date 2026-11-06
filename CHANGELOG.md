@@ -30,6 +30,8 @@ under its heading, down to the previous release.
   a 10x for 1,500 paid gems; eight bonus summons (9000021 and others) a 10x
   for 2,000 gems, 5 or 20 times; 9000082 a free 10x once a day; 9002's 10x
   gives Advanced Handbook x2, 10 times. [a9c4d27]
+- The draw buttons no longer show the price struck through beside itself
+  ("300 300", "3000 3000"), as if every summon were on sale. [38629bd]
 
 ### Notices
 - Reconstructed notices show the summon prices the server charges. Ten
