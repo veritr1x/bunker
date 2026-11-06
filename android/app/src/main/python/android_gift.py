@@ -149,3 +149,132 @@ def game_now() -> int:
     import android_calendar as calendar
     state = calendar.read_state()
     return calendar.game_now(state) if state else calendar.now_ms()
+
+
+# --- Sending ------------------------------------------------------------------
+
+import contextlib
+import sqlite3
+
+from fastapi import APIRouter, Body
+from fastapi.responses import JSONResponse
+
+router = APIRouter()
+# What a kind's name lives under in config.NAMES_DIR, by possession type.
+NAME_FILES = {COSTUME: "playable_costumes", WEAPON: "weapons", COMPANION: "companions", PARTS: "parts",
+              MATERIAL: "materials", CONSUMABLE: "consumables", THOUGHT: "thoughts"}
+
+
+class GiftError(Exception):
+    """A gift refused: the shim's or the page's reason, for the player."""
+
+
+def _shim(payload):
+    """The editing shim (android_runtime.adapt_services routes it to the native
+    bridge and returns its result)."""
+    from web.services import grant_service
+    try:
+        return grant_service._invoke_shim(payload)
+    except grant_service.GrantError as exc:
+        raise GiftError(str(exc)) from exc
+
+
+def _backup():
+    from web.services import backup_service
+    backup_service.create_backup(reason="gift")
+
+
+def _master():
+    return str(config.find_master_data_bin())
+
+
+def has_gift_text() -> bool:
+    """Whether the game data the game launches with has "From Bunker, with love."."""
+    return any(r.get("GiftTextId") == GIFT_TEXT_ID for r in _table("GiftText"))
+
+
+def _request(action, user_id, possession_type, possession_id, **extra):
+    return dict({"action": action, "db_path": str(config.GAME_DB_PATH), "master_data_path": _master(), "user_id": int(user_id),
+                 "possession_type": int(possession_type), "possession_id": int(possession_id)}, **extra)
+
+
+def room(user_id: int, possession_type: int, possession_id: int) -> int:
+    """How many more of a thing can be sent now and still be claimed."""
+    result = _shim(_request("gift_room", user_id, possession_type, possession_id)) or {}
+    return int(result.get("applied", 0))
+
+
+def send(user_id: int, possession_type: int, possession_id: int, count: int) -> None:
+    """Puts a gift in the game's Gift Box (one backup first)."""
+    if not has_gift_text():
+        raise GiftError("The game data has no gift text yet. Apply a content preset or the calendar first.")
+    _backup()
+    _shim(_request("send_gift", user_id, possession_type, possession_id, count=int(count)))
+
+
+def _gift_rows(user_id, where, *args):
+    if not config.GAME_DB_PATH.is_file():
+        return []
+    with contextlib.closing(sqlite3.connect(f"file:{config.GAME_DB_PATH}?mode=ro", uri=True)) as db:
+        return db.execute("SELECT possession_type, possession_id, count, grant_datetime, description_gift_text_id, expiration_datetime"
+                          " FROM user_gifts WHERE user_id = ? AND is_received = 0 AND " + where, (user_id, *args)).fetchall()
+
+
+def _name(possession_type, possession_id):
+    if possession_type == FREE_GEM:
+        return "Gems"
+    if possession_type == PAID_GEM:
+        return "Paid Gems"
+    kind = NAME_FILES.get(possession_type)
+    for r in _names(kind) if kind else ():
+        if r["id"] == possession_id:
+            return f"{r['character_name']} ({r['name']})" if possession_type == COSTUME and r.get("character_name") else r["name"]
+    return f"#{possession_id}"
+
+
+def waiting(user_id: int) -> list[dict]:
+    """The Bunker gifts not claimed yet (they never expire), newest first."""
+    rows = _gift_rows(user_id, "description_gift_text_id = ?", GIFT_TEXT_ID)
+    out = [{"possession_type": t, "possession_id": i, "count": n, "sent": at, "name": _name(t, i)} for t, i, n, at, _, _ in rows]
+    return sorted(out, key=lambda g: -g["sent"])
+
+
+def waiting_count(user_id: int, now_ms: int | None = None) -> int:
+    """Every unclaimed gift in the Gift Box that has not expired."""
+    now_ms = game_now() if now_ms is None else now_ms
+    return len(_gift_rows(user_id, "(expiration_datetime IS NULL OR expiration_datetime = 0 OR expiration_datetime >= ?)", now_ms))
+
+
+def _user(user):
+    if user:
+        return int(user)
+    import android_players
+    return android_players.device_player() or 1
+
+
+@router.get("/gift/room")
+def room_route(type: int, id: int, user: int = 0):
+    try:
+        return {"room": room(_user(user), type, id)}
+    except GiftError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+
+@router.get("/gift/waiting-count")
+def waiting_count_route(user: int = 0):
+    return {"count": waiting_count(_user(user))}
+
+
+@router.post("/gift/send")
+def send_route(payload: dict = Body(...)):
+    try:
+        user, kind, ident, count = (int(payload[k]) for k in ("user", "possession_type", "possession_id", "count"))
+    except (KeyError, TypeError, ValueError):
+        return JSONResponse({"ok": False, "error": "user, possession_type, possession_id and count are required"}, status_code=400)
+    try:
+        send(_user(user), kind, ident, count)
+    except GiftError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    # The save changed, but the game reads gifts from the server on its next
+    # call: Lunar Tear restarts around the change and the game plays on.
+    return JSONResponse({"ok": True}, headers={"X-Bunker-Keep-Playing": "1"})

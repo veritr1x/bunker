@@ -291,6 +291,10 @@ def changed_game(response):
     but the game is not sent back to its title screen."""
     if response.headers.get("x-bunker-unchanged"):
         return False
+    # A change the game picks up from the server on its next call (a gift
+    # in its Gift Box): Lunar Tear restarts around it, the game plays on.
+    if response.headers.get("x-bunker-keep-playing"):
+        return False
     if response.status_code >= 400:
         return False
     if 300 <= response.status_code < 400 and "error=" in response.headers.get("location", ""):
@@ -343,6 +347,7 @@ def create_app(token, origin):
     from android_patcher import router
     import android_display
     import android_gacha
+    import android_gift
     import android_mods
     import android_players
     app = base_app()
@@ -351,6 +356,7 @@ def create_app(token, origin):
     app.include_router(android_calendar.router)
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
+    app.include_router(android_gift.router)
     app.include_router(android_mods.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.

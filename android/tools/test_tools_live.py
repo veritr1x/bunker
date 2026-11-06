@@ -99,13 +99,15 @@ def client(game):
                 return RedirectResponse("/users/1?message=Saved", status_code=303)
             if p == "/unchanged":
                 return JSONResponse({"ok": True}, headers={"X-Bunker-Unchanged": "1"})
+            if p == "/keep-playing":
+                return JSONResponse({"ok": True}, headers={"X-Bunker-Keep-Playing": "1"})
             return {"ok": True}
         return handle
 
     for path in ("/users/1/edit/items/grant", "/users/1/use", "/backups/restore", "/backups/create", "/patcher/apply",
                  "/patcher/calendar/on", "/patcher/calendar/view", "/patcher/calendar/off", "/patcher/calendar/timeline",
                  "/gacha", "/gacha/roulette", "/gacha/preset", "/display", "/something/new", "/fails",
-                 "/refused", "/back-with-error", "/back-with-message", "/unchanged"):
+                 "/refused", "/back-with-error", "/back-with-message", "/unchanged", "/keep-playing"):
         app.post(path)(route(path))
     app.get("/users/1/edit/items")(lambda: {"page": True})
     android_runtime.install_game_guard(app, lambda: game.live, game.close, game.pause, game.resume)
@@ -159,6 +161,16 @@ class GameGuard(unittest.TestCase):
             c.post(path)
         self.assertEqual(game.titles, [True, True, True, False, False, False])
         self.assertEqual(game.events.count("pause"), game.events.count("resume"))
+
+    def test_a_gift_restarts_the_server_but_keeps_the_game_playing(self):
+        # Pod Programs › Gift: the save changes (the server stops for it and
+        # starts again), but the game reads gifts from the server on its next
+        # call, so it stays where it is.
+        game = Game()
+        c, calls = client(game)
+        self.assertEqual(c.post("/keep-playing").status_code, 200)
+        self.assertEqual(game.events, ["pause", "/keep-playing", "resume"])
+        self.assertEqual(game.titles, [False])
 
     def test_a_failed_stop_refuses_the_change_and_says_why(self):
         game = Game(pause_error="The save could not be backed up")
