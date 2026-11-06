@@ -11,8 +11,10 @@ under its heading, down to the previous release.
   the right, with Pod Programs and Archive as rows that say what each
   holds. Everything fits on one screen, Deploy included. A tablet on its
   side gets the same two columns with the full top bar; portrait is
-  unchanged. [b538fa4] The same on iPhone and iPad; the menu rearranges
-  itself when the device turns. [91fc7bf]
+  unchanged. [b538fa4] The same on iPhone and iPad. [91fc7bf]
+- iOS: the Bunker menu, Pod Programs and the Archive stay on their side
+  like the game. On an iPad, opening ⋮ turned the menu upright over a
+  partly black screen. [219bfbf]
 
 ### Server
 - Coffin of Repose and Rhythm's Citadel medals can be spent. The events
