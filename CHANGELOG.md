@@ -20,6 +20,11 @@ under its heading, down to the previous release.
   Hallowed Winter's Night 10x. The Healer & Support reruns offer the ★4
   weapons their exchange had when each began; the August 2023 one also
   listed February 2024's. [84e8758]
+- With the calendar off, All content and Gacha shops open every
+  summon-medal exchange. 135 of the 289 stayed closed (the weekly summons,
+  Healer & Support, Tale of Resistance, Never-Ending Adventure and others),
+  so their summons gave no shard and had no Exchange. Apply the preset again
+  to get them. [d0641d4]
 
 ## 1.9.0 (2026-11-06)
 
