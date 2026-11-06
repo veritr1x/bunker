@@ -76,6 +76,7 @@
 #include "remain_days.h"
 #include "guerrilla_unlock.h"
 #include "bunker_button.h"
+#include "title_now.h"
 #include "camera_edge.h"
 #include "roulette_ads.h"
 #include "text_buffer.h"
@@ -136,6 +137,7 @@ static void (*time_set_fixed_delta)(float value, void *method);
 static int (*time_frame_count)(void *method);
 static int last_frame = -1;
 
+static char title_marker[1024];  // DisplayPatch.titleMarker
 static int flying_mom_state = -1;  // flying_mom_route's result; -1 before flying_mom_init
 
 /** Runs at the start of ActorController.FixedProcess, on Unity's main thread. */
@@ -424,6 +426,8 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
     if (!bunker_game_japanese) hook_roulette_ads(base);
     if (bunker_button_init(game_symbol, bunker_log, open_bunker))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Bunker button: the game's IL2CPP API is missing; no button in the top row");
+    if (title_marker[0] && title_now_init(game_symbol, bunker_log, title_marker))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Title now: the game's IL2CPP API is missing; the next call returns to the title screen");
     uint32_t *snap = (uint32_t *)(base + game_rva(kSnapArrive.rva));
     if (*snap == kSnapArrive.original) write_word(snap, kSnapArrive.patched);
     else if (*snap != kSnapArrive.patched)
@@ -498,6 +502,15 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_DisplayPatch_apply(JNIEnv *en
     if ((fps && (fps < 30 || fps > 240)) || (size && (size < H540 || size > DeviceMax || size == 5)))
         return (*env)->NewStringUTF(env, "Unsupported display setting");
     return (*env)->NewStringUTF(env, apply(fps, size, idle, heat, effects_off, upscale, message, sizeof message));
+}
+
+/** Where Lunar Tear marks that the game should go back to its title screen (title_now.c); before apply. */
+JNIEXPORT void JNICALL Java_org_veritr1x_bunker_DisplayPatch_titleMarker(JNIEnv *env, jclass cls, jstring path) {
+    (void)cls;
+    const char *chars = (*env)->GetStringUTFChars(env, path, NULL);
+    if (!chars) return;
+    snprintf(title_marker, sizeof title_marker, "%s", chars);
+    (*env)->ReleaseStringUTFChars(env, path, chars);
 }
 
 /** The device's heat as it changes (render_pace_set_thermal's levels). */

@@ -66,6 +66,7 @@ final class DisplayPatch {
         String result;
         try {
             System.loadLibrary("bunkerdisplay");
+            titleMarker(new File(context.getFilesDir(), "saves/title.now").getPath());  // FilesStore.data: Lunar Tear writes it
             result = apply(fps, size, idle, heat, effectsOff, upscale);
             if (result.isEmpty() && fps > 30 && heat) followHeat(context);
         } catch (Throwable error) {
@@ -281,6 +282,8 @@ final class DisplayPatch {
         }
     }
     private static native void thermal(int level);
+    /** title_now.c: the marker Lunar Tear writes when the game should go back to its title screen. */
+    private static native void titleMarker(String path);
 
     /** Hands the device's heat to render_pace.c as it changes (Android 10 and later). */
     private static void followHeat(Application context) {

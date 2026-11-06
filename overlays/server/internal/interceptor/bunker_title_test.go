@@ -2,6 +2,8 @@ package interceptor
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -86,4 +88,75 @@ func TestTheLaunchersHealthCheckIsNotTheGamesCall(t *testing.T) {
 		t.Fatalf("the game's next call: err=%v ran=%v", err, ran)
 	}
 	titlePending.Store(false)
+}
+
+func withMarker(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "title.now")
+	titlePending.Store(false)
+	markerWritten.Store(false)
+	SetTitleMarker(path)
+	t.Cleanup(func() { SetTitleMarker(""); titlePending.Store(false); markerWritten.Store(false) })
+	return path
+}
+
+func exists(path string) bool { _, err := os.Stat(path); return err == nil }
+
+func TestARequestWritesTheMarkerAndTheRedirectRemovesIt(t *testing.T) {
+	path := withMarker(t)
+	RequestTitle()
+	if !exists(path) {
+		t.Fatal("no marker for the game")
+	}
+	if err, _, ran := call("/apb.api.gift.GiftService/GetGiftList"); ran || status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("the next call: err=%v ran=%v", err, ran)
+	}
+	if exists(path) || TitlePending() {
+		t.Fatal("the marker or the request outlived the redirect")
+	}
+}
+
+func TestAMarkerTheGameRemovedMeansItAlreadyWentBack(t *testing.T) {
+	path := withMarker(t)
+	RequestTitle()
+	os.Remove(path) // title_now.c showed the dialog
+	if err, _, ran := call("/apb.api.gift.GiftService/GetGiftList"); err != nil || !ran {
+		t.Fatalf("the next call was failed again: err=%v ran=%v", err, ran)
+	}
+	if TitlePending() {
+		t.Fatal("still pending")
+	}
+}
+
+func TestSigningInRemovesTheMarker(t *testing.T) {
+	path := withMarker(t)
+	RequestTitle()
+	if err, _, ran := call("/apb.api.user.UserService/Auth"); err != nil || !ran {
+		t.Fatalf("auth: err=%v ran=%v", err, ran)
+	}
+	if exists(path) || TitlePending() {
+		t.Fatal("the marker or the request outlived signing in")
+	}
+}
+
+func TestAMarkerThatCouldNotBeWrittenStillRedirects(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing-folder", "title.now")
+	titlePending.Store(false)
+	SetTitleMarker(path)
+	t.Cleanup(func() { SetTitleMarker(""); titlePending.Store(false); markerWritten.Store(false) })
+	RequestTitle()
+	if err, _, ran := call("/apb.api.gift.GiftService/GetGiftList"); ran || status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("without a marker the next call must still redirect: err=%v ran=%v", err, ran)
+	}
+}
+
+func TestAStaleMarkerIsRemovedAtStart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "title.now")
+	os.WriteFile(path, nil, 0o644)
+	titlePending.Store(false)
+	SetTitleMarker(path)
+	t.Cleanup(func() { SetTitleMarker("") })
+	if exists(path) {
+		t.Fatal("a marker from an earlier run was kept")
+	}
 }
