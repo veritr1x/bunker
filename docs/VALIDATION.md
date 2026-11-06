@@ -19,6 +19,16 @@
 - Healer & Support exchange (shop 8170): its offers dated in the shop data
   rebuild 506's and 507's notice lineups exactly; the reruns get the offers
   from their start. 9505071's ★4 weapons 33 → 29.
+- Calendar on: both masters rebuilt by Pod Programs' calendar code
+  (android_calendar.build_master) for a loop starting 2026-11-04, then
+  loaded with the calendar set. All 17 give their shard (Japan 16), and each
+  exchange is open for the whole moved run. Against the code before the
+  audit, only those summons' shards changed: no date, price or kind. 554,
+  581 and the Healer & Support reruns now feature their exchange as
+  intended; 523001 and 900003 lose weapons of other summons starting the
+  same week and now match 180 and 82, the main summons of their shards, as
+  they already did with the calendar off. 183 and 184 start three days
+  before their exchange opens, in the game's own dates too.
 - `go test ./...` passes with either master.
 
 ## Mods on the Android emulator — 2026-11-06
