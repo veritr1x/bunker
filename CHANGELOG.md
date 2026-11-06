@@ -6,6 +6,16 @@ under its heading, down to the previous release.
 
 ## 2026-11-07 (after 1.9.0)
 
+### Server
+- Quests drop Slab Fragments again. Story quests drop Small Slab Fragment
+  x1-3 and, one clear in two, Medium Slab Fragment x1; guerrilla quests and
+  the dungeons (The Dynast's Memories and the other memories) drop Small
+  Slab Fragment x1. The live game rolled these as random enemy drops whose
+  tables never shipped, so no story quest dropped any and Small ones
+  only came from missions, login bonuses and shops. Drop-rate campaigns
+  and the mods' reward multiplier apply to them. The amounts are an
+  estimate from the notices and the item's Location list.
+
 ### Bunker menu
 - The Bunker's own text, on Android and iPhone, says the same thing the
   same way. "Server" and "Tools" became Lunar Tear and Pod Programs, Play
