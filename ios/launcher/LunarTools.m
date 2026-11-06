@@ -468,13 +468,20 @@ static NSString *ArchivePath(NSString *link) {
 }
 @end
 
+// Pod Programs and the Archive stay on their side, as the game and the menu do.
+@interface LTLandscapeNavigation : UINavigationController
+@end
+@implementation LTLandscapeNavigation
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
+@end
+
 UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void), void (^archive)(NSString *path)) {
     LTToolsViewController *tools = [LTToolsViewController new];
     tools.origin = url;
     tools.token = token;
     tools.onClose = close;
     tools.openArchive = archive;
-    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:tools];
+    UINavigationController *navigation = [[LTLandscapeNavigation alloc] initWithRootViewController:tools];
     navigation.modalPresentationStyle = UIModalPresentationFullScreen;
     // Light or dark follows the launcher window: the system, or the player's Display choice.
     navigation.navigationBarHidden = YES;
@@ -491,7 +498,7 @@ UIViewController *LTArchiveBrowser(NSString *url, NSString *token, NSString *pat
     archive.heading = @"ARCHIVE";
     archive.cookie = @"lunar_archive";
     archive.archive = YES;
-    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:archive];
+    UINavigationController *navigation = [[LTLandscapeNavigation alloc] initWithRootViewController:archive];
     navigation.modalPresentationStyle = UIModalPresentationFullScreen;
     navigation.navigationBarHidden = YES;
     return navigation;
