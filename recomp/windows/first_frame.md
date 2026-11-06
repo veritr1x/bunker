@@ -10,7 +10,36 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation18`, using
+Latest original attempt: `work/windows-first-frame-native-presentation19`, using
+manifest `beb2c6cecab5afea86c14609ea05ed1c56758f005fc0d36df9e1f8e796eb4ff8`
+and executable `2e6fb11f13f1b28790f13b73365e81c1e404c35ee707739a3fe99b41269bd03d`.
+It returns 36 renders and 34 successful swaps, with the image still uniformly
+black. Native exit is 3; parent pre/post checks return 0 and selected-runtime
+checks pass. No first-frame witness exists.
+
+The reported fatal PC `841e55ec` follows the unsupported original word
+`1e2069a1` at `841e55e8`, `FMAXNM S1,S13,S0`. The method is
+`TMPro.TextMeshProUGUI.GenerateTextMesh`, `841e4bc4..841ee270` (38,572 bytes).
+The current tool already implements the scalar numeric min/max family.
+Fourteen compiled helper definitions/selectors remain identical to the
+previously qualified implementation. This is a stale retained translation,
+not a missing current ISA implementation.
+
+Eight IL2CPP trace bodies have this exact stale-body defect. Refreshing those
+is the immediate integration scope. A bounded audit also finds eight missing
+guarded switch targets in the two text-mesh methods; those are being added
+with an explicit trace-header inverse. No full game-object graph is fabricated
+for unit tests: the original 32-byte instruction context passes 1,024 native
+ARM versus Windows cases, while complete methods still require original
+startup integration. Evidence: `work/runtime19-numeric-minmax-frontier1`,
+`work/numeric-minmax-reuse-review1`, `work/numeric-minmax-cluster-qualification1`,
+and `work/numeric-minmax-eight-branch-audit1`.
+
+A broader read-only census identifies 131 clean normal-entry Unity functions,
+seven clean interior entries, and eleven functions with additional errors.
+That wider refresh is planned separately and is not selected by run19.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation18`, using
 manifest `d41d151d302c58298240ac11c3486d31220d2783df3214233460bf1e58c4c6aa`
 and executable `57a8824d23e6395c7278974800ea8ae36d2d962b4976151b313651f6b6c143ae`.
 It returns 32 renders and 30 successful swaps; captured images remain uniform
