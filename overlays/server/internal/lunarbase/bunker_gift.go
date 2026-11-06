@@ -18,6 +18,7 @@ import (
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/questflow"
 	"lunar-tear/server/internal/store"
+	"lunar-tear/server/internal/utils"
 )
 
 // BunkerGiftTextId is the m_gift_text row "From Bunker, with love." that the
@@ -145,7 +146,40 @@ func giftGranter(req *request) (*store.PossessionGranter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load game config: %w", err)
 	}
-	return questflow.BuildGranter(catalog, gameConfig), nil
+	items, err := utils.ReadTable[masterdata.EntityMConsumableItem]("m_consumable_item")
+	if err != nil {
+		return nil, fmt.Errorf("load consumable items: %w", err)
+	}
+	g := questflow.BuildGranter(catalog, gameConfig)
+	withLimits(g, gameConfig, items)
+	return g, nil
+}
+
+// consumableItemTypeGachaMedal is ConsumableItemType GACHA_MEDAL.
+const consumableItemTypeGachaMedal int32 = 120
+
+// withLimits gives a granter the game data's possession limits, as the server
+// does for its own (runtime.wireGranter): BuildGranter leaves them unset, and
+// a gift past them could never be claimed.
+func withLimits(g *store.PossessionGranter, cfg *masterdata.GameConfig, items []masterdata.EntityMConsumableItem) {
+	g.Limits = store.PossessionLimits{
+		Weapon:         cfg.PossessionCountLimitWeapon,
+		Parts:          cfg.PossessionCountLimitParts,
+		Material:       cfg.PossessionCountLimitMaterial,
+		ConsumableItem: cfg.PossessionCountLimitConsumableItem,
+		Money:          cfg.PossessionCountLimitMoney,
+		ImportantItem:  cfg.PossessionCountLimitImportantItem,
+		GachaMedal:     cfg.PossessionCountLimitGachaMedal,
+	}
+	if g.GoldConsumableItemId == 0 {
+		g.GoldConsumableItemId = cfg.ConsumableItemIdForGold
+	}
+	g.GachaMedalItemIds = make(map[int32]bool)
+	for _, it := range items {
+		if it.ConsumableItemType == consumableItemTypeGachaMedal {
+			g.GachaMedalItemIds[it.ConsumableItemId] = true
+		}
+	}
 }
 
 // runSendGift is the shim's "send_gift" action; applied is the count sent.
