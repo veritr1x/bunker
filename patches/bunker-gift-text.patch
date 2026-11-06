@@ -1,0 +1,17 @@
+diff --git a/android/app/src/main/python/patcher/patch_masterdata.py b/android/app/src/main/python/patcher/patch_masterdata.py
+--- a/android/app/src/main/python/patcher/patch_masterdata.py
++++ b/android/app/src/main/python/patcher/patch_masterdata.py
+@@ -109,6 +109,13 @@ TABLE_ROW_ADDITIONS = {
+     'm_event_quest_unlock_condition': [
+         [12, 0, 0, 1, 21, 0],
+     ],
++    # Bunker (Pod Programs > Gift): the text of the gifts it sends, one row per
++    # language, above the game's own ids so the table stays sorted.
++    'm_gift_text': [
++        [90000, 1, 'From Bunker, with love.'],
++        [90000, 2, 'From Bunker, with love.'],
++        [90000, 3, 'From Bunker, with love.'],
++    ],
+ }
+ 
+ # Client cap MaxGimmickSequenceSchedule = 1024. Through 2023-02 there are 1022
