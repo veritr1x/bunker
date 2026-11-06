@@ -22,7 +22,9 @@ func TestGiftNeverExpiresAndReadsBunkerText(t *testing.T) {
 		t.Fatalf("gifts: %+v", user.Gifts.NotReceived)
 	}
 	gift := user.Gifts.NotReceived[0]
-	if gift.ExpirationDatetime != 0 || gift.GiftCommon.DescriptionGiftTextId != 90000 || gift.GiftCommon.Count != 5 || gift.UserGiftUuid == "" {
+	// The game's Gift Box shows nothing at all when a gift has no deadline, so
+	// "never expires" is 2099-12-31 23:59:59 UTC.
+	if gift.ExpirationDatetime != 4102444799000 || gift.GiftCommon.DescriptionGiftTextId != 90000 || gift.GiftCommon.Count != 5 || gift.UserGiftUuid == "" {
 		t.Fatalf("gift: %+v", gift)
 	}
 	if user.Notifications.GiftNotReceiveCount != 1 {
