@@ -3,7 +3,26 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-native-presentation9`, using
+Latest original attempt: `work/windows-first-frame-native-presentation10`, using
+manifest `c7b02192590b4fe00386e955d1f8957070350800fd7721ad02fcb7b7173e6e89`
+and executable `8509f76a3f94f346bb498cda098c6a1ea191de851f91325a4a015f0ea0ee9de1`.
+The 58 Regex entries are integrated. This run stops at the collector's
+stop-send guard at epoch30, targeting managed worker19. The worker has returned
+timeout110 from its condition wait, left that helper, passed through the outer
+queue's mutex calls, and entered a new event-mutex import at LR `8255045c`.
+The old condition certificate has retired. The compound guard does not reveal
+whether its live-wait predicate failed or its stopped-state predicate differed;
+the log alone cannot distinguish them. A fresh controlled mutex checkpoint and
+stable-lifetime sender certification are being implemented. No old wait State
+may be reused for the stop. There are two returned renders, one successful swap,
+no accepted game image, and no unresolved Regex error in this execution.
+Original-parent pre/post and selected-runtime checks pass.
+Evidence: `work/runtime10-managed-gap-boundary1`.
+The independent build peer separately verified the appended object copy, which
+the builder had omitted from its frozen-file map but listed in its object
+inventory. Future builders must include every manifest object in verification.
+
+Preceding attempt: `work/windows-first-frame-native-presentation9`, using
 manifest `71ae305452fbc7a3436ff825e79cdf5c0b4fbbe78da810a8ca3ca4cec0f17de6`
 and executable `6850c634f058f1d4df347978d4d1788f2371c508c756ec533bfb064028ad8dbe`.
 The Windows entropy device is integrated. This run exits native3 at unresolved
