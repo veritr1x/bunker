@@ -23,6 +23,9 @@
 // - Drawing: above 30 fps it draws 30 a second after 2 s without a touch
 //   outside battles, and 60 or 30 while the device is hot (render_pace.c,
 //   shared with Android; it fixes up stale presets itself).
+// - Campaign badges set their remaining time once a second instead of every
+//   frame above 30 fps; each SetText rebuilt the label (badge_pace.c, shared
+//   with Android).
 // - Flying Mama counts frames, so it ran faster against its clock; its logic
 //   now runs as 30 steps a second (flying_mom.c, shared with Android).
 // - Story-event zones: an event that waited for the player to walk into a zone
@@ -50,6 +53,7 @@
 
 #include "flying_mom.h"
 #include "render_pace.h"
+#include "badge_pace.h"
 #include "render_effects.h"
 #include "bunker_button.h"
 #include "roulette_ads.h"
@@ -489,6 +493,8 @@ void LTDisplayStart(NSString *toolsRoot) {
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
         NSLog(@"[LunarTear] Flying Mama: the game's IL2CPP API is missing");
+    if (gFps > 30 && badge_pace_init(IL2CPPSymbol, GameLog))
+        NSLog(@"[LunarTear] Badge pacing: the game's IL2CPP API is missing");
     if (upscale) LTUpscaleStart();  // below the screen's resolution: MetalFX instead of plain stretching
     if (effectsOff && !render_effects_init(IL2CPPSymbol, GameLog, effectsOff)) gEffects = 1;
     if (gFps && (idle || heat)) {
