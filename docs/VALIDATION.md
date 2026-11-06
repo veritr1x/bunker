@@ -10,6 +10,10 @@
   Turned to portrait, the menu was as before.
 - Not checked: a tablet on its side (two columns with the longer top bar
   and the footer) and the update panel shown in landscape.
+- iOS: the launcher with the two-column layout compiled on a macOS runner
+  (`ios-branch.yml`, Xcode, `-Wall`), and an unsigned IPA was packaged from
+  it and the game's decrypted 3.7.1 IPA as the web builder does. Not yet run
+  on a device.
 
 ## Spendable event medals — 2026-11-06
 
