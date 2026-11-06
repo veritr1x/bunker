@@ -1,5 +1,26 @@
 # Validation
 
+## Shards on every summon — 2026-11-06
+
+- Both masters (Global 20240404193219, Japan 20240405123139) loaded through
+  the runtime catalog. Premium summons without a shard: their real notice
+  (Global, 1,167 notices) and the summon-screen art from the client bundles,
+  read with text recognition (EN 166 images, JA 130).
+- Notices or art name a shard on 17 summons that gave none: 506, 507,
+  9505061/62/71/72 (notices 1142, 1300, 1620), 10107, 10108 (notice 1106),
+  554, 581, 523001, 563001, 900003, 581001, 582001, 586001, 587001 (art).
+  After the fix exactly these change: 17 on Global, 16 on Japan, where
+  900003 stays without one because Japan's Lacrima Soldier exchange closed
+  in 2021. Premium summons with a shard: 423 of 533 (Global), 404 of 514
+  (Japan).
+- The other date matches are other summons' shards: their notices and art
+  name none (199, 405, 410, 433, 452, 494, 514, 529, 534, 589, 590,
+  527001, 533001, 539001 and others).
+- Healer & Support exchange (shop 8170): its offers dated in the shop data
+  rebuild 506's and 507's notice lineups exactly; the reruns get the offers
+  from their start. 9505071's ★4 weapons 33 → 29.
+- `go test ./...` passes with either master.
+
 ## Mods on the Android emulator — 2026-11-06
 
 - 1.9.0 on the Android 16 emulator, the save from 2026-11-03 (backed up
