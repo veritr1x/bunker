@@ -10,7 +10,24 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation21`, using
+Latest original attempt: `work/windows-first-frame-native-presentation22`, using
+manifest `11185c253e22d3986759794f8c422cff1453de60d1fbcfe012f3ce3810ef8a45`
+and executable `f2a87c07c0f57494e32f056bd47fb944e11404b362f153451c501fd7fd658a64`.
+It returns 35 renders and 33 successful swaps, with 219 draw calls and black
+captures. No first-frame witness exists. Native exit is 3; parent pre/post checks
+return 0 and selected-runtime checks pass. The 52-object, 92-function Unity
+refresh is selected; ten later modules remain outside this snapshot.
+
+The new fatal is a null indirect draw call with LR `70477af8`. Original dispatcher
+`7048c430..7048c5d8` loads the zero function pointer at offset `3e8` and branches
+through X5 at `7048c574`. The original initializer and resolver log identify this
+slot as `glDrawElementsBaseVertex`: both core and OES lookups returned zero.
+The selected ANGLE provider genuinely exports that function and advertises its
+support. The next repair adds the missing typed [indexed draw bridges](indexed_draws.md),
+preserving GPU buffer checks and forwarding to ANGLE. Evidence:
+`work/runtime22-null-target-frontier1/acceptance.json` and the run22 log/audit.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation21`, using
 manifest `f034343e4747302dd7e530323811ccf88a80d85bdd1616a39b33455a171dbd39`
 and executable `b79d11b0b14115907de7e4cc1e40c81ec4d2f890d6536344d931b8a3dd4cb21f`.
 It returns 33 renders and 31 successful swaps, all with black captures and no
