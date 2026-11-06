@@ -244,7 +244,20 @@ static void start_hook(void *self, Method *method) {
 }
 
 // Per row: the copy's button, and the row's own gap (to narrow from).
-static struct { void *self, *button, *copy, *row, *layout, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } seen;
+typedef struct { void *self, *button, *copy, *row, *layout, *own[ROW_BUTTONS]; float gap; int enabled, shown, frames; } Row;
+// The game has two headers, in-game and out-game, and Unity updates both every
+// frame. Each keeps its own Row: with one shared Row, every frame looked the
+// row up again and searched the whole interface for the counters, which held a
+// 120 fps iPad near 80 on busy screens such as Quests and Summons.
+static Row rows[2];
+static Row *row_for(void *self) {
+    static size_t last;
+    for (size_t i = 0; i < 2; i++)
+        if (rows[i].self == self) return &rows[last = i];
+    for (size_t i = 0; i < 2; i++)
+        if (!rows[i].self) return &rows[last = i];
+    return &rows[last = !last];  // a header that went away: reuse the other slot
+}
 
 // A RectTransform's corners on screen: left, bottom, right, top. 0 on success.
 static int corners(void *transform, float out[4]) {
@@ -265,47 +278,48 @@ static float rect_width(void *transform) {
 static void update_hook(void *self, Method *method) {
     update_original(self, method);
     if (failed) return;
-    if (seen.self != self) {
+    Row *seen = row_for(self);
+    if (seen->self != self) {
         void *notice = FIELD(self, f_notice, void *);
         void *row = notice ? call(m_parent, call(m_component_tr, notice, NULL), NULL) : NULL;
         void *copy = row ? child_named(row, "bunker_button") : NULL;
         if (!copy) return;  // Start has not added it (yet)
-        seen.self = self;
-        seen.row = row;
-        seen.copy = call(m_component_go, copy, NULL);
-        seen.button = call(m_get_component, seen.copy, (void *[]){type_of(k_button)});
+        seen->self = self;
+        seen->row = row;
+        seen->copy = call(m_component_go, copy, NULL);
+        seen->button = call(m_get_component, seen->copy, (void *[]){type_of(k_button)});
         for (size_t i = 0; i < ROW_BUTTONS; i++) {
             void *own = FIELD(self, f_row[i], void *);
-            seen.own[i] = own ? call(m_component_go, own, NULL) : NULL;
+            seen->own[i] = own ? call(m_component_go, own, NULL) : NULL;
         }
-        seen.shown = -1;
-        seen.layout = call(m_get_component, call(m_component_go, row, NULL), (void *[]){type_of(k_layout)});
-        void *gap = seen.layout ? call(m_get_spacing, seen.layout, NULL) : NULL;
-        seen.gap = gap ? FIELD(gap, 16, float) : 0;
-        seen.enabled = -1;
-        seen.frames = 0;
+        seen->shown = -1;
+        seen->layout = call(m_get_component, call(m_component_go, row, NULL), (void *[]){type_of(k_layout)});
+        void *gap = seen->layout ? call(m_get_spacing, seen->layout, NULL) : NULL;
+        seen->gap = gap ? FIELD(gap, 16, float) : 0;
+        seen->enabled = -1;
+        seen->frames = 0;
     }
     int visible = 0;
     for (size_t i = 0; i < ROW_BUTTONS && !visible; i++)
-        visible = seen.own[i] && unboxed_bool(call(m_active_self, seen.own[i], NULL));
-    if (seen.copy && visible != seen.shown) {
+        visible = seen->own[i] && unboxed_bool(call(m_active_self, seen->own[i], NULL));
+    if (seen->copy && visible != seen->shown) {
         uint8_t value = (uint8_t)visible;
-        call(m_set_active, seen.copy, (void *[]){&value});
-        seen.shown = visible;
+        call(m_set_active, seen->copy, (void *[]){&value});
+        seen->shown = visible;
     }
     void *notice = FIELD(self, f_notice, void *);
     int enabled = notice && unboxed_bool(call(m_is_enable, notice, NULL));
-    if (seen.button && enabled != seen.enabled) {
+    if (seen->button && enabled != seen->enabled) {
         uint8_t value = (uint8_t)enabled;
-        call(m_set_is_enable, seen.button, (void *[]){&value});
-        seen.enabled = enabled;
+        call(m_set_is_enable, seen->button, (void *[]){&value});
+        seen->enabled = enabled;
     }
     // Fit the row twice a second: it grows to the left, and must stay clear of
     // the counters on the same line (gems, medals, stamina: HeaderParameterBase).
-    if (!seen.layout || seen.frames++ % 30) return;
+    if (!seen->layout || seen->frames++ % 30) return;
     float row[4], limit = -1e9f;
-    if (corners(seen.row, row)) return;
-    void *counters = components(call(m_component_go, call(m_root, seen.row, NULL), NULL), k_counter);
+    if (corners(seen->row, row)) return;
+    void *counters = components(call(m_component_go, call(m_root, seen->row, NULL), NULL), k_counter);
     for (size_t i = 0; i < array_length(counters); i++) {
         float box[4];
         void *counter = array_item(counters, i);
@@ -313,22 +327,22 @@ static void update_hook(void *self, Method *method) {
         if (corners(call(m_component_tr, counter, NULL), box)) continue;
         if (box[3] > row[1] && box[1] < row[3] && box[2] < row[2] && box[2] > limit) limit = box[2];  // on the row's line, left of it
     }
-    float width = rect_width(seen.row);
+    float width = rect_width(seen->row);
     if (limit < -1e8f || width <= 0 || row[2] <= row[0]) return;
     float scale = (row[2] - row[0]) / width;  // world units per row unit
     float margin = 6 * scale;
-    void *count = call(m_child_count, seen.row, NULL);
+    void *count = call(m_child_count, seen->row, NULL);
     int shown = 0, n = count ? FIELD(count, 16, int) : 0;
     for (int i = 0; i < n; i++)
-        shown += unboxed_bool(call(m_active_self, call(m_component_go, call(m_child, seen.row, (void *[]){&i}), NULL), NULL));
-    void *now = call(m_get_spacing, seen.layout, NULL);
-    float gap = now ? FIELD(now, 16, float) : seen.gap;
+        shown += unboxed_bool(call(m_active_self, call(m_component_go, call(m_child, seen->row, (void *[]){&i}), NULL), NULL));
+    void *now = call(m_get_spacing, seen->layout, NULL);
+    float gap = now ? FIELD(now, 16, float) : seen->gap;
     if (shown < 2) return;
     float available = width + (row[0] - limit - margin) / scale;
     float button = (width - gap * (float)(shown - 1)) / (float)shown;
-    float want = bunker_row_gap(available, button, shown, seen.gap, 0);
+    float want = bunker_row_gap(available, button, shown, seen->gap, 0);
     if (want != gap) {
-        call(m_set_spacing, seen.layout, (void *[]){&want});
+        call(m_set_spacing, seen->layout, (void *[]){&want});
         char message[96];
         snprintf(message, sizeof message, "Bunker button: row gap %.1f -> %.1f (room %.0f of %.0f)", gap, want, available, width);
         say(message);
