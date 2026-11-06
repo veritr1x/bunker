@@ -11,6 +11,9 @@ import (
 	"lunar-tear/server/internal/store"
 )
 
+// Mods changes are in use at once in tests.
+func init() { mods.Recheck = 0 }
+
 func useMods(t *testing.T, body string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "mods.json")

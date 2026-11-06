@@ -68,13 +68,19 @@ var current struct {
 	modTime time.Time
 	size    int64
 	s       Settings
+	checked time.Time // when the file was last looked at
 }
+
+// Recheck is how often Get looks at the file again. Get is called for every
+// item granted and every stamina cost, so it does not touch the file on each
+// call; a change in Pod Programs is in use within this time. Tests set 0.
+var Recheck = time.Second
 
 // SetPath names the settings file (mods.json in the save folder); "" turns
 // every mod off.
 func SetPath(path string) {
 	current.Lock()
-	current.path, current.modTime, current.size, current.s = path, time.Time{}, -1, Settings{}
+	current.path, current.modTime, current.size, current.s, current.checked = path, time.Time{}, -1, Settings{}, time.Time{}
 	current.Unlock()
 }
 
@@ -85,6 +91,11 @@ func Get() Settings {
 	if current.path == "" {
 		return Settings{}
 	}
+	now := time.Now()
+	if !current.checked.IsZero() && now.Sub(current.checked) < Recheck {
+		return current.s
+	}
+	current.checked = now
 	info, err := os.Stat(current.path)
 	if err != nil {
 		current.modTime, current.size, current.s = time.Time{}, -1, Settings{}
