@@ -17,6 +17,7 @@ static NSString *const kMasterName = @"20240404193219.bin.e";
 static NSString *gServerRoot, *gSaves, *gMessage;
 static UIWindow *gWindow;
 UIInterfaceOrientationMask LTMenuOrientations(void);  // which way up the menu may turn
+static void RecheckOrientation(void);
 static UIBackgroundTaskIdentifier gBackgroundTask;
 static dispatch_queue_t gQueue;
 // Tools edits the saves with the server stopped. The game keeps its own copy
