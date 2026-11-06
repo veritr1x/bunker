@@ -1,5 +1,25 @@
 # Validation
 
+## Review fixes on Android — 2026-11-06
+
+- Android 16 emulator (bunker_api36), the APK built at 1c8737f, signed with
+  the public build key over the installed app (save and game files kept),
+  60 fps: the log showed "Badge pacing: ready" and "Bunker button: ready".
+  The Bunker button sat in both headers (field and Quests) and opened the
+  menu. Subquests showed every campaign badge's "Left: 999d", also straight
+  after scrolling rows out of view and back.
+- Pod Programs beside the game: POST /users/1/use for the player already in
+  use restarted Lunar Tear and asked for no title screen [ea82989]. Two item
+  grants in a row (1 gold each): both restarts passed the launcher's health
+  check with the return pending [1c8737f], the game stayed open (same
+  process), its next call (GetGiftList) showed "Process failed. Returning to
+  title screen.", and Tap to Start signed in with gold up by 2. The Bunker
+  button was in the top row again after the title screen.
+- Not run on a device: a backup that fails with a restart that fails too
+  (Android closes the game; Java compiled), the desktop master data reload,
+  gifts that arrive as something else at a full stack (Go tests), and the
+  once-a-second mods.json check (Go tests).
+
 ## Bunker menu in landscape — 2026-11-06
 
 - Android 16 emulator on its side (about 914×411 dp): the Bunker menu
