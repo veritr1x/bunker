@@ -1,5 +1,28 @@
 # Validation
 
+## Pod Programs › Gift — 2026-11-07
+
+- Android emulator, Global, All content, game running throughout. Gift
+  opened from the Bunker menu; Summoning › Summon tickets › Premium Summon
+  Ticket: "Up to 99,999 more." Sent 3: "Sent: Premium Summon Ticket ×3. It is
+  in the game's Gift Box."; the game process kept running and never went to
+  the title screen. The Gift Box listed "Premium Summon Ticket x3 — From
+  Bunker, with love. — Deadline 01/01/2100"; Receive gave it (with the
+  Comfort mod's tickets-as-gems on, as 900 gems: 278,201 → 279,101).
+- Small Character Enhancement held at 99,989 (limit 99,999): room 10; sending
+  11 refused "only 10 more can be claimed now". Collection › Debris: 196 of
+  233 shown as Owned and not selectable. The Item Editor showed "14 gifts are
+  waiting in the Gift Box" linking to Gift; Gift's waiting list was empty
+  after the claim.
+- Found and fixed on the way: builds ran the upstream patcher, so built
+  masters lacked the gift text; the room check was refused while the server
+  ran; the shim's granter had no possession limits (room read 2,147,483,647);
+  backups refused the reason "gift"; and a gift with no deadline made the
+  game fetch the Gift Box but never open it (the same gift with a date
+  opened, without one it did not), so Bunker gifts expire 2099-12-31.
+- `go test ./...` passes with either master; every Android tool test and the
+  notice and web builder tests pass. iOS not run.
+
 ## Draw buttons without a false sale — 2026-11-06
 
 - Cause, from the iOS UnityFramework the dump was made from:
