@@ -9,7 +9,8 @@ import (
 	"lunar-tear/server/internal/lunarbase"
 )
 
-// Edit executes Lunar Base against this app's save, only while gameplay is stopped.
+// Edit executes Lunar Base against this app's save, only while gameplay is
+// stopped (reads that change nothing excepted).
 // Never accept a database path supplied by a web request.
 func Edit(dataRoot, assetRoot, raw string) string {
 	lifecycle.Lock()
@@ -18,12 +19,15 @@ func Edit(dataRoot, assetRoot, raw string) string {
 		b, _ := json.Marshal(map[string]any{"ok": false, "error": message})
 		return string(b)
 	}
-	if active != nil {
-		return fail("Stop the game server before editing saves")
-	}
 	var request map[string]any
 	if err := json.Unmarshal([]byte(raw), &request); err != nil {
 		return fail(err.Error())
+	}
+	// Pod Programs › Gift's "how many can still be claimed" only reads the
+	// save, so the game can play on; "send_gift" checks again with the
+	// server stopped.
+	if active != nil && request["action"] != "gift_room" {
+		return fail("Stop the game server before editing saves")
 	}
 	path := filepath.Join(dataRoot, "game.db")
 	if _, err := os.Stat(path); err != nil {
