@@ -10,7 +10,27 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation15`, using
+Latest original attempt: `work/windows-first-frame-native-presentation16`, using
+manifest `239b08f32857c10ca74a911077544e803a51d1149c2902e8c2ab0d1aa1916123`
+and executable `9e69a4c3dc3acc31fc74e11abecb445092e09c058b12aabc5bffa6865a2faea8`.
+It returns 31 renders and 29 successful swaps; the image is still uniform
+black. The repaired signed-widening point is passed. All three Crashlytics
+registrations complete, its genuine SDK instance is nonnull, and original
+SetCustomKey and Log calls return. The native init-status value is not logged.
+The next failed SDK lookup is Messaging exception registration and its ANSI
+alternate; the original stripped listener closure has seven native exports.
+
+The terminal indirect target is `701078e8`, LR `701078cc`. This is a computed
+switch inside original Unity function `701068d8..70107f10`, not an exception
+landing pad. Three guarded signed-offset tables contain 16 rows and 12 unique
+missing targets. An additive candidate preserves all 4,658 existing objects
+and adds one object plus twelve trace registrations; its functional block
+qualification is pending. No accepted image exists. Native exit is 3;
+parent pre/post and selected-runtime checks pass. Evidence:
+`work/runtime16-unresolved-boundary1/acceptance.json`,
+`work/runtime16-sdk-boundary1/acceptance.json`, and the run audit.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation15`, using
 manifest `1f3689d93ff7e8f2f843c050fd59e68bdd810be06188bbf36d869a31d8cc2897`
 and executable `c8b695dc8cfdc9486a77fc1b4111d97763ddeb49f1a62cdba6346ff048928ea8`.
 It returns 30 original renders and 28 successful original swaps, with real
