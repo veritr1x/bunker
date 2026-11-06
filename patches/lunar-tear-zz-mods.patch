@@ -141,6 +141,16 @@ diff --git a/server/internal/store/helpers.go b/server/internal/store/helpers.go
  	if have, limit, ok := g.stackLimit(user, possessionType, possessionId); ok && limit > 0 && count > 0 {
  		room := max(int64(limit)-have, 0)
  		if int64(count) > room {
+@@ -459,6 +465,9 @@
+ // player past an MConfig possession limit. For a costume or companion the
+ // player owns, that is whether its duplicate exchange would.
+ func (g *PossessionGranter) WouldOverflow(user *UserState, possessionType model.PossessionType, possessionId, count int32) bool {
++	if g.Rewrite != nil { // checked as what arrives (Pod Programs > Mods)
++		possessionType, possessionId, count = g.Rewrite(possessionType, possessionId, count)
++	}
+ 	n := int64(max(count, 1))
+ 	over := func(have int64, limit int32, add int64) bool {
+ 		return limit > 0 && have+add > int64(limit)
 diff --git a/server/internal/store/stamina.go b/server/internal/store/stamina.go
 --- a/server/internal/store/stamina.go
 +++ b/server/internal/store/stamina.go
