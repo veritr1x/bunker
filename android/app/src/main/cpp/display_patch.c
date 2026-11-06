@@ -67,6 +67,7 @@
 #include <unistd.h>
 
 #include "render_pace.h"
+#include "badge_pace.h"
 #include "render_effects.h"
 #include "render_scale.h"
 #include "egl_sync.h"
@@ -476,6 +477,8 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
     }
     if (fps > 30 && (flying_mom_state = flying_mom_init(game_symbol, bunker_log)))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Flying Mama: the game's IL2CPP API is missing; it runs faster above 30 fps");
+    if (fps > 30 && badge_pace_init(game_symbol, bunker_log))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Badge pacing: the game's IL2CPP API is missing; badges update every frame");
     if (effects_off && render_effects_init(game_symbol, bunker_log, effects_off)) effects_off = 0;
     if ((fps > 30 || effects_off) && render_pace_init(game_symbol, bunker_log, fps, idle, heat, effects_off ? apply_effects : NULL))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Frame pacing: the game's IL2CPP API is missing; it draws every frame");
