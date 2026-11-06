@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Gift{% endblock %}
+{% block content %}
+<style>
+  .gift-cats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:14px 0 10px}
+  .gift-card{text-align:center;padding:12px 10px;border:1px solid rgba(220,216,192,.25);background:transparent;color:inherit;font:inherit;font-size:12px;letter-spacing:.08em;min-height:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gift-card:hover,.gift-card:focus-visible{background:rgba(220,216,192,.12);color:inherit;transform:none}
+  .gift-card.on,.gift-card.on:hover{background:var(--bg-cream);color:var(--fg-dark);border-color:var(--bg-cream)}
+  @media (max-width:900px){.gift-cats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (max-width:520px){.gift-cats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .gift-tabs{display:flex;gap:18px;margin:4px 0 8px;border-bottom:1px solid rgba(220,216,192,.2);overflow-x:auto}
+  .gift-tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:6px 0;color:inherit;font:inherit;font-size:12px;opacity:.6;white-space:nowrap;min-height:0}
+  .gift-tabs button:hover{background:none;color:inherit;opacity:1;transform:none}
+  .gift-tabs button.on{opacity:1;border-bottom-color:currentColor}
+  .gift-list{max-height:40vh;overflow:auto}
+  .gift-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 8px;border-bottom:1px solid rgba(220,216,192,.12);cursor:pointer}
+  .gift-row:hover{background:rgba(220,216,192,.08)}
+  .gift-row.sel{background:rgba(220,216,192,.18);font-weight:bold}
+  .gift-row.owned{opacity:.45;cursor:default}
+  .gift-group{margin:10px 0 4px;font-size:.85em;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+  .gift-send{display:grid;grid-template-columns:1fr 140px auto;gap:10px;align-items:center}
+  .gift-waiting td{padding:4px 12px 4px 0}
+</style>
+
+<h1 class="bracket-header">Gift</h1>
+<div class="panel"><p style="margin:0">Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. The game keeps running: the Gift Box shows it after your next action.</p>
+{% if players|length > 1 %}
+  <p style="margin:8px 0 0"><label for="player">Player</label>
+  <select id="player" onchange="location.href='/gift?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p>
+{% endif %}
+</div>
+
+{% if not ready %}
+<div class="banner error">&gt; The game data has no gift text yet. Apply a content preset, or turn the calendar on, under Content first.</div>
+{% else %}
+<h2 class="bracket-header">1 :: Choose</h2>
+<div class="panel">
+  <input id="q" type="search" placeholder="Search every category by name" style="width:100%">
+  <div class="gift-cats" id="cats">{% for card in cards %}<button type="button" class="gift-card" data-card="{{ card.name }}">{{ card.name }}</button>{% endfor %}</div>
+  <div class="gift-tabs" id="tabs"></div>
+  <div class="gift-list" id="list"></div>
+</div>
+
+<h2 class="bracket-header">2 :: Send</h2>
+<div class="panel">
+  <div class="gift-send">
+    <strong id="what">Nothing chosen yet</strong>
+    <input id="count" type="number" min="1" value="1" inputmode="numeric" aria-label="Count" disabled>
+    <button id="send" type="button" disabled>SEND</button>
+  </div>
+  <p class="note" id="hint" style="margin:8px 0 0">Pick a category, or search.</p>
+</div>
+{% endif %}
+
+<h2 class="bracket-header">Waiting in the Gift Box</h2>
+<div class="panel">
+{% if waiting %}
+  <table class="gift-waiting">{% for g in waiting %}<tr><td>{{ g.name }} ×{{ "{:,}".format(g.count) }}</td></tr>{% endfor %}</table>
+{% else %}<p style="margin:0" class="note">Nothing from Bunker is waiting.</p>{% endif %}
+</div>
+
+{% if ready %}
+<script id="gift-data" type="application/json">{{ cards|tojson }}</script>
+<script>
+(() => {
+  const CARDS = JSON.parse(document.getElementById("gift-data").textContent), USER = {{ user }};
+  const ONE = {1: "One copy per gift. A copy you already own turns into its usual exchange items when you claim it.",
+               3: "One copy per gift. A copy you already own turns into its usual exchange items when you claim it.",
+               14: "One per gift."};
+  const $ = id => document.getElementById(id);
+  let card = CARDS[0], group = card.groups[0], chosen = null;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  function draw() {
+    const q = $("q").value.trim().toLowerCase();
+    document.querySelectorAll(".gift-card").forEach(b => b.classList.toggle("on", !q && b.dataset.card === card.name));
+    $("tabs").innerHTML = q ? "" : card.groups.filter(g => g.entries.length).map(g =>
+      `<button type="button" data-group="${esc(g.name)}" class="${g === group ? "on" : ""}">${esc(g.name)}</button>`).join("");
+    const sources = q ? CARDS.flatMap(c => c.groups.map(g => [c, g])) : [[card, group]];
+    const html = [];
+    for (const [c, g] of sources) {
+      const items = g.entries.filter(e => !q || e.name.toLowerCase().includes(q));
+      if (!items.length) continue;
+      if (q) html.push(`<div class="gift-group">${esc(c.name)} › ${esc(g.name)}</div>`);
+      for (const e of items.slice(0, 400)) {
+        const sel = chosen && chosen.possession_type === e.possession_type && chosen.possession_id === e.possession_id;
+        html.push(`<div class="gift-row${sel ? " sel" : ""}${e.owned ? " owned" : ""}" data-t="${e.possession_type}" data-i="${e.possession_id}">` +
+                  `<span>${esc(e.name)}${e.owned ? " · Owned" : ""}</span><span class="note">${"★".repeat(e.stars)}</span></div>`);
+      }
+    }
+    $("list").innerHTML = html.join("") || '<p class="note">Nothing matches.</p>';
+  }
+  function find(t, i) {
+    for (const c of CARDS) for (const g of c.groups) for (const e of g.entries) if (e.possession_type === t && e.possession_id === i) return e;
+  }
+  async function pick(e) {
+    chosen = e; draw();
+    $("what").textContent = e.name; $("send").disabled = true; $("count").disabled = true; $("count").value = 1;
+    $("hint").textContent = "Checking how many can be claimed…";
+    const r = await fetch(`/gift/room?user=${USER}&type=${e.possession_type}&id=${e.possession_id}`).then(r => r.json()).catch(() => ({}));
+    if (chosen !== e) return;
+    const room = r.room || 0;
+    if (!room) { $("hint").textContent = r.error || "Nothing more of this can be claimed now."; return; }
+    if (e.one_per_gift) { $("hint").textContent = ONE[e.possession_type] || ONE[1]; $("count").max = 1; }
+    else { $("hint").textContent = `Up to ${room.toLocaleString()} more.`; $("count").max = room; $("count").disabled = false; }
+    $("send").disabled = false;
+  }
+  $("cats").addEventListener("click", ev => { const b = ev.target.closest(".gift-card"); if (!b) return;
+    $("q").value = ""; card = CARDS.find(c => c.name === b.dataset.card); group = card.groups.find(g => g.entries.length); draw(); });
+  $("tabs").addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return;
+    group = card.groups.find(g => g.name === b.dataset.group); draw(); });
+  $("list").addEventListener("click", ev => { const r = ev.target.closest(".gift-row"); if (!r || r.classList.contains("owned")) return;
+    pick(find(+r.dataset.t, +r.dataset.i)); });
+  $("q").addEventListener("input", draw);
+  $("send").addEventListener("click", async () => {
+    const count = Math.max(1, Math.min(+$("count").value || 1, +$("count").max || 1));
+    $("send").disabled = true;
+    const r = await fetch("/gift/send", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user: USER, possession_type: chosen.possession_type, possession_id: chosen.possession_id, count})})
+      .then(r => r.json()).catch(err => ({ok: false, error: err.message}));
+    const done = r.ok ? `message=${encodeURIComponent(`Sent: ${chosen.name} ×${count.toLocaleString()}. It is in the game's Gift Box.`)}`
+                      : `error=${encodeURIComponent(r.error || "The gift was not sent")}`;
+    location.href = `/gift?user=${USER}&${done}`;
+  });
+  draw();
+})();
+</script>
+{% endif %}
+{% endblock %}

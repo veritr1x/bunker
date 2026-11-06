@@ -278,3 +278,40 @@ def send_route(payload: dict = Body(...)):
     # The save changed, but the game reads gifts from the server on its next
     # call: Lunar Tear restarts around the change and the game plays on.
     return JSONResponse({"ok": True}, headers={"X-Bunker-Keep-Playing": "1"})
+
+
+# --- The page -----------------------------------------------------------------
+
+from dataclasses import asdict
+
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+
+
+def _owned_debris(user_id):
+    try:
+        from web.services import userdata_service
+        return userdata_service.get_owned_thought_ids(user_id)
+    except Exception:  # no save yet
+        return set()
+
+
+def _players():
+    try:
+        from web.services import userdata_service
+        return [(u.user_id, u.name or f"Player {u.user_id}") for u in userdata_service.list_users()]
+    except Exception:
+        return []
+
+
+@router.get("/gift")
+def page(request: Request, user: int = 0, message: str = "", error: str = ""):
+    user_id = _user(user)
+    owned = _owned_debris(user_id)
+    cards = [{"name": c.name, "groups": [{"name": g.name, "entries": [dict(asdict(e), owned=e.possession_type == THOUGHT and e.possession_id in owned)
+                                                                     for e in g.entries]} for g in c.groups]} for c in catalog(game_now())]
+    return templates.TemplateResponse(request, "gift.html", {"active": "gift", "cards": cards, "user": user_id, "players": _players(),
+                                                             "ready": has_gift_text(), "waiting": waiting(user_id),
+                                                             "message": message, "error": error})

@@ -189,5 +189,41 @@ class Sending(GameData):
         self.assertFalse(bad.json()["ok"])
 
 
+INTRO = ("Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. "
+         "The game keeps running: the Gift Box shows it after your next action.")
+
+
+class Page(Sending):
+    def page(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        app = FastAPI()
+        app.include_router(gift.router)
+        with mock.patch.object(gift, "game_now", lambda: NOW):
+            return TestClient(app).get("/gift", params={"user": 1}).text
+
+    def test_page_has_the_six_cards_and_the_intro(self):
+        page = self.page()
+        self.assertIn(INTRO, page)
+        positions = [page.index(f'data-card="{name}"') for name in
+                     ("Currency", "Summoning", "Character growth", "Weapon growth", "Collection", "Everyday")]
+        self.assertEqual(positions, sorted(positions))
+        self.assertNotIn('class="giftbox"', page)  # no in-game preview
+        self.assertIn("Small Character Enhancement ×3", page)  # waiting in the Gift Box
+        self.assertIn('id="send"', page)
+
+    def test_without_gift_text_the_page_says_so(self):
+        (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text("[]")
+        page = self.page()
+        self.assertIn("Apply a content preset", page)
+        self.assertNotIn('id="send"', page)
+
+    def test_nav_and_editors_link_to_gift(self):
+        templates = root / "overlays/python/web/templates"
+        self.assertIn('href="/gift"', (templates / "base.html").read_text())
+        for name in ("user_items.html", "user_costumes.html", "user_weapons.html"):
+            self.assertIn("/gift/waiting-count", (templates / name).read_text(), name)
+
+
 if __name__ == "__main__":
     unittest.main()
