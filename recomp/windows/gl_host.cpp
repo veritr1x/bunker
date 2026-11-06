@@ -241,10 +241,14 @@ struct GlHost::Impl {
   std::map<std::string,std::function<void(State&)>> bridges;
   std::wstring diagnostic_png;
   FrameDiagnostics diagnostic;
+  FrameSnapshotStatus snapshot;
+  uint64_t next_snapshot_request=0,snapshot_inflight=0;
+  std::set<std::wstring> snapshot_paths;
   struct PendingPresent {
     uint64_t serial=0;DWORD thread=0;addr_t display=0,surface=0,context=0;
     int32_t width=0,height=0;bool nonuniform=false,candidate=false;
     uint64_t draws=0,clears=0;std::vector<uint8_t> pixels;
+    bool diagnostic_capture=true;uint64_t snapshot_request=0;std::wstring snapshot_path;
   };
   uint64_t next_present_serial=0;
   std::map<uint64_t,PendingPresent> pending_presents;
@@ -352,22 +356,37 @@ struct GlHost::Impl {
     return bytes;
   }
   template<class F>bool Call(F function){CollectErrors();function();return !CollectErrors();}
+  static std::wstring SnapshotPathKey(const std::filesystem::path &path){
+    return std::filesystem::weakly_canonical(path).lexically_normal().wstring();
+  }
+  static bool SameSnapshotPath(const std::wstring &a,const std::wstring &b){
+    return CompareStringOrdinal(a.c_str(),-1,b.c_str(),-1,TRUE)==CSTR_EQUAL;
+  }
+  bool ReservedFirstFramePath(const std::filesystem::path &path)const{
+    if(diagnostic_png.empty())return false;
+    const auto key=SnapshotPathKey(path);const auto first=std::filesystem::path(diagnostic_png);
+    return SameSnapshotPath(key,SnapshotPathKey(first))||SameSnapshotPath(key,SnapshotPathKey(first.parent_path()/L"first-present.png"));
+  }
   uint64_t CaptureWindow(addr_t display,addr_t surface){
     const auto thread=GetCurrentThreadId();
     // There can be only one outstanding original swap on each native thread.
     // A new ENTER abandons any unmatched previous ticket on that thread.
     for(auto at=pending_presents.begin();at!=pending_presents.end();)
-      if(at->second.thread==thread)at=pending_presents.erase(at);else ++at;
-    if(diagnostic_png.empty()||diagnostic.frame_png)return 0;
+      if(at->second.thread==thread){if(snapshot_inflight==at->first)snapshot_inflight=0;at=pending_presents.erase(at);}else ++at;
+    const bool diagnostic_enabled=!diagnostic_png.empty()&&!diagnostic.frame_png;
+    const bool snapshot_capture=snapshot.pending&&!snapshot_inflight;
+    if(!diagnostic_enabled&&!snapshot_capture)return 0;
     auto extent=egl.CurrentDrawWindowExtent();if(!extent||extent->surface!=surface)return 0;
     SelectContext();if(extent->context!=current_context)throw std::runtime_error("Capture context changed");
     if(uint64_t(extent->width)*uint64_t(extent->height)*4>TransferLimit)throw std::runtime_error("Capture exceeds64MiB");
-    if(diagnostic.first_present_png&&!diagnostic.draw_submissions)return 0;
+    const bool diagnostic_capture=diagnostic_enabled&&(!diagnostic.first_present_png||diagnostic.draw_submissions);
+    if(!diagnostic_capture&&!snapshot_capture)return 0;
     if(next_present_serial==UINT64_MAX)throw std::overflow_error("Capture serial exhausted");
     const auto serial=++next_present_serial;
-    ++diagnostic.capture_attempts;
+    if(diagnostic_capture)++diagnostic.capture_attempts;
+    if(snapshot_capture)++snapshot.capture_attempts;
     CollectErrors();const auto saved_errors=pending_errors[current_context];
-    const bool observe_capture=diagnostic.capture_attempts<=8;
+    const bool observe_capture=diagnostic_capture&&diagnostic.capture_attempts<=8;
     struct ErrorRestore {Impl &host;std::set<GLenum> saved;~ErrorRestore(){
       for(unsigned i=0;i<32&&host.getError()!=GL_NO_ERROR;++i){}
       if(saved.empty())host.pending_errors.erase(host.current_context);else host.pending_errors[host.current_context]=saved;
@@ -424,9 +443,12 @@ struct GlHost::Impl {
     PendingPresent pending;pending.serial=serial;pending.thread=thread;pending.display=display;
     pending.surface=surface;pending.context=extent->context;pending.width=extent->width;pending.height=extent->height;
     pending.nonuniform=nonuniform;pending.candidate=nonuniform&&diagnostic.draw_submissions;
+    pending.diagnostic_capture=diagnostic_capture;
+    if(snapshot_capture){pending.snapshot_request=snapshot.request_serial;pending.snapshot_path=snapshot.path;}
     pending.draws=diagnostic.draw_submissions;pending.clears=diagnostic.clear_submissions;
-    if(pending.candidate||!diagnostic.first_present_png)pending.pixels=std::move(pixels);
+    if(snapshot_capture||pending.candidate||!diagnostic.first_present_png)pending.pixels=std::move(pixels);
     pending_presents.emplace(serial,std::move(pending));
+    if(snapshot_capture)snapshot_inflight=serial;
     std::fprintf(stderr,"First frame: capture ticket=%llu native_tid=%lu display=%#llx context=%#llx surface=%#llx nonuniform=%d candidate=%d; awaiting same original swap outcome\n",(unsigned long long)serial,thread,(unsigned long long)display,(unsigned long long)extent->context,(unsigned long long)surface,int(nonuniform),int(nonuniform&&diagnostic.draw_submissions));
     return serial;
   }
@@ -434,10 +456,26 @@ struct GlHost::Impl {
     if(!serial)return;
     auto at=pending_presents.find(serial);if(at==pending_presents.end())return;
     auto pending=std::move(at->second);pending_presents.erase(at); // consume even a failed/mismatched return
+    const bool snapshot_return=pending.snapshot_request&&snapshot.pending&&snapshot.request_serial==pending.snapshot_request&&snapshot_inflight==serial;
+    if(snapshot_inflight==serial)snapshot_inflight=0;
     const auto thread=GetCurrentThreadId();bool matched=pending.thread==thread&&pending.display==display&&pending.surface==surface;
     if(matched){auto extent=egl.CurrentDrawWindowExtent();matched=extent&&extent->context==pending.context&&extent->surface==pending.surface&&extent->width==pending.width&&extent->height==pending.height;}
     std::fprintf(stderr,"First frame: capture outcome ticket=%llu native_tid=%lu display=%#llx context=%#llx surface=%#llx EGLresult=%u matched=%d candidate=%d\n",(unsigned long long)serial,thread,(unsigned long long)display,(unsigned long long)pending.context,(unsigned long long)surface,actual_result,int(matched),int(pending.candidate));
-    if(!matched||actual_result!=1||pending.pixels.empty()||diagnostic.frame_png)return;
+    if(!matched||actual_result!=1||pending.pixels.empty()){
+      if(snapshot_return)snapshot.failure=!matched?"Snapshot swap ticket/context mismatch":actual_result!=1?"Snapshot original swap failed":"Snapshot readback unavailable";
+      return;
+    }
+    if(snapshot_return){
+      try{
+        if(ReservedFirstFramePath(std::filesystem::path(pending.snapshot_path)))throw std::runtime_error("Snapshot path is reserved for first-frame witness");
+        WriteFramePng(std::filesystem::path(pending.snapshot_path),uint32_t(pending.width),uint32_t(pending.height),pending.pixels);
+        snapshot.pending=false;snapshot.completed=true;snapshot.failure.clear();snapshot.presented_capture_serial=serial;
+        snapshot.presented_native_thread=thread;snapshot.presented_display=display;snapshot.presented_context=pending.context;snapshot.presented_surface=surface;
+        snapshot.width=pending.width;snapshot.height=pending.height;snapshot.nonuniform=pending.nonuniform;
+        std::fprintf(stderr,"Frame snapshot: PNG=%s request=%llu ticket=%llu native_tid=%lu display=%#llx context=%#llx surface=%#llx %dx%d nonuniform=%d same_original_swap_EGL_TRUE=1\n",std::filesystem::path(pending.snapshot_path).u8string().c_str(),(unsigned long long)pending.snapshot_request,(unsigned long long)serial,thread,(unsigned long long)display,(unsigned long long)pending.context,(unsigned long long)surface,pending.width,pending.height,int(pending.nonuniform));
+      }catch(const std::exception &error){snapshot.pending=false;snapshot.completed=false;snapshot.failure=error.what();std::fprintf(stderr,"Frame snapshot: write failed request=%llu %s\n",(unsigned long long)pending.snapshot_request,error.what());}
+    }
+    if(!pending.diagnostic_capture||diagnostic.frame_png)return;
     std::filesystem::path path(diagnostic_png);
     if(!pending.candidate){if(diagnostic.first_present_png)return;path=path.parent_path()/L"first-present.png";}
     WriteFramePng(path,uint32_t(pending.width),uint32_t(pending.height),pending.pixels);
@@ -725,18 +763,32 @@ void GlHost::Invoke(const std::string &name,State &state){GlNativeEnvironment en
   if(name=="glClientWaitSync"){auto call=found->second;lock.unlock();call(state);return;}
   found->second(state);
   if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements"||name=="glDrawElementsInstanced"||name=="glDrawElementsBaseVertex"||name=="glDrawElementsBaseVertexOES"||name=="glDrawElementsBaseVertexEXT"||name=="glDrawElementsInstancedBaseVertex"||name=="glDrawElementsInstancedBaseVertexOES"||name=="glDrawElementsInstancedBaseVertexEXT"||name=="glDrawRangeElementsBaseVertex"||name=="glDrawRangeElementsBaseVertexOES"||name=="glDrawRangeElementsBaseVertexEXT")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
-void GlHost::EnableFrameDiagnostics(const std::wstring &path){std::lock_guard lock(impl_->mutex);if(path.empty()||!std::filesystem::path(path).is_absolute())throw std::invalid_argument("Absolute frame PNG path required");impl_->diagnostic_png=path;}
+void GlHost::EnableFrameDiagnostics(const std::wstring &path){std::lock_guard lock(impl_->mutex);if(path.empty()||!std::filesystem::path(path).is_absolute())throw std::invalid_argument("Absolute frame PNG path required");
+  if(!impl_->snapshot_paths.empty()){const auto first=std::filesystem::path(path);for(const auto &key:impl_->snapshot_paths)if(Impl::SameSnapshotPath(key,Impl::SnapshotPathKey(first))||Impl::SameSnapshotPath(key,Impl::SnapshotPathKey(first.parent_path()/L"first-present.png")))throw std::invalid_argument("First-frame PNG path is already reserved by a snapshot");}
+  impl_->diagnostic_png=path;}
 GlHost::FrameDiagnostics GlHost::DescribeFrameDiagnostics(){std::lock_guard lock(impl_->mutex);return impl_->diagnostic;}
+uint64_t GlHost::RequestFrameSnapshot(const std::wstring &path){GlNativeEnvironment environment;std::lock_guard lock(impl_->mutex);
+  const std::filesystem::path output(path);
+  if(path.empty()||path.find(L'\0')!=std::wstring::npos||!output.is_absolute())throw std::invalid_argument("Absolute new snapshot PNG path required");
+  if(impl_->snapshot.pending)throw std::logic_error("A frame snapshot request is already pending");
+  if(impl_->ReservedFirstFramePath(output))throw std::invalid_argument("Snapshot cannot replace first-frame witness PNG");
+  if(std::filesystem::exists(output))throw std::invalid_argument("Preserve existing snapshot PNG");
+  if(impl_->next_snapshot_request==UINT64_MAX)throw std::overflow_error("Snapshot request serial exhausted");
+  auto key=Impl::SnapshotPathKey(output);FrameSnapshotStatus next;next.request_serial=++impl_->next_snapshot_request;next.pending=true;next.path=path;
+  impl_->snapshot=std::move(next);impl_->snapshot_paths.insert(std::move(key));return impl_->snapshot.request_serial;
+}
+GlHost::FrameSnapshotStatus GlHost::DescribeFrameSnapshot(){GlNativeEnvironment environment;std::lock_guard lock(impl_->mutex);return impl_->snapshot;}
 uint64_t GlHost::BeginWindowPresent(addr_t display,addr_t surface){std::lock_guard lock(impl_->mutex);
   const int saved_errno=errno;const DWORD saved_error=GetLastError();std::fenv_t environment;std::feholdexcept(&environment);
   struct Restore{int error;DWORD native_error;std::fenv_t environment;~Restore(){std::fesetenv(&environment);errno=error;SetLastError(native_error);}} restore{saved_errno,saved_error,environment};
   auto dpi=impl_->egl.CurrentWindowDpiScope();
-  try{return impl_->CaptureWindow(display,surface);}catch(const std::exception &e){impl_->diagnostic.failure=e.what();std::fprintf(stderr,"First frame: capture failed: %s\n",e.what());return 0;}}
+  try{return impl_->CaptureWindow(display,surface);}catch(const std::exception &e){if(!impl_->diagnostic_png.empty()&&!impl_->diagnostic.frame_png)impl_->diagnostic.failure=e.what();if(impl_->snapshot.pending)impl_->snapshot.failure=e.what();std::fprintf(stderr,"First frame: capture failed: %s\n",e.what());return 0;}}
 void GlHost::FinishWindowPresent(uint64_t ticket,addr_t display,addr_t surface,uint32_t actual_result){std::lock_guard lock(impl_->mutex);
   const int saved_errno=errno;const DWORD saved_error=GetLastError();std::fenv_t environment;std::feholdexcept(&environment);
   struct Restore{int error;DWORD native_error;std::fenv_t environment;~Restore(){std::fesetenv(&environment);errno=error;SetLastError(native_error);}} restore{saved_errno,saved_error,environment};
   auto dpi=impl_->egl.CurrentWindowDpiScope();
-  try{impl_->FinishPresent(ticket,display,surface,actual_result);}catch(const std::exception &e){impl_->diagnostic.failure=e.what();std::fprintf(stderr,"First frame: capture completion failed: %s\n",e.what());}}
+  const auto pending=impl_->pending_presents.find(ticket);const bool snapshot_only=pending!=impl_->pending_presents.end()&&!pending->second.diagnostic_capture;
+  try{impl_->FinishPresent(ticket,display,surface,actual_result);}catch(const std::exception &e){if(!snapshot_only)impl_->diagnostic.failure=e.what();if(impl_->snapshot.pending)impl_->snapshot.failure=e.what();std::fprintf(stderr,"First frame: capture completion failed: %s\n",e.what());}}
 
 void GlHost::Install(recomp::Runtime &runtime){if(impl_->installed)throw std::logic_error("GL imports already installed");for(const auto *name:names)runtime.AddImport(Marker(name),[this,name](State &state){try{Invoke(name,state);}catch(const std::exception &e){std::fprintf(stderr,"GL %s: %s\n",name,e.what());std::abort();}});impl_->installed=true;}
 }  // namespace bunker::windows

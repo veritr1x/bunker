@@ -33,6 +33,17 @@ class GlHost {
   struct FrameDiagnostics {uint64_t calls=0,draw_submissions=0,clear_submissions=0,capture_attempts=0,presented_capture_serial=0;uint32_t presented_native_thread=0;addr_t presented_display=0,presented_context=0,presented_surface=0;bool first_present_png=false,frame_png=false,nonuniform=false;int32_t width=0,height=0;std::string failure;};
   void EnableFrameDiagnostics(const std::wstring &absolute_png_path);
   FrameDiagnostics DescribeFrameDiagnostics();
+  struct FrameSnapshotStatus {
+    uint64_t request_serial=0,presented_capture_serial=0,capture_attempts=0;
+    uint32_t presented_native_thread=0;addr_t presented_display=0,presented_context=0,presented_surface=0;
+    bool pending=false,completed=false,nonuniform=false;int32_t width=0,height=0;
+    std::wstring path;std::string failure;
+  };
+  // Requester performs no GL calls. One pending request; a distinct new PNG
+  // is published only by its next matched successful original window swap.
+  // Existing first-frame witness paths/status are never replaced.
+  uint64_t RequestFrameSnapshot(const std::wstring &absolute_new_png_path);
+  FrameSnapshotStatus DescribeFrameSnapshot();
   // Pair one original eglSwapBuffers ENTER/RETURN on its native thread.
   // A nonzero ticket owns one pre-swap readback; only its matching EGL_TRUE
   // return can publish a PNG. Failed/unmatched tickets cannot be reused.

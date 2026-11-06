@@ -132,6 +132,37 @@ void ObserveFourthFrameWait(const char *phase,const char *name,uint64_t sequence
     (unsigned long long)state.gpr.x1.qword,(unsigned long long)state.gpr.x2.qword,(unsigned long long)state.gpr.x3.qword);
 }
 void Require(bool condition,const char *message){if(!condition)throw std::runtime_error(message);}
+
+// BEGIN_GAME_FRAME_RUN_POLICY
+struct GameFrameRunOptions {
+  enum class Mode {FirstWitness,ReturnedFrames,UntilClose};
+  Mode mode=Mode::FirstWitness;uint64_t returned_frames=0;
+  bool Continuing()const noexcept{return mode!=Mode::FirstWitness;}
+  bool ReachedLimit(uint64_t completed)const noexcept{return mode==Mode::ReturnedFrames&&completed>=returned_frames;}
+  bool StopAfterReturnedFrame(uint64_t completed,bool witness)const noexcept{
+    return mode==Mode::FirstWitness?witness:ReachedLimit(completed);
+  }
+  bool SnapshotBeforeNextFrame(uint64_t completed)const noexcept{
+    return mode==Mode::ReturnedFrames&&returned_frames>1&&completed==returned_frames-1;
+  }
+};
+GameFrameRunOptions ParseGameFrameRunTail(int &argc,char **argv){
+  GameFrameRunOptions options;
+  if(argc>1&&!std::strcmp(argv[argc-1],"--run-frames"))throw std::invalid_argument("--run-frames requires a positive returned-frame count");
+  if(argc>2&&!std::strcmp(argv[argc-2],"--run-frames")){
+    const char *first=argv[argc-1],*last=first+std::strlen(first);uint64_t count=0;
+    const auto parsed=std::from_chars(first,last,count);
+    if(first==last||parsed.ec!=std::errc{}||parsed.ptr!=last||!count)throw std::invalid_argument("--run-frames requires a positive uint64 decimal count");
+    options.mode=GameFrameRunOptions::Mode::ReturnedFrames;options.returned_frames=count;argc-=2;
+  }else if(argc>1&&!std::strcmp(argv[argc-1],"--run-until-close")){
+    options.mode=GameFrameRunOptions::Mode::UntilClose;--argc;
+  }
+  return options;
+}
+void RequireGameFrameRunProfile(const GameFrameRunOptions &options,bool first_frame,bool collector_delivery){
+  if(options.Continuing()&&(!first_frame||!collector_delivery))throw std::invalid_argument("frame continuation requires the explicit --first-frame muted collector profile");
+}
+// END_GAME_FRAME_RUN_POLICY
 template<class T>T Read(addr_t address){T result{};recomp::ReadGuestMemory(&result,address,sizeof(result));return result;}
 void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
   auto invoke=[&host](bool vm,size_t slot,State &state){
@@ -270,6 +301,8 @@ extern "C" Memory *__wrap___bunker_guest_call(State &s,addr_t target,Memory *mem
 int main(int argc,char **argv){
   SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX|SEM_NOOPENFILEERRORBOX);
   SetUnhandledExceptionFilter(Crash);_set_abort_behavior(0,3);
+  GameFrameRunOptions frame_run;
+  try{frame_run=ParseGameFrameRunTail(argc,argv);}catch(const std::exception &error){std::fprintf(stderr,"Frame continuation: %s\n",error.what());return 2;}
   const char *firebase_dll_argument=nullptr;
   if(argc==13&&!std::strcmp(argv[11],"--firebase-app-dll")){firebase_dll_argument=argv[12];argc-=2;}
   const bool first_frame=argc==11&&!std::strcmp(argv[10],"--first-frame");
@@ -278,9 +311,11 @@ int main(int argc,char **argv){
   const bool mute_audio=(argc==9&&!std::strcmp(argv[8],"--mute-audio"))||collector_delivery;
   const bool frame_gate=(argc==8||mute_audio)&&!std::strcmp(argv[4],"--frame-gate");
   const bool surface_gate=frame_gate||(argc==7&&!std::strcmp(argv[4],"--surface-gate"));
+  try{RequireGameFrameRunProfile(frame_run,first_frame,collector_delivery);}catch(const std::exception &error){std::fprintf(stderr,"Frame continuation: %s\n",error.what());return 2;}
   if(first_frame&&!collector_delivery){std::fputs("First frame diagnostic requires the explicit muted collector profile\n",stderr);return 2;}
   if(firebase_dll_argument&&!first_frame){std::fputs("Windows Firebase SDK requires the explicit first-frame profile\n",stderr);return 2;}
-  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio [--collector-delivery]]]\n");return 2;}
+  if(argc!=4&&!(argc==5&&!std::strcmp(argv[4],"--init-jni"))&&!surface_gate){std::fprintf(stderr,"Usage: bunker-game-bootstrap.exe <verified-native-directory> <original-game.apk> <writable-storage-directory> [--init-jni | --surface-gate <landscape-client-width> <height> | --frame-gate <width> <height> <pinned-ANGLE-DLL-directory> [--mute-audio [--collector-delivery]]] [--first-frame [--firebase-app-dll <pinned-SDK-DLL>] [--run-frames <positive-count> | --run-until-close]]\n");return 2;}
+  if(frame_run.Continuing())std::fprintf(stderr,"Frame continuation: enabled mode=%s returnedFrameLimit=%llu; original first-frame capture retained\n",frame_run.mode==GameFrameRunOptions::Mode::ReturnedFrames?"returned-frames":"until-close",(unsigned long long)frame_run.returned_frames);
 #if !defined(BUNKER_GAME_COLLECTOR_DELIVERY) || !BUNKER_GAME_COLLECTOR_DELIVERY
   if(collector_delivery){std::fputs("Game GC: original delivery profile is unavailable in this build\n",stderr);return 2;}
 #endif
@@ -1295,7 +1330,7 @@ int main(int argc,char **argv){
           if(first_frame)std::fputs("First frame: waiting for original nativeRender; no manual initialization or skipped guest calls\n",stderr);
           bool keep_running=false,render_returned=false;
           if(first_frame){
-            bool next_frame=false,close=false;uint64_t completed_frames=0;
+            bool next_frame=false,close=false;uint64_t completed_frames=0,later_snapshot_request=0;
             while(!close){
               for(const auto &event:native_windows->DrainEvents(window)){
                 if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);
@@ -1310,7 +1345,11 @@ int main(int argc,char **argv){
                   auto diagnostic=graphics->DescribeFrameDiagnostics();
                   const bool witness=diagnostic.frame_png&&diagnostic.nonuniform&&diagnostic.draw_submissions&&diagnostic.presented_capture_serial;
                   std::fprintf(stderr,"First frame: original nativeRender returned frame=%llu continue=%d presentedCandidate=%d draws=%llu\n",(unsigned long long)completed_frames,int(keep_running),int(witness),(unsigned long long)diagnostic.draw_submissions);
-                  if(witness||!keep_running)break;
+                  if(!keep_running||frame_run.StopAfterReturnedFrame(completed_frames,witness))break;
+                  if(frame_run.SnapshotBeforeNextFrame(completed_frames)){
+                    later_snapshot_request=graphics->RequestFrameSnapshot((storage/L"later-frame.png").wstring());
+                    std::fprintf(stderr,"Frame continuation: snapshot request=%llu after returnedFrame=%llu; next genuine successful swap only\n",(unsigned long long)later_snapshot_request,(unsigned long long)completed_frames);
+                  }
                   next_frame=true;
                 }
               }
@@ -1319,6 +1358,11 @@ int main(int argc,char **argv){
                 if(completed_frames<=8||completed_frames%60==0)std::fprintf(stderr,"First frame: requesting next original nativeRender after frame=%llu; same UnityMain/window, no repeated nativeResume\n",(unsigned long long)completed_frames);
               }
               std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            if(frame_run.Continuing())std::fprintf(stderr,"Frame continuation: stopped returnedFrames=%llu reason=%s; same original UnityMain/window, no repeated nativeResume\n",(unsigned long long)completed_frames,close?"real window close":!keep_running?"original nativeRender returned false":"requested returned-frame limit");
+            if(later_snapshot_request){
+              auto snapshot=graphics->DescribeFrameSnapshot();Require(snapshot.request_serial==later_snapshot_request,"later-frame snapshot request serial changed");
+              std::fprintf(stderr,"Frame continuation: snapshot request=%llu completed=%d pending=%d presentedSerial=%llu attempts=%llu nonuniform=%d size=%dx%d failure=%s\n",(unsigned long long)snapshot.request_serial,int(snapshot.completed),int(snapshot.pending),(unsigned long long)snapshot.presented_capture_serial,(unsigned long long)snapshot.capture_attempts,int(snapshot.nonuniform),snapshot.width,snapshot.height,snapshot.failure.c_str());
             }
           }else{
             while(true){try{keep_running=lifecycle.WaitForFrame();render_returned=true;break;}catch(const std::runtime_error &e){if(std::string(e.what())!="one-frame diagnostic timed out before nativeRender completed")throw;std::fprintf(stderr,"Game bootstrap: first nativeRender observation window expired; retaining same live worker/window and waiting, not restarting\n");poll_volume();}}
@@ -1331,7 +1375,7 @@ int main(int argc,char **argv){
           if(first_frame){
             auto diagnostic=graphics->DescribeFrameDiagnostics();const bool witness=render_returned&&diagnostic.frame_png&&diagnostic.nonuniform&&diagnostic.draw_submissions&&diagnostic.presented_capture_serial;
             std::fprintf(stderr,"First frame: witness=%d nativeRenderReturned=%d EGLcalls=%llu successfulPresentations=%llu GLcalls=%llu drawSubmissions=%llu clears=%llu PNG=%d nonuniform=%d size=%dx%d captureFailure=%s\n",int(witness),int(render_returned),(unsigned long long)observed_egl_calls.load(),(unsigned long long)observed_presentations.load(),(unsigned long long)diagnostic.calls,(unsigned long long)diagnostic.draw_submissions,(unsigned long long)diagnostic.clear_submissions,int(diagnostic.frame_png),int(diagnostic.nonuniform),diagnostic.width,diagnostic.height,diagnostic.failure.c_str());
-            if(witness){
+            if(witness&&!frame_run.Continuing()){
               std::fputs("First frame: retaining original surface/window for ten seconds before normal diagnostic pause\n",stderr);
               const auto hold_until=std::chrono::steady_clock::now()+std::chrono::seconds(10);bool close=false;
               while(!close&&std::chrono::steady_clock::now()<hold_until){for(const auto &event:native_windows->DrainEvents(window)){if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);if(event.kind==NativeWindows::Event::CloseRequested)close=true;}poll_volume();std::this_thread::sleep_for(std::chrono::milliseconds(10));}
