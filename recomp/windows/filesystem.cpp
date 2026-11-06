@@ -850,6 +850,90 @@ void FileSystem::EnableGrowdownMappings(){std::lock_guard lock(impl_->mutex);Gro
 addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset) {
   std::unique_lock lock(impl_->mutex);
   constexpr int allowed = 3 | 0x10 | 0x20 | linux_flags::map_growdown | 0x4000 | 0x20000 | 0x100000;
+  if (flags & linux_flags::map_fixed) {
+    // Only the original GC discard profile; registration, not VirtualQuery,
+    // establishes ownership. No new reservation or unowned page is replaced.
+    auto report_fixed = [&](const char *reason) {
+      std::fprintf(stderr,"FileSystem mmap MAP_FIXED boundary: requested=%#llx length=%llu protection=%#x flags=%#x descriptor=%d offset=%lld reason=%s\n",
+          static_cast<unsigned long long>(address),static_cast<unsigned long long>(length),
+          static_cast<unsigned>(protection),static_cast<unsigned>(flags),descriptor,
+          static_cast<long long>(offset),reason);
+    };
+    auto reject_fixed = [&](const char *reason,int error) -> addr_t {
+      report_fixed(reason);impl_->Error(error);return kMapFailed;
+    };
+    if (!length || length > SIZE_MAX - kPage || protection & ~7 || flags & ~allowed ||
+        (flags & 3) == 0 || (flags & 3) == 3 || offset < 0 || offset % kPage)
+      return reject_fixed("invalid-arguments",22);
+    if (!address || address % kPage) return reject_fixed("null-or-unaligned-address",22);
+    const auto rounded=RoundPage(length);
+    if(address>UINT64_MAX-rounded)return reject_fixed("address-range-overflow",12);
+    if(flags!=(linux_flags::map_private|linux_flags::map_fixed|linux_flags::map_anonymous)||
+       protection!=0||descriptor!=-1||offset!=0)
+      return reject_fixed("unsupported-discard-profile",95);
+    // Match Mprotect's whole-owner pin exclusion, including disjoint uses and
+    // intersections that would fail the narrower bounds/type checks below.
+    for(const auto &entry:impl_->mappings){
+      const bool intersects=address>=entry.first?address-entry.first<entry.second.rounded_length:
+          entry.first-address<rounded;
+      if(intersects&&entry.second.pins->uses.load(std::memory_order_acquire)){
+        report_fixed("active-mapping-use");
+        throw std::runtime_error("unsupported MAP_FIXED discard of active mapping use");
+      }
+    }
+    auto found=impl_->mappings.upper_bound(address);
+    if(found==impl_->mappings.begin())return reject_fixed("unowned-address",95);
+    --found;
+    const auto base=found->first,size=found->second.rounded_length;
+    if(address<base||address-base>size||rounded>size-(address-base))
+      return reject_fixed("range-not-inside-one-owner",95);
+    auto &owner=found->second;
+    if(owner.file||owner.private_file||owner.object||owner.grow||
+       owner.native!=reinterpret_cast<void*>(base))
+      return reject_fixed("owner-not-ordinary-anonymous-reservation",95);
+    for(auto cursor=address;cursor<address+rounded;){
+      MEMORY_BASIC_INFORMATION info{};
+      if(!VirtualQuery(reinterpret_cast<const void*>(cursor),&info,sizeof(info))||
+         info.State!=MEM_COMMIT||info.Type!=MEM_PRIVATE||info.AllocationBase!=owner.native||
+         (info.Protect&PAGE_GUARD))return reject_fixed("native-reservation-or-page-mismatch",95);
+      const auto region=reinterpret_cast<addr_t>(info.BaseAddress);
+      if(cursor<region||cursor-region>=info.RegionSize)
+        return reject_fixed("native-region-bounds-mismatch",95);
+      cursor+=std::min<uint64_t>(address+rounded-cursor,info.RegionSize-(cursor-region));
+    }
+    const auto generation=MappingGeneration(); // Allocate identity before mutation.
+    bool decommitted=false,prepared=false;
+    void *result=nullptr;DWORD native_error=ERROR_SUCCESS;
+    try{
+      prepared=recomp::WithGuestMemoryMutation(address,rounded,[&]{
+        if(!VirtualFree(reinterpret_cast<void*>(address),rounded,MEM_DECOMMIT)){
+          native_error=GetLastError();return false;
+        }
+        decommitted=true;
+        // Partial replacement conservatively revokes ALL old snapshots for the
+        // native owner, including its untouched subranges. Pins were zero.
+        owner.generation=generation;
+        return true;
+      },[&]{
+        result=VirtualAlloc(reinterpret_cast<void*>(address),rounded,MEM_COMMIT,PAGE_NOACCESS);
+        if(!result)native_error=GetLastError();
+      });
+    }catch(...){
+      if(decommitted){
+        report_fixed("native-or-epoch-exception-after-decommit");
+        throw std::runtime_error("destructive MAP_FIXED mutation failed after decommit; owned reservation retained");
+      }
+      throw;
+    }
+    // No logging or virtual-errno access occurs under the memory mutation lock.
+    if(!prepared)return reject_fixed("native-decommit-failed",GuestWinError(native_error));
+    if(result!=reinterpret_cast<void*>(address)){
+      report_fixed("native-recommit-failed-after-decommit");
+      std::fprintf(stderr,"FileSystem destructive MAP_FIXED recommit native_error=%lu; old contents lost, owned reservation retained\n",static_cast<unsigned long>(native_error));
+      throw std::runtime_error("destructive MAP_FIXED recommit failed after decommit; owned reservation retained");
+    }
+    return address;
+  }
   if (!length || length > SIZE_MAX - kPage || protection & ~7 || flags & ~allowed || (flags & 3) == 0 || (flags & 3) == 3 || offset < 0 || offset % kPage) { impl_->Error(22); return kMapFailed; }
   if(flags & linux_flags::map_growdown){
     // Linux rejects growing shared/file VMAs. Private anonymous growth is a
@@ -868,7 +952,6 @@ addr_t FileSystem::Mmap(addr_t address, uint64_t length, int protection, int fla
     }catch(...){if(!GrowdownMemory::ReleaseClosed(control))std::abort();throw;}
     GrowdownMemory::Publish(control);return region.initial;
   }
-  if (flags & linux_flags::map_fixed) { impl_->Error(95); return kMapFailed; }
   const bool no_replace = flags & linux_flags::map_fixed_no_replace;
   if (no_replace && (!address || address % kPage)) { impl_->Error(22); return kMapFailed; }
   uint64_t rounded = RoundPage(length);

@@ -25,6 +25,16 @@ void InvalidateGuestMemory(addr_t address, size_t size);
 // The callback executes under a non-recursive memory lock. It must only do a
 // short native write; no guest callbacks, runtime access, or waits on guests.
 void WithGuestMemoryWrite(addr_t address, size_t size, const std::function<void()> &write);
+// Conditional native mutation under the same non-recursive memory lock.
+// Prepare must return false only when no native bytes, permissions or ownership
+// changed; false performs no epoch invalidation. True invalidates the nonempty
+// target before commit, still under the lock. Callbacks may only issue short
+// native virtual-memory operations and update already-owned scalar metadata:
+// no guest/runtime reentry, C++ heap allocation, guest callbacks or guest waits.
+// After destructive preparation, exceptions are not an untouched-failure claim;
+// the provider must diagnose its retained native state before continuing.
+bool WithGuestMemoryMutation(addr_t address, size_t size,
+    const std::function<bool()> &prepare, const std::function<void()> &commit);
 // Target-thread-only view, innermost first. Valid only during this execution;
 // includes suspended parents of nested Runtime::Run callbacks. It does not
 // enumerate roots kept solely in native provider temporaries.

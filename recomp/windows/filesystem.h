@@ -107,6 +107,11 @@ class FileSystem {
   int FEof(addr_t stream);
   int FError(addr_t stream);
   int FFlush(addr_t stream);
+  // Exact owned GC discard: PRIVATE|FIXED|ANONYMOUS, PROT_NONE, fd-1, offset0.
+  // Only one existing ordinary anonymous reservation is eligible; pins exclude
+  // its entire owner. Decommit/recommit retains addresses and supplies zeros for
+  // later Mprotect. Partial replacement conservatively changes the WHOLE owner
+  // generation. Failures after decommit are explicitly destructive/fatal.
   addr_t Mmap(addr_t address, uint64_t length, int protection, int flags, int descriptor, int64_t offset);
   // Opt in to real native downward fault growth: 8MiB additional capacity,
   // 1MiB lower gap, 128 process-active owners/4096 retained lifetime records.

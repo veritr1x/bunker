@@ -233,6 +233,16 @@ void recomp::WithGuestMemoryWrite(addr_t address, size_t size, const std::functi
   invalidate_unlocked(address, size);
   write();
 }
+bool recomp::WithGuestMemoryMutation(addr_t address, size_t size,
+    const std::function<bool()> &prepare, const std::function<void()> &commit) {
+  if (!size || !prepare || !commit) throw std::invalid_argument("guest memory mutation requires a nonempty range and native callbacks");
+  check_range(address, size);
+  std::lock_guard<std::mutex> lock(memory_tracking().lock);
+  if (!prepare()) return false;
+  invalidate_unlocked(address, size);
+  commit();
+  return true;
+}
 void recomp::InvalidateGuestMemory(addr_t address, size_t size) {
   check_range(address, size);
   std::lock_guard<std::mutex> lock(memory_tracking().lock);
