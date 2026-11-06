@@ -25,8 +25,12 @@ import (
 // master-data patcher adds (patches/bunker-gift-text.patch).
 const BunkerGiftTextId int32 = 90000
 
-// addBunkerGift puts an unclaimed Bunker gift in the gift box. It never
-// expires (ExpirationDatetime 0).
+// BunkerGiftExpiry is when Bunker gifts expire: 2099-12-31 23:59:59 UTC, in
+// effect never. The game's Gift Box fetches the list but shows nothing at all
+// when a gift has no deadline (ExpirationDatetime 0), so it gets this one.
+const BunkerGiftExpiry int64 = 4102444799000
+
+// addBunkerGift puts an unclaimed Bunker gift in the gift box.
 func addBunkerGift(user *store.UserState, t model.PossessionType, id, count int32, now int64) {
 	user.Gifts.NotReceived = append(user.Gifts.NotReceived, store.NotReceivedGiftState{
 		GiftCommon: store.GiftCommonState{
@@ -36,7 +40,8 @@ func addBunkerGift(user *store.UserState, t model.PossessionType, id, count int3
 			GrantDatetime:         now,
 			DescriptionGiftTextId: BunkerGiftTextId,
 		},
-		UserGiftUuid: uuid.New().String(),
+		ExpirationDatetime: BunkerGiftExpiry,
+		UserGiftUuid:       uuid.New().String(),
 	})
 	live := int32(0)
 	for _, gift := range user.Gifts.NotReceived {
