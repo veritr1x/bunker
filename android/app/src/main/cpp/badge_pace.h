@@ -14,9 +14,14 @@ int badge_pace_init(void *(*resolve)(const char *name), void (*log)(const char *
 /** The table badge_pace.c keeps, for its tests. */
 #define BADGE_PACE_SLOTS 256
 typedef struct {
-    void *self[BADGE_PACE_SLOTS];
+    void *self[BADGE_PACE_SLOTS], *label[BADGE_PACE_SLOTS];
     int64_t second[BADGE_PACE_SLOTS];
 } BadgePace;
 
-/** 1 when the badge should update now (its first call, or the first in a new second), and records it. */
-int badge_pace_due(BadgePace *pace, void *self, int64_t second);
+/**
+ * 1 when the badge should update now (its first call, or the first in a new
+ * second), and records it. A badge is known by its address and its label: a
+ * new badge made where a destroyed one was has a new label, so its first call
+ * updates it.
+ */
+int badge_pace_due(BadgePace *pace, void *self, void *label, int64_t second);
