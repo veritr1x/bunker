@@ -12,9 +12,16 @@ under its heading, down to the previous release.
   holds. Everything fits on one screen, Deploy included. A tablet on its
   side gets the same two columns with the full top bar; portrait is
   unchanged. [b538fa4] The same on iPhone and iPad. [91fc7bf]
-- iOS: the Bunker menu, Pod Programs and the Archive stay on their side
-  like the game. On an iPad, opening ⋮ turned the menu upright over a
-  partly black screen. [219bfbf]
+- iOS: the Bunker menu, Pod Programs and the Archive turn upright with
+  the device; the game stays on its side. On an iPad held upright the menu
+  used to open in a window on its side. [4b3450f, a00d7af]
+
+### Game
+- The in-game Bunker button no longer slows busy screens. The game has two
+  headers, and with one shared state the button looked its row up again
+  and searched the whole interface for the counters every frame; on an
+  iPad at 120 fps that took about a third of the main thread on Quests.
+  [0c72350]
 
 ### Server
 - Coffin of Repose and Rhythm's Citadel medals can be spent. The events

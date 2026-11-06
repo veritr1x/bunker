@@ -19,6 +19,24 @@
   screen with the rest black. The menu, Pod Programs and the Archive now
   allow only landscape [219bfbf]; that build is packaged but not yet
   installed.
+- iPad Pro 11-inch (M4), iPadOS 26.6.2, windowed apps, held upright,
+  driven with WebDriverAgent [a00d7af]: the menu filled the screen upright
+  with one column; a three-finger double tap during play opened it upright
+  over the game; Deploy returned the game to its landscape window, and it
+  took taps. Not checked: turning the device with the menu open (the
+  driver's rotate did not turn the screen), Pod Programs and the Archive.
+
+## Bunker button frame cost — 2026-11-06
+
+- iPad Pro 11-inch (M4), 120 fps, 1080 with MetalFX, scrolling Subquests:
+  Time Profiler put about 30% of the main thread's samples in the
+  button's counter search. A temporary log showed `ingame_header` and
+  `outgame_header` alternating every frame, each search over the whole
+  interface taking about 1.3 ms. With a state per header [0c72350] the
+  search fell to about 3%. The screen still showed 80 fps (frames of 8.3
+  and 16.7 ms) with the GPU at about 7–9 ms a frame.
+- `android/tools/test_bunker_button.py`: 13 tests passed. Not run on
+  Android.
 
 ## Spendable event medals — 2026-11-06
 
