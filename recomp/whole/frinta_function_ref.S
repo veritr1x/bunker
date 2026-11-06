@@ -1,0 +1,95 @@
+.text
+.p2align 4
+.global ff_call
+.type ff_call,%function
+ff_call:
+ sub sp,sp,#192
+ stp x19,x20,[sp,#0]
+ stp x21,x22,[sp,#16]
+ stp x23,x24,[sp,#32]
+ stp x25,x26,[sp,#48]
+ stp x27,x28,[sp,#64]
+ stp x29,x30,[sp,#80]
+ stp d8,d9,[sp,#96]
+ stp d10,d11,[sp,#112]
+ stp d12,d13,[sp,#128]
+ stp d14,d15,[sp,#144]
+ str x1,[sp,#160]
+ mrs x16,fpcr
+ str x16,[sp,#168]
+ mrs x16,fpsr
+ str x16,[sp,#176]
+ mrs x16,nzcv
+ str x16,[sp,#184]
+ msr fpcr,xzr
+ msr fpsr,xzr
+ msr nzcv,xzr
+ mov x17,x0
+ mov x16,x1
+ ldp x19,x20,[x16,#0]
+ ldp x21,x22,[x16,#16]
+ ldp x23,x24,[x16,#32]
+ ldp x25,x26,[x16,#48]
+ ldp x27,x28,[x16,#64]
+ ldr x29,[x16,#80]
+ ldp d8,d9,[x16,#88]
+ ldp d10,d11,[x16,#104]
+ ldp d12,d13,[x16,#120]
+ ldp d14,d15,[x16,#136]
+ ldr w0,[x17,#0]
+ ldr w3,[x17,#4]
+ movz x1,#16
+ movk x1,#0x5800,lsl#16
+ add x2,x1,#4
+ ldr s0,[x17,#8]
+ ldr s1,[x17,#12]
+ ldr s2,[x17,#16]
+ ldr s3,[x17,#20]
+ ldr s4,[x17,#24]
+ ldr s5,[x17,#28]
+ movz x16,#0x8b78
+ movk x16,#0x7082,lsl#16
+ blr x16
+.Lff_return:
+ ldr x16,[sp,#160]
+ stp x19,x20,[x16,#0]
+ stp x21,x22,[x16,#16]
+ stp x23,x24,[x16,#32]
+ stp x25,x26,[x16,#48]
+ stp x27,x28,[x16,#64]
+ str x29,[x16,#80]
+ stp d8,d9,[x16,#88]
+ stp d10,d11,[x16,#104]
+ stp d12,d13,[x16,#120]
+ stp d14,d15,[x16,#136]
+ str s0,[x16,#152]
+ mrs x17,fpsr
+ str w17,[x16,#156]
+ mrs x17,nzcv
+ str x17,[x16,#160]
+ mrs x17,fpcr
+ str x17,[x16,#176]
+ adr x17,.Lff_return
+ cmp x17,x30
+ cset w17,eq
+ str x17,[x16,#168]
+ ldr x16,[sp,#168]
+ msr fpcr,x16
+ ldr x16,[sp,#176]
+ msr fpsr,x16
+ ldr x16,[sp,#184]
+ msr nzcv,x16
+ ldp x19,x20,[sp,#0]
+ ldp x21,x22,[sp,#16]
+ ldp x23,x24,[sp,#32]
+ ldp x25,x26,[sp,#48]
+ ldp x27,x28,[sp,#64]
+ ldp x29,x30,[sp,#80]
+ ldp d8,d9,[sp,#96]
+ ldp d10,d11,[sp,#112]
+ ldp d12,d13,[sp,#128]
+ ldp d14,d15,[sp,#144]
+ add sp,sp,#192
+ ret
+.size ff_call,.-ff_call
+.section .note.GNU-stack,"",%progbits
