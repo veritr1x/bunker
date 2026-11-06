@@ -4,6 +4,22 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.9.0 (2026-11-06)
+
+Mods and changes that reach the running game. Pod Programs has a Mods
+program: free stamina, stamina items as gold, premium tickets as gems,
+shop items that never run out, Lost Items that give gems, quest rewards ×2
+to ×10, no duplicate ★4 and summon medals traded for gems, each off until
+you turn it on, with Original and Comfort presets (most from the Lunar Tear
+Comfort Mod by NavHobbyDev, MIT). A change to the save, the players, the
+master data or the calendar no longer closes the game: Lunar Tear restarts
+around it and the game goes straight back to its title screen to load it.
+The Bunker menu and Pod Programs fit a phone or tablet on its side, and on
+an iPad held upright the menu turns upright too. Busy screens such as
+Quests and Summons run faster at 60 and 120 fps. Coffin of Repose and
+Rhythm's Citadel medals can be spent, and an edited save no longer drops
+back to level 1.
+
 ## 2026-11-06 (after 1.8.4)
 
 ### Bunker menu
