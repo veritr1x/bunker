@@ -47,7 +47,7 @@ public final class MainActivity extends Activity {
     private int permille=-1;
     private String last="";
     private boolean running=false,busy=false,tools=false,bound=false,autoAttempted=false,launchWhenReady=true,foreground=false;
-    private String serverState="Server stopped",serverDetail="Import your game files to get started.";
+    private String serverState="Server stopped",serverDetail="Choose your game files to get started.";
     private Messenger service;
     private final Messenger replies=new Messenger(new Handler(Looper.getMainLooper(),message->{
         Bundle b=message.getData();running=b.getBoolean("running");busy=b.getBoolean("busy");tools=b.getBoolean("tools");permille=b.getInt("permille",-1);serverState=b.getString("state","");serverDetail=b.getString("detail","");
@@ -60,7 +60,7 @@ public final class MainActivity extends Activity {
     }));
     private final ServiceConnection connection=new ServiceConnection(){
         public void onServiceConnected(ComponentName name,IBinder binder){service=new Messenger(binder);query(1);}
-        public void onServiceDisconnected(ComponentName name){service=null;running=false;busy=false;serverState="Server stopped";serverDetail="Tap Play to restart.";refresh();}
+        public void onServiceDisconnected(ComponentName name){service=null;running=false;busy=false;serverState="Server stopped";serverDetail="Tap Deploy to start it again.";refresh();}
     };
     private void query(int code){if(service==null)return;Message m=Message.obtain(null,code);m.replyTo=replies;try{service.send(m);}catch(RemoteException ignored){}}
 
@@ -279,14 +279,14 @@ public final class MainActivity extends Activity {
         else if("Saves exported".equals(serverState))message="Backup saved.";
         else if("Save imported".equals(serverState))message=serverDetail;
         else if(hasAssets&&!hasMaster){message="Import master data from the ⋮ menu.";warning=true;}
-        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Your game files folder is missing: "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings to read your game files folder, or choose the files again.";}
-        else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty()&&!serverDetail.equals("Import your game files to get started.")&&!serverDetail.equals("Tap Play to restart.")&&!serverDetail.equals("Your saves are stored on this phone."))message=serverDetail;
-        if(message.isEmpty())message=tools?"Close Pod Programs to deploy again.":running?"Lunar Tear is running. The game connects to it on this phone. No internet is needed.":ready?"Deploy starts Lunar Tear, then opens the game.":"Choose the game files to begin: the resource dump's .7z or its extracted folder.";
+        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Can't find your game files folder: "+FilesStore.linkedFolder(this)+". Put it back, or choose the files again.":"Allow All files access for NieR in Settings to read your game files folder, or choose the files again.";}
+        else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty()&&!serverDetail.equals("Choose your game files to get started.")&&!serverDetail.equals("Tap Deploy to start it again.")&&!serverDetail.equals("Your save stays on this device."))message=serverDetail;
+        if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":running?"Lunar Tear is running on this device. The game needs no internet.":ready?"Deploy starts Lunar Tear, then opens the game.":"Choose the game files to begin: the resource dump's .7z or its extracted folder.";
         detail.setText(warning?"> "+message:message);detail.setTextColor(warning?look.alert:look.ink);
     }
     private void chooseAssets(){
         dialog().setTitle("Choose the game files")
-            .setItems(new String[]{"Extracted folder: copy into the app","Extracted folder: use in place","Archive (.7z or .zip)"},(dialog,which)->{
+            .setItems(new String[]{"Extracted folder: copy it in","Extracted folder: use in place","Archive (.7z or .zip)"},(dialog,which)->{
                 if(which==0)chooseFolder(ASSETS);
                 else if(which==1)useInPlace();
                 // The resource dump's .7z can be chosen directly; only revision 0 is unpacked.
@@ -316,10 +316,10 @@ public final class MainActivity extends Activity {
         LinearLayout panel=panel();
         // Pod Programs has its own panel on the Bunker; this section only appears while there is something to stop or check.
         if(running||busy)section(panel,"Lunar Tear");
-        if(running||busy)option(panel,menu,1,busy?"Cancel operation":"Stop Lunar Tear",true);
+        if(running||busy)option(panel,menu,1,busy?"Cancel":"Stop Lunar Tear",true);
         if(running)option(panel,menu,10,"Check Lunar Tear",true);
         section(panel,"Data");
-        if(!idle){TextView note=look.monoText("> Stop Lunar Tear to import or export saves.",11,look.alert);note.setPadding(0,0,0,dp(4));panel.addView(note);}
+        if(!idle){TextView note=look.monoText("> Stop Lunar Tear first to import or export a save backup.",11,look.alert);note.setPadding(0,0,0,dp(4));panel.addView(note);}
         option(panel,menu,2,"Import master data",idle);
         option(panel,menu,3,"Export save backup",idle&&new File(FilesStore.data(this),"game.db").isFile());
         option(panel,menu,9,"Import save backup",idle);
@@ -366,7 +366,7 @@ public final class MainActivity extends Activity {
     private void chooseDisplay(){
         String[] modes={"system","light","dark"};
         int current=java.util.Arrays.asList(modes).indexOf(Look.display(this));
-        dialog().setTitle("Display").setSingleChoiceItems(new String[]{"System (follow the phone)","Light","Dark"},Math.max(0,current),(d,which)->{
+        dialog().setTitle("Display").setSingleChoiceItems(new String[]{"System (follow the device)","Light","Dark"},Math.max(0,current),(d,which)->{
             d.dismiss();
             if(which==current)return;
             Look.display(this,modes[which]);
@@ -393,7 +393,7 @@ public final class MainActivity extends Activity {
     }
     private void confirmSaveImport(){
         dialog().setTitle("Import a save backup?")
-            .setMessage("This replaces the save on this phone with the backup you choose: a ZIP from Export save backup (on Android or iPhone), or a game.db file. Your current save is kept as a safety copy.")
+            .setMessage("This replaces the save on this device with the backup you choose: a ZIP from Export save backup (from Android, iPhone or iPad) or a game.db file. Your current save is kept as a copy first.")
             .setNegativeButton("Cancel",null)
             .setPositiveButton("Choose backup",(dialog,which)->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,SAVE);})
             .show();
@@ -454,7 +454,7 @@ public final class MainActivity extends Activity {
                 if(intent==null)intent=getPackageManager().getLaunchIntentForPackage("com.square_enix.android_googleplay.nierspjp");
             }
         } catch(PackageManager.NameNotFoundException ignored){}
-        if(intent==null)dialog().setTitle("Install the patched game").setMessage("Install the APK patched for 127.0.0.1. The original game APK cannot connect to this server.").setPositiveButton("OK",null).show();
+        if(intent==null)dialog().setTitle("Install the Bunker game").setMessage("Install the game built by the Bunker. The original game can't connect to Lunar Tear.").setPositiveButton("OK",null).show();
         else {
             String unity=DisplayPatch.unityArguments(this);
             if(unity!=null)intent.putExtra("unity",unity);
@@ -501,7 +501,7 @@ public final class MainActivity extends Activity {
         Updater.status=message;Updater.statusFailed=true;renderUpdate();
     }
     private void help(){
-        dialog().setTitle("Help").setMessage("This is the Bunker. Lunar Tear is the game's server, running on this phone.\n\nChoose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. When your files are ready, Lunar Tear starts and Deploy opens the game.\n\nTap the Lunar Tear notification to return here. Stop Lunar Tear from ⋮ before changing files or exporting saves. Export a backup before uninstalling or clearing app storage. Import save backup restores a backup from this phone, another phone or an iPhone. Pod Programs edits your save and chooses events.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")
+        dialog().setTitle("Help").setMessage("This is the Bunker. Lunar Tear, the game's server, runs only on this device.\n\nChoose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. When your files are ready, Lunar Tear starts and Deploy opens the game.\n\nTap the Lunar Tear notification to come back here. Export a save backup before uninstalling the app or clearing its storage.\n\nImport save backup (in ⋮) restores a backup from this or another device, including iPhone.\n\nPod Programs (in ⋮) edits your save and chooses which events and shops appear. Opened while you play, it sends the game back to its title screen to load each change.\n\nStop Lunar Tear (in ⋮) before changing the game files or exporting a save backup.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")
             .setPositiveButton("Close",null).show();
     }
     private void showLog(){query(2);}
@@ -519,12 +519,12 @@ public final class MainActivity extends Activity {
                 text.append("\n");
             }
         }catch(Exception e){text.append("Lunar Tear is not running.");}
-        dialog().setTitle(ok?"Lunar Tear is reachable":"Lunar Tear check failed").setMessage(text.toString().trim()).setPositiveButton("Close",null).show();
+        dialog().setTitle(ok?"Lunar Tear is reachable":"Couldn't reach Lunar Tear").setMessage(text.toString().trim()).setPositiveButton("Close",null).show();
     }
     private void displayLog(String nativeStatus){
         String value;
         try{JSONObject s=new JSONObject(nativeStatus);value=s.optString("logs","No server log yet.");if(value.isEmpty())value="No server log yet.";}
-        catch(Throwable e){value="Unable to load native server: "+e.getMessage();}
+        catch(Throwable e){value="Lunar Tear couldn't load: "+e.getMessage();}
         TextView t=look.monoText(value,12,look.ink);t.setTextIsSelectable(true);t.setPadding(dp(18),dp(12),dp(18),dp(12));ScrollView sc=new ScrollView(this);sc.addView(t);
         dialog().setTitle("Lunar Tear log").setView(sc).setPositiveButton("Close",null).show();
     }
@@ -534,7 +534,7 @@ public final class MainActivity extends Activity {
         new Thread(()->{
             String error;
             try(ParcelFileDescriptor fd=getContentResolver().openFileDescriptor(uri,"rwt")){
-                error=fd==null?"Cannot open the chosen file":NativeBridge.exportLogs(FilesStore.logs(this).getAbsolutePath(),fd.getFd(),info);
+                error=fd==null?"Can't open that file":NativeBridge.exportLogs(FilesStore.logs(this).getAbsolutePath(),fd.getFd(),info);
             }catch(Exception e){error=e.getMessage();}
             String result=error;
             runOnUiThread(()->dialog().setTitle(result==null||result.isEmpty()?"Lunar Tear log exported":"Export failed")

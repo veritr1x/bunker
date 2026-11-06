@@ -26,7 +26,7 @@ public final class ToolsActivity extends Activity {
     private ValueCallback<Uri[]> upload;
     private final ServiceConnection connection=new ServiceConnection(){
         public void onServiceConnected(ComponentName name,IBinder binder){}
-        public void onServiceDisconnected(ComponentName name){message.setText("> Pod Programs stopped. Close and reopen to retry.");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);}
+        public void onServiceDisconnected(ComponentName name){message.setText("> Pod Programs stopped. Close it and open it again.");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);}
     };
     private final Runnable poll=new Runnable(){public void run(){
         if(closing&&!ServerService.busy&&!ServerService.tools){returnToLauncher();return;}
@@ -71,7 +71,7 @@ public final class ToolsActivity extends Activity {
                 return !local(request.getUrl().toString());
             }
             @Override public void onPageFinished(WebView view,String url){if(!closing&&local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("> Unable to open Pod Programs. Close and try again.");message.setVisibility(View.VISIBLE);}}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("> Couldn't open Pod Programs. Close it and try again.");message.setVisibility(View.VISIBLE);}}
         });
         web.setWebChromeClient(new WebChromeClient(){
             @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){

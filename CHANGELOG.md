@@ -4,6 +4,18 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-07 (after 1.9.0)
+
+### Bunker menu
+- The Bunker's own text, on Android and iPhone, says the same thing the
+  same way. "Server" and "Tools" became Lunar Tear and Pod Programs, Play
+  became Deploy, and "phone" became "device" where both apply. "Could
+  not", "Unable to" and "Native call failed" became plain "Couldn't" and
+  "didn't respond" messages that say what to do next. The help on both
+  covers the same points in the same order, and the notification says the
+  game goes to its title screen to load a change instead of closing.
+  Copying an extracted folder on iPhone asks for 21 GB, as Android does.
+
 ## 2026-11-06 (after 1.9.0)
 
 ### Summons

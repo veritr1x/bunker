@@ -48,7 +48,7 @@ static NSString *LoadPython(void) {
 
 static NSString *LoadPythonLocked(void) {
     if (gPythonReady) return @"";
-    if (!LTToolsAvailable()) return @"This build does not include Tools.";
+    if (!LTToolsAvailable()) return @"This build doesn't include Pod Programs.";
     void *library = dlopen(PythonLibrary().fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL);
     if (!library) return [NSString stringWithFormat:@"Cannot load Python: %s", dlerror()];
     gPython.initialize = dlsym(library, "Py_InitializeEx");
@@ -81,7 +81,7 @@ static NSString *LoadPythonLocked(void) {
     int failed = gPython.run(bootstrap.UTF8String);
     gPython.releaseLock();
     gPythonReady = YES;
-    return failed ? @"Python could not find the Tools code" : @"";
+    return failed ? @"Pod Programs couldn't find its code" : @"";
 }
 
 static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments);
@@ -121,13 +121,13 @@ static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments) {
     gPython.run(code.UTF8String);
     gPython.release(state);
     NSDictionary *result = gResult ? [NSJSONSerialization JSONObjectWithData:[gResult dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
-    return result ?: @{@"ok": @NO, @"error": @"Tools did not respond"};
+    return result ?: @{@"ok": @NO, @"error": @"Pod Programs didn't respond"};
 }
 
 NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster,
                        NSString **url, NSString **token, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(gPythonReady ? @"Opening Tools…" : @"Starting Python…");
+    if (progress) progress(gPythonReady ? @"Opening Pod Programs…" : @"Starting Python…");
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     [NSFileManager.defaultManager createDirectoryAtPath:toolsRoot withIntermediateDirectories:YES attributes:nil error:nil];
@@ -137,7 +137,7 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
     NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     *url = state[@"url"];
     *token = state[@"token"];
-    return url && token && (*url).length ? @"" : @"Tools could not start";
+    return url && token && (*url).length ? @"" : @"Pod Programs couldn't start";
 }
 
 BOOL LTDataNeedsUpdate(NSString *saves, NSString *toolsRoot, NSString *version) {
@@ -165,7 +165,7 @@ NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZ
     NSDictionary *result = CallRuntime(@"build_ipa_update", @[app, frameworkZip, pythonZip, shaFramework, shaPython, output,
                                                               noticesZip ?: @"", shaNotices ?: @""]);
     gProgress = nil;
-    if (![result[@"ok"] boolValue]) return result[@"error"] ?: @"The update could not be built";
+    if (![result[@"ok"] boolValue]) return result[@"error"] ?: @"The update couldn't be built";
     return @"";
 }
 
@@ -181,7 +181,7 @@ NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString *
     NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     *url = state[@"url"];
     *token = state[@"token"];
-    return url && token && (*url).length ? @"" : @"The Archive could not start";
+    return url && token && (*url).length ? @"" : @"The Archive couldn't start";
 }
 
 NSDictionary *LTArchiveIndex(NSString *serverRoot, NSString *archiveRoot, BOOL build, NSString **error) {
@@ -189,9 +189,9 @@ NSDictionary *LTArchiveIndex(NSString *serverRoot, NSString *archiveRoot, BOOL b
     if (failure.length) { *error = failure; return nil; }
     [NSFileManager.defaultManager createDirectoryAtPath:archiveRoot withIntermediateDirectories:YES attributes:nil error:nil];
     NSDictionary *result = CallRuntime(build ? @"archive_build_index" : @"archive_index_status", @[serverRoot, archiveRoot]);
-    if (![result[@"ok"] boolValue]) { *error = result[@"error"] ?: @"Tools did not respond"; return nil; }
+    if (![result[@"ok"] boolValue]) { *error = result[@"error"] ?: @"Pod Programs didn't respond"; return nil; }
     NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-    if (!state) *error = @"Tools did not respond";
+    if (!state) *error = @"Pod Programs didn't respond";
     return state;
 }
 
@@ -432,7 +432,7 @@ static NSString *ArchivePath(NSString *link) {
             if (![NSFileManager.defaultManager moveItemAtURL:location toURL:target error:nil]) target = nil;
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (!target) { [self message:@"Export failed" text:error.localizedDescription ?: @"The file could not be prepared."]; return; }
+            if (!target) { [self message:@"Export failed" text:error.localizedDescription ?: @"Couldn't prepare the file."]; return; }
             UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[target] asCopy:YES];
             picker.delegate = self;
             [self presentViewController:picker animated:YES completion:nil];
@@ -446,7 +446,7 @@ static NSString *ArchivePath(NSString *link) {
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    if (error.code != NSURLErrorCancelled) [self message:[@"Unable to open " stringByAppendingString:self.title] text:@"Close it and try again."];
+    if (error.code != NSURLErrorCancelled) [self message:[@"Couldn't open " stringByAppendingString:self.title] text:@"Close it and try again."];
 }
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))handler {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];

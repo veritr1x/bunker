@@ -64,7 +64,7 @@ final class FilesStore {
         try {
             copy(c, uri, temp, progress, "Importing master data");
             String error = NativeBridge.checkMaster(temp.getAbsolutePath(), displayName(c, uri));
-            if (error == null || !error.isEmpty()) throw new IOException(error == null ? "Native server did not respond" : error);
+            if (error == null || !error.isEmpty()) throw new IOException(error == null ? "Lunar Tear didn't respond" : error);
             move(temp, out);
         } finally { temp.delete(); }
     }

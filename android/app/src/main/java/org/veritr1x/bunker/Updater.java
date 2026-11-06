@@ -324,7 +324,7 @@ final class Updater {
         if(status==PackageInstaller.STATUS_SUCCESS)return null;
         restartIfStopped();
         String message=intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-        return status==PackageInstaller.STATUS_FAILURE_ABORTED?"Update cancelled.":"The update could not be installed"+(message==null?".":": "+message);
+        return status==PackageInstaller.STATUS_FAILURE_ABORTED?"Update cancelled.":"The update couldn't be installed"+(message==null?".":": "+message);
     }
 
     private static void download(String url,File target,long size,Reporter report) throws IOException {

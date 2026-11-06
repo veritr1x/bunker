@@ -79,7 +79,7 @@ static void PointAtNotices(void) {
 // The server log kept between sessions; Documents/logs also shows in the Files app.
 static NSString *LogFolder(void) { return [Documents() stringByAppendingPathComponent:@"logs"]; }
 static NSString *TakeString(char *value) {
-    NSString *text = value ? [NSString stringWithUTF8String:value] : @"Native call failed";
+    NSString *text = value ? [NSString stringWithUTF8String:value] : @"Lunar Tear didn't respond";
     free(value);
     return text ?: @"";
 }
@@ -290,7 +290,7 @@ static BOOL AttachInPlace(void) {
 static NSString *SelfTestFailure(NSString *report) {
     NSDictionary *r = [NSJSONSerialization JSONObjectWithData:[report dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     if ([r[@"ok"] boolValue]) return nil;
-    NSMutableString *text = [NSMutableString stringWithString:@"The game could not reach Lunar Tear:"];
+    NSMutableString *text = [NSMutableString stringWithString:@"The game couldn't reach Lunar Tear:"];
     for (NSDictionary *c in r[@"checks"])
         if (![c[@"ok"] boolValue]) [text appendFormat:@"\n• Port %@ (%@): %@", c[@"port"], c[@"name"], c[@"detail"]];
     return text;
@@ -644,7 +644,7 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         unsigned long long padded = (size + 511) / 512 * 512;
         if (type == 'L' || type == 'x') {
             // Long name records: read the data and apply it to the next entry.
-            if (size > 65536) return @"The archive has an invalid header.";
+            if (size > 65536) return @"This file is damaged, or isn't a .7z or .zip.";
             NSMutableData *data = [NSMutableData dataWithLength:(NSUInteger)padded];
             if (![reader read:data.mutableBytes length:(size_t)padded]) return @"The archive ended early. Copy every part, then try again.";
             NSString *text = [[NSString alloc] initWithBytes:data.bytes length:(NSUInteger)size encoding:NSUTF8StringEncoding] ?: @"";
@@ -900,7 +900,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
             BOOL ok = size < 0
                 ? [files createDirectoryAtPath:destination withIntermediateDirectories:YES attributes:nil error:&error]
                 : [files copyItemAtPath:items[i].path toPath:destination error:&error];
-            if (!ok) { [files removeItemAtPath:StagePath() error:nil]; return [@"Import failed: " stringByAppendingString:error.localizedDescription]; }
+            if (!ok) { [files removeItemAtPath:StagePath() error:nil]; return [@"The import didn't finish: " stringByAppendingString:error.localizedDescription]; }
             if (size >= 0) { bytes += (unsigned long long)size; copied++; }
             if (CFAbsoluteTimeGetCurrent() - reported > 0.5) {
                 reported = CFAbsoluteTimeGetCurrent();
@@ -1490,7 +1490,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
     NSString *text = gMessage.length ? gMessage : [NSString stringWithFormat:
         @"Choose the resource dump's .7z, or an extracted folder to copy or use in place, from Files, iCloud Drive or a USB drive. "
-        @"Copying needs about 25 GB free. You can also drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
+        @"Copying needs about 21 GB free. You can also drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
     if (running && !gMessage.length) text = @"Lunar Tear is running on this device. Tap Deploy to keep playing.";
     if (gRestartNeeded && !gMessage.length)
         text = @"Your changes are saved. The game must restart to load them: tap Close game, then open NieR again.";
@@ -1740,8 +1740,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         @"Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. Lunar Tear, the game's server, starts with the game and runs only on this device.\n\n"
         @"Three-finger double-tap during play opens this screen. Export a save backup before deleting the app.\n\n"
         @"Import save backup (in ⋮) restores a backup from this or another device, including Android.\n\n"
-        @"Pod Programs (in ⋮) edits your saves and unlocks content. Opened while you play, it sends the game back to its title screen to load each change; opened with the game stopped, the game restarts afterwards.\n\n"
-        @"Stopping Lunar Tear, importing master data or exporting saves disconnects the game. Close NieR from the app switcher and open it again to continue."];
+        @"Pod Programs (in ⋮) edits your save and chooses which events and shops appear. Opened while you play, it sends the game back to its title screen to load each change; opened with the game stopped, the game restarts afterwards.\n\n"
+        @"Stopping Lunar Tear, importing master data or exporting a save backup disconnects the game. Close NieR from the app switcher and open it again to continue."];
 }
 - (void)about {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bunker"
@@ -1799,7 +1799,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
             // Nothing was edited, so the game can carry on.
             gToolsOpen = NO;
             gToolsBesideGame = NO;
-            gMessage = [@"Pod Programs could not open: " stringByAppendingString:error];
+            gMessage = [@"Pod Programs couldn't open: " stringByAppendingString:error];
             if (!live) dispatch_async(gQueue, ^{ StartServer(); dispatch_async(dispatch_get_main_queue(), ^{ [self refresh]; }); });
             [self refresh];
             return;
@@ -1831,7 +1831,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         });
     } done:^(NSString *error) {
         if (error.length) {
-            gMessage = [@"The Archive could not open: " stringByAppendingString:error];
+            gMessage = [@"The Archive couldn't open: " stringByAppendingString:error];
             [self refresh];
             return;
         }
@@ -1861,7 +1861,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)stopServer {
     [self busy:@"Stopping Lunar Tear and saving progress…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
-        gMessage = @"Lunar Tear stopped. Your saves are stored on this device.";
+        gMessage = @"Lunar Tear stopped. Your save stays on this device.";
         [self refresh];
     }];
 }
@@ -2031,7 +2031,7 @@ static UTType *MasterType(void) {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Choose the game files"
         message:@"Copy: needs about 21 GB free. The game keeps working if you move the folder later.\nIn place: needs no free space, but leave the folder where it is and keep its drive connected.\nArchive: the resource dump's .7z, or a .zip of it."
         preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: copy into NieR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: copy it in" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: use in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Archive (.7z or .zip)" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:5]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
@@ -2106,7 +2106,7 @@ static UTType *MasterType(void) {
             if (![c[@"ok"] boolValue]) [text appendFormat:@"   %@\n", c[@"detail"]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self alert:[r[@"ok"] boolValue] ? @"Lunar Tear is reachable" : @"Lunar Tear check failed"
+            [self alert:[r[@"ok"] boolValue] ? @"Lunar Tear is reachable" : @"Couldn't reach Lunar Tear"
                 message:[text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
         });
     });
@@ -2391,7 +2391,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                 update = LTUpdateData(gSaves, gServerRoot, ToolsRoot(), originalMaster, BunkerVersion());
                 NSLog(@"[LunarTear] game data update: %@", update.length ? update : @"ok");
                 // A failure leaves the game data as it was; the game still starts.
-                if (update.length) update = [@"Your game data could not be updated: " stringByAppendingString:update];
+                if (update.length) update = [@"Your game data couldn't be updated: " stringByAppendingString:update];
             }
             NSString *error = StartServer();
             gMessage = error.length ? error : update;
