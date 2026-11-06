@@ -24,6 +24,15 @@ The previous collector-retirement fatal is absent. Actual original workers
 Native exit remains3 at a new unresolved indirect target `0x70ddd5a0`, with
 LR `0x70ddd54c`, during the post-render finishing sequence. This is a subsequent
 native-code coverage boundary; complete shutdown is still unverified.
+The original function `70ddd510..70dddc20` already exists in selected object450.
+Its unsigned eight-case switch checks W8 against7, reads signed offsets from
+table `70fef300`, and branches at `70ddd59c`. All eight legitimate case targets
+are absent from the current trace header; the reached target is case0. Exact
+original bytes, rows and current coverage are sealed in
+`work/runtime25-unresolved-switch-frontier1/acceptance.json`, SHA256
+`45d4ccac1abbb53b8a73e6d6534ee99e020eacc8c938c199567720c0839dcb48`.
+Recovering those guarded entries is the next scoped repair. No new ISA gap or
+out-of-function island was found at this boundary.
 Controller exit and parent pre/post checks are0; selected runtime verification
 passes. Audit SHA256 is
 `27d1d524ecaf02a4c22bfb2dd5800a7169bfbe0bc92719c19c623889121c973b`;

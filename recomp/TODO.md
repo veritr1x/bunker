@@ -13,7 +13,9 @@ snapshot witnesses pass. The current build retains
 
 The worker-retirement shutdown failure is fixed in actual original workers.
 Finishing now stops at unresolved native entry `0x70ddd5a0`, LR `0x70ddd54c`.
-Immediate remaining work is that entry, continued startup beyond the publisher
+It is case0 of an original bounded eight-case switch in existing object450;
+all eight case entries need dispatch coverage. Immediate remaining work is
+those guarded entries, continued startup beyond the publisher
 splash, input and real client/backend behavior,
 and a usable standalone Windows bundle. Audio remains explicitly muted while
 the HDMI endpoint is unavailable. A visible frame does not establish gameplay.
