@@ -52,6 +52,7 @@ struct ExecutionContext {
   GuestCallFrame *calls = nullptr;
   PendingGuestTransfer transfer{};
   bool call_protocol_used = false;
+  recomp::ThreadExitDomain *terminal = nullptr;
 };
 thread_local ExecutionContext *execution;
 
@@ -66,6 +67,11 @@ GuestCallFrame *matching_return(ExecutionContext &context, addr_t pc, addr_t sp)
 Memory *finish_guest_call(ExecutionContext &context, GuestCallFrame &frame,
                           State &state, Memory *memory) {
   for (;;) {
+    if (context.terminal && context.terminal->Pending()) {
+      if (memory!=context.terminal->MemoryToken())
+        fail("terminal thread exit changed its Memory token",state.gpr.pc.qword);
+      return memory; // The caller's existing IR guard retires this native frame.
+    }
     if (context.transfer.active) {
       if (state.gpr.pc.qword!=context.transfer.pc || state.gpr.sp.qword!=context.transfer.sp ||
           memory!=context.transfer.memory)
@@ -269,8 +275,48 @@ std::vector<State *> recomp::CurrentExecutionFrames(State &top) {
 }
 State *recomp::CurrentExecutionState() noexcept { return execution ? execution->state : nullptr; }
 Memory *recomp::Runtime::Run(State &state, addr_t address, Memory *memory) {
+  return RunInDomain(state,address,memory,nullptr);
+}
+Memory *recomp::Runtime::RunWithThreadExit(State &state,addr_t address,ThreadExitDomain &domain,Memory *memory) {
+  return RunInDomain(state,address,memory,&domain);
+}
+bool recomp::Runtime::RequestThreadExit(State &state,ThreadExitDomain &domain,uint64_t value) {
+  if (active!=this || !execution || execution->state!=&state || execution->terminal!=&domain)
+    return false;
+  if (domain.owner_!=std::this_thread::get_id() || domain.runtime_!=this || domain.requested_)
+    throw std::logic_error("terminal thread exit has a foreign or pending domain");
+  size_t count=0;
+  for (auto *frame=execution;frame;frame=frame->previous) {
+    if (frame->terminal!=&domain || !frame->call_protocol_used || frame->transfer.active ||
+        !frame->calls || frame->calls->root || frame->calls->expected_pc!=frame->state->gpr.x30.qword ||
+        frame->calls->caller_sp!=frame->state->gpr.sp.qword)
+      return false; // Never grant a capability across an ordinary/opaque Run.
+    ++count;
+  }
+  if (!count || count!=domain.active_frames_)
+    throw std::logic_error("terminal thread exit domain frame ownership differs");
+  domain.value_=value;domain.requested_=true;return true;
+}
+uint64_t recomp::Runtime::ConsumeThreadExit(ThreadExitDomain &domain) {
+  if (execution || domain.active_frames_ || !domain.requested_ || domain.owner_!=std::this_thread::get_id() || domain.runtime_!=this)
+    throw std::logic_error("terminal thread exit consumed before actual Runtime retirement");
+  const auto value=domain.value_;domain.value_=0;domain.memory_=nullptr;domain.requested_=false;return value;
+}
+Memory *recomp::Runtime::RunInDomain(State &state,addr_t address,Memory *memory,ThreadExitDomain *terminal) {
+  for (auto *frame=execution;frame;frame=frame->previous)
+    if (frame->terminal && frame->terminal->Pending())
+      throw std::logic_error("new Runtime Run entered during terminal thread exit propagation");
   clear_current_reservation();
+  if (terminal) {
+    if (terminal->requested_ || (terminal->owner_!=std::thread::id{} && terminal->owner_!=std::this_thread::get_id()) ||
+        (terminal->runtime_ && terminal->runtime_!=this) ||
+        (terminal->active_frames_ && terminal->memory_!=memory))
+      throw std::logic_error("terminal worker Run has a pending/foreign domain or different Memory token");
+    if (!terminal->active_frames_) {terminal->owner_=std::this_thread::get_id();terminal->runtime_=this;terminal->memory_=memory;}
+    ++terminal->active_frames_;
+  }
   ExecutionContext context{&state, {}, execution};
+  context.terminal=terminal;
   GuestCallFrame root_call{nullptr,state.gpr.x30.qword,state.gpr.sp.qword,true};
   context.calls=&root_call;
   struct Scope {
@@ -278,22 +324,24 @@ Memory *recomp::Runtime::Run(State &state, addr_t address, Memory *memory) {
     ExecutionContext *previous_execution;
     int denormal;
     fenv_t environment;
-    Scope() : previous(active), previous_execution(execution), denormal(explicit_denormal) { std::fegetenv(&environment); }
+    ThreadExitDomain *terminal;
+    explicit Scope(ThreadExitDomain *t) : previous(active), previous_execution(execution), denormal(explicit_denormal), terminal(t) { std::fegetenv(&environment); }
     ~Scope() {
       clear_current_reservation();
       active = previous;
       execution = previous_execution;
       explicit_denormal = denormal;
       std::fesetenv(&environment);
+      if (terminal) --terminal->active_frames_;
     }
-  } scope;
+  } scope(terminal);
   active = this;
   execution = &context;
   std::feclearexcept(FE_ALL_EXCEPT);
   explicit_denormal = 0;
   std::fesetround(host_rounding(state.fpcr.rmode));
   auto *result=Dispatch(state,address,memory);
-  if (context.transfer.active || context.call_protocol_used)
+  if (context.transfer.active || context.call_protocol_used || (terminal && terminal->Pending()))
     result=finish_guest_call(context,root_call,state,result);
   return result;
 }
@@ -356,7 +404,7 @@ extern "C" Memory *__bunker_guest_call(State &state,addr_t target,Memory *memory
 extern "C" uint32_t __bunker_guest_transfer_pending(State &state) noexcept {
   if (!execution || execution->state!=&state)
     fail("guest transfer query outside its active Run/State",state.gpr.pc.qword);
-  return execution->transfer.active?1U:0U;
+  return execution->transfer.active || (execution->terminal && execution->terminal->Pending())?1U:0U;
 }
 
 extern "C" {

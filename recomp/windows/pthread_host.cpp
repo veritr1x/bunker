@@ -125,6 +125,7 @@ struct Pthreads::Impl {
     addr_t stack_base=0; uint64_t stack_size=0,guard_size=0;
     std::map<int32_t,Value> values;
     std::vector<std::pair<int32_t*,OnceState*>> active_once;
+    recomp::ThreadExitDomain terminal_exit;
     ~Thread(){if(stack_allocation){recomp::InvalidateGuestMemory(stack_base,stack_size);VirtualFree(stack_allocation,0,MEM_RELEASE);}recomp::InvalidateGuestMemory(reinterpret_cast<addr_t>(tls),sizeof(tls));if(handle)CloseHandle(handle);}
   };
   recomp::Runtime &runtime;
@@ -208,7 +209,7 @@ struct Pthreads::Impl {
   // handles and owned guest stacks only after actual OS thread termination.
   void ReapDetached(){for(auto &item:threads){auto &t=*item.second;if(t.worker&&t.detached&&t.complete&&t.handle&&WaitForSingleObject(t.handle,0)==WAIT_OBJECT_0){ReleaseStack(t);CloseHandle(t.handle);t.handle=nullptr;}}}
   bool IsAlive(const Thread &t)const{return !t.complete&&t.handle&&WaitForSingleObject(t.handle,0)==WAIT_TIMEOUT;}
-  uint64_t Run(Thread &t,addr_t entry,const addr_t *args,size_t count,bool destructor=false) {
+  uint64_t Run(Thread &t,addr_t entry,const addr_t *args,size_t count,bool destructor=false,bool terminal_frame=false) {
     if(!entry||!(destructor?tls_callable(entry):translated(entry))) throw std::invalid_argument("pthread callback is not a registered callable for its role");
     State s{};
     if(t.active) s=*t.active;
@@ -219,13 +220,17 @@ struct Pthreads::Impl {
     for(size_t i=0;i<count;++i)(s.gpr.*regs[i]).qword=args[i];
     s.gpr.pc.qword=entry;s.gpr.x30.qword=0xfeedffff;
     auto *previous=t.active;t.active=&s;
-    try {runtime.Run(s,entry);} catch(...) {t.active=previous;throw;}
+    try {if(terminal_frame)runtime.RunWithThreadExit(s,entry,t.terminal_exit);else runtime.Run(s,entry);} catch(...) {t.active=previous;throw;}
     t.active=previous;
+    // A terminal outcome has no guest return PC/SP. The worker shell consumes
+    // its real exit value only after every owned Runtime scope has retired.
+    if(terminal_frame&&t.terminal_exit.Pending())return 0;
     if(s.gpr.pc.qword!=0xfeedffff||s.gpr.sp.qword!=saved_sp) throw std::runtime_error("pthread guest callback corrupted PC/SP");
     return s.gpr.x0.qword;
   }
   void Finish(Thread &t,uint64_t result) {
     if(t.finishing||t.complete)throw std::logic_error("pthread recursive or repeated finish is unsupported");
+    if(t.terminal_exit.Pending())throw std::logic_error("pthread terminal exit was not consumed before TLS");
     t.finishing=true;
     if(t.hooks){if(!t.entered||t.retired)throw std::logic_error("pthread worker TLS has no live lifecycle");t.hooks->before_tls(Info(t),t.lease);}
     // pthread_exit from a once callback must release blocked initializers before
@@ -252,7 +257,7 @@ struct Pthreads::Impl {
   }
   static unsigned __stdcall Worker(void *arg) {
     auto *t=static_cast<Thread*>(arg);auto *h=t->host;
-    try {Bindings()[h->instance]=t;h->Enter(*t);auto value=h->Run(*t,t->entry,&t->arg,1);h->Finish(*t,value);}
+    try {Bindings()[h->instance]=t;h->Enter(*t);auto value=h->Run(*t,t->entry,&t->arg,1,false,true);if(t->terminal_exit.Pending())value=h->runtime.ConsumeThreadExit(t->terminal_exit);h->Finish(*t,value);}
     catch(const std::exception &e){std::fprintf(stderr,"pthread translated worker: %s\n",e.what());std::abort();}
     return 0;
   }
@@ -576,7 +581,10 @@ int Pthreads::Once(int32_t *p,addr_t callback){
   if(o->done&&Word(p)==0)o->done=false;
   if(o->done)return 0;
   o->owner=t.id;SetWord(p,1);t.active_once.emplace_back(p,o);lock.unlock();
-  try {impl_->Run(t,callback,nullptr,0);}catch(...){lock.lock();o->owner=0;SetWord(p,0);t.active_once.pop_back();o->cv.notify_all();throw;}
+  try {impl_->Run(t,callback,nullptr,0,false,true);}catch(...){lock.lock();o->owner=0;SetWord(p,0);t.active_once.pop_back();o->cv.notify_all();throw;}
+  // Finish's existing abandoned-once path resets ownership and wakes waiters.
+  // Never commit an initializer that exited instead of returning.
+  if(t.terminal_exit.Pending())return 0;
   lock.lock();t.active_once.pop_back();o->owner=0;o->done=true;SetWord(p,2);o->cv.notify_all();return 0;
 }
 int Pthreads::KeyCreate(int32_t *out,addr_t callback){if(!out||(callback&&!impl_->tls_callable(callback)))return kInvalid;std::lock_guard lock(impl_->registry);for(int32_t i=0;i<128;++i)if(!impl_->keys[i].live){auto &k=impl_->keys[i];k.live=true;++k.generation;k.destructor=callback;WriteWire(out,i);return 0;}return kAgain;}
@@ -622,7 +630,7 @@ void Pthreads::Install(){
   add("gettid",recomp::MakeBridge<int32_t()>([this]{return GetTid();}));
   add("prctl",recomp::MakeBridge<int32_t(int32_t,const char*)>([this](auto option,auto name){return Prctl(option,name);}));
   add("pthread_equal",recomp::MakeBridge<int32_t(uint64_t,uint64_t)>([](auto a,auto b){return a==b;}));
-  add("pthread_exit",recomp::MakeBridge<void(uint64_t)>([this](auto r){Exit(r);}));
+  add("pthread_exit",recomp::MakeBridge<void(uint64_t)>([this](auto r){auto &t=impl_->Current();if(t.worker&&!t.finishing&&t.active&&t.active->gpr.pc.qword==Marker("pthread_exit")&&impl_->runtime.RequestThreadExit(*t.active,t.terminal_exit,r))return;Exit(r);}));
   add("pthread_setname_np",recomp::MakeBridge<int32_t(uint64_t,const char*)>([this](auto t,auto s){return SetName(t,s);}));
   add("pthread_mutexattr_init",recomp::MakeBridge<int32_t(int64_t*)>([this](auto a){return MutexAttrInit(a);}));
   add("pthread_mutexattr_destroy",recomp::MakeBridge<int32_t(int64_t*)>([this](auto a){return MutexAttrDestroy(a);}));

@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <functional>
 #include <map>
+#include <thread>
 #include <vector>
 
 #include "remill/Arch/AArch64/Runtime/State.h"
@@ -41,14 +42,35 @@ bool WithGuestMemoryMutation(addr_t address, size_t size,
 std::vector<State *> CurrentExecutionFrames(State &top);
 State *CurrentExecutionState() noexcept;
 
+// Opt-in host worker/once execution only. A request terminates its owned Runs;
+// it is never a guest return, restored State, signal acknowledgment or unwind.
+class Runtime;
+class ThreadExitDomain {
+ public:
+  bool Pending() const noexcept { return requested_; }
+  Memory *MemoryToken() const noexcept { return memory_; }
+ private:
+  friend class Runtime;
+  std::thread::id owner_{};
+  const Runtime *runtime_=nullptr;
+  size_t active_frames_=0;
+  Memory *memory_=nullptr;
+  bool requested_=false;
+  uint64_t value_=0;
+};
+
 class Runtime {
  public:
   void AddTraces(const Trace *traces, size_t count);
   void AddImport(addr_t address, std::function<void(State &)> bridge);
   Memory *Run(State &state, addr_t address, Memory *memory = nullptr);
+  Memory *RunWithThreadExit(State &, addr_t, ThreadExitDomain &, Memory * = nullptr);
+  bool RequestThreadExit(State &, ThreadExitDomain &, uint64_t value);
+  uint64_t ConsumeThreadExit(ThreadExitDomain &);
   Memory *Dispatch(State &state, addr_t address, Memory *memory);
   bool HasGuestTrace(addr_t address) const noexcept;
  private:
+  Memory *RunInDomain(State &, addr_t, Memory *, ThreadExitDomain *);
   std::map<addr_t, Entry> traces_;
   std::map<addr_t, std::function<void(State &)>> imports_;
 };
