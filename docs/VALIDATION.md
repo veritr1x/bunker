@@ -49,6 +49,14 @@
 - Still 80 fps on Subquests. With the iPad cool, the field showed 109 fps
   at 4.2 ms of GPU a frame and 80 fps at 9.4 ms while opening Quests: the
   GPU is the limit there now. Not run on Android.
+- Final build [5327e59] on the iPad Pro 11-inch (M4), 120 fps, 1080 with
+  MetalFX, idle and heat pacing on: six camera drags under Time Profiler
+  showed no hangs; scrolling Subquests was smooth; held upright, the Bunker
+  menu turned upright and the game stayed on its side.
+- Half-second freezes on every drag (the app's frames presented but not
+  shown, Unity then waiting up to 1 s for a drawable) came with 1.8.4 too
+  and with MetalFX, pacing and the Metal HUD all off; restarting the iPad
+  ended them.
 
 ## Spendable event medals — 2026-11-06
 
