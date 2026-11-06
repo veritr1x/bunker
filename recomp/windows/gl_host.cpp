@@ -169,6 +169,16 @@ GL_DRAW_API(DRAW_NAME)
 "glFenceSync",
 "glClientWaitSync",
 "glDeleteSync",
+"glDrawElementsInstanced",
+"glDrawElementsBaseVertex",
+"glDrawElementsBaseVertexOES",
+"glDrawElementsBaseVertexEXT",
+"glDrawElementsInstancedBaseVertex",
+"glDrawElementsInstancedBaseVertexOES",
+"glDrawElementsInstancedBaseVertexEXT",
+"glDrawRangeElementsBaseVertex",
+"glDrawRangeElementsBaseVertexOES",
+"glDrawRangeElementsBaseVertexEXT",
 };
 std::string Hex(GLenum value){std::ostringstream out;out<<"0x"<<std::hex<<value;return out.str();}
 template<class T>T Symbol(HMODULE module,const char *name){
@@ -570,6 +580,10 @@ struct GlHost::Impl {
         if(!buffer)throw std::runtime_error("CPU client vertex arrays are outside typed GL scope");}
     }
   }
+  void IndexedDrawBuffers(){
+    VertexBuffers();
+    if(!Integer(GL_ELEMENT_ARRAY_BUFFER_BINDING))throw std::runtime_error("Indexed draw requires a GPU EBO; CPU index pointers unsupported");
+  }
   void Pixels(GLint x,GLint y,GLsizei width,GLsizei height,GLenum format,GLenum type,addr_t output){
     if(format!=GL_RGBA||type!=GL_UNSIGNED_BYTE)throw std::runtime_error("Only typed RGBA/UNSIGNED_BYTE readback is implemented");
     if(Integer(GL_READ_FRAMEBUFFER_BINDING)||Integer(GL_PIXEL_PACK_BUFFER_BINDING))throw std::runtime_error("GL readback requires default read framebuffer and no PBO");
@@ -677,6 +691,24 @@ struct GlHost::Impl {
     Bind<void(GLenum,GLsizei,addr_t)>("glInvalidateFramebuffer",[this,invalidate](GLenum target,GLsizei n,addr_t input){FramebufferHint(target,n,input,true,invalidate);});
     const auto discard=Symbol<PFNGLDISCARDFRAMEBUFFEREXTPROC>(module,"glDiscardFramebufferEXT");
     Bind<void(GLenum,GLsizei,addr_t)>("glDiscardFramebufferEXT",[this,discard](GLenum target,GLsizei n,addr_t input){FramebufferHint(target,n,input,false,discard);});
+    const auto indexedInstanced=Symbol<PFNGLDRAWELEMENTSINSTANCEDPROC>(module,"glDrawElementsInstanced");
+    Bind<void(GLenum,GLsizei,GLenum,addr_t,GLsizei)>("glDrawElementsInstanced",[this,indexedInstanced](auto mode,auto count,auto type,auto offset,auto instances){
+      IndexedDrawBuffers();indexedInstanced(mode,count,type,reinterpret_cast<const void*>(offset),instances);});
+    for(const char *name:{"glDrawElementsBaseVertex","glDrawElementsBaseVertexOES","glDrawElementsBaseVertexEXT"}){
+      const auto native=Symbol<PFNGLDRAWELEMENTSBASEVERTEXPROC>(module,name);
+      Bind<void(GLenum,GLsizei,GLenum,addr_t,GLint)>(name,[this,native](auto mode,auto count,auto type,auto offset,auto base){
+        IndexedDrawBuffers();native(mode,count,type,reinterpret_cast<const void*>(offset),base);});
+    }
+    for(const char *name:{"glDrawElementsInstancedBaseVertex","glDrawElementsInstancedBaseVertexOES","glDrawElementsInstancedBaseVertexEXT"}){
+      const auto native=Symbol<PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC>(module,name);
+      Bind<void(GLenum,GLsizei,GLenum,addr_t,GLsizei,GLint)>(name,[this,native](auto mode,auto count,auto type,auto offset,auto instances,auto base){
+        IndexedDrawBuffers();native(mode,count,type,reinterpret_cast<const void*>(offset),instances,base);});
+    }
+    for(const char *name:{"glDrawRangeElementsBaseVertex","glDrawRangeElementsBaseVertexOES","glDrawRangeElementsBaseVertexEXT"}){
+      const auto native=Symbol<PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC>(module,name);
+      Bind<void(GLenum,GLuint,GLuint,GLsizei,GLenum,addr_t,GLint)>(name,[this,native](auto mode,auto start,auto end,auto count,auto type,auto offset,auto base){
+        IndexedDrawBuffers();native(mode,start,end,count,type,reinterpret_cast<const void*>(offset),base);});
+    }
   }
 };
 GlHost::GlHost(EglHost &egl,const std::wstring &directory,addr_t marker):impl_(std::make_unique<Impl>(egl,directory,marker)){}
@@ -692,7 +724,7 @@ void GlHost::Invoke(const std::string &name,State &state){GlNativeEnvironment en
   // Native ANGLE retains its own share-group synchronization and object lifetime.
   if(name=="glClientWaitSync"){auto call=found->second;lock.unlock();call(state);return;}
   found->second(state);
-  if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
+  if(!impl_->diagnostic_png.empty()){if(name=="glDrawArrays"||name=="glDrawElements"||name=="glDrawElementsInstanced"||name=="glDrawElementsBaseVertex"||name=="glDrawElementsBaseVertexOES"||name=="glDrawElementsBaseVertexEXT"||name=="glDrawElementsInstancedBaseVertex"||name=="glDrawElementsInstancedBaseVertexOES"||name=="glDrawElementsInstancedBaseVertexEXT"||name=="glDrawRangeElementsBaseVertex"||name=="glDrawRangeElementsBaseVertexOES"||name=="glDrawRangeElementsBaseVertexEXT")++impl_->diagnostic.draw_submissions;if(name=="glClear")++impl_->diagnostic.clear_submissions;}}
 void GlHost::EnableFrameDiagnostics(const std::wstring &path){std::lock_guard lock(impl_->mutex);if(path.empty()||!std::filesystem::path(path).is_absolute())throw std::invalid_argument("Absolute frame PNG path required");impl_->diagnostic_png=path;}
 GlHost::FrameDiagnostics GlHost::DescribeFrameDiagnostics(){std::lock_guard lock(impl_->mutex);return impl_->diagnostic;}
 uint64_t GlHost::BeginWindowPresent(addr_t display,addr_t surface){std::lock_guard lock(impl_->mutex);
