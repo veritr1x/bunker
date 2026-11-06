@@ -6,11 +6,29 @@ executable. A presented game image and working gameplay remain unverified.
 The owned anonymous GC-discard correction passes 156 focused checks, including
 four remap/restore cases compared with real Android Bionic, whole-owner pin
 rejection, exclusive-reservation invalidation, and real native failure paths.
-The full integration build is in progress at `work/windows-first-frame-fixed-anon1`.
-No original run or frame is claimed for that build yet. Qualification:
+The full integration build completed at `work/windows-first-frame-fixed-anon1`.
+The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation12`, using
+Latest original attempt: `work/windows-first-frame-native-presentation13`, using
+manifest `52dba72b2e2e46b2d567644ee45e697c148ce3c41641a0c754fce55266977322`
+and executable `07e287c4e6d0ab3d34f41895d999a5d97c80c09899eced9e05ec125f57884bc5`.
+The generic runner logs the first original render returning, but the main
+controller never records that result or a successful swap. The window is
+physically 1280x717 in its own DPI context (144 DPI), after startup requested
+1280x720. A bounded private-memory scan finds the exact resize-rejection error
+string. These support the controller's resize guard as the cause; the stored
+exception itself was not inspected. Cleanup stalled and the owned test process
+was manually stopped (native255). Original-parent pre/post and selected-runtime
+checks pass; no accepted frame exists. Evidence:
+`work/runtime13-startup-compare1/client-rect-window-dpi.json`,
+`work/runtime13-exception-window-read1`, and the run's `manual-stop.json`.
+The bootstrap now forwards real resize events through the existing original
+surface-change FIFO and reports exceptions before cleanup. Review and existing
+surface/frame components pass 347 checks; the changed bootstrap branch still
+needs full compilation and an original run.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation12`, using
 manifest `2e4ad40cc5f42c513d12b36fbc8ac33d2b7b9f795adb5d7b882276bc5cb0f45f`
 and executable `8ab5143550ed3b0ef6a1fe49d320e4a8afc3328f338084c488c4b307ef7e2b3a`.
 The corrected collector passes genuine stop/restart cycles for managed workers
