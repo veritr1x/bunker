@@ -18,6 +18,7 @@ static NSString *gServerRoot, *gSaves, *gMessage;
 static UIWindow *gWindow;
 UIInterfaceOrientationMask LTMenuOrientations(void);  // which way up the menu may turn
 static void RecheckOrientation(void);
+static void HideLauncher(void);
 static UIBackgroundTaskIdentifier gBackgroundTask;
 static dispatch_queue_t gQueue;
 // Tools edits the saves with the server stopped. The game keeps its own copy
@@ -2005,9 +2006,7 @@ static UTType *MasterType(void) {
 }
 - (void)close {
     gMessage = @"";
-    gWindow.hidden = YES;
-    gWindow = nil;
-    RecheckOrientation();
+    HideLauncher();
 }
 - (void)retry {
     self.check.enabled = NO;
@@ -2091,9 +2090,7 @@ static UTType *MasterType(void) {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear running"
         message:@"If the game shows a connection error, close NieR from the app switcher and open it again." preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        gWindow.hidden = YES;
-        gWindow = nil;
-        RecheckOrientation();
+        HideLauncher();
     }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -2153,6 +2150,14 @@ static void RecheckOrientation(void) {
         [UIViewController attemptRotationToDeviceOrientation];
     }
 }
+static __weak UIWindow *gGameWindow;  // key before the menu opened
+static UIWindow *KeyWindow(void) {
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class]) continue;
+        for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) return window;
+    }
+    return nil;
+}
 static void ShowLauncher(void) {
     if (gWindow) { [(LTLauncherViewController *)gWindow.rootViewController refresh]; return; }
     UIWindow *window = nil;
@@ -2164,8 +2169,21 @@ static void ShowLauncher(void) {
     window.windowLevel = UIWindowLevelAlert + 1;
     window.overrideUserInterfaceStyle = DisplayStyle();  // Pod Programs opens inside this window, so it follows too.
     window.rootViewController = [LTLauncherViewController new];
-    window.hidden = NO;
+    // UIKit takes a scene's orientations from its key window. Left behind the
+    // game's window, the menu got the game's landscape only: on an iPad held
+    // upright it showed in a window on its side.
+    gGameWindow = KeyWindow();
+    [window makeKeyAndVisible];
     gWindow = window;
+    RecheckOrientation();
+}
+// The menu goes, and the game's window is key again, so the game is back on its side.
+static void HideLauncher(void) {
+    gWindow.hidden = YES;
+    gWindow = nil;
+    UIWindow *game = gGameWindow;
+    gGameWindow = nil;
+    if (game && !game.hidden) [game makeKeyWindow];
     RecheckOrientation();
 }
 
