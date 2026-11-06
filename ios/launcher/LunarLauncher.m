@@ -1123,6 +1123,11 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 
 @implementation LTLauncherViewController
+// The game runs only on its side (its Info.plist), so the menu does too. Left
+// to the default, the menu's window turned upright on an iPad when the options
+// menu opened, while the game under it stayed on its side: part of the screen
+// went black.
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
 - (UILabel *)label:(NSString *)text size:(CGFloat)size color:(UIColor *)color bold:(BOOL)bold {
     UILabel *label = [UILabel new];
     label.text = text;
