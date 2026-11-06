@@ -18,9 +18,21 @@
   friend list's cheers read 0/100.
 - Friends from the story: 2B and 9S in the game's friend list with their
   portraits, 28/100 friends.
-- Not checked on the device: the feel of a battle with each challenge, a
-  daily-limited quest's count, a skip with no tickets, the EXP result screen,
-  and the login bonus after Start a new day.
+- Dark Lair: Easy (1 time daily), deck force 216,226 against 66,000, on
+  auto. No challenges: won in about a minute. Unlimited daily plays and EXP
+  ×3: the clear left its daily count at 0 and Try Again played it again;
+  each clear gave +1,944 player EXP (648 ×3) and +96 character rank EXP
+  (32 ×3). Free skips: a skip kept the tickets at 2,680. With 0 tickets the
+  game greys out Skip by itself, so Free skips needs one ticket in hand.
+- Hard enemies ×2: the same quest was lost at its wave-3 boss. Weakness only
+  with Slow skills: won in about 100 seconds against about 60.
+- Start a new day after the build with the review fixes: Mama's News played
+  again. The login bonus did not, because this save's last stamp is dated
+  2028-12-22 from an earlier calendar jump; the server counts a stamp at or
+  after today as received, so a stamp from the future blocks it whatever the
+  day (a calendar-off issue, not Start a new day's).
+- Comfort preset afterwards: "Comfort preset saved. Challenges are off: the
+  game data is as it was."; the game data's SHA-256 was the original's again.
 - Tests: 9,000+ enemy levels doubled on the real master, subjugation and
   player-range costumes untouched, ×1.5 rounding and the 66 cubic-curve
   enemies within 2%, weakness halving only the player's normal-battle table,
