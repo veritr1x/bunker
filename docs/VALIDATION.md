@@ -28,6 +28,16 @@
   can be claimed now: up to 10.") with SEND disabled. The CI unit-test jobs
   now prepare the sources; a clean checkout's web builder test failed without
   that and passes with it.
+- Game data without the gift text: restored a snapshot from before it
+  (Content › Previous versions, the game running). Gift showed "The first
+  gift also adds its text…" and a working Send. Sending Small Character
+  Enhancement ×1 added the text (the result is byte for byte this build's
+  All content, a204a35…; the old data kept as a snapshot; the label stays
+  "Restored snapshot"), the game showed its Refresh dialog and went to the
+  title screen, and after signing in the Gift Box listed "Small Character
+  Enhancement — From Bunker, with love.".
+- Content with the calendar off: choosing Original calendar hid the Content
+  section and showed the start panel; Everything open brought it back.
 - `go test ./...` passes with either master; all 31 Android tool test files
   and the notice and web builder tests pass. iOS not run; the Original
   calendar's gift dates not checked on a device.
