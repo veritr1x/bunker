@@ -10,7 +10,27 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation16`, using
+Latest original attempt: `work/windows-first-frame-native-presentation17`, using
+manifest `316aff1d73b5e6425c48c27e6c262ce8f1c6bcc132fe3fd19ec3b3617e8c26ee`
+and executable `2884d783253728aa46c6ca3afcf126455f2d05245f136718240b44d72c2d73a8`.
+It returns 35 renders and 33 successful swaps, with original draw submissions.
+The captured 1280x720 image was inspected and remains uniformly black; no
+first frame is accepted. All three Messaging registrations, listener setup,
+enabled-state calls and pending-event polls return through the genuine SDK.
+The earlier switch failure does not recur; exact entry execution is not logged.
+
+The terminal indirect target is now `70117d90`, LR `70117c7c`, inside original
+Unity function `70117c5c..70117e54` (504 bytes). Its three guarded four-row
+tables have twelve distinct targets: four are already selected and eight are
+missing. Those eight entries are the next additive translation candidate.
+Managed startup also reports missing Java classes including
+`com/unity/androidnotifications/UnityNotificationManager`; its exception
+payload and effect on completion are still being investigated. Native exit
+is 3. Original-parent pre/post checks return 0 and selected-runtime checks
+pass. Evidence is the run log, `original-module.json` and
+`game-frame-muted-gc-audit.json` under the run directory.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation16`, using
 manifest `239b08f32857c10ca74a911077544e803a51d1149c2902e8c2ab0d1aa1916123`
 and executable `9e69a4c3dc3acc31fc74e11abecb445092e09c058b12aabc5bffa6865a2faea8`.
 It returns 31 renders and 29 successful swaps; the image is still uniform
