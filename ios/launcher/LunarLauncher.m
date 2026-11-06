@@ -1035,6 +1035,13 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic, strong) LTChip *files, *server;
 @property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
 @property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
+// The menu's parts, arranged in one column or, on a screen on its side, two (arrange).
+@property(nonatomic, strong) UIStackView *stack;
+@property(nonatomic, strong) UIView *topBar, *systemPanel, *playPanel, *programsPanel, *archivePanel, *linksPanel, *spacer, *footer, *systemFill;
+@property(nonatomic, strong) UIButton *podsLink, *archiveLink;
+@property(nonatomic, strong) UILabel *caption, *titleLabel;
+@property(nonatomic) BOOL twoColumns, compact, arranged;
+@property(nonatomic, strong) NSLayoutConstraint *maxWidth;
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) LTSegments *bar;
@@ -1193,6 +1200,37 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     [row.heightAnchor constraintGreaterThanOrEqualToConstant:36].active = YES;
     return row;
 }
+// A row in a panel that opens something: its name, what it holds, and a chevron.
+- (UIButton *)link:(NSString *)name what:(NSString *)what action:(SEL)action {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    UILabel *title = [self label:nil size:13 color:Ink() bold:YES];
+    title.attributedText = Tracked(name, [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightBold], Ink(), 1.6);
+    UILabel *note = [self mono:what size:11 color:Muted()];
+    UILabel *chevron = [self label:@"›" size:24 color:Ink() bold:NO];
+    [chevron setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    UIStackView *words = [[UIStackView alloc] initWithArrangedSubviews:@[title, note]];
+    words.axis = UILayoutConstraintAxisVertical;
+    words.spacing = 3;
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[words, chevron]];
+    row.alignment = UIStackViewAlignmentCenter;
+    row.spacing = 10;
+    row.userInteractionEnabled = NO;
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    [button addSubview:row];
+    [NSLayoutConstraint activateConstraints:@[
+        [row.leadingAnchor constraintEqualToAnchor:button.leadingAnchor constant:4],
+        [row.trailingAnchor constraintEqualToAnchor:button.trailingAnchor constant:-4],
+        [row.topAnchor constraintEqualToAnchor:button.topAnchor constant:6],
+        [row.bottomAnchor constraintEqualToAnchor:button.bottomAnchor constant:-6],
+        [button.heightAnchor constraintGreaterThanOrEqualToConstant:48],
+    ]];
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [button addTarget:self action:@selector(linkDown:) forControlEvents:UIControlEventTouchDown | UIControlEventTouchDragEnter];
+    [button addTarget:self action:@selector(linkUp:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel | UIControlEventTouchDragExit];
+    return button;
+}
+- (void)linkDown:(UIButton *)button { button.backgroundColor = ChipFill(); }
+- (void)linkUp:(UIButton *)button { button.backgroundColor = nil; }
 // The solid command button: DEPLOY, CLOSE GAME.
 - (UIButton *)solid:(NSString *)title action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -1233,6 +1271,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     caption.attributedText = Tracked(@"LUNAR TEAR // 127.0.0.1", Mono(10), Muted(), 2);
     UILabel *title = [self label:nil size:22 color:Ink() bold:YES];
     title.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:22], Ink(), 6.2);
+    self.caption = caption;
+    self.titleLabel = title;
     title.accessibilityTraits = UIAccessibilityTraitHeader;
     UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
     titles.axis = UILayoutConstraintAxisVertical;
@@ -1270,7 +1310,9 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [self row:@"PORTS" values:@[self.ports]],
         [self row:@"SAVE" values:@[self.save]],
         [self row:@"ARCHIVE" values:@[self.archiveLine]],
-        self.bar]];
+        self.bar, self.systemFill = [UIView new]]];
+    [self.systemFill setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
+    self.systemFill.hidden = YES;
     // [ PLAY ]: what happens next, and the way back into the game.
     self.detail = [self mono:@"" size:12 color:Ink()];
     self.back = [self solid:@"DEPLOY  ▶" action:@selector(close)];
@@ -1299,18 +1341,28 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     footer.axis = UILayoutConstraintAxisVertical;
     footer.spacing = 2;
     [footer setCustomSpacing:14 afterView:ruleB];
-    UIView *spacer = [UIView new];
-    [spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
-    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[
-        top, [self updatePanelView], [self header:@"System"], system, [self header:@"Play"], play, [self header:@"Pod Programs"], programs, [self header:@"Archive"], archive, spacer, footer]];
+    self.spacer = [UIView new];
+    [self.spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
+    self.topBar = top;
+    self.systemPanel = system;
+    self.playPanel = play;
+    self.programsPanel = programs;
+    self.archivePanel = archive;
+    self.footer = footer;
+    [self updatePanelView];
+    // On its side, Pod Programs and the Archive are rows in one panel, each with what it holds.
+    self.podsLink = [self link:@"POD PROGRAMS" what:LTToolsAvailable() ? @"Save, events, shops and mods" : @"Not in this build" action:@selector(confirmTools)];
+    self.podsLink.accessibilityLabel = @"Open Pod Programs";
+    self.archiveLink = [self link:@"ARCHIVE" what:LTToolsAvailable() ? @"Story, characters, movies and music" : @"Not in this build" action:@selector(openArchive)];
+    self.archiveLink.accessibilityLabel = @"Open the Archive";
+    UIView *linkRule = [UIView new];
+    linkRule.backgroundColor = ChipFill();
+    [linkRule.heightAnchor constraintEqualToConstant:1].active = YES;
+    self.linksPanel = [self panel:@[self.podsLink, linkRule, self.archiveLink]];
+    UIStackView *stack = [UIStackView new];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 8;
-    [stack setCustomSpacing:20 afterView:top];
-    [stack setCustomSpacing:20 afterView:self.updatePanel];
-    [stack setCustomSpacing:20 afterView:system];
-    [stack setCustomSpacing:20 afterView:play];
-    [stack setCustomSpacing:20 afterView:programs];
-    [stack setCustomSpacing:28 afterView:spacer];
+    self.stack = stack;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     UIScrollView *scroll = [UIScrollView new];
     scroll.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1330,8 +1382,62 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor constant:18],
         [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-18],
         [stack.centerXAnchor constraintEqualToAnchor:scroll.centerXAnchor], width, height,
-        [stack.widthAnchor constraintLessThanOrEqualToConstant:520],
+        self.maxWidth = [stack.widthAnchor constraintLessThanOrEqualToConstant:520],
     ]];
+    [self refresh];
+}
+// One column; or, on a screen on its side with room for two, System on the left
+// and Play above the programs on the right, both columns ending level. A phone
+// on its side (compact height) also drops the caption and the footer.
+- (void)viewWillLayoutSubviews {
+    [super viewWillLayoutSubviews];
+    CGSize size = self.view.bounds.size;
+    BOOL two = size.width > size.height && size.width >= 600;
+    BOOL compact = two && self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
+    if (self.arranged && two == self.twoColumns && compact == self.compact) return;
+    self.arranged = YES;
+    self.twoColumns = two;
+    self.compact = compact;
+    [self arrange];
+}
+- (void)arrange {
+    BOOL two = self.twoColumns, compact = self.compact;
+    UIStackView *stack = self.stack;
+    for (UIView *v in stack.arrangedSubviews.copy) { [stack removeArrangedSubview:v]; [v removeFromSuperview]; }
+    self.caption.hidden = compact;
+    self.titleLabel.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:compact ? 18 : 22], Ink(), compact ? 5 : 6.2);
+    self.systemFill.hidden = !two;
+    self.maxWidth.constant = two ? 960 : 520;
+    CGFloat gap = compact ? 12 : 20;
+    [stack addArrangedSubview:self.topBar];
+    [stack setCustomSpacing:compact ? 8 : 20 afterView:self.topBar];
+    [stack addArrangedSubview:self.updatePanel];
+    [stack setCustomSpacing:gap afterView:self.updatePanel];
+    if (two) {
+        [self.systemPanel setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
+        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"System"], self.systemPanel]];
+        UIView *rest = [UIView new];
+        [rest setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
+        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"Play"], self.playPanel, [self header:@"Programs"], self.linksPanel, rest]];
+        for (UIStackView *column in @[left, right]) { column.axis = UILayoutConstraintAxisVertical; column.spacing = 8; }
+        [right setCustomSpacing:gap afterView:self.playPanel];
+        UIStackView *columns = [[UIStackView alloc] initWithArrangedSubviews:@[left, right]];
+        columns.distribution = UIStackViewDistributionFillEqually;
+        columns.alignment = UIStackViewAlignmentFill;
+        columns.spacing = 18;
+        [stack addArrangedSubview:columns];
+    } else {
+        [self.systemPanel setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisVertical];
+        NSArray *parts = @[[self header:@"System"], self.systemPanel, [self header:@"Play"], self.playPanel,
+                           [self header:@"Pod Programs"], self.programsPanel, [self header:@"Archive"], self.archivePanel];
+        for (UIView *v in parts) [stack addArrangedSubview:v];
+        for (UIView *v in @[self.systemPanel, self.playPanel, self.programsPanel]) [stack setCustomSpacing:20 afterView:v];
+    }
+    [stack addArrangedSubview:self.spacer];
+    if (!compact) {
+        [stack setCustomSpacing:28 afterView:self.spacer];
+        [stack addArrangedSubview:self.footer];
+    }
     [self refresh];
 }
 - (void)refresh {
@@ -1370,6 +1476,10 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     self.pods.alpha = self.pods.enabled ? 1 : .45;
     self.archive.enabled = LTToolsAvailable() && !gImporting && catalog && FileSize(MasterPath()) > 0;
     self.archive.alpha = self.archive.enabled ? 1 : .45;
+    for (NSArray<UIButton *> *pair in @[@[self.pods, self.podsLink], @[self.archive, self.archiveLink]]) {
+        pair[1].enabled = pair[0].enabled;
+        pair[1].alpha = pair[0].alpha;
+    }
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
     NSString *text = gMessage.length ? gMessage : [NSString stringWithFormat:
         @"Choose the resource dump's .7z, or an extracted folder to copy or use in place, from Files, iCloud Drive or a USB drive. "
@@ -1707,6 +1817,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     __block NSString *url = nil, *token = nil;
     NSString *root = ArchiveRoot();
     self.archive.enabled = NO;
+    self.archiveLink.enabled = NO;
     [self busy:@"Opening the Archive…" work:^NSString *{
         return LTArchiveStart(gServerRoot, root, &url, &token, ^(NSString *text) {
             dispatch_async(dispatch_get_main_queue(), ^{ gMessage = text; [self refresh]; });
