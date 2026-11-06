@@ -759,10 +759,10 @@ diff --git a/server/internal/masterdata/gacha.go b/server/internal/masterdata/ga
 +// medalItemGachas are summons without an m_gacha_medal row whose medal is
 +// known by its item: its exchange shop opens with the summon and stays open
 +// to its end, and the names match (e.g. Festive Dress, YoRHa Stage Play,
-+// Fortune's Dress, Blessed Dress, DQX, Yuletide).
++// Fortune's Dress, Blessed Dress, DQX, Yuletide, Hallowed Winter's Night).
 +var medalItemGachas = map[int32]int32{
 +	401: 8087, 501: 8168, 535: 8192, 541: 8192, 542: 8192, 543: 8193, 549: 8197, 550: 8197,
-+	555: 8203, 556: 8203, 582: 8222, 583: 8222, 585: 8222,
++	555: 8203, 556: 8203, 581: 8229, 582: 8222, 583: 8222, 585: 8222,
 +	510001: 8030, 513001: 8033, 515001: 8045, 536001: 8110, 537001: 8133, 9000035: 8021,
 +}
 +

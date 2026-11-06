@@ -129,7 +129,9 @@ type newSummon struct {
 	// Medal: the medal (its consumable item) its art or notice names, when it
 	// is neither a twin nor a rerun: a later volume of a notice whose first
 	// volume has it, or a summon that gave the shard of another. It comes
-	// from the summon the game data gives it to (m_gacha_medal).
+	// from the summon the game data gives it to, or from its m_gacha_medal
+	// row when that summon is not in the catalog (the Healer/Support medal
+	// of 506 and 507, the weekly shards of 10107 and 10108).
 	Medal int32 `json:"medal"`
 }
 
@@ -416,6 +418,14 @@ func ApplySummonRules(entries []store.GachaCatalogEntry) []store.GachaCatalogEnt
 	} else {
 		log.Printf("summon rules: medal shops: %v", err)
 	}
+	if rows, err := utils.ReadTable[EntityMGachaMedal]("m_gacha_medal"); err == nil {
+		medalRows = make(map[int32]EntityMGachaMedal, len(rows))
+		for _, m := range rows {
+			medalRows[m.ConsumableItemId] = m
+		}
+	} else {
+		log.Printf("summon rules: medals: %v", err)
+	}
 	calendarOn := gametime.CurrentCalendar() != nil
 	entries = applyNoticeWindows(entries, file.Rules, gametime.CalendarOffset(), calendarOn)
 	entries = addNewSummonsFor(entries, file, gametime.CalendarOffset(), calendarOn)
@@ -516,9 +526,13 @@ func addNewSummonsFor(entries []store.GachaCatalogEntry, file summonRulesFile, o
 		// The medal its art names, once its exchange is open as the summon
 		// starts. A run that outlasts the exchange (546) keeps giving it, as
 		// the game did; the medal then waits for its conversion.
-		if owner, ok := byMedal[n.Medal]; ok && n.Medal != 0 && e.MedalConsumableItemId == 0 &&
+		if n.Medal != 0 && e.MedalConsumableItemId == 0 &&
 			(medalShopOpen == nil || medalShopOpen(n.Medal, n.Start+offset, n.Start+offset)) {
-			e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = owner.GachaMedalId, owner.MedalConsumableItemId, owner.CeilingCount
+			if owner, ok := byMedal[n.Medal]; ok {
+				e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = owner.GachaMedalId, owner.MedalConsumableItemId, owner.CeilingCount
+			} else if row, ok := medalRows[n.Medal]; ok {
+				e.GachaMedalId, e.MedalConsumableItemId, e.CeilingCount = row.GachaMedalId, row.ConsumableItemId, ceiling(row)
+			}
 		}
 		switch {
 		case paired:
@@ -730,6 +744,10 @@ func (pool *GachaCatalog) applyRuleFeatured(rules map[int32]summonRule) {
 // medalShopOpen is whether an exchange shop taking a medal is open for a whole
 // run (game data dates); nil: always. ApplySummonRules sets it.
 var medalShopOpen func(item int32, start, end int64) bool
+
+// medalRows are the game data's medals (m_gacha_medal), by their item.
+// ApplySummonRules sets them.
+var medalRows map[int32]EntityMGachaMedal
 
 func medalShopOpenFrom(windows map[int32][][2]int64) func(int32, int64, int64) bool {
 	return func(item int32, start, end int64) bool {
