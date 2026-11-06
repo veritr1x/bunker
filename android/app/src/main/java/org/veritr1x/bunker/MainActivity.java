@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
     /** One LABEL  value row of a panel; a button in the row sits at the far right. */
     /** A row in a panel that opens something: its name, what it holds, and a chevron. */
     private View link(LinearLayout panel,String name,String what,View.OnClickListener open){
-        LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setMinimumHeight(dp(48));r.setPadding(dp(4),dp(4),dp(4),dp(4));
+        LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setMinimumHeight(dp(compact?40:48));int v=dp(compact?2:4);r.setPadding(dp(4),v,dp(4),v);
         r.setBackground(new RippleDrawable(ColorStateList.valueOf(look.line),null,new android.graphics.drawable.ColorDrawable(0xffffffff)));
         LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);
         TextView title=look.monoText(name,13,look.ink);title.setLetterSpacing(.12f);title.setTypeface(null,Typeface.BOLD);words.addView(title);
@@ -115,7 +115,7 @@ public final class MainActivity extends Activity {
         compact=twoColumns&&config.screenHeightDp<600;
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackground(look.paper());
         FrameLayout frame=new FrameLayout(this);scroll.addView(frame,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(compact?10:18),dp(18),dp(compact?10:0));
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(compact?4:18),dp(18),dp(compact?6:0));
         frame.addView(body,new FrameLayout.LayoutParams(Math.min(getResources().getDisplayMetrics().widthPixels,dp(twoColumns?960:520)),-1,Gravity.CENTER_HORIZONTAL));
         scroll.setOnApplyWindowInsetsListener((view,insets)->{view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
         // Top bar: where you are, and the options.
@@ -125,8 +125,8 @@ public final class MainActivity extends Activity {
         TextView title=look.text("BUNKER",compact?18:22,look.ink);title.setTypeface(null,Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         top.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
         Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
-        top.addView(more,new LinearLayout.LayoutParams(dp(compact?40:44),dp(compact?40:44)));
-        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(compact?8:20));body.addView(top,tp);
+        top.addView(more,new LinearLayout.LayoutParams(dp(compact?36:44),dp(compact?36:44)));
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(compact?6:20));body.addView(top,tp);
         // [ UPDATE ]: shown when a newer Bunker is released. Two rows: the message with WHAT'S NEW,
         // then UPDATE (or WEB BUILDER when this app can't update itself), LATER and SKIP.
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
@@ -162,7 +162,7 @@ public final class MainActivity extends Activity {
         progressText=look.monoText("",12,look.ink);system.addView(progressText);
         // [ PLAY ]: what happens next, and Deploy.
         LinearLayout launch=panel();
-        detail=look.monoText("",12,look.ink);LinearLayout.LayoutParams dp1=new LinearLayout.LayoutParams(-1,-2);dp1.setMargins(0,dp(6),0,dp(compact?8:12));launch.addView(detail,dp1);
+        detail=look.monoText("",12,look.ink);LinearLayout.LayoutParams dp1=new LinearLayout.LayoutParams(-1,-2);dp1.setMargins(0,dp(compact?2:6),0,dp(compact?8:12));launch.addView(detail,dp1);
         play=look.solid("DEPLOY  ▶");play.setContentDescription("Deploy: start the game");
         play.setOnClickListener(v->{launchWhenReady=true;autoAttempted=true;if(running){launchWhenReady=false;openGame();}else run(ServerService.START,null);});
         LinearLayout.LayoutParams bp2=new LinearLayout.LayoutParams(-1,dp(compact?48:56));bp2.setMargins(0,0,0,dp(6));launch.addView(play,bp2);
@@ -178,7 +178,7 @@ public final class MainActivity extends Activity {
             LinearLayout right=new LinearLayout(this);right.setOrientation(LinearLayout.VERTICAL);
             block(left,"System",system,0);
             ((LinearLayout.LayoutParams)system.getLayoutParams()).height=0;((LinearLayout.LayoutParams)system.getLayoutParams()).weight=1;
-            block(right,"Play",launch,compact?12:20);
+            block(right,"Play",launch,compact?10:20);
             block(right,"Programs",links,0);
             LinearLayout columns=new LinearLayout(this);
             LinearLayout.LayoutParams lc=new LinearLayout.LayoutParams(0,-1,1);lc.setMargins(0,0,dp(18),0);columns.addView(left,lc);
