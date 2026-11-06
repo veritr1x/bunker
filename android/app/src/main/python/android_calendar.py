@@ -781,6 +781,8 @@ def build_view(state):
     pending = view_file().with_suffix(".tmp")
     build_master(origin_file(), pending, 0, view=True, open_chapters=open_chapters(state))
     os.replace(pending, view_file())
+    import android_challenges as challenges
+    challenges.finish(view_file())
     view_version_file().write_text(view_version(state))
 
 
@@ -839,6 +841,8 @@ def prepare_next(state):
     pending = next_file().with_suffix(".tmp")
     build_master(origin_file(), pending, state["loopStart"] + LOOP_WEEKS * WEEK - LAUNCH)
     os.replace(pending, next_file())
+    import android_challenges as challenges
+    challenges.finish(next_file())  # Mods › Challenges: the server loads it by itself
     state["next"] = NEXT_NAME
     state["nextLoop"] = state["loop"] + 1
 

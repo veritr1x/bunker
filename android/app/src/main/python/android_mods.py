@@ -154,14 +154,46 @@ def view(request: Request, message: str = "", error: str = ""):
         "message": message, "error": error})
 
 
+def save_settings(settings):
+    """Saves the mods; when a challenge changed, the game data is built again
+    with them (android_challenges.reapply) with the server stopped around it,
+    and the game goes back to its title screen. Returns whether it did."""
+    import android_challenges as challenges
+    import android_runtime as runtime
+    before = read_settings()
+    write_settings(settings)
+    after = read_settings()
+    if all(before[k] == after[k] for k in CHALLENGE_KEYS):
+        return False
+    live = runtime.game_live()
+    if live:
+        error = runtime.pause_game()
+        if error:
+            write_settings(before)
+            raise RuntimeError(error)
+    try:
+        challenges.reapply()
+    finally:
+        if live:
+            runtime.resume_game(True)
+    return True
+
+
+def saved_message(title, reapplied):
+    import android_runtime as runtime
+    if reapplied:
+        return f"{title} Challenges are in the game data. " + runtime.next_step()
+    return f"{title} The mods are in use from the game's next action, with no restart."
+
+
 @router.post("/mods")
 async def save(request: Request):
     form = await request.form()
     try:
-        write_settings({k: form_value(k, form.get(k)) for k in KEYS})
+        reapplied = save_settings({k: form_value(k, form.get(k)) for k in KEYS})
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="Saved. The mods are in use from the game's next action, with no restart.")
+    return redirect(message=saved_message("Saved.", reapplied))
 
 
 @router.post("/mods/preset")
@@ -170,8 +202,11 @@ async def preset(request: Request):
     if name not in PRESETS:
         return redirect(error="Unknown preset")
     title, _, values = PRESETS[name]
-    write_settings(values)
-    return redirect(message=f"{title} preset saved.")
+    try:
+        reapplied = save_settings(values)
+    except Exception as exc:
+        return redirect(error=str(exc))
+    return redirect(message=saved_message(f"{title} preset saved.", reapplied))
 
 
 def form_value(key, raw):
