@@ -63,6 +63,20 @@ def permanent_chapters():
     return sorted(r["EventQuestChapterId"] for r in rows if isinstance(r, dict) and r.get("EventQuestType") in PERMANENT_EVENT_TYPES)
 
 
+def medal_exchanges():
+    """Every shop selling for a summon medal or shard (m_gacha_medal). The
+    configuration lists the exchanges of its own summons only, but with the
+    calendar off Lunar Tear opens every summon (the weekly ones, the
+    multi-steps, those recovered from notices), and a summon gives its shard
+    only while its exchange is open."""
+    table = lambda name: [r for r in runtime.read_json(config.MASTERDATA_DIR / f"EntityM{name}Table.json", []) or [] if isinstance(r, dict)]
+    medals = {r.get("ConsumableItemId") for r in table("GachaMedal")}
+    items = {r.get("ShopItemId") for r in table("ShopItem") if r.get("PriceType") == 1 and r.get("PriceId") in medals}
+    cells = {r.get("ShopItemCellId") for r in table("ShopItemCell") if r.get("ShopItemId") in items}
+    groups = {r.get("ShopItemCellGroupId") for r in table("ShopItemCellGroup") if r.get("ShopItemCellId") in cells}
+    return sorted(r["ShopId"] for r in table("Shop") if r.get("ShopItemCellGroupId") in groups and isinstance(r.get("ShopId"), int))
+
+
 def arguments(preset, cfg):
     if preset not in dict(PRESETS + SPLITS):
         raise ValueError("Unknown preset")
@@ -90,6 +104,10 @@ def arguments(preset, cfg):
             events += ", " + get("EVENTS_" + family.upper() + "_" + index)
             if family == "Rec":
                 shops += ", " + get("SHOPS_EVENT_" + index)
+    if preset in ("Full", "Gacha") or preset.startswith("Gacha_"):
+        exchanges = medal_exchanges()
+        if exchanges:
+            shops = ", ".join(filter(None, [shops, ", ".join(str(s) for s in exchanges)]))
     permanent = permanent_chapters()
     if permanent:
         events = ", ".join(filter(None, [events, ", ".join(str(c) for c in permanent)]))
