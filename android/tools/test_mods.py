@@ -2,7 +2,7 @@
 """Pod Programs > Mods: mods.json, its presets and the page. Every mod is off
 without the file. Needs fastapi and jinja2."""
 from pathlib import Path
-import json, sys, tempfile, unittest
+import json, sys, tempfile, unittest, unittest.mock
 
 root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / "android/app/src/main/python"))
@@ -154,6 +154,15 @@ class Page(unittest.TestCase):
         self.assertIn("Paused: a Quests, Items &amp; shops or Summons mod is on.", self.render({"hardEnemies": 2, "freeSkips": True}))
         self.assertIn("Paused until tomorrow: you started a new day.", self.render({"hardEnemies": 2}, paused=True))
         self.assertIn('<option value="2" selected>Enemies ×2 — rewards ×3</option>', html)
+
+    def test_saved_message_says_what_happened_to_the_challenges(self):
+        with unittest.mock.patch.object(android_runtime, "next_step", lambda: "NEXT"):
+            self.assertEqual(android_mods.saved_message("Saved.", False, {**android_mods.OFF}),
+                             "Saved. The mods are in use from the game's next action, with no restart.")
+            self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF, "slowSkills": True}),
+                             "Saved. Challenges are in the game data. NEXT")
+            self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF}),
+                             "Saved. Challenges are off: the game data is as it was. NEXT")
 
     def test_changing_mods_leaves_the_game_running(self):
         # The server reads mods.json as each mod is used: nothing to restart.

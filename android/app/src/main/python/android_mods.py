@@ -196,10 +196,13 @@ def save_settings(settings):
     return True
 
 
-def saved_message(title, reapplied):
+def saved_message(title, reapplied, settings):
+    import android_challenges as challenges
     import android_runtime as runtime
-    if reapplied:
+    if reapplied and challenges.active(settings):
         return f"{title} Challenges are in the game data. " + runtime.next_step()
+    if reapplied:
+        return f"{title} Challenges are off: the game data is as it was. " + runtime.next_step()
     return f"{title} The mods are in use from the game's next action, with no restart."
 
 
@@ -210,7 +213,7 @@ async def save(request: Request):
         reapplied = save_settings({k: form_value(k, form.get(k)) for k in KEYS})
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message=saved_message("Saved.", reapplied))
+    return redirect(message=saved_message("Saved.", reapplied, read_settings()))
 
 
 @router.post("/mods/preset")
@@ -223,7 +226,7 @@ async def preset(request: Request):
         reapplied = save_settings(values)
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message=saved_message(f"{title} preset saved.", reapplied))
+    return redirect(message=saved_message(f"{title} preset saved.", reapplied, read_settings()))
 
 
 def form_value(key, raw):
