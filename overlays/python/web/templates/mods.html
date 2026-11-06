@@ -4,9 +4,9 @@
 <style>
   .mods-group > summary{cursor:pointer;list-style:none}
   .mods-group > summary::-webkit-details-marker{display:none}
-  .mods-group > summary::after{content:"−";margin-left:auto;padding-left:12px}
-  .mods-group:not([open]) > summary::after{content:"+"}
-  .mods-group > summary{display:flex;align-items:center}
+  .mods-group > summary .fold{order:2;margin-left:12px;letter-spacing:0;width:1em;text-align:center}
+  .mods-group > summary .fold::before{content:"\2212"}
+  .mods-group:not([open]) > summary .fold::before{content:"+"}
   .bonus{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0 12px;border-bottom:1px solid var(--line)}
   .bonus b{font-size:20px;letter-spacing:.06em}
   .bonus.paused b{text-decoration:line-through;opacity:.5}
@@ -18,7 +18,7 @@
   the game data, so the game goes back to its title screen to load them.</p>
 
 <details class="mods-group" data-group="Preset" open>
-<summary class="bracket-header">Preset</summary>
+<summary class="bracket-header">Preset<span class="fold" aria-hidden="true"></span></summary>
 <form action="/mods/preset" method="post" class="panel">
   {% for key, (title, what, _) in presets.items() %}
   <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
@@ -31,7 +31,7 @@
 <form action="/mods" method="post" id="mods-form">
   {% for group, mods in groups %}
   <details class="mods-group" data-group="{{ group }}" open>
-  <summary class="bracket-header">{{ group }}</summary>
+  <summary class="bracket-header">{{ group }}<span class="fold" aria-hidden="true"></span></summary>
   <div class="panel">
     {% if group == "Challenges" %}
     <div class="bonus{% if bonus_paused %} paused{% endif %}" id="bonus"><span>Challenge bonus on quest rewards<br><span class="note" id="bonus-why">{{ bonus_reason }}</span></span><b id="bonus-x">×{{ bonus }}</b></div>
