@@ -1,0 +1,14 @@
+diff --git a/server/internal/lunarbase/main.go b/server/internal/lunarbase/main.go
+--- a/server/internal/lunarbase/main.go
++++ b/server/internal/lunarbase/main.go
+@@ -407,6 +407,10 @@ func run(raw []byte) (int, error) {
+ 		return runSetMemoirSubsBatch(&req)
+ 	case "mark_contents_stories_played":
+ 		return runMarkContentsStoriesPlayed(&req)
++	case "send_gift": // Bunker: Pod Programs › Gift (bunker_gift.go)
++		return runSendGift(&req)
++	case "gift_room":
++		return runGiftRoom(&req)
+ 	case "":
+ 		return 0, errors.New("action required")
+ 	default:
