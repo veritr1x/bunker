@@ -41,7 +41,34 @@ type Settings struct {
 	// PityRewards: every 100 summon medals become 1,000 paid gems and 100
 	// Mama Points, sent to the gift box.
 	PityRewards bool `json:"pityRewards"`
+	// UnlimitedDailyPlays: quests with a daily clear limit don't count their
+	// clears, so they can be played as often as you like.
+	UnlimitedDailyPlays bool `json:"unlimitedDailyPlays"`
+	// FreeSkips: skipping a quest uses no skip tickets.
+	FreeSkips bool `json:"freeSkips"`
+	// ExpMultiplier multiplies the EXP a quest gives you, your characters and
+	// their costumes (1 = off).
+	ExpMultiplier int32 `json:"expMultiplier"`
+	// StoryFriends: characters from the story join your friends and the Arena.
+	StoryFriends bool `json:"storyFriends"`
+
+	// Challenges change the game data (Pod Programs applies them); the server
+	// reads them for the challenge bonus.
+
+	// HardEnemies multiplies every enemy's stats: 0 or 1 is off, else 1.5, 2,
+	// 3 or 5.
+	HardEnemies float64 `json:"hardEnemies"`
+	// WeaknessOnly: hits that aren't super-effective do half damage.
+	WeaknessOnly bool `json:"weaknessOnly"`
+	// SlowSkills: your skills take 50% longer to come back.
+	SlowSkills bool `json:"slowSkills"`
 }
+
+// hardEnemiesBonus is each Hard enemies setting's reward bonus.
+var hardEnemiesBonus = map[float64]int32{1.5: 2, 2: 3, 3: 4, 5: 6}
+
+// MaxChallengeBonus caps the challenge bonus, as the reward multiplier is.
+const MaxChallengeBonus = MaxRewardMultiplier
 
 // MaxRewardMultiplier is the largest reward multiplier.
 const MaxRewardMultiplier = 10
@@ -51,7 +78,58 @@ func (s Settings) Validate() error {
 	if s.RewardMultiplier < 0 || s.RewardMultiplier > MaxRewardMultiplier {
 		return fmt.Errorf("the reward multiplier must be 1–%d", MaxRewardMultiplier)
 	}
+	if s.ExpMultiplier < 0 || s.ExpMultiplier > MaxRewardMultiplier {
+		return fmt.Errorf("the EXP multiplier must be 1–%d", MaxRewardMultiplier)
+	}
+	if _, ok := hardEnemiesBonus[s.HardEnemies]; !ok && s.HardEnemies != 0 && s.HardEnemies != 1 {
+		return fmt.Errorf("hard enemies must be 1.5, 2, 3 or 5")
+	}
 	return nil
+}
+
+// ExpFactor is the EXP multiplier, at least 1.
+func (s Settings) ExpFactor() int32 {
+	if s.ExpMultiplier < 1 {
+		return 1
+	}
+	return s.ExpMultiplier
+}
+
+// Comfort reports whether any Quests, Items & shops or Summons mod is on.
+// World mods and challenges don't count.
+func (s Settings) Comfort() bool {
+	return s.StaminaFree || s.StaminaItemsToGold || s.TicketsToGems || s.ShopUnlimited || s.LostItemGems ||
+		s.Multiplier() > 1 || s.NoDuplicateFourStar || s.PityRewards ||
+		s.UnlimitedDailyPlays || s.FreeSkips || s.ExpFactor() > 1
+}
+
+// ChallengeBonus multiplies quest rewards for the challenges that are on,
+// capped at MaxChallengeBonus. It is 1 while a comfort mod is on, and on a
+// game day when Start a new day was pressed (pausedToday).
+func (s Settings) ChallengeBonus(pausedToday bool) int32 {
+	if pausedToday || s.Comfort() {
+		return 1
+	}
+	bonus := int32(1)
+	if b, ok := hardEnemiesBonus[s.HardEnemies]; ok {
+		bonus *= b
+	}
+	if s.WeaknessOnly {
+		bonus *= 2
+	}
+	if s.SlowSkills {
+		bonus *= 2
+	}
+	return min(bonus, MaxChallengeBonus)
+}
+
+// RewardFactor multiplies a quest's drops, gold and gems: the reward
+// multiplier while comfort mods are on, else the challenge bonus.
+func (s Settings) RewardFactor(pausedToday bool) int32 {
+	if s.Comfort() {
+		return s.Multiplier()
+	}
+	return s.ChallengeBonus(pausedToday)
 }
 
 // Multiplier is the reward multiplier, at least 1.
