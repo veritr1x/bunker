@@ -3,7 +3,22 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
-Latest original attempt: `work/windows-first-frame-native-presentation11`, using
+Latest original attempt: `work/windows-first-frame-native-presentation12`, using
+manifest `2e4ad40cc5f42c513d12b36fbc8ac33d2b7b9f795adb5d7b882276bc5cb0f45f`
+and executable `8ab5143550ed3b0ef6a1fe49d320e4a8afc3328f338084c488c4b307ef7e2b3a`.
+The corrected collector passes genuine stop/restart cycles for managed workers
+19, 1a and 1b through epoch32, with two original posts and record epoch33.
+Startup then aborts after `mmap(length4096, flags0x32, LR825a8b94)` returns
+MAP_FAILED/errno95. The original GC helper discards whole interior pages with
+fixed private anonymous PROT_NONE replacement; its paired restore uses
+mprotect(RW or RWX). The actual requested address and host reservation owner
+were not logged. Support is being restricted to validated, unpinned owned
+anonymous reservations; foreign or otherwise unsupported ranges must fail.
+This attempt has two returned renders and one successful swap, with no accepted
+game image. Original-parent pre/post and selected-runtime checks pass.
+Evidence: `work/runtime12-mmap-boundary1`.
+
+Preceding attempt: `work/windows-first-frame-native-presentation11`, using
 manifest `b67a121f2c07fb349903f50d2de359a091cbb6d654e73cce2c15f9fdc13a378b`
 and executable `66b14ec9dec4d69d686faa4226b7f34e9890d8a8c7a75a49af40ecdfbe743206`.
 This run exposes an incorrect queue-mutex certificate: it compares the inline
