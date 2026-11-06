@@ -10,7 +10,27 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation13`, using
+Latest original attempt: `work/windows-first-frame-native-presentation14`, using
+manifest `be77e0c6cba83639c5f2b73d3098b8c4e611c08ad64c62f5f0ce0bedca418afa`.
+The original GC's fixed anonymous discards now succeed. There are 31 returned
+original renders, 29 successful original swaps, and real draw submissions.
+The observed 1280x720 image remains uniformly black; no frame is accepted.
+The process stops at a new font-validation setjmp buffer, address
+`1e667690430`, LR `708d9240`. Its bytes are inside the actual current stack,
+but the automatic-environment registry only admits the earlier IL2CPP helper.
+This is a missing invocation lifetime, not a saved mapping-generation error.
+The original Unity function also permits repeated saves and returns without
+any save. A separate bounded invocation owner is being qualified.
+Separately, original dlsym requests for Firebase's AppSetDefaultConfigPath and
+its alternate name return zero although the genuine selected Windows DLL
+exports the first name. That precedes a Firebase dispatcher task-fault catch;
+the managed exception payload itself was not captured. The genuine bridge is
+being extended for the actual default-app call chain. Native exit is 3;
+original-parent pre/post and selected-runtime verification pass. Evidence is
+the run's log, original-module record and `game-frame-muted-gc-audit.json`.
+The new resize branch was not observed in this attempt.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation13`, using
 manifest `52dba72b2e2e46b2d567644ee45e697c148ce3c41641a0c754fce55266977322`
 and executable `07e287c4e6d0ab3d34f41895d999a5d97c80c09899eced9e05ec125f57884bc5`.
 The generic runner logs the first original render returning, but the main

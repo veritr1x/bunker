@@ -64,6 +64,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <functional>
 #include <map>
 #include <memory>
@@ -86,6 +87,7 @@
 #include <condition_variable>
 #endif
 extern "C" Memory *__real_sub_825b0544(State &,addr_t,Memory *);
+extern "C" Memory *__real_sub_708d905c(State &,addr_t,Memory *);
 extern "C" Memory *__real___bunker_guest_call(State &,addr_t,Memory *,addr_t,addr_t,recomp::Entry) noexcept;
 
 namespace {
@@ -254,7 +256,9 @@ void DefineGameAndroidApiProfile(bunker::jni::Host &host){
 }
 }
 extern "C" Memory *__wrap_sub_825b0544(State &s,addr_t pc,Memory *memory){return GameOriginalSaveHelper(s,pc,memory);}
+extern "C" Memory *__wrap_sub_708d905c(State &s,addr_t pc,Memory *memory){return GameOriginalFontCmapHelper(s,pc,memory);}
 extern "C" Memory *__wrap___bunker_guest_call(State &s,addr_t target,Memory *memory,addr_t expected,addr_t sp,recomp::Entry direct) noexcept {
+  if(target==0x708d905cULL&&direct)direct=GameOriginalFontCmapHelper;
   return bunker::windows::GuestCallRouting::Forward(__real___bunker_guest_call,GameOriginalSaveHelper,s,target,memory,expected,sp,direct);
 }
 int main(int argc,char **argv){
@@ -299,8 +303,12 @@ int main(int argc,char **argv){
     auto storage=fs::absolute(fs::u8path(argv[3]));fs::create_directories(storage);
     GameAutomaticEnvironments automatic_environments;game_environments=&automatic_environments;
     automatic_environments.original=__real_sub_825b0544;
+    GameFontCmapEnvironments font_environments;game_font_environments=&font_environments;
+    font_environments.original=__real_sub_708d905c;
     std::vector<recomp::Trace> selected(std::begin(kTraces),std::end(kTraces));bool original_helper_present=false;for(auto &trace:selected)if(trace.address==0x825b0544){original_helper_present=true;trace.entry=GameOriginalSaveHelper;}
     Require(original_helper_present,"current IL2CPP automatic save helper is absent from union");
+    bool font_helper_present=false;for(auto &trace:selected)if(trace.address==0x708d905c){font_helper_present=true;trace.entry=GameOriginalFontCmapHelper;}
+    Require(font_helper_present,"current Unity font cmap helper is absent from union");
     bool original_raise_present=false;
     if(first_frame)for(auto &trace:selected)if(trace.address==0x826263cc){
       GameExceptionDiagnostic::ConfigureRaise(trace.entry,true);
@@ -530,6 +538,7 @@ int main(int argc,char **argv){
       return NonlocalJumps::Thread{token,token,attr.stack_base,attr.stack_base+attr.stack_size};
     };
     automatic_environments.current=current_jump_thread;
+    font_environments.current=current_jump_thread;
     if(surface_gate)jumps=std::make_unique<NonlocalJumps>(current_jump_thread,[&files,current_jump_thread](addr_t environment,size_t size)->std::optional<NonlocalJumps::Region>{
       if(auto mapping=files.MappingRegion(environment,size,true)){
         std::fprintf(stderr,"Unity bootstrap: jmp_buf=%#llx owned mmap=[%#llx,%#llx) generation=%llu\n",static_cast<unsigned long long>(environment),static_cast<unsigned long long>(mapping->base),static_cast<unsigned long long>(mapping->base+mapping->size),static_cast<unsigned long long>(mapping->generation));
@@ -537,6 +546,7 @@ int main(int argc,char **argv){
       }
       auto current=current_jump_thread();
       if(auto owned=game_environments->Find(environment,size,current.token))return owned;
+      if(auto owned=game_font_environments->Find(environment,size,current.token))return owned;
       std::fprintf(stderr,"Unity bootstrap: unknown jmp_buf allocation=%#llx bytes=%zu; owned guest stack=[%#llx,%#llx); no mmap/stack lifetime; heap/subobject provenance is not invented\n",static_cast<unsigned long long>(environment),size,static_cast<unsigned long long>(current.stack_low),static_cast<unsigned long long>(current.stack_high));
       return {};
     },[&](){uint64_t mask=0;auto token=threads.Self();if(process_signals.Mask(token,0,nullptr,&mask))throw std::runtime_error("setjmp signal mask is not registered for this virtual thread");return mask;},Executable);
@@ -694,6 +704,33 @@ int main(int argc,char **argv){
     if(!firebase_dll.empty()){
       FirebaseAppService::Config config;
       config.dll_path=firebase_dll.wstring();
+      // The native desktop SDK cannot open the guest's APK jar URI. Stage the
+      // original packaged desktop configuration without changing its bytes.
+      const auto firebase_config_root=storage/"firebase-config";
+      const auto firebase_config_file=firebase_config_root/"google-services-desktop.json";
+      const auto firebase_config_bytes=context_config.apk_assets->Read("google-services-desktop.json");
+      Require(!firebase_config_bytes.empty()&&firebase_config_bytes.size()<=1024*1024,"packaged Firebase desktop config has an unsupported size");
+      fs::create_directories(firebase_config_root);
+      {
+        std::ofstream output(firebase_config_file,std::ios::binary|std::ios::trunc);
+        Require(bool(output),"cannot open owned Firebase desktop config file");
+        output.write(reinterpret_cast<const char*>(firebase_config_bytes.data()),static_cast<std::streamsize>(firebase_config_bytes.size()));
+        output.close();Require(bool(output),"cannot write complete packaged Firebase desktop config");
+      }
+      {
+        std::ifstream input(firebase_config_file,std::ios::binary);
+        const std::vector<uint8_t> check((std::istreambuf_iterator<char>(input)),std::istreambuf_iterator<char>());
+        Require(!input.bad()&&check==firebase_config_bytes,"staged Firebase desktop config differs from APK member");
+      }
+      config.resolve_config_path=[guest_apk=Utf8(context_config.source_dir),host_apk=apk.generic_u8string(),root=firebase_config_root.generic_u8string()](const std::string &path){
+        if(path=="jar:file://"+guest_apk+"!/assets"||path=="jar:file:"+guest_apk+"!/assets"||
+           path=="jar:file:///"+host_apk+"!/assets"||path=="jar:file://"+host_apk+"!/assets"||path=="jar:file:"+host_apk+"!/assets"){
+          std::fputs("Windows Firebase SDK: resolving qualified APK streaming-assets directory to staged original desktop config\n",stderr);
+          return root;
+        }
+        return path;
+      };
+      std::fprintf(stderr,"Windows Firebase SDK: staged original APK desktop config bytes=%zu; contents omitted\n",firebase_config_bytes.size());
       config.verify_library=[](const std::wstring &path,const std::string &expected){Require(Sha256(fs::path(path))==expected,"Windows Firebase DLL differs from the exact official SDK pin");};
       config.translated_entry=Translated;
       config.admitted_thread=[&]{return recomp::CurrentExecutionState()&&bool(process_signals.Lookup(threads.Self()))&&modules.ReferenceCount("libil2cpp.so")&&!il2cpp_ledger.finalized;};
@@ -956,13 +993,13 @@ int main(int argc,char **argv){
         if(observe_main)ObserveFourthFrameWait("RETURN",identity.c_str(),main_sequence,s);
       });
     }
-    if(jumps){automatic_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
+    if(jumps){automatic_environments.jumps=jumps.get();font_environments.jumps=jumps.get();jumps->Install(jump_bridges);for(const char *name:{"setjmp","_setjmp","sigsetjmp","longjmp","_longjmp","siglongjmp"}){auto marker=jumps->Marker(name);runtime.AddImport(marker,[&,name,marker](State &s){try{
 #if defined(BUNKER_GAME_COLLECTOR_DELIVERY) && BUNKER_GAME_COLLECTOR_DELIVERY
       if(collector)collector->BeforeNonlocal();
       if(main_collector)main_collector->BeforeNonlocal();
       if(worker_collector)worker_collector->BeforeNonlocal();
 #endif
-      if(!std::strcmp(name,"setjmp"))automatic_environments.BeforeSetjmp(s,current_signal_thread());jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
+      if(!std::strcmp(name,"setjmp")){const auto token=current_signal_thread();automatic_environments.BeforeSetjmp(s,token);font_environments.BeforeSetjmp(s,token);}jump_bridges.Dispatch(s,marker,nullptr);}catch(const std::exception &e){std::fprintf(stderr,"Game bootstrap: nonlocal bridge %s failed:%s\n",name,e.what());std::abort();}});}}
     if(graphics){
       graphics->Install(gl_bridges);
       for(const auto &name:GlHost::Commands()){

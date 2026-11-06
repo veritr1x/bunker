@@ -53,6 +53,78 @@ struct GameAutomaticEnvironments {
   }
 };
 GameAutomaticEnvironments *game_environments=nullptr;
+// Original Unity FreeType cmap validation owns a different automatic buffer.
+// A whole guest-stack reservation is not a C automatic-object lifetime.
+struct GameFontCmapEnvironments {
+  struct Frame {const GameFontCmapEnvironments *owner;uint64_t token,thread_generation,generation;addr_t entry_sp,return_pc,environment=0;};
+  using FrameVector=std::vector<Frame>;
+  bunker::windows::NonlocalJumps *jumps=nullptr;
+  recomp::Entry original=nullptr;
+  std::function<bunker::windows::NonlocalJumps::Thread()> current;
+  std::atomic<uint64_t> next_generation{1};
+#ifdef _WIN32
+  static void DestroyFrames(void *value) noexcept {delete static_cast<FrameVector*>(value);}
+  static FrameVector &Frames(){
+    static const pthread_key_t key=[] {
+      pthread_key_t result{};const int error=pthread_key_create(&result,DestroyFrames);
+      if(error)throw std::runtime_error("font cmap frames storage key creation failed: "+std::to_string(error));
+      return result;
+    }();
+    auto *value=static_cast<FrameVector*>(pthread_getspecific(key));
+    if(!value){
+      auto next=std::make_unique<FrameVector>();const int error=pthread_setspecific(key,next.get());
+      if(error)throw std::runtime_error("font cmap frames storage publication failed: "+std::to_string(error));
+      value=next.release();
+    }
+    return *value;
+  }
+#else
+  static FrameVector &Frames(){static thread_local FrameVector frames;return frames;}
+#endif
+  void BeforeSetjmp(State &s,uint64_t token){
+    if(s.gpr.x30.qword!=0x708d9240)return;
+    Require(bool(current),"font cmap owner has no current-thread source");const auto thread=current();
+    auto &frames=Frames();Require(!frames.empty()&&frames.back().owner==this&&thread.token==token&&frames.back().token==token&&frames.back().thread_generation==thread.generation,"font cmap setjmp has no live original invocation");
+    auto &frame=frames.back();
+    Require(frame.entry_sp>=0x1a0&&s.gpr.sp.qword==frame.entry_sp-0x1a0&&s.gpr.x0.qword==s.gpr.sp.qword+0x10,"original font cmap environment/frame shape differs");
+    Require(!frame.environment||frame.environment==s.gpr.x0.qword,"font cmap invocation changed its automatic environment");
+    // Each cmap record may save the SAME automatic buffer again. Save replaces
+    // its wire context while its invocation generation stays live.
+    frame.environment=s.gpr.x0.qword;
+  }
+  std::optional<bunker::windows::NonlocalJumps::Region> Find(addr_t env,size_t size,uint64_t token){
+    if(size!=256||!current)return {};
+    const auto thread=current();if(thread.token!=token||!thread.generation)return {};
+    for(auto i=Frames().rbegin();i!=Frames().rend();++i)
+      if(i->owner==this&&i->token==token&&i->thread_generation==thread.generation&&i->environment==env)
+        return bunker::windows::NonlocalJumps::Region{env,env+256,i->generation};
+    return {};
+  }
+  Memory *Run(State &s,addr_t pc,Memory *memory){
+    Require(jumps&&original&&bool(current),"font cmap automatic owner is not configured");
+    const auto thread=current();
+    Require(pc==0x708d905c&&thread.token&&thread.generation&&thread.stack_low&&thread.stack_high>thread.stack_low&&!(s.gpr.sp.qword&15)&&s.gpr.sp.qword>=thread.stack_low&&s.gpr.sp.qword-thread.stack_low>=0x1a0&&s.gpr.sp.qword<=thread.stack_high,"original font cmap entry has no complete owned stack frame");
+    const auto generation=next_generation.fetch_add(1);Require(generation&&generation!=UINT64_MAX,"font cmap automatic generation exhausted");
+    Frames().push_back({this,thread.token,thread.generation,generation,s.gpr.sp.qword,s.gpr.x30.qword,0});
+    auto retire=[&]{
+      auto &frames=Frames();Require(!frames.empty()&&frames.back().owner==this&&frames.back().generation==generation&&frames.back().token==thread.token,"font cmap invocation nesting differs at retirement");
+      const auto env=frames.back().environment;if(env)jumps->Forget(env);frames.pop_back();
+    };
+    Memory *result=nullptr;
+    try{
+      result=original(s,pc,memory);Require(!Frames().empty(),"font cmap invocation disappeared before return");const auto frame=Frames().back();
+      Require(frame.owner==this&&frame.generation==generation&&frame.token==thread.token&&frame.thread_generation==thread.generation&&s.gpr.sp.qword==frame.entry_sp&&s.gpr.pc.qword==frame.return_pc,"original font cmap helper did not return within its invocation");
+      // Empty/invalid/unknown-format cmap tables legitimately return before
+      // setjmp. Revoke only a buffer that was actually saved.
+    }catch(...){retire();throw;}
+    retire();return result;
+  }
+};
+GameFontCmapEnvironments *game_font_environments=nullptr;
+Memory *GameOriginalFontCmapHelper(State &s,addr_t pc,Memory *memory){try{
+  Require(game_font_environments,"font cmap owner is unavailable");
+  return game_font_environments->Run(s,pc,memory);
+ }catch(const std::exception &error){std::fprintf(stderr,"Game bootstrap: original font cmap owner failed:%s\n",error.what());std::abort();}}
 Memory *GameOriginalSaveHelper(State &s,addr_t pc,Memory *memory){try{
   auto &owners=*game_environments;auto generation=owners.next_generation.fetch_add(1);Require(generation!=0,"automatic environment generation exhausted");
   // No reference into this vector survives a nested original guest call.

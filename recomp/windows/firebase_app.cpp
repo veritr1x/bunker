@@ -11,6 +11,7 @@
 #include <cstring>
 #include <exception>
 #include <mutex>
+#include <limits>
 #include <stdexcept>
 #include <thread>
 #include <utility>
@@ -69,7 +70,11 @@ const std::vector<std::string> kCommands={
   "Firebase_App_CSharp_FirebaseApp_RegisterLibraryInternal",
   "Firebase_App_CSharp_FirebaseApp_SetLogLevelInternal",
   "Firebase_App_CSharp_FirebaseApp_GetLogLevelInternal",
-  "Firebase_App_CSharp_FirebaseApp_DefaultName_get"
+  "Firebase_App_CSharp_FirebaseApp_DefaultName_get",
+  "Firebase_App_CSharp_FirebaseApp_AppSetDefaultConfigPath",
+  "Firebase_App_CSharp_FirebaseApp_CreateInternal__SWIG_0",
+  "Firebase_App_CSharp_FirebaseApp_NameInternal_get",
+  "Firebase_App_CSharp_FirebaseApp_ReleaseReferenceInternal"
 };
 }
 struct FirebaseAppService::Impl {
@@ -86,6 +91,10 @@ struct FirebaseAppService::Impl {
   std::exception_ptr failure;
   std::array<addr_t,11> exceptions{};std::array<addr_t,3> arguments{};
   addr_t string_callback=0,log_callback=0;
+  // Preserve the SDK's actual opaque App pointer and one reference for each
+  // successful default-create result. No forged pointer reaches the DLL.
+  std::vector<std::pair<addr_t,size_t>> apps;
+  unsigned config_observations=0,create_observations=0;
   static std::mutex global_mutex;
   static std::shared_ptr<Impl> global;
   static bool generation_used;
@@ -184,8 +193,56 @@ struct FirebaseAppService::Impl {
     if(string)Function<void(*)(StringCallback)>(kCommands[2])(&StringThunk);
     else Function<void(*)(LogCallback)>(kCommands[3])(entry?&LogThunk:nullptr);
   }
+  void AppCall() {
+    std::lock_guard lock(mutex);
+    Need(imports==1&&callbacks==0&&call_owner==std::this_thread::get_id(),
+        "Firebase App call requires exclusive non-callback SDK-call ownership");
+    Need(string_callback&&std::all_of(exceptions.begin(),exceptions.end(),[](addr_t entry){return entry!=0;})&&
+        std::all_of(arguments.begin(),arguments.end(),[](addr_t entry){return entry!=0;}),
+        "Firebase App call requires the original registered SWIG callback cohort");
+  }
+  void SetConfig(addr_t address) {
+    AppCall();auto original=recomp::ReadGuestString(address);
+    auto path=config.resolve_config_path?config.resolve_config_path(original):original;
+    if(config_observations++<8)std::fprintf(stderr,"Windows Firebase SDK App: config path input_bytes=%zu native_bytes=%zu mapped=%d; configuration values supplied unchanged\n",original.size(),path.size(),int(path!=original));
+    Function<void(*)(const char*)>(kCommands[18])(path.c_str());
+  }
+  addr_t CreateApp() {
+    AppCall();
+    {
+      std::lock_guard lock(mutex);
+      for(const auto &entry:apps)Need(entry.second<std::numeric_limits<size_t>::max(),"Firebase App reference count exhausted");
+      // Reserve bookkeeping before the native SDK can create an owned App.
+      apps.reserve(apps.size()+1);
+    }
+    const auto result=reinterpret_cast<addr_t>(Function<void*(*)()>(kCommands[19])());
+    if(result){
+      std::lock_guard lock(mutex);
+      auto found=std::find_if(apps.begin(),apps.end(),[&](const auto &entry){return entry.first==result;});
+      if(found==apps.end())apps.emplace_back(result,1);else ++found->second;
+    }
+    if(create_observations++<8)std::fprintf(stderr,"Windows Firebase SDK App: genuine default CreateInternal returned=%#llx; no synthetic App or dependency result\n",static_cast<unsigned long long>(result));
+    return result;
+  }
+  void RequireApp(addr_t address,bool string) {
+    AppCall();std::lock_guard lock(mutex);
+    Need(address&&std::any_of(apps.begin(),apps.end(),[&](const auto &entry){return entry.first==address&&entry.second;}),"Firebase App handle is not a live service-owned native reference");
+    if(string)Need(string_callback!=0,"Firebase App name getter requires the registered original string callback");
+  }
+  addr_t AppName(addr_t address) {
+    RequireApp(address,true);
+    return reinterpret_cast<addr_t>(Function<const char*(*)(void*)>(kCommands[20])(reinterpret_cast<void*>(address)));
+  }
+  void ReleaseApp(addr_t address) {
+    RequireApp(address,false);
+    Function<void(*)(void*)>(kCommands[21])(reinterpret_cast<void*>(address));
+    // A deferred callback error does not undo a completed native release.
+    std::lock_guard lock(mutex);
+    auto found=std::find_if(apps.begin(),apps.end(),[&](const auto &entry){return entry.first==address;});
+    if(!--found->second)apps.erase(found);
+  }
   void Revoke(){
-    {std::lock_guard lock(mutex);if(revoked)return;Need(imports==0&&callbacks==0&&!registering,"Firebase revoke requires actual SDK import/callback quiescence");revoked=true;}
+    {std::lock_guard lock(mutex);if(revoked)return;Need(imports==0&&callbacks==0&&!registering,"Firebase revoke requires actual SDK import/callback quiescence");Need(apps.empty(),"Firebase revoke requires all native App references released");revoked=true;}
     NativeCall native;
     Function<void(*)(LogCallback)>(kCommands[3])(nullptr);
     Function<void(*)(StringCallback)>(kCommands[2])(nullptr);
@@ -254,6 +311,10 @@ void FirebaseAppService::Invoke(const std::string&name,State&state){
     else if(name==kCommands[11]||name==kCommands[13])owner->Function<void(*)()>(name)();
     else if(name==kCommands[14])recomp::MakeBridge<void(A,A)>([&](A a,A b){auto first=recomp::ReadGuestString(a),second=recomp::ReadGuestString(b);owner->Function<void(*)(const char*,const char*)>(name)(first.c_str(),second.c_str());})(state);
     else if(name==kCommands[17])recomp::MakeBridge<A()>([&]{{std::lock_guard lock(owner->mutex);Need(owner->string_callback!=0,"Firebase default-name getter requires the registered original string callback");}return reinterpret_cast<A>(owner->Function<const char*(*)()>(name)());})(state);
+    else if(name==kCommands[18])recomp::MakeBridge<void(A)>([&](A address){owner->SetConfig(address);})(state);
+    else if(name==kCommands[19])recomp::MakeBridge<A()>([&]{return owner->CreateApp();})(state);
+    else if(name==kCommands[20])recomp::MakeBridge<A(A)>([&](A address){return owner->AppName(address);})(state);
+    else if(name==kCommands[21])recomp::MakeBridge<void(A)>([&](A address){owner->ReleaseApp(address);})(state);
     else throw std::logic_error("unbound typed Firebase SDK export");
   }
   owner->Healthy();

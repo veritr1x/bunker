@@ -21,6 +21,10 @@ class FirebaseAppService {
     // guest thread. Admission includes the live guest owner and module lifetime.
     std::function<bool()> admitted_thread;
     std::function<bool(addr_t)> translated_entry;
+    // Optional, exact virtual-asset path mapping supplied by the qualified
+    // platform owner. It must preserve all configuration bytes; when absent,
+    // AppSetDefaultConfigPath forwards its original path unchanged.
+    std::function<std::string(const std::string&)> resolve_config_path{};
   };
   static constexpr const char *kDllSha256="f85bb9f82d79176d3d5da322780d437c023191370e608c45723ad6d83c4d1a12";
   explicit FirebaseAppService(Config,addr_t marker_base=0x7fef00000000ULL);
@@ -37,7 +41,10 @@ class FirebaseAppService {
   void CheckHealthy()const;
   // Owner must stop all SDK use and reach callback/import quiescence first.
   // Only synchronous callbacks on the current SDK import owner are admitted.
-  // No App/Future creation or outstanding asynchronous SDK work is supported.
+  // Default App create/name/release retains genuine native references. Every
+  // nonnull create result must be released before revoke. App calls are not
+  // admitted from reentrant callbacks; unowned/released handles fail closed.
+  // Options overloads, Futures and asynchronous callbacks remain unsupported.
   // The native DLL remains loaded for process lifetime; no stale code unload.
   // A revoked service cannot be replaced by another generation in this process.
   void Revoke();
