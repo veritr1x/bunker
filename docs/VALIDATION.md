@@ -1,5 +1,31 @@
 # Validation
 
+## Mods on the Android emulator — 2026-11-06
+
+- 1.9.0 on the Android 16 emulator, the save from 2026-11-03 (backed up
+  first). Mods page: Comfort set every mod and ×10 in mods.json, Original
+  removed the file, saving single options wrote them; no restart or title
+  request on either.
+- Free stamina: Daily Quest: Easy logged "cost=5 free (mod)"; stamina stayed
+  124. Rewards ×10: gold 1,400 against the quest's 140 in master data; drops
+  ×10; mission and first-clear rewards unchanged.
+- Stamina items as gold: 20 Small Stamina Recovery bought (2,400 gold) gave
+  2,400 gold and no potion; two Medium ones from the gift box gave 480 gold.
+  Tickets as gems: a Premium Summon Ticket from the gift box gave 3,000 free
+  gems and no ticket. Shop restocks: "Remaining: 20" stayed 20 after buying
+  20.
+- No duplicate ★4 (Summon Rates at ★4 100%): swaps logged on banners 186,
+  123 and 444, an owned weapon or a repeat within the summon each time; a
+  costume pool fully owned (banner 439) was kept, as described.
+- Medals as gems: banner 439 with its medals (8135) at 95: "1×100 medals of
+  item 8135 -> gifts", 5 medals left, 1,000 paid gems and 100 Mama Points
+  in the gift box.
+- Not seen: Lost Items as gems (no Lost Item came up on the field; Go
+  tests only).
+- Found, not changed: banners 444 and 474 show "medals included" but the
+  server's catalog has no medal for them, so they give none; banner 186
+  ("Paid Gems Only") took free gems.
+
 ## Back to the title screen at once — 2026-11-06
 
 - Android 16 emulator, the APK built at 9fea028: an item grant in Pod Programs
