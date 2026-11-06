@@ -3,6 +3,13 @@
 The target is the original game running as a standalone Windows x86_64
 executable. A presented game image and working gameplay remain unverified.
 
+The owned anonymous GC-discard correction passes 156 focused checks, including
+four remap/restore cases compared with real Android Bionic, whole-owner pin
+rejection, exclusive-reservation invalidation, and real native failure paths.
+The full integration build is in progress at `work/windows-first-frame-fixed-anon1`.
+No original run or frame is claimed for that build yet. Qualification:
+`work/fixed-anon-qualification3/acceptance.json`.
+
 Latest original attempt: `work/windows-first-frame-native-presentation12`, using
 manifest `2e4ad40cc5f42c513d12b36fbc8ac33d2b7b9f795adb5d7b882276bc5cb0f45f`
 and executable `8ab5143550ed3b0ef6a1fe49d320e4a8afc3328f338084c488c4b307ef7e2b3a`.
