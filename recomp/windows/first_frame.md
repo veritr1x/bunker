@@ -10,7 +10,23 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation20`, using
+Latest original attempt: `work/windows-first-frame-native-presentation21`, using
+manifest `f034343e4747302dd7e530323811ccf88a80d85bdd1616a39b33455a171dbd39`
+and executable `b79d11b0b14115907de7e4cc1e40c81ec4d2f890d6536344d931b8a3dd4cb21f`.
+It returns 33 renders and 31 successful swaps, all with black captures and no
+first-frame witness. Native exit is 3; parent pre/post checks return 0 and the
+selected-runtime checks pass. The new [decoder lifetime owner](unity_decode_owner.md)
+is selected after 720 focused checks and 267 existing font checks.
+
+The reported unsupported PC `70a1b9a0` follows original word `1e287800` at
+`70a1b99c`, `FMINNM S0,S0,S8`, inside `70a1b7dc..70a1ba48` (620 bytes).
+This is another stale retained body using the already-qualified scalar numeric
+min/max family. The parallel Unity refresh already compiled its object360,
+but native admission is held on a protected neighbor's host PCMPEQB constant
+read. That host-read preservation profile and the saved object must be qualified
+before selecting the refresh. No new guest ISA implementation is required.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation20`, using
 manifest `6c4ef58053f5ce53644cf7bd9af080236a66fb9898ef5781802039fc294b00e5`
 and executable `6e10bb2a1bf35c1f3338f26200233567f9f33d6adc2020879019f5adda42d740`.
 It returns 34 renders and 32 successful swaps; captures remain uniformly black
