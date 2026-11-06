@@ -1175,6 +1175,7 @@ int main(int argc,char **argv){
           if(release_error)std::rethrow_exception(release_error);
           if(released||dropped)throw std::runtime_error("UnityMain runner/signal lifetime cleanup failed");
         });
+        try {
         if(frame_gate){
           auto native=[&](const char *name,const char *signature){auto address=java.NativeEntry("com/unity3d/player/UnityPlayer",name,signature);if(!Translated(address))throw std::runtime_error(std::string("required frame native is not translated: ")+name);return address;};
           lifecycle.ConfigureOneFrame({native("nativeResume","()V"),native("nativeFocusChanged","(Z)V"),native("nativeRender","()Z"),native("nativePause","()Z"),native("nativeDone","()Z")},[&]{soft_input->DrainGlThreadJobs();});
@@ -1219,6 +1220,14 @@ int main(int argc,char **argv){
             std::fprintf(stderr,"Unity bootstrap: real read-only music-volume observer ready scalar=%g muted=%d profile-index=%d; no initial native callback; no playback/system mutation\n",double(audio.scalar),audio.muted,AudioVolumeSession::MusicIndex(audio));
           }
           auto poll_volume=[&]{if(soft_input)soft_input->DrainUiJobs();if(volume)volume->Poll();};
+          auto surface_resized=[&](const NativeWindows::Event &event){
+            if(event.kind!=NativeWindows::Event::Resized||
+               (event.width==actual_width&&event.height==actual_height))return;
+            if(event.width<=0||event.height<=0)throw std::runtime_error("native surface resize has nonpositive client dimensions");
+            std::fprintf(stderr,"Unity bootstrap: real client resize %dx%d -> %dx%d; queuing original surfaceChanged on UnityMain\n",actual_width,actual_height,event.width,event.height);
+            lifecycle.SurfaceChanged(surface);
+            actual_width=event.width;actual_height=event.height;
+          };
           poll_volume();lifecycle.ActivityResumed();
           auto lease=native_windows->FromSurface(surface);auto hwnd=static_cast<HWND>(native_windows->NativeHandle(lease));native_windows->Release(lease);
           if(GetForegroundWindow()!=hwnd)std::fprintf(stderr,"Unity bootstrap: real foreground activation requested, accepted=%d\n",int(SetForegroundWindow(hwnd)!=0));
@@ -1228,7 +1237,7 @@ int main(int argc,char **argv){
             for(const auto &event:native_windows->DrainEvents(window)){
               if(event.kind==NativeWindows::Event::Focus){lifecycle.WindowFocusChanged(event.focused);focused=event.focused;}
               if(event.kind==NativeWindows::Event::CloseRequested)throw std::runtime_error("window close requested before first native frame");
-              if(event.kind==NativeWindows::Event::Resized&&(event.width!=actual_width||event.height!=actual_height))throw std::runtime_error("one-frame client resized before startup; rerun with explicit dimensions");
+              surface_resized(event);
             }
             if(!focused)std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
@@ -1241,7 +1250,7 @@ int main(int argc,char **argv){
               for(const auto &event:native_windows->DrainEvents(window)){
                 if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);
                 if(event.kind==NativeWindows::Event::CloseRequested)close=true;
-                if(event.kind==NativeWindows::Event::Resized&&(event.width!=actual_width||event.height!=actual_height))throw std::runtime_error("first-frame client resized; explicit startup dimensions no longer match");
+                surface_resized(event);
               }
               poll_volume();
               if(close)break;
@@ -1294,6 +1303,11 @@ int main(int argc,char **argv){
         native_windows->Close(window);java.DeleteLocalReference(surface);
         if(!frame_gate)std::fprintf(stderr,"Unity bootstrap: isolated surface handoff/detach gate passed on UnityMain; HWND closed after native detach acknowledgment; no nativeRender/nativeResume executed\n");
         else std::fprintf(stderr,"Unity bootstrap: bounded native frame diagnostic completed: rendered=%llu continue=%d nativeDone=%d process-kill-requested=%d; Java class-init/constructor completion, a rendered image and a playable game are not claimed\n",static_cast<unsigned long long>(state.rendered),int(frame_continues),int(state.native_done),int(state.process_kill_requested));
+        } catch(const std::exception &error) {
+          // Report before lifecycle/provider destruction can wait for workers.
+          std::fprintf(stderr,"Unity bootstrap: live surface lifecycle failure: %s; stage=%s\n",error.what(),stage);
+          throw;
+        }
       }
     }
     if(choreographer){choreographer->Stop();choreographer->CheckHealthy();}
