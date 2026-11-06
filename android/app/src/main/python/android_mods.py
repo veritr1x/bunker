@@ -179,8 +179,9 @@ def save_settings(settings):
     import android_runtime as runtime
     before = read_settings()
     write_settings(settings)
-    after = read_settings()
-    if all(before[k] == after[k] for k in CHALLENGE_KEYS):
+    # Against what the game data has, not the last mods.json: a save that
+    # failed part-way is applied again rather than taken as done.
+    if challenges.wanted(read_settings()) == challenges.applied_challenges():
         return False
     live = runtime.game_live()
     if live:
@@ -190,9 +191,14 @@ def save_settings(settings):
             raise RuntimeError(error)
     try:
         challenges.reapply()
+    except Exception:
+        write_settings(before)  # mods.json stays as the game data is
+        raise
     finally:
         if live:
-            runtime.resume_game(True)
+            error = runtime.resume_game(True)
+            if error:
+                runtime.log.warning("The server did not start again after the challenges changed: %s", error)
     return True
 
 

@@ -151,13 +151,27 @@ def big_hunt_costumes(toc, blob, changed):
             if (c["BattleNpcId"], c["BattleNpcDeckCharacterUuid"]) in characters}
 
 
+def _peak(stats, costume, lo, hi):
+    """The level in lo..hi with the most stats, for a curve that rises then falls."""
+    while hi - lo > 2:
+        a, b = lo + (hi - lo) // 3, hi - (hi - lo) // 3
+        if stats(costume, a) < stats(costume, b):
+            lo = a + 1
+        else:
+            hi = b
+    return max(range(lo, hi + 1), key=lambda level: stats(costume, level))
+
+
 def _level_for(stats, costume, level, factor):
-    """The level whose stats come closest to factor × those at level."""
+    """The level whose stats come closest to factor × those at level. Some
+    curves rise and then fall: when the target is past their peak, the peak."""
     target = factor * stats(costume, level)
     lo, hi = level, max(level + 1, int(level * factor) + 1)
-    while stats(costume, hi) < target and hi < INT32_MAX:
+    while stats(costume, hi) < target:
+        if hi >= INT32_MAX or stats(costume, min(hi * 2, INT32_MAX)) <= stats(costume, hi):
+            return _peak(stats, costume, lo, min(hi * 2, INT32_MAX))  # past the peak: out of reach
         lo, hi = hi, min(hi * 2, INT32_MAX)
-    while lo < hi:  # the first level at or above the target
+    while lo < hi:  # the first level at or above the target (the rising side)
         mid = (lo + hi) // 2
         if stats(costume, mid) < target:
             lo = mid + 1
@@ -180,6 +194,8 @@ def hard_enemies(toc, blob, changed, factor):
             return None
         if row["CostumeId"] in linear:
             level = int(row["Level"] * factor + 0.5)
+        elif stats(row["CostumeId"], row["Level"]) <= 0:
+            return None  # its stats don't come from these curves
         else:
             level = _level_for(stats, row["CostumeId"], row["Level"], factor)
         return {"Level": min(level, INT32_MAX)}
@@ -289,16 +305,36 @@ def _state_file():
     return _folder() / "challenges.json"
 
 
-def _copies():
+CHALLENGES = ("hardEnemies", "weaknessOnly", "slowSkills")
+NONE_APPLIED = {"hardEnemies": 1, "weaknessOnly": False, "slowSkills": False}
+
+
+def _state():
     import android_runtime as runtime
     state = runtime.read_json(_state_file())
-    copies = state.get("copies") if isinstance(state, dict) else None
-    return {sha: _folder() / name for sha, name in (copies or {}).items() if (_folder() / name).is_file()}
+    return state if isinstance(state, dict) else {}
 
 
-def _save_copies(copies):
+def _copies():
+    copies = _state().get("copies") or {}
+    return {sha: _folder() / name for sha, name in copies.items() if (_folder() / name).is_file()}
+
+
+def _save_copies(copies, applied=None):
     import android_runtime as runtime
-    runtime.write_json(_state_file(), {"copies": {sha: path.name for sha, path in copies.items()}})
+    state = {"copies": {sha: path.name for sha, path in copies.items()}, "applied": applied or applied_challenges()}
+    runtime.write_json(_state_file(), state)
+
+
+def applied_challenges():
+    """The challenges in the game data in use (as last applied), whatever
+    mods.json says: a save that failed part-way leaves them apart."""
+    applied = _state().get("applied")
+    return {**NONE_APPLIED, **applied} if isinstance(applied, dict) else dict(NONE_APPLIED)
+
+
+def wanted(settings):
+    return {k: settings.get(k, NONE_APPLIED[k]) for k in CHALLENGES}
 
 
 def _settings():
@@ -364,7 +400,9 @@ def finish(path, settings=None):
 
 def on_activate(candidate):
     """android_patcher.activate's first step: the candidate with the challenges."""
-    finish(candidate)
+    settings = _settings()
+    finish(candidate, settings)
+    _save_copies(_copies(), wanted(settings))
 
 
 def after_activate():

@@ -62,6 +62,24 @@ class Challenges(unittest.TestCase):
         self.assertGreater(odd, 0)
         self.assertGreater(cubic, 0)
 
+    def test_hard_enemies_stats_stay_in_range_at_every_setting(self):
+        # Some enemies' curves peak and fall (concave): past the peak a ×N
+        # target can't be reached, and the level stays at the peak.
+        stats = ch._stat_functions(self.toc, self.blob, {})
+        for factor in (1.5, 2, 3, 5):
+            changed = {}
+            ch.hard_enemies(self.toc, self.blob, changed, factor)
+            for b, a in zip(self.rows("m_battle_npc_costume"), self.rows("m_battle_npc_costume", changed)):
+                before = [ch.evaluate(t, p, b["Level"]) for t, p in stats.get(b["CostumeId"], [])]
+                if sum(before) <= 0:  # stats not from these curves: no change that matters
+                    continue
+                if a["Level"] == b["Level"]:
+                    continue
+                values = [ch.evaluate(t, p, a["Level"]) for t, p in stats[a["CostumeId"]]]
+                self.assertTrue(all(0 <= v < 2**31 for v in values), (factor, b, values))
+                self.assertTrue(all(v > 0 for v, w in zip(values, before) if w > 0), (factor, b, values))
+                self.assertGreater(sum(values), sum(before), (factor, b))
+
     def test_weakness_only(self):
         changed = {}
         ch.weakness_only(self.toc, self.blob, changed)

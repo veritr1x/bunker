@@ -162,6 +162,7 @@ def activate(candidate, label):
         rollback = master.with_suffix(".rollback")
         shutil.copyfile(backup, rollback)
         os.replace(rollback, master)
+        challenges.finish(master)  # the backup holds the game data without challenges
         (config.DATA_DIR / "catalog-version.json").unlink(missing_ok=True)
         runtime.prepare_data()
         raise
