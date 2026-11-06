@@ -30,6 +30,15 @@
 </p>
 
 <h1 class="bracket-header">Weapon Editor</h1>
+<div class="banner" data-gifts-waiting hidden><a href="/gift?user={{ user_id }}"></a></div>
+<script>
+  fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
+    const box = document.querySelector("[data-gifts-waiting]");
+    if (!r.count) return;
+    box.querySelector("a").textContent = `> ${r.count} gift${r.count === 1 ? " is" : "s are"} waiting in the Gift Box`;
+    box.hidden = false;
+  }).catch(() => {});
+</script>
 
 <div class="panel"><p style="margin:0">Add weapons, including their skills and stories. Story-starter weapons are earned through play. The inventory limit is 999 weapons. Each change is backed up first.</p></div>
 
