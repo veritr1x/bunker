@@ -19,6 +19,20 @@ CHAPTERS = [{"EventQuestChapterId": 572, "EventQuestType": 1}, {"EventQuestChapt
             {"EventQuestChapterId": 900001, "EventQuestType": 12}]
 
 
+# A summon medal (8170) sold for at the exchange shop 8170, and a shop that
+# takes something else (5999, gold).
+MEDAL_TABLES = {"GachaMedal": [{"GachaMedalId": 8170, "ConsumableItemId": 8170, "ShopTransitionGachaId": 617}],
+                "ShopItem": [{"ShopItemId": 817001, "PriceType": 1, "PriceId": 8170}, {"ShopItemId": 500101, "PriceType": 1, "PriceId": 1}],
+                "ShopItemCell": [{"ShopItemCellId": 817001, "ShopItemId": 817001}, {"ShopItemCellId": 500101, "ShopItemId": 500101}],
+                "ShopItemCellGroup": [{"ShopItemCellGroupId": 817001, "ShopItemCellId": 817001},
+                                      {"ShopItemCellGroupId": 500101, "ShopItemCellId": 500101}],
+                "Shop": [{"ShopId": 8170, "ShopItemCellGroupId": 817001}, {"ShopId": 5999, "ShopItemCellGroupId": 500101}]}
+
+
+def shops(arguments):
+    return {s.strip() for s in arguments[arguments.index("--exchange-shops") + 1].split(",")}
+
+
 def kept(arguments):
     ids = set()
     for part in arguments[arguments.index("--event-quests") + 1].split(","):
@@ -50,6 +64,17 @@ class Presets(unittest.TestCase):
     def test_the_preset_selection_is_kept(self):
         self.assertIn(501, kept(ap.arguments("Rec_1", CONFIG)))
         self.assertNotIn(501, kept(ap.arguments("Clear", CONFIG)))
+
+    def test_the_gacha_presets_open_every_summon_medal_exchange(self):
+        # The configuration lists the exchanges of its own summons only; with
+        # the calendar off every summon is open, the weekly ones among them.
+        for name, rows in MEDAL_TABLES.items():
+            (self.dir / f"EntityM{name}Table.json").write_text(json.dumps(rows))
+        for preset in ("Full", "Gacha", "Gacha_1"):
+            self.assertIn("8170", shops(ap.arguments(preset, CONFIG)), preset)
+        for preset in ("Clear", "Rec", "Var_1"):
+            self.assertNotIn("8170", shops(ap.arguments(preset, CONFIG)), preset)
+        self.assertNotIn("5999", shops(ap.arguments("Full", CONFIG)))  # sells for gold
 
     def test_without_game_tables_the_preset_is_as_configured(self):
         (self.dir / "EntityMEventQuestChapterTable.json").unlink()
