@@ -1,0 +1,111 @@
+.text
+.p2align 4
+.global nmc_enter_begin
+.global nmc_enter_end
+nmc_enter_begin:
+ movz x17,#0x5600,lsl #16
+ ldp q0,q1,[x17,#0x110]
+ ldp q2,q3,[x17,#0x130]
+ ldp q4,q5,[x17,#0x150]
+ ldp q6,q7,[x17,#0x170]
+ ldp q8,q9,[x17,#0x190]
+ ldp q10,q11,[x17,#0x1b0]
+ ldp q12,q13,[x17,#0x1d0]
+ ldp q14,q15,[x17,#0x1f0]
+ ldp q16,q17,[x17,#0x210]
+ ldp q18,q19,[x17,#0x230]
+ ldp q20,q21,[x17,#0x250]
+ ldp q22,q23,[x17,#0x270]
+ ldp q24,q25,[x17,#0x290]
+ ldp q26,q27,[x17,#0x2b0]
+ ldp q28,q29,[x17,#0x2d0]
+ ldp q30,q31,[x17,#0x2f0]
+ ldr x16,[x17,#0x320]
+ msr fpcr,x16
+ ldr x16,[x17,#0x318]
+ msr fpsr,x16
+ ldr x16,[x17,#0x100]
+ msr nzcv,x16
+ ldp x0,x1,[x17,#0]
+ ldp x2,x3,[x17,#16]
+ ldp x4,x5,[x17,#32]
+ ldp x6,x7,[x17,#48]
+ ldp x8,x9,[x17,#64]
+ ldp x10,x11,[x17,#80]
+ ldp x12,x13,[x17,#96]
+ ldp x14,x15,[x17,#112]
+ ldp x18,x19,[x17,#144]
+ ldp x20,x21,[x17,#160]
+ ldp x22,x23,[x17,#176]
+ ldp x24,x25,[x17,#192]
+ ldp x26,x27,[x17,#208]
+ ldp x28,x29,[x17,#224]
+ ldr x30,[x17,#240]
+ ldr x16,[x17,#248]
+ mov sp,x16
+ ldp x16,x17,[x17,#128]
+ nop // Fixture patches this instruction to B the chosen original entry.
+nmc_enter_end:
+.p2align 4
+.global nmc_capture
+.type nmc_capture,%function
+nmc_capture:
+ // Original x16/x17 were saved by the fixture's nearby veneer. x17 is PC.
+ movz x16,#0x8000
+ movk x16,#0x5600,lsl #16
+ stp x0,x1,[x16,#0]
+ stp x2,x3,[x16,#16]
+ stp x4,x5,[x16,#32]
+ stp x6,x7,[x16,#48]
+ stp x8,x9,[x16,#64]
+ stp x10,x11,[x16,#80]
+ stp x12,x13,[x16,#96]
+ stp x14,x15,[x16,#112]
+ stp x18,x19,[x16,#144]
+ stp x20,x21,[x16,#160]
+ stp x22,x23,[x16,#176]
+ stp x24,x25,[x16,#192]
+ stp x26,x27,[x16,#208]
+ stp x28,x29,[x16,#224]
+ str x30,[x16,#240]
+ str x17,[x16,#0x310]
+ mrs x0,fpsr
+ str x0,[x16,#0x318]
+ mrs x0,fpcr
+ str x0,[x16,#0x320]
+ ldp x0,x1,[sp]
+ stp x0,x1,[x16,#128]
+ add x0,sp,#16
+ str x0,[x16,#248]
+ mrs x0,nzcv
+ str x0,[x16,#256]
+ stp q0,q1,[x16,#0x110]
+ stp q2,q3,[x16,#0x130]
+ stp q4,q5,[x16,#0x150]
+ stp q6,q7,[x16,#0x170]
+ stp q8,q9,[x16,#0x190]
+ stp q10,q11,[x16,#0x1b0]
+ stp q12,q13,[x16,#0x1d0]
+ stp q14,q15,[x16,#0x1f0]
+ stp q16,q17,[x16,#0x210]
+ stp q18,q19,[x16,#0x230]
+ stp q20,q21,[x16,#0x250]
+ stp q22,q23,[x16,#0x270]
+ stp q24,q25,[x16,#0x290]
+ stp q26,q27,[x16,#0x2b0]
+ stp q28,q29,[x16,#0x2d0]
+ stp q30,q31,[x16,#0x2f0]
+ adrp x0,nmc_host_x18
+ ldr x18,[x0,:lo12:nmc_host_x18]
+ adrp x0,nmc_host_fpcr
+ ldr x0,[x0,:lo12:nmc_host_fpcr]
+ msr fpcr,x0
+ adrp x0,nmc_host_fpsr
+ ldr x0,[x0,:lo12:nmc_host_fpsr]
+ msr fpsr,x0
+ adrp x0,nmc_host_nzcv
+ ldr x0,[x0,:lo12:nmc_host_nzcv]
+ msr nzcv,x0
+ b nmc_captured
+.size nmc_capture,.-nmc_capture
+.section .note.GNU-stack,"",%progbits
