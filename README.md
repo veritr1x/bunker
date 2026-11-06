@@ -23,6 +23,10 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   - **Players**: choose which player the game signs in as, or start a new one.
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
   - **Summon rates**: the odds of the next summons.
+  - **Gift**: send yourself anything the game can hold, from gems and summon tickets to
+    characters, weapons, memoirs and debris, sorted by what each is for. It arrives in the game's
+    own Gift Box as "From Bunker, with love." and is claimed there like any other gift, with the
+    game still running.
   - **Mods**: optional changes to how the game plays, all off until you turn them on: free
     stamina, stamina items and premium tickets that arrive as gold and gems, unlimited restocking
     shop items, Lost Items that give gems, quest rewards ×2 to ×10, no duplicate ★4 in summons,
@@ -139,8 +143,8 @@ app.
 3. Tap **Deploy**. The server starts and the game opens.
 
 On later launches, the Bunker opens and starts the game by itself. To return to it, tap the Lunar
-Tear notification, or long-press the NieR icon and choose **Open the Bunker menu**. **Open Pod Programs** and **Open Archive** are on the Bunker. Pod Programs stops the
-game while it is open. Close it and tap **Deploy** to resume. Tap **⋮** for save backup and
+Tear notification, or long-press the NieR icon and choose **Open the Bunker menu**. **Pod Programs** and **Archive** are on the Bunker. Pod Programs opens beside the
+running game, and a change sends the game to its title screen to load it. Tap **⋮** for save backup and
 import, the Lunar Tear log and its export, Display (light/dark/system), settings, help and about.
 
 ## Play on iPhone or iPad
