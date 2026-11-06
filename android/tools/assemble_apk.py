@@ -42,7 +42,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "upstream/lunar-scripts"
 # Pod Programs' master-data patcher. With nothing picked it opens everything to
 # 31 December 2099, which the server treats as never ending, and hides ads.
-MASTER_PATCHER = ROOT / "upstream/lunar-tear-masterdata-patcher/patch_masterdata.py"
+# Pod Programs' copy (scripts/prepare.py): the upstream patcher with Bunker's additions (patches/bunker-*.patch).
+MASTER_PATCHER = ROOT / "android/app/src/main/python/patcher/patch_masterdata.py"
 GRPC, HTTP = "127.0.0.1:8003", "127.0.0.1:8080"
 
 

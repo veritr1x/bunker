@@ -160,6 +160,8 @@ jobs:
         with:
           name: ios-bundles
           path: bundles/ios
+      # The master-data patcher the builders run is Pod Programs' prepared copy.
+      - run: python3.11 scripts/prepare.py
       # The notice pack is pinned by notices.lock.json and kept out of the repository.
       - name: Build the site
         run: |
