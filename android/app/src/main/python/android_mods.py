@@ -117,7 +117,7 @@ async def save(request: Request):
         write_settings({**{k: form.get(k) == "on" for k in KEYS if k != "rewardMultiplier"}, "rewardMultiplier": m})
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="Saved. Each mod applies as its line says, no restart needed.")
+    return redirect(message="Saved. The mods are in use from the game's next action, with no restart.")
 
 
 @router.post("/mods/preset")
