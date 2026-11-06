@@ -11,7 +11,26 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation24`, using
+Latest original attempt: `work/windows-first-frame-native-presentation25`, using
+manifest `57430fa2285cb1bc9400e82ea3c1ed296e49ff28498cf4709ce0524e95643581`
+and executable `65c4aa9f2740de8a4800630cf31513e82d90233d4898b68a8178ebbbccbf0e99`.
+The [terminal worker-exit fix](../whole/thread_exit_domain.md) preserves the
+180-render result: 177 successful presentations, 2,288 draws, passing original
+first-frame and later-snapshot witnesses. Root viewed both unmodified PNGs.
+The later SQUARE ENIX x applibot image has the same SHA256 as run24 below.
+
+The previous collector-retirement fatal is absent. Actual original workers
+`0x7ffa00000017` and `0x7ffa00000018` reach `retire_normal` after before-TLS.
+Native exit remains3 at a new unresolved indirect target `0x70ddd5a0`, with
+LR `0x70ddd54c`, during the post-render finishing sequence. This is a subsequent
+native-code coverage boundary; complete shutdown is still unverified.
+Controller exit and parent pre/post checks are0; selected runtime verification
+passes. Audit SHA256 is
+`27d1d524ecaf02a4c22bfb2dd5800a7169bfbe0bc92719c19c623889121c973b`;
+root visual/worker acceptance is
+`95869f345f9ab7ebfa5decb4af4a4c08f9904beef81eebba3805e95247df71a1`.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation24`, using
 manifest `8e77087542e11799b2602b87de59164410999de01003f848a057d3b4e82d2942`
 and executable `915a509c3fd514bfda5055921f99dcfcbb74ed5efde6ceec59d0084c93b4efd8`.
 The explicit [180-frame continuation](frame_continuation.md) completes on the
