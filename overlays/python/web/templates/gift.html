@@ -83,8 +83,8 @@
       if (q) html.push(`<div class="gift-group">${esc(c.name)} › ${esc(g.name)}</div>`);
       for (const e of items.slice(0, 400)) {
         const sel = chosen && chosen.possession_type === e.possession_type && chosen.possession_id === e.possession_id;
-        html.push(`<div class="gift-row${sel ? " sel" : ""}${e.owned ? " owned" : ""}" data-t="${e.possession_type}" data-i="${e.possession_id}">` +
-                  `<span>${esc(e.name)}${e.owned ? " · Owned" : ""}</span><span class="note">${"★".repeat(e.stars)}</span></div>`);
+        html.push(`<div class="gift-row${sel ? " sel" : ""}${e.blocked ? " owned" : ""}" data-t="${e.possession_type}" data-i="${e.possession_id}">` +
+                  `<span>${esc(e.name)}${e.blocked ? " · " + esc(e.blocked) : ""}</span><span class="note">${"★".repeat(e.stars)}</span></div>`);
       }
     }
     $("list").innerHTML = html.join("") || '<p class="note">Nothing matches.</p>';
@@ -104,6 +104,15 @@
     else { $("hint").textContent = `Up to ${room.toLocaleString()} more.`; $("count").max = room; $("count").disabled = false; }
     $("send").disabled = false;
   }
+  // A count above what can be claimed, or not a whole number, is refused: nothing is cut down.
+  $("count").addEventListener("input", () => {
+    if (!chosen || chosen.one_per_gift) return;
+    const n = Number($("count").value), max = Number($("count").max);
+    const ok = Number.isInteger(n) && n >= 1 && n <= max;
+    $("send").disabled = !ok;
+    $("hint").textContent = ok ? `Up to ${max.toLocaleString()} more.`
+      : n > max ? `That is more than can be claimed now: up to ${max.toLocaleString()}.` : "Enter a whole number, 1 or more.";
+  });
   $("cats").addEventListener("click", ev => { const b = ev.target.closest(".gift-card"); if (!b) return;
     $("q").value = ""; card = CARDS.find(c => c.name === b.dataset.card); group = card.groups.find(g => g.entries.length); draw(); });
   $("tabs").addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return;
@@ -112,12 +121,13 @@
     pick(find(+r.dataset.t, +r.dataset.i)); });
   $("q").addEventListener("input", draw);
   $("send").addEventListener("click", async () => {
-    const count = Math.max(1, Math.min(+$("count").value || 1, +$("count").max || 1));
+    const sending = chosen, count = sending.one_per_gift ? 1 : Number($("count").value);
+    if (!Number.isInteger(count) || count < 1) return;
     $("send").disabled = true;
     const r = await fetch("/gift/send", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({user: USER, possession_type: chosen.possession_type, possession_id: chosen.possession_id, count})})
+      body: JSON.stringify({user: USER, possession_type: sending.possession_type, possession_id: sending.possession_id, count})})
       .then(r => r.json()).catch(err => ({ok: false, error: err.message}));
-    const done = r.ok ? `message=${encodeURIComponent(`Sent: ${chosen.name} ×${count.toLocaleString()}. It is in the game's Gift Box.`)}`
+    const done = r.ok ? `message=${encodeURIComponent(`Sent: ${sending.name} ×${count.toLocaleString()}. It is in the game's Gift Box.`)}`
                       : `error=${encodeURIComponent(r.error || "The gift was not sent")}`;
     location.href = `/gift?user=${USER}&${done}`;
   });

@@ -184,6 +184,8 @@ class Sending(GameData):
         self.assertEqual(r.headers.get("x-bunker-keep-playing"), "1")
         self.assertEqual(c.get("/gift/room", params={"user": 1, "type": 5, "id": 100001}).json(), {"room": 7})
         self.assertEqual(c.get("/gift/waiting-count", params={"user": 1}).json()["count"], 2)
+        half = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001, "count": 2.5})
+        self.assertEqual(half.status_code, 400)  # not cut down to 2
         bad = c.post("/gift/send", json={"user": 1, "possession_type": 5, "possession_id": 100001})
         self.assertEqual(bad.status_code, 400)
         self.assertFalse(bad.json()["ok"])
@@ -211,6 +213,25 @@ class Page(Sending):
         self.assertNotIn('class="giftbox"', page)  # no in-game preview
         self.assertIn("Small Character Enhancement ×3", page)  # waiting in the Gift Box
         self.assertIn('id="send"', page)
+
+    def test_owned_and_waiting_debris_are_marked(self):
+        import sqlite3
+        with sqlite3.connect(self.db) as db:
+            db.execute("INSERT INTO user_gifts (user_id, user_gift_uuid, is_received, possession_type, possession_id, count,"
+                       " grant_datetime, description_gift_text_id) VALUES (1, 'w', 0, 14, 20100831, 1, 1, 90000)")
+        with mock.patch.object(gift, "_owned_debris", lambda user: {30000001}):
+            cards = gift.page_cards(1)
+        debris = {e["possession_id"]: e for e in [g for g in [c for c in cards if c["name"] == "Collection"][0]["groups"]
+                                                   if g["name"] == "Debris"][0]["entries"]}
+        self.assertEqual(debris[30000001]["blocked"], "Owned")
+        self.assertEqual(debris[20100831]["blocked"], "In Gift Box")
+        self.assertEqual(debris[10100834]["blocked"], "")
+
+    def test_the_page_refuses_rather_than_trims(self):
+        page = self.page()
+        self.assertNotIn("Math.min(", page)  # a count above the room is refused, not cut down
+        self.assertIn("more than can be claimed", page)
+        self.assertIn("const sending = chosen", page)  # the item named after a send is the one sent
 
     def test_without_gift_text_the_page_says_so(self):
         (self.dir / "masterdata" / "EntityMGiftTextTable.json").write_text("[]")
