@@ -11,18 +11,23 @@ snapshot witnesses pass. The current build retains
 4,662 guest objects and 595,564 trace heads. See
 [the authoritative frame results](windows/first_frame.md) for exact pins.
 
+The latest run27, requesting600 frames of the same binary, stops after two
+renders at GC epoch30: pending delivery reaches an unqualified managed mutex
+wait, LR `8258a538`. Admitting that exact observed48-byte helper frame and
+double-pointer mutex geometry is now the startup reliability priority.
+
 The worker-retirement shutdown failure is fixed in actual original workers.
 The eight bounded switch entries now execute and the affected worker and child
 retire normally. Finishing exceeds the host's four-second acknowledgment wait;
 original nativeDone subsequently returns with missing `android/view/View`.
-Immediate work is preserving the finishing wait and supplying the actual View
-contract, then continued startup beyond the publisher
+Cleanup work is preserving the finishing wait and supplying the actual View
+contract. After the GC wait repair, continue startup beyond the publisher
 splash, input and real client/backend behavior,
 and a usable standalone Windows bundle. Audio remains explicitly muted while
 the HDMI endpoint is unavailable. A visible frame does not establish gameplay.
 
 The execution narrative below preserves earlier checkpoints; its historical
-object counts and failure boundaries are superseded by the linked run26 result.
+object counts and failure boundaries are superseded by the linked run27 result.
 
 The latest execution boundary and build evidence are in
 [the first-frame status](windows/first_frame.md). The exception-transfer

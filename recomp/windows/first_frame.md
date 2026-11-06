@@ -11,7 +11,20 @@ The full integration build completed at `work/windows-first-frame-fixed-anon1`.
 The following run did not reach that discard call. Qualification:
 `work/fixed-anon-qualification3/acceptance.json`.
 
-Latest original attempt: `work/windows-first-frame-native-presentation26`, using
+Latest original attempt: `work/windows-first-frame-native-presentation27` reuses
+the run26 executable and changes only the requested returned-frame limit600.
+It returns two original renders and then fails closed at GC epoch30:
+`unqualified managed wait has pending collector delivery`. The affected managed
+worker is at mutex-import LR `8258a538`, inside original ClearState
+`8258a510..8258a564`. Its48-byte frame and object/wrapper/mutex indirection are
+outside the existing three managed-mutex certificates. No game image witness
+exists in this attempt. Native exit3/controller1; pre/post and selected-runtime
+verification pass. Audit SHA256:
+`30100681fb82a4b0c1142817f355e43c824f3a9f31407ded0b3c21030a7fe27e`.
+This makes exact GC wait coverage the next startup reliability repair. A prior
+rendered image proves a frame, not repeatable startup or production GC completeness.
+
+Preceding original attempt: `work/windows-first-frame-native-presentation26`, using
 manifest `d4c99ca5999c40bd018843b1b9ab13684de91149fa380cec64de68c7a30ad601`
 and executable `73e59913a4d2735ac3b9eac9683d619b8ca29e37af6a2b0fa2387e5c23d82ab4`.
 The eight [worker-state switch entries](../whole/unity_worker_state_entries.md)

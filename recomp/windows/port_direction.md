@@ -40,12 +40,21 @@ restart a timed-out process, fabricate responses or bypass a collector barrier.
 
 `work/qualified-runtime-apk-firebase-run23` records this count-only controller
 change and strict inverse to executed Runtime22. The original run is
-`work/windows-first-frame-native-presentation27`. Until its actual result is
-collected, progress beyond180, title behavior and gameplay remain unproven.
+`work/windows-first-frame-native-presentation27`. This experiment terminated
+after two returned renders at original GC epoch30: a pending stop request
+reached an unqualified managed mutex wait, LR `8258a538`. Native exit3/controller1;
+no first-frame witness or later capture exists in this run. Audit SHA256:
+`30100681fb82a4b0c1142817f355e43c824f3a9f31407ded0b3c21030a7fe27e`.
+The limit change does not alter the first two frame decisions; this exposes a
+startup scheduling/collector coverage gap in the same binary, not proof of a
+600-frame-specific defect. Previous successful images remain valid evidence,
+but repeatable startup and progress beyond the splash remain unproven.
 
-Use its observed result to prioritize the next repair: an earlier startup
-failure, actual input delivery at a waiting screen, or the real client/backend
-contract. Keep cleanup-only repairs separate from the critical path to play.
+The immediate critical-path repair is the evidenced collector wait, retaining
+its original stop/resume/root/acknowledgment contract. The original84-byte
+ClearState helper uses a48-byte frame, FP=SP+32, and an object-to-inner-to-wrapper
+chain whose final word points to the mutex. Existing wait certificates do not
+describe that shape. Keep cleanup-only repairs separate from the path to play.
 
 ## Donor source review
 
