@@ -23,6 +23,7 @@ Stat curves are shared with the player's costumes and are never changed.
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 
 import msgpack
@@ -266,3 +267,128 @@ def transform(source, output, settings):
         slow_skills(toc, blob, changed)
     cal.write_master(toc, blob, changed, Path(output))
     return True
+
+
+# --- Every game data the game loads -----------------------------------------
+#
+# Content presets, calendar loops, restored snapshots and the gift text all
+# reach the game through android_patcher.activate, which calls on_activate
+# first; the calendar's next-loop and original-dates files, which the server
+# loads by itself, go through finish. Each challenged file keeps its
+# unchallenged copy (challenges.json: {"copies": {challenged sha: file}}), so
+# game data built from the game's own file (the gift text, a restore, an
+# export) starts unchallenged and is never challenged twice, and turning the
+# challenges off gives back the game data exactly.
+
+def _folder():
+    import android_patcher
+    return android_patcher.folder()
+
+
+def _state_file():
+    return _folder() / "challenges.json"
+
+
+def _copies():
+    import android_runtime as runtime
+    state = runtime.read_json(_state_file())
+    copies = state.get("copies") if isinstance(state, dict) else None
+    return {sha: _folder() / name for sha, name in (copies or {}).items() if (_folder() / name).is_file()}
+
+
+def _save_copies(copies):
+    import android_runtime as runtime
+    runtime.write_json(_state_file(), {"copies": {sha: path.name for sha, path in copies.items()}})
+
+
+def _settings():
+    import android_mods
+    return android_mods.read_settings()
+
+
+def _loaded_files():
+    """The game data files the game may load: the master, and the calendar's
+    next loop and original dates when they exist."""
+    from web import config
+    import android_calendar as cal
+    return [p for p in (config.find_master_data_bin(), cal.next_file(), cal.view_file()) if p.is_file()]
+
+
+def _prune(copies):
+    import android_runtime as runtime
+    keep = {runtime.fingerprint(p) for p in _loaded_files()}
+    for sha in [sha for sha in copies if sha not in keep]:
+        gone = copies.pop(sha)
+        if gone not in copies.values():  # two challenged files can share one copy
+            gone.unlink(missing_ok=True)
+    for stray in _folder().glob("unchallenged-*.bin.e"):
+        if stray not in copies.values():
+            stray.unlink()
+    _save_copies(copies)
+
+
+def unchallenged(path):
+    """path's game data without the challenges: its kept copy when path is a
+    challenged file this module wrote, else path itself."""
+    import android_runtime as runtime
+    return _copies().get(runtime.fingerprint(path), Path(path))
+
+
+def unchallenged_master():
+    """The game's own game data without the challenges."""
+    from web import config
+    return unchallenged(config.find_master_data_bin())
+
+
+def finish(path, settings=None):
+    """Puts the challenges that are on into a game data file in place (it must
+    be unchallenged; a file this module challenged is first put back)."""
+    import shutil
+    import android_runtime as runtime
+    path = Path(path)
+    copies = _copies()
+    source = copies.get(runtime.fingerprint(path))
+    if source:
+        shutil.copyfile(source, path)
+    settings = _settings() if settings is None else settings
+    if active(settings):
+        sha = runtime.fingerprint(path)
+        keep = _folder() / f"unchallenged-{sha[:16]}.bin.e"
+        shutil.copyfile(path, keep)
+        pending = path.with_name(path.name + ".challenged")
+        transform(keep, pending, settings)
+        os.replace(pending, path)
+        copies[runtime.fingerprint(path)] = keep
+    _save_copies(copies)
+
+
+def on_activate(candidate):
+    """android_patcher.activate's first step: the candidate with the challenges."""
+    finish(candidate)
+
+
+def after_activate():
+    """android_patcher.activate's last step: drops copies nothing uses."""
+    _prune(_copies())
+
+
+def reapply():
+    """After the challenges change: the game data in use, the calendar's next
+    loop and original dates built again from their unchallenged copies."""
+    import shutil
+    import android_calendar as cal
+    import android_patcher as patcher
+    import android_runtime as runtime
+    from web import config
+    active_label = runtime.read_json(patcher.folder() / "active.json")
+    label = active_label.get("label") if isinstance(active_label, dict) else None
+    candidate = patcher.folder() / "candidate.bin.e"
+    try:
+        shutil.copyfile(unchallenged_master(), candidate)
+        patcher.activate(candidate, label or "Imported master data")
+    finally:
+        candidate.unlink(missing_ok=True)
+    for extra in (cal.next_file(), cal.view_file()):
+        if extra.is_file() and extra != config.find_master_data_bin():
+            finish(extra)
+    _prune(_copies())

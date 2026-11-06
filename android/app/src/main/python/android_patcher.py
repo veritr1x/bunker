@@ -144,10 +144,12 @@ def master_history():
 
 
 def activate(candidate, label):
+    import android_challenges as challenges
     validate_master(candidate)
+    challenges.on_activate(candidate)  # Mods › Challenges, applied once
     master = config.find_master_data_bin()
     backup = folder() / ("master_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f") + ".bin.e")
-    shutil.copyfile(master, backup)
+    shutil.copyfile(challenges.unchallenged(master), backup)  # snapshots hold the game data without challenges
     with backup.open("rb") as handle:
         os.fsync(handle.fileno())
     with candidate.open("rb") as handle:
@@ -166,6 +168,7 @@ def activate(candidate, label):
     runtime.write_json(folder() / "active.json", {"label": label, "sha256": runtime.fingerprint(master)})
     for old in master_history()[10:]:
         old.unlink()
+    challenges.after_activate()
 
 
 def redirect(**kwargs):
@@ -351,4 +354,5 @@ def import_origin(source: UploadFile = File(...)):
 
 @router.get("/patcher/export")
 def export():
-    return FileResponse(config.find_master_data_bin(), filename="20240404193219.bin.e", media_type="application/octet-stream")
+    import android_challenges as challenges
+    return FileResponse(challenges.unchallenged_master(), filename="20240404193219.bin.e", media_type="application/octet-stream")

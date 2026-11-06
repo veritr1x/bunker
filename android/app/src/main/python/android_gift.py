@@ -214,7 +214,8 @@ def _add_gift_text_to_game():
     import android_patcher as patcher
     candidate = patcher.folder() / "candidate.bin.e"
     try:
-        if not add_gift_text(config.find_master_data_bin(), candidate):
+        import android_challenges as challenges
+        if not add_gift_text(challenges.unchallenged_master(), candidate):
             return
         active = runtime.read_json(patcher.folder() / "active.json")
         label = active.get("label") if isinstance(active, dict) and active.get("sha256") == runtime.fingerprint(config.find_master_data_bin()) else None
