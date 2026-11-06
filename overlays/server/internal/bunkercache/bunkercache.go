@@ -3,8 +3,9 @@
 //
 // The server can start again in the same process with different master data
 // (Pod Programs beside the running game: mobile.Start after Stop), and package
-// variables outlive that. mobile.Start calls Invalidate before it loads the
-// master data, so every table built from it is built again from the new one.
+// variables outlive that, as does the desktop server's master data reload.
+// runtime.Holder.Reload calls Invalidate once the new master data is loaded,
+// so every table built from it is built again from the new one.
 package bunkercache
 
 import (

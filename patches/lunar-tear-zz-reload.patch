@@ -110,3 +110,24 @@ diff --git a/server/internal/userdata/proj_webview.go b/server/internal/userdata
  
  func init() {
  	register("IUserWebviewPanelMission", func(user store.UserState) string {
+diff --git a/server/internal/runtime/holder.go b/server/internal/runtime/holder.go
+--- a/server/internal/runtime/holder.go
++++ b/server/internal/runtime/holder.go
+@@ -14,6 +14,7 @@
+ 	"sync/atomic"
+ 	"time"
+ 
++	"lunar-tear/server/internal/bunkercache"
+ 	"lunar-tear/server/internal/campaign"
+ 	"lunar-tear/server/internal/gacha"
+ 	"lunar-tear/server/internal/masterdata"
+@@ -76,6 +77,9 @@
+ 	if err := memorydb.Init(h.binPath); err != nil {
+ 		return fmt.Errorf("memorydb.Init: %w", err)
+ 	}
++	// Tables derived from the master data (bunkercache) are built again from
++	// the new one: after Init, so none is rebuilt from the old tables.
++	bunkercache.Invalidate()
+ 	c, err := buildCatalogs()
+ 	if err != nil {
+ 		return fmt.Errorf("buildCatalogs: %w", err)
