@@ -235,6 +235,26 @@ class PageTest(unittest.TestCase):
         with mock.patch.object(db, "_portrait_source", lambda: None):
             self.assertEqual(self.c.get("/decks/portrait/35035.png").status_code, 404)
 
+    def test_piece_icons(self):
+        """A piece's icon (weapon, companion, memoir, debris) from the game's files, as the notices show it."""
+        import tempfile
+        tmp = Path(tempfile.mkdtemp())
+        bundle = tmp / "assetbundle/ui/weapon/wp001060/wp001060_standard.assetbundle"
+        bundle.parent.mkdir(parents=True)
+        bundle.write_bytes(b"bundle")
+
+        def convert(src, target, size):
+            Path(target).write_bytes(b"\x89PNG\r\n\x1a\nfake")
+            return ""
+        paths = {("weapon", 100001): "ui/weapon/wp001060/wp001060_standard.assetbundle"}
+        with mock.patch.object(db, "_portrait_source", lambda: (tmp, convert)), \
+             mock.patch.object(db, "_portrait_cache", lambda: tmp / "cache"), \
+             mock.patch.object(db, "_icon_asset", lambda kind, pid: paths.get((kind, pid))):
+            r = self.c.get("/decks/icon/weapon/100001.png")
+            self.assertEqual((r.status_code, r.headers["content-type"]), (200, "image/png"))
+            self.assertEqual(self.c.get("/decks/icon/weapon/5.png").status_code, 404)
+            self.assertEqual(self.c.get("/decks/icon/costume/100001.png").status_code, 404)
+
     def test_page_shows_portraits(self):
         page = (ROOT / "overlays/python/web/templates/deck_builder.html").read_text()
         self.assertIn("/decks/portrait/", page)

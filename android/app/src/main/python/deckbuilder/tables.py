@@ -96,6 +96,28 @@ class Tables:
         """"Yuletide Soldier Lars"."""
         return self.name("costumes", costume_id)
 
+    def icon_asset(self, kind: str, id: int) -> str | None:
+        """A piece's icon in the game's files: its _standard art, as the game's notices show it.
+        kind: weapon, companion, memoir (a part id) or debris (a thought id)."""
+        asset = folder = None
+        if kind == "weapon":
+            folder, asset = "weapon", self._names("weapons").get(id, {}).get("weapon_actor_asset_id")
+        elif kind == "companion":
+            folder, asset = "companion", self._names("companions").get(id, {}).get("companion_actor_asset_id")
+        elif kind == "memoir":
+            part = self.idx("Parts", "PartsId").get(id)
+            group = part and self.idx("PartsGroup", "PartsGroupId").get(part["PartsGroupId"])
+            folder, asset = "memory", group and f"memory{group['PartsGroupAssetId']:03d}"
+        elif kind == "debris":
+            thought = self.idx("Thought", "ThoughtId").get(id)
+            folder, asset = "thought", thought and f"thought{thought['ThoughtAssetId']:06d}"
+        return f"ui/{folder}/{asset}/{asset}_standard.assetbundle" if asset else None
+
+    def memoir_set_name(self, part_id: int) -> str:
+        """The set a memoir belongs to ("Solemnity")."""
+        part = self.idx("Parts", "PartsId").get(part_id)
+        return self.name("parts", part["PartsGroupId"]) if part else ""
+
     def costume_element(self, costume_id: int) -> str | None:
         """The element a costume is usually fielded with: costume ids 3EXXX
         encode it (1 fire, 2 water, 3 wind, 4 light, 5 dark); other costumes
