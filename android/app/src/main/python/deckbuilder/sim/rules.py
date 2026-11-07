@@ -77,7 +77,9 @@ PARAMS = dict(
     LOCK_CS=45, LOCK_WS=30, LOCK_NA=20,  # frames a unit is busy after an action (animation, not in data)
     TURN_FRAMES=300,                  # one "turn" (stun/provoke/blind lifetimes) = 10 s
     TICK_FRAMES=90,                   # regen/poison tick
-    DEF_K=20000,                      # mitigation = DEF_K / (DEF_K + DEF)  (formula not in data)
+    DEF_K=200000,                     # mitigation = DEF_K / (DEF_K + DEF)  (formula not in data). Calibrated on DFMQmpJxA-A 10:52.75:
+                                      # NY Sarafa's Void Boon crit at 1% HP on a stall unit, 306,573 on screen; the model gives 305,866
+                                      # (the research's 20,000 cut DEF-heavy targets ~3x too much: the "damage 3x too slow" gap)
     BLIGHTED=0.30, HASTE_MULT=0.70,   # Blighted Flowers 3-piece and 30% haste karma on every unit
     GAUGE_WS=250, GAUGE_COMP=400, GAUGE_NA={1: 50, 2: 100, 3: 150, 4: 175, 5: 200}, GAUGE_HIT_TAKEN=30,
     TARGET_RULE="smart",              # single-target pick when nobody provokes: smart (lowest HP share among enemies without Dauntless) | lowest_hp | slot | highest_atk
