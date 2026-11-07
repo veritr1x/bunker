@@ -80,7 +80,7 @@ class Session:
         self.tables = _tables_for(runtime.fingerprint(config.find_master_data_bin()))
         sim.use(self.tables)
         self.experts = experts.Experts.load(self.tables)
-        self.base = model.Save(model.connect_ro(config.GAME_DB_PATH), user_id)
+        self.base = model.Save(model.snapshot(config.GAME_DB_PATH), user_id)    # read again after a write (drop_session)
         path = stage_ready(self.tables, self.experts)
         if path is None:
             raise StageNotReady()
@@ -88,7 +88,7 @@ class Session:
 
     def _open_stage(self, path):
         from deckbuilder import generate, model
-        self.stage = model.Save(model.connect_ro(path), 1)
+        self.stage = model.Save(model.snapshot(path), 1)
         self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage)
         self.results = {}
         self._against = {}
@@ -291,6 +291,21 @@ def _data_signature():
     return h.hexdigest()
 
 
+def drop_session(user_id: int) -> None:
+    with _lock:
+        _sessions.pop(user_id, None)
+
+
+def _retrying(user_id, run):
+    """run(session); after a database error, once more on a session read afresh."""
+    import sqlite3
+    try:
+        return run(session(user_id))
+    except sqlite3.DatabaseError:
+        drop_session(user_id)
+        return run(session(user_id))
+
+
 def session(user_id: int) -> Session:
     with _lock:
         s = _sessions.get(user_id)
@@ -490,13 +505,13 @@ def prepare_route(payload: dict = Body(default={})):
 @router.get("/decks/results")
 def results(request: Request, user: int = 0, offset: int = 0, limit: int = 6):
     q = dict(request.query_params)
+    def run(s):
+        p = s.page(criteria_from(s, q), max(0, offset), max(1, min(limit, 24)))
+        return {"total": p.total, "items": [card(s, r) for r in p.items], "exhausted": p.exhausted, "relax": p.relax}
     try:
-        s = session(_user(user))
-        c = criteria_from(s, q)
+        return _retrying(_user(user), run)
     except StageNotReady as exc:
         return _not_ready(exc, q.get("against"))
-    p = s.page(c, max(0, offset), max(1, min(limit, 24)))
-    return {"total": p.total, "items": [card(s, r) for r in p.items], "exhausted": p.exhausted, "relax": p.relax}
 
 
 @router.get("/decks/detail")
@@ -562,7 +577,6 @@ def write(payload: dict = Body(...)):
         _shim({"action": "deck_write", "user_id": user_id, "deck": deck})
     except (DeckBuilderError, ValueError, FileNotFoundError) as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
-    with _lock:
-        _sessions.pop(user_id, None)        # the save changed: read it again
+    drop_session(user_id)                   # the save changed: read it again
     refresh_arena(user_id)
     return {"ok": True, "added": s.gen.added(r.equipped.to_add), "raised": raises, "slots": numbers}

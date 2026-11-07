@@ -139,5 +139,23 @@ class StageDeckTest(unittest.TestCase):
         self.assertEqual(other(plain), other(raised))
 
 
+
+class SnapshotTest(unittest.TestCase):
+    """The game's server writes the save in the same process: Deck Builder keeps an in-memory copy, no open file."""
+
+    def test_snapshot_is_a_copy_in_memory(self):
+        import sqlite3, tempfile, os
+        path = os.path.join(tempfile.mkdtemp(), "game.db")
+        con = sqlite3.connect(path)
+        con.execute("pragma journal_mode=wal")
+        con.execute("create table t(x)")
+        con.execute("insert into t values (1)")
+        con.commit()
+        snap = model.snapshot(path)
+        con.execute("insert into t values (2)")
+        con.commit()
+        self.assertEqual(snap.execute("select count(*) from t").fetchone()[0], 1)
+        self.assertEqual(snap.execute("pragma database_list").fetchone()[2], "")
+
 if __name__ == "__main__":
     unittest.main()
