@@ -126,6 +126,12 @@ class Tables:
             return {1: "fire", 2: "water", 3: "wind", 4: "light", 5: "dark"}.get(costume_id // 1000 % 10)
         return None
 
+    def is_fieldable(self, costume_id: int) -> bool:
+        """Playable and with an active skill in the data: a costume a deck can field (some playable-flagged
+        variants have none)."""
+        c = self.idx("Costume", "CostumeId").get(costume_id)
+        return bool(c) and self.is_playable(costume_id) and bool(self.grp("CostumeActiveSkillGroup", "CostumeActiveSkillGroupId").get(c["CostumeActiveSkillGroupId"]))
+
     def is_playable(self, costume_id: int) -> bool:
         r = self._names("costumes").get(costume_id)
         if r is not None and "is_playable_character_costume" in r:

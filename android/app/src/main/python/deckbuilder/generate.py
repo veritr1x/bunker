@@ -129,12 +129,13 @@ def costume_flags(costume_id, tables) -> set:
 
 
 class Generator:
-    def __init__(self, tables, experts, base: model.Save, stage: model.Save, pool=None, meta_size=5, runs=4):
+    def __init__(self, tables, experts, base: model.Save, stage: model.Save, pool=None, meta_size=5, runs=4, best_pool=None):
         from deckbuilder import sim
         sim.use(tables)
         self.tables, self.experts, self.base, self.stage = tables, experts, base, stage
         self.meta_size, self.runs = meta_size, runs
         self._pool = list(pool) if pool else None
+        self._best_pool = list(best_pool) if best_pool else None     # All maxed's pool, chosen by strength (screen)
         self._meta = None
         self._cache = {}          # criteria key -> state
 
@@ -149,7 +150,7 @@ class Generator:
                             key=lambda c: (-self.experts.weight(c), -scores.get(str(c), 0), c))
             return ranked[:DEFAULT_POOL]
         staged = {r["costume_id"] for r in self.stage.q("select costume_id from user_costumes where user_id=?")}
-        pool = [c for c in default_pool(self.tables, self.experts) if c in staged]
+        pool = [c for c in (self._best_pool or default_pool(self.tables, self.experts)) if c in staged]
         return pool or sorted(staged)[:DEFAULT_POOL]
 
     def flags(self, costume_id) -> set:

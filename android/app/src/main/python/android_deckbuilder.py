@@ -89,7 +89,7 @@ class Session:
     def _open_stage(self, path):
         from deckbuilder import generate, model
         self.stage = model.Save(model.snapshot(path), 1)
-        self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage)
+        self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage, best_pool=_stage_pool())
         self.results = {}
         self._against = {}
         self.loadouts = {}          # Subjugation loadouts by key
@@ -192,7 +192,7 @@ class Session:
             every = {r["costume_id"] for r in self.base.q("select costume_id from user_costumes where user_id=?")}
         else:
             every = set(known)
-        every = {c for c in every if c in known and self.tables.is_playable(c)}
+        every = {c for c in every if c in known and self.tables.is_fieldable(c)}
         rest = sorted(every - set(pool), key=lambda c: (self.tables.character_name(c), self.tables.costume_name(c)))
         return [{"id": c, "name": self.tables.costume_name(c), "character": self.tables.character_name(c),
                  "element": self.tables.costume_element(c) or "dark", "pool": c in pool} for c in list(pool) + rest]
@@ -313,10 +313,21 @@ def _stage_files():
     return folder / "stage.db", folder / "stage.json"
 
 
+SCREEN = 1      # All maxed's pool chosen by strength (screen.py); a stage made before it is made again
+
+
 def _stage_want(extra=()):
+    """(what the stage was made from, what it should be made from); the pool it chose is kept beside, not compared."""
     old = runtime.read_json(_stage_files()[1]) or {}
     extras = sorted(set(old.get("extra") or []) | set(extra))
-    return old, {"master": runtime.fingerprint(config.find_master_data_bin()), "data": _data_signature(), "extra": extras}
+    old = {k: v for k, v in old.items() if k != "pool"}
+    return old, {"master": runtime.fingerprint(config.find_master_data_bin()), "data": _data_signature(), "extra": extras,
+                 "screen": SCREEN}
+
+
+def _stage_pool():
+    """The pool prepare chose by strength for the current stage, or None."""
+    return (runtime.read_json(_stage_files()[1]) or {}).get("pool")
 
 
 def stage_ready(tables, experts, extra=()):
@@ -346,11 +357,13 @@ def prepare(user_id: int, against=None, costumes=()) -> None:
     with _lock:
         if stage_ready(tables, experts, extra) is None:
             _, want = _stage_want(extra)
-            pool = generate.default_pool(tables, experts)
+            from deckbuilder import model, screen
+            ranked = screen.strength(tables, experts, model.Save(model.snapshot(config.GAME_DB_PATH), user_id))
+            pool = screen.pool_by_strength(ranked, tables) or generate.default_pool(tables, experts)
             lineups = [(c,) for c in pool + list(want["extra"])] + [l.costumes for l in experts.lineups()]
             stage.Stager(lambda p: _shim(p), tables).build(**equip.stage_plan(lineups, tables, experts))
             _stage_dir().mkdir(parents=True, exist_ok=True)
-            _stage_files()[1].write_text(json.dumps(want))
+            _stage_files()[1].write_text(json.dumps(dict(want, pool=pool)))
         _sessions.clear()
 
 
@@ -419,9 +432,9 @@ def _refresh_arena_now(user_id: int) -> None:
     sig = runtime.fingerprint(config.find_master_data_bin())
     with s.lock:
         if ladder.needs_export(decks, sig):
-            from deckbuilder import generate
+            from deckbuilder import equip
             ladder.export_table(s.tables, s.experts, s.stage, decks, size=ARENA_TABLE_SIZE,
-                                pool=generate.default_pool(s.tables, s.experts), master_sha=sig)
+                                pool=s.gen.pool(equip.Mode("best")), master_sha=sig)     # the pool the stage holds
         ladder.write_player_score(players, user_id, ladder.score_player(s.base, s.tables, s.experts, s.stage))
 
 
