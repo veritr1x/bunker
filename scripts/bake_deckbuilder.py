@@ -412,7 +412,7 @@ def _matchup(att, dfn):
     return round(wins / k, 4), round(margin / k, 4)
 
 
-def _pair(side, opp):
+def _pair(side, opp, prep_d=None, prep_a=None):
     """(_matchup(side, opp), _matchup(opp, side)) with each defense fight taken from its attack fight mirrored when
     nothing in it depended on the roles (Battle.mirror_safe, no chance draws): the same sums, in the same order."""
     import random
@@ -426,7 +426,7 @@ def _pair(side, opp):
             if once is not None:
                 r = once
             else:
-                b = battle.Battle(side, opp, random.Random(seed), manual); b.logging = False
+                b = battle.Battle(side, opp, random.Random(seed), manual, prepared=prep_d); b.logging = False
                 r = b.run()
                 if seed == 0:
                     first[manual] = (r, b.chance_draws == 0 and b.mirror_safe)
@@ -442,7 +442,7 @@ def _pair(side, opp):
             if once is not None:
                 r = once
             else:
-                b = battle.Battle(opp, side, random.Random(seed), manual); b.logging = False
+                b = battle.Battle(opp, side, random.Random(seed), manual, prepared=prep_a); b.logging = False
                 r = b.run()
                 if seed == 0 and b.chance_draws == 0:
                     once = r
@@ -461,7 +461,9 @@ def _deck_worker_init(use_compiled=False):
     cache, specs = fighter_cache(T, st)
     gen = generate.Generator(T, ex, st, st)
     meta = [(battle._side(d, T), w, name) for d, w, name in gen.meta()]
-    _W.update(T=T, ex=ex, st=st, cache=cache, specs=specs, gen=gen, meta=meta,
+    # each meta deck set up once per role (battle.prepare_side; None where that cannot stand in for setting it up)
+    prepared = [(battle.prepare_side(m, "D"), battle.prepare_side(m, "A")) for m, _, _ in meta]
+    _W.update(T=T, ex=ex, st=st, cache=cache, specs=specs, gen=gen, meta=meta, prepared=prepared,
               char={c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in specs})
 
 
@@ -472,8 +474,8 @@ def bake_deck(combo) -> tuple:
     lineup = gen.order(combo)
     side, force = cache.side_force(lineup)
     aw = am = dw = dm = 0.0
-    for opp, w, _ in _W["meta"]:
-        (win, margin), (dwin, dmargin) = _pair(side, opp)
+    for (opp, w, _), (prep_d, prep_a) in zip(_W["meta"], _W.get("prepared") or [(None, None)] * len(_W["meta"])):
+        (win, margin), (dwin, dmargin) = _pair(side, opp, prep_d, prep_a)
         aw += w * win; am += w * margin
         dw += w * (1 - dwin); dm -= w * dmargin
     return lineup, round(aw, 4), round(am, 4), round(dw, 4), round(dm, 4), force

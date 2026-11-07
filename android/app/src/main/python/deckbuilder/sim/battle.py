@@ -33,11 +33,73 @@ class U:
         self.comp = (tmpl["comp"]["cd"] if tmpl["comp"] else None)
         self.na = None; self.lock = 0; self.first_act = None; self.died_at = None; self.cs_ready = None
 
+    def clone(self):
+        """A copy for another fight: the same state, its own statuses, buffs and cooldowns (fights change them);
+        the template is shared (fights do not)."""
+        c = U.__new__(U)
+        c.t = self.t; c.side = self.side; c.slot = self.slot; c.cid = self.cid; c.elem = self.elem
+        c.maxhp = self.maxhp; c.atk = self.atk; c.df = self.df; c.hp = self.hp; c.alive = self.alive
+        c.agi_bonus = self.agi_bonus
+        c.st = [dict(x) for x in self.st]; c.bf = [dict(x) for x in self.bf]
+        c.team_atk = self.team_atk; c.team_def = self.team_def; c.team_crit = self.team_crit; c.team_cdmg = self.team_cdmg
+        c.gauge = self.gauge; c.gmult = self.gmult; c.wmult = self.wmult
+        c.w = list(self.w); c.comp = self.comp
+        c.na = self.na; c.lock = self.lock; c.first_act = self.first_act; c.died_at = self.died_at; c.cs_ready = self.cs_ready
+        return c
+
+
+def reaches_enemy(templates):
+    """Whether any of these units' start passives acts on the other side (a cooldown change, a buff or a status)."""
+    for t in templates:
+        for o in t["passives"]:
+            if o["op"] in ("cdmult", "status", "buff") and "enemy" in o.get("scope", ""):
+                return True
+    return False
+
+
+class _RecordingRandom(random.Random):
+    """A Random that records its calls, to replay them on another (the same consumption of its state)."""
+    def __init__(self, seed=0):
+        super().__init__(seed); self.calls = []
+
+    def random(self):
+        self.calls.append(("random", 0))
+        return super().random()
+
+    def shuffle(self, x, *a, **kw):
+        self.calls.append(("shuffle", len(x)))
+        return super().shuffle(x, *a, **kw)
+
+
+class PreparedSide:
+    """A side set up once (start passives, team stats, starting HP and timing) to copy into fights: prepare_side."""
+    def __init__(self, side, units, calls):
+        self.side, self.units, self.calls = side, units, calls
+
+    def replay(self, rng):
+        for kind, n in self.calls:
+            if kind == "random": rng.random()
+            else: rng.shuffle(list(range(n)))
+
+
+def prepare_side(templates, side):
+    """The side ("A" or "D") of these unit templates set up once, or None when that cannot stand in for setting it up
+    in each fight: its start passives reach the other side, or a draw in them could change something."""
+    if reaches_enemy(templates.values()):
+        return None
+    rng = _RecordingRandom(0)
+    b = Battle(templates if side == "A" else {}, {} if side == "A" else templates, rng)
+    if b.chance_draws:
+        return None
+    return PreparedSide(side, b.sides[side], rng.calls)
+
 
 class Battle:
-    def __init__(self, att, dfn, rng, attacker_manual=None):
+    def __init__(self, att, dfn, rng, attacker_manual=None, prepared=None):
         """att, dfn: dict slot -> unit template (units.build_unit). attacker_manual: whose start-of-battle skills
-        go first (True: the attacker's, tapped by hand; False: the defender's, Auto); None = P["ATTACKER_MANUAL"]."""
+        go first (True: the attacker's, tapped by hand; False: the defender's, Auto); None = P["ATTACKER_MANUAL"].
+        prepared (prepare_side): that side copied, set up already, unless the other side's start passives reach it
+        (then it is set up from its templates as usual); the same fight either way."""
         self.attacker_manual = P["ATTACKER_MANUAL"] if attacker_manual is None else attacker_manual
         self.frames = P["DURATION_S"] * P["FPS"]     # the time limit
         self.rng = rng; self.t = 0; self.log = []
@@ -48,12 +110,21 @@ class Battle:
         # time-out, no start passive reaching the other side; with chance_draws == 0 as well, the same fight with the
         # roles and openings swapped ends the same, mirrored: mirror()). Only the queue/hybrid engine is checked.
         self.mirror_safe = P["ENGINE"] == "queue" and P["ACTION_MODEL"] == "hybrid"
-        self.sides = {"A": [U(t, "A", s) for s, t in att.items()], "D": [U(t, "D", s) for s, t in dfn.items()]}
+        use = prepared
+        if use is not None and reaches_enemy((dfn if use.side == "A" else att).values()):
+            use = None
+        self.sides = {"A": [u.clone() for u in use.units] if use is not None and use.side == "A" else [U(t, "A", s) for s, t in att.items()],
+                      "D": [u.clone() for u in use.units] if use is not None and use.side == "D" else [U(t, "D", s) for s, t in dfn.items()]}
         self.combo = rules.Combo(P["COMBO"] != "off", P["COMBO_COUNT_NA"], P["COMBO_RESET"]); self._combo_target = False
         self.first_kill = None; self.na_done = 0; self.batch_left = None; self.comp_events = []; self.blocked = collections.Counter(); self.first_ben = {}
         for side in ("A", "D"):
+            if use is not None and side == use.side:
+                use.replay(self.rng)          # the draws its setup took, at the same point
+                continue
             for u in self.sides[side]: self.start_passives(u)
         for side in ("A", "D"):
+            if use is not None and side == use.side:
+                continue
             for u in self.sides[side]:
                 u.hp = u.maxhp
                 u.na = self.na_interval(u) * P["FIRST_NA_FRAC"]
