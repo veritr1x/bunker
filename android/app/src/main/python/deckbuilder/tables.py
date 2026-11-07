@@ -13,6 +13,9 @@ REBORN = range(41000, 45004)
 FROZEN_HEART = range(51001, 55004)
 
 
+PLAYER_CHARACTER_LIMIT = 10000
+
+
 class Tables:
     def __init__(self, master_dir, names_dir=None):
         self.master_dir = Path(master_dir)
@@ -137,7 +140,8 @@ class Tables:
         if r is not None and "is_playable_character_costume" in r:
             return bool(r["is_playable_character_costume"])
         c = self.idx("Costume", "CostumeId").get(costume_id)
-        return bool(c) and c.get("CharacterId", 0) > 0
+        # No name record: a playable character's id is below 10000 (enemies and bosses are 10001, 1000001, ...).
+        return bool(c) and 0 < c.get("CharacterId", 0) < PLAYER_CHARACTER_LIMIT
 
     def is_ex(self, costume_id: int) -> bool:
         return costume_id in REBORN or costume_id in FROZEN_HEART
