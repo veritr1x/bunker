@@ -25,8 +25,10 @@ class U:
 
 
 class Battle:
-    def __init__(self, att, dfn, rng):
-        """att, dfn: dict slot -> unit template (units.build_unit)."""
+    def __init__(self, att, dfn, rng, attacker_manual=None):
+        """att, dfn: dict slot -> unit template (units.build_unit). attacker_manual: whose start-of-battle skills
+        go first (True: the attacker's, tapped by hand; False: the defender's, Auto); None = P["ATTACKER_MANUAL"]."""
+        self.attacker_manual = P["ATTACKER_MANUAL"] if attacker_manual is None else attacker_manual
         self.rng = rng; self.t = 0; self.log = []
         self.sides = {"A": [U(t, "A", s) for s, t in att.items()], "D": [U(t, "D", s) for s, t in dfn.items()]}
         self.combo = rules.Combo(P["COMBO"] != "off", P["COMBO_COUNT_NA"], P["COMBO_RESET"]); self._combo_target = False
@@ -365,7 +367,7 @@ class Battle:
         sides alternating when OPEN_INTERLEAVE (rules.opening_order)."""
         if P["OPEN_DELAY"]: self.tick(int(P["OPEN_DELAY"] * P["FPS"]))
         units = [u for s in ("A", "D") for u in self.sides[s] if u.alive and u.gauge >= u.t["cs"]["gauge"] * u.gmult]
-        for u in rules.opening_order(units, P["ATTACKER_MANUAL"], P["SLOT_ORDER"], P["OPEN_INTERLEAVE"]):
+        for u in rules.opening_order(units, self.attacker_manual, P["SLOT_ORDER"], P["OPEN_INTERLEAVE"]):
             if not u.alive or not self.enemies(u) or self.has(u, "stun"): continue
             u.gauge = 0; u.cs_ready = None; self.run_ops(u, u.t["cs"]["ops"], u.t["cs"]["hits"])
             if u.first_act is None: u.first_act = self.t
@@ -453,23 +455,32 @@ def _side(deck, tables):
 
 def simulate(attacker, defender, tables, seed=0, attacker_manual=True):
     """One fight; the dict the prototype returned (win "A"/"D", how, t, ...) plus the log."""
-    saved = P["ATTACKER_MANUAL"]
-    P["ATTACKER_MANUAL"] = attacker_manual
-    try:
-        b = Battle(_side(attacker, tables), _side(defender, tables), random.Random(seed))
-        r = b.run()
-    finally:
-        P["ATTACKER_MANUAL"] = saved
+    b = Battle(_side(attacker, tables), _side(defender, tables), random.Random(seed), attacker_manual)
+    r = b.run()
     r["log"] = b.log
     return r
 
 
-def win_rate(attacker, defender, tables, runs=None):
-    """Share of fights the attacker wins over `runs` seeds."""
+# Whose start-of-battle skills go first decides many fights outright, and the player may tap them by hand (the
+# attacker's first) or leave them on Auto (the defender's first): a match is scored over both openings.
+OPENINGS = (True, False)
+
+
+def score(attacker, defender, tables, runs=None):
+    """(win share, margin) for the attacker over `runs` seeds and both openings. margin: the attacker's remaining
+    HP share minus the defender's, averaged over the fights (-1..1); it tells apart decks with the same win share."""
     n = runs or P["runs"]
     att, dfn = _side(attacker, tables), _side(defender, tables)
-    wins = 0
-    for seed in range(n):
-        b = Battle(att, dfn, random.Random(seed))
-        wins += b.run()["win"] == "A"
-    return wins / n
+    wins = margin = 0.0
+    for manual in OPENINGS:
+        for seed in range(n):
+            r = Battle(att, dfn, random.Random(seed), manual).run()
+            wins += r["win"] == "A"
+            margin += r["hpA"] - r["hpD"]
+    k = n * len(OPENINGS)
+    return round(wins / k, 4), round(margin / k, 4)
+
+
+def win_rate(attacker, defender, tables, runs=None):
+    """Share of fights the attacker wins over `runs` seeds and both openings."""
+    return score(attacker, defender, tables, runs)[0]

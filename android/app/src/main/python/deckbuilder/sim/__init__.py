@@ -50,6 +50,12 @@ def simulate(attacker, defender, tables, seed: int = 0, attacker_manual: bool = 
     return battle.simulate(attacker, defender, tables, seed=seed, attacker_manual=attacker_manual)
 
 
+def score(attacker, defender, tables, runs: int | None = None) -> tuple[float, float]:
+    use(tables)
+    from deckbuilder.sim import battle
+    return battle.score(attacker, defender, tables, runs=runs)
+
+
 def win_rate(attacker, defender, tables, runs: int | None = None) -> float:
     use(tables)
     from deckbuilder.sim import battle

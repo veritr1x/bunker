@@ -65,8 +65,7 @@ class MechanicsTest(unittest.TestCase):
         att = {s: template(i, gauge_full=True) for i, s in enumerate("LMR", 1)}
         dfn = {s: template(10 + i, gauge_full=True) for i, s in enumerate("LMR", 1)}
         for manual, first in ((True, "A"), (False, "D")):
-            self.rules.P["ATTACKER_MANUAL"] = manual
-            b = self.fight(att, dfn)
+            b = self.battle.Battle(att, dfn, random.Random(0), attacker_manual=manual)
             seen = []
             orig = b.run_ops
             def spy(u, ops, hits, comp_atk=None, b=b, orig=orig):
@@ -77,7 +76,19 @@ class MechanicsTest(unittest.TestCase):
             b.run_opening()
             self.assertEqual(seen[0][0], 3.0)
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
-        self.rules.P["ATTACKER_MANUAL"] = True
+        self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
+
+    def test_score_counts_both_openings(self):
+        """Who opens decides many fights, and the player may tap start skills by hand or leave them on Auto:
+        a match is scored over both openings. Here the side that opens wins, so the score is half; the margin
+        is the attacker's remaining HP share minus the defender's, averaged over every fight."""
+        from unittest import mock
+        def run(b):
+            return dict(win="A" if b.attacker_manual else "D", hpA=0.6 if b.attacker_manual else 0.0,
+                        hpD=0.0 if b.attacker_manual else 0.2)
+        with mock.patch.object(self.battle.Battle, "run", run), mock.patch.object(self.battle, "_side", lambda d, t: {}):
+            self.assertEqual(self.battle.score("a", "d", tables(), runs=3), (0.5, 0.2))
+            self.assertEqual(self.battle.win_rate("a", "d", tables(), runs=3), 0.5)
 
     def test_damage_cuts_do_not_stack(self):
         """Several Indomitable damage cuts on one unit: only the strongest applies
