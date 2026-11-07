@@ -204,13 +204,22 @@ def build_unit(cid, elem, stats, main_weapon_id=None, companion_id=None, cs_leve
         if d: comp = dict(cd=d["SkillCooltimeValue"] or 1110, ops=compile_skill(d, elem), atk=float(stats.get("comp_atk") or 800))
     na_pow, na_hits = default_attack(cid, elem)
     name = "%s %s" % ((N_COSTUME.get(cid) or {}).get("character_name", ""), nm(N_COSTUME, cid)) if N_COSTUME else "costume %d" % cid
-    return dict(cid=cid, name=name.strip() or "costume %d" % cid, elem=elem, hp=float(stats["hp"]), atk=float(stats["atk"]), df=float(stats["df"]),
-                agi=float(stats["agi"]) * (1 + mods["agi_pct"]), crit=stats["crit"] / 1000, critdmg=stats["critdmg"] / 1000,
+    return with_stats(dict(cid=cid, name=name.strip() or "costume %d" % cid, elem=elem,
                 cs=dict(name=skill_name(csd), gauge=csd["SkillCooltimeValue"] or 1000, timed=csd["SkillCooltimeBehaviourGroupId"] == 1,
                         ops=compile_skill(csd, elem), hits=csd["SkillHitCount"], combo=csd["IsComboCalculationTarget"]),
                 # team stat passives (ability statuses) are already in stats: power
                 # counts every status of the deck, party-wide ones included
-                wskills=wskills, comp=comp, passives=pops, team=collections.Counter(), mods=mods, na=(na_pow, na_hits))
+                wskills=wskills, comp=comp, passives=pops, team=collections.Counter(), mods=mods, na=(na_pow, na_hits)), stats)
+
+
+def with_stats(t, stats):
+    """The unit template t with its stat fields from stats (power.character_stats): the part of a fighter that
+    teammates' party-wide statuses change (deckbuilder.fighters)."""
+    t = dict(t, hp=float(stats["hp"]), atk=float(stats["atk"]), df=float(stats["df"]),
+             agi=float(stats["agi"]) * (1 + t["mods"]["agi_pct"]), crit=stats["crit"] / 1000, critdmg=stats["critdmg"] / 1000)
+    if t.get("comp") is not None:
+        t["comp"] = dict(t["comp"], atk=float(stats.get("comp_atk") or 800))
+    return t
 
 
 SLOTS = ("L", "M", "R")

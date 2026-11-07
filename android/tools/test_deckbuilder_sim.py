@@ -78,6 +78,27 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_score_runs_one_seed_when_no_draw_can_matter(self):
+        """A fight whose random draws cannot change anything (no chance below 1, no shuffle that matters) plays the
+        same on every seed: score runs it once per opening and counts it for every seed, the same result."""
+        from unittest import mock
+        att = {s: template(i, gauge_full=True) for i, s in enumerate("LMR", 1)}
+        dfn = {s: template(10 + i, gauge_full=True, hp=50000.0) for i, s in enumerate("LMR", 1)}
+        every = []
+        for manual in self.battle.OPENINGS:
+            for seed in range(4):
+                b = self.battle.Battle(att, dfn, random.Random(seed), manual); b.logging = False
+                every.append(b.run())
+        want = (round(sum(r["win"] == "A" for r in every) / 8, 4), round(sum(r["hpA"] - r["hpD"] for r in every) / 8, 4))
+        ran = []
+        real_run = self.battle.Battle.run
+        def counted(b):
+            ran.append(1)
+            return real_run(b)
+        with mock.patch.object(self.battle, "_side", lambda d, t: d), mock.patch.object(self.battle.Battle, "run", counted):
+            self.assertEqual(self.battle.score(att, dfn, tables(), runs=4), want)
+        self.assertEqual(len(ran), 2)
+
     def test_a_fight_without_its_log_ends_the_same(self):
         """The bake turns the log off (it formats a line per action); the fight itself must not change."""
         att = {s: template(i, gauge_full=True) for i, s in enumerate("LMR", 1)}

@@ -26,6 +26,30 @@ from deckbuilder_testlib import BUILD, cli_invoke, tables  # noqa: E402
 from deckbuilder import equip, experts as experts_mod, model, stage as stage_mod  # noqa: E402
 
 BAKE = BUILD / "bake"
+CYTHON = BUILD / "cython"                      # the compiled simulator (scripts/bake_cython)
+
+
+def compiled(check=True):
+    """Swap in the Cython-compiled simulator (after sim.use): built from the current battle.py and
+    scripts/bake_cython/battle_c.pxd when they are newer than the module. Needs Cython in the venv."""
+    import shutil, subprocess
+    src = ROOT / "android/app/src/main/python/deckbuilder/sim/battle.py"
+    pxd = ROOT / "scripts/bake_cython/battle_c.pxd"
+    CYTHON.mkdir(parents=True, exist_ok=True)
+    built = sorted(CYTHON.glob("battle_c.*.so"))
+    if not built or built[0].stat().st_mtime < max(src.stat().st_mtime, pxd.stat().st_mtime):
+        for f in CYTHON.glob("battle_c.*"):
+            f.unlink()
+        shutil.copy(src, CYTHON / "battle_c.py"); shutil.copy(pxd, CYTHON / "battle_c.pxd")
+        subprocess.run([str(Path(sys.executable).parent / "cythonize"), "-i", "-3", "-q", "battle_c.py"], cwd=CYTHON,
+                       check=True, capture_output=True)
+    if str(CYTHON) not in sys.path:
+        sys.path.insert(0, str(CYTHON))
+    import battle_c
+    import deckbuilder.sim as simpkg
+    sys.modules["deckbuilder.sim.battle"] = battle_c
+    simpkg.battle = battle_c
+    return battle_c
 
 
 def report(name: str, data: dict) -> None:
@@ -105,7 +129,7 @@ def _worker_init():
     _W.update(T=T, ex=ex, st=st, refs=_references(T, ex, st), **_team_context(T, ex, st))
 
 
-PARTNER_LINEUPS = 2     # the experts' top lineups that lend a candidate its two teammates
+PARTNER_LINEUPS = 4     # the experts' top lineups that lend a candidate its two teammates
 
 
 def _team_context(T, ex, st):
@@ -285,6 +309,237 @@ def cmd_gear(args) -> None:
         "loadouts": ok})
 
 
+# ---------------------------------------------------------------- 3: fighters
+def loadout_spec(r, st, T):
+    """A baked loadout (2_gear.json) as a CharacterSpec of the bake stage's pieces."""
+    P = lambda kind, col, i: model.PieceRef(kind, st.pick(kind, **{col: i}), "stage") if i else None
+    memoirs = equip._memoirs(equip._Picker(st, st, T, equip.Mode("best")), r["memoir_set"], r["role"], T) if r["memoir_set"] else []
+    return model.CharacterSpec(P("costume", "costume_id", r["costume_id"]), P("weapon", "weapon_id", r["main_weapon"]),
+                               [P("weapon", "weapon_id", w) for w in r["subs"]], P("companion", "companion_id", r["companion"]),
+                               memoirs, P("debris", "thought_id", r["debris"]))
+
+
+def fighter_cache(T, st):
+    from deckbuilder import fighters
+    gear = json.loads((BAKE / "2_gear.json").read_text())["loadouts"]
+    cache, specs = fighters.FighterCache(T, st), {}
+    for r in gear:
+        specs[r["costume_id"]] = loadout_spec(r, st, T)
+        cache.add(r["costume_id"], specs[r["costume_id"]])
+    return cache, specs
+
+
+def cmd_fighters(args) -> None:
+    """Cached fighters for every costume, checked on a small sample: equal to decks built whole, and fighting the same."""
+    import random
+    from deckbuilder import sim
+    from deckbuilder.sim import battle
+    T = tables(); sim.use(T)
+    st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
+    t0 = time.time(); cache, specs = fighter_cache(T, st); fill = time.time() - t0
+    rnd = random.Random(7); keys = sorted(specs)
+    lineups = [tuple(rnd.sample(keys, 3)) for _ in range(args.decks)]
+    t0 = time.time(); built = [battle._side(model.compose(st, st, [specs[c] for c in l], 2, 7, T), T) for l in lineups]; tb = time.time() - t0
+    t0 = time.time(); cached = [cache.side(l) for l in lineups]; tc = time.time() - t0
+    unequal = [list(l) for l, a, b in zip(lineups, built, cached) if a != b]
+    fights_differ, n = [], 0
+    for i in range(0, min(args.fights, len(lineups) - 1), 2):
+        for manual in (True, False):
+            x = battle.Battle(cached[i], cached[i + 1], random.Random(0), manual); x.logging = False
+            y = battle.Battle(built[i], built[i + 1], random.Random(0), manual); y.logging = False
+            n += 1
+            if x.run() != y.run():
+                fights_differ.append([list(lineups[i]), list(lineups[i + 1]), manual])
+    report("3_fighters", {"costumes_cached": len(specs), "fill_s": round(fill, 2), "decks_checked": len(lineups),
+                          "decks_unequal": unequal, "fights_checked": n, "fights_differ": fights_differ,
+                          "ms_per_deck_built": round(1000 * tb / len(lineups), 2), "ms_per_deck_cached": round(1000 * tc / len(lineups), 3)})
+
+
+# ---------------------------------------------------------------- 4/5: decks
+def check_compiled(n=20) -> None:
+    """The compiled simulator must score these decks exactly as the plain one: else stop."""
+    import random
+    _deck_worker_init()
+    combos = random.Random(3).sample(all_combos(sorted(_W["specs"]), _W["char"]), n)
+    plain = [bake_deck(c) for c in combos]
+    compiled()
+    _deck_worker_init(use_compiled=True)
+    fast = [bake_deck(c) for c in combos]
+    if plain != fast:
+        raise SystemExit(f"the compiled simulator differs from battle.py on {sum(a != b for a, b in zip(plain, fast))} of {n} decks: not used")
+    print(f"compiled simulator checked: identical on {n} decks", flush=True)
+
+RUNS = 4                # seeds per matchup, as the app scores (generate.Generator runs=4)
+SCALE = 10000           # win shares and margins are kept to 4 decimals, as the app rounds them
+
+
+class _CountingRandom(__import__("random").Random):
+    """A Random that counts its draws: a fight that never draws ends the same for every seed."""
+    def __init__(self, seed):
+        super().__init__(seed); self.draws = 0
+
+    def random(self):
+        self.draws += 1
+        return super().random()
+
+    def shuffle(self, x, *a, **kw):
+        self.draws += 1
+        return super().shuffle(x, *a, **kw)
+
+
+def _matchup(att, dfn):
+    """(win share, margin) of att against dfn, as battle.score gives it (RUNS seeds, both openings), running the
+    other seeds only when the first drew a random number (else they end the same)."""
+    from deckbuilder.sim import battle
+    wins = margin = 0.0
+    for manual in battle.OPENINGS:
+        first = None
+        for seed in range(RUNS):
+            if first is not None and first[2] == 0:
+                r = first[0]
+            else:
+                b = battle.Battle(att, dfn, __import__("random").Random(seed), manual); b.logging = False
+                r = b.run()
+                if first is None:
+                    first = (r, None, b.chance_draws)
+            wins += r["win"] == "A"
+            margin += r["hpA"] - r["hpD"]
+    k = RUNS * len(battle.OPENINGS)
+    return round(wins / k, 4), round(margin / k, 4)
+
+
+def _deck_worker_init(use_compiled=False):
+    from deckbuilder import generate, sim
+    T = tables(); sim.use(T)
+    if use_compiled:
+        compiled()
+    from deckbuilder.sim import battle
+    ex = experts_mod.Experts.load(T)
+    st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
+    cache, specs = fighter_cache(T, st)
+    gen = generate.Generator(T, ex, st, st)
+    meta = [(battle._side(d, T), w, name) for d, w, name in gen.meta()]
+    _W.update(T=T, ex=ex, st=st, cache=cache, specs=specs, gen=gen, meta=meta,
+              char={c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in specs})
+
+
+def _deck_force(keys) -> int:
+    """The deck's Force from the cached actors (the state cache.side just left: party statuses shared)."""
+    from deckbuilder import power
+    T, cache = _W["T"], _W["cache"]
+    live = [cache._actors[k] for k in keys]
+    total = 0
+    for a in live:
+        sp = power.actor_skill_power(T, a, live)
+        total = power.i32(total + power.i32(a.hp_power + a.atk_power + a.vit_power + sum(sp.values())))
+    return total
+
+
+def bake_deck(combo) -> tuple:
+    """(lineup in slot order, attack win, attack margin, defense win, defense margin, Force) for a combination,
+    scored as the app scores it against the general meta (Generator.outcome)."""
+    gen, cache = _W["gen"], _W["cache"]
+    lineup = gen.order(combo)
+    side = cache.side(lineup)
+    force = _deck_force(lineup)
+    aw = am = dw = dm = 0.0
+    for opp, w, _ in _W["meta"]:
+        win, margin = _matchup(side, opp)
+        aw += w * win; am += w * margin
+        win, margin = _matchup(opp, side)
+        dw += w * (1 - win); dm -= w * margin
+    return lineup, round(aw, 4), round(am, 4), round(dw, 4), round(dm, 4), force
+
+
+def _app_deck(combo) -> tuple:
+    """The same numbers the app's own way: the deck built whole, sim.score, power.deck_power."""
+    from deckbuilder import power, sim
+    T, st, gen, specs = _W["T"], _W["st"], _W["gen"], _W["specs"]
+    lineup = gen.order(combo)
+    deck = model.compose(st, st, [specs[c] for c in lineup], 2, 7, T)
+    aw = am = dw = dm = 0.0
+    for (d, w, _), (_, _, _) in zip(gen.meta(), _W["meta"]):
+        win, margin = sim.score(deck, d, T, runs=RUNS)
+        aw += w * win; am += w * margin
+        win, margin = sim.score(d, deck, T, runs=RUNS)
+        dw += w * (1 - win); dm -= w * margin
+    return tuple(lineup), round(aw, 4), round(am, 4), round(dw, 4), round(dm, 4), power.deck_power(deck, T).total
+
+
+def all_combos(costumes, char):
+    import itertools
+    return [c for c in itertools.combinations(costumes, 3) if len({char[x] for x in c}) == 3]
+
+
+def cmd_sample(args) -> None:
+    import random
+    _deck_worker_init()                                  # the plain simulator first: the app's way of scoring
+    combos = all_combos(sorted(_W["specs"]), _W["char"])
+    rnd = random.Random(11)
+    sample = rnd.sample(combos, args.decks)
+    check = sample[:args.check]
+    t0 = time.time(); app = [_app_deck(c) for c in check]; ta = time.time() - t0
+    if args.compiled:                                    # then the bake's way, with the compiled simulator
+        compiled(); _deck_worker_init(use_compiled=True)
+    t0 = time.time(); baked = [bake_deck(c) for c in sample]; tb = time.time() - t0
+    differ = [(list(b[0]), b[1:], a[1:]) for b, a in zip(baked, app) if tuple(b[0]) != a[0] or b[1:] != a[1:]]
+    top = sorted(baked, key=lambda r: (-r[1], -r[2]))[:10]
+    name = lambda l: " · ".join(_W["T"].character_name(c) for c in l)
+    report("4_sample", {"combos_total": len(combos), "sampled": len(sample), "checked_against_app": len(check),
+                        "differ_from_app": differ, "ms_per_deck_baked": round(1000 * tb / len(sample), 2), "compiled": args.compiled,
+                        "ms_per_deck_app_way": round(1000 * ta / len(check), 1),
+                        "estimate_full_bake_min_on_17_cores": round(len(combos) * tb / len(sample) / 17 / 60, 1),
+                        "attack_win_spread": sorted(__import__("collections").Counter(round(r[1], 1) for r in baked).items()),
+                        "top_attack_in_sample": [(name(r[0]), r[1], r[2], r[5]) for r in top]})
+
+
+# ---------------------------------------------------------------- round-robin
+def _rr_one(costume_id):
+    """costume_id one-on-one against every other costume, as attacker and as defender (baked gear)."""
+    cache = _W["cache"]
+    me = cache.side((costume_id,))
+    att = dfn = 0.0
+    n = 0
+    for other in sorted(_W["specs"]):
+        if other == costume_id:
+            continue
+        them = cache.side((other,))
+        att += _matchup(me, them)[0]
+        dfn += 1 - _matchup(them, me)[0]
+        n += 1
+    return costume_id, round(att / n, 4), round(dfn / n, 4)
+
+
+def cmd_roundrobin(args) -> None:
+    import multiprocessing as mp
+    from deckbuilder import screen
+    T = tables()
+    gear = json.loads((BAKE / "2_gear.json").read_text())["loadouts"]
+    costumes = sorted(r["costume_id"] for r in gear)
+    t0 = time.time()
+    with mp.get_context("spawn").Pool(args.workers, initializer=_deck_worker_init) as pool:
+        rows = list(pool.imap_unordered(_rr_one, costumes))
+    took = time.time() - t0
+    rows.sort(key=lambda r: -(r[1] + r[2]))
+    rr_rank = {c: i for i, (c, a, d) in enumerate(rows)}
+    team_rank = {r["costume_id"]: i for i, r in enumerate(sorted(gear, key=lambda r: tuple(r["score"]), reverse=True))}
+    st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
+    ex = experts_mod.Experts.load(T)
+    old_pool = screen.pool_by_strength(screen.strength(T, ex, st), T)
+    def spearman(a, b):
+        keys = [k for k in a if k in b]; n = len(keys)
+        return round(1 - 6 * sum((a[k] - b[k]) ** 2 for k in keys) / (n * (n * n - 1)), 3)
+    top60 = [c for c, _, _ in rows[:60]]
+    name = T.costume_name
+    report("rr_roundrobin", {"took_s": round(took, 1), "costumes": len(rows),
+        "rank_agreement_with_team_gear_scores": spearman(rr_rank, team_rank),
+        "top60_overlap_with_current_pool": len(set(top60) & set(old_pool)),
+        "top20": [(name(c), a, d) for c, a, d in rows[:20]],
+        "in_current_pool_but_rr_rank_over_120": [(name(c), rr_rank[c]) for c in old_pool if rr_rank[c] > 120],
+        "rr_top60_not_in_current_pool": [(name(c), rr_rank[c]) for c in top60 if c not in old_pool],
+        "ranking": [(c, name(c), a, d) for c, a, d in rows]})
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -292,6 +547,13 @@ def main():
     g = sub.add_parser("gear"); g.set_defaults(fn=cmd_gear)
     g.add_argument("--limit", type=int, default=0, help="only the first N costumes (a trial run)")
     g.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    f = sub.add_parser("fighters"); f.set_defaults(fn=cmd_fighters)
+    f.add_argument("--decks", type=int, default=300); f.add_argument("--fights", type=int, default=100)
+    rr = sub.add_parser("roundrobin"); rr.set_defaults(fn=cmd_roundrobin)
+    rr.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    sp = sub.add_parser("sample"); sp.set_defaults(fn=cmd_sample)
+    sp.add_argument("--decks", type=int, default=2000); sp.add_argument("--check", type=int, default=100)
+    sp.add_argument("--plain", dest="compiled", action="store_false", help="the plain simulator, not the compiled one")
     args = ap.parse_args()
     args.fn(args)
 

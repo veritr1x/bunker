@@ -7,6 +7,16 @@ import random
 from deckbuilder.sim import rules
 from deckbuilder.sim.rules import P, ADV, ELEMN, ABN_SHORT
 
+def _bsum(x, k):
+    """The sum of x's buffs of kind k, in order from 0 (as sum() over them). A plain loop, not a closure: the
+    bake compiles this module with Cython, which cannot type methods holding closures."""
+    total = 0
+    for b in x.bf:
+        if b["key"] == k:
+            total += b["v"]
+    return total
+
+
 class U:
     def __init__(self, tmpl, side, slot):
         self.t = tmpl; self.side = side; self.slot = slot; self.cid = tmpl["cid"]; self.elem = tmpl["elem"]
@@ -32,6 +42,8 @@ class Battle:
         self.frames = P["DURATION_S"] * P["FPS"]     # the time limit
         self.rng = rng; self.t = 0; self.log = []
         self.logging = True      # a line per action in self.log (the bake turns it off: it only needs the result)
+        self.chance_draws = 0    # random draws that could change something (a chance below 1, a shuffle that matters):
+                                 # with none, every seed plays the same fight (the bake runs one seed then)
         self.sides = {"A": [U(t, "A", s) for s, t in att.items()], "D": [U(t, "D", s) for s, t in dfn.items()]}
         self.combo = rules.Combo(P["COMBO"] != "off", P["COMBO_COUNT_NA"], P["COMBO_RESET"]); self._combo_target = False
         self.first_kill = None; self.na_done = 0; self.batch_left = None; self.comp_events = []; self.blocked = collections.Counter(); self.first_ben = {}
@@ -45,8 +57,12 @@ class Battle:
     # ---------- helpers ----------
     def allies(self, u): return [x for x in self.sides[u.side] if x.alive]
     def enemies(self, u): return [x for x in self.sides["D" if u.side == "A" else "A"] if x.alive]
-    def has(self, u, key): return any(s["p"].get(key) for s in u.st)
-    def agility(self, u): return (u.t["agi"] + u.agi_bonus) * (1 + sum(b["v"] for b in u.bf if b["key"] == "Agility"))
+    def has(self, u, key):
+        for s in u.st:
+            if s["p"].get(key):
+                return True
+        return False
+    def agility(self, u): return (u.t["agi"] + u.agi_bonus) * (1 + _bsum(u, "Agility"))
     def na_interval(self, u): return P["NA_BASE_FRAMES"] * 1000 / max(self.agility(u), 100)
 
     def start_passives(self, u):
@@ -105,11 +121,13 @@ class Battle:
     def apply(self, src, o, target, at_start=False):
         op = o["op"]
         if op == "buff":
+            if o.get("prob", 1) < 1: self.chance_draws += 1
             if self.rng.random() > o.get("prob", 1): return
             for a in self.scope(src, o["scope"], target):
                 a.bf = [b for b in a.bf if not (b["key"] == o["key"] and b["src"] == id(o))]
                 a.bf.append(dict(key=o["key"], v=o["value"], left=o["frames"], src=id(o)))
         elif op == "status":
+            if o.get("prob", 1) < 1: self.chance_draws += 1
             if self.rng.random() > o.get("prob", 1): return
             p = o["st"]
             for a in self.scope(src, o["scope"], target):
@@ -118,6 +136,8 @@ class Battle:
                         self.blocked[(a.side, a.cid, p["type"])] += 1; continue
                 else:
                     res = [r for s in a.st for r in s["p"].get("resist", []) if (r[0] == 3 and r[1] in (0, p["type"]))]
+                    for r in res:
+                        if 0 < r[2] < 1: self.chance_draws += 1; break
                     if any(self.rng.random() < r[2] for r in res): continue
                 kind, v = p["life"]
                 rec = dict(p=p, left=None, cnt=None, src=id(o))
@@ -144,11 +164,14 @@ class Battle:
         elif op == "cleanse":
             for a in self.scope(src, o["scope"], target):
                 kinds = sorted({s["p"]["type"] for s in a.st if not s["p"]["ben"]})
+                if len(kinds) > o["kinds"]: self.chance_draws += 1     # which ones are removed depends on the shuffle
                 self.rng.shuffle(kinds)
                 for k in kinds[:o["kinds"]]: a.st = [s for s in a.st if s["p"]["type"] != k]
         elif op == "purge":
             for a in self.scope(src, o["scope"], target):
-                kinds = sorted({s["p"]["type"] for s in a.st if s["p"]["ben"]}); self.rng.shuffle(kinds)
+                kinds = sorted({s["p"]["type"] for s in a.st if s["p"]["ben"]})
+                if len(kinds) > o["kinds"]: self.chance_draws += 1
+                self.rng.shuffle(kinds)
                 for k in kinds[:o["kinds"]]: a.st = [s for s in a.st if s["p"]["type"] != k]
         elif op == "removebuff":
             for a in self.scope(src, o["scope"], target):
@@ -158,9 +181,8 @@ class Battle:
     def hit(self, u, tgt, power, hits_in_skill, normal=False, pierce=False, comp_atk=None):
         if not tgt.alive: return
         if normal and self.has(tgt, "defiance"): return
-        bsum = lambda x, k: sum(b["v"] for b in x.bf if b["key"] == k)
-        atk = (comp_atk or u.atk) * (1 + bsum(u, "Attack") + u.team_atk)
-        crit = min(1, u.t["crit"] + bsum(u, "CriticalRatio") + u.team_crit); cd = u.t["critdmg"] + bsum(u, "CriticalAttack") + u.team_cdmg
+        atk = (comp_atk or u.atk) * (1 + _bsum(u, "Attack") + u.team_atk)
+        crit = min(1, u.t["crit"] + _bsum(u, "CriticalRatio") + u.team_crit); cd = u.t["critdmg"] + _bsum(u, "CriticalAttack") + u.team_cdmg
         m = 1 + crit * (cd - 1)
         m *= ADV.get((u.elem, tgt.elem), 1.0)
         m *= 1 + P["BOARD_ELEM_DMG"]   # character board: own-element damage +9% (every character)
@@ -187,13 +209,17 @@ class Battle:
         for s in tgt.st:
             for el, kind, v in s["p"].get("attr", []):
                 if kind == "taken" and ELEMN.get(el) == u.elem: m *= v
-        dfv = tgt.df * (1 + bsum(tgt, "Vitality") + tgt.team_def)
+        dfv = tgt.df * (1 + _bsum(tgt, "Vitality") + tgt.team_def)
         if self._combo_target and not normal: m *= self.combo.coef(u.side)
         # Damage cuts (Indomitable) do not multiply together: the strongest one
         # applies; every active one still uses up a hit.
         cuts = [s for s in tgt.st if s["p"].get("taken_mult") is not None and (s["cnt"] is None or s["cnt"] > 0)]
         if cuts:
-            m *= min(s["p"]["taken_mult"] for s in cuts)
+            least = None
+            for s in cuts:        # the strongest cut (min() keeps the first of equals: so does this)
+                if least is None or s["p"]["taken_mult"] < least:
+                    least = s["p"]["taken_mult"]
+            m *= least
             for s in cuts:
                 if s["cnt"] is not None: s["cnt"] -= 1
         tgt.st = [s for s in tgt.st if s["cnt"] is None or s["cnt"] > 0]
@@ -526,9 +552,15 @@ def score(attacker, defender, tables, runs=None):
     att, dfn = _side(attacker, tables), _side(defender, tables)
     wins = margin = 0.0
     for manual in OPENINGS:
+        once = None              # seed 0's fight, when no draw in it could change anything: every seed plays it
         for seed in range(n):
-            b = Battle(att, dfn, random.Random(seed), manual); b.logging = False
-            r = b.run()
+            if once is not None:
+                r = once
+            else:
+                b = Battle(att, dfn, random.Random(seed), manual); b.logging = False
+                r = b.run()
+                if seed == 0 and b.chance_draws == 0:
+                    once = r
             wins += r["win"] == "A"
             margin += r["hpA"] - r["hpD"]
     k = n * len(OPENINGS)
