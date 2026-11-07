@@ -54,16 +54,45 @@ def build(master: Path, texts: Path) -> dict:
     return out
 
 
+RANKINGS_OUT = ROOT / "android/app/src/main/python/deckbuilder/data/rankings.json"
+
+
+def rankings(research: Path) -> dict:
+    """Candidate pieces with their static scores (the research's *_ranked.csv):
+    weapons [element, weapon type, main score, sub score], companions
+    [element, score], debris [element or null, kind, score], memoir sets score."""
+    import csv
+    rd = lambda f: list(csv.DictReader(open(research / f)))
+    num = lambda v: round(float(v or 0), 4)
+    weapons = {r["weapon_id"]: [r["element"], int(r["weapon_type"]), num(r["main_score_with_status"]), num(r["sub_weapon_score"])]
+               for r in rd("weapons_ranked.csv")}
+    companions = {r["companion_id"]: [r["element"], num(r["score_with_status"])] for r in rd("companions_ranked.csv")}
+    debris = {}
+    for r in rd("debris_ranked.csv"):
+        text = r["ability_text"]
+        m = re.search(r"(fire|water|wind|light|dark)-affinity", text)
+        kind = "gauge" if "gauge" in text else ("weapon_stats" if "stats of equipped" in text else "other")
+        debris[r["thought_id"]] = [m.group(1) if m else None, kind, num(r["value_with_status"])]
+    sets = {r["series_id"]: num(r["set3_with_status"]) for r in rd("memoir_sets_ranked.csv")}
+    return {"weapons": weapons, "companions": companions, "debris": debris, "memoir_sets": sets}
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--master", type=Path, required=True)
-    p.add_argument("--texts", type=Path, required=True)
+    p.add_argument("--master", type=Path)
+    p.add_argument("--texts", type=Path)
+    p.add_argument("--rankings", type=Path, help="the research folder with weapons/companions/debris/memoir_sets_ranked.csv")
     p.add_argument("--out", type=Path, default=OUT)
     a = p.parse_args(argv)
-    data = build(a.master, a.texts)
-    a.out.parent.mkdir(parents=True, exist_ok=True)
-    a.out.write_text(json.dumps(data, sort_keys=True, separators=(",", ":")))
-    print(len(data), "abilities with text modifiers ->", a.out)
+    if a.master and a.texts:
+        data = build(a.master, a.texts)
+        a.out.parent.mkdir(parents=True, exist_ok=True)
+        a.out.write_text(json.dumps(data, sort_keys=True, separators=(",", ":")))
+        print(len(data), "abilities with text modifiers ->", a.out)
+    if a.rankings:
+        r = rankings(a.rankings)
+        RANKINGS_OUT.write_text(json.dumps(r, sort_keys=True, separators=(",", ":")))
+        print({k: len(v) for k, v in r.items()}, "->", RANKINGS_OUT)
 
 
 if __name__ == "__main__":
