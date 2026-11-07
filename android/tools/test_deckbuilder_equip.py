@@ -89,6 +89,24 @@ class EquipTest(unittest.TestCase):
         self.assertEqual(eq.reasons[(SARAFA, "main_weapon")],
                          "Top-ranked light weapon for this costume's weapon type. Makes this character light in the Arena: strong against dark.")
 
+    def test_a_fighter_carries_its_subs_memoir_set_and_debris(self):
+        """As the client collects them (power.Actor): both sub weapons' abilities, the memoir set bonus that is
+        active, and the debris, besides the costume's and the main weapon's."""
+        from deckbuilder.sim import units
+        eq = equip.equip((SARAFA, RION, SARYU), equip.Mode("best"), self.stage, self.stage, tables(), self.experts)
+        _, actors, _ = power.actors_for(eq.deck, tables())
+        a = actors[0]
+        got = units.gear_abilities(a)
+        want = [(x.ability_id, x.level) for w in (a.sub1, a.sub2) if w for x in w["abilities"] if not x.locked]
+        want += [(x.ability_id, x.level) for x in a.series_bonus if not x.locked]
+        want += [(a.thought.ability_id, a.thought.level)] if a.thought else []
+        self.assertEqual(got, want)
+        self.assertTrue(a.thought and a.series_bonus and a.sub1)
+        bare = units.build_unit(a.costume["id"], "dark", power.character_stats(a, tables()), a.main["id"])
+        full = units.build_unit(a.costume["id"], "dark", power.character_stats(a, tables()), a.main["id"], extra_abilities=got)
+        self.assertGreaterEqual(len(full["passives"]), len(bare["passives"]))
+        self.assertNotEqual((full["passives"], full["mods"]), (bare["passives"], bare["mods"]))
+
 
 class MainWeaponReasonTest(unittest.TestCase):
     """The ⓘ note on a main weapon: where it came from, then the element it gives (from the weapon itself)."""

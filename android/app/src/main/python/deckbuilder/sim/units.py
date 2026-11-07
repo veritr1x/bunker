@@ -168,9 +168,21 @@ def merge_mods(mods):
     return m
 
 
-def build_unit(cid, elem, stats, main_weapon_id=None, companion_id=None, cs_level=15):
+def gear_abilities(actor):
+    """(ability id, level) of the gear beyond the costume and main weapon, as the client collects them
+    (power.Actor, CollectAbilityStatus): both sub weapons' abilities, the active memoir set bonus, the debris.
+    Their stat parts are already in the stats; build_unit adds their battle behaviour."""
+    out = [(x.ability_id, x.level) for w in (actor.sub1, actor.sub2) if w for x in w["abilities"] if not x.locked]
+    out += [(x.ability_id, x.level) for x in actor.series_bonus if not x.locked]
+    if actor.thought:
+        out.append((actor.thought.ability_id, actor.thought.level))
+    return out
+
+
+def build_unit(cid, elem, stats, main_weapon_id=None, companion_id=None, cs_level=15, extra_abilities=()):
     """A unit: the costume's character skill and passives, its main weapon's
-    skills and abilities, its companion's skill, and its real stats."""
+    skills and abilities, its companion's skill, the sub weapons', memoir set's
+    and debris' abilities (extra_abilities), and its real stats."""
     c = COSTUME[cid]
     g = sorted(CASG[c["CostumeActiveSkillGroupId"]], key=lambda x: x["CostumeLimitBreakCountLowerLimit"])[-1]
     csd = skill_detail_at(g["CostumeActiveSkillId"], cs_level)
@@ -184,6 +196,8 @@ def build_unit(cid, elem, stats, main_weapon_id=None, companion_id=None, cs_leve
             if d: wskills.append(dict(name=skill_name(d), cd=d["SkillCooltimeValue"] or 600, ops=compile_skill(d, elem), hits=d["SkillHitCount"], combo=d["IsComboCalculationTarget"]))
         wab = [(a["AbilityId"], max_ability_level(a["AbilityId"])) for a in WAG.get(w["WeaponAbilityGroupId"], [])]
         o2, t2, m2 = passive_ops(wab, elem); pops += o2; team += t2; mods = merge_mods([mods, m2])
+    if extra_abilities:
+        o3, t3, m3 = passive_ops(list(extra_abilities), elem); pops += o3; team += t3; mods = merge_mods([mods, m3])
     comp = None
     if companion_id and companion_id in COMP:
         d = skill_detail_at(COMP[companion_id]["SkillId"], 15)
@@ -216,5 +230,6 @@ def units_for(deck, tables):
         elem = elem or tables.costume_element(cid) or "dark"
         stats = power.character_stats(a, tables)
         out.append((slot, build_unit(cid, elem, stats, a.main["id"] if a.main else None,
-                                     a.companion["id"] if a.companion else None, cs_level=(a.costume["active_skill"][1] if a.costume.get("active_skill") else 15))))
+                                     a.companion["id"] if a.companion else None, cs_level=(a.costume["active_skill"][1] if a.costume.get("active_skill") else 15),
+                                     extra_abilities=gear_abilities(a))))
     return out
