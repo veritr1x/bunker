@@ -24,6 +24,8 @@ type CPU struct {
 	Point    int32
 	Costumes [3]int32
 	Weapons  [3]int32
+	// Loadout is the Deck Builder deck it fields (Catalog.Dress, decktable.go); nil without the table.
+	Loadout *DeckLoadout
 }
 
 // Ladder is a season's computer players. It is generated from the season id,

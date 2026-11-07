@@ -92,6 +92,7 @@ func (s *PvpServiceServer) opponents(c *pvp.Catalog, u *store.UserState, ladder 
 		if !ok {
 			continue
 		}
+		cpu = c.Dress(ladder, cpu, u) // Deck Builder's deck for it, when the table exists
 		out = append(out, &pb.MatchingOpponent{
 			PlayerId:                    cpu.PlayerId,
 			Name:                        cpu.Name,
@@ -138,6 +139,7 @@ func (s *PvpServiceServer) StartBattle(ctx context.Context, req *pb.StartBattleR
 			log.Printf("[PvpService] StartBattle: unknown opponent %d", req.OpponentPlayerId)
 			return
 		}
+		cpu = c.Dress(ladder, cpu, u)
 		if !c.Spend(&u.Ext.Pvp, c.BattleCost, now) {
 			log.Printf("[PvpService] StartBattle: not enough battle points; battling anyway")
 		}
@@ -157,6 +159,7 @@ func (s *PvpServiceServer) FinishBattle(ctx context.Context, req *pb.FinishBattl
 			log.Printf("[PvpService] FinishBattle: unknown opponent %d", req.OpponentPlayerId)
 			return
 		}
+		cpu = c.Dress(ladder, cpu, u)
 		r := playerRand(u, now)
 		res := c.Finish(u, season, ladder, cpu, req.IsVictory, now, r)
 		for _, rw := range res.Rewards {
@@ -187,9 +190,10 @@ func (s *PvpServiceServer) GetRanking(ctx context.Context, req *pb.GetRankingReq
 				})
 				continue
 			}
+			cpu := c.Dress(ladder, e.CPU, u)
 			resp.RankingUser = append(resp.RankingUser, &pb.RankingUser{
-				Rank: e.Rank, PlayerId: e.CPU.PlayerId, Name: e.CPU.Name, PvpPoint: e.CPU.Point,
-				DeckPower: pvp.DeckPower(profile, pvp.Strength(e.CPU.Point, p.Point)), FavoriteCostumeId: e.CPU.Costumes[0],
+				Rank: e.Rank, PlayerId: cpu.PlayerId, Name: cpu.Name, PvpPoint: cpu.Point,
+				DeckPower: pvp.DeckPower(profile, pvp.Strength(cpu.Point, p.Point)), FavoriteCostumeId: cpu.Costumes[0],
 			})
 		}
 		resp.UserCount = int32(ladder.Size() + 1)
@@ -220,6 +224,7 @@ func (s *PvpServiceServer) battleLogs(c *pvp.Catalog, u *store.UserState, ladder
 		if !ok {
 			continue
 		}
+		cpu = c.Dress(ladder, cpu, u)
 		var costumes []int32
 		for _, id := range cpu.Costumes {
 			if id != 0 {
