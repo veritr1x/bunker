@@ -75,7 +75,7 @@ PARAMS = dict(
     NA_BASE_FRAMES=90,                # 3 s between normal attacks at agility 1000
     FIRST_NA_FRAC=0.5,                # first normal attack after half an interval
     LOCK_CS=45, LOCK_WS=30, LOCK_NA=20,  # frames a unit is busy after an action (animation, not in data)
-    TURN_FRAMES=300,                  # one "turn" (stun/provoke/blind lifetimes) = 10 s
+    # statuses measured in turns (stun, provoke, blind) count down at their holder's turns (Battle.count_turn)
     TICK_FRAMES=90,                   # regen/poison tick
     DEF_K=200000,                     # mitigation = DEF_K / (DEF_K + DEF)  (formula not in data). Calibrated on DFMQmpJxA-A 10:52.75:
                                       # NY Sarafa's Void Boon crit at 1% HP on a stall unit, 306,573 on screen; the model gives 305,866

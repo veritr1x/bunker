@@ -78,6 +78,29 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_a_one_turn_stun_skips_one_turn(self):
+        """A status measured in turns counts down at its holder's turns: stunned for 1 turn, a unit loses its next
+        turn and acts in the round after (it was 10 s of real time: several turns, which over-rated every stun)."""
+        def first_actions(stun):
+            att = {"L": template(1, hp=10 ** 9)}
+            dfn = {"L": template(2, hp=10 ** 9)}
+            b = self.battle.Battle(att, dfn, random.Random(0))
+            b.frames = 15 * self.rules.P["FPS"]
+            if stun:
+                op = dict(op="status", scope="alive_all_enemy_01", prob=1.0,
+                          st=dict(type=6, ben=False, stun=True, life=("turns", 1)))
+                b.apply(b.sides["A"][0], op, None)
+            b.run()
+            acts = [(float(line[:5]), line[7:9]) for line in b.log]
+            return acts, b.sides["D"][0].st
+        plain, _ = first_actions(False)
+        stunned, left = first_actions(True)
+        self.assertEqual(plain[0][1], "DL")                      # unstunned, the defender opens the round
+        self.assertEqual(stunned[0][1], "AL")                    # stunned, it loses that turn
+        self.assertEqual(stunned[1][1], "DL")                    # and acts in the next round
+        self.assertLess(stunned[1][0], 6.0)                      # not after 10 s
+        self.assertFalse(any(s["p"].get("stun") for s in left))  # the stun is over
+
     def test_attack_debuffs_never_heal_the_target(self):
         """Attack debuffs past -100% (-50%, -50%, -15%: seen in the bake) once made the attacker's Attack negative,
         so its hits healed the target past its max HP. Stats floor at the client's minimums (power.K_MIN: Attack 1,
