@@ -28,6 +28,8 @@ class FighterCache:
         deck = model.compose(self.stage, self.stage, [spec], 2, 1, self.tables)
         _, actors, _ = power.actors_for(deck, self.tables)
         a = actors[0]
+        a.uuid = f"fighter:{key}"     # its own identity: skill power counts a skill's owner by it (every one-character
+                                      # deck here gets the same deck-character id)
         self._actors[key] = a
         self._templates[key] = dict(units.units_for(deck, self.tables))["L"]
 
@@ -44,3 +46,15 @@ class FighterCache:
             a.base_power(self.tables)
             out[slot] = units.with_stats(self._templates[k], power.character_stats(a, self.tables))
         return out
+
+    def force(self, keys) -> int:
+        """The deck's Force (power.deck_power) from the cached actors, their party statuses shared as in side()."""
+        live = [self._actors[k] for k in keys]
+        for a in live:
+            a.other_status = [st for src in live if src is not a for st in src.ability_status if st["scope"] == 2]
+            a.base_power(self.tables)
+        total = 0
+        for a in live:
+            sp = power.actor_skill_power(self.tables, a, live)
+            total = power.i32(total + power.i32(a.hp_power + a.atk_power + a.vit_power + sum(sp.values())))
+        return total

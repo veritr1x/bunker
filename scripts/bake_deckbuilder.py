@@ -333,8 +333,8 @@ def cmd_fighters(args) -> None:
     """Cached fighters for every costume, checked on a small sample: equal to decks built whole, and fighting the same."""
     import random
     from deckbuilder import sim
-    from deckbuilder.sim import battle
     T = tables(); sim.use(T)
+    from deckbuilder.sim import battle
     st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
     t0 = time.time(); cache, specs = fighter_cache(T, st); fill = time.time() - t0
     rnd = random.Random(7); keys = sorted(specs)
@@ -423,25 +423,13 @@ def _deck_worker_init(use_compiled=False):
               char={c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in specs})
 
 
-def _deck_force(keys) -> int:
-    """The deck's Force from the cached actors (the state cache.side just left: party statuses shared)."""
-    from deckbuilder import power
-    T, cache = _W["T"], _W["cache"]
-    live = [cache._actors[k] for k in keys]
-    total = 0
-    for a in live:
-        sp = power.actor_skill_power(T, a, live)
-        total = power.i32(total + power.i32(a.hp_power + a.atk_power + a.vit_power + sum(sp.values())))
-    return total
-
-
 def bake_deck(combo) -> tuple:
     """(lineup in slot order, attack win, attack margin, defense win, defense margin, Force) for a combination,
     scored as the app scores it against the general meta (Generator.outcome)."""
     gen, cache = _W["gen"], _W["cache"]
     lineup = gen.order(combo)
     side = cache.side(lineup)
-    force = _deck_force(lineup)
+    force = cache.force(lineup)
     aw = am = dw = dm = 0.0
     for opp, w, _ in _W["meta"]:
         win, margin = _matchup(side, opp)
