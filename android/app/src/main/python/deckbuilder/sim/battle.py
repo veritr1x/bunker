@@ -31,6 +31,7 @@ class Battle:
         self.attacker_manual = P["ATTACKER_MANUAL"] if attacker_manual is None else attacker_manual
         self.frames = P["DURATION_S"] * P["FPS"]     # the time limit
         self.rng = rng; self.t = 0; self.log = []
+        self.logging = True      # a line per action in self.log (the bake turns it off: it only needs the result)
         self.sides = {"A": [U(t, "A", s) for s, t in att.items()], "D": [U(t, "D", s) for s, t in dfn.items()]}
         self.combo = rules.Combo(P["COMBO"] != "off", P["COMBO_COUNT_NA"], P["COMBO_RESET"]); self._combo_target = False
         self.first_kill = None; self.na_done = 0; self.batch_left = None; self.comp_events = []; self.blocked = collections.Counter(); self.first_ben = {}
@@ -230,11 +231,12 @@ class Battle:
             if es: target = prov[0] if prov else max(es, key=lambda e: (self.reliance(e), -e.hp / e.maxhp))
         sk = u.t["cs"] if ops is u.t["cs"]["ops"] else next((w for w in u.t["wskills"] if w["ops"] is ops), None)
         self._combo_target = bool(sk and sk.get("combo", True))
-        if ops is u.t["cs"]["ops"]: lab = "CS " + u.t["cs"]["name"]
-        elif u.t["comp"] and ops is u.t["comp"]["ops"]: lab = "companion"
-        else: lab = "WS " + next((w["name"] for w in u.t["wskills"] if w["ops"] is ops), "?")
-        hp0 = {id(x): x.hp for s in ("A", "D") for x in self.sides[s]}
-        self._pending = (self.t, u, lab, hp0)
+        if self.logging:
+            if ops is u.t["cs"]["ops"]: lab = "CS " + u.t["cs"]["name"]
+            elif u.t["comp"] and ops is u.t["comp"]["ops"]: lab = "companion"
+            else: lab = "WS " + next((w["name"] for w in u.t["wskills"] if w["ops"] is ops), "?")
+            hp0 = {id(x): x.hp for s in ("A", "D") for x in self.sides[s]}
+            self._pending = (self.t, u, lab, hp0)
         for o in ops:
             if o["op"] == "dmg":
                 tg = self.scope(u, o["scope"], target)
@@ -247,6 +249,8 @@ class Battle:
         self._log_action()
 
     def _log_action(self):
+        if not self.logging:
+            return
         t0, u, lab, hp0 = self._pending
         dmg = []
         for s in ("A", "D"):
@@ -427,7 +431,7 @@ class Battle:
             pw, hits = u.t["na"]; tgt = self.pick(u); n = max(1, round(hits))
             hp_before = tgt.hp
             for _ in range(n): self.hit(u, tgt, pw / n, n, normal=True)
-            self.log.append("%5.1fs %s%s %-28s %-34s %s%s %s %+d%s" % (self.t / P["FPS"], u.side, u.slot, u.t["name"][:28], "normal attack", tgt.side, tgt.slot, tgt.t["name"].split()[0], -(hp_before - tgt.hp), " KO" if not tgt.alive else ""))
+            if self.logging: self.log.append("%5.1fs %s%s %-28s %-34s %s%s %s %+d%s" % (self.t / P["FPS"], u.side, u.slot, u.t["name"][:28], "normal attack", tgt.side, tgt.slot, tgt.t["name"].split()[0], -(hp_before - tgt.hp), " KO" if not tgt.alive else ""))
             u.gauge += P["GAUGE_NA"].get(min(5, n), 50); self.na_done += 1
             self.combo.on_action(u.side, True, normal=True)
             if u.first_act is None: u.first_act = self.t
@@ -491,7 +495,7 @@ class BossBattle(Battle):
 def boss_phase(party, boss, phase, tables, seed=0):
     """One Subjugation phase of the party deck against the boss unit template: damage dealt, knock-downs, and the
     time the party lasted (the phase's length when it stands to the end)."""
-    b = BossBattle(_side(party, tables), boss, phase, random.Random(seed))
+    b = BossBattle(_side(party, tables), boss, phase, random.Random(seed)); b.logging = False
     b.run()
     return dict(damage=round(b.dealt), knockdowns=b.knockdowns, t=round(min(b.t, b.frames) / P["FPS"], 1),
                 standing=sum(u.alive for u in b.sides["A"]))
@@ -523,7 +527,8 @@ def score(attacker, defender, tables, runs=None):
     wins = margin = 0.0
     for manual in OPENINGS:
         for seed in range(n):
-            r = Battle(att, dfn, random.Random(seed), manual).run()
+            b = Battle(att, dfn, random.Random(seed), manual); b.logging = False
+            r = b.run()
             wins += r["win"] == "A"
             margin += r["hpA"] - r["hpD"]
     k = n * len(OPENINGS)
