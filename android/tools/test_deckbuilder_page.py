@@ -76,6 +76,11 @@ class FakeSession:
     def players(self):
         return [(1, "2B")]
 
+    def costumes(self, mode):
+        self.costumes_mode = mode
+        return [{"id": 35036, "name": "New Year's Belle Sarafa", "character": "Sarafa", "element": "dark"},
+                {"id": 33029, "name": "Oathbound Exile Rion", "character": "Rion", "element": "wind"}]
+
     # Subjugation
     def bosses(self):
         return [{"id": 1, "name": "Fiery Cursed God", "element": "fire"}, {"id": 5, "name": "Bleak Cursed God", "element": "dark"}]
@@ -209,6 +214,23 @@ class PageTest(unittest.TestCase):
         self.assertIn('<p class="help best-only">All maxed uses anything in the game', html)
         self.assertIn('body.owned .best-only,body:not(.owned) .owned-only{display:none!important}', html)
         self.assertIn('document.body.classList.toggle("owned", state.mode === "owned");', html)
+
+    def test_filters_pick_characters_to_include_or_leave_out(self):
+        """The costumes Deck Builder draws from, for the mode; tapping one requires it, again leaves it out."""
+        r = self.c.get("/decks/costumes", params={"user": 1, "mode": "owned"}).json()
+        self.assertEqual(self.session.costumes_mode, "owned")
+        self.assertEqual([c["id"] for c in r], [35036, 33029])
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('<div class="f-chars" id="f-chars"', html)
+        self.assertIn('<input type="search" id="f-find"', html)
+        self.assertIn('include: state.include.join(","), exclude: state.exclude.join(",")', html)
+        self.assertNotIn("from its deck card's detail", html)
+        c = db.criteria_from(None, {"include": "35036", "exclude": "33029,34048"})
+        self.assertEqual((set(c.include), set(c.exclude)), ({35036}, {33029, 34048}))
+
+    def test_filter_chips_keep_their_text_when_hovered(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn(".chip:hover:not(.on){background:rgba(58,55,47,.08)!important;color:inherit!important}", html)
 
     def test_the_mode_is_called_all_maxed(self):
         html = self.c.get("/decks", params={"user": 1}).text
