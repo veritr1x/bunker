@@ -51,6 +51,14 @@ class FighterCacheTest(unittest.TestCase):
         for lineup in list(itertools.permutations(costumes, 3))[:60]:
             self.assertEqual(self.cache.side(lineup), self.built(lineup), lineup)
 
+    def test_cached_force_equals_the_deck_power(self):
+        """A deck's Force from the cache equals power.deck_power of the deck built whole (each actor keeps its own
+        identity: skill power counts a skill's owner by it)."""
+        from deckbuilder import power
+        for lineup in list(itertools.permutations(sorted(self.specs), 3))[:40]:
+            deck = model.compose(self.stage, self.stage, [self.specs[c] for c in lineup], 2, 7, tables())
+            self.assertEqual(self.cache.force(lineup), power.deck_power(deck, tables()).total, lineup)
+
     def test_party_statuses_reach_the_teammates(self):
         """Some fighters' stats are changed by their teammates (party-wide statuses): the sharing is exercised."""
         stat = lambda t: (t["hp"], t["atk"], t["df"], t["agi"])
