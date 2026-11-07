@@ -216,12 +216,15 @@ class Generator:
     def lineups(self, criteria, skip=None):
         """Every candidate lineup once (by costume set): expert lineups first,
         then combinations of the pool by summed expert weight."""
-        pool = self.pool(criteria.mode)
-        seen = set()
         held = self.base if criteria.mode.kind == "owned" else self.stage
         known = {r["costume_id"] for r in held.q("select costume_id from user_costumes where user_id=?")}
+        # A required costume from outside the pool (the picker lists every costume) joins it for this search.
+        extra = [c for c in sorted(criteria.include) if c in known]
+        pool = self.pool(criteria.mode)
+        pool = pool + [c for c in extra if c not in pool]
+        seen = set()
         if self._pool:
-            known &= set(self._pool)
+            known &= set(self._pool) | set(extra)
         for l in self.experts.lineups():
             key = frozenset(l.costumes)
             if key in seen or not set(l.costumes) <= known:
