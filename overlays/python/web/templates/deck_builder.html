@@ -34,7 +34,6 @@
   .rc-no{font:600 12px/1.6 var(--mono);opacity:.45}
   .rc-name b{display:block;font-size:14px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rc-name small{display:block;font-size:11px;opacity:.7;margin-top:1px}
-  .rc-name .badge{font:600 9px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid currentColor;padding:0 4px;margin-left:4px;opacity:.9}
   .rc-win{text-align:right;line-height:1.05}.rc-win b{font-size:15px;font-weight:600;display:block}.rc-win small{font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
   .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:0 10px}
   .tile{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -94,8 +93,7 @@
   .reason{border-left:3px solid currentColor;padding:2px 0 2px 10px;margin:0;line-height:1.5;font-size:13px}
   .reason:not(.open){display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
   .read-more{min-height:0;padding:0;margin-top:2px;background:none;border:0;color:inherit;font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;text-decoration:underline;opacity:.75}
-  .read-more[hidden],.ds-pick[hidden]{display:none}
-  .ds-pick{font-size:12px;opacity:.85;margin:0}
+  .read-more[hidden]{display:none}
   .chars{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
   details.ch>summary{list-style:none;display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:8px 10px;cursor:pointer;font:inherit;letter-spacing:normal;text-transform:none}
   details.ch>summary::-webkit-details-marker{display:none}
@@ -206,7 +204,6 @@
       <div class="trio" id="d-trio" style="padding:0"></div>
       <div class="ds-stats" id="d-stats"></div>
       <div style="margin-top:10px"><p class="reason" id="d-why"></p><button type="button" class="read-more" id="d-more" hidden onclick="this.textContent = $('d-why').classList.toggle('open') ? 'Read less' : 'Read more'">Read more</button></div>
-      <p class="ds-pick" id="d-pick" hidden></p>
       <div id="d-over"></div>
     </div>
     <div class="ds-right">
@@ -282,9 +279,8 @@ const pic = id => `<img src="/decks/portrait/${Number(id)}.png" alt="" loading="
 function cardHtml(c) {
   cards[c.key] = c;
   const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><span class="nm">${esc(t.name)}</span></div>`).join("");
-  const badge = c.data_pick ? '<span class="badge">Data pick</span>' : "";
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
-    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}${badge}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div>
+    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div>
     <div class="trio">${tiles}</div>
     <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span></div></button>`;
 }
@@ -317,13 +313,11 @@ async function openDetail(key, el) {
   chosen = key;
   const c = cards[key];
   $("d-title").textContent = c.title;
-  $("d-sub").textContent = [c.strategy, c.data_pick ? "Data pick" : ""].filter(Boolean).join(" · ");
+  $("d-sub").textContent = c.strategy;
   $("d-trio").innerHTML = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
   $("d-stats").innerHTML = [["Wins", c.win_pct + "%"], ["Force", c.force.toLocaleString()], ["To add", c.to_add], ["Variants", c.variants]]
     .map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join("");
   $("d-why").textContent = c.why; $("d-why").classList.remove("open"); $("d-more").hidden = true;
-  $("d-pick").hidden = !c.data_pick;
-  if (c.data_pick) $("d-pick").textContent = `Data pick: wins ${c.data_pick.by_pct} points more often than the experts' ${c.data_pick.beats}.`;
   $("d-chars").innerHTML = '<p class="help">Loading…</p>'; $("d-over").innerHTML = ""; $("w-raise-box").hidden = true; $("w-sum").textContent = "";
   $("d-msg").hidden = true;
   $("detail").hidden = false; $("detail").querySelector(".ds-body").scrollTop = 0;
