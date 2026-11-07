@@ -165,7 +165,7 @@
     <div class="db-lbl">Build from</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">What I own</button><button type="button" data-v="best" class="on">All maxed</button></div>
       <p class="help">All maxed uses anything in the game, fully raised: missing pieces are added maxed, and your own costumes and characters are raised when you write the deck. With "What I own", allow up to
-        <select id="allow">{% for n in (0, 1, 2, 3, 5, 10) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}</select> pieces to be added.</p></div>
+        <select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">All</option></select> pieces to be added.</p></div>
     <div class="db-lbl subj-only">Boss</div>
     <div class="subj-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="boss" style="width:100%;min-width:0">{% for b in bosses %}<option value="{{ b.id }}">{{ b.name }} · {{ b.element }}</option>{% endfor %}</select>
