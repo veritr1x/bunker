@@ -25,6 +25,7 @@ import android_runtime as runtime
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 ARENA = 2
+ARENA_TABLE_SIZE = 300     # decks in the Arena deck table
 EFFECTS = ("compromise", "cleanse", "revive", "provoke", "dauntless", "indomitable", "from_start")
 _lock = threading.Lock()
 _sessions: dict = {}
@@ -65,30 +66,37 @@ class Session:
         from deckbuilder import experts, generate, model, sim
         from deckbuilder.tables import Tables
         self.user_id = user_id
-        self.tables = Tables(config.MASTERDATA_DIR, config.NAMES_DIR)
+        self.lock = threading.RLock()
+        self.tables = _tables_for(runtime.fingerprint(config.find_master_data_bin()))
         sim.use(self.tables)
         self.experts = experts.Experts.load(self.tables)
         self.base = model.Save(model.connect_ro(config.GAME_DB_PATH), user_id)
-        self.stage = model.Save(model.connect_ro(self.ensure_stage()), 1)
+        self._open_stage(self.ensure_stage())
+
+    def _open_stage(self, path):
+        from deckbuilder import generate, model
+        self.stage = model.Save(model.connect_ro(path), 1)
         self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage)
         self.results = {}
         self._against = {}
 
-    def ensure_stage(self) -> Path:
-        """The staging save for this master data, built (by the server's own
-        upgrades) when missing or made from other master data."""
-        from deckbuilder import equip, stage
+    def ensure_stage(self, extra=()) -> Path:
+        """The staging save for this master data and this build's expert and
+        ranking data, built (by the server's own upgrades) when missing or made
+        from other data; extra costumes (opponents) are kept in it."""
+        from deckbuilder import equip, generate, stage
         folder = _stage_dir()
         path, marker = folder / "stage.db", folder / "stage.json"
-        sig = runtime.fingerprint(config.find_master_data_bin())
-        if path.exists() and runtime.read_json(marker) == {"master": sig}:
+        old = runtime.read_json(marker) or {}
+        extras = sorted(set(old.get("extra") or []) | set(extra))
+        want = {"master": runtime.fingerprint(config.find_master_data_bin()), "data": _data_signature(), "extra": extras}
+        if path.exists() and old == want:
             return path
-        from deckbuilder import generate
         pool = generate.default_pool(self.tables, self.experts)
-        plan = equip.stage_plan([(c,) for c in pool] + [l.costumes for l in self.experts.lineups()], self.tables, self.experts)
-        stage.Stager(lambda p: _shim(p), self.tables).build(**plan)
+        lineups = [(c,) for c in pool + extras] + [l.costumes for l in self.experts.lineups()]
+        stage.Stager(lambda p: _shim(p), self.tables).build(**equip.stage_plan(lineups, self.tables, self.experts))
         folder.mkdir(parents=True, exist_ok=True)
-        marker.write_text(json.dumps({"master": sig}))
+        marker.write_text(json.dumps(want))
         return path
 
     def against(self, opponent):
@@ -101,7 +109,11 @@ class Session:
             o = next((x for x in self.opponents() if str(x["id"]) == str(opponent)), None)
             if not o:
                 return None
-            lineup = tuple(c for c in o["costumes"] if c)
+            lineup = tuple(c for c in o["costumes"] if c and c in self.tables.idx("Costume", "CostumeId"))
+            staged = {r["costume_id"] for r in self.stage.q("select costume_id from user_costumes where user_id=?")}
+            if not set(lineup) <= staged:     # an opponent outside the stage: stage their costumes too
+                self.stage.db.close()
+                self._open_stage(self.ensure_stage(extra=lineup))
             self._against[opponent] = equip.equip(lineup, equip.Mode("best"), self.stage, self.stage, self.tables, self.experts,
                                                   deck_number=99).deck
         return self._against[opponent]
@@ -181,6 +193,45 @@ class Session:
             return []
 
 
+def _locked(fn):
+    """A Session is used by one thread at a time (requests and the Arena refresh)."""
+    import functools
+
+    @functools.wraps(fn)
+    def run(self, *a, **kw):
+        with self.lock:
+            return fn(self, *a, **kw)
+    return run
+
+
+for _name in ("page", "find", "tiles", "detail", "rescore", "against", "opponents", "slots"):
+    setattr(Session, _name, _locked(getattr(Session, _name)))
+
+
+_tables_cache: dict = {}
+_tables_lock = threading.Lock()
+
+
+def _tables_for(signature):
+    """One Tables per master data: the simulator reloads its modules when
+    the Tables object changes, so sessions share it."""
+    from deckbuilder.tables import Tables
+    with _tables_lock:      # not _lock: session() holds that while a Session is made
+        if signature not in _tables_cache:
+            _tables_cache.clear()
+            _tables_cache[signature] = Tables(config.MASTERDATA_DIR, config.NAMES_DIR)
+        return _tables_cache[signature]
+
+
+def _data_signature():
+    """The shipped expert and ranking data the stage was planned from."""
+    import hashlib
+    h = hashlib.sha256()
+    for name in ("experts.json", "rankings.json"):
+        h.update((Path(__file__).resolve().parent / "deckbuilder" / "data" / name).read_bytes())
+    return h.hexdigest()
+
+
 def session(user_id: int) -> Session:
     with _lock:
         s = _sessions.get(user_id)
@@ -202,10 +253,12 @@ def _refresh_arena_now(user_id: int) -> None:
     s = session(user_id)
     decks, players = _arena_files()
     sig = runtime.fingerprint(config.find_master_data_bin())
-    if ladder.needs_export(decks, sig):
-        from deckbuilder import generate
-        ladder.export_table(s.tables, s.experts, s.stage, decks, pool=generate.default_pool(s.tables, s.experts), master_sha=sig)
-    ladder.write_player_score(players, user_id, ladder.score_player(s.base, s.tables, s.experts, s.stage))
+    with s.lock:
+        if ladder.needs_export(decks, sig):
+            from deckbuilder import generate
+            ladder.export_table(s.tables, s.experts, s.stage, decks, size=ARENA_TABLE_SIZE,
+                                pool=generate.default_pool(s.tables, s.experts), master_sha=sig)
+        ladder.write_player_score(players, user_id, ladder.score_player(s.base, s.tables, s.experts, s.stage))
 
 
 def refresh_arena(user_id: int) -> None:

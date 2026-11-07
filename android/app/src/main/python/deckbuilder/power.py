@@ -476,7 +476,8 @@ class Actor:
         dc = s.one("select * from user_deck_characters where user_id=? and user_deck_character_uuid=?", dc_uuid)
         self.uuid = dc_uuid
         self.stored = dc["power"] if dc else None
-        self.empty = not dc or not dc["user_costume_uuid"]
+        self.empty = not dc or not dc["user_costume_uuid"] or not s.one(
+            "select 1 x from user_costumes where user_id=? and user_costume_uuid=?", dc["user_costume_uuid"])  # a costume no longer owned
         if self.empty:
             return
         self.costume = build_costume(m, s, dc["user_costume_uuid"])
