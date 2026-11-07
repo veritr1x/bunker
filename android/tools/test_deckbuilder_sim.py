@@ -78,6 +78,21 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_attack_debuffs_never_heal_the_target(self):
+        """Attack debuffs past -100% (-50%, -50%, -15%: seen in the bake) once made the attacker's Attack negative,
+        so its hits healed the target past its max HP. Stats floor at the client's minimums (power.K_MIN: Attack 1,
+        crit rate 0, crit damage x1): damage is never negative."""
+        att = {"L": template(1)}
+        dfn = {"L": template(2, hp=100000.0)}
+        b = self.battle.Battle(att, dfn, random.Random(0))
+        u, tgt = b.sides["A"][0], b.sides["D"][0]
+        u.bf = [dict(key="Attack", v=-0.5, left=900, src=1), dict(key="Attack", v=-0.5, left=900, src=2),
+                dict(key="Attack", v=-0.15, left=900, src=3), dict(key="CriticalRatio", v=-0.5, left=900, src=4)]
+        tgt.hp = 50000.0
+        b.hit(u, tgt, 1.0, 1)
+        self.assertLessEqual(tgt.hp, 50000.0)
+        self.assertGreater(tgt.hp, 49000.0)        # Attack 1: a scratch, not a heal and not a full hit
+
     def test_score_runs_one_seed_when_no_draw_can_matter(self):
         """A fight whose random draws cannot change anything (no chance below 1, no shuffle that matters) plays the
         same on every seed: score runs it once per opening and counts it for every seed, the same result."""
