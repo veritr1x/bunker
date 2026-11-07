@@ -324,7 +324,7 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
         reasons[(c, "memoirs")] = f"Set {series}: the {'attacker' if r == 'attacker' else 'support'} set, mains {', '.join(ROLE_MEMOIRS[r][1])}."
     if mode.kind == "owned":
         specs = _limit_missing(specs, mode.allow_missing, base, stage, tables)
-    deck = model.compose(base, stage, specs, deck_type, deck_number, tables)
+    deck = model.compose(base, stage, specs, deck_type, deck_number, tables, raise_all=mode.kind == "best")
     overrides = []
     for i, (c, r, series, expert_set) in enumerate(plan):
         default = ROLE_MEMOIRS[r][0]
@@ -340,7 +340,7 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
                 continue
             alt_specs = list(specs)
             alt_specs[i] = specs[i]._replace(memoirs=memoirs)
-            alt = model.compose(base, stage, alt_specs, deck_type, deck_number, tables)
+            alt = model.compose(base, stage, alt_specs, deck_type, deck_number, tables, raise_all=mode.kind == "best")
             r_alt = rate(alt)
             if r_alt > r_exp and (best is None or r_alt > best[0]):
                 best = (r_alt, alt_set, alt_specs, alt)

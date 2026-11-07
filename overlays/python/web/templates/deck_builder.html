@@ -339,12 +339,16 @@ async function openDetail(key, el) {
     <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(ch.element)} · Force ${ch.force.toLocaleString()}</div></div></summary>
     <p class="line">${esc(ch.line)}</p>${pieceRows(ch.pieces)}</details>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>Data override.</strong> ${esc(o)}</div>`).join("");
+  const FIELD = {"level": "level", "limit_break_count": "limit breaks", "awaken_count": "awakening",
+                 "costume_lottery_effect_unlocked_slot_count": "karma slots", "karma": "karma", "mythic_slab": "Mythic Slab"};
   const byCostume = {};
   d.raises.forEach(r => (byCostume[r.costume_id] = byCostume[r.costume_id] || {name: r.name, items: [], used: r.used_in}).items.push(r));
   $("w-raise").innerHTML = Object.entries(byCostume).map(([id, x]) => `<label class="w-sl"><input type="checkbox" value="${id}" onchange="rescore()">
-    <span>${esc(x.name)}<small>${x.items.map(i => `${esc(i.field.replaceAll("_", " "))} ${i.current} → ${i.target}`).join(", ")}</small>
+    <span>${esc(x.name)}<small>${x.items.map(i => i.field === "mythic_slab" ? "Mythic Slab filled" : `${esc(FIELD[i.field] || i.field.replaceAll("_", " "))} ${i.current} → ${i.target}`).join(", ")}</small>
     ${x.used.length ? `<small class="warn">Also used in ${esc(x.used.join(", "))}</small>` : ""}</span><span></span></label>`).join("");
   $("w-raise-box").hidden = !d.raises.length;
+  // Theoretical best counts your own costumes and characters fully raised: the write raises them unless unticked.
+  if (state.mode === "best") document.querySelectorAll("#w-raise input").forEach(b => (b.checked = true));
   preTick();
   rescore();
 }
