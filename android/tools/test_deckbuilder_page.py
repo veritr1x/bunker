@@ -163,8 +163,13 @@ class PageTest(unittest.TestCase):
         self.assertNotIn('id="ctx"', html)
         self.assertNotIn('data-name="sort"', html)
 
-    def test_theoretical_best_ticks_every_raise(self):
-        """Theoretical best counts the player's own costumes and characters fully raised, so the write raises them
+    def test_the_mode_is_called_all_maxed(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('<button type="button" data-v="best" class="on">All maxed</button>', html)
+        self.assertNotIn("Theoretical", html)
+
+    def test_all_maxed_ticks_every_raise(self):
+        """All maxed counts the player's own costumes and characters fully raised, so the write raises them
         unless unticked; What I own leaves them unticked."""
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('if (state.mode === "best") document.querySelectorAll("#w-raise input").forEach(b => (b.checked = true));', html)

@@ -87,7 +87,7 @@ OUTSIDERS = 15
 
 
 def default_pool(tables, experts, size=DEFAULT_POOL, outsiders=OUTSIDERS) -> list:
-    """The costumes Theoretical best combines: the expert picks, and the
+    """The costumes All maxed combines: the expert picks, and the
     best-scored costumes no expert listed (so the data can find what they missed)."""
     playable = lambda c: tables.is_playable(c) and c in tables.idx("Costume", "CostumeId")
     picks = [c for c in experts.costumes() if playable(c)][:size - outsiders]

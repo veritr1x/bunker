@@ -35,7 +35,7 @@ def rankings() -> dict:
 
 
 class Mode(NamedTuple):
-    kind: str                 # "owned" (What I own) or "best" (Theoretical best)
+    kind: str                 # "owned" (What I own) or "best" (All maxed)
     allow_missing: int = 0    # What I own: pieces that may be added, fully raised
 
 

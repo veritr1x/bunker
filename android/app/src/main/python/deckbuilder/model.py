@@ -329,7 +329,7 @@ def compose(base: Save, stage: Save | None, specs: list, deck_type: int, deck_nu
             tables, raises: list[int] = (), raise_all: bool = False) -> Deck:
     """A deck in memory: base's rows, plus the stage pieces specs name, plus the
     ticked raises (costume ids), plus the deck at (deck_type, deck_number).
-    raise_all (Theoretical best): every costume of the player's in the deck is raised."""
+    raise_all (All maxed): every costume of the player's in the deck is raised."""
     con = sqlite3.connect(":memory:", check_same_thread=False)
     uid = base.uid
     for t in TABLES:

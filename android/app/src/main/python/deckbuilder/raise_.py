@@ -1,4 +1,4 @@
-"""Theoretical-best memoirs, under the original game's rules: any main stat the
+"""All-maxed memoirs, under the original game's rules: any main stat the
 master data defines (agility, crit damage and crit rate included, which
 Bunker's server never rolls), at +15, with up to four sub stats at their top
 (level-12) step. The rows themselves are written by the server's
