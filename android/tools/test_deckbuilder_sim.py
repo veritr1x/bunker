@@ -78,6 +78,17 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_time_out_with_both_sides_nearly_out_is_the_defenders(self):
+        """At the time limit a side wins on HP share only when clearly ahead: two units held at 1 HP by Dauntless
+        are a draw (the defender's), not a win for the side whose 1 HP is a larger share of a smaller maximum."""
+        att = {"L": template(1, hp=1000.0)}
+        dfn = {"L": template(2, hp=100000.0)}
+        for a_hp, d_hp, winner in ((1, 1, "D"), (600, 1, "A"), (1, 60000, "D")):
+            b = self.battle.Battle(att, dfn, random.Random(0))
+            b.frames = 0
+            b.sides["A"][0].hp, b.sides["D"][0].hp = a_hp, d_hp
+            self.assertEqual(b.run()["win"], winner, (a_hp, d_hp))
+
     def test_score_counts_both_openings(self):
         """Who opens decides many fights, and the player may tap start skills by hand or leave them on Auto:
         a match is scored over both openings. Here the side that opens wins, so the score is half; the margin
