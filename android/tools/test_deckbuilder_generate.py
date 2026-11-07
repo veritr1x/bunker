@@ -67,6 +67,11 @@ class GenerateTest(unittest.TestCase):
             self.assertNotIn("Video", r.name)
             self.assertIn(r.strategy, generate.STRATEGY_NAME)
 
+    def test_all_maxed_combines_the_pool_chosen_by_strength(self):
+        """The pool prepare chose (screen.pool_by_strength), kept to the costumes the stage holds."""
+        gen = generate.Generator(tables(), self.experts, self.stage, self.stage, best_pool=[LARS, SARAFA, 31001, RION])
+        self.assertEqual(gen.pool(equip.Mode("best")), [LARS, SARAFA, RION])
+
     def test_a_required_costume_outside_the_pool_is_combined(self):
         """The picker lists every costume: one required from outside the pool joins it for that search."""
         gen = generate.Generator(tables(), self.experts, self.stage, self.stage, pool=POOL[:5], meta_size=1, runs=1)
