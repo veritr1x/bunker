@@ -23,6 +23,7 @@ from typing import NamedTuple
 
 DATA = Path(__file__).parent / "data" / "baked"
 REC = struct.Struct("<HHHHhHhI")
+FREC = struct.Struct("<HHHI")           # the Force list: left, middle, right, Force (each costume in its Force loadout)
 SCALE = 10000
 KEEP = 300000           # decks kept per list (the bake ranks them all; the rest win nothing against the meta)
 
@@ -42,8 +43,10 @@ def _key(deck_for):
     return lambda r: (-r.attack_win, -r.attack_margin, -r.force, r.lineup)
 
 
-def write(path, loadouts: dict, fingerprint: str, rows, keep: int = KEEP, extra: dict | None = None):
-    """Write the baked data: loadouts {costume id: loadout} (each with its "element"), rows of Record."""
+def write(path, loadouts: dict, fingerprint: str, rows, keep: int = KEEP, extra: dict | None = None,
+          force_rows=None, force_loadouts: dict | None = None):
+    """Write the baked data: loadouts {costume id: loadout} (each with its "element"), rows of Record; and the Force
+    list: force_rows of (lineup, Force) with each costume in force_loadouts (its loadout with the most Force)."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     costumes = sorted(loadouts)
@@ -56,8 +59,14 @@ def write(path, loadouts: dict, fingerprint: str, rows, keep: int = KEEP, extra:
                                  round(r.defense_win * SCALE), round(r.defense_margin * SCALE), r.force) for r in top)
         (path / f"{deck_for}.bin.z").write_bytes(zlib.compress(blob, 9))
         lists[deck_for] = len(top)
+    if force_rows is not None:
+        top = sorted(force_rows, key=lambda r: (-r[1], tuple(r[0])))[:keep]
+        (path / "force.bin.z").write_bytes(zlib.compress(b"".join(FREC.pack(*(index[c] for c in l), f) for l, f in top), 9))
+        lists["force"] = len(top)
     meta = dict(extra or {}, costumes=costumes, loadouts={str(c): loadouts[c] for c in costumes},
                 fingerprint=fingerprint, decks=lists)
+    if force_loadouts is not None:
+        meta["force_loadouts"] = {str(c): force_loadouts[c] for c in costumes if c in force_loadouts}
     (path / "meta.json").write_text(json.dumps(meta, sort_keys=True))
     return path
 
@@ -67,6 +76,7 @@ class Baked:
         self.path, self.meta = path, meta
         self.costumes = meta["costumes"]
         self.loadouts = {int(k): v for k, v in meta["loadouts"].items()}
+        self.force_loadouts = {int(k): v for k, v in (meta.get("force_loadouts") or {}).items()}
         self.fingerprint = meta["fingerprint"]
         self._records = {}
 
@@ -81,8 +91,19 @@ class Baked:
         lo = self.loadouts.get(costume_id)
         return lo["element"] if lo else None
 
+    def has_force(self) -> bool:
+        return bool(self.force_loadouts) and (self.path / "force.bin.z").exists()
+
+    def loadouts_for(self, sort: str) -> dict:
+        """The loadouts a list's decks are in: the Force list's for sort "force", else the fights'."""
+        return self.force_loadouts if sort == "force" and self.force_loadouts else self.loadouts
+
     def records(self, deck_for: str) -> list:
-        """The decks in rank order for "attack" or "defense" (read once)."""
+        """The decks in rank order for "attack", "defense" or "force" (the Force list; win fields 0) (read once)."""
+        if deck_for == "force" and "force" not in self._records:
+            blob = zlib.decompress((self.path / "force.bin.z").read_bytes())
+            cs = self.costumes
+            self._records["force"] = [Record((cs[a], cs[b], cs[c]), 0.0, 0.0, 0.0, 0.0, f) for a, b, c, f in FREC.iter_unpack(blob)]
         if deck_for not in self._records:
             blob = zlib.decompress((self.path / f"{'defense' if deck_for == 'defense' else 'attack'}.bin.z").read_bytes())
             cs = self.costumes
@@ -92,12 +113,12 @@ class Baked:
 
 
 def fingerprint(cache, keys: dict, meta_sides) -> str:
-    """A hash of what the baked results depend on: every costume's fighter in its baked loadout (keys: costume id ->
-    its key in the fighters.FighterCache) and its Force, and the meta decks' fighters (battle sides). Equal on two
-    machines, their fights are equal."""
+    """A hash of what the baked results depend on: every costume's fighter in each of its baked loadouts (keys:
+    ("fight" or "force", costume id) -> its key in the fighters.FighterCache) and its Force, and the meta decks'
+    fighters (battle sides). Equal on two machines, their fights and Force are equal."""
     h = hashlib.sha256()
-    for c in sorted(keys):
-        h.update(json.dumps([c, cache._templates[keys[c]], cache.force((keys[c],))], sort_keys=True, default=_plain).encode())
+    for k in sorted(keys):
+        h.update(json.dumps([list(k), cache._templates[keys[k]], cache.force((keys[k],))], sort_keys=True, default=_plain).encode())
     for side in meta_sides:
         h.update(json.dumps(sorted(side.items()), sort_keys=True, default=_plain).encode())
     return h.hexdigest()

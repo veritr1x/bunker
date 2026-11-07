@@ -42,6 +42,16 @@ class FormatTest(unittest.TestCase):
         self.assertEqual(self.b.element(2), "water")
         self.assertEqual(self.b.meta["bake"], "test")
 
+    def test_the_force_list(self):
+        """A third list ranks decks by Force with each costume's Force loadout (force_loadouts)."""
+        flo = {c: dict(lo, main_weapon=500 + c) for c, lo in LOADOUTS.items()}
+        baked.write(self.path, LOADOUTS, "abc", ROWS, force_rows=[((1, 2, 3), 600000), ((2, 3, 4), 650000), ((4, 3, 1), 610000)],
+                    force_loadouts=flo)
+        b = baked.Baked.load(self.path)
+        self.assertEqual([(r.lineup, r.force) for r in b.records("force")], [((2, 3, 4), 650000), ((4, 3, 1), 610000), ((1, 2, 3), 600000)])
+        self.assertEqual(b.loadouts_for("force")[2]["main_weapon"], 502)
+        self.assertEqual(b.loadouts_for("match")[2]["main_weapon"], 102)
+
     def test_keeps_only_the_top(self):
         b = baked.write(self.path, LOADOUTS, "x", ROWS, keep=2)
         b = baked.Baked.load(self.path)
@@ -96,7 +106,10 @@ class GeneratorTest(unittest.TestCase):
         combos = [c for c in itertools.combinations(cls.POOL, 3) if len({char[x] for x in c}) == 3]
         cls.rows = [baked.Record(c, round(1 - i / 40, 4), 0.0, round(i / 40, 4), 0.0, 300000 + 1000 * i) for i, c in enumerate(combos)]
         cls.bdir = Path(cls.dir.name) / "baked"
-        baked.write(cls.bdir, los, "fp", cls.rows)
+        # the Force list: the same loadouts with each costume's last sub weapon as its main (a different loadout)
+        cls.flos = {c: (dict(lo, main_weapon=lo["subs"][-1], subs=lo["subs"][:-1]) if lo["subs"] else lo) for c, lo in los.items()}
+        cls.force_rows = [(r.lineup, 600000 - 1000 * i) for i, r in enumerate(reversed(cls.rows))]
+        baked.write(cls.bdir, los, "fp", cls.rows, force_rows=cls.force_rows, force_loadouts=cls.flos)
         cls.gen = generate.Generator(tables(), cls.ex, cls.stage, cls.stage, baked=baked.Baked.load(cls.bdir), meta_size=1, runs=1)
 
     @classmethod
@@ -122,7 +135,9 @@ class GeneratorTest(unittest.TestCase):
         page = self.gen.page(self.criteria(exclude=frozenset({35036})), 0, 50)
         self.assertTrue(page.items and all(35036 not in r.lineup for r in page.items))
         forced = self.gen.page(self.criteria(sort="force"), 0, 3)
-        self.assertEqual([r.lineup for r in forced.items], [r.lineup for r in sorted(self.rows, key=lambda r: -r.force)[:3]])
+        self.assertEqual([r.lineup for r in forced.items], [l for l, f in sorted(self.force_rows, key=lambda x: -x[1])[:3]])
+        self.assertEqual(forced.items[0].equipped.specs[0].main_weapon.uuid,
+                         self.stage.pick("weapon", weapon_id=self.flos[forced.items[0].lineup[0]]["main_weapon"]))
 
     def test_the_deck_holds_the_baked_gear(self):
         r = self.gen.page(self.criteria(), 0, 1).items[0]
