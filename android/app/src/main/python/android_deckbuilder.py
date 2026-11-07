@@ -356,7 +356,9 @@ def criteria_from(s: Session | None, q: dict):
 
 
 def card(s, r) -> dict:
+    from deckbuilder import generate
     return {"key": result_key(r), "rank": r.rank, "title": r.name, "win_pct": round(100 * r.win_rate), "tiles": s.tiles(r),
+            "strategy": generate.STRATEGY_NAME.get(r.strategy, ""), "expert": bool(r.expert),
             "tags": r.tags[:3], "why": r.why, "force": r.force, "to_add": r.to_add, "variants": len(r.variants),
             "data_pick": {"beats": r.data_pick.beats, "by_pct": round(100 * r.data_pick.by)} if r.data_pick else None}
 

@@ -126,6 +126,11 @@ class PageTest(unittest.TestCase):
         self.assertEqual([t["slot"] for t in card["tiles"]], ["L", "M", "R"])
         self.assertTrue(card["key"])
 
+    def test_card_says_its_strategy_and_whether_experts_picked_it(self):
+        [card] = self.c.get("/decks/results", params={"user": 1, "offset": 0, "limit": 6}).json()["items"]
+        self.assertEqual(card["strategy"], "Compromise counter")
+        self.assertIs(card["expert"], False)
+
     def test_write_takes_snapshot_then_calls_shim(self):
         key = db.result_key(self.session.result)
         r = self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [2], "raise": [35036]})

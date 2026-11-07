@@ -24,14 +24,18 @@
   .resbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 10px;font-size:13px}
   .resbar .ctx{opacity:.7;font-size:12px}
   .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .rc{border:1px solid var(--db-line);background:var(--db-soft);display:flex;flex-direction:column;cursor:pointer;text-align:left;color:inherit;padding:0;font:inherit}
+  /* A deck card is a button: undo the buttons' capitals, spacing and weight. */
+  .rc{border:1px solid var(--db-line);background:var(--db-soft);display:flex;flex-direction:column;cursor:pointer;text-align:left;color:inherit;padding:0;
+    font:400 13px/1.4 var(--sans);text-transform:none;letter-spacing:normal;min-height:0}
   .rc:hover,.rc:focus-visible{background:rgba(220,216,192,.12)!important;color:inherit!important;transform:none!important}
   .rc.on{outline:2px solid var(--fg-dark);outline-offset:-2px}
-  .rc-head{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px 8px}
-  .rc-no{font-size:22px;font-weight:bold;opacity:.35;line-height:1}
-  .rc-title{font-weight:bold;font-size:15px;line-height:1.2}
-  .rc-win{text-align:right;line-height:1.1}.rc-win b{font-size:17px;display:block}.rc-win small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.65}
-  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 12px}
+  .rc-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:start;padding:9px 10px 7px}
+  .rc-no{font:600 12px/1.6 var(--mono);opacity:.45}
+  .rc-name b{display:block;font-size:14px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rc-name small{display:block;font-size:11px;opacity:.7;margin-top:1px}
+  .rc-name .badge{font:600 9px var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid currentColor;padding:0 4px;margin-left:4px;opacity:.9}
+  .rc-win{text-align:right;line-height:1.05}.rc-win b{font-size:15px;font-weight:600;display:block}.rc-win small{font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:0 10px}
   .tile{display:flex;flex-direction:column;gap:4px;min-width:0}
   .por{aspect-ratio:3/4;position:relative;border:1px solid var(--db-line);overflow:hidden}
   .por::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.18),transparent 45%,rgba(0,0,0,.25))}
@@ -41,14 +45,9 @@
   .por .slot{position:absolute;left:0;bottom:0;background:rgba(0,0,0,.45);color:#f3efe2;font-size:9px;letter-spacing:.08em;padding:1px 5px;z-index:1}
   .por.new::before{content:"NEW";position:absolute;top:0;right:0;background:#f3efe2;color:#3a372f;font-size:8px;padding:1px 4px;z-index:1;font-weight:bold}
   .tile .nm{font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
-  .tagline{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px;margin-top:8px}
-  .tg{font-size:10px;border:1px solid var(--db-line);padding:0 5px;opacity:.85}
-  .rc-why{font-size:12px;line-height:1.5;margin:8px 12px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .rc-pick{font-size:11px;margin:6px 12px 0;opacity:.8}
-  .rc-foot{margin-top:auto;display:flex;gap:12px;align-items:center;padding:8px 12px;border-top:1px dotted var(--db-line);font-size:11px}
-  .rc-foot .k{opacity:.6;letter-spacing:.06em;text-transform:uppercase;font-size:9px;display:block}
-  .rc-foot .v{font-weight:bold;font-size:12px}
-  .rc-foot .var{margin-left:auto;text-decoration:underline;opacity:.8}
+  .rc-why{font-size:12px;line-height:1.45;margin:7px 10px 0;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rc-foot{margin-top:8px;display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-top:1px dotted var(--db-line);font-size:11.5px;opacity:.85}
+  .rc-foot b{font-weight:600}
   .more{text-align:center;margin:12px 0 0;font-size:12px;opacity:.75}
   .reason{border-left:3px solid currentColor;padding:4px 0 4px 12px;margin:10px 0 14px;line-height:1.55}
   .chars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
@@ -79,12 +78,41 @@
   .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--db-line);margin-bottom:12px}
   .sheet-head b{font-size:15px;letter-spacing:.12em;text-transform:uppercase;margin-right:auto}
   .sheet-foot{display:grid;grid-template-columns:1fr 2fr;gap:8px;position:sticky;bottom:0;padding:10px 0 12px;margin-top:12px;background:var(--bg-cream);border-top:1px solid var(--db-line)}
-  @media (max-width:900px){.cards,.chars{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
+  .deck-sheet{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;background:var(--bg-cream);color:var(--fg-dark)}
+  .deck-sheet[hidden]{display:none}
+  .ds-head{display:flex;align-items:center;gap:10px;padding:8px max(14px,var(--hole-right,0px)) 8px max(14px,var(--hole-left,0px));border-bottom:1px solid var(--db-line)}
+  .ds-head .ds-name{flex:1;min-width:0}
+  .ds-head .ds-name b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ds-head .ds-name small{font-size:11.5px;opacity:.7}
+  .ds-head button{min-height:34px;padding:4px 12px}
+  .ds-body{flex:1;overflow-y:auto;padding:12px max(14px,var(--hole-right,0px)) 16px max(14px,var(--hole-left,0px));display:grid;gap:14px;align-content:start}
+  .ds-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--db-line);border-bottom:1px solid var(--db-line);margin-top:8px}
+  .ds-stats div{padding:6px 8px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+  .ds-stats div+div{border-left:1px solid var(--db-line)}
+  .ds-stats b{display:block;font-size:14px;letter-spacing:0;text-transform:none}
+  .reason{border-left:3px solid currentColor;padding:2px 0 2px 10px;margin:0;line-height:1.5;font-size:13px}
+  .reason:not(.open){display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+  .read-more{min-height:0;padding:0;margin-top:2px;background:none;border:0;color:inherit;font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;text-decoration:underline;opacity:.75}
+  .read-more[hidden],.ds-pick[hidden]{display:none}
+  .ds-pick{font-size:12px;opacity:.85;margin:0}
+  .chars{display:grid;gap:8px}
+  details.ch>summary{list-style:none;display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:8px 10px;cursor:pointer;font:inherit;letter-spacing:normal;text-transform:none}
+  details.ch>summary::-webkit-details-marker{display:none}
+  details.ch>summary .por{width:40px}
+  details.ch>summary::after{content:"+";font:16px var(--mono);opacity:.6}
+  details.ch[open]>summary::after{content:"–"}
+  details.ch .role{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-top:2px}
+  details.ch b{font-weight:600}
+  details.ch .line{font-size:12px;line-height:1.45;padding:0 10px 8px;margin:0}
+  .ds-foot{border-top:1px solid var(--db-line);padding:8px max(14px,var(--hole-right,0px)) 10px max(14px,var(--hole-left,0px));display:flex;align-items:center;gap:12px}
+  .ds-foot p{flex:1;margin:0;font-size:12px;line-height:1.45}
+  #d-msg{margin:0}
+  @media (min-width:901px) and (min-height:600px){.deck-sheet{inset:4vh max(16px,calc(50vw - 560px));border:2px solid var(--fg-dark)}.ds-body{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}}
+  @media (max-width:900px){.cards{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
   @media (max-width:640px){
     .db-controls{grid-template-columns:1fr}
     .filters-panel{left:0;right:0;bottom:0;top:110px;width:auto;max-height:none;transform:none;border-width:2px 0 0;padding:6px 14px 0;animation:rise .2s ease-out}
     @keyframes rise{from{transform:translateY(40%);opacity:.4}}
-    .tagline{display:none}
     .write-bar{position:sticky;bottom:0;padding:10px 0;background:inherit}
   }
   /* A phone on its side: the controls in the side column, two decks across (automata.css). */
@@ -93,7 +121,10 @@
     .page-side .seg{display:flex}.page-side .seg button{flex:1;width:auto;padding:6px 4px;font-size:11px}
     .page-side .help{font-size:10.5px}.page-side #against{width:100%}
     .page-main .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .page-main .tagline{display:none}
+    /* the deck view: portraits, numbers and reason on the left; characters and the slots on the right */
+    .deck-sheet{left:0}
+    .ds-body{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);align-items:start}
+    .ds-left{position:sticky;top:0}
   }
 </style>
 
@@ -153,20 +184,29 @@
 <div class="cards" id="cards"></div>
 <p class="more" id="more"></p>
 
-<div id="detail" hidden>
-  <h2 class="bracket-header" id="d-title"></h2>
-  <div class="panel">
-    <div class="reason" id="d-why"></div>
-    <div class="chars" id="d-chars"></div>
-    <div id="d-over"></div>
+<div id="detail" class="deck-sheet" role="dialog" aria-modal="true" aria-labelledby="d-title" hidden>
+  <div class="ds-head">
+    <button type="button" class="chip" onclick="closeDetail()" aria-label="Back to the decks">‹ Decks</button>
+    <div class="ds-name"><b id="d-title"></b><small id="d-sub"></small></div>
   </div>
-  <h2 class="bracket-header">Write</h2>
-  <div class="panel">
-    <div class="w-h">Write to</div>
-    <div id="w-slots">{% for s in slots %}<label class="w-sl"><input type="checkbox" value="{{ s.number }}"{% if "(defense)" in s.label %} data-defense="1"{% endif %}{% if not s.summary %} data-empty="1"{% endif %}><span>{{ s.label }}<small>{% if s.summary %}Your deck · {{ s.summary }}{% else %}Empty{% endif %}</small></span><span></span></label>{% endfor %}</div>
-    <div id="w-raise-box" hidden><div class="w-h">Raise what you own?</div><div id="w-raise"></div></div>
-    <div class="summary write-bar"><p id="w-sum"></p><button type="button" id="w-go" onclick="writeDeck()">WRITE DECK</button></div>
+  <div class="ds-body">
+    <div class="ds-left">
+      <div class="trio" id="d-trio" style="padding:0"></div>
+      <div class="ds-stats" id="d-stats"></div>
+      <div style="margin-top:10px"><p class="reason" id="d-why"></p><button type="button" class="read-more" id="d-more" hidden onclick="this.textContent = $('d-why').classList.toggle('open') ? 'Read less' : 'Read more'">Read more</button></div>
+      <p class="ds-pick" id="d-pick" hidden></p>
+      <div id="d-over"></div>
+    </div>
+    <div class="ds-right">
+      <div class="w-h" style="margin-top:0">Characters</div>
+      <div class="chars" id="d-chars"></div>
+      <div class="w-h">Write to</div>
+      <div id="w-slots">{% for s in slots %}<label class="w-sl"><input type="checkbox" value="{{ s.number }}"{% if "(defense)" in s.label %} data-defense="1"{% endif %}{% if not s.summary %} data-empty="1"{% endif %}><span>{{ s.label }}<small>{% if s.summary %}Your deck · {{ s.summary }}{% else %}Empty{% endif %}</small></span><span></span></label>{% endfor %}</div>
+      <div id="w-raise-box" hidden><div class="w-h">Raise what you own?</div><div id="w-raise"></div></div>
+    </div>
   </div>
+  <div id="d-msg" class="banner" hidden></div>
+  <div class="ds-foot"><p id="w-sum"></p><button type="button" id="w-go" onclick="writeDeck()">WRITE DECK</button></div>
 </div>
 
 <script>
@@ -174,6 +214,7 @@ const USER = {{ user }};
 const PREPARING = {{ "true" if preparing else "false" }};
 const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match"};
 let offset = 0, busy = false, done = false, chosen = null, detailData = null, pending = false;
+const cards = {};   // the listed decks by key, for the deck view's header and numbers
 const $ = id => document.getElementById(id);
 
 document.querySelectorAll(".seg").forEach(seg => seg.addEventListener("click", e => {
@@ -226,17 +267,17 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 // The costume's portrait from the game's files; the element colour stays when there is none.
 const pic = id => `<img src="/decks/portrait/${Number(id)}.png" alt="" loading="lazy" onerror="this.remove()">`;
 function cardHtml(c) {
-  const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><div class="nm">${esc(t.name)}</div></div>`).join("");
-  const tags = c.tags.map(t => `<span class="tg">${esc(t)}</span>`).join("");
-  const pick = c.data_pick ? `<p class="rc-pick">Data pick: beats ${esc(c.data_pick.beats)} by ${c.data_pick.by_pct} points</p>` : "";
-  return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><div class="rc-no">${String(c.rank).padStart(2, "0")}</div><div class="rc-title">${esc(c.title)}</div>
-    <div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div><div class="trio">${tiles}</div><div class="tagline">${tags}</div>
-    <p class="rc-why">${esc(c.why)}</p>${pick}<div class="rc-foot"><div><span class="k">Force</span><span class="v">${c.force.toLocaleString()}</span></div>
-    <div><span class="k">To add</span><span class="v">${c.to_add}</span></div>${c.variants ? `<span class="var">+${c.variants} variants</span>` : ""}</div></button>`;
+  cards[c.key] = c;
+  const tiles = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
+  const badge = c.expert ? '<span class="badge">Expert pick</span>' : c.data_pick ? '<span class="badge">Data pick</span>' : "";
+  return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
+    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}${badge}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div>
+    <div class="trio">${tiles}</div><p class="rc-why">${esc(c.why)}</p>
+    <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span><span><b>${c.to_add}</b> to add</span></div></button>`;
 }
 async function load(reset) {
   if (busy) { if (reset) pending = true; return; }   // a change while loading: load again when this one ends
-  if (reset) { offset = 0; done = false; $("cards").innerHTML = ""; $("detail").hidden = true; }
+  if (reset) { offset = 0; done = false; $("cards").innerHTML = ""; }
   if (done) return;
   busy = true; $("more").textContent = "Simulating decks…";
   try {
@@ -259,18 +300,34 @@ async function load(reset) {
 new IntersectionObserver(es => { if (es[0].isIntersecting && offset) load(false); }).observe($("more"));
 $("cards").addEventListener("click", e => { const b = e.target.closest(".rc"); if (b) openDetail(b.dataset.key, b); });
 
+// The deck view opens over the list; Back (the phone's too), ✕ and Escape return to the list where it was.
 async function openDetail(key, el) {
   document.querySelectorAll(".rc").forEach(x => x.classList.toggle("on", x === el));
   chosen = key;
+  const c = cards[key];
+  $("d-title").textContent = c.title;
+  $("d-sub").textContent = [c.strategy, c.expert ? "Expert pick" : c.data_pick ? "Data pick" : ""].filter(Boolean).join(" · ");
+  $("d-trio").innerHTML = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
+  $("d-stats").innerHTML = [["Wins", c.win_pct + "%"], ["Force", c.force.toLocaleString()], ["To add", c.to_add], ["Variants", c.variants]]
+    .map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join("");
+  $("d-why").textContent = c.why; $("d-why").classList.remove("open"); $("d-more").hidden = true;
+  $("d-pick").hidden = !c.data_pick;
+  if (c.data_pick) $("d-pick").textContent = `Data pick: wins ${c.data_pick.by_pct} points more often than the experts' ${c.data_pick.beats}.`;
+  $("d-chars").innerHTML = '<p class="help">Loading…</p>'; $("d-over").innerHTML = ""; $("w-raise-box").hidden = true; $("w-sum").textContent = "";
+  $("d-msg").hidden = true;
+  $("detail").hidden = false; $("detail").querySelector(".ds-body").scrollTop = 0;
+  if (!history.state?.deck) history.pushState({deck: key}, "");
   const res = await fetch(`/decks/detail?user=${USER}&key=${encodeURIComponent(key)}`);
   const d = await res.json();
-  if (!res.ok) { say("error", (d.error || "That deck is no longer listed") + ". Loading the list again."); load(true); return; }
+  if (chosen !== key) return;
+  if (!res.ok) { closeDetail(); say("error", (d.error || "That deck is no longer listed") + ". Loading the list again."); load(true); return; }
   detailData = d;
-  $("d-title").textContent = d.title;
-  $("d-why").innerHTML = `<strong>Why this deck.</strong> ${esc(d.why_long)}`;
-  $("d-chars").innerHTML = d.characters.map(c => `<div class="ch"><div class="ch-top"><div class="por e-${esc(c.element)}">${pic(c.costume_id)}</div><div><div class="role">${esc(c.slot)} · ${esc(c.element)} · Force ${c.force.toLocaleString()}</div>
-    <div class="nm2">${esc(c.name)}</div><div class="line">${esc(c.line)}</div></div></div><ul class="pieces">${c.pieces.map(p =>
-    `<li><div class="ico">${p.kind}</div><div><b>${esc(p.name)}${p.new ? '<span class="tagnew">NEW</span>' : ""}</b><span class="r">${esc(p.why)}</span></div></li>`).join("")}</ul></div>`).join("");
+  $("d-why").textContent = d.why_long;
+  requestAnimationFrame(() => { $("d-more").hidden = $("d-why").scrollHeight <= $("d-why").clientHeight + 4; });
+  $("d-chars").innerHTML = d.characters.map((ch, i) => `<details class="ch"${i === 0 ? " open" : ""}><summary><div class="por e-${esc(ch.element)}">${pic(ch.costume_id)}</div>
+    <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(ch.element)} · Force ${ch.force.toLocaleString()}</div></div></summary>
+    <p class="line">${esc(ch.line)}</p><ul class="pieces">${ch.pieces.map(p =>
+    `<li><div class="ico">${p.kind}</div><div><b>${esc(p.name)}${p.new ? '<span class="tagnew">NEW</span>' : ""}</b><span class="r">${esc(p.why)}</span></div></li>`).join("")}</ul></details>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>Data override.</strong> ${esc(o)}</div>`).join("");
   const byCostume = {};
   d.raises.forEach(r => (byCostume[r.costume_id] = byCostume[r.costume_id] || {name: r.name, items: [], used: r.used_in}).items.push(r));
@@ -278,10 +335,19 @@ async function openDetail(key, el) {
     <span>${esc(x.name)}<small>${x.items.map(i => `${esc(i.field.replaceAll("_", " "))} ${i.current} → ${i.target}`).join(", ")}</small>
     ${x.used.length ? `<small class="warn">Also used in ${esc(x.used.join(", "))}</small>` : ""}</span><span></span></label>`).join("");
   $("w-raise-box").hidden = !d.raises.length;
-  $("detail").hidden = false; $("detail").scrollIntoView({behavior: "smooth"});
   preTick();
   rescore();
 }
+function closeDetail() {
+  if (history.state?.deck) { history.back(); return; }   // popstate hides it
+  hideDetail();
+}
+function hideDetail() {
+  $("detail").hidden = true; chosen = null;
+  document.querySelector(`.rc[data-key="${CSS.escape(String(document.querySelector(".rc.on")?.dataset.key || ""))}"]`)?.focus({preventScroll: true});
+}
+addEventListener("popstate", () => { if (!$("detail").hidden) hideDetail(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("detail").hidden) closeDetail(); });
 async function prepare(against) {
   $("count").textContent = "Preparing fully raised pieces…";
   $("more").textContent = "The game's server pauses for a moment while Deck Builder raises them.";
@@ -311,7 +377,7 @@ async function rescore() {
 }
 async function writeDeck() {
   const slots = ticked("#w-slots");
-  const msg = $("db-msg");
+  const msg = $("d-msg");
   if (!slots.length) { msg.hidden = false; msg.className = "banner error"; msg.textContent = "> ERROR :: Choose a deck slot to write to."; return; }
   $("w-go").disabled = true;
   try {
@@ -325,7 +391,6 @@ async function writeDeck() {
       load(true);   // the save changed: the list is read again
     }
     else { msg.className = "banner error"; msg.textContent = "> ERROR :: " + j.error; }
-    msg.scrollIntoView({behavior: "smooth"});
   } finally { $("w-go").disabled = false; }
 }
 if (PREPARING) prepare(null).then(() => location.reload());

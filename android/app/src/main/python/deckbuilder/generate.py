@@ -49,7 +49,7 @@ class Criteria(NamedTuple):
 
 
 class DataPick(NamedTuple):
-    beats: str        # the expert deck it ranks above
+    beats: str        # the name of the expert deck it ranks above
     by: float         # win-rate difference
 
 
@@ -295,7 +295,8 @@ class Generator:
                         break
                 if len(tags) >= 3:
                     break
-        name = expert.name if expert else STRATEGY_NAME[strategies[0]]
+        # Named by its characters, left to right: what tells two decks apart (expert sources are not names).
+        name = " · ".join(self.tables.character_name(c) for c in lineup)
         from deckbuilder.explain import short_reason
         return Result(rank=0, lineup=lineup, name=name, expert=expert is not None, deck=eq.deck, strategy=strategies[0],
                       win_rate=self.rate(eq.deck, criteria), force=power.deck_power(eq.deck, self.tables).total,

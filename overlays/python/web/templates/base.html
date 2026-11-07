@@ -111,6 +111,7 @@
       const on = query.matches && cut;
       root.style.setProperty("--hole-depth", (on ? cut.depth : 0) + "px");
       root.style.setProperty("--hole-right", (on && cut.side === "right" ? cut.depth : 0) + "px");
+      root.style.setProperty("--hole-left", (on && cut.side === "left" ? cut.depth : 0) + "px");
       nav.querySelectorAll(":scope > a, :scope > .shell-head").forEach(a => {
         const b = a.getBoundingClientRect();
         a.classList.toggle("by-hole", !!on && cut.side === "left" && b.bottom > cut.top && b.top < cut.bottom);
