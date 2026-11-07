@@ -60,6 +60,12 @@ class FakeSession:
         self.raised.append(list(raises))
         return {"force": r.force + 1000 * len(raises), "win_pct": 70 + len(raises)}
 
+    def force(self, r, raises):
+        return r.force + 1000 * len(raises)
+
+    def raisable(self, r):
+        return {35036}
+
     def opponents(self):
         return [{"id": 9000001, "name": "Operator 6O", "points": 5140, "costumes": [31032, 35036, 33029]}]
 
@@ -156,6 +162,39 @@ class PageTest(unittest.TestCase):
             self.c.get("/decks", params={"user": 1})
             self.c.post("/decks/write", json={"user": 1, "key": db.result_key(self.session.result), "slots": [2], "raise": []})
         self.assertEqual(seen, [1, 1])
+
+    def test_prepare_builds_the_stage_and_keeps_the_game_playing(self):
+        seen = []
+        with mock.patch.object(db, "prepare", lambda user, against=None: seen.append((user, against))):
+            r = self.c.post("/decks/prepare", json={"user": 1, "against": "9000001"})
+        self.assertEqual((r.status_code, r.json()["ok"], seen), (200, True, [(1, "9000001")]))
+        self.assertEqual(r.headers.get("x-bunker-keep-playing"), "1")
+
+    def test_routes_ask_for_prepare_when_the_stage_is_not_ready(self):
+        def not_ready(user):
+            raise db.StageNotReady()
+        with mock.patch.object(db, "session", not_ready):
+            r = self.c.get("/decks/results", params={"user": 1})
+            self.assertEqual((r.status_code, r.json()["prepare"]), (409, True))
+            for path in ("/decks/detail", "/decks/rescore"):
+                self.assertEqual(self.c.get(path, params={"user": 1, "key": "x"}).status_code, 409, path)
+            page = self.c.get("/decks", params={"user": 1})
+            self.assertEqual(page.status_code, 200)
+            self.assertIn("/decks/prepare", page.text)
+
+    def test_write_validates_the_request(self):
+        key = db.result_key(self.session.result)
+        bad = [{"user": 1, "key": key, "slots": [16]}, {"user": 1, "key": key, "slots": [0]},
+               {"user": 1, "key": key, "slots": [2], "raise": [99999]}, {"user": "two", "key": key, "slots": [2]}]
+        for body in bad:
+            self.assertEqual(self.c.post("/decks/write", json=body).status_code, 400, body)
+        self.assertEqual(self.calls, [])
+
+    def test_write_computes_force_without_simulating(self):
+        self.session.rescore = lambda r, raises: self.fail("a write simulated fights")
+        r = self.c.post("/decks/write", json={"user": 1, "key": db.result_key(self.session.result), "slots": [2], "raise": [35036]})
+        self.assertEqual(r.json()["ok"], True)
+        self.assertEqual(self.calls[1][1]["deck"]["slots"][0]["power"], 413318)
 
     def test_detail(self):
         r = self.c.get("/decks/detail", params={"user": 1, "key": db.result_key(self.session.result)}).json()

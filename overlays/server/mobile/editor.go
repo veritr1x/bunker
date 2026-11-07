@@ -2,6 +2,7 @@ package mobile
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -78,26 +79,52 @@ func editRequest(dataRoot string, request map[string]any) map[string]any {
 // never the player's save, so the game may keep playing; "stage_new" starts
 // it over with an empty player 1. The caller holds lifecycle.
 func editStage(dataRoot, assetRoot string, request map[string]any) string {
+	fail := func(message string) string {
+		b, _ := json.Marshal(map[string]any{"ok": false, "error": message})
+		return string(b)
+	}
+	action, _ := request["action"].(string)
+	if !stageActions[action] {
+		return fail(fmt.Sprintf("%q is not a stage action", action))
+	}
+	// The stage's actions load the master data, which the running server reads
+	// too: they wait for it to be stopped (the game guard pauses it).
+	if active != nil {
+		return fail("Stop the game server before building the Deck Builder stage")
+	}
 	path := filepath.Join(dataRoot, "deckbuilder", "stage.db")
-	if request["action"] == "stage_new" {
+	if action == "stage_new" {
 		if err := lunarbase.NewStage(path); err != nil {
-			b, _ := json.Marshal(map[string]any{"ok": false, "error": err.Error()})
-			return string(b)
+			return fail(err.Error())
 		}
 		return `{"ok":true}`
 	}
 	if _, err := os.Stat(path); err != nil {
-		return `{"ok":false,"error":"The Deck Builder stage is not ready"}`
+		return fail("The Deck Builder stage is not ready")
 	}
-	request["db_path"] = path
-	request["user_id"] = 1
-	request["master_data_path"] = filepath.Join(assetRoot, "assets", "release", MasterName)
-	encoded, err := json.Marshal(request)
+	encoded, err := json.Marshal(stageRequest(dataRoot, filepath.Join(assetRoot, "assets", "release", MasterName), request))
 	if err != nil {
-		b, _ := json.Marshal(map[string]any{"ok": false, "error": err.Error()})
-		return string(b)
+		return fail(err.Error())
 	}
 	return lunarbase.Execute(encoded)
+}
+
+// stageActions are the actions the stage is built with (deckbuilder/stage.py).
+var stageActions = map[string]bool{
+	"stage_new": true, "grant_costume_batch": true, "grant_weapon_batch": true, "grant_companion_batch": true,
+	"grant_thought_batch": true, "exalt_characters": true, "upgrade_all_costumes": true, "upgrade_all_weapons": true,
+	"upgrade_all_companions": true, "release_panels": true, "fill_karma_slots": true, "grant_memoir_batch": true,
+	"upgrade_all_memoirs": true,
+}
+
+// stageRequest points an edit at the stage, whatever paths the request named.
+func stageRequest(dataRoot, master string, request map[string]any) map[string]any {
+	delete(request, "stage_path")
+	delete(request, "target")
+	request["db_path"] = filepath.Join(dataRoot, "deckbuilder", "stage.db")
+	request["user_id"] = 1
+	request["master_data_path"] = master
+	return request
 }
 
 // liveGranter is the running server's granter, or nil when it is stopped; the

@@ -146,7 +146,7 @@
   <h2 class="bracket-header">Write</h2>
   <div class="panel">
     <div class="w-h">Write to</div>
-    <div id="w-slots">{% for s in slots %}<label class="w-sl"><input type="checkbox" value="{{ s.number }}"><span>{{ s.label }}<small>{% if s.summary %}Your deck · {{ s.summary }}{% else %}Empty{% endif %}</small></span><span></span></label>{% endfor %}</div>
+    <div id="w-slots">{% for s in slots %}<label class="w-sl"><input type="checkbox" value="{{ s.number }}"{% if "(defense)" in s.label %} data-defense="1"{% endif %}{% if not s.summary %} data-empty="1"{% endif %}><span>{{ s.label }}<small>{% if s.summary %}Your deck · {{ s.summary }}{% else %}Empty{% endif %}</small></span><span></span></label>{% endfor %}</div>
     <div id="w-raise-box" hidden><div class="w-h">Raise what you own?</div><div id="w-raise"></div></div>
     <div class="summary write-bar"><p id="w-sum"></p><button type="button" id="w-go" onclick="writeDeck()">WRITE DECK</button></div>
   </div>
@@ -154,6 +154,7 @@
 
 <script>
 const USER = {{ user }};
+const PREPARING = {{ "true" if preparing else "false" }};
 const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match"};
 let offset = 0, busy = false, done = false, chosen = null, detailData = null, pending = false;
 const $ = id => document.getElementById(id);
@@ -212,7 +213,11 @@ async function load(reset) {
   busy = true; $("more").textContent = "Simulating decks…";
   try {
     const q = query(); q.set("offset", offset); q.set("limit", 6);
-    const r = await (await fetch("/decks/results?" + q)).json();
+    const res = await fetch("/decks/results?" + q);
+    const r = await res.json();
+    if (res.status === 409 && r.prepare) {          // the stage must be built first (an opponent outside it)
+      busy = false; await prepare(r.against); load(true); return;
+    }
     $("count").innerHTML = r.total ? `<strong>${r.total.toLocaleString()}</strong> decks · showing 1–${offset + r.items.length}` : "No decks match";
     const opp = $("against").selectedOptions[0].textContent.split(" · ")[0];
     $("ctx").textContent = `${state.deck_for === "attack" ? "Attack" : "Defense"} · ${$("against").value === "general" ? "General best" : "against " + opp} · ${state.mode === "best" ? "Theoretical best" : "What I own"}`;
@@ -246,7 +251,22 @@ async function openDetail(key, el) {
     ${x.used.length ? `<small class="warn">Also used in ${esc(x.used.join(", "))}</small>` : ""}</span><span></span></label>`).join("");
   $("w-raise-box").hidden = !d.raises.length;
   $("detail").hidden = false; $("detail").scrollIntoView({behavior: "smooth"});
+  preTick();
   rescore();
+}
+async function prepare(against) {
+  $("count").textContent = "Preparing fully raised pieces…";
+  $("more").textContent = "The game's server pauses for a moment while Deck Builder raises them.";
+  const res = await fetch("/decks/prepare", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({user: USER, against: against || null})});
+  const j = await res.json();
+  if (!j.ok) say("error", j.error || "Couldn't prepare Deck Builder");
+}
+function preTick() {
+  const boxes = [...document.querySelectorAll("#w-slots input")];
+  if (boxes.some(b => b.checked)) return;
+  const pick = state.deck_for === "defense" ? boxes.find(b => b.dataset.defense) : boxes.find(b => b.dataset.empty);
+  if (pick) pick.checked = true;
 }
 function say(kind, text) {
   const msg = $("db-msg");
@@ -280,6 +300,7 @@ async function writeDeck() {
     msg.scrollIntoView({behavior: "smooth"});
   } finally { $("w-go").disabled = false; }
 }
-load(true);
+if (PREPARING) prepare(null).then(() => location.reload());
+else load(true);
 </script>
 {% endblock %}
