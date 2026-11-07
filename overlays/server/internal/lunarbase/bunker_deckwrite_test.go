@@ -179,6 +179,40 @@ func TestDeckWriteSharedItem(t *testing.T) {
 	}
 }
 
+// The game fields a character once per deck.
+func TestDeckWriteRefusesACharacterTwice(t *testing.T) {
+	u, s := deckWriteStates()
+	s.Costumes["s-101"] = store.CostumeState{UserCostumeUuid: "s-101", CostumeId: 101, Level: 100}
+	env := deckWriteEnv{characterOf: map[int32]int32{100: 10, 101: 10, 200: 20}, boardsOf: testBoards}
+	spec := writeSpec(t, `{"slots":[{"deck_type":2,"number":2}],"characters":[{"costume":{"uuid":"c-own","source":"save"}},{"costume":{"uuid":"s-101","source":"stage"}}]}`)
+	before, _ := json.Marshal(u)
+	if err := applyDeckWrite(u, s, spec, env, 1000); err == nil || !strings.Contains(err.Error(), "character 10") {
+		t.Fatalf("error %v, want one naming character 10", err)
+	}
+	if after, _ := json.Marshal(u); string(after) != string(before) {
+		t.Fatal("a refused write changed the save")
+	}
+}
+
+// A debris the player owns, staged for two characters, maps twice to the one
+// the player holds: refused, naming it, before anything changes.
+func TestDeckWriteRefusesOneDebrisOnTwoCharacters(t *testing.T) {
+	u, s := deckWriteStates()
+	u.Thoughts["t-own"] = store.ThoughtState{UserThoughtUuid: "t-own", ThoughtId: 55}
+	s.Thoughts["t-s1"] = store.ThoughtState{UserThoughtUuid: "t-s1", ThoughtId: 55}
+	s.Thoughts["t-s2"] = store.ThoughtState{UserThoughtUuid: "t-s2", ThoughtId: 55}
+	spec := writeSpec(t, `{"slots":[{"deck_type":2,"number":2}],"characters":[
+	 {"costume":{"uuid":"c-own","source":"save"},"debris":{"uuid":"t-s1","source":"stage"}},
+	 {"costume":{"uuid":"s-200","source":"stage"},"debris":{"uuid":"t-s2","source":"stage"}}]}`)
+	before, _ := json.Marshal(u)
+	if err := apply(u, s, spec, store.PossessionLimits{}); err == nil || !strings.Contains(err.Error(), "debris 55") {
+		t.Fatalf("error %v, want one naming debris 55", err)
+	}
+	if after, _ := json.Marshal(u); string(after) != string(before) {
+		t.Fatal("a refused write changed the save")
+	}
+}
+
 func TestDeckWriteOwnedCostumeFromStageIsNotDuplicated(t *testing.T) {
 	u, s := deckWriteStates()
 	spec := writeSpec(t, `{"slots":[{"deck_type":2,"number":2}],"characters":[{"costume":{"uuid":"s-100","source":"stage"}}]}`)

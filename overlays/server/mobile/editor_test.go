@@ -25,6 +25,10 @@ func TestEditWhileTheServerRuns(t *testing.T) {
 	if got := Edit(dir, dir, `{"action":"gift_room","user_id":1}`); strings.Contains(got, "Stop the game server") {
 		t.Fatalf("the gift room read was refused: %s", got)
 	}
+	// Deck Builder's matching list only reads the save too.
+	if got := Edit(dir, dir, `{"action":"arena_matching","user_id":1}`); strings.Contains(got, "Stop the game server") {
+		t.Fatalf("the matching list read was refused: %s", got)
+	}
 }
 
 // Deck Builder builds fully raised pieces on its own staging save: those edits

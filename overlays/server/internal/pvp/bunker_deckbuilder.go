@@ -45,6 +45,7 @@ func (c *Catalog) Opponents(u *store.UserState, now int64) []Opponent {
 		if !ok {
 			continue
 		}
+		cpu = c.Dress(l, cpu, u) // the deck it fields (decktable.go)
 		out = append(out, Opponent{PlayerId: cpu.PlayerId, Name: cpu.Name, Point: cpu.Point, Costumes: cpu.Costumes, Weapons: cpu.Weapons})
 	}
 	return out

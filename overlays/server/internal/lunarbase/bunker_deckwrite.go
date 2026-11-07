@@ -177,6 +177,40 @@ func applyDeckWrite(u, stage *store.UserState, spec deckWriteSpec, env deckWrite
 			}
 		}
 	}
+	// One character once per deck, and a costume or debris (the game holds one
+	// of each) on one character only, counting staged ones as the owned ones
+	// they map to.
+	characters, unique := map[int32]bool{}, map[string]bool{}
+	for _, c := range spec.Characters {
+		if c == nil {
+			continue
+		}
+		for _, r := range c.refs() {
+			if r.kind != "costume" && r.kind != "debris" {
+				continue
+			}
+			from := u
+			if r.ref.Source == "stage" {
+				from = stage
+			}
+			id, _ := held(from, r.kind, r.ref.UUID)
+			if r.kind == "costume" {
+				ch, ok := env.characterOf[id]
+				if !ok {
+					ch = id
+				}
+				if characters[ch] {
+					return fmt.Errorf("the deck has character %d twice; the game fields a character once", ch)
+				}
+				characters[ch] = true
+			}
+			key := fmt.Sprintf("%s %d", r.kind, id)
+			if unique[key] {
+				return fmt.Errorf("the deck puts %s on two characters; you can hold only one", key)
+			}
+			unique[key] = true
+		}
+	}
 	if env.limits.Weapon > 0 && len(u.Weapons)+newWeapons > int(env.limits.Weapon) {
 		return fmt.Errorf("not enough room for weapons: %d more would pass the limit of %d (you hold %d)", newWeapons, env.limits.Weapon, len(u.Weapons))
 	}
