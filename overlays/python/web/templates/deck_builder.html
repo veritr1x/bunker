@@ -22,7 +22,8 @@
   .rng{display:grid;grid-template-columns:70px 1fr 50px;gap:8px;align-items:center;font-size:12px;margin-bottom:4px}
   .e-fire{background:var(--e-fire)}.e-water{background:var(--e-water)}.e-wind{background:var(--e-wind)}.e-light{background:var(--e-light)}.e-dark{background:var(--e-dark)}
   .resbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0 10px;font-size:13px}
-  .resbar .ctx{opacity:.7;font-size:12px}
+  .resbar .sort{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.85;margin:0}
+  .resbar .sort select{width:auto;min-height:0;height:auto;padding:3px 26px 3px 8px;font-size:12px;letter-spacing:normal;margin:0}
   .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   /* A deck card is a button: undo the buttons' capitals, spacing and weight. */
   .rc{border:1px solid var(--db-line);background:var(--db-soft);display:flex;flex-direction:column;cursor:pointer;text-align:left;color:inherit;padding:0;
@@ -184,16 +185,14 @@
         <p class="help">Include or leave out a costume from its deck card's detail.</p></div>
       <div class="f"><div class="db-lbl">Minimum per character</div>
         {% for k, n, mx in (("agi","Agility",3000),("hp","HP",800000),("atk","ATK",80000),("crit","Crit rate ‰",1000)) %}<div class="rng"><span>{{ n }}</span><input type="range" min="0" max="{{ mx }}" step="{{ mx // 50 }}" value="0" data-min="{{ k }}"><span data-show="{{ k }}">—</span></div>{% endfor %}</div>
-      <div class="f"><div class="db-lbl">Sort by</div><div class="chips" data-name="sort" data-one="1">
-        <button type="button" class="chip on" data-v="match">Best match</button><button type="button" class="chip" data-v="force">Force</button><button type="button" class="chip" data-v="fewest">Fewest to add</button></div>
-        <p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one piece changed.</p></div>
+      <div class="f"><p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one piece changed.</p></div>
     </div>
   </div>
   <div class="sheet-foot"><button type="button" class="chip" onclick="clearFilters()">Clear</button><button type="button" onclick="sheet(false)">Show decks</button></div>
 </div>
 
 <h2 class="bracket-header">Decks</h2>
-<div class="resbar"><span id="count">Loading…</span><span class="ctx" id="ctx"></span></div>
+<div class="resbar"><span id="count">Loading…</span><label class="sort">Sort <select id="sort"><option value="match">Best match</option><option value="force">Force</option><option value="fewest">Fewest to add</option></select></label></div>
 <div class="cards" id="cards"></div>
 <p class="more" id="more"></p>
 
@@ -248,6 +247,7 @@ document.querySelectorAll("input[data-min]").forEach(r => r.addEventListener("in
 }));
 $("against").addEventListener("change", () => load(true));
 $("allow").addEventListener("change", () => load(true));
+$("sort").addEventListener("change", e => { state.sort = e.target.value; load(true); });
 
 // The criteria popup: changes made in it apply when it closes (Show decks, ✕, a tap outside, Escape).
 let dirty = false;
@@ -265,7 +265,7 @@ function countFilters() {
 }
 function clearFilters() {
   document.querySelectorAll(".chips[data-name]").forEach(box => box.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", !!box.dataset.one && i === 0)));
-  Object.assign(state, {strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match"});
+  Object.assign(state, {strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: []});
   document.querySelectorAll("input[data-min]").forEach(r => { r.value = 0; document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = "—"; });
   dirty = true; countFilters();
   if ($("filters-panel").hidden) sheet(false);
@@ -301,8 +301,6 @@ async function load(reset) {
       busy = false; await prepare(r.against); load(true); return;
     }
     $("count").innerHTML = r.total ? `<strong>${r.total.toLocaleString()}</strong> decks · showing 1–${offset + r.items.length}` : "No decks match";
-    const opp = $("against").selectedOptions[0].textContent.split(" · ")[0];
-    $("ctx").textContent = `${state.deck_for === "attack" ? "Attack" : "Defense"} · ${$("against").value === "general" ? "General best" : "against " + opp} · ${state.mode === "best" ? "Theoretical best" : "What I own"}`;
     $("cards").insertAdjacentHTML("beforeend", r.items.map(cardHtml).join(""));
     offset += r.items.length; done = r.exhausted || !r.items.length;
     $("more").textContent = r.total === 0 ? (r.relax ? `Try without the "${r.relax.replace("_", " ")}" filter.` : "") : done ? "" : "Scroll for more";
