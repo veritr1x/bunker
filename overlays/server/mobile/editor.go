@@ -53,7 +53,7 @@ func Edit(dataRoot, assetRoot, raw string) string {
 	if count != 1 {
 		return fail("Player not found")
 	}
-	request["db_path"] = path
+	request = editRequest(dataRoot, request)
 	lunarbase.LiveGranter = liveGranter
 	request["master_data_path"] = filepath.Join(assetRoot, "assets", "release", MasterName)
 	encoded, err := json.Marshal(request)
@@ -61,6 +61,15 @@ func Edit(dataRoot, assetRoot, raw string) string {
 		return fail(err.Error())
 	}
 	return lunarbase.Execute(encoded)
+}
+
+// editRequest fixes the paths an edit of the player's save uses: the app's
+// own save, and Deck Builder's stage for a deck write. Paths in the request
+// are never used.
+func editRequest(dataRoot string, request map[string]any) map[string]any {
+	request["db_path"] = filepath.Join(dataRoot, "game.db")
+	request["stage_path"] = filepath.Join(dataRoot, "deckbuilder", "stage.db")
+	return request
 }
 
 // editStage runs an edit on Pod Programs › Deck Builder's staging save

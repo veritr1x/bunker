@@ -36,6 +36,28 @@ func TestArenaMatchingReadsOnly(t *testing.T) {
 	}
 }
 
+// A deck of owned pieces needs no stage, and a missing stage is never created.
+func TestDeckWriteDoesNotCreateAStage(t *testing.T) {
+	master := os.Getenv("BUNKER_TEST_MASTER")
+	if master == "" {
+		t.Skip("BUNKER_TEST_MASTER not set")
+	}
+	dir := t.TempDir()
+	path, stage := filepath.Join(dir, "game.db"), filepath.Join(dir, "deckbuilder", "stage.db")
+	if err := NewStage(path); err != nil {
+		t.Fatal(err)
+	}
+	deck := json.RawMessage(`{"slots":[{"deck_type":2,"number":5}],"characters":[{"costume":{"uuid":"none","source":"stage"}}]}`)
+	raw, _ := json.Marshal(map[string]any{"action": "deck_write", "db_path": path, "user_id": 1, "master_data_path": master, "stage_path": stage, "deck": deck})
+	out := Execute(raw)
+	if !strings.Contains(out, "stage is not ready") {
+		t.Fatalf("deck_write without a stage: %s", out)
+	}
+	if _, err := os.Stat(stage); !os.IsNotExist(err) {
+		t.Fatal("a missing stage was created")
+	}
+}
+
 // Deck Builder's staging save starts empty with player 1, so the server's own
 // grant and upgrade actions can build fully raised pieces on it.
 func TestNewStageHasPlayerOne(t *testing.T) {
