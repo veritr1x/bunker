@@ -25,7 +25,11 @@ sys.path.insert(0, str(ROOT / "android/tools"))
 from deckbuilder_testlib import BUILD, cli_invoke, tables  # noqa: E402
 from deckbuilder import equip, experts as experts_mod, model, stage as stage_mod  # noqa: E402
 
-BAKE = BUILD / "bake"
+import os as _os
+BAKE = Path(_os.environ.get("BAKE_DIR") or BUILD / "bake")     # an experiment bakes into its own folder
+META = int(_os.environ.get("BAKE_META") or 5)                  # expert meta decks the decks (and gear) are scored against
+META_TOP = int(_os.environ.get("BAKE_META_TOP") or 0)          # plus this many of the strongest decks of an earlier bake
+TOP_FROM = Path(_os.environ.get("BAKE_TOP_FROM") or BUILD / "bake")
 CYTHON = BUILD / "cython"                      # the compiled simulator (scripts/bake_cython)
 
 
@@ -140,7 +144,7 @@ def _team_context(T, ex, st):
     team Attack, a support's party buffs) reach the teammates and theirs reach the candidate."""
     from deckbuilder import generate
     from deckbuilder.sim import battle
-    gen = generate.Generator(T, ex, st, st)
+    gen = generate.Generator(T, ex, st, st, meta_size=META)
     meta = [(name, battle._side(d, T)) for d, w, name in gen.meta()]
     lineups = sorted(ex.lineups(), key=lambda l: -l.weight)[:PARTNER_LINEUPS]
     pairs = []
@@ -473,8 +477,18 @@ def _deck_worker_init(use_compiled=False):
     st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
     from deckbuilder import baked
     cache, los = fighter_cache(T, st)
-    gen = generate.Generator(T, ex, st, st)
+    gen = generate.Generator(T, ex, st, st, meta_size=META)
+    _W.update(T=T, st=st, cache=cache, los=los, order=baked.debris_order(los), gen=gen)
     meta = [(battle._side(d, T), w, name) for d, w, name in gen.meta()]
+    if META_TOP:
+        # the strongest decks of an earlier bake join the expert meta as opponents, every opponent weighted alike
+        known = {frozenset(l.costumes) for l in ex.meta_pool()}
+        top = []
+        for r in sorted(read_decks(TOP_FROM / "decks"), key=lambda r: (-r[3], -r[4])):
+            if frozenset(r[:3]) not in known and len(top) < META_TOP:
+                known.add(frozenset(r[:3])); top.append(tuple(r[:3]))
+        meta = meta + [(cache.side(deck_keys(l)[0]), 0.0, "Bake top " + " · ".join(T.character_name(c) for c in l)) for l in top]
+        meta = [(m, 1 / len(meta), n) for m, _, n in meta]
     # each meta deck set up once per role (battle.prepare_side; None where that cannot stand in for setting it up)
     prepared = [(battle.prepare_side(m, "D"), battle.prepare_side(m, "A")) for m, _, _ in meta]
     _W.update(T=T, ex=ex, st=st, cache=cache, los=los, order=baked.debris_order(los), gen=gen, meta=meta, prepared=prepared,
@@ -563,10 +577,10 @@ def _bake_chunk(job):
     return i, len(combos)
 
 
-def read_decks():
+def read_decks(folder=None):
     """All baked decks as tuples of FIELDS (shares and margins back as fractions)."""
     from array import array
-    for path in sorted(DECKS.glob("chunk_*.bin")):
+    for path in sorted((folder or DECKS).glob("chunk_*.bin")):
         a = array("i")
         with open(path, "rb") as f:
             a.frombytes(f.read())
