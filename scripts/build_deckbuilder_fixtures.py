@@ -82,7 +82,9 @@ def deck_states(save: Path):
         for u in (d["a"], d["b"], d["c"]):
             r = con.execute("select power from user_deck_characters where user_id=? and user_deck_character_uuid=?",
                             (d["user_id"], u)).fetchone() if u else None
-            chars.append(int(r["power"]) if r else 0)
+            # 0 on a filled slot is not a value the client reported (e.g. the
+            # Arena deck Bunker's server copies from a quest deck): None.
+            chars.append((int(r["power"]) or None) if r else 0)
         tables = mini_save(con, d["user_id"])
         yield {"user_id": d["user_id"], "deck_type": d["deck_type"], "deck_number": d["user_deck_number"],
                "stored_deck": int(d["power"]), "stored_characters": chars, "inputs": {"tables": tables}}
