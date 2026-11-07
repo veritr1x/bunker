@@ -228,6 +228,21 @@ class PageTest(unittest.TestCase):
         c = db.criteria_from(None, {"include": "35036", "exclude": "33029,34048"})
         self.assertEqual((set(c.include), set(c.exclude)), ({35036}, {33029, 34048}))
 
+    def test_a_required_costume_not_yet_staged_is_prepared(self):
+        """All maxed with a required costume the stage lacks: the reply asks to prepare it, and prepare stages it."""
+        def page(criteria, offset, limit):
+            raise db.StageNotReady(extra=(31001,))
+        self.session.page = page
+        r = self.c.get("/decks/results", params={"user": 1, "include": "31001"})
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual((r.json()["prepare"], r.json()["costumes"]), (True, [31001]))
+        asked = []
+        with mock.patch.object(db, "prepare", lambda user, against=None, costumes=(): asked.append((against, list(costumes)))):
+            ok = self.c.post("/decks/prepare", json={"user": 1, "costumes": [31001]}).json()
+        self.assertEqual((ok["ok"], asked), (True, [(None, [31001])]))
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn("await prepare(r.against, r.costumes)", html)
+
     def test_filter_chips_keep_their_text_when_hovered(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn(".chip:hover:not(.on){background:rgba(58,55,47,.08)!important;color:inherit!important}", html)
@@ -265,7 +280,7 @@ class PageTest(unittest.TestCase):
         """The real Session (not the fake): its cache key holds the criteria's minimum stats (a dict)."""
         from deckbuilder import bighunt, subjugation
         boss = SimpleNamespace(id=1, fights={5: object()})
-        stub = SimpleNamespace(tables=None, gen=None, _subjugation={}, loadouts={})
+        stub = SimpleNamespace(tables=None, gen=None, _subjugation={}, loadouts={}, _staged=lambda criteria: None)
         lo = self.session.loadout
         runs = []
         with mock.patch.object(bighunt, "boss", lambda tables, i: boss), \
@@ -332,7 +347,7 @@ class PageTest(unittest.TestCase):
 
     def test_prepare_builds_the_stage_and_keeps_the_game_playing(self):
         seen = []
-        with mock.patch.object(db, "prepare", lambda user, against=None: seen.append((user, against))):
+        with mock.patch.object(db, "prepare", lambda user, against=None, costumes=(): seen.append((user, against))):
             r = self.c.post("/decks/prepare", json={"user": 1, "against": "9000001"})
         self.assertEqual((r.status_code, r.json()["ok"], seen), (200, True, [(1, "9000001")]))
         self.assertEqual(r.headers.get("x-bunker-keep-playing"), "1")

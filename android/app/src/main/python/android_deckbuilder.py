@@ -114,6 +114,7 @@ class Session:
         return self._against[opponent]
 
     def page(self, criteria, offset, limit):
+        self._staged(criteria)
         p = self.gen.page(criteria, offset, limit)
         for r in p.items:
             self.results[result_key(r)] = (r, criteria)
@@ -182,11 +183,28 @@ class Session:
         return chars
 
     def costumes(self, mode):
-        """The costumes Deck Builder combines in this mode (the filters' character picker)."""
+        """Every costume the filters' character picker offers: in What I own the player's, else every playable
+        one; the ones Deck Builder already combines first, then the rest by character."""
         from deckbuilder import equip
         pool = self.gen.pool(equip.Mode("owned") if mode == "owned" else equip.Mode("best"))
+        known = self.tables.idx("Costume", "CostumeId")
+        if mode == "owned":
+            every = {r["costume_id"] for r in self.base.q("select costume_id from user_costumes where user_id=?")}
+        else:
+            every = set(known)
+        every = {c for c in every if c in known and self.tables.is_playable(c)}
+        rest = sorted(every - set(pool), key=lambda c: (self.tables.character_name(c), self.tables.costume_name(c)))
         return [{"id": c, "name": self.tables.costume_name(c), "character": self.tables.character_name(c),
-                 "element": self.tables.costume_element(c) or "dark"} for c in pool]
+                 "element": self.tables.costume_element(c) or "dark", "pool": c in pool} for c in list(pool) + rest]
+
+    def _staged(self, criteria):
+        """All maxed: required costumes the stage lacks must be staged first (prepare)."""
+        if criteria.mode.kind != "best" or not criteria.include:
+            return
+        staged = {r["costume_id"] for r in self.stage.q("select costume_id from user_costumes where user_id=?")}
+        missing = tuple(sorted(set(criteria.include) - staged))
+        if missing:
+            raise StageNotReady(extra=missing)
 
     # ---------------------------------------------------------------- Subjugation
     def bosses(self):
@@ -200,6 +218,7 @@ class Session:
         if b is None or not b.fights:
             return []
         difficulty = difficulty if difficulty in b.fights else max(b.fights)
+        self._staged(criteria)
         c = criteria       # the filters that change the lineups (no dict in a key: minimum stats as sorted pairs)
         key = (boss_id, difficulty, c.mode, c.strategy, c.elements, c.must_have, c.include, c.exclude, c.exclude_elements,
                tuple(sorted((c.min_stats or {}).items())))
@@ -308,7 +327,7 @@ def stage_ready(tables, experts, extra=()):
     return path if path.exists() and old == want else None
 
 
-def prepare(user_id: int, against=None) -> None:
+def prepare(user_id: int, against=None, costumes=()) -> None:
     """Build the staging save (by the server's own upgrades): this build's pool
     and expert lineups, plus an opponent's costumes when one is named."""
     from deckbuilder import equip, experts as experts_mod, generate, stage
@@ -322,6 +341,8 @@ def prepare(user_id: int, against=None) -> None:
             data = []
         known = tables.idx("Costume", "CostumeId")
         extra = tuple(c for o in data if str(o["id"]) == str(against) for c in o["costumes"] if c in known)
+    known = tables.idx("Costume", "CostumeId")
+    extra = tuple(dict.fromkeys(list(extra) + [int(c) for c in costumes if str(c).isdigit() and int(c) in known]))
     with _lock:
         if stage_ready(tables, experts, extra) is None:
             _, want = _stage_want(extra)
@@ -553,7 +574,8 @@ def icon(kind: str, piece_id: int):
 
 
 def _not_ready(exc: StageNotReady, against=None):
-    return JSONResponse({"ok": False, "prepare": True, "against": against if exc.extra else None, "error": str(exc)}, status_code=409)
+    return JSONResponse({"ok": False, "prepare": True, "against": against if exc.extra else None,
+                         "costumes": list(exc.extra), "error": str(exc)}, status_code=409)
 
 
 @router.get("/decks")
@@ -574,7 +596,7 @@ def page(request: Request, user: int = 0):
 def prepare_route(payload: dict = Body(default={})):
     """Builds the staging save. Not the player's save: the game plays on."""
     try:
-        prepare(_user(payload.get("user")), payload.get("against"))
+        prepare(_user(payload.get("user")), payload.get("against"), payload.get("costumes") or ())
     except (DeckBuilderError, ValueError) as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     return JSONResponse({"ok": True}, headers={"x-bunker-keep-playing": "1"})

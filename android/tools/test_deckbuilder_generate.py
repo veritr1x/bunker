@@ -67,6 +67,15 @@ class GenerateTest(unittest.TestCase):
             self.assertNotIn("Video", r.name)
             self.assertIn(r.strategy, generate.STRATEGY_NAME)
 
+    def test_a_required_costume_outside_the_pool_is_combined(self):
+        """The picker lists every costume: one required from outside the pool joins it for that search."""
+        gen = generate.Generator(tables(), self.experts, self.stage, self.stage, pool=POOL[:5], meta_size=1, runs=1)
+        outsider = POOL[8]
+        self.assertNotIn(outsider, gen.pool(equip.Mode("best")))
+        page = gen.page(self.criteria(include=frozenset({outsider})), 0, 6)
+        self.assertTrue(page.items)
+        self.assertTrue(all(outsider in r.lineup for r in page.items))
+
     def test_filters(self):
         c = self.criteria(elements=(None, None, "water"), must_have=frozenset({"compromise"}), exclude=frozenset({SARAFA}),
                           min_stats={"agi": 1000})
