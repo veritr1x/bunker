@@ -18,7 +18,9 @@ half empty. Approved with the mockup in the session (local, not published).
 
 ## Non-goals
 
-- The Archive (its own pages and base template) keeps its current layout.
+- The Archive keeps its app bar and system bars and has no side columns. It shares
+  Pod Programs' stylesheet, so its tab column and spacing follow the new rules (narrower
+  tabs, denser panels) — in line with "all programs" fitting better on a phone on its side.
 - No change to what any page does; only where things sit.
 
 ## When it applies
