@@ -288,6 +288,81 @@ def _gear_one(costume_id):
                            "debris": len(debris)}}
 
 
+def _force_score(spec, costume_id) -> int:
+    """The Force of the loadout's deck: the costume (left) with the first expert lineup's two teammates (team-wide
+    statuses reach them, as in the game's Force)."""
+    from deckbuilder import power
+    return power.deck_power(_deck(_team_specs(costume_id, spec, _W["pairs"][0])), _W["T"]).total
+
+
+def _force_gear_one(costume_id):
+    """The loadout with the most Force: every candidate of each slot in turn, the rest fixed (as _gear_one, by Force)."""
+    T, ex, st = _W["T"], _W["ex"], _W["st"]
+    R = lambda kind, u: model.PieceRef(kind, u, "stage") if u else None
+    spec = equip.equip((costume_id,), equip.Mode("best"), st, st, T, ex).specs[0]
+    if spec is None:
+        return {"costume_id": costume_id, "error": "no default loadout"}
+    best = default = _force_score(spec, costume_id)
+    weapons, mains, comps, debris = _gear_candidates(costume_id)
+    role = equip.role(costume_id, ex)
+
+    def better(cand):
+        nonlocal best
+        f = _force_score(cand, costume_id)
+        if f > best:
+            best = f
+            return True
+        return False
+
+    for w, u in mains.items():
+        cand = spec._replace(main_weapon=R("weapon", u))
+        if better(cand): spec = cand
+    for i in range(2):
+        for w, u in weapons.items():
+            subs = list(spec.subs) + [None] * (2 - len(spec.subs))
+            if spec.main_weapon and u == spec.main_weapon.uuid or any(x and x.uuid == u for j, x in enumerate(subs) if j != i):
+                continue
+            subs[i] = R("weapon", u)
+            cand = spec._replace(subs=[x for x in subs if x])
+            if better(cand): spec = cand
+    for c, u in comps.items():
+        cand = spec._replace(companion=R("companion", u))
+        if better(cand): spec = cand
+    for s_ in sorted(int(x) for x in equip.rankings()["memoir_sets"]):
+        refs = equip._memoirs(equip._Picker(st, st, T, equip.Mode("best")), s_, role, T)
+        if len(refs) == 3:
+            cand = spec._replace(memoirs=refs)
+            if better(cand): spec = cand
+    for t, u in debris.items():
+        cand = spec._replace(debris=R("debris", u))
+        if better(cand): spec = cand
+    piece = lambda kind, ref: st.piece_id(kind, ref.uuid) if ref else None
+    W = T.idx("Weapon", "WeaponId")
+    main_id = piece("weapon", spec.main_weapon)
+    memoir_set = None
+    if spec.memoirs:
+        g = T.idx("Parts", "PartsId")[piece("memoir", spec.memoirs[0])]["PartsGroupId"]
+        memoir_set = T.idx("PartsGroup", "PartsGroupId")[g]["PartsSeriesId"]
+    return {"costume_id": costume_id, "name": T.costume_name(costume_id), "role": role,
+            "element": {v: k for k, v in equip.ELEM_ATTR.items()}.get(W.get(main_id, {}).get("AttributeType")),
+            "main_weapon": main_id, "subs": [piece("weapon", x) for x in spec.subs], "companion": piece("companion", spec.companion),
+            "memoir_set": memoir_set, "debris": piece("debris", spec.debris), "default_force": default, "force": best}
+
+
+def cmd_forcegear(args) -> None:
+    """Each costume's loadout with the most Force (2f_force_gear.json): for the Force list."""
+    import multiprocessing as mp
+    T = tables()
+    costumes = sorted(c for c in T.idx("Costume", "CostumeId") if T.is_fieldable(c))
+    t0 = time.time()
+    with mp.get_context("spawn").Pool(args.workers, initializer=_worker_init) as pool:
+        out = sorted(pool.imap_unordered(_force_gear_one, costumes), key=lambda r: r["costume_id"])
+    ok = [r for r in out if "error" not in r]
+    report("2f_force_gear", {"took_s": round(time.time() - t0, 1), "costumes": len(out), "errors": [r for r in out if "error" in r],
+                             "raised_over_default": sum(1 for r in ok if r["force"] > r["default_force"]),
+                             "strongest": [(r["name"], r["force"]) for r in sorted(ok, key=lambda r: -r["force"])[:10]], "loadouts": ok})
+
+
 def cmd_gear(args) -> None:
     import multiprocessing as mp
     T = tables()
@@ -630,18 +705,96 @@ def cmd_bake(args) -> None:
         "top_force": top(lambda r: -r[7], 10), "fields": FIELDS})
 
 
+# ---------------------------------------------------------------- the Force list
+DECKS_FORCE = BAKE / "decks_force"
+
+
+def force_loadouts():
+    keys = ("costume_id", "role", "element", "main_weapon", "subs", "companion", "memoir_set", "debris")
+    return {r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2f_force_gear.json").read_text())["loadouts"]}
+
+
+def _force_worker_init():
+    """A worker for the Force list: the same state as the decks' (_deck_worker_init), with the Force loadouts."""
+    from deckbuilder import baked, fighters, generate, sim
+    T = tables(); sim.use(T)
+    ex = experts_mod.Experts.load(T)
+    st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
+    los = force_loadouts()
+    cache = fighters.FighterCache(T, st)
+    for c, lo in los.items():
+        cache.add((c, lo["debris"]), baked.loadout_spec(lo, st, T))
+    _W.update(T=T, ex=ex, st=st, cache=cache, los=los, order=baked.debris_order(los),
+              gen=generate.Generator(T, ex, st, st), char={c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in los})
+
+
+def _force_chunk(job):
+    from array import array
+    i, combos = job
+    rows = array("i")
+    for c in combos:
+        lineup = _W["gen"].order(c)
+        rows.extend(list(lineup) + [_W["cache"].force(deck_keys(lineup)[0])])
+    tmp = (DECKS_FORCE / f"chunk_{i:03d}.bin").with_suffix(".tmp")
+    with open(tmp, "wb") as f:
+        rows.tofile(f)
+    tmp.rename(DECKS_FORCE / f"chunk_{i:03d}.bin")
+    return i, len(combos)
+
+
+def read_force(folder=None):
+    from array import array
+    for path in sorted((folder or DECKS_FORCE).glob("chunk_*.bin")):
+        a = array("i")
+        with open(path, "rb") as f:
+            a.frombytes(f.read())
+        for k in range(0, len(a), 4):
+            yield tuple(a[k:k + 3]), a[k + 3]
+
+
+def cmd_forcebake(args) -> None:
+    """Every deck's Force with each costume's Force loadout (a debris taken twice goes to the next), for the Force list."""
+    import collections
+    import multiprocessing as mp
+    T = tables()
+    los = force_loadouts()
+    costumes = sorted(los)
+    char = {c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in costumes}
+    groups = collections.defaultdict(list)
+    for c in all_combos(costumes, char):
+        groups[costumes.index(c[0])].append(c)
+    DECKS_FORCE.mkdir(parents=True, exist_ok=True)
+    pending = sorted((i for i in groups if not (DECKS_FORCE / f"chunk_{i:03d}.bin").exists()), key=lambda i: -len(groups[i]))
+    t0 = time.time()
+    with mp.get_context("spawn").Pool(args.workers, initializer=_force_worker_init) as pool:
+        for _ in pool.imap_unordered(_force_chunk, [(i, groups[i]) for i in pending]):
+            pass
+    rows = list(read_force())
+    top = sorted(rows, key=lambda r: -r[1])[:10]
+    report("5f_force", {"decks": len(rows), "took_min": round((time.time() - t0) / 60, 1),
+                        "top": [(" · ".join(T.character_name(c) for c in l), f) for l, f in top]})
+
+
 # ---------------------------------------------------------------- ship
 def cmd_ship(args) -> None:
     """The baked results into the app (deckbuilder/data/baked): the top decks per role, every costume's loadout, the
     fighter fingerprint the phone compares after preparing its stage."""
     from deckbuilder import baked
+    from deckbuilder import fighters
     _deck_worker_init()
-    los = _W["los"]
-    fp = baked.fingerprint(_W["cache"], {c: (c, lo["debris"]) for c, lo in los.items()}, [m for m, _, _ in _W["meta"]])
+    los, flos, T, st = _W["los"], force_loadouts(), _W["T"], _W["st"]
+    # the fingerprint over both loadout sets, built as the phone builds them (android_deckbuilder._baked_check)
+    cache, keys = fighters.FighterCache(T, st), {}
+    for label, set_ in (("fight", los), ("force", flos)):
+        for c, lo in set_.items():
+            keys[(label, c)] = (label, c, lo["debris"])
+            cache.add(keys[(label, c)], baked.loadout_spec(lo, st, T))
+    fp = baked.fingerprint(cache, keys, [m for m, _, _ in _W["meta"]])
     rows = (baked.Record(tuple(r[:3]), r[3], r[4], r[5], r[6], r[7]) for r in read_decks())
     src = ROOT / "android/app/src/main/python/deckbuilder/sim/battle.py"
     path = baked.write(args.out, los, fp, rows, keep=args.keep,
-                       extra={"bake": json.loads((BAKE / "5_bake.json").read_text())["decks"], "simulator": _code_hash()})
+                       extra={"bake": json.loads((BAKE / "5_bake.json").read_text())["decks"], "simulator": _code_hash()},
+                       force_rows=read_force(), force_loadouts=flos)
     size = sum(p.stat().st_size for p in path.iterdir())
     report("6_ship", {"out": str(path), "fingerprint": fp, "size_mb": round(size / 1e6, 2), "keep": args.keep,
                       "decks": json.loads((path / "meta.json").read_text())["decks"]})
@@ -712,8 +865,12 @@ def main():
     g.add_argument("--limit", type=int, default=0, help="only the first N costumes (a trial run)")
     g.add_argument("--plain", dest="compiled", action="store_false", help="the plain simulator, not the compiled one")
     g.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    fg = sub.add_parser("forcegear"); fg.set_defaults(fn=cmd_forcegear)
+    fg.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
     f = sub.add_parser("fighters"); f.set_defaults(fn=cmd_fighters)
     f.add_argument("--decks", type=int, default=300); f.add_argument("--fights", type=int, default=100)
+    fb = sub.add_parser("forcebake"); fb.set_defaults(fn=cmd_forcebake)
+    fb.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
     sh = sub.add_parser("ship"); sh.set_defaults(fn=cmd_ship)
     sh.add_argument("--out", type=Path, default=ROOT / "android/app/src/main/python/deckbuilder/data/baked")
     sh.add_argument("--keep", type=int, default=300000)

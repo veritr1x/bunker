@@ -332,9 +332,9 @@ def _baked_plan(b, tables) -> dict:
     """What the stage must hold to write any baked deck: every baked costume and piece, both roles' memoirs of each
     baked memoir set."""
     from deckbuilder import equip
-    los = list(b.loadouts.values())
+    los = list(b.loadouts.values()) + list(b.force_loadouts.values())     # the fights' and the Force list's
     sets = sorted({lo["memoir_set"] for lo in los if lo.get("memoir_set")})
-    return dict(costume_ids=sorted(b.loadouts),
+    return dict(costume_ids=sorted(set(b.loadouts) | set(b.force_loadouts)),
                 weapon_ids=sorted({w for lo in los for w in [lo["main_weapon"], *lo["subs"]] if w}),
                 companion_ids=sorted({lo["companion"] for lo in los if lo.get("companion")}),
                 thought_ids=sorted({lo["debris"] for lo in los if lo.get("debris")}),
@@ -364,9 +364,10 @@ def _baked_check(tables, experts, path, b):
         from deckbuilder.sim import battle
         st = model.Save(model.snapshot(path), 1)
         cache, keys = fighters.FighterCache(tables, st), {}
-        for c, lo in b.loadouts.items():
-            keys[c] = (c, lo["debris"])
-            cache.add(keys[c], baked.loadout_spec(lo, st, tables))
+        for label, los in (("fight", b.loadouts), ("force", b.force_loadouts)):
+            for c, lo in los.items():
+                keys[(label, c)] = (label, c, lo["debris"])
+                cache.add(keys[(label, c)], baked.loadout_spec(lo, st, tables))
         sides = [battle._side(d, tables) for d, _, _ in generate.Generator(tables, experts, st, st).meta()]
         fp = baked.fingerprint(cache, keys, sides)
         return fp == b.fingerprint, fp

@@ -406,10 +406,13 @@ class Generator:
         if key not in self._baked_lists:
             while len(self._baked_lists) >= CACHE_SIZE:
                 self._baked_lists.pop(next(iter(self._baked_lists)))
-            el = self._baked.element
-            out = [r for r in self._baked.records(criteria.deck_for)
-                   if self._baked_passes(r.lineup, tuple(el(c) for c in r.lineup), criteria)]
-            if criteria.sort == "force":
+            los = self._baked.loadouts_for(criteria.sort)
+            el = lambda c: los[c]["element"]
+            force = criteria.sort == "force" and self._baked.has_force()
+            # the Force list (each costume in its Force loadout), else the role's list (fight loadouts)
+            src = self._baked.records("force" if force else criteria.deck_for)
+            out = [r for r in src if self._baked_passes(r.lineup, tuple(el(c) for c in r.lineup), criteria)]
+            if criteria.sort == "force" and not force:
                 win = (lambda r: (r.defense_win, r.defense_margin)) if criteria.deck_for == "defense" else (lambda r: (r.attack_win, r.attack_margin))
                 out.sort(key=lambda r: (-r.force, tuple(-x for x in win(r)), r.lineup))
             self._baked_lists[key] = out
@@ -422,19 +425,23 @@ class Generator:
         simulated, so they are what writing it gives."""
         from deckbuilder import baked as bk
         from deckbuilder.explain import short_reason
-        k = (rec.lineup, criteria.deck_for)
+        which = self._baked.loadouts_for(criteria.sort)
+        k = (rec.lineup, criteria.deck_for, which is self._baked.loadouts)
         if k not in self._baked_results:
             if not hasattr(self, "_baked_order"):
-                self._baked_order = bk.debris_order(self._baked.loadouts)
-            los = bk.deck_loadouts(rec.lineup, self._baked.loadouts, self._baked_order)
+                self._baked_order = {}
+            if id(which) not in self._baked_order:
+                self._baked_order[id(which)] = bk.debris_order(which)
+            los = bk.deck_loadouts(rec.lineup, which, self._baked_order[id(which)])
             specs = [bk.loadout_spec(lo, self.stage, self.tables) for lo in los]
             deck = model.compose(self.base, self.stage, specs, 2, 1, self.tables, raise_all=True)
             to_add = [ref for spec in specs for ref in spec.pieces() if ref and ref.source == "stage"]
             reasons = {}
-            for lo, base_lo in zip(los, (self._baked.loadouts[c] for c in rec.lineup)):
+            for lo, base_lo in zip(los, (which[c] for c in rec.lineup)):
                 reasons[(lo["costume_id"], "main_weapon")] = (
-                    f"Chosen by Deck Builder's simulations: the main weapon this costume fought best with against the meta. "
-                    f"Makes this character {lo['element']} in the Arena.")
+                    (f"The main weapon that gives this costume the most Force. " if which is not self._baked.loadouts else
+                     f"Chosen by Deck Builder's simulations: the main weapon this costume fought best with against the meta. ")
+                    + f"Makes this character {lo['element']} in the Arena.")
                 if lo["debris"] != base_lo["debris"]:
                     reasons[(lo["costume_id"], "debris")] = "Its first choice is on another character of this deck (the game holds one)."
             eq = equip.Equipped(deck=deck, specs=specs, reasons=reasons, overrides=[], to_add=to_add)
