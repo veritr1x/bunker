@@ -36,6 +36,20 @@ class NewDay(unittest.TestCase):
         self.assertTrue(android_patcher.new_day_today(1_700_000_000_000 + 60_000))
         self.assertFalse(android_patcher.new_day_today(1_700_000_000_000 + 2 * 86_400_000))
 
+    def test_new_day_today_reads_the_calendar_clock_without_its_upkeep(self):
+        # GET /mods asks this: it follows a moved calendar clock, but must not
+        # rebuild calendar files as read_state does.
+        hour = 3_600_000
+        day = android_calendar.start_of_day(1_700_000_000_000 + 30 * 86_400_000)  # a game day's start
+        jump = 12 * hour
+        state = Path(self.dir.name) / "calendar.json"
+        state.write_text(json.dumps({"loopStart": 1, "jumpMillis": jump}))
+        pressed = day + hour - jump  # real time; on the game clock, 01:00 that day
+        android_patcher.start_new_day(pressed)
+        with mock.patch.object(android_calendar, "state_path", lambda: state), \
+                mock.patch.object(android_calendar, "read_state", side_effect=AssertionError("calendar upkeep")):
+            self.assertTrue(android_patcher.new_day_today(pressed + 13 * hour))
+
     def test_route_closes_the_game(self):
         # The game keeps day markers in memory that only a fresh start clears.
         self.assertIn("/patcher/new-day", android_runtime.CLOSES)

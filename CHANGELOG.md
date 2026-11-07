@@ -15,7 +15,8 @@ under its heading, down to the previous release.
   for you, your characters and their costumes). [15e7587] Friends from the
   story: 2B, 9S, A2, Fio, Lars, Akeha, Noelle and 20 more join your friends,
   cheer every day and fight in the Arena, each leading with their own
-  costume. They aren't written to your save. [feaa1cd]
+  costume. They aren't written to your save, and they fill only the free
+  places in your friend list (100). [feaa1cd]
 - Challenges, for harder battles that pay more: Hard enemies (enemy HP,
   attack and defense ×1.5, ×2, ×3 or ×5; subjugation bosses stay), Weakness
   only (hits that aren't super-effective do half damage; the Arena stays)

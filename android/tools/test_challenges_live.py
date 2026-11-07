@@ -98,6 +98,26 @@ class Live(unittest.TestCase):
         shutil.copyfile(nxt, self.master)
         self.assertEqual(ch.unchallenged_master().read_bytes(), ORIGINAL.read_bytes())
 
+    def test_calendar_files_arrive_challenged(self):
+        # The server may load the next loop or the original-dates copy at any
+        # moment, so each must be challenged before it takes its place.
+        self.mods(hardEnemies=2)
+        self.activate_copy_of(ORIGINAL)
+        placed, replace = [], cal.os.replace
+
+        def watch(src, dst):
+            replace(src, dst)
+            if Path(dst) in (cal.next_file(), cal.view_file()):
+                placed.append((Path(dst).name, self.live_level(dst)))
+        with mock.patch.object(cal, "build_master", lambda origin, output, *a, **k: shutil.copyfile(ORIGINAL, output)), \
+                mock.patch.object(cal, "origin_file", lambda: ORIGINAL), mock.patch.object(cal, "open_chapters", lambda state: None), \
+                mock.patch.object(cal.os, "replace", watch):
+            cal.prepare_next({"loop": 1, "loopStart": cal.LAUNCH})
+            cal.build_view({"loop": 1, "loopStart": cal.LAUNCH})
+        self.assertEqual(sorted(placed), sorted([(cal.next_file().name, self.level * 2), (cal.view_file().name, self.level * 2)]))
+        shutil.copyfile(cal.next_file(), self.master)  # the server rolls over by itself
+        self.assertEqual(ch.unchallenged_master().read_bytes(), ORIGINAL.read_bytes())
+
     def test_mods_save_reapplies_only_on_challenge_change(self):
         self.activate_copy_of(ORIGINAL)
         before = self.master.read_bytes()

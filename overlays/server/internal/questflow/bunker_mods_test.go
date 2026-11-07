@@ -1,9 +1,12 @@
 package questflow
 
 import (
+	"bytes"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/campaign"
@@ -127,6 +130,20 @@ func TestExpMultiplier(t *testing.T) {
 	useMods(t, `{}`)
 	if got := modScaleExp(40); got != 40 {
 		t.Fatalf("off: %d", got)
+	}
+}
+
+// The log says what the player got: the EXP after the multiplier.
+func TestExpLogShowsScaledExp(t *testing.T) {
+	useMods(t, `{"expMultiplier": 3}`)
+	var out bytes.Buffer
+	defer log.SetOutput(log.Writer())
+	log.SetOutput(&out)
+	h := testHandler()
+	h.QuestById[testQuest] = masterdata.EntityMQuest{QuestId: testQuest, UserExp: 10}
+	h.applyExpRewards(testUser(), testQuest, 0)
+	if !strings.Contains(out.String(), "user: +30 exp") {
+		t.Fatalf("log: %s", out.String())
 	}
 }
 
