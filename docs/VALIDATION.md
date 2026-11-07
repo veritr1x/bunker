@@ -1,5 +1,46 @@
 # Validation
 
+## Mods expansion — 2026-11-07
+
+- Android emulator, Global, Comfort mods, game running. Mods page: six
+  groups (Preset, Quests, Items & shops, Summons, World, Challenges), open,
+  each folding; the bonus line read "×1 Turn on a challenge to earn it.".
+- Hard enemies ×2 and Slow skills saved on the page: "Saved. Challenges are
+  in the game data. The game returns to its title screen to load it." The
+  device's game data then had 9,459 of 9,553 enemy costume rows at twice
+  their level and 28,314 skill cooldowns ×1.5, with the gift text kept; an
+  unchallenged copy sat beside it. The game showed its "Returning to title
+  screen" and signed in again on the challenged data with no crash.
+- Challenges off: the game data's SHA-256 matched the unchallenged original
+  (a204a35b…) and no copy was left.
+- Start a new day: saves/day-start.json and client-days.reset written beside
+  mods.json, the game closed; after Deploy, Mama's News played again and the
+  friend list's cheers read 0/100.
+- Friends from the story: 2B and 9S in the game's friend list with their
+  portraits, 28/100 friends.
+- Dark Lair: Easy (1 time daily), deck force 216,226 against 66,000, on
+  auto. No challenges: won in about a minute. Unlimited daily plays and EXP
+  ×3: the clear left its daily count at 0 and Try Again played it again;
+  each clear gave +1,944 player EXP (648 ×3) and +96 character rank EXP
+  (32 ×3). Free skips: a skip kept the tickets at 2,680. With 0 tickets the
+  game greys out Skip by itself, so Free skips needs one ticket in hand.
+- Hard enemies ×2: the same quest was lost at its wave-3 boss. Weakness only
+  with Slow skills: won in about 100 seconds against about 60.
+- Start a new day after the build with the review fixes: Mama's News played
+  again. The login bonus did not, because this save's last stamp is dated
+  2028-12-22 from an earlier calendar jump; the server counts a stamp at or
+  after today as received, so a stamp from the future blocks it whatever the
+  day (a calendar-off issue, not Start a new day's).
+- Comfort preset afterwards: "Comfort preset saved. Challenges are off: the
+  game data is as it was."; the game data's SHA-256 was the original's again.
+- Tests: 9,000+ enemy levels doubled on the real master, subjugation and
+  player-range costumes untouched, ×1.5 rounding and the 66 cubic-curve
+  enemies within 2%, weakness halving only the player's normal-battle table,
+  27,000+ player cooldowns ×1.5 with enemy-only ones and the shared fill
+  tables untouched, stat curves byte-identical; challenges applied once
+  through activate, restore, gift text and the calendar's next loop, and
+  removed exactly.
+
 ## Pod Programs › Gift — 2026-11-07
 
 - Android emulator, Global, All content, game running throughout. Gift

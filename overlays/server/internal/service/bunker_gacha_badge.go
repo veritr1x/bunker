@@ -18,7 +18,8 @@ import (
 // start and with every draw, so the badge goes once the draw is used.
 func freeSummonBadges(catalog []store.GachaCatalogEntry, user *store.UserState, now int64) []*pb.MenuGachaBadgeInfo {
 	today := gametime.StartOfDay(now)
-	tomorrow := today + int64(24*time.Hour/time.Millisecond)
+	// The next daily reset: after Start a new day, still the next midnight.
+	tomorrow := gametime.BaseStartOfDay(now) + int64(24*time.Hour/time.Millisecond)
 	var out []*pb.MenuGachaBadgeInfo
 	for _, entry := range catalog {
 		if !gachaActiveAt(entry, now) || entry.GachaModeType == model.GachaModeStepup || entry.GachaAutoResetType != model.GachaAutoResetDaily {

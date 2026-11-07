@@ -272,7 +272,7 @@ LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/
 # day markers in memory that only a fresh start clears (client-days.reset,
 # GameProcessProvider, LunarLauncher.m). The game is closed first, without
 # asking (ServerService.closeGameForTools, or the iOS launcher).
-CLOSES = frozenset(("/patcher/calendar/view", "/patcher/calendar/off"))
+CLOSES = frozenset(("/patcher/calendar/view", "/patcher/calendar/off", "/patcher/new-day"))
 # Any other change edits the save, the master data or the calendar, which the
 # server reads as it starts and the game as it signs in: the server stops for
 # the change and starts again after it (pause_game, resume_game), and the game

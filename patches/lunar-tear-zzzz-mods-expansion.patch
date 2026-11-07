@@ -1,0 +1,133 @@
+--- a/server/internal/questflow/quest.go
++++ b/server/internal/questflow/quest.go
+@@ -20,7 +20,7 @@
+ 	if q.LastClearDatetime < gametime.StartOfDay(nowMillis) {
+ 		q.DailyClearCount = 0
+ 	}
+-	q.DailyClearCount += n
++	q.DailyClearCount += modDailyClears(n)
+ 	q.LastClearDatetime = nowMillis
+ }
+ 
+@@ -361,7 +361,7 @@
+ 	}
+ 
+ 	store.ConsumeStamina(user, perSkipStamina*skipCount, maxMillis, nowMillis)
+-	user.ConsumableItems[skipTicketId] -= skipCount
++	user.ConsumableItems[skipTicketId] -= modSkipTickets(skipCount)
+ 
+ 	raritySet, rankSet := parseAutoSaleRules(user.AutoSaleSettings)
+ 	var allDrops []RewardGrant
+@@ -398,7 +398,7 @@
+ 	if skipCount <= 0 || skipCount > limit {
+ 		return fmt.Errorf("%w: skipCount %d outside 1..%d", ErrSkipRefused, skipCount, limit)
+ 	}
+-	if have := user.ConsumableItems[skipTicketId]; have < skipCount {
++	if have := user.ConsumableItems[skipTicketId]; have < modSkipTickets(skipCount) {
+ 		return fmt.Errorf("%w: %d skip tickets, %d needed", ErrSkipRefused, have, skipCount)
+ 	}
+ 	probe := *user
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -164,7 +164,7 @@
+ 	}
+ 
+ 	oldLevel := user.Status.Level
+-	user.Status.Exp += questDef.UserExp
++	user.Status.Exp += modScaleExp(questDef.UserExp)
+ 	user.Status.Level, user.Status.Exp = playerLevel(oldLevel, user.Status.Exp, h.UserExpThresholds)
+ 	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, questDef.UserExp, user.Status.Exp, user.Status.Level)
+ 
+@@ -194,7 +194,7 @@
+ 	if questDef.CharacterExp != 0 {
+ 		for id := range deckCharacterIds {
+ 			row := user.Characters[id]
+-			row.Exp += questDef.CharacterExp
++			row.Exp += modScaleExp(questDef.CharacterExp)
+ 			row.Level, row.Exp = gameutil.LevelAndCap(row.Exp, h.CharacterExpThresholds)
+ 			user.Characters[id] = row
+ 			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, questDef.CharacterExp, row.Exp, row.Level)
+@@ -217,7 +217,7 @@
+ 					continue
+ 				}
+ 			}
+-			row.Exp += questDef.CostumeExp
++			row.Exp += modScaleExp(questDef.CostumeExp)
+ 			if thresholds, ok := h.CostumeExpByRarity[cm.RarityType]; ok {
+ 				row.Level, row.Exp = gameutil.ApplyExpWithMaxLevel(row.Exp, thresholds, maxLevel)
+ 			}
+--- a/server/internal/gametime/gametime.go
++++ b/server/internal/gametime/gametime.go
+@@ -26,8 +26,9 @@
+ 	return Now().UnixMilli()
+ }
+ 
+-// StartOfDay returns the start (00:00 GMT-8) of the game day containing millis.
+-func StartOfDay(millis int64) int64 {
++// BaseStartOfDay returns the start (00:00 GMT-8) of the game day containing
++// millis, without a press of Start a new day (StartOfDay, bunker_day.go).
++func BaseStartOfDay(millis int64) int64 {
+ 	t := time.UnixMilli(millis).In(Zone)
+ 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, Zone).UnixMilli()
+ }
+@@ -81,5 +82,5 @@
+ 	if !IsLegacyDayVersion(v) {
+ 		return v
+ 	}
+-	return StartOfDay(min(v+dayMillis-1, max(v, now)))
++	return BaseStartOfDay(min(v+dayMillis-1, max(v, now)))
+ }
+--- a/server/internal/service/shop.go
++++ b/server/internal/service/shop.go
+@@ -150,8 +150,10 @@
+ 			return gametime.WeeklyVersion(nowMillis), true
+ 		}
+ 		const dayMillis = 24 * 60 * 60 * 1000
+-		day := gametime.StartOfDay(nowMillis)
+-		days := (day - gametime.StartOfDay(0)) / dayMillis
++		// Periods of several days count whole days: Start a new day resets
++		// dailies only.
++		day := gametime.BaseStartOfDay(nowMillis)
++		days := (day - gametime.BaseStartOfDay(0)) / dayMillis
+ 		return day - (days%int64(period))*dayMillis, true
+ 	case masterdata.ShopAutoResetMonthly:
+ 		t := time.UnixMilli(nowMillis).In(gametime.Zone)
+--- a/server/internal/service/user.go
++++ b/server/internal/service/user.go
+@@ -138,6 +138,7 @@
+ 				resetShopStock(cats.Shop, user, user.GameStartDatetime)
+ 			}
+ 		}
++		resetDailyCounts(user, user.GameStartDatetime) // Start a new day (bunker_new_day.go)
+ 	})
+ 
+ 	return &pb.GameStartResponse{}, nil
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -166,7 +166,7 @@
+ 	oldLevel := user.Status.Level
+ 	user.Status.Exp += modScaleExp(questDef.UserExp)
+ 	user.Status.Level, user.Status.Exp = playerLevel(oldLevel, user.Status.Exp, h.UserExpThresholds)
+-	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, questDef.UserExp, user.Status.Exp, user.Status.Level)
++	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, modScaleExp(questDef.UserExp), user.Status.Exp, user.Status.Level)
+ 
+ 	if user.Status.Level > oldLevel {
+ 		// A level-up fills stamina to the new maximum; stamina already
+@@ -197,7 +197,7 @@
+ 			row.Exp += modScaleExp(questDef.CharacterExp)
+ 			row.Level, row.Exp = gameutil.LevelAndCap(row.Exp, h.CharacterExpThresholds)
+ 			user.Characters[id] = row
+-			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, questDef.CharacterExp, row.Exp, row.Level)
++			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, modScaleExp(questDef.CharacterExp), row.Exp, row.Level)
+ 		}
+ 	}
+ 
+@@ -222,7 +222,7 @@
+ 				row.Level, row.Exp = gameutil.ApplyExpWithMaxLevel(row.Exp, thresholds, maxLevel)
+ 			}
+ 			user.Costumes[key] = row
+-			log.Printf("[applyExpRewards] questId=%d costume=%d (key=%s): +%d exp -> total=%d level=%d", questId, row.CostumeId, key, questDef.CostumeExp, row.Exp, row.Level)
++			log.Printf("[applyExpRewards] questId=%d costume=%d (key=%s): +%d exp -> total=%d level=%d", questId, row.CostumeId, key, modScaleExp(questDef.CostumeExp), row.Exp, row.Level)
+ 		}
+ 	}
+ }

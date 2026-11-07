@@ -16,6 +16,36 @@ under its heading, down to the previous release.
   and the mods' reward multiplier apply to them. The amounts are an
   estimate from the notices and the item's Location list.
 
+### Mods
+- The Mods page is in five groups: Quests, Items & shops, Summons, World
+  and Challenges. Each one folds away, and the page remembers which.
+  [27beb49] [1421a6d]
+- New mods: Unlimited daily plays (daily-limited quests don't count their
+  clears), Free skips (no skip tickets used) and an EXP multiplier (×1–×10
+  for you, your characters and their costumes). [15e7587] Friends from the
+  story: 2B, 9S, A2, Fio, Lars, Akeha, Noelle and 20 more join your friends,
+  cheer every day and fight in the Arena, each leading with their own
+  costume. They aren't written to your save, and they fill only the free
+  places in your friend list (100). [feaa1cd]
+- Challenges, for harder battles that pay more: Hard enemies (enemy HP,
+  attack and defense ×1.5, ×2, ×3 or ×5; subjugation bosses stay), Weakness
+  only (hits that aren't super-effective do half damage; the Arena stays)
+  and Slow skills (your skills take 50% longer to come back). They change the
+  game data, so the game goes back to its title screen to load them, and
+  turning them off gives the game data back exactly. Each pays a reward
+  bonus: ×2 to ×6 for Hard enemies, ×2 for the other two, multiplied, up to
+  ×10, while the Quests, Items & shops and Summons mods are off. [b52580f]
+  [5a3e55d] [5aa63c4]
+- Presets: Comfort is the Comfort Mod's eight mods, as before; Everything
+  turns on every mod but the challenges, with rewards and EXP ×10. [5aa63c4]
+
+### Content
+- Start a new day: everything daily starts over at once (quest plays,
+  missions, shop restocks, free summons, cheers and the login bonus).
+  Weekly limits and the calendar don't move. The game closes so it starts
+  the day fresh; tap Deploy to play. The challenge bonus pauses until the
+  next day. [0d18580] [2f54d36] [8c49603]
+
 ### Bunker menu
 - The Bunker's own text, on Android and iPhone, says the same thing the
   same way. "Server" and "Tools" became Lunar Tear and Pod Programs, Play
