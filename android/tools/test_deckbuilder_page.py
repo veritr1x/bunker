@@ -78,6 +78,7 @@ class PageTest(unittest.TestCase):
         self.calls = []
         self.session = FakeSession()
         patches = [mock.patch.object(db, "session", lambda user: self.session),
+                   mock.patch.object(db, "refresh_arena", lambda user: None),
                    mock.patch.object(db, "_backup", lambda: self.calls.append(("backup",))),
                    mock.patch.object(db, "_shim", lambda payload: self.calls.append(("shim", payload)) or {"ok": True, "applied": 1})]
         for p in patches:
@@ -146,6 +147,15 @@ class PageTest(unittest.TestCase):
         b = self.c.get("/decks/rescore", params={"user": 1, "key": key, "raise": "35036"}).json()
         self.assertNotEqual(a, b)
         self.assertEqual(self.session.raised, [[], [35036]])
+
+    def test_page_and_write_refresh_the_arena_data(self):
+        """Opening the page and writing a deck refresh the ladder's data
+        (deck table when the master data changed, the player's score)."""
+        seen = []
+        with mock.patch.object(db, "refresh_arena", lambda user: seen.append(user)):
+            self.c.get("/decks", params={"user": 1})
+            self.c.post("/decks/write", json={"user": 1, "key": db.result_key(self.session.result), "slots": [2], "raise": []})
+        self.assertEqual(seen, [1, 1])
 
     def test_detail(self):
         r = self.c.get("/decks/detail", params={"user": 1, "key": db.result_key(self.session.result)}).json()

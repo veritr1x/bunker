@@ -189,6 +189,40 @@ def session(user_id: int) -> Session:
         return s
 
 
+def _arena_files():
+    folder = Path(config.GAME_DB_PATH).parent
+    from deckbuilder import ladder
+    return folder / ladder.DECK_FILE, folder / ladder.PLAYER_FILE
+
+
+def _refresh_arena_now(user_id: int) -> None:
+    """The Arena ladder's data (server/internal/pvp/decktable.go): the deck
+    table when the master data changed, and this player's score."""
+    from deckbuilder import ladder
+    s = session(user_id)
+    decks, players = _arena_files()
+    sig = runtime.fingerprint(config.find_master_data_bin())
+    if ladder.needs_export(decks, sig):
+        from deckbuilder import generate
+        ladder.export_table(s.tables, s.experts, s.stage, decks, pool=generate.default_pool(s.tables, s.experts), master_sha=sig)
+    ladder.write_player_score(players, user_id, ladder.score_player(s.base, s.tables, s.experts, s.stage))
+
+
+def refresh_arena(user_id: int) -> None:
+    """In the background: the page never waits for it."""
+    def run():
+        try:
+            with _refresh_lock:
+                _refresh_arena_now(user_id)
+        except Exception as exc:   # the ladder keeps its last data
+            import logging
+            logging.getLogger("deckbuilder").warning("Arena data not refreshed: %s", exc)
+    threading.Thread(target=run, daemon=True).start()
+
+
+_refresh_lock = threading.Lock()
+
+
 def _user(user):
     if user:
         return int(user)
@@ -235,6 +269,7 @@ def _spec_json(spec):
 def page(request: Request, user: int = 0):
     user_id = _user(user)
     s = session(user_id)
+    refresh_arena(user_id)
     return templates.TemplateResponse(request, "deck_builder.html", {"active": "decks", "user": user_id, "players": s.players(),
                                                                      "slots": s.slots(), "opponents": s.opponents()})
 
@@ -292,4 +327,5 @@ def write(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     with _lock:
         _sessions.pop(user_id, None)        # the save changed: read it again
+    refresh_arena(user_id)
     return {"ok": True, "added": s.gen.added(r.equipped.to_add), "raised": raises, "slots": numbers}
