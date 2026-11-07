@@ -417,7 +417,9 @@ class Generator:
 
     def _baked_result(self, rec, criteria, rank) -> Result:
         """A baked deck as a Result: its baked loadouts (a debris taken twice goes to the next: baked.deck_loadouts),
-        built with the player's own costumes raised (All maxed writes them so); win rate, margin and Force baked."""
+        built with the player's own costumes raised (All maxed writes them so). Ranked by the bake, which raised every
+        costume of every character (their level bonuses count); its win rate, margin and Force are this deck's own,
+        simulated, so they are what writing it gives."""
         from deckbuilder import baked as bk
         from deckbuilder.explain import short_reason
         k = (rec.lineup, criteria.deck_for)
@@ -442,11 +444,11 @@ class Generator:
             tags = [EFFECT_LABEL[e] for e in EFFECTS if e in eff][:3]
             _, actors, _ = power.actors_for(deck, self.tables)
             stats = [power.character_stats(a, self.tables) if a else None for a in actors]
-            win, margin = ((rec.defense_win, rec.defense_margin) if criteria.deck_for == "defense" else (rec.attack_win, rec.attack_margin))
+            win, margin = self.outcome(deck, criteria)
             self._baked_results[k] = Result(
                 rank=0, lineup=rec.lineup, name=" · ".join(self.tables.character_name(c) for c in rec.lineup),
                 expert=any(l.costumes == rec.lineup for l in self.experts.lineups()), deck=deck, strategy=strategies[0],
-                win_rate=win, margin=margin, force=rec.force, to_add=self.added(to_add), tags=tags, effects=eff,
+                win_rate=win, margin=margin, force=power.deck_power(deck, self.tables).total, to_add=self.added(to_add), tags=tags, effects=eff,
                 elements=els, stats=stats, why=short_reason(strategies[0], els, tags, None, self.tables), equipped=eq)
         r = self._baked_results[k]
         r.rank = rank

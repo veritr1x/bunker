@@ -107,6 +107,11 @@ class SessionTest(unittest.TestCase):
         self.assertIn("1", json.loads(players.read_text()))
 
     def test_against_an_opponent_outside_the_stage(self):
+        """An opponent whose costumes the stage lacks is staged when asked for. (With the baked data shipped the stage
+        holds every playable costume, so this is the case without it.)"""
+        from unittest import mock
+        patch = mock.patch.object(db, "_baked", lambda: None)
+        patch.start(); self.addCleanup(patch.stop)
         db.prepare(1)
         s = db.session(1)
         with self.assertRaises(db.StageNotReady) as caught:
@@ -119,6 +124,20 @@ class SessionTest(unittest.TestCase):
         self.assertIn(UNSTAGED, [c.costume.id for c in deck.characters() if c])
         page = s.page(db.criteria_from(s, {"against": str(self.opponent["id"])}), 0, 3)
         self.assertTrue(page.items)
+
+    def test_the_baked_results_are_used_when_the_fighters_match(self):
+        """Prepared with the shipped baked data: the stage holds every baked piece, its fighters match the bake's
+        fingerprint, and All maxed against the general meta answers from the baked lists."""
+        if db._baked() is None:
+            self.skipTest("no baked data shipped")
+        db.prepare(1)
+        marker = json.loads((Path(config.GAME_DB_PATH).parent / "deckbuilder" / "stage.json").read_text())
+        self.assertTrue(marker["baked_ok"], marker.get("baked_here"))
+        s = db.session(1)
+        c = db.criteria_from(s, {"mode": "best"})
+        self.assertTrue(s.gen.baked_applies(c))
+        page = s.page(c, 0, 3)
+        self.assertEqual([r.lineup for r in page.items], [r.lineup for r in db._baked().records("attack")[:3]])
 
     def test_stage_rebuilt_when_the_shipped_data_changes(self):
         db.prepare(1)
