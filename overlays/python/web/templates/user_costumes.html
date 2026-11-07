@@ -29,7 +29,7 @@
     <select data-karma-select data-costume-id="{{ item.id }}" data-karma-slot="{{ slot }}"
             disabled
             title="Slot {{ slot }} (locked or no costume)"
-            style="flex:1 1 280px;min-width:240px;font-family:inherit;font-size:11px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:2px">
+            style="flex:1 1 280px;min-width:min(240px,100%)">
       <option value="">SLOT {{ slot }}: --</option>
     </select>
     {% endfor %}

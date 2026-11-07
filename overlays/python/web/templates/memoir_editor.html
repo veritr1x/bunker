@@ -18,8 +18,8 @@
 
 <div class="panel" style="padding:12px" data-side>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-    <label for="set-picker" style="font-size:12px;color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Set</label>
-    <select id="set-picker" style="flex:1;min-width:300px;font-family:inherit;font-size:13px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:6px">
+    <label for="set-picker" style="font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Set</label>
+    <select id="set-picker" style="flex:1;min-width:min(300px,100%)">
       {% for s in sets %}
       <option value="{{ s.id }}" data-bonus2="{{ s.bonus_2 }}" data-bonus3="{{ s.bonus_3 }}">
         {% if s.priority %}[PRIORITY] {% endif %}{{ s.name }}
@@ -28,7 +28,7 @@
     </select>
     <button type="button" id="grant-set-btn" class="grant-chosen-btn">GRANT SET AT LV15</button>
   </div>
-  <p id="set-bonus-line" style="margin:0 0 8px;font-size:11px;color:var(--fg-mid);letter-spacing:0.05em">
+  <p id="set-bonus-line" style="margin:0 0 8px;font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.05em">
     &mdash;
   </p>
 
@@ -53,8 +53,8 @@
 <div class="panel" style="padding:12px">
   {% if owned_for_picker %}
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-    <label for="memoir-picker" style="font-size:12px;color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Memoir</label>
-    <select id="memoir-picker" style="flex:1;min-width:340px;font-family:inherit;font-size:12px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:6px">
+    <label for="memoir-picker" style="font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Memoir</label>
+    <select id="memoir-picker" style="flex:1;min-width:min(340px,100%)">
       {% for m in owned_for_picker %}
       <option value="{{ m.uuid }}">
         {% if m.set_name %}[{{ m.set_name }}] {% endif %}{{ m.memoir_name }} &middot; lv{{ m.level }} &middot; main_id={{ m.main_id }} &middot; uuid={{ m.uuid[:8] }}&hellip;
@@ -65,7 +65,7 @@
   </div>
   <div id="fix-slots-editor" style="display:flex;flex-direction:column;gap:6px"></div>
   {% else %}
-  <p style="margin:0;color:var(--fg-mid);font-size:12px;letter-spacing:0.1em">No memoirs owned yet. Build a set above first.</p>
+  <p style="margin:0;color:var(--fg-mid);font-size:var(--fs-label);letter-spacing:0.1em">No memoirs owned yet. Build a set above first.</p>
   {% endif %}
 </div>
 
@@ -103,7 +103,7 @@
   function makeSelect(name, options, selectedKey, extraStyle) {
     const sel = document.createElement("select");
     sel.dataset.kind = name;
-    sel.style.cssText = "font-family:inherit;font-size:12px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:4px;" + (extraStyle || "");
+    sel.style.cssText = "min-width:0;width:100%;" + (extraStyle || "");
     for (const opt of options) {
       const el = document.createElement("option");
       el.value = opt.key;
@@ -124,26 +124,26 @@
     head.style.cssText = "display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px";
     const title = document.createElement("strong");
     title.textContent = memoir.name + " (group " + memoir.group_id + ")";
-    title.style.cssText = "min-width:240px";
+    title.style.cssText = "min-width:min(240px,100%)";
     head.appendChild(title);
 
     const primaryLabel = document.createElement("span");
     primaryLabel.textContent = "PRIMARY";
-    primaryLabel.style.cssText = "font-size:11px;color:var(--fg-mid);letter-spacing:0.15em";
+    primaryLabel.style.cssText = "font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
     head.appendChild(primaryLabel);
 
-    const primarySel = makeSelect("primary", PRIMARY_OPTIONS, defaultPrimaryKey(memoirIndex), "flex:1;min-width:220px");
+    const primarySel = makeSelect("primary", PRIMARY_OPTIONS, defaultPrimaryKey(memoirIndex), "flex:1;min-width:min(220px,100%)");
     primarySel.dataset.role = "primary";
     head.appendChild(primarySel);
     wrap.appendChild(head);
 
     // Slots 1-4
     const slotsWrap = document.createElement("div");
-    slotsWrap.style.cssText = "display:grid;grid-template-columns:60px minmax(0,1fr) 110px;gap:6px 10px;align-items:center";
+    slotsWrap.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:4px 8px;align-items:center";
     for (let slot = 1; slot <= 4; slot++) {
       const lbl = document.createElement("span");
       lbl.textContent = "SLOT " + slot;
-      lbl.style.cssText = "font-size:11px;color:var(--fg-mid);letter-spacing:0.15em";
+      lbl.style.cssText = "grid-column:1/-1;margin-top:4px;font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
       slotsWrap.appendChild(lbl);
 
       const subKey = DEFAULT_SUB_ORDER[slot - 1] || SUB_OPTIONS[0].key;
@@ -157,7 +157,7 @@
       valInput.dataset.role = "value";
       valInput.dataset.slot = slot;
       valInput.value = SUB_BY_KEY[subKey].value;
-      valInput.style.cssText = "background:var(--bg-cream);border:1px solid var(--fg-mid);padding:4px;font-family:inherit;font-size:12px;color:var(--fg-dark)";
+      valInput.style.cssText = "width:100%;min-width:0";
       slotsWrap.appendChild(valInput);
 
       sub.addEventListener("change", () => {
@@ -265,7 +265,7 @@
     for (let slot = 1; slot <= 4; slot++) {
       const lbl = document.createElement("span");
       lbl.textContent = "SLOT " + slot;
-      lbl.style.cssText = "font-size:11px;color:var(--fg-mid);letter-spacing:0.15em";
+      lbl.style.cssText = "font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
       wrap.appendChild(lbl);
 
       const subKey = DEFAULT_SUB_ORDER[slot - 1] || SUB_OPTIONS[0].key;
@@ -279,7 +279,7 @@
       valInput.dataset.role = "fix-value";
       valInput.dataset.slot = slot;
       valInput.value = SUB_BY_KEY[subKey].value;
-      valInput.style.cssText = "background:var(--bg-cream);border:1px solid var(--fg-mid);padding:4px;font-family:inherit;font-size:12px;color:var(--fg-dark)";
+      valInput.style.cssText = "width:100%;min-width:0";
       wrap.appendChild(valInput);
 
       sub.addEventListener("change", () => {
