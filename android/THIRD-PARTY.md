@@ -39,3 +39,12 @@ with its MIT license preserved in `../LICENSE` and inside the APK.
 pinned submodule, used to patch local copies of the APK and master data.
 All four exact commits are recorded in `../upstream.lock.json` and Git's submodule entries.
 The launcher does not execute a downloaded grant binary or expose editing on LAN.
+
+Deck Builder expert data (`app/src/main/python/deckbuilder/data/experts.json`)
+is reduced to costume, weapon, memoir set, companion and debris ids with
+weights, from the community PvP tier lists and Arena loadouts on
+[nierrein.guide](https://nierrein.guide/tierlists/pvp) (tier lists managed by
+.astonishing, nimbusEXP, .keziah and emperor_of_mankind on Discord) and from
+Arena decks shown in community videos. No text from those sources is included.
+`deckbuilder/data/ability_mods.json` holds only numbers read from the game's
+ability descriptions (`scripts/build_deckbuilder_data.py`).
