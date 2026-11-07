@@ -25,6 +25,27 @@ def opening_order(units, attacker_manual, slot_order, interleave=False):
 
 
 # ---------------- combo ----------------
+
+_COMBO = None
+
+
+def _combo_table():
+    """(rows sorted by lower limit, coefficient for every count up to the last lower limit): read once per master
+    data (sim.use reloads this module). The coefficient for count n is the last row whose lower limit is <= n; past
+    the last lower limit it stays the last row's."""
+    global _COMBO
+    if _COMBO is None:
+        table = sorted((r["ComboCountLowerLimit"], r["DamageCoefficientPermil"] / 1000) for r in T("ComboCalculationSetting"))
+        by_count = []
+        for n in range((table[-1][0] + 1) if table else 0):
+            c = 1.0
+            for lo, v in table:
+                if n >= lo: c = v
+            by_count.append(c)
+        _COMBO = (table, by_count)
+    return _COMBO
+
+
 class Combo:
     """Team combo counter. Coefficient table from EntityMComboCalculationSetting (master data): lower limit -> damage permil.
     The on-screen COMBO n uses the row with lower limit n-1 (checked on Fo5jCU4TIxc: COMBO 5 = 125%, COMBO 9 = 137%, COMBO 14 = 162%).
@@ -32,17 +53,16 @@ class Combo:
     the counter resets when the other side acts (reset='other_side_acts') or never within the fight (reset='never')."""
     def __init__(self, enabled=True, count_na=True, reset="other_side_acts"):
         self.enabled = enabled; self.count_na = count_na; self.reset = reset
-        rows = T("ComboCalculationSetting")
-        self.table = sorted((r["ComboCountLowerLimit"], r["DamageCoefficientPermil"] / 1000) for r in rows)
+        self.table, self.by_count = _combo_table()
         self.count = {"A": 0, "D": 0}
 
     def coef(self, side):
         if not self.enabled: return 1.0
         n = max(0, self.count[side] - 1)
-        c = 1.0
-        for lo, v in self.table:
-            if n >= lo: c = v
-        return c
+        by = self.by_count
+        if not by: return 1.0
+        return by[n] if n < len(by) else by[-1]
+
 
     def on_action(self, side, damaging, normal=False):
         if not self.enabled: return

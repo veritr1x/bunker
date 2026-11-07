@@ -59,6 +59,11 @@ class FighterCacheTest(unittest.TestCase):
             deck = model.compose(self.stage, self.stage, [self.specs[c] for c in lineup], 2, 7, tables())
             self.assertEqual(self.cache.force(lineup), power.deck_power(deck, tables()).total, lineup)
 
+    def test_fighters_and_force_together(self):
+        """side_force computes the stats once for both: the same fighters and Force as side() and force()."""
+        for lineup in list(itertools.permutations(sorted(self.specs), 3))[:40]:
+            self.assertEqual(self.cache.side_force(lineup), (self.cache.side(lineup), self.cache.force(lineup)), lineup)
+
     def test_party_statuses_reach_the_teammates(self):
         """Some fighters' stats are changed by their teammates (party-wide statuses): the sharing is exercised."""
         stat = lambda t: (t["hp"], t["atk"], t["df"], t["agi"])
