@@ -83,7 +83,8 @@ class Session:
         sig = runtime.fingerprint(config.find_master_data_bin())
         if path.exists() and runtime.read_json(marker) == {"master": sig}:
             return path
-        pool = [c for c in self.experts.costumes() if self.tables.is_playable(c)][:60]
+        from deckbuilder import generate
+        pool = generate.default_pool(self.tables, self.experts)
         plan = equip.stage_plan([(c,) for c in pool] + [l.costumes for l in self.experts.lineups()], self.tables, self.experts)
         stage.Stager(lambda p: _shim(p), self.tables).build(**plan)
         folder.mkdir(parents=True, exist_ok=True)

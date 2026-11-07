@@ -60,7 +60,8 @@ RANKINGS_OUT = ROOT / "android/app/src/main/python/deckbuilder/data/rankings.jso
 def rankings(research: Path) -> dict:
     """Candidate pieces with their static scores (the research's *_ranked.csv):
     weapons [element, weapon type, main score, sub score], companions
-    [element, score], debris [element or null, kind, score], memoir sets score."""
+    [element, score], debris [element or null, kind, score], memoir sets score,
+    costumes score (the research's arena_score: damage, support, status and timing)."""
     import csv
     rd = lambda f: list(csv.DictReader(open(research / f)))
     num = lambda v: round(float(v or 0), 4)
@@ -74,7 +75,8 @@ def rankings(research: Path) -> dict:
         kind = "gauge" if "gauge" in text else ("weapon_stats" if "stats of equipped" in text else "other")
         debris[r["thought_id"]] = [m.group(1) if m else None, kind, num(r["value_with_status"])]
     sets = {r["series_id"]: num(r["set3_with_status"]) for r in rd("memoir_sets_ranked.csv")}
-    return {"weapons": weapons, "companions": companions, "debris": debris, "memoir_sets": sets}
+    costumes = {r["costume_id"]: num(r["arena_score"]) for r in rd("costumes_ranked.csv")}
+    return {"weapons": weapons, "companions": companions, "debris": debris, "memoir_sets": sets, "costumes": costumes}
 
 
 def main(argv=None):

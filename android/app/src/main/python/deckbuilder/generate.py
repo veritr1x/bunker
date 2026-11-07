@@ -80,6 +80,18 @@ class Page(NamedTuple):
 
 
 _FLAGS: dict = {}
+OUTSIDERS = 15
+
+
+def default_pool(tables, experts, size=DEFAULT_POOL, outsiders=OUTSIDERS) -> list:
+    """The costumes Theoretical best combines: the expert picks, and the
+    best-scored costumes no expert listed (so the data can find what they missed)."""
+    playable = lambda c: tables.is_playable(c) and c in tables.idx("Costume", "CostumeId")
+    picks = [c for c in experts.costumes() if playable(c)][:size - outsiders]
+    scores = equip.rankings().get("costumes", {})
+    others = [int(k) for k, _ in sorted(scores.items(), key=lambda kv: -kv[1])
+              if experts.weight(int(k)) == 0 and playable(int(k))][:outsiders]
+    return picks + others
 
 
 def costume_flags(costume_id, tables) -> set:
@@ -131,8 +143,8 @@ class Generator:
             owned = {r["costume_id"] for r in self.base.q("select costume_id from user_costumes where user_id=?")}
             return sorted((c for c in owned if self.tables.is_playable(c)), key=lambda c: (-self.experts.weight(c), c))
         staged = {r["costume_id"] for r in self.stage.q("select costume_id from user_costumes where user_id=?")}
-        ranked = [c for c in self.experts.costumes() if c in staged]
-        return ranked[:DEFAULT_POOL] or sorted(staged)[:DEFAULT_POOL]
+        pool = [c for c in default_pool(self.tables, self.experts) if c in staged]
+        return pool or sorted(staged)[:DEFAULT_POOL]
 
     def flags(self, costume_id) -> set:
         return costume_flags(costume_id, self.tables)
