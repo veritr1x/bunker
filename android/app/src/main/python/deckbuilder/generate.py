@@ -72,6 +72,7 @@ class Result:
     equipped: equip.Equipped
     variants: list = field(default_factory=list)
     data_pick: DataPick | None = None
+    margin: float = 0.0          # HP share left minus the opponents', averaged (sim.score): orders decks with equal win rates
 
 
 class Page(NamedTuple):
@@ -261,16 +262,22 @@ class Generator:
                           for i, l in enumerate(pool)]
         return self._meta
 
-    def rate(self, deck, criteria) -> float:
+    def outcome(self, deck, criteria) -> tuple[float, float]:
+        """(win rate, margin) of the deck, weighted over the opponents (both openings; sim.score)."""
         from deckbuilder import sim
         targets = [(criteria.against, 1.0)] if criteria.against is not None else [(d, w) for d, w, _ in self.meta()]
-        r = 0.0
+        r = m = 0.0
         for t, w in targets:
             if criteria.deck_for == "defense":
-                r += w * (1 - sim.win_rate(t, deck, self.tables, runs=self.runs))
+                win, margin = sim.score(t, deck, self.tables, runs=self.runs)
+                r += w * (1 - win); m -= w * margin
             else:
-                r += w * sim.win_rate(deck, t, self.tables, runs=self.runs)
-        return round(r, 4)
+                win, margin = sim.score(deck, t, self.tables, runs=self.runs)
+                r += w * win; m += w * margin
+        return round(r, 4), round(m, 4)
+
+    def rate(self, deck, criteria) -> float:
+        return self.outcome(deck, criteria)[0]
 
     def evaluate(self, lineup, criteria) -> Result | None:
         expert = next((l for l in self.experts.lineups() if l.costumes == lineup), None)
@@ -298,8 +305,9 @@ class Generator:
         # Named by its characters, left to right: what tells two decks apart (expert sources are not names).
         name = " · ".join(self.tables.character_name(c) for c in lineup)
         from deckbuilder.explain import short_reason
+        win_rate, margin = self.outcome(eq.deck, criteria)
         return Result(rank=0, lineup=lineup, name=name, expert=expert is not None, deck=eq.deck, strategy=strategies[0],
-                      win_rate=self.rate(eq.deck, criteria), force=power.deck_power(eq.deck, self.tables).total,
+                      win_rate=win_rate, margin=margin, force=power.deck_power(eq.deck, self.tables).total,
                       to_add=self.added(eq.to_add), tags=tags, effects=eff, elements=els, stats=stats,
                       why=short_reason(strategies[0], els, tags, criteria.against, self.tables),
                       equipped=eq)
@@ -318,10 +326,10 @@ class Generator:
 
     def _sort_key(self, criteria):
         if criteria.sort == "force":
-            return lambda r: (-r.force, -r.win_rate, r.lineup)
+            return lambda r: (-r.force, -r.win_rate, -r.margin, r.lineup)
         if criteria.sort == "fewest":
-            return lambda r: (r.to_add, -r.win_rate, r.lineup)
-        return lambda r: (-r.win_rate, not r.expert, -r.force, r.lineup)
+            return lambda r: (r.to_add, -r.win_rate, -r.margin, r.lineup)
+        return lambda r: (-r.win_rate, -r.margin, not r.expert, -r.force, r.lineup)
 
     def _state(self, criteria):
         key = (criteria.deck_for, criteria.mode, id(criteria.against), criteria.strategy, criteria.elements, criteria.must_have,

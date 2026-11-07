@@ -38,8 +38,9 @@ class GenerateTest(unittest.TestCase):
     def test_generate_ranks_by_win_rate(self):
         page = self.gen.page(self.criteria(), 0, 6)
         self.assertEqual(len(page.items), 6)
-        rates = [r.win_rate for r in page.items]
-        self.assertEqual(rates, sorted(rates, reverse=True))
+        keys = [(r.win_rate, r.margin) for r in page.items]
+        self.assertEqual(keys, sorted(keys, reverse=True))   # equal win rates: the wider margin first
+        self.assertTrue(all(-1 <= r.margin <= 1 for r in page.items))
         self.assertEqual([r.rank for r in page.items], list(range(1, 7)))
         self.assertTrue(all(r.force > 0 for r in page.items))
 
@@ -47,11 +48,13 @@ class GenerateTest(unittest.TestCase):
         items = self.gen.page(self.criteria(), 0, 30).items
         expert_ranks = [r.rank for r in items if r.expert]
         for r in items:
-            if not r.expert and expert_ranks and r.rank < max(expert_ranks):
+            below = [x for x in items if x.expert and x.rank > r.rank]
+            if not r.expert and below and r.win_rate > below[0].win_rate:   # above it on margin alone: no badge
                 self.assertIsNotNone(r.data_pick, r.lineup)
-                below = [x for x in items if x.expert and x.rank > r.rank]
                 self.assertEqual(r.data_pick.beats, below[0].name)
                 self.assertGreater(r.data_pick.by, 0)
+            elif not r.expert:
+                self.assertIsNone(r.data_pick, r.lineup)
             if r.expert:
                 self.assertIsNone(r.data_pick)
 
