@@ -44,6 +44,10 @@ class Battle:
         self.logging = True      # a line per action in self.log (the bake turns it off: it only needs the result)
         self.chance_draws = 0    # random draws that could change something (a chance below 1, a shuffle that matters):
                                  # with none, every seed plays the same fight (the bake runs one seed then)
+        # mirror_safe: nothing here depended on which side attacks (no turn-order tie between the sides, no close
+        # time-out, no start passive reaching the other side; with chance_draws == 0 as well, the same fight with the
+        # roles and openings swapped ends the same, mirrored: mirror()). Only the queue/hybrid engine is checked.
+        self.mirror_safe = P["ENGINE"] == "queue" and P["ACTION_MODEL"] == "hybrid"
         self.sides = {"A": [U(t, "A", s) for s, t in att.items()], "D": [U(t, "D", s) for s, t in dfn.items()]}
         self.combo = rules.Combo(P["COMBO"] != "off", P["COMBO_COUNT_NA"], P["COMBO_RESET"]); self._combo_target = False
         self.first_kill = None; self.na_done = 0; self.batch_left = None; self.comp_events = []; self.blocked = collections.Counter(); self.first_ben = {}
@@ -80,11 +84,13 @@ class Battle:
                 if o["which"] == "cs": u.gauge += o["frac"] * u.t["cs"]["gauge"]
                 else: u.w = [max(0, x - o["frac"] * ws["cd"]) for x, ws in zip(u.w, u.t["wskills"])]
             elif o["op"] == "cdmult":
+                if "enemy" in o.get("scope", "self_01"): self.mirror_safe = False
                 tg = self.scope(u, o.get("scope", "self_01"))
                 for a in tg:
                     if o["which"] == "cs": a.gmult *= o["mult"]
                     else: a.wmult *= o["mult"]
             elif o["op"] in ("status", "buff"):
+                if "enemy" in o.get("scope", ""): self.mirror_safe = False
                 self.apply(u, o, None, at_start=True)
 
     def scope(self, u, sc, target=None):
@@ -411,6 +417,9 @@ class Battle:
         tie = {"D": 0, "A": 1} if P["TIE_ORDER"] == "defender_first" else {"A": 0, "D": 1}
         so = {s: i for i, s in enumerate(P["SLOT_ORDER"])}
         q = sorted(al, key=lambda u: (-self.agility(u), tie[u.side], so[u.slot]))
+        if self.mirror_safe:
+            agi_a = {self.agility(u) for u in al if u.side == "A"}
+            if any(self.agility(u) in agi_a for u in al if u.side == "D"): self.mirror_safe = False   # a tie between sides
         doubles = [u for u in q if self.agility(u) >= P["AGI_DOUBLE_RATIO"] * slowest]
         return q + doubles
 
@@ -491,6 +500,7 @@ class Battle:
         elif aD and not aA: win = "D"; how = "KO"
         else:
             how = "timeout"
+            if abs(share("A") - share("D")) <= P["TIMEOUT_MARGIN"]: self.mirror_safe = False    # a draw: the defender's
             # clearly ahead only: two sides held near 0 (Dauntless at 1 HP) are a draw, not a win for the smaller maximum HP
             win = "A" if (P["TIMEOUT_RULE"] == "hp_ratio" and share("A") > share("D") + P["TIMEOUT_MARGIN"]) else "D"
         # did Compromise land before the target's first beneficial status from a skill?
@@ -540,6 +550,12 @@ def boss_phase(party, boss, phase, tables, seed=0):
     b.run()
     return dict(damage=round(b.dealt), knockdowns=b.knockdowns, t=round(min(b.t, b.frames) / P["FPS"], 1),
                 standing=sum(u.alive for u in b.sides["A"]))
+
+
+def mirror(r):
+    """The result of the same fight with the roles swapped (see Battle.mirror_safe): the other side wins, the HP
+    shares change places."""
+    return dict(r, win="D" if r["win"] == "A" else "A", hpA=r["hpD"], hpD=r["hpA"])
 
 
 def _side(deck, tables):

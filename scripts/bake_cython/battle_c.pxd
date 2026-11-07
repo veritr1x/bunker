@@ -14,6 +14,7 @@ cdef class Battle:
     cdef public double t, frames
     cdef public bint logging, _combo_target
     cdef public long chance_draws
+    cdef public bint mirror_safe
     cdef public long na_done
     cdef dict __dict__
 

@@ -78,6 +78,26 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_a_mirror_safe_fight_ends_the_same_with_the_roles_swapped(self):
+        """When nothing in a fight depended on which side attacks (no turn-order tie between the sides, no close
+        time-out, no start passive reaching the other side) and no draw could change anything, the same fight with the
+        roles and openings swapped ends the same, mirrored (the bake uses it for its defense fights)."""
+        x = {s: dict(template(i, gauge_full=True), agi=1200.0 + 10 * i) for i, s in enumerate("LMR", 1)}
+        y = {s: dict(template(10 + i, gauge_full=True, hp=60000.0), agi=900.0 + 10 * i) for i, s in enumerate("LMR", 1)}
+        for manual in (True, False):
+            a = self.battle.Battle(x, y, random.Random(0), manual); a.logging = False
+            ra = a.run()
+            self.assertTrue(a.mirror_safe and a.chance_draws == 0)
+            d = self.battle.Battle(y, x, random.Random(0), not manual); d.logging = False
+            self.assertEqual(d.run(), self.battle.mirror(ra))
+
+    def test_an_agility_tie_between_the_sides_is_not_mirror_safe(self):
+        x = {"L": dict(template(1), agi=1000.0)}
+        y = {"L": dict(template(2), agi=1000.0)}
+        b = self.battle.Battle(x, y, random.Random(0)); b.logging = False
+        b.run()
+        self.assertFalse(b.mirror_safe)
+
     def test_a_one_turn_stun_skips_one_turn(self):
         """A status measured in turns counts down at its holder's turns: stunned for 1 turn, a unit loses its next
         turn and acts in the round after (it was 10 s of real time: several turns, which over-rated every stun)."""
