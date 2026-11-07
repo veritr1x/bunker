@@ -55,6 +55,15 @@ class GenerateTest(unittest.TestCase):
             if r.expert:
                 self.assertIsNone(r.data_pick)
 
+    def test_decks_are_named_by_their_characters(self):
+        """A deck's name is its three characters, left to right; no source names ("Video …")."""
+        items = self.gen.page(self.criteria(), 0, 30).items
+        self.assertTrue(any(r.expert for r in items))
+        for r in items:
+            self.assertEqual(r.name, " · ".join(tables().character_name(c) for c in r.lineup))
+            self.assertNotIn("Video", r.name)
+            self.assertIn(r.strategy, generate.STRATEGY_NAME)
+
     def test_filters(self):
         c = self.criteria(elements=(None, None, "water"), must_have=frozenset({"compromise"}), exclude=frozenset({SARAFA}),
                           min_stats={"agi": 1000})
