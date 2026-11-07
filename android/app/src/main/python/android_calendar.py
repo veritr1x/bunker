@@ -73,6 +73,13 @@ def state_path():
     return config.GAME_DB_PATH.parent / "calendar.json"
 
 
+def peek_state():
+    """The calendar's saved state as it is, without read_state's upkeep
+    (moving and rebuilding files): for pages that only show the clock."""
+    state = runtime.read_json(state_path())
+    return state if isinstance(state, dict) and state.get("loopStart") else None
+
+
 def read_state():
     state = runtime.read_json(state_path())
     if not (isinstance(state, dict) and state.get("loopStart")):
@@ -146,7 +153,12 @@ def clock_moved(before, after):
     new one. When its clock goes back they would hide those until the old day
     came round again, so they are cleared."""
     if after < before:
-        client_days_file().write_text("")
+        mark_client_days_reset()
+
+
+def mark_client_days_reset():
+    """Clears the game's day markers before it next starts."""
+    client_days_file().write_text("")
 
 
 # --- Game data ---------------------------------------------------------------
@@ -775,6 +787,8 @@ def view_version(state):
 def build_view(state):
     pending = view_file().with_suffix(".tmp")
     build_master(origin_file(), pending, 0, view=True, open_chapters=open_chapters(state))
+    import android_challenges as challenges
+    challenges.finish(pending)  # Mods › Challenges, before the game can load it
     os.replace(pending, view_file())
     view_version_file().write_text(view_version(state))
 
@@ -833,6 +847,8 @@ def prepare_next(state):
     """Builds the next loop's game data ahead, so the server can start it on its own."""
     pending = next_file().with_suffix(".tmp")
     build_master(origin_file(), pending, state["loopStart"] + LOOP_WEEKS * WEEK - LAUNCH)
+    import android_challenges as challenges
+    challenges.finish(pending)  # Mods › Challenges, before the server can load it by itself
     os.replace(pending, next_file())
     state["next"] = NEXT_NAME
     state["nextLoop"] = state["loop"] + 1

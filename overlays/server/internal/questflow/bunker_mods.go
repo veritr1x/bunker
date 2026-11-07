@@ -9,6 +9,7 @@ package questflow
 
 import (
 	"lunar-tear/server/internal/bunkercache"
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/campaign"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
@@ -45,9 +46,41 @@ func modMultiplies(possessionType model.PossessionType, possessionId int32) bool
 	return false
 }
 
+// newDayPaused reports whether Start a new day was pressed on the game day of
+// now, which pauses the challenge bonus (gametime.NewDayPausesBonus).
+var newDayPaused = gametime.NewDayPausesBonus
+
+// rewardFactor multiplies a quest's drops and gold: the reward multiplier, or
+// with no comfort mods on, the challenge bonus.
+func rewardFactor() int32 {
+	return mods.Get().RewardFactor(newDayPaused(gametime.NowMillis()))
+}
+
+// modDailyClears is how many of n clears count against a quest's daily
+// limit: none with Unlimited daily plays.
+func modDailyClears(n int32) int32 {
+	if mods.Get().UnlimitedDailyPlays {
+		return 0
+	}
+	return n
+}
+
+// modSkipTickets is how many skip tickets n skips use: none with Free skips.
+func modSkipTickets(n int32) int32 {
+	if mods.Get().FreeSkips {
+		return 0
+	}
+	return n
+}
+
+// modScaleExp multiplies the EXP a quest gives (the EXP multiplier).
+func modScaleExp(exp int32) int32 {
+	return exp * mods.Get().ExpFactor()
+}
+
 // modScaleDrops multiplies a quest's drops (see modMultiplies).
 func modScaleDrops(drops []RewardGrant, target campaign.QuestTarget) []RewardGrant {
-	m := mods.Get().Multiplier()
+	m := rewardFactor()
 	if m <= 1 || target.QuestType == campaign.QuestTypeEventQuest && target.EventQuestType == eventQuestTypeEndContents {
 		return drops
 	}
@@ -61,5 +94,5 @@ func modScaleDrops(drops []RewardGrant, target campaign.QuestTarget) []RewardGra
 
 // modScaleGold multiplies a quest's gold.
 func modScaleGold(gold int32) int32 {
-	return gold * mods.Get().Multiplier()
+	return gold * rewardFactor()
 }

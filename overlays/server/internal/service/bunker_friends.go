@@ -92,7 +92,7 @@ func (s *FriendServiceServer) GetFriendList(ctx context.Context, req *pb.GetFrie
 	}
 	now, day := gametime.NowMillis(), cheerDay()
 	f := &u.Ext.Friends
-	for _, id := range f.Friends {
+	for _, id := range pvp.FriendIds(f) {
 		card, ok := w.card(id, now)
 		if !ok {
 			continue
@@ -192,7 +192,7 @@ func (s *FriendServiceServer) CheerFriend(ctx context.Context, req *pb.CheerFrie
 func (s *FriendServiceServer) BulkCheerFriend(ctx context.Context, _ *emptypb.Empty) (*pb.BulkCheerFriendResponse, error) {
 	resp := &pb.BulkCheerFriendResponse{PlayerId: []int64{}}
 	s.updateFriends(ctx, func(c *pvp.Catalog, u *store.UserState, now int64) bool {
-		for _, id := range u.Ext.Friends.Friends {
+		for _, id := range pvp.FriendIds(&u.Ext.Friends) {
 			if c.Cheer(&u.Ext.Friends, id, cheerDay()) {
 				cheerStamina(u, now)
 				resp.PlayerId = append(resp.PlayerId, id)
@@ -218,7 +218,7 @@ func (s *FriendServiceServer) ReceiveCheer(ctx context.Context, req *pb.ReceiveC
 func (s *FriendServiceServer) BulkReceiveCheer(ctx context.Context, _ *emptypb.Empty) (*pb.BulkReceiveCheerResponse, error) {
 	resp := &pb.BulkReceiveCheerResponse{PlayerId: []int64{}}
 	s.updateFriends(ctx, func(c *pvp.Catalog, u *store.UserState, now int64) bool {
-		for _, id := range u.Ext.Friends.Friends {
+		for _, id := range pvp.FriendIds(&u.Ext.Friends) {
 			if c.ReceiveCheer(&u.Ext.Friends, id, cheerDay()) {
 				cheerStamina(u, now)
 				resp.PlayerId = append(resp.PlayerId, id)

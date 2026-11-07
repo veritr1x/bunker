@@ -1,13 +1,19 @@
 package questflow
 
 import (
+	"bytes"
+	"errors"
+	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/campaign"
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/mods"
+	"lunar-tear/server/internal/store"
 )
 
 // Mods changes are in use at once in tests.
@@ -63,5 +69,97 @@ func TestDarkMemoryQuestsAndNoModKeepTheirRewards(t *testing.T) {
 	}
 	if modScaleGold(100) != 100 {
 		t.Fatal("gold multiplied with the mod off")
+	}
+}
+
+func TestUnlimitedDailyPlaysDoesNotCount(t *testing.T) {
+	useMods(t, `{"unlimitedDailyPlays": true}`)
+	var q store.UserQuestState
+	addDailyClears(&q, 3, 5000)
+	if q.DailyClearCount != 0 || q.LastClearDatetime != 5000 {
+		t.Fatalf("with the mod: %+v", q)
+	}
+	useMods(t, `{}`)
+	addDailyClears(&q, 3, 6000)
+	if q.DailyClearCount != 3 {
+		t.Fatalf("without the mod: %+v", q)
+	}
+}
+
+func TestFreeSkipsSpendNoTickets(t *testing.T) {
+	setup := func(tickets int32) (*QuestHandler, *store.UserState) {
+		h := testHandler()
+		h.QuestById[testQuest] = masterdata.EntityMQuest{QuestId: testQuest, Stamina: 1}
+		h.MaxStaminaByLevel = map[int32]int32{1: 50}
+		u := testUser()
+		u.Status.Level = 1
+		u.Status.StaminaMilliValue = 50000
+		u.ConsumableItems[2003] = tickets
+		return h, u
+	}
+	useMods(t, `{"freeSkips": true}`)
+	for _, tickets := range []int32{0, 1} {
+		h, u := setup(tickets)
+		if _, err := h.HandleQuestSkip(u, testQuest, 3, 1, 0); err != nil {
+			t.Fatalf("%d tickets: %v", tickets, err)
+		}
+		if u.ConsumableItems[2003] != tickets || u.Quests[testQuest].ClearCount != 3 {
+			t.Fatalf("%d tickets: tickets %d clears %d", tickets, u.ConsumableItems[2003], u.Quests[testQuest].ClearCount)
+		}
+	}
+	useMods(t, `{}`)
+	h, u := setup(1)
+	if _, err := h.HandleQuestSkip(u, testQuest, 3, 1, 0); !errors.Is(err, ErrSkipRefused) {
+		t.Fatalf("without the mod, 3 skips on 1 ticket: %v", err)
+	}
+}
+
+func TestExpMultiplier(t *testing.T) {
+	useMods(t, `{"expMultiplier": 3}`)
+	if got := modScaleExp(40); got != 120 {
+		t.Fatalf("modScaleExp(40) = %d", got)
+	}
+	h := testHandler()
+	h.QuestById[testQuest] = masterdata.EntityMQuest{QuestId: testQuest, UserExp: 10}
+	u := testUser()
+	before := u.Status.Exp
+	h.applyExpRewards(u, testQuest, 0)
+	if got := u.Status.Exp - before; got != 30 && u.Status.Level == 1 {
+		t.Fatalf("player EXP +%d, want +30", got)
+	}
+	useMods(t, `{}`)
+	if got := modScaleExp(40); got != 40 {
+		t.Fatalf("off: %d", got)
+	}
+}
+
+// The log says what the player got: the EXP after the multiplier.
+func TestExpLogShowsScaledExp(t *testing.T) {
+	useMods(t, `{"expMultiplier": 3}`)
+	var out bytes.Buffer
+	defer log.SetOutput(log.Writer())
+	log.SetOutput(&out)
+	h := testHandler()
+	h.QuestById[testQuest] = masterdata.EntityMQuest{QuestId: testQuest, UserExp: 10}
+	h.applyExpRewards(testUser(), testQuest, 0)
+	if !strings.Contains(out.String(), "user: +30 exp") {
+		t.Fatalf("log: %s", out.String())
+	}
+}
+
+func TestChallengeBonusScalesDrops(t *testing.T) {
+	useMods(t, `{"hardEnemies": 2}`)
+	main := campaign.QuestTarget{QuestType: campaign.QuestTypeMainQuest}
+	if got := modScaleDrops(drops(), main)[0].Count; got != 6 {
+		t.Fatalf("challenge bonus ×3: item %d, want 6", got)
+	}
+	if g := modScaleGold(100); g != 300 {
+		t.Fatalf("challenge bonus gold %d", g)
+	}
+	saved := newDayPaused
+	t.Cleanup(func() { newDayPaused = saved })
+	newDayPaused = func(int64) bool { return true }
+	if got := modScaleDrops(drops(), main)[0].Count; got != 2 {
+		t.Fatalf("after Start a new day: item %d, want 2", got)
 	}
 }

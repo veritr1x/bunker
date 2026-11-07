@@ -275,6 +275,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	gacha.SetRatesPath(filepath.Join(dataRoot, "gacha_rates.json"))
 	gacha.SetRouletteRatesPath(filepath.Join(dataRoot, "roulette_rates.json"))
 	mods.SetPath(filepath.Join(dataRoot, "mods.json")) // Pod Programs > Mods
+	gametime.SetDayStartPath(filepath.Join(dataRoot, "day-start.json")) // Pod Programs > Content > Start a new day
 	interceptor.SetTitleMarker(filepath.Join(dataRoot, "title.now")) // title_now.c
 	registerServices(s.grpc, local(8003), cdnURL, "http://"+local(3000), filepath.Join(assetRoot, "assets", "release", MasterName), store, holder, false)
 	healthServer := health.NewServer()

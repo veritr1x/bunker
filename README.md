@@ -27,11 +27,15 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
     characters, weapons, memoirs and debris, sorted by what each is for. It arrives in the game's
     own Gift Box as "From Bunker, with love." and is claimed there like any other gift, with the
     game still running.
-  - **Mods**: optional changes to how the game plays, all off until you turn them on: free
-    stamina, stamina items and premium tickets that arrive as gold and gems, unlimited restocking
-    shop items, Lost Items that give gems, quest rewards ×2 to ×10, no duplicate ★4 in summons,
-    and summon medals traded for gems. "Comfort" turns them all on. Most come from the
+  - **Mods**: optional changes to how the game plays, all off until you turn them on, in five
+    groups. Quests: free stamina, unlimited daily plays, free skips, quest rewards and EXP ×2 to
+    ×10. Items & shops: stamina items and premium tickets that arrive as gold and gems, unlimited
+    restocking shop items, Lost Items that give gems. Summons: no duplicate ★4, summon medals
+    traded for gems. World: friends from the story. Challenges: hard enemies, weakness only and
+    slow skills, for a reward bonus up to ×10. "Comfort" turns on the Comfort Mod's set and
+    "Everything" every mod but the challenges. Most of the Comfort set comes from the
     [Lunar Tear Comfort Mod](https://github.com/NavHobbyDev/lunar-tear-comfort-mod) by NavHobbyDev.
+  - **Start a new day** (Content): everything daily starts over at once.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking, battles and the Flying Mama minigame keep their normal speed.
     Experimental: it uses more battery.
