@@ -22,7 +22,15 @@ def _bound():
     return _tables
 
 
+_use_lock = __import__("threading").RLock()
+
+
 def use(tables) -> None:
+    with _use_lock:
+        _use(tables)
+
+
+def _use(tables) -> None:
     global _tables
     if _tables is tables:
         return

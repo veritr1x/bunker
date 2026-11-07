@@ -53,18 +53,18 @@ def connect_ro(path) -> sqlite3.Connection:
     which is exact when no -wal file exists."""
     path = str(path)
     try:
-        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
         con.execute("select 1 from sqlite_master limit 1").fetchall()
         return con
     except sqlite3.OperationalError:
         if os.path.exists(path + "-wal") and os.path.getsize(path + "-wal") > 0:
             raise
-        return sqlite3.connect(f"file:{path}?immutable=1", uri=True)
+        return sqlite3.connect(f"file:{path}?immutable=1", uri=True, check_same_thread=False)
 
 
 def rows_to_db(tables: dict) -> sqlite3.Connection:
     """An in-memory save from {table: {"sql": CREATE ..., "rows": [...]}}."""
-    con = sqlite3.connect(":memory:")
+    con = sqlite3.connect(":memory:", check_same_thread=False)
     for name, t in tables.items():
         con.execute(t["sql"])
         _insert(con, name, t["rows"])
@@ -191,7 +191,9 @@ class Deck:
         for i in (1, 2, 3):
             u = d[f"user_deck_character_uuid{i:02d}"]
             dc = self.save.one("select * from user_deck_characters where user_id=? and user_deck_character_uuid=?", u) if u else None
-            out.append(dc if dc and dc["user_costume_uuid"] else None)
+            ok = dc and dc["user_costume_uuid"] and self.save.one(
+                "select 1 x from user_costumes where user_id=? and user_costume_uuid=?", dc["user_costume_uuid"])
+            out.append(dc if ok else None)
         return out
 
     def specs(self) -> list:
@@ -309,7 +311,7 @@ def compose(base: Save, stage: Save | None, specs: list, deck_type: int, deck_nu
             tables, raises: list[int] = ()) -> Deck:
     """A deck in memory: base's rows, plus the stage pieces specs name, plus the
     ticked raises (costume ids), plus the deck at (deck_type, deck_number)."""
-    con = sqlite3.connect(":memory:")
+    con = sqlite3.connect(":memory:", check_same_thread=False)
     uid = base.uid
     for t in TABLES:
         sql = base.table_sql(t) or (stage.table_sql(t) if stage else None)
@@ -443,6 +445,22 @@ def raises_needed(specs, base: Save, stage: Save, inventory: Inventory) -> list:
     return out
 
 
+def deck_summary(deck, tables) -> str | None:
+    """"Fio, Saryu, Lars"; a slot whose costume is gone reads "a missing costume"."""
+    d = deck._row()
+    if not d:
+        return None
+    names = []
+    for i in (1, 2, 3):
+        u = d[f"user_deck_character_uuid{i:02d}"]
+        if not u:
+            continue
+        dc = deck.save.one("select user_costume_uuid c from user_deck_characters where user_id=? and user_deck_character_uuid=?", u)
+        cid = deck.save.piece_id("costume", dc["c"]) if dc and dc["c"] else None
+        names.append(tables.character_name(cid) if cid else "a missing costume")
+    return ", ".join(names) if names else None
+
+
 class Slot(NamedTuple):
     deck_type: int
     number: int
@@ -462,7 +480,6 @@ def slots(save: Save, tables) -> list:
                 defense = None
     out = []
     for n in range(1, ARENA_DECKS + 1):
-        names = [tables.character_name(c.costume.id) for c in Deck(save, ARENA, n).characters() if c]
         label = f"Arena deck {n}" + (" (defense)" if n == defense else "")
-        out.append(Slot(ARENA, n, label, ", ".join(names) if names else None))
+        out.append(Slot(ARENA, n, label, deck_summary(Deck(save, ARENA, n), tables)))
     return out
