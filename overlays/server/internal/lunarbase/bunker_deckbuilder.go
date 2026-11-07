@@ -36,12 +36,18 @@ func takeReadData() any {
 // runArenaMatching: "arena_matching" answers with the player's current
 // matching list (pvp.Opponent), reading the save only.
 func runArenaMatching(req *request) (int, error) {
-	if req.MasterDataPath == "" {
-		return 0, errors.New("master_data_path required for arena_matching")
-	}
-	h, err := runtime.NewHolder(req.MasterDataPath)
-	if err != nil {
-		return 0, err
+	// While the game's server runs (in this process), use its catalog: loading
+	// the master data again would swap the tables under it.
+	c := pvp.Current()
+	if c == nil {
+		if req.MasterDataPath == "" {
+			return 0, errors.New("master_data_path required for arena_matching")
+		}
+		h, err := runtime.NewHolder(req.MasterDataPath)
+		if err != nil {
+			return 0, err
+		}
+		c = pvp.CatalogFor(h.Get())
 	}
 	db, st, err := openDB(req.DBPath)
 	if err != nil {
@@ -52,7 +58,7 @@ func runArenaMatching(req *request) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	ops := pvp.CatalogFor(h.Get()).Opponents(&u, giftNow())
+	ops := c.Opponents(&u, giftNow())
 	if ops == nil {
 		ops = []pvp.Opponent{}
 	}

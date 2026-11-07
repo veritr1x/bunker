@@ -33,7 +33,8 @@ func Edit(dataRoot, assetRoot, raw string) string {
 	// Pod Programs › Gift's "how many can still be claimed" only reads the
 	// save, so the game can play on; "send_gift" checks again with the
 	// server stopped.
-	if active != nil && request["action"] != "gift_room" {
+	// Deck Builder's matching list ("arena_matching") only reads the save too.
+	if active != nil && request["action"] != "gift_room" && request["action"] != "arena_matching" {
 		return fail("Stop the game server before editing saves")
 	}
 	path := filepath.Join(dataRoot, "game.db")
