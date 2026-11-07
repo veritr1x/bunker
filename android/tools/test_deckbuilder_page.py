@@ -163,6 +163,11 @@ class PageTest(unittest.TestCase):
         self.assertNotIn('id="ctx"', html)
         self.assertNotIn('data-name="sort"', html)
 
+    def test_no_data_pick_text(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        for text in ("Data pick", "data_pick", 'id="d-pick"', ".badge"):
+            self.assertNotIn(text, html)
+
     def test_the_mode_is_called_all_maxed(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<button type="button" data-v="best" class="on">All maxed</button>', html)
