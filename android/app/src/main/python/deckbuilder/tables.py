@@ -86,6 +86,16 @@ class Tables:
         cn = r.get("character_name")
         return f"{r['name']} {cn}" if kind == "costumes" and cn else r["name"]
 
+    def character_name(self, costume_id: int) -> str:
+        r = self._names("costumes").get(costume_id)
+        if r and r.get("character_name"):
+            return r["character_name"]
+        return f"costume {costume_id}"
+
+    def costume_name(self, costume_id: int) -> str:
+        """"Yuletide Soldier Lars"."""
+        return self.name("costumes", costume_id)
+
     def costume_element(self, costume_id: int) -> str | None:
         """The element a costume is usually fielded with: costume ids 3EXXX
         encode it (1 fire, 2 water, 3 wind, 4 light, 5 dark); other costumes
