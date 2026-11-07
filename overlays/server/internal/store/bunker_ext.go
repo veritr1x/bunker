@@ -68,6 +68,9 @@ type PvpState struct {
 	DefenseChecked     int64             `json:"defenseChecked,omitempty"` // defense battles are simulated up to here
 	Matching           []int64           `json:"matching,omitempty"`       // computer players offered
 	Opponent           int64             `json:"opponent,omitempty"`       // battle started, not finished
+	// OpponentDecks are the Deck Builder table decks (by position) of the opponents
+	// listed or being fought, so the deck listed is the deck fought (pvp/decktable.go).
+	OpponentDecks map[int64]int32 `json:"opponentDecks,omitempty"`
 	AttackLog          []PvpLog          `json:"attackLog,omitempty"`      // newest first
 	DefenseLog         []PvpLog          `json:"defenseLog,omitempty"`
 	Season             PvpSeasonStats    `json:"season"`
