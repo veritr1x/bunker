@@ -102,3 +102,32 @@
  	})
  
  	return &pb.GameStartResponse{}, nil
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -166,7 +166,7 @@
+ 	oldLevel := user.Status.Level
+ 	user.Status.Exp += modScaleExp(questDef.UserExp)
+ 	user.Status.Level, user.Status.Exp = playerLevel(oldLevel, user.Status.Exp, h.UserExpThresholds)
+-	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, questDef.UserExp, user.Status.Exp, user.Status.Level)
++	log.Printf("[applyExpRewards] questId=%d user: +%d exp -> total=%d level=%d", questId, modScaleExp(questDef.UserExp), user.Status.Exp, user.Status.Level)
+ 
+ 	if user.Status.Level > oldLevel {
+ 		// A level-up fills stamina to the new maximum; stamina already
+@@ -197,7 +197,7 @@
+ 			row.Exp += modScaleExp(questDef.CharacterExp)
+ 			row.Level, row.Exp = gameutil.LevelAndCap(row.Exp, h.CharacterExpThresholds)
+ 			user.Characters[id] = row
+-			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, questDef.CharacterExp, row.Exp, row.Level)
++			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, modScaleExp(questDef.CharacterExp), row.Exp, row.Level)
+ 		}
+ 	}
+ 
+@@ -222,7 +222,7 @@
+ 				row.Level, row.Exp = gameutil.ApplyExpWithMaxLevel(row.Exp, thresholds, maxLevel)
+ 			}
+ 			user.Costumes[key] = row
+-			log.Printf("[applyExpRewards] questId=%d costume=%d (key=%s): +%d exp -> total=%d level=%d", questId, row.CostumeId, key, questDef.CostumeExp, row.Exp, row.Level)
++			log.Printf("[applyExpRewards] questId=%d costume=%d (key=%s): +%d exp -> total=%d level=%d", questId, row.CostumeId, key, modScaleExp(questDef.CostumeExp), row.Exp, row.Level)
+ 		}
+ 	}
+ }

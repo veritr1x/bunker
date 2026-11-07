@@ -98,3 +98,20 @@ func TestStoryCPUsInTheLadder(t *testing.T) {
 		t.Fatal("the ranking doesn't show the story friend")
 	}
 }
+
+// Story friends fill only the free places in the friend list: the save's
+// friends come first, and the list never shows more than the game's limit.
+func TestStoryFriendsKeepTheFriendLimit(t *testing.T) {
+	storyMods(t, true)
+	f := &store.FriendState{}
+	for i := range 80 {
+		f.Friends = append(f.Friends, CpuIdBase+300+int64(i))
+	}
+	ids := FriendIds(f)
+	if len(ids) != 100 || !slices.Equal(ids[:80], f.Friends) {
+		t.Fatalf("%d friends shown, want 100 with the save's 80 first", len(ids))
+	}
+	if IsFriend(f, storyIds()[len(StoryCharacters)-1]) {
+		t.Fatal("a story friend past the limit counts as a friend")
+	}
+}

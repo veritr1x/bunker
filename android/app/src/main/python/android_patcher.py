@@ -203,7 +203,7 @@ def new_day_today(now_ms=None):
     if not isinstance(pressed, int) or pressed <= 0:
         return False
     now_ms = calendar.now_ms() if now_ms is None else int(now_ms)
-    state = calendar.read_state()
+    state = calendar.peek_state()
     game = (lambda real: calendar.game_now(state, real)) if state else (lambda real: real)
     return calendar.start_of_day(game(now_ms)) <= game(pressed) <= game(now_ms)
 
@@ -214,7 +214,7 @@ def new_day():
         start_new_day()
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="A new day has started: everything daily starts over. Tap Deploy to play.")
+    return redirect(message="A new day has started: everything daily starts over. Close Pod Programs and tap Deploy.")
 
 
 @router.get("/patcher")

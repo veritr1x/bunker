@@ -81,7 +81,7 @@
     });
   });
   // The bonus line follows the form before it is saved.
-  const HARD = {{ hard_enemies|tojson }}, PAUSED_TODAY = {{ (bonus_paused and not ("Paused:" in bonus_reason))|tojson }};
+  const HARD = {{ hard_enemies|tojson }}, PAUSED_TODAY = {{ new_day|default(false)|tojson }};
   const form = document.getElementById("mods-form");
   const CHALLENGES = ["hardEnemies", "weaknessOnly", "slowSkills"], WORLD = ["storyFriends"];
   function update() {

@@ -155,6 +155,13 @@ class Page(unittest.TestCase):
         self.assertIn("Paused until tomorrow: you started a new day.", self.render({"hardEnemies": 2}, paused=True))
         self.assertIn('<option value="2" selected>Enemies ×2 — rewards ×3</option>', html)
 
+    def test_the_live_bonus_line_knows_about_a_new_day(self):
+        # Loaded with no challenge on, or with a comfort mod on, the page must
+        # still pause the bonus once a challenge is ticked or the mod unticked.
+        for settings in ({}, {"hardEnemies": 2, "freeSkips": True}):
+            self.assertIn("PAUSED_TODAY = true", self.render(settings, paused=True), settings)
+            self.assertIn("PAUSED_TODAY = false", self.render(settings), settings)
+
     def test_saved_message_says_what_happened_to_the_challenges(self):
         with unittest.mock.patch.object(android_runtime, "next_step", lambda: "NEXT"):
             self.assertEqual(android_mods.saved_message("Saved.", False, {**android_mods.OFF}),
@@ -163,6 +170,32 @@ class Page(unittest.TestCase):
                              "Saved. Challenges are in the game data. NEXT")
             self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF}),
                              "Saved. Challenges are off: the game data is as it was. NEXT")
+
+    def test_saving_keeps_pod_programs_answering(self):
+        # A challenge change rewrites the game data for seconds: that runs
+        # off the event loop, so other pages keep loading meanwhile.
+        import asyncio
+
+        class Request:
+            def __init__(self, form):
+                self._form = form
+
+            async def form(self):
+                return self._form
+        ran = []
+
+        def save_settings(settings):
+            try:
+                asyncio.get_running_loop()
+                ran.append("on the event loop")
+            except RuntimeError:
+                ran.append("off it")
+            return False
+        with unittest.mock.patch.object(android_mods, "save_settings", save_settings), \
+                unittest.mock.patch.object(android_mods, "read_settings", lambda: dict(android_mods.OFF)):
+            asyncio.run(android_mods.save(Request({})))
+            asyncio.run(android_mods.preset(Request({"name": "original"})))
+        self.assertEqual(ran, ["off it", "off it"])
 
     def test_changing_mods_leaves_the_game_running(self):
         # The server reads mods.json as each mod is used: nothing to restart.

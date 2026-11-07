@@ -37,18 +37,30 @@ func storyIds() []int64 {
 }
 
 // FriendIds is the player's friends: the save's, then the story friends while
-// the mod is on.
+// the mod is on, in the places the friend limit leaves free.
 func FriendIds(f *store.FriendState) []int64 {
 	if !storyOn() {
 		return f.Friends
 	}
 	out := slices.Clone(f.Friends)
+	limit := friendLimit()
 	for _, id := range storyIds() {
+		if len(out) >= limit {
+			break
+		}
 		if !slices.Contains(out, id) {
 			out = append(out, id)
 		}
 	}
 	return out
+}
+
+// friendLimit is the game's friend limit (m_config), 100 without a catalog.
+func friendLimit() int {
+	if c := Current(); c != nil && c.Friend.Friends > 0 {
+		return c.Friend.Friends
+	}
+	return 100
 }
 
 // StoryCPU is story friend i of a season's ladder.

@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from web import config
 
@@ -92,7 +93,8 @@ def bonus_view(settings, paused=False):
         reason = "Paused until tomorrow: you started a new day."
     else:
         reason = "Earned on every quest clear."
-    return {"bonus": full, "bonus_reason": reason, "bonus_paused": bool(on) and challenge_bonus(settings, paused) == 1}
+    return {"bonus": full, "bonus_reason": reason, "bonus_paused": bool(on) and challenge_bonus(settings, paused) == 1,
+            "new_day": bool(paused)}  # the page's live line, whatever the reason shown now
 
 
 def challenge_bonus(settings, paused=False):
@@ -216,7 +218,8 @@ def saved_message(title, reapplied, settings):
 async def save(request: Request):
     form = await request.form()
     try:
-        reapplied = save_settings({k: form_value(k, form.get(k)) for k in KEYS})
+        # Off the event loop: a challenge change rewrites the game data for seconds.
+        reapplied = await run_in_threadpool(save_settings, {k: form_value(k, form.get(k)) for k in KEYS})
     except Exception as exc:
         return redirect(error=str(exc))
     return redirect(message=saved_message("Saved.", reapplied, read_settings()))
@@ -229,7 +232,7 @@ async def preset(request: Request):
         return redirect(error="Unknown preset")
     title, _, values = PRESETS[name]
     try:
-        reapplied = save_settings(values)
+        reapplied = await run_in_threadpool(save_settings, values)
     except Exception as exc:
         return redirect(error=str(exc))
     return redirect(message=saved_message(f"{title} preset saved.", reapplied, read_settings()))
