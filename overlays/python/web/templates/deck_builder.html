@@ -45,7 +45,8 @@
   .por .slot{position:absolute;left:0;bottom:0;background:rgba(0,0,0,.45);color:#f3efe2;font-size:9px;letter-spacing:.08em;padding:1px 5px;z-index:1}
   .por.new::before{content:"NEW";position:absolute;top:0;right:0;background:#f3efe2;color:#3a372f;font-size:8px;padding:1px 4px;z-index:1;font-weight:bold}
   .tile .nm{font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
-  .rc-foot{margin-top:8px;display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-top:1px dotted var(--db-line);font-size:11.5px;opacity:.85}
+  .rc .tile .nm{font-size:10.5px;opacity:.85;text-align:center}
+  .rc-foot{margin-top:6px;display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-top:1px dotted var(--db-line);font-size:11.5px;opacity:.85}
   .rc-foot b{font-weight:600}
   .more{text-align:center;margin:12px 0 0;font-size:12px;opacity:.75}
   .reason{border-left:3px solid currentColor;padding:4px 0 4px 12px;margin:10px 0 14px;line-height:1.55}
@@ -280,12 +281,12 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const pic = id => `<img src="/decks/portrait/${Number(id)}.png" alt="" loading="lazy" onerror="this.remove()">`;
 function cardHtml(c) {
   cards[c.key] = c;
-  const tiles = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
+  const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><span class="nm">${esc(t.name)}</span></div>`).join("");
   const badge = c.data_pick ? '<span class="badge">Data pick</span>' : "";
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
     <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}${badge}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div>
     <div class="trio">${tiles}</div>
-    <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span><span><b>${c.to_add}</b> to add</span></div></button>`;
+    <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span></div></button>`;
 }
 async function load(reset) {
   if (busy) { if (reset) pending = true; return; }   // a change while loading: load again when this one ends
