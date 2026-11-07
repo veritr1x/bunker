@@ -621,7 +621,6 @@ def cmd_ship(args) -> None:
     """The baked results into the app (deckbuilder/data/baked): the top decks per role, every costume's loadout, the
     fighter fingerprint the phone compares after preparing its stage."""
     from deckbuilder import baked
-    from deckbuilder.sim import battle
     _deck_worker_init()
     los = _W["los"]
     fp = baked.fingerprint(_W["cache"], {c: (c, lo["debris"]) for c, lo in los.items()}, [m for m, _, _ in _W["meta"]])

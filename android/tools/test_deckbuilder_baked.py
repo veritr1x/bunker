@@ -81,7 +81,8 @@ class GeneratorTest(unittest.TestCase):
         cls.dir = tempfile.TemporaryDirectory(dir=BUILD)
         path = Path(cls.dir.name) / "stage.db"
         cls.ex = experts.Experts.load(tables())
-        stage.Stager(cli_invoke(path), tables()).build(**equip.stage_plan([(c,) for c in cls.POOL], tables(), cls.ex))
+        meta = [l.costumes for l in sorted(cls.ex.meta_pool(), key=lambda l: -l.weight)[:1]]
+        stage.Stager(cli_invoke(path), tables()).build(**equip.stage_plan([(c,) for c in cls.POOL] + meta, tables(), cls.ex))
         cls.stage = model.Save(sqlite3.connect(f"file:{path}?mode=ro", uri=True), 1)
         los = {}
         for c in cls.POOL:
@@ -96,7 +97,7 @@ class GeneratorTest(unittest.TestCase):
         cls.rows = [baked.Record(c, round(1 - i / 40, 4), 0.0, round(i / 40, 4), 0.0, 300000 + 1000 * i) for i, c in enumerate(combos)]
         cls.bdir = Path(cls.dir.name) / "baked"
         baked.write(cls.bdir, los, "fp", cls.rows)
-        cls.gen = generate.Generator(tables(), cls.ex, cls.stage, cls.stage, baked=baked.Baked.load(cls.bdir))
+        cls.gen = generate.Generator(tables(), cls.ex, cls.stage, cls.stage, baked=baked.Baked.load(cls.bdir), meta_size=1, runs=1)
 
     @classmethod
     def tearDownClass(cls):
@@ -112,7 +113,8 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual([r.lineup for r in page.items], [r.lineup for r in self.rows[:4]])
         self.assertEqual([r.rank for r in page.items], [1, 2, 3, 4])
         self.assertEqual(page.total, len(self.rows))
-        self.assertEqual(page.items[0].win_rate, self.rows[0].attack_win)
+        r = page.items[0]
+        self.assertEqual((r.win_rate, r.margin), self.gen.outcome(r.deck, self.criteria()))   # the written deck's own
         d = self.gen.page(self.criteria(deck_for="defense"), 0, 2)
         self.assertEqual([r.lineup for r in d.items], [r.lineup for r in sorted(self.rows, key=lambda r: -r.defense_win)[:2]])
 
@@ -120,7 +122,7 @@ class GeneratorTest(unittest.TestCase):
         page = self.gen.page(self.criteria(exclude=frozenset({35036})), 0, 50)
         self.assertTrue(page.items and all(35036 not in r.lineup for r in page.items))
         forced = self.gen.page(self.criteria(sort="force"), 0, 3)
-        self.assertEqual([r.force for r in forced.items], sorted((r.force for r in self.rows), reverse=True)[:3])
+        self.assertEqual([r.lineup for r in forced.items], [r.lineup for r in sorted(self.rows, key=lambda r: -r.force)[:3]])
 
     def test_the_deck_holds_the_baked_gear(self):
         r = self.gen.page(self.criteria(), 0, 1).items[0]
