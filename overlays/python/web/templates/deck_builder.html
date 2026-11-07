@@ -87,10 +87,18 @@
     .tagline{display:none}
     .write-bar{position:sticky;bottom:0;padding:10px 0;background:inherit}
   }
+  /* A phone on its side: the controls in the side column, two decks across (automata.css). */
+  @media (orientation: landscape) and (max-height: 599px) {
+    .page-side .db-controls{grid-template-columns:1fr;gap:4px}
+    .page-side .seg{display:flex}.page-side .seg button{flex:1;width:auto;padding:6px 4px;font-size:11px}
+    .page-side .help{font-size:10.5px}.page-side #against{width:100%}
+    .page-main .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .page-main .tagline{display:none}
+  }
 </style>
 
-<h1 class="bracket-header">Deck Builder</h1>
-<div class="panel"><p style="margin:0">Arena decks picked the way experienced players picked them at the end of service, equipped from the game's own data, with the game's exact Force. Choose a deck, see why each piece is in it, and write it to the slots you choose. Your other decks stay as they are, and Save Data keeps a snapshot from before every write.</p>
+<h1 class="bracket-header" data-side>Deck Builder</h1>
+<div class="panel" data-side{% if players|length <= 1 %}="intro"{% endif %}><p style="margin:0">Arena decks picked the way experienced players picked them at the end of service, equipped from the game's own data, with the game's exact Force. Choose a deck, see why each piece is in it, and write it to the slots you choose. Your other decks stay as they are, and Save Data keeps a snapshot from before every write.</p>
 {% if players|length > 1 %}
   <p style="margin:8px 0 0"><label for="player">Player</label>
   <select id="player" onchange="location.href='/decks?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p>
@@ -98,7 +106,7 @@
 </div>
 <div id="db-msg" class="banner" hidden></div>
 
-<div class="panel">
+<div class="panel" data-side>
   <div class="db-controls">
     <div class="db-lbl">Deck for</div>
     <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button></div></div>

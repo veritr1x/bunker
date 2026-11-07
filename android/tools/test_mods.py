@@ -142,7 +142,7 @@ class Page(unittest.TestCase):
         html = self.render()
         for group in ["Preset"] + [g for g, _ in android_mods.GROUPS]:
             name = re.escape(group.replace("&", "&amp;"))
-            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open>\s*<summary[^>]*>[^<]*%s' % (name, name), group)
+            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open[^>]*>\s*<summary[^>]*>[^<]*%s' % (name, name), group)
         self.assertIn("localStorage", html)  # which groups are folded, per viewer
         self.assertIn("Everything", html)
 

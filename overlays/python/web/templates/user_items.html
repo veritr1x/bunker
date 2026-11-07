@@ -37,12 +37,12 @@
 {% endmacro %}
 
 {% block content %}
-<p style="margin-top:0">
+<p style="margin-top:0" data-side>
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header">Item Editor</h1>
-<div class="banner" data-gifts-waiting hidden><a href="/gift?user={{ user_id }}"></a></div>
+<h1 class="bracket-header" data-side>Item Editor</h1>
+<div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
@@ -52,11 +52,11 @@
   }).catch(() => {});
 </script>
 
-<div class="panel"><p style="margin:0">Amounts are added to your inventory. Each change is backed up first.</p></div>
+<div class="panel" data-side="intro"><p style="margin:0">Amounts are added to your inventory. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
-<nav class="tab-bar">
+<nav class="tab-bar" data-side>
   <button type="button" class="tab-btn active" data-target="tab-gems">Gems</button>
   {% for tab in tabs %}
     <button type="button" class="tab-btn" data-target="tab-{{ tab.key }}">

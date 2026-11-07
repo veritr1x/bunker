@@ -25,12 +25,12 @@
 {% endmacro %}
 
 {% block content %}
-<p style="margin-top:0">
+<p style="margin-top:0" data-side>
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header">Weapon Editor</h1>
-<div class="banner" data-gifts-waiting hidden><a href="/gift?user={{ user_id }}"></a></div>
+<h1 class="bracket-header" data-side>Weapon Editor</h1>
+<div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
@@ -40,11 +40,11 @@
   }).catch(() => {});
 </script>
 
-<div class="panel"><p style="margin:0">Add weapons, including their skills and stories. Story-starter weapons are earned through play. The inventory limit is 999 weapons. Each change is backed up first.</p></div>
+<div class="panel" data-side="intro"><p style="margin:0">Add weapons, including their skills and stories. Story-starter weapons are earned through play. The inventory limit is 999 weapons. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
-<div class="search-row">
+<div class="search-row" data-side>
   <label for="search-weapons" class="search-label">FILTER</label>
   <input type="text" id="search-weapons" class="costume-search"
          placeholder="Search by weapon name or id...">
@@ -60,7 +60,7 @@
 </div>
 
 {% for group in groups %}
-<h2 class="bracket-header costume-group-header">{{ group.label }}
+<h2 class="bracket-header costume-group-header" data-toc="{{ group.label }}">{{ group.label }}
   <span class="group-stats">{{ group.owned_count }}/{{ group.total_count }}</span>
 </h2>
 <div class="panel grant-list costume-list" data-group="{{ group.key }}">

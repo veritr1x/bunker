@@ -12,12 +12,12 @@
   .bonus.paused b{text-decoration:line-through;opacity:.5}
   .setting .note{display:block;margin-top:4px}
 </style>
-<h1>Mods</h1>
-<p>Changes to how the game plays, for every player on this device. Every mod is off until you turn it on; turning it off again
+<h1 data-side>Mods</h1>
+<p data-side="intro">Changes to how the game plays, for every player on this device. Every mod is off until you turn it on; turning it off again
   goes back to the original game. Mods never change your save on their own, and they apply without a restart. Challenges change
   the game data, so the game goes back to its title screen to load them.</p>
 
-<details class="mods-group" data-group="Preset" open>
+<details class="mods-group" data-group="Preset" open data-side>
 <summary class="bracket-header">Preset<span class="fold" aria-hidden="true"></span></summary>
 <form action="/mods/preset" method="post" class="panel">
   {% for key, (title, what, _) in presets.items() %}
@@ -31,7 +31,7 @@
 <form action="/mods" method="post" id="mods-form">
   {% for group, mods in groups %}
   <details class="mods-group" data-group="{{ group }}" open>
-  <summary class="bracket-header">{{ group }}<span class="fold" aria-hidden="true"></span></summary>
+  <summary class="bracket-header" data-toc="{{ group }}">{{ group }}<span class="fold" aria-hidden="true"></span></summary>
   <div class="panel">
     {% if group == "Challenges" %}
     <div class="bonus{% if bonus_paused %} paused{% endif %}" id="bonus"><span>Challenge bonus on quest rewards<br><span class="note" id="bonus-why">{{ bonus_reason }}</span></span><b id="bonus-x">×{{ bonus }}</b></div>
@@ -66,7 +66,7 @@
   {% endfor %}
   <div class="actions"><button type="submit">Save</button></div>
 </form>
-<p class="credit">Most mods come from the <a href="{{ source }}">Lunar Tear Comfort Mod</a> by NavHobbyDev (MIT).</p>
+<p class="credit" data-side>Most mods come from the <a href="{{ source }}">Lunar Tear Comfort Mod</a> by NavHobbyDev (MIT).</p>
 <script>
 (() => {
   // Folded groups are remembered on this device only.

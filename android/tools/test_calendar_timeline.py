@@ -227,7 +227,7 @@ class Page(unittest.TestCase):
         # calendar" shows its start panel in place of the Content section.
         import re
         html = self.render(None)
-        self.assertRegex(html, r'<section id="presets">\s*<h2 class="bracket-header">Content</h2>')
+        self.assertRegex(html, r'<section id="presets">\s*<h2 class="bracket-header"[^>]*>Content</h2>')
         radios = re.findall(r'<input type="radio" name="schedule"[^>]*>', html)
         self.assertEqual(len(radios), 2)
         self.assertIn('onchange="schedule(false)"', radios[0])

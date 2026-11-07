@@ -3,20 +3,20 @@
 {% block bar_right %}USER {{ user_id }} :: MEMOIRS{% endblock %}
 
 {% block content %}
-<p style="margin-top:0">
+<p style="margin-top:0" data-side>
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header">Memoir Editor</h1>
+<h1 class="bracket-header" data-side>Memoir Editor</h1>
 
-<div class="panel"><p style="margin:0">Build a four-star set, upgrade memoirs to level 15, or change their stats. Each change is backed up first.</p><p>Owned: {{ owned_count }} / {{ inventory_cap }}. Enter percentage stats multiplied by 10: 3% = 30, 12.5% = 125.</p></div>
+<div class="panel" data-side="intro"><p style="margin:0">Build a four-star set, upgrade memoirs to level 15, or change their stats. Each change is backed up first.</p><p>Owned: {{ owned_count }} / {{ inventory_cap }}. Enter percentage stats multiplied by 10: 3% = 30, 12.5% = 125.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
 <!-- ============================================================ BUILD A SET -->
-<h2 class="bracket-header costume-group-header">Build a Set</h2>
+<h2 class="bracket-header costume-group-header" data-side>Build a Set</h2>
 
-<div class="panel" style="padding:12px">
+<div class="panel" style="padding:12px" data-side>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
     <label for="set-picker" style="font-size:12px;color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Set</label>
     <select id="set-picker" style="flex:1;min-width:300px;font-family:inherit;font-size:13px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:6px">
@@ -36,7 +36,7 @@
 </div>
 
 <!-- ============================================================ MASS ACTIONS -->
-<h2 class="bracket-header costume-group-header">Mass Actions</h2>
+<h2 class="bracket-header costume-group-header" data-toc>Mass Actions</h2>
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Memoirs</span>
@@ -48,7 +48,7 @@
 </div>
 
 <!-- ============================================================ FIX SLOTS -->
-<h2 class="bracket-header costume-group-header">Fix Slots on a Memoir</h2>
+<h2 class="bracket-header costume-group-header" data-toc>Fix Slots on a Memoir</h2>
 
 <div class="panel" style="padding:12px">
   {% if owned_for_picker %}

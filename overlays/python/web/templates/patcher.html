@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Content patcher{% endblock %}
 {% block content %}
-<h1>Content patcher</h1>
-<h2 class="bracket-header">Today</h2>
-<form action="/patcher/new-day" method="post" class="panel new-day">
+<h1 data-side>Content patcher</h1>
+<h2 class="bracket-header" data-side>Today</h2>
+<form action="/patcher/new-day" method="post" class="panel new-day" data-side>
   <span><strong>Start a new day</strong><br><span class="note">Resets everything daily now: quest plays, missions, shop restocks, free summons, cheers and the login bonus. Weekly limits and the calendar stay where they are. The game closes; tap Deploy to play.</span></span>
   <button type="submit" class="secondary">NEW DAY</button>
 </form>
 <style>.new-day{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}</style>
 {% if calendar %}
-<div class="title-row"><p>Current: <strong>{{ current }}</strong></p><span class="status-pill online">Calendar on</span></div>
+<div class="title-row" data-side><p>Current: <strong>{{ current }}</strong></p><span class="status-pill online">Calendar on</span></div>
 
-<h2 class="bracket-header">Schedule</h2>
+<h2 class="bracket-header" data-toc>Schedule</h2>
 <div class="panel">
   <dl class="kv plain">
     <dt>Loop</dt><dd>{{ calendar.loop }} · week {{ calendar.week }} of {{ calendar.weeks }}</dd>
@@ -42,7 +42,7 @@
   <p class="credit" style="margin: 12px 0 0">The calendar moves at the daily reset. Stamina and daily missions use normal time.</p>
 </div>
 
-<h2 class="bracket-header">Timeline</h2>
+<h2 class="bracket-header" data-toc>Timeline</h2>
 <div class="panel timeline-panel">
   <div id="tl-soon"></div>
   <div class="tl-controls">
@@ -167,9 +167,9 @@
 <p class="credit">Presets are off while the calendar is on.</p>
 <form action="/patcher/calendar/off" method="post" class="actions"><button type="submit" class="secondary">Switch to everything open</button></form>
 {% else %}
-<p>Current: <strong>{{ current }}</strong></p>
+<p data-side>Current: <strong>{{ current }}</strong></p>
 
-<h2 class="bracket-header">Schedule</h2>
+<h2 class="bracket-header" data-toc>Schedule</h2>
 <div class="panel">
   <label class="choice"><input type="radio" name="schedule" checked onchange="schedule(false)"><span><strong>Everything open</strong><span class="note">All events, summons and shops stay open.</span></span></label>
   <label class="choice"><input type="radio" name="schedule" onchange="schedule(true)"><span><strong>Original calendar</strong><span class="note">Replays the game from launch day, starting when the first summons opened. Events, summons and seasons open and close on their original dates.</span></span></label>
@@ -196,7 +196,7 @@
 </form>
 
 <section id="presets">
-<h2 class="bracket-header">Content</h2>
+<h2 class="bracket-header" data-toc>Content</h2>
 <form action="/patcher/apply" method="post" class="panel" data-busy>
   <label for="preset">Content</label>
   <select name="preset" id="preset">
@@ -219,13 +219,13 @@
   }
 </script>
 {% endif %}
-<details class="panel"><summary>Previous versions</summary>
+<details class="panel"><summary data-toc>Previous versions</summary>
   {% if history %}<form action="/patcher/restore" method="post" data-busy>
     <select name="filename" aria-label="Master-data snapshot">{% for item in history %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
     <button type="submit">Restore</button><span class="busy-note" hidden>Restoring…</span>
   </form>{% else %}<p>No changes yet.</p>{% endif %}
 </details>
-<details class="panel"><summary>Original file &amp; export</summary>
+<details class="panel"><summary data-toc="Original file">Original file &amp; export</summary>
   <p>The bundled original is used for every preset. You can replace it with your own original master data.</p>
   <form action="/patcher/origin" method="post" enctype="multipart/form-data" data-busy>
     <input type="file" name="source" aria-label="Original master data" required>

@@ -3,17 +3,17 @@
 {% block bar_right %}USER {{ user_id }} :: UPGRADES{% endblock %}
 
 {% block content %}
-<p style="margin-top:0">
+<p style="margin-top:0" data-side>
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header">Upgrade Manager</h1>
+<h1 class="bracket-header" data-side>Upgrade Manager</h1>
 
-<div class="panel"><p style="margin:0">Upgrade characters and equipment without spending gold or materials. Each change is backed up first.</p></div>
+<div class="panel" data-side="intro"><p style="margin:0">Upgrade characters and equipment without spending gold or materials. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
-<h2 class="bracket-header costume-group-header">Characters</h2>
+<h2 class="bracket-header costume-group-header" data-toc>Characters</h2>
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Exalt All Available Characters</span>
@@ -31,7 +31,7 @@
   </div>
 </div>
 
-<h2 class="bracket-header costume-group-header">Inventory</h2>
+<h2 class="bracket-header costume-group-header" data-toc>Inventory</h2>
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Add All Missing Companions</span>
@@ -56,7 +56,7 @@
   </div>
 </div>
 
-<h2 class="bracket-header costume-group-header">Mass Upgrades</h2>
+<h2 class="bracket-header costume-group-header" data-toc>Mass Upgrades</h2>
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Companions</span>

@@ -2,10 +2,10 @@
 {% block title %}Users :: Lunar Base{% endblock %}
 {% block bar_right %}USERS{% endblock %}
 {% block content %}
-<h1 class="bracket-header">Registered Users</h1>
+<h1 class="bracket-header" data-side>Registered Users</h1>
 {% set in_use = device_player() if device_player is defined else None %}
-<p>The game plays as the player marked IN USE. Open another player to switch.</p>
-<div class="panel panel-corners">
+<p data-side>The game plays as the player marked IN USE. Open another player to switch.</p>
+<div class="panel panel-corners" data-side>
   <p style="margin:0 0 12px">Start a new player on this device. The current player is kept, and you can switch back to it here.</p>
   <form method="post" action="/users/new" onsubmit="return confirm('Start a new player on this device? The current player is kept.')">
     <button type="submit">New player</button>

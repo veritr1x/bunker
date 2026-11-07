@@ -784,34 +784,114 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
 .tl-text em { align-self: flex-start; font-style: normal; font-family: var(--mono); font-size: 9px; padding: 0 4px; background: var(--panel-inverse-fg); color: var(--panel-inverse-bg); }
 .tl-bar.next em, .tl-card em { background: var(--panel-inverse-bg); color: var(--panel-inverse-fg); }
 
-/* Landscape with little height (a phone on its side): the tabs become a column
-   on the left that scrolls by itself, the page takes the rest of the width, and
-   the sign-off leaves the bottom edge, so a page shows more than a few lines.
-   Tablets and unfolded phones in landscape keep the tabs on top. */
-@media (orientation: landscape) and (max-height: 540px) {
+/* Only on a phone on its side (below). */
+.shell-head, .live-short { display: none; }
+
+/* A phone on its side (landscape, under 600 px tall): the app's own bar and the
+   system bars are gone, so the page has the whole screen. The tabs are a column on
+   the left that scrolls by itself, with the title and Close at its top and the
+   live-game notice at its foot; pages put what they show before their content in
+   a side column beside it (the script in base.html moves what they mark
+   data-side); everything is denser. Tablets and unfolded phones keep the tabs on
+   top. Matches the apps' own test (ToolsActivity, LunarTools.m). */
+@media (orientation: landscape) and (max-height: 599px) {
   nav.primary {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
     z-index: 11;
-    width: 184px;
+    width: 148px;
     box-sizing: border-box;
     flex-direction: column;
     flex-wrap: nowrap;
-    gap: 2px;
+    gap: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 8px 8px 16px;
+    padding: 0 6px 64px;
     background: var(--bg-cream);
     border-bottom: none;
     border-right: 1px solid var(--accent);
   }
-  nav.primary a { padding: 10px 12px; white-space: normal; line-height: 1.35; }
-  main { margin-left: 184px; max-width: none; padding: 0 24px 16px; }
-  main > h1 { margin: 12px 0 10px; }
-  .bracket-header { margin: 16px 0 10px; }
-  .banner { margin: 8px 0; padding: 8px 12px; }
+  nav.primary a { padding: 7px 10px; font-size: 10px; letter-spacing: 0.12em; white-space: normal; line-height: 1.3; transition: padding-left 0.12s; }
+  .shell-head { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 4px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); transition: padding-left 0.12s; }
+  .shell-head b { font-size: 11px; letter-spacing: 0.2em; white-space: nowrap; text-transform: uppercase; color: var(--fg-dark); }
+  nav.primary .shell-head a { border: 1px solid var(--accent); padding: 4px 10px; }
+  nav.primary .by-hole, nav.primary .shell-head.by-hole { padding-left: calc(var(--hole-depth, 0px) + 6px); }
+
+  /* The live-game notice: one line at the foot of the tab column. */
+  #bunker-live { position: fixed; left: 0; bottom: 0; z-index: 12; width: 148px; box-sizing: border-box; margin: 0; padding: 7px 10px 9px; border: none; border-top: 1px solid var(--line); border-right: 1px solid var(--accent); background: var(--bg-cream); font-size: 9.5px; line-height: 1.4; letter-spacing: 0.04em; color: var(--fg-mid); }
+  #bunker-live::before { display: none; }
+  #bunker-live .live-long { display: none; }
+  #bunker-live .live-short { display: inline; }
+  #bunker-live .live-short b { color: var(--danger); }
+
+  main { margin-left: 148px; max-width: none; padding: 0 max(14px, var(--hole-right, 0px)) 12px 16px; }
+  main > h1, .page-side > h1 { margin: 8px 0 6px; font-size: 13px; }
+  .bracket-header { margin: 10px 0 6px; }
+  h2.bracket-header { font-size: 12px; }
+  .panel { margin: 8px 0; padding: 10px 12px; }
+  input, select, button, .button { min-height: 34px; }
+  button, .button { padding: 6px 14px; }
+  .banner { margin: 6px 0; padding: 5px 10px; font-size: 11px; }
+  .setting, .choice { padding: 8px 0; min-height: 0; }
   footer { display: none; }
   body { padding-bottom: 0; }
+
+  /* Programs: two columns. */
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+  .tool-grid a, .tool-grid > .off { padding: 7px 24px 7px 0; min-height: 0; font-size: 14px; }
+  .tool-grid a:nth-last-child(2) { border-bottom: none; }
+
+  /* Side and main. */
+  .page-split { display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 18px; align-items: start; }
+  .page-side { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; box-sizing: border-box; padding: 8px 2px 14px 0; scrollbar-width: none; }
+  .page-side::-webkit-scrollbar { display: none; }
+  .page-side > :first-child { margin-top: 0; }
+  .page-side > h1 { display: flex; align-items: center; gap: 8px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent); }
+  .page-side > h1::before { content: "["; }
+  .page-side > h1::after { content: "]"; flex: 1; text-align: right; background: linear-gradient(var(--accent), var(--accent)) no-repeat left 8px bottom 0.45em / calc(100% - 8px - 1.1em) 1px; }
+  .page-side .panel { padding: 8px 10px; }
+  .page-side .panel, .page-side p { font-size: 12.5px; line-height: 1.5; }
+  .page-side p { margin: 6px 0; }
+  .page-side button, .page-side .button { width: 100%; }
+  .page-side .search-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+  .page-side .search-row > * { margin: 0; }
+  .page-side .search-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+  /* Long intros: three lines and "More" (the text itself is clamped: a panel's first paragraph, or the paragraph). */
+  .page-side p[data-side="intro"]:not(.open), .page-side [data-side="intro"]:not(.open) > p:first-child { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .page-side .panel[data-side="intro"]:not(.open) > :not(:first-child) { display: none; }
+  .page-side .intro-more { width: auto; min-height: 0; padding: 0; margin: -2px 0 6px; background: none; border: none; color: var(--fg-mid); font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: underline; }
+  .page-toc { margin-top: 10px; border-top: 1px solid var(--line); }
+  .page-toc a { display: block; padding: 7px 2px; border-bottom: 1px dotted var(--line); color: var(--fg-dark); font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
+  .page-main { min-width: 0; padding-top: 8px; container-type: inline-size; }
+  .page-side .new-day { display: block; }
+  .page-side .new-day button { margin-top: 8px; }
+  .page-main > :first-child { margin-top: 0; }
+
+  /* Settings: name and note on the left, the choice on the right. */
+  .page-main .setting { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 2px 14px; align-items: center; padding: 7px 0; }
+  .page-main .setting label { grid-column: 1; margin: 0; font-size: 13.5px; }
+  .page-main .setting select { grid-column: 2; grid-row: 1 / span 2; }
+  .page-main .setting .note { grid-column: 1; margin: 0; font-size: 10.5px; }
+  /* Short records: two across. */
+  .page-main [data-grid2] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .page-main [data-grid2] > * { margin: 0; }
+  .page-main [data-grid2] > .panel { padding: 8px 10px; }
+}
+/* Rows in the main column fit it the way they fit a phone (the column is narrower than the screen). */
+@container (max-width: 600px) {
+  .grant-form.upgrade { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .grant-form.upgrade .grant-name { flex: 1 1 auto; min-width: 0; }
+  .grant-form.upgrade .grant-id { flex: 1 1 100%; order: 1; font-size: 10.5px; }
+  .grant-form.upgrade .grant-current { display: none; }
+  .grant-form:not(.upgrade):not(.costume):not(.weapon) { display: flex; align-items: center; gap: 8px; }
+  .grant-form:not(.upgrade):not(.costume):not(.weapon) .grant-name { flex: 1 1 0; min-width: 0; }
+  .grant-form:not(.upgrade):not(.costume):not(.weapon) input { width: 96px; flex: none; }
+}
+@container (max-width: 440px) {
+  .grant-form.costume, .grant-form.weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 6px; }
+  .grant-form .grant-name { flex: 1 1 0; min-width: 0; }
+  .grant-form .karma-row { flex: 1 1 100%; min-width: 0; order: 3; }
+  .grant-form .karma-row select { flex: 1 1 100% !important; min-width: 0 !important; width: 100%; }
 }
