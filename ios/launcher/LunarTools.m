@@ -236,6 +236,11 @@ static NSString *ArchivePath(NSString *link) {
 // The top bar's parts that change on a phone on its side (applyCompact).
 @property(nonatomic, strong) UILabel *captionLabel, *titleLabel;
 @property(nonatomic, strong) NSLayoutConstraint *closeHeight, *barTop;
+// Pod Programs on a phone on its side (applyCompact): the page has the whole screen.
+@property(nonatomic, strong) UIStackView *bar;
+@property(nonatomic, strong) NSLayoutConstraint *webBelowBar, *webAtTop;
+@property(nonatomic) BOOL sideways;
+@property(nonatomic, copy) NSString *cutout;
 @end
 
 @implementation LTToolsViewController
@@ -276,6 +281,7 @@ static NSString *ArchivePath(NSString *link) {
     UIStackView *bar = [[UIStackView alloc] initWithArrangedSubviews:@[titles, self.closeButton]];
     bar.alignment = UIStackViewAlignmentCenter;
     bar.translatesAutoresizingMaskIntoConstraints = NO;
+    self.bar = bar;
     [self.view addSubview:bar];
     [self updateBorder];
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
@@ -304,13 +310,15 @@ static NSString *ArchivePath(NSString *link) {
     self.web.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.web];
     self.barTop = [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:12];
+    self.webBelowBar = [self.web.topAnchor constraintEqualToAnchor:bar.bottomAnchor constant:4];
+    self.webAtTop = [self.web.topAnchor constraintEqualToAnchor:self.view.topAnchor];
     [NSLayoutConstraint activateConstraints:@[
         [self.web.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.web.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [bar.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:18],
         [bar.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-18],
         self.barTop,
-        [self.web.topAnchor constraintEqualToAnchor:bar.bottomAnchor constant:4],
+        self.webBelowBar,
         [self.web.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
     [self applyCompact];
@@ -340,15 +348,52 @@ static NSString *ArchivePath(NSString *link) {
     [self updateBorder];
     [self applyCompact];
 }
-// On a phone on its side (compact height) the top bar shrinks to one short
-// line, so the page keeps the height; the page's own tabs move to a column on
-// the left then (automata.css). iPads keep the full bar.
+// On a phone on its side (compact height) Pod Programs' page has the whole
+// screen: no top bar, the status bar and home indicator hidden, and the page
+// under the notch, whose place it is told so its tabs step around it; the
+// page's tab column carries the title and Close (/bunker/close, automata.css).
+// The Archive keeps its bar, shrunk to one short line. iPads keep the full bar.
 - (void)applyCompact {
     BOOL compact = self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
+    self.sideways = compact && !self.archive;
     self.captionLabel.hidden = compact;
     self.titleLabel.font = [UIFont boldSystemFontOfSize:compact ? 15 : 22];
     self.closeHeight.constant = compact ? 40 : 44;
     self.barTop.constant = compact ? 4 : 12;
+    self.bar.hidden = self.sideways;
+    self.webBelowBar.active = !self.sideways;
+    self.webAtTop.active = self.sideways;
+    self.web.scrollView.contentInsetAdjustmentBehavior = self.sideways ? UIScrollViewContentInsetAdjustmentNever : UIScrollViewContentInsetAdjustmentAutomatic;
+    [self setNeedsStatusBarAppearanceUpdate];
+    [self setNeedsUpdateOfHomeIndicatorAutoHidden];
+    [self updateCutout];
+}
+- (BOOL)prefersStatusBarHidden { return self.sideways; }
+- (BOOL)prefersHomeIndicatorAutoHidden { return self.sideways; }
+- (void)viewSafeAreaInsetsDidChange { [super viewSafeAreaInsetsDidChange]; [self updateCutout]; }
+- (void)viewDidLayoutSubviews { [super viewDidLayoutSubviews]; [self updateCutout]; }
+// Where the notch or Dynamic Island is, for the page (window.bunkerCutout,
+// base.html), in CSS px. iOS gives only the safe area's depth on that side, so
+// the band is an estimate: 210 pt centred on the edge, a notch's length.
+- (void)updateCutout {
+    if (self.archive || !self.web) return;
+    UIEdgeInsets safe = self.view.safeAreaInsets;
+    CGFloat height = self.view.bounds.size.height, band = 210;
+    NSString *json = @"null";
+    if (self.sideways && (safe.left > 0 || safe.right > 0)) {
+        // Landscape safe areas are the same on both sides; the notch is at the
+        // phone's top, which is on the left when the interface is landscape right.
+        BOOL left = self.view.window.windowScene.interfaceOrientation == UIInterfaceOrientationLandscapeRight;
+        json = [NSString stringWithFormat:@"{\"side\":\"%@\",\"top\":%.1f,\"bottom\":%.1f,\"depth\":%.1f}",
+                left ? @"left" : @"right", MAX(0, (height - band) / 2), MIN(height, (height + band) / 2), left ? safe.left : safe.right];
+    }
+    if ([json isEqualToString:self.cutout ?: @""]) return;
+    self.cutout = json;
+    NSString *script = [NSString stringWithFormat:@"window.bunkerCutout = %@;", json];
+    WKUserContentController *content = self.web.configuration.userContentController;
+    [content removeAllUserScripts];
+    [content addUserScript:[[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]];
+    [self.web evaluateJavaScript:[script stringByAppendingString:@" window.bunkerHoleChanged && bunkerHoleChanged();"] completionHandler:nil];
 }
 - (BOOL)local:(NSURL *)url {
     NSURL *origin = [NSURL URLWithString:self.origin];
@@ -404,6 +449,12 @@ static NSString *ArchivePath(NSString *link) {
     if (archive) {
         handler(WKNavigationActionPolicyCancel);
         self.openArchive(archive);
+        return;
+    }
+    // The page's own Close (Pod Programs on a phone on its side): the same as the CLOSE button.
+    if (!self.archive && [self local:action.request.URL] && [action.request.URL.path isEqual:@"/bunker/close"]) {
+        handler(WKNavigationActionPolicyCancel);
+        [self close];
         return;
     }
     // Only the local pages; nothing in Tools or the Archive links out.
@@ -474,6 +525,9 @@ UIInterfaceOrientationMask LTMenuOrientations(void);
 @end
 @implementation LTTurningNavigation
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations { return LTMenuOrientations(); }
+// Pod Programs hides the status bar and home indicator on a phone on its side.
+- (UIViewController *)childViewControllerForStatusBarHidden { return self.topViewController; }
+- (UIViewController *)childViewControllerForHomeIndicatorAutoHidden { return self.topViewController; }
 @end
 
 UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void), void (^archive)(NSString *path)) {

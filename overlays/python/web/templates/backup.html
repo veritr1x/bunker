@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Save backups{% endblock %}
 {% block content %}
-<h1>Save backups</h1>
-<p>The latest {{ retention }} backups are kept. Changes are backed up automatically.</p>
-<form method="post" action="/backups/create">
+<h1 data-side>Save backups</h1>
+<p data-side>The latest {{ retention }} backups are kept. Changes are backed up automatically.</p>
+<form method="post" action="/backups/create" data-side>
   <button type="submit" {% if not game_db_exists %}disabled{% endif %}>Create backup</button>
 </form>
-{% if not game_db_exists %}<p>Play the game once to create a save.</p>{% endif %}
+{% if not game_db_exists %}<p data-side>Play the game once to create a save.</p>{% endif %}
 {% if lunar_tear_running %}<p class="banner error">{{ lunar_tear_running }}</p>{% endif %}
+<div data-grid2>
 {% for b in backups %}
 <details class="panel">
   <summary><strong>{{ b.created_at.strftime("%d %b %Y, %H:%M:%S") }}</strong><br>{{ b.reason_display }} · {{ b.size_human }}</summary>
@@ -19,4 +20,5 @@
   </form>
 </details>
 {% else %}<p>No backups yet.</p>{% endfor %}
+</div>
 {% endblock %}

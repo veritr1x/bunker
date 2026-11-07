@@ -7,7 +7,7 @@
   .rates .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .rates .check { display: flex; gap: 8px; align-items: center; }
 </style>
-<h1>Summon rates</h1>
+<h1 data-side>Summon rates</h1>
 <form action="/gacha" method="post" class="panel rates">
   <div class="pair">
     <label>★4 rate (%)<input type="number" name="four" id="four" min="0.1" max="100" step="0.1" value="{{ settings.fourStarPercent }}"></label>
@@ -29,14 +29,14 @@
   <label class="check"><input type="checkbox" name="stepup"{% if settings.stepUpBoost %} checked{% endif %}> Multi-step summons raise ★4 on steps 1, 3 and 5</label>
   <button type="submit">Save</button>
 </form>
-<form action="/gacha/preset" method="post" class="panel rates">
+<form action="/gacha/preset" method="post" class="panel rates" data-side>
   <label>Presets
     <select name="name">{% for key, title, _ in presets %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</select>
   </label>
   <button type="submit">Apply</button>
 </form>
-<p>Applies to regular and multi-step summons from the next draw. The game's Rates page shows these values. Experimental.</p>
-<h2 class="bracket-header">Special Gift Roulette</h2>
+<p data-side>Applies to regular and multi-step summons from the next draw. The game's Rates page shows these values. Experimental.</p>
+<h2 class="bracket-header" data-toc>Special Gift Roulette</h2>
 <form action="/gacha/roulette" method="post" class="panel rates" id="roulette">
   <p>The gem wheel in the menu. Up to 6 spins a day. Set the chance of each amount. They must add up to 100%.</p>
   <div class="pair">

@@ -3,7 +3,7 @@
 <html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Pod Programs{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/automata.css">
@@ -18,6 +18,8 @@
     <div class="right">{% block bar_right %}{% endblock %}</div>
   </div>
   <nav class="primary">
+    {#- A phone on its side: the app's own bar is gone, so the title and Close sit at the top of the tabs. #}
+    <div class="shell-head"><b>Pod Programs</b><a href="/bunker/close">Close</a></div>
     <a href="/" {% if active == "home" %}class="active"{% endif %}>Programs</a>
     <a href="/patcher" {% if active == "patcher" %}class="active"{% endif %}>Content</a>
     <a href="/users" {% if active == "users" %}class="active"{% endif %}>Users</a>
@@ -34,11 +36,93 @@
     <a href="/memoirs" {% if active == "memoirs" %}class="active"{% endif %}>Memoir Editor</a>
   </nav>
   <main>
-    <div id="bunker-live" class="banner" hidden>&gt; The game is still running. After a change to your save or the game's data, it returns to its title screen to load it. Turning the calendar off, switching "Show original dates" or starting a new day closes it.</div>
+    <div id="bunker-live" class="banner" hidden><span class="live-long">&gt; The game is still running. After a change to your save or the game's data, it returns to its title screen to load it. Turning the calendar off, switching "Show original dates" or starting a new day closes it.</span><span class="live-short"><b>●</b> Game running · a change sends it back to its title screen</span></div>
     {% if message %}<div class="banner success">&gt; {{ message }}</div>{% endif %}
     {% if error %}<div class="banner error">&gt; ERROR :: {{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script>
+  // A phone on its side (automata.css): what a page marks data-side sits in a
+  // column beside its content, and headers marked data-toc are listed there as
+  // links. Turning the phone back puts every element back where it was. This
+  // runs before the first paint, so the page never shows unsplit.
+  (() => {
+    const query = matchMedia("(orientation: landscape) and (max-height: 599px)");
+    const main = document.querySelector("main");
+    let split = null;
+    function apply() {
+      if (query.matches && !split && main.querySelector(":scope > [data-side]")) {
+        const wrap = document.createElement("div"), side = document.createElement("aside"), body = document.createElement("div");
+        wrap.className = "page-split"; side.className = "page-side"; body.className = "page-main";
+        const moved = [];
+        for (const el of [...main.children]) {
+          if (el.id === "bunker-live" || el.matches("script, style")) continue;
+          const mark = document.createComment("");
+          el.before(mark); moved.push([el, mark]);
+          (el.hasAttribute("data-side") ? side : body).append(el);
+        }
+        const heads = body.querySelectorAll("[data-toc]");
+        if (heads.length) {
+          const toc = document.createElement("nav");
+          toc.className = "page-toc";
+          heads.forEach((h, i) => {
+            if (!h.id) h.id = "section-" + (i + 1);
+            const a = document.createElement("a");
+            a.href = "#" + h.id;
+            a.textContent = (h.dataset.toc || h.textContent).replace(/\s+/g, " ").trim();
+            toc.append(a);
+          });
+          side.append(toc);
+        }
+        wrap.append(side, body);
+        main.append(wrap);
+        split = {wrap, moved, toc: side.querySelector(".page-toc")};
+        // Long intros: three lines and "more".
+        side.querySelectorAll('[data-side="intro"]').forEach(intro => requestAnimationFrame(() => {
+          const text = intro.matches("p") ? intro : intro.querySelector(":scope > p:first-child") || intro;
+          const hidden = intro.querySelectorAll(":scope > :not(:first-child)").length;
+          if ((!hidden && text.scrollHeight <= text.clientHeight + 4) || intro.nextElementSibling?.classList.contains("intro-more")) return;
+          const more = document.createElement("button");
+          more.type = "button"; more.className = "intro-more"; more.textContent = "More";
+          more.onclick = () => { more.textContent = intro.classList.toggle("open") ? "Less" : "More"; };
+          intro.after(more);
+        }));
+      } else if (!query.matches && split) {
+        for (const [el, mark] of split.moved) mark.replaceWith(el);
+        split.toc?.remove();
+        main.querySelectorAll(".intro-more").forEach(b => b.remove());
+        split.wrap.remove();
+        split = null;
+      }
+    }
+    query.addEventListener("change", apply);
+    apply();
+
+    // The camera hole or notch: the app draws under it and says where it is
+    // (Android: BunkerShell.cutout(); iOS: window.bunkerCutout), as
+    // {side, top, bottom, depth} in CSS px. Tabs passing beside a hole on the
+    // left step past it; a hole on the right pads the page's right edge.
+    const root = document.documentElement, nav = document.querySelector("nav.primary");
+    function hole() {
+      try { return window.BunkerShell ? JSON.parse(BunkerShell.cutout()) : window.bunkerCutout || null; } catch (e) { return null; }
+    }
+    let cut = hole();
+    function mark() {
+      const on = query.matches && cut;
+      root.style.setProperty("--hole-depth", (on ? cut.depth : 0) + "px");
+      root.style.setProperty("--hole-right", (on && cut.side === "right" ? cut.depth : 0) + "px");
+      nav.querySelectorAll(":scope > a, :scope > .shell-head").forEach(a => {
+        const b = a.getBoundingClientRect();
+        a.classList.toggle("by-hole", !!on && cut.side === "left" && b.bottom > cut.top && b.top < cut.bottom);
+      });
+    }
+    window.bunkerHoleChanged = () => { cut = hole(); mark(); };
+    nav.addEventListener("scroll", mark, {passive: true});
+    addEventListener("resize", mark);
+    query.addEventListener("change", mark);
+    mark();
+  })();
+  </script>
   <footer><span class="sign-light">End of transmission // Glory to mankind</span><span class="sign-dark">Operator link // Standing by</span></footer>
   <script>
   // Pod Programs opens while the game keeps running: a change sends the game

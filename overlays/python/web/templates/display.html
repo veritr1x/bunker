@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Display{% endblock %}
 {% block content %}
-<h1>Display</h1>
+<h1 data-side>Display</h1>
 {% if result and not result.ok %}<div class="banner error">&gt; The game could not use these settings: {{ result.error }}</div>{% endif %}
 <form action="/display" method="post">
-  <h2 class="bracket-header">Frame rate</h2>
+  <h2 class="bracket-header" data-toc>Frame rate</h2>
   <div class="panel">
     <div class="setting">
       <label for="fps">Frame rate</label>
@@ -23,7 +23,7 @@
     </div>
   </div>
 
-  <h2 class="bracket-header">Resolution</h2>
+  <h2 class="bracket-header" data-toc>Resolution</h2>
   <div class="panel">
     <div class="setting">
       <label for="resolution">Resolution</label>
@@ -42,7 +42,7 @@
     </div>{% endif %}
   </div>
 
-  <h2 class="bracket-header">Effects</h2>
+  <h2 class="bracket-header" data-toc>Effects</h2>
   <div class="panel">
     {% for name, title, about in [("shadows", "Shadows", "Shadows of characters and scenery."), ("reflections", "Reflections", "Reflections on floors and water."), ("bloom", "Bloom", "The glow around bright light.")] %}<div class="setting">
       <label for="{{ name }}">{{ title }}</label>
@@ -51,7 +51,7 @@
     </div>{% endfor %}
   </div>
 
-  <h2 class="bracket-header">Screen</h2>
+  <h2 class="bracket-header" data-toc>Screen</h2>
   <div class="panel">
     <div class="setting">
       <label for="screen">Screen area</label>
@@ -62,5 +62,5 @@
 
   <div class="actions"><button type="submit">Save</button></div>
 </form>
-<p>Higher frame rates and resolutions use more battery and warm the device; turning effects off saves GPU work. Changes apply the next time the game opens.</p>
+<p data-side>Higher frame rates and resolutions use more battery and warm the device; turning effects off saves GPU work. Changes apply the next time the game opens.</p>
 {% endblock %}
