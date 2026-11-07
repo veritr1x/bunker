@@ -181,8 +181,11 @@ class Battle:
     def hit(self, u, tgt, power, hits_in_skill, normal=False, pierce=False, comp_atk=None):
         if not tgt.alive: return
         if normal and self.has(tgt, "defiance"): return
-        atk = (comp_atk or u.atk) * (1 + _bsum(u, "Attack") + u.team_atk)
-        crit = min(1, u.t["crit"] + _bsum(u, "CriticalRatio") + u.team_crit); cd = u.t["critdmg"] + _bsum(u, "CriticalAttack") + u.team_cdmg
+        # Stats floor at the client's minimums (power.K_MIN: Attack 1, crit rate 0, crit damage x1, DEF 1): debuffs
+        # past -100% must not turn a hit into a heal.
+        atk = max(1.0, (comp_atk or u.atk) * (1 + _bsum(u, "Attack") + u.team_atk))
+        crit = max(0.0, min(1, u.t["crit"] + _bsum(u, "CriticalRatio") + u.team_crit))
+        cd = max(1.0, u.t["critdmg"] + _bsum(u, "CriticalAttack") + u.team_cdmg)
         m = 1 + crit * (cd - 1)
         m *= ADV.get((u.elem, tgt.elem), 1.0)
         m *= 1 + P["BOARD_ELEM_DMG"]   # character board: own-element damage +9% (every character)
@@ -209,7 +212,7 @@ class Battle:
         for s in tgt.st:
             for el, kind, v in s["p"].get("attr", []):
                 if kind == "taken" and ELEMN.get(el) == u.elem: m *= v
-        dfv = tgt.df * (1 + _bsum(tgt, "Vitality") + tgt.team_def)
+        dfv = max(1.0, tgt.df * (1 + _bsum(tgt, "Vitality") + tgt.team_def))
         if self._combo_target and not normal: m *= self.combo.coef(u.side)
         # Damage cuts (Indomitable) do not multiply together: the strongest one
         # applies; every active one still uses up a hit.
@@ -224,7 +227,7 @@ class Battle:
                 if s["cnt"] is not None: s["cnt"] -= 1
         tgt.st = [s for s in tgt.st if s["cnt"] is None or s["cnt"] > 0]
         m *= self.taken_mult(tgt)
-        dmg = rules.DAMAGE_FORMULAS[P["DAMAGE"]](atk, power, m, dfv, P, pierce)
+        dmg = max(0.0, rules.DAMAGE_FORMULAS[P["DAMAGE"]](atk, power, m, dfv, P, pierce))   # never a heal
         floor = 1 if self.has(tgt, "dauntless") else 0
         tgt.hp = max(floor, tgt.hp - dmg)
         self.on_hit(u, tgt, dmg, hits_in_skill, normal)
