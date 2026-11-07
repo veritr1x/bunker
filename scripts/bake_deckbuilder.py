@@ -412,6 +412,44 @@ def _matchup(att, dfn):
     return round(wins / k, 4), round(margin / k, 4)
 
 
+def _pair(side, opp):
+    """(_matchup(side, opp), _matchup(opp, side)) with each defense fight taken from its attack fight mirrored when
+    nothing in it depended on the roles (Battle.mirror_safe, no chance draws): the same sums, in the same order."""
+    import random
+    from deckbuilder.sim import battle
+    k = RUNS * len(battle.OPENINGS)
+    first = {}
+    wins = margin = 0.0
+    for manual in battle.OPENINGS:
+        once = None
+        for seed in range(RUNS):
+            if once is not None:
+                r = once
+            else:
+                b = battle.Battle(side, opp, random.Random(seed), manual); b.logging = False
+                r = b.run()
+                if seed == 0:
+                    first[manual] = (r, b.chance_draws == 0 and b.mirror_safe)
+                    if b.chance_draws == 0:
+                        once = r
+            wins += r["win"] == "A"; margin += r["hpA"] - r["hpD"]
+    attack = (round(wins / k, 4), round(margin / k, 4))
+    wins = margin = 0.0
+    for manual in battle.OPENINGS:
+        src, safe = first[not manual]
+        once = battle.mirror(src) if safe else None
+        for seed in range(RUNS):
+            if once is not None:
+                r = once
+            else:
+                b = battle.Battle(opp, side, random.Random(seed), manual); b.logging = False
+                r = b.run()
+                if seed == 0 and b.chance_draws == 0:
+                    once = r
+            wins += r["win"] == "A"; margin += r["hpA"] - r["hpD"]
+    return attack, (round(wins / k, 4), round(margin / k, 4))
+
+
 def _deck_worker_init(use_compiled=False):
     from deckbuilder import generate, sim
     T = tables(); sim.use(T)
@@ -435,10 +473,9 @@ def bake_deck(combo) -> tuple:
     side, force = cache.side_force(lineup)
     aw = am = dw = dm = 0.0
     for opp, w, _ in _W["meta"]:
-        win, margin = _matchup(side, opp)
+        (win, margin), (dwin, dmargin) = _pair(side, opp)
         aw += w * win; am += w * margin
-        win, margin = _matchup(opp, side)
-        dw += w * (1 - win); dm -= w * margin
+        dw += w * (1 - dwin); dm -= w * dmargin
     return lineup, round(aw, 4), round(am, 4), round(dw, 4), round(dm, 4), force
 
 
