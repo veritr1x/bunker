@@ -56,6 +56,13 @@ def score(attacker, defender, tables, runs: int | None = None) -> tuple[float, f
     return battle.score(attacker, defender, tables, runs=runs)
 
 
+def boss_phase(party, boss, phase, tables, seed: int = 0) -> dict:
+    """One Subjugation phase (deckbuilder.bighunt): damage dealt, knock-downs, time lasted."""
+    use(tables)
+    from deckbuilder.sim import battle
+    return battle.boss_phase(party, boss, phase, tables, seed=seed)
+
+
 def win_rate(attacker, defender, tables, runs: int | None = None) -> float:
     use(tables)
     from deckbuilder.sim import battle

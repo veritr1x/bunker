@@ -76,6 +76,34 @@ class FakeSession:
     def players(self):
         return [(1, "2B")]
 
+    # Subjugation
+    def bosses(self):
+        return [{"id": 1, "name": "Fiery Cursed God", "element": "fire"}, {"id": 5, "name": "Bleak Cursed God", "element": "dark"}]
+
+    def subjugation(self, boss_id, difficulty, criteria):
+        self.asked = (boss_id, difficulty, criteria.mode.kind)
+        return [self.loadout]
+
+    @property
+    def loadout(self):
+        deck = lambda i, lineup, dmg: SimpleNamespace(lineup=lineup, name=f"deck {i}", strategy="Team Dauntless", elements=("fire",) * 3,
+                                                      equipped=SimpleNamespace(specs=SPECS, to_add=[]), deck=None, force=400000,
+                                                      phase=i, damage=dmg, knockdowns=1, standing=3)
+        return SimpleNamespace(key="b1d5:1,2,3|4,5,6|7,8,9", rank=1, boss_id=1, difficulty=5, damage=300,
+                               force=1200000, decks=[deck(1, (1, 2, 3), 150), deck(2, (4, 5, 6), 100), deck(3, (7, 8, 9), 50)])
+
+    def find_loadout(self, key):
+        return self.loadout if key == self.loadout.key else None
+
+    def loadout_detail(self, lo):
+        return {"kind": "subjugation", "decks": [], "raises": [], "added": 0}
+
+    def loadout_force(self, lo, raises):
+        return [400000, 400000, 400000]
+
+    def loadout_raisable(self, lo):
+        return {35036}
+
 
 class PageTest(unittest.TestCase):
     def setUp(self):
@@ -179,6 +207,32 @@ class PageTest(unittest.TestCase):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('if (state.mode === "best") document.querySelectorAll("#w-raise input").forEach(b => (b.checked = true));', html)
         self.assertIn('"mythic_slab": "Mythic Slab"', html)
+
+    def test_subjugation_is_a_mode_with_a_boss_and_difficulty(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('<button type="button" data-v="subjugation">Subjugation</button>', html)
+        self.assertIn('<option value="1">Fiery Cursed God · fire</option>', html)
+        self.assertIn('<select id="difficulty">', html)
+
+    def test_subjugation_results_are_loadouts_of_three_decks(self):
+        r = self.c.get("/decks/results", params={"user": 1, "deck_for": "subjugation", "boss": 1, "difficulty": 5, "mode": "best"}).json()
+        self.assertEqual(self.session.asked, (1, 5, "best"))
+        [card] = r["items"]
+        self.assertEqual((card["kind"], card["damage"], r["exhausted"]), ("subjugation", 300, True))
+        self.assertEqual([d["phase"] for d in card["decks"]], [1, 2, 3])
+        self.assertEqual([d["damage"] for d in card["decks"]], [150, 100, 50])
+        self.assertEqual(len(card["decks"][0]["tiles"]), 3)
+        more = self.c.get("/decks/results", params={"user": 1, "deck_for": "subjugation", "boss": 1, "offset": 6}).json()
+        self.assertEqual(more["items"], [])
+
+    def test_a_loadout_writes_the_three_subjugation_decks(self):
+        """One Save Data snapshot, then each deck to its Subjugation deck (101, 102, 103), its own raises only."""
+        r = self.c.post("/decks/write", json={"user": 1, "key": self.session.loadout.key, "raise": [35036]}).json()
+        self.assertEqual(r["ok"], True)
+        self.assertEqual([c[0] for c in self.calls], ["backup", "shim", "shim", "shim"])
+        slots = [c[1]["deck"]["slots"] for c in self.calls[1:]]
+        self.assertEqual(slots, [[{"deck_type": 5, "number": n, "power": 400000}] for n in (101, 102, 103)])
+        self.assertEqual(r["slots"], [101, 102, 103])
 
     def test_write_takes_snapshot_then_calls_shim(self):
         key = db.result_key(self.session.result)

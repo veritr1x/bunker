@@ -46,6 +46,15 @@
   .por.new::before{content:"NEW";position:absolute;top:0;right:0;background:#f3efe2;color:#3a372f;font-size:8px;padding:1px 4px;z-index:1;font-weight:bold}
   .tile .nm{font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
   .rc .tile .nm{font-size:10.5px;opacity:.85;text-align:center}
+  .db-controls .seg button{min-width:0}
+  .seg[data-name="deck_for"]{flex-wrap:wrap}
+  .seg[data-name="deck_for"] [data-v="subjugation"]{flex-basis:100%;border-top:1px solid var(--db-line)}
+  body.subj .arena-only,body:not(.subj) .subj-only{display:none!important}
+  .lo-row{display:grid;grid-template-columns:12px 92px minmax(0,1fr);gap:8px;align-items:center;padding:3px 10px}
+  .lo-n{font:600 11px var(--mono);opacity:.5}
+  .lo-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+  .lo-txt{min-width:0}.lo-txt b{display:block;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lo-txt small{font-size:11px;opacity:.7}
   .rc-foot{margin-top:6px;display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-top:1px dotted var(--db-line);font-size:11.5px;opacity:.85}
   .rc-foot b{font-weight:600}
   .more{text-align:center;margin:12px 0 0;font-size:12px;opacity:.75}
@@ -122,14 +131,14 @@
   @media (min-width:901px) and (min-height:600px){.deck-sheet{inset:4vh max(16px,calc(50vw - 560px));border:2px solid var(--fg-dark)}.ds-body{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}}
   @media (max-width:900px){.cards{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
   @media (max-width:640px){
-    .db-controls{grid-template-columns:1fr}
+    .db-controls{grid-template-columns:minmax(0,1fr)}
     .filters-panel{left:0;right:0;bottom:0;top:110px;width:auto;max-height:none;transform:none;border-width:2px 0 0;padding:6px 14px 0;animation:rise .2s ease-out}
     @keyframes rise{from{transform:translateY(40%);opacity:.4}}
     .write-bar{position:sticky;bottom:0;padding:10px 0;background:inherit}
   }
   /* A phone on its side: the controls in the side column, two decks across (automata.css). */
   @media (orientation: landscape) and (max-height: 599px) {
-    .page-side .db-controls{grid-template-columns:1fr;gap:4px}
+    .page-side .db-controls{grid-template-columns:minmax(0,1fr);gap:4px}
     .page-side .seg{display:flex}.page-side .seg button{flex:1;width:auto;padding:6px 4px;font-size:11px}
     .page-side .help{font-size:10.5px}.page-side #against{width:100%}
     .page-main .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -152,14 +161,19 @@
 <div class="panel" data-side>
   <div class="db-controls">
     <div class="db-lbl">Deck for</div>
-    <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button></div></div>
+    <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button><button type="button" data-v="subjugation">Subjugation</button></div></div>
     <div class="db-lbl">Build from</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">What I own</button><button type="button" data-v="best" class="on">All maxed</button></div>
       <p class="help">All maxed uses anything in the game, fully raised: missing pieces are added maxed, and your own costumes and characters are raised when you write the deck. With "What I own", allow up to
         <select id="allow">{% for n in (0, 1, 2, 3, 5, 10) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}</select> pieces to be added.</p></div>
-    <div class="db-lbl">Against</div>
+    <div class="db-lbl subj-only">Boss</div>
+    <div class="subj-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="boss" style="width:100%;min-width:0">{% for b in bosses %}<option value="{{ b.id }}">{{ b.name }} · {{ b.element }}</option>{% endfor %}</select>
+      <select id="difficulty">{% for n in (5, 4, 3, 2, 1) %}<option value="{{ n }}">Difficulty {{ n }}</option>{% endfor %}</select>
+    </div>
+    <div class="db-lbl"><span class="arena-only">Against</span></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="against" style="max-width:100%"><option value="general">General best</option>
+      <select id="against" class="arena-only" style="max-width:100%"><option value="general">General best</option>
         {% for o in opponents %}<option value="{{ o.id }}">{{ o.name }} · {{ "{:,}".format(o.points) }} pts · {{ (o.names or [])|join(", ") }}</option>{% endfor %}</select>
       <button type="button" class="open-filters chip on" onclick="sheet(true)">Filters <span id="nfilters"></span></button>
     </div>
@@ -190,7 +204,7 @@
 </div>
 
 <h2 class="bracket-header">Decks</h2>
-<div class="resbar"><span id="count">Loading…</span><label class="sort">Sort <select id="sort"><option value="match">Best match</option><option value="force">Force</option><option value="fewest">Fewest to add</option></select></label></div>
+<div class="resbar"><span id="count">Loading…</span><label class="sort arena-only">Sort <select id="sort"><option value="match">Best match</option><option value="force">Force</option><option value="fewest">Fewest to add</option></select></label></div>
 <div class="cards" id="cards"></div>
 <p class="more" id="more"></p>
 
@@ -209,7 +223,8 @@
     <div class="ds-right">
       <div class="w-h" style="margin-top:0">Characters</div>
       <div class="chars" id="d-chars"></div>
-      <div class="w-h">Write to</div>
+      <div class="w-h" id="w-to">Write to</div>
+      <p class="help" id="w-subj" hidden>Writes your Subjugation decks 1, 2 and 3, one deck per phase. A Save Data snapshot is taken first.</p>
       <div id="w-slots">{% for s in slots %}<label class="w-sl"><input type="checkbox" value="{{ s.number }}"{% if "(defense)" in s.label %} data-defense="1"{% endif %}{% if not s.summary %} data-empty="1"{% endif %}><span>{{ s.label }}<small>{% if s.summary %}Your deck · {{ s.summary }}{% else %}Empty{% endif %}</small></span><span></span></label>{% endfor %}</div>
       <div id="w-raise-box" hidden><div class="w-h">Raise what you own?</div><div id="w-raise"></div></div>
     </div>
@@ -229,7 +244,9 @@ const $ = id => document.getElementById(id);
 document.querySelectorAll(".seg").forEach(seg => seg.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
-  state[seg.dataset.name] = b.dataset.v; load(true);
+  state[seg.dataset.name] = b.dataset.v;
+  document.body.classList.toggle("subj", state.deck_for === "subjugation");
+  load(true);
 }));
 document.querySelectorAll(".chips[data-name]").forEach(box => box.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -243,6 +260,10 @@ document.querySelectorAll("input[data-min]").forEach(r => r.addEventListener("in
   dirty = true; countFilters();
 }));
 $("against").addEventListener("change", () => load(true));
+$("boss").addEventListener("change", () => load(true));
+$("difficulty").addEventListener("change", () => load(true));
+const SUBJ = () => state.deck_for === "subjugation";
+const big = n => n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e8 ? 0 : 1)}M` : n.toLocaleString();
 $("allow").addEventListener("change", () => load(true));
 $("sort").addEventListener("change", e => { state.sort = e.target.value; load(true); });
 
@@ -269,14 +290,26 @@ function clearFilters() {
 }
 function query() {
   const q = new URLSearchParams({user: USER, deck_for: state.deck_for, mode: state.mode, allow: $("allow").value, against: $("against").value,
-    strategy: state.strategy, el_l: state.el_l, el_m: state.el_m, el_r: state.el_r, must: state.must.join(","), exclude_el: state.exclude_el.join(","), sort: state.sort});
+    strategy: state.strategy, el_l: state.el_l, el_m: state.el_m, el_r: state.el_r, must: state.must.join(","), exclude_el: state.exclude_el.join(","), sort: state.sort,
+    boss: $("boss").value, difficulty: $("difficulty").value});
   document.querySelectorAll("input[data-min]").forEach(r => { if (+r.value) q.set("min_" + r.dataset.min, r.value); });
   return q;
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // The costume's portrait from the game's files; the element colour stays when there is none.
 const pic = id => `<img src="/decks/portrait/${Number(id)}.png" alt="" loading="lazy" onerror="this.remove()">`;
+// A Subjugation loadout: three decks, one per phase, and the damage each deals in the simulator.
+function loadoutHtml(c) {
+  cards[c.key] = c;
+  const rows = c.decks.map(d => `<div class="lo-row"><span class="lo-n">${d.phase}</span><div class="lo-trio">${d.tiles.map(t =>
+      `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}</div>`).join("")}</div>
+    <div class="lo-txt"><b>${esc(d.title)}</b><small>${big(d.damage)} damage${d.knockdowns ? " · knock-down" : ""}</small></div></div>`).join("");
+  return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
+    <div class="rc-name"><b>${big(c.damage)} damage</b><small>Three decks, nine characters</small></div><span></span></div>${rows}
+    <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span></div></button>`;
+}
 function cardHtml(c) {
+  if (c.kind === "subjugation") return loadoutHtml(c);
   cards[c.key] = c;
   const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><span class="nm">${esc(t.name)}</span></div>`).join("");
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
@@ -288,7 +321,8 @@ async function load(reset) {
   if (busy) { if (reset) pending = true; return; }   // a change while loading: load again when this one ends
   if (reset) { offset = 0; done = false; $("cards").innerHTML = ""; }
   if (done) return;
-  busy = true; $("more").textContent = "Simulating decks…";
+  busy = true; $("more").textContent = SUBJ() ? "Simulating every deck against the boss, phase by phase…" : "Simulating decks…";
+  if (SUBJ() && reset) $("count").textContent = "Simulating…";
   try {
     const q = query(); q.set("offset", offset); q.set("limit", 6);
     const res = await fetch("/decks/results?" + q);
@@ -296,7 +330,8 @@ async function load(reset) {
     if (res.status === 409 && r.prepare) {          // the stage must be built first (an opponent outside it)
       busy = false; await prepare(r.against); load(true); return;
     }
-    $("count").innerHTML = r.total ? `<strong>${r.total.toLocaleString()}</strong> decks · showing 1–${offset + r.items.length}` : "No decks match";
+    $("count").innerHTML = SUBJ() ? (r.total ? `<strong>${r.total}</strong> loadout${r.total === 1 ? "" : "s"} of nine against the ${esc($("boss").selectedOptions[0]?.textContent.split(" · ")[0] || "boss")}` : "No loadouts match")
+      : r.total ? `<strong>${r.total.toLocaleString()}</strong> decks · showing 1–${offset + r.items.length}` : "No decks match";
     $("cards").insertAdjacentHTML("beforeend", r.items.map(cardHtml).join(""));
     offset += r.items.length; done = r.exhausted || !r.items.length;
     $("more").textContent = r.total === 0 ? (r.relax ? `Try without the "${r.relax.replace("_", " ")}" filter.` : "") : done ? "" : "Scroll for more";
@@ -312,6 +347,9 @@ async function openDetail(key, el) {
   document.querySelectorAll(".rc").forEach(x => x.classList.toggle("on", x === el));
   chosen = key;
   const c = cards[key];
+  const subj = c.kind === "subjugation";
+  $("w-to").hidden = $("w-slots").hidden = subj; $("w-subj").hidden = !subj;
+  if (subj) return openLoadout(key, c);
   $("d-title").textContent = c.title;
   $("d-sub").textContent = c.strategy;
   $("d-trio").innerHTML = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
@@ -333,6 +371,12 @@ async function openDetail(key, el) {
     <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(ch.element)} · Force ${ch.force.toLocaleString()}</div></div></summary>
     <p class="line">${esc(ch.line)}</p>${pieceRows(ch.pieces)}</details>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>Data override.</strong> ${esc(o)}</div>`).join("");
+  raiseBoxes(d);
+  preTick();
+  rescore();
+}
+// The owned costumes a write can raise; All maxed ticks them all.
+function raiseBoxes(d) {
   const FIELD = {"level": "level", "limit_break_count": "limit breaks", "awaken_count": "awakening",
                  "costume_lottery_effect_unlocked_slot_count": "karma slots", "karma": "karma", "mythic_slab": "Mythic Slab"};
   const byCostume = {};
@@ -343,7 +387,31 @@ async function openDetail(key, el) {
   $("w-raise-box").hidden = !d.raises.length;
   // All maxed counts your own costumes and characters fully raised: the write raises them unless unticked.
   if (state.mode === "best") document.querySelectorAll("#w-raise input").forEach(b => (b.checked = true));
-  preTick();
+}
+async function openLoadout(key, c) {
+  const boss = $("boss").selectedOptions[0]?.textContent.split(" · ")[0] || "Subjugation";
+  $("d-title").textContent = boss;
+  $("d-sub").textContent = `Difficulty ${$("difficulty").value} · three decks, nine characters`;
+  $("d-trio").innerHTML = c.decks.flatMap(d => d.tiles).map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}</div>`).join("");
+  $("d-stats").innerHTML = [["Damage", big(c.damage)], ["Force", c.force.toLocaleString()],
+                            ["Knock-downs", c.decks.reduce((n, d) => n + d.knockdowns, 0)], ["Decks", 3]]
+    .map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join("");
+  $("d-why").textContent = "Each deck fights one phase of the boss, Subjugation deck 1 first. The damage is the simulator's, at this difficulty; the boss does not fall, so more damage is a higher score.";
+  $("d-why").classList.remove("open"); $("d-more").hidden = true;
+  $("d-chars").innerHTML = '<p class="help">Loading…</p>'; $("d-over").innerHTML = ""; $("w-raise-box").hidden = true; $("w-sum").textContent = "";
+  $("d-msg").hidden = true;
+  $("detail").hidden = false; $("detail").querySelector(".ds-body").scrollTop = 0;
+  if (!history.state?.deck) history.pushState({deck: key}, "");
+  const res = await fetch(`/decks/detail?user=${USER}&key=${encodeURIComponent(key)}`);
+  const d = await res.json();
+  if (chosen !== key) return;
+  if (!res.ok) { closeDetail(); say("error", (d.error || "That loadout is no longer listed") + ". Loading the list again."); load(true); return; }
+  detailData = d;
+  $("d-chars").innerHTML = d.decks.map(k => `<div class="w-h">Deck ${k.phase} · ${big(k.damage)} damage${k.knockdowns ? " · knock-down" : ""}</div>`
+    + k.characters.map(ch => `<details class="ch"><summary><div class="por e-${esc(ch.element)}">${pic(ch.costume_id)}</div>
+    <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(ch.element)} · Force ${ch.force.toLocaleString()}</div></div></summary>
+    ${pieceRows(ch.pieces)}</details>`).join("")).join("");
+  raiseBoxes(d);
   rescore();
 }
 // A character's pieces: weapons in one row, then companion, memoirs and debris; why each is there behind its ⓘ.
@@ -395,13 +463,19 @@ const ticked = sel => [...document.querySelectorAll(sel + " input:checked")].map
 async function rescore() {
   const raise = ticked("#w-raise");
   const s = await (await fetch(`/decks/rescore?user=${USER}&key=${encodeURIComponent(chosen)}&raise=${raise.join(",")}`)).json();
+  if (detailData.kind === "subjugation") {
+    $("w-sum").innerHTML = `<strong>Adds ${detailData.added} piece${detailData.added === 1 ? "" : "s"}, fully raised.</strong> Force <b>${s.force.toLocaleString()}</b> over the three decks, <b>${big(s.damage)}</b> damage`
+      + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".");
+    return;
+  }
   $("w-sum").innerHTML = `<strong>Adds ${detailData.added} piece${detailData.added === 1 ? "" : "s"}, fully raised.</strong> Force <b>${s.force.toLocaleString()}</b>, wins <b>${s.win_pct}%</b>`
     + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".") + " A Save Data snapshot is taken first.";
 }
 async function writeDeck() {
-  const slots = ticked("#w-slots");
+  const subj = detailData?.kind === "subjugation";
+  const slots = subj ? [] : ticked("#w-slots");
   const msg = $("d-msg");
-  if (!slots.length) { msg.hidden = false; msg.className = "banner error"; msg.textContent = "> ERROR :: Choose a deck slot to write to."; return; }
+  if (!subj && !slots.length) { msg.hidden = false; msg.className = "banner error"; msg.textContent = "> ERROR :: Choose a deck slot to write to."; return; }
   $("w-go").disabled = true;
   try {
     const r = await fetch("/decks/write", {method: "POST", headers: {"Content-Type": "application/json"},
@@ -410,7 +484,8 @@ async function writeDeck() {
     msg.hidden = false;
     if (j.ok) {
       msg.className = "banner success";
-      msg.textContent = `> Written to ${slots.length} deck slot${slots.length > 1 ? "s" : ""}. Added ${j.added} piece${j.added === 1 ? "" : "s"}. The game updates the deck's power when it next shows it.`;
+      msg.textContent = subj ? `> Written to Subjugation decks 1, 2 and 3. Added ${j.added} piece${j.added === 1 ? "" : "s"}.`
+        : `> Written to ${slots.length} deck slot${slots.length > 1 ? "s" : ""}. Added ${j.added} piece${j.added === 1 ? "" : "s"}. The game updates the deck's power when it next shows it.`;
       load(true);   // the save changed: the list is read again
     }
     else { msg.className = "banner error"; msg.textContent = "> ERROR :: " + j.error; }

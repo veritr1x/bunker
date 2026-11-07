@@ -92,6 +92,8 @@ class Session:
         self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage)
         self.results = {}
         self._against = {}
+        self.loadouts = {}          # Subjugation loadouts by key
+        self._subjugation = {}
 
     def against(self, opponent):
         """The deck to build against: an opponent from the matching list
@@ -134,14 +136,28 @@ class Session:
         from deckbuilder import explain, model
         criteria = self.results[result_key(r)][1]
         e = explain.explain(r, criteria.against, self.tables, self.experts)
+        chars = self.characters(r.deck, r.equipped, r.elements, e.per_character)
+        return {"title": e.title, "why_long": e.why_long, "characters": chars, "overrides": e.overrides,
+                "raises": self.raises(r.equipped.specs), "added": self.gen.added(r.equipped.to_add)}
+
+    def raises(self, specs):
+        from deckbuilder import model
+        inv = model.Inventory(self.base, self.tables)
+        labels = {(s.deck_type, s.number): s.label for s in model.slots(self.base, self.tables)}
+        return [{"costume_id": x.costume_id, "name": self.tables.costume_name(x.costume_id), "field": x.field, "current": x.current,
+                 "target": x.target, "used_in": [labels.get(u, f"Deck {u[1]}") for u in x.used_in]}
+                for x in model.raises_needed(specs, self.base, self.stage, inv)]
+
+    def characters(self, deck, equipped, elements, lines):
+        """Each character of a deck with its pieces, as the deck view lists them."""
         from deckbuilder import power
-        forces = [p.total for p in power.deck_power(r.deck, self.tables).characters]
+        forces = [p.total for p in power.deck_power(deck, self.tables).characters]
         chars = []
-        for i, c in enumerate(r.deck.characters()):
+        for i, c in enumerate(deck.characters()):
             if not c:
                 continue
-            spec = r.equipped.specs[i]
-            reasons = r.equipped.reasons
+            spec = equipped.specs[i]
+            reasons = equipped.reasons
             icon = lambda kind, pid: f"/decks/icon/{kind}/{pid}.png"
             # Each piece as the game's notices show it: its icon and name; why it is there, behind an ⓘ.
             pieces = [{"kind": "MAIN", "label": "Main weapon", "name": self.tables.name("weapons", c.main_weapon.id) if c.main_weapon else "—",
@@ -161,15 +177,56 @@ class Session:
                                "icon": icon("debris", c.debris.id),
                                "new": spec.debris.source == "stage" and self.base.pick("debris", thought_id=c.debris.id) is None, "why": ""})
             chars.append({"slot": ("Left", "Middle", "Right")[i], "costume_id": c.costume.id,
-                          "name": self.tables.costume_name(c.costume.id), "line": e.per_character[i],
-                          "element": r.elements[i], "force": forces[i], "pieces": pieces})
+                          "name": self.tables.costume_name(c.costume.id), "line": lines[i] if lines else "",
+                          "element": elements[i], "force": forces[i], "pieces": pieces})
+        return chars
+
+    # ---------------------------------------------------------------- Subjugation
+    def bosses(self):
+        from deckbuilder import bighunt
+        return [{"id": b.id, "name": b.name, "element": b.element} for b in bighunt.bosses(self.tables) if b.fights]
+
+    def subjugation(self, boss_id, difficulty, criteria):
+        """The best loadouts (three decks, nine characters) against a boss; run once per boss, difficulty and criteria."""
+        from deckbuilder import bighunt, subjugation
+        b = bighunt.boss(self.tables, boss_id)
+        if b is None or not b.fights:
+            return []
+        difficulty = difficulty if difficulty in b.fights else max(b.fights)
+        key = (boss_id, difficulty, criteria._replace(sort="match"))
+        if key not in self._subjugation:
+            self._subjugation[key] = subjugation.rank(self.gen, b, difficulty, criteria.mode, criteria=criteria)
+            for lo in self._subjugation[key]:
+                self.loadouts[lo.key] = lo
+        return self._subjugation[key]
+
+    def find_loadout(self, key):
+        return self.loadouts.get(key)
+
+    def loadout_detail(self, lo):
+        from deckbuilder import bighunt
+        b = bighunt.boss(self.tables, lo.boss_id)
+        decks = [{"phase": d.phase, "number": 100 + d.phase, "title": d.name, "strategy": d.strategy, "damage": d.damage,
+                  "knockdowns": d.knockdowns, "standing": d.standing, "force": d.force,
+                  "characters": self.characters(d.deck, d.equipped, d.elements, None)} for d in lo.decks]
+        specs = [s for d in lo.decks for s in d.equipped.specs]
+        return {"kind": "subjugation", "title": b.name if b else "Subjugation", "difficulty": lo.difficulty, "decks": decks,
+                "raises": self.raises(specs), "added": sum(self.gen.added(d.equipped.to_add) for d in lo.decks)}
+
+    def loadout_force(self, lo, raises):
+        """Each deck's exact Force as written (101, 102, 103), with the ticked costumes raised."""
+        from deckbuilder import model, power
+        out = []
+        for d in lo.decks:
+            mine = [c for c in raises if c in d.lineup]
+            deck = model.compose(self.base, self.stage, d.equipped.specs, 5, 100 + d.phase, self.tables, raises=mine)
+            out.append(power.deck_power(deck, self.tables).total)
+        return out
+
+    def loadout_raisable(self, lo):
+        from deckbuilder import model
         inv = model.Inventory(self.base, self.tables)
-        labels = {(s.deck_type, s.number): s.label for s in model.slots(self.base, self.tables)}
-        raises = [{"costume_id": x.costume_id, "name": self.tables.costume_name(x.costume_id), "field": x.field, "current": x.current,
-                   "target": x.target, "used_in": [labels.get(u, f"Deck {u[1]}") for u in x.used_in]}
-                  for x in model.raises_needed(r.equipped.specs, self.base, self.stage, inv)]
-        return {"title": e.title, "why_long": e.why_long, "characters": chars, "overrides": e.overrides, "raises": raises,
-                "added": self.gen.added(r.equipped.to_add)}
+        return {x.costume_id for d in lo.decks for x in model.raises_needed(d.equipped.specs, self.base, self.stage, inv)}
 
     def force(self, r, raises):
         """The written deck's exact Force (no fights simulated)."""
@@ -387,6 +444,12 @@ def card(s, r) -> dict:
             "data_pick": {"beats": r.data_pick.beats, "by_pct": round(100 * r.data_pick.by)} if r.data_pick else None}
 
 
+def loadout_card(s, lo) -> dict:
+    return {"key": lo.key, "rank": lo.rank, "kind": "subjugation", "damage": lo.damage, "force": lo.force,
+            "decks": [{"phase": d.phase, "title": d.name, "strategy": d.strategy, "damage": d.damage, "knockdowns": d.knockdowns,
+                       "tiles": s.tiles(d)} for d in lo.decks]}
+
+
 def _spec_json(spec):
     if spec is None:
         return None
@@ -486,10 +549,11 @@ def page(request: Request, user: int = 0):
         s = session(user_id)
     except StageNotReady:
         return templates.TemplateResponse(request, "deck_builder.html", {"active": "decks", "user": user_id, "players": [],
-                                                                         "slots": [], "opponents": [], "preparing": True})
+                                                                         "slots": [], "opponents": [], "bosses": [], "preparing": True})
     refresh_arena(user_id)
     return templates.TemplateResponse(request, "deck_builder.html", {"active": "decks", "user": user_id, "players": s.players(),
-                                                                     "slots": s.slots(), "opponents": s.opponents(), "preparing": False})
+                                                                     "slots": s.slots(), "opponents": s.opponents(), "bosses": s.bosses(),
+                                                                     "preparing": False})
 
 
 @router.post("/decks/prepare")
@@ -506,6 +570,9 @@ def prepare_route(payload: dict = Body(default={})):
 def results(request: Request, user: int = 0, offset: int = 0, limit: int = 6):
     q = dict(request.query_params)
     def run(s):
+        if q.get("deck_for") == "subjugation":
+            items = s.subjugation(int(q.get("boss") or 1), int(q.get("difficulty") or 5), criteria_from(None, q)) if offset <= 0 else []
+            return {"total": len(items), "items": [loadout_card(s, lo) for lo in items], "exhausted": True, "relax": None}
         p = s.page(criteria_from(s, q), max(0, offset), max(1, min(limit, 24)))
         return {"total": p.total, "items": [card(s, r) for r in p.items], "exhausted": p.exhausted, "relax": p.relax}
     try:
@@ -520,6 +587,9 @@ def detail(key: str, user: int = 0):
         s = session(_user(user))
     except StageNotReady as exc:
         return _not_ready(exc)
+    lo = s.find_loadout(key)
+    if lo is not None:
+        return s.loadout_detail(lo)
     r = s.find(key)
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
@@ -533,10 +603,14 @@ def rescore(request: Request, key: str, user: int = 0):
         s = session(_user(user))
     except StageNotReady as exc:
         return _not_ready(exc)
+    raises = sorted(_ints(request.query_params.get("raise", "")))
+    lo = s.find_loadout(key)
+    if lo is not None:
+        return {"force": sum(s.loadout_force(lo, raises)), "damage": lo.damage}
     r = s.find(key)
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
-    return s.rescore(r, sorted(_ints(request.query_params.get("raise", ""))))
+    return s.rescore(r, raises)
 
 
 @router.get("/decks/opponents")
@@ -555,6 +629,9 @@ def write(payload: dict = Body(...)):
         s = session(user_id)
     except StageNotReady as exc:
         return _not_ready(exc)
+    lo = s.find_loadout(str(payload.get("key") or ""))
+    if lo is not None:
+        return _write_loadout(s, user_id, lo, payload.get("raise") or [])
     r = s.find(str(payload.get("key") or ""))
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
@@ -580,3 +657,26 @@ def write(payload: dict = Body(...)):
     drop_session(user_id)                   # the save changed: read it again
     refresh_arena(user_id)
     return {"ok": True, "added": s.gen.added(r.equipped.to_add), "raised": raises, "slots": numbers}
+
+
+SUBJUGATION = 5     # the game's Subjugation decks: 101, 102, 103 (one per phase)
+
+
+def _write_loadout(s, user_id, lo, raises):
+    """A Subjugation loadout: one Save Data snapshot, then each deck to its Subjugation deck, its own raises only."""
+    refuse = lambda message: JSONResponse({"ok": False, "error": message}, status_code=400)
+    if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.loadout_raisable(lo):
+        return refuse("Only a costume of this loadout that is below the staged level can be raised")
+    raises = sorted(set(raises))
+    forces = s.loadout_force(lo, raises)
+    try:
+        _backup()
+        for d, force in zip(lo.decks, forces):
+            deck = {"slots": [{"deck_type": SUBJUGATION, "number": 100 + d.phase, "power": force}],
+                    "characters": [_spec_json(x) for x in d.equipped.specs], "raise": [c for c in raises if c in d.lineup]}
+            _shim({"action": "deck_write", "user_id": user_id, "deck": deck})
+    except (DeckBuilderError, ValueError, FileNotFoundError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    drop_session(user_id)
+    return {"ok": True, "added": sum(s.gen.added(d.equipped.to_add) for d in lo.decks), "raised": raises,
+            "slots": [100 + d.phase for d in lo.decks]}
