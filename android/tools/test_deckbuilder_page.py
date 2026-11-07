@@ -145,6 +145,15 @@ class PageTest(unittest.TestCase):
         self.assertEqual(card["strategy"], "Compromise counter")
         self.assertIs(card["expert"], False)
 
+    def test_card_names_each_costume_under_its_portrait_and_not_the_count_to_add(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        card = html[html.index("function cardHtml"):html.index("async function load")]
+        self.assertIn('<div class="tile"><div class="por', card)
+        self.assertIn('<span class="nm">${esc(t.name)}</span></div>', card)
+        self.assertNotIn("to add", card)
+        [item] = self.c.get("/decks/results", params={"user": 1, "offset": 0, "limit": 6}).json()["items"]
+        self.assertTrue(all(t["name"] for t in item["tiles"]))
+
     def test_write_takes_snapshot_then_calls_shim(self):
         key = db.result_key(self.session.result)
         r = self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [2], "raise": [35036]})
