@@ -193,7 +193,9 @@ class Session:
         if b is None or not b.fights:
             return []
         difficulty = difficulty if difficulty in b.fights else max(b.fights)
-        key = (boss_id, difficulty, criteria._replace(sort="match"))
+        c = criteria       # the filters that change the lineups (no dict in a key: minimum stats as sorted pairs)
+        key = (boss_id, difficulty, c.mode, c.strategy, c.elements, c.must_have, c.include, c.exclude, c.exclude_elements,
+               tuple(sorted((c.min_stats or {}).items())))
         if key not in self._subjugation:
             self._subjugation[key] = subjugation.rank(self.gen, b, difficulty, criteria.mode, criteria=criteria)
             for lo in self._subjugation[key]:

@@ -469,9 +469,14 @@ def raises_needed(specs, base: Save, stage: Save, inventory: Inventory) -> list:
     per field below the staged (fully raised) value."""
     out = []
     for spec in specs:
-        if spec is None or spec.costume.source != "save":
+        if spec is None or spec.costume is None:
             continue
-        mine = base.one("select * from user_costumes where user_id=? and user_costume_uuid=?", spec.costume.uuid)
+        uuid = spec.costume.uuid
+        if spec.costume.source == "stage":       # a staged costume the player owns is written as theirs (deck_write)
+            uuid = base.pick("costume", costume_id=stage.piece_id("costume", spec.costume.uuid)) if stage is not base else None
+            if not uuid:
+                continue
+        mine = base.one("select * from user_costumes where user_id=? and user_costume_uuid=?", uuid)
         theirs = stage.one("select * from user_costumes where user_id=? and costume_id=?", mine["costume_id"]) if mine else None
         if not theirs:
             continue

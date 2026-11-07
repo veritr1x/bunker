@@ -225,6 +225,21 @@ class PageTest(unittest.TestCase):
         more = self.c.get("/decks/results", params={"user": 1, "deck_for": "subjugation", "boss": 1, "offset": 6}).json()
         self.assertEqual(more["items"], [])
 
+    def test_the_session_caches_subjugation_by_criteria(self):
+        """The real Session (not the fake): its cache key holds the criteria's minimum stats (a dict)."""
+        from deckbuilder import bighunt, subjugation
+        boss = SimpleNamespace(id=1, fights={5: object()})
+        stub = SimpleNamespace(tables=None, gen=None, _subjugation={}, loadouts={})
+        lo = self.session.loadout
+        runs = []
+        with mock.patch.object(bighunt, "boss", lambda tables, i: boss), \
+             mock.patch.object(subjugation, "rank", lambda *a, **kw: runs.append(1) or [lo]):
+            c = db.criteria_from(None, {"deck_for": "subjugation", "min_agi": "1000"})
+            self.assertEqual(db.Session.subjugation(stub, 1, 5, c), [lo])
+            self.assertEqual(db.Session.subjugation(stub, 1, 5, db.criteria_from(None, {"min_agi": "1000"})), [lo])
+        self.assertEqual(len(runs), 1)
+        self.assertIs(stub.loadouts[lo.key], lo)
+
     def test_a_loadout_writes_the_three_subjugation_decks(self):
         """One Save Data snapshot, then each deck to its Subjugation deck (101, 102, 103), its own raises only."""
         r = self.c.post("/decks/write", json={"user": 1, "key": self.session.loadout.key, "raise": [35036]}).json()
