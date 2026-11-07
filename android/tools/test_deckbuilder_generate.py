@@ -92,7 +92,7 @@ class GenerateTest(unittest.TestCase):
         self.assertEqual([r.lineup for r in a], [r.lineup for r in b])
 
     def test_to_add_skips_what_the_player_owns(self):
-        """Theoretical best on a player who owns the costumes: the write uses the
+        """All maxed on a player who owns the costumes: the write uses the
         owned costumes and debris, so they are not counted as added."""
         import json
         from deckbuilder_testlib import FIX

@@ -165,7 +165,7 @@ class StageDeckTest(unittest.TestCase):
         self.assertEqual(self.slab(raised.save, cid), self.slab(self.stage, cid))
 
     def test_raise_all_raises_every_owned_costume_of_the_deck(self):
-        """Theoretical best: the player's own costumes and characters count fully raised (and are raised on write)."""
+        """All maxed: the player's own costumes and characters count fully raised (and are raised on write)."""
         base = model.Save(snapshot_con(IPAD), 1)
         spec = self.low_spec(base)
         a = model.compose(base, self.stage, [spec], 2, 9, tables(), raise_all=True)
@@ -173,7 +173,7 @@ class StageDeckTest(unittest.TestCase):
         self.assertEqual(power.deck_power(a, tables()).total, power.deck_power(b, tables()).total)
         self.assertEqual(model.owned_costumes([spec], base), [LOW])
 
-    def test_theoretical_best_counts_the_players_costumes_raised(self):
+    def test_all_maxed_counts_the_players_costumes_raised(self):
         from deckbuilder import equip, experts
         base = model.Save(snapshot_con(IPAD), 1)
         lv = lambda d: d.save.one("select level from user_costumes where user_id=? and costume_id=?", LOW)["level"]

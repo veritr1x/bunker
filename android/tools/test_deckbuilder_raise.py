@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deck Builder: fully raised pieces (built by the server's own Upgrade Manager
-actions on a staging save, deckbuilder/stage.py) and theoretical-best memoirs
+actions on a staging save, deckbuilder/stage.py) and all-maxed memoirs
 (deckbuilder/raise_.py)."""
 import sqlite3
 import tempfile
