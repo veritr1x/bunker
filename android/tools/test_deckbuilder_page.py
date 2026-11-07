@@ -243,6 +243,19 @@ class PageTest(unittest.TestCase):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn("await prepare(r.against, r.costumes)", html)
 
+    def test_the_picker_lists_every_costume_in_one_list(self):
+        """One list, by character then costume: no split between Deck Builder's pool and the rest."""
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertNotIn("f-sep", html)
+        self.assertNotIn("Every other costume", html)
+        names = {33029: "Oathbound Exile Rion", 35036: "New Year's Belle Sarafa", 31032: "Yuletide Songstress Marie"}
+        chars = {33029: "Rion", 35036: "Sarafa", 31032: "Marie"}
+        stub = SimpleNamespace(gen=SimpleNamespace(pool=lambda mode: [35036, 33029]), base=None,
+                               tables=SimpleNamespace(idx=lambda *a: {c: {} for c in names}, is_fieldable=lambda c: True,
+                                                      costume_name=names.get, character_name=chars.get, costume_element=lambda c: "dark"))
+        listed = [c["id"] for c in db.Session.costumes(stub, "best")]
+        self.assertEqual(listed, [31032, 33029, 35036])        # Marie, Rion, Sarafa
+
     def test_filter_chips_keep_their_text_when_hovered(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn(".chip:hover:not(.on){background:rgba(58,55,47,.08)!important;color:inherit!important}", html)

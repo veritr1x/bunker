@@ -101,7 +101,6 @@
   .f-chars .fc.exc .nm{text-decoration:line-through;opacity:.6}
   .f-chars .fc:focus-visible .por{outline:2px dashed var(--fg-dark);outline-offset:1px}
   .f-what .f{margin-bottom:14px}
-  .f-chars .f-sep{grid-column:1/-1;margin:6px 0 0;padding-top:6px;border-top:1px dotted var(--db-line)}
   .filters-panel input[type="range"]{accent-color:var(--fg-dark)}
   .filters-panel .chips .chip{font-size:11px;letter-spacing:.06em;padding:4px 8px}
   @media (max-width:700px){.f-body{grid-template-columns:minmax(0,1fr)}}
@@ -328,11 +327,9 @@ function drawCostumes() {
   const list = costumeLists[state.mode]; if (!Array.isArray(list)) return;
   const q = $("f-find").value.trim().toLowerCase();
   const shown = list.filter(c => !q || c.name.toLowerCase().includes(q) || c.character.toLowerCase().includes(q));
-  const firstOther = shown.findIndex(c => !c.pool);
   $("f-chars").innerHTML = shown.length ? shown.map((c, i) => {
     const st = state.include.includes(c.id) ? "inc" : state.exclude.includes(c.id) ? "exc" : "";
-    const sep = i === firstOther ? `<p class="help f-sep">${i ? "Every other costume" : "Outside Deck Builder's usual pool"}${state.mode === "best" ? " · requiring one stages it first" : ""}</p>` : "";
-    return sep + `<button type="button" role="listitem" class="fc ${st}" data-id="${c.id}" aria-pressed="${st ? "true" : "false"}" title="${esc(c.name)}">
+    return `<button type="button" role="listitem" class="fc ${st}" data-id="${c.id}" aria-pressed="${st ? "true" : "false"}" title="${esc(c.name)}">
       <div class="por e-${esc(c.element)}">${pic(c.id)}<span class="mark">${st === "exc" ? "✕" : "✓"}</span></div>
       <span class="nm"><b>${esc(c.character)}</b><br>${esc(c.name.replace(c.character, "").trim())}</span></button>`;
   }).join("") : '<p class="help">No costume matches.</p>';
