@@ -120,10 +120,12 @@ def cmd_stage(args) -> None:
 _W = {}     # a worker's state: tables, experts, the stage in memory, the reference fighters
 
 
-def _worker_init():
+def _worker_init(use_compiled=False):
     from deckbuilder import sim
     T = tables()
     sim.use(T)
+    if use_compiled:
+        compiled()
     ex = experts_mod.Experts.load(T)
     st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
     _W.update(T=T, ex=ex, st=st, refs=_references(T, ex, st), **_team_context(T, ex, st))
@@ -289,7 +291,9 @@ def cmd_gear(args) -> None:
     if args.limit:
         costumes = costumes[:args.limit]
     t0 = time.time()
-    with mp.get_context("spawn").Pool(args.workers, initializer=_worker_init) as pool:
+    if args.compiled:
+        check_compiled(20)
+    with mp.get_context("spawn").Pool(args.workers, initializer=_worker_init, initargs=(args.compiled,)) as pool:
         out = []
         for i, r in enumerate(pool.imap_unordered(_gear_one, costumes), 1):
             out.append(r)
@@ -428,8 +432,7 @@ def bake_deck(combo) -> tuple:
     scored as the app scores it against the general meta (Generator.outcome)."""
     gen, cache = _W["gen"], _W["cache"]
     lineup = gen.order(combo)
-    side = cache.side(lineup)
-    force = cache.force(lineup)
+    side, force = cache.side_force(lineup)
     aw = am = dw = dm = 0.0
     for opp, w, _ in _W["meta"]:
         win, margin = _matchup(side, opp)
@@ -479,6 +482,84 @@ def cmd_sample(args) -> None:
                         "estimate_full_bake_min_on_17_cores": round(len(combos) * tb / len(sample) / 17 / 60, 1),
                         "attack_win_spread": sorted(__import__("collections").Counter(round(r[1], 1) for r in baked).items()),
                         "top_attack_in_sample": [(name(r[0]), r[1], r[2], r[5]) for r in top]})
+
+
+# ---------------------------------------------------------------- 5: the full bake
+DECKS = BAKE / "decks"
+FIELDS = ("left", "middle", "right", "attack_win", "attack_margin", "defense_win", "defense_margin", "force")
+
+
+def _chunk_path(i: int) -> Path:
+    return DECKS / f"chunk_{i:03d}.bin"
+
+
+def _bake_chunk(job):
+    """Every deck whose lowest costume is costumes[i]: 8 int32 per deck (FIELDS; shares and margins x SCALE),
+    written whole to its chunk file (a temp file renamed: a stopped bake leaves no half chunk)."""
+    from array import array
+    i, combos = job
+    rows = array("i")
+    for c in combos:
+        lineup, aw, am, dw, dm, force = bake_deck(c)
+        rows.extend(list(lineup) + [round(aw * SCALE), round(am * SCALE), round(dw * SCALE), round(dm * SCALE), force])
+    tmp = _chunk_path(i).with_suffix(".tmp")
+    with open(tmp, "wb") as f:
+        rows.tofile(f)
+    tmp.rename(_chunk_path(i))
+    return i, len(combos)
+
+
+def read_decks():
+    """All baked decks as tuples of FIELDS (shares and margins back as fractions)."""
+    from array import array
+    for path in sorted(DECKS.glob("chunk_*.bin")):
+        a = array("i")
+        with open(path, "rb") as f:
+            a.frombytes(f.read())
+        for k in range(0, len(a), len(FIELDS)):
+            r = a[k:k + len(FIELDS)]
+            yield (r[0], r[1], r[2], r[3] / SCALE, r[4] / SCALE, r[5] / SCALE, r[6] / SCALE, r[7])
+
+
+def cmd_bake(args) -> None:
+    import collections
+    import multiprocessing as mp
+    if args.compiled:
+        check_compiled(20)
+    T = tables()
+    gear = json.loads((BAKE / "2_gear.json").read_text())["loadouts"]
+    costumes = sorted(r["costume_id"] for r in gear)
+    char = {c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in costumes}
+    groups = collections.defaultdict(list)
+    for c in all_combos(costumes, char):
+        groups[costumes.index(c[0])].append(c)
+    DECKS.mkdir(parents=True, exist_ok=True)
+    for t in DECKS.glob("*.tmp"):
+        t.unlink()
+    pending = sorted((i for i in groups if not _chunk_path(i).exists()), key=lambda i: -len(groups[i]))
+    total = sum(len(v) for v in groups.values())
+    left = sum(len(groups[i]) for i in pending)
+    print(f"{total:,} decks in {len(groups)} chunks; {left:,} to bake in {len(pending)} chunks", flush=True)
+    t0 = time.time(); done = 0
+    if pending:
+        with mp.get_context("spawn").Pool(args.workers, initializer=_deck_worker_init, initargs=(args.compiled,)) as pool:
+            for i, n in pool.imap_unordered(_bake_chunk, [(i, groups[i]) for i in pending]):
+                done += n
+                el = time.time() - t0
+                print(f"  {done:,}/{left:,} decks ({100 * done / left:.1f}%), {el / 60:.1f} min, about {el * (left - done) / max(done, 1) / 60:.1f} min left",
+                      flush=True)
+    took = time.time() - t0
+    rows = list(read_decks())
+    name = lambda r: " · ".join(T.character_name(c) for c in r[:3])
+    top = lambda key, n=15: [(name(r), list(r[:3]), r[3], r[4], r[5], r[6], r[7]) for r in sorted(rows, key=key)[:n]]
+    spread = lambda k: sorted(collections.Counter(round(r[k], 1) for r in rows).items())
+    report("5_bake", {
+        "decks": len(rows), "expected": total, "missing_chunks": [i for i in groups if not _chunk_path(i).exists()],
+        "took_min": round(took / 60, 1), "compiled": args.compiled,
+        "size_mb": round(sum(p.stat().st_size for p in DECKS.glob("chunk_*.bin")) / 1e6, 1),
+        "attack_win_spread": spread(3), "defense_win_spread": spread(5),
+        "top_attack": top(lambda r: (-r[3], -r[4], -r[7])), "top_defense": top(lambda r: (-r[5], -r[6], -r[7])),
+        "top_force": top(lambda r: -r[7], 10), "fields": FIELDS})
 
 
 # ---------------------------------------------------------------- round-robin
@@ -534,11 +615,15 @@ def main():
     sub.add_parser("stage").set_defaults(fn=cmd_stage)
     g = sub.add_parser("gear"); g.set_defaults(fn=cmd_gear)
     g.add_argument("--limit", type=int, default=0, help="only the first N costumes (a trial run)")
+    g.add_argument("--plain", dest="compiled", action="store_false", help="the plain simulator, not the compiled one")
     g.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
     f = sub.add_parser("fighters"); f.set_defaults(fn=cmd_fighters)
     f.add_argument("--decks", type=int, default=300); f.add_argument("--fights", type=int, default=100)
     rr = sub.add_parser("roundrobin"); rr.set_defaults(fn=cmd_roundrobin)
     rr.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    bk = sub.add_parser("bake"); bk.set_defaults(fn=cmd_bake)
+    bk.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    bk.add_argument("--plain", dest="compiled", action="store_false", help="the plain simulator, not the compiled one")
     sp = sub.add_parser("sample"); sp.set_defaults(fn=cmd_sample)
     sp.add_argument("--decks", type=int, default=2000); sp.add_argument("--check", type=int, default=100)
     sp.add_argument("--plain", dest="compiled", action="store_false", help="the plain simulator, not the compiled one")

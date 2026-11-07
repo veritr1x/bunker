@@ -58,3 +58,17 @@ class FighterCache:
             sp = power.actor_skill_power(self.tables, a, live)
             total = power.i32(total + power.i32(a.hp_power + a.atk_power + a.vit_power + sum(sp.values())))
         return total
+
+    def side_force(self, keys):
+        """(side(keys), force(keys)) with the stats computed once."""
+        from deckbuilder.sim import units
+        live = [self._actors[k] for k in keys]
+        for a in live:
+            a.other_status = [st for src in live if src is not a for st in src.ability_status if st["scope"] == 2]
+            a.base_power(self.tables)
+        side, total = {}, 0
+        for slot, k, a in zip(SLOTS, keys, live):
+            side[slot] = units.with_stats(self._templates[k], power.character_stats(a, self.tables))
+            sp = power.actor_skill_power(self.tables, a, live)
+            total = power.i32(total + power.i32(a.hp_power + a.atk_power + a.vit_power + sum(sp.values())))
+        return side, total
