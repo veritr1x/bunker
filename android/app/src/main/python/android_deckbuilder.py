@@ -141,16 +141,25 @@ class Session:
             if not c:
                 continue
             spec = r.equipped.specs[i]
-            pieces = [{"kind": "MAIN", "name": self.tables.name("weapons", c.main_weapon.id) if c.main_weapon else "—",
-                       "new": bool(spec.main_weapon and spec.main_weapon.source == "stage"), "why": r.equipped.reasons.get((c.costume.id, "main_weapon"), "")}]
-            pieces += [{"kind": "SUB", "name": self.tables.name("weapons", w.id), "new": s.source == "stage", "why": ""} for w, s in zip(c.subs, spec.subs)]
+            reasons = r.equipped.reasons
+            icon = lambda kind, pid: f"/decks/icon/{kind}/{pid}.png"
+            # Each piece as the game's notices show it: its icon and name; why it is there, behind an ⓘ.
+            pieces = [{"kind": "MAIN", "label": "Main weapon", "name": self.tables.name("weapons", c.main_weapon.id) if c.main_weapon else "—",
+                       "icon": icon("weapon", c.main_weapon.id) if c.main_weapon else None,
+                       "new": bool(spec.main_weapon and spec.main_weapon.source == "stage"), "why": reasons.get((c.costume.id, "main_weapon"), "")}]
+            pieces += [{"kind": "SUB", "label": "Sub weapon", "name": self.tables.name("weapons", w.id), "icon": icon("weapon", w.id),
+                        "new": s.source == "stage", "why": ""} for w, s in zip(c.subs, spec.subs)]
             if c.companion:
-                pieces.append({"kind": "COMP", "name": self.tables.name("companions", c.companion.id), "new": spec.companion.source == "stage", "why": ""})
+                pieces.append({"kind": "COMP", "label": "Companion", "name": self.tables.name("companions", c.companion.id),
+                               "icon": icon("companion", c.companion.id), "new": spec.companion.source == "stage", "why": ""})
             if c.memoirs:
-                pieces.append({"kind": "MEM", "name": f"{len(c.memoirs)} memoirs", "new": any(m.source == "stage" for m in spec.memoirs),
-                               "why": r.equipped.reasons.get((c.costume.id, "memoirs"), "")})
+                pieces.append({"kind": "MEM", "label": f"Memoirs ×{len(c.memoirs)}", "name": self.tables.memoir_set_name(c.memoirs[0].id) or "Memoirs",
+                               "icon": icon("memoir", c.memoirs[0].id), "new": any(m.source == "stage" for m in spec.memoirs),
+                               "why": reasons.get((c.costume.id, "memoirs"), "")})
             if c.debris:
-                pieces.append({"kind": "DEB", "name": self.tables.name("thoughts", c.debris.id), "new": spec.debris.source == "stage" and self.base.pick("debris", thought_id=c.debris.id) is None, "why": ""})
+                pieces.append({"kind": "DEB", "label": "Debris", "name": self.tables.name("thoughts", c.debris.id).removeprefix("Debris: "),
+                               "icon": icon("debris", c.debris.id),
+                               "new": spec.debris.source == "stage" and self.base.pick("debris", thought_id=c.debris.id) is None, "why": ""})
             chars.append({"slot": ("Left", "Middle", "Right")[i], "costume_id": c.costume.id,
                           "name": self.tables.costume_name(c.costume.id), "line": e.per_character[i],
                           "element": r.elements[i], "force": forces[i], "pieces": pieces})
@@ -410,14 +419,12 @@ def _costume_asset(costume_id):
 _portraits = {}
 
 
-@router.get("/decks/portrait/{costume_id}.png")
-def portrait(costume_id: int):
-    """A costume's portrait from the game's own files, made once, then kept."""
+def _game_png(path):
+    """A picture from the game's own files, converted like the Archive's (thumb size), made once, then kept."""
     from fastapi import HTTPException
     from fastapi.responses import FileResponse
     source = _portrait_source()
-    asset = _costume_asset(costume_id)
-    if source is None or not asset:
+    if source is None or not path:
         raise HTTPException(404)
     revision, convert = source
     from archive.media import Textures
@@ -426,10 +433,31 @@ def portrait(costume_id: int):
         _portraits.clear()
         _portraits[key] = Textures(revision / "assetbundle", _portrait_cache(), convert)
     try:
-        png = _portraits[key].png(f"ui/costume/{asset}/{asset}_portrait.assetbundle", "thumb")
+        png = _portraits[key].png(path, "thumb")
     except (FileNotFoundError, ValueError):
         raise HTTPException(404)
     return FileResponse(png, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.get("/decks/portrait/{costume_id}.png")
+def portrait(costume_id: int):
+    """A costume's portrait from the game's own files."""
+    asset = _costume_asset(costume_id)
+    return _game_png(asset and f"ui/costume/{asset}/{asset}_portrait.assetbundle")
+
+
+ICON_KINDS = ("weapon", "companion", "memoir", "debris")
+
+
+def _icon_asset(kind, piece_id):
+    tables = _tables_for(runtime.fingerprint(config.find_master_data_bin()))
+    return tables.icon_asset(kind, piece_id)
+
+
+@router.get("/decks/icon/{kind}/{piece_id}.png")
+def icon(kind: str, piece_id: int):
+    """A piece's icon from the game's own files, as the game's notices show it."""
+    return _game_png(_icon_asset(kind, piece_id) if kind in ICON_KINDS else None)
 
 
 def _not_ready(exc: StageNotReady, against=None):

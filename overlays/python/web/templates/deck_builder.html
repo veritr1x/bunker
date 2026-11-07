@@ -94,7 +94,7 @@
   .read-more{min-height:0;padding:0;margin-top:2px;background:none;border:0;color:inherit;font:11px var(--mono);letter-spacing:.1em;text-transform:uppercase;text-decoration:underline;opacity:.75}
   .read-more[hidden],.ds-pick[hidden]{display:none}
   .ds-pick{font-size:12px;opacity:.85;margin:0}
-  .chars{display:grid;gap:8px}
+  .chars{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
   details.ch>summary{list-style:none;display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:8px 10px;cursor:pointer;font:inherit;letter-spacing:normal;text-transform:none}
   details.ch>summary::-webkit-details-marker{display:none}
   details.ch>summary .por{width:40px}
@@ -102,6 +102,18 @@
   details.ch[open]>summary::after{content:"–"}
   details.ch .role{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-top:2px}
   details.ch b{font-weight:600}
+  .pc-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 10px 8px}
+  .pc-h{font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;opacity:.6;padding:2px 10px 4px}
+  .pc{min-width:0}
+  .pc-ico{position:relative;aspect-ratio:1;max-width:80px;border:1px solid var(--db-line);background:rgba(0,0,0,.05);display:flex;align-items:center;justify-content:center;font:9px var(--mono);opacity:.95}
+  .pc-ico img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  .pc.new .pc-ico::after{content:"NEW";position:absolute;top:0;left:0;background:#f3efe2;color:#3a372f;font:700 8px var(--sans);padding:1px 4px}
+  .pc-i{position:absolute;z-index:2;top:2px;right:2px;width:18px;height:18px;min-height:0;padding:0;border-radius:50%;border:1px solid currentColor;background:var(--bg-cream);color:var(--fg-dark);font:italic 600 10px/16px Georgia,serif;letter-spacing:0;text-transform:none}
+  .pc-i[aria-expanded="true"]{background:var(--fg-dark);color:var(--bg-cream)}
+  .pc small{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin-top:4px}
+  .pc b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;font-weight:600;line-height:1.25}
+  .pc-why{margin:0 10px 10px;padding:6px 8px;border-left:2px solid currentColor;font-size:12px;line-height:1.45;background:rgba(0,0,0,.04)}
+  .pc-why[hidden]{display:none}
   details.ch .line{font-size:12px;line-height:1.45;padding:0 10px 8px;margin:0}
   .ds-foot{border-top:1px solid var(--db-line);padding:8px max(14px,var(--hole-right,0px)) 10px max(14px,var(--hole-left,0px));display:flex;align-items:center;gap:12px}
   .ds-foot p{flex:1;margin:0;font-size:12px;line-height:1.45}
@@ -325,8 +337,7 @@ async function openDetail(key, el) {
   requestAnimationFrame(() => { $("d-more").hidden = $("d-why").scrollHeight <= $("d-why").clientHeight + 4; });
   $("d-chars").innerHTML = d.characters.map((ch, i) => `<details class="ch"${i === 0 ? " open" : ""}><summary><div class="por e-${esc(ch.element)}">${pic(ch.costume_id)}</div>
     <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(ch.element)} · Force ${ch.force.toLocaleString()}</div></div></summary>
-    <p class="line">${esc(ch.line)}</p><ul class="pieces">${ch.pieces.map(p =>
-    `<li><div class="ico">${p.kind}</div><div><b>${esc(p.name)}${p.new ? '<span class="tagnew">NEW</span>' : ""}</b><span class="r">${esc(p.why)}</span></div></li>`).join("")}</ul></details>`).join("");
+    <p class="line">${esc(ch.line)}</p>${pieceRows(ch.pieces)}</details>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>Data override.</strong> ${esc(o)}</div>`).join("");
   const byCostume = {};
   d.raises.forEach(r => (byCostume[r.costume_id] = byCostume[r.costume_id] || {name: r.name, items: [], used: r.used_in}).items.push(r));
@@ -337,6 +348,21 @@ async function openDetail(key, el) {
   preTick();
   rescore();
 }
+// A character's pieces: weapons in one row, then companion, memoirs and debris; why each is there behind its ⓘ.
+function pieceRows(pieces) {
+  const tile = p => `<div class="pc${p.new ? " new" : ""}"><div class="pc-ico">${p.icon ? `<img src="${esc(p.icon)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${p.kind}
+    ${p.why ? `<button type="button" class="pc-i" aria-expanded="false" aria-label="Why ${esc(p.name)}" data-why="${esc(p.name)}: ${esc(p.why)}">i</button>` : ""}</div>
+    <small>${esc(p.label)}</small><b>${esc(p.name)}</b></div>`;
+  const weapons = pieces.filter(p => p.kind === "MAIN" || p.kind === "SUB"), rest = pieces.filter(p => !weapons.includes(p));
+  return `<div class="pc-h">Weapons</div><div class="pc-row">${weapons.map(tile).join("")}</div>`
+    + (rest.length ? `<div class="pc-h">Support</div><div class="pc-row">${rest.map(tile).join("")}</div>` : "") + '<p class="pc-why" hidden></p>';
+}
+$("d-chars").addEventListener("click", e => {
+  const b = e.target.closest(".pc-i"); if (!b) return;
+  const ch = b.closest("details"), out = ch.querySelector(".pc-why"), open = b.getAttribute("aria-expanded") !== "true";
+  ch.querySelectorAll(".pc-i").forEach(x => x.setAttribute("aria-expanded", String(open && x === b)));
+  out.hidden = !open; out.textContent = open ? b.dataset.why : "";
+});
 function closeDetail() {
   if (history.state?.deck) { history.back(); return; }   // popstate hides it
   hideDetail();
