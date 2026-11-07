@@ -155,6 +155,14 @@ class StageDeckTest(unittest.TestCase):
         self.assertEqual(slab, [(self.slab(base, cid), self.slab(self.stage, cid))])
         self.assertLess(slab[0][0], slab[0][1])
 
+    def test_a_staged_costume_the_player_owns_can_be_raised(self):
+        """All maxed builds from staged costumes; one the player owns is written as theirs, so it is theirs to raise."""
+        base = model.Save(snapshot_con(IPAD), 1)
+        staged = model.CharacterSpec(costume=model.PieceRef("costume", self.stage.pick("costume", costume_id=LOW), "stage"),
+                                     main_weapon=None, subs=[], companion=None, memoirs=[], debris=None)
+        raises = model.raises_needed([staged], base, self.stage, model.Inventory(base, tables()))
+        self.assertIn((LOW, "level", 61, 100), [(r.costume_id, r.field, r.current, r.target) for r in raises])
+
     def test_raise_gives_the_slab_and_keeps_the_players_rank(self):
         base = model.Save(snapshot_con(IPAD), 1)
         cid = tables().idx("Costume", "CostumeId")[LOW]["CharacterId"]
