@@ -49,6 +49,7 @@
   .db-controls .seg button{min-width:0}
   .seg[data-name="deck_for"]{flex-wrap:wrap}
   .seg[data-name="deck_for"] [data-v="subjugation"]{flex-basis:100%;border-top:1px solid var(--db-line)}
+  body.owned .best-only,body:not(.owned) .owned-only{display:none!important}
   body.subj .arena-only,body:not(.subj) .subj-only{display:none!important}
   .lo-row{display:grid;grid-template-columns:12px 92px minmax(0,1fr);gap:8px;align-items:center;padding:3px 10px}
   .lo-n{font:600 11px var(--mono);opacity:.5}
@@ -164,7 +165,8 @@
     <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button><button type="button" data-v="subjugation">Subjugation</button></div></div>
     <div class="db-lbl">Build from</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">What I own</button><button type="button" data-v="best" class="on">All maxed</button></div>
-      <p class="help">All maxed uses anything in the game, fully raised: missing pieces are added maxed, and your own costumes and characters are raised when you write the deck. With "What I own", allow up to
+      <p class="help best-only">All maxed uses anything in the game, fully raised: missing pieces are added maxed, and your own costumes and characters are raised when you write the deck.</p>
+      <p class="help owned-only">What I own uses your costumes as they are. Allow up to
         <select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">All</option></select> pieces to be added.</p></div>
     <div class="db-lbl subj-only">Boss</div>
     <div class="subj-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -246,6 +248,7 @@ document.querySelectorAll(".seg").forEach(seg => seg.addEventListener("click", e
   seg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
   state[seg.dataset.name] = b.dataset.v;
   document.body.classList.toggle("subj", state.deck_for === "subjugation");
+  document.body.classList.toggle("owned", state.mode === "owned");
   load(true);
 }));
 document.querySelectorAll(".chips[data-name]").forEach(box => box.addEventListener("click", e => {

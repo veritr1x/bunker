@@ -203,6 +203,13 @@ class PageTest(unittest.TestCase):
         self.assertEqual((c.mode.kind, c.mode.allow_missing), ("owned", db.ALLOW_ALL))
         self.assertEqual(db.criteria_from(None, {"mode": "owned", "allow": "5"}).mode.allow_missing, 5)
 
+    def test_the_allow_menu_shows_only_with_what_i_own(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('<p class="help owned-only">What I own uses your costumes as they are. Allow up to', html)
+        self.assertIn('<p class="help best-only">All maxed uses anything in the game', html)
+        self.assertIn('body.owned .best-only,body:not(.owned) .owned-only{display:none!important}', html)
+        self.assertIn('document.body.classList.toggle("owned", state.mode === "owned");', html)
+
     def test_the_mode_is_called_all_maxed(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<button type="button" data-v="best" class="on">All maxed</button>', html)
