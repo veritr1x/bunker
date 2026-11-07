@@ -21,6 +21,8 @@ from typing import NamedTuple
 from deckbuilder import equip, model, power
 
 FIRST_BLOCK = 48
+CACHE_SIZE = 8          # criteria kept with their ranked results
+MIN_STATS_SCAN = 240    # candidates tried before saying no deck meets the minimum stats
 BLOCK = 24
 DEFAULT_POOL = 60
 EFFECTS = ("compromise", "cleanse", "revive", "provoke", "dauntless", "indomitable", "from_start")
@@ -141,7 +143,10 @@ class Generator:
             return self._pool
         if mode.kind == "owned":
             owned = {r["costume_id"] for r in self.base.q("select costume_id from user_costumes where user_id=?")}
-            return sorted((c for c in owned if self.tables.is_playable(c)), key=lambda c: (-self.experts.weight(c), c))
+            scores = equip.rankings().get("costumes", {})
+            ranked = sorted((c for c in owned if self.tables.is_playable(c) and c in self.tables.idx("Costume", "CostumeId")),
+                            key=lambda c: (-self.experts.weight(c), -scores.get(str(c), 0), c))
+            return ranked[:DEFAULT_POOL]
         staged = {r["costume_id"] for r in self.stage.q("select costume_id from user_costumes where user_id=?")}
         pool = [c for c in default_pool(self.tables, self.experts) if c in staged]
         return pool or sorted(staged)[:DEFAULT_POOL]
@@ -186,7 +191,13 @@ class Generator:
     def _elements(self, lineup, criteria):
         return tuple(criteria.elements[i] or equip.element_of(c, self.tables) for i, c in enumerate(lineup))
 
+    def _character(self, costume_id):
+        c = self.tables.idx("Costume", "CostumeId").get(costume_id)
+        return c["CharacterId"] if c else costume_id
+
     def _passes(self, lineup, criteria, skip=None) -> bool:
+        if len({self._character(c) for c in lineup}) < len(lineup):
+            return False        # the game fields a character once per deck
         s = set(lineup)
         if skip != "include" and not set(criteria.include) <= s:
             return False
@@ -315,7 +326,9 @@ class Generator:
         key = (criteria.deck_for, criteria.mode, id(criteria.against), criteria.strategy, criteria.elements, criteria.must_have,
                criteria.include, criteria.exclude, criteria.exclude_elements, tuple(sorted((criteria.min_stats or {}).items())), criteria.sort)
         if key not in self._cache:
-            self._cache[key] = {"it": self.lineups(criteria), "ranked": [], "done": False, "total": None}
+            while len(self._cache) >= CACHE_SIZE:
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[key] = {"it": self.lineups(criteria), "ranked": [], "done": False, "total": None, "scanned": 0}
         return self._cache[key]
 
     def _grow(self, st, criteria, need):
@@ -323,10 +336,14 @@ class Generator:
             size = FIRST_BLOCK if not st["ranked"] else BLOCK
             block = []
             for lineup in st["it"]:
+                st["scanned"] += 1
                 r = self.evaluate(lineup, criteria)
                 if r is not None:
                     block.append(r)
                 if len(block) >= size:
+                    break
+                if criteria.min_stats and not st["ranked"] and not block and st["scanned"] >= MIN_STATS_SCAN:
+                    st["done"] = True    # nothing meets the minimum stats this far: say so rather than scan on
                     break
             else:
                 st["done"] = True
@@ -352,6 +369,8 @@ class Generator:
         if st["total"] == 0:
             return Page(0, [], True, self.relax(criteria))
         self._grow(st, criteria, offset + limit)
+        if not st["ranked"] and st["done"]:
+            return Page(0, [], True, "min_stats" if criteria.min_stats else self.relax(criteria))
         items = st["ranked"][offset:offset + limit]
         for r in items:
             r.variants = [l.costumes for l in self.experts.lineups()

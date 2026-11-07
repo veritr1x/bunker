@@ -158,16 +158,30 @@ def stage_plan(lineups, tables, experts, extra_sets=(), k=2) -> dict:
 
 # ---------------------------------------------------------------- picking
 
+def _chain(weapon_id, tables) -> list:
+    """Every id of a weapon's evolution chain (an owned weapon may be at any step)."""
+    for rows in _chains(tables).values():
+        if weapon_id in rows:
+            return rows
+    return [weapon_id]
+
+
+_CHAINS: dict = {}
+
+
+def _chains(tables) -> dict:
+    key = id(tables)
+    if key not in _CHAINS:
+        groups = {}
+        for r in tables.T("WeaponEvolutionGroup"):
+            groups.setdefault(r["WeaponEvolutionGroupId"], []).append((r["EvolutionOrder"], r["WeaponId"]))
+        _CHAINS[key] = {g: [w for _, w in sorted(rows)] for g, rows in groups.items()}
+    return _CHAINS[key]
+
+
 def _final_id(weapon_id, tables):
     """The id a weapon has once the server evolves it (the end of its chain)."""
-    order = {}
-    for r in tables.T("WeaponEvolutionGroup"):
-        order.setdefault(r["WeaponEvolutionGroupId"], []).append((r["EvolutionOrder"], r["WeaponId"]))
-    for rows in order.values():
-        ids = [w for _, w in sorted(rows)]
-        if weapon_id in ids:
-            return ids[-1]
-    return weapon_id
+    return _chain(weapon_id, tables)[-1]
 
 
 class _Picker:
@@ -176,16 +190,27 @@ class _Picker:
         self.used = set()
 
     def ref(self, kind, source, **where):
-        """A piece matching where from source, preferring one not used yet in this deck."""
+        """A piece matching where from source, one not used yet in this deck. A
+        staged weapon, memoir or companion may serve twice (the write adds a
+        copy per use); a costume, a debris and any piece the player owns may not."""
         save = self.stage if source == "stage" else self.base
-        table, ucol, _ = model.KINDS[kind]
-        cond = "".join(f" and {k}=?" for k in where)
-        rows = save.q(f"select {ucol} u from {table} where user_id=?{cond} order by {ucol}", *where.values())
+        table, ucol, icol = model.KINDS[kind]
+        if kind == "weapon" and source == "save" and "weapon_id" in where:
+            chain = _chain(where.pop("weapon_id"), self.tables)
+            where_sql = f" and weapon_id in ({','.join('?' * len(chain))})"
+            args = list(chain)
+        else:
+            where_sql, args = "", []
+        cond = "".join(f" and {k}=?" for k in where) + where_sql
+        order = "level desc, " if kind in ("weapon", "companion", "memoir") else ""
+        rows = save.q(f"select {ucol} u from {table} where user_id=?{cond} order by {order}{ucol}", *where.values(), *args)
         for r in rows:
             if (source, r["u"]) not in self.used:
                 self.used.add((source, r["u"]))
                 return model.PieceRef(kind, r["u"], source)
-        return model.PieceRef(kind, rows[0]["u"], source) if rows else None
+        if rows and source == "stage" and kind in ("weapon", "memoir", "companion"):
+            return model.PieceRef(kind, rows[0]["u"], source)
+        return None
 
     def first(self, kind, ids, id_col, **extra):
         """The first id of the ranked list that the allowed sources hold."""
@@ -197,6 +222,19 @@ class _Picker:
                 if r:
                     return r, i
         return None, None
+
+
+def _owned_weapon_of_type(pick, weapon_type, element, tables):
+    """The player's best weapon this costume can main: its own element first."""
+    weapons = tables.idx("Weapon", "WeaponId")
+    attr = ELEM_ATTR.get(element)
+    rows = pick.base.q("select user_weapon_uuid u, weapon_id w, level from user_weapons where user_id=? order by level desc, user_weapon_uuid")
+    fits = [r for r in rows if weapons.get(r["w"], {}).get("WeaponType") == weapon_type and ("save", r["u"]) not in pick.used]
+    fits.sort(key=lambda r: (weapons[r["w"]]["AttributeType"] != attr, -r["level"]))
+    if not fits:
+        return None
+    pick.used.add(("save", fits[0]["u"]))
+    return model.PieceRef("weapon", fits[0]["u"], "save"), fits[0]["w"]
 
 
 def _bonus_drawbacks(series_id, tables):
@@ -243,6 +281,10 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
         wt = _weapon_type(c, tables)
         mains = [w for w in (lo.get("weapons") or [])[:1] if w and rankings()["weapons"].get(str(w), [None])[0] == e] + main_candidates(e, wt)
         main, main_id = pick.first("weapon", mains, "weapon_id")
+        if mode.kind == "owned" and (main is None or (main.source == "stage" and mode.allow_missing == 0)):
+            mine = _owned_weapon_of_type(pick, wt, e, tables)   # an owned weapon of the type before adding one
+            if mine:
+                main, main_id = mine
         subs_ids = [w for w in sub_candidates(e) if w != main_id]
         subs = []
         for _ in range(2):
@@ -312,7 +354,9 @@ def _limit_missing(specs, allow, base, stage, tables):
     pieces or stay empty."""
     gains = []
     for i, s in enumerate(specs):
-        for slot in ("main_weapon", "companion", "debris"):
+        if s.main_weapon and s.main_weapon.source == "stage":
+            gains.append((float("inf"), i, "main_weapon", None))   # every character needs one: it comes first
+        for slot in ("companion", "debris"):
             ref = getattr(s, slot)
             if ref and ref.source == "stage":
                 gains.append((_score(ref, stage, tables), i, slot, None))
@@ -325,7 +369,7 @@ def _limit_missing(specs, allow, base, stage, tables):
     keep, budget = set(), allow
     for g in gains:
         cost = len(specs[g[1]].memoirs) if g[2] == "memoirs" else 1
-        if cost <= budget:
+        if cost <= budget or g[2] == "main_weapon":
             keep.add((g[1], g[2], g[3]))
             budget -= cost
     out = []
