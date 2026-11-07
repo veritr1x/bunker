@@ -78,6 +78,17 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_a_fight_without_its_log_ends_the_same(self):
+        """The bake turns the log off (it formats a line per action); the fight itself must not change."""
+        att = {s: template(i, gauge_full=True) for i, s in enumerate("LMR", 1)}
+        dfn = {s: template(10 + i, gauge_full=True, hp=50000.0) for i, s in enumerate("LMR", 1)}
+        on = self.battle.Battle(att, dfn, random.Random(0))
+        off = self.battle.Battle(att, dfn, random.Random(0)); off.logging = False
+        a, b = on.run(), off.run()
+        self.assertTrue(on.log)
+        self.assertEqual(off.log, [])
+        self.assertEqual({k: v for k, v in a.items() if k != "log"}, {k: v for k, v in b.items() if k != "log"})
+
     def test_time_out_with_both_sides_nearly_out_is_the_defenders(self):
         """At the time limit a side wins on HP share only when clearly ahead: two units held at 1 HP by Dauntless
         are a draw (the defender's), not a win for the side whose 1 HP is a larger share of a smaller maximum."""
