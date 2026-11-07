@@ -78,6 +78,29 @@ class MechanicsTest(unittest.TestCase):
             self.assertEqual([x[1:] for x in seen[:3]], [(first, "R"), (first, "L"), (first, "M")], manual)
         self.assertIs(self.rules.P["ATTACKER_MANUAL"], True)
 
+    def test_a_prepared_side_fights_the_same(self):
+        """A side prepared once (start passives, team stats, starting HP: prepare_side) and copied into each fight ends
+        every fight exactly as one set up from its templates; both roles, and when the other side's start passives
+        reach across (then the fight is set up as usual)."""
+        buff = dict(op="buff", scope="alive_all_self_party_01", key="Attack", value=0.2, frames=900, prob=1.0)
+        reach = dict(op="buff", scope="alive_all_enemy_01", key="Attack", value=-0.1, frames=900, prob=1.0)
+        x = {s: dict(template(i, gauge_full=True), agi=1200.0 + 10 * i, passives=[buff] + template(i, gauge_full=True)["passives"])
+             for i, s in enumerate("LMR", 1)}
+        y = {s: dict(template(10 + i, gauge_full=True, hp=60000.0), agi=900.0 + 10 * i) for i, s in enumerate("LMR", 1)}
+        y_reach = {s: dict(t, passives=[reach] + t["passives"]) for s, t in y.items()}
+        for role in ("A", "D"):
+            prepared = self.battle.prepare_side(x, role)
+            self.assertIsNotNone(prepared)
+            for other in (y, y_reach):
+                att, dfn = (x, other) if role == "A" else (other, x)
+                for manual in (True, False):
+                    for seed in (0, 1):
+                        plain = self.battle.Battle(att, dfn, random.Random(seed), manual); plain.logging = False
+                        fast = self.battle.Battle(att, dfn, random.Random(seed), manual, prepared=prepared); fast.logging = False
+                        self.assertEqual(fast.run(), plain.run(), (role, other is y_reach, manual, seed))
+                        self.assertEqual((fast.mirror_safe, fast.chance_draws), (plain.mirror_safe, plain.chance_draws))
+        self.assertIsNone(self.battle.prepare_side(y_reach, "D"))       # its passives reach the other side
+
     def test_a_mirror_safe_fight_ends_the_same_with_the_roles_swapped(self):
         """When nothing in a fight depended on which side attacks (no turn-order tie between the sides, no close
         time-out, no start passive reaching the other side) and no draw could change anything, the same fight with the
