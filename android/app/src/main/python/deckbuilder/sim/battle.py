@@ -29,6 +29,7 @@ class Battle:
         """att, dfn: dict slot -> unit template (units.build_unit). attacker_manual: whose start-of-battle skills
         go first (True: the attacker's, tapped by hand; False: the defender's, Auto); None = P["ATTACKER_MANUAL"]."""
         self.attacker_manual = P["ATTACKER_MANUAL"] if attacker_manual is None else attacker_manual
+        self.frames = P["DURATION_S"] * P["FPS"]     # the time limit
         self.rng = rng; self.t = 0; self.log = []
         self.sides = {"A": [U(t, "A", s) for s, t in att.items()], "D": [U(t, "D", s) for s, t in dfn.items()]}
         self.combo = rules.Combo(P["COMBO"] != "off", P["COMBO_COUNT_NA"], P["COMBO_RESET"]); self._combo_target = False
@@ -195,14 +196,23 @@ class Battle:
             for s in cuts:
                 if s["cnt"] is not None: s["cnt"] -= 1
         tgt.st = [s for s in tgt.st if s["cnt"] is None or s["cnt"] > 0]
+        m *= self.taken_mult(tgt)
         dmg = rules.DAMAGE_FORMULAS[P["DAMAGE"]](atk, power, m, dfv, P, pierce)
         floor = 1 if self.has(tgt, "dauntless") else 0
         tgt.hp = max(floor, tgt.hp - dmg)
+        self.on_hit(u, tgt, dmg, hits_in_skill, normal)
         tgt.gauge += P["GAUGE_HIT_TAKEN"]
         if tgt.hp <= 0:
             tgt.alive = False; tgt.died_at = self.t; tgt.st = []; tgt.bf = []
             if self.first_kill is None:
                 self.first_kill = dict(t=self.t / P["FPS"], side=u.side, killer=u.cid, victim=tgt.cid, victim_acted=tgt.first_act is not None)
+
+    def taken_mult(self, tgt):
+        """A multiplier on damage the target takes (a knocked-down Subjugation boss)."""
+        return 1.0
+
+    def on_hit(self, u, tgt, dmg, hits_in_skill, normal):
+        """After each hit (Subjugation scoring)."""
 
     def reliance(self, e):
         s = 0
@@ -374,7 +384,7 @@ class Battle:
             self.tick(int(P["OPEN_ANIM"] * P["FPS"]))
 
     def run_queue(self):
-        end = P["DURATION_S"] * P["FPS"]; turn = []
+        end = self.frames; turn = []
         if P["ACTION_MODEL"] == "hybrid": self.run_opening()
         while self.t < end:
             if not any(u.alive for u in self.sides["A"]) or not any(u.alive for u in self.sides["D"]): break
@@ -424,7 +434,7 @@ class Battle:
             self.tick(P["ANIM_NA"])
 
     def run(self):
-        end = P["DURATION_S"] * P["FPS"]
+        end = self.frames
         if P["ENGINE"] == "queue":
             self.run_queue()
         while P["ENGINE"] != "queue" and self.t < end:
@@ -446,6 +456,44 @@ class Battle:
                     kills_A=sum(not u.alive for u in self.sides["D"]), kills_D=sum(not u.alive for u in self.sides["A"]))
 
 
+
+
+class BossBattle(Battle):
+    """A Subjugation phase: the party (A) against the boss (D, middle), which does not fall; the score is the damage
+    dealt. Skill hits fill the knock-down gauge (bighunt.Phase.gauge); at a knock-down threshold the boss is down for
+    its frames and takes the threshold's ratio times the damage."""
+    def __init__(self, party, boss, phase, rng, attacker_manual=True):
+        super().__init__(party, {"M": boss}, rng, attacker_manual)
+        self.boss = self.sides["D"][0]
+        self.phase = phase
+        self.frames = int(phase.frames * P["FPS"] / 60)
+        self.dealt = 0.0; self.gauge_value = 0.0; self.next_threshold = 0
+        self.down_until = -1; self.ratio = 1.0; self.knockdowns = 0
+
+    def taken_mult(self, tgt):
+        return self.ratio if tgt is self.boss and self.t < self.down_until else 1.0
+
+    def on_hit(self, u, tgt, dmg, hits_in_skill, normal):
+        if tgt is not self.boss:
+            return
+        self.dealt += dmg
+        if normal or self.t < self.down_until:
+            return
+        self.gauge_value += self.phase.gauge(hits_in_skill, dmg)
+        th = self.phase.thresholds
+        while self.next_threshold < len(th) and self.gauge_value >= th[self.next_threshold].at:
+            x = th[self.next_threshold]; self.next_threshold += 1
+            if x.down:
+                self.down_until = self.t + x.frames * P["FPS"] / 60; self.ratio = x.ratio; self.knockdowns += 1
+
+
+def boss_phase(party, boss, phase, tables, seed=0):
+    """One Subjugation phase of the party deck against the boss unit template: damage dealt, knock-downs, and the
+    time the party lasted (the phase's length when it stands to the end)."""
+    b = BossBattle(_side(party, tables), boss, phase, random.Random(seed))
+    b.run()
+    return dict(damage=round(b.dealt), knockdowns=b.knockdowns, t=round(min(b.t, b.frames) / P["FPS"], 1),
+                standing=sum(u.alive for u in b.sides["A"]))
 
 
 def _side(deck, tables):
