@@ -425,9 +425,14 @@ def _ints(text):
     return frozenset(int(x) for x in str(text or "").split(",") if x.strip().isdigit())
 
 
+ALLOW_ALL = 999      # "All": What I own with no limit on the pieces added (a deck holds far fewer)
+
+
 def criteria_from(s: Session | None, q: dict):
     from deckbuilder import equip, generate
-    mode = equip.Mode("owned", int(q.get("allow") or 0)) if q.get("mode") == "owned" else equip.Mode("best")
+    allow = str(q.get("allow") or "0")
+    allow = ALLOW_ALL if allow == "all" else int(allow) if allow.isdigit() else 0
+    mode = equip.Mode("owned", allow) if q.get("mode") == "owned" else equip.Mode("best")
     els = tuple((q.get(f"el_{k}") or None) for k in "lmr")
     must = frozenset(x for x in str(q.get("must") or "").split(",") if x in EFFECTS)
     mins = {k: int(q[f"min_{k}"]) for k in ("agi", "hp", "atk", "crit") if str(q.get(f"min_{k}") or "").isdigit() and int(q[f"min_{k}"]) > 0}

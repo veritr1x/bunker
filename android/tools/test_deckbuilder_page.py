@@ -196,6 +196,13 @@ class PageTest(unittest.TestCase):
         for text in ("Data pick", "data_pick", 'id="d-pick"', ".badge"):
             self.assertNotIn(text, html)
 
+    def test_what_i_own_can_allow_any_number_of_added_pieces(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('<option value="20">20</option><option value="all">All</option>', html)
+        c = db.criteria_from(None, {"mode": "owned", "allow": "all"})
+        self.assertEqual((c.mode.kind, c.mode.allow_missing), ("owned", db.ALLOW_ALL))
+        self.assertEqual(db.criteria_from(None, {"mode": "owned", "allow": "5"}).mode.allow_missing, 5)
+
     def test_the_mode_is_called_all_maxed(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<button type="button" data-v="best" class="on">All maxed</button>', html)
