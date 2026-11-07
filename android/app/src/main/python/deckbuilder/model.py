@@ -289,10 +289,14 @@ def character_board_ids(tables, character_id) -> list[int]:
 
 
 def _copy_character(dst, src: Save, character_id, uid, tables):
-    """The character's rank and board rows from src, replacing dst's."""
+    """The character's Mythic Slab and exalt rows from src, replacing dst's; its rank only when dst has
+    none (as deck_write: the player's rank stays)."""
     present = lambda t: dst.execute("select 1 from sqlite_master where name=?", (t,)).fetchone() and src.has(t)
     for t in CHARACTER_TABLES:
         if t == "user_character_boards" or not present(t):
+            continue
+        if t == "user_characters" and dst.execute("select 1 from user_characters where user_id=? and character_id=?",
+                                                  (uid, character_id)).fetchone():
             continue
         dst.execute(f"delete from {t} where user_id=? and character_id=?", (uid, character_id))
         rows = src.q(f"select * from {t} where user_id=? and character_id=?", character_id)
@@ -322,9 +326,10 @@ def _costume_character(save: Save, costume_uuid):
 
 
 def compose(base: Save, stage: Save | None, specs: list, deck_type: int, deck_number: int,
-            tables, raises: list[int] = ()) -> Deck:
+            tables, raises: list[int] = (), raise_all: bool = False) -> Deck:
     """A deck in memory: base's rows, plus the stage pieces specs name, plus the
-    ticked raises (costume ids), plus the deck at (deck_type, deck_number)."""
+    ticked raises (costume ids), plus the deck at (deck_type, deck_number).
+    raise_all (Theoretical best): every costume of the player's in the deck is raised."""
     con = sqlite3.connect(":memory:", check_same_thread=False)
     uid = base.uid
     for t in TABLES:
@@ -344,6 +349,8 @@ def compose(base: Save, stage: Save | None, specs: list, deck_type: int, deck_nu
         mine = base.pick(ref.kind, **{KINDS[ref.kind][2]: src["stage"].piece_id(ref.kind, ref.uuid)})
         return PieceRef(ref.kind, mine, "save") if mine else ref
     specs = [s._replace(costume=as_owned(s.costume), debris=as_owned(s.debris)) if s else None for s in specs]
+    if raise_all:
+        raises = sorted(set(raises) | set(owned_costumes(specs, base)))
     for spec in specs:
         if spec is None:
             continue
@@ -437,6 +444,26 @@ class Inventory:
         return [(r["deck_type"], r["user_deck_number"]) for r in rows]
 
 
+def owned_costumes(specs, base: Save) -> list[int]:
+    """Costume ids of the deck that are the player's own (a staged one they own counts as theirs)."""
+    out = []
+    for spec in specs:
+        if spec is None or spec.costume is None:
+            continue
+        cid = base.piece_id("costume", spec.costume.uuid) if spec.costume.source == "save" else None
+        if cid is not None and cid not in out:
+            out.append(cid)
+    return out
+
+
+def _slab(save: Save, character_id) -> int:
+    """How far a character's Mythic Slab is filled: the sum of its board abilities' levels."""
+    if not save.has("user_character_board_abilities"):
+        return 0
+    return save.one("select coalesce(sum(level), 0) n from user_character_board_abilities where user_id=? and character_id=?",
+                    character_id)["n"]
+
+
 def raises_needed(specs, base: Save, stage: Save, inventory: Inventory) -> list:
     """What raising each owned costume of the deck to max would change: one item
     per field below the staged (fully raised) value."""
@@ -456,6 +483,11 @@ def raises_needed(specs, base: Save, stage: Save, inventory: Inventory) -> list:
         a, b = mk(base, mine["user_costume_uuid"]), mk(stage, theirs["user_costume_uuid"])
         if a < b:
             out.append(RaiseItem(mine["costume_id"], "karma", a, b, used))
+        ch = inventory.tables and inventory.tables.idx("Costume", "CostumeId").get(mine["costume_id"], {}).get("CharacterId")
+        if ch:
+            a, b = _slab(base, ch), _slab(stage, ch)
+            if a < b:
+                out.append(RaiseItem(mine["costume_id"], "mythic_slab", a, b, used))
     return out
 
 

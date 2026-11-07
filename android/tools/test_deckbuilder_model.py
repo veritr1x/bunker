@@ -139,6 +139,48 @@ class StageDeckTest(unittest.TestCase):
         self.assertEqual(other(plain), other(raised))
 
 
+    def low_spec(self, base):
+        return model.CharacterSpec(costume=model.PieceRef("costume", base.pick("costume", costume_id=LOW), "save"),
+                                   main_weapon=None, subs=[], companion=None, memoirs=[], debris=None)
+
+    def slab(self, save, cid):
+        return save.one("select coalesce(sum(level), 0) n from user_character_board_abilities where user_id=? and character_id=?", cid)["n"]
+
+    def test_raises_list_the_mythic_slab(self):
+        """Raising a costume also gives its character the staged Mythic Slab: the list says so."""
+        base = model.Save(snapshot_con(IPAD), 1)
+        cid = tables().idx("Costume", "CostumeId")[LOW]["CharacterId"]
+        raises = model.raises_needed([self.low_spec(base)], base, self.stage, model.Inventory(base, tables()))
+        slab = [(r.current, r.target) for r in raises if r.field == "mythic_slab"]
+        self.assertEqual(slab, [(self.slab(base, cid), self.slab(self.stage, cid))])
+        self.assertLess(slab[0][0], slab[0][1])
+
+    def test_raise_gives_the_slab_and_keeps_the_players_rank(self):
+        base = model.Save(snapshot_con(IPAD), 1)
+        cid = tables().idx("Costume", "CostumeId")[LOW]["CharacterId"]
+        base.db.execute("update user_characters set level=4 where character_id=?", (cid,))   # above the stage's rank 1
+        raised = model.compose(base, self.stage, [self.low_spec(base)], 2, 9, tables(), raises=[LOW])
+        rank = lambda s: s.one("select level from user_characters where user_id=? and character_id=?", cid)["level"]
+        self.assertEqual(rank(raised.save), rank(base))           # as the write does: the rank stays the player's
+        self.assertEqual(self.slab(raised.save, cid), self.slab(self.stage, cid))
+
+    def test_raise_all_raises_every_owned_costume_of_the_deck(self):
+        """Theoretical best: the player's own costumes and characters count fully raised (and are raised on write)."""
+        base = model.Save(snapshot_con(IPAD), 1)
+        spec = self.low_spec(base)
+        a = model.compose(base, self.stage, [spec], 2, 9, tables(), raise_all=True)
+        b = model.compose(base, self.stage, [spec], 2, 9, tables(), raises=[LOW])
+        self.assertEqual(power.deck_power(a, tables()).total, power.deck_power(b, tables()).total)
+        self.assertEqual(model.owned_costumes([spec], base), [LOW])
+
+    def test_theoretical_best_counts_the_players_costumes_raised(self):
+        from deckbuilder import equip, experts
+        base = model.Save(snapshot_con(IPAD), 1)
+        lv = lambda d: d.save.one("select level from user_costumes where user_id=? and costume_id=?", LOW)["level"]
+        best = equip.equip((LOW,), equip.Mode("best"), base, self.stage, tables(), experts.Experts.load(tables()))
+        owned = equip.equip((LOW,), equip.Mode("owned", 2), base, self.stage, tables(), experts.Experts.load(tables()))
+        self.assertEqual((lv(best.deck), lv(owned.deck)), (100, 61))   # What I own: as it is unless ticked
+
 
 class SnapshotTest(unittest.TestCase):
     """The game's server writes the save in the same process: Deck Builder keeps an in-memory copy, no open file."""
