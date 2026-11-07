@@ -858,10 +858,10 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   .page-side .search-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
   .page-side .search-row > * { margin: 0; }
   .page-side .search-row input { width: 100%; min-width: 0; box-sizing: border-box; }
-  /* Long intros: three lines and "More" (the text itself is clamped: a panel's first paragraph, or the paragraph). */
-  .page-side p[data-side="intro"]:not(.open), .page-side [data-side="intro"]:not(.open) > p:first-child { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .page-side .panel[data-side="intro"]:not(.open) > :not(:first-child) { display: none; }
-  .page-side .intro-more { width: auto; min-height: 0; padding: 0; margin: -2px 0 6px; background: none; border: none; color: var(--fg-mid); font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: underline; }
+  /* The page's explainer: behind an ⓘ beside the title (base.html). */
+  .page-side [data-side="intro"]:not(.open) { display: none; }
+  .page-side .intro-info { flex: none; width: 20px; height: 20px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--accent); font: italic 600 11px/18px Georgia, serif; letter-spacing: 0; text-transform: none; }
+  .page-side .intro-info[aria-expanded="true"] { background: var(--accent); color: var(--bg-cream); }
   .page-toc { margin-top: 10px; border-top: 1px solid var(--line); }
   .page-toc a { display: block; padding: 7px 2px; border-bottom: 1px dotted var(--line); color: var(--fg-dark); font: 10px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
   .page-main { min-width: 0; padding-top: 8px; container-type: inline-size; }

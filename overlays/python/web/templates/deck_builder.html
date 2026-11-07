@@ -45,7 +45,6 @@
   .por .slot{position:absolute;left:0;bottom:0;background:rgba(0,0,0,.45);color:#f3efe2;font-size:9px;letter-spacing:.08em;padding:1px 5px;z-index:1}
   .por.new::before{content:"NEW";position:absolute;top:0;right:0;background:#f3efe2;color:#3a372f;font-size:8px;padding:1px 4px;z-index:1;font-weight:bold}
   .tile .nm{font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
-  .rc-why{font-size:12px;line-height:1.45;margin:7px 10px 0;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rc-foot{margin-top:8px;display:flex;justify-content:space-between;gap:10px;padding:6px 10px;border-top:1px dotted var(--db-line);font-size:11.5px;opacity:.85}
   .rc-foot b{font-weight:600}
   .more{text-align:center;margin:12px 0 0;font-size:12px;opacity:.75}
@@ -269,10 +268,10 @@ const pic = id => `<img src="/decks/portrait/${Number(id)}.png" alt="" loading="
 function cardHtml(c) {
   cards[c.key] = c;
   const tiles = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
-  const badge = c.expert ? '<span class="badge">Expert pick</span>' : c.data_pick ? '<span class="badge">Data pick</span>' : "";
+  const badge = c.data_pick ? '<span class="badge">Data pick</span>' : "";
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
     <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}${badge}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div>
-    <div class="trio">${tiles}</div><p class="rc-why">${esc(c.why)}</p>
+    <div class="trio">${tiles}</div>
     <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span><span><b>${c.to_add}</b> to add</span></div></button>`;
 }
 async function load(reset) {
@@ -306,7 +305,7 @@ async function openDetail(key, el) {
   chosen = key;
   const c = cards[key];
   $("d-title").textContent = c.title;
-  $("d-sub").textContent = [c.strategy, c.expert ? "Expert pick" : c.data_pick ? "Data pick" : ""].filter(Boolean).join(" · ");
+  $("d-sub").textContent = [c.strategy, c.data_pick ? "Data pick" : ""].filter(Boolean).join(" · ");
   $("d-trio").innerHTML = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
   $("d-stats").innerHTML = [["Wins", c.win_pct + "%"], ["Force", c.force.toLocaleString()], ["To add", c.to_add], ["Variants", c.variants]]
     .map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join("");
