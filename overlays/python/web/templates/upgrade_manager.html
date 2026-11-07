@@ -94,8 +94,8 @@
   <div class="panel" style="margin-top:8px;padding:10px;background:transparent">
     {% for slot in [1, 2, 3] %}
     <div style="margin:6px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <label for="karma-slot-{{ slot }}" style="min-width:70px;font-size:13px;color:var(--fg-mid);letter-spacing:0.1em">SLOT {{ slot }}</label>
-      <select id="karma-slot-{{ slot }}" data-karma-slot="{{ slot }}" style="flex:1;min-width:300px;font-family:inherit;font-size:12px;background:var(--bg-deep);color:var(--fg);border:1px solid var(--fg-mid);padding:4px">
+      <label for="karma-slot-{{ slot }}" style="min-width:70px;font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em">SLOT {{ slot }}</label>
+      <select id="karma-slot-{{ slot }}" data-karma-slot="{{ slot }}" style="flex:1;min-width:min(300px,100%)">
         {% for opt in karma_options.get(slot, []) %}
         <option value="{{ opt.effect_type }}:{{ opt.target_id }}"
                 {% if karma_defaults.get(slot) and karma_defaults[slot][0] == opt.effect_type and karma_defaults[slot][1] == opt.target_id %}selected{% endif %}>
@@ -105,7 +105,7 @@
       </select>
     </div>
     {% endfor %}
-    <p style="margin:6px 0 0;font-size:11px;color:var(--fg-mid)">
+    <p style="margin:6px 0 0;font-size:var(--fs-label);color:var(--fg-mid)">
       [R40/30/20] = rarity tier. [Ngrp] = how many odds groups in the game include this effect. A higher number means more costumes get this exact effect. The rest get the rarest effect in their own pool.
     </p>
   </div>

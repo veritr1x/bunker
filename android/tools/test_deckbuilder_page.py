@@ -258,7 +258,7 @@ class PageTest(unittest.TestCase):
 
     def test_filter_chips_keep_their_text_when_hovered(self):
         html = self.c.get("/decks", params={"user": 1}).text
-        self.assertIn(".chip:hover:not(.on){background:rgba(58,55,47,.08)!important;color:inherit!important}", html)
+        self.assertIn(".chip:hover:not(.on){background:color-mix(in srgb,var(--fg-dark) 8%,transparent)!important;color:inherit!important}", html)
 
     def test_the_mode_is_called_all_maxed(self):
         html = self.c.get("/decks", params={"user": 1}).text
