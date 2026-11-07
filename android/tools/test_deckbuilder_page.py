@@ -154,6 +154,15 @@ class PageTest(unittest.TestCase):
         [item] = self.c.get("/decks/results", params={"user": 1, "offset": 0, "limit": 6}).json()["items"]
         self.assertTrue(all(t["name"] for t in item["tiles"]))
 
+    def test_sort_sits_in_the_result_bar_instead_of_the_criteria_summary(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        bar = html[html.index('<div class="resbar">'):html.index('<div class="cards"')]
+        self.assertIn('<select id="sort"', bar)
+        for v, n in (("match", "Best match"), ("force", "Force"), ("fewest", "Fewest to add")):
+            self.assertIn(f'<option value="{v}">{n}</option>', bar)
+        self.assertNotIn('id="ctx"', html)
+        self.assertNotIn('data-name="sort"', html)
+
     def test_write_takes_snapshot_then_calls_shim(self):
         key = db.result_key(self.session.result)
         r = self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [2], "raise": [35036]})
