@@ -1,0 +1,1301 @@
+{
+ "version": 1,
+ "costumes": {
+  "31000": {
+   "weight": 0.7,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31001": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31004": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "31005": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31008": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31009": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "31010": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_agility"
+   ]
+  },
+  "31016": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense"
+   ]
+  },
+  "31017": {
+   "weight": 0.8,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31018": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "31020": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "31021": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31022": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense"
+   ]
+  },
+  "31024": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "31025": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "31027": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense",
+    "support_haste"
+   ]
+  },
+  "31028": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31029": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "31030": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense",
+    "video"
+   ]
+  },
+  "31031": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "video"
+   ]
+  },
+  "31032": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense",
+    "support_defense",
+    "video"
+   ]
+  },
+  "31034": {
+   "weight": 0.8,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32000": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "32002": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_defense"
+   ]
+  },
+  "32005": {
+   "weight": 0.7,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32006": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32009": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_offense",
+    "support_agility"
+   ]
+  },
+  "32011": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "32016": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_defense"
+   ]
+  },
+  "32017": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32021": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense",
+    "support_agility",
+    "video"
+   ]
+  },
+  "32022": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "support_agility",
+    "video"
+   ]
+  },
+  "32023": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "32024": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "32025": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_haste"
+   ]
+  },
+  "32026": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "32027": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32028": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "video"
+   ]
+  },
+  "32029": {
+   "weight": 0.9,
+   "roles": [
+    "agility"
+   ]
+  },
+  "32030": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "32031": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32032": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "32034": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "32035": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense",
+    "video"
+   ]
+  },
+  "32036": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense",
+    "support_haste",
+    "video"
+   ]
+  },
+  "33000": {
+   "weight": 0.5,
+   "roles": [
+    "agility"
+   ]
+  },
+  "33002": {
+   "weight": 0.6,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "33003": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_agility"
+   ]
+  },
+  "33006": {
+   "weight": 0.4,
+   "roles": [
+    "agility"
+   ]
+  },
+  "33007": {
+   "weight": 0.7,
+   "roles": [
+    "turret"
+   ]
+  },
+  "33009": {
+   "weight": 0.4,
+   "roles": [
+    "agility"
+   ]
+  },
+  "33012": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_agility"
+   ]
+  },
+  "33013": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "33014": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense",
+    "support_defense"
+   ]
+  },
+  "33016": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense"
+   ]
+  },
+  "33018": {
+   "weight": 0.8,
+   "roles": [
+    "turret"
+   ]
+  },
+  "33020": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "33021": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "33022": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_agility"
+   ]
+  },
+  "33023": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_haste",
+    "video"
+   ]
+  },
+  "33024": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "33025": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_agility",
+    "video"
+   ]
+  },
+  "33026": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_offense",
+    "support_haste"
+   ]
+  },
+  "33027": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "33028": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "33029": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "video"
+   ]
+  },
+  "33030": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "support_haste",
+    "video"
+   ]
+  },
+  "33031": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense",
+    "video"
+   ]
+  },
+  "33032": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "video"
+   ]
+  },
+  "33033": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "34000": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_agility"
+   ]
+  },
+  "34004": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_agility"
+   ]
+  },
+  "34009": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "34012": {
+   "weight": 0.5,
+   "roles": [
+    "agility"
+   ]
+  },
+  "34014": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "video"
+   ]
+  },
+  "34018": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense"
+   ]
+  },
+  "34020": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "34021": {
+   "weight": 0.7,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "34023": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "34025": {
+   "weight": 0.6,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "34028": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "34030": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "34031": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "34034": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "34036": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "34038": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "34039": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "video"
+   ]
+  },
+  "34040": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "34042": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "34043": {
+   "weight": 0.8,
+   "roles": [
+    "turret"
+   ]
+  },
+  "34044": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "34045": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_haste"
+   ]
+  },
+  "34046": {
+   "weight": 0.7,
+   "roles": [
+    "agility"
+   ]
+  },
+  "34047": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "34048": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "video"
+   ]
+  },
+  "35000": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_agility"
+   ]
+  },
+  "35006": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "35009": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_agility"
+   ]
+  },
+  "35014": {
+   "weight": 0.85,
+   "roles": [
+    "agility",
+    "support_offense",
+    "support_agility"
+   ]
+  },
+  "35016": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense",
+    "video"
+   ]
+  },
+  "35018": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense",
+    "support_agility",
+    "video"
+   ]
+  },
+  "35019": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "35020": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense",
+    "support_defense"
+   ]
+  },
+  "35022": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "35025": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "video"
+   ]
+  },
+  "35026": {
+   "weight": 0.9,
+   "roles": [
+    "turret"
+   ]
+  },
+  "35027": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense",
+    "support_agility"
+   ]
+  },
+  "35028": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "35030": {
+   "weight": 0.85,
+   "roles": [
+    "support_haste"
+   ]
+  },
+  "35031": {
+   "weight": 0.85,
+   "roles": [
+    "turret",
+    "support_haste"
+   ]
+  },
+  "35032": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense",
+    "support_haste"
+   ]
+  },
+  "35033": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "35034": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense",
+    "support_defense"
+   ]
+  },
+  "35035": {
+   "weight": 0.8,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "35036": {
+   "weight": 1.0,
+   "roles": [
+    "turret",
+    "video"
+   ]
+  },
+  "35038": {
+   "weight": 0.85,
+   "roles": [
+    "support_haste"
+   ]
+  },
+  "41000": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "41001": {
+   "weight": 0.7,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "41003": {
+   "weight": 0.7,
+   "roles": [
+    "turret"
+   ]
+  },
+  "42001": {
+   "weight": 0.85,
+   "roles": [
+    "support_defense"
+   ]
+  },
+  "42003": {
+   "weight": 0.7,
+   "roles": [
+    "turret"
+   ]
+  },
+  "43000": {
+   "weight": 0.5,
+   "roles": [
+    "agility"
+   ]
+  },
+  "43003": {
+   "weight": 0.7,
+   "roles": [
+    "turret"
+   ]
+  },
+  "44002": {
+   "weight": 0.5,
+   "roles": [
+    "agility"
+   ]
+  },
+  "44003": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "45002": {
+   "weight": 0.7,
+   "roles": [
+    "turret",
+    "agility"
+   ]
+  },
+  "51002": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense"
+   ]
+  },
+  "52001": {
+   "weight": 0.85,
+   "roles": [
+    "support_offense"
+   ]
+  },
+  "52002": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense"
+   ]
+  },
+  "53001": {
+   "weight": 0.6,
+   "roles": [
+    "turret"
+   ]
+  },
+  "53002": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "support_offense",
+    "video"
+   ]
+  },
+  "54001": {
+   "weight": 0.9,
+   "roles": [
+    "turret",
+    "agility",
+    "support_offense"
+   ]
+  }
+ },
+ "lineups": [
+  {
+   "name": "Top defense",
+   "costumes": [
+    31032,
+    35036,
+    33029
+   ],
+   "source": "nierrein:tierlist-note",
+   "role": "defense"
+  },
+  {
+   "name": "Video Fo5jCU4TIxc #1",
+   "costumes": [
+    33032,
+    32035,
+    35018
+   ],
+   "source": "video:Fo5jCU4TIxc",
+   "role": "attack"
+  },
+  {
+   "name": "Video Fo5jCU4TIxc #2",
+   "costumes": [
+    35036,
+    32035,
+    32036
+   ],
+   "source": "video:Fo5jCU4TIxc",
+   "role": "attack"
+  },
+  {
+   "name": "Video Fo5jCU4TIxc #3",
+   "costumes": [
+    31030,
+    31032,
+    53002
+   ],
+   "source": "video:Fo5jCU4TIxc",
+   "role": "attack"
+  },
+  {
+   "name": "Video Fo5jCU4TIxc #4",
+   "costumes": [
+    35016,
+    35036,
+    33029
+   ],
+   "source": "video:Fo5jCU4TIxc",
+   "role": "defense"
+  },
+  {
+   "name": "Video DFMQmpJxA-A #6",
+   "costumes": [
+    32035,
+    34048,
+    35036
+   ],
+   "source": "video:DFMQmpJxA-A",
+   "role": "attack"
+  },
+  {
+   "name": "Video DFMQmpJxA-A #7",
+   "costumes": [
+    31032,
+    34048,
+    35036
+   ],
+   "source": "video:DFMQmpJxA-A",
+   "role": "attack"
+  },
+  {
+   "name": "Video DFMQmpJxA-A #8",
+   "costumes": [
+    32035,
+    35036,
+    34039
+   ],
+   "source": "video:DFMQmpJxA-A",
+   "role": "attack"
+  },
+  {
+   "name": "Video DFMQmpJxA-A #9",
+   "costumes": [
+    32028,
+    34048,
+    31032
+   ],
+   "source": "video:DFMQmpJxA-A",
+   "role": "defense"
+  },
+  {
+   "name": "Video DFMQmpJxA-A #10",
+   "costumes": [
+    34014,
+    32021,
+    35036
+   ],
+   "source": "video:DFMQmpJxA-A",
+   "role": "defense"
+  },
+  {
+   "name": "Video ohOXve1qM9c #12",
+   "costumes": [
+    32022,
+    32028,
+    34048
+   ],
+   "source": "video:ohOXve1qM9c",
+   "role": "attack"
+  },
+  {
+   "name": "Video 3NBHtrVEym4 #13",
+   "costumes": [
+    32028,
+    32022,
+    35025
+   ],
+   "source": "video:3NBHtrVEym4",
+   "role": "attack"
+  },
+  {
+   "name": "Video 3NBHtrVEym4 #14",
+   "costumes": [
+    33025,
+    33023,
+    32028
+   ],
+   "source": "video:3NBHtrVEym4",
+   "role": "defense"
+  },
+  {
+   "name": "Video n3zcqj-457E #15",
+   "costumes": [
+    32035,
+    34048,
+    35036
+   ],
+   "source": "video:n3zcqj-457E",
+   "role": "attack"
+  },
+  {
+   "name": "Video n3zcqj-457E #16",
+   "costumes": [
+    32035,
+    35036,
+    34039
+   ],
+   "source": "video:n3zcqj-457E",
+   "role": "attack"
+  },
+  {
+   "name": "Video n3zcqj-457E #17",
+   "costumes": [
+    33031,
+    33030,
+    32035
+   ],
+   "source": "video:n3zcqj-457E",
+   "role": "attack"
+  },
+  {
+   "name": "Video l0IiqB8Bz6o #21",
+   "costumes": [
+    53002,
+    31032,
+    31030
+   ],
+   "source": "video:l0IiqB8Bz6o",
+   "role": "attack"
+  },
+  {
+   "name": "Video l0IiqB8Bz6o #22",
+   "costumes": [
+    31031,
+    53002,
+    31032
+   ],
+   "source": "video:l0IiqB8Bz6o",
+   "role": "attack"
+  },
+  {
+   "name": "Video l0IiqB8Bz6o #23",
+   "costumes": [
+    31031,
+    31030,
+    31032
+   ],
+   "source": "video:l0IiqB8Bz6o",
+   "role": "attack"
+  },
+  {
+   "name": "Video l0IiqB8Bz6o #24",
+   "costumes": [
+    53002,
+    33030,
+    31032
+   ],
+   "source": "video:l0IiqB8Bz6o",
+   "role": "attack"
+  },
+  {
+   "name": "Video 99C8DkP9z4Q #25",
+   "costumes": [
+    31030,
+    31032,
+    53002
+   ],
+   "source": "video:99C8DkP9z4Q",
+   "role": "attack"
+  },
+  {
+   "name": "Video 99C8DkP9z4Q #26",
+   "costumes": [
+    53002,
+    33032,
+    33030
+   ],
+   "source": "video:99C8DkP9z4Q",
+   "role": "attack"
+  },
+  {
+   "name": "Big Brain Lev",
+   "costumes": [
+    32030,
+    31027,
+    32026
+   ],
+   "loadout": {
+    "32030": {
+     "weapons": [
+      420111,
+      320452,
+      320382
+     ],
+     "memoir_set": 7,
+     "companion": 41,
+     "debris": 30340213
+    },
+    "31027": {
+     "weapons": [
+      null,
+      null,
+      null
+     ],
+     "memoir_set": 17,
+     "companion": 43,
+     "debris": 30210241
+    },
+    "32026": {
+     "weapons": [
+      null,
+      null,
+      null
+     ],
+     "memoir_set": 17,
+     "companion": 8000009,
+     "debris": 30210241
+    }
+   },
+   "source": "nierrein:https://nierrein.guide/loadout/big-brain-lev-deedac10ec4",
+   "votes": 1
+  },
+  {
+   "name": "I Hate Bloody Griff",
+   "costumes": [
+    35016,
+    31021,
+    34031
+   ],
+   "loadout": {
+    "35016": {
+     "weapons": [
+      320422,
+      500022,
+      320382
+     ],
+     "memoir_set": 10,
+     "companion": 43,
+     "debris": 85100834
+    },
+    "31021": {
+     "weapons": [
+      500012,
+      410031,
+      410071
+     ],
+     "memoir_set": 10,
+     "companion": 8000006,
+     "debris": 85100834
+    },
+    "34031": {
+     "weapons": [
+      340542,
+      340312,
+      500042
+     ],
+     "memoir_set": 10,
+     "companion": 28,
+     "debris": 85100834
+    }
+   },
+   "source": "nierrein:https://nierrein.guide/loadout/i-hate-bloody-griff-eadc8c0dab8",
+   "votes": 5
+  },
+  {
+   "name": "pvp exx",
+   "costumes": [
+    34020,
+    31018,
+    32011
+   ],
+   "loadout": {
+    "34020": {
+     "weapons": [
+      500012,
+      500032,
+      500052
+     ],
+     "memoir_set": 6,
+     "companion": null,
+     "debris": null
+    },
+    "31018": {
+     "weapons": [
+      410031,
+      310422,
+      410071
+     ],
+     "memoir_set": 10,
+     "companion": null,
+     "debris": null
+    },
+    "32011": {
+     "weapons": [
+      420111,
+      320232,
+      320092
+     ],
+     "memoir_set": 1,
+     "companion": null,
+     "debris": null
+    }
+   },
+   "source": "nierrein:https://nierrein.guide/loadout/pvp-exx-52018cc3c0a",
+   "votes": 8
+  },
+  {
+   "name": "Water Waifus",
+   "costumes": [
+    32028,
+    32032,
+    32022
+   ],
+   "loadout": {
+    "32028": {
+     "weapons": [
+      320532,
+      420151,
+      340502
+     ],
+     "memoir_set": 10,
+     "companion": 50,
+     "debris": 60401332
+    },
+    "32032": {
+     "weapons": [
+      320582,
+      420031,
+      420071
+     ],
+     "memoir_set": 8,
+     "companion": 36,
+     "debris": 20500913
+    },
+    "32022": {
+     "weapons": [
+      320332,
+      320012,
+      410111
+     ],
+     "memoir_set": 8,
+     "companion": 12,
+     "debris": 30210241
+    }
+   },
+   "source": "nierrein:https://nierrein.guide/loadout/water-waifus-aa2a0f1b63f",
+   "votes": 1
+  }
+ ]
+}
