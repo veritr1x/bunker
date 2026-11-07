@@ -10,9 +10,11 @@ Writes, under --out (default android/tools/fixtures/deckbuilder):
                       time where the video shows it.
   turn_order.csv      battle openings read from videos.
 
-Master data is not committed (it is the game's own data): --master copies the
-tables the Deck Builder reads from a JSON dump into .build/deckbuilder/master,
-where the tests look unless DECKBUILDER_MASTER says otherwise.
+Game data is not committed: --master copies the tables Deck Builder reads from
+a JSON dump into .build/deckbuilder/master, --master-bin the .bin.e the server
+code reads to .build/deckbuilder/master.bin.e, and --names the English names to
+.build/deckbuilder/names; the tests look there (or at DECKBUILDER_MASTER,
+DECKBUILDER_MASTER_BIN, DECKBUILDER_NAMES) and skip what they lack.
 """
 from __future__ import annotations
 
@@ -160,6 +162,8 @@ def main(argv=None):
     p.add_argument("--turn-order", type=Path, help="turn_order.csv")
     p.add_argument("--master", type=Path, help="JSON master dump (EntityM*Table.json)")
     p.add_argument("--master-out", type=Path, default=DEFAULT_MASTER_OUT)
+    p.add_argument("--master-bin", type=Path, help="the game's 20240404193219.bin.e, for the staging save (bunker-edit)")
+    p.add_argument("--names", type=Path, help="extract_names output folder (costumes.json, weapons.json, ...)")
     p.add_argument("--out", type=Path, default=DEFAULT_OUT)
     a = p.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
@@ -174,6 +178,13 @@ def main(argv=None):
         print("turn_order.csv")
     if a.master:
         print("master tables", copy_master(a.master, a.master_out), "->", a.master_out)
+    if a.master_bin:
+        a.master_out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(a.master_bin, a.master_out.parent / "master.bin.e")
+        print("master.bin.e ->", a.master_out.parent)
+    if a.names:
+        shutil.copytree(a.names, a.master_out.parent / "names", dirs_exist_ok=True)
+        print("names ->", a.master_out.parent / "names")
 
 
 if __name__ == "__main__":

@@ -24,6 +24,12 @@ func Edit(dataRoot, assetRoot, raw string) string {
 	if err := json.Unmarshal([]byte(raw), &request); err != nil {
 		return fail(err.Error())
 	}
+	if target, ok := request["target"]; ok {
+		if target != "deckbuilder_stage" {
+			return fail("Unknown save target")
+		}
+		return editStage(dataRoot, assetRoot, request)
+	}
 	// Pod Programs › Gift's "how many can still be claimed" only reads the
 	// save, so the game can play on; "send_gift" checks again with the
 	// server stopped.
@@ -53,6 +59,33 @@ func Edit(dataRoot, assetRoot, raw string) string {
 	encoded, err := json.Marshal(request)
 	if err != nil {
 		return fail(err.Error())
+	}
+	return lunarbase.Execute(encoded)
+}
+
+// editStage runs an edit on Pod Programs › Deck Builder's staging save
+// (dataRoot/deckbuilder/stage.db), where fully raised pieces are built. It is
+// never the player's save, so the game may keep playing; "stage_new" starts
+// it over with an empty player 1. The caller holds lifecycle.
+func editStage(dataRoot, assetRoot string, request map[string]any) string {
+	path := filepath.Join(dataRoot, "deckbuilder", "stage.db")
+	if request["action"] == "stage_new" {
+		if err := lunarbase.NewStage(path); err != nil {
+			b, _ := json.Marshal(map[string]any{"ok": false, "error": err.Error()})
+			return string(b)
+		}
+		return `{"ok":true}`
+	}
+	if _, err := os.Stat(path); err != nil {
+		return `{"ok":false,"error":"The Deck Builder stage is not ready"}`
+	}
+	request["db_path"] = path
+	request["user_id"] = 1
+	request["master_data_path"] = filepath.Join(assetRoot, "assets", "release", MasterName)
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		b, _ := json.Marshal(map[string]any{"ok": false, "error": err.Error()})
+		return string(b)
 	}
 	return lunarbase.Execute(encoded)
 }
