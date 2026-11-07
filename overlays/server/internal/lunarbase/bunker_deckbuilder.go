@@ -10,15 +10,55 @@ package lunarbase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/model"
+	"lunar-tear/server/internal/pvp"
+	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/store/sqlite"
 	"lunar-tear/server/migrations"
 )
+
+// readData is what a read action found, sent back in the reply's "data"
+// (patches/lunar-base-zzz-deckbuilder.patch).
+var readData any
+
+func takeReadData() any {
+	d := readData
+	readData = nil
+	return d
+}
+
+// runArenaMatching: "arena_matching" answers with the player's current
+// matching list (pvp.Opponent), reading the save only.
+func runArenaMatching(req *request) (int, error) {
+	if req.MasterDataPath == "" {
+		return 0, errors.New("master_data_path required for arena_matching")
+	}
+	h, err := runtime.NewHolder(req.MasterDataPath)
+	if err != nil {
+		return 0, err
+	}
+	db, st, err := openDB(req.DBPath)
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+	u, err := st.LoadUser(req.UserID)
+	if err != nil {
+		return 0, err
+	}
+	ops := pvp.CatalogFor(h.Get()).Opponents(&u, giftNow())
+	if ops == nil {
+		ops = []pvp.Opponent{}
+	}
+	readData = ops
+	return len(ops), nil
+}
 
 // NewStage creates an empty save at path holding only player 1, replacing
 // any save already there.

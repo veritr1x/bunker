@@ -1,11 +1,40 @@
 package lunarbase
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/database"
 )
+
+// arena_matching answers with the matching list and leaves the save as it was.
+// Needs real game data (BUNKER_TEST_MASTER); skipped without it.
+func TestArenaMatchingReadsOnly(t *testing.T) {
+	master := os.Getenv("BUNKER_TEST_MASTER")
+	if master == "" {
+		t.Skip("BUNKER_TEST_MASTER not set")
+	}
+	path := filepath.Join(t.TempDir(), "game.db")
+	if err := NewStage(path); err != nil {
+		t.Fatal(err)
+	}
+	stat := func() string {
+		b, _ := os.ReadFile(path)
+		return string(b)
+	}
+	before := stat()
+	raw, _ := json.Marshal(map[string]any{"action": "arena_matching", "db_path": path, "user_id": 1, "master_data_path": master})
+	out := Execute(raw)
+	if !strings.Contains(out, `"ok":true`) {
+		t.Fatalf("arena_matching: %s", out)
+	}
+	if stat() != before {
+		t.Fatal("arena_matching wrote to the save")
+	}
+}
 
 // Deck Builder's staging save starts empty with player 1, so the server's own
 // grant and upgrade actions can build fully raised pieces on it.
