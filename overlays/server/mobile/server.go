@@ -27,6 +27,7 @@ import (
 	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/interceptor"
 	"lunar-tear/server/internal/mods"
+	"lunar-tear/server/internal/pvp"
 	"lunar-tear/server/internal/runtime"
 	"lunar-tear/server/internal/service"
 	gamestore "lunar-tear/server/internal/store"
@@ -264,6 +265,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Second, PermitWithoutStream: true}),
 		grpc.ChainUnaryInterceptor(interceptor.Recover, interceptor.Platform, interceptor.Logging, interceptor.ReturnToTitle, interceptor.NewDiffInterceptor(store, store), interceptor.NewMissionInterceptor(store, store), interceptor.ViewTimes, interceptor.TimeSync), grpc.UnknownServiceHandler(interceptor.UnknownService))
 	service.InitBunker(holder)
+	pvp.SetDataDir(dataRoot) // Deck Builder's deck table beside the save (pvp/decktable.go)
 	summonNotices := map[int32]int32{}
 	for _, e := range holder.Get().GachaEntries {
 		if e.InformationId != 0 {

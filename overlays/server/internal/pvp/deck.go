@@ -110,6 +110,9 @@ func scaled(v, strength float64, lo, hi int32) int32 {
 
 // Deck builds the computer player's deck for the battle.
 func (c *Catalog) Deck(cpu CPU, p Profile, strength float64) []*pb.PvpDeckCharacter {
+	if cpu.Loadout != nil {
+		return c.loadoutDeck(cpu.Loadout, p, strength)
+	}
 	var out []*pb.PvpDeckCharacter
 	for slot := range cpu.Costumes {
 		if cpu.Costumes[slot] == 0 {
@@ -123,6 +126,35 @@ func (c *Catalog) Deck(cpu CPU, p Profile, strength float64) []*pb.PvpDeckCharac
 			MainWeapon: c.weaponInfo(cpu.Weapons[slot], p, strength),
 			Thought:    &pb.ThoughtInfo{},
 		})
+	}
+	return out
+}
+
+// loadoutDeck is a Deck Builder deck (decktable.go) with its full loadout:
+// sub weapons, companion, memoirs and debris; levels scale like the rest.
+func (c *Catalog) loadoutDeck(d *DeckLoadout, p Profile, strength float64) []*pb.PvpDeckCharacter {
+	var out []*pb.PvpDeckCharacter
+	for _, ch := range d.Characters {
+		if ch.Costume == 0 {
+			continue
+		}
+		dc := &pb.PvpDeckCharacter{
+			Costume:    c.costumeInfo(ch.Costume, p, strength),
+			Companion:  &pb.CompanionInfo{CompanionId: ch.Companion, Level: scaled(50, strength, 1, 50)},
+			MainWeapon: c.weaponInfo(ch.MainWeapon, p, strength),
+			Thought:    &pb.ThoughtInfo{ThoughtId: ch.Thought},
+		}
+		for _, w := range ch.Subs {
+			dc.SubWeapon = append(dc.SubWeapon, c.weaponInfo(w, p, strength))
+		}
+		for _, part := range ch.Parts {
+			info := &pb.PartsInfo{PartsId: part.Id, Level: 15, PartsMainStatusId: part.Main}
+			for _, s := range part.Subs {
+				info.SubPartsStatus = append(info.SubPartsStatus, &pb.PartsSubStatusInfo{Level: 15, StatusKindType: s[0], StatusCalculationType: s[1], StatusChangeValue: s[2]})
+			}
+			dc.Parts = append(dc.Parts, info)
+		}
+		out = append(out, dc)
 	}
 	return out
 }
