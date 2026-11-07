@@ -41,9 +41,6 @@ USER_TABLES = (
 )
 # Columns that are not game data and are dropped.
 DROP_COLUMNS = {"name"}
-MASTER_PREFIXES = ("Ability", "Character", "Companion", "Config", "Costume", "ImportantItem", "Numerical",
-                   "Parts", "Power", "Skill", "StainedGlass", "Thought", "Weapon", "Pvp", "BattleAttribute",
-                   "Deck", "Catalog")
 # Fight end times read from the videos (data-meta/sim_calibration_report.txt).
 VIDEO_WIN_SECONDS = {("Fo5jCU4TIxc", 1): 13.0, ("DFMQmpJxA-A", 6): 32.0}
 
@@ -146,10 +143,9 @@ def write_video_decks(arena_decks: Path, out: Path) -> list[str]:
 def copy_master(src: Path, dst: Path) -> int:
     dst.mkdir(parents=True, exist_ok=True)
     n = 0
-    for f in sorted(src.glob("EntityM*Table.json")):
-        if f.name[len("EntityM"):].startswith(MASTER_PREFIXES):
-            shutil.copy2(f, dst / f.name)
-            n += 1
+    for f in sorted(src.glob("EntityM*Table.json")):   # all of it: the simulator reads widely
+        shutil.copy2(f, dst / f.name)
+        n += 1
     return n
 
 
