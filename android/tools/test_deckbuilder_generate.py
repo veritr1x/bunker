@@ -93,6 +93,47 @@ class GenerateTest(unittest.TestCase):
         self.assertEqual(owned_costumes, 3)
         self.assertLessEqual(r.to_add, staged - owned_costumes)
 
+    def assert_valid_decks(self, items, base):
+        costume_char = tables().idx("Costume", "CostumeId")
+        for r in items:
+            chars = [costume_char[c]["CharacterId"] for c in r.lineup]
+            self.assertEqual(len(set(chars)), len(chars), f"{r.lineup}: a character twice")
+            used = {}
+            for c in r.deck.characters():
+                self.assertIsNotNone(c.main_weapon, f"{r.lineup}: a character with no main weapon")
+                for kind, p in [("costume", c.costume), ("debris", c.debris)]:
+                    if p:
+                        self.assertNotIn((kind, p.uuid), used, f"{r.lineup}: one {kind} on two characters")
+                        used[(kind, p.uuid)] = 1
+
+    def test_decks_are_valid_in_best_mode(self):
+        self.assert_valid_decks(self.gen.page(self.criteria(), 0, 30).items, self.stage)
+
+    def test_decks_are_valid_in_owned_mode(self):
+        import json
+        from deckbuilder_testlib import FIX
+        base = model.Save(model.rows_to_db(json.loads((FIX / "saves" / "129f58f58f43.json").read_text())), 1)
+        gen = generate.Generator(tables(), self.experts, base, self.stage, meta_size=1, runs=1)
+        for allow in (0, 2):
+            items = gen.page(self.criteria(mode=equip.Mode("owned", allow)), 0, 6).items
+            self.assertTrue(items)
+            self.assert_valid_decks(items, base)
+
+    def test_owned_mode_scales_to_a_late_game_save(self):
+        import json, time
+        from deckbuilder_testlib import FIX
+        base = model.Save(model.rows_to_db(json.loads((FIX / "saves" / "2d981f327817.json").read_text())), 1)
+        gen = generate.Generator(tables(), self.experts, base, self.stage, meta_size=1, runs=1)
+        self.assertLessEqual(len(gen.pool(equip.Mode("owned"))), generate.DEFAULT_POOL)
+        t0 = time.time()
+        page = gen.page(self.criteria(mode=equip.Mode("owned", 2)), 0, 6)
+        self.assertTrue(page.items)
+        self.assertLess(time.time() - t0, 20)
+
+    def test_min_stats_leaving_nothing_says_so(self):
+        page = self.gen.page(self.criteria(min_stats={"agi": 10 ** 9}), 0, 6)
+        self.assertEqual((page.total, page.items, page.exhausted, page.relax), (0, [], True, "min_stats"))
+
     def test_generate_no_match(self):
         c = self.criteria(must_have=frozenset({"compromise"}), exclude=frozenset({NY_YUDIL}), elements=("fire", "fire", "fire"))
         page = self.gen.page(c, 0, 6)
