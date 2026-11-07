@@ -60,6 +60,15 @@ func TestEditDeckBuilderStage(t *testing.T) {
 	}
 }
 
+// A deck write reads Deck Builder's own stage: a stage_path in the request is
+// replaced with the app's, never used.
+func TestEditFixesTheStagePath(t *testing.T) {
+	got := editRequest(t.TempDir(), map[string]any{"action": "deck_write", "stage_path": "/somewhere/else.db"})
+	if !strings.HasSuffix(got["stage_path"].(string), filepath.Join("deckbuilder", "stage.db")) {
+		t.Fatalf("stage_path %v", got["stage_path"])
+	}
+}
+
 // While the server runs, the shim checks gifts with the running server's
 // granter (lunarbase.LiveGranter), never loading the master data again.
 func TestTheShimUsesTheLiveGranter(t *testing.T) {

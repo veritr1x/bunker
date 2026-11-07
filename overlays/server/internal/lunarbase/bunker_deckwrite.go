@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 
 	"github.com/google/uuid"
@@ -444,7 +445,7 @@ func runDeckWrite(req *request) (int, error) {
 		return 0, err
 	}
 	var stage *store.UserState
-	if req.StagePath != "" {
+	if _, serr := os.Stat(req.StagePath); req.StagePath != "" && serr == nil { // never create a missing stage
 		sdb, sst, err := openDB(req.StagePath)
 		if err != nil {
 			return 0, err
