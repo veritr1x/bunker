@@ -196,6 +196,36 @@ class PageTest(unittest.TestCase):
         self.assertEqual(r.json()["ok"], True)
         self.assertEqual(self.calls[1][1]["deck"]["slots"][0]["power"], 413318)
 
+    def test_portraits(self):
+        """Costume portraits from the game's own files, converted like the Archive's images."""
+        import tempfile
+        tmp = Path(tempfile.mkdtemp())
+        bundle = tmp / "assetbundle/ui/costume/ch013012/ch013012_portrait.assetbundle"
+        bundle.parent.mkdir(parents=True)
+        bundle.write_bytes(b"bundle")
+        made = []
+
+        def convert(src, target, size):
+            made.append((Path(src).name, size))
+            Path(target).write_bytes(b"\x89PNG\r\n\x1a\nfake")
+            return ""
+        names = {35035: {"costume_actor_asset_id": "ch013012"}}
+        with mock.patch.object(db, "_portrait_source", lambda: (tmp, convert)), \
+             mock.patch.object(db, "_portrait_cache", lambda: tmp / "cache"), \
+             mock.patch.object(db, "_costume_asset", lambda cid: names.get(cid, {}).get("costume_actor_asset_id")):
+            r = self.c.get("/decks/portrait/35035.png")
+            self.assertEqual((r.status_code, r.headers["content-type"]), (200, "image/png"))
+            self.assertTrue(r.content.startswith(b"\x89PNG"))
+            self.c.get("/decks/portrait/35035.png")
+            self.assertEqual(made, [("ch013012_portrait.assetbundle", 360)])     # converted once, then kept
+            self.assertEqual(self.c.get("/decks/portrait/99999.png").status_code, 404)
+        with mock.patch.object(db, "_portrait_source", lambda: None):
+            self.assertEqual(self.c.get("/decks/portrait/35035.png").status_code, 404)
+
+    def test_page_shows_portraits(self):
+        page = (ROOT / "overlays/python/web/templates/deck_builder.html").read_text()
+        self.assertIn("/decks/portrait/", page)
+
     def test_detail(self):
         r = self.c.get("/decks/detail", params={"user": 1, "key": db.result_key(self.session.result)}).json()
         self.assertEqual(r["raises"][0]["used_in"], ["Arena deck 1"])

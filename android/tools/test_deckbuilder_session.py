@@ -91,6 +91,13 @@ class SessionTest(unittest.TestCase):
         self.assertTrue(page.items)
         self.in_thread(lambda: s.page(db.criteria_from(s, {}), 3, 3))
 
+    def test_tiles_and_detail_name_each_costume(self):
+        db.prepare(1)
+        s = db.session(1)
+        r = s.page(db.criteria_from(s, {}), 0, 1).items[0]
+        self.assertEqual([t["id"] for t in s.tiles(r)], list(r.lineup))
+        self.assertEqual([c["costume_id"] for c in s.detail(r)["characters"]], list(r.lineup))
+
     def test_refresh_writes_the_arena_files(self):
         db.prepare(1)
         db.session(1)

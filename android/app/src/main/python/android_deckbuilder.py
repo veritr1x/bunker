@@ -126,7 +126,7 @@ class Session:
         out = []
         for i, (c, e) in enumerate(zip(r.lineup, r.elements)):
             spec = r.equipped.specs[i]
-            out.append({"name": self.tables.costume_name(c), "element": e, "slot": "LMR"[i], "new": bool(spec and spec.costume.uuid in new
+            out.append({"id": c, "name": self.tables.costume_name(c), "element": e, "slot": "LMR"[i], "new": bool(spec and spec.costume.uuid in new
                                                                                                           and self.base.pick("costume", costume_id=c) is None)})
         return out
 
@@ -151,7 +151,8 @@ class Session:
                                "why": r.equipped.reasons.get((c.costume.id, "memoirs"), "")})
             if c.debris:
                 pieces.append({"kind": "DEB", "name": self.tables.name("thoughts", c.debris.id), "new": spec.debris.source == "stage" and self.base.pick("debris", thought_id=c.debris.id) is None, "why": ""})
-            chars.append({"slot": ("Left", "Middle", "Right")[i], "name": self.tables.costume_name(c.costume.id), "line": e.per_character[i],
+            chars.append({"slot": ("Left", "Middle", "Right")[i], "costume_id": c.costume.id,
+                          "name": self.tables.costume_name(c.costume.id), "line": e.per_character[i],
                           "element": r.elements[i], "force": forces[i], "pieces": pieces})
         inv = model.Inventory(self.base, self.tables)
         labels = {(s.deck_type, s.number): s.label for s in model.slots(self.base, self.tables)}
@@ -369,6 +370,65 @@ def _spec_json(spec):
 
 
 # ---------------------------------------------------------------- routes
+
+# ---------------------------------------------------------------- portraits
+
+def _portrait_source():
+    """(assetbundle folder's parent, convert) for the game files the player
+    imported, converting like the Archive (the Go library: through Java on
+    Android, in process on iOS); None without game files or a converter."""
+    import android_archive
+    revision = android_archive.revision_root(Path(config.ASSETS_DIR).parent)
+    if not (revision / "assetbundle").is_dir():
+        return None
+    try:
+        import ios_runtime
+        convert = ios_runtime._archive_converters()["decode"]
+    except ImportError:
+        try:
+            convert = android_archive.android_converters()["decode"]
+        except ImportError:
+            return None
+    return revision, convert
+
+
+def _portrait_cache():
+    return Path(config.GAME_DB_PATH).parent / "deckbuilder" / "portraits"
+
+
+def _costume_asset(costume_id):
+    """The costume's art folder name (ch013012), from the game's names."""
+    r = runtime.read_json(Path(config.NAMES_DIR) / "costumes.json") or {}
+    for rec in r.get("records", []) if isinstance(r, dict) else []:
+        if rec.get("id") == costume_id:
+            return rec.get("costume_actor_asset_id")
+    return None
+
+
+_portraits = {}
+
+
+@router.get("/decks/portrait/{costume_id}.png")
+def portrait(costume_id: int):
+    """A costume's portrait from the game's own files, made once, then kept."""
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+    source = _portrait_source()
+    asset = _costume_asset(costume_id)
+    if source is None or not asset:
+        raise HTTPException(404)
+    revision, convert = source
+    from archive.media import Textures
+    key = (str(revision), str(_portrait_cache()))
+    if key not in _portraits:
+        _portraits.clear()
+        _portraits[key] = Textures(revision / "assetbundle", _portrait_cache(), convert)
+    try:
+        png = _portraits[key].png(f"ui/costume/{asset}/{asset}_portrait.assetbundle", "thumb")
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404)
+    return FileResponse(png, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+
 
 def _not_ready(exc: StageNotReady, against=None):
     return JSONResponse({"ok": False, "prepare": True, "against": against if exc.extra else None, "error": str(exc)}, status_code=409)

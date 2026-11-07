@@ -35,6 +35,9 @@
   .tile{display:flex;flex-direction:column;gap:4px;min-width:0}
   .por{aspect-ratio:3/4;position:relative;border:1px solid var(--db-line);overflow:hidden}
   .por::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.18),transparent 45%,rgba(0,0,0,.25))}
+  .por img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+  .ch-top{display:grid;grid-template-columns:64px 1fr;gap:10px}
+  .ch-top .por{aspect-ratio:3/4}
   .por .slot{position:absolute;left:0;bottom:0;background:rgba(0,0,0,.45);color:#f3efe2;font-size:9px;letter-spacing:.08em;padding:1px 5px;z-index:1}
   .por.new::before{content:"NEW";position:absolute;top:0;right:0;background:#f3efe2;color:#3a372f;font-size:8px;padding:1px 4px;z-index:1;font-weight:bold}
   .tile .nm{font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
@@ -197,8 +200,10 @@ function query() {
   return q;
 }
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// The costume's portrait from the game's files; the element colour stays when there is none.
+const pic = id => `<img src="/decks/portrait/${Number(id)}.png" alt="" loading="lazy" onerror="this.remove()">`;
 function cardHtml(c) {
-  const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}"><span class="slot">${t.slot}</span></div><div class="nm">${esc(t.name)}</div></div>`).join("");
+  const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><div class="nm">${esc(t.name)}</div></div>`).join("");
   const tags = c.tags.map(t => `<span class="tg">${esc(t)}</span>`).join("");
   const pick = c.data_pick ? `<p class="rc-pick">Data pick: beats ${esc(c.data_pick.beats)} by ${c.data_pick.by_pct} points</p>` : "";
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><div class="rc-no">${String(c.rank).padStart(2, "0")}</div><div class="rc-title">${esc(c.title)}</div>
@@ -240,8 +245,8 @@ async function openDetail(key, el) {
   detailData = d;
   $("d-title").textContent = d.title;
   $("d-why").innerHTML = `<strong>Why this deck.</strong> ${esc(d.why_long)}`;
-  $("d-chars").innerHTML = d.characters.map(c => `<div class="ch"><div class="ch-top"><div class="role">${esc(c.slot)} · ${esc(c.element)} · Force ${c.force.toLocaleString()}</div>
-    <div class="nm2">${esc(c.name)}</div><div class="line">${esc(c.line)}</div></div><ul class="pieces">${c.pieces.map(p =>
+  $("d-chars").innerHTML = d.characters.map(c => `<div class="ch"><div class="ch-top"><div class="por e-${esc(c.element)}">${pic(c.costume_id)}</div><div><div class="role">${esc(c.slot)} · ${esc(c.element)} · Force ${c.force.toLocaleString()}</div>
+    <div class="nm2">${esc(c.name)}</div><div class="line">${esc(c.line)}</div></div></div><ul class="pieces">${c.pieces.map(p =>
     `<li><div class="ico">${p.kind}</div><div><b>${esc(p.name)}${p.new ? '<span class="tagnew">NEW</span>' : ""}</b><span class="r">${esc(p.why)}</span></div></li>`).join("")}</ul></div>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>Data override.</strong> ${esc(o)}</div>`).join("");
   const byCostume = {};
