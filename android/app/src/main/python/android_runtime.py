@@ -122,6 +122,10 @@ def adapt_services():
     if "gift" not in backup_service.VALID_REASONS:
         backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "gift")
         backup_service.REASON_LABELS["gift"] = "Gift"
+    # Pod Programs › Deck Builder backs the save up before each write (android_deckbuilder.write).
+    if "deck builder" not in backup_service.VALID_REASONS:
+        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "deck builder")
+        backup_service.REASON_LABELS["deck builder"] = "Deck Builder"
     def prune(n):
         ordinary = [b for b in backup_service.list_backups() if b.reason != "update"]
         for b in ordinary[n:]:
@@ -351,6 +355,7 @@ def create_app(token, origin):
     from android_patcher import router
     import android_display
     import android_gacha
+    import android_deckbuilder
     import android_gift
     import android_mods
     import android_players
@@ -361,6 +366,7 @@ def create_app(token, origin):
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
     app.include_router(android_gift.router)
+    app.include_router(android_deckbuilder.router)
     app.include_router(android_mods.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.

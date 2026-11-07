@@ -112,6 +112,18 @@ class StageDeckTest(unittest.TestCase):
         self.assertIn((1, 1), [u for r in raises for u in r.used_in])
         self.assertIn((1, 1), inv.decks_using(LOW))
 
+    def test_staged_costume_the_player_owns_uses_theirs(self):
+        """Like the write (deck_write): a staged costume the player owns is not
+        added; the deck uses the player's own, as it is unless ticked."""
+        base = model.Save(snapshot_con(IPAD), 1)
+        spec = model.CharacterSpec(costume=model.PieceRef("costume", self.stage.pick("costume", costume_id=LOW), "stage"),
+                                   main_weapon=None, subs=[], companion=None, memoirs=[], debris=None)
+        deck = model.compose(base, self.stage, [spec], 2, 9, tables())
+        c = deck.characters()[0].costume
+        self.assertEqual(c.uuid, base.pick("costume", costume_id=LOW))
+        self.assertEqual(deck.save.one("select count(*) n from user_costumes where user_id=? and costume_id=?", LOW)["n"], 1)
+        self.assertEqual(deck.save.one("select level from user_costumes where user_id=? and costume_id=?", LOW)["level"], 61)
+
     def test_raise_ticked_costume_changes_only_that_costume(self):
         base = model.Save(snapshot_con(IPAD), 1)
         spec = model.CharacterSpec(costume=model.PieceRef("costume", base.pick("costume", costume_id=LOW), "save"),

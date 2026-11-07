@@ -79,6 +79,20 @@ class GenerateTest(unittest.TestCase):
         b = self.gen.page(c, 0, 12).items
         self.assertEqual([r.lineup for r in a], [r.lineup for r in b])
 
+    def test_to_add_skips_what_the_player_owns(self):
+        """Theoretical best on a player who owns the costumes: the write uses the
+        owned costumes and debris, so they are not counted as added."""
+        import json
+        from deckbuilder_testlib import FIX
+        con = model.rows_to_db(json.loads((FIX / "saves" / "2d981f327817.json").read_text()))
+        base = model.Save(con, 1)
+        gen = generate.Generator(tables(), self.experts, base, self.stage, pool=POOL, meta_size=1, runs=1)
+        r = gen.evaluate(TOP_DEFENSE, self.criteria())
+        staged = len(r.equipped.to_add)
+        owned_costumes = sum(1 for s in r.equipped.specs if base.pick("costume", costume_id=self.stage.piece_id("costume", s.costume.uuid)))
+        self.assertEqual(owned_costumes, 3)
+        self.assertLessEqual(r.to_add, staged - owned_costumes)
+
     def test_generate_no_match(self):
         c = self.criteria(must_have=frozenset({"compromise"}), exclude=frozenset({NY_YUDIL}), elements=("fire", "fire", "fire"))
         page = self.gen.page(c, 0, 6)

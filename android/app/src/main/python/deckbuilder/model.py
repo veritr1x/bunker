@@ -319,7 +319,15 @@ def compose(base: Save, stage: Save | None, specs: list, deck_type: int, deck_nu
         if base.has(t):
             _insert(con, t, base.q(f"select * from {t} where user_id=?"))
     src = {"save": base, "stage": stage or base}
-    char_of = {}
+
+    def as_owned(ref):
+        """Like deck_write: a staged costume or debris the player owns is theirs
+        (the game holds one of each), as it is unless ticked to raise."""
+        if ref is None or ref.source != "stage" or src["stage"] is base or ref.kind not in ("costume", "debris"):
+            return ref
+        mine = base.pick(ref.kind, **{KINDS[ref.kind][2]: src["stage"].piece_id(ref.kind, ref.uuid)})
+        return PieceRef(ref.kind, mine, "save") if mine else ref
+    specs = [s._replace(costume=as_owned(s.costume), debris=as_owned(s.debris)) if s else None for s in specs]
     for spec in specs:
         if spec is None:
             continue
