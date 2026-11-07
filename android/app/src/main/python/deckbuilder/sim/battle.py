@@ -142,7 +142,7 @@ class Battle:
                 kind, v = p["life"]
                 rec = dict(p=p, left=None, cnt=None, src=id(o))
                 if kind == "frames": rec["left"] = v if v < 54000 else 10 ** 9
-                elif kind == "turns": rec["left"] = v * P["TURN_FRAMES"] if v < 999 else 10 ** 9
+                elif kind == "turns": rec["turns"] = v if v < 999 else None    # counted at its holder's turns (count_turn)
                 elif kind == "ticks": rec["left"] = v * P["TICK_FRAMES"]
                 elif kind == "hits": rec["cnt"] = v
                 a.st = [s for s in a.st if not (s["p"]["type"] == p["type"] and s["src"] == id(o))]
@@ -243,6 +243,15 @@ class Battle:
 
     def on_hit(self, u, tgt, dmg, hits_in_skill, normal):
         """After each hit (Subjugation scoring)."""
+
+    def count_turn(self, u):
+        """u's turn: each status it holds measured in turns loses one, and those at 0 end. A unit stunned for one
+        turn so loses exactly its next turn."""
+        if any(s.get("turns") is not None for s in u.st):
+            for s in u.st:
+                if s.get("turns") is not None:
+                    s["turns"] -= 1
+            u.st = [s for s in u.st if s.get("turns") is None or s["turns"] > 0]
 
     def reliance(self, e):
         s = 0
@@ -440,7 +449,10 @@ class Battle:
             u = None
             while turn:
                 c = turn.pop(0)
-                if c.alive and not self.has(c, "stun") and self.enemies(c): u = c; break
+                if not c.alive: continue
+                stunned = self.has(c, "stun")
+                self.count_turn(c)            # its turn passes: statuses measured in turns count down (a stun ends)
+                if not stunned and self.enemies(c): u = c; break
             if u is None: self.tick(P["STEP"]); continue
             if P["ACTION_MODEL"] in ("turn", "hybrid"):
                 dur = 0
