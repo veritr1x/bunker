@@ -155,7 +155,7 @@
 <script>
 const USER = {{ user }};
 const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match"};
-let offset = 0, busy = false, done = false, chosen = null, detailData = null;
+let offset = 0, busy = false, done = false, chosen = null, detailData = null, pending = false;
 const $ = id => document.getElementById(id);
 
 document.querySelectorAll(".seg").forEach(seg => seg.addEventListener("click", e => {
@@ -206,7 +206,7 @@ function cardHtml(c) {
     <div><span class="k">To add</span><span class="v">${c.to_add}</span></div>${c.variants ? `<span class="var">+${c.variants} variants</span>` : ""}</div></button>`;
 }
 async function load(reset) {
-  if (busy) return;
+  if (busy) { if (reset) pending = true; return; }   // a change while loading: load again when this one ends
   if (reset) { offset = 0; done = false; $("cards").innerHTML = ""; $("detail").hidden = true; }
   if (done) return;
   busy = true; $("more").textContent = "Simulating decks…";
@@ -221,6 +221,7 @@ async function load(reset) {
     $("more").textContent = r.total === 0 ? (r.relax ? `Try without the "${r.relax.replace("_", " ")}" filter.` : "") : done ? "" : "Scroll for more";
   } catch (e) { $("more").textContent = "Couldn't load decks: " + e; }
   busy = false;
+  if (pending) { pending = false; load(true); }
 }
 new IntersectionObserver(es => { if (es[0].isIntersecting && offset) load(false); }).observe($("more"));
 $("cards").addEventListener("click", e => { const b = e.target.closest(".rc"); if (b) openDetail(b.dataset.key, b); });
@@ -228,7 +229,10 @@ $("cards").addEventListener("click", e => { const b = e.target.closest(".rc"); i
 async function openDetail(key, el) {
   document.querySelectorAll(".rc").forEach(x => x.classList.toggle("on", x === el));
   chosen = key;
-  const d = detailData = await (await fetch(`/decks/detail?user=${USER}&key=${encodeURIComponent(key)}`)).json();
+  const res = await fetch(`/decks/detail?user=${USER}&key=${encodeURIComponent(key)}`);
+  const d = await res.json();
+  if (!res.ok) { say("error", (d.error || "That deck is no longer listed") + ". Loading the list again."); load(true); return; }
+  detailData = d;
   $("d-title").textContent = d.title;
   $("d-why").innerHTML = `<strong>Why this deck.</strong> ${esc(d.why_long)}`;
   $("d-chars").innerHTML = d.characters.map(c => `<div class="ch"><div class="ch-top"><div class="role">${esc(c.slot)} · ${esc(c.element)} · Force ${c.force.toLocaleString()}</div>
@@ -243,6 +247,12 @@ async function openDetail(key, el) {
   $("w-raise-box").hidden = !d.raises.length;
   $("detail").hidden = false; $("detail").scrollIntoView({behavior: "smooth"});
   rescore();
+}
+function say(kind, text) {
+  const msg = $("db-msg");
+  msg.hidden = false; msg.className = "banner" + (kind === "error" ? " error" : " success");
+  msg.textContent = (kind === "error" ? "> ERROR :: " : "> ") + text;
+  msg.scrollIntoView({behavior: "smooth"});
 }
 const ticked = sel => [...document.querySelectorAll(sel + " input:checked")].map(x => x.value);
 async function rescore() {
@@ -261,7 +271,11 @@ async function writeDeck() {
       body: JSON.stringify({user: USER, key: chosen, slots: slots.map(Number), raise: ticked("#w-raise").map(Number)})});
     const j = await r.json();
     msg.hidden = false;
-    if (j.ok) { msg.className = "banner success"; msg.textContent = `> Written to ${slots.length} deck slot${slots.length > 1 ? "s" : ""}. Added ${j.added} piece${j.added === 1 ? "" : "s"}.`; }
+    if (j.ok) {
+      msg.className = "banner success";
+      msg.textContent = `> Written to ${slots.length} deck slot${slots.length > 1 ? "s" : ""}. Added ${j.added} piece${j.added === 1 ? "" : "s"}. The game updates the deck's power when it next shows it.`;
+      load(true);   // the save changed: the list is read again
+    }
     else { msg.className = "banner error"; msg.textContent = "> ERROR :: " + j.error; }
     msg.scrollIntoView({behavior: "smooth"});
   } finally { $("w-go").disabled = false; }
