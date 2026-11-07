@@ -129,13 +129,17 @@ def costume_flags(costume_id, tables) -> set:
 
 
 class Generator:
-    def __init__(self, tables, experts, base: model.Save, stage: model.Save, pool=None, meta_size=5, runs=4, best_pool=None):
+    def __init__(self, tables, experts, base: model.Save, stage: model.Save, pool=None, meta_size=5, runs=4, best_pool=None,
+                 baked=None):
         from deckbuilder import sim
         sim.use(tables)
         self.tables, self.experts, self.base, self.stage = tables, experts, base, stage
         self.meta_size, self.runs = meta_size, runs
         self._pool = list(pool) if pool else None
         self._best_pool = list(best_pool) if best_pool else None     # All maxed's pool, chosen by strength (screen)
+        self._baked = baked           # deckbuilder.baked.Baked: All maxed against the general meta, baked at build time
+        self._baked_lists = {}
+        self._baked_results = {}
         self._meta = None
         self._cache = {}          # criteria key -> state
 
@@ -375,7 +379,91 @@ class Generator:
             if below and r.win_rate > below[0].win_rate:
                 r.data_pick = DataPick(below[0].name, round(r.win_rate - below[0].win_rate, 4))
 
+    # -------------------------------------------------------------- baked
+    def baked_applies(self, criteria) -> bool:
+        """All maxed against the general meta, ranked by match or Force, no minimum stats: what the bake ranked."""
+        return (self._baked is not None and criteria.mode.kind == "best" and criteria.against is None
+                and criteria.deck_for in ("attack", "defense") and not criteria.min_stats and criteria.sort in ("match", "force"))
+
+    def _baked_passes(self, lineup, els, criteria) -> bool:
+        """_passes on a baked deck: its elements are its costumes' baked ones (a slot's element is chosen, not set)."""
+        s = set(lineup)
+        if not set(criteria.include) <= s or s & set(criteria.exclude):
+            return False
+        if any(want and want != e for want, e in zip(criteria.elements, els)):
+            return False
+        if set(els) & set(criteria.exclude_elements):
+            return False
+        if not set(criteria.must_have) <= self.lineup_effects(lineup):
+            return False
+        if criteria.strategy != "any" and criteria.strategy not in self.strategies(lineup, els):
+            return False
+        return True
+
+    def _baked_list(self, criteria) -> list:
+        key = (criteria.deck_for, criteria.strategy, criteria.elements, criteria.must_have, criteria.include, criteria.exclude,
+               criteria.exclude_elements, criteria.sort)
+        if key not in self._baked_lists:
+            while len(self._baked_lists) >= CACHE_SIZE:
+                self._baked_lists.pop(next(iter(self._baked_lists)))
+            el = self._baked.element
+            out = [r for r in self._baked.records(criteria.deck_for)
+                   if self._baked_passes(r.lineup, tuple(el(c) for c in r.lineup), criteria)]
+            if criteria.sort == "force":
+                win = (lambda r: (r.defense_win, r.defense_margin)) if criteria.deck_for == "defense" else (lambda r: (r.attack_win, r.attack_margin))
+                out.sort(key=lambda r: (-r.force, tuple(-x for x in win(r)), r.lineup))
+            self._baked_lists[key] = out
+        return self._baked_lists[key]
+
+    def _baked_result(self, rec, criteria, rank) -> Result:
+        """A baked deck as a Result: its baked loadouts (a debris taken twice goes to the next: baked.deck_loadouts),
+        built with the player's own costumes raised (All maxed writes them so); win rate, margin and Force baked."""
+        from deckbuilder import baked as bk
+        from deckbuilder.explain import short_reason
+        k = (rec.lineup, criteria.deck_for)
+        if k not in self._baked_results:
+            if not hasattr(self, "_baked_order"):
+                self._baked_order = bk.debris_order(self._baked.loadouts)
+            los = bk.deck_loadouts(rec.lineup, self._baked.loadouts, self._baked_order)
+            specs = [bk.loadout_spec(lo, self.stage, self.tables) for lo in los]
+            deck = model.compose(self.base, self.stage, specs, 2, 1, self.tables, raise_all=True)
+            to_add = [ref for spec in specs for ref in spec.pieces() if ref and ref.source == "stage"]
+            reasons = {}
+            for lo, base_lo in zip(los, (self._baked.loadouts[c] for c in rec.lineup)):
+                reasons[(lo["costume_id"], "main_weapon")] = (
+                    f"Chosen by Deck Builder's simulations: the main weapon this costume fought best with against the meta. "
+                    f"Makes this character {lo['element']} in the Arena.")
+                if lo["debris"] != base_lo["debris"]:
+                    reasons[(lo["costume_id"], "debris")] = "Its first choice is on another character of this deck (the game holds one)."
+            eq = equip.Equipped(deck=deck, specs=specs, reasons=reasons, overrides=[], to_add=to_add)
+            els = tuple(lo["element"] for lo in los)
+            strategies = self.strategies(rec.lineup, els)
+            eff = self.lineup_effects(rec.lineup)
+            tags = [EFFECT_LABEL[e] for e in EFFECTS if e in eff][:3]
+            _, actors, _ = power.actors_for(deck, self.tables)
+            stats = [power.character_stats(a, self.tables) if a else None for a in actors]
+            win, margin = ((rec.defense_win, rec.defense_margin) if criteria.deck_for == "defense" else (rec.attack_win, rec.attack_margin))
+            self._baked_results[k] = Result(
+                rank=0, lineup=rec.lineup, name=" · ".join(self.tables.character_name(c) for c in rec.lineup),
+                expert=any(l.costumes == rec.lineup for l in self.experts.lineups()), deck=deck, strategy=strategies[0],
+                win_rate=win, margin=margin, force=rec.force, to_add=self.added(to_add), tags=tags, effects=eff,
+                elements=els, stats=stats, why=short_reason(strategies[0], els, tags, None, self.tables), equipped=eq)
+        r = self._baked_results[k]
+        r.rank = rank
+        return r
+
+    def _baked_page(self, criteria, offset, limit) -> Page:
+        lst = self._baked_list(criteria)
+        if not lst:
+            return Page(0, [], True, self.relax(criteria))
+        items = [self._baked_result(r, criteria, offset + i + 1) for i, r in enumerate(lst[offset:offset + limit])]
+        for r in items:
+            r.variants = []
+        return Page(len(lst), items, offset + limit >= len(lst), None)
+
     def page(self, criteria: Criteria, offset: int, limit: int) -> Page:
+        if self.baked_applies(criteria):
+            return self._baked_page(criteria, offset, limit)
         st = self._state(criteria)
         if st["total"] is None:
             st["total"] = self.total(criteria)
