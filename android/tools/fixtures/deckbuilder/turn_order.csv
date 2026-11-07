@@ -1,0 +1,162 @@
+video,timestamp,side,slot,costume,action,agility_if_known
+Fo5jCU4TIxc,2:32.0,both,,,WAVE 1 banner (battle start),
+Fo5jCU4TIxc,2:33.5,attacker,middle,New Year's Boor (Yudil),portrait highlighted / queued (first to act together with Akeha),1350
+Fo5jCU4TIxc,2:33.5,attacker,right,Celebratory Assassin (Akeha),portrait highlighted / queued,1353
+Fo5jCU4TIxc,2:34.0,attacker,right,Celebratory Assassin (Akeha),FIRST SKILL: Beaming Blade (character skill; hit 8703),1353
+Fo5jCU4TIxc,2:34.0,attacker,middle,New Year's Boor (Yudil),Tengu's Incitement (character skill) banner; crit ~26k,1350
+Fo5jCU4TIxc,2:34.5,attacker,left,New Year's Captain (Griff),FIRST NORMAL ATTACK (lunge + pistol shots; crit 61494 + 22747 at 2:35.0; 29697 at 2:35.5),1727
+Fo5jCU4TIxc,2:35.5,attacker,middle,New Year's Boor (Yudil),weapon skill B. Liquid Sup. x4 (team water dmg +30%),1350
+Fo5jCU4TIxc,2:36.0,attacker,middle,New Year's Boor (Yudil),weapon skill B. Enticement x5 (provoke + dmg cut),1350
+Fo5jCU4TIxc,2:37.0,unknown,,,green beam across the field (normal attack; side uncertain - possibly defender),
+Fo5jCU4TIxc,2:37.5,attacker,right,Celebratory Assassin (Akeha),Beaming Blade again (resolves 2:37.5-2:38.5 with field-wide slashes),1353
+Fo5jCU4TIxc,2:39.0,attacker,middle,New Year's Boor (Yudil),Tengu's Incitement again + normal-attack chain (ice burst; crits ~1.1M),1350
+Fo5jCU4TIxc,2:40.5,attacker,middle,New Year's Boor (Yudil),weapon skill pressed; COMBO 5 / DAMAGE 125%,1350
+Fo5jCU4TIxc,2:30-2:41,defender,,Dr. Llama deck (one unit likely New Year's Belle Sarafa; others uncertain),no defender skill banner visible in this window; first defender action not identifiable,
+DFMQmpJxA-A,10:49.5,both,all,,WAVE 1 banner; units in place; no hits yet,
+DFMQmpJxA-A,10:51.0,attacker,all,,all three player skill buttons flash READY (skills usable from start),
+DFMQmpJxA-A,10:51.25,attacker,right,New Year's Belle Sarafa (35036),FIRST SKILL OF THE FIGHT: player taps Demonic Revelation (banner at 10:51.5),1260
+DFMQmpJxA-A,10:52.0,attacker,right,New Year's Belle Sarafa (35036),Demonic Revelation hits (5703); HP 309670->3097 (HP-cost),1260
+DFMQmpJxA-A,10:52.75,attacker,right,New Year's Belle Sarafa (35036),Treason's Void Boon x5 (306573 hit),1260
+DFMQmpJxA-A,10:53.0,attacker,right,New Year's Belle Sarafa (35036),Demonic Revelation again + Treason's Vigor x5 (skills come back READY),1260
+DFMQmpJxA-A,10:53.0,defender,uncertain,uncertain,FIRST DEFENDER ACTION: hit on player middle Saryu (HP 409427->327168); attack type uncertain (normal attack or skill),
+DFMQmpJxA-A,10:53.5,defender,uncertain,uncertain,green wind-effect hits on Saryu/Yudil (14913; 19364),
+DFMQmpJxA-A,10:54.0,defender,uncertain,uncertain,critical hits 24890; 34792; 34815 on player front,
+DFMQmpJxA-A,10:54.75,defender,top-left list row 1,Yuletide Songstress Marie (31032) by skill name,FIRST DEFENDER SKILL: Holy Night's Stage (banner),
+DFMQmpJxA-A,10:56.0,defender,top-left list row 1-2,uncertain,another enemy skill (green flash on portrait),
+DFMQmpJxA-A,10:57.5,defender,top-left list row 3,Shadowbound Belle Sarafa (33030) by skill name - uncertain,Melancholic Chains (banner),
+DFMQmpJxA-A,10:58.5,defender,top-left list row 2,uncertain,enemy skill (portrait flash),
+DFMQmpJxA-A,10:59.0,defender,uncertain,uncertain,large green AoE skill hits player Sarafa (HP 34064->7227),
+DFMQmpJxA-A,10:49-10:59,attacker,left,New Year's Boor Yudil (32035),no skill or visible hit by Yudil in this window,1320
+DFMQmpJxA-A,10:49-10:59,attacker,middle,Festive Witch Saryu (34048),no skill by Saryu in this window,1180
+ohOXve1qM9c,70.0,both,,,battle scene loads (spawn effects); WAVE 1 banner 70.0-70.5,
+ohOXve1qM9c,72.0,attacker,uncertain,uncertain,first damage numbers on screen (7087/10680 crit) = first normal attacks; attacker unit not identifiable at 2 fps,
+ohOXve1qM9c,74.5,attacker,right,Festive Witch (Saryu),first skill: character skill 煌々たる蝴蝶 (portrait flash + banner),1052
+ohOXve1qM9c,75.0,defender,left (top of enemy list),unknown,enemy character skill 清白なる祈念 (first enemy skill),
+ohOXve1qM9c,75.0,attacker,left,Yuletide Hunter (Gayle),character skill 聖誕の鐘,1161
+ohOXve1qM9c,75.5,attacker,middle,Summer Ruler (Yurie),character skill Red Ocean (banner visible 75.5),1466
+ohOXve1qM9c,77.0,attacker,left,Yuletide Hunter (Gayle),weapon skill 幽愁ノ神護四連撃 (Melancholy's Blade),1161
+ohOXve1qM9c,78.0,attacker,left,Yuletide Hunter (Gayle),weapon skill 幽愁ノ五連撃：防,1161
+ohOXve1qM9c,79.0,attacker,middle,Summer Ruler (Yurie),weapon skill (Melancholy's Blade; banner partly obscured),1466
+ohOXve1qM9c,461.0,both,,,"battle already running when clip starts at 459; normal attacks exchanged, first damage number 4238 at 460.0 (unit unclear)",
+ohOXve1qM9c,462.5,attacker,right,Festive Witch (Saryu),first attacker skill: character skill 煌々たる蝴蝶 (portrait flash),1052
+ohOXve1qM9c,463.0,defender,left (top of enemy list),Summer Ruler (Yurie) - inferred from banner,enemy character skill Red Ocean (banner beside top enemy portrait); first enemy skill,
+ohOXve1qM9c,463.0,attacker,left,Yuletide Hunter (Gayle),character skill 聖誕の鐘,1161
+ohOXve1qM9c,463.5,attacker,middle,Summer Ruler (Yurie),character skill Red Ocean,1466
+ohOXve1qM9c,465.5,attacker,left,Yuletide Hunter (Gayle),weapon skill 幽愁ノ神護四連撃,1161
+ohOXve1qM9c,466.0,attacker,middle,Summer Ruler (Yurie),weapon skill 幽愁ノ神護四連撃 / 幽愁ノ五連撃：防,1466
+ohOXve1qM9c,467.5,attacker,right,Festive Witch (Saryu),weapon skill 慟哭ノ腕砕五連撃：防,1052
+ohOXve1qM9c,469.0,attacker,right,Festive Witch (Saryu),weapon skill 慟哭ノ守護四連撃：防,1052
+n3zcqj-457E,1:52.0,attacker,left+middle,,"F1: skill icons light up (READY), first actions begin",unknown (no stat screen shown)
+n3zcqj-457E,1:52.5,attacker,left,Yudil New Year's Boor,"F1: Yudil first hit on enemy (normal attack, uncertain whose)",unknown (no stat screen shown)
+n3zcqj-457E,1:53.0,attacker,left,Yudil New Year's Boor,F1: Yudil Tengu's Incitement (first skill),unknown (no stat screen shown)
+n3zcqj-457E,1:55.0,attacker,-,,F1: combo 2 -> 5 (125%) by 25.5,unknown (no stat screen shown)
+n3zcqj-457E,1:56.0,defender,left,Rion Oathbound Exile,F1: Rion Pristine Prayer (first enemy skill; heals 38841/34214/53133),unknown (no stat screen shown)
+n3zcqj-457E,1:59.0,attacker,middle,Sarafa New Year's Belle,F1: Sarafa Demonic Revelation,unknown (no stat screen shown)
+n3zcqj-457E,2:00.0,defender,middle?,Sarafa New Year's Belle,F1: enemy Sarafa Demonic Revelation,unknown (no stat screen shown)
+n3zcqj-457E,3:23.0,attacker,all,,F2: all three skill icons READY,unknown (no stat screen shown)
+n3zcqj-457E,3:24.0,attacker,?,,F2: first damage number WEAK 30703 (normal attack),unknown (no stat screen shown)
+n3zcqj-457E,3:26.0,defender,left,Rion Oathbound Exile,F2: Rion Pristine Prayer (first enemy skill),unknown (no stat screen shown)
+n3zcqj-457E,3:27.0,attacker,left,Yudil New Year's Boor,F2: Yudil Tengu's Incitement (first own skill),unknown (no stat screen shown)
+n3zcqj-457E,3:27.0,defender,row3,Saryu Festive Witch,F2: enemy Saryu Brilliant Butterfly,unknown (no stat screen shown)
+n3zcqj-457E,3:27.5,attacker,middle,Saryu Festive Witch,F2: Saryu Brilliant Butterfly,unknown (no stat screen shown)
+n3zcqj-457E,3:28.0,attacker,right,Sarafa New Year's Belle,F2: Sarafa Demonic Revelation,unknown (no stat screen shown)
+n3zcqj-457E,3:28.5,defender,row2,Sarafa New Year's Belle,F2: enemy Sarafa Demonic Revelation,unknown (no stat screen shown)
+n3zcqj-457E,3:30.5,defender,row1,,"F2: B. Tempest Sup. x4 (Blackhorn Loathing 500032, wind) from enemy row 1",unknown (no stat screen shown)
+n3zcqj-457E,4:54.5,attacker,left+middle,,F3: skill icons READY,unknown (no stat screen shown)
+n3zcqj-457E,4:55.5,attacker,left,Yudil New Year's Boor,F3: Yudil Tengu's Incitement,unknown (no stat screen shown)
+n3zcqj-457E,4:55.5,attacker,middle,Sarafa New Year's Belle,F3: Sarafa Demonic Revelation (same second),unknown (no stat screen shown)
+n3zcqj-457E,4:56.0,attacker,-,,F3: critical 138986 hits,unknown (no stat screen shown)
+n3zcqj-457E,5:00.5,defender,row1,,"F3: Dawn's Void Sup. x5 (Journey to Dawn 550022, dark)",unknown (no stat screen shown)
+n3zcqj-457E,5:02.0,attacker,middle,Sarafa New Year's Belle,F3: Sarafa Treason's Vigor x5 + Treason's Void Boon x5; Yudil dies (HP 0),unknown (no stat screen shown)
+n3zcqj-457E,8:13.0,attacker,left+middle,,F4: skill icons READY,unknown (no stat screen shown)
+n3zcqj-457E,8:14.0,attacker,left,Yudil New Year's Boor,F4: Yudil Tengu's Incitement,unknown (no stat screen shown)
+n3zcqj-457E,8:14.5,attacker,middle,Sarafa New Year's Belle,F4: Sarafa Demonic Revelation,unknown (no stat screen shown)
+n3zcqj-457E,8:17.0,defender,?,Marie Yuletide Songstress?,F4: enemy Marie Holy Night's Stage (first enemy skill),unknown (no stat screen shown)
+n3zcqj-457E,8:18.5,attacker,middle,Sarafa New Year's Belle,F4: Sarafa Treason's Void Boon x5 / Vigor x5,unknown (no stat screen shown)
+n3zcqj-457E,9:50.0,attacker,all,,F5: skill icons READY,unknown (no stat screen shown)
+n3zcqj-457E,9:50.5,attacker,right,Sarafa New Year's Belle,F5: Sarafa Demonic Revelation (FIRST own skill this time),unknown (no stat screen shown)
+n3zcqj-457E,9:51.5,attacker,?,,F5: first damage critical 39473,unknown (no stat screen shown)
+n3zcqj-457E,9:53.5,attacker,right,Sarafa New Year's Belle,F5: Sarafa Treason's Void Boon x5 + Vigor x5,unknown (no stat screen shown)
+n3zcqj-457E,9:54.5,attacker,left,Yudil New Year's Boor,F5: Yudil skill + Will Tempest Sup.,unknown (no stat screen shown)
+n3zcqj-457E,9:55.0,defender,?,Saryu Festive Witch,F5: enemy Brilliant Butterfly (first enemy skill),unknown (no stat screen shown)
+n3zcqj-457E,9:55.5,attacker,middle,Saryu Festive Witch,F5: Saryu Brilliant Butterfly,unknown (no stat screen shown)
+n3zcqj-457E,10:59.0,attacker,all,,F6: skill icons READY,unknown (no stat screen shown)
+n3zcqj-457E,11:00.0,attacker,left?,,F6: first damage critical WEAK 41093,unknown (no stat screen shown)
+n3zcqj-457E,11:01.0,defender,?,,F6: first enemy attack (red beam),unknown (no stat screen shown)
+n3zcqj-457E,11:02.0,attacker,right,Sarafa New Year's Belle,F6: Sarafa HP drops to 47159 -> Demonic Revelation used (banner not caught),unknown (no stat screen shown)
+n3zcqj-457E,11:04.0,defender,row1,Yurie Summer Ruler?,F6: enemy Yurie Red Ocean (first enemy skill),unknown (no stat screen shown)
+n3zcqj-457E,11:04.5,attacker,left,Yudil New Year's Boor,F6: Yudil Tengu's Incitement + Will Tempest Sup.,unknown (no stat screen shown)
+n3zcqj-457E,11:06.0,attacker,right,Sarafa New Year's Belle,F6: Sarafa Treason's Vigor x5,unknown (no stat screen shown)
+n3zcqj-457E,11:06.5,defender,?,Rion Oathbound Exile,F6: enemy Rion Pristine Prayer,unknown (no stat screen shown)
+l0IiqB8Bz6o,5.0,attacker,middle,Yuletide Songstress,[Fire fight @3.0s] skill-ready flash on portrait (char skill charged at start),1060
+l0IiqB8Bz6o,6.0,attacker,middle,Yuletide Songstress,"[Fire fight @3.0s] first visible own attack (staff swing), damage numbers on enemy 6.5-7.5",1060
+l0IiqB8Bz6o,7.5,defender,uncertain,uncertain,[Fire fight @3.0s] first damage number on own Marie (208259 floating),
+l0IiqB8Bz6o,8.5,attacker,middle,Yuletide Songstress,[Fire fight @3.0s] Holy Night's Stage banner (first own skill),1060
+l0IiqB8Bz6o,10.0,attacker,left/middle/right,all,"[Fire fight @3.0s] weapon banners: B. Blaze Sup. x4 (L), Whitefang Blaze Sup. x4 (M), Trusting Assault x5 (R)",
+l0IiqB8Bz6o,10.0,defender,slot1 (top),uncertain (Summer Yurie?),[Fire fight @3.0s] first enemy skill: Red Ocean (character skill),
+l0IiqB8Bz6o,12.0,attacker,left,Frozen-Heart Convict,[Fire fight @3.0s] B. Fatality x5,1173
+l0IiqB8Bz6o,105.0,attacker,middle,Yuletide Songstress,[Fire fight @102.5s] skill-ready flash; enemy beam visible,1060
+l0IiqB8Bz6o,105.5,attacker,middle,Yuletide Songstress,[Fire fight @102.5s] char skill burst; Holy Night's Stage banner 105.5-106.0 (first own skill),1060
+l0IiqB8Bz6o,106.0,defender,uncertain,uncertain,[Fire fight @102.5s] first enemy hit: dark (purple) 18813 on Marie; Marie HP 399704 -> 218397,
+l0IiqB8Bz6o,107.0,defender,uncertain,uncertain,[Fire fight @102.5s] crit 93318 on own side,
+l0IiqB8Bz6o,111.5,attacker,middle,Yuletide Songstress,[Fire fight @102.5s] crit 307554 on enemy,1060
+l0IiqB8Bz6o,114.5,attacker,left/middle/right,all,"[Fire fight @102.5s] weapon banners up: B. Blaze Sup./B. Fatality (L), Whitefang Blaze Sup. (M), Trusting Fleetfoot/Assault (R)",
+l0IiqB8Bz6o,339.5,both,-,-,[Fire fight @338.0s] battle HUD / WAVE 1 ends,
+l0IiqB8Bz6o,342.0,attacker,middle,Yuletide Songstress,[Fire fight @338.0s] skill-ready flash,1060
+l0IiqB8Bz6o,342.5,attacker,middle,Yuletide Songstress,[Fire fight @338.0s] char skill burst,1060
+l0IiqB8Bz6o,343.0,attacker,middle,Yuletide Songstress,[Fire fight @338.0s] Holy Night's Stage banner (first own skill),1060
+l0IiqB8Bz6o,343.5,defender,uncertain,uncertain,[Fire fight @338.0s] first enemy hit: dark 14417 on Marie; HP 392240 -> 253013,
+l0IiqB8Bz6o,344.0,defender,uncertain,uncertain,[Fire fight @338.0s] 29060 on Marie,
+l0IiqB8Bz6o,344.5,attacker,uncertain,uncertain,[Fire fight @338.0s] crit 61730 on enemy,
+l0IiqB8Bz6o,350.0,attacker,middle,Yuletide Songstress,[Fire fight @338.0s] Marie dead (HP 0) by ~350,1060
+l0IiqB8Bz6o,676.5,attacker,right,Yuletide Songstress,[Mixed A fight @673.5s] skill-ready flash,1060
+l0IiqB8Bz6o,677.0,defender,uncertain,uncertain,"[Mixed A fight @673.5s] first enemy hit: wind (green) strike on own 063y, HP 324076 -> 47516",
+l0IiqB8Bz6o,677.5,defender,uncertain,uncertain,[Mixed A fight @673.5s] crit 45806 then 78088 on 063y,
+l0IiqB8Bz6o,678.5,defender,uncertain (2B-like),uncertain,[Mixed A fight @673.5s] melee slash on own side,
+l0IiqB8Bz6o,679.0,attacker,right,Yuletide Songstress,[Mixed A fight @673.5s] Holy Night's Stage banner (first own skill); Hina HP 345679 -> 226257,1060
+l0IiqB8Bz6o,680.5,defender,slot1 (top),uncertain,[Mixed A fight @673.5s] enemy char skill flash,
+l0IiqB8Bz6o,682.0,attacker,middle,Frozen-Heart Convict,[Mixed A fight @673.5s] Black Lotus Lucid Sup. x5,1020
+l0IiqB8Bz6o,854.0,attacker,middle+right,Shadowbound Belle / Yuletide Songstress,[Wind fight @851.0s] skill-ready flashes on both,
+l0IiqB8Bz6o,855.0,both,-,-,[Wind fight @851.0s] enemy panel appears,
+l0IiqB8Bz6o,856.0,attacker,middle,Shadowbound Belle,[Wind fight @851.0s] first visible own attack (slash),1140
+l0IiqB8Bz6o,856.5,attacker,middle,Shadowbound Belle,[Wind fight @851.0s] crit 168007 on enemy,1140
+l0IiqB8Bz6o,857.0,attacker,middle,Shadowbound Belle,[Wind fight @851.0s] Melancholic Chains banner (first own skill); Will Pursuit x5 (L) and B. Tempest Sup. x4 (R) banners also up,1140
+l0IiqB8Bz6o,858.5,defender,uncertain,uncertain,[Wind fight @851.0s] first damage on own side: Sarafa HP 384731 -> 313473,
+l0IiqB8Bz6o,860.5,attacker,right,Yuletide Songstress,[Wind fight @851.0s] Holy Night's Stage banner,1060
+l0IiqB8Bz6o,863.0,defender,middle,uncertain,[Wind fight @851.0s] Chance Lucid Sup. x4,
+99C8DkP9z4Q,26.0,attacker,middle,Marie Yuletide Songstress 31032,turn diamond on portrait (first to act),1060 (other video)
+99C8DkP9z4Q,26.5,attacker,middle,Marie Yuletide Songstress 31032,first normal attack (shot),1060 (other video)
+99C8DkP9z4Q,27.0,defender,"uncertain (melee, wind/green)",unidentified,"first enemy hit, on our middle Marie",
+99C8DkP9z4Q,29.5,attacker,middle,Marie Yuletide Songstress 31032,first skill: Holy Night's Stage (character skill),1060 (other video)
+99C8DkP9z4Q,30.0,defender,uncertain,unidentified,hit on our right 063y,
+99C8DkP9z4Q,97.0,attacker,middle,Marie Yuletide Songstress 31032,turn diamond on portrait,1060 (other video)
+99C8DkP9z4Q,98.0,defender,uncertain (fire attack),unidentified,"first enemy hit, on our right 063y",
+99C8DkP9z4Q,98.5,attacker,middle,Marie Yuletide Songstress 31032,first normal attack (crit 5502),1060 (other video)
+99C8DkP9z4Q,100.0,attacker,middle,Marie Yuletide Songstress 31032,first skill: Holy Night's Stage,1060 (other video)
+99C8DkP9z4Q,101.0,attacker,right,063y Frozen-Heart Convict 53002,weapon skill B. Blaze Sup. x4,1164 (other video)
+99C8DkP9z4Q,102.5,attacker,left,Yurie Divine Ruler 31030,weapon skill Trusting Assault x5,1281 (other video)
+99C8DkP9z4Q,102.5,defender,uncertain,unidentified,first enemy skill banner seen ('...Bane'),
+99C8DkP9z4Q,181.0,attacker,middle,Marie Yuletide Songstress 31032,turn diamond on portrait,1060 (other video)
+99C8DkP9z4Q,181.5,attacker,middle,Marie Yuletide Songstress 31032,first normal attack (shot),1060 (other video)
+99C8DkP9z4Q,182.0,defender,uncertain (dark/purple),unidentified,"first enemy hit, on our Marie",
+99C8DkP9z4Q,183.0,attacker,middle,Marie Yuletide Songstress 31032,first skill: Holy Night's Stage,1060 (other video)
+99C8DkP9z4Q,183.5,defender,uncertain (fire),unidentified,"second enemy hit, on our Marie (crit 24479)",
+99C8DkP9z4Q,184.5,defender,top portrait (slot1?),Marie Yuletide Songstress 31032 (enemy),first enemy skill: Holy Night's Stage,
+99C8DkP9z4Q,185.0,attacker,right,063y Frozen-Heart Convict 53002,weapon skill B. Blaze Sup. x4,1164 (other video)
+99C8DkP9z4Q,186.0,attacker,left,Yurie Divine Ruler 31030,weapon skill Trusting Assault x5,1281 (other video)
+99C8DkP9z4Q,246.5,attacker,middle,Marie Yuletide Songstress 31032,turn diamond on portrait,1060 (other video)
+99C8DkP9z4Q,247.0,attacker,middle,Marie Yuletide Songstress 31032,first normal attack (shot),1060 (other video)
+99C8DkP9z4Q,247.5,defender,uncertain (melee),unidentified,"first enemy hit, on our Marie",
+99C8DkP9z4Q,249.5,attacker,middle,Marie Yuletide Songstress 31032,first skill: Holy Night's Stage,1060 (other video)
+99C8DkP9z4Q,250.5,attacker,right,063y Frozen-Heart Convict 53002,weapon skill B. Blaze Sup. x4,1164 (other video)
+99C8DkP9z4Q,251.0,attacker,left,Yurie Divine Ruler 31030,weapon skill Trusting Assault x5,1281 (other video)
+99C8DkP9z4Q,325.5,attacker,middle,Marie Yuletide Songstress 31032,turn diamond on portrait,1060 (other video)
+99C8DkP9z4Q,326.0,attacker,middle,Marie Yuletide Songstress 31032,first normal attack (shot),1060 (other video)
+99C8DkP9z4Q,326.5,defender,uncertain,unidentified,"first enemy hit, on our Marie",
+99C8DkP9z4Q,328.5,attacker,middle,Marie Yuletide Songstress 31032,first skill: Holy Night's Stage,1060 (other video)
+99C8DkP9z4Q,826.0,attacker,right,Sarafa Shadowbound Belle 33030,turn diamond on portrait (first to act),
+99C8DkP9z4Q,826.5,defender,uncertain,unidentified,first enemy action (red beam),
+99C8DkP9z4Q,827.5,defender,uncertain,unidentified,"first enemy hit, on our left 063y (351090 to 197767)",
+99C8DkP9z4Q,829.0,attacker,right,Sarafa Shadowbound Belle 33030,first skill: Melancholic Chains (character skill),
+99C8DkP9z4Q,831.0,attacker,left,063y Frozen-Heart Convict 53002,weapon skill Will Tempest Sup. x4,
+99C8DkP9z4Q,832.0,attacker,middle,Griff New Year's Captain 33032 (uncertain),weapon skill B. Tempest Sup. x4,
