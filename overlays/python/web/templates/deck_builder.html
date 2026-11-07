@@ -69,15 +69,21 @@
   .w-h{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.65;margin:14px 0 4px}
   .summary{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--db-line)}
   .summary p{margin:0;font-size:13px;line-height:1.5}
-  .open-filters,.sheet-head,.sheet-foot{display:none}
+  /* the criteria: a popup behind the Filters button (a sheet from the bottom on phones) */
+  .open-filters{display:inline-flex;gap:6px;align-items:center}
+  .sheet-dim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:19}
+  .filters-panel{position:fixed;z-index:20;left:50%;top:6vh;transform:translateX(-50%);width:min(980px,calc(100vw - 32px));max-height:88vh;overflow-y:auto;
+    background:var(--bg-cream);color:var(--fg-dark);border:2px solid var(--fg-dark);padding:10px 16px 0;box-sizing:border-box;animation:pop .15s ease-out}
+  .sheet-dim[hidden],.filters-panel[hidden]{display:none}
+  @keyframes pop{from{opacity:0}}
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--db-line);margin-bottom:12px}
+  .sheet-head b{font-size:15px;letter-spacing:.12em;text-transform:uppercase;margin-right:auto}
+  .sheet-foot{display:grid;grid-template-columns:1fr 2fr;gap:8px;position:sticky;bottom:0;padding:10px 0 12px;margin-top:12px;background:var(--bg-cream);border-top:1px solid var(--db-line)}
   @media (max-width:900px){.cards,.chars{grid-template-columns:1fr}.filters{grid-template-columns:1fr}}
   @media (max-width:640px){
     .db-controls{grid-template-columns:1fr}
-    .open-filters{display:inline-flex}
-    .filters-panel{position:fixed;left:0;right:0;bottom:0;top:110px;z-index:20;overflow-y:auto;background:var(--bg-dark,#24221d);border-top:2px solid var(--fg-dark);padding:6px 14px 80px;transform:translateY(110%);transition:transform .2s}
-    .filters-panel.open{transform:none}
-    .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-    .sheet-foot{display:grid;grid-template-columns:1fr 2fr;gap:8px;position:sticky;bottom:-80px;padding:10px 0}
+    .filters-panel{left:0;right:0;bottom:0;top:110px;width:auto;max-height:none;transform:none;border-width:2px 0 0;padding:6px 14px 0;animation:rise .2s ease-out}
+    @keyframes rise{from{transform:translateY(40%);opacity:.4}}
     .tagline{display:none}
     .write-bar{position:sticky;bottom:0;padding:10px 0;background:inherit}
   }
@@ -109,10 +115,10 @@
   </div>
 </div>
 
-<div class="filters-panel" id="filters-panel">
-  <div class="sheet-head"><b>Filters</b><button type="button" class="chip" onclick="clearFilters()">Clear all</button></div>
-  <h2 class="bracket-header">Criteria</h2>
-  <div class="panel">
+<div class="sheet-dim" id="sheet-dim" hidden onclick="sheet(false)"></div>
+<div class="filters-panel" id="filters-panel" role="dialog" aria-modal="true" aria-label="Filters" hidden>
+  <div class="sheet-head"><b>Filters</b><button type="button" class="chip" onclick="clearFilters()">Clear all</button><button type="button" class="chip" onclick="sheet(false)" aria-label="Close">✕</button></div>
+  <div>
     <div class="filters">
       <div class="f"><div class="db-lbl">Strategy</div><div class="chips" data-name="strategy" data-one="1">
         {% for v, n in (("any","Any"),("stall","Stall"),("burst","Burst"),("dauntless","Dauntless"),("compromise_counter","Compromise counter"),("tank","Tank & provoke"),("mono","Mono-element")) %}<button type="button" class="chip{% if v == 'any' %} on{% endif %}" data-v="{{ v }}">{{ n }}</button>{% endfor %}</div></div>
@@ -131,7 +137,7 @@
         <p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one piece changed.</p></div>
     </div>
   </div>
-  <div class="sheet-foot"><button type="button" class="chip" onclick="clearFilters()">Clear</button><button type="button" onclick="sheet(false); load(true)">Show decks</button></div>
+  <div class="sheet-foot"><button type="button" class="chip" onclick="clearFilters()">Clear</button><button type="button" onclick="sheet(false)">Show decks</button></div>
 </div>
 
 <h2 class="bracket-header">Decks</h2>
@@ -172,16 +178,24 @@ document.querySelectorAll(".chips[data-name]").forEach(box => box.addEventListen
   const name = box.dataset.name;
   if (box.dataset.one) { box.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); state[name] = b.dataset.v; }
   else { b.classList.toggle("on"); state[name] = [...box.querySelectorAll("button.on")].map(x => x.dataset.v); }
-  if (!window.matchMedia("(max-width:640px)").matches) load(true); countFilters();
+  dirty = true; countFilters();
 }));
-document.querySelectorAll("input[data-min]").forEach(r => r.addEventListener("change", () => {
+document.querySelectorAll("input[data-min]").forEach(r => r.addEventListener("input", () => {
   document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = +r.value ? (+r.value).toLocaleString() : "—";
-  if (!window.matchMedia("(max-width:640px)").matches) load(true); countFilters();
+  dirty = true; countFilters();
 }));
 $("against").addEventListener("change", () => load(true));
 $("allow").addEventListener("change", () => load(true));
 
-function sheet(open) { $("filters-panel").classList.toggle("open", open); }
+// The criteria popup: changes made in it apply when it closes (Show decks, ✕, a tap outside, Escape).
+let dirty = false;
+function sheet(open) {
+  $("filters-panel").hidden = $("sheet-dim").hidden = !open;
+  if (open) { $("filters-panel").scrollTop = 0; $("filters-panel").querySelector("button").focus({preventScroll: true}); return; }
+  document.querySelector(".open-filters").focus({preventScroll: true});
+  if (dirty) { dirty = false; load(true); }
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("filters-panel").hidden) sheet(false); });
 function countFilters() {
   const n = state.must.length + state.exclude_el.length + (state.strategy !== "any") + ["el_l","el_m","el_r"].filter(k => state[k]).length
           + [...document.querySelectorAll("input[data-min]")].filter(r => +r.value).length;
@@ -191,7 +205,8 @@ function clearFilters() {
   document.querySelectorAll(".chips[data-name]").forEach(box => box.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", !!box.dataset.one && i === 0)));
   Object.assign(state, {strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match"});
   document.querySelectorAll("input[data-min]").forEach(r => { r.value = 0; document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = "—"; });
-  countFilters(); load(true);
+  dirty = true; countFilters();
+  if ($("filters-panel").hidden) sheet(false);
 }
 function query() {
   const q = new URLSearchParams({user: USER, deck_for: state.deck_for, mode: state.mode, allow: $("allow").value, against: $("against").value,

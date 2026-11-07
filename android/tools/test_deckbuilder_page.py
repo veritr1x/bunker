@@ -106,6 +106,14 @@ class PageTest(unittest.TestCase):
         for text in ("Deck Builder", "Arena deck 1 (defense)", "Operator 6O", "/decks/results"):
             self.assertIn(text, r.text)
 
+    def test_criteria_are_a_closed_popup_behind_filters(self):
+        """As the mockup: the criteria open from the Filters button, closed at first, at any width."""
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('id="filters-panel" role="dialog" aria-modal="true" aria-label="Filters" hidden', html)
+        self.assertIn('class="open-filters', html)
+        self.assertNotIn('bracket-header">Criteria', html)
+        self.assertNotIn(".open-filters,.sheet-head,.sheet-foot{display:none}", html)
+
     def test_results_json_shape(self):
         r = self.c.get("/decks/results", params={"user": 1, "offset": 0, "limit": 6, "must": "compromise", "el_r": "water"}).json()
         self.assertEqual((r["total"], r["exhausted"], r["relax"]), (18640, False, None))
