@@ -889,9 +889,13 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   .grant-form:not(.upgrade):not(.costume):not(.weapon) .grant-name { flex: 1 1 0; min-width: 0; }
   .grant-form:not(.upgrade):not(.costume):not(.weapon) input { width: 96px; flex: none; }
 }
-@container (max-width: 440px) {
+@container (max-width: 600px) {
+  /* Costume and weapon rows: as on a portrait phone (the max-width: 600px rules above). */
   .grant-form.costume, .grant-form.weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 6px; }
-  .grant-form .grant-name { flex: 1 1 0; min-width: 0; }
+  .grant-form.costume .grant-name, .grant-form.weapon .grant-name { flex: 1 1 0; min-width: 0; }
+  .grant-form.costume .grant-id, .grant-form.weapon .grant-id { flex: 1 1 100%; order: 1; overflow-wrap: anywhere; font-size: 11px; color: var(--fg-mid); }
+  .grant-form.costume .grant-current, .grant-form.costume .row-checkbox, .grant-form.costume > button,
+  .grant-form.weapon .grant-current, .grant-form.weapon .row-checkbox, .grant-form.weapon > button { order: 2; }
   .grant-form .karma-row { flex: 1 1 100%; min-width: 0; order: 3; }
   .grant-form .karma-row select { flex: 1 1 100% !important; min-width: 0 !important; width: 100%; }
 }
