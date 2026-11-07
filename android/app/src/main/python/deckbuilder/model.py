@@ -136,7 +136,8 @@ class CharacterSpec(NamedTuple):
 
     def pieces(self):
         yield self.costume
-        yield self.main_weapon
+        if self.main_weapon:
+            yield self.main_weapon
         yield from self.subs
         if self.companion:
             yield self.companion

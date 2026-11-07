@@ -762,6 +762,36 @@ def deck_power(deck, tables) -> PowerResult:
     return PowerResult(total=total, characters=chars, stored=d["power"])
 
 
+def character_stats(actor, tables) -> dict:
+    """A character's battle stats from the same pipeline as Force: the costume's
+    status (abilities, board, awakening, karma, level bonus) plus its weapons'
+    and companion's HP/ATK/DEF, plus its memoirs' main and sub stats (flat
+    values added, percentages of the costume's). Ratios in permil.
+    Keys: hp, atk, df, agi, crit, critdmg, eva, comp_atk."""
+    if actor is None or actor.empty:
+        return None
+    s = actor.stats
+    c = s["costume"]
+    tot = {k: c[k] for k in KINDS}
+    for name in ("main_weapon", "sub_weapon1", "sub_weapon2", "companion"):
+        if name in s:
+            for k in (ATK, HP, VIT):
+                tot[k] += s[name][k]
+    for x in actor.memories:
+        items = list(x["subs"])
+        mn = x["main"]
+        if mn:
+            f = tables.nf(mn["StatusNumericalFunctionId"])
+            val = i32(calc_parameter(f[0], f[1], x["level"]) + mn["StatusChangeInitialValue"]) if f else mn["StatusChangeInitialValue"]
+            items.append((mn["StatusKindType"], mn["StatusCalculationType"], val))
+        for kind, calc, val in items:
+            if kind not in KINDS:
+                continue
+            tot[kind] += val if calc == ADD else permil(c[kind], val)
+    return {"hp": tot[HP], "atk": tot[ATK], "df": tot[VIT], "agi": tot[AGI], "crit": tot[CRIT_RATIO],
+            "critdmg": tot[CRIT_ATK], "eva": tot[EVA], "comp_atk": s["companion"][ATK] if "companion" in s else 0}
+
+
 def deck_power_from_save(db_path, user_id, deck_type, deck_number, tables) -> PowerResult:
     from deckbuilder import model
     return deck_power(model.Deck.from_save(db_path, user_id, deck_type, deck_number, tables), tables)
