@@ -35,6 +35,16 @@ class DeckBuilderError(Exception):
     """A refused write or edit: the shim's reason, for the player."""
 
 
+class StageNotReady(Exception):
+    """The staging save is missing, made from other data, or lacks these
+    costumes: POST /decks/prepare builds it (the game guard pauses the
+    server for it, as building loads master data the server reads)."""
+
+    def __init__(self, extra=()):
+        super().__init__("The Deck Builder stage is not ready")
+        self.extra = tuple(extra)
+
+
 def _shim(payload):
     from web.services import grant_service
     try:
@@ -71,7 +81,10 @@ class Session:
         sim.use(self.tables)
         self.experts = experts.Experts.load(self.tables)
         self.base = model.Save(model.connect_ro(config.GAME_DB_PATH), user_id)
-        self._open_stage(self.ensure_stage())
+        path = stage_ready(self.tables, self.experts)
+        if path is None:
+            raise StageNotReady()
+        self._open_stage(path)
 
     def _open_stage(self, path):
         from deckbuilder import generate, model
@@ -79,25 +92,6 @@ class Session:
         self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage)
         self.results = {}
         self._against = {}
-
-    def ensure_stage(self, extra=()) -> Path:
-        """The staging save for this master data and this build's expert and
-        ranking data, built (by the server's own upgrades) when missing or made
-        from other data; extra costumes (opponents) are kept in it."""
-        from deckbuilder import equip, generate, stage
-        folder = _stage_dir()
-        path, marker = folder / "stage.db", folder / "stage.json"
-        old = runtime.read_json(marker) or {}
-        extras = sorted(set(old.get("extra") or []) | set(extra))
-        want = {"master": runtime.fingerprint(config.find_master_data_bin()), "data": _data_signature(), "extra": extras}
-        if path.exists() and old == want:
-            return path
-        pool = generate.default_pool(self.tables, self.experts)
-        lineups = [(c,) for c in pool + extras] + [l.costumes for l in self.experts.lineups()]
-        stage.Stager(lambda p: _shim(p), self.tables).build(**equip.stage_plan(lineups, self.tables, self.experts))
-        folder.mkdir(parents=True, exist_ok=True)
-        marker.write_text(json.dumps(want))
-        return path
 
     def against(self, opponent):
         """The deck to build against: an opponent from the matching list
@@ -111,9 +105,8 @@ class Session:
                 return None
             lineup = tuple(c for c in o["costumes"] if c and c in self.tables.idx("Costume", "CostumeId"))
             staged = {r["costume_id"] for r in self.stage.q("select costume_id from user_costumes where user_id=?")}
-            if not set(lineup) <= staged:     # an opponent outside the stage: stage their costumes too
-                self.stage.db.close()
-                self._open_stage(self.ensure_stage(extra=lineup))
+            if not set(lineup) <= staged:     # an opponent outside the stage: prepare stages their costumes
+                raise StageNotReady(extra=lineup)
             self._against[opponent] = equip.equip(lineup, equip.Mode("best"), self.stage, self.stage, self.tables, self.experts,
                                                   deck_number=99).deck
         return self._against[opponent]
@@ -157,7 +150,7 @@ class Session:
                 pieces.append({"kind": "MEM", "name": f"{len(c.memoirs)} memoirs", "new": any(m.source == "stage" for m in spec.memoirs),
                                "why": r.equipped.reasons.get((c.costume.id, "memoirs"), "")})
             if c.debris:
-                pieces.append({"kind": "DEB", "name": self.tables.name("thoughts", c.debris.id), "new": spec.debris.source == "stage", "why": ""})
+                pieces.append({"kind": "DEB", "name": self.tables.name("thoughts", c.debris.id), "new": spec.debris.source == "stage" and self.base.pick("debris", thought_id=c.debris.id) is None, "why": ""})
             chars.append({"slot": ("Left", "Middle", "Right")[i], "name": self.tables.costume_name(c.costume.id), "line": e.per_character[i],
                           "element": r.elements[i], "force": forces[i], "pieces": pieces})
         inv = model.Inventory(self.base, self.tables)
@@ -167,6 +160,18 @@ class Session:
                   for x in model.raises_needed(r.equipped.specs, self.base, self.stage, inv)]
         return {"title": e.title, "why_long": e.why_long, "characters": chars, "overrides": e.overrides, "raises": raises,
                 "added": self.gen.added(r.equipped.to_add)}
+
+    def force(self, r, raises):
+        """The written deck's exact Force (no fights simulated)."""
+        from deckbuilder import model, power
+        deck = model.compose(self.base, self.stage, r.equipped.specs, ARENA, 1, self.tables, raises=list(raises))
+        return power.deck_power(deck, self.tables).total
+
+    def raisable(self, r):
+        """Owned costumes of this deck the stage holds higher: the ones a write may raise."""
+        from deckbuilder import model
+        inv = model.Inventory(self.base, self.tables)
+        return {x.costume_id for x in model.raises_needed(r.equipped.specs, self.base, self.stage, inv)}
 
     def rescore(self, r, raises):
         from deckbuilder import model, power
@@ -204,8 +209,52 @@ def _locked(fn):
     return run
 
 
-for _name in ("page", "find", "tiles", "detail", "rescore", "against", "opponents", "slots"):
+for _name in ("page", "find", "tiles", "detail", "force", "raisable", "rescore", "against", "opponents", "slots"):
     setattr(Session, _name, _locked(getattr(Session, _name)))
+
+
+def _stage_files():
+    folder = _stage_dir()
+    return folder / "stage.db", folder / "stage.json"
+
+
+def _stage_want(extra=()):
+    old = runtime.read_json(_stage_files()[1]) or {}
+    extras = sorted(set(old.get("extra") or []) | set(extra))
+    return old, {"master": runtime.fingerprint(config.find_master_data_bin()), "data": _data_signature(), "extra": extras}
+
+
+def stage_ready(tables, experts, extra=()):
+    """The staging save's path when it was made from this master data, this
+    build's expert and ranking data and holds these costumes; else None."""
+    path, _ = _stage_files()
+    old, want = _stage_want(extra)
+    return path if path.exists() and old == want else None
+
+
+def prepare(user_id: int, against=None) -> None:
+    """Build the staging save (by the server's own upgrades): this build's pool
+    and expert lineups, plus an opponent's costumes when one is named."""
+    from deckbuilder import equip, experts as experts_mod, generate, stage
+    tables = _tables_for(runtime.fingerprint(config.find_master_data_bin()))
+    experts = experts_mod.Experts.load(tables)
+    extra = ()
+    if against and against != "general":
+        try:
+            data = _shim({"action": "arena_matching", "user_id": user_id}).get("data") or []
+        except DeckBuilderError:
+            data = []
+        known = tables.idx("Costume", "CostumeId")
+        extra = tuple(c for o in data if str(o["id"]) == str(against) for c in o["costumes"] if c in known)
+    with _lock:
+        if stage_ready(tables, experts, extra) is None:
+            _, want = _stage_want(extra)
+            pool = generate.default_pool(tables, experts)
+            lineups = [(c,) for c in pool + list(want["extra"])] + [l.costumes for l in experts.lineups()]
+            stage.Stager(lambda p: _shim(p), tables).build(**equip.stage_plan(lineups, tables, experts))
+            _stage_dir().mkdir(parents=True, exist_ok=True)
+            _stage_files()[1].write_text(json.dumps(want))
+        _sessions.clear()
 
 
 _tables_cache: dict = {}
@@ -250,7 +299,10 @@ def _refresh_arena_now(user_id: int) -> None:
     """The Arena ladder's data (server/internal/pvp/decktable.go): the deck
     table when the master data changed, and this player's score."""
     from deckbuilder import ladder
-    s = session(user_id)
+    try:
+        s = session(user_id)
+    except StageNotReady:
+        return              # the page prepares it; the ladder keeps its last data until then
     decks, players = _arena_files()
     sig = runtime.fingerprint(config.find_master_data_bin())
     with s.lock:
@@ -318,26 +370,51 @@ def _spec_json(spec):
 
 # ---------------------------------------------------------------- routes
 
+def _not_ready(exc: StageNotReady, against=None):
+    return JSONResponse({"ok": False, "prepare": True, "against": against if exc.extra else None, "error": str(exc)}, status_code=409)
+
+
 @router.get("/decks")
 def page(request: Request, user: int = 0):
     user_id = _user(user)
-    s = session(user_id)
+    try:
+        s = session(user_id)
+    except StageNotReady:
+        return templates.TemplateResponse(request, "deck_builder.html", {"active": "decks", "user": user_id, "players": [],
+                                                                         "slots": [], "opponents": [], "preparing": True})
     refresh_arena(user_id)
     return templates.TemplateResponse(request, "deck_builder.html", {"active": "decks", "user": user_id, "players": s.players(),
-                                                                     "slots": s.slots(), "opponents": s.opponents()})
+                                                                     "slots": s.slots(), "opponents": s.opponents(), "preparing": False})
+
+
+@router.post("/decks/prepare")
+def prepare_route(payload: dict = Body(default={})):
+    """Builds the staging save. Not the player's save: the game plays on."""
+    try:
+        prepare(_user(payload.get("user")), payload.get("against"))
+    except (DeckBuilderError, ValueError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    return JSONResponse({"ok": True}, headers={"x-bunker-keep-playing": "1"})
 
 
 @router.get("/decks/results")
 def results(request: Request, user: int = 0, offset: int = 0, limit: int = 6):
-    s = session(_user(user))
-    c = criteria_from(s, dict(request.query_params))
+    q = dict(request.query_params)
+    try:
+        s = session(_user(user))
+        c = criteria_from(s, q)
+    except StageNotReady as exc:
+        return _not_ready(exc, q.get("against"))
     p = s.page(c, max(0, offset), max(1, min(limit, 24)))
     return {"total": p.total, "items": [card(s, r) for r in p.items], "exhausted": p.exhausted, "relax": p.relax}
 
 
 @router.get("/decks/detail")
 def detail(key: str, user: int = 0):
-    s = session(_user(user))
+    try:
+        s = session(_user(user))
+    except StageNotReady as exc:
+        return _not_ready(exc)
     r = s.find(key)
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
@@ -347,7 +424,10 @@ def detail(key: str, user: int = 0):
 @router.get("/decks/rescore")
 def rescore(request: Request, key: str, user: int = 0):
     """Force and win % with only the ticked costumes raised (?raise=id,id)."""
-    s = session(_user(user))
+    try:
+        s = session(_user(user))
+    except StageNotReady as exc:
+        return _not_ready(exc)
     r = s.find(key)
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
@@ -361,16 +441,30 @@ def opponents(user: int = 0):
 
 @router.post("/decks/write")
 def write(payload: dict = Body(...)):
-    user_id = _user(payload.get("user"))
-    s = session(user_id)
+    refuse = lambda message: JSONResponse({"ok": False, "error": message}, status_code=400)
+    try:
+        user_id = _user(payload.get("user"))
+    except (TypeError, ValueError):
+        return refuse("Unknown player")
+    try:
+        s = session(user_id)
+    except StageNotReady as exc:
+        return _not_ready(exc)
     r = s.find(str(payload.get("key") or ""))
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
-    numbers = [int(n) for n in payload.get("slots") or [] if str(n).isdigit()]
-    if not numbers:
-        return JSONResponse({"ok": False, "error": "Choose a deck slot to write to"}, status_code=400)
-    raises = sorted(_ints(",".join(str(x) for x in payload.get("raise") or [])))
-    force = s.rescore(r, raises)["force"]
+    from deckbuilder.model import ARENA_DECKS
+    slots = payload.get("slots") or []
+    if not slots:
+        return refuse("Choose a deck slot to write to")
+    if not all(isinstance(n, int) and 1 <= n <= ARENA_DECKS for n in slots):
+        return refuse(f"Arena deck slots are 1 to {ARENA_DECKS}")
+    numbers = sorted(set(slots))
+    raises = payload.get("raise") or []
+    if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.raisable(r):
+        return refuse("Only a costume of this deck that is below the staged level can be raised")
+    raises = sorted(set(raises))
+    force = s.force(r, raises)
     deck = {"slots": [{"deck_type": ARENA, "number": n, "power": force} for n in numbers],
             "characters": [_spec_json(x) for x in r.equipped.specs], "raise": raises}
     try:

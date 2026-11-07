@@ -31,15 +31,11 @@ func TestEditWhileTheServerRuns(t *testing.T) {
 	}
 }
 
-// Deck Builder builds fully raised pieces on its own staging save: those edits
-// never reach the player's save, so they are let through while the game runs,
-// and a path in the request is never used.
+// Deck Builder builds fully raised pieces on its own staging save, never the
+// player's; a path in the request is never used. Building it loads the master
+// data, which the running server reads too, so it waits for the server to be
+// stopped (Pod Programs' game guard pauses it for the build).
 func TestEditDeckBuilderStage(t *testing.T) {
-	lifecycle.Lock()
-	saved := active
-	active = &instance{}
-	lifecycle.Unlock()
-	t.Cleanup(func() { lifecycle.Lock(); active = saved; lifecycle.Unlock() })
 	dir := t.TempDir()
 	elsewhere := filepath.Join(t.TempDir(), "elsewhere.db")
 	got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"stage_new","user_id":1,"db_path":"`+elsewhere+`"}`)
@@ -54,13 +50,32 @@ func TestEditDeckBuilderStage(t *testing.T) {
 			t.Fatalf("%s was touched", p)
 		}
 	}
-	// An ordinary action on the stage runs while the server does.
-	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"upgrade_all_memoirs","user_id":1}`); strings.Contains(got, "Stop the game server") {
-		t.Fatalf("a stage edit was refused while the server runs: %s", got)
+	// Only the actions the stage is built with.
+	for _, action := range []string{"deck_write", "send_gift", "grant_possession"} {
+		if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"`+action+`","user_id":1}`); !strings.Contains(got, "not a stage action") {
+			t.Fatalf("%s on the stage: %s", action, got)
+		}
 	}
 	// Any other target is refused.
 	if got := Edit(dir, dir, `{"target":"other","action":"upgrade_all_memoirs","user_id":1}`); !strings.Contains(got, "Unknown save target") {
 		t.Fatalf("unknown target: %s", got)
+	}
+	// While the server runs: refused, so the master data is never loaded under it.
+	lifecycle.Lock()
+	saved := active
+	active = &instance{}
+	lifecycle.Unlock()
+	t.Cleanup(func() { lifecycle.Lock(); active = saved; lifecycle.Unlock() })
+	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"upgrade_all_memoirs","user_id":1}`); !strings.Contains(got, "Stop the game server") {
+		t.Fatalf("a stage edit ran beside the server: %s", got)
+	}
+}
+
+// The stage path the action gets is the app's own, even when the request names one.
+func TestEditStageIgnoresARequestedStagePath(t *testing.T) {
+	got := stageRequest(t.TempDir(), "/master.bin.e", map[string]any{"action": "upgrade_all_memoirs", "stage_path": "/else.db", "db_path": "/else.db"})
+	if got["stage_path"] != nil || !strings.HasSuffix(got["db_path"].(string), filepath.Join("deckbuilder", "stage.db")) {
+		t.Fatalf("stage request: %v", got)
 	}
 }
 

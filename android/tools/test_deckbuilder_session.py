@@ -76,13 +76,23 @@ class SessionTest(unittest.TestCase):
             raise out["error"]
         return out.get("value")
 
+    def test_reading_never_builds_the_stage(self):
+        """Building it loads master data the running server reads: only
+        POST /decks/prepare does (the game guard pauses the server for it)."""
+        with self.assertRaises(db.StageNotReady):
+            db.session(1)
+        db.prepare(1)
+        self.assertTrue(db.session(1).page(db.criteria_from(db.session(1), {}), 0, 1).items)
+
     def test_a_session_works_from_any_thread(self):
+        db.prepare(1)
         s = self.in_thread(lambda: db.session(1))
         page = s.page(db.criteria_from(s, {}), 0, 3)        # on this thread
         self.assertTrue(page.items)
         self.in_thread(lambda: s.page(db.criteria_from(s, {}), 3, 3))
 
     def test_refresh_writes_the_arena_files(self):
+        db.prepare(1)
         db.session(1)
         self.in_thread(lambda: db._refresh_arena_now(1))
         decks, players = db._arena_files()
@@ -90,6 +100,12 @@ class SessionTest(unittest.TestCase):
         self.assertIn("1", json.loads(players.read_text()))
 
     def test_against_an_opponent_outside_the_stage(self):
+        db.prepare(1)
+        s = db.session(1)
+        with self.assertRaises(db.StageNotReady) as caught:
+            s.against(str(self.opponent["id"]))
+        self.assertIn(UNSTAGED, caught.exception.extra)
+        db.prepare(1, against=str(self.opponent["id"]))
         s = db.session(1)
         deck = s.against(str(self.opponent["id"]))
         self.assertIsNotNone(deck)
@@ -98,7 +114,7 @@ class SessionTest(unittest.TestCase):
         self.assertTrue(page.items)
 
     def test_stage_rebuilt_when_the_shipped_data_changes(self):
-        s = db.session(1)
+        db.prepare(1)
         marker = Path(config.GAME_DB_PATH).parent / "deckbuilder" / "stage.json"
         m = json.loads(marker.read_text())
         self.assertIn("data", m)
@@ -106,7 +122,9 @@ class SessionTest(unittest.TestCase):
         m["data"] = "an older experts.json"
         marker.write_text(json.dumps(m))
         db._sessions.clear()
-        db.session(1)
+        with self.assertRaises(db.StageNotReady):
+            db.session(1)
+        db.prepare(1)
         self.assertNotEqual((marker.parent / "stage.db").stat().st_mtime_ns, built)
 
     def test_a_deck_with_a_missing_costume(self):
@@ -114,6 +132,7 @@ class SessionTest(unittest.TestCase):
         con.execute("delete from user_costumes where costume_id=34012")
         con.commit()
         con.close()
+        db.prepare(1)
         s = db.session(1)
         from deckbuilder import power
         r = power.deck_power(model.Deck(s.base, 1, 1), s.tables)
