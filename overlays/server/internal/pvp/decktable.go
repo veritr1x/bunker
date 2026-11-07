@@ -60,6 +60,43 @@ type DeckTable struct {
 }
 
 var (
+	playerMu    sync.Mutex
+	playerPath  string
+	playerAt    int64
+	playerData  map[string]float64
+	playerReads int // reads of the players file (tests)
+)
+
+// playerScores is the players file's attack scores, read again only when it changes.
+func playerScores(dir string) map[string]float64 {
+	path := filepath.Join(dir, playerFile)
+	st, err := os.Stat(path)
+	playerMu.Lock()
+	defer playerMu.Unlock()
+	if err != nil {
+		playerPath, playerAt, playerData = "", 0, nil
+		return nil
+	}
+	if path == playerPath && st.ModTime().UnixNano() == playerAt {
+		return playerData
+	}
+	playerReads++
+	playerPath, playerAt, playerData = path, st.ModTime().UnixNano(), nil
+	if b, err := os.ReadFile(path); err == nil {
+		var scores map[string]struct {
+			Attack float64 `json:"attack"`
+		}
+		if json.Unmarshal(b, &scores) == nil {
+			playerData = map[string]float64{}
+			for k, v := range scores {
+				playerData[k] = v.Attack
+			}
+		}
+	}
+	return playerData
+}
+
+var (
 	dataDir   string
 	tableMu   sync.Mutex
 	tableAt   int64
@@ -109,10 +146,14 @@ func currentTable() *DeckTable {
 // Pick is the deck a computer player at rank (1 = top) of a ladder of
 // ladderSize fields against a player whose decks rate playerQuality.
 func (t *DeckTable) Pick(rank, ladderSize int, playerQuality float64, r *rand.Rand) DeckLoadout {
+	return t.Decks[t.pickIndex(rank, ladderSize, playerQuality, r)]
+}
+
+func (t *DeckTable) pickIndex(rank, ladderSize int, playerQuality float64, r *rand.Rand) int {
 	n := len(t.Decks)
 	if rank <= metaRanks {
 		top := max(1, int(math.Ceil(float64(n)*metaShare)))
-		return t.Decks[r.IntN(top)]
+		return r.IntN(top)
 	}
 	qTop := t.Decks[0].Quality
 	share := 1 - float64(rank)/float64(max(ladderSize, 1))
@@ -126,21 +167,14 @@ func (t *DeckTable) Pick(rank, ladderSize int, playerQuality float64, r *rand.Ra
 	if i > 0 && math.Abs(t.Decks[i-1].Quality-target) < math.Abs(t.Decks[i].Quality-target) {
 		i--
 	}
-	return t.Decks[i]
+	return i
 }
 
 // PlayerQuality is how strong the player's Arena decks are: Deck Builder's
 // score for them, else their Force read through the table's curve.
 func PlayerQuality(dir string, userId int64, power int32, t *DeckTable) float64 {
-	if b, err := os.ReadFile(filepath.Join(dir, playerFile)); err == nil {
-		var scores map[string]struct {
-			Attack float64 `json:"attack"`
-		}
-		if json.Unmarshal(b, &scores) == nil {
-			if s, ok := scores[itoa(userId)]; ok {
-				return s.Attack
-			}
-		}
+	if s, ok := playerScores(dir)[itoa(userId)]; ok {
+		return s
 	}
 	c := t.PowerToQuality
 	if len(c) == 0 {
@@ -173,16 +207,51 @@ func (c *Catalog) Dress(l *Ladder, cpu CPU, u *store.UserState) CPU {
 		return cpu
 	}
 	p := c.ProfileOf(u, store.DeckKey{DeckType: model.DeckTypePvp, UserDeckNumber: max(1, u.Ext.Pvp.DefenseDeckNumber)})
-	return c.dress(t, l, cpu, PlayerQuality(dataDir, u.UserId, DeckPower(p, 1), t))
+	return c.dressFor(t, l, cpu, PlayerQuality(dataDir, u.UserId, DeckPower(p, 1), t), &u.Ext.Pvp)
+}
+
+// dressFor remembers the deck of each opponent on the current matching list
+// (or being fought), so the deck listed is the deck fought even when the
+// player's quality changes in between; a new matching list picks again.
+func (c *Catalog) dressFor(t *DeckTable, l *Ladder, cpu CPU, quality float64, p *store.PvpState) CPU {
+	if t == nil || l == nil {
+		return cpu
+	}
+	keep := map[int64]bool{p.Opponent: p.Opponent != 0}
+	for _, id := range p.Matching {
+		keep[id] = true
+	}
+	for id := range p.OpponentDecks {
+		if !keep[id] {
+			delete(p.OpponentDecks, id)
+		}
+	}
+	if i, ok := p.OpponentDecks[cpu.PlayerId]; ok && int(i) < len(t.Decks) {
+		return withLoadout(cpu, t.Decks[i])
+	}
+	i := c.pickIndex(t, l, cpu, quality)
+	if keep[cpu.PlayerId] {
+		if p.OpponentDecks == nil {
+			p.OpponentDecks = map[int64]int32{}
+		}
+		p.OpponentDecks[cpu.PlayerId] = int32(i)
+	}
+	return withLoadout(cpu, t.Decks[i])
 }
 
 func (c *Catalog) dress(t *DeckTable, l *Ladder, cpu CPU, quality float64) CPU {
 	if t == nil || l == nil {
 		return cpu
 	}
+	return withLoadout(cpu, t.Decks[c.pickIndex(t, l, cpu, quality)])
+}
+
+func (c *Catalog) pickIndex(t *DeckTable, l *Ladder, cpu CPU, quality float64) int {
 	r := rand.New(rand.NewPCG(uint64(cpu.PlayerId), uint64(math.Round(quality*100))))
-	rank := l.CPURank(cpu, 0)
-	d := t.Pick(int(rank), max(l.Size(), 1), quality, r)
+	return t.pickIndex(int(l.CPURank(cpu, 0)), max(l.Size(), 1), quality, r)
+}
+
+func withLoadout(cpu CPU, d DeckLoadout) CPU {
 	out := cpu
 	out.Loadout = &d
 	out.Costumes, out.Weapons = [3]int32{}, [3]int32{}

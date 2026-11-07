@@ -148,9 +148,10 @@ func (c *Catalog) loadoutDeck(d *DeckLoadout, p Profile, strength float64) []*pb
 			dc.SubWeapon = append(dc.SubWeapon, c.weaponInfo(w, p, strength))
 		}
 		for _, part := range ch.Parts {
-			info := &pb.PartsInfo{PartsId: part.Id, Level: 15, PartsMainStatusId: part.Main}
+			level := scaled(15, strength, 1, 15) // like the other levels
+			info := &pb.PartsInfo{PartsId: part.Id, Level: level, PartsMainStatusId: part.Main}
 			for _, s := range part.Subs {
-				info.SubPartsStatus = append(info.SubPartsStatus, &pb.PartsSubStatusInfo{Level: 15, StatusKindType: s[0], StatusCalculationType: s[1], StatusChangeValue: s[2]})
+				info.SubPartsStatus = append(info.SubPartsStatus, &pb.PartsSubStatusInfo{Level: level, StatusKindType: s[0], StatusCalculationType: s[1], StatusChangeValue: s[2]})
 			}
 			dc.Parts = append(dc.Parts, info)
 		}

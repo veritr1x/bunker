@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"lunar-tear/server/internal/runtime"
+	"lunar-tear/server/internal/store"
 )
 
 // A table of n decks with qualities from 1 down to 0.
@@ -82,6 +84,63 @@ func TestPlayerQuality(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, playerFile), b, 0o644)
 	if q := PlayerQuality(dir, 1, 300000, table); q != 0.42 {
 		t.Fatalf("scored player: %.3f, want their attack score 0.42", q)
+	}
+}
+
+// The players file is read once per change, not on every call.
+func TestPlayerQualityReadsTheFileOnce(t *testing.T) {
+	dir := t.TempDir()
+	table := testTable(10)
+	path := filepath.Join(dir, playerFile)
+	os.WriteFile(path, []byte(`{"1":{"attack":0.42}}`), 0o644)
+	if q := PlayerQuality(dir, 1, 0, table); q != 0.42 {
+		t.Fatalf("first read %.2f", q)
+	}
+	reads := playerReads
+	for i := 0; i < 50; i++ {
+		PlayerQuality(dir, 1, 0, table)
+	}
+	if playerReads != reads {
+		t.Fatalf("read the file %d more times", playerReads-reads)
+	}
+	later := time.Now().Add(time.Second)
+	os.WriteFile(path, []byte(`{"1":{"attack":0.9}}`), 0o644)
+	os.Chtimes(path, later, later)
+	if q := PlayerQuality(dir, 1, 0, table); q != 0.9 {
+		t.Fatalf("after a change %.2f", q)
+	}
+}
+
+// Memoirs scale with strength like the rest of the computer player's deck.
+func TestLoadoutMemoirsScale(t *testing.T) {
+	c := &Catalog{cats: &runtime.Catalogs{}}
+	d := testTable(1).Decks[0]
+	full := c.loadoutDeck(&d, Profile{}, 1)[0].Parts[0]
+	weak := c.loadoutDeck(&d, Profile{}, 0.4)[0].Parts[0]
+	if full.Level != 15 || weak.Level >= 15 || weak.Level < 1 || weak.SubPartsStatus[0].Level != weak.Level {
+		t.Fatalf("memoir levels: full %d, weak %d (subs %d)", full.Level, weak.Level, weak.SubPartsStatus[0].Level)
+	}
+}
+
+// The deck a computer player is listed with is the one fought, even when the
+// player's quality changes before the battle ends.
+func TestDressKeepsTheListedDeck(t *testing.T) {
+	c := &Catalog{cats: &runtime.Catalogs{}}
+	l := &Ladder{cpus: make([]CPU, 5000), points: make([]int32, 5000)}
+	for i := range l.points {
+		l.points[i] = int32(5000 - i)
+	}
+	cpu := CPU{PlayerId: CpuIdBase + 900, Point: 2500}
+	table := testTable(200)
+	p := &store.PvpState{Matching: []int64{cpu.PlayerId}}
+	listed := c.dressFor(table, l, cpu, 0.2, p)
+	fought := c.dressFor(table, l, cpu, 0.9, p)
+	if listed.Costumes != fought.Costumes {
+		t.Fatalf("listed %v, fought %v", listed.Costumes, fought.Costumes)
+	}
+	p.Matching = nil // a new matching list: picked again
+	if again := c.dressFor(table, l, cpu, 0.9, p); again.Costumes == listed.Costumes {
+		t.Fatal("a new matching list kept the old deck")
 	}
 }
 
