@@ -126,6 +126,20 @@ class PageTest(unittest.TestCase):
         self.assertEqual([t["slot"] for t in card["tiles"]], ["L", "M", "R"])
         self.assertTrue(card["key"])
 
+    def test_a_broken_session_is_rebuilt_once(self):
+        """A database error (the save changed under it) drops the session and the request runs again on a new one."""
+        import sqlite3
+        broken, fresh = FakeSession(), self.session
+        broken.page = lambda *a: (_ for _ in ()).throw(sqlite3.DatabaseError("database disk image is malformed"))
+        made = [broken, fresh]
+        dropped = []
+        with mock.patch.object(db, "session", lambda user: made[0]), \
+             mock.patch.object(db, "drop_session", lambda user: (dropped.append(user), made.pop(0))):
+            r = self.c.get("/decks/results", params={"user": 1, "offset": 0, "limit": 6})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["total"], 18640)
+        self.assertEqual(dropped, [1])
+
     def test_card_says_its_strategy_and_whether_experts_picked_it(self):
         [card] = self.c.get("/decks/results", params={"user": 1, "offset": 0, "limit": 6}).json()["items"]
         self.assertEqual(card["strategy"], "Compromise counter")

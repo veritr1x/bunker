@@ -62,6 +62,20 @@ def connect_ro(path) -> sqlite3.Connection:
         return sqlite3.connect(f"file:{path}?immutable=1", uri=True, check_same_thread=False)
 
 
+def snapshot(path) -> sqlite3.Connection:
+    """An in-memory copy of a save, read in one transaction; the file is closed after.
+    On a device the game's server writes the save in the same process, and SQLite's
+    file locks are per process: a connection kept open there can lose its locks and
+    read pages mid-write ("database disk image is malformed")."""
+    src = connect_ro(path)
+    try:
+        dst = sqlite3.connect(":memory:", check_same_thread=False)
+        src.backup(dst)
+        return dst
+    finally:
+        src.close()
+
+
 def rows_to_db(tables: dict) -> sqlite3.Connection:
     """An in-memory save from {table: {"sql": CREATE ..., "rows": [...]}}."""
     con = sqlite3.connect(":memory:", check_same_thread=False)
