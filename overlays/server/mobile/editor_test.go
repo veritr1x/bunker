@@ -1,6 +1,8 @@
 package mobile
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -22,6 +24,39 @@ func TestEditWhileTheServerRuns(t *testing.T) {
 	}
 	if got := Edit(dir, dir, `{"action":"gift_room","user_id":1}`); strings.Contains(got, "Stop the game server") {
 		t.Fatalf("the gift room read was refused: %s", got)
+	}
+}
+
+// Deck Builder builds fully raised pieces on its own staging save: those edits
+// never reach the player's save, so they are let through while the game runs,
+// and a path in the request is never used.
+func TestEditDeckBuilderStage(t *testing.T) {
+	lifecycle.Lock()
+	saved := active
+	active = &instance{}
+	lifecycle.Unlock()
+	t.Cleanup(func() { lifecycle.Lock(); active = saved; lifecycle.Unlock() })
+	dir := t.TempDir()
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere.db")
+	got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"stage_new","user_id":1,"db_path":"`+elsewhere+`"}`)
+	if !strings.Contains(got, `"ok":true`) {
+		t.Fatalf("stage_new: %s", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "deckbuilder", "stage.db")); err != nil {
+		t.Fatalf("no staging save: %v", err)
+	}
+	for _, p := range []string{filepath.Join(dir, "game.db"), elsewhere} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Fatalf("%s was touched", p)
+		}
+	}
+	// An ordinary action on the stage runs while the server does.
+	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"upgrade_all_memoirs","user_id":1}`); strings.Contains(got, "Stop the game server") {
+		t.Fatalf("a stage edit was refused while the server runs: %s", got)
+	}
+	// Any other target is refused.
+	if got := Edit(dir, dir, `{"target":"other","action":"upgrade_all_memoirs","user_id":1}`); !strings.Contains(got, "Unknown save target") {
+		t.Fatalf("unknown target: %s", got)
 	}
 }
 
