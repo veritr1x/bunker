@@ -88,6 +88,7 @@ PARAMS = dict(
     COMP_TARGET="reliance",           # single-target Compromise goes to the enemy whose character skill grants the most beneficial statuses
                                       # (self Dauntless + HP cost first, as the expert notes do); "default" = same rule as other single-target skills
     TIMEOUT_RULE="hp_ratio",          # at time-out the side with more remaining HP share wins (ties: defender)
+    TIMEOUT_MARGIN=0.01,              # ... by more than this share of HP; closer is a tie (two units at Dauntless' 1 HP)
     SEED=7,
     BOARD_ELEM_DMG=0.09,              # character board ability at max level (all characters)
     AGI_BUILD=0,                      # extra flat agility for agility-built units (memoir/karma/weapon agility; experts quote 2000-3000 total) - 0 = base agility only

@@ -446,7 +446,8 @@ class Battle:
         elif aD and not aA: win = "D"; how = "KO"
         else:
             how = "timeout"
-            win = "A" if (P["TIMEOUT_RULE"] == "hp_ratio" and share("A") > share("D")) else "D"
+            # clearly ahead only: two sides held near 0 (Dauntless at 1 HP) are a draw, not a win for the smaller maximum HP
+            win = "A" if (P["TIMEOUT_RULE"] == "hp_ratio" and share("A") > share("D") + P["TIMEOUT_MARGIN"]) else "D"
         # did Compromise land before the target's first beneficial status from a skill?
         comp = []
         for e in self.comp_events:
