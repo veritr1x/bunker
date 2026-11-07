@@ -81,6 +81,29 @@
   /* the criteria: a popup behind the Filters button (a sheet from the bottom on phones) */
   .open-filters{display:inline-flex;gap:6px;align-items:center}
   .sheet-dim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:19}
+  .chip:hover:not(.on){background:rgba(58,55,47,.08)!important;color:inherit!important}
+  .chip.e:hover:not(.on){filter:brightness(1.08);color:#f3efe2!important}
+  .f-count{font-size:12px;opacity:.7;margin-right:auto}
+  .f-body{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px}
+  .f-who-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  #f-find{width:min(220px,55%);padding:5px 9px;font-size:13px;min-height:0;margin:0}
+  #f-picked{margin:6px 0}
+  .f-chars{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:8px 6px;align-content:start}
+  .f-chars .fc{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;text-align:center;font-size:10.5px;line-height:1.2}
+  .f-chars .fc:hover{background:none;transform:none}
+  .f-chars .fc .por{aspect-ratio:3/4;transition:opacity .12s}
+  .f-chars .fc .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .f-chars .fc .nm b{font-weight:600}
+  .f-chars .fc .mark{position:absolute;top:3px;right:3px;z-index:2;width:18px;height:18px;border-radius:50%;background:var(--fg-dark);color:var(--bg-cream);font:600 12px/18px var(--mono)}
+  .f-chars .fc:not(.inc):not(.exc) .mark{display:none}
+  .f-chars .fc.inc .por{outline:3px solid var(--fg-dark);outline-offset:-1px}
+  .f-chars .fc.exc .por{opacity:.35;filter:grayscale(1)}
+  .f-chars .fc.exc .nm{text-decoration:line-through;opacity:.6}
+  .f-chars .fc:focus-visible .por{outline:2px dashed var(--fg-dark);outline-offset:1px}
+  .f-what .f{margin-bottom:14px}
+  .filters-panel input[type="range"]{accent-color:var(--fg-dark)}
+  .filters-panel .chips .chip{font-size:11px;letter-spacing:.06em;padding:4px 8px}
+  @media (max-width:700px){.f-body{grid-template-columns:minmax(0,1fr)}}
   .filters-panel{position:fixed;z-index:20;left:50%;top:6vh;transform:translateX(-50%);width:min(980px,calc(100vw - 32px));max-height:88vh;overflow-y:auto;
     background:var(--bg-cream);color:var(--fg-dark);border:2px solid var(--fg-dark);padding:10px 16px 0;box-sizing:border-box;animation:pop .15s ease-out}
   .sheet-dim[hidden],.filters-panel[hidden]{display:none}
@@ -139,6 +162,11 @@
   }
   /* A phone on its side: the controls in the side column, two decks across (automata.css). */
   @media (orientation: landscape) and (max-height: 599px) {
+    .filters-panel{inset:0;top:0;left:0;width:auto;max-height:none;transform:none;border:0;
+      padding:0 max(14px,var(--hole-right,0px)) 0 max(14px,var(--hole-left,0px))}
+    .filters-panel .sheet-head{position:sticky;top:0;z-index:3;background:var(--bg-cream);padding:8px 0;margin-bottom:8px}
+    .filters-panel .sheet-foot{padding:8px 0}
+    .f-chars{grid-template-columns:repeat(auto-fill,minmax(58px,1fr))}
     .page-side .db-controls{grid-template-columns:minmax(0,1fr);gap:4px}
     .page-side .seg{display:flex}.page-side .seg button{flex:1;width:auto;padding:6px 4px;font-size:11px}
     .page-side .help{font-size:10.5px}.page-side #against{width:100%}
@@ -184,23 +212,28 @@
 
 <div class="sheet-dim" id="sheet-dim" hidden onclick="sheet(false)"></div>
 <div class="filters-panel" id="filters-panel" role="dialog" aria-modal="true" aria-label="Filters" hidden>
-  <div class="sheet-head"><b>Filters</b><button type="button" class="chip" onclick="clearFilters()">Clear all</button><button type="button" class="chip" onclick="sheet(false)" aria-label="Close">✕</button></div>
-  <div>
-    <div class="filters">
+  <div class="sheet-head"><b>Filters</b><span class="f-count" id="f-count"></span>
+    <button type="button" class="chip" onclick="clearFilters()">Clear all</button><button type="button" class="chip" onclick="sheet(false)" aria-label="Close">✕</button></div>
+  <div class="f-body">
+    <section class="f-who" aria-label="Characters">
+      <div class="f-who-head"><div class="db-lbl">Characters</div><input type="search" id="f-find" placeholder="Find a character" autocomplete="off" aria-label="Find a character"></div>
+      <p class="help" id="f-picked">Tap a costume once to require it (✓), again to leave it out (✕), again to clear it.</p>
+      <div class="f-chars" id="f-chars" role="list"><p class="help">Loading…</p></div>
+    </section>
+    <section class="f-what">
       <div class="f"><div class="db-lbl">Strategy</div><div class="chips" data-name="strategy" data-one="1">
         {% for v, n in (("any","Any"),("stall","Stall"),("burst","Burst"),("dauntless","Dauntless"),("compromise_counter","Compromise counter"),("tank","Tank & provoke"),("mono","Mono-element")) %}<button type="button" class="chip{% if v == 'any' %} on{% endif %}" data-v="{{ v }}">{{ n }}</button>{% endfor %}</div></div>
+      <div class="f"><div class="db-lbl">Must have these effects</div><div class="chips" data-name="must">
+        {% for v, n in (("compromise","Compromise"),("cleanse","Cleanse"),("revive","Revive"),("provoke","Provoke"),("dauntless","Dauntless"),("indomitable","Indomitable"),("from_start","Usable from start")) %}<button type="button" class="chip" data-v="{{ v }}">{{ n }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">Element by slot</div>
         {% for k, n in (("l","Left"),("m","Middle"),("r","Right")) %}<div class="slotrow"><span>{{ n }}</span><div class="chips" data-name="el_{{ k }}" data-one="1">
           <button type="button" class="chip on" data-v="">Any</button>{% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{{ e|title }}</button>{% endfor %}</div></div>{% endfor %}</div>
-      <div class="f"><div class="db-lbl">Must have these effects</div><div class="chips" data-name="must">
-        {% for v, n in (("compromise","Compromise"),("cleanse","Cleanse"),("revive","Revive"),("provoke","Provoke"),("dauntless","Dauntless"),("indomitable","Indomitable"),("from_start","Usable from start")) %}<button type="button" class="chip" data-v="{{ v }}">{{ n }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">Leave out elements</div><div class="chips" data-name="exclude_el">
-        {% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{{ e|title }}</button>{% endfor %}</div>
-        <p class="help">Include or leave out a costume from its deck card's detail.</p></div>
+        {% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{{ e|title }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">Minimum per character</div>
         {% for k, n, mx in (("agi","Agility",3000),("hp","HP",800000),("atk","ATK",80000),("crit","Crit rate ‰",1000)) %}<div class="rng"><span>{{ n }}</span><input type="range" min="0" max="{{ mx }}" step="{{ mx // 50 }}" value="0" data-min="{{ k }}"><span data-show="{{ k }}">—</span></div>{% endfor %}</div>
-      <div class="f"><p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one piece changed.</p></div>
-    </div>
+      <p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one piece changed.</p>
+    </section>
   </div>
   <div class="sheet-foot"><button type="button" class="chip" onclick="clearFilters()">Clear</button><button type="button" onclick="sheet(false)">Show decks</button></div>
 </div>
@@ -238,7 +271,7 @@
 <script>
 const USER = {{ user }};
 const PREPARING = {{ "true" if preparing else "false" }};
-const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match"};
+const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match", include: [], exclude: []};
 let offset = 0, busy = false, done = false, chosen = null, detailData = null, pending = false;
 const cards = {};   // the listed decks by key, for the deck view's header and numbers
 const $ = id => document.getElementById(id);
@@ -274,19 +307,57 @@ $("sort").addEventListener("change", e => { state.sort = e.target.value; load(tr
 let dirty = false;
 function sheet(open) {
   $("filters-panel").hidden = $("sheet-dim").hidden = !open;
+  if (open) fetchCostumes();
   if (open) { $("filters-panel").scrollTop = 0; $("filters-panel").querySelector("button").focus({preventScroll: true}); return; }
   document.querySelector(".open-filters").focus({preventScroll: true});
   if (dirty) { dirty = false; load(true); }
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("filters-panel").hidden) sheet(false); });
+// The character picker: the costumes Deck Builder combines in this mode. Tap: require (✓) → leave out (✕) → clear.
+const costumeLists = {};
+async function fetchCostumes() {
+  const mode = state.mode;
+  if (!costumeLists[mode]) {
+    try { costumeLists[mode] = await (await fetch(`/decks/costumes?user=${USER}&mode=${mode}`)).json(); }
+    catch (e) { $("f-chars").innerHTML = '<p class="help">Couldn\'t load the costumes.</p>'; return; }
+  }
+  if (mode === state.mode) drawCostumes();
+}
+function drawCostumes() {
+  const list = costumeLists[state.mode]; if (!Array.isArray(list)) return;
+  const q = $("f-find").value.trim().toLowerCase();
+  const shown = list.filter(c => !q || c.name.toLowerCase().includes(q) || c.character.toLowerCase().includes(q));
+  $("f-chars").innerHTML = shown.length ? shown.map(c => {
+    const st = state.include.includes(c.id) ? "inc" : state.exclude.includes(c.id) ? "exc" : "";
+    return `<button type="button" role="listitem" class="fc ${st}" data-id="${c.id}" aria-pressed="${st ? "true" : "false"}" title="${esc(c.name)}">
+      <div class="por e-${esc(c.element)}">${pic(c.id)}<span class="mark">${st === "exc" ? "✕" : "✓"}</span></div>
+      <span class="nm"><b>${esc(c.character)}</b><br>${esc(c.name.replace(c.character, "").trim())}</span></button>`;
+  }).join("") : '<p class="help">No costume matches.</p>';
+  const names = ids => ids.map(id => (list.find(c => c.id === id) || {}).character || id).join(", ");
+  $("f-picked").textContent = state.include.length || state.exclude.length
+    ? [state.include.length ? `Required: ${names(state.include)}` : "", state.exclude.length ? `Left out: ${names(state.exclude)}` : ""].filter(Boolean).join(" · ")
+    : "Tap a costume once to require it (✓), again to leave it out (✕), again to clear it.";
+}
+$("f-find").addEventListener("input", drawCostumes);
+$("f-chars").addEventListener("click", e => {
+  const b = e.target.closest(".fc"); if (!b) return;
+  const id = Number(b.dataset.id);
+  if (state.include.includes(id)) { state.include = state.include.filter(x => x !== id); state.exclude.push(id); }
+  else if (state.exclude.includes(id)) state.exclude = state.exclude.filter(x => x !== id);
+  else if (state.include.length < 3) state.include.push(id);
+  else state.exclude.push(id);              // a deck holds three: a fourth tap leaves it out
+  dirty = true; countFilters(); drawCostumes();
+});
 function countFilters() {
-  const n = state.must.length + state.exclude_el.length + (state.strategy !== "any") + ["el_l","el_m","el_r"].filter(k => state[k]).length
+  const n = state.must.length + state.exclude_el.length + state.include.length + state.exclude.length + (state.strategy !== "any") + ["el_l","el_m","el_r"].filter(k => state[k]).length
           + [...document.querySelectorAll("input[data-min]")].filter(r => +r.value).length;
   $("nfilters").textContent = n || "";
+  $("f-count").textContent = n ? `${n} active` : "";
 }
 function clearFilters() {
   document.querySelectorAll(".chips[data-name]").forEach(box => box.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", !!box.dataset.one && i === 0)));
-  Object.assign(state, {strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: []});
+  Object.assign(state, {strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], include: [], exclude: []});
+  $("f-find").value = ""; drawCostumes();
   document.querySelectorAll("input[data-min]").forEach(r => { r.value = 0; document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = "—"; });
   dirty = true; countFilters();
   if ($("filters-panel").hidden) sheet(false);
@@ -294,6 +365,7 @@ function clearFilters() {
 function query() {
   const q = new URLSearchParams({user: USER, deck_for: state.deck_for, mode: state.mode, allow: $("allow").value, against: $("against").value,
     strategy: state.strategy, el_l: state.el_l, el_m: state.el_m, el_r: state.el_r, must: state.must.join(","), exclude_el: state.exclude_el.join(","), sort: state.sort,
+    include: state.include.join(","), exclude: state.exclude.join(","),
     boss: $("boss").value, difficulty: $("difficulty").value});
   document.querySelectorAll("input[data-min]").forEach(r => { if (+r.value) q.set("min_" + r.dataset.min, r.value); });
   return q;

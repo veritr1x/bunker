@@ -181,6 +181,13 @@ class Session:
                           "element": elements[i], "force": forces[i], "pieces": pieces})
         return chars
 
+    def costumes(self, mode):
+        """The costumes Deck Builder combines in this mode (the filters' character picker)."""
+        from deckbuilder import equip
+        pool = self.gen.pool(equip.Mode("owned") if mode == "owned" else equip.Mode("best"))
+        return [{"id": c, "name": self.tables.costume_name(c), "character": self.tables.character_name(c),
+                 "element": self.tables.costume_element(c) or "dark"} for c in pool]
+
     # ---------------------------------------------------------------- Subjugation
     def bosses(self):
         from deckbuilder import bighunt
@@ -618,6 +625,14 @@ def rescore(request: Request, key: str, user: int = 0):
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
     return s.rescore(r, raises)
+
+
+@router.get("/decks/costumes")
+def costumes(user: int = 0, mode: str = "best"):
+    try:
+        return session(_user(user)).costumes(mode)
+    except StageNotReady as exc:
+        return _not_ready(exc)
 
 
 @router.get("/decks/opponents")
