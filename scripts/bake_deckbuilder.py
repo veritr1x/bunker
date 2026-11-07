@@ -314,37 +314,50 @@ def cmd_gear(args) -> None:
 
 
 # ---------------------------------------------------------------- 3: fighters
-def loadout_spec(r, st, T):
-    """A baked loadout (2_gear.json) as a CharacterSpec of the bake stage's pieces."""
-    P = lambda kind, col, i: model.PieceRef(kind, st.pick(kind, **{col: i}), "stage") if i else None
-    memoirs = equip._memoirs(equip._Picker(st, st, T, equip.Mode("best")), r["memoir_set"], r["role"], T) if r["memoir_set"] else []
-    return model.CharacterSpec(P("costume", "costume_id", r["costume_id"]), P("weapon", "weapon_id", r["main_weapon"]),
-                               [P("weapon", "weapon_id", w) for w in r["subs"]], P("companion", "companion_id", r["companion"]),
-                               memoirs, P("debris", "thought_id", r["debris"]))
+def gear_loadouts():
+    """Each costume's baked loadout (2_gear.json), with its element: {costume id: loadout}."""
+    keys = ("costume_id", "role", "element", "main_weapon", "subs", "companion", "memoir_set", "debris")
+    return {r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2_gear.json").read_text())["loadouts"]}
 
 
 def fighter_cache(T, st):
-    from deckbuilder import fighters
-    gear = json.loads((BAKE / "2_gear.json").read_text())["loadouts"]
-    cache, specs = fighters.FighterCache(T, st), {}
-    for r in gear:
-        specs[r["costume_id"]] = loadout_spec(r, st, T)
-        cache.add(r["costume_id"], specs[r["costume_id"]])
-    return cache, specs
+    """The fighter cache with every costume's baked fighter, keyed (costume id, debris): a deck that gives a character
+    another debris (baked.deck_loadouts) adds its fighter as it comes (deck_keys)."""
+    from deckbuilder import baked, fighters
+    los = gear_loadouts()
+    cache = fighters.FighterCache(T, st)
+    for c, lo in los.items():
+        cache.add((c, lo["debris"]), baked.loadout_spec(lo, st, T))
+    return cache, los
+
+
+def deck_keys(lineup):
+    """(fighter keys, loadouts) of a deck in slot order: a debris taken twice goes to the next (baked.deck_loadouts),
+    as Deck Builder writes the deck."""
+    from deckbuilder import baked
+    los = baked.deck_loadouts(lineup, _W["los"], _W["order"])
+    keys = []
+    for lo in los:
+        k = (lo["costume_id"], lo["debris"])
+        if k not in _W["cache"]:
+            _W["cache"].add(k, baked.loadout_spec(lo, _W["st"], _W["T"]))
+        keys.append(k)
+    return tuple(keys), los
 
 
 def cmd_fighters(args) -> None:
     """Cached fighters for every costume, checked on a small sample: equal to decks built whole, and fighting the same."""
     import random
-    from deckbuilder import sim
-    T = tables(); sim.use(T)
+    from deckbuilder import baked
+    t0 = time.time(); _deck_worker_init(); fill = time.time() - t0
     from deckbuilder.sim import battle
-    st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
-    t0 = time.time(); cache, specs = fighter_cache(T, st); fill = time.time() - t0
-    rnd = random.Random(7); keys = sorted(specs)
+    T, st = _W["T"], _W["st"]
+    rnd = random.Random(7); keys = sorted(_W["los"])
     lineups = [tuple(rnd.sample(keys, 3)) for _ in range(args.decks)]
-    t0 = time.time(); built = [battle._side(model.compose(st, st, [specs[c] for c in l], 2, 7, T), T) for l in lineups]; tb = time.time() - t0
-    t0 = time.time(); cached = [cache.side(l) for l in lineups]; tc = time.time() - t0
+    t0 = time.time()
+    built = [battle._side(model.compose(st, st, [baked.loadout_spec(lo, st, T) for lo in deck_keys(l)[1]], 2, 7, T), T) for l in lineups]
+    tb = time.time() - t0
+    t0 = time.time(); cached = [_W["cache"].side(deck_keys(l)[0]) for l in lineups]; tc = time.time() - t0
     unequal = [list(l) for l, a, b in zip(lineups, built, cached) if a != b]
     fights_differ, n = [], 0
     for i in range(0, min(args.fights, len(lineups) - 1), 2):
@@ -354,7 +367,7 @@ def cmd_fighters(args) -> None:
             n += 1
             if x.run() != y.run():
                 fights_differ.append([list(lineups[i]), list(lineups[i + 1]), manual])
-    report("3_fighters", {"costumes_cached": len(specs), "fill_s": round(fill, 2), "decks_checked": len(lineups),
+    report("3_fighters", {"costumes_cached": len(_W["los"]), "fill_s": round(fill, 2), "decks_checked": len(lineups),
                           "decks_unequal": unequal, "fights_checked": n, "fights_differ": fights_differ,
                           "ms_per_deck_built": round(1000 * tb / len(lineups), 2), "ms_per_deck_cached": round(1000 * tc / len(lineups), 3)})
 
@@ -364,7 +377,7 @@ def check_compiled(n=20) -> None:
     """The compiled simulator must score these decks exactly as the plain one: else stop."""
     import random
     _deck_worker_init()
-    combos = random.Random(3).sample(all_combos(sorted(_W["specs"]), _W["char"]), n)
+    combos = random.Random(3).sample(all_combos(sorted(_W["los"]), _W["char"]), n)
     plain = [bake_deck(c) for c in combos]
     compiled()
     _deck_worker_init(use_compiled=True)
@@ -458,13 +471,14 @@ def _deck_worker_init(use_compiled=False):
     from deckbuilder.sim import battle
     ex = experts_mod.Experts.load(T)
     st = model.Save(model.snapshot(BAKE / "stage.db"), 1)
-    cache, specs = fighter_cache(T, st)
+    from deckbuilder import baked
+    cache, los = fighter_cache(T, st)
     gen = generate.Generator(T, ex, st, st)
     meta = [(battle._side(d, T), w, name) for d, w, name in gen.meta()]
     # each meta deck set up once per role (battle.prepare_side; None where that cannot stand in for setting it up)
     prepared = [(battle.prepare_side(m, "D"), battle.prepare_side(m, "A")) for m, _, _ in meta]
-    _W.update(T=T, ex=ex, st=st, cache=cache, specs=specs, gen=gen, meta=meta, prepared=prepared,
-              char={c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in specs})
+    _W.update(T=T, ex=ex, st=st, cache=cache, los=los, order=baked.debris_order(los), gen=gen, meta=meta, prepared=prepared,
+              char={c: T.idx("Costume", "CostumeId")[c]["CharacterId"] for c in los})
 
 
 def bake_deck(combo) -> tuple:
@@ -472,7 +486,7 @@ def bake_deck(combo) -> tuple:
     scored as the app scores it against the general meta (Generator.outcome)."""
     gen, cache = _W["gen"], _W["cache"]
     lineup = gen.order(combo)
-    side, force = cache.side_force(lineup)
+    side, force = cache.side_force(deck_keys(lineup)[0])
     aw = am = dw = dm = 0.0
     for (opp, w, _), (prep_d, prep_a) in zip(_W["meta"], _W.get("prepared") or [(None, None)] * len(_W["meta"])):
         (win, margin), (dwin, dmargin) = _pair(side, opp, prep_d, prep_a)
@@ -484,9 +498,10 @@ def bake_deck(combo) -> tuple:
 def _app_deck(combo) -> tuple:
     """The same numbers the app's own way: the deck built whole, sim.score, power.deck_power."""
     from deckbuilder import power, sim
-    T, st, gen, specs = _W["T"], _W["st"], _W["gen"], _W["specs"]
+    from deckbuilder import baked
+    T, st, gen = _W["T"], _W["st"], _W["gen"]
     lineup = gen.order(combo)
-    deck = model.compose(st, st, [specs[c] for c in lineup], 2, 7, T)
+    deck = model.compose(st, st, [baked.loadout_spec(lo, st, T) for lo in deck_keys(lineup)[1]], 2, 7, T)
     aw = am = dw = dm = 0.0
     for (d, w, _), (_, _, _) in zip(gen.meta(), _W["meta"]):
         win, margin = sim.score(deck, d, T, runs=RUNS)
@@ -504,7 +519,7 @@ def all_combos(costumes, char):
 def cmd_sample(args) -> None:
     import random
     _deck_worker_init()                                  # the plain simulator first: the app's way of scoring
-    combos = all_combos(sorted(_W["specs"]), _W["char"])
+    combos = all_combos(sorted(_W["los"]), _W["char"])
     rnd = random.Random(11)
     sample = rnd.sample(combos, args.decks)
     check = sample[:args.check]
@@ -601,17 +616,45 @@ def cmd_bake(args) -> None:
         "top_force": top(lambda r: -r[7], 10), "fields": FIELDS})
 
 
+# ---------------------------------------------------------------- ship
+def cmd_ship(args) -> None:
+    """The baked results into the app (deckbuilder/data/baked): the top decks per role, every costume's loadout, the
+    fighter fingerprint the phone compares after preparing its stage."""
+    from deckbuilder import baked
+    from deckbuilder.sim import battle
+    _deck_worker_init()
+    los = _W["los"]
+    fp = baked.fingerprint(_W["cache"], {c: (c, lo["debris"]) for c, lo in los.items()}, [m for m, _, _ in _W["meta"]])
+    rows = (baked.Record(tuple(r[:3]), r[3], r[4], r[5], r[6], r[7]) for r in read_decks())
+    src = ROOT / "android/app/src/main/python/deckbuilder/sim/battle.py"
+    path = baked.write(args.out, los, fp, rows, keep=args.keep,
+                       extra={"bake": json.loads((BAKE / "5_bake.json").read_text())["decks"], "simulator": _code_hash()})
+    size = sum(p.stat().st_size for p in path.iterdir())
+    report("6_ship", {"out": str(path), "fingerprint": fp, "size_mb": round(size / 1e6, 2), "keep": args.keep,
+                      "decks": json.loads((path / "meta.json").read_text())["decks"]})
+
+
+def _code_hash() -> str:
+    """The simulator and Force code the bake ran (a stale bake shows as a different hash)."""
+    import hashlib
+    h = hashlib.sha256()
+    base = ROOT / "android/app/src/main/python/deckbuilder"
+    for p in sorted(list((base / "sim").glob("*.py")) + [base / f for f in ("power.py", "fighters.py", "baked.py", "equip.py", "model.py")]):
+        h.update(p.name.encode()); h.update(p.read_bytes())
+    return h.hexdigest()[:16]
+
+
 # ---------------------------------------------------------------- round-robin
 def _rr_one(costume_id):
     """costume_id one-on-one against every other costume, as attacker and as defender (baked gear)."""
     cache = _W["cache"]
-    me = cache.side((costume_id,))
+    me = cache.side(((costume_id, _W["los"][costume_id]["debris"]),))
     att = dfn = 0.0
     n = 0
-    for other in sorted(_W["specs"]):
+    for other in sorted(_W["los"]):
         if other == costume_id:
             continue
-        them = cache.side((other,))
+        them = cache.side(((other, _W["los"][other]["debris"]),))
         att += _matchup(me, them)[0]
         dfn += 1 - _matchup(them, me)[0]
         n += 1
@@ -658,6 +701,9 @@ def main():
     g.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
     f = sub.add_parser("fighters"); f.set_defaults(fn=cmd_fighters)
     f.add_argument("--decks", type=int, default=300); f.add_argument("--fights", type=int, default=100)
+    sh = sub.add_parser("ship"); sh.set_defaults(fn=cmd_ship)
+    sh.add_argument("--out", type=Path, default=ROOT / "android/app/src/main/python/deckbuilder/data/baked")
+    sh.add_argument("--keep", type=int, default=300000)
     rr = sub.add_parser("roundrobin"); rr.set_defaults(fn=cmd_roundrobin)
     rr.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
     bk = sub.add_parser("bake"); bk.set_defaults(fn=cmd_bake)
