@@ -438,10 +438,8 @@ class Generator:
             to_add = [ref for spec in specs for ref in spec.pieces() if ref and ref.source == "stage"]
             reasons = {}
             for lo, base_lo in zip(los, (which[c] for c in rec.lineup)):
-                reasons[(lo["costume_id"], "main_weapon")] = (
-                    (f"The main weapon that gives this costume the most Force. " if which is not self._baked.loadouts else
-                     f"Chosen by Deck Builder's simulations: the main weapon this costume fought best with against the meta. ")
-                    + f"Makes this character {lo['element']} in the Arena.")
+                reasons[(lo["costume_id"], "main_weapon")] = equip.main_weapon_reason(
+                    "fights" if which is self._baked.loadouts else "force", lo["element"], owned=False)
                 if lo["debris"] != base_lo["debris"]:
                     reasons[(lo["costume_id"], "debris")] = "Its first choice is on another character of this deck (the game holds one)."
             eq = equip.Equipped(deck=deck, specs=specs, reasons=reasons, overrides=[], to_add=to_add)

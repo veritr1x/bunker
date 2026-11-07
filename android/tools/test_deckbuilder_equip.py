@@ -87,7 +87,7 @@ class EquipTest(unittest.TestCase):
         w = eq.deck.characters()[0].main_weapon
         self.assertEqual(tables().idx("Weapon", "WeaponId")[w.id]["AttributeType"], 3)
         self.assertEqual(eq.reasons[(SARAFA, "main_weapon")],
-                         "Top-ranked light weapon for this costume's weapon type. Makes this character light in the Arena: strong against dark.")
+                         "Top-ranked Light weapon for this costume's weapon type. Light: +20% damage to Dark.")
 
     def test_a_fighter_carries_its_subs_memoir_set_and_debris(self):
         """As the client collects them (power.Actor): both sub weapons' abilities, the memoir set bonus that is
@@ -112,19 +112,26 @@ class MainWeaponReasonTest(unittest.TestCase):
     """The ⓘ note on a main weapon: where it came from, then the element it gives (from the weapon itself)."""
     def test_ranked(self):
         self.assertEqual(equip.main_weapon_reason("ranked", "fire", owned=False),
-                         "Top-ranked fire weapon for this costume's weapon type. Makes this character fire in the Arena: strong against wind, weak against water.")
+                         "Top-ranked Fire weapon for this costume's weapon type. Fire: +20% damage to Wind, −20% to Water.")
 
     def test_ranked_and_owned(self):
         self.assertEqual(equip.main_weapon_reason("ranked", "water", owned=True),
-                         "Top-ranked water weapon for this costume's weapon type; you own it. Makes this character water in the Arena: strong against fire, weak against wind.")
+                         "Top-ranked Water weapon for this costume's weapon type; you own it. Water: +20% damage to Fire, −20% to Wind.")
 
     def test_experts_choice(self):
         self.assertEqual(equip.main_weapon_reason("expert", "dark", owned=False),
-                         "The experts' choice for this costume. Makes this character dark in the Arena: strong against light.")
+                         "The experts' choice for this costume. Dark: +20% damage to Light.")
+
+    def test_baked_picks(self):
+        """Baked decks say what the bake picked the weapon for: fights, or Force (Sort: Force)."""
+        self.assertEqual(equip.main_weapon_reason("fights", "fire", owned=False),
+                         "Picked because this costume won the most simulated fights with it. Fire: +20% damage to Wind, −20% to Water.")
+        self.assertEqual(equip.main_weapon_reason("force", "light", owned=False),
+                         "Picked because it gives this costume the most Force. Light: +20% damage to Dark.")
 
     def test_your_own_instead_of_adding_one(self):
         self.assertEqual(equip.main_weapon_reason("yours", "wind", owned=True),
-                         "Your best weapon of this costume's weapon type, used instead of adding one. Makes this character wind in the Arena: strong against water, weak against fire.")
+                         "Your best weapon of this costume's weapon type, used instead of adding one. Wind: +20% damage to Water, −20% to Fire.")
 
 
 if __name__ == "__main__":

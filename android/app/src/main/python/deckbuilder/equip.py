@@ -84,17 +84,28 @@ def _weapon_type(costume_id, tables):
 BEATS = {"dark": "light", "light": "dark", "fire": "wind", "wind": "water", "water": "fire"}
 
 
-def main_weapon_reason(source: str, element: str, owned: bool) -> str:
-    """The ⓘ note on a main weapon. source: "ranked" (top of the rankings), "expert" (the experts' loadout)
-    or "yours" (the player's own, used instead of adding one); element: the weapon's own."""
-    first = {"ranked": f"Top-ranked {element} weapon for this costume's weapon type",
-             "expert": "The experts' choice for this costume",
-             "yours": "Your best weapon of this costume's weapon type, used instead of adding one"}[source]
-    if owned and source != "yours":
-        first += "; you own it"
+def element_note(element: str) -> str:
+    """What a main weapon's element does: in the Arena a character takes its main weapon's element, which deals
+    x1.2 damage to the element it beats and x0.8 to the one that beats it (dark and light beat each other)."""
+    if element not in BEATS:
+        return ""
     weak = [k for k, v in BEATS.items() if v == element and BEATS.get(element) != k]
-    vs = f"strong against {BEATS[element]}" + (f", weak against {weak[0]}" if weak else "")
-    return f"{first}. Makes this character {element} in the Arena: {vs}."
+    vs = f"+20% damage to {BEATS[element].title()}" + (f", −20% to {weak[0].title()}" if weak else "")
+    return f"{element.title()}: {vs}."
+
+
+def main_weapon_reason(source: str, element: str, owned: bool) -> str:
+    """The ⓘ note on a main weapon: why it was picked, then what its element does (element_note). source: "ranked"
+    (top of the rankings), "expert" (the experts' loadout), "yours" (the player's own, used instead of adding one),
+    "fights" or "force" (the bake's pick: the most simulated wins, the most Force); element: the weapon's own."""
+    first = {"ranked": f"Top-ranked {element.title()} weapon for this costume's weapon type",
+             "expert": "The experts' choice for this costume",
+             "yours": "Your best weapon of this costume's weapon type, used instead of adding one",
+             "fights": "Picked because this costume won the most simulated fights with it",
+             "force": "Picked because it gives this costume the most Force"}[source]
+    if owned and source not in ("yours", "fights", "force"):
+        first += "; you own it"
+    return f"{first}. {element_note(element)}".strip()
 
 
 def main_candidates(element, weapon_type):

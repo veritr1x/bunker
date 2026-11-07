@@ -184,19 +184,17 @@ class Session:
         return chars
 
     def costumes(self, mode):
-        """Every costume the filters' character picker offers: in What I own the player's, else every playable
-        one; the ones Deck Builder already combines first, then the rest by character."""
-        from deckbuilder import equip
-        pool = self.gen.pool(equip.Mode("owned") if mode == "owned" else equip.Mode("best"))
+        """Every costume the filters' character picker offers, in one list by character then costume: in What I own
+        the player's, else every playable one."""
         known = self.tables.idx("Costume", "CostumeId")
         if mode == "owned":
             every = {r["costume_id"] for r in self.base.q("select costume_id from user_costumes where user_id=?")}
         else:
             every = set(known)
-        every = {c for c in every if c in known and self.tables.is_fieldable(c)}
-        rest = sorted(every - set(pool), key=lambda c: (self.tables.character_name(c), self.tables.costume_name(c)))
+        every = sorted((c for c in every if c in known and self.tables.is_fieldable(c)),
+                       key=lambda c: (self.tables.character_name(c), self.tables.costume_name(c), c))
         return [{"id": c, "name": self.tables.costume_name(c), "character": self.tables.character_name(c),
-                 "element": self.tables.costume_element(c) or "dark", "pool": c in pool} for c in list(pool) + rest]
+                 "element": self.tables.costume_element(c) or "dark"} for c in every]
 
     def _staged(self, criteria):
         """All maxed: required costumes the stage lacks must be staged first (prepare)."""
