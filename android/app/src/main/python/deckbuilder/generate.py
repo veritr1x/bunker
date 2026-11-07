@@ -276,9 +276,21 @@ class Generator:
         from deckbuilder.explain import short_reason
         return Result(rank=0, lineup=lineup, name=name, expert=expert is not None, deck=eq.deck, strategy=strategies[0],
                       win_rate=self.rate(eq.deck, criteria), force=power.deck_power(eq.deck, self.tables).total,
-                      to_add=len(eq.to_add), tags=tags, effects=eff, elements=els, stats=stats,
+                      to_add=self.added(eq.to_add), tags=tags, effects=eff, elements=els, stats=stats,
                       why=short_reason(strategies[0], els, tags, criteria.against, self.tables),
                       equipped=eq)
+
+    def added(self, staged) -> int:
+        """Pieces a write adds: staged ones, except a costume or debris the
+        player already owns (the write uses theirs; the game holds one)."""
+        n = 0
+        for ref in staged:
+            if ref.kind in ("costume", "debris"):
+                kind_id = {"costume": "costume_id", "debris": "thought_id"}[ref.kind]
+                if self.base.pick(ref.kind, **{kind_id: self.stage.piece_id(ref.kind, ref.uuid)}):
+                    continue
+            n += 1
+        return n
 
     def _sort_key(self, criteria):
         if criteria.sort == "force":
