@@ -80,6 +80,23 @@ def _weapon_type(costume_id, tables):
     return tables.idx("Costume", "CostumeId")[costume_id]["SkillfulWeaponType"]
 
 
+# Element advantage in the Arena (×1.2 to the one it beats, ×0.8 to the one that beats it; dark and light beat each other).
+BEATS = {"dark": "light", "light": "dark", "fire": "wind", "wind": "water", "water": "fire"}
+
+
+def main_weapon_reason(source: str, element: str, owned: bool) -> str:
+    """The ⓘ note on a main weapon. source: "ranked" (top of the rankings), "expert" (the experts' loadout)
+    or "yours" (the player's own, used instead of adding one); element: the weapon's own."""
+    first = {"ranked": f"Top-ranked {element} weapon for this costume's weapon type",
+             "expert": "The experts' choice for this costume",
+             "yours": "Your best weapon of this costume's weapon type, used instead of adding one"}[source]
+    if owned and source != "yours":
+        first += "; you own it"
+    weak = [k for k, v in BEATS.items() if v == element and BEATS.get(element) != k]
+    vs = f"strong against {BEATS[element]}" + (f", weak against {weak[0]}" if weak else "")
+    return f"{first}. Makes this character {element} in the Arena: {vs}."
+
+
 def main_candidates(element, weapon_type):
     w = rankings()["weapons"]
     return [int(k) for k, v in sorted(w.items(), key=lambda kv: -kv[1][2]) if v[0] == element and v[1] == weapon_type]
@@ -279,12 +296,13 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
         r = role(c, experts)
         costume = pick.ref("costume", "stage" if mode.kind == "best" else "save", costume_id=c) or pick.ref("costume", "stage", costume_id=c)
         wt = _weapon_type(c, tables)
-        mains = [w for w in (lo.get("weapons") or [])[:1] if w and rankings()["weapons"].get(str(w), [None])[0] == e] + main_candidates(e, wt)
-        main, main_id = pick.first("weapon", mains, "weapon_id")
+        picked = [w for w in (lo.get("weapons") or [])[:1] if w and rankings()["weapons"].get(str(w), [None])[0] == e]
+        main, main_id = pick.first("weapon", picked + main_candidates(e, wt), "weapon_id")
+        source = "expert" if main_id is not None and main_id in picked else "ranked"
         if mode.kind == "owned" and (main is None or (main.source == "stage" and mode.allow_missing == 0)):
             mine = _owned_weapon_of_type(pick, wt, e, tables)   # an owned weapon of the type before adding one
             if mine:
-                main, main_id = mine
+                (main, main_id), source = mine, "yours"
         subs_ids = [w for w in sub_candidates(e) if w != main_id]
         subs = []
         for _ in range(2):
@@ -299,7 +317,10 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
         memoirs = _memoirs(pick, series, r, tables)
         specs.append(model.CharacterSpec(costume, main, subs, comp, memoirs, debris))
         plan.append((c, r, series, lo.get("memoir_set")))
-        reasons[(c, "main_weapon")] = f"Best {e} weapon of this costume's weapon type in the rankings; it sets the character's element ({e})."
+        if main is not None:
+            attr = tables.idx("Weapon", "WeaponId").get(main_id, {}).get("AttributeType")
+            own_e = {v: k for k, v in ELEM_ATTR.items()}.get(attr, e)
+            reasons[(c, "main_weapon")] = main_weapon_reason(source, own_e, owned=main.source == "save")
         reasons[(c, "memoirs")] = f"Set {series}: the {'attacker' if r == 'attacker' else 'support'} set, mains {', '.join(ROLE_MEMOIRS[r][1])}."
     if mode.kind == "owned":
         specs = _limit_missing(specs, mode.allow_missing, base, stage, tables)

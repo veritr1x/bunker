@@ -86,7 +86,27 @@ class EquipTest(unittest.TestCase):
                          elements=("light", None, None))
         w = eq.deck.characters()[0].main_weapon
         self.assertEqual(tables().idx("Weapon", "WeaponId")[w.id]["AttributeType"], 3)
-        self.assertIn((SARAFA, "main_weapon"), eq.reasons)
+        self.assertEqual(eq.reasons[(SARAFA, "main_weapon")],
+                         "Top-ranked light weapon for this costume's weapon type. Makes this character light in the Arena: strong against dark.")
+
+
+class MainWeaponReasonTest(unittest.TestCase):
+    """The ⓘ note on a main weapon: where it came from, then the element it gives (from the weapon itself)."""
+    def test_ranked(self):
+        self.assertEqual(equip.main_weapon_reason("ranked", "fire", owned=False),
+                         "Top-ranked fire weapon for this costume's weapon type. Makes this character fire in the Arena: strong against wind, weak against water.")
+
+    def test_ranked_and_owned(self):
+        self.assertEqual(equip.main_weapon_reason("ranked", "water", owned=True),
+                         "Top-ranked water weapon for this costume's weapon type; you own it. Makes this character water in the Arena: strong against fire, weak against wind.")
+
+    def test_experts_choice(self):
+        self.assertEqual(equip.main_weapon_reason("expert", "dark", owned=False),
+                         "The experts' choice for this costume. Makes this character dark in the Arena: strong against light.")
+
+    def test_your_own_instead_of_adding_one(self):
+        self.assertEqual(equip.main_weapon_reason("yours", "wind", owned=True),
+                         "Your best weapon of this costume's weapon type, used instead of adding one. Makes this character wind in the Arena: strong against water, weak against fire.")
 
 
 if __name__ == "__main__":
