@@ -79,6 +79,40 @@ class Page(NamedTuple):
     relax: str | None
 
 
+_FLAGS: dict = {}
+
+
+def costume_flags(costume_id, tables) -> set:
+    """The effects a costume's character skill and passives bring."""
+    key = (id(tables), costume_id)
+    if key not in _FLAGS:
+        from deckbuilder import sim
+        sim.use(tables)
+        from deckbuilder.sim import units
+        elem = equip.element_of(costume_id, tables)
+        t = units.build_unit(costume_id, elem, {"hp": 1, "atk": 1, "df": 1, "agi": 1000, "crit": 0, "critdmg": 1500})
+        out = set()
+        for o in t["cs"]["ops"] + t["passives"]:
+            st = o.get("st") or {}
+            ty = st.get("type")
+            if ty == 43:
+                out.add("compromise")
+            if ty == 44 or st.get("dauntless"):
+                out.add("dauntless")
+            if ty == 24 or st.get("provoke"):
+                out.add("provoke")
+            if ty == 18 or (st.get("ben") and st.get("taken_mult") is not None):
+                out.add("indomitable")
+            if o["op"] == "cleanse":
+                out.add("cleanse")
+            if o["op"] == "revive":
+                out.add("revive")
+            if o["op"] == "advance" and o.get("which") == "cs" and o.get("frac", 0) >= 1.0:
+                out.add("from_start")
+        _FLAGS[key] = out
+    return _FLAGS[key]
+
+
 class Generator:
     def __init__(self, tables, experts, base: model.Save, stage: model.Save, pool=None, meta_size=5, runs=4):
         from deckbuilder import sim
@@ -86,7 +120,6 @@ class Generator:
         self.tables, self.experts, self.base, self.stage = tables, experts, base, stage
         self.meta_size, self.runs = meta_size, runs
         self._pool = list(pool) if pool else None
-        self._flags = {}
         self._meta = None
         self._cache = {}          # criteria key -> state
 
@@ -102,31 +135,7 @@ class Generator:
         return ranked[:DEFAULT_POOL] or sorted(staged)[:DEFAULT_POOL]
 
     def flags(self, costume_id) -> set:
-        """The effects a costume's character skill and passives bring."""
-        if costume_id not in self._flags:
-            from deckbuilder.sim import units
-            elem = equip.element_of(costume_id, self.tables)
-            t = units.build_unit(costume_id, elem, {"hp": 1, "atk": 1, "df": 1, "agi": 1000, "crit": 0, "critdmg": 1500})
-            out = set()
-            for o in t["cs"]["ops"] + t["passives"]:
-                st = o.get("st") or {}
-                ty = st.get("type")
-                if ty == 43:
-                    out.add("compromise")
-                if ty == 44 or st.get("dauntless"):
-                    out.add("dauntless")
-                if ty == 24 or st.get("provoke"):
-                    out.add("provoke")
-                if ty == 18 or (st.get("ben") and st.get("taken_mult") is not None):
-                    out.add("indomitable")
-                if o["op"] == "cleanse":
-                    out.add("cleanse")
-                if o["op"] == "revive":
-                    out.add("revive")
-                if o["op"] == "advance" and o.get("which") == "cs" and o.get("frac", 0) >= 1.0:
-                    out.add("from_start")
-            self._flags[costume_id] = out
-        return self._flags[costume_id]
+        return costume_flags(costume_id, self.tables)
 
     def lineup_effects(self, lineup) -> set:
         return set().union(*(self.flags(c) for c in lineup))
@@ -264,10 +273,11 @@ class Generator:
                 if len(tags) >= 3:
                     break
         name = expert.name if expert else STRATEGY_NAME[strategies[0]]
+        from deckbuilder.explain import short_reason
         return Result(rank=0, lineup=lineup, name=name, expert=expert is not None, deck=eq.deck, strategy=strategies[0],
                       win_rate=self.rate(eq.deck, criteria), force=power.deck_power(eq.deck, self.tables).total,
                       to_add=len(eq.to_add), tags=tags, effects=eff, elements=els, stats=stats,
-                      why=f"{STRATEGY_NAME[strategies[0]]}: {', '.join(EFFECT_LABEL[e] for e in EFFECTS if e in eff) or 'damage'}.",
+                      why=short_reason(strategies[0], els, tags, criteria.against, self.tables),
                       equipped=eq)
 
     def _sort_key(self, criteria):
