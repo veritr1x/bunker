@@ -194,7 +194,9 @@ def build_unit(cid, elem, stats, main_weapon_id=None, companion_id=None, cs_leve
                 agi=float(stats["agi"]) * (1 + mods["agi_pct"]), crit=stats["crit"] / 1000, critdmg=stats["critdmg"] / 1000,
                 cs=dict(name=skill_name(csd), gauge=csd["SkillCooltimeValue"] or 1000, timed=csd["SkillCooltimeBehaviourGroupId"] == 1,
                         ops=compile_skill(csd, elem), hits=csd["SkillHitCount"], combo=csd["IsComboCalculationTarget"]),
-                wskills=wskills, comp=comp, passives=pops, team=team, mods=mods, na=(na_pow, na_hits))
+                # team stat passives (ability statuses) are already in stats: power
+                # counts every status of the deck, party-wide ones included
+                wskills=wskills, comp=comp, passives=pops, team=collections.Counter(), mods=mods, na=(na_pow, na_hits))
 
 
 SLOTS = ("L", "M", "R")

@@ -185,9 +185,12 @@ class Battle:
                 if kind == "taken" and ELEMN.get(el) == u.elem: m *= v
         dfv = tgt.df * (1 + bsum(tgt, "Vitality") + tgt.team_def)
         if self._combo_target and not normal: m *= self.combo.coef(u.side)
-        for s in tgt.st:
-            if s["p"].get("taken_mult") is not None and (s["cnt"] is None or s["cnt"] > 0):
-                m *= s["p"]["taken_mult"]
+        # Damage cuts (Indomitable) do not multiply together: the strongest one
+        # applies; every active one still uses up a hit.
+        cuts = [s for s in tgt.st if s["p"].get("taken_mult") is not None and (s["cnt"] is None or s["cnt"] > 0)]
+        if cuts:
+            m *= min(s["p"]["taken_mult"] for s in cuts)
+            for s in cuts:
                 if s["cnt"] is not None: s["cnt"] -= 1
         tgt.st = [s for s in tgt.st if s["cnt"] is None or s["cnt"] > 0]
         dmg = rules.DAMAGE_FORMULAS[P["DAMAGE"]](atk, power, m, dfv, P, pierce)
