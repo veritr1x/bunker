@@ -89,7 +89,8 @@ class Session:
     def _open_stage(self, path):
         from deckbuilder import generate, model
         self.stage = model.Save(model.snapshot(path), 1)
-        self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage, best_pool=_stage_pool())
+        self.gen = generate.Generator(self.tables, self.experts, self.base, self.stage, best_pool=_stage_pool(),
+                                      baked=_baked() if _stage_baked_ok() else None)
         self.results = {}
         self._against = {}
         self.loadouts = {}          # Subjugation loadouts by key
@@ -316,13 +317,76 @@ def _stage_files():
 SCREEN = 1      # All maxed's pool chosen by strength (screen.py); a stage made before it is made again
 
 
+_BAKED = []
+
+
+def _baked():
+    """The baked All maxed results shipped with this build (deckbuilder/data/baked), or None."""
+    if not _BAKED:
+        from deckbuilder import baked
+        _BAKED.append(baked.Baked.load())
+    return _BAKED[0]
+
+
+def _baked_plan(b, tables) -> dict:
+    """What the stage must hold to write any baked deck: every baked costume and piece, both roles' memoirs of each
+    baked memoir set."""
+    from deckbuilder import equip
+    los = list(b.loadouts.values())
+    sets = sorted({lo["memoir_set"] for lo in los if lo.get("memoir_set")})
+    return dict(costume_ids=sorted(b.loadouts),
+                weapon_ids=sorted({w for lo in los for w in [lo["main_weapon"], *lo["subs"]] if w}),
+                companion_ids=sorted({lo["companion"] for lo in los if lo.get("companion")}),
+                thought_ids=sorted({lo["debris"] for lo in los if lo.get("debris")}),
+                memoirs=[m for s in sets for _, mains, subs in equip.ROLE_MEMOIRS.values() for m in equip.memoir_specs(s, mains, subs, tables)])
+
+
+def _merge_plans(a: dict, b: dict) -> dict:
+    out = {}
+    for k in ("costume_ids", "weapon_ids", "companion_ids", "thought_ids"):
+        out[k] = sorted(set(a.get(k) or []) | set(b.get(k) or []))
+    memoirs = []
+    for m in (a.get("memoirs") or []) + (b.get("memoirs") or []):
+        if m not in memoirs:
+            memoirs.append(m)
+    out["memoirs"] = memoirs
+    for k in a:
+        out.setdefault(k, a[k])
+    return out
+
+
+def _baked_check(tables, experts, path, b):
+    """(whether this stage's fighters are the ones the bake simulated, the fingerprint here): every baked costume's
+    fighter in its baked loadout and the meta decks' fighters (baked.fingerprint). Built once, after staging."""
+    from deckbuilder import baked, fighters, generate, model, sim
+    try:
+        sim.use(tables)
+        from deckbuilder.sim import battle
+        st = model.Save(model.snapshot(path), 1)
+        cache, keys = fighters.FighterCache(tables, st), {}
+        for c, lo in b.loadouts.items():
+            keys[c] = (c, lo["debris"])
+            cache.add(keys[c], baked.loadout_spec(lo, st, tables))
+        sides = [battle._side(d, tables) for d, _, _ in generate.Generator(tables, experts, st, st).meta()]
+        fp = baked.fingerprint(cache, keys, sides)
+        return fp == b.fingerprint, fp
+    except Exception as exc:  # noqa: BLE001 (a piece missing from the stage: the live search, as before)
+        return False, f"error: {exc}"
+
+
+def _stage_baked_ok() -> bool:
+    return bool((runtime.read_json(_stage_files()[1]) or {}).get("baked_ok"))
+
+
 def _stage_want(extra=()):
-    """(what the stage was made from, what it should be made from); the pool it chose is kept beside, not compared."""
+    """(what the stage was made from, what it should be made from); what it chose (the pool, the baked check) is kept
+    beside, not compared."""
     old = runtime.read_json(_stage_files()[1]) or {}
     extras = sorted(set(old.get("extra") or []) | set(extra))
-    old = {k: v for k, v in old.items() if k != "pool"}
+    old = {k: v for k, v in old.items() if k not in ("pool", "baked_ok", "baked_here")}
+    b = _baked()
     return old, {"master": runtime.fingerprint(config.find_master_data_bin()), "data": _data_signature(), "extra": extras,
-                 "screen": SCREEN}
+                 "screen": SCREEN, "baked": b.fingerprint if b else None}
 
 
 def _stage_pool():
@@ -361,9 +425,14 @@ def prepare(user_id: int, against=None, costumes=()) -> None:
             ranked = screen.strength(tables, experts, model.Save(model.snapshot(config.GAME_DB_PATH), user_id))
             pool = screen.pool_by_strength(ranked, tables) or generate.default_pool(tables, experts)
             lineups = [(c,) for c in pool + list(want["extra"])] + [l.costumes for l in experts.lineups()]
-            stage.Stager(lambda p: _shim(p), tables).build(**equip.stage_plan(lineups, tables, experts))
+            plan = equip.stage_plan(lineups, tables, experts)
+            b = _baked()
+            if b is not None:
+                plan = _merge_plans(plan, _baked_plan(b, tables))     # every baked deck can be written from it
+            stage.Stager(lambda p: _shim(p), tables).build(**plan)
+            ok, here = _baked_check(tables, experts, _stage_files()[0], b) if b is not None else (False, None)
             _stage_dir().mkdir(parents=True, exist_ok=True)
-            _stage_files()[1].write_text(json.dumps(dict(want, pool=pool)))
+            _stage_files()[1].write_text(json.dumps(dict(want, pool=pool, baked_ok=ok, baked_here=here)))
         _sessions.clear()
 
 
