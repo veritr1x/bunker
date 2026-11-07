@@ -1,0 +1,17 @@
+{
+ "deck_number": 1,
+ "deck_type": 1,
+ "inputs": {
+  "deck_number": 1,
+  "deck_type": 1,
+  "save": "129f58f58f43",
+  "user_id": 1
+ },
+ "stored_characters": [
+  9091,
+  11135,
+  3219
+ ],
+ "stored_deck": 23445,
+ "user_id": 1
+}

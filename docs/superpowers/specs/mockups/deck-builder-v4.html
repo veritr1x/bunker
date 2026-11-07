@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck Builder mockup v4</title>
+<link rel="stylesheet" href="/files/automata.css">
+<style>
+  :root{--line:rgba(58,55,47,.22);--soft:rgba(58,55,47,.06);--fire:#9c3b25;--water:#2f5d86;--wind:#3f7046;--light:#a08a2c;--dark:#5a3d6e}
+  .note-top{max-width:1040px;margin:14px auto 0;padding:0 16px;font-size:13px;opacity:.75}
+  main{max-width:1040px}
+  .intro{margin:0;line-height:1.55}
+  .controls{display:grid;grid-template-columns:auto 1fr;gap:12px 18px;align-items:center}
+  @media (max-width:640px){.controls{grid-template-columns:1fr}}
+  .controls .lbl{font-size:12px;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
+  .seg{display:inline-flex;border:1px solid var(--accent)}
+  .seg span{padding:6px 14px;font-size:13px;cursor:pointer}
+  .seg span+span{border-left:1px solid var(--accent)}
+  .seg span.on{background:var(--accent);color:var(--bg-cream)}
+  .help{font-size:12px;opacity:.75;margin:4px 0 0;line-height:1.5}
+  .opp{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .opp select{min-width:0;max-width:100%}
+
+  /* deck cards */
+  .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media (max-width:900px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);background:var(--soft);padding:12px;cursor:pointer}
+  .card.on{border:2px solid var(--accent);padding:11px}
+  .card h3{margin:0;font-size:15px}
+  .card .sub{font-size:12px;opacity:.7;margin:2px 0 10px}
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .por{aspect-ratio:3/4;position:relative;border:1px solid var(--line);display:flex;align-items:flex-end;justify-content:center;font-size:10px;text-align:center;padding:4px;color:#f3efe2;overflow:hidden}
+  .por::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.55))}
+  .por span{position:relative;line-height:1.2}
+  .por .slot{position:absolute;top:3px;left:4px;font-size:9px;letter-spacing:.08em;opacity:.9}
+  .por .nw{position:absolute;top:3px;right:4px;font-size:9px;background:#f3efe2;color:#3a372f;padding:0 3px}
+  .e-fire{background:var(--fire)}.e-water{background:var(--water)}.e-wind{background:var(--wind)}.e-light{background:var(--light)}.e-dark{background:var(--dark)}
+  .card .why{font-size:12px;line-height:1.5;margin:10px 0 0}
+  .card .meta{display:flex;justify-content:space-between;font-size:11px;opacity:.7;margin-top:8px}
+
+  /* detail */
+  .detail-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+  .reason{border-left:3px solid var(--accent);padding:4px 0 4px 12px;margin:10px 0 14px;line-height:1.55}
+  .chars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media (max-width:900px){.chars{grid-template-columns:1fr}}
+  .ch{border:1px solid var(--line)}
+  .ch-top{display:grid;grid-template-columns:64px 1fr;gap:10px;padding:10px;border-bottom:1px solid var(--line)}
+  .ch-top .por{aspect-ratio:3/4}
+  .ch-top .role{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
+  .ch-top .nm{font-weight:bold;margin:2px 0 4px}
+  .ch-top .why{font-size:12px;line-height:1.45}
+  .pieces{list-style:none;margin:0;padding:0}
+  .pieces li{display:grid;grid-template-columns:34px 1fr;gap:8px;padding:7px 10px;border-bottom:1px dotted var(--line);font-size:12px;line-height:1.4}
+  .pieces li:last-child{border-bottom:0}
+  .ico{width:34px;height:34px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:9px;opacity:.85}
+  .pieces b{display:block;font-size:13px}
+  .pieces .r{opacity:.75}
+  .tagnew{font-size:9px;border:1px solid currentColor;padding:0 3px;margin-left:4px;letter-spacing:.05em;vertical-align:1px}
+  .src{font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-left:4px}
+  .override{margin:14px 0 0;padding:8px 12px;border-left:3px solid var(--danger);background:rgba(107,10,10,.05);font-size:12px;line-height:1.55}
+
+  /* write */
+  .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+  .sl{border:1px solid var(--line);padding:8px 10px;font-size:12px;cursor:pointer}
+  .sl.on{border:2px solid var(--accent);padding:7px 9px;font-weight:bold}
+  .sl small{display:block;font-weight:normal;opacity:.7;margin-top:2px}
+  .sl.mine small::before{content:"Your deck · "}
+  .summary{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .summary p{margin:0;font-size:13px;line-height:1.5}
+
+  .filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px}
+  @media (max-width:900px){.filters{grid-template-columns:1fr}}
+  .f .lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:12px;padding:3px 9px;border:1px solid var(--line);cursor:pointer;white-space:nowrap}
+  .chip.on{background:var(--accent);color:var(--bg-cream);border-color:var(--accent)}
+  .chip.no{text-decoration:line-through;border-color:var(--danger);color:var(--danger)}
+  .chip.e{color:#f3efe2;border:0}
+  .row2{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:12px}
+  .row2 input[type=range]{width:100%}
+  .more{text-align:center;margin:12px 0 0;font-size:12px;opacity:.75}
+  .rank{font-size:11px;opacity:.7}
+  .variants{font-size:11px;margin-top:6px;text-decoration:underline;opacity:.8}
+  .resbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:13px}
+</style>
+</head>
+<body>
+<p class="note-top">Mockup v4: criteria and filters, and an endless ranked list of decks instead of three. Coloured tiles stand in for the costume portraits and item icons, which would come from the game's own art (the Archive already extracts it). The names are real; the numbers are placeholders.</p>
+
+<div class="terminal-bar"><div class="left"><span>YoRHa</span><span>Bunker Terminal</span><span>Pod Programs</span></div></div>
+<nav class="primary"><a>Programs</a><a>Content</a><a>Users</a><a>Save Data</a><a>Mods</a><a>Gift</a><a class="active">Deck Builder</a><a>Item Editor</a><a>Costume Editor</a><a>…</a></nav>
+<main>
+  <h1 class="bracket-header">Deck Builder</h1>
+  <div class="panel"><p class="intro">Arena decks picked the way experienced players picked them at the end of service, and equipped from the game's own data. Choose a deck, see why each piece is in it, and write it to the slots you choose. Your other decks stay as they are, and Save Data keeps a snapshot from before every write.</p></div>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="lbl">Deck for</div>
+      <div><div class="seg"><span class="on">Attack</span><span>Defense</span></div></div>
+      <div class="lbl">Build from</div>
+      <div><div class="seg"><span>What I own</span><span class="on">Theoretical best</span></div>
+        <p class="help">Theoretical best uses anything in the game; missing pieces are added fully raised. With "What I own", you can allow up to <select><option>0</option><option selected>2</option><option>5</option></select> pieces to be added.</p></div>
+      <div class="lbl">Against</div>
+      <div class="opp"><select><option>General best</option><option selected>Operator 6O · 5,140 pts · Yuletide Songstress Marie, New Year's Belle Sarafa, Oathbound Exile Rion</option></select></div>
+    </div>
+  </div>
+
+  <h2 class="bracket-header">Criteria</h2>
+  <div class="panel">
+    <div class="filters">
+      <div class="f"><div class="lbl">Strategy</div><div class="chips"><span class="chip on">Any</span><span class="chip">Stall</span><span class="chip">Burst</span><span class="chip">Dauntless</span><span class="chip">Compromise counter</span><span class="chip">Tank &amp; provoke</span><span class="chip">Mono-element</span></div></div>
+      <div class="f"><div class="lbl">Element by slot</div>
+        <div class="row2"><span>Left</span><div class="chips"><span class="chip on">Any</span><span class="chip e e-fire">Fire</span><span class="chip e e-water">Water</span><span class="chip e e-wind">Wind</span><span class="chip e e-light">Light</span><span class="chip e e-dark">Dark</span></div>
+        <span>Middle</span><div class="chips"><span class="chip on">Any</span><span class="chip">…</span></div>
+        <span>Right</span><div class="chips"><span class="chip on">Any</span><span class="chip e e-water">Water</span><span class="chip">…</span></div></div></div>
+      <div class="f"><div class="lbl">Must have these effects</div><div class="chips"><span class="chip">Compromise</span><span class="chip">Cleanse</span><span class="chip">Revive</span><span class="chip">Provoke</span><span class="chip">Dauntless</span><span class="chip">Indomitable</span><span class="chip">Usable from start</span></div></div>
+      <div class="f"><div class="lbl">Include / exclude</div><input class="mock-input" style="width:100%" placeholder="Costume, character or element…"><div class="chips" style="margin-top:6px"><span class="chip" style="opacity:.5">e.g. + Festive Girl Fio</span><span class="chip no" style="opacity:.5">e.g. no Sarafa</span></div></div>
+      <div class="f"><div class="lbl">Minimum stats (per character)</div>
+        <div class="row2"><span>Agility</span><input type="range" value="40"><span>HP</span><input type="range" value="20"><span>ATK</span><input type="range" value="0"><span>Crit rate</span><input type="range" value="0"></div></div>
+      <div class="f"><div class="lbl">Sort by</div><div class="chips"><span class="chip on">Best against this opponent</span><span class="chip">Force</span><span class="chip">Fewest to add</span></div>
+        <p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one memoir changed.</p></div>
+    </div>
+  </div>
+
+  <h2 class="bracket-header">Decks</h2>
+  <div class="resbar"><span><strong>18,640</strong> decks · showing 1–6</span><span class="help" style="margin:0">No filters set · best against Operator 6O first</span></div>
+  <div class="cards">
+    <div class="card on">
+      <div class="rank">#1 · score 94</div><h3>Compromise counter</h3><div class="sub">Attack · against Operator 6O</div>
+      <div class="trio">
+        <div class="por e-light"><span class="slot">L</span><span>Phantasmal Boor Yudil</span></div>
+        <div class="por e-fire"><span class="slot">M</span><span>Yuletide Songstress Marie</span></div>
+        <div class="por e-water"><span class="slot">R</span><span class="nw">NEW</span><span>New Year's Boor Yudil</span></div>
+      </div>
+      <p class="why">Survive her first minute of not dying, then block the second one with Compromise and finish her.</p>
+      <div class="meta"><span>Force ≈ 412,000</span><span>5 to add</span></div><div class="variants">+ 14 variants</div>
+    </div>
+    <div class="card">
+      <div class="rank">#2 · score 91</div><h3>Stall</h3><div class="sub">Attack · against Operator 6O</div>
+      <div class="trio">
+        <div class="por e-light"><span class="slot">L</span><span class="nw">NEW</span><span>Festive Witch Saryu</span></div>
+        <div class="por e-water"><span class="slot">M</span><span>Summer Ruler Yurie</span></div>
+        <div class="por e-wind"><span class="slot">R</span><span>Divine Girl Fio</span></div>
+      </div>
+      <p class="why">Outlasts her minute of not dying, then finishes her once she can fall again.</p>
+      <div class="meta"><span>Force ≈ 398,000</span><span>3 to add</span></div>
+    </div>
+    <div class="card">
+      <div class="rank">#3 · score 89</div><h3>Team Dauntless</h3><div class="sub">Attack · works against anyone</div>
+      <div class="trio">
+        <div class="por e-dark"><span class="slot">L</span><span class="nw">NEW</span><span>Divine Boor Yudil</span></div>
+        <div class="por e-water"><span class="slot">M</span><span>Oathbound Belle Sarafa</span></div>
+        <div class="por e-light"><span class="slot">R</span><span>Oathbound Songstress Marie</span></div>
+      </div>
+      <p class="why">30 seconds where nobody on your team can die, with a tank drawing attacks.</p>
+      <div class="meta"><span>Force ≈ 405,000</span><span>6 to add</span></div>
+    </div>
+  
+    <div class="card"><div class="rank">#4 · score 87</div><h3>Revive stall</h3><div class="sub">Attack · against Operator 6O</div>
+      <div class="trio"><div class="por e-fire"><span class="slot">L</span><span>Festive Girl Fio</span></div><div class="por e-fire"><span class="slot">M</span><span>Yuletide Songstress Marie</span></div><div class="por e-water"><span class="slot">R</span><span>New Year's Boor Yudil</span></div></div>
+      <p class="why">Two revives buy time until her second Dauntless, which Yudil blocks.</p><div class="meta"><span>Force ≈ 401,000</span><span>2 to add</span></div><div class="variants">+ 9 variants</div></div>
+    <div class="card"><div class="rank">#5 · score 85</div><h3>Fast opener</h3><div class="sub">Attack · against Operator 6O</div>
+      <div class="trio"><div class="por e-light"><span class="slot">L</span><span>Oathbound Songstress Marie</span></div><div class="por e-fire"><span class="slot">M</span><span>Festive Girl Fio</span></div><div class="por e-water"><span class="slot">R</span><span>New Year's Boor Yudil</span></div></div>
+      <p class="why">Kills Marie and Rion fast, leaving Sarafa without her cleanse.</p><div class="meta"><span>Force ≈ 396,000</span><span>3 to add</span></div><div class="variants">+ 21 variants</div></div>
+    <div class="card"><div class="rank">#6 · score 84</div><h3>Light burst</h3><div class="sub">Attack · against Operator 6O</div>
+      <div class="trio"><div class="por e-light"><span class="slot">L</span><span>Phantasmal Boor Yudil</span></div><div class="por e-fire"><span class="slot">M</span><span>Festive Girl Fio</span></div><div class="por e-water"><span class="slot">R</span><span>New Year's Boor Yudil</span></div></div>
+      <p class="why">Most damage of the matches; relies on Compromise landing before her second cast.</p><div class="meta"><span>Force ≈ 418,000</span><span>3 to add</span></div><div class="variants">+ 6 variants</div></div>
+  </div>
+  <p class="more">Scroll for more · loading 7–12…</p>
+
+  <h2 class="bracket-header">Compromise counter</h2>
+  <div class="panel">
+    <div class="reason"><strong>Why this deck.</strong> Operator 6O runs the end-of-service top defense. Its strength is New Year's Belle Sarafa. Her skill drops her to 1% HP, applies <em>Dauntless</em> for 60 seconds (her HP can't fall below 1) and, with a dark weapon, recharges her weapon skills. Her <em>Caged Vigor</em> then makes her hit harder at low HP.<br><br><strong>What doesn't work:</strong> blocking her first Dauntless. The defending side acts first, so Dauntless is already on before any Compromise lands. <em>Compromised</em> only stops new beneficial statuses: it doesn't remove one that's already on, and nothing a player can field removes Dauntless.<br><br><strong>What does:</strong> outlasting her first minute, then blocking the second. Yuletide Songstress Marie revives whoever falls first. At about 60 seconds her Dauntless and our Compromise both run out. New Year's Boor Yudil's character skill charges about 2.5 times faster than hers, so his next Compromise lands before her next Dauntless. Their Rion can still cleanse it, but his cleanse removes only one or two ailments, so it may not pick Compromised. Then Phantasmal Boor Yudil finishes her, and his light attacks hit her, as a dark character, for ×1.2.<span style="display:block;font-size:11px;opacity:.7;margin-top:6px">Assumes the firing order players reported: defender first, then right, left, middle. The game data doesn't hold the order; the game client decides it.</span></div>
+
+    <div class="chars">
+      <div class="ch">
+        <div class="ch-top"><div class="por e-light"><span>L</span></div>
+          <div><div class="role">Left · damage</div><div class="nm">Phantasmal Boor Yudil<span class="src">expert pick</span></div>
+          <div class="why">Top of the turret list, and the data agrees (8th of 280 costumes).</div></div></div>
+        <ul class="pieces">
+          <li><div class="ico">MAIN</div><div><b>Light staff</b><span class="r">His skills use staffs, and a light main weapon turns on his skill's +120% light bonus.</span></div></li>
+          <li><div class="ico">SUB</div><div><b>2 light weapons<span class="tagnew">NEW</span></b><span class="r">Light sub weapons add +2,500 HP each and their ATK.</span></div></li>
+          <li><div class="ico">COMP</div><div><b>Tome: Star &amp; Song</b><span class="r">Team ATK +30% with no drawback. The two higher-ATK companions also raise the enemy's ATK or lower your DEF.</span></div></li>
+          <li><div class="ico">MEM</div><div><b>Memoir set 17 ×3</b><span class="r">All allies ATK +10%; the sub-stats are rolled for ATK.</span></div></li>
+          <li><div class="ico">DEB</div><div><b>Rush Chunk (light)</b><span class="r">Equipped weapons' stats +40% for a light character.</span></div></li>
+        </ul>
+      </div>
+      <div class="ch">
+        <div class="ch-top"><div class="por e-fire"><span>M</span></div>
+          <div><div class="role">Middle · support</div><div class="nm">Yuletide Songstress Marie<span class="src">expert pick</span></div>
+          <div class="why">Top support on the support list: she brings back the first ally to fall.</div></div></div>
+        <ul class="pieces">
+          <li><div class="ico">MAIN</div><div><b>Fire weapon<span class="tagnew">NEW</span></b><span class="r">Her own element: +5,000 HP.</span></div></li>
+          <li><div class="ico">SUB</div><div><b>2 fire weapons</b><span class="r">…</span></div></li>
+          <li><div class="ico">COMP</div><div><b>…</b><span class="r">…</span></div></li>
+          <li><div class="ico">MEM</div><div><b>…</b><span class="r">…</span></div></li>
+          <li><div class="ico">DEB</div><div><b>…</b><span class="r">…</span></div></li>
+        </ul>
+      </div>
+      <div class="ch">
+        <div class="ch-top"><div class="por e-water"><span>R</span></div>
+          <div><div class="role">Right · opener</div><div class="nm">New Year's Boor Yudil<span class="tagnew">NEW</span><span class="src">expert pick</span></div>
+          <div class="why">His Compromise lasts 60 seconds and his skill recharges about 2.5 times faster than Sarafa's, so he can block her <em>second</em> Dauntless. The right slot fires first.</div></div></div>
+        <ul class="pieces">
+          <li><div class="ico">MAIN</div><div><b>…</b><span class="r">…</span></div></li>
+          <li><div class="ico">SUB</div><div><b>…</b><span class="r">…</span></div></li>
+          <li><div class="ico">COMP</div><div><b>…</b><span class="r">…</span></div></li>
+          <li><div class="ico">MEM</div><div><b>Blighted Flowers ×3</b><span class="r">Weapon skills start 30% charged, which also fills his character skill sooner, so he's ready again when her Dauntless runs out.</span></div></li>
+          <li><div class="ico">DEB</div><div><b>…</b><span class="r">…</span></div></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="override"><strong>Data override.</strong> The expert loadout for Phantasmal Boor Yudil uses memoir set 7 (ATK +30%). The game data shows set 7 also lowers the wearer's DEF by 30%, and against this opponent's damage dealer that costs more than it gains. Set 17 is used instead.</div>
+  </div>
+
+  <h2 class="bracket-header">Write</h2>
+  <div class="panel">
+    <div class="slots">
+      <div class="sl mine">Arena attack 1<small>Fio, Saryu, Lars</small></div>
+      <div class="sl on">Arena attack 2<small>Empty</small></div>
+      <div class="sl mine">Arena defense<small>Marie, Rion, Noelle</small></div>
+      <div class="sl">Quest deck 7<small>Empty</small></div>
+    </div>
+    <div class="summary">
+      <p><strong>Writes "Compromise counter" to Arena attack 2.</strong><br>Adds 5 pieces, fully raised: New Year's Boor Yudil, 3 weapons and 1 debris. Nothing else changes.</p>
+      <button>WRITE DECK</button>
+    </div>
+  </div>
+</main>
+</body>
+</html>
