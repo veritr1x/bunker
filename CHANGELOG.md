@@ -4,12 +4,24 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.10.1 (2026-11-09)
+
+Story Jump and stronger Force decks. Pod Programs' Story Jump brings a save
+forward to the start of any main-story chapter, or a quest in one, with the
+characters and rewards the story gives on the way. Deck Builder's memoirs
+are built to the original game's limits, the Force list has its own memoirs
+and karma, and Subjugation is simulated as the game plays it. Subjugation
+scores are counted as the game counted them, and fixes from the Lunar Tear
+forks bring back the limited-sale banners and the Limited shop's packs, keep
+dailies running after the calendar is turned off and clear first-day login
+missions. Memoir Editor has a Game-legal only toggle.
+
 ## 2026-11-08 (after 1.10.0)
 
 ### Server
 - Subjugation scores are counted as the game counted them. The base score
   is the total damage / 100 (it was the damage itself, so every score was
-  100 times too high and a modest run reached X). The survival bonus
+  100 times too high). The survival bonus
   depends on how many characters died over the run (+200% with none,
   +150%, +100%, +50%, then nothing from four), and the max-combo bonus
   has nine tiers (+20% from 6 up to +180% from 46); they were a flat
@@ -42,6 +54,56 @@ under its heading, down to the previous release.
   quests'); they were random enemy drops whose tables never shipped. One
   clear in two now adds one of them at random. The chance is an estimate.
   The gap was found in the JCalandre fork.
+
+### Pod Programs
+- Deck Builder's All maxed builds every memoir at its fullest under the
+  original game's rules: a sub stat's rolls stack, and the top sub stat
+  reaches the guide's limits (25% crit rate, 36% crit damage, 12.5% HP,
+  ATK or DEF, 72 agility). An attacker's memoir set carries crit rate
+  +70% and crit damage +73% (it gave every sub stat one roll: 7.5% crit
+  rate, 14% crit damage). The Force list has its own memoirs, built for
+  the stats Force counts most: flat ATK and DEF mains with HP% at its
+  top and ATK% and DEF% (twice the Force of the crit set), and its own
+  karma, chosen for Force (written with the deck).
+- Memoir Editor has a Game-legal only toggle. Off (the default), it
+  writes whatever you enter, as before. On, Build a Set and Fix Slots
+  make only memoirs the original game could: HP%, ATK%, DEF%, crit and
+  agility sub stats, each once, none past its top and only one at it,
+  with legal values filled in; the save editor refuses anything else. Characters are
+  rank 10, as fully raised characters are (they were rank 1).
+- The simulator hits as the game does: the client's own damage formula
+  (DEF can at most halve a hit; a hit is at most 1,500,000), in place of
+  a guess calibrated on one video hit; the same hit now comes out within
+  7% of the video. All maxed was baked again for these.
+- Deck Builder's Subjugation damage is simulated as the game plays it on
+  Auto, and checked against fights recorded on the emulator: a whole D5
+  fight comes out within half again of the game's (it predicted five
+  times too much). From the game client: two-minute waves; the boss's
+  own skill AI (one skill at a time, with cast times; its main attack
+  never targets a character it is weak against); the boss takes half
+  damage from every element but its weakness; a knock-down stops the
+  clock for 35 seconds and multiplies hits after the 1.5M cap; a wave
+  without one hands its gauge to the next; weapon cooldowns at the game's
+  pace; on Auto only weapon skills fire (never character or companion
+  skills); units act one at a time in agility rounds, the boss's turn
+  holding the rest. Decks main weapons of the boss's weakness, the
+  hardest-hitting first.
+- **Story Jump** (Programs › Story Jump): bring a save forward to the
+  start of a main-story chapter, or to a quest in one, without playing
+  through what comes before. Each skipped quest is cleared as the server
+  clears a quest the story moves past: its exp, gold and first-clear
+  rewards once (the characters, weapons, companions, key items and gems
+  the story gives), its missions marked clear without their rewards, no
+  drops. The story tutorials before it are finished (the companion choice
+  gives the first companion offered). Season 2 asks which route; a save
+  already on one route stays on it. Forward only: chapters behind the save
+  have no Jump. A preview lists what a jump will clear and give (only what
+  the save gains), and every jump is backed up first; a refused jump leaves
+  no backup. The game keeps running for a preview. With the Original
+  calendar in its first loop the game data is built again, so the chapter
+  jumped to is open. It opens for the player in use, and works with the
+  Global and Japanese game data, whose stories are laid out the same. A
+  companion already chosen in the tutorial is kept.
 
 ## 1.10.0 (2026-11-08)
 

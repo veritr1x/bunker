@@ -42,6 +42,11 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
     sort by best match, Force or fewest pieces to add, and write it to the Arena or Loadout deck
     you pick, with a snapshot taken first. All maxed is ranked from all 3.2 million decks of the
     playable costumes, fought ahead of time in their best gear and karma.
+  - **Story Jump**: bring a save forward to the start of a main-story chapter, or a quest in
+    one, without playing what comes before. Every quest before it counts as cleared and gives
+    its first-clear rewards (the characters, weapons, companions and gems the story gives), the
+    story tutorials before it are done, and the game picks up there. Season 2 asks which route;
+    a preview lists what a jump gives, and a snapshot is taken first. Forward only.
   - **Start a new day** (Content): everything daily starts over at once.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking, battles and the Flying Mama minigame keep their normal speed.
