@@ -348,6 +348,7 @@ class PageTest(unittest.TestCase):
         self.assertIn("`Replaces ${b.dataset.name} (${b.dataset.summary})`", html)
         self.assertIn('id="w-yes" onclick="writeDeck()" disabled>REPLACE</button>', html)
         self.assertNotIn('id="w-to"', html)      # no deck list in the deck view itself
+        self.assertNotIn("preTick", html)        # nothing is ticked for you: the deck is the one you pick
         self.assertIn("#w-go[hidden]{display:none}", html)     # the button style would show it
 
     def test_write_takes_snapshot_then_calls_shim(self):
