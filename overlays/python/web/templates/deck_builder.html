@@ -551,12 +551,6 @@ async function prepare(against, costumes) {
   const j = await res.json();
   if (!j.ok) say("error", j.error || "Couldn't prepare Deck Builder");
 }
-function preTick() {
-  const boxes = [...document.querySelectorAll("#w-slots input")];
-  if (boxes.some(b => b.checked)) return;
-  const pick = state.deck_for === "defense" ? boxes.find(b => b.dataset.defense) : boxes.find(b => b.dataset.empty && b.value.startsWith("2:"));
-  if (pick) pick.checked = true;
-}
 function say(kind, text) {
   const msg = $("db-msg");
   msg.hidden = false; msg.className = "banner" + (kind === "error" ? " error" : " success");
@@ -596,7 +590,7 @@ function openPick() {
   const subj = detailData?.kind === "subjugation";
   $("w-pick-decks").hidden = subj;
   $("w-pick-h").textContent = subj ? "Write to Subjugation" : "Write to";
-  if (!subj) { preTick(); pickTab(document.querySelector("#w-slots input:checked")?.value.split(":")[0] || 2); }
+  if (!subj) pickTab(document.querySelector("#w-slots input:checked")?.value.split(":")[0] || 2);
   pickList();
   $("d-msg").hidden = true;
   $("w-pick").hidden = false; $("w-go").hidden = true;
