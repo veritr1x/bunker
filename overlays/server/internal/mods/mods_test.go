@@ -91,7 +91,7 @@ func TestChallengeBonus(t *testing.T) {
 		{Settings{HardEnemies: 2, ExpMultiplier: 2}, false, 1},
 		{Settings{HardEnemies: 2, RewardMultiplier: 2}, false, 1},
 		{Settings{HardEnemies: 2, ExpMultiplier: 1, RewardMultiplier: 1}, false, 3}, // ×1 is off
-		{Settings{HardEnemies: 2}, true, 1}, // Start a new day pauses it
+		{Settings{HardEnemies: 2}, true, 1},                                         // Start a new day pauses it
 	} {
 		if got := c.s.ChallengeBonus(c.paused); got != c.want {
 			t.Errorf("%+v paused=%v: bonus %d, want %d", c.s, c.paused, got, c.want)

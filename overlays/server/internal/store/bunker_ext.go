@@ -55,29 +55,29 @@ type ExtState struct {
 // PvpState is the player's Arena: points, battle points, the computer
 // opponents offered, logs and weekly results (see internal/pvp).
 type PvpState struct {
-	SeasonId           int32             `json:"seasonId,omitempty"`
-	Point              int32             `json:"point,omitempty"`
-	WeekVersion        int64             `json:"weekVersion,omitempty"` // start of the week Point counts for
-	MaxSeasonRank      int32             `json:"maxSeasonRank,omitempty"`
-	BattlePointMilli   int32             `json:"battlePointMilli,omitempty"`
-	BattlePointUpdated int64             `json:"battlePointUpdated,omitempty"` // 0: never used, so full
-	WinStreak          int32             `json:"winStreak,omitempty"`
-	WinStreakUpdated   int64             `json:"winStreakUpdated,omitempty"`
-	DefenseDeckNumber  int32             `json:"defenseDeckNumber,omitempty"`
-	DefenseDeckPower   int32             `json:"defenseDeckPower,omitempty"`
-	DefenseChecked     int64             `json:"defenseChecked,omitempty"` // defense battles are simulated up to here
-	Matching           []int64           `json:"matching,omitempty"`       // computer players offered
-	Opponent           int64             `json:"opponent,omitempty"`       // battle started, not finished
+	SeasonId           int32   `json:"seasonId,omitempty"`
+	Point              int32   `json:"point,omitempty"`
+	WeekVersion        int64   `json:"weekVersion,omitempty"` // start of the week Point counts for
+	MaxSeasonRank      int32   `json:"maxSeasonRank,omitempty"`
+	BattlePointMilli   int32   `json:"battlePointMilli,omitempty"`
+	BattlePointUpdated int64   `json:"battlePointUpdated,omitempty"` // 0: never used, so full
+	WinStreak          int32   `json:"winStreak,omitempty"`
+	WinStreakUpdated   int64   `json:"winStreakUpdated,omitempty"`
+	DefenseDeckNumber  int32   `json:"defenseDeckNumber,omitempty"`
+	DefenseDeckPower   int32   `json:"defenseDeckPower,omitempty"`
+	DefenseChecked     int64   `json:"defenseChecked,omitempty"` // defense battles are simulated up to here
+	Matching           []int64 `json:"matching,omitempty"`       // computer players offered
+	Opponent           int64   `json:"opponent,omitempty"`       // battle started, not finished
 	// OpponentDecks are the Deck Builder table decks (by position) of the opponents
 	// listed or being fought, so the deck listed is the deck fought (pvp/decktable.go).
-	OpponentDecks map[int64]int32 `json:"opponentDecks,omitempty"`
-	AttackLog          []PvpLog          `json:"attackLog,omitempty"`      // newest first
-	DefenseLog         []PvpLog          `json:"defenseLog,omitempty"`
-	Season             PvpSeasonStats    `json:"season"`
-	Weekly             []PvpWeeklyResult `json:"weekly,omitempty"`            // oldest first
-	RewardWeekVersion  int64             `json:"rewardWeekVersion,omitempty"` // weekly rewards paid up to this week
-	RewardSeasonId     int32             `json:"rewardSeasonId,omitempty"`
-	SeasonResult       *PvpWeeklyResult  `json:"seasonResult,omitempty"` // an ended season whose rank reward is not paid yet
+	OpponentDecks     map[int64]int32   `json:"opponentDecks,omitempty"`
+	AttackLog         []PvpLog          `json:"attackLog,omitempty"` // newest first
+	DefenseLog        []PvpLog          `json:"defenseLog,omitempty"`
+	Season            PvpSeasonStats    `json:"season"`
+	Weekly            []PvpWeeklyResult `json:"weekly,omitempty"`            // oldest first
+	RewardWeekVersion int64             `json:"rewardWeekVersion,omitempty"` // weekly rewards paid up to this week
+	RewardSeasonId    int32             `json:"rewardSeasonId,omitempty"`
+	SeasonResult      *PvpWeeklyResult  `json:"seasonResult,omitempty"` // an ended season whose rank reward is not paid yet
 	// Seasons that ended before SeasonResult's and are not paid yet either, oldest first.
 	EarlierSeasonResults []PvpWeeklyResult `json:"earlierSeasonResults,omitempty"`
 	LatestVersion        int64             `json:"latestVersion,omitempty"`

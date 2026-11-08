@@ -34,7 +34,9 @@ func newDay(f *store.FriendState, day int64) {
 }
 
 // IsFriend reports whether a player is the player's friend.
-func IsFriend(f *store.FriendState, playerId int64) bool { return slices.Contains(FriendIds(f), playerId) }
+func IsFriend(f *store.FriendState, playerId int64) bool {
+	return slices.Contains(FriendIds(f), playerId)
+}
 
 // AddFriend makes a computer player a friend; false if it is not one, is
 // already a friend or the friend list is full.
