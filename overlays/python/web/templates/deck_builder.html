@@ -195,7 +195,7 @@
     <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button><button type="button" data-v="subjugation">Subjugation</button></div></div>
     <div class="db-lbl">Build from</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">What I own</button><button type="button" data-v="best" class="on">All maxed</button></div>
-      <p class="help best-only">All maxed uses anything in the game, fully raised: missing pieces are added maxed, and your own costumes and characters are raised when you write the deck.</p>
+      <p class="help best-only">All maxed ranks the best decks in a world where you own everything: every costume of every character, fully raised. Each costume you own adds to its character's stats, so if you're missing some, the deck does a little worse for you than shown. Writing a deck adds missing pieces maxed and raises your own costumes and characters.</p>
       <p class="help owned-only">What I own uses your costumes as they are. Allow up to
         <select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">All</option></select> pieces to be added.</p></div>
     <div class="db-lbl subj-only">Boss</div>
