@@ -4,6 +4,72 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.10.0 (2026-11-08)
+
+Deck Builder, Gift and more mods. Pod Programs has a Deck Builder that
+builds Arena, Loadout and Subjugation decks from what you own or with
+everything maxed, explains every piece and writes the deck into your save;
+All maxed is ranked from 3.2 million decks fought ahead of time. Gift sends
+you anything the game can hold, to the in-game Gift Box. The mods add
+unlimited daily plays, free skips, an EXP multiplier, friends from the story
+and three challenges that pay a reward bonus, and Start a new day restarts
+everything daily at once. Pod Programs fits a phone on its side and reads
+the same on every page. With the calendar on, auto-repeat runs every
+repeat again. Summons give the shards and medals their notices and art
+name, at the prices they show.
+
+## 2026-11-08 (after 1.9.0)
+
+### Pod Programs
+- **Deck Builder**: decks for the Arena (attack or defense) and for
+  Subjugation, built from what you own (with up to a set number of pieces
+  added) or with everything maxed. Each deck lists its characters, their
+  weapons, companion, memoirs and debris, why each was picked, the game's
+  exact Force and how often it wins. Filter by element, strategy, effects
+  and characters to require or leave out, build against the general meta or
+  an Arena opponent, and sort by best match, Force or fewest pieces to add.
+  WRITE DECK opens a deck picker with your Arena and Loadout decks, each
+  showing what it holds, and lists what the write replaces before you
+  confirm; Save Data keeps a snapshot first. [0741446] [bcb9152] [9143370]
+- All maxed ranks the best decks in a world where you own everything: all
+  3,177,096 decks of the 280 playable costumes were fought ahead of time,
+  each costume in the gear and karma that serve it best, against 50
+  opponents (the experts' 23 meta decks and the 27 strongest decks). The list
+  shows the numbers it was ranked by, so it reads in order and pages load at
+  once; Sort Force uses each costume's loadout with the most Force. A
+  costume you're missing lowers its character's stats, so a deck can do a
+  little worse for you than shown. [3329806] [e3cde14] [97573c6] [abb2432]
+- Explanations wait behind an ⓘ in portrait as in landscape: each page's
+  intro beside its title, and longer notes beside what they explain.
+  [438cb09]
+- Every page uses one set of text sizes, at least 12 px, with form fields
+  at 16 px so iPhone no longer zooms into them; owned rows are no longer
+  faded, long names wrap instead of being cut off, buttons are easier to
+  tap and the light theme has enough contrast. [5c0b0a4]
+- On a phone on its side Pod Programs uses the whole screen: the title,
+  Close and the tabs in a column on the left, each page's controls beside
+  its content. [9950d37]
+
+### Arena
+- Computer players field real lineups with full loadouts from Deck
+  Builder's deck table. The top 100 ranks field the strongest decks; below
+  them, opponents scale to how strong your own Arena decks are, not only
+  their Force. The table is written when you open Deck Builder; until then
+  computer players are as before. [2335ebe] [a66ce12]
+
+### Bunker menu
+- Auto deploy, in the ⋮ menu: on (the default), opening Bunker starts Lunar
+  Tear and the game as before; off, it opens on the launcher until you tap
+  Deploy. Android. [b02fe24]
+
+### Content
+- With the calendar on, auto-repeat runs every repeat again. Since the
+  calendar put back events that ran more than once, every subquest's
+  auto-repeat stopped after one clear with "The quest period has ended":
+  the copies sat out of order in the game data, and the game, which looks
+  rows up by binary search, missed their chapters. A calendar in use
+  rebuilds its data when this version first starts. [b5c4e8f]
+
 ## 2026-11-07 (after 1.9.0)
 
 ### Server
