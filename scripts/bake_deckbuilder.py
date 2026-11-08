@@ -542,6 +542,18 @@ def _pair(side, opp, prep_d=None, prep_a=None):
     return attack, (round(wins / k, 4), round(margin / k, 4))
 
 
+def meta_top(ex) -> list:
+    """The META_TOP strongest attack decks of the bake in TOP_FROM that are not expert meta decks (slot order)."""
+    if not META_TOP:
+        return []
+    known = {frozenset(l.costumes) for l in ex.meta_pool()}
+    top = []
+    for r in sorted(read_decks(TOP_FROM / "decks"), key=lambda r: (-r[3], -r[4])):
+        if frozenset(r[:3]) not in known and len(top) < META_TOP:
+            known.add(frozenset(r[:3])); top.append(tuple(r[:3]))
+    return top
+
+
 def _deck_worker_init(use_compiled=False):
     from deckbuilder import generate, sim
     T = tables(); sim.use(T)
@@ -555,13 +567,11 @@ def _deck_worker_init(use_compiled=False):
     gen = generate.Generator(T, ex, st, st, meta_size=META)
     _W.update(T=T, st=st, cache=cache, los=los, order=baked.debris_order(los), gen=gen)
     meta = [(battle._side(d, T), w, name) for d, w, name in gen.meta()]
-    if META_TOP:
+    top = meta_top(ex)
+    _W["meta_top"] = top
+    if top:
         # the strongest decks of an earlier bake join the expert meta as opponents, every opponent weighted alike
-        known = {frozenset(l.costumes) for l in ex.meta_pool()}
-        top = []
-        for r in sorted(read_decks(TOP_FROM / "decks"), key=lambda r: (-r[3], -r[4])):
-            if frozenset(r[:3]) not in known and len(top) < META_TOP:
-                known.add(frozenset(r[:3])); top.append(tuple(r[:3]))
+        # (as the app scores a baked deck: generate.Generator.baked_opponents)
         meta = meta + [(cache.side(deck_keys(l)[0]), 0.0, "Bake top " + " · ".join(T.character_name(c) for c in l)) for l in top]
         meta = [(m, 1 / len(meta), n) for m, _, n in meta]
     # each meta deck set up once per role (battle.prepare_side; None where that cannot stand in for setting it up)
@@ -789,12 +799,19 @@ def cmd_ship(args) -> None:
         for c, lo in set_.items():
             keys[(label, c)] = (label, c, lo["debris"])
             cache.add(keys[(label, c)], baked.loadout_spec(lo, st, T))
-    fp = baked.fingerprint(cache, keys, [m for m, _, _ in _W["meta"]])
+    from deckbuilder.sim import battle
+    # the experts' meta decks in the loadouts the bake equipped them with, shipped so the phone builds the same ones
+    # (its stage may hold other pieces); checked to rebuild the opponents the bake fought
+    md = baked.meta_decks(_W["gen"], _W["ex"], st, T)
+    sides = [battle._side(baked.meta_deck(d, i, st, T), T) for i, d in enumerate(md)]
+    if sides != [m for m, _, _ in _W["meta"][:len(md)]]:
+        raise SystemExit("the shipped meta loadouts do not rebuild the bake's opponents")
+    fp = baked.fingerprint(cache, keys, sides)
     rows = (baked.Record(tuple(r[:3]), r[3], r[4], r[5], r[6], r[7]) for r in read_decks())
     src = ROOT / "android/app/src/main/python/deckbuilder/sim/battle.py"
     path = baked.write(args.out, los, fp, rows, keep=args.keep,
                        extra={"bake": json.loads((BAKE / "5_bake.json").read_text())["decks"], "simulator": _code_hash()},
-                       force_rows=read_force(), force_loadouts=flos)
+                       force_rows=read_force(), force_loadouts=flos, meta_decks=md, meta_top=_W["meta_top"])
     size = sum(p.stat().st_size for p in path.iterdir())
     report("6_ship", {"out": str(path), "fingerprint": fp, "size_mb": round(size / 1e6, 2), "keep": args.keep,
                       "decks": json.loads((path / "meta.json").read_text())["decks"]})

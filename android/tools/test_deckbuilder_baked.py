@@ -61,6 +61,16 @@ class FormatTest(unittest.TestCase):
     def test_missing_data_is_none(self):
         self.assertIsNone(baked.Baked.load(self.path / "nowhere"))
 
+    def test_the_opponents_it_was_scored_against(self):
+        """The bake names its opponents: meta_decks (the experts' meta decks as it equipped them, in baked loadouts,
+        with their weights) and meta_top (its own strongest decks). A bake that names none was scored against the
+        app's own meta."""
+        self.assertEqual((self.b.meta_decks, self.b.meta_top), ([], []))
+        md = [{"name": "Expert", "weight": 1.0, "loadouts": [LOADOUTS[1], LOADOUTS[2], LOADOUTS[3]]}]
+        baked.write(self.path, LOADOUTS, "x", ROWS, meta_decks=md, meta_top=[(1, 2, 3), (4, 3, 1)])
+        b = baked.Baked.load(self.path)
+        self.assertEqual((b.meta_decks, b.meta_top), (md, [(1, 2, 3), (4, 3, 1)]))
+
 
 class DebrisTest(unittest.TestCase):
     """The game holds one of each debris: in a deck, a debris an earlier character already has is replaced on the
@@ -145,6 +155,27 @@ class GeneratorTest(unittest.TestCase):
             self.assertEqual(self.stage.piece_id("weapon", spec.main_weapon.uuid), self.los[c]["main_weapon"])
         self.assertEqual(r.elements, tuple(self.los[c]["element"] for c in r.lineup))
         self.assertTrue(r.deck.characters()[0])
+
+    def test_shown_numbers_are_against_the_bakes_opponents(self):
+        """A baked deck's win rate and margin are against the opponents the bake ranked it by: its meta decks in their
+        shipped loadouts (built as the app equips them) and its meta_top decks in their baked loadouts, every opponent
+        weighted alike."""
+        from deckbuilder import generate
+        from deckbuilder.sim import battle
+        md = baked.meta_decks(self.gen, self.ex, self.stage, tables())
+        self.assertEqual([battle._side(baked.meta_deck(d, i, self.stage, tables()), tables()) for i, d in enumerate(md)],
+                         [battle._side(d, tables()) for d, _, _ in self.gen.meta()])      # the shipped loadouts rebuild them
+        top = [self.rows[-1].lineup]
+        bdir = Path(self.dir.name) / "baked_top"
+        baked.write(bdir, self.los, "fp", self.rows, meta_decks=md, meta_top=top)
+        gen = generate.Generator(tables(), self.ex, self.stage, self.stage, baked=baked.Baked.load(bdir), meta_size=1, runs=1)
+        opp = gen.baked_opponents()
+        self.assertEqual([w for _, w, _ in opp], [0.5, 0.5])
+        ids = lambda d: tuple(ch.costume.id for ch in d.characters() if ch)
+        self.assertEqual(ids(opp[1][0]), top[0])
+        r = gen.page(self.criteria(), 0, 1).items[0]
+        self.assertEqual((r.win_rate, r.margin), gen.outcome(r.deck, self.criteria(), opp))
+        self.assertEqual(self.gen.baked_opponents(), self.gen.meta())     # a bake that names none: the app's own meta
 
     def test_what_the_bake_does_not_cover_searches_live(self):
         """What I own, an opponent, minimum stats or Fewest to add depend on the player's save or the opponent: the live
