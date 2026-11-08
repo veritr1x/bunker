@@ -392,11 +392,114 @@ def cmd_gear(args) -> None:
         "loadouts": ok})
 
 
+# ---------------------------------------------------------------- 2k: karma
+def karma_options(costume_id, T) -> dict:
+    """{slot: [odds numbers]}: each karma slot's top-tier options (the game's rarest roll of each effect)."""
+    odds = T.grp("CostumeLotteryEffectOddsGroup", "CostumeLotteryEffectOddsGroupId")
+    return {le["SlotNumber"]: sorted(o["OddsNumber"] for o in odds.get(le["CostumeLotteryEffectOddsGroupId"], []) if o["RarityType"] == 40)
+            for le in T.T("CostumeLotteryEffect") if le["CostumeId"] == costume_id}
+
+
+def _karma_one(costume_id):
+    """The best karma for the costume in its baked loadout: every combination of its slots' top-tier options, scored
+    in a team (_score) against the meta, kept only when strictly better (win share, then margin) than the stage's own."""
+    import itertools
+    from deckbuilder import baked
+    T, st = _W["T"], _W["st"]
+    lo = _W["gear"].get(costume_id)
+    if lo is None:
+        return {"costume_id": costume_id, "error": "no baked loadout"}
+    spec = baked.loadout_spec(lo, st, T)
+    uuid = spec.costume.uuid
+    rows = {r["slot_number"]: r["odds_number"] for r in st.q("select slot_number, odds_number from user_costume_lottery_effects"
+                                                               " where user_id=? and user_costume_uuid=?", uuid)}
+    opts = {s: o for s, o in karma_options(costume_id, T).items() if s in rows and o}
+    if not opts:
+        return {"costume_id": costume_id, "name": T.costume_name(costume_id), "karma": {}, "evaluations": 0}
+    slots = sorted(opts)
+    def put(karma):
+        for s, o in karma.items():
+            st.db.execute("update user_costume_lottery_effects set odds_number=? where user_id=? and user_costume_uuid=? and slot_number=?",
+                          (o, st.uid, uuid, s))
+    default = {s: rows[s] for s in slots}
+    best_k, best = default, _score(spec, costume_id)
+    first = best
+    n = 1
+    for combo in itertools.product(*(opts[s] for s in slots)):
+        k = dict(zip(slots, combo))
+        if k == default:
+            continue
+        put(k)
+        sc = _score(spec, costume_id, beat=best); n += 1
+        if sc is not None and sc > best:
+            best, best_k = sc, k
+    put(default)
+    return {"costume_id": costume_id, "name": T.costume_name(costume_id), "karma": {str(s): o for s, o in best_k.items()},
+            "default": {str(s): o for s, o in default.items()}, "default_score": first, "score": best, "evaluations": n}
+
+
+def _karma_worker_init(use_compiled=False):
+    _worker_init(use_compiled)
+    _W["gear"] = {c: lo for c, lo in gear_loadouts(with_karma=False).items()}
+
+
+def cmd_karma(args) -> None:
+    """Each costume's best karma in its baked loadout (2k_karma.json); setkarma writes it into the stage."""
+    import multiprocessing as mp
+    T = tables()
+    costumes = sorted(gear_loadouts(with_karma=False))
+    if args.limit:
+        costumes = costumes[:args.limit]
+    t0 = time.time()
+    if args.compiled:
+        check_compiled(20)
+    with mp.get_context("spawn").Pool(args.workers, initializer=_karma_worker_init, initargs=(args.compiled,)) as pool:
+        out = []
+        for i, r in enumerate(pool.imap_unordered(_karma_one, costumes), 1):
+            out.append(r)
+            if i % 20 == 0 or i == len(costumes):
+                print(f"  {i}/{len(costumes)} costumes, {time.time() - t0:.0f}s", flush=True)
+    out.sort(key=lambda r: r["costume_id"])
+    ok = [r for r in out if "error" not in r]
+    report("2k_karma", {"took_s": round(time.time() - t0, 1), "costumes": len(out), "errors": [r for r in out if "error" in r],
+                        "changed": sum(1 for r in ok if r["karma"] != r.get("default", r["karma"])),
+                        "improved": sum(1 for r in ok if r.get("score") and tuple(r["score"]) > tuple(r["default_score"])),
+                        "evaluations": sum(r["evaluations"] for r in ok), "karma": ok})
+
+
+def baked_karma() -> dict:
+    """{costume id: {slot: odds number}} from 2k_karma.json ({} before the karma step)."""
+    path = BAKE / "2k_karma.json"
+    if not path.exists():
+        return {}
+    return {r["costume_id"]: r["karma"] for r in json.loads(path.read_text())["karma"] if r.get("karma")}
+
+
+def cmd_setkarma(args) -> None:
+    """The baked karma written into the bake's stage (the server's own set_costume_karma_batch)."""
+    T = tables()
+    k = baked_karma()
+    stage_mod.Stager(cli_invoke(BAKE / "stage.db"), T).set_karma(k)
+    db = sqlite3.connect(f"file:{BAKE / 'stage.db'}?mode=ro", uri=True)
+    got = {}
+    for c, s, o in db.execute("select c.costume_id, e.slot_number, e.odds_number from user_costume_lottery_effects e"
+                              " join user_costumes c using (user_costume_uuid)"):
+        got.setdefault(c, {})[str(s)] = o
+    report("2k_setkarma", {"costumes": len(k), "mismatched": sorted(c for c, v in k.items() if got.get(c) != v)})
+
+
 # ---------------------------------------------------------------- 3: fighters
-def gear_loadouts():
-    """Each costume's baked loadout (2_gear.json), with its element: {costume id: loadout}."""
+def gear_loadouts(with_karma=True):
+    """Each costume's baked loadout (2_gear.json), with its element and (after the karma step) its karma:
+    {costume id: loadout}."""
     keys = ("costume_id", "role", "element", "main_weapon", "subs", "companion", "memoir_set", "debris")
-    return {r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2_gear.json").read_text())["loadouts"]}
+    los = {r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2_gear.json").read_text())["loadouts"]}
+    return _with_karma(los) if with_karma else los
+
+
+def _with_karma(los: dict) -> dict:
+    k = baked_karma()
+    return {c: dict(lo, karma=k[c]) if c in k else lo for c, lo in los.items()}
 
 
 def fighter_cache(T, st):
@@ -721,7 +824,7 @@ DECKS_FORCE = BAKE / "decks_force"
 
 def force_loadouts():
     keys = ("costume_id", "role", "element", "main_weapon", "subs", "companion", "memoir_set", "debris")
-    return {r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2f_force_gear.json").read_text())["loadouts"]}
+    return _with_karma({r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2f_force_gear.json").read_text())["loadouts"]})
 
 
 def _force_worker_init():
@@ -884,6 +987,11 @@ def main():
     g.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
     fg = sub.add_parser("forcegear"); fg.set_defaults(fn=cmd_forcegear)
     fg.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    kk = sub.add_parser("karma"); kk.set_defaults(fn=cmd_karma)
+    kk.add_argument("--limit", type=int, default=0, help="only the first N costumes (a trial run)")
+    kk.add_argument("--plain", dest="compiled", action="store_false", help="the plain simulator, not the compiled one")
+    kk.add_argument("--workers", type=int, default=max(1, (__import__("os").cpu_count() or 2) - 1))
+    sub.add_parser("setkarma").set_defaults(fn=cmd_setkarma)
     f = sub.add_parser("fighters"); f.set_defaults(fn=cmd_fighters)
     f.add_argument("--decks", type=int, default=300); f.add_argument("--fights", type=int, default=100)
     fb = sub.add_parser("forcebake"); fb.set_defaults(fn=cmd_forcebake)

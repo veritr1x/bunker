@@ -328,7 +328,7 @@ def _baked():
 
 def _baked_plan(b, tables) -> dict:
     """What the stage must hold to write any baked deck: every baked costume and piece, both roles' memoirs of each
-    baked memoir set."""
+    baked memoir set, each costume's baked karma."""
     from deckbuilder import equip
     los = list(b.loadouts.values()) + list(b.force_loadouts.values()) + \
         [lo for d in b.meta_decks for lo in d["loadouts"]]                 # the fights', the Force list's, the opponents'
@@ -338,7 +338,8 @@ def _baked_plan(b, tables) -> dict:
                 weapon_ids=sorted({w for lo in los for w in [lo["main_weapon"], *lo["subs"]] if w}),
                 companion_ids=sorted({lo["companion"] for lo in los if lo.get("companion")}),
                 thought_ids=sorted({lo["debris"] for lo in los if lo.get("debris")}),
-                memoirs=[m for s in sets for _, mains, subs in equip.ROLE_MEMOIRS.values() for m in equip.memoir_specs(s, mains, subs, tables)])
+                memoirs=[m for s in sets for _, mains, subs in equip.ROLE_MEMOIRS.values() for m in equip.memoir_specs(s, mains, subs, tables)],
+                costume_karma={c: lo["karma"] for c, lo in b.loadouts.items() if lo.get("karma")})     # the bake's best karma
 
 
 def _merge_plans(a: dict, b: dict) -> dict:
@@ -350,6 +351,7 @@ def _merge_plans(a: dict, b: dict) -> dict:
         if m not in memoirs:
             memoirs.append(m)
     out["memoirs"] = memoirs
+    out["costume_karma"] = {**(a.get("costume_karma") or {}), **(b.get("costume_karma") or {})}
     for k in a:
         out.setdefault(k, a[k])
     return out

@@ -56,6 +56,10 @@ func TestEditDeckBuilderStage(t *testing.T) {
 			t.Fatalf("%s on the stage: %s", action, got)
 		}
 	}
+	// Per-costume karma (Deck Builder's bake picks each costume's best) is one of them.
+	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"set_costume_karma_batch","user_id":1}`); strings.Contains(got, "not a stage action") {
+		t.Fatalf("set_costume_karma_batch on the stage: %s", got)
+	}
 	// Any other target is refused.
 	if got := Edit(dir, dir, `{"target":"other","action":"upgrade_all_memoirs","user_id":1}`); !strings.Contains(got, "Unknown save target") {
 		t.Fatalf("unknown target: %s", got)
