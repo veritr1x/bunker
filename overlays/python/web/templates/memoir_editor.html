@@ -13,6 +13,17 @@
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
+<div class="panel" style="padding:10px 12px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  <label style="display:flex;gap:8px;align-items:center;font-size:var(--fs-label);letter-spacing:0.15em;text-transform:uppercase">
+    <input type="checkbox" id="legal-only"> Game-legal only
+  </label>
+  <span id="legal-note" style="font-size:var(--fs-label);color:var(--fg-mid)"><span id="legal-text">Off: anything you enter.</span></span>
+</div>
+<p class="help" data-info="legal-note">With Game-legal only on, Build a Set and Fix Slots make only memoirs the original game could:
+  sub stats of HP%, ATK%, DEF%, crit rate, crit damage or agility (no flat stat), each once, none past its top
+  (12.5%, 25% crit rate, 36% crit damage, 72 agility), and only one of them at its top: a memoir's rolls run out.
+  A set's first memoir mains ATK, DEF or HP; only the second may main crit, and only the third agility.</p>
+
 <!-- ============================================================ BUILD A SET -->
 <h2 class="bracket-header costume-group-header" data-side>Build a Set</h2>
 
@@ -78,11 +89,25 @@
   const PRIMARY_OPTIONS = {{ primary_options|tojson }};
   const SUB_OPTIONS = {{ sub_options|tojson }};
   const DEFAULT_SUB_ORDER = {{ default_sub_order|tojson }};
+  const LEGAL = {{ legal_subs|tojson }};
 
   const SET_BY_ID = {};
   for (const s of SETS) SET_BY_ID[s.id] = s;
   const SUB_BY_KEY = {};
   for (const o of SUB_OPTIONS) SUB_BY_KEY[o.key] = o;
+
+  // ----- Game-legal only ------------------------------------------------
+  const legalBox = document.getElementById("legal-only");
+  try { legalBox.checked = localStorage.getItem("memoir-legal-only") === "1"; } catch (e) {}
+  function legalOnly() { return legalBox.checked; }
+  function subOptions() { return legalOnly() ? SUB_OPTIONS.filter(o => LEGAL.keys.includes(o.key)) : SUB_OPTIONS; }
+  function subOrder() { return legalOnly() ? LEGAL.order : DEFAULT_SUB_ORDER; }
+  function subDefault(key) { return legalOnly() ? (LEGAL.defaults[key] || 0) : SUB_BY_KEY[key].value; }
+  function legalNote() {
+    document.getElementById("legal-text").textContent = legalOnly()
+      ? "On: only memoirs the original game could make." : "Off: anything you enter.";
+  }
+  legalNote();
 
   // ----- Banner --------------------------------------------------------
   const bannerEl = document.getElementById("ajax-banner");
@@ -96,8 +121,12 @@
 
   // ----- Render Build-A-Set editor ------------------------------------
   function defaultPrimaryKey(memoirIndex) {
-    // First memoir defaults to crit_rate, second to crit_dmg, third to atk_pct.
+    // First memoir defaults to crit_rate, second to crit_dmg, third to atk_pct (Game-legal only: what each place allows).
+    if (legalOnly()) return LEGAL.primaries.defaults[memoirIndex] || "atk_pct";
     return ["crit_rate", "crit_dmg", "atk_pct"][memoirIndex] || "crit_rate";
+  }
+  function primaryOptions(memoirIndex) {
+    return legalOnly() ? PRIMARY_OPTIONS.filter(o => (LEGAL.primaries.allowed[memoirIndex] || []).includes(o.key)) : PRIMARY_OPTIONS;
   }
 
   function makeSelect(name, options, selectedKey, extraStyle) {
@@ -132,7 +161,7 @@
     primaryLabel.style.cssText = "font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
     head.appendChild(primaryLabel);
 
-    const primarySel = makeSelect("primary", PRIMARY_OPTIONS, defaultPrimaryKey(memoirIndex), "flex:1;min-width:min(220px,100%)");
+    const primarySel = makeSelect("primary", primaryOptions(memoirIndex), defaultPrimaryKey(memoirIndex), "flex:1;min-width:min(220px,100%)");
     primarySel.dataset.role = "primary";
     head.appendChild(primarySel);
     wrap.appendChild(head);
@@ -146,8 +175,8 @@
       lbl.style.cssText = "grid-column:1/-1;margin-top:4px;font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
       slotsWrap.appendChild(lbl);
 
-      const subKey = DEFAULT_SUB_ORDER[slot - 1] || SUB_OPTIONS[0].key;
-      const sub = makeSelect("sub", SUB_OPTIONS, subKey, "");
+      const subKey = subOrder()[slot - 1] || subOptions()[0].key;
+      const sub = makeSelect("sub", subOptions(), subKey, "");
       sub.dataset.role = "sub";
       sub.dataset.slot = slot;
       slotsWrap.appendChild(sub);
@@ -156,12 +185,12 @@
       valInput.type = "number";
       valInput.dataset.role = "value";
       valInput.dataset.slot = slot;
-      valInput.value = SUB_BY_KEY[subKey].value;
+      valInput.value = subDefault(subKey);
       valInput.style.cssText = "width:100%;min-width:0";
       slotsWrap.appendChild(valInput);
 
       sub.addEventListener("change", () => {
-        valInput.value = SUB_BY_KEY[sub.value].value;
+        valInput.value = subDefault(sub.value);
       });
     }
     wrap.appendChild(slotsWrap);
@@ -216,7 +245,7 @@
     const orig = btn.textContent;
     btn.textContent = "WORKING...";
     try {
-      const body = {set_id: setId, memoirs: readMemoirRows()};
+      const body = {set_id: setId, memoirs: readMemoirRows(), legal: legalOnly()};
       const res = await fetch("/users/" + userId + "/memoirs/grant_set", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -268,8 +297,8 @@
       lbl.style.cssText = "font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
       wrap.appendChild(lbl);
 
-      const subKey = DEFAULT_SUB_ORDER[slot - 1] || SUB_OPTIONS[0].key;
-      const sub = makeSelect("sub", SUB_OPTIONS, subKey, "");
+      const subKey = subOrder()[slot - 1] || subOptions()[0].key;
+      const sub = makeSelect("sub", subOptions(), subKey, "");
       sub.dataset.role = "fix-sub";
       sub.dataset.slot = slot;
       wrap.appendChild(sub);
@@ -278,17 +307,24 @@
       valInput.type = "number";
       valInput.dataset.role = "fix-value";
       valInput.dataset.slot = slot;
-      valInput.value = SUB_BY_KEY[subKey].value;
+      valInput.value = subDefault(subKey);
       valInput.style.cssText = "width:100%;min-width:0";
       wrap.appendChild(valInput);
 
       sub.addEventListener("change", () => {
-        valInput.value = SUB_BY_KEY[sub.value].value;
+        valInput.value = subDefault(sub.value);
       });
     }
     fixEditor.appendChild(wrap);
   }
   renderFixSlots();
+
+  legalBox.addEventListener("change", () => {
+    try { localStorage.setItem("memoir-legal-only", legalOnly() ? "1" : "0"); } catch (e) {}
+    legalNote();
+    renderSet(parseInt(document.getElementById("set-picker").value, 10));
+    renderFixSlots();
+  });
 
   const fixBtn = document.getElementById("fix-slots-btn");
   if (fixBtn) {
@@ -313,7 +349,7 @@
         const res = await fetch("/users/" + userId + "/memoirs/fix_slots", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({user_parts_uuid: picker.value, subs: subs}),
+          body: JSON.stringify({user_parts_uuid: picker.value, subs: subs, legal: legalOnly()}),
         });
         const json = await res.json();
         if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }

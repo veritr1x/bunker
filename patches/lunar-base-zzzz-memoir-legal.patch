@@ -1,0 +1,165 @@
+diff --git a/android/app/src/main/python/web/routes/memoir_editor.py b/android/app/src/main/python/web/routes/memoir_editor.py
+index f648863..aae7197 100644
+--- a/android/app/src/main/python/web/routes/memoir_editor.py
++++ b/android/app/src/main/python/web/routes/memoir_editor.py
+@@ -49,6 +49,14 @@ def _err(message: str, status: int = 400) -> JSONResponse:
+     return JSONResponse({"ok": False, "error": message}, status_code=status)
+ 
+ 
++def _main_ok(key: str, index: int) -> bool:
++    try:
++        memoir_service.check_legal_main(key, index)
++        return key in memoir_service.PRIMARY_BY_KEY
++    except memoir_service.MemoirError:
++        return False
++
++
+ @router.get("/memoirs", response_class=HTMLResponse)
+ def memoir_editor_index(request: Request):
+     try:
+@@ -111,6 +119,11 @@ def memoir_editor_view(request: Request, user_id: int):
+             "primary_options": memoir_service.PRIMARY_OPTIONS,
+             "sub_options": memoir_service.SUB_OPTIONS,
+             "default_sub_order": memoir_service.DEFAULT_SUB_ORDER,
++            "legal_subs": {"keys": list(memoir_service.LEGAL_SUB_KEYS), "order": memoir_service.LEGAL_SUB_ORDER,
++                           "defaults": memoir_service.LEGAL_DEFAULTS,
++                           "primaries": {"defaults": memoir_service.LEGAL_PRIMARY_DEFAULTS,
++                                         "allowed": [[k for k in memoir_service.LEGAL_SUB_KEYS
++                                                      if _main_ok(k, i)] for i in range(3)]}},
+             "owned_count": owned_count,
+             "inventory_cap": memoir_service.MEMOIR_INVENTORY_CAP,
+             "owned_for_picker": owned_for_picker,
+@@ -150,6 +163,7 @@ def grant_set_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> JSO
+             set_id=set_id,
+             memoirs=memoirs,
+             current_inventory=current,
++            legal=bool(payload.get("legal")),
+         )
+     except memoir_service.MemoirError as e:
+         return _err(str(e))
+@@ -185,7 +199,7 @@ def fix_slots_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> JSO
+         return _err("subs must be a non-empty list")
+ 
+     try:
+-        outcome = memoir_service.fix_slots(user_id, uuid, subs)
++        outcome = memoir_service.fix_slots(user_id, uuid, subs, legal=bool(payload.get("legal")))
+     except memoir_service.MemoirError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+diff --git a/android/app/src/main/python/web/services/memoir_service.py b/android/app/src/main/python/web/services/memoir_service.py
+index 8273b82..e99b2a1 100644
+--- a/android/app/src/main/python/web/services/memoir_service.py
++++ b/android/app/src/main/python/web/services/memoir_service.py
+@@ -404,8 +404,54 @@ def _validate_memoir_payload(memoir: dict) -> None:
+             raise MemoirError(f"unknown sub_key: {s.get('sub_key')!r}")
+ 
+ 
+-def _build_subs_for_shim(subs: list[dict]) -> list[dict]:
+-    """Translate UI subs (slot + sub_key + optional value) into shim subs."""
++# Bunker: the "Game-legal only" toggle. The original game's limits (NieR Re[in] Guide, Memoirs; Deck Builder's
++# deckbuilder/raise_.py): a sub stat is a percentage, crit or agility one (no flat stat), each stat once, none past
++# its top, and a memoir's rolls (each counted at its stat's largest starting value) are at most 6 on one sub stat
++# and 9 in all (the four first rolls and the raises at +3, +6, +9, +12 and +15).
++LEGAL_SUB_KEYS: Final[dict[str, str]] = {"crit_rate": "crit_rate", "crit_dmg": "crit_damage", "atk_pct": "attack_pct",
++                                         "hp_pct": "hp_pct", "def_pct": "defense_pct", "agility": "agility"}
++LEGAL_SUB_ORDER: Final[list[str]] = ["crit_rate", "crit_dmg", "atk_pct", "hp_pct"]
++LEGAL_DEFAULTS: Final[dict[str, int]] = {"crit_rate": 250, "crit_dmg": 60, "atk_pct": 50, "hp_pct": 25,
++                                         "def_pct": 25, "agility": 12}     # crit rate at its top, then the rest: 9 rolls
++
++
++LEGAL_PRIMARY_DEFAULTS: Final[list[str]] = ["atk_pct", "crit_rate", "atk_pct"]   # only the second memoir mains crit
++
++
++def check_legal_main(primary_key: str, index: int) -> None:
++    """Raise MemoirError unless the set's memoir at this place (0, 1, 2) can main this stat in the original game:
++    the first mains ATK, DEF or HP; the second may also main crit; the third may also main agility."""
++    from deckbuilder import raise_
++    if not raise_.main_allowed(LEGAL_SUB_KEYS.get(primary_key, ""), index):
++        raise MemoirError(f"{PRIMARY_BY_KEY[primary_key]['label']} can't be the main of memoir {index + 1} of a set "
++                          "(the second memoir may main crit, the third agility, the first only ATK, DEF or HP)")
++
++
++def check_legal(subs: list[dict]) -> None:
++    """Raise MemoirError unless the original game could have made these sub stats (resolved values)."""
++    from deckbuilder import raise_
++    rolls, seen = 0, set()
++    for s in subs:
++        key = s["sub_key"]
++        name = LEGAL_SUB_KEYS.get(key)
++        if name is None:
++            raise MemoirError(f"{SUB_BY_KEY[key]['label']}: the original game has no flat sub stat")
++        if key in seen:
++            raise MemoirError(f"{SUB_BY_KEY[key]['label']} twice: a memoir has each sub stat once")
++        seen.add(key)
++        value = int(s["value"])
++        if value < 1 or value > raise_.SUB_TOP[name]:
++            raise MemoirError(f"{SUB_BY_KEY[key]['label']}: {value} is past its top of {raise_.SUB_TOP[name]}")
++        n = -(-value // raise_.SUB_ROLL[name])
++        if n > raise_.MAX_ROLLS_PER_SUB:
++            raise MemoirError(f"{SUB_BY_KEY[key]['label']}: {n} rolls, at most {raise_.MAX_ROLLS_PER_SUB} on one sub stat")
++        rolls += n
++    if rolls > raise_.MAX_ROLLS:
++        raise MemoirError(f"{rolls} rolls in all: a memoir gets at most {raise_.MAX_ROLLS} (no more than one sub stat at its top)")
++
++
++def _build_subs_for_shim(subs: list[dict], legal: bool = False) -> list[dict]:
++    """Translate UI subs (slot + sub_key + optional value) into shim subs. legal: the original game's limits only."""
+     out: list[dict] = []
+     for s in subs:
+         opt = SUB_BY_KEY[s["sub_key"]]
+@@ -419,6 +465,8 @@ def _build_subs_for_shim(subs: list[dict]) -> list[dict]:
+             "calc_type": int(opt["calc"]),
+             "value": int(value),
+         })
++    if legal:
++        check_legal([dict(s, value=o["value"]) for s, o in zip(subs, out)])
+     return out
+ 
+ 
+@@ -427,6 +475,7 @@ def grant_set(
+     set_id: int,
+     memoirs: list[dict],
+     current_inventory: int,
++    legal: bool = False,
+ ) -> MemoirOutcome:
+     """Grant 3 memoirs from a set at lv15 with chosen primary + subs.
+ 
+@@ -451,8 +500,10 @@ def grant_set(
+         )
+ 
+     payload_memoirs: list[dict] = []
+-    for mem_def, mem_in in zip(set_def["memoirs"], memoirs):
++    for index, (mem_def, mem_in) in enumerate(zip(set_def["memoirs"], memoirs)):
+         _validate_memoir_payload(mem_in)
++        if legal:
++            check_legal_main(mem_in["primary_key"], index)
+         if int(mem_in["group_id"]) != mem_def["group_id"]:
+             raise MemoirError(
+                 f"memoir group_id mismatch: expected {mem_def['group_id']}, "
+@@ -464,7 +515,7 @@ def grant_set(
+             "parts_group_id": mem_def["group_id"],
+             "parts_status_main_id": int(primary["main_id"]),
+             "level": MEMOIR_MAX_LEVEL,
+-            "subs": _build_subs_for_shim(mem_in.get("subs") or []),
++            "subs": _build_subs_for_shim(mem_in.get("subs") or [], legal),
+         })
+ 
+     _ensure_shim_available()
+@@ -508,7 +559,7 @@ def upgrade_all(user_id: int) -> MemoirOutcome:
+     )
+ 
+ 
+-def fix_slots(user_id: int, user_parts_uuid: str, subs: list[dict]) -> MemoirOutcome:
++def fix_slots(user_id: int, user_parts_uuid: str, subs: list[dict], legal: bool = False) -> MemoirOutcome:
+     """Overwrite the sub-status rows on one existing memoir."""
+     if user_id <= 0:
+         raise MemoirError("user_id must be positive")
+@@ -530,7 +581,7 @@ def fix_slots(user_id: int, user_parts_uuid: str, subs: list[dict]) -> MemoirOut
+ 
+     payload = [{
+         "user_parts_uuid": user_parts_uuid,
+-        "subs": _build_subs_for_shim(subs),
++        "subs": _build_subs_for_shim(subs, legal),
+     }]
+ 
+     _ensure_shim_available()
