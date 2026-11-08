@@ -418,7 +418,7 @@ function cardHtml(c) {
   cards[c.key] = c;
   const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><span class="nm">${esc(t.name)}</span></div>`).join("");
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
-    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>wins</small></div></div>
+    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>win rate</small></div></div>
     <div class="trio">${tiles}</div>
     <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span></div></button>`;
 }
@@ -458,7 +458,7 @@ async function openDetail(key, el) {
   $("d-title").textContent = c.title;
   $("d-sub").textContent = c.strategy;
   $("d-trio").innerHTML = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
-  $("d-stats").innerHTML = [["Wins", c.win_pct + "%"], ["Force", c.force.toLocaleString()], ["To add", c.to_add], ["Variants", c.variants]]
+  $("d-stats").innerHTML = [["Win rate", c.win_pct + "%"], ["Force", c.force.toLocaleString()], ["To add", c.to_add], ["Variants", c.variants]]
     .map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join("");
   $("d-why").textContent = c.why; $("d-why").classList.remove("open"); $("d-more").hidden = true;
   $("d-chars").innerHTML = '<p class="help">Loading…</p>'; $("d-over").innerHTML = ""; $("w-raise-box").hidden = true; $("w-sum").textContent = "";
