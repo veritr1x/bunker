@@ -31,7 +31,7 @@
 <form action="/mods" method="post" id="mods-form">
   {% for group, mods in groups %}
   <details class="mods-group" data-group="{{ group }}" open>
-  <summary class="bracket-header" data-toc="{{ group }}">{{ group }}<span class="fold" aria-hidden="true"></span></summary>
+  <summary class="bracket-header" data-toc="{{ group }}"{% if group == "Challenges" %} id="challenges-head"{% endif %}>{{ group }}<span class="fold" aria-hidden="true"></span></summary>
   <div class="panel">
     {% if group == "Challenges" %}
     <div class="bonus{% if bonus_paused %} paused{% endif %}" id="bonus"><span>Challenge bonus on quest rewards<br><span class="note" id="bonus-why">{{ bonus_reason }}</span></span><b id="bonus-x">×{{ bonus }}</b></div>
@@ -59,7 +59,7 @@
     {% endif %}
     {% endfor %}
     {% if group == "Challenges" %}
-    <p class="credit" style="margin:10px 0 0">Bonuses multiply, up to ×10. The bonus counts only while the Quests, Items &amp; shops and Summons mods are off; World mods don't matter. After Start a new day, it pauses until the next day. A change here sends the game to its title screen to load it.</p>
+    <p class="credit" data-info="challenges-head" style="margin:10px 0 0">Bonuses multiply, up to ×10. The bonus counts only while the Quests, Items &amp; shops and Summons mods are off; World mods don't matter. After Start a new day, it pauses until the next day. A change here sends the game to its title screen to load it.</p>
     {% endif %}
   </div>
   </details>

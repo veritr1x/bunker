@@ -50,6 +50,32 @@
     const query = matchMedia("(orientation: landscape) and (max-height: 599px)");
     const main = document.querySelector("main");
     let split = null;
+    // Explanations wait behind an ⓘ in every orientation: a page's intro ([data-side="intro"]) beside its title, a
+    // note ([data-info]) beside the element it names. One button per place opens all it holds; a button inside a
+    // fold's summary does not fold it.
+    function infoButtons() {
+      const made = new Map();
+      document.querySelectorAll('[data-side="intro"], [data-info]').forEach(el => {
+        const anchor = el.dataset.info ? document.getElementById(el.dataset.info) : main.querySelector("h1");
+        let b = made.get(anchor || el);
+        if (!b) {
+          b = document.createElement("button");
+          b.type = "button"; b.className = "intro-info"; b.textContent = "i"; b.targets = [];
+          b.setAttribute("aria-label", el.dataset.info ? "More about this" : "About this page"); b.setAttribute("aria-expanded", "false");
+          [...el.classList].filter(c => c.endsWith("-only")).forEach(c => b.classList.add(c));
+          b.onclick = e => {
+            e.preventDefault(); e.stopPropagation();
+            const open = !b.targets[0].classList.contains("open");
+            b.targets.forEach(t => t.classList.toggle("open", open));
+            b.setAttribute("aria-expanded", String(open));
+          };
+          anchor ? anchor.append(b) : el.before(b);
+          made.set(anchor || el, b);
+        }
+        b.targets.push(el);
+      });
+    }
+    infoButtons();
     function apply() {
       if (query.matches && !split && main.querySelector(":scope > [data-side]")) {
         const wrap = document.createElement("div"), side = document.createElement("aside"), body = document.createElement("div");
@@ -77,20 +103,9 @@
         wrap.append(side, body);
         main.append(wrap);
         split = {wrap, moved, toc: side.querySelector(".page-toc")};
-        // The page's explainer waits behind an ⓘ beside its title.
-        side.querySelectorAll('[data-side="intro"]').forEach(intro => {
-          const info = document.createElement("button");
-          info.type = "button"; info.className = "intro-info"; info.textContent = "i";
-          info.setAttribute("aria-label", "About this page"); info.setAttribute("aria-expanded", "false");
-          info.onclick = () => info.setAttribute("aria-expanded", String(intro.classList.toggle("open")));
-          const title = side.querySelector(":scope > h1");
-          title ? title.append(info) : intro.before(info);
-        });
       } else if (!query.matches && split) {
         for (const [el, mark] of split.moved) mark.replaceWith(el);
         split.toc?.remove();
-        main.querySelectorAll(".intro-info").forEach(b => b.remove());
-        main.querySelectorAll('[data-side="intro"].open').forEach(e => e.classList.remove("open"));
         split.wrap.remove();
         split = null;
       }

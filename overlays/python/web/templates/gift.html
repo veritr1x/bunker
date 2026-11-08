@@ -30,12 +30,11 @@
 </style>
 
 <h1 class="bracket-header" data-side>Gift</h1>
-<div class="panel" data-side{% if players|length <= 1 %}="intro"{% endif %}><p style="margin:0">Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. The game keeps running: the Gift Box shows it after your next action.</p>
+<p data-side="intro">Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. The game keeps running: the Gift Box shows it after your next action.</p>
 {% if players|length > 1 %}
-  <p style="margin:8px 0 0"><label for="player">Player</label>
-  <select id="player" onchange="location.href='/gift?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p>
+  <div class="panel" data-side><p style="margin:0"><label for="player">Player</label>
+  <select id="player" onchange="location.href='/gift?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p></div>
 {% endif %}
-</div>
 
 {% if not ready %}
 <div class="banner" data-side>&gt; The first gift also adds its text to the game data, so the game returns to its title screen to load it.</div>
