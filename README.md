@@ -28,8 +28,8 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
     characters, weapons, memoirs and debris, sorted by what each is for. It arrives in the game's
     own Gift Box as "From Bunker, with love." and is claimed there like any other gift, with the
     game still running.
-  - **Mods**: optional changes to how the game plays, all off until you turn them on, in five
-    groups. Quests: free stamina, unlimited daily plays, free skips, quest rewards and EXP ×2 to
+  - **Mods**: optional changes to how the game plays, all off by default, in five groups.
+    Quests: free stamina, unlimited daily plays, free skips, quest rewards and EXP ×2 to
     ×10. Items & shops: stamina items and premium tickets that arrive as gold and gems, unlimited
     restocking shop items, Lost Items that give gems. Summons: no duplicate ★4, summon medals
     traded for gems. World: friends from the story. Challenges: hard enemies, weakness only and
