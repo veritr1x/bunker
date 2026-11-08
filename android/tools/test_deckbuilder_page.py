@@ -222,7 +222,7 @@ class PageTest(unittest.TestCase):
     def test_the_allow_menu_shows_only_with_what_i_own(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<p class="help owned-only">What I own uses your costumes as they are. Allow up to', html)
-        self.assertIn('<p class="help best-only">All maxed ranks the best decks in a world where you own everything', html)
+        self.assertIn('<p class="help best-only" data-info="lbl-mode">All maxed ranks the best decks in a world where you own everything', html)
         self.assertIn("so if you're missing some, the deck does a little worse for you than shown", html)
         self.assertIn('body.owned .best-only,body:not(.owned) .owned-only{display:none!important}', html)
         self.assertIn('document.body.classList.toggle("owned", state.mode === "owned");', html)
