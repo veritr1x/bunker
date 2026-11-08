@@ -34,7 +34,7 @@ under its heading, down to the previous release.
   in the iPad's own shape, even on a 16:9 TV. The game's picture takes the
   window's shape (it drew in the iPad's shape and was stretched): at 1080 on
   a 16:9 display it is 1920×1080. An app updated in place gets this too.
-  Without a pointer, a window on an external display opens small.
+  Without a pointer, a window on an external display opens small. [a8671e8]
 
 ## 1.10.1 (2026-11-09)
 
