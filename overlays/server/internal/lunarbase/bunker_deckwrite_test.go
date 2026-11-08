@@ -230,3 +230,43 @@ func TestDeckWriteOwnedCostumeFromStageIsNotDuplicated(t *testing.T) {
 		t.Fatal("an owned costume was duplicated or raised without a tick")
 	}
 }
+
+// A character may carry its own karma (the Force list's, chosen for Force): the copied costume gets it, slot by
+// slot, in place of the staged costume's; the stage keeps its own.
+func TestDeckWriteKarmaOverride(t *testing.T) {
+	u, s := deckWriteStates()
+	if s.CostumeLotteryEffects == nil {
+		s.CostumeLotteryEffects = map[store.CostumeLotteryEffectKey]store.CostumeLotteryEffectState{}
+	}
+	if u.CostumeLotteryEffects == nil {
+		u.CostumeLotteryEffects = map[store.CostumeLotteryEffectKey]store.CostumeLotteryEffectState{}
+	}
+	for slot := int32(1); slot <= 3; slot++ {
+		k := store.CostumeLotteryEffectKey{UserCostumeUuid: "s-100", SlotNumber: slot}
+		s.CostumeLotteryEffects[k] = store.CostumeLotteryEffectState{UserCostumeUuid: "s-100", SlotNumber: slot, OddsNumber: 1}
+	}
+	u.Costumes = map[string]store.CostumeState{} // the player does not own costume 100
+	spec := writeSpec(t, `{"slots":[{"deck_type":1,"number":3,"power":1}],
+ "characters":[{"costume":{"uuid":"s-100","source":"stage"},"karma":{"1":5,"3":7}}],"raise":[]}`)
+	if err := apply(u, s, spec, store.PossessionLimits{}); err != nil {
+		t.Fatal(err)
+	}
+	var to string
+	for k, c := range u.Costumes {
+		if c.CostumeId == 100 {
+			to = k
+		}
+	}
+	got := map[int32]int32{}
+	for k, x := range u.CostumeLotteryEffects {
+		if k.UserCostumeUuid == to {
+			got[k.SlotNumber] = x.OddsNumber
+		}
+	}
+	if !reflect.DeepEqual(got, map[int32]int32{1: 5, 2: 1, 3: 7}) {
+		t.Fatalf("written karma %v", got)
+	}
+	if s.CostumeLotteryEffects[store.CostumeLotteryEffectKey{UserCostumeUuid: "s-100", SlotNumber: 1}].OddsNumber != 1 {
+		t.Fatal("the stage's karma changed")
+	}
+}

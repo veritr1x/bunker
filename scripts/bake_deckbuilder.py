@@ -292,7 +292,20 @@ def _force_score(spec, costume_id) -> int:
     """The Force of the loadout's deck: the costume (left) with the first expert lineup's two teammates (team-wide
     statuses reach them, as in the game's Force)."""
     from deckbuilder import power
-    return power.deck_power(_deck(_team_specs(costume_id, spec, _W["pairs"][0])), _W["T"]).total
+    st = _W["st"]
+    keep = []
+    if spec.karma:                                     # the spec's own karma (force-gear's), on the staged costume for now
+        keep = st.db.execute("select slot_number, odds_number from user_costume_lottery_effects where user_id=? and user_costume_uuid=?",
+                             (st.uid, spec.costume.uuid)).fetchall()
+        for slot, odds in spec.karma.items():
+            st.db.execute("update user_costume_lottery_effects set odds_number=? where user_id=? and user_costume_uuid=? and slot_number=?",
+                          (int(odds), st.uid, spec.costume.uuid, int(slot)))
+    try:
+        return power.deck_power(_deck(_team_specs(costume_id, spec, _W["pairs"][0])), _W["T"]).total
+    finally:
+        for slot, odds in keep:
+            st.db.execute("update user_costume_lottery_effects set odds_number=? where user_id=? and user_costume_uuid=? and slot_number=?",
+                          (odds, st.uid, spec.costume.uuid, slot))
 
 
 def _force_gear_one(costume_id):
@@ -328,14 +341,21 @@ def _force_gear_one(costume_id):
     for c, u in comps.items():
         cand = spec._replace(companion=R("companion", u))
         if better(cand): spec = cand
+    memoir_role = role
     for s_ in sorted(int(x) for x in equip.rankings()["memoir_sets"]):
-        refs = equip._memoirs(equip._Picker(st, st, T, equip.Mode("best")), s_, role, T)
-        if len(refs) == 3:
-            cand = spec._replace(memoirs=refs)
-            if better(cand): spec = cand
+        for r_ in (role, "force"):                     # the role's memoirs, or the Force build (equip.ROLE_MEMOIRS)
+            refs = equip._memoirs(equip._Picker(st, st, T, equip.Mode("best")), s_, r_, T)
+            if len(refs) == 3:
+                cand = spec._replace(memoirs=refs)
+                if better(cand): spec, memoir_role = cand, r_
     for t, u in debris.items():
         cand = spec._replace(debris=R("debris", u))
         if better(cand): spec = cand
+    for _ in range(2):                                 # karma for Force: each slot's top-tier options in turn
+        for slot, options in sorted(karma_options(costume_id, T).items()):
+            for o in options:
+                cand = spec._replace(karma={**(spec.karma or {}), str(slot): o})
+                if better(cand): spec = cand
     piece = lambda kind, ref: st.piece_id(kind, ref.uuid) if ref else None
     W = T.idx("Weapon", "WeaponId")
     main_id = piece("weapon", spec.main_weapon)
@@ -346,7 +366,8 @@ def _force_gear_one(costume_id):
     return {"costume_id": costume_id, "name": T.costume_name(costume_id), "role": role,
             "element": {v: k for k, v in equip.ELEM_ATTR.items()}.get(W.get(main_id, {}).get("AttributeType")),
             "main_weapon": main_id, "subs": [piece("weapon", x) for x in spec.subs], "companion": piece("companion", spec.companion),
-            "memoir_set": memoir_set, "debris": piece("debris", spec.debris), "default_force": default, "force": best}
+            "memoir_set": memoir_set, "memoir_role": memoir_role if spec.memoirs else None, "force_karma": spec.karma,
+            "debris": piece("debris", spec.debris), "default_force": default, "force": best}
 
 
 def cmd_forcegear(args) -> None:
@@ -823,8 +844,8 @@ DECKS_FORCE = BAKE / "decks_force"
 
 
 def force_loadouts():
-    keys = ("costume_id", "role", "element", "main_weapon", "subs", "companion", "memoir_set", "debris")
-    return _with_karma({r["costume_id"]: {k: r[k] for k in keys} for r in json.loads((BAKE / "2f_force_gear.json").read_text())["loadouts"]})
+    keys = ("costume_id", "role", "element", "main_weapon", "subs", "companion", "memoir_set", "memoir_role", "force_karma", "debris")
+    return _with_karma({r["costume_id"]: {k: r.get(k) for k in keys} for r in json.loads((BAKE / "2f_force_gear.json").read_text())["loadouts"]})
 
 
 def _force_worker_init():

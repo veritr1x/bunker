@@ -577,8 +577,11 @@ def _spec_json(spec):
     if spec is None:
         return None
     ref = lambda r: {"uuid": r.uuid, "source": r.source} if r else None
-    return {"costume": ref(spec.costume), "main_weapon": ref(spec.main_weapon), "subs": [ref(x) for x in spec.subs],
-            "companion": ref(spec.companion), "memoirs": [ref(x) for x in spec.memoirs], "debris": ref(spec.debris)}
+    out = {"costume": ref(spec.costume), "main_weapon": ref(spec.main_weapon), "subs": [ref(x) for x in spec.subs],
+           "companion": ref(spec.companion), "memoirs": [ref(x) for x in spec.memoirs], "debris": ref(spec.debris)}
+    if spec.karma:
+        out["karma"] = {str(k): int(v) for k, v in spec.karma.items()}     # the Force list's karma (bunker_deckwrite.go)
+    return out
 
 
 # ---------------------------------------------------------------- routes

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -44,6 +45,9 @@ type deckCharSpec struct {
 	Companion  *pieceRef  `json:"companion"`
 	Memoirs    []pieceRef `json:"memoirs"`
 	Debris     *pieceRef  `json:"debris"`
+	// Karma {slot: odds number} for a costume copied from the stage, in place of the staged costume's (Deck
+	// Builder's Force list chooses karma for Force); a costume the player owns keeps theirs.
+	Karma map[string]int32 `json:"karma"`
 }
 
 type deckSlotSpec struct {
@@ -238,7 +242,12 @@ func applyDeckWrite(u, stage *store.UserState, spec deckWriteSpec, env deckWrite
 				uuids[i] = append(uuids[i], r.ref.UUID)
 				continue
 			}
-			uuids[i] = append(uuids[i], copyPiece(u, stage, r.kind, r.ref.UUID, env, now))
+			_, owned := ownedCostume(u, stage.Costumes[r.ref.UUID].CostumeId)
+			to := copyPiece(u, stage, r.kind, r.ref.UUID, env, now)
+			uuids[i] = append(uuids[i], to)
+			if r.kind == "costume" && !owned && len(c.Karma) > 0 {
+				setKarma(u, to, c.Karma, now)
+			}
 		}
 	}
 	for _, id := range spec.Raise {
@@ -322,6 +331,18 @@ func copyPiece(u, s *store.UserState, kind, from string, env deckWriteEnv, now i
 		return to
 	}
 	return ""
+}
+
+// setKarma sets costume uuid's karma slots ({slot: odds number}) in u.
+func setKarma(u *store.UserState, uuid string, karma map[string]int32, now int64) {
+	for slot, odds := range karma {
+		n, err := strconv.Atoi(slot)
+		if err != nil {
+			continue
+		}
+		k := store.CostumeLotteryEffectKey{UserCostumeUuid: uuid, SlotNumber: int32(n)}
+		u.CostumeLotteryEffects[k] = store.CostumeLotteryEffectState{UserCostumeUuid: uuid, SlotNumber: int32(n), OddsNumber: odds, LatestVersion: now}
+	}
 }
 
 // copyCostumeRows gives costume `to` in u the staged costume's skill,

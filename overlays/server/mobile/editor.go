@@ -114,7 +114,7 @@ var stageActions = map[string]bool{
 	"stage_new": true, "grant_costume_batch": true, "grant_weapon_batch": true, "grant_companion_batch": true,
 	"grant_thought_batch": true, "exalt_characters": true, "upgrade_all_costumes": true, "upgrade_all_weapons": true,
 	"upgrade_all_companions": true, "release_panels": true, "fill_karma_slots": true, "grant_memoir_batch": true,
-	"upgrade_all_memoirs": true, "set_costume_karma_batch": true,
+	"upgrade_all_memoirs": true, "set_costume_karma_batch": true, "rank_characters": true, "grant_batch": true,
 }
 
 // stageRequest points an edit at the stage, whatever paths the request named.

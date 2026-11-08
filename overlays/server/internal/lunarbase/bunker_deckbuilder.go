@@ -14,11 +14,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/pvp"
 	"lunar-tear/server/internal/runtime"
+	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/store/sqlite"
 	"lunar-tear/server/migrations"
 )
@@ -94,4 +96,41 @@ func NewStage(path string) error {
 	}
 	database.Checkpoint(db)
 	return nil
+}
+
+// rankSpec is one "rank_characters" entry: a character and the rank to raise it to.
+type rankSpec struct {
+	CharacterID int32 `json:"character_id"`
+	Level       int32 `json:"level"`
+}
+
+// runRankCharacters: "rank_characters" raises each named character to its rank
+// (IUserCharacter.level; the game's top is 10, CharacterLevelBonusAbilityGroup),
+// adding the character when the save lacks it. A rank is never lowered.
+func runRankCharacters(req *request) (int, error) {
+	if len(req.Ranks) == 0 {
+		return 0, errors.New("ranks list is empty")
+	}
+	db, st, err := openDB(req.DBPath)
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+	now := time.Now().UnixMilli()
+	applied := 0
+	_, err = st.UpdateUser(req.UserID, func(u *store.UserState) {
+		for _, r := range req.Ranks {
+			cur, ok := u.Characters[r.CharacterID]
+			if r.Level <= 0 || (ok && cur.Level >= r.Level) {
+				continue
+			}
+			cur.CharacterId, cur.Level, cur.LatestVersion = r.CharacterID, r.Level, now
+			u.Characters[r.CharacterID] = cur
+			applied++
+		}
+	})
+	if err != nil {
+		return 0, fmt.Errorf("rank characters: %w", err)
+	}
+	return applied, nil
 }

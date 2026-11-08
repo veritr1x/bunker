@@ -42,18 +42,62 @@ class MemoirTest(unittest.TestCase):
         self.assertEqual(raise_.main_status_id(2, 1, t), 4)
         self.assertEqual(raise_.main_status_id(1, 1, t), 36)
 
-    def test_memoir_subs_level12_step(self):
+    def test_memoir_subs_stack_their_rolls(self):
+        """The original game (NieR Re[in] Guide, memoirs): a sub stat starts at up to 2.5% (HP/ATK/DEF), 5% crit rate,
+        6% crit damage or 12 agility and is raised at +3, +6, +9, +12 and +15; one sub stat tops out at 12.5% / 25% /
+        36% / 72. A name given n times is that sub stat with n rolls: a memoir has 4 sub stats and 9 rolls, up to 6 on
+        one, and a sub stat never passes its top."""
         t = tables()
         parts_id = raise_.top_parts_id(raise_.parts_group_of_set(17, t)[0], t)
-        spec = raise_.memoir_spec(parts_id, "crit_rate", ["crit_damage", "attack_pct", "attack_pct", "agility"], t)
-        self.assertEqual(spec["parts_status_main_id"], 28)
+        spec = raise_.memoir_spec(parts_id, "crit_rate", ["crit_damage"] * 6 + ["attack_pct", "hp_pct", "agility"], t)
         self.assertEqual(spec["level"], 15)
         subs = {s["slot"]: (s["kind_type"], s["calc_type"], s["value"]) for s in spec["subs"]}
-        self.assertEqual(subs, {1: (3, 1, 140), 2: (2, 2, 75), 3: (2, 2, 75), 4: (1, 1, 75)})
-        with self.assertRaises(ValueError):
-            raise_.memoir_spec(parts_id, "attack", ["hp_pct"] * 5, t)
+        self.assertEqual(subs, {1: (3, 1, 360), 2: (2, 2, 25), 3: (6, 2, 25), 4: (1, 1, 12)})
+        spec = raise_.memoir_spec(parts_id, "attack_pct", ["crit_rate"] * 6 + ["agility"] * 3, t)
+        subs = {s["slot"]: (s["kind_type"], s["calc_type"], s["value"]) for s in spec["subs"]}
+        self.assertEqual(subs, {1: (4, 1, 250), 2: (1, 1, 36)})      # crit rate stops at its top, 25%
+        with self.assertRaises(ValueError):          # 10 rolls
+            raise_.memoir_spec(parts_id, "crit_rate", ["crit_damage"] * 6 + ["attack_pct"] * 4, t)
+        with self.assertRaises(ValueError):          # 7 rolls on one sub stat
+            raise_.memoir_spec(parts_id, "crit_rate", ["crit_damage"] * 7, t)
+        with self.assertRaises(ValueError):          # 5 sub stats
+            raise_.memoir_spec(parts_id, "attack", ["hp_pct", "attack_pct", "defense_pct", "crit_rate", "agility"], t)
         with self.assertRaises(ValueError):
             raise_.memoir_spec(parts_id, "evasion", [], t)
+
+    def test_force_memoirs_carry_the_most_force(self):
+        """The Force list's memoirs: flat ATK / DEF mains (649 Force each at +15) and HP% at its top with ATK% and DEF%:
+        about twice the Force of the crit-built attacker set (3,525 against 1,956)."""
+        from deckbuilder import equip, power
+        t = tables()
+        def set_force(role):
+            _, mains, subs = equip.ROLE_MEMOIRS[role]
+            specs = equip.memoir_specs(10, mains, subs, t)
+            mems = [{"main": t.idx("PartsStatusMain", "PartsStatusMainId")[s["parts_status_main_id"]], "level": 15,
+                     "subs": [(x["kind_type"], x["calc_type"], x["value"]) for x in s["subs"]]} for s in specs]
+            return sum(power.parts_power(t, mems))
+        self.assertEqual(equip.ROLE_MEMOIRS["force"][1], ("attack", "defense", "attack"))
+        self.assertEqual((set_force("force"), set_force("attacker")), (3525, 1956))
+
+    def test_a_main_stat_fits_its_place_in_the_set(self):
+        """The original game: the set's first memoir mains ATK, DEF or HP; the second may also main crit rate or crit
+        damage; the third may also main agility (NieR Re[in] Guide; gorillawiki; ameblo)."""
+        self.assertTrue(raise_.main_allowed("attack_pct", 0) and raise_.main_allowed("hp", 0))
+        self.assertFalse(raise_.main_allowed("crit_rate", 0))
+        self.assertTrue(raise_.main_allowed("crit_damage", 1))
+        self.assertFalse(raise_.main_allowed("agility", 1))
+        self.assertTrue(raise_.main_allowed("agility", 2))
+        self.assertFalse(raise_.main_allowed("crit_rate", 2))
+        from deckbuilder import equip
+        for role, (_, mains, _) in equip.ROLE_MEMOIRS.items():
+            for i, m in enumerate(mains):
+                self.assertTrue(raise_.main_allowed(m, i), f"{role}: {m} on memoir {i + 1}")
+        with self.assertRaisesRegex(ValueError, "memoir 1"):
+            equip.memoir_specs(10, ("crit_rate", "crit_damage", "attack_pct"), ([],) * 3, tables())
+
+    def test_every_sub_stat_can_reach_the_games_top(self):
+        for name, top in {"hp_pct": 125, "attack_pct": 125, "defense_pct": 125, "crit_rate": 250, "crit_damage": 360, "agility": 72}.items():
+            self.assertEqual(raise_.sub_value(name, raise_.MAX_ROLLS_PER_SUB), top, name)
 
 
 @needs_stage
@@ -65,7 +109,7 @@ class StageTest(unittest.TestCase):
         st = stage.Stager(cli_invoke(cls.path), tables())
         t = tables()
         memoir = raise_.memoir_spec(raise_.top_parts_id(raise_.parts_group_of_set(17, t)[0], t), "crit_rate",
-                                    ["crit_damage", "attack_pct", "attack_pct", "attack_pct"], t)
+                                    ["crit_damage"] * 6 + ["attack_pct", "hp_pct", "agility"], t)
         # Rion's karma: the last top-tier option of each slot (not the first, which every other costume gets)
         le = {x["SlotNumber"]: x["CostumeLotteryEffectOddsGroupId"] for x in t.T("CostumeLotteryEffect") if x["CostumeId"] == RION}
         odds = t.grp("CostumeLotteryEffectOddsGroup", "CostumeLotteryEffectOddsGroupId")
@@ -89,6 +133,11 @@ class StageTest(unittest.TestCase):
         character = tables().idx("Costume", "CostumeId")[SARAFA]["CharacterId"]
         self.assertEqual(self.q("select rebirth_count from user_character_rebirths where character_id=?", character), [(5,)])
         self.assertTrue(self.q("select 1 from user_character_board_status_ups where character_id=?", character))
+        self.assertEqual(self.q("select level from user_characters where character_id=?", character), [(10,)])   # rank 10
+        # every stained glass (important item type 5): a fully progressed account owns them all
+        glass = {i["ImportantItemId"] for i in tables().T("ImportantItem") if i["ImportantItemType"] == 5}
+        owned = {i for (i,) in self.q("select important_item_id from user_important_items where count > 0")}
+        self.assertEqual(glass - owned, set())
         karma = self.q("select count(*) from user_costume_lottery_effects e join user_costumes c using (user_costume_uuid)"
                        " where c.costume_id=? and e.odds_number > 0", SARAFA)[0][0]
         self.assertEqual(karma, 3)
