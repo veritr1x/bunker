@@ -1,5 +1,35 @@
 # Validation
 
+## Pod Programs › Story Jump — 2026-11-09
+
+- Server Go tests with the Global (20240404193219) and Japanese
+  (20240405123139) game data: pass, the story path, the jump and the editing
+  shim's story_jump on both. The two have the same story: routes, chapters,
+  quest order, scenes, starter grants and story tutorials (only the chapters'
+  dates and one menu tutorial differ). Python tests: 583 run, all pass.
+- On this Mac, against a copy of the save from 2026-11-08 (start of chapter 16,
+  route 2) and the real editing shim: to the start of chapter 18 the preview
+  listed Saryu (Avowed Witch) and Priyet (Verboten Werebeast), their weapons,
+  six parts, Sol Fragment ×2 and 2,000 gems; the jump cleared 20 quests, put
+  the story on quest 325's first scene and finished the story tutorials; a
+  "story jump" snapshot was taken first. A jump back (quest 306) and one on the
+  other route (quest 405, route 3) were refused, with no snapshot taken. At
+  360 px the page has no sideways scroll.
+- Android 16 emulator (bunker_api36), calendar off, the save from 2026-11-08
+  (copied off first): Programs › Story Jump opened for the player in use,
+  with chapter names from the game; Jump to start on chapter 18 showed the same
+  preview, and the jump went through with the game running. Signed in again,
+  the game downloaded chapter 18's files (272 MB) and played its opening
+  scene; the save moved on from scene 771 to 772. The emulator's save was put
+  back afterwards.
+- A preview with the game running no longer sends it to its title screen;
+  two Jump taps in quick succession show the second chapter's list; Cancel
+  waits for a running jump's result (checked in the browser with a slowed
+  connection).
+- Not checked on a device: a jump on iPhone or iPad, a jump under the
+  Original calendar's first loop (the game data rebuild: tests only), and a
+  Japanese build.
+
 ## Fixes from the Lunar Tear forks — 2026-11-08
 
 - Server Go tests with the patched game data and a save from 2026-10-06: 417
