@@ -18,8 +18,9 @@ under its heading, down to the previous release.
   are divided by 100 once, so new runs can beat them.
 - The game gets every table it asks for when it loads the save. Three of
   Bunker's tables were sent empty there: the Limited shop's openings, so
-  its 34 packs never showed, and the beginner and comeback campaigns, which
-  the game forgot after a restart. From the WoefulWolf and JCalandre forks.
+  with the Original calendar its 34 packs never showed (with everything
+  open the game data keeps them open anyway), and the beginner and comeback
+  campaigns, which the game forgot after a restart. From the WoefulWolf and JCalandre forks.
 - Turning the calendar off after a jump or a faster speed no longer freezes
   the daily things until the real date catches up. Times saved on the
   jumped-to day (logins, daily missions, login stamps, shop stock and

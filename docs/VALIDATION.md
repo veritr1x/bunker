@@ -1,5 +1,23 @@
 # Validation
 
+## Fixes from the Lunar Tear forks — 2026-11-08
+
+- Server Go tests with the patched game data and a save from 2026-10-06: 417
+  pass, ten of them new. The same four tests fail as without these changes
+  (TestBattle, TestEventSummonsOnTheGameData, TestLabyrinthSeasonsMoveOn,
+  TestEventLoginBonusesStampDaily), with the same messages.
+- Android 16 emulator (bunker_api36), calendar off, the save from 2026-11-08
+  (backed up first), the APK built at bc369ac and signed with the web build
+  key. Sign-in sent every table (GetUserData, then GameStart) with no new
+  pop-up. A Subjugation battle left open was resumed and finished
+  (FinishBigHuntQuest OK), and a Subjugation mission cleared during it. The
+  Sun/Moon map loaded with its ornaments; its two UpdateSequence calls
+  answered in the same second. The log had no errors.
+- The Premium Shop showed the same limited packs on 1.10.0 and on this
+  build: with the calendar off the patched game data keeps them open, so
+  the IUserLimitedOpen fix shows only with the Original calendar, which was
+  not tried.
+
 ## Auto-repeat with the calendar on — 2026-11-08
 
 - Android emulator, Global, Original calendar (week 1). Character Quests ›
