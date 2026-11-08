@@ -28,6 +28,7 @@ static id<MTLDevice> gDevice;
 static CAMetalLayer *gLayer;      // Unity's layer, once its view exists
 static CGSize gAsked;             // the size Unity set; the layer itself has gScreen while upscaling
 static CGSize gScreen;            // the layer's size in pixels
+static CGFloat gScale;            // its screen's pixels per point
 static BOOL gUpscaling, gFailed;
 static NSUInteger gScalerWidth, gScalerHeight;
 static NSMutableArray<id<MTLTexture>> *gStandIns;  // a few textures of Unity's size, used in turn
@@ -75,7 +76,8 @@ static void FindLayer(void) {
         for (UIWindow *window in UIApplication.sharedApplication.windows) {
             CALayer *layer = window.rootViewController.view.layer;
             if (![layer isKindOfClass:CAMetalLayer.class]) continue;
-            gScreen = CGSizeMake(round(layer.bounds.size.width * window.screen.nativeScale), round(layer.bounds.size.height * window.screen.nativeScale));
+            gScale = window.screen.nativeScale;
+            gScreen = CGSizeMake(round(layer.bounds.size.width * gScale), round(layer.bounds.size.height * gScale));
             gAsked = ((CGSize (*)(id, SEL))origGetSize)(layer, @selector(drawableSize));
             gLayer = (CAMetalLayer *)layer;
             Note([NSString stringWithFormat:@"Unity's layer: screen %.0fx%.0f, Unity's size %.0fx%.0f", gScreen.width, gScreen.height, gAsked.width, gAsked.height]);
@@ -89,7 +91,8 @@ static void FindLayer(void) {
 static BOOL Prepare(CAMetalLayer *layer) API_AVAILABLE(ios(16.0)) {
     NSUInteger width = (NSUInteger)gAsked.width, height = (NSUInteger)gAsked.height;
     if (gFailed || width == 0 || width >= gScreen.width || height >= gScreen.height) return NO;
-    if (gScaler && gScalerWidth == width && gScalerHeight == height) return YES;
+    if (gScaler && gScalerWidth == width && gScalerHeight == height && gScaler.outputWidth == (NSUInteger)gScreen.width
+        && gScaler.outputHeight == (NSUInteger)gScreen.height) return YES;
     MTLFXSpatialScalerDescriptor *d = [MTLFXSpatialScalerDescriptor new];
     d.inputWidth = width, d.inputHeight = height;
     d.outputWidth = (NSUInteger)gScreen.width, d.outputHeight = (NSUInteger)gScreen.height;
@@ -120,6 +123,13 @@ static BOOL Prepare(CAMetalLayer *layer) API_AVAILABLE(ios(16.0)) {
 static void HookSetSize(CAMetalLayer *layer, SEL sel, CGSize size) {
     if (layer != gLayer) { ((void (*)(id, SEL, CGSize))origSetSize)(layer, sel, size); return; }
     gAsked = size;
+    // Unity sets a new size when its view changes size: a resized window under Stage Manager,
+    // or the game moved to an external display. The full size follows the layer.
+    if (NSThread.isMainThread) {
+        UIView *view = [(id)layer.delegate isKindOfClass:UIView.class] ? (UIView *)layer.delegate : nil;
+        if (view.window.screen) gScale = view.window.screen.nativeScale;
+    }
+    if (gScale > 0) gScreen = CGSizeMake(round(layer.bounds.size.width * gScale), round(layer.bounds.size.height * gScale));
     if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
     SetRealSize(layer, gUpscaling ? gScreen : size);
 }

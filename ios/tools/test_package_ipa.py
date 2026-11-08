@@ -67,8 +67,9 @@ class InfoTests(unittest.TestCase):
             app = Path(temp)
             landscape = ["UIInterfaceOrientationLandscapeRight", "UIInterfaceOrientationLandscapeLeft"]
             with (app / "Info.plist").open("wb") as handle:
-                plistlib.dump({"CFBundleExecutable": "Game", "UISupportedInterfaceOrientations": landscape}, handle)
+                plistlib.dump({"CFBundleExecutable": "Game", "UISupportedInterfaceOrientations": landscape, "UIRequiresFullScreen": True}, handle)
             info = patch_info(app)
+            self.assertNotIn("UIRequiresFullScreen", info)  # Stage Manager may resize it
             self.assertEqual(info["UISupportedInterfaceOrientations"], landscape + ["UIInterfaceOrientationPortrait"])
             self.assertEqual(info["UISupportedInterfaceOrientations~ipad"],
                              landscape + ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"])

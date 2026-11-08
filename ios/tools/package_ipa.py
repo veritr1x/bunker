@@ -121,6 +121,10 @@ def patch_info(app, bundle_id=None, display_name=None, port_offset=0):
                          ("UISupportedInterfaceOrientations~ipad", ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"])):
         orientations = list(info.get(key) or info.get("UISupportedInterfaceOrientations") or [])
         info[key] = orientations + [o for o in upright if o not in orientations]
+    # The game asks for the whole screen, so under Stage Manager it gets a window
+    # of the iPad's own shape that can't be resized, even on an external display.
+    # Without it the window can be resized; Unity follows its size.
+    info.pop("UIRequiresFullScreen", None)
     # Pod Programs > Display can raise the frame rate to 120 on ProMotion iPhones too.
     info["CADisableMinimumFrameDurationOnPhone"] = True
     ats = info.setdefault("NSAppTransportSecurity", {})

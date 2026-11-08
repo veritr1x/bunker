@@ -16,6 +16,8 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Window shape (iPad): in a resized Stage Manager window or on an external
+//   display the picture takes the window's shape (LTDisplayFitWindow, below).
 // - Upscaling: below the screen's own resolution, MetalFX upscales each frame
 //   instead of plain stretching (LunarUpscale.m).
 // - Effects: shadows, reflections and bloom chosen off are cleared in every
@@ -520,4 +522,52 @@ void LTDisplayStart(NSString *toolsRoot) {
             else gLink.preferredFramesPerSecond = (NSInteger)rate;
             [gLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
         }];
+}
+
+// The picture's shape follows the game's window (iPad, LunarWindow.m).
+//
+// The game takes the screen's size once, at launch (RenderManager._terminalDefaultResolution),
+// and RenderManager.SetResolution(height) makes the width height × that shape. In a window
+// of another shape (Stage Manager, an external display) the picture was stretched to it.
+// Here the saved size gets the window's shape at the launch height, and the current height
+// is set again at the new width; the game's later resolution changes use the new shape too.
+// Returns a line for the log when it changed something, else nil.
+NSString *LTDisplayFitWindow(CGSize pixels) {
+    static void *instance;  // MonoBehaviourSingleton<RenderManager>._instance
+    static size_t saved_offset;
+    static void (*set_resolution)(int, int, bool, void *);
+    static int (*screen_height)(void *);
+    static int32_t launch_height;
+    static BOOL failed;
+    if (failed || !il2cpp.domain_get || !il2cpp.domain_get() || !UnityStarted() || pixels.width < 1 || pixels.height < 1) return nil;
+    if (!instance) {
+        void *(*class_get_parent)(void *) = dlsym(RTLD_DEFAULT, "il2cpp_class_get_parent");
+        void *manager = FindClass("Dark.View.Render", "RenderManager"), *screen = FindClass("UnityEngine", "Screen");
+        void *singleton = manager && class_get_parent ? class_get_parent(manager) : NULL;
+        set_resolution = Method(screen, "SetResolution", 3);  // (int width, int height, bool fullscreen)
+        screen_height = Method(screen, "get_height", 0);
+        void *field = singleton ? il2cpp.class_get_field_from_name(singleton, "_instance") : NULL;
+        if (!field || !set_resolution || !screen_height || !FieldOffset(manager, "_terminalDefaultResolution", &saved_offset)) {
+            failed = YES;
+            return @"picture shape: not available in this game build";
+        }
+        il2cpp.runtime_class_init(singleton);
+        instance = field;
+    }
+    uint8_t *manager = NULL;
+    il2cpp.field_static_get_value(instance, &manager);
+    if (!Alive(manager)) return nil;
+    int32_t *saved = (int32_t *)(manager + saved_offset);  // Resolution: width, height, refresh rate
+    if (saved[0] <= 0 || saved[1] <= 0) return nil;
+    // The short side: a game opened in an upright window saved a tall size.
+    if (!launch_height) launch_height = MIN(saved[0], saved[1]);
+    int32_t width = (int32_t)lround(launch_height * pixels.width / pixels.height);
+    if (labs((long)saved[0] - width) <= 2 && saved[1] == launch_height) return nil;
+    NSString *before = [NSString stringWithFormat:@"%dx%d", saved[0], saved[1]];
+    saved[0] = width, saved[1] = launch_height;
+    int height = screen_height(NULL);
+    int picture = (int)lround(height * pixels.width / pixels.height);
+    set_resolution(picture, height, true, NULL);
+    return [NSString stringWithFormat:@"picture shape: window %.0fx%.0f px; game's screen size %@ -> %dx%d; picture %dx%d",
+            pixels.width, pixels.height, before, width, launch_height, picture, height];
 }
