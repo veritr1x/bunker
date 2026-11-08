@@ -1,4 +1,4 @@
-"""Pod Programs on a phone on its side (docs/superpowers/specs/2026-11-07-landscape-layout-design.md):
+"""Pod Programs on a phone on its side:
 the pieces each part needs. The layout itself is checked on a device."""
 import re
 import unittest
