@@ -97,6 +97,58 @@ class AbyssTowers(unittest.TestCase):
         self.assertEqual(len([q for q in sq if q[0] == 230001]), 30)
 
 
+class EventRuns(unittest.TestCase):
+    """A rerun event replays each run with its own exchange, shown medal and
+    quests (event_runs.json): chapter 510's first run had exchange 6008 and
+    medal 25 and two of the three quests the last run has."""
+    COLS = {"link": 5, "display": 6, "group": 7}
+
+    def build(self, runs):
+        # EventQuestChapterId, Type, SortOrder, Name, Banner, LinkId, DisplayItemGroupId, SequenceGroupId
+        chapters = table(row(510, 1, 0, 0, 0, 84, 200061, 200011), row(510 + cal.COPY_STEP, 1, 0, 0, 0, 84, 200061, 200011),
+                         row(510 + 2 * cal.COPY_STEP, 1, 0, 0, 0, 84, 200061, 200011), row(600, 1, 0, 0, 0, 90, 1, 2))
+        links = table(row(84, 3, 6064, 6, 149))
+        groups = table(row(200011, 1, 200028), row(200011, 2, 200509))
+        sequences = table(row(200028, 1, 1), row(200028, 2, 2), row(200509, 1, 3))
+        return [cells(b) for b in cal.event_runs(chapters, links, groups, sequences, runs, self.COLS)]
+
+    RUN0 = {"link": 17, "display": 200011, "quests": [1, 2], "link_row": {"shop": 6008, "possession_type": 6, "possession_id": 25}}
+    RUN1 = {"link": 36, "display": 200024, "quests": [1, 2, 3], "link_row": {"shop": 6020, "possession_type": 6, "possession_id": 46}}
+
+    def test_each_run_links_its_own_exchange(self):
+        ch, ln, _, _ = self.build({"510": [self.RUN0, self.RUN1, None]})
+        first, second = 17 + 100 * cal.COPY_STEP, 36 + 101 * cal.COPY_STEP
+        self.assertEqual([(c[0], c[5], c[6]) for c in ch], [(510, first, 200011), (510 + cal.COPY_STEP, second, 200024),
+                                                             (510 + 2 * cal.COPY_STEP, 84, 200061), (600, 90, 1)])
+        self.assertIn([first, 3, 6008, 6, 25], ln)
+        self.assertIn([second, 3, 6020, 6, 46], ln)
+        self.assertIn([84, 3, 6064, 6, 149], ln)  # the last run's own row stays
+
+    def test_a_run_shows_only_the_quests_it_had(self):
+        ch, _, gr, sq = self.build({"510": [self.RUN0, self.RUN1, None]})
+        trimmed = 200011 + 100 * cal.COPY_STEP
+        self.assertEqual(ch[0][7], trimmed)
+        self.assertEqual(ch[1][7], 200011)  # the second run had every quest
+        self.assertEqual(sorted(g for g in gr if g[0] == trimmed), [[trimmed, 1, 200028 + 100 * cal.COPY_STEP]])  # no quest left in 200509
+        self.assertEqual(sorted(q[2] for q in sq if q[0] == 200028 + 100 * cal.COPY_STEP), [1, 2])
+        self.assertEqual(len(sq), 5)  # the originals kept
+
+    def test_a_run_gives_its_own_medals(self):
+        run0 = dict(self.RUN0, drops={"1": [[6, 25, 9], [5, 100002, 4]], "2": []})
+        given = cal.run_items([510, 510 + cal.COPY_STEP, 510 + 2 * cal.COPY_STEP, 600], {"510": [run0, None, None]})
+        self.assertEqual(given, {510: {25}})  # the medal it drops then; other copies keep what the game data gives
+
+    def test_a_calendar_in_use_is_rebuilt(self):
+        """Calendars built before each run had its own exchange are rebuilt on update."""
+        self.assertGreaterEqual(cal.DATA_VERSION, 4)
+        self.assertGreaterEqual(int(cal.VIEW_VERSION), 5)
+
+    def test_without_run_data_nothing_changes(self):
+        ch, ln, gr, sq = self.build({})
+        self.assertEqual([c[5] for c in ch], [84, 84, 84, 90])
+        self.assertEqual((len(ln), len(gr), len(sq)), (1, 2, 3))
+
+
 class Anecdotes(unittest.TestCase):
     """An Anecdote (web panel mission) replays every run as a copy: the mission
     and its sheet get the run's ids, the story pages stay shared."""
@@ -291,13 +343,15 @@ class ExchangesInTheGameData(unittest.TestCase):
             if kind == 6:
                 pickup.setdefault(group, set()).add(item)
         group_of = {r[0]: r[1] for r in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestSequenceGroupId")}
+        # An earlier run of a rerun event drops its own medals (event_runs.json; the server pays them).
+        run_given = cal.run_items(list(group_of), cal.event_run_data())
         checked = rewards = 0
         for chapter, link, start, end in read("m_event_quest_chapter", "EventQuestChapterId", "EventQuestLinkId", "StartDatetime", "EndDatetime"):
             if not cal.EARLIEST <= start < cal.FOREVER:
                 continue
             for quest in (q for sequence in sequences.get(group_of[chapter], []) for q in quests_of.get(sequence, [])):
                 first, pick = quest_rewards.get(quest, (0, 0))
-                for given in first_clear.get(first, set()) | pickup.get(pick, set()):
+                for given in first_clear.get(first, set()) | (run_given[chapter] if chapter in run_given else pickup.get(pick, set())):
                     if item_term.get(given) in item_terms:
                         rewards += 1
                         term_start, term_end = item_terms[item_term[given]]

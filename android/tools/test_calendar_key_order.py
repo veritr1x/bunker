@@ -20,7 +20,8 @@ class KeyOrder(unittest.TestCase):
     def test_a_calendar_in_use_is_rebuilt(self):
         """Calendars built before the fix are rebuilt on update (read_state compares the data version), and so is
         the "Show original dates" copy."""
-        self.assertEqual((cal.DATA_VERSION, cal.VIEW_VERSION), (2, "3"))
+        self.assertGreaterEqual(cal.DATA_VERSION, 2)
+        self.assertGreaterEqual(int(cal.VIEW_VERSION), 3)
 
     def test_a_built_calendar_keeps_every_sorted_table_sorted(self):
         from deckbuilder_testlib import MASTER_BIN

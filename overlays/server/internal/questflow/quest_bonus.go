@@ -16,6 +16,9 @@ import (
 // costume's bonus at the highest limit-break row it reaches, and the same for
 // its main and sub weapons. Rows outside their term are skipped.
 func (h *QuestHandler) questBonusDrops(user *store.UserState, questDef masterdata.EntityMQuest, deck store.DeckState, nowMillis int64) []RewardGrant {
+	if out, ok := h.runBonusDrops(user, questDef, deck); ok { // an earlier run of a rerun event (bunker_event_runs.go)
+		return out
+	}
 	qb := h.QuestBonus
 	if qb == nil || questDef.QuestBonusId == 0 {
 		return nil

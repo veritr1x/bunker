@@ -1,0 +1,22 @@
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -150,17 +150,7 @@
+ 	if h.Campaigns != nil {
+ 		dropRate = h.Campaigns.QuestDropRate(target, h.campaignFilter(user, nowMillis))
+ 	}
+-	if questDef.QuestPickupRewardGroupId != 0 {
+-		for _, dropId := range h.PickupRewardIdsByGroupId[questDef.QuestPickupRewardGroupId] {
+-			if bdr, ok := h.BattleDropRewardById[dropId]; ok {
+-				drops = append(drops, RewardGrant{
+-					PossessionType: model.PossessionType(bdr.PossessionType),
+-					PossessionId:   bdr.PossessionId,
+-					Count:          dropRate.Apply(bdr.Count),
+-				})
+-			}
+-		}
+-	}
++	drops = append(drops, h.pickupDrops(questDef, target, dropRate)...) // Bunker: an earlier run's own (bunker_event_runs.go)
+ 	drops = append(drops, slabDrops(target, dropRate.Apply, randInt64n)...)
+ 	drops = append(drops, chapterMemoirDrops(questDef.QuestId, dropRate.Apply)...)
+ 	drops = h.appendBonusDrops(user, drops, target, nowMillis)

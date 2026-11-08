@@ -1,5 +1,27 @@
 # Validation
 
+## Each event run replayed as it was — 2026-11-09
+
+- A loop built with the Original calendar from the final game data was
+  audited: no two same-name medal exchanges open at once, every open event's
+  exchange open with it, no exchange taking a medal no open event gives, every
+  medal valid while its exchange and events are, and every exchange offer
+  shown. The same audit on a loop built without this change found the 26
+  duplicate exchanges and 53 exchanges taking medals nothing gave.
+- Server, end to end on that loop: an Automata quest (200271) finished in each
+  run paid that run's medal only: 25, then 46, then 149.
+- iPad, the calendar started 2026-11-04 (loop 1): after the update its data
+  rebuilt (data version 3) and only the 2021 Automata Medal Exchange (6008) was
+  open; 6020 and 6064 open with their own runs in 2027 and 2028.
+- Android 16 emulator (bunker_api36), the Original calendar turned on
+  (8 Nov 2026 = 1 Aug 2021): the Exchange screen had one Automata Medal
+  Exchange (5 Nov–18 Dec 2026, the 2021 rewards); the event page showed the
+  single 2021 medal. Quest 1 of Record: The Cage of Reincarnation, cleared on
+  Auto, gave 100 Automata Medals (25: 70 dropped, 30 from quest bonuses) and
+  no Bronze Automata Medal. The result screen named the Bronze medal for the
+  two bonus lines, which the game works out from its own data. The emulator's
+  save and game data were put back afterwards.
+
 ## Pod Programs › Story Jump — 2026-11-09
 
 - Server Go tests with the Global (20240404193219) and Japanese

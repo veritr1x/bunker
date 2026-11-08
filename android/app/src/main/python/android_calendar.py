@@ -370,6 +370,95 @@ def tower_floors(chapters, groups, sequences, group_col, floors):
     return _table(chapter_rows), _table(keep(groups) + new_groups), _table(keep(sequences) + new_sequences)
 
 
+# A rerun event's earlier runs as they were (scripts/event_runs.py): each its
+# own exchange and medal (EventQuestLink), the medal its page shows and the
+# quests it had. The final game data keeps the last run's only. The server
+# pays each run's drops and quest bonuses from the same file.
+EVENT_RUNS = Path(__file__).with_name("event_runs.json")
+RUN_IDS = 100  # an earlier run's own link, sequence group and sequences: id + (RUN_IDS + n) * COPY_STEP
+
+
+def event_run_data():
+    try:
+        return json.loads(EVENT_RUNS.read_text())["chapters"]
+    except FileNotFoundError:
+        return {}
+
+
+def event_runs(chapters, links, groups, sequences, runs, cols):
+    """Gives each chapter copy of a rerun event its run's link (a new row with
+    that run's exchange and medal), shown medal and quests (a trimmed sequence
+    group when the run had fewer). runs: base chapter -> per-run data, the
+    last run None; cols: the chapter's link, display and group columns.
+    Returns the chapter, link, sequence group and sequence tables."""
+    import msgpack
+    group_rows, seq_rows = {}, {}
+    for _, c in _rows(groups):
+        group_rows.setdefault(msgpack.unpackb(c[0]), []).append(c)
+    for _, c in _rows(sequences):
+        seq_rows.setdefault(msgpack.unpackb(c[0]), []).append(c)
+    chapter_rows, new_links, new_groups, new_seqs, made = [], [], [], [], set()
+    for header, cells in _rows(chapters):
+        chapter = msgpack.unpackb(cells[0])
+        n = chapter // COPY_STEP
+        recorded = runs.get(str(chapter % COPY_STEP)) or []
+        run = recorded[n] if n < len(recorded) else None
+        if run:
+            cells, step = list(cells), (RUN_IDS + n) * COPY_STEP
+            link = run["link"] + step
+            row = run["link_row"]
+            new_links.append(bytes([0x95]) + b"".join(msgpack.packb(v) for v in (link, 3, row["shop"], row["possession_type"], row["possession_id"])))
+            cells[cols["link"]] = msgpack.packb(link)
+            cells[cols["display"]] = msgpack.packb(run["display"])
+            group = msgpack.unpackb(cells[cols["group"]])
+            had = set(run["quests"])
+            every = {msgpack.unpackb(q[2]) for g in group_rows.get(group, []) for q in seq_rows.get(msgpack.unpackb(g[2]), [])}
+            if had and had != every:
+                if group + step not in made:
+                    made.add(group + step)
+                    for g in group_rows.get(group, []):
+                        seq = msgpack.unpackb(g[2])
+                        kept = [q for q in seq_rows.get(seq, []) if msgpack.unpackb(q[2]) in had]
+                        if not kept:
+                            continue
+                        new_groups.append(bytes([0x90 | len(g)]) + msgpack.packb(group + step) + g[1] + msgpack.packb(seq + step) + b"".join(g[3:]))
+                        new_seqs.extend(bytes([0x90 | len(q)]) + msgpack.packb(seq + step) + b"".join(q[1:]) for q in kept)
+                cells[cols["group"]] = msgpack.packb(group + step)
+        chapter_rows.append(header + b"".join(cells))
+    keep = lambda blob: [h + b"".join(c) for h, c in _rows(blob)]
+    return _table(chapter_rows), _table(keep(links) + new_links), _table(keep(groups) + new_groups), _table(keep(sequences) + new_seqs)
+
+
+def run_items(chapters, runs):
+    """The consumable items each earlier run's chapter copy drops (its run's
+    drops, not the final game data's), by chapter id."""
+    out = {}
+    for chapter in chapters:
+        recorded = runs.get(str(chapter % COPY_STEP)) or []
+        n = chapter // COPY_STEP
+        run = recorded[n] if n < len(recorded) else None
+        if run:
+            out[chapter] = {d[1] for drops in run.get("drops", {}).values() for d in drops if d[0] == CONSUMABLE_ITEM}
+    return out
+
+
+def apply_event_runs(toc, blob, changed, schemas):
+    """Gives each restored run of a rerun event its own exchange, medal and quests (event_runs)."""
+    from patcher import patch_masterdata as pm
+    runs = event_run_data()
+    names = ("m_event_quest_chapter", "m_event_quest_link", "m_event_quest_sequence_group", "m_event_quest_sequence")
+    if not runs or not all(n in toc for n in names):
+        return
+    index = {name: i for i, _, name in schemas["m_event_quest_chapter"][1]}
+    cols = {"link": index["EventQuestLinkId"], "display": index["EventQuestDisplayItemGroupId"], "group": index["EventQuestSequenceGroupId"]}
+    tables = {}
+    for n in names:
+        pm.apply_to_table(toc, blob, changed, n, lambda b, n=n: tables.__setitem__(n, bytes(b)) or 0)
+    built = event_runs(*(tables[n] for n in names), runs=runs, cols=cols)
+    for n, new in zip(names, built):
+        pm.apply_to_table(toc, blob, changed, n, lambda b, new=new: new)
+
+
 def copy_chapter_rows(blob, copies):
     """Adds a row for each chapter copy to a table keyed by event chapter (first column)."""
     import msgpack
@@ -555,7 +644,7 @@ def open_exchanges(toc, blob, changed, schemas):
         rows("m_shop_item_cell_term", "ShopItemCellTermId", "StartDatetime", "EndDatetime"),
         dict(read("m_consumable_item", "ConsumableItemId", "ConsumableItemTermId")),
         rows("m_consumable_item_term", "ConsumableItemTermId", "StartDatetime", "EndDatetime"),
-        chapter_items(read))
+        {**chapter_items(read), **run_items([c for c, *_ in read("m_event_quest_chapter", "EventQuestChapterId")], event_run_data())})
     for table, dates in found.items():
         if dates:
             index = {name: i for i, _, name in schemas[table][1]}
@@ -736,6 +825,7 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
     schemas = dump_masterdata.load_schemas()
     changed = {}
     restore_history(toc, blob, changed, schemas)
+    apply_event_runs(toc, blob, changed, schemas)
     open_exchanges(toc, blob, changed, schemas)
     moved = 0
     for table in ROTATING:
@@ -811,11 +901,12 @@ def view_file():
 
 # Bumped when the copy's build changes, so a copy built before is rebuilt
 # (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
-# story chapters on their dates.
-VIEW_VERSION = "3"
+# story chapters on their dates; 5 replays each event run with its own exchange.
+VIEW_VERSION = "5"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
-# (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat).
-DATA_VERSION = 2
+# (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat);
+# 4 replays each event run with its own exchange, medal and quests (event_runs.json).
+DATA_VERSION = 4
 
 
 def view_version_file():
