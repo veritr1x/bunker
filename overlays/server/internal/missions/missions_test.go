@@ -173,6 +173,9 @@ func TestRealSave(t *testing.T) {
 
 	// A new day resets the daily missions.
 	tomorrow := startOfDay(now) + 24*3600*1000 + 1000
+	// The store reads the game clock too (times on a later day go back), so
+	// it moves to tomorrow with the requests.
+	setGameClock(t, tomorrow)
 	u, _ = st.UpdateUser(uid, func(u *store.UserState) {
 		before := store.CloneUserState(*u)
 		cat.Track(&before, u, "/apb.api.user.UserService/GameStart", nil, tomorrow)

@@ -19,7 +19,7 @@ import (
 // the client receives the mission changes with the request's own.
 func NewMissionInterceptor(users store.UserRepository, sessions store.SessionRepository) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		if skipDiffForMethod(info.FullMethod) || strings.HasPrefix(info.FullMethod, "/apb.api.data.") {
+		if skipDiffForMethod(info.FullMethod) || handlerDiffsItself(info.FullMethod) || strings.HasPrefix(info.FullMethod, "/apb.api.data.") {
 			return handler(ctx, req)
 		}
 		cat := missions.Current()

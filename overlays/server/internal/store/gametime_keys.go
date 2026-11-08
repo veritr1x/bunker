@@ -48,7 +48,69 @@ func UpgradeTimeKeys(u *UserState, now int64) {
 	}
 	u.Ext.Friends.Day = gametime.UpgradeDayVersion(u.Ext.Friends.Day, now)
 	upgradeDailyTimestamps(u, now)
+	pullBackFutureDays(u, now)
 	UpgradeChapterGachaIds(u)
+}
+
+// pullBackFutureDays moves times of once-a-day things saved on a later game
+// day to the end of the previous day. The game clock goes back when the
+// calendar is turned off after a jump or a faster speed; a time from the
+// jumped-to day would otherwise read as "done today" until the real date
+// caught up, keeping logins, daily missions, stamps, shop stock, Subjugation
+// dailies and the roulette from starting over. The Arena week goes back to the
+// current week the same way. Times on the current day are left alone, and so
+// is the login streak: the previous day counts as a login.
+func pullBackFutureDays(u *UserState, now int64) {
+	const dayMillis = 24 * 3600 * 1000
+	nextDay := gametime.BaseStartOfDay(now) + dayMillis
+	yesterday := gametime.StartOfDay(now) - 1
+	fix := func(t *int64) {
+		if *t >= nextDay {
+			*t = yesterday
+		}
+	}
+	fix(&u.Login.LastLoginDatetime)
+	fix(&u.LoginBonus.LatestRewardReceiveDatetime)
+	fix(&u.Gacha.LastRewardDrawDate)
+	fix(&u.GuerrillaFreeOpen.StartDatetime)
+	fix(&u.ShopReplaceable.LatestLineupUpdateDatetime)
+	fix(&u.Ext.DailyGroupReward.LastRewardReceiveDatetime)
+	for id, st := range u.Ext.EventLoginBonuses {
+		if st.LatestRewardReceiveDatetime >= nextDay {
+			fix(&st.LatestRewardReceiveDatetime)
+			u.Ext.EventLoginBonuses[id] = st
+		}
+	}
+	for id, st := range u.BigHuntStatuses {
+		if st.LatestChallengeDatetime >= nextDay || st.LastDailyRewardReceivedDayVersion >= nextDay {
+			fix(&st.LatestChallengeDatetime)
+			if st.LastDailyRewardReceivedDayVersion >= nextDay {
+				st.LastDailyRewardReceivedDayVersion = gametime.BaseStartOfDay(yesterday)
+			}
+			u.BigHuntStatuses[id] = st
+		}
+	}
+	for id, q := range u.Quests {
+		if q.LastClearDatetime >= nextDay {
+			fix(&q.LastClearDatetime)
+			u.Quests[id] = q
+		}
+	}
+	for id, it := range u.ShopItems {
+		if it.LatestBoughtCountChangedDatetime >= nextDay {
+			fix(&it.LatestBoughtCountChangedDatetime)
+			u.ShopItems[id] = it
+		}
+	}
+	for id, m := range u.Missions {
+		if m.StartDatetime >= nextDay {
+			fix(&m.StartDatetime)
+			u.Missions[id] = m
+		}
+	}
+	if week := gametime.WeeklyVersion(now); u.Ext.Pvp.WeekVersion > week {
+		u.Ext.Pvp.WeekVersion = week
+	}
 }
 
 // UpgradeChapterGachaIds moves chapter summon progress (box draws) from the
