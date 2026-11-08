@@ -44,6 +44,8 @@ TABLES = tuple(dict.fromkeys(
     + list(DECK_TABLES) + ["user_important_items"]))
 ARENA = 2           # model.DeckType PvP
 ARENA_DECKS = 15    # Arena decks the page offers (the videos show "Arena14")
+QUEST = 1           # model.DeckType Quest: the Loadout screen's decks
+QUEST_DECKS = 15    # Loadout shows 15
 COSTUME_RAISE_FIELDS = ("level", "limit_break_count", "awaken_count", "costume_lottery_effect_unlocked_slot_count")
 
 
@@ -520,7 +522,7 @@ class Slot(NamedTuple):
 
 
 def slots(save: Save, tables) -> list:
-    """The Arena decks the page can write to, with the player's lineup in each."""
+    """The decks the page can write to, with the player's lineup in each: the Arena decks, then the Loadout decks."""
     defense = None
     if save.has("user_bunker_ext"):
         r = save.one("select data from user_bunker_ext where user_id=?")
@@ -533,4 +535,6 @@ def slots(save: Save, tables) -> list:
     for n in range(1, ARENA_DECKS + 1):
         label = f"Arena deck {n}" + (" (defense)" if n == defense else "")
         out.append(Slot(ARENA, n, label, deck_summary(Deck(save, ARENA, n), tables)))
+    for n in range(1, QUEST_DECKS + 1):
+        out.append(Slot(QUEST, n, f"Loadout deck {n}", deck_summary(Deck(save, QUEST, n), tables)))
     return out
