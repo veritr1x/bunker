@@ -17,6 +17,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 import sys
 import zipfile
 
@@ -187,6 +188,9 @@ def add_notices(app, pack, move=False):
     plist.write_bytes(plistlib.dumps(info))
 
 
+EARLIEST = (1980, 1, 3, 0, 0, 0)  # two days in: time zones differ by up to 26 hours
+
+
 def write_ipa(root, output):
     """Zip Payload/ keeping permission bits and symlinks, in pure Python (so it
     also runs in a browser)."""
@@ -195,7 +199,11 @@ def write_ipa(root, output):
             dirs.sort()
             for name in sorted(files) + sorted(d for d in dirs if (Path(folder) / d).is_symlink()):
                 path = Path(folder) / name
-                info = zipfile.ZipInfo(str(path.relative_to(root)))
+                # Each file's own date, never before 1980-01-03: a file at the zip format's first
+                # moment (ZipInfo's default) reads as 1979 in a time zone further west, and the
+                # in-app updater, zipping the installed app, refused it.
+                stamp = max(time.localtime(path.lstat().st_mtime)[:6], EARLIEST)
+                info = zipfile.ZipInfo(str(path.relative_to(root)), stamp)
                 if path.is_symlink():
                     info.external_attr = (0o120755 << 16)
                     archive.writestr(info, os.readlink(path))
