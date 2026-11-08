@@ -191,6 +191,11 @@ void InstallDiagnosticJni(bunker::jni::Host &host,recomp::Runtime &runtime){
         while(observed<2&&!reports.compare_exchange_weak(observed,observed+1,std::memory_order_relaxed)){}
         if(observed<2)GameExceptionDiagnostic::ReportJavaFailureFrames(state);
       }
+      if(!vm&&slot==6&&pending.find("android/view/View")!=std::string::npos){
+        static std::atomic<unsigned> reports{0};auto observed=reports.load(std::memory_order_relaxed);
+        while(observed<2&&!reports.compare_exchange_weak(observed,observed+1,std::memory_order_relaxed)){}
+        if(observed<2)GameExceptionDiagnostic::ReportJavaFailureFrames(state);
+      }
     }
     if(observe)ObserveFourthFrameJni("COMPLETE",vm,slot,sequence,pc,lr,sp,arguments,state.gpr.x0.qword);
   };
@@ -1381,7 +1386,20 @@ int main(int argc,char **argv){
               while(!close&&std::chrono::steady_clock::now()<hold_until){for(const auto &event:native_windows->DrainEvents(window)){if(event.kind==NativeWindows::Event::Focus)lifecycle.WindowFocusChanged(event.focused);if(event.kind==NativeWindows::Event::CloseRequested)close=true;}poll_volume();std::this_thread::sleep_for(std::chrono::milliseconds(10));}
             }
           }
-          if(volume)volume->Pause();soft_input->SetFinishing(true);lifecycle.PauseNative(true);
+          if(volume)volume->Pause();soft_input->SetFinishing(true);
+          lifecycle.BeginPauseNative(true);
+          auto finishing_observation=std::chrono::steady_clock::now()+std::chrono::seconds(4);
+          while(!lifecycle.PollNativePause()){
+            // Retain the actual worker, providers and HWND through nativeDone.
+            // Physical events may still arrive, but finishing schedules no new
+            // guest focus/surface jobs behind the outstanding nativeDone call.
+            soft_input->DrainUiJobs();native_windows->DrainEvents(window);poll_volume();
+            if(std::chrono::steady_clock::now()>=finishing_observation){
+              std::fputs("Unity bootstrap: original finishing acknowledgment still pending; retaining same UnityMain/window/providers and pumping UI jobs\n",stderr);
+              finishing_observation=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          }
         }
         stage="surfaceDestroyed/recreate(null)";lifecycle.SurfaceDestroyed();lifecycle.Stop();
         if(soft_input){soft_input->SetNativeLoaded(false);soft_input->CheckIdle();}
