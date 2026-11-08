@@ -1,0 +1,163 @@
+diff --git a/server/internal/interceptor/diff.go b/server/internal/interceptor/diff.go
+--- a/server/internal/interceptor/diff.go
++++ b/server/internal/interceptor/diff.go
+@@ -54,6 +54,13 @@
+ 		if skipDiffForMethod(info.FullMethod) {
+ 			return handler(ctx, req)
+ 		}
++		if handlerDiffsItself(info.FullMethod) {
++			resp, err := handler(ctx, req)
++			if getter, ok := resp.(diffUserDataGetter); ok && err == nil {
++				setUpdateNamesTrailer(ctx, getter.GetDiffUserData())
++			}
++			return resp, err
++		}
+ 
+ 		userId := service.CurrentUserId(ctx, users, sessions)
+ 		if userId == 0 {
+@@ -99,6 +106,14 @@
+ 	}
+ }
+ 
++// handlerDiffsItself lists methods whose handler fills in the whole diff
++// itself, so the save is not loaded around them. UpdateSequence comes dozens
++// at a time while a map loads and only adds a gimmick sequence row
++// (service.ensureGimmickSequence); missions don't count it either.
++func handlerDiffsItself(method string) bool {
++	return method == "/apb.api.gimmick.GimmickService/UpdateSequence"
++}
++
+ func skipDiffForMethod(method string) bool {
+ 	switch method {
+ 	case "/apb.api.user.UserService/Auth",
+diff --git a/server/internal/questflow/rewards.go b/server/internal/questflow/rewards.go
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -123,7 +123,15 @@
+ 	for i := range drops {
+ 		d := drops[i]
+ 		if d.PossessionType == model.PossessionTypeParts || d.PossessionType == model.PossessionTypePartsEnhanced {
+-			chosenId, sold := h.Granter.GrantOrSellPartsDrop(user, d.PossessionId, raritySet, rankSet, nowMillis)
++			// Each memoir is its own roll; a drop grants its Count (a drop-rate
++			// campaign rounds 1 up to 2). From the JCalandre/lunar-tear fork.
++			var chosenId int32
++			var sold bool
++			for k := int32(0); k < max(d.Count, 1); k++ {
++				if id, s := h.Granter.GrantOrSellPartsDrop(user, d.PossessionId, raritySet, rankSet, nowMillis); s {
++					chosenId, sold = id, true
++				}
++			}
+ 			if sold {
+ 				// Sold parts have no inventory row, so the popup needs the rolled
+ 				// variant id; kept parts read theirs from the parts table diff.
+@@ -154,6 +162,7 @@
+ 		}
+ 	}
+ 	drops = append(drops, slabDrops(target, dropRate.Apply, randInt64n)...)
++	drops = append(drops, chapterMemoirDrops(questDef.QuestId, dropRate.Apply)...)
+ 	drops = h.appendBonusDrops(user, drops, target, nowMillis)
+ 	return modScaleDrops(spendableMedals(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)), target)
+ }
+diff --git a/server/internal/service/data.go b/server/internal/service/data.go
+--- a/server/internal/service/data.go
++++ b/server/internal/service/data.go
+@@ -73,8 +73,10 @@
+ 		return nil, fmt.Errorf("snapshot user: %w", err)
+ 	}
+ 
+-	defaults := userdata.FullClientTableMap(user)
+-	result := userdata.SelectTables(defaults, req.TableName)
++	// Project exactly the tables asked for. Selecting from FullClientTableMap
++	// sent "[]" for any table missing from that hand-kept list (Bunker's
++	// IUserLimitedOpen and campaign tables among them).
++	result := userdata.ProjectTables(user, req.TableName)
+ 	return &pb.UserDataGetResponse{
+ 		UserDataJson: result,
+ 	}, nil
+diff --git a/server/internal/service/gimmick.go b/server/internal/service/gimmick.go
+--- a/server/internal/service/gimmick.go
++++ b/server/internal/service/gimmick.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"context"
+ 	"log"
++	"slices"
+ 
+ 	pb "lunar-tear/server/gen/proto"
+ 	"lunar-tear/server/internal/gametime"
+@@ -10,6 +11,7 @@
+ 	"lunar-tear/server/internal/model"
+ 	"lunar-tear/server/internal/runtime"
+ 	"lunar-tear/server/internal/store"
++	"lunar-tear/server/internal/userdata"
+ 
+ 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+ )
+@@ -29,16 +31,62 @@
+ 	log.Printf("[GimmickService] UpdateSequence: scheduleId=%d sequenceId=%d",
+ 		req.GimmickSequenceScheduleId, req.GimmickSequenceId)
+ 	userId := CurrentUserId(ctx, s.users, s.sessions)
+-	s.users.UpdateUser(userId, func(user *store.UserState) {
+-		key := store.GimmickSequenceKey{
+-			GimmickSequenceScheduleId: req.GimmickSequenceScheduleId,
+-			GimmickSequenceId:         req.GimmickSequenceId,
++	key := store.GimmickSequenceKey{
++		GimmickSequenceScheduleId: req.GimmickSequenceScheduleId,
++		GimmickSequenceId:         req.GimmickSequenceId,
++	}
++	diff, err := ensureGimmickSequence(s.users, userId, key)
++	if err != nil {
++		return nil, err
++	}
++	return &pb.UpdateSequenceResponse{DiffUserData: diff}, nil
++}
++
++// gimmickSequenceWriter writes one sequence row without loading the save
++// (sqlite.SQLiteStore.EnsureGimmickSequence).
++type gimmickSequenceWriter interface {
++	EnsureGimmickSequence(userId int64, scheduleId, sequenceId int32, maxRows int) (added, ok bool, err error)
++}
++
++// ensureGimmickSequence adds the sequence row if the save lacks it and returns
++// the game's diff for it (none when it was there). The game sends
++// UpdateSequence for each sequence while a map loads, dozens at a time; going
++// through UpdateUser and the diff and mission interceptors loaded the whole
++// save about five times per call. Only a save at the row cap, or a store
++// without the one-row write, takes the full update. From the
++// JCalandre/lunar-tear fork; the interceptors skip this method
++// (handlerDiffsItself).
++func ensureGimmickSequence(users store.UserRepository, userId int64, key store.GimmickSequenceKey) (map[string]*pb.DiffData, error) {
++	const table = "IUserGimmickSequence"
++	if w, ok := users.(gimmickSequenceWriter); ok {
++		added, ok, err := w.EnsureGimmickSequence(userId, key.GimmickSequenceScheduleId, key.GimmickSequenceId, masterdata.MaxUserGimmickRows)
++		if err != nil {
++			return nil, err
+ 		}
++		if ok {
++			if !added {
++				return nil, nil
++			}
++			before := store.UserState{UserId: userId, Gimmick: store.GimmickState{Sequences: map[store.GimmickSequenceKey]store.GimmickSequenceState{}}}
++			after := before
++			after.Gimmick.Sequences = map[store.GimmickSequenceKey]store.GimmickSequenceState{key: {Key: key}}
++			return userdata.ComputeDelta(&before, &after, []string{table}), nil
++		}
++	}
++	var before store.UserState
++	after, err := users.UpdateUser(userId, func(user *store.UserState) {
++		before = store.CloneUserState(*user)
+ 		sequence := user.Gimmick.Sequences[key]
+ 		sequence.Key = key
+ 		user.Gimmick.Sequences[key] = sequence
+ 	})
+-	return &pb.UpdateSequenceResponse{}, nil
++	if err != nil {
++		return nil, err
++	}
++	if !slices.Contains(userdata.ChangedTables(&before, &after), table) {
++		return nil, nil
++	}
++	return userdata.ComputeDelta(&before, &after, []string{table}), nil
+ }
+ 
+ func (s *GimmickServiceServer) UpdateGimmickProgress(ctx context.Context, req *pb.UpdateGimmickProgressRequest) (*pb.UpdateGimmickProgressResponse, error) {

@@ -629,6 +629,11 @@ func (cat *Catalog) Track(before, after *store.UserState, method string, req any
 		case tracked < kindVersion[m.Rule.Kind] && !m.Daily():
 			// The backfill reads the save before this request; amountFor adds what the request did.
 			set(after, m, max(int64(rec.ProgressValue), cat.backfillValue(m, before))+cat.amountFor(m, c), now)
+		case m.Daily() && (m.Rule.Kind == "login" || m.Rule.Kind == "login_from_unlock"):
+			// Any request of the day means the player logged in that day, also
+			// when the login was counted before this mission was tracked (a new
+			// player is saved as logged in, or the mission opened later).
+			set(after, m, 1, now)
 		case streakKinds[m.Rule.Kind]:
 			switch c.pvp {
 			case pvpWin:

@@ -16,6 +16,29 @@ under its heading, down to the previous release.
   +50% and three tiers. The old guide's damage-per-grade tables match this
   exactly. From the JCalandre/lunar-tear fork. High scores already saved
   are divided by 100 once, so new runs can beat them.
+- The game gets every table it asks for when it loads the save. Three of
+  Bunker's tables were sent empty there: the Limited shop's openings, so
+  its 34 packs never showed, and the beginner and comeback campaigns, which
+  the game forgot after a restart. From the WoefulWolf and JCalandre forks.
+- Turning the calendar off after a jump or a faster speed no longer freezes
+  the daily things until the real date catches up. Times saved on the
+  jumped-to day (logins, daily missions, login stamps, shop stock and
+  refreshes, Subjugation dailies, guerrilla opens, the roulette, daily quest
+  plays) move to the day before, and the Arena week to the current week.
+  The login streak carries on. Found in the lovelyzy7 fork.
+- Daily "Log in" missions clear on the day a player is created, and on a
+  day such a mission opens after the first login. From the lovelyzy7 fork.
+- Loading a map is lighter. The game sends one request per gimmick sequence
+  as a map loads, and each loaded the whole save about five times and wrote
+  it twice; now each adds its one row and sends the game that row. A save
+  already holding 1000 sequences takes the old way. From the JCalandre fork.
+- A memoir drop gives its count: under a drop-rate campaign the reward
+  showed 2 memoirs and gave 1. From the JCalandre fork.
+- 25 event chapters show three memoirs that none of their quests drop (the
+  second and third series, and the first at a higher rarity than its
+  quests'); they were random enemy drops whose tables never shipped. One
+  clear in two now adds one of them at random. The chance is an estimate.
+  The gap was found in the JCalandre fork.
 
 ## 1.10.0 (2026-11-08)
 
