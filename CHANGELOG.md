@@ -4,6 +4,30 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-09 (after 1.10.1)
+
+### Calendar
+- An event that reran replays each run as it was. Its quests drop that
+  run's own medal, its quest bonuses pay it, its page shows it and its
+  Exchange button opens that run's exchange; a run shows only the quests it
+  had (later reruns added up to six). The final game data keeps the last run
+  only, so every replayed run dropped the last run's medals while the
+  earlier runs' exchanges, taking medals nothing dropped, opened beside the
+  last run's, which stayed open from the first run to the last: two
+  Automata Medal Exchanges on a new calendar. 29 events, 33 runs,
+  read from the game data published during each run
+  (scripts/event_runs.py, event_runs.json). Coffin of Repose, Path of
+  Longing and Rhythm's Citadel ran once, in 2021, but their quests were later
+  switched to medals for reruns that never ran on Global (exchanges 6025 and
+  6030 were never dated): their only run had an exchange taking a medal
+  nothing dropped. They drop their 2021 medals again. Garden of Benediction's 2021 run
+  had its drops and its exchange's link rewritten for the January 2022 run;
+  both come from the 2021 data. Bonuses that paid a medal whose exchange had
+  already closed (a reused bonus effect in four runs from late 2022) are left
+  out. The result screen still names the last run's bonus medals: the game
+  works them out from its own data. Calendars in use rebuild their data
+  (data version 4, view copy 5).
+
 ## 1.10.1 (2026-11-09)
 
 Story Jump and stronger Force decks. Pod Programs' Story Jump brings a save
