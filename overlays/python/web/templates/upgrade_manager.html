@@ -86,7 +86,7 @@
     <button type="button" data-upgrade="skip_dark_memory_cutscenes" class="grant-chosen-btn">RUN</button>
   </div>
   <div class="grant-form upgrade">
-    <span class="grant-name">Fill All Karma Slots</span>
+    <span class="grant-name" id="karma-fill-name">Fill All Karma Slots</span>
     <span class="grant-id">Picks the chosen effect for every unlocked karma slot. If a costume's odds pool doesn't contain the chosen effect, falls back to the rarest pool entry. Overwrites existing rolls. Run Upgrade All Costumes first to unlock slots.</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="fill_karma_slots" class="grant-chosen-btn">RUN</button>
@@ -105,7 +105,7 @@
       </select>
     </div>
     {% endfor %}
-    <p style="margin:6px 0 0;font-size:var(--fs-label);color:var(--fg-mid)">
+    <p data-info="karma-fill-name" style="margin:6px 0 0;font-size:var(--fs-label);color:var(--fg-mid)">
       [R40/30/20] = rarity tier. [Ngrp] = how many odds groups in the game include this effect. A higher number means more costumes get this exact effect. The rest get the rarest effect in their own pool.
     </p>
   </div>
