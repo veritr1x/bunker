@@ -6,6 +6,9 @@ game's ARM64 libraries. Nothing here is part of the normal Bunker release yet.
 [whole/README.md](whole/README.md) describes the whole-library compiler and
 [windows/README.md](windows/README.md) the native host providers.
 
+[Fresh-clone build status](BUILDING.md) explains how to obtain the separate
+Remill branch and the remaining gap in reproducing the latest game executable.
+
 The sections below retain historical feasibility experiments and coverage
 measurements. Native Windows FastAES and host integration gates now execute;
 the first original Notice frame is now verified on Windows. Sustained gameplay
