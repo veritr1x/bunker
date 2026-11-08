@@ -381,6 +381,27 @@ def copy_chapter_rows(blob, copies):
     return _table(out)
 
 
+def keep_key_order(blob):
+    """The rows in their first column's order, ties as they were. The game finds rows by binary search
+    (MasterMemory), so a table must stay in key order; copies written beside the rows they copy break it, and the
+    game then misses rows that are there (CalculatorQuest.TryGetEventQuestType: every auto-repeat stopped)."""
+    import msgpack
+    rows = list(_rows(blob))
+    rows.sort(key=lambda r: msgpack.unpackb(r[1][0]) if r[1] else 0)
+    return _table([header + b"".join(cells) for header, cells in rows])
+
+
+def sort_like_origin(toc, blob, changed, schemas):
+    """Each changed table whose rows the original data keeps in first-column order, back in that order."""
+    from patcher import patch_masterdata as pm
+    for table in list(changed):
+        if table not in schemas or not schemas[table][1]:
+            continue
+        ids = [r[0] for r in _read(toc, blob, {}, schemas, table, schemas[table][1][0][2])]
+        if all(a <= b for a, b in zip(ids, ids[1:])):
+            pm.apply_to_table(toc, blob, changed, table, keep_key_order)
+
+
 def restore_history(toc, blob, changed, schemas):
     """Puts the runs the final game data lost back, before the loop's shift."""
     from patcher import patch_masterdata as pm
@@ -717,6 +738,7 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
     for table, rows in pm.TABLE_ROW_ADDITIONS.items():
         pm.apply_to_table(toc, blob, changed, table, lambda b, r=rows: pm.add_table_rows(b, r))
     pm.apply_to_table(toc, blob, changed, "m_battle_group", pm.patch_wolf_chapter_battle_point)
+    sort_like_origin(toc, blob, changed, schemas)
     write_master(toc, blob, changed, output)
     return moved
 
@@ -769,10 +791,10 @@ def view_file():
 # Bumped when the copy's build changes, so a copy built before is rebuilt
 # (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
 # story chapters on their dates.
-VIEW_VERSION = "2"
+VIEW_VERSION = "3"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
-# (read_state): 1 opens story chapters on their dates.
-DATA_VERSION = 1
+# (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat).
+DATA_VERSION = 2
 
 
 def view_version_file():
