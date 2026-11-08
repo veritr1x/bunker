@@ -447,9 +447,8 @@ class Generator:
 
     def _baked_result(self, rec, criteria, rank) -> Result:
         """A baked deck as a Result: its baked loadouts (a debris taken twice goes to the next: baked.deck_loadouts),
-        built with the player's own costumes raised (All maxed writes them so). Ranked by the bake, which raised every
-        costume of every character (their level bonuses count); its win rate, margin and Force are this deck's own,
-        simulated, so they are what writing it gives."""
+        built with the player's own costumes raised (All maxed writes them so). Its win rate, margin and Force are the
+        bake's, which ranked it (a Force-list deck's win rate is simulated: that gear was never fought)."""
         from deckbuilder import baked as bk
         from deckbuilder.explain import short_reason
         which = self._baked.loadouts_for(criteria.sort)
@@ -476,11 +475,19 @@ class Generator:
             tags = [EFFECT_LABEL[e] for e in EFFECTS if e in eff][:3]
             _, actors, _ = power.actors_for(deck, self.tables)
             stats = [power.character_stats(a, self.tables) if a else None for a in actors]
-            win, margin = self.outcome(deck, criteria, self.baked_opponents())     # against what ranked it
+            if rec.attack_win or rec.attack_margin or rec.defense_win or rec.defense_margin:
+                # the numbers it was ranked by, so the list reads in order (the bake fought it fully raised; a save's
+                # own karma and ranks can move a written deck's results a little)
+                win, margin = (rec.defense_win, rec.defense_margin) if criteria.deck_for == "defense" else (rec.attack_win, rec.attack_margin)
+                force = rec.force
+            else:
+                # the Force list: its gear was never fought, so simulated against the bake's opponents
+                win, margin = self.outcome(deck, criteria, self.baked_opponents())
+                force = rec.force
             self._baked_results[k] = Result(
                 rank=0, lineup=rec.lineup, name=" · ".join(self.tables.character_name(c) for c in rec.lineup),
                 expert=any(l.costumes == rec.lineup for l in self.experts.lineups()), deck=deck, strategy=strategies[0],
-                win_rate=win, margin=margin, force=power.deck_power(deck, self.tables).total, to_add=self.added(to_add), tags=tags, effects=eff,
+                win_rate=win, margin=margin, force=force, to_add=self.added(to_add), tags=tags, effects=eff,
                 elements=els, stats=stats, why=short_reason(strategies[0], els, tags, None, self.tables), equipped=eq)
         r = self._baked_results[k]
         r.rank = rank
