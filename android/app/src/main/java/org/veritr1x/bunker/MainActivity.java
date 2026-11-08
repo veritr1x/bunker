@@ -106,8 +106,10 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
         addMenuShortcut();
-        autoAttempted=state!=null?state.getBoolean("attempted"):getIntent().getBooleanExtra("manage",false);
-        launchWhenReady=state!=null?state.getBoolean("launch"):!getIntent().getBooleanExtra("manage",false);
+        // Auto deploy off (⋮ menu): opened as "manage" is, the launcher stays until DEPLOY.
+        boolean manage=getIntent().getBooleanExtra("manage",false)||!autoDeploy(this);
+        autoAttempted=state!=null?state.getBoolean("attempted"):manage;
+        launchWhenReady=state!=null?state.getBoolean("launch"):!manage;
         // A screen on its side with room for two columns puts the panels side
         // by side; a short one (a phone) also tightens and drops the footer.
         android.content.res.Configuration config=getResources().getConfiguration();
@@ -235,7 +237,7 @@ public final class MainActivity extends Activity {
             if(message!=null)updateFailed(message);
             return;
         }
-        boolean manage=intent.getBooleanExtra("manage",false);
+        boolean manage=intent.getBooleanExtra("manage",false)||!autoDeploy(this);
         autoAttempted=manage;launchWhenReady=!manage;
         query(1);
     }
@@ -326,6 +328,7 @@ public final class MainActivity extends Activity {
         section(panel,"Support");
         option(panel,menu,4,"Lunar Tear log",true);
         option(panel,menu,11,"Export Lunar Tear log",true);
+        option(panel,menu,15,"Auto deploy: "+(autoDeploy(this)?"On":"Off"),true);
         option(panel,menu,12,"Display: "+Character.toUpperCase(Look.display(this).charAt(0))+Look.display(this).substring(1),true);
         option(panel,menu,13,"Check for updates: "+(Updater.enabled(this)?"On":"Off"),true);
         option(panel,menu,14,"Check for updates now",true);
@@ -373,8 +376,13 @@ public final class MainActivity extends Activity {
             recreate();
         }).setNegativeButton("Cancel",null).show();
     }
+    /** Auto deploy (⋮ menu, on by default): opening Bunker starts Lunar Tear and the game; off, it opens on the launcher. */
+    static boolean autoDeploy(Context c){return c.getSharedPreferences("launcher",MODE_PRIVATE).getBoolean("autoDeploy",true);}
     private void onOption(int id){
         switch(id){
+            case 15: {boolean on=!autoDeploy(this);getSharedPreferences("launcher",MODE_PRIVATE).edit().putBoolean("autoDeploy",on).apply();
+                if(!on){autoAttempted=true;launchWhenReady=false;}   // off now: nothing starts by itself from here
+                Toast.makeText(this,on?"Auto deploy on: the game starts when Bunker opens":"Auto deploy off: Bunker opens here; tap DEPLOY to play",Toast.LENGTH_SHORT).show();break;}
             case 12: chooseDisplay();break;
             case 13: Updater.enabled(this,!Updater.enabled(this));if(Updater.enabled(this))Updater.recheck(this,r->renderUpdate());break;
             case 14: Updater.recheck(this,r->renderUpdate());Toast.makeText(this,"Checking for updates…",Toast.LENGTH_SHORT).show();break;
