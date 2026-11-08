@@ -16,7 +16,8 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   airplane mode.
 - **The Bunker**, the launcher: imports the resource dump (`.7z`, `.zip` or an extracted folder,
   copied or used in place), starts Lunar Tear and opens the game, and checks that the game can
-  reach it.
+  reach it. On Android, turn off ⋮ → Auto deploy to have it open on the launcher until you tap
+  Deploy.
 - **Pod Programs**, on the device:
   - **Content patcher**: events and shops, with presets and rollback.
   - **Save data**: automatic snapshots, backups and restore.
@@ -35,6 +36,12 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
     slow skills, for a reward bonus up to ×10. "Comfort" turns on the Comfort Mod's set and
     "Everything" every mod but the challenges. Most of the Comfort set comes from the
     [Lunar Tear Comfort Mod](https://github.com/NavHobbyDev/lunar-tear-comfort-mod) by NavHobbyDev.
+  - **Deck Builder**: decks for the Arena and for Subjugation, from what you own or with
+    everything maxed. Each deck shows its characters and gear, why each piece was picked, the
+    game's exact Force and its win rate; filter by element, strategy, effects and characters,
+    sort by best match, Force or fewest pieces to add, and write it to the Arena or Loadout deck
+    you pick, with a snapshot taken first. All maxed is ranked from all 3.2 million decks of the
+    playable costumes, fought ahead of time in their best gear and karma.
   - **Start a new day** (Content): everything daily starts over at once.
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking, battles and the Flying Mama minigame keep their normal speed.
@@ -52,8 +59,9 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
   raised to match yours. Points, grades, rank, win rewards, battle points,
   history, defense battles while you are away, weekly rewards and season
   rewards. Each season lasts four weeks, then the next starts from 0 points
-  with a new ladder; your final rank pays the season's rank reward. Opens
-  after quest 61, as in the original.
+  with a new ladder; your final rank pays the season's rank reward. Once
+  Deck Builder has been opened, computer players field its decks, matched to
+  how strong yours are. Opens after quest 61, as in the original.
 - **Summon rates** (Pod Programs, experimental): the ★4 and ★3 rates, the
   costume and featured shares, the 10-draw guarantee and the multi-step boost;
   the game's Rates page shows them.
@@ -146,10 +154,11 @@ app.
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
 3. Tap **Deploy**. The server starts and the game opens.
 
-On later launches, the Bunker opens and starts the game by itself. To return to it, tap the Lunar
+On later launches, the Bunker opens and starts the game by itself, unless **Auto deploy** is off
+in the ⋮ menu: then it opens on the launcher and waits for **Deploy**. To return to it, tap the Lunar
 Tear notification, or long-press the NieR icon and choose **Open the Bunker menu**. **Pod Programs** and **Archive** are on the Bunker. Pod Programs opens beside the
 running game, and a change sends the game to its title screen to load it. Tap **⋮** for save backup and
-import, the Lunar Tear log and its export, Display (light/dark/system), settings, help and about.
+import, the Lunar Tear log and its export, Auto deploy, Display (light/dark/system), settings, help and about.
 
 ## Play on iPhone or iPad
 

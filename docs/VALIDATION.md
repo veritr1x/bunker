@@ -1,5 +1,50 @@
 # Validation
 
+## Auto-repeat with the calendar on — 2026-11-08
+
+- Android emulator, Global, Original calendar (week 1). Character Quests ›
+  Rion Quest 1, Auto-repeat ×10: the first clear finished
+  (`autoOrbit iter cleared=1/10`), then the game showed "The quest period
+  has ended." and sent FinishAutoOrbit without asking for the next run. With
+  the calendar off, Record: Pure Hills Quest 1 went on to its second clear.
+- In the game's code the retry (SubQuestResultAction.OnTapRetryButton) calls
+  CalculatorQuest.IsValidStartQuestTerm, which checks the chapter's dates and
+  then looks its type up with TryGetEventQuestType. A temporary hook on
+  CalculatorDateTime.IsWithinThePeriod showed the chapter's dates passing
+  (Aug 2025 to 9999) and no schedule check after it: the type lookup failed.
+  The calendar's game data had m_event_quest_chapter and six tables keyed
+  by it out of first-column order (338 chapter rows, 35 out of place), and the
+  game finds rows by binary search.
+- The same game data with those tables sorted: the run asked for its second
+  clear (`autoOrbit continue cleared=1/10`). The build with the fix rebuilt
+  the emulator's calendar data on its first start (data version 2), every
+  table in order.
+
+## Launcher Auto deploy — 2026-11-08
+
+- Android emulator: ⋮ shows AUTO DEPLOY: ON by default. Turned off, a normal
+  launch stayed on the launcher with Lunar Tear standing by after 15 s.
+  Turned on again, a normal launch opened the game.
+
+## Deck Builder — 2026-11-08
+
+- iPhone 15 Pro, All maxed: pages of six decks loaded in about 2.4 s each
+  when simulated against 50 opponents (stage preparation 12.5 s); with the
+  baked numbers shown they load without simulating. On a copy of a real save
+  the first 12 attack and defense decks show the values they were ranked by,
+  in order.
+- iPad: a deck written to Arena decks 1, 2 and 4 landed in the save (deck
+  type 2), so the Loadout screen (deck type 1) did not show it. The deck
+  picker now offers Loadout decks, ticks nothing by itself and lists what each
+  pick replaces before REPLACE.
+- The phone-style stage check: a stage prepared as the phone prepares it,
+  with each costume's baked karma (set_costume_karma_batch), matches the
+  bake's fingerprint (test_deckbuilder_session).
+- Pod Programs readability: every page at phone and iPad sizes, portrait
+  and landscape, light and dark, popups and ⓘ notes open: no text under 12
+  px, none cut off or off screen, contrast at least 4.5:1, apart from
+  checkboxes and radio buttons inside rows that can be tapped anywhere.
+
 ## Mods expansion — 2026-11-07
 
 - Android emulator, Global, Comfort mods, game running. Mods page: six
