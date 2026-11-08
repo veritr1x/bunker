@@ -102,6 +102,24 @@ class StageDeckTest(unittest.TestCase):
         self.assertEqual(a.total, b.total)
         self.assertTrue(all(c.total > 20000 for c in a.characters), [c.total for c in a.characters])
 
+    def test_a_spec_can_carry_its_own_karma(self):
+        """The Force list's karma (chosen for Force) rides on the spec: the composed deck's costume has it, and the
+        stage keeps its own."""
+        specs = self.theoretical_specs()
+        t = tables()
+        le = {x["SlotNumber"]: x["CostumeLotteryEffectOddsGroupId"] for x in t.T("CostumeLotteryEffect") if x["CostumeId"] == SARAFA}
+        odds = t.grp("CostumeLotteryEffectOddsGroup", "CostumeLotteryEffectOddsGroupId")
+        want = {s: max(o["OddsNumber"] for o in odds[g]) for s, g in le.items()}
+        deck = model.compose(self.stage, self.stage, [specs[0]._replace(karma=want)] + specs[1:], 2, 1, t)
+        got = dict(deck.save.db.execute("select slot_number, odds_number from user_costume_lottery_effects where user_costume_uuid=?",
+                                        (specs[0].costume.uuid,)).fetchall())
+        self.assertEqual(got, want)
+        staged = dict(self.stage.db.execute("select slot_number, odds_number from user_costume_lottery_effects where user_costume_uuid=?",
+                                            (specs[0].costume.uuid,)).fetchall())
+        self.assertNotEqual(staged, want)
+        plain = model.compose(self.stage, self.stage, specs, 2, 1, t)
+        self.assertNotEqual(power.deck_power(deck, t).total, power.deck_power(plain, t).total)
+
     def test_missing_and_raises(self):
         base = model.Save(snapshot_con(IPAD), 1)
         inv = model.Inventory(base, tables())

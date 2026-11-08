@@ -77,9 +77,24 @@ class EquipTest(unittest.TestCase):
         eq = equip.equip((SARAFA, RION, SARYU), equip.Mode("best"), self.stage, self.stage, tables(), self.experts)
         mains = sorted(eq.deck.save.one("select parts_status_main_id m from user_parts where user_id=? and user_parts_uuid=?", m.uuid)["m"]
                        for m in eq.specs[0].memoirs)
-        self.assertEqual(mains, [12, 28, 32])      # ATK %, crit rate, crit damage
+        self.assertEqual(mains, [12, 12, 28])      # ATK %, ATK %, crit rate (the second memoir's)
         _, actors, _ = power.actors_for(eq.deck, tables())
         self.assertGreaterEqual(power.character_stats(actors[0], tables())["crit"], 500)
+
+    def test_attacker_memoirs_stack_crit_like_the_game(self):
+        """The attacker set at its fullest and legal: ATK% / crit rate / ATK% mains (only the second memoir may main
+        crit), crit rate 20% main + two 25% sub stats (their top), crit damage 36% + 12% + 12% sub stats (the game's
+        limits; NieR Re[in] Guide). Sarafa reaches 80% crit rate (52.5% with one roll per sub stat)."""
+        eq = equip.equip((SARAFA, RION, SARYU), equip.Mode("best"), self.stage, self.stage, tables(), self.experts)
+        subs = [(r["status_kind_type"], r["status_change_value"])
+                for m in eq.specs[0].memoirs
+                for r in eq.deck.save.q("select * from user_parts_status_subs where user_id=? and user_parts_uuid=?", m.uuid)]
+        crit_rate = sum(v for k, v in subs if k == 4)
+        crit_damage = sum(v for k, v in subs if k == 3)
+        self.assertEqual(crit_rate, 500)
+        self.assertEqual(crit_damage, 600)
+        _, actors, _ = power.actors_for(eq.deck, tables())
+        self.assertEqual(power.character_stats(actors[0], tables())["crit"], 800)
 
     def test_main_weapon_sets_element(self):
         eq = equip.equip((SARAFA, RION, SARYU), equip.Mode("best"), self.stage, self.stage, tables(), self.experts,

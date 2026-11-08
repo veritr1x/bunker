@@ -60,6 +60,14 @@ func TestEditDeckBuilderStage(t *testing.T) {
 	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"set_costume_karma_batch","user_id":1}`); strings.Contains(got, "not a stage action") {
 		t.Fatalf("set_costume_karma_batch on the stage: %s", got)
 	}
+	// So is the characters' rank ("All maxed" is rank 10).
+	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"rank_characters","user_id":1}`); strings.Contains(got, "not a stage action") {
+		t.Fatalf("rank_characters on the stage: %s", got)
+	}
+	// And grants (the stained glass every fully progressed account owns).
+	if got := Edit(dir, dir, `{"target":"deckbuilder_stage","action":"grant_batch","user_id":1}`); strings.Contains(got, "not a stage action") {
+		t.Fatalf("grant_batch on the stage: %s", got)
+	}
 	// Any other target is refused.
 	if got := Edit(dir, dir, `{"target":"other","action":"upgrade_all_memoirs","user_id":1}`); !strings.Contains(got, "Unknown save target") {
 		t.Fatalf("unknown target: %s", got)

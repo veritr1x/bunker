@@ -11,6 +11,9 @@ from __future__ import annotations
 from typing import Callable
 
 EXALT_MAX = 5
+RANK_MAX = 10      # a character's top rank (CharacterLevelBonusAbilityGroup)
+IMPORTANT_ITEM = 13        # model.PossessionTypeImportantItem
+STAINED_GLASS = 5          # ImportantItemType: a stained glass, flat stats for a character or a weapon type
 TARGET = "deckbuilder_stage"
 
 
@@ -58,6 +61,10 @@ class Stager:
             self._do("grant_thought_batch", thought_ids=list(thought_ids))
         if characters:
             self._do("exalt_characters", exaltations=[{"character_id": c, "rebirth_count": EXALT_MAX} for c in characters])
+            self._do("rank_characters", ranks=[{"character_id": c, "level": RANK_MAX} for c in characters])
+            glass = [i["ImportantItemId"] for i in self.tables.T("ImportantItem") if i["ImportantItemType"] == STAINED_GLASS]
+            if glass:
+                self._do("grant_batch", grants=[{"possession_type": IMPORTANT_ITEM, "possession_id": g, "count": 1} for g in glass])
         if costume_ids:
             self._do("upgrade_all_costumes")
         if weapon_ids:

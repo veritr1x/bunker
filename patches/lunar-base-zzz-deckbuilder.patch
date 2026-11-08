@@ -1,13 +1,15 @@
 diff --git a/server/internal/lunarbase/main.go b/server/internal/lunarbase/main.go
 --- a/server/internal/lunarbase/main.go
 +++ b/server/internal/lunarbase/main.go
-@@ -169,12 +169,16 @@ type request struct {
+@@ -169,12 +169,18 @@ type request struct {
  	Memoirs          []memoirGrantSpec      `json:"memoirs"`
  	MemoirSlots      []memoirSlotsSpec      `json:"memoir_slots"`
  	ContentsStoryIDs []int32                `json:"contents_story_ids"`
 +	// Bunker: Pod Programs › Deck Builder (bunker_deckwrite.go, bunker_deckbuilder.go)
 +	Deck      json.RawMessage `json:"deck"`
 +	StagePath string          `json:"stage_path"`
++	// Deck Builder's staging save: characters' rank (bunker_deckbuilder.go)
++	Ranks []rankSpec `json:"ranks"`
  }
  
  type response struct {
@@ -18,7 +20,7 @@ diff --git a/server/internal/lunarbase/main.go b/server/internal/lunarbase/main.
  }
  
  func openDB(path string) (interface {
-@@ -411,6 +415,10 @@ func run(raw []byte) (int, error) {
+@@ -411,6 +417,12 @@ func run(raw []byte) (int, error) {
  		return runSendGift(&req)
  	case "gift_room":
  		return runGiftRoom(&req)
@@ -26,10 +28,12 @@ diff --git a/server/internal/lunarbase/main.go b/server/internal/lunarbase/main.
 +		return runDeckWrite(&req)
 +	case "arena_matching":
 +		return runArenaMatching(&req)
++	case "rank_characters":
++		return runRankCharacters(&req)
  	case "":
  		return 0, errors.New("action required")
  	default:
-@@ -427,7 +435,7 @@ func Execute(raw []byte) (result string) {
+@@ -427,7 +439,7 @@ func Execute(raw []byte) (result string) {
  		}
  	}()
  	applied, err := run(raw)

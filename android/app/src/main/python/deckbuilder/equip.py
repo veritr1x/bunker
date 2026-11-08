@@ -18,10 +18,23 @@ from deckbuilder import model, raise_
 DATA = Path(__file__).resolve().parent / "data" / "rankings.json"
 ELEM_ATTR = {"dark": 1, "fire": 2, "light": 3, "water": 5, "wind": 6}
 ELEMENTS = tuple(ELEM_ATTR)
-# role -> (memoir set, main stats of the three memoirs, sub stats of each)
+# role -> (memoir set, the three memoirs' mains, each memoir's sub stats: a name given n times has n rolls, 9 rolls
+# per memoir, raise_.memoir_spec). Each memoir at its fullest, and legal: only the second memoir of a set may main
+# crit (raise_.main_allowed). The attacker's crit rate 20% main + 25% + 25% and crit damage 36% + 12% + 12%, every
+# top the game allows; the support's HP and DEF at their tops. "force" is the Force
+# list's build (no fighting role uses it): flat ATK / DEF mains and HP% at its top with ATK% and DEF%, the stats
+# Force counts most (power.parts_status_power).
 ROLE_MEMOIRS = {
-    "attacker": (10, ("crit_rate", "crit_damage", "attack_pct"), ("crit_rate", "crit_damage", "attack_pct", "attack_pct")),
-    "support": (17, ("hp_pct", "defense_pct", "hp_pct"), ("hp_pct", "defense_pct", "hp_pct", "defense_pct")),
+    "attacker": (10, ("attack_pct", "crit_rate", "attack_pct"),
+                 (["crit_rate"] * 5 + ["crit_damage"] * 2 + ["hp_pct", "agility"],
+                  ["crit_damage"] * 6 + ["attack_pct", "hp_pct", "agility"],
+                  ["crit_rate"] * 5 + ["crit_damage"] * 2 + ["hp_pct", "agility"])),
+    "support": (17, ("hp_pct", "defense_pct", "hp_pct"),
+                (["defense_pct"] * 5 + ["crit_rate"] * 2 + ["attack_pct", "agility"],
+                 ["hp_pct"] * 5 + ["crit_rate"] * 2 + ["attack_pct", "agility"],
+                 ["defense_pct"] * 5 + ["crit_rate"] * 2 + ["attack_pct", "agility"])),
+    "force": (10, ("attack", "defense", "attack"),
+              (["hp_pct"] * 5 + ["attack_pct"] * 2 + ["defense_pct"] * 2,) * 3),
 }
 STAT_LABEL = {"Vitality": "DEF", "Attack": "ATK", "Hp": "HP", "Agility": "agility", "CriticalRatio": "crit rate", "CriticalAttack": "crit damage"}
 _rankings = None
@@ -147,8 +160,12 @@ def set_groups(series_id, tables, n=3):
 
 
 def memoir_specs(series_id, mains, subs, tables):
-    return [raise_.memoir_spec(raise_.top_parts_id(g, tables), main, list(subs), tables)
-            for g, main in zip(set_groups(series_id, tables), mains)]
+    """A set's three memoirs: each with its main and its own sub stats (ROLE_MEMOIRS); each main must fit its place."""
+    for i, main in enumerate(mains):
+        if not raise_.main_allowed(main, i):
+            raise ValueError(f"{main} cannot main memoir {i + 1} of a set (raise_.MAINS_BY_POSITION)")
+    return [raise_.memoir_spec(raise_.top_parts_id(g, tables), main, list(sub), tables)
+            for g, main, sub in zip(set_groups(series_id, tables), mains, subs)]
 
 
 def stage_plan(lineups, tables, experts, extra_sets=(), k=2) -> dict:
@@ -293,7 +310,10 @@ def _memoirs(pick, series_id, role_name, tables):
 
 
 def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, experts, target=None,
-          rate: Callable | None = None, elements=(None, None, None), expert=None, deck_type=2, deck_number=1) -> Equipped:
+          rate: Callable | None = None, elements=(None, None, None), expert=None, deck_type=2, deck_number=1,
+          main_rank: Callable[[int], float] | None = None) -> Equipped:
+    """main_rank: weapon id -> a score; when given, main weapons are tried best score first (Subjugation ranks
+    them by boss damage) and the experts' Arena picks are not preferred."""
     from deckbuilder import sim
     sim.use(tables)
     if rate is None and target is not None:
@@ -308,7 +328,10 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
         costume = pick.ref("costume", "stage" if mode.kind == "best" else "save", costume_id=c) or pick.ref("costume", "stage", costume_id=c)
         wt = _weapon_type(c, tables)
         picked = [w for w in (lo.get("weapons") or [])[:1] if w and rankings()["weapons"].get(str(w), [None])[0] == e]
-        main, main_id = pick.first("weapon", picked + main_candidates(e, wt), "weapon_id")
+        candidates = main_candidates(e, wt)
+        if main_rank is not None:
+            picked, candidates = [], sorted(candidates, key=lambda w: -main_rank(w))
+        main, main_id = pick.first("weapon", picked + candidates, "weapon_id")
         source = "expert" if main_id is not None and main_id in picked else "ranked"
         if mode.kind == "owned" and (main is None or (main.source == "stage" and mode.allow_missing == 0)):
             mine = _owned_weapon_of_type(pick, wt, e, tables)   # an owned weapon of the type before adding one

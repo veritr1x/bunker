@@ -205,13 +205,32 @@ class StagePlanTest(unittest.TestCase):
         self.assertEqual(plan["costume_ids"], [1, 2, 3, 4])
         self.assertEqual(plan["weapon_ids"], [101, 102, 103, 104, 201, 202, 203, 204])
         self.assertEqual((plan["companion_ids"], plan["thought_ids"]), ([7], [900, 901]))
-        self.assertEqual(len(plan["memoirs"]), 6)                  # set 10: three pieces for each role
+        self.assertEqual(len(plan["memoirs"]), 9)                  # set 10: three pieces for each build (attacker, support, Force)
         self.assertEqual(plan["costume_karma"], {2: {"1": 4, "2": 7, "3": 16}})     # each costume's baked karma
         merged = db._merge_plans({"costume_ids": [4, 9], "weapon_ids": [101], "companion_ids": [], "thought_ids": [], "memoirs": plan["memoirs"][:1]}, plan)
         self.assertEqual(merged["costume_ids"], [1, 2, 3, 4, 9])
-        self.assertEqual(len(merged["memoirs"]), 6)
+        self.assertEqual(len(merged["memoirs"]), 9)
         self.assertEqual(merged["costume_karma"], plan["costume_karma"])
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ForceKarmaTest(unittest.TestCase):
+    """The Force list's karma is chosen for Force (force-gear): it rides on the spec to Force and to the write."""
+    class _Stage:
+        def pick(self, kind, **where):
+            return f"{kind}-{list(where.values())[0]}"
+
+    def test_a_force_loadout_gives_its_spec_the_karma(self):
+        lo = dict(LOADOUTS[1], force_karma={"1": 5, "2": 9, "3": 16})
+        spec = baked.loadout_spec(lo, self._Stage(), None)
+        self.assertEqual(spec.karma, {"1": 5, "2": 9, "3": 16})
+        self.assertIsNone(baked.loadout_spec(LOADOUTS[1], self._Stage(), None).karma)
+
+    def test_the_write_sends_it(self):
+        import android_deckbuilder as db
+        spec = baked.loadout_spec(dict(LOADOUTS[1], force_karma={"1": 5}), self._Stage(), None)
+        self.assertEqual(db._spec_json(spec)["karma"], {"1": 5})
+        self.assertNotIn("karma", db._spec_json(spec._replace(karma=None)))

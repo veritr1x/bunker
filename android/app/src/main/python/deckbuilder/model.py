@@ -149,6 +149,7 @@ class CharacterSpec(NamedTuple):
     companion: PieceRef | None
     memoirs: list         # up to three memoir PieceRefs
     debris: PieceRef | None
+    karma: dict | None = None   # {slot: odds number}: this karma instead of the staged costume's (the Force list's)
 
     def pieces(self):
         yield self.costume
@@ -373,6 +374,11 @@ def compose(base: Save, stage: Save | None, specs: list, deck_type: int, deck_nu
             cid = _character_id(stage, theirs, tables)
             if cid:
                 _copy_character(con, stage, cid, uid, tables)
+    for spec in specs:
+        if spec is not None and spec.karma and spec.costume and spec.costume.source == "stage":
+            for slot, odds in spec.karma.items():
+                con.execute("update user_costume_lottery_effects set odds_number=? where user_id=? and user_costume_uuid=? and slot_number=?",
+                            (int(odds), uid, spec.costume.uuid, int(slot)))
     _write_deck(con, uid, specs, deck_type, deck_number)
     return Deck(Save(con, uid), deck_type, deck_number)
 

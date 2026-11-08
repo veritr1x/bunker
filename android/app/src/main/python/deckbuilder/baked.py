@@ -143,11 +143,11 @@ def loadout_spec(lo: dict, stage, tables):
     """A baked loadout as a model.CharacterSpec of the stage's pieces (the stage holds every baked piece)."""
     from deckbuilder import equip, model
     P = lambda kind, col, i: model.PieceRef(kind, stage.pick(kind, **{col: i}), "stage") if i else None
-    memoirs = equip._memoirs(equip._Picker(stage, stage, tables, equip.Mode("best")), lo["memoir_set"], lo["role"], tables) \
-        if lo.get("memoir_set") else []
+    memoirs = equip._memoirs(equip._Picker(stage, stage, tables, equip.Mode("best")), lo["memoir_set"],
+                             lo.get("memoir_role") or lo["role"], tables) if lo.get("memoir_set") else []
     return model.CharacterSpec(P("costume", "costume_id", lo["costume_id"]), P("weapon", "weapon_id", lo["main_weapon"]),
                                [P("weapon", "weapon_id", w) for w in lo["subs"]], P("companion", "companion_id", lo["companion"]),
-                               memoirs, P("debris", "thought_id", lo["debris"]))
+                               memoirs, P("debris", "thought_id", lo["debris"]), lo.get("force_karma") or None)
 
 
 def meta_decks(gen, experts, stage, tables) -> list:
