@@ -1,12 +1,14 @@
 """Packaging checks on tiny generated binaries; no game files are needed."""
+import os
 from pathlib import Path
 import plistlib
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from unittest import mock
 
-from package_ipa import LAUNCHER, dylibs, insert_dylib, patch_info, turn_off_adjust
+from package_ipa import LAUNCHER, dylibs, insert_dylib, patch_info, turn_off_adjust, write_ipa
 from bunker_ios_update import ADJUST_SITES
 from text_buffer import SITES, patch_text_buffer
 
@@ -46,6 +48,24 @@ class InsertDylibTests(unittest.TestCase):
         executable.write_bytes(data)
         with self.assertRaisesRegex(RuntimeError, "No free load-command space"):
             insert_dylib(executable)
+
+
+class WriteIpaTests(unittest.TestCase):
+    def test_entries_have_their_files_dates_and_never_the_first_moment(self):
+        # The in-app updater zips the installed app again; a file at 1980-01-01 00:00 reads as 1979
+        # in a time zone west of the one it was installed in, and zipfile refuses it.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            app = root / "Payload/NieR.app"
+            app.mkdir(parents=True)
+            (app / "old").write_bytes(b"x")
+            (app / "new").write_bytes(b"y")
+            os.utime(app / "old", (0, 0))
+            os.utime(app / "new", (1_700_000_000, 1_700_000_000))
+            write_ipa(root, root / "out.ipa")
+            with zipfile.ZipFile(root / "out.ipa") as z:
+                self.assertEqual(z.getinfo("Payload/NieR.app/new").date_time[0], 2023)
+                self.assertEqual(z.getinfo("Payload/NieR.app/old").date_time, (1980, 1, 3, 0, 0, 0))
 
 
 class InfoTests(unittest.TestCase):

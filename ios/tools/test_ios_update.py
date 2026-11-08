@@ -1,5 +1,6 @@
 """Rebuilding the installed iOS app into an IPA with a newer Bunker (bunker_ios_update.build_ipa)."""
 import hashlib
+import os
 import plistlib
 import sys
 import tempfile
@@ -66,6 +67,22 @@ class BuildIpaTests(unittest.TestCase):
         return bunker_ios_update.build_ipa(self.app, self.framework_zip, self.python_zip,
                                            sha_framework or self.sha(self.framework_zip), sha_python or self.sha(self.python_zip),
                                            self.output, lambda m: None)
+
+    def test_files_dated_before_1980_are_kept(self):
+        # Installed from an IPA dated 1980-01-01 00:00 in a time zone east of the device's: 1979 here.
+        os.utime(self.app / "NieR", (0, 0))
+        self.build()
+        with zipfile.ZipFile(self.output) as z:
+            self.assertEqual(z.getinfo("Payload/NieR.app/NieR").date_time[0], 1980)
+            self.assertEqual(z.read("Payload/NieR.app/NieR"), b"game executable")
+
+    def test_changed_files_are_dated_now(self):
+        # Dated 1980-01-01 00:00 (ZipInfo's default), they made the next update fail.
+        write(self.app / "Data/globalgamemanagers", b"head\x01\0\0\0\x2b\0\0\0https://api.uca.cloud.unity3d.com/v1/events\0tail")
+        self.build()
+        with zipfile.ZipFile(self.output) as z:
+            for name in ("Info.plist", "Data/globalgamemanagers"):
+                self.assertGreaterEqual(z.getinfo("Payload/NieR.app/" + name).date_time[0], 2026, name)
 
     def test_keeps_the_installed_notices(self):
         self.build()

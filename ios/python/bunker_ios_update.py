@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import plistlib
+import time
 import zipfile
 
 GAME_PATCH_FILE = "Frameworks/LunarTear.framework/build.json"
@@ -132,7 +133,13 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
     temporary = output.with_name(output.name + ".partial")
     try:
         reporter("Building the app…")
-        with zipfile.ZipFile(temporary, "w", zipfile.ZIP_STORED) as out:
+        # The files this changes are dated now. ZipInfo's default, 1980-01-01 00:00, made the next
+        # update fail: installed, it reads as 1979 in a time zone west of the one it was written in.
+        now = time.localtime()[:6]
+        # Files dated at the zip format's first moment (1980-01-01: Bunker's IPAs built or signed on a Mac dated
+        # every file) read as 1979 in a time zone west of the one they were installed in, which zipfile
+        # refuses: those are dated 1980-01-01 instead.
+        with zipfile.ZipFile(temporary, "w", zipfile.ZIP_STORED, strict_timestamps=False) as out:
             for path in sorted(app.rglob("*")):
                 relative = path.relative_to(app)
                 if path.is_dir() or _replaced(relative, python_frameworks):
@@ -146,17 +153,17 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
                     info.pop("UIRequiresFullScreen", None)  # earlier builds kept the window the iPad's shape
                     if notices_zip:
                         info["BunkerNotices"] = sha_notices
-                    plist = zipfile.ZipInfo(prefix + "Info.plist")
+                    plist = zipfile.ZipInfo(prefix + "Info.plist", now)
                     plist.external_attr = 0o100644 << 16
                     out.writestr(plist, plistlib.dumps(info))
                 elif path.is_symlink():
                     continue  # app bundles have none; never follow one out of the app
                 elif relative.as_posix() == SETTINGS:  # earlier builds left Unity Connect on
-                    settings = zipfile.ZipInfo(prefix + SETTINGS)
+                    settings = zipfile.ZipInfo(prefix + SETTINGS, now)
                     settings.external_attr = 0o100644 << 16
                     out.writestr(settings, patch_unity_connect(path.read_bytes()))
                 elif relative.as_posix() == UNITY:  # earlier builds lack later changes (Adjust, the 999-day cap, ...)
-                    unity = zipfile.ZipInfo(prefix + UNITY)
+                    unity = zipfile.ZipInfo(prefix + UNITY, now)
                     unity.external_attr = 0o100755 << 16
                     with path.open("rb") as source, out.open(unity, "w", force_zip64=True) as target:
                         patch_unity(source, target)
