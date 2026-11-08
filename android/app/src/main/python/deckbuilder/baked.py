@@ -44,9 +44,10 @@ def _key(deck_for):
 
 
 def write(path, loadouts: dict, fingerprint: str, rows, keep: int = KEEP, extra: dict | None = None,
-          force_rows=None, force_loadouts: dict | None = None):
+          force_rows=None, force_loadouts: dict | None = None, meta_decks=(), meta_top=()):
     """Write the baked data: loadouts {costume id: loadout} (each with its "element"), rows of Record; and the Force
-    list: force_rows of (lineup, Force) with each costume in force_loadouts (its loadout with the most Force)."""
+    list: force_rows of (lineup, Force) with each costume in force_loadouts (its loadout with the most Force).
+    meta_decks, meta_top: the opponents the decks were scored against (Baked.meta_decks, Baked.meta_top)."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     costumes = sorted(loadouts)
@@ -64,7 +65,8 @@ def write(path, loadouts: dict, fingerprint: str, rows, keep: int = KEEP, extra:
         (path / "force.bin.z").write_bytes(zlib.compress(b"".join(FREC.pack(*(index[c] for c in l), f) for l, f in top), 9))
         lists["force"] = len(top)
     meta = dict(extra or {}, costumes=costumes, loadouts={str(c): loadouts[c] for c in costumes},
-                fingerprint=fingerprint, decks=lists)
+                fingerprint=fingerprint, decks=lists, meta_decks=list(meta_decks),
+                meta_top=[list(l) for l in meta_top])
     if force_loadouts is not None:
         meta["force_loadouts"] = {str(c): force_loadouts[c] for c in costumes if c in force_loadouts}
     (path / "meta.json").write_text(json.dumps(meta, sort_keys=True))
@@ -78,6 +80,11 @@ class Baked:
         self.loadouts = {int(k): v for k, v in meta["loadouts"].items()}
         self.force_loadouts = {int(k): v for k, v in (meta.get("force_loadouts") or {}).items()}
         self.fingerprint = meta["fingerprint"]
+        # the opponents the decks were scored against (Generator.baked_opponents): the experts' meta decks as the bake
+        # equipped them ({"name", "weight", "loadouts"}: meta_deck builds one), and the bake's own strongest decks (slot
+        # order) in their baked loadouts; with meta_top every opponent weighs alike
+        self.meta_decks = list(meta.get("meta_decks") or [])
+        self.meta_top = [tuple(l) for l in meta.get("meta_top") or []]
         self._records = {}
 
     @classmethod
@@ -141,6 +148,35 @@ def loadout_spec(lo: dict, stage, tables):
     return model.CharacterSpec(P("costume", "costume_id", lo["costume_id"]), P("weapon", "weapon_id", lo["main_weapon"]),
                                [P("weapon", "weapon_id", w) for w in lo["subs"]], P("companion", "companion_id", lo["companion"]),
                                memoirs, P("debris", "thought_id", lo["debris"]))
+
+
+def meta_decks(gen, experts, stage, tables) -> list:
+    """The Generator's meta decks (gen.meta(): the experts' top gen.meta_size, equipped on this stage) as loadouts
+    meta_deck rebuilds on any stage holding their pieces: {"name", "weight", "loadouts"}."""
+    from deckbuilder import equip
+    pool = sorted(experts.meta_pool(), key=lambda l: -l.weight)[:gen.meta_size]
+    total = sum(l.weight for l in pool) or 1
+    pid = lambda kind, ref: stage.piece_id(kind, ref.uuid) if ref else None
+    out = []
+    for i, l in enumerate(pool):
+        eq = equip.equip(l.costumes, equip.Mode("best"), stage, stage, tables, experts, expert=l, deck_number=90 + i)
+        los = []
+        for c, spec in zip(l.costumes, eq.specs):
+            r = equip.role(c, experts)
+            lo = (l.loadout or {}).get(str(c)) or {}
+            los.append({"costume_id": c, "role": r, "element": equip.element_of(c, tables, lo),
+                        "main_weapon": pid("weapon", spec.main_weapon), "subs": [pid("weapon", w) for w in spec.subs],
+                        "companion": pid("companion", spec.companion),
+                        "memoir_set": lo.get("memoir_set") or equip.ROLE_MEMOIRS[r][0], "debris": pid("debris", spec.debris)})
+        out.append({"name": l.name, "weight": l.weight / total, "loadouts": los})
+    return out
+
+
+def meta_deck(d: dict, i: int, stage, tables):
+    """A meta deck of meta_decks, built as Generator.meta builds it (all maxed, deck 90 + i)."""
+    from deckbuilder import model
+    return model.compose(stage, stage, [loadout_spec(lo, stage, tables) for lo in d["loadouts"]], 2, 90 + i, tables,
+                         raise_all=True)
 
 
 def deck_loadouts(lineup, loadouts: dict, order) -> list:

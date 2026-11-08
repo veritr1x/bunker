@@ -330,9 +330,11 @@ def _baked_plan(b, tables) -> dict:
     """What the stage must hold to write any baked deck: every baked costume and piece, both roles' memoirs of each
     baked memoir set."""
     from deckbuilder import equip
-    los = list(b.loadouts.values()) + list(b.force_loadouts.values())     # the fights' and the Force list's
+    los = list(b.loadouts.values()) + list(b.force_loadouts.values()) + \
+        [lo for d in b.meta_decks for lo in d["loadouts"]]                 # the fights', the Force list's, the opponents'
+
     sets = sorted({lo["memoir_set"] for lo in los if lo.get("memoir_set")})
-    return dict(costume_ids=sorted(set(b.loadouts) | set(b.force_loadouts)),
+    return dict(costume_ids=sorted(set(b.loadouts) | set(b.force_loadouts) | {lo["costume_id"] for lo in los}),
                 weapon_ids=sorted({w for lo in los for w in [lo["main_weapon"], *lo["subs"]] if w}),
                 companion_ids=sorted({lo["companion"] for lo in los if lo.get("companion")}),
                 thought_ids=sorted({lo["debris"] for lo in los if lo.get("debris")}),
@@ -366,7 +368,10 @@ def _baked_check(tables, experts, path, b):
             for c, lo in los.items():
                 keys[(label, c)] = (label, c, lo["debris"])
                 cache.add(keys[(label, c)], baked.loadout_spec(lo, st, tables))
-        sides = [battle._side(d, tables) for d, _, _ in generate.Generator(tables, experts, st, st).meta()]
+        # the experts' meta decks the bake was scored against, in its loadouts (its own top decks are its fighters, above)
+        decks = [baked.meta_deck(d, i, st, tables) for i, d in enumerate(b.meta_decks)] if b.meta_decks else \
+            [d for d, _, _ in generate.Generator(tables, experts, st, st).meta()]
+        sides = [battle._side(d, tables) for d in decks]
         fp = baked.fingerprint(cache, keys, sides)
         return fp == b.fingerprint, fp
     except Exception as exc:  # noqa: BLE001 (a piece missing from the stage: the live search, as before)

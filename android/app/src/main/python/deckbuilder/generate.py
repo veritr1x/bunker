@@ -261,19 +261,46 @@ class Generator:
         return best[1] if best else None
 
     # -------------------------------------------------------------- evaluation
+    def _expert_meta(self, size):
+        """The experts' top size meta decks as (deck, weight, name), weighted by the experts' weights."""
+        pool = sorted(self.experts.meta_pool(), key=lambda l: -l.weight)[:size]
+        total = sum(l.weight for l in pool) or 1
+        return [(equip.equip(l.costumes, equip.Mode("best"), self.stage, self.stage, self.tables, self.experts,
+                             expert=l, deck_number=90 + i).deck, l.weight / total, l.name)
+                for i, l in enumerate(pool)]
+
     def meta(self):
         if self._meta is None:
-            pool = sorted(self.experts.meta_pool(), key=lambda l: -l.weight)[:self.meta_size]
-            total = sum(l.weight for l in pool) or 1
-            self._meta = [(equip.equip(l.costumes, equip.Mode("best"), self.stage, self.stage, self.tables, self.experts,
-                                       expert=l, deck_number=90 + i).deck, l.weight / total, l.name)
-                          for i, l in enumerate(pool)]
+            self._meta = self._expert_meta(self.meta_size)
         return self._meta
 
-    def outcome(self, deck, criteria) -> tuple[float, float]:
-        """(win rate, margin) of the deck, weighted over the opponents (both openings; sim.score)."""
+    def baked_opponents(self):
+        """The opponents the bake scored its decks against (deckbuilder.baked.Baked.meta_decks, meta_top): the experts'
+        meta decks in the loadouts the bake equipped them with, and the bake's own strongest decks in their baked
+        loadouts, every opponent weighted alike. A bake that names none was scored against meta()."""
+        b = self._baked
+        if b is None or not (b.meta_decks or b.meta_top):
+            return self.meta()
+        if getattr(self, "_baked_opp", None) is None:
+            from deckbuilder import baked as bk
+            opp = [(bk.meta_deck(d, i, self.stage, self.tables), d["weight"], d["name"]) for i, d in enumerate(b.meta_decks)] \
+                if b.meta_decks else list(self.meta())
+            order = bk.debris_order(b.loadouts)
+            for i, lineup in enumerate(b.meta_top):
+                specs = [bk.loadout_spec(lo, self.stage, self.tables) for lo in bk.deck_loadouts(lineup, b.loadouts, order)]
+                opp.append((model.compose(self.stage, self.stage, specs, 2, 200 + i, self.tables), 0.0,
+                            "Bake top " + " · ".join(self.tables.character_name(c) for c in lineup)))
+            if b.meta_top:
+                opp = [(d, 1 / len(opp), n) for d, _, n in opp]
+            self._baked_opp = opp
+        return self._baked_opp
+
+    def outcome(self, deck, criteria, opponents=None) -> tuple[float, float]:
+        """(win rate, margin) of the deck, weighted over the opponents (meta() unless given as (deck, weight, name);
+        both openings; sim.score)."""
         from deckbuilder import sim
-        targets = [(criteria.against, 1.0)] if criteria.against is not None else [(d, w) for d, w, _ in self.meta()]
+        targets = [(criteria.against, 1.0)] if criteria.against is not None else \
+            [(d, w) for d, w, _ in (opponents if opponents is not None else self.meta())]
         r = m = 0.0
         for t, w in targets:
             if criteria.deck_for == "defense":
@@ -449,7 +476,7 @@ class Generator:
             tags = [EFFECT_LABEL[e] for e in EFFECTS if e in eff][:3]
             _, actors, _ = power.actors_for(deck, self.tables)
             stats = [power.character_stats(a, self.tables) if a else None for a in actors]
-            win, margin = self.outcome(deck, criteria)
+            win, margin = self.outcome(deck, criteria, self.baked_opponents())     # against what ranked it
             self._baked_results[k] = Result(
                 rank=0, lineup=rec.lineup, name=" · ".join(self.tables.character_name(c) for c in rec.lineup),
                 expert=any(l.costumes == rec.lineup for l in self.experts.lineups()), deck=deck, strategy=strategies[0],
