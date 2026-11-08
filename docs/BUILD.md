@@ -193,6 +193,12 @@ Master-data changes have a separate history of the latest 10 versions.
 - `notices.lock.json`, `scripts/notices.py`: the pinned notice pack. Android builds carry it under
   `assets/notices/` and the server reads it from the installed APK; iOS builds carry `notices.zip`.
   Updates download it only when a release brings a different pack.
+- `android/app/src/main/python/deckbuilder/`: Pod Programs › Deck Builder (the simulator, Force,
+  equipping, the generator). `deckbuilder/data/baked/` is All maxed's ranked decks, built ahead of
+  time by `scripts/bake_deckbuilder.py` (stage, gear, karma, setkarma, bake, forcegear,
+  forcebake, ship; several hours on a desktop) and committed, so a build needs no bake. Bake again
+  only after changing the simulator, Force or equipping: Deck Builder compares the bake's
+  fingerprint with the device's stage and searches live if they differ.
 
 Edit overlays or patches, not the generated copies. `scripts/prepare.py`
 refuses to overwrite edits to generated sources. Source pins are in both the Git
