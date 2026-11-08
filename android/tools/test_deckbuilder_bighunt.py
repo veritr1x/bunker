@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deck Builder: Subjugation bosses from the game data (deckbuilder/bighunt.py) and the boss phase in the
-simulator (sim.battle.BossBattle)."""
+simulator (sim.subjugation_battle)."""
 import random
 import sqlite3
 import tempfile
@@ -128,6 +128,19 @@ class LoadoutTest(unittest.TestCase):
             self.assertEqual(lo.damage, sum(d.damage for d in lo.decks))
             self.assertEqual([d.phase for d in lo.decks], [1, 2, 3])
         self.assertEqual(len({frozenset(d.lineup for d in lo.decks) for lo in self.loadouts}), len(self.loadouts))
+
+    def test_decks_hit_the_bosss_weakness(self):
+        """The Fiery Cursed God takes x0.5 from all but water: every deck mains water weapons."""
+        for lo in self.loadouts:
+            for d in lo.decks:
+                self.assertEqual(d.elements, ("water", "water", "water"), d.name)
+
+    def test_the_waves_share_the_knock_down_gauge(self):
+        """A wave without a knock-down hands its gauge to the next (the game's rule)."""
+        for lo in self.loadouts:
+            self.assertEqual(lo.decks[0].gauge_in, 0.0)
+            for a, b in zip(lo.decks, lo.decks[1:]):
+                self.assertEqual(b.gauge_in, 0.0 if a.knockdowns else a.gauge_out)
 
 
 if __name__ == "__main__":
