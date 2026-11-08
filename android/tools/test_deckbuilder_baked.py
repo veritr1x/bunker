@@ -199,16 +199,18 @@ class StagePlanTest(unittest.TestCase):
         if not HAVE_MASTER:
             self.skipTest("no master data")
         los = {c: dict(LOADOUTS[c], subs=[200 + c], companion=7 if c < 3 else None, memoir_set=10 if c == 1 else None,
-                       debris=900 + (c % 2)) for c in LOADOUTS}
+                       debris=900 + (c % 2), **({"karma": {"1": 4, "2": 7, "3": 16}} if c == 2 else {})) for c in LOADOUTS}
         b = baked.Baked(Path("."), {"costumes": sorted(los), "loadouts": {str(c): lo for c, lo in los.items()}, "fingerprint": "x"})
         plan = db._baked_plan(b, tables())
         self.assertEqual(plan["costume_ids"], [1, 2, 3, 4])
         self.assertEqual(plan["weapon_ids"], [101, 102, 103, 104, 201, 202, 203, 204])
         self.assertEqual((plan["companion_ids"], plan["thought_ids"]), ([7], [900, 901]))
         self.assertEqual(len(plan["memoirs"]), 6)                  # set 10: three pieces for each role
+        self.assertEqual(plan["costume_karma"], {2: {"1": 4, "2": 7, "3": 16}})     # each costume's baked karma
         merged = db._merge_plans({"costume_ids": [4, 9], "weapon_ids": [101], "companion_ids": [], "thought_ids": [], "memoirs": plan["memoirs"][:1]}, plan)
         self.assertEqual(merged["costume_ids"], [1, 2, 3, 4, 9])
         self.assertEqual(len(merged["memoirs"]), 6)
+        self.assertEqual(merged["costume_karma"], plan["costume_karma"])
 
 
 if __name__ == "__main__":

@@ -42,8 +42,9 @@ class Stager:
         return self.invoke(dict(fields, action=action, target=TARGET))
 
     def build(self, costume_ids=(), weapon_ids=(), companion_ids=(), thought_ids=(), memoirs=(),
-              karma: dict[int, list[tuple[int, int]]] | None = None) -> None:
-        """A new staging save holding these pieces, fully raised."""
+              karma: dict[int, list[tuple[int, int]]] | None = None, costume_karma: dict | None = None) -> None:
+        """A new staging save holding these pieces, fully raised. Karma: each slot's first top-tier option (or the
+        karma preferences), then costume_karma {costume id: {slot: odds number}} for the costumes it names."""
         self._do("stage_new")
         costumes = self.tables.idx("Costume", "CostumeId")
         characters = sorted({costumes[c]["CharacterId"] for c in costume_ids if c in costumes})
@@ -70,5 +71,12 @@ class Stager:
         if costume_ids:
             prefs = {str(slot): [{"effect_type": et, "target_id": tid} for et, tid in v] for slot, v in (karma or {}).items() if v}
             self._do("fill_karma_slots", **({"karma_preferences": prefs} if prefs else {}))
+            self.set_karma(costume_karma)
         if memoirs:
             self._do("grant_memoir_batch", memoirs=list(memoirs))
+
+    def set_karma(self, costume_karma: dict | None) -> None:
+        """Each named costume's karma, slot by slot ({costume id: {slot: odds number}}; slots must be unlocked)."""
+        specs = [{"costume_id": int(c), "karma": {str(s): int(o) for s, o in k.items()}} for c, k in (costume_karma or {}).items() if k]
+        if specs:
+            self._do("set_costume_karma_batch", costume_karma=specs)

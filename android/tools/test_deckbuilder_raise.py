@@ -66,8 +66,12 @@ class StageTest(unittest.TestCase):
         t = tables()
         memoir = raise_.memoir_spec(raise_.top_parts_id(raise_.parts_group_of_set(17, t)[0], t), "crit_rate",
                                     ["crit_damage", "attack_pct", "attack_pct", "attack_pct"], t)
+        # Rion's karma: the last top-tier option of each slot (not the first, which every other costume gets)
+        le = {x["SlotNumber"]: x["CostumeLotteryEffectOddsGroupId"] for x in t.T("CostumeLotteryEffect") if x["CostumeId"] == RION}
+        odds = t.grp("CostumeLotteryEffectOddsGroup", "CostumeLotteryEffectOddsGroupId")
+        cls.karma = {s: max(o["OddsNumber"] for o in odds[g] if o["RarityType"] == 40) for s, g in le.items()}
         st.build(costume_ids=[SARAFA, RION, SARYU], weapon_ids=[STEPHANOS, 430001], companion_ids=[1], thought_ids=[],
-                 memoirs=[memoir])
+                 memoirs=[memoir], costume_karma={RION: cls.karma})
         cls.db = sqlite3.connect(f"file:{cls.path}?mode=ro", uri=True)
 
     @classmethod
@@ -88,6 +92,15 @@ class StageTest(unittest.TestCase):
         karma = self.q("select count(*) from user_costume_lottery_effects e join user_costumes c using (user_costume_uuid)"
                        " where c.costume_id=? and e.odds_number > 0", SARAFA)[0][0]
         self.assertEqual(karma, 3)
+
+    def test_a_costume_gets_the_karma_asked_for(self):
+        """costume_karma sets a costume's karma slot by slot (the bake's best); the others keep the first top-tier."""
+        rows = dict(self.q("select e.slot_number, e.odds_number from user_costume_lottery_effects e join user_costumes c"
+                           " using (user_costume_uuid) where c.costume_id=?", RION))
+        self.assertEqual(rows, self.karma)
+        self.assertNotEqual(set(self.karma.values()), {1})
+        self.assertEqual({o for (o,) in self.q("select e.odds_number from user_costume_lottery_effects e join user_costumes c"
+                                                " using (user_costume_uuid) where c.costume_id=?", SARAFA)}, {1})
 
     def test_raised_weapon_ex_is_iv_form(self):
         ids = {r[0] for r in self.q("select weapon_id from user_weapons")}
