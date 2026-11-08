@@ -26,9 +26,10 @@
   two Jump taps in quick succession show the second chapter's list; Cancel
   waits for a running jump's result (checked in the browser with a slowed
   connection).
-- Not checked on a device: a jump on iPhone or iPad, a jump under the
-  Original calendar's first loop (the game data rebuild: tests only), and a
-  Japanese build.
+- iPad, 1.10.1: a jump worked there too (checked by the user).
+- Not checked on a device: a jump on iPhone, a jump under the Original
+  calendar's first loop (the game data rebuild: tests only), and a Japanese
+  build.
 
 ## Fixes from the Lunar Tear forks — 2026-11-08
 
