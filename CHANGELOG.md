@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.10.3 (2026-11-09)
+
+The iPad game on a TV, and updates in the game work again. With Stage
+Manager the game's window can be resized and moved to an external display,
+and its picture takes the window's shape: 16:9 on a TV instead of the iPad's
+shape stretched. An update made in the game no longer stops with "ZIP does
+not support timestamps before 1980", and the Bunker menu keeps its layout
+while an update is offered. With the Original calendar, limited-time packs
+open on what opened them, one player at a time, and an event that reran
+replays each run with its own medals and exchange.
+
 ## 2026-11-09 (after 1.10.1)
 
 ### Calendar
@@ -19,7 +30,7 @@ under its heading, down to the previous release.
   (48 hours, 24 from 30 March 2023); the Ch. 6 pack from 1 November 2021
   (notice 140). The Mythic Slab Material Pack opening when Mythic Slabs
   unlock is a guess. Triggers and hours come from the packs' own texts and
-  chapter names. With everything open every pack stays open.
+  chapter names. With everything open every pack stays open. [f66af2d]
 - An event that reran replays each run as it was. Its quests drop that
   run's own medal, its quest bonuses pay it, its page shows it and its
   Exchange button opens that run's exchange; a run shows only the quests it
@@ -39,7 +50,7 @@ under its heading, down to the previous release.
   already closed (a reused bonus effect in four runs from late 2022) are left
   out. The result screen still names the last run's bonus medals: the game
   works them out from its own data. Calendars in use rebuild their data
-  (data version 4, view copy 5).
+  (data version 4, view copy 5). [3a420c0]
 
 ### iPhone and iPad
 - On an iPad with Stage Manager the game's window can be resized, and moved
@@ -48,6 +59,18 @@ under its heading, down to the previous release.
   window's shape (it drew in the iPad's shape and was stretched): at 1080 on
   a 16:9 display it is 1920×1080. An app updated in place gets this too.
   Without a pointer, a window on an external display opens small. [a8671e8]
+- An update made in the game no longer fails with "ZIP does not support
+  timestamps before 1980". The updater dated the files it changes
+  (Info.plist, the Unity settings, UnityFramework) 1980-01-01 00:00, and
+  IPAs built or signed on a Mac dated every file so; installed, they read as
+  1979 in a time zone further west, and the next update refused them. The
+  updater dates them now and takes older dates as 1980, and IPAs built or
+  signed on a Mac keep each file's date. An app updated in the game before
+  this needs one install with the web builder (same bundle ID, so the save
+  stays); the update after that works. [7753994]
+- The Bunker menu no longer shrinks to a narrow column while an update the
+  game can make is offered (CHANGE past its border, the status chips cut
+  off). [60a6c42]
 
 ## 1.10.1 (2026-11-09)
 
