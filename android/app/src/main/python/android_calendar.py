@@ -651,16 +651,24 @@ def all_chapters():
 
 
 def reached_chapters():
-    """Chapters with a quest any player of this save has cleared."""
+    """Chapters with a quest any player of this save has cleared, and the
+    chapter each player's story is at (Pod Programs › Story Jump puts a player
+    at the start of a chapter with nothing in it cleared yet)."""
     import sqlite3
     try:
         db = sqlite3.connect(f"file:{config.GAME_DB_PATH}?mode=ro", uri=True)
         try:
             cleared = {q for (q,) in db.execute("select distinct quest_id from user_quests where clear_count > 0")}
+            try:
+                heads = {s for (s,) in db.execute("select distinct head_quest_scene_id from user_main_quest")}
+            except sqlite3.Error:  # a save without the table: cleared quests only
+                heads = set()
         finally:
             db.close()
     except sqlite3.Error:
         return set()
+    scene_quest = {r["QuestSceneId"]: r["QuestId"] for r in table("QuestScene")}
+    cleared |= {scene_quest[s] for s in heads if s in scene_quest}
     sequence = {r["QuestId"]: r["MainQuestSequenceId"] for r in table("MainQuestSequence")}
     group = {r["MainQuestSequenceId"]: r["MainQuestSequenceGroupId"] for r in table("MainQuestSequenceGroup")}
     chapter = {r["MainQuestSequenceGroupId"]: r["MainQuestChapterId"] for r in table("MainQuestChapter")}
@@ -669,6 +677,19 @@ def reached_chapters():
 
 def open_chapters(state):
     return reached_chapters() if state.get("loop", 1) <= 1 else all_chapters()
+
+
+def reopen_reached_chapters():
+    """Builds the game data again so the chapters reached open now (Story Jump):
+    only the Original calendar's first loop locks chapters by date. Returns
+    whether it rebuilt."""
+    state = read_state()
+    if state is None or state.get("loop", 1) > 1:
+        return False
+    activate_loop(state)
+    if state.get("originalDates"):
+        build_view(state)
+    return True
 
 
 def read_master(path):

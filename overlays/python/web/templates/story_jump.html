@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Story Jump :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block bar_right %}USER {{ user_id }} :: STORY{% endblock %}
+{% block content %}
+<style>
+  .sj-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px dashed color-mix(in srgb,var(--fg-dark) 18%,transparent);min-height:44px}
+  .sj-row .t{min-width:0;overflow-wrap:anywhere}
+  .sj-row button{flex:none;width:auto;padding:6px 10px;min-height:36px}
+  .sj-state{font-family:var(--mono);font-size:var(--fs-label);letter-spacing:.08em;white-space:nowrap;color:var(--fg-mid)}
+  .sj-state.here{color:var(--accent);font-weight:bold}
+  details.sj-ch>summary{list-style:none;cursor:pointer}
+  details.sj-ch>summary::-webkit-details-marker{display:none}
+  details.sj-ch>summary .t::before{content:"\25B8  "}
+  details.sj-ch[open]>summary .t::before{content:"\25BE  "}
+  .sj-quests{padding-left:16px}
+  .sj-routes{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
+  .sj-routes a{flex:1 1 140px;text-align:center}
+  .sj-routes a.button:not(.on){background:transparent;color:var(--fg-dark);border:1px solid currentColor}
+  .sj-routes a.button.on{background:var(--accent);color:var(--bg-cream);border-color:var(--accent)}
+  .sj-sheet{position:fixed;left:0;right:0;bottom:0;max-height:80vh;overflow:auto;background:var(--bg-cream);border-top:2px solid var(--accent);padding:16px;z-index:50;box-shadow:0 -6px 24px rgba(0,0,0,.25)}
+  .sj-sheet[hidden]{display:none}
+  .sj-sheet ul{margin:6px 0 10px;padding-left:18px}
+  .sj-sheet .acts{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .sj-sheet .acts button{width:auto}
+  .sj-note{color:var(--fg-mid);font-size:var(--fs-label)}
+</style>
+
+<p><a href="/users/{{ user_id }}">&larr; User {{ user_id }}</a></p>
+<h1 class="bracket-header" data-side>Story Jump</h1>
+<div class="panel" data-side="intro"><p style="margin:0">Jump to the start of a chapter, or to a quest in one: every story quest before it is cleared and pays its first-clear rewards (characters, weapons, companions, key items, gems). Missions and drops are not paid. The save is backed up first. Forward only.</p></div>
+
+{% for season in view.seasons %}
+<h2 class="bracket-header costume-group-header">{{ season.title }}</h2>
+<div class="panel">
+  {% if season.routes %}
+  <div class="sj-note">Route{% if view.taken %} (this save took route {{ view.taken }}){% endif %}</div>
+  <div class="sj-routes">
+    {% for r in season.routes %}
+    <a class="button{% if r.id == view.route %} on{% endif %}" href="/users/{{ user_id }}/story?route={{ r.id }}">Route {{ r.id }}{% if r.character %} · {{ r.character }}{% endif %} (Ch {{ r.first }}–{{ r.last }})</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% set cleared = season.chapters | selectattr("state", "equalto", "cleared") | list %}
+  {% if cleared | length > 1 %}
+  <details class="sj-ch">
+    <summary class="sj-row"><span class="t">Ch {{ cleared[0].id }}–{{ cleared[-1].id }}</span><span class="sj-state">cleared</span></summary>
+    {% for c in cleared %}<div class="sj-row sj-quests"><span class="t">Ch {{ c.id }} · {{ c.title }}</span><span class="sj-state">cleared</span></div>{% endfor %}
+  </details>
+  {% endif %}
+  {% for c in season.chapters %}
+  {% if not (c.state == "cleared" and cleared | length > 1) %}
+  <details class="sj-ch"{% if c.state == "here" %} open{% endif %}>
+    <summary class="sj-row">
+      <span class="t">Ch {{ c.id }} · {{ c.title }}</span>
+      {% if c.start %}<button type="button" data-quest="{{ c.start }}" data-label="the start of Chapter {{ c.id }}">Jump to start</button>
+      {% elif c.state == "here" %}<span class="sj-state here">&#9654; you are here</span>
+      {% elif c.state == "other" %}<span class="sj-state">other route</span>
+      {% else %}<span class="sj-state">{{ c.state }}</span>{% endif %}
+    </summary>
+    <div class="sj-quests">
+      {% for q in c.quests %}
+      <div class="sj-row"><span class="t">{{ q.name }} <span class="sj-note">#{{ q.id }}</span></span>
+        {% if q.state == "ahead" %}<button type="button" data-quest="{{ q.id }}" data-label="{{ q.name }} of Chapter {{ c.id }}">Jump</button>
+        {% elif q.state == "here" %}<span class="sj-state here">&#9654; you are here</span>
+        {% else %}<span class="sj-state">{{ q.state }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="sj-sheet" id="sj-sheet" hidden role="dialog" aria-labelledby="sj-title">
+  <strong id="sj-title"></strong>
+  <div id="sj-body" style="margin-top:8px">Working out what this clears…</div>
+  <div class="acts"><button type="button" id="sj-cancel">Cancel</button><button type="button" id="sj-go" disabled>[ JUMP ]</button></div>
+</div>
+
+<script>
+(() => {
+  const USER = {{ user_id }}, ROUTE = {{ view.route }};
+  const sheet = document.getElementById("sj-sheet"), title = document.getElementById("sj-title"),
+        body = document.getElementById("sj-body"), go = document.getElementById("sj-go"), cancel = document.getElementById("sj-cancel");
+  let quest = 0, done = false;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const post = (path, q) => fetch(`/users/${USER}/story/${path}`, {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({quest_id: q, season2_route: ROUTE})}).then(r => r.json()).catch(e => ({ok: false, error: String(e)}));
+  function summary(r, done) {
+    const items = r.grants.map(g => `<li>${esc(g.kind)}: ${esc(g.name)}${g.count > 1 ? " ×" + g.count : ""}</li>`).join("");
+    return `<div class="sj-note">${done ? "Cleared" : "Clears"} ${r.cleared_count} quest${r.cleared_count == 1 ? "" : "s"}${r.chapters ? " (Ch " + esc(r.chapters) + ")" : ""} and ${done ? "gave" : "gives"}:</div>`
+      + `<ul>${items}${r.gems ? `<li>${r.gems.toLocaleString()} gems</li>` : ""}<li>exp and gold for each quest</li></ul>`;
+  }
+  document.querySelectorAll("button[data-quest]").forEach(b => b.addEventListener("click", async e => {
+    e.preventDefault();
+    quest = +b.dataset.quest; done = false;
+    title.textContent = `Jump to ${b.dataset.label}`;
+    body.textContent = "Working out what this clears…";
+    go.disabled = true; go.hidden = false; cancel.textContent = "Cancel";
+    sheet.hidden = false;
+    const mine = quest;
+    const r = await post("preview", mine);
+    if (quest !== mine || done) return;  // another Jump was tapped meanwhile: its own preview fills the panel
+    if (!r.ok) { body.innerHTML = `<p>${esc(r.error)}</p>`; go.hidden = true; return; }
+    body.innerHTML = summary(r) + `<p class="sj-note">Missions and drops are not paid. This can only be undone by restoring the backup taken first.</p>`;
+    go.disabled = false;
+  }));
+  cancel.addEventListener("click", () => { sheet.hidden = true; if (done) location.reload(); });
+  go.addEventListener("click", async () => {
+    go.disabled = true; cancel.disabled = true; body.textContent = "Jumping…";  // the jump can't be stopped part-way: wait for its result
+    const r = await post("jump", quest);
+    cancel.disabled = false;
+    if (!r.ok) { body.innerHTML = `<p>${esc(r.error)}</p>`; go.hidden = true; return; }
+    done = true; go.hidden = true; cancel.textContent = "Done";
+    const cal = r.calendar.startsWith("failed")
+      ? `<p>The calendar's game data could not be rebuilt (${esc(r.calendar.slice(8))}): the chapter opens at the next calendar change.</p>`
+      : r.calendar == "rebuilt" ? "<p>The calendar's game data was rebuilt, so the chapter is open.</p>" : "";
+    title.textContent = title.textContent.replace(/^Jump to/, "Jumped to");
+    body.innerHTML = `<p>Backup: ${esc(r.backup)}</p>` + summary(r, true) + cal;
+  });
+})();
+</script>
+{% endblock %}
