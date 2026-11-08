@@ -137,9 +137,12 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual([r.rank for r in page.items], [1, 2, 3, 4])
         self.assertEqual(page.total, len(self.rows))
         r = page.items[0]
-        self.assertEqual((r.win_rate, r.margin), self.gen.outcome(r.deck, self.criteria()))   # the written deck's own
+        # the baked numbers, which ranked it: the list reads in order
+        self.assertEqual((r.win_rate, r.margin, r.force), (self.rows[0].attack_win, self.rows[0].attack_margin, self.rows[0].force))
         d = self.gen.page(self.criteria(deck_for="defense"), 0, 2)
-        self.assertEqual([r.lineup for r in d.items], [r.lineup for r in sorted(self.rows, key=lambda r: -r.defense_win)[:2]])
+        top = sorted(self.rows, key=lambda r: -r.defense_win)[:2]
+        self.assertEqual([r.lineup for r in d.items], [r.lineup for r in top])
+        self.assertEqual([(r.win_rate, r.margin) for r in d.items], [(r.defense_win, r.defense_margin) for r in top])
 
     def test_filters_and_force_sort(self):
         page = self.gen.page(self.criteria(exclude=frozenset({35036})), 0, 50)
@@ -157,7 +160,7 @@ class GeneratorTest(unittest.TestCase):
         self.assertTrue(r.deck.characters()[0])
 
     def test_shown_numbers_are_against_the_bakes_opponents(self):
-        """A baked deck's win rate and margin are against the opponents the bake ranked it by: its meta decks in their
+        """A Force-list deck's win rate and margin (its gear was never fought) are simulated against the bake's opponents: its meta decks in their
         shipped loadouts (built as the app equips them) and its meta_top decks in their baked loadouts, every opponent
         weighted alike."""
         from deckbuilder import generate
@@ -167,14 +170,15 @@ class GeneratorTest(unittest.TestCase):
                          [battle._side(d, tables()) for d, _, _ in self.gen.meta()])      # the shipped loadouts rebuild them
         top = [self.rows[-1].lineup]
         bdir = Path(self.dir.name) / "baked_top"
-        baked.write(bdir, self.los, "fp", self.rows, meta_decks=md, meta_top=top)
+        baked.write(bdir, self.los, "fp", self.rows, meta_decks=md, meta_top=top, force_rows=self.force_rows,
+                    force_loadouts=self.flos)
         gen = generate.Generator(tables(), self.ex, self.stage, self.stage, baked=baked.Baked.load(bdir), meta_size=1, runs=1)
         opp = gen.baked_opponents()
         self.assertEqual([w for _, w, _ in opp], [0.5, 0.5])
         ids = lambda d: tuple(ch.costume.id for ch in d.characters() if ch)
         self.assertEqual(ids(opp[1][0]), top[0])
-        r = gen.page(self.criteria(), 0, 1).items[0]
-        self.assertEqual((r.win_rate, r.margin), gen.outcome(r.deck, self.criteria(), opp))
+        r = gen.page(self.criteria(sort="force"), 0, 1).items[0]      # the Force list's gear was never fought: simulated
+        self.assertEqual((r.win_rate, r.margin), gen.outcome(r.deck, self.criteria(sort="force"), opp))
         self.assertEqual(self.gen.baked_opponents(), self.gen.meta())     # a bake that names none: the app's own meta
 
     def test_what_the_bake_does_not_cover_searches_live(self):
