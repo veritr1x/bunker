@@ -7,6 +7,19 @@ under its heading, down to the previous release.
 ## 2026-11-09 (after 1.10.1)
 
 ### Calendar
+- Limited-time packs open as they did, one player at a time. With the
+  Original calendar every pack (Jumpstart, the chapter completion packs,
+  The Sun and The Moon packs at each difficulty, the Overture packs) opened
+  on the loop's first day for about two years, the 1.10.1 fix sending them
+  for their whole sale period. Now each opens when the player does what
+  opened it, while the calendar has it on sale, for its own hours, once:
+  a completion pack on clearing its chapter at its difficulty (72 hours;
+  the Overtures 24), at the next login for a chapter cleared before, as the
+  notices said; a Jumpstart pack on finishing the chapter 2 loadout tutorial
+  (48 hours, 24 from 30 March 2023); the Ch. 6 pack from 1 November 2021
+  (notice 140). The Mythic Slab Material Pack opening when Mythic Slabs
+  unlock is a guess. Triggers and hours come from the packs' own texts and
+  chapter names. With everything open every pack stays open.
 - An event that reran replays each run as it was. Its quests drop that
   run's own medal, its quest bonuses pay it, its page shows it and its
   Exchange button opens that run's exchange; a run shows only the quests it
