@@ -1,5 +1,27 @@
 # Validation
 
+## iPad window, external display and updates in the game — 2026-11-09
+
+- iPad Pro 11-inch (M4) with Stage Manager and a 16:9 TV (3008×1692 points)
+  on a cable, a build of a8671e8: the game's window took the sizes it was
+  dragged to on the iPad; moved to the TV and made full screen with a mouse
+  it filled the TV, and the game drew 1920×1080 at the 1080 setting (it drew
+  1566×1080, the iPad's shape, stretched, before). In a window resized on the
+  iPad the picture followed (1400×720, 1335×720, back to 1045×720).
+- Updates in the game: "ZIP does not support timestamps before 1980"
+  reproduced on this Mac with a file dated 1980-01-01 00:00 in India time
+  and Python in UTC. iOS tests pass in UTC, India, Los Angeles and
+  Kiritimati (39). On the iPad, a dev build of 7753994 updated to a 1.10.2
+  test release served from this Mac (Documents/update-test.json): the game
+  built Bunker-1.10.2.ipa; the files it changes were dated that minute, no
+  entry 1980-01-01, the zip checked clean; signed and installed, it opened as
+  1.10.2. The Bunker menu with that update offered kept its two full-width
+  columns (60a6c42); without an update it was unchanged.
+- The web builder: the local site matched the live one file for file before
+  the change; its IPAs keep the game's and the build's dates, so they were
+  never affected. Not checked: an install through SideStore or AltStore, and
+  an iPhone.
+
 ## Limited-time packs on their triggers — 2026-11-09
 
 - Server tests on the final game data: a completion pack opens when its
