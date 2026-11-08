@@ -1563,8 +1563,14 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     self.updateSkip = [self outline:@"SKIP" size:12 action:@selector(updateSkipTapped)];
     UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]];
     actions.spacing = 8;
-    for (UIButton *b in @[self.updateButton, self.updateWeb]) [b.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor multiplier:2].active = YES;
-    [self.updateSkip.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor].active = YES;
+    // Preferred, not required: the row hides some of these buttons, and a hidden one in a stack
+    // has no width, so a required "twice LATER" left no layout and the whole menu shrank to the
+    // panel's narrowest width (with an update the game can make, WEB BUILDER is hidden).
+    NSArray *widths = @[[self.updateButton.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor multiplier:2],
+                        [self.updateWeb.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor multiplier:2],
+                        [self.updateSkip.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor]];
+    for (NSLayoutConstraint *c in widths) c.priority = UILayoutPriorityRequired - 1;
+    [NSLayoutConstraint activateConstraints:widths];
     for (UIButton *b in @[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]) b.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
     [self.updateButton.heightAnchor constraintEqualToConstant:44].active = YES;
     self.updatePanel = [self panel:@[line, actions]];
