@@ -1,0 +1,374 @@
+Subjugation score as the game computes it: base score = total damage / 100, a survival bonus
+by deaths (+200% with none) and nine max-combo tiers (+20% at 6 up to +180% at 46+), ported from
+JCalandre/lunar-tear (1f26f36, 8c197c1); our save already accumulated the waves. Stored high
+scores are rescaled / 100 once.
+
+diff --git a/server/internal/service/quest_bighunt.go b/server/internal/service/quest_bighunt.go
+index c27e5ec..94b8fb3 100644
+--- a/server/internal/service/quest_bighunt.go
++++ b/server/internal/service/quest_bighunt.go
+@@ -123,23 +123,21 @@ func (s *BigHuntServiceServer) FinishBigHuntQuest(ctx context.Context, req *pb.F
+ 
+ 		detail := user.BigHuntBattleDetail
+ 		totalDamage := detail.TotalDamage
+-		baseScore := totalDamage
++		// Base score is the integer floor of total damage / 100, before any
++		// bonus multipliers are applied.
++		baseScore := totalDamage / 100
+ 
+ 		difficultyBonusPermil := int32(0)
+ 		if coeff, ok := catalog.ScoreCoefficients[bhQuest.BigHuntQuestScoreCoefficientId]; ok {
+ 			difficultyBonusPermil = coeff
+ 		}
+ 
+-		aliveBonusPermil := int32(500)
++		// Survival bonus scales with how many characters died over the run.
++		deathCount := bigHuntDeathCount(detail.CostumeBattleInfo)
++		aliveBonusPermil := bigHuntSurvivalBonusPermil(deathCount)
+ 
+-		maxComboBonusPermil := int32(0)
+-		if detail.MaxComboCount >= 100 {
+-			maxComboBonusPermil = 300
+-		} else if detail.MaxComboCount >= 50 {
+-			maxComboBonusPermil = 200
+-		} else if detail.MaxComboCount >= 20 {
+-			maxComboBonusPermil = 100
+-		}
++		// Combo bonus is keyed on the run's max combo (accumulated across waves).
++		maxComboBonusPermil := bigHuntComboBonusPermil(detail.MaxComboCount)
+ 
+ 		userScore := baseScore * int64(1000+difficultyBonusPermil+aliveBonusPermil+maxComboBonusPermil) / 1000
+ 
+@@ -399,6 +397,7 @@ func (s *BigHuntServiceServer) SaveBigHuntBattleInfo(ctx context.Context, req *p
+ 					HitCount:               ci.HitCount,
+ 					RandomDisplayValueType: rdType,
+ 					RandomDisplayValue:     rdValue,
++					IsAlive:                ci.IsAlive,
+ 				})
+ 			}
+ 			prev := user.BigHuntBattleDetail
+@@ -470,6 +469,76 @@ func bigHuntWaveCount(infos []store.BigHuntCostumeBattleInfo) int {
+ 	return int(infos[len(infos)-1].WaveIndex) + 1
+ }
+ 
++// bigHuntDeathCount counts how many distinct player characters ended the run
++// dead. A character can appear across several waves; its final state is taken
++// from the highest wave index in which it was reported. Entries that do not
++// resolve to one of the player's deck characters (CostumeId 0 -- e.g. the boss,
++// which is also reported in CostumeBattleInfo and is "not alive" once defeated)
++// are skipped so they don't inflate the death count.
++func bigHuntDeathCount(infos []store.BigHuntCostumeBattleInfo) int32 {
++	latestWave := map[int32]int32{}
++	latestAlive := map[int32]bool{}
++	for _, ci := range infos {
++		if ci.CostumeId == 0 {
++			continue
++		}
++		if w, ok := latestWave[ci.CostumeId]; !ok || ci.WaveIndex >= w {
++			latestWave[ci.CostumeId] = ci.WaveIndex
++			latestAlive[ci.CostumeId] = ci.IsAlive
++		}
++	}
++	var deaths int32
++	for _, alive := range latestAlive {
++		if !alive {
++			deaths++
++		}
++	}
++	return deaths
++}
++
++// bigHuntSurvivalBonusPermil maps the run's death count to the survival score
++// bonus: 0 deaths=+200%, 1=+150%, 2=+100%, 3=+50%, 4 or more=0%.
++func bigHuntSurvivalBonusPermil(deaths int32) int32 {
++	switch deaths {
++	case 0:
++		return 2000
++	case 1:
++		return 1500
++	case 2:
++		return 1000
++	case 3:
++		return 500
++	default:
++		return 0
++	}
++}
++
++// bigHuntComboBonusPermil maps the run's max combo to the combo score bonus.
++func bigHuntComboBonusPermil(maxCombo int32) int32 {
++	switch {
++	case maxCombo >= 46:
++		return 1800
++	case maxCombo >= 42:
++		return 1600
++	case maxCombo >= 36:
++		return 1400
++	case maxCombo >= 31:
++		return 1200
++	case maxCombo >= 26:
++		return 1000
++	case maxCombo >= 21:
++		return 800
++	case maxCombo >= 16:
++		return 600
++	case maxCombo >= 11:
++		return 400
++	case maxCombo >= 6:
++		return 200
++	default:
++		return 0
++	}
++}
++
+ func resolveBigHuntCostumeId(user *store.UserState, userDeckNumber, deckCharacterNumber int32) int32 {
+ 	if userDeckNumber == 0 {
+ 		userDeckNumber = user.BigHuntDeckNumber
+diff --git a/server/internal/service/quest_bighunt_score_test.go b/server/internal/service/quest_bighunt_score_test.go
+new file mode 100644
+index 0000000..d2c506f
+--- /dev/null
++++ b/server/internal/service/quest_bighunt_score_test.go
+@@ -0,0 +1,84 @@
++package service
++
++import (
++	"testing"
++
++	"lunar-tear/server/internal/store"
++)
++
++func TestBigHuntSurvivalBonusPermil(t *testing.T) {
++	cases := map[int32]int32{0: 2000, 1: 1500, 2: 1000, 3: 500, 4: 0, 5: 0, 9: 0}
++	for deaths, want := range cases {
++		if got := bigHuntSurvivalBonusPermil(deaths); got != want {
++			t.Errorf("survival(%d deaths) = %d, want %d", deaths, got, want)
++		}
++	}
++}
++
++func TestBigHuntComboBonusPermil(t *testing.T) {
++	cases := map[int32]int32{
++		0: 0, 5: 0, 6: 200, 10: 200, 11: 400, 15: 400, 16: 600,
++		21: 800, 26: 1000, 31: 1200, 36: 1400, 41: 1400, 42: 1600, 45: 1600, 46: 1800, 100: 1800,
++	}
++	for combo, want := range cases {
++		if got := bigHuntComboBonusPermil(combo); got != want {
++			t.Errorf("combo(%d) = %d, want %d", combo, got, want)
++		}
++	}
++}
++
++func TestBigHuntDeathCount(t *testing.T) {
++	// Costume 10 dies in wave 0 and is not reported again -> counts as dead.
++	// Costume 11 dies in wave 0 but is revived (alive) in wave 1 -> not dead.
++	// Costume 12 stays alive throughout -> not dead.
++	// Costume 13 alive in wave 0, dead in wave 1 -> dead.
++	infos := []store.BigHuntCostumeBattleInfo{
++		{WaveIndex: 0, CostumeId: 10, IsAlive: false},
++		{WaveIndex: 0, CostumeId: 11, IsAlive: false},
++		{WaveIndex: 0, CostumeId: 12, IsAlive: true},
++		{WaveIndex: 0, CostumeId: 13, IsAlive: true},
++		{WaveIndex: 1, CostumeId: 11, IsAlive: true},
++		{WaveIndex: 1, CostumeId: 12, IsAlive: true},
++		{WaveIndex: 1, CostumeId: 13, IsAlive: false},
++		// Non-player entries (e.g. the defeated boss) resolve to CostumeId 0 and
++		// must NOT count as a death.
++		{WaveIndex: 1, CostumeId: 0, IsAlive: false},
++	}
++	if got := bigHuntDeathCount(infos); got != 2 {
++		t.Errorf("deathCount = %d, want 2 (costumes 10 and 13; boss/CostumeId 0 excluded)", got)
++	}
++	if got := bigHuntDeathCount(nil); got != 0 {
++		t.Errorf("deathCount(nil) = %d, want 0", got)
++	}
++	// Whole party survives (only the boss is dead) -> 0 deaths -> +200%.
++	allAlive := []store.BigHuntCostumeBattleInfo{
++		{WaveIndex: 0, CostumeId: 10, IsAlive: true},
++		{WaveIndex: 0, CostumeId: 11, IsAlive: true},
++		{WaveIndex: 0, CostumeId: 12, IsAlive: true},
++		{WaveIndex: 0, CostumeId: 0, IsAlive: false}, // boss
++	}
++	if got := bigHuntDeathCount(allAlive); got != 0 {
++		t.Errorf("deathCount(all party alive) = %d, want 0", got)
++	}
++	if got := bigHuntSurvivalBonusPermil(bigHuntDeathCount(allAlive)); got != 2000 {
++		t.Errorf("survival permil (no deaths) = %d, want 2000 (+200%%)", got)
++	}
++}
++
++// TestBigHuntScoreFormula verifies the full score multiplier wiring with the
++// accumulated base score: userScore = base * (1000 + difficulty + alive + combo) / 1000.
++func TestBigHuntScoreFormula(t *testing.T) {
++	base := int64(100000)
++	difficulty := int32(3500) // coefficient id 3 from masterdata
++	infos := []store.BigHuntCostumeBattleInfo{
++		{WaveIndex: 0, CostumeId: 1, IsAlive: true},
++		{WaveIndex: 0, CostumeId: 2, IsAlive: false}, // 1 death
++	}
++	alive := bigHuntSurvivalBonusPermil(bigHuntDeathCount(infos)) // 1 death -> 1500
++	combo := bigHuntComboBonusPermil(31)                          // 31 -> 1200
++	got := base * int64(1000+difficulty+alive+combo) / 1000
++	// 1000 + 3500 + 1500 + 1200 = 7200 -> 100000 * 7200 / 1000 = 720000
++	if got != 720000 {
++		t.Errorf("expected 720000, got %d", got)
++	}
++}
+diff --git a/server/internal/store/sqlite/bighunt_score_scale_test.go b/server/internal/store/sqlite/bighunt_score_scale_test.go
+new file mode 100644
+index 0000000..c624ac2
+--- /dev/null
++++ b/server/internal/store/sqlite/bighunt_score_scale_test.go
+@@ -0,0 +1,66 @@
++package sqlite
++
++import (
++	"context"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/pressly/goose/v3"
++
++	"lunar-tear/server/internal/database"
++	"lunar-tear/server/internal/model"
++	"lunar-tear/server/migrations"
++)
++
++// Subjugation high scores saved before the base score became damage / 100 come down to
++// the new scale once, when the save is first opened by this version.
++func TestSubjugationHighScoresAreRescaled(t *testing.T) {
++	ctx := context.Background()
++	db, err := database.Open(filepath.Join(t.TempDir(), "game.db"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer db.Close()
++	if err := migrations.Up(ctx, db); err != nil {
++		t.Fatal(err)
++	}
++	uid, err := New(db, time.Now).CreateUser("test-uuid", model.ClientPlatform{})
++	if err != nil {
++		t.Fatal(err)
++	}
++	// A save from before the rescale: the scale migration has not run yet.
++	if err := goose.DownToContext(ctx, db, ".", 20261108120000); err != nil {
++		t.Fatal(err)
++	}
++	for _, q := range []string{
++		`INSERT INTO user_big_hunt_max_scores (user_id, big_hunt_boss_id, max_score) VALUES (?, 1, 1638936907)`,
++		`INSERT INTO user_big_hunt_schedule_max_scores (user_id, big_hunt_schedule_id, big_hunt_boss_id, max_score) VALUES (?, 1, 1, 1638936907)`,
++		`INSERT INTO user_big_hunt_weekly_max_scores (user_id, big_hunt_weekly_version, attribute_type, max_score) VALUES (?, 1, 2, 1638936907)`,
++	} {
++		if _, err := db.Exec(q, uid); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if err := migrations.Up(ctx, db); err != nil {
++		t.Fatal(err)
++	}
++	for _, table := range []string{"user_big_hunt_max_scores", "user_big_hunt_schedule_max_scores", "user_big_hunt_weekly_max_scores"} {
++		var got int64
++		if err := db.QueryRow(`SELECT max_score FROM `+table+` WHERE user_id = ?`, uid).Scan(&got); err != nil {
++			t.Fatal(err)
++		}
++		if got != 16389369 {
++			t.Errorf("%s max_score = %d, want 16389369", table, got)
++		}
++	}
++	// Opening the save again leaves the scores alone.
++	if err := migrations.Up(ctx, db); err != nil {
++		t.Fatal(err)
++	}
++	var again int64
++	db.QueryRow(`SELECT max_score FROM user_big_hunt_max_scores WHERE user_id = ?`, uid).Scan(&again)
++	if again != 16389369 {
++		t.Errorf("second open: max_score = %d, want 16389369", again)
++	}
++}
+diff --git a/server/internal/store/sqlite/load.go b/server/internal/store/sqlite/load.go
+index e704376..fb6cedd 100644
+--- a/server/internal/store/sqlite/load.go
++++ b/server/internal/store/sqlite/load.go
+@@ -189,10 +189,12 @@ func load1to1(db *sql.DB, uid int64, u *store.UserState) {
+ 			&u.BigHuntBattleDetail.TotalDamage, &u.BigHuntDeckNumber, &u.BigHuntBattleBinary)
+ 	u.BigHuntProgress.IsDryRun = isDryRun != 0
+ 
+-	queryRows(db, `SELECT wave_index, costume_id, total_damage, hit_count, random_display_value_type, random_display_value
++	queryRows(db, `SELECT wave_index, costume_id, total_damage, hit_count, random_display_value_type, random_display_value, is_alive
+ 		FROM user_big_hunt_costume_battle_infos WHERE user_id=? ORDER BY wave_index, sort_order`, uid, func(rows *sql.Rows) {
+ 		var ci store.BigHuntCostumeBattleInfo
+-		rows.Scan(&ci.WaveIndex, &ci.CostumeId, &ci.TotalDamage, &ci.HitCount, &ci.RandomDisplayValueType, &ci.RandomDisplayValue)
++		var isAlive int
++		rows.Scan(&ci.WaveIndex, &ci.CostumeId, &ci.TotalDamage, &ci.HitCount, &ci.RandomDisplayValueType, &ci.RandomDisplayValue, &isAlive)
++		ci.IsAlive = isAlive != 0
+ 		u.BigHuntBattleDetail.CostumeBattleInfo = append(u.BigHuntBattleDetail.CostumeBattleInfo, ci)
+ 	})
+ 
+diff --git a/server/internal/store/sqlite/save.go b/server/internal/store/sqlite/save.go
+index c72f086..b5581aa 100644
+--- a/server/internal/store/sqlite/save.go
++++ b/server/internal/store/sqlite/save.go
+@@ -96,8 +96,8 @@ func writeUserState(tx *sql.Tx, uid int64, u *store.UserState) error {
+ 		return err
+ 	}
+ 	for i, ci := range u.BigHuntBattleDetail.CostumeBattleInfo {
+-		if err := exec(`INSERT INTO user_big_hunt_costume_battle_infos (user_id, wave_index, sort_order, costume_id, total_damage, hit_count, random_display_value_type, random_display_value) VALUES (?,?,?,?,?,?,?,?)`,
+-			uid, ci.WaveIndex, i, ci.CostumeId, ci.TotalDamage, ci.HitCount, ci.RandomDisplayValueType, ci.RandomDisplayValue); err != nil {
++		if err := exec(`INSERT INTO user_big_hunt_costume_battle_infos (user_id, wave_index, sort_order, costume_id, total_damage, hit_count, random_display_value_type, random_display_value, is_alive) VALUES (?,?,?,?,?,?,?,?,?)`,
++			uid, ci.WaveIndex, i, ci.CostumeId, ci.TotalDamage, ci.HitCount, ci.RandomDisplayValueType, ci.RandomDisplayValue, boolToInt(ci.IsAlive)); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -664,8 +664,8 @@ func diffAndSave(tx *sql.Tx, uid int64, before, after *store.UserState) error {
+ 			return err
+ 		}
+ 		for i, ci := range after.BigHuntBattleDetail.CostumeBattleInfo {
+-			if err := exec(`INSERT INTO user_big_hunt_costume_battle_infos (user_id, wave_index, sort_order, costume_id, total_damage, hit_count, random_display_value_type, random_display_value) VALUES (?,?,?,?,?,?,?,?)`,
+-				uid, ci.WaveIndex, i, ci.CostumeId, ci.TotalDamage, ci.HitCount, ci.RandomDisplayValueType, ci.RandomDisplayValue); err != nil {
++			if err := exec(`INSERT INTO user_big_hunt_costume_battle_infos (user_id, wave_index, sort_order, costume_id, total_damage, hit_count, random_display_value_type, random_display_value, is_alive) VALUES (?,?,?,?,?,?,?,?,?)`,
++				uid, ci.WaveIndex, i, ci.CostumeId, ci.TotalDamage, ci.HitCount, ci.RandomDisplayValueType, ci.RandomDisplayValue, boolToInt(ci.IsAlive)); err != nil {
+ 				return err
+ 			}
+ 		}
+diff --git a/server/internal/store/types.go b/server/internal/store/types.go
+index 79557f1..cf780ff 100644
+--- a/server/internal/store/types.go
++++ b/server/internal/store/types.go
+@@ -726,6 +726,7 @@ type BigHuntCostumeBattleInfo struct {
+ 	HitCount               int32
+ 	RandomDisplayValueType int32
+ 	RandomDisplayValue     int64
++	IsAlive                bool
+ }
+ 
+ type BattleState struct {
+diff --git a/server/migrations/20261108120000_add_bighunt_costume_is_alive.sql b/server/migrations/20261108120000_add_bighunt_costume_is_alive.sql
+new file mode 100644
+index 0000000..ca63bdb
+--- /dev/null
++++ b/server/migrations/20261108120000_add_bighunt_costume_is_alive.sql
+@@ -0,0 +1,5 @@
++-- +goose Up
++ALTER TABLE user_big_hunt_costume_battle_infos ADD COLUMN is_alive INTEGER NOT NULL DEFAULT 1;
++
++-- +goose Down
++ALTER TABLE user_big_hunt_costume_battle_infos DROP COLUMN is_alive;
+diff --git a/server/migrations/20261108120100_bighunt_score_scale.sql b/server/migrations/20261108120100_bighunt_score_scale.sql
+new file mode 100644
+index 0000000..0f8d32b
+--- /dev/null
++++ b/server/migrations/20261108120100_bighunt_score_scale.sql
+@@ -0,0 +1,12 @@
++-- Subjugation scores used the total damage as the base score; the game's base score is
++-- the damage / 100 (its grade table: X at 500,000,000). Bring the stored high scores to
++-- that scale once, so new runs can beat them.
++-- +goose Up
++UPDATE user_big_hunt_max_scores SET max_score = max_score / 100;
++UPDATE user_big_hunt_schedule_max_scores SET max_score = max_score / 100;
++UPDATE user_big_hunt_weekly_max_scores SET max_score = max_score / 100;
++
++-- +goose Down
++UPDATE user_big_hunt_max_scores SET max_score = max_score * 100;
++UPDATE user_big_hunt_schedule_max_scores SET max_score = max_score * 100;
++UPDATE user_big_hunt_weekly_max_scores SET max_score = max_score * 100;
