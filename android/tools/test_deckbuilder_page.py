@@ -208,6 +208,16 @@ class PageTest(unittest.TestCase):
         self.assertEqual((c.mode.kind, c.mode.allow_missing), ("owned", db.ALLOW_ALL))
         self.assertEqual(db.criteria_from(None, {"mode": "owned", "allow": "5"}).mode.allow_missing, 5)
 
+    def test_the_switches_are_even_grids_across_the_panel(self):
+        """Attack and Defense take equal halves with Subjugation across below; every switch spans the panel, its
+        buttons bare of the browser's own look (iOS insets a selected button)."""
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn(".seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);width:100%;border:1px solid currentColor}", html)
+        self.assertIn("-webkit-appearance:none;appearance:none;margin:0;border-radius:0;box-shadow:none", html)
+        self.assertIn('.seg[data-name="deck_for"]{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}', html)
+        self.assertIn('.seg[data-name="deck_for"] [data-v="subjugation"]{grid-column:1/-1;border-left:0;border-top:1px solid currentColor}', html)
+        self.assertNotIn(".page-side .seg{display:flex}", html)
+
     def test_the_allow_menu_shows_only_with_what_i_own(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<p class="help owned-only">What I own uses your costumes as they are. Allow up to', html)

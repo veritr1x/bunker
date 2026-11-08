@@ -5,8 +5,9 @@
   :root{--db-line:var(--line);--db-soft:color-mix(in srgb,var(--fg-dark) 6%,transparent);--e-fire:#9c3b25;--e-water:#2f5d86;--e-wind:#3f7046;--e-light:#a08a2c;--e-dark:#5a3d6e}
   .db-controls{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;align-items:center}
   .db-lbl{font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase;opacity:.7}
-  .seg{display:inline-flex;border:1px solid currentColor}
-  .seg button{padding:6px 14px;font-size:var(--fs-small);min-height:36px;background:none;color:inherit;border:0}
+  .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);width:100%;border:1px solid currentColor}
+  .seg button{padding:6px 10px;font-size:var(--fs-small);min-height:36px;background:none;color:inherit;border:0;
+    -webkit-appearance:none;appearance:none;margin:0;border-radius:0;box-shadow:none;transform:none}
   .seg button+button{border-left:1px solid currentColor}
   .seg button.on{background:var(--fg-dark)!important;color:var(--bg-cream)!important}
   .help{font-size:var(--fs-label);opacity:.75;margin:4px 0 0;line-height:1.5}
@@ -47,8 +48,8 @@
   .tile .nm{font-size:var(--fs-label);line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em;overflow-wrap:break-word;hyphens:auto}
   .rc .tile .nm{font-size:var(--fs-label);color:var(--fg-mid);text-align:center}
   .db-controls .seg button{min-width:0}
-  .seg[data-name="deck_for"]{flex-wrap:wrap}
-  .seg[data-name="deck_for"] [data-v="subjugation"]{flex-basis:100%;border-top:1px solid var(--db-line)}
+  .seg[data-name="deck_for"]{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .seg[data-name="deck_for"] [data-v="subjugation"]{grid-column:1/-1;border-left:0;border-top:1px solid currentColor}
   body.owned .best-only,body:not(.owned) .owned-only{display:none!important}
   body.subj .arena-only,body:not(.subj) .subj-only{display:none!important}
   .lo-row{display:grid;grid-template-columns:12px 92px minmax(0,1fr);gap:8px;align-items:center;padding:3px 10px}
@@ -170,7 +171,7 @@
     .filters-panel .sheet-foot{padding:8px 0}
     .f-chars{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
     .page-side .db-controls{grid-template-columns:minmax(0,1fr);gap:4px}
-    .page-side .seg{display:flex}.page-side .seg button{flex:1;width:auto;padding:6px 4px;font-size:var(--fs-label)}
+    .page-side .seg button{width:auto;padding:6px 4px;font-size:var(--fs-label)}
     .page-side .help{font-size:var(--fs-label)}.page-side #against{width:100%}
     .page-main .cards{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
     /* the deck view: portraits, numbers and reason on the left; characters and the slots on the right */
