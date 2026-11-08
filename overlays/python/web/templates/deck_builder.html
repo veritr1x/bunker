@@ -77,6 +77,30 @@
   .w-sl small{display:block;opacity:.7;font-size:var(--fs-label)}
   .w-sl .warn{color:var(--danger);opacity:1}
   .w-h{font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;opacity:.65;margin:14px 0 4px}
+  /* the deck picker: opens from WRITE DECK above the footer */
+  #w-pick{border-top:1px solid var(--db-line);padding:12px max(14px,var(--hole-right,0px)) 12px max(14px,var(--hole-left,0px));max-height:min(62vh,560px);overflow:auto;overscroll-behavior:contain}
+  #w-pick[hidden]{display:none}
+  .wp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .wp-head h3{margin:0;font-size:var(--fs-label);letter-spacing:.12em;text-transform:uppercase;font-weight:700}
+  .wp-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);width:100%;border:1px solid currentColor;margin-bottom:10px}
+  .wp-tabs button{padding:6px 10px;font-size:var(--fs-small);min-height:36px;background:none;color:inherit;border:0;-webkit-appearance:none;appearance:none;margin:0;border-radius:0;box-shadow:none;transform:none}
+  .wp-tabs button+button{border-left:1px solid currentColor}
+  .wp-tabs button.on{background:var(--fg-dark)!important;color:var(--bg-cream)!important}
+  .wp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .wp-sl{position:relative;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:baseline;padding:8px 10px;min-height:52px;border:1px solid var(--db-line);cursor:pointer;font-size:var(--fs-small)}
+  .wp-sl[hidden]{display:none}
+  .wp-sl input{position:absolute;opacity:0;pointer-events:none}
+  .wp-sl b{font:700 var(--fs-body) var(--mono)}
+  .wp-sl span{min-width:0;overflow-wrap:break-word;line-height:1.3}
+  .wp-sl.empty span{color:var(--fg-mid)}
+  .wp-sl i{grid-column:2;font-style:normal;font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-mid)}
+  .wp-sl:has(input:checked){background:var(--fg-dark);color:var(--bg-cream);border-color:var(--fg-dark)}
+  .wp-sl:has(input:checked) span,.wp-sl:has(input:checked) i{color:inherit}
+  .wp-sl:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  #w-list{margin:12px 0 0;padding-left:18px;font-size:var(--fs-small);line-height:1.5}
+  #w-list:empty{display:none}
+  .wp-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  #w-go[hidden]{display:none}
   .summary{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--db-line)}
   .summary p{margin:0;font-size:var(--fs-small);line-height:1.5}
   /* the criteria: a popup behind the Filters button (a sheet from the bottom on phones) */
@@ -261,14 +285,18 @@
     <div class="ds-right">
       <div class="w-h" style="margin-top:0">Characters</div>
       <div class="chars" id="d-chars"></div>
-      <div class="w-h" id="w-to">Write to</div>
-      <p class="help" id="w-subj" hidden>Writes your Subjugation decks 1, 2 and 3, one deck per phase. A Save Data snapshot is taken first.</p>
-      <div id="w-slots">{% for s in slots %}<label class="w-sl"><input type="checkbox" value="{{ s.number }}"{% if "(defense)" in s.label %} data-defense="1"{% endif %}{% if not s.summary %} data-empty="1"{% endif %}><span>{{ s.label }}<small>{% if s.summary %}Your deck · {{ s.summary }}{% else %}Empty{% endif %}</small></span><span></span></label>{% endfor %}</div>
       <div id="w-raise-box" hidden><div class="w-h">Raise what you own?</div><div id="w-raise"></div></div>
     </div>
   </div>
   <div id="d-msg" class="banner" hidden></div>
-  <div class="ds-foot"><p id="w-sum"></p><button type="button" id="w-go" onclick="writeDeck()">WRITE DECK</button></div>
+  <div id="w-pick" hidden>
+    <div class="wp-head"><h3 id="w-pick-h">Write to</h3></div>
+    <div id="w-pick-decks"><div class="wp-tabs" id="w-tabs"><button type="button" data-t="2" class="on">Arena</button><button type="button" data-t="1">Loadout</button></div>
+    <div class="wp-grid" id="w-slots">{% for s in slots %}<label class="wp-sl{% if not s.summary %} empty{% endif %}" data-t="{{ s.deck_type }}"{% if s.deck_type != 2 %} hidden{% endif %}><input type="checkbox" value="{{ s.deck_type }}:{{ s.number }}" data-name="{{ s.label | replace(" (defense)", "") }}" data-summary="{{ s.summary or "" }}"{% if "(defense)" in s.label %} data-defense="1"{% endif %}{% if not s.summary %} data-empty="1"{% endif %}><b>{{ "%02d" | format(s.number) }}</b><span>{{ s.summary or "Empty" }}</span>{% if "(defense)" in s.label %}<i>Defense</i>{% endif %}</label>{% endfor %}</div></div>
+    <ul id="w-list"></ul>
+    <div class="wp-foot"><button type="button" class="secondary" onclick="closePick()">CANCEL</button><button type="button" id="w-yes" onclick="writeDeck()" disabled>REPLACE</button></div>
+  </div>
+  <div class="ds-foot"><p id="w-sum"></p><button type="button" id="w-go" onclick="openPick()">WRITE DECK</button></div>
 </div>
 
 <script>
@@ -426,7 +454,7 @@ async function openDetail(key, el) {
   chosen = key;
   const c = cards[key];
   const subj = c.kind === "subjugation";
-  $("w-to").hidden = $("w-slots").hidden = subj; $("w-subj").hidden = !subj;
+  closePick();
   if (subj) return openLoadout(key, c);
   $("d-title").textContent = c.title;
   $("d-sub").textContent = c.strategy;
@@ -450,7 +478,6 @@ async function openDetail(key, el) {
     <p class="line">${esc(ch.line)}</p>${pieceRows(ch.pieces)}</details>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>Data override.</strong> ${esc(o)}</div>`).join("");
   raiseBoxes(d);
-  preTick();
   rescore();
 }
 // The owned costumes a write can raise; All maxed ticks them all.
@@ -528,7 +555,7 @@ async function prepare(against, costumes) {
 function preTick() {
   const boxes = [...document.querySelectorAll("#w-slots input")];
   if (boxes.some(b => b.checked)) return;
-  const pick = state.deck_for === "defense" ? boxes.find(b => b.dataset.defense) : boxes.find(b => b.dataset.empty);
+  const pick = state.deck_for === "defense" ? boxes.find(b => b.dataset.defense) : boxes.find(b => b.dataset.empty && b.value.startsWith("2:"));
   if (pick) pick.checked = true;
 }
 function say(kind, text) {
@@ -549,15 +576,47 @@ async function rescore() {
   $("w-sum").innerHTML = `<strong>Adds ${detailData.added} piece${detailData.added === 1 ? "" : "s"}, fully raised.</strong> Force <b>${s.force.toLocaleString()}</b>, wins <b>${s.win_pct}%</b>`
     + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".") + " A Save Data snapshot is taken first.";
 }
+// WRITE DECK opens the picker: Arena or Loadout decks, each naming what it holds; the picks are listed as what they
+// replace, and REPLACE writes them.
+function pickTab(t) {
+  document.querySelectorAll("#w-tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === String(t)));
+  document.querySelectorAll("#w-slots .wp-sl").forEach(l => { l.hidden = l.dataset.t !== String(t); });
+}
+function pickList() {
+  const subj = detailData?.kind === "subjugation";
+  const boxes = subj ? [] : [...document.querySelectorAll("#w-slots input:checked")];
+  const lines = subj ? ["Replaces your Subjugation decks 1, 2 and 3, one deck per phase"]
+    : boxes.map(b => b.dataset.summary ? `Replaces ${b.dataset.name} (${b.dataset.summary})` : `Fills ${b.dataset.name} (empty)`);
+  $("w-list").innerHTML = lines.map(l => `<li>${esc(l)}</li>`).join("");
+  $("w-yes").disabled = !lines.length;
+  $("w-yes").textContent = lines.length && !subj && boxes.every(b => !b.dataset.summary) ? "WRITE" : "REPLACE";
+  const n = t => document.querySelectorAll(`#w-slots .wp-sl[data-t="${t}"] input:checked`).length;
+  document.querySelectorAll("#w-tabs button").forEach(b => { const k = n(b.dataset.t); b.textContent = (b.dataset.t === "2" ? "Arena" : "Loadout") + (k ? ` · ${k}` : ""); });
+}
+function openPick() {
+  const subj = detailData?.kind === "subjugation";
+  $("w-pick-decks").hidden = subj;
+  $("w-pick-h").textContent = subj ? "Write to Subjugation" : "Write to";
+  if (!subj) { preTick(); pickTab(document.querySelector("#w-slots input:checked")?.value.split(":")[0] || 2); }
+  pickList();
+  $("d-msg").hidden = true;
+  $("w-pick").hidden = false; $("w-go").hidden = true;
+  $("w-pick").scrollTop = 0;
+}
+function closePick() { $("w-pick").hidden = true; $("w-go").hidden = false; }
+$("w-tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) pickTab(b.dataset.t); });
+$("w-slots").addEventListener("change", pickList);
 async function writeDeck() {
   const subj = detailData?.kind === "subjugation";
   const slots = subj ? [] : ticked("#w-slots");
   const msg = $("d-msg");
+  closePick();
   if (!subj && !slots.length) { msg.hidden = false; msg.className = "banner error"; msg.textContent = "> ERROR :: Choose a deck slot to write to."; return; }
   $("w-go").disabled = true;
   try {
     const r = await fetch("/decks/write", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({user: USER, key: chosen, slots: slots.map(Number), raise: ticked("#w-raise").map(Number)})});
+      body: JSON.stringify({user: USER, key: chosen, raise: ticked("#w-raise").map(Number),
+        slots: slots.map(v => { const [t, n] = v.split(":").map(Number); return {deck_type: t, number: n}; })})});
     const j = await r.json();
     msg.hidden = false;
     if (j.ok) {

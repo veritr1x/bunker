@@ -767,19 +767,25 @@ def write(payload: dict = Body(...)):
     r = s.find(str(payload.get("key") or ""))
     if r is None:
         return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
-    from deckbuilder.model import ARENA_DECKS
+    from deckbuilder.model import ARENA_DECKS, QUEST, QUEST_DECKS
     slots = payload.get("slots") or []
     if not slots:
         return refuse("Choose a deck slot to write to")
-    if not all(isinstance(n, int) and 1 <= n <= ARENA_DECKS for n in slots):
-        return refuse(f"Arena deck slots are 1 to {ARENA_DECKS}")
-    numbers = sorted(set(slots))
+    counts = {ARENA: ARENA_DECKS, QUEST: QUEST_DECKS}
+    targets = []
+    for x in slots:      # an Arena deck number, or {deck_type, number} (Arena or Loadout)
+        t, n = (ARENA, x) if isinstance(x, int) and not isinstance(x, bool) else \
+            ((x.get("deck_type"), x.get("number")) if isinstance(x, dict) else (None, None))
+        if t not in counts or not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= counts[t]:
+            return refuse(f"Deck slots are Arena or Loadout decks 1 to {ARENA_DECKS}")
+        if (t, n) not in targets:
+            targets.append((t, n))
     raises = payload.get("raise") or []
     if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.raisable(r):
         return refuse("Only a costume of this deck that is below the staged level can be raised")
     raises = sorted(set(raises))
     force = s.force(r, raises)
-    deck = {"slots": [{"deck_type": ARENA, "number": n, "power": force} for n in numbers],
+    deck = {"slots": [{"deck_type": t, "number": n, "power": force} for t, n in targets],
             "characters": [_spec_json(x) for x in r.equipped.specs], "raise": raises}
     try:
         _backup()
@@ -787,8 +793,10 @@ def write(payload: dict = Body(...)):
     except (DeckBuilderError, ValueError, FileNotFoundError) as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     drop_session(user_id)                   # the save changed: read it again
-    refresh_arena(user_id)
-    return {"ok": True, "added": s.gen.added(r.equipped.to_add), "raised": raises, "slots": numbers}
+    if any(t == ARENA for t, _ in targets):
+        refresh_arena(user_id)
+    return {"ok": True, "added": s.gen.added(r.equipped.to_add), "raised": raises,
+            "slots": [{"deck_type": t, "number": n} for t, n in targets]}
 
 
 SUBJUGATION = 5     # the game's Subjugation decks: 101, 102, 103 (one per phase)

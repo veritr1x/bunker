@@ -61,11 +61,13 @@ class ComposeFromSaveTest(unittest.TestCase):
         con.execute("create table user_bunker_ext (user_id integer, data text)")
         con.execute("insert into user_bunker_ext values (1, ?)", (json.dumps({"pvp": {"defenseDeckNumber": 1}}),))
         slots = model.slots(model.Save(con, 1), tables())
-        self.assertEqual([s.number for s in slots], list(range(1, 16)))
+        # the 15 Arena decks, then the 15 Loadout (quest) decks
+        self.assertEqual([(s.deck_type, s.number) for s in slots], [(2, n) for n in range(1, 16)] + [(1, n) for n in range(1, 16)])
         first = slots[0]
         self.assertEqual((first.deck_type, first.label), (2, "Arena deck 1 (defense)"))
         self.assertIn("Lars", first.summary)
         self.assertIsNone(slots[5].summary)
+        self.assertEqual(slots[15].label, "Loadout deck 1")
 
 
 @needs_stage

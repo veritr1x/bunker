@@ -71,7 +71,8 @@ class FakeSession:
 
     def slots(self):
         return [{"deck_type": 2, "number": 1, "label": "Arena deck 1 (defense)", "summary": "Marie, Sarafa, Rion"},
-                {"deck_type": 2, "number": 2, "label": "Arena deck 2", "summary": None}]
+                {"deck_type": 2, "number": 2, "label": "Arena deck 2", "summary": None},
+                {"deck_type": 1, "number": 3, "label": "Loadout deck 3", "summary": "Fio, Saryu, Lars"}]
 
     def players(self):
         return [(1, "2B")]
@@ -136,7 +137,7 @@ class PageTest(unittest.TestCase):
     def test_page_renders(self):
         r = self.c.get("/decks", params={"user": 1})
         self.assertEqual(r.status_code, 200)
-        for text in ("Deck Builder", "Arena deck 1 (defense)", "Operator 6O", "/decks/results"):
+        for text in ("Deck Builder", 'data-name="Arena deck 1"', "Operator 6O", "/decks/results"):
             self.assertIn(text, r.text)
 
     def test_criteria_are_a_closed_popup_behind_filters(self):
@@ -324,6 +325,31 @@ class PageTest(unittest.TestCase):
         self.assertEqual(slots, [[{"deck_type": 5, "number": n, "power": 400000}] for n in (101, 102, 103)])
         self.assertEqual(r["slots"], [101, 102, 103])
 
+    def test_write_to_a_loadout_deck(self):
+        """A Loadout (quest) deck is a write target too: {deck_type, number}; a bare number is an Arena deck."""
+        key = db.result_key(self.session.result)
+        r = self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [{"deck_type": 1, "number": 3}, 2], "raise": []})
+        self.assertEqual(r.json()["ok"], True, r.json())
+        self.assertEqual(self.calls[1][1]["deck"]["slots"], [{"deck_type": 1, "number": 3, "power": 412318},
+                                                             {"deck_type": 2, "number": 2, "power": 412318}])
+        for bad in ({"deck_type": 3, "number": 1}, {"deck_type": 1, "number": 16}, {"deck_type": 1}, "1:3"):
+            self.assertEqual(self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [bad]}).status_code, 400, bad)
+
+    def test_write_opens_the_deck_picker(self):
+        """The deck list appears only after WRITE DECK: Arena and Loadout decks on tabs, each deck a tile naming what
+        it holds; the picks are listed as what they replace before REPLACE writes."""
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn('onclick="openPick()">WRITE DECK</button>', html)
+        self.assertIn('<div id="w-pick" hidden>', html)
+        self.assertIn('<button type="button" data-t="2" class="on">Arena</button><button type="button" data-t="1">Loadout</button>', html)
+        self.assertIn('<label class="wp-sl" data-t="1" hidden><input type="checkbox" value="1:3" data-name="Loadout deck 3" data-summary="Fio, Saryu, Lars">', html)
+        self.assertIn('<b>03</b><span>Fio, Saryu, Lars</span>', html)
+        self.assertIn('<i>Defense</i>', html)
+        self.assertIn("`Replaces ${b.dataset.name} (${b.dataset.summary})`", html)
+        self.assertIn('id="w-yes" onclick="writeDeck()" disabled>REPLACE</button>', html)
+        self.assertNotIn('id="w-to"', html)      # no deck list in the deck view itself
+        self.assertIn("#w-go[hidden]{display:none}", html)     # the button style would show it
+
     def test_write_takes_snapshot_then_calls_shim(self):
         key = db.result_key(self.session.result)
         r = self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [2], "raise": [35036]})
@@ -464,7 +490,7 @@ class PageTest(unittest.TestCase):
         con.execute("delete from user_costumes where costume_id=34012")
         tables = SimpleNamespace(character_name=lambda cid: "missing costume" if cid is None else f"costume {cid}")
         slots = model.slots(model.Save(con, 1), tables)
-        self.assertEqual(len(slots), 15)
+        self.assertEqual(len(slots), 30)
 
 
 if __name__ == "__main__":
