@@ -335,6 +335,11 @@ class PageTest(unittest.TestCase):
         for bad in ({"deck_type": 3, "number": 1}, {"deck_type": 1, "number": 16}, {"deck_type": 1}, "1:3"):
             self.assertEqual(self.c.post("/decks/write", json={"user": 1, "key": key, "slots": [bad]}).status_code, 400, bad)
 
+    def test_a_deck_shows_its_win_rate(self):
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn("<b>${c.win_pct}%</b><small>win rate</small>", html)
+        self.assertIn('[["Win rate", c.win_pct + "%"]', html)
+
     def test_write_opens_the_deck_picker(self):
         """The deck list appears only after WRITE DECK: Arena and Loadout decks on tabs, each deck a tile naming what
         it holds; the picks are listed as what they replace before REPLACE writes."""
