@@ -4,6 +4,7 @@ swappable parts (chosen by name in PARAMS):
 - COMBO: team combo counter and its damage coefficient (EntityMComboCalculationSetting)       -> Combo
 - DAMAGE: damage formula                                                                         -> DAMAGE_FORMULAS
 """
+import math
 from deckbuilder.sim.data import T
 
 
@@ -83,7 +84,28 @@ def dmg_subtract(atk, power, mult, dfv, P, pierce=False):
     return base * power * mult
 
 
-DAMAGE_FORMULAS = {"def_k": dmg_def_k, "subtract": dmg_subtract}
+def _takeoff(x):
+    return 2 * (1 - 1 / (2 - math.exp(-x)))
+
+
+def base_damage(atk, dfv):
+    """The client's base damage, CalculatorMath.GetBaseDamage (0x324A8D0; constants read from the binary): ATK
+    against DEF scales a hit by 0.5x to 2x, and the result eases toward 300,000 (Takeoff, FloorToInt)."""
+    m = max(atk, dfv)
+    r = (atk + m) / (dfv + m)
+    s = 200 * atk * _takeoff(r / 400)
+    return math.floor(300000 * _takeoff(s / 600000))
+
+
+HIT_CAP = 1_500_000      # CalculateAttackSkillExec clamps a hit (0x34F6248)
+
+
+def dmg_game(atk, power, mult, dfv, P, pierce=False):
+    """The client's damage: base damage x skill power x the multipliers, at most HIT_CAP. Pierce ignores DEF."""
+    return min(HIT_CAP, base_damage(atk, 1 if pierce else max(dfv, 1)) * power * mult)
+
+
+DAMAGE_FORMULAS = {"def_k": dmg_def_k, "subtract": dmg_subtract, "game": dmg_game}
 
 
 # ---------------- parameters (calibrated; see the notes beside each) ----------------
@@ -130,7 +152,7 @@ PARAMS = dict(
                                       #   their agility-ordered turns (skill if ready, else normal attack); "queue" and "turn" kept for comparison
     ATTACKER_MANUAL=True,             # hybrid: the attacker taps start skills by hand -> attacker first (Fo5jCU4TIxc); False = Auto -> defender first
     COMBO="table", COMBO_COUNT_NA=True, COMBO_RESET="other_side_acts",   # sim_rules.Combo (table from EntityMComboCalculationSetting); COMBO="off" disables
-    DAMAGE="def_k",
+    DAMAGE="game",                    # the client's formula (dmg_game); "def_k" was the calibrated guess before it
     OPEN_DELAY=3.0,                   # calibrated (opening_check.py, 21 video openings): seconds of wave intro before the first start-of-battle skill (videos: ~2.5-3.5 s after the WAVE banner)
     OPEN_INTERLEAVE=False,            # opening: alternate attacker/defender start skills instead of one side's batch first
     OPEN_ANIM=1.2,                    # seconds per start-of-battle skill in the opening

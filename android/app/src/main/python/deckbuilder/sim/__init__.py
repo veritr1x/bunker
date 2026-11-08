@@ -13,7 +13,7 @@ from __future__ import annotations
 import importlib
 
 _tables = None
-_MODULES = ("data", "status", "rules", "units", "battle")
+_MODULES = ("data", "status", "rules", "units", "battle", "subjugation_battle")
 
 
 def _bound():

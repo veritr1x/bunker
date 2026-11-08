@@ -1,19 +1,23 @@
 """The best nine characters against a Subjugation boss.
 
 A Subjugation loadout is three decks (the game's Subjugation decks 101-103), one per
-phase of the fight, nine characters with none twice. Candidate decks come from the
+wave of the fight, nine characters with none twice. Candidate decks come from the
 Arena generator's lineups (expert lineups first, then the pool's combinations), each
-equipped as the Arena would and run through one boss phase in the simulator
-(sim.boss_phase). Loadouts are built from the strongest decks: each of the top few as
-the first deck, then the strongest that shares no character with those already
-taken; each deck is then run in its own phase (deck 1 in phase 1, ...), and loadouts
-are ranked by the sum.
+equipped for the boss: main weapons of the element it does not resist (it takes x0.5
+from every other), the weapons that deal it the most damage first; then run through a
+wave on Auto (sim.subjugation_battle), scored by the median of SEEDS runs. Loadouts are
+built from the strongest decks: each of the top few as the first deck, then the
+strongest that shares no character with those already taken; the three decks then
+fight their waves in order, a wave without a knock-down handing its gauge to the next,
+and loadouts are ranked by the sum.
 """
 from __future__ import annotations
 
 from typing import NamedTuple
 
 from deckbuilder import bighunt, equip, generate, power, sim
+
+SEEDS = 5
 
 
 class BossDeck(NamedTuple):
@@ -28,6 +32,9 @@ class BossDeck(NamedTuple):
     damage: int
     knockdowns: int
     standing: int               # characters standing at the phase's end
+    gauge_in: float = 0.0       # knock-down gauge carried in from the wave before
+    gauge_out: float = 0.0      # what it hands on (none after a knock-down)
+    kd_at: float | None = None  # seconds into the wave the boss went down
 
 
 class Loadout(NamedTuple):
@@ -45,16 +52,41 @@ def _characters(lineup, tables):
     return {costume[c]["CharacterId"] for c in lineup if c in costume}
 
 
-def _run(gen, lineup, criteria, unit, fight, phase) -> BossDeck:
-    expert = next((l for l in gen.experts.lineups() if l.costumes == lineup), None)
-    els = gen._elements(lineup, criteria)
-    eq = equip.equip(lineup, criteria.mode, gen.base, gen.stage, gen.tables, gen.experts, elements=els, expert=expert,
-                     deck_type=5, deck_number=101 + max(phase - 1, 0))
-    r = sim.boss_phase(eq.deck, unit, fight.phases[max(phase - 1, 0)], gen.tables)
+_WEAPON_DAMAGE: dict = {}
+
+
+def weapon_damage(weapon_id, tables) -> float:
+    """A main weapon's skill damage per cooldown at skill level 15 (power x hits per cooldown unit): how hard it
+    hits a boss that never falls."""
+    key = (id(tables), weapon_id)
+    if key not in _WEAPON_DAMAGE:
+        from deckbuilder.sim import units
+        w = units.WEAPON.get(equip._final_id(weapon_id, tables))
+        total = 0.0
+        for s in (units.WSG.get(w["WeaponSkillGroupId"], []) if w else []):
+            d = units.skill_detail_at(s["SkillId"], 15)
+            if d:
+                ops = units.compile_skill(d, None)
+                dmg = sum(o["power"] * o["hits"] for o in ops if o["op"] == "dmg")
+                total += dmg / (d["SkillCooltimeValue"] or 600)
+        _WEAPON_DAMAGE[key] = total
+    return _WEAPON_DAMAGE[key]
+
+
+def _run(gen, lineup, criteria, unit, fight, phase, gauge=0.0) -> BossDeck:
+    from deckbuilder.sim import battle, subjugation_battle as sb
+    els = (sb.weakness(unit["elem"]),) * len(lineup)
+    eq = equip.equip(lineup, criteria.mode, gen.base, gen.stage, gen.tables, gen.experts, elements=els,
+                     deck_type=5, deck_number=101 + max(phase - 1, 0),
+                     main_rank=lambda w: weapon_damage(w, gen.tables))
+    party = battle._side(eq.deck, gen.tables)
+    runs = [sb.wave(party, unit, fight.phases[max(phase - 1, 0)], gauge=gauge, seed=s) for s in range(SEEDS)]
+    r = sorted(runs, key=lambda x: x["damage"])[len(runs) // 2]          # the median run
     name = " · ".join(gen.tables.character_name(c) for c in lineup)
     strategies = gen.strategies(lineup, els)
     return BossDeck(lineup, name, generate.STRATEGY_NAME.get(strategies[0], strategies[0]), els, eq, eq.deck,
-                    power.deck_power(eq.deck, gen.tables).total, phase, r["damage"], r["knockdowns"], r["standing"])
+                    power.deck_power(eq.deck, gen.tables).total, phase, r["damage"], r["knockdowns"], r["standing"],
+                    gauge, r["gauge"], r["kd_at"])
 
 
 class _Pool:
@@ -114,7 +146,10 @@ def rank(gen: generate.Generator, boss: bighunt.Boss, difficulty: int, mode: equ
         if ident in seen:
             continue
         seen.add(ident)
-        decks = [_run(gen, d.lineup, crit, unit, fight, i) for i, d in enumerate(picked, 1)]
+        decks, gauge = [], 0.0
+        for i, d in enumerate(picked, 1):
+            decks.append(_run(gen, d.lineup, crit, unit, fight, i, gauge))
+            gauge = decks[-1].gauge_out
         out.append(Loadout("", 0, boss.id, difficulty, decks, sum(d.damage for d in decks), sum(d.force for d in decks)))
     out.sort(key=lambda lo: (-lo.damage, -lo.force, [d.lineup for d in lo.decks]))
     return [lo._replace(rank=i, key=f"b{boss.id}d{difficulty}:" + "|".join(",".join(map(str, d.lineup)) for d in lo.decks))
