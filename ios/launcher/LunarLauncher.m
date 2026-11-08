@@ -89,6 +89,7 @@ static NSDictionary *Status(void) {
 }
 static BOOL Running(void) { return [Status()[@"state"] isEqual:@"running"]; }
 void LTDisplayStart(NSString *toolsRoot);  // LunarDisplay.m
+void LTWindowStart(void);  // LunarWindow.m
 /** Bunker's version, from the app's Info.plist (package_ipa.py), or "dev". */
 static NSString *BunkerVersion(void) {
     return NSBundle.mainBundle.infoDictionary[@"BunkerVersion"] ?: @"dev";
@@ -2361,6 +2362,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         }
         lt_rebind_image_symbols("UnityFramework.framework/UnityFramework", kReachability, sizeof(kReachability) / sizeof(kReachability[0]));
         LTDisplayStart(ToolsRoot());
+        if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad) LTWindowStart();
         // Start before Unity boots, without waiting: the Go runtime's own
         // initializer runs after this one, so every Go call waits until this
         // returns. Waiting here only spent the launch watchdog's time.

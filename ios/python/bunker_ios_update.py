@@ -143,6 +143,7 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
                     info = plistlib.loads(path.read_bytes())
                     info["BunkerVersion"] = new_build.get("version", "dev")
                     info.update(SDK_SWITCHES)  # earlier builds left them on
+                    info.pop("UIRequiresFullScreen", None)  # earlier builds kept the window the iPad's shape
                     if notices_zip:
                         info["BunkerNotices"] = sha_notices
                     plist = zipfile.ZipInfo(prefix + "Info.plist")

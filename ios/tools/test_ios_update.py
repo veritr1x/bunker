@@ -23,7 +23,8 @@ class BuildIpaTests(unittest.TestCase):
         work = Path(self.t.name)
         self.app = work / "NieR.app"
         with (write(self.app / "Info.plist", b"") or (self.app / "Info.plist")).open("wb") as f:
-            plistlib.dump({"CFBundleIdentifier": "org.example.nier", "BunkerVersion": "1.0.0", "LunarPortOffset": 3}, f)
+            plistlib.dump({"CFBundleIdentifier": "org.example.nier", "BunkerVersion": "1.0.0", "LunarPortOffset": 3,
+                           "UIRequiresFullScreen": True}, f)
         write(self.app / "NieR", "game executable")
         write(self.app / "Data/data.unity3d", "game data")
         write(self.app / "_CodeSignature/CodeResources", "old signature")
@@ -156,6 +157,7 @@ class BuildIpaTests(unittest.TestCase):
             info = plistlib.loads(z.read("Payload/NieR.app/Info.plist"))
         for key, value in bunker_ios_update.SDK_SWITCHES.items():
             self.assertIs(info[key], value, key)
+        self.assertNotIn("UIRequiresFullScreen", info)  # Stage Manager may resize the game
 
 
 class UnityPatchTests(unittest.TestCase):
