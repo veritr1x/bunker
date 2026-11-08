@@ -14,9 +14,30 @@
   Sun/Moon map loaded with its ornaments; its two UpdateSequence calls
   answered in the same second. The log had no errors.
 - The Premium Shop showed the same limited packs on 1.10.0 and on this
-  build: with the calendar off the patched game data keeps them open, so
-  the IUserLimitedOpen fix shows only with the Original calendar, which was
-  not tried.
+  build: with the calendar off the patched game data keeps them open.
+- The same emulator and save, edited as turning the calendar off after a
+  jump leaves it: the login bonus, the roulette and the daily quest missions
+  done on a day in Dec 2028; and, for the first-day login missions, the day's
+  login already counted with no daily "Log in" mission records. On 1.10.0 no
+  login bonus came, the roulette showed 0 draws with a countdown, "Clear a
+  quest 5 times" stayed at 5/5 and the "Log in" missions at 0/1. On this
+  build, with the same save, the server moved those times to the end of the
+  previous day: the quest missions started over at 0/5, every daily "Log
+  in" mission cleared (1/1), and the roulette showed its 6 draws again. With
+  the game's day markers cleared (client-days.reset, as Pod Programs leaves
+  when the calendar goes off), the login bonus appeared and took its stamp,
+  after the day's news and promotions.
+- After the markers were cleared this build showed the game's limited-sale
+  banners ("Chapter 12 Completion Pack on sale for a limited time", and other
+  packs, ending in 2099): their dates come only from IUserLimitedOpen.
+- Variation: Blazing Dynast (chapter 321), Quest 1, cleared twice: the
+  second clear added memoir 9114 (series 456, rarity 30), one the chapter
+  shows that no quest drops, beside the quest's own (series 455, rarity 10);
+  the reward screen showed both.
+- Dungeon: The Witch's Memories, 1st Floor, under its drop-rate campaign
+  ("Drop Rate Increased"): the reward screen showed each of its four memoirs
+  ×2, and the save gained 8 memoirs (92 to 100), two of each.
+- The emulator's save was put back afterwards and 1.10.0 reinstalled.
 
 ## Auto-repeat with the calendar on — 2026-11-08
 
