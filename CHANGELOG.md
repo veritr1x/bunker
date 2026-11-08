@@ -4,6 +4,19 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-08 (after 1.10.0)
+
+### Server
+- Subjugation scores are counted as the game counted them. The base score
+  is the total damage / 100 (it was the damage itself, so every score was
+  100 times too high and a modest run reached X). The survival bonus
+  depends on how many characters died over the run (+200% with none,
+  +150%, +100%, +50%, then nothing from four), and the max-combo bonus
+  has nine tiers (+20% from 6 up to +180% from 46); they were a flat
+  +50% and three tiers. The old guide's damage-per-grade tables match this
+  exactly. From the JCalandre/lunar-tear fork. High scores already saved
+  are divided by 100 once, so new runs can beat them.
+
 ## 1.10.0 (2026-11-08)
 
 Deck Builder, Gift and more mods. Pod Programs has a Deck Builder that
