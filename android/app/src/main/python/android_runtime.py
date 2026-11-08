@@ -126,6 +126,10 @@ def adapt_services():
     if "deck builder" not in backup_service.VALID_REASONS:
         backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "deck builder")
         backup_service.REASON_LABELS["deck builder"] = "Deck Builder"
+    # Pod Programs › Story Jump backs the save up before each jump (android_story.jump).
+    if "story jump" not in backup_service.VALID_REASONS:
+        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "story jump")
+        backup_service.REASON_LABELS["story jump"] = "Story Jump"
     def prune(n):
         ordinary = [b for b in backup_service.list_backups() if b.reason != "update"]
         for b in ordinary[n:]:
@@ -222,7 +226,7 @@ def prepare_data():
     revision = config.REVISIONS_DIR / "0" / "android" / "list.bin"
     if not revision.exists():
         revision = config.REVISIONS_DIR / "0" / "list.bin"
-    signature = {"master": fingerprint(master), "catalog": fingerprint(revision) if revision.exists() else None, "format": 2}
+    signature = {"master": fingerprint(master), "catalog": fingerprint(revision) if revision.exists() else None, "format": 3}
     if read_json(marker) == signature:
         return
     _report("Reading game data…")
@@ -255,7 +259,7 @@ def prepare_data():
     _report("Preparing item names…")
     config.NAMES_DIR.mkdir(exist_ok=True)
     text_root = extract_names.resolve_text_root(config.REVISIONS_DIR, "0")
-    kinds = ("consumables", "materials", "important_items", "costumes", "characters", "weapons", "companions", "thoughts", "parts", "parts_groups", "event_quests", "gacha_banners", "shops")
+    kinds = ("consumables", "materials", "important_items", "costumes", "characters", "weapons", "companions", "thoughts", "parts", "parts_groups", "event_quests", "main_quests", "gacha_banners", "shops")
     for kind in kinds:
         if kind in extract_names.KIND_CONFIG:
             extract_names.extract_kind(kind, config.MASTERDATA_DIR, text_root, config.NAMES_DIR)
@@ -358,6 +362,7 @@ def create_app(token, origin):
     import android_deckbuilder
     import android_gift
     import android_mods
+    import android_story
     import android_players
     app = base_app()
     app.include_router(router)
@@ -368,6 +373,7 @@ def create_app(token, origin):
     app.include_router(android_gift.router)
     app.include_router(android_deckbuilder.router)
     app.include_router(android_mods.router)
+    app.include_router(android_story.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.
     install_game_guard(app, lambda: game_live(), lambda: close_game())
