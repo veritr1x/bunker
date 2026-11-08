@@ -47,6 +47,10 @@ type ExtState struct {
 	// PanelMissions are the Anecdotes' panel sheets, by web panel mission
 	// (one per run: the Original calendar's copies have ids of their own).
 	PanelMissions map[int32]PanelMissionState `json:"panelMissions,omitempty"`
+	// LimitedOpens are the limited-time offers opened for the player with the
+	// Original calendar, by shop item cell: when each opened and closes
+	// (service/bunker_limited_offers.go).
+	LimitedOpens map[int32]LimitedOpenState `json:"limitedOpens,omitempty"`
 	// GrantOverflow is what this request's grants sent to the gift box
 	// (see PossessionGranter.GrantFullAs); never saved.
 	GrantOverflow []GrantOverflow `json:"-"`
@@ -187,8 +191,15 @@ func (p PanelMissionState) equal(o PanelMissionState) bool {
 	return maps.Equal(p.Progress, o.Progress) && maps.Equal(p.Claimed, o.Claimed) && maps.Equal(p.PageDone, o.PageDone)
 }
 
+// LimitedOpenState is one limited-time offer's window for a player.
+type LimitedOpenState struct {
+	Open  int64 `json:"open"`
+	Close int64 `json:"close"`
+}
+
 func (e ExtState) Clone() ExtState {
 	out := e
+	out.LimitedOpens = maps.Clone(e.LimitedOpens)
 	out.MissionRuleRevisions = maps.Clone(e.MissionRuleRevisions)
 	out.MissionPass = maps.Clone(e.MissionPass)
 	out.GachaExec = maps.Clone(e.GachaExec)
@@ -214,7 +225,7 @@ func (e ExtState) Clone() ExtState {
 
 func (e ExtState) Equal(o ExtState) bool {
 	return e.MissionsVersion == o.MissionsVersion && e.TimeKeysVersion == o.TimeKeysVersion && e.CalendarLoop == o.CalendarLoop && e.ChapterGachaIds == o.ChapterGachaIds && e.DailyGroupReward == o.DailyGroupReward &&
-		maps.Equal(e.MissionPass, o.MissionPass) && maps.Equal(e.GachaExec, o.GachaExec) &&
+		maps.Equal(e.MissionPass, o.MissionPass) && maps.Equal(e.GachaExec, o.GachaExec) && maps.Equal(e.LimitedOpens, o.LimitedOpens) &&
 		maps.Equal(e.MissionRuleRevisions, o.MissionRuleRevisions) &&
 		maps.Equal(e.SceneChoices, o.SceneChoices) &&
 		maps.Equal(e.SceneChoiceHistory, o.SceneChoiceHistory) &&

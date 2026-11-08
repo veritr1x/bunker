@@ -32,6 +32,7 @@ func calendarGameStart(u *store.UserState, now int64) {
 		log.Printf("[Calendar] user %d: loop %d started, rotating progress reset", u.UserId, loop)
 	}
 	removeExpiredItems(u, now)
+	OpenLimitedOffers(u, now) // a completion pack for a chapter cleared before opens at login
 }
 
 func table[T any](name string) []T {

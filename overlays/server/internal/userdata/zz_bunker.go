@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"lunar-tear/server/internal/bunkercache"
+	"lunar-tear/server/internal/gametime"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/utils"
@@ -16,7 +17,8 @@ import (
 
 func init() {
 	register("IUserLimitedOpen", func(user store.UserState) string {
-		// Limited-time offers open for their original sale periods (masterdata.LimitedOffers).
+		// Limited-time offers: with everything open, for their sale periods
+		// (masterdata.LimitedOffers); with the Original calendar, each from its trigger.
 		const targetShop, targetShopItemCell = 1, 5
 		offers, shops := masterdata.LimitedOffers()
 		rows := make([]map[string]any, 0, len(offers)+len(shops))
@@ -32,8 +34,16 @@ func init() {
 		for _, id := range shopIds {
 			row(targetShop, id, shops[id].OpenDatetime, shops[id].CloseDatetime)
 		}
+		calendar := gametime.CurrentCalendar() != nil
 		for _, o := range offers {
-			row(targetShopItemCell, o.ShopItemCellId, o.OpenDatetime, o.CloseDatetime)
+			if !calendar {
+				row(targetShopItemCell, o.ShopItemCellId, o.OpenDatetime, o.CloseDatetime)
+				continue
+			}
+			// With the Original calendar an offer opens on its trigger (service.OpenLimitedOffers).
+			if w, ok := user.Ext.LimitedOpens[o.ShopItemCellId]; ok {
+				row(targetShopItemCell, o.ShopItemCellId, w.Open, w.Close)
+			}
 		}
 		s, _ := utils.EncodeJSONMaps(rows...)
 		return s
@@ -255,6 +265,9 @@ func bunkerChangedTables(before, after *store.UserState) []string {
 	var out []string
 	if !mapsEqualSimple(before.Ext.MissionPass, after.Ext.MissionPass) {
 		out = append(out, "IUserMissionPassPoint")
+	}
+	if !mapsEqualSimple(before.Ext.LimitedOpens, after.Ext.LimitedOpens) {
+		out = append(out, "IUserLimitedOpen")
 	}
 	if before.Ext.Beginner != after.Ext.Beginner {
 		out = append(out, "IUserBeginnerCampaign")

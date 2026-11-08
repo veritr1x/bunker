@@ -1,5 +1,22 @@
 # Validation
 
+## Limited-time packs on their triggers — 2026-11-09
+
+- Server tests on the final game data: a completion pack opens when its
+  chapter is cleared at its difficulty (and not on Normal for a Hard pack),
+  for 72 hours, once, and is bought only then; nothing opens outside its sale
+  period; the Jumpstart pack opens from the loadout tutorial's end, 48 hours
+  before 30 March 2023 and 24 after; the Ch. 6 pack only from 1 November
+  2021; with everything open every offer is listed. Every offer has a
+  trigger and every trigger chapter has quests at its difficulty.
+- Android 16 emulator (bunker_api36), the save from 2026-11-08 (backed up
+  first), the Original calendar turned on (8 Nov 2026 = 1 Aug 2021): at
+  sign-in the save opened two packs, the Ch. 12 Completion Pack (chapter 14
+  cleared) and the Mythic Slab Material Pack (quest 42 cleared), each for 72
+  hours. The Premium Shop's Limited-Time Pack tab showed those two, "Ends
+  In: 71:56", and no "on sale for a limited time" banners for the others.
+  The save and game data were put back afterwards.
+
 ## Each event run replayed as it was — 2026-11-09
 
 - A loop built with the Original calendar from the final game data was
