@@ -182,7 +182,13 @@ class CheckTest(unittest.TestCase):
         self.assertIn("Translations OK: 1 language file checked.", out.getvalue())
 
     def test_repo_passes(self):
-        self.assertEqual(check_tree(ROOT / "translations"), [])
+        self.assertEqual(check_tree(ROOT / "translations", load_coverage(ROOT / "fonts/coverage.json")), [])
+
+    def test_main_applies_the_font_check(self):
+        self.write("game/ui/pt.json", {"c": "ภ"})
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(main([str(self.root)]), 1)
+        self.assertIn("the game's fonts cannot show ภ", out.getvalue())
 
 
 SHOWN = frozenset(range(0x20, 0x7F)) | frozenset(map(ord, "ąĄéЖあ"))
@@ -199,6 +205,18 @@ class FontCoverageTest(unittest.TestCase):
 
     def test_coverage_passes_ordinary_text(self):
         path = self.write("game/ui/pt.json", {"b": "Ąé Ж\\nあ <i>x</i>", "a": "{0}"})
+        self.assertEqual(check_file(path, TEMPLATE, coverage=SHOWN), [])
+
+    def test_separate_accent_marks(self):
+        # The game drops the fonts' accent positioning: e + U+0301 shows the accent beside the e.
+        path = self.write("game/ui/pt.json", {"c": "Tiéng Việt"})
+        found = check_file(path, TEMPLATE, coverage=SHOWN | {0x301, 0x302, 0x323})
+        self.assertEqual(len(found), 1, found)
+        self.assertTrue(found[0].endswith(": c: has accents typed as separate marks (U+0301 U+0323 U+0302); "
+                                          "type each accented letter as one character"), found[0])
+
+    def test_composed_accents_pass(self):
+        path = self.write("game/ui/pt.json", {"c": "Ąé"})
         self.assertEqual(check_file(path, TEMPLATE, coverage=SHOWN), [])
 
     def test_unshowable_letters_and_markup_both_reported(self):
