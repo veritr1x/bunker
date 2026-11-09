@@ -195,7 +195,9 @@ func (c *captureWriter) Write(b []byte) (int, error) { return c.body.Write(b) }
 func (t *Translator) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isListPath(r.URL.Path) {
-			t.serveList(w, r, next)
+			if t.serveList(w, r, next) {
+				t.cleanup() // the build the game held before is not needed any more
+			}
 			return
 		}
 		if id, ok := assetObject(r.URL.Path); ok && t.serveAsset(w, r, id) {
@@ -218,18 +220,20 @@ func (t *Translator) choose() *Manifest {
 	}
 }
 
-func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http.Handler) {
+// serveList answers a list request; it reports whether the build the game
+// holds changed (so builds no list names any more can go).
+func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http.Handler) (changed bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if !t.ready {
 		next.ServeHTTP(w, r)
-		return
+		return false
 	}
 	m := t.choose()
 	requested := requestedRevision(r.URL.Path)
 	if _, err := os.Stat(t.statePath); m == nil && errors.Is(err, os.ErrNotExist) && requested <= t.original {
 		next.ServeHTTP(w, r) // never translated: the list as it always was
-		return
+		return false
 	}
 	c := &captureWriter{header: http.Header{}, status: http.StatusOK}
 	next.ServeHTTP(c, r)
@@ -244,6 +248,7 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 			var out []byte
 			if out, err = PatchList(body, revision, changes); err == nil {
 				body = out
+				changed = t.served != m
 				t.served = m
 				log.Printf("[Translation] list revision %d, %d translated bundles", revision, len(changes))
 			}
@@ -258,6 +263,7 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(c.status)
 	w.Write(body)
+	return changed
 }
 
 // serveAsset sends a translated bundle named by the list the game holds (the
