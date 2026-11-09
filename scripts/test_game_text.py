@@ -2,7 +2,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+import game_text
 from game_text import BundleError, Text, area_of, bundle_rank, read_language
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,6 +69,21 @@ class ReadLanguageTest(unittest.TestCase):
 
         with self.assertRaisesRegex(BundleError, "text/en/gift"):
             read_language(tree.root, "en", read=bad)
+
+    def test_values_keep_trailing_spaces(self):
+        texts = self.read({"text/en/battle": "k:Vermin!　\r\nj: Loaded Tenacity \r\n"})
+        self.assertEqual(texts["k"].value, "Vermin!　")
+        self.assertEqual(texts["j"].value, " Loaded Tenacity ")
+
+    def test_text_that_fails_to_parse_names_the_bundle(self):
+        tree = FakeTree({"text/en/gift": ""})
+        self.addCleanup(tree.dir.cleanup)
+        with mock.patch.object(game_text.extract_names, "decrypt_text_bundle", lambda raw, mask: raw), \
+                mock.patch.object(game_text.extract_names, "extract_bundle_streams", lambda raw: [b"stream"]), \
+                mock.patch.object(game_text.extract_names, "extract_text_assets",
+                                  mock.Mock(side_effect=ValueError("unsupported serialized file version: 99"))):
+            with self.assertRaisesRegex(BundleError, "text/en/gift"):
+                read_language(tree.root, "en")
 
     def test_only_the_requested_language(self):
         texts = self.read({"text/en/ui": "a:A", "text/ja/ui": "a:エー\nb:ビー"})
