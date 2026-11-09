@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 
 /**
  * The launcher's words: the English catalogue packed into the APK (translations/bunker/en.json, as
- * bunker_en.json) with the pack Pod Programs activated over it (the server's translation/active.json, the file
+ * lunar/bunker_en.json) with the pack Pod Programs activated over it (the server's translation/active.json, the file
  * Pod Programs and the Archive read). One language for Bunker: the phone's own language is never used.
  * Plural rules and numbers are the device's CLDR data for the pack's language, with Latin digits.
  */
@@ -129,7 +129,7 @@ final class Texts {
 
     private static Map<String, String> readEnglish(Context app) {
         Map<String, String> words = new HashMap<>();
-        try (InputStream in = app.getAssets().open("bunker_en.json")) {
+        try (InputStream in = app.getAssets().open("lunar/bunker_en.json")) {
             JSONObject all = new JSONObject(new String(read(in, Long.MAX_VALUE), StandardCharsets.UTF_8));
             for (Iterator<String> keys = all.keys(); keys.hasNext(); ) {
                 String key = keys.next();

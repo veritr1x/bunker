@@ -20,7 +20,12 @@ class Catalogue(unittest.TestCase):
         self.assertRegex(GRADLE, r"rename[^\n]*bunker_en\.json|into[^\n]*\n[^\n]*bunker_en\.json|bunker_en\.json")
         self.assertRegex(GRADLE, r"assets\.srcDir")
         self.assertRegex(GRADLE, r"preBuild\.dependsOn")
-        self.assertIn('open("bunker_en.json")', source("Texts.java"))
+        # Under assets/lunar/: the game APK keeps only assets/lunar/ and assets/chaquopy/ from Bunker's own APK
+        # (assemble_apk.py, build_info.py); an asset elsewhere is lost and every text shows its key.
+        self.assertIn('open("lunar/bunker_en.json")', source("Texts.java"))
+        self.assertRegex(GRADLE, r"into\s+bunkerTextAssets\.map\s*\{\s*it\.dir\('lunar'\)\s*\}|generated/bunkerText/assets/lunar")
+        import build_info  # an update keeps the entries it counts as Bunker's
+        self.assertTrue(build_info.is_bunker_entry("assets/lunar/bunker_en.json", {"bunkerLibs": [], "gameDex": 1}))
 
 
 class Pack(unittest.TestCase):
