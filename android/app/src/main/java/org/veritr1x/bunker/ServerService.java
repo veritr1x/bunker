@@ -129,7 +129,7 @@ public final class ServerService extends Service {
                     else {state="tools_ready";detail=running?Said.text("launcher.detail.tools_beside_game"):Said.text("launcher.detail.close_tools_to_play");}
                 } catch(Exception|LinkageError error) {
                     tools=false;state="needs_attention";detail=message(error);
-                    android.util.Log.e("LunarTear","Tools startup failed",error);
+                    android.util.Log.e("LunarTear","Tools startup failed",Texts.forLog(error));
                 } finally {
                     busy=false;
                     if(tools)getSystemService(NotificationManager.class).notify(1,notification());else finishForeground();
@@ -208,7 +208,7 @@ public final class ServerService extends Service {
             } catch(Exception|LinkageError error) {
                 running=false;state=cancelled?"cancelled":"needs_attention";
                 detail=message(error);
-                android.util.Log.e("LunarTear","Operation failed",error);
+                android.util.Log.e("LunarTear","Operation failed",Texts.forLog(error));
             } finally {
                 busy=false; permille=-1;
                 if(running) getSystemService(NotificationManager.class).notify(1,notification());
@@ -228,6 +228,8 @@ public final class ServerService extends Service {
         if(!error.isEmpty())throw new IllegalStateException(error);
         closeGame();
     }
+    /** For Pod Programs' Python, which logs what resumeForTools answers: its references in English. */
+    public static String inEnglish(String said){return Texts.inEnglish(said);}
     /** Pod Programs: whether the game and its server are still running beside it. */
     public static boolean gameLive(){return tools&&toolsBesideGame;}
     /** Pod Programs, before a change to the save or the game's data: closes the game. Returns "" or why not. */
@@ -243,7 +245,7 @@ public final class ServerService extends Service {
                 state="tools_ready";detail=Said.text("launcher.detail.close_tools_to_play");
                 return "";
             } catch(Exception|LinkageError error) {
-                android.util.Log.e("LunarTear","Closing the game for Pod Programs failed",error);
+                android.util.Log.e("LunarTear","Closing the game for Pod Programs failed",Texts.forLog(error));
                 return Texts.said(service,message(error));
             }
         }
@@ -268,7 +270,7 @@ public final class ServerService extends Service {
                     String restart=resumeServer(service);
                     if(restart.isEmpty())return Texts.said(service,error);
                     // It cannot reach a server: close it, as resumeForTools does.
-                    android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+restart);
+                    android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+Texts.inEnglish(restart));
                     toolsBesideGame=false;service.closeGame();
                     state="tools_ready";detail=Said.text("launcher.detail.close_tools_to_play");
                     return Texts.t(service,"launcher.error.game_closed","error",Texts.said(service,error));
@@ -279,12 +281,13 @@ public final class ServerService extends Service {
             return "";
         }
     }
-    /** Pod Programs, after a change beside the running game: starts the server and sends the game to its title screen. Returns "" or why not. */
+    /** Pod Programs, after a change beside the running game: starts the server and sends the game to its title screen.
+     *  Returns "" or why not, as a Said reference or Lunar Tear's words: only logged (ServerService.inEnglish). */
     public static String resumeForTools(){return resumeForTools(true);}
     /** As resumeForTools; title false for a change that was refused or changed nothing, so the game keeps its place. */
     public static String resumeForTools(boolean title){
         ServerService service=instance;
-        if(service==null)return Texts.t(null,"launcher.error.service_gone");
+        if(service==null)return Said.text("launcher.error.service_gone");
         synchronized(ServerService.class){
             if(!toolsPaused)return "";
             toolsPaused=false;
@@ -295,10 +298,10 @@ public final class ServerService extends Service {
                 return "";
             }
             // The game cannot reach a server: close it, as before this change could run beside it.
-            android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+error);
+            android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+Texts.inEnglish(error));
             toolsBesideGame=false;service.closeGame();
             state="tools_ready";detail=Said.text("launcher.detail.close_tools_to_play");
-            return Texts.said(service,error);
+            return error;
         }
     }
     private static String resumeServer(ServerService service){

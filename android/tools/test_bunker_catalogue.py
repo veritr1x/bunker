@@ -66,7 +66,7 @@ def java_arguments(text: str, at: int) -> list[str]:
 
 
 def java_strings(text: str):
-    """(line, literal) for each string literal in Java source, comments skipped, escapes kept as written."""
+    """(line, literal, offset) for each string literal in Java source, comments skipped, escapes kept as written."""
     i, line, n = 0, 1, len(text)
     while i < n:
         ch = text[i]
@@ -83,15 +83,15 @@ def java_strings(text: str):
             i = end + 2
             continue
         elif ch == "'":
-            i = text.find("'", i + 2 if text[i + 1] == "\\" else i + 1) + 1
-            if text[i - 2:i] == "\\'":
-                i = text.find("'", i) + 1
+            # a char literal: 'a', '\\'', '\\\\', '\\u0041'; the closing quote comes after the escape
+            j = i + 3 if text[i + 1] == "\\" else i + 2
+            i = text.find("'", j) + 1
             continue
         elif ch == '"':
             j = i + 1
             while text[j] != '"':
                 j += 2 if text[j] == "\\" else 1
-            yield line, text[i + 1:j]
+            yield line, text[i + 1:j], i
             i = j + 1
             continue
         i += 1
@@ -105,14 +105,35 @@ LOGGED = re.compile(r"(Log\.[dewiv]|NativeBridge\.log|Log\.wtf)\(")
 
 def java_english(path: Path) -> list[tuple[int, str]]:
     """Words people read in a launcher Java file: literals with letters that are not code-like, outside log
-    lines, the flavour, and the Java allowlist."""
+    calls, the flavour, and the Java allowlist."""
     text = path.read_text(encoding="utf-8")
-    lines = text.split("\n")
     allowed = ALLOWED | set(ALLOW.get("java", []))
+    # What log calls say stays English: the literals between a Log…( and its closing parenthesis.
+    logged = []
+    for match in LOGGED.finditer(text):
+        depth, i = 0, match.end()
+        quote = None
+        while i < len(text):
+            ch = text[i]
+            if quote:
+                if ch == "\\":
+                    i += 1
+                elif ch == quote:
+                    quote = None
+            elif ch in "\"'":
+                quote = ch
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+            i += 1
+        logged.append((match.end(), i))
     found = []
-    for line, literal in java_strings(text):
+    for line, literal, at in java_strings(text):
         words = re.sub(r"\\[ntr]", " ", literal)  # an escape is not a letter ("\\n> " holds no words)
-        if not has_letter(words) or literal in allowed or LOGGED.search(lines[line - 1]):
+        if not has_letter(words) or literal in allowed or any(start <= at < end for start, end in logged):
             continue
         # A piece of a sentence (" percent") or a word ending one ("Exported.", "Error:") is words, whatever it holds.
         sentence = literal != literal.strip() or re.fullmatch(r"[A-Z][a-z]+[.:!]", words)
@@ -380,9 +401,12 @@ class Catalogue(unittest.TestCase):
                             '  set("READY"); set("Choose the files"); set("Deploy"); set("game.db"); set("lunar_server");\n'
                             '  set("application/zip"); set("launcher.state."+s); Log.e("LunarTear", "Failed to start");\n'
                             '  set("LUNAR TEAR // 127.0.0.1"); set("a \\"quoted\\" word");\n'
-                            '  set(n+" percent"); set("Exported."); set("Error:"); set("v1.2"); } }\n')
+                            '  set(n+" percent"); set("Exported."); set("Error:"); set("v1.2");\n'
+                            '  char b = \'\\\\\'; set("After a backslash");\n'
+                            '  try{f();}catch(Exception e){Log.w("Bunker","Saving failed",e);Toast.makeText(this,"Could not save it",0);} } }\n')
             self.assertEqual([text for _, text in java_english(java)],
-                             ["READY", "Choose the files", "Deploy", 'a \\"quoted\\" word', " percent", "Exported.", "Error:"])
+                             ["READY", "Choose the files", "Deploy", 'a \\"quoted\\" word', " percent", "Exported.", "Error:",
+                              "After a backslash", "Could not save it"])
 
     def test_no_english_in_page_scripts(self):
         left = {str(path.relative_to(ROOT)): script_english(path) for path in CONVERTED}

@@ -79,6 +79,42 @@ class LanguageChange(unittest.TestCase):
                                   r"getSystemService\(NotificationManager\.class\)\.notify\(1,notification\(\)\);")
 
 
+class Sizes(unittest.TestCase):
+    """One way to write a size, everywhere the launcher shows one (the save, imports, updates)."""
+
+    @unittest.skipUnless(__import__("shutil").which("javac"), "needs a JDK")
+    def test_sizes_are_1000_based_with_one_decimal_under_100(self):
+        import json
+        import subprocess
+        import tempfile
+        english = json.loads((ROOT / "translations/bunker/en.json").read_text())
+        puts = "".join(f"en.put({json.dumps(k)}, {json.dumps(v)});" for k, v in english.items() if k.startswith("launcher.size."))
+        main = ("package org.veritr1x.bunker;\npublic class Main { public static void main(String[] a) {\n"
+                "java.util.Map<String, String> en = new java.util.HashMap<>();" + puts + "\n"
+                "BunkerText.Plurals p = new BunkerText.Plurals() { public String category(long n) { return \"other\"; }\n"
+                "  public java.util.Set<String> categories() { return java.util.Collections.singleton(\"other\"); } };\n"
+                "BunkerText t = new BunkerText(en, null, p, n -> n == Math.rint(n) ? String.valueOf((long) n) : String.valueOf(n));\n"
+                "for (long b : new long[]{0, 512, 1400, 999_000, 1_400_000, 99_940_000, 350_000_000, 8_200_000_000L, 120_000_000_000L})"
+                " System.out.println(t.size(b));\n} }\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "Main.java").write_text(main, encoding="utf-8")
+            subprocess.run(["javac", "-encoding", "UTF-8", "-d", tmp, str(JAVA / "BunkerText.java"), str(Path(tmp, "Main.java"))],
+                           check=True, capture_output=True)
+            out = subprocess.run(["java", "-cp", tmp, "org.veritr1x.bunker.Main"], check=True,
+                                 capture_output=True).stdout.decode().split("\n")[:-1]
+        self.assertEqual(out, ["1 KB", "1 KB", "1.4 KB", "999 KB", "1.4 MB", "99.9 MB", "350 MB", "8.2 GB", "120 GB"])
+
+    def test_one_size_helper(self):
+        import json
+        english = json.loads((ROOT / "translations/bunker/en.json").read_text())
+        self.assertEqual(sorted(k for k in english if "size_" in k or k.startswith("launcher.size.")),
+                         ["launcher.size.gb", "launcher.size.kb", "launcher.size.mb"])
+        for name in ("MainActivity.java", "FilesStore.java", "Updater.java"):
+            text = source(name)
+            self.assertNotRegex(text, r"(private|static) String size\(", name)
+            self.assertIn("Texts.size(", text, name)
+
+
 class Messages(unittest.TestCase):
     def test_the_archive_error_is_the_message_in_words(self):
         archive = source("ArchiveActivity.java")
@@ -145,6 +181,48 @@ class SaidLater(unittest.TestCase):
             out = subprocess.run(["java", "-Dstdout.encoding=UTF-8", "-cp", tmp, "org.veritr1x.bunker.Main"], check=True,
                                  capture_output=True).stdout.decode().split("\n")[:-1]
         self.assertEqual(out, ["Ready to play", "Bereit", "3 files left in Köln", "Port 7777 refused", "||broken"])
+
+    @unittest.skipUnless(__import__("shutil").which("javac"), "needs a JDK")
+    def test_logged_failures_read_in_english(self):
+        # An exception carrying a Said reference is logged as English, with its stack trace and cause kept.
+        import subprocess
+        import tempfile
+        main = r'''package org.veritr1x.bunker;
+public class Main { public static void main(String[] a) {
+  java.util.Map<String, String> en = new java.util.HashMap<>(); en.put("x.gone", "Lunar Tear isn't running: {why}");
+  BunkerText.Plurals p = new BunkerText.Plurals() { public String category(long n) { return "other"; }
+    public java.util.Set<String> categories() { return java.util.Collections.singleton("other"); } };
+  BunkerText english = new BunkerText(en, null, p, n -> String.valueOf((long) n));
+  Exception cause = new java.io.IOException("disk");
+  IllegalStateException e = new IllegalStateException(Said.text("x.gone", "why", "port 7777"), cause);
+  Throwable logged = Said.forLog(e, english);
+  System.out.println(logged.getMessage());
+  System.out.println(logged.getCause() == cause);
+  System.out.println(java.util.Arrays.equals(logged.getStackTrace(), e.getStackTrace()));
+  Exception plain = new IllegalStateException("Go said no");
+  System.out.println(Said.forLog(plain, english) == plain);
+} }
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "Main.java").write_text(main, encoding="utf-8")
+            subprocess.run(["javac", "-encoding", "UTF-8", "-d", tmp, str(JAVA / "BunkerText.java"), str(JAVA / "Said.java"),
+                            str(Path(tmp, "Main.java"))], check=True, capture_output=True)
+            out = subprocess.run(["java", "-cp", tmp, "org.veritr1x.bunker.Main"], check=True,
+                                 capture_output=True).stdout.decode().split("\n")[:-1]
+        self.assertEqual(out, ["java.lang.IllegalStateException: Lunar Tear isn't running: port 7777", "true", "true", "true"])
+
+    def test_logs_stay_english(self):
+        service = source("ServerService.java")
+        for what in ("Tools startup failed", "Operation failed", "Closing the game for Pod Programs failed"):
+            self.assertIn(f'android.util.Log.e("LunarTear","{what}",Texts.forLog(error));', service)
+        self.assertEqual(service.count('"Restarting the server beside the game failed: "+Texts.inEnglish('), 2)
+        # resumeForTools' answer is only logged (android_runtime, android_mods): a reference, logged in English
+        resume = service[service.index("public static String resumeForTools(boolean title)"):service.index("private static String resumeServer")]
+        self.assertNotIn("Texts.said(", resume)
+        self.assertNotIn("Texts.t(", resume)
+        self.assertIn("public static String inEnglish(String said)", service)
+        runtime = (ROOT / "android/app/src/main/python/android_runtime.py").read_text()
+        self.assertIn("resume_game = lambda title=True: str(service.inEnglish(service.resumeForTools(bool(title))))", runtime)
 
     def test_the_launcher_shows_the_detail_in_words(self):
         self.assertIn("Said.in(", source("Texts.java"))

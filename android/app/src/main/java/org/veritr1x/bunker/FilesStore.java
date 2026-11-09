@@ -133,7 +133,7 @@ final class FilesStore {
     }
     // "Copying 8.2 GB of 20.9 GB · 39% · about 4 min left", as Said references (shown later, by the launcher).
     static String progressText(Context c, boolean unpacking, long bytes, long totalBytes, double fraction, double secondsLeft) {
-        String done = size(c, bytes), total = size(c, totalBytes);
+        String done = Texts.size(c, bytes), total = Texts.size(c, totalBytes);
         String line = (unpacking ? Said.text("launcher.files.unpacking", "done", done, "total", total)
                                  : Said.text("launcher.files.copying", "done", done, "total", total))
             + " · " + Said.text("launcher.progress.percent", "n", Texts.number(c, (int) (fraction * 100)));
@@ -143,13 +143,6 @@ final class FilesStore {
             : seconds < 3600 ? Said.count("launcher.files.minutes_left", (seconds + 30) / 60)
             : Said.text("launcher.files.hours_left", "hours", Texts.number(c, seconds / 3600), "minutes", Texts.number(c, (seconds % 3600 + 30) / 60));
         return line + " · " + left;
-    }
-    /** A size in the pack's language ("8.2 GB", "350 MB"; 1000-based, as Android's Formatter), not the phone's. */
-    static String size(Context c, long bytes) {
-        boolean gb = bytes >= 1_000_000_000L;
-        double value = bytes / (gb ? 1e9 : 1e6);
-        value = value < 100 ? Math.round(value * 10) / 10.0 : Math.round(value);
-        return gb ? Texts.t(c, "launcher.files.size_gb", "n", Texts.number(c, value)) : Texts.t(c, "launcher.files.size_mb", "n", Texts.number(c, value));
     }
     static List<Doc> children(Context c, Uri tree, String id) throws IOException {
         List<Doc> docs = new ArrayList<>();
@@ -301,7 +294,7 @@ final class FilesStore {
             if (d.directory()) { entries.add(new Entry(null,out,0)); total = scan(c,tree,d.id,out,entries,progress,depth+1,total); }
             else {
                 entries.add(new Entry(DocumentsContract.buildDocumentUriUsingTree(tree,d.id),out,d.size)); total += d.size;
-                if (entries.size() % 500 == 0) progress.update(Said.count("launcher.files.reading", entries.size(), "size", size(c,total)));
+                if (entries.size() % 500 == 0) progress.update(Said.count("launcher.files.reading", entries.size(), "size", Texts.size(c, total)));
             }
         }
         return total;
@@ -343,7 +336,7 @@ final class FilesStore {
             while ((n=in.read(buffer))!=-1) {
                 if (progress.cancelled()) throw new IOException(Said.text("launcher.files.cancelled"));
                 stream.write(buffer,0,n); total+=n;
-                if (total % (8L*1024*1024)<buffer.length) progress.update(label + " · " + size(c, total));
+                if (total % (8L*1024*1024)<buffer.length) progress.update(label + " · " + Texts.size(c, total));
             }
             stream.getFD().sync();
         }

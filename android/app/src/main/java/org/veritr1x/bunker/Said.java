@@ -45,6 +45,17 @@ final class Said {
         return out.toString();
     }
 
+    /** error as it should be logged: logs stay English, so a message holding references becomes those words
+     *  (english: texts without a translation), on a copy keeping the class name, cause and stack trace.
+     *  Any other error is returned as it is. */
+    static Throwable forLog(Throwable error, BunkerText english) {
+        String message = error.getMessage();
+        if (message == null || message.indexOf(START) < 0) return error;
+        RuntimeException copy = new RuntimeException(error.getClass().getName() + ": " + in(english, message), error.getCause());
+        copy.setStackTrace(error.getStackTrace());
+        return copy;
+    }
+
     private static String words(BunkerText words, String reference) {
         List<String> parts = new ArrayList<>();
         int from = 0;

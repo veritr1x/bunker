@@ -96,6 +96,15 @@ final class BunkerText {
 
     String number(double n) { return numbers.write(n); }
 
+    /** A size as the launcher writes every size: 1000-based like Android's own ("8.2 GB", "350 MB", "1 KB"), one
+     *  decimal under 100, at least 1 KB; the unit is the catalogue's (launcher.size.kb/mb/gb). */
+    String size(long bytes) {
+        String unit = bytes >= 1_000_000_000L ? "gb" : bytes >= 1_000_000L ? "mb" : "kb";
+        double value = bytes / (unit.equals("gb") ? 1e9 : unit.equals("mb") ? 1e6 : 1e3);
+        value = Math.max(1, value < 100 ? Math.round(value * 10) / 10.0 : Math.round(value));
+        return t("launcher.size." + unit, "n", numbers.write(value));
+    }
+
     private Map<String, String> translatedForms(String key) {
         String other = english.get(key + ".other");
         if (other == null || translation.isEmpty()) return null;

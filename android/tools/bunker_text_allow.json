@@ -32,7 +32,8 @@
     "pods.story.kind.",
     "pods.story.state.",
     "launcher.state.",
-    "launcher.chip."
+    "launcher.chip.",
+    "launcher.size."
   ],
   "upstream": [
     "Important Items",
