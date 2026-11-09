@@ -12,5 +12,12 @@
   "ui.Outgame.Header.Menu": "菜单",
   "ui.Outgame.Header.Mission": "任务",
   "ui.Outgame.Header.Notice": "公告",
-  "ui.Outgame.Header.Shop": "商店"
+  "ui.Outgame.Header.Shop": "商店",
+  "ui.Outgame.MomMenu.Enhance": "强化",
+  "ui.Outgame.MomMenu.Gacha": "召唤",
+  "ui.Outgame.MomMenu.Library": "资料库",
+  "ui.Outgame.MomMenu.Map": "地图",
+  "ui.Outgame.MomMenu.Menu": "菜单",
+  "ui.Outgame.MomMenu.Organization": "编队",
+  "ui.Outgame.MomMenu.Quest": "关卡"
 }
