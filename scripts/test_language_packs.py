@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import tempfile
 import unittest
@@ -65,7 +67,9 @@ class LanguagePacksTest(unittest.TestCase):
         self.put("languages.json", {"pl": {"name": "Polski", "ship": False}})
         self.put("game/ui/pl.json", {"a": "x"})
         out = Path(self.dir.name) / "pl-pack.json"
-        self.assertEqual(main(["pl", "--translations", str(self.translations), "--out", str(out)]), 0)
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(main(["pl", "--translations", str(self.translations), "--out", str(out)]), 0)
+        self.assertIn("1 game texts", printed.getvalue())
         pack = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual((pack["language"], pack["name"], pack["game"]), ("pl", "Polski", {"a": "x"}))
 
