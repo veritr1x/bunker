@@ -84,7 +84,8 @@ cp -R "$work/out/LunarTear.framework" "$app/Frameworks/"
 codesign -f -s - "$app/Frameworks/LunarTear.framework" >/dev/null 2>&1
 codesign -f -s - "$app" >/dev/null 2>&1
 
-runtime="$(xcrun simctl list runtimes available | awk '/iOS/ {id=$NF} END {print id}')"
+# The newest general iOS runtime; Xcode may also install ones made for one iPhone model (…-iPhone19-4).
+runtime="$(xcrun simctl list runtimes available | awk '/iOS/ && $NF !~ /-iPhone|-iPad/ {id=$NF} END {print id}')"
 device="$(xcrun simctl create "Lunar Tear smoke" "iPhone 17e" "$runtime")"
 cleanup() { xcrun simctl shutdown "$device" >/dev/null 2>&1 || true; xcrun simctl delete "$device" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
