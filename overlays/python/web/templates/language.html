@@ -11,7 +11,7 @@
   <div class="panel">
     <label class="choice"><input type="radio" name="choice" value="en"{% if current == "en" %} checked{% endif %}><span><strong>English</strong><span class="note">The game's own text</span></span></label>
     {% for pack in packs %}
-    <label class="choice"><input type="radio" name="choice" value="{{ pack.source }}:{{ pack.language }}"{% if current == pack.source ~ ":" ~ pack.language %} checked{% endif %}><span><strong>{{ pack.name }}</strong><span class="note">{{ pack.language }}{% if pack.version %} · version {{ pack.version }}{% endif %} · {{ "{:,}".format(pack.texts) }} texts ({{ pack.percent }}%) · {{ pack.source }}</span></span></label>
+    <label class="choice"><input type="radio" name="choice" value="{{ pack.source }}:{{ pack.language }}"{% if current == pack.source ~ ":" ~ pack.language %} checked{% endif %}><span><strong>{{ pack.name }}</strong><span class="note">{{ pack.language }}{% if pack.version %} · version {{ pack.version }}{% endif %} · {{ count(pack.texts, "text") }} ({{ pack.percent }}%) · {{ pack.source }}</span></span></label>
     {% endfor %}
     {% if current == "other" %}<p class="note">The game uses another pack, which is not listed here. Choose one above to replace it.</p>{% endif %}
   </div>
