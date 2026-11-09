@@ -17,6 +17,11 @@ class InfoIcon(unittest.TestCase):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
         return env.from_string('{% from "_info.html" import info %}' + source).render()
 
+    def test_on_its_side_the_card_opens_beside_the_tabs(self):
+        # The card along the bottom started at the screen's left edge, under the 148px tab column.
+        self.assertIn("@media (orientation: landscape) and (max-height: 599px) {\n"
+                      "    details.info > div { left: calc(148px + 12px); right: max(16px, var(--hole-right, 0px)); }", BASE)
+
     def test_landscape_text_is_one_size(self):
         # On a phone on its side, section headings were larger than the page title: headings, labels and
         # choices use the page title's size there. Fields keep 16px (an iPhone zooms in on smaller ones).

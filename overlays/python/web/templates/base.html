@@ -31,6 +31,10 @@
   @media (max-width: 600px), (orientation: landscape) and (max-height: 599px) {
     details.info > div { position: fixed; top: auto; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: 50vh; overflow-y: auto; }
   }
+  /* On its side the tab column (148px) covers the left of the screen: the card opens beside it. */
+  @media (orientation: landscape) and (max-height: 599px) {
+    details.info > div { left: calc(148px + 12px); right: max(16px, var(--hole-right, 0px)); }
+  }
   </style>
 </head>
 <body>
