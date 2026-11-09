@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""The pack's master texts in every game data the game loads, with Mods › Challenges: chosen, they reach the game
+data in use and the calendar's files; English gives back the game data exactly; with challenges, each is applied
+once and turning either off rebuilds from the untouched copy. Uses the real master data; skipped without it."""
+from pathlib import Path
+import json
+import shutil
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(root / "android/app/src/main/python"))
+import android_calendar as cal  # noqa: E402
+import android_challenges as ch  # noqa: E402
+import android_mods  # noqa: E402
+import android_patcher as patcher  # noqa: E402
+import android_runtime  # noqa: E402
+from web import config  # noqa: E402
+
+ORIGINAL = root / "inputs/20240404193219.bin.e"
+PACK = {"format": 1, "language": "de", "name": "Deutsch", "version": "1", "game": {},
+        "master": {"m_dokan_text.100": "⟦Dimos⟧", "m_navi_cut_in_text.1": 7},
+        "bunker": {"pods.gift.sender_in_game": "Von Bunker, mit Liebe."}}
+
+
+class Live(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not ORIGINAL.is_file():
+            raise unittest.SkipTest("needs inputs/20240404193219.bin.e")
+        toc, blob = cal.read_master(ORIGINAL)
+        linear = ch.linear_enemy_costumes(toc, blob, {})
+        cls.probe = next(i for i, r in enumerate(ch.records(toc, blob, {}, "m_battle_npc_costume")) if r["CostumeId"] in linear and r["Level"] > 0)
+        cls.level = ch.records(toc, blob, {}, "m_battle_npc_costume")[cls.probe]["Level"]
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir)
+        self.master = self.dir / "assets" / "release" / "20240404193219.bin.e"
+        self.master.parent.mkdir(parents=True)
+        shutil.copyfile(ORIGINAL, self.master)
+        (self.dir / "data").mkdir()
+        (self.dir / "save").mkdir()
+        for obj, name, value in ((config, "DATA_DIR", self.dir / "data"), (config, "GAME_DB_PATH", self.dir / "save" / "game.db"),
+                                 (config, "ASSETS_DIR", self.dir / "assets"), (config, "RELEASE_DIR", self.master.parent),
+                                 (config, "find_master_data_bin", lambda: self.master),
+                                 (android_runtime, "prepare_data", lambda: None), (patcher, "validate_master", lambda path: None)):
+            p = mock.patch.object(obj, name, value, create=True)
+            p.start()
+            self.addCleanup(p.stop)
+        self.active = self.dir / "translation" / "active.json"
+
+    def choose(self, pack):
+        if pack is None:
+            self.active.unlink(missing_ok=True)
+        else:
+            self.active.parent.mkdir(exist_ok=True)
+            self.active.write_text(json.dumps(pack, ensure_ascii=False))
+
+    def dokan(self, path=None):
+        toc, blob = cal.read_master(path or self.master)
+        return {r["LanguageType"]: r["Text"] for r in ch.records(toc, blob, {}, "m_dokan_text") if r["DokanTextId"] == 100}
+
+    def level_now(self, path=None):
+        toc, blob = cal.read_master(path or self.master)
+        return ch.records(toc, blob, {}, "m_battle_npc_costume")[self.probe]["Level"]
+
+    def activate_copy_of(self, source, label="Test"):
+        candidate = patcher.folder() / "candidate.bin.e"
+        shutil.copyfile(source, candidate)
+        patcher.activate(candidate, label)
+
+    def test_a_chosen_pack_reaches_the_game_data_once(self):
+        english = self.dokan()
+        self.choose(PACK)
+        self.assertTrue(ch.reapply_texts())
+        self.assertEqual(self.dokan()[2], "⟦Dimos⟧")
+        self.assertEqual(self.dokan()[1], english[1])
+        self.assertFalse(ch.reapply_texts())  # nothing changed since
+        self.assertEqual(ch.unchallenged_master().read_bytes(), ORIGINAL.read_bytes())
+
+    def test_english_gives_back_the_game_data_exactly(self):
+        self.choose(PACK)
+        ch.reapply_texts()
+        self.choose(None)
+        self.assertTrue(ch.reapply_texts())
+        self.assertEqual(self.master.read_bytes(), ORIGINAL.read_bytes())
+        self.assertFalse(list(patcher.folder().glob("unchallenged-*")))
+
+    def test_with_challenges_each_off_rebuilds_from_the_untouched_copy(self):
+        android_mods.write_settings({"hardEnemies": 2})
+        self.activate_copy_of(ORIGINAL)
+        self.choose(PACK)
+        ch.reapply_texts()
+        self.assertEqual((self.level_now(), self.dokan()[2]), (self.level * 2, "⟦Dimos⟧"))
+        android_mods.write_settings({})
+        ch.reapply()
+        self.assertEqual((self.level_now(), self.dokan()[2]), (self.level, "⟦Dimos⟧"))
+        android_mods.write_settings({"hardEnemies": 2})
+        ch.reapply()
+        self.choose(None)
+        ch.reapply_texts()
+        self.assertEqual(self.level_now(), self.level * 2)
+        self.assertNotEqual(self.dokan()[2], "⟦Dimos⟧")
+        android_mods.write_settings({})
+        ch.reapply()
+        self.assertEqual(self.master.read_bytes(), ORIGINAL.read_bytes())
+
+    def test_presets_restores_and_calendar_files_keep_the_texts(self):
+        self.choose(PACK)
+        self.activate_copy_of(ORIGINAL, "Restored snapshot")
+        self.assertEqual(self.dokan()[2], "⟦Dimos⟧")
+        for snapshot in patcher.master_history():  # snapshots hold the game data without the layer
+            self.assertNotEqual(self.dokan(snapshot)[2], "⟦Dimos⟧")
+        nxt = self.master.parent / cal.NEXT_NAME
+        shutil.copyfile(ORIGINAL, nxt)
+        ch.finish(nxt)
+        self.assertEqual(self.dokan(nxt)[2], "⟦Dimos⟧")
+
+    def test_the_bunker_gift_follows_the_pack(self):
+        import android_gift
+        self.choose(PACK)
+        android_gift._add_gift_text_to_game()
+        toc, blob = cal.read_master(self.master)
+        gift = {r["LanguageType"]: r["Text"] for r in ch.records(toc, blob, {}, "m_gift_text") if r["GiftTextId"] == android_gift.GIFT_TEXT_ID}
+        self.assertEqual((gift[2], gift[1]), ("Von Bunker, mit Liebe.", "From Bunker, with love."))
+
+    def test_no_game_data_yet_nothing_to_rebuild(self):
+        self.master.unlink()
+        self.choose(PACK)
+        self.assertFalse(ch.reapply_texts())
+        self.assertFalse(self.master.exists())
+
+    def test_a_pack_too_large_or_broken_changes_nothing(self):
+        self.active.parent.mkdir(exist_ok=True)
+        self.active.write_bytes(b"{not json")
+        self.assertFalse(ch.reapply_texts())
+        self.assertEqual(self.master.read_bytes(), ORIGINAL.read_bytes())
+
+
+class Wiring(unittest.TestCase):
+    def test_every_change_of_language_rebuilds_the_texts(self):
+        language = (root / "android/app/src/main/python/android_language.py").read_text()
+        self.assertGreaterEqual(language.count("challenges.reapply_texts()"), 2)  # choose, remove the one in use
+        for runtime in ("android/app/src/main/python/android_runtime.py", "ios/python/ios_runtime.py"):
+            text = (root / runtime).read_text()
+            self.assertRegex(text, r"refresh_language\(\)\n(?:.*\n){0,3}.*reapply_texts\(\)", runtime)
+        self.assertNotIn('"/language"', (root / "android/app/src/main/python/android_runtime.py").read_text().split("LIVE_SAFE")[1].split(")")[0])
+
+
+if __name__ == "__main__":
+    unittest.main()

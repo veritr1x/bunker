@@ -268,21 +268,42 @@ def active(settings):
     return settings.get("hardEnemies", 1) not in (0, 1) or bool(settings.get("weaknessOnly")) or bool(settings.get("slowSkills"))
 
 
-def transform(source, output, settings):
-    """Writes source's game data with the challenges in settings to output.
-    False, writing nothing, when no challenge is on."""
-    if not active(settings):
+def transform(source, output, settings, words=None):
+    """Writes source's game data with the challenges in settings and the language pack's texts (words: from the
+    active pack when None; android_master_text) to output. False, writing nothing, when neither applies."""
+    words = _words() if words is None else words
+    if not active(settings) and not words:
         return False
     import android_calendar as cal
+    import android_master_text
     toc, blob = cal.read_master(source)
     changed = {}
-    hard_enemies(toc, blob, changed, settings.get("hardEnemies", 1))
-    if settings.get("weaknessOnly"):
-        weakness_only(toc, blob, changed)
-    if settings.get("slowSkills"):
-        slow_skills(toc, blob, changed)
+    if active(settings):
+        hard_enemies(toc, blob, changed, settings.get("hardEnemies", 1))
+        if settings.get("weaknessOnly"):
+            weakness_only(toc, blob, changed)
+        if settings.get("slowSkills"):
+            slow_skills(toc, blob, changed)
+    android_master_text.apply(toc, blob, changed, words)
     cal.write_master(toc, blob, changed, Path(output))
     return True
+
+
+def _words():
+    """The active language pack's texts for the game data (android_master_text.texts); none without a pack, or
+    with one too large or unreadable."""
+    import json
+    import android_master_text
+    import bunker_language
+    from web import config
+    try:
+        path = bunker_language.for_config(config).active_path
+        if not path.is_file() or path.stat().st_size > bunker_language.MAX_PACK_BYTES:
+            return {}
+        pack = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return android_master_text.texts(pack)
 
 
 # --- Every game data the game loads -----------------------------------------
@@ -306,7 +327,8 @@ def _state_file():
 
 
 CHALLENGES = ("hardEnemies", "weaknessOnly", "slowSkills")
-NONE_APPLIED = {"hardEnemies": 1, "weaknessOnly": False, "slowSkills": False}
+# "texts": which language pack's texts are in the game data (android_master_text.fingerprint; "" for none)
+NONE_APPLIED = {"hardEnemies": 1, "weaknessOnly": False, "slowSkills": False, "texts": ""}
 
 
 def _state():
@@ -334,7 +356,9 @@ def applied_challenges():
 
 
 def wanted(settings):
-    return {k: settings.get(k, NONE_APPLIED[k]) for k in CHALLENGES}
+    """What the game data should hold: the challenges in settings and the active language pack's texts."""
+    import android_master_text
+    return {**{k: settings.get(k, NONE_APPLIED[k]) for k in CHALLENGES}, "texts": android_master_text.fingerprint(_words())}
 
 
 def _settings():
@@ -387,12 +411,13 @@ def finish(path, settings=None):
     if source:
         shutil.copyfile(source, path)
     settings = _settings() if settings is None else settings
-    if active(settings):
+    words = _words()
+    if active(settings) or words:  # the challenges, the language pack's texts, or both
         sha = runtime.fingerprint(path)
         keep = _folder() / f"unchallenged-{sha[:16]}.bin.e"
         shutil.copyfile(path, keep)
         pending = path.with_name(path.name + ".challenged")
-        transform(keep, pending, settings)
+        transform(keep, pending, settings, words)
         os.replace(pending, path)
         copies[runtime.fingerprint(path)] = keep
     _save_copies(copies)
@@ -403,6 +428,19 @@ def on_activate(candidate):
     settings = _settings()
     finish(candidate, settings)
     _save_copies(_copies(), wanted(settings))
+
+
+def reapply_texts():
+    """After the active language pack changed (Pod Programs › Language, a revised shipped pack): the game data
+    built again with its texts, when they differ from those in it. True when it did."""
+    from web import config
+    master = config.find_master_data_bin()
+    if not master or not master.is_file():
+        return False  # no game data yet: its texts come with it (android_patcher.activate)
+    if wanted(_settings())["texts"] == applied_challenges()["texts"]:
+        return False
+    reapply()
+    return True
 
 
 def after_activate():
