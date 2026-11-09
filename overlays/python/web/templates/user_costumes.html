@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Costume Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block title %}{{ t("pods.costumes.page_title", id=user_id) }}{% endblock %}
 
 {% macro costume_row(item) %}
 <form data-grant data-id="{{ item.id }}"
@@ -13,24 +13,24 @@
   <span class="grant-id">{{ item.character_name }}</span>
   <span class="grant-current" data-current>
     {% if item.owned %}
-      <span class="status-pill online">OWNED</span>
+      <span class="status-pill online">{{ t("pods.player.owned") }}</span>
     {% else %}
-      <span class="status-pill offline">MISSING</span>
+      <span class="status-pill offline">{{ t("pods.player.missing") }}</span>
     {% endif %}
   </span>
   <label class="row-checkbox">
     <input type="checkbox" data-amount data-fixed-count="1" {% if item.owned %}disabled{% endif %}>
-    <span>add</span>
+    <span>{{ t("pods.player.add") }}</span>
   </label>
-  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>GRANT</button>
+  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>{{ t("pods.player.grant") }}</button>
   {% if item.rarity == 40 %}
   <div class="karma-row" data-karma-row data-costume-id="{{ item.id }}" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px;padding-top:4px;border-top:1px dashed var(--fg-mid)">
     {% for slot in [1, 2, 3] %}
     <select data-karma-select data-costume-id="{{ item.id }}" data-karma-slot="{{ slot }}"
             disabled
-            title="Slot {{ slot }} (locked or no costume)"
+            title="{{ t("pods.costumes.slot_title", slot=slot) }}"
             style="flex:1 1 280px;min-width:min(240px,100%)">
-      <option value="">SLOT {{ slot }}: --</option>
+      <option value="">{{ t("pods.costumes.slot_empty", slot=slot) }}</option>
     </select>
     {% endfor %}
   </div>
@@ -40,16 +40,17 @@
 
 {% block content %}
 <p style="margin-top:0" data-side>
-  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+  <a href="/users/{{ user_id }}">&larr; {{ t("pods.player.back", id=user_id) }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Costume Editor{{ info("Add costumes and choose karma effects. Story-starter costumes are earned through play. Each change is backed up first.") }}</h1>
+<h1 class="bracket-header" data-side>{{ t("pods.costumes.heading") }}{{ info(t("pods.costumes.heading_info")) }}</h1>
 <div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
     if (!r.count) return;
-    box.querySelector("a").textContent = `> ${r.count} gift${r.count === 1 ? " is" : "s are"} waiting in the Gift Box`;
+    const text = r.count === 1 ? {{ t("pods.player.gifts_waiting.one", n="{n}")|tojson }} : {{ t("pods.player.gifts_waiting.other", n="{n}")|tojson }};
+    box.querySelector("a").textContent = "> " + text.replace("{n}", r.count);
     box.hidden = false;
   }).catch(() => {});
 </script>
@@ -58,23 +59,28 @@
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
 <div class="search-row" data-side>
-  <label for="search-costumes" class="search-label">FILTER</label>
+  <label for="search-costumes" class="search-label">{{ t("pods.player.filter") }}</label>
   <input type="text" id="search-costumes" class="costume-search"
-         placeholder="Name or ID">
-  <span class="tab-stats">{{ total_owned }}/{{ total_count }} owned</span>
-  <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">GRANT ALL CHOSEN</button>
+         placeholder="{{ t("pods.player.filter_placeholder") }}">
+  <span class="tab-stats">{{ t("pods.player.owned_count", owned=total_owned, total=total_count) }}</span>
+  <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">{{ t("pods.player.grant_chosen") }}</button>
   <button type="button" class="grant-chosen-btn" id="update-karma-btn"
           {% if unlocked_karma_costume_count == 0 %}disabled{% endif %}>
-    UPDATE ALL KARMA EFFECTS ({{ unlocked_karma_costume_count }})
+    {{ t("pods.costumes.update_karma", n=unlocked_karma_costume_count) }}
   </button>
   <button type="button" class="max-all-btn" id="grant-missing-btn"
           {% if missing_count == 0 %}disabled{% endif %}>
-    GRANT ALL MISSING ({{ missing_count }})
+    {{ t("pods.player.grant_missing", n=missing_count) }}
   </button>
 </div>
 
+{#- The services name each group in English; these are their names in the catalogue. -#}
+{% set GROUPS = {"recollections": t("pods.player.group_recollections"), "dark_memory": t("pods.player.group_dark_memory"),
+                 "subjugation": t("pods.player.group_subjugation"), "other_r40": t("pods.player.group_other_r40"),
+                 "r30": t("pods.player.group_r30")} %}
 {% for group in groups %}
-<h2 class="bracket-header costume-group-header" data-toc="{{ group.label }}">{{ group.label }}
+{% set label = GROUPS.get(group.key, group.label) %}
+<h2 class="bracket-header costume-group-header" data-toc="{{ label }}">{{ label }}
   <span class="group-stats">{{ group.owned_count }}/{{ group.total_count }}</span>
 </h2>
 <div class="panel grant-list costume-list" data-group="{{ group.key }}">
@@ -87,6 +93,23 @@
 <script>
 (function() {
   const userId = {{ user_id }};
+  const MSG = {{ {
+    "owned": t("pods.player.owned"), "working": t("pods.player.working"),
+    "grant_failed": t("pods.player.grant_failed"), "batch_failed": t("pods.player.batch_failed"),
+    "failed": t("pods.player.failed"), "nothing_chosen": t("pods.player.nothing_chosen"),
+    "network_error": t("pods.player.network_error", error="{error}"),
+    "no_options": t("pods.costumes.slot_no_options", slot="{slot}"), "locked": t("pods.costumes.slot_locked", slot="{slot}"),
+    "unrolled": t("pods.costumes.slot_unrolled", slot="{slot}"), "keep": t("pods.costumes.slot_keep", slot="{slot}"),
+    "unknown": t("pods.costumes.slot_unknown", slot="{slot}", roll="{roll}"),
+    "not_owned_title": t("pods.costumes.not_owned_title"), "locked_title": t("pods.costumes.locked_title"),
+    "slot_title": t("pods.costumes.slot_replace_title", slot="{slot}"),
+    "granted_one": t("pods.costumes.granted_one", id="{id}"), "granted": t("pods.costumes.granted", n="{n}"),
+    "no_karma": t("pods.costumes.no_karma_changes"), "karma_confirm": t("pods.costumes.karma_confirm", n="{n}"),
+    "karma_failed": t("pods.costumes.karma_failed"), "karma_done": t("pods.costumes.karma_done", n="{n}"),
+    "missing_confirm": t("pods.costumes.missing_confirm"), "missing_done": t("pods.costumes.missing_done", n="{n}"),
+  }|tojson }};
+  const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
+  const esc = text => text.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
 
   // Karma data: pools shared by group_id, costume->slot->group_id, current
   // user state. Selects are populated lazily on page load to avoid emitting
@@ -103,7 +126,7 @@
       const groupId = groups ? groups[slot] : undefined;
       const pool = groupId !== undefined ? KARMA_POOLS[groupId] : undefined;
       if (!pool || pool.length === 0) {
-        sel.innerHTML = `<option value="">SLOT ${slot}: (no options)</option>`;
+        sel.innerHTML = `<option value="">${esc(fmt(MSG.no_options, {slot}))}</option>`;
         sel.disabled = true;
         return;
       }
@@ -121,11 +144,11 @@
       // Placeholder value="" — the submit handler skips rows whose value
       // equals their baseline, so leaving this selected is a no-op.
       // A slot with no roll at all is locked: the costume is missing or not yet upgraded.
-      const placeholderLabel = !slotUnlocked
-        ? `SLOT ${slot}: locked`
+      const placeholderLabel = esc(!slotUnlocked
+        ? fmt(MSG.locked, {slot})
         : currentOdds === 0
-        ? `SLOT ${slot}: (unrolled — pick to set)`
-        : (selectedValue ? `SLOT ${slot}: keep current` : `SLOT ${slot}: (unknown roll #${currentOdds})`);
+        ? fmt(MSG.unrolled, {slot})
+        : (selectedValue ? fmt(MSG.keep, {slot}) : fmt(MSG.unknown, {slot, roll: currentOdds})));
       const opts = [
         `<option value=""${selectedValue ? "" : " selected"}>${placeholderLabel}</option>`,
       ];
@@ -145,11 +168,11 @@
       const owned = form && form.classList.contains("owned");
       sel.disabled = !slotUnlocked || !owned;
       if (!owned) {
-        sel.title = "Own the costume and run Upgrade All Costumes to unlock.";
+        sel.title = MSG.not_owned_title;
       } else if (!slotUnlocked) {
-        sel.title = "Locked: run Upgrade All Costumes in the Upgrade Manager first.";
+        sel.title = MSG.locked_title;
       } else {
-        sel.title = `Slot ${slot}: the effect replaces the current roll when you update.`;
+        sel.title = fmt(MSG.slot_title, {slot});
       }
       // Tag baseline so the submit handler can skip rows the user did not
       // change.
@@ -183,7 +206,10 @@
   function markGranted(form) {
     if (!form) return;
     const display = form.querySelector("[data-current]");
-    if (display) display.innerHTML = '<span class="status-pill online">OWNED</span>';
+    if (display) {
+      display.innerHTML = '<span class="status-pill online"></span>';
+      display.firstChild.textContent = MSG.owned;
+    }
     form.querySelectorAll("[data-amount], button[type=submit]").forEach(el => el.disabled = true);
     form.classList.add("grant-success", "owned");
   }
@@ -218,13 +244,13 @@
       });
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Grant failed.", "error");
+        showBanner(json.error || MSG.grant_failed, "error");
         return;
       }
       const n = applyResults(json.results);
-      showBanner(`Granted costume #${costumeId}.`, "success");
+      showBanner(fmt(MSG.granted_one, {id: costumeId}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       form.dataset.busy = "0";
     }
@@ -241,7 +267,7 @@
       ids.push(parseInt(form.dataset.id, 10));
     });
     if (ids.length === 0) {
-      showBanner("Nothing chosen.", "error");
+      showBanner(MSG.nothing_chosen, "error");
       return;
     }
 
@@ -255,13 +281,13 @@
       });
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Batch grant failed.", "error");
+        showBanner(json.error || MSG.batch_failed, "error");
         return;
       }
       const n = applyResults(json.results);
-      showBanner(`Granted ${n} costume(s).`, "success");
+      showBanner(fmt(MSG.granted, {n}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       btn.dataset.busy = "0";
       btn.disabled = false;
@@ -292,15 +318,15 @@
       karma,
     }));
     if (costumes.length === 0) {
-      showBanner("No karma changes to apply.", "error");
+      showBanner(MSG.no_karma, "error");
       return;
     }
-    if (!confirm(`Update karma effects on ${costumes.length} costume(s)? A backup is taken first.`)) return;
+    if (!confirm(fmt(MSG.karma_confirm, {n: costumes.length}))) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;
     const original = btn.textContent;
-    btn.textContent = "WORKING...";
+    btn.textContent = MSG.working;
     try {
       const res = await fetch(`/users/${userId}/edit/costumes/update_karma_batch`, {
         method: "POST",
@@ -309,19 +335,16 @@
       });
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Karma update failed.", "error");
+        showBanner(json.error || MSG.karma_failed, "error");
         return;
       }
       // Re-baseline so subsequent edits ride off the new state.
       document.querySelectorAll("select[data-karma-select]").forEach(sel => {
         sel.dataset.baseline = sel.value || "";
       });
-      showBanner(
-        `Updated karma on ${json.applied} costume(s).`,
-        "success"
-      );
+      showBanner(fmt(MSG.karma_done, {n: json.applied}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       btn.dataset.busy = "0";
       btn.disabled = false;
@@ -333,23 +356,23 @@
   document.getElementById("grant-missing-btn").addEventListener("click", async () => {
     const btn = document.getElementById("grant-missing-btn");
     if (btn.dataset.busy === "1") return;
-    if (!confirm("Grant every ★3 and ★4 costume you don't own? This unlocks dozens of characters.")) return;
+    if (!confirm(MSG.missing_confirm)) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;
     const original = btn.textContent;
-    btn.textContent = "WORKING...";
+    btn.textContent = MSG.working;
     try {
       const res = await fetch(`/users/${userId}/edit/costumes/grant_all_missing`, {method: "POST"});
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Operation failed.", "error");
+        showBanner(json.error || MSG.failed, "error");
         return;
       }
       const n = applyResults(json.results);
-      showBanner(`Granted ${n} missing costume(s).`, "success");
+      showBanner(fmt(MSG.missing_done, {n}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       btn.dataset.busy = "0";
       btn.disabled = false;

@@ -255,8 +255,13 @@ class Page(Sending):
     def test_nav_and_editors_link_to_gift(self):
         templates = root / "overlays/python/web/templates"
         self.assertIn('href="/gift"', (templates / "base.html").read_text())
-        # and the Programs page's grid, which needs a save like the editors
-        self.assertIn('program("/gift", "Gift", "Send yourself anything")', (templates / "index.html").read_text())
+        # and the Programs page's grid, which needs a save like the editors (as the player sees it, in English)
+        import jinja2
+        import bunker_text
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(templates)), autoescape=True)
+        bunker_text.install(env)
+        home = env.get_template("index.html").render(game_db_exists=True, active="home", message="", error="")
+        self.assertRegex(home, r'<a href="/gift">Gift <span>Send yourself anything')
         for name in ("user_items.html", "user_costumes.html", "user_weapons.html"):
             self.assertIn("/gift/waiting-count", (templates / name).read_text(), name)
 

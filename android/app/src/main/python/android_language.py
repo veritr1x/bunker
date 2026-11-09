@@ -20,9 +20,9 @@ from web import config
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 import bunker_text  # noqa: E402
+from bunker_text import t, t_count  # noqa: E402
 bunker_text.install(templates)  # Bunker's own text, in the chosen language
 SHIPPED = SHIPPED_DIR
-UNSUPPORTED = "Language packs need the global game files: these have no English text."
 
 
 def languages() -> Languages:
@@ -35,12 +35,9 @@ def supported() -> bool:
     return any((revision / tree / "assetbundle" / "text" / "en").is_dir() for tree in ("", "android", "ios"))
 
 
-def count(n: int, word: str) -> str:
-    """"1 text", "2 texts"."""
-    return f"{n:,} {word}" + ("" if n == 1 else "s")
-
-
-WAITING = "Saved. It applies the next time Lunar Tear starts."
+def texts(n: int) -> str:
+    """"1 text", "2,345 texts", in the chosen language."""
+    return t_count("pods.language.texts", n, count=f"{n:,}")
 
 
 def describes(status: dict, current: str, packs) -> bool:
@@ -58,19 +55,23 @@ def describes(status: dict, current: str, packs) -> bool:
 
 def status_line(status: dict, current: str = "", packs=()) -> str:
     if not describes(status, current, packs):
-        return WAITING
+        return t("pods.language.waiting")
     name = status.get("name") or status.get("language")
     state = status.get("state")
     if state == "building":
-        return f"Building {name}…"
+        return t("pods.language.building", name=name)
     if state == "ready":
         kept = len(status.get("skipped") or [])
-        line = f"Ready: {name}, {count(status.get('bundles', 0), 'text file')} translated"
-        return line + (f", {kept:,} kept in English." if kept else ".")
+        bundles = status.get("bundles", 0)
+        files = t_count("pods.language.text_files", bundles, count=f"{bundles:,}")
+        if kept:
+            return t("pods.language.ready_kept", name=name, files=files, kept=f"{kept:,}")
+        return t("pods.language.ready", name=name, files=files)
+    error = status["error"] if "error" in status else t("pods.language.unknown_error")
     if state == "failed" and not name:
-        return f"The chosen pack could not be read: {status.get('error', 'unknown error')}."
+        return t("pods.language.unreadable", error=error)
     if state == "failed":
-        return f"{name} could not be applied: {status.get('error', 'unknown error')}."
+        return t("pods.language.not_applied", name=name, error=error)
     return ""
 
 
@@ -84,7 +85,7 @@ def view(request: Request, message: str = "", error: str = ""):
     return templates.TemplateResponse(request, "language.html", {
         "active": "language", "packs": packs, "current": current, "status": status,
         "status_line": status_line(status, current, packs),
-        "status_state": status.get("state") if describes(status, current, packs) else "waiting", "supported": supported(), "count": count,
+        "status_state": status.get("state") if describes(status, current, packs) else "waiting", "supported": supported(), "texts": texts,
         "message": message, "error": error})
 
 
@@ -97,21 +98,21 @@ def unchanged(response):
 @router.post("/language")
 def choose(choice: str = Form("")):
     if not choice:
-        return unchanged(redirect(error="Choose a language first."))
+        return unchanged(redirect(error=t("pods.language.choose_first")))
     if choice != "en" and not supported():  # English stays possible, to clear a pack left from other game files
-        return redirect(error=UNSUPPORTED)
+        return redirect(error=t("pods.language.unsupported"))
     langs = languages()
     if choice == langs.active():
-        return unchanged(redirect(message="That language is already in use."))
+        return unchanged(redirect(message=t("pods.language.in_use")))
     try:
         langs.choose(choice)
     except PackError as exc:
         return redirect(error=str(exc))
-    import bunker_text
     bunker_text.reload()  # Bunker's own pages follow the choice at once
     import android_runtime
-    what = "English" if choice == "en" else "The pack is set"
-    return redirect(message=f"{what}. {android_runtime.next_step()}")
+    if choice == "en":
+        return redirect(message=t("pods.language.chose_english", next=android_runtime.next_step()))
+    return redirect(message=t("pods.language.pack_set", next=android_runtime.next_step()))
 
 
 @router.post("/language/load")
@@ -121,7 +122,7 @@ def load(pack: UploadFile = File(...)):
         info = languages().load(data)
     except PackError as exc:
         return redirect(error=str(exc))
-    return redirect(message=f"Loaded {info.name} ({count(info.texts, 'text')}). Choose it below to use it.")
+    return redirect(message=t("pods.language.loaded", name=info.name, texts=texts(info.texts)))
 
 
 @router.post("/language/remove")
@@ -133,11 +134,10 @@ def remove(language: str = Form(...)):
     except PackError as exc:
         return redirect(error=str(exc))
     if in_use:
-        import bunker_text
         bunker_text.reload()
         import android_runtime
-        return redirect(message=f"Removed the {language} pack; back to English. {android_runtime.next_step()}")
-    return unchanged(redirect(message=f"Removed the {language} pack."))
+        return redirect(message=t("pods.language.removed_in_use", language=language, next=android_runtime.next_step()))
+    return unchanged(redirect(message=t("pods.language.removed", language=language)))
 
 
 def redirect(**kwargs):

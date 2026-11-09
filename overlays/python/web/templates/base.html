@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <title>{% block title %}Pod Programs{% endblock %}</title>
+  <title>{% block title %}{{ t("pods.menu.title") }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/automata.css">
   <style>
   /* _info.html: an explanation behind a small round "i" beside what it explains. */
@@ -41,28 +41,28 @@
 <body>
   <nav class="primary">
     {#- A phone on its side: the app's own bar is gone, so the title and Close sit at the top of the tabs. #}
-    <div class="shell-head"><b>Pod Programs</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
-    <a href="/" {% if active == "home" %}class="active"{% endif %}>Programs</a>
-    <a href="/patcher" {% if active == "patcher" %}class="active"{% endif %}>Content</a>
-    <a href="/users" {% if active == "users" %}class="active"{% endif %}>Players</a>
-    <a href="/backups" {% if active == "backups" %}class="active"{% endif %}>Save Data</a>
-    <a href="/display" {% if active == "display" %}class="active"{% endif %}>Display</a>
-    <a href="/language" {% if active == "language" %}class="active"{% endif %}>Language</a>
-    <a href="/gacha" {% if active == "gacha" %}class="active"{% endif %}>Summon Rates</a>
-    <a href="/mods" {% if active == "mods" %}class="active"{% endif %}>Mods</a>
-    <a href="/gift" {% if active == "gift" %}class="active"{% endif %}>Gift</a>
-    <a href="/decks" {% if active == "decks" %}class="active"{% endif %}>Deck Builder</a>
-    <a href="/items" {% if active == "items" %}class="active"{% endif %}>Item Editor</a>
-    <a href="/costumes" {% if active == "costumes" %}class="active"{% endif %}>Costume Editor</a>
-    <a href="/weapons" {% if active == "weapons" %}class="active"{% endif %}>Weapon Editor</a>
-    <a href="/upgrades" {% if active == "upgrades" %}class="active"{% endif %}>Upgrade Manager</a>
-    <a href="/memoirs" {% if active == "memoirs" %}class="active"{% endif %}>Memoir Editor</a>
-    <a href="/story" {% if active == "story" %}class="active"{% endif %}>Story Jump</a>
+    <div class="shell-head"><b>{{ t("pods.menu.title") }}</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
+    <a href="/" {% if active == "home" %}class="active"{% endif %}>{{ t("pods.menu.programs") }}</a>
+    <a href="/patcher" {% if active == "patcher" %}class="active"{% endif %}>{{ t("pods.menu.content") }}</a>
+    <a href="/users" {% if active == "users" %}class="active"{% endif %}>{{ t("pods.menu.players") }}</a>
+    <a href="/backups" {% if active == "backups" %}class="active"{% endif %}>{{ t("pods.menu.save_data") }}</a>
+    <a href="/display" {% if active == "display" %}class="active"{% endif %}>{{ t("pods.menu.display") }}</a>
+    <a href="/language" {% if active == "language" %}class="active"{% endif %}>{{ t("pods.menu.language") }}</a>
+    <a href="/gacha" {% if active == "gacha" %}class="active"{% endif %}>{{ t("pods.menu.summon_rates") }}</a>
+    <a href="/mods" {% if active == "mods" %}class="active"{% endif %}>{{ t("pods.menu.mods") }}</a>
+    <a href="/gift" {% if active == "gift" %}class="active"{% endif %}>{{ t("pods.menu.gift") }}</a>
+    <a href="/decks" {% if active == "decks" %}class="active"{% endif %}>{{ t("pods.menu.deck_builder") }}</a>
+    <a href="/items" {% if active == "items" %}class="active"{% endif %}>{{ t("pods.menu.item_editor") }}</a>
+    <a href="/costumes" {% if active == "costumes" %}class="active"{% endif %}>{{ t("pods.menu.costume_editor") }}</a>
+    <a href="/weapons" {% if active == "weapons" %}class="active"{% endif %}>{{ t("pods.menu.weapon_editor") }}</a>
+    <a href="/upgrades" {% if active == "upgrades" %}class="active"{% endif %}>{{ t("pods.menu.upgrade_manager") }}</a>
+    <a href="/memoirs" {% if active == "memoirs" %}class="active"{% endif %}>{{ t("pods.menu.memoir_editor") }}</a>
+    <a href="/story" {% if active == "story" %}class="active"{% endif %}>{{ t("pods.menu.story_jump") }}</a>
   </nav>
   <main>
-    <div id="bunker-live" class="banner" hidden><span class="live-long">&gt; The game is running: a change sends it back to its title screen.</span><span class="live-short"><b>●</b> Game running</span>{% call info() %}A change sends the game back to its title screen. Turning the calendar off, switching "Show original dates" or starting a new day closes it.{% endcall %}</div>
+    <div id="bunker-live" class="banner" hidden><span class="live-long">&gt; {{ t("pods.menu.live") }}</span><span class="live-short"><b>●</b> {{ t("pods.menu.live_short") }}</span>{{ info(t("pods.menu.live_info")) }}</div>
     {% if message %}<div class="banner success">&gt; {{ message }}</div>{% endif %}
-    {% if error %}<div class="banner error">&gt; ERROR :: {{ error }}</div>{% endif %}
+    {% if error %}<div class="banner error">&gt; {{ t("pods.menu.error", error=error) }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
   <script>

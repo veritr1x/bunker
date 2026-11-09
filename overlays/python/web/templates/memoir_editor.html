@@ -1,41 +1,41 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Memoir Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block title %}{{ t("pods.memoirs.page_title", id=user_id) }}{% endblock %}
 
 {% block content %}
 <p style="margin-top:0" data-side>
-  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+  <a href="/users/{{ user_id }}">&larr; {{ t("pods.player.back", id=user_id) }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Memoir Editor{{ info("Build a ★4 set, upgrade memoirs or change their stats. Each change is backed up first.") }}</h1>
+<h1 class="bracket-header" data-side>{{ t("pods.memoirs.heading") }}{{ info(t("pods.memoirs.heading_info")) }}</h1>
 
-<p data-side>Owned: {{ owned_count }} / {{ inventory_cap }}</p>
+<p data-side>{{ t("pods.memoirs.owned", n=owned_count, cap=inventory_cap) }}</p>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
 <div class="panel" style="padding:10px 12px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
   <label style="display:flex;gap:8px;align-items:center;font-size:var(--fs-label);letter-spacing:0.15em;text-transform:uppercase">
-    <input type="checkbox" id="legal-only"> Game-legal only
+    <input type="checkbox" id="legal-only"> {{ t("pods.memoirs.legal_only") }}
   </label>
-  <span id="legal-note" style="font-size:var(--fs-label);color:var(--fg-mid)"><span id="legal-text">Off: anything you enter.</span></span>
-  {% call info() %}<p>Sub stats: HP%, ATK%, DEF%, crit rate, crit damage or agility, each once, at most 12.5% (crit rate 25%, crit damage 36%, agility 72), only one at its top.</p>
-  <p>Main stat: ATK, DEF or HP; crit from the second memoir on, agility only on the third.</p>{% endcall %}
+  <span id="legal-note" style="font-size:var(--fs-label);color:var(--fg-mid)"><span id="legal-text">{{ t("pods.memoirs.legal_off") }}</span></span>
+  {% call info() %}<p>{{ t("pods.memoirs.legal_sub_info") }}</p>
+  <p>{{ t("pods.memoirs.legal_main_info") }}</p>{% endcall %}
 </div>
 
 <!-- ============================================================ BUILD A SET -->
-<h2 class="bracket-header costume-group-header" data-side>Build a Set{{ info("Enter percent stats ×10: 3% = 30, 12.5% = 125.") }}</h2>
+<h2 class="bracket-header costume-group-header" data-side>{{ t("pods.memoirs.build_set") }}{{ info(t("pods.memoirs.x10_info")) }}</h2>
 
 <div class="panel" style="padding:12px" data-side>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-    <label for="set-picker" style="font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Set</label>
+    <label for="set-picker" style="font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">{{ t("pods.memoirs.set") }}</label>
     <select id="set-picker" style="flex:1;min-width:min(300px,100%)">
       {% for s in sets %}
       <option value="{{ s.id }}" data-bonus2="{{ s.bonus_2 }}" data-bonus3="{{ s.bonus_3 }}">
-        {% if s.priority %}[PRIORITY] {% endif %}{{ s.name }}
+        {% if s.priority %}{{ t("pods.memoirs.priority") }} {% endif %}{{ s.name }}
       </option>
       {% endfor %}
     </select>
-    <button type="button" id="grant-set-btn" class="grant-chosen-btn">GRANT SET AT LV15</button>
+    <button type="button" id="grant-set-btn" class="grant-chosen-btn">{{ t("pods.memoirs.grant_set") }}</button>
   </div>
   <p id="set-bonus-line" style="margin:0 0 8px;font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.05em">
     &mdash;
@@ -45,36 +45,36 @@
 </div>
 
 <!-- ============================================================ MASS ACTIONS -->
-<h2 class="bracket-header costume-group-header" data-toc>Mass Actions</h2>
+<h2 class="bracket-header costume-group-header" data-toc>{{ t("pods.memoirs.mass_actions") }}</h2>
 <div class="panel grant-list">
   <div class="grant-form upgrade">
-    <span class="grant-name">Upgrade All Memoirs</span>
-    <span class="grant-id">{{ owned_count }} owned memoirs{{ info("Sets every memoir to level 15. Sub stats stay as they are.") }}</span>
+    <span class="grant-name">{{ t("pods.memoirs.upgrade_all") }}</span>
+    <span class="grant-id">{{ t("pods.memoirs.owned_memoirs", n=owned_count) }}{{ info(t("pods.memoirs.upgrade_all_info")) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" id="upgrade-all-btn" class="grant-chosen-btn"
-            {% if owned_count == 0 %}disabled{% endif %}>RUN</button>
+            {% if owned_count == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
   </div>
 </div>
 
 <!-- ============================================================ FIX SLOTS -->
-<h2 class="bracket-header costume-group-header" data-toc>Fix Slots on a Memoir{{ info("Enter percent stats ×10: 3% = 30, 12.5% = 125.") }}</h2>
+<h2 class="bracket-header costume-group-header" data-toc>{{ t("pods.memoirs.fix_slots") }}{{ info(t("pods.memoirs.x10_info")) }}</h2>
 
 <div class="panel" style="padding:12px">
   {% if owned_for_picker %}
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-    <label for="memoir-picker" style="font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">Memoir</label>
+    <label for="memoir-picker" style="font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em;text-transform:uppercase">{{ t("pods.memoirs.memoir") }}</label>
     <select id="memoir-picker" style="flex:1;min-width:min(340px,100%)">
       {% for m in owned_for_picker %}
       <option value="{{ m.uuid }}">
-        {% if m.set_name %}[{{ m.set_name }}] {% endif %}{{ m.memoir_name }} &middot; lv{{ m.level }} &middot; #{{ m.uuid[:8] }}
+        {% if m.set_name %}[{{ m.set_name }}] {% endif %}{{ m.memoir_name }} &middot; {{ t("pods.memoirs.level_short", level=m.level) }} &middot; #{{ m.uuid[:8] }}
       </option>
       {% endfor %}
     </select>
-    <button type="button" id="fix-slots-btn" class="grant-chosen-btn">REWRITE SLOTS</button>
+    <button type="button" id="fix-slots-btn" class="grant-chosen-btn">{{ t("pods.memoirs.rewrite_slots") }}</button>
   </div>
   <div id="fix-slots-editor" style="display:flex;flex-direction:column;gap:6px"></div>
   {% else %}
-  <p style="margin:0;color:var(--fg-mid);font-size:var(--fs-label);letter-spacing:0.1em">No memoirs yet.</p>
+  <p style="margin:0;color:var(--fg-mid);font-size:var(--fs-label);letter-spacing:0.1em">{{ t("pods.memoirs.none_yet") }}</p>
   {% endif %}
 </div>
 
@@ -88,6 +88,35 @@
   const SUB_OPTIONS = {{ sub_options|tojson }};
   const DEFAULT_SUB_ORDER = {{ default_sub_order|tojson }};
   const LEGAL = {{ legal_subs|tojson }};
+  // The service names the stats in English; these are their names in the catalogue.
+  const LABELS = {{ {
+    "primary": {
+      "crit_rate": t("pods.memoirs.main_crit_rate"), "crit_dmg": t("pods.memoirs.main_crit_dmg"),
+      "atk_pct": t("pods.memoirs.main_atk_pct"), "hp_pct": t("pods.memoirs.main_hp_pct"),
+      "def_pct": t("pods.memoirs.main_def_pct"), "agility": t("pods.memoirs.main_agility"),
+    },
+    "sub": {
+      "crit_rate": t("pods.memoirs.sub_crit_rate"), "crit_dmg": t("pods.memoirs.sub_crit_dmg"),
+      "atk_pct": t("pods.memoirs.sub_atk_pct"), "atk_flat": t("pods.memoirs.sub_atk_flat"),
+      "hp_pct": t("pods.memoirs.sub_hp_pct"), "hp_flat": t("pods.memoirs.sub_hp_flat"),
+      "def_pct": t("pods.memoirs.sub_def_pct"), "def_flat": t("pods.memoirs.sub_def_flat"),
+      "agility": t("pods.memoirs.sub_agility"),
+    },
+  }|tojson }};
+  for (const o of PRIMARY_OPTIONS) o.label = LABELS.primary[o.key] || o.label;
+  for (const o of SUB_OPTIONS) o.label = LABELS.sub[o.key] || o.label;
+  const MSG = {{ {
+    "legal_on": t("pods.memoirs.legal_on"), "legal_off": t("pods.memoirs.legal_off"),
+    "primary": t("pods.memoirs.primary"), "slot": t("pods.memoirs.slot", slot="{slot}"),
+    "bonus": t("pods.memoirs.bonus", two="{two}", three="{three}"),
+    "grant_confirm": t("pods.memoirs.grant_confirm", name="{name}"), "working": t("pods.player.working"),
+    "failed": t("pods.player.failed"), "granted": t("pods.memoirs.granted", name="{name}", n="{n}"),
+    "network_error": t("pods.player.network_error", error="{error}"),
+    "upgrade_confirm": t("pods.memoirs.upgrade_confirm"), "upgraded": t("pods.memoirs.upgraded", n="{n}"),
+    "pick_first": t("pods.memoirs.pick_first"), "rewrite_confirm": t("pods.memoirs.rewrite_confirm"),
+    "rewritten": t("pods.memoirs.rewritten"),
+  }|tojson }};
+  const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
 
   const SET_BY_ID = {};
   for (const s of SETS) SET_BY_ID[s.id] = s;
@@ -103,7 +132,7 @@
   function subDefault(key) { return legalOnly() ? (LEGAL.defaults[key] || 0) : SUB_BY_KEY[key].value; }
   function legalNote() {
     document.getElementById("legal-text").textContent = legalOnly()
-      ? "On: only memoirs the original game could make." : "Off: anything you enter.";
+      ? MSG.legal_on : MSG.legal_off;
   }
   legalNote();
 
@@ -155,7 +184,7 @@
     head.appendChild(title);
 
     const primaryLabel = document.createElement("span");
-    primaryLabel.textContent = "PRIMARY";
+    primaryLabel.textContent = MSG.primary;
     primaryLabel.style.cssText = "font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
     head.appendChild(primaryLabel);
 
@@ -169,7 +198,7 @@
     slotsWrap.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:4px 8px;align-items:center";
     for (let slot = 1; slot <= 4; slot++) {
       const lbl = document.createElement("span");
-      lbl.textContent = "SLOT " + slot;
+      lbl.textContent = fmt(MSG.slot, {slot});
       lbl.style.cssText = "grid-column:1/-1;margin-top:4px;font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
       slotsWrap.appendChild(lbl);
 
@@ -201,7 +230,7 @@
     const set = SET_BY_ID[setId];
     if (!set) return;
     const bonusLine = document.getElementById("set-bonus-line");
-    bonusLine.textContent = "2-piece: " + set.bonus_2 + "  /  3-piece: " + set.bonus_3;
+    bonusLine.textContent = fmt(MSG.bonus, {two: set.bonus_2, three: set.bonus_3});
     set.memoirs.forEach((m, idx) => renderMemoirRow(m, idx, editor));
   }
 
@@ -237,11 +266,11 @@
     if (btn.dataset.busy === "1") return;
     const setId = parseInt(document.getElementById("set-picker").value, 10);
     const setName = SET_BY_ID[setId] ? SET_BY_ID[setId].name : "?";
-    if (!confirm("Grant set \"" + setName + "\" (3 memoirs at lv15)? A backup is taken first.")) return;
+    if (!confirm(fmt(MSG.grant_confirm, {name: setName}))) return;
     btn.dataset.busy = "1";
     btn.disabled = true;
     const orig = btn.textContent;
-    btn.textContent = "WORKING...";
+    btn.textContent = MSG.working;
     try {
       const body = {set_id: setId, memoirs: readMemoirRows(), legal: legalOnly()};
       const res = await fetch("/users/" + userId + "/memoirs/grant_set", {
@@ -250,10 +279,10 @@
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
-      showBanner("Granted " + setName + ": " + json.applied + " memoirs. Reload to refresh.", "success");
+      if (!json.ok) { showBanner(json.error || MSG.failed, "error"); return; }
+      showBanner(fmt(MSG.granted, {name: setName, n: json.applied}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       btn.dataset.busy = "0"; btn.disabled = false; btn.textContent = orig;
     }
@@ -264,18 +293,18 @@
   if (upgradeBtn) {
     upgradeBtn.addEventListener("click", async () => {
       if (upgradeBtn.dataset.busy === "1") return;
-      if (!confirm("Upgrade every owned memoir to lv15? A backup is taken first.")) return;
+      if (!confirm(MSG.upgrade_confirm)) return;
       upgradeBtn.dataset.busy = "1";
       upgradeBtn.disabled = true;
       const orig = upgradeBtn.textContent;
-      upgradeBtn.textContent = "WORKING...";
+      upgradeBtn.textContent = MSG.working;
       try {
         const res = await fetch("/users/" + userId + "/memoirs/upgrade_all", {method: "POST"});
         const json = await res.json();
-        if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
-        showBanner("Upgraded " + json.applied + " memoirs to level 15.", "success");
+        if (!json.ok) { showBanner(json.error || MSG.failed, "error"); return; }
+        showBanner(fmt(MSG.upgraded, {n: json.applied}), "success");
       } catch (err) {
-        showBanner("Network error: " + err.message, "error");
+        showBanner(fmt(MSG.network_error, {error: err.message}), "error");
       } finally {
         upgradeBtn.dataset.busy = "0"; upgradeBtn.disabled = false; upgradeBtn.textContent = orig;
       }
@@ -291,7 +320,7 @@
     wrap.style.cssText = "display:grid;grid-template-columns:60px minmax(0,1fr) 110px;gap:6px 10px;align-items:center";
     for (let slot = 1; slot <= 4; slot++) {
       const lbl = document.createElement("span");
-      lbl.textContent = "SLOT " + slot;
+      lbl.textContent = fmt(MSG.slot, {slot});
       lbl.style.cssText = "font-size:var(--fs-label);color:var(--fg-mid);letter-spacing:0.15em";
       wrap.appendChild(lbl);
 
@@ -329,7 +358,7 @@
     fixBtn.addEventListener("click", async () => {
       if (fixBtn.dataset.busy === "1") return;
       const picker = document.getElementById("memoir-picker");
-      if (!picker || !picker.value) { showBanner("Pick a memoir first.", "error"); return; }
+      if (!picker || !picker.value) { showBanner(MSG.pick_first, "error"); return; }
       const subs = [];
       for (let slot = 1; slot <= 4; slot++) {
         const subSel = fixEditor.querySelector('[data-role="fix-sub"][data-slot="' + slot + '"]');
@@ -338,11 +367,11 @@
         if (Number.isNaN(v)) continue;
         subs.push({slot: slot, sub_key: subSel.value, value: v});
       }
-      if (!confirm("Rewrite slots 1-4 on the selected memoir? A backup is taken first.")) return;
+      if (!confirm(MSG.rewrite_confirm)) return;
       fixBtn.dataset.busy = "1";
       fixBtn.disabled = true;
       const orig = fixBtn.textContent;
-      fixBtn.textContent = "WORKING...";
+      fixBtn.textContent = MSG.working;
       try {
         const res = await fetch("/users/" + userId + "/memoirs/fix_slots", {
           method: "POST",
@@ -350,10 +379,10 @@
           body: JSON.stringify({user_parts_uuid: picker.value, subs: subs, legal: legalOnly()}),
         });
         const json = await res.json();
-        if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
-        showBanner("Slots rewritten.", "success");
+        if (!json.ok) { showBanner(json.error || MSG.failed, "error"); return; }
+        showBanner(MSG.rewritten, "success");
       } catch (err) {
-        showBanner("Network error: " + err.message, "error");
+        showBanner(fmt(MSG.network_error, {error: err.message}), "error");
       } finally {
         fixBtn.dataset.busy = "0"; fixBtn.disabled = false; fixBtn.textContent = orig;
       }

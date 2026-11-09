@@ -1,6 +1,7 @@
 """Pod Programs' explanations wait behind a small round "i" (templates/_info.html), in portrait and landscape,
 beside the heading, label or control they explain. Only what the page needs to be used stays out."""
 import re
+import sys
 import unittest
 from pathlib import Path
 
@@ -8,13 +9,25 @@ WEB = Path(__file__).resolve().parents[2] / "overlays/python/web"
 BASE = (WEB / "templates/base.html").read_text()
 INFO = (WEB / "templates/_info.html").read_text()
 PAGE = lambda name: (WEB / "templates" / name).read_text()
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "android/app/src/main/python"))
+
+
+def RENDER(name, **context):
+    """A page as the player sees it, in English (the app's templates get t from bunker_text)."""
+    import jinja2
+    import bunker_text
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
+    bunker_text.install(env)
+    return env.get_template(name).render(**context)
 PAGES = sorted(p.name for p in (WEB / "templates").glob("*.html") if p.name not in ("base.html", "_info.html"))
 
 
 class InfoIcon(unittest.TestCase):
     def render(self, source):
         import jinja2
+        import bunker_text
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
+        bunker_text.install(env)  # the icon's label is catalogue text
         return env.from_string('{% from "_info.html" import info %}' + source).render()
 
     def test_on_its_side_the_card_opens_beside_the_tabs(self):
@@ -87,16 +100,17 @@ class InfoIcon(unittest.TestCase):
         self.assertIn('plain.querySelectorAll("details.info").forEach(d => d.remove());', BASE)
 
     def test_explanations_sit_beside_what_they_explain(self):
-        self.assertRegex(PAGE("display.html"), r'<h1 data-side>Display\{\{ info\("Higher frame rates')
-        self.assertIn('<label for="fps">Frame rate{{ info("Capped at', PAGE("display.html"))
-        self.assertIn('<h1 data-side>Summon rates{{ info("Applies to regular and multi-step summons', PAGE("gacha.html"))
+        self.assertIn('<h1 data-side>{{ t("pods.display.title") }}{{ info(t("pods.display.info")) }}', PAGE("display.html"))
+        self.assertIn('<label for="fps">{{ t("pods.display.frame_rate") }}{{ info(t("pods.display.frame_rate_info")) }}', PAGE("display.html"))
+        self.assertIn('<h1 data-side>{{ t("pods.gacha.title") }}{{ info(t("pods.gacha.title_info")) }}', PAGE("gacha.html"))
         db = PAGE("deck_builder.html")
-        self.assertIn('<div class="db-lbl" id="lbl-mode">Build from{{ info("Ranks decks as if you owned every costume', db)
-        self.assertIn('"best-only") }}{{ info("Uses your costumes as they are.", "owned-only") }}</div>', db)
-        self.assertIn('<p class="help owned-only">Allow up to', db)      # it holds the Allow menu
-        self.assertRegex(PAGE("upgrade_manager.html"), r'id="karma-fill-name">Fill All Karma Slots</span>')
-        self.assertRegex(PAGE("upgrade_manager.html"), r"\{% call info\(\) %\}<p>Sets every unlocked karma slot.*\[R40/30/20\]")
-        self.assertIn('<span>Challenge bonus on quest rewards{{ info("Bonuses multiply', PAGE("mods.html"))
+        self.assertIn('<div class="db-lbl" id="lbl-mode">{{ t("pods.decks.build_from") }}{{ info(t("pods.decks.all_maxed_info"), "best-only") }}'
+                      '{{ info(t("pods.decks.what_i_own_info"), "owned-only") }}</div>', db)
+        self.assertIn('<p class="help owned-only">{{ t("pods.decks.allow_before") }}', db)      # it holds the Allow menu
+        upgrades = RENDER("upgrade_manager.html", user_id=1, karma_options={}, karma_defaults={})
+        self.assertRegex(upgrades, r'id="karma-fill-name">Fill All Karma Slots</span>')
+        self.assertRegex(upgrades, r'<details class="info"><summary[^>]*>i</summary><div><p>Sets every unlocked karma slot.*\[R40/30/20\]')
+        self.assertIn('<span>{{ t("pods.mods.bonus") }}{{ info(t("pods.mods.bonus_info")) }}', PAGE("mods.html"))
         # never inside a <summary>: a tap would fold it too
         for name in PAGES:
             with self.subTest(name=name):
@@ -106,7 +120,11 @@ class InfoIcon(unittest.TestCase):
 class PlayerLinks(unittest.TestCase):
     def test_editor_links_are_a_spaced_row(self):
         # Inline links in a paragraph: wrapped rows touched. They sit in an .actions row, plain names.
-        page = PAGE("user_detail.html")
+        from types import SimpleNamespace
+        u = SimpleNamespace(user_id=1, player_id=1, uuid="x", name="", message="", level=1, exp=0, register_at=None,
+                            last_login_at=None, total_login_count=0, paid_gem=0, free_gem=0, inventory_counts=[],
+                            stackables=[])
+        page = RENDER("user_detail.html", u=u)
         row = page[page.index('<div class="actions">'):]
         row = row[:row.index("</div>")]
         for name in ("Items", "Costumes", "Weapons", "Upgrades", "Memoirs", "Story Jump"):

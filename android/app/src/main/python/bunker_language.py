@@ -14,6 +14,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from bunker_text import t
+
 MAX_PACK_BYTES = 64 << 20  # pack.go MaxPackBytes
 ENGLISH_TEXTS = 143565  # the game's English texts (3.7.1, the only version Bunker accepts)
 CODE = re.compile(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}")  # whole string (fullmatch): "pt\n" is not a code
@@ -21,7 +23,7 @@ FIELDS = ("format", "language", "name", "version", "game", "master", "bunker")
 
 
 def _reject_constant(name):
-    raise ValueError(f"{name} is not a number the server reads")
+    raise ValueError(name)  # NaN, Infinity: not a number the server reads
 
 
 class PackError(ValueError):
@@ -45,26 +47,26 @@ class PackInfo:
 def read_pack(data: bytes, source: str = "loaded", path: Path = Path()) -> PackInfo:
     """A pack's description, or PackError when the server would not use it."""
     if len(data) > MAX_PACK_BYTES:
-        raise PackError("This pack is too large (over 64 MB).")
+        raise PackError(t("pods.language.pack_too_large"))
     try:
         pack = json.loads(data.decode("utf-8"), parse_constant=_reject_constant)
     except (UnicodeDecodeError, ValueError, RecursionError):
-        raise PackError("Not a language pack: the file is not readable JSON.") from None
+        raise PackError(t("pods.language.pack_not_json")) from None
     if not isinstance(pack, dict) or type(pack.get("format")) is not int or pack["format"] != 1:
-        raise PackError("Not a language pack: it has no \"format\": 1. Translation files must be built into a pack first.")
+        raise PackError(t("pods.language.pack_no_format"))
     # The server matches these names ignoring case and keeps the last: a second spelling would change what it reads.
     if any(key.lower() in FIELDS and key != key.lower() for key in pack):
-        raise PackError("Not a language pack: a field name is written in capitals.")
+        raise PackError(t("pods.language.pack_capitals"))
     language = pack.get("language")
     if not isinstance(language, str) or not CODE.fullmatch(language):
-        raise PackError("This pack's language code is not valid.")
+        raise PackError(t("pods.language.pack_bad_code"))
     if any(field in pack and not isinstance(pack[field], str) for field in ("name", "version")):
-        raise PackError("Not a language pack: its name and version must be text.")
+        raise PackError(t("pods.language.pack_name_not_text"))
     game = pack.get("game", {})
     if not isinstance(game, dict):
-        raise PackError("Not a language pack: its \"game\" texts are not a list of keys.")
+        raise PackError(t("pods.language.pack_game_not_keys"))
     if not isinstance(pack.get("bunker", {}), dict):
-        raise PackError("Not a language pack: its \"bunker\" texts are not a list of keys.")
+        raise PackError(t("pods.language.pack_bunker_not_keys"))
     texts = sum(1 for value in game.values() if isinstance(value, str) and value and "\n" not in value and "\r" not in value)
     return PackInfo(source, language, pack.get("name") or language, pack.get("version", ""), texts, path)
 
@@ -131,10 +133,12 @@ class Languages:
 
     def _pack_path(self, source: str, language: str) -> Path:
         if source not in ("shipped", "loaded") or not CODE.fullmatch(language or ""):
-            raise PackError("Unknown language.")
+            raise PackError(t("pods.language.unknown_language"))
         path = self._folder(source) / f"{language}.json"
         if not path.is_file():
-            raise PackError(f"There is no {source} pack for {language}.")
+            if source == "shipped":
+                raise PackError(t("pods.language.no_shipped_pack", language=language))
+            raise PackError(t("pods.language.no_loaded_pack", language=language))
         return path
 
     def remove(self, language: str):

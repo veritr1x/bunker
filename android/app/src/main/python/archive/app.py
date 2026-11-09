@@ -11,21 +11,29 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import bunker_text
+from bunker_text import t
 
 from . import index
 from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
-from .content import KINDS, Archive, plain, prose, quoted, rich
+from .content import KINDS, Archive, kind_name, plain, prose, quoted, rich
 from .schedule import TABS as SCHEDULE_TABS
+from .words import resolve
 
 HERE = Path(__file__).resolve().parent
 # Pages run only the Archive's own code. The 3D viewer's glTF loader reads embedded textures
 # through blob: URLs, with fetch() as well as <img>, so both allow blob:.
-POLICY = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-          "img-src 'self' data: blob:; connect-src 'self' blob:; media-src 'self'; frame-ancestors 'none'; "
-          "form-action 'self'; base-uri 'none'")
-SECTIONS = [("home", "Home", "/"), ("story", "Story", "/story"), ("characters", "Characters", "/characters"),
-            ("records", "Records", "/records"), ("movies", "Movies", "/movies"), ("gallery", "Gallery", "/gallery"),
-            ("music", "Music", "/music"), ("schedule", "Schedule", "/schedule")]
+POLICY = "; ".join(("default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'",
+                    "img-src 'self' data: blob:", "connect-src 'self' blob:", "media-src 'self'", "frame-ancestors 'none'",
+                    "form-action 'self'", "base-uri 'none'"))
+CACHED = {"Cache-Control": "private, max-age=86400"}
+
+
+def sections() -> list[tuple[str, str, str]]:
+    """The tabs every page shows: (key, name, link)."""
+    return [("home", t("archive.menu.home"), "/"), ("story", t("archive.menu.story"), "/story"),
+            ("characters", t("archive.menu.characters"), "/characters"), ("records", t("archive.menu.records"), "/records"),
+            ("movies", t("archive.menu.movies"), "/movies"), ("gallery", t("archive.menu.gallery"), "/gallery"),
+            ("music", t("archive.menu.music"), "/music"), ("schedule", t("archive.menu.schedule"), "/schedule")]
 
 
 class Builder:
@@ -43,7 +51,7 @@ class Builder:
         with self.lock:
             if self.state["running"]:
                 return
-            self.state = {"running": True, "done": 0, "total": 0, "step": "Starting", "error": ""}
+            self.state = {"running": True, "done": 0, "total": 0, "step": t("archive.setup.starting"), "error": ""}
         def report(done, total, step):
             self.state.update(done=done, total=total, step=step)
         def run():
@@ -102,7 +110,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     static_version = hashlib.sha256(b"".join(p.read_bytes() for p in own)).hexdigest()[:12]
     pod_css = Path(static_dir) / "css" / "automata.css"
     pod_version = hashlib.sha256(pod_css.read_bytes()).hexdigest()[:12] if pod_css.is_file() else "0"
-    templates.env.globals.update(count=lambda n, word: f"{n} {word}{'' if n == 1 else 's'}", sections=SECTIONS, kinds=KINDS, images=decode is not None, sounds=sound is not None,
+    templates.env.globals.update(kind_name=kind_name, images=decode is not None, sounds=sound is not None,
                                  asset=lambda path: f"/archive-static/{path}?v={static_version}",
                                  pod_css=f"/static/css/automata.css?v={pod_version}",
                                  img=lambda size, path: f"/media/image/{size}/{path}?v={VERSION}",
@@ -133,7 +141,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         return response
 
     def page(request: Request, name: str, active: str, **values):
-        values.update(request=request, active=active, theme=request.cookies.get("lunar_theme", ""))
+        values.update(request=request, active=active, theme=request.cookies.get("lunar_theme", ""), sections=sections())
         return templates.TemplateResponse(request, name, values)
 
     def need_index(request: Request):
@@ -176,7 +184,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             values["library"] = archive.recollections()
         else:
             kinds = ["eid", "lid", "cid", "vid"] if tab == "sub" else ["sid"]
-            values["groups"] = [{"kind": k, "name": KINDS[k], "items": archive.sub_groups(k)} for k in kinds]
+            values["groups"] = [{"kind": k, "name": kind_name(k), "items": archive.sub_groups(k)} for k in kinds]
         return page(request, "story.html", "story", **values)
 
     @app.get("/story/main/{season}/{chapter}")
@@ -192,8 +200,8 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         if kind not in KINDS:
             raise HTTPException(404)
         name = archive.group_title(kind, grp)
-        return page(request, "scenes.html", "story", heading=name or f"{KINDS[kind]} · {grp.upper()}", title=KINDS[kind] if name else "",
-                    crumb=KINDS[kind], scenes=archive.scenes(kind=kind, grp=grp))
+        return page(request, "scenes.html", "story", heading=name or t("archive.story.kind_code", kind=kind_name(kind), code=grp.upper()),
+                    title=kind_name(kind) if name else "", crumb=kind_name(kind), scenes=archive.scenes(kind=kind, grp=grp))
 
     @app.get("/scene/{scene_id}")
     def scene(request: Request, scene_id: int):
@@ -206,7 +214,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             back, place = f"/story/main/{found['season']}/{found['chapter']}", number
         else:
             back = f"/story/{found['kind']}/{found['grp']}"
-            place = archive.group_title(found["kind"], found["grp"]) or KINDS.get(found["kind"], found["kind"])
+            place = archive.group_title(found["kind"], found["grp"]) or kind_name(found["kind"])
         return page(request, "reader.html", "story", scene=found, back=back, place=place)
 
     @app.get("/records")
@@ -242,12 +250,14 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     def viewable(asset: str) -> bool:
         return model is not None and models.has(asset)
 
-    CHARACTER_TABS = (("playable", "Playable"), ("companions", "Companions"), ("cast", "Cast"), ("enemies", "Enemies"))
+    def character_tabs():
+        return (("playable", t("archive.characters.playable")), ("companions", t("archive.characters.companions")),
+                ("cast", t("archive.characters.cast")), ("enemies", t("archive.characters.enemies")))
 
     @app.get("/characters")
     def characters(request: Request, tab: str = "playable"):
         need_index(request)
-        values = {"tab": tab, "tabs": CHARACTER_TABS}
+        values = {"tab": tab, "tabs": character_tabs()}
         if tab == "playable":
             values["characters"] = archive.characters()
         elif tab == "companions":
@@ -255,7 +265,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         elif tab in Archive.MODEL_TABS:
             # The models the viewer can show, by section; the families nobody names last.
             families = archive.model_families(tab, viewable)
-            values["groups"] = [{"name": s, "families": [f for f in families if f["section"] == s]}
+            values["groups"] = [{"name": Archive.model_section(s), "families": [f for f in families if f["section"] == s]}
                                 for s in Archive.MODEL_TABS[tab] + ("Unnamed",)]
         else:
             raise HTTPException(404)
@@ -295,28 +305,31 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             if not name:
                 raise HTTPException(404)
             return page(request, "viewer.html", "records", subject=asset, heading=name, siblings=[],
-                        crumbs=[("/records?tab=weapons", "Weapons"), (f"/records?tab=weapons&q={asset}", name)], motions=[])
+                        crumbs=[("/records?tab=weapons", t("archive.records.weapons")), (f"/records?tab=weapons&q={asset}", name)], motions=[])
         own_motions = archive.motions(asset) if motion is not None and motions.ready(asset) else []
         if asset.startswith("cm"):
             found = archive.companion(asset)
             if not found:
                 raise HTTPException(404)
             return page(request, "viewer.html", "characters", subject=asset, heading=found["name"], siblings=[],
-                        crumbs=[("/characters?tab=companions", "Companions"), (f"/companion/{asset}", found["name"])], motions=own_motions)
+                        crumbs=[("/characters?tab=companions", t("archive.characters.companions")), (f"/companion/{asset}", found["name"])],
+                        motions=own_motions)
         if not asset.startswith("ch"):
             found = archive.model(asset, viewable)
             if not found:
                 raise HTTPException(404)
             family, tab = found["family"], found["tab"]
             return page(request, "viewer.html", "characters", subject=asset, heading=found["model"]["label"],
-                        crumbs=[(f"/characters?tab={tab}", "Enemies" if tab == "enemies" else "Cast"), (f"/characters?tab={tab}#{family['family']}", family["name"])],
-                        siblings=[(m["asset"], m["label"]) for m in family["models"]], motions=own_motions, sibling_title="Look")
+                        crumbs=[(f"/characters?tab={tab}", t("archive.characters.enemies") if tab == "enemies" else t("archive.characters.cast")),
+                                (f"/characters?tab={tab}#{family['family']}", family["name"])],
+                        siblings=[(m["asset"], m["label"]) for m in family["models"]], motions=own_motions,
+                        sibling_title=t("archive.characters.look"))
         found = archive.costume(asset)
         if not found:
             raise HTTPException(404)
         character = found["character"]
         return page(request, "viewer.html", "characters", subject=asset, heading=found["name"],
-                    crumbs=[("/characters", "Characters"), (f"/characters/{character['id']}", character["name"])],
+                    crumbs=[("/characters", t("archive.menu.characters")), (f"/characters/{character['id']}", character["name"])],
                     siblings=[(c["asset"], c["name"]) for c in character["costumes"] if models.has(c["asset"])],
                     motions=archive.motions(asset) if motion is not None else [])
 
@@ -328,7 +341,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             raise HTTPException(404)
         except ValueError as exc:
             raise HTTPException(422, str(exc))
-        return FileResponse(glb, media_type="model/gltf-binary", headers={"Cache-Control": "private, max-age=86400"})
+        return FileResponse(glb, media_type="model/gltf-binary", headers=CACHED)
 
     @app.get("/media/motion/{asset}/{clip}.json")
     def motion_file(asset: str, clip: str):
@@ -338,15 +351,14 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             raise HTTPException(404)
         except ValueError as exc:
             raise HTTPException(422, str(exc))
-        return FileResponse(data, media_type="application/json", headers={"Cache-Control": "private, max-age=86400"})
+        return FileResponse(data, media_type="application/json", headers=CACHED)
 
     @app.get("/gallery")
     def gallery(request: Request, tab: str = "stills"):
         need_index(request)
-        tabs = dict(Archive.GALLERY_TABS)
-        if tab not in tabs:
+        if tab not in Archive.GALLERY_TABS:
             raise HTTPException(404)
-        return page(request, "gallery.html", "gallery", tab=tab, tabs=Archive.GALLERY_TABS, groups=archive.gallery(tab))
+        return page(request, "gallery.html", "gallery", tab=tab, tabs=archive.gallery_tabs(), groups=archive.gallery(tab))
 
     @app.get("/gallery/{category}/{grp}")
     def gallery_group(request: Request, category: str, grp: str):
@@ -354,7 +366,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         found = archive.gallery_images(category, grp)
         if not found:
             raise HTTPException(404)
-        return page(request, "gallery_group.html", "gallery", category=category, tabs=dict(Archive.GALLERY_TABS),
+        return page(request, "gallery_group.html", "gallery", category=category, tabs=archive.gallery_tabs(),
                     label=archive.group_label(category, grp), groups=found)
 
     @app.get("/image")
@@ -363,7 +375,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         found = archive.image(path)
         if not found:
             raise HTTPException(404)
-        return page(request, "image.html", "gallery", image=found, tabs=dict(Archive.GALLERY_TABS))
+        return page(request, "image.html", "gallery", image=found, tabs=archive.gallery_tabs())
 
     @app.get("/media/image/{size}/{path:path}")
     def image_file(size: str, path: str):
@@ -375,7 +387,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             raise HTTPException(404)
         except ValueError as exc:
             raise HTTPException(422, str(exc))
-        return FileResponse(png, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
+        return FileResponse(png, media_type="image/png", headers=CACHED)
 
     @app.get("/music")
     def music(request: Request):
@@ -390,14 +402,14 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
             raise HTTPException(404)
         except ValueError as exc:
             raise HTTPException(422, str(exc))
-        return FileResponse(ogg, media_type="audio/ogg", headers={"Cache-Control": "private, max-age=86400"})
+        return FileResponse(ogg, media_type="audio/ogg", headers=CACHED)
 
     @app.get("/schedule")
     def schedule(request: Request, tab: str = "timeline"):
         need_index(request)
         if tab not in dict(SCHEDULE_TABS):
             raise HTTPException(404)
-        return page(request, "schedule.html", "schedule", tab=tab, tabs=SCHEDULE_TABS, groups=getattr(archive.schedule(), tab)(),
+        return page(request, "schedule.html", "schedule", tab=tab, tabs=resolve(SCHEDULE_TABS), groups=getattr(archive.schedule(), tab)(),
                     original=original)
 
     @app.get("/schedule/{kind}/{ident}")
@@ -410,7 +422,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
         if not found:
             # Pod Programs' timeline links by id; one the Archive doesn't list opens its tab.
             return RedirectResponse(f"/schedule?tab={tabs[kind]}")
-        return page(request, f"schedule_{kind}.html", "schedule", item=found, tabs=dict(SCHEDULE_TABS), tab=tabs[kind])
+        return page(request, f"schedule_{kind}.html", "schedule", item=found, tabs=dict(resolve(SCHEDULE_TABS)), tab=tabs[kind])
 
     @app.get("/search")
     def search(request: Request, q: str = ""):

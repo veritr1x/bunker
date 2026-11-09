@@ -4,6 +4,28 @@
     "End of transmission // Glory to mankind",
     "Operator link // Standing by"
   ],
-  "literal": [],
-  "dynamic": []
+  "literal": [
+    "i",
+    "RESTORE",
+    "private, max-age=86400",
+    "Bundled Android server (63df7d7)",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+    "story jump",
+    "deck builder",
+    "not needed"
+  ],
+  "dynamic": [
+    "common.month_short.",
+    "common.weekday_short.",
+    "pods.backup.reason.",
+    "pods.decks.stat_label.",
+    "pods.display.option.",
+    "pods.gacha.preset.",
+    "pods.mods.group.",
+    "pods.mods.mod.",
+    "pods.mods.preset.",
+    "pods.patcher.label.",
+    "pods.story.kind.",
+    "pods.story.state."
+  ]
 }

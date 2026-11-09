@@ -2,16 +2,16 @@
 {% from "_info.html" import info %}
 {% block content %}
 <form class="search-box" action="/search" method="get" role="search">
-  <input type="text" name="q" placeholder="Search story lines and records" aria-label="Search the archive">
+  <input type="text" name="q" placeholder="{{ t("archive.search.placeholder") }}" aria-label="{{ t("archive.search.label") }}">
 </form>
-<h1 class="has-info">Archive {{ info("Records holds weapon stories, reports, lost archives, memoirs and debris.") }}</h1>
+<h1 class="has-info">{{ t("archive.menu.archive") }} {{ info(t("archive.home.records_info")) }}</h1>
 <div class="tool-grid">
-  <a href="/story">Story</a>
-  <a href="/records">Records</a>
-  <a href="/movies">Movies</a>
-  <a href="/characters">Characters</a>
-  <a href="/gallery">Gallery</a>
-  <a href="/music">Music</a>
-  <a href="/schedule">Schedule</a>
+  <a href="/story">{{ t("archive.menu.story") }}</a>
+  <a href="/records">{{ t("archive.menu.records") }}</a>
+  <a href="/movies">{{ t("archive.menu.movies") }}</a>
+  <a href="/characters">{{ t("archive.menu.characters") }}</a>
+  <a href="/gallery">{{ t("archive.menu.gallery") }}</a>
+  <a href="/music">{{ t("archive.menu.music") }}</a>
+  <a href="/schedule">{{ t("archive.menu.schedule") }}</a>
 </div>
 {% endblock %}

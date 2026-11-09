@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Movies</h1>
+<h1>{{ t("archive.menu.movies") }}</h1>
 {% if current %}
 <figure class="player">
   <video src="/media/movie/{{ current.file }}" controls autoplay playsinline preload="metadata"></video>
@@ -12,7 +12,7 @@ if (window.bunkerFiles && window.bunkerFiles.playMovie) {
   const video = document.querySelector(".player video"), button = document.createElement("button");
   button.type = "button";
   button.className = "link";
-  button.textContent = " · Full screen";
+  button.textContent = " · " + {{ t("archive.movies.full_screen")|tojson }};
   document.querySelector(".player figcaption").append(button);
   button.addEventListener("click", () => {
     video.pause();
@@ -24,10 +24,10 @@ if (window.bunkerFiles && window.bunkerFiles.playMovie) {
 {% for g in groups %}
 {% set playing = current and current.file in g["items"]|map(attribute="file") %}
 <details class="panel fold movies"{% if playing or (not current and loop.first) %} open{% endif %}>
-  <summary>{{ g.name }}&nbsp;<span class="note">· {{ count(g["items"]|length, "movie") }}</span></summary>
+  <summary>{{ g.name }}&nbsp;<span class="note">· {{ t_count("archive.movies.movie_count", g["items"]|length) }}</span></summary>
   <div class="tool-grid">
     {% for m in g["items"] %}
-    <a href="/movies?play={{ m.file|urlencode }}"{% if current and current.file == m.file %} aria-current="true"{% endif %}>{{ m.title }}<span>{% if m.when %}{{ m.when }} · {% endif %}{{ (m.size / 1048576)|round(1) }} MB</span></a>
+    <a href="/movies?play={{ m.file|urlencode }}"{% if current and current.file == m.file %} aria-current="true"{% endif %}>{{ m.title }}<span>{% if m.when %}{{ m.when }} · {% endif %}{{ t("archive.movies.size", mb=(m.size / 1048576)|round(1)) }}</span></a>
     {% endfor %}
   </div>
 </details>

@@ -417,13 +417,14 @@ def reapply():
     import android_calendar as cal
     import android_patcher as patcher
     import android_runtime as runtime
+    import bunker_text
     from web import config
     active_label = runtime.read_json(patcher.folder() / "active.json")
     label = active_label.get("label") if isinstance(active_label, dict) else None
     candidate = patcher.folder() / "candidate.bin.e"
     try:
         shutil.copyfile(unchallenged_master(), candidate)
-        patcher.activate(candidate, label or "Imported master data")
+        patcher.activate(candidate, label or bunker_text.t("pods.gift.imported_master_data"))  # as android_gift
     finally:
         candidate.unlink(missing_ok=True)
     for extra in (cal.next_file(), cal.view_file()):

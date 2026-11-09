@@ -45,6 +45,12 @@ class IosMessages(unittest.TestCase):
         self.assertIn("tap Deploy", text)
         self.assertEqual(message(android_mods.redirect(message=text)), text.replace("Close Pod Programs and tap Deploy.", IOS))
 
+    def test_in_another_language(self):
+        import bunker_text
+        self.addCleanup(bunker_text.use, None)
+        bunker_text.use({"pods.runtime.deploy": "Feche e toque em Deploy.", "pods.runtime.restart_ios": "Feche e reinicie o jogo."})
+        self.assertEqual(message(android_mods.redirect(message="Salvo. Feche e toque em Deploy.")), "Salvo. Feche e reinicie o jogo.")
+
     def test_new_day_message(self):
         with mock.patch.object(android_patcher, "start_new_day", lambda: None):
             text = message(android_patcher.new_day())

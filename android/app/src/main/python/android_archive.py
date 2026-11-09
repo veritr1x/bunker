@@ -17,6 +17,8 @@ import threading
 import time
 from pathlib import Path
 
+import bunker_text
+
 _server = None
 _thread = None
 _base_url = ""
@@ -112,9 +114,9 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, co
     async def private_session(request, call_next):
         # Same rule as Pod Programs: only the launcher's WebView holds this cookie.
         if request.headers.get("host") != origin.removeprefix("http://") or not secrets.compare_digest(request.cookies.get("lunar_archive", ""), token):
-            return JSONResponse({"ok": False, "error": "Private launcher session required"}, status_code=403)
+            return JSONResponse({"ok": False, "error": bunker_text.t("common.private_session_required")}, status_code=403)
         if request.method not in ("GET", "HEAD") and request.headers.get("origin") not in (None, origin):
-            return JSONResponse({"ok": False, "error": "Invalid origin"}, status_code=403)
+            return JSONResponse({"ok": False, "error": bunker_text.t("common.invalid_origin")}, status_code=403)
         response = await call_next(request)
         if not request.url.path.startswith("/media/"):
             response.headers["Cache-Control"] = "no-store"
@@ -143,7 +145,7 @@ def start(asset_root: str, archive_root: str, converters=None) -> str:
             break
         time.sleep(.02)
     sock.close()
-    raise RuntimeError("The Archive could not start")
+    raise RuntimeError(bunker_text.t("archive.setup.could_not_start"))
 
 
 def stop():
