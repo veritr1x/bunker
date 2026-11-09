@@ -184,11 +184,54 @@ class CheckTest(unittest.TestCase):
     def test_repo_passes(self):
         self.assertEqual(check_tree(ROOT / "translations", load_coverage(ROOT / "fonts/coverage.json")), [])
 
+    def test_english_passes_its_own_check(self):
+        # Every rule must accept the game's own English, which translators copy from.
+        coverage = load_coverage(ROOT / "fonts/coverage.json")
+        templates = sorted((ROOT / "translations").glob("game/*/en.json")) + [ROOT / "translations/master/en.json"]
+        for english in templates:
+            copy = self.root / "game/ui/xx.json"
+            copy.write_bytes(english.read_bytes())
+            template = json.loads(english.read_text(encoding="utf-8"))
+            line_breaks = english.parent.name == "master"
+            self.assertEqual(check_file(copy, template, line_breaks=line_breaks, coverage=coverage)[:3], [], english)
+
     def test_main_applies_the_font_check(self):
         self.write("game/ui/pt.json", {"c": "ภ"})
         with contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(main([str(self.root)]), 1)
         self.assertIn("the game's fonts cannot show ภ", out.getvalue())
+
+
+class ProseAndOrderTest(unittest.TestCase):
+    setUp = CheckTest.setUp
+    write = CheckTest.write
+
+    def test_angle_brackets_in_prose_are_not_tags(self):
+        path = self.write("game/ui/pt.json", {"c": "a < b, 3 > 2, <3 e < x >"})
+        self.assertEqual(check_file(path, TEMPLATE), [])
+
+    def test_reversed_tags(self):
+        path = self.write("game/ui/pt.json", {"b": "</i>Oi<i> lá"})
+        found = check_file(path, TEMPLATE)
+        self.assertEqual(len(found), 1, found)
+        self.assertTrue(found[0].endswith(": b: a closing tag comes before its opening tag (</i>)"), found[0])
+
+    def test_tags_differing_in_case_still_pair(self):
+        path = self.write("game/ui/pt.json", {"b": "<I>Oi</i> lá"})
+        self.assertEqual(check_file(path, {"b": "<I>Hi</i> there"}), [])
+
+    def test_order_the_english_has_is_allowed(self):
+        # Some English lines close a tag opened in an earlier line.
+        path = self.write("game/ui/pt.json", {"d": "fim</i> e <i>começo"})
+        self.assertEqual(check_file(path, {"d": "end</i> and <i>start"}), [])
+
+    def test_path_shown_from_the_last_translations_folder(self):
+        root = Path(self.dir.name) / "translations/repo/translations"
+        path = root / "game/ui/pt.json"
+        path.parent.mkdir(parents=True)
+        path.write_text('{"zz": "x"}')
+        (found,) = check_file(path, TEMPLATE)
+        self.assertTrue(found.startswith("translations/game/ui/pt.json: "), found)
 
 
 SHOWN = frozenset(range(0x20, 0x7F)) | frozenset(map(ord, "ąĄéЖあ"))
@@ -205,6 +248,11 @@ class FontCoverageTest(unittest.TestCase):
 
     def test_coverage_passes_ordinary_text(self):
         path = self.write("game/ui/pt.json", {"b": "Ąé Ж\\nあ <i>x</i>", "a": "{0}"})
+        self.assertEqual(check_file(path, TEMPLATE, coverage=SHOWN), [])
+
+    def test_invisible_format_characters_pass(self):
+        # The game's own English uses U+2060 (word joiner); no font draws it, and none needs to.
+        path = self.write("game/ui/pt.json", {"c": "A⁠B C​D"})
         self.assertEqual(check_file(path, TEMPLATE, coverage=SHOWN), [])
 
     def test_separate_accent_marks(self):

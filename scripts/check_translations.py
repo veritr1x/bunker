@@ -27,7 +27,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = frozenset(("en", "ja", "ko"))
 CODE = re.compile(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}")  # the device's rule (bunker_language.CODE)
 PLACEHOLDER = re.compile(r"\{[^{}]{0,20}\}")
-MARKUP = re.compile(r"<[^<>]{1,64}>|\{[^{}]{0,20}\}")
+# A tag starts with a letter (<i>, </i>, <align="right">, <TAP>); "a < b" or "<3" in prose is not one.
+TAG = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9_-]*)[^<>]{0,63}>")
+MARKUP = re.compile(r"</?[A-Za-z][^<>]{0,63}>|\{[^{}]{0,20}\}")
 COMPONENTS = ("master", "bunker")  # translations/<component>/<code>.json; the game's text is game/<area>/<code>.json
 LIMIT = 200
 
@@ -42,9 +44,24 @@ def markup(value: str) -> collections.Counter:
     return found
 
 
+def _closed_early(value: str) -> set[str]:
+    """Tag names (lower case: the game ignores case) closed before they are opened in a value."""
+    depth: collections.Counter = collections.Counter()
+    early = set()
+    for slash, name in TAG.findall(value):
+        name = name.lower()
+        depth[name] += -1 if slash else 1
+        if depth[name] < 0:
+            early.add(name)
+    return early
+
+
 def _shown(path: Path) -> str:
+    """The path from the translations folder (the last one: the repository may sit in a folder of that name)."""
     parts = path.parts
-    return "/".join(parts[parts.index("translations"):]) if "translations" in parts else path.name
+    if "translations" not in parts:
+        return path.name
+    return "/".join(parts[len(parts) - 1 - parts[::-1].index("translations"):])
 
 
 def _load(path: Path):
@@ -114,9 +131,14 @@ def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
                 ("missing " + " ".join(missing.elements())) if missing else "",
                 ("not in the English " + " ".join(extra.elements())) if extra else ""]))
             found.append(f"{shown}: {key}: tags, placeholders and braces must match the English ({what})")
+        elif value and (reversed_tags := _closed_early(value) - _closed_early(template[key])):
+            tags = " ".join(f"</{name}>" for name in sorted(reversed_tags))
+            found.append(f"{shown}: {key}: a closing tag comes before its opening tag ({tags})")
         if coverage is not None and key in template and isinstance(value, str) \
                 and not any("\ud800" <= ch <= "\udfff" for ch in value):
-            unshown = list(dict.fromkeys(ch for ch in value if ch not in "\n\r\t" and ord(ch) not in coverage))
+            # Invisible format characters (word joiner U+2060, which the game's own English uses) need no glyph.
+            unshown = list(dict.fromkeys(ch for ch in value if ch not in "\n\r\t" and ord(ch) not in coverage
+                                         and unicodedata.category(ch) != "Cf"))
             if unshown:
                 letters = unshown[:3]
                 found.append(f"{shown}: {key}: the game's fonts cannot show {' '.join(letters)} "
