@@ -31,7 +31,9 @@
 </footer>
 <script>
 (function () {
-  const MSG = {{ {"pause": t("archive.music.pause"), "play": t("archive.music.play"), "place": t("archive.music.places_heading.one", track="{track}", n="{n}"), "places": t("archive.music.places_heading.other", track="{track}", n="{n}")}|tojson }};
+  const MSG = {{ {"pause": t("archive.music.pause"), "play": t("archive.music.play"), "places": plural_forms("archive.music.places_heading")}|tojson }};
+  const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+  const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const audio = new Audio(); audio.loop = true;
   const bar = document.getElementById("player"), toggle = document.getElementById("toggle"),
         title = document.getElementById("title"), seek = document.getElementById("seek"), loop = document.getElementById("loop");
@@ -53,7 +55,7 @@
   document.querySelectorAll("#tracks .places").forEach(b => b.addEventListener("click", () => {
     const where = JSON.parse(b.dataset.where);
     const count = where.reduce((n, g) => n + g.places.length, 0);
-    heading.textContent = (count === 1 ? MSG.place : MSG.places).replace("{track}", b.dataset.track).replace("{n}", count);
+    heading.textContent = plural(MSG.places, count).replace("{track}", b.dataset.track).replace("{n}", count);
     list.replaceChildren(...where.map(g => {
       const block = document.createElement("section"), name = document.createElement("h3"), items = document.createElement("ul");
       name.textContent = g.name;

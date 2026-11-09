@@ -47,7 +47,8 @@
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
     if (!r.count) return;
-    const text = r.count === 1 ? {{ t("pods.player.gifts_waiting.one", n="{n}")|tojson }} : {{ t("pods.player.gifts_waiting.other", n="{n}")|tojson }};
+    const forms = {{ plural_forms("pods.player.gifts_waiting")|tojson }};
+    const text = forms[new Intl.PluralRules({{ text_language()|tojson }}).select(r.count)] ?? forms.other;
     box.querySelector("a").textContent = "> " + text.replace("{n}", r.count);
     box.hidden = false;
   }).catch(() => {});
@@ -128,11 +129,13 @@
     "granted_one": t("pods.items.granted_one", amount="{amount}", id="{id}"),
     "network_error": t("pods.player.network_error", error="{error}"),
     "nothing_chosen": t("pods.items.nothing_chosen"), "batch_failed": t("pods.player.batch_failed"),
-    "granted": [t("pods.items.granted.one", n="{n}"), t("pods.items.granted.other", n="{n}")],
+    "granted": plural_forms("pods.items.granted"),
     "max_consumables": t("pods.items.max_consumables_confirm"), "max_materials": t("pods.items.max_materials_confirm"),
-    "failed": t("pods.player.failed"), "max_done": [t("pods.items.max_done.one", action="{action}", n="{n}"), t("pods.items.max_done.other", action="{action}", n="{n}")],
+    "failed": t("pods.player.failed"), "max_done": plural_forms("pods.items.max_done"),
   }|tojson }};
-  const plural = (forms, n) => forms[n === 1 ? 0 : 1];
+  const LOCALE = {{ text_language()|tojson }};
+  const PLURAL = new Intl.PluralRules(LOCALE);
+  const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const buttons = document.querySelectorAll(".tab-btn");
   const panes = document.querySelectorAll(".tab-pane");
@@ -169,15 +172,15 @@
   }
 
   // ---------------- Row green-success update ----------------
-  // The current-count display either holds a comma-formatted integer
-  // (e.g., "27,730") or, for not-owned rows, a "—" placeholder span.
+  // The current-count display either holds a grouped integer ("27,730", or
+  // "27.730" once written in another language) or, for not-owned rows, a "—".
   function bumpCurrent(form, amount) {
     const display = form.querySelector("[data-current]");
     if (!display) return;
-    const text = display.textContent.replace(/[,\s]/g, "");
+    const text = display.textContent.replace(/\D/g, "");
     const previous = /^\d+$/.test(text) ? parseInt(text, 10) : 0;
     const next = previous + amount;
-    display.textContent = next.toLocaleString("en-US");
+    display.textContent = next.toLocaleString(LOCALE);
     form.classList.add("grant-success");
   }
 
@@ -246,7 +249,7 @@
         return;
       }
       applyResults(json.results, new Map([[ptype + ":" + pid, form]]));
-      showBanner(fmt(MSG.granted_one, {amount: count.toLocaleString("en-US"), id: pid}), "success");
+      showBanner(fmt(MSG.granted_one, {amount: count.toLocaleString(LOCALE), id: pid}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {

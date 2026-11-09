@@ -403,9 +403,9 @@ def create_app(token, origin):
         # The non-exported Android activity receives this random cookie over
         # private IPC. Loopback binding alone does not authenticate other apps.
         if request.headers.get("host") != origin.removeprefix("http://") or not secrets.compare_digest(request.cookies.get("lunar_tools", ""), token):
-            return JSONResponse({"ok": False, "error": t("pods.runtime.private_session")}, status_code=403)
+            return JSONResponse({"ok": False, "error": t("common.private_session_required")}, status_code=403)
         if request.method not in ("GET", "HEAD") and request.headers.get("origin") not in (None, origin):
-            return JSONResponse({"ok": False, "error": t("pods.runtime.bad_origin")}, status_code=403)
+            return JSONResponse({"ok": False, "error": t("common.invalid_origin")}, status_code=403)
         async with serial:
             try:
                 response = await call_next(request)

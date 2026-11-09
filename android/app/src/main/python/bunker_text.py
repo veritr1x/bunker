@@ -79,11 +79,12 @@ def _fields(text: str) -> list | None:
         return None
 
 
-def t(key: str, **params) -> str:
-    """The chosen language's text for key, else English; the key itself when the catalogue lacks it."""
+def t(key: str, default: str | None = None, **params) -> str:
+    """The chosen language's text for key, else English. When the catalogue lacks the key: default (give one for
+    a key made from game data, such as an element name), else the key itself."""
     base = _extra.get(key) or english().get(key)
     if base is None:
-        return key
+        return key if default is None else default
     translated = _translation.get(key)
     if translated is not None and _fields(translated) == _fields(base):
         try:

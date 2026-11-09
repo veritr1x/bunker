@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 {%- from "_info.html" import info -%}
 {%- set theme = request.cookies.get("lunar_theme", "") if request else "" -%}
-<html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
+<html lang="{{ text_language() }}"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">

@@ -43,6 +43,11 @@ class Catalogue(unittest.TestCase):
     def test_unknown_key_returns_key(self):
         self.assertEqual(bunker_text.t("no.such.key"), "no.such.key")
 
+    def test_a_key_from_game_data_can_say_what_to_show_when_missing(self):
+        # t(f"common.element.{x}") for an element the catalogue lacks showed "common.element.xyz".
+        self.assertEqual(bunker_text.t("common.element.xyz", default="Xyz"), "Xyz")
+        self.assertEqual(bunker_text.t("common.close", default="Xyz"), "Close")
+
     def test_params_formatted(self):
         with bunker_text.extra({"test.items": "{n} items"}):
             self.assertEqual(bunker_text.t("test.items", n=3), "3 items")

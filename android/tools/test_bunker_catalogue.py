@@ -32,22 +32,30 @@ SOURCES = [*POD.glob("*.html"), *ARCHIVE.glob("*.html"), *PY.glob("android_*.py"
            *(p for p in PY.glob("bunker_*.py") if p.name != "bunker_text.py"),
            *(PY / "archive").glob("*.py"), *(PY / "deckbuilder").glob("*.py"), ROOT / "ios/python/ios_runtime.py",
            *(ROOT / "patches").glob("lunar-base-*texts*.patch")]
-CALL = re.compile(r"\bt(_count|_around)?\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
+CALL = re.compile(r"\b(t_count|t_around|plural_forms|t)\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
+FORMS = re.compile(r"\bplural_forms\(\s*[\"']([a-z0-9_.-]+)[\"']\s*\)")
 
 
 def calls():
-    """(file, key, plural, keyword names) for every t()/t_count()/t_around() call with a literal key (t_around's
-    slot, its second argument, counts as a name)."""
+    """(file, key, plural, keyword names) for every t()/t_count()/t_around()/plural_forms() call with a literal
+    key (t_around's slot, its second argument, counts as a name; plural_forms leaves every placeholder to the
+    page's script)."""
     for path in SOURCES:
         text = path.read_text(encoding="utf-8")
         for match in CALL.finditer(text):
-            plural, key, rest = match.group(1) == "_count", match.group(2), match.group(3)
+            plural, key, rest = match.group(1) in ("t_count", "plural_forms"), match.group(2), match.group(3)
             names = set(re.findall(r"\b([a-z_][a-z0-9_]*)\s*=(?!=)", rest))
-            if match.group(1) == "_around":
+            if match.group(1) == "plural_forms":
+                names |= {name for form in ("one", "other") for name in fields(ENGLISH.get(f"{key}.{form}", ""))}
+            if match.group(1) == "t_around":
                 names |= set(re.findall(r"^\s*,\s*[\"']([a-z_][a-z0-9_]*)[\"']", rest))
             if plural:
                 names.add("n")
             yield path, key, plural, names
+        # plural_forms("key") hands a page script every form with its placeholders, which the script fills.
+        for match in FORMS.finditer(text):
+            key = match.group(1)
+            yield path, key, True, fields(ENGLISH.get(f"{key}.other", "")) | {"n"}
 
 
 def fields(text: str) -> set[str]:
@@ -116,16 +124,24 @@ class _Strings(ast.NodeVisitor):
              "fullmatch", "sub", "split", "findall", "execute", "executemany", "get", "getattr", "setdefault",
              "startswith", "endswith", "replace", "join", "format", "strftime", "strptime", "Path", "open",
              "joinpath", "with_name", "with_suffix", "glob", "rglob", "encode", "decode", "partition", "rpartition",
-             "t", "t_count", "t_around", "router", "post", "get_template", "TemplateResponse", "redirect_to", "jclass"}
+             "t", "t_count", "t_around", "plural_forms", "router", "post", "get_template", "TemplateResponse", "redirect_to", "jclass"}
 
     def __init__(self):
         self.found = []
 
+    # Arguments that name what a page shows: a single word there is English too ("Saved", "Owned").
+    LABELS = {"message", "error", "label", "title", "detail", "text", "note", "status", "caption", "heading"}
+
     def visit_Call(self, node):
         func = node.func
         name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-        if name in self.QUIET:
+        if name in self.QUIET or name == "FastAPI":
             return
+        for keyword in node.keywords:
+            value = keyword.value
+            if keyword.arg in self.LABELS and isinstance(value, ast.Constant) and isinstance(value.value, str) \
+                    and has_letter(value.value) and " " not in value.value.strip() and value.value not in ALLOWED:
+                self.found.append((value.lineno, value.value))
         self.generic_visit(node)
 
     def visit_Expr(self, node):  # docstrings and bare strings
@@ -152,6 +168,31 @@ class _Strings(ast.NodeVisitor):
         text = "".join(v.value for v in node.values if isinstance(v, ast.Constant) and isinstance(v.value, str))
         if has_letter(text) and " " in text.strip() and not SQL.search(text):
             self.found.append((node.lineno, text))
+
+
+SCRIPT = re.compile(r"<script[^>]*>(.*?)</script>", re.S)
+# A comment: "//" starting a line or after code (not inside "http://"), or /* … */.
+JS_COMMENT = re.compile(r"(^|[\s;{}(,])//[^\n]*|/\*.*?\*/", re.S)
+JS_STRING = re.compile(r"\"((?:[^\"\\\n]|\\.)*)\"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`")
+
+
+def script_english(path: Path) -> list[str]:
+    """English in a template's page scripts: string literals that read as words people see (two words or more,
+    with a capital or sentence punctuation or three words), not selectors, CSS, keys or code."""
+    found = []
+    for block in SCRIPT.findall(path.read_text(encoding="utf-8")):
+        block = JINJA.sub("\"\"", block)
+        block = JS_COMMENT.sub(lambda m: m.group(1) or "", block)
+        for match in JS_STRING.finditer(block):
+            text = next(g for g in match.groups() if g is not None)
+            text = re.sub(r"\$\{[^}]*\}", " ", text)  # a template literal's ${…} is code
+            # Words people read: whitespace-separated, letters only (an id, class or key has - _ or .).
+            words = [w for w in re.split(r"\s+", re.sub(r"[,.!?…]+(\s|$)", " ", text)) if len(w) >= 2 and w.isalpha()]
+            if len(words) < 2 or re.search(r"[:;#\[\](){}=<>/\\|]", text) or text in ALLOWED:
+                continue
+            if any(w[0].isupper() for w in words) or re.search(r"[.!?]\s*$", text.strip()) or len(words) >= 3:
+                found.append(text.strip())
+    return found
 
 
 def python_english(path: Path) -> list[tuple[int, str]]:
@@ -204,6 +245,32 @@ class Catalogue(unittest.TestCase):
     def test_no_literal_messages_in_python(self):
         left = {str(path.relative_to(ROOT)): python_english(path) for path in CONVERTED_PY}
         self.assertEqual({k: v for k, v in left.items() if v}, {})
+
+    def test_no_english_in_page_scripts(self):
+        left = {str(path.relative_to(ROOT)): script_english(path) for path in CONVERTED}
+        self.assertEqual({k: v for k, v in left.items() if v}, {})
+
+    def test_upstream_routes_add_no_new_english(self):
+        # lunar-base's routes keep a few English messages players only see after a malformed request
+        # (bunker_text_allow.json "upstream"). A lunar-base update that adds English shows up here.
+        routes = PY / "web/routes"
+        if not routes.is_dir():
+            self.skipTest("run scripts/prepare.py first")
+        found = {text for path in routes.glob("*.py") for _, text in python_english(path)}
+        self.assertEqual(sorted(found - set(ALLOW["upstream"])), [])
+
+    def test_the_lint_sees_english_in_scripts(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            page = Path(folder) / "p.html"
+            page.write_text('<script>\n// the game\'s portrait\nconst a = "Network error", b = "button.on", c = "Escape";\n'
+                            'const d = `${x} items left now`, e = "display:flex;gap:4px", f = "script, style";\n'
+                            'const h = "tl-art small", i = "limit_break_count", j = "en-US";\n'
+                            'fetch("http://x/y"); alert("Saved."); const g = {{ t("pods.x")|tojson }};</script>')
+            self.assertEqual(script_english(page), ["Network error", "items left now"])
+            module = Path(folder) / "m.py"
+            module.write_text('def f():\n    return redirect(message="Saved", error="bad request")\napp = FastAPI(title="Archive")\n')
+            self.assertEqual([text for _, text in python_english(module)], ["Saved", "bad request"])
 
     def test_the_lint_sees_english(self):
         # The checks above are only as good as these two finders.

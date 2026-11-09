@@ -143,6 +143,9 @@ class PageTest(unittest.TestCase):
     def test_page_renders(self):
         r = self.c.get("/decks", params={"user": 1})
         self.assertEqual(r.status_code, 200)
+        # counts take the forms the language uses (Intl.PluralRules), not a one/other pair
+        self.assertIn("new Intl.PluralRules(", r.text)
+        self.assertIn('adds: {"one": "Adds {n} piece, fully raised.", "other": "Adds {n} pieces, fully raised."}', r.text)
         for text in ("Deck Builder", 'data-name="Arena deck 1"', "Operator 6O", "/decks/results"):
             self.assertIn(text, r.text)
 
@@ -295,7 +298,17 @@ class PageTest(unittest.TestCase):
     def test_subjugation_is_a_mode_with_a_boss_and_difficulty(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<button type="button" data-v="subjugation">Subjugation</button>', html)
-        self.assertIn('<option value="1">Fiery Cursed God · fire</option>', html)
+        self.assertIn('<option value="1" data-name="Fiery Cursed God">Fiery Cursed God · fire</option>', html)
+        # an element the catalogue lacks (new game data) shows its own name
+        import jinja2
+        import bunker_text
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(ROOT / "overlays/python/web/templates")), autoescape=True)
+        bunker_text.install(env)
+        page = env.get_template("deck_builder.html").render(user=1, players=[], slots=[], opponents=[], preparing=False,
+                                                             bosses=[{"id": 9, "name": "New God", "element": "void"}])
+        self.assertIn('<option value="9" data-name="New God">New God · void</option>', page)
+        # the script takes the boss's name from its own field, never by cutting up the (translated) option text
+        self.assertNotIn('split(" · ")', html)
         self.assertIn('<select id="difficulty">', html)
 
     def test_subjugation_results_are_loadouts_of_three_decks(self):

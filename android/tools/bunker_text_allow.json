@@ -27,5 +27,22 @@
     "pods.patcher.label.",
     "pods.story.kind.",
     "pods.story.state."
-  ]
+  ],
+  "upstream": [
+    "Important Items",
+    "costume_ids must be a non-empty list",
+    "costume_ids must be integers",
+    "costumes must be a non-empty list",
+    "each grant needs integer possession_type, possession_id, count",
+    "grants must be a non-empty list",
+    "memoirs must be a non-empty list",
+    "no valid karma updates in request",
+    "possession_type, possession_id, and count are required integers",
+    "set_id required",
+    "subs must be a non-empty list",
+    "user_parts_uuid required",
+    "weapon_ids must be a non-empty list",
+    "weapon_ids must be integers"
+  ],
+  "_upstream": "lunar-base route messages that stay English: request validation a player only meets after a malformed request, and the item editor tab name it maps itself (test_upstream_routes_add_no_new_english)."
 }

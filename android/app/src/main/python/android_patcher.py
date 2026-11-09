@@ -26,33 +26,62 @@ PRESETS = [("Full", "pods.patcher.label.full"), ("Clear", "pods.patcher.label.st
            ("Rec", "pods.patcher.label.record"), ("Var", "pods.patcher.label.variation"), ("Bonus", "pods.patcher.label.bonus")]
 SPLITS = [(f"{key}_{index}", "pods.patcher.label.split_" + key.lower()) for key, count in (("Gacha", 5), ("Rec", 5), ("Var", 4), ("Bonus", 4))
           for index in range(1, count + 1)]
-# What active.json's label can say. It stays in English (reapply_preset finds a preset by it); the page translates it.
-LABELS = ("pods.patcher.label.full", "pods.patcher.label.story", "pods.patcher.label.gacha", "pods.patcher.label.record",
-          "pods.patcher.label.variation", "pods.patcher.label.bonus", "pods.patcher.label.split_gacha", "pods.patcher.label.split_rec",
-          "pods.patcher.label.split_var", "pods.patcher.label.split_bonus", "pods.patcher.imported", "pods.patcher.label.restored",
-          "pods.patcher.label_calendar")
+# active.json's label: what made the master data, as an id the page puts in words (shown_label): a preset's key
+# ("Full", "Gacha_3"), RESTORED, or calendar_id(loop). Other text (Mods, Gift: "Imported master data" in the chosen
+# language) is shown as it is.
+RESTORED = "restored"
+# Labels written before ids were kept (the English names of Bunker 1.x), read as their ids.
+LEGACY = {"All content": "Full", "Story": "Clear", "Gacha shops": "Gacha", "Record events": "Rec", "Variation events": "Var",
+          "Bonus quests": "Bonus", "Gacha 1": "Gacha_1", "Gacha 2": "Gacha_2", "Gacha 3": "Gacha_3", "Gacha 4": "Gacha_4",
+          "Gacha 5": "Gacha_5", "Record 1": "Rec_1", "Record 2": "Rec_2", "Record 3": "Rec_3", "Record 4": "Rec_4",
+          "Record 5": "Rec_5", "Variation 1": "Var_1", "Variation 2": "Var_2", "Variation 3": "Var_3", "Variation 4": "Var_4",
+          "Bonus 1": "Bonus_1", "Bonus 2": "Bonus_2", "Bonus 3": "Bonus_3", "Bonus 4": "Bonus_4",
+          "Restored snapshot": RESTORED}
 
 
-def english(key, **params):
-    """A catalogue text in English, whatever the chosen language: for labels kept in files."""
-    return bunker_text.english()[key].format(**params)
+def calendar_id(loop):
+    """The label of the Original calendar's game data for a loop."""
+    return f"calendar-{loop}"
 
 
-def preset_label(preset, in_english=False):
-    """A preset's name ("All content", "Gacha 3"): in the chosen language, or in English for active.json."""
+def label_id(label):
+    """A stored label as an id: an old English name becomes its id; anything else stays as it is."""
+    if label in LEGACY:
+        return LEGACY[label]
+    old_calendar = re.fullmatch(r"Original calendar · loop (\d+)", label)
+    return calendar_id(old_calendar.group(1)) if old_calendar else label
+
+
+def preset_label(preset):
+    """A preset's name ("All content", "Gacha 3") in the chosen language."""
     key, n = dict(PRESETS + SPLITS)[preset], preset.partition("_")[2]
-    return english(key, n=n) if in_english else t(key, n=n)
+    return t(key, n=n)
 
 
 def shown_label(label):
-    """active.json's label in the chosen language; a label of another form as it is."""
-    for key in LABELS:
-        # The English text with each {name} matching anything.
-        pattern = re.sub(r"\\\{(\w+)\\\}", r"(?P<\1>.+)", re.escape(bunker_text.english().get(key, "")))
-        found = re.fullmatch(pattern, label)
-        if found:
-            return t(key, **found.groupdict())
+    """active.json's label in the chosen language; text of another kind as it is."""
+    label = label_id(label)
+    if label in dict(PRESETS + SPLITS):
+        return preset_label(label)
+    if label == RESTORED:
+        return t("pods.patcher.label.restored")
+    loop = re.fullmatch(r"calendar-(\d+)", label)
+    if loop:
+        return t("pods.patcher.label_calendar", loop=loop.group(1))
     return label
+
+
+def active_label():
+    """active.json, its label read as an id; an old English label is rewritten as its id once."""
+    path = folder() / "active.json"
+    active = runtime.read_json(path)
+    if not (isinstance(active, dict) and isinstance(active.get("label"), str)):
+        return active
+    label = label_id(active["label"])
+    if label != active["label"]:
+        active["label"] = label
+        runtime.write_json(path, active)
+    return active
 
 
 def folder():
@@ -254,8 +283,7 @@ def new_day():
 @router.get("/patcher")
 def view(request: Request, message: str = "", error: str = ""):
     current = t("pods.patcher.imported")
-    state = folder() / "active.json"
-    metadata = runtime.read_json(state)
+    metadata = active_label()
     if isinstance(metadata, dict) and isinstance(metadata.get("label"), str) and metadata["label"]:
         if metadata.get("sha256") == runtime.fingerprint(config.find_master_data_bin()):
             current = shown_label(metadata["label"])
@@ -298,7 +326,7 @@ def apply_preset(preset, cfg):
         patch_masterdata = importlib.reload(patch_masterdata)
         log = runtime.cli(patch_masterdata, ["--input", origin, "--output", candidate, *args])
         (folder() / "last-patch.log").write_text(log)
-        activate(candidate, preset_label(preset, in_english=True))
+        activate(candidate, preset)  # its key: active.json
     finally:
         candidate.unlink(missing_ok=True)
 
@@ -306,14 +334,14 @@ def apply_preset(preset, cfg):
 def reapply_preset():
     """Builds the preset's master data again with this build's patcher when the
     master data is still what that preset made (active.json). Returns True when it did."""
-    active = runtime.read_json(folder() / "active.json")
-    presets = {preset_label(key, in_english=True): key for key, _ in PRESETS + SPLITS}
+    active = active_label()
+    presets = dict(PRESETS + SPLITS)
     if not (isinstance(active, dict) and active.get("label") in presets):
         return False
     master = config.find_master_data_bin()
     if not master.is_file() or runtime.fingerprint(master) != active.get("sha256"):
         return False  # Imported, restored or changed since.
-    apply_preset(presets[active["label"]], get_config())
+    apply_preset(active["label"], get_config())
     return True
 
 
@@ -360,7 +388,7 @@ def restore(filename: str = Form(...)):
     candidate = folder() / "candidate.bin.e"
     try:
         shutil.copyfile(folder() / filename, candidate)
-        activate(candidate, english("pods.patcher.label.restored"))
+        activate(candidate, RESTORED)
         return redirect(message=t("pods.patcher.restored_next", next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))

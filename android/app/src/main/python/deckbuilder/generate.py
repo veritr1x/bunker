@@ -47,13 +47,14 @@ ADVANTAGE = {("dark", "light"), ("light", "dark"), ("fire", "wind"), ("wind", "w
 
 
 class Advantage(Later):
-    """A tag: one of the deck's elements beats one of the opponent's (×1.2), as "Fire vs wind ×1.2"."""
+    """A tag: one of the deck's elements beats one of the opponent's (×1.2), as "Fire vs wind ×1.2" (the first
+    element as a chip names it, the second as a sentence does)."""
     __slots__ = ()
 
 
 def advantage(mine: str, theirs: str) -> Advantage:
-    return Advantage(lambda: bunker_text.t("pods.decks.tag.advantage", mine=bunker_text.t(f"common.element.{mine}"),
-                                           theirs=bunker_text.t(f"common.element.{theirs}").lower()))
+    return Advantage(lambda: bunker_text.t("pods.decks.tag.advantage", mine=bunker_text.t(f"common.element.{mine}", default=mine),
+                                           theirs=bunker_text.t(f"pods.decks.element_in_text.{theirs}", default=theirs)))
 
 
 class Criteria(NamedTuple):

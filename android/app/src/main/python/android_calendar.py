@@ -976,7 +976,7 @@ def activate_loop(state):
     candidate = patcher.folder() / "candidate.bin.e"
     try:
         build_master(origin_file(), candidate, state["loopStart"] - LAUNCH, open_chapters=open_chapters(state))
-        patcher.activate(candidate, patcher.english("pods.patcher.label_calendar", loop=state["loop"]))  # active.json: English
+        patcher.activate(candidate, patcher.calendar_id(state["loop"]))
     finally:
         candidate.unlink(missing_ok=True)
 

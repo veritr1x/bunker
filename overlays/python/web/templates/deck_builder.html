@@ -222,7 +222,7 @@
       {% set allow = t_around("pods.decks.allow", "select") %}<p class="help owned-only">{{ allow[0] }}<select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">{{ t("pods.decks.allow_all") }}</option></select>{{ allow[1] }}</p></div>
     <div class="db-lbl subj-only">{{ t("pods.decks.boss") }}</div>
     <div class="subj-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <select id="boss" style="width:100%;min-width:0">{% for b in bosses %}<option value="{{ b.id }}">{{ b.name }} · {% set element_key = "common.element." ~ b.element %}{{ t(element_key)|lower }}</option>{% endfor %}</select>
+      <select id="boss" style="width:100%;min-width:0">{% for b in bosses %}<option value="{{ b.id }}" data-name="{{ b.name }}">{{ b.name }} · {% set element_key = "pods.decks.element_in_text." ~ b.element %}{{ t(element_key, default=b.element) }}</option>{% endfor %}</select>
       <select id="difficulty">{% for n in (5, 4, 3, 2, 1) %}<option value="{{ n }}">{{ t("pods.decks.difficulty_n", n=n) }}</option>{% endfor %}</select>
     </div>
     <div class="db-lbl"><span class="arena-only">{{ t("pods.decks.against") }}</span></div>
@@ -251,9 +251,9 @@
         {% for v, n in (("compromise", t("pods.decks.effect.compromise")), ("cleanse", t("pods.decks.effect.cleanse")), ("revive", t("pods.decks.effect.revive")), ("provoke", t("pods.decks.effect.provoke")), ("dauntless", t("pods.decks.effect.dauntless")), ("indomitable", t("pods.decks.effect.indomitable")), ("from_start", t("pods.decks.effect.from_start"))) %}<button type="button" class="chip" data-v="{{ v }}">{{ n }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">{{ t("pods.decks.element_by_slot") }}</div>
         {% for k, n in (("l", t("pods.decks.slot.left")), ("m", t("pods.decks.slot.middle")), ("r", t("pods.decks.slot.right"))) %}<div class="slotrow"><span>{{ n }}</span><div class="chips" data-name="el_{{ k }}" data-one="1">
-          <button type="button" class="chip on" data-v="">{{ t("pods.decks.any") }}</button>{% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{% set element_key = "common.element." ~ e %}{{ t(element_key) }}</button>{% endfor %}</div></div>{% endfor %}</div>
+          <button type="button" class="chip on" data-v="">{{ t("pods.decks.any") }}</button>{% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{% set element_key = "common.element." ~ e %}{{ t(element_key, default=e) }}</button>{% endfor %}</div></div>{% endfor %}</div>
       <div class="f"><div class="db-lbl">{{ t("pods.decks.leave_out_elements") }}</div><div class="chips" data-name="exclude_el">
-        {% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{% set element_key = "common.element." ~ e %}{{ t(element_key) }}</button>{% endfor %}</div></div>
+        {% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{% set element_key = "common.element." ~ e %}{{ t(element_key, default=e) }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">{{ t("pods.decks.minimum") }}</div>
         {% for k, n, mx in (("agi", t("pods.decks.stat.agility"), 3000), ("hp", t("pods.decks.stat.hp"), 800000), ("atk", t("pods.decks.stat.atk"), 80000), ("crit", t("pods.decks.stat.crit"), 1000)) %}<div class="rng"><span>{{ n }}</span><input type="range" min="0" max="{{ mx }}" step="{{ mx // 50 }}" value="0" data-min="{{ k }}"><span data-show="{{ k }}">—</span></div>{% endfor %}</div>
     </section>
@@ -307,9 +307,9 @@ const TXT = {
   force: {{ t("pods.decks.force")|tojson }}, winRateShort: {{ t("pods.decks.win_rate_short")|tojson }},
   simulatingBoss: {{ t("pods.decks.simulating_boss")|tojson }}, simulatingDecks: {{ t("pods.decks.simulating_decks")|tojson }},
   simulating: {{ t("pods.decks.simulating")|tojson }},
-  loadouts: [{{ t("pods.decks.loadouts.one", n="{n}", boss="{boss}")|tojson }}, {{ t("pods.decks.loadouts.other", n="{n}", boss="{boss}")|tojson }}],
+  loadouts: {{ plural_forms("pods.decks.loadouts")|tojson }},
   boss: {{ t("pods.decks.the_boss")|tojson }}, noLoadouts: {{ t("pods.decks.no_loadouts")|tojson }},
-  decksShowing: [{{ t("pods.decks.decks_showing.one", n="{n}", last="{last}")|tojson }}, {{ t("pods.decks.decks_showing.other", n="{n}", last="{last}")|tojson }}], noDecks: {{ t("pods.decks.no_decks")|tojson }},
+  decksShowing: {{ plural_forms("pods.decks.decks_showing")|tojson }}, noDecks: {{ t("pods.decks.no_decks")|tojson }},
   tryWithout: {{ t("pods.decks.try_without", filter="{filter}")|tojson }}, scrollMore: {{ t("pods.decks.scroll_more")|tojson }},
   decksFailed: {{ t("pods.decks.decks_failed", error="{error}")|tojson }},
   winRate: {{ t("pods.decks.win_rate")|tojson }}, toAdd: {{ t("pods.decks.to_add")|tojson }}, variants: {{ t("pods.decks.variants")|tojson }},
@@ -326,7 +326,7 @@ const TXT = {
   why: {{ t("pods.decks.why", name="{name}")|tojson }}, weapons: {{ t("pods.decks.weapons")|tojson }}, support: {{ t("pods.decks.support")|tojson }},
   preparing: {{ t("pods.decks.preparing")|tojson }}, serverPauses: {{ t("pods.decks.server_pauses")|tojson }},
   prepareFailed: {{ t("pods.decks.prepare_failed")|tojson }}, error: {{ t("pods.decks.error", text="{text}")|tojson }},
-  adds: [{{ t("pods.decks.adds.one", n="{n}")|tojson }}, {{ t("pods.decks.adds.other", n="{n}")|tojson }}],
+  adds: {{ plural_forms("pods.decks.adds")|tojson }},
   sumLoadout: {{ t("pods.decks.sum_loadout", force="{force}", damage="{damage}")|tojson }},
   sumDeck: {{ t("pods.decks.sum_deck", force="{force}", win="{win}")|tojson }},
   withRaised: {{ t("pods.decks.with_raised")|tojson }}, asTheyAre: {{ t("pods.decks.as_they_are")|tojson }},
@@ -336,14 +336,17 @@ const TXT = {
   arena: {{ t("pods.decks.arena")|tojson }}, loadout: {{ t("pods.decks.loadout")|tojson }},
   writeTo: {{ t("pods.decks.write_to")|tojson }}, writeToSubj: {{ t("pods.decks.write_to_subjugation")|tojson }},
   chooseSlot: {{ t("pods.decks.error_choose_slot")|tojson }}, writtenSubj: {{ t("pods.decks.written_subjugation")|tojson }},
-  writtenSlots: [{{ t("pods.decks.written_slots.one", n="{n}")|tojson }}, {{ t("pods.decks.written_slots.other", n="{n}")|tojson }}],
-  added: [{{ t("pods.decks.added.one", n="{n}")|tojson }}, {{ t("pods.decks.added.other", n="{n}")|tojson }}],
+  writtenSlots: {{ plural_forms("pods.decks.written_slots")|tojson }}, added: {{ plural_forms("pods.decks.added")|tojson }},
   readMore: {{ t("pods.decks.read_more")|tojson }}, readLess: {{ t("pods.decks.read_less")|tojson }},
-  element: {"fire": {{ t("common.element.fire")|tojson }}, "water": {{ t("common.element.water")|tojson }}, "wind": {{ t("common.element.wind")|tojson }},
-            "light": {{ t("common.element.light")|tojson }}, "dark": {{ t("common.element.dark")|tojson }}}};
+  // an element named inside a line (the form a sentence needs, as "fire")
+  element: {"fire": {{ t("pods.decks.element_in_text.fire")|tojson }}, "water": {{ t("pods.decks.element_in_text.water")|tojson }},
+            "wind": {{ t("pods.decks.element_in_text.wind")|tojson }}, "light": {{ t("pods.decks.element_in_text.light")|tojson }},
+            "dark": {{ t("pods.decks.element_in_text.dark")|tojson }}}};
 const fill = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
-const plural = (forms, n) => forms[n === 1 ? 0 : 1];
-const elementName = e => (TXT.element[e] || e).toLowerCase();   // as the game's names: lower case in a line
+// A counted text: the form the language uses for n (its CLDR plural category), else "other".
+const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
+const elementName = e => TXT.element[e] || e;
 const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match", include: [], exclude: []};
 let offset = 0, busy = false, done = false, chosen = null, detailData = null, pending = false;
 const cards = {};   // the listed decks by key, for the deck view's header and numbers
@@ -488,7 +491,7 @@ async function load(reset) {
     if (res.status === 409 && r.prepare) {          // the stage must be built first (an opponent outside it)
       busy = false; await prepare(r.against, r.costumes); load(true); return;
     }
-    $("count").innerHTML = SUBJ() ? (r.total ? fill(esc(plural(TXT.loadouts, r.total)), {n: `<strong>${r.total}</strong>`, boss: esc($("boss").selectedOptions[0]?.textContent.split(" · ")[0] || TXT.boss)}) : esc(TXT.noLoadouts))
+    $("count").innerHTML = SUBJ() ? (r.total ? fill(esc(plural(TXT.loadouts, r.total)), {n: `<strong>${r.total}</strong>`, boss: esc($("boss").selectedOptions[0]?.dataset.name || TXT.boss)}) : esc(TXT.noLoadouts))
       : r.total ? fill(esc(plural(TXT.decksShowing, r.total)), {n: `<strong>${r.total.toLocaleString()}</strong>`, last: offset + r.items.length}) : esc(TXT.noDecks);
     $("cards").insertAdjacentHTML("beforeend", r.items.map(cardHtml).join(""));
     offset += r.items.length; done = r.exhausted || !r.items.length;
@@ -553,7 +556,7 @@ function raiseBoxes(d) {
   if (state.mode === "best") document.querySelectorAll("#w-raise input").forEach(b => (b.checked = true));
 }
 async function openLoadout(key, c) {
-  const boss = $("boss").selectedOptions[0]?.textContent.split(" · ")[0] || TXT.subjugation;
+  const boss = $("boss").selectedOptions[0]?.dataset.name || TXT.subjugation;
   $("d-title").textContent = boss;
   $("d-sub").textContent = fill(TXT.difficulty, {n: $("difficulty").value});
   $("d-trio").innerHTML = c.decks.flatMap(d => d.tiles).map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}</div>`).join("");
