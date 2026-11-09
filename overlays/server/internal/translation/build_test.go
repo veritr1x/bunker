@@ -88,6 +88,21 @@ func TestBuildSkipsFailures(t *testing.T) {
 	}
 }
 
+func TestBuildSkipsABundleThatPanics(t *testing.T) {
+	assets, entries := fakeAssets(t, "text)en)boom", "text)en)ui")
+	var read []string
+	inner := fakeRebuild(&read)
+	m, err := Build(assets, entries, "listmd5", testPack, t.TempDir(), func(raw []byte, name string, values map[string]string) ([]byte, uint32, bool, error) {
+		if name == "text)en)boom" {
+			panic("index out of range")
+		}
+		return inner(raw, name, values)
+	})
+	if err != nil || len(m.Entries) != 1 || strings.Join(m.Skipped, ",") != "text)en)boom" {
+		t.Fatalf("%v entries %v skipped %v", err, m, m)
+	}
+}
+
 func TestBuildIgnoresOtherBundles(t *testing.T) {
 	assets, entries := fakeAssets(t, "text)ja)ui", "ui)skill)x", "text)en)ui")
 	var read []string

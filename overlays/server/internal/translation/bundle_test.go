@@ -2,11 +2,13 @@ package translation
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"lunar-tear/server/mobile/unityasset"
 )
@@ -61,6 +63,66 @@ func TestRebuildKeepsSerializedFile(t *testing.T) {
 	}
 	if crc != 3054123202 { // list.bin's CRC for text)en)gift
 		t.Fatalf("crc %d", crc)
+	}
+}
+
+// A damaged bundle is an error, quickly and without a panic: never a hang or a huge allocation.
+func TestRebuildDamagedBundles(t *testing.T) {
+	raw := readDumpBundle(t, "text/en/gift")
+	edit := func(text string) (string, bool) { return text + "x", true }
+	try := func(label string, data []byte) {
+		done := make(chan any, 1)
+		go func() {
+			defer func() { done <- recover() }()
+			RebuildText(data, "text)en)gift", edit)
+		}()
+		select {
+		case p := <-done:
+			if p != nil {
+				t.Fatalf("%s: panic %v", label, p)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%s: still running after 2s", label)
+		}
+	}
+	for _, n := range []int{0, 1, 8, 40, 60, 100, 300, len(raw) / 2, len(raw) - 1} {
+		try(fmt.Sprintf("truncated to %d", n), raw[:n])
+	}
+	plain, err := unityasset.Unmask(raw, "text)en)gift")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rng := rand.New(rand.NewSource(7))
+	for i := 0; i < 400; i++ {
+		damaged := bytes.Clone(plain)
+		for j := 0; j < 1+rng.Intn(4); j++ {
+			damaged[rng.Intn(len(damaged))] = byte(rng.Intn(256))
+		}
+		try(fmt.Sprintf("flip %d", i), Mask(damaged, "text)en)gift", raw[0]))
+	}
+	// the serialized file inside, damaged, behind an intact bundle header
+	b, err := readBundle(plain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 400; i++ {
+		data := bytes.Clone(b.data)
+		for j := 0; j < 1+rng.Intn(4); j++ {
+			data[rng.Intn(4200)] = byte(rng.Intn(256))
+		}
+		done := make(chan any, 1)
+		go func() {
+			defer func() { done <- recover() }()
+			rewriteTextAssets(data, edit)
+		}()
+		select {
+		case p := <-done:
+			if p != nil {
+				t.Fatalf("serialized flip %d: panic %v", i, p)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("serialized flip %d: still running after 2s", i)
+		}
 	}
 }
 

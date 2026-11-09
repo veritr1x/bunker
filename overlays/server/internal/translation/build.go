@@ -42,6 +42,17 @@ func DefaultRebuilder(raw []byte, name string, values map[string]string) ([]byte
 	})
 }
 
+// safeRebuild turns a panic in one bundle into that bundle's error: the
+// server runs inside the app, and a panic in the build would end it.
+func safeRebuild(rebuild Rebuilder, raw []byte, name string, values map[string]string) (out []byte, crc uint32, changed bool, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			out, crc, changed, err = nil, 0, false, fmt.Errorf("panic: %v", p)
+		}
+	}()
+	return rebuild(raw, name, values)
+}
+
 // Build translates every English text bundle of list with the pack into dir:
 // <objectID>.assetbundle for each bundle that changed, then manifest.json
 // (written last: a build without it is unfinished). assetsRevision is the
@@ -62,7 +73,7 @@ func Build(assetsRevision string, list []Entry, listMD5 string, pack *Pack, dir 
 		var crc uint32
 		changed := false
 		if err == nil {
-			out, crc, changed, err = rebuild(raw, e.Path, pack.Game)
+			out, crc, changed, err = safeRebuild(rebuild, raw, e.Path, pack.Game)
 		}
 		if err != nil {
 			log.Printf("[Translation] %s keeps its English: %v", e.Path, err)
