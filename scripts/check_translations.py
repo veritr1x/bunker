@@ -117,10 +117,16 @@ def _english_for(key: str, template: dict[str, str]) -> tuple[str | None, bool]:
     return template.get(key), False
 
 
+# Bunker texts the game itself draws (its fonts must show them): the Gift Box sender, put into the game data
+# (android_master_text.BUNKER_GIFT_KEY).
+SHOWN_BY_GAME = frozenset({"pods.gift.sender_in_game"})
+
+
 def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
-               coverage: frozenset[int] | None = None) -> list[str]:
+               coverage: frozenset[int] | None = None, coverage_keys: frozenset[str] | None = None) -> list[str]:
     """Every problem in one translation file. line_breaks: real line breaks allowed (master texts have them).
-    coverage: the characters the game can show (load_coverage); None skips that check."""
+    coverage: the characters the game can show (load_coverage); None skips that check. coverage_keys: only these
+    keys are font checked (None: every key)."""
     shown = _shown(path)
     data, problems = _load(path)
     found = [f"{shown}: {problem}" for problem in problems]
@@ -150,6 +156,7 @@ def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
             tags = " ".join(f"</{name}>" for name in sorted(reversed_tags))
             found.append(f"{shown}: {key}: a closing tag comes before its opening tag ({tags})")
         if coverage is not None and english is not None and isinstance(value, str) \
+                and (coverage_keys is None or key in coverage_keys) \
                 and not any("\ud800" <= ch <= "\udfff" for ch in value):
             # Invisible format characters (word joiner U+2060, which the game's own English uses) need no glyph.
             unshown = list(dict.fromkeys(ch for ch in value if ch not in "\n\r\t" and ord(ch) not in coverage
@@ -204,7 +211,8 @@ def _place(translations: Path, path: Path) -> bool:
 
 
 def check_tree(translations: Path, coverage: frozenset[int] | None = None) -> list[str]:
-    """Every problem in the translations folder. coverage applies to game and master texts (the game shows them)."""
+    """Every problem in the translations folder. coverage applies to game and master texts and the few Bunker
+    texts the game shows (SHOWN_BY_GAME)."""
     languages = translations / "languages.json"
     found, listed = _check_languages(languages)
     templates: dict[Path, dict | None] = {}
@@ -235,7 +243,8 @@ def check_tree(translations: Path, coverage: frozenset[int] | None = None) -> li
         if templates[folder] is not None:
             component = path.relative_to(translations).parts[0]
             found += check_file(path, templates[folder], line_breaks=component != "game",
-                                coverage=coverage if component in ("game", "master") else None)
+                                coverage=coverage if component in ("game", "master", "bunker") else None,
+                                coverage_keys=SHOWN_BY_GAME if component == "bunker" else None)
     return found
 
 

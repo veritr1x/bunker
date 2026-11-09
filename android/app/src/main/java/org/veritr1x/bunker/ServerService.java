@@ -198,7 +198,7 @@ public final class ServerService extends Service {
                     if(ASSETS.equals(action)) FilesStore.importAssets(this,uri,progress);
                     else if(ARCHIVE.equals(action)) FilesStore.importArchive(this,uri,progress);
                     else if(LINK.equals(action)) FilesStore.linkAssets(this,uri,progress);
-                    else if(MASTER.equals(action)) FilesStore.importMaster(this,uri,progress);
+                    else if(MASTER.equals(action)) { FilesStore.importMaster(this,uri,progress); ToolsRuntime.layerGameData(this); }
                     else if(BACKUP.equals(action)) FilesStore.backup(this,uri);
                     else if(SAVE.equals(action)) { FilesStore.importSave(this,uri); closeGame(); }
                     else throw new IllegalArgumentException(Said.text("launcher.error.unknown_operation"));

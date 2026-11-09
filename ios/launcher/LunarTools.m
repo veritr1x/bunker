@@ -166,6 +166,14 @@ NSString *LTUpdateData(NSString *saves, NSString *serverRoot, NSString *toolsRoo
     return [result[@"ok"] boolValue] ? @"" : result[@"error"];
 }
 
+NSString *LTLayerGameData(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster) {
+    NSString *error = LoadPython();
+    if (error.length) return error;
+    [NSFileManager.defaultManager createDirectoryAtPath:toolsRoot withIntermediateDirectories:YES attributes:nil error:nil];
+    NSDictionary *result = CallRuntime(@"layer_game_data", @[saves, serverRoot, toolsRoot, originalMaster ?: @""]);
+    return [result[@"ok"] boolValue] ? @"" : result[@"error"];
+}
+
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,
                         NSString *noticesZip, NSString *shaNotices, NSString *output, void (^progress)(NSString *text)) {
     gProgress = progress;
