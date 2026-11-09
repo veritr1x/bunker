@@ -44,3 +44,13 @@ android {
     packaging { jniLibs { useLegacyPackaging = false } }
     buildTypes { release { minifyEnabled = false } }
 }
+
+// Bunker's own words in English (translations/bunker/en.json), packed as the asset bunker_en.json for the
+// launcher (Texts.java). Pod Programs and the Archive read the same catalogue on the Python side.
+def bunkerTextAssets = layout.buildDirectory.dir('generated/bunkerText/assets')
+def bunkerText = tasks.register('bunkerText', Copy) {
+    from("${rootDir}/../translations/bunker") { include 'en.json'; rename 'en.json', 'bunker_en.json' }
+    into bunkerTextAssets
+}
+android.sourceSets.main.assets.srcDir(bunkerTextAssets.get().asFile)
+preBuild.dependsOn bunkerText
