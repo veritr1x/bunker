@@ -873,7 +873,7 @@ def write_master(toc, blob, changed, output):
 def origin_file():
     origin = patcher.folder() / "origin.bin.e"
     if not origin.exists():
-        raise ValueError("Choose original master data under Advanced")
+        raise ValueError("Load the original master data under Original file & export")
     return origin
 
 

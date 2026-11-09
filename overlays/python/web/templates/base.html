@@ -38,7 +38,7 @@
     <a href="/story" {% if active == "story" %}class="active"{% endif %}>Story Jump</a>
   </nav>
   <main>
-    <div id="bunker-live" class="banner" hidden><span class="live-long">&gt; The game is still running. After a change to your save or the game's data, it returns to its title screen to load it. Turning the calendar off, switching "Show original dates" or starting a new day closes it.</span><span class="live-short"><b>●</b> Game running · a change sends it back to its title screen</span></div>
+    <div id="bunker-live" class="banner" hidden><span class="live-long">&gt; The game is running: a change sends it back to its title screen. Turning the calendar off, switching "Show original dates" or starting a new day closes it.</span><span class="live-short"><b>●</b> Game running · a change sends it back to its title screen</span></div>
     {% if message %}<div class="banner success">&gt; {{ message }}</div>{% endif %}
     {% if error %}<div class="banner error">&gt; ERROR :: {{ error }}</div>{% endif %}
     {% block content %}{% endblock %}

@@ -208,10 +208,10 @@ def saved_message(title, reapplied, settings):
     import android_challenges as challenges
     import android_runtime as runtime
     if reapplied and challenges.active(settings):
-        return f"{title} Challenges are in the game data. " + runtime.next_step()
+        return f"{title} Challenges are on. " + runtime.next_step()
     if reapplied:
-        return f"{title} Challenges are off: the game data is as it was. " + runtime.next_step()
-    return f"{title} The mods are in use from the game's next action, with no restart."
+        return f"{title} Challenges are off. " + runtime.next_step()
+    return f"{title} The mods apply from the game's next action."
 
 
 @router.post("/mods")

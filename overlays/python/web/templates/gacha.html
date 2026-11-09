@@ -19,7 +19,7 @@
     <label>Costumes in ★3 (%)<input type="number" name="three_costume" min="0" max="100" step="any" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
   </div>
   <label>Featured share (%)<input type="number" name="featured" min="0" max="100" step="1" value="{{ settings.featuredPercent }}"></label>
-  <p>If a draw gets a rarity and type that has featured items, this is the chance that it is a featured item.</p>
+  <p>The chance that a draw is a featured item, when its rarity and type have one.</p>
   <label>10-draw guarantee
     <select name="guarantee">
       <option value="3"{% if settings.multiMinRarity == 3 %} selected{% endif %}>★3 or higher</option>
@@ -35,10 +35,10 @@
   </label>
   <button type="submit">Apply</button>
 </form>
-<p data-side="intro">Applies to regular and multi-step summons from the next draw. The game's Rates page shows these values. Experimental.</p>
+<p data-side="intro">Applies to regular and multi-step summons from the next draw. The game's Rates page shows them. Experimental.</p>
 <h2 class="bracket-header" data-toc>Special Gift Roulette</h2>
 <form action="/gacha/roulette" method="post" class="panel rates" id="roulette">
-  <p>The gem wheel in the menu. Up to 6 spins a day. Set the chance of each amount. They must add up to 100%.</p>
+  <p>The gem wheel in the menu, up to 6 spins a day. The chances must add up to 100%.</p>
   <div class="pair">
     {% for gems, percent in roulette %}<label>{{ gems }} gems (%)<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
     {% endfor %}

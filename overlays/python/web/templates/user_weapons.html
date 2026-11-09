@@ -40,7 +40,7 @@
   }).catch(() => {});
 </script>
 
-<div class="panel" data-side="intro"><p style="margin:0">Add weapons, including their skills and stories. Story-starter weapons are earned through play. The inventory limit is 999 weapons. Each change is backed up first.</p></div>
+<div class="panel" data-side="intro"><p style="margin:0">Add weapons, with their skills and stories. Story-starter weapons are earned through play. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
@@ -147,7 +147,7 @@
       }
       applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(`Granted weapon #${weaponId} in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+      showBanner(`Granted weapon #${weaponId}.`, "success");
     } catch (err) {
       showBanner("Network error: " + err.message, "error");
     } finally {
@@ -185,7 +185,7 @@
       }
       const n = applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(`Granted ${n} weapon(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+      showBanner(`Granted ${n} weapon(s).`, "success");
     } catch (err) {
       showBanner("Network error: " + err.message, "error");
     } finally {
@@ -198,7 +198,7 @@
   document.getElementById("grant-missing-btn").addEventListener("click", async () => {
     const btn = document.getElementById("grant-missing-btn");
     if (btn.dataset.busy === "1") return;
-    if (!confirm(`Grant every missing weapon in the catalog. This fails if your inventory has no room (the limit is 999 weapons). Continue?`)) return;
+    if (!confirm(`Grant every missing weapon? This fails if your inventory has no room for them.`)) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;
@@ -213,7 +213,7 @@
       }
       const n = applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(`Granted ${n} missing weapon(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+      showBanner(`Granted ${n} missing weapon(s).`, "success");
     } catch (err) {
       showBanner("Network error: " + err.message, "error");
     } finally {

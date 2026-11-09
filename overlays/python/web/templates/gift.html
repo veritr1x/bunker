@@ -30,14 +30,14 @@
 </style>
 
 <h1 class="bracket-header" data-side>Gift</h1>
-<p data-side="intro">Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. The game keeps running: the Gift Box shows it after your next action.</p>
+<p data-side="intro">Send yourself anything the game can hold, then claim it from the game's Gift Box. It shows there after your next action in the game.</p>
 {% if players|length > 1 %}
   <div class="panel" data-side><p style="margin:0"><label for="player">Player</label>
   <select id="player" onchange="location.href='/gift?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p></div>
 {% endif %}
 
 {% if not ready %}
-<div class="banner" data-side>&gt; The first gift also adds its text to the game data, so the game returns to its title screen to load it.</div>
+<div class="banner" data-side>&gt; Your first gift sends the game back to its title screen once.</div>
 {% endif %}
 
 <h2 class="bracket-header">1 :: Choose</h2>
@@ -62,7 +62,7 @@
 <div class="panel" data-side>
 {% if waiting %}
   <table class="gift-waiting">{% for g in waiting %}<tr><td>{{ g.name }} ×{{ "{:,}".format(g.count) }}</td></tr>{% endfor %}</table>
-{% else %}<p style="margin:0" class="note">Nothing from Bunker is waiting.</p>{% endif %}
+{% else %}<p style="margin:0" class="note">Nothing waiting.</p>{% endif %}
 </div>
 
 <script id="gift-data" type="application/json">{{ cards|tojson }}</script>
@@ -70,8 +70,7 @@
 (() => {
   const CARDS = JSON.parse(document.getElementById("gift-data").textContent), USER = {{ user }};
   const ONE = {1: "One copy per gift. A copy you already own turns into its usual exchange items when you claim it.",
-               3: "One copy per gift. A copy you already own turns into its usual exchange items when you claim it.",
-               14: "One per gift."};
+               14: "One per gift."};  // other kinds sent one per gift (costumes, weapons) use 1's
   const $ = id => document.getElementById(id);
   let card = CARDS[0], group = card.groups[0], chosen = null;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -116,7 +115,7 @@
     const ok = Number.isInteger(n) && n >= 1 && n <= max;
     $("send").disabled = !ok;
     $("hint").textContent = ok ? `Up to ${max.toLocaleString()} more.`
-      : n > max ? `That is more than can be claimed now: up to ${max.toLocaleString()}.` : "Enter a whole number, 1 or more.";
+      : n > max ? `Too many: up to ${max.toLocaleString()}.` : "Enter a whole number, 1 or more.";
   });
   $("cats").addEventListener("click", ev => { const b = ev.target.closest(".gift-card"); if (!b) return;
     $("q").value = ""; card = CARDS.find(c => c.name === b.dataset.card); group = card.groups.find(g => g.entries.length); draw(); });
@@ -132,7 +131,7 @@
     const r = await fetch("/gift/send", {method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({user: USER, possession_type: sending.possession_type, possession_id: sending.possession_id, count})})
       .then(r => r.json()).catch(err => ({ok: false, error: err.message}));
-    const done = r.ok ? `message=${encodeURIComponent(`Sent: ${sending.name} ×${count.toLocaleString()}. It is in the game's Gift Box.`)}`
+    const done = r.ok ? `message=${encodeURIComponent(`Sent ${sending.name} ×${count.toLocaleString()} to the Gift Box.`)}`
                       : `error=${encodeURIComponent(r.error || "The gift was not sent")}`;
     location.href = `/gift?user=${USER}&${done}`;
   });

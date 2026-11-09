@@ -20,7 +20,7 @@ from web import config
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 SHIPPED = SHIPPED_DIR
-UNSUPPORTED = "Translation needs the global (English) game files: these have no English text."
+UNSUPPORTED = "Language packs need the global game files: these have no English text."
 
 
 def languages() -> Languages:
@@ -38,7 +38,7 @@ def count(n: int, word: str) -> str:
     return f"{n:,} {word}" + ("" if n == 1 else "s")
 
 
-WAITING = "Your choice is saved. It applies the next time the server starts."
+WAITING = "Saved. It applies the next time Lunar Tear starts."
 
 
 def describes(status: dict, current: str, packs) -> bool:
@@ -66,9 +66,9 @@ def status_line(status: dict, current: str = "", packs=()) -> str:
         line = f"Ready: {name}, {count(status.get('bundles', 0), 'text file')} translated"
         return line + (f", {kept:,} kept in English." if kept else ".")
     if state == "failed" and not name:
-        return f"The server could not read the chosen pack: {status.get('error', 'unknown error')}. Choose another pack, or English."
+        return f"The chosen pack could not be read: {status.get('error', 'unknown error')}. Choose another pack, or English."
     if state == "failed":
-        return f"{name} could not be applied: {status.get('error', 'unknown error')}. It is tried again the next time the server starts."
+        return f"{name} could not be applied: {status.get('error', 'unknown error')}. It is tried again the next time Lunar Tear starts."
     return ""
 
 

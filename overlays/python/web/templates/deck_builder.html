@@ -206,7 +206,7 @@
 </style>
 
 <h1 class="bracket-header" data-side>Deck Builder</h1>
-<p data-side="intro">Decks picked the way experienced players picked them at the end of service, equipped from the game's own data, with the game's exact Force. Choose a deck, see why each piece is in it, and write it to the Arena or Loadout decks you choose. Your other decks stay as they are, and Save Data keeps a snapshot from before every write.</p>
+<p data-side="intro">Decks as experienced players built them at the end of service, with the game's own Force. Choose a deck, see why each piece is in it, and write it to the Arena or Loadout decks you choose. Other decks stay as they are, and Save Data keeps a backup from before every write.</p>
 {% if players|length > 1 %}
   <div class="panel" data-side><p style="margin:0"><label for="player">Player</label>
   <select id="player" onchange="location.href='/decks?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p></div>
@@ -219,7 +219,7 @@
     <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button><button type="button" data-v="subjugation">Subjugation</button></div></div>
     <div class="db-lbl" id="lbl-mode">Build from</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">What I own</button><button type="button" data-v="best" class="on">All maxed</button></div>
-      <p class="help best-only" data-info="lbl-mode">All maxed ranks the best decks in a world where you own everything: every costume of every character, fully raised. Each costume you own adds to its character's stats, so if you're missing some, the deck does a little worse for you than shown. Writing a deck adds missing pieces maxed and raises your own costumes and characters.</p>
+      <p class="help best-only" data-info="lbl-mode">All maxed ranks decks as if you owned every costume, fully raised. Each costume you own adds to its character's stats, so with some missing, a deck does a little worse for you than shown. Writing a deck adds missing pieces maxed and raises your own costumes and characters.</p>
       <p class="help owned-only">What I own uses your costumes as they are. Allow up to
         <select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">All</option></select> pieces to be added.</p></div>
     <div class="db-lbl subj-only">Boss</div>
@@ -258,7 +258,7 @@
         {% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{{ e|title }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">Minimum per character</div>
         {% for k, n, mx in (("agi","Agility",3000),("hp","HP",800000),("atk","ATK",80000),("crit","Crit rate ‰",1000)) %}<div class="rng"><span>{{ n }}</span><input type="range" min="0" max="{{ mx }}" step="{{ mx // 50 }}" value="0" data-min="{{ k }}"><span data-show="{{ k }}">—</span></div>{% endfor %}</div>
-      <p class="help">Similar decks are folded into one, so the list doesn't repeat the same deck with one piece changed.</p>
+      <p class="help">Similar decks are folded into one.</p>
     </section>
   </div>
   <div class="sheet-foot"><button type="button" class="chip" onclick="clearFilters()">Clear</button><button type="button" onclick="sheet(false)">Show decks</button></div>
@@ -585,7 +585,7 @@ async function rescore() {
     return;
   }
   $("w-sum").innerHTML = `<strong>Adds ${detailData.added} piece${detailData.added === 1 ? "" : "s"}, fully raised.</strong> Force <b>${s.force.toLocaleString()}</b>, wins <b>${s.win_pct}%</b>`
-    + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".") + " A Save Data snapshot is taken first.";
+    + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".") + " Save Data keeps a backup first.";
 }
 // WRITE DECK opens the picker: Arena or Loadout decks, each naming what it holds; the picks are listed as what they
 // replace, and REPLACE writes them.

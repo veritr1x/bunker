@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Pod Programs</h1>
 {% if not game_db_exists %}
-<div class="banner error">&gt; No save on this device yet. Import a save backup from the Bunker's ⋮ menu, or Deploy and play once. The editors open when a save exists.</div>
+<div class="banner error">&gt; No save on this device yet. Import a save backup from the Bunker's ⋮ menu, or Deploy and play once.</div>
 {% endif %}
 {# The editors need a save; without one they are shown, but off. #}
 {% macro program(href, name, about, needs_save=True) -%}

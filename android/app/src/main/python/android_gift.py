@@ -307,7 +307,7 @@ def send_route(payload: dict = Body(...)):
             raise ValueError("whole numbers only")
         user, kind, ident, count = values
     except (KeyError, TypeError, ValueError):
-        return JSONResponse({"ok": False, "error": "user, possession_type, possession_id and count are required"}, status_code=400)
+        return JSONResponse({"ok": False, "error": "Choose something to send, and a whole-number count."}, status_code=400)
     try:
         added = send(_user(user), kind, ident, count)
     except GiftError as exc:

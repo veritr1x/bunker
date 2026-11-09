@@ -165,11 +165,11 @@ class Page(unittest.TestCase):
     def test_saved_message_says_what_happened_to_the_challenges(self):
         with unittest.mock.patch.object(android_runtime, "next_step", lambda: "NEXT"):
             self.assertEqual(android_mods.saved_message("Saved.", False, {**android_mods.OFF}),
-                             "Saved. The mods are in use from the game's next action, with no restart.")
+                             "Saved. The mods apply from the game's next action.")
             self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF, "slowSkills": True}),
-                             "Saved. Challenges are in the game data. NEXT")
+                             "Saved. Challenges are on. NEXT")
             self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF}),
-                             "Saved. Challenges are off: the game data is as it was. NEXT")
+                             "Saved. Challenges are off. NEXT")
 
     def test_saving_keeps_pod_programs_answering(self):
         # A challenge change rewrites the game data for seconds: that runs
