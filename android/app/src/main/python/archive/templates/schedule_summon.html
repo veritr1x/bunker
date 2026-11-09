@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% import "schedule_macros.html" as s with context %}
+{% from "_info.html" import info %}
 {% block content %}
 <p class="crumb"><a href="/">Archive</a> › <a href="/schedule?tab=summons">Summons</a></p>
 <h1>{{ item.title }}</h1>
 {{ s.banner(item.hero, item.title) }}
 <div class="panel">
-  <article class="record"><h3>Dates</h3>
-    <p>{% for r in item.runs %}{{ r.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
-    {% if item.exchange %}<p class="note">Dated by its shard exchange: from its opening until two days before the shards convert.</p>
-    {% elif not item.runs or not item.runs[0].ran %}<p class="note">No date in the game data. {{ "It has English art and title, so it may have run in the global version." if item.english else "It has no English art or title, so it probably never ran in the global version." }}</p>{% endif %}
+  {% set undated = not item.runs or not item.runs[0].ran %}
+  <article class="record">
+    {% if item.exchange %}<h3 class="has-info">Dates {{ info("From its shard exchange: opening until two days before the shards convert.") }}</h3>
+    {% elif undated %}<h3 class="has-info">Dates {{ info("No date in the game data. It has English art, so it may have run globally." if item.english else "No date in the game data. No English art, so it probably never ran globally.") }}</h3>
+    {% else %}<h3>Dates</h3>{% endif %}
+    <p>{% for r in item.runs %}{{ r.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% if not item.runs %}No date{% endif %}</p>
   </article>
   {% if item.medal %}
   <article class="record"><h3>Shards</h3>

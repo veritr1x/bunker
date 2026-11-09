@@ -631,7 +631,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     assetbundle = revision / "assetbundle"
     text_root = assetbundle / "text" / "en"
     if not text_root.is_dir():
-        raise FileNotFoundError("The game files have no English text. Choose the game files in the Bunker first.")
+        raise FileNotFoundError("The game files have no English text. Import the global game files.")
     if not master.is_file():
         raise FileNotFoundError("Master data is missing.")
     started = time.time()

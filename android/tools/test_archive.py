@@ -201,6 +201,49 @@ class Parsing(unittest.TestCase):
         self.assertEqual(index.mask_name(base / "text/en/main/season01/2000_001.assetbundle", base), "text)en)main)season01)2000_001")
 
 
+class InfoIcon(unittest.TestCase):
+    """Explanations sit behind an "i" (templates/_info.html): a details.info that opens without script."""
+
+    def render(self, name, **values):
+        try:
+            import jinja2
+        except ImportError:
+            self.skipTest("needs jinja2")
+        from archive.content import quoted
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(root / "android/app/src/main/python/archive/templates")),
+                                 autoescape=True, undefined=jinja2.StrictUndefined)
+        env.filters.update(rich=rich, prose=prose, plain=plain, quoted=quoted)
+        env.globals.update(count=lambda n, word: f"{n} {word}{'' if n == 1 else 's'}", sections=[], images=False, sounds=False,
+                           asset=lambda path: path, pod_css="", img=lambda size, path: path, snd=lambda path: path,
+                           has_model=lambda asset: False)
+        return env.get_template(name).render(active="", theme="", **values)
+
+    def test_undated_summon_explains_its_dates_behind_an_icon(self):
+        when = {"label": "No date", "ran": False}
+        item = {"id": 45, "title": "Mock Summons", "hero": "", "exchange": False, "english": False, "runs": [{"banner": 1, **when}],
+                "medal": None, "shops": []}
+        html = self.render("schedule_summon.html", item=item, tabs={}, tab="summons")
+        self.assertRegex(html, r'<h3 class="has-info">Dates <details class="info"><summary aria-label="More information">i</summary>'
+                               r'<div>No date in the game data\. No English art, so it probably never ran globally\.</div></details></h3>')
+
+    def test_schedule_note_is_behind_an_icon(self):
+        for original, note in ((True, "Dates from the live service, in UTC."), (False, "Open Pod Programs once to see the original dates.")):
+            html = self.render("schedule.html", tab="other", tabs=[("other", "Other")], groups=[], original=original)
+            self.assertIn('<h1 class="has-info">Schedule <details class="info">', html)
+            self.assertIn(note + "</div></details></h1>", html)
+            self.assertEqual("Dates may include Pod Programs changes." in html, not original)
+
+    def test_info_takes_markup_from_a_call_block(self):
+        try:
+            import jinja2
+        except ImportError:
+            self.skipTest("needs jinja2")
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(root / "android/app/src/main/python/archive/templates")), autoescape=True)
+        html = env.from_string('{% from "_info.html" import info %}{% call info() %}<b>{{ x }}</b>{% endcall %}|{{ info(x) }}').render(x="<&>")
+        self.assertEqual(html, '<details class="info"><summary aria-label="More information">i</summary><div><b>&lt;&amp;&gt;</b></div></details>'
+                               '|<details class="info"><summary aria-label="More information">i</summary><div>&lt;&amp;&gt;</div></details>')
+
+
 @unittest.skipUnless(os.environ.get("ARCHIVE_DUMP") and os.environ.get("ARCHIVE_MASTER"), "set ARCHIVE_DUMP and ARCHIVE_MASTER")
 class RealDump(unittest.TestCase):
     def test_build_and_open_every_page(self):
