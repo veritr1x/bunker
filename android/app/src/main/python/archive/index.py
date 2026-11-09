@@ -579,6 +579,14 @@ def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[st
 
 def load_master(master_path: Path) -> dict[str, list[dict]]:
     """The few master-data tables the Archive needs, as lists of rows."""
+    return load_tables(master_path, dict.fromkeys(MASTER_TABLES + BUILD_TABLES))
+
+
+def load_tables(master_path: Path, names, required: bool = False) -> dict[str, list[dict]]:
+    """The named tables of the encrypted master data (the .bin.e file), as lists of rows.
+
+    A table the master data lacks is left out, or with required raises ValueError.
+    scripts/master_text.py (the translation templates) uses this too."""
     import dump_masterdata
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import unpad
@@ -591,11 +599,13 @@ def load_master(master_path: Path) -> dict[str, list[dict]]:
         toc, blob = exc.unpacked, exc.extra
     schemas = dump_masterdata.load_schemas()
     tables = {}
-    for table in dict.fromkeys(MASTER_TABLES + BUILD_TABLES):
+    for table in names:
         if table in toc and table in schemas:
             offset, length = toc[table]
             rows = dump_masterdata.decompress_table(blob, offset, length)
             tables[table] = dump_masterdata.rows_to_dicts(rows, schemas[table][1])
+        elif required:
+            raise ValueError(f"The master data has no table {table}")
     return tables
 
 
