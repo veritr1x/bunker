@@ -96,8 +96,61 @@ def _to_glyf(font):
     return font
 
 
-def _cut(data: bytes, codepoints: set[int], units_per_em: int):
-    """The Noto font reduced to codepoints and scaled to the game font's units per em."""
+def _top(font, char: str) -> float | None:
+    """The top of a character's outline, or None if the font lacks it."""
+    from fontTools.pens.boundsPen import BoundsPen
+
+    name = font.getBestCmap().get(ord(char))
+    if name is None:
+        return None
+    glyphs = font.getGlyphSet()
+    pen = BoundsPen(glyphs)
+    glyphs[name].draw(pen)
+    return pen.bounds[3] if pen.bounds else None
+
+
+def _letter_heights(font, capital: str, small: str) -> tuple[float, float] | None:
+    """A font's capital and x-height, measured on two letters."""
+    cap, x = _top(font, capital), _top(font, small)
+    return (cap, x) if cap and x else None
+
+
+def _match_heights(font, game: tuple[float, float]) -> None:
+    """Scales each Noto letter so capitals reach the game font's capital height and lowercase its x-height.
+
+    Noto's letters differ in size from each game font's (Californian's are smaller, Rodin's larger),
+    so added letters would look too big or too small beside the game's own. Accented letters are
+    decomposed first, so the accent scales with its letter."""
+    import unicodedata
+    from fontTools.pens.recordingPen import DecomposingRecordingPen
+    from fontTools.pens.transformPen import TransformPen
+    from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+    noto = _letter_heights(font, "Н", "х")  # Cyrillic En and small ha: the subsets have no Latin H, x
+    if not noto:
+        return
+    capital, lowercase = game[0] / noto[0], game[1] / noto[1]
+    factors = {}
+    for code, name in font.getBestCmap().items():
+        factors.setdefault(name, lowercase if unicodedata.category(chr(code)) == "Ll" else capital)
+    glyphs = font.getGlyphSet()
+    scaled = {}
+    for name in font.getGlyphOrder():
+        factor = factors.get(name, capital)
+        recording = DecomposingRecordingPen(glyphs)
+        glyphs[name].draw(recording)
+        pen = TTGlyphPen(None)
+        recording.replay(TransformPen(pen, (factor, 0, 0, factor, 0, 0)))
+        scaled[name] = (pen.glyph(), factor)
+    glyf, hmtx = font["glyf"], font["hmtx"]
+    for name, (glyph, factor) in scaled.items():
+        glyf[name] = glyph
+        glyph.recalcBounds(glyf)
+        hmtx[name] = (round(hmtx[name][0] * factor), getattr(glyph, "xMin", 0))
+
+
+def _cut(data: bytes, codepoints: set[int], units_per_em: int, heights: tuple[float, float] | None = None):
+    """The Noto font reduced to codepoints and scaled to the game font's units per em (and letter heights)."""
     from fontTools import subset
     from fontTools.ttLib.scaleUpem import scale_upem
 
@@ -114,6 +167,8 @@ def _cut(data: bytes, codepoints: set[int], units_per_em: int):
     subsetter.subset(font)
     if font["head"].unitsPerEm != units_per_em:
         scale_upem(font, units_per_em)
+    if heights:
+        _match_heights(font, heights)
     return io.BytesIO(_bytes(font))
 
 
@@ -138,7 +193,8 @@ def merge_font(game: bytes, replace: bytes, add: bytes | None = None) -> bytes:
             for code in [c for c in table.cmap if c in replaced]:
                 del table.cmap[code]
     have = set(font.getBestCmap())
-    pieces = [io.BytesIO(_bytes(font)), _cut(replace, replaced, units)]
+    # Chinese characters (add) keep their size: they fill the same square as the game's Japanese ones.
+    pieces = [io.BytesIO(_bytes(font)), _cut(replace, replaced, units, _letter_heights(font, "H", "x"))]
     if add is not None:
         missing = set(_open(add).getBestCmap()) - have - replaced
         if missing:
