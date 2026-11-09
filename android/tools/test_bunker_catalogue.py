@@ -65,6 +65,60 @@ def java_arguments(text: str, at: int) -> list[str]:
     return [a.strip() for a in args[1:]]  # args[0] is what lies between the key and its first comma: nothing
 
 
+def java_strings(text: str):
+    """(line, literal) for each string literal in Java source, comments skipped, escapes kept as written."""
+    i, line, n = 0, 1, len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "\n":
+            line += 1
+        elif text.startswith("//", i):
+            i = text.find("\n", i)
+            if i < 0:
+                return
+            continue
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            line += text.count("\n", i, end)
+            i = end + 2
+            continue
+        elif ch == "'":
+            i = text.find("'", i + 2 if text[i + 1] == "\\" else i + 1) + 1
+            if text[i - 2:i] == "\\'":
+                i = text.find("'", i) + 1
+            continue
+        elif ch == '"':
+            j = i + 1
+            while text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            yield line, text[i + 1:j]
+            i = j + 1
+            continue
+        i += 1
+
+
+# Java literals that are not words: ids, keys, file names, MIME types, intent actions, preference names.
+JAVA_CODE = re.compile(r"[a-z0-9_-]+|[^\s]*[/._:=@#<>\\%][^\s]*|[a-z]+[A-Z][A-Za-z0-9]*|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+"
+                       r"|[A-Z]+-[0-9]+")
+LOGGED = re.compile(r"(Log\.[dewiv]|NativeBridge\.log|Log\.wtf)\(")
+
+
+def java_english(path: Path) -> list[tuple[int, str]]:
+    """Words people read in a launcher Java file: literals with letters that are not code-like, outside log
+    lines, the flavour, and the Java allowlist."""
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+    allowed = ALLOWED | set(ALLOW.get("java", []))
+    found = []
+    for line, literal in java_strings(text):
+        if not has_letter(literal) or literal in allowed or LOGGED.search(lines[line - 1]):
+            continue
+        if not re.search(r"\s", literal.strip()) and JAVA_CODE.fullmatch(literal.strip()):
+            continue
+        found.append((line, literal))
+    return found
+
+
 def java_calls():
     for path in JAVA_SOURCES:
         text = path.read_text(encoding="utf-8")
@@ -310,6 +364,21 @@ class Catalogue(unittest.TestCase):
         found = {str(path.relative_to(ROOT)): english.findall(path.read_text(encoding="utf-8"))
                  for path in CONVERTED + CONVERTED_PY}
         self.assertEqual({k: v for k, v in found.items() if v}, {})
+
+    def test_no_english_in_the_launcher(self):
+        left = {path.name: java_english(path) for path in JAVA_SOURCES}
+        self.assertEqual({k: v for k, v in left.items() if v}, {})
+
+    def test_the_lint_sees_english_in_java(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            java = Path(folder) / "A.java"
+            java.write_text('class A { // "Not this"\n /* "Nor this" */ void f() { char q = \'"\';\n'
+                            '  set("READY"); set("Choose the files"); set("Deploy"); set("game.db"); set("lunar_server");\n'
+                            '  set("application/zip"); set("launcher.state."+s); Log.e("LunarTear", "Failed to start");\n'
+                            '  set("LUNAR TEAR // 127.0.0.1"); set("a \\"quoted\\" word"); } }\n')
+            self.assertEqual([text for _, text in java_english(java)],
+                             ["READY", "Choose the files", "Deploy", 'a \\"quoted\\" word'])
 
     def test_no_english_in_page_scripts(self):
         left = {str(path.relative_to(ROOT)): script_english(path) for path in CONVERTED}

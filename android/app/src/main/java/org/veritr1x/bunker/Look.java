@@ -127,7 +127,7 @@ final class Look {
     LinearLayout header(String title){
         LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.BOTTOM);
         TextView open=text("[",15,ink);open.setTypeface(null,Typeface.BOLD);row.addView(open);
-        TextView name=text(title.toUpperCase(),14,ink);name.setTypeface(null,Typeface.BOLD);name.setLetterSpacing(.3f);
+        TextView name=text(Texts.upper(context,title),14,ink);name.setTypeface(null,Typeface.BOLD);name.setLetterSpacing(.3f);
         if(dark)name.setShadowLayer(dp(4),0,0,0x55d9d3ba);
         LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(dp(10),0,dp(10),0);row.addView(name,np);
         View rule=new View(context);rule.setBackgroundColor(ink);
@@ -168,9 +168,9 @@ final class Look {
         GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1),ink);
         v.setBackground(pressable(new InsetDrawable(ring,(dp(40)-dp(INFO_DP))/2),line));
         v.setMinWidth(dp(40));v.setMinHeight(dp(40));v.setLayoutParams(new LinearLayout.LayoutParams(dp(40),dp(40)));
-        v.setContentDescription("More information");v.setFocusable(true);v.setClickable(true);
+        v.setContentDescription(Texts.t(context,"common.more_information"));v.setFocusable(true);v.setClickable(true);
         v.setOnClickListener(x->new android.app.AlertDialog.Builder(context,dark?android.R.style.Theme_DeviceDefault_Dialog_Alert:android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
-            .setTitle(title).setMessage(text).setPositiveButton("Close",null).show());
+            .setTitle(title).setMessage(text).setPositiveButton(Texts.t(context,"common.close"),null).show());
         return v;
     }
 

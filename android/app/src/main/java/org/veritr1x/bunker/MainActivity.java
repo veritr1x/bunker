@@ -33,7 +33,7 @@ public final class MainActivity extends Activity {
     // before the game starts, or when the launcher opens from the game. Static, so a launcher opened from
     // the game's Bunker button (a new screen in the same process) shows the result instead of NOT CHECKED.
     private static volatile boolean indexChecked=false,indexing=false,openedWhileIndexing=false;
-    private static volatile String indexText="NOT CHECKED";
+    private static volatile String indexText=Said.text("launcher.index.not_checked");
     private Button assetButton,play;
     private View pods,archive;
     // Updates (Updater.java keeps their state, so it survives the screen being recreated).
@@ -100,7 +100,9 @@ public final class MainActivity extends Activity {
         }
         panel.addView(r,new LinearLayout.LayoutParams(-1,-2));
     }
-    private static String size(long bytes){return bytes>=1<<20?String.format(Locale.US,"%.1f MB",bytes/1048576.0):Math.max(1,bytes/1024)+" KB";}
+    private String size(long bytes){return bytes>=1<<20?Texts.t(this,"launcher.size.mb","n",Texts.number(this,Math.round(bytes/104857.6)/10.0)):Texts.t(this,"launcher.size.kb","n",Texts.number(this,Math.max(1,bytes/1024)));}
+    /** The Archive line: its state (a Said reference, words now) in capitals. */
+    private String indexShown(){return Texts.upper(this,Texts.said(this,indexText));}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
@@ -125,7 +127,7 @@ public final class MainActivity extends Activity {
         TextView caption=look.monoText("LUNAR TEAR // 127.0.0.1",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
         TextView title=look.text("BUNKER",compact?18:22,look.ink);title.setTypeface(null,Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         top.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
-        Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
+        Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription(Texts.t(this,"launcher.main.options"));more.setOnClickListener(this::showOptions);
         top.addView(more,new LinearLayout.LayoutParams(dp(compact?36:44),dp(compact?36:44)));
         LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(compact?12:20));body.addView(top,tp);
         // [ UPDATE ]: shown when a newer Bunker is released. Two rows: the message with WHAT'S NEW,
@@ -133,16 +135,16 @@ public final class MainActivity extends Activity {
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
         LinearLayout updateLine=new LinearLayout(this);updateLine.setGravity(Gravity.CENTER_VERTICAL);
         updateText=look.monoText("",12,look.ink);updateLine.addView(updateText,new LinearLayout.LayoutParams(0,-2,1));
-        TextView notes=look.monoText("WHAT'S NEW ›",11,look.ink);notes.setLetterSpacing(.12f);notes.setTypeface(null,Typeface.BOLD);
+        TextView notes=look.monoText(Texts.upper(this,Texts.t(this,"launcher.main.whats_new"))+" ›",11,look.ink);notes.setLetterSpacing(.12f);notes.setTypeface(null,Typeface.BOLD);
         notes.setPadding(dp(8),dp(8),0,dp(8));notes.setOnClickListener(v->{if(Updater.current!=null)openUrl(Updater.current.notes);});
         updateLine.addView(notes);
         LinearLayout.LayoutParams um=new LinearLayout.LayoutParams(-1,-2);um.setMargins(0,dp(2),0,dp(8));updatePanel.addView(updateLine,um);
         LinearLayout actions=new LinearLayout(this);
-        updateButton=look.solid("UPDATE");updateButton.setTextSize(13);updateButton.setLetterSpacing(.16f);updateButton.setPadding(dp(8),0,dp(8),0);
+        updateButton=look.solid(Texts.upper(this,Texts.t(this,"launcher.main.update")));updateButton.setTextSize(13);updateButton.setLetterSpacing(.16f);updateButton.setPadding(dp(8),0,dp(8),0);
         updateButton.setOnClickListener(v->{if(Updater.updating()){if(Updater.cancellable())Updater.cancelled=true;}else startUpdate();});
-        updateWeb=look.outlined("WEB BUILDER");updateWeb.setOnClickListener(v->openUrl(Updater.WEB_BUILDER));
-        updateLater=look.outlined("LATER");updateLater.setOnClickListener(v->{Updater.later=true;renderUpdate();});
-        updateSkip=look.outlined("SKIP");updateSkip.setOnClickListener(v->{if(Updater.current!=null)Updater.skipped(this,Updater.current.version);renderUpdate();});
+        updateWeb=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.web_builder")));updateWeb.setOnClickListener(v->openUrl(Updater.WEB_BUILDER));
+        updateLater=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.later")));updateLater.setOnClickListener(v->{Updater.later=true;renderUpdate();});
+        updateSkip=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.skip")));updateSkip.setOnClickListener(v->{if(Updater.current!=null)Updater.skipped(this,Updater.current.version);renderUpdate();});
         for(Button b:new Button[]{updateButton,updateWeb,updateLater,updateSkip}){
             boolean wide=b==updateButton||b==updateWeb;
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(40),wide?2:1);lp.setMargins(0,0,dp(6),dp(4));actions.addView(b,lp);
@@ -152,18 +154,18 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams upp=new LinearLayout.LayoutParams(-1,-2);upp.setMargins(0,0,0,dp(compact?12:20));body.addView(updatePanel,upp);
         // [ SYSTEM ]: game files, Lunar Tear and save.
         LinearLayout system=panel();
-        files=look.chip();assetButton=look.outlined("CHOOSE");assetButton.setContentDescription("Choose game files");assetButton.setOnClickListener(v->chooseAssets());
-        row(system,"GAME FILES",files,look.info("Game files","Choose the resource dump's .7z or its extracted folder. A folder used in place saves space."),assetButton);
+        files=look.chip();assetButton=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.choose")));assetButton.setContentDescription(Texts.t(this,"launcher.main.choose_files_hint"));assetButton.setOnClickListener(v->chooseAssets());
+        row(system,Texts.upper(this,Texts.t(this,"launcher.main.game_files")),files,look.info(Texts.t(this,"launcher.main.game_files"),Texts.t(this,"launcher.main.game_files_info")),assetButton);
         status=look.chip();progress=new ProgressBar(this);progress.setIndeterminateTintList(ColorStateList.valueOf(look.ink));
-        row(system,"LUNAR TEAR",status,progress);
-        save=look.monoText("",13,look.ink);row(system,"SAVE",save,look.info("Save","Export a save backup (⋮) before uninstalling Bunker or clearing its storage. Import save backup restores one from any device."));
-        archiveLine=look.monoText(indexText,13,look.ink);row(system,"ARCHIVE",archiveLine);
+        row(system,Texts.upper(this,Texts.t(this,"launcher.main.lunar_tear")),status,progress);
+        save=look.monoText("",13,look.ink);row(system,Texts.upper(this,Texts.t(this,"launcher.main.save")),save,look.info(Texts.t(this,"launcher.main.save"),Texts.t(this,"launcher.main.save_info")));
+        archiveLine=look.monoText(indexShown(),13,look.ink);row(system,Texts.upper(this,Texts.t(this,"launcher.main.archive")),archiveLine);
         bar=new Look.Segments(look);LinearLayout.LayoutParams barParams=new LinearLayout.LayoutParams(-1,dp(14));barParams.setMargins(0,dp(10),0,dp(6));system.addView(bar,barParams);
         progressText=look.monoText("",12,look.ink);system.addView(progressText);
         // [ PLAY ]: what happens next, and Deploy.
         LinearLayout launch=panel();
         detail=look.monoText("",12,look.ink);LinearLayout.LayoutParams dp1=new LinearLayout.LayoutParams(-1,-2);dp1.setMargins(0,dp(compact?2:6),0,dp(compact?8:12));launch.addView(detail,dp1);
-        play=look.solid("DEPLOY  ▶");play.setContentDescription("Deploy: start the game");
+        play=look.solid(Texts.upper(this,Texts.t(this,"launcher.main.deploy"))+"  ▶");play.setContentDescription(Texts.t(this,"launcher.main.deploy_hint"));
         play.setOnClickListener(v->{launchWhenReady=true;autoAttempted=true;if(running){launchWhenReady=false;openGame();}else run(ServerService.START,null);});
         LinearLayout.LayoutParams bp2=new LinearLayout.LayoutParams(-1,dp(compact?48:56));bp2.setMargins(0,0,0,dp(6));launch.addView(play,bp2);
         if(twoColumns){
@@ -171,16 +173,16 @@ public final class MainActivity extends Activity {
             // both columns ending level. The programs are rows in one panel, each with
             // what it holds, instead of two boxed buttons.
             LinearLayout links=panel();
-            pods=link(links,"POD PROGRAMS",v->onOption(8));pods.setContentDescription("Open Pod Programs");
+            pods=link(links,Texts.upper(this,Texts.t(this,"launcher.main.pod_programs")),v->onOption(8));pods.setContentDescription(Texts.t(this,"launcher.main.open_pods_hint"));
             ((LinearLayout)pods).addView(podsInfo(),((LinearLayout)pods).getChildCount()-1);
             View rule=new View(this);rule.setBackgroundColor(look.line);links.addView(rule,new LinearLayout.LayoutParams(-1,1));
-            archive=link(links,"ARCHIVE",v->startActivity(new Intent(this,ArchiveActivity.class)));archive.setContentDescription("Open the Archive");
+            archive=link(links,Texts.upper(this,Texts.t(this,"launcher.main.archive")),v->startActivity(new Intent(this,ArchiveActivity.class)));archive.setContentDescription(Texts.t(this,"launcher.main.open_archive_hint"));
             LinearLayout left=new LinearLayout(this);left.setOrientation(LinearLayout.VERTICAL);
             LinearLayout right=new LinearLayout(this);right.setOrientation(LinearLayout.VERTICAL);
-            block(left,"System",system,0);
+            block(left,Texts.t(this,"launcher.main.system"),system,0);
             ((LinearLayout.LayoutParams)system.getLayoutParams()).height=0;((LinearLayout.LayoutParams)system.getLayoutParams()).weight=1;
-            block(right,"Play",launch,compact?10:20);
-            block(right,"Programs",links,0);
+            block(right,Texts.t(this,"launcher.main.play"),launch,compact?10:20);
+            block(right,Texts.t(this,"launcher.main.programs"),links,0);
             LinearLayout columns=new LinearLayout(this);
             LinearLayout.LayoutParams lc=new LinearLayout.LayoutParams(0,-1,1);lc.setMargins(0,0,dp(18),0);columns.addView(left,lc);
             columns.addView(right,new LinearLayout.LayoutParams(0,-2,1));
@@ -188,20 +190,20 @@ public final class MainActivity extends Activity {
         }else{
             // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
             LinearLayout programs=panel();
-            Button podsButton=look.outlined("OPEN  ›");podsButton.setTextSize(13);podsButton.setContentDescription("Open Pod Programs");
+            Button podsButton=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.open"))+"  ›");podsButton.setTextSize(13);podsButton.setContentDescription(Texts.t(this,"launcher.main.open_pods_hint"));
             podsButton.setOnClickListener(v->onOption(8));pods=podsButton;
             LinearLayout podsRow=new LinearLayout(this);podsRow.setGravity(Gravity.CENTER_VERTICAL);podsRow.addView(podsButton,new LinearLayout.LayoutParams(0,dp(48),1));
             LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(40),dp(40));ip.setMargins(dp(6),0,0,0);podsRow.addView(podsInfo(),ip);
             LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,-2);pb.setMargins(0,dp(6),0,dp(6));programs.addView(podsRow,pb);
             // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
             LinearLayout records=panel();
-            Button archiveButton=look.outlined("OPEN  ›");archiveButton.setTextSize(13);archiveButton.setContentDescription("Open the Archive");
+            Button archiveButton=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.open"))+"  ›");archiveButton.setTextSize(13);archiveButton.setContentDescription(Texts.t(this,"launcher.main.open_archive_hint"));
             archiveButton.setOnClickListener(v->startActivity(new Intent(this,ArchiveActivity.class)));archive=archiveButton;
             LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,dp(6),0,dp(6));records.addView(archiveButton,rb);
-            block(body,"System",system,20);
-            block(body,"Play",launch,20);
-            block(body,"Pod Programs",programs,20);
-            block(body,"Archive",records,0);
+            block(body,Texts.t(this,"launcher.main.system"),system,20);
+            block(body,Texts.t(this,"launcher.main.play"),launch,20);
+            block(body,Texts.t(this,"launcher.main.pod_programs"),programs,20);
+            block(body,Texts.t(this,"launcher.main.archive"),records,0);
         }
         body.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.setMargins(0,dp(compact?16:28),0,0);body.addView(look.footer(),fp);
@@ -219,11 +221,14 @@ public final class MainActivity extends Activity {
         if(shortcuts==null)return;
         Intent open=new Intent(this,MainActivity.class).setAction(Intent.ACTION_VIEW).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
         android.content.pm.ShortcutInfo menu=new android.content.pm.ShortcutInfo.Builder(this,"bunker-menu")
-            .setShortLabel("Bunker menu").setLongLabel("Open the Bunker menu")
+            .setShortLabel(Texts.t(this,"launcher.shortcut.label")).setLongLabel(Texts.t(this,"launcher.shortcut.long_label"))
             .setIcon(Look.shortcutEmblem(this)).setIntent(open).build();
         try{shortcuts.setDynamicShortcuts(java.util.Collections.singletonList(menu));}catch(RuntimeException ignored){}  // e.g. rate-limited
     }
-    @Override public void onResume(){super.onResume();foreground=true;
+    @Override public void onResume(){super.onResume();
+        // A language chosen in Pod Programs: build the screen again in it (the shortcut too).
+        if(Texts.refresh(this)){recreate();return;}
+        foreground=true;
         Updater.listener=this::renderUpdate;renderUpdate();Updater.check(this,r->renderUpdate());
         if(awaitingAccess){awaitingAccess=false;if(FilesStore.canUseInPlace())chooseFolder(LINK);}bound=bindService(new Intent(this,ServerService.class),connection,BIND_AUTO_CREATE);handler.post(tick);}
     @Override protected void onNewIntent(Intent intent){
@@ -242,23 +247,24 @@ public final class MainActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("attempted",autoAttempted);out.putBoolean("launch",launchWhenReady);super.onSaveInstanceState(out);}
     private void refresh(){
         boolean hasAssets=FilesStore.list(this).length()>0,hasMaster=FilesStore.master(this).length()>0,ready=hasAssets&&hasMaster;
-        String key=serverState+serverDetail+busy+running+tools+hasAssets+hasMaster+permille;
-        if(archiveLine!=null&&!indexText.contentEquals(archiveLine.getText()))archiveLine.setText(indexText);
+        String key=serverState+serverDetail+busy+running+tools+hasAssets+hasMaster+permille+Texts.language(this);
+        if(archiveLine!=null&&!indexShown().contentEquals(archiveLine.getText()))archiveLine.setText(indexShown());
         // Opened from the game: no launch step checks the index, so check it now (built in the background if needed).
         if(!indexChecked&&!indexing&&!launchWhenReady&&!tools&&FilesStore.ready(this))checkIndex(false);
         if(key.equals(last))return;last=key;
         boolean importing=busy&&"importing_files".equals(serverState);
-        if(importing)look.chip(files,"IMPORTING",look.chip,look.ink);
-        else if(hasAssets)look.chip(files,"READY",look.ok,look.onOk);
-        else look.chip(files,"NO FILES",look.chip,look.ink);
-        assetButton.setText(hasAssets?"CHANGE":"CHOOSE");assetButton.setVisibility(running?View.GONE:View.VISIBLE);assetButton.setEnabled(!busy&&!running&&!tools);assetButton.setAlpha(assetButton.isEnabled()?1f:.45f);
+        if(importing)look.chip(files,Texts.upper(this,Texts.t(this,"launcher.chip.importing")),look.chip,look.ink);
+        else if(hasAssets)look.chip(files,Texts.upper(this,Texts.t(this,"launcher.chip.ready")),look.ok,look.onOk);
+        else look.chip(files,Texts.upper(this,Texts.t(this,"launcher.chip.no_files")),look.chip,look.ink);
+        assetButton.setText(hasAssets?Texts.upper(this,Texts.t(this,"launcher.main.change")):Texts.upper(this,Texts.t(this,"launcher.main.choose")));assetButton.setVisibility(running?View.GONE:View.VISIBLE);assetButton.setEnabled(!busy&&!running&&!tools);assetButton.setAlpha(assetButton.isEnabled()?1f:.45f);
         boolean attention="needs_attention".equals(serverState);
-        String state=tools?"POD PROGRAMS OPEN":"stopping".equals(serverState)&&busy?"STOPPING":running?"RUNNING":"starting".equals(serverState)&&busy?"STARTING":attention?"NOT RUNNING":ready?"STANDING BY":"WAITING FOR FILES";
+        String chip=tools?"pods_open":"stopping".equals(serverState)&&busy?"stopping":running?"running":"starting".equals(serverState)&&busy?"starting":attention?"not_running":ready?"standing_by":"waiting_for_files";
+        String state=Texts.upper(this,Texts.t(this,"launcher.chip."+chip));
         if(running&&!tools)look.chip(status,state,look.ok,look.onOk);
         else if(attention)look.chip(status,state,look.alert,look.paper);
         else look.chip(status,state,look.chip,look.ink);
         File db=new File(FilesStore.data(this),"game.db");
-        save.setText(db.isFile()?"game.db · "+size(db.length()):"none yet");
+        save.setText(db.isFile()?"game.db"+" · "+size(db.length()):Texts.t(this,"launcher.main.no_save"));
         boolean measured=importing&&permille>=0;
         // A measured copy shows the bar with time left; anything else, the spinner.
         progress.setVisibility(busy&&!measured?View.VISIBLE:View.GONE);
@@ -272,18 +278,18 @@ public final class MainActivity extends Activity {
         String message="";
         boolean warning=attention||"cancelled".equals(serverState);
         if(warning)message=Texts.said(this,serverDetail);
-        else if(importing)message="Keep Bunker open until the import finishes.";
+        else if(importing)message=Texts.t(this,"launcher.main.keep_open");
         else if(busy&&!"starting".equals(serverState)&&!"stopping".equals(serverState))message=Texts.said(this,serverDetail);
         else if("saves_exported".equals(serverState)||"save_imported".equals(serverState))message=Texts.said(this,serverDetail);
-        else if(hasAssets&&!hasMaster){message="Import master data from the ⋮ menu.";warning=true;}
-        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Can't find "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings, or choose the files again.";}
+        else if(hasAssets&&!hasMaster){message=Texts.t(this,"launcher.main.import_master");warning=true;}
+        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?Texts.t(this,"launcher.main.folder_missing","folder",FilesStore.linkedFolder(this)):Texts.t(this,"launcher.main.folder_access");}
         else if("stopped".equals(serverState)&&!serverDetail.isEmpty())message=Texts.said(this,serverDetail);
-        if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":"";
+        if(message.isEmpty())message=tools?Texts.t(this,"launcher.main.close_pods_first"):"";
         detail.setText(warning?"> "+message:message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);detail.setTextColor(warning?look.alert:look.ink);
     }
     private void chooseAssets(){
-        dialog().setTitle("Choose the game files")
-            .setItems(new String[]{"Extracted folder: copy it in","Extracted folder: use in place","Archive (.7z or .zip)"},(dialog,which)->{
+        dialog().setTitle(Texts.t(this,"launcher.files_dialog.title"))
+            .setItems(new String[]{Texts.t(this,"launcher.files_dialog.copy"),Texts.t(this,"launcher.files_dialog.in_place"),Texts.t(this,"launcher.files_dialog.archive")},(dialog,which)->{
                 if(which==0)chooseFolder(ASSETS);
                 else if(which==1)useInPlace();
                 // The resource dump's .7z can be chosen directly; only revision 0 is unpacked.
@@ -295,12 +301,12 @@ public final class MainActivity extends Activity {
     }
     /** Uses an extracted folder where it is, saving 21 GB. Needs All files access, which only Settings can grant. */
     private void useInPlace(){
-        if(Build.VERSION.SDK_INT<30){dialog().setTitle("Use in place").setMessage("Needs Android 11 or later. Copy the folder in instead.").setPositiveButton("OK",null).show();return;}
+        if(Build.VERSION.SDK_INT<30){dialog().setTitle(Texts.t(this,"launcher.in_place.title")).setMessage(Texts.t(this,"launcher.in_place.old_android")).setPositiveButton(Texts.t(this,"common.ok"),null).show();return;}
         if(FilesStore.canUseInPlace()){chooseFolder(LINK);return;}
-        dialog().setTitle("Allow All files access")
-            .setMessage("Turn on the switch in Settings, then come back. NieR reads only the folder you choose. Don't move or delete it afterwards.")
-            .setNegativeButton("Cancel",null)
-            .setPositiveButton("Open Settings",(dialog,which)->{
+        dialog().setTitle(Texts.t(this,"launcher.in_place.access_title"))
+            .setMessage(Texts.t(this,"launcher.in_place.access_message"))
+            .setNegativeButton(Texts.t(this,"common.cancel"),null)
+            .setPositiveButton(Texts.t(this,"launcher.common.open_settings"),(dialog,which)->{
                 awaitingAccess=true;
                 try{startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}
                 catch(Exception e){startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}
@@ -312,24 +318,24 @@ public final class MainActivity extends Activity {
         Dialog menu=new Dialog(this);menu.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout panel=panel();
         // Pod Programs has its own panel on the Bunker; this section only appears while there is something to stop or check.
-        if(running||busy)section(panel,"Lunar Tear");
-        if(running||busy)option(panel,menu,1,busy?"Cancel":"Stop Lunar Tear",true);
-        if(running)option(panel,menu,10,"Check Lunar Tear",true);
-        section(panel,"Data");
-        if(!idle){TextView note=look.monoText("> Stop Lunar Tear first to import or export.",11,look.alert);note.setPadding(0,0,0,dp(4));panel.addView(note);}
-        option(panel,menu,2,"Import master data",idle);
-        option(panel,menu,3,"Export save backup",idle&&new File(FilesStore.data(this),"game.db").isFile());
-        option(panel,menu,9,"Import save backup",idle);
-        section(panel,"Support");
-        option(panel,menu,4,"Lunar Tear log",true);
-        option(panel,menu,11,"Export Lunar Tear log",true);
-        option(panel,menu,15,"Auto deploy: "+(autoDeploy(this)?"On":"Off"),true);
-        option(panel,menu,12,"Display: "+Character.toUpperCase(Look.display(this).charAt(0))+Look.display(this).substring(1),true);
-        option(panel,menu,13,"Check for updates: "+(Updater.enabled(this)?"On":"Off"),true);
-        option(panel,menu,14,"Check for updates now",true);
-        option(panel,menu,5,"App settings",true);
-        option(panel,menu,6,"Help",true);
-        option(panel,menu,7,"About",true);
+        if(running||busy)section(panel,Texts.t(this,"launcher.main.lunar_tear"));
+        if(running||busy)option(panel,menu,1,busy?Texts.t(this,"common.cancel"):Texts.t(this,"launcher.menu.stop"),true);
+        if(running)option(panel,menu,10,Texts.t(this,"launcher.menu.check"),true);
+        section(panel,Texts.t(this,"launcher.menu.data"));
+        if(!idle){TextView note=look.monoText("> "+Texts.t(this,"launcher.menu.stop_first"),11,look.alert);note.setPadding(0,0,0,dp(4));panel.addView(note);}
+        option(panel,menu,2,Texts.t(this,"launcher.menu.import_master"),idle);
+        option(panel,menu,3,Texts.t(this,"launcher.menu.export_save"),idle&&new File(FilesStore.data(this),"game.db").isFile());
+        option(panel,menu,9,Texts.t(this,"launcher.menu.import_save"),idle);
+        section(panel,Texts.t(this,"launcher.menu.support"));
+        option(panel,menu,4,Texts.t(this,"launcher.menu.log"),true);
+        option(panel,menu,11,Texts.t(this,"launcher.menu.export_log"),true);
+        option(panel,menu,15,autoDeploy(this)?Texts.t(this,"launcher.menu.auto_deploy_on"):Texts.t(this,"launcher.menu.auto_deploy_off"),true);
+        option(panel,menu,12,Texts.t(this,"launcher.menu.display","mode",Texts.t(this,"launcher.display."+Look.display(this))),true);
+        option(panel,menu,13,Updater.enabled(this)?Texts.t(this,"launcher.menu.updates_on"):Texts.t(this,"launcher.menu.updates_off"),true);
+        option(panel,menu,14,Texts.t(this,"launcher.menu.check_updates"),true);
+        option(panel,menu,5,Texts.t(this,"launcher.menu.app_settings"),true);
+        option(panel,menu,6,Texts.t(this,"launcher.menu.help"),true);
+        option(panel,menu,7,Texts.t(this,"launcher.menu.about"),true);
         // The frame sits on a holder around the list, so it stays put while the list scrolls,
         // and a small margin leaves room for its corner brackets.
         panel.setBackground(null);panel.setPadding(0,0,0,0);
@@ -352,7 +358,7 @@ public final class MainActivity extends Activity {
     }
     private void option(LinearLayout panel,Dialog menu,int id,String label,boolean enabled){
         // Same voice as the rest of the Bunker: uppercase monospace, like GAME FILES and the Pod Programs tabs.
-        TextView item=look.monoText("■  "+label.toUpperCase(),13,look.ink);item.setLetterSpacing(.12f);item.setGravity(Gravity.CENTER_VERTICAL);item.setMinHeight(dp(44));item.setPadding(dp(8),0,dp(8),0);
+        TextView item=look.monoText("■  "+Texts.upper(this,label),13,look.ink);item.setLetterSpacing(.12f);item.setGravity(Gravity.CENTER_VERTICAL);item.setMinHeight(dp(44));item.setPadding(dp(8),0,dp(8),0);
         item.setBackground(new RippleDrawable(ColorStateList.valueOf(look.line),null,new android.graphics.drawable.ColorDrawable(0xffffffff)));
         item.setEnabled(enabled);item.setAlpha(enabled?1f:.4f);item.setFocusable(enabled);
         if(enabled)item.setOnClickListener(v->{menu.dismiss();onOption(id);});
@@ -364,12 +370,12 @@ public final class MainActivity extends Activity {
     private void chooseDisplay(){
         String[] modes={"system","light","dark"};
         int current=java.util.Arrays.asList(modes).indexOf(Look.display(this));
-        dialog().setTitle("Display").setSingleChoiceItems(new String[]{"System","Light","Dark"},Math.max(0,current),(d,which)->{
+        dialog().setTitle(Texts.t(this,"launcher.display.title")).setSingleChoiceItems(new String[]{Texts.t(this,"launcher.display.system"),Texts.t(this,"launcher.display.light"),Texts.t(this,"launcher.display.dark")},Math.max(0,current),(d,which)->{
             d.dismiss();
             if(which==current)return;
             Look.display(this,modes[which]);
             recreate();
-        }).setNegativeButton("Cancel",null).show();
+        }).setNegativeButton(Texts.t(this,"common.cancel"),null).show();
     }
     /** Auto deploy (⋮ menu, on by default): opening Bunker starts Lunar Tear and the game; off, it opens on the launcher. */
     static boolean autoDeploy(Context c){return c.getSharedPreferences("launcher",MODE_PRIVATE).getBoolean("autoDeploy",true);}
@@ -377,28 +383,35 @@ public final class MainActivity extends Activity {
         switch(id){
             case 15: {boolean on=!autoDeploy(this);getSharedPreferences("launcher",MODE_PRIVATE).edit().putBoolean("autoDeploy",on).apply();
                 if(!on){autoAttempted=true;launchWhenReady=false;}   // off now: nothing starts by itself from here
-                Toast.makeText(this,on?"The game starts when Bunker opens":"Bunker opens here. Tap Deploy to play.",Toast.LENGTH_SHORT).show();break;}
+                Toast.makeText(this,on?Texts.t(this,"launcher.menu.auto_deploy_on_toast"):Texts.t(this,"launcher.menu.auto_deploy_off_toast"),Toast.LENGTH_SHORT).show();break;}
             case 12: chooseDisplay();break;
             case 13: Updater.enabled(this,!Updater.enabled(this));if(Updater.enabled(this))Updater.recheck(this,r->renderUpdate());break;
-            case 14: Updater.recheck(this,r->renderUpdate());Toast.makeText(this,"Checking for updates…",Toast.LENGTH_SHORT).show();break;
+            case 14: Updater.recheck(this,r->renderUpdate());Toast.makeText(this,Texts.t(this,"launcher.menu.checking_updates"),Toast.LENGTH_SHORT).show();break;
             case 1: autoAttempted=true;launchWhenReady=false;run(ServerService.STOP,null);break;
             case 2: {Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,MASTER);break;}
             case 3: {Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);i.putExtra(Intent.EXTRA_TITLE,"lunar-tear-saves-"+new SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");startActivityForResult(i,BACKUP);break;}
             case 4: showLog();break;
             case 5: startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));break;
             case 6: help();break;
-            case 7: dialog().setTitle("Bunker").setMessage("Version "+BuildConfig.BUNKER_VERSION+"\nOffline NieR Re[in]carnation, all in one app.\nCreated by veritr1x · github.com/veritr1x/bunker\n\nCREDITS\nLunar Tear by Walter-Sparrow: the offline server.\nMIT License · Copyright 2026 Ilya Groshev.\nLunar Scripts by Walter-Sparrow: APK and master data patches.\nLunar Base by NMeliksah: the save editors.\nMasterdata Patcher by NavHobbyDev: the content patcher.\nthree.js: the Archive's 3D viewer.\nChaquopy: Python on Android.\nAMD FidelityFX FSR 1 (MIT) and Qualcomm Snapdragon Game Super Resolution (BSD-3-Clause): upscaling.\n\nNieR Re[in]carnation © SQUARE ENIX. Bunker is a fan project, not affiliated with Square Enix.").setNeutralButton("Open GitHub",(d,w)->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/veritr1x/bunker")))).setPositiveButton("Close",null).show();break;
+            case 7: about();break;
             case 9: confirmSaveImport();break;
             case 10: query(3);break;
             case 11: {Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/zip").addCategory(Intent.CATEGORY_OPENABLE);i.putExtra(Intent.EXTRA_TITLE,"lunar-tear-log-"+new SimpleDateFormat("yyyyMMdd-HHmm",Locale.US).format(new Date())+".zip");startActivityForResult(i,LOGS);break;}
             case 8: autoAttempted=true;launchWhenReady=false;startActivity(new Intent(this,ToolsActivity.class));break;
         }
     }
+    /** About: the version, the credits (licence lines stay as their authors wrote them) and the disclaimer. */
+    private void about(){
+        String text=String.join("\n",Texts.t(this,"launcher.about.version","version",BuildConfig.BUNKER_VERSION),Texts.t(this,"launcher.about.tagline"),Texts.t(this,"launcher.about.created","author","veritr1x","site","github.com/veritr1x/bunker"))
+            +"\n\n"+Texts.upper(this,Texts.t(this,"launcher.about.credits"))+"\n"+String.join("\n",Texts.t(this,"launcher.about.credit_lunar_tear"),"MIT License · Copyright 2026 Ilya Groshev.",Texts.t(this,"launcher.about.credit_lunar_scripts"),Texts.t(this,"launcher.about.credit_lunar_base"),Texts.t(this,"launcher.about.credit_patcher"),Texts.t(this,"launcher.about.credit_threejs"),Texts.t(this,"launcher.about.credit_chaquopy"),Texts.t(this,"launcher.about.credit_upscaling"))
+            +"\n\n"+Texts.t(this,"launcher.about.disclaimer");
+        dialog().setTitle("Bunker").setMessage(text).setNeutralButton(Texts.t(this,"launcher.about.open_github"),(d,w)->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/veritr1x/bunker")))).setPositiveButton(Texts.t(this,"common.close"),null).show();
+    }
     private void confirmSaveImport(){
-        dialog().setTitle("Import a save backup?")
-            .setMessage("This replaces the save on this device. Your current save is kept as a copy. Choose a backup ZIP or a game.db file.")
-            .setNegativeButton("Cancel",null)
-            .setPositiveButton("Choose backup",(dialog,which)->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,SAVE);})
+        dialog().setTitle(Texts.t(this,"launcher.save_import.title"))
+            .setMessage(Texts.t(this,"launcher.save_import.message"))
+            .setNegativeButton(Texts.t(this,"common.cancel"),null)
+            .setPositiveButton(Texts.t(this,"launcher.save_import.choose"),(dialog,which)->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,SAVE);})
             .show();
     }
     private void run(String action,Uri uri){
@@ -417,30 +430,30 @@ public final class MainActivity extends Activity {
     }
     /** Checks the Archive's index, building it when missing or out of date; with thenOpen, starts the game afterwards. */
     private void checkIndex(boolean thenOpen){
-        indexing=true;openedWhileIndexing=false;indexText="CHECKING";archiveLine.setText(indexText);
+        indexing=true;openedWhileIndexing=false;indexText=Said.text("launcher.index.checking");archiveLine.setText(indexShown());
         final File assets=FilesStore.root(this),data=new File(getFilesDir(),"archive");
         new Thread(()->{
-            String done="READY";
+            String done=Said.text("launcher.index.ready");
             try{
                 if(!Python.isStarted())Python.start(new AndroidPlatform(getApplicationContext()));
                 com.chaquo.python.PyObject archive=Python.getInstance().getModule("android_archive");
                 JSONObject st=new JSONObject(archive.callAttr("build_index",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
                 while(st.optBoolean("running")){
                     int total=st.optInt("total"),pct=total>0?Math.min(99,st.optInt("done")*100/total):0;
-                    final String line="INDEXING "+pct+"% · "+st.optString("step");
+                    final String line=Said.text("launcher.index.indexing","percent",Texts.number(this,pct))+" · "+st.optString("step");
                     indexText=line;
                     Thread.sleep(500);
                     st=new JSONObject(archive.callAttr("index_status",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
                 }
-                if(!st.optBoolean("possible"))done="NO GAME TEXT";
-                else if(!st.optBoolean("ready"))done="NOT BUILT"+(st.optString("error").isEmpty()?"":" · "+st.optString("error"));
+                if(!st.optBoolean("possible"))done=Said.text("launcher.index.no_game_text");
+                else if(!st.optBoolean("ready"))done=Said.text("launcher.index.not_built")+(st.optString("error").isEmpty()?"":" · "+st.optString("error"));
             }catch(Exception|LinkageError error){
                 android.util.Log.e("LunarTear","Archive index failed",error);
-                done="NOT BUILT";
+                done=Said.text("launcher.index.not_built");
             }
             final String result=done;
             runOnUiThread(()->{
-                indexing=false;indexChecked=true;indexText=result;archiveLine.setText(result);
+                indexing=false;indexChecked=true;indexText=result;archiveLine.setText(indexShown());
                 if(thenOpen&&foreground&&running&&!tools&&!openedWhileIndexing)openGame();
             });
         },"archive-index-check").start();
@@ -457,7 +470,7 @@ public final class MainActivity extends Activity {
                 if(intent==null)intent=getPackageManager().getLaunchIntentForPackage("com.square_enix.android_googleplay.nierspjp");
             }
         } catch(PackageManager.NameNotFoundException ignored){}
-        if(intent==null)dialog().setTitle("Install the Bunker game").setMessage("Install the game built by Bunker. The original game can't connect to Lunar Tear.").setPositiveButton("OK",null).show();
+        if(intent==null)dialog().setTitle(Texts.t(this,"launcher.install_game.title")).setMessage(Texts.t(this,"launcher.install_game.message")).setPositiveButton(Texts.t(this,"common.ok"),null).show();
         else {
             String unity=DisplayPatch.unityArguments(this);
             if(unity!=null)intent.putExtra("unity",unity);
@@ -473,14 +486,14 @@ public final class MainActivity extends Activity {
         if(!Updater.shown(this,r)){updatePanel.setVisibility(View.GONE);return;}
         updatePanel.setVisibility(View.VISIBLE);
         boolean running=Updater.updating(),canUpdate=r.offer==Updater.Offer.UPDATE;
-        String text="Bunker "+r.version+" is available.";
-        if(r.offer==Updater.Offer.WEB_BUILDER)text+="\n> This update needs the web builder.";
-        else if(r.offer==Updater.Offer.OWN_KEY)text+="\n> This app uses your own signing key. Rebuild it with the web builder.";
-        if(running&&!Updater.status.isEmpty())text=Updater.status;
-        else if(Updater.statusFailed)text+="\n> "+Updater.status;
+        String text=Texts.t(this,"launcher.main.update_available","version",r.version);
+        if(r.offer==Updater.Offer.WEB_BUILDER)text+="\n> "+Texts.t(this,"launcher.main.update_needs_web");
+        else if(r.offer==Updater.Offer.OWN_KEY)text+="\n> "+Texts.t(this,"launcher.main.update_own_key");
+        if(running&&!Updater.status.isEmpty())text=Texts.said(this,Updater.status);
+        else if(Updater.statusFailed)text+="\n> "+Texts.said(this,Updater.status);
         updateText.setText(text);
         updateText.setTextColor(Updater.statusFailed&&!running?look.alert:look.ink);
-        updateButton.setText(running?"CANCEL":"UPDATE");
+        updateButton.setText(running?Texts.upper(this,Texts.t(this,"common.cancel")):Texts.upper(this,Texts.t(this,"launcher.main.update")));
         // Cancel only while downloading: the build and the installer then finish on their own.
         updateButton.setVisibility(canUpdate&&(!running||Updater.cancellable())?View.VISIBLE:View.GONE);
         updateWeb.setVisibility(!running&&(!canUpdate||Updater.statusFailed)?View.VISIBLE:View.GONE);
@@ -489,9 +502,9 @@ public final class MainActivity extends Activity {
     private void startUpdate(){
         if(Updater.current==null)return;
         if(!getPackageManager().canRequestPackageInstalls()){
-            dialog().setTitle("Allow updates").setMessage("Allow NieR to install apps in Settings, then tap Update again.")
-                .setPositiveButton("Open Settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
-                .setNegativeButton("Cancel",null).show();
+            dialog().setTitle(Texts.t(this,"launcher.allow_updates.title")).setMessage(Texts.t(this,"launcher.allow_updates.message"))
+                .setPositiveButton(Texts.t(this,"launcher.common.open_settings"),(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
+                .setNegativeButton(Texts.t(this,"common.cancel"),null).show();
             return;
         }
         Updater.status="";Updater.statusFailed=false;
@@ -504,11 +517,11 @@ public final class MainActivity extends Activity {
         Updater.status=message;Updater.statusFailed=true;renderUpdate();
     }
     private void help(){
-        dialog().setTitle("Help").setMessage("Lunar Tear, the game's server, runs on this device. No internet needed.\n\nTap the Lunar Tear notification to return here.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")
-            .setPositiveButton("Close",null).show();
+        dialog().setTitle(Texts.t(this,"launcher.menu.help")).setMessage(String.join("\n\n",Texts.t(this,"launcher.help.server"),Texts.t(this,"launcher.help.notification"),Texts.t(this,"launcher.help.samsung")))
+            .setPositiveButton(Texts.t(this,"common.close"),null).show();
     }
     /** The "i" beside Pod Programs, on either layout. */
-    private TextView podsInfo(){return look.info("Pod Programs","Edit your save and choose which events and shops appear. While you play, each change sends the game to its title screen.");}
+    private TextView podsInfo(){return look.info(Texts.t(this,"launcher.main.pod_programs"),Texts.t(this,"launcher.main.pod_programs_info"));}
     private void showLog(){query(2);}
     /** Shows whether the game can reach this server on each of its ports. */
     private void showServerCheck(String report){
@@ -519,19 +532,19 @@ public final class MainActivity extends Activity {
             org.json.JSONArray checks=r.getJSONArray("checks");
             for(int i=0;i<checks.length();i++){
                 org.json.JSONObject c=checks.getJSONObject(i);
-                text.append(c.optBoolean("ok")?"✓ ":"✗ ").append(c.optString("name")).append(" · port ").append(c.optInt("port"));
+                text.append(c.optBoolean("ok")?"✓ ":"✗ ").append(Texts.t(this,"launcher.check.port","name",c.optString("name"),"port",c.optInt("port")));
                 if(!c.optBoolean("ok"))text.append("\n   ").append(c.optString("detail"));
                 text.append("\n");
             }
-        }catch(Exception e){text.append("Lunar Tear is not running.");}
-        dialog().setTitle(ok?"Lunar Tear is reachable":"Couldn't reach Lunar Tear").setMessage(text.toString().trim()).setPositiveButton("Close",null).show();
+        }catch(Exception e){text.append(Texts.t(this,"launcher.check.not_running"));}
+        dialog().setTitle(ok?Texts.t(this,"launcher.check.ok"):Texts.t(this,"launcher.check.failed")).setMessage(text.toString().trim()).setPositiveButton(Texts.t(this,"common.close"),null).show();
     }
     private void displayLog(String nativeStatus){
         String value;
-        try{JSONObject s=new JSONObject(nativeStatus);value=s.optString("logs","No server log yet.");if(value.isEmpty())value="No server log yet.";}
-        catch(Throwable e){value="Lunar Tear couldn't load: "+e.getMessage();}
+        try{JSONObject s=new JSONObject(nativeStatus);value=s.optString("logs","");if(value.isEmpty())value=Texts.t(this,"launcher.log.empty");}
+        catch(Throwable e){value=Texts.t(this,"launcher.log.unavailable","error",String.valueOf(e.getMessage()));}
         TextView t=look.monoText(value,12,look.ink);t.setTextIsSelectable(true);t.setPadding(dp(18),dp(12),dp(18),dp(12));ScrollView sc=new ScrollView(this);sc.addView(t);
-        dialog().setTitle("Lunar Tear log").setView(sc).setPositiveButton("Close",null).show();
+        dialog().setTitle(Texts.t(this,"launcher.menu.log")).setView(sc).setPositiveButton(Texts.t(this,"common.close"),null).show();
     }
     private void exportLogs(Uri uri){
         String version;try{version=getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){version="unknown";}
@@ -539,11 +552,11 @@ public final class MainActivity extends Activity {
         new Thread(()->{
             String error;
             try(ParcelFileDescriptor fd=getContentResolver().openFileDescriptor(uri,"rwt")){
-                error=fd==null?"Can't open that file":NativeBridge.exportLogs(FilesStore.logs(this).getAbsolutePath(),fd.getFd(),info);
+                error=fd==null?Texts.t(this,"launcher.log.cant_open"):NativeBridge.exportLogs(FilesStore.logs(this).getAbsolutePath(),fd.getFd(),info);
             }catch(Exception e){error=e.getMessage();}
             String result=error;
-            runOnUiThread(()->dialog().setTitle(result==null||result.isEmpty()?"Lunar Tear log exported":"Export failed")
-                .setMessage(result==null||result.isEmpty()?"Attach the ZIP when you report a problem. It holds the log and this phone's model and Android version.":result).setPositiveButton("Close",null).show());
+            runOnUiThread(()->dialog().setTitle(result==null||result.isEmpty()?Texts.t(this,"launcher.log.exported"):Texts.t(this,"launcher.log.export_failed"))
+                .setMessage(result==null||result.isEmpty()?Texts.t(this,"launcher.log.exported_info"):result).setPositiveButton(Texts.t(this,"common.close"),null).show());
         },"export-logs").start();
     }
     @Override protected void onActivityResult(int code,int result,Intent data){
