@@ -36,6 +36,10 @@ class Android(unittest.TestCase):
     def test_preset_never_updated_needs_an_update(self):
         self.assertTrue(self.needed(tools={"patcher/active.json": "{}"}))
 
+    def test_shipped_language_never_updated_needs_an_update(self):
+        # Pod Programs › Language: a shipped pack the update may have revised
+        self.assertTrue(self.needed(tools={"language.json": "{}"}))
+
     def test_updated_for_another_version_needs_an_update(self):
         self.assertTrue(self.needed({"calendar.json": "{}", "data.updated": "1.6.2"}))
 
@@ -46,7 +50,7 @@ class Android(unittest.TestCase):
 class Platforms(unittest.TestCase):
     def test_ios_and_python_use_the_same_files(self):
         java, ios = JAVA.read_text(), IOS.read_text()
-        for name in ("calendar.json", "patcher/active.json", "data.updated"):
+        for name in ("calendar.json", "patcher/active.json", "language.json", "data.updated"):
             self.assertIn(f'"{name}"', java)
             self.assertIn(f'@"{name}"', ios)
         self.assertIn('config.GAME_DB_PATH.parent / "data.updated"', PYTHON.read_text())

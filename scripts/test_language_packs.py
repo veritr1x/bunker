@@ -55,6 +55,11 @@ class LanguagePacksTest(unittest.TestCase):
         self.put("game/ui/ja.json", {"a": "エー"})
         self.assertEqual(write_shipped(self.translations, self.out), [])
 
+    def test_a_code_the_device_would_refuse_fails_the_build(self):
+        self.put("languages.json", {"pt_BR": {"name": "Português", "ship": True}})
+        with self.assertRaisesRegex(ValueError, "pt_BR"):
+            write_shipped(self.translations, self.out)
+
     def test_no_languages(self):
         self.put("languages.json", {})
         self.assertEqual(write_shipped(self.translations, self.out), [])

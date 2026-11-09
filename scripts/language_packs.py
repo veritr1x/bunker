@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 # The game's own languages: never packs.
 GAME_LANGUAGES = frozenset(("en", "ja", "ko"))
+# The codes the device accepts (bunker_language.CODE): another would build a pack it never lists.
+CODE = re.compile(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}")
 
 
 def _read(path: Path) -> dict:
@@ -46,6 +49,8 @@ def write_shipped(translations: Path, out: Path) -> list[Path]:
     for code, about in sorted(languages.items()):
         if not about.get("ship") or code in GAME_LANGUAGES:
             continue
+        if not CODE.fullmatch(code):
+            raise ValueError(f"translations/languages.json: {code} is not a language code the device accepts (like pt-BR)")
         path = out / f"{code}.json"
         path.write_text(_canonical(build_pack(translations, code, about.get("name", code))) + "\n", encoding="utf-8")
         written.append(path)

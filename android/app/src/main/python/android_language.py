@@ -14,17 +14,17 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from bunker_language import MAX_PACK_BYTES, Languages, PackError
+from bunker_language import MAX_PACK_BYTES, SHIPPED_DIR, Languages, PackError, for_config
 from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
-SHIPPED = Path(__file__).resolve().parent / "shipped_languages"
+SHIPPED = SHIPPED_DIR
 UNSUPPORTED = "Translation needs the global (English) game files: these have no English text."
 
 
 def languages() -> Languages:
-    return Languages(config.ASSETS_DIR.parent / "translation", SHIPPED)
+    return for_config(config, SHIPPED)
 
 
 def supported() -> bool:
@@ -55,19 +55,32 @@ def status_line(status: dict) -> str:
 @router.get("/language")
 def view(request: Request, message: str = "", error: str = ""):
     langs = languages()
+    langs.refresh()  # a revised shipped pack, if launchers did not already bring it in
+    packs = langs.packs()  # read once: a full pack is tens of MB
     status = langs.status()
     return templates.TemplateResponse(request, "language.html", {
-        "active": "language", "packs": langs.packs(), "current": langs.active(), "status": status,
+        "active": "language", "packs": packs, "current": langs.active(packs), "status": status,
         "status_line": status_line(status), "status_state": status.get("state"), "supported": supported(), "count": count,
         "message": message, "error": error})
 
 
+def unchanged(response):
+    """The game's language did not change: the game plays on (android_runtime.changed_game)."""
+    response.headers["X-Bunker-Unchanged"] = "1"
+    return response
+
+
 @router.post("/language")
-def choose(choice: str = Form(...)):
-    if not supported():
+def choose(choice: str = Form("")):
+    if not choice:
+        return unchanged(redirect(error="Choose a language first."))
+    if choice != "en" and not supported():  # English stays possible, to clear a pack left from other game files
         return redirect(error=UNSUPPORTED)
+    langs = languages()
+    if choice == langs.active():
+        return unchanged(redirect(message="That language is already in use."))
     try:
-        languages().choose(choice)
+        langs.choose(choice)
     except PackError as exc:
         return redirect(error=str(exc))
     import android_runtime
@@ -96,9 +109,7 @@ def remove(language: str = Form(...)):
     if in_use:
         import android_runtime
         return redirect(message=f"Removed the {language} pack, which was in use: back to English. {android_runtime.next_step()}")
-    response = redirect(message=f"Removed the {language} pack.")
-    response.headers["X-Bunker-Unchanged"] = "1"  # the game's language did not change: it plays on
-    return response
+    return unchanged(redirect(message=f"Removed the {language} pack."))
 
 
 def redirect(**kwargs):

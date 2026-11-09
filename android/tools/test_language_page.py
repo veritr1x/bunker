@@ -32,8 +32,10 @@ class LanguagePageTest(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
         base = Path(self.dir.name)
-        saved = (config.ASSETS_DIR, config.REVISIONS_DIR)
-        self.addCleanup(lambda: (setattr(config, "ASSETS_DIR", saved[0]), setattr(config, "REVISIONS_DIR", saved[1])))
+        saved = (config.ASSETS_DIR, config.REVISIONS_DIR, config.DATA_DIR)
+        self.addCleanup(lambda: (setattr(config, "ASSETS_DIR", saved[0]), setattr(config, "REVISIONS_DIR", saved[1]),
+                                 setattr(config, "DATA_DIR", saved[2])))
+        config.DATA_DIR = base / "tools"
         config.ASSETS_DIR = base / "server" / "assets"
         config.REVISIONS_DIR = config.ASSETS_DIR / "revisions"
         (config.REVISIONS_DIR / "0" / "assetbundle" / "text" / "en").mkdir(parents=True)
@@ -98,6 +100,41 @@ class LanguagePageTest(unittest.TestCase):
         self.assertIn("1 text (", page)
         self.assertNotIn("1 texts", page)
         self.assertIn("1 text file translated", page)
+
+    def test_save_with_nothing_chosen_explains(self):
+        response = self.client.post("/language", data={})
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("error=", response.headers["location"])
+        self.assertEqual(response.headers.get("x-bunker-unchanged"), "1")
+
+    def test_saving_the_current_choice_changes_nothing(self):
+        response = self.client.post("/language", data={"choice": "en"})
+        self.assertEqual(response.headers.get("x-bunker-unchanged"), "1")
+        self.load()
+        response = self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.assertIsNone(response.headers.get("x-bunker-unchanged"))
+
+    def test_unsupported_client_can_go_back_to_english(self):
+        self.load()
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        (config.REVISIONS_DIR / "0" / "assetbundle" / "text" / "en").rmdir()
+        response = self.client.post("/language", data={"choice": "en"})
+        self.assertIn("message=", response.headers["location"])
+        self.assertFalse((self.translation / "active.json").exists())
+
+    def test_update_brings_in_a_revised_shipped_pack(self):
+        import android_runtime, bunker_language
+        shipped = android_language.SHIPPED
+        saved = bunker_language.SHIPPED_DIR
+        self.addCleanup(lambda: setattr(bunker_language, "SHIPPED_DIR", saved))
+        bunker_language.SHIPPED_DIR = shipped  # what the launchers' update reads
+        shipped.mkdir(parents=True)
+        (shipped / "pl.json").write_bytes(pack(language="pl", name="Polski"))
+        self.client.post("/language", data={"choice": "shipped:pl"})
+        revised = pack(language="pl", name="Polski 2")
+        (shipped / "pl.json").write_bytes(revised)  # the next Bunker build
+        android_runtime.refresh_language()  # update_data, before the server starts
+        self.assertEqual((self.translation / "active.json").read_bytes(), revised)
 
     def test_status_is_shown(self):
         self.translation.mkdir(parents=True)

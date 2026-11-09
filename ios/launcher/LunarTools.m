@@ -143,7 +143,8 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
 BOOL LTDataNeedsUpdate(NSString *saves, NSString *toolsRoot, NSString *version) {
     NSFileManager *files = NSFileManager.defaultManager;
     if (![files fileExistsAtPath:[saves stringByAppendingPathComponent:@"calendar.json"]] &&
-        ![files fileExistsAtPath:[toolsRoot stringByAppendingPathComponent:@"patcher/active.json"]]) return NO;
+        ![files fileExistsAtPath:[toolsRoot stringByAppendingPathComponent:@"patcher/active.json"]] &&
+        ![files fileExistsAtPath:[toolsRoot stringByAppendingPathComponent:@"language.json"]]) return NO;  // a shipped pack the update may revise
     NSString *updated = [NSString stringWithContentsOfFile:[saves stringByAppendingPathComponent:@"data.updated"] encoding:NSUTF8StringEncoding error:nil];
     return ![[updated stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] isEqualToString:version];
 }

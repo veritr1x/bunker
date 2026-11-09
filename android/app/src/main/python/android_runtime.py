@@ -441,8 +441,21 @@ def update_data(data_root, asset_root, tools_root, version):
     from java import jclass
     configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
     prepare_data()
+    refresh_language()
     import android_patcher
     return android_patcher.update_for(version)
+
+
+def refresh_language():
+    """A chosen shipped language pack this build revised replaces the active copy (Pod Programs › Language),
+    before the server starts and applies it."""
+    import bunker_language
+    from web import config
+    try:
+        if bunker_language.for_config(config).refresh():
+            log.info("Language pack updated for this build")
+    except OSError as exc:
+        log.warning("Language pack not updated: %s", exc)
 
 
 def stop():

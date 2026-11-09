@@ -27,12 +27,23 @@ class ReadPackTest(unittest.TestCase):
             with self.assertRaises(PackError, msg=data[:20]):
                 read_pack(data)
 
+    def test_refuses_what_the_server_refuses(self):
+        # pack.go reads name and version as strings, refuses NaN, and matches keys ignoring case
+        for data in (b'{"format":1,"language":"pt","name":5,"game":{}}',
+                     b'{"format":1,"language":"pt","version":1,"game":{}}',
+                     b'{"format":1,"language":"pt","game":{"a":NaN}}',
+                     b'{"format":1,"FORMAT":2,"language":"pt","game":{}}',
+                     b'{"format":1,"language":"pt","Game":{"a":"x"},"game":{}}',
+                     b"[" * 200000):
+            with self.assertRaises(PackError, msg=data[:40]):
+                read_pack(data)
+
     def test_refuses_an_oversized_pack(self):
         with self.assertRaisesRegex(PackError, "too large"):
             read_pack(b" " * (MAX_PACK_BYTES + 1))
 
     def test_refuses_a_path_as_language(self):
-        for language in ("../../x", "pt/../../y", "", "p", "pt BR", "pt-BR/x"):
+        for language in ("../../x", "pt/../../y", "", "p", "pt BR", "pt-BR/x", "pt\n"):
             with self.assertRaises(PackError, msg=language):
                 read_pack(pack(language=language))
 
@@ -113,6 +124,41 @@ class LanguagesTest(unittest.TestCase):
     def test_remove_refuses_a_path(self):
         with self.assertRaises(PackError):
             self.languages.remove("../active")
+
+    def test_updated_shipped_pack_reaches_its_players(self):
+        choice = Path(self.dir.name) / "tools" / "language.json"
+        languages = Languages(self.translation, self.shipped, choice)
+        self.shipped.mkdir(parents=True)
+        (self.shipped / "pl.json").write_bytes(pack(language="pl"))
+        languages.choose("shipped:pl")
+        self.assertTrue(choice.is_file())
+        newer = pack(language="pl", game={"a": "x", "b": "y"})
+        (self.shipped / "pl.json").write_bytes(newer)  # a Bunker update ships a revised pack
+        self.assertTrue(languages.refresh())
+        self.assertEqual(self.active.read_bytes(), newer)
+        self.assertEqual(languages.active(), "shipped:pl")
+        self.assertFalse(languages.refresh())  # already current
+
+    def test_refresh_leaves_other_choices_alone(self):
+        choice = Path(self.dir.name) / "tools" / "language.json"
+        languages = Languages(self.translation, self.shipped, choice)
+        languages.load(pack())
+        languages.choose("loaded:pt-BR")
+        self.assertFalse(choice.exists())
+        self.assertFalse(languages.refresh())
+        languages.choose("en")
+        self.assertFalse(languages.refresh())
+        self.assertFalse(self.active.exists())
+
+    def test_shipped_language_dropped_keeps_its_last_copy(self):
+        choice = Path(self.dir.name) / "tools" / "language.json"
+        languages = Languages(self.translation, self.shipped, choice)
+        self.shipped.mkdir(parents=True)
+        (self.shipped / "pl.json").write_bytes(pack(language="pl"))
+        languages.choose("shipped:pl")
+        (self.shipped / "pl.json").unlink()
+        self.assertFalse(languages.refresh())
+        self.assertTrue(self.active.is_file())
 
     def test_status(self):
         self.assertEqual(self.languages.status(), {"state": "off"})
