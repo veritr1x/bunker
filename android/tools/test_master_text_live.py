@@ -195,8 +195,14 @@ class LauncherImports(unittest.TestCase):
         launcher = (root / "ios/launcher/LunarLauncher.m").read_text()
         importing = launcher[launcher.index("- (void)importMaster:(NSURL *)picked {"):]
         importing = importing[:importing.index("\n- (")]
-        self.assertIn("LTLayerGameData(", importing)
+        helper = launcher[launcher.index("static void LayerImportedMaster(void) {"):]
+        self.assertIn("LTLayerGameData(", helper[:helper.index("\n}\n")])
         self.assertIn('CallRuntime(@"layer_game_data"', (root / "ios/launcher/LunarTools.m").read_text())
+        # the import automation (LUNAR_IMPORT_MASTER) does what the picker does
+        automated = launcher[launcher.index("if (masterSource) {"):]
+        automated = automated[:automated.index("NSString *update = @\"\";")]
+        self.assertIn("LayerImportedMaster(", automated)
+        self.assertIn("LayerImportedMaster(", importing)
         self.assertIn("NSString *LTLayerGameData(", (root / "ios/launcher/LunarTools.h").read_text())
         runtime = (root / "ios/python/ios_runtime.py").read_text()
         body = runtime[runtime.index("def layer_game_data("):]
