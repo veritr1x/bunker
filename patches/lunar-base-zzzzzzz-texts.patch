@@ -26,7 +26,7 @@ index db987fc..680f2a9 100644
          return _redirect(
              "/backups",
 -            error="Confirmation phrase did not match. Type RESTORE in uppercase to confirm.",
-+            error=bunker_text.t("pods.backup.confirm_mismatch"),
++            error=bunker_text.t("pods.backup.confirm_mismatch", word="RESTORE"),
          )
  
      wants_service_control = bool(manage_server.strip())

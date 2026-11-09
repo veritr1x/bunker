@@ -354,7 +354,7 @@
   "common.weekday_short.thu": "Thu",
   "common.weekday_short.tue": "Tue",
   "common.weekday_short.wed": "Wed",
-  "pods.backup.confirm_mismatch": "Confirmation phrase did not match. Type RESTORE in uppercase to confirm.",
+  "pods.backup.confirm_mismatch": "Confirmation phrase did not match. Type {word} in uppercase to confirm.",
   "pods.backup.create": "Create backup",
   "pods.backup.created": "Created {file} ({size}).",
   "pods.backup.failed": "Backup failed: {error}",
