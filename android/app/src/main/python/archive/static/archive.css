@@ -168,3 +168,8 @@ details.info[open] > summary { background: var(--accent); border-color: var(--ac
 details.info > div { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; max-width: 520px; margin-top: 6px; padding: 10px 12px;
   background: var(--panel); color: var(--fg-dark); border: 1px solid var(--accent); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   font-family: var(--sans); font-size: 14px; font-weight: 400; font-style: normal; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left; }
+
+/* A phone on its side: the bars fixed to the bottom start beside the tab column, which would cover them. */
+@media (orientation: landscape) and (max-height: 599px) {
+  footer.player-bar, footer.pager { left: 148px; }
+}

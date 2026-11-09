@@ -34,6 +34,13 @@ class Page(unittest.TestCase):
         css = (ARCHIVE / "static/archive.css").read_text()
         self.assertIn("html:not(.bunker-shell) .shell-head", css)
 
+    def test_bottom_bars_start_beside_the_tab_column(self):
+        # The music player and the pager are fixed to the bottom; from the left edge, the 148px tab column
+        # covered their play button and title.
+        css = (ARCHIVE / "static/archive.css").read_text()
+        landscape = css[css.index("@media (orientation: landscape) and (max-height: 599px) {"):]
+        self.assertIn("footer.player-bar, footer.pager { left: 148px; }", landscape)
+
     def test_pod_programs_styles_apply(self):
         # The Archive loads automata.css, whose landscape rules lay out the column and the hole.
         self.assertIn("{{ pod_css }}", self.html)
