@@ -266,6 +266,26 @@ class AndroidBuild(unittest.TestCase):
             self.assertTrue(has_mark(font), name)
         self.assertEqual(apk.read_bytes(), before)
 
+    def test_missing_font_file_in_apk(self):
+        apk = self.dir / "game.apk"
+        with zipfile.ZipFile(apk, "w") as z:
+            for name, data in list(game_font_files().items())[1:]:
+                z.writestr(name, data)
+        with zipfile.ZipFile(apk) as game, self.assertRaises(RuntimeError) as caught:
+            self.assemble_apk.patch_font_entries(game, self.dir / "work", log=lambda m: None)
+        self.assertIn("this game version is not supported", str(caught.exception))
+        self.assertIn(game_fonts.ANDROID_FONT_FILES[0], str(caught.exception))
+
+    def test_missing_font_file_on_disk(self):
+        present = self.dir / "present"
+        present.write_bytes(next(iter(game_font_files().values())))
+        before = present.read_bytes()
+        with self.assertRaises(RuntimeError) as caught:
+            game_fonts.patch_game_fonts([present, self.dir / "absent"], log=lambda m: None)
+        self.assertIn("this game version is not supported", str(caught.exception))
+        self.assertIn("absent", str(caught.exception))
+        self.assertEqual(present.read_bytes(), before)
+
     def test_assemble_adds_fonts_and_licence(self):
         a = self.assemble_apk
         apk, companion, out = self.dir / "game.apk", self.dir / "companion.apk", self.dir / "out.apk"

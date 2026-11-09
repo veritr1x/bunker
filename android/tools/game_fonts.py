@@ -328,6 +328,9 @@ def replace_fonts(src: Path, dst: Path, fonts: dict[str, bytes]) -> None:
 
 def patch_game_fonts(paths: list[Path], log=print) -> None:
     """Adds the letters to the GAME_FONTS found in these Unity files, in place."""
+    for path in paths:
+        if not Path(path).is_file():
+            raise RuntimeError(f"The game's font file {Path(path).name} is missing; this game version is not supported")
     plans = []
     for path in paths:
         fonts = read_fonts(path)
