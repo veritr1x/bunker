@@ -13,8 +13,9 @@ from pathlib import Path
 from string import Formatter
 
 _HERE = Path(__file__).resolve().parent
-# On the device: beside this file (prepare.py). From the repository (tests, tools): translations/.
-_CATALOGUES = (_HERE / "bunker_en.json",) + tuple(p / "translations/bunker/en.json" for p in _HERE.parents[4:5])
+# From the repository (tests, tools): translations/, which a prepared copy would lag behind. On the device:
+# the copy beside this file (scripts/prepare.py).
+_CATALOGUES = tuple(p / "translations/bunker/en.json" for p in _HERE.parents[4:5]) + (_HERE / "bunker_en.json",)
 
 _english: dict[str, str] | None = None
 _extra: dict[str, str] = {}
