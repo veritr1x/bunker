@@ -88,6 +88,15 @@ class MergeFont(unittest.TestCase):
         for tag in ("GSUB", "GPOS", "vmtx", "VORG"):
             self.assertNotIn(tag, font, tag)
 
+    def test_line_metrics_stay_the_game_fonts(self):
+        # Noto's taller ascent/descent must not move the game's text (English included).
+        game = cff_font({"A": 600, "Ж": 1000})
+        before, after = TTFont(io.BytesIO(game)), TTFont(io.BytesIO(self.merged))
+        for table, fields in (("hhea", ("ascent", "descent", "lineGap")),
+                              ("OS/2", ("sTypoAscender", "sTypoDescender", "sTypoLineGap", "usWinAscent", "usWinDescent"))):
+            for field in fields:
+                self.assertEqual(getattr(after[table], field), getattr(before[table], field), f"{table}.{field}")
+
     def test_game_glyph_kept_where_noto_has_none(self):
         # U+03E2 (Coptic Ϣ) is in the replaced Greek range, but Noto Sans has no glyph for it.
         merged = game_fonts.merge_font(cff_font({"A": 600, "Ϣ": 555}), self.sans)
