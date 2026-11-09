@@ -8,10 +8,10 @@ name: Translations
 
 on:
   pull_request:
-    paths: ["translations/**", "scripts/check_translations.py", ".github/workflows/translations.yml"]
+    paths: ["translations/**", "fonts/coverage.json", "scripts/check_translations.py", ".github/workflows/translations.yml"]
   push:
     branches: [main]
-    paths: ["translations/**", "scripts/check_translations.py", ".github/workflows/translations.yml"]
+    paths: ["translations/**", "fonts/coverage.json", "scripts/check_translations.py", ".github/workflows/translations.yml"]
 
 permissions:
   contents: read
@@ -33,9 +33,10 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: |
           changed=$(git diff --name-only "origin/$BASE...HEAD" -- 'translations/*/en.json' 'translations/*/*/en.json' \
-            'translations/*/ja.json' 'translations/*/*/ja.json' 'translations/*/ko.json' 'translations/*/*/ko.json')
+            'translations/*/ja.json' 'translations/*/*/ja.json' 'translations/*/ko.json' 'translations/*/*/ko.json' \
+            'fonts/coverage.json')
           if [ -n "$changed" ]; then
-            echo "These files are made from the game files (scripts/export_translations.py); a translation must not change them:"
+            echo "These files are made from the game files (scripts/export_translations.py, android/tools/game_fonts.py coverage); a translation must not change them:"
             echo "$changed"
             exit 1
           fi

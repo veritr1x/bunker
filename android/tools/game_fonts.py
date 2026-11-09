@@ -12,6 +12,8 @@ import io
 import json
 import logging
 import os
+import re
+import shutil
 import struct
 from pathlib import Path
 from typing import NamedTuple
@@ -343,3 +345,60 @@ def patch_game_fonts(paths: list[Path], log=print) -> None:
                 os.replace(temporary, path)
             finally:
                 temporary.unlink(missing_ok=True)
+
+
+def coverage(apk: Path) -> dict:
+    """The characters the game can show once the letters are added: every game font's characters together."""
+    import tempfile
+    import zipfile
+
+    plans = {g.name: g for g in GAME_FONTS}
+    shown, names = set(), []
+    with zipfile.ZipFile(apk) as game, tempfile.TemporaryDirectory() as work:
+        for name in sorted(game.namelist()):
+            if not re.fullmatch(r"assets/bin/Data/[0-9a-f]{32}", name):
+                continue
+            path = Path(work) / "file"
+            with game.open(name) as source, open(path, "wb") as out:
+                shutil.copyfileobj(source, out, CHUNK)
+            try:
+                fonts = read_fonts(path)
+            except (UnityFileError, struct.error, ValueError):
+                continue  # not a serialized file of this format: no fonts there
+            for font_name, data in fonts.items():
+                g = plans.get(font_name)
+                if g:
+                    data = merge_font(data, noto(g.replace), noto(g.add) if g.add else None)
+                shown |= set(_open(data).getBestCmap())
+                names.append(font_name)
+    missing = set(plans) - set(names)
+    if missing:
+        raise RuntimeError(f"The game's fonts {', '.join(sorted(missing))} were not found in {Path(apk).name}")
+    ranges = []
+    for c in sorted(shown):
+        if ranges and ranges[-1][1] == c - 1:
+            ranges[-1][1] = c
+        else:
+            ranges.append([c, c])
+    return {"apk": Path(apk).name, "fonts": sorted(names), "ranges": ranges}
+
+
+def main(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest="command", required=True)
+    command = commands.add_parser("coverage", help="write the characters the game can show (fonts/coverage.json), "
+                                                   "which scripts/check_translations.py checks translations against")
+    command.add_argument("--apk", type=Path, required=True, help="the game APK")
+    command.add_argument("--out", type=Path, default=ROOT / "fonts/coverage.json")
+    args = parser.parse_args(argv)
+    result = coverage(args.apk)
+    lines = ",\n  ".join(json.dumps(r) for r in result["ranges"])
+    args.out.write_text(f'{{"apk": {json.dumps(result["apk"])},\n "fonts": {json.dumps(result["fonts"])},\n'
+                        f' "ranges": [\n  {lines}\n ]}}\n')
+    print(f"{args.out}: {sum(b - a + 1 for a, b in result['ranges'])} characters in {len(result['fonts'])} fonts")
+
+
+if __name__ == "__main__":
+    main()
