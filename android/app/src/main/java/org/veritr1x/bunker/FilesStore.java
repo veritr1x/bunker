@@ -393,9 +393,9 @@ final class FilesStore {
      * stay in place; the launcher asks for it again if it disappears.
      */
     static void linkAssets(Context c, Uri tree, Progress progress) throws Exception {
-        if (!canUseInPlace()) throw new IOException("Allow All files access for NieR in Settings to use a folder in place, or copy it instead.");
+        if (!canUseInPlace()) throw new IOException("Allow All files access for NieR in Settings, or copy the folder instead.");
         if (!"com.android.externalstorage.documents".equals(tree.getAuthority()))
-            throw new IOException("Use in place works with folders on this phone's storage or SD card. Copy the folder instead.");
+            throw new IOException("Only folders on this phone or its SD card can be used in place.");
         String revision = findRevisionZero(c, tree, DocumentsContract.getTreeDocumentId(tree));
         if (revision == null) throw new IOException("Choose the extracted game files: the folder that contains revisions/0");
         // Document IDs look like "primary:Download/dump/revisions/0" or "1234-ABCD:dump/revisions/0".
