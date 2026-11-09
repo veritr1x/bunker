@@ -42,6 +42,24 @@ final class Look {
     static void display(Context c,String mode){c.getSharedPreferences("lunar_look",Context.MODE_PRIVATE).edit().putString("display",mode).apply();}
 
     int dp(float n){return (int)(n*density+.5f);}
+
+    /**
+     * The camera hole on the left or right edge of a phone on its side, as the pages ask
+     * for it (BunkerShell.cutout(): Pod Programs' and the Archive's base.html):
+     * {side, top, bottom, depth} in CSS px, or "null".
+     */
+    static String cutout(android.view.WindowInsets insets,float density){
+        android.view.DisplayCutout cut=insets.getDisplayCutout();
+        if(cut==null)return "null";
+        for(Rect r:cut.getBoundingRects()){
+            if(r.isEmpty())continue;
+            boolean left=r.left<=0&&cut.getSafeInsetLeft()>0,right=!left&&cut.getSafeInsetRight()>0&&r.left>0&&r.top>0;
+            if(!left&&!right)continue;
+            return String.format(java.util.Locale.ROOT,"{\"side\":\"%s\",\"top\":%.1f,\"bottom\":%.1f,\"depth\":%.1f}",left?"left":"right",
+                r.top/density,r.bottom/density,(left?cut.getSafeInsetLeft():cut.getSafeInsetRight())/density);
+        }
+        return "null";
+    }
     static Typeface mono(){return Typeface.MONOSPACE;}
 
     /** System bars in the paper colour, with icons that stay readable on it. */
