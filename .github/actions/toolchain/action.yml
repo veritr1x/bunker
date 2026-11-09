@@ -84,27 +84,20 @@ runs:
     - shell: bash
       run: echo "${{ steps.protoc.outputs.dir }}/bin" >> "$GITHUB_PATH"
 
-    # Android SDK parts: from the cache, else from Google, retried.
+    # Android SDK parts: the runner image has them (read-only, so a cache can't be restored over
+    # them); sdkmanager fetches only what is missing, from Google, retried.
     - if: inputs.android == 'true'
-      id: sdk
-      shell: bash
-      run: echo "home=$ANDROID_HOME" >> "$GITHUB_OUTPUT"
-    - if: inputs.android == 'true'
-      id: sdk-cache
-      uses: actions/cache@v6
-      with:
-        path: |
-          ${{ steps.sdk.outputs.home }}/platforms/android-36
-          ${{ steps.sdk.outputs.home }}/build-tools/36.0.0
-          ${{ steps.sdk.outputs.home }}/ndk/27.2.12479018
-        key: android-sdk-36-36.0.0-ndk27.2.12479018-${{ runner.os }}
-    - if: inputs.android == 'true' && steps.sdk-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
+        missing=()
+        for part in "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"; do
+          [ -d "$ANDROID_HOME/${part//;//}" ] || missing+=("$part")
+        done
+        [ ${#missing[@]} -eq 0 ] && { echo "Android SDK parts already installed"; exit 0; }
         # yes ends with SIGPIPE once sdkmanager is done; under pipefail that failed every attempt.
         set +o pipefail
         for attempt in 1 2 3 4; do
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" > /dev/null && exit 0
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "${missing[@]}" > /dev/null && exit 0
           echo "sdkmanager failed (attempt $attempt); trying again"; sleep $((attempt * 15))
         done
         exit 1
