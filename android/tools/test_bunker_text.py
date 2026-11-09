@@ -89,6 +89,65 @@ class Catalogue(unittest.TestCase):
             self.assertEqual(bunker_text.t_around("test.of", "link", n=2, who="Nav"), ("2 of ", " by Nav."))
 
 
+class PluralForms(unittest.TestCase):
+    """Each language's own forms (CLDR categories, whole numbers): English one/other; a translation may add
+    zero, two, few or many."""
+    FORMS = {"test.file.one": "{n} file", "test.file.other": "{n} files"}
+
+    def setUp(self):
+        self.addCleanup(bunker_text.use, None)
+        self.enterContext(bunker_text.extra(self.FORMS))
+
+    def test_categories(self):
+        cases = {
+            "en": {0: "other", 1: "one", 2: "other", 11: "other"},
+            "fr": {0: "one", 1: "one", 2: "other"},
+            "pt-BR": {0: "one", 1: "one", 2: "other"},
+            "de": {0: "other", 1: "one", 5: "other"},
+            "ru": {1: "one", 21: "one", 2: "few", 24: "few", 5: "many", 11: "many", 12: "many", 111: "many", 0: "many"},
+            "uk": {1: "one", 3: "few", 7: "many"},
+            "pl": {1: "one", 2: "few", 22: "few", 12: "many", 5: "many", 21: "many", 0: "many"},
+            "cs": {1: "one", 2: "few", 4: "few", 5: "other", 0: "other"},
+            "ar": {0: "zero", 1: "one", 2: "two", 3: "few", 10: "few", 11: "many", 99: "many", 100: "other", 102: "other"},
+            "lt": {1: "one", 21: "one", 2: "few", 11: "other", 10: "other"},
+            "ro": {1: "one", 0: "few", 19: "few", 20: "other"},
+            "ja": {0: "other", 1: "other"}, "zh-Hans": {1: "other"}, "vi": {1: "other"},
+            "tr": {1: "one", 2: "other"}, "he": {1: "one", 2: "two", 3: "other"},
+        }
+        for language, numbers in cases.items():
+            for n, category in numbers.items():
+                self.assertEqual(bunker_text.plural_category(language, n), category, (language, n))
+
+    def test_translation_with_more_forms(self):
+        bunker_text.use({"test.file.one": "{n} plik", "test.file.few": "{n} pliki", "test.file.many": "{n} plików",
+                         "test.file.other": "{n} pliku"}, language="pl")
+        self.assertEqual([bunker_text.t_count("test.file", n) for n in (1, 3, 5, 22)],
+                         ["1 plik", "3 pliki", "5 plików", "22 pliki"])
+
+    def test_a_missing_form_falls_back_to_english_for_the_whole_text(self):
+        bunker_text.use({"test.file.one": "{n} plik", "test.file.other": "{n} pliku"}, language="pl")
+        # "few" and "many" missing: English for every count, never half a translation
+        self.assertEqual(bunker_text.t_count("test.file", 5), "5 files")
+        self.assertEqual(bunker_text.t_count("test.file", 1), "1 file")
+
+    def test_forms_for_scripts(self):
+        bunker_text.use({"test.file.one": "{n} plik", "test.file.few": "{n} pliki", "test.file.many": "{n} plików",
+                         "test.file.other": "{n} pliku"}, language="pl")
+        self.assertEqual(bunker_text.language(), "pl")
+        self.assertEqual(bunker_text.plural_forms("test.file"),
+                         {"one": "{n} plik", "few": "{n} pliki", "many": "{n} plików", "other": "{n} pliku"})
+        bunker_text.use(None)
+        self.assertEqual(bunker_text.language(), "en")
+        self.assertEqual(bunker_text.plural_forms("test.file"), {"one": "{n} file", "other": "{n} files"})
+
+    def test_reload_takes_the_packs_language(self):
+        folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        active = folder / "active.json"
+        active.write_text(json.dumps({"format": 1, "language": "ru", "bunker": {"common.close": "Закрыть"}}))
+        bunker_text.reload(active)
+        self.assertEqual(bunker_text.language(), "ru")
+
+
 class Reload(unittest.TestCase):
     def setUp(self):
         self.addCleanup(bunker_text.use, None)

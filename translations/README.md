@@ -67,8 +67,13 @@ folders, with a few differences:
   "i" icon.
 - Placeholders are names in braces, such as `{name}` or `{n}`: keep each one,
   in whatever place your language needs it. `{n}` is a number.
-- Keys ending in `.one` and `.other` are the same text for one thing and for
-  several ("{n} costume", "{n} costumes").
+- Keys ending in `.one` and `.other` are a counted text: "{n} costume",
+  "{n} costumes". Give every form your language uses for whole numbers, using
+  the plural categories of the Unicode CLDR (`zero`, `one`, `two`, `few`,
+  `many`, `other`): Polish needs `.one`, `.few` and `.many`; Russian `.one`,
+  `.few` and `.many`; Arabic all six; Japanese only `.other`. A form may leave
+  out `{n}` ("one costume"). If a form your language needs is missing, the
+  English text is shown for every count.
 - These texts are shown with the phone's own fonts, so any script works.
 - Keep them short: buttons, menu entries and labels have little room.
 - A missing or broken translation (a placeholder dropped or misspelled) shows

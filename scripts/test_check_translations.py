@@ -202,6 +202,31 @@ class CheckTest(unittest.TestCase):
         self.assertIn("the game's fonts cannot show ภ", out.getvalue())
 
 
+class PluralFormsTest(unittest.TestCase):
+    setUp = CheckTest.setUp
+    write = CheckTest.write
+
+    def test_a_counted_text_takes_its_languages_forms(self):
+        self.write("bunker/en.json", {"pods.x.files.one": "{n} file", "pods.x.files.other": "{n} files", "pods.x.close": "Close"})
+        self.write("bunker/pl.json", {"pods.x.files.one": "{n} plik", "pods.x.files.few": "{n} pliki",
+                                       "pods.x.files.many": "{n} plików", "pods.x.files.other": "{n} pliku"})
+        self.assertEqual(check_tree(self.root), [])
+
+    def test_only_counted_texts_take_extra_forms(self):
+        self.write("bunker/en.json", {"pods.x.files.one": "{n} file", "pods.x.files.other": "{n} files", "pods.x.close": "Close"})
+        self.write("bunker/pl.json", {"pods.x.close.few": "Zamknij", "pods.x.files.lots": "{n} plików"})
+        found = check_tree(self.root)
+        self.assertEqual(len(found), 2, found)
+        self.assertTrue(all("not a key of en.json" in line for line in found), found)
+
+    def test_extra_forms_keep_the_placeholders(self):
+        self.write("bunker/en.json", {"pods.x.files.one": "{n} file", "pods.x.files.other": "{n} files"})
+        self.write("bunker/pl.json", {"pods.x.files.few": "{count} pliki", "pods.x.files.one": "jeden plik"})
+        found = check_tree(self.root)
+        self.assertEqual(len(found), 1, found)  # a form may leave {n} out ("one file"), not bring its own
+        self.assertIn("pods.x.files.few", found[0])
+
+
 class ProseAndOrderTest(unittest.TestCase):
     setUp = CheckTest.setUp
     write = CheckTest.write
