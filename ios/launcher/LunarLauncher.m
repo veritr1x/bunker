@@ -1512,7 +1512,8 @@ static const CGFloat kInfoSize = 18;
     else if (gRestartNeeded) SetChip(self.server, @"RESTART THE GAME", Alert(), Paper());
     else if (running) SetChip(self.server, @"RUNNING", Ok(), OnOk());
     else if ([state isEqual:@"starting"]) SetChip(self.server, @"STARTING", ChipFill(), Ink());
-    else SetChip(self.server, @"NOT RUNNING", ChipFill(), Ink());
+    else if ([state isEqual:@"error"]) SetChip(self.server, @"NOT RUNNING", ChipFill(), Ink());
+    else SetChip(self.server, catalog && master ? @"STANDING BY" : @"WAITING FOR FILES", ChipFill(), Ink());
     self.archiveLine.attributedText = Tracked(gIndexText, Mono(13), Ink(), .8);
     unsigned long long saved = FileSize([gSaves stringByAppendingPathComponent:@"game.db"]);
     self.save.attributedText = Tracked(saved ? [NSString stringWithFormat:@"game.db · %@", [NSByteCountFormatter stringFromByteCount:(long long)saved countStyle:NSByteCountFormatterCountStyleFile]] : @"none yet", Mono(13), Ink(), .8);
@@ -1903,7 +1904,7 @@ static const CGFloat kInfoSize = 18;
 }
 - (void)stopServer {
     [self busy:@"Stopping Lunar Tear…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
-        gMessage = @"";  // The NOT RUNNING chip says it.
+        gMessage = @"";  // The STANDING BY chip says it.
         [self refresh];
     }];
 }
