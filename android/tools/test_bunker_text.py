@@ -21,6 +21,12 @@ class Catalogue(unittest.TestCase):
         self.assertEqual(bunker_text.english(), english)
         self.assertEqual(bunker_text.t("common.close"), english["common.close"])
 
+    def test_repository_catalogue_wins_over_a_prepared_copy(self):
+        # prepare.py copies the catalogue beside bunker_text.py; in the repository that copy goes stale as keys
+        # are added, so the source catalogue comes first (a device has only the copy).
+        self.assertEqual(bunker_text._CATALOGUES[0], ROOT / "translations/bunker/en.json")
+        self.assertEqual(bunker_text._CATALOGUES[-1].name, "bunker_en.json")
+
     def test_translation_used(self):
         bunker_text.use({"common.close": "Fechar"})
         self.assertEqual(bunker_text.t("common.close"), "Fechar")
