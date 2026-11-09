@@ -123,8 +123,16 @@ class Templates(unittest.TestCase):
         archive = (ROOT / "android/app/src/main/python/archive/app.py").read_text()
         self.assertIn("bunker_text.install(templates)", archive)
         self.assertIn("bunker_text.reload(language)", archive)
-        self.assertIn('language=asset_root.parent / "translation" / "active.json"',
-                      (ROOT / "android/app/src/main/python/android_archive.py").read_text())
+        self.assertIn("language=active_pack(asset_root)", (ROOT / "android/app/src/main/python/android_archive.py").read_text())
+
+    def test_archive_reads_the_pack_pod_programs_applies(self):
+        # The Archive's asset_root is the server folder that holds assets/ (revision_root) and translation/.
+        import android_archive
+        import bunker_language
+        from types import SimpleNamespace
+        server = self.dir / "server"
+        config = SimpleNamespace(ASSETS_DIR=server / "assets", DATA_DIR=self.dir / "tools")
+        self.assertEqual(android_archive.active_pack(server), bunker_language.for_config(config).active_path)
 
 
 if __name__ == "__main__":
