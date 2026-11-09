@@ -261,5 +261,16 @@ class Page(Sending):
             self.assertIn("/gift/waiting-count", (templates / name).read_text(), name)
 
 
+class CategoryButtons(unittest.TestCase):
+    def test_words_are_never_split(self):
+        # Six forced columns split "Currency" into CURRE/NCY: the grid fits as many as fit, each a word wide.
+        page = (Path(__file__).resolve().parents[2] / "overlays/python/web/templates/gift.html").read_text()
+        self.assertIn(".gift-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5em,1fr))", page)
+        card = page[page.index(".gift-card{"):]
+        card = card[:card.index("}")]
+        self.assertNotIn("break-word", card)
+        self.assertIn("hyphens:manual", card)
+
+
 if __name__ == "__main__":
     unittest.main()
