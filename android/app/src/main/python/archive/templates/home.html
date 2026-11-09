@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block content %}
 <form class="search-box" action="/search" method="get" role="search">
   <input type="text" name="q" placeholder="Search story lines and records" aria-label="Search the archive">
 </form>
-<h1>Archive</h1>
+<h1 class="has-info">Archive {{ info("Records holds weapon stories, reports, lost archives, memoirs and debris.") }}</h1>
 <div class="tool-grid">
   <a href="/story">Story</a>
-  <a href="/records">Records <span>weapon stories · reports · lost archives · memoirs · debris</span></a>
-  <a href="/movies">Movies <span>{{ count(counts.movies, "movie") }}</span></a>
+  <a href="/records">Records</a>
+  <a href="/movies">Movies</a>
   <a href="/characters">Characters</a>
   <a href="/gallery">Gallery</a>
   <a href="/music">Music</a>
