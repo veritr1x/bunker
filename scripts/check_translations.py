@@ -20,6 +20,7 @@ import collections
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,6 +121,13 @@ def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
                 letters = unshown[:3]
                 found.append(f"{shown}: {key}: the game's fonts cannot show {' '.join(letters)} "
                              f"({' '.join(f'U+{ord(ch):04X}' for ch in letters)})")
+            # The game does not position accent marks (its fonts' mark tables are dropped): a mark typed
+            # after its letter shows beside it. Precomposed letters (NFC) draw correctly.
+            marks = list(dict.fromkeys(ch for ch in value if unicodedata.combining(ch) and ord(ch) in coverage))
+            if marks:
+                found.append(f"{shown}: {key}: has accents typed as separate marks "
+                             f"({' '.join(f'U+{ord(ch):04X}' for ch in marks)}); "
+                             f"type each accented letter as one character")
     return found
 
 

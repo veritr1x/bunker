@@ -47,6 +47,9 @@ in your language.
 - The game can only show letters its fonts have; others appear as empty boxes.
   Latin (including Polish, Czech, Turkish and Vietnamese), Cyrillic, Greek and
   Simplified Chinese work. The check names any character the fonts cannot show.
+  Type accented letters as single characters (as most keyboards do): an accent
+  typed as a separate mark after its letter shows beside it, and the check
+  refuses it.
   Scripts written right to left or with joined letters (Arabic, Hebrew, Thai,
   Hindi) are not supported yet.
 
