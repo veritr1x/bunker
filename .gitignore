@@ -57,3 +57,4 @@ ios/devtools/LunarDevice.xcodeproj/
 
 # Design notes and plans stay out of the repo
 /docs/superpowers/
+/.bunker_catalogue.lock
