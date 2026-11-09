@@ -17,6 +17,16 @@ class InfoIcon(unittest.TestCase):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
         return env.from_string('{% from "_info.html" import info %}' + source).render()
 
+    def test_landscape_text_is_one_size(self):
+        # On a phone on its side, section headings were larger than the page title: headings, labels and
+        # choices use the page title's size there. Fields keep 16px (an iPhone zooms in on smaller ones).
+        css = (WEB / "static/css/automata.css").read_text()
+        landscape = css[css.index("@media (orientation: landscape) and (max-height: 599px) {"):]
+        self.assertIn(".bracket-header, summary.bracket-header, .setting label, .setting strong, .choice strong "
+                      "{ font-size: var(--fs-small); }", landscape)
+        self.assertIn('input[type="text"], input[type="number"], input[type="search"], select, textarea '
+                      '{ font-size: var(--fs-input); }', css)
+
     def test_a_choice_name_keeps_its_icon_beside_it(self):
         # A block <strong> pushed the "i" after "Original calendar" onto a line of its own.
         css = (WEB / "static/css/automata.css").read_text()
