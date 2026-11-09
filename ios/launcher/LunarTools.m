@@ -363,7 +363,7 @@ static NSString *ArchivePath(NSString *link) {
         NSFontAttributeName: [UIFont boldSystemFontOfSize:12], NSForegroundColorAttributeName: self.ink, NSKernAttributeName: @2.4}] forState:UIControlStateNormal];
 }
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    T(@"common.close");  // any lookup notices a new pack
+    LTTextsRecheck();  // a language chosen on the page just left
     if (TGeneration() != self.generation) [self relabel];
 }
 // Layer colours do not follow light and dark by themselves.

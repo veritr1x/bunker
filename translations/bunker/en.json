@@ -1022,6 +1022,7 @@
   "pods.display.heat_info": "60 fps while the device is hot, 30 when very hot, back up once it cools.",
   "pods.display.idle": "When idle",
   "pods.display.idle_info": "After 2 seconds without a touch, outside battles. A touch brings the full rate back.",
+  "pods.display.il2cpp_missing": "The game's IL2CPP API is missing",
   "pods.display.info": "Higher frame rates and resolutions use more battery and heat. Changes apply the next time the game opens.",
   "pods.display.option.effect_off": "Off (less GPU work)",
   "pods.display.option.effect_on": "On (game default)",

@@ -41,7 +41,10 @@ static void Load(void) {
     NSString *tag = @"en";
     NSDictionary *attributes = path ? [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil] : nil;
     if (attributes && attributes.fileSize <= kMaxPack) {
-        NSData *data = [NSData dataWithContentsOfFile:path];
+        NSFileHandle *file = [NSFileHandle fileHandleForReadingAtPath:path];
+        NSData *data = [file readDataUpToLength:kMaxPack + 1 error:nil];
+        [file closeFile];
+        if (data.length > kMaxPack) data = nil;  // it grew past the limit since it was looked at
         id pack = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
         id bunker = [pack isKindOfClass:[NSDictionary class]] ? pack[@"bunker"] : nil;
         if ([bunker isKindOfClass:[NSDictionary class]]) words = bunker;  // LTText drops non-strings and empty texts
@@ -97,6 +100,11 @@ NSString *TUpper(NSString *text) {
 NSString *TLanguage(void) {
     Current();
     @synchronized ([LTText class]) { return gLanguage; }
+}
+
+void LTTextsRecheck(void) {
+    @synchronized ([LTText class]) { gChecked = 0; }
+    Current();
 }
 
 NSInteger TGeneration(void) {

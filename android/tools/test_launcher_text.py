@@ -115,6 +115,14 @@ class Sizes(unittest.TestCase):
             self.assertIn("Texts.size(", text, name)
 
 
+class ArchiveLine(unittest.TestCase):
+    def test_only_the_state_is_in_capitals(self):
+        # Python's step or error after the state keeps its own case (as on iOS).
+        main = source("MainActivity.java")
+        self.assertIn('private String indexShown(){return Texts.upper(this,Texts.said(this,indexText))+(indexDetail.isEmpty()?"":" · "+indexDetail);}', main)
+        self.assertNotIn('+" · "+st.optString("step")', main)
+
+
 class Messages(unittest.TestCase):
     def test_the_archive_error_is_the_message_in_words(self):
         archive = source("ArchiveActivity.java")
