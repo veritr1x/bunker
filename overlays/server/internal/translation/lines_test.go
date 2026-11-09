@@ -25,6 +25,14 @@ func TestReplaceValuesNothingToDo(t *testing.T) {
 	}
 }
 
+func TestReplaceValuesSameTextIsNoChange(t *testing.T) {
+	in := "a:Menu\nb:Quests\n"
+	out, n := ReplaceValues(in, map[string]string{"a": "Menu", "b": "Missões"})
+	if out != "a:Menu\nb:Missões\n" || n != 1 {
+		t.Fatalf("got %q %d", out, n)
+	}
+}
+
 func TestReplaceValuesEveryLineOfAKeyAndComments(t *testing.T) {
 	in := "a:1\n//a:2\na:3\n"
 	out, n := ReplaceValues(in, map[string]string{"a": "x"})
