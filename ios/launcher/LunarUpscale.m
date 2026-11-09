@@ -37,7 +37,24 @@ static int gUpscaled, gCounts[3];
 static double gGapMax, gLast;
 static NSString *gLogPath;
 
+void LTDisplayLog(NSString *line);  // LunarWindow.m
+
+// The developer file only (LUNAR_UPSCALE_LOG): hooks, each scaler, the 10-second counts.
+static void Stats(NSString *text) {
+    if (!gLogPath) return;
+    NSString *line = [NSString stringWithFormat:@"%.1f %@\n", CACurrentMediaTime(), text];
+    @synchronized (gLogPath) {
+        NSFileHandle *f = [NSFileHandle fileHandleForWritingAtPath:gLogPath];
+        if (!f) { [line writeToFile:gLogPath atomically:NO encoding:NSUTF8StringEncoding error:nil]; return; }
+        [f seekToEndOfFile];
+        [f writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+        [f closeFile];
+    }
+}
+
+// The server log too: the layer found, MetalFX refusing a size, a hook missing.
 static void Note(NSString *text) {
+    LTDisplayLog([@"upscaling: " stringByAppendingString:text]);
     if (!gLogPath) return;
     NSString *line = [NSString stringWithFormat:@"%.1f %@\n", CACurrentMediaTime(), text];
     @synchronized (gLogPath) {
@@ -115,21 +132,39 @@ static BOOL Prepare(CAMetalLayer *layer) API_AVAILABLE(ios(16.0)) {
     for (int i = 0; i < 4; i++) [textures addObject:[gDevice newTextureWithDescriptor:td]];
     gStandIns = textures, gNextStandIn = 0;
     gScaler = scaler, gScalerWidth = width, gScalerHeight = height;
-    Note([NSString stringWithFormat:@"MetalFX %lux%lu -> %.0fx%.0f fmt %lu", (unsigned long)width, (unsigned long)height, gScreen.width, gScreen.height,
+    // The developer file only: a drag makes one scaler per size. The server log has the size a
+    // window settles at (LTUpscaleOutput, in LunarWindow.m's window line).
+    Stats([NSString stringWithFormat:@"MetalFX %lux%lu -> %.0fx%.0f fmt %lu", (unsigned long)width, (unsigned long)height, gScreen.width, gScreen.height,
           (unsigned long)layer.pixelFormat]);
     return YES;
+}
+
+// The layer's own size in pixels, from its bounds now: a window resized under Stage Manager,
+// or the game moved to an external display, changes it, and not always with a new size from
+// Unity. The screen's scale is read on the main thread (UIKit), and kept for the others.
+static CGSize LayerPixels(CAMetalLayer *layer) {
+    if (NSThread.isMainThread) {
+        UIView *view = [(id)layer.delegate isKindOfClass:UIView.class] ? (UIView *)layer.delegate : nil;
+        if (view.window.screen) gScale = view.window.screen.nativeScale;
+    }
+    return gScale > 0 ? CGSizeMake(round(layer.bounds.size.width * gScale), round(layer.bounds.size.height * gScale)) : gScreen;
+}
+
+// The full size follows the layer; the scaler and the real drawables are made again for it.
+// A full size left behind gave Unity real drawables larger than the size it draws at, so its
+// picture sat in their top-left corner with the rest black, frame after frame.
+static void Follow(CAMetalLayer *layer) {
+    CGSize pixels = LayerPixels(layer);
+    if (pixels.width < 1 || pixels.height < 1 || CGSizeEqualToSize(pixels, gScreen)) return;
+    gScreen = pixels;
+    if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
+    SetRealSize(layer, gUpscaling ? gScreen : gAsked);
 }
 
 static void HookSetSize(CAMetalLayer *layer, SEL sel, CGSize size) {
     if (layer != gLayer) { ((void (*)(id, SEL, CGSize))origSetSize)(layer, sel, size); return; }
     gAsked = size;
-    // Unity sets a new size when its view changes size: a resized window under Stage Manager,
-    // or the game moved to an external display. The full size follows the layer.
-    if (NSThread.isMainThread) {
-        UIView *view = [(id)layer.delegate isKindOfClass:UIView.class] ? (UIView *)layer.delegate : nil;
-        if (view.window.screen) gScale = view.window.screen.nativeScale;
-    }
-    if (gScale > 0) gScreen = CGSizeMake(round(layer.bounds.size.width * gScale), round(layer.bounds.size.height * gScale));
+    gScreen = LayerPixels(layer);
     if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
     SetRealSize(layer, gUpscaling ? gScreen : size);
 }
@@ -141,6 +176,7 @@ static CGSize HookGetSize(CAMetalLayer *layer, SEL sel) {
 
 static id HookNext(CAMetalLayer *layer, SEL sel) {
     if (!gLayer) FindLayer();
+    if (layer == gLayer && gUpscaling) Follow(layer);
     if (@available(iOS 16.0, *)) {
         if (layer == gLayer && !gUpscaling && !gFailed && Prepare(layer)) {  // the first frame after the layer was found
             gUpscaling = YES;
@@ -188,9 +224,11 @@ static void HookCommit(id<MTLCommandBuffer> buffer, SEL sel) {
     if (standIn) {
         id<CAMetalDrawable> real = standIn.real;
         id<MTLTexture> input = standIn.texture;
-        // The scaler matches the stand-in unless Unity changed size during the frame; then that frame isn't upscaled.
+        // The scaler matches the stand-in and the real drawable unless a size changed during the frame;
+        // then that frame isn't upscaled.
         if (@available(iOS 16.0, *)) {
-            if (gScaler && input.width == gScalerWidth && input.height == gScalerHeight) {
+            if (gScaler && input.width == gScalerWidth && input.height == gScalerHeight
+                && real.texture.width == gScaler.outputWidth && real.texture.height == gScaler.outputHeight) {
                 gScaler.colorTexture = input;
                 gScaler.outputTexture = real.texture;
                 gScaler.inputContentWidth = input.width, gScaler.inputContentHeight = input.height;
@@ -215,7 +253,8 @@ static void HookCommit(id<MTLCommandBuffer> buffer, SEL sel) {
 static IMP Swap(Class cls, SEL sel, IMP hook) {
     Method m = class_getInstanceMethod(cls, sel);
     IMP original = m ? method_setImplementation(m, hook) : NULL;
-    Note([NSString stringWithFormat:@"%@ %@: %@", NSStringFromClass(cls), NSStringFromSelector(sel), m ? @"hooked" : @"missing"]);
+    NSString *text = [NSString stringWithFormat:@"%@ %@: %@", NSStringFromClass(cls), NSStringFromSelector(sel), m ? @"hooked" : @"missing"];
+    if (m) Stats(text); else Note(text);
     return original;
 }
 
@@ -242,7 +281,7 @@ void LTUpscaleStart(void) {
         dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), 10 * NSEC_PER_SEC, NSEC_PER_SEC);
         dispatch_source_set_event_handler(timer, ^{
             static int last;
-            Note([NSString stringWithFormat:@"presents: buffer %d, after duration %d, at time %d; upscaled %d (%.1f/s); longest gap %.1f ms; %@",
+            Stats([NSString stringWithFormat:@"presents: buffer %d, after duration %d, at time %d; upscaled %d (%.1f/s); longest gap %.1f ms; %@",
                   gCounts[0], gCounts[1], gCounts[2], gUpscaled, (gUpscaled - last) / 10.0, gGapMax * 1000,
                   gUpscaling ? @"upscaling" : gFailed ? @"plain (failed)" : @"plain"]);
             last = gUpscaled, gGapMax = 0;
@@ -250,3 +289,6 @@ void LTUpscaleStart(void) {
         dispatch_resume(timer);
     }
 }
+
+/** The size MetalFX writes, or zero when it isn't upscaling (LunarWindow.m logs it). */
+CGSize LTUpscaleOutput(void) { return gUpscaling ? gScreen : CGSizeZero; }
