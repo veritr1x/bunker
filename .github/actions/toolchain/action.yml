@@ -48,7 +48,7 @@ runs:
           android/gradle/wrapper/gradle-wrapper.properties
 
     - if: inputs.uv == 'true'
-      uses: astral-sh/setup-uv@v10
+      uses: astral-sh/setup-uv@v10.3.3  # it publishes only full version tags
       with:
         enable-cache: true
         cache-python: true
