@@ -13,10 +13,10 @@ NSString *LTTCount(NSString *key, long long n, NSArray *pairs);
 NSString *LTTFallback(NSString *key, NSString *fallback, NSArray *pairs);
 /** key's text with these values: T(@"launcher.x", @"name", value…). */
 #define T(key, ...) LTT(key, @[__VA_ARGS__])
-#define TCount(key, n, ...) LTTCount(key, n, @[__VA_ARGS__])
+#define TCount(key, count, ...) LTTCount(key, count, @[__VA_ARGS__])
 /** A reference put in words when shown (TSaid): for words kept and drawn later. */
 #define Said(key, ...) [LTText saidText:key pairs:@[__VA_ARGS__]]
-#define SaidCount(key, n, ...) [LTText saidCount:key n:n pairs:@[__VA_ARGS__]]
+#define SaidCount(key, count, ...) [LTText saidCount:key n:count pairs:@[__VA_ARGS__]]
 
 /** Words set earlier (Said) in the language of now; any other message as it is. */
 NSString *TSaid(NSString *said);

@@ -223,6 +223,12 @@ class Wrapper(unittest.TestCase):
         # within a second the old words stay (no stat on every lookup); then the new pack, counted once
         self.assertEqual(out, ["Close", "Close", "Schließen", "counted", "Close"])
 
+    def test_the_macros_put_counted_references_in_words(self):
+        # SaidCount/TCount's count must not replace the selector's "n:" (a macro parameter named n did)
+        out = self.run_with(None, 'say(TSaid(SaidCount(@"launcher.files.minutes_left", 3))); say(TCount(@"launcher.files.minutes_left", 1));'
+                                  'say(TSaid(Said(@"launcher.check.port", @"name", @"sign-in", @"port", @"3000")));')
+        self.assertEqual(out, ["about 3 min left", "about 1 min left", "sign-in · port 3000"])
+
     def test_the_framework_carries_the_catalogue(self):
         build = (ROOT / "ios/tools/build_framework.sh").read_text()
         self.assertIn('cp "$root_dir/translations/bunker/en.json" "$framework/bunker_en.json"', build)
@@ -236,6 +242,35 @@ class Wrapper(unittest.TestCase):
             text = (LAUNCHER / name).read_text()
             for phone in ("currentLocale", "preferredLanguages", "autoupdatingCurrentLocale"):
                 self.assertNotIn(phone, text, name)
+
+
+class LauncherWords(unittest.TestCase):
+    """LunarLauncher.m keeps references and draws words: a language chosen later shows in what was kept."""
+    SOURCE = (LAUNCHER / "LunarLauncher.m").read_text()
+
+    def test_kept_messages_are_references(self):
+        import re
+        self.assertEqual(re.findall(r'gMessage = @"[^"]+"', self.SOURCE), [])
+        self.assertEqual(re.findall(r'busy:@"', self.SOURCE), [])
+        self.assertEqual(re.findall(r'ShowIndex\(@"', self.SOURCE), [])
+        self.assertIn("gMessage.length ? TSaid(gMessage)", self.SOURCE)
+        self.assertIn('TUpper(TSaid(gIndexText ?: Said(@"launcher.index.not_checked")))', self.SOURCE)
+
+    def test_states_are_compared_as_ids(self):
+        import re
+        # Lunar Tear's states are ids ("running"); no shown word is compared
+        self.assertEqual(re.findall(r'isEqual(?:ToString)?:@"[^"]*(?: |[A-Z]{2,})[^"]*"', self.SOURCE), [])
+
+    def test_a_new_language_rebuilds_the_screen_and_the_quick_action(self):
+        self.assertIn("self.builtGeneration = TGeneration();", self.SOURCE)
+        self.assertRegex(self.SOURCE, r"if \(self\.builtGeneration != TGeneration\(\).*\n\s*gWindow\.rootViewController = \[LTLauncherViewController new\];\n\s*SetShortcut\(\);")
+        self.assertIn('localizedTitle:T(@"launcher.shortcut.label")', self.SOURCE)
+
+    def test_capitals_follow_the_pack(self):
+        for name in ("LunarLauncher.m", "LunarTools.m"):
+            text = (LAUNCHER / name).read_text()
+            self.assertNotIn("uppercaseString", text, name)
+            self.assertNotIn("capitalizedString", text, name)
 
 
 if __name__ == "__main__":
