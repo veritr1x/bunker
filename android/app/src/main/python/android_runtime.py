@@ -356,6 +356,9 @@ def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lamb
 
 def create_app(token, origin):
     from fastapi.responses import JSONResponse
+    # Before any page module makes its templates: they all get t() (Bunker's own text, bunker_text.py).
+    import bunker_text
+    bunker_text.install_everywhere()
     from web.app import create_app as base_app
     from android_patcher import router
     import android_display
@@ -380,6 +383,15 @@ def create_app(token, origin):
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.
     install_game_guard(app, lambda: game_live(), lambda: close_game())
+
+    @app.middleware("http")
+    async def language(request, call_next):
+        # The pack the server applies may have changed (Pod Programs › Language, an update): cheap when not.
+        try:
+            bunker_text.reload()
+        except Exception as exc:  # never a reason not to show a page: English it is
+            log.warning("Bunker's text stays as it was: %s", exc)
+        return await call_next(request)
     serial = asyncio.Lock()
     @app.middleware("http")
     async def private_session(request, call_next):

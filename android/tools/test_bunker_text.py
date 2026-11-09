@@ -79,5 +79,47 @@ class Reload(unittest.TestCase):
         self.assertEqual(bunker_text.t("common.close"), "Close")
 
 
+class Templates(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(bunker_text.use, None)
+        self.dir = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        (self.dir / "page.html").write_text('{{ t("common.close") }}|{{ t_count("test.n", 2) }}')
+
+    def render(self, templates):
+        return templates.get_template("page.html").render()
+
+    def test_templates_get_t(self):
+        from fastapi.templating import Jinja2Templates
+        bunker_text.install_everywhere()
+        bunker_text.install_everywhere()  # twice is harmless
+        with bunker_text.extra({"test.n.one": "{n} thing", "test.n.other": "{n} things"}):
+            self.assertEqual(self.render(Jinja2Templates(directory=str(self.dir))), "Close|2 things")
+
+    def test_install_one(self):
+        import jinja2
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(self.dir)), autoescape=True)
+        bunker_text.install(env)
+        bunker_text.use({"common.close": "Fechar"})
+        self.assertEqual(env.get_template("page.html").render().split("|")[0], "Fechar")
+
+    def test_translation_is_escaped(self):
+        from fastapi.templating import Jinja2Templates
+        bunker_text.install_everywhere()
+        bunker_text.use({"common.close": "<b>&"})
+        self.assertTrue(self.render(Jinja2Templates(directory=str(self.dir))).startswith("&lt;b&gt;&amp;|"))
+
+    def test_apps_install_it(self):
+        # Pod Programs (every Jinja2Templates, its own and lunar-base's) and the Archive (built only from a
+        # real dump, so checked here by its source) get t, and follow the applied pack on every request.
+        runtime = (ROOT / "android/app/src/main/python/android_runtime.py").read_text()
+        self.assertIn("bunker_text.install_everywhere()", runtime)
+        self.assertIn("bunker_text.reload()", runtime)
+        archive = (ROOT / "android/app/src/main/python/archive/app.py").read_text()
+        self.assertIn("bunker_text.install(templates)", archive)
+        self.assertIn("bunker_text.reload(language)", archive)
+        self.assertIn('language=asset_root.parent / "translation" / "active.json"',
+                      (ROOT / "android/app/src/main/python/android_archive.py").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

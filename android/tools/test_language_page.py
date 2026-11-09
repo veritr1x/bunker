@@ -50,6 +50,17 @@ class LanguagePageTest(unittest.TestCase):
     def load(self, data=None):
         return self.client.post("/language/load", files={"pack": ("pack.json", data or pack(), "application/json")})
 
+    def test_choice_reloads_texts(self):
+        import bunker_text
+        self.addCleanup(bunker_text.use, None)
+        data = json.dumps({"format": 1, "language": "pt-BR", "name": "P", "version": "1", "game": {},
+                           "bunker": {"common.close": "Fechar"}}).encode()
+        self.load(data)
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.assertEqual(bunker_text.t("common.close"), "Fechar")
+        self.client.post("/language", data={"choice": "en"})
+        self.assertEqual(bunker_text.t("common.close"), "Close")
+
     def test_page_lists_english_and_packs(self):
         self.load()
         page = self.client.get("/language")
