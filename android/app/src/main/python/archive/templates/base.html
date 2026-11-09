@@ -36,7 +36,8 @@
       root.style.setProperty("--hole-left", (on && cut.side === "left" ? cut.depth : 0) + "px");
       nav.querySelectorAll(":scope > a, :scope > .shell-head").forEach(a => {
         const b = a.getBoundingClientRect();
-        a.classList.toggle("by-hole", !!on && cut.side === "left" && b.bottom > cut.top && b.top < cut.bottom);
+        const pad = parseFloat(getComputedStyle(a).paddingTop) || 0;  // the text, not the tap area
+        a.classList.toggle("by-hole", !!on && cut.side === "left" && b.bottom - pad > cut.top && b.top + pad < cut.bottom);
       });
     }
     window.bunkerHoleChanged = () => { cut = hole(); mark(); };
