@@ -2,6 +2,7 @@
 """Add English texts to Bunker's catalogue, or files to the converted lists, safely from several editors at once.
 
   bunker_catalogue.py add KEYS.json          merge {"key": "English", ...} into translations/bunker/en.json
+  bunker_catalogue.py remove KEY...          remove keys from translations/bunker/en.json
   bunker_catalogue.py converted PATH...      add template (.html) or module (.py) paths to the converted lists
 
 A key already in the catalogue with different English is refused (choose another key). The catalogue stays
@@ -36,6 +37,13 @@ def add(texts: dict[str, str]) -> list[str]:
     return sorted(texts)
 
 
+def remove(keys: list[str]) -> list[str]:
+    current = json.loads(CATALOGUE.read_text(encoding="utf-8"))
+    gone = [k for k in keys if current.pop(k, None) is not None]
+    _write(CATALOGUE, dict(sorted(current.items())))
+    return gone
+
+
 def converted(paths: list[str]) -> None:
     lists = json.loads(CONVERTED.read_text(encoding="utf-8"))
     for p in paths:
@@ -50,13 +58,15 @@ def converted(paths: list[str]) -> None:
 
 
 def main(argv: list[str]) -> None:
-    if len(argv) < 2 or argv[0] not in ("add", "converted"):
+    if len(argv) < 2 or argv[0] not in ("add", "remove", "converted"):
         raise SystemExit(__doc__)
     with open(LOCK, "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if argv[0] == "add":
             keys = add(json.loads(Path(argv[1]).read_text(encoding="utf-8")))
             print(f"added {len(keys)} keys")
+        elif argv[0] == "remove":
+            print(f"removed {len(remove(argv[1:]))} keys")
         else:
             converted(argv[1:])
             print("converted lists updated")
