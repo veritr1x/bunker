@@ -319,6 +319,46 @@ func TestStartKeepsOnlyEnglishTextEntries(t *testing.T) {
 	}
 }
 
+func TestStartUsesListCache(t *testing.T) {
+	r := newRoots(t)
+	first := start(t, r, translateUI)
+	first.wait()
+	listPath := filepath.Join(r.asset, "assets/revisions/0/list.bin")
+	info, err := os.Stat(listPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// same size and time, other bytes: a start that read the file would see another md5
+	if err := os.WriteFile(listPath, make([]byte, info.Size()), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(listPath, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	second := start(t, r, translateUI)
+	second.wait()
+	if !second.ready || second.listMD5 != first.listMD5 || second.original != 817 || len(second.entries) != 2 {
+		t.Fatalf("cache not used: ready %v md5 %s original %d entries %d", second.ready, second.listMD5, second.original, len(second.entries))
+	}
+}
+
+func TestListCacheFollowsNewGameFiles(t *testing.T) {
+	r := newRoots(t)
+	first := start(t, r, translateUI)
+	first.wait()
+	listPath := filepath.Join(r.asset, "assets/revisions/0/list.bin")
+	list, _ := sampleList()
+	list = append(list, listItem("nn0000", "text)en)new", 10, 1, "00000000000000000000000000000000")...)
+	if err := os.WriteFile(listPath, list, 0644); err != nil {
+		t.Fatal(err)
+	}
+	second := start(t, r, translateUI)
+	second.wait()
+	if second.listMD5 == first.listMD5 || len(second.entries) != 3 {
+		t.Fatalf("stale cache: md5 %s entries %d", second.listMD5, len(second.entries))
+	}
+}
+
 func TestV2ListPath(t *testing.T) {
 	r := newRoots(t)
 	r.setPack(t, "um")
