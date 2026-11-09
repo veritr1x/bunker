@@ -45,12 +45,12 @@ func TestEventSummonBoxPage(t *testing.T) {
 	SetWebUsers(users)
 	defer SetWebUsers(nil)
 	page := boxPage(t, "/web/en/gacha/box?gachaId=329002&nowPlayingId=329002&userId=1")
-	for _, want := range []string{"LEVEL 1", "LEVEL 7", "Your level", "0 of 1 left", "target", "SHARED PRIZES", "35%"} {
+	for _, want := range []string{"<h2>Level 1</h2>", "<h2>Level 7", "your level", "0 of 1 left", "target", "<h2>Shared prizes</h2>", "35%"} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("missing %q in:\n%s", want, page)
 		}
 	}
-	if strings.Contains(page, "ALL ITEMS") || strings.Contains(page, "FEATURED") {
+	if strings.Contains(page, "<h2>All items</h2>") || strings.Contains(page, "<h2>Featured</h2>") {
 		t.Fatal("event summon shows the premium pool's rates")
 	}
 }
@@ -62,7 +62,7 @@ func TestPrizeBoxPageHasNoPoolRates(t *testing.T) {
 	defer func() { bunkerHolder = nil }()
 	for _, url := range []string{"/web/en/gacha/box?gachaId=200001&nowPlayingId=200001", "/web/en/gacha-details?gachaId=200001"} {
 		page := boxPage(t, url)
-		if !strings.Contains(page, "PRIZES") || strings.Contains(page, "ALL ITEMS") || strings.Contains(page, "FEATURED") {
+		if !strings.Contains(page, "<h2>Prizes</h2>") || strings.Contains(page, "<h2>All items</h2>") || strings.Contains(page, "<h2>Featured</h2>") {
 			t.Fatalf("%s:\n%s", url, page)
 		}
 	}
