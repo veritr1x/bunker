@@ -50,6 +50,7 @@ class StreamTests(unittest.TestCase):
             entry(z, APP + "Game", b"\xcf\xfa\xed\xfe executable", 0o100755)
             entry(z, APP + "Data/level.bin", os.urandom(5000), method=zipfile.ZIP_STORED)
             entry(z, APP + "Data/globalgamemanagers", b"settings")
+            entry(z, APP + "Data/resources.assets", b"fonts and more")
             entry(z, APP + "Frameworks/UnityFramework.framework/UnityFramework", b"unity" * 1000)
             entry(z, APP + "Frameworks/Other.framework/_CodeSignature/CodeResources", b"kept")
             entry(z, APP + "SC_Info/Game.sinf", b"store encryption")
@@ -61,7 +62,8 @@ class StreamTests(unittest.TestCase):
         ipa_stream.extract_for_patching(self.source, dest)
         found = sorted(str(p.relative_to(dest)) for p in dest.rglob("*") if p.is_file())
         self.assertEqual(found, sorted(APP + n for n in (
-            "Info.plist", "Game", "Data/globalgamemanagers", "Frameworks/UnityFramework.framework/UnityFramework")))
+            "Info.plist", "Game", "Data/globalgamemanagers", "Data/resources.assets",
+            "Frameworks/UnityFramework.framework/UnityFramework")))
         self.assertEqual((dest / APP / "Game").stat().st_mode & 0o777, 0o755)
 
     def test_writes_edited_files_new_files_and_copies_the_rest(self):
@@ -82,7 +84,7 @@ class StreamTests(unittest.TestCase):
             names = set(after.namelist())
             self.assertEqual(names, {
                 APP + n for n in ("Info.plist", "Game", "Data/level.bin", "Data/globalgamemanagers",
-                                  "Frameworks/UnityFramework.framework/UnityFramework",
+                                  "Data/resources.assets", "Frameworks/UnityFramework.framework/UnityFramework",
                                   "Frameworks/Other.framework/_CodeSignature/CodeResources",
                                   "Frameworks/LunarTear.framework/LunarTear", "notices.zip")})
             self.assertEqual(after.read(APP + "Data/globalgamemanagers"), b"settings, analytics off")
@@ -120,6 +122,7 @@ class UpstreamPatcherTests(unittest.TestCase):
             entry(z, app + "Info.plist", plistlib.dumps({"CFBundleExecutable": "NieR"}))
             entry(z, app + "NieR", b"executable", 0o100755)
             entry(z, app + "Data/Managed/Metadata/global-metadata.dat", b"metadata")
+            entry(z, app + "Data/resources.assets", b"fonts")
             entry(z, app + "Frameworks/UnityFramework.framework/UnityFramework", b"unity")
             entry(z, app + "Data/Raw/level.bundle", b"not patched" * 100)
         patched = []
@@ -137,7 +140,7 @@ class UpstreamPatcherTests(unittest.TestCase):
         self.assertEqual(dict(patched)["patch_unity_framework"], "UnityFramework")
         kept = sorted(str(p.relative_to(edited)) for p in edited.rglob("*") if p.is_file())
         self.assertEqual(kept, sorted(app + n for n in (
-            "Info.plist", "NieR", "Data/Managed/Metadata/global-metadata.dat",
+            "Info.plist", "NieR", "Data/Managed/Metadata/global-metadata.dat", "Data/resources.assets",
             "Frameworks/UnityFramework.framework/UnityFramework")))
 
 
