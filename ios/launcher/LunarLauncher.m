@@ -90,6 +90,7 @@ static NSDictionary *Status(void) {
 static BOOL Running(void) { return [Status()[@"state"] isEqual:@"running"]; }
 void LTDisplayStart(NSString *toolsRoot);  // LunarDisplay.m
 void LTWindowStart(void);  // LunarWindow.m
+void LTAppLog(NSString *line);  // LunarWindow.m: an "[App]" line in the server log
 /** Bunker's version, from the app's Info.plist (package_ipa.py), or "dev". */
 static NSString *BunkerVersion(void) {
     return NSBundle.mainBundle.infoDictionary[@"BunkerVersion"] ?: @"dev";
@@ -1054,6 +1055,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic, strong) UIView *updatePanel;
 @property(nonatomic, strong) UILabel *updateText;
 @property(nonatomic, strong) UIButton *updateButton;
+@property(nonatomic, strong) NSArray<NSLayoutConstraint *> *updateWidths;  // between the shown buttons only (arrangeUpdateButtons)
 @property(nonatomic, strong) UIButton *updateWeb, *updateLater, *updateSkip;
 @property(nonatomic, strong) NSDictionary *available;  // version, notes, update (update.json), framework, python (URLs), offer
 @property(nonatomic) BOOL updating;
@@ -1563,14 +1565,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     self.updateSkip = [self outline:@"SKIP" size:12 action:@selector(updateSkipTapped)];
     UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]];
     actions.spacing = 8;
-    // Preferred, not required: the row hides some of these buttons, and a hidden one in a stack
-    // has no width, so a required "twice LATER" left no layout and the whole menu shrank to the
-    // panel's narrowest width (with an update the game can make, WEB BUILDER is hidden).
-    NSArray *widths = @[[self.updateButton.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor multiplier:2],
-                        [self.updateWeb.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor multiplier:2],
-                        [self.updateSkip.widthAnchor constraintEqualToAnchor:self.updateLater.widthAnchor]];
-    for (NSLayoutConstraint *c in widths) c.priority = UILayoutPriorityRequired - 1;
-    [NSLayoutConstraint activateConstraints:widths];
+    [self arrangeUpdateButtons];
     for (UIButton *b in @[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]) b.contentEdgeInsets = UIEdgeInsetsMake(0, 6, 0, 6);
     [self.updateButton.heightAnchor constraintEqualToConstant:44].active = YES;
     self.updatePanel = [self panel:@[line, actions]];
@@ -1631,9 +1626,29 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
             NSString *notices = pack && ![pack[@"sha256"] isEqual:have] ? urls[pack[@"name"] ?: @""] : nil;
             NSDictionary *found = @{@"version": version, @"notes": release[@"html_url"] ?: kWebBuilder, @"update": update,
                                     @"framework": framework ?: @"", @"python": python ?: @"", @"notices": notices ?: @"", @"offer": offer};
+            LTAppLog([NSString stringWithFormat:@"update: Bunker %@ offered (%@)", version, [offer isEqual:@"update"] ? @"in the app" : @"with the web builder"]);
             dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf showRelease:found]; });
         });
     });
+}
+// UPDATE and WEB BUILDER twice as wide as LATER and SKIP, between the buttons shown. A hidden
+// button in a stack has no width: tied to one, "twice LATER" either left no layout (the whole
+// menu shrank to the panel's narrowest width) or, preferred, pulled LATER to nothing while
+// UPDATE was hidden for the build (LATER's label over the frame, SKIP across the row).
+- (void)arrangeUpdateButtons {
+    if (self.updateWidths) [NSLayoutConstraint deactivateConstraints:self.updateWidths];
+    NSMutableArray *wide = [NSMutableArray array], *narrow = [NSMutableArray array], *widths = [NSMutableArray array];
+    for (UIButton *b in @[self.updateButton, self.updateWeb]) if (!b.hidden) [wide addObject:b];
+    for (UIButton *b in @[self.updateLater, self.updateSkip]) if (!b.hidden) [narrow addObject:b];
+    UIButton *unit = narrow.firstObject;
+    if (unit) {
+        for (UIButton *b in narrow) if (b != unit) [widths addObject:[b.widthAnchor constraintEqualToAnchor:unit.widthAnchor]];
+        for (UIButton *b in wide) [widths addObject:[b.widthAnchor constraintEqualToAnchor:unit.widthAnchor multiplier:2]];
+    } else if (wide.count == 2) {
+        [widths addObject:[[wide[1] widthAnchor] constraintEqualToAnchor:[wide[0] widthAnchor]]];
+    }
+    self.updateWidths = widths;
+    [NSLayoutConstraint activateConstraints:widths];
 }
 - (void)showRelease:(NSDictionary *)release {
     self.available = release;
@@ -1645,14 +1660,17 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     self.updateText.attributedText = Tracked(text, Mono(12), Ink(), 0.7);
     [self.updateButton setAttributedTitle:Tracked(@"UPDATE", [UIFont boldSystemFontOfSize:13], OnCommand(), 2) forState:UIControlStateNormal];
     self.updateButton.hidden = ![release[@"offer"] isEqual:@"update"];
+    [self arrangeUpdateButtons];
 }
 - (void)updateMessage:(NSString *)text failed:(BOOL)failed {
     self.updateText.attributedText = Tracked(text, Mono(12), failed ? Alert() : Ink(), 0.7);
 }
 - (void)updateFailed:(NSString *)message {
+    LTAppLog([NSString stringWithFormat:@"update to %@ failed: %@", self.available[@"version"], message]);
     self.updating = NO;
     [self showRelease:self.available];
     self.updateWeb.hidden = NO;  // the message points there
+    [self arrangeUpdateButtons];
     // Python errors end with " (file.py:line)"; the player needs only the message.
     NSRange where = [message rangeOfString:@" \\([A-Za-z_]+\\.py:[0-9]+\\)$" options:NSRegularExpressionSearch];
     if (where.location != NSNotFound) message = [message substringToIndex:where.location];
@@ -1671,7 +1689,10 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     long long need = 700LL * 1048576 + (notices ? 2 * [NoticeAsset(assets)[@"size"] longLongValue] : 0);
     if (free && free.longLongValue < need) { [self updateFailed:[NSString stringWithFormat:@"Updating needs about %lld MB free. Free some space and try again.", need / 1048576]]; return; }
     self.updating = YES;
-    self.updateButton.hidden = YES;
+    // Nothing to choose once it has started: the buttons come back only if it fails (updateFailed).
+    self.updateButton.hidden = self.updateWeb.hidden = self.updateLater.hidden = self.updateSkip.hidden = YES;
+    [self arrangeUpdateButtons];
+    LTAppLog([NSString stringWithFormat:@"update: downloading Bunker %@", self.available[@"version"]]);
     NSString *work = [NSTemporaryDirectory() stringByAppendingPathComponent:@"update"];
     [NSFileManager.defaultManager removeItemAtPath:work error:nil];
     [NSFileManager.defaultManager createDirectoryAtPath:work withIntermediateDirectories:YES attributes:nil error:nil];
@@ -1718,6 +1739,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         NSString *error = LTBuildUpdate(NSBundle.mainBundle.bundlePath, [work stringByAppendingPathComponent:@"framework.zip"], [work stringByAppendingPathComponent:@"python.zip"],
             assets[@"iosFramework"][@"sha256"] ?: @"", assets[@"iosPython"][@"sha256"] ?: @"",
             notices ? [work stringByAppendingPathComponent:@"notices.zip"] : @"", notices ? NoticeAsset(assets)[@"sha256"] : @"", output, ^(NSString *text) {
+                LTAppLog([@"update: " stringByAppendingString:text]);
                 dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf updateMessage:text failed:NO]; });
             });
         [NSFileManager.defaultManager removeItemAtPath:work error:nil];
@@ -1729,6 +1751,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 /** Hands the IPA to SideStore, AltStore, AirDrop or Files. */
 - (void)shareUpdate:(NSString *)ipa {
+    LTAppLog([NSString stringWithFormat:@"update: %@ built", ipa.lastPathComponent]);
     self.updating = NO;
     [self updateMessage:[NSString stringWithFormat:@"%@ is ready in Files (On My %@ › NieR).\n> Open it in SideStore or AltStore, or copy it to a Mac and sideload it as before. Your saves stay.",
         ipa.lastPathComponent, UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone"] failed:NO];
