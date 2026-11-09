@@ -94,8 +94,8 @@ class LanguagePageTest(unittest.TestCase):
 
     def test_counts_read_as_words(self):
         self.load()
-        self.translation.mkdir(parents=True, exist_ok=True)
-        (self.translation / "status.json").write_text('{"state":"ready","name":"Português","bundles":1}', encoding="utf-8")
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.status('{"state":"ready","language":"pt-BR","name":"Português","version":"1","bundles":1}')
         page = self.client.get("/language").text
         self.assertIn("1 text (", page)
         self.assertNotIn("1 texts", page)
@@ -136,12 +136,48 @@ class LanguagePageTest(unittest.TestCase):
         android_runtime.refresh_language()  # update_data, before the server starts
         self.assertEqual((self.translation / "active.json").read_bytes(), revised)
 
+    def status(self, text):
+        self.translation.mkdir(parents=True, exist_ok=True)
+        (self.translation / "status.json").write_text(text, encoding="utf-8")
+
+    def test_status_of_another_pack_says_the_choice_waits(self):
+        # Português was applied; with the game closed the player then chose English, then Polski
+        self.status('{"state":"ready","language":"pt-BR","name":"Português","version":"1","bundles":1}')
+        self.load()
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.client.post("/language", data={"choice": "en"})
+        page = self.client.get("/language").text
+        self.assertNotIn("Ready: Português", page)
+        self.assertIn("applies the next time the server starts", page)
+        self.load(pack(language="pl", name="Polski"))
+        self.client.post("/language", data={"choice": "loaded:pl"})
+        page = self.client.get("/language").text
+        self.assertNotIn("Ready: Português", page)
+        self.assertIn("applies the next time the server starts", page)
+
+    def test_status_of_the_chosen_pack_is_shown(self):
+        self.load()
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.status('{"state":"ready","language":"pt-BR","name":"Português","version":"1","bundles":1}')
+        self.assertIn("Ready: Português", self.client.get("/language").text)
+
+    def test_unreadable_pack_is_said_plainly(self):
+        self.status('{"state":"failed","error":"pack format 2 is not supported"}')
+        (self.translation / "active.json").write_text('{"format":2}')  # put there by hand: the page cannot list it
+        page = self.client.get("/language").text
+        self.assertIn("The server could not read the chosen pack: pack format 2 is not supported.", page)
+        self.assertNotIn("tried again", page)
+        self.assertNotIn("the pack could not", page)
+
     def test_status_is_shown(self):
-        self.translation.mkdir(parents=True)
-        (self.translation / "status.json").write_text('{"state":"building","language":"pt-BR","name":"Português"}', encoding="utf-8")
+        self.load()
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.status('{"state":"building","language":"pt-BR","name":"Português","version":"1"}')
         self.assertIn("Building Português", self.client.get("/language").text)
-        (self.translation / "status.json").write_text('{"state":"failed","name":"Português","error":"no space left on device"}', encoding="utf-8")
-        self.assertIn("no space left on device", self.client.get("/language").text)
+        self.status('{"state":"failed","language":"pt-BR","name":"Português","version":"1","error":"no space left on device"}')
+        page = self.client.get("/language").text
+        self.assertIn("Português could not be applied: no space left on device", page)
+        self.assertIn("tried again", page)
 
     def test_unsupported_client(self):
         (config.REVISIONS_DIR / "0" / "assetbundle" / "text" / "en").rmdir()
