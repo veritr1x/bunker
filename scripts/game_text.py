@@ -52,13 +52,25 @@ def read_text_bundle(path: Path, assetbundle_root: Path) -> list[tuple[str, str]
     """Every (TextAsset name, text) in one bundle."""
     mask = ")".join(path.relative_to(assetbundle_root).with_suffix("").parts)
     raw = extract_names.decrypt_text_bundle(path.read_bytes(), mask)
-    found = []
-    for stream in extract_names.extract_bundle_streams(raw):
-        try:
-            found.extend(extract_names.extract_text_assets(stream))
-        except ValueError:
-            continue  # resource streams (.resS) are not serialized files
-    return found
+    # Text bundles hold serialized files only (no resource streams), so any parse
+    # error is a real failure and must not drop the bundle's keys silently.
+    return [asset for stream in extract_names.extract_bundle_streams(raw)
+            for asset in extract_names.extract_text_assets(stream)]
+
+
+def parse_lines(text: str) -> dict[str, str]:
+    """key → value for each "key:value" line; values keep their spaces exactly (only a CR line end goes)."""
+    entries: dict[str, str] = {}
+    for line in text.split("\n"):
+        line = line.removesuffix("\r")
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//"):
+            continue
+        separator = line.find(":")
+        if separator < 0 or not line[:separator].strip():
+            continue
+        entries[line[:separator].strip()] = line[separator + 1:]
+    return entries
 
 
 def read_language(assetbundle_root: Path, lang: str, read=read_text_bundle) -> dict[str, Text]:
@@ -73,7 +85,7 @@ def read_language(assetbundle_root: Path, lang: str, read=read_text_bundle) -> d
             raise BundleError(f"{path.relative_to(assetbundle_root).as_posix()}: {error}") from error
         rank = bundle_rank(bundle)
         for _, text in assets:
-            for key, value in extract_names.parse_text_asset_lines(text).items():
+            for key, value in parse_lines(text).items():
                 old = texts.get(key)
                 # sorted paths: an equal rank later in the walk replaces the earlier one
                 if old is None or rank >= bundle_rank(old.bundle):

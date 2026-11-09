@@ -19,13 +19,16 @@ LANGUAGES = {1: "ja", 2: "en", 3: "ko"}
 
 
 def texts_from_tables(tables: dict[str, list[dict]]) -> dict[str, dict[str, str]]:
-    """Language code → "<table>.<id>" → text."""
+    """Language code → "<table>.<id>" → text; Japanese and Korean only for keys English has."""
     out: dict[str, dict[str, str]] = {code: {} for code in LANGUAGES.values()}
     for table, (id_column, text_column) in MASTER_TEXT_TABLES.items():
         for row in tables.get(table, []):
             code = LANGUAGES.get(row.get("LanguageType"))
             if code:
                 out[code][f"{table}.{row[id_column]}"] = row[text_column]
+    for code in out:
+        if code != "en":
+            out[code] = {key: text for key, text in out[code].items() if key in out["en"]}
     return out
 
 

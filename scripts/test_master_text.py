@@ -28,6 +28,17 @@ class TextsFromTablesTest(unittest.TestCase):
         self.assertEqual(texts_from_tables(rows)["en"],
                          {"m_webview_panel_mission_complete_flavor_text.7": "Done"})
 
+    def test_context_languages_keep_only_english_keys(self):
+        tables = {"m_dokan_text": [
+            {"DokanTextId": 1, "LanguageType": 2, "Text": "Hi"},
+            {"DokanTextId": 1, "LanguageType": 1, "Text": "やあ"},
+            {"DokanTextId": 5, "LanguageType": 1, "Text": "日本だけ"},
+            {"DokanTextId": 6, "LanguageType": 3, "Text": "한국만"},
+        ]}
+        out = texts_from_tables(tables)
+        self.assertEqual(out["ja"], {"m_dokan_text.1": "やあ"})
+        self.assertEqual(out["ko"], {})
+
     def test_missing_tables_are_fine(self):
         self.assertEqual(texts_from_tables({}), {"en": {}, "ja": {}, "ko": {}})
 
