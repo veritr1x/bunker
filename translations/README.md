@@ -34,11 +34,14 @@ in your language.
 - Leave out a key, or leave it empty, and the game shows the English text.
   A partial translation is fine.
 - Keep these exactly as they are in the English (their order may change):
-  - tags such as `<i>`, `</i>` and `<align="right">`,
-  - placeholders such as `{0}`.
-- Line breaks: put them where your language needs them, written as `\\n` (two
-  backslashes in the file, as in `en.json`). A single `\n` would put a real
-  line break in the text, which the game cannot use.
+  - tags such as `<i>`, `</i>`, `<br>` and `<align="right">`,
+  - placeholders such as `{0}`, and any other `{` or `}`.
+- Line breaks in `game/` files: put them where your language needs them,
+  written as `\\n` (two backslashes in the file, as in `en.json`). A single `\n`
+  would put a real line break in the text, which the game cannot use.
+  `master/` texts are different: they use real line breaks (`\n`, as in their
+  `en.json`).
+- Never edit `en.json`, `ja.json` or `ko.json`: they are made from the game.
 - Keep translations about as long as the English where you can: the game's
   menus have little room.
 - Letters the game's fonts cannot show appear as empty boxes. Latin, Cyrillic

@@ -16,7 +16,7 @@ class CheckTest(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
         self.root = Path(self.dir.name) / "translations"
-        self.write("languages.json", {})
+        self.write("languages.json", {code: {"name": code, "ship": False} for code in ("pt", "pt-BR", "pl")})
         self.write("game/ui/en.json", TEMPLATE)
 
     def write(self, rel, data, raw=None):
@@ -100,6 +100,69 @@ class CheckTest(unittest.TestCase):
         self.write("master/en.json", {"m_gift_text.1": "Gift"})
         self.write("master/pt.json", {"m_gift_text.1": "Presente", "m_gift_text.9": "x"})
         self.assertEqual(len(check_tree(self.root)), 1)
+
+    def test_line_break_message_says_two_backslashes(self):
+        self.assertIn("\\\\n", self.problems({"c": "one\ntwo"})[0])
+
+    def test_master_texts_may_have_real_line_breaks(self):
+        self.write("master/en.json", {"m.1": "Line one\nLine two"})
+        self.write("master/pt.json", {"m.1": "Linha um\nLinha dois"})
+        self.write("languages.json", {"pt": {"name": "Português", "ship": False}})
+        self.assertEqual(check_tree(self.root), [])
+
+    def test_broken_escape(self):
+        self.assertEqual(len(self.problems(raw=b'{"c": "Zwyk\\ud83d"}')), 1)
+
+    def test_stray_braces(self):
+        self.assertEqual(len(self.problems({"a": "Olá {0} {"})), 1)
+        self.assertEqual(len(self.problems({"a": "Olá {0} }"})), 1)
+
+    def test_whitespace_only(self):
+        self.assertEqual(len(self.problems({"c": "   "})), 1)
+
+    def test_language_must_be_listed(self):
+        self.write("languages.json", {})
+        self.write("game/ui/pt.json", {"c": "x"})
+        found = check_tree(self.root)
+        self.assertEqual(len(found), 1)
+        self.assertIn("languages.json", found[0])
+        self.write("languages.json", {"pt": {"name": "Português", "ship": False}})
+        self.assertEqual(check_tree(self.root), [])
+
+    def test_languages_json_missing(self):
+        (self.root / "languages.json").unlink()
+        self.assertTrue(check_tree(self.root))
+
+    def test_codes_differing_only_in_case(self):
+        self.write("languages.json", {"pt-BR": {"name": "P", "ship": False}, "pt-br": {"name": "P", "ship": False}})
+        self.assertTrue(check_tree(self.root))
+        self.write("languages.json", {"EN": {"name": "English", "ship": False}})
+        self.assertTrue(check_tree(self.root))
+
+    def test_folders_outside_the_layout(self):
+        self.write("languages.json", {"pl": {"name": "Polski", "ship": False}})
+        self.write("game/ui/sub/en.json", {"a": "A"})
+        self.write("game/ui/sub/pl.json", {"a": "x"})
+        self.write("other/en.json", {"a": "A"})
+        self.write("other/pl.json", {"a": "x"})
+        self.assertEqual(len([p for p in check_tree(self.root) if "folder" in p]), 2)
+
+    def test_odd_files_get_messages(self):
+        self.write("languages.json", {"pl": {"name": "Polski", "ship": False}})
+        (self.root / "game/ui/pl.json").mkdir(parents=True)  # a folder named like a file
+        self.write("game/bad/en.json", None, raw=b"{not json")
+        self.write("game/bad/pl.json", {"a": "x"})
+        self.write("game/ui/ko.json", None, raw=b"[" * 200000)
+        found = check_tree(self.root)
+        self.assertTrue(any("pl.json" in p for p in found))
+        self.assertTrue(any("bad/en.json" in p for p in found))
+
+    def test_symlinks_refused(self):
+        self.write("languages.json", {"pl": {"name": "Polski", "ship": False}})
+        (self.root / "game/ui/pl.json").symlink_to(self.root / "game/ui/en.json")
+        (self.root / "game/ui/de.json").symlink_to(self.root / "missing.json")
+        found = check_tree(self.root)
+        self.assertEqual(len([p for p in found if "link" in p]), 2)
 
     def test_report_is_capped(self):
         self.write("game/ui/pt.json", {f"zz{i}": "x" for i in range(300)})

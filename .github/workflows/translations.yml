@@ -1,14 +1,17 @@
 # Checks the language files in translations/ on every pull request that
 # changes them (scripts/check_translations.py): a translation that would break
 # a language pack or the game's text is refused, with one line per problem.
+# The templates (en.json) and the game's own text (ja.json, ko.json) are made
+# by scripts/export_translations.py from the game: a pull request may not
+# change them, since the check compares translations against them.
 name: Translations
 
 on:
   pull_request:
-    paths: ["translations/**", "scripts/check_translations.py"]
+    paths: ["translations/**", "scripts/check_translations.py", ".github/workflows/translations.yml"]
   push:
     branches: [main]
-    paths: ["translations/**", "scripts/check_translations.py"]
+    paths: ["translations/**", "scripts/check_translations.py", ".github/workflows/translations.yml"]
 
 permissions:
   contents: read
@@ -19,7 +22,21 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      - name: Templates are not edited
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only "origin/$BASE...HEAD" -- 'translations/*/en.json' 'translations/*/*/en.json' \
+            'translations/*/ja.json' 'translations/*/*/ja.json' 'translations/*/ko.json' 'translations/*/*/ko.json')
+          if [ -n "$changed" ]; then
+            echo "These files are made from the game files (scripts/export_translations.py); a translation must not change them:"
+            echo "$changed"
+            exit 1
+          fi
       - run: python3 scripts/check_translations.py

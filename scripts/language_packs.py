@@ -69,10 +69,18 @@ def main(argv=None) -> int:
     parser.add_argument("--translations", type=Path, default=Path(__file__).resolve().parents[1] / "translations")
     parser.add_argument("--out", type=Path, help="the pack file (default: <code>-pack.json here)")
     args = parser.parse_args(argv)
-    languages = json.loads((args.translations / "languages.json").read_text(encoding="utf-8"))
-    if args.code not in languages:
+    try:
+        languages = json.loads((args.translations / "languages.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"translations/languages.json cannot be read: {exc}") from None
+    if not isinstance(languages, dict) or args.code not in languages:
         raise SystemExit(f"{args.code} is not in translations/languages.json: add it with its name and \"ship\": false")
-    pack = build_pack(args.translations, args.code, languages[args.code].get("name", args.code))
+    about = languages[args.code]
+    if not isinstance(about, dict) or not isinstance(about.get("name"), str):
+        raise SystemExit(f'translations/languages.json: {args.code} must be {{"name": "<its own name>", "ship": false}}')
+    if not CODE.fullmatch(args.code):
+        raise SystemExit(f"{args.code} is not a language code the device accepts (like pt-BR)")
+    pack = build_pack(args.translations, args.code, about["name"])
     out = args.out or Path(f"{args.code}-pack.json")
     out.write_text(_canonical(pack) + "\n", encoding="utf-8")
     print(f"{out}: {len(pack['game']):,} game texts, {len(pack['master']):,} master texts, version {pack['version']}")

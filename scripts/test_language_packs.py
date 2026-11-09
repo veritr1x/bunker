@@ -79,6 +79,18 @@ class LanguagePacksTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "languages.json"):
             main(["pl", "--translations", str(self.translations), "--out", str(Path(self.dir.name) / "x.json")])
 
+    def test_command_explains_bad_input(self):
+        from language_packs import main
+        out = str(Path(self.dir.name) / "x.json")
+        with self.assertRaisesRegex(SystemExit, "languages.json"):  # missing
+            main(["pl", "--translations", str(self.translations), "--out", out])
+        self.put("languages.json", {"pl": "Polski"})
+        with self.assertRaisesRegex(SystemExit, "pl"):
+            main(["pl", "--translations", str(self.translations), "--out", out])
+        self.put("languages.json", {"pl_PL": {"name": "Polski", "ship": False}})
+        with self.assertRaisesRegex(SystemExit, "language code"):
+            main(["pl_PL", "--translations", str(self.translations), "--out", out])
+
     def test_no_languages(self):
         self.put("languages.json", {})
         self.assertEqual(write_shipped(self.translations, self.out), [])
