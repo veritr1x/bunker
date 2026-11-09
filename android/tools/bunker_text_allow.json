@@ -33,7 +33,8 @@
     "pods.story.state.",
     "launcher.state.",
     "launcher.chip.",
-    "launcher.size."
+    "launcher.size.",
+    "pods.gift.sender_in_game"
   ],
   "upstream": [
     "Important Items",
