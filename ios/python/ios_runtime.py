@@ -140,6 +140,8 @@ def update_data(data_root, asset_root, tools_root, original_master, version):
     for this build, the calendar's or a preset's (android_patcher.update_for)."""
     _prepare(data_root, asset_root, tools_root, original_master)
     android_runtime.refresh_language()
+    import android_challenges
+    android_challenges.reapply_texts()  # a revised shipped pack's game data texts
     import android_patcher
     return android_patcher.update_for(version)
 

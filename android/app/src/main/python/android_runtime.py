@@ -460,6 +460,8 @@ def update_data(data_root, asset_root, tools_root, version):
     configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
     prepare_data()
     refresh_language()
+    import android_challenges
+    android_challenges.reapply_texts()  # a revised shipped pack's game data texts
     import android_patcher
     return android_patcher.update_for(version)
 

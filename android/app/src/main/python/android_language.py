@@ -109,6 +109,8 @@ def choose(choice: str = Form("")):
     except PackError as exc:
         return redirect(error=str(exc))
     bunker_text.reload()  # Bunker's own pages follow the choice at once
+    import android_challenges as challenges
+    challenges.reapply_texts()  # the game data's texts (shop lines, gift texts…) follow it too
     import android_runtime
     if choice == "en":
         return redirect(message=t("pods.language.chose_english", next=android_runtime.next_step()))
@@ -135,6 +137,8 @@ def remove(language: str = Form(...)):
         return redirect(error=str(exc))
     if in_use:
         bunker_text.reload()
+        import android_challenges as challenges
+        challenges.reapply_texts()  # back to the game data's own English
         import android_runtime
         return redirect(message=t("pods.language.removed_in_use", language=language, next=android_runtime.next_step()))
     return unchanged(redirect(message=t("pods.language.removed", language=language)))
