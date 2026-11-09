@@ -106,7 +106,7 @@ class InfoIcon(unittest.TestCase):
         db = PAGE("deck_builder.html")
         self.assertIn('<div class="db-lbl" id="lbl-mode">{{ t("pods.decks.build_from") }}{{ info(t("pods.decks.all_maxed_info"), "best-only") }}'
                       '{{ info(t("pods.decks.what_i_own_info"), "owned-only") }}</div>', db)
-        self.assertIn('<p class="help owned-only">{{ t("pods.decks.allow_before") }}', db)      # it holds the Allow menu
+        self.assertIn('<p class="help owned-only">{{ allow[0] }}<select id="allow">', db)      # it holds the Allow menu
         upgrades = RENDER("upgrade_manager.html", user_id=1, karma_options={}, karma_defaults={})
         self.assertRegex(upgrades, r'id="karma-fill-name">Fill All Karma Slots</span>')
         self.assertRegex(upgrades, r'<details class="info"><summary[^>]*>i</summary><div><p>Sets every unlocked karma slot.*\[R40/30/20\]')
@@ -115,6 +115,15 @@ class InfoIcon(unittest.TestCase):
         for name in PAGES:
             with self.subTest(name=name):
                 self.assertNotRegex(PAGE(name), r"<summary[^>]*>[^<]*\{\{ info\(")
+
+
+class BackupNote(unittest.TestCase):
+    def test_kept_backups_are_counted(self):
+        # The retention is a setting: one backup kept reads "backup", not "backups".
+        page = lambda n: RENDER("backup.html", request=None, active="backups", backups=[], retention=n, game_db_exists=True,
+                                lunar_tear_running="")
+        self.assertIn("The latest 1 backup is kept.", page(1))
+        self.assertIn("The latest 10 backups are kept.", page(10))
 
 
 class PlayerLinks(unittest.TestCase):

@@ -200,7 +200,7 @@ def jump(user_id: int, quest_id: int, season2_route: int) -> dict:
     except Exception as exc:  # the jump stands; the next calendar rebuild opens the chapter
         calendar = f"failed: {exc}"
     out = dict({"ok": True, "backup": backup, "calendar": calendar}, **_summary(result.get("data") or {}))
-    out["message"] = bunker_text.t("pods.story.cleared_message", n=out["cleared_count"], backup=backup)
+    out["message"] = bunker_text.t_count("pods.story.cleared_message", out["cleared_count"], backup=backup)
     return out
 
 

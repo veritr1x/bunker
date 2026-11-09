@@ -50,7 +50,9 @@ class _Visible(HTMLParser):
 def english_left(html: str) -> list[str]:
     parser = _Visible()
     parser.feed(html)
-    shown = BRACKETED.sub(" ", "\n".join(parser.text))
+    shown = "\n".join(parser.text)
+    while BRACKETED.search(shown):  # innermost first: a text can hold another as a value (⟦3 panels across ⟦2 owned⟧⟧)
+        shown = BRACKETED.sub(" ", shown)
     for line in ALLOW["flavour"]:
         shown = shown.replace(line, " ")
     words = re.findall(r"\S+", shown)

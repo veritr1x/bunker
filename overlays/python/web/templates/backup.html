@@ -2,7 +2,7 @@
 {% from "_info.html" import info %}
 {% block title %}{{ t("pods.backup.title") }}{% endblock %}
 {% block content %}
-<h1 data-side>{{ t("pods.backup.title") }}{{ info(t("pods.backup.info", n=retention)) }}</h1>
+<h1 data-side>{{ t("pods.backup.title") }}{{ info(t_count("pods.backup.info", retention)) }}</h1>
 <form method="post" action="/backups/create" data-side>
   <button type="submit" {% if not game_db_exists %}disabled{% endif %}>{{ t("pods.backup.create") }}</button>
 </form>

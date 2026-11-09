@@ -87,10 +87,28 @@ def t_count(key: str, n: int, **params) -> str:
     return t(f"{key}.one" if n == 1 else f"{key}.other", n=n, **params)
 
 
+_SLOT = "\x00"   # stands where the slot goes while the text is formatted
+
+
+def t_around(key: str, slot: str, **params) -> tuple[str, str]:
+    """A sentence around a control or a link ("Allow up to {select} pieces to be added."): its text before and
+    after {slot}, for a page to put its markup between (each piece escaped as text). A translation that lacks
+    the slot, or has it more than once, gives the English, as t() does for any broken translation."""
+    text = t(key, **params, **{slot: _SLOT})
+    if text.count(_SLOT) != 1:
+        base = _extra.get(key) or english().get(key) or key
+        try:
+            text = base.format(**params, **{slot: _SLOT})
+        except (KeyError, IndexError, ValueError):
+            text = base
+    before, _, after = text.partition(_SLOT)
+    return before, after
+
+
 def install(target) -> None:
-    """Gives templates t and t_count (a Jinja2Templates, or a jinja2 Environment)."""
+    """Gives templates t, t_count and t_around (a Jinja2Templates, or a jinja2 Environment)."""
     env = getattr(target, "env", target)
-    env.globals.update(t=t, t_count=t_count)
+    env.globals.update(t=t, t_count=t_count, t_around=t_around)
 
 
 def install_everywhere() -> None:

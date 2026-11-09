@@ -31,7 +31,7 @@
 </footer>
 <script>
 (function () {
-  const MSG = {{ {"pause": t("archive.music.pause"), "play": t("archive.music.play"), "places": t("archive.music.places_heading", track="{track}", n="{n}")}|tojson }};
+  const MSG = {{ {"pause": t("archive.music.pause"), "play": t("archive.music.play"), "place": t("archive.music.places_heading.one", track="{track}", n="{n}"), "places": t("archive.music.places_heading.other", track="{track}", n="{n}")}|tojson }};
   const audio = new Audio(); audio.loop = true;
   const bar = document.getElementById("player"), toggle = document.getElementById("toggle"),
         title = document.getElementById("title"), seek = document.getElementById("seek"), loop = document.getElementById("loop");
@@ -52,7 +52,8 @@
   const dialog = document.getElementById("places"), heading = document.getElementById("places-title"), list = document.getElementById("places-list");
   document.querySelectorAll("#tracks .places").forEach(b => b.addEventListener("click", () => {
     const where = JSON.parse(b.dataset.where);
-    heading.textContent = MSG.places.replace("{track}", b.dataset.track).replace("{n}", where.reduce((n, g) => n + g.places.length, 0));
+    const count = where.reduce((n, g) => n + g.places.length, 0);
+    heading.textContent = (count === 1 ? MSG.place : MSG.places).replace("{track}", b.dataset.track).replace("{n}", count);
     list.replaceChildren(...where.map(g => {
       const block = document.createElement("section"), name = document.createElement("h3"), items = document.createElement("ul");
       name.textContent = g.name;

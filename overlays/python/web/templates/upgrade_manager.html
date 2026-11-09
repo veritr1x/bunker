@@ -16,14 +16,15 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.exalt") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.exalt_count", n=exalt_targets, total=owned_character_count) }}</span>
+    <span class="grant-id">{{ t_count("pods.upgrades.exalt_count", owned_character_count, done=exalt_targets) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="exalt_all" class="grant-chosen-btn"
             {% if exalt_targets == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.slabs") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.slabs_count", n=panel_total, total=owned_character_count) }}</span>
+    {% set characters = t_count("pods.upgrades.owned_characters", owned_character_count) %}
+    <span class="grant-id">{{ t_count("pods.upgrades.slabs_count", panel_total, characters=characters) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="fill_mythic_slabs" class="grant-chosen-btn"
             {% if panel_total == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
@@ -59,21 +60,21 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.companions") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.companions_count", n=companions_to_upgrade, total=owned_companion_count) }}</span>
+    <span class="grant-id">{{ t_count("pods.upgrades.companions_count", owned_companion_count, done=companions_to_upgrade) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_companions" class="grant-chosen-btn"
             {% if companions_to_upgrade == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.weapons") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.weapons_count", n=owned_weapon_count) }}{{ info(t("pods.upgrades.weapons_info")) }}</span>
+    <span class="grant-id">{{ t_count("pods.upgrades.weapons_count", owned_weapon_count) }}{{ info(t("pods.upgrades.weapons_info")) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_weapons" class="grant-chosen-btn"
             {% if owned_weapon_count == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.costumes") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.costumes_count", n=owned_costume_count) }}{{ info(t("pods.upgrades.costumes_info")) }}</span>
+    <span class="grant-id">{{ t_count("pods.upgrades.costumes_count", owned_costume_count) }}{{ info(t("pods.upgrades.costumes_info")) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_costumes" class="grant-chosen-btn"
             {% if owned_costume_count == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>

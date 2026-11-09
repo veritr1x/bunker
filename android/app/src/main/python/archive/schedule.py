@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .memo import memo
-from .words import resolve, t
+from .words import resolve, t, t_count
 
 LAUNCH = int(datetime(2021, 7, 28, 2, tzinfo=timezone.utc).timestamp() * 1000)  # global launch
 # Dates from June 2024 on are placeholders: the service ended in April 2024.
@@ -112,6 +112,12 @@ def when(start: int, end: int) -> dict:
         label = t("archive.schedule.range", start=LAUNCH_DAY if start < LAUNCH else day(start), end=day(end))
     return {"start": start, "end": end, "label": label, "ran": start < FOREVER,
             "limited": start < FOREVER and end < FOREVER}
+
+
+def away(days: int, rewards: int) -> str:
+    """A welcome back campaign (a reference: Away 30 days: 7 days of rewards)."""
+    gone, given = t_count("archive.schedule.away_days", days), t_count("archive.schedule.reward_days", rewards)
+    return t("archive.schedule.away", away=gone, rewards=given)
 
 
 def span(start: int, end: int) -> dict:
@@ -230,7 +236,7 @@ class Schedule:
             return t("archive.schedule.free") if not item["Price"] else \
                 t("archive.schedule.price_items", count=f"{item['Price']:,}", item=self.item(6, item["PriceId"])["name"])
         if item["PriceType"] == 2:
-            return t("archive.schedule.price_gems", count=f"{item['Price']:,}")
+            return t_count("archive.schedule.price_gems", item["Price"], count=f"{item['Price']:,}")
         return t("archive.schedule.real_money") if item["PriceType"] == 4 else ""
 
     # ---- Shops ------------------------------------------------------------------
@@ -446,7 +452,7 @@ class Schedule:
             {"id": r["OmikujiId"], "title": t("archive.schedule.fortune_draw", n=r["OmikujiId"]), "when": when(r["StartDatetime"], r["EndDatetime"])}
             for r in sorted(self.m("m_omikuji"), key=lambda r: r["StartDatetime"])]})
         sections.append({"key": "comeback", "label": t("archive.schedule.welcome_back"), "items": [
-            {"id": r["ComebackCampaignId"], "title": t("archive.schedule.away", away=r["ComebackJudgeDayCount"], days=r["GrantCampaignTermDayCount"]),
+            {"id": r["ComebackCampaignId"], "title": away(r["ComebackJudgeDayCount"], r["GrantCampaignTermDayCount"]),
              "when": when(r["ComebackJudgeStartDatetime"], r["ComebackJudgeEndDatetime"])}
             for r in sorted(self.m("m_comeback_campaign"), key=lambda r: r["ComebackJudgeStartDatetime"])]})
         for s in sections:

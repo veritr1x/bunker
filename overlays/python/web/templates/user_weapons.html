@@ -84,9 +84,10 @@
     "grant_failed": t("pods.player.grant_failed"), "batch_failed": t("pods.player.batch_failed"),
     "failed": t("pods.player.failed"), "nothing_chosen": t("pods.player.nothing_chosen"),
     "network_error": t("pods.player.network_error", error="{error}"),
-    "granted_one": t("pods.weapons.granted_one", id="{id}"), "granted": t("pods.weapons.granted", n="{n}"),
-    "missing_confirm": t("pods.weapons.missing_confirm"), "missing_done": t("pods.weapons.missing_done", n="{n}"),
+    "granted_one": t("pods.weapons.granted_one", id="{id}"), "granted": [t("pods.weapons.granted.one", n="{n}"), t("pods.weapons.granted.other", n="{n}")],
+    "missing_confirm": t("pods.weapons.missing_confirm"), "missing_done": [t("pods.weapons.missing_done.one", n="{n}"), t("pods.weapons.missing_done.other", n="{n}")],
   }|tojson }};
+  const plural = (forms, n) => forms[n === 1 ? 0 : 1];
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
 
   const searchInput = document.getElementById("search-weapons");
@@ -202,7 +203,7 @@
       }
       const n = applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(fmt(MSG.granted, {n}), "success");
+      showBanner(fmt(plural(MSG.granted, n), {n}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
@@ -230,7 +231,7 @@
       }
       const n = applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(fmt(MSG.missing_done, {n}), "success");
+      showBanner(fmt(plural(MSG.missing_done, n), {n}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
