@@ -40,12 +40,15 @@ final class Texts {
     private static String language = "en";
     private static Locale locale = Locale.ENGLISH;
     private static String stamp;
+    private static Context app;  // for calls without a Context (Python asking the service after it ended)
 
     static String t(Context c, String key, Object... pairs) { return current(c).t(key, pairs); }
     static String tOr(Context c, String key, String fallback, Object... pairs) { return current(c).tOr(key, fallback, pairs); }
     static String count(Context c, String key, long n, Object... pairs) { return current(c).count(key, n, pairs); }
     static String[] around(Context c, String key, String slot, Object... pairs) { return current(c).around(key, slot, pairs); }
     static String number(Context c, double n) { return current(c).number(n); }
+    /** Words set earlier (Said.text) put in words now; any other message as it is. */
+    static String said(Context c, String said) { return Said.in(current(c), said); }
 
     /** text in capitals, the pack's language's way ("İ" in Turkish). */
     static String upper(Context c, String text) {
@@ -61,14 +64,24 @@ final class Texts {
     static synchronized boolean refresh(Context c) {
         if (text == null) { current(c); return false; }
         if (stampOf(pack(c)).equals(stamp)) return false;
-        load(c);
+        load(c.getApplicationContext());
         return true;
     }
 
+    /** c may be null: the application context of an earlier call is used; with none yet, keys are shown. */
     private static synchronized BunkerText current(Context c) {
-        if (text == null) load(c);
+        if (c != null && app == null) app = c.getApplicationContext();
+        if (text == null) {
+            if (app == null) return new BunkerText(new HashMap<>(), null, ENGLISH_RULE, n -> String.valueOf((long) n));
+            load(app);
+        }
         return text;
     }
+
+    private static final BunkerText.Plurals ENGLISH_RULE = new BunkerText.Plurals() {
+        public String category(long n) { return n == 1 ? "one" : "other"; }
+        public Set<String> categories() { return new HashSet<>(java.util.Arrays.asList("one", "other")); }
+    };
 
     private static File pack(Context c) { return new File(FilesStore.root(c.getApplicationContext()), "translation/active.json"); }
 

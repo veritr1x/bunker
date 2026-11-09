@@ -47,7 +47,7 @@ public final class MainActivity extends Activity {
     private int permille=-1;
     private String last="";
     private boolean running=false,busy=false,tools=false,bound=false,autoAttempted=false,launchWhenReady=true,foreground=false;
-    private String serverState="Server stopped",serverDetail="";
+    private String serverState="stopped",serverDetail="";
     private Messenger service;
     private final Messenger replies=new Messenger(new Handler(Looper.getMainLooper(),message->{
         Bundle b=message.getData();running=b.getBoolean("running");busy=b.getBoolean("busy");tools=b.getBoolean("tools");permille=b.getInt("permille",-1);serverState=b.getString("state","");serverDetail=b.getString("detail","");
@@ -60,7 +60,7 @@ public final class MainActivity extends Activity {
     }));
     private final ServiceConnection connection=new ServiceConnection(){
         public void onServiceConnected(ComponentName name,IBinder binder){service=new Messenger(binder);query(1);}
-        public void onServiceDisconnected(ComponentName name){service=null;running=false;busy=false;serverState="Server stopped";serverDetail="";refresh();}
+        public void onServiceDisconnected(ComponentName name){service=null;running=false;busy=false;serverState="stopped";serverDetail="";refresh();}
     };
     private void query(int code){if(service==null)return;Message m=Message.obtain(null,code);m.replyTo=replies;try{service.send(m);}catch(RemoteException ignored){}}
 
@@ -209,7 +209,7 @@ public final class MainActivity extends Activity {
         refresh();
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},20);
-        try{FilesStore.recover(this);}catch(Exception e){serverDetail=e.getMessage();}
+        try{FilesStore.recover(this);}catch(Exception e){serverDetail=ServerService.message(e);}
         new Thread(()->{try{FilesStore.ensureBootstrap(this);}catch(Exception ignored){}runOnUiThread(()->{last="";refresh();});},"bootstrap").start();
         if(state==null&&Updater.INSTALL_RESULT.equals(getIntent().getAction())){Intent result=getIntent();setIntent(new Intent());String message=Updater.installResult(this,result);if(message!=null)updateFailed(message);}
     }
@@ -247,13 +247,13 @@ public final class MainActivity extends Activity {
         // Opened from the game: no launch step checks the index, so check it now (built in the background if needed).
         if(!indexChecked&&!indexing&&!launchWhenReady&&!tools&&FilesStore.ready(this))checkIndex(false);
         if(key.equals(last))return;last=key;
-        boolean importing=busy&&"Importing files".equals(serverState);
+        boolean importing=busy&&"importing_files".equals(serverState);
         if(importing)look.chip(files,"IMPORTING",look.chip,look.ink);
         else if(hasAssets)look.chip(files,"READY",look.ok,look.onOk);
         else look.chip(files,"NO FILES",look.chip,look.ink);
         assetButton.setText(hasAssets?"CHANGE":"CHOOSE");assetButton.setVisibility(running?View.GONE:View.VISIBLE);assetButton.setEnabled(!busy&&!running&&!tools);assetButton.setAlpha(assetButton.isEnabled()?1f:.45f);
-        boolean attention="Needs attention".equals(serverState);
-        String state=tools?"POD PROGRAMS OPEN":"Stopping".equals(serverState)&&busy?"STOPPING":running?"RUNNING":"Starting server".equals(serverState)&&busy?"STARTING":attention?"NOT RUNNING":ready?"STANDING BY":"WAITING FOR FILES";
+        boolean attention="needs_attention".equals(serverState);
+        String state=tools?"POD PROGRAMS OPEN":"stopping".equals(serverState)&&busy?"STOPPING":running?"RUNNING":"starting".equals(serverState)&&busy?"STARTING":attention?"NOT RUNNING":ready?"STANDING BY":"WAITING FOR FILES";
         if(running&&!tools)look.chip(status,state,look.ok,look.onOk);
         else if(attention)look.chip(status,state,look.alert,look.paper);
         else look.chip(status,state,look.chip,look.ink);
@@ -265,19 +265,19 @@ public final class MainActivity extends Activity {
         bar.setVisibility(measured?View.VISIBLE:View.GONE);
         if(measured)bar.setPermille(permille);
         progressText.setVisibility(importing?View.VISIBLE:View.GONE);
-        progressText.setText(importing?(measured?permille/10+"% · ":"")+serverDetail:"");
+        progressText.setText(importing?(measured?Texts.t(this,"launcher.progress.percent","n",Texts.number(this,permille/10))+" · ":"")+Texts.said(this,serverDetail):"");
         play.setEnabled(!busy&&!tools&&ready);play.setAlpha(play.isEnabled()?1f:.45f);
         pods.setEnabled(!busy&&ready);pods.setAlpha(pods.isEnabled()?1f:.45f);
         archive.setEnabled(!busy&&ready);archive.setAlpha(archive.isEnabled()?1f:.45f);
         String message="";
-        boolean warning=attention||"Operation cancelled".equals(serverState);
-        if(warning)message=serverDetail;
+        boolean warning=attention||"cancelled".equals(serverState);
+        if(warning)message=Texts.said(this,serverDetail);
         else if(importing)message="Keep Bunker open until the import finishes.";
-        else if(busy&&!"Starting server".equals(serverState)&&!"Stopping".equals(serverState))message=serverDetail;
-        else if("Saves exported".equals(serverState)||"Save imported".equals(serverState))message=serverDetail;
+        else if(busy&&!"starting".equals(serverState)&&!"stopping".equals(serverState))message=Texts.said(this,serverDetail);
+        else if("saves_exported".equals(serverState)||"save_imported".equals(serverState))message=Texts.said(this,serverDetail);
         else if(hasAssets&&!hasMaster){message="Import master data from the ⋮ menu.";warning=true;}
         else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Can't find "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings, or choose the files again.";}
-        else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty())message=serverDetail;
+        else if("stopped".equals(serverState)&&!serverDetail.isEmpty())message=Texts.said(this,serverDetail);
         if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":"";
         detail.setText(warning?"> "+message:message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);detail.setTextColor(warning?look.alert:look.ink);
     }
