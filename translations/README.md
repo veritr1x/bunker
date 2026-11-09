@@ -7,8 +7,11 @@ Text for playing the game, and using Bunker, in languages the game never had.
 - `game/<area>/`: the game's own text, split by area (`ui`, `skill`, `ability`,
   `possession`, `quest`, `mission`, `shop`, `library`, `story_main`, `story_sub`,
   `story_side`).
-- `master/`: a few texts from the game's master data (gift messages,
-  announcements and similar).
+- `master/`: a few texts from the game's master data (the shop mascot's
+  lines, cut-ins, gift messages, mission titles and flavour). Bunker puts them
+  into the game data when the language is chosen, and takes them out again for
+  English. Bunker's own Gift Box sender ("From Bunker, with love.") is
+  `pods.gift.sender_in_game` in `bunker/`.
 - `bunker/`: Bunker's own screens, Pod Programs and the Archive (see
   "Bunker's own screens" below).
 
