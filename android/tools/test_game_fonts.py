@@ -231,6 +231,64 @@ class UnityFiles(unittest.TestCase):
         self.assertEqual(self.src.read_bytes(), once)
 
 
+def game_font_files() -> dict[str, bytes]:
+    """The three Android font files, each a Unity file with one small CFF font of the right name."""
+    return {path: unity_file([(3, 128, font_object(g.name, cff_font({"A": 600, "Ж": 1000}, name=f"F{i}")))])
+            for i, (path, g) in enumerate(zip(game_fonts.ANDROID_FONT_FILES, game_fonts.GAME_FONTS))}
+
+
+class AndroidBuild(unittest.TestCase):
+    def setUp(self):
+        import assemble_apk
+        self.assemble_apk = assemble_apk
+        self.dir = Path(self.enterContext(tempfile.TemporaryDirectory()))
+
+    def test_apk_font_entries(self):
+        apk = self.dir / "game.apk"
+        with zipfile.ZipFile(apk, "w") as z:
+            for name, data in game_font_files().items():
+                z.writestr(name, data)
+        before = apk.read_bytes()
+        with zipfile.ZipFile(apk) as game:
+            patched = self.assemble_apk.patch_font_entries(game, self.dir / "work", log=lambda m: None)
+        self.assertEqual(sorted(patched), sorted(game_fonts.ANDROID_FONT_FILES))
+        for name, path in patched.items():
+            (font,) = game_fonts.read_fonts(path).values()
+            self.assertTrue(has_mark(font), name)
+        self.assertEqual(apk.read_bytes(), before)
+
+    def test_assemble_adds_fonts_and_licence(self):
+        a = self.assemble_apk
+        apk, companion, out = self.dir / "game.apk", self.dir / "companion.apk", self.dir / "out.apk"
+        with zipfile.ZipFile(apk, "w") as z:
+            for name in ("AndroidManifest.xml", a.LIB, a.METADATA, a.SETTINGS, "resources.arsc", "classes.dex"):
+                z.writestr(name, b"x")
+            for name, data in game_font_files().items():
+                z.writestr(name, data)
+        with zipfile.ZipFile(companion, "w") as z:
+            z.writestr("classes.dex", b"dex")
+            z.writestr("AndroidManifest.xml", b"m")
+        work = self.dir / "patched"
+        work.mkdir()
+        (work / "lib").write_bytes(b"lib"); (work / "meta").write_bytes(b"meta")
+        with mock.patch.object(a, "patch_game_files", lambda *args: (work / "lib", work / "meta")), \
+                mock.patch.object(a, "patch_manifest", lambda *args: (b"manifest", "Main")), \
+                mock.patch.object(a, "patch_master", lambda data: data), \
+                mock.patch.object(a, "patch_unity_connect", lambda data: data), \
+                mock.patch.object(a.build_info, "check_companion", lambda c: None), \
+                mock.patch.object(a.build_info, "describe", lambda *args: {}):
+            master = self.dir / "master.bin.e"
+            master.write_bytes(b"master")
+            a.assemble(apk, master, companion, out, log=lambda m: None)
+        with zipfile.ZipFile(out) as z:
+            for name in game_fonts.ANDROID_FONT_FILES:
+                path = self.dir / "check"
+                path.write_bytes(z.read(name))
+                (font,) = game_fonts.read_fonts(path).values()
+                self.assertTrue(has_mark(font), name)
+            self.assertEqual(z.read("assets/lunar/NOTO_OFL.txt"), (game_fonts.NOTO / "OFL.txt").read_bytes())
+
+
 INPUTS = Path(os.environ.get("BUNKER_INPUTS", Path(__file__).resolve().parents[2] / "inputs"))
 
 
