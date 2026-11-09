@@ -42,7 +42,7 @@ public final class ToolsActivity extends Activity {
             CookieManager.getInstance().setCookie(origin,"lunar_tools="+ToolsRuntime.token+"; Path=/; HttpOnly; SameSite=Strict",ok->web.loadUrl(origin+"/"));
         }
         if(!loaded||closing)message.setText(ServerService.detail);
-        if(loaded&&!ServerService.tools&&!ServerService.busy&&!closing){loaded=false;web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);message.setText("> Pod Programs closed. Return to the Bunker.");}
+        if(loaded&&!ServerService.tools&&!ServerService.busy&&!closing){loaded=false;web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);message.setText("> Pod Programs closed. Return to Bunker.");}
         handler.postDelayed(this,300);
     }};
     private Look look;
