@@ -1,6 +1,7 @@
 package service
 
 import (
+	"lunar-tear/server/internal/bunkertext"
 	"math"
 	"testing"
 
@@ -64,16 +65,17 @@ func TestGuaranteedSlotRatesWithCandidates(t *testing.T) {
 // Ticket summons have no dates of their own (no banner row in the original
 // data); the page says they stay open instead of showing a 2099 end.
 func TestPeriodWithoutAnEnd(t *testing.T) {
+	english := bunkertext.For("en")
 	ticket := store.GachaCatalogEntry{StartDatetime: 1627437600000, EndDatetime: 4102444799000}
-	if got := periodHTML(ticket, true); got != "<p class=k>From 2021/07/28 (UTC) · no end date: open while you have a ticket</p>" {
+	if got := periodHTML(english, ticket, true); got != "<p class=k>From 2021/07/28 (UTC) · no end date: open while you have a ticket</p>" {
 		t.Fatalf("ticket summon period: %s", got)
 	}
 	parked := store.GachaCatalogEntry{StartDatetime: 1627437600000, EndDatetime: 4102185600000}
-	if got := periodHTML(parked, false); got != "<p class=k>From 2021/07/28 (UTC) · no end date</p>" {
+	if got := periodHTML(english, parked, false); got != "<p class=k>From 2021/07/28 (UTC) · no end date</p>" {
 		t.Fatalf("open-ended summon period: %s", got)
 	}
 	dated := store.GachaCatalogEntry{StartDatetime: 1627437600000, EndDatetime: 1628042400000}
-	if got := periodHTML(dated, false); got != "<p class=k>2021/07/28 – 2021/08/04 (UTC)</p>" {
+	if got := periodHTML(english, dated, false); got != "<p class=k>2021/07/28 – 2021/08/04 (UTC)</p>" {
 		t.Fatalf("dated summon period: %s", got)
 	}
 }

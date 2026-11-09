@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"lunar-tear/server/internal/bunkertext"
 	"lunar-tear/server/internal/store"
 )
 
@@ -228,17 +229,33 @@ func (s *Notices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	words := bunkertext.For(noticeLanguage(r.URL.Path))
 	if !s.load() {
-		w.Write([]byte(noticePage("Notices", `<p class="empty">Notices aren't included in this build.</p>`)))
+		w.Write([]byte(noticePage(words, words.T("ingame.notices.title", nil), `<p class="empty">`+say(words, "ingame.notices.not_included", nil)+`</p>`)))
 		return
 	}
 	q := r.URL.Query()
 	if id := q.Get("informationId"); id != "" {
-		s.serveDetail(w, id, q.Get("tab"))
+		s.serveDetail(w, words, id, q.Get("tab"))
 		return
 	}
-	s.serveList(w, q.Get("tab"))
+	s.serveList(w, words, q.Get("tab"))
 }
+
+// noticeLanguage is the game's language in a Notices path (/ja/information/: ja), en without one.
+func noticeLanguage(path string) string {
+	if lang, _, ok := strings.Cut(strings.TrimPrefix(path, "/"), "/"); ok && lang != "information" {
+		return panelLanguage(lang)
+	}
+	return "en"
+}
+
+// say is a catalogue text, escaped for HTML text and double-quoted attributes (an apostrophe stays one).
+func say(words *bunkertext.Texts, key string, params map[string]string) string {
+	return escText.Replace(words.T(key, params))
+}
+
+var escText = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&#34;")
 
 func (s *Notices) serveImage(w http.ResponseWriter, key string) {
 	if !s.load() {
@@ -264,50 +281,52 @@ func (s *Notices) serveImage(w http.ResponseWriter, key string) {
 
 // The game's three tabs: News (everything), Events and Issues.
 var noticeTabs = []struct {
-	key, label string
+	key, label string // label: a catalogue key
 	types      map[int32]bool
 }{
-	{"update", "News", nil},
-	{"event", "Events", map[int32]bool{1: true, 2: true, 3: true, 4: true, 11: true}},
-	{"bug", "Issues", map[int32]bool{5: true}},
+	{"update", "ingame.notices.tab.news", nil},
+	{"event", "ingame.notices.tab.events", map[int32]bool{1: true, 2: true, 3: true, 4: true, 11: true}},
+	{"bug", "ingame.notices.tab.issues", map[int32]bool{5: true}},
 }
 
-// noticeBadge is the label and colour the game gave each notice type.
+// noticeBadge is the label (a catalogue key) and colour the game gave each notice type.
 func noticeBadge(t int32) (string, string) {
 	switch t {
 	case 1:
-		return "Update", "light"
+		return "ingame.notices.badge.update", "light"
 	case 2:
-		return "Event", "light"
+		return "ingame.notices.badge.event", "light"
 	case 3:
-		return "Summons Update", "light"
+		return "ingame.notices.badge.summons", "light"
 	case 4:
-		return "Campaign", "light"
+		return "ingame.notices.badge.campaign", "light"
 	case 5:
-		return "Issue", "red"
+		return "ingame.notices.badge.issue", "red"
 	case 6:
-		return "Maintenance", "red"
+		return "ingame.notices.badge.maintenance", "red"
 	case 7:
-		return "Information", "dark"
+		return "ingame.notices.badge.information", "dark"
 	case 9:
-		return "Operation Letter", "dark"
+		return "ingame.notices.badge.letter", "dark"
 	case 11:
-		return "Mission", "light"
+		return "ingame.notices.badge.mission", "light"
 	}
-	return "Other", "dark"
+	return "ingame.notices.badge.other", "dark"
 }
 
-func badgeHTML(t int32) string {
+func badgeHTML(words *bunkertext.Texts, t int32) string {
 	label, tone := noticeBadge(t)
-	return `<span class="badge ` + tone + `">` + label + `</span>`
+	return `<span class="badge ` + tone + `">` + say(words, label, nil) + `</span>`
 }
 
 // dateHTML is the notice's date (and postscript, once now in the live
 // service's dates has reached it), each moved by shown to the date the game shows.
-func dateHTML(n *notice, now int64, shown func(int64) int64) string {
+func dateHTML(words *bunkertext.Texts, n *notice, now int64, shown func(int64) int64) string {
 	s := `<time data-ms="` + strconv.FormatInt(shown(n.Publish), 10) + `"></time>`
 	if n.Postscript > 0 && n.Postscript <= now {
-		s += ` <span class="post">[Postscript: <time data-ms="` + strconv.FormatInt(shown(n.Postscript), 10) + `"></time>]</span>`
+		const slot = "\x00"
+		post := say(words, "ingame.notices.postscript", map[string]string{"date": slot})
+		s += ` <span class="post">` + strings.Replace(post, slot, `<time data-ms="`+strconv.FormatInt(shown(n.Postscript), 10)+`"></time>`, 1) + `</span>`
 	}
 	return s
 }
@@ -321,7 +340,7 @@ func tabIndex(key string) int {
 	return 0
 }
 
-func tabsHTML(current int) string {
+func tabsHTML(words *bunkertext.Texts, current int) string {
 	var b strings.Builder
 	b.WriteString(`<nav class="tabs">`)
 	for i, t := range noticeTabs {
@@ -329,17 +348,17 @@ func tabsHTML(current int) string {
 		if i == current {
 			cls = ` class="on"`
 		}
-		fmt.Fprintf(&b, `<a%s href="?tab=%s">%s</a>`, cls, t.key, t.label)
+		fmt.Fprintf(&b, `<a%s href="?tab=%s">%s</a>`, cls, t.key, say(words, t.label, nil))
 	}
 	b.WriteString(`</nav>`)
 	return b.String()
 }
 
-func (s *Notices) serveList(w http.ResponseWriter, tabKey string) {
+func (s *Notices) serveList(w http.ResponseWriter, words *bunkertext.Texts, tabKey string) {
 	tab := tabIndex(tabKey)
 	now := s.original()
 	var b strings.Builder
-	b.WriteString(tabsHTML(tab))
+	b.WriteString(tabsHTML(words, tab))
 	b.WriteString(`<main class="list">`)
 	var visible []*notice
 	for _, n := range s.list {
@@ -356,23 +375,23 @@ func (s *Notices) serveList(w http.ResponseWriter, tabKey string) {
 			thumb = `<img class="thumb" loading="lazy" src="img/` + n.Thumb + `.webp" alt="">`
 		}
 		fmt.Fprintf(&b, `<a class="row" href="?informationId=%d&amp;tab=%s"><div class="row-head">%s<span class="date">%s</span></div><div class="row-body">%s<span class="title">%s</span></div><span class="arrow"></span></a>`,
-			n.Id, noticeTabs[tab].key, badgeHTML(n.Type), dateHTML(n, now, s.shown), thumb, html.EscapeString(n.Title))
+			n.Id, noticeTabs[tab].key, badgeHTML(words, n.Type), dateHTML(words, n, now, s.shown), thumb, html.EscapeString(n.Title))
 	}
 	if shown == 0 {
-		b.WriteString(`<p class="empty">There are no notices yet.</p>`)
+		b.WriteString(`<p class="empty">` + say(words, "ingame.notices.empty", nil) + `</p>`)
 	}
 	b.WriteString(`</main>`)
-	w.Write([]byte(noticePage("Notices", b.String())))
+	w.Write([]byte(noticePage(words, words.T("ingame.notices.title", nil), b.String())))
 }
 
-func (s *Notices) serveDetail(w http.ResponseWriter, id, tabKey string) {
+func (s *Notices) serveDetail(w http.ResponseWriter, words *bunkertext.Texts, id, tabKey string) {
 	tab := tabIndex(tabKey)
 	v, _ := strconv.Atoi(id)
 	n := s.byID[int32(v)]
 	now := s.original()
 	if n == nil || n.Publish > now {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(noticePage("Notices", tabsHTML(tab)+`<main><a class="back" href="?tab=`+noticeTabs[tab].key+`" aria-label="Back"></a><p class="empty">This notice isn't available.</p></main>`)))
+		w.Write([]byte(noticePage(words, words.T("ingame.notices.title", nil), tabsHTML(words, tab)+`<main><a class="back" href="?tab=`+noticeTabs[tab].key+`" aria-label="`+say(words, "ingame.notices.back", nil)+`"></a><p class="empty">`+say(words, "ingame.notices.unavailable", nil)+`</p></main>`)))
 		return
 	}
 	// Bunker's Summons Details (costs, exchange, pool) for the summons this notice announced.
@@ -386,15 +405,18 @@ func (s *Notices) serveDetail(w http.ResponseWriter, id, tabKey string) {
 			continue
 		}
 		shown[g] = true
-		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/en/gacha-details?gachaId=%d">Summons Details</a>`, g)
+		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/en/gacha-details?gachaId=%d">%s</a>`, g, say(words, "ingame.notices.summons_details", nil))
 	}
-	body := fmt.Sprintf(`%s<main class="detail"><header><a class="back" href="?tab=%s" aria-label="Back"></a><div class="head-text">%s<h1>%s</h1></div><span class="date">%s</span></header><article>%s%s</article></main>`,
-		tabsHTML(tab), noticeTabs[tab].key, badgeHTML(n.Type), html.EscapeString(n.Title), dateHTML(n, now, s.shown), details.String(), n.Body)
-	w.Write([]byte(noticePage(n.Title, body)))
+	body := fmt.Sprintf(`%s<main class="detail"><header><a class="back" href="?tab=%s" aria-label="%s"></a><div class="head-text">%s<h1>%s</h1></div><span class="date">%s</span></header><article>%s%s</article></main>`,
+		tabsHTML(words, tab), noticeTabs[tab].key, say(words, "ingame.notices.back", nil), badgeHTML(words, n.Type), html.EscapeString(n.Title), dateHTML(words, n, now, s.shown), details.String(), n.Body)
+	w.Write([]byte(noticePage(words, n.Title, body)))
 }
 
-func noticePage(title, body string) string {
-	return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>` +
+// noticePage is a Notices page. Its chrome is in the pack's language; a notice's own words (recovered
+// from the live service) stay as they were written, so its article says it is English.
+func noticePage(words *bunkertext.Texts, title, body string) string {
+	body = strings.Replace(body, "<article>", `<article lang="en">`, 1)
+	return `<!DOCTYPE html><html lang="` + html.EscapeString(words.Language()) + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>` +
 		html.EscapeString(title) + `</title><style>` + noticeCSS + `</style></head><body>` + body + `<script>` + noticeJS + `</script></body></html>`
 }
 
@@ -405,7 +427,9 @@ func noticePage(title, body string) string {
 const noticeJS = `
 (function(){
 var pad=function(n){return (n<10?'0':'')+n};
+var lang=document.documentElement.lang||'en';
 function dates(){document.querySelectorAll('time[data-ms]').forEach(function(t){var d=new Date(+t.dataset.ms);
+if(lang!=='en'){try{t.textContent=d.toLocaleString(lang,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});return}catch(e){}}
 t.textContent=pad(d.getMonth()+1)+'/'+pad(d.getDate())+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())})}
 function show(url,push,y){
   fetch(url,{cache:'no-store'}).then(function(r){return r.text()}).then(function(text){
@@ -524,7 +548,7 @@ func SetNotices(n *Notices) {
 
 // summonNoticeHTML links Summons Details (the summon's "i" page) to the
 // summon's notice, opened in place like the notices themselves; "" if none.
-func summonNoticeHTML(entry store.GachaCatalogEntry) string {
+func summonNoticeHTML(words *bunkertext.Texts, entry store.GachaCatalogEntry) string {
 	id := summonNotice(entry)
 	activeNoticesMu.RLock()
 	n := activeNotices
@@ -536,8 +560,8 @@ func summonNoticeHTML(entry store.GachaCatalogEntry) string {
 	if title == "" {
 		return ""
 	}
-	return fmt.Sprintf(`<p><a class="notice-link" href="/en/information/?informationId=%d">Notice: %s</a></p><script>%s</script>`,
-		id, html.EscapeString(title), noticeJS)
+	return fmt.Sprintf(`<p><a class="notice-link" href="/en/information/?informationId=%d">%s</a></p><script>%s</script>`,
+		id, say(words, "ingame.summons.notice", map[string]string{"title": title}), noticeJS)
 }
 
 // Title is a notice's title, or "" if the pack doesn't have it.

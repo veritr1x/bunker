@@ -1,9 +1,11 @@
 package service
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
+	"lunar-tear/server/internal/bunkertext"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/missions"
 	"lunar-tear/server/internal/utils"
@@ -38,10 +40,17 @@ func languageType(lang string) int32 {
 	return 2
 }
 
-// local is key's text in the page's language, or "" (English pages, an
-// Archive built before it indexed other languages, a key it lacks).
+// local is key's text in the page's language, or "": on an English client the
+// active pack's, else the Archive's other languages (none in an Archive built
+// before it indexed them, or for a key it lacks).
 func (t *gameText) local(key string) string {
-	if t.db == nil || t.lang == "" || t.lang == "en" {
+	if t.lang == "" || t.lang == "en" {
+		if t.words == nil {
+			return ""
+		}
+		return t.words.Game(key)
+	}
+	if t.db == nil {
 		return ""
 	}
 	var v string
@@ -57,17 +66,29 @@ var digits = regexp.MustCompile(`\d+`)
 // mission of that wording, or of the same wording with other numbers (the
 // panel's numbers go in their place). A title no mission has stays English.
 func (t *gameText) missionText(english string) string {
-	if t.db == nil || t.lang == "" || t.lang == "en" {
+	if t.db == nil {
 		return english
 	}
 	if t.missions == nil {
 		t.missions = []missionName{}
-		rows, err := t.db.Query(`SELECT e.value, l.value FROM text e JOIN text_local l ON l.key = e.key AND l.lang = ?
-			WHERE e.key LIKE 'mission.name.%' ORDER BY e.key`, t.lang)
+		fromPack := t.lang == "" || t.lang == "en" // an English client: the pack's names (none without a pack)
+		query, args := `SELECT e.key, e.value, l.value FROM text e JOIN text_local l ON l.key = e.key AND l.lang = ?
+			WHERE e.key LIKE 'mission.name.%' ORDER BY e.key`, []any{t.lang}
+		if fromPack {
+			query, args = `SELECT key, value, '' FROM text WHERE key LIKE 'mission.name.%' ORDER BY key`, nil
+		}
+		rows, err := t.db.Query(query, args...)
 		if err == nil {
 			for rows.Next() {
+				var key string
 				var m missionName
-				if rows.Scan(&m.english, &m.local) == nil && m.local != "" {
+				if rows.Scan(&key, &m.english, &m.local) != nil {
+					continue
+				}
+				if fromPack {
+					m.local = t.local(key)
+				}
+				if m.local != "" {
 					t.missions = append(t.missions, m)
 				}
 			}
@@ -121,17 +142,20 @@ func sameNumbers(a, b []string) bool {
 }
 
 // panelTitle is the sheet's title in lang from the master data, or fallback
-// (the English one the sheets carry).
+// (the English one the sheets carry); in English, the active pack's master text for it.
 func panelTitle(run missions.PanelRun, lang, fallback string) string {
-	if lang == "en" {
-		return fallback
-	}
 	var titleId int32
 	rows, _ := utils.ReadTable[masterdata.EntityMWebviewMission]("m_webview_mission")
 	for _, m := range rows {
 		if m.WebviewMissionId == run.Id {
 			titleId = m.TitleTextId
 		}
+	}
+	if lang == "en" {
+		if s := bunkertext.For("en").Master(fmt.Sprintf("m_webview_mission_title_text.%d", titleId)); titleId != 0 && s != "" {
+			return s
+		}
+		return fallback
 	}
 	titles, _ := utils.ReadTable[masterdata.EntityMWebviewMissionTitleText]("m_webview_mission_title_text")
 	for _, r := range titles {
@@ -140,6 +164,16 @@ func panelTitle(run missions.PanelRun, lang, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+// storyFor is story id's text in lang: in English, the active pack's master text for it first.
+func storyFor(id int32, byLanguage map[int32]string, lang string) string {
+	if lang == "en" || lang == "" {
+		if s := bunkertext.For("en").Master(fmt.Sprintf("m_webview_panel_mission_complete_flavor_text.%d", id)); id != 0 && s != "" {
+			return s
+		}
+	}
+	return flavorIn(byLanguage, lang)
 }
 
 // flavorIn is a story in lang, else in English, else in the one language the

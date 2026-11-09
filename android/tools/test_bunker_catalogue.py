@@ -259,6 +259,31 @@ def calls():
             yield path, key, True, fields(ENGLISH.get(f"{key}.other", "")) | {"n"}
     yield from java_calls()
     yield from objc_calls()
+    yield from go_calls()
+
+
+# The text the Go server puts into the game (summon details, notices, panel pages): internal/bunkertext.
+GO_SOURCES = sorted(p for p in (ROOT / "overlays/server/internal/service").glob("*.go") if not p.name.endswith("_test.go"))
+GO_KEY = re.compile(r"(\b(?:T|TOr|Count)\(\s*|\bsay\(\s*(?:words,\s*)?)?\"(ingame\.[a-z0-9_.]+)\"")
+
+
+def go_calls():
+    """Every ingame.* key the server's Go code names. A key passed straight to T/Count/say has the names of
+    the map after it (to the end of the statement, or the next key); a key held in a variable or a table
+    first is trusted to get its placeholders."""
+    for path in GO_SOURCES:
+        text = path.read_text(encoding="utf-8")
+        for match in GO_KEY.finditer(text):
+            called, key = match.group(1), match.group(2)
+            rest = text[match.end():].split(")\n")[0].split("\"ingame.")[0]
+            plural = key not in ENGLISH and f"{key}.other" in ENGLISH
+            if called:
+                names = set(re.findall(r"\"([a-z_][a-z0-9_]*)\":", rest))
+            else:
+                names = fields(ENGLISH.get(key, "")) | fields(ENGLISH.get(f"{key}.other", ""))
+            if plural:
+                names.add("n")
+            yield path, key, plural, names
 
 
 def fields(text: str) -> set[str]:
@@ -437,7 +462,7 @@ class Catalogue(unittest.TestCase):
     def test_catalogue_is_sorted_plain_text(self):
         self.assertEqual(list(ENGLISH), sorted(ENGLISH))
         for key, value in ENGLISH.items():
-            self.assertRegex(key, r"^(common|pods|archive|launcher)\.[a-z0-9_.-]+$")
+            self.assertRegex(key, r"^(common|pods|archive|launcher|ingame)\.[a-z0-9_.-]+$")
             self.assertIsInstance(value, str)
             self.assertNotRegex(value, r"<[A-Za-z/]", key)  # no HTML in the catalogue
 
