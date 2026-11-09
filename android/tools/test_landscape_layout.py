@@ -63,6 +63,16 @@ class Pages(unittest.TestCase):
                 self.assertEqual(toc, bool(re.search(r"\sdata-toc[\s=>]", html)))
 
 
+class HoleOverlap(unittest.TestCase):
+    def test_only_tabs_whose_text_is_beside_the_hole_step_aside(self):
+        # A tab's padding reaching a few pixels into the hole's band moved it (Language, under the hole).
+        pages = [ROOT / "overlays/python/web/templates/base.html", ROOT / "android/app/src/main/python/archive/templates/base.html"]
+        for page in pages:
+            script = page.read_text()
+            self.assertIn("const pad = parseFloat(getComputedStyle(a).paddingTop) || 0;", script, page)
+            self.assertIn("b.bottom - pad > cut.top && b.top + pad < cut.bottom", script, page)
+
+
 class Apps(unittest.TestCase):
     def test_android_hides_its_bar_and_gives_the_hole(self):
         java = (ROOT / "android/app/src/main/java/org/veritr1x/bunker/ToolsActivity.java").read_text()
