@@ -17,6 +17,12 @@ class InfoIcon(unittest.TestCase):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
         return env.from_string('{% from "_info.html" import info %}' + source).render()
 
+    def test_a_button_row_keeps_space_below(self):
+        # Without it a panel after Save (Language › Load a pack) sat on the button in landscape.
+        css = (WEB / "static/css/automata.css").read_text()
+        rule = re.search(r"^\.actions \{([^}]*)\}", css, re.M).group(1)
+        self.assertRegex(rule, r"margin: 16px 0;")
+
     def test_the_icon_overrides_the_general_summary_style(self):
         # automata.css styles every <summary> (12px padding, uppercase, letter spacing): on the icon that
         # pushed the "i" below its circle and made it a capital I.
