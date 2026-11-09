@@ -1,6 +1,6 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Costume Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ user_id }} :: COSTUMES{% endblock %}
 
 {% macro costume_row(item) %}
 <form data-grant data-id="{{ item.id }}"
@@ -43,7 +43,7 @@
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Costume Editor</h1>
+<h1 class="bracket-header" data-side>Costume Editor{{ info("Add costumes and choose karma effects. Story-starter costumes are earned through play. Each change is backed up first.") }}</h1>
 <div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
@@ -54,15 +54,14 @@
   }).catch(() => {});
 </script>
 
-<div class="panel" data-side="intro"><p style="margin:0">Add costumes and choose karma effects. Story-starter costumes are earned through play. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
 <div class="search-row" data-side>
   <label for="search-costumes" class="search-label">FILTER</label>
   <input type="text" id="search-costumes" class="costume-search"
-         placeholder="Search by costume name, character, or id...">
-  <span class="tab-stats">{{ total_owned }} owned / {{ total_count }} total &middot; {{ missing_count }} missing</span>
+         placeholder="Name or ID">
+  <span class="tab-stats">{{ total_owned }}/{{ total_count }} owned</span>
   <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">GRANT ALL CHOSEN</button>
   <button type="button" class="grant-chosen-btn" id="update-karma-btn"
           {% if unlocked_karma_costume_count == 0 %}disabled{% endif %}>
@@ -146,7 +145,7 @@
       const owned = form && form.classList.contains("owned");
       sel.disabled = !slotUnlocked || !owned;
       if (!owned) {
-        sel.title = "Karma slots appear once you own the costume and Upgrade All Costumes has unlocked them.";
+        sel.title = "Own the costume and run Upgrade All Costumes to unlock.";
       } else if (!slotUnlocked) {
         sel.title = "Locked: run Upgrade All Costumes in the Upgrade Manager first.";
       } else {

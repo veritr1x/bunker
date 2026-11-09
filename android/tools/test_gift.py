@@ -202,8 +202,9 @@ class Sending(GameData):
         self.assertFalse(bad.json()["ok"])
 
 
-INTRO = ("Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. "
-         "The game keeps running: the Gift Box shows it after your next action.")
+# behind the title's info icon (_info.html), escaped as the macro writes it
+INTRO = ('<details class="info"><summary aria-label="More information">i</summary><div>Send yourself anything the game can hold, '
+         "then claim it from the game&#39;s Gift Box. It shows there after your next action.</div></details>")
 
 
 class Page(Sending):
@@ -241,7 +242,7 @@ class Page(Sending):
     def test_the_page_refuses_rather_than_trims(self):
         page = self.page()
         self.assertNotIn("Math.min(", page)  # a count above the room is refused, not cut down
-        self.assertIn("more than can be claimed", page)
+        self.assertIn("Too many: up to", page)
         self.assertIn("const sending = chosen", page)  # the item named after a send is the one sent
 
     def test_without_gift_text_the_page_works_as_usual(self):
@@ -249,7 +250,7 @@ class Page(Sending):
         page = self.page()
         self.assertNotIn("Apply a content preset", page)
         self.assertIn('id="send"', page)
-        self.assertIn("returns to its title screen", page)  # the first gift says so
+        self.assertIn("sends the game back to its title screen", page)  # the first gift says so
 
     def test_nav_and_editors_link_to_gift(self):
         templates = root / "overlays/python/web/templates"

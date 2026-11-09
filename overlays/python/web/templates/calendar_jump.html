@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Jump to{% endblock %}
 {% block content %}
 <h1>Content patcher</h1>
-<h2 class="bracket-header">Jump to</h2>
+<h2 class="bracket-header">Jump to{{ info("You can only move forward. To replay, start a new loop.") }}</h2>
 <form action="/patcher/calendar/jump" method="get" class="panel" id="pick">
   <dl class="kv plain"><dt>Now</dt><dd>Week {{ week }} · {{ today }}</dd></dl>
   <div class="label">Search</div>
@@ -11,7 +12,7 @@
   {% for item in updates %}
   <label class="choice" data-names="{{ item.all|lower }}" {% if loop.index > 5 %}hidden{% endif %}><input type="radio" name="at" value="{{ item.at }}" {% if item.at == target %}checked{% endif %} onchange="this.form.submit()"><span><span class="wk">Week {{ item.week }} · {{ item.day }}</span><strong>{{ item.name }}{% if item.more %} <span class="when">+{{ item.more }} more</span>{% endif %}</strong></span></label>
   {% endfor %}
-  {% if not updates %}<p>No more updates in this loop.</p>{% endif %}
+  {% if not updates %}<p>No more updates.</p>{% endif %}
   {% if week < weeks %}
   <div class="label">Or pick a week</div>
   <div class="weekrow">
@@ -45,7 +46,6 @@
   </div>
 </form>
 {% endif %}
-<p class="credit">You can only move forward. To replay, start a new loop.</p>
 <script>
 const find = document.getElementById('find');
 const rows = [...document.querySelectorAll('#pick .choice')];

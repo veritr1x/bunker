@@ -1,0 +1,8 @@
+{#- An explanation behind a small round "i", beside the heading, label or control it explains:
+    {{ info("One or two short sentences.") }}, or {% call info() %}text with <b>markup</b>{% endcall %};
+    cls adds classes (e.g. "best-only").
+    Tapping the "i" opens it; tapping it again, anywhere else or Escape closes it (base.html).
+    Not inside a <p> (the parser would end the paragraph) or a <summary> (a tap would also fold it). -#}
+{% macro info(text="", cls="") -%}
+<details class="info{% if cls %} {{ cls }}{% endif %}"><summary aria-label="More information">i</summary><div>{% if caller %}{{ caller() }}{% else %}{{ text }}{% endif %}</div></details>
+{%- endmacro %}

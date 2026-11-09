@@ -1,6 +1,6 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}User {{ u.user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ u.user_id }}{% endblock %}
 {% block content %}
 <p style="margin-top:0">
   <a href="/users">&larr; All users</a>
@@ -10,11 +10,11 @@
 <h1 class="bracket-header">This device</h1>
 <div class="panel panel-corners">
   {% if u.user_id == in_use %}
-  <p style="margin:0"><span class="status-pill online">IN USE</span> The game plays as this player on this device.</p>
+  <p style="margin:0"><span class="status-pill online">IN USE</span> The game plays as this player.</p>
   {% elif in_use is none %}
-  <p style="margin:0">Deploy and play once on this device to choose which player it uses.</p>
+  <p style="margin:0">Deploy and play once to choose a player here.</p>
   {% else %}
-  <p style="margin:0 0 12px">The game plays as player {{ in_use }}. Switching keeps that player and backs up your save first.</p>
+  <div style="margin:0 0 12px">The game plays as player {{ in_use }}.{{ info("Switching keeps that player and backs up your save first.") }}</div>
   <form method="post" action="/users/{{ u.user_id }}/use" onsubmit="return confirm('Play as player {{ u.user_id }} on this device?')">
     <button type="submit">Use this player</button>
   </form>
@@ -69,7 +69,7 @@
   </table>
 </div>
 
-<h1 class="bracket-header">Stackables</h1>
+<h1 class="bracket-header">Stackables{{ info("Premium items have no total count.") }}</h1>
 <div class="panel">
   <table>
     <thead>
@@ -91,8 +91,5 @@
       {% endfor %}
     </tbody>
   </table>
-  <p style="margin:16px 0 0;color:var(--fg-mid);font-size:var(--fs-label)">
-    Premium items have no total count.
-  </p>
 </div>
 {% endblock %}

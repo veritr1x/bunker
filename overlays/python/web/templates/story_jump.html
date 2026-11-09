@@ -1,6 +1,6 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Story Jump :: User {{ user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ user_id }} :: STORY{% endblock %}
 {% block content %}
 <style>
   .sj-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px dashed color-mix(in srgb,var(--fg-dark) 18%,transparent);min-height:44px}
@@ -26,8 +26,7 @@
 </style>
 
 <p><a href="/users/{{ user_id }}">&larr; User {{ user_id }}</a></p>
-<h1 class="bracket-header" data-side>Story Jump</h1>
-<div class="panel" data-side="intro"><p style="margin:0">Jump to a chapter, or to a quest in one. Every story quest before it is cleared and pays its first-clear rewards. Your save is backed up first. Forward only.</p></div>
+<h1 class="bracket-header" data-side>Story Jump{{ info("Every story quest before the jump is cleared and pays its first-clear rewards. Your save is backed up first. Forward only.") }}</h1>
 
 {% for season in view.seasons %}
 <h2 class="bracket-header costume-group-header">{{ season.title }}</h2>
@@ -59,7 +58,7 @@
     </summary>
     <div class="sj-quests">
       {% for q in c.quests %}
-      <div class="sj-row"><span class="t">{{ q.name }} <span class="sj-note">#{{ q.id }}</span></span>
+      <div class="sj-row"><span class="t">{{ q.name }}</span>
         {% if q.state == "ahead" %}<button type="button" data-quest="{{ q.id }}" data-label="{{ q.name }} of Chapter {{ c.id }}">Jump</button>
         {% elif q.state == "here" %}<span class="sj-state here">&#9654; you are here</span>
         {% else %}<span class="sj-state">{{ q.state }}</span>{% endif %}
@@ -103,7 +102,7 @@
     const r = await post("preview", mine);
     if (quest !== mine || done) return;  // another Jump was tapped meanwhile: its own preview fills the panel
     if (!r.ok) { body.innerHTML = `<p>${esc(r.error)}</p>`; go.hidden = true; return; }
-    body.innerHTML = summary(r) + `<p class="sj-note">Missions and drops are not paid. This can only be undone by restoring the backup taken first.</p>`;
+    body.innerHTML = summary(r) + `<p class="sj-note">Missions and drops are not paid. Undo only by restoring the backup.</p>`;
     go.disabled = false;
   }));
   cancel.addEventListener("click", () => { sheet.hidden = true; if (done) location.reload(); });
@@ -114,8 +113,8 @@
     if (!r.ok) { body.innerHTML = `<p>${esc(r.error)}</p>`; go.hidden = true; return; }
     done = true; go.hidden = true; cancel.textContent = "Done";
     const cal = r.calendar.startsWith("failed")
-      ? `<p>The calendar's game data could not be rebuilt (${esc(r.calendar.slice(8))}): the chapter opens at the next calendar change.</p>`
-      : r.calendar == "rebuilt" ? "<p>The calendar's game data was rebuilt, so the chapter is open.</p>" : "";
+      ? `<p>The chapter opens at the next calendar change (${esc(r.calendar.slice(8))}).</p>`
+      : "";
     title.textContent = title.textContent.replace(/^Jump to/, "Jumped to");
     body.innerHTML = `<p>Backup: ${esc(r.backup)}</p>` + summary(r, true) + cal;
   });

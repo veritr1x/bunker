@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Mods{% endblock %}
 {% block content %}
 <style>
@@ -12,15 +13,13 @@
   .bonus.paused b{text-decoration:line-through;opacity:.5}
   .setting .note{display:block;margin-top:4px}
 </style>
-<h1 data-side>Mods</h1>
-<p data-side="intro">Changes to how the game plays, for every player on this device. Every mod is off until you turn it on.
-  Mods never change your save, and they apply without a restart.</p>
+<h1 data-side>Mods{{ info("For every player on this device. Mods never change your save and apply without a restart.") }}</h1>
 
 <details class="mods-group" data-group="Preset" open data-side>
 <summary class="bracket-header">Preset<span class="fold" aria-hidden="true"></span></summary>
 <form action="/mods/preset" method="post" class="panel">
   {% for key, (title, what, _) in presets.items() %}
-  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
+  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong>{{ info(what) }}</span></label>
   {% endfor %}
   {% if not current %}<p class="credit">Current: your own choice below.</p>{% endif %}
   <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Use preset</button></div>
@@ -33,33 +32,28 @@
   <summary class="bracket-header" data-toc="{{ group }}"{% if group == "Challenges" %} id="challenges-head"{% endif %}>{{ group }}<span class="fold" aria-hidden="true"></span></summary>
   <div class="panel">
     {% if group == "Challenges" %}
-    <div class="bonus{% if bonus_paused %} paused{% endif %}" id="bonus"><span>Challenge bonus on quest rewards<br><span class="note" id="bonus-why">{{ bonus_reason }}</span></span><b id="bonus-x">×{{ bonus }}</b></div>
+    <div class="bonus{% if bonus_paused %} paused{% endif %}" id="bonus"><span>Challenge bonus on quest rewards{{ info("Bonuses multiply, up to ×10. They count only while Quests, Items & shops and Summons mods are off, and pause for the day after Start a new day. A change here sends the game to its title screen.") }}<br><span class="note" id="bonus-why">{{ bonus_reason }}</span></span><b id="bonus-x">×{{ bonus }}</b></div>
     {% endif %}
     {% for key, kind, title, what in mods %}
     {% if kind == "hard" %}
     <div class="setting">
-      <label for="{{ key }}">{{ title }}</label>
+      <label for="{{ key }}">{{ title }}{{ info(what) }}</label>
       <select name="{{ key }}" id="{{ key }}">
         <option value="1"{% if settings[key] == 1 %} selected{% endif %}>Off</option>
         {% for n, b in hard_enemies.items() %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>Enemies ×{{ n }} — rewards ×{{ b }}</option>{% endfor %}
       </select>
-      <span class="note">{{ what }}</span>
     </div>
     {% elif kind == "multiplier" %}
     <div class="setting">
-      <label for="{{ key }}">{{ title }}</label>
+      <label for="{{ key }}">{{ title }}{{ info(what) }}</label>
       <select name="{{ key }}" id="{{ key }}">
         {% for n in range(1, max_multiplier + 1) %}<option value="{{ n }}"{% if settings[key] == n %} selected{% endif %}>{% if n == 1 %}Off (×1){% else %}×{{ n }}{% endif %}</option>{% endfor %}
       </select>
-      <span class="note">{{ what }}</span>
     </div>
     {% else %}
-    <label class="choice"><input type="checkbox" name="{{ key }}"{% if settings[key] %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
+    <label class="choice"><input type="checkbox" name="{{ key }}"{% if settings[key] %} checked{% endif %}><span><strong>{{ title }}</strong>{{ info(what) }}</span></label>
     {% endif %}
     {% endfor %}
-    {% if group == "Challenges" %}
-    <p class="credit" data-info="challenges-head" style="margin:10px 0 0">Bonuses multiply, up to ×10. The bonus counts only while the Quests, Items &amp; shops and Summons mods are off, and pauses for the rest of the day after Start a new day. A change here sends the game to its title screen.</p>
-    {% endif %}
   </div>
   </details>
   {% endfor %}

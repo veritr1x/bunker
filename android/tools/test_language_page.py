@@ -58,6 +58,15 @@ class LanguagePageTest(unittest.TestCase):
         self.assertIn("Português", page.text)
         self.assertIn("1 text (", page.text)
 
+    def test_explanations_render_behind_an_info_icon(self):
+        page = self.client.get("/language").text
+        # the page's intro sits in its title, the pack note beside the file input: closed until tapped
+        self.assertRegex(page, r'<h1 data-side>Language<details class="info"><summary aria-label="More information">i</summary>'
+                               r'<div>Keep the game set to English: a pack replaces its English text\.[^<]*</div></details></h1>')
+        self.assertIn('required><details class="info"><summary aria-label="More information">i</summary><div>A .json pack', page)
+        self.assertNotIn('<details class="info" open', page)
+        self.assertIn("details.info > summary", page)                     # styled by base.html
+
     def test_choose_writes_active(self):
         self.load()
         response = self.client.post("/language", data={"choice": "loaded:pt-BR"})
@@ -177,12 +186,11 @@ class LanguagePageTest(unittest.TestCase):
         self.status('{"state":"failed","language":"pt-BR","name":"Português","version":"1","error":"no space left on device"}')
         page = self.client.get("/language").text
         self.assertIn("Português could not be applied: no space left on device", page)
-        self.assertIn("tried again", page)
 
     def test_unsupported_client(self):
         (config.REVISIONS_DIR / "0" / "assetbundle" / "text" / "en").rmdir()
         self.load()
-        self.assertIn("not supported", self.client.get("/language").text)
+        self.assertIn("Language packs need the global game files.", self.client.get("/language").text)
         response = self.client.post("/language", data={"choice": "loaded:pt-BR"})
         self.assertIn("error=", response.headers["location"])
         self.assertFalse((self.translation / "active.json").exists())

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Gift{% endblock %}
 {% block content %}
 <style>
@@ -29,8 +30,7 @@
 }
 </style>
 
-<h1 class="bracket-header" data-side>Gift</h1>
-<p data-side="intro">Send yourself anything the game can hold, then claim it from the game's Gift Box. It shows there after your next action in the game.</p>
+<h1 class="bracket-header" data-side>Gift{{ info("Send yourself anything the game can hold, then claim it from the game's Gift Box. It shows there after your next action.") }}</h1>
 {% if players|length > 1 %}
   <div class="panel" data-side><p style="margin:0"><label for="player">Player</label>
   <select id="player" onchange="location.href='/gift?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p></div>
@@ -42,7 +42,7 @@
 
 <h2 class="bracket-header">1 :: Choose</h2>
 <div class="panel">
-  <input id="q" type="search" placeholder="Search every category by name" style="width:100%">
+  <input id="q" type="search" placeholder="Search" style="width:100%">
   <div class="gift-cats" id="cats">{% for card in cards %}<button type="button" class="gift-card" data-card="{{ card.name }}">{{ card.name }}</button>{% endfor %}</div>
   <div class="gift-tabs" id="tabs"></div>
   <div class="gift-list" id="list"></div>
@@ -51,11 +51,11 @@
 <h2 class="bracket-header" data-side>2 :: Send</h2>
 <div class="panel" data-side>
   <div class="gift-send">
-    <strong id="what">Nothing chosen yet</strong>
+    <strong id="what">Nothing chosen</strong>
     <input id="count" type="number" min="1" value="1" inputmode="numeric" aria-label="Count" disabled>
     <button id="send" type="button" disabled>SEND</button>
   </div>
-  <p class="note" id="hint" style="margin:8px 0 0">Pick a category, or search.</p>
+  <p class="note" id="hint" style="margin:8px 0 0"></p>
 </div>
 
 <h2 class="bracket-header" data-side>Waiting in the Gift Box</h2>
@@ -69,7 +69,7 @@
 <script>
 (() => {
   const CARDS = JSON.parse(document.getElementById("gift-data").textContent), USER = {{ user }};
-  const ONE = {1: "One copy per gift. A copy you already own turns into its usual exchange items when you claim it.",
+  const ONE = {1: "One per gift. A copy you own becomes exchange items.",
                14: "One per gift."};  // other kinds sent one per gift (costumes, weapons) use 1's
   const $ = id => document.getElementById(id);
   let card = CARDS[0], group = card.groups[0], chosen = null;

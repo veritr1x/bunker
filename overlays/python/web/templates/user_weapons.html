@@ -1,6 +1,6 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Weapon Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ user_id }} :: WEAPONS{% endblock %}
 
 {% macro weapon_row(item) %}
 <form data-grant data-id="{{ item.id }}"
@@ -29,7 +29,7 @@
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Weapon Editor</h1>
+<h1 class="bracket-header" data-side>Weapon Editor{{ info("Add weapons with their skills and stories. Story-starter weapons are earned through play. Each change is backed up first.") }}</h1>
 <div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
@@ -40,17 +40,16 @@
   }).catch(() => {});
 </script>
 
-<div class="panel" data-side="intro"><p style="margin:0">Add weapons, with their skills and stories. Story-starter weapons are earned through play. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
 <div class="search-row" data-side>
   <label for="search-weapons" class="search-label">FILTER</label>
   <input type="text" id="search-weapons" class="costume-search"
-         placeholder="Search by weapon name or id...">
+         placeholder="Name or ID">
   <span class="tab-stats">
-    INVENTORY: <span id="inventory-count">{{ inventory_count }}</span> / {{ inventory_cap }} weapons
-    &middot; CATALOG: {{ total_owned }} owned / {{ total_count }} total &middot; {{ missing_count }} missing
+    INVENTORY: <span id="inventory-count">{{ inventory_count }}</span> / {{ inventory_cap }}
+    &middot; {{ total_owned }}/{{ total_count }} owned
   </span>
   <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">GRANT ALL CHOSEN</button>
   <button type="button" class="max-all-btn" id="grant-missing-btn"
@@ -198,7 +197,7 @@
   document.getElementById("grant-missing-btn").addEventListener("click", async () => {
     const btn = document.getElementById("grant-missing-btn");
     if (btn.dataset.busy === "1") return;
-    if (!confirm(`Grant every missing weapon? This fails if your inventory has no room for them.`)) return;
+    if (!confirm(`Grant every missing weapon? It fails if your inventory is too full.`)) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;

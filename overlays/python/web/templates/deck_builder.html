@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Deck Builder{% endblock %}
 {% block content %}
 <style>
@@ -205,8 +206,7 @@
   }
 </style>
 
-<h1 class="bracket-header" data-side>Deck Builder</h1>
-<p data-side="intro">Decks as experienced players built them at the end of service, with the game's own Force. Choose a deck, see why each piece is in it, and write it to the Arena or Loadout decks you choose. Other decks stay as they are, and Save Data keeps a backup from before every write.</p>
+<h1 class="bracket-header" data-side>Deck Builder{{ info("Decks as experienced players built them at the end of service. Writing one replaces only the decks you choose; Save Data keeps a backup first.") }}</h1>
 {% if players|length > 1 %}
   <div class="panel" data-side><p style="margin:0"><label for="player">Player</label>
   <select id="player" onchange="location.href='/decks?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p></div>
@@ -217,10 +217,9 @@
   <div class="db-controls">
     <div class="db-lbl">Deck for</div>
     <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">Attack</button><button type="button" data-v="defense">Defense</button><button type="button" data-v="subjugation">Subjugation</button></div></div>
-    <div class="db-lbl" id="lbl-mode">Build from</div>
+    <div class="db-lbl" id="lbl-mode">Build from{{ info("Ranks decks as if you owned every costume, fully raised. Writing one adds the missing pieces and raises your own.", "best-only") }}{{ info("Uses your costumes as they are.", "owned-only") }}</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">What I own</button><button type="button" data-v="best" class="on">All maxed</button></div>
-      <p class="help best-only" data-info="lbl-mode">All maxed ranks decks as if you owned every costume, fully raised. Each costume you own adds to its character's stats, so with some missing, a deck does a little worse for you than shown. Writing a deck adds missing pieces maxed and raises your own costumes and characters.</p>
-      <p class="help owned-only">What I own uses your costumes as they are. Allow up to
+      <p class="help owned-only">Allow up to
         <select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">All</option></select> pieces to be added.</p></div>
     <div class="db-lbl subj-only">Boss</div>
     <div class="subj-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -243,7 +242,7 @@
   <div class="f-body">
     <section class="f-who" aria-label="Characters">
       <div class="f-who-head"><div class="db-lbl">Characters</div><input type="search" id="f-find" placeholder="Find a character" autocomplete="off" aria-label="Find a character"></div>
-      <p class="help" id="f-picked">Tap a costume once to require it (✓), again to leave it out (✕), again to clear it.</p>
+      <p class="help" id="f-picked">Tap: require (✓), leave out (✕), clear.</p>
       <div class="f-chars" id="f-chars" role="list"><p class="help">Loading…</p></div>
     </section>
     <section class="f-what">
@@ -258,13 +257,12 @@
         {% for e in ("fire","water","wind","light","dark") %}<button type="button" class="chip e e-{{ e }}" data-v="{{ e }}">{{ e|title }}</button>{% endfor %}</div></div>
       <div class="f"><div class="db-lbl">Minimum per character</div>
         {% for k, n, mx in (("agi","Agility",3000),("hp","HP",800000),("atk","ATK",80000),("crit","Crit rate ‰",1000)) %}<div class="rng"><span>{{ n }}</span><input type="range" min="0" max="{{ mx }}" step="{{ mx // 50 }}" value="0" data-min="{{ k }}"><span data-show="{{ k }}">—</span></div>{% endfor %}</div>
-      <p class="help">Similar decks are folded into one.</p>
     </section>
   </div>
   <div class="sheet-foot"><button type="button" class="chip" onclick="clearFilters()">Clear</button><button type="button" onclick="sheet(false)">Show decks</button></div>
 </div>
 
-<h2 class="bracket-header">Decks</h2>
+<h2 class="bracket-header">Decks{{ info("Similar decks are folded into one.") }}</h2>
 <div class="resbar"><span id="count">Loading…</span><label class="sort arena-only">Sort <select id="sort"><option value="match">Best match</option><option value="force">Force</option><option value="fewest">Fewest to add</option></select></label></div>
 <div class="cards" id="cards"></div>
 <p class="more" id="more"></p>
@@ -376,7 +374,7 @@ function markCostumes() {
   const names = ids => ids.map(id => (list.find(c => c.id === id) || {}).character || id).join(", ");
   $("f-picked").textContent = state.include.length || state.exclude.length
     ? [state.include.length ? `Required: ${names(state.include)}` : "", state.exclude.length ? `Left out: ${names(state.exclude)}` : ""].filter(Boolean).join(" · ")
-    : "Tap a costume once to require it (✓), again to leave it out (✕), again to clear it.";
+    : "Tap: require (✓), leave out (✕), clear.";
 }
 $("f-find").addEventListener("input", drawCostumes);
 $("f-chars").addEventListener("click", e => {
@@ -420,7 +418,7 @@ function loadoutHtml(c) {
       `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}</div>`).join("")}</div>
     <div class="lo-txt"><b>${esc(d.title)}</b><small>${big(d.damage)} damage${d.knockdowns ? " · knock-down" : ""}</small></div></div>`).join("");
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
-    <div class="rc-name"><b>${big(c.damage)} damage</b><small>Three decks, nine characters</small></div><span></span></div>${rows}
+    <div class="rc-name"><b>${big(c.damage)} damage</b></div><span></span></div>${rows}
     <div class="rc-foot"><span>Force <b>${c.force.toLocaleString()}</b></span></div></button>`;
 }
 function cardHtml(c) {
@@ -513,12 +511,12 @@ function raiseBoxes(d) {
 async function openLoadout(key, c) {
   const boss = $("boss").selectedOptions[0]?.textContent.split(" · ")[0] || "Subjugation";
   $("d-title").textContent = boss;
-  $("d-sub").textContent = `Difficulty ${$("difficulty").value} · three decks, nine characters`;
+  $("d-sub").textContent = `Difficulty ${$("difficulty").value}`;
   $("d-trio").innerHTML = c.decks.flatMap(d => d.tiles).map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}</div>`).join("");
   $("d-stats").innerHTML = [["Damage", big(c.damage)], ["Force", c.force.toLocaleString()],
                             ["Knock-downs", c.decks.reduce((n, d) => n + d.knockdowns, 0)], ["Decks", 3]]
     .map(([k, v]) => `<div>${k}<b>${esc(v)}</b></div>`).join("");
-  $("d-why").textContent = "Each deck fights one phase of the boss, Subjugation deck 1 first. The damage is the simulator's, at this difficulty; the boss does not fall, so more damage is a higher score.";
+  $("d-why").textContent = "Each deck fights one boss phase. More simulated damage scores higher.";
   $("d-why").classList.remove("open"); $("d-more").hidden = true;
   $("d-chars").innerHTML = '<p class="help">Loading…</p>'; $("d-over").innerHTML = ""; $("w-raise-box").hidden = true; $("w-sum").textContent = "";
   $("d-msg").hidden = true;
@@ -563,7 +561,7 @@ addEventListener("popstate", () => { if (!$("detail").hidden) hideDetail(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("detail").hidden) closeDetail(); });
 async function prepare(against, costumes) {
   $("count").textContent = "Preparing fully raised pieces…";
-  $("more").textContent = "The game's server pauses for a moment while Deck Builder raises them.";
+  $("more").textContent = "The game's server pauses for a moment.";
   const res = await fetch("/decks/prepare", {method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({user: USER, against: against || null, costumes: costumes || []})});
   const j = await res.json();
@@ -585,7 +583,7 @@ async function rescore() {
     return;
   }
   $("w-sum").innerHTML = `<strong>Adds ${detailData.added} piece${detailData.added === 1 ? "" : "s"}, fully raised.</strong> Force <b>${s.force.toLocaleString()}</b>, wins <b>${s.win_pct}%</b>`
-    + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".") + " Save Data keeps a backup first.";
+    + (detailData.raises.length ? ` with ${raise.length ? "the ticked costumes raised" : "your costumes as they are"}.` : ".");
 }
 // WRITE DECK opens the picker: Arena or Loadout decks, each naming what it holds; the picks are listed as what they
 // replace, and REPLACE writes them.
@@ -633,7 +631,7 @@ async function writeDeck() {
     if (j.ok) {
       msg.className = "banner success";
       msg.textContent = subj ? `> Written to Subjugation decks 1, 2 and 3. Added ${j.added} piece${j.added === 1 ? "" : "s"}.`
-        : `> Written to ${slots.length} deck slot${slots.length > 1 ? "s" : ""}. Added ${j.added} piece${j.added === 1 ? "" : "s"}. The game updates the deck's power when it next shows it.`;
+        : `> Written to ${slots.length} deck slot${slots.length > 1 ? "s" : ""}. Added ${j.added} piece${j.added === 1 ? "" : "s"}.`;
       load(true);   // the save changed: the list is read again
     }
     else { msg.className = "banner error"; msg.textContent = "> ERROR :: " + j.error; }
