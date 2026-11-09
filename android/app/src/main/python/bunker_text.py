@@ -20,6 +20,7 @@ _CATALOGUES = tuple(p / "translations/bunker/en.json" for p in _HERE.parents[4:5
 _english: dict[str, str] | None = None
 _extra: dict[str, str] = {}
 _translation: dict[str, str] = {}
+_language = "en"
 _loaded: tuple | None = None
 
 
@@ -36,12 +37,25 @@ def english() -> dict[str, str]:
     return _english
 
 
-def use(texts: dict | None) -> None:
-    """Translate with these texts from now on (None: English only). Non-text values are ignored."""
-    global _translation, _loaded
+def use(texts: dict | None, language: str | None = None) -> None:
+    """Translate with these texts, in this language (its plural forms), from now on (None: English only).
+    Non-text values are ignored."""
+    global _translation, _language, _loaded
     _translation = {key: value for key, value in (texts or {}).items()
                     if isinstance(key, str) and isinstance(value, str) and value}
+    _language = language if texts and isinstance(language, str) and language else "en"
     _loaded = None
+
+
+def plural_category(language_tag: str, n: int) -> str:
+    """The plural category ("one", "few", "other"…) of the whole number n in a language."""
+    import bunker_plurals
+    return bunker_plurals.category(language_tag, n)
+
+
+def language() -> str:
+    """The language the texts are in (a BCP 47 tag), "en" without a translation."""
+    return _language
 
 
 @contextlib.contextmanager
@@ -82,9 +96,60 @@ def t(key: str, **params) -> str:
         return base
 
 
+def _english_text(key: str) -> str | None:
+    return _extra.get(key) or english().get(key)
+
+
+def _translated_forms(key: str) -> dict[str, str] | None:
+    """The translation's plural forms of key, when they cover every form its language uses and each takes only
+    placeholders the English has (a form may leave out {n}: "one file"); otherwise None (the English is used)."""
+    import bunker_plurals
+    other = _english_text(f"{key}.other")
+    if other is None or not _translation:
+        return None
+    allowed = _fields(other)
+    forms = {}
+    for category in bunker_plurals.categories(_language):
+        text = _translation.get(f"{key}.{category}")
+        fields = _fields(text) if text is not None else None
+        if fields is None or allowed is None or not set(fields) <= set(allowed):
+            return None
+        forms[category] = text
+    for category in bunker_plurals.CATEGORIES:  # extra forms a script may fall back on ("other")
+        text = _translation.get(f"{key}.{category}")
+        if category not in forms and text is not None and (fields := _fields(text)) is not None \
+                and set(fields) <= set(allowed):
+            forms[category] = text
+    return forms
+
+
 def t_count(key: str, n: int, **params) -> str:
-    """key's ".one" form for a count of 1, its ".other" form otherwise; {n} is the count."""
-    return t(f"{key}.one" if n == 1 else f"{key}.other", n=n, **params)
+    """key in the plural form the language uses for n (".one", ".few", ".other"…); {n} is the count. A translation
+    missing a form its language needs gives the English text (".one" for 1, ".other" otherwise)."""
+    import bunker_plurals
+    forms = _translated_forms(key)
+    if forms is not None:
+        try:
+            return forms[bunker_plurals.category(_language, n)].format(n=n, **params)
+        except (KeyError, IndexError, ValueError):
+            pass
+    base = _english_text(f"{key}.one" if n == 1 else f"{key}.other")
+    if base is None:
+        return f"{key}.other"
+    try:
+        return base.format(n=n, **params)
+    except (KeyError, IndexError, ValueError):
+        return base
+
+
+def plural_forms(key: str) -> dict[str, str]:
+    """A counted text's forms for a page script, which picks one with Intl.PluralRules(language()): the
+    translation's when complete, else English's one/other. Placeholders are left for the script to fill."""
+    forms = _translated_forms(key)
+    if forms is not None:
+        return forms
+    return {category: text for category in ("one", "other")
+            if (text := _english_text(f"{key}.{category}")) is not None}
 
 
 _SLOT = "\x00"   # stands where the slot goes while the text is formatted
@@ -108,7 +173,7 @@ def t_around(key: str, slot: str, **params) -> tuple[str, str]:
 def install(target) -> None:
     """Gives templates t, t_count and t_around (a Jinja2Templates, or a jinja2 Environment)."""
     env = getattr(target, "env", target)
-    env.globals.update(t=t, t_count=t_count, t_around=t_around)
+    env.globals.update(t=t, t_count=t_count, t_around=t_around, plural_forms=plural_forms, text_language=language)
 
 
 def install_everywhere() -> None:
@@ -141,13 +206,13 @@ def reload(active: Path | None = None) -> None:
         stamp = (str(active), None, None)
     if stamp == _loaded:
         return
-    texts = None
+    texts, language_tag = None, None
     if stamp[1] is not None:
         try:
             pack = json.loads(active.read_text(encoding="utf-8"))
             if isinstance(pack, dict) and isinstance(pack.get("bunker"), dict):
-                texts = pack["bunker"]
+                texts, language_tag = pack["bunker"], pack.get("language")
         except (OSError, UnicodeDecodeError, ValueError):
             texts = None
-    use(texts)
+    use(texts, language_tag)
     _loaded = stamp

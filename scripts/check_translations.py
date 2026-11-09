@@ -104,6 +104,19 @@ def _load(path: Path):
     return data, [f"{key}: appears more than once" for key in dict.fromkeys(duplicates)]
 
 
+PLURAL_FORMS = ("zero", "one", "two", "few", "many", "other")  # CLDR categories (bunker_plurals.py)
+
+
+def _english_for(key: str, template: dict[str, str]) -> tuple[str | None, bool]:
+    """The English a translated key is checked against, and whether it is a form of a counted text (English
+    "x.one" and "x.other": a translation may add the other forms its language uses, such as "x.few")."""
+    base, _, form = key.rpartition(".")
+    counted = form in PLURAL_FORMS and f"{base}.one" in template and f"{base}.other" in template
+    if counted:
+        return template[f"{base}.other"], True
+    return template.get(key), False
+
+
 def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
                coverage: frozenset[int] | None = None) -> list[str]:
     """Every problem in one translation file. line_breaks: real line breaks allowed (master texts have them).
@@ -114,7 +127,8 @@ def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
     if data is None:
         return found
     for key, value in data.items():
-        if key not in template:
+        english, counted = _english_for(key, template)
+        if english is None:
             found.append(f"{shown}: {key}: not a key of en.json")
         elif not isinstance(value, str):
             found.append(f"{shown}: {key}: must be text (in quotes)")
@@ -124,17 +138,18 @@ def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
             found.append(f"{shown}: {key}: is only spaces; leave it empty (\"\") to show the English")
         elif not line_breaks and ("\n" in value or "\r" in value):
             found.append(f"{shown}: {key}: has a real line break; write \\\\n (two backslashes) instead")
-        elif value and markup(value) != markup(template[key]):
-            missing = markup(template[key]) - markup(value)
-            extra = markup(value) - markup(template[key])
+        elif value and (markup(value) - markup(english) if counted else markup(value) != markup(english)):
+            # A counted text's form may leave a placeholder out ("one file"), never bring its own.
+            missing = collections.Counter() if counted else markup(english) - markup(value)
+            extra = markup(value) - markup(english)
             what = "; ".join(filter(None, [
                 ("missing " + " ".join(missing.elements())) if missing else "",
                 ("not in the English " + " ".join(extra.elements())) if extra else ""]))
             found.append(f"{shown}: {key}: tags, placeholders and braces must match the English ({what})")
-        elif value and (reversed_tags := _closed_early(value) - _closed_early(template[key])):
+        elif value and (reversed_tags := _closed_early(value) - _closed_early(english)):
             tags = " ".join(f"</{name}>" for name in sorted(reversed_tags))
             found.append(f"{shown}: {key}: a closing tag comes before its opening tag ({tags})")
-        if coverage is not None and key in template and isinstance(value, str) \
+        if coverage is not None and english is not None and isinstance(value, str) \
                 and not any("\ud800" <= ch <= "\udfff" for ch in value):
             # Invisible format characters (word joiner U+2060, which the game's own English uses) need no glyph.
             unshown = list(dict.fromkeys(ch for ch in value if ch not in "\n\r\t" and ord(ch) not in coverage
