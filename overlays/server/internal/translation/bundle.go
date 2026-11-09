@@ -102,19 +102,66 @@ type byteReader struct {
 	err error
 }
 
+// take returns the next n bytes, or nil (and records an error) when they are
+// not there; it never allocates, so a damaged length cannot ask for gigabytes.
 func (r *byteReader) take(n int) []byte {
-	if r.err != nil || n < 0 || r.p+n > len(r.b) {
-		r.err = errors.New("unexpected end of data")
-		return make([]byte, max(n, 0))
+	if r.err != nil || n < 0 || n > len(r.b)-r.p {
+		if r.err == nil {
+			r.err = errors.New("unexpected end of data")
+		}
+		return nil
 	}
 	s := r.b[r.p : r.p+n]
 	r.p += n
 	return s
 }
 
-func (r *byteReader) u16(o binary.ByteOrder) uint16 { return o.Uint16(r.take(2)) }
-func (r *byteReader) u32(o binary.ByteOrder) uint32 { return o.Uint32(r.take(4)) }
-func (r *byteReader) u64(o binary.ByteOrder) uint64 { return o.Uint64(r.take(8)) }
+// left is how many bytes remain.
+func (r *byteReader) left() int { return max(len(r.b)-r.p, 0) }
+
+// count reads a u32 count of items at least size bytes each, failing when the
+// remaining bytes cannot hold that many.
+func (r *byteReader) count(o binary.ByteOrder, size int) int {
+	n := int(r.u32(o))
+	if r.err == nil && n > r.left()/size {
+		r.err = fmt.Errorf("count %d does not fit in %d bytes", n, r.left())
+	}
+	if r.err != nil {
+		return 0
+	}
+	return n
+}
+
+func (r *byteReader) u8() uint8 {
+	if b := r.take(1); b != nil {
+		return b[0]
+	}
+	return 0
+}
+
+func (r *byteReader) u16(o binary.ByteOrder) uint16 {
+	if b := r.take(2); b != nil {
+		return o.Uint16(b)
+	}
+	return 0
+}
+
+func (r *byteReader) u32(o binary.ByteOrder) uint32 {
+	if b := r.take(4); b != nil {
+		return o.Uint32(b)
+	}
+	return 0
+}
+
+func (r *byteReader) u64(o binary.ByteOrder) uint64 {
+	if b := r.take(8); b != nil {
+		return o.Uint64(b)
+	}
+	return 0
+}
+
+// maxTextBytes caps any size read from a text bundle (the largest is well under 1 MB).
+const maxTextBytes = 64 << 20
 
 func (r *byteReader) cstring() string {
 	if r.err != nil {
@@ -133,6 +180,9 @@ func (r *byteReader) cstring() string {
 func (r *byteReader) align(n int) { r.p = (r.p + n - 1) / n * n }
 
 func uncompress(flags uint32, src []byte, size int) ([]byte, error) {
+	if size < 0 || size > maxTextBytes {
+		return nil, fmt.Errorf("size %d is out of range", size)
+	}
 	switch flags & 0x3f {
 	case 0:
 		return src, nil
@@ -175,9 +225,14 @@ func readBundle(plain []byte) (*bundleFile, error) {
 		size, csize uint32
 		flags       uint16
 	}
-	blocks := make([]block, ir.u32(be))
+	blocks := make([]block, ir.count(be, 10))
+	total := 0
 	for i := range blocks {
 		blocks[i] = block{ir.u32(be), ir.u32(be), ir.u16(be)}
+		total += int(blocks[i].size)
+	}
+	if total > maxTextBytes {
+		return nil, fmt.Errorf("bundle file of %d bytes is out of range", total)
 	}
 	nodes := int(ir.u32(be))
 	if ir.err != nil || nodes != 1 {
@@ -271,14 +326,20 @@ func objectTable(sf []byte) (int, binary.ByteOrder, []tableObject, error) {
 		return 0, nil, nil, fmt.Errorf("serialized file format %d is not supported", format)
 	}
 	var order binary.ByteOrder = be
-	if r.take(4)[0] == 0 {
+	if b := r.take(4); b != nil && b[0] == 0 {
 		order = binary.LittleEndian
+	}
+	if r.err != nil || dataOffset < r.p || dataOffset > len(sf) {
+		return 0, nil, nil, fmt.Errorf("serialized file header is damaged (data at %d of %d bytes)", dataOffset, len(sf))
 	}
 	r.cstring() // Unity version
 	r.u32(order)
-	typeTree := r.take(1)[0] != 0
-	classes := make([]int32, r.u32(order))
+	typeTree := r.u8() != 0
+	classes := make([]int32, r.count(order, 23))
 	for i := range classes {
+		if r.err != nil {
+			break
+		}
 		classes[i] = int32(r.u32(order))
 		r.take(1)    // stripped
 		r.u16(order) // script type index
@@ -292,8 +353,11 @@ func objectTable(sf []byte) (int, binary.ByteOrder, []tableObject, error) {
 			r.take(int(r.u32(order)) * 4) // dependencies
 		}
 	}
-	objects := make([]tableObject, r.u32(order))
+	objects := make([]tableObject, r.count(order, 20))
 	for i := range objects {
+		if r.err != nil {
+			break
+		}
 		r.align(4)
 		r.u64(order) // path id
 		o := tableObject{at: r.p}
@@ -308,7 +372,7 @@ func objectTable(sf []byte) (int, binary.ByteOrder, []tableObject, error) {
 		return 0, nil, nil, r.err
 	}
 	for _, o := range objects {
-		if dataOffset+o.start+o.size > len(sf) {
+		if o.at+8 > dataOffset || o.start < 0 || o.size < 0 || o.start > len(sf)-dataOffset || o.size > len(sf)-dataOffset-o.start {
 			return 0, nil, nil, errors.New("object outside the serialized file")
 		}
 	}
