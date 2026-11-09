@@ -19,13 +19,13 @@ func ReplaceValues(text string, values map[string]string) (string, int) {
 		if stripped == "" || strings.HasPrefix(stripped, "//") {
 			continue
 		}
-		head, _, found := strings.Cut(body, ":")
+		head, old, found := strings.Cut(body, ":")
 		if !found {
 			continue
 		}
 		value, ok := values[strings.TrimSpace(head)]
-		if !ok || strings.TrimSpace(head) == "" {
-			continue
+		if !ok || strings.TrimSpace(head) == "" || value == old {
+			continue // a translation equal to the English changes nothing (and costs no download)
 		}
 		line = head + ":" + value
 		if cr {
