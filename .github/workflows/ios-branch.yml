@@ -24,7 +24,7 @@ concurrency:
 jobs:
   ios:
     name: iOS launcher and Tools runtime
-    runs-on: macos-15
+    runs-on: macos-26  # Xcode 26 (the iOS 26 SDK); macos-15 defaults to Xcode 16.4
     steps:
       - uses: actions/checkout@v7
         with:
