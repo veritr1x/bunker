@@ -55,10 +55,12 @@ def extra(texts: dict[str, str]):
             _extra.pop(key, None)
 
 
-def _fields(text: str) -> set[str] | None:
-    """The placeholder names in text, or None when it is not a valid format string."""
+def _fields(text: str) -> list | None:
+    """The placeholders in text, each with its format spec and conversion (a loaded pack is untrusted:
+    "{n:99999999}" would build a huge string), or None when it is not a valid format string."""
     try:
-        return {name for _, name, _, _ in Formatter().parse(text) if name is not None}
+        return sorted((name, spec or "", conversion or "") for _, name, spec, conversion in Formatter().parse(text)
+                      if name is not None)
     except ValueError:
         return None
 

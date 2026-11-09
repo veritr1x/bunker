@@ -55,6 +55,13 @@ class Catalogue(unittest.TestCase):
                 bunker_text.use({"test.items": broken})
                 self.assertEqual(bunker_text.t("test.items", n=3), "3 items", broken)
 
+    def test_format_specs_must_match_the_english(self):
+        # A loaded pack is untrusted: "{n:99999999}" would make a page build a huge string.
+        with bunker_text.extra({"test.items": "{n} items"}):
+            for hostile in ("{n:99999999} itens", "{n!r} itens", "{n:>{n}} itens"):
+                bunker_text.use({"test.items": hostile})
+                self.assertEqual(bunker_text.t("test.items", n=3), "3 items", hostile)
+
     def test_count_forms(self):
         with bunker_text.extra({"test.costume.one": "{n} costume", "test.costume.other": "{n} costumes"}):
             self.assertEqual(bunker_text.t_count("test.costume", 1), "1 costume")
