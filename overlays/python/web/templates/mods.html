@@ -19,7 +19,7 @@
 <summary class="bracket-header">Preset<span class="fold" aria-hidden="true"></span></summary>
 <form action="/mods/preset" method="post" class="panel">
   {% for key, (title, what, _) in presets.items() %}
-  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong>{% if key == "comfort" %}{% call info() %}{{ what }} Most mods come from the <a href="{{ source }}">Lunar Tear Comfort Mod</a> by NavHobbyDev (MIT).{% endcall %}{% else %}{{ info(what) }}{% endif %}</span></label>
+  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong>{% if key == "comfort" %}{% call info() %}{{ what }} Most mods come from the <a href="{{ source }}">Lunar Tear Comfort Mod</a> by NavHobbyDev.{% endcall %}{% else %}{{ info(what) }}{% endif %}</span></label>
   {% endfor %}
   {% if not current %}<p class="credit">Current: your own choice below.</p>{% endif %}
   <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Use preset</button></div>
