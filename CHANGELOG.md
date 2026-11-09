@@ -4,6 +4,38 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.10.4 (2026-11-09)
+
+The iPad game on a TV fills its window again, and Deck Builder keeps loading
+decks on a big screen. With upscaling on, a window resized or moved to an
+external display could show the picture in a corner, or offset, with the rest
+black; the upscaler now follows the window. The picture keeps the game's own
+shape (1.10.3 gave it the window's, and in an upright window the game broke).
+An exported log now shows the display settings and what the window and the
+upscaler did.
+
+## 2026-11-09 (after 1.10.3)
+
+### iPhone and iPad
+- With upscaling on (Pod Programs › Display), a window resized or moved to an
+  external display could show the game's picture in its top-left corner, or
+  offset, with the rest black. The upscaler now follows the window's size each
+  frame. [f9914c6]
+- The picture keeps the game's own shape again, stretched to the window, as
+  before 1.10.3. 1.10.3 gave it the window's shape (16:9 on a TV); in an
+  upright Stage Manager window that made the game's screen upright, and the
+  game broke. [f9914c6]
+- Export Lunar Tear log shows the display: the Display settings, the screen
+  and the window's size once it settles, the display's mode, the size the
+  game draws at and the size the upscaler writes, as "[Display]" lines.
+  [f9914c6]
+
+### Pod Programs
+- Deck Builder: on a screen tall enough for the first six decks (an iPad, a
+  TV) the list stopped there with "Scroll for more" and nothing to scroll; it
+  now loads more while the end of the list is in view. In Filters, tapping a
+  character no longer loads every portrait again. [28c7145]
+
 ## 1.10.3 (2026-11-09)
 
 The iPad game on a TV, and updates in the game work again. With Stage

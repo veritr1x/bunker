@@ -1,5 +1,27 @@
 # Validation
 
+## iPad on a TV and Deck Builder on a big screen — 2026-11-09
+
+- iPad Pro 11-inch (M4) with Stage Manager, a TV on a cable (3008x1692
+  points, drawn at 6016x3384), upscaling on at 1080, the [Display] lines in
+  the server log: through windows resized on the iPad and on the TV, moves
+  between them and full screen, MetalFX wrote the window's own pixels every
+  time (2420x1668, 2234x1424, 6016x3088, 6016x3384, 6016x3248) while the game
+  drew 1044x720 or 1566x1080; the picture filled the TV. Before, a resize or a
+  move could leave it in a corner or offset with the rest black (photos).
+- The picture-shape fix of 1.10.3: in an upright window on the TV (834x1210)
+  the game drew 1079x1566 and broke; withdrawn. A cap on MetalFX's output on
+  an external display (4K) worked (3840x2160) but was taken out on request:
+  iPadOS reports 6016x3384 as the TV's only mode, so its own resolution can't
+  be read.
+- Deck Builder in headless Chrome with stand-in results (30 decks): at
+  3008x1692 the list stopped at 6 before and fills with 12 now, all 30 after
+  scrolling; at iPad and phone sizes 6, then 30, as before. Filters: three
+  taps on a character kept the same portrait images (each tap replaced all 12
+  before), with the same marks and summary.
+- iOS tests (39) pass. Not checked: Deck Builder on the device itself, and
+  an iPhone.
+
 ## iPad window, external display and updates in the game — 2026-11-09
 
 - iPad Pro 11-inch (M4) with Stage Manager and a 16:9 TV (3008×1692 points)

@@ -53,7 +53,7 @@ Run the game and its Lunar Tear server on the same phone or tablet, on Android o
     Experimental: it uses more battery.
     At 120 fps, 1080p is easier on the GPU than the screen's own resolution.
     On an iPad with Stage Manager the game's window can be resized, or moved to an external
-    display such as a TV and made full screen there; the picture takes the window's shape.
+    display such as a TV and made full screen there; the picture is stretched to the window.
 - **Archive**, read from your game files: the whole story by season and chapter, with the speaker of
   each line, the records, every costume with its art, story and voice lines, 3D models with field
   and battle motions, the soundtrack, a gallery, the movies (full screen in landscape on Android,
