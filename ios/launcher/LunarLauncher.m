@@ -1035,6 +1035,29 @@ static NSAttributedString *Tracked(NSString *text, UIFont *font, UIColor *color,
 - (void)drawTextInRect:(CGRect)rect { [super drawTextInRect:UIEdgeInsetsInsetRect(rect, UIEdgeInsetsMake(2, 7, 2, 7))]; }
 - (CGSize)intrinsicContentSize { CGSize s = super.intrinsicContentSize; return CGSizeMake(s.width + 14, s.height + 4); }
 @end
+
+// A value and its button side by side, the button at the far end; when a
+// translation makes them too wide for that, the button goes under the value,
+// so neither is cut or shrunk.
+@interface LTValueAndButton : UIStackView
+@end
+@implementation LTValueAndButton
+- (void)layoutSubviews {
+    CGFloat need = -self.spacing;
+    for (UIView *v in self.arrangedSubviews) if (!v.hidden) need += v.intrinsicContentSize.width + self.spacing;
+    UILayoutConstraintAxis axis = need <= self.bounds.size.width ? UILayoutConstraintAxisHorizontal : UILayoutConstraintAxisVertical;
+    if (axis != self.axis) {
+        self.axis = axis;
+        self.alignment = axis == UILayoutConstraintAxisHorizontal ? UIStackViewAlignmentCenter : UIStackViewAlignmentLeading;
+        // The row's name: centred on one line, level with the value's line on two.
+        if ([self.superview isKindOfClass:UIStackView.class])
+            ((UIStackView *)self.superview).alignment = axis == UILayoutConstraintAxisHorizontal ? UIStackViewAlignmentCenter : UIStackViewAlignmentFirstBaseline;
+        [self invalidateIntrinsicContentSize];
+        [self.superview setNeedsLayout];
+    }
+    [super layoutSubviews];
+}
+@end
 static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color) {
     chip.attributedText = Tracked(text, Mono(11), color, 1.1);
     chip.backgroundColor = fill;
@@ -1246,6 +1269,27 @@ static const CGFloat kInfoSize = 18;
         [v setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisHorizontal];
         return v;
     };
+    // A value with a button (GAME FILES: the chip and CHOOSE) shares the rest
+    // of the row, and goes onto two lines when a translation needs the room.
+    if (values.count == 2 && [values.lastObject isKindOfClass:UIButton.class]) {
+        for (UIView *v in values) {
+            if ([v isKindOfClass:UILabel.class]) ((UILabel *)v).numberOfLines = 1;
+            [v setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+            // Below the pair's own width: the pair decides where its parts go.
+            [v setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+        }
+        LTValueAndButton *pair = [[LTValueAndButton alloc] initWithArrangedSubviews:values];
+        pair.distribution = UIStackViewDistributionEqualSpacing;
+        pair.alignment = UIStackViewAlignmentCenter;
+        pair.spacing = 10;
+        [pair setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+        [pair setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+        UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[label, pair]];
+        row.alignment = UIStackViewAlignmentCenter;  // LTValueAndButton changes it when it goes onto two lines
+        row.spacing = 10;
+        [row.heightAnchor constraintGreaterThanOrEqualToConstant:36].active = YES;
+        return row;
+    }
     for (UIView *v in values) {
         if ([v isKindOfClass:UIButton.class]) [items addObject:spacer()];
         if ([v isKindOfClass:UILabel.class]) ((UILabel *)v).numberOfLines = 1;
