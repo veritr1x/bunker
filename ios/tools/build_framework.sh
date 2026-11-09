@@ -28,6 +28,9 @@ test -f "$root_dir/server/gen/proto/user.pb.go" || { echo "Generate protobuf fir
     go build -buildmode=c-archive -trimpath -ldflags="-s -w -X lunar-tear/server/internal/bunkerversion.Version=$version" -o "$work/liblunar.a" ./cmd/android-bridge)
 
 framework="$out/LunarTear.framework"
+# MetalFX (the upscaler, LunarUpscale.m) when the SDK has it; the simulator SDK does not.
+metalfx=""
+[ -d "$sdk/System/Library/Frameworks/MetalFX.framework" ] && metalfx="-weak_framework MetalFX"
 rm -rf "$framework"; mkdir -p "$framework"
 "$clang" -isysroot "$sdk" -target "$target" -fobjc-arc -O2 -Wall -Werror=implicit-function-declaration \
     -dynamiclib -install_name @rpath/LunarTear.framework/LunarTear -I "$work" -I "$root_dir/ios/launcher" -I "$root_dir/android/app/src/main/cpp" \
@@ -35,7 +38,7 @@ rm -rf "$framework"; mkdir -p "$framework"
     "$root_dir/ios/launcher/LTText.m" "$root_dir/ios/launcher/LTTexts.m" "$root_dir/ios/launcher/LTPlurals.c" \
     "$root_dir/android/app/src/main/cpp/roulette_ads.c" "$root_dir/android/app/src/main/cpp/flying_mom.c" "$root_dir/android/app/src/main/cpp/render_pace.c" "$root_dir/android/app/src/main/cpp/badge_pace.c" "$root_dir/android/app/src/main/cpp/render_effects.c" \
     "$root_dir/android/app/src/main/cpp/bunker_button.c" "$root_dir/android/app/src/main/cpp/title_now.c" "$root_dir/android/app/src/main/cpp/bunker_button_layout.c" "$root_dir/android/app/src/main/cpp/big_hunt_season.c" "$root_dir/android/app/src/main/cpp/arena_season.c" "$work/liblunar.a" \
-    -framework UIKit -framework QuartzCore -framework Metal -weak_framework MetalFX -framework WebKit -framework AVKit -framework AVFoundation -framework CoreMedia -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
+    -framework UIKit -framework QuartzCore -framework Metal $metalfx -framework WebKit -framework AVKit -framework AVFoundation -framework CoreMedia -framework Foundation -framework SystemConfiguration -framework UniformTypeIdentifiers -framework Security -framework CoreFoundation -framework CoreGraphics -lresolv \
     -o "$framework/LunarTear"
 cp "$root_dir/ios/launcher/Info.plist" "$framework/Info.plist"
 # The Bunker emblem for the home-screen quick action (package_ipa.py puts it in the app, where iOS looks).
