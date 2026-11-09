@@ -32,6 +32,7 @@ import (
 	"lunar-tear/server/internal/service"
 	gamestore "lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/store/sqlite"
+	"lunar-tear/server/internal/translation"
 	"lunar-tear/server/migrations"
 
 	"golang.org/x/net/http2"
@@ -235,7 +236,11 @@ func Start(dataRoot, assetRoot string) (err error) {
 	notices.UseCalendar(gametime.CalendarOffset, gametime.ViewOffset)
 	service.SetNotices(notices)
 	service.SetPanelWeb(notices) // the Anecdotes' official page, from the pack's web app
-	octo := links.Wrap(cdn.Handler())
+	// The active language pack's text bundles and list (inside OctoLinks, so a
+	// cache entry is still unlinked before its translated copy is downloaded).
+	translator := translation.New(assetRoot, dataRoot)
+	translator.Start()
+	octo := links.Wrap(translator.Wrap(cdn.Handler()))
 	cdnMux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if service.IsNoticePath(r.URL.Path) {
 			notices.ServeHTTP(w, r)
