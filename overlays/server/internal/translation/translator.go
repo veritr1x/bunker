@@ -160,6 +160,16 @@ func isListPath(path string) bool {
 	return strings.HasPrefix(path, "/v1/list/") || (strings.HasPrefix(path, "/v2/") && strings.Contains(path, "/list/"))
 }
 
+// requestedRevision is the revision the game last stored, the list request's
+// last path segment (/v1/list/<version>/<revision>); 0 when there is none.
+func requestedRevision(path string) uint64 {
+	n, err := strconv.ParseUint(path[strings.LastIndex(path, "/")+1:], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 // assetObject is the object id of an asset bundle request (…/unso-<v>-assetbundle/<id>).
 func assetObject(path string) (string, bool) {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -216,7 +226,8 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 		return
 	}
 	m := t.choose()
-	if _, err := os.Stat(t.statePath); m == nil && errors.Is(err, os.ErrNotExist) {
+	requested := requestedRevision(r.URL.Path)
+	if _, err := os.Stat(t.statePath); m == nil && errors.Is(err, os.ErrNotExist) && requested <= t.original {
 		next.ServeHTTP(w, r) // never translated: the list as it always was
 		return
 	}
@@ -228,7 +239,7 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 		if m != nil {
 			fingerprint, changes = m.ID, m.Entries
 		}
-		revision, err := ServedRevision(t.statePath, t.original, fingerprint)
+		revision, err := ServedRevision(t.statePath, t.original, requested, fingerprint)
 		if err == nil {
 			var out []byte
 			if out, err = PatchList(body, revision, changes); err == nil {
