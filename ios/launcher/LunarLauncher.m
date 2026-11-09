@@ -1036,7 +1036,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 }
 
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
-@property(nonatomic, strong) UILabel *ports, *save, *archiveLine, *detail, *sign;
+@property(nonatomic, strong) UILabel *save, *archiveLine, *detail;
 @property(nonatomic, strong) LTChip *files, *server;
 @property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
 @property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
@@ -1044,7 +1044,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) UIView *topBar, *systemPanel, *playPanel, *programsPanel, *archivePanel, *linksPanel, *spacer, *footer, *systemFill;
 @property(nonatomic, strong) UIButton *podsLink, *archiveLink;
-@property(nonatomic, strong) UILabel *caption, *titleLabel;
+@property(nonatomic, strong) UILabel *titleLabel;
 @property(nonatomic) BOOL twoColumns, compact, arranged;
 @property(nonatomic, strong) NSLayoutConstraint *maxWidth;
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
@@ -1171,7 +1171,8 @@ static NSString *FilesInfo(void) {
 }
 - (UIView *)header:(NSString *)title { return [self header:title info:nil]; }
 // [ TITLE ────── ⓘ ]: with info, an "i" before the closing bracket explains the section.
-- (UIView *)header:(NSString *)title info:(NSString *)info {
+- (UIView *)header:(NSString *)title info:(NSString *)info { return [self header:title info:info infoTitle:title]; }
+- (UIView *)header:(NSString *)title info:(NSString *)info infoTitle:(NSString *)infoTitle {
     UILabel *open = [self label:@"[" size:15 color:Ink() bold:YES];
     UILabel *close = [self label:@"]" size:15 color:Ink() bold:YES];
     UILabel *name = [self label:nil size:14 color:Ink() bold:YES];
@@ -1186,7 +1187,7 @@ static NSString *FilesInfo(void) {
         [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     }
     [rule setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisHorizontal];
-    NSArray *parts = info ? @[open, name, rule, [self infoButton:title text:info], close] : @[open, name, rule, close];
+    NSArray *parts = info ? @[open, name, rule, [self infoButton:infoTitle text:info], close] : @[open, name, rule, close];
     UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:parts];
     row.alignment = UIStackViewAlignmentCenter;
     row.spacing = 10;
@@ -1233,7 +1234,7 @@ static NSString *FilesInfo(void) {
     [row.heightAnchor constraintGreaterThanOrEqualToConstant:36].active = YES;
     return row;
 }
-// A row in a panel that opens something: its name, what it holds, and a chevron.
+// A row in a panel that opens something: its name, a note when it is missing, and a chevron.
 - (UIButton *)link:(NSString *)name what:(NSString *)what action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
     UILabel *title = [self label:nil size:13 color:Ink() bold:YES];
@@ -1241,7 +1242,7 @@ static NSString *FilesInfo(void) {
     UILabel *note = [self mono:what size:11 color:Muted()];
     UILabel *chevron = [self label:@"›" size:24 color:Ink() bold:NO];
     [chevron setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
-    UIStackView *words = [[UIStackView alloc] initWithArrangedSubviews:@[title, note]];
+    UIStackView *words = [[UIStackView alloc] initWithArrangedSubviews:what ? @[title, note] : @[title]];
     words.axis = UILayoutConstraintAxisVertical;
     words.spacing = 3;
     UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[words, chevron]];
@@ -1289,25 +1290,17 @@ static NSString *FilesInfo(void) {
     [super traitCollectionDidChange:previous];
     // Layer colours do not follow light and dark by themselves.
     for (UIButton *b in self.outlined) b.layer.borderColor = [Ink() resolvedColorWithTraitCollection:self.traitCollection].CGColor;
-    [self updateSign];
-}
-- (void)updateSign {
-    BOOL dark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
-    self.sign.attributedText = Tracked(dark ? @"OPERATOR LINK // STANDING BY" : @"END OF TRANSMISSION // GLORY TO MANKIND", [UIFont systemFontOfSize:10], Muted(), 2.4);
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.outlined = [NSMutableArray array];
     self.view.backgroundColor = GridPaper();
-    // Top bar: where you are, and the options.
-    UILabel *caption = [self mono:@"LUNAR TEAR // 127.0.0.1" size:10 color:Muted()];
-    caption.attributedText = Tracked(@"LUNAR TEAR // 127.0.0.1", Mono(10), Muted(), 2);
+    // Top bar: the title and the options.
     UILabel *title = [self label:nil size:22 color:Ink() bold:YES];
     title.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:22], Ink(), 6.2);
-    self.caption = caption;
     self.titleLabel = title;
     title.accessibilityTraits = UIAccessibilityTraitHeader;
-    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
+    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[title]];
     titles.axis = UILayoutConstraintAxisVertical;
     self.more = [self outline:@"⋮" size:20 action:nil];
     self.more.contentEdgeInsets = UIEdgeInsetsZero;
@@ -1323,7 +1316,7 @@ static NSString *FilesInfo(void) {
     [self.more.widthAnchor constraintEqualToConstant:44].active = YES;
     UIStackView *top = [[UIStackView alloc] initWithArrangedSubviews:@[titles, self.more]];
     top.alignment = UIStackViewAlignmentCenter;
-    // [ SYSTEM ]: game files, Lunar Tear, ports and save.
+    // [ SYSTEM ]: game files, Lunar Tear, save and the Archive's index.
     self.files = [LTChip new];
     self.server = [LTChip new];
     self.choose = [self outline:@"CHOOSE" size:12 action:@selector(chooseOrCancel)];
@@ -1331,7 +1324,6 @@ static NSString *FilesInfo(void) {
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.color = Ink();
     self.spinner.hidesWhenStopped = YES;
-    self.ports = [self mono:@"" size:13 color:Ink()];
     self.save = [self mono:@"" size:13 color:Ink()];
     self.archiveLine = [self mono:@"" size:13 color:Ink()];
     self.bar = [LTSegments new];
@@ -1340,7 +1332,6 @@ static NSString *FilesInfo(void) {
     UIView *system = [self panel:@[
         [self row:@"GAME FILES" values:@[self.files, self.choose]],
         [self row:@"LUNAR TEAR" values:@[self.server, self.spinner]],
-        [self row:@"PORTS" values:@[self.ports]],
         [self row:@"SAVE" values:@[self.save]],
         [self row:@"ARCHIVE" values:@[self.archiveLine]],
         self.bar, self.systemFill = [UIView new]]];
@@ -1367,16 +1358,12 @@ static NSString *FilesInfo(void) {
     self.archive = [self outline:@"OPEN ARCHIVE  ›" size:13 action:@selector(openArchive)];
     self.archive.accessibilityLabel = @"Open the Archive";
     UIView *archive = [self panel:@[records, self.archive]];
-    // Footer: a double rule and the sign-off.
+    // Footer: a double rule.
     UIView *ruleA = [UIView new], *ruleB = [UIView new];
     for (UIView *r in @[ruleA, ruleB]) { r.backgroundColor = Ink(); [r.heightAnchor constraintEqualToConstant:1].active = YES; }
-    self.sign = [UILabel new];
-    self.sign.textAlignment = NSTextAlignmentCenter;
-    [self updateSign];
-    UIStackView *footer = [[UIStackView alloc] initWithArrangedSubviews:@[ruleA, ruleB, self.sign]];
+    UIStackView *footer = [[UIStackView alloc] initWithArrangedSubviews:@[ruleA, ruleB]];
     footer.axis = UILayoutConstraintAxisVertical;
     footer.spacing = 2;
-    [footer setCustomSpacing:14 afterView:ruleB];
     self.spacer = [UIView new];
     [self.spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
     self.topBar = top;
@@ -1386,10 +1373,10 @@ static NSString *FilesInfo(void) {
     self.archivePanel = archive;
     self.footer = footer;
     [self updatePanelView];
-    // On its side, Pod Programs and the Archive are rows in one panel, each with what it holds.
-    self.podsLink = [self link:@"POD PROGRAMS" what:LTToolsAvailable() ? @"Save, events, shops and mods" : @"Not in this build" action:@selector(confirmTools)];
+    // On its side, Pod Programs and the Archive are rows in one panel; what they hold is behind the header's "i".
+    self.podsLink = [self link:@"POD PROGRAMS" what:LTToolsAvailable() ? nil : @"Not in this build" action:@selector(confirmTools)];
     self.podsLink.accessibilityLabel = @"Open Pod Programs";
-    self.archiveLink = [self link:@"ARCHIVE" what:LTToolsAvailable() ? @"Story, characters, movies and music" : @"Not in this build" action:@selector(openArchive)];
+    self.archiveLink = [self link:@"ARCHIVE" what:LTToolsAvailable() ? nil : @"Not in this build" action:@selector(openArchive)];
     self.archiveLink.accessibilityLabel = @"Open the Archive";
     UIView *linkRule = [UIView new];
     linkRule.backgroundColor = ChipFill();
@@ -1424,7 +1411,7 @@ static NSString *FilesInfo(void) {
 }
 // One column; or, on a screen on its side with room for two, System on the left
 // and Play above the programs on the right, both columns ending level. A phone
-// on its side (compact height) also drops the caption and the footer.
+// on its side (compact height) also drops the footer.
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     CGSize size = self.view.bounds.size;
@@ -1440,7 +1427,6 @@ static NSString *FilesInfo(void) {
     BOOL two = self.twoColumns, compact = self.compact;
     UIStackView *stack = self.stack;
     for (UIView *v in stack.arrangedSubviews.copy) { [stack removeArrangedSubview:v]; [v removeFromSuperview]; }
-    self.caption.hidden = compact;
     self.titleLabel.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:compact ? 18 : 22], Ink(), compact ? 5 : 6.2);
     self.systemFill.hidden = !two;
     self.maxWidth.constant = two ? 960 : 520;
@@ -1451,10 +1437,10 @@ static NSString *FilesInfo(void) {
     [stack setCustomSpacing:gap afterView:self.updatePanel];
     if (two) {
         [self.systemPanel setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
-        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"System" info:FilesInfo()], self.systemPanel]];
+        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"System" info:FilesInfo() infoTitle:@"Game files"], self.systemPanel]];
         UIView *rest = [UIView new];
         [rest setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
-        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel, [self header:@"Programs"], self.linksPanel, rest]];
+        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel, [self header:@"Programs" info:LTToolsAvailable() ? [NSString stringWithFormat:@"%@\n\n%@", kPodsInfo, kArchiveInfo] : nil], self.linksPanel, rest]];
         for (UIStackView *column in @[left, right]) { column.axis = UILayoutConstraintAxisVertical; column.spacing = 8; }
         [right setCustomSpacing:gap afterView:self.playPanel];
         UIStackView *columns = [[UIStackView alloc] initWithArrangedSubviews:@[left, right]];
@@ -1464,7 +1450,7 @@ static NSString *FilesInfo(void) {
         [stack addArrangedSubview:columns];
     } else {
         [self.systemPanel setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisVertical];
-        NSArray *parts = @[[self header:@"System" info:FilesInfo()], self.systemPanel, [self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel,
+        NSArray *parts = @[[self header:@"System" info:FilesInfo() infoTitle:@"Game files"], self.systemPanel, [self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel,
                            [self header:@"Pod Programs" info:LTToolsAvailable() ? kPodsInfo : nil], self.programsPanel, [self header:@"Archive" info:LTToolsAvailable() ? kArchiveInfo : nil], self.archivePanel];
         for (UIView *v in parts) [stack addArrangedSubview:v];
         for (UIView *v in @[self.systemPanel, self.playPanel, self.programsPanel]) [stack setCustomSpacing:20 afterView:v];
@@ -1497,8 +1483,6 @@ static NSString *FilesInfo(void) {
     else if (running) SetChip(self.server, @"RUNNING", Ok(), OnOk());
     else if ([state isEqual:@"starting"]) SetChip(self.server, @"STARTING", ChipFill(), Ink());
     else SetChip(self.server, @"NOT RUNNING", ChipFill(), Ink());
-    int offset = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"] intValue];
-    self.ports.attributedText = Tracked([NSString stringWithFormat:@"%d · %d · %d", 8003 + offset, 8080 + offset, 3000 + offset], Mono(13), Ink(), .8);
     self.archiveLine.attributedText = Tracked(gIndexText, Mono(13), Ink(), .8);
     unsigned long long saved = FileSize([gSaves stringByAppendingPathComponent:@"game.db"]);
     self.save.attributedText = Tracked(saved ? [NSString stringWithFormat:@"game.db · %@", [NSByteCountFormatter stringFromByteCount:(long long)saved countStyle:NSByteCountFormatterCountStyleFile]] : @"none yet", Mono(13), Ink(), .8);
@@ -1516,8 +1500,8 @@ static NSString *FilesInfo(void) {
         pair[1].enabled = pair[0].enabled;
         pair[1].alpha = pair[0].alpha;
     }
-    NSString *text = gMessage.length ? gMessage : @"Choose the game files to play.";
-    if (running && !gMessage.length) text = @"Tap Deploy to keep playing.";
+    // Only what the chips and buttons don't already say.
+    NSString *text = gMessage.length ? gMessage : catalog ? @"" : @"Choose the game files to play.";
     if (gRestartNeeded && !gMessage.length)
         text = @"Changes saved. Tap Close game, then open NieR again.";
     self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
@@ -1681,7 +1665,7 @@ static NSString *FilesInfo(void) {
     // Python errors end with " (file.py:line)"; the player needs only the message.
     NSRange where = [message rangeOfString:@" \\([A-Za-z_]+\\.py:[0-9]+\\)$" options:NSRegularExpressionSearch];
     if (where.location != NSNotFound) message = [message substringToIndex:where.location];
-    [self updateMessage:[NSString stringWithFormat:@"Bunker %@ is available.\n> %@\n> You can also rebuild with the web builder.", self.available[@"version"], message] failed:YES];
+    [self updateMessage:[NSString stringWithFormat:@"Bunker %@ is available.\n> %@", self.available[@"version"], message] failed:YES];
 }
 - (void)openNotes { if (self.available) [UIApplication.sharedApplication openURL:[NSURL URLWithString:self.available[@"notes"]] options:@{} completionHandler:nil]; }
 - (void)openWebBuilder { [UIApplication.sharedApplication openURL:[NSURL URLWithString:kWebBuilder] options:@{} completionHandler:nil]; }
@@ -1832,7 +1816,7 @@ static NSString *FilesInfo(void) {
             [self refresh];
             return;
         }
-        gMessage = @"Pod Programs is open.";
+        gMessage = @"";  // The POD PROGRAMS OPEN chip says it.
         [self refresh];
         __weak typeof(self) weakSelf = self;
         __block __weak UIViewController *tools = nil;
@@ -1889,7 +1873,7 @@ static NSString *FilesInfo(void) {
 }
 - (void)stopServer {
     [self busy:@"Stopping Lunar Tear…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
-        gMessage = @"Lunar Tear stopped.";
+        gMessage = @"";  // The NOT RUNNING chip says it.
         [self refresh];
     }];
 }
