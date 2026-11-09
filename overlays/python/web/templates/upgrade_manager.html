@@ -1,15 +1,14 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Upgrade Manager :: User {{ user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ user_id }} :: UPGRADES{% endblock %}
 
 {% block content %}
 <p style="margin-top:0" data-side>
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Upgrade Manager</h1>
+<h1 class="bracket-header" data-side>Upgrade Manager{{ info("Upgrades without spending gold or materials. Each change is backed up first.") }}</h1>
 
-<div class="panel" data-side="intro"><p style="margin:0">Upgrade characters and equipment without spending gold or materials. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
@@ -35,7 +34,7 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Add All Missing Companions</span>
-    <span class="grant-id">{{ missing_companions }} missing of {{ companion_total }} (a few that break the game are skipped)</span>
+    <span class="grant-id">{{ missing_companions }} missing of {{ companion_total }}{{ info("A few that break the game are skipped.") }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_companions" class="grant-chosen-btn"
             {% if missing_companions == 0 %}disabled{% endif %}>RUN</button>
@@ -49,7 +48,7 @@
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Add All Missing Debris</span>
-    <span class="grant-id">{{ missing_thoughts }} missing of {{ thought_total }}. Upgrade All Costumes also adds these.</span>
+    <span class="grant-id">{{ missing_thoughts }} missing of {{ thought_total }}{{ info("Upgrade All Costumes also adds these.") }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_thoughts" class="grant-chosen-btn"
             {% if missing_thoughts == 0 %}disabled{% endif %}>RUN</button>
@@ -67,27 +66,27 @@
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Weapons</span>
-    <span class="grant-id">{{ owned_weapon_count }} owned weapons: ascend, evolve fully, refine where possible, enhance to the cap, skills and abilities to level 15</span>
+    <span class="grant-id">{{ owned_weapon_count }} owned weapons{{ info("Ascends, evolves fully, refines where possible, enhances to the cap, and raises skills and abilities to level 15.") }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_weapons" class="grant-chosen-btn"
             {% if owned_weapon_count == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Costumes</span>
-    <span class="grant-id">{{ owned_costume_count }} owned costumes: awaken to 5 (adds Debris), ascend to 4, enhance to the cap, skill to level 15, unlock the 3 karma slots of ★4 costumes (left unrolled)</span>
+    <span class="grant-id">{{ owned_costume_count }} owned costumes{{ info("Awakens to 5 (adds Debris), ascends to 4, enhances to the cap, raises the skill to level 15 and unlocks the karma slots of ★4 costumes.") }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_costumes" class="grant-chosen-btn"
             {% if owned_costume_count == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Skip All Dark Memory Cutscenes</span>
-    <span class="grant-id">Marks every Dark Memory weapon cutscene as seen. Use after adding many Dark Memory weapons: otherwise their queued cutscenes can block progress.</span>
+    <span class="grant-id">{{ info("Marks every Dark Memory cutscene as seen. Use after adding many Dark Memory weapons: their queued cutscenes can block progress.") }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="skip_dark_memory_cutscenes" class="grant-chosen-btn">RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name" id="karma-fill-name">Fill All Karma Slots</span>
-    <span class="grant-id">Sets every unlocked karma slot to the effect chosen below, replacing current rolls. Run Upgrade All Costumes first to unlock slots.</span>
+    <span class="grant-id">{% call info() %}<p>Sets every unlocked karma slot to the effect chosen below, replacing current rolls. Run Upgrade All Costumes first.</p><p>[R40/30/20] is the rarity; [Ngrp] how many karma pools have the effect. A costume without it gets its rarest.</p>{% endcall %}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="fill_karma_slots" class="grant-chosen-btn">RUN</button>
   </div>
@@ -105,9 +104,6 @@
       </select>
     </div>
     {% endfor %}
-    <p data-info="karma-fill-name" style="margin:6px 0 0;font-size:var(--fs-label);color:var(--fg-mid)">
-      [R40/30/20] is the effect's rarity. [Ngrp] is how many karma pools have it: the higher, the more costumes get it. A costume that can't have it gets the rarest effect it can.
-    </p>
   </div>
 </div>
 

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Pod Programs{% endblock %}
 {% block content %}
-<h1>Pod Programs</h1>
+<h1>Pod Programs{{ info("Save editors keep a backup before each change.") }}</h1>
 {% if not game_db_exists %}
-<div class="banner error">&gt; No save on this device yet. Import a save backup from the Bunker's ⋮ menu, or Deploy and play once.</div>
+<div class="banner error">&gt; No save on this device yet.{{ info("Import a save backup from the Bunker's ⋮ menu, or Deploy and play once.") }}</div>
 {% endif %}
 {# The editors need a save; without one they are shown, but off. #}
 {% macro program(href, name, about, needs_save=True) -%}
@@ -27,6 +28,5 @@
   {{ program("/memoirs", "Memoirs", "Sets & stats") }}
   {{ program("/story", "Story Jump", "Skip ahead to a chapter") }}
 </div>
-<p>Save editors keep a backup before each change.</p>
 <p class="credit">Lunar Base by NMeliksah · Masterdata Patcher by NavHobbyDev</p>
 {% endblock %}

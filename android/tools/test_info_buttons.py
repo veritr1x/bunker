@@ -1,45 +1,72 @@
-"""Pod Programs' explanations wait behind an ⓘ, in portrait and landscape: a page's intro beside its title, a longer
-note beside what it explains. Only what the page needs to be used stays out."""
+"""Pod Programs' explanations wait behind a small round "i" (templates/_info.html), in portrait and landscape,
+beside the heading, label or control they explain. Only what the page needs to be used stays out."""
 import re
 import unittest
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parents[2] / "overlays/python/web"
-CSS = (WEB / "static/css/automata.css").read_text()
 BASE = (WEB / "templates/base.html").read_text()
+INFO = (WEB / "templates/_info.html").read_text()
 PAGE = lambda name: (WEB / "templates" / name).read_text()
+PAGES = sorted(p.name for p in (WEB / "templates").glob("*.html") if p.name not in ("base.html", "_info.html"))
 
 
-class InfoButtons(unittest.TestCase):
-    def test_every_orientation_hides_them_until_asked(self):
-        self.assertIn('[data-side="intro"]:not(.open), [data-info]:not(.open) { display: none !important; }', CSS)
-        self.assertIn(".intro-info { flex: none; width: 28px; height: 28px;", CSS)
-        # made once for the page, not only when a phone turns on its side
-        head = BASE.index("function infoButtons()")
-        self.assertLess(head, BASE.index("query.addEventListener"))
-        self.assertIn('document.querySelectorAll(\'[data-side="intro"], [data-info]\')', BASE)
-        self.assertNotIn('main.querySelectorAll(".intro-info").forEach(b => b.remove());', BASE)
+class InfoIcon(unittest.TestCase):
+    def render(self, source):
+        import jinja2
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
+        return env.from_string('{% from "_info.html" import info %}' + source).render()
 
-    def test_a_page_with_several_players_keeps_its_intro_behind_the_button(self):
-        for name in ("deck_builder.html", "gift.html"):
+    def test_the_macro_is_a_details_with_a_labelled_summary(self):
+        html = self.render('{{ info("Short <why>.") }}')
+        self.assertEqual(html, '<details class="info"><summary aria-label="More information">i</summary>'
+                               '<div>Short &lt;why&gt;.</div></details>')
+        html = self.render('{% call info() %}<p>One</p>{% endcall %}{{ info("x", "best-only") }}')
+        self.assertIn('<div><p>One</p></div>', html)
+        self.assertIn('<details class="info best-only">', html)
+
+    def test_closed_until_asked_and_closed_by_a_tap_elsewhere(self):
+        self.assertNotRegex(INFO, r"<details[^>]* open")                       # closed when the page opens
+        self.assertIn("details.info > summary::-webkit-details-marker { display: none; }", BASE)
+        self.assertIn('document.querySelectorAll("details.info[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });', BASE)
+        self.assertIn('if (e.key === "Escape")', BASE)
+        # a phone, upright or on its side: a card along the bottom of the screen, never off its edge
+        self.assertIn("@media (max-width: 600px), (orientation: landscape) and (max-height: 599px) {", BASE)
+        self.assertRegex(BASE, r"details\.info > div \{ position: fixed; top: auto; left: 16px; right: 16px;")
+
+    def test_the_old_scripted_buttons_are_gone(self):
+        self.assertNotIn("function infoButtons()", BASE)
+        for name in PAGES:
             with self.subTest(name=name):
                 page = PAGE(name)
-                self.assertNotIn('data-side{% if players|length <= 1 %}="intro"{% endif %}', page)
-                self.assertRegex(page, r'<p data-side="intro">')
+                self.assertNotIn('data-side="intro"', page)
+                self.assertNotIn("data-info=", page)
 
-    def test_longer_notes_sit_behind_a_button(self):
+    def test_every_page_using_it_imports_it(self):
+        for name in PAGES:
+            page = PAGE(name)
+            if "info(" in page:
+                with self.subTest(name=name):
+                    self.assertIn('{% from "_info.html" import info %}', page)
+
+    def test_a_contents_link_leaves_the_explanation_out(self):
+        self.assertIn('plain.querySelectorAll("details.info").forEach(d => d.remove());', BASE)
+
+    def test_explanations_sit_beside_what_they_explain(self):
+        self.assertRegex(PAGE("display.html"), r'<h1 data-side>Display\{\{ info\("Higher frame rates')
+        self.assertIn('<label for="fps">Frame rate{{ info("Capped at', PAGE("display.html"))
+        self.assertIn('<h1 data-side>Summon rates{{ info("Applies to regular and multi-step summons', PAGE("gacha.html"))
         db = PAGE("deck_builder.html")
-        self.assertIn('<div class="db-lbl" id="lbl-mode">Build from</div>', db)
-        self.assertIn('<p class="help best-only" data-info="lbl-mode">All maxed ranks', db)
-        self.assertIn('<p class="help owned-only">What I own uses your costumes', db)      # it holds the Allow menu
-        self.assertIn('<p data-side="intro">Higher frame rates', PAGE("display.html"))
-        self.assertIn('<p data-side="intro">Applies to regular and multi-step summons', PAGE("gacha.html"))
+        self.assertIn('<div class="db-lbl" id="lbl-mode">Build from{{ info("Ranks decks as if you owned every costume', db)
+        self.assertIn('"best-only") }}{{ info("Uses your costumes as they are.", "owned-only") }}</div>', db)
+        self.assertIn('<p class="help owned-only">Allow up to', db)      # it holds the Allow menu
         self.assertRegex(PAGE("upgrade_manager.html"), r'id="karma-fill-name">Fill All Karma Slots</span>')
-        self.assertRegex(PAGE("upgrade_manager.html"), r'<p data-info="karma-fill-name"[^>]*>\s*\[R40/30/20\]')
-        self.assertIn('<p class="credit" data-info="challenges-head"', PAGE("mods.html"))
-
-    def test_a_button_beside_a_fold_does_not_fold_it(self):
-        self.assertRegex(BASE, r"e\.preventDefault\(\); e\.stopPropagation\(\);")
+        self.assertRegex(PAGE("upgrade_manager.html"), r"\{% call info\(\) %\}<p>Sets every unlocked karma slot.*\[R40/30/20\]")
+        self.assertIn('<span>Challenge bonus on quest rewards{{ info("Bonuses multiply', PAGE("mods.html"))
+        # never inside a <summary>: a tap would fold it too
+        for name in PAGES:
+            with self.subTest(name=name):
+                self.assertNotRegex(PAGE(name), r"<summary[^>]*>[^<]*\{\{ info\(")
 
 
 if __name__ == "__main__":

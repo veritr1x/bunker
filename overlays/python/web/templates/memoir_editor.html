@@ -1,15 +1,15 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Memoir Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ user_id }} :: MEMOIRS{% endblock %}
 
 {% block content %}
 <p style="margin-top:0" data-side>
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Memoir Editor</h1>
+<h1 class="bracket-header" data-side>Memoir Editor{{ info("Build a ★4 set, upgrade memoirs or change their stats. Each change is backed up first.") }}</h1>
 
-<div class="panel" data-side="intro"><p style="margin:0">Build a four-star set, upgrade memoirs to level 15, or change their stats. Each change is backed up first.</p><p>Owned: {{ owned_count }} / {{ inventory_cap }}. Enter percentage stats multiplied by 10: 3% = 30, 12.5% = 125.</p></div>
+<p data-side>Owned: {{ owned_count }} / {{ inventory_cap }}</p>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
@@ -18,14 +18,12 @@
     <input type="checkbox" id="legal-only"> Game-legal only
   </label>
   <span id="legal-note" style="font-size:var(--fs-label);color:var(--fg-mid)"><span id="legal-text">Off: anything you enter.</span></span>
+  {% call info() %}<p>Sub stats: HP%, ATK%, DEF%, crit rate, crit damage or agility, each once, at most 12.5% (crit rate 25%, crit damage 36%, agility 72), only one at its top.</p>
+  <p>Main stat: ATK, DEF or HP; crit from the second memoir on, agility only on the third.</p>{% endcall %}
 </div>
-<p class="help" data-info="legal-note">With Game-legal only on, Build a Set and Fix Slots make only memoirs the original game could:
-  sub stats of HP%, ATK%, DEF%, crit rate, crit damage or agility (no flat stat), each once, none past its top
-  (12.5%, 25% crit rate, 36% crit damage, 72 agility), and only one of them at its top: a memoir's rolls run out.
-  A set's first memoir mains ATK, DEF or HP; only the second may main crit, and only the third agility.</p>
 
 <!-- ============================================================ BUILD A SET -->
-<h2 class="bracket-header costume-group-header" data-side>Build a Set</h2>
+<h2 class="bracket-header costume-group-header" data-side>Build a Set{{ info("Enter percent stats ×10: 3% = 30, 12.5% = 125.") }}</h2>
 
 <div class="panel" style="padding:12px" data-side>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
@@ -51,7 +49,7 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Memoirs</span>
-    <span class="grant-id">{{ owned_count }} owned memoirs to level 15. Sub stats stay as they are.</span>
+    <span class="grant-id">{{ owned_count }} owned memoirs{{ info("Sets every memoir to level 15. Sub stats stay as they are.") }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" id="upgrade-all-btn" class="grant-chosen-btn"
             {% if owned_count == 0 %}disabled{% endif %}>RUN</button>
@@ -59,7 +57,7 @@
 </div>
 
 <!-- ============================================================ FIX SLOTS -->
-<h2 class="bracket-header costume-group-header" data-toc>Fix Slots on a Memoir</h2>
+<h2 class="bracket-header costume-group-header" data-toc>Fix Slots on a Memoir{{ info("Enter percent stats ×10: 3% = 30, 12.5% = 125.") }}</h2>
 
 <div class="panel" style="padding:12px">
   {% if owned_for_picker %}
@@ -68,7 +66,7 @@
     <select id="memoir-picker" style="flex:1;min-width:min(340px,100%)">
       {% for m in owned_for_picker %}
       <option value="{{ m.uuid }}">
-        {% if m.set_name %}[{{ m.set_name }}] {% endif %}{{ m.memoir_name }} &middot; lv{{ m.level }} &middot; main_id={{ m.main_id }} &middot; uuid={{ m.uuid[:8] }}&hellip;
+        {% if m.set_name %}[{{ m.set_name }}] {% endif %}{{ m.memoir_name }} &middot; lv{{ m.level }} &middot; #{{ m.uuid[:8] }}
       </option>
       {% endfor %}
     </select>
@@ -76,7 +74,7 @@
   </div>
   <div id="fix-slots-editor" style="display:flex;flex-direction:column;gap:6px"></div>
   {% else %}
-  <p style="margin:0;color:var(--fg-mid);font-size:var(--fs-label);letter-spacing:0.1em">No memoirs owned yet. Build a set above first.</p>
+  <p style="margin:0;color:var(--fg-mid);font-size:var(--fs-label);letter-spacing:0.1em">No memoirs yet.</p>
   {% endif %}
 </div>
 

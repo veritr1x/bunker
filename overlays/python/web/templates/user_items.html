@@ -1,6 +1,6 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Item Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ user_id }} :: EDIT{% endblock %}
 
 {% macro grant_row(possession_type, item) %}
 <form data-grant data-tab-key="{{ tab_key }}"
@@ -41,7 +41,7 @@
   <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Item Editor</h1>
+<h1 class="bracket-header" data-side>Item Editor{{ info("Amounts are added to your inventory. Each change is backed up first.") }}</h1>
 <div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
@@ -52,7 +52,6 @@
   }).catch(() => {});
 </script>
 
-<div class="panel" data-side="intro"><p style="margin:0">Amounts are added to your inventory. Each change is backed up first.</p></div>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
@@ -70,7 +69,7 @@
     <form data-grant data-tab-key="gems"
           data-ptype="{{ ptype_paid_gem }}" data-id="0" data-name="paid gems" class="grant-form">
       <span class="grant-name">Paid Gems</span>
-      <span class="grant-id">PAID</span>
+      <span class="grant-id"></span>
       <span class="grant-current" data-current>{{ "{:,}".format(paid_gem) }}</span>
       <input type="number" name="count" min="1" max="999999999" placeholder="+amount" inputmode="numeric" data-amount>
       <button type="submit">GRANT</button>
@@ -78,7 +77,7 @@
     <form data-grant data-tab-key="gems"
           data-ptype="{{ ptype_free_gem }}" data-id="0" data-name="free gems" class="grant-form">
       <span class="grant-name">Free Gems</span>
-      <span class="grant-id">FREE</span>
+      <span class="grant-id"></span>
       <span class="grant-current" data-current>{{ "{:,}".format(free_gem) }}</span>
       <input type="number" name="count" min="1" max="999999999" placeholder="+amount" inputmode="numeric" data-amount>
       <button type="submit">GRANT</button>
@@ -96,8 +95,7 @@
   <div class="search-row">
     <label for="search-{{ tab.key }}" class="search-label">FILTER</label>
     <input type="text" id="search-{{ tab.key }}" class="tab-search" data-tab="{{ tab.key }}"
-           placeholder="Search {{ tab.label|lower }} by name or id...">
-    <span class="tab-stats">{{ tab.owned_count }} owned / {{ tab.total_count }} total</span>
+           placeholder="Name or ID">
     <button type="button" class="grant-chosen-btn" data-tab-target="tab-{{ tab.key }}">GRANT ALL CHOSEN</button>
     {% if tab.key == "consumables" %}
       <button type="button" class="max-all-btn" data-action="max_consumables">MAX ALL</button>

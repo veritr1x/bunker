@@ -1,66 +1,58 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Display{% endblock %}
 {% block content %}
-<h1 data-side>Display</h1>
+<h1 data-side>Display{{ info("Higher frame rates and resolutions use more battery and heat. Changes apply the next time the game opens.") }}</h1>
 {% if result and not result.ok %}<div class="banner error">&gt; The game could not use these settings: {{ result.error }}</div>{% endif %}
 <form action="/display" method="post">
   <h2 class="bracket-header" data-toc>Frame rate</h2>
   <div class="panel">
     <div class="setting">
-      <label for="fps">Frame rate</label>
+      <label for="fps">Frame rate{{ info("Capped at the screen's refresh rate. Power saving mode keeps its own lower rate.") }}</label>
       <select name="fps" id="fps">{% for key, title in fps_options %}<option value="{{ key }}"{% if settings.fps == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">Capped at the screen's refresh rate. Power saving mode keeps its own lower rate.</span>
     </div>
     <div class="setting">
-      <label for="idle">When idle</label>
+      <label for="idle">When idle{{ info("After 2 seconds without a touch, outside battles. A touch brings the full rate back.") }}</label>
       <select name="idle" id="idle">{% for key, title in idle_options %}<option value="{{ key }}"{% if settings.idle == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">After 2 seconds without a touch, outside battles. A touch brings the full rate back.</span>
     </div>
     <div class="setting">
-      <label for="heat">When hot</label>
+      <label for="heat">When hot{{ info("60 fps while the device is hot, 30 when very hot, back up once it cools.") }}</label>
       <select name="heat" id="heat">{% for key, title in heat_options %}<option value="{{ key }}"{% if settings.heat == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">60 fps while the device is hot, 30 when very hot, back up once it cools.</span>
     </div>
   </div>
 
   <h2 class="bracket-header" data-toc>Resolution</h2>
   <div class="panel">
     <div class="setting">
-      <label for="resolution">Resolution</label>
+      <label for="resolution">Resolution{{ info("For the field and battles; story scenes stay 720p. Capped at the screen's own.") }}</label>
       <select name="resolution" id="resolution">{% for key, title in resolution_options %}<option value="{{ key }}"{% if settings.resolution == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">For the field and battles; story scenes keep 720p. Capped at the screen's own resolution.</span>
     </div>
     {% if upscale_options|length > 1 %}<div class="setting">
-      <label for="upscale">Upscaling</label>
+      <label for="upscale">Upscaling{{ info("Sharpens a lower resolution instead of stretching it: close to full resolution for about half the GPU work.") }}</label>
       <select name="upscale" id="upscale">{% for key, title in upscale_options %}<option value="{{ key }}"{% if settings.upscale == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">Sharpens a lower resolution as it fills the screen, instead of stretching it. Looks close to the screen's own resolution for about half the GPU work.</span>
     </div>{% endif %}
     {% if texture_options|length > 1 %}<div class="setting">
-      <label for="textures">Texture size</label>
+      <label for="textures">Texture size{{ info("Smaller textures use much less memory but look softer. Menus stay sharp.") }}</label>
       <select name="textures" id="textures">{% for key, title in texture_options %}<option value="{{ key }}"{% if settings.textures == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">Smaller textures use much less memory but look softer. Menus stay sharp.</span>
     </div>{% endif %}
   </div>
 
   <h2 class="bracket-header" data-toc>Effects</h2>
   <div class="panel">
-    {% for name, title, about in [("shadows", "Shadows", "Of characters and scenery."), ("reflections", "Reflections", "On floors and water."), ("bloom", "Bloom", "The glow around bright light.")] %}<div class="setting">
-      <label for="{{ name }}">{{ title }}</label>
+    {% for name, title, about in [("shadows", "Shadows", ""), ("reflections", "Reflections", ""), ("bloom", "Bloom", "The glow around bright light.")] %}<div class="setting">
+      <label for="{{ name }}">{{ title }}{% if about %}{{ info(about) }}{% endif %}</label>
       <select name="{{ name }}" id="{{ name }}">{% for key, label in effect_options %}<option value="{{ key }}"{% if settings[name] == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-      <span class="note">{{ about }}</span>
     </div>{% endfor %}
   </div>
 
   <h2 class="bracket-header" data-toc>Screen</h2>
   <div class="panel">
     <div class="setting">
-      <label for="screen">Screen area</label>
+      <label for="screen">Screen area{{ info("Full screen also draws around the camera cutout; the game's buttons stay clear of it.") }}</label>
       <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
-      <span class="note">Full screen also draws around the camera cutout; the game's buttons stay clear of it.</span>
     </div>
   </div>
 
   <div class="actions"><button type="submit">Save</button></div>
 </form>
-<p data-side="intro">Higher frame rates and resolutions use more battery and warm the device. Changes apply the next time the game opens.</p>
 {% endblock %}

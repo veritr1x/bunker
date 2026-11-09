@@ -1,8 +1,8 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Save backups{% endblock %}
 {% block content %}
-<h1 data-side>Save backups</h1>
-<p data-side>The latest {{ retention }} backups are kept. Changes are backed up automatically.</p>
+<h1 data-side>Save backups{{ info("Changes are backed up automatically. The latest " ~ retention ~ " backups are kept.") }}</h1>
 <form method="post" action="/backups/create" data-side>
   <button type="submit" {% if not game_db_exists %}disabled{% endif %}>Create backup</button>
 </form>

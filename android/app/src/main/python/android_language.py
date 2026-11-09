@@ -60,15 +60,15 @@ def status_line(status: dict, current: str = "", packs=()) -> str:
     name = status.get("name") or status.get("language")
     state = status.get("state")
     if state == "building":
-        return f"Building {name}… The game gets it the next time it loads its file list."
+        return f"Building {name}…"
     if state == "ready":
         kept = len(status.get("skipped") or [])
         line = f"Ready: {name}, {count(status.get('bundles', 0), 'text file')} translated"
         return line + (f", {kept:,} kept in English." if kept else ".")
     if state == "failed" and not name:
-        return f"The chosen pack could not be read: {status.get('error', 'unknown error')}. Choose another pack, or English."
+        return f"The chosen pack could not be read: {status.get('error', 'unknown error')}."
     if state == "failed":
-        return f"{name} could not be applied: {status.get('error', 'unknown error')}. It is tried again the next time Lunar Tear starts."
+        return f"{name} could not be applied: {status.get('error', 'unknown error')}."
     return ""
 
 
@@ -130,7 +130,7 @@ def remove(language: str = Form(...)):
         return redirect(error=str(exc))
     if in_use:
         import android_runtime
-        return redirect(message=f"Removed the {language} pack, which was in use: back to English. {android_runtime.next_step()}")
+        return redirect(message=f"Removed the {language} pack; back to English. {android_runtime.next_step()}")
     return unchanged(redirect(message=f"Removed the {language} pack."))
 
 

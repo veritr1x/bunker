@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block title %}Summon rates{% endblock %}
 {% block content %}
 <style>
@@ -7,7 +8,7 @@
   .rates .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .rates .check { display: flex; gap: 8px; align-items: center; }
 </style>
-<h1 data-side>Summon rates</h1>
+<h1 data-side>Summon rates{{ info("Applies to regular and multi-step summons from the next draw. Experimental.") }}</h1>
 <form action="/gacha" method="post" class="panel rates">
   <div class="pair">
     <label>★4 rate (%)<input type="number" name="four" id="four" min="0.1" max="100" step="0.1" value="{{ settings.fourStarPercent }}"></label>
@@ -18,8 +19,7 @@
     <label>Costumes in ★4 (%)<input type="number" name="four_costume" min="0" max="100" step="any" value="{{ settings.fourStarCostumeShare }}"></label>
     <label>Costumes in ★3 (%)<input type="number" name="three_costume" min="0" max="100" step="any" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
   </div>
-  <label>Featured share (%)<input type="number" name="featured" min="0" max="100" step="1" value="{{ settings.featuredPercent }}"></label>
-  <p>The chance that a draw is a featured item, when its rarity and type have one.</p>
+  <label>Featured share (%){{ info("The chance that a draw is a featured item, when its rarity and type have one.") }}<input type="number" name="featured" min="0" max="100" step="1" value="{{ settings.featuredPercent }}"></label>
   <label>10-draw guarantee
     <select name="guarantee">
       <option value="3"{% if settings.multiMinRarity == 3 %} selected{% endif %}>★3 or higher</option>
@@ -35,10 +35,8 @@
   </label>
   <button type="submit">Apply</button>
 </form>
-<p data-side="intro">Applies to regular and multi-step summons from the next draw. The game's Rates page shows them. Experimental.</p>
-<h2 class="bracket-header" data-toc>Special Gift Roulette</h2>
+<h2 class="bracket-header" data-toc>Special Gift Roulette{{ info("The gem wheel in the menu, up to 6 spins a day. The chances must add up to 100%.") }}</h2>
 <form action="/gacha/roulette" method="post" class="panel rates" id="roulette">
-  <p>The gem wheel in the menu, up to 6 spins a day. The chances must add up to 100%.</p>
   <div class="pair">
     {% for gems, percent in roulette %}<label>{{ gems }} gems (%)<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
     {% endfor %}
