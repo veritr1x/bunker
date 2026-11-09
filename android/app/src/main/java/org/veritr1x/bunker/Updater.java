@@ -67,13 +67,13 @@ final class Updater {
         HttpError(int code) { super("HTTP "+code);this.code=code; }
     }
 
-    /** A message for the player: network failures in plain words, everything else as it is. */
+    /** A message for the player (Said, put in words when shown): network failures in plain words, everything else as it is. */
     static String explain(Throwable e) {
         if(e instanceof java.net.UnknownHostException||e instanceof java.net.ConnectException||e instanceof java.net.NoRouteToHostException)
-            return "Can't reach the update server. Check the connection and try again.";
-        if(e instanceof java.net.SocketTimeoutException)return "The connection timed out. Try again.";
-        if(e instanceof HttpError)return "The update files aren't available (HTTP "+((HttpError)e).code+"). Try again later.";
-        if(e instanceof javax.net.ssl.SSLException)return "The secure connection to the update server failed. Try again.";
+            return Said.text("launcher.update.no_connection");
+        if(e instanceof java.net.SocketTimeoutException)return Said.text("launcher.update.timed_out");
+        if(e instanceof HttpError)return Said.text("launcher.update.not_available","code",((HttpError)e).code);
+        if(e instanceof javax.net.ssl.SSLException)return Said.text("launcher.update.secure_failed");
         String message=e.getMessage()==null?e.toString():e.getMessage();
         // Python errors arrive as "RuntimeError: <message>".
         return message.replaceFirst("^[A-Za-z.]*Error: ","");
@@ -232,19 +232,19 @@ final class Updater {
             try {
                 FilesStore.delete(work);FilesStore.mkdir(work);
                 if(new StatFs(activity.getCacheDir().getPath()).getAvailableBytes()<SPACE)
-                    throw new IOException("Updating needs about 350 MB free. Free some space and try again.");
+                    throw new IOException(noSpace(activity,SPACE));
                 File bundle=new File(work,"bundle.zip");
                 download(r.bundleUrl,bundle,r.update.getJSONObject("assets").getJSONObject("android").optLong("size",-1),report);
-                if(cancelled)throw new IOException("Update cancelled.");
+                if(cancelled)throw new IOException(Said.text("launcher.update.cancelled"));
                 // The notices come along only when the release has a different pack.
                 JSONObject notices=r.noticesUrl==null?null:noticesToFetch(r.update,installedBuild(activity));
                 File noticesFile=null;
                 if(notices!=null) {
                     if(new StatFs(activity.getCacheDir().getPath()).getAvailableBytes()<SPACE+2*notices.optLong("size",0))
-                        throw new IOException("Updating needs about "+((SPACE+2*notices.optLong("size",0))>>20)+" MB free. Free some space and try again.");
+                        throw new IOException(noSpace(activity,SPACE+2*notices.optLong("size",0)));
                     noticesFile=new File(work,"notices.zip");
                     download(r.noticesUrl,noticesFile,notices.optLong("size",-1),report);
-                    if(cancelled)throw new IOException("Update cancelled.");
+                    if(cancelled)throw new IOException(Said.text("launcher.update.cancelled"));
                 }
                 stage(Stage.BUILDING);
                 File key=new File(work,"bunker-key.pem"),cert=new File(work,"bunker-cert.der");
@@ -254,14 +254,14 @@ final class Updater {
                     r.update.getJSONObject("assets").getJSONObject("android").getString("sha256"),work.getAbsolutePath(),key.getAbsolutePath(),cert.getAbsolutePath(),report,
                     noticesFile==null?null:noticesFile.getAbsolutePath(),notices==null?null:notices.getString("sha256")).toString();
                 bundle.delete();if(noticesFile!=null)noticesFile.delete();
-                if(cancelled)throw new IOException("Update cancelled.");
-                report.report("Stopping Lunar Tear and Pod Programs…");
+                if(cancelled)throw new IOException(Said.text("launcher.update.cancelled"));
+                report.report(Said.text("launcher.update.stopping"));
                 restartServer=new JSONObject(NativeBridge.status()).optString("state").equals("running");
                 new Handler(Looper.getMainLooper()).post(stopGame);
                 // Pod Programs may be finishing an edit (up to two minutes); never install over it.
                 for(int i=0;i<600&&!stopped();i++)Thread.sleep(250);
-                if(!stopped())throw new IOException("Pod Programs is still saving. Close it, wait a moment and try again.");
-                report.report("Opening the installer…");
+                if(!stopped())throw new IOException(Said.text("launcher.update.still_saving"));
+                report.report(Said.text("launcher.update.opening_installer"));
                 stage(Stage.INSTALLING);
                 install(activity,new File(apk));
                 // The installer's answer arrives in MainActivity (installResult), which ends the update.
@@ -274,6 +274,11 @@ final class Updater {
         },"update");
         t.start();
         return true;
+    }
+
+    /** Why the update can't start: about bytes are needed free (in MB, as Said). */
+    private static String noSpace(Context c,long bytes) {
+        return Said.text("launcher.update.no_space","size",Texts.t(c,"launcher.files.size_mb","n",Texts.number(c,bytes>>20)));
     }
 
     /** Starts Lunar Tear again when the update stopped it but nothing was installed. */
@@ -312,7 +317,7 @@ final class Updater {
         }
     }
 
-    /** Handles the installer's reply; returns a message to show, or null. */
+    /** Handles the installer's reply; returns a message to show (Said), or null. */
     static String installResult(Activity activity,Intent intent) {
         int status=intent.getIntExtra(PackageInstaller.EXTRA_STATUS,PackageInstaller.STATUS_FAILURE);
         if(status==PackageInstaller.STATUS_PENDING_USER_ACTION) {
@@ -324,7 +329,8 @@ final class Updater {
         if(status==PackageInstaller.STATUS_SUCCESS)return null;
         restartIfStopped();
         String message=intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-        return status==PackageInstaller.STATUS_FAILURE_ABORTED?"Update cancelled.":"The update couldn't be installed"+(message==null?".":": "+message);
+        if(status==PackageInstaller.STATUS_FAILURE_ABORTED)return Said.text("launcher.update.cancelled");
+        return message==null?Said.text("launcher.update.install_failed"):Said.text("launcher.update.install_failed_reason","reason",message);
     }
 
     private static void download(String url,File target,long size,Reporter report) throws IOException {
@@ -338,7 +344,7 @@ final class Updater {
                 if(cancelled)return;
                 out.write(buffer,0,n);done+=n;
                 int percent=total>0?(int)(done*100/total):-1;
-                if(percent!=last){last=percent;report.report(percent>=0?"Downloading "+percent+"%":"Downloading…");}
+                if(percent!=last){last=percent;report.report(percent>=0?Said.text("launcher.update.downloading_percent","percent",Texts.number(appContext,percent)):Said.text("launcher.update.downloading"));}
             }
         } finally {c.disconnect();}
     }

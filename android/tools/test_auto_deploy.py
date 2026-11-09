@@ -12,7 +12,7 @@ class AutoDeploy(unittest.TestCase):
         self.assertIn('static boolean autoDeploy(Context c){return c.getSharedPreferences("launcher",MODE_PRIVATE).getBoolean("autoDeploy",true);}', MAIN)
 
     def test_the_menu_toggles_it(self):
-        self.assertIn('option(panel,menu,15,"Auto deploy: "+(autoDeploy(this)?"On":"Off"),true);', MAIN)
+        self.assertIn('option(panel,menu,15,autoDeploy(this)?Texts.t(this,"launcher.menu.auto_deploy_on"):Texts.t(this,"launcher.menu.auto_deploy_off"),true);', MAIN)
         self.assertRegex(MAIN, r'case 15: \{boolean on=!autoDeploy\(this\);getSharedPreferences\("launcher",MODE_PRIVATE\)\.edit\(\)\.putBoolean\("autoDeploy",on\)\.apply\(\);')
 
     def test_off_opens_like_manage(self):

@@ -14,8 +14,14 @@ WORDS = {"STANDING BY", "WAITING FOR FILES", "NOT RUNNING", "RUNNING", "STARTING
 
 class StatusChip(unittest.TestCase):
     def test_android_says_each(self):
-        line = re.search(r"String state=tools\?.*", JAVA).group(0)
-        self.assertEqual({w for w in WORDS if f'"{w}"' in line}, WORDS)
+        # Android's words come from the catalogue (launcher.chip.<id>), shown in capitals.
+        import json
+        english = json.loads((root / "translations/bunker/en.json").read_text())
+        line = re.search(r"String chip=tools\?.*", JAVA).group(0)
+        ids = set(re.findall(r'"([a-z_]+)"', line))
+        said = {english[f"launcher.chip.{i}"].upper() for i in ids if f"launcher.chip.{i}" in english}
+        self.assertIn('Texts.upper(this,Texts.t(this,"launcher.chip."+chip))', JAVA)
+        self.assertEqual(said - {"STOPPING"}, WORDS)
 
     def test_ios_says_each(self):
         block = re.search(r"if \(gToolsOpen\) SetChip\(self\.server.*?\n(?:.*SetChip\(self\.server.*\n)+", IOS).group(0)

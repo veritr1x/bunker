@@ -1,7 +1,11 @@
 {
   "_": "Text the catalogue lint (test_bunker_catalogue.py) accepts outside translations/bunker/en.json.",
   "flavour": [
+    "BUNKER // ARCHIVE",
+    "BUNKER // POD 042",
     "End of transmission // Glory to mankind",
+    "LUNAR TEAR // 127.0.0.1",
+    "OPERATOR LINK // STANDING BY\\nEND OF TRANSMISSION // GLORY TO MANKIND",
     "Operator link // Standing by"
   ],
   "literal": [
@@ -27,7 +31,8 @@
     "pods.patcher.label.",
     "pods.story.kind.",
     "pods.story.state.",
-    "launcher.state."
+    "launcher.state.",
+    "launcher.chip."
   ],
   "upstream": [
     "Important Items",
@@ -45,5 +50,51 @@
     "weapon_ids must be a non-empty list",
     "weapon_ids must be integers"
   ],
-  "_upstream": "lunar-base route messages that stay English: request validation a player only meets after a malformed request, and the item editor tab name it maps itself (test_upstream_routes_add_no_new_english)."
+  "_upstream": "lunar-base route messages that stay English: request validation a player only meets after a malformed request, and the item editor tab name it maps itself (test_upstream_routes_add_no_new_english).",
+  "_java": "Launcher Java literals that stay as they are: names (Bunker), cookie attributes, date patterns, the text parser's own errors (never shown), why Android ended the server and the exported log's device line (for bug reports), licence lines as their authors wrote them, internal exceptions and checks.",
+  "java": [
+    " (API ",
+    " kB, rss ",
+    "+dev",
+    ", importance ",
+    ", package ",
+    ", pss ",
+    ", status ",
+    "-texture-mipmap-skip-level 1",
+    "-texture-mipmap-skip-level 2",
+    "; Path=/; HttpOnly; SameSite=Strict",
+    "; Path=/; SameSite=Strict",
+    "Accept",
+    "BUNKER",
+    "Bunker",
+    "Bunker ",
+    "Cookie",
+    "Could not prepare ",
+    "HTTP ",
+    "Java crash",
+    "MIT License · Copyright 2026 Ilya Groshev.",
+    "Single '}' encountered",
+    "[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}",
+    "\\nPort offset ",
+    "a dependency died",
+    "cannot fill ",
+    "end of string while looking for conversion specifier",
+    "ended by the system",
+    "expected ':' after conversion specifier",
+    "expected '}' before end of string",
+    "failed to start",
+    "killed by a signal",
+    "killed for low memory",
+    "killed for resource use",
+    "native crash",
+    "not ready",
+    "not responding",
+    "permission changed",
+    "stopped by the user",
+    "stopped|error|",
+    "too large",
+    "user stopped",
+    "yyyyMMdd-HHmm",
+    "{\\\"logs\\\":\\\"Native server unavailable\\\"}"
+  ]
 }

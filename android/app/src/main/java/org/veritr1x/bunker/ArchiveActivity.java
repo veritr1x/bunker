@@ -55,10 +55,10 @@ public final class ArchiveActivity extends Activity {
         bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
         TextView caption=look.monoText("BUNKER // ARCHIVE",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
-        TextView title=look.text("ARCHIVE",22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
+        TextView title=look.text(Texts.upper(this,Texts.t(this,"archive.menu.archive")),22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         bar.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
-        Button close=look.outlined("CLOSE");close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->finish());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
-        message=look.monoText("> Opening the Archive…",13,look.ink);message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
+        Button close=look.outlined(Texts.upper(this,Texts.t(this,"common.close")));close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->finish());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
+        message=look.monoText("> "+Texts.t(this,"launcher.archive.opening"),13,look.ink);message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
         web=new WebView(this);web.setBackgroundColor(look.paper);web.setVisibility(View.GONE);body.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         web.addJavascriptInterface(new Object(){@JavascriptInterface public String cutout(){return cutout;}},"BunkerShell");
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);
@@ -70,7 +70,7 @@ public final class ArchiveActivity extends Activity {
                 return !local(request.getUrl().toString());
             }
             @Override public void onPageFinished(WebView view,String url){if(local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> Couldn't open the Archive. Close it and try again.");}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> "+Texts.t(ArchiveActivity.this,"launcher.archive.could_not_open"));}
         });
         // Pictures from the page ("Save PNG", the 3D snapshot) go where the user picks; WebView ignores download links.
         web.addJavascriptInterface(new Object(){
@@ -116,7 +116,7 @@ public final class ArchiveActivity extends Activity {
                 });
             }catch(Exception|LinkageError error){
                 android.util.Log.e("LunarTear","Archive startup failed",error);
-                runOnUiThread(()->show("> The Archive couldn't start: "+(error.getMessage()==null?error.toString():error.getMessage())));
+                runOnUiThread(()->show("> "+Texts.t(ArchiveActivity.this,"launcher.archive.could_not_start","error",Texts.said(ArchiveActivity.this,String.valueOf(error.getMessage()))==null?error.toString():error.getMessage())));
             }
         },"archive-start").start();
     }
@@ -172,8 +172,8 @@ public final class ArchiveActivity extends Activity {
         if(result!=RESULT_OK||data==null||data.getData()==null||png==null)return;
         try(java.io.OutputStream out=getContentResolver().openOutputStream(data.getData())){
             out.write(png);
-            Toast.makeText(this,"Picture saved",Toast.LENGTH_SHORT).show();
-        }catch(Exception e){Toast.makeText(this,"Couldn't save the picture",Toast.LENGTH_LONG).show();}
+            Toast.makeText(this,Texts.t(this,"launcher.archive.picture_saved"),Toast.LENGTH_SHORT).show();
+        }catch(Exception e){Toast.makeText(this,Texts.t(this,"launcher.archive.picture_not_saved"),Toast.LENGTH_LONG).show();}
     }
     @Override protected void onPause(){super.onPause();web.onPause();}
     @Override protected void onResume(){super.onResume();web.onResume();}
