@@ -1142,6 +1142,7 @@
   "pods.gift.paid_gems": "Paid Gems",
   "pods.gift.send": "SEND",
   "pods.gift.send_step": "2 :: Send",
+  "pods.gift.sender_in_game": "From Bunker, with love.",
   "pods.gift.sent": "Sent {item} ×{count} to the Gift Box.",
   "pods.gift.title": "Gift",
   "pods.gift.title_info": "Send yourself anything the game can hold, then claim it from the game's Gift Box. It shows there after your next action.",
