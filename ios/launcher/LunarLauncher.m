@@ -2368,7 +2368,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         }
         lt_rebind_image_symbols("UnityFramework.framework/UnityFramework", kReachability, sizeof(kReachability) / sizeof(kReachability[0]));
         LTDisplayStart(ToolsRoot());
-        if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad) LTWindowStart();
+        LTWindowStart();  // [Display] lines in the server log
         // Start before Unity boots, without waiting: the Go runtime's own
         // initializer runs after this one, so every Go call waits until this
         // returns. Waiting here only spent the launch watchdog's time.
