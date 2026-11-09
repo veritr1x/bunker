@@ -1,6 +1,7 @@
 package service
 
 import (
+	"lunar-tear/server/internal/bunkertext"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -24,8 +25,8 @@ func TestPrizeSectionShowsWhatIsLeft(t *testing.T) {
 	SetWebUsers(users)
 	defer SetWebUsers(nil)
 	r := httptest.NewRequest("GET", "/web/en/gacha-details?gachaId=200001&userId=1&sessionKey=x", nil)
-	page := prizeSectionHTML(r, 200001, dreamPrizes())
-	for _, want := range []string{"PRIZES", "Gems ×300,000", "1 of 1 left", "Gems ×100", "750 of 1,000 left", "Karma Stone ×10", "unlimited"} {
+	page := prizeSectionHTML(r, bunkertext.For("en"), 200001, dreamPrizes())
+	for _, want := range []string{"<h2>Prizes</h2>", "Gems ×300,000", "1 of 1 left", "Gems ×100", "750 of 1,000 left", "Karma Stone ×10", "unlimited"} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("missing %q in:\n%s", want, page)
 		}
@@ -35,7 +36,7 @@ func TestPrizeSectionShowsWhatIsLeft(t *testing.T) {
 func TestPrizeSectionWithoutThePlayer(t *testing.T) {
 	SetWebUsers(nil)
 	r := httptest.NewRequest("GET", "/web/en/gacha-details?gachaId=200001", nil)
-	page := prizeSectionHTML(r, 200001, dreamPrizes())
+	page := prizeSectionHTML(r, bunkertext.For("en"), 200001, dreamPrizes())
 	// The stock as the notice gave it, without what's left.
 	if !strings.Contains(page, "Gems ×300,000") || !strings.Contains(page, "stock 1") || strings.Contains(page, "of 1 left") {
 		t.Fatalf("page without a player:\n%s", page)

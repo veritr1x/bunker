@@ -68,8 +68,12 @@ folders, with a few differences:
   `archive.<page>.<name>` (the Archive), `launcher.<area>.<name>` (both
   launchers: their screens, ⋮ menus, dialogs and notification;
   `launcher.ios.<area>.<name>` is shown on iPhone and iPad only), `common.<name>`
-  (words all of them use, such as Save or Close). A key ending in `_info` is
+  (words all of them use, such as Save or Close), `ingame.<page>.<name>` (pages
+  Bunker's server shows inside the game: the summon details, the notices' tabs
+  and labels, the panel mission sheets). A key ending in `_info` is
   the explanation behind an "i" icon.
+- The notices themselves (their titles and articles, recovered from the
+  original game) stay in English; only the words around them are translated.
 - Write labels in normal case ("Game files"): where a screen shows capitals,
   Bunker capitalises them the way your language does (Turkish "İ").
 - Placeholders are names in braces, such as `{name}` or `{n}`: keep each one,

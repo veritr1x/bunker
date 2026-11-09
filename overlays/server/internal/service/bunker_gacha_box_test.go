@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"lunar-tear/server/internal/bunkertext"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
@@ -27,7 +28,7 @@ func boxPage(t *testing.T, url string) string {
 
 // The "i" button on a box summon opens /web/<lang>/gacha/box, not an empty page.
 func TestBoxSummonInfoIsNotEmpty(t *testing.T) {
-	if page := boxPage(t, "/web/en/gacha/box?gachaId=200001&nowPlayingId=200001&userId=1"); !strings.Contains(page, "SUMMONS DETAILS") {
+	if page := boxPage(t, "/web/en/gacha/box?gachaId=200001&nowPlayingId=200001&userId=1"); !strings.Contains(page, "<h1 class=caps>Summons details</h1>") {
 		t.Fatalf("box page:\n%s", page)
 	}
 }
@@ -80,11 +81,11 @@ func TestEventSummonPeriod(t *testing.T) {
 		{150 * day, "1970/07/20 – 1970/08/04"}, // the next
 		{400 * day, "1970/07/20 – 1970/08/04"}, // the last
 	} {
-		if got := eventPeriodHTML(runs, c.now); !strings.Contains(got, c.want) {
+		if got := eventPeriodHTML(bunkertext.For("en"), runs, c.now); !strings.Contains(got, c.want) {
 			t.Errorf("now day %d: %s, want %s", c.now/day, got, c.want)
 		}
 	}
-	if got := eventPeriodHTML([][2]int64{{300 * day, 290 * day}}, 0); !strings.Contains(got, "Opens when its event runs") {
+	if got := eventPeriodHTML(bunkertext.For("en"), [][2]int64{{300 * day, 290 * day}}, 0); !strings.Contains(got, "Opens when its event runs") {
 		t.Errorf("no run: %s", got)
 	}
 }
@@ -104,7 +105,7 @@ func TestBoxSummonInfoOpensItsNotice(t *testing.T) {
 	if loc := rec.Header().Get("Location"); rec.Code != 302 || loc != "/en/information/?informationId=10&isIngame=1" {
 		t.Fatalf("i button: %d %q", rec.Code, loc)
 	}
-	if page := boxPage(t, "/web/en/gacha/box?gachaId=613&nowPlayingId=613&tab=Rate"); !strings.Contains(page, "SUMMONS DETAILS") && !strings.Contains(page, "<h2>COST</h2>") {
+	if page := boxPage(t, "/web/en/gacha/box?gachaId=613&nowPlayingId=613&tab=Rate"); !strings.Contains(page, "<h1 class=caps>Summons details</h1>") && !strings.Contains(page, "<h2>Cost</h2>") {
 		t.Fatalf("Rates button:\n%.300s", page)
 	}
 }

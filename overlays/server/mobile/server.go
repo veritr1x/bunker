@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"lunar-tear/server/internal/auth"
+	"lunar-tear/server/internal/bunkertext"
 	"lunar-tear/server/internal/bunkerversion"
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/gacha"
@@ -233,6 +234,8 @@ func Start(dataRoot, assetRoot string) (err error) {
 	// OctoLinks, so a cache entry is still unlinked before its translated copy
 	// is downloaded, and OctoLinks links translated downloads to their copies
 	// (started before the sweep, which links what is already cached).
+	// The text Bunker puts into the game (summon details, notices, panels) follows the same pack.
+	bunkertext.SetActive(filepath.Join(assetRoot, "translation", "active.json"))
 	translator := translation.New(assetRoot, dataRoot, platform)
 	translator.Start()
 	links := service.NewOctoLinks(octoRoot, assetRoot, platform)
