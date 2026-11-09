@@ -45,10 +45,24 @@ class WriteCatalogueTest(unittest.TestCase):
             "master/en.json", "master/ja.json", "master/ko.json"])
 
     def test_rerun_is_byte_identical(self):
+        # The same texts in another order write the same bytes (sorted keys), so a re-export makes no diff.
         game = {"ui": {"en": {"z": "1", "a": "日本"}, "ja": {"a": "日本"}, "ko": {}}}
+        reordered = {"ui": {"ko": {}, "ja": {"a": "日本"}, "en": {"a": "日本", "z": "1"}}}
         first = {p: p.read_bytes() for p in write_catalogue(self.out, game, EMPTY_MASTER)}
-        second = {p: p.read_bytes() for p in write_catalogue(self.out, game, EMPTY_MASTER)}
+        second = {p: p.read_bytes() for p in write_catalogue(self.out, reordered, EMPTY_MASTER)}
         self.assertEqual(first, second)
+
+    def test_templates_of_a_dropped_area_are_removed(self):
+        write_catalogue(self.out, {"ui": {"en": {"a": "one"}, "ja": {}, "ko": {}},
+                                   "old": {"en": {"b": "two"}, "ja": {}, "ko": {}}}, EMPTY_MASTER)
+        theirs = self.out / "game/old/pt-BR.json"
+        theirs.write_bytes(b'{"b": "dois"}')
+        write_catalogue(self.out, {"ui": {"en": {"a": "one"}, "ja": {}, "ko": {}}}, EMPTY_MASTER)
+        for lang in ("en", "ja", "ko"):
+            self.assertFalse((self.out / f"game/old/{lang}.json").exists(), lang)
+            self.assertTrue((self.out / f"game/ui/{lang}.json").exists(), lang)
+        # A translation of the dropped area stays, so the check names it (no en.json to translate).
+        self.assertEqual(theirs.read_bytes(), b'{"b": "dois"}')
 
     def test_leaves_translator_files_alone(self):
         theirs = self.out / "game/ui/pt-BR.json"

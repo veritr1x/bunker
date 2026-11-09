@@ -44,6 +44,10 @@ def write_catalogue(out: Path, game: dict[str, dict[str, dict[str, str]]], maste
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(dump_json(texts))
+    # An area the game no longer has: its templates go; translations of it stay for the check to name.
+    for stale in sorted((out / "game").glob("*/*.json")):
+        if stale.stem in ("en", *CONTEXT_LANGUAGES) and stale not in files:
+            stale.unlink()
     return list(files)
 
 
