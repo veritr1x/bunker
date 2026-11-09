@@ -151,6 +151,13 @@ def merge_font(game: bytes, replace: bytes, add: bytes | None = None) -> bytes:
         merged = Merger().merge(pieces)
     finally:
         quiet.setLevel(level)
+    # The merger takes the tallest ascent and deepest descent of all fonts; keep the game's, so text
+    # (English included) sits and spaces exactly as before.
+    for table, fields in (("hhea", ("ascent", "descent", "lineGap")),
+                          ("OS/2", ("sTypoAscender", "sTypoDescender", "sTypoLineGap", "usWinAscent", "usWinDescent"))):
+        if table in font and table in merged:
+            for field in fields:
+                setattr(merged[table], field, getattr(font[table], field))
     name = merged["name"]
     version = name.getDebugName(5) or ""
     name.setName(f"{version}; {MARK}" if version else MARK, 5, 3, 1, 0x409)
