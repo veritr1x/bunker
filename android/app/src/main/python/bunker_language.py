@@ -63,6 +63,8 @@ def read_pack(data: bytes, source: str = "loaded", path: Path = Path()) -> PackI
     game = pack.get("game", {})
     if not isinstance(game, dict):
         raise PackError("Not a language pack: its \"game\" texts are not a list of keys.")
+    if not isinstance(pack.get("bunker", {}), dict):
+        raise PackError("Not a language pack: its \"bunker\" texts are not a list of keys.")
     texts = sum(1 for value in game.values() if isinstance(value, str) and value and "\n" not in value and "\r" not in value)
     return PackInfo(source, language, pack.get("name") or language, pack.get("version", ""), texts, path)
 
