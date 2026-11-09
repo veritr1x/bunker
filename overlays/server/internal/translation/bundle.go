@@ -15,27 +15,6 @@ import (
 
 const textAssetClass = 49
 
-// maskBytes is Octo's mask for a bundle name (unityasset.Unmask's, which it
-// does not export).
-func maskBytes(name string) []byte {
-	chars := []byte(name)
-	n := len(chars)
-	buf := make([]byte, n*2)
-	for i, c := range chars {
-		buf[2*i] = c
-		buf[2*n-1-2*i] = ^c
-	}
-	h := byte(0xbb)
-	for _, b := range buf {
-		h = (h&1)<<7 | h>>1
-		h ^= b
-	}
-	for i := range buf {
-		buf[i] ^= h
-	}
-	return buf
-}
-
 // Mask is the inverse of unityasset.Unmask: marker 0x31 masks bytes 1 to 255,
 // 0x32 every byte from 1; byte 0 becomes the marker.
 func Mask(plain []byte, name string, marker byte) []byte {
@@ -47,7 +26,7 @@ func Mask(plain []byte, name string, marker byte) []byte {
 	if marker == 0x31 {
 		n = min(256, n)
 	}
-	mask := maskBytes(name)
+	mask := unityasset.MaskBytes(name)
 	for i := 1; i < n && len(mask) > 0; i++ {
 		out[i] ^= mask[i%len(mask)]
 	}
