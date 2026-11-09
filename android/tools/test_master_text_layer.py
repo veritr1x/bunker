@@ -37,6 +37,12 @@ class Texts(unittest.TestCase):
         self.assertEqual({row[2] for row in pm.TABLE_ROW_ADDITIONS["m_gift_text"]}, {english})
         self.assertEqual({row[0] for row in pm.TABLE_ROW_ADDITIONS["m_gift_text"]}, {int(mt.BUNKER_GIFT.rpartition(".")[2])})
 
+    def test_hostile_keys_and_values_are_left_out(self):
+        # isdigit() takes "²" and 5,000 digits, which int() refuses; a lone surrogate cannot be written to the data
+        pack = {"master": {"m_dokan_text.²": "x", "m_dokan_text." + "9" * 5000: "x", "m_dokan_text.-5": "x",
+                           "m_dokan_text.100": "a\ud800b", "m_dokan_text.101": "fine"}}
+        self.assertEqual(mt.texts(pack), {"m_dokan_text.101": "fine"})
+
     def test_fingerprint(self):
         self.assertEqual(mt.fingerprint({}), "")
         self.assertEqual(mt.fingerprint({"a": "1", "b": "2"}), mt.fingerprint({"b": "2", "a": "1"}))

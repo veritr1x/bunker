@@ -57,7 +57,7 @@ class Live(unittest.TestCase):
             self.active.unlink(missing_ok=True)
         else:
             self.active.parent.mkdir(exist_ok=True)
-            self.active.write_text(json.dumps(pack, ensure_ascii=False))
+            self.active.write_text(json.dumps(pack))  # escaped, as a pack may carry a lone surrogate
 
     def dokan(self, path=None):
         toc, blob = cal.read_master(path or self.master)
@@ -127,6 +127,44 @@ class Live(unittest.TestCase):
         gift = {r["LanguageType"]: r["Text"] for r in ch.records(toc, blob, {}, "m_gift_text") if r["GiftTextId"] == android_gift.GIFT_TEXT_ID}
         self.assertEqual((gift[2], gift[1]), ("Von Bunker, mit Liebe.", "From Bunker, with love."))
 
+    def test_a_hostile_pack_never_stops_the_game_data(self):
+        self.choose({**PACK, "master": {"m_dokan_text.²": "x", "m_dokan_text.100": "a\ud800b", "m_dokan_text.101": "⟦ok⟧"}})
+        ch.reapply_texts()
+        self.activate_copy_of(ORIGINAL)  # presets, restores, the gift text keep working
+        self.assertNotIn("\ud800", self.dokan()[2])
+
+    def test_a_pack_the_server_would_refuse_brings_no_texts(self):
+        self.choose({**PACK, "format": 2})
+        self.assertFalse(ch.reapply_texts())
+        self.assertEqual(self.master.read_bytes(), ORIGINAL.read_bytes())
+
+    def test_words_that_change_nothing_leave_the_game_data_as_it_is(self):
+        self.choose({**PACK, "master": {"m_dokan_text.99999": "x"}, "bunker": {}})
+        ch.reapply_texts()
+        self.assertEqual(self.master.read_bytes(), ORIGINAL.read_bytes())
+        self.assertFalse(list(patcher.folder().glob("unchallenged-*")))
+
+    def test_game_data_imported_by_a_launcher_gets_the_texts(self):
+        # FilesStore.importMaster / ImportMaster put a new master in place without Pod Programs
+        self.choose(PACK)
+        ch.reapply_texts()
+        shutil.copyfile(ORIGINAL, self.master)
+        self.assertTrue(ch.reapply_texts())
+        self.assertEqual(self.dokan()[2], "⟦Dimos⟧")
+
+    def test_the_language_alone_does_not_make_a_mods_save_rebuild(self):
+        self.activate_copy_of(ORIGINAL)
+        self.choose(PACK)  # chosen, not yet applied
+        self.assertFalse(android_mods.save_settings({}))
+
+    def test_switching_back_and_forth_keeps_one_snapshot_of_the_same_data(self):
+        self.activate_copy_of(ORIGINAL)
+        before = len(patcher.master_history())
+        for pack in (PACK, None, PACK, None):
+            self.choose(pack)
+            ch.reapply_texts()
+        self.assertEqual(len(patcher.master_history()), before)
+
     def test_no_game_data_yet_nothing_to_rebuild(self):
         self.master.unlink()
         self.choose(PACK)
@@ -146,7 +184,11 @@ class Wiring(unittest.TestCase):
         self.assertGreaterEqual(language.count("challenges.reapply_texts()"), 2)  # choose, remove the one in use
         for runtime in ("android/app/src/main/python/android_runtime.py", "ios/python/ios_runtime.py"):
             text = (root / runtime).read_text()
-            self.assertRegex(text, r"refresh_language\(\)\n(?:.*\n){0,3}.*reapply_texts\(\)", runtime)
+            # after the preset or calendar update (which already brings the texts), and never stopping the update
+            body = text[text.index("def update_data"):]
+            body = body[:body.index("\ndef ", 1)]
+            self.assertLess(body.index("update_for(version)"), body.index("reapply_texts()"), runtime)
+            self.assertIn("except Exception", body[body.index("update_for(version)"):], runtime)
         self.assertNotIn('"/language"', (root / "android/app/src/main/python/android_runtime.py").read_text().split("LIVE_SAFE")[1].split(")")[0])
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 # table → (id column, text column); the same tables scripts/master_text.py exports (a test keeps them equal)
 TABLES = {
@@ -34,12 +35,26 @@ def texts(pack: dict) -> dict[str, str]:
     if isinstance(master, dict):
         for key, value in master.items():
             table, _, ident = str(key).rpartition(".")
-            if table in TABLES and ident.isdigit() and isinstance(value, str) and value:
+            if table in TABLES and ID.fullmatch(ident) and _writable(value):
                 out[f"{table}.{int(ident)}"] = value
     bunker = pack.get("bunker") if isinstance(pack, dict) else None
-    if isinstance(bunker, dict) and isinstance(bunker.get(BUNKER_GIFT_KEY), str) and bunker[BUNKER_GIFT_KEY]:
+    if isinstance(bunker, dict) and _writable(bunker.get(BUNKER_GIFT_KEY)):
         out[BUNKER_GIFT] = bunker[BUNKER_GIFT_KEY]
     return out
+
+
+ID = re.compile(r"[0-9]{1,10}")  # ASCII digits only ("²" is a digit to isdigit, not to int); ids are 32-bit
+
+
+def _writable(value) -> bool:
+    """A non-empty string the game data can hold (a lone surrogate cannot be written as UTF-8)."""
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def fingerprint(words: dict[str, str]) -> str:

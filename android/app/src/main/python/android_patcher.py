@@ -211,10 +211,15 @@ def activate(candidate, label):
     validate_master(candidate)
     challenges.on_activate(candidate)  # Mods › Challenges, applied once
     master = config.find_master_data_bin()
-    backup = folder() / ("master_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f") + ".bin.e")
-    shutil.copyfile(challenges.unchallenged(master), backup)  # snapshots hold the game data without challenges
-    with backup.open("rb") as handle:
-        os.fsync(handle.fileno())
+    source = challenges.unchallenged(master)  # snapshots hold the game data without challenges or texts
+    newest = master_history()[:1]
+    if newest and runtime.fingerprint(newest[0]) == runtime.fingerprint(source):
+        backup = newest[0]  # the same data as the last snapshot (a language switched back and forth): no copy
+    else:
+        backup = folder() / ("master_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f") + ".bin.e")
+        shutil.copyfile(source, backup)
+        with backup.open("rb") as handle:
+            os.fsync(handle.fileno())
     with candidate.open("rb") as handle:
         os.fsync(handle.fileno())
     os.replace(candidate, master)
