@@ -45,6 +45,16 @@ def advance(font: bytes | TTFont, char: str) -> int:
     return font["hmtx"][font.getBestCmap()[ord(char)]][0]
 
 
+def height(font: bytes | TTFont, char: str) -> int:
+    """The top of a character's outline."""
+    from fontTools.pens.boundsPen import BoundsPen
+    font = font if isinstance(font, TTFont) else TTFont(io.BytesIO(font))
+    glyphs = font.getGlyphSet()
+    pen = BoundsPen(glyphs)
+    glyphs[font.getBestCmap()[ord(char)]].draw(pen)
+    return pen.bounds[3]
+
+
 def has_mark(font: bytes) -> bool:
     return any(game_fonts.MARK in str(r) for r in TTFont(io.BytesIO(font))["name"].names)
 
@@ -68,6 +78,17 @@ class MergeFont(unittest.TestCase):
         cmap = TTFont(io.BytesIO(self.merged)).getBestCmap()
         for c in "żệά":
             self.assertIn(ord(c), cmap, c)
+
+    def test_noto_letters_take_the_game_letter_heights(self):
+        # Every square in the test font is 500 high: its capital (H) and x-height are 500.
+        merged = game_fonts.merge_font(cff_font({"A": 600, "H": 700, "x": 500, "Ж": 1000}), self.sans)
+        cap, small = height(self.sans, "Н"), height(self.sans, "х")  # Noto's Cyrillic En and small ha
+        self.assertAlmostEqual(height(merged, "Ж"), 500, delta=3)  # capital → the game's capital height
+        self.assertAlmostEqual(height(merged, "х"), 500, delta=3)  # lowercase → the game's x-height
+        self.assertAlmostEqual(height(merged, "Ğ"), height(self.sans, "Ğ") * 500 / cap, delta=3)  # accent kept in proportion
+        self.assertAlmostEqual(height(merged, "ż"), height(self.sans, "ż") * 500 / small, delta=3)
+        self.assertAlmostEqual(advance(merged, "Ж"), advance(self.sans, "Ж") * 500 / cap, delta=2)
+        self.assertEqual(height(merged, "H"), 500)  # the game's own letters stay
 
     def test_added_letters_only_fill_gaps(self):
         merged = game_fonts.merge_font(cff_font({"A": 600, "简": 777}), self.sans, self.han)
