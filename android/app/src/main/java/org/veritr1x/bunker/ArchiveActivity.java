@@ -44,7 +44,6 @@ public final class ArchiveActivity extends Activity {
         // The Bunker's top bar: where you are, and the way back.
         LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
-        TextView caption=look.monoText("BUNKER // ARCHIVE",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
         TextView title=look.text("ARCHIVE",22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         bar.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
         Button close=look.outlined("CLOSE");close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->finish());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
