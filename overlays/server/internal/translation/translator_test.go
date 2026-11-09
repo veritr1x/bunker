@@ -210,6 +210,29 @@ func TestBuildFinishingMidSessionServesOnlyWhatTheListNames(t *testing.T) {
 	}
 }
 
+func TestOldBuildRemovedOnceNotServed(t *testing.T) {
+	r := newRoots(t)
+	r.setPack(t, "um")
+	first := start(t, r, translateUI)
+	first.wait()
+	get(t, first.Wrap(next(r)), listURL)
+	oldDir := filepath.Join(first.buildsDir, first.served.ID)
+
+	r.setPack(t, "dois")
+	second := start(t, r, translateUI)
+	second.wait()
+	if _, err := os.Stat(oldDir); err != nil {
+		t.Fatal("the build the game holds was removed before a new list was served")
+	}
+	get(t, second.Wrap(next(r)), "/v1/list/300116832/1817")
+	if _, err := os.Stat(oldDir); !os.IsNotExist(err) {
+		t.Fatal("the build no list names any more is still there")
+	}
+	if _, err := os.Stat(filepath.Join(second.buildsDir, second.served.ID)); err != nil {
+		t.Fatal("the served build was removed")
+	}
+}
+
 func TestPackRemovedGoesBackUp(t *testing.T) {
 	r := newRoots(t)
 	r.setPack(t, "um")
