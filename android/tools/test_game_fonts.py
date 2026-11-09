@@ -1,5 +1,13 @@
 import io
+import os
+from pathlib import Path
+import shutil
+import struct
+import tempfile
+import time
 import unittest
+from unittest import mock
+import zipfile
 
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.t2CharStringPen import T2CharStringPen
@@ -84,6 +92,190 @@ class MergeFont(unittest.TestCase):
         # U+03E2 (Coptic Ϣ) is in the replaced Greek range, but Noto Sans has no glyph for it.
         merged = game_fonts.merge_font(cff_font({"A": 600, "Ϣ": 555}), self.sans)
         self.assertEqual(advance(merged, "Ϣ"), 555)
+
+
+def _align(data: bytearray, n: int):
+    data += b"\0" * ((-len(data)) % n)
+
+
+def unity_file(objects: list[tuple[int, int, bytes]], version: int = 21, big_endian: bool = False) -> bytes:
+    """A serialized file (format 21, no type tree) holding objects (path id, class id, body)."""
+    classes = sorted({cls for _, cls, _ in objects})
+    meta = bytearray(b"2019.4.9f1\0" + struct.pack("<i", 13) + b"\0")
+    meta += struct.pack("<i", len(classes))
+    for cls in classes:
+        meta += struct.pack("<ibh", cls, 0, -1) + (b"\0" * 16 if cls == 114 else b"") + b"\0" * 16
+    meta += struct.pack("<i", len(objects))
+    entries, body, start = [], bytearray(), 0
+    for path_id, cls, data in objects:
+        _align(body, 8)
+        entries.append((path_id, len(body), len(data), classes.index(cls)))
+        body += data
+    for path_id, offset, size, index in entries:
+        while (20 + len(meta)) % 4:
+            meta += b"\0"
+        meta += struct.pack("<qIIi", path_id, offset, size, index)
+    meta += struct.pack("<iii", 0, 0, 0) + b"\0"
+    data_offset = 20 + len(meta)
+    data_offset += (-data_offset) % 16
+    header = struct.pack(">IIII", len(meta), data_offset + len(body), version, data_offset) + bytes([int(big_endian), 0, 0, 0])
+    out = bytearray(header + meta)
+    _align(out, 16)
+    return bytes(out + body)
+
+
+def font_object(name: str, font: bytes, tail: bytes = b"\x01\x02\x03\x04") -> bytes:
+    """A Font object's body: m_Name, some fields, m_FontData, more fields."""
+    encoded = name.encode()
+    body = bytearray(struct.pack("<i", len(encoded)) + encoded)
+    _align(body, 4)
+    body += struct.pack("<fii", 1.5, 0, 7)
+    body += struct.pack("<i", len(font)) + font
+    _align(body, 4)
+    return bytes(body + tail)
+
+
+def layout(path):
+    """(path id, start, size, class id) of each object, and the data offset."""
+    return game_fonts._layout(open(path, "rb"))
+
+
+class UnityFiles(unittest.TestCase):
+    def setUp(self):
+        self.dir = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.font = cff_font({"A": 600})
+        self.other = b"behaviour" * 3
+        self.texture = b"texture!" * 5
+        self.src = self.dir / "src"
+        self.src.write_bytes(unity_file([(1, 114, self.other), (3, 128, font_object("X", self.font)), (7, 28, self.texture)]))
+
+    def test_read_fonts(self):
+        self.assertEqual(game_fonts.read_fonts(self.src), {"X": self.font})
+
+    def test_replace_font_keeps_other_objects(self):
+        new = cff_font({"A": 600, "B": 700, "C": 800})
+        dst = self.dir / "dst"
+        game_fonts.replace_fonts(self.src, dst, {"X": new})
+        self.assertEqual(game_fonts.read_fonts(dst), {"X": new})
+        data = dst.read_bytes()
+        objects, data_offset = layout(dst)
+        bodies = {path_id: data[data_offset + start:data_offset + start + size] for path_id, start, size, _ in objects}
+        self.assertEqual(bodies[1], self.other)
+        self.assertEqual(bodies[7], self.texture)
+        self.assertTrue(bodies[3].endswith(b"\x01\x02\x03\x04"))
+        self.assertTrue(all(start % 8 == 0 for _, start, _, _ in objects))
+        self.assertEqual(struct.unpack(">I", data[4:8])[0], len(data))
+
+    def test_replace_streams_other_objects(self):
+        big = bytes(range(256)) * (4 << 12)  # 4 MB
+        self.src.write_bytes(unity_file([(1, 49, big), (3, 128, font_object("X", self.font))]))
+        real_open = open
+
+        class Limited:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def read(self, n=-1):
+                if n < 0 or n > 1 << 20:
+                    raise AssertionError(f"read({n}) holds too much at once")
+                return self.handle.read(n)
+
+            def __getattr__(self, name):
+                return getattr(self.handle, name)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.handle.close()
+
+        def limited_open(path, mode="r", *args, **kwargs):
+            return Limited(real_open(path, mode, *args, **kwargs))
+
+        dst = self.dir / "dst"
+        with mock.patch.object(game_fonts, "open", limited_open, create=True):
+            game_fonts.replace_fonts(self.src, dst, {"X": cff_font({"A": 600, "B": 700})})
+        objects, data_offset = layout(dst)
+        start, size = next((s, n) for p, s, n, _ in objects if p == 1)
+        self.assertEqual(dst.read_bytes()[data_offset + start:data_offset + start + size], big)
+
+    def test_unsupported_format(self):
+        for version, big in ((22, False), (21, True)):
+            self.src.write_bytes(unity_file([(3, 128, font_object("X", self.font))], version=version, big_endian=big))
+            with self.assertRaises(game_fonts.UnityFileError):
+                game_fonts.read_fonts(self.src)
+
+    def test_unknown_font_name(self):
+        with self.assertRaises(game_fonts.UnityFileError):
+            game_fonts.replace_fonts(self.src, self.dir / "dst", {"Y": self.font})
+
+    def test_missing_font_is_an_error(self):
+        before = self.src.read_bytes()
+        with self.assertRaises(RuntimeError) as caught:
+            game_fonts.patch_game_fonts([self.src], log=lambda m: None)
+        self.assertIn("FOT-RodinPro-DB", str(caught.exception))
+        self.assertEqual(self.src.read_bytes(), before)
+
+    def test_patch_game_fonts_in_place(self):
+        fonts = [(i + 2, 128, font_object(g.name, cff_font({"A": 600, "Ж": 1000}, name=f"F{i}")))
+                 for i, g in enumerate(game_fonts.GAME_FONTS)]
+        self.src.write_bytes(unity_file([(1, 114, self.other)] + fonts))
+        lines = []
+        game_fonts.patch_game_fonts([self.src], log=lines.append)
+        found = game_fonts.read_fonts(self.src)
+        for g in game_fonts.GAME_FONTS:
+            self.assertTrue(has_mark(found[g.name]), g.name)
+        self.assertIn("Fonts: added letters to FOT-RodinPro-DB", lines)
+        once = self.src.read_bytes()
+        game_fonts.patch_game_fonts([self.src], log=lambda m: None)
+        self.assertEqual(self.src.read_bytes(), once)
+
+
+INPUTS = Path(os.environ.get("BUNKER_INPUTS", Path(__file__).resolve().parents[2] / "inputs"))
+
+
+@unittest.skipUnless((INPUTS / "game-3.7.1.apk").is_file() and (INPUTS / "game-3.7.1.ipa").is_file(),
+                     "needs the game files (set BUNKER_INPUTS to the folder holding game-3.7.1.apk and .ipa)")
+class RealGameFiles(unittest.TestCase):
+    def test_real_game_files(self):
+        work = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        with zipfile.ZipFile(INPUTS / "game-3.7.1.apk") as apk:
+            android = []
+            for name in game_fonts.ANDROID_FONT_FILES:
+                (work / Path(name).name).write_bytes(apk.read(name))
+                android.append(work / Path(name).name)
+        with zipfile.ZipFile(INPUTS / "game-3.7.1.ipa") as ipa:
+            ios = work / "resources.assets"
+            with ipa.open("Payload/NieR.app/" + game_fonts.IOS_FONT_FILE) as source, open(ios, "wb") as out:
+                shutil.copyfileobj(source, out, 1 << 20)
+        original = work / "resources.original"
+        shutil.copyfile(ios, original)
+        before = game_fonts.read_fonts(original)
+        for files in (android, [ios]):
+            started = time.time()
+            game_fonts.patch_game_fonts(files, log=print)
+            print("merged in", round(time.time() - started, 1), "s:", [f.name for f in files])
+            fonts = {}
+            for f in files:
+                fonts.update(game_fonts.read_fonts(f))
+            for g in game_fonts.GAME_FONTS:
+                self.assertTrue(has_mark(fonts[g.name]), g.name)
+        after = game_fonts.read_fonts(ios)
+        self.assertEqual(len(after), len(before))
+        for name, data in before.items():
+            if name not in {g.name for g in game_fonts.GAME_FONTS}:
+                self.assertEqual(after[name], data, name)
+        old, old_offset = layout(original)
+        new, new_offset = layout(ios)
+        self.assertEqual([o[0] for o in old], [o[0] for o in new])
+        fonts = {pid for pid, _, _, cls in old if cls == 128}
+        with open(original, "rb") as a, open(ios, "rb") as b:
+            for (pid, start, size, _), (_, start2, size2, _) in zip(old, new):
+                if pid in fonts:
+                    continue
+                self.assertEqual(size, size2, pid)
+                a.seek(old_offset + start); b.seek(new_offset + start2)
+                self.assertEqual(a.read(size), b.read(size2), pid)
 
 
 if __name__ == "__main__":
