@@ -15,10 +15,14 @@ const uiID, giftID = "vqZsA7", "i9kb1A"
 
 type roots struct{ asset, data string }
 
-// newRoots is an assetRoot with the sample list.bin and two text bundles, and an empty dataRoot.
-func newRoots(t *testing.T) roots {
+// newRoots is an assetRoot with the sample list.bin and two text bundles in
+// the shared tree, and an empty dataRoot.
+func newRoots(t *testing.T) roots { return newRootsIn(t, "") }
+
+// newRootsIn puts them in a platform's tree (revisions/0/<platform>/…) instead.
+func newRootsIn(t *testing.T, platform string) roots {
 	r := roots{asset: t.TempDir(), data: t.TempDir()}
-	rev := filepath.Join(r.asset, "assets/revisions/0")
+	rev := filepath.Join(r.asset, "assets/revisions/0", platform)
 	list, _ := sampleList()
 	for path, data := range map[string][]byte{
 		"list.bin":                             list,
@@ -59,7 +63,12 @@ func translateUI(raw []byte, name string, values map[string]string) ([]byte, uin
 func next(r roots) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isListPath(req.URL.Path) {
-			data, _ := os.ReadFile(filepath.Join(r.asset, "assets/revisions/0/list.bin"))
+			data, err := os.ReadFile(filepath.Join(r.asset, "assets/revisions/0/list.bin"))
+			for _, platform := range []string{"android", "ios"} {
+				if err != nil {
+					data, err = os.ReadFile(filepath.Join(r.asset, "assets/revisions/0", platform, "list.bin"))
+				}
+			}
 			w.Header().Set("Content-Type", "application/x-protobuf")
 			w.Write(data)
 			return
@@ -69,7 +78,11 @@ func next(r roots) http.Handler {
 }
 
 func start(t *testing.T, r roots, rebuild Rebuilder) *Translator {
-	tr := New(r.asset, r.data)
+	return startOn(t, r, "android", rebuild)
+}
+
+func startOn(t *testing.T, r roots, platform string, rebuild Rebuilder) *Translator {
+	tr := New(r.asset, r.data, platform)
 	tr.rebuild = rebuild
 	tr.Start()
 	return tr
@@ -231,6 +244,36 @@ func TestRestartSamePackNoRebuild(t *testing.T) {
 	second.wait()
 	if revision, _ := listOf(t, get(t, second.Wrap(next(r)), listURL)); revision != 1817 {
 		t.Fatalf("revision %d", revision)
+	}
+}
+
+func TestIOSLayout(t *testing.T) {
+	r := newRootsIn(t, "ios")
+	r.setPack(t, "um")
+	tr := startOn(t, r, "ios", translateUI)
+	tr.wait()
+	h := tr.Wrap(next(r))
+	if revision, entries := listOf(t, get(t, h, listURL)); revision != 1817 || entries[uiID].Size != 5 {
+		t.Fatalf("revision %d ui %+v", revision, entries[uiID])
+	}
+	if body := get(t, h, uiURL); string(body) != "UI:um" {
+		t.Fatalf("ui %q", body)
+	}
+}
+
+func TestStartKeepsOnlyEnglishTextEntries(t *testing.T) {
+	r := newRoots(t)
+	list, _ := sampleList()
+	list = append(list, listItem("zz0000", "ui)skill)icon", 10, 1, "00000000000000000000000000000000")...)
+	list = append(list, listItem("jj0000", "text)ja)ui", 10, 1, "00000000000000000000000000000000")...)
+	if err := os.WriteFile(filepath.Join(r.asset, "assets/revisions/0/list.bin"), list, 0644); err != nil {
+		t.Fatal(err)
+	}
+	r.setPack(t, "um")
+	tr := start(t, r, translateUI)
+	tr.wait()
+	if len(tr.entries) != 2 {
+		t.Fatalf("%d entries kept", len(tr.entries))
 	}
 }
 
