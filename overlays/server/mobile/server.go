@@ -238,7 +238,7 @@ func Start(dataRoot, assetRoot string) (err error) {
 	service.SetPanelWeb(notices) // the Anecdotes' official page, from the pack's web app
 	// The active language pack's text bundles and list (inside OctoLinks, so a
 	// cache entry is still unlinked before its translated copy is downloaded).
-	translator := translation.New(assetRoot, dataRoot)
+	translator := translation.New(assetRoot, dataRoot, platform)
 	translator.Start()
 	octo := links.Wrap(translator.Wrap(cdn.Handler()))
 	cdnMux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

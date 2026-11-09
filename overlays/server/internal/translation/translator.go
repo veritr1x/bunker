@@ -37,17 +37,15 @@ type Translator struct {
 
 // New reads the active pack from <assetRoot>/translation/active.json, keeps
 // builds under <assetRoot>/translation/build and the served revision in
-// <dataRoot>/translation-state.json.
-func New(assetRoot, dataRoot string) *Translator {
-	rev := filepath.Join(assetRoot, "assets", "revisions", "0")
-	assets := rev
-	if st, err := os.Stat(filepath.Join(rev, "android", "assetbundle")); err == nil && st.IsDir() {
-		assets = filepath.Join(rev, "android")
+// <dataRoot>/translation-state.json. platform ("android" or "ios") picks the
+// platform's tree (revisions/0/<platform>/) when it has a list.bin, else the
+// shared tree, as the server's own list serving does.
+func New(assetRoot, dataRoot, platform string) *Translator {
+	assets := filepath.Join(assetRoot, "assets", "revisions", "0")
+	if _, err := os.Stat(filepath.Join(assets, platform, "list.bin")); platform != "" && err == nil {
+		assets = filepath.Join(assets, platform)
 	}
-	list := filepath.Join(rev, "android", "list.bin")
-	if _, err := os.Stat(list); err != nil {
-		list = filepath.Join(rev, "list.bin")
-	}
+	list := filepath.Join(assets, "list.bin")
 	return &Translator{
 		packPath:       filepath.Join(assetRoot, "translation", "active.json"),
 		buildsDir:      filepath.Join(assetRoot, "translation", "build"),
@@ -63,13 +61,19 @@ func New(assetRoot, dataRoot string) *Translator {
 // yet is built in the background; until then the last served list stays.
 func (t *Translator) Start() {
 	data, err := os.ReadFile(t.listPath)
+	var entries []Entry
 	if err == nil {
-		t.original, t.entries, err = ParseList(data)
+		t.original, entries, err = ParseList(data)
 	}
 	if err != nil {
 		log.Printf("[Translation] off: %v", err)
 		close(t.done)
 		return
+	}
+	for _, e := range entries { // only these are ever translated: about 6,600 of 200,000
+		if strings.HasPrefix(e.Path, englishTextPrefix) {
+			t.entries = append(t.entries, e)
+		}
 	}
 	sum := md5.Sum(data)
 	t.listMD5 = hex.EncodeToString(sum[:])
