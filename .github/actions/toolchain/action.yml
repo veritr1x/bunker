@@ -1,0 +1,114 @@
+# The tools the Android and iOS builds need, cached between runs so a build
+# downloads them only when a pin changes, and retried when it does: GitHub's
+# release downloads and Google's SDK server answer 504 now and then, and a
+# failed download used to fail the whole release.
+name: Bunker toolchain
+description: Go, Python, protoc and, when asked, Java, the Android SDK parts and uv, with caches.
+
+inputs:
+  java:
+    description: "Java 21 with Gradle's cache (the Android launcher)"
+    default: "false"
+  android:
+    description: "The Android SDK parts the launcher builds with (platform, build tools, NDK)"
+    default: "false"
+  uv:
+    description: "uv and its Python 3.13 (the iOS Tools runtime)"
+    default: "false"
+  ios-cache:
+    description: "build_python.py's downloads (.build/cache: Python's iOS support, source packages)"
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v7
+      with:
+        go-version: "1.25.8"
+        # server/ is made by scripts/prepare.py; its go.sum is the overlay's.
+        cache-dependency-path: overlays/server/go.sum
+
+    - uses: actions/setup-python@v7
+      with:
+        python-version: "3.11"
+        cache: pip
+        cache-dependency-path: |
+          scripts/requirements-notices.txt
+          ios/python/requirements.txt
+
+    - if: inputs.java == 'true'
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: "21"
+        cache: gradle
+        cache-dependency-path: |
+          android/*.gradle*
+          android/app/*.gradle*
+          android/gradle/wrapper/gradle-wrapper.properties
+
+    - if: inputs.uv == 'true'
+      uses: astral-sh/setup-uv@v10
+      with:
+        enable-cache: true
+        cache-python: true
+        ignore-nothing-to-cache: true
+
+    # protoc: GitHub's release of it, kept in the cache.
+    - id: protoc
+      shell: bash
+      run: |
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64) asset=linux-x86_64 ;;
+          Linux-ARM64) asset=linux-aarch_64 ;;
+          macOS-ARM64) asset=osx-aarch_64 ;;
+          macOS-X64) asset=osx-x86_64 ;;
+          *) echo "No protoc for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+        esac
+        echo "asset=$asset" >> "$GITHUB_OUTPUT"
+        echo "dir=$RUNNER_TOOL_CACHE/protoc-23.4-$asset" >> "$GITHUB_OUTPUT"
+    - id: protoc-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.protoc.outputs.dir }}
+        key: protoc-23.4-${{ steps.protoc.outputs.asset }}
+    - if: steps.protoc-cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        DIR: ${{ steps.protoc.outputs.dir }}
+        ASSET: ${{ steps.protoc.outputs.asset }}
+      run: |
+        curl -fsSL --retry 6 --retry-all-errors --retry-delay 10 -o "$RUNNER_TEMP/protoc.zip" \
+          "https://github.com/protocolbuffers/protobuf/releases/download/v23.4/protoc-23.4-$ASSET.zip"
+        mkdir -p "$DIR" && unzip -q -o "$RUNNER_TEMP/protoc.zip" -d "$DIR"
+    - shell: bash
+      run: echo "${{ steps.protoc.outputs.dir }}/bin" >> "$GITHUB_PATH"
+
+    # Android SDK parts: from the cache, else from Google, retried.
+    - if: inputs.android == 'true'
+      id: sdk
+      shell: bash
+      run: echo "home=$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+    - if: inputs.android == 'true'
+      id: sdk-cache
+      uses: actions/cache@v6
+      with:
+        path: |
+          ${{ steps.sdk.outputs.home }}/platforms/android-36
+          ${{ steps.sdk.outputs.home }}/build-tools/36.0.0
+          ${{ steps.sdk.outputs.home }}/ndk/27.2.12479018
+        key: android-sdk-36-36.0.0-ndk27.2.12479018-${{ runner.os }}
+    - if: inputs.android == 'true' && steps.sdk-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        for attempt in 1 2 3 4; do
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" > /dev/null && exit 0
+          echo "sdkmanager failed (attempt $attempt); trying again"; sleep $((attempt * 15))
+        done
+        exit 1
+
+    - if: inputs.ios-cache == 'true'
+      uses: actions/cache@v6
+      with:
+        path: .build/cache
+        key: ios-python-${{ hashFiles('ios/python/native.json', 'ios/python/requirements.txt') }}

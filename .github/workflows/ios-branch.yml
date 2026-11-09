@@ -14,6 +14,7 @@ on:
       - "patches/**"
       - "android/app/src/main/python/**"
       - ".github/workflows/ios-branch.yml"
+      - ".github/actions/**"
   workflow_dispatch:
 
 concurrency:
@@ -25,20 +26,13 @@ jobs:
     name: iOS launcher and Tools runtime
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/toolchain
         with:
-          go-version: "1.25.8"
-          cache-dependency-path: server/go.sum
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: astral-sh/setup-uv@v6
-      - uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          uv: "true"
+          ios-cache: "true"
       - name: Prepare sources
         run: |
           python3.11 scripts/prepare.py
@@ -50,7 +44,7 @@ jobs:
         run: |
           ios/tools/build_framework.sh none out
           python3.11 ios/tools/build_python.py out/python-bundle
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-bundles
           path: out

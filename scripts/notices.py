@@ -17,6 +17,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import time
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,8 +44,17 @@ def fetch(lock=LOCK, output=OUTPUT):
     output.parent.mkdir(parents=True, exist_ok=True)
     partial = output.with_name(output.name + ".partial")
     try:
-        with urllib.request.urlopen(pin["url"], timeout=120) as response, open(partial, "wb") as out:
-            shutil.copyfileobj(response, out, 1 << 20)
+        # GitHub's release downloads answer 504 now and then: a few tries, waiting longer each time.
+        for attempt in range(5):
+            try:
+                with urllib.request.urlopen(pin["url"], timeout=120) as response, open(partial, "wb") as out:
+                    shutil.copyfileobj(response, out, 1 << 20)
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                if attempt == 4 or (isinstance(error, urllib.error.HTTPError) and error.code < 500 and error.code != 429):
+                    raise
+                print(f"Notice pack download failed ({error}); trying again")
+                time.sleep(10 * (attempt + 1))
         if partial.stat().st_size != pin["size"] or _sha256(partial) != pin["sha256"]:
             raise RuntimeError(f"The downloaded notice pack does not match {Path(lock).name}")
         os.replace(partial, output)

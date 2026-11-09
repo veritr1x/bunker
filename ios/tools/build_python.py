@@ -19,6 +19,8 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,8 +49,17 @@ def fetch(url, expected, name):
     if not path.exists() or sha256(path) != expected:
         partial = path.with_suffix(".partial")
         print("Downloading", url)
-        with urllib.request.urlopen(url) as response, open(partial, "wb") as out:
-            shutil.copyfileobj(response, out)
+        # GitHub's release downloads answer 504 now and then: a few tries, waiting longer each time.
+        for attempt in range(5):
+            try:
+                with urllib.request.urlopen(url, timeout=120) as response, open(partial, "wb") as out:
+                    shutil.copyfileobj(response, out)
+                break
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                if attempt == 4 or (isinstance(error, urllib.error.HTTPError) and error.code < 500 and error.code != 429):
+                    raise
+                print(f"Download failed ({error}); trying again")
+                time.sleep(10 * (attempt + 1))
         if sha256(partial) != expected:
             partial.unlink()
             raise SystemExit(f"Checksum mismatch for {url}")

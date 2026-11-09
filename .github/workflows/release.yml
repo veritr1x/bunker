@@ -19,15 +19,17 @@ concurrency:
 jobs:
   check:
     name: Tag matches VERSION
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - run: test "v$(cat VERSION)" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match VERSION $(cat VERSION)"; exit 1; }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scripts/requirements-notices.txt
       - run: python3 -m pip install pycryptodome msgpack lz4 -r scripts/requirements-notices.txt
       # The web builder publishes Pod Programs' prepared patcher (scripts/prepare.py).
       - run: python3 scripts/prepare.py
@@ -42,27 +44,15 @@ jobs:
   android:
     needs: check
     name: Android launcher
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/toolchain
         with:
-          go-version: "1.25.8"
-          cache-dependency-path: server/go.sum
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      - uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install Android SDK components
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" > /dev/null
+          java: "true"
+          android: "true"
       - name: Prepare sources
         run: |
           python3.11 scripts/prepare.py
@@ -73,7 +63,7 @@ jobs:
         run: |
           android/tools/build_native.sh
           cd android && ./gradlew --no-daemon assembleDebug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-launcher
           path: android/app/build/outputs/apk/debug/app-debug.apk
@@ -83,20 +73,13 @@ jobs:
     name: iOS launcher and Tools runtime
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/toolchain
         with:
-          go-version: "1.25.8"
-          cache-dependency-path: server/go.sum
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: astral-sh/setup-uv@v6
-      - uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          uv: "true"
+          ios-cache: "true"
       - name: Prepare sources
         run: |
           python3.11 scripts/prepare.py
@@ -111,7 +94,7 @@ jobs:
         run: |
           ios/tools/build_framework.sh none out
           python3.11 ios/tools/build_python.py out/python-bundle
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-bundles
           path: out
@@ -119,13 +102,13 @@ jobs:
   windows:
     needs: check
     name: Windows launcher
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.25.8"
-          cache: false
+          cache-dependency-path: windows/go.sum
       # Bunker.exe holds none of the Android SDK: it downloads the emulator from Google on first start.
       - name: Test and build Bunker.exe
         run: |
@@ -138,7 +121,7 @@ jobs:
             GOOS=linux GOARCH=${arch%%:*} CGO_ENABLED=0 go build -trimpath \
               -ldflags "-s -w -X main.version=$(cat ../VERSION)" -o "../out/Bunker-$(cat ../VERSION)-linux-${arch##*:}" .
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-launcher
           path: out
@@ -146,28 +129,32 @@ jobs:
   release:
     name: GitHub Release
     needs: [android, ios, windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: android-launcher
           path: bundles/android
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ios-bundles
           path: bundles/ios
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: windows-launcher
           path: dist
+      - uses: actions/cache@v6
+        with:
+          path: inputs/bunker-notices.zip
+          key: notices-${{ hashFiles('notices.lock.json') }}
       - name: Bundles, notice pack, update.json and notes
         run: |
           notices=()
@@ -185,7 +172,7 @@ jobs:
   publish:
     name: Publish the web builder
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: write
     steps:
