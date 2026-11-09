@@ -56,6 +56,41 @@ class Pack(unittest.TestCase):
         self.assertRegex(source("Texts.java"), r"toUpperCase\(\s*locale")
 
 
+class LanguageChange(unittest.TestCase):
+    """A language chosen in Pod Programs reaches every word: Texts notices the pack changed on any lookup
+    (a stat at most once a second) and counts the change, so each screen and the notification can tell."""
+
+    def test_any_lookup_notices_a_new_pack(self):
+        text = source("Texts.java")
+        self.assertRegex(text, r"static synchronized int generation\(Context c\)")
+        self.assertNotIn("static synchronized boolean refresh(", text)  # told only its first caller
+        self.assertRegex(text, r"SystemClock\.elapsedRealtime\(\)\s*-\s*checked\s*>=?\s*1000")
+
+    def test_the_launcher_rebuilds_for_a_new_language(self):
+        main = source("MainActivity.java")
+        self.assertRegex(main, r"if\(Texts\.generation\(this\)!=shownGeneration\)\{recreate\(\);return;\}")
+        self.assertIn("shownGeneration=Texts.generation(this);", main)
+
+    def test_the_notification_follows_a_new_language(self):
+        service = source("ServerService.java")
+        # renamed channel and words, the next time the notification is built and whenever the launcher asks
+        self.assertIn("int now=Texts.generation(this);if(now!=labelled){labelled=now;channel();}", service)
+        self.assertRegex(service, r"if\(\(running\|\|tools\)&&Texts\.generation\(this\)!=labelled\)"
+                                  r"getSystemService\(NotificationManager\.class\)\.notify\(1,notification\(\)\);")
+
+
+class Messages(unittest.TestCase):
+    def test_the_archive_error_is_the_message_in_words(self):
+        archive = source("ArchiveActivity.java")
+        self.assertNotIn("==null?error.toString():error.getMessage())", archive)
+        self.assertIn('"error",Texts.said(ArchiveActivity.this,ServerService.message(error))', archive)
+
+    def test_the_progress_bar_says_its_percent_in_words(self):
+        look = source("Look.java")
+        self.assertNotIn('" percent"', look)
+        self.assertIn('Texts.t(look.context,"launcher.progress.percent","n",Texts.number(look.context,permille/10))', look)
+
+
 class States(unittest.TestCase):
     """The server's state is an id the launcher compares; its words come from the catalogue when shown."""
     SERVICE = source("ServerService.java")

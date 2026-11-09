@@ -116,7 +116,7 @@ public final class ArchiveActivity extends Activity {
                 });
             }catch(Exception|LinkageError error){
                 android.util.Log.e("LunarTear","Archive startup failed",error);
-                runOnUiThread(()->show("> "+Texts.t(ArchiveActivity.this,"launcher.archive.could_not_start","error",Texts.said(ArchiveActivity.this,String.valueOf(error.getMessage()))==null?error.toString():error.getMessage())));
+                runOnUiThread(()->show("> "+Texts.t(ArchiveActivity.this,"launcher.archive.could_not_start","error",Texts.said(ArchiveActivity.this,ServerService.message(error)))));
             }
         },"archive-start").start();
     }

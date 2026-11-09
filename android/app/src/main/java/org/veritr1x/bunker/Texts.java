@@ -41,6 +41,8 @@ final class Texts {
     private static Locale locale = Locale.ENGLISH;
     private static String stamp;
     private static Context app;  // for calls without a Context (Python asking the service after it ended)
+    private static long checked;  // when the pack file was last looked at
+    private static int generation;
 
     static String t(Context c, String key, Object... pairs) { return current(c).t(key, pairs); }
     static String tOr(Context c, String key, String fallback, Object... pairs) { return current(c).tOr(key, fallback, pairs); }
@@ -59,21 +61,19 @@ final class Texts {
     /** The language of the words (a BCP 47 tag), "en" without a pack. */
     static synchronized String language(Context c) { current(c); return language; }
 
-    /** Reads the pack again if it changed since it was last read (a language chosen in Pod Programs).
-     *  True when it did: a screen built with the old words should build itself again. */
-    static synchronized boolean refresh(Context c) {
-        if (text == null) { current(c); return false; }
-        if (stampOf(pack(c)).equals(stamp)) return false;
-        load(c.getApplicationContext());
-        return true;
-    }
+    /** Which words are in use: a number that changes each time the pack is read again (a language chosen in
+     *  Pod Programs). A screen or notification built at another number should build itself again. */
+    static synchronized int generation(Context c) { current(c); return generation; }
 
-    /** c may be null: the application context of an earlier call is used; with none yet, keys are shown. */
+    /** The words in use; c may be null (the application context of an earlier call is used; with none yet,
+     *  keys are shown). Any lookup notices a new pack: the file is looked at at most once a second. */
     private static synchronized BunkerText current(Context c) {
         if (c != null && app == null) app = c.getApplicationContext();
-        if (text == null) {
-            if (app == null) return new BunkerText(new HashMap<>(), null, ENGLISH_RULE, n -> String.valueOf((long) n));
-            load(app);
+        if (app == null) return new BunkerText(new HashMap<>(), null, ENGLISH_RULE, n -> String.valueOf((long) n));
+        if (text == null) { load(app); return text; }
+        if (android.os.SystemClock.elapsedRealtime() - checked >= 1000) {
+            checked = android.os.SystemClock.elapsedRealtime();
+            if (!stampOf(pack(app)).equals(stamp)) load(app);
         }
         return text;
     }
@@ -92,6 +92,8 @@ final class Texts {
         if (english == null) english = readEnglish(app);
         File file = pack(app);
         stamp = stampOf(file);
+        checked = android.os.SystemClock.elapsedRealtime();
+        generation++;
         Map<String, String> words = new HashMap<>();
         String tag = "en";
         if (file.isFile() && file.length() <= MAX_PACK) {

@@ -111,9 +111,12 @@ def java_english(path: Path) -> list[tuple[int, str]]:
     allowed = ALLOWED | set(ALLOW.get("java", []))
     found = []
     for line, literal in java_strings(text):
-        if not has_letter(literal) or literal in allowed or LOGGED.search(lines[line - 1]):
+        words = re.sub(r"\\[ntr]", " ", literal)  # an escape is not a letter ("\\n> " holds no words)
+        if not has_letter(words) or literal in allowed or LOGGED.search(lines[line - 1]):
             continue
-        if not re.search(r"\s", literal.strip()) and JAVA_CODE.fullmatch(literal.strip()):
+        # A piece of a sentence (" percent") or a word ending one ("Exported.", "Error:") is words, whatever it holds.
+        sentence = literal != literal.strip() or re.fullmatch(r"[A-Z][a-z]+[.:!]", words)
+        if not sentence and not re.search(r"\s", words.strip()) and JAVA_CODE.fullmatch(words.strip()):
             continue
         found.append((line, literal))
     return found
@@ -376,9 +379,10 @@ class Catalogue(unittest.TestCase):
             java.write_text('class A { // "Not this"\n /* "Nor this" */ void f() { char q = \'"\';\n'
                             '  set("READY"); set("Choose the files"); set("Deploy"); set("game.db"); set("lunar_server");\n'
                             '  set("application/zip"); set("launcher.state."+s); Log.e("LunarTear", "Failed to start");\n'
-                            '  set("LUNAR TEAR // 127.0.0.1"); set("a \\"quoted\\" word"); } }\n')
+                            '  set("LUNAR TEAR // 127.0.0.1"); set("a \\"quoted\\" word");\n'
+                            '  set(n+" percent"); set("Exported."); set("Error:"); set("v1.2"); } }\n')
             self.assertEqual([text for _, text in java_english(java)],
-                             ["READY", "Choose the files", "Deploy", 'a \\"quoted\\" word'])
+                             ["READY", "Choose the files", "Deploy", 'a \\"quoted\\" word', " percent", "Exported.", "Error:"])
 
     def test_no_english_in_page_scripts(self):
         left = {str(path.relative_to(ROOT)): script_english(path) for path in CONVERTED}

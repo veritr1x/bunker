@@ -85,7 +85,9 @@ def _builder(asset_root: str, archive_root: str, scenario=None):
 
 
 def index_status(asset_root: str, archive_root: str) -> str:
-    """JSON: possible (there are game files to index), ready (the index is current), running, done, total, step, error."""
+    """JSON: possible (there are game files to index), ready (the index is current), running, done, total, step, error.
+    The launcher asks from its own process: the step is in the language of the pack in use (read again here)."""
+    bunker_text.reload(active_pack(Path(asset_root)))
     builder = _builder(asset_root, archive_root)
     if builder is None:
         return json.dumps({"possible": False, "ready": False, "running": False, "done": 0, "total": 0, "step": "", "error": ""})
@@ -97,6 +99,7 @@ _ANDROID = object()
 
 def build_index(asset_root: str, archive_root: str, scenario=_ANDROID) -> str:
     """The launcher, before it starts the game: builds the index when it is missing or out of date. Returns index_status."""
+    bunker_text.reload(active_pack(Path(asset_root)))  # the steps the build reports, in the pack's language
     if scenario is _ANDROID:
         scenario = None
         if _builder(asset_root, archive_root) is not None:

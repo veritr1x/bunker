@@ -40,6 +40,8 @@ public final class MainActivity extends Activity {
     private LinearLayout updatePanel;
     /** A phone on its side: a shorter top bar, tighter rows, no footer. */
     private boolean compact;
+    /** The words this screen was built with (Texts.generation): another language rebuilds it. */
+    private int shownGeneration;
     private TextView updateText;
     private Button updateButton,updateWeb,updateLater,updateSkip;
     private ProgressBar progress;
@@ -106,6 +108,7 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
+        shownGeneration=Texts.generation(this);
         addMenuShortcut();
         // Auto deploy off (⋮ menu): opened as "manage" is, the launcher stays until DEPLOY.
         boolean manage=getIntent().getBooleanExtra("manage",false)||!autoDeploy(this);
@@ -227,7 +230,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onResume(){super.onResume();
         // A language chosen in Pod Programs: build the screen again in it (the shortcut too).
-        if(Texts.refresh(this)){recreate();return;}
+        if(Texts.generation(this)!=shownGeneration){recreate();return;}
         foreground=true;
         Updater.listener=this::renderUpdate;renderUpdate();Updater.check(this,r->renderUpdate());
         if(awaitingAccess){awaitingAccess=false;if(FilesStore.canUseInPlace())chooseFolder(LINK);}bound=bindService(new Intent(this,ServerService.class),connection,BIND_AUTO_CREATE);handler.post(tick);}
