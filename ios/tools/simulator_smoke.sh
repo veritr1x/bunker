@@ -230,7 +230,7 @@ test -s "$documents/moved-bad/revisions/0/info.json" && test -s "$documents/asse
 echo "PASS: folder in Documents is moved; a refused one stays in place"
 # Use in place: revisions/0 is linked, not copied. The link survives relaunch,
 # a missing folder stops the server, and a later copy removes only the link.
-inplace="$work/in-place"; rm -rf "$inplace" "$inplace-away"; mkdir -p "$inplace/revisions/0/assetbundle/linked"
+inplace="$work/in-place"; rm -rf "$inplace" "$inplace-away" "$inplace-kept"; mkdir -p "$inplace/revisions/0/assetbundle/linked"
 printf '\x08\x01' > "$inplace/revisions/0/list.bin"; printf 'linked' > "$inplace/revisions/0/assetbundle/linked/linked.assetbundle"
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
 SIMCTL_CHILD_LUNAR_IMPORT_FROM="$inplace" SIMCTL_CHILD_LUNAR_IMPORT_LINK=1 xcrun simctl launch "$device" "$bundle" >/dev/null
@@ -241,18 +241,30 @@ xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! 
 xcrun simctl launch "$device" "$bundle" >/dev/null
 wait_for health 30 || { echo "FAIL: server did not start from the in-place folder" >&2; exit 1; }
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
-mv "$inplace" "$inplace-away"
+# A folder that is gone (its drive unplugged) stops the server; put back at its path, it starts again.
+cp -R "$inplace" "$inplace-kept"; rm -rf "$inplace"
 xcrun simctl launch "$device" "$bundle" >/dev/null; sleep 8
-if health; then echo "FAIL: server started without the in-place folder" >&2; exit 1; fi
+if health; then echo "FAIL: server started without the in-place folder; link -> $(readlink "$documents/assets/revisions/0")" >&2; exit 1; fi
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true
-mv "$inplace-away" "$inplace"
+mv "$inplace-kept" "$inplace"
 xcrun simctl launch "$device" "$bundle" >/dev/null
 wait_for health 30 || { echo "FAIL: server did not start once the folder was back" >&2; exit 1; }
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+# A renamed folder is the same folder: its bookmark finds it and the link follows, there and back.
+mv "$inplace" "$inplace-away"
+xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for health 30 || { echo "FAIL: server did not start from the renamed folder" >&2; exit 1; }
+test "$(readlink "$documents/assets/revisions/0")" = "$inplace-away/revisions/0" || { echo "FAIL: link did not follow the renamed folder" >&2; exit 1; }
+xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
+mv "$inplace-away" "$inplace"
+xcrun simctl launch "$device" "$bundle" >/dev/null
+wait_for health 30 || { echo "FAIL: server did not start once the folder had its name back" >&2; exit 1; }
+test "$(readlink "$documents/assets/revisions/0")" = "$inplace/revisions/0" || { echo "FAIL: link not back on the folder" >&2; exit 1; }
 xcrun simctl terminate "$device" "$bundle" >/dev/null 2>&1 || true; wait_for '! health' 10
 SIMCTL_CHILD_LUNAR_IMPORT_FROM="$source_root" xcrun simctl launch "$device" "$bundle" >/dev/null
 wait_for "test -s '$documents/assets/revisions/0/assetbundle/ui/sample.assetbundle' && test ! -e '$documents/.assets-importing'" 30 || { echo "FAIL: copy after in-place" >&2; exit 1; }
 test ! -L "$documents/assets/revisions/0" && test "$(cat "$inplace/revisions/0/assetbundle/linked/linked.assetbundle")" = linked || { echo "FAIL: copy after in-place touched the folder" >&2; exit 1; }
-echo "PASS: in-place folder is linked, survives relaunch, needs the folder, and a later copy leaves it intact"
+echo "PASS: in-place folder is linked, survives relaunch, follows a rename, needs the folder, and a later copy leaves it intact"
 
 # Save import: a backup from another device, in the export's ZIP layout. The
 # imported player takes this device's game ID; the old save is kept.
