@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › {{ character.name }}</p>
+<p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a></p>
 <h1>{{ character.name }}</h1>
-<p class="note">{{ count(character.costumes|length, "costume") }}{% if character.voices %} · {{ count(character.voices|length, "voice line") }}{% endif %}</p>
 {% if character.costumes and has_model(character.costumes[0].asset) %}<p><a class="button" href="/viewer/{{ character.costumes[0].asset }}">View in 3D</a></p>{% endif %}
 {% if sounds and character.voices %}
 <h2 class="bracket-header">Voice</h2>

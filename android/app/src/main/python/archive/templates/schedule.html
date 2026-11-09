@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Schedule</p>
 <h1 class="has-info">Schedule {{ info("Dates from the live service, in UTC." if original else "Dates in UTC. Open Pod Programs once to see the original dates.") }}</h1>
 <nav class="seg tight" aria-label="Schedule view">
   {% for key, label in tabs %}<a href="/schedule?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
@@ -71,7 +70,7 @@
       <strong>{{ i.title }}</strong><span class="note">{{ i.when.label }}</span>
     </div>
     {% endfor %}
-    {% if s.hidden %}<p class="note">{{ s.hidden }} more have no date in the game data.</p>{% endif %}
+    {% if s.hidden %}<p class="note">{{ s.hidden }} more undated</p>{% endif %}
   </details>
   {% endfor %}
   <script>
