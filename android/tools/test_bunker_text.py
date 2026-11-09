@@ -231,6 +231,21 @@ class Templates(unittest.TestCase):
         config = SimpleNamespace(ASSETS_DIR=server / "assets", DATA_DIR=self.dir / "tools")
         self.assertEqual(android_archive.active_pack(server), bunker_language.for_config(config).active_path)
 
+    def test_the_launchers_index_check_speaks_the_packs_language(self):
+        # The launcher asks for the index's state from its own process, where no page has read the pack yet:
+        # the step it shows must be in the pack's language, not English capitalised the pack's way.
+        import android_archive
+        server = self.dir / "server"
+        (server / "translation").mkdir(parents=True)
+        (server / "translation/active.json").write_text(json.dumps({"language": "de", "bunker": {"common.close": "Schließen"}}))
+        self.addCleanup(bunker_text.use, None)
+        bunker_text.use(None)
+        android_archive.index_status(str(server), str(self.dir / "archive"))
+        self.assertEqual(bunker_text.language(), "de")
+        bunker_text.use(None)
+        android_archive.build_index(str(server), str(self.dir / "archive"), scenario=None)
+        self.assertEqual(bunker_text.language(), "de")
+
 
 class Numbers(unittest.TestCase):
     """Whole numbers written the way the text's language writes them (CLDR, Latin digits): 1,200 · 1.200 · 1 200."""

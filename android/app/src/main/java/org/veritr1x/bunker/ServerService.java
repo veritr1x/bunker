@@ -23,6 +23,8 @@ public final class ServerService extends Service {
     private volatile boolean cancelled=false;
     private PowerManager.WakeLock wake;
     private long lastNotification;
+    /** The words the channel and notification were last made with (Texts.generation). */
+    private int labelled;
     // The running service, for Pod Programs' Python (closeGameForTools).
     private static volatile ServerService instance;
     private final Runnable monitor=new Runnable() { public void run() {
@@ -39,7 +41,7 @@ public final class ServerService extends Service {
         super.onCreate();
         instance=this;
         NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());logLastExit();NativeBridge.setBackupDir(new java.io.File(new java.io.File(getFilesDir(),"tools"),"backups").getAbsolutePath());
-        channel();
+        labelled=Texts.generation(this);channel();
         wake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"lunartear:server");
         wake.setReferenceCounted(false);
     }
@@ -90,7 +92,7 @@ public final class ServerService extends Service {
     /** An error's message: a Said reference or Lunar Tear's/Python's own words. */
     static String message(Throwable error){return error.getMessage()==null?error.toString():error.getMessage();}
     private Notification notification() {
-        if(Texts.refresh(this))channel();
+        int now=Texts.generation(this);if(now!=labelled){labelled=now;channel();}
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ServerService.class).setAction(STOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(Look.emblem(this)).setContentTitle(Texts.t(this,"launcher.notification.title","state",shown(state)))
@@ -342,6 +344,8 @@ public final class ServerService extends Service {
         super.onDestroy();
     }
     private final Messenger messenger=new Messenger(new Handler(Looper.getMainLooper(),message->{
+        // The launcher asks often: a language chosen since the notification was made renames it now.
+        if((running||tools)&&Texts.generation(this)!=labelled)getSystemService(NotificationManager.class).notify(1,notification());
         if(message.replyTo!=null) {
             Message reply=Message.obtain(null,message.what);
             Bundle b=new Bundle();b.putBoolean("running",running);b.putBoolean("busy",busy);b.putBoolean("tools",tools);b.putInt("permille",permille);b.putString("state",state);b.putString("detail",detail);

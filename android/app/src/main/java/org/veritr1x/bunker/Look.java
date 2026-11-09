@@ -179,7 +179,7 @@ final class Look {
         private final Look look;
         private int permille;
         Segments(Look look){super(look.context);this.look=look;}
-        void setPermille(int value){permille=Math.max(0,Math.min(1000,value));setContentDescription(permille/10+" percent");invalidate();}
+        void setPermille(int value){permille=Math.max(0,Math.min(1000,value));setContentDescription(Texts.t(look.context,"launcher.progress.percent","n",Texts.number(look.context,permille/10)));invalidate();}
         @Override protected void onDraw(Canvas c){
             int n=20,gap=look.dp(3),filled=Math.round(permille/1000f*n);float w=(getWidth()-gap*(n-1))/(float)n;Paint p=new Paint();
             for(int i=0;i<n;i++){p.setColor(i<filled?look.ink:(look.dark?0x2ed9d3ba:0x2e3a372f));float x=i*(w+gap);c.drawRect(x,0,x+w,getHeight(),p);}
