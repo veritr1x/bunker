@@ -161,10 +161,12 @@ final class Look {
      * A small round "i" beside what it explains: tapping it shows title and text in a
      * short dialog with Close. The ring is 20dp; the tap target is 40dp. Needs an Activity context.
      */
+    static final int INFO_DP=18;
     TextView info(String title,String text){
-        TextView v=monoText("i",12,ink);v.setTypeface(mono(),Typeface.BOLD);v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);
-        GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1.5f),ink);
-        v.setBackground(pressable(new InsetDrawable(ring,dp(10)),line));
+        // The same "i" as the pages (test_info_icon_size): an 18dp circle, a bold italic serif i, a 40dp tap area.
+        TextView v=text("i",10,ink);v.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD_ITALIC));v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);
+        GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1),ink);
+        v.setBackground(pressable(new InsetDrawable(ring,(dp(40)-dp(INFO_DP))/2),line));
         v.setMinWidth(dp(40));v.setMinHeight(dp(40));v.setLayoutParams(new LinearLayout.LayoutParams(dp(40),dp(40)));
         v.setContentDescription("More information");v.setFocusable(true);v.setClickable(true);
         v.setOnClickListener(x->new android.app.AlertDialog.Builder(context,dark?android.R.style.Theme_DeviceDefault_Dialog_Alert:android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
