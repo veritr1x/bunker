@@ -3,12 +3,10 @@
 {% block title %}Gift{% endblock %}
 {% block content %}
 <style>
-  .gift-cats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:14px 0 10px}
-  .gift-card{text-align:center;padding:12px 10px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:var(--fs-label);letter-spacing:.08em;min-height:44px;line-height:1.3;overflow-wrap:break-word}
+  .gift-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5em,1fr));gap:6px;margin:14px 0 10px}
+  .gift-card{text-align:center;padding:12px 10px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:var(--fs-label);letter-spacing:.08em;min-height:44px;line-height:1.3;hyphens:manual}
   .gift-card:hover,.gift-card:focus-visible{background:color-mix(in srgb,var(--fg-dark) 12%,transparent);color:inherit;transform:none}
   .gift-card.on,.gift-card.on:hover{background:var(--accent);color:var(--bg-cream);border-color:var(--accent)}
-  @media (max-width:900px){.gift-cats{grid-template-columns:repeat(3,minmax(0,1fr))}}
-  @media (max-width:520px){.gift-cats{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .gift-tabs{display:flex;gap:18px;margin:4px 0 8px;border-bottom:1px solid var(--line);overflow-x:auto}
   .gift-tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 0;color:var(--fg-mid);font:inherit;font-size:var(--fs-label);white-space:nowrap;min-height:0}
   .gift-tabs button:hover{background:none;color:var(--fg-dark);transform:none}
