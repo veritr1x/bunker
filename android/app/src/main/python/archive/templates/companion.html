@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="/characters?tab=companions">Companions</a> › {{ companion.position }} of {{ companion.count }}</p>
+<p class="crumb"><a href="/">Archive</a> › <a href="/characters?tab=companions">Companions</a></p>
 <h1>{{ companion.name }}</h1>
 {% if images and companion.full %}
 <a class="art full" href="{{ img("full", companion.full) }}"><img src="{{ img("view", companion.full) }}" alt="{{ companion.name }}"></a>

@@ -5,10 +5,10 @@
 <h1>{{ item.title }}</h1>
 {{ s.banner(item.hero, item.title) }}
 <div class="panel">
-  <article class="record"><h3>Summon {{ item.id }}{% if item.asset %}<span>· {{ item.asset }}</span>{% endif %}</h3>
-    <p>{% for r in item.runs %}{{ r.label }}{% if r.banner %} <span class="note">(home banner {{ r.banner }})</span>{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
-    {% if item.exchange %}<p class="note">{{ "No home banner" if item.banner else "Its home banners only have a placeholder date" }}. The dates come from its shard exchange: from when it opens until two days before the shards convert.</p>
-    {% elif not item.runs or not item.runs[0].ran %}<p class="note">The game data has no date for this summon. {{ "Its English art and title are in the game files, so it may have run in the global service." if item.english else "It has no English art or title in the game files, so it probably never ran in the global service." }}</p>{% endif %}
+  <article class="record"><h3>Dates</h3>
+    <p>{% for r in item.runs %}{{ r.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+    {% if item.exchange %}<p class="note">Dated by its shard exchange: from its opening until two days before the shards convert.</p>
+    {% elif not item.runs or not item.runs[0].ran %}<p class="note">No date in the game data. {{ "It has English art and title, so it may have run in the global version." if item.english else "It has no English art or title, so it probably never ran in the global version." }}</p>{% endif %}
   </article>
   {% if item.medal %}
   <article class="record"><h3>Shards</h3>
