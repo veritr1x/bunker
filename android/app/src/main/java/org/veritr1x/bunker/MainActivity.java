@@ -154,10 +154,10 @@ public final class MainActivity extends Activity {
         // [ SYSTEM ]: game files, Lunar Tear and save.
         LinearLayout system=panel();
         files=look.chip();assetButton=look.outlined("CHOOSE");assetButton.setContentDescription("Choose game files");assetButton.setOnClickListener(v->chooseAssets());
-        row(system,"GAME FILES",files,assetButton);
+        row(system,"GAME FILES",files,look.info("Game files","Choose the resource dump's .7z or its extracted folder. A folder used in place saves space."),assetButton);
         status=look.chip();progress=new ProgressBar(this);progress.setIndeterminateTintList(ColorStateList.valueOf(look.ink));
         row(system,"LUNAR TEAR",status,progress);
-        save=look.monoText("",13,look.ink);row(system,"SAVE",save);
+        save=look.monoText("",13,look.ink);row(system,"SAVE",save,look.info("Save","Export a save backup (⋮) before uninstalling Bunker or clearing its storage. Import save backup restores one from any device."));
         archiveLine=look.monoText(indexText,13,look.ink);row(system,"ARCHIVE",archiveLine);
         bar=new Look.Segments(look);LinearLayout.LayoutParams barParams=new LinearLayout.LayoutParams(-1,dp(14));barParams.setMargins(0,dp(10),0,dp(6));system.addView(bar,barParams);
         progressText=look.monoText("",12,look.ink);system.addView(progressText);
@@ -173,6 +173,7 @@ public final class MainActivity extends Activity {
             // what it holds, instead of two boxed buttons.
             LinearLayout links=panel();
             pods=link(links,"POD PROGRAMS","Save, events, shops and mods",v->onOption(8));pods.setContentDescription("Open Pod Programs");
+            ((LinearLayout)pods).addView(podsInfo(),((LinearLayout)pods).getChildCount()-1);
             View rule=new View(this);rule.setBackgroundColor(look.line);links.addView(rule,new LinearLayout.LayoutParams(-1,1));
             archive=link(links,"ARCHIVE","Story, characters, movies and music",v->startActivity(new Intent(this,ArchiveActivity.class)));archive.setContentDescription("Open the Archive");
             LinearLayout left=new LinearLayout(this);left.setOrientation(LinearLayout.VERTICAL);
@@ -192,7 +193,9 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,-2);ap.setMargins(0,dp(6),0,dp(12));programs.addView(about,ap);
             Button podsButton=look.outlined("OPEN POD PROGRAMS  ›");podsButton.setTextSize(13);podsButton.setContentDescription("Open Pod Programs");
             podsButton.setOnClickListener(v->onOption(8));pods=podsButton;
-            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,dp(48));pb.setMargins(0,0,0,dp(6));programs.addView(podsButton,pb);
+            LinearLayout podsRow=new LinearLayout(this);podsRow.setGravity(Gravity.CENTER_VERTICAL);podsRow.addView(podsButton,new LinearLayout.LayoutParams(0,dp(48),1));
+            LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(40),dp(40));ip.setMargins(dp(6),0,0,0);podsRow.addView(podsInfo(),ip);
+            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,-2);pb.setMargins(0,0,0,dp(6));programs.addView(podsRow,pb);
             // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
             LinearLayout records=panel();
             TextView story=look.monoText("Story, characters, movies and music",12,look.ink);
@@ -278,9 +281,9 @@ public final class MainActivity extends Activity {
         else if(busy&&!"Starting server".equals(serverState)&&!"Stopping".equals(serverState))message=serverDetail;
         else if("Saves exported".equals(serverState)||"Save imported".equals(serverState))message=serverDetail;
         else if(hasAssets&&!hasMaster){message="Import master data from the ⋮ menu.";warning=true;}
-        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Can't find your game files folder: "+FilesStore.linkedFolder(this)+". Put it back, or choose the files again.":"Allow All files access for NieR in Settings to read your game files folder, or choose the files again.";}
+        else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Can't find "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings, or choose the files again.";}
         else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty())message=serverDetail;
-        if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":running||ready?"Tap Deploy to play.":"Choose the game files: the resource dump's .7z or its extracted folder.";
+        if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":running||ready?"Tap Deploy to play.":"Choose the game files to begin.";
         detail.setText(warning?"> "+message:message);detail.setTextColor(warning?look.alert:look.ink);
     }
     private void chooseAssets(){
@@ -297,10 +300,10 @@ public final class MainActivity extends Activity {
     }
     /** Uses an extracted folder where it is, saving 21 GB. Needs All files access, which only Settings can grant. */
     private void useInPlace(){
-        if(Build.VERSION.SDK_INT<30){dialog().setTitle("Use in place").setMessage("Using a folder in place needs Android 11 or later. Copy it into the app instead.").setPositiveButton("OK",null).show();return;}
+        if(Build.VERSION.SDK_INT<30){dialog().setTitle("Use in place").setMessage("Needs Android 11 or later. Copy the folder in instead.").setPositiveButton("OK",null).show();return;}
         if(FilesStore.canUseInPlace()){chooseFolder(LINK);return;}
         dialog().setTitle("Allow All files access")
-            .setMessage("To use the game files where they are, NieR needs All files access. It reads only the folder you choose next.\n\nTurn on the switch in Settings, then come back. Don't move or delete the folder afterwards.")
+            .setMessage("Turn on the switch in Settings, then come back. NieR reads only the folder you choose. Don't move or delete it afterwards.")
             .setNegativeButton("Cancel",null)
             .setPositiveButton("Open Settings",(dialog,which)->{
                 awaitingAccess=true;
@@ -398,7 +401,7 @@ public final class MainActivity extends Activity {
     }
     private void confirmSaveImport(){
         dialog().setTitle("Import a save backup?")
-            .setMessage("This replaces the save on this device with a backup: a ZIP from Export save backup (from any device) or a game.db file. Your current save is kept as a copy first.")
+            .setMessage("This replaces the save on this device. Your current save is kept as a copy. Choose a backup ZIP or a game.db file.")
             .setNegativeButton("Cancel",null)
             .setPositiveButton("Choose backup",(dialog,which)->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,SAVE);})
             .show();
@@ -479,7 +482,7 @@ public final class MainActivity extends Activity {
         if(r.offer==Updater.Offer.WEB_BUILDER)text+="\n> This update needs the web builder.";
         else if(r.offer==Updater.Offer.OWN_KEY)text+="\n> This app uses your own signing key. Rebuild it with the web builder.";
         if(running&&!Updater.status.isEmpty())text=Updater.status;
-        else if(Updater.statusFailed)text+="\n> "+Updater.status+"\n> You can also rebuild with the web builder.";
+        else if(Updater.statusFailed)text+="\n> "+Updater.status;
         updateText.setText(text);
         updateText.setTextColor(Updater.statusFailed&&!running?look.alert:look.ink);
         updateButton.setText(running?"CANCEL":"UPDATE");
@@ -491,7 +494,7 @@ public final class MainActivity extends Activity {
     private void startUpdate(){
         if(Updater.current==null)return;
         if(!getPackageManager().canRequestPackageInstalls()){
-            dialog().setTitle("Allow updates").setMessage("To install the update, allow NieR to install apps. Turn on the switch, then come back and tap Update again.")
+            dialog().setTitle("Allow updates").setMessage("Allow NieR to install apps in Settings, then tap Update again.")
                 .setPositiveButton("Open Settings",(d,w)->startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))))
                 .setNegativeButton("Cancel",null).show();
             return;
@@ -506,9 +509,11 @@ public final class MainActivity extends Activity {
         Updater.status=message;Updater.statusFailed=true;renderUpdate();
     }
     private void help(){
-        dialog().setTitle("Help").setMessage("Lunar Tear, the game's server, runs on this device. No internet needed.\n\nChoose the game files once: the resource dump's .7z, or its extracted folder, copied in or used in place. Then tap Deploy to play. With Auto deploy on (⋮), the game starts when you open Bunker.\n\nTap the Lunar Tear notification to come back here.\n\nExport a save backup (⋮) before uninstalling the app or clearing its storage. Import save backup restores one from any device, including iPhone.\n\nPod Programs edits your save and chooses which events and shops appear. Opened while you play, it sends the game to its title screen to load each change.\n\nStop Lunar Tear (⋮) before changing the game files.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")
+        dialog().setTitle("Help").setMessage("Lunar Tear, the game's server, runs on this device. No internet needed.\n\nTap the Lunar Tear notification to return here.\n\nIf Samsung pauses Lunar Tear, set Battery usage to Unrestricted in App settings.")
             .setPositiveButton("Close",null).show();
     }
+    /** The "i" beside Pod Programs, on either layout. */
+    private TextView podsInfo(){return look.info("Pod Programs","Edit your save and choose which events and shops appear. While you play, each change sends the game to its title screen.");}
     private void showLog(){query(2);}
     /** Shows whether the game can reach this server on each of its ports. */
     private void showServerCheck(String report){

@@ -132,6 +132,21 @@ final class Look {
         b.setStateListAnimator(null);return b;
     }
 
+    /**
+     * A small round "i" beside what it explains: tapping it shows title and text in a
+     * short dialog with Close. The ring is 20dp; the tap target is 40dp. Needs an Activity context.
+     */
+    TextView info(String title,String text){
+        TextView v=monoText("i",12,ink);v.setTypeface(mono(),Typeface.BOLD);v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);
+        GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1.5f),ink);
+        v.setBackground(pressable(new InsetDrawable(ring,dp(10)),line));
+        v.setMinWidth(dp(40));v.setMinHeight(dp(40));v.setLayoutParams(new LinearLayout.LayoutParams(dp(40),dp(40)));
+        v.setContentDescription("More information");v.setFocusable(true);v.setClickable(true);
+        v.setOnClickListener(x->new android.app.AlertDialog.Builder(context,dark?android.R.style.Theme_DeviceDefault_Dialog_Alert:android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+            .setTitle(title).setMessage(text).setPositiveButton("Close",null).show());
+        return v;
+    }
+
     /** The import bar: 20 blocks filling left to right. */
     static final class Segments extends View {
         private final Look look;
