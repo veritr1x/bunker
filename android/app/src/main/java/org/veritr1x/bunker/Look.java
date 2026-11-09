@@ -164,7 +164,7 @@ final class Look {
     static final int INFO_DP=18;
     TextView info(String title,String text){
         // The same "i" as the pages (test_info_icon_size): an 18dp circle, a bold italic serif i, a 40dp tap area.
-        TextView v=text("i",10,ink);v.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD_ITALIC));v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);
+        TextView v=text("i",11,ink);v.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD_ITALIC));v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);
         GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1),ink);
         v.setBackground(pressable(new InsetDrawable(ring,(dp(40)-dp(INFO_DP))/2),line));
         v.setMinWidth(dp(40));v.setMinHeight(dp(40));v.setLayoutParams(new LinearLayout.LayoutParams(dp(40),dp(40)));

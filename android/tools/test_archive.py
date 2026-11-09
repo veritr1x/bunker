@@ -216,6 +216,8 @@ class InfoIcon(unittest.TestCase):
         env.globals.update(count=lambda n, word: f"{n} {word}{'' if n == 1 else 's'}", sections=[], images=False, sounds=False,
                            asset=lambda path: path, pod_css="", img=lambda size, path: path, snd=lambda path: path,
                            has_model=lambda asset: False)
+        import bunker_text
+        bunker_text.install(env)
         return env.get_template(name).render(active="", theme="", **values)
 
     def test_undated_summon_explains_its_dates_behind_an_icon(self):

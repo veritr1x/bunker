@@ -17,6 +17,8 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 FPS = [("30", "30 fps (game default)"), ("60", "60 fps"), ("90", "90 fps"), ("120", "120 fps"), ("max", "Screen maximum")]
 RESOLUTIONS = [("540", "540p (less memory)"), ("640", "640p (less memory)"), ("default", "Game default (720p)"), ("1080", "1080p"),
                ("1440", "1440p"), ("native", "Screen's own resolution")]

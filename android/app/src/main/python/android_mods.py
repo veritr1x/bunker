@@ -24,6 +24,8 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 COMFORT_MOD = "https://github.com/NavHobbyDev/lunar-tear-comfort-mod"
 MAX_MULTIPLIER = 10

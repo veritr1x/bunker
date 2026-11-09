@@ -246,6 +246,8 @@ class SummonRatesForm(unittest.TestCase):
         from jinja2 import Environment, FileSystemLoader
         import android_gacha
         env = Environment(loader=FileSystemLoader(str(root / "overlays/python/web/templates")))
+        import bunker_text
+        bunker_text.install(env)
         s = dict(android_gacha.DEFAULTS)
         page = env.get_template("gacha.html").render(request=None, active="gacha", settings=s, presets=android_gacha.PRESETS,
                                                      two_star=round(100 - s["fourStarPercent"] - s["threeStarPercent"], 3),

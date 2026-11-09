@@ -24,6 +24,8 @@ import android_runtime as runtime
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 ARENA = 2
 ARENA_TABLE_SIZE = 300     # decks in the Arena deck table
 EFFECTS = ("compromise", "cleanse", "revive", "provoke", "dauntless", "indomitable", "from_start")

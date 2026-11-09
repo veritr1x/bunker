@@ -21,6 +21,8 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 DEFAULTS = {"fourStarPercent": 5.0, "threeStarPercent": 15.0, "fourStarCostumeShare": 40.0,
             "threeStarCostumeShare": round(100 / 3, 4), "featuredPercent": 35.0, "stepUpBoost": True, "multiMinRarity": 3}
 PRESETS = [

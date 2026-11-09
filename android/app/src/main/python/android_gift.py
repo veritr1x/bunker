@@ -327,6 +327,8 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 
 def _owned_debris(user_id):

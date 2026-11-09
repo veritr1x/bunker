@@ -23,6 +23,8 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 SEASON2 = 2
 KINDS = {1: "Character", 7: "Character", 2: "Weapon", 8: "Weapon", 3: "Companion", 9: "Companion",

@@ -14,7 +14,7 @@
     font: normal 400 var(--fs-label)/1.5 var(--mono); letter-spacing: 0; text-transform: none; text-shadow: none; }
   /* One icon everywhere (test_info_icon_size): an 18px circle, a bold italic serif i, a 44px tap area. */
   details.info > summary { list-style: none; box-sizing: border-box; position: relative; width: 18px; height: 18px; border-radius: 50%; border: 1px solid currentColor;
-    color: var(--accent); background: none; font: italic 700 11px/16px Georgia, serif; text-align: center; cursor: pointer; user-select: none;
+    color: var(--accent); background: none; font: italic 700 var(--fs-label) Georgia, serif; line-height: 16px; text-align: center; cursor: pointer; user-select: none;
     padding: 0; text-transform: none; letter-spacing: 0; display: block; }
   details.info > summary::-webkit-details-marker { display: none; }
   details.info > summary::before { content: ""; position: absolute; inset: -13px; }
@@ -41,7 +41,7 @@
 <body>
   <nav class="primary">
     {#- A phone on its side: the app's own bar is gone, so the title and Close sit at the top of the tabs. #}
-    <div class="shell-head"><b>Pod Programs</b><a href="/bunker/close">Close</a></div>
+    <div class="shell-head"><b>Pod Programs</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
     <a href="/" {% if active == "home" %}class="active"{% endif %}>Programs</a>
     <a href="/patcher" {% if active == "patcher" %}class="active"{% endif %}>Content</a>
     <a href="/users" {% if active == "users" %}class="active"{% endif %}>Players</a>

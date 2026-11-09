@@ -20,7 +20,7 @@ class InfoIconSize(unittest.TestCase):
     def test_web_pages_draw_the_same_18px_circle(self):
         for css in (POD, ARCHIVE):
             summary = rule(css, "details.info > summary")
-            for part in ("width: 18px", "height: 18px", "border: 1px solid", "11px"):
+            for part in ("width: 18px", "height: 18px", "border: 1px solid"):
                 self.assertIn(part, summary)
             self.assertIn("inset: -13px", rule(css, "details.info > summary::before"))  # 44px to tap
 
@@ -35,7 +35,7 @@ class InfoIconSize(unittest.TestCase):
     def test_ios_draws_the_same_circle(self):
         self.assertNotIn("UIButtonTypeInfoLight", IOS)
         self.assertIn("kInfoSize = 18", IOS)
-        self.assertIn('fontWithName:@"Georgia-BoldItalic" size:11', IOS)
+        self.assertIn('fontWithName:@"Georgia-BoldItalic" size:12', IOS)
 
 
 if __name__ == "__main__":

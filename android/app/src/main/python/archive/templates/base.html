@@ -11,7 +11,7 @@
 <body>
   <nav class="primary">
     {#- A phone on its side in the Android app: its bar is gone, so the title and Close sit at the top of the tabs (automata.css). #}
-    <div class="shell-head"><b>Archive</b><a href="/bunker/close">Close</a></div>
+    <div class="shell-head"><b>Archive</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
     {% for key, label, href in sections %}<a href="{{ href }}"{% if active == key %} class="active"{% endif %}>{{ label }}</a>{% endfor %}
   </nav>
   <script>

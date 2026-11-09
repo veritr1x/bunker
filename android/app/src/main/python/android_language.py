@@ -19,6 +19,8 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 SHIPPED = SHIPPED_DIR
 UNSUPPORTED = "Language packs need the global game files: these have no English text."
 

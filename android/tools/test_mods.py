@@ -137,6 +137,8 @@ class Page(unittest.TestCase):
     def render(self, settings=None, paused=False):
         from jinja2 import Environment, FileSystemLoader
         env = Environment(loader=FileSystemLoader(str(root / "overlays/python/web/templates")), autoescape=True)  # as the app
+        import bunker_text
+        bunker_text.install(env)
         settings = {**android_mods.OFF, **(settings or {})}
         return env.get_template("mods.html").render(active="mods", settings=settings, groups=android_mods.GROUPS,
             presets=android_mods.PRESETS, current=android_mods.preset_of(settings), max_multiplier=10,
