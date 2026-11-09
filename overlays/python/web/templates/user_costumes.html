@@ -103,11 +103,12 @@
     "unknown": t("pods.costumes.slot_unknown", slot="{slot}", roll="{roll}"),
     "not_owned_title": t("pods.costumes.not_owned_title"), "locked_title": t("pods.costumes.locked_title"),
     "slot_title": t("pods.costumes.slot_replace_title", slot="{slot}"),
-    "granted_one": t("pods.costumes.granted_one", id="{id}"), "granted": t("pods.costumes.granted", n="{n}"),
-    "no_karma": t("pods.costumes.no_karma_changes"), "karma_confirm": t("pods.costumes.karma_confirm", n="{n}"),
-    "karma_failed": t("pods.costumes.karma_failed"), "karma_done": t("pods.costumes.karma_done", n="{n}"),
-    "missing_confirm": t("pods.costumes.missing_confirm"), "missing_done": t("pods.costumes.missing_done", n="{n}"),
+    "granted_one": t("pods.costumes.granted_one", id="{id}"), "granted": [t("pods.costumes.granted.one", n="{n}"), t("pods.costumes.granted.other", n="{n}")],
+    "no_karma": t("pods.costumes.no_karma_changes"), "karma_confirm": [t("pods.costumes.karma_confirm.one", n="{n}"), t("pods.costumes.karma_confirm.other", n="{n}")],
+    "karma_failed": t("pods.costumes.karma_failed"), "karma_done": [t("pods.costumes.karma_done.one", n="{n}"), t("pods.costumes.karma_done.other", n="{n}")],
+    "missing_confirm": t("pods.costumes.missing_confirm"), "missing_done": [t("pods.costumes.missing_done.one", n="{n}"), t("pods.costumes.missing_done.other", n="{n}")],
   }|tojson }};
+  const plural = (forms, n) => forms[n === 1 ? 0 : 1];
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const esc = text => text.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
 
@@ -285,7 +286,7 @@
         return;
       }
       const n = applyResults(json.results);
-      showBanner(fmt(MSG.granted, {n}), "success");
+      showBanner(fmt(plural(MSG.granted, n), {n}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
@@ -321,7 +322,7 @@
       showBanner(MSG.no_karma, "error");
       return;
     }
-    if (!confirm(fmt(MSG.karma_confirm, {n: costumes.length}))) return;
+    if (!confirm(fmt(plural(MSG.karma_confirm, costumes.length), {n: costumes.length}))) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;
@@ -342,7 +343,7 @@
       document.querySelectorAll("select[data-karma-select]").forEach(sel => {
         sel.dataset.baseline = sel.value || "";
       });
-      showBanner(fmt(MSG.karma_done, {n: json.applied}), "success");
+      showBanner(fmt(plural(MSG.karma_done, json.applied), {n: json.applied}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
@@ -370,7 +371,7 @@
         return;
       }
       const n = applyResults(json.results);
-      showBanner(fmt(MSG.missing_done, {n}), "success");
+      showBanner(fmt(plural(MSG.missing_done, n), {n}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {

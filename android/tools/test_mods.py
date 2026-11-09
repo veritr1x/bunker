@@ -134,6 +134,7 @@ class Page(unittest.TestCase):
         comfort = comfort[:comfort.index("</details>")]
         self.assertIn("NavHobbyDev", comfort)
         self.assertIn(android_mods.COMFORT_MOD, comfort)
+        self.assertIn(f'Most mods come from the <a href="{android_mods.COMFORT_MOD}">Lunar Tear Comfort Mod</a> by NavHobbyDev.', comfort)
         self.assertNotIn('<p class="credit" data-side>Most mods', html)
 
     def render(self, settings=None, paused=False):

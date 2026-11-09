@@ -32,16 +32,19 @@ SOURCES = [*POD.glob("*.html"), *ARCHIVE.glob("*.html"), *PY.glob("android_*.py"
            *(p for p in PY.glob("bunker_*.py") if p.name != "bunker_text.py"),
            *(PY / "archive").glob("*.py"), *(PY / "deckbuilder").glob("*.py"), ROOT / "ios/python/ios_runtime.py",
            *(ROOT / "patches").glob("lunar-base-*texts*.patch")]
-CALL = re.compile(r"\bt(_count)?\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
+CALL = re.compile(r"\bt(_count|_around)?\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
 
 
 def calls():
-    """(file, key, plural, keyword names) for every t()/t_count() call with a literal key."""
+    """(file, key, plural, keyword names) for every t()/t_count()/t_around() call with a literal key (t_around's
+    slot, its second argument, counts as a name)."""
     for path in SOURCES:
         text = path.read_text(encoding="utf-8")
         for match in CALL.finditer(text):
-            plural, key, rest = bool(match.group(1)), match.group(2), match.group(3)
+            plural, key, rest = match.group(1) == "_count", match.group(2), match.group(3)
             names = set(re.findall(r"\b([a-z_][a-z0-9_]*)\s*=(?!=)", rest))
+            if match.group(1) == "_around":
+                names |= set(re.findall(r"^\s*,\s*[\"']([a-z_][a-z0-9_]*)[\"']", rest))
             if plural:
                 names.add("n")
             yield path, key, plural, names
@@ -113,7 +116,7 @@ class _Strings(ast.NodeVisitor):
              "fullmatch", "sub", "split", "findall", "execute", "executemany", "get", "getattr", "setdefault",
              "startswith", "endswith", "replace", "join", "format", "strftime", "strptime", "Path", "open",
              "joinpath", "with_name", "with_suffix", "glob", "rglob", "encode", "decode", "partition", "rpartition",
-             "t", "t_count", "router", "post", "get_template", "TemplateResponse", "redirect_to", "jclass"}
+             "t", "t_count", "t_around", "router", "post", "get_template", "TemplateResponse", "redirect_to", "jclass"}
 
     def __init__(self):
         self.found = []

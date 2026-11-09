@@ -17,6 +17,6 @@
   <a href="/records?tab={{ 'weapons' if kind == 'weapon' else 'reports' if kind == 'report' else 'archives' }}">{{ r.value|plain(140) }}<span>{{ t("archive.search.weapon") if kind == "weapon" else t("archive.search.report") if kind == "report" else t("archive.search.cage") }}</span></a>
   {% else %}<span class="off">{{ t("archive.search.no_records") }}</span>{% endfor %}
 </div>
-{% if results.lines|length >= 60 %}<p class="note">{{ t("archive.search.first_matches", n=60) }}</p>{% endif %}
+{% if results.lines|length >= 60 %}<p class="note">{{ t_count("archive.search.first_matches", 60) }}</p>{% endif %}
 {% endif %}
 {% endblock %}

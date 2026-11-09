@@ -50,6 +50,17 @@ class Parsing(unittest.TestCase):
         self.assertFalse(span(2217758400000, 2218881599000)["ran"])  # a placeholder date after the service
 
 
+    def test_schedule_counts_take_singular_and_plural(self):
+        from archive.schedule import LAUNCH, Schedule
+        from archive.words import resolve
+        DAY = 86400000
+        for n, words in ((1, ("1 gem", "Away 1 day: 1 day of rewards")), (30, ("30 gems", "Away 30 days: 30 days of rewards"))):
+            tables = {"m_comeback_campaign": [{"ComebackCampaignId": 1, "ComebackJudgeDayCount": n, "GrantCampaignTermDayCount": n,
+                                               "ComebackJudgeStartDatetime": LAUNCH + DAY, "ComebackJudgeEndDatetime": LAUNCH + 2 * DAY}]}
+            s = Schedule(lambda table: tables.get(table, []), lambda prefix: {}, lambda path: False)
+            comeback = next(x for x in s.other() if x["key"] == "comeback")
+            self.assertEqual((resolve(s.price({"PriceType": 2, "Price": n})), resolve(comeback["items"][0]["title"])), words)
+
     def test_summon_titles_fix_the_game_text(self):
         from archive.schedule import Schedule
         texts = {"gacha.title.limited_416": "Paid Only: Abstract Ruler Summons", "gacha.title.limited_418": "Automata Cameo Celebration Festival Summons"}
@@ -227,6 +238,17 @@ class InfoIcon(unittest.TestCase):
         html = self.render("schedule_summon.html", item=item, tabs={}, tab="summons")
         self.assertRegex(html, r'<h3 class="has-info">Dates <details class="info"><summary aria-label="More information">i</summary>'
                                r'<div>No date in the game data\. No English art, so it probably never ran globally\.</div></details></h3>')
+
+    def test_counts_on_pages_take_singular_and_plural(self):
+        for n, pity, matches in ((1, "pity after 1 pull", "First 1 match."), (200, "pity after 200 pulls", "First 200 matches.")):
+            item = {"id": 45, "title": "Mock Summons", "hero": "", "exchange": False, "english": True, "runs": [],
+                    "medal": {"shard": "Shard", "ceiling": n, "converts": ""}, "shops": []}
+            self.assertIn(pity + "</p>", self.render("schedule_summon.html", item=item, tabs={}, tab="summons"))
+        import bunker_text
+        self.assertEqual([bunker_text.t_count("archive.search.first_matches", n) for n in (1, 60)], ["First 1 match.", "First 60 matches."])
+        html = self.render("music.html", groups=[])
+        self.assertIn('"place": "Track {track} \\u00b7 {n} place"', html)  # the dialog's heading, by count
+        self.assertIn('"places": "Track {track} \\u00b7 {n} places"', html)
 
     def test_schedule_note_is_behind_an_icon(self):
         for original, note in ((True, "Dates from the live service, in UTC."), (False, "Open Pod Programs once to see the original dates.")):

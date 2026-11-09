@@ -68,6 +68,26 @@ class Catalogue(unittest.TestCase):
             self.assertEqual(bunker_text.t_count("test.costume", 3), "3 costumes")
             self.assertEqual(bunker_text.t_count("test.costume", 0), "0 costumes")
 
+    def test_around_splits_at_the_slot(self):
+        # A sentence around a control or a link: the text before and after its {slot}, markup put between.
+        with bunker_text.extra({"test.allow": "Allow up to {select} pieces to be added."}):
+            self.assertEqual(bunker_text.t_around("test.allow", "select"), ("Allow up to ", " pieces to be added."))
+
+    def test_around_a_translation_moves_the_slot(self):
+        with bunker_text.extra({"test.allow": "Allow up to {select} pieces to be added."}):
+            bunker_text.use({"test.allow": "{select} Teile dürfen dazukommen."})
+            self.assertEqual(bunker_text.t_around("test.allow", "select"), ("", " Teile dürfen dazukommen."))
+
+    def test_around_a_translation_without_the_slot_falls_back(self):
+        with bunker_text.extra({"test.allow": "Allow up to {select} pieces to be added."}):
+            for broken in ("Teile dürfen dazukommen.", "{select} und {select}", "{select"):
+                bunker_text.use({"test.allow": broken})
+                self.assertEqual(bunker_text.t_around("test.allow", "select"), ("Allow up to ", " pieces to be added."), broken)
+
+    def test_around_formats_its_params(self):
+        with bunker_text.extra({"test.of": "{n} of {link} by {who}."}):
+            self.assertEqual(bunker_text.t_around("test.of", "link", n=2, who="Nav"), ("2 of ", " by Nav."))
+
 
 class Reload(unittest.TestCase):
     def setUp(self):
@@ -96,7 +116,8 @@ class Templates(unittest.TestCase):
     def setUp(self):
         self.addCleanup(bunker_text.use, None)
         self.dir = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        (self.dir / "page.html").write_text('{{ t("common.close") }}|{{ t_count("test.n", 2) }}')
+        (self.dir / "page.html").write_text('{{ t("common.close") }}|{{ t_count("test.n", 2) }}'
+                                            '{% if t_around is defined %}|{{ t_around("common.close", "x")[0] }}{% endif %}')
 
     def render(self, templates):
         return templates.get_template("page.html").render()
@@ -106,7 +127,7 @@ class Templates(unittest.TestCase):
         bunker_text.install_everywhere()
         bunker_text.install_everywhere()  # twice is harmless
         with bunker_text.extra({"test.n.one": "{n} thing", "test.n.other": "{n} things"}):
-            self.assertEqual(self.render(Jinja2Templates(directory=str(self.dir))), "Close|2 things")
+            self.assertEqual(self.render(Jinja2Templates(directory=str(self.dir))), "Close|2 things|Close")
 
     def test_install_one(self):
         import jinja2

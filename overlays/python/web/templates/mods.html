@@ -19,7 +19,7 @@
 <summary class="bracket-header">{{ t("pods.mods.preset") }}<span class="fold" aria-hidden="true"></span></summary>
 <form action="/mods/preset" method="post" class="panel">
   {% for key, (title, what, _) in presets.items() %}
-  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ t(title) }}</strong>{% if key == "comfort" %}{% call info() %}{{ t(what) }} {{ t("pods.mods.comfort_credit_before") }} <a href="{{ source }}">{{ t("pods.mods.comfort_mod") }}</a> {{ t("pods.mods.comfort_credit_after") }}{% endcall %}{% else %}{{ info(t(what)) }}{% endif %}</span></label>
+  <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ t(title) }}</strong>{% if key == "comfort" %}{% call info() %}{% set credit = t_around("pods.mods.comfort_credit", "link") %}{{ t(what) }} {{ credit[0] }}<a href="{{ source }}">{{ t("pods.mods.comfort_mod") }}</a>{{ credit[1] }}{% endcall %}{% else %}{{ info(t(what)) }}{% endif %}</span></label>
   {% endfor %}
   {% if not current %}<p class="credit">{{ t("pods.mods.current_own") }}</p>{% endif %}
   <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">{{ t("pods.mods.use_preset") }}</button></div>

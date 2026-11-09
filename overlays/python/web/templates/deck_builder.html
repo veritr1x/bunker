@@ -219,8 +219,7 @@
     <div><div class="seg" data-name="deck_for"><button type="button" data-v="attack" class="on">{{ t("pods.decks.attack") }}</button><button type="button" data-v="defense">{{ t("pods.decks.defense") }}</button><button type="button" data-v="subjugation">{{ t("pods.decks.subjugation") }}</button></div></div>
     <div class="db-lbl" id="lbl-mode">{{ t("pods.decks.build_from") }}{{ info(t("pods.decks.all_maxed_info"), "best-only") }}{{ info(t("pods.decks.what_i_own_info"), "owned-only") }}</div>
     <div><div class="seg" data-name="mode"><button type="button" data-v="owned">{{ t("pods.decks.what_i_own") }}</button><button type="button" data-v="best" class="on">{{ t("pods.decks.all_maxed") }}</button></div>
-      <p class="help owned-only">{{ t("pods.decks.allow_before") }}
-        <select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">{{ t("pods.decks.allow_all") }}</option></select> {{ t("pods.decks.allow_after") }}</p></div>
+      {% set allow = t_around("pods.decks.allow", "select") %}<p class="help owned-only">{{ allow[0] }}<select id="allow">{% for n in (0, 1, 2, 3, 5, 10, 20) %}<option value="{{ n }}"{% if n == 2 %} selected{% endif %}>{{ n }}</option>{% endfor %}<option value="all">{{ t("pods.decks.allow_all") }}</option></select>{{ allow[1] }}</p></div>
     <div class="db-lbl subj-only">{{ t("pods.decks.boss") }}</div>
     <div class="subj-only" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="boss" style="width:100%;min-width:0">{% for b in bosses %}<option value="{{ b.id }}">{{ b.name }} · {% set element_key = "common.element." ~ b.element %}{{ t(element_key)|lower }}</option>{% endfor %}</select>
@@ -310,7 +309,7 @@ const TXT = {
   simulating: {{ t("pods.decks.simulating")|tojson }},
   loadouts: [{{ t("pods.decks.loadouts.one", n="{n}", boss="{boss}")|tojson }}, {{ t("pods.decks.loadouts.other", n="{n}", boss="{boss}")|tojson }}],
   boss: {{ t("pods.decks.the_boss")|tojson }}, noLoadouts: {{ t("pods.decks.no_loadouts")|tojson }},
-  decksShowing: {{ t("pods.decks.decks_showing", n="{n}", last="{last}")|tojson }}, noDecks: {{ t("pods.decks.no_decks")|tojson }},
+  decksShowing: [{{ t("pods.decks.decks_showing.one", n="{n}", last="{last}")|tojson }}, {{ t("pods.decks.decks_showing.other", n="{n}", last="{last}")|tojson }}], noDecks: {{ t("pods.decks.no_decks")|tojson }},
   tryWithout: {{ t("pods.decks.try_without", filter="{filter}")|tojson }}, scrollMore: {{ t("pods.decks.scroll_more")|tojson }},
   decksFailed: {{ t("pods.decks.decks_failed", error="{error}")|tojson }},
   winRate: {{ t("pods.decks.win_rate")|tojson }}, toAdd: {{ t("pods.decks.to_add")|tojson }}, variants: {{ t("pods.decks.variants")|tojson }},
@@ -490,7 +489,7 @@ async function load(reset) {
       busy = false; await prepare(r.against, r.costumes); load(true); return;
     }
     $("count").innerHTML = SUBJ() ? (r.total ? fill(esc(plural(TXT.loadouts, r.total)), {n: `<strong>${r.total}</strong>`, boss: esc($("boss").selectedOptions[0]?.textContent.split(" · ")[0] || TXT.boss)}) : esc(TXT.noLoadouts))
-      : r.total ? fill(esc(TXT.decksShowing), {n: `<strong>${r.total.toLocaleString()}</strong>`, last: offset + r.items.length}) : esc(TXT.noDecks);
+      : r.total ? fill(esc(plural(TXT.decksShowing, r.total)), {n: `<strong>${r.total.toLocaleString()}</strong>`, last: offset + r.items.length}) : esc(TXT.noDecks);
     $("cards").insertAdjacentHTML("beforeend", r.items.map(cardHtml).join(""));
     offset += r.items.length; done = r.exhausted || !r.items.length;
     $("more").textContent = r.total === 0 ? (r.relax ? fill(TXT.tryWithout, {filter: r.relax.replace("_", " ")}) : "") : done ? "" : TXT.scrollMore;

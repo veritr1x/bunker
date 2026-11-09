@@ -87,7 +87,7 @@
     cleared: [{{ t("pods.story.cleared.one", n="{n}")|tojson }}, {{ t("pods.story.cleared.other", n="{n}")|tojson }}],
     clearedCh: [{{ t("pods.story.cleared_chapters.one", n="{n}", chapters="{chapters}")|tojson }},
                 {{ t("pods.story.cleared_chapters.other", n="{n}", chapters="{chapters}")|tojson }}],
-    gems: {{ t("pods.story.gems", n="{n}")|tojson }}, expGold: {{ t("pods.story.exp_gold")|tojson }},
+    gems: [{{ t("pods.story.gems.one", n="{n}")|tojson }}, {{ t("pods.story.gems.other", n="{n}")|tojson }}], expGold: {{ t("pods.story.exp_gold")|tojson }},
     jumpTo: {{ t("pods.story.jump_to", label="{label}")|tojson }}, jumpedTo: {{ t("pods.story.jumped_to", label="{label}")|tojson }},
     working: {{ t("pods.story.working_out")|tojson }}, cancel: {{ t("common.cancel")|tojson }},
     notPaid: {{ t("pods.story.not_paid")|tojson }}, jumping: {{ t("pods.story.jumping")|tojson }}, done: {{ t("common.done")|tojson }},
@@ -105,7 +105,7 @@
     const forms = r.chapters ? (done ? TXT.clearedCh : TXT.clearsCh) : (done ? TXT.cleared : TXT.clears);
     const head = fill(esc(forms[r.cleared_count == 1 ? 0 : 1]), {n: r.cleared_count, chapters: esc(r.chapters)});
     return `<div class="sj-note">${head}</div>`
-      + `<ul>${items}${r.gems ? `<li>${esc(fill(TXT.gems, {n: r.gems.toLocaleString()}))}</li>` : ""}<li>${esc(TXT.expGold)}</li></ul>`;
+      + `<ul>${items}${r.gems ? `<li>${esc(fill(TXT.gems[r.gems === 1 ? 0 : 1], {n: r.gems.toLocaleString()}))}</li>` : ""}<li>${esc(TXT.expGold)}</li></ul>`;
   }
   document.querySelectorAll("button[data-quest]").forEach(b => b.addEventListener("click", async e => {
     e.preventDefault();

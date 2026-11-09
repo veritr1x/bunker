@@ -15,7 +15,7 @@
   </article>
   {% if item.medal %}
   <article class="record"><h3>{{ t("archive.schedule.shards") }}</h3>
-    <p>{{ item.medal.shard }} · {{ t("archive.schedule.pity", n=item.medal.ceiling) }}{% if item.medal.converts %} · {{ t("archive.schedule.converts", date=item.medal.converts) }}{% endif %}</p>
+    <p>{{ item.medal.shard }} · {{ t_count("archive.schedule.pity", item.medal.ceiling) }}{% if item.medal.converts %} · {{ t("archive.schedule.converts", date=item.medal.converts) }}{% endif %}</p>
   </article>
   {% endif %}
 </div>
