@@ -119,19 +119,7 @@ public final class ToolsActivity extends Activity {
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(focused&&compact)hideBars();}
     /** The camera hole on the left or right edge, in the page's CSS px; the page asks for it (base.html). */
     private void hole(WindowInsets insets){
-        String json="null";
-        DisplayCutout cut=insets.getDisplayCutout();
-        if(cut!=null){
-            float density=getResources().getDisplayMetrics().density;
-            for(android.graphics.Rect r:cut.getBoundingRects()){
-                if(r.isEmpty())continue;
-                boolean left=r.left<=0&&cut.getSafeInsetLeft()>0,right=!left&&cut.getSafeInsetRight()>0&&r.left>0&&r.top>0;
-                if(!left&&!right)continue;
-                json=String.format(Locale.ROOT,"{\"side\":\"%s\",\"top\":%.1f,\"bottom\":%.1f,\"depth\":%.1f}",left?"left":"right",
-                    r.top/density,r.bottom/density,(left?cut.getSafeInsetLeft():cut.getSafeInsetRight())/density);
-                break;
-            }
-        }
+        String json=Look.cutout(insets,getResources().getDisplayMetrics().density);
         if(json.equals(cutout))return;
         cutout=json;
         // A phone turned from one side to the other keeps the page; tell it.

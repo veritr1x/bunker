@@ -67,8 +67,10 @@ class Apps(unittest.TestCase):
     def test_android_hides_its_bar_and_gives_the_hole(self):
         java = (ROOT / "android/app/src/main/java/org/veritr1x/bunker/ToolsActivity.java").read_text()
         for part in ("/bunker/close", "LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES", "BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE",
-                     '"BunkerShell"', "getBoundingRects", "bunkerHoleChanged"):
+                     '"BunkerShell"', "Look.cutout(insets", "bunkerHoleChanged"):
             self.assertIn(part, java)
+        # The hole's JSON is shared with the Archive (test_archive_landscape.py).
+        self.assertIn("getBoundingRects", (ROOT / "android/app/src/main/java/org/veritr1x/bunker/Look.java").read_text())
 
     def test_ios_hides_its_bar_and_gives_the_hole(self):
         m = (ROOT / "ios/launcher/LunarTools.m").read_text()

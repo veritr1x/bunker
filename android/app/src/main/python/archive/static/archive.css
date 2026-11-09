@@ -1,5 +1,9 @@
 /* The Archive's additions to the Pod Programs look (automata.css): same tokens, light and dark. */
 
+/* The title and Close at the top of the tab column on a phone on its side (automata.css): only where the
+   app has hidden its own bar for it, Android's ArchiveActivity (base.html marks it). iOS keeps its bar. */
+html:not(.bunker-shell) .shell-head { display: none !important; }
+
 .crumb { margin: 16px 0 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-mid); }
 .crumb a { color: var(--fg-mid); }
 .crumb a:hover { background: transparent; color: var(--fg-dark); }

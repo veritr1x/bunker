@@ -2,7 +2,7 @@
 <html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Archive{% endblock %}</title>
   <link rel="stylesheet" href="{{ pod_css }}">
@@ -10,8 +10,42 @@
 </head>
 <body>
   <nav class="primary">
+    {#- A phone on its side in the Android app: its bar is gone, so the title and Close sit at the top of the tabs (automata.css). #}
+    <div class="shell-head"><b>Archive</b><a href="/bunker/close">Close</a></div>
     {% for key, label, href in sections %}<a href="{{ href }}"{% if active == key %} class="active"{% endif %}>{{ label }}</a>{% endfor %}
   </nav>
+  <script>
+  // Pod Programs' base.html does the same. The Android app (ArchiveActivity)
+  // drops its bar on a phone on its side and draws under the camera hole; it
+  // says where the hole is (BunkerShell.cutout(): {side, top, bottom, depth}
+  // in CSS px). Tabs passing beside a hole on the left step past it; a hole on
+  // the right pads the page's right edge. Only that app hides its bar, so only
+  // there does the tab column carry the title and Close (archive.css).
+  (() => {
+    const query = matchMedia("(orientation: landscape) and (max-height: 599px)");
+    const root = document.documentElement, nav = document.querySelector("nav.primary");
+    if (window.BunkerShell) root.classList.add("bunker-shell");
+    function hole() {
+      try { return window.BunkerShell ? JSON.parse(BunkerShell.cutout()) : null; } catch (e) { return null; }
+    }
+    let cut = hole();
+    function mark() {
+      const on = query.matches && cut;
+      root.style.setProperty("--hole-depth", (on ? cut.depth : 0) + "px");
+      root.style.setProperty("--hole-right", (on && cut.side === "right" ? cut.depth : 0) + "px");
+      root.style.setProperty("--hole-left", (on && cut.side === "left" ? cut.depth : 0) + "px");
+      nav.querySelectorAll(":scope > a, :scope > .shell-head").forEach(a => {
+        const b = a.getBoundingClientRect();
+        a.classList.toggle("by-hole", !!on && cut.side === "left" && b.bottom > cut.top && b.top < cut.bottom);
+      });
+    }
+    window.bunkerHoleChanged = () => { cut = hole(); mark(); };
+    nav.addEventListener("scroll", mark, {passive: true});
+    addEventListener("resize", mark);
+    query.addEventListener("change", mark);
+    mark();
+  })();
+  </script>
   <main>
     {% block content %}{% endblock %}
   </main>

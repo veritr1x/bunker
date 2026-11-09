@@ -21,6 +21,11 @@ public final class ArchiveActivity extends Activity {
     private WebView web;
     private TextView message;
     private FrameLayout stage;
+    private LinearLayout body,bar;
+    /** A phone on its side (as Pod Programs, ToolsActivity): no top bar or system bars, and the page runs under the camera hole. */
+    private boolean compact;
+    /** Where the camera hole is, for the page (BunkerShell.cutout(), base.html): JSON, or null. */
+    private volatile String cutout="null";
     private View fullscreen;
     private WebChromeClient.CustomViewCallback exitFullscreen;
     private int portraitBefore;
@@ -38,11 +43,16 @@ public final class ArchiveActivity extends Activity {
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
         initWebView();
         stage=new FrameLayout(this);
-        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackground(look.paper());
+        body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setBackground(look.paper());
         stage.addView(body,new FrameLayout.LayoutParams(-1,-1));
-        stage.setOnApplyWindowInsetsListener((view,insets)->{body.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
-        // The Bunker's top bar: where you are, and the way back.
-        LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);
+        stage.setOnApplyWindowInsetsListener((view,insets)->{
+            if(compact){body.setPadding(0,0,0,0);hole(Look.cutout(insets,getResources().getDisplayMetrics().density));}
+            else{body.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());hole("null");}
+            return insets;
+        });
+        // The Bunker's top bar: where you are, and the way back. On a phone on its side
+        // it goes, as in Pod Programs: the page's tab column carries the title and Close (/bunker/close).
+        bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
         TextView caption=look.monoText("BUNKER // ARCHIVE",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
         TextView title=look.text("ARCHIVE",22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
@@ -50,10 +60,15 @@ public final class ArchiveActivity extends Activity {
         Button close=look.outlined("CLOSE");close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->finish());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
         message=look.monoText("> Opening the Archive…",13,look.ink);message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
         web=new WebView(this);web.setBackgroundColor(look.paper);web.setVisibility(View.GONE);body.addView(web,new LinearLayout.LayoutParams(-1,0,1));
+        web.addJavascriptInterface(new Object(){@JavascriptInterface public String cutout(){return cutout;}},"BunkerShell");
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);settings.setMediaPlaybackRequiresUserGesture(false);
         web.setWebViewClient(new WebViewClient(){
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return !local(request.getUrl().toString());}
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+                // The page's own Close (a phone on its side): the same as the CLOSE button.
+                if(local(request.getUrl().toString())&&"/bunker/close".equals(request.getUrl().getPath())){finish();return true;}
+                return !local(request.getUrl().toString());
+            }
             @Override public void onPageFinished(WebView view,String url){if(local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> Couldn't open the Archive. Close it and try again.");}
         });
@@ -85,6 +100,7 @@ public final class ArchiveActivity extends Activity {
             @Override public void onHideCustomView(){leaveFullscreen();}
         });
         setContentView(stage);
+        applyCompact(getResources().getConfiguration());
         final File assets=FilesStore.root(this),data=new File(getFilesDir(),"archive");
         new Thread(()->{
             try{
@@ -105,6 +121,25 @@ public final class ArchiveActivity extends Activity {
         },"archive-start").start();
     }
     private String start(){String path=ArchiveLinks.path("bunker-archive:"+getIntent().getStringExtra(PATH));return path==null?"/":path;}
+    // The Archive handles turning itself (configChanges), so it follows the phone here, not in onCreate.
+    @Override public void onConfigurationChanged(android.content.res.Configuration config){super.onConfigurationChanged(config);applyCompact(config);}
+    /** A phone on its side (the pages' own test: automata.css): the page has the whole screen, under the camera hole. */
+    private void applyCompact(android.content.res.Configuration config){
+        compact=config.orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE&&config.screenHeightDp<600;
+        WindowManager.LayoutParams attrs=getWindow().getAttributes();
+        attrs.layoutInDisplayCutoutMode=compact?WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES:WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+        getWindow().setAttributes(attrs);
+        bar.setVisibility(compact?View.GONE:View.VISIBLE);
+        if(fullscreen==null)systemBars(!compact);
+        stage.requestApplyInsets();
+    }
+    @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(focused&&compact&&fullscreen==null)systemBars(false);}
+    /** Tells the page where the camera hole is now; a phone turned from one side to the other keeps the page. */
+    private void hole(String json){
+        if(json.equals(cutout))return;
+        cutout=json;
+        if(web!=null)web.evaluateJavascript("window.bunkerHoleChanged&&bunkerHoleChanged()",null);
+    }
     private void show(String text){message.setText(text);message.setVisibility(View.VISIBLE);web.setVisibility(View.GONE);}
     private boolean local(String url){return !origin.isEmpty()&&(url.equals(origin)||url.startsWith(origin+"/"));}
     private void leaveFullscreen(){
@@ -114,15 +149,18 @@ public final class ArchiveActivity extends Activity {
         // Back to the way it was held; the sensor takes over again once it has turned.
         setRequestedOrientation(portraitBefore==1?ActivityInfo.SCREEN_ORIENTATION_PORTRAIT:ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         stage.postDelayed(()->{if(fullscreen==null)setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);},1000);
-        systemBars(true);
+        systemBars(!compact);
     }
     private void systemBars(boolean show){
         if(Build.VERSION.SDK_INT>=30){
             WindowInsetsController bars=getWindow().getInsetsController();
+            // On its side the page draws under the bars and the hole (applyCompact).
+            getWindow().setDecorFitsSystemWindows(!compact);
             if(bars==null)return;
             if(show)bars.show(WindowInsets.Type.systemBars());
             else{bars.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);bars.hide(WindowInsets.Type.systemBars());}
-        }else getWindow().getDecorView().setSystemUiVisibility(show?0:View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }else getWindow().getDecorView().setSystemUiVisibility(show?0:View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            |(compact?View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE:0));
     }
     private void back(){if(fullscreen!=null)leaveFullscreen();else if(web.canGoBack())web.goBack();else finish();}
     @android.annotation.SuppressLint("GestureBackNavigation") // API 33+ uses the dispatcher registered above.
