@@ -17,6 +17,13 @@ class InfoIcon(unittest.TestCase):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
         return env.from_string('{% from "_info.html" import info %}' + source).render()
 
+    def test_the_icon_overrides_the_general_summary_style(self):
+        # automata.css styles every <summary> (12px padding, uppercase, letter spacing): on the icon that
+        # pushed the "i" below its circle and made it a capital I.
+        rule = re.search(r"details\.info > summary \{([^}]*)\}", BASE).group(1)
+        for declaration in ("padding: 0", "text-transform: none", "letter-spacing: 0"):
+            self.assertIn(declaration, rule)
+
     def test_the_macro_is_a_details_with_a_labelled_summary(self):
         html = self.render('{{ info("Short <why>.") }}')
         self.assertEqual(html, '<details class="info"><summary aria-label="More information">i</summary>'
