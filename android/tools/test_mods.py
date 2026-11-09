@@ -127,6 +127,12 @@ class Page(unittest.TestCase):
                 self.assertIn(title, html)
         self.assertIn("NavHobbyDev", html)
         self.assertIn(android_mods.COMFORT_MOD, html)
+        # The credit is in the Comfort preset's info, not a line on the page.
+        comfort = html[html.index('value="comfort"'):]
+        comfort = comfort[:comfort.index("</details>")]
+        self.assertIn("NavHobbyDev", comfort)
+        self.assertIn(android_mods.COMFORT_MOD, comfort)
+        self.assertNotIn('<p class="credit" data-side>Most mods', html)
 
     def render(self, settings=None, paused=False):
         from jinja2 import Environment, FileSystemLoader
