@@ -116,6 +116,8 @@ def _adapt_patcher():
     android_display.TEXTURES = android_display.TEXTURES[:1]
     # Upscaling: MetalFX on iPhone and iPad (LunarUpscale.m) in place of Android's FSR 1 and SGSR.
     android_display.UPSCALE = android_display.UPSCALE[:1] + android_display.UPSCALE_IOS
+    # A window of another shape (Stage Manager, a TV): stretch, or keep the game's shape (LunarWindow.m).
+    android_display.WINDOW = android_display.WINDOW[:1] + android_display.WINDOW_IOS
 
 
 def _prepare(data_root, asset_root, tools_root, original_master):

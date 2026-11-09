@@ -18,6 +18,8 @@
 
 NSString *LTDisplaySettings(void);  // LunarDisplay.m
 CGSize LTUpscaleOutput(void);  // LunarUpscale.m
+BOOL LTDisplayKeepShape(void);  // LunarDisplay.m: window=fit
+void LTDisplayLog(NSString *line);  // below
 extern void LunarLog(char *line);  // the server's log (liblunar)
 
 static NSMutableArray<NSString *> *gWaiting;  // lines from before the log was ready
@@ -147,6 +149,13 @@ void LTWindowStart(void) {
             [root setNeedsLayout];
         }
         CAMetalLayer *layer = (CAMetalLayer *)window.rootViewController.view.layer;
+        // window=fit: the layer shows the picture at its own shape, centred, with black bars in a
+        // window of another one (an iPad's Stage Manager window, a TV); else it stretches it (Unity's own).
+        CAMetalLayer *metal = (CAMetalLayer *)window.rootViewController.view.layer;
+        if (LTDisplayKeepShape() && ![metal.contentsGravity isEqual:kCAGravityResizeAspect]) {
+            metal.contentsGravity = kCAGravityResizeAspect;
+            metal.backgroundColor = UIColor.blackColor.CGColor;
+        }
         // The window once it has kept one size for a second (a drag goes through many).
         CGSize mode = screen.currentMode.size, largest = CGSizeZero, upscaled = LTUpscaleOutput();
         for (UIScreenMode *m in screen.availableModes) if (m.size.width * m.size.height > largest.width * largest.height) largest = m.size;
@@ -157,7 +166,7 @@ void LTWindowStart(void) {
             upscaled.width > 0 ? [NSString stringWithFormat:@", MetalFX to %.0fx%.0f", upscaled.width, upscaled.height] : @""];
         // How the window is laid out, to find why it starts upright on an external display and why
         // the picture can sit off its window: the scene's orientation and size, the window's frame,
-        // Unity's view (frame, transform), and the orientations the game's controller and the app allow.
+        // Unity's view (frame, transform).
         UIView *view = window.rootViewController.view;
         UIWindowScene *scene = window.windowScene;
         UIInterfaceOrientation orientation = UIInterfaceOrientationUnknown;
@@ -170,22 +179,21 @@ void LTWindowStart(void) {
         } else {
             orientation = scene.interfaceOrientation;
         }
-        NSArray *orientations = @[@"unknown", @"portrait", @"upside down", @"landscape left", @"landscape right"];
-        NSString *(^mask)(UIInterfaceOrientationMask) = ^NSString *(UIInterfaceOrientationMask m) {
-            NSMutableArray *names = [NSMutableArray array];
-            if (m & UIInterfaceOrientationMaskPortrait) [names addObject:@"portrait"];
-            if (m & UIInterfaceOrientationMaskPortraitUpsideDown) [names addObject:@"upside down"];
-            if (m & UIInterfaceOrientationMaskLandscapeLeft) [names addObject:@"landscape left"];
-            if (m & UIInterfaceOrientationMaskLandscapeRight) [names addObject:@"landscape right"];
-            return [names componentsJoinedByString:@"+"];
-        };
+        // UIInterfaceOrientation: portrait 1, upside down 2, landscape right 3, landscape left 4.
+        NSArray *orientations = @[@"unknown", @"portrait", @"upside down", @"landscape right", @"landscape left"];
         CGAffineTransform t = view.transform;
-        state = [state stringByAppendingFormat:@"; scene %@ %.0fx%.0f, window frame %@, view %@ frame %@%@, %@ allows %@, the app %@",
+        // Where the layer puts the picture: its gravity, and with resizeAspect the picture's rect in it.
+        CGSize drawable = layer.drawableSize;
+        NSString *placed = [layer.contentsGravity isEqual:kCAGravityResizeAspect] && drawable.width > 0 && drawable.height > 0
+            ? ({ CGFloat k = MIN(layer.bounds.size.width / drawable.width, layer.bounds.size.height / drawable.height);
+                 CGSize shown = CGSizeMake(drawable.width * k, drawable.height * k);
+                 NSStringFromCGRect(CGRectMake((layer.bounds.size.width - shown.width) / 2, (layer.bounds.size.height - shown.height) / 2, shown.width, shown.height)); })
+            : @"the whole layer";
+        state = [state stringByAppendingFormat:@"; layer %@ gravity %@, picture at %@", NSStringFromCGRect(layer.frame), layer.contentsGravity, placed];
+        state = [state stringByAppendingFormat:@"; scene %@ %.0fx%.0f, window frame %@, view %@ frame %@%@",
             orientation >= 0 && orientation < (NSInteger)orientations.count ? orientations[orientation] : @"?",
             sceneBounds.size.width, sceneBounds.size.height, NSStringFromCGRect(window.frame), NSStringFromClass(view.class),
-            NSStringFromCGRect(view.frame), CGAffineTransformIsIdentity(t) ? @"" : [@" transform " stringByAppendingString:NSStringFromCGAffineTransform(t)],
-            NSStringFromClass(window.rootViewController.class), mask(window.rootViewController.supportedInterfaceOrientations),
-            mask([UIApplication.sharedApplication supportedInterfaceOrientationsForWindow:window])];
+            NSStringFromCGRect(view.frame), CGAffineTransformIsIdentity(t) ? @"" : [@" transform " stringByAppendingString:NSStringFromCGAffineTransform(t)]];
         static NSString *seen, *logged;
         static double since;
         double now = CACurrentMediaTime();

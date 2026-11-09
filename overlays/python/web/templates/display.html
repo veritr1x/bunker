@@ -58,6 +58,11 @@
       <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
       <span class="note">Full screen also draws around the camera cutout; the game's buttons stay clear of it.</span>
     </div>
+    {% if window_options|length > 1 %}<div class="setting">
+      <label for="window">In a resized window or on a TV</label>
+      <select name="window" id="window">{% for key, title in window_options %}<option value="{{ key }}"{% if settings.window == key %} selected{% endif %}>{{ title }}</option>{% endfor %}</select>
+      <span class="note">On an iPad with Stage Manager, or with the game on an external display: the picture stretches to the window, or keeps the game's shape with black bars beside it.</span>
+    </div>{% endif %}
   </div>
 
   <div class="actions"><button type="submit">Save</button></div>
