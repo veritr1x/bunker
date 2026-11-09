@@ -180,6 +180,23 @@ func TestListDuringBuildKeepsLastServed(t *testing.T) {
 	}
 }
 
+func TestBuildFinishingMidSessionServesOnlyWhatTheListNames(t *testing.T) {
+	r := newRoots(t)
+	r.setPack(t, "um")
+	release := make(chan struct{})
+	tr := start(t, r, func(raw []byte, name string, values map[string]string) ([]byte, uint32, bool, error) {
+		<-release
+		return translateUI(raw, name, values)
+	})
+	h := tr.Wrap(next(r))
+	get(t, h, listURL) // the game now holds the original list
+	close(release)
+	tr.wait()
+	if body := get(t, h, uiURL); string(body) != "ORIGINAL" {
+		t.Fatalf("translated bundle sent against the original list: %q", body)
+	}
+}
+
 func TestPackRemovedGoesBackUp(t *testing.T) {
 	r := newRoots(t)
 	r.setPack(t, "um")

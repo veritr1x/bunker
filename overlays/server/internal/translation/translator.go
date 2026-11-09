@@ -245,17 +245,16 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 	w.Write(body)
 }
 
-// serveAsset sends a translated bundle named by the last served list (or the
-// finished target); false when the object is not translated.
+// serveAsset sends a translated bundle named by the list the game holds (the
+// last one served); false when that list names the original. A finished build
+// the game has not been given a list for yet is never served: its bytes would
+// not match the size, CRC and md5 the game expects.
 func (t *Translator) serveAsset(w http.ResponseWriter, r *http.Request, id string) bool {
 	t.mu.Lock()
 	var dir string
-	for _, m := range []*Manifest{t.served, t.target} {
-		if m != nil {
-			if _, ok := m.Entries[id]; ok {
-				dir = filepath.Join(t.buildsDir, m.ID)
-				break
-			}
+	if m := t.served; m != nil {
+		if _, ok := m.Entries[id]; ok {
+			dir = filepath.Join(t.buildsDir, m.ID)
 		}
 	}
 	t.mu.Unlock()
