@@ -49,9 +49,9 @@ def read_pack(data: bytes, source: str = "loaded", path: Path = Path()) -> PackI
     try:
         pack = json.loads(data.decode("utf-8"), parse_constant=_reject_constant)
     except (UnicodeDecodeError, ValueError, RecursionError):
-        raise PackError("Not a language pack: the file is not JSON the server can read.") from None
+        raise PackError("Not a language pack: the file is not readable JSON.") from None
     if not isinstance(pack, dict) or type(pack.get("format")) is not int or pack["format"] != 1:
-        raise PackError("Not a language pack: it has no \"format\": 1. A translation file from translations/ needs to be built into a pack first.")
+        raise PackError("Not a language pack: it has no \"format\": 1. Translation files must be built into a pack first.")
     # The server matches these names ignoring case and keeps the last: a second spelling would change what it reads.
     if any(key.lower() in FIELDS and key != key.lower() for key in pack):
         raise PackError("Not a language pack: a field name is written in capitals.")

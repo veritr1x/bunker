@@ -100,7 +100,7 @@ def configure(data_root, asset_root, tools_root, native, reporter=None):
 def adapt_services():
     from web.services import backup_service, service_control
     service_control.available = lambda: False
-    service_control.unavailable_reason = lambda: "The game is stopped while Tools is open."
+    service_control.unavailable_reason = lambda: "Pod Programs cannot stop the game's server."
     service_control.is_active = lambda: False
     # Restore is offered while the game runs: restoring is a change the game
     # guard asks to close the game for (install_game_guard), not a reason to
@@ -432,7 +432,7 @@ def start(data_root, asset_root, tools_root, reporter):
             break
         time.sleep(.02)
     sock.close()
-    raise RuntimeError("Tools could not start")
+    raise RuntimeError("Pod Programs could not start")
 
 
 def update_data(data_root, asset_root, tools_root, version):
@@ -465,5 +465,5 @@ def stop():
     if _thread:
         _thread.join(120)
         if _thread.is_alive():
-            raise RuntimeError("An editor is still finishing. Try closing Tools again.")
+            raise RuntimeError("An editor is still finishing. Try closing Pod Programs again.")
     _server = _thread = None

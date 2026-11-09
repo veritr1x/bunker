@@ -3,7 +3,7 @@
 {% block content %}
 <h1 data-side>Language</h1>
 {% if not supported %}
-<div class="banner error">&gt; Translation is not supported with these game files: they have no English text (the Japanese client). It needs the global game files.</div>
+<div class="banner error">&gt; Language packs need the global game files. These are the Japanese client's, which have no English text.</div>
 {% if current != "en" %}<form action="/language" method="post"><input type="hidden" name="choice" value="en"><div class="actions"><button type="submit">Back to English</button></div></form>{% endif %}
 {% else %}
 {% if status_line %}<div class="banner{% if status_state == 'failed' %} error{% endif %}">&gt; {{ status_line }}</div>{% endif %}
@@ -14,7 +14,7 @@
     {% for pack in packs %}
     <label class="choice"><input type="radio" name="choice" required value="{{ pack.source }}:{{ pack.language }}"{% if current == pack.source ~ ":" ~ pack.language %} checked{% endif %}><span><strong>{{ pack.name }}</strong><span class="note">{{ pack.language }}{% if pack.version %} · version {{ pack.version }}{% endif %} · {{ count(pack.texts, "text") }} ({{ pack.percent }}%) · {{ pack.source }}</span></span></label>
     {% endfor %}
-    {% if current == "other" %}<p class="note">The game uses another pack, which is not listed here. Choose one above to replace it.</p>{% endif %}
+    {% if current == "other" %}<p class="note">The game uses a pack not listed here. Choose one above to replace it.</p>{% endif %}
   </div>
   <div class="actions"><button type="submit">Save</button></div>
 </form>
@@ -35,12 +35,12 @@
 {% endif %}
 
 <details class="panel"><summary data-toc="Load a pack">Load a pack</summary>
-  <p>A language pack file (.json) from a translator or a Bunker release. A pack you load replaces one of the same language.</p>
+  <p>A .json pack from a translator or a Bunker release. It replaces a loaded pack of the same language.</p>
   <form action="/language/load" method="post" enctype="multipart/form-data" data-busy>
     <input type="file" name="pack" accept=".json,application/json" aria-label="Language pack" required>
     <button type="submit">Load</button><span class="busy-note" hidden>Checking…</span>
   </form>
 </details>
-<p data-side="intro">Keep the game itself set to English: a pack replaces its English text. Texts a pack does not translate stay in English. The game picks a new choice up the next time it loads its file list.</p>
+<p data-side="intro">Keep the game set to English: a pack replaces its English text. Anything a pack does not translate stays in English.</p>
 <script>document.querySelectorAll('[data-busy]').forEach(form => form.addEventListener('submit', () => {form.querySelector('button').disabled = true; form.querySelector('.busy-note').hidden = false;}));</script>
 {% endblock %}

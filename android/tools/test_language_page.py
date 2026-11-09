@@ -148,12 +148,12 @@ class LanguagePageTest(unittest.TestCase):
         self.client.post("/language", data={"choice": "en"})
         page = self.client.get("/language").text
         self.assertNotIn("Ready: Português", page)
-        self.assertIn("applies the next time the server starts", page)
+        self.assertIn("applies the next time Lunar Tear starts", page)
         self.load(pack(language="pl", name="Polski"))
         self.client.post("/language", data={"choice": "loaded:pl"})
         page = self.client.get("/language").text
         self.assertNotIn("Ready: Português", page)
-        self.assertIn("applies the next time the server starts", page)
+        self.assertIn("applies the next time Lunar Tear starts", page)
 
     def test_status_of_the_chosen_pack_is_shown(self):
         self.load()
@@ -165,7 +165,7 @@ class LanguagePageTest(unittest.TestCase):
         self.status('{"state":"failed","error":"pack format 2 is not supported"}')
         (self.translation / "active.json").write_text('{"format":2}')  # put there by hand: the page cannot list it
         page = self.client.get("/language").text
-        self.assertIn("The server could not read the chosen pack: pack format 2 is not supported.", page)
+        self.assertIn("The chosen pack could not be read: pack format 2 is not supported.", page)
         self.assertNotIn("tried again", page)
         self.assertNotIn("the pack could not", page)
 

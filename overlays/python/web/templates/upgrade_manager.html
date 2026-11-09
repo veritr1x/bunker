@@ -17,14 +17,14 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Exalt All Available Characters</span>
-    <span class="grant-id">{{ exalt_targets }} of {{ owned_character_count }} owned chars below max (5)</span>
+    <span class="grant-id">{{ exalt_targets }} of {{ owned_character_count }} owned characters below the max (5)</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="exalt_all" class="grant-chosen-btn"
             {% if exalt_targets == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Fill Mythic Slab Pages of all Available Characters</span>
-    <span class="grant-id">{{ panel_total }} panels across {{ owned_character_count }} owned chars (both monuments, all 3 ranks)</span>
+    <span class="grant-id">{{ panel_total }} panels across {{ owned_character_count }} owned characters</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="fill_mythic_slabs" class="grant-chosen-btn"
             {% if panel_total == 0 %}disabled{% endif %}>RUN</button>
@@ -35,21 +35,21 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Add All Missing Companions</span>
-    <span class="grant-id">{{ missing_companions }} missing of {{ companion_total }} total (skips known game-breaking ids 54-62)</span>
+    <span class="grant-id">{{ missing_companions }} missing of {{ companion_total }} (a few that break the game are skipped)</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_companions" class="grant-chosen-btn"
             {% if missing_companions == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
-    <span class="grant-name">All Missing Remnants</span>
-    <span class="grant-id">{{ missing_remnants }} missing of {{ remnant_total }} total (Important Items prefixed "Remnant")</span>
+    <span class="grant-name">Add All Missing Remnants</span>
+    <span class="grant-id">{{ missing_remnants }} missing of {{ remnant_total }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_remnants" class="grant-chosen-btn"
             {% if missing_remnants == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Add All Missing Debris</span>
-    <span class="grant-id">{{ missing_thoughts }} missing of {{ thought_total }} total (one Thought item per costume's awakening 5; Upgrade All Costumes also grants these naturally)</span>
+    <span class="grant-id">{{ missing_thoughts }} missing of {{ thought_total }}. Upgrade All Costumes also adds these.</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_thoughts" class="grant-chosen-btn"
             {% if missing_thoughts == 0 %}disabled{% endif %}>RUN</button>
@@ -67,27 +67,27 @@
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Weapons</span>
-    <span class="grant-id">{{ owned_weapon_count }} owned weapons &mdash; ascend, evolve to chain end, refine if eligible, enhance to cap, all skills + abilities to lv15 (cost-bypassing)</span>
+    <span class="grant-id">{{ owned_weapon_count }} owned weapons: ascend, evolve fully, refine where possible, enhance to the cap, skills and abilities to level 15</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_weapons" class="grant-chosen-btn"
             {% if owned_weapon_count == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Costumes</span>
-    <span class="grant-id">{{ owned_costume_count }} owned costumes &mdash; awaken to 5 (grants Debris), ascend to 4, enhance to cap, active skill to lv15, unlock 3 karma slots (SSR; rolls left to player)</span>
+    <span class="grant-id">{{ owned_costume_count }} owned costumes: awaken to 5 (adds Debris), ascend to 4, enhance to the cap, skill to level 15, unlock the 3 karma slots of ★4 costumes (left unrolled)</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="upgrade_all_costumes" class="grant-chosen-btn"
             {% if owned_costume_count == 0 %}disabled{% endif %}>RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">Skip All Dark Memory Cutscenes</span>
-    <span class="grant-id">Marks every Dark Memory weapon cutscene as already played (84 entries). Use after mass-adding Dark Memory weapons to bypass the queued first-launch cutscene loop that otherwise soft-locks progression.</span>
+    <span class="grant-id">Marks every Dark Memory weapon cutscene as seen. Use after adding many Dark Memory weapons: otherwise their queued cutscenes can block progress.</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="skip_dark_memory_cutscenes" class="grant-chosen-btn">RUN</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name" id="karma-fill-name">Fill All Karma Slots</span>
-    <span class="grant-id">Picks the chosen effect for every unlocked karma slot. If a costume's odds pool doesn't contain the chosen effect, falls back to the rarest pool entry. Overwrites existing rolls. Run Upgrade All Costumes first to unlock slots.</span>
+    <span class="grant-id">Sets every unlocked karma slot to the effect chosen below, replacing current rolls. Run Upgrade All Costumes first to unlock slots.</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="fill_karma_slots" class="grant-chosen-btn">RUN</button>
   </div>
@@ -106,7 +106,7 @@
     </div>
     {% endfor %}
     <p data-info="karma-fill-name" style="margin:6px 0 0;font-size:var(--fs-label);color:var(--fg-mid)">
-      [R40/30/20] = rarity tier. [Ngrp] = how many odds groups in the game include this effect. A higher number means more costumes get this exact effect. The rest get the rarest effect in their own pool.
+      [R40/30/20] is the effect's rarity. [Ngrp] is how many karma pools have it: the higher, the more costumes get it. A costume that can't have it gets the rarest effect it can.
     </p>
   </div>
 </div>
@@ -160,7 +160,7 @@
           return;
         }
         showBanner(
-          `${label}: ${json.applied} applied in ${(json.duration_ms / 1000).toFixed(2)}s. Reload to refresh counts.`,
+          `${label}: ${json.applied} applied. Reload to refresh counts.`,
           "success"
         );
       } catch (err) {

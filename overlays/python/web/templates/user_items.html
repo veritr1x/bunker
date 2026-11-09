@@ -85,7 +85,6 @@
     </form>
   </div>
   <div class="search-row">
-    <span class="tab-stats">2 of 2 currencies</span>
     <span style="margin-left:auto"></span>
     <button type="button" class="grant-chosen-btn" data-tab-target="tab-gems">GRANT ALL CHOSEN</button>
   </div>
@@ -215,7 +214,7 @@
       count = parseInt((amtEl && amtEl.value) || "0", 10);
     }
     if (!count || count <= 0) {
-      showBanner("Enter a positive amount before granting.", "error");
+      showBanner("Enter an amount first.", "error");
       return;
     }
 
@@ -281,7 +280,7 @@
           return;
         }
         const n = applyResults(json.results, planByKey);
-        showBanner(`Granted ${n} item(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`, "success");
+        showBanner(`Granted ${n} item(s).`, "success");
       } catch (err) {
         showBanner("Network error: " + err.message, "error");
       } finally {
@@ -297,8 +296,8 @@
       if (btn.dataset.busy === "1") return;
       const action = btn.dataset.action;
       const promptText = action === "max_consumables"
-        ? "MAX ALL consumables: 50M gold + thousands of tickets/medals/coins/fragments/shards across the whole consumable list. Continue?"
-        : "MAX ALL materials: ~5,000 of every material in the game (skipping Longing Flicker, Recalling Light, and four unknown ids). Continue?";
+        ? "Add 50M gold and thousands of every ticket, medal, coin, fragment and shard?"
+        : "Add about 5,000 of every material, except Longing Flicker and Recalling Light?";
       if (!confirm(promptText)) return;
 
       btn.dataset.busy = "1";
@@ -314,7 +313,7 @@
         }
         const n = applyResults(json.results, new Map());
         showBanner(
-          `${originalLabel} done: ${json.applied} grant(s) in ${(json.duration_ms / 1000).toFixed(2)}s.`,
+          `${originalLabel} done: ${json.applied} grant(s).`,
           "success"
         );
       } catch (err) {

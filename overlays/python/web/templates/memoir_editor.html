@@ -51,7 +51,7 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">Upgrade All Memoirs</span>
-    <span class="grant-id">{{ owned_count }} owned memoirs &mdash; sets every part level to {{ 15 }} (sub-status rows untouched).</span>
+    <span class="grant-id">{{ owned_count }} owned memoirs to level 15. Sub stats stay as they are.</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" id="upgrade-all-btn" class="grant-chosen-btn"
             {% if owned_count == 0 %}disabled{% endif %}>RUN</button>
@@ -152,7 +152,7 @@
     const head = document.createElement("div");
     head.style.cssText = "display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px";
     const title = document.createElement("strong");
-    title.textContent = memoir.name + " (group " + memoir.group_id + ")";
+    title.textContent = memoir.name;
     title.style.cssText = "min-width:min(240px,100%)";
     head.appendChild(title);
 
@@ -253,7 +253,7 @@
       });
       const json = await res.json();
       if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
-      showBanner("Granted " + setName + ": " + json.applied + " memoirs in " + (json.duration_ms / 1000).toFixed(2) + "s. Reload to refresh.", "success");
+      showBanner("Granted " + setName + ": " + json.applied + " memoirs. Reload to refresh.", "success");
     } catch (err) {
       showBanner("Network error: " + err.message, "error");
     } finally {
@@ -275,7 +275,7 @@
         const res = await fetch("/users/" + userId + "/memoirs/upgrade_all", {method: "POST"});
         const json = await res.json();
         if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
-        showBanner("Upgraded " + json.applied + " memoirs to lv15 in " + (json.duration_ms / 1000).toFixed(2) + "s.", "success");
+        showBanner("Upgraded " + json.applied + " memoirs to level 15.", "success");
       } catch (err) {
         showBanner("Network error: " + err.message, "error");
       } finally {
@@ -353,7 +353,7 @@
         });
         const json = await res.json();
         if (!json.ok) { showBanner(json.error || "Operation failed.", "error"); return; }
-        showBanner("Slots rewritten in " + (json.duration_ms / 1000).toFixed(2) + "s.", "success");
+        showBanner("Slots rewritten.", "success");
       } catch (err) {
         showBanner("Network error: " + err.message, "error");
       } finally {

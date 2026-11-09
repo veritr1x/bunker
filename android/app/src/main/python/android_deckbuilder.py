@@ -785,7 +785,7 @@ def write(payload: dict = Body(...)):
             targets.append((t, n))
     raises = payload.get("raise") or []
     if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.raisable(r):
-        return refuse("Only a costume of this deck that is below the staged level can be raised")
+        return refuse("Only a costume of this deck that is not fully raised can be raised")
     raises = sorted(set(raises))
     force = s.force(r, raises)
     deck = {"slots": [{"deck_type": t, "number": n, "power": force} for t, n in targets],
@@ -809,7 +809,7 @@ def _write_loadout(s, user_id, lo, raises):
     """A Subjugation loadout: one Save Data snapshot, then each deck to its Subjugation deck, its own raises only."""
     refuse = lambda message: JSONResponse({"ok": False, "error": message}, status_code=400)
     if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.loadout_raisable(lo):
-        return refuse("Only a costume of this loadout that is below the staged level can be raised")
+        return refuse("Only a costume of this loadout that is not fully raised can be raised")
     raises = sorted(set(raises))
     forces = s.loadout_force(lo, raises)
     try:

@@ -214,7 +214,7 @@ def new_day():
         start_new_day()
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="A new day has started: everything daily starts over. Close Pod Programs and tap Deploy.")
+    return redirect(message="A new day has started. Close Pod Programs and tap Deploy.")
 
 
 @router.get("/patcher")
@@ -258,7 +258,7 @@ def apply_preset(preset, cfg):
         args = arguments(preset, cfg)
         origin = folder() / "origin.bin.e"
         if not origin.exists():
-            raise ValueError("Choose original master data under Advanced")
+            raise ValueError("Load the original master data under Original file & export")
         from patcher import patch_masterdata
         patch_masterdata = importlib.reload(patch_masterdata)
         log = runtime.cli(patch_masterdata, ["--input", origin, "--output", candidate, *args])

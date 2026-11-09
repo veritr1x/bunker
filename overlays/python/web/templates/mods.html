@@ -13,9 +13,8 @@
   .setting .note{display:block;margin-top:4px}
 </style>
 <h1 data-side>Mods</h1>
-<p data-side="intro">Changes to how the game plays, for every player on this device. Every mod is off until you turn it on; turning it off again
-  goes back to the original game. Mods never change your save on their own, and they apply without a restart. Challenges change
-  the game data, so the game goes back to its title screen to load them.</p>
+<p data-side="intro">Changes to how the game plays, for every player on this device. Every mod is off until you turn it on.
+  Mods never change your save, and they apply without a restart.</p>
 
 <details class="mods-group" data-group="Preset" open data-side>
 <summary class="bracket-header">Preset<span class="fold" aria-hidden="true"></span></summary>
@@ -23,7 +22,7 @@
   {% for key, (title, what, _) in presets.items() %}
   <label class="choice"><input type="radio" name="name" value="{{ key }}"{% if current == key %} checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ what }}</span></span></label>
   {% endfor %}
-  {% if not current %}<p class="credit">Current: your own choice of mods below.</p>{% endif %}
+  {% if not current %}<p class="credit">Current: your own choice below.</p>{% endif %}
   <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Use preset</button></div>
 </form>
 </details>
@@ -59,7 +58,7 @@
     {% endif %}
     {% endfor %}
     {% if group == "Challenges" %}
-    <p class="credit" data-info="challenges-head" style="margin:10px 0 0">Bonuses multiply, up to ×10. The bonus counts only while the Quests, Items &amp; shops and Summons mods are off; World mods don't matter. After Start a new day, it pauses until the next day. A change here sends the game to its title screen to load it.</p>
+    <p class="credit" data-info="challenges-head" style="margin:10px 0 0">Bonuses multiply, up to ×10. The bonus counts only while the Quests, Items &amp; shops and Summons mods are off, and pauses for the rest of the day after Start a new day. A change here sends the game to its title screen.</p>
     {% endif %}
   </div>
   </details>
