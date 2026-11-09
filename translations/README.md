@@ -9,12 +9,14 @@ Text for playing the game, and using Bunker, in languages the game never had.
   `story_side`).
 - `master/`: a few texts from the game's master data (gift messages,
   announcements and similar).
+- `bunker/`: Bunker's own screens, Pod Programs and the Archive (see
+  "Bunker's own screens" below).
 
 In each folder:
 
-- `en.json` is the English text, the template you translate from. It is
-  generated from the game files by `scripts/export_translations.py`; never edit
-  it by hand.
+- `en.json` is the English text, the template you translate from. In `game/`
+  and `master/` it is generated from the game files by
+  `scripts/export_translations.py`; never edit it by hand.
 - `ja.json` and `ko.json` are the game's own Japanese and Korean text, kept for
   context. They are not translations to work on.
 - `<language>.json` (for example `pt-BR.json`, `pl.json`) is a translation.
@@ -52,6 +54,29 @@ in your language.
   refuses it.
   Scripts written right to left or with joined letters (Arabic, Hebrew, Thai,
   Hindi) are not supported yet.
+
+## Bunker's own screens
+
+`bunker/en.json` holds the words of Pod Programs and the Archive, written by
+Bunker's developers. Translate it into `bunker/<language>.json` like the other
+folders, with a few differences:
+
+- Keys say where a text is shown: `pods.<page>.<name>` (Pod Programs),
+  `archive.<page>.<name>` (the Archive), `common.<name>` (words both use, such
+  as Save or Close). A key ending in `_info` is the explanation behind an
+  "i" icon.
+- Placeholders are names in braces, such as `{name}` or `{n}`: keep each one,
+  in whatever place your language needs it. `{n}` is a number.
+- Keys ending in `.one` and `.other` are the same text for one thing and for
+  several ("{n} costume", "{n} costumes").
+- These texts are shown with the phone's own fonts, so any script works.
+- Keep them short: buttons, menu entries and labels have little room.
+- A missing or broken translation (a placeholder dropped or misspelled) shows
+  the English text instead.
+- The lines "End of transmission // Glory to mankind" and "Operator link //
+  Standing by" are not in the catalogue: they stay in English.
+
+Bunker's Android and iOS launchers are not in this folder yet.
 
 ## Sending your translation
 
