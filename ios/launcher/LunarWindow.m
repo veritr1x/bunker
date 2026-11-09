@@ -127,6 +127,25 @@ void LTWindowStart(void) {
         UIScreen *screen = window.windowScene.screen;
         if (!window || !screen) return;
         if (!gReady) LogReady();
+        // Unity makes its window the size of the device's screen. Opened straight onto an external
+        // display, whose scene iPadOS calls portrait, that was 834x1210 upright in the middle of a
+        // 3008x1630 landscape scene: the picture small and on its end. The window fills its scene.
+        CGRect area = window.windowScene.coordinateSpace.bounds;
+        if (@available(iOS 26.0, *)) area = window.windowScene.effectiveGeometry.coordinateSpace.bounds;
+        if (area.size.width > 0 && area.size.height > 0
+            && (fabs(window.frame.size.width - area.size.width) > 1 || fabs(window.frame.size.height - area.size.height) > 1
+                || fabs(window.frame.origin.x - area.origin.x) > 1 || fabs(window.frame.origin.y - area.origin.y) > 1)) {
+            LTDisplayLog([NSString stringWithFormat:@"window %@ didn't fill its scene %@: resized", NSStringFromCGRect(window.frame), NSStringFromCGRect(area)]);
+            window.frame = area;
+        }
+        // Unity's view keeps its place when its window changes: resized alone, the window held the
+        // view at {1087, 209.5}, the game's top-left quarter on screen. The view fills its window.
+        UIView *root = window.rootViewController.view;
+        if (root && !CGRectEqualToRect(CGRectIntegral(root.frame), CGRectIntegral(window.bounds))) {
+            LTDisplayLog([NSString stringWithFormat:@"Unity's view %@ didn't fill its window %@: moved", NSStringFromCGRect(root.frame), NSStringFromCGRect(window.bounds)]);
+            root.frame = window.bounds;
+            [root setNeedsLayout];
+        }
         CAMetalLayer *layer = (CAMetalLayer *)window.rootViewController.view.layer;
         // The window once it has kept one size for a second (a drag goes through many).
         CGSize mode = screen.currentMode.size, largest = CGSizeZero, upscaled = LTUpscaleOutput();
@@ -136,6 +155,37 @@ void LTWindowStart(void) {
             screen.bounds.size.width, screen.bounds.size.height, screen.nativeScale, mode.width, mode.height, largest.width, largest.height,
             layer.drawableSize.width, layer.drawableSize.height,
             upscaled.width > 0 ? [NSString stringWithFormat:@", MetalFX to %.0fx%.0f", upscaled.width, upscaled.height] : @""];
+        // How the window is laid out, to find why it starts upright on an external display and why
+        // the picture can sit off its window: the scene's orientation and size, the window's frame,
+        // Unity's view (frame, transform), and the orientations the game's controller and the app allow.
+        UIView *view = window.rootViewController.view;
+        UIWindowScene *scene = window.windowScene;
+        UIInterfaceOrientation orientation = UIInterfaceOrientationUnknown;
+        CGRect sceneBounds = scene.coordinateSpace.bounds;
+        if (@available(iOS 26.0, *)) {
+            orientation = scene.effectiveGeometry.interfaceOrientation;
+            sceneBounds = scene.effectiveGeometry.coordinateSpace.bounds;
+        } else if (@available(iOS 16.0, *)) {
+            orientation = scene.effectiveGeometry.interfaceOrientation;
+        } else {
+            orientation = scene.interfaceOrientation;
+        }
+        NSArray *orientations = @[@"unknown", @"portrait", @"upside down", @"landscape left", @"landscape right"];
+        NSString *(^mask)(UIInterfaceOrientationMask) = ^NSString *(UIInterfaceOrientationMask m) {
+            NSMutableArray *names = [NSMutableArray array];
+            if (m & UIInterfaceOrientationMaskPortrait) [names addObject:@"portrait"];
+            if (m & UIInterfaceOrientationMaskPortraitUpsideDown) [names addObject:@"upside down"];
+            if (m & UIInterfaceOrientationMaskLandscapeLeft) [names addObject:@"landscape left"];
+            if (m & UIInterfaceOrientationMaskLandscapeRight) [names addObject:@"landscape right"];
+            return [names componentsJoinedByString:@"+"];
+        };
+        CGAffineTransform t = view.transform;
+        state = [state stringByAppendingFormat:@"; scene %@ %.0fx%.0f, window frame %@, view %@ frame %@%@, %@ allows %@, the app %@",
+            orientation >= 0 && orientation < (NSInteger)orientations.count ? orientations[orientation] : @"?",
+            sceneBounds.size.width, sceneBounds.size.height, NSStringFromCGRect(window.frame), NSStringFromClass(view.class),
+            NSStringFromCGRect(view.frame), CGAffineTransformIsIdentity(t) ? @"" : [@" transform " stringByAppendingString:NSStringFromCGAffineTransform(t)],
+            NSStringFromClass(window.rootViewController.class), mask(window.rootViewController.supportedInterfaceOrientations),
+            mask([UIApplication.sharedApplication supportedInterfaceOrientationsForWindow:window])];
         static NSString *seen, *logged;
         static double since;
         double now = CACurrentMediaTime();
