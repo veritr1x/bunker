@@ -160,7 +160,7 @@ a.sched-row:hover { background: var(--bg-cream-dark); color: var(--fg-dark); }
 details.info { flex: none; display: inline-block; }
 details.info > summary { list-style: none; display: inline-flex; align-items: center; justify-content: center; position: relative;
   width: 18px; height: 18px; min-height: 0; padding: 0; border: 1px solid var(--fg-mid); border-radius: 50%;
-  font-family: Georgia, "Times New Roman", serif; font-size: 11px; font-style: italic; font-weight: 700; line-height: 1;
+  font-family: Georgia, "Times New Roman", serif; font-size: 12px; font-style: italic; font-weight: 700; line-height: 1;
   letter-spacing: 0; text-transform: none; color: var(--fg-mid); cursor: pointer; }
 details.info > summary::-webkit-details-marker { display: none; }
 details.info > summary::before { content: ""; position: absolute; inset: -13px; }  /* a 44px tap target */

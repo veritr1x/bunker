@@ -17,6 +17,8 @@ import android_runtime as runtime
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 PRESETS = [("Full", "All content"), ("Clear", "Story"), ("Gacha", "Gacha shops"), ("Rec", "Record events"), ("Var", "Variation events"), ("Bonus", "Bonus quests")]
 SPLITS = [(f"{key}_{index}", f"{label} {index}") for key, label, count in (("Gacha", "Gacha", 5), ("Rec", "Record", 5), ("Var", "Variation", 4), ("Bonus", "Bonus", 4)) for index in range(1, count + 1)]
 

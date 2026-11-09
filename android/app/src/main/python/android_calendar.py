@@ -27,6 +27,8 @@ from archive.schedule import ART_TITLES
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 DAY = 24 * 60 * 60 * 1000
 WEEK = 7 * DAY
