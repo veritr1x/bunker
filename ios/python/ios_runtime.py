@@ -175,7 +175,7 @@ def start(data_root, asset_root, tools_root, original_master):
             break
         time.sleep(.02)
     sock.close()
-    raise RuntimeError("Tools could not start")
+    raise RuntimeError("It didn't start. Try again.")
 
 
 def _close_game():
@@ -244,7 +244,7 @@ def stop():
     if _thread:
         _thread.join(120)
         if _thread.is_alive():
-            raise RuntimeError("An editor is still finishing. Try closing Tools again.")
+            raise RuntimeError("An editor is still saving. Close Pod Programs again.")
     _server = _thread = None
     _state.clear()
 

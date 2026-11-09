@@ -50,7 +50,7 @@ static NSString *LoadPythonLocked(void) {
     if (gPythonReady) return @"";
     if (!LTToolsAvailable()) return @"This build doesn't include Pod Programs.";
     void *library = dlopen(PythonLibrary().fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL);
-    if (!library) return [NSString stringWithFormat:@"Cannot load Python: %s", dlerror()];
+    if (!library) return [NSString stringWithFormat:@"Can't load Python: %s", dlerror()];
     gPython.initialize = dlsym(library, "Py_InitializeEx");
     gPython.run = dlsym(library, "PyRun_SimpleString");
     gPython.releaseLock = dlsym(library, "PyEval_SaveThread");
@@ -81,7 +81,7 @@ static NSString *LoadPythonLocked(void) {
     int failed = gPython.run(bootstrap.UTF8String);
     gPython.releaseLock();
     gPythonReady = YES;
-    return failed ? @"Pod Programs couldn't find its code" : @"";
+    return failed ? @"Some app files are missing." : @"";
 }
 
 static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments);
@@ -127,7 +127,7 @@ static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments) {
 NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster,
                        NSString **url, NSString **token, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(gPythonReady ? @"Opening Pod Programs…" : @"Starting Python…");
+    if (progress) progress(@"Opening Pod Programs…");
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     [NSFileManager.defaultManager createDirectoryAtPath:toolsRoot withIntermediateDirectories:YES attributes:nil error:nil];
@@ -160,7 +160,7 @@ NSString *LTUpdateData(NSString *saves, NSString *serverRoot, NSString *toolsRoo
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,
                         NSString *noticesZip, NSString *shaNotices, NSString *output, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(gPythonReady ? @"Building…" : @"Starting Python…");
+    if (progress) progress(@"Preparing the update…");
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     NSDictionary *result = CallRuntime(@"build_ipa_update", @[app, frameworkZip, pythonZip, shaFramework, shaPython, output,
@@ -172,7 +172,7 @@ NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZ
 
 NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(gPythonReady ? @"Opening the Archive…" : @"Starting Python…");
+    if (progress) progress(@"Opening the Archive…");
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     [NSFileManager.defaultManager createDirectoryAtPath:archiveRoot withIntermediateDirectories:YES attributes:nil error:nil];

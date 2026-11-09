@@ -120,14 +120,14 @@ def build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, out
     app, output = Path(app_dir), Path(output_ipa)
     reporter("Checking the download…")
     if _sha256(framework_zip) != sha_framework or _sha256(python_zip) != sha_python:
-        raise RuntimeError("The download is damaged; try again")
+        raise RuntimeError("The download is damaged. Try again.")
     if notices_zip and _sha256(notices_zip) != sha_notices:
-        raise RuntimeError("The download is damaged; try again")
+        raise RuntimeError("The download is damaged. Try again.")
     with zipfile.ZipFile(framework_zip) as framework:
         new_build = json.loads(framework.read("LunarTear.framework/build.json"))
     old_build = json.loads((app / GAME_PATCH_FILE).read_text()) if (app / GAME_PATCH_FILE).is_file() else {}
     if old_build.get("gamePatch") != new_build.get("gamePatch"):
-        raise RuntimeError("This update needs the web builder: it changes how the game itself is patched")
+        raise RuntimeError("This update needs the web builder.")
     python_frameworks = {p.name for p in (app / "Frameworks").iterdir() if p.is_dir() and _python_framework(p)}
     prefix = "Payload/" + app.name + "/"
     temporary = output.with_name(output.name + ".partial")

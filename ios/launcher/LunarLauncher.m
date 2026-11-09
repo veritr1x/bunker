@@ -302,7 +302,7 @@ static NSString *StartServer(void) {
     EnsureMaster();
     PointAtNotices();
     if (!AttachInPlace())
-        return @"Cannot open your game files folder. Reconnect its drive or put it back, then tap Check again, or choose the files again.";
+        return @"Can't open your game files folder. Reconnect its drive, then tap Check again, or choose the files again.";
     if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
     TakeString(LunarSetLogDir((char *)LogFolder().fileSystemRepresentation));
     // Pod Programs' snapshots folder (ToolsRoot()/backups): the save is copied there before an update.
@@ -659,7 +659,7 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         if (type == 'g') {  // Global pax header: nothing we use.
             for (unsigned long long left = padded; left; ) {
                 size_t chunk = (size_t)MIN(left, (unsigned long long)buffer.length);
-                if (![reader read:buffer.mutableBytes length:chunk]) return @"The archive ended early.";
+                if (![reader read:buffer.mutableBytes length:chunk]) return @"The archive ended early. Copy every part, then try again.";
                 left -= chunk;
             }
             continue;
@@ -676,7 +676,7 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         if (regular) {
             [files createDirectoryAtPath:target.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
             out = fopen(target.fileSystemRepresentation, "wb");
-            if (!out) return [@"Cannot write " stringByAppendingString:name];
+            if (!out) return [@"Can't write " stringByAppendingString:name];
         }
         for (unsigned long long left = padded; left; ) {
             size_t chunk = (size_t)MIN(left, (unsigned long long)buffer.length);
@@ -705,7 +705,7 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
     BOOL catalog = NO;
     for (NSString *path in @[@"revisions/0/ios/list.bin", @"revisions/0/list.bin"])
         catalog = catalog || FileSize([root stringByAppendingPathComponent:path]) > 0;
-    if (!catalog) { DiscardStage(); return @"The copied folder has no catalog. Choose the folder that contains revisions/0."; }
+    if (!catalog) { DiscardStage(); return @"This isn't the game files folder. Choose the folder that contains revisions/0."; }
     NSString *aliases = CheckSelfContained([root stringByAppendingPathComponent:@"revisions/0"].stringByResolvingSymlinksInPath);
     if (aliases.length) { DiscardStage(); return aliases; }
     // Keep the current master data (including applied content presets).
@@ -747,13 +747,13 @@ static NSString *LinkAssets(NSURL *picked, void (^progress)(NSString *)) {
     @try {
         NSNumber *cloud = nil;
         [picked getResourceValue:&cloud forKey:NSURLIsUbiquitousItemKey error:nil];
-        if (cloud.boolValue) return @"Folders in iCloud Drive cannot be used in place. Copy the folder instead.";
+        if (cloud.boolValue) return @"Folders in iCloud Drive can't be used in place. Copy the folder instead.";
         NSURL *source = FindRevisionZero(picked);
         if (!source) return @"Choose the extracted game files: the folder that contains revisions/0.";
         NSString *from = source.URLByResolvingSymlinksInPath.path, *base = picked.URLByResolvingSymlinksInPath.path;
         if (![from hasPrefix:[base stringByAppendingString:@"/"]]) return @"Choose the extracted game files: the folder that contains revisions/0.";
         NSData *bookmark = [picked bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:nil];
-        if (!bookmark) return @"iOS cannot keep access to this folder. Copy it instead.";
+        if (!bookmark) return @"iOS can't keep access to this folder. Copy it instead.";
         progress(@"Checking the folder…");
         RecoverImport();
         NSFileManager *files = NSFileManager.defaultManager;
@@ -821,7 +821,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         if (!isFolder.boolValue) {
             if (IsGoArchive(picked.path)) return ImportGoArchive(picked.path, progress);
             NSArray<NSString *> *parts = ArchiveParts(picked.path);
-            if (!parts) return @"Choose the extracted game files folder, or the .7z or .zip of the resource dump.";
+            if (!parts) return @"Choose the resource dump's .7z or .zip, or its extracted folder.";
             unsigned long long total = 0;
             for (NSString *part in parts) total += FileSize(part);
             if (FreeSpace() < total + 1000000000ULL)
@@ -831,7 +831,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
             NSString *failure = ExtractArchive(parts, StagePath(), progress);
             if (failure.length) { [files removeItemAtPath:StagePath() error:nil]; return failure; }
             NSURL *unpacked = FindAssetsRoot([NSURL fileURLWithPath:StagePath()]);
-            if (!unpacked) { [files removeItemAtPath:StagePath() error:nil]; return @"The archive has no catalog. Use an archive of the prepared assets folder."; }
+            if (!unpacked) { [files removeItemAtPath:StagePath() error:nil]; return @"This archive has no game files. Use a .7z or .zip of the prepared assets folder."; }
             return InstallStaged(unpacked.path, progress);
         }
         NSURL *source = FindRevisionZero(picked);
@@ -848,7 +848,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         NSString *documents = [gServerRoot.stringByResolvingSymlinksInPath stringByAppendingString:@"/"];
         if ([from hasPrefix:documents] && ![[from substringFromIndex:documents.length] hasPrefix:@"."]) {
             if (FileSize([from stringByAppendingPathComponent:@"list.bin"]) == 0 && FileSize([from stringByAppendingPathComponent:@"ios/list.bin"]) == 0)
-                { DiscardStage(); return @"The folder has no catalog. Choose the folder that contains revisions/0."; }
+                { DiscardStage(); return @"This isn't the game files folder. Choose the folder that contains revisions/0."; }
             NSString *aliases = CheckSelfContained(from);
             if (aliases.length) { DiscardStage(); return aliases; }
             progress(@"Moving the game files…");
@@ -884,7 +884,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
                 progress([NSString stringWithFormat:@"Reading the folder… %lu files · %@", (unsigned long)items.count, LTByteText(total)]);
             }
         }
-        if (walkError) { [files removeItemAtPath:StagePath() error:nil]; return [@"Cannot read the folder: " stringByAppendingString:walkError.localizedDescription]; }
+        if (walkError) { [files removeItemAtPath:StagePath() error:nil]; return [@"Can't read the folder: " stringByAppendingString:walkError.localizedDescription]; }
         if (FreeSpace() < total + 1000000000ULL)
             { [files removeItemAtPath:StagePath() error:nil]; return [NSString stringWithFormat:@"Not enough free space. Copying needs about %@ free.", LTByteText(total + 1000000000ULL)]; }
         NSString *revisionStage = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
@@ -1324,18 +1324,18 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     // [ PLAY ]: what happens next, and the way back into the game.
     self.detail = [self mono:@"" size:12 color:Ink()];
     self.back = [self solid:@"DEPLOY  ▶" action:@selector(close)];
-    self.back.accessibilityLabel = @"Deploy: back to the game";
+    self.back.accessibilityLabel = @"Back to the game";
     self.quit = [self solid:@"CLOSE GAME" action:@selector(quitGame)];
     self.cancel = [self outline:@"CANCEL IMPORT" size:13 action:@selector(chooseOrCancel)];
     self.check = [self outline:@"CHECK AGAIN" size:13 action:@selector(retry)];
     UIView *play = [self panel:@[self.detail, self.back, self.quit, self.cancel, self.check]];
     // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
-    UILabel *about = [self mono:LTToolsAvailable() ? @"Edit your save and choose which events and shops appear." : @"Pod Programs is not in this build." size:12 color:Ink()];
+    UILabel *about = [self mono:LTToolsAvailable() ? @"Edit your save and choose which events and shops appear." : @"Not in this build." size:12 color:Ink()];
     self.pods = [self outline:@"OPEN POD PROGRAMS  ›" size:13 action:@selector(confirmTools)];
     self.pods.accessibilityLabel = @"Open Pod Programs";
     UIView *programs = [self panel:@[about, self.pods]];
     // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
-    UILabel *records = [self mono:LTToolsAvailable() ? @"Read the story, see every character and costume, and hear the voices and music, from your game files." : @"The Archive is not in this build." size:12 color:Ink()];
+    UILabel *records = [self mono:LTToolsAvailable() ? @"Read the story, see every character and costume, and hear the voices and music." : @"Not in this build." size:12 color:Ink()];
     self.archive = [self outline:@"OPEN ARCHIVE  ›" size:13 action:@selector(openArchive)];
     self.archive.accessibilityLabel = @"Open the Archive";
     UIView *archive = [self panel:@[records, self.archive]];
@@ -1468,7 +1468,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     else if (gRestartNeeded) SetChip(self.server, @"RESTART THE GAME", Alert(), Paper());
     else if (running) SetChip(self.server, @"RUNNING", Ok(), OnOk());
     else if ([state isEqual:@"starting"]) SetChip(self.server, @"STARTING", ChipFill(), Ink());
-    else SetChip(self.server, catalog ? @"NOT RUNNING" : @"WAITING FOR FILES", ChipFill(), Ink());
+    else SetChip(self.server, @"NOT RUNNING", ChipFill(), Ink());
     int offset = [[NSBundle.mainBundle objectForInfoDictionaryKey:@"LunarPortOffset"] intValue];
     self.ports.attributedText = Tracked([NSString stringWithFormat:@"%d · %d · %d", 8003 + offset, 8080 + offset, 3000 + offset], Mono(13), Ink(), .8);
     self.archiveLine.attributedText = Tracked(gIndexText, Mono(13), Ink(), .8);
@@ -1490,11 +1490,11 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     }
     NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
     NSString *text = gMessage.length ? gMessage : [NSString stringWithFormat:
-        @"Choose the resource dump's .7z, or an extracted folder to copy or use in place, from Files, iCloud Drive or a USB drive. "
-        @"Copying needs about 21 GB free. You can also drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
-    if (running && !gMessage.length) text = @"Lunar Tear is running on this device. Tap Deploy to keep playing.";
+        @"Tap Choose and pick the resource dump's .7z or its extracted folder. "
+        @"Or drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
+    if (running && !gMessage.length) text = @"Tap Deploy to keep playing.";
     if (gRestartNeeded && !gMessage.length)
-        text = @"Your changes are saved. The game must restart to load them: tap Close game, then open NieR again.";
+        text = @"Changes saved. Tap Close game, then open NieR again.";
     self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
 }
 - (UIMenu *)optionsMenu:(BOOL)running {
@@ -1730,7 +1730,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 /** Hands the IPA to SideStore, AltStore, AirDrop or Files. */
 - (void)shareUpdate:(NSString *)ipa {
     self.updating = NO;
-    [self updateMessage:[NSString stringWithFormat:@"%@ is ready in Files (On My %@ › NieR).\n> Open it in SideStore or AltStore, or copy it to a Mac and sideload it as before. Your saves stay.",
+    [self updateMessage:[NSString stringWithFormat:@"%@ is in Files (On My %@ › NieR).\n> Install it with SideStore or AltStore, or sideload it from a Mac. Your saves stay.",
         ipa.lastPathComponent, UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone"] failed:NO];
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:ipa]] applicationActivities:nil];
     share.popoverPresentationController.sourceView = self.updateText;
@@ -1744,11 +1744,10 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)help {
     [self alert:@"Help" message:
-        @"Choose the game files once: the resource dump's .7z, or an extracted folder to copy or use in place. Master data is already included. Lunar Tear, the game's server, starts with the game and runs only on this device.\n\n"
-        @"Three-finger double-tap during play opens this screen. Export a save backup before deleting the app.\n\n"
-        @"Import save backup (in ⋮) restores a backup from this or another device, including Android.\n\n"
-        @"Pod Programs (in ⋮) edits your save and chooses which events and shops appear. Opened while you play, it sends the game back to its title screen to load each change; opened with the game stopped, the game restarts afterwards.\n\n"
-        @"Stopping Lunar Tear, importing master data or exporting a save backup disconnects the game. Close NieR from the app switcher and open it again to continue."];
+        @"Choose the game files once: the resource dump's .7z, or its extracted folder.\n\n"
+        @"Three-finger double-tap during play opens this screen.\n\n"
+        @"Export a save backup (in ⋮) before deleting the app. Import save backup restores one from any device, including Android.\n\n"
+        @"Stopping Lunar Tear, importing master data or exporting a save backup disconnects the game. Close NieR from the app switcher and open it again."];
 }
 - (void)about {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bunker"
@@ -1776,7 +1775,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)confirmTools {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Pod Programs?"
-        message:@"The game keeps running while you look around and while you make changes. After a change to your saves or content, the game returns to its title screen to load it."
+        message:@"The game keeps running. After a change to your save or content, it returns to the title screen to load it."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Open Pod Programs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
@@ -1811,7 +1810,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
             [self refresh];
             return;
         }
-        gMessage = live ? @"Pod Programs is open. The game keeps running until a change needs it closed." : @"Pod Programs is open.";
+        gMessage = @"Pod Programs is open.";
         [self refresh];
         __weak typeof(self) weakSelf = self;
         __block __weak UIViewController *tools = nil;
@@ -1867,8 +1866,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     exit(0);
 }
 - (void)stopServer {
-    [self busy:@"Stopping Lunar Tear and saving progress…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
-        gMessage = @"Lunar Tear stopped. Your save stays on this device.";
+    [self busy:@"Stopping Lunar Tear…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
+        gMessage = @"Lunar Tear stopped.";
         [self refresh];
     }];
 }
@@ -1888,7 +1887,7 @@ static NSString *ImportMaster(NSURL *picked) {
     if (refused.length) { [files removeItemAtPath:pending error:nil]; return refused; }
     LunarStop();
     [files createDirectoryAtPath:MasterPath().stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
-    if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return @"Cannot replace master data";
+    if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return @"Couldn't replace the master data.";
     return @"";
 }
 // Master data's files end in .bin.e: only those can be chosen to import it.
@@ -1914,8 +1913,8 @@ static UTType *MasterType(void) {
 }
 - (void)confirmSaveImport {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Import a save backup?"
-        message:@"This replaces the save on this device with the backup you choose: a ZIP from Export save backup (on iPhone, iPad or Android), or a game.db file. "
-                @"Your current save is kept in Files › NieR › saves.before-import. The game restarts afterwards."
+        message:@"This replaces your save with the backup you choose: a ZIP from Export save backup on any device, or a game.db file. "
+                @"Your current save is kept in Files › NieR › saves.before-import."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Choose backup" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:3]; }]];
@@ -1945,7 +1944,7 @@ static UTType *MasterType(void) {
         }
         // The game still holds the old player's data until it restarts.
         gRestartNeeded = YES;
-        gMessage = @"Save imported. Tap Close game, then open NieR again to play it. Your previous save is in Files › NieR › saves.before-import.";
+        gMessage = @"Save imported. Tap Close game, then open NieR again.";
         [self refresh];
     }];
 }
@@ -2036,10 +2035,10 @@ static UTType *MasterType(void) {
     if (gImporting) { gCancelImport = YES; gMessage = @"Cancelling…"; [self refresh]; return; }
     // The same three choices as on Android.
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Choose the game files"
-        message:@"Copy: needs about 21 GB free. The game keeps working if you move the folder later.\nIn place: needs no free space, but leave the folder where it is and keep its drive connected.\nArchive: the resource dump's .7z, or a .zip of it."
+        message:@"Copy or Archive: needs about 21 GB free.\nIn place: needs no free space, but keep the folder where it is and its drive connected."
         preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: copy it in" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Extracted folder: use in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Copy a folder" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Use a folder in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Archive (.7z or .zip)" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:5]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -2051,7 +2050,7 @@ static UTType *MasterType(void) {
         [self refresh];
         return;
     }
-    if (self.pickerMode == 6) { [self alert:@"Lunar Tear log exported" message:@"Attach the ZIP when you report a problem. It holds the Lunar Tear log and this device's iOS version."]; return; }
+    if (self.pickerMode == 6) { [self alert:@"Lunar Tear log exported" message:@"Attach the ZIP when you report a problem. It holds the log and this device's iOS version."]; return; }
     if (self.pickerMode == 1) { if (picked) [self importMaster:picked]; return; }
     if (self.pickerMode == 3) { if (picked) [self importSave:picked]; return; }
     if (!picked || gImporting) return;
@@ -2095,7 +2094,7 @@ static UTType *MasterType(void) {
 - (void)dismiss {
     // Unity's first attempts may have failed while files were missing.
     // Closing and reopening the game retries cleanly from the title screen.
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear running"
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear is running"
         message:@"If the game shows a connection error, close NieR from the app switcher and open it again." preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         HideLauncher();
