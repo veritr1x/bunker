@@ -15,6 +15,7 @@
 /android/app/src/main/python/web/
 /android/app/src/main/python/tools/
 /android/app/src/main/python/patcher/
+/android/app/src/main/python/shipped_languages/
 /windows/windows
 /windows/*.exe
 
