@@ -1,0 +1,18 @@
+{
+  "common.back": "返回",
+  "common.cancel": "取消",
+  "common.close": "关闭",
+  "common.save": "保存",
+  "ingame.notices.tab.events": "活动",
+  "ingame.notices.tab.issues": "问题",
+  "ingame.notices.tab.news": "新闻",
+  "ingame.notices.title": "公告",
+  "ingame.summons.cost": "消耗",
+  "ingame.summons.draws.other": "{n} 次召唤",
+  "ingame.summons.title": "召唤详情",
+  "launcher.main.archive": "档案馆",
+  "launcher.main.deploy": "启动",
+  "launcher.main.game_files": "游戏文件",
+  "launcher.main.options": "选项",
+  "launcher.main.pod_programs": "Pod 程序"
+}

@@ -1,0 +1,19 @@
+{
+  "common.back": "Voltar",
+  "common.cancel": "Cancelar",
+  "common.close": "Fechar",
+  "common.save": "Salvar",
+  "ingame.notices.tab.events": "Eventos",
+  "ingame.notices.tab.issues": "Problemas",
+  "ingame.notices.tab.news": "Notícias",
+  "ingame.notices.title": "Avisos",
+  "ingame.summons.cost": "Custo",
+  "ingame.summons.draws.one": "{n} invocação",
+  "ingame.summons.draws.other": "{n} invocações",
+  "ingame.summons.title": "Detalhes da invocação",
+  "launcher.main.archive": "Arquivo",
+  "launcher.main.deploy": "Iniciar",
+  "launcher.main.game_files": "Arquivos do jogo",
+  "launcher.main.options": "Opções",
+  "launcher.main.pod_programs": "Programas do Pod"
+}
