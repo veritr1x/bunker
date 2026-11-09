@@ -1036,7 +1036,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 }
 
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
-@property(nonatomic, strong) UILabel *save, *archiveLine, *detail;
+@property(nonatomic, strong) UILabel *save, *archiveLine, *detail, *sign;
 @property(nonatomic, strong) LTChip *files, *server;
 @property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
 @property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
@@ -1044,7 +1044,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) UIView *topBar, *systemPanel, *playPanel, *programsPanel, *archivePanel, *linksPanel, *spacer, *footer, *systemFill;
 @property(nonatomic, strong) UIButton *podsLink, *archiveLink;
-@property(nonatomic, strong) UILabel *titleLabel;
+@property(nonatomic, strong) UILabel *caption, *titleLabel;
 @property(nonatomic) BOOL twoColumns, compact, arranged;
 @property(nonatomic, strong) NSLayoutConstraint *maxWidth;
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
@@ -1290,17 +1290,26 @@ static NSString *FilesInfo(void) {
     [super traitCollectionDidChange:previous];
     // Layer colours do not follow light and dark by themselves.
     for (UIButton *b in self.outlined) b.layer.borderColor = [Ink() resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+    [self updateSign];
+}
+// NieR flavour: the caption and sign-off stay in English in every language.
+- (void)updateSign {
+    BOOL dark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    self.sign.attributedText = Tracked(dark ? @"OPERATOR LINK // STANDING BY" : @"END OF TRANSMISSION // GLORY TO MANKIND", [UIFont systemFontOfSize:10], Muted(), 2.4);
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.outlined = [NSMutableArray array];
     self.view.backgroundColor = GridPaper();
-    // Top bar: the title and the options.
+    // Top bar: where you are, and the options.
+    UILabel *caption = [self mono:@"LUNAR TEAR // 127.0.0.1" size:10 color:Muted()];
+    caption.attributedText = Tracked(@"LUNAR TEAR // 127.0.0.1", Mono(10), Muted(), 2);
     UILabel *title = [self label:nil size:22 color:Ink() bold:YES];
     title.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:22], Ink(), 6.2);
+    self.caption = caption;
     self.titleLabel = title;
     title.accessibilityTraits = UIAccessibilityTraitHeader;
-    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[title]];
+    UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
     titles.axis = UILayoutConstraintAxisVertical;
     self.more = [self outline:@"⋮" size:20 action:nil];
     self.more.contentEdgeInsets = UIEdgeInsetsZero;
@@ -1358,12 +1367,16 @@ static NSString *FilesInfo(void) {
     self.archive = [self outline:@"OPEN ARCHIVE  ›" size:13 action:@selector(openArchive)];
     self.archive.accessibilityLabel = @"Open the Archive";
     UIView *archive = [self panel:@[records, self.archive]];
-    // Footer: a double rule.
+    // Footer: a double rule and the sign-off.
     UIView *ruleA = [UIView new], *ruleB = [UIView new];
     for (UIView *r in @[ruleA, ruleB]) { r.backgroundColor = Ink(); [r.heightAnchor constraintEqualToConstant:1].active = YES; }
-    UIStackView *footer = [[UIStackView alloc] initWithArrangedSubviews:@[ruleA, ruleB]];
+    self.sign = [UILabel new];
+    self.sign.textAlignment = NSTextAlignmentCenter;
+    [self updateSign];
+    UIStackView *footer = [[UIStackView alloc] initWithArrangedSubviews:@[ruleA, ruleB, self.sign]];
     footer.axis = UILayoutConstraintAxisVertical;
     footer.spacing = 2;
+    [footer setCustomSpacing:14 afterView:ruleB];
     self.spacer = [UIView new];
     [self.spacer setContentHuggingPriority:UILayoutPriorityDefaultLow - 1 forAxis:UILayoutConstraintAxisVertical];
     self.topBar = top;
@@ -1411,7 +1424,7 @@ static NSString *FilesInfo(void) {
 }
 // One column; or, on a screen on its side with room for two, System on the left
 // and Play above the programs on the right, both columns ending level. A phone
-// on its side (compact height) also drops the footer.
+// on its side (compact height) also drops the caption and the footer.
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     CGSize size = self.view.bounds.size;
@@ -1427,6 +1440,7 @@ static NSString *FilesInfo(void) {
     BOOL two = self.twoColumns, compact = self.compact;
     UIStackView *stack = self.stack;
     for (UIView *v in stack.arrangedSubviews.copy) { [stack removeArrangedSubview:v]; [v removeFromSuperview]; }
+    self.caption.hidden = compact;
     self.titleLabel.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:compact ? 18 : 22], Ink(), compact ? 5 : 6.2);
     self.systemFill.hidden = !two;
     self.maxWidth.constant = two ? 960 : 520;
