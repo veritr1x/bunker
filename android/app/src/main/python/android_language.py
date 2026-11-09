@@ -105,6 +105,8 @@ def choose(choice: str = Form("")):
         langs.choose(choice)
     except PackError as exc:
         return redirect(error=str(exc))
+    import bunker_text
+    bunker_text.reload()  # Bunker's own pages follow the choice at once
     import android_runtime
     what = "English" if choice == "en" else "The pack is set"
     return redirect(message=f"{what}. {android_runtime.next_step()}")
@@ -129,6 +131,8 @@ def remove(language: str = Form(...)):
     except PackError as exc:
         return redirect(error=str(exc))
     if in_use:
+        import bunker_text
+        bunker_text.reload()
         import android_runtime
         return redirect(message=f"Removed the {language} pack; back to English. {android_runtime.next_step()}")
     return unchanged(redirect(message=f"Removed the {language} pack."))

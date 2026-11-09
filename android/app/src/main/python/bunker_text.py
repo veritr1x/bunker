@@ -84,6 +84,27 @@ def t_count(key: str, n: int, **params) -> str:
     return t(f"{key}.one" if n == 1 else f"{key}.other", n=n, **params)
 
 
+def install(target) -> None:
+    """Gives templates t and t_count (a Jinja2Templates, or a jinja2 Environment)."""
+    env = getattr(target, "env", target)
+    env.globals.update(t=t, t_count=t_count)
+
+
+def install_everywhere() -> None:
+    """Every Jinja2Templates made from now on gets t and t_count: Bunker's route modules and lunar-base's
+    each make their own (android_runtime.create_app calls this before importing them)."""
+    from fastapi.templating import Jinja2Templates
+    if getattr(Jinja2Templates, "_bunker_text", False):
+        return
+    original = Jinja2Templates.__init__
+
+    def __init__(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        install(self)
+    Jinja2Templates.__init__ = __init__
+    Jinja2Templates._bunker_text = True
+
+
 def reload(active: Path | None = None) -> None:
     """Use the "bunker" texts of the pack the server applies (its translation/active.json); English when
     there is none or it cannot be read. Cheap when the file has not changed."""

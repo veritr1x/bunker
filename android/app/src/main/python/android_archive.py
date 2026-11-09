@@ -105,7 +105,8 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, co
     from archive.app import create_app as archive_app
     master, original = original_master(asset_root, archive_root)
     app = archive_app(revision_root(asset_root), master, archive_root, packaged("web") / "static",
-                      original=original, **(converters or android_converters()))
+                      original=original, language=asset_root.parent / "translation" / "active.json",
+                      **(converters or android_converters()))
 
     @app.middleware("http")
     async def private_session(request, call_next):

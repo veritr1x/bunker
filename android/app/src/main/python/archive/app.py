@@ -10,6 +10,8 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import bunker_text
+
 from . import index
 from .media import SIZES, VERSION, Models, Motions, Sounds, Textures
 from .content import KINDS, Archive, plain, prose, quoted, rich
@@ -75,11 +77,12 @@ def shared_builder(revision: Path, master: Path, db_path: Path, scenario=None) -
 
 
 def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, decode=None, sound=None, model=None,
-               motion=None, scenario=None, original=True) -> FastAPI:
+               motion=None, scenario=None, original=True, language: Path | None = None) -> FastAPI:
     """decode(bundle, target_png, max_side), sound(bundle, target_ogg) and model(actor_folder, target_glb) return
     "" or an error; so do motion(clip_bundle, actor_folder, target_json) and scenario(event_map_folder,
     target_json). Without them, no images, sound or 3D, and no speakers or quest chapters. original says whether
-    master is the game's own master data; patched master data moves the Schedule's dates."""
+    master is the game's own master data; patched master data moves the Schedule's dates. language is the
+    language pack the server applies (its translation/active.json): the Archive's own words follow it."""
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "archive.db"
     builder = shared_builder(revision, master, db_path, scenario)
@@ -89,6 +92,7 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
     models = Models(revision / "assetbundle", data_dir / "models", model)
     motions = Motions(revision / "assetbundle", data_dir / "motions", motion)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
+    bunker_text.install(templates)  # Bunker's own text, in the chosen language
     templates.env.filters["rich"] = rich
     templates.env.filters["prose"] = prose
     templates.env.filters["plain"] = plain
@@ -108,6 +112,16 @@ def create_app(revision: Path, master: Path, data_dir: Path, static_dir: Path, d
                                  has_model=lambda asset: model is not None and models.has(asset))
 
     app = FastAPI(title="Archive", docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.middleware("http")
+    async def chosen_language(request, call_next):
+        # The pack the server applies may change while the Archive is open: cheap when it has not.
+        if language is not None:
+            try:
+                bunker_text.reload(language)
+            except Exception:  # never a reason not to show a page: English it is
+                pass
+        return await call_next(request)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     app.mount("/archive-static", StaticFiles(directory=str(HERE / "static")), name="archive-static")
 
