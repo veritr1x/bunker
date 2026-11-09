@@ -57,14 +57,17 @@ in your language.
 
 ## Bunker's own screens
 
-`bunker/en.json` holds the words of Pod Programs and the Archive, written by
-Bunker's developers. Translate it into `bunker/<language>.json` like the other
+`bunker/en.json` holds the words of Pod Programs, the Archive and the Android
+launcher, written by Bunker's developers. Translate it into `bunker/<language>.json` like the other
 folders, with a few differences:
 
 - Keys say where a text is shown: `pods.<page>.<name>` (Pod Programs),
-  `archive.<page>.<name>` (the Archive), `common.<name>` (words both use, such
-  as Save or Close). A key ending in `_info` is the explanation behind an
-  "i" icon.
+  `archive.<page>.<name>` (the Archive), `launcher.<area>.<name>` (the
+  launcher: its screen, ⋮ menu, dialogs and notification), `common.<name>`
+  (words all of them use, such as Save or Close). A key ending in `_info` is
+  the explanation behind an "i" icon.
+- Write labels in normal case ("Game files"): where a screen shows capitals,
+  Bunker capitalises them the way your language does (Turkish "İ").
 - Placeholders are names in braces, such as `{name}` or `{n}`: keep each one,
   in whatever place your language needs it. `{n}` is a number, already
   written your language's way ("1.200" in German, "1 200" in French) from the
