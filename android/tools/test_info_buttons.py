@@ -23,14 +23,14 @@ class InfoIcon(unittest.TestCase):
                       "    details.info > div { left: calc(148px + 12px); right: max(16px, var(--hole-right, 0px)); }", BASE)
 
     def test_landscape_text_is_one_size(self):
-        # On a phone on its side, section headings were larger than the page title: headings, labels and
-        # choices use the page title's size there. Fields keep 16px (an iPhone zooms in on smaller ones).
+        # On a phone on its side the right column was a size larger than the left: everything in it, fields
+        # included, uses the page title's size. The viewport stops an iPhone zooming in on a small field.
         css = (WEB / "static/css/automata.css").read_text()
-        landscape = css[css.index("@media (orientation: landscape) and (max-height: 599px) {"):]
-        self.assertIn(".bracket-header, summary.bracket-header, .setting label, .setting strong, .choice strong "
-                      "{ font-size: var(--fs-small); }", landscape)
-        self.assertIn('input[type="text"], input[type="number"], input[type="search"], select, textarea '
-                      '{ font-size: var(--fs-input); }', css)
+        landscape = css[css.rindex("@media (orientation: landscape) and (max-height: 599px) {"):]
+        self.assertIn("main, main label, main p, .bracket-header, summary.bracket-header, .setting label, .setting strong, "
+                      ".choice strong,\n  main input, main input[type=\"text\"], main input[type=\"number\"], main input[type=\"search\"], "
+                      "main select, main textarea { font-size: var(--fs-small); }", landscape)
+        self.assertIn("maximum-scale=1", BASE)
 
     def test_a_choice_name_keeps_its_icon_beside_it(self):
         # A block <strong> pushed the "i" after "Original calendar" onto a line of its own.

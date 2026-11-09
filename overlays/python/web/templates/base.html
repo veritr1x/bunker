@@ -4,7 +4,7 @@
 <html lang="en"{% if theme in ("light", "dark") %} data-theme="{{ theme }}"{% endif %}>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Pod Programs{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/automata.css">
@@ -12,10 +12,12 @@
   /* _info.html: an explanation behind a small round "i" beside what it explains. */
   details.info { display: inline-block; position: relative; vertical-align: middle; margin-left: 8px; flex: none;
     font: normal 400 var(--fs-label)/1.5 var(--mono); letter-spacing: 0; text-transform: none; text-shadow: none; }
-  details.info > summary { list-style: none; box-sizing: border-box; width: 24px; height: 24px; border-radius: 50%; border: 1px solid currentColor;
-    color: var(--accent); background: none; font: italic 700 var(--fs-small)/22px Georgia, serif; text-align: center; cursor: pointer; user-select: none;
+  /* One icon everywhere (test_info_icon_size): an 18px circle, a bold italic serif i, a 44px tap area. */
+  details.info > summary { list-style: none; box-sizing: border-box; position: relative; width: 18px; height: 18px; border-radius: 50%; border: 1px solid currentColor;
+    color: var(--accent); background: none; font: italic 700 11px/16px Georgia, serif; text-align: center; cursor: pointer; user-select: none;
     padding: 0; text-transform: none; letter-spacing: 0; display: block; }
   details.info > summary::-webkit-details-marker { display: none; }
+  details.info > summary::before { content: ""; position: absolute; inset: -13px; }
   details.info > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   details.info[open] > summary { background: var(--accent); color: var(--bg-cream); }
   details.info > div { position: absolute; z-index: 60; top: calc(100% + 6px); left: -8px; width: max-content; max-width: min(320px, calc(100vw - 32px));
@@ -26,7 +28,6 @@
   #bunker-live:not([hidden]) { display: flex; align-items: center; gap: 4px; }
   #bunker-live .live-short { white-space: nowrap; letter-spacing: 0; }
   #bunker-live details.info { margin-left: 0; }
-  #bunker-live details.info > summary { width: 20px; height: 20px; line-height: 18px; }
   /* A phone, upright or on its side: the explanation opens as a card along the bottom of the screen. */
   @media (max-width: 600px), (orientation: landscape) and (max-height: 599px) {
     details.info > div { position: fixed; top: auto; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: 50vh; overflow-y: auto; }

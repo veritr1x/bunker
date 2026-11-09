@@ -1040,6 +1040,7 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
 @property(nonatomic, strong) LTChip *files, *server;
 @property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
 @property(nonatomic, strong) NSMutableArray<UIButton *> *outlined;
+@property(nonatomic, strong) NSMutableArray<UIView *> *infoMarks;
 // The menu's parts, arranged in one column or, on a screen on its side, two (arrange).
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) UIView *topBar, *systemPanel, *playPanel, *programsPanel, *archivePanel, *linksPanel, *spacer, *footer, *systemFill;
@@ -1157,9 +1158,25 @@ static NSString *FilesInfo(void) {
     return label;
 }
 // A small round "i" beside what it explains; a tap shows the explanation in an alert.
+// The same "i" as the pages and Android (test_info_icon_size): an 18pt circle, a bold italic serif i, a 40pt tap area.
+static const CGFloat kInfoSize = 18;
 - (UIButton *)infoButton:(NSString *)title text:(NSString *)text {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeInfoLight];
-    button.tintColor = Ink();
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
+    UILabel *mark = [UILabel new];
+    mark.text = @"i";
+    mark.font = [UIFont fontWithName:@"Georgia-BoldItalic" size:11] ?: [UIFont italicSystemFontOfSize:11];
+    mark.textColor = Ink();
+    mark.textAlignment = NSTextAlignmentCenter;
+    mark.layer.cornerRadius = kInfoSize / 2;
+    mark.layer.borderWidth = 1;
+    mark.layer.borderColor = [Ink() resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+    mark.userInteractionEnabled = NO;
+    mark.translatesAutoresizingMaskIntoConstraints = NO;
+    [button addSubview:mark];
+    [NSLayoutConstraint activateConstraints:@[
+        [mark.widthAnchor constraintEqualToConstant:kInfoSize], [mark.heightAnchor constraintEqualToConstant:kInfoSize],
+        [mark.centerXAnchor constraintEqualToAnchor:button.centerXAnchor], [mark.centerYAnchor constraintEqualToAnchor:button.centerYAnchor]]];
+    [self.infoMarks addObject:mark];
     button.accessibilityLabel = @"More information";
     [button.widthAnchor constraintEqualToConstant:40].active = YES;
     [button.heightAnchor constraintEqualToConstant:40].active = YES;
@@ -1290,6 +1307,7 @@ static NSString *FilesInfo(void) {
     [super traitCollectionDidChange:previous];
     // Layer colours do not follow light and dark by themselves.
     for (UIButton *b in self.outlined) b.layer.borderColor = [Ink() resolvedColorWithTraitCollection:self.traitCollection].CGColor;
+    for (UIView *m in self.infoMarks) m.layer.borderColor = [Ink() resolvedColorWithTraitCollection:self.traitCollection].CGColor;
     [self updateSign];
 }
 // NieR flavour: the caption and sign-off stay in English in every language.
@@ -1300,6 +1318,7 @@ static NSString *FilesInfo(void) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.outlined = [NSMutableArray array];
+    self.infoMarks = [NSMutableArray array];
     self.view.backgroundColor = GridPaper();
     // Top bar: where you are, and the options.
     UILabel *caption = [self mono:@"LUNAR TEAR // 127.0.0.1" size:10 color:Muted()];
