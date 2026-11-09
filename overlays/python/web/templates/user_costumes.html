@@ -63,15 +63,15 @@
   <label for="search-costumes" class="search-label">{{ t("pods.player.filter") }}</label>
   <input type="text" id="search-costumes" class="costume-search"
          placeholder="{{ t("pods.player.filter_placeholder") }}">
-  <span class="tab-stats">{{ t("pods.player.owned_count", owned=total_owned, total=total_count) }}</span>
+  <span class="tab-stats">{{ t("pods.player.owned_count", owned=number(total_owned), total=number(total_count)) }}</span>
   <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">{{ t("pods.player.grant_chosen") }}</button>
   <button type="button" class="grant-chosen-btn" id="update-karma-btn"
           {% if unlocked_karma_costume_count == 0 %}disabled{% endif %}>
-    {{ t("pods.costumes.update_karma", n=unlocked_karma_costume_count) }}
+    {{ t("pods.costumes.update_karma", n=number(unlocked_karma_costume_count)) }}
   </button>
   <button type="button" class="max-all-btn" id="grant-missing-btn"
           {% if missing_count == 0 %}disabled{% endif %}>
-    {{ t("pods.player.grant_missing", n=missing_count) }}
+    {{ t("pods.player.grant_missing", n=number(missing_count)) }}
   </button>
 </div>
 

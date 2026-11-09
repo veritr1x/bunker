@@ -20,7 +20,7 @@ from web import config
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 import bunker_text  # noqa: E402
-from bunker_text import t, t_count  # noqa: E402
+from bunker_text import number, t, t_count  # noqa: E402
 bunker_text.install(templates)  # Bunker's own text, in the chosen language
 SHIPPED = SHIPPED_DIR
 
@@ -37,7 +37,7 @@ def supported() -> bool:
 
 def texts(n: int) -> str:
     """"1 text", "2,345 texts", in the chosen language."""
-    return t_count("pods.language.texts", n, count=f"{n:,}")
+    return t_count("pods.language.texts", n, count=number(n))
 
 
 def describes(status: dict, current: str, packs) -> bool:
@@ -63,9 +63,9 @@ def status_line(status: dict, current: str = "", packs=()) -> str:
     if state == "ready":
         kept = len(status.get("skipped") or [])
         bundles = status.get("bundles", 0)
-        files = t_count("pods.language.text_files", bundles, count=f"{bundles:,}")
+        files = t_count("pods.language.text_files", bundles, count=number(bundles))
         if kept:
-            return t("pods.language.ready_kept", name=name, files=files, kept=f"{kept:,}")
+            return t("pods.language.ready_kept", name=name, files=files, kept=number(kept))
         return t("pods.language.ready", name=name, files=files)
     error = status["error"] if "error" in status else t("pods.language.unknown_error")
     if state == "failed" and not name:

@@ -9,7 +9,7 @@
   <span class="grant-name">{{ item.name }}</span>
   <span class="grant-id">{{ t("pods.items.id", id=item.id) }}</span>
   <span class="grant-current" data-current>
-    {% if item.owned %}{{ "{:,}".format(item.count) }}
+    {% if item.owned %}{{ number(item.count) }}
     {% else %}<span class="not-owned">&mdash;</span>{% endif %}
   </span>
   <input type="number" name="count" min="1" max="999999999"
@@ -75,7 +75,7 @@
           data-ptype="{{ ptype_paid_gem }}" data-id="0" data-name="paid gems" class="grant-form">
       <span class="grant-name">{{ t("pods.items.paid_gems") }}</span>
       <span class="grant-id"></span>
-      <span class="grant-current" data-current>{{ "{:,}".format(paid_gem) }}</span>
+      <span class="grant-current" data-current>{{ number(paid_gem) }}</span>
       <input type="number" name="count" min="1" max="999999999" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
       <button type="submit">{{ t("pods.player.grant") }}</button>
     </form>
@@ -83,7 +83,7 @@
           data-ptype="{{ ptype_free_gem }}" data-id="0" data-name="free gems" class="grant-form">
       <span class="grant-name">{{ t("pods.items.free_gems") }}</span>
       <span class="grant-id"></span>
-      <span class="grant-current" data-current>{{ "{:,}".format(free_gem) }}</span>
+      <span class="grant-current" data-current>{{ number(free_gem) }}</span>
       <input type="number" name="count" min="1" max="999999999" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
       <button type="submit">{{ t("pods.player.grant") }}</button>
     </form>
@@ -135,6 +135,7 @@
   }|tojson }};
   const LOCALE = {{ text_language()|tojson }};
   const PLURAL = new Intl.PluralRules(LOCALE);
+  const NUM = new Intl.NumberFormat(LOCALE, {numberingSystem: "latn"}), num = n => NUM.format(n);
   const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const buttons = document.querySelectorAll(".tab-btn");
@@ -180,7 +181,7 @@
     const text = display.textContent.replace(/\D/g, "");
     const previous = /^\d+$/.test(text) ? parseInt(text, 10) : 0;
     const next = previous + amount;
-    display.textContent = next.toLocaleString(LOCALE);
+    display.textContent = num(next);
     form.classList.add("grant-success");
   }
 
@@ -249,7 +250,7 @@
         return;
       }
       applyResults(json.results, new Map([[ptype + ":" + pid, form]]));
-      showBanner(fmt(MSG.granted_one, {amount: count.toLocaleString(LOCALE), id: pid}), "success");
+      showBanner(fmt(MSG.granted_one, {amount: num(count), id: pid}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {

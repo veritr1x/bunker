@@ -358,9 +358,10 @@ class PageTest(unittest.TestCase):
 
     def test_a_deck_shows_its_win_rate(self):
         html = self.c.get("/decks", params={"user": 1}).text
-        self.assertIn("<b>${c.win_pct}%</b><small>${esc(TXT.winRateShort)}</small>", html)
+        self.assertIn("<b>${pct(c.win_pct)}</b><small>${esc(TXT.winRateShort)}</small>", html)
         self.assertIn('winRateShort: "win rate"', html)
-        self.assertIn('[[TXT.winRate, c.win_pct + "%"]', html)
+        self.assertIn("[[TXT.winRate, pct(c.win_pct)]", html)
+        self.assertIn('style: "percent"', html)  # "62,5 %" in French, "%62,5" in Turkish
         self.assertIn('winRate: "Win rate"', html)
 
     def test_write_opens_the_deck_picker(self):

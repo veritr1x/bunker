@@ -246,6 +246,13 @@ class Catalogue(unittest.TestCase):
         left = {str(path.relative_to(ROOT)): python_english(path) for path in CONVERTED_PY}
         self.assertEqual({k: v for k, v in left.items() if v}, {})
 
+    def test_numbers_are_written_in_the_pages_language(self):
+        # Templates: number(n). Python: bunker_text.number. Scripts: Intl.NumberFormat with the page's language.
+        english = re.compile(r"\{[a-z_0-9.\[\]'\"]*:,|\"\{:,\}\"|toLocaleString\(\)|toFixed\(")
+        found = {str(path.relative_to(ROOT)): english.findall(path.read_text(encoding="utf-8"))
+                 for path in CONVERTED + CONVERTED_PY}
+        self.assertEqual({k: v for k, v in found.items() if v}, {})
+
     def test_no_english_in_page_scripts(self):
         left = {str(path.relative_to(ROOT)): script_english(path) for path in CONVERTED}
         self.assertEqual({k: v for k, v in left.items() if v}, {})

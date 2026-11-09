@@ -87,7 +87,8 @@ class Plurals(unittest.TestCase):
         finally:
             bunker_text.use(None)
         self.assertIn('const LOCALE = "pl";', html)
-        self.assertEqual(html.count("toLocaleString(LOCALE)"), 2)
+        self.assertIn('const NUM = new Intl.NumberFormat(LOCALE, {numberingSystem: "latn"})', html)
+        self.assertEqual(html.count("num(next)") + html.count("num(count)"), 2)
         self.assertIn('display.textContent.replace(/\\D/g, "")', html)  # reads "27,730" and "27 730" alike
 
     def test_slab_panels_count_both_numbers(self):

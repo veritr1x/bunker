@@ -129,6 +129,11 @@ class PluralForms(unittest.TestCase):
         self.assertEqual([bunker_text.t_count("test.file", n) for n in (1, 3, 5, 22)],
                          ["1 plik", "3 pliki", "5 plików", "22 pliki"])
 
+    def test_the_count_is_written_the_languages_way(self):
+        self.assertEqual(bunker_text.t_count("test.file", 1200), "1,200 files")
+        bunker_text.use({"test.file.one": "{n} Datei", "test.file.other": "{n} Dateien"}, language="de")
+        self.assertEqual(bunker_text.t_count("test.file", 1200), "1.200 Dateien")
+
     def test_a_missing_form_falls_back_to_english_for_the_whole_text(self):
         bunker_text.use({"test.file.one": "{n} plik", "test.file.other": "{n} pliku"}, language="pl")
         # "few" and "many" missing: English for every count, never half a translation
@@ -225,6 +230,88 @@ class Templates(unittest.TestCase):
         server = self.dir / "server"
         config = SimpleNamespace(ASSETS_DIR=server / "assets", DATA_DIR=self.dir / "tools")
         self.assertEqual(android_archive.active_pack(server), bunker_language.for_config(config).active_path)
+
+
+class Numbers(unittest.TestCase):
+    """Whole numbers written the way the text's language writes them (CLDR, Latin digits): 1,200 · 1.200 · 1 200."""
+    NBSP, NNBSP = " ", " "
+
+    def setUp(self):
+        self.addCleanup(bunker_text.use, None)
+
+    def test_english_without_a_translation(self):
+        self.assertEqual(bunker_text.number(1200), "1,200")
+        self.assertEqual(bunker_text.number(999), "999")
+        self.assertEqual(bunker_text.number(1234567), "1,234,567")
+        self.assertEqual(bunker_text.number(-1200), "-1,200")
+
+    def test_each_language_its_own_separator(self):
+        cases = {
+            "de": "1.200", "pt-BR": "1.200", "tr": "1.200", "fr": "1" + self.NNBSP + "200",
+            "ru": "1" + self.NBSP + "200", "ja": "1,200", "de-CH": "1'200", "es-MX": "1,200",
+        }
+        for language, expected in cases.items():
+            bunker_text.use({"x": "y"}, language)
+            self.assertEqual(bunker_text.number(1200), expected, language)
+
+    def test_some_languages_group_only_five_digits_and_up(self):
+        for language, sep in {"es": ".", "it": ".", "pl": self.NBSP, "pt-PT": self.NBSP}.items():
+            bunker_text.use({"x": "y"}, language)
+            self.assertEqual(bunker_text.number(1200), "1200", language)
+            self.assertEqual(bunker_text.number(12000), f"12{sep}000", language)
+
+    def test_fractions_up_to_three_digits(self):
+        self.assertEqual(bunker_text.number(97.5), "97.5")
+        self.assertEqual(bunker_text.number(1234.5678), "1,234.568")
+        self.assertEqual(bunker_text.number(2.0), "2")
+        for language, expected in {"de": "1.234,568", "fr": "1\u202f234,568", "de-CH": "1'234.568",
+                                   "fr-CH": "1'234,568", "es": "1234,568"}.items():
+            bunker_text.use({"x": "y"}, language)
+            self.assertEqual(bunker_text.number(1234.5678), expected, language)
+
+    def test_anything_else_is_shown_as_it_is(self):
+        import jinja2
+        self.assertEqual(bunker_text.number("—"), "—")
+        self.assertEqual(bunker_text.number(None), "None")
+        self.assertEqual(bunker_text.number(jinja2.Undefined()), "")
+        self.assertEqual(bunker_text.number(float("nan")), "nan")
+
+    def test_indian_grouping(self):
+        bunker_text.use({"x": "y"}, "hi")
+        self.assertEqual(bunker_text.number(1234567), "12,34,567")
+        self.assertEqual(bunker_text.number(1200), "1,200")
+
+    def test_an_unknown_language_writes_plain_groups_of_three(self):
+        bunker_text.use({"x": "y"}, "tlh")
+        self.assertEqual(bunker_text.number(1200), "1,200")
+
+    def test_templates_have_number(self):
+        import jinja2
+        env = jinja2.Environment()
+        bunker_text.install(env)
+        bunker_text.use({"x": "y"}, "de")
+        self.assertEqual(env.from_string("{{ number(n) }}").render(n=1234567), "1.234.567")
+
+    def test_the_same_as_the_browser(self):
+        # Page scripts use Intl.NumberFormat; Python's table must write what they write.
+        import shutil
+        import subprocess
+        import bunker_numbers
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("no node")
+        cldr = subprocess.run([node, "-p", "process.versions.cldr || 0"], capture_output=True, text=True).stdout
+        if float(cldr.split(".")[0] or 0) < 48:
+            self.skipTest(f"the table follows CLDR 48; this node has {cldr.strip()}")  # older CLDR differs a little
+        languages = sorted(set(bunker_numbers.GROUPS) | set(bunker_numbers.REGIONS))
+        samples = [0, 7, 999, 1200, 12000, 123456, 1234567, 1234567890, 97.5, 0.125, 1234.5678, 2.0, 0.0005]
+        script = ("const [ls, ns] = JSON.parse(process.argv[1]); console.log(JSON.stringify(ls.map(l => "
+                  "ns.map(n => new Intl.NumberFormat(l, {numberingSystem: 'latn'}).format(n)))))")
+        browser = json.loads(subprocess.run([node, "-e", script, json.dumps([languages, samples])],
+                                            capture_output=True, text=True, check=True).stdout)
+        for language, written in zip(languages, browser):
+            bunker_text.use({"x": "y"}, language)
+            self.assertEqual([bunker_text.number(n) for n in samples], written, language)
 
 
 if __name__ == "__main__":

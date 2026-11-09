@@ -29,7 +29,7 @@
     <dt>{{ t("pods.player.uuid") }}</dt>          <dd><code>{{ u.uuid }}</code></dd>
     <dt>{{ t("pods.player.name") }}</dt>          <dd>{% if u.name %}{{ u.name }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.player.unset") }}</span>{% endif %}</dd>
     <dt>{{ t("pods.player.message") }}</dt>       <dd>{% if u.message %}{{ u.message }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.player.none") }}</span>{% endif %}</dd>
-    <dt>{{ t("pods.player.level_exp") }}</dt>   <dd>{{ u.level }} &nbsp; {{ t("pods.player.exp", exp=u.exp) }}</dd>
+    <dt>{{ t("pods.player.level_exp") }}</dt>   <dd>{{ u.level }} &nbsp; {{ t("pods.player.exp", exp=number(u.exp)) }}</dd>
     <dt>{{ t("pods.player.registered") }}</dt>    <dd>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d") }} {{ u.register_at.strftime("%H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</dd>
     <dt>{{ t("pods.player.last_login") }}</dt>    <dd>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d") }} {{ u.last_login_at.strftime("%H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.users.never") }}</span>{% endif %}</dd>
     <dt>{{ t("pods.player.total_logins") }}</dt>  <dd>{{ u.total_login_count }}</dd>
@@ -39,8 +39,8 @@
 <h1 class="bracket-header">{{ t("pods.player.currencies") }}</h1>
 <div class="panel panel-corners">
   <dl class="kv">
-    <dt>{{ t("pods.player.paid_gems") }}</dt>     <dd>{{ "{:,}".format(u.paid_gem) }}</dd>
-    <dt>{{ t("pods.player.free_gems") }}</dt>     <dd>{{ "{:,}".format(u.free_gem) }}</dd>
+    <dt>{{ t("pods.player.paid_gems") }}</dt>     <dd>{{ number(u.paid_gem) }}</dd>
+    <dt>{{ t("pods.player.free_gems") }}</dt>     <dd>{{ number(u.free_gem) }}</dd>
   </dl>
   <div class="actions">
     <a href="/users/{{ u.user_id }}/edit/items" class="button">{{ t("pods.player.link_items") }}</a>
@@ -75,7 +75,7 @@
       {% for item in u.inventory_counts %}
       <tr>
         <td>{{ TABLES.get(item.table, item.label) }}</td>
-        <td>{{ "{:,}".format(item.count) }}</td>
+        <td>{{ number(item.count) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -92,12 +92,12 @@
       {% for s in u.stackables %}
       <tr>
         <td>{{ TABLES.get(s.table, s.label) }}</td>
-        <td>{{ "{:,}".format(s.distinct) }}</td>
+        <td>{{ number(s.distinct) }}</td>
         <td>
           {% if s.total is none %}
             <span style="color:var(--fg-mid)">{{ t("pods.player.na") }}</span>
           {% else %}
-            {{ "{:,}".format(s.total) }}
+            {{ number(s.total) }}
           {% endif %}
         </td>
       </tr>

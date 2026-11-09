@@ -14,7 +14,7 @@
     <label>{{ t("pods.gacha.four_rate") }}<input type="number" name="four" id="four" min="0.1" max="100" step="0.1" value="{{ settings.fourStarPercent }}"></label>
     <label>{{ t("pods.gacha.three_rate") }}<input type="number" name="three" id="three" min="0" max="100" step="0.1" value="{{ settings.threeStarPercent }}"></label>
   </div>
-  <p id="two-star">{{ t("pods.gacha.two_star", percent=two_star) }}</p>
+  <p id="two-star">{{ t("pods.gacha.two_star", percent=number(two_star)) }}</p>
   <div class="pair">
     <label>{{ t("pods.gacha.four_costumes") }}<input type="number" name="four_costume" min="0" max="100" step="any" value="{{ settings.fourStarCostumeShare }}"></label>
     <label>{{ t("pods.gacha.three_costumes") }}<input type="number" name="three_costume" min="0" max="100" step="any" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
@@ -38,7 +38,7 @@
 <h2 class="bracket-header" data-toc>{{ t("pods.gacha.roulette") }}{{ info(t("pods.gacha.roulette_info")) }}</h2>
 <form action="/gacha/roulette" method="post" class="panel rates" id="roulette">
   <div class="pair">
-    {% for gems, percent in roulette %}<label>{{ t("pods.gacha.roulette_gems", gems=gems) }}<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
+    {% for gems, percent in roulette %}<label>{{ t("pods.gacha.roulette_gems", gems=number(gems)) }}<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
     {% endfor %}
   </div>
   <p id="roulette-total"></p>
@@ -46,13 +46,14 @@
   <button type="submit" name="action" value="reset" class="secondary" formnovalidate>{{ t("pods.gacha.roulette_default") }}</button>
 </form>
 <script>
+  const NUM = new Intl.NumberFormat({{ text_language()|tojson }}, {numberingSystem: "latn"}), num = n => NUM.format(n);
   const TWO_STAR = {{ t("pods.gacha.two_star", percent="{percent}")|tojson }}, TOTAL = {{ t("pods.gacha.roulette_total", total="{total}")|tojson }};
   const four = document.getElementById("four"), three = document.getElementById("three"), two = document.getElementById("two-star");
-  const update = () => { two.textContent = TWO_STAR.replace("{percent}", Math.max(0, 100 - (+four.value || 0) - (+three.value || 0)).toFixed(1)); };
+  const update = () => { two.textContent = TWO_STAR.replace("{percent}", num(Math.max(0, 100 - (+four.value || 0) - (+three.value || 0)))); };
   four.addEventListener("input", update); three.addEventListener("input", update);
   const wheel = document.getElementById("roulette"), total = document.getElementById("roulette-total");
   const sum = () => { const t = [...wheel.querySelectorAll("input[type=number]")].reduce((a, i) => a + (+i.value || 0), 0);
-    total.textContent = TOTAL.replace("{total}", Math.round(t * 1000) / 1000); };
+    total.textContent = TOTAL.replace("{total}", num(t)); };
   wheel.addEventListener("input", sum); sum();
 </script>
 {% endblock %}
