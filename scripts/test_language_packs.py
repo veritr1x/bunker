@@ -60,6 +60,21 @@ class LanguagePacksTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pt_BR"):
             write_shipped(self.translations, self.out)
 
+    def test_command_builds_one_pack_to_try(self):
+        from language_packs import main
+        self.put("languages.json", {"pl": {"name": "Polski", "ship": False}})
+        self.put("game/ui/pl.json", {"a": "x"})
+        out = Path(self.dir.name) / "pl-pack.json"
+        self.assertEqual(main(["pl", "--translations", str(self.translations), "--out", str(out)]), 0)
+        pack = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual((pack["language"], pack["name"], pack["game"]), ("pl", "Polski", {"a": "x"}))
+
+    def test_command_refuses_an_unknown_language(self):
+        from language_packs import main
+        self.put("languages.json", {})
+        with self.assertRaisesRegex(SystemExit, "languages.json"):
+            main(["pl", "--translations", str(self.translations), "--out", str(Path(self.dir.name) / "x.json")])
+
     def test_no_languages(self):
         self.put("languages.json", {})
         self.assertEqual(write_shipped(self.translations, self.out), [])

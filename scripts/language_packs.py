@@ -58,3 +58,26 @@ def write_shipped(translations: Path, out: Path) -> list[Path]:
         if stale not in written:
             stale.unlink()
     return written
+
+
+def main(argv=None) -> int:
+    """python3 scripts/language_packs.py <code> [--out <file>]: one language's pack, to load in
+    Pod Programs › Language › Load a pack and try before it ships."""
+    import argparse
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("code", help="the language, as in translations/languages.json (pt-BR)")
+    parser.add_argument("--translations", type=Path, default=Path(__file__).resolve().parents[1] / "translations")
+    parser.add_argument("--out", type=Path, help="the pack file (default: <code>-pack.json here)")
+    args = parser.parse_args(argv)
+    languages = json.loads((args.translations / "languages.json").read_text(encoding="utf-8"))
+    if args.code not in languages:
+        raise SystemExit(f"{args.code} is not in translations/languages.json: add it with its name and \"ship\": false")
+    pack = build_pack(args.translations, args.code, languages[args.code].get("name", args.code))
+    out = args.out or Path(f"{args.code}-pack.json")
+    out.write_text(_canonical(pack) + "\n", encoding="utf-8")
+    print(f"{out}: {len(pack['game']):,} game texts, {len(pack['master']):,} master texts, version {pack['version']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

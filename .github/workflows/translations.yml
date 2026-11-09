@@ -1,0 +1,25 @@
+# Checks the language files in translations/ on every pull request that
+# changes them (scripts/check_translations.py): a translation that would break
+# a language pack or the game's text is refused, with one line per problem.
+name: Translations
+
+on:
+  pull_request:
+    paths: ["translations/**", "scripts/check_translations.py"]
+  push:
+    branches: [main]
+    paths: ["translations/**", "scripts/check_translations.py"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check language files
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python3 scripts/check_translations.py
