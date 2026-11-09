@@ -353,16 +353,26 @@ async function fetchCostumes() {
   }
   if (mode === state.mode) drawCostumes();
 }
+// The grid is drawn again only when the list or the search changes; a tap changes marks
+// in place (markCostumes), so the portraits already shown are not loaded again.
 function drawCostumes() {
   const list = costumeLists[state.mode]; if (!Array.isArray(list)) return;
   const q = $("f-find").value.trim().toLowerCase();
   const shown = list.filter(c => !q || c.name.toLowerCase().includes(q) || c.character.toLowerCase().includes(q));
-  $("f-chars").innerHTML = shown.length ? shown.map((c, i) => {
-    const st = state.include.includes(c.id) ? "inc" : state.exclude.includes(c.id) ? "exc" : "";
-    return `<button type="button" role="listitem" class="fc ${st}" data-id="${c.id}" aria-pressed="${st ? "true" : "false"}" title="${esc(c.name)}">
-      <div class="por e-${esc(c.element)}">${pic(c.id)}<span class="mark">${st === "exc" ? "✕" : "✓"}</span></div>
-      <span class="nm"><b>${esc(c.character)}</b>${esc(c.name.replace(c.character, "").trim())}</span></button>`;
-  }).join("") : '<p class="help">No costume matches.</p>';
+  $("f-chars").innerHTML = shown.length ? shown.map(c =>
+    `<button type="button" role="listitem" class="fc" data-id="${c.id}" aria-pressed="false" title="${esc(c.name)}">
+      <div class="por e-${esc(c.element)}">${pic(c.id)}<span class="mark">✓</span></div>
+      <span class="nm"><b>${esc(c.character)}</b>${esc(c.name.replace(c.character, "").trim())}</span></button>`).join("") : '<p class="help">No costume matches.</p>';
+  markCostumes();
+}
+function markCostumes() {
+  const list = costumeLists[state.mode]; if (!Array.isArray(list)) return;
+  $("f-chars").querySelectorAll(".fc").forEach(b => {
+    const id = Number(b.dataset.id), st = state.include.includes(id) ? "inc" : state.exclude.includes(id) ? "exc" : "";
+    b.classList.toggle("inc", st === "inc"); b.classList.toggle("exc", st === "exc");
+    b.setAttribute("aria-pressed", st ? "true" : "false");
+    b.querySelector(".mark").textContent = st === "exc" ? "✕" : "✓";
+  });
   const names = ids => ids.map(id => (list.find(c => c.id === id) || {}).character || id).join(", ");
   $("f-picked").textContent = state.include.length || state.exclude.length
     ? [state.include.length ? `Required: ${names(state.include)}` : "", state.exclude.length ? `Left out: ${names(state.exclude)}` : ""].filter(Boolean).join(" · ")
@@ -376,7 +386,7 @@ $("f-chars").addEventListener("click", e => {
   else if (state.exclude.includes(id)) state.exclude = state.exclude.filter(x => x !== id);
   else if (state.include.length < 3) state.include.push(id);
   else state.exclude.push(id);              // a deck holds three: a fourth tap leaves it out
-  dirty = true; countFilters(); drawCostumes();
+  dirty = true; countFilters(); markCostumes();
 });
 function countFilters() {
   const n = state.must.length + state.exclude_el.length + state.include.length + state.exclude.length + (state.strategy !== "any") + ["el_l","el_m","el_r"].filter(k => state[k]).length
@@ -387,7 +397,7 @@ function countFilters() {
 function clearFilters() {
   document.querySelectorAll(".chips[data-name]").forEach(box => box.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", !!box.dataset.one && i === 0)));
   Object.assign(state, {strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], include: [], exclude: []});
-  $("f-find").value = ""; drawCostumes();
+  if ($("f-find").value) { $("f-find").value = ""; drawCostumes(); } else markCostumes();
   document.querySelectorAll("input[data-min]").forEach(r => { r.value = 0; document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = "—"; });
   dirty = true; countFilters();
   if ($("filters-panel").hidden) sheet(false);
@@ -443,6 +453,14 @@ async function load(reset) {
   } catch (e) { $("more").textContent = "Couldn't load decks: " + e; }
   busy = false;
   if (pending) { pending = false; load(true); }
+  else if (!done) requestAnimationFrame(() => { if (moreInView()) load(false); });
+}
+// The observer reports only a change. On a screen tall enough for the first decks (an iPad,
+// a TV) the marker came into view during the first load, which ignored it, and never left:
+// with nothing to scroll no more decks came. After each load, one still in view loads more.
+function moreInView() {
+  const r = $("more").getBoundingClientRect();
+  return r.height > 0 && r.top < innerHeight && r.bottom > 0;
 }
 new IntersectionObserver(es => { if (es[0].isIntersecting && offset) load(false); }).observe($("more"));
 $("cards").addEventListener("click", e => { const b = e.target.closest(".rc"); if (b) openDetail(b.dataset.key, b); });
