@@ -1965,6 +1965,15 @@ static NSString *ImportMaster(NSURL *picked) {
     if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return Said(@"launcher.ios.files.master_not_replaced");
     return @"";
 }
+// After master data is imported here (⋮ menu, or LUNAR_IMPORT_MASTER): its layers, Mods › Challenges and the
+// language pack's texts (ios_runtime.layer_game_data), as Pod Programs adds them. A failure is logged; the
+// imported data stays as it is and the game still starts.
+static void LayerImportedMaster(void) {
+    if (!LTToolsAvailable()) return;
+    NSString *original = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
+    NSString *layered = LTLayerGameData(gSaves, gServerRoot, ToolsRoot(), original);
+    NSLog(@"[LunarTear] game data layers after the import: %@", layered.length ? TInEnglish(layered) : @"ok");
+}
 // Master data's files end in .bin.e: only those can be chosen to import it.
 static UTType *MasterType(void) {
     return [UTType typeWithFilenameExtension:@"e" conformingToType:UTTypeData] ?: UTTypeData;
@@ -1982,11 +1991,7 @@ static UTType *MasterType(void) {
     [self busy:Said(@"launcher.ios.busy.importing_master") work:^NSString *{
         NSString *error = ImportMaster(picked);
         if (error.length) return error;
-        if (LTToolsAvailable()) {  // its layers (challenges, the language's texts), as Pod Programs would add them
-            NSString *original = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
-            NSString *layered = LTLayerGameData(gSaves, gServerRoot, ToolsRoot(), original);
-            if (layered.length) NSLog(@"[LunarTear] game data layers not applied: %@", TInEnglish(layered));
-        }
+        LayerImportedMaster();
         return StartServer();
     } done:^(NSString *error) {
         if (!error.length) { gMessage = Said(@"launcher.ios.main.master_imported"); [self refresh]; }
@@ -2477,6 +2482,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
                 NSString *source = masterSource.isAbsolutePath ? masterSource : [gServerRoot stringByAppendingPathComponent:masterSource];
                 NSString *result = ImportMaster([NSURL fileURLWithPath:source]);
                 NSLog(@"[LunarTear] master import result: %@", result.length ? TInEnglish(result) : @"ok");
+                if (!result.length) LayerImportedMaster();
             }
             NSString *update = @"";
             if (updateData) {
