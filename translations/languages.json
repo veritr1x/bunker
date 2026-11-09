@@ -1,1 +1,4 @@
-{}
+{
+  "pt-BR": {"name": "Português (Brasil)", "ship": false},
+  "zh-Hans": {"name": "简体中文", "ship": false}
+}
