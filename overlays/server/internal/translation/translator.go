@@ -2,8 +2,6 @@ package translation
 
 import (
 	"bytes"
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
@@ -68,23 +66,13 @@ type buildFunc func(assetsRevision string, list []Entry, listMD5 string, pack *P
 // Start reads list.bin and the active pack. A pack whose build is not on disk
 // yet is built in the background; until then the last served list stays.
 func (t *Translator) Start() {
-	data, err := os.ReadFile(t.listPath)
-	var entries []Entry
-	if err == nil {
-		t.original, entries, err = ParseList(data)
-	}
+	info, err := readListInfo(t.listPath, filepath.Join(filepath.Dir(t.buildsDir), "list-cache.json"))
 	if err != nil {
 		log.Printf("[Translation] off: %v", err)
 		close(t.done)
 		return
 	}
-	for _, e := range entries { // only these are ever translated: about 6,600 of 200,000
-		if strings.HasPrefix(e.Path, englishTextPrefix) {
-			t.entries = append(t.entries, e)
-		}
-	}
-	sum := md5.Sum(data)
-	t.listMD5 = hex.EncodeToString(sum[:])
+	t.original, t.entries, t.listMD5 = info.Revision, info.Entries, info.MD5
 	t.ready = true
 	if id := t.storedFingerprint(); id != "" {
 		if m, err := LoadManifest(filepath.Join(t.buildsDir, id)); err == nil && m.ListMD5 == t.listMD5 {
