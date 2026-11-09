@@ -161,6 +161,59 @@ def java_calls():
             yield path, key, kind == "count", names
 
 
+# The iOS launcher's Objective-C: T(@"key", @"name", value…), TCount(@"key", n, …), LTTFallback(@"key", shown, @[…]),
+# Said(@"key", …), SaidCount(@"key", n, …) (LTTexts.h).
+OBJC_SOURCES = sorted((ROOT / "ios/launcher").glob("*.m"))
+OBJC_CALL = re.compile(r"\b(T|TCount|Said|SaidCount|LTTFallback)\(\s*@\"([a-z0-9_.-]+)\"(?!\s*\+|\s*\])")
+OBJC_LOGGED = re.compile(r"\b(NSLog|LunarLog|LTDisplayLog|GameLog)\(")
+# Literals that are code, not words (the Python a launcher runs): between these two comments.
+OBJC_CODE = re.compile(r"// bunker-text: code\b.*?// bunker-text: end", re.S)
+
+
+def objc_calls():
+    for path in OBJC_SOURCES:
+        text = path.read_text(encoding="utf-8")
+        for match in OBJC_CALL.finditer(text):
+            kind, key = match.group(1), match.group(2)
+            args = [a[1:] if a.startswith('@"') else a for a in java_arguments(text, match.end())]
+            if kind in ("TCount", "SaidCount", "LTTFallback"):
+                args = args[1:]
+            if kind == "LTTFallback":  # its values are an array: @[@"name", value…]
+                inside = args[0].strip()[2:-1] if args and args[0].strip().startswith("@[") else ""
+                args = [a.strip()[1:] if a.strip().startswith('@"') else a.strip() for a in inside.split(",")]
+            names = {a.strip('"') for a in args[0::2] if re.fullmatch(r'"[a-z_][a-z0-9_]*"', a)}
+            plural = kind in ("TCount", "SaidCount")
+            if plural:
+                names.add("n")
+            yield path, key, plural, names
+
+
+def objc_english(path: Path) -> list[tuple[int, str]]:
+    """Words people read in an iOS launcher file, as java_english: @"…" literals outside log calls, outside the
+    code blocks marked for the lint, not flavour and not in the objc allowlist."""
+    text = path.read_text(encoding="utf-8")
+    allowed = ALLOWED | set(ALLOW.get("objc", []))
+    skipped = [(m.start(), m.end()) for m in OBJC_CODE.finditer(text)]
+    for match in OBJC_LOGGED.finditer(text):
+        end, depth = match.end(), 1
+        while end < len(text) and depth:
+            depth += {"(": 1, ")": -1}.get(text[end], 0)
+            end += 1
+        skipped.append((match.end(), end))
+    found = []
+    for line, literal, at in java_strings(text):
+        if at == 0 or text[at - 1] != "@" or any(start <= at < end for start, end in skipped):
+            continue
+        words = re.sub(r"\\[ntr]", " ", literal)
+        if not has_letter(words) or literal in allowed:
+            continue
+        sentence = literal != literal.strip() or re.fullmatch(r"[A-Z][a-z]+[.:!…]", words)
+        if not sentence and not re.search(r"\s", words.strip()) and JAVA_CODE.fullmatch(words.strip()):
+            continue
+        found.append((line, literal))
+    return found
+
+
 def calls():
     """(file, key, plural, keyword names) for every t()/t_count()/t_around()/plural_forms() call with a literal
     key (t_around's slot, its second argument, counts as a name; plural_forms leaves every placeholder to the
@@ -182,6 +235,7 @@ def calls():
             key = match.group(1)
             yield path, key, True, fields(ENGLISH.get(f"{key}.other", "")) | {"n"}
     yield from java_calls()
+    yield from objc_calls()
 
 
 def fields(text: str) -> set[str]:
@@ -407,6 +461,20 @@ class Catalogue(unittest.TestCase):
             self.assertEqual([text for _, text in java_english(java)],
                              ["READY", "Choose the files", "Deploy", 'a \\"quoted\\" word', " percent", "Exported.", "Error:",
                               "After a backslash", "Could not save it"])
+
+    def test_no_english_in_the_ios_launcher(self):
+        left = {path.name: objc_english(path) for path in OBJC_SOURCES}
+        self.assertEqual({k: v for k, v in left.items() if v}, {})
+
+    def test_the_lint_sees_english_in_objc(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "A.m"
+            source.write_text('// "Not this"\nstatic void f(void) { NSLog(@"Started %@", x); title = @"Choose the files";\n'
+                              '  chip = @"READY"; key = @"bunker_en"; path = @"translation/active.json"; c = "C string";\n'
+                              '  // bunker-text: code\n  code = @"    import ios_runtime\\n";\n  // bunker-text: end\n'
+                              '  a = @" percent"; b = @"Done."; caption = @"LUNAR TEAR // 127.0.0.1"; label = T(@"common.close"); }\n')
+            self.assertEqual([text for _, text in objc_english(source)], ["Choose the files", "READY", " percent", "Done."])
 
     def test_no_english_in_page_scripts(self):
         left = {str(path.relative_to(ROOT)): script_english(path) for path in CONVERTED}

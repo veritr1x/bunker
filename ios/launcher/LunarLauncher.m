@@ -80,7 +80,7 @@ static void PointAtNotices(void) {
 // The server log kept between sessions; Documents/logs also shows in the Files app.
 static NSString *LogFolder(void) { return [Documents() stringByAppendingPathComponent:@"logs"]; }
 static NSString *TakeString(char *value) {
-    NSString *text = value ? [NSString stringWithUTF8String:value] : @"Lunar Tear didn't respond";
+    NSString *text = value ? [NSString stringWithUTF8String:value] : Said(@"launcher.error.no_answer");
     free(value);
     return text ?: @"";
 }
@@ -191,7 +191,7 @@ __attribute__((visibility("default"))) char *LunarToolsResumeGame(int title) {
 // it are ready. The check itself runs in Python (Tools), which the game then
 // carries in its memory; index.checked remembers what a current index was
 // checked against, so an unchanged install skips Python altogether.
-static NSString *gIndexText = @"NOT CHECKED";
+static NSString *gIndexText;  // a reference (Said); nil: not checked yet
 static BOOL gIndexChecking = NO;
 
 static NSArray *FileStamp(NSString *path) {
@@ -223,23 +223,25 @@ static void CheckArchiveIndex(void) {
     NSString *checked = [ArchiveRoot() stringByAppendingPathComponent:@"index.checked"];
     NSString *inputs = IndexInputs();
     if ([[NSString stringWithContentsOfFile:checked encoding:NSUTF8StringEncoding error:nil] isEqualToString:inputs] &&
-        FileSize([ArchiveRoot() stringByAppendingPathComponent:@"archive.db"]) > 0) { ShowIndex(@"READY"); return; }
+        FileSize([ArchiveRoot() stringByAppendingPathComponent:@"archive.db"]) > 0) { ShowIndex(Said(@"launcher.index.ready")); return; }
     gIndexChecking = YES;
-    ShowIndex(@"CHECKING");
+    ShowIndex(Said(@"launcher.index.checking"));
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         NSString *error = nil;
         NSDictionary *st = LTArchiveIndex(gServerRoot, ArchiveRoot(), YES, &error);
         while (st && [st[@"running"] boolValue]) {
             long total = [st[@"total"] longValue], done = [st[@"done"] longValue];
-            ShowIndex([NSString stringWithFormat:@"INDEXING %ld%% · %@", total > 0 ? MIN(99, done * 100 / total) : 0, st[@"step"] ?: @""]);
+            ShowIndex([Said(@"launcher.index.indexing", @"percent", TNumber(total > 0 ? MIN(99, done * 100 / total) : 0)) stringByAppendingFormat:@" · %@", st[@"step"] ?: @""]);
             [NSThread sleepForTimeInterval:.5];
             st = LTArchiveIndex(gServerRoot, ArchiveRoot(), NO, &error);
         }
-        NSString *text = @"READY";
-        if (!st) text = [@"NOT BUILT · " stringByAppendingString:error ?: @""];
-        else if (![st[@"possible"] boolValue]) text = @"NO GAME TEXT";
-        else if (![st[@"ready"] boolValue]) text = [st[@"error"] length] ? [@"NOT BUILT · " stringByAppendingString:st[@"error"]] : @"NOT BUILT";
-        if ([text isEqualToString:@"READY"]) [inputs writeToFile:checked atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        NSString *text = Said(@"launcher.index.ready"), *notBuilt = Said(@"launcher.index.not_built");
+        BOOL ready = NO;
+        if (!st) text = [notBuilt stringByAppendingFormat:@" · %@", error ?: @""];
+        else if (![st[@"possible"] boolValue]) text = Said(@"launcher.index.no_game_text");
+        else if (![st[@"ready"] boolValue]) text = [st[@"error"] length] ? [notBuilt stringByAppendingFormat:@" · %@", st[@"error"]] : notBuilt;
+        else ready = YES;
+        if (ready) [inputs writeToFile:checked atomically:YES encoding:NSUTF8StringEncoding error:nil];
         gIndexChecking = NO;
         ShowIndex(text);
     });
@@ -292,9 +294,9 @@ static BOOL AttachInPlace(void) {
 static NSString *SelfTestFailure(NSString *report) {
     NSDictionary *r = [NSJSONSerialization JSONObjectWithData:[report dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     if ([r[@"ok"] boolValue]) return nil;
-    NSMutableString *text = [NSMutableString stringWithString:@"The game couldn't reach Lunar Tear:"];
+    NSMutableString *text = [NSMutableString stringWithString:Said(@"launcher.selftest.failed")];
     for (NSDictionary *c in r[@"checks"])
-        if (![c[@"ok"] boolValue]) [text appendFormat:@"\n• Port %@ (%@): %@", c[@"port"], c[@"name"], c[@"detail"]];
+        if (![c[@"ok"] boolValue]) [text appendFormat:@"\n• %@", Said(@"launcher.selftest.port", @"port", [c[@"port"] description] ?: @"", @"name", c[@"name"] ?: @"", @"detail", c[@"detail"] ?: @"")];
     return text;
 }
 
@@ -303,8 +305,8 @@ static NSString *StartServer(void) {
     EnsureMaster();
     PointAtNotices();
     if (!AttachInPlace())
-        return @"Can't open your game files folder. Reconnect its drive, then tap Check again, or choose the files again.";
-    if (!HasCatalog()) return @"Choose the game files, then tap Check again.";
+        return Said(@"launcher.ios.files.folder_unreachable");
+    if (!HasCatalog()) return Said(@"launcher.ios.files.choose_then_check");
     TakeString(LunarSetLogDir((char *)LogFolder().fileSystemRepresentation));
     // Pod Programs' snapshots folder (ToolsRoot()/backups): the save is copied there before an update.
     TakeString(LunarSetBackupDir((char *)[ToolsRoot() stringByAppendingPathComponent:@"backups"].fileSystemRepresentation));
@@ -493,15 +495,13 @@ static NSString *CheckSelfContained(NSString *revisionZero) {
             p += keyLength;
             while (p < end && (*p == ' ' || *p == ':' || *p == '"')) p++;
             if (p >= end || *p != '0' || (p + 1 < end && p[1] >= '0' && p[1] <= '9'))
-                return @"These game files use other revisions. Prepare them on a computer with scripts/prepare_assets.py.";
+                return Said(@"launcher.files.other_revisions");
         }
     }
     return @"";
 }
 
-static NSString *LTByteText(unsigned long long bytes) {
-    return [NSByteCountFormatter stringFromByteCount:(long long)bytes countStyle:NSByteCountFormatterCountStyleFile];
-}
+static NSString *LTByteText(unsigned long long bytes) { return TSize((long long)bytes); }  // as Android writes sizes
 
 // Time left for a copy. Small files cost far more per byte than large ones,
 // so it learns from recent progress how long one file and one byte take on
@@ -546,18 +546,21 @@ static double LTEstimateUpdate(LTEstimate *e, double files, double bytes) {
 
 // "8.2 GB of 20.9 GB · 39% · about 4 min left". The bar follows the expected
 // time once it is measured, and never moves back.
-static NSString *LTProgressText(NSString *verb, LTEstimate *e, unsigned long long files, unsigned long long bytes) {
+static NSString *LTProgressText(BOOL unpacking, LTEstimate *e, unsigned long long files, unsigned long long bytes) {
     double left = LTEstimateUpdate(e, files, bytes), fraction;
     if (left < 0) fraction = (bytes + files * 1e6) / MAX(1.0, e->totalBytes + e->totalFiles * 1e6);
     else { double elapsed = CFAbsoluteTimeGetCurrent() - e->started; fraction = elapsed / MAX(1e-6, elapsed + left); }
     e->shown = MAX(e->shown, MIN(1.0, fraction));
     gImportFraction = e->shown;
-    NSString *line = [NSString stringWithFormat:@"%@ %@ of %@ · %d%%", verb, LTByteText(bytes), LTByteText((unsigned long long)e->totalBytes), (int)(e->shown * 100)];
-    if (left < 0) return [line stringByAppendingString:@" · estimating time left…"];
+    // References, as Android's FilesStore.progressText: shown later, in the language of that moment.
+    NSString *done = LTByteText(bytes), *total = LTByteText((unsigned long long)e->totalBytes);
+    NSString *line = [NSString stringWithFormat:@"%@ · %@", unpacking ? Said(@"launcher.files.unpacking", @"done", done, @"total", total) : Said(@"launcher.files.copying", @"done", done, @"total", total),
+        Said(@"launcher.progress.percent", @"n", TNumber((int)(e->shown * 100)))];
+    if (left < 0) return [line stringByAppendingFormat:@" · %@", Said(@"launcher.files.estimating")];
     long seconds = lround(left);
-    NSString *text = seconds < 60 ? @"under a minute left"
-        : seconds < 3600 ? [NSString stringWithFormat:@"about %ld min left", (seconds + 30) / 60]
-        : [NSString stringWithFormat:@"about %ld h %ld min left", seconds / 3600, (seconds % 3600 + 30) / 60];
+    NSString *text = seconds < 60 ? Said(@"launcher.files.under_a_minute")
+        : seconds < 3600 ? SaidCount(@"launcher.files.minutes_left", (seconds + 30) / 60)
+        : Said(@"launcher.files.hours_left", @"hours", TNumber(seconds / 3600), @"minutes", TNumber((seconds % 3600 + 30) / 60));
     return [NSString stringWithFormat:@"%@ · %@", line, text];
 }
 
@@ -627,8 +630,8 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
     NSUInteger zeros = 0;
     CFAbsoluteTime reported = 0;
     while (zeros < 2) {
-        if (gCancelImport) return @"Import cancelled. Your previous files were kept.";
-        if (![reader read:header length:512]) return zeros ? @"" : @"The archive ended early. Copy every part, then try again.";
+        if (gCancelImport) return Said(@"launcher.ios.files.cancelled");
+        if (![reader read:header length:512]) return zeros ? @"" : Said(@"launcher.ios.files.archive_ended");
         BOOL empty = YES;
         for (int i = 0; i < 512 && empty; i++) empty = header[i] == 0;
         if (empty) { zeros++; continue; }
@@ -646,9 +649,9 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         unsigned long long padded = (size + 511) / 512 * 512;
         if (type == 'L' || type == 'x') {
             // Long name records: read the data and apply it to the next entry.
-            if (size > 65536) return @"This file is damaged, or isn't a .7z or .zip.";
+            if (size > 65536) return Said(@"launcher.ios.files.damaged");
             NSMutableData *data = [NSMutableData dataWithLength:(NSUInteger)padded];
-            if (![reader read:data.mutableBytes length:(size_t)padded]) return @"The archive ended early. Copy every part, then try again.";
+            if (![reader read:data.mutableBytes length:(size_t)padded]) return Said(@"launcher.ios.files.archive_ended");
             NSString *text = [[NSString alloc] initWithBytes:data.bytes length:(NSUInteger)size encoding:NSUTF8StringEncoding] ?: @"";
             if (type == 'L') pendingName = [text stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\0"]];
             else for (NSString *record in [text componentsSeparatedByString:@"\n"]) {
@@ -660,13 +663,13 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         if (type == 'g') {  // Global pax header: nothing we use.
             for (unsigned long long left = padded; left; ) {
                 size_t chunk = (size_t)MIN(left, (unsigned long long)buffer.length);
-                if (![reader read:buffer.mutableBytes length:chunk]) return @"The archive ended early. Copy every part, then try again.";
+                if (![reader read:buffer.mutableBytes length:chunk]) return Said(@"launcher.ios.files.archive_ended");
                 left -= chunk;
             }
             continue;
         }
         NSString *target = SafeJoin(root, name);
-        if (!target) return [@"The archive contains an unsafe path: " stringByAppendingString:name ?: @"?"];
+        if (!target) return Said(@"launcher.ios.files.unsafe_path", @"path", name ?: @"?");
         BOOL skip = OtherRevision(name);  // Only revision 0 is used.
         if (type == '5') {
             if (!skip) [files createDirectoryAtPath:target withIntermediateDirectories:YES attributes:nil error:nil];
@@ -677,22 +680,22 @@ static NSString *ExtractArchive(NSArray<NSString *> *parts, NSString *root, void
         if (regular) {
             [files createDirectoryAtPath:target.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
             out = fopen(target.fileSystemRepresentation, "wb");
-            if (!out) return [@"Can't write " stringByAppendingString:name];
+            if (!out) return Said(@"launcher.ios.files.cannot_write", @"name", name);
         }
         for (unsigned long long left = padded; left; ) {
             size_t chunk = (size_t)MIN(left, (unsigned long long)buffer.length);
-            if (![reader read:buffer.mutableBytes length:chunk]) { if (out) fclose(out); return @"The archive ended early. Copy every part, then try again."; }
+            if (![reader read:buffer.mutableBytes length:chunk]) { if (out) fclose(out); return Said(@"launcher.ios.files.archive_ended"); }
             unsigned long long used = padded - left;
             if (out && used < size) {
                 size_t keep = (size_t)MIN((unsigned long long)chunk, size - used);
-                if (fwrite(buffer.bytes, 1, keep, out) != keep) { fclose(out); return @"Not enough free space to import the game files."; }
+                if (fwrite(buffer.bytes, 1, keep, out) != keep) { fclose(out); return Said(@"launcher.ios.files.no_space"); }
             }
             left -= chunk;
         }
-        if (out && fclose(out) != 0) return @"Not enough free space to import the game files.";
+        if (out && fclose(out) != 0) return Said(@"launcher.ios.files.no_space");
         if (CFAbsoluteTimeGetCurrent() - reported > 0.5) {
             reported = CFAbsoluteTimeGetCurrent();
-            progress(LTProgressText(@"Unpacking", &estimate, 0, reader.consumed));
+            progress(LTProgressText(YES, &estimate, 0, reader.consumed));
         }
     }
     return @"";
@@ -706,7 +709,7 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
     BOOL catalog = NO;
     for (NSString *path in @[@"revisions/0/ios/list.bin", @"revisions/0/list.bin"])
         catalog = catalog || FileSize([root stringByAppendingPathComponent:path]) > 0;
-    if (!catalog) { DiscardStage(); return @"This isn't the game files folder. Choose the folder that contains revisions/0."; }
+    if (!catalog) { DiscardStage(); return Said(@"launcher.ios.files.not_the_folder"); }
     NSString *aliases = CheckSelfContained([root stringByAppendingPathComponent:@"revisions/0"].stringByResolvingSymlinksInPath);
     if (aliases.length) { DiscardStage(); return aliases; }
     // Keep the current master data (including applied content presets).
@@ -721,7 +724,7 @@ static NSString *InstallStaged(NSString *root, void (^progress)(NSString *)) {
     if (FileSize(stagedNext) == 0 && FileSize(calendarNext) > 0)
         [files copyItemAtPath:calendarNext toPath:stagedNext error:nil];
     gImportFraction = -1;
-    progress(@"Finishing import…");
+    progress(Said(@"launcher.files.finishing"));
     LunarStop();  // Never serve files while their folder is being replaced.
     [files removeItemAtPath:PreviousPath() error:nil];
     if ([files fileExistsAtPath:AssetsPath()] && ![files moveItemAtPath:AssetsPath() toPath:PreviousPath() error:&error])
@@ -748,14 +751,14 @@ static NSString *LinkAssets(NSURL *picked, void (^progress)(NSString *)) {
     @try {
         NSNumber *cloud = nil;
         [picked getResourceValue:&cloud forKey:NSURLIsUbiquitousItemKey error:nil];
-        if (cloud.boolValue) return @"Folders in iCloud Drive can't be used in place. Copy the folder instead.";
+        if (cloud.boolValue) return Said(@"launcher.ios.files.icloud");
         NSURL *source = FindRevisionZero(picked);
-        if (!source) return @"Choose the extracted game files: the folder that contains revisions/0.";
+        if (!source) return Said(@"launcher.ios.files.choose_revision_zero");
         NSString *from = source.URLByResolvingSymlinksInPath.path, *base = picked.URLByResolvingSymlinksInPath.path;
-        if (![from hasPrefix:[base stringByAppendingString:@"/"]]) return @"Choose the extracted game files: the folder that contains revisions/0.";
+        if (![from hasPrefix:[base stringByAppendingString:@"/"]]) return Said(@"launcher.ios.files.choose_revision_zero");
         NSData *bookmark = [picked bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:nil];
-        if (!bookmark) return @"iOS can't keep access to this folder. Copy it instead.";
-        progress(@"Checking the folder…");
+        if (!bookmark) return Said(@"launcher.ios.files.no_bookmark");
+        progress(Said(@"launcher.files.checking_folder"));
         RecoverImport();
         NSFileManager *files = NSFileManager.defaultManager;
         NSError *error = nil;
@@ -802,10 +805,10 @@ static NSString *ImportGoArchive(NSString *path, void (^progress)(NSString *)) {
         NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[TakeString(LunarImportProgress()) dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
         unsigned long long done = [state[@"done"] unsignedLongLongValue], total = [state[@"total"] unsignedLongLongValue];
         unsigned long long files = [state[@"files"] unsignedLongLongValue];
-        if (!total) { progress(@"Reading the archive…"); continue; }
+        if (!total) { progress(Said(@"launcher.ios.files.reading_archive")); continue; }
         if (!estimate.started) estimate = LTEstimateStart([state[@"totalFiles"] unsignedLongLongValue], total);
         estimate.totalFiles = [state[@"totalFiles"] doubleValue]; estimate.totalBytes = total;
-        progress(LTProgressText(@"Unpacking", &estimate, files, done));
+        progress(LTProgressText(YES, &estimate, files, done));
     }
     if (result.length) { DiscardStage(); return result; }
     return InstallStaged(StagePath(), progress);
@@ -822,25 +825,25 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         if (!isFolder.boolValue) {
             if (IsGoArchive(picked.path)) return ImportGoArchive(picked.path, progress);
             NSArray<NSString *> *parts = ArchiveParts(picked.path);
-            if (!parts) return @"Choose the resource dump's .7z or .zip, or its extracted folder.";
+            if (!parts) return Said(@"launcher.ios.files.choose_dump");
             unsigned long long total = 0;
             for (NSString *part in parts) total += FileSize(part);
             if (FreeSpace() < total + 1000000000ULL)
-                return [NSString stringWithFormat:@"Not enough free space. Unpacking needs about %@ free.", LTByteText(total + 1000000000ULL)];
+                return Said(@"launcher.ios.files.unpacking_space", @"size", LTByteText(total + 1000000000ULL));
             RecoverImport();
             [files createDirectoryAtPath:StagePath() withIntermediateDirectories:YES attributes:nil error:nil];
             NSString *failure = ExtractArchive(parts, StagePath(), progress);
             if (failure.length) { [files removeItemAtPath:StagePath() error:nil]; return failure; }
             NSURL *unpacked = FindAssetsRoot([NSURL fileURLWithPath:StagePath()]);
-            if (!unpacked) { [files removeItemAtPath:StagePath() error:nil]; return @"This archive has no game files. Use a .7z or .zip of the prepared assets folder."; }
+            if (!unpacked) { [files removeItemAtPath:StagePath() error:nil]; return Said(@"launcher.ios.files.no_game_files"); }
             return InstallStaged(unpacked.path, progress);
         }
         NSURL *source = FindRevisionZero(picked);
-        if (!source) return @"Choose the extracted game files: the folder that contains revisions/0.";
+        if (!source) return Said(@"launcher.ios.files.choose_revision_zero");
         NSString *from = source.URLByResolvingSymlinksInPath.path, *target = [AssetsPath() stringByAppendingPathComponent:@"revisions/0"].stringByResolvingSymlinksInPath;
         if ([from isEqualToString:target]) return @"";  // Already in place, e.g. copied in with Finder.
         if ([from hasPrefix:[target stringByAppendingString:@"/"]] || [target hasPrefix:[from stringByAppendingString:@"/"]])
-            return @"Choose a folder outside the game's own files.";
+            return Said(@"launcher.ios.files.outside");
         RecoverImport();
         NSError *error = nil;
         if (![files createDirectoryAtPath:StagePath() withIntermediateDirectories:YES attributes:nil error:&error]) return error.localizedDescription;
@@ -849,10 +852,10 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         NSString *documents = [gServerRoot.stringByResolvingSymlinksInPath stringByAppendingString:@"/"];
         if ([from hasPrefix:documents] && ![[from substringFromIndex:documents.length] hasPrefix:@"."]) {
             if (FileSize([from stringByAppendingPathComponent:@"list.bin"]) == 0 && FileSize([from stringByAppendingPathComponent:@"ios/list.bin"]) == 0)
-                { DiscardStage(); return @"This isn't the game files folder. Choose the folder that contains revisions/0."; }
+                { DiscardStage(); return Said(@"launcher.ios.files.not_the_folder"); }
             NSString *aliases = CheckSelfContained(from);
             if (aliases.length) { DiscardStage(); return aliases; }
-            progress(@"Moving the game files…");
+            progress(Said(@"launcher.ios.files.moving"));
             NSString *revisionStage = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
             [files createDirectoryAtPath:revisionStage.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
             if (![files moveItemAtPath:from toPath:revisionStage error:&error]) { DiscardStage(); return error.localizedDescription; }
@@ -870,7 +873,7 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         unsigned long long total = 0;
         CFAbsoluteTime reported = 0;
         for (NSURL *url in walk) {
-            if (gCancelImport) { [files removeItemAtPath:StagePath() error:nil]; return @"Import cancelled. Your previous files were kept."; }
+            if (gCancelImport) { [files removeItemAtPath:StagePath() error:nil]; return Said(@"launcher.ios.files.cancelled"); }
             NSArray *parts = url.URLByStandardizingPath.pathComponents;
             if (parts.count <= base) continue;
             NSNumber *directory = nil, *size = nil;
@@ -882,12 +885,12 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
             if (!directory.boolValue) total += size.unsignedLongLongValue;
             if (CFAbsoluteTimeGetCurrent() - reported > 0.5) {
                 reported = CFAbsoluteTimeGetCurrent();
-                progress([NSString stringWithFormat:@"Reading the folder… %lu files · %@", (unsigned long)items.count, LTByteText(total)]);
+                progress(SaidCount(@"launcher.files.reading", (long long)items.count, @"size", LTByteText(total)));
             }
         }
-        if (walkError) { [files removeItemAtPath:StagePath() error:nil]; return [@"Can't read the folder: " stringByAppendingString:walkError.localizedDescription]; }
+        if (walkError) { [files removeItemAtPath:StagePath() error:nil]; return Said(@"launcher.ios.files.cannot_read", @"error", walkError.localizedDescription ?: @""); }
         if (FreeSpace() < total + 1000000000ULL)
-            { [files removeItemAtPath:StagePath() error:nil]; return [NSString stringWithFormat:@"Not enough free space. Copying needs about %@ free.", LTByteText(total + 1000000000ULL)]; }
+            { [files removeItemAtPath:StagePath() error:nil]; return Said(@"launcher.ios.files.copying_space", @"size", LTByteText(total + 1000000000ULL)); }
         NSString *revisionStage = [StagePath() stringByAppendingPathComponent:@"revisions/0"];
         if (![files createDirectoryAtPath:revisionStage withIntermediateDirectories:YES attributes:nil error:&error])
             { [files removeItemAtPath:StagePath() error:nil]; return error.localizedDescription; }
@@ -896,17 +899,17 @@ static NSString *ImportAssets(NSURL *picked, void (^progress)(NSString *)) {
         LTEstimate estimate = LTEstimateStart(fileCount, total);
         reported = 0;
         for (NSUInteger i = 0; i < items.count; i++) {
-            if (gCancelImport) { [files removeItemAtPath:StagePath() error:nil]; return @"Import cancelled. Your previous files were kept."; }
+            if (gCancelImport) { [files removeItemAtPath:StagePath() error:nil]; return Said(@"launcher.ios.files.cancelled"); }
             NSString *destination = [revisionStage stringByAppendingPathComponent:relatives[i]];
             long long size = sizes[i].longLongValue;
             BOOL ok = size < 0
                 ? [files createDirectoryAtPath:destination withIntermediateDirectories:YES attributes:nil error:&error]
                 : [files copyItemAtPath:items[i].path toPath:destination error:&error];
-            if (!ok) { [files removeItemAtPath:StagePath() error:nil]; return [@"The import didn't finish: " stringByAppendingString:error.localizedDescription]; }
+            if (!ok) { [files removeItemAtPath:StagePath() error:nil]; return Said(@"launcher.ios.files.unfinished", @"error", error.localizedDescription ?: @""); }
             if (size >= 0) { bytes += (unsigned long long)size; copied++; }
             if (CFAbsoluteTimeGetCurrent() - reported > 0.5) {
                 reported = CFAbsoluteTimeGetCurrent();
-                progress(LTProgressText(@"Copying", &estimate, copied, bytes));
+                progress(LTProgressText(NO, &estimate, copied, bytes));
             }
         }
         return InstallStaged(StagePath(), progress);
@@ -1003,13 +1006,13 @@ static NSAttributedString *Tracked(NSString *text, UIFont *font, UIColor *color,
         self.backgroundColor = UIColor.clearColor;
         self.contentMode = UIViewContentModeRedraw;
         self.isAccessibilityElement = YES;
-        self.accessibilityLabel = @"Import progress";
+        self.accessibilityLabel = T(@"launcher.ios.main.import_progress");
     }
     return self;
 }
 - (void)setFraction:(double)fraction {
     _fraction = MAX(0, MIN(1, fraction));
-    self.accessibilityValue = [NSString stringWithFormat:@"%d percent", (int)(_fraction * 100)];
+    self.accessibilityValue = T(@"launcher.progress.percent", @"n", TNumber((int)(_fraction * 100)));
     [self setNeedsDisplay];
 }
 - (void)drawRect:(CGRect)rect {
@@ -1036,7 +1039,10 @@ static void SetChip(LTChip *chip, NSString *text, UIColor *fill, UIColor *color)
     [chip invalidateIntrinsicContentSize];
 }
 
+static void SetShortcut(void);
 @interface LTLauncherViewController : UIViewController <UIDocumentPickerDelegate>
+/** The words this screen was built with (TGeneration): another language builds a new screen. */
+@property(nonatomic) NSInteger builtGeneration;
 @property(nonatomic, strong) UILabel *save, *archiveLine, *detail, *sign;
 @property(nonatomic, strong) LTChip *files, *server;
 @property(nonatomic, strong) UIButton *choose, *cancel, *check, *back, *more, *quit, *pods, *archive;
@@ -1130,13 +1136,13 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 
 // The explanations behind the launcher's "i" buttons; Help reuses some.
-static NSString *const kOpenTip = @"Three-finger double-tap during play opens this screen.";
-static NSString *const kReconnectTip = @"If the game can't connect, close NieR and open it again.";
-static NSString *const kPodsInfo = @"Edit your save and choose which events and shops appear. The game returns to its title screen after each change.";
-static NSString *const kArchiveInfo = @"Read the story, see every character and costume, and hear the voices and music.";
+// Read when shown: the words of the language in use.
+static NSString *OpenTip(void) { return T(@"launcher.ios.main.open_tip"); }
+static NSString *ReconnectTip(void) { return T(@"launcher.ios.main.reconnect_tip"); }
+static NSString *PodsInfo(void) { return T(@"launcher.ios.main.pods_info"); }
+static NSString *ArchiveInfo(void) { return T(@"launcher.ios.main.archive_info"); }
 static NSString *FilesInfo(void) {
-    return [NSString stringWithFormat:@"Choose the resource dump's .7z or its extracted folder. "
-        @"Or drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", UIDevice.currentDevice.model];
+    return T(@"launcher.ios.main.files_info", @"device", UIDevice.currentDevice.model);
 }
 
 @implementation LTLauncherViewController
@@ -1178,7 +1184,7 @@ static const CGFloat kInfoSize = 18;
         [mark.widthAnchor constraintEqualToConstant:kInfoSize], [mark.heightAnchor constraintEqualToConstant:kInfoSize],
         [mark.centerXAnchor constraintEqualToAnchor:button.centerXAnchor], [mark.centerYAnchor constraintEqualToAnchor:button.centerYAnchor]]];
     [self.infoMarks addObject:mark];
-    button.accessibilityLabel = @"More information";
+    button.accessibilityLabel = T(@"common.more_information");
     [button.widthAnchor constraintEqualToConstant:40].active = YES;
     [button.heightAnchor constraintEqualToConstant:40].active = YES;
     [button setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
@@ -1194,7 +1200,7 @@ static const CGFloat kInfoSize = 18;
     UILabel *open = [self label:@"[" size:15 color:Ink() bold:YES];
     UILabel *close = [self label:@"]" size:15 color:Ink() bold:YES];
     UILabel *name = [self label:nil size:14 color:Ink() bold:YES];
-    name.attributedText = Tracked(title.uppercaseString, [UIFont boldSystemFontOfSize:14], Ink(), 4.2);
+    name.attributedText = Tracked(TUpper(title), [UIFont boldSystemFontOfSize:14], Ink(), 4.2);
     UIView *rule = [UIView new];
     rule.backgroundColor = Ink();
     [rule.heightAnchor constraintEqualToConstant:1].active = YES;
@@ -1322,6 +1328,7 @@ static const CGFloat kInfoSize = 18;
     self.sign.attributedText = sign;
 }
 - (void)viewDidLoad {
+    self.builtGeneration = TGeneration();
     [super viewDidLoad];
     self.outlined = [NSMutableArray array];
     self.infoMarks = [NSMutableArray array];
@@ -1345,7 +1352,7 @@ static const CGFloat kInfoSize = 18;
     [self.more setAttributedTitle:nil forState:UIControlStateNormal];
     [self.more setImage:[dots imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
     self.more.tintColor = Ink();
-    self.more.accessibilityLabel = @"Options";
+    self.more.accessibilityLabel = T(@"launcher.main.options");
     self.more.showsMenuAsPrimaryAction = YES;
     [self.more.widthAnchor constraintEqualToConstant:44].active = YES;
     UIStackView *top = [[UIStackView alloc] initWithArrangedSubviews:@[titles, self.more]];
@@ -1353,8 +1360,8 @@ static const CGFloat kInfoSize = 18;
     // [ SYSTEM ]: game files, Lunar Tear, save and the Archive's index.
     self.files = [LTChip new];
     self.server = [LTChip new];
-    self.choose = [self outline:@"CHOOSE" size:12 action:@selector(chooseOrCancel)];
-    self.choose.accessibilityLabel = @"Choose game files";
+    self.choose = [self outline:TUpper(T(@"launcher.main.choose")) size:12 action:@selector(chooseOrCancel)];
+    self.choose.accessibilityLabel = T(@"launcher.main.choose_files_hint");
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.color = Ink();
     self.spinner.hidesWhenStopped = YES;
@@ -1364,33 +1371,33 @@ static const CGFloat kInfoSize = 18;
     [self.bar.heightAnchor constraintEqualToConstant:14].active = YES;
     self.bar.hidden = YES;
     UIView *system = [self panel:@[
-        [self row:@"GAME FILES" values:@[self.files, self.choose]],
-        [self row:@"LUNAR TEAR" values:@[self.server, self.spinner]],
-        [self row:@"SAVE" values:@[self.save]],
-        [self row:@"ARCHIVE" values:@[self.archiveLine]],
+        [self row:TUpper(T(@"launcher.main.game_files")) values:@[self.files, self.choose]],
+        [self row:TUpper(T(@"launcher.main.lunar_tear")) values:@[self.server, self.spinner]],
+        [self row:TUpper(T(@"launcher.main.save")) values:@[self.save]],
+        [self row:TUpper(T(@"launcher.main.archive")) values:@[self.archiveLine]],
         self.bar, self.systemFill = [UIView new]]];
     [self.systemFill setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
     self.systemFill.hidden = YES;
     // [ PLAY ]: what happens next, and the way back into the game.
     self.detail = [self mono:@"" size:12 color:Ink()];
-    self.back = [self solid:@"DEPLOY  ▶" action:@selector(close)];
-    self.back.accessibilityLabel = @"Back to the game";
-    self.quit = [self solid:@"CLOSE GAME" action:@selector(quitGame)];
-    self.cancel = [self outline:@"CANCEL IMPORT" size:13 action:@selector(chooseOrCancel)];
-    self.check = [self outline:@"CHECK AGAIN" size:13 action:@selector(retry)];
+    self.back = [self solid:[TUpper(T(@"launcher.main.deploy")) stringByAppendingString:@"  ▶"] action:@selector(close)];
+    self.back.accessibilityLabel = T(@"launcher.ios.main.back_to_game");
+    self.quit = [self solid:TUpper(T(@"launcher.ios.main.close_game")) action:@selector(quitGame)];
+    self.cancel = [self outline:TUpper(T(@"launcher.ios.main.cancel_import")) size:13 action:@selector(chooseOrCancel)];
+    self.check = [self outline:TUpper(T(@"launcher.ios.main.check_again")) size:13 action:@selector(retry)];
     UIView *play = [self panel:@[self.detail, self.back, self.quit, self.cancel, self.check]];
     // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
     // What it does is behind the header's "i"; the panel says only when it is missing.
-    UILabel *about = [self mono:@"Not in this build." size:12 color:Ink()];
+    UILabel *about = [self mono:T(@"launcher.ios.main.not_in_build") size:12 color:Ink()];
     about.hidden = LTToolsAvailable();
-    self.pods = [self outline:@"OPEN POD PROGRAMS  ›" size:13 action:@selector(confirmTools)];
-    self.pods.accessibilityLabel = @"Open Pod Programs";
+    self.pods = [self outline:[TUpper(T(@"launcher.ios.main.open_pods")) stringByAppendingString:@"  ›"] size:13 action:@selector(confirmTools)];
+    self.pods.accessibilityLabel = T(@"launcher.main.open_pods_hint");
     UIView *programs = [self panel:@[about, self.pods]];
     // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
-    UILabel *records = [self mono:@"Not in this build." size:12 color:Ink()];
+    UILabel *records = [self mono:T(@"launcher.ios.main.not_in_build") size:12 color:Ink()];
     records.hidden = LTToolsAvailable();
-    self.archive = [self outline:@"OPEN ARCHIVE  ›" size:13 action:@selector(openArchive)];
-    self.archive.accessibilityLabel = @"Open the Archive";
+    self.archive = [self outline:[TUpper(T(@"launcher.ios.main.open_archive")) stringByAppendingString:@"  ›"] size:13 action:@selector(openArchive)];
+    self.archive.accessibilityLabel = T(@"launcher.main.open_archive_hint");
     UIView *archive = [self panel:@[records, self.archive]];
     // Footer: a double rule and the sign-off.
     UIView *ruleA = [UIView new], *ruleB = [UIView new];
@@ -1413,10 +1420,10 @@ static const CGFloat kInfoSize = 18;
     self.footer = footer;
     [self updatePanelView];
     // On its side, Pod Programs and the Archive are rows in one panel; what they hold is behind the header's "i".
-    self.podsLink = [self link:@"POD PROGRAMS" what:LTToolsAvailable() ? nil : @"Not in this build" action:@selector(confirmTools)];
-    self.podsLink.accessibilityLabel = @"Open Pod Programs";
-    self.archiveLink = [self link:@"ARCHIVE" what:LTToolsAvailable() ? nil : @"Not in this build" action:@selector(openArchive)];
-    self.archiveLink.accessibilityLabel = @"Open the Archive";
+    self.podsLink = [self link:TUpper(T(@"launcher.main.pod_programs")) what:LTToolsAvailable() ? nil : T(@"launcher.ios.main.not_in_build_short") action:@selector(confirmTools)];
+    self.podsLink.accessibilityLabel = T(@"launcher.main.open_pods_hint");
+    self.archiveLink = [self link:TUpper(T(@"launcher.main.archive")) what:LTToolsAvailable() ? nil : T(@"launcher.ios.main.not_in_build_short") action:@selector(openArchive)];
+    self.archiveLink.accessibilityLabel = T(@"launcher.main.open_archive_hint");
     UIView *linkRule = [UIView new];
     linkRule.backgroundColor = ChipFill();
     [linkRule.heightAnchor constraintEqualToConstant:1].active = YES;
@@ -1476,10 +1483,10 @@ static const CGFloat kInfoSize = 18;
     [stack setCustomSpacing:gap afterView:self.updatePanel];
     if (two) {
         [self.systemPanel setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
-        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"System" info:FilesInfo() infoTitle:@"Game files"], self.systemPanel]];
+        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:T(@"launcher.main.system") info:FilesInfo() infoTitle:T(@"launcher.main.game_files")], self.systemPanel]];
         UIView *rest = [UIView new];
         [rest setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
-        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel, [self header:@"Programs" info:LTToolsAvailable() ? [NSString stringWithFormat:@"%@\n\n%@", kPodsInfo, kArchiveInfo] : nil], self.linksPanel, rest]];
+        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:T(@"launcher.main.play") info:[NSString stringWithFormat:@"%@ %@", OpenTip(), ReconnectTip()]], self.playPanel, [self header:T(@"launcher.main.programs") info:LTToolsAvailable() ? [NSString stringWithFormat:@"%@\n\n%@", PodsInfo(), ArchiveInfo()] : nil], self.linksPanel, rest]];
         for (UIStackView *column in @[left, right]) { column.axis = UILayoutConstraintAxisVertical; column.spacing = 8; }
         [right setCustomSpacing:gap afterView:self.playPanel];
         UIStackView *columns = [[UIStackView alloc] initWithArrangedSubviews:@[left, right]];
@@ -1489,8 +1496,8 @@ static const CGFloat kInfoSize = 18;
         [stack addArrangedSubview:columns];
     } else {
         [self.systemPanel setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisVertical];
-        NSArray *parts = @[[self header:@"System" info:FilesInfo() infoTitle:@"Game files"], self.systemPanel, [self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel,
-                           [self header:@"Pod Programs" info:LTToolsAvailable() ? kPodsInfo : nil], self.programsPanel, [self header:@"Archive" info:LTToolsAvailable() ? kArchiveInfo : nil], self.archivePanel];
+        NSArray *parts = @[[self header:T(@"launcher.main.system") info:FilesInfo() infoTitle:T(@"launcher.main.game_files")], self.systemPanel, [self header:T(@"launcher.main.play") info:[NSString stringWithFormat:@"%@ %@", OpenTip(), ReconnectTip()]], self.playPanel,
+                           [self header:T(@"launcher.main.pod_programs") info:LTToolsAvailable() ? PodsInfo() : nil], self.programsPanel, [self header:T(@"launcher.main.archive") info:LTToolsAvailable() ? ArchiveInfo() : nil], self.archivePanel];
         for (UIView *v in parts) [stack addArrangedSubview:v];
         for (UIView *v in @[self.systemPanel, self.playPanel, self.programsPanel]) [stack setCustomSpacing:20 afterView:v];
     }
@@ -1500,12 +1507,18 @@ static const CGFloat kInfoSize = 18;
     [self refresh];
 }
 - (void)refresh {
+    // A language chosen in Pod Programs (which closes before this runs): a new screen in it, and the quick action.
+    if (self.builtGeneration != TGeneration() && gWindow.rootViewController == self && !self.presentedViewController) {
+        gWindow.rootViewController = [LTLauncherViewController new];
+        SetShortcut();
+        return;
+    }
     BOOL catalog = HasCatalog(), master = FileSize(MasterPath()) > 0;
-    if (gImporting) SetChip(self.files, @"IMPORTING", ChipFill(), Ink());
-    else if (catalog && master) SetChip(self.files, @"READY", Ok(), OnOk());
-    else if (catalog) SetChip(self.files, @"NO MASTER DATA", Alert(), Paper());
-    else SetChip(self.files, @"NO FILES", ChipFill(), Ink());
-    [self.choose setAttributedTitle:Tracked(catalog ? @"CHANGE" : @"CHOOSE", [UIFont boldSystemFontOfSize:12], Ink(), 2.4) forState:UIControlStateNormal];
+    if (gImporting) SetChip(self.files, TUpper(T(@"launcher.chip.importing")), ChipFill(), Ink());
+    else if (catalog && master) SetChip(self.files, TUpper(T(@"launcher.chip.ready")), Ok(), OnOk());
+    else if (catalog) SetChip(self.files, TUpper(T(@"launcher.chip.no_master_data")), Alert(), Paper());
+    else SetChip(self.files, TUpper(T(@"launcher.chip.no_files")), ChipFill(), Ink());
+    [self.choose setAttributedTitle:Tracked(catalog ? TUpper(T(@"launcher.main.change")) : TUpper(T(@"launcher.main.choose")), [UIFont boldSystemFontOfSize:12], Ink(), 2.4) forState:UIControlStateNormal];
     self.check.enabled = !gImporting;
     BOOL measured = gImporting && gImportFraction >= 0;
     self.bar.hidden = !measured;
@@ -1515,15 +1528,15 @@ static const CGFloat kInfoSize = 18;
     NSDictionary *status = Status();
     NSString *state = status[@"state"];
     BOOL running = [state isEqual:@"running"];
-    if (gToolsOpen) SetChip(self.server, @"POD PROGRAMS OPEN", ChipFill(), Ink());
-    else if (gRestartNeeded) SetChip(self.server, @"RESTART THE GAME", Alert(), Paper());
-    else if (running) SetChip(self.server, @"RUNNING", Ok(), OnOk());
-    else if ([state isEqual:@"starting"]) SetChip(self.server, @"STARTING", ChipFill(), Ink());
-    else if ([state isEqual:@"error"]) SetChip(self.server, @"NOT RUNNING", ChipFill(), Ink());
-    else SetChip(self.server, catalog && master ? @"STANDING BY" : @"WAITING FOR FILES", ChipFill(), Ink());
-    self.archiveLine.attributedText = Tracked(gIndexText, Mono(13), Ink(), .8);
+    if (gToolsOpen) SetChip(self.server, TUpper(T(@"launcher.chip.pods_open")), ChipFill(), Ink());
+    else if (gRestartNeeded) SetChip(self.server, TUpper(T(@"launcher.chip.restart_game")), Alert(), Paper());
+    else if (running) SetChip(self.server, TUpper(T(@"launcher.chip.running")), Ok(), OnOk());
+    else if ([state isEqual:@"starting"]) SetChip(self.server, TUpper(T(@"launcher.chip.starting")), ChipFill(), Ink());
+    else if ([state isEqual:@"error"]) SetChip(self.server, TUpper(T(@"launcher.chip.not_running")), ChipFill(), Ink());
+    else SetChip(self.server, catalog && master ? TUpper(T(@"launcher.chip.standing_by")) : TUpper(T(@"launcher.chip.waiting_for_files")), ChipFill(), Ink());
+    self.archiveLine.attributedText = Tracked(TUpper(TSaid(gIndexText ?: Said(@"launcher.index.not_checked"))), Mono(13), Ink(), .8);
     unsigned long long saved = FileSize([gSaves stringByAppendingPathComponent:@"game.db"]);
-    self.save.attributedText = Tracked(saved ? [NSString stringWithFormat:@"game.db · %@", [NSByteCountFormatter stringFromByteCount:(long long)saved countStyle:NSByteCountFormatterCountStyleFile]] : @"none yet", Mono(13), Ink(), .8);
+    self.save.attributedText = Tracked(saved ? [@"game.db" stringByAppendingFormat:@" · %@", TSize((long long)saved)] : T(@"launcher.main.no_save"), Mono(13), Ink(), .8);
     self.back.hidden = !running || gImporting;
     self.quit.hidden = !gRestartNeeded;
     self.check.hidden = running || gRestartNeeded || gToolsOpen;
@@ -1539,9 +1552,9 @@ static const CGFloat kInfoSize = 18;
         pair[1].alpha = pair[0].alpha;
     }
     // Only what the chips and buttons don't already say.
-    NSString *text = gMessage.length ? gMessage : catalog ? @"" : @"Choose the game files to play.";
+    NSString *text = gMessage.length ? TSaid(gMessage) : catalog ? @"" : T(@"launcher.ios.main.choose_to_play");
     if (gRestartNeeded && !gMessage.length)
-        text = @"Changes saved. Tap Close game, then open NieR again.";
+        text = T(@"launcher.ios.main.changes_saved");
     self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
 }
 - (UIMenu *)optionsMenu:(BOOL)running {
@@ -1552,17 +1565,17 @@ static const CGFloat kInfoSize = 18;
         if (!enabled) action.attributes = UIMenuElementAttributesDisabled;
         return action;
     };
-    UIAction *server = gRestartNeeded ? item(@"Start Lunar Tear", @"play.circle", NO, ^{}) : running
-        ? item(@"Stop Lunar Tear", @"stop.circle", idle, ^{ [weakSelf stopServer]; })
-        : item(@"Start Lunar Tear", @"play.circle", idle && HasCatalog(), ^{ [weakSelf retry]; });
-    UIAction *master = item(@"Import master data", @"square.and.arrow.down", idle && !gRestartNeeded, ^{ [weakSelf pick:1]; });
-    UIAction *restore = item(@"Import save backup", @"tray.and.arrow.down", idle, ^{ [weakSelf confirmSaveImport]; });
-    UIAction *backup = item(@"Export save backup", @"square.and.arrow.up", idle && FileSize([gSaves stringByAppendingPathComponent:@"game.db"]) > 0, ^{ [weakSelf exportSaves]; });
-    UIAction *log = item(@"Lunar Tear log", @"doc.text", YES, ^{ [weakSelf showLog]; });
-    UIAction *exportLog = item(@"Export Lunar Tear log", @"square.and.arrow.up.on.square", YES, ^{ [weakSelf exportLogs]; });
-    UIAction *check = item(@"Check Lunar Tear", @"checkmark.shield", running, ^{ [weakSelf checkServer]; });
+    UIAction *server = gRestartNeeded ? item(T(@"launcher.ios.menu.start"), @"play.circle", NO, ^{}) : running
+        ? item(T(@"launcher.menu.stop"), @"stop.circle", idle, ^{ [weakSelf stopServer]; })
+        : item(T(@"launcher.ios.menu.start"), @"play.circle", idle && HasCatalog(), ^{ [weakSelf retry]; });
+    UIAction *master = item(T(@"launcher.menu.import_master"), @"square.and.arrow.down", idle && !gRestartNeeded, ^{ [weakSelf pick:1]; });
+    UIAction *restore = item(T(@"launcher.menu.import_save"), @"tray.and.arrow.down", idle, ^{ [weakSelf confirmSaveImport]; });
+    UIAction *backup = item(T(@"launcher.menu.export_save"), @"square.and.arrow.up", idle && FileSize([gSaves stringByAppendingPathComponent:@"game.db"]) > 0, ^{ [weakSelf exportSaves]; });
+    UIAction *log = item(T(@"launcher.menu.log"), @"doc.text", YES, ^{ [weakSelf showLog]; });
+    UIAction *exportLog = item(T(@"launcher.menu.export_log"), @"square.and.arrow.up.on.square", YES, ^{ [weakSelf exportLogs]; });
+    UIAction *check = item(T(@"launcher.menu.check"), @"checkmark.shield", running, ^{ [weakSelf checkServer]; });
     NSMutableArray<UIAction *> *modes = [NSMutableArray array];
-    for (NSArray *m in @[@[@"system", @"System", @"circle.lefthalf.filled"], @[@"light", @"Light", @"sun.max"], @[@"dark", @"Dark", @"moon"]]) {
+    for (NSArray *m in @[@[@"system", T(@"launcher.display.system"), @"circle.lefthalf.filled"], @[@"light", T(@"launcher.display.light"), @"sun.max"], @[@"dark", T(@"launcher.display.dark"), @"moon"]]) {
         NSString *mode = m[0];
         UIAction *choice = item(m[1], m[2], YES, ^{
             [NSUserDefaults.standardUserDefaults setObject:mode forKey:@"LunarDisplay"];
@@ -1572,24 +1585,24 @@ static const CGFloat kInfoSize = 18;
         if ([DisplayMode() isEqual:mode]) choice.state = UIMenuElementStateOn;
         [modes addObject:choice];
     }
-    UIMenu *display = [UIMenu menuWithTitle:@"Display" image:[UIImage systemImageNamed:@"circle.lefthalf.filled"] identifier:nil options:0 children:modes];
-    UIAction *settings = item(@"App settings", @"gear", YES, ^{
+    UIMenu *display = [UIMenu menuWithTitle:T(@"launcher.display.title") image:[UIImage systemImageNamed:@"circle.lefthalf.filled"] identifier:nil options:0 children:modes];
+    UIAction *settings = item(T(@"launcher.menu.app_settings"), @"gear", YES, ^{
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
     });
-    UIAction *updates = item(@"Check for updates", @"arrow.down.circle", YES, ^{
+    UIAction *updates = item(T(@"launcher.ios.menu.check_updates"), @"arrow.down.circle", YES, ^{
         BOOL on = !UpdatesEnabled();
         [NSUserDefaults.standardUserDefaults setBool:on forKey:@"BunkerCheckUpdates"];
         if (on) [weakSelf checkForUpdate];
         [weakSelf refresh];
     });
     updates.state = UpdatesEnabled() ? UIMenuElementStateOn : UIMenuElementStateOff;
-    UIAction *checkNow = item(@"Check for updates now", @"arrow.clockwise", YES, ^{ [weakSelf checkForUpdateNow]; });
-    UIAction *help = item(@"Help", @"questionmark.circle", YES, ^{ [weakSelf help]; });
-    UIAction *about = item(@"About", @"info.circle", YES, ^{ [weakSelf about]; });
+    UIAction *checkNow = item(T(@"launcher.menu.check_updates"), @"arrow.clockwise", YES, ^{ [weakSelf checkForUpdateNow]; });
+    UIAction *help = item(T(@"launcher.menu.help"), @"questionmark.circle", YES, ^{ [weakSelf help]; });
+    UIAction *about = item(T(@"launcher.menu.about"), @"info.circle", YES, ^{ [weakSelf about]; });
     return [UIMenu menuWithTitle:@"" children:@[
-        [UIMenu menuWithTitle:@"LUNAR TEAR" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check]],
-        [UIMenu menuWithTitle:@"DATA" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
-        [UIMenu menuWithTitle:@"SUPPORT" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, updates, checkNow, settings, help, about]],
+        [UIMenu menuWithTitle:TUpper(T(@"launcher.main.lunar_tear")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check]],
+        [UIMenu menuWithTitle:TUpper(T(@"launcher.menu.data")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
+        [UIMenu menuWithTitle:TUpper(T(@"launcher.menu.support")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, updates, checkNow, settings, help, about]],
     ]];
 }
 // Two rows: the message with WHAT'S NEW, then UPDATE (or WEB BUILDER when this
@@ -1597,17 +1610,17 @@ static const CGFloat kInfoSize = 18;
 - (UIView *)updatePanelView {
     self.updateText = [self mono:@"" size:12 color:Ink()];
     UIButton *notes = [UIButton buttonWithType:UIButtonTypeCustom];
-    [notes setAttributedTitle:Tracked(@"WHAT'S NEW ›", [UIFont boldSystemFontOfSize:11], Ink(), 1.3) forState:UIControlStateNormal];
+    [notes setAttributedTitle:Tracked([TUpper(T(@"launcher.main.whats_new")) stringByAppendingString:@" ›"], [UIFont boldSystemFontOfSize:11], Ink(), 1.3) forState:UIControlStateNormal];
     [notes addTarget:self action:@selector(openNotes) forControlEvents:UIControlEventTouchUpInside];
     [notes setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     [notes setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     UIStackView *line = [[UIStackView alloc] initWithArrangedSubviews:@[self.updateText, notes]];
     line.alignment = UIStackViewAlignmentCenter;
     line.spacing = 8;
-    self.updateButton = [self solid:@"UPDATE" action:@selector(updateTapped)];
-    self.updateWeb = [self outline:@"WEB BUILDER" size:12 action:@selector(openWebBuilder)];
-    self.updateLater = [self outline:@"LATER" size:12 action:@selector(updateLaterTapped)];
-    self.updateSkip = [self outline:@"SKIP" size:12 action:@selector(updateSkipTapped)];
+    self.updateButton = [self solid:TUpper(T(@"launcher.main.update")) action:@selector(updateTapped)];
+    self.updateWeb = [self outline:TUpper(T(@"launcher.main.web_builder")) size:12 action:@selector(openWebBuilder)];
+    self.updateLater = [self outline:TUpper(T(@"launcher.main.later")) size:12 action:@selector(updateLaterTapped)];
+    self.updateSkip = [self outline:TUpper(T(@"launcher.main.skip")) size:12 action:@selector(updateSkipTapped)];
     UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[self.updateButton, self.updateWeb, self.updateLater, self.updateSkip]];
     actions.spacing = 8;
     // Preferred, not required: the row hides some of these buttons, and a hidden one in a stack
@@ -1687,14 +1700,14 @@ static const CGFloat kInfoSize = 18;
     self.updatePanel.hidden = !self.updating && (gUpdateLater || [release[@"version"] isEqual:SkippedVersion()]);
     self.updateLater.hidden = self.updateSkip.hidden = self.updating;
     self.updateWeb.hidden = self.updating || [release[@"offer"] isEqual:@"update"];
-    NSString *text = [NSString stringWithFormat:@"Bunker %@ is available.", release[@"version"]];
-    if ([release[@"offer"] isEqual:@"web"]) text = [text stringByAppendingString:@"\n> This update needs the web builder."];
+    NSString *text = T(@"launcher.main.update_available", @"version", release[@"version"] ?: @"");
+    if ([release[@"offer"] isEqual:@"web"]) text = [text stringByAppendingFormat:@"\n> %@", T(@"launcher.main.update_needs_web")];
     self.updateText.attributedText = Tracked(text, Mono(12), Ink(), 0.7);
-    [self.updateButton setAttributedTitle:Tracked(@"UPDATE", [UIFont boldSystemFontOfSize:13], OnCommand(), 2) forState:UIControlStateNormal];
+    [self.updateButton setAttributedTitle:Tracked(TUpper(T(@"launcher.main.update")), [UIFont boldSystemFontOfSize:13], OnCommand(), 2) forState:UIControlStateNormal];
     self.updateButton.hidden = ![release[@"offer"] isEqual:@"update"];
 }
 - (void)updateMessage:(NSString *)text failed:(BOOL)failed {
-    self.updateText.attributedText = Tracked(text, Mono(12), failed ? Alert() : Ink(), 0.7);
+    self.updateText.attributedText = Tracked(TSaid(text), Mono(12), failed ? Alert() : Ink(), 0.7);  // the build's progress: references
 }
 - (void)updateFailed:(NSString *)message {
     self.updating = NO;
@@ -1703,7 +1716,7 @@ static const CGFloat kInfoSize = 18;
     // Python errors end with " (file.py:line)"; the player needs only the message.
     NSRange where = [message rangeOfString:@" \\([A-Za-z_]+\\.py:[0-9]+\\)$" options:NSRegularExpressionSearch];
     if (where.location != NSNotFound) message = [message substringToIndex:where.location];
-    [self updateMessage:[NSString stringWithFormat:@"Bunker %@ is available.\n> %@", self.available[@"version"], message] failed:YES];
+    [self updateMessage:[T(@"launcher.main.update_available", @"version", self.available[@"version"] ?: @"") stringByAppendingFormat:@"\n> %@", TSaid(message)] failed:YES];
 }
 - (void)openNotes { if (self.available) [UIApplication.sharedApplication openURL:[NSURL URLWithString:self.available[@"notes"]] options:@{} completionHandler:nil]; }
 - (void)openWebBuilder { [UIApplication.sharedApplication openURL:[NSURL URLWithString:kWebBuilder] options:@{} completionHandler:nil]; }
@@ -1716,7 +1729,7 @@ static const CGFloat kInfoSize = 18;
     NSDictionary *assets = self.available[@"update"][@"assets"];
     BOOL notices = [self.available[@"notices"] length] > 0;
     long long need = 700LL * 1048576 + (notices ? 2 * [NoticeAsset(assets)[@"size"] longLongValue] : 0);
-    if (free && free.longLongValue < need) { [self updateFailed:[NSString stringWithFormat:@"Updating needs about %lld MB free. Free some space and try again.", need / 1048576]]; return; }
+    if (free && free.longLongValue < need) { [self updateFailed:T(@"launcher.update.no_space", @"size", TSize(need))]; return; }
     self.updating = YES;
     self.updateButton.hidden = YES;
     NSString *work = [NSTemporaryDirectory() stringByAppendingPathComponent:@"update"];
@@ -1744,7 +1757,7 @@ static const CGFloat kInfoSize = 18;
         NSError *move = nil;
         if (!error && status == 200) [NSFileManager.defaultManager moveItemAtURL:location toURL:[NSURL fileURLWithPath:part[1]] error:&move];
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (error || status != 200 || move) { then(error ? error.localizedDescription : [NSString stringWithFormat:@"Download failed (HTTP %ld)", (long)status]); return; }
+            if (error || status != 200 || move) { then(error ? error.localizedDescription : T(@"launcher.ios.update.download_failed", @"status", @(status).stringValue)); return; }
             [weakSelf download:parts index:index + 1 done:done + [part[2] longLongValue] total:total then:then];
         });
     }];
@@ -1752,7 +1765,7 @@ static const CGFloat kInfoSize = 18;
     [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *timer) {
         if (task.state != NSURLSessionTaskStateRunning) { [timer invalidate]; return; }
         long long got = done + task.countOfBytesReceived;
-        [weakSelf updateMessage:total > 0 ? [NSString stringWithFormat:@"Downloading %lld%%", MIN(99LL, got * 100 / total)] : @"Downloading…" failed:NO];
+        [weakSelf updateMessage:total > 0 ? T(@"launcher.update.downloading_percent", @"percent", TNumber(MIN(99LL, got * 100 / total))) : T(@"launcher.update.downloading") failed:NO];
     }];
 }
 - (void)buildUpdate:(NSString *)work {
@@ -1777,8 +1790,7 @@ static const CGFloat kInfoSize = 18;
 /** Hands the IPA to SideStore, AltStore, AirDrop or Files. */
 - (void)shareUpdate:(NSString *)ipa {
     self.updating = NO;
-    [self updateMessage:[NSString stringWithFormat:@"%@ is in Files (On My %@ › NieR).\n> Install it with SideStore, AltStore or a Mac. Your saves stay.",
-        ipa.lastPathComponent, UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone"] failed:NO];
+    [self updateMessage:[T(@"launcher.ios.update.in_files", @"file", ipa.lastPathComponent, @"device", UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone") stringByAppendingFormat:@"\n> %@", T(@"launcher.ios.update.install_with")] failed:NO];
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:ipa]] applicationActivities:nil];
     share.popoverPresentationController.sourceView = self.updateText;
     share.popoverPresentationController.sourceRect = self.updateText.bounds;
@@ -1786,21 +1798,22 @@ static const CGFloat kInfoSize = 18;
 }
 - (void)alert:(NSString *)title message:(NSString *)message {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.close") style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)help {
-    [self alert:@"Help" message:
-        [NSString stringWithFormat:@"%@\n\n%@\n\n%@", kOpenTip, @"Export a save backup (in ⋮) before deleting the app.", kReconnectTip]];
+    [self alert:T(@"launcher.menu.help") message:
+        [NSString stringWithFormat:@"%@\n\n%@\n\n%@", OpenTip(), T(@"launcher.ios.main.backup_tip"), ReconnectTip()]];
 }
 - (void)about {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bunker"
-        message:[NSString stringWithFormat:@"Version %@\nOffline NieR Re[in]carnation, all in one app.\nCreated by veritr1x · github.com/veritr1x/bunker\n\nCREDITS\nLunar Tear by Walter-Sparrow: the offline server.\nMIT License · Copyright 2026 Ilya Groshev.\nLunar Scripts by Walter-Sparrow: APK and master data patches.\nLunar Base by NMeliksah: the save editors.\nMasterdata Patcher by NavHobbyDev: the content patcher.\nthree.js: the Archive's 3D viewer.\n\nNieR Re[in]carnation © SQUARE ENIX. Bunker is a fan project, not affiliated with Square Enix.", BunkerVersion()]
+        message:[NSString stringWithFormat:@"%@\n\n%@\n%@\n\n%@", [@[T(@"launcher.about.version", @"version", BunkerVersion()), T(@"launcher.about.tagline"), T(@"launcher.about.created", @"author", @"veritr1x", @"site", @"github.com/veritr1x/bunker")] componentsJoinedByString:@"\n"], TUpper(T(@"launcher.about.credits")),
+            [@[T(@"launcher.about.credit_lunar_tear"), @"MIT License · Copyright 2026 Ilya Groshev.", T(@"launcher.about.credit_lunar_scripts"), T(@"launcher.about.credit_lunar_base"), T(@"launcher.about.credit_patcher"), T(@"launcher.about.credit_threejs")] componentsJoinedByString:@"\n"], T(@"launcher.about.disclaimer")]
         preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Open GitHub" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.about.open_github") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/veritr1x/bunker"] options:@{} completionHandler:nil];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.close") style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)busy:(NSString *)message work:(NSString *(^)(void))work done:(void (^)(NSString *error))done {
@@ -1818,11 +1831,11 @@ static const CGFloat kInfoSize = 18;
     });
 }
 - (void)confirmTools {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Pod Programs?"
-        message:@"The game returns to its title screen after each change."
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:T(@"launcher.ios.tools.confirm_title")
+        message:T(@"launcher.ios.tools.confirm_message")
         preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Open Pod Programs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.main.open_pods_hint") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)openTools {
@@ -1835,7 +1848,7 @@ static const CGFloat kInfoSize = 18;
     gToolsBackedUp = NO;
     __block NSString *url = nil, *token = nil;
     NSString *original = [[NSBundle bundleForClass:self.class] pathForResource:@"original-master" ofType:@"bin.e"];
-    [self busy:live ? @"Opening Pod Programs…" : @"Stopping Lunar Tear…" work:^NSString *{
+    [self busy:live ? Said(@"launcher.detail.opening_tools") : Said(@"launcher.ios.busy.stopping") work:^NSString *{
         if (!live) {
             LunarStop();
             NSString *error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
@@ -1849,7 +1862,7 @@ static const CGFloat kInfoSize = 18;
             // Nothing was edited, so the game can carry on.
             gToolsOpen = NO;
             gToolsBesideGame = NO;
-            gMessage = [@"Pod Programs couldn't open: " stringByAppendingString:error];
+            gMessage = Said(@"launcher.ios.tools.could_not_open", @"error", TSaid(error));
             if (!live) dispatch_async(gQueue, ^{ StartServer(); dispatch_async(dispatch_get_main_queue(), ^{ [self refresh]; }); });
             [self refresh];
             return;
@@ -1875,13 +1888,13 @@ static const CGFloat kInfoSize = 18;
     NSString *root = ArchiveRoot();
     self.archive.enabled = NO;
     self.archiveLink.enabled = NO;
-    [self busy:@"Opening the Archive…" work:^NSString *{
+    [self busy:Said(@"launcher.archive.opening") work:^NSString *{
         return LTArchiveStart(gServerRoot, root, &url, &token, ^(NSString *text) {
             dispatch_async(dispatch_get_main_queue(), ^{ gMessage = text; [self refresh]; });
         });
     } done:^(NSString *error) {
         if (error.length) {
-            gMessage = [@"The Archive couldn't open: " stringByAppendingString:error];
+            gMessage = Said(@"launcher.ios.archive.could_not_open", @"error", TSaid(error));
             [self refresh];
             return;
         }
@@ -1890,18 +1903,18 @@ static const CGFloat kInfoSize = 18;
         __weak UIViewController *from = presenter;
         [presenter presentViewController:LTArchiveBrowser(url, token, path, ^{
             [from dismissViewControllerAnimated:YES completion:nil];
-            [weakSelf busy:@"Closing the Archive…" work:^NSString *{ return LTArchiveStop(); } done:^(NSString *error) { [weakSelf refresh]; }];
+            [weakSelf busy:Said(@"launcher.ios.busy.closing_archive") work:^NSString *{ return LTArchiveStop(); } done:^(NSString *error) { [weakSelf refresh]; }];
         }) animated:YES completion:nil];
     }];
 }
 - (void)closeTools {
     [self dismissViewControllerAnimated:YES completion:nil];
-    [self busy:@"Closing Pod Programs…" work:^NSString *{ return LTToolsStop(); } done:^(NSString *error) {
+    [self busy:Said(@"launcher.tools.closing") work:^NSString *{ return LTToolsStop(); } done:^(NSString *error) {
         gToolsOpen = NO;
         // The game restarts only when a change closed it; otherwise it plays on.
         if (!gToolsBesideGame) gRestartNeeded = YES;
         gToolsBesideGame = NO;
-        gMessage = error.length ? [@"Pod Programs closed with an error: " stringByAppendingString:error] : @"";
+        gMessage = error.length ? Said(@"launcher.ios.tools.closed_with_error", @"error", TSaid(error)) : @"";
         [self refresh];
     }];
 }
@@ -1910,7 +1923,7 @@ static const CGFloat kInfoSize = 18;
     exit(0);
 }
 - (void)stopServer {
-    [self busy:@"Stopping Lunar Tear…" work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
+    [self busy:Said(@"launcher.ios.busy.stopping") work:^NSString *{ LunarStop(); return @""; } done:^(NSString *error) {
         gMessage = @"";  // The STANDING BY chip says it.
         [self refresh];
     }];
@@ -1931,7 +1944,7 @@ static NSString *ImportMaster(NSURL *picked) {
     if (refused.length) { [files removeItemAtPath:pending error:nil]; return refused; }
     LunarStop();
     [files createDirectoryAtPath:MasterPath().stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
-    if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return @"Couldn't replace the master data.";
+    if (rename(pending.fileSystemRepresentation, MasterPath().fileSystemRepresentation) != 0) return Said(@"launcher.ios.files.master_not_replaced");
     return @"";
 }
 // Master data's files end in .bin.e: only those can be chosen to import it.
@@ -1948,24 +1961,24 @@ static UTType *MasterType(void) {
     [self presentViewController:picker animated:YES completion:nil];
 }
 - (void)importMaster:(NSURL *)picked {
-    [self busy:@"Importing master data…" work:^NSString *{
+    [self busy:Said(@"launcher.ios.busy.importing_master") work:^NSString *{
         NSString *error = ImportMaster(picked);
         return error.length ? error : StartServer();
     } done:^(NSString *error) {
-        if (!error.length) { gMessage = @"Master data imported. Close NieR and open it again."; [self refresh]; }
+        if (!error.length) { gMessage = Said(@"launcher.ios.main.master_imported"); [self refresh]; }
     }];
 }
 - (void)confirmSaveImport {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Import a save backup?"
-        message:@"This replaces your save. The current one is kept in Files › NieR › saves.before-import."
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:T(@"launcher.save_import.title")
+        message:T(@"launcher.ios.save_import.message")
         preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Choose backup" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:3]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.save_import.choose") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:3]; }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)importSave:(NSURL *)picked {
     BOOL wasRunning = Running();
-    [self busy:@"Importing the save…" work:^NSString *{
+    [self busy:Said(@"launcher.ios.busy.importing_save") work:^NSString *{
         // Copy it first: the picked file may live in iCloud or on a USB drive.
         NSString *copy = [NSTemporaryDirectory() stringByAppendingPathComponent:@"save-import"];
         NSFileManager *files = NSFileManager.defaultManager;
@@ -1987,14 +2000,14 @@ static UTType *MasterType(void) {
         }
         // The game still holds the old player's data until it restarts.
         gRestartNeeded = YES;
-        gMessage = @"Save imported. Tap Close game, then open NieR again.";
+        gMessage = Said(@"launcher.ios.main.save_imported");
         [self refresh];
     }];
 }
 - (void)exportSaves {
     __block NSURL *archive = nil;
     BOOL wasRunning = Running();
-    [self busy:@"Preparing your save backup…" work:^NSString *{
+    [self busy:Said(@"launcher.ios.busy.preparing_backup") work:^NSString *{
         LunarStop();  // Flush the databases before copying them.
         NSString *error = TakeString(LunarPrepareBackup((char *)gSaves.fileSystemRepresentation));
         NSFileManager *files = NSFileManager.defaultManager;
@@ -2010,7 +2023,7 @@ static UTType *MasterType(void) {
                 NSString *source = [gSaves stringByAppendingPathComponent:file];
                 if ([files fileExistsAtPath:source]) [files copyItemAtPath:source toPath:[folder stringByAppendingPathComponent:file] error:nil];
             }
-            [@"Lunar Tear local saves. Keep game.db, auth.db and auth.key together. Contains account credentials; keep this backup private.\n"
+            [[T(@"launcher.files.backup_readme") stringByAppendingString:@"\n"]
                 writeToFile:[folder stringByAppendingPathComponent:@"README.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
             // Reading a folder "for uploading" makes Foundation produce a ZIP of it.
             __block NSString *zipError = nil;
@@ -2048,7 +2061,7 @@ static UTType *MasterType(void) {
         NSBundle.mainBundle.bundleIdentifier, bundle[@"CFBundleShortVersionString"], device.systemName, device.systemVersion,
         bundle[@"LunarPortOffset"] ?: @0];
     NSString *error = TakeString(LunarExportLogs((char *)LogFolder().fileSystemRepresentation, (char *)target.fileSystemRepresentation, (char *)info.UTF8String));
-    if (error.length) { [self alert:@"Export failed" message:error]; return; }
+    if (error.length) { [self alert:T(@"launcher.log.export_failed") message:TSaid(error)]; return; }
     self.pickerMode = 6;
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:target]] asCopy:YES];
     picker.delegate = self;
@@ -2061,7 +2074,7 @@ static UTType *MasterType(void) {
 - (void)retry {
     self.check.enabled = NO;
     [self.spinner startAnimating];
-    gMessage = @"Starting Lunar Tear…";
+    gMessage = Said(@"launcher.ios.busy.starting");
     [self refresh];
     dispatch_async(gQueue, ^{
         NSString *error = StartServer();
@@ -2075,25 +2088,25 @@ static UTType *MasterType(void) {
     });
 }
 - (void)chooseOrCancel {
-    if (gImporting) { gCancelImport = YES; gMessage = @"Cancelling…"; [self refresh]; return; }
+    if (gImporting) { gCancelImport = YES; gMessage = Said(@"launcher.ios.busy.cancelling"); [self refresh]; return; }
     // The same three choices as on Android.
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Choose the game files"
-        message:@"Copy or Archive: needs about 21 GB free.\nIn place: no space needed; keep the folder and its drive connected."
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:T(@"launcher.files_dialog.title")
+        message:[NSString stringWithFormat:@"%@\n%@", T(@"launcher.ios.files_dialog.copy_space"), T(@"launcher.ios.files_dialog.in_place_space")]
         preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Copy a folder" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Use a folder in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Archive (.7z or .zip)" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:5]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.ios.files_dialog.copy") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.ios.files_dialog.in_place") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.files_dialog.archive") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:5]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *picked = urls.firstObject;
     if (self.pickerMode == 2) {
-        gMessage = @"Backup saved. Keep it somewhere safe.";
+        gMessage = Said(@"launcher.detail.backup_saved");
         [self refresh];
         return;
     }
-    if (self.pickerMode == 6) { [self alert:@"Lunar Tear log exported" message:@"Attach the ZIP when you report a problem. It holds the log and this device's iOS version."]; return; }
+    if (self.pickerMode == 6) { [self alert:T(@"launcher.log.exported") message:T(@"launcher.ios.log.exported_info")]; return; }
     if (self.pickerMode == 1) { if (picked) [self importMaster:picked]; return; }
     if (self.pickerMode == 3) { if (picked) [self importSave:picked]; return; }
     if (!picked || gImporting) return;
@@ -2107,7 +2120,7 @@ static UTType *MasterType(void) {
     gImporting = YES;
     gCancelImport = NO;
     gImportFraction = -1;
-    gMessage = @"Keep NieR open until the import finishes.";
+    gMessage = Said(@"launcher.ios.main.keep_open");
     [self.spinner startAnimating];
     [self refresh];
     UIApplication *app = UIApplication.sharedApplication;
@@ -2137,9 +2150,9 @@ static UTType *MasterType(void) {
 - (void)dismiss {
     // Unity's first attempts may have failed while files were missing.
     // Closing and reopening the game retries cleanly from the title screen.
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear is running"
-        message:kReconnectTip preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:T(@"launcher.ios.main.running_title")
+        message:ReconnectTip() preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.ok") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         HideLauncher();
     }]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -2151,11 +2164,11 @@ static UTType *MasterType(void) {
         NSDictionary *r = [NSJSONSerialization JSONObjectWithData:[report dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
         NSMutableString *text = [NSMutableString string];
         for (NSDictionary *c in r[@"checks"]) {
-            [text appendFormat:@"%@ %@ · port %@\n", [c[@"ok"] boolValue] ? @"✓" : @"✗", c[@"name"], c[@"port"]];
+            [text appendFormat:@"%@ %@\n", [c[@"ok"] boolValue] ? @"✓" : @"✗", T(@"launcher.check.port", @"name", c[@"name"] ?: @"", @"port", [c[@"port"] description] ?: @"")];
             if (![c[@"ok"] boolValue]) [text appendFormat:@"   %@\n", c[@"detail"]];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self alert:[r[@"ok"] boolValue] ? @"Lunar Tear is reachable" : @"Couldn't reach Lunar Tear"
+            [self alert:[r[@"ok"] boolValue] ? T(@"launcher.check.ok") : T(@"launcher.check.failed")
                 message:[text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
         });
     });
@@ -2166,9 +2179,9 @@ static UTType *MasterType(void) {
     UITextView *text = [UITextView new];
     text.editable = NO;
     text.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-    text.text = logs.length ? logs : @"No Lunar Tear log yet.";
+    text.text = logs.length ? logs : T(@"launcher.ios.log.empty");
     viewer.view = text;
-    viewer.title = @"Lunar Tear log";
+    viewer.title = T(@"launcher.menu.log");
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:viewer];
     viewer.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(closeLog)];
     [self presentViewController:navigation animated:YES completion:nil];
@@ -2257,10 +2270,14 @@ static void PerformShortcut(id self, SEL command, UIApplication *application, UI
     else if (completion) completion(NO);
 }
 
+/** The home-screen quick action, named in the language of now. */
+static void SetShortcut(void) {
+    UIApplication.sharedApplication.shortcutItems = @[[[UIApplicationShortcutItem alloc] initWithType:kMenuShortcut localizedTitle:T(@"launcher.shortcut.label") localizedSubtitle:nil
+        icon:[UIApplicationShortcutIcon iconWithTemplateImageName:@"BunkerEmblem"] userInfo:nil]];
+}
 static void InstallShortcut(NSDictionary *launchOptions) {
     UIApplication *app = UIApplication.sharedApplication;
-    app.shortcutItems = @[[[UIApplicationShortcutItem alloc] initWithType:kMenuShortcut localizedTitle:@"Bunker menu" localizedSubtitle:nil
-        icon:[UIApplicationShortcutIcon iconWithTemplateImageName:@"BunkerEmblem"] userInfo:nil]];
+    SetShortcut();
     Class delegate = object_getClass(app.delegate);
     SEL action = @selector(application:performActionForShortcutItem:completionHandler:);
     Method existing = delegate ? class_getInstanceMethod(delegate, action) : NULL;
@@ -2306,7 +2323,7 @@ static void InstallMenu(void) {
     IMP build = imp_implementationWithBlock(^(id self, id<UIMenuBuilder> builder) {
         original(self, selector, builder);
         if (builder.system != UIMenuSystem.mainSystem || [builder menuForIdentifier:@"org.veritr1x.bunker.menu"]) return;
-        UIKeyCommand *open = [UIKeyCommand commandWithTitle:@"Open Bunker" image:nil action:@selector(lunarOpenBunker:)
+        UIKeyCommand *open = [UIKeyCommand commandWithTitle:T(@"launcher.ios.main.open_bunker") image:nil action:@selector(lunarOpenBunker:)
                                                       input:@"b" modifierFlags:UIKeyModifierCommand propertyList:nil];
         // Its own menu: on a Mac, iPad apps cannot add to the app menu.
         UIMenu *menu = [UIMenu menuWithTitle:@"Bunker" image:nil identifier:@"org.veritr1x.bunker.menu" options:0 children:@[open]];
@@ -2395,13 +2412,13 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             dispatch_async(gQueue, ^{
                 NSString *(*import)(NSURL *, void (^)(NSString *)) = getenv("LUNAR_IMPORT_LINK") ? LinkAssets : ImportAssets;
                 NSString *error = import([NSURL fileURLWithPath:source], ^(NSString *text) {
-                    NSLog(@"[LunarTear] %@", text);
+                    NSLog(@"[LunarTear] %@", TInEnglish(text));
                     dispatch_async(dispatch_get_main_queue(), ^{
                         gMessage = text;
                         if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh];
                     });
                 });
-                NSLog(@"[LunarTear] import result: %@", error.length ? error : @"ok");
+                NSLog(@"[LunarTear] import result: %@", error.length ? TInEnglish(error) : @"ok");
                 // Automation copies archives into Documents; remove them once unpacked.
                 if (!error.length && removeSource)
                     for (NSString *part in ArchiveParts(source) ?: (IsGoArchive(source) ? @[source] : @[])) [NSFileManager.defaultManager removeItemAtPath:part error:nil];
@@ -2422,7 +2439,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         // After an update, the game data (the calendar's or a preset's) is brought
         // up to this build before the server starts; the launcher shows meanwhile.
         BOOL updateData = LTToolsAvailable() && LTDataNeedsUpdate(gSaves, ToolsRoot(), BunkerVersion());
-        if (updateData) { gOpenMenu = YES; gMessage = @"Updating your game data for this version…"; }
+        if (updateData) { gOpenMenu = YES; gMessage = Said(@"launcher.ios.main.updating_data"); }
         NSString *originalMaster = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
         dispatch_async(gQueue, ^{
             // Automation only, like LUNAR_IMPORT_FROM: import a save backup
@@ -2441,9 +2458,9 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             if (updateData) {
                 AttachInPlace();  // Game files kept in place: the catalog is read through the link.
                 update = LTUpdateData(gSaves, gServerRoot, ToolsRoot(), originalMaster, BunkerVersion());
-                NSLog(@"[LunarTear] game data update: %@", update.length ? update : @"ok");
+                NSLog(@"[LunarTear] game data update: %@", update.length ? TInEnglish(update) : @"ok");
                 // A failure leaves the game data as it was; the game still starts.
-                if (update.length) update = [@"Your game data couldn't be updated: " stringByAppendingString:update];
+                if (update.length) update = Said(@"launcher.ios.main.update_failed", @"error", TSaid(update));
             }
             NSString *error = StartServer();
             gMessage = error.length ? error : update;

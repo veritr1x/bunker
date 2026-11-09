@@ -24,11 +24,15 @@ class StatusChip(unittest.TestCase):
         self.assertEqual(said - {"STOPPING"}, WORDS)
 
     def test_ios_says_each(self):
+        # iOS's words come from the same catalogue keys (launcher.chip.<id>), shown in capitals.
+        import json
+        english = json.loads((root / "translations/bunker/en.json").read_text())
         block = re.search(r"if \(gToolsOpen\) SetChip\(self\.server.*?\n(?:.*SetChip\(self\.server.*\n)+", IOS).group(0)
-        self.assertEqual({w for w in WORDS if f'@"{w}"' in block}, WORDS)
+        said = {english[f"launcher.chip.{i}"].upper() for i in re.findall(r'TUpper\(T\(@"launcher\.chip\.([a-z_]+)"\)\)', block)}
+        self.assertEqual(said - {"RESTART THE GAME"}, WORDS)
 
     def test_ios_says_not_running_only_after_a_failure(self):
-        self.assertRegex(IOS, r'\[state isEqual:@"error"\]\) SetChip\(self\.server, @"NOT RUNNING"')
+        self.assertRegex(IOS, r'\[state isEqual:@"error"\]\) SetChip\(self\.server, TUpper\(T\(@"launcher\.chip\.not_running"\)\)')
 
 
 if __name__ == "__main__":

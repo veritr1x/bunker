@@ -1,6 +1,7 @@
 // Tools on iOS. Python is loaded only when Tools opens, so normal play pays
 // nothing for it. The Python side is ios/python/ios_runtime.py.
 #import "LunarTools.h"
+#import "LTTexts.h"
 #import <AVKit/AVKit.h>
 #import <WebKit/WebKit.h>
 #include <dlfcn.h>
@@ -37,7 +38,9 @@ BOOL LTToolsAvailable(void) {
 
 static NSString *LoadPythonLocked(void);
 
-// Python starts once, though the Archive's index is checked from its own thread.
+// Python starts once, though the Archive's index is checked from its own thread. Its errors, as every
+// error and progress message these functions hand the launcher (kept in gMessage, drawn with TSaid), are
+// references (Said); an error from Python or the server is passed on as it is.
 static NSString *LoadPython(void) {
     static NSLock *starting;
     static dispatch_once_t once;
@@ -48,15 +51,15 @@ static NSString *LoadPython(void) {
 
 static NSString *LoadPythonLocked(void) {
     if (gPythonReady) return @"";
-    if (!LTToolsAvailable()) return @"This build doesn't include Pod Programs.";
+    if (!LTToolsAvailable()) return Said(@"launcher.ios.python.not_included");
     void *library = dlopen(PythonLibrary().fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL);
-    if (!library) return [NSString stringWithFormat:@"Can't load Python: %s", dlerror()];
+    if (!library) return Said(@"launcher.ios.python.cannot_load", @"error", @(dlerror() ?: ""));
     gPython.initialize = dlsym(library, "Py_InitializeEx");
     gPython.run = dlsym(library, "PyRun_SimpleString");
     gPython.releaseLock = dlsym(library, "PyEval_SaveThread");
     gPython.acquire = dlsym(library, "PyGILState_Ensure");
     gPython.release = dlsym(library, "PyGILState_Release");
-    if (!gPython.initialize || !gPython.run || !gPython.releaseLock || !gPython.acquire || !gPython.release) return @"Python is incomplete";
+    if (!gPython.initialize || !gPython.run || !gPython.releaseLock || !gPython.acquire || !gPython.release) return Said(@"launcher.ios.python.incomplete");
     NSString *home = PythonHome();
     setenv("PYTHONHOME", home.fileSystemRepresentation, 1);
     // Game text is Japanese and English; read and write files as UTF-8.
@@ -73,15 +76,18 @@ static NSString *LoadPythonLocked(void) {
                             @"app": [home stringByAppendingPathComponent:@"app"]};
     NSData *json = [NSJSONSerialization dataWithJSONObject:paths options:0 error:nil];
     NSString *bootstrap = [NSString stringWithFormat:
+        // bunker-text: code
         @"import base64, json, site, sys\n"
         @"paths = json.loads(base64.b64decode('%@'))\n"
         @"sys.executable = paths['executable']\n"
         @"site.addsitedir(paths['packages'])\n"
-        @"sys.path.insert(0, paths['app'])\n", [json base64EncodedStringWithOptions:0]];
+        @"sys.path.insert(0, paths['app'])\n",
+        // bunker-text: end
+        [json base64EncodedStringWithOptions:0]];
     int failed = gPython.run(bootstrap.UTF8String);
     gPython.releaseLock();
     gPythonReady = YES;
-    return failed ? @"Some app files are missing." : @"";
+    return failed ? Said(@"launcher.ios.python.files_missing") : @"";
 }
 
 static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments);
@@ -101,6 +107,7 @@ static NSDictionary *CallRuntime(NSString *function, NSArray *arguments) {
 static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:@{@"function": function, @"arguments": arguments} options:0 error:nil];
     NSString *code = [NSString stringWithFormat:
+        // bunker-text: code
         @"def _lunar_call(encoded):\n"
         @"    import base64, ctypes, json, traceback\n"
         @"    send = ctypes.CDLL(None).LunarToolsResult\n"
@@ -115,19 +122,21 @@ static NSDictionary *CallRuntimeLocked(NSString *function, NSArray *arguments) {
         @"        frame = traceback.extract_tb(error.__traceback__)[-1]\n"
         @"        where = ' (%%s:%%d)' %% (frame.filename.rsplit('/', 1)[-1], frame.lineno)\n"
         @"        send(json.dumps({'ok': False, 'error': (str(error) or type(error).__name__) + where}).encode())\n"
-        @"_lunar_call('%@')\n", [data base64EncodedStringWithOptions:0]];
+        @"_lunar_call('%@')\n",
+        // bunker-text: end
+        [data base64EncodedStringWithOptions:0]];
     gResult = nil;
     int state = gPython.acquire();
     gPython.run(code.UTF8String);
     gPython.release(state);
     NSDictionary *result = gResult ? [NSJSONSerialization JSONObjectWithData:[gResult dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
-    return result ?: @{@"ok": @NO, @"error": @"Pod Programs didn't respond"};
+    return result ?: @{@"ok": @NO, @"error": Said(@"launcher.ios.tools.no_answer")};
 }
 
 NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster,
                        NSString **url, NSString **token, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(@"Opening Pod Programs…");
+    if (progress) progress(Said(@"launcher.detail.opening_tools"));
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     [NSFileManager.defaultManager createDirectoryAtPath:toolsRoot withIntermediateDirectories:YES attributes:nil error:nil];
@@ -137,7 +146,7 @@ NSString *LTToolsStart(NSString *saves, NSString *serverRoot, NSString *toolsRoo
     NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     *url = state[@"url"];
     *token = state[@"token"];
-    return url && token && (*url).length ? @"" : @"Pod Programs couldn't start";
+    return url && token && (*url).length ? @"" : Said(@"launcher.ios.tools.could_not_start");
 }
 
 BOOL LTDataNeedsUpdate(NSString *saves, NSString *toolsRoot, NSString *version) {
@@ -160,19 +169,19 @@ NSString *LTUpdateData(NSString *saves, NSString *serverRoot, NSString *toolsRoo
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,
                         NSString *noticesZip, NSString *shaNotices, NSString *output, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(@"Preparing the update…");
+    if (progress) progress(Said(@"launcher.ios.update.preparing"));
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     NSDictionary *result = CallRuntime(@"build_ipa_update", @[app, frameworkZip, pythonZip, shaFramework, shaPython, output,
                                                               noticesZip ?: @"", shaNotices ?: @""]);
     gProgress = nil;
-    if (![result[@"ok"] boolValue]) return result[@"error"] ?: @"The update couldn't be built";
+    if (![result[@"ok"] boolValue]) return result[@"error"] ?: Said(@"launcher.ios.update.not_built");
     return @"";
 }
 
 NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString **url, NSString **token, void (^progress)(NSString *text)) {
     gProgress = progress;
-    if (progress) progress(@"Opening the Archive…");
+    if (progress) progress(Said(@"launcher.archive.opening"));
     NSString *error = LoadPython();
     if (error.length) { gProgress = nil; return error; }
     [NSFileManager.defaultManager createDirectoryAtPath:archiveRoot withIntermediateDirectories:YES attributes:nil error:nil];
@@ -182,7 +191,7 @@ NSString *LTArchiveStart(NSString *serverRoot, NSString *archiveRoot, NSString *
     NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
     *url = state[@"url"];
     *token = state[@"token"];
-    return url && token && (*url).length ? @"" : @"The Archive couldn't start";
+    return url && token && (*url).length ? @"" : Said(@"launcher.ios.archive.could_not_start");
 }
 
 NSDictionary *LTArchiveIndex(NSString *serverRoot, NSString *archiveRoot, BOOL build, NSString **error) {
@@ -190,9 +199,9 @@ NSDictionary *LTArchiveIndex(NSString *serverRoot, NSString *archiveRoot, BOOL b
     if (failure.length) { *error = failure; return nil; }
     [NSFileManager.defaultManager createDirectoryAtPath:archiveRoot withIntermediateDirectories:YES attributes:nil error:nil];
     NSDictionary *result = CallRuntime(build ? @"archive_build_index" : @"archive_index_status", @[serverRoot, archiveRoot]);
-    if (![result[@"ok"] boolValue]) { *error = result[@"error"] ?: @"Pod Programs didn't respond"; return nil; }
+    if (![result[@"ok"] boolValue]) { *error = result[@"error"] ?: Said(@"launcher.ios.tools.no_answer"); return nil; }
     NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[result[@"value"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-    if (!state) *error = @"Pod Programs didn't respond";
+    if (!state) *error = Said(@"launcher.ios.tools.no_answer");
     return state;
 }
 
@@ -225,8 +234,8 @@ static NSString *ArchivePath(NSString *link) {
 
 @interface LTToolsViewController : UIViewController <WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate, WKScriptMessageHandler>
 @property(nonatomic, copy) NSString *origin, *token;
-// Pod Programs by default; the Archive sets its own.
-@property(nonatomic, copy) NSString *caption, *heading, *cookie;
+// Pod Programs by default; the Archive sets its own. The caption is NieR flavour, always English.
+@property(nonatomic, copy) NSString *caption, *cookie;
 @property(nonatomic) BOOL archive;
 @property(nonatomic, copy) void (^onClose)(void);
 // Pod Programs: opens the Archive at a timeline link's page. The Archive: the page it opens on.
@@ -242,13 +251,15 @@ static NSString *ArchivePath(NSString *link) {
 @property(nonatomic, strong) NSLayoutConstraint *webBelowBar, *webAtTop;
 @property(nonatomic) BOOL sideways;
 @property(nonatomic, copy) NSString *cutout;
+// The bar's words, written again when a language is chosen in the page (relabel).
+@property(nonatomic, strong) UIColor *ink;
+@property(nonatomic) NSInteger generation;
 @end
 
 @implementation LTToolsViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
-    if (!self.heading) { self.caption = @"BUNKER // POD 042"; self.heading = @"POD PROGRAMS"; self.cookie = @"lunar_tools"; }
-    self.title = self.heading.capitalizedString;
+    if (!self.caption) { self.caption = @"BUNKER // POD 042"; self.cookie = @"lunar_tools"; }
     // The Bunker's paper and ink, matching the launcher and the pages' stylesheet.
     UIColor *(^shade)(uint32_t, uint32_t) = ^UIColor *(uint32_t light, uint32_t dark) {
         return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
@@ -257,22 +268,19 @@ static NSString *ArchivePath(NSString *link) {
         }];
     };
     UIColor *ink = shade(0x3a372f, 0xd9d3ba), *muted = shade(0x4f4b40, 0xa8a28b);
+    self.ink = ink;
     self.view.backgroundColor = shade(0xd3ceb8, 0x191813);
     // The same top bar as the Bunker: where you are, and the way back.
     UILabel *caption = [UILabel new];
     caption.attributedText = [[NSAttributedString alloc] initWithString:self.caption attributes:@{
         NSFontAttributeName: [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular], NSForegroundColorAttributeName: muted, NSKernAttributeName: @2}];
     UILabel *title = [UILabel new];
-    title.attributedText = [[NSAttributedString alloc] initWithString:self.heading attributes:@{
-        NSFontAttributeName: [UIFont boldSystemFontOfSize:22], NSForegroundColorAttributeName: ink, NSKernAttributeName: @6.2}];
     title.accessibilityTraits = UIAccessibilityTraitHeader;
     self.captionLabel = caption;
     self.titleLabel = title;
     UIStackView *titles = [[UIStackView alloc] initWithArrangedSubviews:@[caption, title]];
     titles.axis = UILayoutConstraintAxisVertical;
     self.closeButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.closeButton setAttributedTitle:[[NSAttributedString alloc] initWithString:@"CLOSE" attributes:@{
-        NSFontAttributeName: [UIFont boldSystemFontOfSize:12], NSForegroundColorAttributeName: ink, NSKernAttributeName: @2.4}] forState:UIControlStateNormal];
     self.closeButton.layer.borderWidth = 2;
     self.closeButton.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
     [self.closeButton addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside];
@@ -284,6 +292,7 @@ static NSString *ArchivePath(NSString *link) {
     bar.translatesAutoresizingMaskIntoConstraints = NO;
     self.bar = bar;
     [self.view addSubview:bar];
+    [self relabel];
     [self updateBorder];
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
     // Nothing persists between sessions; each session has a new token.
@@ -298,8 +307,10 @@ static NSString *ArchivePath(NSString *link) {
         [configuration.userContentController addScriptMessageHandler:self name:@"savePng"];
         [configuration.userContentController addScriptMessageHandler:self name:@"playMovie"];
         [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:
+            // bunker-text: code
             @"window.bunkerFiles = {savePng: (name, data) => window.webkit.messageHandlers.savePng.postMessage({name: String(name), data: String(data)}),"
              "playMovie: (url, time) => window.webkit.messageHandlers.playMovie.postMessage({url: String(url), time: Number(time) || 0})};"
+            // bunker-text: end
             injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]];
     }
     self.web = [[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration];
@@ -338,6 +349,22 @@ static NSString *ArchivePath(NSString *link) {
             [weakSelf.web loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:weakSelf.startPath ?: @"/" relativeToURL:origin]]];
         }];
     }];
+}
+// The title and Close in the pack's language, in capitals. A language chosen in the page shows once the
+// page loads again (didFinishNavigation).
+- (void)relabel {
+    NSString *heading = T(self.archive ? @"archive.menu.archive" : @"pods.menu.title");
+    self.generation = TGeneration();
+    self.title = heading;
+    self.titleLabel.attributedText = [[NSAttributedString alloc] initWithString:TUpper(heading) attributes:@{
+        NSFontAttributeName: [UIFont boldSystemFontOfSize:self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact ? 15 : 22],
+        NSForegroundColorAttributeName: self.ink, NSKernAttributeName: @6.2}];
+    [self.closeButton setAttributedTitle:[[NSAttributedString alloc] initWithString:TUpper(T(@"common.close")) attributes:@{
+        NSFontAttributeName: [UIFont boldSystemFontOfSize:12], NSForegroundColorAttributeName: self.ink, NSKernAttributeName: @2.4}] forState:UIControlStateNormal];
+}
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    T(@"common.close");  // any lookup notices a new pack
+    if (TGeneration() != self.generation) [self relabel];
 }
 // Layer colours do not follow light and dark by themselves.
 - (void)updateBorder {
@@ -390,11 +417,14 @@ static NSString *ArchivePath(NSString *link) {
     }
     if ([json isEqualToString:self.cutout ?: @""]) return;
     self.cutout = json;
+    // bunker-text: code
     NSString *script = [NSString stringWithFormat:@"window.bunkerCutout = %@;", json];
+    NSString *changed = @" window.bunkerHoleChanged && bunkerHoleChanged();";
+    // bunker-text: end
     WKUserContentController *content = self.web.configuration.userContentController;
     [content removeAllUserScripts];
     [content addUserScript:[[WKUserScript alloc] initWithSource:script injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES]];
-    [self.web evaluateJavaScript:[script stringByAppendingString:@" window.bunkerHoleChanged && bunkerHoleChanged();"] completionHandler:nil];
+    [self.web evaluateJavaScript:[script stringByAppendingString:changed] completionHandler:nil];
 }
 - (BOOL)local:(NSURL *)url {
     NSURL *origin = [NSURL URLWithString:self.origin];
@@ -484,7 +514,7 @@ static NSString *ArchivePath(NSString *link) {
             if (![NSFileManager.defaultManager moveItemAtURL:location toURL:target error:nil]) target = nil;
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (!target) { [self message:@"Export failed" text:error.localizedDescription ?: @"Couldn't prepare the file."]; return; }
+            if (!target) { [self message:T(@"launcher.log.export_failed") text:error.localizedDescription ?: T(@"launcher.ios.tools.file_not_prepared")]; return; }
             UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[target] asCopy:YES];
             picker.delegate = self;
             [self presentViewController:picker animated:YES completion:nil];
@@ -492,30 +522,30 @@ static NSString *ArchivePath(NSString *link) {
     }];
     [task resume];
 }
-- (void)message:(NSString *)title text:(NSString *)text {
+- (void)message:(nullable NSString *)title text:(NSString *)text {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:text preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.ok") style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    if (error.code != NSURLErrorCancelled) [self message:[@"Couldn't open " stringByAppendingString:self.title] text:@"Close it and try again."];
+    if (error.code != NSURLErrorCancelled) [self message:nil text:T(self.archive ? @"launcher.archive.could_not_open" : @"launcher.tools.could_not_open")];
 }
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))handler {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { handler(); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.ok") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { handler(); }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))handler {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) { handler(NO); }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { handler(YES); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) { handler(NO); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.ok") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { handler(YES); }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)text initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))handler {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:prompt preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.text = text; }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) { handler(nil); }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { handler(alert.textFields.firstObject.text); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:^(UIAlertAction *a) { handler(nil); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.ok") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { handler(alert.textFields.firstObject.text); }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 @end
@@ -551,7 +581,6 @@ UIViewController *LTArchiveBrowser(NSString *url, NSString *token, NSString *pat
     archive.token = token;
     archive.onClose = close;
     archive.caption = @"BUNKER // ARCHIVE";
-    archive.heading = @"ARCHIVE";
     archive.cookie = @"lunar_archive";
     archive.archive = YES;
     UINavigationController *navigation = [[LTTurningNavigation alloc] initWithRootViewController:archive];
