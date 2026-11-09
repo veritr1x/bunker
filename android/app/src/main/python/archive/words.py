@@ -22,16 +22,18 @@ def t(key: str, **params) -> str:
 
 
 def t_count(key: str, n: int, **params) -> str:
-    """t() for key's ".one" form for a count of 1, else its ".other" form; {n} is the count."""
-    return t(f"{key}.one" if n == 1 else f"{key}.other", n=n, **params)
+    """A reference to key counted n times: the form ("one", "few", "other"…) is chosen when it is put in words,
+    by the language of that moment (bunker_text.t_count); {n} is the count."""
+    return _START + json.dumps([key, params, n], ensure_ascii=False, separators=(",", ":")) + _END
 
 
 def _words(match: re.Match) -> str:
     try:
-        key, params = json.loads(match.group(1))
+        key, params, *count = json.loads(match.group(1))
     except ValueError:
         return ""
-    return bunker_text.t(key, **{name: said(value) if isinstance(value, str) else value for name, value in params.items()})
+    params = {name: said(value) if isinstance(value, str) else value for name, value in params.items()}
+    return bunker_text.t_count(key, count[0], **params) if count else bunker_text.t(key, **params)
 
 
 def said(text):

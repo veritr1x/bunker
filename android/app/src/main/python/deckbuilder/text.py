@@ -24,8 +24,8 @@ class Later:
     def __eq__(self, other):
         return str(self) == (str(other) if isinstance(other, Later) else other)
 
-    def __hash__(self):
-        return hash(str(self))
+    # Not hashable: its text, which it compares by, changes with the language, so a hash would too.
+    __hash__ = None
 
     def __contains__(self, part):
         return part in str(self)

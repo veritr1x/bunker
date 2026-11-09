@@ -49,7 +49,8 @@
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
     if (!r.count) return;
-    const text = r.count === 1 ? {{ t("pods.player.gifts_waiting.one", n="{n}")|tojson }} : {{ t("pods.player.gifts_waiting.other", n="{n}")|tojson }};
+    const forms = {{ plural_forms("pods.player.gifts_waiting")|tojson }};
+    const text = forms[new Intl.PluralRules({{ text_language()|tojson }}).select(r.count)] ?? forms.other;
     box.querySelector("a").textContent = "> " + text.replace("{n}", r.count);
     box.hidden = false;
   }).catch(() => {});
@@ -103,12 +104,13 @@
     "unknown": t("pods.costumes.slot_unknown", slot="{slot}", roll="{roll}"),
     "not_owned_title": t("pods.costumes.not_owned_title"), "locked_title": t("pods.costumes.locked_title"),
     "slot_title": t("pods.costumes.slot_replace_title", slot="{slot}"),
-    "granted_one": t("pods.costumes.granted_one", id="{id}"), "granted": [t("pods.costumes.granted.one", n="{n}"), t("pods.costumes.granted.other", n="{n}")],
-    "no_karma": t("pods.costumes.no_karma_changes"), "karma_confirm": [t("pods.costumes.karma_confirm.one", n="{n}"), t("pods.costumes.karma_confirm.other", n="{n}")],
-    "karma_failed": t("pods.costumes.karma_failed"), "karma_done": [t("pods.costumes.karma_done.one", n="{n}"), t("pods.costumes.karma_done.other", n="{n}")],
-    "missing_confirm": t("pods.costumes.missing_confirm"), "missing_done": [t("pods.costumes.missing_done.one", n="{n}"), t("pods.costumes.missing_done.other", n="{n}")],
+    "granted_one": t("pods.costumes.granted_one", id="{id}"), "granted": plural_forms("pods.costumes.granted"),
+    "no_karma": t("pods.costumes.no_karma_changes"), "karma_confirm": plural_forms("pods.costumes.karma_confirm"),
+    "karma_failed": t("pods.costumes.karma_failed"), "karma_done": plural_forms("pods.costumes.karma_done"),
+    "missing_confirm": t("pods.costumes.missing_confirm"), "missing_done": plural_forms("pods.costumes.missing_done"),
   }|tojson }};
-  const plural = (forms, n) => forms[n === 1 ? 0 : 1];
+  const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+  const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const esc = text => text.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
 

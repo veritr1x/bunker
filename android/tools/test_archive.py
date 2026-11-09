@@ -247,8 +247,32 @@ class InfoIcon(unittest.TestCase):
         import bunker_text
         self.assertEqual([bunker_text.t_count("archive.search.first_matches", n) for n in (1, 60)], ["First 1 match.", "First 60 matches."])
         html = self.render("music.html", groups=[])
-        self.assertIn('"place": "Track {track} \\u00b7 {n} place"', html)  # the dialog's heading, by count
-        self.assertIn('"places": "Track {track} \\u00b7 {n} places"', html)
+        # The dialog's heading, by count: every form reaches the script.
+        self.assertIn('"places": {"one": "Track {track} \\u00b7 {n} place", "other": "Track {track} \\u00b7 {n} places"}', html)
+
+    def test_pages_follow_the_languages_plural_forms(self):
+        import bunker_text
+        from archive.schedule import away
+        from archive.words import said
+        polish = {f"archive.music.places_heading.{c}": f"Utwór {{track}} · {{n}} {w}" for c, w in
+                  (("one", "miejsce"), ("few", "miejsca"), ("many", "miejsc"), ("other", "miejsca"))}
+        polish.update({f"archive.schedule.away_days.{c}": f"{{n}} {w}" for c, w in
+                       (("one", "dzień"), ("few", "dni"), ("many", "dni"), ("other", "dnia"))})
+        polish.update({f"archive.schedule.reward_days.{c}": f"{{n}} {w} nagród" for c, w in
+                       (("one", "dzień"), ("few", "dni"), ("many", "dni"), ("other", "dnia"))})
+        polish["archive.schedule.away"] = "Nieobecność {away}: {rewards}"
+        bunker_text.use(polish, language="pl")
+        self.addCleanup(bunker_text.use, None)
+        html = self.render("music.html", groups=[])
+        self.assertIn('<html lang="pl"', html)
+        self.assertIn("new Intl.PluralRules(\"pl\")", html)
+        for word in ("miejsce", "miejsca", "miejsc"):
+            self.assertIn(f"{{n}} {word}\"", html)
+        # Counted words the Schedule keeps are counted when read, in the language read in: 5 is "many" in Polish.
+        stored = away(5, 2)
+        self.assertEqual(said(stored), "Nieobecność 5 dni: 2 dni nagród")
+        bunker_text.use(None)
+        self.assertEqual(said(stored), "Away 5 days: 2 days of rewards")
 
     def test_schedule_note_is_behind_an_icon(self):
         for original, note in ((True, "Dates from the live service, in UTC."), (False, "Open Pod Programs once to see the original dates.")):

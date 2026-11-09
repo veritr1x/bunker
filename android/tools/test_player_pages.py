@@ -57,12 +57,38 @@ class Plurals(unittest.TestCase):
         }
         for (page, name), forms in expected.items():
             with self.subTest(page=page, name=name):
-                self.assertEqual(self.forms(page, name), forms)
+                self.assertEqual(self.forms(page, name), dict(zip(("one", "other"), forms)))
 
     def test_scripts_pick_the_form_by_count(self):
         for page in EDITORS:
             with self.subTest(page=page):
-                self.assertIn("const plural = (forms, n) => forms[n === 1 ? 0 : 1];", render(page, **EDITORS[page]))
+                html = render(page, **EDITORS[page])
+                self.assertRegex(html, r'const PLURAL = new Intl\.PluralRules\("en"\);|'
+                                       r'const LOCALE = "en";\n  const PLURAL = new Intl\.PluralRules\(LOCALE\);')
+                self.assertNotIn("en-US", html)   # numbers are written in the page's language
+                self.assertIn("const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;", html)
+
+    def test_scripts_carry_every_form_of_the_language(self):
+        # Polish counts one / few / many / other: the page hands its script all four and Polish's rules.
+        polish = {"one": "Dodano {n} kostium.", "few": "Dodano {n} kostiumy.", "many": "Dodano {n} kostiumów.",
+                  "other": "Dodano {n} kostiumu."}
+        bunker_text.use({f"pods.costumes.granted.{form}": text for form, text in polish.items()}, language="pl")
+        try:
+            html = render("user_costumes.html", **EDITORS["user_costumes.html"])
+        finally:
+            bunker_text.use(None)
+        self.assertEqual(messages(html)["granted"], polish)
+        self.assertIn('const PLURAL = new Intl.PluralRules("pl");', html)
+
+    def test_item_amounts_are_written_in_the_page_language(self):
+        bunker_text.use({"pods.items.heading": "Edytor przedmiotów"}, language="pl")
+        try:
+            html = render("user_items.html", **EDITORS["user_items.html"])
+        finally:
+            bunker_text.use(None)
+        self.assertIn('const LOCALE = "pl";', html)
+        self.assertEqual(html.count("toLocaleString(LOCALE)"), 2)
+        self.assertIn('display.textContent.replace(/\\D/g, "")', html)  # reads "27,730" and "27 730" alike
 
     def test_slab_panels_count_both_numbers(self):
         def line(panels, characters):

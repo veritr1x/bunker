@@ -103,7 +103,7 @@ BEATS = {"dark": "light", "light": "dark", "fire": "wind", "wind": "water", "wat
 
 
 def _element(element: str) -> str:
-    return bunker_text.t(f"common.element.{element}")
+    return bunker_text.t(f"common.element.{element}", default=element)   # new game data: its own name
 
 
 def element_note(element: str) -> str:

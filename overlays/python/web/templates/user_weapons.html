@@ -35,7 +35,8 @@
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
     if (!r.count) return;
-    const text = r.count === 1 ? {{ t("pods.player.gifts_waiting.one", n="{n}")|tojson }} : {{ t("pods.player.gifts_waiting.other", n="{n}")|tojson }};
+    const forms = {{ plural_forms("pods.player.gifts_waiting")|tojson }};
+    const text = forms[new Intl.PluralRules({{ text_language()|tojson }}).select(r.count)] ?? forms.other;
     box.querySelector("a").textContent = "> " + text.replace("{n}", r.count);
     box.hidden = false;
   }).catch(() => {});
@@ -84,10 +85,11 @@
     "grant_failed": t("pods.player.grant_failed"), "batch_failed": t("pods.player.batch_failed"),
     "failed": t("pods.player.failed"), "nothing_chosen": t("pods.player.nothing_chosen"),
     "network_error": t("pods.player.network_error", error="{error}"),
-    "granted_one": t("pods.weapons.granted_one", id="{id}"), "granted": [t("pods.weapons.granted.one", n="{n}"), t("pods.weapons.granted.other", n="{n}")],
-    "missing_confirm": t("pods.weapons.missing_confirm"), "missing_done": [t("pods.weapons.missing_done.one", n="{n}"), t("pods.weapons.missing_done.other", n="{n}")],
+    "granted_one": t("pods.weapons.granted_one", id="{id}"), "granted": plural_forms("pods.weapons.granted"),
+    "missing_confirm": t("pods.weapons.missing_confirm"), "missing_done": plural_forms("pods.weapons.missing_done"),
   }|tojson }};
-  const plural = (forms, n) => forms[n === 1 ? 0 : 1];
+  const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+  const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
 
   const searchInput = document.getElementById("search-weapons");

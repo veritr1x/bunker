@@ -30,11 +30,12 @@ def _short(strategy, target, element):
     """A strategy's reason, in the chosen language (one whole sentence per strategy)."""
     t = bunker_text.t
     return {
-        "compromise_counter": lambda: t("pods.decks.reason.compromise_counter", target=target()),
+        "compromise_counter": lambda: (t("pods.decks.reason.compromise_counter", target=target) if target
+                                       else t("pods.decks.reason.compromise_counter_any")),
         "dauntless": lambda: t("pods.decks.reason.dauntless"),
         "tank": lambda: t("pods.decks.reason.tank"),
         "stall": lambda: t("pods.decks.reason.stall"),
-        "mono": lambda: t("pods.decks.reason.mono", element=t(f"common.element.{element}").lower()),
+        "mono": lambda: t("pods.decks.reason.mono", element=t(f"pods.decks.element_in_text.{element}", default=element)),
         "burst": lambda: t("pods.decks.reason.burst"),
     }[strategy]()
 
@@ -78,7 +79,7 @@ def short_reason(strategy, elements, tags, against, tables) -> Later:
     adv = [t for t in tags if isinstance(t, Advantage)]
 
     def make():
-        short = _short(strategy, lambda: name or bunker_text.t("pods.decks.reason.them"), elements[0])
+        short = _short(strategy, name, elements[0])
         if adv and len(short) + len(adv[0]) + 3 <= SHORT_MAX:
             short = bunker_text.t("pods.decks.reason.with_note", reason=short.removesuffix("."), note=str(adv[0]))
         return _fit(short)

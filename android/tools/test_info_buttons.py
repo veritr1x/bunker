@@ -126,6 +126,18 @@ class BackupNote(unittest.TestCase):
         self.assertIn("The latest 10 backups are kept.", page(10))
 
 
+class PageLanguage(unittest.TestCase):
+    def test_the_page_says_its_language(self):
+        # Screen readers and hyphenation follow <html lang>: the language the page's words are in.
+        import bunker_text
+        page = lambda: RENDER("backup.html", request=None, active="backups", backups=[], retention=10, game_db_exists=True,
+                              lunar_tear_running="")
+        self.assertIn('<html lang="en">', page())
+        bunker_text.use({"common.close": "Fechar"}, "pt-BR")
+        self.addCleanup(bunker_text.use, None)
+        self.assertIn('<html lang="pt-BR">', page())
+
+
 class PlayerLinks(unittest.TestCase):
     def test_editor_links_are_a_spaced_row(self):
         # Inline links in a paragraph: wrapped rows touched. They sit in an .actions row, plain names.

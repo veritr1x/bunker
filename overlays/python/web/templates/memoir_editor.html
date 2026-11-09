@@ -110,13 +110,14 @@
     "primary": t("pods.memoirs.primary"), "slot": t("pods.memoirs.slot", slot="{slot}"),
     "bonus": t("pods.memoirs.bonus", two="{two}", three="{three}"),
     "grant_confirm": t("pods.memoirs.grant_confirm", name="{name}"), "working": t("pods.player.working"),
-    "failed": t("pods.player.failed"), "granted": [t("pods.memoirs.granted.one", name="{name}", n="{n}"), t("pods.memoirs.granted.other", name="{name}", n="{n}")],
+    "failed": t("pods.player.failed"), "granted": plural_forms("pods.memoirs.granted"),
     "network_error": t("pods.player.network_error", error="{error}"),
-    "upgrade_confirm": t("pods.memoirs.upgrade_confirm"), "upgraded": [t("pods.memoirs.upgraded.one", n="{n}"), t("pods.memoirs.upgraded.other", n="{n}")],
+    "upgrade_confirm": t("pods.memoirs.upgrade_confirm"), "upgraded": plural_forms("pods.memoirs.upgraded"),
     "pick_first": t("pods.memoirs.pick_first"), "rewrite_confirm": t("pods.memoirs.rewrite_confirm"),
     "rewritten": t("pods.memoirs.rewritten"),
   }|tojson }};
-  const plural = (forms, n) => forms[n === 1 ? 0 : 1];
+  const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+  const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
 
   const SET_BY_ID = {};
