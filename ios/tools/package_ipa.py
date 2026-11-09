@@ -22,6 +22,8 @@ import sys
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "android/tools"))
+import game_fonts  # noqa: E402
 from bunker_ios_update import ADJUST_SITES, SDK_SWITCHES, SETTINGS, UNITY, patch_unity_connect  # noqa: E402
 import guerrilla_unlock  # noqa: E402
 from ipa_stream import LEFTOVERS  # noqa: E402
@@ -241,6 +243,12 @@ def sign(app, identity, profile, work):
     run("codesign", "--verify", "--deep", "--strict", app)
 
 
+def add_letters(app, log=print):
+    """Adds the letters the game's fonts lack (game_fonts.py) and ships their licence."""
+    game_fonts.patch_game_fonts([Path(app) / game_fonts.IOS_FONT_FILE], log=log)
+    shutil.copyfile(game_fonts.NOTO / "OFL.txt", Path(app) / "NOTO_OFL.txt")
+
+
 def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_offset=0, move=False):
     """Everything Bunker changes in the patched game's NieR.app; returns its Info.plist.
 
@@ -272,6 +280,7 @@ def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_
     settings = app / SETTINGS
     settings.write_bytes(patch_unity_connect(settings.read_bytes()))
     print("Unity Connect (Unity's analytics): off")
+    add_letters(app)
     turn_off_adjust(app / UNITY)
     print("Adjust (install tracking): off")
     changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework")

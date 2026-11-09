@@ -23,6 +23,7 @@ PYTHON = [
     "android/tools/axml.py",
     "android/tools/assemble_apk.py",
     "android/tools/game_patch.py",
+    "android/tools/game_fonts.py",
     "android/tools/build_info.py",
     "android/tools/notice_pack.py",
     "android/tools/privacy.py",
@@ -41,6 +42,8 @@ PYTHON = [
     "android/app/src/main/python/patcher/patch_masterdata.py",  # prepared: scripts/prepare.py
     "web/signing/bunker-key.pem",
     "web/signing/bunker-cert.der",
+    # The letters game_fonts.py adds to the game's fonts, and their licence.
+    *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "fonts/noto").iterdir()),
 ]
 PAGES_LIMIT = 100 * 1024 * 1024  # GitHub Pages refuses larger files.
 NOTICE_PART_SIZE = 64 * 1024 * 1024
