@@ -25,6 +25,11 @@ _base_url = ""
 _token = ""
 
 
+def active_pack(asset_root: Path) -> Path:
+    """The language pack the server applies (bunker_language: the translation folder beside assets/)."""
+    return asset_root / "translation" / "active.json"
+
+
 def revision_root(asset_root: Path) -> Path:
     """Revision 0 of the imported files; some dumps keep it under an android/ or ios/ folder."""
     revision = asset_root / "assets" / "revisions" / "0"
@@ -107,7 +112,7 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, co
     from archive.app import create_app as archive_app
     master, original = original_master(asset_root, archive_root)
     app = archive_app(revision_root(asset_root), master, archive_root, packaged("web") / "static",
-                      original=original, language=asset_root.parent / "translation" / "active.json",
+                      original=original, language=active_pack(asset_root),
                       **(converters or android_converters()))
 
     @app.middleware("http")
