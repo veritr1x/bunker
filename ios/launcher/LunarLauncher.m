@@ -12,6 +12,7 @@
 #include "liblunar.h"
 #include "rebind.h"
 #import "LunarTools.h"
+#import "LTTexts.h"
 
 static NSString *const kMasterName = @"20240404193219.bin.e";
 static NSString *gServerRoot, *gSaves, *gMessage;
@@ -2377,6 +2378,8 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         gQueue = dispatch_queue_create("org.veritr1x.bunker.server", DISPATCH_QUEUE_SERIAL);
         gBackgroundTask = UIBackgroundTaskInvalid;
         gServerRoot = Documents();
+        // Bunker's words: the catalogue in this framework, the pack Pod Programs activated in Documents/translation.
+        LTTextsUse([[NSBundle bundleForClass:[LTText class]] pathForResource:@"bunker_en" ofType:@"json"], gServerRoot);
         gSaves = [gServerRoot stringByAppendingPathComponent:@"saves"];
         RecoverImport();
         DropEmptyCachedAssets();

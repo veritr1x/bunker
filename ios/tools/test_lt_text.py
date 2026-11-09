@@ -161,5 +161,82 @@ int main(void) { @autoreleasepool {
             self.assertNotIn("UIKit", (LAUNCHER / name).read_text(), name)
 
 
+WRAPPER = (*CORE, LAUNCHER / "LTTexts.m")
+CATALOGUE = ROOT / "translations/bunker/en.json"
+
+
+@unittest.skipUnless(MAC, "needs macOS and clang")
+class Wrapper(unittest.TestCase):
+    """LTTexts with a real pack file: what the launcher reads on the phone."""
+
+    def run_with(self, pack, body: str, raw: bytes | None = None) -> list[str]:
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / "translation").mkdir()
+            if raw is not None or pack is not None:
+                (Path(root) / "translation/active.json").write_bytes(raw if raw is not None else json.dumps(pack).encode())
+            main = ("#import <Foundation/Foundation.h>\n#import \"LTTexts.h\"\n#include <stdio.h>\n"
+                    "static void say(NSString *s) { puts(s.UTF8String); }\nint main(void) { @autoreleasepool {\n"
+                    f"  LTTextsUse({objc(CATALOGUE)}, {objc(root)});\n" + body + "\n} return 0; }\n")
+            return run(main, *WRAPPER)
+
+    def test_english_without_a_pack(self):
+        self.assertEqual(self.run_with(None, 'say(T(@"common.close")); say(TLanguage()); say(TUpper(@"files"));'),
+                         ["Close", "en", "FILES"])
+
+    def test_the_pack_pod_programs_activated(self):
+        pack = {"language": "tr", "bunker": {"common.close": "Kapat", "common.cancel": 7, "common.ok": ""}}
+        out = self.run_with(pack, 'say(T(@"common.close")); say(T(@"common.cancel")); say(T(@"common.ok")); say(TLanguage());'
+                                  'say(TUpper(@"files")); say(TNumber(1.5)); say(TSize(1400000));')
+        self.assertEqual(out, ["Kapat", "Cancel", "OK", "tr", "FİLES", "1,5", "1,4 MB"])
+
+    def test_hostile_packs_give_english(self):
+        cases = {
+            "too large": (None, b'{"language": "tr", "bunker": {"common.close": "' + b"x" * (8 * 1024 * 1024) + b'"}}'),
+            "not json": (None, b"\xff\xfe nonsense"),
+            "not an object": (["common.close", "Kapat"], None),
+            "a bad tag": ({"language": "x-\U0001F916", "bunker": {"common.close": "Kapat"}}, None),
+            "placeholders": ({"language": "de", "bunker": {"launcher.size.mb": "{n:99999999} MB"}}, None),
+        }
+        # a bad tag: the words are kept, English rules; a spec in a placeholder: the English text, German numbers
+        expected = {"too large": ["Close", "en"], "not json": ["Close", "en"], "not an object": ["Close", "en"],
+                    "a bad tag": ["Kapat", "en"], "placeholders": ["1,5 MB", "de"]}
+        for name, (pack, raw) in cases.items():
+            body = 'say(TSize(1500000)); say(TLanguage());' if name == "placeholders" else 'say(T(@"common.close")); say(TLanguage());'
+            self.assertEqual(self.run_with(pack, body, raw), expected[name], name)
+
+    def test_a_new_pack_is_noticed_and_counted(self):
+        body = r'''
+  NSString *pack = [NSTemporaryDirectory() stringByAppendingPathComponent:@"unused"]; (void)pack;
+  NSInteger before = TGeneration(); say(T(@"common.close"));
+  NSString *active = [[NSString stringWithUTF8String:getenv("LT_ROOT")] stringByAppendingPathComponent:@"translation/active.json"];
+  [@"{\"language\": \"de\", \"bunker\": {\"common.close\": \"Schließen\"}}" writeToFile:active atomically:YES encoding:NSUTF8StringEncoding error:nil];
+  say(T(@"common.close"));
+  [NSThread sleepForTimeInterval:1.1];
+  say(T(@"common.close")); say(TGeneration() == before + 1 ? @"counted" : @"not counted");
+  say(TInEnglish(Said(@"common.close")));'''
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / "translation").mkdir()
+            main = ("#import <Foundation/Foundation.h>\n#import \"LTTexts.h\"\n#include <stdio.h>\n#include <stdlib.h>\n"
+                    "static void say(NSString *s) { puts(s.UTF8String); }\nint main(void) { @autoreleasepool {\n"
+                    f"  LTTextsUse({objc(CATALOGUE)}, {objc(root)}); setenv(\"LT_ROOT\", {json.dumps(root)}, 1);\n" + body + "\n} return 0; }\n")
+            out = run(main, *WRAPPER)
+        # within a second the old words stay (no stat on every lookup); then the new pack, counted once
+        self.assertEqual(out, ["Close", "Close", "Schließen", "counted", "Close"])
+
+    def test_the_framework_carries_the_catalogue(self):
+        build = (ROOT / "ios/tools/build_framework.sh").read_text()
+        self.assertIn('cp "$root_dir/translations/bunker/en.json" "$framework/bunker_en.json"', build)
+        for source in ("LTText.m", "LTTexts.m", "LTPlurals.c"):
+            self.assertIn(f'"$root_dir/ios/launcher/{source}"', build)
+        launcher = (LAUNCHER / "LunarLauncher.m").read_text()
+        self.assertRegex(launcher, r'LTTextsUse\(\[\[NSBundle bundleForClass:\[LTText class\]\] pathForResource:@"bunker_en" ofType:@"json"\], gServerRoot\)')
+
+    def test_the_phones_language_is_never_used(self):
+        for name in ("LTTexts.m", "LTText.m", "LunarLauncher.m", "LunarTools.m"):
+            text = (LAUNCHER / name).read_text()
+            for phone in ("currentLocale", "preferredLanguages", "autoupdatingCurrentLocale"):
+                self.assertNotIn(phone, text, name)
+
+
 if __name__ == "__main__":
     unittest.main()
