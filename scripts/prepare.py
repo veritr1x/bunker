@@ -74,6 +74,9 @@ def prepare():
         shutil.copy2(base / "LICENSE", grant / "LICENSE")
         shutil.copytree(ROOT / "overlays/server", output / "server", dirs_exist_ok=True)
         shutil.copytree(ROOT / "overlays/python", python, dirs_exist_ok=True)
+        # The language packs Bunker ships, from the reviewed translations (Pod Programs › Language).
+        from language_packs import write_shipped
+        write_shipped(ROOT / "translations", python / "shipped_languages")
         for patch in sorted((ROOT / "patches").glob("*.patch")):
             subprocess.run(["git", "apply", "--directory=" + output.relative_to(ROOT).as_posix(), str(patch)], cwd=ROOT, check=True)
 
