@@ -127,6 +127,24 @@ class LanguagePageTest(unittest.TestCase):
         self.assertIn("error=", response.headers["location"])
         self.assertEqual(response.headers.get("x-bunker-unchanged"), "1")
 
+    def test_a_failed_rebuild_keeps_the_last_choice_and_can_be_retried(self):
+        # The game data could not take the language (a full disk…): the choice goes back, the page says so, and
+        # choosing the language in use again tries the game data again.
+        from unittest import mock
+        import android_challenges
+        self.load()
+        with mock.patch.object(android_challenges, "reapply_texts", side_effect=OSError("disk full")):
+            response = self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("error=", response.headers["location"])
+        self.assertIn("disk+full", response.headers["location"])
+        self.assertFalse((self.translation / "active.json").exists())  # English, as before
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        with mock.patch.object(android_challenges, "reapply_texts", return_value=True) as again:
+            response = self.client.post("/language", data={"choice": "loaded:pt-BR"})  # in use: the game data is tried again
+        again.assert_called_once()
+        self.assertIsNone(response.headers.get("x-bunker-unchanged"))  # it changed the game data: the game reloads
+
     def test_saving_the_current_choice_changes_nothing(self):
         response = self.client.post("/language", data={"choice": "en"})
         self.assertEqual(response.headers.get("x-bunker-unchanged"), "1")

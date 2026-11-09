@@ -1207,6 +1207,7 @@
   "pods.items.tab_gems": "Gems",
   "pods.items.tab_important": "Important Items",
   "pods.items.tab_materials": "Materials",
+  "pods.language.apply_failed": "The game data couldn't take the language: {error}",
   "pods.language.back_to_english": "Back to English",
   "pods.language.building": "Building {name}…",
   "pods.language.choose_first": "Choose a language first.",

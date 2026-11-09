@@ -460,10 +460,14 @@ def update_data(data_root, asset_root, tools_root, version):
     configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
     prepare_data()
     refresh_language()
-    import android_challenges
-    android_challenges.reapply_texts()  # a revised shipped pack's game data texts
     import android_patcher
-    return android_patcher.update_for(version)
+    updated = android_patcher.update_for(version)  # a preset or calendar rebuild brings the texts too
+    try:
+        import android_challenges
+        android_challenges.reapply_texts()  # a revised shipped pack's game data texts
+    except Exception:  # noqa: BLE001 — the update stands; Pod Programs › Language can try again
+        log.exception("Game data texts not updated")
+    return updated
 
 
 def refresh_language():

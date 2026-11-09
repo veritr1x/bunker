@@ -95,6 +95,20 @@ def unchanged(response):
     return response
 
 
+def _choice_files(langs):
+    """The files a choice writes (the active pack, the shipped choice), as they are now: path → bytes or None."""
+    return {path: (path.read_bytes() if path.is_file() else None) for path in (langs.active_path, langs.choice_path) if path}
+
+
+def _put_back(files):
+    for path, data in files.items():
+        if data is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+
+
 @router.post("/language")
 def choose(choice: str = Form("")):
     if not choice:
@@ -102,15 +116,27 @@ def choose(choice: str = Form("")):
     if choice != "en" and not supported():  # English stays possible, to clear a pack left from other game files
         return redirect(error=t("pods.language.unsupported"))
     langs = languages()
+    import android_challenges as challenges
     if choice == langs.active():
-        return unchanged(redirect(message=t("pods.language.in_use")))
+        # In use: the game data is tried again (a rebuild that failed before, a master imported since).
+        try:
+            rebuilt = challenges.reapply_texts()
+        except Exception as exc:  # noqa: BLE001
+            return redirect(error=t("pods.language.apply_failed", error=str(exc)))
+        response = redirect(message=t("pods.language.in_use"))
+        return response if rebuilt else unchanged(response)
+    before = _choice_files(langs)
     try:
         langs.choose(choice)
     except PackError as exc:
         return redirect(error=str(exc))
     bunker_text.reload()  # Bunker's own pages follow the choice at once
-    import android_challenges as challenges
-    challenges.reapply_texts()  # the game data's texts (shop lines, gift texts…) follow it too
+    try:
+        challenges.reapply_texts()  # the game data's texts (shop lines, gift texts…) follow it too
+    except Exception as exc:  # noqa: BLE001 — the choice goes back: the game data still has the old texts
+        _put_back(before)
+        bunker_text.reload()
+        return redirect(error=t("pods.language.apply_failed", error=str(exc)))
     import android_runtime
     if choice == "en":
         return redirect(message=t("pods.language.chose_english", next=android_runtime.next_step()))
@@ -138,7 +164,10 @@ def remove(language: str = Form(...)):
     if in_use:
         bunker_text.reload()
         import android_challenges as challenges
-        challenges.reapply_texts()  # back to the game data's own English
+        try:
+            challenges.reapply_texts()  # back to the game data's own English
+        except Exception as exc:  # noqa: BLE001 — choosing English (in use) tries again
+            return redirect(error=t("pods.language.apply_failed", error=str(exc)))
         import android_runtime
         return redirect(message=t("pods.language.removed_in_use", language=language, next=android_runtime.next_step()))
     return unchanged(redirect(message=t("pods.language.removed", language=language)))

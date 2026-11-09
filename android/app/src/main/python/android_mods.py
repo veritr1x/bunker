@@ -190,7 +190,8 @@ def save_settings(settings):
     write_settings(settings)
     # Against what the game data has, not the last mods.json: a save that
     # failed part-way is applied again rather than taken as done.
-    if challenges.wanted(read_settings()) == challenges.applied_challenges():
+    want, applied = challenges.wanted(read_settings()), challenges.applied_challenges()
+    if all(want[k] == applied[k] for k in challenges.CHALLENGES):  # the language's texts are Language's business
         return False
     live = runtime.game_live()
     if live:
