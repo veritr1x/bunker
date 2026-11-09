@@ -58,12 +58,13 @@ in your language.
 ## Bunker's own screens
 
 `bunker/en.json` holds the words of Pod Programs, the Archive and the Android
-launcher, written by Bunker's developers. Translate it into `bunker/<language>.json` like the other
+and iOS launchers, written by Bunker's developers. Translate it into `bunker/<language>.json` like the other
 folders, with a few differences:
 
 - Keys say where a text is shown: `pods.<page>.<name>` (Pod Programs),
-  `archive.<page>.<name>` (the Archive), `launcher.<area>.<name>` (the
-  launcher: its screen, ⋮ menu, dialogs and notification), `common.<name>`
+  `archive.<page>.<name>` (the Archive), `launcher.<area>.<name>` (both
+  launchers: their screens, ⋮ menus, dialogs and notification;
+  `launcher.ios.<area>.<name>` is shown on iPhone and iPad only), `common.<name>`
   (words all of them use, such as Save or Close). A key ending in `_info` is
   the explanation behind an "i" icon.
 - Write labels in normal case ("Game files"): where a screen shows capitals,
@@ -84,9 +85,8 @@ folders, with a few differences:
 - A missing or broken translation (a placeholder dropped or misspelled) shows
   the English text instead.
 - The lines "End of transmission // Glory to mankind" and "Operator link //
-  Standing by" are not in the catalogue: they stay in English.
-
-Bunker's Android and iOS launchers are not in this folder yet.
+  Standing by", and the launchers' captions such as "LUNAR TEAR // 127.0.0.1",
+  are not in the catalogue: they stay in English.
 
 ## Sending your translation
 
