@@ -92,6 +92,25 @@ func TestPatchListUnknownID(t *testing.T) {
 	}
 }
 
+// Patching the real 26 MB list for a game start: one translated entry.
+func BenchmarkPatchRealList(b *testing.B) {
+	dump := os.Getenv("ARCHIVE_DUMP")
+	if dump == "" {
+		b.Skip("set ARCHIVE_DUMP to an extracted revisions/0")
+	}
+	data, err := os.ReadFile(filepath.Join(dump, "list.bin"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	changes := map[string]Entry{uiID: {ObjectID: uiID, Size: 300, CRC: 7, MD5: "abababababababababababababababab"}}
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := PatchList(data, 1817, changes); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestRealList(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(dumpRevision(t), "list.bin"))
 	if err != nil {

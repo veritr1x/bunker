@@ -35,13 +35,14 @@ type protoField struct {
 	bytes        []byte
 }
 
-func protoFields(data []byte) ([]protoField, error) {
-	var out []protoField
+// walkFields calls fn for each field in order without collecting them; fn
+// returns false to stop early.
+func walkFields(data []byte, fn func(protoField) bool) error {
 	for i := 0; i < len(data); {
 		start := i
 		tag, n := binary.Uvarint(data[i:])
 		if n <= 0 {
-			return nil, errors.New("bad tag")
+			return errors.New("bad tag")
 		}
 		i += n
 		f := protoField{number: int(tag >> 3), wire: int(tag & 7)}
@@ -49,7 +50,7 @@ func protoFields(data []byte) ([]protoField, error) {
 		case 0:
 			v, n := binary.Uvarint(data[i:])
 			if n <= 0 {
-				return nil, errors.New("bad varint")
+				return errors.New("bad varint")
 			}
 			f.varint, i = v, i+n
 		case 1:
@@ -57,30 +58,41 @@ func protoFields(data []byte) ([]protoField, error) {
 		case 2:
 			l, n := binary.Uvarint(data[i:])
 			if n <= 0 || uint64(len(data)-i-n) < l {
-				return nil, errors.New("bad length")
+				return errors.New("bad length")
 			}
 			f.bytes, i = data[i+n:i+n+int(l)], i+n+int(l)
 		case 5:
 			i += 4
 		default:
-			return nil, fmt.Errorf("wire type %d", f.wire)
+			return fmt.Errorf("wire type %d", f.wire)
 		}
 		if i > len(data) {
-			return nil, errors.New("truncated field")
+			return errors.New("truncated field")
 		}
 		f.raw = data[start:i]
-		out = append(out, f)
+		if !fn(f) {
+			return nil
+		}
 	}
-	return out, nil
+	return nil
+}
+
+// entryIDBytes is an entry's object id, read without decoding the rest.
+func entryIDBytes(data []byte) []byte {
+	var id []byte
+	walkFields(data, func(f protoField) bool {
+		if f.number == entryObjectID && f.wire == 2 {
+			id = f.bytes
+			return false
+		}
+		return true
+	})
+	return id
 }
 
 func parseEntry(data []byte) (Entry, bool) {
-	fields, err := protoFields(data)
-	if err != nil {
-		return Entry{}, false
-	}
 	var e Entry
-	for _, f := range fields {
+	err := walkFields(data, func(f protoField) bool {
 		switch {
 		case f.number == entryPath && f.wire == 2:
 			e.Path = string(f.bytes)
@@ -93,19 +105,16 @@ func parseEntry(data []byte) (Entry, bool) {
 		case f.number == entryObjectID && f.wire == 2:
 			e.ObjectID = string(f.bytes)
 		}
-	}
-	return e, e.ObjectID != "" && e.Path != ""
+		return true
+	})
+	return e, err == nil && e.ObjectID != "" && e.Path != ""
 }
 
 // ParseList reads the revision and the asset bundle entries of list.bin.
 func ParseList(data []byte) (uint64, []Entry, error) {
-	fields, err := protoFields(data)
-	if err != nil {
-		return 0, nil, err
-	}
 	var revision uint64
 	var entries []Entry
-	for _, f := range fields {
+	err := walkFields(data, func(f protoField) bool {
 		switch {
 		case f.number == listRevisionField && f.wire == 0:
 			revision = f.varint
@@ -114,6 +123,10 @@ func ParseList(data []byte) (uint64, []Entry, error) {
 				entries = append(entries, e)
 			}
 		}
+		return true
+	})
+	if err != nil {
+		return 0, nil, err
 	}
 	return revision, entries, nil
 }
@@ -131,27 +144,25 @@ func appendBytesField(b []byte, number int, v []byte) []byte {
 
 // PatchList returns list.bin with its revision set and the size, CRC and md5
 // of each entry in changes (by object id) replaced; every other byte is kept.
+//
+// It walks the list once without collecting its 200,000 entries: only the
+// object id of each entry is read, and only the changed ones are decoded.
 func PatchList(data []byte, revision uint64, changes map[string]Entry) ([]byte, error) {
-	fields, err := protoFields(data)
-	if err != nil {
-		return nil, err
-	}
 	out := make([]byte, 0, len(data)+64)
 	found := map[string]bool{}
-	for _, f := range fields {
+	err := walkFields(data, func(f protoField) bool {
 		switch {
 		case f.number == listRevisionField && f.wire == 0:
 			out = appendVarintField(out, listRevisionField, revision)
-			continue
-		case f.number == listBundleField && f.wire == 2:
-			e, ok := parseEntry(f.bytes)
-			change, wanted := changes[e.ObjectID]
-			if !ok || !wanted {
+			return true
+		case f.number == listBundleField && f.wire == 2 && len(changes) > 0:
+			id := entryIDBytes(f.bytes)
+			change, wanted := changes[string(id)]
+			if !wanted {
 				break
 			}
-			inner, _ := protoFields(f.bytes)
 			var entry []byte
-			for _, g := range inner {
+			walkFields(f.bytes, func(g protoField) bool {
 				switch {
 				case g.number == entrySize && g.wire == 0:
 					entry = appendVarintField(entry, entrySize, change.Size)
@@ -162,12 +173,17 @@ func PatchList(data []byte, revision uint64, changes map[string]Entry) ([]byte, 
 				default:
 					entry = append(entry, g.raw...)
 				}
-			}
+				return true
+			})
 			out = appendBytesField(out, listBundleField, entry)
-			found[e.ObjectID] = true
-			continue
+			found[change.ObjectID] = true
+			return true
 		}
 		out = append(out, f.raw...)
+		return true
+	})
+	if err != nil {
+		return nil, err
 	}
 	var missing []string
 	for id := range changes {
