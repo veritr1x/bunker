@@ -38,8 +38,26 @@ def count(n: int, word: str) -> str:
     return f"{n:,} {word}" + ("" if n == 1 else "s")
 
 
-def status_line(status: dict) -> str:
-    name = status.get("name") or status.get("language") or "the pack"
+WAITING = "Your choice is saved. It applies the next time the server starts."
+
+
+def describes(status: dict, current: str, packs) -> bool:
+    """Whether the server's status (from its last start) is about the current choice, or about one made before it."""
+    state = status.get("state")
+    if current == "en":
+        return state == "off"
+    if current == "other" or (state == "failed" and not status.get("language")):
+        return True  # nothing to compare: a pack the page does not list, or one the server could not read
+    if state == "off":
+        return False  # a pack was chosen since the server last started
+    pack = next((p for p in packs if f"{p.source}:{p.language}" == current), None)
+    return pack is not None and status.get("language") == pack.language and (status.get("version") or "") == (pack.version or "")
+
+
+def status_line(status: dict, current: str = "", packs=()) -> str:
+    if not describes(status, current, packs):
+        return WAITING
+    name = status.get("name") or status.get("language")
     state = status.get("state")
     if state == "building":
         return f"Building {name}… The game gets it the next time it loads its file list."
@@ -47,6 +65,8 @@ def status_line(status: dict) -> str:
         kept = len(status.get("skipped") or [])
         line = f"Ready: {name}, {count(status.get('bundles', 0), 'text file')} translated"
         return line + (f", {kept:,} kept in English." if kept else ".")
+    if state == "failed" and not name:
+        return f"The server could not read the chosen pack: {status.get('error', 'unknown error')}. Choose another pack, or English."
     if state == "failed":
         return f"{name} could not be applied: {status.get('error', 'unknown error')}. It is tried again the next time the server starts."
     return ""
@@ -58,9 +78,11 @@ def view(request: Request, message: str = "", error: str = ""):
     langs.refresh()  # a revised shipped pack, if launchers did not already bring it in
     packs = langs.packs()  # read once: a full pack is tens of MB
     status = langs.status()
+    current = langs.active(packs)
     return templates.TemplateResponse(request, "language.html", {
-        "active": "language", "packs": packs, "current": langs.active(packs), "status": status,
-        "status_line": status_line(status), "status_state": status.get("state"), "supported": supported(), "count": count,
+        "active": "language", "packs": packs, "current": current, "status": status,
+        "status_line": status_line(status, current, packs),
+        "status_state": status.get("state") if describes(status, current, packs) else "waiting", "supported": supported(), "count": count,
         "message": message, "error": error})
 
 
