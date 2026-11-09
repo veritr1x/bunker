@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,6 +97,23 @@ func TestSummonDetailsInThePacksLanguage(t *testing.T) {
 	}
 	if got := text.rate(12.5); got != "12,500%" {
 		t.Errorf("rate: %q", got)
+	}
+}
+
+// The Rates page (the game's "Rates" button) speaks the pack, its rates written the language's way.
+func TestRatesPageInThePacksLanguage(t *testing.T) {
+	activePack(t, ptBR(map[string]any{
+		"ingame.rates.title":   "Taxas",
+		"ingame.rates.costume": "Traje {rarity}",
+		"ingame.rates.percent": "{percent}%",
+	}, nil, nil))
+	rec := httptest.NewRecorder()
+	serveGachaRatePage(rec)
+	page := rec.Body.String()
+	for _, want := range []string{`<html lang="pt-BR">`, "<h1>Taxas</h1>", "Traje ★4", ">2%<", "★4 weapon", "Set in Bunker"} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("page lacks %q:\n%s", want, page)
+		}
 	}
 }
 

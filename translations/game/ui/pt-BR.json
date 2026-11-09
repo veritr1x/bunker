@@ -8,9 +8,16 @@
   "ui.Outgame.Footer.Quest": "Missões",
   "ui.Outgame.Footer.Top": "Início",
   "ui.Outgame.Header.Friend": "Amigos",
-  "ui.Outgame.Header.Gift": "Caixa de Presentes",
+  "ui.Outgame.Header.Gift": "Presentes",
   "ui.Outgame.Header.Menu": "Menu",
   "ui.Outgame.Header.Mission": "Objetivos",
   "ui.Outgame.Header.Notice": "Avisos",
-  "ui.Outgame.Header.Shop": "Loja"
+  "ui.Outgame.Header.Shop": "Loja",
+  "ui.Outgame.MomMenu.Enhance": "Aprimorar",
+  "ui.Outgame.MomMenu.Gacha": "Invocações",
+  "ui.Outgame.MomMenu.Library": "Biblioteca",
+  "ui.Outgame.MomMenu.Map": "Mapa",
+  "ui.Outgame.MomMenu.Menu": "Menu",
+  "ui.Outgame.MomMenu.Organization": "Equipe",
+  "ui.Outgame.MomMenu.Quest": "Missões"
 }
