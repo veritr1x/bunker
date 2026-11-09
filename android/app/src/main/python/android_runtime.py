@@ -361,6 +361,7 @@ def create_app(token, origin):
     import android_gacha
     import android_deckbuilder
     import android_gift
+    import android_language
     import android_mods
     import android_story
     import android_players
@@ -371,6 +372,7 @@ def create_app(token, origin):
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
     app.include_router(android_gift.router)
+    app.include_router(android_language.router)
     app.include_router(android_deckbuilder.router)
     app.include_router(android_mods.router)
     app.include_router(android_story.router)
