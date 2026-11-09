@@ -278,7 +278,7 @@ final class Updater {
 
     /** Why the update can't start: about bytes are needed free (in MB, as Said). */
     private static String noSpace(Context c,long bytes) {
-        return Said.text("launcher.update.no_space","size",Texts.t(c,"launcher.files.size_mb","n",Texts.number(c,bytes>>20)));
+        return Said.text("launcher.update.no_space","size",Texts.size(c,bytes));
     }
 
     /** Starts Lunar Tear again when the update stopped it but nothing was installed. */

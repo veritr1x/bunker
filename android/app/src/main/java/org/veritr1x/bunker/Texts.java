@@ -49,8 +49,29 @@ final class Texts {
     static String count(Context c, String key, long n, Object... pairs) { return current(c).count(key, n, pairs); }
     static String[] around(Context c, String key, String slot, Object... pairs) { return current(c).around(key, slot, pairs); }
     static String number(Context c, double n) { return current(c).number(n); }
+    /** A size, written as every size in the launcher (BunkerText.size). */
+    static String size(Context c, long bytes) { return current(c).size(bytes); }
     /** Words set earlier (Said.text) put in words now; any other message as it is. */
     static String said(Context c, String said) { return Said.in(current(c), said); }
+
+    /** As said, in English whatever the pack: for logs, which stay English for bug reports. */
+    static synchronized String inEnglish(String said) { return Said.in(englishOnly(), said); }
+
+    /** error as it should be logged: its references in English (Said.forLog). */
+    static synchronized Throwable forLog(Throwable error) { return Said.forLog(error, englishOnly()); }
+
+    private static BunkerText englishOnly;
+
+    private static BunkerText englishOnly() {
+        current(null);
+        if (english == null) return new BunkerText(new HashMap<>(), null, ENGLISH_RULE, n -> String.valueOf((long) n));
+        if (englishOnly == null) {
+            final NumberFormat format = NumberFormat.getInstance(ULocale.US);
+            format.setMaximumFractionDigits(3);
+            englishOnly = new BunkerText(english, null, ENGLISH_RULE, n -> { synchronized (format) { return format.format(n); } });
+        }
+        return englishOnly;
+    }
 
     /** text in capitals, the pack's language's way ("İ" in Turkish). */
     static String upper(Context c, String text) {

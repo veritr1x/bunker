@@ -102,7 +102,6 @@ public final class MainActivity extends Activity {
         }
         panel.addView(r,new LinearLayout.LayoutParams(-1,-2));
     }
-    private String size(long bytes){return bytes>=1<<20?Texts.t(this,"launcher.size.mb","n",Texts.number(this,Math.round(bytes/104857.6)/10.0)):Texts.t(this,"launcher.size.kb","n",Texts.number(this,Math.max(1,bytes/1024)));}
     /** The Archive line: its state (a Said reference, words now) in capitals. */
     private String indexShown(){return Texts.upper(this,Texts.said(this,indexText));}
     @Override public void onCreate(Bundle state){
@@ -267,7 +266,7 @@ public final class MainActivity extends Activity {
         else if(attention)look.chip(status,state,look.alert,look.paper);
         else look.chip(status,state,look.chip,look.ink);
         File db=new File(FilesStore.data(this),"game.db");
-        save.setText(db.isFile()?"game.db"+" · "+size(db.length()):Texts.t(this,"launcher.main.no_save"));
+        save.setText(db.isFile()?"game.db"+" · "+Texts.size(this,db.length()):Texts.t(this,"launcher.main.no_save"));
         boolean measured=importing&&permille>=0;
         // A measured copy shows the bar with time left; anything else, the spinner.
         progress.setVisibility(busy&&!measured?View.VISIBLE:View.GONE);
