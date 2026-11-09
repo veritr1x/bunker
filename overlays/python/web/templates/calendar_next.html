@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<h1>Content patcher</h1>
+<h1>{{ t("pods.patcher.title") }}</h1>
 <h2 class="bracket-header">{{ title }}</h2>
 <form action="/patcher/calendar/jump" method="post" class="panel">
   <input type="hidden" name="target" value="{{ target }}">
   <dl class="kv plain">
-    <dt>Date</dt><dd>{{ view.day }} <span class="when">{{ view.original }} in the original</span></dd>
-    <dt>Skips</dt><dd>{{ view.days }} day{{ "s" if view.days != 1 }}</dd>
+    <dt>{{ t("pods.calendar.date") }}</dt><dd>{{ view.day }} <span class="when">{{ t("pods.calendar.in_original", date=view.original) }}</span></dd>
+    <dt>{{ t("pods.calendar.skips") }}</dt><dd>{{ t_count("pods.calendar.days", view.days) }}</dd>
   </dl>
-  {% if opens.names or opens.more %}<div class="label">Opens</div>
-  <ul class="terms">{% for name in opens.names %}<li>{{ name }}</li>{% endfor %}{% if opens.more %}<li>{{ opens.more }} more</li>{% endif %}</ul>{% endif %}
-  {% if closes.names or closes.more %}<div class="label">Closes</div>
-  <ul class="terms">{% for name in closes.names %}<li>{{ name }}</li>{% endfor %}{% if closes.more %}<li>{{ closes.more }} more</li>{% endif %}</ul>{% endif %}
-  {% if view.paid %}<div class="label">You still get</div>
-  <ul class="terms">{% for name in view.paid %}<li>{{ name }} rewards</li>{% endfor %}</ul>{% endif %}
+  {% if opens.names or opens.more %}<div class="label">{{ t("pods.calendar.opens") }}</div>
+  <ul class="terms">{% for name in opens.names %}<li>{{ name }}</li>{% endfor %}{% if opens.more %}<li>{{ t("pods.calendar.more", n=opens.more) }}</li>{% endif %}</ul>{% endif %}
+  {% if closes.names or closes.more %}<div class="label">{{ t("pods.calendar.closes") }}</div>
+  <ul class="terms">{% for name in closes.names %}<li>{{ name }}</li>{% endfor %}{% if closes.more %}<li>{{ t("pods.calendar.more", n=closes.more) }}</li>{% endif %}</ul>{% endif %}
+  {% if view.paid %}<div class="label">{{ t("pods.calendar.still_get") }}</div>
+  <ul class="terms">{% for name in view.paid %}<li>{{ t("pods.calendar.rewards", name=name) }}</li>{% endfor %}</ul>{% endif %}
   <div class="actions">
-    <button type="submit">Jump</button>
-    <a href="/patcher" class="button secondary">Cancel</a>
+    <button type="submit">{{ t("pods.calendar.jump") }}</button>
+    <a href="/patcher" class="button secondary">{{ t("common.cancel") }}</a>
   </div>
 </form>
-<p class="credit">Anything you skip can't be claimed later.</p>
+<p class="credit">{{ t("pods.calendar.skip_warning") }}</p>
 {% endblock %}

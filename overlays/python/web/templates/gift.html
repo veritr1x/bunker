@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Gift{% endblock %}
+{% block title %}{{ t("pods.gift.title") }}{% endblock %}
 {% block content %}
 <style>
   .gift-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5em,1fr));gap:6px;margin:14px 0 10px}
@@ -28,47 +28,53 @@
 }
 </style>
 
-<h1 class="bracket-header" data-side>Gift{{ info("Send yourself anything the game can hold, then claim it from the game's Gift Box. It shows there after your next action.") }}</h1>
+<h1 class="bracket-header" data-side>{{ t("pods.gift.title") }}{{ info(t("pods.gift.title_info")) }}</h1>
 {% if players|length > 1 %}
-  <div class="panel" data-side><p style="margin:0"><label for="player">Player</label>
+  <div class="panel" data-side><p style="margin:0"><label for="player">{{ t("common.player") }}</label>
   <select id="player" onchange="location.href='/gift?user='+this.value">{% for id, name in players %}<option value="{{ id }}"{% if id == user %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></p></div>
 {% endif %}
 
 {% if not ready %}
-<div class="banner" data-side>&gt; Your first gift sends the game back to its title screen once.</div>
+<div class="banner" data-side>&gt; {{ t("pods.gift.first_gift") }}</div>
 {% endif %}
 
-<h2 class="bracket-header">1 :: Choose</h2>
+<h2 class="bracket-header">{{ t("pods.gift.choose") }}</h2>
 <div class="panel">
-  <input id="q" type="search" placeholder="Search" style="width:100%">
+  <input id="q" type="search" placeholder="{{ t("common.search") }}" style="width:100%">
   <div class="gift-cats" id="cats">{% for card in cards %}<button type="button" class="gift-card" data-card="{{ card.name }}">{{ card.name }}</button>{% endfor %}</div>
   <div class="gift-tabs" id="tabs"></div>
   <div class="gift-list" id="list"></div>
 </div>
 
-<h2 class="bracket-header" data-side>2 :: Send</h2>
+<h2 class="bracket-header" data-side>{{ t("pods.gift.send_step") }}</h2>
 <div class="panel" data-side>
   <div class="gift-send">
-    <strong id="what">Nothing chosen</strong>
-    <input id="count" type="number" min="1" value="1" inputmode="numeric" aria-label="Count" disabled>
-    <button id="send" type="button" disabled>SEND</button>
+    <strong id="what">{{ t("pods.gift.nothing_chosen") }}</strong>
+    <input id="count" type="number" min="1" value="1" inputmode="numeric" aria-label="{{ t("pods.gift.count") }}" disabled>
+    <button id="send" type="button" disabled>{{ t("pods.gift.send") }}</button>
   </div>
   <p class="note" id="hint" style="margin:8px 0 0"></p>
 </div>
 
-<h2 class="bracket-header" data-side>In the Gift Box</h2>
+<h2 class="bracket-header" data-side>{{ t("pods.gift.waiting") }}</h2>
 <div class="panel" data-side>
 {% if waiting %}
   <table class="gift-waiting">{% for g in waiting %}<tr><td>{{ g.name }} ×{{ "{:,}".format(g.count) }}</td></tr>{% endfor %}</table>
-{% else %}<p style="margin:0" class="note">Nothing waiting.</p>{% endif %}
+{% else %}<p style="margin:0" class="note">{{ t("pods.gift.nothing_waiting") }}</p>{% endif %}
 </div>
 
 <script id="gift-data" type="application/json">{{ cards|tojson }}</script>
 <script>
 (() => {
   const CARDS = JSON.parse(document.getElementById("gift-data").textContent), USER = {{ user }};
-  const ONE = {1: "One per gift. A copy you own becomes exchange items.",
-               14: "One per gift."};  // other kinds sent one per gift (costumes, weapons) use 1's
+  const ONE = {1: {{ t("pods.gift.one_per_gift_costume")|tojson }},
+               14: {{ t("pods.gift.one_per_gift")|tojson }}};  // other kinds sent one per gift (costumes, weapons) use 1's
+  const TXT = {nothing: {{ t("pods.gift.nothing_matches")|tojson }}, checking: {{ t("pods.gift.checking")|tojson }},
+               noRoom: {{ t("pods.gift.no_room")|tojson }}, upTo: {{ t("pods.gift.up_to", n="{n}")|tojson }},
+               tooMany: {{ t("pods.gift.too_many", n="{n}")|tojson }}, whole: {{ t("pods.gift.whole_number")|tojson }},
+               sent: {{ t("pods.gift.sent", item="{item}", count="{count}")|tojson }}, notSent: {{ t("pods.gift.not_sent")|tojson }}};
+  // A catalogue text with its {placeholders} filled in.
+  const fill = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const $ = id => document.getElementById(id);
   let card = CARDS[0], group = card.groups[0], chosen = null;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -89,7 +95,7 @@
                   `<span>${esc(e.name)}${e.blocked ? " · " + esc(e.blocked) : ""}</span><span class="note">${"★".repeat(e.stars)}</span></div>`);
       }
     }
-    $("list").innerHTML = html.join("") || '<p class="note">Nothing matches.</p>';
+    $("list").innerHTML = html.join("") || `<p class="note">${esc(TXT.nothing)}</p>`;
   }
   function find(t, i) {
     for (const c of CARDS) for (const g of c.groups) for (const e of g.entries) if (e.possession_type === t && e.possession_id === i) return e;
@@ -97,13 +103,13 @@
   async function pick(e) {
     chosen = e; draw();
     $("what").textContent = e.name; $("send").disabled = true; $("count").disabled = true; $("count").value = 1;
-    $("hint").textContent = "Checking how many can be claimed…";
+    $("hint").textContent = TXT.checking;
     const r = await fetch(`/gift/room?user=${USER}&type=${e.possession_type}&id=${e.possession_id}`).then(r => r.json()).catch(() => ({}));
     if (chosen !== e) return;
     const room = r.room || 0;
-    if (!room) { $("hint").textContent = r.error || "Nothing more of this can be claimed now."; return; }
+    if (!room) { $("hint").textContent = r.error || TXT.noRoom; return; }
     if (e.one_per_gift) { $("hint").textContent = ONE[e.possession_type] || ONE[1]; $("count").max = 1; }
-    else { $("hint").textContent = `Up to ${room.toLocaleString()} more.`; $("count").max = room; $("count").disabled = false; }
+    else { $("hint").textContent = fill(TXT.upTo, {n: room.toLocaleString()}); $("count").max = room; $("count").disabled = false; }
     $("send").disabled = false;
   }
   // A count above what can be claimed, or not a whole number, is refused: nothing is cut down.
@@ -112,8 +118,8 @@
     const n = Number($("count").value), max = Number($("count").max);
     const ok = Number.isInteger(n) && n >= 1 && n <= max;
     $("send").disabled = !ok;
-    $("hint").textContent = ok ? `Up to ${max.toLocaleString()} more.`
-      : n > max ? `Too many: up to ${max.toLocaleString()}.` : "Enter a whole number, 1 or more.";
+    $("hint").textContent = ok ? fill(TXT.upTo, {n: max.toLocaleString()})
+      : n > max ? fill(TXT.tooMany, {n: max.toLocaleString()}) : TXT.whole;
   });
   $("cats").addEventListener("click", ev => { const b = ev.target.closest(".gift-card"); if (!b) return;
     $("q").value = ""; card = CARDS.find(c => c.name === b.dataset.card); group = card.groups.find(g => g.entries.length); draw(); });
@@ -129,8 +135,8 @@
     const r = await fetch("/gift/send", {method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({user: USER, possession_type: sending.possession_type, possession_id: sending.possession_id, count})})
       .then(r => r.json()).catch(err => ({ok: false, error: err.message}));
-    const done = r.ok ? `message=${encodeURIComponent(`Sent ${sending.name} ×${count.toLocaleString()} to the Gift Box.`)}`
-                      : `error=${encodeURIComponent(r.error || "The gift was not sent")}`;
+    const done = r.ok ? `message=${encodeURIComponent(fill(TXT.sent, {item: sending.name, count: count.toLocaleString()}))}`
+                      : `error=${encodeURIComponent(r.error || TXT.notSent)}`;
     location.href = `/gift?user=${USER}&${done}`;
   });
   draw();

@@ -30,7 +30,8 @@ CONVERTED_PY: list[Path] = [ROOT / p for p in _CONVERTED["python"]]
 # Where t() calls live.
 SOURCES = [*POD.glob("*.html"), *ARCHIVE.glob("*.html"), *PY.glob("android_*.py"),
            *(p for p in PY.glob("bunker_*.py") if p.name != "bunker_text.py"),
-           *(PY / "archive").glob("*.py"), *(ROOT / "patches").glob("lunar-base-*texts*.patch")]
+           *(PY / "archive").glob("*.py"), *(PY / "deckbuilder").glob("*.py"), ROOT / "ios/python/ios_runtime.py",
+           *(ROOT / "patches").glob("lunar-base-*texts*.patch")]
 CALL = re.compile(r"\bt(_count)?\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
 
 
@@ -54,6 +55,8 @@ def has_letter(text: str) -> bool:
     return any(unicodedata.category(ch).startswith("L") for ch in text)
 
 
+# A query or one of its clauses, whichever helper runs it: not text anyone reads.
+SQL = re.compile(r"^\s*(select|insert|update|delete|with|from|where|order by|group by)\b|\b\w+\s*(=|<|>|<=|>=|!=|in|like)\s*\?|\?\s*,\s*\?", re.I)
 JINJA = re.compile(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", re.S)
 STRING = re.compile(r"\"([^\"\\]*)\"|'([^'\\]*)'")
 
@@ -139,12 +142,12 @@ class _Strings(ast.NodeVisitor):
 
     def visit_Constant(self, node):
         if isinstance(node.value, str) and has_letter(node.value) and " " in node.value.strip() \
-                and node.value not in ALLOWED:
+                and node.value not in ALLOWED and not SQL.search(node.value):
             self.found.append((node.lineno, node.value))
 
     def visit_JoinedStr(self, node):
         text = "".join(v.value for v in node.values if isinstance(v, ast.Constant) and isinstance(v.value, str))
-        if has_letter(text) and " " in text.strip():
+        if has_letter(text) and " " in text.strip() and not SQL.search(text):
             self.found.append((node.lineno, text))
 
 
@@ -211,7 +214,9 @@ class Catalogue(unittest.TestCase):
             module = Path(folder) / "m.py"
             module.write_text('"""Docs here."""\nimport logging\nlog = logging.getLogger("x")\n'
                               'def f(x):\n    log.warning("Not this one")\n    if x == "a b":\n        return t("pods.y")\n'
-                              '    return redirect(error="Choose a language first.")\nMESSAGE = f"Saved {x} now"\n')
+                              '    return redirect(error="Choose a language first.")\nMESSAGE = f"Saved {x} now"\n'
+                              'q("select costume_id from user_costumes where user_id=?")\nrows(1, "description_gift_text_id = ?")\n'
+                              'q(f"select id from {table} where user_id=?")\n')
             self.assertEqual([text for _, text in python_english(module)], ["Choose a language first.", "Saved  now"])
 
 

@@ -1,32 +1,32 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Pod Programs{% endblock %}
+{% block title %}{{ t("pods.menu.title") }}{% endblock %}
 {% block content %}
-<h1>Pod Programs{{ info("Save editors keep a backup before each change.") }}</h1>
+<h1>{{ t("pods.menu.title") }}{{ info(t("pods.home.info")) }}</h1>
 {% if not game_db_exists %}
-<div class="banner error">&gt; No save on this device yet.{{ info("Import a save backup from the Bunker's ⋮ menu, or Deploy and play once.") }}</div>
+<div class="banner error">&gt; {{ t("pods.home.no_save") }}{{ info(t("pods.home.no_save_info")) }}</div>
 {% endif %}
 {# The editors need a save; without one they are shown, but off. #}
 {% macro program(href, name, about, needs_save=True) -%}
-{% if needs_save and not game_db_exists %}<span class="off" aria-disabled="true">{{ name }} <span>{{ about }} · needs a save</span></span>
+{% if needs_save and not game_db_exists %}<span class="off" aria-disabled="true">{{ name }} <span>{{ about }} · {{ t("pods.home.needs_save") }}</span></span>
 {% else %}<a href="{{ href }}">{{ name }} <span>{{ about }}</span></a>{% endif %}
 {%- endmacro %}
 <div class="tool-grid">
-  {{ program("/patcher", "Content patcher", "Events & shops", False) }}
-  {{ program("/backups", "Save data", "Back up & restore", False) }}
-  {{ program("/display", "Display", "Frame rate & resolution", False) }}
-  {{ program("/language", "Language", "Play in another language", False) }}
-  {{ program("/gacha", "Summon rates", "★4 & featured odds", False) }}
-  {{ program("/mods", "Mods", "Comfort changes, off by default", False) }}
-  {{ program("/gift", "Gift", "Send yourself anything") }}
-  {{ program("/decks", "Deck Builder", "Arena decks, explained") }}
-  {{ program("/users", "Players", "Profile & inventory") }}
-  {{ program("/items", "Items", "Gems, gold & materials") }}
-  {{ program("/costumes", "Costumes", "Costumes & karma") }}
-  {{ program("/weapons", "Weapons", "Weapons & evolutions") }}
-  {{ program("/upgrades", "Upgrades", "Characters & equipment") }}
-  {{ program("/memoirs", "Memoirs", "Sets & stats") }}
-  {{ program("/story", "Story Jump", "Skip ahead to a chapter") }}
+  {{ program("/patcher", t("pods.home.patcher"), t("pods.home.patcher_about"), False) }}
+  {{ program("/backups", t("pods.home.backups"), t("pods.home.backups_about"), False) }}
+  {{ program("/display", t("pods.home.display"), t("pods.home.display_about"), False) }}
+  {{ program("/language", t("pods.home.language"), t("pods.home.language_about"), False) }}
+  {{ program("/gacha", t("pods.home.gacha"), t("pods.home.gacha_about"), False) }}
+  {{ program("/mods", t("pods.home.mods"), t("pods.home.mods_about"), False) }}
+  {{ program("/gift", t("pods.home.gift"), t("pods.home.gift_about")) }}
+  {{ program("/decks", t("pods.home.decks"), t("pods.home.decks_about")) }}
+  {{ program("/users", t("pods.home.users"), t("pods.home.users_about")) }}
+  {{ program("/items", t("pods.home.items"), t("pods.home.items_about")) }}
+  {{ program("/costumes", t("pods.home.costumes"), t("pods.home.costumes_about")) }}
+  {{ program("/weapons", t("pods.home.weapons"), t("pods.home.weapons_about")) }}
+  {{ program("/upgrades", t("pods.home.upgrades"), t("pods.home.upgrades_about")) }}
+  {{ program("/memoirs", t("pods.home.memoirs"), t("pods.home.memoirs_about")) }}
+  {{ program("/story", t("pods.home.story_jump"), t("pods.home.story_jump_about")) }}
 </div>
-<p class="credit">Lunar Base by NMeliksah · Masterdata Patcher by NavHobbyDev</p>
+<p class="credit">{{ t("pods.home.credit") }}</p>
 {% endblock %}

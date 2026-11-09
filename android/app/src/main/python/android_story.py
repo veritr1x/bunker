@@ -27,8 +27,11 @@ import bunker_text  # noqa: E402
 bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 SEASON2 = 2
-KINDS = {1: "Character", 7: "Character", 2: "Weapon", 8: "Weapon", 3: "Companion", 9: "Companion",
-         4: "Part", 10: "Part", 13: "Key item", 5: "Material", 6: "Item", 14: "Debris"}
+# A grant's kind by possession type: catalogue keys, translated when a preview lists them.
+KINDS = {1: "pods.story.kind.character", 7: "pods.story.kind.character", 2: "pods.story.kind.weapon",
+         8: "pods.story.kind.weapon", 3: "pods.story.kind.companion", 9: "pods.story.kind.companion",
+         4: "pods.story.kind.part", 10: "pods.story.kind.part", 13: "pods.story.kind.key_item",
+         5: "pods.story.kind.material", 6: "pods.story.kind.item", 14: "pods.story.kind.debris"}
 
 
 class StoryError(Exception):
@@ -143,14 +146,16 @@ def chapters(user_id: int, season2_route: int | None = None) -> dict:
                 continue
             for c in chapter_rows.get(r, []):
                 t = titles.get(c["id"], {})
-                quests = [{"id": q, "name": f"Quest {i}", "state": state(q)} for i, q in enumerate(c["quests"], 1)]
+                quests = [{"id": q, "name": bunker_text.t("pods.story.quest_n", n=i), "state": state(q)}
+                          for i, q in enumerate(c["quests"], 1)]
                 states = {q["state"] for q in quests}
                 cstate = ("cleared" if states == {"cleared"} else "other" if "other" in states else
                           "here" if "here" in states else quests[0]["state"] if quests else "passed")
-                rows.append({"id": c["id"], "title": t.get("name") or f"Chapter {c['id']}", "state": cstate, "quests": quests,
+                rows.append({"id": c["id"], "title": t.get("name") or bunker_text.t("pods.story.chapter_n", n=c["id"]),
+                             "state": cstate, "quests": quests,
                              "start": quests[0]["id"] if quests and quests[0]["state"] == "ahead" else 0})
         first = next((titles[c["id"]] for c in chapter_rows.get(seasons[s][0], []) if c["id"] in titles), {})
-        out.append({"season": s, "title": first.get("season_title") or f"Season {s}", "chapters": rows,
+        out.append({"season": s, "title": first.get("season_title") or bunker_text.t("pods.story.season_n", n=s), "chapters": rows,
                     "routes": [{"id": r, "first": chapter_rows[r][0]["id"], "last": chapter_rows[r][-1]["id"],
                                 "character": next((titles[c["id"]].get("character_name") for c in chapter_rows[r] if c["id"] in titles), "")}
                                for r in seasons[s] if len(seasons[s]) > 1 and chapter_rows.get(r)]})
@@ -173,7 +178,7 @@ def _summary(data):
         if c is not None and c not in seen:
             seen.append(c)
     span = "" if not seen else str(seen[0]) if len(seen) == 1 else f"{seen[0]}–{seen[-1]}"
-    grants = [{"kind": KINDS.get(g["possession_type"], "Item"), "name": _name(g["possession_type"], g["possession_id"]), "count": g["count"]}
+    grants = [{"kind": bunker_text.t(KINDS.get(g["possession_type"], "pods.story.kind.item")), "name": _name(g["possession_type"], g["possession_id"]), "count": g["count"]}
               for g in data.get("grants", [])]
     return {"cleared_count": len(data.get("cleared", [])), "chapters": span, "grants": grants, "gems": data.get("gems", 0)}
 
@@ -195,7 +200,7 @@ def jump(user_id: int, quest_id: int, season2_route: int) -> dict:
     except Exception as exc:  # the jump stands; the next calendar rebuild opens the chapter
         calendar = f"failed: {exc}"
     out = dict({"ok": True, "backup": backup, "calendar": calendar}, **_summary(result.get("data") or {}))
-    out["message"] = f"Cleared {out['cleared_count']} quests. Backup: {backup}."
+    out["message"] = bunker_text.t("pods.story.cleared_message", n=out["cleared_count"], backup=backup)
     return out
 
 

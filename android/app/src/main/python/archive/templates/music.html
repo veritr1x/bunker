@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Music</h1>
+<h1>{{ t("archive.menu.music") }}</h1>
 <div id="tracks">
 {% for section in groups %}
 <details class="panel fold movies"{% if loop.first %} open{% endif %}>
-  <summary>{{ section.name }}&nbsp;<span class="note">· {{ count(section.tracks|length, "track") }}</span></summary>
+  <summary>{{ section.name }}&nbsp;<span class="note">· {{ t_count("archive.music.track_count", section.tracks|length) }}</span></summary>
   <div class="tool-grid tracks">
-    {% for t in section.tracks %}
+    {% for track in section.tracks %}
     <div class="track">
-      <strong>Track {{ t.track }}</strong>
-      {% if t.places %}<span class="note where">{{ t.places[0] }}{% if t.places|length > 1 %} · <button type="button" class="link places" data-track="{{ t.track }}" data-where="{{ t.where|tojson|forceescape }}">and {{ count(t.places|length - 1, "other place") }}</button>{% endif %}</span>{% endif %}
-      <span class="parts">{% for p in t.parts %}<button type="button" class="chip" data-src="{{ snd(p.path) }}" data-title="Track {{ t.track }}{% if t.parts|length > 1 %} · part {{ p.part }}{% endif %}">{% if t.parts|length > 1 %}Part {{ p.part }}{% else %}Play{% endif %}</button>{% endfor %}</span>
+      <strong>{{ t("archive.music.track", n=track.track) }}</strong>
+      {% if track.places %}<span class="note where">{{ track.places[0] }}{% if track.places|length > 1 %} · <button type="button" class="link places" data-track="{{ track.track }}" data-where="{{ track.where|tojson|forceescape }}">{{ t_count("archive.music.other_places", track.places|length - 1) }}</button>{% endif %}</span>{% endif %}
+      <span class="parts">{% for p in track.parts %}<button type="button" class="chip" data-src="{{ snd(p.path) }}" data-title="{{ t("archive.music.track_part", n=track.track, part=p.part) if track.parts|length > 1 else t("archive.music.track", n=track.track) }}">{% if track.parts|length > 1 %}{{ t("archive.music.part", n=p.part) }}{% else %}{{ t("archive.music.play") }}{% endif %}</button>{% endfor %}</span>
     </div>
     {% endfor %}
   </div>
@@ -22,15 +22,16 @@
 <dialog class="panel places-dialog" id="places" aria-labelledby="places-title">
   <h2 class="bracket-header" id="places-title" tabindex="-1"></h2>
   <div id="places-list"></div>
-  <form method="dialog"><button class="button" type="submit">Close</button></form>
+  <form method="dialog"><button class="button" type="submit">{{ t("common.close") }}</button></form>
 </dialog>
 <footer class="player-bar" id="player" hidden>
-  <button type="button" class="play" id="toggle" aria-label="Pause">❚❚</button>
-  <div class="now"><strong id="title"></strong><input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position"></div>
-  <button type="button" class="chip on" id="loop" aria-pressed="true">Loop</button>
+  <button type="button" class="play" id="toggle" aria-label="{{ t("archive.music.pause") }}">❚❚</button>
+  <div class="now"><strong id="title"></strong><input type="range" id="seek" min="0" max="1000" value="0" aria-label="{{ t("archive.music.position") }}"></div>
+  <button type="button" class="chip on" id="loop" aria-pressed="true">{{ t("archive.music.loop") }}</button>
 </footer>
 <script>
 (function () {
+  const MSG = {{ {"pause": t("archive.music.pause"), "play": t("archive.music.play"), "places": t("archive.music.places_heading", track="{track}", n="{n}")}|tojson }};
   const audio = new Audio(); audio.loop = true;
   const bar = document.getElementById("player"), toggle = document.getElementById("toggle"),
         title = document.getElementById("title"), seek = document.getElementById("seek"), loop = document.getElementById("loop");
@@ -41,8 +42,8 @@
     audio.src = b.dataset.src; title.textContent = b.dataset.title; bar.hidden = false; audio.play();
   }));
   toggle.addEventListener("click", () => audio.paused ? audio.play() : audio.pause());
-  audio.addEventListener("play", () => { toggle.textContent = "❚❚"; toggle.setAttribute("aria-label", "Pause"); });
-  audio.addEventListener("pause", () => { toggle.textContent = "▶"; toggle.setAttribute("aria-label", "Play"); });
+  audio.addEventListener("play", () => { toggle.textContent = "❚❚"; toggle.setAttribute("aria-label", MSG.pause); });
+  audio.addEventListener("pause", () => { toggle.textContent = "▶"; toggle.setAttribute("aria-label", MSG.play); });
   audio.addEventListener("timeupdate", () => { if (audio.duration) seek.value = Math.round(audio.currentTime / audio.duration * 1000); });
   seek.addEventListener("input", () => { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; });
   loop.addEventListener("click", () => { audio.loop = !audio.loop; loop.classList.toggle("on", audio.loop); loop.setAttribute("aria-pressed", audio.loop); });
@@ -51,7 +52,7 @@
   const dialog = document.getElementById("places"), heading = document.getElementById("places-title"), list = document.getElementById("places-list");
   document.querySelectorAll("#tracks .places").forEach(b => b.addEventListener("click", () => {
     const where = JSON.parse(b.dataset.where);
-    heading.textContent = "Track " + b.dataset.track + " · " + where.reduce((n, g) => n + g.places.length, 0) + " places";
+    heading.textContent = MSG.places.replace("{track}", b.dataset.track).replace("{n}", where.reduce((n, g) => n + g.places.length, 0));
     list.replaceChildren(...where.map(g => {
       const block = document.createElement("section"), name = document.createElement("h3"), items = document.createElement("ul");
       name.textContent = g.name;

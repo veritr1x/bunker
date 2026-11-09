@@ -2,20 +2,20 @@
 {% import "schedule_macros.html" as s with context %}
 {% from "_info.html" import info %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="/schedule?tab=summons">Summons</a></p>
+<p class="crumb"><a href="/">{{ t("archive.menu.archive") }}</a> › <a href="/schedule?tab=summons">{{ t("archive.schedule.summons") }}</a></p>
 <h1>{{ item.title }}</h1>
 {{ s.banner(item.hero, item.title) }}
 <div class="panel">
   {% set undated = not item.runs or not item.runs[0].ran %}
   <article class="record">
-    {% if item.exchange %}<h3 class="has-info">Dates {{ info("From its shard exchange: opening until two days before the shards convert.") }}</h3>
-    {% elif undated %}<h3 class="has-info">Dates {{ info("No date in the game data. It has English art, so it may have run globally." if item.english else "No date in the game data. No English art, so it probably never ran globally.") }}</h3>
-    {% else %}<h3>Dates</h3>{% endif %}
-    <p>{% for r in item.runs %}{{ r.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% if not item.runs %}No date{% endif %}</p>
+    {% if item.exchange %}<h3 class="has-info">{{ t("archive.schedule.dates") }} {{ info(t("archive.schedule.exchange_info")) }}</h3>
+    {% elif undated %}<h3 class="has-info">{{ t("archive.schedule.dates") }} {{ info(t("archive.schedule.undated_english_info") if item.english else t("archive.schedule.undated_info")) }}</h3>
+    {% else %}<h3>{{ t("archive.schedule.dates") }}</h3>{% endif %}
+    <p>{% for r in item.runs %}{{ r.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% if not item.runs %}{{ t("archive.schedule.no_date") }}{% endif %}</p>
   </article>
   {% if item.medal %}
-  <article class="record"><h3>Shards</h3>
-    <p>{{ item.medal.shard }} · pity after {{ item.medal.ceiling }} pulls{% if item.medal.converts %} · leftovers become Medals on {{ item.medal.converts }}{% endif %}</p>
+  <article class="record"><h3>{{ t("archive.schedule.shards") }}</h3>
+    <p>{{ item.medal.shard }} · {{ t("archive.schedule.pity", n=item.medal.ceiling) }}{% if item.medal.converts %} · {{ t("archive.schedule.converts", date=item.medal.converts) }}{% endif %}</p>
   </article>
   {% endif %}
 </div>

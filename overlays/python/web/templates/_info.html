@@ -4,5 +4,5 @@
     Tapping the "i" opens it; tapping it again, anywhere else or Escape closes it (base.html).
     Not inside a <p> (the parser would end the paragraph) or a <summary> (a tap would also fold it). -#}
 {% macro info(text="", cls="") -%}
-<details class="info{% if cls %} {{ cls }}{% endif %}"><summary aria-label="More information">i</summary><div>{% if caller %}{{ caller() }}{% else %}{{ text }}{% endif %}</div></details>
+<details class="info{% if cls %} {{ cls }}{% endif %}"><summary aria-label="{{ t("common.more_information") }}">i</summary><div>{% if caller %}{{ caller() }}{% else %}{{ text }}{% endif %}</div></details>
 {%- endmacro %}

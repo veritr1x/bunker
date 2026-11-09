@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <title>{% block title %}Archive{% endblock %}</title>
+  <title>{% block title %}{{ t("archive.menu.archive") }}{% endblock %}</title>
   <link rel="stylesheet" href="{{ pod_css }}">
   <link rel="stylesheet" href="{{ asset('archive.css') }}">
 </head>
 <body>
   <nav class="primary">
     {#- A phone on its side in the Android app: its bar is gone, so the title and Close sit at the top of the tabs (automata.css). #}
-    <div class="shell-head"><b>Archive</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
+    <div class="shell-head"><b>{{ t("archive.menu.archive") }}</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
     {% for key, label, href in sections %}<a href="{{ href }}"{% if active == key %} class="active"{% endif %}>{{ label }}</a>{% endfor %}
   </nav>
   <script>

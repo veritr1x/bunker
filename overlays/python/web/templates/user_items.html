@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Item Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block title %}{{ t("pods.items.page_title", id=user_id) }}{% endblock %}
 
 {% macro grant_row(possession_type, item) %}
 <form data-grant data-tab-key="{{ tab_key }}"
       data-ptype="{{ possession_type }}" data-id="{{ item.id }}"
       data-name="{{ item.name|lower }}" class="grant-form">
   <span class="grant-name">{{ item.name }}</span>
-  <span class="grant-id">ID {{ item.id }}</span>
+  <span class="grant-id">{{ t("pods.items.id", id=item.id) }}</span>
   <span class="grant-current" data-current>
     {% if item.owned %}{{ "{:,}".format(item.count) }}
     {% else %}<span class="not-owned">&mdash;</span>{% endif %}
   </span>
   <input type="number" name="count" min="1" max="999999999"
-         placeholder="+amount" inputmode="numeric" data-amount>
-  <button type="submit">GRANT</button>
+         placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
+  <button type="submit">{{ t("pods.player.grant") }}</button>
 </form>
 {% endmacro %}
 
@@ -23,31 +23,32 @@
       data-ptype="{{ ptype_important }}" data-id="{{ item.id }}"
       data-name="{{ item.name|lower }}" class="grant-form important">
   <span class="grant-name">{{ item.name }}</span>
-  <span class="grant-id">ID {{ item.id }}</span>
+  <span class="grant-id">{{ t("pods.items.id", id=item.id) }}</span>
   <span class="grant-current" data-current>
-    {% if item.owned %}<span class="status-pill online">OWNED</span>
-    {% else %}<span class="status-pill offline">NOT OWNED</span>{% endif %}
+    {% if item.owned %}<span class="status-pill online">{{ t("pods.player.owned") }}</span>
+    {% else %}<span class="status-pill offline">{{ t("pods.items.not_owned") }}</span>{% endif %}
   </span>
   <label class="row-checkbox">
     <input type="checkbox" data-amount data-fixed-count="1" {% if item.owned %}disabled{% endif %}>
-    <span>add</span>
+    <span>{{ t("pods.player.add") }}</span>
   </label>
-  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>GRANT</button>
+  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>{{ t("pods.player.grant") }}</button>
 </form>
 {% endmacro %}
 
 {% block content %}
 <p style="margin-top:0" data-side>
-  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+  <a href="/users/{{ user_id }}">&larr; {{ t("pods.player.back", id=user_id) }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Item Editor{{ info("Amounts are added to your inventory. Each change is backed up first.") }}</h1>
+<h1 class="bracket-header" data-side>{{ t("pods.items.heading") }}{{ info(t("pods.items.heading_info")) }}</h1>
 <div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
     if (!r.count) return;
-    box.querySelector("a").textContent = `> ${r.count} gift${r.count === 1 ? " is" : "s are"} waiting in the Gift Box`;
+    const text = r.count === 1 ? {{ t("pods.player.gifts_waiting.one", n="{n}")|tojson }} : {{ t("pods.player.gifts_waiting.other", n="{n}")|tojson }};
+    box.querySelector("a").textContent = "> " + text.replace("{n}", r.count);
     box.hidden = false;
   }).catch(() => {});
 </script>
@@ -55,11 +56,14 @@
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
+{#- The route names each tab in English; these are their names in the catalogue. -#}
+{% set TABS = {"consumables": t("pods.items.tab_consumables"), "materials": t("pods.items.tab_materials"),
+               "important": t("pods.items.tab_important")} %}
 <nav class="tab-bar" data-side>
-  <button type="button" class="tab-btn active" data-target="tab-gems">Gems</button>
+  <button type="button" class="tab-btn active" data-target="tab-gems">{{ t("pods.items.tab_gems") }}</button>
   {% for tab in tabs %}
     <button type="button" class="tab-btn" data-target="tab-{{ tab.key }}">
-      {{ tab.label }} <span class="tab-count">{{ tab.owned_count }}/{{ tab.total_count }}</span>
+      {{ TABS.get(tab.key, tab.label) }} <span class="tab-count">{{ tab.owned_count }}/{{ tab.total_count }}</span>
     </button>
   {% endfor %}
 </nav>
@@ -68,24 +72,24 @@
   <div class="panel">
     <form data-grant data-tab-key="gems"
           data-ptype="{{ ptype_paid_gem }}" data-id="0" data-name="paid gems" class="grant-form">
-      <span class="grant-name">Paid Gems</span>
+      <span class="grant-name">{{ t("pods.items.paid_gems") }}</span>
       <span class="grant-id"></span>
       <span class="grant-current" data-current>{{ "{:,}".format(paid_gem) }}</span>
-      <input type="number" name="count" min="1" max="999999999" placeholder="+amount" inputmode="numeric" data-amount>
-      <button type="submit">GRANT</button>
+      <input type="number" name="count" min="1" max="999999999" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
+      <button type="submit">{{ t("pods.player.grant") }}</button>
     </form>
     <form data-grant data-tab-key="gems"
           data-ptype="{{ ptype_free_gem }}" data-id="0" data-name="free gems" class="grant-form">
-      <span class="grant-name">Free Gems</span>
+      <span class="grant-name">{{ t("pods.items.free_gems") }}</span>
       <span class="grant-id"></span>
       <span class="grant-current" data-current>{{ "{:,}".format(free_gem) }}</span>
-      <input type="number" name="count" min="1" max="999999999" placeholder="+amount" inputmode="numeric" data-amount>
-      <button type="submit">GRANT</button>
+      <input type="number" name="count" min="1" max="999999999" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
+      <button type="submit">{{ t("pods.player.grant") }}</button>
     </form>
   </div>
   <div class="search-row">
     <span style="margin-left:auto"></span>
-    <button type="button" class="grant-chosen-btn" data-tab-target="tab-gems">GRANT ALL CHOSEN</button>
+    <button type="button" class="grant-chosen-btn" data-tab-target="tab-gems">{{ t("pods.player.grant_chosen") }}</button>
   </div>
 </section>
 
@@ -93,14 +97,14 @@
 {% set tab_key = tab.key %}
 <section id="tab-{{ tab.key }}" class="tab-pane">
   <div class="search-row">
-    <label for="search-{{ tab.key }}" class="search-label">FILTER</label>
+    <label for="search-{{ tab.key }}" class="search-label">{{ t("pods.player.filter") }}</label>
     <input type="text" id="search-{{ tab.key }}" class="tab-search" data-tab="{{ tab.key }}"
-           placeholder="Name or ID">
-    <button type="button" class="grant-chosen-btn" data-tab-target="tab-{{ tab.key }}">GRANT ALL CHOSEN</button>
+           placeholder="{{ t("pods.player.filter_placeholder") }}">
+    <button type="button" class="grant-chosen-btn" data-tab-target="tab-{{ tab.key }}">{{ t("pods.player.grant_chosen") }}</button>
     {% if tab.key == "consumables" %}
-      <button type="button" class="max-all-btn" data-action="max_consumables">MAX ALL</button>
+      <button type="button" class="max-all-btn" data-action="max_consumables">{{ t("pods.items.max_all") }}</button>
     {% elif tab.key == "materials" %}
-      <button type="button" class="max-all-btn" data-action="max_materials">MAX ALL</button>
+      <button type="button" class="max-all-btn" data-action="max_materials">{{ t("pods.items.max_all") }}</button>
     {% endif %}
   </div>
   <div class="panel grant-list">
@@ -118,6 +122,17 @@
 <script>
 (function() {
   const userId = {{ user_id }};
+  const MSG = {{ {
+    "owned": t("pods.player.owned"), "working": t("pods.player.working"),
+    "enter_amount": t("pods.items.enter_amount"), "grant_failed": t("pods.player.grant_failed"),
+    "granted_one": t("pods.items.granted_one", amount="{amount}", id="{id}"),
+    "network_error": t("pods.player.network_error", error="{error}"),
+    "nothing_chosen": t("pods.items.nothing_chosen"), "batch_failed": t("pods.player.batch_failed"),
+    "granted": t("pods.items.granted", n="{n}"),
+    "max_consumables": t("pods.items.max_consumables_confirm"), "max_materials": t("pods.items.max_materials_confirm"),
+    "failed": t("pods.player.failed"), "max_done": t("pods.items.max_done", action="{action}", n="{n}"),
+  }|tojson }};
+  const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const buttons = document.querySelectorAll(".tab-btn");
   const panes = document.querySelectorAll(".tab-pane");
   buttons.forEach(btn => {
@@ -168,7 +183,8 @@
   function bumpImportantOwned(form) {
     const display = form.querySelector("[data-current]");
     if (!display) return;
-    display.innerHTML = '<span class="status-pill online">OWNED</span>';
+    display.innerHTML = '<span class="status-pill online"></span>';
+    display.firstChild.textContent = MSG.owned;
     form.querySelectorAll("[data-amount], button[type=submit]").forEach(el => el.disabled = true);
     form.classList.add("grant-success");
   }
@@ -212,7 +228,7 @@
       count = parseInt((amtEl && amtEl.value) || "0", 10);
     }
     if (!count || count <= 0) {
-      showBanner("Enter an amount first.", "error");
+      showBanner(MSG.enter_amount, "error");
       return;
     }
 
@@ -225,13 +241,13 @@
       });
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Grant failed.", "error");
+        showBanner(json.error || MSG.grant_failed, "error");
         return;
       }
       applyResults(json.results, new Map([[ptype + ":" + pid, form]]));
-      showBanner(`Granted +${count.toLocaleString("en-US")} (#${pid}).`, "success");
+      showBanner(fmt(MSG.granted_one, {amount: count.toLocaleString("en-US"), id: pid}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       form.dataset.busy = "0";
     }
@@ -260,7 +276,7 @@
         planByKey.set(ptype + ":" + pid, form);
       });
       if (grants.length === 0) {
-        showBanner("Nothing chosen on this tab.", "error");
+        showBanner(MSG.nothing_chosen, "error");
         return;
       }
 
@@ -274,13 +290,13 @@
         });
         const json = await res.json();
         if (!json.ok) {
-          showBanner(json.error || "Batch grant failed.", "error");
+          showBanner(json.error || MSG.batch_failed, "error");
           return;
         }
         const n = applyResults(json.results, planByKey);
-        showBanner(`Granted ${n} item(s).`, "success");
+        showBanner(fmt(MSG.granted, {n}), "success");
       } catch (err) {
-        showBanner("Network error: " + err.message, "error");
+        showBanner(fmt(MSG.network_error, {error: err.message}), "error");
       } finally {
         btn.dataset.busy = "0";
         btn.disabled = false;
@@ -293,29 +309,24 @@
     btn.addEventListener("click", async () => {
       if (btn.dataset.busy === "1") return;
       const action = btn.dataset.action;
-      const promptText = action === "max_consumables"
-        ? "Add 50M gold and thousands of every ticket, medal, coin, fragment and shard?"
-        : "Add about 5,000 of every material, except Longing Flicker and Recalling Light?";
+      const promptText = action === "max_consumables" ? MSG.max_consumables : MSG.max_materials;
       if (!confirm(promptText)) return;
 
       btn.dataset.busy = "1";
       btn.disabled = true;
       const originalLabel = btn.textContent;
-      btn.textContent = "WORKING...";
+      btn.textContent = MSG.working;
       try {
         const res = await fetch(`/users/${userId}/edit/items/${action}`, {method: "POST"});
         const json = await res.json();
         if (!json.ok) {
-          showBanner(json.error || "Operation failed.", "error");
+          showBanner(json.error || MSG.failed, "error");
           return;
         }
         const n = applyResults(json.results, new Map());
-        showBanner(
-          `${originalLabel} done: ${json.applied} grant(s).`,
-          "success"
-        );
+        showBanner(fmt(MSG.max_done, {action: originalLabel, n: json.applied}), "success");
       } catch (err) {
-        showBanner("Network error: " + err.message, "error");
+        showBanner(fmt(MSG.network_error, {error: err.message}), "error");
       } finally {
         btn.dataset.busy = "0";
         btn.disabled = false;

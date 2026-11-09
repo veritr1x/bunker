@@ -58,7 +58,7 @@ class NewDay(unittest.TestCase):
         page = (root / "overlays/python/web/templates/patcher.html").read_text()
         before_calendar = page.split("{% if calendar %}", 1)[0]
         self.assertIn('action="/patcher/new-day"', before_calendar)  # shown with the calendar on and off
-        self.assertIn("Start a new day", before_calendar)
+        self.assertIn('t("pods.patcher.new_day")', before_calendar)  # "Start a new day"
 
 
 if __name__ == "__main__":

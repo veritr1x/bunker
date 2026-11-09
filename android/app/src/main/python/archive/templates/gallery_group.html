@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="/gallery?tab={{ category }}">Gallery · {{ tabs[category] }}</a></p>
+<p class="crumb"><a href="/">{{ t("archive.menu.archive") }}</a> › <a href="/gallery?tab={{ category }}">{{ t("archive.menu.gallery") }} · {{ tabs[category] }}</a></p>
 <h1>{{ label }}</h1>
 {% for g in groups %}
 {% if g.name %}<h2 class="bracket-header">{{ g.name }}</h2>{% endif %}

@@ -105,11 +105,13 @@ def _adapt_patcher():
     import android_display
     import android_mods
     import android_patcher
+    from bunker_text import t
     for module in (android_patcher, android_display, android_calendar, android_mods):
         redirect = module.redirect
         def ios_redirect(redirect=redirect, **kwargs):
+            # In the language shown now (Bunker's catalogue): there is no Deploy on iPhone and iPad.
             if "message" in kwargs:
-                kwargs["message"] = kwargs["message"].replace("Close Pod Programs and tap Deploy.", "Close Pod Programs, then restart the game.")
+                kwargs["message"] = kwargs["message"].replace(t("pods.runtime.deploy"), t("pods.runtime.restart_ios"))
             return redirect(**kwargs)
         module.redirect = ios_redirect
     # Texture size goes to Unity on the game's command line, which only Android's launcher sets.

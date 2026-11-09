@@ -18,7 +18,9 @@ import itertools
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
+import bunker_text
 from deckbuilder import equip, model, power
+from deckbuilder.text import Later
 
 FIRST_BLOCK = 48
 CACHE_SIZE = 8          # criteria kept with their ranked results
@@ -26,12 +28,32 @@ MIN_STATS_SCAN = 240    # candidates tried before saying no deck meets the minim
 BLOCK = 24
 DEFAULT_POOL = 60
 EFFECTS = ("compromise", "cleanse", "revive", "provoke", "dauntless", "indomitable", "from_start")
-EFFECT_LABEL = {"compromise": "Compromise", "cleanse": "Cleanse", "revive": "Revive", "provoke": "Provoke",
-                "dauntless": "Dauntless", "indomitable": "Indomitable", "from_start": "Usable from start"}
+# The names the page shows, in the language chosen when shown (deckbuilder.text).
+EFFECT_LABEL = {"compromise": Later(lambda: bunker_text.t("pods.decks.effect.compromise")),
+                "cleanse": Later(lambda: bunker_text.t("pods.decks.effect.cleanse")),
+                "revive": Later(lambda: bunker_text.t("pods.decks.effect.revive")),
+                "provoke": Later(lambda: bunker_text.t("pods.decks.effect.provoke")),
+                "dauntless": Later(lambda: bunker_text.t("pods.decks.effect.dauntless")),
+                "indomitable": Later(lambda: bunker_text.t("pods.decks.effect.indomitable")),
+                "from_start": Later(lambda: bunker_text.t("pods.decks.effect.from_start"))}
 STRATEGIES = ("any", "stall", "burst", "dauntless", "compromise_counter", "tank", "mono")
-STRATEGY_NAME = {"compromise_counter": "Compromise counter", "dauntless": "Team Dauntless", "tank": "Tank & provoke",
-                 "stall": "Stall", "mono": "Mono-element", "burst": "Burst"}
+STRATEGY_NAME = {"compromise_counter": Later(lambda: bunker_text.t("pods.decks.strategy.compromise_counter")),
+                 "dauntless": Later(lambda: bunker_text.t("pods.decks.strategy.team_dauntless")),
+                 "tank": Later(lambda: bunker_text.t("pods.decks.strategy.tank")),
+                 "stall": Later(lambda: bunker_text.t("pods.decks.strategy.stall")),
+                 "mono": Later(lambda: bunker_text.t("pods.decks.strategy.mono")),
+                 "burst": Later(lambda: bunker_text.t("pods.decks.strategy.burst"))}
 ADVANTAGE = {("dark", "light"), ("light", "dark"), ("fire", "wind"), ("wind", "water"), ("water", "fire")}
+
+
+class Advantage(Later):
+    """A tag: one of the deck's elements beats one of the opponent's (×1.2), as "Fire vs wind ×1.2"."""
+    __slots__ = ()
+
+
+def advantage(mine: str, theirs: str) -> Advantage:
+    return Advantage(lambda: bunker_text.t("pods.decks.tag.advantage", mine=bunker_text.t(f"common.element.{mine}"),
+                                           theirs=bunker_text.t(f"common.element.{theirs}").lower()))
 
 
 class Criteria(NamedTuple):
@@ -289,7 +311,7 @@ class Generator:
             for i, lineup in enumerate(b.meta_top):
                 specs = [bk.loadout_spec(lo, self.stage, self.tables) for lo in bk.deck_loadouts(lineup, b.loadouts, order)]
                 opp.append((model.compose(self.stage, self.stage, specs, 2, 200 + i, self.tables), 0.0,
-                            "Bake top " + " · ".join(self.tables.character_name(c) for c in lineup)))
+                            f"bake_top:{' · '.join(self.tables.character_name(c) for c in lineup)}"))
             if b.meta_top:
                 opp = [(d, 1 / len(opp), n) for d, _, n in opp]
             self._baked_opp = opp
@@ -333,7 +355,7 @@ class Generator:
                 for c in theirs:
                     te = equip.element_of(c.costume.id, self.tables)
                     if (mine, te) in ADVANTAGE and len(tags) < 3:
-                        tags.append(f"{mine.title()} vs {te} ×1.2")
+                        tags.append(advantage(mine, te))
                         break
                 if len(tags) >= 3:
                     break
@@ -467,7 +489,7 @@ class Generator:
                 reasons[(lo["costume_id"], "main_weapon")] = equip.main_weapon_reason(
                     "fights" if which is self._baked.loadouts else "force", lo["element"], owned=False)
                 if lo["debris"] != base_lo["debris"]:
-                    reasons[(lo["costume_id"], "debris")] = "Its first choice is on another character of this deck (the game holds one)."
+                    reasons[(lo["costume_id"], "debris")] = Later(lambda: bunker_text.t("pods.decks.reason.debris_taken"))
             eq = equip.Equipped(deck=deck, specs=specs, reasons=reasons, overrides=[], to_add=to_add)
             els = tuple(lo["element"] for lo in los)
             strategies = self.strategies(rec.lineup, els)

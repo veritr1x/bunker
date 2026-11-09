@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Weapon Editor :: User {{ user_id }} :: Lunar Base{% endblock %}
+{% block title %}{{ t("pods.weapons.page_title", id=user_id) }}{% endblock %}
 
 {% macro weapon_row(item) %}
 <form data-grant data-id="{{ item.id }}"
@@ -11,31 +11,32 @@
   <span class="grant-id">#{{ item.id }}</span>
   <span class="grant-current" data-current>
     {% if item.owned %}
-      <span class="status-pill online">OWNED</span>
+      <span class="status-pill online">{{ t("pods.player.owned") }}</span>
     {% else %}
-      <span class="status-pill offline">MISSING</span>
+      <span class="status-pill offline">{{ t("pods.player.missing") }}</span>
     {% endif %}
   </span>
   <label class="row-checkbox">
     <input type="checkbox" data-amount data-fixed-count="1" {% if item.owned %}disabled{% endif %}>
-    <span>add</span>
+    <span>{{ t("pods.player.add") }}</span>
   </label>
-  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>GRANT</button>
+  <button type="submit" data-fixed-count="1" {% if item.owned %}disabled{% endif %}>{{ t("pods.player.grant") }}</button>
 </form>
 {% endmacro %}
 
 {% block content %}
 <p style="margin-top:0" data-side>
-  <a href="/users/{{ user_id }}">&larr; Back to user {{ user_id }}{% if user_name %} ({{ user_name }}){% endif %}</a>
+  <a href="/users/{{ user_id }}">&larr; {{ t("pods.player.back", id=user_id) }}{% if user_name %} ({{ user_name }}){% endif %}</a>
 </p>
 
-<h1 class="bracket-header" data-side>Weapon Editor{{ info("Add weapons with their skills and stories. Story-starter weapons are earned through play. Each change is backed up first.") }}</h1>
+<h1 class="bracket-header" data-side>{{ t("pods.weapons.heading") }}{{ info(t("pods.weapons.heading_info")) }}</h1>
 <div class="banner" data-gifts-waiting hidden data-side><a href="/gift?user={{ user_id }}"></a></div>
 <script>
   fetch("/gift/waiting-count?user={{ user_id }}").then(r => r.json()).then(r => {
     const box = document.querySelector("[data-gifts-waiting]");
     if (!r.count) return;
-    box.querySelector("a").textContent = `> ${r.count} gift${r.count === 1 ? " is" : "s are"} waiting in the Gift Box`;
+    const text = r.count === 1 ? {{ t("pods.player.gifts_waiting.one", n="{n}")|tojson }} : {{ t("pods.player.gifts_waiting.other", n="{n}")|tojson }};
+    box.querySelector("a").textContent = "> " + text.replace("{n}", r.count);
     box.hidden = false;
   }).catch(() => {});
 </script>
@@ -44,22 +45,27 @@
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 
 <div class="search-row" data-side>
-  <label for="search-weapons" class="search-label">FILTER</label>
+  <label for="search-weapons" class="search-label">{{ t("pods.player.filter") }}</label>
   <input type="text" id="search-weapons" class="costume-search"
-         placeholder="Name or ID">
+         placeholder="{{ t("pods.player.filter_placeholder") }}">
   <span class="tab-stats">
-    INVENTORY: <span id="inventory-count">{{ inventory_count }}</span> / {{ inventory_cap }}
-    &middot; {{ total_owned }}/{{ total_count }} owned
+    {{ t("pods.weapons.inventory") }} <span id="inventory-count">{{ inventory_count }}</span> / {{ inventory_cap }}
+    &middot; {{ t("pods.player.owned_count", owned=total_owned, total=total_count) }}
   </span>
-  <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">GRANT ALL CHOSEN</button>
+  <button type="button" class="grant-chosen-btn" id="grant-chosen-btn">{{ t("pods.player.grant_chosen") }}</button>
   <button type="button" class="max-all-btn" id="grant-missing-btn"
           {% if missing_count == 0 %}disabled{% endif %}>
-    GRANT ALL MISSING ({{ missing_count }})
+    {{ t("pods.player.grant_missing", n=missing_count) }}
   </button>
 </div>
 
+{#- The services name each group in English; these are their names in the catalogue. -#}
+{% set GROUPS = {"recollections": t("pods.player.group_recollections"), "dark_memory": t("pods.player.group_dark_memory"),
+                 "subjugation": t("pods.player.group_subjugation"), "other_r40": t("pods.player.group_other_r40"),
+                 "r30": t("pods.player.group_r30")} %}
 {% for group in groups %}
-<h2 class="bracket-header costume-group-header" data-toc="{{ group.label }}">{{ group.label }}
+{% set label = GROUPS.get(group.key, group.label) %}
+<h2 class="bracket-header costume-group-header" data-toc="{{ label }}">{{ label }}
   <span class="group-stats">{{ group.owned_count }}/{{ group.total_count }}</span>
 </h2>
 <div class="panel grant-list costume-list" data-group="{{ group.key }}">
@@ -73,6 +79,15 @@
 (function() {
   const userId = {{ user_id }};
   const inventoryCap = {{ inventory_cap }};
+  const MSG = {{ {
+    "owned": t("pods.player.owned"), "working": t("pods.player.working"),
+    "grant_failed": t("pods.player.grant_failed"), "batch_failed": t("pods.player.batch_failed"),
+    "failed": t("pods.player.failed"), "nothing_chosen": t("pods.player.nothing_chosen"),
+    "network_error": t("pods.player.network_error", error="{error}"),
+    "granted_one": t("pods.weapons.granted_one", id="{id}"), "granted": t("pods.weapons.granted", n="{n}"),
+    "missing_confirm": t("pods.weapons.missing_confirm"), "missing_done": t("pods.weapons.missing_done", n="{n}"),
+  }|tojson }};
+  const fmt = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
 
   const searchInput = document.getElementById("search-weapons");
   searchInput.addEventListener("input", () => {
@@ -106,7 +121,10 @@
   function markGranted(form) {
     if (!form) return;
     const display = form.querySelector("[data-current]");
-    if (display) display.innerHTML = '<span class="status-pill online">OWNED</span>';
+    if (display) {
+      display.innerHTML = '<span class="status-pill online"></span>';
+      display.firstChild.textContent = MSG.owned;
+    }
     form.querySelectorAll("[data-amount], button[type=submit]").forEach(el => el.disabled = true);
     form.classList.add("grant-success", "owned");
   }
@@ -141,14 +159,14 @@
       });
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Grant failed.", "error");
+        showBanner(json.error || MSG.grant_failed, "error");
         return;
       }
       applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(`Granted weapon #${weaponId}.`, "success");
+      showBanner(fmt(MSG.granted_one, {id: weaponId}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       form.dataset.busy = "0";
     }
@@ -165,7 +183,7 @@
       ids.push(parseInt(form.dataset.id, 10));
     });
     if (ids.length === 0) {
-      showBanner("Nothing chosen.", "error");
+      showBanner(MSG.nothing_chosen, "error");
       return;
     }
 
@@ -179,14 +197,14 @@
       });
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Batch grant failed.", "error");
+        showBanner(json.error || MSG.batch_failed, "error");
         return;
       }
       const n = applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(`Granted ${n} weapon(s).`, "success");
+      showBanner(fmt(MSG.granted, {n}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       btn.dataset.busy = "0";
       btn.disabled = false;
@@ -197,24 +215,24 @@
   document.getElementById("grant-missing-btn").addEventListener("click", async () => {
     const btn = document.getElementById("grant-missing-btn");
     if (btn.dataset.busy === "1") return;
-    if (!confirm(`Grant every missing weapon? It fails if your inventory is too full.`)) return;
+    if (!confirm(MSG.missing_confirm)) return;
 
     btn.dataset.busy = "1";
     btn.disabled = true;
     const original = btn.textContent;
-    btn.textContent = "WORKING...";
+    btn.textContent = MSG.working;
     try {
       const res = await fetch(`/users/${userId}/edit/weapons/grant_all_missing`, {method: "POST"});
       const json = await res.json();
       if (!json.ok) {
-        showBanner(json.error || "Operation failed.", "error");
+        showBanner(json.error || MSG.failed, "error");
         return;
       }
       const n = applyResults(json.results);
       setInventoryCount(json.inventory_count);
-      showBanner(`Granted ${n} missing weapon(s).`, "success");
+      showBanner(fmt(MSG.missing_done, {n}), "success");
     } catch (err) {
-      showBanner("Network error: " + err.message, "error");
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {
       btn.dataset.busy = "0";
       btn.disabled = false;

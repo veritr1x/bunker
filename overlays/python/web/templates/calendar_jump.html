@@ -1,52 +1,53 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Jump to{% endblock %}
+{% block title %}{{ t("pods.calendar.jump_to") }}{% endblock %}
 {% block content %}
-<h1>Content patcher</h1>
-<h2 class="bracket-header">Jump to{{ info("You can only move forward. To replay, start a new loop.") }}</h2>
+<h1>{{ t("pods.patcher.title") }}</h1>
+<h2 class="bracket-header">{{ t("pods.calendar.jump_to") }}{{ info(t("pods.calendar.jump_to_info")) }}</h2>
 <form action="/patcher/calendar/jump" method="get" class="panel" id="pick">
-  <dl class="kv plain"><dt>Now</dt><dd>Week {{ week }} · {{ today }}</dd></dl>
-  <div class="label">Search</div>
-  <input type="search" id="find" aria-label="Search events and summons" placeholder="Event or summon name" style="width: 100%; box-sizing: border-box">
-  <div class="label">Coming up</div>
+  <dl class="kv plain"><dt>{{ t("pods.calendar.now") }}</dt><dd>{{ t("pods.calendar.week_day", week=week, day=today) }}</dd></dl>
+  <div class="label">{{ t("common.search") }}</div>
+  <input type="search" id="find" aria-label="{{ t("pods.calendar.search_label") }}" placeholder="{{ t("pods.calendar.search_placeholder") }}" style="width: 100%; box-sizing: border-box">
+  <div class="label">{{ t("pods.calendar.coming_up") }}</div>
   {% for item in updates %}
-  <label class="choice" data-names="{{ item.all|lower }}" {% if loop.index > 5 %}hidden{% endif %}><input type="radio" name="at" value="{{ item.at }}" {% if item.at == target %}checked{% endif %} onchange="this.form.submit()"><span><span class="wk">Week {{ item.week }} · {{ item.day }}</span><strong>{{ item.name }}{% if item.more %} <span class="when">+{{ item.more }} more</span>{% endif %}</strong></span></label>
+  <label class="choice" data-names="{{ item.all|lower }}" {% if loop.index > 5 %}hidden{% endif %}><input type="radio" name="at" value="{{ item.at }}" {% if item.at == target %}checked{% endif %} onchange="this.form.submit()"><span><span class="wk">{{ t("pods.calendar.week_day", week=item.week, day=item.day) }}</span><strong>{{ item.name }}{% if item.more %} <span class="when">{{ t("pods.calendar.plus_more", n=item.more) }}</span>{% endif %}</strong></span></label>
   {% endfor %}
-  {% if not updates %}<p>No more updates.</p>{% endif %}
+  {% if not updates %}<p>{{ t("pods.calendar.no_updates") }}</p>{% endif %}
   {% if week < weeks %}
-  <div class="label">Or pick a week</div>
+  <div class="label">{{ t("pods.calendar.pick_week") }}</div>
   <div class="weekrow">
-    <input type="range" id="week" min="{{ week + 1 }}" max="{{ weeks }}" value="{{ view.week if view else week + 1 }}" aria-label="Week">
-    <output for="week" id="week-out">Week {{ view.week if view else week + 1 }}</output>
+    <input type="range" id="week" min="{{ week + 1 }}" max="{{ weeks }}" value="{{ view.week if view else week + 1 }}" aria-label="{{ t("pods.calendar.week_label") }}">
+    <output for="week" id="week-out">{{ t("pods.calendar.week", week=view.week if view else week + 1) }}</output>
   </div>
   {% endif %}
-  <noscript><button type="submit">Show</button></noscript>
+  <noscript><button type="submit">{{ t("pods.calendar.show") }}</button></noscript>
 </form>
 {% if view %}
-<h2 class="bracket-header">Week {{ view.week }}</h2>
+<h2 class="bracket-header">{{ t("pods.calendar.week", week=view.week) }}</h2>
 <form action="/patcher/calendar/jump" method="post" class="panel">
   <input type="hidden" name="target" value="{{ target }}">
   <dl class="kv plain">
-    <dt>Date</dt><dd>{{ view.day }} <span class="when">{{ view.original }} in the original</span></dd>
-    <dt>Skips</dt><dd>{% if view.days >= 7 %}{{ view.days // 7 }} week{{ "s" if view.days // 7 != 1 }}{% else %}{{ view.days }} day{{ "s" if view.days != 1 }}{% endif %}</dd>
+    <dt>{{ t("pods.calendar.date") }}</dt><dd>{{ view.day }} <span class="when">{{ t("pods.calendar.in_original", date=view.original) }}</span></dd>
+    <dt>{{ t("pods.calendar.skips") }}</dt><dd>{% if view.days >= 7 %}{{ t_count("pods.calendar.weeks", view.days // 7) }}{% else %}{{ t_count("pods.calendar.days", view.days) }}{% endif %}</dd>
   </dl>
-  <div class="label">Open there</div>
+  <div class="label">{{ t("pods.calendar.open_there") }}</div>
   <ul class="terms">
-    {% for kind, title in [("event", "events"), ("summon", "summons"), ("arena", ""), ("pass", ""), ("shop", "shops")] %}{% set items = view.open.get(kind, []) %}{% if items %}
-    <li>{% if title %}{{ items[0].name }}{% if items|length > 1 %} and {{ items|length - 1 }} more {{ title }}{% endif %}{% else %}{{ items|map(attribute="name")|join(", ") }}{% endif %}</li>
+    {% for kind in ["event", "summon", "arena", "pass", "shop"] %}{% set items = view.open.get(kind, []) %}{% if items %}
+    <li>{% if kind in ("event", "summon", "shop") %}{% set first, rest = items[0].name, items|length - 1 %}{% if not rest %}{{ first }}{% elif kind == "event" %}{{ t_count("pods.calendar.and_more_events", rest, name=first) }}{% elif kind == "summon" %}{{ t_count("pods.calendar.and_more_summons", rest, name=first) }}{% else %}{{ t_count("pods.calendar.and_more_shops", rest, name=first) }}{% endif %}{% else %}{{ items|map(attribute="name")|join(t("pods.calendar.list_separator")) }}{% endif %}</li>
     {% endif %}{% endfor %}
   </ul>
-  {% if view.paid %}<div class="label">You still get</div>
-  <ul class="terms">{% for name in view.paid %}<li>{{ name }} rewards</li>{% endfor %}</ul>{% endif %}
-  {% if view.missed %}<div class="label">You miss</div>
+  {% if view.paid %}<div class="label">{{ t("pods.calendar.still_get") }}</div>
+  <ul class="terms">{% for name in view.paid %}<li>{{ t("pods.calendar.rewards", name=name) }}</li>{% endfor %}</ul>{% endif %}
+  {% if view.missed %}<div class="label">{{ t("pods.calendar.you_miss") }}</div>
   <ul class="terms"><li>{{ view.missedText }}</li></ul>{% endif %}
   <div class="actions">
-    <button type="submit">Jump</button>
-    <a href="/patcher" class="button secondary">Cancel</a>
+    <button type="submit">{{ t("pods.calendar.jump") }}</button>
+    <a href="/patcher" class="button secondary">{{ t("common.cancel") }}</a>
   </div>
 </form>
 {% endif %}
 <script>
+const WEEK = {{ t("pods.calendar.week", week="{week}")|tojson }};
 const find = document.getElementById('find');
 const rows = [...document.querySelectorAll('#pick .choice')];
 find.addEventListener('input', () => {
@@ -57,7 +58,7 @@ find.addEventListener('input', () => {
 const week = document.getElementById('week');
 if (week) {
   const out = document.getElementById('week-out');
-  week.addEventListener('input', () => { out.textContent = 'Week ' + week.value; });
+  week.addEventListener('input', () => { out.textContent = WEEK.replace('{week}', week.value); });
   week.addEventListener('change', () => {
     location.href = '/patcher/calendar/jump?at=' + ({{ now }} + (week.value - {{ week }}) * {{ weekMillis }});
   });

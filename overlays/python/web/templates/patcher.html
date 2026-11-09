@@ -1,47 +1,47 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Content patcher{% endblock %}
+{% block title %}{{ t("pods.patcher.title") }}{% endblock %}
 {% block content %}
-<h1 data-side>Content patcher</h1>
-<h2 class="bracket-header" data-side>Today</h2>
+<h1 data-side>{{ t("pods.patcher.title") }}</h1>
+<h2 class="bracket-header" data-side>{{ t("pods.patcher.today") }}</h2>
 <form action="/patcher/new-day" method="post" class="panel new-day" data-side>
-  <span><strong>Start a new day</strong>{{ info("Resets quest plays, missions, shop restocks, free summons, cheers and the login bonus now. Weekly limits and the calendar stay.") }}<br><span class="note">Closes the game.</span></span>
-  <button type="submit" class="secondary">NEW DAY</button>
+  <span><strong>{{ t("pods.patcher.new_day") }}</strong>{{ info(t("pods.patcher.new_day_info")) }}<br><span class="note">{{ t("pods.patcher.closes_game") }}</span></span>
+  <button type="submit" class="secondary">{{ t("pods.patcher.new_day_button") }}</button>
 </form>
 <style>.new-day{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}</style>
 {% if calendar %}
-<div class="title-row" data-side><p>Current: <strong>{{ current }}</strong></p></div>
+<div class="title-row" data-side><p>{{ t("pods.patcher.current") }} <strong>{{ current }}</strong></p></div>
 
-<h2 class="bracket-header" data-toc>Schedule{{ info("The calendar moves at the daily reset. Stamina and daily missions use normal time.") }}</h2>
+<h2 class="bracket-header" data-toc>{{ t("pods.patcher.schedule") }}{{ info(t("pods.patcher.schedule_info")) }}</h2>
 <div class="panel">
   <dl class="kv plain">
-    <dt>Loop</dt><dd>{{ calendar.loop }} · week {{ calendar.week }} of {{ calendar.weeks }}</dd>
-    <dt>Today</dt><dd>{{ calendar.today }}</dd>
-    <dt>Original</dt><dd>{{ calendar.original }}</dd>
-    <dt>Ends</dt><dd>{{ calendar.ends }}</dd>
+    <dt>{{ t("pods.patcher.loop") }}</dt><dd>{{ t("pods.patcher.loop_week", loop=calendar.loop, week=calendar.week, weeks=calendar.weeks) }}</dd>
+    <dt>{{ t("pods.patcher.today") }}</dt><dd>{{ calendar.today }}</dd>
+    <dt>{{ t("pods.patcher.original") }}</dt><dd>{{ calendar.original }}</dd>
+    <dt>{{ t("pods.patcher.ends") }}</dt><dd>{{ calendar.ends }}</dd>
   </dl>
-  <div class="loop-meter" role="img" aria-label="Week {{ calendar.week }} of {{ calendar.weeks }}"><i style="width: {{ calendar.progress }}%"></i></div>
+  <div class="loop-meter" role="img" aria-label="{{ t("pods.patcher.week_of", week=calendar.week, weeks=calendar.weeks) }}"><i style="width: {{ calendar.progress }}%"></i></div>
   <div class="actions" style="margin-top: 0">
-    <form action="/patcher/calendar/next" method="get"><button type="submit" class="secondary">Next update</button></form>
-    <form action="/patcher/calendar/next" method="get"><input type="hidden" name="by" value="week"><button type="submit" class="secondary">Next week</button></form>
-    <form action="/patcher/calendar/jump" method="get"><button type="submit" class="secondary">Jump to…</button></form>
+    <form action="/patcher/calendar/next" method="get"><button type="submit" class="secondary">{{ t("pods.calendar.next_update") }}</button></form>
+    <form action="/patcher/calendar/next" method="get"><input type="hidden" name="by" value="week"><button type="submit" class="secondary">{{ t("pods.calendar.next_week") }}</button></form>
+    <form action="/patcher/calendar/jump" method="get"><button type="submit" class="secondary">{{ t("pods.patcher.jump_to") }}</button></form>
   </div>
   <form action="/patcher/calendar/speed" method="post">
-    <div class="label">Speed</div>
-    {% for key, title, note in [("1", "Real time", "1 week per week · loop ≈ 2 yr 9 mo"), ("2", "2×", "1 week every 3–4 days · loop ≈ 1 yr 5 mo"), ("3.5", "3.5×", "1 week every 2 days · loop ≈ 9½ mo"), ("7", "7×", "1 week every day · loop ≈ 4¾ mo")] %}
+    <div class="label">{{ t("pods.patcher.speed") }}</div>
+    {% for key, title, note in [("1", t("pods.patcher.speed_real"), t("pods.patcher.speed_1_note")), ("2", "2×", t("pods.patcher.speed_2_note")), ("3.5", "3.5×", t("pods.patcher.speed_3_note")), ("7", "7×", t("pods.patcher.speed_7_note"))] %}
     <label class="choice"><input type="radio" name="speed" value="{{ key }}" {% if calendar.speed == key %}checked{% endif %}><span><strong>{{ title }}</strong><span class="note">{{ note }}</span></span></label>
     {% endfor %}
-    <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Save speed</button></div>
+    <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">{{ t("pods.patcher.save_speed") }}</button></div>
   </form>
   <form action="/patcher/calendar/view" method="post">
-    <div class="label">Dates</div>
-    <label class="choice"><input type="radio" name="on" value="" {% if not calendar.originalDates %}checked{% endif %}><span><strong>Today's dates</strong></span></label>
-    <label class="choice"><input type="radio" name="on" value="1" {% if calendar.originalDates %}checked{% endif %}><span><strong>Show original dates (2021–2024)</strong></span></label>
-    <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">Save dates</button></div>
+    <div class="label">{{ t("pods.patcher.dates") }}</div>
+    <label class="choice"><input type="radio" name="on" value="" {% if not calendar.originalDates %}checked{% endif %}><span><strong>{{ t("pods.patcher.todays_dates") }}</strong></span></label>
+    <label class="choice"><input type="radio" name="on" value="1" {% if calendar.originalDates %}checked{% endif %}><span><strong>{{ t("pods.patcher.original_dates") }}</strong></span></label>
+    <div class="actions" style="margin-top: 8px"><button type="submit" class="secondary">{{ t("pods.patcher.save_dates") }}</button></div>
   </form>
 </div>
 
-<h2 class="bracket-header" data-toc>Timeline{{ info("Times are in this phone's time zone. Tap a summon or an event to open it in the Archive.") }}</h2>
+<h2 class="bracket-header" data-toc>{{ t("pods.patcher.timeline") }}{{ info(t("pods.patcher.timeline_info")) }}</h2>
 <div class="panel timeline-panel">
   <div id="tl-soon"></div>
   <div class="tl-controls">
@@ -54,21 +54,30 @@
 <script>
 (() => {
   const data = JSON.parse(document.getElementById("timeline-data").textContent);
+  // The timeline's words, from Bunker's catalogue; {time}, {day}, {n} are filled in here.
+  const MSG = {{ {"zoom2w": t("pods.patcher.zoom_2_weeks"), "zoom6w": t("pods.patcher.zoom_6_weeks"), "zoom3m": t("pods.patcher.zoom_3_months"),
+    "ended": t("pods.patcher.tl_ended"), "opensIn": t("pods.patcher.tl_opens_in", time="{time}"), "open": t("pods.patcher.tl_open"),
+    "left": t("pods.patcher.tl_left", time="{time}"), "from": t("pods.patcher.tl_from", day="{day}"), "soon": t("pods.patcher.tl_ending_soon", n="{n}"),
+    "today": t("pods.patcher.tl_today"), "d": t("pods.patcher.tl_days", n="{n}"), "h": t("pods.patcher.tl_hours", n="{n}"),
+    "m": t("pods.patcher.tl_minutes", n="{n}"), "summon": t("pods.patcher.tl_plain_summon"), "event": t("pods.patcher.tl_plain_event"),
+    "shop": t("pods.patcher.tl_plain_shop"), "arena": t("pods.patcher.tl_plain_arena")}|tojson }};
+  const fill = (text, values) => text.replace(/\{(\w+)\}/g, (all, name) => name in values ? values[name] : all);
   const DAY = 86400000, HOUR = 3600000, MIN = 60000;
-  const ZOOMS = [["2 weeks", 14], ["6 weeks", 42], ["3 months", 92]];
-  const LABELS = {summon: "Summons", event: "Events", shop: "Shops", arena: "Arena"};
-  const PLAIN = {summon: "SUMMON", event: "EVENT", shop: "SHOP", arena: "ARENA"};
+  const ZOOMS = [[MSG.zoom2w, 14], [MSG.zoom6w, 42], [MSG.zoom3m, 92]];
+  const LABELS = Object.fromEntries(data.rows.map(r => [r.kind, r.label]));  // android_calendar.kind_names
+  const PLAIN = {summon: MSG.summon, event: MSG.event, shop: MSG.shop, arena: MSG.arena};
   // Hidden rows are saved by Pod Programs (timeline.json), so they last on iOS too.
   let hidden = new Set(data.hidden || []), zoom = 42;
   const save = () => fetch("/patcher/calendar/timeline", {method: "POST", body: new URLSearchParams({hidden: [...hidden].join(",")})}).catch(() => {});
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const year = new Date(data.now).getFullYear();
   const day = ms => { const d = new Date(ms); return d.toLocaleDateString(undefined, d.getFullYear() === year ? {month: "short", day: "numeric"} : {month: "short", day: "numeric", year: "numeric"}); };
-  const span = ms => ms >= DAY ? `${Math.floor(ms / DAY)}d${ms % DAY >= HOUR ? " " + Math.floor(ms % DAY / HOUR) + "h" : ""}`
-                               : ms >= HOUR ? `${Math.floor(ms / HOUR)}h ${Math.floor(ms % HOUR / MIN)}m` : `${Math.max(1, Math.floor(ms / MIN))}m`;
+  const days = n => fill(MSG.d, {n}), hours = n => fill(MSG.h, {n}), mins = n => fill(MSG.m, {n});
+  const span = ms => ms >= DAY ? days(Math.floor(ms / DAY)) + (ms % DAY >= HOUR ? " " + hours(Math.floor(ms % DAY / HOUR)) : "")
+                               : ms >= HOUR ? hours(Math.floor(ms / HOUR)) + " " + mins(Math.floor(ms % HOUR / MIN)) : mins(Math.max(1, Math.floor(ms / MIN)));
   // An item with no end (null) stays open: the game data never closes it.
   const state = i => i.end !== null && i.end <= data.now ? "ended" : i.start > data.now ? "next" : "open";
-  const tag = i => ({ended: "ended", next: "opens in " + span(i.start - data.now), open: i.end === null ? "open" : span(i.end - data.now) + " left"})[state(i)];
+  const tag = i => ({ended: MSG.ended, next: fill(MSG.opensIn, {time: span(i.start - data.now)}), open: i.end === null ? MSG.open : fill(MSG.left, {time: span(i.end - data.now)})})[state(i)];
   // Art, or the plain label when there is none or it does not load.
   const art = (i, kind, cls) => {
     const box = el("div", cls);
@@ -80,14 +89,14 @@
   const link = (i, node) => { if (!i.ref) return node; const a = el("a", node.className); a.href = "bunker-archive:" + i.ref; a.append(...node.childNodes); return a; };
   const text = i => {
     const t = el("div", "tl-text");
-    t.append(el("b", "", i.name), el("span", "", i.end === null ? `from ${day(i.start)}` : `${day(i.start)} → ${day(i.end - 1)}`), el("em", "", tag(i)));
+    t.append(el("b", "", i.name), el("span", "", i.end === null ? fill(MSG.from, {day: day(i.start)}) : `${day(i.start)} → ${day(i.end - 1)}`), el("em", "", tag(i)));
     return t;
   };
 
   function soon() {
     const box = document.getElementById("tl-soon"); box.replaceChildren();
     if (!data.soon.length) return;
-    box.append(el("div", "label", "Ending in 7 days · " + data.soon.length));
+    box.append(el("div", "label", fill(MSG.soon, {n: data.soon.length})));
     const strip = el("div", "tl-strip");
     for (const i of data.soon) {
       const card = el("div", "tl-card"); card.append(art(i, i.kind, "tl-art small"), text(i));
@@ -128,7 +137,7 @@
       }
       if (d.getDay() === 1) { const w = el("div", "tl-week"); w.style.left = x(d.getTime()) + "px"; inner.append(w); }
     }
-    const today = el("div", "tl-today", "TODAY"); today.style.left = x(data.now) + "px"; inner.append(today);
+    const today = el("div", "tl-today", MSG.today); today.style.left = x(data.now) + "px"; inner.append(today);
     for (const r of data.rows) {
       if (hidden.has(r.kind) || !r.items.length) continue;
       const lane = el("div", "tl-lane"); lane.append(el("div", "tl-lane-name", `${LABELS[r.kind].toUpperCase()} · ${r.items.length}`));
@@ -162,49 +171,49 @@
   window.addEventListener("resize", () => { if (window.innerWidth !== width) { width = window.innerWidth; draw(); } });
 })();
 </script>
-<form action="/patcher/calendar/off" method="post" class="actions"><button type="submit" class="secondary">Switch to everything open</button>{{ info("Content presets are off while the calendar is on.") }}</form>
+<form action="/patcher/calendar/off" method="post" class="actions"><button type="submit" class="secondary">{{ t("pods.patcher.calendar_off") }}</button>{{ info(t("pods.patcher.calendar_off_info")) }}</form>
 {% else %}
-<p data-side>Current: <strong>{{ current }}</strong></p>
+<p data-side>{{ t("pods.patcher.current") }} <strong>{{ current }}</strong></p>
 
-<h2 class="bracket-header" data-toc>Schedule</h2>
+<h2 class="bracket-header" data-toc>{{ t("pods.patcher.schedule") }}</h2>
 <div class="panel">
-  <label class="choice"><input type="radio" name="schedule" checked onchange="schedule(false)"><span><strong>Everything open</strong></span></label>
-  <label class="choice"><input type="radio" name="schedule" onchange="schedule(true)"><span><strong>Original calendar</strong>{{ info("Replays the game from launch day. Events, summons and seasons open and close on their original dates.") }}</span></label>
+  <label class="choice"><input type="radio" name="schedule" checked onchange="schedule(false)"><span><strong>{{ t("pods.patcher.everything_open") }}</strong></span></label>
+  <label class="choice"><input type="radio" name="schedule" onchange="schedule(true)"><span><strong>{{ t("pods.patcher.original_calendar") }}</strong>{{ info(t("pods.patcher.original_calendar_info")) }}</span></label>
 </div>
 <form id="turn-on" action="/patcher/calendar/on" method="post" class="panel" data-busy hidden>
-  <div><strong>The game restarts from launch day.</strong>{{ info("At its title screen if it is running, or on your next Deploy.") }}</div>
+  <div><strong>{{ t("pods.patcher.restarts") }}</strong>{{ info(t("pods.patcher.restarts_info")) }}</div>
   <dl class="kv plain">
-    <dt>Starts</dt><dd>{{ start.day }} <span class="when">{{ start.original }} in the original</span></dd>
-    <dt>Length</dt><dd>144 weeks, until {{ start.ends }}</dd>
+    <dt>{{ t("pods.patcher.starts") }}</dt><dd>{{ start.day }} <span class="when">{{ t("pods.calendar.in_original", date=start.original) }}</span></dd>
+    <dt>{{ t("pods.patcher.length") }}</dt><dd>{{ t("pods.patcher.length_value", date=start.ends) }}</dd>
   </dl>
-  <div class="label">What changes</div>
+  <div class="label">{{ t("pods.patcher.what_changes") }}</div>
   <ul class="terms">
-    <li>Only current events, summons and shops are open.</li>
-    <li>Event medals expire when their shop closes.</li>
-    <li>Leftover summon shards become Medals soon after a summon ends.</li>
-    <li>Arena seasons and monthly passes end with rewards.</li>
+    <li>{{ t("pods.patcher.change_open") }}</li>
+    <li>{{ t("pods.patcher.change_medals") }}</li>
+    <li>{{ t("pods.patcher.change_shards") }}</li>
+    <li>{{ t("pods.patcher.change_seasons") }}</li>
   </ul>
-  <div class="label">Kept</div>
-  <p>All characters, weapons, items and story progress.</p>
+  <div class="label">{{ t("pods.patcher.kept") }}</div>
+  <p>{{ t("pods.patcher.kept_text") }}</p>
   <div class="actions">
-    <button type="submit">Start calendar</button>
-    <span class="busy-note" hidden>Building game data… Keep Pod Programs open.</span>
+    <button type="submit">{{ t("pods.patcher.start_calendar") }}</button>
+    <span class="busy-note" hidden>{{ t("pods.patcher.building") }}</span>
   </div>
 </form>
 
 <section id="presets">
-<h2 class="bracket-header" data-toc>Content</h2>
+<h2 class="bracket-header" data-toc>{{ t("pods.patcher.content") }}</h2>
 <form action="/patcher/apply" method="post" class="panel" data-busy>
-  <label for="preset">Content{{ info("Which events and shops are open. The current master data is backed up first.") }}</label>
+  <label for="preset">{{ t("pods.patcher.content") }}{{ info(t("pods.patcher.content_info")) }}</label>
   <select name="preset" id="preset">
-    <optgroup label="Standard">{% for key, title in presets %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
-    <optgroup label="Smaller splits">{% for key, title in splits %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
+    <optgroup label="{{ t("pods.patcher.standard") }}">{% for key, title in presets %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
+    <optgroup label="{{ t("pods.patcher.smaller_splits") }}">{% for key, title in splits %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</optgroup>
   </select>
-  <details><summary>Advanced configuration</summary>
-    <textarea name="configuration" aria-label="Patch configuration" rows="14" spellcheck="false">{{ configuration }}</textarea>
+  <details><summary>{{ t("pods.patcher.advanced") }}</summary>
+    <textarea name="configuration" aria-label="{{ t("pods.patcher.configuration") }}" rows="14" spellcheck="false">{{ configuration }}</textarea>
   </details>
-  <button type="submit">Apply</button>
-  <span class="busy-note" hidden>Applying… Keep Pod Programs open.</span>
+  <button type="submit">{{ t("common.apply") }}</button>
+  <span class="busy-note" hidden>{{ t("pods.patcher.applying") }}</span>
 </form>
 </section>
 <script>
@@ -215,19 +224,19 @@
   }
 </script>
 {% endif %}
-<details class="panel"><summary data-toc>Previous versions</summary>
+<details class="panel"><summary data-toc>{{ t("pods.patcher.previous_versions") }}</summary>
   {% if history %}<form action="/patcher/restore" method="post" data-busy>
-    <select name="filename" aria-label="Previous version">{% for item in history %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
-    <button type="submit">Restore</button><span class="busy-note" hidden>Restoring…</span>
-  </form>{% else %}<p>No changes yet.</p>{% endif %}
+    <select name="filename" aria-label="{{ t("pods.patcher.previous_version") }}">{% for item in history %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
+    <button type="submit">{{ t("common.restore") }}</button><span class="busy-note" hidden>{{ t("pods.patcher.restoring") }}</span>
+  </form>{% else %}<p>{{ t("pods.patcher.no_changes") }}</p>{% endif %}
 </details>
-<details class="panel"><summary data-toc="Original file">Original file &amp; export</summary>
+<details class="panel"><summary data-toc="{{ t("pods.patcher.original_file") }}">{{ t("pods.patcher.original_file_export") }}</summary>
   <form action="/patcher/origin" method="post" enctype="multipart/form-data" data-busy>
-    <input type="file" name="source" aria-label="Original master data" required>{{ info("Every preset starts from the bundled original master data. You can use your own copy instead.") }}
-    <button type="submit">Use original file</button><span class="busy-note" hidden>Checking…</span>
+    <input type="file" name="source" aria-label="{{ t("pods.patcher.original_master") }}" required>{{ info(t("pods.patcher.original_master_info")) }}
+    <button type="submit">{{ t("pods.patcher.use_original") }}</button><span class="busy-note" hidden>{{ t("common.checking") }}</span>
   </form>
-  <p><a href="/patcher/export" download>Export current master data</a></p>
+  <p><a href="/patcher/export" download>{{ t("pods.patcher.export") }}</a></p>
 </details>
-<p class="credit">Based on NavHobbyDev's lunar-tear-masterdata-patcher.</p>
+<p class="credit">{{ t("pods.patcher.credit") }}</p>
 <script>document.querySelectorAll('[data-busy]').forEach(form => form.addEventListener('submit', () => {form.querySelector('button').disabled = true; form.querySelector('.busy-note').hidden = false;}));</script>
 {% endblock %}

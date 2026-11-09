@@ -241,6 +241,8 @@ class InfoIcon(unittest.TestCase):
         except ImportError:
             self.skipTest("needs jinja2")
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(root / "android/app/src/main/python/archive/templates")), autoescape=True)
+        import bunker_text
+        bunker_text.install(env)
         html = env.from_string('{% from "_info.html" import info %}{% call info() %}<b>{{ x }}</b>{% endcall %}|{{ info(x) }}').render(x="<&>")
         self.assertEqual(html, '<details class="info"><summary aria-label="More information">i</summary><div><b>&lt;&amp;&gt;</b></div></details>'
                                '|<details class="info"><summary aria-label="More information">i</summary><div>&lt;&amp;&gt;</div></details>')

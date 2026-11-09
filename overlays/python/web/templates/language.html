@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Language{% endblock %}
+{% block title %}{{ t("pods.language.title") }}{% endblock %}
 {% block content %}
-<h1 data-side>Language{{ info("Keep the game set to English: a pack replaces its English text. Untranslated text stays English.") }}</h1>
+<h1 data-side>{{ t("pods.language.title") }}{{ info(t("pods.language.info")) }}</h1>
 {% if not supported %}
-<div class="banner error">&gt; Language packs need the global game files.{{ info("These are the Japanese client's files, which have no English text.") }}</div>
-{% if current != "en" %}<form action="/language" method="post"><input type="hidden" name="choice" value="en"><div class="actions"><button type="submit">Back to English</button></div></form>{% endif %}
+<div class="banner error">&gt; {{ t("pods.language.needs_global") }}{{ info(t("pods.language.needs_global_info")) }}</div>
+{% if current != "en" %}<form action="/language" method="post"><input type="hidden" name="choice" value="en"><div class="actions"><button type="submit">{{ t("pods.language.back_to_english") }}</button></div></form>{% endif %}
 {% else %}
 {% if status_line %}<div class="banner{% if status_state == 'failed' %} error{% endif %}">&gt; {{ status_line }}</div>{% endif %}
 <form action="/language" method="post">
-  <h2 class="bracket-header" data-toc>Language</h2>
+  <h2 class="bracket-header" data-toc>{{ t("pods.language.title") }}</h2>
   <div class="panel">
-    <label class="choice"><input type="radio" name="choice" value="en" required{% if current == "en" %} checked{% endif %}><span><strong>English</strong></span></label>
+    <label class="choice"><input type="radio" name="choice" value="en" required{% if current == "en" %} checked{% endif %}><span><strong>{{ t("pods.language.english") }}</strong></span></label>
     {% for pack in packs %}
-    <label class="choice"><input type="radio" name="choice" required value="{{ pack.source }}:{{ pack.language }}"{% if current == pack.source ~ ":" ~ pack.language %} checked{% endif %}><span><strong>{{ pack.name }}</strong><span class="note">{{ pack.language }}{% if pack.version %} · version {{ pack.version }}{% endif %} · {{ count(pack.texts, "text") }} ({{ pack.percent }}%)</span></span></label>
+    <label class="choice"><input type="radio" name="choice" required value="{{ pack.source }}:{{ pack.language }}"{% if current == pack.source ~ ":" ~ pack.language %} checked{% endif %}><span><strong>{{ pack.name }}</strong><span class="note">{{ pack.language }}{% if pack.version %} · {{ t("pods.language.version", version=pack.version) }}{% endif %} · {{ t("pods.language.size", texts=texts(pack.texts), percent=pack.percent) }}</span></span></label>
     {% endfor %}
-    {% if current == "other" %}<p class="note">The game uses an unlisted pack. Choose one to replace it.</p>{% endif %}
+    {% if current == "other" %}<p class="note">{{ t("pods.language.unlisted") }}</p>{% endif %}
   </div>
   <div class="actions"><button type="submit">{{ t("common.save") }}</button></div>
 </form>
@@ -23,22 +23,22 @@
 
 {% set loaded = packs | selectattr("source", "equalto", "loaded") | list %}
 {% if loaded %}
-<h2 class="bracket-header" data-toc>Loaded packs</h2>
+<h2 class="bracket-header" data-toc>{{ t("pods.language.loaded_packs") }}</h2>
 <div class="panel">
   {% for pack in loaded %}
   <form action="/language/remove" method="post" class="setting">
     <label>{{ pack.name }} <span class="note">{{ pack.language }}</span></label>
     <input type="hidden" name="language" value="{{ pack.language }}">
-    <button type="submit">Remove</button>
+    <button type="submit">{{ t("common.remove") }}</button>
   </form>
   {% endfor %}
 </div>
 {% endif %}
 
-<details class="panel"><summary data-toc="Load a pack">Load a pack</summary>
+<details class="panel"><summary data-toc="{{ t("pods.language.load_pack") }}">{{ t("pods.language.load_pack") }}</summary>
   <form action="/language/load" method="post" enctype="multipart/form-data" data-busy>
-    <input type="file" name="pack" accept=".json,application/json" aria-label="Language pack" required>{{ info("A .json pack from a translator or a Bunker release. It replaces a loaded pack of the same language.") }}
-    <button type="submit">Load</button><span class="busy-note" hidden>Checking…</span>
+    <input type="file" name="pack" accept=".json,application/json" aria-label="{{ t("pods.language.pack_file") }}" required>{{ info(t("pods.language.load_info")) }}
+    <button type="submit">{{ t("common.load") }}</button><span class="busy-note" hidden>{{ t("common.checking") }}</span>
   </form>
 </details>
 <script>document.querySelectorAll('[data-busy]').forEach(form => form.addEventListener('submit', () => {form.querySelector('button').disabled = true; form.querySelector('.busy-note').hidden = false;}));</script>

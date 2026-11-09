@@ -8,6 +8,7 @@ root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / "android/app/src/main/python"))
 import android_mods  # noqa: E402
 import android_runtime  # noqa: E402
+import bunker_text  # noqa: E402
 
 
 class Settings(unittest.TestCase):
@@ -61,12 +62,13 @@ class Settings(unittest.TestCase):
         android_mods.write_settings(values, self.path)
         s = android_mods.read_settings(self.path)
         self.assertEqual(android_mods.preset_of(s), "everything")
-        for key, kind, *_ in (m for g, mods in android_mods.GROUPS if g != "Challenges" for m in mods):
+        for key, kind, *_ in (m for g, mods in android_mods.GROUPS if g != "challenges" for m in mods):
             self.assertEqual(s[key], True if kind == "bool" else android_mods.MAX_MULTIPLIER, key)
         self.assertEqual((s["hardEnemies"], s["weaknessOnly"], s["slowSkills"]), (1, False, False))
 
     def test_groups_and_order(self):
-        groups = {g: [m[0] for m in mods] for g, mods in android_mods.GROUPS}
+        # Groups by their titles (the catalogue's pods.mods.group.<id>).
+        groups = {bunker_text.t(f"pods.mods.group.{g}"): [m[0] for m in mods] for g, mods in android_mods.GROUPS}
         self.assertEqual(list(groups), ["Quests", "Items & shops", "Summons", "World", "Challenges"])
         self.assertEqual(groups["Quests"], ["staminaFree", "unlimitedDailyPlays", "freeSkips", "rewardMultiplier", "expMultiplier"])
         self.assertEqual(groups["Items & shops"], ["staminaItemsToGold", "ticketsToGems", "shopUnlimited", "lostItemGems"])
@@ -124,7 +126,7 @@ class Page(unittest.TestCase):
         for _, mods in android_mods.GROUPS:
             for key, _kind, title, *_ in mods:
                 self.assertIn(f'name="{key}"', html)
-                self.assertIn(title, html)
+                self.assertIn(bunker_text.t(title), html)
         self.assertIn("NavHobbyDev", html)
         self.assertIn(android_mods.COMFORT_MOD, html)
         # The credit is in the Comfort preset's info, not a line on the page.
@@ -148,9 +150,9 @@ class Page(unittest.TestCase):
     def test_page_groups_render_and_fold(self):
         import re
         html = self.render()
-        for group in ["Preset"] + [g for g, _ in android_mods.GROUPS]:
-            name = re.escape(group.replace("&", "&amp;"))
-            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open[^>]*>\s*<summary[^>]*>[^<]*%s' % (name, name), group)
+        for group, title in [("Preset", "Preset")] + [(g, bunker_text.t(f"pods.mods.group.{g}")) for g, _ in android_mods.GROUPS]:
+            name = re.escape(title.replace("&", "&amp;"))
+            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open[^>]*>\s*<summary[^>]*>[^<]*%s' % (re.escape(group), name), group)
         self.assertIn("localStorage", html)  # which groups are folded, per viewer
         self.assertIn("Everything", html)
 

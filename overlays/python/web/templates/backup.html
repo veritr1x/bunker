@@ -1,24 +1,27 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Save backups{% endblock %}
+{% block title %}{{ t("pods.backup.title") }}{% endblock %}
 {% block content %}
-<h1 data-side>Save backups{{ info("Changes are backed up automatically. The latest " ~ retention ~ " backups are kept.") }}</h1>
+<h1 data-side>{{ t("pods.backup.title") }}{{ info(t("pods.backup.info", n=retention)) }}</h1>
 <form method="post" action="/backups/create" data-side>
-  <button type="submit" {% if not game_db_exists %}disabled{% endif %}>Create backup</button>
+  <button type="submit" {% if not game_db_exists %}disabled{% endif %}>{{ t("pods.backup.create") }}</button>
 </form>
-{% if not game_db_exists %}<p data-side>Play the game once to create a save.</p>{% endif %}
+{% if not game_db_exists %}<p data-side>{{ t("pods.runtime.no_save") }}</p>{% endif %}
 {% if lunar_tear_running %}<p class="banner error">{{ lunar_tear_running }}</p>{% endif %}
+{#- Month names are catalogue keys (common.month_short.*). #}
+{%- set months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"] %}
 <div data-grid2>
 {% for b in backups %}
+{%- set month = "common.month_short." ~ months[b.created_at.month - 1] %}
 <details class="panel">
-  <summary><strong>{{ b.created_at.strftime("%d %b %Y, %H:%M:%S") }}</strong><br>{{ b.reason_display }} · {{ b.size_human }}</summary>
+  <summary><strong>{{ t("pods.backup.when", day=b.created_at.strftime("%d"), month=t(month), year=b.created_at.year, time=b.created_at.strftime("%H:%M:%S")) }}</strong><br>{{ b.reason_display }} · {{ b.size_human }}</summary>
   <form method="post" action="/backups/restore">
     <input type="hidden" name="filename" value="{{ b.filename }}">
-    <p>Your current save will be backed up before restoring.</p>
-    <label>Type RESTORE<br><input type="text" name="confirm" aria-label="Type RESTORE to confirm" placeholder="RESTORE" required pattern="RESTORE" autocomplete="off" autocapitalize="characters"></label>
-    <button type="submit" class="danger" {% if lunar_tear_running %}disabled{% endif %}>Restore</button>
+    <p>{{ t("pods.backup.restore_note") }}</p>
+    <label>{{ t("pods.backup.type_restore", word="RESTORE") }}<br><input type="text" name="confirm" aria-label="{{ t("pods.backup.type_restore_label", word="RESTORE") }}" placeholder="RESTORE" required pattern="RESTORE" autocomplete="off" autocapitalize="characters"></label>
+    <button type="submit" class="danger" {% if lunar_tear_running %}disabled{% endif %}>{{ t("common.restore") }}</button>
   </form>
 </details>
-{% else %}<p>No backups yet.</p>{% endfor %}
+{% else %}<p>{{ t("pods.backup.none") }}</p>{% endfor %}
 </div>
 {% endblock %}

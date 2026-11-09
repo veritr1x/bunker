@@ -15,6 +15,7 @@ from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 
 import android_runtime as runtime
+import bunker_text
 from web import config
 
 router = APIRouter()
@@ -46,10 +47,10 @@ def use_player(user_id: int, path=None, backup=None) -> bool:
     with contextlib.closing(sqlite3.connect(path)) as db:
         device = _device_id(db)
         if device is None:
-            raise ValueError("Deploy and sign in to the game once on this device first.")
+            raise ValueError(bunker_text.t("pods.users.sign_in_first"))
         row = db.execute("SELECT uuid FROM users WHERE user_id = ?", (user_id,)).fetchone()
         if row is None:
-            raise ValueError(f"Player {user_id} not found.")
+            raise ValueError(bunker_text.t("pods.users.player_not_found", id=user_id))
         chosen = row[0]
         if chosen == device:
             return False
@@ -82,7 +83,7 @@ def new_player(path=None, backup=None) -> int | None:
     with contextlib.closing(sqlite3.connect(path)) as db:
         device = _device_id(db)
         if device is None:
-            raise ValueError("Deploy and sign in to the game once on this device first.")
+            raise ValueError(bunker_text.t("pods.users.sign_in_first"))
         row = db.execute("SELECT user_id FROM users WHERE uuid = ?", (device,)).fetchone()
     if row is None:
         return None  # Already free: the next sign-in starts a new player.
@@ -105,15 +106,15 @@ def use(user_id: int):
     try:
         blocker = backup_service.detect_lunar_tear_running()
         if blocker:
-            raise ValueError("Stop Lunar Tear before changing the player.")
+            raise ValueError(bunker_text.t("pods.users.stop_to_switch"))
         changed = use_player(user_id, backup=backup_service.create_backup)
     except Exception as exc:
         return _back(user_id, error=str(exc))
     if not changed:
-        response = _back(user_id, message="The game already uses this player.")
+        response = _back(user_id, message=bunker_text.t("pods.users.already_used"))
         response.headers["X-Bunker-Unchanged"] = "1"
         return response
-    return _back(user_id, message="The game will play as this player. " + runtime.next_step())
+    return _back(user_id, message=bunker_text.t("pods.users.switched") + " " + runtime.next_step())
 
 
 @router.post("/users/new")
@@ -121,13 +122,13 @@ def new():
     from web.services import backup_service
     try:
         if backup_service.detect_lunar_tear_running():
-            raise ValueError("Stop Lunar Tear before starting a new player.")
+            raise ValueError(bunker_text.t("pods.users.stop_to_start"))
         kept = new_player(backup=backup_service.create_backup)
     except Exception as exc:
         return RedirectResponse("/users?" + urlencode({"error": str(exc)}), status_code=303)
-    message = "The game will start a new player. " + runtime.next_step()
+    message = bunker_text.t("pods.users.new_started") + " " + runtime.next_step()
     if kept:
-        message += f" Player {kept} is kept. Choose it here to go back."
+        message += " " + bunker_text.t("pods.users.kept", id=kept)
     return RedirectResponse("/users?" + urlencode({"message": message}), status_code=303)
 
 

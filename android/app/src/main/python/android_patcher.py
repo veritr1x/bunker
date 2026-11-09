@@ -4,6 +4,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 from datetime import datetime
 from urllib.parse import urlencode
@@ -18,9 +19,40 @@ import android_runtime as runtime
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 import bunker_text  # noqa: E402
+from bunker_text import t  # noqa: E402
 bunker_text.install(templates)  # Bunker's own text, in the chosen language
-PRESETS = [("Full", "All content"), ("Clear", "Story"), ("Gacha", "Gacha shops"), ("Rec", "Record events"), ("Var", "Variation events"), ("Bonus", "Bonus quests")]
-SPLITS = [(f"{key}_{index}", f"{label} {index}") for key, label, count in (("Gacha", "Gacha", 5), ("Rec", "Record", 5), ("Var", "Variation", 4), ("Bonus", "Bonus", 4)) for index in range(1, count + 1)]
+# Each preset: its name for the patcher, and its words' key in Bunker's catalogue (a split's takes its number, n).
+PRESETS = [("Full", "pods.patcher.label.full"), ("Clear", "pods.patcher.label.story"), ("Gacha", "pods.patcher.label.gacha"),
+           ("Rec", "pods.patcher.label.record"), ("Var", "pods.patcher.label.variation"), ("Bonus", "pods.patcher.label.bonus")]
+SPLITS = [(f"{key}_{index}", "pods.patcher.label.split_" + key.lower()) for key, count in (("Gacha", 5), ("Rec", 5), ("Var", 4), ("Bonus", 4))
+          for index in range(1, count + 1)]
+# What active.json's label can say. It stays in English (reapply_preset finds a preset by it); the page translates it.
+LABELS = ("pods.patcher.label.full", "pods.patcher.label.story", "pods.patcher.label.gacha", "pods.patcher.label.record",
+          "pods.patcher.label.variation", "pods.patcher.label.bonus", "pods.patcher.label.split_gacha", "pods.patcher.label.split_rec",
+          "pods.patcher.label.split_var", "pods.patcher.label.split_bonus", "pods.patcher.imported", "pods.patcher.label.restored",
+          "pods.patcher.label_calendar")
+
+
+def english(key, **params):
+    """A catalogue text in English, whatever the chosen language: for labels kept in files."""
+    return bunker_text.english()[key].format(**params)
+
+
+def preset_label(preset, in_english=False):
+    """A preset's name ("All content", "Gacha 3"): in the chosen language, or in English for active.json."""
+    key, n = dict(PRESETS + SPLITS)[preset], preset.partition("_")[2]
+    return english(key, n=n) if in_english else t(key, n=n)
+
+
+def shown_label(label):
+    """active.json's label in the chosen language; a label of another form as it is."""
+    for key in LABELS:
+        # The English text with each {name} matching anything.
+        pattern = re.sub(r"\\\{(\w+)\\\}", r"(?P<\1>.+)", re.escape(bunker_text.english().get(key, "")))
+        found = re.fullmatch(pattern, label)
+        if found:
+            return t(key, **found.groupdict())
+    return label
 
 
 def folder():
@@ -42,12 +74,12 @@ def get_config():
 
 def expand(cfg, key, seen=()):
     if key in seen or len(seen) > 20:
-        raise ValueError("Configuration contains a circular reference")
+        raise ValueError(t("pods.patcher.circular"))
     value = cfg.get(key, "")
     if isinstance(value, list):
         return ", ".join(expand(cfg, entry, (*seen, key)) for entry in value)
     if not isinstance(value, str):
-        raise ValueError("Configuration values must be text or lists of keys")
+        raise ValueError(t("pods.patcher.bad_value"))
     return value.strip()
 
 
@@ -81,7 +113,7 @@ def medal_exchanges():
 
 def arguments(preset, cfg):
     if preset not in dict(PRESETS + SPLITS):
-        raise ValueError("Unknown preset")
+        raise ValueError(t("common.unknown_preset"))
     get = lambda key: expand(cfg, key)
     join = lambda *keys: ", ".join(get(k) for k in keys)
     events = get("EVENTS_MAIN")
@@ -125,19 +157,19 @@ def validate_master(path):
     import msgpack
     raw = Path(path).read_bytes()
     if not 1_000_000 < len(raw) < 32_000_000:
-        raise ValueError("Select the original 3.7.1 master-data file")
+        raise ValueError(t("pods.patcher.wrong_file"))
     decoded = unpad(AES.new(bytes.fromhex(dump_masterdata.DEFAULT_KEY), AES.MODE_CBC, bytes.fromhex(dump_masterdata.DEFAULT_IV)).decrypt(raw), AES.block_size)
     try:
         msgpack.unpackb(decoded, raw=False, strict_map_key=False)
-        raise ValueError("Master data has no tables")
+        raise ValueError(t("pods.patcher.no_tables"))
     except msgpack.ExtraData as exc:
         toc, blob = exc.unpacked, exc.extra
     for name in ("m_costume", "m_weapon", "m_event_quest_chapter", "m_shop", "m_mom_banner"):
         if name not in toc:
-            raise ValueError("Required game table is missing: " + name)
+            raise ValueError(t("pods.patcher.missing_table", table=name))
     for offset, length in toc.values():
         if offset < 0 or length <= 0 or offset + length > len(blob):
-            raise ValueError("Invalid master-data table bounds")
+            raise ValueError(t("pods.patcher.bad_bounds"))
         dump_masterdata.decompress_table(blob, offset, length)
 
 
@@ -216,24 +248,24 @@ def new_day():
         start_new_day()
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="A new day has started. Close Pod Programs and tap Deploy.")
+    return redirect(message=t("pods.patcher.new_day_started", next=t("pods.runtime.deploy")))
 
 
 @router.get("/patcher")
 def view(request: Request, message: str = "", error: str = ""):
-    current = "Imported master data"
+    current = t("pods.patcher.imported")
     state = folder() / "active.json"
     metadata = runtime.read_json(state)
-    if isinstance(metadata, dict) and metadata.get("label"):
+    if isinstance(metadata, dict) and isinstance(metadata.get("label"), str) and metadata["label"]:
         if metadata.get("sha256") == runtime.fingerprint(config.find_master_data_bin()):
-            current = metadata["label"]
+            current = shown_label(metadata["label"])
     import android_calendar as calendar
     state = calendar.read_state()
     schedule = start = None
     if state:
         try:
             if calendar.roll_over(state):
-                message = message or f"Loop {state['loop']} started. Close Pod Programs and tap Deploy."
+                message = message or t("pods.patcher.loop_started", loop=state["loop"], next=t("pods.runtime.deploy"))
             else:
                 # Calendars started before loops opened at the first summons.
                 changed = calendar.open_at_first_summons(state)
@@ -248,7 +280,8 @@ def view(request: Request, message: str = "", error: str = ""):
         current = calendar.label(state)
     else:
         start = calendar.start_preview()
-    return templates.TemplateResponse(request, "patcher.html", {"active": "patcher", "current": current, "presets": PRESETS, "splits": SPLITS,
+    return templates.TemplateResponse(request, "patcher.html", {"active": "patcher", "current": current,
+        "presets": [(key, preset_label(key)) for key, _ in PRESETS], "splits": [(key, preset_label(key)) for key, _ in SPLITS],
         "configuration": json.dumps(get_config(), indent=2), "history": [p.name for p in master_history()], "message": message, "error": error,
         "calendar": schedule, "start": start})
 
@@ -260,12 +293,12 @@ def apply_preset(preset, cfg):
         args = arguments(preset, cfg)
         origin = folder() / "origin.bin.e"
         if not origin.exists():
-            raise ValueError("Load the original master data under Original file & export")
+            raise ValueError(t("pods.patcher.load_original"))
         from patcher import patch_masterdata
         patch_masterdata = importlib.reload(patch_masterdata)
         log = runtime.cli(patch_masterdata, ["--input", origin, "--output", candidate, *args])
         (folder() / "last-patch.log").write_text(log)
-        activate(candidate, dict(PRESETS + SPLITS)[preset])
+        activate(candidate, preset_label(preset, in_english=True))
     finally:
         candidate.unlink(missing_ok=True)
 
@@ -274,7 +307,7 @@ def reapply_preset():
     """Builds the preset's master data again with this build's patcher when the
     master data is still what that preset made (active.json). Returns True when it did."""
     active = runtime.read_json(folder() / "active.json")
-    presets = {label: key for key, label in PRESETS + SPLITS}
+    presets = {preset_label(key, in_english=True): key for key, _ in PRESETS + SPLITS}
     if not (isinstance(active, dict) and active.get("label") in presets):
         return False
     master = config.find_master_data_bin()
@@ -308,14 +341,14 @@ def update_for(version):
 def apply(preset: str = Form(...), configuration: str = Form("")):
     import android_calendar as calendar
     if calendar.read_state():
-        return redirect(error="Switch the calendar off first")
+        return redirect(error=t("pods.patcher.calendar_on"))
     try:
         cfg = json.loads(configuration) if configuration.strip() else get_config()
         if not isinstance(cfg, dict):
-            raise ValueError("Configuration must be a JSON object")
+            raise ValueError(t("pods.patcher.not_object"))
         apply_preset(preset, cfg)
         runtime.write_json(folder() / "config.json", cfg, indent=2)
-        return redirect(message="Applied. " + runtime.next_step())
+        return redirect(message=t("pods.patcher.applied", next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -323,12 +356,12 @@ def apply(preset: str = Form(...), configuration: str = Form("")):
 @router.post("/patcher/restore")
 def restore(filename: str = Form(...)):
     if filename not in [p.name for p in master_history()]:
-        return redirect(error="Snapshot not found")
+        return redirect(error=t("pods.runtime.snapshot_not_found"))
     candidate = folder() / "candidate.bin.e"
     try:
         shutil.copyfile(folder() / filename, candidate)
-        activate(candidate, "Restored snapshot")
-        return redirect(message="Master data restored. " + runtime.next_step())
+        activate(candidate, english("pods.patcher.label.restored"))
+        return redirect(message=t("pods.patcher.restored_next", next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))
     finally:
@@ -341,14 +374,14 @@ def import_origin(source: UploadFile = File(...)):
     try:
         data = source.file.read(32_000_001)
         if len(data) > 32_000_000:
-            raise ValueError("Master file is too large")
+            raise ValueError(t("pods.patcher.too_large"))
         candidate.write_bytes(data)
         validate_master(candidate)
         origin = folder() / "origin.bin.e"
         if origin.exists():
             shutil.copyfile(origin, folder() / "origin.previous.bin.e")
         os.replace(candidate, origin)
-        return redirect(message="Original master data updated.")
+        return redirect(message=t("pods.patcher.original_updated"))
     except Exception as exc:
         return redirect(error=str(exc))
     finally:

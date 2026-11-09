@@ -28,6 +28,7 @@ from archive.schedule import ART_TITLES
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 import bunker_text  # noqa: E402
+from bunker_text import t, t_count  # noqa: E402
 bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 DAY = 24 * 60 * 60 * 1000
@@ -50,7 +51,7 @@ SHARED_MEDAL = {46, 151} | {401, 501, 535, 541, 542, 543, 549, 550, 555, 556, 58
 SPECIAL_SUMMONS = {43, 49, 52, 60, 64, 66, 70, 85, 153, 160, 199, 410, 416, 428, 430, 433, 449, 452, 453, 468, 472, 493, 501, 503, 510, 514, 515, 524, 545, 547, 581, 584, 593, 597, 9000007}
 PARKED_RERUNS = {159: 3110399000, 414: 1123199000}
 BANNERLESS_SKIPPED = {617, 10016, 10107, 10108, 9000040}
-SPEEDS = {"1": "Real time", "2": "2×", "3.5": "3.5×", "7": "7×"}
+SPEEDS = ("1", "2", "3.5", "7")  # weeks a week (patcher.html names them)
 
 # Rotating content: these tables move with the calendar.
 ROTATING = (
@@ -793,7 +794,7 @@ def read_master(path):
     decoded = unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(Path(path).read_bytes()), AES.block_size)
     try:
         msgpack.unpackb(decoded, raw=False, strict_map_key=False)
-        raise ValueError("Master data has no tables")
+        raise ValueError(t("pods.patcher.no_tables"))
     except msgpack.ExtraData as exc:
         return exc.unpacked, exc.extra
 
@@ -822,7 +823,7 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
     from patcher import patch_masterdata as pm
     from tools import dump_masterdata
     if offset % WEEK:
-        raise ValueError("The calendar moves in whole weeks")
+        raise ValueError(t("pods.calendar.whole_weeks"))
     toc, blob = read_master(origin)
     schemas = dump_masterdata.load_schemas()
     changed = {}
@@ -875,7 +876,7 @@ def write_master(toc, blob, changed, output):
 def origin_file():
     origin = patcher.folder() / "origin.bin.e"
     if not origin.exists():
-        raise ValueError("Load the original master data under Original file & export")
+        raise ValueError(t("pods.patcher.load_original"))
     return origin
 
 
@@ -967,14 +968,15 @@ def move_next(state):
 
 
 def label(state):
-    return f"Original calendar · loop {state['loop']}"
+    """The content the patcher page names, in the chosen language."""
+    return t("pods.patcher.label_calendar", loop=state["loop"])
 
 
 def activate_loop(state):
     candidate = patcher.folder() / "candidate.bin.e"
     try:
         build_master(origin_file(), candidate, state["loopStart"] - LAUNCH, open_chapters=open_chapters(state))
-        patcher.activate(candidate, label(state))
+        patcher.activate(candidate, patcher.english("pods.patcher.label_calendar", loop=state["loop"]))  # active.json: English
     finally:
         candidate.unlink(missing_ok=True)
 
@@ -1051,7 +1053,7 @@ def turn_off():
 
 def set_speed(state, speed, real=None):
     if speed not in SPEEDS:
-        raise ValueError("Unknown speed")
+        raise ValueError(t("pods.calendar.unknown_speed"))
     real = now_ms() if real is None else real
     # Keep the weeks the old speed has already added.
     state["jumpMillis"] = state.get("jumpMillis", 0) + auto_weeks(state, real) * WEEK
@@ -1063,9 +1065,9 @@ def jump(state, target, real=None):
     """Moves the clock forward to target in whole days, so the daily reset stays at the same hour."""
     now = game_now(state, real)
     if target <= now:
-        raise ValueError("The calendar only moves forward")
+        raise ValueError(t("pods.calendar.only_forward"))
     if target >= loop_end(state):
-        raise ValueError("Choose a week in this loop")
+        raise ValueError(t("pods.calendar.week_in_loop"))
     state["jumpMillis"] = state.get("jumpMillis", 0) + -(-(target - now) // DAY) * DAY
 
 
@@ -1140,7 +1142,7 @@ def entries():
         shard = item_names.get(medal["ConsumableItemId"], "")
         label = shard[shard.find("(") + 1:shard.rfind(")")] if "(" in shard else ""
         if label and "summons" not in label.lower():
-            label += " Summons"
+            label = t("pods.calendar.shard_summons", name=label)
         found.append(Entry("summon", label or None, start, end, f"/schedule/summon/{gacha}"))
     shop_names = names("shops")
     for row in table("Shop"):
@@ -1148,11 +1150,11 @@ def entries():
             found.append(Entry("shop", shop_names.get(row["ShopId"]), row["StartDatetime"], row["EndDatetime"]))
     for row in table("PvpSeason"):
         if not row.get("IsInvalid"):
-            found.append(Entry("arena", f"Arena Season {row['PvpSeasonId'] % 1000:03d}", row["SeasonStartDatetime"], row["SeasonEndDatetime"]))
+            found.append(Entry("arena", t("pods.calendar.arena_season", n=f"{row['PvpSeasonId'] % 1000:03d}"), row["SeasonStartDatetime"], row["SeasonEndDatetime"]))
     for index, row in enumerate(sorted(table("MissionPass"), key=lambda r: r["StartDatetime"]), 1):
-        found.append(Entry("pass", f"Mission pass, month {index}", row["StartDatetime"], row["EndDatetime"]))
+        found.append(Entry("pass", t("pods.calendar.mission_pass", n=index), row["StartDatetime"], row["EndDatetime"]))
     for row in table("BigHuntSchedule"):
-        found.append(Entry("hunt", f"Subjugation Battle {row['BigHuntScheduleId']}", row["ChallengeStartDatetime"], row["ChallengeEndDatetime"]))
+        found.append(Entry("hunt", t("pods.calendar.subjugation", n=row["BigHuntScheduleId"]), row["ChallengeStartDatetime"], row["ChallengeEndDatetime"]))
     for row in table("EnhanceCampaign") + table("QuestCampaign"):
         found.append(Entry("campaign", "", row["StartDatetime"], row["EndDatetime"]))
     for row in table("ConsumableItemTerm"):
@@ -1176,19 +1178,41 @@ def shop_opens_by_price():
     return out
 
 
+# Day and month names: catalogue keys (common.weekday_short.*, common.month_short.*), translated as a page is drawn.
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+
+
+def _date_parts(ms):
+    """The day's weekday name, day, month name and year."""
+    d = datetime.fromtimestamp(ms / 1000, timezone.utc)
+    weekday, month = "common.weekday_short." + WEEKDAYS[d.weekday()], "common.month_short." + MONTHS[d.month - 1]
+    return t(weekday), d.day, t(month), d.year
+
+
 def day_label(ms):
-    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%a %-d %b %Y")
+    """"Wed 28 Jul 2021"."""
+    weekday, day, month, year = _date_parts(ms)
+    return t("pods.calendar.day_label", weekday=weekday, day=day, month=month, year=year)
 
 
 def short_label(ms):
-    return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%a %-d %b")
+    """"Wed 28 Jul"."""
+    weekday, day, month, _ = _date_parts(ms)
+    return t("pods.calendar.day_label_short", weekday=weekday, day=day, month=month)
 
 
 def open_at(items, at):
     return [e for e in items if e[2] <= at < e[3]]
 
 
-OTHER = {"event": "other event", "summon": "other summon", "shop": "other shop"}
+def others(kind, n):
+    """"3 other events": unnamed content of a kind."""
+    if kind == "event":
+        return t_count("pods.calendar.other_events", n)
+    if kind == "summon":
+        return t_count("pods.calendar.other_summons", n)
+    return t_count("pods.calendar.other_shops", n)
 
 
 def summary(items, at):
@@ -1200,14 +1224,22 @@ def summary(items, at):
         else:
             unnamed[kind] = unnamed.get(kind, 0) + 1
     for kind, count in unnamed.items():
-        groups.setdefault(kind, []).append({"name": f"{count} {OTHER[kind]}{'s' if count != 1 else ''}", "until": ""})
+        groups.setdefault(kind, []).append({"name": others(kind, count), "until": ""})
     return groups
 
 
 # The Schedule page's timeline: from a week back to three months ahead (or
 # the loop's end), and what ends within a week. Times are in the dates the
 # game shows; the page draws them in the phone's local time.
-TIMELINE_KINDS = (("summon", "Summons"), ("event", "Events"), ("shop", "Shops"), ("arena", "Arena"))
+TIMELINE_KINDS = ("summon", "event", "shop", "arena")
+
+
+def kind_names():
+    """Each timeline row's name, and the name of an entry of its kind with none of its own."""
+    return {"summon": (t("pods.calendar.kind_summons"), t("pods.calendar.unnamed_summon")),
+            "event": (t("pods.calendar.kind_events"), t("pods.calendar.unnamed_event")),
+            "shop": (t("pods.calendar.kind_shops"), t("pods.calendar.unnamed_shop")),
+            "arena": (t("pods.calendar.kind_arena"), t("pods.calendar.unnamed_arena"))}
 TIMELINE_BEFORE, TIMELINE_AFTER, ENDING_SOON = 7 * DAY, 92 * DAY, 7 * DAY
 
 
@@ -1216,17 +1248,17 @@ def timeline(state, items, now):
     from urllib.parse import quote
     start, end = now - TIMELINE_BEFORE, min(now + TIMELINE_AFTER, loop_end(state))
     shift = state["loopStart"] - LAUNCH if state.get("originalDates") else 0
-    labels = dict(TIMELINE_KINDS)
+    labels = kind_names()
 
     def item(e):
         # Ends after the loop are the game data's placeholders for content that stays: no end.
-        return {"kind": e.kind, "name": e.name or labels[e.kind].removesuffix("s"), "start": e.start - shift,
+        return {"kind": e.kind, "name": e.name or labels[e.kind][1], "start": e.start - shift,
                 "end": e.end - shift if e.end <= loop_end(state) else None, "ref": e.ref,
                 "art": "/patcher/calendar/art?path=" + quote(e.art, safe="/") if e.art else ""}
     shown = sorted((e for e in items if e.kind in labels and e.start < end and e.end > start), key=lambda e: (e.start, e.end))
     soon = sorted((e for e in shown if e.start <= now < e.end <= now + ENDING_SOON), key=lambda e: e.end)
     return {"now": now - shift, "from": start - shift, "to": end - shift, "soon": [item(e) for e in soon],
-            "rows": [{"kind": kind, "label": label, "items": [item(e) for e in shown if e.kind == kind]} for kind, label in TIMELINE_KINDS]}
+            "rows": [{"kind": kind, "label": labels[kind][0], "items": [item(e) for e in shown if e.kind == kind]} for kind in TIMELINE_KINDS]}
 
 
 def timeline_file():
@@ -1237,11 +1269,11 @@ def timeline_hidden():
     """The timeline rows the player hid. Kept here, not in the page: iOS keeps no page storage between sessions."""
     data = runtime.read_json(timeline_file(), {})
     hidden = data.get("hidden", []) if isinstance(data, dict) else []
-    return [k for k in hidden if k in dict(TIMELINE_KINDS)] if isinstance(hidden, list) else []
+    return [k for k in hidden if k in TIMELINE_KINDS] if isinstance(hidden, list) else []
 
 
 def set_timeline_hidden(kinds):
-    runtime.write_json(timeline_file(), {"hidden": [k for k in kinds if k in dict(TIMELINE_KINDS)]})
+    runtime.write_json(timeline_file(), {"hidden": [k for k in kinds if k in TIMELINE_KINDS]})
 
 
 def updates(state, items, after):
@@ -1253,18 +1285,27 @@ def updates(state, items, after):
             day["count"] += 1
             if name:
                 day["names"].append(name)
-    return [{"at": v["at"], "day": day_label(v["at"]), "week": week_of(state, v["at"]), "name": (v["names"] or ["New summons and quests"])[0],
+    return [{"at": v["at"], "day": day_label(v["at"]), "week": week_of(state, v["at"]), "name": (v["names"] or [t("pods.calendar.new_content")])[0],
              "more": v["count"] - 1, "all": " ".join(v["names"])} for k, v in sorted(days.items())]
 
 
 # What a jump skips, by kind, in the order the Jump to page lists them.
-MISSED_NAMES = (("event", "event", "events"), ("summon", "summon", "summons"), ("shop", "shop", "shops"),
-                ("arena", "Arena season", "Arena seasons"), ("pass", "monthly pass", "monthly passes"))
+MISSED_KINDS = ("event", "summon", "shop", "arena", "pass")
 
 
 def missed_text(missed):
     """preview's missed counts as text: "10 events, 1 Arena season"."""
-    return ", ".join(f"{missed[kind]} {one if missed[kind] == 1 else many}" for kind, one, many in MISSED_NAMES if missed.get(kind))
+    def words(kind, n):
+        if kind == "event":
+            return t_count("pods.calendar.missed_events", n)
+        if kind == "summon":
+            return t_count("pods.calendar.missed_summons", n)
+        if kind == "shop":
+            return t_count("pods.calendar.missed_shops", n)
+        if kind == "arena":
+            return t_count("pods.calendar.missed_arena", n)
+        return t_count("pods.calendar.missed_passes", n)
+    return t("pods.calendar.list_separator").join(words(kind, missed[kind]) for kind in MISSED_KINDS if missed.get(kind))
 
 
 def preview(state, items, now, target):
@@ -1304,7 +1345,7 @@ def context(state):
 def calendar_on():
     try:
         turn_on()
-        return redirect(message="Calendar on. " + runtime.next_step())
+        return redirect(message=t("pods.calendar.on", next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -1312,18 +1353,18 @@ def calendar_on():
 @router.post("/patcher/calendar/off")
 def calendar_off():
     turn_off()
-    return redirect(message="Calendar off. Choose content and tap Apply. " + runtime.next_step())
+    return redirect(message=t("pods.calendar.off", next=runtime.next_step()))
 
 
 @router.post("/patcher/calendar/speed")
 def calendar_speed(speed: str = Form(...)):
     state = read_state()
     if not state:
-        return redirect(error="The calendar is off")
+        return redirect(error=t("pods.calendar.off_already"))
     try:
         set_speed(state, speed)
         write_state(state)
-        return redirect(message="Speed saved. " + runtime.next_step())
+        return redirect(message=t("pods.calendar.speed_saved", next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -1371,11 +1412,11 @@ def calendar_timeline(hidden: str = Form("")):
 def calendar_view(on: str = Form("")):
     state = read_state()
     if not state:
-        return redirect(error="The calendar is off")
+        return redirect(error=t("pods.calendar.off_already"))
     try:
         set_original_dates(state, on == "1")
         write_state(state)
-        return redirect(message="Saved. " + runtime.next_step())
+        return redirect(message=t("pods.runtime.saved", next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -1384,11 +1425,12 @@ def calendar_view(on: str = Form("")):
 def calendar_jump(target: int = Form(...)):
     state = read_state()
     if not state:
-        return redirect(error="The calendar is off")
+        return redirect(error=t("pods.calendar.off_already"))
     try:
         jump(state, target)
         write_state(state)
-        return redirect(message=f"Moved to week {week_of(state, game_now(state))}. " + runtime.next_step())
+        week = week_of(state, game_now(state))
+        return redirect(message=t("pods.calendar.moved", week=week, next=runtime.next_step()))
     except Exception as exc:
         return redirect(error=str(exc))
 
@@ -1397,19 +1439,19 @@ def calendar_jump(target: int = Form(...)):
 def calendar_next(request: Request, by: str = "update"):
     state = read_state()
     if not state:
-        return redirect(error="The calendar is off")
+        return redirect(error=t("pods.calendar.off_already"))
     now = game_now(state)
     items = entries()
     if by == "week":
         target = now + WEEK
-        title = "Next week"
+        title = t("pods.calendar.next_week")
     else:
         upcoming = updates(state, items, now)
         if not upcoming:
-            return redirect(error="No more updates in this loop")
-        target, title = upcoming[0]["at"], "Next update"
+            return redirect(error=t("pods.calendar.no_more_updates"))
+        target, title = upcoming[0]["at"], t("pods.calendar.next_update")
     if target >= loop_end(state):
-        return redirect(error="That is past the end of this loop")
+        return redirect(error=t("pods.calendar.past_loop_end"))
     view = preview(state, items, now, target)
     def listed(moments):
         found = [e for e, at in moments if e[0] in ("event", "summon", "shop") and now < at <= view["arrive"]]
@@ -1424,7 +1466,7 @@ def calendar_next(request: Request, by: str = "update"):
 def calendar_jump_view(request: Request, at: int = 0):
     state = read_state()
     if not state:
-        return redirect(error="The calendar is off")
+        return redirect(error=t("pods.calendar.off_already"))
     now = game_now(state)
     items = entries()
     upcoming = updates(state, items, now)
