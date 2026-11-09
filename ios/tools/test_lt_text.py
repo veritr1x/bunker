@@ -229,6 +229,19 @@ class Wrapper(unittest.TestCase):
                                   'say(TSaid(Said(@"launcher.check.port", @"name", @"sign-in", @"port", @"3000")));')
         self.assertEqual(out, ["about 3 min left", "about 1 min left", "sign-in · port 3000"])
 
+    def test_a_recheck_reads_a_new_pack_at_once(self):
+        body = r'''
+  say(T(@"common.close"));
+  NSString *active = [[NSString stringWithUTF8String:getenv("LT_ROOT")] stringByAppendingPathComponent:@"translation/active.json"];
+  [@"{\"language\": \"de\", \"bunker\": {\"common.close\": \"Schließen\"}}" writeToFile:active atomically:YES encoding:NSUTF8StringEncoding error:nil];
+  LTTextsRecheck(); say(T(@"common.close"));'''
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / "translation").mkdir()
+            main = ("#import <Foundation/Foundation.h>\n#import \"LTTexts.h\"\n#include <stdio.h>\n#include <stdlib.h>\n"
+                    "static void say(NSString *s) { puts(s.UTF8String); }\nint main(void) { @autoreleasepool {\n"
+                    f"  LTTextsUse({objc(CATALOGUE)}, {objc(root)}); setenv(\"LT_ROOT\", {json.dumps(root)}, 1);\n" + body + "\n} return 0; }\n")
+            self.assertEqual(run(main, *WRAPPER), ["Close", "Schließen"])
+
     def test_the_framework_carries_the_catalogue(self):
         build = (ROOT / "ios/tools/build_framework.sh").read_text()
         self.assertIn('cp "$root_dir/translations/bunker/en.json" "$framework/bunker_en.json"', build)
@@ -261,10 +274,41 @@ class LauncherWords(unittest.TestCase):
         # Lunar Tear's states are ids ("running"); no shown word is compared
         self.assertEqual(re.findall(r'isEqual(?:ToString)?:@"[^"]*(?: |[A-Z]{2,})[^"]*"', self.SOURCE), [])
 
-    def test_a_new_language_rebuilds_the_screen_and_the_quick_action(self):
-        self.assertIn("self.builtGeneration = TGeneration();", self.SOURCE)
-        self.assertRegex(self.SOURCE, r"if \(self\.builtGeneration != TGeneration\(\).*\n\s*gWindow\.rootViewController = \[LTLauncherViewController new\];\n\s*SetShortcut\(\);")
+    def test_a_new_language_rebuilds_the_same_screen_when_nothing_runs(self):
+        # The same controller builds itself again: work in flight (closing Pod Programs, an update) still holds it.
+        self.assertNotIn("gWindow.rootViewController = [LTLauncherViewController new];\n        SetShortcut();", self.SOURCE)
+        self.assertIn("- (void)viewDidLoad {\n    [super viewDidLoad];\n    [self build];\n}", self.SOURCE)
+        self.assertIn("    self.builtGeneration = TGeneration();", self.SOURCE)
+        self.assertRegex(self.SOURCE, r"if \(self\.builtGeneration != TGeneration\(\) && !self\.spinner\.isAnimating && !self\.updating"
+                                      r" && !self\.presentedViewController && !gImporting\) \{")
+        self.assertIn("for (UIView *view in self.view.subviews.copy) [view removeFromSuperview];", self.SOURCE)
+        self.assertIn("if (self.available) [self showRelease:self.available];", self.SOURCE)
+        self.assertIn("[UIMenuSystem.mainSystem setNeedsRebuild];", self.SOURCE)
         self.assertIn('localizedTitle:T(@"launcher.shortcut.label")', self.SOURCE)
+
+    def test_python_gets_words_or_english_never_references(self):
+        # Close and pause errors show in Pod Programs' pages: words; resume's answer is only logged: English.
+        import re
+        exports = {name: self.SOURCE[self.SOURCE.index(name):] for name in ("char *LunarToolsCloseGame(", "char *LunarToolsPauseGame(", "char *LunarToolsResumeGame(")}
+        returns = {name: re.search(r"return strdup\((.*?)\.UTF8String\);", body).group(1) for name, body in exports.items()}
+        self.assertEqual(returns, {"char *LunarToolsCloseGame(": "TSaid(error)", "char *LunarToolsPauseGame(": "TSaid(error)",
+                                   "char *LunarToolsResumeGame(": "TInEnglish(error)"})
+        self.assertEqual(re.findall(r'NSLog\(@"\[LunarTear\] (?:save|master) import result: %@", result\.length \? (\w+)\(result\)', self.SOURCE),
+                         ["TInEnglish", "TInEnglish"])
+
+    def test_the_archive_line_capitalises_only_its_state(self):
+        # Python's step or error after the state keeps its own case.
+        self.assertIn("ShowIndex(NSString *state, NSString *detail)", self.SOURCE)
+        self.assertIn('TUpper(TSaid(gIndexText ?: Said(@"launcher.index.not_checked")))', self.SOURCE)
+        self.assertIn('gIndexDetail.length ? [@" · " stringByAppendingString:gIndexDetail] : @""', self.SOURCE)
+
+    def test_pod_programs_closing_reads_the_pack_now(self):
+        self.assertIn("LTTextsRecheck();", self.SOURCE)
+        self.assertIn("LTTextsRecheck();", (LAUNCHER / "LunarTools.m").read_text())
+        self.assertIn("[self.view setNeedsLayout];", self.SOURCE)
+
+    def test_the_pack_is_read_no_further_than_the_limit(self):
+        self.assertIn("readDataUpToLength:kMaxPack + 1", (LAUNCHER / "LTTexts.m").read_text())
 
     def test_capitals_follow_the_pack(self):
         for name in ("LunarLauncher.m", "LunarTools.m"):

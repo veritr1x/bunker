@@ -31,3 +31,5 @@ NSString *TLanguage(void);
 /** Changes each time the pack is read again (a language chosen in Pod Programs): a screen built at another
  *  number builds itself again. Any lookup notices a new pack (the file is looked at at most once a second). */
 NSInteger TGeneration(void);
+/** Looks at the pack file now (after Pod Programs may have chosen a language), not within the second. */
+void LTTextsRecheck(void);

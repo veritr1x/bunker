@@ -133,7 +133,7 @@ __attribute__((visibility("default"))) char *LunarToolsCloseGame(void) {
         }
     }
     dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)]; });
-    return strdup(error.UTF8String);
+    return strdup(TSaid(error).UTF8String);  // shown in Pod Programs' page
 }
 
 // A change beside the running game that the game can load by signing in again
@@ -166,7 +166,7 @@ __attribute__((visibility("default"))) char *LunarToolsPauseGame(void) {
             }
         }
     }
-    return strdup(error.UTF8String);
+    return strdup(TSaid(error).UTF8String);  // shown in Pod Programs' page
 }
 
 // title 0: the change was refused or changed nothing, so the game keeps its place.
@@ -181,7 +181,7 @@ __attribute__((visibility("default"))) char *LunarToolsResumeGame(int title) {
         }
     }
     dispatch_async(dispatch_get_main_queue(), ^{ if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)]; });
-    return strdup(error.UTF8String);
+    return strdup(TInEnglish(error).UTF8String);  // only logged (android_mods)
 }
 
 #pragma mark - The Archive's index
@@ -191,7 +191,8 @@ __attribute__((visibility("default"))) char *LunarToolsResumeGame(int title) {
 // it are ready. The check itself runs in Python (Tools), which the game then
 // carries in its memory; index.checked remembers what a current index was
 // checked against, so an unchanged install skips Python altogether.
-static NSString *gIndexText;  // a reference (Said); nil: not checked yet
+static NSString *gIndexText;  // the state, a reference (Said); nil: not checked yet
+static NSString *gIndexDetail;  // Python's step or error, as it is
 static BOOL gIndexChecking = NO;
 
 static NSArray *FileStamp(NSString *path) {
@@ -211,9 +212,10 @@ static NSString *IndexInputs(void) {
     return [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:stamps options:0 error:nil] encoding:NSUTF8StringEncoding];
 }
 
-static void ShowIndex(NSString *text) {
+static void ShowIndex(NSString *state, NSString *detail) {
     dispatch_async(dispatch_get_main_queue(), ^{
-        gIndexText = text;
+        gIndexText = state;
+        gIndexDetail = detail;
         if (gWindow) [(id)gWindow.rootViewController performSelector:@selector(refresh)];
     });
 }
@@ -223,27 +225,27 @@ static void CheckArchiveIndex(void) {
     NSString *checked = [ArchiveRoot() stringByAppendingPathComponent:@"index.checked"];
     NSString *inputs = IndexInputs();
     if ([[NSString stringWithContentsOfFile:checked encoding:NSUTF8StringEncoding error:nil] isEqualToString:inputs] &&
-        FileSize([ArchiveRoot() stringByAppendingPathComponent:@"archive.db"]) > 0) { ShowIndex(Said(@"launcher.index.ready")); return; }
+        FileSize([ArchiveRoot() stringByAppendingPathComponent:@"archive.db"]) > 0) { ShowIndex(Said(@"launcher.index.ready"), nil); return; }
     gIndexChecking = YES;
-    ShowIndex(Said(@"launcher.index.checking"));
+    ShowIndex(Said(@"launcher.index.checking"), nil);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         NSString *error = nil;
         NSDictionary *st = LTArchiveIndex(gServerRoot, ArchiveRoot(), YES, &error);
         while (st && [st[@"running"] boolValue]) {
             long total = [st[@"total"] longValue], done = [st[@"done"] longValue];
-            ShowIndex([Said(@"launcher.index.indexing", @"percent", TNumber(total > 0 ? MIN(99, done * 100 / total) : 0)) stringByAppendingFormat:@" · %@", st[@"step"] ?: @""]);
+            ShowIndex(Said(@"launcher.index.indexing", @"percent", TNumber(total > 0 ? MIN(99, done * 100 / total) : 0)), st[@"step"]);
             [NSThread sleepForTimeInterval:.5];
             st = LTArchiveIndex(gServerRoot, ArchiveRoot(), NO, &error);
         }
-        NSString *text = Said(@"launcher.index.ready"), *notBuilt = Said(@"launcher.index.not_built");
+        NSString *text = Said(@"launcher.index.ready"), *detail = nil;
         BOOL ready = NO;
-        if (!st) text = [notBuilt stringByAppendingFormat:@" · %@", error ?: @""];
+        if (!st) text = Said(@"launcher.index.not_built"), detail = TSaid(error);
         else if (![st[@"possible"] boolValue]) text = Said(@"launcher.index.no_game_text");
-        else if (![st[@"ready"] boolValue]) text = [st[@"error"] length] ? [notBuilt stringByAppendingFormat:@" · %@", st[@"error"]] : notBuilt;
+        else if (![st[@"ready"] boolValue]) text = Said(@"launcher.index.not_built"), detail = st[@"error"];
         else ready = YES;
         if (ready) [inputs writeToFile:checked atomically:YES encoding:NSUTF8StringEncoding error:nil];
         gIndexChecking = NO;
-        ShowIndex(text);
+        ShowIndex(text, detail);
     });
 }
 
@@ -1328,8 +1330,13 @@ static const CGFloat kInfoSize = 18;
     self.sign.attributedText = sign;
 }
 - (void)viewDidLoad {
-    self.builtGeneration = TGeneration();
     [super viewDidLoad];
+    [self build];
+}
+/** The screen's views, in the language of now (again after a language change: see -refresh). */
+- (void)build {
+    self.builtGeneration = TGeneration();
+    self.arranged = NO;
     self.outlined = [NSMutableArray array];
     self.infoMarks = [NSMutableArray array];
     self.view.backgroundColor = GridPaper();
@@ -1507,10 +1514,15 @@ static const CGFloat kInfoSize = 18;
     [self refresh];
 }
 - (void)refresh {
-    // A language chosen in Pod Programs (which closes before this runs): a new screen in it, and the quick action.
-    if (self.builtGeneration != TGeneration() && gWindow.rootViewController == self && !self.presentedViewController) {
-        gWindow.rootViewController = [LTLauncherViewController new];
+    // A language chosen in Pod Programs: this screen builds itself again in it, with the quick action and the
+    // keyboard menu, once nothing runs (work in flight keeps this controller and its views until it ends).
+    if (self.builtGeneration != TGeneration() && !self.spinner.isAnimating && !self.updating && !self.presentedViewController && !gImporting) {
+        for (UIView *view in self.view.subviews.copy) [view removeFromSuperview];
+        [self build];  // ends with -refresh
+        [self.view setNeedsLayout];
+        if (self.available) [self showRelease:self.available];
         SetShortcut();
+        [UIMenuSystem.mainSystem setNeedsRebuild];
         return;
     }
     BOOL catalog = HasCatalog(), master = FileSize(MasterPath()) > 0;
@@ -1534,7 +1546,8 @@ static const CGFloat kInfoSize = 18;
     else if ([state isEqual:@"starting"]) SetChip(self.server, TUpper(T(@"launcher.chip.starting")), ChipFill(), Ink());
     else if ([state isEqual:@"error"]) SetChip(self.server, TUpper(T(@"launcher.chip.not_running")), ChipFill(), Ink());
     else SetChip(self.server, catalog && master ? TUpper(T(@"launcher.chip.standing_by")) : TUpper(T(@"launcher.chip.waiting_for_files")), ChipFill(), Ink());
-    self.archiveLine.attributedText = Tracked(TUpper(TSaid(gIndexText ?: Said(@"launcher.index.not_checked"))), Mono(13), Ink(), .8);
+    self.archiveLine.attributedText = Tracked([TUpper(TSaid(gIndexText ?: Said(@"launcher.index.not_checked"))) stringByAppendingString:
+        gIndexDetail.length ? [@" · " stringByAppendingString:gIndexDetail] : @""], Mono(13), Ink(), .8);
     unsigned long long saved = FileSize([gSaves stringByAppendingPathComponent:@"game.db"]);
     self.save.attributedText = Tracked(saved ? [@"game.db" stringByAppendingFormat:@" · %@", TSize((long long)saved)] : T(@"launcher.main.no_save"), Mono(13), Ink(), .8);
     self.back.hidden = !running || gImporting;
@@ -1908,6 +1921,7 @@ static const CGFloat kInfoSize = 18;
     }];
 }
 - (void)closeTools {
+    LTTextsRecheck();  // a language chosen in Pod Programs, maybe within the last second
     [self dismissViewControllerAnimated:YES completion:nil];
     [self busy:Said(@"launcher.tools.closing") work:^NSString *{ return LTToolsStop(); } done:^(NSString *error) {
         gToolsOpen = NO;
@@ -2447,12 +2461,12 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
             if (saveSource) {
                 NSString *source = saveSource.isAbsolutePath ? saveSource : [gServerRoot stringByAppendingPathComponent:saveSource];
                 NSString *result = TakeString(LunarImportSaves((char *)gSaves.fileSystemRepresentation, (char *)source.fileSystemRepresentation));
-                NSLog(@"[LunarTear] save import result: %@", result.length ? result : @"ok");
+                NSLog(@"[LunarTear] save import result: %@", result.length ? TInEnglish(result) : @"ok");
             }
             if (masterSource) {
                 NSString *source = masterSource.isAbsolutePath ? masterSource : [gServerRoot stringByAppendingPathComponent:masterSource];
                 NSString *result = ImportMaster([NSURL fileURLWithPath:source]);
-                NSLog(@"[LunarTear] master import result: %@", result.length ? result : @"ok");
+                NSLog(@"[LunarTear] master import result: %@", result.length ? TInEnglish(result) : @"ok");
             }
             NSString *update = @"";
             if (updateData) {

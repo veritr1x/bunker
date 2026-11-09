@@ -132,7 +132,6 @@
     "[Display] ",
     "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$",
     "an external display",
-    "error=The game's IL2CPP API is missing",
     "plain (failed)",
     "presents: buffer %d, after duration %d, at time %d; upscaled %d (%.1f/s); longest gap %.1f ms; %@",
     "the device's screen",

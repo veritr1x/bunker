@@ -490,7 +490,7 @@ void LTDisplayStart(NSString *toolsRoot) {
     // The story-event zone fix runs with the game's own settings too; display.status reports chosen settings only.
     BOOL chosen = gFps || gSize;
     if (!chosen) [NSFileManager.defaultManager removeItemAtPath:gStatusPath error:nil];
-#define LOAD(name) if (!(*(void **)&il2cpp.name = dlsym(RTLD_DEFAULT, "il2cpp_" #name))) { if (chosen) WriteStatus(@"error=The game's IL2CPP API is missing"); return; }
+#define LOAD(name) if (!(*(void **)&il2cpp.name = dlsym(RTLD_DEFAULT, "il2cpp_" #name))) { if (chosen) WriteStatus(@"error=il2cpp-missing"); return; }
     LOAD(domain_get) LOAD(domain_get_assemblies) LOAD(assembly_get_image) LOAD(class_from_name) LOAD(class_get_method_from_name)
     LOAD(class_get_field_from_name) LOAD(field_get_offset) LOAD(field_static_get_value) LOAD(field_static_set_value) LOAD(runtime_class_init)
     LOAD(class_get_type) LOAD(type_get_object) LOAD(gchandle_new) LOAD(gchandle_free)

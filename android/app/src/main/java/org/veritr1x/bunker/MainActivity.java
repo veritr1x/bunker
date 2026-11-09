@@ -33,7 +33,8 @@ public final class MainActivity extends Activity {
     // before the game starts, or when the launcher opens from the game. Static, so a launcher opened from
     // the game's Bunker button (a new screen in the same process) shows the result instead of NOT CHECKED.
     private static volatile boolean indexChecked=false,indexing=false,openedWhileIndexing=false;
-    private static volatile String indexText=Said.text("launcher.index.not_checked");
+    private static volatile String indexText=Said.text("launcher.index.not_checked");  // the state (a reference)
+    private static volatile String indexDetail="";  // Python's step or error, as it is
     private Button assetButton,play;
     private View pods,archive;
     // Updates (Updater.java keeps their state, so it survives the screen being recreated).
@@ -103,7 +104,7 @@ public final class MainActivity extends Activity {
         panel.addView(r,new LinearLayout.LayoutParams(-1,-2));
     }
     /** The Archive line: its state (a Said reference, words now) in capitals. */
-    private String indexShown(){return Texts.upper(this,Texts.said(this,indexText));}
+    private String indexShown(){return Texts.upper(this,Texts.said(this,indexText))+(indexDetail.isEmpty()?"":" · "+indexDetail);}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         look=Look.of(this);look.apply(this);
@@ -432,30 +433,30 @@ public final class MainActivity extends Activity {
     }
     /** Checks the Archive's index, building it when missing or out of date; with thenOpen, starts the game afterwards. */
     private void checkIndex(boolean thenOpen){
-        indexing=true;openedWhileIndexing=false;indexText=Said.text("launcher.index.checking");archiveLine.setText(indexShown());
+        indexing=true;openedWhileIndexing=false;indexText=Said.text("launcher.index.checking");indexDetail="";archiveLine.setText(indexShown());
         final File assets=FilesStore.root(this),data=new File(getFilesDir(),"archive");
         new Thread(()->{
-            String done=Said.text("launcher.index.ready");
+            String done=Said.text("launcher.index.ready"),detail="";
             try{
                 if(!Python.isStarted())Python.start(new AndroidPlatform(getApplicationContext()));
                 com.chaquo.python.PyObject archive=Python.getInstance().getModule("android_archive");
                 JSONObject st=new JSONObject(archive.callAttr("build_index",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
                 while(st.optBoolean("running")){
                     int total=st.optInt("total"),pct=total>0?Math.min(99,st.optInt("done")*100/total):0;
-                    final String line=Said.text("launcher.index.indexing","percent",Texts.number(this,pct))+" · "+st.optString("step");
-                    indexText=line;
+                    indexText=Said.text("launcher.index.indexing","percent",Texts.number(this,pct));
+                    indexDetail=st.optString("step");
                     Thread.sleep(500);
                     st=new JSONObject(archive.callAttr("index_status",assets.getAbsolutePath(),data.getAbsolutePath()).toString());
                 }
                 if(!st.optBoolean("possible"))done=Said.text("launcher.index.no_game_text");
-                else if(!st.optBoolean("ready"))done=Said.text("launcher.index.not_built")+(st.optString("error").isEmpty()?"":" · "+st.optString("error"));
+                else if(!st.optBoolean("ready")){done=Said.text("launcher.index.not_built");detail=st.optString("error");}
             }catch(Exception|LinkageError error){
                 android.util.Log.e("LunarTear","Archive index failed",error);
                 done=Said.text("launcher.index.not_built");
             }
-            final String result=done;
+            final String result=done,resultDetail=detail;
             runOnUiThread(()->{
-                indexing=false;indexChecked=true;indexText=result;archiveLine.setText(indexShown());
+                indexing=false;indexChecked=true;indexText=result;indexDetail=resultDetail;archiveLine.setText(indexShown());
                 if(thenOpen&&foreground&&running&&!tools&&!openedWhileIndexing)openGame();
             });
         },"archive-index-check").start();

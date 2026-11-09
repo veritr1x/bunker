@@ -82,7 +82,14 @@ def last_result():
         text = (config.DATA_DIR / "display.status").read_text().strip()
     except OSError:
         return None
-    return {"ok": True} if text == "ok" else {"ok": False, "error": text.removeprefix("error=")}
+    if text == "ok":
+        return {"ok": True}
+    error = text.removeprefix("error=")
+    # What the iOS launcher knows is written as a code, shown in the page's language; anything else as it is.
+    return {"ok": False, "error": KNOWN_FAILURES[error]() if error in KNOWN_FAILURES else error}
+
+
+KNOWN_FAILURES = {"il2cpp-missing": lambda: bunker_text.t("pods.display.il2cpp_missing")}
 
 
 @router.get("/display")
