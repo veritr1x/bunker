@@ -314,5 +314,27 @@ class Numbers(unittest.TestCase):
             self.assertEqual([bunker_text.number(n) for n in samples], written, language)
 
 
+class SharedCases(unittest.TestCase):
+    """bunker_text_cases.json: what every implementation does (BunkerText.java runs the same file)."""
+
+    def test_python_agrees(self):
+        data = json.loads((Path(__file__).parent / "bunker_text_cases.json").read_text(encoding="utf-8"))
+        self.addCleanup(bunker_text.use, None)
+        with bunker_text.extra(data["english"]):
+            for case in data["cases"]:
+                with self.subTest(case["name"]):
+                    bunker_text.use(case["translation"] or None, case["language"])
+                    params = case["params"]
+                    if case["call"] == "t":
+                        got = bunker_text.t(case["key"], **params)
+                    elif case["call"] == "t_or":
+                        got = bunker_text.t(case["key"], case["fallback"], **params)
+                    elif case["call"] == "count":
+                        got = bunker_text.t_count(case["key"], case["n"], **params)
+                    else:
+                        got = list(bunker_text.t_around(case["key"], case["slot"], **params))
+                    self.assertEqual(got, case["expect"])
+
+
 if __name__ == "__main__":
     unittest.main()
