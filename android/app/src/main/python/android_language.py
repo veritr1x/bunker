@@ -33,6 +33,11 @@ def supported() -> bool:
     return any((revision / tree / "assetbundle" / "text" / "en").is_dir() for tree in ("", "android", "ios"))
 
 
+def count(n: int, word: str) -> str:
+    """"1 text", "2 texts"."""
+    return f"{n:,} {word}" + ("" if n == 1 else "s")
+
+
 def status_line(status: dict) -> str:
     name = status.get("name") or status.get("language") or "the pack"
     state = status.get("state")
@@ -40,7 +45,7 @@ def status_line(status: dict) -> str:
         return f"Building {name}… The game gets it the next time it loads its file list."
     if state == "ready":
         kept = len(status.get("skipped") or [])
-        line = f"Ready: {name}, {status.get('bundles', 0):,} text files translated"
+        line = f"Ready: {name}, {count(status.get('bundles', 0), 'text file')} translated"
         return line + (f", {kept:,} kept in English." if kept else ".")
     if state == "failed":
         return f"{name} could not be applied: {status.get('error', 'unknown error')}. It is tried again the next time the server starts."
@@ -53,7 +58,7 @@ def view(request: Request, message: str = "", error: str = ""):
     status = langs.status()
     return templates.TemplateResponse(request, "language.html", {
         "active": "language", "packs": langs.packs(), "current": langs.active(), "status": status,
-        "status_line": status_line(status), "status_state": status.get("state"), "supported": supported(),
+        "status_line": status_line(status), "status_state": status.get("state"), "supported": supported(), "count": count,
         "message": message, "error": error})
 
 
@@ -77,16 +82,23 @@ def load(pack: UploadFile = File(...)):
         info = languages().load(data)
     except PackError as exc:
         return redirect(error=str(exc))
-    return redirect(message=f"Loaded {info.name} ({info.texts:,} texts). Choose it below to use it.")
+    return redirect(message=f"Loaded {info.name} ({count(info.texts, 'text')}). Choose it below to use it.")
 
 
 @router.post("/language/remove")
 def remove(language: str = Form(...)):
+    langs = languages()
+    in_use = langs.active() == f"loaded:{language}"
     try:
-        languages().remove(language)
+        langs.remove(language)
     except PackError as exc:
         return redirect(error=str(exc))
-    return redirect(message=f"Removed the {language} pack.")
+    if in_use:
+        import android_runtime
+        return redirect(message=f"Removed the {language} pack, which was in use: back to English. {android_runtime.next_step()}")
+    response = redirect(message=f"Removed the {language} pack.")
+    response.headers["X-Bunker-Unchanged"] = "1"  # the game's language did not change: it plays on
+    return response
 
 
 def redirect(**kwargs):

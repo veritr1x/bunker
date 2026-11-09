@@ -38,6 +38,9 @@ class LanguagePageTest(unittest.TestCase):
         config.REVISIONS_DIR = config.ASSETS_DIR / "revisions"
         (config.REVISIONS_DIR / "0" / "assetbundle" / "text" / "en").mkdir(parents=True)
         self.translation = base / "server" / "translation"
+        saved_shipped = android_language.SHIPPED
+        self.addCleanup(lambda: setattr(android_language, "SHIPPED", saved_shipped))
+        android_language.SHIPPED = base / "shipped"  # not the app's own shipped packs
         app = FastAPI()
         app.include_router(android_language.router)
         self.client = TestClient(app, follow_redirects=False)
@@ -51,7 +54,7 @@ class LanguagePageTest(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn("English", page.text)
         self.assertIn("Português", page.text)
-        self.assertIn("1 texts", page.text)
+        self.assertIn("1 text (", page.text)
 
     def test_choose_writes_active(self):
         self.load()
@@ -72,6 +75,29 @@ class LanguagePageTest(unittest.TestCase):
         response = self.client.post("/language/remove", data={"language": "pt-BR"})
         self.assertIn("message=", response.headers["location"])
         self.assertFalse((self.translation / "active.json").exists())
+
+    def test_loading_leaves_the_game_alone(self):
+        import android_runtime
+        self.assertIn("/language/load", android_runtime.LIVE_SAFE)
+
+    def test_removing_a_pack_not_in_use_changes_nothing(self):
+        self.load()
+        self.load(pack(language="pl", name="Polski"))
+        self.client.post("/language", data={"choice": "loaded:pt-BR"})
+        response = self.client.post("/language/remove", data={"language": "pl"})
+        self.assertEqual(response.headers.get("x-bunker-unchanged"), "1")
+        response = self.client.post("/language/remove", data={"language": "pt-BR"})
+        self.assertIsNone(response.headers.get("x-bunker-unchanged"))
+        self.assertIn("English", response.headers["location"])
+
+    def test_counts_read_as_words(self):
+        self.load()
+        self.translation.mkdir(parents=True, exist_ok=True)
+        (self.translation / "status.json").write_text('{"state":"ready","name":"Português","bundles":1}', encoding="utf-8")
+        page = self.client.get("/language").text
+        self.assertIn("1 text (", page)
+        self.assertNotIn("1 texts", page)
+        self.assertIn("1 text file translated", page)
 
     def test_status_is_shown(self):
         self.translation.mkdir(parents=True)
@@ -98,6 +124,9 @@ class ProgramsPageTest(unittest.TestCase):
     def test_programs_page_links_language(self):
         index = (root / "overlays/python/web/templates/index.html").read_text()
         self.assertIn('program("/language"', index)
+
+    def test_side_menu_links_language(self):
+        self.assertIn('href="/language"', (root / "overlays/python/web/templates/base.html").read_text())
 
 
 if __name__ == "__main__":

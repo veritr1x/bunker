@@ -274,7 +274,8 @@ def prepare_data():
 # mods as each is used,
 # display at the next launch, the timeline's filter, a backup copied with
 # SQLite's online backup), so they need nothing closed.
-LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/mods/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
+LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/mods/preset", "/display", "/patcher/calendar/timeline", "/backups/create",
+                       "/language/load"))  # a loaded pack is only kept; choosing it is the change
 # These change what the game reads only as it launches: they move its clock
 # back (the calendar turned off, "Show original dates"), and the game keeps
 # day markers in memory that only a fresh start clears (client-days.reset,
