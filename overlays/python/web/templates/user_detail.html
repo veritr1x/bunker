@@ -42,14 +42,14 @@
     <dt>Paid gems</dt>     <dd>{{ "{:,}".format(u.paid_gem) }}</dd>
     <dt>Free gems</dt>     <dd>{{ "{:,}".format(u.free_gem) }}</dd>
   </dl>
-  <p style="margin:16px 0 0">
-    <a href="/users/{{ u.user_id }}/edit/items" class="button">[ EDIT ITEMS ]</a>
-    <a href="/users/{{ u.user_id }}/edit/costumes" class="button">[ EDIT COSTUMES ]</a>
-    <a href="/users/{{ u.user_id }}/edit/weapons" class="button">[ EDIT WEAPONS ]</a>
-    <a href="/users/{{ u.user_id }}/upgrades" class="button">[ UPGRADE MANAGER ]</a>
-    <a href="/users/{{ u.user_id }}/memoirs" class="button">[ MEMOIR EDITOR ]</a>
-    <a href="/users/{{ u.user_id }}/story" class="button">[ STORY JUMP ]</a>
-  </p>
+  <div class="actions">
+    <a href="/users/{{ u.user_id }}/edit/items" class="button">Items</a>
+    <a href="/users/{{ u.user_id }}/edit/costumes" class="button">Costumes</a>
+    <a href="/users/{{ u.user_id }}/edit/weapons" class="button">Weapons</a>
+    <a href="/users/{{ u.user_id }}/upgrades" class="button">Upgrades</a>
+    <a href="/users/{{ u.user_id }}/memoirs" class="button">Memoirs</a>
+    <a href="/users/{{ u.user_id }}/story" class="button">Story Jump</a>
+  </div>
 </div>
 
 <h1 class="bracket-header">Inventory</h1>

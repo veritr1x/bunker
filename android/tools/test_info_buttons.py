@@ -103,5 +103,16 @@ class InfoIcon(unittest.TestCase):
                 self.assertNotRegex(PAGE(name), r"<summary[^>]*>[^<]*\{\{ info\(")
 
 
+class PlayerLinks(unittest.TestCase):
+    def test_editor_links_are_a_spaced_row(self):
+        # Inline links in a paragraph: wrapped rows touched. They sit in an .actions row, plain names.
+        page = PAGE("user_detail.html")
+        row = page[page.index('<div class="actions">'):]
+        row = row[:row.index("</div>")]
+        for name in ("Items", "Costumes", "Weapons", "Upgrades", "Memoirs", "Story Jump"):
+            self.assertIn(f'class="button">{name}</a>', row)
+        self.assertNotIn("[ EDIT", page)
+
+
 if __name__ == "__main__":
     unittest.main()
