@@ -22,9 +22,10 @@ ENGLISH = json.loads((ROOT / "translations/bunker/en.json").read_text(encoding="
 ALLOW = json.loads((Path(__file__).with_name("bunker_text_allow.json")).read_text(encoding="utf-8"))
 ALLOWED = set(ALLOW["flavour"]) | set(ALLOW["literal"])
 
-# Pages and modules whose words all come from the catalogue (later tasks add to these).
-CONVERTED: list[Path] = []
-CONVERTED_PY: list[Path] = []
+# Pages and modules whose words all come from the catalogue (bunker_text_converted.json).
+_CONVERTED = json.loads((Path(__file__).with_name("bunker_text_converted.json")).read_text(encoding="utf-8"))
+CONVERTED: list[Path] = [ROOT / p for p in _CONVERTED["templates"]]
+CONVERTED_PY: list[Path] = [ROOT / p for p in _CONVERTED["python"]]
 
 # Where t() calls live.
 SOURCES = [*POD.glob("*.html"), *ARCHIVE.glob("*.html"), *PY.glob("android_*.py"),
