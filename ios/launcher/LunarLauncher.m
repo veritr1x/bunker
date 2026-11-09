@@ -1296,6 +1296,8 @@ static const CGFloat kInfoSize = 18;
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
     [button setAttributedTitle:Tracked(title, [UIFont boldSystemFontOfSize:15], OnCommand(), 4.8) forState:UIControlStateNormal];
     button.backgroundColor = Command();
+    button.titleLabel.adjustsFontSizeToFitWidth = YES;  // a longer translation gets smaller, not cut
+    button.titleLabel.minimumScaleFactor = 0.5;
     [button.heightAnchor constraintEqualToConstant:56].active = YES;
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     return button;
@@ -1305,6 +1307,8 @@ static const CGFloat kInfoSize = 18;
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
     [button setAttributedTitle:Tracked(title, [UIFont boldSystemFontOfSize:size], Ink(), size * 0.2) forState:UIControlStateNormal];
     button.layer.borderWidth = 2;
+    button.titleLabel.adjustsFontSizeToFitWidth = YES;  // a longer translation gets smaller, not cut
+    button.titleLabel.minimumScaleFactor = 0.5;
     button.layer.borderColor = Ink().CGColor;
     button.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
     [button.heightAnchor constraintEqualToConstant:44].active = YES;

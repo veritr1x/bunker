@@ -310,6 +310,14 @@ class LauncherWords(unittest.TestCase):
     def test_the_pack_is_read_no_further_than_the_limit(self):
         self.assertIn("readDataUpToLength:kMaxPack + 1", (LAUNCHER / "LTTexts.m").read_text())
 
+    def test_longer_words_shrink_to_fit_their_buttons(self):
+        # A translation longer than the English ("SPÄTER", "AUSWÄHLEN") is made smaller, not cut to "L…ER".
+        for helper in ("- (UIButton *)solid:", "- (UIButton *)outline:"):
+            body = self.SOURCE[self.SOURCE.index(helper):]
+            body = body[:body.index("\n}\n")]
+            self.assertIn("button.titleLabel.adjustsFontSizeToFitWidth = YES;", body, helper)
+            self.assertIn("button.titleLabel.minimumScaleFactor = 0.5;", body, helper)
+
     def test_capitals_follow_the_pack(self):
         for name in ("LunarLauncher.m", "LunarTools.m"):
             text = (LAUNCHER / name).read_text()
