@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Translator serves the active language pack: list requests get the original
@@ -20,9 +21,11 @@ import (
 // those bundles are served from their own folder. Everything else, and
 // everything while no pack was ever used, passes through untouched.
 type Translator struct {
-	packPath, buildsDir, statePath string
-	assetsRevision, listPath       string
-	rebuild                        Rebuilder
+	packPath, buildsDir, statePath, statusPath string
+	assetsRevision, listPath                   string
+	rebuild                                    Rebuilder
+	build                                      buildFunc
+	retryDelays                                []time.Duration // waits before each retry of a failed build
 
 	mu       sync.Mutex
 	ready    bool   // list.bin was read
@@ -50,12 +53,17 @@ func New(assetRoot, dataRoot, platform string) *Translator {
 		packPath:       filepath.Join(assetRoot, "translation", "active.json"),
 		buildsDir:      filepath.Join(assetRoot, "translation", "build"),
 		statePath:      filepath.Join(dataRoot, "translation-state.json"),
+		statusPath:     filepath.Join(assetRoot, "translation", "status.json"),
 		assetsRevision: assets,
 		listPath:       list,
 		rebuild:        DefaultRebuilder,
+		build:          Build,
+		retryDelays:    []time.Duration{30 * time.Second, 2 * time.Minute, 10 * time.Minute},
 		done:           make(chan struct{}),
 	}
 }
+
+type buildFunc func(assetsRevision string, list []Entry, listMD5 string, pack *Pack, dir string, rebuild Rebuilder) (*Manifest, error)
 
 // Start reads list.bin and the active pack. A pack whose build is not on disk
 // yet is built in the background; until then the last served list stays.
@@ -86,6 +94,11 @@ func (t *Translator) Start() {
 	pack, err := t.loadPack()
 	if err != nil {
 		log.Printf("[Translation] pack not used: %v", err)
+		s := packStatus("failed", nil)
+		s.Error = err.Error()
+		t.setStatus(s)
+	} else if pack == nil {
+		t.setStatus(packStatus("off", nil))
 	}
 	if pack == nil {
 		t.cleanup()
@@ -96,24 +109,44 @@ func (t *Translator) Start() {
 	id := BuildID(pack.Hash, t.listMD5)
 	if m, err := LoadManifest(filepath.Join(t.buildsDir, id)); err == nil {
 		t.target = m
+		t.setStatus(readyStatus(pack, m, 0))
 		t.cleanup()
 		close(t.done)
 		return
 	}
 	log.Printf("[Translation] building %s (%d texts, %d left out)", pack.Language, len(pack.Game), pack.Dropped)
+	t.setStatus(packStatus("building", pack))
 	go func() {
 		defer close(t.done)
-		m, err := Build(t.assetsRevision, t.entries, t.listMD5, pack, filepath.Join(t.buildsDir, id), t.rebuild)
-		if err != nil {
-			log.Printf("[Translation] build failed: %v", err)
-			return
+		for attempt := 1; ; attempt++ {
+			m, err := t.build(t.assetsRevision, t.entries, t.listMD5, pack, filepath.Join(t.buildsDir, id), t.rebuild)
+			if err == nil {
+				log.Printf("[Translation] %s ready: %d bundles, %d kept in English", pack.Language, len(m.Entries), len(m.Skipped))
+				t.mu.Lock()
+				t.target = m
+				t.mu.Unlock()
+				t.setStatus(readyStatus(pack, m, attempt))
+				t.cleanup()
+				return
+			}
+			log.Printf("[Translation] build failed (attempt %d): %v", attempt, err)
+			s := packStatus("failed", pack)
+			s.Attempts, s.Error = attempt, err.Error()
+			t.setStatus(s)
+			if attempt > len(t.retryDelays) {
+				return // the last served list stays; the next start tries again
+			}
+			time.Sleep(t.retryDelays[attempt-1])
+			s.State = "building"
+			t.setStatus(s)
 		}
-		log.Printf("[Translation] %s ready: %d bundles, %d kept in English", pack.Language, len(m.Entries), len(m.Skipped))
-		t.mu.Lock()
-		t.target = m
-		t.mu.Unlock()
-		t.cleanup()
 	}()
+}
+
+func readyStatus(pack *Pack, m *Manifest, attempts int) Status {
+	s := packStatus("ready", pack)
+	s.Bundles, s.Skipped, s.Attempts = len(m.Entries), m.Skipped, attempts
+	return s
 }
 
 // wait returns once Start's build, if any, has finished.
