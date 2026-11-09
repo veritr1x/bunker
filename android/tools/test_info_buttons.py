@@ -17,6 +17,12 @@ class InfoIcon(unittest.TestCase):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(WEB / "templates")), autoescape=True)
         return env.from_string('{% from "_info.html" import info %}' + source).render()
 
+    def test_a_choice_name_keeps_its_icon_beside_it(self):
+        # A block <strong> pushed the "i" after "Original calendar" onto a line of its own.
+        css = (WEB / "static/css/automata.css").read_text()
+        rule = re.search(r"^\.choice strong \{([^}]*)\}", css, re.M).group(1)
+        self.assertNotIn("display: block", rule)
+
     def test_a_button_row_keeps_space_below(self):
         # Without it a panel after Save (Language › Load a pack) sat on the button in landscape.
         css = (WEB / "static/css/automata.css").read_text()

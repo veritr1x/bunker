@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% from "_info.html" import info %}
-{% block title %}Users :: Lunar Base{% endblock %}
+{% block title %}Players :: Lunar Base{% endblock %}
 {% block content %}
-<h1 class="bracket-header" data-side>Registered Users{{ info("The game plays as the player marked IN USE. Open another player to switch.") }}</h1>
+<h1 class="bracket-header" data-side>Players{{ info("The game plays as the player marked IN USE. Open another player to switch. A new player keeps the current one.") }}</h1>
 {% set in_use = device_player() if device_player is defined else None %}
 <div class="panel panel-corners" data-side>
   <form method="post" action="/users/new" onsubmit="return confirm('Start a new player on this device? The current player is kept.')">
-    <button type="submit">New player</button>{{ info("The current player is kept, and you can switch back to it here.") }}
+    <button type="submit">New player</button>
   </form>
 </div>
 
@@ -15,13 +15,11 @@
   <table>
     <thead>
       <tr>
-        <th>User ID</th>
+        <th>ID</th>
         <th>Name</th>
         <th>Level</th>
         <th>Logins</th>
         <th>Last login</th>
-        <th>Registered</th>
-        <th>UUID</th>
       </tr>
     </thead>
     <tbody>
@@ -38,9 +36,7 @@
         </td>
         <td>{{ u.level }}</td>
         <td>{{ u.total_login_count }}</td>
-        <td>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d %H:%M") }}{% else %}<span style="color:var(--fg-mid)">never</span>{% endif %}</td>
-        <td>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</td>
-        <td><code>{{ u.uuid }}</code></td>
+        <td>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d") }}{% else %}<span style="color:var(--fg-mid)">never</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
