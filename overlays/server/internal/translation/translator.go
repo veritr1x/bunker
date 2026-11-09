@@ -287,6 +287,19 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 	return changed
 }
 
+// File is the translated copy of an asset bundle that the list the game holds
+// names, with its md5, so OctoLinks can link the game's download to it.
+func (t *Translator) File(objectID string) (path, md5 string, ok bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if m := t.served; m != nil {
+		if e, found := m.Entries[objectID]; found {
+			return filepath.Join(t.buildsDir, m.ID, objectID+".assetbundle"), e.MD5, true
+		}
+	}
+	return "", "", false
+}
+
 // serveAsset sends a translated bundle named by the list the game holds (the
 // last one served); false when that list names the original. A finished build
 // the game has not been given a list for yet is never served: its bytes would

@@ -81,6 +81,28 @@ func TestOctoLinksSweepLinksMatchingFiles(t *testing.T) {
 	}
 }
 
+// A translated download (another md5 than the list's original) links to the
+// translation's copy that served it.
+func TestOctoLinksLinksTranslatedCopies(t *testing.T) {
+	links, _, cached := newLinkFixture(t, []byte("english bundle"))
+	translated := []byte("translated bundle")
+	sum := md5.Sum(translated)
+	translatedMD5 := hex.EncodeToString(sum[:])
+	copyPath := filepath.Join(t.TempDir(), "translation", "02Vz10.assetbundle")
+	writeCached(t, copyPath, translated)
+	links.AlsoLink(func(objectId string) (string, string, bool) {
+		return copyPath, translatedMD5, objectId == "02Vz10"
+	})
+	entry := filepath.Join(filepath.Dir(cached), translatedMD5)
+	writeCached(t, entry, translated)
+
+	links.Sweep()
+
+	if !sameFile(t, entry, copyPath) {
+		t.Fatal("translated download was not linked to the translation's copy")
+	}
+}
+
 func TestOctoLinksSkipsIncompleteDownload(t *testing.T) {
 	data := []byte("asset bundle bytes")
 	links, server, cached := newLinkFixture(t, data)

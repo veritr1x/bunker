@@ -210,6 +210,27 @@ func TestBuildFinishingMidSessionServesOnlyWhatTheListNames(t *testing.T) {
 	}
 }
 
+func TestFileNamesOnlyTheServedBuild(t *testing.T) {
+	r := newRoots(t)
+	r.setPack(t, "um")
+	tr := start(t, r, translateUI)
+	tr.wait()
+	if _, _, ok := tr.File(uiID); ok {
+		t.Fatal("a build the game holds no list for was named")
+	}
+	get(t, tr.Wrap(next(r)), listURL)
+	path, sum, ok := tr.File(uiID)
+	if !ok || sum != tr.served.Entries[uiID].MD5 {
+		t.Fatalf("%s %s %v", path, sum, ok)
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "UI:um" {
+		t.Fatalf("%q %v", data, err)
+	}
+	if _, _, ok := tr.File(giftID); ok {
+		t.Fatal("an untranslated bundle was named")
+	}
+}
+
 func TestOldBuildRemovedOnceNotServed(t *testing.T) {
 	r := newRoots(t)
 	r.setPack(t, "um")

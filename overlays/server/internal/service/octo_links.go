@@ -39,6 +39,7 @@ type OctoLinks struct {
 	baseDir  string
 	platform string
 	find     func(objectId, assetType string) []assetCandidate // the server's copies; replaced in tests
+	extra    func(objectId string) (path, md5 string, ok bool) // the translation's copies (AlsoLink)
 
 	mu       sync.Mutex
 	off      bool
@@ -131,7 +132,7 @@ func (l *OctoLinks) unlink(objectId, assetType string) {
 		if err != nil {
 			continue
 		}
-		for _, c := range l.find(objectId, assetType) {
+		for _, c := range l.lookup(objectId, assetType) {
 			if server, err := os.Stat(c.Path); err == nil && os.SameFile(cached, server) {
 				if err := os.Remove(path); err != nil {
 					log.Printf("[OctoLinks] could not unlink %s before a new download: %v", path, err)
@@ -184,6 +185,26 @@ func (l *OctoLinks) entries(objectId, assetType string) []string {
 	return files
 }
 
+// AlsoLink adds the server's other copies of asset bundles (the active
+// translation's): file names the copy the game was given for an object, with
+// its md5. Call it before Sweep.
+func (l *OctoLinks) AlsoLink(file func(objectId string) (path, md5 string, ok bool)) {
+	l.mu.Lock()
+	l.extra = file
+	l.mu.Unlock()
+}
+
+// lookup is every server copy an object's cache entry may be linked to.
+func (l *OctoLinks) lookup(objectId, assetType string) []assetCandidate {
+	candidates := l.find(objectId, assetType)
+	if l.extra != nil && assetType == "assetbundle" {
+		if path, sum, ok := l.extra(objectId); ok {
+			candidates = append(candidates, assetCandidate{Path: path, Source: "translation", ExpectedMD5: sum})
+		}
+	}
+	return candidates
+}
+
 func (l *OctoLinks) candidates(objectId, assetType string) []assetCandidate {
 	candidates, _, _ := objectIdToFilePathCandidates(l.baseDir, "0", l.platform, assetType, objectId)
 	return candidates
@@ -204,7 +225,7 @@ func (l *OctoLinks) link(path, objectId, assetType, sum string) bool {
 	if err != nil || !cached.Mode().IsRegular() {
 		return false
 	}
-	for _, c := range l.find(objectId, assetType) {
+	for _, c := range l.lookup(objectId, assetType) {
 		if !strings.EqualFold(c.ExpectedMD5, sum) {
 			continue
 		}
@@ -255,7 +276,7 @@ func (l *OctoLinks) relink(path, objectId, assetType, sum string) bool {
 			return true
 		}
 	}
-	for _, c := range l.find(objectId, assetType) {
+	for _, c := range l.lookup(objectId, assetType) {
 		if !strings.EqualFold(c.ExpectedMD5, sum) {
 			continue
 		}
