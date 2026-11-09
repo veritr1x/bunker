@@ -1127,6 +1127,16 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     }] resume];
 }
 
+// The explanations behind the launcher's "i" buttons; Help reuses some.
+static NSString *const kOpenTip = @"Three-finger double-tap during play opens this screen.";
+static NSString *const kReconnectTip = @"If the game can't connect, close NieR and open it again.";
+static NSString *const kPodsInfo = @"Edit your save and choose which events and shops appear. The game returns to its title screen after each change.";
+static NSString *const kArchiveInfo = @"Read the story, see every character and costume, and hear the voices and music.";
+static NSString *FilesInfo(void) {
+    return [NSString stringWithFormat:@"Choose the resource dump's .7z or its extracted folder. "
+        @"Or drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", UIDevice.currentDevice.model];
+}
+
 @implementation LTLauncherViewController
 // The menu turns with the device (package_ipa.py adds portrait to the app);
 // the game's own screen stays on its side.
@@ -1146,8 +1156,22 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     if (text) label.attributedText = Tracked(text, label.font, color, size * 0.06);
     return label;
 }
-// [ TITLE ────── ]
-- (UIView *)header:(NSString *)title {
+// A small round "i" beside what it explains; a tap shows the explanation in an alert.
+- (UIButton *)infoButton:(NSString *)title text:(NSString *)text {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeInfoLight];
+    button.tintColor = Ink();
+    button.accessibilityLabel = @"More information";
+    [button.widthAnchor constraintEqualToConstant:40].active = YES;
+    [button.heightAnchor constraintEqualToConstant:40].active = YES;
+    [button setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [button setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    __weak typeof(self) weakSelf = self;
+    [button addAction:[UIAction actionWithHandler:^(UIAction *a) { [weakSelf alert:title message:text]; }] forControlEvents:UIControlEventTouchUpInside];
+    return button;
+}
+- (UIView *)header:(NSString *)title { return [self header:title info:nil]; }
+// [ TITLE ────── ⓘ ]: with info, an "i" before the closing bracket explains the section.
+- (UIView *)header:(NSString *)title info:(NSString *)info {
     UILabel *open = [self label:@"[" size:15 color:Ink() bold:YES];
     UILabel *close = [self label:@"]" size:15 color:Ink() bold:YES];
     UILabel *name = [self label:nil size:14 color:Ink() bold:YES];
@@ -1162,7 +1186,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     }
     [rule setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisHorizontal];
-    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[open, name, rule, close]];
+    NSArray *parts = info ? @[open, name, rule, [self infoButton:title text:info], close] : @[open, name, rule, close];
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:parts];
     row.alignment = UIStackViewAlignmentCenter;
     row.spacing = 10;
     return row;
@@ -1330,12 +1355,15 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     self.check = [self outline:@"CHECK AGAIN" size:13 action:@selector(retry)];
     UIView *play = [self panel:@[self.detail, self.back, self.quit, self.cancel, self.check]];
     // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
-    UILabel *about = [self mono:LTToolsAvailable() ? @"Edit your save and choose which events and shops appear." : @"Not in this build." size:12 color:Ink()];
+    // What it does is behind the header's "i"; the panel says only when it is missing.
+    UILabel *about = [self mono:@"Not in this build." size:12 color:Ink()];
+    about.hidden = LTToolsAvailable();
     self.pods = [self outline:@"OPEN POD PROGRAMS  ›" size:13 action:@selector(confirmTools)];
     self.pods.accessibilityLabel = @"Open Pod Programs";
     UIView *programs = [self panel:@[about, self.pods]];
     // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
-    UILabel *records = [self mono:LTToolsAvailable() ? @"Read the story, see every character and costume, and hear the voices and music." : @"Not in this build." size:12 color:Ink()];
+    UILabel *records = [self mono:@"Not in this build." size:12 color:Ink()];
+    records.hidden = LTToolsAvailable();
     self.archive = [self outline:@"OPEN ARCHIVE  ›" size:13 action:@selector(openArchive)];
     self.archive.accessibilityLabel = @"Open the Archive";
     UIView *archive = [self panel:@[records, self.archive]];
@@ -1423,10 +1451,10 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
     [stack setCustomSpacing:gap afterView:self.updatePanel];
     if (two) {
         [self.systemPanel setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
-        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"System"], self.systemPanel]];
+        UIStackView *left = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"System" info:FilesInfo()], self.systemPanel]];
         UIView *rest = [UIView new];
         [rest setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
-        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"Play"], self.playPanel, [self header:@"Programs"], self.linksPanel, rest]];
+        UIStackView *right = [[UIStackView alloc] initWithArrangedSubviews:@[[self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel, [self header:@"Programs"], self.linksPanel, rest]];
         for (UIStackView *column in @[left, right]) { column.axis = UILayoutConstraintAxisVertical; column.spacing = 8; }
         [right setCustomSpacing:gap afterView:self.playPanel];
         UIStackView *columns = [[UIStackView alloc] initWithArrangedSubviews:@[left, right]];
@@ -1436,8 +1464,8 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         [stack addArrangedSubview:columns];
     } else {
         [self.systemPanel setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisVertical];
-        NSArray *parts = @[[self header:@"System"], self.systemPanel, [self header:@"Play"], self.playPanel,
-                           [self header:@"Pod Programs"], self.programsPanel, [self header:@"Archive"], self.archivePanel];
+        NSArray *parts = @[[self header:@"System" info:FilesInfo()], self.systemPanel, [self header:@"Play" info:[NSString stringWithFormat:@"%@ %@", kOpenTip, kReconnectTip]], self.playPanel,
+                           [self header:@"Pod Programs" info:LTToolsAvailable() ? kPodsInfo : nil], self.programsPanel, [self header:@"Archive" info:LTToolsAvailable() ? kArchiveInfo : nil], self.archivePanel];
         for (UIView *v in parts) [stack addArrangedSubview:v];
         for (UIView *v in @[self.systemPanel, self.playPanel, self.programsPanel]) [stack setCustomSpacing:20 afterView:v];
     }
@@ -1488,10 +1516,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
         pair[1].enabled = pair[0].enabled;
         pair[1].alpha = pair[0].alpha;
     }
-    NSString *device = UIDevice.currentDevice.model;  // "iPhone" or "iPad"
-    NSString *text = gMessage.length ? gMessage : [NSString stringWithFormat:
-        @"Tap Choose and pick the resource dump's .7z or its extracted folder. "
-        @"Or drag a prepared assets folder onto NieR in Finder (your %@ › Files), then tap Check again.", device];
+    NSString *text = gMessage.length ? gMessage : @"Choose the game files to play.";
     if (running && !gMessage.length) text = @"Tap Deploy to keep playing.";
     if (gRestartNeeded && !gMessage.length)
         text = @"Changes saved. Tap Close game, then open NieR again.";
@@ -1730,7 +1755,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 /** Hands the IPA to SideStore, AltStore, AirDrop or Files. */
 - (void)shareUpdate:(NSString *)ipa {
     self.updating = NO;
-    [self updateMessage:[NSString stringWithFormat:@"%@ is in Files (On My %@ › NieR).\n> Install it with SideStore or AltStore, or sideload it from a Mac. Your saves stay.",
+    [self updateMessage:[NSString stringWithFormat:@"%@ is in Files (On My %@ › NieR).\n> Install it with SideStore, AltStore or a Mac. Your saves stay.",
         ipa.lastPathComponent, UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone"] failed:NO];
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:ipa]] applicationActivities:nil];
     share.popoverPresentationController.sourceView = self.updateText;
@@ -1744,10 +1769,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)help {
     [self alert:@"Help" message:
-        @"Choose the game files once: the resource dump's .7z, or its extracted folder.\n\n"
-        @"Three-finger double-tap during play opens this screen.\n\n"
-        @"Export a save backup (in ⋮) before deleting the app. Import save backup restores one from any device, including Android.\n\n"
-        @"Stopping Lunar Tear, importing master data or exporting a save backup disconnects the game. Close NieR from the app switcher and open it again."];
+        [NSString stringWithFormat:@"%@\n\n%@\n\n%@", kOpenTip, @"Export a save backup (in ⋮) before deleting the app.", kReconnectTip]];
 }
 - (void)about {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Bunker"
@@ -1775,7 +1797,7 @@ static void FetchJSON(NSString *url, void (^done)(NSDictionary *json)) {
 }
 - (void)confirmTools {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Open Pod Programs?"
-        message:@"The game keeps running. After a change to your save or content, it returns to the title screen to load it."
+        message:@"The game returns to its title screen after each change."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Open Pod Programs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self openTools]; }]];
@@ -1908,13 +1930,12 @@ static UTType *MasterType(void) {
         NSString *error = ImportMaster(picked);
         return error.length ? error : StartServer();
     } done:^(NSString *error) {
-        if (!error.length) { gMessage = @"Master data imported. Close NieR from the app switcher and open it again to load it."; [self refresh]; }
+        if (!error.length) { gMessage = @"Master data imported. Close NieR and open it again."; [self refresh]; }
     }];
 }
 - (void)confirmSaveImport {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Import a save backup?"
-        message:@"This replaces your save with the backup you choose: a ZIP from Export save backup on any device, or a game.db file. "
-                @"Your current save is kept in Files › NieR › saves.before-import."
+        message:@"This replaces your save. The current one is kept in Files › NieR › saves.before-import."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Choose backup" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:3]; }]];
@@ -2035,7 +2056,7 @@ static UTType *MasterType(void) {
     if (gImporting) { gCancelImport = YES; gMessage = @"Cancelling…"; [self refresh]; return; }
     // The same three choices as on Android.
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Choose the game files"
-        message:@"Copy or Archive: needs about 21 GB free.\nIn place: needs no free space, but keep the folder where it is and its drive connected."
+        message:@"Copy or Archive: needs about 21 GB free.\nIn place: no space needed; keep the folder and its drive connected."
         preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Copy a folder" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Use a folder in place" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
@@ -2095,7 +2116,7 @@ static UTType *MasterType(void) {
     // Unity's first attempts may have failed while files were missing.
     // Closing and reopening the game retries cleanly from the title screen.
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lunar Tear is running"
-        message:@"If the game shows a connection error, close NieR from the app switcher and open it again." preferredStyle:UIAlertControllerStyleAlert];
+        message:kReconnectTip preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         HideLauncher();
     }]];
