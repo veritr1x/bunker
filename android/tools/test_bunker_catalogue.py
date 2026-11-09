@@ -34,6 +34,53 @@ SOURCES = [*POD.glob("*.html"), *ARCHIVE.glob("*.html"), *PY.glob("android_*.py"
            *(ROOT / "patches").glob("lunar-base-*texts*.patch")]
 CALL = re.compile(r"\b(t_count|t_around|plural_forms|t)\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
 FORMS = re.compile(r"\bplural_forms\(\s*[\"']([a-z0-9_.-]+)[\"']\s*\)")
+# The launchers' Java: Texts.t(context, "key", "name", value…), Texts.count(context, "key", n, "name", value…),
+# Texts.tOr(context, "key", shown_instead, …), Texts.around(context, "key", "slot", …), Said.text/count("key", …).
+JAVA_SOURCES = sorted((ROOT / "android/app/src/main/java/org/veritr1x/bunker").glob("*.java"))
+JAVA_CALL = re.compile(r"\b(?:Texts\.(t|tOr|count|around)\(\s*[^,()\"]+,|Said\.(text|count)\()\s*\"([a-z0-9_.-]+)\"(?!\s*\+)")
+
+
+def java_arguments(text: str, at: int) -> list[str]:
+    """The arguments after a call's key, from just after the key's closing quote to the call's ")"."""
+    args, depth, quote, start = [], 0, None, at
+    for i in range(at, len(text)):
+        ch = text[i]
+        if quote:
+            if ch == "\\":
+                continue
+            if ch == quote and text[i - 1] != "\\":
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            if depth == 0:
+                args.append(text[start:i])
+                break
+            depth -= 1
+        elif ch == "," and depth == 0:
+            args.append(text[start:i])
+            start = i + 1
+    return [a.strip() for a in args[1:]]  # args[0] is what lies between the key and its first comma: nothing
+
+
+def java_calls():
+    for path in JAVA_SOURCES:
+        text = path.read_text(encoding="utf-8")
+        for match in JAVA_CALL.finditer(text):
+            kind, key = match.group(1) or match.group(2), match.group(3)
+            args = java_arguments(text, match.end())
+            names = set()
+            if kind in ("count", "tOr"):
+                args = args[1:]
+            if kind == "around" and args:
+                names.add(args[0].strip('"'))
+                args = args[1:]
+            names |= {a.strip('"') for a in args[0::2] if re.fullmatch(r'"[a-z_][a-z0-9_]*"', a)}
+            if kind == "count":
+                names.add("n")
+            yield path, key, kind == "count", names
 
 
 def calls():
@@ -56,6 +103,7 @@ def calls():
         for match in FORMS.finditer(text):
             key = match.group(1)
             yield path, key, True, fields(ENGLISH.get(f"{key}.other", "")) | {"n"}
+    yield from java_calls()
 
 
 def fields(text: str) -> set[str]:
@@ -234,7 +282,7 @@ class Catalogue(unittest.TestCase):
     def test_catalogue_is_sorted_plain_text(self):
         self.assertEqual(list(ENGLISH), sorted(ENGLISH))
         for key, value in ENGLISH.items():
-            self.assertRegex(key, r"^(common|pods|archive)\.[a-z0-9_.-]+$")
+            self.assertRegex(key, r"^(common|pods|archive|launcher)\.[a-z0-9_.-]+$")
             self.assertIsInstance(value, str)
             self.assertNotRegex(value, r"<[A-Za-z/]", key)  # no HTML in the catalogue
 

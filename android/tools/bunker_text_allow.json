@@ -26,7 +26,8 @@
     "pods.mods.preset.",
     "pods.patcher.label.",
     "pods.story.kind.",
-    "pods.story.state."
+    "pods.story.state.",
+    "launcher.state."
   ],
   "upstream": [
     "Important Items",
