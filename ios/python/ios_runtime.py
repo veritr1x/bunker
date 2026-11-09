@@ -137,6 +137,7 @@ def update_data(data_root, asset_root, tools_root, original_master, version):
     """Before the server starts after an update (LunarLauncher.m): the game data
     for this build, the calendar's or a preset's (android_patcher.update_for)."""
     _prepare(data_root, asset_root, tools_root, original_master)
+    android_runtime.refresh_language()
     import android_patcher
     return android_patcher.update_for(version)
 
