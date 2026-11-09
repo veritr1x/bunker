@@ -3,6 +3,7 @@ package translation
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +31,9 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	_, werr := tmp.Write(data)
+	serr := tmp.Sync() // on disk before the rename, so a power cut cannot leave an empty file
 	cerr := tmp.Close()
+	werr = errors.Join(werr, serr)
 	if err := errors.Join(werr, cerr, os.Chmod(tmp.Name(), mode)); err != nil {
 		os.Remove(tmp.Name())
 		return err
@@ -43,29 +46,32 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 }
 
 // ServedRevision is the revision to serve for the list named by fingerprint
-// (a build id, or "none:<list md5>" for the original entries). It only ever
-// goes up: a different fingerprint gets the next revision, at least
-// original+RevisionOffset. While no translation was ever served, the original
-// list is served as it is and nothing is stored.
-func ServedRevision(statePath string, original uint64, fingerprint string) (uint64, error) {
+// (a build id, or "none:<list md5>" for the original entries) to a game that
+// last stored revision requested (the revision in its list request). It only
+// ever goes up: a different fingerprint gets the next revision, at least
+// original+RevisionOffset and above requested, so a damaged, lost or old
+// state file cannot leave the game on a list it ignores. While no translation
+// was ever served, the original list is served as it is and nothing is stored.
+func ServedRevision(statePath string, original, requested uint64, fingerprint string) (uint64, error) {
 	var s state
 	data, err := os.ReadFile(statePath)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		if strings.HasPrefix(fingerprint, "none:") {
+		if strings.HasPrefix(fingerprint, "none:") && requested <= original {
 			return original, nil
 		}
 	case err != nil:
 		return 0, err
 	default:
-		if err := json.Unmarshal(data, &s); err != nil {
-			return 0, err
+		if json.Unmarshal(data, &s) != nil {
+			log.Printf("[Translation] state file unreadable, starting above revision %d", requested)
+			s = state{}
 		}
-		if s.Fingerprint == fingerprint {
+		if s.Fingerprint == fingerprint && s.Revision >= requested {
 			return s.Revision, nil
 		}
 	}
-	next := max(s.Revision+1, original+RevisionOffset)
+	next := max(s.Revision+1, original+RevisionOffset, requested+1)
 	data, err = json.Marshal(state{Revision: next, Fingerprint: fingerprint})
 	if err != nil {
 		return 0, err

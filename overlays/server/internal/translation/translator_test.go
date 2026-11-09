@@ -230,6 +230,25 @@ func TestPackRemovedGoesBackUp(t *testing.T) {
 	}
 }
 
+func TestLostStateServesAboveTheGame(t *testing.T) {
+	r := newRoots(t)
+	r.setPack(t, "um")
+	first := start(t, r, translateUI)
+	first.wait()
+	get(t, first.Wrap(next(r)), listURL) // the game now holds 1817
+
+	r.removePack(t)
+	if err := os.Remove(filepath.Join(r.data, "translation-state.json")); err != nil {
+		t.Fatal(err)
+	}
+	second := start(t, r, translateUI)
+	second.wait()
+	revision, entries := listOf(t, get(t, second.Wrap(next(r)), "/v1/list/300116832/1817"))
+	if revision != 1818 || entries[uiID].Size != 25733 {
+		t.Fatalf("revision %d ui %+v", revision, entries[uiID])
+	}
+}
+
 func TestRestartSamePackNoRebuild(t *testing.T) {
 	r := newRoots(t)
 	r.setPack(t, "um")
