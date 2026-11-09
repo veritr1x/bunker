@@ -33,15 +33,48 @@ in your language.
 
 - Leave out a key, or leave it empty, and the game shows the English text.
   A partial translation is fine.
-- Keep these exactly as they are in the English:
-  - `\\n` as it appears in the file: the game's line break. In the JSON it is
-    written with two backslashes; a single `\n` would put a real line break in
-    the text, which the game cannot use,
+- Keep these exactly as they are in the English (their order may change):
   - tags such as `<i>`, `</i>` and `<align="right">`,
   - placeholders such as `{0}`.
+- Line breaks: put them where your language needs them, written as `\\n` (two
+  backslashes in the file, as in `en.json`). A single `\n` would put a real
+  line break in the text, which the game cannot use.
 - Keep translations about as long as the English where you can: the game's
   menus have little room.
 - Letters the game's fonts cannot show appear as empty boxes. Latin, Cyrillic
   and Greek letters work; support for more letters is being added. Scripts
   written right to left or with joined letters (Arabic, Hebrew, Thai, Hindi) are
   not supported yet.
+
+## Sending your translation
+
+1. Fork the repository and add or edit `<language>.json` files in the folders
+   you translate. Only add keys that are in that folder's `en.json`.
+2. A new language also goes in `languages.json`, with its own name and
+   `"ship": false`:
+
+   ```json
+   {"pt-BR": {"name": "Português (Brasil)", "ship": false}}
+   ```
+
+   The maintainer sets `"ship": true` when the language goes into a Bunker
+   release.
+3. Check your files before you send them:
+
+   ```sh
+   python3 scripts/check_translations.py
+   ```
+
+   It prints one line per problem (file, key, what is wrong), or
+   "Translations OK". The same check runs on every pull request.
+4. Send a pull request.
+
+To try a translation in the game before it ships, build its language pack:
+
+```sh
+python3 scripts/language_packs.py pt-BR
+```
+
+That writes `pt-BR-pack.json`. Copy it to your phone and load it in Bunker's
+Pod Programs › Language › Load a pack, choose it, and keep the game itself set
+to English.
