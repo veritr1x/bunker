@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Music</p>
 <h1>Music</h1>
-<p class="note">{{ count(groups|sum(attribute="tracks", start=[])|length, "track") }}</p>
 <div id="tracks">
 {% for section in groups %}
 <details class="panel fold movies"{% if loop.first %} open{% endif %}>

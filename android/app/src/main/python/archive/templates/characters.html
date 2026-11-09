@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Characters</p>
 <h1>Characters</h1>
 <nav class="seg" aria-label="Character type">
   {% for key, label in tabs %}<a href="/characters?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
