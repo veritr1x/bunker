@@ -842,6 +842,8 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   main { margin-left: 148px; max-width: none; padding: 0 max(14px, var(--hole-right, 0px)) 12px 16px; }
   main > h1, .page-side > h1 { margin: 8px 0 6px; font-size: var(--fs-small); }
   .bracket-header { margin: 10px 0 6px; }
+  /* Fields stay 16px (the readability rule below): smaller ones make an iPhone zoom the page when tapped. */
+  .bracket-header, summary.bracket-header, .setting label, .setting strong, .choice strong { font-size: var(--fs-small); }
   h2.bracket-header { font-size: var(--fs-label); }
   .panel { margin: 12px 0; padding: 10px 12px; }
   input, select, button, .button { min-height: 34px; }
@@ -887,7 +889,7 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   .page-main .setting select { grid-column: 2; grid-row: 1 / span 2; }
   .page-main .setting .note { grid-column: 1; margin: 0; font-size: var(--fs-label); }
   /* Short records: two across. */
-  .page-main [data-grid2] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .page-main [data-grid2] { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .page-main [data-grid2] > * { margin: 0; }
   .page-main [data-grid2] > .panel { padding: 8px 10px; }
 }

@@ -24,9 +24,9 @@ templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
 DEFAULTS = {"fourStarPercent": 5.0, "threeStarPercent": 15.0, "fourStarCostumeShare": 40.0,
             "threeStarCostumeShare": round(100 / 3, 4), "featuredPercent": 35.0, "stepUpBoost": True, "multiMinRarity": 3}
 PRESETS = [
-    ("default", "Default (5% ★4, 15% ★3)", {}),
-    ("generous", "Generous (15% ★4, 30% ★3)", {"fourStarPercent": 15.0, "threeStarPercent": 30.0}),
-    ("featured", "Featured first (10% ★4, always featured, ★4 in every 10-draw)",
+    ("default", "Default", {}),
+    ("generous", "Generous", {"fourStarPercent": 15.0, "threeStarPercent": 30.0}),
+    ("featured", "Featured first",
      {"fourStarPercent": 10.0, "featuredPercent": 100.0, "multiMinRarity": 4}),
 ]
 
