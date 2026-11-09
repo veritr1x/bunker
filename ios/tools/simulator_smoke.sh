@@ -28,12 +28,13 @@ LUNAR_IOS_SIMULATOR=1 "$root_dir/ios/tools/build_framework.sh" "$master" "$work/
 rm -rf "$app"; mkdir -p "$app/Frameworks"
 cat > "$work/main.m" <<'EOF'
 #import <UIKit/UIKit.h>
-@interface HostDelegate : UIResponder <UIApplicationDelegate>
+// A scene, as an app built with a current SDK must have (iOS 27 stops one without): the stand-in game's window.
+@interface HostScene : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic, strong) UIWindow *window;
 @end
-@implementation HostDelegate
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
-    self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+@implementation HostScene
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     UIViewController *root = [UIViewController new];
     root.view.backgroundColor = UIColor.blackColor;
     UILabel *label = [UILabel new];
@@ -43,8 +44,12 @@ cat > "$work/main.m" <<'EOF'
     [root.view addSubview:label];
     self.window.rootViewController = root;
     [self.window makeKeyAndVisible];
-    return YES;
 }
+@end
+@interface HostDelegate : UIResponder <UIApplicationDelegate>
+@end
+@implementation HostDelegate
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options { return YES; }
 @end
 int main(int argc, char *argv[]) { @autoreleasepool { return UIApplicationMain(argc, argv, nil, @"HostDelegate"); } }
 EOF
@@ -61,6 +66,15 @@ cat > "$app/Info.plist" <<EOF
 <key>MinimumOSVersion</key><string>14.0</string>
 <key>UIFileSharingEnabled</key><true/>
 <key>UILaunchScreen</key><dict/>
+<key>UIApplicationSceneManifest</key><dict>
+  <key>UIApplicationSupportsMultipleScenes</key><false/>
+  <key>UISceneConfigurations</key><dict>
+    <key>UIWindowSceneSessionRoleApplication</key><array><dict>
+      <key>UISceneConfigurationName</key><string>Default</string>
+      <key>UISceneDelegateClassName</key><string>HostScene</string>
+    </dict></array>
+  </dict>
+</dict>
 </dict></plist>
 EOF
 sdk="$(xcrun --sdk iphonesimulator --show-sdk-path)"
