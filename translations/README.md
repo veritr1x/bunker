@@ -44,10 +44,11 @@ in your language.
 - Never edit `en.json`, `ja.json` or `ko.json`: they are made from the game.
 - Keep translations about as long as the English where you can: the game's
   menus have little room.
-- Letters the game's fonts cannot show appear as empty boxes. Latin, Cyrillic
-  and Greek letters work; support for more letters is being added. Scripts
-  written right to left or with joined letters (Arabic, Hebrew, Thai, Hindi) are
-  not supported yet.
+- The game can only show letters its fonts have; others appear as empty boxes.
+  Latin (including Polish, Czech, Turkish and Vietnamese), Cyrillic, Greek and
+  Simplified Chinese work. The check names any character the fonts cannot show.
+  Scripts written right to left or with joined letters (Arabic, Hebrew, Thai,
+  Hindi) are not supported yet.
 
 ## Sending your translation
 

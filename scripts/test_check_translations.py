@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_translations import check_file, check_tree, main
+from check_translations import check_file, check_tree, load_coverage, main
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = {"a": "Hello {0}", "b": "<i>Hi</i> there\\nnow", "c": "Plain"}
@@ -183,6 +183,42 @@ class CheckTest(unittest.TestCase):
 
     def test_repo_passes(self):
         self.assertEqual(check_tree(ROOT / "translations"), [])
+
+
+SHOWN = frozenset(range(0x20, 0x7F)) | frozenset(map(ord, "ąĄéЖあ"))
+
+
+class FontCoverageTest(unittest.TestCase):
+    setUp = CheckTest.setUp
+    write = CheckTest.write
+    def test_unshowable_letters(self):
+        path = self.write("game/ui/pt.json", {"c": "ภารกิจ"})
+        found = check_file(path, TEMPLATE, coverage=SHOWN)
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0].endswith(": c: the game's fonts cannot show ภ า ร (U+0E20 U+0E32 U+0E23)"), found[0])
+
+    def test_coverage_passes_ordinary_text(self):
+        path = self.write("game/ui/pt.json", {"b": "Ąé Ж\\nあ <i>x</i>", "a": "{0}"})
+        self.assertEqual(check_file(path, TEMPLATE, coverage=SHOWN), [])
+
+    def test_unshowable_letters_and_markup_both_reported(self):
+        path = self.write("game/ui/pt.json", {"a": "ภ"})
+        self.assertEqual(len(check_file(path, TEMPLATE, coverage=SHOWN)), 2)
+
+    def test_bunker_texts_not_font_checked(self):
+        self.write("bunker/en.json", {"c": "Plain"})
+        self.write("bunker/pt.json", {"c": "ภารกิจ"})
+        self.write("game/ui/pt.json", {"c": "ภารกิจ"})
+        found = check_tree(self.root, coverage=SHOWN)
+        self.assertEqual(len(found), 1)
+        self.assertIn("game/ui/pt.json", found[0])
+
+    def test_repo_coverage_file(self):
+        shown = load_coverage(ROOT / "fonts/coverage.json")
+        for c in "żğệάЖ简あ":
+            self.assertIn(ord(c), shown, c)
+        for c in "ภاम":
+            self.assertNotIn(ord(c), shown, c)
 
 
 if __name__ == "__main__":

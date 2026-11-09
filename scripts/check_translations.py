@@ -9,7 +9,8 @@ in translations/languages.json: {"pt-BR": {"name": "Português (Brasil)", "ship"
 A translation is refused when it would break a language pack, the release build or the game's text:
 it must be a flat JSON object of text, use only keys of en.json, keep each value's tags (<i>, <br>,
 <align="right">), placeholders ({0}) and other braces exactly, and contain no broken character
-escapes. Game texts may have no real line break (it would split the game's key:value line); escaped
+escapes. Game and master texts may only use characters the game's fonts can show, with the letters
+Bunker adds (fonts/coverage.json, written by android/tools/game_fonts.py coverage). Game texts may have no real line break (it would split the game's key:value line); escaped
 ones (\\n) may differ from the English, since translations re-wrap lines. Empty values are fine:
 they show the English.
 """
@@ -85,8 +86,10 @@ def _load(path: Path):
     return data, [f"{key}: appears more than once" for key in dict.fromkeys(duplicates)]
 
 
-def check_file(path: Path, template: dict[str, str], line_breaks: bool = False) -> list[str]:
-    """Every problem in one translation file. line_breaks: real line breaks allowed (master texts have them)."""
+def check_file(path: Path, template: dict[str, str], line_breaks: bool = False,
+               coverage: frozenset[int] | None = None) -> list[str]:
+    """Every problem in one translation file. line_breaks: real line breaks allowed (master texts have them).
+    coverage: the characters the game can show (load_coverage); None skips that check."""
     shown = _shown(path)
     data, problems = _load(path)
     found = [f"{shown}: {problem}" for problem in problems]
@@ -110,7 +113,20 @@ def check_file(path: Path, template: dict[str, str], line_breaks: bool = False) 
                 ("missing " + " ".join(missing.elements())) if missing else "",
                 ("not in the English " + " ".join(extra.elements())) if extra else ""]))
             found.append(f"{shown}: {key}: tags, placeholders and braces must match the English ({what})")
+        if coverage is not None and key in template and isinstance(value, str) \
+                and not any("\ud800" <= ch <= "\udfff" for ch in value):
+            unshown = list(dict.fromkeys(ch for ch in value if ch not in "\n\r\t" and ord(ch) not in coverage))
+            if unshown:
+                letters = unshown[:3]
+                found.append(f"{shown}: {key}: the game's fonts cannot show {' '.join(letters)} "
+                             f"({' '.join(f'U+{ord(ch):04X}' for ch in letters)})")
     return found
+
+
+def load_coverage(path: Path) -> frozenset[int]:
+    """The characters the game's fonts can show, with Bunker's added letters (fonts/coverage.json)."""
+    ranges = json.loads(path.read_text())["ranges"]
+    return frozenset(c for first, last in ranges for c in range(first, last + 1))
 
 
 def _check_languages(path: Path) -> tuple[list[str], set[str]]:
@@ -142,8 +158,8 @@ def _place(translations: Path, path: Path) -> bool:
     return (len(parts) == 3 and parts[0] == "game") or (len(parts) == 2 and parts[0] in COMPONENTS)
 
 
-def check_tree(translations: Path) -> list[str]:
-    """Every problem in the translations folder."""
+def check_tree(translations: Path, coverage: frozenset[int] | None = None) -> list[str]:
+    """Every problem in the translations folder. coverage applies to game and master texts (the game shows them)."""
     languages = translations / "languages.json"
     found, listed = _check_languages(languages)
     templates: dict[Path, dict | None] = {}
@@ -172,7 +188,9 @@ def check_tree(translations: Path) -> list[str]:
                 templates[folder] = None
                 found.append(f"{shown}: there is no en.json in this folder to translate")
         if templates[folder] is not None:
-            found += check_file(path, templates[folder], line_breaks=path.relative_to(translations).parts[0] != "game")
+            component = path.relative_to(translations).parts[0]
+            found += check_file(path, templates[folder], line_breaks=component != "game",
+                                coverage=coverage if component in ("game", "master") else None)
     return found
 
 
@@ -183,7 +201,7 @@ def _translations(translations: Path) -> int:
 def main(argv=None) -> int:
     args = sys.argv[1:] if argv is None else argv
     translations = Path(args[0]) if args else ROOT / "translations"
-    found = check_tree(translations)
+    found = check_tree(translations, load_coverage(ROOT / "fonts/coverage.json"))
     if not found:
         count = _translations(translations)
         print(f"Translations OK: {count} language file{'' if count == 1 else 's'} checked.")
