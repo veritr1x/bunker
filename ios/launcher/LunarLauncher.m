@@ -1424,7 +1424,7 @@ static NSString *FilesInfo(void) {
 }
 // One column; or, on a screen on its side with room for two, System on the left
 // and Play above the programs on the right, both columns ending level. A phone
-// on its side (compact height) also drops the caption and the footer.
+// on its side (compact height) gets a smaller title; the caption and the footer stay.
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     CGSize size = self.view.bounds.size;
@@ -1440,7 +1440,6 @@ static NSString *FilesInfo(void) {
     BOOL two = self.twoColumns, compact = self.compact;
     UIStackView *stack = self.stack;
     for (UIView *v in stack.arrangedSubviews.copy) { [stack removeArrangedSubview:v]; [v removeFromSuperview]; }
-    self.caption.hidden = compact;
     self.titleLabel.attributedText = Tracked(@"BUNKER", [UIFont boldSystemFontOfSize:compact ? 18 : 22], Ink(), compact ? 5 : 6.2);
     self.systemFill.hidden = !two;
     self.maxWidth.constant = two ? 960 : 520;
@@ -1470,10 +1469,8 @@ static NSString *FilesInfo(void) {
         for (UIView *v in @[self.systemPanel, self.playPanel, self.programsPanel]) [stack setCustomSpacing:20 afterView:v];
     }
     [stack addArrangedSubview:self.spacer];
-    if (!compact) {
-        [stack setCustomSpacing:28 afterView:self.spacer];
-        [stack addArrangedSubview:self.footer];
-    }
+    [stack setCustomSpacing:compact ? 16 : 28 afterView:self.spacer];
+    [stack addArrangedSubview:self.footer];
     [self refresh];
 }
 - (void)refresh {

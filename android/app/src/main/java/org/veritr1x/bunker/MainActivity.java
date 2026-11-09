@@ -122,12 +122,12 @@ public final class MainActivity extends Activity {
         // Top bar: where you are, and the options.
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
-        TextView caption=look.monoText("LUNAR TEAR // 127.0.0.1",10,look.mid);caption.setLetterSpacing(.2f);if(!compact)titles.addView(caption);
+        TextView caption=look.monoText("LUNAR TEAR // 127.0.0.1",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
         TextView title=look.text("BUNKER",compact?18:22,look.ink);title.setTypeface(null,Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         top.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
         Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
         top.addView(more,new LinearLayout.LayoutParams(dp(compact?36:44),dp(compact?36:44)));
-        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(compact?6:20));body.addView(top,tp);
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-1,-2);tp.setMargins(0,0,0,dp(compact?12:20));body.addView(top,tp);
         // [ UPDATE ]: shown when a newer Bunker is released. Two rows: the message with WHAT'S NEW,
         // then UPDATE (or WEB BUILDER when this app can't update itself), LATER and SKIP.
         updatePanel=panel();updatePanel.setVisibility(View.GONE);
@@ -204,7 +204,7 @@ public final class MainActivity extends Activity {
             block(body,"Archive",records,0);
         }
         body.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.setMargins(0,dp(28),0,0);if(!compact)body.addView(look.footer(),fp);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.setMargins(0,dp(compact?16:28),0,0);body.addView(look.footer(),fp);
         setContentView(scroll);
         refresh();
         if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)

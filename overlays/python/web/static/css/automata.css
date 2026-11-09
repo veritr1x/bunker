@@ -748,7 +748,7 @@ body { padding-bottom: 64px; }
 .label { font-family: var(--mono); font-size: var(--fs-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); margin: 14px 0 6px; }
 ul.terms { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 ul.terms li { display: flex; flex-direction: column; gap: 1px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .actions form { margin: 0; }
 button.secondary, .button.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
 form.panel[aria-disabled="true"] { opacity: 0.5; }
