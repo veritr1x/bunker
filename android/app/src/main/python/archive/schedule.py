@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .memo import memo
-from .words import resolve, t, t_count
+from .words import number, resolve, t, t_count
 
 LAUNCH = int(datetime(2021, 7, 28, 2, tzinfo=timezone.utc).timestamp() * 1000)  # global launch
 # Dates from June 2024 on are placeholders: the service ended in April 2024.
@@ -234,9 +234,9 @@ class Schedule:
         """Price type 1 is an item (PriceId names it), 2 gems, 4 real money."""
         if item["PriceType"] == 1:
             return t("archive.schedule.free") if not item["Price"] else \
-                t("archive.schedule.price_items", count=f"{item['Price']:,}", item=self.item(6, item["PriceId"])["name"])
+                t("archive.schedule.price_items", count=number(item['Price']), item=self.item(6, item["PriceId"])["name"])
         if item["PriceType"] == 2:
-            return t_count("archive.schedule.price_gems", item["Price"], count=f"{item['Price']:,}")
+            return t_count("archive.schedule.price_gems", item["Price"], count=number(item['Price']))
         return t("archive.schedule.real_money") if item["PriceType"] == 4 else ""
 
     # ---- Shops ------------------------------------------------------------------

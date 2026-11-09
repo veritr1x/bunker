@@ -228,7 +228,7 @@
     <div class="db-lbl"><span class="arena-only">{{ t("pods.decks.against") }}</span></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="against" class="arena-only" style="max-width:100%"><option value="general">{{ t("pods.decks.general_best") }}</option>
-        {% for o in opponents %}<option value="{{ o.id }}">{{ o.name }} · {{ t("pods.decks.points", n="{:,}".format(o.points)) }} · {{ (o.names or [])|join(", ") }}</option>{% endfor %}</select>
+        {% for o in opponents %}<option value="{{ o.id }}">{{ o.name }} · {{ t("pods.decks.points", n=number(o.points)) }} · {{ (o.names or [])|join(", ") }}</option>{% endfor %}</select>
       <button type="button" class="open-filters chip on" onclick="sheet(true)">{{ t("pods.decks.filters") }} <span id="nfilters"></span></button>
     </div>
   </div>
@@ -345,6 +345,7 @@ const TXT = {
 const fill = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
 // A counted text: the form the language uses for n (its CLDR plural category), else "other".
 const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+const NUM = new Intl.NumberFormat({{ text_language()|tojson }}, {numberingSystem: "latn"}), num = n => NUM.format(n);
 const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
 const elementName = e => TXT.element[e] || e;
 const state = {deck_for: "attack", mode: "best", strategy: "any", el_l: "", el_m: "", el_r: "", must: [], exclude_el: [], sort: "match", include: [], exclude: []};
@@ -368,14 +369,18 @@ document.querySelectorAll(".chips[data-name]").forEach(box => box.addEventListen
   dirty = true; countFilters();
 }));
 document.querySelectorAll("input[data-min]").forEach(r => r.addEventListener("input", () => {
-  document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = +r.value ? (+r.value).toLocaleString() : "—";
+  document.querySelector(`[data-show="${r.dataset.min}"]`).textContent = +r.value ? num(+r.value) : "—";
   dirty = true; countFilters();
 }));
 $("against").addEventListener("change", () => load(true));
 $("boss").addEventListener("change", () => load(true));
 $("difficulty").addEventListener("change", () => load(true));
 const SUBJ = () => state.deck_for === "subjugation";
-const big = n => n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e8 ? 0 : 1)}M` : n.toLocaleString();
+const COMPACT = [0, 1].map(digits => new Intl.NumberFormat(NUM.resolvedOptions().locale,
+  {notation: "compact", maximumFractionDigits: digits, numberingSystem: "latn"}));
+const big = n => n >= 1e6 ? COMPACT[n >= 1e8 ? 0 : 1].format(n) : num(n);
+const PCT = new Intl.NumberFormat(NUM.resolvedOptions().locale, {style: "percent", maximumFractionDigits: 1, numberingSystem: "latn"});
+const pct = n => PCT.format(n / 100);
 $("allow").addEventListener("change", () => load(true));
 $("sort").addEventListener("change", e => { state.sort = e.target.value; load(true); });
 
@@ -467,16 +472,16 @@ function loadoutHtml(c) {
     <div class="lo-txt"><b>${esc(d.title)}</b><small>${esc(fill(TXT.damage, {n: big(d.damage)}))}${d.knockdowns ? " · " + esc(TXT.knockdown) : ""}</small></div></div>`).join("");
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
     <div class="rc-name"><b>${esc(fill(TXT.damage, {n: big(c.damage)}))}</b></div><span></span></div>${rows}
-    <div class="rc-foot"><span>${esc(TXT.force)} <b>${c.force.toLocaleString()}</b></span></div></button>`;
+    <div class="rc-foot"><span>${esc(TXT.force)} <b>${num(c.force)}</b></span></div></button>`;
 }
 function cardHtml(c) {
   if (c.kind === "subjugation") return loadoutHtml(c);
   cards[c.key] = c;
   const tiles = c.tiles.map(t => `<div class="tile"><div class="por e-${esc(t.element)}${t.new ? " new" : ""}">${pic(t.id)}<span class="slot">${t.slot}</span></div><span class="nm">${esc(t.name)}</span></div>`).join("");
   return `<button type="button" class="rc" data-key="${esc(c.key)}"><div class="rc-head"><span class="rc-no">${String(c.rank).padStart(2, "0")}</span>
-    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}</small></div><div class="rc-win"><b>${c.win_pct}%</b><small>${esc(TXT.winRateShort)}</small></div></div>
+    <div class="rc-name"><b>${esc(c.title)}</b><small>${esc(c.strategy)}</small></div><div class="rc-win"><b>${pct(c.win_pct)}</b><small>${esc(TXT.winRateShort)}</small></div></div>
     <div class="trio">${tiles}</div>
-    <div class="rc-foot"><span>${esc(TXT.force)} <b>${c.force.toLocaleString()}</b></span></div></button>`;
+    <div class="rc-foot"><span>${esc(TXT.force)} <b>${num(c.force)}</b></span></div></button>`;
 }
 async function load(reset) {
   if (busy) { if (reset) pending = true; return; }   // a change while loading: load again when this one ends
@@ -492,7 +497,7 @@ async function load(reset) {
       busy = false; await prepare(r.against, r.costumes); load(true); return;
     }
     $("count").innerHTML = SUBJ() ? (r.total ? fill(esc(plural(TXT.loadouts, r.total)), {n: `<strong>${r.total}</strong>`, boss: esc($("boss").selectedOptions[0]?.dataset.name || TXT.boss)}) : esc(TXT.noLoadouts))
-      : r.total ? fill(esc(plural(TXT.decksShowing, r.total)), {n: `<strong>${r.total.toLocaleString()}</strong>`, last: offset + r.items.length}) : esc(TXT.noDecks);
+      : r.total ? fill(esc(plural(TXT.decksShowing, r.total)), {n: `<strong>${num(r.total)}</strong>`, last: offset + r.items.length}) : esc(TXT.noDecks);
     $("cards").insertAdjacentHTML("beforeend", r.items.map(cardHtml).join(""));
     offset += r.items.length; done = r.exhausted || !r.items.length;
     $("more").textContent = r.total === 0 ? (r.relax ? fill(TXT.tryWithout, {filter: r.relax.replace("_", " ")}) : "") : done ? "" : TXT.scrollMore;
@@ -522,7 +527,7 @@ async function openDetail(key, el) {
   $("d-title").textContent = c.title;
   $("d-sub").textContent = c.strategy;
   $("d-trio").innerHTML = c.tiles.map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}<span class="slot">${t.slot}</span></div>`).join("");
-  $("d-stats").innerHTML = [[TXT.winRate, c.win_pct + "%"], [TXT.force, c.force.toLocaleString()], [TXT.toAdd, c.to_add], [TXT.variants, c.variants]]
+  $("d-stats").innerHTML = [[TXT.winRate, pct(c.win_pct)], [TXT.force, num(c.force)], [TXT.toAdd, c.to_add], [TXT.variants, c.variants]]
     .map(([k, v]) => `<div>${esc(k)}<b>${esc(v)}</b></div>`).join("");
   $("d-why").textContent = c.why; $("d-why").classList.remove("open"); $("d-more").hidden = true;
   $("d-chars").innerHTML = `<p class="help">${esc(TXT.loading)}</p>`; $("d-over").innerHTML = ""; $("w-raise-box").hidden = true; $("w-sum").textContent = "";
@@ -537,7 +542,7 @@ async function openDetail(key, el) {
   $("d-why").textContent = d.why_long;
   requestAnimationFrame(() => { $("d-more").hidden = $("d-why").scrollHeight <= $("d-why").clientHeight + 4; });
   $("d-chars").innerHTML = d.characters.map((ch, i) => `<details class="ch"${i === 0 ? " open" : ""}><summary><div class="por e-${esc(ch.element)}">${pic(ch.costume_id)}</div>
-    <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(elementName(ch.element))} · ${esc(fill(TXT.forceN, {n: ch.force.toLocaleString()}))}</div></div></summary>
+    <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(elementName(ch.element))} · ${esc(fill(TXT.forceN, {n: num(ch.force)}))}</div></div></summary>
     <p class="line">${esc(ch.line)}</p>${pieceRows(ch.pieces)}</details>`).join("");
   $("d-over").innerHTML = d.overrides.map(o => `<div class="override"><strong>${esc(TXT.override)}</strong> ${esc(o)}</div>`).join("");
   raiseBoxes(d);
@@ -560,7 +565,7 @@ async function openLoadout(key, c) {
   $("d-title").textContent = boss;
   $("d-sub").textContent = fill(TXT.difficulty, {n: $("difficulty").value});
   $("d-trio").innerHTML = c.decks.flatMap(d => d.tiles).map(t => `<div class="por e-${esc(t.element)}${t.new ? " new" : ""}" title="${esc(t.name)}">${pic(t.id)}</div>`).join("");
-  $("d-stats").innerHTML = [[TXT.damageLabel, big(c.damage)], [TXT.force, c.force.toLocaleString()],
+  $("d-stats").innerHTML = [[TXT.damageLabel, big(c.damage)], [TXT.force, num(c.force)],
                             [TXT.knockdowns, c.decks.reduce((n, d) => n + d.knockdowns, 0)], [TXT.decks, 3]]
     .map(([k, v]) => `<div>${esc(k)}<b>${esc(v)}</b></div>`).join("");
   $("d-why").textContent = TXT.phases;
@@ -576,7 +581,7 @@ async function openLoadout(key, c) {
   detailData = d;
   $("d-chars").innerHTML = d.decks.map(k => `<div class="w-h">${esc(fill(TXT.deckPhase, {n: k.phase}))} · ${esc(fill(TXT.damage, {n: big(k.damage)}))}${k.knockdowns ? " · " + esc(TXT.knockdown) : ""}</div>`
     + k.characters.map(ch => `<details class="ch"><summary><div class="por e-${esc(ch.element)}">${pic(ch.costume_id)}</div>
-    <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(elementName(ch.element))} · ${esc(fill(TXT.forceN, {n: ch.force.toLocaleString()}))}</div></div></summary>
+    <div><b>${esc(ch.name)}</b><div class="role">${esc(ch.slot)} · ${esc(elementName(ch.element))} · ${esc(fill(TXT.forceN, {n: num(ch.force)}))}</div></div></summary>
     ${pieceRows(ch.pieces)}</details>`).join("")).join("");
   raiseBoxes(d);
   rescore();
@@ -626,12 +631,12 @@ async function rescore() {
   const s = await (await fetch(`/decks/rescore?user=${USER}&key=${encodeURIComponent(chosen)}&raise=${raise.join(",")}`)).json();
   if (detailData.kind === "subjugation") {
     $("w-sum").innerHTML = `<strong>${esc(fill(plural(TXT.adds, detailData.added), {n: detailData.added}))}</strong> `
-      + fill(esc(TXT.sumLoadout), {force: `<b>${s.force.toLocaleString()}</b>`, damage: `<b>${big(s.damage)}</b>`})
+      + fill(esc(TXT.sumLoadout), {force: `<b>${num(s.force)}</b>`, damage: `<b>${big(s.damage)}</b>`})
       + (detailData.raises.length ? " " + esc(raise.length ? TXT.withRaised : TXT.asTheyAre) : ".");
     return;
   }
   $("w-sum").innerHTML = `<strong>${esc(fill(plural(TXT.adds, detailData.added), {n: detailData.added}))}</strong> `
-    + fill(esc(TXT.sumDeck), {force: `<b>${s.force.toLocaleString()}</b>`, win: `<b>${s.win_pct}%</b>`})
+    + fill(esc(TXT.sumDeck), {force: `<b>${num(s.force)}</b>`, win: `<b>${pct(s.win_pct)}</b>`})
     + (detailData.raises.length ? " " + esc(raise.length ? TXT.withRaised : TXT.asTheyAre) : ".");
 }
 // WRITE DECK opens the picker: Arena or Loadout decks, each naming what it holds; the picks are listed as what they

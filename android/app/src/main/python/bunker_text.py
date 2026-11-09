@@ -53,6 +53,12 @@ def plural_category(language_tag: str, n: int) -> str:
     return bunker_plurals.category(language_tag, n)
 
 
+def number(n: int) -> str:
+    """The whole number n written the way the text's language writes it ("1,200", "1.200", "1 200")."""
+    import bunker_numbers
+    return bunker_numbers.write(_language, n)
+
+
 def language() -> str:
     """The language the texts are in (a BCP 47 tag), "en" without a translation."""
     return _language
@@ -126,19 +132,21 @@ def _translated_forms(key: str) -> dict[str, str] | None:
 
 def t_count(key: str, n: int, **params) -> str:
     """key in the plural form the language uses for n (".one", ".few", ".other"…); {n} is the count. A translation
-    missing a form its language needs gives the English text (".one" for 1, ".other" otherwise)."""
+    missing a form its language needs gives the English text (".one" for 1, ".other" otherwise). {n} is written
+    the language's way ("1.200")."""
     import bunker_plurals
+    params.setdefault("n", number(n))
     forms = _translated_forms(key)
     if forms is not None:
         try:
-            return forms[bunker_plurals.category(_language, n)].format(n=n, **params)
+            return forms[bunker_plurals.category(_language, n)].format(**params)
         except (KeyError, IndexError, ValueError):
             pass
     base = _english_text(f"{key}.one" if n == 1 else f"{key}.other")
     if base is None:
         return f"{key}.other"
     try:
-        return base.format(n=n, **params)
+        return base.format(**params)
     except (KeyError, IndexError, ValueError):
         return base
 
@@ -174,7 +182,8 @@ def t_around(key: str, slot: str, **params) -> tuple[str, str]:
 def install(target) -> None:
     """Gives templates t, t_count and t_around (a Jinja2Templates, or a jinja2 Environment)."""
     env = getattr(target, "env", target)
-    env.globals.update(t=t, t_count=t_count, t_around=t_around, plural_forms=plural_forms, text_language=language)
+    env.globals.update(t=t, t_count=t_count, t_around=t_around, plural_forms=plural_forms, text_language=language,
+                       number=number)
 
 
 def install_everywhere() -> None:

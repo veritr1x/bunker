@@ -91,6 +91,7 @@
   // A catalogue text with its {placeholders} filled in (values already escaped where the text goes into HTML).
   // A counted text: the form the language uses for n (its CLDR plural category), else "other".
   const PLURAL = new Intl.PluralRules({{ text_language()|tojson }});
+  const NUM = new Intl.NumberFormat({{ text_language()|tojson }}, {numberingSystem: "latn"}), num = n => NUM.format(n);
   const plural = (forms, n) => forms[PLURAL.select(n)] ?? forms.other;
   const fill = (text, values) => text.replace(/\{(\w+)\}/g, (m, k) => k in values ? values[k] : m);
   const sheet = document.getElementById("sj-sheet"), title = document.getElementById("sj-title"),
@@ -104,7 +105,7 @@
     const forms = r.chapters ? (done ? TXT.clearedCh : TXT.clearsCh) : (done ? TXT.cleared : TXT.clears);
     const head = fill(esc(plural(forms, r.cleared_count)), {n: r.cleared_count, chapters: esc(r.chapters)});
     return `<div class="sj-note">${head}</div>`
-      + `<ul>${items}${r.gems ? `<li>${esc(fill(plural(TXT.gems, r.gems), {n: r.gems.toLocaleString()}))}</li>` : ""}<li>${esc(TXT.expGold)}</li></ul>`;
+      + `<ul>${items}${r.gems ? `<li>${esc(fill(plural(TXT.gems, r.gems), {n: num(r.gems)}))}</li>` : ""}<li>${esc(TXT.expGold)}</li></ul>`;
   }
   document.querySelectorAll("button[data-quest]").forEach(b => b.addEventListener("click", async e => {
     e.preventDefault();

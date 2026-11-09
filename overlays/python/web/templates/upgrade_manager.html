@@ -35,21 +35,21 @@
 <div class="panel grant-list">
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.add_companions") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.missing_of", n=missing_companions, total=companion_total) }}{{ info(t("pods.upgrades.add_companions_info")) }}</span>
+    <span class="grant-id">{{ t("pods.upgrades.missing_of", n=number(missing_companions), total=number(companion_total)) }}{{ info(t("pods.upgrades.add_companions_info")) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_companions" class="grant-chosen-btn"
             {% if missing_companions == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.add_remnants") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.missing_of", n=missing_remnants, total=remnant_total) }}</span>
+    <span class="grant-id">{{ t("pods.upgrades.missing_of", n=number(missing_remnants), total=number(remnant_total)) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_remnants" class="grant-chosen-btn"
             {% if missing_remnants == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>
   </div>
   <div class="grant-form upgrade">
     <span class="grant-name">{{ t("pods.upgrades.add_debris") }}</span>
-    <span class="grant-id">{{ t("pods.upgrades.missing_of", n=missing_thoughts, total=thought_total) }}{{ info(t("pods.upgrades.add_debris_info")) }}</span>
+    <span class="grant-id">{{ t("pods.upgrades.missing_of", n=number(missing_thoughts), total=number(thought_total)) }}{{ info(t("pods.upgrades.add_debris_info")) }}</span>
     <span class="grant-current">&mdash;</span>
     <button type="button" data-upgrade="grant_missing_thoughts" class="grant-chosen-btn"
             {% if missing_thoughts == 0 %}disabled{% endif %}>{{ t("pods.player.run") }}</button>

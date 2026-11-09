@@ -3,7 +3,7 @@
   <article class="record">
     <h3>{{ x.name }}{% if x.limit %}<span>· {{ t("archive.schedule.limit", n=x.limit) }}</span>{% endif %}{% if x.step > 1 %}<span>· {{ t("archive.schedule.step", n=x.step) }}</span>{% endif %}</h3>
     <p>{{ x.price }}{% if x.term %} · {{ x.term }}{% endif %}</p>
-    {% if x.gets %}<p class="note">{% for g in x.gets %}{% if g.link %}<a href="{{ g.link }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}{% if g.count > 1 %} ×{{ "{:,}".format(g.count) }}{% endif %}{% if g.enhanced %} {{ t("archive.schedule.enhanced") }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if x.gets %}<p class="note">{% for g in x.gets %}{% if g.link %}<a href="{{ g.link }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}{% if g.count > 1 %} ×{{ number(g.count) }}{% endif %}{% if g.enhanced %} {{ t("archive.schedule.enhanced") }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
   </article>
   {% else %}<p class="note">{{ t("archive.schedule.nothing_for_sale") }}</p>{% endfor %}
 {% endmacro %}

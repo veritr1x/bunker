@@ -66,7 +66,9 @@ folders, with a few differences:
   as Save or Close). A key ending in `_info` is the explanation behind an
   "i" icon.
 - Placeholders are names in braces, such as `{name}` or `{n}`: keep each one,
-  in whatever place your language needs it. `{n}` is a number.
+  in whatever place your language needs it. `{n}` is a number, already
+  written your language's way ("1.200" in German, "1 200" in French) from the
+  pack's `language`; a `%` sign in a text is yours to place ("45 %").
 - Keys ending in `.one` and `.other` are a counted text: "{n} costume",
   "{n} costumes". Give every form your language uses for whole numbers, using
   the plural categories of the Unicode CLDR (`zero`, `one`, `two`, `few`,

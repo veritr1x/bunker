@@ -59,13 +59,14 @@
 <h2 class="bracket-header" data-side>{{ t("pods.gift.waiting") }}</h2>
 <div class="panel" data-side>
 {% if waiting %}
-  <table class="gift-waiting">{% for g in waiting %}<tr><td>{{ g.name }} ×{{ "{:,}".format(g.count) }}</td></tr>{% endfor %}</table>
+  <table class="gift-waiting">{% for g in waiting %}<tr><td>{{ g.name }} ×{{ number(g.count) }}</td></tr>{% endfor %}</table>
 {% else %}<p style="margin:0" class="note">{{ t("pods.gift.nothing_waiting") }}</p>{% endif %}
 </div>
 
 <script id="gift-data" type="application/json">{{ cards|tojson }}</script>
 <script>
 (() => {
+  const NUM = new Intl.NumberFormat({{ text_language()|tojson }}, {numberingSystem: "latn"}), num = n => NUM.format(n);
   const CARDS = JSON.parse(document.getElementById("gift-data").textContent), USER = {{ user }};
   const ONE = {1: {{ t("pods.gift.one_per_gift_costume")|tojson }},
                14: {{ t("pods.gift.one_per_gift")|tojson }}};  // other kinds sent one per gift (costumes, weapons) use 1's
@@ -109,7 +110,7 @@
     const room = r.room || 0;
     if (!room) { $("hint").textContent = r.error || TXT.noRoom; return; }
     if (e.one_per_gift) { $("hint").textContent = ONE[e.possession_type] || ONE[1]; $("count").max = 1; }
-    else { $("hint").textContent = fill(TXT.upTo, {n: room.toLocaleString()}); $("count").max = room; $("count").disabled = false; }
+    else { $("hint").textContent = fill(TXT.upTo, {n: num(room)}); $("count").max = room; $("count").disabled = false; }
     $("send").disabled = false;
   }
   // A count above what can be claimed, or not a whole number, is refused: nothing is cut down.
@@ -118,8 +119,8 @@
     const n = Number($("count").value), max = Number($("count").max);
     const ok = Number.isInteger(n) && n >= 1 && n <= max;
     $("send").disabled = !ok;
-    $("hint").textContent = ok ? fill(TXT.upTo, {n: max.toLocaleString()})
-      : n > max ? fill(TXT.tooMany, {n: max.toLocaleString()}) : TXT.whole;
+    $("hint").textContent = ok ? fill(TXT.upTo, {n: num(max)})
+      : n > max ? fill(TXT.tooMany, {n: num(max)}) : TXT.whole;
   });
   $("cats").addEventListener("click", ev => { const b = ev.target.closest(".gift-card"); if (!b) return;
     $("q").value = ""; card = CARDS.find(c => c.name === b.dataset.card); group = card.groups.find(g => g.entries.length); draw(); });
@@ -135,7 +136,7 @@
     const r = await fetch("/gift/send", {method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({user: USER, possession_type: sending.possession_type, possession_id: sending.possession_id, count})})
       .then(r => r.json()).catch(err => ({ok: false, error: err.message}));
-    const done = r.ok ? `message=${encodeURIComponent(fill(TXT.sent, {item: sending.name, count: count.toLocaleString()}))}`
+    const done = r.ok ? `message=${encodeURIComponent(fill(TXT.sent, {item: sending.name, count: num(count)}))}`
                       : `error=${encodeURIComponent(r.error || TXT.notSent)}`;
     location.href = `/gift?user=${USER}&${done}`;
   });

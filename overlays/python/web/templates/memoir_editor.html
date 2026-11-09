@@ -9,7 +9,7 @@
 
 <h1 class="bracket-header" data-side>{{ t("pods.memoirs.heading") }}{{ info(t("pods.memoirs.heading_info")) }}</h1>
 
-<p data-side>{{ t("pods.memoirs.owned", n=owned_count, cap=inventory_cap) }}</p>
+<p data-side>{{ t("pods.memoirs.owned", n=number(owned_count), cap=number(inventory_cap)) }}</p>
 
 <div id="ajax-banner" class="banner ajax-hidden" role="status" aria-live="polite"></div>
 

@@ -274,6 +274,27 @@ class InfoIcon(unittest.TestCase):
         bunker_text.use(None)
         self.assertEqual(said(stored), "Away 5 days: 2 days of rewards")
 
+    def test_numbers_the_schedule_keeps_are_written_in_the_language_read_in(self):
+        import bunker_text
+        from archive.schedule import Schedule
+        from archive.words import said
+        stored = Schedule.price(None, {"PriceType": 2, "Price": 1200})
+        self.addCleanup(bunker_text.use, None)
+        self.assertEqual(said(stored), "1,200 gems")
+        bunker_text.use({"archive.schedule.price_gems.one": "{count} Juwel",
+                         "archive.schedule.price_gems.other": "{count} Juwelen"}, language="de")
+        self.assertEqual(said(stored), "1.200 Juwelen")
+
+    def test_numbers_on_pages_are_written_in_the_pages_language(self):
+        import bunker_text
+        self.addCleanup(bunker_text.use, None)
+        bunker_text.use({"x": "y"}, language="fr")
+        gets = [{"name": "Gold", "count": 25000, "link": "", "enhanced": False}]
+        item = {"name": "Shop", "kind": "", "when": {"label": ""},
+                "items": [{"name": "Box", "price": "", "term": "", "limit": 0, "step": 1, "gets": gets}]}
+        html = self.render("schedule_shop.html", item=item, tabs={}, tab="shops")
+        self.assertIn("×25 000", html)
+
     def test_schedule_note_is_behind_an_icon(self):
         for original, note in ((True, "Dates from the live service, in UTC."), (False, "Open Pod Programs once to see the original dates.")):
             html = self.render("schedule.html", tab="other", tabs=[("other", "Other")], groups=[], original=original)

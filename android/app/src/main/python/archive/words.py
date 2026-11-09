@@ -27,10 +27,18 @@ def t_count(key: str, n: int, **params) -> str:
     return _START + json.dumps([key, params, n], ensure_ascii=False, separators=(",", ":")) + _END
 
 
+def number(n: int) -> str:
+    """A reference to the whole number n, written ("1,200", "1.200") in the language of the moment it is shown."""
+    return _START + json.dumps([int(n)]) + _END
+
+
 def _words(match: re.Match) -> str:
     try:
-        key, params, *count = json.loads(match.group(1))
-    except ValueError:
+        found = json.loads(match.group(1))
+        if len(found) == 1:
+            return bunker_text.number(found[0])
+        key, params, *count = found
+    except (ValueError, TypeError):
         return ""
     params = {name: said(value) if isinstance(value, str) else value for name, value in params.items()}
     return bunker_text.t_count(key, count[0], **params) if count else bunker_text.t(key, **params)
