@@ -132,8 +132,8 @@ void LTWindowStart(void) {
         // Unity makes its window the size of the device's screen. Opened straight onto an external
         // display, whose scene iPadOS calls portrait, that was 834x1210 upright in the middle of a
         // 3008x1630 landscape scene: the picture small and on its end. The window fills its scene.
+        // (coordinateSpace, not iOS 26's effectiveGeometry.coordinateSpace: CI's Xcode has an older SDK.)
         CGRect area = window.windowScene.coordinateSpace.bounds;
-        if (@available(iOS 26.0, *)) area = window.windowScene.effectiveGeometry.coordinateSpace.bounds;
         if (area.size.width > 0 && area.size.height > 0
             && (fabs(window.frame.size.width - area.size.width) > 1 || fabs(window.frame.size.height - area.size.height) > 1
                 || fabs(window.frame.origin.x - area.origin.x) > 1 || fabs(window.frame.origin.y - area.origin.y) > 1)) {
@@ -171,10 +171,7 @@ void LTWindowStart(void) {
         UIWindowScene *scene = window.windowScene;
         UIInterfaceOrientation orientation = UIInterfaceOrientationUnknown;
         CGRect sceneBounds = scene.coordinateSpace.bounds;
-        if (@available(iOS 26.0, *)) {
-            orientation = scene.effectiveGeometry.interfaceOrientation;
-            sceneBounds = scene.effectiveGeometry.coordinateSpace.bounds;
-        } else if (@available(iOS 16.0, *)) {
+        if (@available(iOS 16.0, *)) {
             orientation = scene.effectiveGeometry.interfaceOrientation;
         } else {
             orientation = scene.interfaceOrientation;
