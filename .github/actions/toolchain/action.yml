@@ -101,6 +101,8 @@ runs:
     - if: inputs.android == 'true' && steps.sdk-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
+        # yes ends with SIGPIPE once sdkmanager is done; under pipefail that failed every attempt.
+        set +o pipefail
         for attempt in 1 2 3 4; do
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" > /dev/null && exit 0
           echo "sdkmanager failed (attempt $attempt); trying again"; sleep $((attempt * 15))
