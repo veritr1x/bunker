@@ -4,6 +4,48 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.10.5 (2026-11-09)
+
+The game opens straight onto a TV properly, can keep its shape there with
+black bars, and updates made in the game now use the new version's updater.
+Opened onto an external display, the game was a small upright picture in the
+middle of its window; it now fills it. Pod Programs › Display can keep the
+game's shape in a resized window or on a TV. The update panel keeps its
+buttons in order and hides them while an update is built, and an exported
+log says how the app was used and why it last stopped.
+
+## 2026-11-09 (after 1.10.4)
+
+### iPhone and iPad
+- Opened straight onto an external display such as a TV, the game was small
+  and upright in the middle of its window, or its top-left quarter on
+  screen: Unity made its window the size of the iPad's screen. The window
+  now fills the display and the game draws in landscape. [0ffa133]
+- Pod Programs › Display › "In a resized window or on a TV": the picture
+  can keep the game's shape with black bars beside it, instead of being
+  stretched (still the default). [253de67]
+- An update made in the game is built by the new version's updater, from
+  its download, so a fix to the updater reaches the update that brings it
+  (the installed one is used when a release has none). [fb2dbb3]
+- The update panel: LATER no longer shrinks to nothing while an update is
+  built, and no buttons show once it has started. [fb2dbb3]
+- Export Lunar Tear log has "[App]" lines: how the last run ended (closed,
+  in the background, or in use: a crash or iOS stopping it), the app going
+  to the background and back, memory warnings, the device getting hot,
+  external displays, and each step of an update. [fb2dbb3]
+- With Stage Manager or windowed apps the game turns with the iPad, upright
+  included: iPadOS lets a resizable app neither keep nor ask for an
+  orientation. This has been so since 1.10.3.
+
+### Development
+- `scripts/release.py` cuts a release: it checks main, the version and the
+  changelog, runs the unit tests, commits, tags and pushes. CI and it run one
+  test list, `scripts/unit_tests.sh`, which now includes Deck Builder's page in
+  a headless browser. [fb2dbb3]
+- CI keeps its tools in caches and retries downloads, so GitHub's and
+  Google's occasional 504s no longer fail a release; its actions run on
+  Node 24. [93cb772]
+
 ## 1.10.4 (2026-11-09)
 
 The iPad game on a TV fills its window again, and Deck Builder keeps loading
