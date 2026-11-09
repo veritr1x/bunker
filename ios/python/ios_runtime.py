@@ -248,9 +248,71 @@ def stop():
     _state.clear()
 
 
+# The updater and the modules it imports (the game fixes it applies to UnityFramework).
+UPDATER_MODULES = ("bunker_ios_update", "guerrilla_unlock", "remain_days", "scroll_snap", "text_buffer")
+
+
+def _file_sha256(path):
+    import hashlib
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+@contextlib.contextmanager
+def _release_updater(python_zip, sha_python):
+    """The updater from the release being installed, read from its Python bundle (python/app/ in the
+    zip), or None (a release without one, or one that doesn't load). Its modules stay in place while
+    the update is built (it imports its game fixes as it goes), then the installed ones come back.
+    The bundle is checked against the release's update.json first: code from it runs only when it
+    is the release's."""
+    import importlib
+    import zipfile
+    if _file_sha256(python_zip) != sha_python:
+        yield None
+        return
+    with zipfile.ZipFile(python_zip) as bundle:
+        names = set(bundle.namelist())
+    if not all(f"python/app/{name}.py" in names for name in UPDATER_MODULES):
+        yield None
+        return
+    installed = {name: sys.modules.pop(name) for name in UPDATER_MODULES if name in sys.modules}
+    path = os.path.join(python_zip, "python", "app")
+    sys.path.insert(0, path)
+    try:
+        try:
+            module = importlib.import_module("bunker_ios_update")
+            for name in UPDATER_MODULES[1:]:
+                importlib.import_module(name)
+            if not callable(getattr(module, "build_ipa", None)):
+                module = None
+        except Exception:
+            module = None
+        if module is None:  # the installed modules for the fallback
+            for name in UPDATER_MODULES:
+                sys.modules.pop(name, None)
+            sys.modules.update(installed)
+        yield module
+    finally:
+        if path in sys.path:
+            sys.path.remove(path)
+        for name in UPDATER_MODULES:
+            sys.modules.pop(name, None)
+        sys.modules.update(installed)
+
+
 def build_ipa_update(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, notices_zip="", sha_notices=""):
     """The launcher's update: the next Bunker IPA, for the player's sideloading tool (bunker_ios_update.py).
-    notices_zip is "" when the app keeps its notices."""
-    import bunker_ios_update
-    return bunker_ios_update.build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, _report,
-                                       notices_zip or None, sha_notices or None)
+    notices_zip is "" when the app keeps its notices.
+
+    The release's own updater builds it, so a fix to the updater reaches the update that brings it:
+    with the installed one, an app whose updater had a bug (dates before 1980, fixed in 1.10.3)
+    could not update at all. The installed one is kept for a release without its updater."""
+    with _release_updater(python_zip, sha_python) as updater:
+        if updater is None:
+            import bunker_ios_update as updater
+        _report("Building with the new version's updater…" if updater.__file__.startswith(python_zip) else "Building with this app's updater…")
+        return updater.build_ipa(app_dir, framework_zip, python_zip, sha_framework, sha_python, output_ipa, _report,
+                                 notices_zip or None, sha_notices or None)
