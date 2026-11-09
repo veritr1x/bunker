@@ -246,6 +246,16 @@ class Catalogue(unittest.TestCase):
         left = {str(path.relative_to(ROOT)): python_english(path) for path in CONVERTED_PY}
         self.assertEqual({k: v for k, v in left.items() if v}, {})
 
+    def test_placeholders_are_plain_names(self):
+        # Python, Java and Objective-C fill {name} alike; a spec ({n:,}), a conversion ({x!r}), a position ({})
+        # or an attribute ({a.b}) would only work in Python.
+        odd = {}
+        for key, text in ENGLISH.items():
+            for _, name, spec, conversion in Formatter().parse(text):
+                if name is not None and (spec or conversion or not re.fullmatch(r"[a-z_][a-z0-9_]*", name)):
+                    odd[key] = text
+        self.assertEqual(odd, {})
+
     def test_numbers_are_written_in_the_pages_language(self):
         # Templates: number(n). Python: bunker_text.number. Scripts: Intl.NumberFormat with the page's language.
         english = re.compile(r"\{[a-z_0-9.\[\]'\"]*:,|\"\{:,\}\"|toLocaleString\(\)|toFixed\(")
