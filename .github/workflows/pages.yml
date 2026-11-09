@@ -76,7 +76,13 @@ jobs:
         with:
           submodules: recursive
           ref: ${{ needs.resolve.outputs.ref }}
-      - uses: ./.github/actions/toolchain
+      # The toolchain action from this workflow's commit: a tag being built may predate it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .ci
+          sparse-checkout: .github/actions
+      - uses: ./.ci/.github/actions/toolchain
         with:
           java: "true"
           android: "true"
@@ -104,7 +110,13 @@ jobs:
         with:
           submodules: recursive
           ref: ${{ needs.resolve.outputs.ref }}
-      - uses: ./.github/actions/toolchain
+      # The toolchain action from this workflow's commit: a tag being built may predate it.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .ci
+          sparse-checkout: .github/actions
+      - uses: ./.ci/.github/actions/toolchain
         with:
           uv: "true"
           ios-cache: "true"
