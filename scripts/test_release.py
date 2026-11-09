@@ -27,6 +27,10 @@ class ReleaseChecks(unittest.TestCase):
             with self.assertRaises(r.ReleaseError):
                 r.parse(bad)
 
+    def test_changed_files_keep_the_first_letter(self):
+        # A status line starts with a space (" M"); trimmed, the first path lost its first letter.
+        self.assertEqual(r.changed_files(" M CHANGELOG.md\n M README.md\nM  VERSION"), {"CHANGELOG.md", "README.md", "VERSION"})
+
     def test_a_changelog_with_todays_section_passes(self):
         r.check_changelog(CHANGELOG, "1.10.5", today="2026-11-10")
 

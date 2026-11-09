@@ -56,13 +56,18 @@ def git(*args, capture=True):
     result = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=capture, text=True)
     if result.returncode:
         raise ReleaseError(f"git {' '.join(args)}: {(result.stderr or result.stdout).strip()}")
-    return result.stdout.strip() if capture else ""
+    return result.stdout.rstrip("\n") if capture else ""  # rstrip: status lines start with a space
+
+
+def changed_files(porcelain):
+    """The paths in `git status --porcelain` output ("XY path")."""
+    return {line[3:] for line in porcelain.splitlines() if len(line) > 3}
 
 
 def check_repository(version):
     if git("rev-parse", "--abbrev-ref", "HEAD") != "main":
         raise ReleaseError("Release from main")
-    changed = {line[3:] for line in git("status", "--porcelain", "--untracked-files=no").splitlines()}
+    changed = changed_files(git("status", "--porcelain", "--untracked-files=no"))
     others = sorted(changed - RELEASE_FILES)
     if others:
         raise ReleaseError("Commit or set aside these first: " + ", ".join(others))
@@ -101,8 +106,8 @@ def main(argv=None):
             version_file.write_text(before)
             print(f"{args.version} is ready to release (dry run: nothing written)")
             return 0
-        changed = [line[3:] for line in git("status", "--porcelain", "--untracked-files=no").splitlines()]
-        git("add", *sorted(set(changed) & RELEASE_FILES))
+        changed = changed_files(git("status", "--porcelain", "--untracked-files=no"))
+        git("add", *sorted(changed & RELEASE_FILES))
         git("commit", "--quiet", "-m", f"Release {args.version}")
         git("tag", "-a", f"v{args.version}", "-m", f"Bunker {args.version}")
         print(f"Committed \"Release {args.version}\" and tagged v{args.version}")
