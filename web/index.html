@@ -91,8 +91,8 @@
   .credits { list-style: none; margin: 6px auto 4px; padding: 0; max-width: 780px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; font-size: 13px; }
   .credits span { color: var(--mid); }
   .credits li::before { content: "■ " / ""; font-size: 9px; vertical-align: 2px; }
-  .sign-dark { display: none; }
-  @media (prefers-color-scheme: dark) { .sign-dark { display: inline; } .sign-light { display: none; } }
+  .sign-line { display: block; }
+  .sign-line + .sign-line { margin-top: 6px; }
 
   @media (max-width: 720px) {
     .tabs { grid-template-columns: 1fr; }
@@ -195,7 +195,7 @@
 </main>
 
 <footer>
-  <span class="sign"><span class="sign-light">END OF TRANSMISSION // GLORY TO MANKIND</span><span class="sign-dark">OPERATOR LINK // STANDING BY</span></span>
+  <span class="sign"><span class="sign-line">OPERATOR LINK // STANDING BY</span><span class="sign-line">END OF TRANSMISSION // GLORY TO MANKIND</span></span>
   <ul class="credits" aria-label="Built with">
     <li><a href="https://gitlab.com/walter-sparrow-group/lunar-tear">Lunar Tear</a> <span>the game server, by Walter-Sparrow</span></li>
     <li><a href="https://gitlab.com/walter-sparrow-group/lunar-scripts">Lunar Scripts</a> <span>game and master-data patching, by Walter-Sparrow</span></li>

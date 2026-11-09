@@ -1312,8 +1312,13 @@ static const CGFloat kInfoSize = 18;
 }
 // NieR flavour: the caption and sign-off stay in English in every language.
 - (void)updateSign {
-    BOOL dark = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
-    self.sign.attributedText = Tracked(dark ? @"OPERATOR LINK // STANDING BY" : @"END OF TRANSMISSION // GLORY TO MANKIND", [UIFont systemFontOfSize:10], Muted(), 2.4);
+    NSMutableAttributedString *sign = [Tracked(@"OPERATOR LINK // STANDING BY\nEND OF TRANSMISSION // GLORY TO MANKIND",
+                                               [UIFont systemFontOfSize:10], Muted(), 2.4) mutableCopy];
+    NSMutableParagraphStyle *lines = [NSMutableParagraphStyle new];
+    lines.lineSpacing = 6;
+    lines.alignment = NSTextAlignmentCenter;
+    [sign addAttribute:NSParagraphStyleAttributeName value:lines range:NSMakeRange(0, sign.length)];
+    self.sign.attributedText = sign;
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -1391,6 +1396,7 @@ static const CGFloat kInfoSize = 18;
     for (UIView *r in @[ruleA, ruleB]) { r.backgroundColor = Ink(); [r.heightAnchor constraintEqualToConstant:1].active = YES; }
     self.sign = [UILabel new];
     self.sign.textAlignment = NSTextAlignmentCenter;
+    self.sign.numberOfLines = 2;
     [self updateSign];
     UIStackView *footer = [[UIStackView alloc] initWithArrangedSubviews:@[ruleA, ruleB, self.sign]];
     footer.axis = UILayoutConstraintAxisVertical;

@@ -727,13 +727,9 @@ body { padding-bottom: 64px; }
   table { display: block; overflow-x: auto; }
   th, td { white-space: nowrap; }
 }
-.sign-dark { display: none; }
-:root[data-theme="dark"] .sign-dark { display: inline; }
-:root[data-theme="dark"] .sign-light { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .sign-dark { display: inline; }
-  :root:not([data-theme="light"]) .sign-light { display: none; }
-}
+/* The sign-off: two lines, in both themes. */
+.sign-line { display: block; }
+.sign-line + .sign-line { margin-top: 6px; }
 
 /* Content › Schedule (Original calendar). */
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
