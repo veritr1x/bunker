@@ -22,7 +22,7 @@ func TestUnmaskCoversTheFirst256Bytes(t *testing.T) {
 	for i := 7; i < len(plain); i++ {
 		plain[i] = byte(i)
 	}
-	mask := maskBytes("a)b")
+	mask := MaskBytes("a)b")
 	masked := append([]byte(nil), plain...)
 	masked[0] = 0x31
 	for i := 1; i < 256; i++ {

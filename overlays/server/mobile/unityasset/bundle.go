@@ -22,7 +22,8 @@ func MaskName(path string) string {
 	return strings.ReplaceAll(strings.TrimSuffix(norm, ".assetbundle"), "/", ")")
 }
 
-func maskBytes(name string) []byte {
+// MaskBytes is Octo's mask for a bundle name (see MaskName).
+func MaskBytes(name string) []byte {
 	chars := []byte(name)
 	n := len(chars)
 	buf := make([]byte, n*2)
@@ -58,7 +59,7 @@ func Unmask(raw []byte, name string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unknown bundle mask version 0x%02x", raw[0])
 	}
-	mask := maskBytes(name)
+	mask := MaskBytes(name)
 	if len(mask) == 0 {
 		return nil, errors.New("empty mask name")
 	}
