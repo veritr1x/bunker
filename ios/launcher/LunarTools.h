@@ -33,6 +33,9 @@ BOOL LTDataNeedsUpdate(NSString *saves, NSString *toolsRoot, NSString *version);
 // Starts Python and updates the game data. Blocks; call off the main thread
 // with the game server stopped. Returns "" or an error.
 NSString *LTUpdateData(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster, NSString *version);
+/** After master data is imported from the launcher: its layers (Mods › Challenges, the language pack's texts),
+ *  ios_runtime.layer_game_data. "" or the error (the imported data stays as it is). */
+NSString *LTLayerGameData(NSString *saves, NSString *serverRoot, NSString *toolsRoot, NSString *originalMaster);
 /** Builds the next Bunker IPA from the installed app and the release's bundles (bunker_ios_update.py). noticesZip
     is the release's notice pack, or "" to keep the app's. Returns "" or an error. */
 NSString *LTBuildUpdate(NSString *app, NSString *frameworkZip, NSString *pythonZip, NSString *shaFramework, NSString *shaPython,

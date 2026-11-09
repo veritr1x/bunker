@@ -178,6 +178,56 @@ class Live(unittest.TestCase):
         self.assertEqual(self.master.read_bytes(), ORIGINAL.read_bytes())
 
 
+class LauncherImports(unittest.TestCase):
+    """Master data imported from a launcher's ⋮ menu (no Pod Programs involved) gets its layers at once."""
+
+    def test_android_layers_an_imported_master(self):
+        service = (root / "android/app/src/main/java/org/veritr1x/bunker/ServerService.java").read_text()
+        self.assertRegex(service, r"else if\(MASTER\.equals\(action\)\) \{ FilesStore\.importMaster\(this,uri,progress\);"
+                                  r" ToolsRuntime\.layerGameData\(this\); \}")
+        tools = (root / "android/app/src/main/java/org/veritr1x/bunker/ToolsRuntime.java").read_text()
+        self.assertIn('callAttr("layer_game_data"', tools)
+        runtime = (root / "android/app/src/main/python/android_runtime.py").read_text()
+        body = runtime[runtime.index("def layer_game_data("):]
+        self.assertIn("reapply_texts()", body[:body.index("\ndef ", 1)])
+
+    def test_ios_layers_an_imported_master(self):
+        launcher = (root / "ios/launcher/LunarLauncher.m").read_text()
+        importing = launcher[launcher.index("- (void)importMaster:(NSURL *)picked {"):]
+        importing = importing[:importing.index("\n- (")]
+        self.assertIn("LTLayerGameData(", importing)
+        self.assertIn('CallRuntime(@"layer_game_data"', (root / "ios/launcher/LunarTools.m").read_text())
+        self.assertIn("NSString *LTLayerGameData(", (root / "ios/launcher/LunarTools.h").read_text())
+        runtime = (root / "ios/python/ios_runtime.py").read_text()
+        body = runtime[runtime.index("def layer_game_data("):]
+        self.assertIn("reapply_texts()", body[:body.index("\ndef ", 1)])
+
+
+class GuardedChange(unittest.TestCase):
+    """Choosing a language while the game runs beside Pod Programs: the server stops for the change, the game
+    data is rebuilt, the server starts again and the game goes back to its title (as a Mods change)."""
+
+    def test_the_change_runs_between_pause_and_resume(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        import android_challenges
+        import android_language
+        calls = []
+        app = FastAPI()
+        android_runtime.install_game_guard(app, live=lambda: True, close=lambda: "",
+                                           pause=lambda: calls.append("pause") or "",
+                                           resume=lambda title=True: calls.append(f"resume title={title}") or "")
+        app.include_router(android_language.router)
+        langs = mock.Mock(active=mock.Mock(return_value="en"), choose=mock.Mock(side_effect=lambda c: calls.append("choose")))
+        with mock.patch.object(android_language, "languages", return_value=langs), \
+                mock.patch.object(android_language, "supported", return_value=True), \
+                mock.patch.object(android_language, "_choice_files", return_value={}), \
+                mock.patch.object(android_challenges, "reapply_texts", side_effect=lambda: calls.append("rebuild") or True):
+            response = TestClient(app, follow_redirects=False).post("/language", data={"choice": "loaded:de"})
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(calls, ["pause", "choose", "rebuild", "resume title=True"])
+
+
 class Wiring(unittest.TestCase):
     def test_every_change_of_language_rebuilds_the_texts(self):
         language = (root / "android/app/src/main/python/android_language.py").read_text()

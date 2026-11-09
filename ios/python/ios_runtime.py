@@ -135,6 +135,14 @@ def _prepare(data_root, asset_root, tools_root, original_master):
     android_runtime.prepare_data()
 
 
+def layer_game_data(data_root, asset_root, tools_root, original_master):
+    """After the launcher imported master data by itself (LunarLauncher.m): the game data with its layers (Mods ›
+    Challenges, the language pack's texts), as Pod Programs would build it. True when it built them."""
+    _prepare(data_root, asset_root, tools_root, original_master)
+    import android_challenges
+    return android_challenges.reapply_texts()
+
+
 def update_data(data_root, asset_root, tools_root, original_master, version):
     """Before the server starts after an update (LunarLauncher.m): the game data
     for this build, the calendar's or a preset's (android_patcher.update_for)."""

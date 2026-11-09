@@ -470,6 +470,16 @@ def update_data(data_root, asset_root, tools_root, version):
     return updated
 
 
+def layer_game_data(data_root, asset_root, tools_root):
+    """After the launcher imported master data by itself (ServerService): the game data with its layers (Mods ›
+    Challenges, the language pack's texts), as Pod Programs would build it. True when it built them."""
+    from java import jclass
+    configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
+    prepare_data()
+    import android_challenges
+    return android_challenges.reapply_texts()
+
+
 def refresh_language():
     """A chosen shipped language pack this build revised replaces the active copy (Pod Programs › Language),
     before the server starts and applies it."""

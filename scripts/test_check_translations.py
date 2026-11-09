@@ -304,6 +304,18 @@ class FontCoverageTest(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertIn("game/ui/pt.json", found[0])
 
+    def test_bunker_texts_the_game_shows_are_font_checked(self):
+        # The Gift Box sender goes into the game data (android_master_text): the game's fonts draw it.
+        from check_translations import SHOWN_BY_GAME
+        key = next(iter(SHOWN_BY_GAME))
+        self.write("bunker/en.json", {"c": "Plain", key: "From Bunker, with love."})
+        self.write("bunker/pt.json", {"c": "ภารกิจ", key: "ภารกิจ"})
+        found = check_tree(self.root, coverage=SHOWN)
+        self.assertEqual(len(found), 1)
+        self.assertIn(key, found[0])
+        self.assertIn("fonts cannot show", found[0])
+        self.assertEqual(SHOWN_BY_GAME, {"pods.gift.sender_in_game"})
+
     def test_repo_coverage_file(self):
         shown = load_coverage(ROOT / "fonts/coverage.json")
         for c in "żğệάЖ简あ":

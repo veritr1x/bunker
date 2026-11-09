@@ -1981,7 +1981,13 @@ static UTType *MasterType(void) {
 - (void)importMaster:(NSURL *)picked {
     [self busy:Said(@"launcher.ios.busy.importing_master") work:^NSString *{
         NSString *error = ImportMaster(picked);
-        return error.length ? error : StartServer();
+        if (error.length) return error;
+        if (LTToolsAvailable()) {  // its layers (challenges, the language's texts), as Pod Programs would add them
+            NSString *original = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
+            NSString *layered = LTLayerGameData(gSaves, gServerRoot, ToolsRoot(), original);
+            if (layered.length) NSLog(@"[LunarTear] game data layers not applied: %@", TInEnglish(layered));
+        }
+        return StartServer();
     } done:^(NSString *error) {
         if (!error.length) { gMessage = Said(@"launcher.ios.main.master_imported"); [self refresh]; }
     }];
