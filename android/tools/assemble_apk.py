@@ -120,7 +120,10 @@ def patch_game_files(game, work, port_offset=0):
 def patch_font_entries(game, work, log=print):
     """Copies of the game's font files with the letters added (game_fonts.py): APK entry name → patched copy."""
     patched = {}
+    names = set(game.namelist())
     for name in game_fonts.ANDROID_FONT_FILES:
+        if name not in names:
+            raise RuntimeError(f"The game's font file {name} is missing; this game version is not supported")
         target = Path(work) / name
         target.parent.mkdir(parents=True, exist_ok=True)
         with game.open(name) as source, open(target, "wb") as dest:
