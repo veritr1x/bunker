@@ -32,6 +32,14 @@ class LanguagePacksTest(unittest.TestCase):
         self.assertEqual(pack["game"], {"a": "x", "b": "y"})
         self.assertEqual(pack["master"], {"m_gift_text.1": "z"})
 
+    def test_pack_has_bunker_texts(self):
+        self.put("bunker/pt-BR.json", {"common.close": "Fechar", "common.save": ""})
+        pack = build_pack(self.translations, "pt-BR", "P")
+        self.assertEqual(pack["bunker"], {"common.close": "Fechar"})
+        first = pack["version"]
+        self.put("bunker/pt-BR.json", {"common.close": "Fecha"})
+        self.assertNotEqual(first, build_pack(self.translations, "pt-BR", "P")["version"])
+
     def test_version_follows_the_content(self):
         self.put("game/ui/pt-BR.json", {"a": "x"})
         first = build_pack(self.translations, "pt-BR", "P")["version"]

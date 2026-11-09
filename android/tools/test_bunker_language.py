@@ -38,6 +38,12 @@ class ReadPackTest(unittest.TestCase):
             with self.assertRaises(PackError, msg=data[:40]):
                 read_pack(data)
 
+    def test_pack_bunker_section_optional(self):
+        read_pack(b'{"format":1,"language":"pt","game":{}}')
+        read_pack(b'{"format":1,"language":"pt","game":{},"bunker":{"common.close":"Fechar"}}')
+        with self.assertRaises(PackError):
+            read_pack(b'{"format":1,"language":"pt","game":{},"bunker":["x"]}')
+
     def test_refuses_an_oversized_pack(self):
         with self.assertRaisesRegex(PackError, "too large"):
             read_pack(b" " * (MAX_PACK_BYTES + 1))

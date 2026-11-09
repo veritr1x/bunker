@@ -37,8 +37,10 @@ def build_pack(translations: Path, code: str, name: str) -> dict:
     for path in sorted((translations / "game").glob(f"*/{code}.json")):
         game.update(_read(path))
     master = _read(translations / "master" / f"{code}.json")
-    version = hashlib.sha256(_canonical({"game": game, "master": master}).encode()).hexdigest()[:12]
-    return {"format": 1, "language": code, "name": name, "version": version, "game": game, "master": master}
+    bunker = _read(translations / "bunker" / f"{code}.json")  # Bunker's own screens (bunker_text.py)
+    version = hashlib.sha256(_canonical({"game": game, "master": master, "bunker": bunker}).encode()).hexdigest()[:12]
+    return {"format": 1, "language": code, "name": name, "version": version, "game": game, "master": master,
+            "bunker": bunker}
 
 
 def write_shipped(translations: Path, out: Path) -> list[Path]:

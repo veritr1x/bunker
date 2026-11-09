@@ -77,6 +77,8 @@ def prepare():
         # The language packs Bunker ships, from the reviewed translations (Pod Programs › Language).
         from language_packs import write_shipped
         write_shipped(ROOT / "translations", python / "shipped_languages")
+        # Bunker's own English text, which Pod Programs and the Archive show (bunker_text.py).
+        shutil.copyfile(ROOT / "translations/bunker/en.json", python / "bunker_en.json")
         for patch in sorted((ROOT / "patches").glob("*.patch")):
             subprocess.run(["git", "apply", "--directory=" + output.relative_to(ROOT).as_posix(), str(patch)], cwd=ROOT, check=True)
 
