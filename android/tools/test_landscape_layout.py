@@ -70,7 +70,10 @@ class Apps(unittest.TestCase):
                      '"BunkerShell"', "Look.cutout(insets", "bunkerHoleChanged"):
             self.assertIn(part, java)
         # The hole's JSON is shared with the Archive (test_archive_landscape.py).
-        self.assertIn("getBoundingRects", (ROOT / "android/app/src/main/java/org/veritr1x/bunker/Look.java").read_text())
+        look = (ROOT / "android/app/src/main/java/org/veritr1x/bunker/Look.java").read_text()
+        self.assertIn("getBoundingRects", look)
+        # The tabs hug the hole itself (its shape, Android 12+), not the wider band around it.
+        self.assertIn("getCutoutPath()", look)
 
     def test_ios_hides_its_bar_and_gives_the_hole(self):
         m = (ROOT / "ios/launcher/LunarTools.m").read_text()
