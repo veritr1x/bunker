@@ -72,13 +72,12 @@ public final class MainActivity extends Activity {
         int pad=look.framePadding();p.setPadding(pad,pad-dp(4),pad,pad-dp(4));return p;
     }
     /** One LABEL  value row of a panel; a button in the row sits at the far right. */
-    /** A row in a panel that opens something: its name, what it holds, and a chevron. */
-    private View link(LinearLayout panel,String name,String what,View.OnClickListener open){
+    /** A row in a panel that opens something: its name and a chevron. */
+    private View link(LinearLayout panel,String name,View.OnClickListener open){
         LinearLayout r=new LinearLayout(this);r.setGravity(Gravity.CENTER_VERTICAL);r.setMinimumHeight(dp(compact?40:48));int v=dp(compact?2:4);r.setPadding(dp(4),v,dp(4),v);
         r.setBackground(new RippleDrawable(ColorStateList.valueOf(look.line),null,new android.graphics.drawable.ColorDrawable(0xffffffff)));
         LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);
         TextView title=look.monoText(name,13,look.ink);title.setLetterSpacing(.12f);title.setTypeface(null,Typeface.BOLD);words.addView(title);
-        TextView note=look.monoText(what,11,look.mid);LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(0,dp(2),0,0);words.addView(note,np);
         r.addView(words,new LinearLayout.LayoutParams(0,-2,1));
         TextView chevron=look.text("›",22,look.ink);r.addView(chevron);
         r.setOnClickListener(open);r.setFocusable(true);
@@ -123,7 +122,6 @@ public final class MainActivity extends Activity {
         // Top bar: where you are, and the options.
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
-        TextView caption=look.monoText("LUNAR TEAR // 127.0.0.1",10,look.mid);caption.setLetterSpacing(.2f);if(!compact)titles.addView(caption);
         TextView title=look.text("BUNKER",compact?18:22,look.ink);title.setTypeface(null,Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         top.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
         Button more=look.outlined("⋮");more.setTextSize(20);more.setLetterSpacing(0);more.setPadding(0,0,0,0);more.setContentDescription("Options");more.setOnClickListener(this::showOptions);
@@ -172,10 +170,10 @@ public final class MainActivity extends Activity {
             // both columns ending level. The programs are rows in one panel, each with
             // what it holds, instead of two boxed buttons.
             LinearLayout links=panel();
-            pods=link(links,"POD PROGRAMS","Save, events, shops and mods",v->onOption(8));pods.setContentDescription("Open Pod Programs");
+            pods=link(links,"POD PROGRAMS",v->onOption(8));pods.setContentDescription("Open Pod Programs");
             ((LinearLayout)pods).addView(podsInfo(),((LinearLayout)pods).getChildCount()-1);
             View rule=new View(this);rule.setBackgroundColor(look.line);links.addView(rule,new LinearLayout.LayoutParams(-1,1));
-            archive=link(links,"ARCHIVE","Story, characters, movies and music",v->startActivity(new Intent(this,ArchiveActivity.class)));archive.setContentDescription("Open the Archive");
+            archive=link(links,"ARCHIVE",v->startActivity(new Intent(this,ArchiveActivity.class)));archive.setContentDescription("Open the Archive");
             LinearLayout left=new LinearLayout(this);left.setOrientation(LinearLayout.VERTICAL);
             LinearLayout right=new LinearLayout(this);right.setOrientation(LinearLayout.VERTICAL);
             block(left,"System",system,0);
@@ -189,20 +187,16 @@ public final class MainActivity extends Activity {
         }else{
             // [ POD PROGRAMS ]: the save editors and content choices, one tap away.
             LinearLayout programs=panel();
-            TextView about=look.monoText("Save, events, shops and mods",12,look.ink);
-            LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,-2);ap.setMargins(0,dp(6),0,dp(12));programs.addView(about,ap);
-            Button podsButton=look.outlined("OPEN POD PROGRAMS  ›");podsButton.setTextSize(13);podsButton.setContentDescription("Open Pod Programs");
+            Button podsButton=look.outlined("OPEN  ›");podsButton.setTextSize(13);podsButton.setContentDescription("Open Pod Programs");
             podsButton.setOnClickListener(v->onOption(8));pods=podsButton;
             LinearLayout podsRow=new LinearLayout(this);podsRow.setGravity(Gravity.CENTER_VERTICAL);podsRow.addView(podsButton,new LinearLayout.LayoutParams(0,dp(48),1));
             LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(40),dp(40));ip.setMargins(dp(6),0,0,0);podsRow.addView(podsInfo(),ip);
-            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,-2);pb.setMargins(0,0,0,dp(6));programs.addView(podsRow,pb);
+            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,-2);pb.setMargins(0,dp(6),0,dp(6));programs.addView(podsRow,pb);
             // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
             LinearLayout records=panel();
-            TextView story=look.monoText("Story, characters, movies and music",12,look.ink);
-            LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(6),0,dp(12));records.addView(story,sp);
-            Button archiveButton=look.outlined("OPEN ARCHIVE  ›");archiveButton.setTextSize(13);archiveButton.setContentDescription("Open the Archive");
+            Button archiveButton=look.outlined("OPEN  ›");archiveButton.setTextSize(13);archiveButton.setContentDescription("Open the Archive");
             archiveButton.setOnClickListener(v->startActivity(new Intent(this,ArchiveActivity.class)));archive=archiveButton;
-            LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,0,0,dp(6));records.addView(archiveButton,rb);
+            LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,dp(6),0,dp(6));records.addView(archiveButton,rb);
             block(body,"System",system,20);
             block(body,"Play",launch,20);
             block(body,"Pod Programs",programs,20);
@@ -283,8 +277,8 @@ public final class MainActivity extends Activity {
         else if(hasAssets&&!hasMaster){message="Import master data from the ⋮ menu.";warning=true;}
         else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?"Can't find "+FilesStore.linkedFolder(this)+". Put it back or choose the files again.":"Allow All files access for NieR in Settings, or choose the files again.";}
         else if("Server stopped".equals(serverState)&&!serverDetail.isEmpty())message=serverDetail;
-        if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":running||ready?"Tap Deploy to play.":"Choose the game files to begin.";
-        detail.setText(warning?"> "+message:message);detail.setTextColor(warning?look.alert:look.ink);
+        if(message.isEmpty())message=tools?"Close Pod Programs, then tap Deploy.":"";
+        detail.setText(warning?"> "+message:message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);detail.setTextColor(warning?look.alert:look.ink);
     }
     private void chooseAssets(){
         dialog().setTitle("Choose the game files")

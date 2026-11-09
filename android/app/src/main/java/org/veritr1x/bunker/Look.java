@@ -159,13 +159,11 @@ final class Look {
         }
     }
 
-    /** The footer: a double rule and the sign-off. */
+    /** The footer: a double rule. */
     LinearLayout footer(){
         LinearLayout f=new LinearLayout(context);f.setOrientation(LinearLayout.VERTICAL);
         View a=new View(context);a.setBackgroundColor(ink);f.addView(a,new LinearLayout.LayoutParams(-1,dp(1)));
-        View b=new View(context);b.setBackgroundColor(ink);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(1));bp.setMargins(0,dp(2),0,0);f.addView(b,bp);
-        TextView sign=text(dark?"OPERATOR LINK // STANDING BY":"END OF TRANSMISSION // GLORY TO MANKIND",10,mid);sign.setLetterSpacing(.24f);sign.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(14),0,dp(18));f.addView(sign,sp);
+        View b=new View(context);b.setBackgroundColor(ink);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(1));bp.setMargins(0,dp(2),0,dp(18));f.addView(b,bp);
         return f;
     }
 

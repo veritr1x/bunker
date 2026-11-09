@@ -69,7 +69,6 @@ public final class ToolsActivity extends Activity {
         });
         LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);if(compact)bar.setVisibility(View.GONE);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
-        TextView caption=look.monoText("BUNKER // POD 042",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
         TextView title=look.text("POD PROGRAMS",22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         bar.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
         close=look.outlined("CLOSE");close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->closeTools());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
