@@ -5,7 +5,7 @@
 <nav class="seg tight" aria-label="Schedule view">
   {% for key, label in tabs %}<a href="/schedule?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>
-<p class="note">{% if original %}Dates from the live service, in UTC. Some rows have a placeholder date in 2099 instead of a real date. They are listed under "No date in the game data", with what the game files show about them.{% else %}Dates from your current master data. Pod Programs may have changed them. Open Pod Programs once to show the original dates.{% endif %}</p>
+<p class="note">{% if original %}Dates from the live service, in UTC.{% else %}These dates may include changes made in Pod Programs. Open Pod Programs once to see the original dates.{% endif %}</p>
 {% if tab == "timeline" %}
   {% for m in groups %}
   <details class="panel fold"{% if loop.first %} open{% endif %}>
@@ -26,10 +26,10 @@
         <span class="art promo">{% if images and s.art %}<img src="{{ img("thumb", s.art) }}" alt="" loading="lazy">{% endif %}</span>
         {% if tab == "summons" %}
         <strong>{{ s.title }}</strong>
-        <span class="note">{% for r in s.runs if r.ran or not s.ran %}{{ r.label }}{% if not loop.last %} · {% endif %}{% endfor %}{% if s.exchange %} · dated by its shard exchange{% elif s.banner %} · no home banner{% endif %}{% if not s.runs or not s.runs[0].ran %}{{ " · English art and title in the game files" if s.english else " · no English art or title" }}{% endif %}</span>
+        <span class="note">{% for r in s.runs if r.ran or not s.ran %}{{ r.label }}{% if not loop.last %} · {% endif %}{% endfor %}{% if s.exchange %} · dated by its shard exchange{% elif s.banner %} · no home banner{% endif %}{% if not s.runs or not s.runs[0].ran %}{{ " · has English art and title" if s.english else " · no English art or title" }}{% endif %}</span>
         {% else %}
         <strong>{{ s.kind }}{% if s.name %}: {{ s.name }}{% endif %}</strong>
-        <span class="note">{{ s.when.label }}{% if not s.name %} · {{ s.target }}{% endif %}{% if s.also %} · its target also has dated banners{% elif not s.when.ran %}{{ " · English art in the game files" if s.art else " · no English art" }}{% endif %}</span>
+        <span class="note">{{ s.when.label }}{% if not s.name %} · {{ s.target }}{% endif %}{% if s.also %} · its target also has dated banners{% elif not s.when.ran %}{{ " · has English art" if s.art else " · no English art" }}{% endif %}</span>
         {% endif %}
       </{{ "a" if link else "div" }}>
     {% endfor %}

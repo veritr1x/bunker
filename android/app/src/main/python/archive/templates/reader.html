@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="{{ back }}">{{ place }}</a> › Scene {{ scene.position }} of {{ scene.count }}</p>
+<p class="crumb"><a href="/">Archive</a> › <a href="{{ back }}">{{ place }}</a></p>
 <h1>Scene {{ scene.position }}</h1>
 {% set voiced = scene.lines|selectattr("voice")|list %}
 {% if sounds and voiced %}
-<div class="voicebar"><button type="button" id="play-scene">▶ Play scene</button><span class="note">{{ voiced|length }} voiced line{{ "s" if voiced|length != 1 }}</span></div>
+<div class="voicebar"><button type="button" id="play-scene">▶ Play scene</button></div>
 {% endif %}
 <div class="reader" id="reader">
   {% for line in scene.lines %}
@@ -46,7 +46,7 @@
 {% block footer %}
 <footer class="pager">
   {% if scene.previous %}<a class="button ghost" href="/scene/{{ scene.previous }}">‹ Prev</a>{% else %}<a class="button ghost" href="{{ back }}">‹ Scenes</a>{% endif %}
-  <span>Scene {{ scene.position }} / {{ scene.count }}</span>
+  <span>{{ scene.position }} / {{ scene.count }}</span>
   {% if scene.next %}<a class="button" href="/scene/{{ scene.next }}">Next ›</a>{% else %}<a class="button" href="{{ back }}">Done</a>{% endif %}
 </footer>
 {% endblock %}

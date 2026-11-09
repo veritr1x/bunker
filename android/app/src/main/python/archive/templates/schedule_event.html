@@ -5,7 +5,7 @@
 <h1>{{ item.title }}</h1>
 {{ s.banner(item.art, item.title) }}
 <div class="panel">
-  <article class="record"><h3>{{ item.kind }} · event {{ item.id }}</h3><p>{{ item.when.label }}</p></article>
+  <article class="record"><h3>{{ item.kind }}</h3><p>{{ item.when.label }}</p></article>
   {% if item.seasons %}
   <article class="record"><h3>Seasons</h3><p>{% for x in item.seasons %}Season {{ x.number }}: {{ x.label }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p></article>
   {% endif %}

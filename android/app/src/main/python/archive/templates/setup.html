@@ -3,11 +3,11 @@
 <h1>Archive</h1>
 <div class="panel">
   {% if state.error %}
-  <strong>The archive could not be built</strong>
+  <strong>The Archive could not be prepared</strong>
   <p class="note">{{ state.error }}</p>
   <form method="post" action="/setup/retry"><button type="submit">Try again</button></form>
   {% else %}
-  <strong>Building the archive index</strong>
+  <strong>Preparing the Archive</strong>
   <div class="blocks" id="blocks" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">{% for i in range(20) %}<i></i>{% endfor %}</div>
   <dl class="kv"><dt>Step</dt><dd id="step">{{ state.step or "Starting" }}</dd><dt>Files read</dt><dd id="count">{{ state.done }} of {{ state.total }}</dd></dl>
   {% endif %}
