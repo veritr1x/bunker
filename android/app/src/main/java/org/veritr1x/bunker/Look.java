@@ -55,8 +55,15 @@ final class Look {
             if(r.isEmpty())continue;
             boolean left=r.left<=0&&cut.getSafeInsetLeft()>0,right=!left&&cut.getSafeInsetRight()>0&&r.left>0&&r.top>0;
             if(!left&&!right)continue;
+            float top=r.top,bottom=r.bottom,depth=left?cut.getSafeInsetLeft():cut.getSafeInsetRight();
+            // The band around a hole can be much wider than the hole: on Android 12+ its shape says where
+            // the hole really is, so the tabs beside it step just past it.
+            if(left&&android.os.Build.VERSION.SDK_INT>=31&&cut.getCutoutPath()!=null){
+                android.graphics.RectF hole=new android.graphics.RectF();cut.getCutoutPath().computeBounds(hole,true);
+                if(!hole.isEmpty()&&hole.left<r.right&&hole.right<=depth){top=hole.top;bottom=hole.bottom;depth=hole.right;}
+            }
             return String.format(java.util.Locale.ROOT,"{\"side\":\"%s\",\"top\":%.1f,\"bottom\":%.1f,\"depth\":%.1f}",left?"left":"right",
-                r.top/density,r.bottom/density,(left?cut.getSafeInsetLeft():cut.getSafeInsetRight())/density);
+                top/density,bottom/density,depth/density);
         }
         return "null";
     }
