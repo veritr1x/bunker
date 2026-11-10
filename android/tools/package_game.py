@@ -50,6 +50,17 @@ def patch_local_reachability(game):
         f.seek(offset); f.write(patched)
     print("Local asset reachability enabled (works with radios disabled)")
 
+# Every Bunker APK is signed with the one public Bunker key, as the web builder signs (web/signing):
+# any build installs over any other and keeps its data, and each can update itself (Updater.bunkerKey).
+SIGNING_KEY = Path(__file__).resolve().parents[2] / "web/signing/bunker-key.p12"
+
+
+def signing_args(tools, output):
+    """apksigner's command to sign output with the public Bunker key (alias and password "bunker")."""
+    return [tools / "apksigner", "sign", "--ks", SIGNING_KEY, "--ks-type", "PKCS12", "--ks-key-alias", "bunker",
+            "--ks-pass", "pass:bunker", "--key-pass", "pass:bunker", output]
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--decoded-dir",type=Path,required=True)
@@ -57,7 +68,6 @@ def main():
     p.add_argument("--game-apk",type=Path,required=True,help="The original game APK (its manifest and dex count go into build.json)")
     p.add_argument("--sdk",type=Path,default=Path(os.environ.get("ANDROID_HOME",str(Path.home()/"Library/Android/sdk"))))
     p.add_argument("--output",type=Path,required=True)
-    p.add_argument("--keystore",type=Path,required=True)
     p.add_argument("--port-offset",type=int,default=0,help="The offset the game was patched with (ports 8003/8080/3000)")
     p.add_argument("--notices",type=Path,default=Path(__file__).resolve().parents[2]/"inputs/bunker-notices.zip",help="The notice pack (scripts/notices.py) for the game's Notices screen")
     args=p.parse_args()
@@ -145,11 +155,7 @@ def main():
     tools=args.sdk/"build-tools/36.0.0"
     if not tools.is_dir(): raise RuntimeError("Install Android SDK build-tools; expected "+str(tools))
     run(tools/"zipalign","-P","16","-f","4",merged,output)
-    if not args.keystore.exists():
-        args.keystore.parent.mkdir(parents=True,exist_ok=True)
-        run("keytool","-genkeypair","-keystore",args.keystore,"-alias","lunar-local","-storepass","android","-keypass","android","-keyalg","RSA","-keysize","2048","-validity","10000","-dname","CN=Lunar Tear Local Build")
-        os.chmod(args.keystore,0o600)
-    run(tools/"apksigner","sign","--ks",args.keystore,"--ks-key-alias","lunar-local","--ks-pass","pass:android","--key-pass","pass:android",output)
+    run(*signing_args(tools,output))
     run(tools/"apksigner","verify","--verbose",output)
     run(tools/"zipalign","-c","-P","16","4",output)
     unsigned.unlink();merged.unlink()
