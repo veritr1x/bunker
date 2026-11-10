@@ -14,15 +14,18 @@ import tempfile
 
 from prepare import ROOT, prepare
 
-# JDKs the Android build works with; newer ones break it (the Android plugin's jlink step fails).
-SUPPORTED_JDKS = range(17, 22)
-# Where a JDK 21 (or 17) is usually installed, when JAVA_HOME names another.
+# Gradle runs on JDK 17 or newer; Java itself is compiled with a JDK 21 toolchain (android/app/build.gradle),
+# which Gradle finds or downloads, so the newest JDK works too.
+OLDEST_JDK = 17
+# Where a JDK is usually installed, when the java found is older than that or missing.
 JDK_PLACES = [
     "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
     "/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
     "/Applications/Android Studio.app/Contents/jbr/Contents/Home",
     "/usr/lib/jvm/java-21-openjdk-amd64",
     "/usr/lib/jvm/java-21-openjdk",
+    "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
+    "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
     "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
     "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
     "/usr/lib/jvm/java-17-openjdk-amd64",
@@ -41,21 +44,20 @@ def java_major(version_output):
 
 
 def choose_jdk(current, candidates):
-    """The JDK home to build with: None to keep the current java (a supported version), else the first
-    candidate (home, major) that is 21, else 17 to 20. LookupError when none is supported."""
-    if current in SUPPORTED_JDKS:
+    """The JDK home to run Gradle with: None to keep the current java (17 or newer), else a candidate
+    (home, major): 21 first, else the newest 17 or newer. LookupError when there is none."""
+    if current is not None and current >= OLDEST_JDK:
         return None
-    for wanted in (21, *reversed(range(SUPPORTED_JDKS.start, 21))):
-        for home, major in candidates:
-            if major == wanted:
-                return home
-    raise LookupError("no supported JDK")
+    usable = [(home, major) for home, major in candidates if major is not None and major >= OLDEST_JDK]
+    if not usable:
+        raise LookupError("no JDK 17 or newer")
+    return min(usable, key=lambda c: (c[1] != 21, -c[1]))[0]
 
 
 def installed_jdks():
     """(home, major) for the JDKs found in the usual places and by macOS's java_home."""
     homes = []
-    for version in ("21", "17"):
+    for version in ("21", "17+"):
         try:
             out = subprocess.run(["/usr/libexec/java_home", "-v", version], capture_output=True, text=True).stdout.strip()
         except OSError:
@@ -73,7 +75,7 @@ def installed_jdks():
 
 
 def use_supported_jdk(parser, env):
-    """Points JAVA_HOME and PATH at a JDK the Android build works with, if the current java is not one."""
+    """Points JAVA_HOME and PATH at a JDK Gradle runs on (17 or newer), if the current java is older or missing."""
     java = shutil.which("java", path=env["PATH"])
     current = None
     if java:
@@ -82,10 +84,10 @@ def use_supported_jdk(parser, env):
     try:
         home = choose_jdk(current, installed_jdks())
     except LookupError:
-        parser.error(f"The Android build needs JDK 17 to 21 (this java is {current or 'missing'}). "
-                     "Install JDK 21 and set JAVA_HOME. See docs/BUILD.md.")
+        parser.error(f"The Android build needs JDK 17 or newer (this java is {current or 'missing'}). "
+                     "Install one (JDK 21 is best) and set JAVA_HOME. See docs/BUILD.md.")
     if home is not None:
-        print(f"Using JDK 21 or 17 at {home} (java {current} is not supported by the Android build)")
+        print(f"Using the JDK at {home} (java {current or 'is missing'}; Gradle needs 17 or newer)")
         env["JAVA_HOME"] = str(home)
         env["PATH"] = str(home / "bin") + os.pathsep + env["PATH"]
 
