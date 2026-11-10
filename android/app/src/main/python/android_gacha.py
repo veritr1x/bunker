@@ -21,12 +21,15 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 DEFAULTS = {"fourStarPercent": 5.0, "threeStarPercent": 15.0, "fourStarCostumeShare": 40.0,
             "threeStarCostumeShare": round(100 / 3, 4), "featuredPercent": 35.0, "stepUpBoost": True, "multiMinRarity": 3}
+# (name, title, values); the title is a catalogue key, translated on the page.
 PRESETS = [
-    ("default", "Default (5% ★4, 15% ★3)", {}),
-    ("generous", "Generous (15% ★4, 30% ★3)", {"fourStarPercent": 15.0, "threeStarPercent": 30.0}),
-    ("featured", "Featured first (10% ★4, always featured, ★4 in every 10-draw)",
+    ("default", "pods.gacha.preset.default", {}),
+    ("generous", "pods.gacha.preset.generous", {"fourStarPercent": 15.0, "threeStarPercent": 30.0}),
+    ("featured", "pods.gacha.preset.featured",
      {"fourStarPercent": 10.0, "featuredPercent": 100.0, "multiMinRarity": 4}),
 ]
 
@@ -42,9 +45,10 @@ def roulette_path():
 
 def validate_roulette(percents):
     if len(percents) != len(ROULETTE_GEMS) or any(not 0 <= p <= 100 for p in percents):
-        raise ValueError("Each roulette chance must be between 0% and 100%")
+        raise ValueError(bunker_text.t("pods.gacha.error_roulette_range"))
     if abs(sum(percents) - 100) > 0.001:
-        raise ValueError(f"The roulette chances must add up to 100% (they add up to {round(sum(percents), 3)}%)")
+        total = round(sum(percents), 3)
+        raise ValueError(bunker_text.t("pods.gacha.error_roulette_total", total=total))
 
 
 def read_roulette(path=None):
@@ -71,14 +75,14 @@ def rates_path():
 
 def validate(s):
     if not 0.1 <= s["fourStarPercent"] <= 100:
-        raise ValueError("★4 rate must be between 0.1% and 100%")
+        raise ValueError(bunker_text.t("pods.gacha.error_four_rate"))
     if s["threeStarPercent"] < 0 or s["fourStarPercent"] + s["threeStarPercent"] > 100:
-        raise ValueError("★4 and ★3 together must be at most 100%")
+        raise ValueError(bunker_text.t("pods.gacha.error_four_three"))
     for key in ("fourStarCostumeShare", "threeStarCostumeShare", "featuredPercent"):
         if not 0 <= s[key] <= 100:
-            raise ValueError("Shares must be between 0% and 100%")
+            raise ValueError(bunker_text.t("pods.gacha.error_shares"))
     if s["multiMinRarity"] not in (3, 4):
-        raise ValueError("The 10-draw guarantee must be ★3 or ★4")
+        raise ValueError(bunker_text.t("pods.gacha.error_guarantee"))
 
 
 def read_settings(path=None):
@@ -122,12 +126,12 @@ def save_roulette(g10: float = Form(...), g30: float = Form(...), g50: float = F
                   g3000: float = Form(...), action: str = Form("save")):
     if action == "reset":
         roulette_path().unlink(missing_ok=True)
-        return redirect(message="Roulette reset to the default chances.")
+        return redirect(message=bunker_text.t("pods.gacha.roulette_reset"))
     try:
         write_roulette([g10, g30, g50, g100, g3000])
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="Saved. The next roulette spin uses these chances.")
+    return redirect(message=bunker_text.t("pods.gacha.roulette_saved"))
 
 
 @router.post("/gacha")
@@ -139,7 +143,7 @@ def save(four: float = Form(...), three: float = Form(...), four_costume: float 
                         "multiMinRarity": guarantee})
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message="Saved. The next summon uses these rates.")
+    return redirect(message=bunker_text.t("pods.gacha.saved"))
 
 
 @router.post("/gacha/preset")
@@ -148,10 +152,10 @@ def preset(name: str = Form(...)):
         if key == name:
             if not values:
                 reset()
-                return redirect(message="Back to the default rates.")
+                return redirect(message=bunker_text.t("pods.gacha.back_to_default"))
             write_settings({**DEFAULTS, **values})
-            return redirect(message="Saved. The next summon uses these rates.")
-    return redirect(error="Unknown preset")
+            return redirect(message=bunker_text.t("pods.gacha.saved"))
+    return redirect(error=bunker_text.t("common.unknown_preset"))
 
 
 def redirect(**kwargs):

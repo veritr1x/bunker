@@ -1,0 +1,372 @@
+diff --git a/android/app/src/main/python/web/routes/backup.py b/android/app/src/main/python/web/routes/backup.py
+index db987fc..680f2a9 100644
+--- a/android/app/src/main/python/web/routes/backup.py
++++ b/android/app/src/main/python/web/routes/backup.py
+@@ -8,6 +8,7 @@ from fastapi import APIRouter, Form, Request
+ from fastapi.responses import HTMLResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import backup_service, service_control
+ 
+@@ -79,8 +80,8 @@ def create_backup_action():
+     except FileNotFoundError as e:
+         return _redirect("/backups", error=str(e))
+     except Exception as e:
+-        return _redirect("/backups", error=f"Backup failed: {e}")
+-    return _redirect("/backups", message=f"Created {info.filename} ({info.size_human}).")
++        return _redirect("/backups", error=bunker_text.t("pods.backup.failed", error=e))
++    return _redirect("/backups", message=bunker_text.t("pods.backup.created", file=info.filename, size=info.size_human))
+ 
+ 
+ @router.post("/backups/restore")
+@@ -98,7 +99,7 @@ def restore_backup_action(
+     if confirm.strip() != "RESTORE":
+         return _redirect(
+             "/backups",
+-            error="Confirmation phrase did not match. Type RESTORE in uppercase to confirm.",
++            error=bunker_text.t("pods.backup.confirm_mismatch", word="RESTORE"),
+         )
+ 
+     wants_service_control = bool(manage_server.strip())
+@@ -116,16 +117,16 @@ def restore_backup_action(
+         # implying a clean outcome.
+         return _redirect(
+             "/backups",
+-            error=f"Server control failed: {e} Check the service state before continuing.",
++            error=bunker_text.t("pods.backup.server_control_failed", error=e),
+         )
+     except FileNotFoundError as e:
+         return _redirect("/backups", error=str(e))
+     except Exception as e:
+-        return _redirect("/backups", error=f"Restore failed: {e}")
++        return _redirect("/backups", error=bunker_text.t("pods.backup.restore_failed", error=e))
+ 
+-    parts = [f"Restored from {result.source.filename}."]
++    parts = [bunker_text.t("pods.backup.restored", file=result.source.filename)]
+     if result.steps:
+         parts.append(" ".join(f"{s}." for s in result.steps))
+     if result.server_restarted:
+-        parts.append("Game server is back up.")
++        parts.append(bunker_text.t("pods.backup.server_up"))
+     return _redirect("/backups", message=" ".join(parts))
+diff --git a/android/app/src/main/python/web/routes/costume_editor.py b/android/app/src/main/python/web/routes/costume_editor.py
+index 9fa7e55..d8ee805 100644
+--- a/android/app/src/main/python/web/routes/costume_editor.py
++++ b/android/app/src/main/python/web/routes/costume_editor.py
+@@ -16,6 +16,7 @@ from fastapi import APIRouter, Body, Request
+ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import costume_service, karma_service, userdata_service
+ 
+@@ -57,7 +58,7 @@ def costume_editor_view(
+         return _redirect("/", error=str(e))
+     user_match = next((u for u in users if u.user_id == user_id), None)
+     if user_match is None:
+-        return _redirect("/users", error=f"User {user_id} not found.")
++        return _redirect("/users", error=bunker_text.t("pods.player.user_not_found", id=user_id))
+ 
+     try:
+         owned = userdata_service.get_owned_costume_ids(user_id)
+@@ -148,7 +149,7 @@ def grant_batch_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> J
+     except costume_service.CostumeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     return _ok(outcome.succeeded, outcome.duration_ms, outcome.granted_ids)
+ 
+@@ -164,7 +165,7 @@ def grant_all_missing_endpoint(user_id: int) -> JSONResponse:
+     except costume_service.CostumeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     return _ok(outcome.succeeded, outcome.duration_ms, outcome.granted_ids)
+ 
+@@ -218,6 +219,6 @@ def update_karma_batch_endpoint(user_id: int, payload: dict[str, Any] = Body(...
+     except costume_service.CostumeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     return _ok(outcome.succeeded, outcome.duration_ms, outcome.granted_ids)
+diff --git a/android/app/src/main/python/web/routes/item_editor.py b/android/app/src/main/python/web/routes/item_editor.py
+index 216714f..7f49533 100644
+--- a/android/app/src/main/python/web/routes/item_editor.py
++++ b/android/app/src/main/python/web/routes/item_editor.py
+@@ -15,6 +15,7 @@ from fastapi import APIRouter, Body, Request
+ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import grant_service, names_service, userdata_service
+ 
+@@ -90,7 +91,7 @@ def item_editor_view(
+     except FileNotFoundError as e:
+         return _redirect("/", error=str(e))
+     if state is None:
+-        return _redirect("/users", error=f"User {user_id} not found.")
++        return _redirect("/users", error=bunker_text.t("pods.player.user_not_found", id=user_id))
+ 
+     tabs = []
+     for key, label, ptype, names_cat in _ITEM_TABS:
+@@ -173,7 +174,7 @@ def grant_one_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> JSO
+     except grant_service.GrantError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     return _ok(outcome.succeeded, outcome.duration_ms, _results_from_plan(plan))
+ 
+@@ -200,7 +201,7 @@ def grant_batch_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> J
+     except grant_service.GrantError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     return _ok(outcome.succeeded, outcome.duration_ms, _results_from_plan(plan))
+ 
+@@ -215,7 +216,7 @@ def max_consumables_endpoint(user_id: int) -> JSONResponse:
+     except grant_service.GrantError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome.succeeded, outcome.duration_ms, _results_from_plan(plan))
+ 
+ 
+@@ -229,7 +230,7 @@ def max_materials_endpoint(user_id: int) -> JSONResponse:
+     except grant_service.GrantError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome.succeeded, outcome.duration_ms, _results_from_plan(plan))
+ 
+ 
+diff --git a/android/app/src/main/python/web/routes/memoir_editor.py b/android/app/src/main/python/web/routes/memoir_editor.py
+index aae7197..30d250e 100644
+--- a/android/app/src/main/python/web/routes/memoir_editor.py
++++ b/android/app/src/main/python/web/routes/memoir_editor.py
+@@ -19,6 +19,7 @@ from fastapi import APIRouter, Body, Request
+ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import memoir_service, userdata_service
+ 
+@@ -76,7 +77,7 @@ def memoir_editor_view(request: Request, user_id: int):
+         return _redirect("/", error=str(e))
+     user_match = next((u for u in users if u.user_id == user_id), None)
+     if user_match is None:
+-        return _redirect("/users", error=f"User {user_id} not found.")
++        return _redirect("/users", error=bunker_text.t("pods.player.user_not_found", id=user_id))
+ 
+     owned_count = userdata_service.get_memoir_count(user_id)
+     owned_rows = userdata_service.list_owned_memoirs(user_id)
+@@ -168,7 +169,7 @@ def grant_set_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> JSO
+     except memoir_service.MemoirError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -179,7 +180,7 @@ def upgrade_all_endpoint(user_id: int) -> JSONResponse:
+     except memoir_service.MemoirError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -203,5 +204,5 @@ def fix_slots_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> JSO
+     except memoir_service.MemoirError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+diff --git a/android/app/src/main/python/web/routes/upgrade_manager.py b/android/app/src/main/python/web/routes/upgrade_manager.py
+index 0d5c9fd..cf9a403 100644
+--- a/android/app/src/main/python/web/routes/upgrade_manager.py
++++ b/android/app/src/main/python/web/routes/upgrade_manager.py
+@@ -23,6 +23,7 @@ from fastapi import APIRouter, Request
+ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import karma_service, upgrade_service, userdata_service
+ 
+@@ -72,7 +73,7 @@ def upgrade_manager_view(request: Request, user_id: int):
+         return _redirect("/", error=str(e))
+     user_match = next((u for u in users if u.user_id == user_id), None)
+     if user_match is None:
+-        return _redirect("/users", error=f"User {user_id} not found.")
++        return _redirect("/users", error=bunker_text.t("pods.player.user_not_found", id=user_id))
+ 
+     # Snapshot counts so the page can show "X owned / Y total" for each
+     # action's preview number.
+@@ -148,7 +149,7 @@ def exalt_all_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -160,7 +161,7 @@ def fill_mythic_slabs_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -172,7 +173,7 @@ def grant_missing_companions_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -184,7 +185,7 @@ def grant_missing_remnants_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -196,7 +197,7 @@ def grant_missing_thoughts_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -207,7 +208,7 @@ def upgrade_all_companions_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -218,7 +219,7 @@ def upgrade_all_weapons_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -229,7 +230,7 @@ def upgrade_all_costumes_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -264,7 +265,7 @@ async def fill_karma_slots_endpoint(user_id: int, request: Request) -> JSONRespo
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+ 
+ 
+@@ -275,5 +276,5 @@ def skip_dark_memory_cutscenes_endpoint(user_id: int) -> JSONResponse:
+     except upgrade_service.UpgradeError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+     return _ok(outcome)
+diff --git a/android/app/src/main/python/web/routes/users.py b/android/app/src/main/python/web/routes/users.py
+index 9af0a56..c439e46 100644
+--- a/android/app/src/main/python/web/routes/users.py
++++ b/android/app/src/main/python/web/routes/users.py
+@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
+ from fastapi.responses import HTMLResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import userdata_service
+ 
+@@ -55,7 +56,7 @@ def user_detail_view(
+     except FileNotFoundError as e:
+         return _redirect("/", error=str(e))
+     if detail is None:
+-        return _redirect("/users", error=f"User {user_id} not found.")
++        return _redirect("/users", error=bunker_text.t("pods.player.user_not_found", id=user_id))
+     return templates.TemplateResponse(
+         request,
+         "user_detail.html",
+diff --git a/android/app/src/main/python/web/routes/weapon_editor.py b/android/app/src/main/python/web/routes/weapon_editor.py
+index 70bf162..a5e7679 100644
+--- a/android/app/src/main/python/web/routes/weapon_editor.py
++++ b/android/app/src/main/python/web/routes/weapon_editor.py
+@@ -20,6 +20,7 @@ from fastapi import APIRouter, Body, Request
+ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+ from fastapi.templating import Jinja2Templates
+ 
++import bunker_text
+ from web import config
+ from web.services import userdata_service, weapon_service
+ 
+@@ -61,7 +62,7 @@ def weapon_editor_view(
+         return _redirect("/", error=str(e))
+     user_match = next((u for u in users if u.user_id == user_id), None)
+     if user_match is None:
+-        return _redirect("/users", error=f"User {user_id} not found.")
++        return _redirect("/users", error=bunker_text.t("pods.player.user_not_found", id=user_id))
+ 
+     try:
+         owned = userdata_service.get_owned_weapon_ids(user_id)
+@@ -124,7 +125,7 @@ def grant_batch_endpoint(user_id: int, payload: dict[str, Any] = Body(...)) -> J
+     except weapon_service.WeaponError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     new_count = userdata_service.get_weapon_inventory_count(user_id)
+     return _ok(outcome.succeeded, outcome.duration_ms, outcome.granted_ids, new_count)
+@@ -139,7 +140,7 @@ def grant_all_missing_endpoint(user_id: int) -> JSONResponse:
+     except weapon_service.WeaponError as e:
+         return _err(str(e))
+     except FileNotFoundError as e:
+-        return _err(f"Backup failed: {e}", status=500)
++        return _err(bunker_text.t("pods.backup.failed", error=e), status=500)
+ 
+     new_count = userdata_service.get_weapon_inventory_count(user_id)
+     return _ok(outcome.succeeded, outcome.duration_ms, outcome.granted_ids, new_count)

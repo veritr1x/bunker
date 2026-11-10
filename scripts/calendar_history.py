@@ -69,11 +69,28 @@ CORRECTIONS = {
 }
 
 
+# Rows whose runs the weekly masters can't give, written out: (table, key) ->
+# its runs, in place of what was recorded.
+# Daily missions 21-26 (term 1002) were the daily set from launch: the files
+# from 30 July 2021 date them 2000-01-02 to 9999 (always open, a date live()
+# takes for a placeholder). From 15 September they start 24 September, after
+# missions 4201-4208 (term 42, 14 to 24 September), and from December end
+# "2011-11-24", a typo for 24 November 2021, when 31-36 (term 1004) took over.
+# The calendar keeps one run per term, so this is one run, launch to the day
+# before 1004; term 42's ten days overlap it.
+RUNS = {
+    ("m_mission_term", "1002"): [[LAUNCH, 1637740799000]],
+}
+
+
 def apply_corrections(tables):
     for (table, key, start), end in CORRECTIONS.items():
         for run in tables.get(table, {}).get("rows", {}).get(key, []):
             if run[0] == start:
                 run[-1] = end
+    for (table, key), runs in RUNS.items():
+        if table in tables:
+            tables[table]["rows"][key] = [list(run) for run in runs]
     return tables
 
 

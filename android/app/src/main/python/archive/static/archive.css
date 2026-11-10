@@ -1,5 +1,9 @@
 /* The Archive's additions to the Pod Programs look (automata.css): same tokens, light and dark. */
 
+/* The title and Close at the top of the tab column on a phone on its side (automata.css): only where the
+   app has hidden its own bar for it, Android's ArchiveActivity (base.html marks it). iOS keeps its bar. */
+html:not(.bunker-shell) .shell-head { display: none !important; }
+
 .crumb { margin: 16px 0 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-mid); }
 .crumb a { color: var(--fg-mid); }
 .crumb a:hover { background: transparent; color: var(--fg-dark); }
@@ -150,3 +154,22 @@ body:has(footer.player-bar[hidden]) { padding-bottom: 16px; }
 .sched-row .kind { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); }
 a.sched-row:hover { background: var(--bg-cream-dark); color: var(--fg-dark); }
 .seg.tight a { letter-spacing: 0.04em; }
+
+/* Info icon (templates/_info.html): a round "i" in a heading of class has-info; a tap opens its note below the heading. */
+.has-info { position: relative; display: flex; align-items: center; gap: 8px; }
+details.info { flex: none; display: inline-block; }
+details.info > summary { list-style: none; display: inline-flex; align-items: center; justify-content: center; position: relative;
+  width: 18px; height: 18px; min-height: 0; padding: 0; border: 1px solid var(--fg-mid); border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif; font-size: 12px; font-style: italic; font-weight: 700; line-height: 1;
+  letter-spacing: 0; text-transform: none; color: var(--fg-mid); cursor: pointer; }
+details.info > summary::-webkit-details-marker { display: none; }
+details.info > summary::before { content: ""; position: absolute; inset: -13px; }  /* a 44px tap target */
+details.info[open] > summary { background: var(--accent); border-color: var(--accent); color: var(--bg-cream); }
+details.info > div { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; max-width: 520px; margin-top: 6px; padding: 10px 12px;
+  background: var(--panel); color: var(--fg-dark); border: 1px solid var(--accent); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  font-family: var(--sans); font-size: 14px; font-weight: 400; font-style: normal; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left; }
+
+/* A phone on its side: the bars fixed to the bottom start beside the tab column, which would cover them. */
+@media (orientation: landscape) and (max-height: 599px) {
+  footer.player-bar, footer.pager { left: 148px; }
+}

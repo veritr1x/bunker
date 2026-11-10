@@ -17,12 +17,14 @@ public final class ServerService extends Service {
     static volatile boolean toolsBesideGame=false;
     // Import progress, 0-1000, or -1 when there is no measured copy in progress.
     static volatile int permille=-1;
-    static volatile String state="Server stopped", detail="Choose your game files to get started.";
+    static volatile String state="stopped", detail="";
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final Handler main=new Handler(Looper.getMainLooper());
     private volatile boolean cancelled=false;
     private PowerManager.WakeLock wake;
     private long lastNotification;
+    /** The words the channel and notification were last made with (Texts.generation). */
+    private int labelled;
     // The running service, for Pod Programs' Python (closeGameForTools).
     private static volatile ServerService instance;
     private final Runnable monitor=new Runnable() { public void run() {
@@ -30,7 +32,7 @@ public final class ServerService extends Service {
         try {
             JSONObject s=new JSONObject(NativeBridge.status());
             if(s.getString("state").equals("error")) {
-                running=false; state="Server stopped"; detail=s.optString("error"); finishForeground(); return;
+                running=false; state="stopped"; detail=s.optString("error"); finishForeground(); return;
             }
         } catch(Exception ignored) {}
         main.postDelayed(this,2000);
@@ -39,9 +41,7 @@ public final class ServerService extends Service {
         super.onCreate();
         instance=this;
         NativeBridge.setLogDir(FilesStore.logs(this).getAbsolutePath());logLastExit();NativeBridge.setBackupDir(new java.io.File(new java.io.File(getFilesDir(),"tools"),"backups").getAbsolutePath());
-        NotificationChannel channel=new NotificationChannel("server","Lunar Tear",NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Shows Lunar Tear's status, with Stop, while you play.");
-        getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        labelled=Texts.generation(this);channel();
         wake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"lunartear:server");
         wake.setReferenceCounted(false);
     }
@@ -81,27 +81,24 @@ public final class ServerService extends Service {
             default: return "reason "+reason;
         }
     }
-    /** The state as the player reads it; the launcher compares the raw values. */
-    private static String shown(String state){
-        switch(state){
-            case "Server running": return "Running";
-            case "Server stopped": return "Stopped";
-            case "Starting server": return "Starting";
-            case "Preparing tools": return "Opening Pod Programs";
-            case "Tools ready": return "Pod Programs open";
-            case "Saves exported": return "Save backup exported";
-            case "Exporting saves": return "Exporting a save backup";
-            case "Operation cancelled": return "Cancelled";
-            default: return state;
-        }
+    /** The state as the player reads it (launcher.state.<id>); the launcher compares the ids. */
+    private String shown(String state){return Texts.t(this,"launcher.state."+state);}
+    /** The notification channel, named in the pack's language (again when it changes). */
+    private void channel() {
+        NotificationChannel channel=new NotificationChannel("server",Texts.t(this,"launcher.notification.channel"),NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription(Texts.t(this,"launcher.notification.channel_info"));
+        getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
+    /** An error's message: a Said reference or Lunar Tear's/Python's own words. */
+    static String message(Throwable error){return error.getMessage()==null?error.toString():error.getMessage();}
     private Notification notification() {
+        int now=Texts.generation(this);if(now!=labelled){labelled=now;channel();}
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class).putExtra("manage",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ServerService.class).setAction(STOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(Look.emblem(this)).setContentTitle("Bunker · "+shown(state))
-            .setContentText(detail).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(new Notification.Action.Builder(null,busy?"Cancel":"Stop",stop).build());
-        if(busy&&permille>=0)builder.setProgress(1000,permille,false).setStyle(new Notification.BigTextStyle().bigText(detail));
+        Notification.Builder builder=new Notification.Builder(this,"server").setSmallIcon(Look.emblem(this)).setContentTitle(Texts.t(this,"launcher.notification.title","state",shown(state)))
+            .setContentText(Texts.said(this,detail)).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
+            .addAction(new Notification.Action.Builder(null,busy?Texts.t(this,"common.cancel"):Texts.t(this,"launcher.notification.stop"),stop).build());
+        if(busy&&permille>=0)builder.setProgress(1000,permille,false).setStyle(new Notification.BigTextStyle().bigText(Texts.said(this,detail)));
         return builder.build();
     }
     private void update(String message) {
@@ -119,7 +116,7 @@ public final class ServerService extends Service {
             final boolean live=running;
             toolsBesideGame=live;
             toolsPaused=false;toolsBackedUp=false;
-            tools=true;busy=true;cancelled=false;state="Preparing tools";detail=live?"Opening Pod Programs…":"Stopping the game…";
+            tools=true;busy=true;cancelled=false;state="preparing_tools";detail=live?Said.text("launcher.detail.opening_tools"):Said.text("launcher.detail.stopping_game");
             if(Build.VERSION.SDK_INT>=34)startForeground(1,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
             else startForeground(1,notification());
             wake.acquire(12*60*60*1000L);
@@ -128,11 +125,11 @@ public final class ServerService extends Service {
                 try {
                     if(!live)stopGameForTools();
                     ToolsRuntime.start(this,this::update);
-                    if(cancelled){ToolsRuntime.stop();tools=false;state=running?"Server running":"Server stopped";}
-                    else {state="Tools ready";detail=running?"The game keeps running. A change sends it to its title screen to load it.":"Close Pod Programs to return to the game.";}
+                    if(cancelled){ToolsRuntime.stop();tools=false;state=running?"running":"stopped";}
+                    else {state="tools_ready";detail=running?Said.text("launcher.detail.tools_beside_game"):Said.text("launcher.detail.close_tools_to_play");}
                 } catch(Exception|LinkageError error) {
-                    tools=false;state="Needs attention";detail=error.getMessage()==null?error.toString():error.getMessage();
-                    android.util.Log.e("LunarTear","Tools startup failed",error);
+                    tools=false;state="needs_attention";detail=message(error);
+                    android.util.Log.e("LunarTear","Tools startup failed",Texts.forLog(error));
                 } finally {
                     busy=false;
                     if(tools)getSystemService(NotificationManager.class).notify(1,notification());else finishForeground();
@@ -142,29 +139,29 @@ public final class ServerService extends Service {
         }
         if(CLOSE_TOOLS.equals(action)&&running&&toolsBesideGame) {
             // The game was never closed: Pod Programs closes and the game plays on.
-            busy=true;state="Closing Pod Programs";detail="The game keeps running.";
+            busy=true;state="closing_tools";detail=Said.text("launcher.detail.game_keeps_running");
             worker.execute(()->{
-                try {ToolsRuntime.stop();tools=false;toolsBesideGame=false;state="Server running";detail="Ready to play";}
-                catch(Exception error){state="Needs attention";detail=error.getMessage();}
+                try {ToolsRuntime.stop();tools=false;toolsBesideGame=false;state="running";detail=Said.text("launcher.detail.ready");}
+                catch(Exception error){state="needs_attention";detail=message(error);}
                 finally {busy=false;}
             });
             return START_NOT_STICKY;
         }
         if(STOP.equals(action)||CLOSE_TOOLS.equals(action)) {
             cancelled=true;
-            state="Stopping"; detail="Saving your progress…";
+            state="stopping"; detail=Said.text("launcher.detail.saving");
             busy=true;
             worker.execute(()->{
-                try {ToolsRuntime.stop();tools=false;NativeBridge.stop();running=false;state="Server stopped";detail="Your save stays on this device.";}
-                catch(Exception error){state="Needs attention";detail=error.getMessage();}
+                try {ToolsRuntime.stop();tools=false;NativeBridge.stop();running=false;state="stopped";detail="";}
+                catch(Exception error){state="needs_attention";detail=message(error);}
                 finally {busy=false;if(!tools)finishForeground();}
             });
             return START_NOT_STICKY;
         }
         if(busy||running||tools) return START_NOT_STICKY;
         busy=true; cancelled=false; permille=-1;
-        state=START.equals(action)?"Starting server":BACKUP.equals(action)?"Exporting saves":SAVE.equals(action)?"Importing save":"Importing files";
-        detail=START.equals(action)?"Loading game data…":"Keep the source files available until this finishes.";
+        state=START.equals(action)?"starting":BACKUP.equals(action)?"exporting_saves":SAVE.equals(action)?"importing_save":"importing_files";
+        detail=START.equals(action)?Said.text("launcher.detail.loading"):Said.text("launcher.detail.keep_source");
         if(Build.VERSION.SDK_INT>=34) startForeground(1,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(1,notification());
         wake.acquire(12*60*60*1000L);
@@ -176,21 +173,21 @@ public final class ServerService extends Service {
                     FilesStore.ensureBootstrap(this);
                     FilesStore.noticeSource(this);
                     if(DataUpdate.needed(FilesStore.data(this),ToolsRuntime.directory(this),BuildConfig.BUNKER_VERSION)) {
-                        update("Updating your game data for this version…");
+                        update(Said.text("launcher.detail.updating_data"));
                         // A failure leaves the game data as it was; the game still starts.
                         try {ToolsRuntime.updateData(this);}
                         catch(Exception error){android.util.Log.e("LunarTear","Game data update failed",error);}
                     }
                     String error=NativeBridge.setPortOffset(Ports.offset(this));
-                    if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?"Lunar Tear didn't respond":error);
+                    if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?Said.text("launcher.error.no_answer"):error);
                     error=NativeBridge.start(FilesStore.data(this).getAbsolutePath(),FilesStore.root(this).getAbsolutePath());
-                    if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?"Lunar Tear didn't respond":error);
-                    if(cancelled) { NativeBridge.stop(); throw new InterruptedException("Start cancelled"); }
+                    if(error==null||!error.isEmpty()) throw new IllegalStateException(error==null?Said.text("launcher.error.no_answer"):error);
+                    if(cancelled) { NativeBridge.stop(); throw new InterruptedException(Said.text("launcher.detail.start_cancelled")); }
                     // Confirm the game can reach this server on every port before playing.
                     String failure=selfTestFailure(NativeBridge.selfTest());
                     if(failure!=null) { NativeBridge.stop(); throw new IllegalStateException(failure); }
-                    running=true;state="Server running";
-                    detail="Ready to play";
+                    running=true;state="running";
+                    detail=Said.text("launcher.detail.ready");
                     main.post(monitor);
                 } else {
                     FilesStore.Progress progress=new FilesStore.Progress(){
@@ -201,17 +198,17 @@ public final class ServerService extends Service {
                     if(ASSETS.equals(action)) FilesStore.importAssets(this,uri,progress);
                     else if(ARCHIVE.equals(action)) FilesStore.importArchive(this,uri,progress);
                     else if(LINK.equals(action)) FilesStore.linkAssets(this,uri,progress);
-                    else if(MASTER.equals(action)) FilesStore.importMaster(this,uri,progress);
+                    else if(MASTER.equals(action)) { FilesStore.importMaster(this,uri,progress); ToolsRuntime.layerGameData(this); }
                     else if(BACKUP.equals(action)) FilesStore.backup(this,uri);
                     else if(SAVE.equals(action)) { FilesStore.importSave(this,uri); closeGame(); }
-                    else throw new IllegalArgumentException("Unknown operation");
-                    state=BACKUP.equals(action)?"Saves exported":SAVE.equals(action)?"Save imported":"Import complete";
-                    detail=BACKUP.equals(action)?"Keep your backup somewhere safe.":SAVE.equals(action)?"Save imported. Tap Deploy to play it.":FilesStore.ready(this)?"Your game files are ready. Tap Deploy to play.":"Import the remaining game files to continue.";
+                    else throw new IllegalArgumentException(Said.text("launcher.error.unknown_operation"));
+                    state=BACKUP.equals(action)?"saves_exported":SAVE.equals(action)?"save_imported":"import_complete";
+                    detail=BACKUP.equals(action)?Said.text("launcher.detail.backup_saved"):SAVE.equals(action)?Said.text("launcher.detail.save_imported"):"";
                 }
             } catch(Exception|LinkageError error) {
-                running=false;state=cancelled?"Operation cancelled":"Needs attention";
-                detail=error.getMessage()==null?error.toString():error.getMessage();
-                android.util.Log.e("LunarTear",detail,error);
+                running=false;state=cancelled?"cancelled":"needs_attention";
+                detail=message(error);
+                android.util.Log.e("LunarTear","Operation failed",Texts.forLog(error));
             } finally {
                 busy=false; permille=-1;
                 if(running) getSystemService(NotificationManager.class).notify(1,notification());
@@ -231,23 +228,25 @@ public final class ServerService extends Service {
         if(!error.isEmpty())throw new IllegalStateException(error);
         closeGame();
     }
+    /** For Pod Programs' Python, which logs what resumeForTools answers: its references in English. */
+    public static String inEnglish(String said){return Texts.inEnglish(said);}
     /** Pod Programs: whether the game and its server are still running beside it. */
     public static boolean gameLive(){return tools&&toolsBesideGame;}
     /** Pod Programs, before a change to the save or the game's data: closes the game. Returns "" or why not. */
     public static String closeGameForTools(){
         ServerService service=instance;
-        if(service==null)return "Lunar Tear's service isn't running. Close the Bunker and open it again.";
+        if(service==null)return Texts.t(null,"launcher.error.service_gone");
         synchronized(ServerService.class){
             if(!toolsBesideGame)return "";
             try {
-                state="Preparing tools";detail="Stopping the game…";
+                state="preparing_tools";detail=Said.text("launcher.detail.stopping_game");
                 service.stopGameForTools();
                 toolsBesideGame=false;
-                state="Tools ready";detail="Close Pod Programs to return to the game.";
+                state="tools_ready";detail=Said.text("launcher.detail.close_tools_to_play");
                 return "";
             } catch(Exception|LinkageError error) {
-                android.util.Log.e("LunarTear","Closing the game for Pod Programs failed",error);
-                return error.getMessage()==null?error.toString():error.getMessage();
+                android.util.Log.e("LunarTear","Closing the game for Pod Programs failed",Texts.forLog(error));
+                return Texts.said(service,message(error));
             }
         }
     }
@@ -259,7 +258,7 @@ public final class ServerService extends Service {
     /** Pod Programs, before a change beside the running game: stops the server, backing the save up once. Returns "" or why not. */
     public static String pauseForTools(){
         ServerService service=instance;
-        if(service==null)return "Lunar Tear's service isn't running. Close the Bunker and open it again.";
+        if(service==null)return Texts.t(null,"launcher.error.service_gone");
         synchronized(ServerService.class){
             if(!toolsBesideGame||toolsPaused)return "";
             service.main.removeCallbacks(service.monitor);
@@ -269,44 +268,45 @@ public final class ServerService extends Service {
                 if(!error.isEmpty()){
                     // Nothing was changed yet: the game plays on as it was, if its server starts again.
                     String restart=resumeServer(service);
-                    if(restart.isEmpty())return error;
+                    if(restart.isEmpty())return Texts.said(service,error);
                     // It cannot reach a server: close it, as resumeForTools does.
-                    android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+restart);
+                    android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+Texts.inEnglish(restart));
                     toolsBesideGame=false;service.closeGame();
-                    state="Tools ready";detail="Close Pod Programs to return to the game.";
-                    return error+" The game was closed: tap Deploy to play again.";
+                    state="tools_ready";detail=Said.text("launcher.detail.close_tools_to_play");
+                    return Texts.t(service,"launcher.error.game_closed","error",Texts.said(service,error));
                 }
                 toolsBackedUp=true;
             }
-            toolsPaused=true;state="Applying a change";detail="The game returns to its title screen to load it.";
+            toolsPaused=true;state="applying_change";detail=Said.text("launcher.detail.change_loading");
             return "";
         }
     }
-    /** Pod Programs, after a change beside the running game: starts the server and sends the game to its title screen. Returns "" or why not. */
+    /** Pod Programs, after a change beside the running game: starts the server and sends the game to its title screen.
+     *  Returns "" or why not, as a Said reference or Lunar Tear's words: only logged (ServerService.inEnglish). */
     public static String resumeForTools(){return resumeForTools(true);}
     /** As resumeForTools; title false for a change that was refused or changed nothing, so the game keeps its place. */
     public static String resumeForTools(boolean title){
         ServerService service=instance;
-        if(service==null)return "Lunar Tear's service isn't running. Close the Bunker and open it again.";
+        if(service==null)return Said.text("launcher.error.service_gone");
         synchronized(ServerService.class){
             if(!toolsPaused)return "";
             toolsPaused=false;
             String error=resumeServer(service);
             if(error.isEmpty()){
-                if(title){NativeBridge.requestTitle();state="Tools ready";detail="The game returns to its title screen to load your change.";}
-                else{state="Tools ready";detail="Nothing changed; the game plays on.";}
+                if(title){NativeBridge.requestTitle();state="tools_ready";detail=Said.text("launcher.detail.change_loading");}
+                else{state="tools_ready";detail=Said.text("launcher.detail.nothing_changed");}
                 return "";
             }
             // The game cannot reach a server: close it, as before this change could run beside it.
-            android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+error);
+            android.util.Log.e("LunarTear","Restarting the server beside the game failed: "+Texts.inEnglish(error));
             toolsBesideGame=false;service.closeGame();
-            state="Tools ready";detail="Close Pod Programs to return to the game.";
+            state="tools_ready";detail=Said.text("launcher.detail.close_tools_to_play");
             return error;
         }
     }
     private static String resumeServer(ServerService service){
         String error=NativeBridge.start(FilesStore.data(service).getAbsolutePath(),FilesStore.root(service).getAbsolutePath());
-        if(error==null||!error.isEmpty())return error==null?"Lunar Tear didn't respond":error;
+        if(error==null||!error.isEmpty())return error==null?Said.text("launcher.error.no_answer"):error;
         String failure=selfTestFailure(NativeBridge.selfTest());
         if(failure!=null){NativeBridge.stop();return failure;}
         running=true;service.main.post(service.monitor);
@@ -322,14 +322,14 @@ public final class ServerService extends Service {
         try {
             JSONObject r=new JSONObject(report);
             if(r.optBoolean("ok")) return null;
-            StringBuilder text=new StringBuilder("The game couldn't reach Lunar Tear:");
+            StringBuilder text=new StringBuilder(Said.text("launcher.selftest.failed"));
             org.json.JSONArray checks=r.getJSONArray("checks");
             for(int i=0;i<checks.length();i++){
                 JSONObject c=checks.getJSONObject(i);
-                if(!c.optBoolean("ok")) text.append("\n• Port ").append(c.optInt("port")).append(" (").append(c.optString("name")).append("): ").append(c.optString("detail"));
+                if(!c.optBoolean("ok")) text.append("\n• ").append(Said.text("launcher.selftest.port","port",c.optInt("port"),"name",c.optString("name"),"detail",c.optString("detail")));
             }
             return text.toString();
-        } catch(Exception e) { return "Couldn't check Lunar Tear: "+e.getMessage(); }
+        } catch(Exception e) { return Said.text("launcher.selftest.unchecked","error",String.valueOf(e.getMessage())); }
     }
     private void finishForeground() {
         if(wake!=null&&wake.isHeld())wake.release();
@@ -341,12 +341,14 @@ public final class ServerService extends Service {
         cancelled=true;main.removeCallbacks(monitor);
         if(wake!=null&&wake.isHeld()) wake.release();
         // Never block the main thread waiting for Go's graceful shutdown.
-        worker.execute(()->{if(tools){ToolsRuntime.stop();tools=false;}if(running){NativeBridge.stop();running=false;state="Server stopped";}busy=false;});
+        worker.execute(()->{if(tools){ToolsRuntime.stop();tools=false;}if(running){NativeBridge.stop();running=false;state="stopped";}busy=false;});
         worker.shutdown();
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
     }
     private final Messenger messenger=new Messenger(new Handler(Looper.getMainLooper(),message->{
+        // The launcher asks often: a language chosen since the notification was made renames it now.
+        if((running||tools)&&Texts.generation(this)!=labelled)getSystemService(NotificationManager.class).notify(1,notification());
         if(message.replyTo!=null) {
             Message reply=Message.obtain(null,message.what);
             Bundle b=new Bundle();b.putBoolean("running",running);b.putBoolean("busy",busy);b.putBoolean("tools",tools);b.putInt("permille",permille);b.putString("state",state);b.putString("detail",detail);

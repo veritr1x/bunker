@@ -203,6 +203,8 @@ class Page(unittest.TestCase):
     def render(self, calendar):
         import jinja2
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(self.TEMPLATES), autoescape=True)
+        import bunker_text
+        bunker_text.install(env)
         return env.get_template("patcher.html").render(request=None, active="patcher", current="x", presets=[], splits=[],
                                                        configuration="", history=[], calendar=calendar,
                                                        start={"day": "d", "original": "o", "ends": "e"})

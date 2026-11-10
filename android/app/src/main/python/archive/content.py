@@ -11,11 +11,25 @@ from collections import Counter
 from .memo import memo
 from pathlib import Path
 
-from .schedule import Schedule, Stored
+from bunker_text import t, t_count
 
-# The game's own names: Dark Memories (end contents), Recollections of Dusk (limit contents), Character
-# Quests, the "Record" events, and Side Stories.
-KINDS = {"eid": "Dark Memories", "lid": "Recollections of Dusk", "cid": "Character Quests", "vid": "Events", "sid": "Side Stories"}
+from .schedule import Schedule, Stored, month_short
+from .words import said
+
+# The stories outside the main one: Dark Memories (end contents), Recollections of Dusk (limit contents),
+# Character Quests, the "Record" events, and Side Stories.
+KINDS = ("eid", "lid", "cid", "vid", "sid")
+
+
+def kind_name(kind: str) -> str:
+    """The game's own name for a kind of story; the code itself for one it does not have."""
+    return {"eid": t("archive.story.dark_memories"), "lid": t("archive.story.recollections_of_dusk"),
+            "cid": t("archive.story.character_quests"), "vid": t("archive.story.events"),
+            "sid": t("archive.story.side_stories")}.get(kind, kind)
+
+
+def season_named(season: int, title: str) -> str:
+    return t("archive.story.season_named", n=season, title=title)
 _TAG = re.compile(r"<(?!/?i>)/?[a-z][^<>]*>", re.I)
 _ANY_TAG = re.compile(r"</?[a-z][^<>]*>", re.I)
 _OPEN_ITALIC = re.compile(r"</?i(?![a-z>])", re.I)  # "</I." in one summary: a tag missing its ">"
@@ -112,7 +126,7 @@ class Archive:
 
     # ---- Story ----------------------------------------------------------------
     def season_title(self, season: int) -> str:
-        return self.text(f"quest.main.season_title.{season}", f"Season {season}")
+        return self.text(f"quest.main.season_title.{season}") or t("archive.story.season", n=season)
 
     def chapter_label(self, season: int, chapter: int) -> tuple[str, str]:
         """(number, title) for a main-story chapter. Chapters regrouped by quest are route * 100 + order and
@@ -121,17 +135,17 @@ class Archive:
             route, order = divmod(chapter, 100)
             number = self.text(f"quest.main.chapter_number.{season}.{route}.{order}")
             title = self.text(f"quest.main.chapter_title.{season}.{route}.{order}")
-            return (number or f"Chapter {order}"), (title if title and title != number else "")
+            return (number or t("archive.story.chapter", n=order)), (title if title and title != number else "")
         if chapter == 0:
-            return "Prologue", ""
+            return t("archive.story.prologue"), ""
         if chapter == 99:
-            return "Other scenes", ""
+            return t("archive.story.other_scenes"), ""
         if season == 1:
             numbers = self.texts("quest.main.chapter_number.1.1.")
             for key, label in numbers.items():
                 if re.match(rf"Ch\. {chapter}\b", label):
                     return label, self.text(key.replace("chapter_number", "chapter_title"))
-        return f"Chapter {chapter}", ""
+        return t("archive.story.chapter", n=chapter), ""
 
     def main_chapters(self) -> list[dict]:
         with self.db() as db:
@@ -160,14 +174,14 @@ class Archive:
             out = []
             for r in rows:
                 line = db.execute("SELECT text FROM line WHERE scene=? AND length(text) > 12 ORDER BY seq LIMIT 1", (r["first"],)).fetchone()
-                out.append({**dict(r), "preview": plain(line[0] if line else "", 90)})
+                out.append({**dict(r), "title": said(r["title"]), "preview": plain(line[0] if line else "", 90)})
         return out
 
     def group_title(self, kind: str, grp: str) -> str:
         """The story's name (a character, an event), or "" when the index has none."""
         with self.db() as db:
             row = db.execute("SELECT title FROM story_group WHERE kind=? AND grp=?", (kind, grp)).fetchone()
-        return row[0] if row else ""
+        return said(row[0]) if row else ""
 
     def scenes(self, *, area=None, season=None, chapter=None, kind=None, grp=None) -> list[dict]:
         where, args = [], []
@@ -199,7 +213,13 @@ class Archive:
         return {**dict(row), "lines": lines, "position": at + 1, "count": len(ids),
                 "previous": ids[at - 1] if at > 0 else None, "next": ids[at + 1] if at + 1 < len(ids) else None}
 
-    LIBRARY_SECTIONS = ("Season 1", "Season 2", "Season 3", "Events", "Character Quests", "Recollections of Dusk", "Dark Memories")
+    def library_section(self, section: int) -> tuple[str, str]:
+        """(name, unit) of the Library's section number section (index.LIBRARY_SECTIONS): the three seasons,
+        then events, Character Quests, Recollections of Dusk and Dark Memories."""
+        if section < 3:
+            return season_named(section + 1, self.season_title(section + 1)), "chapter"
+        return ((t("archive.story.events"), "event"), (t("archive.story.character_quests"), "character"),
+                (t("archive.story.recollections_of_dusk"), "character"), (t("archive.story.dark_memories"), "character"))[section - 3]
 
     def recollections(self) -> list[dict]:
         """The Library's summaries as the game files them: each season by chapter, events by name, and the
@@ -208,16 +228,18 @@ class Archive:
             rows = db.execute("SELECT section, heading, title, text, art FROM library ORDER BY section, heading_sort, heading, sort").fetchall()
         sections = []
         for section, heading, title, text, art in rows:
-            name = self.LIBRARY_SECTIONS[section]
-            if name.startswith("Season "):
-                name += f" · {self.season_title(int(name.split()[1]))}"
+            name, unit = self.library_section(section)
             if not sections or sections[-1]["name"] != name:
-                unit = "chapter" if name.startswith("Season ") else "event" if name == "Events" else "character"
                 sections.append({"name": name, "unit": unit, "headings": []})
+            heading = said(heading)
             headings = sections[-1]["headings"]
             if not headings or headings[-1]["name"] != heading:
                 headings.append({"name": heading, "items": []})
             headings[-1]["items"].append({"title": title, "text": text, "art": art})
+        counts = {"chapter": lambda n: t_count("archive.story.chapter_count", n), "event": lambda n: t_count("archive.story.event_count", n),
+                  "character": lambda n: t_count("archive.story.character_count", n)}
+        for section in sections:
+            section["count"] = counts[section["unit"]](len(section["headings"]))
         return sections
 
     # ---- Records --------------------------------------------------------------
@@ -270,7 +292,7 @@ class Archive:
             costume = self.text(f"costume.name.{asset}")
             if costume and costume != "-":
                 return costume
-        return "Unnamed"
+        return t("archive.characters.unnamed")
 
     def reports(self) -> list[dict]:
         groups = {}
@@ -281,7 +303,7 @@ class Archive:
                 continue
             group = groups.setdefault((row["MainQuestSeasonId"], row["CharacterId"]),
                                       {"season": row["MainQuestSeasonId"], "character": self.character_name(row["CharacterId"]), "items": []})
-            group["items"].append({"title": self.text(f"report.title.{asset}", f"No. {row['ReportNumber']:02d}"), "text": body})
+            group["items"].append({"title": self.text(f"report.title.{asset}") or t("archive.records.report_number", n=f"{row['ReportNumber']:02d}"), "text": body})
         return list(groups.values())
 
     def lost_archives(self) -> list[dict]:
@@ -314,7 +336,7 @@ class Archive:
                 continue
             s = series.get(row["PartsSeriesId"], {})
             group = groups.setdefault(row["PartsSeriesId"], {"name": self.text(f"parts.series.name.{s.get('PartsSeriesAssetId', row['PartsSeriesId'])}")
-                                                             or "Other", "items": []})
+                                                             or t("archive.records.other"), "items": []})
             asset = f"memory{row['PartsGroupAssetId']:03d}"
             art = next((p for kind in ("full", "standard") if (self.revision / "assetbundle" / (p := f"ui/memory/{asset}/{asset}_{kind}.assetbundle")).is_file()), None)
             group["items"].append({"title": name, "text": text, "art": art})
@@ -354,13 +376,13 @@ class Archive:
         season_groups = {}
 
         def season_group(season):
-            return season_groups.setdefault(season, {"name": f"Season {season} · {self.season_title(season)}", "items": []})
+            return season_groups.setdefault(season, {"name": season_named(season, self.season_title(season)), "items": []})
 
         assets = {m["MovieId"]: m["AssetId"] for m in self.master("m_movie")}
         used = set()
         # The Library's cutscenes: categories 1-3 are the seasons ("2020", "2021", and an unnamed 2022);
         # 101 is the title-screen movies.
-        title_screen = {"name": "Title screen", "items": []}
+        title_screen = {"name": t("archive.movies.title_screen"), "items": []}
         for row in sorted(self.master("m_library_movie"), key=lambda r: (r["LibraryMovieCategoryId"], r["SortOrder"])):
             asset = assets.get(row["MovieId"], row["MovieId"])
             base = f"mv_prm{asset:03d}" if asset < 100 else f"mv{asset}"
@@ -369,7 +391,7 @@ class Archive:
                 continue
             used.add(base)
             category = row["LibraryMovieCategoryId"]
-            title = self.text(f"movie.title.name.{row['TitleLibraryTextId']}") or ("Untitled title-screen movie" if category >= 100 else base)
+            title = self.text(f"movie.title.name.{row['TitleLibraryTextId']}") or (t("archive.movies.untitled_title_screen") if category >= 100 else base)
             item = {"title": title, "file": file["file"], "size": file["size"]}
             (title_screen if category >= 100 else season_group(category))["items"].append(item)
         for base in bases:  # title-screen movies the Library does not list (mv103)
@@ -386,8 +408,8 @@ class Archive:
                 continue
             used.add(base)
             season, route, order, part = (int(x) for x in m.groups())
-            chapter = self.text(f"quest.main.chapter_number.{season}.{route}.{order}") or f"Chapter {order}"
-            season_group(season)["items"].append({"title": f"{chapter} · Part {part}", "file": file["file"], "size": file["size"]})
+            chapter = self.text(f"quest.main.chapter_number.{season}.{route}.{order}") or t("archive.story.chapter", n=order)
+            season_group(season)["items"].append({"title": t("archive.movies.part", chapter=chapter, n=part), "file": file["file"], "size": file["size"]})
         groups = [season_groups[s] for s in sorted(season_groups)] + ([title_screen] if title_screen["items"] else [])
         # Announcements: the clip, its caption, and when it ran.
         captions = {r["DokanTextId"]: r["Text"] for r in self.master("m_dokan_text")}
@@ -418,7 +440,7 @@ class Archive:
                 first = re.match(r"(.+?[.!?])\s", title + " ")  # its first sentence carries it
                 announced[base] = {"title": plain(first.group(1) if first and len(first.group(1)) > 15 else title, 90),
                                    "file": file["file"], "size": file["size"],
-                                   "when": time.strftime("%b %Y", time.gmtime(start / 1000)) if start and year < 2090 else "",
+                                   "when": said(month_short(start)) if start and year < 2090 else "",
                                    "year": year if year < 2090 else 0}
         by_year, others = {}, []
         for base, item in announced.items():
@@ -427,14 +449,14 @@ class Archive:
             else:
                 others.append((base, item))
         for year in sorted(by_year):
-            groups.append({"name": f"Announcements · {year}", "items": by_year[year]})
+            groups.append({"name": t("archive.movies.announcements", year=year), "items": by_year[year]})
         used.update(announced)
         others += [(b, {"title": "", "file": f["file"], "size": f["size"]}) for b in bases
                    if b not in used and not b.startswith("mmmm") and (f := self.pick_movie(b, files))]
         if others:  # clips no announcement dates or captions
             number = lambda base: int(re.sub(r"\D", "", base) or 0)  # noqa: E731 (no backslashes in f-strings before 3.12)
-            groups.append({"name": "Other clips", "items": [
-                {**item, "title": item["title"] or f"Untitled clip {number(base)}"} for base, item in sorted(others)]})
+            groups.append({"name": t("archive.movies.other_clips"), "items": [
+                {**item, "title": item["title"] or t("archive.movies.untitled_clip", n=number(base))} for base, item in sorted(others)]})
         return groups
 
     # ---- Search ---------------------------------------------------------------
@@ -449,7 +471,7 @@ class Archive:
                                "AND story_group.grp = scene.grp WHERE line.text LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
             records = db.execute("SELECT key, value FROM text WHERE (key LIKE 'weapon.story.%' OR key LIKE 'report.description.%' "
                                  "OR key LIKE 'cage.memory.description.%') AND value LIKE ? ESCAPE '\\' LIMIT ?", (like, limit)).fetchall()
-        return {"lines": [dict(r) for r in lines], "records": [dict(r) for r in records]}
+        return {"lines": [{**dict(r), "title": said(r["title"])} for r in lines], "records": [dict(r) for r in records]}
 
     # ---- Characters -----------------------------------------------------------
     def characters(self) -> list[dict]:
@@ -485,14 +507,25 @@ class Archive:
         voices, counts = [], {}
         for kind, path in rows:
             counts[kind] = counts.get(kind, 0) + 1
-            voices.append({"label": f"{self.VOICE_KINDS.get(kind, kind)} {counts[kind]}", "path": path})
+            voices.append({"label": t("archive.characters.voice_numbered", kind=self.voice_kind(kind), n=counts[kind]), "path": path})
         return {"id": character_id, "name": self.character_name(character_id), "costumes": costumes, "voices": voices}
 
-    # Out-of-game voice files carry no text; their name prefix says where the game plays them.
-    VOICE_KINDS = {"pfv": "Profile", "enh": "Upgrade", "bkt": "Line"}
+    @staticmethod
+    def voice_kind(kind: str) -> str:
+        """Out-of-game voice files carry no text; their name prefix says where the game plays them."""
+        return {"pfv": t("archive.characters.profile"), "enh": t("archive.characters.upgrade"),
+                "bkt": t("archive.characters.line")}.get(kind, kind)
 
     # ---- Music -------------------------------------------------------------------
-    MUSIC_SECTIONS = ("Season 1", "Season 2", "Season 3", "Character stories", "Events", "Side stories", "Battle")
+    def music_section(self, section: int | None) -> str:
+        """The name of a section of index.MUSIC_SECTIONS: three seasons, character stories, events, side
+        stories and battle."""
+        if section is None:
+            return t("archive.music.other")
+        if section < 3:
+            return season_named(section + 1, self.season_title(section + 1))
+        return (t("archive.music.character_stories"), t("archive.music.events"), t("archive.music.side_stories"),
+                t("archive.music.battle"))[section - 3]
 
     def music(self) -> list[dict]:
         """The soundtrack, each track filed under where it is first heard (the game has no titles for it):
@@ -507,24 +540,21 @@ class Archive:
             tracks.setdefault(r["track"], {"track": r["track"], "parts": [], "places": [], "where": []})["parts"].append(
                 {"part": r["part"], "path": r["path"]})
 
-        def section_name(index):
-            name = self.MUSIC_SECTIONS[index] if index is not None else "Other"
-            return name + (f" · {self.season_title(int(name.split()[1]))}" if name.startswith("Season ") else "")
-
-        first = {}
+        first, names = {}, {}
+        section_name = lambda index: names.setdefault(index, self.music_section(index))  # noqa: E731
         for r in uses:
-            track = tracks.get(r["track"])
-            if not track or r["place"] in track["places"]:
+            track, place = tracks.get(r["track"]), said(r["place"])
+            if not track or place in track["places"]:
                 continue
             first.setdefault(r["track"], (r["section"], r["sort"]))
-            track["places"].append(r["place"])
+            track["places"].append(place)
             # Every place, grouped by section, for the list a track opens.
             name = section_name(r["section"])
             if not track["where"] or track["where"][-1]["name"] != name:
                 track["where"].append({"name": name, "places": []})
-            track["where"][-1]["places"].append(r["place"])
+            track["where"][-1]["places"].append(place)
         sections = {}
-        for track in sorted(tracks.values(), key=lambda t: (first.get(t["track"], (99, 0)), int(t["track"]) if t["track"].isdigit() else 0)):
+        for track in sorted(tracks.values(), key=lambda x: (first.get(x["track"], (99, 0)), int(x["track"]) if x["track"].isdigit() else 0)):
             name = section_name(first.get(track["track"], (None,))[0])
             sections.setdefault(name, {"name": name, "tracks": []})["tracks"].append(track)
         return list(sections.values())
@@ -575,8 +605,15 @@ class Archive:
                 "previous": found[at - 1]["asset"] if at > 0 else None, "next": found[at + 1]["asset"] if at + 1 < len(found) else None}
 
     # ---- Other models -------------------------------------------------------------
-    MODEL_SECTIONS = ("Main cast", "Story characters", "Enemies")
-    MODEL_TABS = {"cast": ("Main cast", "Story characters"), "enemies": ("Enemies",)}
+    # index.MODEL_SECTIONS, in order: the main cast, the other story characters, enemies.
+    MODEL_SECTIONS = ("cast", "story", "enemies")
+    MODEL_TABS = {"cast": ("cast", "story"), "enemies": ("enemies",)}
+
+    @staticmethod
+    def model_section(section: str) -> str:
+        """A MODEL_SECTIONS section's name, or "Unnamed"'s: the families nobody names."""
+        return {"cast": t("archive.characters.main_cast"), "story": t("archive.characters.story_characters"),
+                "enemies": t("archive.characters.enemies"), "Unnamed": t("archive.characters.unnamed")}[section]
 
     def model_families(self, tab: str, keep=lambda asset: True) -> list[dict]:
         """A Characters tab's other models (those keep() allows), family by family (mt008: Multi-limb Type and its
@@ -590,15 +627,16 @@ class Archive:
             if not keep(r["asset"]):
                 continue
             if not out or out[-1]["family"] != r["family"]:
-                out.append({"family": r["family"], "section": self.MODEL_SECTIONS[r["section"]], "name": r["family_name"], "models": []})
-            out[-1]["models"].append({"asset": r["asset"], "name": r["name"]})
+                out.append({"family": r["family"], "section": self.MODEL_SECTIONS[r["section"]], "name": said(r["family_name"]), "models": []})
+            out[-1]["models"].append({"asset": r["asset"], "name": said(r["name"])})
         unnamed = 0
         for family in out:
             if len(family["models"]) == 1 and family["models"][0]["name"]:
                 family["name"] = family["models"][0]["name"]  # one look: its own name (Cursed God: Wind)
             if not family["name"]:
                 unnamed += 1
-                family["section"], family["name"] = "Unnamed", f"{'Enemy' if tab == 'enemies' else 'Figure'} {unnamed}"
+                family["section"] = "Unnamed"
+                family["name"] = t("archive.characters.enemy", n=unnamed) if tab == "enemies" else t("archive.characters.figure", n=unnamed)
             # Each look is named for itself where it can be, else numbered.
             names = [m["name"] or family["name"] for m in family["models"]]
             for i, m in enumerate(family["models"]):
@@ -610,25 +648,37 @@ class Archive:
             row = db.execute("SELECT section, family FROM model WHERE asset=?", (asset,)).fetchone()
         if not row:
             return None
-        tab = next(t for t, sections in self.MODEL_TABS.items() if self.MODEL_SECTIONS[row["section"]] in sections)
+        tab = next(name for name, sections in self.MODEL_TABS.items() if self.MODEL_SECTIONS[row["section"]] in sections)
         family = next((f for f in self.model_families(tab, keep) if f["family"] == row["family"]), None)
         model = next((m for m in family["models"] if m["asset"] == asset), None) if family else None
         return {"tab": tab, "family": family, "model": model} if model else None
 
     # ---- Gallery ----------------------------------------------------------------
-    GALLERY_TABS = (("stills", "Stills"), ("events", "Event scenes"), ("library", "Library art"), ("photos", "Photos"))
-    LIBRARY_GROUPS = {"stained_glass": "Stained glass", "report": "Reports", "cage_memory": "Lost Archives",
-                      "content": "Dark Memories", "limit_content": "Recollections of Dusk", "event_quest_type_01": "Events",
-                      "event_quest_type_06": "Character Quests", "movie": "Movie covers", "record": "Record covers"}
+    GALLERY_TABS = ("stills", "events", "library", "photos")
+
+    @staticmethod
+    def gallery_tabs() -> dict[str, str]:
+        return {"stills": t("archive.gallery.stills"), "events": t("archive.gallery.event_scenes"),
+                "library": t("archive.gallery.library_art"), "photos": t("archive.gallery.photos")}
+
+    @staticmethod
+    def library_group(grp: str) -> str:
+        """The Library art's groups, named for what they go with."""
+        names = {"stained_glass": t("archive.gallery.stained_glass"), "report": t("archive.gallery.reports"),
+                 "cage_memory": t("archive.gallery.lost_archives"), "content": t("archive.story.dark_memories"),
+                 "limit_content": t("archive.story.recollections_of_dusk"), "event_quest_type_01": t("archive.story.events"),
+                 "event_quest_type_06": t("archive.story.character_quests"), "movie": t("archive.gallery.movie_covers"),
+                 "record": t("archive.gallery.record_covers")}
+        return names.get(grp) or grp.replace("_", " ").capitalize()
 
     def group_label(self, category: str, grp: str) -> str:
         if category == "stills":
-            return grp.replace("season", "Season ")
+            return t("archive.story.season", n=grp[6:]) if re.fullmatch(r"season\d+", grp) else grp
         if category == "library":
-            return self.LIBRARY_GROUPS.get(grp, grp.replace("_", " ").capitalize())
+            return self.library_group(grp)
         if category == "photos":
-            return "Photos"
-        return self.group_title("vid", grp) or f"Event {grp}"  # event scenes: their Record event
+            return t("archive.gallery.photos")
+        return self.group_title("vid", grp) or t("archive.gallery.event", n=grp)  # event scenes: their Record event
 
     def gallery(self, category: str) -> list[dict]:
         with self.db() as db:
@@ -638,7 +688,8 @@ class Archive:
     def gallery_images(self, category: str, grp: str) -> list[dict]:
         """A group's pictures in order, gathered under their sections (a chapter, a part, a character)."""
         with self.db() as db:
-            rows = [dict(r) for r in db.execute("SELECT * FROM image WHERE category=? AND grp=? ORDER BY sort, section, name", (category, grp))]
+            rows = [{**dict(r), "title": said(r["title"]), "section": said(r["section"])}
+                    for r in db.execute("SELECT * FROM image WHERE category=? AND grp=? ORDER BY sort, section, name", (category, grp))]
         sections = []
         for r in rows:
             if not sections or sections[-1]["name"] != r["section"]:
@@ -654,21 +705,23 @@ class Archive:
             names = [r[0] for r in db.execute("SELECT path FROM image WHERE category=? AND grp=? ORDER BY sort, section, name",
                                               (row["category"], row["grp"]))]
         at = names.index(path)
+        row = {**dict(row), "title": said(row["title"]), "section": said(row["section"])}
         heading = " · ".join(p for p in (row["section"], row["title"]) if p) or row["name"]
-        return {**dict(row), "heading": heading, "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
+        return {**row, "heading": heading, "label": self.group_label(row["category"], row["grp"]), "position": at + 1, "count": len(names),
                 "previous": names[at - 1] if at > 0 else None, "next": names[at + 1] if at + 1 < len(names) else None}
 
     # ---- Schedule -----------------------------------------------------------------
     @memo
-    def schedule(self) -> Schedule | Stored:
-        """The Schedule, as the index build worked it out; worked out now for an index without it."""
+    def schedule(self) -> Stored:
+        """The Schedule, as the index build worked it out; worked out now for an index without it (the index
+        build itself)."""
         stored = self.meta("schedule")
         if stored:
             return Stored(json.loads(stored))
         with self.db() as db:
             costumes = [r[0] for r in db.execute("SELECT asset FROM costume")]
-        return Schedule(self.master, self.texts, lambda path: (self.revision / "assetbundle" / path).is_file(),
-                        self.weapon_names(), costumes, [c["asset"] for c in self.companions()])
+        return Stored.worked_out(Schedule(self.master, self.texts, lambda path: (self.revision / "assetbundle" / path).is_file(),
+                                          self.weapon_names(), costumes, [c["asset"] for c in self.companions()]))
 
     # ---- 3D motions -------------------------------------------------------------
     MOTION_GROUPS = {"tw": "field", "bt": "battle"}
@@ -692,7 +745,8 @@ class Archive:
             numbers = [w.lstrip("0") or "0" for w in parts if w.isdigit()]
             if numbers and numbers != ["1"]:
                 label += " " + ".".join(numbers)
-            phases = {"st": "start", "lp": "loop", "en": "end"}
+            phases = {"st": t("archive.characters.motion_start"), "lp": t("archive.characters.motion_loop"),
+                      "en": t("archive.characters.motion_end")}
             ending = [phases[w] for w in parts[-2:] if w in phases]
             out.append({"clip": f.stem, "group": self.MOTION_GROUPS[m.group(1)], "label": label + (f" ({', '.join(ending)})" if ending else "")})
         # Names that still collide (rare spellings of one move) get a number each.

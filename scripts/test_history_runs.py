@@ -50,5 +50,20 @@ class NoticeCorrections(unittest.TestCase):
         self.assertIn([1700186400000, 1701568799000], rows["507"])
 
 
+
+class WrittenRuns(unittest.TestCase):
+    def test_the_first_daily_set_runs_from_launch(self):
+        # The masters date daily missions 21-26 2000-01-02 to 9999 at launch, a
+        # placeholder to live(); they ran until 31-36 opened on 24 November 2021.
+        tables = {"m_mission_term": {"rows": {"1002": [[1632470400000, 4086576000000]]}}}
+        ch.apply_corrections(tables)
+        self.assertEqual(tables["m_mission_term"]["rows"]["1002"], [[ch.LAUNCH, 1637740799000]])
+
+    def test_the_committed_history_has_the_written_runs(self):
+        import json
+        tables = json.loads((ch.PYTHON / "calendar_history.json").read_text())["tables"]
+        for (table, key), runs in ch.RUNS.items():
+            self.assertEqual(tables[table]["rows"][key], runs)
+
 if __name__ == "__main__":
     unittest.main()

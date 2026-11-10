@@ -22,6 +22,22 @@ class Settings(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
+    def test_a_known_failure_is_shown_in_the_pages_language(self):
+        # The iOS launcher writes a code for what it knows (no IL2CPP API); other text (Java's) is shown as it is.
+        from types import SimpleNamespace
+        from unittest import mock
+        import bunker_text
+        status = Path(self.dir.name) / "display.status"
+        self.addCleanup(bunker_text.use, None)
+        with mock.patch.object(self.display, "config", SimpleNamespace(DATA_DIR=Path(self.dir.name))):
+            status.write_text("error=il2cpp-missing")
+            self.assertEqual(self.display.last_result(), {"ok": False, "error": "The game's IL2CPP API is missing"})
+            bunker_text.use({"pods.display.il2cpp_missing": "Die IL2CPP-Schnittstelle des Spiels fehlt"}, "de")
+            self.assertEqual(self.display.last_result()["error"], "Die IL2CPP-Schnittstelle des Spiels fehlt")
+            status.write_text("error=java.lang.NoSuchMethodError: x")
+            self.assertEqual(self.display.last_result()["error"], "java.lang.NoSuchMethodError: x")
+        self.assertNotIn("The game's IL2CPP API is missing", (root / "ios/launcher/LunarDisplay.m").read_text())
+
     def test_missing_file_keeps_the_game_defaults(self):
         self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
 

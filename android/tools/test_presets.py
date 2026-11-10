@@ -81,6 +81,9 @@ class Presets(unittest.TestCase):
         self.assertEqual(kept(ap.arguments("Clear", CONFIG)), kept(["--event-quests", ap.expand(CONFIG, "EVENTS_MAIN")]))
 
 
+APPLY_PRESET = ap.apply_preset  # Update's tests replace it
+
+
 class Update(unittest.TestCase):
     """After an update the preset's master data is built again (android_patcher.reapply_preset)."""
 
@@ -128,6 +131,33 @@ class Update(unittest.TestCase):
     def test_no_preset_is_left_alone(self):
         self.assertTrue(ap.update_for("1.6.3"))
         self.assertEqual(self.applied, [])
+
+    def test_a_preset_is_stored_by_its_key(self):
+        # active.json keeps the preset's key, not its English name: rewording the name keeps it found.
+        origin = ap.folder() / "origin.bin.e"
+        origin.write_bytes(b"original")
+        activated = []
+        with mock.patch.object(ap.runtime, "cli", lambda module, args: ""), \
+                mock.patch.object(ap, "activate", lambda candidate, label: activated.append(label)):
+            APPLY_PRESET("Rec_2", CONFIG)
+        self.assertEqual(activated, ["Rec_2"])
+        self.made_by("Rec_2")
+        ap.update_for("1.6.3")
+        self.assertEqual(self.applied, ["Rec_2"])
+
+    def test_an_old_english_label_is_read_once_as_its_key(self):
+        # Files written before keys were stored: the English name still finds its preset, and becomes the key.
+        self.made_by("Record 2")
+        ap.update_for("1.6.3")
+        self.assertEqual(self.applied, ["Rec_2"])
+        self.assertEqual(ap.runtime.read_json(ap.folder() / "active.json")["label"], "Rec_2")
+
+    def test_labels_are_shown_in_words(self):
+        for stored, shown in (("Gacha_3", "Gacha 3"), ("Gacha 3", "Gacha 3"), ("Full", "All content"), ("All content", "All content"),
+                              ("restored", "Restored snapshot"), ("Restored snapshot", "Restored snapshot"),
+                              ("calendar-4", "Original calendar · loop 4"), ("Original calendar · loop 4", "Original calendar · loop 4"),
+                              ("Something else", "Something else")):
+            self.assertEqual(ap.shown_label(stored), shown, stored)
 
     def test_with_the_calendar_on_the_preset_is_not_applied(self):
         self.made_by("Story")

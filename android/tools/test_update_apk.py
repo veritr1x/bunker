@@ -256,6 +256,32 @@ class UnityConnectTests(unittest.TestCase):
                 assemble_apk.patch_unity_connect(data)
 
 
+class FontLicenceTests(unittest.TestCase):
+    def test_update_keeps_the_noto_licence(self):
+        case = UpdateTests("test_update_keeps_port_offset")
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        installed = case.installed()
+        with zipfile.ZipFile(installed, "a") as z:
+            z.writestr("assets/lunar/NOTO_OFL.txt", b"ofl")
+        out = case.work / "out.apk"
+        assemble_apk.update(installed, case.companion(), out, log=lambda m: None)
+        with zipfile.ZipFile(out) as z:
+            self.assertEqual(z.read("assets/lunar/NOTO_OFL.txt"), b"ofl")
+
+
+class DeviceToolsTests(unittest.TestCase):
+    def test_device_copy_has_every_tool_assemble_apk_imports(self):
+        import re
+        script = (ROOT / "android/tools/build_native.sh").read_text()
+        copied = set(re.findall(r"\.\./android/tools/(\w+)\.py", script))
+        source = (ROOT / "android/tools/assemble_apk.py").read_text()
+        siblings = {name for name in re.findall(r"^import (\w+)", source, re.M)
+                    if (ROOT / "android/tools" / f"{name}.py").is_file()}
+        self.assertIn("game_patch", siblings)
+        self.assertEqual(siblings - copied, set())
+
+
 class DeviceBuildTests(unittest.TestCase):
     """bunker_update.build_android, as the launcher runs it (with the tools importable as bunker_tools)."""
 

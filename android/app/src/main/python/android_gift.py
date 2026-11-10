@@ -13,13 +13,15 @@ from dataclasses import dataclass, field
 
 from web import config
 import android_runtime as runtime
+import bunker_text
 
 GIFT_TEXT_ID = 90000
 
 # model.PossessionType
 COSTUME, WEAPON, COMPANION, PARTS, MATERIAL, CONSUMABLE, PAID_GEM, FREE_GEM, THOUGHT = 1, 2, 3, 4, 5, 6, 11, 12, 14
-# m_weapon AttributeType (masterdata/bunker_elements.go)
-ELEMENTS = {1: "Dark", 2: "Fire", 3: "Light", 5: "Water", 6: "Wind"}
+# m_weapon AttributeType (masterdata/bunker_elements.go): the element's name, in the chosen language
+ELEMENTS = {1: "common.element.dark", 2: "common.element.fire", 3: "common.element.light", 5: "common.element.water",
+            6: "common.element.wind"}
 NEVER = 4_000_000_000_000
 
 
@@ -97,12 +99,12 @@ def catalog(now_ms: int) -> list[Card]:
         return _once(Entry(r["name"], _stars(r), MATERIAL, r["id"]) for r in mats if r.get("MaterialType") == kind)
 
     gold = [Entry(r["name"], 0, CONSUMABLE, r["id"]) for r in cons if r.get("ConsumableItemType") == 100]
-    currency = [Entry("Gems", 0, FREE_GEM, 0), Entry("Paid Gems", 0, PAID_GEM, 0)] + gold
+    currency = [Entry(_name(FREE_GEM, 0), 0, FREE_GEM, 0), Entry(_name(PAID_GEM, 0), 0, PAID_GEM, 0)] + gold
 
     weapon_ids = {r.get("WeaponId") for r in _table("CatalogWeapon")}
     weapons = [r for r in _names("weapons") if r["id"] in weapon_ids]
     shared = {n for n, k in Counter(r["name"] for r in weapons).items() if k > 1}
-    weapons = _once(Entry(r["name"] + (f" ({ELEMENTS.get(r.get('AttributeType'), '?')})" if r["name"] in shared else ""),
+    weapons = _once(Entry(r["name"] + (f" ({_element(r.get('AttributeType'))})" if r["name"] in shared else ""),
                           _stars(r), WEAPON, r["id"]) for r in weapons)
 
     groups = {r.get("PartsGroupId") for r in _table("CatalogPartsGroup")}
@@ -127,21 +129,40 @@ def catalog(now_ms: int) -> list[Card]:
     characters = _once(Entry(f"{r['character_name']} ({r['name']})" if r.get("character_name") else r["name"], _stars(r), COSTUME, r["id"], True)
                        for r in _names("playable_costumes"))
 
+    t = bunker_text.t  # card and group names, in the chosen language
     return [
-        Card("Currency", [Group("Gems & gold", currency), Group("Medals & coins", items(110, 130))]),
-        Card("Summoning", [Group("Summon tickets", items(200)), Group("Summon shards", items(120))]),
-        Card("Character growth", [Group("Enhancement", materials(20)), Group("Handbooks", materials(90)),
-                                  Group("Wish fragments", materials(40)), Group("Insignias & agents", materials(50)),
-                                  Group("Awakening stones", materials(110)), Group("Karma stones", materials(140)),
-                                  Group("Verses", materials(120))]),
-        Card("Weapon growth", [Group("Enhancement", materials(10)), Group("Slabs & antler bits", materials(100)),
-                               Group("Adamant", materials(130)), Group("Gemstones", materials(70)),
-                               Group("Minerals", materials(60)), Group("Pearls & crystals", materials(80))]),
-        Card("Collection", [Group("Characters", characters), Group("Weapons", weapons), Group("Companions", companions),
-                            Group("Memoirs", memoirs), Group("Debris", debris)]),
-        Card("Everyday", [Group("Stamina", items(300)), Group("Skip & explorer tickets", items(201, 202)),
-                          Group("Fish", materials(30))]),
+        Card(t("pods.gift.card.currency"), [Group(t("pods.gift.group.gems_gold"), currency),
+                                            Group(t("pods.gift.group.medals_coins"), items(110, 130))]),
+        Card(t("pods.gift.card.summoning"), [Group(t("pods.gift.group.summon_tickets"), items(200)),
+                                             Group(t("pods.gift.group.summon_shards"), items(120))]),
+        Card(t("pods.gift.card.character_growth"), [Group(t("pods.gift.group.enhancement"), materials(20)),
+                                                    Group(t("pods.gift.group.handbooks"), materials(90)),
+                                                    Group(t("pods.gift.group.wish_fragments"), materials(40)),
+                                                    Group(t("pods.gift.group.insignias_agents"), materials(50)),
+                                                    Group(t("pods.gift.group.awakening_stones"), materials(110)),
+                                                    Group(t("pods.gift.group.karma_stones"), materials(140)),
+                                                    Group(t("pods.gift.group.verses"), materials(120))]),
+        Card(t("pods.gift.card.weapon_growth"), [Group(t("pods.gift.group.enhancement"), materials(10)),
+                                                 Group(t("pods.gift.group.slabs_antler_bits"), materials(100)),
+                                                 Group(t("pods.gift.group.adamant"), materials(130)),
+                                                 Group(t("pods.gift.group.gemstones"), materials(70)),
+                                                 Group(t("pods.gift.group.minerals"), materials(60)),
+                                                 Group(t("pods.gift.group.pearls_crystals"), materials(80))]),
+        Card(t("pods.gift.card.collection"), [Group(t("pods.gift.group.characters"), characters),
+                                              Group(t("pods.gift.group.weapons"), weapons),
+                                              Group(t("pods.gift.group.companions"), companions),
+                                              Group(t("pods.gift.group.memoirs"), memoirs),
+                                              Group(t("pods.gift.group.debris"), debris)]),
+        Card(t("pods.gift.card.everyday"), [Group(t("pods.gift.group.stamina"), items(300)),
+                                            Group(t("pods.gift.group.skip_explorer_tickets"), items(201, 202)),
+                                            Group(t("pods.gift.group.fish"), materials(30))]),
     ]
+
+
+def _element(attribute_type):
+    """A weapon's element by its AttributeType, in the chosen language ("?" when unknown)."""
+    key = ELEMENTS.get(attribute_type)
+    return bunker_text.t(key) if key else "?"
 
 
 def game_now() -> int:
@@ -219,7 +240,7 @@ def _add_gift_text_to_game():
             return
         active = runtime.read_json(patcher.folder() / "active.json")
         label = active.get("label") if isinstance(active, dict) and active.get("sha256") == runtime.fingerprint(config.find_master_data_bin()) else None
-        patcher.activate(candidate, label or "Imported master data")
+        patcher.activate(candidate, label or bunker_text.t("pods.gift.imported_master_data"))
     finally:
         candidate.unlink(missing_ok=True)
 
@@ -256,9 +277,9 @@ def _gift_rows(user_id, where, *args):
 
 def _name(possession_type, possession_id):
     if possession_type == FREE_GEM:
-        return "Gems"
+        return bunker_text.t("pods.gift.gems")
     if possession_type == PAID_GEM:
-        return "Paid Gems"
+        return bunker_text.t("pods.gift.paid_gems")
     kind = NAME_FILES.get(possession_type)
     for r in _names(kind) if kind else ():
         if r["id"] == possession_id:
@@ -304,10 +325,10 @@ def send_route(payload: dict = Body(...)):
     try:
         values = [payload[k] for k in ("user", "possession_type", "possession_id", "count")]
         if not all(isinstance(v, int) and not isinstance(v, bool) for v in values):
-            raise ValueError("whole numbers only")
+            raise ValueError  # whole numbers only: refused below
         user, kind, ident, count = values
     except (KeyError, TypeError, ValueError):
-        return JSONResponse({"ok": False, "error": "user, possession_type, possession_id and count are required"}, status_code=400)
+        return JSONResponse({"ok": False, "error": bunker_text.t("pods.gift.error_payload")}, status_code=400)
     try:
         added = send(_user(user), kind, ident, count)
     except GiftError as exc:
@@ -327,6 +348,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 
 def _owned_debris(user_id):
@@ -340,7 +362,7 @@ def _owned_debris(user_id):
 def _players():
     try:
         from web.services import userdata_service
-        return [(u.user_id, u.name or f"Player {u.user_id}") for u in userdata_service.list_users()]
+        return [(u.user_id, u.name or bunker_text.t("common.player_n", id=u.user_id)) for u in userdata_service.list_users()]
     except Exception:
         return []
 
@@ -354,7 +376,8 @@ def page_cards(user_id: int) -> list[dict]:
     def blocked(e):
         if e.possession_type != THOUGHT:
             return ""
-        return "Owned" if e.possession_id in owned else "In Gift Box" if e.possession_id in waiting_debris else ""
+        return (bunker_text.t("pods.gift.owned") if e.possession_id in owned else
+                bunker_text.t("pods.gift.in_gift_box") if e.possession_id in waiting_debris else "")
     return [{"name": c.name, "groups": [{"name": g.name, "entries": [dict(asdict(e), blocked=blocked(e)) for e in g.entries]}
                                         for g in c.groups]} for c in catalog(game_now())]
 

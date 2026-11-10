@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	pb "lunar-tear/server/gen/proto"
+	"lunar-tear/server/internal/bunkertext"
 	"lunar-tear/server/internal/gacha"
 	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/store"
@@ -26,7 +27,7 @@ func SetWebUsers(u userLoader) { webUsers = u }
 // prizeSectionHTML lists a prize box summon's prizes for Summons Details:
 // each with its amount and, for limited ones, how many the player's box has
 // left (the game passes the player as userId), else the notice's stock.
-func prizeSectionHTML(r *http.Request, gachaId int32, prizes []masterdata.Prize) string {
+func prizeSectionHTML(r *http.Request, words *bunkertext.Texts, gachaId int32, prizes []masterdata.Prize) string {
 	var left []int32
 	if webUsers != nil {
 		if id, err := strconv.ParseInt(r.URL.Query().Get("userId"), 10, 64); err == nil && id > 0 {
@@ -36,19 +37,21 @@ func prizeSectionHTML(r *http.Request, gachaId int32, prizes []masterdata.Prize)
 			}
 		}
 	}
+	esc := html.EscapeString
+	n := func(v int32) string { return words.Number(int64(v)) }
 	var b strings.Builder
-	b.WriteString("<h2>PRIZES</h2><table>")
+	b.WriteString("<h2>" + escText.Replace(words.T("ingame.summons.prizes", nil)) + "</h2><table>")
 	for i, p := range prizes {
-		have := "unlimited"
+		have := words.T("ingame.summons.unlimited", nil)
 		if p.Stock > 0 {
-			have = "stock " + thousands(p.Stock)
+			have = words.T("ingame.summons.stock", map[string]string{"n": n(p.Stock)})
 			if left != nil {
-				have = fmt.Sprintf("%s of %s left", thousands(left[i]), thousands(p.Stock))
+				have = words.T("ingame.summons.left", map[string]string{"left": n(left[i]), "n": n(p.Stock)})
 			}
 		}
-		fmt.Fprintf(&b, "<tr><td>%s ×%s</td><td class=n>%s</td></tr>", html.EscapeString(p.Name), thousands(p.Qty), have)
+		fmt.Fprintf(&b, "<tr><td>%s ×%s</td><td class=n>%s</td></tr>", esc(p.Name), esc(n(p.Qty)), escText.Replace(have))
 	}
-	b.WriteString("</table><p class=k>Each draw gives one prize; a limited prize is drawn by how many are left.</p>")
+	b.WriteString("</table><p class=k>" + escText.Replace(words.T("ingame.summons.prizes_info", nil)) + "</p>")
 	return b.String()
 }
 
@@ -116,39 +119,42 @@ func eventBoxHTML(r *http.Request, t *gameText, box masterdata.EventSummon) stri
 		}
 	}
 	esc := html.EscapeString
+	words := t.words
+	say := func(key string, params map[string]string) string { return escText.Replace(words.T(key, params)) }
+	num := func(v int32) string { return words.Number(int64(v)) }
 	var b strings.Builder
-	b.WriteString("<p class=k>Draw every target (in bold) of a level to move up to the next. The last level refills once it is emptied.</p>")
+	b.WriteString("<p class=k>" + say("ingame.summons.levels_info", nil) + "</p>")
 	for i, l := range box.Levels {
 		n := int32(i + 1)
-		head := fmt.Sprintf("LEVEL %d", n)
+		head := say("ingame.summons.level", map[string]string{"n": num(n)})
 		if known && n == level {
-			head += " · Your level"
+			head = say("ingame.summons.level_yours", map[string]string{"n": num(n)})
 		}
-		fmt.Fprintf(&b, "<h2>%s</h2><p class=k>%s of draws take one of this level's prizes, every one left alike; the rest take a shared prize.</p><table>", head, percent(l.Chance))
+		fmt.Fprintf(&b, "<h2>%s</h2><p class=k>%s</p><table>", head, say("ingame.summons.level_info", map[string]string{"percent": percent(words, l.Chance)}))
 		for j, p := range l.Items {
-			have := "stock " + thousands(p.Stock)
+			have := words.T("ingame.summons.stock", map[string]string{"n": num(p.Stock)})
 			if known && n == level {
-				have = fmt.Sprintf("%s of %s left", thousands(gacha.EventPrizeLeft(bs, j, p)), thousands(p.Stock))
+				have = words.T("ingame.summons.left", map[string]string{"left": num(gacha.EventPrizeLeft(bs, j, p)), "n": num(p.Stock)})
 			}
 			name, class := esc(possessionName(t, p.Type, p.Id)), ""
 			if p.Target {
-				class, have = " class=f", have+" · target"
+				class, have = " class=f", words.T("ingame.summons.target", map[string]string{"have": have})
 			}
-			fmt.Fprintf(&b, "<tr><td%s>%s ×%s</td><td class=n>%s</td></tr>", class, name, thousands(max(p.Count, 1)), have)
+			fmt.Fprintf(&b, "<tr><td%s>%s ×%s</td><td class=n>%s</td></tr>", class, name, esc(num(max(p.Count, 1))), escText.Replace(have))
 		}
 		b.WriteString("</table>")
 	}
 	if shared := masterdata.EventSummonUnlimited(); len(shared) > 0 {
-		b.WriteString("<h2>SHARED PRIZES</h2><p class=k>Unlimited, every one alike.</p><table>")
+		b.WriteString("<h2>" + say("ingame.summons.shared", nil) + "</h2><p class=k>" + say("ingame.summons.shared_info", nil) + "</p><table>")
 		for _, p := range shared {
-			fmt.Fprintf(&b, "<tr><td>%s ×%s</td><td class=n>unlimited</td></tr>", esc(possessionName(t, p.Type, p.Id)), thousands(max(p.Count, 1)))
+			fmt.Fprintf(&b, "<tr><td>%s ×%s</td><td class=n>%s</td></tr>", esc(possessionName(t, p.Type, p.Id)), esc(num(max(p.Count, 1))), say("ingame.summons.unlimited", nil))
 		}
 		b.WriteString("</table>")
 	}
 	return b.String()
 }
 
-// percent is a chance as a whole percentage where it is one (0.35: "35%").
-func percent(f float64) string {
-	return strconv.FormatFloat(f*100, 'f', -1, 64) + "%"
+// percent is a chance as a percentage number, up to three decimals as the language writes them (0.35: "35").
+func percent(words *bunkertext.Texts, f float64) string {
+	return strings.TrimRight(strings.TrimRight(words.Decimal(f*100, 3), "0"), ".,")
 }

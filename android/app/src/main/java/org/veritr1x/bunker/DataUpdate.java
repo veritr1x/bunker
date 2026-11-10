@@ -17,7 +17,8 @@ final class DataUpdate {
 
     /** True when data (the saves folder) or tools (Pod Programs' folder) has game data not yet updated for version. */
     static boolean needed(File data, File tools, String version) {
-        if (!new File(data, "calendar.json").isFile() && !new File(tools, "patcher/active.json").isFile()) return false;
+        if (!new File(data, "calendar.json").isFile() && !new File(tools, "patcher/active.json").isFile()
+                && !new File(tools, "language.json").isFile()) return false;  // language.json: a shipped pack the update may revise
         try {
             return !new String(Files.readAllBytes(new File(data, "data.updated").toPath()), StandardCharsets.UTF_8).trim().equals(version);
         } catch (Exception missing) {

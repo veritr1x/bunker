@@ -35,6 +35,15 @@ public final class ToolsRuntime {
         if(!Python.isStarted())Python.start(new AndroidPlatform(context));
         Python.getInstance().getModule("android_runtime").callAttr("update_data",data.getAbsolutePath(),FilesStore.root(context).getAbsolutePath(),directory(context).getAbsolutePath(),BuildConfig.BUNKER_VERSION);
     }
+    /** After master data is imported here (⋮ menu): its layers, Mods › Challenges and the language pack's texts
+     *  (android_challenges), which Pod Programs would otherwise add only at its next change. A failure leaves
+     *  the imported game data as it is: the game still starts, its texts in English. */
+    static void layerGameData(Context context) {
+        try {
+            if(!Python.isStarted())Python.start(new AndroidPlatform(context));
+            Python.getInstance().getModule("android_runtime").callAttr("layer_game_data",FilesStore.data(context).getAbsolutePath(),FilesStore.root(context).getAbsolutePath(),directory(context).getAbsolutePath());
+        } catch(Exception|LinkageError error) { android.util.Log.e("LunarTear","Game data layers not applied",error); }
+    }
     static void stop(){
         if(Python.isStarted())Python.getInstance().getModule("android_runtime").callAttr("stop");
         url="";token="";

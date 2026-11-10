@@ -19,6 +19,8 @@ import uuid as uuidlib
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
+import bunker_text
+
 # kind -> (table, uuid column, id column)
 KINDS = {
     "costume": ("user_costumes", "user_costume_uuid", "costume_id"),
@@ -516,19 +518,21 @@ def deck_summary(deck, tables) -> str | None:
             continue
         dc = deck.save.one("select user_costume_uuid c from user_deck_characters where user_id=? and user_deck_character_uuid=?", u)
         cid = deck.save.piece_id("costume", dc["c"]) if dc and dc["c"] else None
-        names.append(tables.character_name(cid) if cid else "a missing costume")
+        names.append(tables.character_name(cid) if cid else bunker_text.t("pods.decks.missing_costume"))
     return ", ".join(names) if names else None
 
 
 class Slot(NamedTuple):
     deck_type: int
     number: int
-    label: str
+    label: str                # in the chosen language (slots() runs for each request)
     summary: str | None
+    defense: bool = False     # the Arena deck others fight
 
 
 def slots(save: Save, tables) -> list:
-    """The decks the page can write to, with the player's lineup in each: the Arena decks, then the Loadout decks."""
+    """The decks the page can write to, with the player's lineup in each: the Arena decks, then the Loadout decks;
+    named in the chosen language."""
     defense = None
     if save.has("user_bunker_ext"):
         r = save.one("select data from user_bunker_ext where user_id=?")
@@ -539,8 +543,8 @@ def slots(save: Save, tables) -> list:
                 defense = None
     out = []
     for n in range(1, ARENA_DECKS + 1):
-        label = f"Arena deck {n}" + (" (defense)" if n == defense else "")
-        out.append(Slot(ARENA, n, label, deck_summary(Deck(save, ARENA, n), tables)))
+        label = bunker_text.t("pods.decks.arena_deck_defense", n=n) if n == defense else bunker_text.t("pods.decks.arena_deck", n=n)
+        out.append(Slot(ARENA, n, label, deck_summary(Deck(save, ARENA, n), tables), n == defense))
     for n in range(1, QUEST_DECKS + 1):
-        out.append(Slot(QUEST, n, f"Loadout deck {n}", deck_summary(Deck(save, QUEST, n), tables)))
+        out.append(Slot(QUEST, n, bunker_text.t("pods.decks.loadout_deck", n=n), deck_summary(Deck(save, QUEST, n), tables)))
     return out

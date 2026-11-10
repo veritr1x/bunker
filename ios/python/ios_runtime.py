@@ -105,11 +105,13 @@ def _adapt_patcher():
     import android_display
     import android_mods
     import android_patcher
+    from bunker_text import t
     for module in (android_patcher, android_display, android_calendar, android_mods):
         redirect = module.redirect
         def ios_redirect(redirect=redirect, **kwargs):
+            # In the language shown now (Bunker's catalogue): there is no Deploy on iPhone and iPad.
             if "message" in kwargs:
-                kwargs["message"] = kwargs["message"].replace("Close Pod Programs and tap Deploy.", "Close Pod Programs, then restart the game.")
+                kwargs["message"] = kwargs["message"].replace(t("pods.runtime.deploy"), t("pods.runtime.restart_ios"))
             return redirect(**kwargs)
         module.redirect = ios_redirect
     # Texture size goes to Unity on the game's command line, which only Android's launcher sets.
@@ -135,12 +137,27 @@ def _prepare(data_root, asset_root, tools_root, original_master):
     android_runtime.prepare_data()
 
 
+def layer_game_data(data_root, asset_root, tools_root, original_master):
+    """After the launcher imported master data by itself (LunarLauncher.m): the game data with its layers (Mods ›
+    Challenges, the language pack's texts), as Pod Programs would build it. True when it built them."""
+    _prepare(data_root, asset_root, tools_root, original_master)
+    import android_challenges
+    return android_challenges.reapply_texts()
+
+
 def update_data(data_root, asset_root, tools_root, original_master, version):
     """Before the server starts after an update (LunarLauncher.m): the game data
     for this build, the calendar's or a preset's (android_patcher.update_for)."""
     _prepare(data_root, asset_root, tools_root, original_master)
+    android_runtime.refresh_language()
     import android_patcher
-    return android_patcher.update_for(version)
+    updated = android_patcher.update_for(version)  # a preset or calendar rebuild brings the texts too
+    try:
+        import android_challenges
+        android_challenges.reapply_texts()  # a revised shipped pack's game data texts
+    except Exception:  # noqa: BLE001 — the update stands; Pod Programs › Language can try again
+        android_runtime.log.exception("Game data texts not updated")
+    return updated
 
 
 def start(data_root, asset_root, tools_root, original_master):
@@ -176,7 +193,7 @@ def start(data_root, asset_root, tools_root, original_master):
             break
         time.sleep(.02)
     sock.close()
-    raise RuntimeError("Tools could not start")
+    raise RuntimeError("It didn't start. Try again.")
 
 
 def _close_game():
@@ -245,7 +262,7 @@ def stop():
     if _thread:
         _thread.join(120)
         if _thread.is_alive():
-            raise RuntimeError("An editor is still finishing. Try closing Tools again.")
+            raise RuntimeError("An editor is still saving. Close Pod Programs again.")
     _server = _thread = None
     _state.clear()
 

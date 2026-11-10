@@ -1,30 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Story</p>
-<h1>Story</h1>
-<nav class="seg" aria-label="Story type">
-  <a href="/story?tab=main"{% if tab == "main" %} class="on"{% endif %}>Main</a>
-  <a href="/story?tab=sub"{% if tab == "sub" %} class="on"{% endif %}>Scenes</a>
-  <a href="/story?tab=side"{% if tab == "side" %} class="on"{% endif %}>Side</a>
-  <a href="/story?tab=recollections"{% if tab == "recollections" %} class="on"{% endif %}>Library</a>
+<h1>{{ t("archive.menu.story") }}</h1>
+<nav class="seg" aria-label="{{ t("archive.story.type_label") }}">
+  <a href="/story?tab=main"{% if tab == "main" %} class="on"{% endif %}>{{ t("archive.story.tab_main") }}</a>
+  <a href="/story?tab=sub"{% if tab == "sub" %} class="on"{% endif %}>{{ t("archive.story.tab_scenes") }}</a>
+  <a href="/story?tab=side"{% if tab == "side" %} class="on"{% endif %}>{{ t("archive.story.tab_side") }}</a>
+  <a href="/story?tab=recollections"{% if tab == "recollections" %} class="on"{% endif %}>{{ t("archive.story.tab_library") }}</a>
 </nav>
 {% if tab == "main" %}
   {% for season in seasons %}
-  <h2 class="bracket-header">Season {{ season.season }} · {{ season.title }}</h2>
+  <h2 class="bracket-header">{{ t("archive.story.season_named", n=season.season, title=season.title) }}</h2>
   <div class="tool-grid">
     {% for c in season.chapters %}
     <a href="/story/main/{{ season.season }}/{{ c.chapter }}">{{ c.number }}
-      <span>{% if c.title and c.title != c.number %}{{ c.title }} · {% endif %}{{ count(c.scenes, "scene") }} · {{ count(c.lines, "line") }}{% if c.preview and not c.title %} · {{ c.preview|quoted }}{% endif %}</span></a>
+      <span>{% if c.title and c.title != c.number %}{{ c.title }} · {% endif %}{{ t_count("archive.story.scene_count", c.scenes) }} · {{ t_count("archive.story.line_count", c.lines) }}{% if c.preview and not c.title %} · {{ c.preview|quoted }}{% endif %}</span></a>
     {% endfor %}
   </div>
   {% endfor %}
 {% elif tab == "recollections" %}
   {% for section in library %}
   <details class="panel fold"{% if loop.first %} open{% endif %}>
-    <summary>{{ section.name }}&nbsp;<span class="note">· {{ count(section.headings|length, section.unit) }}</span></summary>
+    <summary>{{ section.name }}&nbsp;<span class="note">· {{ section.count }}</span></summary>
     {% for heading in section.headings %}
     <details class="fold inner">
-      <summary>{{ heading.name or "Other" }}</summary>
+      <summary>{{ heading.name or t("archive.story.other") }}</summary>
       {% for item in heading["items"] %}
       <article class="record">
         {% if images and item.art %}<a class="art library-art" href="/image?path={{ item.art|urlencode }}"><img src="{{ img("view", item.art) }}" alt="" loading="lazy"></a>{% endif %}
@@ -42,7 +41,7 @@
   <div class="tool-grid">
     {% for item in g["items"] %}
     <a href="/story/{{ g.kind }}/{{ item.grp }}">{{ item.title or item.grp|upper }}
-      <span>{% if item.season %}Season {{ item.season }} · {% endif %}{{ count(item.scenes, "scene") }}{% if item.preview %} · {{ item.preview|quoted }}{% endif %}</span></a>
+      <span>{% if item.season %}{{ t("archive.story.season", n=item.season) }} · {% endif %}{{ t_count("archive.story.scene_count", item.scenes) }}{% if item.preview %} · {{ item.preview|quoted }}{% endif %}</span></a>
     {% endfor %}
   </div>
   {% endif %}{% endfor %}

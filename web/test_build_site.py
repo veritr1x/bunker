@@ -65,6 +65,21 @@ class SiteFilesTest(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+class FontsTest(unittest.TestCase):
+    def test_fonts_are_published(self):
+        # game_fonts.py reads fonts/noto/ next to the repo's other files (/repo in the browser).
+        published = set(build_site.PYTHON)
+        self.assertIn("android/tools/game_fonts.py", published)
+        noto = sorted(p.relative_to(build_site.ROOT).as_posix() for p in (build_site.ROOT / "fonts/noto").iterdir())
+        self.assertIn("fonts/noto/OFL.txt", noto)
+        self.assertEqual([p for p in noto if p not in published], [])
+
+    def test_worker_loads_fonttools(self):
+        worker = (build_site.ROOT / "web/worker.js").read_text()
+        load = next(line for line in worker.splitlines() if "loadPackage(" in line)
+        self.assertIn('"fonttools"', load)
+
+
 class WorkerFetchTest(unittest.TestCase):
     def test_worker_revalidates_what_it_downloads(self):
         # A release must not run with Python files or bundles a browser cached from the last one.

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"lunar-tear/server/internal/missions"
 	"lunar-tear/server/internal/model"
@@ -226,19 +227,18 @@ func isLetter(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 // wordIndex finds w in s as a whole word, ignoring case; with prefix, as the
 // start of a word.
 func wordIndex(s, w string, prefix bool) int {
-	ls, lw := strings.ToLower(s), strings.ToLower(w)
-	for from := 0; ; {
-		i := strings.Index(ls[from:], lw)
-		if i < 0 {
-			return -1
+	// Compared in place, ignoring case: lowercasing the story first would move the positions
+	// wherever a letter changes length when lowercased (Turkish İ, Ⱥ).
+	for i := 0; i+len(w) <= len(s); i++ {
+		if !utf8.RuneStart(s[i]) || !strings.EqualFold(s[i:i+len(w)], w) {
+			continue
 		}
-		i += from
-		end := i + len(lw)
+		end := i + len(w)
 		if (i == 0 || !isLetter(s[i-1])) && (prefix || end == len(s) || !isLetter(s[end])) {
 			return i
 		}
-		from = i + 1
 	}
+	return -1
 }
 
 type panelRewardJSON struct {

@@ -194,6 +194,9 @@ class Page(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text[:500])
         self.assertIn("Story Jump", r.text)
         self.assertIn("Jump to start", r.text)
+        # counts take the forms the language uses (Intl.PluralRules), not a one/other pair
+        self.assertIn("new Intl.PluralRules(", r.text)
+        self.assertIn('gems: {"one": "{n} gem", "other": "{n} gems"}', r.text)
 
     def test_story_opens_the_player_in_use(self):
         from fastapi import FastAPI

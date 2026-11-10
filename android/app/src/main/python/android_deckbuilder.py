@@ -24,6 +24,8 @@ import android_runtime as runtime
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 ARENA = 2
 ARENA_TABLE_SIZE = 300     # decks in the Arena deck table
 EFFECTS = ("compromise", "cleanse", "revive", "provoke", "dauntless", "indomitable", "from_start")
@@ -41,7 +43,7 @@ class StageNotReady(Exception):
     server for it, as building loads master data the server reads)."""
 
     def __init__(self, extra=()):
-        super().__init__("The Deck Builder stage is not ready")
+        super().__init__(bunker_text.t("pods.decks.error_stage_not_ready"))
         self.extra = tuple(extra)
 
 
@@ -130,7 +132,7 @@ class Session:
         out = []
         for i, (c, e) in enumerate(zip(r.lineup, r.elements)):
             spec = r.equipped.specs[i]
-            out.append({"id": c, "name": self.tables.costume_name(c), "element": e, "slot": "LMR"[i], "new": bool(spec and spec.costume.uuid in new
+            out.append({"id": c, "name": self.tables.costume_name(c), "element": e, "slot": _slot(i, short=True), "new": bool(spec and spec.costume.uuid in new
                                                                                                           and self.base.pick("costume", costume_id=c) is None)})
         return out
 
@@ -147,12 +149,13 @@ class Session:
         inv = model.Inventory(self.base, self.tables)
         labels = {(s.deck_type, s.number): s.label for s in model.slots(self.base, self.tables)}
         return [{"costume_id": x.costume_id, "name": self.tables.costume_name(x.costume_id), "field": x.field, "current": x.current,
-                 "target": x.target, "used_in": [labels.get(u, f"Deck {u[1]}") for u in x.used_in]}
+                 "target": x.target, "used_in": [labels.get(u) or bunker_text.t("pods.decks.deck_n", n=u[1]) for u in x.used_in]}
                 for x in model.raises_needed(specs, self.base, self.stage, inv)]
 
     def characters(self, deck, equipped, elements, lines):
         """Each character of a deck with its pieces, as the deck view lists them."""
         from deckbuilder import power
+        from deckbuilder.text import shown
         forces = [p.total for p in power.deck_power(deck, self.tables).characters]
         chars = []
         for i, c in enumerate(deck.characters()):
@@ -162,23 +165,24 @@ class Session:
             reasons = equipped.reasons
             icon = lambda kind, pid: f"/decks/icon/{kind}/{pid}.png"
             # Each piece as the game's notices show it: its icon and name; why it is there, behind an ⓘ.
-            pieces = [{"kind": "MAIN", "label": "Main weapon", "name": self.tables.name("weapons", c.main_weapon.id) if c.main_weapon else "—",
+            pieces = [{"kind": "MAIN", "label": bunker_text.t("pods.decks.main_weapon"), "name": self.tables.name("weapons", c.main_weapon.id) if c.main_weapon else "—",
                        "icon": icon("weapon", c.main_weapon.id) if c.main_weapon else None,
-                       "new": bool(spec.main_weapon and spec.main_weapon.source == "stage"), "why": reasons.get((c.costume.id, "main_weapon"), "")}]
-            pieces += [{"kind": "SUB", "label": "Sub weapon", "name": self.tables.name("weapons", w.id), "icon": icon("weapon", w.id),
+                       "new": bool(spec.main_weapon and spec.main_weapon.source == "stage"), "why": shown(reasons.get((c.costume.id, "main_weapon"), ""))}]
+            pieces += [{"kind": "SUB", "label": bunker_text.t("pods.decks.sub_weapon"), "name": self.tables.name("weapons", w.id), "icon": icon("weapon", w.id),
                         "new": s.source == "stage", "why": ""} for w, s in zip(c.subs, spec.subs)]
             if c.companion:
-                pieces.append({"kind": "COMP", "label": "Companion", "name": self.tables.name("companions", c.companion.id),
+                pieces.append({"kind": "COMP", "label": bunker_text.t("pods.decks.companion"), "name": self.tables.name("companions", c.companion.id),
                                "icon": icon("companion", c.companion.id), "new": spec.companion.source == "stage", "why": ""})
             if c.memoirs:
-                pieces.append({"kind": "MEM", "label": f"Memoirs ×{len(c.memoirs)}", "name": self.tables.memoir_set_name(c.memoirs[0].id) or "Memoirs",
+                pieces.append({"kind": "MEM", "label": bunker_text.t("pods.decks.memoirs_n", n=len(c.memoirs)),
+                               "name": self.tables.memoir_set_name(c.memoirs[0].id) or bunker_text.t("pods.decks.memoirs"),
                                "icon": icon("memoir", c.memoirs[0].id), "new": any(m.source == "stage" for m in spec.memoirs),
-                               "why": reasons.get((c.costume.id, "memoirs"), "")})
+                               "why": shown(reasons.get((c.costume.id, "memoirs"), ""))})
             if c.debris:
-                pieces.append({"kind": "DEB", "label": "Debris", "name": self.tables.name("thoughts", c.debris.id).removeprefix("Debris: "),
+                pieces.append({"kind": "DEB", "label": bunker_text.t("pods.decks.debris"), "name": self.tables.name("thoughts", c.debris.id).removeprefix("Debris: "),
                                "icon": icon("debris", c.debris.id),
                                "new": spec.debris.source == "stage" and self.base.pick("debris", thought_id=c.debris.id) is None, "why": ""})
-            chars.append({"slot": ("Left", "Middle", "Right")[i], "costume_id": c.costume.id,
+            chars.append({"slot": _slot(i), "costume_id": c.costume.id,
                           "name": self.tables.costume_name(c.costume.id), "line": lines[i] if lines else "",
                           "element": elements[i], "force": forces[i], "pieces": pieces})
         return chars
@@ -233,11 +237,12 @@ class Session:
     def loadout_detail(self, lo):
         from deckbuilder import bighunt
         b = bighunt.boss(self.tables, lo.boss_id)
-        decks = [{"phase": d.phase, "number": 100 + d.phase, "title": d.name, "strategy": d.strategy, "damage": d.damage,
+        from deckbuilder.text import shown
+        decks = [{"phase": d.phase, "number": 100 + d.phase, "title": d.name, "strategy": shown(d.strategy), "damage": d.damage,
                   "knockdowns": d.knockdowns, "standing": d.standing, "force": d.force,
                   "characters": self.characters(d.deck, d.equipped, d.elements, None)} for d in lo.decks]
         specs = [s for d in lo.decks for s in d.equipped.specs]
-        return {"kind": "subjugation", "title": b.name if b else "Subjugation", "difficulty": lo.difficulty, "decks": decks,
+        return {"kind": "subjugation", "title": b.name if b else bunker_text.t("pods.decks.subjugation"), "difficulty": lo.difficulty, "decks": decks,
                 "raises": self.raises(specs), "added": sum(self.gen.added(d.equipped.to_add) for d in lo.decks)}
 
     def loadout_force(self, lo, raises):
@@ -287,7 +292,7 @@ class Session:
     def players(self):
         try:
             from web.services import userdata_service
-            return [(u.user_id, u.name or f"Player {u.user_id}") for u in userdata_service.list_users()]
+            return [(u.user_id, u.name or bunker_text.t("common.player_n", id=u.user_id)) for u in userdata_service.list_users()]
         except Exception:
             return []
 
@@ -559,17 +564,28 @@ def criteria_from(s: Session | None, q: dict):
                              min_stats=mins, sort=q.get("sort") or "match")
 
 
+def _slot(i, short=False):
+    """A deck position's name (Left, Middle, Right; L, M, R short), in the chosen language."""
+    t = bunker_text.t
+    if short:
+        return (t("pods.decks.slot_short.left"), t("pods.decks.slot_short.middle"), t("pods.decks.slot_short.right"))[i]
+    return (t("pods.decks.slot.left"), t("pods.decks.slot.middle"), t("pods.decks.slot.right"))[i]
+
+
 def card(s, r) -> dict:
+    # Kept results hold their words as deckbuilder.text.Later: made here, in the language chosen now.
     from deckbuilder import generate
+    from deckbuilder.text import shown
     return {"key": result_key(r), "rank": r.rank, "title": r.name, "win_pct": round(100 * r.win_rate), "tiles": s.tiles(r),
-            "strategy": generate.STRATEGY_NAME.get(r.strategy, ""), "expert": bool(r.expert),
-            "tags": r.tags[:3], "why": r.why, "force": r.force, "to_add": r.to_add, "variants": len(r.variants),
+            "strategy": shown(generate.STRATEGY_NAME.get(r.strategy, "")), "expert": bool(r.expert),
+            "tags": [shown(x) for x in r.tags[:3]], "why": shown(r.why), "force": r.force, "to_add": r.to_add, "variants": len(r.variants),
             "data_pick": {"beats": r.data_pick.beats, "by_pct": round(100 * r.data_pick.by)} if r.data_pick else None}
 
 
 def loadout_card(s, lo) -> dict:
+    from deckbuilder.text import shown
     return {"key": lo.key, "rank": lo.rank, "kind": "subjugation", "damage": lo.damage, "force": lo.force,
-            "decks": [{"phase": d.phase, "title": d.name, "strategy": d.strategy, "damage": d.damage, "knockdowns": d.knockdowns,
+            "decks": [{"phase": d.phase, "title": d.name, "strategy": shown(d.strategy), "damage": d.damage, "knockdowns": d.knockdowns,
                        "tiles": s.tiles(d)} for d in lo.decks]}
 
 
@@ -719,7 +735,7 @@ def detail(key: str, user: int = 0):
         return s.loadout_detail(lo)
     r = s.find(key)
     if r is None:
-        return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
+        return JSONResponse({"ok": False, "error": bunker_text.t("pods.decks.error_deck_gone")}, status_code=404)
     return s.detail(r)
 
 
@@ -736,7 +752,7 @@ def rescore(request: Request, key: str, user: int = 0):
         return {"force": sum(s.loadout_force(lo, raises)), "damage": lo.damage}
     r = s.find(key)
     if r is None:
-        return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
+        return JSONResponse({"ok": False, "error": bunker_text.t("pods.decks.error_deck_gone")}, status_code=404)
     return s.rescore(r, raises)
 
 
@@ -759,7 +775,7 @@ def write(payload: dict = Body(...)):
     try:
         user_id = _user(payload.get("user"))
     except (TypeError, ValueError):
-        return refuse("Unknown player")
+        return refuse(bunker_text.t("pods.decks.error_unknown_player"))
     try:
         s = session(user_id)
     except StageNotReady as exc:
@@ -769,23 +785,23 @@ def write(payload: dict = Body(...)):
         return _write_loadout(s, user_id, lo, payload.get("raise") or [])
     r = s.find(str(payload.get("key") or ""))
     if r is None:
-        return JSONResponse({"ok": False, "error": "That deck is no longer listed"}, status_code=404)
+        return JSONResponse({"ok": False, "error": bunker_text.t("pods.decks.error_deck_gone")}, status_code=404)
     from deckbuilder.model import ARENA_DECKS, QUEST, QUEST_DECKS
     slots = payload.get("slots") or []
     if not slots:
-        return refuse("Choose a deck slot to write to")
+        return refuse(bunker_text.t("pods.decks.error_choose_slot"))
     counts = {ARENA: ARENA_DECKS, QUEST: QUEST_DECKS}
     targets = []
     for x in slots:      # an Arena deck number, or {deck_type, number} (Arena or Loadout)
         t, n = (ARENA, x) if isinstance(x, int) and not isinstance(x, bool) else \
             ((x.get("deck_type"), x.get("number")) if isinstance(x, dict) else (None, None))
         if t not in counts or not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= counts[t]:
-            return refuse(f"Deck slots are Arena or Loadout decks 1 to {ARENA_DECKS}")
+            return refuse(bunker_text.t("pods.decks.error_slots", n=ARENA_DECKS))
         if (t, n) not in targets:
             targets.append((t, n))
     raises = payload.get("raise") or []
     if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.raisable(r):
-        return refuse("Only a costume of this deck that is below the staged level can be raised")
+        return refuse(bunker_text.t("pods.decks.error_raise_deck"))
     raises = sorted(set(raises))
     force = s.force(r, raises)
     deck = {"slots": [{"deck_type": t, "number": n, "power": force} for t, n in targets],
@@ -809,7 +825,7 @@ def _write_loadout(s, user_id, lo, raises):
     """A Subjugation loadout: one Save Data snapshot, then each deck to its Subjugation deck, its own raises only."""
     refuse = lambda message: JSONResponse({"ok": False, "error": message}, status_code=400)
     if not all(isinstance(x, int) for x in raises) or not set(raises) <= s.loadout_raisable(lo):
-        return refuse("Only a costume of this loadout that is below the staged level can be raised")
+        return refuse(bunker_text.t("pods.decks.error_raise_loadout"))
     raises = sorted(set(raises))
     forces = s.loadout_force(lo, raises)
     try:

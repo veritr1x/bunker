@@ -6,7 +6,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
-import android.text.format.Formatter;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -52,7 +51,7 @@ final class FilesStore {
         try(FileOutputStream out=new FileOutputStream(tmp)){out.write(text);out.getFD().sync();}
         move(tmp,f);
     }
-    static void mkdir(File f) throws IOException { if (!f.isDirectory() && !f.mkdirs()) throw new IOException("Cannot create " + f.getName()); }
+    static void mkdir(File f) throws IOException { if (!f.isDirectory() && !f.mkdirs()) throw new IOException(Said.text("launcher.files.cannot_create", "name", f.getName())); }
     static void move(File from, File to) throws IOException {
         Files.move(from.toPath(), to.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
@@ -62,9 +61,9 @@ final class FilesStore {
         File out = master(c); mkdir(out.getParentFile());
         File temp = new File(out.getParentFile(), ".master-import");
         try {
-            copy(c, uri, temp, progress, "Importing master data");
+            copy(c, uri, temp, progress, Said.text("launcher.files.importing_master"));
             String error = NativeBridge.checkMaster(temp.getAbsolutePath(), displayName(c, uri));
-            if (error == null || !error.isEmpty()) throw new IOException(error == null ? "Lunar Tear didn't respond" : error);
+            if (error == null || !error.isEmpty()) throw new IOException(error == null ? Said.text("launcher.error.no_answer") : error);
             move(temp, out);
         } finally { temp.delete(); }
     }
@@ -132,21 +131,24 @@ final class FilesStore {
             return shown;
         }
     }
-    // "8.2 GB of 20.9 GB · 39% · about 4 min left"
-    static String progressText(Context c, String verb, long bytes, long totalBytes, double fraction, double secondsLeft) {
-        String line = verb + " " + Formatter.formatFileSize(c, bytes) + " of " + Formatter.formatFileSize(c, totalBytes) + " · " + (int) (fraction * 100) + "%";
-        if (secondsLeft < 0) return line + " · estimating time left…";
+    // "Copying 8.2 GB of 20.9 GB · 39% · about 4 min left", as Said references (shown later, by the launcher).
+    static String progressText(Context c, boolean unpacking, long bytes, long totalBytes, double fraction, double secondsLeft) {
+        String done = Texts.size(c, bytes), total = Texts.size(c, totalBytes);
+        String line = (unpacking ? Said.text("launcher.files.unpacking", "done", done, "total", total)
+                                 : Said.text("launcher.files.copying", "done", done, "total", total))
+            + " · " + Said.text("launcher.progress.percent", "n", Texts.number(c, (int) (fraction * 100)));
+        if (secondsLeft < 0) return line + " · " + Said.text("launcher.files.estimating");
         long seconds = Math.round(secondsLeft);
-        String left = seconds < 60 ? "under a minute left"
-            : seconds < 3600 ? "about " + (seconds + 30) / 60 + " min left"
-            : "about " + seconds / 3600 + " h " + (seconds % 3600 + 30) / 60 + " min left";
+        String left = seconds < 60 ? Said.text("launcher.files.under_a_minute")
+            : seconds < 3600 ? Said.count("launcher.files.minutes_left", (seconds + 30) / 60)
+            : Said.text("launcher.files.hours_left", "hours", Texts.number(c, seconds / 3600), "minutes", Texts.number(c, (seconds % 3600 + 30) / 60));
         return line + " · " + left;
     }
     static List<Doc> children(Context c, Uri tree, String id) throws IOException {
         List<Doc> docs = new ArrayList<>();
         Uri uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, id);
         try (Cursor cur = c.getContentResolver().query(uri, new String[]{"document_id", "_display_name", "mime_type", "_size"}, null, null, null)) {
-            if (cur == null) throw new IOException("Cannot read the selected folder");
+            if (cur == null) throw new IOException(Said.text("launcher.files.cannot_read_folder"));
             while (cur.moveToNext()) docs.add(new Doc(cur.getString(0),cur.getString(1),cur.getString(2),cur.isNull(3)?0:cur.getLong(3)));
         }
         return docs;
@@ -160,7 +162,7 @@ final class FilesStore {
             // Only revision 0 is used. The raw dump's other revisions are 28 GB
             // of old catalogs, so they are skipped rather than copied.
             String revision = findRevisionZero(c, tree, DocumentsContract.getTreeDocumentId(tree));
-            if (revision == null) throw new IOException("Choose the extracted game files: the folder that contains revisions/0");
+            if (revision == null) throw new IOException(Said.text("launcher.files.choose_revision_zero"));
             File revisionDir = new File(stage, "revisions/0");
             mkdir(revisionDir);
             // List everything first, so the copy can show how much is left.
@@ -182,7 +184,7 @@ final class FilesStore {
         File stage = new File(base, "assets.importing");
         delete(stage); mkdir(stage);
         try (android.os.ParcelFileDescriptor descriptor = c.getContentResolver().openFileDescriptor(uri, "r")) {
-            if (descriptor == null) throw new IOException("Cannot open the selected archive");
+            if (descriptor == null) throw new IOException(Said.text("launcher.files.cannot_open_archive"));
             // Native code reads the picked document through this descriptor.
             // Reopening it as /proc/self/fd/N is refused on Android 17.
             int fd = descriptor.getFd();
@@ -191,7 +193,7 @@ final class FilesStore {
             worker.start();
             Estimate estimate = null;
             progress.fraction(-1);
-            progress.update("Opening the archive…");
+            progress.update(Said.text("launcher.files.opening_archive"));
             while (worker.isAlive()) {
                 worker.join(500);
                 if (progress.cancelled()) NativeBridge.cancelImport();
@@ -202,11 +204,11 @@ final class FilesStore {
                 estimate.totalFiles = state.optLong("totalFiles"); estimate.totalBytes = total;
                 double left = estimate.update(files, done), fraction = estimate.fraction(files, done, left);
                 progress.fraction((int) (fraction * 1000));
-                progress.update(progressText(c, "Unpacking", done, total, fraction, left));
+                progress.update(progressText(c, true, done, total, fraction, left));
             }
-            if (result[0] == null || !result[0].isEmpty()) throw new IOException(result[0] == null ? "Cannot read the archive" : result[0]);
+            if (result[0] == null || !result[0].isEmpty()) throw new IOException(result[0] == null ? Said.text("launcher.files.cannot_read_archive") : result[0]);
             progress.fraction(-1);
-            progress.update("Finishing import…");
+            progress.update(Said.text("launcher.files.finishing"));
             install(c, stage, progress);
         } finally { delete(stage); }
     }
@@ -215,7 +217,7 @@ final class FilesStore {
         File old = new File(root(c), "assets.previous");
         File index = new File(stage,"revisions/0/android/list.bin");
         if (index.length()==0 && new File(stage,"revisions/0/list.bin").length()==0)
-            throw new IOException("Choose the extracted game files: revisions/0 has no list.bin");
+            throw new IOException(Said.text("launcher.files.no_list"));
         List<File> infos = new ArrayList<>();
         collect(new File(stage, "revisions/0"), "info.json", infos);
         for (File info : infos) checkSelfContained(info);
@@ -228,7 +230,7 @@ final class FilesStore {
         File calendarNext = new File(master(c).getParentFile(), "calendar-next.bin");
         File stagedNext = new File(stage, "release/calendar-next.bin");
         if (!stagedNext.exists() && calendarNext.isFile()) Files.copy(calendarNext.toPath(), stagedNext.toPath());
-        if (progress.cancelled()) throw new IOException("Import cancelled");
+        if (progress.cancelled()) throw new IOException(Said.text("launcher.files.cancelled"));
         delete(old);
         if (assets(c).exists()) move(assets(c),old);
         try { move(stage,assets(c)); } catch(Exception e) { if(old.exists()) move(old,assets(c)); throw e; }
@@ -272,7 +274,7 @@ final class FilesStore {
                 do { b = in.read(); } while (b == ' ' || b == ':' || b == '"');
                 int after = in.read();
                 if (b != '0' || (after >= '0' && after <= '9'))
-                    throw new IOException("These game files use other revisions. Prepare them on a computer with scripts/prepare_assets.py");
+                    throw new IOException(Said.text("launcher.files.other_revisions"));
             }
         }
     }
@@ -282,17 +284,17 @@ final class FilesStore {
     }
     /** Lists the folder into entries (null uri for folders) and returns the total size in bytes. */
     static long scan(Context c, Uri tree, String id, File dest, List<Entry> entries, Progress progress, int depth, long total) throws Exception {
-        if (depth > 32) throw new IOException("Folder nesting is too deep");
+        if (depth > 32) throw new IOException(Said.text("launcher.files.too_deep"));
         for (Doc d : children(c,tree,id)) {
-            if (progress.cancelled()) throw new IOException("Import cancelled");
-            if (d.name==null || d.name.equals(".") || d.name.equals("..") || d.name.contains("/") || d.name.contains("\\")) throw new IOException("Invalid file name in source");
+            if (progress.cancelled()) throw new IOException(Said.text("launcher.files.cancelled"));
+            if (d.name==null || d.name.equals(".") || d.name.equals("..") || d.name.contains("/") || d.name.contains("\\")) throw new IOException(Said.text("launcher.files.invalid_name"));
             // This companion serves the Android client only.
             if (d.directory() && d.name.equals("ios") && dest.getParentFile()!=null && dest.getParentFile().getName().equals("revisions")) continue;
             File out = new File(dest,d.name);
             if (d.directory()) { entries.add(new Entry(null,out,0)); total = scan(c,tree,d.id,out,entries,progress,depth+1,total); }
             else {
                 entries.add(new Entry(DocumentsContract.buildDocumentUriUsingTree(tree,d.id),out,d.size)); total += d.size;
-                if (entries.size() % 500 == 0) progress.update("Reading the folder… " + entries.size() + " files · " + Formatter.formatFileSize(c,total));
+                if (entries.size() % 500 == 0) progress.update(Said.count("launcher.files.reading", entries.size(), "size", Texts.size(c, total)));
             }
         }
         return total;
@@ -303,13 +305,13 @@ final class FilesStore {
         Estimate estimate = new Estimate(files, total);
         long reported = 0, done = 0, copied = 0;
         for (Entry e : entries) {
-            if (progress.cancelled()) throw new IOException("Import cancelled");
+            if (progress.cancelled()) throw new IOException(Said.text("launcher.files.cancelled"));
             if (e.uri == null) { mkdir(e.out); continue; }
             try (InputStream in = c.getContentResolver().openInputStream(e.uri); FileOutputStream stream = new FileOutputStream(e.out)) {
-                if (in==null) throw new IOException("Cannot open " + e.out.getName());
+                if (in==null) throw new IOException(Said.text("launcher.files.cannot_open", "name", e.out.getName()));
                 byte[] buffer = new byte[262144]; int n;
                 while ((n=in.read(buffer))!=-1) {
-                    if (progress.cancelled()) throw new IOException("Import cancelled");
+                    if (progress.cancelled()) throw new IOException(Said.text("launcher.files.cancelled"));
                     stream.write(buffer,0,n); done+=n;
                 }
                 stream.getFD().sync();
@@ -320,21 +322,21 @@ final class FilesStore {
                 reported = now;
                 double left = estimate.update(copied, done), fraction = estimate.fraction(copied, done, left);
                 progress.fraction((int) (fraction * 1000));
-                progress.update(progressText(c, "Copying", done, total, fraction, left));
+                progress.update(progressText(c, false, done, total, fraction, left));
             }
         }
         progress.fraction(-1);
-        progress.update("Finishing import…");
+        progress.update(Said.text("launcher.files.finishing"));
     }
     static void copy(Context c, Uri uri, File out, Progress progress, String label) throws Exception {
         progress.update(label);
         try (InputStream in = c.getContentResolver().openInputStream(uri); FileOutputStream stream = new FileOutputStream(out)) {
-            if (in==null) throw new IOException("Cannot open source file");
+            if (in==null) throw new IOException(Said.text("launcher.files.cannot_open_source"));
             byte[] buffer = new byte[262144]; int n; long total=0;
             while ((n=in.read(buffer))!=-1) {
-                if (progress.cancelled()) throw new IOException("Import cancelled");
+                if (progress.cancelled()) throw new IOException(Said.text("launcher.files.cancelled"));
                 stream.write(buffer,0,n); total+=n;
-                if (total % (8L*1024*1024)<buffer.length) progress.update(label + " · " + (total/1024/1024) + " MB");
+                if (total % (8L*1024*1024)<buffer.length) progress.update(label + " · " + Texts.size(c, total));
             }
             stream.getFD().sync();
         }
@@ -344,19 +346,19 @@ final class FilesStore {
         File temp = new File(c.getCacheDir(), "save-import.tmp");
         try {
             try (InputStream in = c.getContentResolver().openInputStream(source); FileOutputStream out = new FileOutputStream(temp)) {
-                if (in == null) throw new IOException("Cannot open the selected file");
+                if (in == null) throw new IOException(Said.text("launcher.files.cannot_open_file"));
                 byte[] buffer = new byte[262144]; int n;
                 while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
             }
             String error = NativeBridge.importSaves(data(c).getAbsolutePath(), temp.getAbsolutePath());
-            if (error == null || !error.isEmpty()) throw new IOException(error == null ? "Cannot import the save" : error);
+            if (error == null || !error.isEmpty()) throw new IOException(error == null ? Said.text("launcher.files.cannot_import_save") : error);
         } finally { temp.delete(); }
     }
     static void backup(Context c, Uri target) throws Exception {
         String error=NativeBridge.prepareBackup(data(c).getAbsolutePath());
-        if(error==null||!error.isEmpty())throw new IOException(error==null?"Cannot prepare save backup":error);
+        if(error==null||!error.isEmpty())throw new IOException(error==null?Said.text("launcher.files.cannot_prepare_backup"):error);
         try (OutputStream raw=c.getContentResolver().openOutputStream(target,"wt")) {
-            if(raw==null) throw new IOException("Cannot open backup destination");
+            if(raw==null) throw new IOException(Said.text("launcher.files.cannot_open_destination"));
             try (ZipOutputStream zip=new ZipOutputStream(raw)) {
                 for(String name:new String[]{"game.db","auth.db","auth.key"}) {
                     File f=new File(data(c),name);
@@ -366,7 +368,7 @@ final class FilesStore {
                     zip.closeEntry();
                 }
                 zip.putNextEntry(new ZipEntry("README.txt"));
-                zip.write("Lunar Tear local saves. Keep game.db, auth.db and auth.key together. Contains account credentials; keep this backup private.\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.write((Texts.t(c, "launcher.files.backup_readme") + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
         }
@@ -393,24 +395,24 @@ final class FilesStore {
      * stay in place; the launcher asks for it again if it disappears.
      */
     static void linkAssets(Context c, Uri tree, Progress progress) throws Exception {
-        if (!canUseInPlace()) throw new IOException("Allow All files access for NieR in Settings to use a folder in place, or copy it instead.");
+        if (!canUseInPlace()) throw new IOException(Said.text("launcher.files.allow_all_files"));
         if (!"com.android.externalstorage.documents".equals(tree.getAuthority()))
-            throw new IOException("Use in place works with folders on this phone's storage or SD card. Copy the folder instead.");
+            throw new IOException(Said.text("launcher.files.only_local"));
         String revision = findRevisionZero(c, tree, DocumentsContract.getTreeDocumentId(tree));
-        if (revision == null) throw new IOException("Choose the extracted game files: the folder that contains revisions/0");
+        if (revision == null) throw new IOException(Said.text("launcher.files.choose_revision_zero"));
         // Document IDs look like "primary:Download/dump/revisions/0" or "1234-ABCD:dump/revisions/0".
         int colon = revision.indexOf(':');
         String volume = revision.substring(0, colon), relative = revision.substring(colon + 1);
         File base = "primary".equalsIgnoreCase(volume) ? android.os.Environment.getExternalStorageDirectory() : new File("/storage", volume);
         File folder = new File(base, relative);
-        if (!folder.isDirectory() || folder.list() == null) throw new IOException("Cannot read " + folder + ". Allow All files access for NieR in Settings.");
+        if (!folder.isDirectory() || folder.list() == null) throw new IOException(Said.text("launcher.files.cannot_read_path", "folder", folder));
         File root = root(c); mkdir(root);
         recover(c);
         File stage = new File(root, "assets.importing");
         delete(stage); mkdir(new File(stage, "revisions"));
         try {
             progress.fraction(-1);
-            progress.update("Checking the folder…");
+            progress.update(Said.text("launcher.files.checking_folder"));
             Files.createSymbolicLink(new File(stage, "revisions/0").toPath(), folder.toPath());
             install(c, stage, progress);
         } finally { delete(stage); }

@@ -1,0 +1,51 @@
+{
+ "commit": "5bb28733cec313b63fbd415b574b5ae35c8aa8b8",
+ "ranges": [
+  [
+   256,
+   591
+  ],
+  [
+   768,
+   879
+  ],
+  [
+   880,
+   1023
+  ],
+  [
+   1024,
+   1327
+  ],
+  [
+   7680,
+   7935
+  ],
+  [
+   7936,
+   8191
+  ],
+  [
+   8208,
+   8231
+  ]
+ ],
+ "files": {
+  "NotoSans": {
+   "source": "https://raw.githubusercontent.com/google/fonts/5bb28733cec313b63fbd415b574b5ae35c8aa8b8/ofl/notosans/NotoSans[wdth,wght].ttf",
+   "sha256": "bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d"
+  },
+  "NotoSerif": {
+   "source": "https://raw.githubusercontent.com/google/fonts/5bb28733cec313b63fbd415b574b5ae35c8aa8b8/ofl/notoserif/NotoSerif[wdth,wght].ttf",
+   "sha256": "4d8e6761424656867019081a1a01336f3cb086982682698714054fc33f782713"
+  },
+  "NotoSansSC": {
+   "source": "https://raw.githubusercontent.com/google/fonts/5bb28733cec313b63fbd415b574b5ae35c8aa8b8/ofl/notosanssc/NotoSansSC[wght].ttf",
+   "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da"
+  },
+  "OFL.txt": {
+   "source": "https://raw.githubusercontent.com/google/fonts/5bb28733cec313b63fbd415b574b5ae35c8aa8b8/ofl/notosans/OFL.txt",
+   "sha256": "cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a"
+  }
+ }
+}

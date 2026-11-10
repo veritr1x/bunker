@@ -268,21 +268,58 @@ def active(settings):
     return settings.get("hardEnemies", 1) not in (0, 1) or bool(settings.get("weaknessOnly")) or bool(settings.get("slowSkills"))
 
 
-def transform(source, output, settings):
-    """Writes source's game data with the challenges in settings to output.
-    False, writing nothing, when no challenge is on."""
-    if not active(settings):
+def transform(source, output, settings, words=None):
+    """Writes source's game data with the challenges in settings and the language pack's texts (words: from the
+    active pack when None; android_master_text) to output. False, writing nothing, when neither applies."""
+    words = _words() if words is None else words
+    if not active(settings) and not words:
         return False
     import android_calendar as cal
+    import android_master_text
     toc, blob = cal.read_master(source)
     changed = {}
-    hard_enemies(toc, blob, changed, settings.get("hardEnemies", 1))
-    if settings.get("weaknessOnly"):
-        weakness_only(toc, blob, changed)
-    if settings.get("slowSkills"):
-        slow_skills(toc, blob, changed)
+    if active(settings):
+        hard_enemies(toc, blob, changed, settings.get("hardEnemies", 1))
+        if settings.get("weaknessOnly"):
+            weakness_only(toc, blob, changed)
+        if settings.get("slowSkills"):
+            slow_skills(toc, blob, changed)
+    android_master_text.apply(toc, blob, changed, words)
+    if not changed:
+        return False  # words for rows this game data lacks: it stays exactly as it is
     cal.write_master(toc, blob, changed, Path(output))
     return True
+
+
+_words_cache: tuple = (None, {})
+
+
+def _words():
+    """The active language pack's texts for the game data (android_master_text.texts): none without a pack, or
+    with one the server would refuse (bunker_language.read_pack), or that cannot be read. Never raises: a broken
+    pack must not stop the game data being built. Read again only when the file changed."""
+    global _words_cache
+    import json
+    import android_master_text
+    import bunker_language
+    from web import config
+    try:
+        path = bunker_language.for_config(config).active_path
+        if not path.is_file():
+            return {}
+        info = path.stat()
+        stamp = (str(path), info.st_size, info.st_mtime_ns)
+        if _words_cache[0] == stamp:
+            return _words_cache[1]
+        data = path.read_bytes()
+        bunker_language.read_pack(data)  # format, language, size: as the server reads it
+        words = android_master_text.texts(json.loads(data.decode("utf-8")))
+    except Exception as exc:  # noqa: BLE001 — any broken pack: no texts
+        import logging
+        logging.getLogger(__name__).warning("Language pack not used for the game data: %s", exc)
+        return {}
+    _words_cache = (stamp, words)
+    return words
 
 
 # --- Every game data the game loads -----------------------------------------
@@ -306,7 +343,8 @@ def _state_file():
 
 
 CHALLENGES = ("hardEnemies", "weaknessOnly", "slowSkills")
-NONE_APPLIED = {"hardEnemies": 1, "weaknessOnly": False, "slowSkills": False}
+# "texts": which language pack's texts are in the game data (android_master_text.fingerprint; "" for none)
+NONE_APPLIED = {"hardEnemies": 1, "weaknessOnly": False, "slowSkills": False, "texts": ""}
 
 
 def _state():
@@ -333,8 +371,11 @@ def applied_challenges():
     return {**NONE_APPLIED, **applied} if isinstance(applied, dict) else dict(NONE_APPLIED)
 
 
-def wanted(settings):
-    return {k: settings.get(k, NONE_APPLIED[k]) for k in CHALLENGES}
+def wanted(settings, words=None):
+    """What the game data should hold: the challenges in settings and the active language pack's texts."""
+    import android_master_text
+    words = _words() if words is None else words
+    return {**{k: settings.get(k, NONE_APPLIED[k]) for k in CHALLENGES}, "texts": android_master_text.fingerprint(words)}
 
 
 def _settings():
@@ -376,7 +417,7 @@ def unchallenged_master():
     return unchallenged(config.find_master_data_bin())
 
 
-def finish(path, settings=None):
+def finish(path, settings=None, words=None):
     """Puts the challenges that are on into a game data file in place (it must
     be unchallenged; a file this module challenged is first put back)."""
     import shutil
@@ -387,22 +428,49 @@ def finish(path, settings=None):
     if source:
         shutil.copyfile(source, path)
     settings = _settings() if settings is None else settings
-    if active(settings):
+    words = _words() if words is None else words
+    if active(settings) or words:  # the challenges, the language pack's texts, or both
         sha = runtime.fingerprint(path)
         keep = _folder() / f"unchallenged-{sha[:16]}.bin.e"
         shutil.copyfile(path, keep)
         pending = path.with_name(path.name + ".challenged")
-        transform(keep, pending, settings)
-        os.replace(pending, path)
-        copies[runtime.fingerprint(path)] = keep
+        if transform(keep, pending, settings, words):
+            os.replace(pending, path)
+            copies[runtime.fingerprint(path)] = keep
+        elif keep not in copies.values():
+            keep.unlink(missing_ok=True)  # nothing changed: no copy to keep
     _save_copies(copies)
 
 
+_reapplying = False  # reapply records what the game data holds once every file is built
+
+
 def on_activate(candidate):
-    """android_patcher.activate's first step: the candidate with the challenges."""
+    """android_patcher.activate's first step: the candidate with the challenges and the texts."""
+    import android_runtime as runtime
+    settings, words = _settings(), _words()
+    finish(candidate, settings, words)
+    if not _reapplying:
+        _save_copies(_copies(), {**wanted(settings, words), "master": runtime.fingerprint(candidate)})
+
+
+def reapply_texts():
+    """After the active language pack changed (Pod Programs › Language, a revised shipped pack): the game data
+    built again with its texts, when they differ from those in it. True when it did."""
+    from web import config
+    master = config.find_master_data_bin()
+    if not master or not master.is_file():
+        return False  # no game data yet: its texts come with it (android_patcher.activate)
+    import android_runtime as runtime
     settings = _settings()
-    finish(candidate, settings)
-    _save_copies(_copies(), wanted(settings))
+    want, applied = wanted(settings), applied_challenges()
+    # A master put in place outside Pod Programs (the launchers' master data import) has none of the layers.
+    imported = (active(settings) or want["texts"]) and applied.get("master") != runtime.fingerprint(master) \
+        and runtime.fingerprint(master) not in _copies()
+    if want["texts"] == applied["texts"] and not imported:
+        return False
+    reapply()
+    return True
 
 
 def after_activate():
@@ -417,16 +485,23 @@ def reapply():
     import android_calendar as cal
     import android_patcher as patcher
     import android_runtime as runtime
+    import bunker_text
     from web import config
+    global _reapplying
     active_label = runtime.read_json(patcher.folder() / "active.json")
     label = active_label.get("label") if isinstance(active_label, dict) else None
     candidate = patcher.folder() / "candidate.bin.e"
+    settings, words = _settings(), _words()
+    _reapplying = True
     try:
         shutil.copyfile(unchallenged_master(), candidate)
-        patcher.activate(candidate, label or "Imported master data")
+        patcher.activate(candidate, label or bunker_text.t("pods.gift.imported_master_data"))  # as android_gift
+        for extra in (cal.next_file(), cal.view_file()):
+            if extra.is_file() and extra != config.find_master_data_bin():
+                finish(extra, settings, words)
     finally:
+        _reapplying = False
         candidate.unlink(missing_ok=True)
-    for extra in (cal.next_file(), cal.view_file()):
-        if extra.is_file() and extra != config.find_master_data_bin():
-            finish(extra)
+    # Only now, every file built: a failure part-way leaves the old record, so the next try builds again.
+    _save_copies(_copies(), {**wanted(settings, words), "master": runtime.fingerprint(config.find_master_data_bin())})
     _prune(_copies())

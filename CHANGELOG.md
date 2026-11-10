@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-10 (after 1.10.5)
+
+### Original calendar
+- Daily missions from a loop's first week. The first daily set (missions
+  21-26) ran from launch, but the game data of those weeks dated it
+  2000-01-02 to 9999, which the calendar's history took for a placeholder:
+  weeks 1 to 7 had no daily missions, and from week 9 the set stayed open
+  for good, beside the sets that replaced it. It now runs from launch to 24
+  November 2021, when missions 31-36 take over. A calendar in use rebuilds
+  its game data on the next start.
+
 ## 1.10.5 (2026-11-09)
 
 The game opens straight onto a TV properly, can keep its shape there with
