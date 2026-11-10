@@ -290,9 +290,8 @@ python3.11 scripts/build.py \
   --master ~/Downloads/20240404193219.bin.e
 ```
 
-Result: `artifacts/bunker.apk`. The first build creates a signing key in
-`inputs/lunar-local.keystore`. **Keep it:** later builds must use the same key to update the
-app without losing its data.
+Result: `artifacts/bunker.apk`, signed with the public Bunker key, as the web builder signs: it
+installs over any Bunker build, local or from the web builder, and keeps its data.
 
 **iPhone/iPad:**
 
@@ -373,8 +372,8 @@ git pull
 git submodule update --init --recursive
 ```
 
-Then build again with the same command. On Android, the build reuses `inputs/lunar-local.keystore`
-automatically. On iOS, sign with the same bundle ID. Either way, export a save backup from
+Then build again with the same command. On Android, every build is signed with the same public
+Bunker key, so it installs over the last. On iOS, sign with the same bundle ID. Either way, export a save backup from
 **⋮** first. **⋮ → Import save backup** restores it, also on another device.
 
 ### Troubleshooting
@@ -386,7 +385,7 @@ automatically. On iOS, sign with the same bundle ID. Either way, export a save b
 | Gradle or `jlink` fails | `JAVA_HOME` is not JDK 21; set it as in step 2. |
 | `Missing the iOS SDK` | Install Xcode and open it once. |
 | `Install Python 3.13` | Run `uv python install 3.13`. |
-| The new APK will not install over the old one | It was signed with a different key. Build with `--keystore` pointing to your original key. |
+| The new APK will not install over the old one | The installed app was signed with another key (command-line builds before this change made a local key, `inputs/lunar-local.keystore`). Export a save backup from **⋮**, uninstall, install the new APK and import the backup. |
 | Android: loading waits for minutes (for example at 20% or 60%) or shows "Failed to connect", but works in airplane mode | A VPN, proxy or "network accelerator" app was intercepting the game's requests to its own server on the phone. Builds from 2026-10-03 on send those requests directly. Rebuild, or turn the app off while playing. |
 | "Port 8080 is already used by another app on this device…" (or 8003, 3000) | Another app holds one of the game's local ports. Close or uninstall it, or build with `--port-offset 30000` (or the web builder's experimental port offset) and keep using that offset for updates. ⋮ → **Check Lunar Tear** shows whether the game can reach its server. |
 | Android: black screen after the logo when reopening the game from Recent apps (for example after an update) | The game was opened without its server. Builds from 2026-10-04 on open the launcher first, and it starts the server. With older builds, open the app from its icon. |

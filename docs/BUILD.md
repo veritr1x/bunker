@@ -53,16 +53,11 @@ local virtual environment, generates protobuf code, runs Go tests and Android
 lint, and signs the combined APK.
 
 Your APK is **`artifacts/bunker.apk`**. Its checksum is in
-`artifacts/SHA256SUMS`. Keep **`inputs/lunar-local.keystore`**: later APKs need the
-same key to update the installed app without deleting its data. To reuse a key:
-
-```sh
-python3.11 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin.e \
-  --keystore /path/to/lunar-local.keystore
-```
-
-Use this project's key format (alias `lunar-local`, local-build password
-`android`). Keep the file private. Git ignores keys and game files.
+`artifacts/SHA256SUMS`. It is signed with the public Bunker key
+(`web/signing/bunker-key.p12`), as the web builder signs, so every build, local or
+from the web builder, installs over the last, keeps the app's data and can update
+itself. The key is public: anyone's build can install over yours. To prevent that,
+re-sign the APK with a key of your own and keep using it. Git ignores game files.
 
 The game's Notices screen shows the official notices, recovered from archives.
 They come from a notice pack that is not in this repository. Fetch the pinned
@@ -149,7 +144,7 @@ offset moves all three ports. This is experimental; use the same offset for ever
 
 ```sh
 python3.11 scripts/build.py --apk /path/to/game.apk --master /path/to/master.bin.e \
-  --keystore /path/to/lunar-local.keystore --port-offset 30000
+  --port-offset 30000
 ```
 
 The server log is also kept between sessions in
