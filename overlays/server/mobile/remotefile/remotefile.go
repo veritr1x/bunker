@@ -30,6 +30,10 @@ import (
 // ErrNoRanges is returned by Open for a server that cannot send part of a file.
 var ErrNoRanges = errors.New("This server does not allow resuming downloads, so Bunker cannot read the archive from it. Download the file and choose it as an archive instead.")
 
+// ErrStalled ends a read that got no data for retryGiveUp: the network, not
+// the link, failed, so the same link may work later.
+var ErrStalled = errors.New("The download stopped and did not resume")
+
 // Retries: the wait starts at retryFirst and doubles up to retryMax; a read
 // gives up once retryGiveUp passes without any data arriving.
 var (
@@ -42,7 +46,7 @@ const (
 	chunkSize   = 1 << 20  // the cache's unit, for small scattered reads such as the index
 	cacheChunks = 16       // chunks kept
 	smallRead   = 64 << 10 // reads up to this size may go through the cache
-	maxStreams  = 8        // sequential readers kept
+	maxStreams  = 4        // sequential readers kept, each holding up to aheadSegments segments
 	skipAhead   = 8 << 20  // a stream this close behind a read moves forward instead of starting over
 	// A stream fetches segmentSize pieces, aheadSegments of them at once:
 	// hosts such as archive.org send each connection about 1 MB/s.
@@ -481,7 +485,7 @@ func (f *File) retry(attempt func(progress func()) error) error {
 			f.nextURL("")
 		}
 		if time.Since(last) > retryGiveUp {
-			return fmt.Errorf("The download stopped and did not resume for %s: %w", retryGiveUp, err)
+			return fmt.Errorf("%w for %s: %w", ErrStalled, retryGiveUp, err)
 		}
 		select {
 		case <-f.ctx.Done():
@@ -534,11 +538,21 @@ func generic(ctx context.Context, client *http.Client, u *url.URL) (source, erro
 	if unescaped, err := url.PathUnescape(name); err == nil {
 		name = unescaped
 	}
+	original := u.String()
 	return source{
 		urls: []string{final},
 		size: size,
 		id:   fmt.Sprintf("http %s%s %d", u.Host, u.Path, size),
 		name: name,
 		host: "http",
+		// A redirect may lead to a signed address that expires within
+		// minutes; the link itself is asked again for a fresh one.
+		refresh: func(ctx context.Context) (string, error) {
+			n, fresh, err := probe(ctx, client, original)
+			if err == nil && n != size {
+				return "", permanent{errors.New("The file behind the link changed during the download. Start again.")}
+			}
+			return fresh, err
+		},
 	}, nil
 }

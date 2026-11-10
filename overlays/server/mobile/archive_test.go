@@ -312,3 +312,38 @@ func TestImportLinkBadLink(t *testing.T) {
 		t.Fatalf("got %q", e)
 	}
 }
+
+// A worker's failure stops the other workers through the cancel flag; the
+// player must still see the failure, not "Download stopped".
+func TestImportLinkReportsRealError(t *testing.T) {
+	plenty(t)
+	link := serveFile(t, "testdata/dump.7z")
+	stage := filepath.Join(t.TempDir(), "stage")
+	interruptAfterFirstStream(t)
+	ImportLink(link, stage, -1)
+	afterStream = nil
+	filepath.Walk(filepath.Join(stage, "revisions"), func(p string, info os.FileInfo, err error) error {
+		if err == nil && info.IsDir() {
+			os.Chmod(p, 0500)
+		}
+		return nil
+	})
+	t.Cleanup(func() {
+		filepath.Walk(stage, func(p string, info os.FileInfo, err error) error { os.Chmod(p, 0700); return nil })
+	})
+	e := ImportLink(link, stage, -1)
+	if e == "" || strings.Contains(e, "Download stopped") {
+		t.Fatalf("got %q, want the write error", e)
+	}
+}
+
+// iOS counts purgeable space as free; the archive import uses its number.
+func TestImportArchiveUsesGivenFreeSpace(t *testing.T) {
+	plenty(t)
+	if e := ImportArchiveFree("testdata/dump.7z", filepath.Join(t.TempDir(), "s"), 2048); !strings.HasPrefix(e, "Not enough free space") {
+		t.Fatalf("got %q", e)
+	}
+	if e := ImportArchiveFree("testdata/dump.7z", filepath.Join(t.TempDir(), "s"), 1<<50); e != "" {
+		t.Fatal(e)
+	}
+}

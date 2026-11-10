@@ -800,9 +800,11 @@ static BOOL IsGoArchive(NSString *path) {
 static NSString *ImportGoArchive(NSString *path, void (^progress)(NSString *)) {
     RecoverImport();
     __block NSString *result = nil;
+    // The Go check uses iOS's own count, which includes space iOS can free.
+    long long free = (long long)FreeSpace();
     dispatch_semaphore_t finished = dispatch_semaphore_create(0);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        result = TakeString(LunarImportArchive((char *)path.fileSystemRepresentation, (char *)StagePath().fileSystemRepresentation));
+        result = TakeString(LunarImportArchive((char *)path.fileSystemRepresentation, (char *)StagePath().fileSystemRepresentation, free > 0 ? free : -1));
         dispatch_semaphore_signal(finished);
     });
     LTEstimate estimate = {0};
@@ -856,8 +858,10 @@ static NSString *ImportGoLink(NSString *link, void (^progress)(NSString *)) {
         progress(LTProgressText(YES, &estimate, files, done));
     }
     if (result.length) return result;
+    // The download is complete and its resume record gone: whether the install
+    // succeeds or finds the files unusable, the download stage is done with.
     NSString *error = InstallStaged(DownloadStagePath(), progress);
-    if (!error.length) [NSFileManager.defaultManager removeItemAtPath:DownloadStagePath() error:nil];
+    [NSFileManager.defaultManager removeItemAtPath:DownloadStagePath() error:nil];
     return error;
 }
 

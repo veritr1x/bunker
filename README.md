@@ -357,8 +357,8 @@ it when you copy files into the app with Finder, because Finder skips the app's 
    containing `revisions`) from Files, iCloud Drive or a USB drive. You need about 25 GB free, plus
    space for the archive. If the folder is already inside NieR's own files (copied in with
    Finder), the app moves it instead of copying it. This is instant.
-   **Link to the archive (download)** takes a link to the `.7z` (archive.org, Google Drive, Mega or any
-   server that can send part of a file) and downloads only the parts holding revision 0, never the
+   **Link to the archive (download)** takes a link to the `.7z` (a direct link to a server that can send part of a file, or a
+   Google Drive or Mega file link) and downloads only the parts holding revision 0, never the
    whole archive. It checks the free space before downloading. If the download stops, the finished
    parts are kept: choose the same link again to continue. Bunker does not say where to find the
    game files; bring your own link.

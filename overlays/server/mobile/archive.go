@@ -28,7 +28,8 @@ import (
 var (
 	importDone, importTotal       atomic.Int64
 	importFiles, importTotalFiles atomic.Int64
-	importCancelled               atomic.Bool
+	importCancelled               atomic.Bool  // stops the workers: the player cancelled, or one failed
+	userCancelled                 atomic.Bool  // the player cancelled
 	decodedStreams                atomic.Int64 // compressed blocks decompressed, for tests
 )
 
@@ -53,13 +54,17 @@ var linkSource atomic.Pointer[remotefile.File]
 // only the compressed blocks that hold revision 0 are decompressed, several
 // at a time. Returns "" or an error for the player. The launcher validates
 // and installs the staged files as it does for a folder.
-func ImportArchive(source, stage string) string {
+func ImportArchive(source, stage string) string { return ImportArchiveFree(source, stage, -1) }
+
+// ImportArchiveFree is ImportArchive with the free space as the platform
+// counts it (iOS includes space it can free on demand), or -1 to measure it.
+func ImportArchiveFree(source, stage string, freeBytes int64) string {
 	f, e := os.Open(source)
 	if e != nil {
 		return e.Error()
 	}
 	defer f.Close()
-	return importFile(f, stage)
+	return importFile(f, stage, freeBytes)
 }
 
 // ImportArchiveFd is ImportArchive for a file the caller already opened, such
@@ -72,17 +77,17 @@ func ImportArchiveFd(fd int, stage string) string {
 		return fmt.Sprintf("Cannot read the selected archive: %v", e)
 	}
 	defer f.Close()
-	return importFile(f, stage)
+	return importFile(f, stage, -1)
 }
 
-func importFile(f *os.File, stage string) string {
+func importFile(f *os.File, stage string, freeBytes int64) string {
 	defer releaseMemory() // up to four LZMA2 decoders of 64 MB each
 	resetProgress()
 	info, e := f.Stat()
 	if e != nil {
 		return e.Error()
 	}
-	if e := extractArchive(f, info.Size(), stage, extractOptions{free: -1}); e != nil {
+	if e := extractArchive(f, info.Size(), stage, extractOptions{free: freeBytes}); e != nil {
 		return e.Error()
 	}
 	return ""
@@ -90,6 +95,7 @@ func importFile(f *os.File, stage string) string {
 
 func resetProgress() {
 	importCancelled.Store(false)
+	userCancelled.Store(false)
 	importDone.Store(0)
 	importTotal.Store(0)
 	importFiles.Store(0)
@@ -122,7 +128,7 @@ func ImportLink(link, stage string, freeBytes int64) string {
 	}()
 	f, e := remotefile.Open(ctx, link, nil)
 	if e != nil {
-		if importCancelled.Load() {
+		if userCancelled.Load() {
 			return errCancelled.Error()
 		}
 		return e.Error()
@@ -148,7 +154,9 @@ func ImportLink(link, stage string, freeBytes int64) string {
 		workers = 1 // Mega's limit is per account; one block finishes soonest
 	}
 	e = extractArchive(f, f.Size(), stage, extractOptions{free: freeBytes, link: record, workers: workers})
-	if errors.Is(e, errCancelled) || (e != nil && importCancelled.Load()) {
+	// A failing worker also stops the others through importCancelled; only
+	// the player's cancel is "stopped", anything else is the failure itself.
+	if e != nil && userCancelled.Load() {
 		return errLinkStopped.Error()
 	}
 	if e != nil {
@@ -174,7 +182,8 @@ type linkRecord struct {
 	Done []int  `json:"done"`
 	Kept int64  `json:"kept"` // bytes of the finished blocks, which the launchers show
 	path string
-	mu   sync.Mutex
+	mu   sync.Mutex // guards Done and Kept
+	disk sync.Mutex // one save at a time: they share the temporary file
 }
 
 func loadLinkRecord(stage string) *linkRecord {
@@ -211,6 +220,8 @@ func (r *linkRecord) finish(stream int, bytes int64) error {
 }
 
 func (r *linkRecord) save() error {
+	r.disk.Lock()
+	defer r.disk.Unlock()
 	r.mu.Lock()
 	raw, _ := json.Marshal(r)
 	r.mu.Unlock()
@@ -279,7 +290,7 @@ func publishTotals(bytes, files int64) {
 }
 
 // CancelImport stops the running import at the next file chunk.
-func CancelImport() { importCancelled.Store(true) }
+func CancelImport() { userCancelled.Store(true); importCancelled.Store(true) }
 
 // revisionPath maps an archive entry to its place under revisions/0, or ""
 // for entries outside it. The dump may sit inside other folders.

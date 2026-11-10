@@ -9,8 +9,8 @@ under its heading, down to the previous release.
 ### Game files
 - **Choose → Link to the archive (download)** on iPhone, iPad and Android, and
   a link at the Windows/Linux setup program's game-files prompt (or as its
-  argument). Paste a link to the resource dump's `.7z` or `.zip` (archive.org,
-  Google Drive, Mega, or any server that can send part of a file). Bunker
+  argument). Paste a link to the resource dump's `.7z` or `.zip` (a direct link
+  to a server that can send part of a file, or a Google Drive or Mega file link). Bunker
   reads the archive in place over the network and downloads only the blocks
   holding revision 0. The archive is never stored.
 - The free space is checked before anything is downloaded. Archive imports

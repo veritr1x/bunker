@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"bunker/windows/remotefile"
 )
 
 var version = "dev"
@@ -280,6 +282,7 @@ func run(s *steps) (folders, error) {
 	switch {
 	case dump != "" && st.GameFiles != archiveID(dump):
 		if err := sendGameFiles(dev, dump, s); err != nil {
+			forgetBadLink(&st, err, save)
 			return f, err
 		}
 		st.GameFiles, st.NoGameFiles, st.GameFilesLink = archiveID(dump), false, ""
@@ -308,6 +311,21 @@ func run(s *steps) (folders, error) {
 	s.say("NieR is open in the emulator window. To stop, close that window.\n" +
 		"The next start is quick. This window closes by itself.")
 	return f, nil
+}
+
+// forgetBadLink drops the saved link unless the network let it down, so a
+// link that cannot work (a web page, a missing file, too little space) is
+// asked for again on the next start instead of failing every start.
+func forgetBadLink(st *state, err error, save func()) {
+	if st.GameFilesLink == "" || errors.Is(err, remotefile.ErrStalled) {
+		return
+	}
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		return
+	}
+	st.GameFilesLink = ""
+	save()
 }
 
 // useWaydroid: on Linux with Waydroid installed, unless started with -emulator.
