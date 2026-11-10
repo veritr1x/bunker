@@ -16,6 +16,8 @@
 //   keeps the game's value on frames where 1/30 s has built up and is -0.0 on
 //   the frames between, which BattleGame.Update skips. Fractional steps crashed
 //   the summon reveal, which runs on the battle code.
+// - Window shape (window=fit): in a Stage Manager window or on a TV the picture keeps
+//   the game's shape with black bars, instead of stretching (LunarWindow.m, LunarUpscale.m).
 // - The settings, the game's window and the upscaler's choices go to the server
 //   log as "[Display]" lines (LunarWindow.m), so an exported log shows them.
 // - Upscaling: below the screen's own resolution, MetalFX upscales each frame
@@ -86,6 +88,7 @@ static int gFlyingMom = -1;  // flying_mom_route's result; -1 before flying_mom_
 static int gAds;  // roulette_ads_route_agent: 0 until the agent exists, then 1 (or -1).
 static NSString *gStatusPath;
 static NSString *gSettings = @"the game's own";  // display.conf in one line, for the log
+static BOOL gKeepShape;  // window=fit: in a window of another shape, black bars instead of stretching
 static CADisplayLink *gLink;
 
 static struct {
@@ -477,6 +480,7 @@ void LTDisplayStart(NSString *toolsRoot) {
         if ([key isEqual:@"idle"]) idle = ![value isEqual:@"off"];
         if ([key isEqual:@"heat"]) heat = ![value isEqual:@"off"];
         if ([key isEqual:@"upscale"]) upscale = [value isEqual:@"metalfx"];
+        if ([key isEqual:@"window"]) gKeepShape = [value isEqual:@"fit"];
         if ([value isEqual:@"off"] && [key isEqual:@"shadows"]) effectsOff |= RENDER_EFFECTS_SHADOWS;
         if ([value isEqual:@"off"] && [key isEqual:@"reflections"]) effectsOff |= RENDER_EFFECTS_REFLECTIONS;
         if ([value isEqual:@"off"] && [key isEqual:@"bloom"]) effectsOff |= RENDER_EFFECTS_BLOOM;
@@ -534,3 +538,6 @@ void LTDisplayStart(NSString *toolsRoot) {
 
 /** The Display settings in use, in one line (LunarWindow.m logs it). */
 NSString *LTDisplaySettings(void) { return gSettings; }
+
+/** window=fit (LunarWindow.m, LunarUpscale.m): the picture keeps the game's shape in a window of another one. */
+BOOL LTDisplayKeepShape(void) { return gKeepShape; }

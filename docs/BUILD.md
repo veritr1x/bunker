@@ -230,3 +230,22 @@ The small asset-preparation safety checks need no game files:
 ```sh
 python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
+
+## Releases
+
+`scripts/unit_tests.sh` runs the release's unit tests, the same ones CI runs before every
+release and on every push to main. The Deck Builder page tests run in a headless browser
+(`scripts/requirements-web-tests.txt`, then `python3 -m playwright install chromium`) and are
+skipped without one.
+
+To cut a release, write its `CHANGELOG.md` section first (`## 1.10.5 (YYYY-MM-DD)`, a summary,
+and the dated sections under it; README.md and docs/VALIDATION.md may change with it), then:
+
+```sh
+scripts/release.py 1.10.5 --dry-run   # the checks and the tests, nothing written
+scripts/release.py 1.10.5 --push      # commit "Release 1.10.5", tag v1.10.5, push both
+```
+
+It releases only from main as it is on GitHub, after the tests pass, and only a version after
+VERSION with a CHANGELOG section dated today. The pushed tag starts `release.yml`, which builds
+the bundles, publishes the GitHub release and then the web builder.

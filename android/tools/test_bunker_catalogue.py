@@ -165,7 +165,9 @@ def java_calls():
 # Said(@"key", …), SaidCount(@"key", n, …) (LTTexts.h).
 OBJC_SOURCES = sorted(p for p in (ROOT / "ios/launcher").iterdir() if p.suffix in (".m", ".h", ".c"))
 OBJC_CALL = re.compile(r"\b(T|TCount|Said|SaidCount|LTTFallback)\(\s*@\"([a-z0-9_.-]+)\"(?!\s*\+|\s*\])")
-OBJC_LOGGED = re.compile(r"\b(NSLog|LunarLog|LTDisplayLog|GameLog)\(")
+OBJC_LOGGED = re.compile(r"\b(NSLog|LunarLog|LTDisplayLog|LTAppLog|GameLog)\(")
+# Files whose words only reach the exported log ([App] and [Display] lines), never the screen.
+OBJC_LOG_ONLY = {"LunarWindow.m"}
 # Literals that are code, not words (the Python a launcher runs): between these two comments.
 OBJC_CODE = re.compile(r"// bunker-text: code\b.*?// bunker-text: end", re.S)
 
@@ -511,8 +513,14 @@ class Catalogue(unittest.TestCase):
                               "After a backslash", "Could not save it"])
 
     def test_no_english_in_the_ios_launcher(self):
-        left = {path.name: objc_english(path) for path in OBJC_SOURCES}
+        left = {path.name: objc_english(path) for path in OBJC_SOURCES if path.name not in OBJC_LOG_ONLY}
         self.assertEqual({k: v for k, v in left.items() if v}, {})
+
+    def test_log_only_files_show_nothing(self):
+        # Their words go to the exported log, in English; a file that starts showing text leaves the list.
+        for name in OBJC_LOG_ONLY:
+            text = (ROOT / "ios/launcher" / name).read_text(encoding="utf-8")
+            self.assertIsNone(re.search(r"\b(T|TUpper|TSaid|TCount|Said)\(|UILabel|UIAlertController|setTitle:", text), name)
 
     def test_the_lint_sees_english_in_objc(self):
         import tempfile

@@ -33,11 +33,16 @@ class IosMessages(unittest.TestCase):
             p = mock.patch.object(module, "redirect", module.redirect)
             p.start()
             self.addCleanup(p.stop)
-        for name in ("TEXTURES", "UPSCALE"):
+        for name in ("TEXTURES", "UPSCALE", "WINDOW"):
             p = mock.patch.object(android_display, name, getattr(android_display, name))
             p.start()
             self.addCleanup(p.stop)
         ios_runtime._adapt_patcher()
+
+    def test_display_offers_ios_choices(self):
+        # MetalFX in place of Android's upscalers, and keeping the game's shape in a window or on a TV.
+        self.assertEqual([key for key, _ in android_display.UPSCALE], ["off", "metalfx"])
+        self.assertEqual([key for key, _ in android_display.WINDOW], ["stretch", "fit"])
 
     def test_mods_messages(self):
         with mock.patch.object(android_runtime, "game_live", lambda: False):

@@ -29,17 +29,20 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: scripts/requirements-notices.txt
-      - run: python3 -m pip install pycryptodome msgpack lz4 fonttools==4.56.0 fastapi==0.115.14 jinja2==3.1.6 -r scripts/requirements-notices.txt
+          cache-dependency-path: |
+            scripts/requirements-notices.txt
+            scripts/requirements-web-tests.txt
+      - run: python3 -m pip install pycryptodome msgpack lz4 fonttools==4.56.0 fastapi==0.115.14 jinja2==3.1.6 -r scripts/requirements-notices.txt -r scripts/requirements-web-tests.txt
+      # Chromium for the Deck Builder page tests, kept by Playwright's pin.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('scripts/requirements-web-tests.txt') }}
+      - run: python3 -m playwright install --with-deps --only-shell chromium
       # The web builder publishes Pod Programs' prepared patcher (scripts/prepare.py).
       - run: python3 scripts/prepare.py
       - name: Unit tests
-        run: |
-          (cd scripts && python3 -m unittest test_version test_build_jdk test_release_assets test_notices test_sync_notice_prices test_history_runs test_tower_floors test_audit_notices test_audit_summon_links test_build_remaining_summon_notices test_build_summon_notice_repair_pack test_native_notice_costume_bonus test_notice_event_bonuses test_notice_fidelity test_notice_icons test_notice_templates test_rich_notice_content test_game_text test_master_text test_export_translations test_language_packs test_check_translations test_make_noto_subsets)
-          (cd android/tools && python3 -m unittest test_privacy test_update_apk test_build_info test_notice_pack test_master_patch test_assemble_stream test_client_days test_bunker_button test_game_regions test_bunker_language test_game_fonts test_info_icon_size test_bunker_text test_bunker_catalogue test_bunker_pseudo test_player_pages test_deckbuilder_text test_launcher_status test_sign_off test_bunker_text_java test_launcher_text test_auto_deploy)
-          (cd ios/tools && python3 -m unittest test_ipa_stream test_sign_ipa test_lt_text test_framework_build)
-          (cd web && python3 -m unittest test_build_site)
-          python3 -c "import sys; sys.path.insert(0, 'scripts'); import release_assets; release_assets.changelog_section(open('CHANGELOG.md').read(), open('VERSION').read().strip())"
+        run: scripts/unit_tests.sh
 
   android:
     needs: check
@@ -71,7 +74,7 @@ jobs:
   ios:
     needs: check
     name: iOS launcher and Tools runtime
-    runs-on: macos-15
+    runs-on: macos-26  # Xcode 26 (the iOS 26 SDK); macos-15 defaults to Xcode 16.4
     steps:
       - uses: actions/checkout@v7
         with:
