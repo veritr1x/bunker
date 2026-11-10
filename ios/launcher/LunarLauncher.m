@@ -370,6 +370,9 @@ static volatile double gImportFraction = -1;
 
 static NSString *AssetsPath(void) { return [gServerRoot stringByAppendingPathComponent:@"assets"]; }
 static NSString *StagePath(void) { return [gServerRoot stringByAppendingPathComponent:@".assets-importing"]; }
+// A link import downloads here. Unlike StagePath it survives restarts, so a
+// stopped download continues from its finished parts.
+static NSString *DownloadStagePath(void) { return [gServerRoot stringByAppendingPathComponent:@".assets-downloading"]; }
 static NSString *PreviousPath(void) { return [gServerRoot stringByAppendingPathComponent:@".assets-previous"]; }
 static NSString *LinkPath(void) { return [AssetsPath() stringByAppendingPathComponent:@"revisions/0"]; }
 // The player's own folder while it is moved (not copied) into the stage.
@@ -815,6 +818,47 @@ static NSString *ImportGoArchive(NSString *path, void (^progress)(NSString *)) {
     }
     if (result.length) { DiscardStage(); return result; }
     return InstallStaged(StagePath(), progress);
+}
+
+// Bytes a stopped link import kept, or -1 when there is none.
+static long long LinkPartial(void) {
+    NSData *data = [NSData dataWithContentsOfFile:[DownloadStagePath() stringByAppendingPathComponent:@".link-import.json"]];
+    if (!data) return -1;
+    NSDictionary *record = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    return [record isKindOfClass:NSDictionary.class] ? [record[@"kept"] longLongValue] : 0;
+}
+
+// Downloads revision 0 from a link to the resource dump's .7z or .zip with the
+// shared Go code (the same as Android): it checks the free space first and
+// downloads only the blocks it needs. A stopped download keeps its finished
+// blocks for the next try with the same link.
+static NSString *ImportGoLink(NSString *link, void (^progress)(NSString *)) {
+    NSURL *stage = [NSURL fileURLWithPath:DownloadStagePath() isDirectory:YES];
+    [NSFileManager.defaultManager createDirectoryAtURL:stage withIntermediateDirectories:YES attributes:nil error:nil];
+    // Up to 21 GB that iOS must not copy into backups.
+    [stage setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
+    __block NSString *result = nil;
+    long long free = (long long)FreeSpace();
+    dispatch_semaphore_t finished = dispatch_semaphore_create(0);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        result = TakeString(LunarImportLink((char *)link.UTF8String, (char *)DownloadStagePath().fileSystemRepresentation, free > 0 ? free : -1));
+        dispatch_semaphore_signal(finished);
+    });
+    LTEstimate estimate = {0};
+    while (dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC))) {
+        if (gCancelImport) LunarCancelImport();
+        NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[TakeString(LunarImportProgress()) dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+        unsigned long long done = [state[@"done"] unsignedLongLongValue], total = [state[@"total"] unsignedLongLongValue];
+        unsigned long long files = [state[@"files"] unsignedLongLongValue];
+        if (!total) { progress(Said(@"launcher.files.connecting")); continue; }
+        if (!estimate.started) estimate = LTEstimateStart([state[@"totalFiles"] unsignedLongLongValue], total);
+        estimate.totalFiles = [state[@"totalFiles"] doubleValue]; estimate.totalBytes = total;
+        progress(LTProgressText(YES, &estimate, files, done));
+    }
+    if (result.length) return result;
+    NSString *error = InstallStaged(DownloadStagePath(), progress);
+    if (!error.length) [NSFileManager.defaultManager removeItemAtPath:DownloadStagePath() error:nil];
+    return error;
 }
 
 // Copies a user-chosen folder or archive into the app. Every write goes to a
@@ -1618,6 +1662,8 @@ static const CGFloat kInfoSize = 18;
     NSString *text = gMessage.length ? TSaid(gMessage) : catalog ? @"" : T(@"launcher.ios.main.choose_to_play");
     if (gRestartNeeded && !gMessage.length)
         text = T(@"launcher.ios.main.changes_saved");
+    long long kept = gImporting || gMessage.length || gRestartNeeded ? -1 : LinkPartial();
+    if (kept >= 0) text = T(@"launcher.files.link_partial", @"size", TSize(kept));
     self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
 }
 - (UIMenu *)optionsMenu:(BOOL)running {
@@ -2192,7 +2238,35 @@ static UTType *MasterType(void) {
     [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.ios.files_dialog.copy") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:0]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.ios.files_dialog.in_place") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:4]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.files_dialog.archive") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self pick:5]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.files_dialog.link") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self askLink]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+// Downloads the game files from a pasted link. The last link is offered again,
+// so a stopped download continues. The clipboard is not read: iOS would ask.
+- (void)askLink {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:T(@"launcher.files_dialog.link_title")
+        message:T(@"launcher.files_dialog.link_hint") preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.text = [NSUserDefaults.standardUserDefaults stringForKey:@"BunkerGameFilesLink"];
+        field.placeholder = @"https://";
+        field.keyboardType = UIKeyboardTypeURL;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        field.autocorrectionType = UITextAutocorrectionTypeNo;
+        field.clearButtonMode = UITextFieldViewModeAlways;
+    }];
+    __weak UIAlertController *weakAlert = alert;
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"common.cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:T(@"launcher.files_dialog.download") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        NSString *link = [weakAlert.textFields.firstObject.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        NSString *lower = link.lowercaseString;
+        if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
+            [self alert:T(@"launcher.files_dialog.link_title") message:T(@"launcher.files.bad_link")];
+            return;
+        }
+        [NSUserDefaults.standardUserDefaults setObject:link forKey:@"BunkerGameFilesLink"];
+        [self startImport:nil link:NO url:link];
+    }]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
@@ -2211,12 +2285,14 @@ static UTType *MasterType(void) {
     BOOL link = self.pickerMode == 4 && ![picked.URLByResolvingSymlinksInPath.path hasPrefix:documents];
     [self startImport:picked link:link];
 }
-- (void)startImport:(NSURL *)picked link:(BOOL)link {
+- (void)startImport:(NSURL *)picked link:(BOOL)link { [self startImport:picked link:link url:nil]; }
+// url: download from a link instead of the picked folder or archive.
+- (void)startImport:(NSURL *)picked link:(BOOL)link url:(NSString *)url {
     if (gImporting) return;
     gImporting = YES;
     gCancelImport = NO;
     gImportFraction = -1;
-    gMessage = Said(@"launcher.ios.main.keep_open");
+    gMessage = url ? Said(@"launcher.ios.files.link_keep_open") : Said(@"launcher.ios.main.keep_open");
     [self.spinner startAnimating];
     [self refresh];
     UIApplication *app = UIApplication.sharedApplication;
@@ -2230,7 +2306,13 @@ static UTType *MasterType(void) {
         void (^progress)(NSString *) = ^(NSString *text) {
             dispatch_async(dispatch_get_main_queue(), ^{ gMessage = text; [self refresh]; });
         };
-        NSString *error = link ? LinkAssets(picked, progress) : ImportAssets(picked, progress);
+        NSString *error;
+        if (url) error = ImportGoLink(url, progress);
+        else {
+            // Another source replaces a stopped link download, whose files would only take space.
+            [NSFileManager.defaultManager removeItemAtPath:DownloadStagePath() error:nil];
+            error = link ? LinkAssets(picked, progress) : ImportAssets(picked, progress);
+        }
         if (!error.length) error = StartServer();
         dispatch_async(dispatch_get_main_queue(), ^{
             gImporting = NO;
