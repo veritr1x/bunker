@@ -106,17 +106,18 @@ class Numbers(unittest.TestCase):
                 f"    for (int i = 0; i < {len(self.SAMPLES)}; i++) printf(\"%s\\t\", [write(samples[i]) UTF8String]);\n"
                 "    printf(\"\\n\");\n  }\n }\n return 0;\n}\n")
         out = run(main, *CORE)
-        # Apple's CLDR data differs from Node's CLDR 48 (which bunker_numbers follows) in three places, and the
-        # device's data wins on the device: Swiss French decimals with "." (1'234.568), and Kannada and Urdu
-        # grouped the Indian way (12,34,567).
+        # Apple's CLDR data differs from Node's CLDR 48 (which bunker_numbers follows) in a few places, and the
+        # device's data wins on the device: Swiss French decimals with "." (1'234.568), Kannada and Urdu
+        # grouped the Indian way (12,34,567), and Austrian German grouped with "." on macOS 26 (1.200), with a
+        # space on later systems.
         def indian(want):
             return [w.replace("1,234,567", "12,34,567") for w in want]
-        known = {"fr-ch": lambda want: [w.replace(",", ".") for w in want], "kn": indian, "ur": indian}
+        known = {"fr-ch": lambda want: [w.replace(",", ".") for w in want], "kn": indian, "ur": indian,
+                 "de-at": lambda want: [w.replace(" ", ".") for w in want]}
         differ = {}
         for tag, line in zip(languages, out, strict=True):
             got, want = line.split("\t")[:-1], [bunker_numbers.write(tag, n) for n in self.SAMPLES]
-            want = known.get(tag, lambda w: w)(want)
-            if got != want:
+            if got != want and got != known.get(tag, lambda w: w)(want):
                 differ[tag] = (got, want)
         self.assertEqual(differ, {})
 
