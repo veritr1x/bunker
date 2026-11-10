@@ -92,7 +92,10 @@ jobs:
           uv python install 3.13
       - name: iOS packaging tests
         # These build tiny iOS executables with Xcode, so they run on macOS.
-        run: (cd ios/tools && python3.11 -m unittest test_package_ipa test_ios_update test_ipa_stream test_sign_ipa test_lt_text test_framework_build)
+        # fontTools: the game's fonts get the letters translations need (test_package_ipa).
+        run: |
+          python3.11 -m pip install fonttools==4.56.0
+          (cd ios/tools && python3.11 -m unittest test_package_ipa test_ios_update test_ipa_stream test_sign_ipa test_lt_text test_framework_build)
       - name: Build the launcher framework and Python runtime
         run: |
           ios/tools/build_framework.sh none out
