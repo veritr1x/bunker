@@ -14,6 +14,81 @@ import tempfile
 
 from prepare import ROOT, prepare
 
+# JDKs the Android build works with; newer ones break it (the Android plugin's jlink step fails).
+SUPPORTED_JDKS = range(17, 22)
+# Where a JDK 21 (or 17) is usually installed, when JAVA_HOME names another.
+JDK_PLACES = [
+    "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+    "/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+    "/Applications/Android Studio.app/Contents/jbr/Contents/Home",
+    "/usr/lib/jvm/java-21-openjdk-amd64",
+    "/usr/lib/jvm/java-21-openjdk",
+    "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
+    "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home",
+    "/usr/lib/jvm/java-17-openjdk-amd64",
+    "/usr/lib/jvm/java-17-openjdk",
+]
+
+
+def java_major(version_output):
+    """The major version in `java -version` output ("21.0.5": 21, "1.8.0": 8), or None."""
+    import re
+    found = re.search(r'version "(\d+)(?:\.(\d+))?', version_output)
+    if not found:
+        return None
+    major = int(found.group(1))
+    return int(found.group(2) or 0) if major == 1 else major
+
+
+def choose_jdk(current, candidates):
+    """The JDK home to build with: None to keep the current java (a supported version), else the first
+    candidate (home, major) that is 21, else 17 to 20. LookupError when none is supported."""
+    if current in SUPPORTED_JDKS:
+        return None
+    for wanted in (21, *reversed(range(SUPPORTED_JDKS.start, 21))):
+        for home, major in candidates:
+            if major == wanted:
+                return home
+    raise LookupError("no supported JDK")
+
+
+def installed_jdks():
+    """(home, major) for the JDKs found in the usual places and by macOS's java_home."""
+    homes = []
+    for version in ("21", "17"):
+        try:
+            out = subprocess.run(["/usr/libexec/java_home", "-v", version], capture_output=True, text=True).stdout.strip()
+        except OSError:
+            out = ""
+        if out:
+            homes.append(out)
+    homes += JDK_PLACES
+    found = []
+    for home in dict.fromkeys(homes):
+        java = Path(home) / "bin/java"
+        if java.is_file():
+            out = subprocess.run([java, "-version"], capture_output=True, text=True)
+            found.append((Path(home), java_major(out.stderr + out.stdout)))
+    return found
+
+
+def use_supported_jdk(parser, env):
+    """Points JAVA_HOME and PATH at a JDK the Android build works with, if the current java is not one."""
+    java = shutil.which("java", path=env["PATH"])
+    current = None
+    if java:
+        out = subprocess.run([java, "-version"], capture_output=True, text=True, env=env)
+        current = java_major(out.stderr + out.stdout)
+    try:
+        home = choose_jdk(current, installed_jdks())
+    except LookupError:
+        parser.error(f"The Android build needs JDK 17 to 21 (this java is {current or 'missing'}). "
+                     "Install JDK 21 and set JAVA_HOME. See docs/BUILD.md.")
+    if home is not None:
+        print(f"Using JDK 21 or 17 at {home} (java {current} is not supported by the Android build)")
+        env["JAVA_HOME"] = str(home)
+        env["PATH"] = str(home / "bin") + os.pathsep + env["PATH"]
+
 def addresses(port_offset):
     """The game's loopback addresses (game, assets, accounts), moved by --port-offset."""
     return tuple(f"127.0.0.1:{port + port_offset}" for port in (8003, 8080, 3000))
@@ -125,6 +200,8 @@ def main():
     env = os.environ.copy()
     if env.get("JAVA_HOME"):
         env["PATH"] = str(Path(env["JAVA_HOME"]) / "bin") + os.pathsep + env["PATH"]
+    if android:
+        use_supported_jdk(parser, env)
     tools = ["git", "go", "make", "protoc", "python3.11"]
     tools += ["apktool", "java", "keytool"] if android else ["xcrun", "codesign", "zip"]
     for command in tools:
