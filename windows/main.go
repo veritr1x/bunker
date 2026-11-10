@@ -81,6 +81,9 @@ type state struct {
 	APK         string `json:"apk,omitempty"`         // SHA-256 of the bunker.apk last installed
 	GameFiles   string `json:"gameFiles,omitempty"`   // name and size of the archive last unpacked into the phone
 	NoGameFiles bool   `json:"noGameFiles,omitempty"` // the player chose to import the game files in the Bunker
+	// GameFilesLink is a link the game files are coming from, kept until they
+	// are in the phone, so a start after a failed download tries it again.
+	GameFilesLink string `json:"gameFilesLink,omitempty"`
 }
 
 // The steps, as the console shows them.
@@ -153,8 +156,9 @@ func run(s *steps) (folders, error) {
 	ramMB := flag.Int("ram", 0, "the phone's memory in MB (default: from the computer's memory)")
 	flag.Bool("emulator", false, "on Linux with Waydroid: use Google's Android Emulator instead of Waydroid")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: Bunker [options] [resource_dump_android.7z]\n\n"+
-			"Drop resource_dump_android.7z on Bunker.exe to add the game files to the phone.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: Bunker [options] [resource_dump_android.7z | link to it]\n\n"+
+			"Drop resource_dump_android.7z on Bunker.exe to add the game files to the phone,\n"+
+			"or give a link to it: only the parts needed are downloaded.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -207,17 +211,26 @@ func run(s *steps) (folders, error) {
 		}
 		s.set(s.install, idle, "STANDING BY", filepath.Base(apk))
 	}
+	if dump == "" && st.GameFiles == "" && st.GameFilesLink != "" {
+		dump = st.GameFilesLink // an earlier download that did not finish
+	}
 	if dump == "" && st.GameFiles == "" && !st.NoGameFiles {
 		s.set(s.files, busy, "NEEDS FILE", "resource_dump_android.7z")
 		dump = s.askPath("NieR needs the game files: resource_dump_android.7z (or a .zip of it).\n"+
-			"Bunker copies them into the phone. This takes 15 to 20 minutes.",
-			"Drag the .7z into this window and press Enter. To skip, just press Enter:")
+			"Bunker copies them into the phone. This takes 15 to 20 minutes.\n"+
+			"A link to the .7z works too: Bunker downloads only the parts it needs.",
+			"Drag the .7z into this window, or paste a link, and press Enter. To skip, just press Enter:")
 		st.NoGameFiles = dump == ""
 		if dump == "" {
 			s.set(s.files, idle, "SKIPPED", "")
 		} else {
 			s.set(s.files, idle, "STANDING BY", filepath.Base(dump))
 		}
+	}
+
+	if isArchiveLink(dump) {
+		st.GameFilesLink = dump
+		save()
 	}
 
 	if useWaydroid() {
@@ -269,7 +282,7 @@ func run(s *steps) (folders, error) {
 		if err := sendGameFiles(dev, dump, s); err != nil {
 			return f, err
 		}
-		st.GameFiles, st.NoGameFiles = archiveID(dump), false
+		st.GameFiles, st.NoGameFiles, st.GameFilesLink = archiveID(dump), false, ""
 	case st.GameFiles != "":
 		s.set(s.files, good, "IN PLACE", strings.Fields(st.GameFiles)[0])
 	default:

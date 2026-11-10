@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,8 @@ import (
 	"time"
 
 	"github.com/bodgit/sevenzip"
+
+	"bunker/windows/remotefile"
 )
 
 // The game files are unpacked on the computer, not in the phone: the Bunker's
@@ -138,29 +141,59 @@ type extraction struct {
 	files, totalFiles atomic.Int64
 	failed            atomic.Bool
 	catalog           atomic.Bool
+	ready             func(total int64) error // checks the space before unpacking
+	workers           int                     // most blocks at once; 0: by CPU
 }
 
-// extractGameFiles unpacks revisions/0 of a .7z or .zip into dest.
+// extractGameFiles unpacks revisions/0 of a .7z or .zip (a path or a link) into dest.
 func extractGameFiles(archivePath, dest string) error {
-	_, err := unpackGameFiles(archivePath, dirSink(dest), nil)
+	_, err := unpackGameFiles(archivePath, dirSink(dest), nil, nil)
 	return err
 }
 
-// unpackGameFiles sends revisions/0 of a .7z or .zip to a sink and returns how
-// many files it sent. onProgress, if set, is called about every second.
-func unpackGameFiles(archivePath string, to sink, onProgress func(done, total int64)) (int64, error) {
+// isArchiveLink: the game files were given as a link to download from.
+func isArchiveLink(s string) bool { return remotefile.IsLink(s) }
+
+// openArchive opens a path, or a link whose archive is read in place over the
+// network, fetching only the parts unpacked. workers caps the blocks unpacked
+// at once for a link, so each finishes sooner.
+func openArchive(archivePath string) (r io.ReaderAt, size int64, workers int, closer func(), err error) {
+	if isArchiveLink(archivePath) {
+		f, err := remotefile.Open(context.Background(), archivePath, nil)
+		if err != nil {
+			return nil, 0, 0, nil, err
+		}
+		workers = 2
+		if f.Host() == "mega" {
+			workers = 1 // Mega's limit is per account
+		}
+		return f, f.Size(), workers, func() { f.Close() }, nil
+	}
 	f, err := os.Open(archivePath)
 	if err != nil {
-		return 0, err
+		return nil, 0, 0, nil, err
 	}
-	defer f.Close()
 	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, 0, nil, err
+	}
+	return f, info.Size(), 0, func() { f.Close() }, nil
+}
+
+// unpackGameFiles sends revisions/0 of a .7z or .zip to a sink and returns how
+// many files it sent. ready, if set, gets the bytes revision 0 unpacks to
+// before anything is unpacked, and can refuse (when they would not fit).
+// onProgress, if set, is called about every second.
+func unpackGameFiles(archivePath string, to sink, ready func(total int64) error, onProgress func(done, total int64)) (int64, error) {
+	f, size, workers, closer, err := openArchive(archivePath)
 	if err != nil {
 		return 0, err
 	}
+	defer closer()
 	magic := make([]byte, 6)
 	n, _ := f.ReadAt(magic, 0)
-	x := &extraction{sink: to}
+	x := &extraction{sink: to, ready: ready, workers: workers}
 	stop := make(chan struct{})
 	shown := make(chan struct{})
 	go func() {
@@ -178,9 +211,11 @@ func unpackGameFiles(archivePath string, to sink, onProgress func(done, total in
 	}()
 	switch {
 	case bytes.Equal(magic[:n], []byte("7z\xbc\xaf\x27\x1c")):
-		err = x.from7z(f, info.Size())
+		err = x.from7z(f, size)
 	case n >= 4 && bytes.Equal(magic[:4], []byte("PK\x03\x04")):
-		err = x.fromZip(f, info.Size())
+		err = x.fromZip(f, size)
+	case isArchiveLink(archivePath):
+		err = errors.New("the link leads to a web page, not to a .7z or .zip; copy the link of the archive file itself")
 	default:
 		err = errors.New("choose a .7z or .zip of the resource dump")
 	}
@@ -257,6 +292,11 @@ func (x *extraction) from7z(source io.ReaderAt, size int64) error {
 		x.total.Add(int64(file.UncompressedSize))
 		x.totalFiles.Add(1)
 	}
+	if x.ready != nil {
+		if err := x.ready(x.total.Load()); err != nil {
+			return err
+		}
+	}
 	work := make(chan int, len(streams))
 	for _, s := range streams {
 		work <- s
@@ -264,6 +304,9 @@ func (x *extraction) from7z(source io.ReaderAt, size int64) error {
 	close(work)
 	// Each LZMA2 decoder holds its dictionary (64 MB for the dump).
 	workers := min(runtime.NumCPU(), 8, len(streams))
+	if x.workers > 0 {
+		workers = min(workers, x.workers)
+	}
 	var wg sync.WaitGroup
 	var once sync.Once
 	var first error
@@ -314,6 +357,11 @@ func (x *extraction) fromZip(source io.ReaderAt, size int64) error {
 		files = append(files, file)
 		x.total.Add(int64(file.UncompressedSize64))
 		x.totalFiles.Add(1)
+	}
+	if x.ready != nil {
+		if err := x.ready(x.total.Load()); err != nil {
+			return err
+		}
 	}
 	for _, file := range files {
 		rel, _ := revisionPath(file.Name)

@@ -226,7 +226,7 @@ func runWaydroid(s *steps, root, apk, dump string, st *state, save func()) error
 		if err := sendGameFiles(w, dump, s); err != nil {
 			return err
 		}
-		st.GameFiles, st.NoGameFiles = archiveID(dump), false
+		st.GameFiles, st.NoGameFiles, st.GameFilesLink = archiveID(dump), false, ""
 	case st.GameFiles != "":
 		s.set(s.files, good, "IN PLACE", strings.Fields(st.GameFiles)[0])
 	default:

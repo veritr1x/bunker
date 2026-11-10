@@ -82,7 +82,7 @@ func TestTarStream(t *testing.T) {
 	})
 	var out bytes.Buffer
 	stream := newTarSink(&out, 10205, 10205)
-	count, err := unpackGameFiles(archive, stream, nil)
+	count, err := unpackGameFiles(archive, stream, nil, nil)
 	if err != nil || count != 3 {
 		t.Fatalf("%d files, %v", count, err)
 	}
