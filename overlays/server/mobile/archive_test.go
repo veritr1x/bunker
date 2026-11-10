@@ -3,6 +3,8 @@ package mobile
 import (
 	"archive/zip"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
@@ -128,8 +130,9 @@ func TestArchiveCancel(t *testing.T) {
 	}
 	f, _ := os.Open("testdata/dump.7z")
 	defer f.Close()
+	info, _ := f.Stat()
 	importCancelled.Store(true)
-	if e := extractArchive(f, t.TempDir()); e == nil || !strings.Contains(e.Error(), "cancelled") {
+	if e := extractArchive(f, info.Size(), t.TempDir(), extractOptions{free: 1 << 50}); e == nil || !strings.Contains(e.Error(), "cancelled") {
 		t.Fatalf("cancel: got %v", e)
 	}
 }
@@ -155,5 +158,156 @@ func TestArchiveFdNeedsNoReopen(t *testing.T) {
 	// The caller's descriptor stays open and usable.
 	if _, err := f.ReadAt(make([]byte, 2), 0); err != nil {
 		t.Fatalf("caller's descriptor was closed: %v", err)
+	}
+}
+
+// serveFile serves a file over HTTP with range support, as a download host would.
+func serveFile(t *testing.T, path string) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, path)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL + "/" + filepath.Base(path)
+}
+
+func plenty(t *testing.T) {
+	t.Helper()
+	old := freeSpace
+	freeSpace = func(string) (int64, error) { return 1 << 50, nil }
+	t.Cleanup(func() { freeSpace = old })
+}
+
+func TestImportLinkExtractsOnlyRevisionZero(t *testing.T) {
+	plenty(t)
+	stage := filepath.Join(t.TempDir(), "stage")
+	decodedStreams.Store(0)
+	if e := ImportLink(serveFile(t, "testdata/dump.7z"), stage, -1); e != "" {
+		t.Fatal(e)
+	}
+	expectRevisionZero(t, stage)
+	if d := decodedStreams.Load(); d != 2 {
+		t.Fatalf("decompressed %d blocks, want 2", d)
+	}
+	var p struct{ Done, Total, Downloaded int64 }
+	json.Unmarshal([]byte(ImportProgress()), &p)
+	if p.Downloaded == 0 || p.Done != p.Total {
+		t.Fatalf("progress %+v", p)
+	}
+}
+
+func TestImportSpaceRefused(t *testing.T) {
+	old := freeSpace
+	freeSpace = func(string) (int64, error) { return 1024, nil }
+	defer func() { freeSpace = old }()
+	for name, run := range map[string]func(stage string) string{
+		"file": func(stage string) string { return ImportArchive("testdata/dump.7z", stage) },
+		"link": func(stage string) string { return ImportLink(serveFile(t, "testdata/dump.7z"), stage, -1) },
+		"given": func(stage string) string {
+			freeSpace = func(string) (int64, error) { return 1 << 50, nil }
+			return ImportLink(serveFile(t, "testdata/dump.7z"), stage, 2048)
+		},
+	} {
+		stage := filepath.Join(t.TempDir(), "stage")
+		e := run(stage)
+		if !strings.HasPrefix(e, "Not enough free space") || !strings.Contains(e, "GB") {
+			t.Fatalf("%s: got %q", name, e)
+		}
+		if _, err := os.Stat(filepath.Join(stage, "revisions")); err == nil {
+			t.Fatalf("%s: wrote game files before checking the space", name)
+		}
+		freeSpace = func(string) (int64, error) { return 1024, nil }
+	}
+}
+
+// interruptAfterFirstStream cancels the import once one block is finished.
+func interruptAfterFirstStream(t *testing.T) {
+	old, oldWorkers := afterStream, linkWorkers
+	afterStream = func(int) { importCancelled.Store(true) }
+	linkWorkers = 1
+	t.Cleanup(func() { afterStream, linkWorkers = old, oldWorkers })
+}
+
+func TestImportLinkResumeSkipsDoneStreams(t *testing.T) {
+	plenty(t)
+	link := serveFile(t, "testdata/dump.7z")
+	stage := filepath.Join(t.TempDir(), "stage")
+	interruptAfterFirstStream(t)
+	if e := ImportLink(link, stage, -1); !strings.Contains(e, "kept") {
+		t.Fatalf("interrupted import: got %q", e)
+	}
+	afterStream = nil
+	decodedStreams.Store(0)
+	if e := ImportLink(link, stage, -1); e != "" {
+		t.Fatal(e)
+	}
+	expectRevisionZero(t, stage)
+	if d := decodedStreams.Load(); d != 1 {
+		t.Fatalf("resume decompressed %d blocks, want 1", d)
+	}
+	if _, err := os.Stat(filepath.Join(stage, linkRecordName)); err == nil {
+		t.Fatal("the resume record was left in the finished stage")
+	}
+}
+
+func TestImportLinkResumeSpaceCountsOnlyRemaining(t *testing.T) {
+	plenty(t)
+	link := serveFile(t, "testdata/dump.7z")
+	stage := filepath.Join(t.TempDir(), "stage")
+	interruptAfterFirstStream(t)
+	ImportLink(link, stage, -1)
+	afterStream = nil
+	var asked []int64
+	old := checkSpaceHook
+	checkSpaceHook = func(needed int64) { asked = append(asked, needed) }
+	defer func() { checkSpaceHook = old }()
+	ImportLink(link, filepath.Join(t.TempDir(), "fresh"), -1)
+	ImportLink(link, stage, -1)
+	if len(asked) != 2 || asked[1] >= asked[0] {
+		t.Fatalf("space asked for %v; the resumed import should need less", asked)
+	}
+}
+
+func TestImportLinkWrongIDWipesStage(t *testing.T) {
+	plenty(t)
+	stage := filepath.Join(t.TempDir(), "stage")
+	os.MkdirAll(filepath.Join(stage, "revisions/0"), 0700)
+	os.WriteFile(filepath.Join(stage, "revisions/0/stale.bin"), []byte("old"), 0600)
+	os.WriteFile(filepath.Join(stage, linkRecordName), []byte(`{"id":"http other 5","done":[0,1]}`), 0600)
+	decodedStreams.Store(0)
+	if e := ImportLink(serveFile(t, "testdata/dump.7z"), stage, -1); e != "" {
+		t.Fatal(e)
+	}
+	expectRevisionZero(t, stage)
+	if d := decodedStreams.Load(); d != 2 {
+		t.Fatalf("decompressed %d blocks, want 2: the other link's record was trusted", d)
+	}
+}
+
+func TestImportLinkRejectsHTML(t *testing.T) {
+	page := filepath.Join(t.TempDir(), "page.html")
+	os.WriteFile(page, []byte("<!DOCTYPE html><html><body>Sign in</body></html>"), 0600)
+	e := ImportLink(serveFile(t, page), filepath.Join(t.TempDir(), "stage"), -1)
+	if !strings.Contains(e, "web page") {
+		t.Fatalf("got %q", e)
+	}
+}
+
+func TestImportLinkCancelKeepsStage(t *testing.T) {
+	plenty(t)
+	stage := filepath.Join(t.TempDir(), "stage")
+	interruptAfterFirstStream(t)
+	ImportLink(serveFile(t, "testdata/dump.7z"), stage, -1)
+	if _, err := os.Stat(filepath.Join(stage, linkRecordName)); err != nil {
+		t.Fatal("the resume record is gone after a cancel")
+	}
+	if len(files(t, filepath.Join(stage, "revisions"))) == 0 {
+		t.Fatal("the finished block's files are gone after a cancel")
+	}
+}
+
+func TestImportLinkBadLink(t *testing.T) {
+	if e := ImportLink("ftp://x/y.7z", t.TempDir(), -1); !strings.Contains(e, "http") {
+		t.Fatalf("got %q", e)
 	}
 }
