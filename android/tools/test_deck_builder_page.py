@@ -38,6 +38,11 @@ class DeckBuilderPage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         env = Environment(loader=FileSystemLoader(str(TEMPLATES)))
+        # Bunker's own words (t, t_count, text_language...), as Pod Programs gives every page (bunker_text.install).
+        import sys
+        sys.path.insert(0, str(root / "android/app/src/main/python"))
+        import bunker_text
+        bunker_text.install(env)
         cls.html = env.get_template("deck_builder.html").render(
             players=[(1, "P")], user=1, preparing=False, bosses=[], opponents=[], slots=[], request=None)
         cls.playwright = sync_playwright().start()
