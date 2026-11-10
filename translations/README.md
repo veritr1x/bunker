@@ -2,6 +2,10 @@
 
 Text for playing the game, and using Bunker, in languages the game never had.
 
+New to this? [Contributing a translation](../CONTRIBUTING.md) walks you through
+it, from claiming a language to seeing your text in the game. This page holds
+the rules for the files.
+
 ## What is here
 
 - `game/<area>/`: the game's own text, split by area (`ui`, `skill`, `ability`,

@@ -408,6 +408,10 @@ All four are Git submodules fixed to the tested commits. Both platforms build fr
 
 Full pins: [upstream.lock.json](upstream.lock.json). Credits: [third-party notes](android/THIRD-PARTY.md).
 
+## Translating
+
+The game and Bunker can be played in languages the game never had: its menus, items, missions and story, Mama's lines, and Bunker's own screens. Translations are plain text files in [`translations/`](translations/), sent as pull requests and checked automatically. No coding needed: see [Contributing a translation](CONTRIBUTING.md). Players load a language in Pod Programs › Language.
+
 ## Status
 
 iOS 14+ on iPhone and iPad: the opening story plays on an iPad Pro (M4), with the server running inside the game. Pod Programs and the Archive work there too, and the game runs at 120 fps with walking and battles at normal speed.
