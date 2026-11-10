@@ -148,8 +148,9 @@ func TestSequentialReuse(t *testing.T) {
 			t.Fatalf("mismatch at %d", off)
 		}
 	}
-	if got := s.requests.Load() - before; got > 2 {
-		t.Fatalf("64 sequential reads used %d requests, want ≤2", got)
+	// One cached chunk, then the stream's 4 MB pieces with read-ahead.
+	if got := s.requests.Load() - before; got > 1+4/(segmentSize>>20)+aheadSegments {
+		t.Fatalf("64 sequential reads used %d requests", got)
 	}
 	if f.Received() < 4<<20 {
 		t.Fatalf("Received %d, want at least 4 MB", f.Received())
@@ -232,5 +233,45 @@ func TestIsLink(t *testing.T) {
 		if IsLink(s) != want {
 			t.Errorf("IsLink(%q) = %v", s, !want)
 		}
+	}
+}
+
+// A stream fetches its next pieces at the same time: archive.org sends each
+// connection about 1 MB/s, and more connections are faster.
+func TestReadAheadOverlaps(t *testing.T) {
+	s := &rangeServer{blob: blob(40 << 20)}
+	var inFlight, most atomic.Int64
+	slow := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		for {
+			m := most.Load()
+			if n <= m || most.CompareAndSwap(m, n) {
+				break
+			}
+		}
+		if r.Header.Get("Range") != "bytes=0-0" {
+			time.Sleep(30 * time.Millisecond)
+		}
+		s.ServeHTTP(w, r)
+	})
+	srv := httptest.NewServer(slow)
+	defer srv.Close()
+	f, err := Open(context.Background(), srv.URL+"/d.7z", srv.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	p := make([]byte, 256<<10)
+	for off := int64(0); off < 30<<20; off += int64(len(p)) {
+		if _, err := f.ReadAt(p, off); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(p, s.blob[off:off+int64(len(p))]) {
+			t.Fatalf("mismatch at %d", off)
+		}
+	}
+	if most.Load() < 3 {
+		t.Fatalf("at most %d requests at once; read-ahead should overlap them", most.Load())
 	}
 }
