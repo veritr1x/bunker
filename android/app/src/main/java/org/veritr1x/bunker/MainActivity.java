@@ -286,16 +286,45 @@ public final class MainActivity extends Activity {
         else if(hasAssets&&!hasMaster){message=Texts.t(this,"launcher.main.import_master");warning=true;}
         else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?Texts.t(this,"launcher.main.folder_missing","folder",FilesStore.linkedFolder(this)):Texts.t(this,"launcher.main.folder_access");}
         else if("stopped".equals(serverState)&&!serverDetail.isEmpty())message=Texts.said(this,serverDetail);
+        if(message.isEmpty()&&!busy&&!tools){long kept=FilesStore.linkPartial(this);if(kept>=0)message=Texts.t(this,"launcher.files.link_partial","size",Texts.size(this,kept));}
         if(message.isEmpty())message=tools?Texts.t(this,"launcher.main.close_pods_first"):"";
         detail.setText(warning?"> "+message:message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);detail.setTextColor(warning?look.alert:look.ink);
     }
     private void chooseAssets(){
         dialog().setTitle(Texts.t(this,"launcher.files_dialog.title"))
-            .setItems(new String[]{Texts.t(this,"launcher.files_dialog.copy"),Texts.t(this,"launcher.files_dialog.in_place"),Texts.t(this,"launcher.files_dialog.archive")},(dialog,which)->{
+            .setItems(new String[]{Texts.t(this,"launcher.files_dialog.copy"),Texts.t(this,"launcher.files_dialog.in_place"),Texts.t(this,"launcher.files_dialog.archive"),Texts.t(this,"launcher.files_dialog.link")},(dialog,which)->{
                 if(which==0)chooseFolder(ASSETS);
                 else if(which==1)useInPlace();
+                else if(which==3)chooseLink();
                 // The resource dump's .7z can be chosen directly; only revision 0 is unpacked.
                 else{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,ARCHIVE);}
+            }).show();
+    }
+    /** Downloads the game files from a pasted link. The last link is offered again, so a stopped download continues. */
+    private void chooseLink(){
+        android.content.SharedPreferences prefs=getSharedPreferences("launcher",MODE_PRIVATE);
+        android.widget.EditText field=new android.widget.EditText(this);
+        field.setSingleLine(true);
+        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        field.setText(prefs.getString("gameFilesLink",""));
+        field.setSelectAllOnFocus(true);
+        android.widget.FrameLayout box=new android.widget.FrameLayout(this);
+        int pad=(int)(20*getResources().getDisplayMetrics().density);
+        box.setPadding(pad,pad/2,pad,0);
+        box.addView(field);
+        dialog().setTitle(Texts.t(this,"launcher.files_dialog.link_title"))
+            .setMessage(Texts.t(this,"launcher.files_dialog.link_hint"))
+            .setView(box)
+            .setNegativeButton(Texts.t(this,"common.cancel"),null)
+            .setPositiveButton(Texts.t(this,"launcher.files_dialog.download"),(d,w)->{
+                String url=field.getText().toString().trim();
+                String lower=url.toLowerCase(java.util.Locale.ROOT);
+                if(!lower.startsWith("http://")&&!lower.startsWith("https://")){
+                    dialog().setTitle(Texts.t(this,"launcher.files_dialog.link_title")).setMessage(Texts.t(this,"launcher.files.bad_link")).setPositiveButton(Texts.t(this,"common.ok"),null).show();
+                    return;
+                }
+                prefs.edit().putString("gameFilesLink",url).apply();
+                run(ServerService.URL,Uri.parse(url));
             }).show();
     }
     private void chooseFolder(int code){
