@@ -129,6 +129,14 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_importArchive(JN
     if (d) (*env)->ReleaseStringUTFChars(env, stage, d);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_importLink(JNIEnv *env, jclass type, jstring url, jstring stage) {
+    const char *u = (*env)->GetStringUTFChars(env, url, NULL);
+    const char *d = (*env)->GetStringUTFChars(env, stage, NULL);
+    char *error = u && d ? LunarImportLink((char *)u, (char *)d, -1) : NULL;
+    if (u) (*env)->ReleaseStringUTFChars(env, url, u);
+    if (d) (*env)->ReleaseStringUTFChars(env, stage, d);
+    return result(env, error);
+}
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_setPortOffset(JNIEnv *env, jclass type, jint offset) { return result(env, LunarSetPortOffset((int)offset)); }
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_ports(JNIEnv *env, jclass type) { return result(env, LunarPorts()); }
 JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_selfTest(JNIEnv *env, jclass type) { return result(env, LunarSelfTest()); }

@@ -130,6 +130,15 @@ func LunarImportArchiveFd(fd C.int, stage *C.char) *C.char {
 	return C.CString(mobile.ImportArchiveFd(int(fd), C.GoString(stage)))
 }
 
+// LunarImportLink unpacks the game files from a link to the resource dump's
+// .7z or .zip, downloading only what it needs. freeBytes is the free space as
+// the platform counts it, or -1 to measure the stage's file system.
+//
+//export LunarImportLink
+func LunarImportLink(url, stage *C.char, freeBytes C.longlong) *C.char {
+	return C.CString(mobile.ImportLink(C.GoString(url), C.GoString(stage), int64(freeBytes)))
+}
+
 //export LunarImportProgress
 func LunarImportProgress() *C.char { return C.CString(mobile.ImportProgress()) }
 
