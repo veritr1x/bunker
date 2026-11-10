@@ -66,7 +66,7 @@ index 42cfd83..b4c7078 100644
  
 +	// The summon rates page the game opens from a banner
 +	if strings.Contains(path, "/gacha-rate") {
-+		serveGachaRatePage(w)
++		serveGachaRatePage(w, r)
 +		return
 +	}
 +
@@ -78,7 +78,7 @@ index 42cfd83..b4c7078 100644
  	}
  
 +	if strings.Contains(path, "gacha-rate") {
-+		serveGachaRatePage(w)
++		serveGachaRatePage(w, r)
 +		return
 +	}
 +

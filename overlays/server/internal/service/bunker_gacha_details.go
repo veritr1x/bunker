@@ -190,7 +190,7 @@ func (t *gameText) price(p store.GachaPricePhaseEntry) string {
 		return t.words.Count("ingame.summons.paid_gems", int64(p.Price), nil)
 	case model.PriceTypeConsumableItem:
 		name := t.words.T("ingame.summons.ticket", nil)
-		if n := possessionName(t, int32(model.PossessionTypeConsumableItem), p.PriceId); n != "" && !strings.HasPrefix(n, "Item ") {
+		if n := consumableName(t, p.PriceId); n != "" {
 			name = n // each event's own tickets
 		} else if p.PriceId == model.ConsumableIdPremiumTicket {
 			if n := t.text("consumable_item.name.200002"); n != "" {
@@ -388,8 +388,10 @@ func serveGachaDetailsPage(w http.ResponseWriter, r *http.Request) {
 			pool = c.GachaPool
 		}
 	}
+	lang := clientLanguage(r.URL.Path)
 	t := openGameText()
 	defer t.close()
+	t.words = bunkertext.For(lang) // the pack replaces English only: other clients get English words and names
 	esc := html.EscapeString
 	words := t.words
 	say := func(key string, params map[string]string) string { return escText.Replace(words.T(key, params)) }
@@ -426,7 +428,7 @@ a.notice-link{display:inline-block;margin-top:4px;padding:4px 14px;background:#4
 		period = eventPeriodHTML(words, masterdata.EventSummonRuns(entry.GachaId), gametime.NowMillis())
 	}
 	fmt.Fprintf(&b, "<h1>%s</h1>%s", esc(title), period)
-	b.WriteString(summonNoticeHTML(words, *entry))
+	b.WriteString(summonNoticeHTML(words, lang, *entry))
 
 	if len(entry.PricePhases) > 0 {
 		b.WriteString("<h2>" + say("ingame.summons.cost", nil) + "</h2><table>")
@@ -597,6 +599,9 @@ func trimNoticeTitle(title string) string {
 }
 
 // webLanguage is the language of a /web/<lang>/... path, else English.
+// clientLanguage is the game's language in a web page's path (/web/ja/...): ja, ko or en.
+func clientLanguage(path string) string { return panelLanguage(webLanguage(path)) }
+
 func webLanguage(path string) string {
 	if parts := strings.Split(strings.TrimPrefix(path, "/"), "/"); len(parts) > 2 && parts[0] == "web" && noticePath.MatchString("/"+parts[1]+"/information/") {
 		return parts[1]

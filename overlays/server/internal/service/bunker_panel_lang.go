@@ -29,6 +29,9 @@ func panelLanguage(language string) string {
 	return "en"
 }
 
+// englishOnly is English without the active pack: Bunker's own pages on a Japanese or Korean client.
+const englishOnly = "en-x-original"
+
 // languageType is the master data's LanguageType for lang.
 func languageType(lang string) int32 {
 	switch lang {
