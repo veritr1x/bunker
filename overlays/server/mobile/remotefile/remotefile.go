@@ -42,8 +42,12 @@ const (
 	chunkSize   = 1 << 20  // the cache's unit, for small scattered reads such as the index
 	cacheChunks = 16       // chunks kept
 	smallRead   = 64 << 10 // reads up to this size may go through the cache
-	maxBodies   = 8        // open streaming responses kept
-	skipAhead   = 1 << 20  // a stream this close behind a read is read forward instead of reopened
+	maxStreams  = 8        // sequential readers kept
+	skipAhead   = 8 << 20  // a stream this close behind a read moves forward instead of starting over
+	// A stream fetches segmentSize pieces, aheadSegments of them at once:
+	// hosts such as archive.org send each connection about 1 MB/s.
+	segmentSize   = 4 << 20
+	aheadSegments = 4
 )
 
 // IsLink reports whether s is an http or https URL rather than a file path.
@@ -74,9 +78,11 @@ type File struct {
 	client *http.Client
 	src    source
 
+	stop context.CancelFunc
+
 	mu      sync.Mutex
-	current int     // index into src.urls of the URL in use
-	bodies  []*body // idle streaming responses, least recently used first
+	current int       // index into src.urls of the URL in use
+	streams []*stream // idle sequential readers, least recently used first
 	cache   map[int64][]byte
 	order   []int64 // cache keys, oldest first
 
@@ -84,9 +90,18 @@ type File struct {
 	closed   atomic.Bool
 }
 
-type body struct {
-	rc  io.ReadCloser
-	off int64 // the offset its next byte belongs to
+// stream reads a file onward from off, fetching the next segments at once.
+type stream struct {
+	off   int64      // the next byte to hand out
+	queue []*segment // fetched or being fetched, in order, from off's segment
+	next  int64      // where the next segment to fetch starts
+}
+
+type segment struct {
+	start int64
+	data  []byte
+	err   error
+	done  chan struct{}
 }
 
 // Open works out rawURL and checks that its server can send parts of the
@@ -103,7 +118,8 @@ func Open(ctx context.Context, rawURL string, client *http.Client) (*File, error
 	if err != nil {
 		return nil, err
 	}
-	return &File{ctx: ctx, client: client, src: src, cache: map[int64][]byte{}}, nil
+	ctx, stop := context.WithCancel(ctx)
+	return &File{ctx: ctx, stop: stop, client: client, src: src, cache: map[int64][]byte{}}, nil
 }
 
 // newClient waits up to 30 s to connect and for headers, and has no overall
@@ -130,15 +146,13 @@ func (f *File) Host() string { return f.src.host }
 // Received counts the bytes downloaded so far.
 func (f *File) Received() int64 { return f.received.Load() }
 
-// Close ends any open responses.
+// Close stops any fetches still running.
 func (f *File) Close() error {
 	f.closed.Store(true)
+	f.stop()
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for _, b := range f.bodies {
-		b.rc.Close()
-	}
-	f.bodies = nil
+	f.streams = nil
 	return nil
 }
 
@@ -174,8 +188,8 @@ func (f *File) readSome(p []byte, off int64) (int, error) {
 	if n := f.fromCache(p, off); n > 0 {
 		return n, nil
 	}
-	if b := f.takeBody(off); b != nil {
-		return f.fromBody(b, p, off)
+	if st := f.takeStream(off); st != nil {
+		return f.fromStream(st, p, off)
 	}
 	key := off / chunkSize * chunkSize
 	f.mu.Lock()
@@ -188,7 +202,7 @@ func (f *File) readSome(p []byte, off int64) (int, error) {
 		return f.fromCache(p, off), nil
 	}
 	// A large read, or small reads that went on past a cached chunk: stream.
-	return f.fromBody(nil, p, off)
+	return f.fromStream(&stream{off: off, next: off}, p, off)
 }
 
 func (f *File) fromCache(p []byte, off int64) int {
@@ -233,72 +247,93 @@ func (f *File) fetchChunk(key int64) error {
 	return nil
 }
 
-// takeBody removes from the pool a stream at off or a little before it.
-func (f *File) takeBody(off int64) *body {
+// takeStream removes from the pool a stream at off or a little before it.
+func (f *File) takeStream(off int64) *stream {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for i := len(f.bodies) - 1; i >= 0; i-- {
-		b := f.bodies[i]
-		if b.off <= off && off-b.off < skipAhead {
-			f.bodies = append(f.bodies[:i], f.bodies[i+1:]...)
-			return b
+	for i := len(f.streams) - 1; i >= 0; i-- {
+		st := f.streams[i]
+		if st.off <= off && off-st.off < skipAhead {
+			f.streams = append(f.streams[:i], f.streams[i+1:]...)
+			return st
 		}
 	}
 	return nil
 }
 
-func (f *File) putBody(b *body) {
+func (f *File) putStream(st *stream) {
 	if f.closed.Load() {
-		b.rc.Close()
 		return
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.bodies = append(f.bodies, b)
-	if len(f.bodies) > maxBodies {
-		f.bodies[0].rc.Close()
-		f.bodies = f.bodies[1:]
+	f.streams = append(f.streams, st)
+	if len(f.streams) > maxStreams {
+		f.streams = f.streams[1:] // its fetches finish and are dropped
 	}
 }
 
-// fromBody fills p from b (or a new stream at off), reopening on errors.
-func (f *File) fromBody(b *body, p []byte, off int64) (int, error) {
+// fromStream fills p with the bytes at off from st's segments, keeping
+// aheadSegments of them fetching.
+func (f *File) fromStream(st *stream, p []byte, off int64) (int, error) {
+	st.off = off
 	n := 0
-	err := f.retry(func(progress func()) error {
-		if b == nil {
-			resp, err := f.get(off+int64(n), -1)
-			if err != nil {
-				return err
-			}
-			b = &body{rc: resp.Body, off: off + int64(n)}
+	for n < len(p) {
+		// Drop segments behind the read, then keep the queue full.
+		for len(st.queue) > 0 && st.queue[0].start+segmentSize <= st.off {
+			st.queue = st.queue[1:]
 		}
-		// Skip forward to off when the stream is a little behind.
-		if gap := off + int64(n) - b.off; gap > 0 {
-			skipped, err := io.CopyN(io.Discard, &counted{b.rc, f, progress}, gap)
-			b.off += skipped
-			if err != nil {
-				b.rc.Close()
-				b = nil
-				return err
-			}
+		if len(st.queue) == 0 {
+			st.next = st.off
 		}
-		m, err := io.ReadFull(&counted{b.rc, f, progress}, p[n:])
-		if f.src.decrypt != nil && m > 0 {
-			f.src.decrypt(p[n:n+m], off+int64(n))
+		for len(st.queue) < aheadSegments && st.next < f.src.size {
+			st.queue = append(st.queue, f.fetchSegment(st.next))
+			st.next += segmentSize
 		}
+		seg := st.queue[0]
+		select {
+		case <-seg.done:
+		case <-f.ctx.Done():
+			return n, f.ctx.Err()
+		}
+		if seg.err != nil {
+			return n, seg.err // a later read starts this stream again
+		}
+		m := copy(p[n:], seg.data[st.off-seg.start:])
 		n += m
-		b.off += int64(m)
-		if err != nil {
-			b.rc.Close()
-			b = nil
-			return err
-		}
-		return nil
-	})
-	if b != nil {
-		f.putBody(b)
+		st.off += int64(m)
 	}
-	return n, err
+	f.putStream(st)
+	return n, nil
+}
+
+// fetchSegment starts fetching [start, start+segmentSize), retrying from
+// where a dropped connection stopped.
+func (f *File) fetchSegment(start int64) *segment {
+	seg := &segment{start: start, done: make(chan struct{})}
+	go func() {
+		defer close(seg.done)
+		end := min(start+segmentSize, f.src.size)
+		buf := make([]byte, end-start)
+		got := 0
+		seg.err = f.retry(func(progress func()) error {
+			resp, err := f.get(start+int64(got), end-1)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			m, err := io.ReadFull(&counted{resp.Body, f, progress}, buf[got:])
+			got += m
+			return err
+		})
+		if seg.err == nil {
+			if f.src.decrypt != nil {
+				f.src.decrypt(buf, start)
+			}
+			seg.data = buf
+		}
+	}()
+	return seg
 }
 
 // counted counts bytes read and notes progress for the retry clock.
