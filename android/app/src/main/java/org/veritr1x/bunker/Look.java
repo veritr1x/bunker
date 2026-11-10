@@ -124,12 +124,28 @@ final class Look {
     }
 
     /** [ TITLE ────── ] */
-    LinearLayout header(String title){
+    LinearLayout header(String title){return header(title,null);}
+
+    /** A section header with its "i" beside the title (the iOS launcher's headers have theirs there too). */
+    LinearLayout header(String title,TextView info){
         LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.BOTTOM);
         TextView open=text("[",15,ink);open.setTypeface(null,Typeface.BOLD);row.addView(open);
         TextView name=text(Texts.upper(context,title),14,ink);name.setTypeface(null,Typeface.BOLD);name.setLetterSpacing(.3f);
         if(dark)name.setShadowLayer(dp(4),0,0,0x55d9d3ba);
-        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(dp(10),0,dp(10),0);row.addView(name,np);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(dp(10),0,dp(info==null?10:0),0);row.addView(name,np);
+        if(info!=null){
+            // Drawn in a box just bigger than its ring, so the header keeps its height (a 40dp box
+            // would push it apart, and one pulled into the lines around it is clipped). The tap area
+            // reaches out to 40dp wide and the whole header's height.
+            int box=dp(INFO_DP+4);
+            sizeInfo(info,box);
+            LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(box,box);ip.setMargins(dp(6),0,dp(10),dp(1));row.addView(info,ip);
+            row.post(()->{
+                Rect hit=new Rect();info.getHitRect(hit);
+                int wide=(dp(40)-box)/2;hit.left-=wide;hit.right+=wide;hit.top=0;hit.bottom=row.getHeight();
+                row.setTouchDelegate(new android.view.TouchDelegate(hit,info));
+            });
+        }
         View rule=new View(context);rule.setBackgroundColor(ink);
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(1),1);rp.setMargins(0,0,dp(8),dp(6));row.addView(rule,rp);
         TextView close=text("]",15,ink);close.setTypeface(null,Typeface.BOLD);row.addView(close);
@@ -162,6 +178,13 @@ final class Look {
      * short dialog with Close. The ring is 20dp; the tap target is 40dp. Needs an Activity context.
      */
     static final int INFO_DP=18;
+    /** An info icon drawn in a box of box pixels instead of the usual 40dp: the same ring and i. */
+    private void sizeInfo(TextView v,int box){
+        GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1),ink);
+        v.setBackground(pressable(new InsetDrawable(ring,(box-dp(INFO_DP))/2),line));
+        v.setMinWidth(0);v.setMinHeight(0);v.setMinimumWidth(box);v.setMinimumHeight(box);
+    }
+
     TextView info(String title,String text){
         // The same "i" as the pages (test_info_icon_size): an 18dp circle, a bold italic serif i, a 40dp tap area.
         TextView v=text("i",11,ink);v.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD_ITALIC));v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);

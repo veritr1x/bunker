@@ -89,8 +89,9 @@ public final class MainActivity extends Activity {
         return r;
     }
     /** A [ HEADER ] and its panel, with gapAfter dp below. */
-    private void block(LinearLayout parent,String header,View panel,int gapAfter){
-        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(0,0,0,dp(compact?6:8));parent.addView(look.header(header),hp);
+    private void block(LinearLayout parent,String header,View panel,int gapAfter){block(parent,header,null,panel,gapAfter);}
+    private void block(LinearLayout parent,String header,TextView info,View panel,int gapAfter){
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(0,0,0,dp(compact?6:8));parent.addView(look.header(header,info),hp);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,-2);pp.setMargins(0,0,0,dp(gapAfter));parent.addView(panel,pp);
     }
     private void row(LinearLayout panel,String label,View... values){
@@ -195,9 +196,7 @@ public final class MainActivity extends Activity {
             LinearLayout programs=panel();
             Button podsButton=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.open"))+"  ›");podsButton.setTextSize(13);podsButton.setContentDescription(Texts.t(this,"launcher.main.open_pods_hint"));
             podsButton.setOnClickListener(v->onOption(8));pods=podsButton;
-            LinearLayout podsRow=new LinearLayout(this);podsRow.setGravity(Gravity.CENTER_VERTICAL);podsRow.addView(podsButton,new LinearLayout.LayoutParams(0,dp(48),1));
-            LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(40),dp(40));ip.setMargins(dp(6),0,0,0);podsRow.addView(podsInfo(),ip);
-            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,-2);pb.setMargins(0,dp(6),0,dp(6));programs.addView(podsRow,pb);
+            LinearLayout.LayoutParams pb=new LinearLayout.LayoutParams(-1,dp(48));pb.setMargins(0,dp(6),0,dp(6));programs.addView(podsButton,pb);
             // [ ARCHIVE ]: story, records, characters, pictures, movies and music, read from the game files. The game keeps running.
             LinearLayout records=panel();
             Button archiveButton=look.outlined(Texts.upper(this,Texts.t(this,"launcher.main.open"))+"  ›");archiveButton.setTextSize(13);archiveButton.setContentDescription(Texts.t(this,"launcher.main.open_archive_hint"));
@@ -205,7 +204,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams rb=new LinearLayout.LayoutParams(-1,dp(48));rb.setMargins(0,dp(6),0,dp(6));records.addView(archiveButton,rb);
             block(body,Texts.t(this,"launcher.main.system"),system,20);
             block(body,Texts.t(this,"launcher.main.play"),launch,20);
-            block(body,Texts.t(this,"launcher.main.pod_programs"),programs,20);
+            block(body,Texts.t(this,"launcher.main.pod_programs"),podsInfo(),programs,20);
             block(body,Texts.t(this,"launcher.main.archive"),records,0);
         }
         body.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
