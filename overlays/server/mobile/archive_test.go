@@ -298,8 +298,9 @@ func TestImportLinkCancelKeepsStage(t *testing.T) {
 	stage := filepath.Join(t.TempDir(), "stage")
 	interruptAfterFirstStream(t)
 	ImportLink(serveFile(t, "testdata/dump.7z"), stage, -1)
-	if _, err := os.Stat(filepath.Join(stage, linkRecordName)); err != nil {
-		t.Fatal("the resume record is gone after a cancel")
+	record := loadLinkRecord(stage)
+	if record == nil || len(record.Done) != 1 || record.Kept <= 0 {
+		t.Fatalf("resume record after a cancel: %+v", record)
 	}
 	if len(files(t, filepath.Join(stage, "revisions"))) == 0 {
 		t.Fatal("the finished block's files are gone after a cancel")

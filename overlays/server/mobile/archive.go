@@ -162,7 +162,7 @@ func ImportLink(link, stage string, freeBytes int64) string {
 // (and are kept for resuming) early.
 var linkWorkers = 2
 
-var errLinkStopped = errors.New("Download stopped. The finished parts are kept: choose Link again with the same link to continue.")
+var errLinkStopped = errors.New("Download stopped. The finished parts are kept: choose the same link again to continue.")
 
 // linkRecordName is the resume record in a link import's stage.
 const linkRecordName = ".link-import.json"
@@ -172,6 +172,7 @@ type linkRecord struct {
 	ID   string `json:"id"`
 	URL  string `json:"url"`
 	Done []int  `json:"done"`
+	Kept int64  `json:"kept"` // bytes of the finished blocks, which the launchers show
 	path string
 	mu   sync.Mutex
 }
@@ -200,10 +201,11 @@ func (r *linkRecord) done(stream int) bool {
 }
 
 // finish records a block once its files are written through to storage.
-func (r *linkRecord) finish(stream int) error {
+func (r *linkRecord) finish(stream int, bytes int64) error {
 	syscall.Sync()
 	r.mu.Lock()
 	r.Done = append(r.Done, stream)
+	r.Kept += bytes
 	r.mu.Unlock()
 	return r.save()
 }
@@ -486,7 +488,7 @@ func extract7z(source io.ReaderAt, size int64, stage string, opt extractOptions)
 					}
 				}
 				if opt.link != nil {
-					if err := opt.link.finish(stream); err != nil {
+					if err := opt.link.finish(stream, streamBytes[stream]); err != nil {
 						fail(err)
 						return
 					}

@@ -212,6 +212,50 @@ final class FilesStore {
             install(c, stage, progress);
         } finally { delete(stage); }
     }
+    /** Where a link import downloads to. It survives restarts, so a stopped download continues from its finished parts. */
+    static File downloadStage(Context c) { return new File(root(c), "assets.downloading"); }
+    /** Bytes a stopped link import kept, or -1 when there is none. */
+    static long linkPartial(Context c) {
+        File record = new File(downloadStage(c), ".link-import.json");
+        if (!record.isFile()) return -1;
+        try { return new org.json.JSONObject(new String(Files.readAllBytes(record.toPath()), java.nio.charset.StandardCharsets.UTF_8)).optLong("kept"); }
+        catch (Exception e) { return 0; }
+    }
+    /** Drops a stopped link import's files: another source was chosen. */
+    static void discardDownload(Context c) { delete(downloadStage(c)); }
+    /**
+     * Imports revision 0 from a link to the resource dump's .7z or .zip. The
+     * shared Go code checks the free space, downloads only the blocks holding
+     * revision 0, and keeps finished blocks in the download stage when it
+     * stops, for the next try with the same link.
+     */
+    static void importLink(Context c, String url, Progress progress) throws Exception {
+        File base = root(c); mkdir(base);
+        File stage = downloadStage(c);
+        String[] result = new String[1];
+        Thread worker = new Thread(() -> result[0] = NativeBridge.importLink(url, stage.getAbsolutePath()), "lunar-link");
+        worker.start();
+        Estimate estimate = null;
+        progress.fraction(-1);
+        progress.update(Said.text("launcher.files.connecting"));
+        while (worker.isAlive()) {
+            worker.join(500);
+            if (progress.cancelled()) NativeBridge.cancelImport();
+            org.json.JSONObject state = new org.json.JSONObject(NativeBridge.importProgress());
+            long done = state.optLong("done"), total = state.optLong("total"), files = state.optLong("files");
+            if (total <= 0) continue;
+            if (estimate == null) estimate = new Estimate(state.optLong("totalFiles"), total);
+            estimate.totalFiles = state.optLong("totalFiles"); estimate.totalBytes = total;
+            double left = estimate.update(files, done), fraction = estimate.fraction(files, done, left);
+            progress.fraction((int) (fraction * 1000));
+            progress.update(progressText(c, true, done, total, fraction, left));
+        }
+        if (result[0] == null || !result[0].isEmpty()) throw new IOException(result[0] == null ? Said.text("launcher.files.cannot_read_archive") : result[0]);
+        progress.fraction(-1);
+        progress.update(Said.text("launcher.files.finishing"));
+        install(c, stage, progress);
+        delete(stage);
+    }
     /** Checks a staged assets folder and swaps it in, keeping the current master data and files until it succeeds. */
     static void install(Context c, File stage, Progress progress) throws Exception {
         File old = new File(root(c), "assets.previous");
