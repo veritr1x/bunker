@@ -88,9 +88,12 @@ func LunarCheckMaster(path, name *C.char) *C.char {
 	return C.CString(mobile.CheckMaster(C.GoString(path), C.GoString(name)))
 }
 
+// LunarImportArchive unpacks a .7z or .zip at a path (iOS). freeBytes is the
+// free space as iOS counts it, or -1 to measure the stage's file system.
+//
 //export LunarImportArchive
-func LunarImportArchive(source, stage *C.char) *C.char {
-	return C.CString(mobile.ImportArchive(C.GoString(source), C.GoString(stage)))
+func LunarImportArchive(source, stage *C.char, freeBytes C.longlong) *C.char {
+	return C.CString(mobile.ImportArchiveFree(C.GoString(source), C.GoString(stage), int64(freeBytes)))
 }
 
 // LunarSetLogDir also keeps the server log in dir, between sessions.

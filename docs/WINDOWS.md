@@ -72,8 +72,8 @@ If a file is missing, it asks for it at the start, before downloading anything. 
 `bunker.apk` or the `.7z` into the window and press Enter. After that, it runs on its own. To skip the game files, press Enter without a file. You can add them later in the
 Bunker, or drop the `.7z` on `Bunker.exe`.
 
-Instead of the `.7z`, you can paste a link to it (archive.org, Google Drive, Mega, or any server
-that can send part of a file). Bunker downloads only the parts holding revision 0, about 11 GB,
+Instead of the `.7z`, you can paste a link to it (a direct link to a server that can send part of a
+file, or a Google Drive or Mega file link). Bunker downloads only the parts holding revision 0, about 11 GB,
 and never stores the archive. Before downloading, it checks that the phone has room. If the
 download fails, the next start tries the same link again.
 

@@ -275,3 +275,36 @@ func TestReadAheadOverlaps(t *testing.T) {
 		t.Fatalf("at most %d requests at once; read-ahead should overlap them", most.Load())
 	}
 }
+
+// Signed download addresses expire; a plain link is asked again for a fresh one.
+func TestGenericRefreshesExpiredRedirect(t *testing.T) {
+	fastRetries(t)
+	s := &rangeServer{blob: blob(3 << 20)}
+	var signature atomic.Int64
+	mux := http.NewServeMux()
+	mux.HandleFunc("/file.7z", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, fmt.Sprintf("/signed/%d", signature.Add(1)), http.StatusFound)
+	})
+	mux.HandleFunc("/signed/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != fmt.Sprintf("/signed/%d", signature.Load()) {
+			w.WriteHeader(http.StatusForbidden) // expired
+			return
+		}
+		s.ServeHTTP(w, r)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	f, err := Open(context.Background(), srv.URL+"/file.7z", srv.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	signature.Add(1) // the address Open was given has now expired
+	p := make([]byte, 200<<10)
+	if _, err := f.ReadAt(p, 2<<20); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(p, s.blob[2<<20:(2<<20)+len(p)]) {
+		t.Fatal("data differs after the refresh")
+	}
+}

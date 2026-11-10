@@ -253,8 +253,15 @@ final class FilesStore {
         if (result[0] == null || !result[0].isEmpty()) throw new IOException(result[0] == null ? Said.text("launcher.files.cannot_read_archive") : result[0]);
         progress.fraction(-1);
         progress.update(Said.text("launcher.files.finishing"));
-        install(c, stage, progress);
-        delete(stage);
+        // The download is complete and its resume record gone: a cancel now
+        // would only lose it, and a stage that fails to install is unusable.
+        Progress finishing = new Progress() {
+            public void update(String text) { progress.update(text); }
+            public boolean cancelled() { return false; }
+            public void fraction(int value) { progress.fraction(value); }
+        };
+        try { install(c, stage, finishing); }
+        finally { delete(stage); }
     }
     /** Checks a staged assets folder and swaps it in, keeping the current master data and files until it succeeds. */
     static void install(Context c, File stage, Progress progress) throws Exception {

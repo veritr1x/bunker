@@ -2,12 +2,17 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"net"
+	"net/url"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"bunker/windows/remotefile"
 )
 
 // The setup program and the Bunker share remotefile; the copies must not drift.
@@ -93,5 +98,32 @@ func TestAskPathAcceptsLinks(t *testing.T) {
 	}
 	if archiveID("https://example.com/dump.7z") != "https://example.com/dump.7z" {
 		t.Fatalf("archiveID for a link: %q", archiveID("https://example.com/dump.7z"))
+	}
+}
+
+// A saved link is tried again on the next start only when the network let it
+// down; a link that cannot work must not block every start.
+func TestForgetBadLink(t *testing.T) {
+	stalled := fmt.Errorf("unpacking x: %w", fmt.Errorf("%w for 5m0s: EOF", remotefile.ErrStalled))
+	offline := &url.Error{Op: "Get", URL: "https://example.com", Err: &net.OpError{Op: "dial", Err: errors.New("no route")}}
+	for _, c := range []struct {
+		err  error
+		keep bool
+	}{
+		{stalled, true},
+		{offline, true},
+		{remotefile.ErrNoRanges, false},
+		{errors.New("not enough free space in the phone"), false},
+		{errors.New("the link leads to a web page"), false},
+	} {
+		st := state{GameFilesLink: "https://example.com/d.7z"}
+		saved := false
+		forgetBadLink(&st, c.err, func() { saved = true })
+		if (st.GameFilesLink != "") != c.keep {
+			t.Errorf("%v: kept %v, want %v", c.err, st.GameFilesLink != "", c.keep)
+		}
+		if !c.keep && !saved {
+			t.Errorf("%v: state not saved after forgetting the link", c.err)
+		}
 	}
 }
