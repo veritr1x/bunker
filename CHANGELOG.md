@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-10 (after 1.11.0)
+
+### Development
+- The release build's iOS packaging tests install fontTools for the font
+  test, and accept Austrian German numbers grouped with "." as macOS 26's
+  CLDR data writes them (the first 1.11.0 build failed on both; the tag was
+  moved to the fix before anything was published). [70994b2]
+
 ## 1.11.0 (2026-11-10)
 
 Play in your own language. The game, its master data and Bunker's own screens
