@@ -72,6 +72,11 @@ If a file is missing, it asks for it at the start, before downloading anything. 
 `bunker.apk` or the `.7z` into the window and press Enter. After that, it runs on its own. To skip the game files, press Enter without a file. You can add them later in the
 Bunker, or drop the `.7z` on `Bunker.exe`.
 
+Instead of the `.7z`, you can paste a link to it (archive.org, Google Drive, Mega, or any server
+that can send part of a file). Bunker downloads only the parts holding revision 0, about 11 GB,
+and never stores the archive. Before downloading, it checks that the phone has room. If the
+download fails, the next start tries the same link again.
+
 You do not need to choose the game files in the Bunker. Do not use **Archive (.7z or .zip)**
 there on Windows. It works, but it takes about two hours, because the Bunker's unpacking is ARM
 code and the emulator has to translate it.
@@ -138,6 +143,7 @@ Options, for running `Bunker.exe` from a command prompt:
 | `-data PATH` | Use this folder instead of `BunkerData` |
 | `-ram MB` | The phone's memory (default: 4096, 6144 or 8192, from the computer's memory) |
 | a file name | Game files to copy into the phone (the same as dropping them on the program) |
+| a link | Game files to download into the phone (only the parts needed) |
 
 ## Troubleshooting
 

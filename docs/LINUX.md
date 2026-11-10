@@ -56,7 +56,9 @@ The console shows each step:
 
 If Waydroid is not running and you are in a Wayland session, Bunker starts it. Waydroid
 pauses Android when none of its apps is on screen; Bunker keeps it running until the game files
-are in, so you can hide Waydroid's window while they copy. Copying takes about 12 minutes at
+are in, so you can hide Waydroid's window while they copy. The game files can also come from a
+link to the `.7z`, as on Windows: only the parts needed are downloaded, after a check that there is
+room for them. Copying takes about 12 minutes at
 30 MB/s.
 
 ### Every day
