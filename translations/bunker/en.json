@@ -830,6 +830,8 @@
   "pods.calendar.more": "{n} more",
   "pods.calendar.moved": "Moved to week {week}. {next}",
   "pods.calendar.new_content": "New summons and quests",
+  "pods.calendar.next_day": "Next day",
+  "pods.calendar.next_day_done": "It is now {day}: a new day has started. {next}",
   "pods.calendar.next_update": "Next update",
   "pods.calendar.next_week": "Next week",
   "pods.calendar.no_more_updates": "No more updates in this loop",

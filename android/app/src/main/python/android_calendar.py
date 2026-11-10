@@ -1437,6 +1437,24 @@ def calendar_jump(target: int = Form(...)):
         return redirect(error=str(exc))
 
 
+@router.post("/patcher/calendar/next-day")
+def calendar_next_day():
+    """Next day: the clock one whole day on, and a new day started, as Start a new day does (the daily reset,
+    day-start.json), so the game opens on the next day. It closes the game (android_runtime.CLOSES)."""
+    state = read_state()
+    if not state:
+        return redirect(error=t("pods.calendar.off_already"))
+    try:
+        jump(state, game_now(state) + DAY)
+    except ValueError as exc:
+        return redirect(error=str(exc))
+    write_state(state)
+    import android_patcher
+    android_patcher.start_new_day()
+    today = day_label(game_now(state))
+    return redirect(message=t("pods.calendar.next_day_done", day=today, next=t("pods.runtime.deploy")))
+
+
 @router.get("/patcher/calendar/next")
 def calendar_next(request: Request, by: str = "update"):
     state = read_state()

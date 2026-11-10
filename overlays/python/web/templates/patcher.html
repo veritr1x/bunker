@@ -3,12 +3,15 @@
 {% block title %}{{ t("pods.patcher.title") }}{% endblock %}
 {% block content %}
 <h1 data-side>{{ t("pods.patcher.title") }}</h1>
+{#- With the calendar on, its Next day starts the new day and moves the calendar with it. #}
+{% if not calendar %}
 <h2 class="bracket-header" data-side>{{ t("pods.patcher.today") }}</h2>
 <form action="/patcher/new-day" method="post" class="panel new-day" data-side>
   <span><strong>{{ t("pods.patcher.new_day") }}</strong>{{ info(t("pods.patcher.new_day_info")) }}<br><span class="note">{{ t("pods.patcher.closes_game") }}</span></span>
   <button type="submit" class="secondary">{{ t("pods.patcher.new_day_button") }}</button>
 </form>
 <style>.new-day{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}</style>
+{% endif %}
 {% if calendar %}
 <div class="title-row" data-side><p>{{ t("pods.patcher.current") }} <strong>{{ current }}</strong></p></div>
 
@@ -24,6 +27,7 @@
   <div class="actions" style="margin-top: 0">
     <form action="/patcher/calendar/next" method="get"><button type="submit" class="secondary">{{ t("pods.calendar.next_update") }}</button></form>
     <form action="/patcher/calendar/next" method="get"><input type="hidden" name="by" value="week"><button type="submit" class="secondary">{{ t("pods.calendar.next_week") }}</button></form>
+    <form action="/patcher/calendar/next-day" method="post"><button type="submit" class="secondary">{{ t("pods.calendar.next_day") }}</button></form>
     <form action="/patcher/calendar/jump" method="get"><button type="submit" class="secondary">{{ t("pods.patcher.jump_to") }}</button></form>
   </div>
   <form action="/patcher/calendar/speed" method="post">

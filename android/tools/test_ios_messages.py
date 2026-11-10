@@ -62,6 +62,17 @@ class IosMessages(unittest.TestCase):
         self.assertTrue(text.startswith("A new day has started"), text)
         self.assertTrue(text.endswith(IOS), text)
 
+    def test_next_day_message(self):
+        import android_calendar
+        state = {"loop": 1, "loopStart": android_calendar.start_of_day(1_700_000_000_000), "jumpMillis": 0, "speed": 1}
+        with mock.patch.object(android_calendar, "read_state", lambda: dict(state)), \
+                mock.patch.object(android_calendar, "write_state", lambda s: None), \
+                mock.patch.object(android_calendar, "now_ms", lambda: 1_700_000_000_000 + 3 * android_calendar.DAY), \
+                mock.patch.object(android_patcher, "start_new_day", lambda: None):
+            text = message(android_calendar.calendar_next_day())
+        self.assertTrue(text.startswith("It is now "), text)
+        self.assertTrue(text.endswith(IOS), text)
+
 
 if __name__ == "__main__":
     unittest.main()
