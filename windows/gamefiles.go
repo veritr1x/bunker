@@ -36,8 +36,12 @@ func (d device) stream(script string) *exec.Cmd { return d.command("exec-in", sc
 // filesTarget is where the console says the game files go.
 var filesTarget = "the phone"
 
-// archiveID names an archive by file name and size, to tell whether it was sent.
+// archiveID names an archive by file name and size, to tell whether it was
+// sent. A link is named by itself.
 func archiveID(dump string) string {
+	if isArchiveLink(dump) {
+		return dump
+	}
 	info, err := os.Stat(dump)
 	if err != nil {
 		return ""
@@ -88,9 +92,18 @@ func sendGameFiles(dev phone, dump string, s *steps) error {
 	}
 	buffered := bufio.NewWriterSize(pipe, 4<<20)
 	stream := newTarSink(buffered, uid, gid)
-	s.set(s.files, busy, "STREAMING", "")
 	s.say("Copying the game files into %s (21 GB).\nKeep this window open.", filesTarget)
-	count, err := unpackGameFiles(dump, stream, func(done, total int64) { s.progress(s.files, done, total, "") })
+	if isArchiveLink(dump) {
+		s.set(s.files, busy, "READING", "the archive's index from the link")
+	}
+	// The phone's free space is checked once the archive says how much
+	// revision 0 unpacks to, before anything is downloaded or sent.
+	free := phoneFree(dev)
+	ready := func(total int64) error {
+		s.set(s.files, busy, "STREAMING", "")
+		return enoughSpace(total, free)
+	}
+	count, err := unpackGameFiles(dump, stream, ready, func(done, total int64) { s.progress(s.files, done, total, "") })
 	if err == nil {
 		err = stream.close()
 	}
@@ -121,6 +134,49 @@ func sendGameFiles(dev phone, dump string, s *steps) error {
 	s.set(s.files, good, "IN PLACE", fmt.Sprintf("%d files from %s", count, filepath.Base(dump)))
 	s.say("")
 	return nil
+}
+
+// spaceMargin is left free in the phone beyond the game files, as the Bunker's own import does.
+const spaceMargin = 1_000_000_000
+
+// phoneFree is the free space in the phone's /data in bytes, or -1 when it cannot be read.
+func phoneFree(dev phone) int64 {
+	if out, err := dev.shell("df -k /data"); err == nil {
+		if free := parseFree(out); free >= 0 {
+			return free
+		}
+	}
+	out, _ := dev.shell("stat -f -c '%a %S' /data")
+	return parseFree(out)
+}
+
+// parseFree reads df -k's last line (the Available column, in KB) or stat -f's
+// "free-blocks block-size"; -1 if neither.
+func parseFree(out string) int64 {
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	f := strings.Fields(lines[len(lines)-1])
+	switch {
+	case len(f) == 2:
+		blocks, e1 := strconv.ParseInt(f[0], 10, 64)
+		size, e2 := strconv.ParseInt(f[1], 10, 64)
+		if e1 == nil && e2 == nil {
+			return blocks * size
+		}
+	case len(f) >= 4 && len(lines) > 1:
+		if kb, err := strconv.ParseInt(f[3], 10, 64); err == nil {
+			return kb * 1024
+		}
+	}
+	return -1
+}
+
+// enoughSpace refuses game files that would not fit; free -1 is unknown and passes.
+func enoughSpace(total, free int64) error {
+	needed := total + spaceMargin
+	if free < 0 || free >= needed {
+		return nil
+	}
+	return fmt.Errorf("not enough free space in %s: the game files need %.1f GB and %.1f GB is free", filesTarget, float64(needed)/1e9, float64(free)/1e9)
 }
 
 // installScript swaps the unpacked files in, as the Bunker's import does, and
