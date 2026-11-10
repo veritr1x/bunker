@@ -145,10 +145,10 @@ def build_android(args, env, python, master, sdk):
             "--port-offset", args.port_offset, "--auth-host", auth, env=env)
         run(python, ROOT / "android/tools/package_game.py", "--decoded-dir", decoded,
             "--companion-apk", ROOT / "android/app/build/outputs/apk/debug/app-debug.apk", "--game-apk", args.apk,
-            "--output", output, "--sdk", sdk, "--keystore", args.keystore.resolve(), "--port-offset", args.port_offset,
+            "--output", output, "--sdk", sdk, "--port-offset", args.port_offset,
             *notices_args(args), env=env)
     record_checksum(output)
-    print(f"\nReady: {output}\nKeep your signing key: {args.keystore.resolve()}")
+    print(f"\nReady: {output}\nSigned with the public Bunker key, as the web builder signs: it installs over any Bunker build.")
 
 
 def build_ios(args, env, python, master):
@@ -180,7 +180,6 @@ def main():
     target.add_argument("--apk", type=Path, help="Original Global (English/Korean) or Japanese ARM64 game 3.7.1 APK (builds Android)")
     target.add_argument("--ipa", type=Path, help="Original decrypted game 3.7.1 IPA (builds iPhone)")
     parser.add_argument("--master", type=Path, required=True, help="Original 20240404193219.bin.e")
-    parser.add_argument("--keystore", type=Path, default=ROOT / "inputs/lunar-local.keystore", help="Android signing key")
     parser.add_argument("--bundle-id", help="iPhone: bundle ID for signing with your own Apple team. Use the same one for every build: "
                         "saves stay with the bundle ID (com.square-enix.NieRSPww, the game's own, if your profile allows it)")
     parser.add_argument("--sign-identity", help="iPhone: codesign identity; requires --profile")
@@ -205,7 +204,7 @@ def main():
     if android:
         use_supported_jdk(parser, env)
     tools = ["git", "go", "make", "protoc", "python3.11"]
-    tools += ["apktool", "java", "keytool"] if android else ["xcrun", "codesign", "zip"]
+    tools += ["apktool", "java"] if android else ["xcrun", "codesign", "zip"]
     for command in tools:
         if not shutil.which(command, path=env["PATH"]):
             parser.error(f"Missing {command}. See docs/BUILD.md.")
