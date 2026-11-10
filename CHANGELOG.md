@@ -4,9 +4,43 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.11.0 (2026-11-10)
+
+Play in your own language. The game, its master data and Bunker's own screens
+can be translated: menus, items, missions, the story, Mama's lines, Pod
+Programs, the Archive, both launchers and the pages Bunker shows inside the
+game. Choose a language in Pod Programs › Language and keep the game set to
+English; the game's fonts now show Polish, Czech, Turkish, Vietnamese,
+Cyrillic, Greek and Simplified Chinese. No language ships yet: translations
+come from the community by pull request ([Contributing a translation](CONTRIBUTING.md)).
+The calendar has a Next day button, and every Android build, local or from
+the web builder, is signed with the same public key.
+
 ## 2026-11-10 (after 1.10.5)
 
+### Translations
+- Language packs: the game's own text (menus, items, missions, quests, the
+  story, the Library), master data text (Mama's shop lines, cut-ins, gift
+  messages, panel mission titles) and Bunker's words, in one file a player
+  loads in Pod Programs › Language. The server builds the game's translated
+  text and serves it in place of the English; master data texts are written
+  into the game data and taken out again for English. A pack replaces English
+  only: a Japanese or Korean client is unchanged. [2e311be]
+- Bunker's own screens speak the chosen language: Pod Programs, the Archive,
+  the Android and iOS launchers and their menus, and the pages the server
+  shows inside the game (summon details, Rates, the notices' tabs and labels,
+  panel mission sheets). Plural forms and numbers follow the language's
+  rules; the NieR flavour lines stay in English. [2e311be]
+- The game's fonts gain the letters of Latin languages (Polish, Czech,
+  Turkish, Vietnamese…), Cyrillic, Greek and Simplified Chinese.
+- Translations live in `translations/` and come by pull request, checked
+  automatically; `CONTRIBUTING.md` walks translators through it. Two small
+  examples, not shipped: Brazilian Portuguese and Simplified Chinese.
+
 ### Original calendar
+- Next day, beside Jump to: moves the calendar one whole day and starts a new
+  day (the daily reset) in one tap. With the calendar on, the separate New
+  day panel is gone. [579f90a]
 - Daily missions from a loop's first week. The first daily set (missions
   21-26) ran from launch, but the game data of those weeks dated it
   2000-01-02 to 9999, which the calendar's history took for a placeholder:
@@ -14,6 +48,21 @@ under its heading, down to the previous release.
   for good, beside the sets that replaced it. It now runs from launch to 24
   November 2021, when missions 31-36 take over. A calendar in use rebuilds
   its game data on the next start.
+
+### Android
+- Every build is signed with the public Bunker key, as the web builder signs:
+  a command-line build installs over a web build and the other way round,
+  keeps its data and can update itself. Builds no longer make a local key;
+  to move from one made before (`inputs/lunar-local.keystore`), back up the
+  save, uninstall, install and import it. [29ddd01]
+- The launcher: Pod Programs' "i" sits beside its heading. [6cc115b]
+- The build works with the latest JDK: Java is compiled with a JDK 21
+  toolchain that Gradle finds or downloads. [df9f0ff]
+
+### iPhone and iPad
+- The launcher's CHOOSE keeps its whole word in every language: when it and
+  the game files chip don't fit side by side, it goes under the chip.
+  [95a6340]
 
 ## 1.10.5 (2026-11-09)
 
