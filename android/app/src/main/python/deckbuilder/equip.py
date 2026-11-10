@@ -13,7 +13,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, NamedTuple
 
+import bunker_text
 from deckbuilder import model, raise_
+from deckbuilder.text import Later
 
 DATA = Path(__file__).resolve().parent / "data" / "rankings.json"
 ELEM_ATTR = {"dark": 1, "fire": 2, "light": 3, "water": 5, "wind": 6}
@@ -36,7 +38,10 @@ ROLE_MEMOIRS = {
     "force": (10, ("attack", "defense", "attack"),
               (["hp_pct"] * 5 + ["attack_pct"] * 2 + ["defense_pct"] * 2,) * 3),
 }
-STAT_LABEL = {"Vitality": "DEF", "Attack": "ATK", "Hp": "HP", "Agility": "agility", "CriticalRatio": "crit rate", "CriticalAttack": "crit damage"}
+# A stat a memoir set's bonus lowers, as the page names it (catalogue keys, translated when shown).
+STAT_LABEL = {"Vitality": "pods.decks.stat_label.def", "Attack": "pods.decks.stat_label.atk", "Hp": "pods.decks.stat_label.hp",
+              "Agility": "pods.decks.stat_label.agility", "CriticalRatio": "pods.decks.stat_label.crit_rate",
+              "CriticalAttack": "pods.decks.stat_label.crit_damage"}
 _rankings = None
 
 
@@ -97,28 +102,40 @@ def _weapon_type(costume_id, tables):
 BEATS = {"dark": "light", "light": "dark", "fire": "wind", "wind": "water", "water": "fire"}
 
 
+def _element(element: str) -> str:
+    return bunker_text.t(f"common.element.{element}", default=element)   # new game data: its own name
+
+
 def element_note(element: str) -> str:
     """What a main weapon's element does: in the Arena a character takes its main weapon's element, which deals
     x1.2 damage to the element it beats and x0.8 to the one that beats it (dark and light beat each other)."""
     if element not in BEATS:
         return ""
     weak = [k for k, v in BEATS.items() if v == element and BEATS.get(element) != k]
-    vs = f"+20% damage to {BEATS[element].title()}" + (f", −20% to {weak[0].title()}" if weak else "")
-    return f"{element.title()}: {vs}."
+    if weak:
+        return bunker_text.t("pods.decks.element_note", element=_element(element), beats=_element(BEATS[element]),
+                             weak=_element(weak[0]))
+    return bunker_text.t("pods.decks.element_note_one", element=_element(element), beats=_element(BEATS[element]))
 
 
-def main_weapon_reason(source: str, element: str, owned: bool) -> str:
+def main_weapon_reason(source: str, element: str, owned: bool) -> Later:
     """The ⓘ note on a main weapon: why it was picked, then what its element does (element_note). source: "ranked"
     (top of the rankings), "expert" (the experts' loadout), "yours" (the player's own, used instead of adding one),
-    "fights" or "force" (the bake's pick: the most simulated wins, the most Force); element: the weapon's own."""
-    first = {"ranked": f"Top-ranked {element.title()} weapon for this costume's weapon type",
-             "expert": "The experts' choice for this costume",
-             "yours": "Your best weapon of this costume's weapon type, used instead of adding one",
-             "fights": "Picked because this costume won the most simulated fights with it",
-             "force": "Picked because it gives this costume the most Force"}[source]
-    if owned and source not in ("yours", "fights", "force"):
-        first += "; you own it"
-    return f"{first}. {element_note(element)}".strip()
+    "fights" or "force" (the bake's pick: the most simulated wins, the most Force); element: the weapon's own.
+    Made when shown (deckbuilder.text)."""
+    mine = owned and source not in ("yours", "fights", "force")
+
+    def make():
+        t = bunker_text.t
+        first = {"ranked": lambda: (t("pods.decks.weapon.ranked_owned", element=_element(element)) if mine
+                                    else t("pods.decks.weapon.ranked", element=_element(element))),
+                 "expert": lambda: t("pods.decks.weapon.expert_owned") if mine else t("pods.decks.weapon.expert"),
+                 "yours": lambda: t("pods.decks.weapon.yours"),
+                 "fights": lambda: t("pods.decks.weapon.fights"),
+                 "force": lambda: t("pods.decks.weapon.force")}[source]()
+        note = element_note(element)
+        return t("pods.decks.weapon.reason", first=first, note=note) if note else t("pods.decks.weapon.reason_plain", first=first)
+    return Later(make)
 
 
 def main_candidates(element, weapon_type):
@@ -293,8 +310,22 @@ def _bonus_drawbacks(series_id, tables):
         ops, _, _ = units.passive_ops([(r["AbilityId"], r["AbilityLevel"])], "dark")
         for o in ops:
             if o["op"] == "buff" and o["value"] < 0 and o["scope"] == "self_01":
-                out.append(f"{STAT_LABEL.get(o['key'], o['key'])} −{round(-o['value'] * 100)}%")
+                out.append(_drawback(o["key"], round(-o["value"] * 100)))
     return out
+
+
+def _drawback(key, percent) -> Later:
+    """A lowered stat, as "DEF −30%"."""
+    def make():
+        label = STAT_LABEL.get(key)
+        return bunker_text.t("pods.decks.drawback", stat=bunker_text.t(label) if label else key, n=percent)
+    return Later(make)
+
+
+def _and(items) -> str:
+    """Items as a list in a sentence: "a and b", "a, b and c"."""
+    items = [str(x) for x in items]
+    return items[0] if len(items) == 1 else bunker_text.t("pods.decks.list_and", first=", ".join(items[:-1]), last=items[-1])
 
 
 def _memoirs(pick, series_id, role_name, tables):
@@ -355,7 +386,7 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
             attr = tables.idx("Weapon", "WeaponId").get(main_id, {}).get("AttributeType")
             own_e = {v: k for k, v in ELEM_ATTR.items()}.get(attr, e)
             reasons[(c, "main_weapon")] = main_weapon_reason(source, own_e, owned=main.source == "save")
-        reasons[(c, "memoirs")] = f"Set {series}: the {'attacker' if r == 'attacker' else 'support'} set, mains {', '.join(ROLE_MEMOIRS[r][1])}."
+        reasons[(c, "memoirs")] = _memoir_reason(series, r)
     if mode.kind == "owned":
         specs = _limit_missing(specs, mode.allow_missing, base, stage, tables)
     deck = model.compose(base, stage, specs, deck_type, deck_number, tables, raise_all=mode.kind == "best")
@@ -381,12 +412,24 @@ def equip(lineup, mode: Mode, base: model.Save, stage: model.Save, tables, exper
         if best:
             r_alt, alt_set, specs, deck = best
             overrides.append(Override(c, "memoirs", expert_set, alt_set,
-                                      f"The expert loadout uses memoir set {expert_set}. Its 3-piece bonus also lowers the wearer's "
-                                      f"{' and '.join(drawbacks)}, which the expert note doesn't mention; with set {alt_set} the deck "
-                                      f"wins {r_alt:.0%} of simulated fights instead of {r_exp:.0%}.",
+                                      _override_reason(expert_set, alt_set, drawbacks, r_alt, r_exp),
                                       {"win_rate": {"expert": r_exp, "data": r_alt}, "drawbacks": drawbacks}))
-            reasons[(c, "memoirs")] = f"Set {alt_set} (data override of the expert's set {expert_set})."
+            reasons[(c, "memoirs")] = Later(lambda alt_set=alt_set, expert_set=expert_set: bunker_text.t(
+                "pods.decks.memoir.override", set=alt_set, expert_set=expert_set))
     return Equipped(deck, specs, reasons, overrides, model.missing_pieces(specs))
+
+
+def _memoir_reason(series, role_name) -> Later:
+    """Why a memoir set: the role's set and its mains (the stats' own names)."""
+    mains = ", ".join(ROLE_MEMOIRS[role_name][1])
+    if role_name == "attacker":
+        return Later(lambda: bunker_text.t("pods.decks.memoir.attacker", set=series, mains=mains))
+    return Later(lambda: bunker_text.t("pods.decks.memoir.support", set=series, mains=mains))
+
+
+def _override_reason(expert_set, alt_set, drawbacks, r_alt, r_exp) -> Later:
+    return Later(lambda: bunker_text.t("pods.decks.memoir.override_reason", expert_set=expert_set, stats=_and(drawbacks),
+                                       set=alt_set, data=f"{r_alt:.0%}", expert=f"{r_exp:.0%}"))
 
 
 def _score(ref, save, tables):

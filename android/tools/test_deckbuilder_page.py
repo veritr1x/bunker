@@ -70,7 +70,7 @@ class FakeSession:
         return [{"id": 9000001, "name": "Operator 6O", "points": 5140, "costumes": [31032, 35036, 33029]}]
 
     def slots(self):
-        return [{"deck_type": 2, "number": 1, "label": "Arena deck 1 (defense)", "summary": "Marie, Sarafa, Rion"},
+        return [{"deck_type": 2, "number": 1, "label": "Arena deck 1 (defense)", "summary": "Marie, Sarafa, Rion", "defense": True},
                 {"deck_type": 2, "number": 2, "label": "Arena deck 2", "summary": None},
                 {"deck_type": 1, "number": 3, "label": "Loadout deck 3", "summary": "Fio, Saryu, Lars"}]
 
@@ -131,12 +131,21 @@ class PageTest(unittest.TestCase):
     def test_nav_has_deck_builder(self):
         templates = ROOT / "overlays/python/web/templates"
         self.assertIn('href="/decks"', (templates / "base.html").read_text())
-        self.assertIn('program("/decks", "Deck Builder"', (templates / "index.html").read_text())
+        # the Programs page's grid, as the player sees it (in English)
+        import jinja2
+        import bunker_text
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(templates)), autoescape=True)
+        bunker_text.install(env)
+        home = env.get_template("index.html").render(game_db_exists=True, active="home", message="", error="")
+        self.assertIn('<a href="/decks">Deck Builder <span>', home)
         self.assertIn("android_deckbuilder", (ROOT / "android/app/src/main/python/android_runtime.py").read_text())
 
     def test_page_renders(self):
         r = self.c.get("/decks", params={"user": 1})
         self.assertEqual(r.status_code, 200)
+        # counts take the forms the language uses (Intl.PluralRules), not a one/other pair
+        self.assertIn("new Intl.PluralRules(", r.text)
+        self.assertIn('adds: {"one": "Adds {n} piece, fully raised.", "other": "Adds {n} pieces, fully raised."}', r.text)
         for text in ("Deck Builder", 'data-name="Arena deck 1"', "Operator 6O", "/decks/results"):
             self.assertIn(text, r.text)
 
@@ -221,9 +230,11 @@ class PageTest(unittest.TestCase):
 
     def test_the_allow_menu_shows_only_with_what_i_own(self):
         html = self.c.get("/decks", params={"user": 1}).text
-        self.assertIn('<p class="help owned-only">What I own uses your costumes as they are. Allow up to', html)
-        self.assertIn('<p class="help best-only" data-info="lbl-mode">All maxed ranks the best decks in a world where you own everything', html)
-        self.assertIn("so if you're missing some, the deck does a little worse for you than shown", html)
+        self.assertIn('<p class="help owned-only">Allow up to', html)
+        # one sentence around the menu, as the player reads it
+        self.assertRegex(html, r'<p class="help owned-only">Allow up to\s*<select id="allow">.*?</select>\s*pieces to be added\.</p>')
+        self.assertIn('<details class="info best-only"><summary aria-label="More information">i</summary><div>Ranks decks as if you owned every costume', html)
+        self.assertIn('<details class="info owned-only"><summary aria-label="More information">i</summary><div>Uses your costumes as they are.</div>', html)
         self.assertIn('body.owned .best-only,body:not(.owned) .owned-only{display:none!important}', html)
         self.assertIn('document.body.classList.toggle("owned", state.mode === "owned");', html)
 
@@ -282,12 +293,22 @@ class PageTest(unittest.TestCase):
         unless unticked; What I own leaves them unticked."""
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('if (state.mode === "best") document.querySelectorAll("#w-raise input").forEach(b => (b.checked = true));', html)
-        self.assertIn('"mythic_slab": "Mythic Slab"', html)
+        self.assertIn('"mythic_slab": "Mythic Slab"', html)   # the catalogue's words, in TXT.field
 
     def test_subjugation_is_a_mode_with_a_boss_and_difficulty(self):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn('<button type="button" data-v="subjugation">Subjugation</button>', html)
-        self.assertIn('<option value="1">Fiery Cursed God · fire</option>', html)
+        self.assertIn('<option value="1" data-name="Fiery Cursed God">Fiery Cursed God · fire</option>', html)
+        # an element the catalogue lacks (new game data) shows its own name
+        import jinja2
+        import bunker_text
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(ROOT / "overlays/python/web/templates")), autoescape=True)
+        bunker_text.install(env)
+        page = env.get_template("deck_builder.html").render(user=1, players=[], slots=[], opponents=[], preparing=False,
+                                                             bosses=[{"id": 9, "name": "New God", "element": "void"}])
+        self.assertIn('<option value="9" data-name="New God">New God · void</option>', page)
+        # the script takes the boss's name from its own field, never by cutting up the (translated) option text
+        self.assertNotIn('split(" · ")', html)
         self.assertIn('<select id="difficulty">', html)
 
     def test_subjugation_results_are_loadouts_of_three_decks(self):
@@ -337,8 +358,11 @@ class PageTest(unittest.TestCase):
 
     def test_a_deck_shows_its_win_rate(self):
         html = self.c.get("/decks", params={"user": 1}).text
-        self.assertIn("<b>${c.win_pct}%</b><small>win rate</small>", html)
-        self.assertIn('[["Win rate", c.win_pct + "%"]', html)
+        self.assertIn("<b>${pct(c.win_pct)}</b><small>${esc(TXT.winRateShort)}</small>", html)
+        self.assertIn('winRateShort: "win rate"', html)
+        self.assertIn("[[TXT.winRate, pct(c.win_pct)]", html)
+        self.assertIn('style: "percent"', html)  # "62,5 %" in French, "%62,5" in Turkish
+        self.assertIn('winRate: "Win rate"', html)
 
     def test_write_opens_the_deck_picker(self):
         """The deck list appears only after WRITE DECK: Arena and Loadout decks on tabs, each deck a tile naming what
@@ -350,7 +374,8 @@ class PageTest(unittest.TestCase):
         self.assertIn('<label class="wp-sl" data-t="1" hidden><input type="checkbox" value="1:3" data-name="Loadout deck 3" data-summary="Fio, Saryu, Lars">', html)
         self.assertIn('<b>03</b><span>Fio, Saryu, Lars</span>', html)
         self.assertIn('<i>Defense</i>', html)
-        self.assertIn("`Replaces ${b.dataset.name} (${b.dataset.summary})`", html)
+        self.assertIn('fill(TXT.replaces, {deck: b.dataset.name, summary: b.dataset.summary})', html)
+        self.assertIn('replaces: "Replaces {deck} ({summary})"', html)
         self.assertIn('id="w-yes" onclick="writeDeck()" disabled>REPLACE</button>', html)
         self.assertNotIn('id="w-to"', html)      # no deck list in the deck view itself
         self.assertNotIn("preTick", html)        # nothing is ticked for you: the deck is the one you pick

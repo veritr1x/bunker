@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"lunar-tear/server/internal/auth"
+	"lunar-tear/server/internal/bunkertext"
 	"lunar-tear/server/internal/bunkerversion"
 	"lunar-tear/server/internal/database"
 	"lunar-tear/server/internal/gacha"
@@ -32,6 +33,7 @@ import (
 	"lunar-tear/server/internal/service"
 	gamestore "lunar-tear/server/internal/store"
 	"lunar-tear/server/internal/store/sqlite"
+	"lunar-tear/server/internal/translation"
 	"lunar-tear/server/migrations"
 
 	"golang.org/x/net/http2"
@@ -228,14 +230,23 @@ func Start(dataRoot, assetRoot string) (err error) {
 	if goruntime.GOOS == "ios" {
 		octoRoot, platform = filepath.Join(filepath.Dir(assetRoot), "Library", "octo"), "ios"
 	}
+	// The active language pack's text bundles and list. It is served inside
+	// OctoLinks, so a cache entry is still unlinked before its translated copy
+	// is downloaded, and OctoLinks links translated downloads to their copies
+	// (started before the sweep, which links what is already cached).
+	// The text Bunker puts into the game (summon details, notices, panels) follows the same pack.
+	bunkertext.SetActive(filepath.Join(assetRoot, "translation", "active.json"))
+	translator := translation.New(assetRoot, dataRoot, platform)
+	translator.Start()
 	links := service.NewOctoLinks(octoRoot, assetRoot, platform)
+	links.AlsoLink(translator.File)
 	go links.Sweep()
 	// The game's Notices screen, from the notice pack the launcher copies in.
 	notices := service.NewNotices(service.NoticePackPath(assetRoot), gametime.NowMillis)
 	notices.UseCalendar(gametime.CalendarOffset, gametime.ViewOffset)
 	service.SetNotices(notices)
 	service.SetPanelWeb(notices) // the Anecdotes' official page, from the pack's web app
-	octo := links.Wrap(cdn.Handler())
+	octo := links.Wrap(translator.Wrap(cdn.Handler()))
 	cdnMux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if service.IsNoticePath(r.URL.Path) {
 			notices.ServeHTTP(w, r)

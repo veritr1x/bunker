@@ -149,6 +149,31 @@ class EventRuns(unittest.TestCase):
         self.assertEqual((len(ln), len(gr), len(sq)), (1, 2, 3))
 
 
+class DailyMissions(unittest.TestCase):
+    """Daily missions 21-26 (term 1002) were the daily set from launch to 24
+    November 2021; the weekly masters only kept the run from 24 September."""
+
+    def test_the_first_daily_set_opens_at_launch_and_closes_for_the_next(self):
+        spec = cal.history()["m_mission_term"]
+        # The final game data's dates: 24 September 2021 to "2011-11-24".
+        blob = cal.restore_runs(table(row(1002, Date(1632470400000), Date(1322121599000))), spec, table_name="m_mission_term")
+        self.assertEqual(cells(blob), [[1002, T0, 1637740799000]])
+
+    def test_a_loop_has_a_daily_set_from_its_first_week(self):
+        blob = cal.restore_runs(table(row(1002, Date(1632470400000), Date(1322121599000))), cal.history()["m_mission_term"],
+                                table_name="m_mission_term")
+        moved = bytearray(blob)
+        loop_start = T0 + 1000 * DAY
+        cal.shift_table(moved, {1, 2}, loop_start - T0)
+        (_, start, end), = cells(bytes(moved))
+        self.assertLessEqual(start, loop_start)
+        self.assertEqual(end, 1637740799000 + loop_start - T0)  # closed when 31-36 open, not left open for good
+
+    def test_a_calendar_in_use_gets_the_daily_missions(self):
+        self.assertGreaterEqual(cal.DATA_VERSION, 5)
+        self.assertGreaterEqual(int(cal.VIEW_VERSION), 6)
+
+
 class Anecdotes(unittest.TestCase):
     """An Anecdote (web panel mission) replays every run as a copy: the mission
     and its sheet get the run's ids, the story pages stay shared."""

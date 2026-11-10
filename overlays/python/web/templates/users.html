@@ -1,14 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Users :: Lunar Base{% endblock %}
-{% block bar_right %}USERS{% endblock %}
+{% from "_info.html" import info %}
+{% block title %}{{ t("pods.users.page_title") }}{% endblock %}
 {% block content %}
-<h1 class="bracket-header" data-side>Registered Users</h1>
+<h1 class="bracket-header" data-side>{{ t("pods.users.heading") }}{{ info(t("pods.users.heading_info")) }}</h1>
 {% set in_use = device_player() if device_player is defined else None %}
-<p data-side>The game plays as the player marked IN USE. Open another player to switch.</p>
 <div class="panel panel-corners" data-side>
-  <p style="margin:0 0 12px">Start a new player on this device. The current player is kept, and you can switch back to it here.</p>
-  <form method="post" action="/users/new" onsubmit="return confirm('Start a new player on this device? The current player is kept.')">
-    <button type="submit">New player</button>
+  <form method="post" action="/users/new" onsubmit='return confirm({{ t("pods.users.new_confirm")|tojson }})'>
+    <button type="submit">{{ t("pods.users.new_player") }}</button>
   </form>
 </div>
 
@@ -17,13 +15,11 @@
   <table>
     <thead>
       <tr>
-        <th>User ID</th>
-        <th>Name</th>
-        <th>Level</th>
-        <th>Logins</th>
-        <th>Last login</th>
-        <th>Registered</th>
-        <th>UUID</th>
+        <th>{{ t("pods.users.col_id") }}</th>
+        <th>{{ t("pods.users.col_name") }}</th>
+        <th>{{ t("pods.users.col_level") }}</th>
+        <th>{{ t("pods.users.col_logins") }}</th>
+        <th>{{ t("pods.users.col_last_login") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -36,13 +32,11 @@
           {% else %}
             <span style="color:var(--fg-mid)">&mdash;</span>
           {% endif %}
-          {% if u.user_id == in_use %} <span class="status-pill online">IN USE</span>{% endif %}
+          {% if u.user_id == in_use %} <span class="status-pill online">{{ t("pods.users.in_use") }}</span>{% endif %}
         </td>
         <td>{{ u.level }}</td>
         <td>{{ u.total_login_count }}</td>
-        <td>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d %H:%M") }}{% else %}<span style="color:var(--fg-mid)">never</span>{% endif %}</td>
-        <td>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</td>
-        <td><code>{{ u.uuid }}</code></td>
+        <td>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d") }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.users.never") }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -50,7 +44,7 @@
 </div>
 {% else %}
 <div class="panel">
-  <p style="margin:0;color:var(--fg-mid)">No users found in the database.</p>
+  <p style="margin:0;color:var(--fg-mid)">{{ t("pods.users.none_yet") }}</p>
 </div>
 {% endif %}
 {% endblock %}

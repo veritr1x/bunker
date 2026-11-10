@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › <a href="/characters">Characters</a> › {{ character.name }}</p>
+<p class="crumb"><a href="/">{{ t("archive.menu.archive") }}</a> › <a href="/characters">{{ t("archive.menu.characters") }}</a></p>
 <h1>{{ character.name }}</h1>
-<p class="note">{{ count(character.costumes|length, "costume") }}{% if character.voices %} · {{ count(character.voices|length, "voice line") }}{% endif %}.</p>
-{% if character.costumes and has_model(character.costumes[0].asset) %}<p><a class="button" href="/viewer/{{ character.costumes[0].asset }}">View in 3D</a></p>{% endif %}
+{% if character.costumes and has_model(character.costumes[0].asset) %}<p><a class="button" href="/viewer/{{ character.costumes[0].asset }}">{{ t("archive.characters.view_3d") }}</a></p>{% endif %}
 {% if sounds and character.voices %}
-<h2 class="bracket-header">Voice</h2>
+<h2 class="bracket-header">{{ t("archive.characters.voice") }}</h2>
 <div class="tool-grid voices">
   {% for v in character.voices %}<button type="button" class="voice" data-src="{{ snd(v.path) }}"><span class="play" aria-hidden="true">▶</span>{{ v.label }}</button>{% endfor %}
 </div>
@@ -20,7 +19,7 @@
 })();
 </script>
 {% endif %}
-<h2 class="bracket-header">Costumes</h2>
+<h2 class="bracket-header">{{ t("archive.characters.costumes") }}</h2>
 <div class="cards">
   {% for c in character.costumes %}
   <a class="card" href="/costume/{{ c.asset }}">

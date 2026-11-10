@@ -3,6 +3,10 @@
 The index is rebuilt only when the game files or master data change. Building
 reads every English text bundle once (about 6,600 small files); pages then read
 only the index.
+
+The index outlives a change of language, so the words of Bunker's own it keeps (a fallback name, a
+section) are references (t, from words) that content.py puts in words when a page reads them. Progress
+and errors, shown while it builds, are in words at once (bunker_text).
 """
 from __future__ import annotations
 
@@ -15,10 +19,13 @@ import time
 from collections import Counter
 from pathlib import Path
 
+import bunker_text
+
 from . import schedule
+from .words import t
 import extract_names  # lunar-base: a pure-Python reader for Unity text bundles
 
-FORMAT = 18
+FORMAT = 19
 SCENE_AREAS = ("main", "sub", "side")
 # Languages besides English whose names the server's pages can show (the
 # Anecdotes' panel sheets in the game's language). Story lines stay English.
@@ -217,7 +224,7 @@ def story_titles(maps: dict[str, dict], master: dict[str, list[dict]], texts: di
     for (kind, group), counter in votes.items():
         upper, n = counter.most_common(1)[0]
         if n < 0.6 * sum(counter.values()):
-            out[(kind, group)] = "Other scenes"  # battle prompts every map shares, like the main story's a999
+            out[(kind, group)] = OTHER_SCENES  # battle prompts every map shares, like the main story's a999
             continue
         if kind == "sid":
             character = upper  # side story maps are numbered by character
@@ -241,9 +248,14 @@ def story_titles(maps: dict[str, dict], master: dict[str, list[dict]], texts: di
     return out
 
 
-# Where music plays, in the order the Music page lists it.
-MUSIC_SECTIONS = ("Season 1", "Season 2", "Season 3", "Character stories", "Events", "Side stories", "Battle")
-STORY_KINDS = {"cid": "Character Quest", "eid": "Dark Memories", "lid": "Recollections of Dusk"}
+# story_titles' name for scenes many stories share; the index keeps OTHER_SCENES_SAID in its place.
+OTHER_SCENES = "Other scenes"
+OTHER_SCENES_SAID = t("archive.story.other_scenes")
+# Where music plays, in the order the Music page lists it (content.Archive.music_section names them).
+MUSIC_SECTIONS = ("season1", "season2", "season3", "characters", "events", "side", "battle")
+STORY_KINDS = {"cid": t("archive.music.character_quest"), "eid": t("archive.story.dark_memories"),
+               "lid": t("archive.story.recollections_of_dusk")}
+BATTLE, SIDE_STORY = t("archive.music.battle"), t("archive.music.side_story")
 
 
 def music_uses(maps: dict[str, dict], master: dict[str, list[dict]], texts: dict[str, str],
@@ -259,34 +271,35 @@ def music_uses(maps: dict[str, dict], master: dict[str, list[dict]], texts: dict
             season, route, order = int(number[1]), int(number[2:4]), int(number[4:7])
             label = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}")
             if 1 <= season <= 3 and label:
-                place = (MUSIC_SECTIONS.index(f"Season {season}"), route * 100 + order, label)
+                place = (MUSIC_SECTIONS.index(f"season{season}"), route * 100 + order, label)
         elif folder in ("battle", "pt"):
-            place = (MUSIC_SECTIONS.index("Battle"), 0, "Battle")
+            place = (MUSIC_SECTIONS.index("battle"), 0, BATTLE)
         else:
             for path in m.get("paths", []):
                 where = describe_scene(path.split(")")[0], "", path.split(")")[-1])
                 title = titles.get((where["kind"], where["group"]))
-                if not title or title == "Other scenes":
+                if not title or title in (OTHER_SCENES, OTHER_SCENES_SAID):
                     continue
                 if where["kind"] in STORY_KINDS:
-                    place = (MUSIC_SECTIONS.index("Character stories"), 0, f"{title} · {STORY_KINDS[where['kind']]}")
+                    place = (MUSIC_SECTIONS.index("characters"), 0, t("archive.music.place", title=title, kind=STORY_KINDS[where["kind"]]))
                 elif where["kind"] == "vid":
-                    place = (MUSIC_SECTIONS.index("Events"), int(where["group"][:6]) if where["group"][:6].isdigit() else 0, title)
+                    place = (MUSIC_SECTIONS.index("events"), int(where["group"][:6]) if where["group"][:6].isdigit() else 0, title)
                 elif where["kind"] == "sid":
-                    place = (MUSIC_SECTIONS.index("Side stories"), 0, f"{title} · Side Story")
+                    place = (MUSIC_SECTIONS.index("side"), 0, t("archive.music.place", title=title, kind=SIDE_STORY))
                 if place:
                     break
         if place:
             for track, _ in m.get("music", []):
                 out.add((str(track), *place))
     for row in master.get("m_battle_quest_scene_bgm", []):
-        out.add((str(row["BgmId"]), MUSIC_SECTIONS.index("Battle"), 0, "Battle"))
+        out.add((str(row["BgmId"]), MUSIC_SECTIONS.index("battle"), 0, BATTLE))
     for row in master.get("m_battle_bgm_set", []):
-        out.add((str(row["BgmAssetId"]), MUSIC_SECTIONS.index("Battle"), 0, "Battle"))
+        out.add((str(row["BgmAssetId"]), MUSIC_SECTIONS.index("battle"), 0, BATTLE))
     return out
 
 
-# The Library's sections, in the game's order.
+# The Library's sections, in the game's order (names that identify them; content.Archive.library_section
+# says them).
 LIBRARY_SECTIONS = ("Season 1", "Season 2", "Season 3", "Events", "Character Quests", "Recollections of Dusk", "Dark Memories")
 
 
@@ -335,13 +348,13 @@ def library_entries(texts: dict[str, str], master: dict[str, list[dict]], maps: 
             chapter = by_sort.get((kind, n))
             if kind == 1:
                 name = texts.get(f"quest.event.chapter_title.{chapters[chapter]['NameEventQuestTextId']}", "") if chapter else ""
-                out.append(("Events", name or f"Event {n}", n, "", part, text, key))
+                out.append(("Events", name or t("archive.story.event_numbered", n=n), n, "", part, text, key))
             elif kind == 6:
-                out.append(("Character Quests", character(chapter) or f"Character {n}", n, "", part, text, key))
+                out.append(("Character Quests", character(chapter) or t("archive.story.character_numbered", n=n), n, "", part, text, key))
         elif key.startswith("limit.content.story.") and parts[-1].isdigit():
             quest = int(parts[-1])
             chapter = chapter_of_quest.get(quest)
-            out.append(("Recollections of Dusk", character(chapter) or "Other", chapter or 0, "", quest, text, key))
+            out.append(("Recollections of Dusk", character(chapter) or t("archive.story.other"), chapter or 0, "", quest, text, key))
         elif key.startswith("content.story.") and len(parts) == 4:
             out.append(("Dark Memories", dark.get(parts[2] + parts[3], ""), int(parts[2]), "", int(parts[3]), text, key))
     return out
@@ -352,7 +365,7 @@ def chapter_heading(texts: dict[str, str], chapters: dict[int, dict], routes: di
     """A main-quest chapter's name ("Ch. 1 · Windblown Sand") and its place in the season."""
     c = chapters.get(chapter)
     route, order = (routes.get(c["MainQuestRouteId"], {}).get("SortOrder", 1), c["SortOrder"]) if c else (1, chapter)
-    number = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}") or f"Chapter {order}"
+    number = texts.get(f"quest.main.chapter_number.{season}.{route}.{order}") or t("archive.story.chapter", n=order)
     title = texts.get(f"quest.main.chapter_title.{season}.{route}.{order}", "")
     return number + (f" · {title}" if title and title != number else ""), route * 100 + order
 
@@ -367,6 +380,9 @@ def library_art(key: str) -> str:
     if key.startswith("content.story.") and len(parts) == 4:
         return f"ui/library/content/bg{parts[2]}{parts[3]}.assetbundle"
     return ""
+
+
+PART, PHOTO = "part", "photo"  # gallery_rows: pictures it numbers later
 
 
 def gallery_rows(rows: list[tuple], texts: dict[str, str], master: dict[str, list[dict]],
@@ -391,24 +407,24 @@ def gallery_rows(rows: list[tuple], texts: dict[str, str], master: dict[str, lis
         variant = ""
         if name.endswith(("_full", "_standard")):
             name_id, variant = name.rsplit("_", 1)
-            variant = " · card" if variant == "standard" else ""
+            variant = " · " + t("archive.gallery.card") if variant == "standard" else ""
         else:
             name_id = name
         if category == "stills":
             m = re.fullmatch(r"still_main_(\d)\d(\d{3})\d{2}", name)
-            section, order = chapter_heading(texts, chapters, routes, int(m[1]), int(m[2])) if m else ("Other", 99999)
+            section, order = chapter_heading(texts, chapters, routes, int(m[1]), int(m[2])) if m else (t("archive.gallery.other"), 99999)
         elif category == "events":
             code = path.split("/")[2][8:]
             order = sorted(event_parts[grp]).index(code) + 1
-            section = f"Part {order}"
+            section = t("archive.gallery.part", n=order)
             cut = re.search(r"_c(\d+)_?(.*)$", name)
-            title = f"Cut {int(cut[1])}" + (f" · {cut[2].replace('_', ' ')}" if cut[2] else "") if cut else ""
+            title = t("archive.gallery.cut", n=int(cut[1])) + (" · " + cut[2].replace("_", " ") if cut[2] else "") if cut else ""
         elif category == "photos":
-            title = "Photo"
+            title = PHOTO
         elif path in library:
             section, heading_order, order = library[path]
             order = heading_order * 100000 + order
-            title = "Part"
+            title = PART
         elif grp == "report" and name_id[6:].isdigit():
             r = reports.get(int(name_id[6:]))
             if r:
@@ -417,11 +433,11 @@ def gallery_rows(rows: list[tuple], texts: dict[str, str], master: dict[str, lis
         elif grp == "cage_memory" and name_id[11:].isdigit():
             r = cages.get(int(name_id[11:]))
             if r:
-                section, order = f"Season {r['MainQuestSeasonId']}", r["MainQuestSeasonId"] * 1000 + r["SortOrder"]
+                section, order = t("archive.story.season", n=r["MainQuestSeasonId"]), r["MainQuestSeasonId"] * 1000 + r["SortOrder"]
                 title = texts.get(f"cage.memory.title.{r['CageMemoryAssetId']}", "") + variant
         elif grp == "stained_glass" and name[13:19] in glass:
             order = glass.index(name[13:19]) + 1
-            section, title = f"Stained glass {order}", name[20:].capitalize()
+            section, title = t("archive.gallery.stained_glass_numbered", n=order), name[20:].capitalize()
         elif grp == "movie" and name[5:].isdigit():
             r = movies.get(int(name[5:]))
             title = texts.get(f"movie.title.name.{r['TitleLibraryTextId']}", "") if r else ""
@@ -432,16 +448,18 @@ def gallery_rows(rows: list[tuple], texts: dict[str, str], master: dict[str, lis
     # Numbered names count within their section: Still 1, Part 2, Photo 3.
     counts = Counter()
     for row in sorted(placed, key=lambda r: (r[0], r[1], r[6], r[5], r[2])):
-        if row[4] in ("", "Still", "Part", "Photo") or row[0] == "stills":
-            word = {"stills": "Still", "photos": "Photo"}.get(row[0], "Part" if row[4] == "Part" else "Picture")
+        if row[4] in ("", PART, PHOTO) or row[0] == "stills":
             counts[(row[0], row[1], row[5])] += 1
-            row[4] = f"{word} {counts[(row[0], row[1], row[5])]}"
+            n = counts[(row[0], row[1], row[5])]
+            row[4] = t("archive.gallery.still", n=n) if row[0] == "stills" else t("archive.gallery.photo", n=n) if row[0] == "photos" \
+                else t("archive.gallery.part", n=n) if row[4] == PART else t("archive.gallery.picture", n=n)
     return [tuple(r) for r in placed]
 
 
 # The other people and creatures the game shows in 3D, by the first letters of their model.
-MODEL_SECTIONS = ("Main cast", "Story characters", "Enemies")
-ENEMY_ELEMENTS = {"1": "Fire", "2": "Wind", "3": "Water", "4": "Light", "5": "Dark"}
+MODEL_SECTIONS = ("cast", "story", "enemies")
+ENEMY_ELEMENTS = {"1": t("common.element.fire"), "2": t("common.element.wind"), "3": t("common.element.water"),
+                  "4": t("common.element.light"), "5": t("common.element.dark")}
 MODEL_FAMILIES = {"ma": 0, "np": 1, "pc": 1, "pe": 1, "sp": 1, "um": 1, "mt": 2}
 
 
@@ -540,7 +558,7 @@ def model_rows(assets: list[str], master: dict[str, list[dict]], texts: dict[str
         family = own[first].split(": ")[0] if a.startswith("mt") and first else             (families[a[:5]].most_common(1)[0][0] if a[:5] in families else "")
         name = own.get(a, "")
         if not name and a.startswith("mt") and family and a[5] in ENEMY_ELEMENTS:
-            name = f"{family}: {ENEMY_ELEMENTS[a[5]]}"  # the variation's hundreds are its element, as in all 99 named ones
+            name = t("archive.characters.element_look", family=family, element=ENEMY_ELEMENTS[a[5]])  # the variation's hundreds are its element, as in all 99 named ones
         out.append((a, MODEL_FAMILIES[a[:2]], a[:5], family, name))
     return out
 
@@ -557,7 +575,8 @@ def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[st
         target.unlink(missing_ok=True)
     texts = dict(db.execute("SELECT key, value FROM text WHERE key LIKE 'character.name.%' OR key LIKE 'quest.event.chapter_title.%'"))
     db.executemany("INSERT OR REPLACE INTO story_group VALUES (?,?,?)",
-                   [(kind, group, title) for (kind, group), title in story_titles(found, master, texts).items()])
+                   [(kind, group, OTHER_SCENES_SAID if title == OTHER_SCENES else title)
+                    for (kind, group), title in story_titles(found, master, texts).items()])
     # The main story's maps, by name alone, with the lines they play.
     maps = {name.split("/", 1)[1]: m.get("lines", []) for name, m in found.items() if name.startswith("main/")}
     groups = chapter_groups(maps)
@@ -579,6 +598,14 @@ def apply_scenario(db, event_maps: Path, target: Path, scenario, master: dict[st
 
 def load_master(master_path: Path) -> dict[str, list[dict]]:
     """The few master-data tables the Archive needs, as lists of rows."""
+    return load_tables(master_path, dict.fromkeys(MASTER_TABLES + BUILD_TABLES))
+
+
+def load_tables(master_path: Path, names, required: bool = False) -> dict[str, list[dict]]:
+    """The named tables of the encrypted master data (the .bin.e file), as lists of rows.
+
+    A table the master data lacks is left out, or with required raises ValueError.
+    scripts/master_text.py (the translation templates) uses this too."""
     import dump_masterdata
     from Crypto.Cipher import AES
     from Crypto.Util.Padding import unpad
@@ -591,11 +618,13 @@ def load_master(master_path: Path) -> dict[str, list[dict]]:
         toc, blob = exc.unpacked, exc.extra
     schemas = dump_masterdata.load_schemas()
     tables = {}
-    for table in dict.fromkeys(MASTER_TABLES + BUILD_TABLES):
+    for table in names:
         if table in toc and table in schemas:
             offset, length = toc[table]
             rows = dump_masterdata.decompress_table(blob, offset, length)
             tables[table] = dump_masterdata.rows_to_dicts(rows, schemas[table][1])
+        elif required:
+            raise ValueError(bunker_text.t("archive.setup.no_table", table=table))
     return tables
 
 
@@ -621,9 +650,9 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     assetbundle = revision / "assetbundle"
     text_root = assetbundle / "text" / "en"
     if not text_root.is_dir():
-        raise FileNotFoundError("The game files have no English text. Choose the game files in the Bunker first.")
+        raise FileNotFoundError(bunker_text.t("archive.setup.no_english"))
     if not master.is_file():
-        raise FileNotFoundError("Master data is missing.")
+        raise FileNotFoundError(bunker_text.t("archive.setup.no_master"))
     started = time.time()
     # The launcher can build the index before the Archive has ever opened (and made its folder).
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -652,7 +681,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     voices = {f.stem.lower(): f.relative_to(assetbundle).as_posix() for f in voice_root.rglob("*.assetbundle")} if voice_root.is_dir() else {}
     bundles = sorted(text_root.rglob("*.assetbundle"))
     failures = 0
-    progress(0, len(bundles), "Story text")
+    progress(0, len(bundles), bunker_text.t("archive.setup.story_text"))
     for done, bundle in enumerate(bundles, 1):
         folder = bundle.relative_to(text_root).parent.as_posix()
         area = folder.split("/")[0]
@@ -673,9 +702,9 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
             else:
                 db.executemany("INSERT OR REPLACE INTO text VALUES (?,?,?)", [(k, clean(v), folder) for k, v in entries.items()])
         if done % 50 == 0 or done == len(bundles):
-            progress(done, len(bundles), "Story text")
-    failures += index_local_text(db, assetbundle, progress=lambda done, total: progress(done, total, "Names in other languages"))
-    progress(len(bundles), len(bundles), "Master data")
+            progress(done, len(bundles), bunker_text.t("archive.setup.story_text"))
+    failures += index_local_text(db, assetbundle, progress=lambda done, total: progress(done, total, bunker_text.t("archive.setup.other_languages")))
+    progress(len(bundles), len(bundles), bunker_text.t("archive.setup.master_data"))
     tables = load_master(master)
     if "m_dokan_text" in tables:  # announcement captions: English only (LanguageType 2)
         tables["m_dokan_text"] = [r for r in tables["m_dokan_text"] if r.get("LanguageType") == 2]
@@ -685,7 +714,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     speakers, maps = 0, {}
     event_maps = assetbundle / "eventmap"
     if scenario is not None and event_maps.is_dir():
-        progress(len(bundles), len(bundles), "Speakers and chapters")
+        progress(len(bundles), len(bundles), bunker_text.t("archive.setup.speakers"))
         speakers, maps = apply_scenario(db, event_maps, db_path.with_name("scenario.json"), scenario, tables)
     texts = dict(db.execute("SELECT key, value FROM text WHERE key LIKE 'story.Main.Quest.%' OR key LIKE 'quest.event.chapter%' "
                             "OR key LIKE 'limit.content.story.%' OR key LIKE 'content.story.%' OR key LIKE 'quest.main.chapter_%' "
@@ -693,7 +722,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
                             "OR key LIKE 'cage.memory.title.%' OR key LIKE 'movie.title.name.%' OR key LIKE 'record.title.name.%' "
                             "OR key LIKE 'actor.object.name.%' OR key LIKE 'quest.boss.name.%' OR key LIKE 'costume.name.mt%'"))
     if maps:
-        titles = {(k, g): t for k, g, t in db.execute("SELECT kind, grp, title FROM story_group")}
+        titles = {(k, g): title for k, g, title in db.execute("SELECT kind, grp, title FROM story_group")}
         db.executemany("INSERT INTO music_use VALUES (?,?,?,?)", sorted(music_uses(maps, tables, texts, titles)))
     dark_names = dict(db.execute("SELECT grp, title FROM story_group WHERE kind='eid'"))
     rows = []
@@ -723,7 +752,7 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
             if not named(character) and not text(f"costume.name.{asset}") and row["ActorSkeletonId"] in owner:
                 character = owner[row["ActorSkeletonId"]]
             db.execute("INSERT OR IGNORE INTO costume VALUES (?,?,?,?)", (asset, character, row["CostumeId"], row["RarityType"]))
-    progress(len(bundles), len(bundles), "Gallery")
+    progress(len(bundles), len(bundles), bunker_text.t("archive.setup.gallery"))
     rows = []
     for category, folder, pattern, group in GALLERY:
         root = assetbundle / folder
@@ -772,10 +801,10 @@ def build(revision: Path, master: Path, db_path: Path, progress=lambda done, tot
     db.execute("INSERT INTO meta VALUES ('built', ?)", (time.strftime("%Y-%m-%d %H:%M"),))
     db.commit()
     # The Schedule reads most of the index; worked out here once, it opens at once.
-    progress(len(bundles), len(bundles), "Schedule")
+    progress(len(bundles), len(bundles), bunker_text.t("archive.setup.schedule"))
     from .content import Archive
     plan = Archive(pending, revision).schedule()
-    db.execute("INSERT INTO meta VALUES ('schedule', ?)", (json.dumps({tab: getattr(plan, tab)() for tab, _ in schedule.TABS}, ensure_ascii=False),))
+    db.execute("INSERT INTO meta VALUES ('schedule', ?)", (json.dumps(plan.tabs, ensure_ascii=False),))
     db.commit()
     db.close()
     os.replace(pending, db_path)

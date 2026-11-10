@@ -42,6 +42,31 @@ final class Look {
     static void display(Context c,String mode){c.getSharedPreferences("lunar_look",Context.MODE_PRIVATE).edit().putString("display",mode).apply();}
 
     int dp(float n){return (int)(n*density+.5f);}
+
+    /**
+     * The camera hole on the left or right edge of a phone on its side, as the pages ask
+     * for it (BunkerShell.cutout(): Pod Programs' and the Archive's base.html):
+     * {side, top, bottom, depth} in CSS px, or "null".
+     */
+    static String cutout(android.view.WindowInsets insets,float density){
+        android.view.DisplayCutout cut=insets.getDisplayCutout();
+        if(cut==null)return "null";
+        for(Rect r:cut.getBoundingRects()){
+            if(r.isEmpty())continue;
+            boolean left=r.left<=0&&cut.getSafeInsetLeft()>0,right=!left&&cut.getSafeInsetRight()>0&&r.left>0&&r.top>0;
+            if(!left&&!right)continue;
+            float top=r.top,bottom=r.bottom,depth=left?cut.getSafeInsetLeft():cut.getSafeInsetRight();
+            // The band around a hole can be much wider than the hole: on Android 12+ its shape says where
+            // the hole really is, so the tabs beside it step just past it.
+            if(left&&android.os.Build.VERSION.SDK_INT>=31&&cut.getCutoutPath()!=null){
+                android.graphics.RectF hole=new android.graphics.RectF();cut.getCutoutPath().computeBounds(hole,true);
+                if(!hole.isEmpty()&&hole.left<r.right&&hole.right<=depth){top=hole.top;bottom=hole.bottom;depth=hole.right;}
+            }
+            return String.format(java.util.Locale.ROOT,"{\"side\":\"%s\",\"top\":%.1f,\"bottom\":%.1f,\"depth\":%.1f}",left?"left":"right",
+                top/density,bottom/density,depth/density);
+        }
+        return "null";
+    }
     static Typeface mono(){return Typeface.MONOSPACE;}
 
     /** System bars in the paper colour, with icons that stay readable on it. */
@@ -99,12 +124,28 @@ final class Look {
     }
 
     /** [ TITLE ────── ] */
-    LinearLayout header(String title){
+    LinearLayout header(String title){return header(title,null);}
+
+    /** A section header with its "i" beside the title (the iOS launcher's headers have theirs there too). */
+    LinearLayout header(String title,TextView info){
         LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.BOTTOM);
         TextView open=text("[",15,ink);open.setTypeface(null,Typeface.BOLD);row.addView(open);
-        TextView name=text(title.toUpperCase(),14,ink);name.setTypeface(null,Typeface.BOLD);name.setLetterSpacing(.3f);
+        TextView name=text(Texts.upper(context,title),14,ink);name.setTypeface(null,Typeface.BOLD);name.setLetterSpacing(.3f);
         if(dark)name.setShadowLayer(dp(4),0,0,0x55d9d3ba);
-        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(dp(10),0,dp(10),0);row.addView(name,np);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-2,-2);np.setMargins(dp(10),0,dp(info==null?10:0),0);row.addView(name,np);
+        if(info!=null){
+            // Drawn in a box just bigger than its ring, so the header keeps its height (a 40dp box
+            // would push it apart, and one pulled into the lines around it is clipped). The tap area
+            // reaches out to 40dp wide and the whole header's height.
+            int box=dp(INFO_DP+4);
+            sizeInfo(info,box);
+            LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(box,box);ip.setMargins(dp(6),0,dp(10),dp(1));row.addView(info,ip);
+            row.post(()->{
+                Rect hit=new Rect();info.getHitRect(hit);
+                int wide=(dp(40)-box)/2;hit.left-=wide;hit.right+=wide;hit.top=0;hit.bottom=row.getHeight();
+                row.setTouchDelegate(new android.view.TouchDelegate(hit,info));
+            });
+        }
         View rule=new View(context);rule.setBackgroundColor(ink);
         LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(1),1);rp.setMargins(0,0,dp(8),dp(6));row.addView(rule,rp);
         TextView close=text("]",15,ink);close.setTypeface(null,Typeface.BOLD);row.addView(close);
@@ -132,24 +173,48 @@ final class Look {
         b.setStateListAnimator(null);return b;
     }
 
+    /**
+     * A small round "i" beside what it explains: tapping it shows title and text in a
+     * short dialog with Close. The ring is 20dp; the tap target is 40dp. Needs an Activity context.
+     */
+    static final int INFO_DP=18;
+    /** An info icon drawn in a box of box pixels instead of the usual 40dp: the same ring and i. */
+    private void sizeInfo(TextView v,int box){
+        GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1),ink);
+        v.setBackground(pressable(new InsetDrawable(ring,(box-dp(INFO_DP))/2),line));
+        v.setMinWidth(0);v.setMinHeight(0);v.setMinimumWidth(box);v.setMinimumHeight(box);
+    }
+
+    TextView info(String title,String text){
+        // The same "i" as the pages (test_info_icon_size): an 18dp circle, a bold italic serif i, a 40dp tap area.
+        TextView v=text("i",11,ink);v.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD_ITALIC));v.setLetterSpacing(0);v.setGravity(Gravity.CENTER);v.setIncludeFontPadding(false);
+        GradientDrawable ring=new GradientDrawable();ring.setShape(GradientDrawable.OVAL);ring.setColor(0);ring.setStroke(dp(1),ink);
+        v.setBackground(pressable(new InsetDrawable(ring,(dp(40)-dp(INFO_DP))/2),line));
+        v.setMinWidth(dp(40));v.setMinHeight(dp(40));v.setLayoutParams(new LinearLayout.LayoutParams(dp(40),dp(40)));
+        v.setContentDescription(Texts.t(context,"common.more_information"));v.setFocusable(true);v.setClickable(true);
+        v.setOnClickListener(x->new android.app.AlertDialog.Builder(context,dark?android.R.style.Theme_DeviceDefault_Dialog_Alert:android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
+            .setTitle(title).setMessage(text).setPositiveButton(Texts.t(context,"common.close"),null).show());
+        return v;
+    }
+
     /** The import bar: 20 blocks filling left to right. */
     static final class Segments extends View {
         private final Look look;
         private int permille;
         Segments(Look look){super(look.context);this.look=look;}
-        void setPermille(int value){permille=Math.max(0,Math.min(1000,value));setContentDescription(permille/10+" percent");invalidate();}
+        void setPermille(int value){permille=Math.max(0,Math.min(1000,value));setContentDescription(Texts.t(look.context,"launcher.progress.percent","n",Texts.number(look.context,permille/10)));invalidate();}
         @Override protected void onDraw(Canvas c){
             int n=20,gap=look.dp(3),filled=Math.round(permille/1000f*n);float w=(getWidth()-gap*(n-1))/(float)n;Paint p=new Paint();
             for(int i=0;i<n;i++){p.setColor(i<filled?look.ink:(look.dark?0x2ed9d3ba:0x2e3a372f));float x=i*(w+gap);c.drawRect(x,0,x+w,getHeight(),p);}
         }
     }
 
-    /** The footer: a double rule and the sign-off. */
+    /** The footer: a double rule and the sign-off (NieR flavour: kept in English in every language). */
     LinearLayout footer(){
         LinearLayout f=new LinearLayout(context);f.setOrientation(LinearLayout.VERTICAL);
         View a=new View(context);a.setBackgroundColor(ink);f.addView(a,new LinearLayout.LayoutParams(-1,dp(1)));
         View b=new View(context);b.setBackgroundColor(ink);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(1));bp.setMargins(0,dp(2),0,0);f.addView(b,bp);
-        TextView sign=text(dark?"OPERATOR LINK // STANDING BY":"END OF TRANSMISSION // GLORY TO MANKIND",10,mid);sign.setLetterSpacing(.24f);sign.setGravity(Gravity.CENTER);
+        TextView sign=text("OPERATOR LINK // STANDING BY\nEND OF TRANSMISSION // GLORY TO MANKIND",10,mid);sign.setLetterSpacing(.24f);sign.setLineSpacing(dp(6),1f);sign.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(14),0,dp(18));f.addView(sign,sp);
         return f;
     }

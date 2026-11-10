@@ -202,8 +202,9 @@ class Sending(GameData):
         self.assertFalse(bad.json()["ok"])
 
 
-INTRO = ("Send yourself anything the game can hold. You claim it in the game's Gift Box like any other gift. "
-         "The game keeps running: the Gift Box shows it after your next action.")
+# behind the title's info icon (_info.html), escaped as the macro writes it
+INTRO = ('<details class="info"><summary aria-label="More information">i</summary><div>Send yourself anything the game can hold, '
+         "then claim it from the game&#39;s Gift Box. It shows there after your next action.</div></details>")
 
 
 class Page(Sending):
@@ -241,7 +242,7 @@ class Page(Sending):
     def test_the_page_refuses_rather_than_trims(self):
         page = self.page()
         self.assertNotIn("Math.min(", page)  # a count above the room is refused, not cut down
-        self.assertIn("more than can be claimed", page)
+        self.assertIn("Too many: up to", page)
         self.assertIn("const sending = chosen", page)  # the item named after a send is the one sent
 
     def test_without_gift_text_the_page_works_as_usual(self):
@@ -249,15 +250,31 @@ class Page(Sending):
         page = self.page()
         self.assertNotIn("Apply a content preset", page)
         self.assertIn('id="send"', page)
-        self.assertIn("returns to its title screen", page)  # the first gift says so
+        self.assertIn("sends the game back to its title screen", page)  # the first gift says so
 
     def test_nav_and_editors_link_to_gift(self):
         templates = root / "overlays/python/web/templates"
         self.assertIn('href="/gift"', (templates / "base.html").read_text())
-        # and the Programs page's grid, which needs a save like the editors
-        self.assertIn('program("/gift", "Gift", "Send yourself anything")', (templates / "index.html").read_text())
+        # and the Programs page's grid, which needs a save like the editors (as the player sees it, in English)
+        import jinja2
+        import bunker_text
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(templates)), autoescape=True)
+        bunker_text.install(env)
+        home = env.get_template("index.html").render(game_db_exists=True, active="home", message="", error="")
+        self.assertRegex(home, r'<a href="/gift">Gift <span>Send yourself anything')
         for name in ("user_items.html", "user_costumes.html", "user_weapons.html"):
             self.assertIn("/gift/waiting-count", (templates / name).read_text(), name)
+
+
+class CategoryButtons(unittest.TestCase):
+    def test_words_are_never_split(self):
+        # Six forced columns split "Currency" into CURRE/NCY: the grid fits as many as fit, each a word wide.
+        page = (Path(__file__).resolve().parents[2] / "overlays/python/web/templates/gift.html").read_text()
+        self.assertIn(".gift-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5em,1fr))", page)
+        card = page[page.index(".gift-card{"):]
+        card = card[:card.index("}")]
+        self.assertNotIn("break-word", card)
+        self.assertIn("hyphens:manual", card)
 
 
 if __name__ == "__main__":

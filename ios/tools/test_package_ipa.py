@@ -244,5 +244,26 @@ class RemainDaysTests(unittest.TestCase):
             self.assertEqual([o - offset for o, _, _ in sites], [-12, -8, -4, 0])
 
 
+class AddLettersTests(unittest.TestCase):
+    def test_fonts_get_letters_and_the_licence_ships(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "android/tools"))
+        import game_fonts
+        from package_ipa import add_letters
+        from test_game_fonts import cff_font, font_object, has_mark, unity_file
+
+        with tempfile.TemporaryDirectory() as temp:
+            app = Path(temp) / "NieR.app"
+            (app / "Data").mkdir(parents=True)
+            fonts = [(i + 2, 128, font_object(g.name, cff_font({"A": 600, "Ж": 1000}, name=f"F{i}")))
+                     for i, g in enumerate(game_fonts.GAME_FONTS)]
+            (app / game_fonts.IOS_FONT_FILE).write_bytes(unity_file([(1, 114, b"behaviour")] + fonts))
+            add_letters(app, log=lambda m: None)
+            found = game_fonts.read_fonts(app / game_fonts.IOS_FONT_FILE)
+            for g in game_fonts.GAME_FONTS:
+                self.assertTrue(has_mark(found[g.name]), g.name)
+            self.assertEqual((app / "NOTO_OFL.txt").read_bytes(), (game_fonts.NOTO / "OFL.txt").read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()

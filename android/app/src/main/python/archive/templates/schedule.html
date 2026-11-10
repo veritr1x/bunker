@@ -1,11 +1,11 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Schedule</p>
-<h1>Schedule</h1>
-<nav class="seg tight" aria-label="Schedule view">
+<h1 class="has-info">{{ t("archive.menu.schedule") }} {{ info(t("archive.schedule.original_info") if original else t("archive.schedule.patched_info")) }}</h1>
+<nav class="seg tight" aria-label="{{ t("archive.schedule.view_label") }}">
   {% for key, label in tabs %}<a href="/schedule?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>
-<p class="note">{% if original %}Dates from the live service, in UTC. Some rows have a placeholder date in 2099 instead of a real date. They are listed under "No date in the game data", with what the game files show about them.{% else %}Dates from your current master data. Pod Programs may have changed them. Open Pod Programs once to show the original dates.{% endif %}</p>
+{% if not original %}<p class="note">{{ t("archive.schedule.patched_note") }}</p>{% endif %}
 {% if tab == "timeline" %}
   {% for m in groups %}
   <details class="panel fold"{% if loop.first %} open{% endif %}>
@@ -21,17 +21,18 @@
     <summary>{{ m.label }}&nbsp;<span class="note">· {{ m["items"]|length }}</span></summary>
     <div class="cards wide">
     {% for s in m["items"] %}
-      {% set link = "/schedule/summon/" ~ s.id if tab == "summons" else ("/schedule/summon/" ~ s.target if s.kind == "Summon" else ("/schedule/shop/" ~ s.target if s.kind == "Shop" else "")) %}
-      <{{ "a" if link else "div" }} class="card" id="{{ "summon" if tab == "summons" else "banner" }}-{{ s.id }}"{% if link %} href="{{ link }}"{% endif %}>
+      {# A home banner links to its summon (domain 1) or shop (2). #}
+      {% set link = "/schedule/summon/" ~ s.id if tab == "summons" else ("/schedule/summon/" ~ s.target if s.domain == 1 else ("/schedule/shop/" ~ s.target if s.domain == 2 else "")) %}
+      {% if link %}<a class="card" id="{{ "summon" if tab == "summons" else "banner" }}-{{ s.id }}" href="{{ link }}">{% else %}<div class="card" id="banner-{{ s.id }}">{% endif %}
         <span class="art promo">{% if images and s.art %}<img src="{{ img("thumb", s.art) }}" alt="" loading="lazy">{% endif %}</span>
         {% if tab == "summons" %}
         <strong>{{ s.title }}</strong>
-        <span class="note">{% for r in s.runs if r.ran or not s.ran %}{{ r.label }}{% if not loop.last %} · {% endif %}{% endfor %}{% if s.exchange %} · dated by its shard exchange{% elif s.banner %} · no home banner{% endif %}{% if not s.runs or not s.runs[0].ran %}{{ " · English art and title in the game files" if s.english else " · no English art or title" }}{% endif %}</span>
+        <span class="note">{% for r in s.runs if r.ran or not s.ran %}{{ r.label }}{% if not loop.last %} · {% endif %}{% endfor %}{% if s.exchange %} · {{ t("archive.schedule.exchange_dates") }}{% endif %}{% if (not s.runs or not s.runs[0].ran) and not s.english %} · {{ t("archive.schedule.no_english_art") }}{% endif %}</span>
         {% else %}
         <strong>{{ s.kind }}{% if s.name %}: {{ s.name }}{% endif %}</strong>
-        <span class="note">{{ s.when.label }}{% if not s.name %} · {{ s.target }}{% endif %}{% if s.also %} · its target also has dated banners{% elif not s.when.ran %}{{ " · English art in the game files" if s.art else " · no English art" }}{% endif %}</span>
+        <span class="note">{{ s.when.label }}{% if not s.name %} · {{ s.target }}{% endif %}{% if s.also %} · {{ t("archive.schedule.dated_elsewhere") }}{% elif not s.when.ran and not s.art %} · {{ t("archive.schedule.no_english_art") }}{% endif %}</span>
         {% endif %}
-      </{{ "a" if link else "div" }}>
+      {% if link %}</a>{% else %}</div>{% endif %}
     {% endfor %}
     </div>
   </details>
@@ -45,7 +46,7 @@
       <a class="card" id="event-{{ e.id }}" href="/schedule/event/{{ e.id }}">
         <span class="art promo">{% if images and e.art %}<img src="{{ img("thumb", e.art) }}" alt="" loading="lazy">{% endif %}</span>
         <strong>{{ e.title }}</strong>
-        <span class="note">{{ e.when.label }}{% if e.seasons %} · {{ e.seasons|length }} seasons{% endif %}</span>
+        <span class="note">{{ e.when.label }}{% if e.seasons %} · {{ t_count("archive.schedule.season_count", e.seasons|length) }}{% endif %}</span>
       </a>
     {% endfor %}
     </div>
@@ -56,7 +57,7 @@
   <details class="panel fold"{% if loop.first %} open{% endif %}>
     <summary>{{ m.label }}&nbsp;<span class="note">· {{ m["items"]|length }}</span></summary>
     {% for s in m["items"] %}
-    <a class="sched-row" id="shop-{{ s.id }}" href="/schedule/shop/{{ s.id }}"><span class="kind">{{ s.kind }}</span><strong>{{ s.name }}</strong><span class="note">{{ s.when.label }} · {{ s["items"]|length }} item{{ "s" if s["items"]|length != 1 }}</span></a>
+    <a class="sched-row" id="shop-{{ s.id }}" href="/schedule/shop/{{ s.id }}"><span class="kind">{{ s.kind }}</span><strong>{{ s.name }}</strong><span class="note">{{ s.when.label }} · {{ t_count("archive.schedule.item_count", s["items"]|length) }}</span></a>
     {% endfor %}
   </details>
   {% endfor %}
@@ -70,7 +71,7 @@
       <strong>{{ i.title }}</strong><span class="note">{{ i.when.label }}</span>
     </div>
     {% endfor %}
-    {% if s.hidden %}<p class="note">{{ s.hidden }} more have no date in the game data.</p>{% endif %}
+    {% if s.hidden %}<p class="note">{{ t("archive.schedule.more_undated", n=s.hidden) }}</p>{% endif %}
   </details>
   {% endfor %}
   <script>

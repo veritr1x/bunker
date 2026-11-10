@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"io"
+	"lunar-tear/server/internal/bunkertext"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -207,11 +208,11 @@ func TestNoticePackPathPrefersCopiedPack(t *testing.T) {
 func TestSummonDetailsLinkToTheNotice(t *testing.T) {
 	SetNotices(NewNotices(writeNoticePack(t), func() int64 { return 5_000 }))
 	defer SetNotices(nil)
-	link := summonNoticeHTML(store.GachaCatalogEntry{GachaId: 613})
+	link := summonNoticeHTML(bunkertext.For("en"), "en", store.GachaCatalogEntry{GachaId: 613})
 	if !strings.Contains(link, `href="/en/information/?informationId=10"`) || !strings.Contains(link, "Abstract Savior Summons On Now") || !strings.Contains(link, "<script>") {
 		t.Fatalf("link: %s", link)
 	}
-	if link := summonNoticeHTML(store.GachaCatalogEntry{GachaId: 1}); link != "" {
+	if link := summonNoticeHTML(bunkertext.For("en"), "en", store.GachaCatalogEntry{GachaId: 1}); link != "" {
 		t.Fatalf("summon without a notice: %q", link)
 	}
 }

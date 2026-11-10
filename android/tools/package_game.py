@@ -18,6 +18,7 @@ import zipfile
 
 from assemble_apk import SDK_PROVIDERS, SDK_SWITCHES, patch_unity_connect
 import build_info
+import game_fonts
 import notice_pack
 
 NS = "http://schemas.android.com/apk/res/android"
@@ -65,6 +66,8 @@ def main():
     with zipfile.ZipFile(args.companion_apk) as bundle:build_info.check_companion(bundle)
     game=args.decoded_dir.resolve();output=args.output.resolve();output.parent.mkdir(parents=True,exist_ok=True)
     settings=game/"assets/bin/Data/globalgamemanagers";settings.write_bytes(patch_unity_connect(settings.read_bytes()))
+    # Letters the game's fonts lack (Polish, Vietnamese, Greek, Simplified Chinese…), from fonts/noto/.
+    game_fonts.patch_game_fonts([game/name for name in game_fonts.ANDROID_FONT_FILES])
     library = game / "lib/arm64-v8a/libil2cpp.so"
     import game_patch, axml
     with zipfile.ZipFile(args.game_apk) as original_apk:
@@ -122,6 +125,7 @@ def main():
                 dest=game/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(source.read(name))
     notices=game/"assets/lunar";notices.mkdir(parents=True,exist_ok=True)
     shutil.copy2(root/"LICENSE",notices/"LUNAR_TEAR_LICENSE.txt")
+    shutil.copy2(game_fonts.NOTO/"OFL.txt",notices/"NOTO_OFL.txt")
     # What an update in place needs (build_info.py): the game's own manifest and dex count.
     with zipfile.ZipFile(args.game_apk) as original,zipfile.ZipFile(args.companion_apk) as source:
         game_dex=sum(1 for n in original.namelist() if re.fullmatch(r"classes\d*\.dex",n))

@@ -1,21 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
 <form class="search-box" action="/search" method="get" role="search">
-  <input type="text" name="q" value="{{ q }}" placeholder="Search story lines and records" aria-label="Search the archive" autofocus>
+  <input type="text" name="q" value="{{ q }}" placeholder="{{ t("archive.search.placeholder") }}" aria-label="{{ t("archive.search.label") }}" autofocus>
 </form>
 {% if q %}
-<h2 class="bracket-header">Story lines · {{ results.lines|length }}</h2>
+<h2 class="bracket-header">{{ t("archive.search.story_lines", n=results.lines|length) }}</h2>
 <div class="tool-grid">
   {% for r in results.lines %}
-  <a href="/scene/{{ r.id }}">{{ r.text|plain(140) }}<span>{% if r.area == "main" %}main · season {{ r.season }} · chapter {{ r.chapter }}{% else %}{{ kinds.get(r.kind, r.kind) }} · {{ r.title or r.name }}{% endif %}</span></a>
-  {% else %}<span class="off">No lines found</span>{% endfor %}
+  <a href="/scene/{{ r.id }}">{{ r.text|plain(140) }}<span>{% if r.area == "main" %}{{ t("archive.search.main_place", season=r.season, chapter=r.chapter) }}{% else %}{{ kind_name(r.kind) }} · {{ r.title or r.name }}{% endif %}</span></a>
+  {% else %}<span class="off">{{ t("archive.search.no_lines") }}</span>{% endfor %}
 </div>
-<h2 class="bracket-header">Records · {{ results.records|length }}</h2>
+<h2 class="bracket-header">{{ t("archive.search.records", n=results.records|length) }}</h2>
 <div class="tool-grid">
   {% for r in results.records %}
-  <a href="/records?tab={{ 'weapons' if r.key.startswith('weapon') else 'reports' if r.key.startswith('report') else 'archives' }}">{{ r.value|plain(140) }}<span>{{ r.key.split('.')[0] }}</span></a>
-  {% else %}<span class="off">No records found</span>{% endfor %}
+  {% set kind = r.key.split('.')[0] %}
+  <a href="/records?tab={{ 'weapons' if kind == 'weapon' else 'reports' if kind == 'report' else 'archives' }}">{{ r.value|plain(140) }}<span>{{ t("archive.search.weapon") if kind == "weapon" else t("archive.search.report") if kind == "report" else t("archive.search.cage") }}</span></a>
+  {% else %}<span class="off">{{ t("archive.search.no_records") }}</span>{% endfor %}
 </div>
-{% if results.lines|length >= 60 %}<p class="note">First 60 matches.</p>{% endif %}
+{% if results.lines|length >= 60 %}<p class="note">{{ t_count("archive.search.first_matches", 60) }}</p>{% endif %}
 {% endif %}
 {% endblock %}

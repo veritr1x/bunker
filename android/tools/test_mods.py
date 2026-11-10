@@ -8,6 +8,7 @@ root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / "android/app/src/main/python"))
 import android_mods  # noqa: E402
 import android_runtime  # noqa: E402
+import bunker_text  # noqa: E402
 
 
 class Settings(unittest.TestCase):
@@ -61,12 +62,13 @@ class Settings(unittest.TestCase):
         android_mods.write_settings(values, self.path)
         s = android_mods.read_settings(self.path)
         self.assertEqual(android_mods.preset_of(s), "everything")
-        for key, kind, *_ in (m for g, mods in android_mods.GROUPS if g != "Challenges" for m in mods):
+        for key, kind, *_ in (m for g, mods in android_mods.GROUPS if g != "challenges" for m in mods):
             self.assertEqual(s[key], True if kind == "bool" else android_mods.MAX_MULTIPLIER, key)
         self.assertEqual((s["hardEnemies"], s["weaknessOnly"], s["slowSkills"]), (1, False, False))
 
     def test_groups_and_order(self):
-        groups = {g: [m[0] for m in mods] for g, mods in android_mods.GROUPS}
+        # Groups by their titles (the catalogue's pods.mods.group.<id>).
+        groups = {bunker_text.t(f"pods.mods.group.{g}"): [m[0] for m in mods] for g, mods in android_mods.GROUPS}
         self.assertEqual(list(groups), ["Quests", "Items & shops", "Summons", "World", "Challenges"])
         self.assertEqual(groups["Quests"], ["staminaFree", "unlimitedDailyPlays", "freeSkips", "rewardMultiplier", "expMultiplier"])
         self.assertEqual(groups["Items & shops"], ["staminaItemsToGold", "ticketsToGems", "shopUnlimited", "lostItemGems"])
@@ -124,13 +126,22 @@ class Page(unittest.TestCase):
         for _, mods in android_mods.GROUPS:
             for key, _kind, title, *_ in mods:
                 self.assertIn(f'name="{key}"', html)
-                self.assertIn(title, html)
+                self.assertIn(bunker_text.t(title), html)
         self.assertIn("NavHobbyDev", html)
         self.assertIn(android_mods.COMFORT_MOD, html)
+        # The credit is in the Comfort preset's info, not a line on the page.
+        comfort = html[html.index('value="comfort"'):]
+        comfort = comfort[:comfort.index("</details>")]
+        self.assertIn("NavHobbyDev", comfort)
+        self.assertIn(android_mods.COMFORT_MOD, comfort)
+        self.assertIn(f'Most mods come from the <a href="{android_mods.COMFORT_MOD}">Lunar Tear Comfort Mod</a> by NavHobbyDev.', comfort)
+        self.assertNotIn('<p class="credit" data-side>Most mods', html)
 
     def render(self, settings=None, paused=False):
         from jinja2 import Environment, FileSystemLoader
         env = Environment(loader=FileSystemLoader(str(root / "overlays/python/web/templates")), autoescape=True)  # as the app
+        import bunker_text
+        bunker_text.install(env)
         settings = {**android_mods.OFF, **(settings or {})}
         return env.get_template("mods.html").render(active="mods", settings=settings, groups=android_mods.GROUPS,
             presets=android_mods.PRESETS, current=android_mods.preset_of(settings), max_multiplier=10,
@@ -140,9 +151,9 @@ class Page(unittest.TestCase):
     def test_page_groups_render_and_fold(self):
         import re
         html = self.render()
-        for group in ["Preset"] + [g for g, _ in android_mods.GROUPS]:
-            name = re.escape(group.replace("&", "&amp;"))
-            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open[^>]*>\s*<summary[^>]*>[^<]*%s' % (name, name), group)
+        for group, title in [("Preset", "Preset")] + [(g, bunker_text.t(f"pods.mods.group.{g}")) for g, _ in android_mods.GROUPS]:
+            name = re.escape(title.replace("&", "&amp;"))
+            self.assertRegex(html, r'<details class="mods-group" data-group="%s" open[^>]*>\s*<summary[^>]*>[^<]*%s' % (re.escape(group), name), group)
         self.assertIn("localStorage", html)  # which groups are folded, per viewer
         self.assertIn("Everything", html)
 
@@ -165,11 +176,11 @@ class Page(unittest.TestCase):
     def test_saved_message_says_what_happened_to_the_challenges(self):
         with unittest.mock.patch.object(android_runtime, "next_step", lambda: "NEXT"):
             self.assertEqual(android_mods.saved_message("Saved.", False, {**android_mods.OFF}),
-                             "Saved. The mods are in use from the game's next action, with no restart.")
+                             "Saved. The mods apply from the game's next action.")
             self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF, "slowSkills": True}),
-                             "Saved. Challenges are in the game data. NEXT")
+                             "Saved. Challenges are on. NEXT")
             self.assertEqual(android_mods.saved_message("Saved.", True, {**android_mods.OFF}),
-                             "Saved. Challenges are off: the game data is as it was. NEXT")
+                             "Saved. Challenges are off. NEXT")
 
     def test_saving_keeps_pod_programs_answering(self):
         # A challenge change rewrites the game data for seconds: that runs

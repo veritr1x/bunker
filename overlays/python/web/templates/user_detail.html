@@ -1,100 +1,108 @@
 {% extends "base.html" %}
-{% block title %}User {{ u.user_id }} :: Lunar Base{% endblock %}
-{% block bar_right %}USER {{ u.user_id }}{% endblock %}
+{% from "_info.html" import info %}
+{% block title %}{{ t("pods.player.page_title", id=u.user_id) }}{% endblock %}
 {% block content %}
 <p style="margin-top:0">
-  <a href="/users">&larr; All users</a>
+  <a href="/users">&larr; {{ t("pods.player.all_users") }}</a>
 </p>
 
 {% set in_use = device_player() if device_player is defined else None %}
-<h1 class="bracket-header">This device</h1>
+<h1 class="bracket-header">{{ t("pods.player.this_device") }}</h1>
 <div class="panel panel-corners">
   {% if u.user_id == in_use %}
-  <p style="margin:0"><span class="status-pill online">IN USE</span> The game plays as this player on this device.</p>
+  <p style="margin:0"><span class="status-pill online">{{ t("pods.users.in_use") }}</span> {{ t("pods.player.in_use_line") }}</p>
   {% elif in_use is none %}
-  <p style="margin:0">Deploy and sign in to the game once on this device, then you can choose which player it uses.</p>
+  <p style="margin:0">{{ t("pods.player.deploy_first") }}</p>
   {% else %}
-  <p style="margin:0 0 12px">The game plays as player {{ in_use }}. Use this player instead? Player {{ in_use }} is kept, and your save is backed up first.</p>
-  <form method="post" action="/users/{{ u.user_id }}/use" onsubmit="return confirm('Play as player {{ u.user_id }} on this device?')">
-    <button type="submit">Use this player</button>
+  <div style="margin:0 0 12px">{{ t("pods.player.plays_as", id=in_use) }}{{ info(t("pods.player.switch_info")) }}</div>
+  <form method="post" action="/users/{{ u.user_id }}/use" onsubmit='return confirm({{ t("pods.player.use_confirm", id=u.user_id)|tojson }})'>
+    <button type="submit">{{ t("pods.player.use_player") }}</button>
   </form>
   {% endif %}
 </div>
 
-<h1 class="bracket-header">Identity</h1>
+<h1 class="bracket-header">{{ t("pods.player.identity") }}</h1>
 <div class="panel panel-corners">
   <dl class="kv">
-    <dt>User ID</dt>       <dd>{{ u.user_id }}</dd>
-    <dt>Player ID</dt>     <dd>{{ u.player_id }}</dd>
-    <dt>UUID</dt>          <dd><code>{{ u.uuid }}</code></dd>
-    <dt>Name</dt>          <dd>{% if u.name %}{{ u.name }}{% else %}<span style="color:var(--fg-mid)">(unset)</span>{% endif %}</dd>
-    <dt>Message</dt>       <dd>{% if u.message %}{{ u.message }}{% else %}<span style="color:var(--fg-mid)">(none)</span>{% endif %}</dd>
-    <dt>Level / EXP</dt>   <dd>{{ u.level }} &nbsp; ({{ u.exp }} EXP)</dd>
-    <dt>Registered</dt>    <dd>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d %H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</dd>
-    <dt>Last login</dt>    <dd>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d %H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">never</span>{% endif %}</dd>
-    <dt>Total logins</dt>  <dd>{{ u.total_login_count }}</dd>
+    <dt>{{ t("pods.player.user_id") }}</dt>       <dd>{{ u.user_id }}</dd>
+    <dt>{{ t("pods.player.player_id") }}</dt>     <dd>{{ u.player_id }}</dd>
+    <dt>{{ t("pods.player.uuid") }}</dt>          <dd><code>{{ u.uuid }}</code></dd>
+    <dt>{{ t("pods.player.name") }}</dt>          <dd>{% if u.name %}{{ u.name }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.player.unset") }}</span>{% endif %}</dd>
+    <dt>{{ t("pods.player.message") }}</dt>       <dd>{% if u.message %}{{ u.message }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.player.none") }}</span>{% endif %}</dd>
+    <dt>{{ t("pods.player.level_exp") }}</dt>   <dd>{{ u.level }} &nbsp; {{ t("pods.player.exp", exp=number(u.exp)) }}</dd>
+    <dt>{{ t("pods.player.registered") }}</dt>    <dd>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d") }} {{ u.register_at.strftime("%H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</dd>
+    <dt>{{ t("pods.player.last_login") }}</dt>    <dd>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d") }} {{ u.last_login_at.strftime("%H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.users.never") }}</span>{% endif %}</dd>
+    <dt>{{ t("pods.player.total_logins") }}</dt>  <dd>{{ u.total_login_count }}</dd>
   </dl>
 </div>
 
-<h1 class="bracket-header">Currencies</h1>
+<h1 class="bracket-header">{{ t("pods.player.currencies") }}</h1>
 <div class="panel panel-corners">
   <dl class="kv">
-    <dt>Paid gems</dt>     <dd>{{ "{:,}".format(u.paid_gem) }}</dd>
-    <dt>Free gems</dt>     <dd>{{ "{:,}".format(u.free_gem) }}</dd>
+    <dt>{{ t("pods.player.paid_gems") }}</dt>     <dd>{{ number(u.paid_gem) }}</dd>
+    <dt>{{ t("pods.player.free_gems") }}</dt>     <dd>{{ number(u.free_gem) }}</dd>
   </dl>
-  <p style="margin:16px 0 0">
-    <a href="/users/{{ u.user_id }}/edit/items" class="button">[ EDIT ITEMS ]</a>
-    <a href="/users/{{ u.user_id }}/edit/costumes" class="button">[ EDIT COSTUMES ]</a>
-    <a href="/users/{{ u.user_id }}/edit/weapons" class="button">[ EDIT WEAPONS ]</a>
-    <a href="/users/{{ u.user_id }}/upgrades" class="button">[ UPGRADE MANAGER ]</a>
-    <a href="/users/{{ u.user_id }}/memoirs" class="button">[ MEMOIR EDITOR ]</a>
-    <a href="/users/{{ u.user_id }}/story" class="button">[ STORY JUMP ]</a>
-  </p>
+  <div class="actions">
+    <a href="/users/{{ u.user_id }}/edit/items" class="button">{{ t("pods.player.link_items") }}</a>
+    <a href="/users/{{ u.user_id }}/edit/costumes" class="button">{{ t("pods.player.link_costumes") }}</a>
+    <a href="/users/{{ u.user_id }}/edit/weapons" class="button">{{ t("pods.player.link_weapons") }}</a>
+    <a href="/users/{{ u.user_id }}/upgrades" class="button">{{ t("pods.player.link_upgrades") }}</a>
+    <a href="/users/{{ u.user_id }}/memoirs" class="button">{{ t("pods.player.link_memoirs") }}</a>
+    <a href="/users/{{ u.user_id }}/story" class="button">{{ t("pods.player.link_story") }}</a>
+  </div>
 </div>
 
-<h1 class="bracket-header">Inventory</h1>
+{#- The services name each table in English; these are their names in the catalogue. -#}
+{% set TABLES = {
+  "user_characters": t("pods.player.table_characters"),
+  "user_costumes": t("pods.player.table_costumes"),
+  "user_weapons": t("pods.player.table_weapons"),
+  "user_companions": t("pods.player.table_companions"),
+  "user_thoughts": t("pods.player.table_thoughts"),
+  "user_parts": t("pods.player.table_parts"),
+  "user_consumable_items": t("pods.player.table_consumables"),
+  "user_materials": t("pods.player.table_materials"),
+  "user_important_items": t("pods.player.table_important"),
+  "user_premium_items": t("pods.player.table_premium"),
+} %}
+<h1 class="bracket-header">{{ t("pods.player.inventory") }}</h1>
 <div class="panel">
   <table>
     <thead>
-      <tr><th>Type</th><th>Distinct items</th><th>Source table</th></tr>
+      <tr><th>{{ t("pods.player.col_type") }}</th><th>{{ t("pods.player.col_distinct") }}</th></tr>
     </thead>
     <tbody>
       {% for item in u.inventory_counts %}
       <tr>
-        <td>{{ item.label }}</td>
-        <td>{{ "{:,}".format(item.count) }}</td>
-        <td><code>{{ item.table }}</code></td>
+        <td>{{ TABLES.get(item.table, item.label) }}</td>
+        <td>{{ number(item.count) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
-<h1 class="bracket-header">Stackables</h1>
+<h1 class="bracket-header">{{ t("pods.player.stackables") }}{{ info(t("pods.player.stackables_info")) }}</h1>
 <div class="panel">
   <table>
     <thead>
-      <tr><th>Type</th><th>Distinct IDs</th><th>Total count</th><th>Source table</th></tr>
+      <tr><th>{{ t("pods.player.col_type") }}</th><th>{{ t("pods.player.col_distinct") }}</th><th>{{ t("pods.player.col_total") }}</th></tr>
     </thead>
     <tbody>
       {% for s in u.stackables %}
       <tr>
-        <td>{{ s.label }}</td>
-        <td>{{ "{:,}".format(s.distinct) }}</td>
+        <td>{{ TABLES.get(s.table, s.label) }}</td>
+        <td>{{ number(s.distinct) }}</td>
         <td>
           {% if s.total is none %}
-            <span style="color:var(--fg-mid)">n/a</span>
+            <span style="color:var(--fg-mid)">{{ t("pods.player.na") }}</span>
           {% else %}
-            {{ "{:,}".format(s.total) }}
+            {{ number(s.total) }}
           {% endif %}
         </td>
-        <td><code>{{ s.table }}</code></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <p style="margin:16px 0 0;color:var(--fg-mid);font-size:var(--fs-label)">
-    "Premium items" stores the time each item was received, not a count, so no total is shown.
-  </p>
 </div>
 {% endblock %}

@@ -36,6 +36,7 @@ import build_info  # noqa: E402
 import notice_pack  # noqa: E402
 import privacy  # noqa: E402
 import game_patch  # noqa: E402
+import game_fonts  # noqa: E402
 from axml import Attr, Element  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -114,6 +115,22 @@ def patch_game_files(game, work, port_offset=0):
     (work / METADATA).write_bytes(game_patch.patch_metadata(metadata, profile, port_offset))
     privacy.patch_library_file(work / LIB, profile=profile)
     return work / LIB, work / METADATA
+
+
+def patch_font_entries(game, work, log=print):
+    """Copies of the game's font files with the letters added (game_fonts.py): APK entry name → patched copy."""
+    patched = {}
+    names = set(game.namelist())
+    for name in game_fonts.ANDROID_FONT_FILES:
+        if name not in names:
+            raise RuntimeError(f"The game's font file {name} is missing; this game version is not supported")
+        target = Path(work) / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with game.open(name) as source, open(target, "wb") as dest:
+            shutil.copyfileobj(source, dest, 1 << 20)
+        patched[name] = target
+    game_fonts.patch_game_fonts(list(patched.values()), log=log)
+    return patched
 
 
 def patch_unity_connect(settings):
@@ -298,6 +315,8 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
             original_master = Path(master).read_bytes()
             patched_master = patch_master(original_master)
             replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
+            log("Adding letters to the game's fonts…")
+            replaced.update(patch_font_entries(game, patched_files, log))
             dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]
             next_dex = max(int(n[7:-4] or 1) for n in dex) + 1
             # output is a path, or something to write to (apk_sign.StreamSigner in the browser).
@@ -330,6 +349,7 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
                 writer.add("assets/lunar/" + MASTER, patched_master)
                 writer.add("assets/lunar/original-master.bin.e", original_master)
                 writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
+                writer.add("assets/lunar/NOTO_OFL.txt", (game_fonts.NOTO / "OFL.txt").read_bytes())
                 if notices:
                     log("Adding the notices…")
                     for name, data, kind in notice_pack.entries(notices):
@@ -368,8 +388,9 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
         profile = game_patch.profile_for_manifest(identity.get("package", ns=None).raw, identity.get("versionName").raw)
         manifest, _ = patch_manifest(game.read("assets/lunar/game-manifest.xml"), companion.read("AndroidManifest.xml"),
                                      old["portOffset"])
+        # The game's fonts stay as built, so does the licence of the letters added to them.
         kept = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
-                "assets/lunar/game-manifest.xml"}
+                "assets/lunar/game-manifest.xml", "assets/lunar/NOTO_OFL.txt"}
         temporary = Path(str(output) + ".partial")
         try:
             with open(temporary, "wb") as out:

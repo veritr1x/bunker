@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Summon rates{% endblock %}
+{% from "_info.html" import info %}
+{% block title %}{{ t("pods.gacha.title") }}{% endblock %}
 {% block content %}
 <style>
   .rates label { display: block; margin: 0 0 12px; }
@@ -7,53 +8,52 @@
   .rates .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .rates .check { display: flex; gap: 8px; align-items: center; }
 </style>
-<h1 data-side>Summon rates</h1>
+<h1 data-side>{{ t("pods.gacha.title") }}{{ info(t("pods.gacha.title_info")) }}</h1>
 <form action="/gacha" method="post" class="panel rates">
   <div class="pair">
-    <label>★4 rate (%)<input type="number" name="four" id="four" min="0.1" max="100" step="0.1" value="{{ settings.fourStarPercent }}"></label>
-    <label>★3 rate (%)<input type="number" name="three" id="three" min="0" max="100" step="0.1" value="{{ settings.threeStarPercent }}"></label>
+    <label>{{ t("pods.gacha.four_rate") }}<input type="number" name="four" id="four" min="0.1" max="100" step="0.1" value="{{ settings.fourStarPercent }}"></label>
+    <label>{{ t("pods.gacha.three_rate") }}<input type="number" name="three" id="three" min="0" max="100" step="0.1" value="{{ settings.threeStarPercent }}"></label>
   </div>
-  <p id="two-star">★2: {{ two_star }}%</p>
+  <p id="two-star">{{ t("pods.gacha.two_star", percent=number(two_star)) }}</p>
   <div class="pair">
-    <label>Costumes in ★4 (%)<input type="number" name="four_costume" min="0" max="100" step="any" value="{{ settings.fourStarCostumeShare }}"></label>
-    <label>Costumes in ★3 (%)<input type="number" name="three_costume" min="0" max="100" step="any" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
+    <label>{{ t("pods.gacha.four_costumes") }}<input type="number" name="four_costume" min="0" max="100" step="any" value="{{ settings.fourStarCostumeShare }}"></label>
+    <label>{{ t("pods.gacha.three_costumes") }}<input type="number" name="three_costume" min="0" max="100" step="any" value="{{ settings.threeStarCostumeShare | round(2) }}"></label>
   </div>
-  <label>Featured share (%)<input type="number" name="featured" min="0" max="100" step="1" value="{{ settings.featuredPercent }}"></label>
-  <p>If a draw gets a rarity and type that has featured items, this is the chance that it is a featured item.</p>
-  <label>10-draw guarantee
+  <label>{{ t("pods.gacha.featured") }}{{ info(t("pods.gacha.featured_info")) }}<input type="number" name="featured" min="0" max="100" step="1" value="{{ settings.featuredPercent }}"></label>
+  <label>{{ t("pods.gacha.guarantee") }}
     <select name="guarantee">
-      <option value="3"{% if settings.multiMinRarity == 3 %} selected{% endif %}>★3 or higher</option>
+      <option value="3"{% if settings.multiMinRarity == 3 %} selected{% endif %}>{{ t("pods.gacha.three_or_higher") }}</option>
       <option value="4"{% if settings.multiMinRarity == 4 %} selected{% endif %}>★4</option>
     </select>
   </label>
-  <label class="check"><input type="checkbox" name="stepup"{% if settings.stepUpBoost %} checked{% endif %}> Multi-step summons raise ★4 on steps 1, 3 and 5</label>
-  <button type="submit">Save</button>
+  <label class="check"><input type="checkbox" name="stepup"{% if settings.stepUpBoost %} checked{% endif %}> {{ t("pods.gacha.step_up") }}</label>
+  <button type="submit">{{ t("common.save") }}</button>
 </form>
 <form action="/gacha/preset" method="post" class="panel rates" data-side>
-  <label>Presets
-    <select name="name">{% for key, title, _ in presets %}<option value="{{ key }}">{{ title }}</option>{% endfor %}</select>
+  <label>{{ t("pods.gacha.presets") }}
+    <select name="name">{% for key, title, _ in presets %}<option value="{{ key }}">{{ t(title) }}</option>{% endfor %}</select>
   </label>
-  <button type="submit">Apply</button>
+  <button type="submit">{{ t("common.apply") }}</button>
 </form>
-<p data-side="intro">Applies to regular and multi-step summons from the next draw. The game's Rates page shows these values. Experimental.</p>
-<h2 class="bracket-header" data-toc>Special Gift Roulette</h2>
+<h2 class="bracket-header" data-toc>{{ t("pods.gacha.roulette") }}{{ info(t("pods.gacha.roulette_info")) }}</h2>
 <form action="/gacha/roulette" method="post" class="panel rates" id="roulette">
-  <p>The gem wheel in the menu. Up to 6 spins a day. Set the chance of each amount. They must add up to 100%.</p>
   <div class="pair">
-    {% for gems, percent in roulette %}<label>{{ gems }} gems (%)<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
+    {% for gems, percent in roulette %}<label>{{ t("pods.gacha.roulette_gems", gems=number(gems)) }}<input type="number" name="g{{ gems }}" min="0" max="100" step="0.1" value="{{ percent }}"></label>
     {% endfor %}
   </div>
   <p id="roulette-total"></p>
-  <button type="submit" name="action" value="save">Save</button>
-  <button type="submit" name="action" value="reset" class="secondary" formnovalidate>Default (60 / 25 / 10 / 4.7 / 0.3)</button>
+  <button type="submit" name="action" value="save">{{ t("common.save") }}</button>
+  <button type="submit" name="action" value="reset" class="secondary" formnovalidate>{{ t("pods.gacha.roulette_default") }}</button>
 </form>
 <script>
+  const NUM = new Intl.NumberFormat({{ text_language()|tojson }}, {numberingSystem: "latn"}), num = n => NUM.format(n);
+  const TWO_STAR = {{ t("pods.gacha.two_star", percent="{percent}")|tojson }}, TOTAL = {{ t("pods.gacha.roulette_total", total="{total}")|tojson }};
   const four = document.getElementById("four"), three = document.getElementById("three"), two = document.getElementById("two-star");
-  const update = () => { two.textContent = "★2: " + Math.max(0, 100 - (+four.value || 0) - (+three.value || 0)).toFixed(1) + "%"; };
+  const update = () => { two.textContent = TWO_STAR.replace("{percent}", num(Math.max(0, 100 - (+four.value || 0) - (+three.value || 0)))); };
   four.addEventListener("input", update); three.addEventListener("input", update);
   const wheel = document.getElementById("roulette"), total = document.getElementById("roulette-total");
   const sum = () => { const t = [...wheel.querySelectorAll("input[type=number]")].reduce((a, i) => a + (+i.value || 0), 0);
-    total.textContent = "Total: " + Math.round(t * 1000) / 1000 + "%"; };
+    total.textContent = TOTAL.replace("{total}", num(t)); };
   wheel.addEventListener("input", sum); sum();
 </script>
 {% endblock %}

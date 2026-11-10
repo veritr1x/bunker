@@ -17,10 +17,17 @@ import threading
 import time
 from pathlib import Path
 
+import bunker_text
+
 _server = None
 _thread = None
 _base_url = ""
 _token = ""
+
+
+def active_pack(asset_root: Path) -> Path:
+    """The language pack the server applies (bunker_language: the translation folder beside assets/)."""
+    return asset_root / "translation" / "active.json"
 
 
 def revision_root(asset_root: Path) -> Path:
@@ -78,7 +85,9 @@ def _builder(asset_root: str, archive_root: str, scenario=None):
 
 
 def index_status(asset_root: str, archive_root: str) -> str:
-    """JSON: possible (there are game files to index), ready (the index is current), running, done, total, step, error."""
+    """JSON: possible (there are game files to index), ready (the index is current), running, done, total, step, error.
+    The launcher asks from its own process: the step is in the language of the pack in use (read again here)."""
+    bunker_text.reload(active_pack(Path(asset_root)))
     builder = _builder(asset_root, archive_root)
     if builder is None:
         return json.dumps({"possible": False, "ready": False, "running": False, "done": 0, "total": 0, "step": "", "error": ""})
@@ -90,6 +99,7 @@ _ANDROID = object()
 
 def build_index(asset_root: str, archive_root: str, scenario=_ANDROID) -> str:
     """The launcher, before it starts the game: builds the index when it is missing or out of date. Returns index_status."""
+    bunker_text.reload(active_pack(Path(asset_root)))  # the steps the build reports, in the pack's language
     if scenario is _ANDROID:
         scenario = None
         if _builder(asset_root, archive_root) is not None:
@@ -105,15 +115,16 @@ def create_app(asset_root: Path, archive_root: Path, token: str, origin: str, co
     from archive.app import create_app as archive_app
     master, original = original_master(asset_root, archive_root)
     app = archive_app(revision_root(asset_root), master, archive_root, packaged("web") / "static",
-                      original=original, **(converters or android_converters()))
+                      original=original, language=active_pack(asset_root),
+                      **(converters or android_converters()))
 
     @app.middleware("http")
     async def private_session(request, call_next):
         # Same rule as Pod Programs: only the launcher's WebView holds this cookie.
         if request.headers.get("host") != origin.removeprefix("http://") or not secrets.compare_digest(request.cookies.get("lunar_archive", ""), token):
-            return JSONResponse({"ok": False, "error": "Private launcher session required"}, status_code=403)
+            return JSONResponse({"ok": False, "error": bunker_text.t("common.private_session_required")}, status_code=403)
         if request.method not in ("GET", "HEAD") and request.headers.get("origin") not in (None, origin):
-            return JSONResponse({"ok": False, "error": "Invalid origin"}, status_code=403)
+            return JSONResponse({"ok": False, "error": bunker_text.t("common.invalid_origin")}, status_code=403)
         response = await call_next(request)
         if not request.url.path.startswith("/media/"):
             response.headers["Cache-Control"] = "no-store"
@@ -142,7 +153,7 @@ def start(asset_root: str, archive_root: str, converters=None) -> str:
             break
         time.sleep(.02)
     sock.close()
-    raise RuntimeError("The Archive could not start")
+    raise RuntimeError(bunker_text.t("archive.setup.could_not_start"))
 
 
 def stop():

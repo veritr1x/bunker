@@ -22,6 +22,8 @@ import sys
 import threading
 import time
 
+from bunker_text import t
+
 log = logging.getLogger("bunker.tools")
 _server = None
 _thread = None
@@ -100,7 +102,7 @@ def configure(data_root, asset_root, tools_root, native, reporter=None):
 def adapt_services():
     from web.services import backup_service, service_control
     service_control.available = lambda: False
-    service_control.unavailable_reason = lambda: "The game is stopped while Tools is open."
+    service_control.unavailable_reason = lambda: t("pods.runtime.cannot_stop_server")
     service_control.is_active = lambda: False
     # Restore is offered while the game runs: restoring is a change the game
     # guard asks to close the game for (install_game_guard), not a reason to
@@ -108,28 +110,17 @@ def adapt_services():
     backup_service.detect_lunar_tear_running = lambda: ""
     # The desktop tool uses second-resolution filenames, which collide on a
     # fast sequence of edits. Retain every snapshot with microsecond precision.
-    # Switching players is backed up like any other edit.
-    if "player-switch" not in backup_service.VALID_REASONS:
-        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "player-switch")
-        backup_service.REASON_LABELS["player-switch"] = "Player Switch"
-    # The server takes a snapshot before a new Bunker version first opens the
-    # save (backup_<time>_update.db). It keeps the newest three itself; the
-    # ordinary retention leaves them alone.
-    if "update" not in backup_service.VALID_REASONS:
-        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "update")
-        backup_service.REASON_LABELS["update"] = "Before update"
-    # Pod Programs › Gift backs the save up before each gift (android_gift.send).
-    if "gift" not in backup_service.VALID_REASONS:
-        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "gift")
-        backup_service.REASON_LABELS["gift"] = "Gift"
-    # Pod Programs › Deck Builder backs the save up before each write (android_deckbuilder.write).
-    if "deck builder" not in backup_service.VALID_REASONS:
-        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "deck builder")
-        backup_service.REASON_LABELS["deck builder"] = "Deck Builder"
-    # Pod Programs › Story Jump backs the save up before each jump (android_story.jump).
-    if "story jump" not in backup_service.VALID_REASONS:
-        backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, "story jump")
-        backup_service.REASON_LABELS["story jump"] = "Story Jump"
+    # Bunker's own reasons (REASONS): switching players is backed up like any
+    # other edit; the server takes a snapshot before a new Bunker version first
+    # opens the save (backup_<time>_update.db: it keeps the newest three itself,
+    # the ordinary retention leaves them alone); Pod Programs › Gift, Deck
+    # Builder and Story Jump back the save up before each change
+    # (android_gift.send, android_deckbuilder.write, android_story.jump).
+    for reason in REASONS:
+        if reason not in backup_service.VALID_REASONS:
+            backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, reason)
+    # Each backup's reason, in the chosen language as the page is drawn (BackupInfo.reason_display).
+    backup_service.reason_label = reason_label
     def prune(n):
         ordinary = [b for b in backup_service.list_backups() if b.reason != "update"]
         for b in ordinary[n:]:
@@ -141,11 +132,11 @@ def adapt_services():
     backup_service.prune_to_last_n = prune
     def backup(reason="manual"):
         if reason not in backup_service.VALID_REASONS:
-            raise ValueError("Invalid backup reason")
+            raise ValueError(t("pods.runtime.bad_backup_reason"))
         from web import config
         from datetime import datetime
         if not config.GAME_DB_PATH.is_file():
-            raise FileNotFoundError("Play the game once to create a save.")
+            raise FileNotFoundError(t("pods.runtime.no_save"))
         backup_service.ensure_dirs()
         dest = config.BACKUP_DIR / ("backup_" + datetime.now().strftime("%Y-%m-%dT%H-%M-%S-%f") + "_" + reason + ".db")
         with contextlib.closing(sqlite3.connect(f"file:{config.GAME_DB_PATH}?mode=ro", uri=True)) as source:
@@ -162,9 +153,9 @@ def adapt_services():
         try:
             with contextlib.closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as source:
                 if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                    raise ValueError("Backup failed its integrity check")
+                    raise ValueError(t("pods.runtime.backup_damaged"))
                 if source.execute("SELECT count(*) FROM sqlite_master WHERE name='users'").fetchone()[0] != 1:
-                    raise ValueError("This is not a game backup")
+                    raise ValueError(t("pods.runtime.not_a_backup"))
                 # A SQLite backup includes WAL content and produces a standalone file.
                 stage.unlink(missing_ok=True)
                 with contextlib.closing(sqlite3.connect(stage)) as output:
@@ -173,7 +164,7 @@ def adapt_services():
                 with contextlib.closing(sqlite3.connect(target)) as current:
                     busy, _, _ = current.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
                     if busy:
-                        raise ValueError("Save is still in use")
+                        raise ValueError(t("pods.runtime.save_in_use"))
             for suffix in ("-wal", "-shm"):
                 Path(str(target) + suffix).unlink(missing_ok=True)
             with stage.open("rb") as handle:
@@ -186,7 +177,7 @@ def adapt_services():
         from web import config
         source = (config.BACKUP_DIR / filename).resolve()
         if source.parent != config.BACKUP_DIR.resolve() or not source.is_file():
-            raise FileNotFoundError("Snapshot not found")
+            raise FileNotFoundError(t("pods.runtime.snapshot_not_found"))
         blocker = backup_service.detect_lunar_tear_running()
         if blocker:
             raise backup_service.RestoreBlocked(blocker)
@@ -199,7 +190,7 @@ def adapt_services():
             if config.GAME_DB_PATH.exists():
                 backup("pre-restore")
             swap(selected)
-            return backup_service.RestoreResult(source=info, steps=("Previous save backed up",), server_restarted=False)
+            return backup_service.RestoreResult(source=info, steps=(t("pods.runtime.previous_save_backed_up"),), server_restarted=False)
         finally:
             selected.unlink(missing_ok=True)
     backup_service.restore_backup = restore
@@ -209,10 +200,24 @@ def adapt_services():
         def invoke(payload, *, timeout=300, exception=exception):
             result = json.loads(_native(_data_root, _asset_root, json.dumps(payload)))
             if not result.get("ok"):
-                raise exception(result.get("error", "Save edit failed"))
+                raise exception(result.get("error", t("pods.runtime.edit_failed")))
             return result
         module._ensure_shim_available = lambda: None
         module._invoke_shim = invoke
+
+
+# Backup reasons as players read them (BackupInfo.reason_display): lunar-base's and Bunker's.
+REASONS = {"manual": "pods.backup.reason.manual", "auto": "pods.backup.reason.auto", "item-editor": "pods.backup.reason.item_editor",
+           "costume-editor": "pods.backup.reason.costume_editor", "weapon-editor": "pods.backup.reason.weapon_editor",
+           "upgrade-manager": "pods.backup.reason.upgrade_manager", "memoir-editor": "pods.backup.reason.memoir_editor",
+           "pre-restore": "pods.backup.reason.pre_restore", "player-switch": "pods.backup.reason.player_switch",
+           "update": "pods.backup.reason.update", "gift": "pods.backup.reason.gift", "deck builder": "pods.backup.reason.deck_builder",
+           "story jump": "pods.backup.reason.story_jump"}
+
+
+def reason_label(reason):
+    """A backup's reason in the chosen language; an unknown one as its file names it."""
+    return t(REASONS[reason]) if reason in REASONS else reason
 
 
 def prepare_data():
@@ -221,7 +226,7 @@ def prepare_data():
     from tools import dump_masterdata, extract_names
     master = config.find_master_data_bin()
     if not master.is_file():
-        raise FileNotFoundError("Import master data first")
+        raise FileNotFoundError(t("pods.runtime.import_master_first"))
     marker = config.DATA_DIR / "catalog-version.json"
     revision = config.REVISIONS_DIR / "0" / "android" / "list.bin"
     if not revision.exists():
@@ -229,7 +234,7 @@ def prepare_data():
     signature = {"master": fingerprint(master), "catalog": fingerprint(revision) if revision.exists() else None, "format": 3}
     if read_json(marker) == signature:
         return
-    _report("Reading game data…")
+    _report(t("pods.runtime.reading_data"))
     # Decode every table and fail if any table is malformed; the desktop CLI
     # otherwise prints errors and exits successfully with an incomplete catalog.
     from Crypto.Cipher import AES
@@ -256,7 +261,7 @@ def prepare_data():
         (stage / (name + ".json")).write_text(json.dumps(rows, ensure_ascii=False))
     shutil.rmtree(config.MASTERDATA_DIR, ignore_errors=True)
     stage.rename(config.MASTERDATA_DIR)
-    _report("Preparing item names…")
+    _report(t("pods.runtime.preparing_names"))
     config.NAMES_DIR.mkdir(exist_ok=True)
     text_root = extract_names.resolve_text_root(config.REVISIONS_DIR, "0")
     kinds = ("consumables", "materials", "important_items", "costumes", "characters", "weapons", "companions", "thoughts", "parts", "parts_groups", "event_quests", "main_quests", "gacha_banners", "shops")
@@ -274,13 +279,14 @@ def prepare_data():
 # mods as each is used,
 # display at the next launch, the timeline's filter, a backup copied with
 # SQLite's online backup), so they need nothing closed.
-LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/mods/preset", "/display", "/patcher/calendar/timeline", "/backups/create"))
+LIVE_SAFE = frozenset(("/gacha", "/gacha/roulette", "/gacha/preset", "/mods", "/mods/preset", "/display", "/patcher/calendar/timeline", "/backups/create",
+                       "/language/load"))  # a loaded pack is only kept; choosing it is the change
 # These change what the game reads only as it launches: they move its clock
 # back (the calendar turned off, "Show original dates"), and the game keeps
 # day markers in memory that only a fresh start clears (client-days.reset,
 # GameProcessProvider, LunarLauncher.m). The game is closed first, without
 # asking (ServerService.closeGameForTools, or the iOS launcher).
-CLOSES = frozenset(("/patcher/calendar/view", "/patcher/calendar/off", "/patcher/new-day"))
+CLOSES = frozenset(("/patcher/calendar/view", "/patcher/calendar/off", "/patcher/new-day", "/patcher/calendar/next-day"))
 # Any other change edits the save, the master data or the calendar, which the
 # server reads as it starts and the game as it signs in: the server stops for
 # the change and starts again after it (pause_game, resume_game), and the game
@@ -317,8 +323,8 @@ def changed_game(response):
 def next_step():
     """How a change reaches the game, for the message after it."""
     if game_live():
-        return "The game returns to its title screen to load it."
-    return "Close Pod Programs and tap Deploy."
+        return t("pods.runtime.title_screen")
+    return t("pods.runtime.deploy")
 
 
 def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lambda title=True: resume_game(title)):
@@ -355,12 +361,16 @@ def install_game_guard(app, live, close, pause=lambda: pause_game(), resume=lamb
 
 def create_app(token, origin):
     from fastapi.responses import JSONResponse
+    # Before any page module makes its templates: they all get t() (Bunker's own text, bunker_text.py).
+    import bunker_text
+    bunker_text.install_everywhere()
     from web.app import create_app as base_app
     from android_patcher import router
     import android_display
     import android_gacha
     import android_deckbuilder
     import android_gift
+    import android_language
     import android_mods
     import android_story
     import android_players
@@ -371,21 +381,31 @@ def create_app(token, origin):
     app.include_router(android_display.router)
     app.include_router(android_gacha.router)
     app.include_router(android_gift.router)
+    app.include_router(android_language.router)
     app.include_router(android_deckbuilder.router)
     app.include_router(android_mods.router)
     app.include_router(android_story.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.
     install_game_guard(app, lambda: game_live(), lambda: close_game())
+
+    @app.middleware("http")
+    async def language(request, call_next):
+        # The pack the server applies may have changed (Pod Programs › Language, an update): cheap when not.
+        try:
+            bunker_text.reload()
+        except Exception as exc:  # never a reason not to show a page: English it is
+            log.warning("Bunker's text stays as it was: %s", exc)
+        return await call_next(request)
     serial = asyncio.Lock()
     @app.middleware("http")
     async def private_session(request, call_next):
         # The non-exported Android activity receives this random cookie over
         # private IPC. Loopback binding alone does not authenticate other apps.
         if request.headers.get("host") != origin.removeprefix("http://") or not secrets.compare_digest(request.cookies.get("lunar_tools", ""), token):
-            return JSONResponse({"ok": False, "error": "Private launcher session required"}, status_code=403)
+            return JSONResponse({"ok": False, "error": t("common.private_session_required")}, status_code=403)
         if request.method not in ("GET", "HEAD") and request.headers.get("origin") not in (None, origin):
-            return JSONResponse({"ok": False, "error": "Invalid origin"}, status_code=403)
+            return JSONResponse({"ok": False, "error": t("common.invalid_origin")}, status_code=403)
         async with serial:
             try:
                 response = await call_next(request)
@@ -409,7 +429,8 @@ def start(data_root, asset_root, tools_root, reporter):
     game_live = lambda: bool(service.gameLive())
     close_game = lambda: str(service.closeGameForTools())
     pause_game = lambda: str(service.pauseForTools())
-    resume_game = lambda title=True: str(service.resumeForTools(bool(title)))
+    # only logged: in English (Java's references put in words)
+    resume_game = lambda title=True: str(service.inEnglish(service.resumeForTools(bool(title))))
     TEXTURE = lambda bundle, target, size: native.texture(bundle, target, size)
     configure(data_root, asset_root, tools_root, native.edit, reporter.report)
     prepare_data()
@@ -429,7 +450,7 @@ def start(data_root, asset_root, tools_root, reporter):
             break
         time.sleep(.02)
     sock.close()
-    raise RuntimeError("Tools could not start")
+    raise RuntimeError(t("pods.runtime.could_not_start"))
 
 
 def update_data(data_root, asset_root, tools_root, version):
@@ -438,8 +459,37 @@ def update_data(data_root, asset_root, tools_root, version):
     from java import jclass
     configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
     prepare_data()
+    refresh_language()
     import android_patcher
-    return android_patcher.update_for(version)
+    updated = android_patcher.update_for(version)  # a preset or calendar rebuild brings the texts too
+    try:
+        import android_challenges
+        android_challenges.reapply_texts()  # a revised shipped pack's game data texts
+    except Exception:  # noqa: BLE001 — the update stands; Pod Programs › Language can try again
+        log.exception("Game data texts not updated")
+    return updated
+
+
+def layer_game_data(data_root, asset_root, tools_root):
+    """After the launcher imported master data by itself (ServerService): the game data with its layers (Mods ›
+    Challenges, the language pack's texts), as Pod Programs would build it. True when it built them."""
+    from java import jclass
+    configure(data_root, asset_root, tools_root, jclass("org.veritr1x.bunker.NativeBridge").edit)
+    prepare_data()
+    import android_challenges
+    return android_challenges.reapply_texts()
+
+
+def refresh_language():
+    """A chosen shipped language pack this build revised replaces the active copy (Pod Programs › Language),
+    before the server starts and applies it."""
+    import bunker_language
+    from web import config
+    try:
+        if bunker_language.for_config(config).refresh():
+            log.info("Language pack updated for this build")
+    except OSError as exc:
+        log.warning("Language pack not updated: %s", exc)
 
 
 def stop():
@@ -449,5 +499,5 @@ def stop():
     if _thread:
         _thread.join(120)
         if _thread.is_alive():
-            raise RuntimeError("An editor is still finishing. Try closing Tools again.")
+            raise RuntimeError(t("pods.runtime.editor_finishing"))
     _server = _thread = None

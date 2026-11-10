@@ -73,7 +73,7 @@ function writeFile(pyodide, path, bytes) {
 async function setup() {
   post("log", "Loading Python…");
   const pyodide = await loadPyodide();
-  await pyodide.loadPackage(["pycryptodome", "msgpack", "lz4"]);
+  await pyodide.loadPackage(["pycryptodome", "msgpack", "lz4", "fonttools"]);
   pyodide.setStdout({ batched: (line) => post("log", line) });
   pyodide.setStderr({ batched: (line) => post("log", line) });
   const manifest = await (await fetch("py/manifest.json", { cache: "no-cache" })).json();

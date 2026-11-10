@@ -25,6 +25,7 @@ PATCHED = (
     "Info.plist",
     "Data/Managed/Metadata/global-metadata.dat",
     "Data/globalgamemanagers",
+    "Data/resources.assets",  # the game's fonts (game_fonts.py)
     "Frameworks/UnityFramework.framework/UnityFramework",
     "Frameworks/FBSDKCoreKit.framework/FBSDKCoreKit",
     "Frameworks/FBSDKLoginKit.framework/FBSDKLoginKit",

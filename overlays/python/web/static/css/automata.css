@@ -256,7 +256,7 @@ th {
 tr:hover td { background: var(--bg-cream-dark); }
 
 /* Status pills */
-.status-pill {
+.status-pill { white-space: nowrap;
   display: inline-block;
   padding: 2px 10px;
   font-size: var(--fs-label);
@@ -727,20 +727,16 @@ body { padding-bottom: 64px; }
   table { display: block; overflow-x: auto; }
   th, td { white-space: nowrap; }
 }
-.sign-dark { display: none; }
-:root[data-theme="dark"] .sign-dark { display: inline; }
-:root[data-theme="dark"] .sign-light { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .sign-dark { display: inline; }
-  :root:not([data-theme="light"]) .sign-light { display: none; }
-}
+/* The sign-off: two lines, in both themes. */
+.sign-line { display: block; }
+.sign-line + .sign-line { margin-top: 6px; }
 
 /* Content › Schedule (Original calendar). */
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; min-height: 44px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .choice:last-of-type { border-bottom: none; }
 .choice input { width: 20px; height: 20px; min-height: 0; margin: 3px 0 0; accent-color: var(--accent); flex: none; }
-.choice strong { display: block; font-size: var(--fs-body); }
+.choice strong { font-size: var(--fs-body); }
 .choice .note, .choice .wk { display: block; margin-top: 2px; font-family: var(--mono); font-size: var(--fs-label); line-height: 1.5; color: var(--fg-mid); }
 .loop-meter { height: 6px; margin-top: 16px; background: var(--bg-cream-dark); position: relative; }
 .loop-meter i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); }
@@ -748,7 +744,7 @@ body { padding-bottom: 64px; }
 .label { font-family: var(--mono); font-size: var(--fs-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mid); margin: 14px 0 6px; }
 ul.terms { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 ul.terms li { display: flex; flex-direction: column; gap: 1px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .actions form { margin: 0; }
 button.secondary, .button.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
 form.panel[aria-disabled="true"] { opacity: 0.5; }
@@ -837,11 +833,13 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   #bunker-live .live-short { display: inline; }
   #bunker-live .live-short b { color: var(--danger); }
 
+  table { display: block; overflow-x: auto; }
+  th, td { white-space: nowrap; }
   main { margin-left: 148px; max-width: none; padding: 0 max(14px, var(--hole-right, 0px)) 12px 16px; }
   main > h1, .page-side > h1 { margin: 8px 0 6px; font-size: var(--fs-small); }
   .bracket-header { margin: 10px 0 6px; }
   h2.bracket-header { font-size: var(--fs-label); }
-  .panel { margin: 8px 0; padding: 10px 12px; }
+  .panel { margin: 12px 0; padding: 10px 12px; }
   input, select, button, .button { min-height: 34px; }
   button, .button { padding: 6px 14px; }
   .banner { margin: 6px 0; padding: 5px 10px; font-size: var(--fs-label); }
@@ -869,9 +867,6 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   .page-side .search-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
   .page-side .search-row > * { margin: 0; }
   .page-side .search-row input { width: 100%; min-width: 0; box-sizing: border-box; }
-  /* The page's explainer: behind an ⓘ beside the title (base.html). */
-  .page-side .intro-info { flex: none; width: 20px; height: 20px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--accent); font: italic 700 var(--fs-label)/18px Georgia, serif; letter-spacing: 0; text-transform: none; }
-  .page-side .intro-info[aria-expanded="true"] { background: var(--accent); color: var(--bg-cream); }
   .page-toc { margin-top: 10px; border-top: 1px solid var(--line); }
   .page-toc a { display: block; padding: 7px 2px; border-bottom: 1px dotted var(--line); color: var(--fg-dark); font: var(--fs-label) var(--mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
   .page-main { min-width: 0; padding-top: 8px; container-type: inline-size; }
@@ -885,7 +880,7 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   .page-main .setting select { grid-column: 2; grid-row: 1 / span 2; }
   .page-main .setting .note { grid-column: 1; margin: 0; font-size: var(--fs-label); }
   /* Short records: two across. */
-  .page-main [data-grid2] { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .page-main [data-grid2] { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .page-main [data-grid2] > * { margin: 0; }
   .page-main [data-grid2] > .panel { padding: 8px 10px; }
 }
@@ -917,11 +912,10 @@ input[type="text"], input[type="number"], input[type="search"], select, textarea
 .grant-form.upgrade.pending, .grant-form.upgrade.pending:hover { opacity: 0.8; }
 .row-checkbox input[type="checkbox"] { width: 20px; height: 20px; }
 @media (orientation: landscape) and (max-height: 599px) {
-  .page-side .intro-info { width: 28px; height: 28px; font-size: var(--fs-small); line-height: 26px; }
   .page-side .panel, .page-side p { font-size: var(--fs-small); }
+  /* Both columns one size, fields included (the viewport's maximum-scale stops an iPhone zooming in on them). */
+  main, main label, main p, .bracket-header, summary.bracket-header, .setting label, .setting strong, .choice strong,
+  main input, main input[type="text"], main input[type="number"], main input[type="search"], main select, main textarea { font-size: var(--fs-small); }
 }
 /* Explanations behind an ⓘ (base.html), in every orientation: a page's intro beside its title, a note beside what it explains. */
 [data-side="intro"]:not(.open), [data-info]:not(.open) { display: none !important; }
-.intro-info { flex: none; width: 28px; height: 28px; min-height: 0; padding: 0; margin: 0 0 0 10px; vertical-align: middle; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--accent); font: italic 700 var(--fs-small)/26px Georgia, serif; letter-spacing: 0; text-transform: none; }
-.intro-info:hover { background: none; transform: none; }
-.intro-info[aria-expanded="true"], .intro-info[aria-expanded="true"]:hover { background: var(--accent); color: var(--bg-cream); }

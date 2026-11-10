@@ -40,7 +40,27 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+// Java is compiled with JDK 21 whichever JDK runs Gradle: the Android plugin builds its JDK image with the
+// compiling JDK's jlink, and newer ones (26) refuse the SDK's java.base ("cannot find the build signature").
+// Gradle finds an installed JDK 21, or downloads one (settings.gradle).
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+android {
     buildFeatures { buildConfig = true }
     packaging { jniLibs { useLegacyPackaging = false } }
     buildTypes { release { minifyEnabled = false } }
 }
+
+// Bunker's own words in English (translations/bunker/en.json), packed as the asset lunar/bunker_en.json for the
+// launcher (Texts.java). Pod Programs and the Archive read the same catalogue on the Python side.
+def bunkerTextAssets = layout.buildDirectory.dir('generated/bunkerText/assets')
+def bunkerText = tasks.register('bunkerText', Copy) {
+    from("${rootDir}/../translations/bunker") { include 'en.json'; rename 'en.json', 'bunker_en.json' }
+    into layout.buildDirectory.dir('generated/bunkerText/assets/lunar')  // the game APK keeps assets/lunar/
+}
+android.sourceSets.main.assets.srcDir(bunkerTextAssets.get().asFile)
+preBuild.dependsOn bunkerText

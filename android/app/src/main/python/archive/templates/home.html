@@ -1,17 +1,17 @@
 {% extends "base.html" %}
+{% from "_info.html" import info %}
 {% block content %}
 <form class="search-box" action="/search" method="get" role="search">
-  <input type="text" name="q" placeholder="Search story lines and records" aria-label="Search the archive">
+  <input type="text" name="q" placeholder="{{ t("archive.search.placeholder") }}" aria-label="{{ t("archive.search.label") }}">
 </form>
-<h1>Archive</h1>
+<h1 class="has-info">{{ t("archive.menu.archive") }} {{ info(t("archive.home.records_info")) }}</h1>
 <div class="tool-grid">
-  <a href="/story">Story <span>main story · character stories · events · side stories · library</span></a>
-  <a href="/records">Records <span>weapon stories · reports · lost archives · memoirs · debris</span></a>
-  <a href="/movies">Movies <span>{{ count(counts.movies, "movie") }}</span></a>
-  <a href="/characters">Characters <span>costumes · companions · cast · enemies</span></a>
-  <a href="/gallery">Gallery <span>stills · event scenes · library art · photos</span></a>
-  <a href="/music">Music <span>soundtrack</span></a>
-  <a href="/schedule">Schedule <span>summons · events · shops · banners · campaigns, with their dates</span></a>
+  <a href="/story">{{ t("archive.menu.story") }}</a>
+  <a href="/records">{{ t("archive.menu.records") }}</a>
+  <a href="/movies">{{ t("archive.menu.movies") }}</a>
+  <a href="/characters">{{ t("archive.menu.characters") }}</a>
+  <a href="/gallery">{{ t("archive.menu.gallery") }}</a>
+  <a href="/music">{{ t("archive.menu.music") }}</a>
+  <a href="/schedule">{{ t("archive.menu.schedule") }}</a>
 </div>
-{% if summary %}<p class="note">Index built {{ built }}.</p>{% endif %}
 {% endblock %}

@@ -1,25 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Records</p>
-<h1>Records</h1>
-<nav class="seg" aria-label="Record type">
-  <a href="/records?tab=weapons"{% if tab == "weapons" %} class="on"{% endif %}>Weapons</a>
-  <a href="/records?tab=reports"{% if tab == "reports" %} class="on"{% endif %}>Reports</a>
-  <a href="/records?tab=archives"{% if tab == "archives" %} class="on"{% endif %}>Archives</a>
-  <a href="/records?tab=memoirs"{% if tab == "memoirs" %} class="on"{% endif %}>Memoirs</a>
-  <a href="/records?tab=debris"{% if tab == "debris" %} class="on"{% endif %}>Debris</a>
+<h1>{{ t("archive.menu.records") }}</h1>
+<nav class="seg" aria-label="{{ t("archive.records.type_label") }}">
+  <a href="/records?tab=weapons"{% if tab == "weapons" %} class="on"{% endif %}>{{ t("archive.records.weapons") }}</a>
+  <a href="/records?tab=reports"{% if tab == "reports" %} class="on"{% endif %}>{{ t("archive.records.reports") }}</a>
+  <a href="/records?tab=archives"{% if tab == "archives" %} class="on"{% endif %}>{{ t("archive.records.archives") }}</a>
+  <a href="/records?tab=memoirs"{% if tab == "memoirs" %} class="on"{% endif %}>{{ t("archive.records.memoirs") }}</a>
+  <a href="/records?tab=debris"{% if tab == "debris" %} class="on"{% endif %}>{{ t("archive.records.debris") }}</a>
 </nav>
 {% if tab == "weapons" %}
-  <div class="search-row"><input type="text" id="filter" placeholder="Filter weapons" aria-label="Filter weapons" value="{{ q }}"><span class="tab-stats">{{ count(weapons|length, "weapon") }}</span></div>
+  <div class="search-row"><input type="text" id="filter" placeholder="{{ t("archive.records.filter") }}" aria-label="{{ t("archive.records.filter") }}" value="{{ q }}"><span class="tab-stats">{{ t_count("archive.records.weapon_count", weapons|length) }}</span></div>
   <div id="weapons">
   {% for w in weapons %}
   <details class="panel fold" data-name="{{ w.name|lower }} {{ w.asset }}">
-    <summary>{{ w.name }} · {{ w.stories|length }} {{ "story" if w.stories|length == 1 else "stories" }}</summary>
+    <summary>{{ w.name }} · {{ t_count("archive.records.story_count", w.stories|length) }}</summary>
     <div class="weapon">
       {% if images and w.art %}<a class="art weapon-art" href="{{ img("full", w.art) }}"><img src="{{ img("view", w.art) }}" alt="{{ w.name }}" loading="lazy"></a>{% endif %}
-      {% if has_model(w.asset) %}<a class="button" href="/viewer/{{ w.asset }}">View in 3D</a>{% endif %}
+      {% if has_model(w.asset) %}<a class="button" href="/viewer/{{ w.asset }}">{{ t("archive.characters.view_3d") }}</a>{% endif %}
     </div>
-    {% for s in w.stories %}<article class="record"><h3>Story {{ loop.index }}</h3><p>{{ s|prose|safe }}</p></article>{% endfor %}
+    {% for s in w.stories %}<article class="record"><h3>{{ t("archive.records.story", n=loop.index) }}</h3><p>{{ s|prose|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}
   </div>
@@ -36,7 +35,7 @@
 {% elif tab == "reports" %}
   {% for g in groups %}
   <details class="panel fold">
-    <summary>{{ g.character }} · Season {{ g.season }} · {{ g["items"]|length }}</summary>
+    <summary>{{ g.character }} · {{ t("archive.story.season", n=g.season) }} · {{ g["items"]|length }}</summary>
     {% for item in g["items"] %}<article class="record"><h3>{{ item.title }}</h3><p>{{ item.text|prose|safe }}</p></article>{% endfor %}
   </details>
   {% endfor %}
@@ -59,7 +58,7 @@
       {% if images and item.art %}<a class="art thumb" href="{{ img("full", item.art) }}"><img src="{{ img("thumb", item.art) }}" alt="" loading="lazy"></a>{% endif %}
       <div><h3>{{ item.title }}</h3><p>{{ item.text|prose|safe }}</p></div>
     </article>
-  {% else %}<p class="note">Nothing here.</p>{% endfor %}
+  {% else %}<p class="note">{{ t("archive.menu.nothing_here") }}</p>{% endfor %}
   </div>
 {% endif %}
 {% endblock %}

@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Characters</p>
-<h1>Characters</h1>
-<nav class="seg" aria-label="Character type">
+<h1>{{ t("archive.menu.characters") }}</h1>
+<nav class="seg" aria-label="{{ t("archive.characters.type_label") }}">
   {% for key, label in tabs %}<a href="/characters?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>
 {% if tab == "playable" %}
@@ -11,7 +10,7 @@
   <a class="card" href="/characters/{{ c.id }}">
     <span class="art portrait">{% if images %}<img src="{{ img("thumb", c.icon) }}" alt="" loading="lazy">{% endif %}</span>
     <strong>{{ c.name }}</strong>
-    <span class="note">{{ c.costumes }} costume{{ "s" if c.costumes != 1 }}</span>
+    <span class="note">{{ t_count("archive.characters.costume_count", c.costumes) }}</span>
   </a>
   {% endfor %}
 </div>
@@ -29,7 +28,7 @@
   <h2 class="bracket-header">{{ g.name }}</h2>
   <div class="tool-grid">
     {% for f in g.families %}
-    <a href="/viewer/{{ f.models[0].asset }}" id="{{ f.family }}">{{ f.name }}<span>{{ count(f.models|length, "look") }}</span></a>
+    <a href="/viewer/{{ f.models[0].asset }}" id="{{ f.family }}">{{ f.name }}<span>{{ t_count("archive.characters.look_count", f.models|length) }}</span></a>
     {% endfor %}
   </div>
   {% endfor %}

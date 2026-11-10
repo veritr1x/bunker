@@ -1,19 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<p class="crumb"><a href="/">Archive</a> › Gallery</p>
-<h1>Gallery</h1>
-<nav class="seg" aria-label="Gallery">
-  {% for key, label in tabs %}<a href="/gallery?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
+<h1>{{ t("archive.menu.gallery") }}</h1>
+<nav class="seg" aria-label="{{ t("archive.menu.gallery") }}">
+  {% for key, label in tabs.items() %}<a href="/gallery?tab={{ key }}"{% if tab == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>
 <div class="cards wide">
   {% for g in groups %}
   <a class="card" href="/gallery/{{ tab }}/{{ g.grp }}">
     <span class="art">{% if images %}<img src="{{ img("thumb", g.cover) }}" alt="" loading="lazy">{% endif %}</span>
     <strong>{{ g.label }}</strong>
-    <span class="note">{{ g.count }} image{{ "s" if g.count != 1 }}</span>
+    <span class="note">{{ t_count("archive.gallery.image_count", g.count) }}</span>
   </a>
   {% else %}
-  <p class="note">Nothing here.</p>
+  <p class="note">{{ t("archive.menu.nothing_here") }}</p>
   {% endfor %}
 </div>
 {% endblock %}

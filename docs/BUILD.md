@@ -17,9 +17,11 @@ Use macOS or Linux with:
 - Git, Make, Go 1.25.8 or newer, `protoc`, and `apktool`.
 - Python 3.11.9 or newer, available as `python3.11`. Run the build with it. An
   older `python3` (such as macOS's 3.9) cannot run it.
-- JDK 21, with `JAVA_HOME` pointing to it. The Android build fails with newer JDKs.
-  Android Studio's bundled JDK works:
-  `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
+- A JDK, 17 or newer (the latest works). Java is always compiled with JDK 21:
+  Gradle uses an installed JDK 21 or downloads one the first time (newer JDKs
+  cannot compile for Android themselves). When the `java` it finds is older
+  than 17 or missing, `build.py` looks for an installed JDK itself and says
+  which one it uses; set `JAVA_HOME` to choose one yourself.
 - Android SDK platform 36, build-tools 36.0.0, and NDK 27.2.12479018.
 
 Install the SDK components with Android Studio's SDK Manager. If `ANDROID_HOME` is not

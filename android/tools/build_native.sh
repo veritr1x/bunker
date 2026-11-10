@@ -22,7 +22,7 @@ cp ../android/licenses/*.txt ../android/app/src/main/assets/lunar/licenses/
 # The launcher rebuilds itself for an update (bunker_update.py) with the same
 # tools and public signing key as the web builder.
 rm -rf ../android/app/src/main/python/bunker_tools && mkdir -p ../android/app/src/main/python/bunker_tools ../android/app/src/main/assets/lunar/signing
-cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/tools/notice_pack.py ../android/tools/game_patch.py ../android/app/src/main/python/bunker_tools/
+cp ../android/tools/apk_sign.py ../android/tools/assemble_apk.py ../android/tools/axml.py ../android/tools/build_info.py ../android/tools/notice_pack.py ../android/tools/game_patch.py ../android/tools/game_fonts.py ../android/app/src/main/python/bunker_tools/
 cp ../android/tools/privacy.py ../android/tools/telemetry_patches.json ../android/tools/telemetry_patches_jp.json ../android/app/src/main/python/bunker_tools/
 : > ../android/app/src/main/python/bunker_tools/__init__.py
 cp ../web/signing/bunker-key.pem ../web/signing/bunker-cert.der ../android/app/src/main/assets/lunar/signing/

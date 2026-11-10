@@ -17,6 +17,7 @@
 // layer is affected. MetalFX and the textures are checked before anything
 // changes; if they do not fit, Unity's layer is left as it was.
 #import <Metal/Metal.h>
+#if __has_include(<MetalFX/MetalFX.h>)
 #import <MetalFX/MetalFX.h>
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
@@ -303,3 +304,12 @@ void LTUpscaleStart(void) {
 
 /** The size MetalFX writes, or zero when it isn't upscaling (LunarWindow.m logs it). */
 CGSize LTUpscaleOutput(void) { return gUpscaling ? gScreen : CGSizeZero; }
+
+#else
+// An SDK without MetalFX (the iOS Simulator's): no upscaling, the system stretches Unity's picture, as on a
+// device without MetalFX.
+#import <UIKit/UIKit.h>
+void LTDisplayLog(NSString *line);  // LunarWindow.m
+void LTUpscaleStart(void) { LTDisplayLog(@"Note: MetalFX is not in this build: plain stretching"); }
+CGSize LTUpscaleOutput(void) { return CGSizeZero; }
+#endif

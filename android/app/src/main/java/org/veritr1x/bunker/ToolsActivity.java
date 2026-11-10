@@ -31,7 +31,7 @@ public final class ToolsActivity extends Activity {
     private ValueCallback<Uri[]> upload;
     private final ServiceConnection connection=new ServiceConnection(){
         public void onServiceConnected(ComponentName name,IBinder binder){}
-        public void onServiceDisconnected(ComponentName name){message.setText("> Pod Programs stopped. Close it and open it again.");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);}
+        public void onServiceDisconnected(ComponentName name){message.setText("> "+Texts.t(ToolsActivity.this,"launcher.tools.stopped"));web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);}
     };
     private final Runnable poll=new Runnable(){public void run(){
         if(closing&&!ServerService.busy&&!ServerService.tools){returnToLauncher();return;}
@@ -41,8 +41,8 @@ public final class ToolsActivity extends Activity {
             CookieManager.getInstance().setCookie(origin,"lunar_theme="+(look.dark?"dark":"light")+"; Path=/; SameSite=Strict");
             CookieManager.getInstance().setCookie(origin,"lunar_tools="+ToolsRuntime.token+"; Path=/; HttpOnly; SameSite=Strict",ok->web.loadUrl(origin+"/"));
         }
-        if(!loaded||closing)message.setText(ServerService.detail);
-        if(loaded&&!ServerService.tools&&!ServerService.busy&&!closing){loaded=false;web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);message.setText("> Pod Programs closed. Return to the Bunker.");}
+        if(!loaded||closing)message.setText(Texts.said(ToolsActivity.this,ServerService.detail));
+        if(loaded&&!ServerService.tools&&!ServerService.busy&&!closing){loaded=false;web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);message.setText("> "+Texts.t(ToolsActivity.this,"launcher.tools.closed"));}
         handler.postDelayed(this,300);
     }};
     private Look look;
@@ -70,10 +70,10 @@ public final class ToolsActivity extends Activity {
         LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(18),dp(12),dp(18),dp(4));bar.setGravity(Gravity.CENTER_VERTICAL);body.addView(bar);if(compact)bar.setVisibility(View.GONE);
         LinearLayout titles=new LinearLayout(this);titles.setOrientation(LinearLayout.VERTICAL);
         TextView caption=look.monoText("BUNKER // POD 042",10,look.mid);caption.setLetterSpacing(.2f);titles.addView(caption);
-        TextView title=look.text("POD PROGRAMS",22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
+        TextView title=look.text(Texts.upper(this,Texts.t(this,"pods.menu.title")),22,look.ink);title.setTypeface(null,android.graphics.Typeface.BOLD);title.setLetterSpacing(.28f);titles.addView(title);
         bar.addView(titles,new LinearLayout.LayoutParams(0,-2,1));
-        close=look.outlined("CLOSE");close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->closeTools());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
-        message=look.monoText("> Opening Pod Programs…",13,look.ink);message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
+        close=look.outlined(Texts.upper(this,Texts.t(this,"common.close")));close.setPadding(dp(16),0,dp(16),0);close.setOnClickListener(v->closeTools());bar.addView(close,new LinearLayout.LayoutParams(-2,dp(44)));
+        message=look.monoText("> "+Texts.t(this,"launcher.detail.opening_tools"),13,look.ink);message.setGravity(Gravity.CENTER);message.setPadding(dp(24),dp(24),dp(24),dp(24));body.addView(message,new LinearLayout.LayoutParams(-1,0,1));
         web=new WebView(this);web.setBackgroundColor(look.paper);web.setVisibility(View.GONE);body.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         web.addJavascriptInterface(new Object(){@JavascriptInterface public String cutout(){return cutout;}},"BunkerShell");
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -87,7 +87,7 @@ public final class ToolsActivity extends Activity {
                 return !local(request.getUrl().toString());
             }
             @Override public void onPageFinished(WebView view,String url){if(!closing&&local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("> Couldn't open Pod Programs. Close it and try again.");message.setVisibility(View.VISIBLE);}}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame()){message.setText("> "+Texts.t(ToolsActivity.this,"launcher.tools.could_not_open"));message.setVisibility(View.VISIBLE);}}
         });
         web.setWebChromeClient(new WebChromeClient(){
             @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){
@@ -119,19 +119,7 @@ public final class ToolsActivity extends Activity {
     @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(focused&&compact)hideBars();}
     /** The camera hole on the left or right edge, in the page's CSS px; the page asks for it (base.html). */
     private void hole(WindowInsets insets){
-        String json="null";
-        DisplayCutout cut=insets.getDisplayCutout();
-        if(cut!=null){
-            float density=getResources().getDisplayMetrics().density;
-            for(android.graphics.Rect r:cut.getBoundingRects()){
-                if(r.isEmpty())continue;
-                boolean left=r.left<=0&&cut.getSafeInsetLeft()>0,right=!left&&cut.getSafeInsetRight()>0&&r.left>0&&r.top>0;
-                if(!left&&!right)continue;
-                json=String.format(Locale.ROOT,"{\"side\":\"%s\",\"top\":%.1f,\"bottom\":%.1f,\"depth\":%.1f}",left?"left":"right",
-                    r.top/density,r.bottom/density,(left?cut.getSafeInsetLeft():cut.getSafeInsetRight())/density);
-                break;
-            }
-        }
+        String json=Look.cutout(insets,getResources().getDisplayMetrics().density);
         if(json.equals(cutout))return;
         cutout=json;
         // A phone turned from one side to the other keeps the page; tell it.
@@ -139,7 +127,7 @@ public final class ToolsActivity extends Activity {
     }
     private boolean local(String url){return !origin.isEmpty()&&(url.equals(origin)||url.startsWith(origin+"/"));}
     private void closeTools(){
-        if(closing)return;closing=true;close.setEnabled(false);message.setText("> Closing Pod Programs…");web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);
+        if(closing)return;closing=true;close.setEnabled(false);message.setText("> "+Texts.t(this,"launcher.tools.closing"));web.setVisibility(View.GONE);message.setVisibility(View.VISIBLE);
         startService(new Intent(this,ServerService.class).setAction(ServerService.CLOSE_TOOLS));
     }
     private void returnToLauncher(){
@@ -163,12 +151,13 @@ public final class ToolsActivity extends Activity {
             final Uri target=data.getData();final String source=download,cookie=CookieManager.getInstance().getCookie(origin);
             close.setEnabled(false);
             new Thread(()->{
-                String feedback="Exported.";HttpURLConnection connection=null;
+                String feedback=Texts.t(this,"launcher.tools.exported");HttpURLConnection connection=null;
                 try{
                     connection=(HttpURLConnection)new URL(source).openConnection();connection.setRequestProperty("Cookie",cookie);connection.setConnectTimeout(15000);connection.setReadTimeout(60000);
-                    if(connection.getResponseCode()!=200)throw new IOException("Export failed");
-                    try(InputStream in=connection.getInputStream();OutputStream out=getContentResolver().openOutputStream(target)){if(out==null)throw new IOException("Cannot write file");byte[] bytes=new byte[65536];int count;while((count=in.read(bytes))!=-1)out.write(bytes,0,count);}
-                }catch(Exception error){feedback="Export failed: "+error.getMessage();}finally{if(connection!=null)connection.disconnect();}
+                    int code=connection.getResponseCode();
+                    if(code!=200)throw new IOException(Texts.t(this,"launcher.tools.export_refused","code",String.valueOf(code)));
+                    try(InputStream in=connection.getInputStream();OutputStream out=getContentResolver().openOutputStream(target)){if(out==null)throw new IOException(Texts.t(this,"launcher.tools.cannot_write"));byte[] bytes=new byte[65536];int count;while((count=in.read(bytes))!=-1)out.write(bytes,0,count);}
+                }catch(Exception error){feedback=Texts.t(this,"launcher.tools.export_failed","error",Texts.said(this,String.valueOf(error.getMessage())));}finally{if(connection!=null)connection.disconnect();}
                 final String text=feedback;runOnUiThread(()->{close.setEnabled(true);Toast.makeText(this,text,Toast.LENGTH_LONG).show();});
             },"tools-export").start();
         }

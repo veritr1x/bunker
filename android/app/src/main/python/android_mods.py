@@ -24,37 +24,41 @@ from web import config
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+import bunker_text  # noqa: E402
+bunker_text.install(templates)  # Bunker's own text, in the chosen language
 
 COMFORT_MOD = "https://github.com/NavHobbyDev/lunar-tear-comfort-mod"
 MAX_MULTIPLIER = 10
 
 # (group, [(key, kind, title, what it does)]). kind is "bool", "multiplier"
-# (×1–×10) or "hard" (Hard enemies). Keys match internal/mods.Settings.
+# (×1–×10) or "hard" (Hard enemies). Keys match internal/mods.Settings. A group's
+# title is the catalogue's "pods.mods.group.<group>"; titles and what each mod
+# does are catalogue keys, translated when the page shows them.
 GROUPS = [
-    ("Quests", [
-        ("staminaFree", "bool", "Free stamina", "Quests and skips cost no stamina."),
-        ("unlimitedDailyPlays", "bool", "Unlimited daily plays", "Quests with a daily clear limit can be played as often as you like."),
-        ("freeSkips", "bool", "Free skips", "Skipping a quest uses no skip tickets."),
-        ("rewardMultiplier", "multiplier", "Reward multiplier", "Multiplies a quest's drops, gold and gems. Dark Memory quests, memoirs, costumes and weapons stay as they are."),
-        ("expMultiplier", "multiplier", "EXP multiplier", "Multiplies the EXP a quest gives you, your characters and their costumes."),
+    ("quests", [
+        ("staminaFree", "bool", "pods.mods.mod.stamina_free", "pods.mods.mod.stamina_free_info"),
+        ("unlimitedDailyPlays", "bool", "pods.mods.mod.unlimited_daily_plays", "pods.mods.mod.unlimited_daily_plays_info"),
+        ("freeSkips", "bool", "pods.mods.mod.free_skips", "pods.mods.mod.free_skips_info"),
+        ("rewardMultiplier", "multiplier", "pods.mods.mod.reward_multiplier", "pods.mods.mod.reward_multiplier_info"),
+        ("expMultiplier", "multiplier", "pods.mods.mod.exp_multiplier", "pods.mods.mod.exp_multiplier_info"),
     ]),
-    ("Items & shops", [
-        ("staminaItemsToGold", "bool", "Stamina items become gold", "Stamina recovery items you receive arrive as gold instead. Items you already hold stay."),
-        ("ticketsToGems", "bool", "Premium tickets become gems", "Premium summon tickets you receive arrive as free gems instead. Tickets you already hold stay."),
-        ("shopUnlimited", "bool", "Unlimited shop stock", "Shop items that restock daily, weekly or monthly never run out. Items with a lifetime limit keep it."),
-        ("lostItemGems", "bool", "Lost Items give gems", "Picking up a Lost Item gives a random amount of free gems."),
+    ("items", [
+        ("staminaItemsToGold", "bool", "pods.mods.mod.stamina_items_to_gold", "pods.mods.mod.stamina_items_to_gold_info"),
+        ("ticketsToGems", "bool", "pods.mods.mod.tickets_to_gems", "pods.mods.mod.tickets_to_gems_info"),
+        ("shopUnlimited", "bool", "pods.mods.mod.shop_unlimited", "pods.mods.mod.shop_unlimited_info"),
+        ("lostItemGems", "bool", "pods.mods.mod.lost_item_gems", "pods.mods.mod.lost_item_gems_info"),
     ]),
-    ("Summons", [
-        ("noDuplicateFourStar", "bool", "No duplicate ★4", "A ★4 costume or weapon you already own is swapped for one you don't from the same summon, until you own them all."),
-        ("pityRewards", "bool", "Medals become gems", "Every 100 summon medals become 1,000 paid gems and 100 Mama Points, sent to the gift box."),
+    ("summons", [
+        ("noDuplicateFourStar", "bool", "pods.mods.mod.no_duplicate_four_star", "pods.mods.mod.no_duplicate_four_star_info"),
+        ("pityRewards", "bool", "pods.mods.mod.pity_rewards", "pods.mods.mod.pity_rewards_info"),
     ]),
-    ("World", [
-        ("storyFriends", "bool", "Friends from the story", "2B, 9S, Fio, Lars and others join your friends, cheer you every day and fight with their own costumes in the Arena."),
+    ("world", [
+        ("storyFriends", "bool", "pods.mods.mod.story_friends", "pods.mods.mod.story_friends_info"),
     ]),
-    ("Challenges", [
-        ("hardEnemies", "hard", "Hard enemies", "Every enemy's HP, attack and defense, in quests and events. Subjugation bosses stay as they are."),
-        ("weaknessOnly", "bool", "Weakness only", "Hits that aren't super-effective do half damage. Rewards ×2."),
-        ("slowSkills", "bool", "Slow skills", "Your skills take 50% longer to come back. Rewards ×2."),
+    ("challenges", [
+        ("hardEnemies", "hard", "pods.mods.mod.hard_enemies", "pods.mods.mod.hard_enemies_info"),
+        ("weaknessOnly", "bool", "pods.mods.mod.weakness_only", "pods.mods.mod.weakness_only_info"),
+        ("slowSkills", "bool", "pods.mods.mod.slow_skills", "pods.mods.mod.slow_skills_info"),
     ]),
 ]
 KEYS = [key for _, mods in GROUPS for key, *_ in mods]
@@ -65,19 +69,20 @@ HARD_ENEMIES = {1.5: 2, 2: 3, 3: 4, 5: 6}
 OFF = {key: (1 if KIND[key] in ("multiplier", "hard") else False) for key in KEYS}
 COMFORT_KEYS = ("staminaFree", "staminaItemsToGold", "ticketsToGems", "shopUnlimited", "lostItemGems",
                 "noDuplicateFourStar", "pityRewards")
+# (title, what it does, values); title and what are catalogue keys.
 PRESETS = {
-    "original": ("Original", "Every mod off: the game as it was.", {}),
-    "comfort": ("Comfort", "The Comfort Mod's set: its eight mods on, rewards ×10.",
+    "original": ("pods.mods.preset.original", "pods.mods.preset.original_info", {}),
+    "comfort": ("pods.mods.preset.comfort", "pods.mods.preset.comfort_info",
                 {**{key: True for key in COMFORT_KEYS}, "rewardMultiplier": MAX_MULTIPLIER}),
-    "everything": ("Everything", "Every mod on, rewards and EXP ×10. Challenges stay off.",
+    "everything": ("pods.mods.preset.everything", "pods.mods.preset.everything_info",
                    {key: (MAX_MULTIPLIER if KIND[key] == "multiplier" else True)
-                    for group, mods in GROUPS if group != "Challenges" for key, *_ in mods}),
+                    for group, mods in GROUPS if group != "challenges" for key, *_ in mods}),
 }
 
 
 def comfort_on(settings):
     """Whether a Quests, Items & shops or Summons mod is on (as mods.Settings.Comfort)."""
-    world = {key for group, mods in GROUPS if group in ("World", "Challenges") for key, *_ in mods}
+    world = {key for group, mods in GROUPS if group in ("world", "challenges") for key, *_ in mods}
     return any(settings[k] > 1 if KIND[k] == "multiplier" else bool(settings[k]) for k in KEYS if k not in world)
 
 
@@ -86,13 +91,13 @@ def bonus_view(settings, paused=False):
     on = HARD_ENEMIES.get(settings.get("hardEnemies"), 1) > 1 or settings.get("weaknessOnly") or settings.get("slowSkills")
     full = challenge_bonus(settings) if not comfort_on(settings) else challenge_bonus({**OFF, **{k: settings[k] for k in CHALLENGE_KEYS}})
     if not on:
-        reason = "Turn on a challenge to earn it."
+        reason = bunker_text.t("pods.mods.bonus_off")
     elif comfort_on(settings):
-        reason = "Paused: a Quests, Items & shops or Summons mod is on."
+        reason = bunker_text.t("pods.mods.bonus_paused_comfort")
     elif paused:
-        reason = "Paused until tomorrow: you started a new day."
+        reason = bunker_text.t("pods.mods.bonus_paused_new_day")
     else:
-        reason = "Earned on every quest clear."
+        reason = bunker_text.t("pods.mods.bonus_earned")
     return {"bonus": full, "bonus_reason": reason, "bonus_paused": bool(on) and challenge_bonus(settings, paused) == 1,
             "new_day": bool(paused)}  # the page's live line, whatever the reason shown now
 
@@ -113,14 +118,16 @@ def mods_path():
 
 def validate(settings):
     if set(settings) - set(KEYS):
-        raise ValueError("Unknown mod")
-    for key, title in (("rewardMultiplier", "reward"), ("expMultiplier", "EXP")):
+        raise ValueError(bunker_text.t("pods.mods.error_unknown_mod"))
+    for key in ("rewardMultiplier", "expMultiplier"):
         m = settings.get(key, 1)
         if not isinstance(m, int) or isinstance(m, bool) or not 1 <= m <= MAX_MULTIPLIER:
-            raise ValueError(f"The {title} multiplier must be 1–{MAX_MULTIPLIER}")
+            raise ValueError(bunker_text.t("pods.mods.error_reward_multiplier", max=MAX_MULTIPLIER)
+                             if key == "rewardMultiplier" else
+                             bunker_text.t("pods.mods.error_exp_multiplier", max=MAX_MULTIPLIER))
     h = settings.get("hardEnemies", 1)
     if isinstance(h, bool) or h not in (1, *HARD_ENEMIES):
-        raise ValueError("Hard enemies must be 1.5, 2, 3 or 5")
+        raise ValueError(bunker_text.t("pods.mods.error_hard_enemies"))
 
 
 def read_settings(path=None):
@@ -183,7 +190,8 @@ def save_settings(settings):
     write_settings(settings)
     # Against what the game data has, not the last mods.json: a save that
     # failed part-way is applied again rather than taken as done.
-    if challenges.wanted(read_settings()) == challenges.applied_challenges():
+    want, applied = challenges.wanted(read_settings()), challenges.applied_challenges()
+    if all(want[k] == applied[k] for k in challenges.CHALLENGES):  # the language's texts are Language's business
         return False
     live = runtime.game_live()
     if live:
@@ -205,13 +213,14 @@ def save_settings(settings):
 
 
 def saved_message(title, reapplied, settings):
+    """title: what was saved ("Saved.", already translated), then what happens next."""
     import android_challenges as challenges
     import android_runtime as runtime
     if reapplied and challenges.active(settings):
-        return f"{title} Challenges are in the game data. " + runtime.next_step()
+        return bunker_text.t("pods.mods.saved_challenges_on", saved=title, next=runtime.next_step())
     if reapplied:
-        return f"{title} Challenges are off: the game data is as it was. " + runtime.next_step()
-    return f"{title} The mods are in use from the game's next action, with no restart."
+        return bunker_text.t("pods.mods.saved_challenges_off", saved=title, next=runtime.next_step())
+    return bunker_text.t("pods.mods.saved_next_action", saved=title)
 
 
 @router.post("/mods")
@@ -222,20 +231,20 @@ async def save(request: Request):
         reapplied = await run_in_threadpool(save_settings, {k: form_value(k, form.get(k)) for k in KEYS})
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message=saved_message("Saved.", reapplied, read_settings()))
+    return redirect(message=saved_message(bunker_text.t("pods.mods.saved"), reapplied, read_settings()))
 
 
 @router.post("/mods/preset")
 async def preset(request: Request):
     name = (await request.form()).get("name")
     if name not in PRESETS:
-        return redirect(error="Unknown preset")
+        return redirect(error=bunker_text.t("common.unknown_preset"))
     title, _, values = PRESETS[name]
     try:
         reapplied = await run_in_threadpool(save_settings, values)
     except Exception as exc:
         return redirect(error=str(exc))
-    return redirect(message=saved_message(f"{title} preset saved.", reapplied, read_settings()))
+    return redirect(message=saved_message(bunker_text.t("pods.mods.preset_saved", preset=bunker_text.t(title)), reapplied, read_settings()))
 
 
 def form_value(key, raw):

@@ -5,6 +5,8 @@ import { OrbitControls } from "/archive-static/vendor/three/addons/controls/Orbi
 
 const stage = document.getElementById("stage");
 const status = document.getElementById("stage-status");
+// The page's words, in the chosen language (viewer.html).
+const TEXT = JSON.parse(stage.dataset.texts || "{}");
 const css = getComputedStyle(document.documentElement);
 const paper = new THREE.Color(css.getPropertyValue("--bg-cream").trim() || "#d3ceb8");
 const ink = new THREE.Color(css.getPropertyValue("--accent").trim() || "#3a372f");
@@ -133,7 +135,7 @@ async function playMotion(button) {
     if (button.dataset.motion) {
       clip = motionCache.get(button.dataset.motion);
       if (!clip) {
-        status.textContent = "Preparing the motion…"; status.hidden = false;
+        status.textContent = TEXT.preparingMotion; status.hidden = false;
         const response = await fetch(button.dataset.motion);
         if (!response.ok) throw new Error(await response.text());
         clip = THREE.AnimationClip.parse(await response.json());
@@ -150,7 +152,7 @@ async function playMotion(button) {
     action.reset().fadeIn(0.25).play();
     following = action;
   } catch (error) {
-    if (wanted === button) { status.textContent = "This motion could not be shown."; status.hidden = false; }
+    if (wanted === button) { status.textContent = TEXT.motionFailed; status.hidden = false; }
   }
 }
 document.querySelectorAll("[data-motion]").forEach((b) => b.addEventListener("click", () => playMotion(b)));
@@ -164,7 +166,7 @@ function restPose() {
 }
 const loader = new GLTFLoader();
 function load(url) {
-  status.textContent = "Preparing the model…";
+  status.textContent = TEXT.preparingModel;
   status.hidden = false;
   loader.load(url, (gltf) => {
     if (current) scene.remove(current);
@@ -181,14 +183,14 @@ function load(url) {
     const first = document.querySelector("[data-motion].on") || document.querySelector("[data-motion]:not([data-motion=''])")
       || document.querySelector("[data-motion]");
     if (first) playMotion(first);
-  }, undefined, () => { status.textContent = "This model could not be shown."; });
+  }, undefined, () => { status.textContent = TEXT.modelFailed; });
 }
 
 document.getElementById("reset").addEventListener("click", resetCamera);
 const spin = document.getElementById("spin");
 spin.addEventListener("click", () => {
   controls.autoRotate = !controls.autoRotate;
-  spin.textContent = controls.autoRotate ? "Turning" : "Still";
+  spin.textContent = controls.autoRotate ? TEXT.turning : TEXT.still;
   spin.classList.toggle("on", controls.autoRotate);
   spin.setAttribute("aria-pressed", controls.autoRotate);
 });
