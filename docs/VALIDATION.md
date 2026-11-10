@@ -1,5 +1,31 @@
 # Validation
 
+## TV launch, black bars, updates by the new updater — 2026-11-09
+
+- iPad Pro 11-inch (M4), iPadOS 26.6, a TV on a cable (3008x1692 points),
+  the [Display] window line with the scene's orientation and the window's and
+  Unity's view's frames. Opened straight onto the TV, iPadOS called the scene
+  portrait and Unity's window was 834x1210 at {1087, 209.75} in a 3008x1630
+  scene (the picture small and upright); with the window fitted to its scene
+  Unity's view stayed at {1087, 209.5} (the top-left quarter on screen); with
+  both fitted, window and view {{0, 0}, {3008, 1692}}, the game drew 1280x720
+  then 1440x992 in landscape and looked right. Opened on the iPad: unchanged.
+- Black bars (window=fit): MetalFX wrote the game's shape inside the window
+  (4912x3384 in 6016x3384 full screen, 2987x2058 in 3008x1029), the picture
+  centred with bars; confirmed on the TV.
+- Updates: a dev build updated to a 1.10.5 test release served from this Mac;
+  each build logged "Building with the new version's updater", and the
+  release's real 1.10.1 bundle loads its updater and its 89 game fixes from
+  the zip on this Mac. The panel showed no buttons while building.
+- A landscape lock was tried and taken out: the game's controller allowing
+  one landscape changed nothing, and asking iPadOS for an orientation was
+  refused ("The current windowing mode does not allow for programmatic
+  changes to interface orientation"). The game turns with the iPad, upright
+  included (834x1210, drawing 1440x2089).
+- Deck Builder's page tests fail on 1.10.3's page and pass on this one.
+  Not checked: an iPhone, and the [App] memory and heat lines (no warning
+  happened).
+
 ## iPad on a TV and Deck Builder on a big screen — 2026-11-09
 
 - iPad Pro 11-inch (M4) with Stage Manager, a TV on a cable (3008x1692

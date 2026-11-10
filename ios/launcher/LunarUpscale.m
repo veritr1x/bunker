@@ -39,6 +39,7 @@ static double gGapMax, gLast;
 static NSString *gLogPath;
 
 void LTDisplayLog(NSString *line);  // LunarWindow.m
+BOOL LTDisplayKeepShape(void);  // LunarDisplay.m: window=fit
 
 // The developer file only (LUNAR_UPSCALE_LOG): hooks, each scaler, the 10-second counts.
 static void Stats(NSString *text) {
@@ -154,8 +155,18 @@ static CGSize LayerPixels(CAMetalLayer *layer) {
 // The full size follows the layer; the scaler and the real drawables are made again for it.
 // A full size left behind gave Unity real drawables larger than the size it draws at, so its
 // picture sat in their top-left corner with the rest black, frame after frame.
-static void Follow(CAMetalLayer *layer) {
+// What MetalFX writes: the layer's pixels, or with window=fit the largest size of Unity's shape
+// inside them (the layer then shows it with bars, LunarWindow.m); stretched to the layer, a wide
+// window got a wide picture whatever the layer's gravity.
+static CGSize Target(CAMetalLayer *layer) {
     CGSize pixels = LayerPixels(layer);
+    if (!LTDisplayKeepShape() || gAsked.width < 1 || gAsked.height < 1 || pixels.width < 1 || pixels.height < 1) return pixels;
+    CGFloat scale = MIN(pixels.width / gAsked.width, pixels.height / gAsked.height);
+    return CGSizeMake(round(gAsked.width * scale), round(gAsked.height * scale));
+}
+
+static void Follow(CAMetalLayer *layer) {
+    CGSize pixels = Target(layer);
     if (pixels.width < 1 || pixels.height < 1 || CGSizeEqualToSize(pixels, gScreen)) return;
     gScreen = pixels;
     if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
@@ -165,7 +176,7 @@ static void Follow(CAMetalLayer *layer) {
 static void HookSetSize(CAMetalLayer *layer, SEL sel, CGSize size) {
     if (layer != gLayer) { ((void (*)(id, SEL, CGSize))origSetSize)(layer, sel, size); return; }
     gAsked = size;
-    gScreen = LayerPixels(layer);
+    gScreen = Target(layer);
     if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
     SetRealSize(layer, gUpscaling ? gScreen : size);
 }

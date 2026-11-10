@@ -904,12 +904,14 @@ def view_file():
 
 # Bumped when the copy's build changes, so a copy built before is rebuilt
 # (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
-# story chapters on their dates; 5 replays each event run with its own exchange.
-VIEW_VERSION = "5"
+# story chapters on their dates; 5 replays each event run with its own exchange;
+# 6 has daily missions from launch (daily set 21-26's first run).
+VIEW_VERSION = "6"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
 # (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat);
-# 4 replays each event run with its own exchange, medal and quests (event_runs.json).
-DATA_VERSION = 4
+# 4 replays each event run with its own exchange, medal and quests (event_runs.json);
+# 5 has daily missions from launch (daily set 21-26's first run, calendar_history.json).
+DATA_VERSION = 5
 
 
 def view_version_file():

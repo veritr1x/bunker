@@ -39,26 +39,38 @@ class Settings(unittest.TestCase):
         self.assertNotIn("The game's IL2CPP API is missing", (root / "ios/launcher/LunarDisplay.m").read_text())
 
     def test_missing_file_keeps_the_game_defaults(self):
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
 
     def test_saved_choices_are_read_back(self):
         self.display.write_settings("60", "native", "full", self.conf)
-        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\nidle=on\nheat=on\nshadows=on\nreflections=on\nbloom=on\nupscale=off\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.conf.read_text(), "fps=60\nresolution=native\nscreen=full\ntextures=full\nidle=on\nheat=on\nshadows=on\nreflections=on\nbloom=on\nupscale=off\nwindow=stretch\n")
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
         self.display.write_settings("max", "1440", "safe", self.conf)
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "max", "resolution": "1440", "screen": "safe", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
+
+    def test_keep_shape_is_ios_only_and_saved_when_offered(self):
+        # Android offers stretching only; iPhone and iPad add "fit" (ios_runtime).
+        with self.assertRaises(ValueError):
+            self.display.write_settings("30", "default", "full", self.conf, window="fit")
+        from unittest import mock
+        with mock.patch.object(self.display, "WINDOW", self.display.WINDOW + self.display.WINDOW_IOS):
+            self.display.write_settings("60", "1080", "full", self.conf, upscale="off", window="fit")
+            self.assertTrue(self.conf.read_text().endswith("upscale=off\nwindow=fit\n"))
+            self.assertEqual(self.display.read_settings(self.conf)["window"], "fit")
+        # A file saved on iOS read where "fit" isn't offered: the game's own.
+        self.assertEqual(self.display.read_settings(self.conf)["window"], "stretch")
 
     def test_lower_resolutions_and_texture_sizes_are_saved(self):
         self.display.write_settings("30", "540", "full", self.conf, textures="quarter")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "540", "screen": "full", "textures": "quarter", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
         self.display.write_settings("60", "640", "safe", self.conf, textures="half")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "640", "screen": "safe", "textures": "half", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
         with self.assertRaises(ValueError):
             self.display.write_settings("30", "default", "full", self.conf, textures="tiny")
 
     def test_settings_saved_before_the_screen_choice_use_the_full_screen(self):
         self.conf.write_text("fps=60\nresolution=native\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "60", "resolution": "native", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
 
     def test_unknown_values_are_refused_and_ignored(self):
         with self.assertRaises(ValueError):
@@ -66,11 +78,11 @@ class Settings(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.display.write_settings("60", "native", "wide", self.conf)
         self.conf.write_text("fps=240\nresolution=8k\nscreen=wide\nnoise\n")
-        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off"})
+        self.assertEqual(self.display.read_settings(self.conf), {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on", "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"})
 
     def test_idle_and_heat_slow_downs_can_be_turned_off(self):
         self.display.write_settings("120", "native", "full", self.conf, idle="off", heat="off")
-        self.assertEqual(self.conf.read_text(), "fps=120\nresolution=native\nscreen=full\ntextures=full\nidle=off\nheat=off\nshadows=on\nreflections=on\nbloom=on\nupscale=off\n")
+        self.assertEqual(self.conf.read_text(), "fps=120\nresolution=native\nscreen=full\ntextures=full\nidle=off\nheat=off\nshadows=on\nreflections=on\nbloom=on\nupscale=off\nwindow=stretch\n")
         self.assertEqual(self.display.read_settings(self.conf)["idle"], "off")
         self.assertEqual(self.display.read_settings(self.conf)["heat"], "off")
         with self.assertRaises(ValueError):
@@ -88,7 +100,7 @@ class Settings(unittest.TestCase):
             self.display.write_settings("60", "1080", "full", self.conf, upscale="metalfx")
             self.assertEqual(self.display.read_settings(self.conf)["upscale"], "metalfx")
             self.assertEqual(self.display.read_settings(self.conf.with_name("none"))["upscale"], "off")
-        self.conf.write_text("upscale=metalfx\n")  # an iPhone setting read on Android
+        self.conf.write_text("upscale=metalfx\nwindow=stretch\n")  # an iPhone setting read on Android
         self.assertEqual(self.display.read_settings(self.conf)["upscale"], "off")
 
     def test_effects_can_be_turned_off(self):

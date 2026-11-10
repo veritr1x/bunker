@@ -52,6 +52,10 @@
       <label for="screen">{{ t("pods.display.screen_area") }}{{ info(t("pods.display.screen_area_info")) }}</label>
       <select name="screen" id="screen">{% for key, title in screen_options %}<option value="{{ key }}"{% if settings.screen == key %} selected{% endif %}>{{ t(title) }}</option>{% endfor %}</select>
     </div>
+    {% if window_options|length > 1 %}<div class="setting">
+      <label for="window">{{ t("pods.display.window") }}{{ info(t("pods.display.window_info")) }}</label>
+      <select name="window" id="window">{% for key, title in window_options %}<option value="{{ key }}"{% if settings.window == key %} selected{% endif %}>{{ t(title) }}</option>{% endfor %}</select>
+    </div>{% endif %}
   </div>
 
   <div class="actions"><button type="submit">{{ t("common.save") }}</button></div>
