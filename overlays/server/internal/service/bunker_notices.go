@@ -236,7 +236,7 @@ func (s *Notices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	if id := q.Get("informationId"); id != "" {
-		s.serveDetail(w, words, id, q.Get("tab"))
+		s.serveDetail(w, words, noticeLanguage(r.URL.Path), id, q.Get("tab"))
 		return
 	}
 	s.serveList(w, words, q.Get("tab"))
@@ -384,7 +384,7 @@ func (s *Notices) serveList(w http.ResponseWriter, words *bunkertext.Texts, tabK
 	w.Write([]byte(noticePage(words, words.T("ingame.notices.title", nil), b.String())))
 }
 
-func (s *Notices) serveDetail(w http.ResponseWriter, words *bunkertext.Texts, id, tabKey string) {
+func (s *Notices) serveDetail(w http.ResponseWriter, words *bunkertext.Texts, lang, id, tabKey string) {
 	tab := tabIndex(tabKey)
 	v, _ := strconv.Atoi(id)
 	n := s.byID[int32(v)]
@@ -405,7 +405,7 @@ func (s *Notices) serveDetail(w http.ResponseWriter, words *bunkertext.Texts, id
 			continue
 		}
 		shown[g] = true
-		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/en/gacha-details?gachaId=%d">%s</a>`, g, say(words, "ingame.notices.summons_details", nil))
+		fmt.Fprintf(&details, `<a class="other-link-btn" href="/web/%s/gacha-details?gachaId=%d">%s</a>`, lang, g, say(words, "ingame.notices.summons_details", nil))
 	}
 	body := fmt.Sprintf(`%s<main class="detail"><header><a class="back" href="?tab=%s" aria-label="%s"></a><div class="head-text">%s<h1>%s</h1></div><span class="date">%s</span></header><article>%s%s</article></main>`,
 		tabsHTML(words, tab), noticeTabs[tab].key, say(words, "ingame.notices.back", nil), badgeHTML(words, n.Type), html.EscapeString(n.Title), dateHTML(words, n, now, s.shown), details.String(), n.Body)
@@ -548,7 +548,7 @@ func SetNotices(n *Notices) {
 
 // summonNoticeHTML links Summons Details (the summon's "i" page) to the
 // summon's notice, opened in place like the notices themselves; "" if none.
-func summonNoticeHTML(words *bunkertext.Texts, entry store.GachaCatalogEntry) string {
+func summonNoticeHTML(words *bunkertext.Texts, lang string, entry store.GachaCatalogEntry) string {
 	id := summonNotice(entry)
 	activeNoticesMu.RLock()
 	n := activeNotices
@@ -560,8 +560,8 @@ func summonNoticeHTML(words *bunkertext.Texts, entry store.GachaCatalogEntry) st
 	if title == "" {
 		return ""
 	}
-	return fmt.Sprintf(`<p><a class="notice-link" href="/en/information/?informationId=%d">%s</a></p><script>%s</script>`,
-		id, say(words, "ingame.summons.notice", map[string]string{"title": title}), noticeJS)
+	return fmt.Sprintf(`<p><a class="notice-link" href="/%s/information/?informationId=%d">%s</a></p><script>%s</script>`,
+		lang, id, say(words, "ingame.summons.notice", map[string]string{"title": title}), noticeJS)
 }
 
 // Title is a notice's title, or "" if the pack doesn't have it.

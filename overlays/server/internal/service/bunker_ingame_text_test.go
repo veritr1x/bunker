@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"lunar-tear/server/internal/bunkertext"
 	"lunar-tear/server/internal/masterdata"
@@ -108,12 +109,114 @@ func TestRatesPageInThePacksLanguage(t *testing.T) {
 		"ingame.rates.percent": "{percent}%",
 	}, nil, nil))
 	rec := httptest.NewRecorder()
-	serveGachaRatePage(rec)
+	serveGachaRatePage(rec, httptest.NewRequest("GET", "/web/en/gacha-rate", nil))
 	page := rec.Body.String()
 	for _, want := range []string{`<html lang="pt-BR">`, "<h1>Taxas</h1>", "Traje ★4", ">2%<", "★4 weapon", "Set in Bunker"} {
 		if !strings.Contains(page, want) {
 			t.Fatalf("page lacks %q:\n%s", want, page)
 		}
+	}
+}
+
+// A pack replaces the game's English only: on a Japanese client, Bunker's pages stay as they were.
+func TestJapaneseClientPagesIgnoreThePack(t *testing.T) {
+	activePack(t, ptBR(map[string]any{"ingame.rates.title": "Taxas", "ingame.panels.sheet": "Folha {page}",
+		"ingame.summons.prizes": "Prêmios", "ingame.notices.summons_details": "Detalhes"}, nil, nil))
+	rec := httptest.NewRecorder()
+	serveGachaRatePage(rec, httptest.NewRequest("GET", "/web/ja/gacha-rate", nil))
+	if page := rec.Body.String(); strings.Contains(page, "Taxas") || !strings.Contains(page, `lang="en"`) {
+		t.Fatalf("Rates on a Japanese client:\n%s", page)
+	}
+	rec = httptest.NewRecorder()
+	serveGachaRatePage(rec, httptest.NewRequest("GET", "/web/en/gacha-rate", nil))
+	if !strings.Contains(rec.Body.String(), "Taxas") {
+		t.Fatalf("Rates on an English client:\n%s", rec.Body.String())
+	}
+
+	// The notice's link to Summons Details keeps the client's language.
+	h := NewNotices(writeNoticePack(t), func() int64 { return 5_000 })
+	_, ja, _ := getNotice(t, h, "/ja/information/?informationId=10")
+	if !strings.Contains(ja, `href="/web/ja/gacha-details?gachaId=613"`) || strings.Contains(ja, "Detalhes") {
+		t.Fatalf("notice on a Japanese client:\n%s", ja)
+	}
+
+	users := &panelMemUsers{u: store.UserState{UserId: 1}}
+	users.u.EnsureMaps()
+	users.u.Ext.EnsureMaps()
+	defer func(p func() *missions.Panels, u panelUserStore, n func() int64) {
+		panelSheets, panelUsers, panelNow = p, u, n
+	}(panelSheets, panelUsers, panelNow)
+	panelSheets, panelUsers, panelNow = testPanels, users, func() int64 { return 5000 }
+	if body := serve(t, "GET", "/web/ja/panelmission/8?userId=1", nil).Body.String(); strings.Contains(body, "Folha") {
+		t.Fatalf("panel sheet on a Japanese client:\n%s", body)
+	}
+}
+
+// The summon details page on a Japanese client: no pack words (needs the game's master data).
+func TestJapaneseClientSummonDetailsIgnoreThePack(t *testing.T) {
+	holder, _ := harness(t)
+	bunkerHolder = holder
+	defer func() { bunkerHolder = nil }()
+	activePack(t, ptBR(map[string]any{"ingame.summons.prizes": "Prêmios"}, nil, nil))
+	if page := boxPage(t, "/web/ja/gacha-details?gachaId=200001"); strings.Contains(page, "Prêmios") || !strings.Contains(page, "<h2>Prizes</h2>") {
+		t.Fatalf("Japanese client:\n%s", page)
+	}
+	if page := boxPage(t, "/web/en/gacha-details?gachaId=200001"); !strings.Contains(page, "<h2>Prêmios</h2>") {
+		t.Fatalf("English client:\n%s", page)
+	}
+}
+
+// A pack comes from strangers: its words, names and language reach the pages as text, never as markup.
+func TestPackTextIsEscaped(t *testing.T) {
+	evil := `<script>alert(1)</script>"&`
+	activePack(t, map[string]any{"format": 1, "language": `pt"><script>x</script>`,
+		"bunker": map[string]any{"ingame.notices.tab.news": evil, "ingame.rates.title": evil, "ingame.panels.sheet": evil + "{page}"},
+		"game":   map[string]any{"mission.name.7": evil}})
+	archiveText(t, map[string]string{"mission.name.7": "Tap Mama 5 Times"})
+	rec := httptest.NewRecorder()
+	serveGachaRatePage(rec, httptest.NewRequest("GET", "/web/en/gacha-rate", nil))
+	_, notices, _ := getNotice(t, NewNotices(writeNoticePack(t), func() int64 { return 5_000 }), "/en/information/")
+	users := &panelMemUsers{u: store.UserState{UserId: 1}}
+	users.u.EnsureMaps()
+	users.u.Ext.EnsureMaps()
+	defer func(p func() *missions.Panels, u panelUserStore, n func() int64) {
+		panelSheets, panelUsers, panelNow = p, u, n
+	}(panelSheets, panelUsers, panelNow)
+	panelSheets, panelUsers, panelNow = testPanels, users, func() int64 { return 5000 }
+	panel := serve(t, "GET", "/web/en/panelmission/8?userId=1", nil).Body.String()
+	for name, page := range map[string]string{"rates": rec.Body.String(), "notices": notices, "panel": panel} {
+		if strings.Contains(page, "<script>alert") || strings.Contains(page, `"><script>x`) {
+			t.Errorf("%s: pack text became markup:\n%s", name, page)
+		}
+		if !strings.Contains(page, "&lt;script&gt;") {
+			t.Errorf("%s: pack text missing:\n%s", name, page)
+		}
+	}
+}
+
+// A ticket with no name of its own is the Summon Ticket, whatever the pack calls an unnamed item.
+func TestTicketNameWithATranslatedItemFallback(t *testing.T) {
+	saved := archivePaths
+	archivePaths = nil // no Archive: the item has no name
+	defer func() { archivePaths = saved }()
+	activePack(t, ptBR(map[string]any{"ingame.panels.item": "Objeto {id}", "ingame.summons.ticket": "Bilhete"}, nil, nil))
+	text := openGameText()
+	defer text.close()
+	if got := text.price(store.GachaPricePhaseEntry{Price: 5, PriceType: model.PriceTypeConsumableItem, PriceId: 987654}); got != "5 × Bilhete" {
+		t.Fatalf("price: %q", got)
+	}
+}
+
+// A translated story whose letters change length when lowercased (Turkish İ, Ⱥ) keeps its highlights in place,
+// and the page stays valid UTF-8.
+func TestStoryHighlightsWithLettersThatChangeLength(t *testing.T) {
+	got := storyHTML("Ana İİİ. Mama sorri.", []string{"Mama"})
+	if !strings.Contains(got, "Ana İİİ. ") || !strings.Contains(got, ">Mama<") || !utf8.ValidString(got) {
+		t.Fatalf("Turkish: %q", got)
+	}
+	got = storyHTML("ȺȺȺ Mama", []string{"Mama", "zz"})
+	if !strings.Contains(got, "ȺȺȺ ") || !strings.Contains(got, ">Mama<") || !utf8.ValidString(got) {
+		t.Fatalf("Ⱥ: %q", got)
 	}
 }
 

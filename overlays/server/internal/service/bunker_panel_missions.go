@@ -91,7 +91,7 @@ func ServePanelMission(w http.ResponseWriter, r *http.Request) {
 	}
 	if !ok {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		words := bunkertext.For("en")
+		words := bunkertext.For(clientLanguage(r.URL.Path))
 		w.Write([]byte(panelHTML(words, words.T("ingame.panels.title", nil), `<p class="empty">`+say(words, "ingame.panels.unavailable", nil)+`</p>`)))
 		return
 	}
@@ -117,15 +117,21 @@ func ServePanelMission(w http.ResponseWriter, r *http.Request) {
 	u.Ext.EnsureMaps()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write([]byte(renderPanelSheet(p, run, &u, sheet, r.URL.RawQuery, now)))
+	w.Write([]byte(renderPanelSheet(p, run, &u, sheet, r.URL.RawQuery, now, clientLanguage(r.URL.Path))))
 }
 
-func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserState, sheet, query string, now int64) string {
+func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserState, sheet, query string, now int64, lang string) string {
 	sheets := p.Sheets[run.Mission]
 	st := p.Progress(u, run)
 	text := openGameText()
 	defer text.close()
+	// Bunker's page is English; the pack's words only on an English client.
+	text.words = bunkertext.For(lang)
 	words := text.words
+	storyLang := "en"
+	if lang != "en" {
+		storyLang = englishOnly
+	}
 	open := now >= run.Start && (run.End == 0 || now < run.End)
 	var b strings.Builder
 	fmt.Fprintf(&b, `<div class="period">%s – %s</div>`, day(run.Start), day(run.End))
@@ -165,12 +171,12 @@ func renderPanelSheet(p *missions.Panels, run missions.PanelRun, u *store.UserSt
 			fmt.Fprintf(&b, `<p class="complete">%s</p>`, say(words, "ingame.panels.sheet_reward", map[string]string{"rewards": rewardText(text, pg.Complete)}))
 		}
 		if done {
-			if story := panelStory(p, run, pg.Page, "en"); story != "" {
+			if story := panelStory(p, run, pg.Page, storyLang); story != "" {
 				fmt.Fprintf(&b, `<blockquote>%s</blockquote>`, html.EscapeString(story))
 			}
 		}
 	}
-	return panelHTML(words, panelTitle(run, "en", sheets.Name), b.String())
+	return panelHTML(words, panelTitle(run, storyLang, sheets.Name), b.String())
 }
 
 // panelStory is a completed page's story (English), from the game data.
@@ -234,10 +240,30 @@ func possessionName(t *gameText, kind, id int32) string {
 			}
 		}
 	}
-	if name := t.text(key); key != "" && name != "" {
+	if name := itemName(t, key); name != "" {
 		return name
 	}
 	return t.words.T("ingame.panels.item", map[string]string{"id": strconv.Itoa(int(id))})
+}
+
+// itemName is the game's name for key, "" when there is none (no key, no Archive, a key it lacks).
+func itemName(t *gameText, key string) string {
+	if key == "" {
+		return ""
+	}
+	return t.text(key)
+}
+
+// consumableName is a consumable item's own name, "" when the game has none for it.
+func consumableName(t *gameText, id int32) string {
+	if rows, err := utils.ReadTable[masterdata.EntityMConsumableItem]("m_consumable_item"); err == nil {
+		for _, c := range rows {
+			if c.ConsumableItemId == id {
+				return itemName(t, fmt.Sprintf("consumable_item.name.%d%03d", c.AssetCategoryId, c.AssetVariationId))
+			}
+		}
+	}
+	return ""
 }
 
 // panelClose closes the game's web view: its mission dialog closes on a

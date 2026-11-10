@@ -11,9 +11,9 @@ import (
 
 // serveGachaRatePage answers the game's "Rates" button with the rates in force
 // (Pod Programs > Summon rates), so what it shows is what draws use. Its words
-// follow the active pack, as the summon details do.
-func serveGachaRatePage(w http.ResponseWriter) {
-	words := bunkertext.For("en")
+// follow the active pack on an English client, as the summon details do.
+func serveGachaRatePage(w http.ResponseWriter, r *http.Request) {
+	words := bunkertext.For(clientLanguage(r.URL.Path))
 	c := gacha.Rates()
 	pct := func(x float64) string {
 		return words.T("ingame.rates.percent", map[string]string{"percent": words.Significant(x, 3)})
