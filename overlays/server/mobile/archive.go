@@ -150,6 +150,9 @@ func ImportLink(link, stage string, freeBytes int64) string {
 		return e.Error()
 	}
 	workers := linkWorkers
+	if workers == 0 {
+		workers = autoLinkWorkers()
+	}
 	if f.Host() == "mega" {
 		workers = 1 // Mega's limit is per account; one block finishes soonest
 	}
@@ -166,9 +169,19 @@ func ImportLink(link, stage string, freeBytes int64) string {
 	return ""
 }
 
-// linkWorkers caps the blocks a link import unpacks at once, so blocks finish
-// (and are kept for resuming) early.
-var linkWorkers = 2
+// linkWorkers caps the blocks a link import unpacks at once; 0 chooses by
+// the device (autoLinkWorkers). Tests set it.
+var linkWorkers = 0
+
+// autoLinkWorkers: as many blocks as a file import (4) when the device has
+// 4 GB of memory for the decoders (64 MB each) and their read-ahead (16 MB
+// each); 2 on smaller devices. Unknown memory counts as enough.
+func autoLinkWorkers() int {
+	if mem := physicalMemory(); mem > 0 && mem < 4<<30 {
+		return 2
+	}
+	return 4
+}
 
 var errLinkStopped = errors.New("Download stopped. The finished parts are kept: choose the same link again to continue.")
 
