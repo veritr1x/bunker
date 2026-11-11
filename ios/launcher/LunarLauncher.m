@@ -552,15 +552,20 @@ static double LTEstimateUpdate(LTEstimate *e, double files, double bytes) {
 
 // "8.2 GB of 20.9 GB · 39% · about 4 min left". The bar follows the expected
 // time once it is measured, and never moves back.
-// kind: 0 copying, 1 unpacking (YES), 2 downloading from a link.
-static NSString *LTProgressText(int kind, LTEstimate *e, unsigned long long files, unsigned long long bytes) {
-    double left = LTEstimateUpdate(e, files, bytes), fraction;
-    if (left < 0) fraction = (bytes + files * 1e6) / MAX(1.0, e->totalBytes + e->totalFiles * 1e6);
+// kind: 0 copying, 1 unpacking (YES), 2 downloading from a link. baseFiles and
+// baseBytes were kept from an earlier download: e measures only what is left,
+// while the bar and the sizes count the kept part too.
+static NSString *LTProgressTextFrom(int kind, LTEstimate *e, unsigned long long files, unsigned long long bytes, unsigned long long baseFiles, unsigned long long baseBytes) {
+    unsigned long long newFiles = files - MIN(files, baseFiles), newBytes = bytes - MIN(bytes, baseBytes);
+    double left = LTEstimateUpdate(e, newFiles, newBytes), fraction;
+    if (left < 0) fraction = (newBytes + newFiles * 1e6) / MAX(1.0, e->totalBytes + e->totalFiles * 1e6);
     else { double elapsed = CFAbsoluteTimeGetCurrent() - e->started; fraction = elapsed / MAX(1e-6, elapsed + left); }
+    double base = baseBytes + baseFiles * 1e6, whole = MAX(1.0, e->totalBytes + baseBytes + (e->totalFiles + baseFiles) * 1e6);
+    fraction = (base + fraction * (whole - base)) / whole;
     e->shown = MAX(e->shown, MIN(1.0, fraction));
     gImportFraction = e->shown;
     // References, as Android's FilesStore.progressText: shown later, in the language of that moment.
-    NSString *done = LTByteText(bytes), *total = LTByteText((unsigned long long)e->totalBytes);
+    NSString *done = LTByteText(bytes), *total = LTByteText((unsigned long long)e->totalBytes + baseBytes);
     NSString *line = [NSString stringWithFormat:@"%@ · %@", kind == 2 ? Said(@"launcher.files.downloading", @"done", done, @"total", total) : kind == 1 ? Said(@"launcher.files.unpacking", @"done", done, @"total", total) : Said(@"launcher.files.copying", @"done", done, @"total", total),
         Said(@"launcher.progress.percent", @"n", TNumber((int)(e->shown * 100)))];
     if (left < 0) return [line stringByAppendingFormat:@" · %@", Said(@"launcher.files.estimating")];
@@ -569,6 +574,9 @@ static NSString *LTProgressText(int kind, LTEstimate *e, unsigned long long file
         : seconds < 3600 ? SaidCount(@"launcher.files.minutes_left", (seconds + 30) / 60)
         : Said(@"launcher.files.hours_left", @"hours", TNumber(seconds / 3600), @"minutes", TNumber((seconds % 3600 + 30) / 60));
     return [NSString stringWithFormat:@"%@ · %@", line, text];
+}
+static NSString *LTProgressText(int kind, LTEstimate *e, unsigned long long files, unsigned long long bytes) {
+    return LTProgressTextFrom(kind, e, files, bytes, 0, 0);
 }
 
 // Archives: one .tar, or pieces named NAME.tar.aa, NAME.tar.ab … (from
@@ -848,15 +856,16 @@ static NSString *ImportGoLink(NSString *link, void (^progress)(NSString *)) {
         dispatch_semaphore_signal(finished);
     });
     LTEstimate estimate = {0};
+    unsigned long long baseFiles = 0, baseBytes = 0;  // kept from an earlier download: not new progress
     while (dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC))) {
         if (gCancelImport) LunarCancelImport();
         NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[TakeString(LunarImportProgress()) dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
         unsigned long long done = [state[@"done"] unsignedLongLongValue], total = [state[@"total"] unsignedLongLongValue];
-        unsigned long long files = [state[@"files"] unsignedLongLongValue];
+        unsigned long long files = [state[@"files"] unsignedLongLongValue], totalFiles = [state[@"totalFiles"] unsignedLongLongValue];
         if (!total) { progress(Said(@"launcher.files.connecting")); continue; }
-        if (!estimate.started) estimate = LTEstimateStart([state[@"totalFiles"] unsignedLongLongValue], total);
-        estimate.totalFiles = [state[@"totalFiles"] doubleValue]; estimate.totalBytes = total;
-        progress(LTProgressText(2, &estimate, files, done));
+        if (!estimate.started) { baseFiles = files; baseBytes = done; estimate = LTEstimateStart(totalFiles - baseFiles, total - baseBytes); }
+        estimate.totalFiles = totalFiles - baseFiles; estimate.totalBytes = total - baseBytes;
+        progress(LTProgressTextFrom(2, &estimate, files, done, baseFiles, baseBytes));
     }
     if (result.length) return result;
     // The download is complete and its resume record gone: whether the install
