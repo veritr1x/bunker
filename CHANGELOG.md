@@ -4,6 +4,22 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-11
+
+### Game files
+- **Choose → Link to the archive (download)** on iPhone, iPad and Android, and
+  a link at the Windows/Linux setup program's game-files prompt (or as its
+  argument). Paste a link to the resource dump's `.7z` or `.zip` (a direct link
+  to a server that can send part of a file, or a Google Drive or Mega file link). Bunker
+  reads the archive in place over the network and downloads only the blocks
+  holding revision 0. The archive is never stored.
+- The free space is checked before anything is downloaded. Archive imports
+  from a file get the same check.
+- A link download that stops keeps its finished blocks. Choosing the same link
+  again continues from them. The launcher shows how much is kept, and
+  choosing any other source discards it.
+- Bunker names no source for the game files; bring your own link.
+
 ## 2026-11-10 (after 1.11.0)
 
 ### Development

@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class ServerService extends Service {
-    static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools", SAVE="save", ARCHIVE="archive", LINK="link";
+    static final String START="start", STOP="stop", ASSETS="assets", MASTER="master", BACKUP="backup", TOOLS="tools", CLOSE_TOOLS="close_tools", SAVE="save", ARCHIVE="archive", LINK="link", URL="url";
     static volatile boolean running=false, busy=false, tools=false;
     // Pod Programs opened beside the running game, which it has not closed yet. Cleared only once
     // the server is stopped and the save backed up, so a failed backup leaves changes refused.
@@ -18,6 +18,8 @@ public final class ServerService extends Service {
     // Import progress, 0-1000, or -1 when there is no measured copy in progress.
     static volatile int permille=-1;
     static volatile String state="stopped", detail="";
+    /** A link download's error or warning for the launcher to show in a popup, once; null when none. */
+    static volatile String alert=null;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final Handler main=new Handler(Looper.getMainLooper());
     private volatile boolean cancelled=false;
@@ -195,7 +197,10 @@ public final class ServerService extends Service {
                         public boolean cancelled(){return cancelled;}
                         public void fraction(int value){permille=value;}
                     };
+                    // Another source replaces a stopped link download, whose files would only take space.
+                    if(ASSETS.equals(action)||ARCHIVE.equals(action)||LINK.equals(action)) FilesStore.discardDownload(this);
                     if(ASSETS.equals(action)) FilesStore.importAssets(this,uri,progress);
+                    else if(URL.equals(action)) FilesStore.importLink(this,uri.toString(),progress);
                     else if(ARCHIVE.equals(action)) FilesStore.importArchive(this,uri,progress);
                     else if(LINK.equals(action)) FilesStore.linkAssets(this,uri,progress);
                     else if(MASTER.equals(action)) { FilesStore.importMaster(this,uri,progress); ToolsRuntime.layerGameData(this); }
@@ -208,6 +213,8 @@ public final class ServerService extends Service {
             } catch(Exception|LinkageError error) {
                 running=false;state=cancelled?"cancelled":"needs_attention";
                 detail=message(error);
+                // A link download's problem goes in a popup, not in the line under Deploy.
+                if(URL.equals(action)){alert=detail;detail="";state="stopped";}
                 android.util.Log.e("LunarTear","Operation failed",Texts.forLog(error));
             } finally {
                 busy=false; permille=-1;

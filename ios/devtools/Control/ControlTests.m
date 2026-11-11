@@ -1,5 +1,5 @@
 // Drives the installed game for device testing from the Mac.
-// LUNAR_ACTION: launch | tap | swipe | hold | type | home | gesture | press.
+// LUNAR_ACTION: launch | tap | swipe | hold | type | home | gesture | press | dump.
 // Coordinates are 0-1 fractions. press taps the element labelled LUNAR_TEXT.
 #import <XCTest/XCTest.h>
 
@@ -39,6 +39,9 @@
         XCUIElement *element = [[app descendantsMatchingType:XCUIElementTypeAny] matchingPredicate:label].firstMatch;
         XCTAssertTrue([element waitForExistenceWithTimeout:10], @"No element labelled %@", [self value:@"LUNAR_TEXT"]);
         [element tap];
+    } else if ([action isEqualToString:@"dump"]) {
+        // The element tree with frames, between markers device.py prints.
+        NSLog(@"LUNAR_DUMP_BEGIN\n%@\nLUNAR_DUMP_END", app.debugDescription);
     } else if ([action isEqualToString:@"type"]) {
         [app typeText:[self value:@"LUNAR_TEXT"]];
     } else {

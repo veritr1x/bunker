@@ -285,11 +285,11 @@ func wrap(s string, n int) []string {
 }
 
 // askPath asks for a file, which can be dragged into the console window: that
-// types its path, in quotes when it has spaces.
+// types its path, in quotes when it has spaces. A pasted link is returned as it is.
 func (p *panel) askPath(text, question string) string {
 	answer := strings.Trim(p.ask(text, question), "\"' ")
-	if answer == "" {
-		return ""
+	if answer == "" || isArchiveLink(answer) {
+		return answer
 	}
 	if _, err := os.Stat(answer); err != nil {
 		p.say("Cannot find %s.", answer)

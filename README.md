@@ -159,7 +159,7 @@ app.
 ## Play on Android
 
 1. Install the APK, from the web builder or your own build.
-2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
+2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place, or paste a link to the `.7z` (a progress bar shows the time left).
 3. Tap **Deploy**. The server starts and the game opens.
 
 On later launches, the Bunker opens and starts the game by itself, unless **Auto deploy** is off
@@ -171,7 +171,7 @@ import, the Lunar Tear log and its export, Auto deploy, Display (light/dark/syst
 ## Play on iPhone or iPad
 
 1. Install the IPA, from the web builder or your own build, signed with Sideloadly, AltStore or your own certificate.
-2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place (a progress bar shows the time left).
+2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place, or paste a link to the `.7z` (a progress bar shows the time left).
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play
    (⌘B with a keyboard). Long-pressing the NieR icon on the Home Screen offers **Bunker menu**,
    which opens the launcher too.
@@ -357,6 +357,11 @@ it when you copy files into the app with Finder, because Finder skips the app's 
    containing `revisions`) from Files, iCloud Drive or a USB drive. You need about 25 GB free, plus
    space for the archive. If the folder is already inside NieR's own files (copied in with
    Finder), the app moves it instead of copying it. This is instant.
+   **Link to the archive (download)** takes a link to the `.7z` (a direct link to a server that can send part of a file, or a
+   Google Drive or Mega file link) and downloads only the parts holding revision 0, never the
+   whole archive. It checks the free space before downloading. If the download stops, the finished
+   parts are kept: choose the same link again to continue. Bunker does not say where to find the
+   game files; bring your own link.
    **Extracted folder: use in place** reads a folder from where it is, outside NieR's files.
    It needs no extra space, but the folder must stay there, and a USB drive must stay connected
    while you play. iCloud Drive folders can only be copied. You can also use Finder to copy a
