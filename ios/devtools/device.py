@@ -9,6 +9,7 @@
   device.py swipe X Y X2 Y2
   device.py hold X Y X2 Y2 SECONDS   # drag, then keep the finger down (walking)
   device.py type "text"
+  device.py dump                 # print the app's element tree with frames
 
 Screenshots use devicectl. Touch input runs the Control UI test once per
 action. Build it first (see docs/IOS.md); set LUNAR_DEVICE and LUNAR_BUNDLE_ID.
@@ -48,6 +49,7 @@ def xctestrun(environment):
 
 
 def act(environment):
+    """Runs one action; returns xcodebuild's output."""
     path = xctestrun({"LUNAR_BUNDLE_ID": BUNDLE, **environment})
     try:
         result = subprocess.run(["xcodebuild", "test-without-building", "-xctestrun", path, "-destination", f"id={DEVICE}",
@@ -57,6 +59,7 @@ def act(environment):
     if result.returncode:
         lines = [line for line in result.stdout.splitlines() + result.stderr.splitlines() if "error" in line.lower()]
         sys.exit("\n".join(lines[-5:]) or "Action failed")
+    return result.stdout + result.stderr
 
 
 def main():
@@ -79,6 +82,10 @@ def main():
         act({"LUNAR_ACTION": "type", "LUNAR_TEXT": values[0]})
     elif command == "gesture":
         act({"LUNAR_ACTION": "gesture"})
+    elif command == "dump" and not values:
+        out = act({"LUNAR_ACTION": "dump"})
+        start, end = out.find("LUNAR_DUMP_BEGIN"), out.find("LUNAR_DUMP_END")
+        print(out[start + len("LUNAR_DUMP_BEGIN"):end].strip() if start >= 0 and end > start else out[-2000:])
     elif command == "press" and len(values) == 1:
         act({"LUNAR_ACTION": "press", "LUNAR_TEXT": values[0]})
     else:
