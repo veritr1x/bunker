@@ -347,3 +347,22 @@ func TestImportArchiveUsesGivenFreeSpace(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+// Link imports unpack as many blocks at once as a file import when the device
+// has the memory for the decoders plus their read-ahead.
+func TestLinkWorkersByMemory(t *testing.T) {
+	old := physicalMemory
+	defer func() { physicalMemory = old }()
+	for _, c := range []struct {
+		mem  int64
+		want int
+	}{{8 << 30, 4}, {4 << 30, 4}, {3 << 30, 2}, {0, 4}} {
+		physicalMemory = func() int64 { return c.mem }
+		if got := autoLinkWorkers(); got != c.want {
+			t.Errorf("%d bytes of memory: %d workers, want %d", c.mem, got, c.want)
+		}
+	}
+	if physicalMemory = old; old() <= 0 {
+		t.Fatal("this machine's memory could not be read")
+	}
+}
