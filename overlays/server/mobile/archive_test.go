@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"lunar-tear/server/mobile/unityasset"
+	"lunar-tear/server/mobile/bundleplatform"
 )
 
 // files lists stage's files relative to it, with their contents.
@@ -421,25 +421,25 @@ func onDevice(t *testing.T, platform int) {
 // game would hang loading. A dump for the other platform is refused early.
 func TestImportRefusesOtherPlatform(t *testing.T) {
 	plenty(t)
-	onDevice(t, unityasset.PlatformIOS)
+	onDevice(t, bundleplatform.IOS)
 	stage := filepath.Join(t.TempDir(), "stage")
-	e := ImportArchive(platformDump(t, unityasset.PlatformAndroid), stage)
+	e := ImportArchive(platformDump(t, bundleplatform.Android), stage)
 	if !strings.Contains(e, "Android") || !strings.Contains(e, "iOS") {
 		t.Fatalf("file: got %q", e)
 	}
-	link := serveFile(t, platformDump(t, unityasset.PlatformAndroid))
+	link := serveFile(t, platformDump(t, bundleplatform.Android))
 	if e := ImportLink(link, stage, -1); !strings.Contains(e, "Android") {
 		t.Fatalf("link: got %q", e)
 	}
 	if _, err := os.Stat(stage); err == nil {
 		t.Fatal("the other platform's download was kept for resuming")
 	}
-	onDevice(t, unityasset.PlatformAndroid)
-	if e := ImportArchive(platformDump(t, unityasset.PlatformAndroid), filepath.Join(t.TempDir(), "s")); e != "" {
+	onDevice(t, bundleplatform.Android)
+	if e := ImportArchive(platformDump(t, bundleplatform.Android), filepath.Join(t.TempDir(), "s")); e != "" {
 		t.Fatalf("matching platform refused: %q", e)
 	}
 	// And the other way round: an Android device refuses the iOS dump.
-	e = ImportLink(serveFile(t, platformDump(t, unityasset.PlatformIOS)), filepath.Join(t.TempDir(), "s2"), -1)
+	e = ImportLink(serveFile(t, platformDump(t, bundleplatform.IOS)), filepath.Join(t.TempDir(), "s2"), -1)
 	if !strings.Contains(e, "for iOS") || !strings.Contains(e, "resource_dump_android") {
 		t.Fatalf("iOS dump on Android: got %q", e)
 	}

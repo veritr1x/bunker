@@ -21,8 +21,8 @@ import (
 
 	"github.com/bodgit/sevenzip"
 
+	"lunar-tear/server/mobile/bundleplatform"
 	"lunar-tear/server/mobile/remotefile"
-	"lunar-tear/server/mobile/unityasset"
 )
 
 // Progress of the current archive import, read by the launcher while it runs.
@@ -48,7 +48,7 @@ var (
 
 // devicePlatform is the Unity platform this device's game loads; 0 skips the
 // platform check (the server on a computer, tests).
-var devicePlatform = map[string]int{"ios": unityasset.PlatformIOS, "android": unityasset.PlatformAndroid}[runtime.GOOS]
+var devicePlatform = map[string]int{"ios": bundleplatform.IOS, "android": bundleplatform.Android}[runtime.GOOS]
 
 // The platform check reads the first small bundles written; platformChecked
 // ends it, and it gives up after platformTries unreadable ones.
@@ -70,7 +70,11 @@ func checkPlatform(target string, size int64) error {
 	if devicePlatform == 0 || platformChecked.Load() || size > maxPlatformBundle || !strings.HasSuffix(target, ".assetbundle") {
 		return nil
 	}
-	got, err := unityasset.BundlePlatform(target)
+	raw, err := os.ReadFile(target)
+	var got int
+	if err == nil {
+		got, err = bundleplatform.Of(raw, target)
+	}
 	if err != nil {
 		if platformTries.Add(1) >= 20 {
 			platformChecked.Store(true) // unreadable bundles: the install checks the rest
@@ -81,7 +85,7 @@ func checkPlatform(target string, size int64) error {
 	if got == devicePlatform {
 		return nil
 	}
-	have, need := unityasset.PlatformName(got), unityasset.PlatformName(devicePlatform)
+	have, need := bundleplatform.Name(got), bundleplatform.Name(devicePlatform)
 	return wrongPlatform{fmt.Sprintf("These game files are for %s, but this device needs the %s ones. Choose the resource dump for %s (resource_dump_%s).",
 		have, need, need, strings.ToLower(need))}
 }

@@ -1,10 +1,8 @@
-package unityasset
+package bundleplatform
 
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -47,22 +45,27 @@ func fakeBundle(platform uint32) []byte {
 	return b.Bytes()
 }
 
-func TestBundlePlatform(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "assetbundle", "ui")
-	os.MkdirAll(dir, 0700)
-	for _, want := range []int{PlatformAndroid, PlatformIOS} {
-		path := filepath.Join(dir, "one.assetbundle")
-		os.WriteFile(path, fakeBundle(uint32(want)), 0600)
-		got, err := BundlePlatform(path)
+func TestOf(t *testing.T) {
+	for _, want := range []int{Android, IOS} {
+		got, err := Of(fakeBundle(uint32(want)), "x/revisions/0/assetbundle/ui/one.assetbundle")
 		if err != nil || got != want {
 			t.Fatalf("platform %d: got %d, %v", want, got, err)
 		}
 	}
-	os.WriteFile(filepath.Join(dir, "bad.assetbundle"), []byte("not a bundle"), 0600)
-	if _, err := BundlePlatform(filepath.Join(dir, "bad.assetbundle")); err == nil {
+	// Masked as the game stores bundles (0x31: the first 256 bytes).
+	raw := fakeBundle(IOS)
+	mask := maskBytes(maskName("assetbundle/ui/one.assetbundle"))
+	for i := 1; i < min(256, len(raw)); i++ {
+		raw[i] ^= mask[i%len(mask)]
+	}
+	raw[0] = 0x31
+	if got, err := Of(raw, "assetbundle/ui/one.assetbundle"); err != nil || got != IOS {
+		t.Fatalf("masked: got %d, %v", got, err)
+	}
+	if _, err := Of([]byte("not a bundle"), "assetbundle/x.assetbundle"); err == nil {
 		t.Fatal("a broken bundle gave a platform")
 	}
-	if PlatformName(PlatformAndroid) != "Android" || PlatformName(PlatformIOS) != "iOS" {
-		t.Fatal("PlatformName")
+	if Name(Android) != "Android" || Name(IOS) != "iOS" {
+		t.Fatal("Name")
 	}
 }
