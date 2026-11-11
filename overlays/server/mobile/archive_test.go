@@ -2,6 +2,8 @@ package mobile
 
 import (
 	"archive/zip"
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"lunar-tear/server/mobile/unityasset"
 )
 
 // files lists stage's files relative to it, with their contents.
@@ -364,5 +368,79 @@ func TestLinkWorkersByMemory(t *testing.T) {
 	}
 	if physicalMemory = old; old() <= 0 {
 		t.Fatal("this machine's memory could not be read")
+	}
+}
+
+// platformBundle is an unmasked, uncompressed UnityFS bundle built for platform.
+func platformBundle(platform uint32) string {
+	var sf bytes.Buffer
+	for _, v := range []uint32{0, 0, 21, 0} {
+		binary.Write(&sf, binary.BigEndian, v)
+	}
+	sf.Write([]byte{0, 0, 0, 0})
+	sf.WriteString("2019.4.9f1\x00")
+	binary.Write(&sf, binary.LittleEndian, platform)
+	sf.Write(make([]byte, 32))
+	var info bytes.Buffer
+	info.Write(make([]byte, 16))
+	binary.Write(&info, binary.BigEndian, []uint32{1, uint32(sf.Len()), uint32(sf.Len())})
+	binary.Write(&info, binary.BigEndian, uint16(0))
+	binary.Write(&info, binary.BigEndian, uint32(1))
+	binary.Write(&info, binary.BigEndian, []uint64{0, uint64(sf.Len())})
+	binary.Write(&info, binary.BigEndian, uint32(4))
+	info.WriteString("CAB-test\x00")
+	var b bytes.Buffer
+	b.WriteString("UnityFS\x00")
+	binary.Write(&b, binary.BigEndian, uint32(6))
+	b.WriteString("5.x.x\x002019.4.9f1\x00")
+	binary.Write(&b, binary.BigEndian, uint64(0))
+	binary.Write(&b, binary.BigEndian, []uint32{uint32(info.Len()), uint32(info.Len()), 0})
+	b.Write(info.Bytes())
+	b.Write(sf.Bytes())
+	return b.String()
+}
+
+func platformDump(t *testing.T, platform uint32) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dump.zip")
+	writeZip(t, path, map[string]string{
+		"revisions/0/list.bin":                     "\x08\x01",
+		"revisions/0/assetbundle/ui/one.assetbundle": platformBundle(platform),
+	})
+	return path
+}
+
+func onDevice(t *testing.T, platform int) {
+	t.Helper()
+	old := devicePlatform
+	devicePlatform = platform
+	t.Cleanup(func() { devicePlatform = old })
+}
+
+// The iOS game cannot load Android bundles (and the other way round): the
+// game would hang loading. A dump for the other platform is refused early.
+func TestImportRefusesOtherPlatform(t *testing.T) {
+	plenty(t)
+	onDevice(t, unityasset.PlatformIOS)
+	stage := filepath.Join(t.TempDir(), "stage")
+	e := ImportArchive(platformDump(t, unityasset.PlatformAndroid), stage)
+	if !strings.Contains(e, "Android") || !strings.Contains(e, "iOS") {
+		t.Fatalf("file: got %q", e)
+	}
+	link := serveFile(t, platformDump(t, unityasset.PlatformAndroid))
+	if e := ImportLink(link, stage, -1); !strings.Contains(e, "Android") {
+		t.Fatalf("link: got %q", e)
+	}
+	if _, err := os.Stat(stage); err == nil {
+		t.Fatal("the other platform's download was kept for resuming")
+	}
+	onDevice(t, unityasset.PlatformAndroid)
+	if e := ImportArchive(platformDump(t, unityasset.PlatformAndroid), filepath.Join(t.TempDir(), "s")); e != "" {
+		t.Fatalf("matching platform refused: %q", e)
+	}
+	// And the other way round: an Android device refuses the iOS dump.
+	e = ImportLink(serveFile(t, platformDump(t, unityasset.PlatformIOS)), filepath.Join(t.TempDir(), "s2"), -1)
+	if !strings.Contains(e, "for iOS") || !strings.Contains(e, "resource_dump_android") {
+		t.Fatalf("iOS dump on Android: got %q", e)
 	}
 }

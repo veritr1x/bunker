@@ -22,6 +22,7 @@ import (
 	"github.com/bodgit/sevenzip"
 
 	"lunar-tear/server/mobile/remotefile"
+	"lunar-tear/server/mobile/unityasset"
 )
 
 // Progress of the current archive import, read by the launcher while it runs.
@@ -44,6 +45,46 @@ var (
 	afterStream    func(stream int)
 	checkSpaceHook func(needed int64)
 )
+
+// devicePlatform is the Unity platform this device's game loads; 0 skips the
+// platform check (the server on a computer, tests).
+var devicePlatform = map[string]int{"ios": unityasset.PlatformIOS, "android": unityasset.PlatformAndroid}[runtime.GOOS]
+
+// The platform check reads the first small bundles written; platformChecked
+// ends it, and it gives up after platformTries unreadable ones.
+var (
+	platformChecked atomic.Bool
+	platformTries   atomic.Int32
+)
+
+const maxPlatformBundle = 4 << 20
+
+// wrongPlatform refuses game files built for the other client.
+type wrongPlatform struct{ message string }
+
+func (w wrongPlatform) Error() string { return w.message }
+
+// checkPlatform reads a just-written bundle's platform, once per import, and
+// refuses game files built for the other client: the game would hang loading.
+func checkPlatform(target string, size int64) error {
+	if devicePlatform == 0 || platformChecked.Load() || size > maxPlatformBundle || !strings.HasSuffix(target, ".assetbundle") {
+		return nil
+	}
+	got, err := unityasset.BundlePlatform(target)
+	if err != nil {
+		if platformTries.Add(1) >= 20 {
+			platformChecked.Store(true) // unreadable bundles: the install checks the rest
+		}
+		return nil
+	}
+	platformChecked.Store(true)
+	if got == devicePlatform {
+		return nil
+	}
+	have, need := unityasset.PlatformName(got), unityasset.PlatformName(devicePlatform)
+	return wrongPlatform{fmt.Sprintf("These game files are for %s, but this device needs the %s ones. Choose the resource dump for %s (resource_dump_%s).",
+		have, need, need, strings.ToLower(need))}
+}
 
 // linkSource is the link being imported, for the download count in ImportProgress.
 var linkSource atomic.Pointer[remotefile.File]
@@ -94,6 +135,8 @@ func importFile(f *os.File, stage string, freeBytes int64) string {
 }
 
 func resetProgress() {
+	platformChecked.Store(false)
+	platformTries.Store(0)
 	importCancelled.Store(false)
 	userCancelled.Store(false)
 	importDone.Store(0)
@@ -157,6 +200,12 @@ func ImportLink(link, stage string, freeBytes int64) string {
 		workers = 1 // Mega's limit is per account; one block finishes soonest
 	}
 	e = extractArchive(f, f.Size(), stage, extractOptions{free: freeBytes, link: record, workers: workers})
+	// Another platform's files are of no use to resume: they go.
+	var other wrongPlatform
+	if errors.As(e, &other) {
+		os.RemoveAll(stage)
+		return other.Error()
+	}
 	// A failing worker also stops the others through importCancelled; only
 	// the player's cancel is "stopped", anything else is the failure itself.
 	if e != nil && userCancelled.Load() {
@@ -385,6 +434,7 @@ func writeEntry(stage, rel string, open func() (io.ReadCloser, error), link bool
 		return e
 	}
 	buf := make([]byte, 1<<20)
+	var written int64
 	for {
 		if importCancelled.Load() {
 			out.Close()
@@ -397,6 +447,7 @@ func writeEntry(stage, rel string, open func() (io.ReadCloser, error), link bool
 				return fmt.Errorf("Not enough free space to import the game files: %w", e)
 			}
 			importDone.Add(int64(n))
+			written += int64(n)
 		}
 		if readErr == io.EOF {
 			break
@@ -412,10 +463,11 @@ func writeEntry(stage, rel string, open func() (io.ReadCloser, error), link bool
 			return fmt.Errorf("The archive is damaged (%s): %w", rel, readErr)
 		}
 	}
-	if e = out.Close(); e == nil {
-		importFiles.Add(1)
+	if e = out.Close(); e != nil {
+		return e
 	}
-	return e
+	importFiles.Add(1)
+	return checkPlatform(target, written)
 }
 
 func extract7z(source io.ReaderAt, size int64, stage string, opt extractOptions) error {
