@@ -1142,6 +1142,8 @@ static void SetShortcut(void);
 @property(nonatomic) NSInteger pickerMode;  // 0 folder to copy, 1 master data, 2 export, 3 save backup, 4 folder to use in place, 5 archive
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) LTSegments *bar;
+/** An import's progress, under the bar in [ SYSTEM ], beside the game files it is about (as on Android). */
+@property(nonatomic, strong) UILabel *importLine;
 // Updates: shown when a newer Bunker is released (checkForUpdate).
 @property(nonatomic, strong) UIView *updatePanel;
 @property(nonatomic, strong) UILabel *updateText;
@@ -1485,12 +1487,14 @@ static const CGFloat kInfoSize = 18;
     self.bar = [LTSegments new];
     [self.bar.heightAnchor constraintEqualToConstant:14].active = YES;
     self.bar.hidden = YES;
+    self.importLine = [self mono:@"" size:12 color:Ink()];
+    self.importLine.hidden = YES;
     UIView *system = [self panel:@[
         [self row:TUpper(T(@"launcher.main.game_files")) values:@[self.files, self.choose]],
         [self row:TUpper(T(@"launcher.main.lunar_tear")) values:@[self.server, self.spinner]],
         [self row:TUpper(T(@"launcher.main.save")) values:@[self.save]],
         [self row:TUpper(T(@"launcher.main.archive")) values:@[self.archiveLine]],
-        self.bar, self.systemFill = [UIView new]]];
+        self.bar, self.importLine, self.systemFill = [UIView new]]];
     [self.systemFill setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
     self.systemFill.hidden = YES;
     // [ PLAY ]: what happens next, and the way back into the game.
@@ -1682,7 +1686,11 @@ static const CGFloat kInfoSize = 18;
     NSString *text = gMessage.length ? TSaid(gMessage) : catalog ? @"" : T(@"launcher.ios.main.choose_to_play");
     if (gRestartNeeded && !gMessage.length)
         text = T(@"launcher.ios.main.changes_saved");
-    self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
+    // During an import its progress is beside the game files; [ PLAY ] keeps only CANCEL IMPORT.
+    self.importLine.hidden = !gImporting || !text.length;
+    self.importLine.attributedText = Tracked(gImporting ? text : @"", Mono(12), Ink(), .7);
+    self.detail.hidden = gImporting;
+    self.detail.attributedText = Tracked(gImporting ? @"" : text, Mono(12), Ink(), .7);
 }
 - (UIMenu *)optionsMenu:(BOOL)running {
     BOOL idle = !gImporting && !gToolsOpen;
