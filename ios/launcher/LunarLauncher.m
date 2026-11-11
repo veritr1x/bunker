@@ -552,7 +552,8 @@ static double LTEstimateUpdate(LTEstimate *e, double files, double bytes) {
 
 // "8.2 GB of 20.9 GB · 39% · about 4 min left". The bar follows the expected
 // time once it is measured, and never moves back.
-static NSString *LTProgressText(BOOL unpacking, LTEstimate *e, unsigned long long files, unsigned long long bytes) {
+// kind: 0 copying, 1 unpacking (YES), 2 downloading from a link.
+static NSString *LTProgressText(int kind, LTEstimate *e, unsigned long long files, unsigned long long bytes) {
     double left = LTEstimateUpdate(e, files, bytes), fraction;
     if (left < 0) fraction = (bytes + files * 1e6) / MAX(1.0, e->totalBytes + e->totalFiles * 1e6);
     else { double elapsed = CFAbsoluteTimeGetCurrent() - e->started; fraction = elapsed / MAX(1e-6, elapsed + left); }
@@ -560,7 +561,7 @@ static NSString *LTProgressText(BOOL unpacking, LTEstimate *e, unsigned long lon
     gImportFraction = e->shown;
     // References, as Android's FilesStore.progressText: shown later, in the language of that moment.
     NSString *done = LTByteText(bytes), *total = LTByteText((unsigned long long)e->totalBytes);
-    NSString *line = [NSString stringWithFormat:@"%@ · %@", unpacking ? Said(@"launcher.files.unpacking", @"done", done, @"total", total) : Said(@"launcher.files.copying", @"done", done, @"total", total),
+    NSString *line = [NSString stringWithFormat:@"%@ · %@", kind == 2 ? Said(@"launcher.files.downloading", @"done", done, @"total", total) : kind == 1 ? Said(@"launcher.files.unpacking", @"done", done, @"total", total) : Said(@"launcher.files.copying", @"done", done, @"total", total),
         Said(@"launcher.progress.percent", @"n", TNumber((int)(e->shown * 100)))];
     if (left < 0) return [line stringByAppendingFormat:@" · %@", Said(@"launcher.files.estimating")];
     long seconds = lround(left);
@@ -855,7 +856,7 @@ static NSString *ImportGoLink(NSString *link, void (^progress)(NSString *)) {
         if (!total) { progress(Said(@"launcher.files.connecting")); continue; }
         if (!estimate.started) estimate = LTEstimateStart([state[@"totalFiles"] unsignedLongLongValue], total);
         estimate.totalFiles = [state[@"totalFiles"] doubleValue]; estimate.totalBytes = total;
-        progress(LTProgressText(YES, &estimate, files, done));
+        progress(LTProgressText(2, &estimate, files, done));
     }
     if (result.length) return result;
     // The download is complete and its resume record gone: whether the install
@@ -1666,8 +1667,6 @@ static const CGFloat kInfoSize = 18;
     NSString *text = gMessage.length ? TSaid(gMessage) : catalog ? @"" : T(@"launcher.ios.main.choose_to_play");
     if (gRestartNeeded && !gMessage.length)
         text = T(@"launcher.ios.main.changes_saved");
-    long long kept = gImporting || gMessage.length || gRestartNeeded ? -1 : LinkPartial();
-    if (kept >= 0) text = T(@"launcher.files.link_partial", @"size", TSize(kept));
     self.detail.attributedText = Tracked(text, Mono(12), Ink(), .7);
 }
 - (UIMenu *)optionsMenu:(BOOL)running {
@@ -2249,8 +2248,11 @@ static UTType *MasterType(void) {
 // Downloads the game files from a pasted link. The last link is offered again,
 // so a stopped download continues. The clipboard is not read: iOS would ask.
 - (void)askLink {
+    // A stopped download's kept part is said here, where continuing it is chosen.
+    long long kept = LinkPartial();
+    NSString *hint = kept > 0 ? [NSString stringWithFormat:@"%@\n\n%@", T(@"launcher.files_dialog.link_hint"), T(@"launcher.files.link_partial", @"size", TSize(kept))] : T(@"launcher.files_dialog.link_hint");
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:T(@"launcher.files_dialog.link_title")
-        message:T(@"launcher.files_dialog.link_hint") preferredStyle:UIAlertControllerStyleAlert];
+        message:hint preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
         field.text = [NSUserDefaults.standardUserDefaults stringForKey:@"BunkerGameFilesLink"];
         field.placeholder = @"https://";
@@ -2323,9 +2325,11 @@ static UTType *MasterType(void) {
             app.idleTimerDisabled = NO;
             if (task != UIBackgroundTaskInvalid) { [app endBackgroundTask:task]; task = UIBackgroundTaskInvalid; }
             [self.spinner stopAnimating];
-            gMessage = error;
+            // A link download's problem goes in a popup, not in the line under Deploy.
+            gMessage = url && error.length ? @"" : error;
             [self refresh];
-            if (!error.length) [self dismiss];
+            if (url && error.length) [self alert:T(@"launcher.files_dialog.link_title") message:TSaid(error)];
+            else if (!error.length) [self dismiss];
         });
     });
 }

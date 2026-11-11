@@ -253,6 +253,8 @@ public final class MainActivity extends Activity {
         if(archiveLine!=null&&!indexShown().contentEquals(archiveLine.getText()))archiveLine.setText(indexShown());
         // Opened from the game: no launch step checks the index, so check it now (built in the background if needed).
         if(!indexChecked&&!indexing&&!launchWhenReady&&!tools&&FilesStore.ready(this))checkIndex(false);
+        String alert=ServerService.alert;
+        if(alert!=null&&!isFinishing()){ServerService.alert=null;dialog().setTitle(Texts.t(this,"launcher.files_dialog.link_title")).setMessage(Texts.said(this,alert)).setPositiveButton(Texts.t(this,"common.ok"),null).show();}
         if(key.equals(last))return;last=key;
         boolean importing=busy&&"importing_files".equals(serverState);
         if(importing)look.chip(files,Texts.upper(this,Texts.t(this,"launcher.chip.importing")),look.chip,look.ink);
@@ -286,7 +288,6 @@ public final class MainActivity extends Activity {
         else if(hasAssets&&!hasMaster){message=Texts.t(this,"launcher.main.import_master");warning=true;}
         else if(!hasAssets&&FilesStore.linkedFolder(this)!=null){warning=true;message=FilesStore.canUseInPlace()?Texts.t(this,"launcher.main.folder_missing","folder",FilesStore.linkedFolder(this)):Texts.t(this,"launcher.main.folder_access");}
         else if("stopped".equals(serverState)&&!serverDetail.isEmpty())message=Texts.said(this,serverDetail);
-        if(message.isEmpty()&&!busy&&!tools){long kept=FilesStore.linkPartial(this);if(kept>=0)message=Texts.t(this,"launcher.files.link_partial","size",Texts.size(this,kept));}
         if(message.isEmpty())message=tools?Texts.t(this,"launcher.main.close_pods_first"):"";
         detail.setText(warning?"> "+message:message);detail.setVisibility(message.isEmpty()?View.GONE:View.VISIBLE);detail.setTextColor(warning?look.alert:look.ink);
     }
@@ -312,8 +313,12 @@ public final class MainActivity extends Activity {
         int pad=(int)(20*getResources().getDisplayMetrics().density);
         box.setPadding(pad,pad/2,pad,0);
         box.addView(field);
+        // A stopped download's kept part is said here, where continuing it is chosen.
+        long kept=FilesStore.linkPartial(this);
+        String hint=Texts.t(this,"launcher.files_dialog.link_hint");
+        if(kept>0)hint+="\n\n"+Texts.t(this,"launcher.files.link_partial","size",Texts.size(this,kept));
         dialog().setTitle(Texts.t(this,"launcher.files_dialog.link_title"))
-            .setMessage(Texts.t(this,"launcher.files_dialog.link_hint"))
+            .setMessage(hint)
             .setView(box)
             .setNegativeButton(Texts.t(this,"common.cancel"),null)
             .setPositiveButton(Texts.t(this,"launcher.files_dialog.download"),(d,w)->{

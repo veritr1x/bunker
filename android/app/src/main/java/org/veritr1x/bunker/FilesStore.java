@@ -132,10 +132,15 @@ final class FilesStore {
         }
     }
     // "Copying 8.2 GB of 20.9 GB · 39% · about 4 min left", as Said references (shown later, by the launcher).
+    static final int COPYING = 0, UNPACKING = 1, DOWNLOADING = 2;
     static String progressText(Context c, boolean unpacking, long bytes, long totalBytes, double fraction, double secondsLeft) {
+        return progressText(c, unpacking ? UNPACKING : COPYING, bytes, totalBytes, fraction, secondsLeft);
+    }
+    static String progressText(Context c, int kind, long bytes, long totalBytes, double fraction, double secondsLeft) {
         String done = Texts.size(c, bytes), total = Texts.size(c, totalBytes);
-        String line = (unpacking ? Said.text("launcher.files.unpacking", "done", done, "total", total)
-                                 : Said.text("launcher.files.copying", "done", done, "total", total))
+        String line = (kind == DOWNLOADING ? Said.text("launcher.files.downloading", "done", done, "total", total)
+                     : kind == UNPACKING ? Said.text("launcher.files.unpacking", "done", done, "total", total)
+                     : Said.text("launcher.files.copying", "done", done, "total", total))
             + " · " + Said.text("launcher.progress.percent", "n", Texts.number(c, (int) (fraction * 100)));
         if (secondsLeft < 0) return line + " · " + Said.text("launcher.files.estimating");
         long seconds = Math.round(secondsLeft);
@@ -248,7 +253,7 @@ final class FilesStore {
             estimate.totalFiles = state.optLong("totalFiles"); estimate.totalBytes = total;
             double left = estimate.update(files, done), fraction = estimate.fraction(files, done, left);
             progress.fraction((int) (fraction * 1000));
-            progress.update(progressText(c, true, done, total, fraction, left));
+            progress.update(progressText(c, DOWNLOADING, done, total, fraction, left));
         }
         if (result[0] == null || !result[0].isEmpty()) throw new IOException(result[0] == null ? Said.text("launcher.files.cannot_read_archive") : result[0]);
         progress.fraction(-1);
