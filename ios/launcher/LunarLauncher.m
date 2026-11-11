@@ -1661,7 +1661,13 @@ static const CGFloat kInfoSize = 18;
     self.back.hidden = !running || gImporting;
     self.quit.hidden = !gRestartNeeded;
     self.check.hidden = running || gRestartNeeded || gToolsOpen;
-    self.choose.hidden = gImporting || gRestartNeeded || gToolsOpen;
+    // Unavailable, CHANGE keeps its place, unseen: hidden, it would leave the
+    // chip alone in its row, which would then hold the row, and with it both
+    // columns, to the chip's width (the whole screen squashed to one narrow column).
+    BOOL unavailable = gImporting || gRestartNeeded || gToolsOpen;
+    self.choose.alpha = unavailable ? 0 : 1;
+    self.choose.enabled = !unavailable;
+    self.choose.isAccessibilityElement = !unavailable;
     self.cancel.hidden = !gImporting;
     self.more.menu = [self optionsMenu:running];
     self.pods.enabled = LTToolsAvailable() && !gImporting && !gToolsOpen && catalog && !self.spinner.isAnimating;
