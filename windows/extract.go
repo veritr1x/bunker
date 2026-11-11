@@ -20,6 +20,7 @@ import (
 
 	"github.com/bodgit/sevenzip"
 
+	"bunker/windows/bundleplatform"
 	"bunker/windows/remotefile"
 )
 
@@ -143,6 +144,29 @@ type extraction struct {
 	catalog           atomic.Bool
 	ready             func(total int64) error // checks the space before unpacking
 	workers           int                     // most blocks at once; 0: by CPU
+	platformChecked   atomic.Bool             // a bundle's platform was read
+	platformTries     atomic.Int32
+}
+
+// maxPlatformBundle: bundles up to this size are read for their platform.
+const maxPlatformBundle = 4 << 20
+
+// checkPlatform refuses game files for the iOS client, from the first small
+// bundle that reads: the phone's game is the Android client, and with iOS
+// bundles it would hang loading.
+func (x *extraction) checkPlatform(rel string, data []byte) error {
+	got, err := bundleplatform.Of(data, rel)
+	if err != nil {
+		if x.platformTries.Add(1) >= 20 {
+			x.platformChecked.Store(true)
+		}
+		return nil
+	}
+	x.platformChecked.Store(true)
+	if got != bundleplatform.Android {
+		return fmt.Errorf("these game files are for %s, but the phone needs the Android ones. Use resource_dump_android", bundleplatform.Name(got))
+	}
+	return nil
 }
 
 // extractGameFiles unpacks revisions/0 of a .7z or .zip (a path or a link) into dest.
@@ -163,7 +187,7 @@ func openArchive(archivePath string) (r io.ReaderAt, size int64, workers int, cl
 		if err != nil {
 			return nil, 0, 0, nil, err
 		}
-		workers = 2
+		workers = 4 // a computer has the memory for four decoders and their read-ahead
 		if f.Host() == "mega" {
 			workers = 1 // Mega's limit is per account
 		}
@@ -237,12 +261,21 @@ func (x *extraction) write(rel string, size int64, open func() (io.ReadCloser, e
 	}
 	defer in.Close()
 	var r io.Reader = &counter{in, &x.done}
-	var info bytes.Buffer
+	var info, bundle bytes.Buffer
 	if path.Base(rel) == "info.json" {
 		r = io.TeeReader(r, &info)
 	}
+	checkBundle := !x.platformChecked.Load() && strings.HasSuffix(rel, ".assetbundle") && size <= maxPlatformBundle
+	if checkBundle {
+		r = io.TeeReader(r, &bundle)
+	}
 	if err := x.sink.put(rel, size, r); err != nil {
 		return fmt.Errorf("unpacking %s: %w", rel, err)
+	}
+	if checkBundle {
+		if err := x.checkPlatform(rel, bundle.Bytes()); err != nil {
+			return err
+		}
 	}
 	// As the Bunker's import does: revision 0 must not point at files kept in
 	// other revisions, which this does not unpack.

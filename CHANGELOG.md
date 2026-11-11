@@ -19,6 +19,10 @@ under its heading, down to the previous release.
   again continues from them. The launcher shows how much is kept, and
   choosing any other source discards it.
 - Bunker names no source for the game files; bring your own link.
+- Game files built for the other platform are refused as they start to
+  unpack, from a link or a file: the iOS game cannot load the Android dump's
+  bundles (it hung loading at 60%), nor Android the iOS ones. The setup
+  program refuses the iOS dump the same way.
 
 ## 2026-11-10 (after 1.11.0)
 

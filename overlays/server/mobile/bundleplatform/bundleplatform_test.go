@@ -11,10 +11,10 @@ import (
 func fakeBundle(platform uint32) []byte {
 	var sf bytes.Buffer
 	be := func(v uint32) { binary.Write(&sf, binary.BigEndian, v) }
-	be(0)  // metadata size
-	be(0)  // file size
-	be(21) // format
-	be(0)  // data offset
+	be(0)                        // metadata size
+	be(0)                        // file size
+	be(21)                       // format
+	be(0)                        // data offset
 	sf.Write([]byte{0, 0, 0, 0}) // little-endian, reserved
 	sf.WriteString("2019.4.9f1\x00")
 	binary.Write(&sf, binary.LittleEndian, platform)

@@ -404,7 +404,7 @@ func platformDump(t *testing.T, platform uint32) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "dump.zip")
 	writeZip(t, path, map[string]string{
-		"revisions/0/list.bin":                     "\x08\x01",
+		"revisions/0/list.bin":                       "\x08\x01",
 		"revisions/0/assetbundle/ui/one.assetbundle": platformBundle(platform),
 	})
 	return path

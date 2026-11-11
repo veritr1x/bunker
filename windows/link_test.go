@@ -1,17 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"bunker/windows/bundleplatform"
 	"bunker/windows/remotefile"
 )
 
@@ -124,6 +127,62 @@ func TestForgetBadLink(t *testing.T) {
 		}
 		if !c.keep && !saved {
 			t.Errorf("%v: state not saved after forgetting the link", c.err)
+		}
+	}
+}
+
+// testBundle is an unmasked, uncompressed UnityFS bundle built for platform.
+func testBundle(platform uint32) string {
+	var sf bytes.Buffer
+	binary.Write(&sf, binary.BigEndian, []uint32{0, 0, 21, 0})
+	sf.Write([]byte{0, 0, 0, 0})
+	sf.WriteString("2019.4.9f1\x00")
+	binary.Write(&sf, binary.LittleEndian, platform)
+	sf.Write(make([]byte, 32))
+	var info bytes.Buffer
+	info.Write(make([]byte, 16))
+	binary.Write(&info, binary.BigEndian, []uint32{1, uint32(sf.Len()), uint32(sf.Len())})
+	binary.Write(&info, binary.BigEndian, uint16(0))
+	binary.Write(&info, binary.BigEndian, uint32(1))
+	binary.Write(&info, binary.BigEndian, []uint64{0, uint64(sf.Len())})
+	binary.Write(&info, binary.BigEndian, uint32(4))
+	info.WriteString("CAB-test\x00")
+	var b bytes.Buffer
+	b.WriteString("UnityFS\x00")
+	binary.Write(&b, binary.BigEndian, uint32(6))
+	b.WriteString("5.x.x\x002019.4.9f1\x00")
+	binary.Write(&b, binary.BigEndian, uint64(0))
+	binary.Write(&b, binary.BigEndian, []uint32{uint32(info.Len()), uint32(info.Len()), 0})
+	b.Write(info.Bytes())
+	b.Write(sf.Bytes())
+	return b.String()
+}
+
+// The phone runs the Android client, which cannot load the iOS dump's bundles.
+func TestUnpackRefusesIOSDump(t *testing.T) {
+	ios := makeZip(t, map[string]string{"revisions/0/list.bin": "\x08\x01", "revisions/0/assetbundle/ui/one.assetbundle": testBundle(bundleplatform.IOS)})
+	err := extractGameFiles(ios, t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "for iOS") || !strings.Contains(err.Error(), "resource_dump_android") {
+		t.Fatalf("iOS dump: %v", err)
+	}
+	android := makeZip(t, map[string]string{"revisions/0/list.bin": "\x08\x01", "revisions/0/assetbundle/ui/one.assetbundle": testBundle(bundleplatform.Android)})
+	if err := extractGameFiles(android, t.TempDir()); err != nil {
+		t.Fatalf("Android dump: %v", err)
+	}
+}
+
+func TestBundleplatformCopiesMatch(t *testing.T) {
+	mobile := filepath.Join("..", "overlays", "server", "mobile", "bundleplatform")
+	names, _ := filepath.Glob(filepath.Join(mobile, "*.go"))
+	mine, _ := filepath.Glob(filepath.Join("bundleplatform", "*.go"))
+	if len(names) == 0 || len(names) != len(mine) {
+		t.Fatalf("mobile has %d files, windows/bundleplatform %d", len(names), len(mine))
+	}
+	for _, name := range names {
+		a, _ := os.ReadFile(name)
+		b, err := os.ReadFile(filepath.Join("bundleplatform", filepath.Base(name)))
+		if err != nil || string(a) != string(b) {
+			t.Errorf("windows/bundleplatform/%s differs from %s: copy it over", filepath.Base(name), name)
 		}
 	}
 }
