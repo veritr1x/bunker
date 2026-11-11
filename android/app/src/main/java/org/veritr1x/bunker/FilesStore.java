@@ -241,17 +241,22 @@ final class FilesStore {
         Thread worker = new Thread(() -> result[0] = NativeBridge.importLink(url, stage.getAbsolutePath()), "lunar-link");
         worker.start();
         Estimate estimate = null;
+        long baseFiles = 0, baseBytes = 0;  // kept from an earlier download: not new progress
         progress.fraction(-1);
         progress.update(Said.text("launcher.files.connecting"));
         while (worker.isAlive()) {
             worker.join(500);
             if (progress.cancelled()) NativeBridge.cancelImport();
             org.json.JSONObject state = new org.json.JSONObject(NativeBridge.importProgress());
-            long done = state.optLong("done"), total = state.optLong("total"), files = state.optLong("files");
+            long done = state.optLong("done"), total = state.optLong("total"), files = state.optLong("files"), totalFiles = state.optLong("totalFiles");
             if (total <= 0) continue;
-            if (estimate == null) estimate = new Estimate(state.optLong("totalFiles"), total);
-            estimate.totalFiles = state.optLong("totalFiles"); estimate.totalBytes = total;
-            double left = estimate.update(files, done), fraction = estimate.fraction(files, done, left);
+            if (estimate == null) { baseFiles = files; baseBytes = done; estimate = new Estimate(totalFiles - baseFiles, total - baseBytes); }
+            // The time left comes from this run's progress; the bar and the
+            // sizes count the kept part too.
+            double left = estimate.update(files - baseFiles, done - baseBytes);
+            double rest = estimate.fraction(files - baseFiles, done - baseBytes, left);
+            double kept = baseBytes + baseFiles * 1e6, whole = Math.max(1.0, total + totalFiles * 1e6);
+            double fraction = (kept + rest * (whole - kept)) / whole;
             progress.fraction((int) (fraction * 1000));
             progress.update(progressText(c, DOWNLOADING, done, total, fraction, left));
         }

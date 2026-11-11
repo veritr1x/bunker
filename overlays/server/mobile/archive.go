@@ -445,9 +445,11 @@ func extract7z(source io.ReaderAt, size int64, stage string, opt extractOptions)
 	if e := checkSpace(stage, totalBytes-skippedBytes, opt); e != nil {
 		return e
 	}
-	publishTotals(totalBytes, totalFiles)
+	// The kept part first: a launcher polling in between must not take the
+	// total without it, or it would count the kept part as just unpacked.
 	importDone.Add(skippedBytes)
 	importFiles.Add(skippedFiles)
+	publishTotals(totalBytes, totalFiles)
 	if opt.link != nil {
 		// The largest block first, so one finishes as early as it can.
 		sort.SliceStable(todo, func(a, b int) bool { return streamBytes[todo[a]] > streamBytes[todo[b]] })
@@ -547,9 +549,9 @@ func extractZip(source io.ReaderAt, size int64, stage string, opt extractOptions
 	if e := checkSpace(stage, totalBytes-skippedBytes, opt); e != nil {
 		return e
 	}
-	publishTotals(totalBytes, int64(len(entries))+skippedFiles)
 	importDone.Add(skippedBytes)
 	importFiles.Add(skippedFiles)
+	publishTotals(totalBytes, int64(len(entries))+skippedFiles)
 	for _, en := range entries {
 		if e := writeEntry(stage, en.rel, en.file.Open, opt.link != nil); e != nil {
 			return e
