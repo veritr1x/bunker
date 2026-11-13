@@ -78,6 +78,18 @@ class Items(unittest.TestCase):
         self.assertEqual(F.icon_keys(texts, "110045"), ["110045", "110218"])
 
 
+class Portraits(unittest.TestCase):
+    def test_art_fits_the_panel_box_at_twice_its_size(self):
+        import event_notice_facts as F
+        from PIL import Image
+        tall = Image.new("RGBA", (900, 1400), (200, 0, 0, 255))
+        out = F.fit_portrait(tall)
+        self.assertEqual(out.size, (460, 426))
+        box = out.getchannel("A").getbbox()
+        self.assertEqual(box[3], 426)  # standing on the bottom edge
+        self.assertLessEqual(box[2] - box[0], 460)
+
+
 class Exclusive(unittest.TestCase):
     def test_how_to_play_names_the_exclusive_character(self):
         import event_notice_pages as pages

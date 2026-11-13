@@ -50,6 +50,21 @@ def icon_keys(texts, key):
     return [key] + [k for k in same if k != key]
 
 
+PORTRAIT = (460, 426)  # the official panels' 230 x 213 picture, at twice its size
+
+
+def fit_portrait(image):
+    """Art fitted into the panel's picture: whole, standing on the bottom edge, centred."""
+    from PIL import Image
+    box = image.getchannel("A").getbbox()
+    art = image.crop(box) if box else image
+    scale = min(PORTRAIT[0] / art.width, PORTRAIT[1] / art.height)
+    art = art.resize((max(1, round(art.width * scale)), max(1, round(art.height * scale))), Image.LANCZOS)
+    out = Image.new("RGBA", PORTRAIT, (0, 0, 0, 0))
+    out.alpha_composite(art, ((PORTRAIT[0] - art.width) // 2, PORTRAIT[1] - art.height))
+    return out
+
+
 class Images:
     """Images from the resource dump, as WebP pack members; missing bundles are recorded for extraction."""
 
@@ -95,7 +110,7 @@ class Images:
         image = self.image(rel)
         if image is None:
             return ""
-        data = self._webp(image)
+        data = self._webp(fit_portrait(image))
         sha = hashlib.sha256(data).hexdigest()
         self.members[f"web/images/en/operations/{kind}/{sha}"] = data
         return f"/images/en/operations/{kind}/{sha}"

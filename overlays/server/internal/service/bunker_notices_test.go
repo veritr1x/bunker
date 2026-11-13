@@ -325,3 +325,11 @@ func TestNoticePackFile(t *testing.T) {
 		t.Fatalf("no pack: %v", err)
 	}
 }
+
+// A panel's picture sits in its corner at the official size, not tiled across the panel.
+func TestNoticePagePlacesPanelPictures(t *testing.T) {
+	page := noticePage(nil, "t", "")
+	if !strings.Contains(page, ".chara_image{background-repeat:no-repeat;background-position:0 100%;background-size:230px 213px}") {
+		t.Fatal("no rule for .chara_image")
+	}
+}
