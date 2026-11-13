@@ -122,3 +122,19 @@ func TestStoryHTMLMarksALongerFormOfTheWord(t *testing.T) {
 		t.Fatalf("\n got %s\nwant %s", got, want)
 	}
 }
+
+// The notice panels' portraits (rebuilt event notices: the exchange's character and its weapon).
+func TestWebAppFileServesPanelPortraits(t *testing.T) {
+	for url, want := range map[string]string{
+		"/images/en/operations/character/73663629da7d": "web/images/en/operations/character/73663629da7d",
+		"/images/en/operations/weapon/6e0b2adfd547":    "web/images/en/operations/weapon/6e0b2adfd547",
+		"/images/en/operations/banner/07f334a5cb12":    "web/images/en/operations/banner/07f334a5cb12",
+	} {
+		if got, ok := webAppFile(url); !ok || got != want {
+			t.Errorf("%s: %q %v, want %q", url, got, ok, want)
+		}
+	}
+	if _, ok := webAppFile("/images/en/operations/../../notices.json"); ok {
+		t.Error("a path out of the images is served")
+	}
+}

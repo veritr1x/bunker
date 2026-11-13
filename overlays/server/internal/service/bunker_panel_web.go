@@ -33,7 +33,7 @@ import (
 // language's operations images come from the pack's English ones.
 var (
 	webAppPath    = regexp.MustCompile(`^/(?:main|css|d_import|audio|ajax|npm|outlink|static|images/common|web/images)/[^?#]+$`)
-	webAppImages  = regexp.MustCompile(`^/images/[a-z]{2}(?:-[A-Za-z]+)?/(operations/(?:panel_mission|thumbnail|banner)/[^?#]+)$`)
+	webAppImages  = regexp.MustCompile(`^/images/[a-z]{2}(?:-[A-Za-z]+)?/(operations/(?:panel_mission|thumbnail|banner|character|weapon)/[^?#]+)$`)
 	panelAPIPath  = regexp.MustCompile(`^/[^/]+/api/wm/panel_mission/(pages|panel/reward)$`)
 	panelPagePath = regexp.MustCompile(`^(?:/web/[a-z-]+)?/panelmission/(\d+)$`)
 )
@@ -43,7 +43,7 @@ var (
 var webAppStatic = regexp.MustCompile(`^/static/[a-z]{2}(?:-[A-Za-z]+)?/([a-z_]+/[A-Za-z0-9_]+\.html)$`)
 
 func webAppFile(urlPath string) (string, bool) {
-	if m := webAppImages.FindStringSubmatch(urlPath); m != nil {
+	if m := webAppImages.FindStringSubmatch(urlPath); m != nil && !strings.Contains(urlPath, "..") {
 		return "web/images/en/" + m[1], true
 	}
 	if m := webAppStatic.FindStringSubmatch(urlPath); m != nil {
