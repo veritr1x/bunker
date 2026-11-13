@@ -4,6 +4,31 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-14 (after 1.12.2)
+
+### Calendar
+- With the Original calendar, each event run shows the banner it had. The game
+  data keeps only the last run's banner, which for a rerun usually says
+  "Resurrected", so first runs showed it too (Record: Sunset Port, Record: The
+  Cage of Reincarnation and others). 59 runs of 34 events, including the Abyss
+  Tower runs, now show their own, read from the weekly game data of each run
+  (`scripts/event_banners.py`, `event_banners.json`). A run whose banner is
+  missing from the game files in any language keeps the last one.
+- Record: Garden of Benediction's first run (August 2021) shows a recreated
+  banner, 900. The live game redrew its banner for the January 2022 rerun
+  under the same number, and no game file or archive kept the 2021 one. The
+  recreation is the redrawn banner with its "Resurrected Event Quests" line
+  replaced by Record: Sunset Port's "Event Quests" line of the same time
+  (`scripts/recreate_banners.py`; Japanese was never redrawn and keeps its own).
+  The notice pack carries the image; Bunker's server builds the banner's files
+  from the player's own game files, with the home screen's 2021 strip, which
+  was never redrawn either.
+
+### Releases
+- A release lists one notice pack, for launchers from 1.4 on. Launchers before
+  1.4 accepted only part of it, so releases carried a second, smaller copy;
+  they now update without it and keep the notices they have.
+
 ## 1.12.2 (2026-11-14)
 
 Auto deploy on iPhone and iPad. ⋮ → Auto deploy works as on Android: turned

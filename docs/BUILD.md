@@ -72,6 +72,14 @@ and writes `inputs/bunker-notices.zip` from it, with the reconstructed notices'
 summon prices brought in line with `summon_rules.json` (`scripts/sync_notice_prices.py`).
 `build.py` does the same and uses that file. To use another path, pass `--notices`.
 
+The pack also carries the one event banner no game file kept: Record: Garden of
+Benediction's 2021 banner, recreated by `scripts/recreate_banners.py` from the
+resource dump (`banners/<language>/event_banner_900.astc`). The server builds
+the banner's bundles from the player's own game files and that image
+(`overlays/server/internal/translation/banners.go`). Releases list the pack once,
+as `noticePack`: launchers before 1.4 find no `notices` asset and keep the pack
+they have.
+
 The static web builder publishes large notice archives in 64 MiB parts listed
 in `bundles/notices.json`, keeping each file below GitHub Pages' limit. Its
 worker reassembles the original archive before packaging; a missing part or
