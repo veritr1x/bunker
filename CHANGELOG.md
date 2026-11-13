@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.3 (2026-11-14)
+
+Each event run shows its own banner, and home-screen banners open their notice.
+With the Original calendar, first runs no longer show their rerun's
+"Resurrected" banner (59 runs of 34 events; Record: Garden of Benediction's
+2021 banner is recreated, as no copy survives). Home-screen banners from July
+2021 to August 2022 that opened "This notice isn't available." open notices
+rebuilt from the game data in the official notices' layout and wording, with
+the event's characters, weapons and resonant weapons. Notice pack 6 carries
+them; releases now list a single notice pack.
+
 ## 2026-11-14 (after 1.12.2)
 
 ### Calendar

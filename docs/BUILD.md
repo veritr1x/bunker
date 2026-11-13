@@ -76,7 +76,11 @@ The pack also carries the one event banner no game file kept: Record: Garden of
 Benediction's 2021 banner, recreated by `scripts/recreate_banners.py` from the
 resource dump (`banners/<language>/event_banner_900.astc`). The server builds
 the banner's bundles from the player's own game files and that image
-(`overlays/server/internal/translation/banners.go`). Releases list the pack once,
+(`overlays/server/internal/translation/banners.go`). It also carries the notices
+rebuilt for home banners whose announcement was not recovered: `scripts/build_event_notices.py`
+builds the next pack from the pinned one, the weekly game data, the resource dump and Deck
+Builder's master data, and `scripts/check_event_notices.py` compares the facts it uses with the
+official notices that survive. Releases list the pack once,
 as `noticePack`: launchers before 1.4 find no `notices` asset and keep the pack
 they have.
 
