@@ -3,6 +3,7 @@ package service
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"io"
 	"lunar-tear/server/internal/bunkertext"
 	"net/http"
@@ -309,5 +310,18 @@ func TestNoticesFollowTheOriginalCalendar(t *testing.T) {
 func TestNoticeImagesAreNotStretched(t *testing.T) {
 	if strings.Contains(noticeCSS, "article .info-largeimage img{display:block;width:100%") || !strings.Contains(noticeCSS, "article .info-largeimage img{display:block;max-width:100%") {
 		t.Fatal("info-largeimage images still stretch to the window")
+	}
+}
+
+func TestNoticePackFile(t *testing.T) {
+	n := NewNotices(writeNoticePack(t), func() int64 { return 0 })
+	if b, err := n.PackFile("img/aa.webp"); err != nil || string(b) != "RIFF....WEBP" {
+		t.Fatalf("got %q, %v", b, err)
+	}
+	if _, err := n.PackFile("banners/en/event_banner_900.astc"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a file the pack lacks: %v", err)
+	}
+	if _, err := NewNotices(filepath.Join(t.TempDir(), "none.zip"), func() int64 { return 0 }).PackFile("img/aa.webp"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("no pack: %v", err)
 	}
 }

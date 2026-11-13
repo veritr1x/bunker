@@ -14,6 +14,10 @@ destination stays: those ids point into tables that changed over the years).
 
 Only banners whose images the game files have are recorded (--list, the
 resource dump's list.bin): a run whose image is gone keeps the final one.
+Record: Garden of Benediction's first run is the exception: its banner, 512,
+was redrawn for the 2022 rerun, so it shows banner 900, which Bunker's server
+builds from the player's files and a recreated image in the notice pack
+(translation/banners.go, recreate_banners.py).
 
   event_banners.py --masters DIR --list LIST.BIN [--out PATH]
 
@@ -31,6 +35,8 @@ OUT = ch.PYTHON / "event_banners.json"
 LANGUAGES = ("en", "ja", "ko")
 EVENT_HOME = "event_mom_banner_"
 DAY = 86_400_000
+# chapter -> {run: banner} for runs whose banner no game file kept.
+RECREATED = {"512": {0: 900}}
 
 
 def pick(times, at):
@@ -122,6 +128,17 @@ def home_rows(history, final, at_time, paths, unrestored=()):
     return out
 
 
+def with_recreated(chapters):
+    """chapters with the recreated banners (RECREATED) in their runs."""
+    out = {k: list(v) for k, v in chapters.items()}
+    for chapter, runs in RECREATED.items():
+        banners = out.setdefault(chapter, [])
+        for n, banner in runs.items():
+            banners.extend([None] * (n + 1 - len(banners)))
+            banners[n] = banner
+    return out
+
+
 def build(masters, paths):
     import sys
     sys.path.insert(0, str(ch.PYTHON))
@@ -142,9 +159,9 @@ def build(masters, paths):
         return {r[cols[key]]: pick_fields(r) for r in rows}
 
     last = times[-1]
-    chapters = chapter_banners(history["m_event_quest_chapter"]["rows"],
+    chapters = with_recreated(chapter_banners(history["m_event_quest_chapter"]["rows"],
                                table(last, "m_event_quest_chapter", "EventQuestChapterId", "BannerAssetId"),
-                               lambda at: table(pick(times, at), "m_event_quest_chapter", "EventQuestChapterId", "BannerAssetId"), paths)
+                               lambda at: table(pick(times, at), "m_event_quest_chapter", "EventQuestChapterId", "BannerAssetId"), paths))
     home = home_rows(history["m_mom_banner"]["rows"], table(last, "m_mom_banner", "MomBannerId", "BannerAssetName"),
                      lambda at: table(pick(times, at), "m_mom_banner", "MomBannerId", "BannerAssetName"), paths,
                      unrestored=cal.UNRESTORED_BANNERS)

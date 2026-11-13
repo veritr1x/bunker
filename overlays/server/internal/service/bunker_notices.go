@@ -197,6 +197,26 @@ func (s *Notices) load() bool {
 	return true
 }
 
+// PackFile is a file of the notice pack (os.ErrNotExist when it has none),
+// for the files Bunker keeps there besides the notices (banners/).
+func (s *Notices) PackFile(name string) ([]byte, error) {
+	if !s.load() {
+		return nil, os.ErrNotExist
+	}
+	s.mu.Lock()
+	f := s.files[name]
+	s.mu.Unlock()
+	if f == nil {
+		return nil, os.ErrNotExist
+	}
+	r, err := f.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return io.ReadAll(io.LimitReader(r, 16<<20))
+}
+
 // GachaNotice is the notice that announced a summon, or 0.
 func (s *Notices) GachaNotice(gachaId int32) int32 {
 	if !s.load() {

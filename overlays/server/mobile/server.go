@@ -236,13 +236,14 @@ func Start(dataRoot, assetRoot string) (err error) {
 	// (started before the sweep, which links what is already cached).
 	// The text Bunker puts into the game (summon details, notices, panels) follows the same pack.
 	bunkertext.SetActive(filepath.Join(assetRoot, "translation", "active.json"))
+	// The game's Notices screen, from the notice pack the launcher copies in.
+	notices := service.NewNotices(service.NoticePackPath(assetRoot), gametime.NowMillis)
 	translator := translation.New(assetRoot, dataRoot, platform)
+	translator.UseNoticePack(notices.PackFile) // the recreated banners (translation/banners.go)
 	translator.Start()
 	links := service.NewOctoLinks(octoRoot, assetRoot, platform)
 	links.AlsoLink(translator.File)
 	go links.Sweep()
-	// The game's Notices screen, from the notice pack the launcher copies in.
-	notices := service.NewNotices(service.NoticePackPath(assetRoot), gametime.NowMillis)
 	notices.UseCalendar(gametime.CalendarOffset, gametime.ViewOffset)
 	service.SetNotices(notices)
 	service.SetPanelWeb(notices) // the Anecdotes' official page, from the pack's web app

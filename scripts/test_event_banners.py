@@ -47,6 +47,16 @@ class Home(unittest.TestCase):
         self.assertEqual(eb.home_rows({"50": [[0, DAY]]}, {50: "x"}, at, EVERY, unrestored={50}), {})
 
 
+class Recreated(unittest.TestCase):
+    def test_garden_of_benedictions_first_run_shows_banner_900(self):
+        # 512 was redrawn for the 2022 rerun; Bunker's server builds 900 (translation/banners.go).
+        self.assertEqual(eb.with_recreated({"512": [512, 512, None], "509": [509, None]}),
+                         {"512": [900, 512, None], "509": [509, None]})
+
+    def test_a_chapter_with_no_other_change_gets_the_recreated_run(self):
+        self.assertEqual(eb.with_recreated({}), {"512": [900]})
+
+
 class Pick(unittest.TestCase):
     def test_the_newest_master_before_the_time(self):
         self.assertEqual(eb.pick([10, 20, 30], 25), 20)

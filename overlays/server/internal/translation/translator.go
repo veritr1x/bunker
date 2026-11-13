@@ -21,6 +21,8 @@ import (
 type Translator struct {
 	packPath, buildsDir, statePath, statusPath string
 	assetsRevision, listPath                   string
+	bannersDir                                 string
+	packFile                                   func(name string) ([]byte, error) // a file of the notice pack
 	rebuild                                    Rebuilder
 	build                                      buildFunc
 	retryDelays                                []time.Duration // waits before each retry of a failed build
@@ -34,6 +36,7 @@ type Translator struct {
 	target   *Manifest // the active pack's finished build
 	served   *Manifest // the build named by the last list served (nil: the originals)
 	done     chan struct{}
+	banners  *Banners // Bunker's own banners (banners.go), added to every list served
 }
 
 // New reads the active pack from <assetRoot>/translation/active.json, keeps
@@ -50,6 +53,7 @@ func New(assetRoot, dataRoot, platform string) *Translator {
 	return &Translator{
 		packPath:       filepath.Join(assetRoot, "translation", "active.json"),
 		buildsDir:      filepath.Join(assetRoot, "translation", "build"),
+		bannersDir:     filepath.Join(assetRoot, "translation", "banners"),
 		statePath:      filepath.Join(dataRoot, "translation-state.json"),
 		statusPath:     filepath.Join(assetRoot, "translation", "status.json"),
 		assetsRevision: assets,
@@ -74,6 +78,11 @@ func (t *Translator) Start() {
 	}
 	t.original, t.entries, t.listMD5 = info.Revision, info.Entries, info.MD5
 	t.ready = true
+	if b, err := buildBanners(t.assetsRevision, t.listPath, t.listMD5, t.bannersDir, t.packFile); err != nil {
+		log.Printf("[Banners] off: %v", err)
+	} else {
+		t.banners = b
+	}
 	if id := t.storedFingerprint(); id != "" {
 		if m, err := LoadManifest(filepath.Join(t.buildsDir, id)); err == nil && m.ListMD5 == t.listMD5 {
 			t.served = m
@@ -137,6 +146,12 @@ func readyStatus(pack *Pack, m *Manifest, attempts int) Status {
 	return s
 }
 
+// bannerMark joins a build's fingerprint and the banners' in the state file.
+const bannerMark = "+banners:"
+
+// UseNoticePack gives the notice pack's files to the banners (before Start).
+func (t *Translator) UseNoticePack(file func(name string) ([]byte, error)) { t.packFile = file }
+
 // wait returns once Start's build, if any, has finished.
 func (t *Translator) wait() { <-t.done }
 
@@ -156,7 +171,8 @@ func (t *Translator) storedFingerprint() string {
 	if json.Unmarshal(data, &s) != nil || strings.HasPrefix(s.Fingerprint, "none:") {
 		return ""
 	}
-	return s.Fingerprint
+	build, _, _ := strings.Cut(s.Fingerprint, bannerMark)
+	return build
 }
 
 // cleanup removes builds other than the target and the one last served.
@@ -252,7 +268,7 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 	}
 	m := t.choose()
 	requested := requestedRevision(r.URL.Path)
-	if _, err := os.Stat(t.statePath); m == nil && errors.Is(err, os.ErrNotExist) && requested <= t.original {
+	if _, err := os.Stat(t.statePath); m == nil && t.banners == nil && errors.Is(err, os.ErrNotExist) && requested <= t.original {
 		next.ServeHTTP(w, r) // never translated: the list as it always was
 		return false
 	}
@@ -260,14 +276,19 @@ func (t *Translator) serveList(w http.ResponseWriter, r *http.Request, next http
 	next.ServeHTTP(c, r)
 	body := c.body.Bytes()
 	if c.status == http.StatusOK {
-		fingerprint, changes := "none:"+t.listMD5, map[string]Entry(nil)
+		fingerprint, changes, added := "none:"+t.listMD5, map[string]Entry(nil), [][]byte(nil)
 		if m != nil {
 			fingerprint, changes = m.ID, m.Entries
+		}
+		if t.banners != nil {
+			// Never "none:": a list with banners must go above the game's.
+			fingerprint = strings.TrimPrefix(fingerprint, "none:") + bannerMark + t.banners.ID
+			added = t.banners.Added
 		}
 		revision, err := ServedRevision(t.statePath, t.original, requested, fingerprint)
 		if err == nil {
 			var out []byte
-			if out, err = PatchList(body, revision, changes); err == nil {
+			if out, err = PatchList(body, revision, changes, added); err == nil {
 				body = out
 				changed = t.served != m
 				t.served = m
@@ -297,6 +318,11 @@ func (t *Translator) File(objectID string) (path, md5 string, ok bool) {
 			return filepath.Join(t.buildsDir, m.ID, objectID+".assetbundle"), e.MD5, true
 		}
 	}
+	if b := t.banners; b != nil {
+		if e, found := b.Entries[objectID]; found {
+			return filepath.Join(t.bannersDir, b.ID, objectID+".assetbundle"), e.MD5, true
+		}
+	}
 	return "", "", false
 }
 
@@ -310,6 +336,12 @@ func (t *Translator) serveAsset(w http.ResponseWriter, r *http.Request, id strin
 	if m := t.served; m != nil {
 		if _, ok := m.Entries[id]; ok {
 			dir = filepath.Join(t.buildsDir, m.ID)
+		}
+	}
+	// A banner's object id names its bytes, so a game asking for it was given a list naming them.
+	if b := t.banners; dir == "" && b != nil {
+		if _, ok := b.Entries[id]; ok {
+			dir = filepath.Join(t.bannersDir, b.ID)
 		}
 	}
 	t.mu.Unlock()

@@ -142,12 +142,13 @@ func appendBytesField(b []byte, number int, v []byte) []byte {
 	return append(b, v...)
 }
 
-// PatchList returns list.bin with its revision set and the size, CRC and md5
-// of each entry in changes (by object id) replaced; every other byte is kept.
+// PatchList returns list.bin with its revision set, the size, CRC and md5 of
+// each entry in changes (by object id) replaced and the entries in added
+// (whole entries) after the others; every other byte is kept.
 //
 // It walks the list once without collecting its 200,000 entries: only the
 // object id of each entry is read, and only the changed ones are decoded.
-func PatchList(data []byte, revision uint64, changes map[string]Entry) ([]byte, error) {
+func PatchList(data []byte, revision uint64, changes map[string]Entry, added [][]byte) ([]byte, error) {
 	out := make([]byte, 0, len(data)+64)
 	found := map[string]bool{}
 	err := walkFields(data, func(f protoField) bool {
@@ -194,6 +195,9 @@ func PatchList(data []byte, revision uint64, changes map[string]Entry) ([]byte, 
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		return nil, fmt.Errorf("list.bin has no entry %s", strings.Join(missing, ", "))
+	}
+	for _, entry := range added {
+		out = appendBytesField(out, listBundleField, entry)
 	}
 	return out, nil
 }

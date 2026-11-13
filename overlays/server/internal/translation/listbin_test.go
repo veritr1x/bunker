@@ -57,7 +57,7 @@ func TestParseList(t *testing.T) {
 func TestPatchListChangesOnlyNamedEntries(t *testing.T) {
 	data, other := sampleList()
 	changed := Entry{ObjectID: "vqZsA7", Path: "text)en)ui", Size: 300, CRC: 7, MD5: "abababababababababababababababab"}
-	out, err := PatchList(data, 817, map[string]Entry{"vqZsA7": changed})
+	out, err := PatchList(data, 817, map[string]Entry{"vqZsA7": changed}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestPatchListChangesOnlyNamedEntries(t *testing.T) {
 
 func TestPatchListRevisionOnly(t *testing.T) {
 	data, _ := sampleList()
-	out, err := PatchList(data, 1818, nil)
+	out, err := PatchList(data, 1818, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestPatchListRevisionOnly(t *testing.T) {
 
 func TestPatchListUnknownID(t *testing.T) {
 	data, _ := sampleList()
-	if _, err := PatchList(data, 818, map[string]Entry{"nope00": {ObjectID: "nope00"}}); err == nil {
+	if _, err := PatchList(data, 818, map[string]Entry{"nope00": {ObjectID: "nope00"}}, nil); err == nil {
 		t.Fatal("no error")
 	}
 }
@@ -105,7 +105,7 @@ func BenchmarkPatchRealList(b *testing.B) {
 	changes := map[string]Entry{uiID: {ObjectID: uiID, Size: 300, CRC: 7, MD5: "abababababababababababababababab"}}
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := PatchList(data, 1817, changes); err != nil {
+		if _, err := PatchList(data, 1817, changes, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
