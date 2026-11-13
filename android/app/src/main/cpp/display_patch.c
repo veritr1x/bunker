@@ -430,6 +430,8 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (battle_mods_path[0] && battle_mods_init(game_symbol, bunker_log, battle_mods_path))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Battle mods: the game's IL2CPP API is missing; no battle mods");
+    else if (battle_mods_path[0] && battle_mods_ui_init(game_symbol, bunker_log))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "Battle mods: the game's IL2CPP API is missing; no MODS button");
     if (title_marker[0] && title_now_init(game_symbol, bunker_log, title_marker))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Title now: the game's IL2CPP API is missing; the next call returns to the title screen");
     uint32_t *snap = (uint32_t *)(base + game_rva(kSnapArrive.rva));

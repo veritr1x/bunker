@@ -517,6 +517,8 @@ void LTDisplayStart(NSString *toolsRoot) {
     NSString *battleMods = [documents stringByAppendingPathComponent:@"saves/battle_mods.conf"];
     if (battle_mods_init(IL2CPPSymbol, BattleModsLog, battleMods.fileSystemRepresentation))
         NSLog(@"[LunarTear] Battle mods: the game's IL2CPP API is missing; no battle mods");
+    else if (battle_mods_ui_init(IL2CPPSymbol, BattleModsLog))
+        NSLog(@"[LunarTear] Battle mods: the game's IL2CPP API is missing; no MODS button");
     if (bunker_button_init(IL2CPPSymbol, GameLog, LTOpenBunker))
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
