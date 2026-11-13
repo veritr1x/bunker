@@ -462,6 +462,64 @@ def apply_event_runs(toc, blob, changed, schemas):
         pm.apply_to_table(toc, blob, changed, n, lambda b, new=new: new)
 
 
+# The banner each run showed (scripts/event_banners.py): the final game data
+# keeps the last run's, which for a rerun says "Resurrected". chapters: base
+# chapter -> banner per run (None: the final one); home: home-screen banner
+# row -> the image its restored first run showed.
+EVENT_BANNERS = Path(__file__).with_name("event_banners.json")
+
+
+def event_banner_data():
+    try:
+        return json.loads(EVENT_BANNERS.read_text())
+    except FileNotFoundError:
+        return {}
+
+
+def event_banners(chapters, banners, banner_col):
+    """Gives each run's chapter row (chapter + n * COPY_STEP) the banner its run had."""
+    import msgpack
+    if not banners:
+        return chapters
+    out = []
+    for header, cells in _rows(chapters):
+        chapter = msgpack.unpackb(cells[0])
+        recorded = banners.get(str(chapter % COPY_STEP)) or []
+        n = chapter // COPY_STEP
+        if n < len(recorded) and recorded[n] is not None and banner_col < len(cells):
+            cells = list(cells)
+            cells[banner_col] = msgpack.packb(recorded[n])
+        out.append(header + b"".join(cells))
+    return _table(out)
+
+
+def home_banners(rows, home, name_col):
+    """Gives each home-screen banner row its restored run's image."""
+    import msgpack
+    if not home:
+        return rows
+    out = []
+    for header, cells in _rows(rows):
+        name = home.get(str(msgpack.unpackb(cells[0])))
+        if name and name_col < len(cells):
+            cells = list(cells)
+            cells[name_col] = msgpack.packb(name)
+        out.append(header + b"".join(cells))
+    return _table(out)
+
+
+def apply_event_banners(toc, blob, changed, schemas):
+    """Each run's chapter and home-screen banner as the run had them (event_banners)."""
+    from patcher import patch_masterdata as pm
+    data = event_banner_data()
+    if data.get("chapters") and "m_event_quest_chapter" in toc:
+        col = next(i for i, _, name in schemas["m_event_quest_chapter"][1] if name == "BannerAssetId")
+        pm.apply_to_table(toc, blob, changed, "m_event_quest_chapter", lambda b: event_banners(b, data["chapters"], col))
+    if data.get("home") and "m_mom_banner" in toc:
+        col = next(i for i, _, name in schemas["m_mom_banner"][1] if name == "BannerAssetName")
+        pm.apply_to_table(toc, blob, changed, "m_mom_banner", lambda b: home_banners(b, data["home"], col))
+
+
 def copy_chapter_rows(blob, copies):
     """Adds a row for each chapter copy to a table keyed by event chapter (first column)."""
     import msgpack
@@ -829,6 +887,7 @@ def build_master(origin, output, offset, view=False, open_chapters=None):
     changed = {}
     restore_history(toc, blob, changed, schemas)
     apply_event_runs(toc, blob, changed, schemas)
+    apply_event_banners(toc, blob, changed, schemas)
     open_exchanges(toc, blob, changed, schemas)
     moved = 0
     for table in ROTATING:
@@ -905,13 +964,14 @@ def view_file():
 # Bumped when the copy's build changes, so a copy built before is rebuilt
 # (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
 # story chapters on their dates; 5 replays each event run with its own exchange;
-# 6 has daily missions from launch (daily set 21-26's first run).
-VIEW_VERSION = "6"
+# 6 has daily missions from launch (daily set 21-26's first run); 7 shows each run's own banner.
+VIEW_VERSION = "7"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
 # (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat);
 # 4 replays each event run with its own exchange, medal and quests (event_runs.json);
-# 5 has daily missions from launch (daily set 21-26's first run, calendar_history.json).
-DATA_VERSION = 5
+# 5 has daily missions from launch (daily set 21-26's first run, calendar_history.json);
+# 6 shows each event run's own banner (event_banners.json).
+DATA_VERSION = 6
 
 
 def view_version_file():

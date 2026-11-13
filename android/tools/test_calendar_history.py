@@ -404,6 +404,57 @@ class BannerRuns(unittest.TestCase):
         self.assertIs(cal.history_spec("m_tip", spec), spec)
 
 
+class EventBanners(unittest.TestCase):
+    """Each run shows the banner it had (event_banners.json): Sunset Port's
+    first run banner 509, not its rerun's 535."""
+
+    def chapters(self):
+        # EventQuestChapterId, Type, SortOrder, Name, BannerAssetId
+        return table(row(509, 1, 0, 509, 535), row(509 + cal.COPY_STEP, 1, 0, 509, 535),
+                     row(509 + 2 * cal.COPY_STEP, 1, 0, 509, 535), row(600, 1, 0, 600, 600))
+
+    def test_each_run_shows_its_own_banner(self):
+        out = cells(cal.event_banners(self.chapters(), {"509": [509, 520, None]}, banner_col=4))
+        self.assertEqual([(c[0], c[4]) for c in out], [(509, 509), (509 + cal.COPY_STEP, 520), (509 + 2 * cal.COPY_STEP, 535), (600, 600)])
+
+    def test_a_run_past_the_recorded_ones_keeps_the_final_banner(self):
+        out = cells(cal.event_banners(self.chapters(), {"509": [509]}, banner_col=4))
+        self.assertEqual([c[4] for c in out], [509, 535, 535, 600])
+
+    def test_without_banner_data_nothing_changes(self):
+        self.assertEqual(cal.event_banners(self.chapters(), {}, banner_col=4), self.chapters())
+
+    def test_a_home_banner_shows_its_first_runs_image(self):
+        # MomBannerId, SortOrderDesc, DestinationDomainType, DestinationDomainId, BannerAssetName
+        home = table(row(107, 1, 23, 269, "event_mom_banner_512"), row(22, 1, 23, 289, "event_mom_banner_512"))
+        out = cells(cal.home_banners(home, {"107": "event_mom_banner_520"}, name_col=4))
+        self.assertEqual([(c[0], c[3], c[4]) for c in out], [(107, 269, "event_mom_banner_520"), (22, 289, "event_mom_banner_512")])
+
+    def test_a_calendar_in_use_is_rebuilt(self):
+        """Calendars built before each run had its own banner are rebuilt on update."""
+        self.assertGreaterEqual(cal.DATA_VERSION, 6)
+        self.assertGreaterEqual(int(cal.VIEW_VERSION), 7)
+
+
+@unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")
+class EventBannersInTheGameData(unittest.TestCase):
+    def test_every_run_shows_its_recorded_banner(self):
+        import tempfile
+        from tools import dump_masterdata
+        with tempfile.TemporaryDirectory() as work:
+            out = Path(work) / "loop.bin.e"
+            cal.build_master(ORIGINAL, out, 0)
+            toc, blob = cal.read_master(out)
+        schemas = dump_masterdata.load_schemas()
+        shown = dict(cal._read(toc, blob, {}, schemas, "m_event_quest_chapter", "EventQuestChapterId", "BannerAssetId"))
+        recorded = json.loads(cal.EVENT_BANNERS.read_text())["chapters"]
+        self.assertEqual((shown[509], shown[510], shown[510 + 2 * cal.COPY_STEP]), (509, 510, 559))  # Sunset Port, Cage: first runs, Cage's last
+        for chapter, banners in recorded.items():
+            for n, banner in enumerate(banners):
+                if banner is not None and int(chapter) + n * cal.COPY_STEP in shown:
+                    self.assertEqual(shown[int(chapter) + n * cal.COPY_STEP], banner, f"chapter {chapter} run {n}")
+
+
 if __name__ == "__main__":
     unittest.main()
 
