@@ -38,14 +38,9 @@ import calendar_history as ch
 import event_banners as eb
 
 TRANSLATIONS = ch.ROOT / "translations/game"
-MEDAL = 6  # PossessionType of an event's medal: consumable item 110000 + id
 NOT_EVENTS = ("Character Quest", "Dark Memory", "Dungeon")
 KINDS = (("campaign_", "Campaign"), ("mission_", "Missions"), ("main_quest_", "Main Story"), ("big_hunt_", "Subjugation"))
 STAMP = (2026, 11, 14, 0, 0, 0)
-
-
-def medal_item(possession_type, possession_id):
-    return 110000 + possession_id if possession_type == MEDAL else None
 
 
 def kind(banner_name):

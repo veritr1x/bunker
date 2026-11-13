@@ -27,8 +27,27 @@ from deckbuilder.tables import Tables  # noqa: E402
 
 TEXTS = ROOT / "translations/game"
 COSTUME, WEAPON, MEDAL = 1, 2, 6  # PossessionType
-SHOP_TABLES = ("m_shop", "m_shop_item", "m_shop_item_cell", "m_shop_item_cell_group", "m_shop_item_content_possession")
+SHOP_TABLES = ("m_consumable_item", "m_shop", "m_shop_item", "m_shop_item_cell", "m_shop_item_cell_group", "m_shop_item_content_possession")
 HP, ATK, VIT, AGI = P.HP, P.ATK, P.VIT, P.AGI
+
+
+def item_key(rows, item_id):
+    """An item's text and image key (its asset category and variation: "110019"), or None.
+    rows: m_consumable_item of the item's time, by id."""
+    row = rows.get(item_id)
+    return f"{row['AssetCategoryId']}{row['AssetVariationId']:03d}" if row else None
+
+
+def item_name(texts, key):
+    return texts.get(f"consumable_item.name.{key}", "")
+
+
+def icon_keys(texts, key):
+    """The keys to look for an item's icon under: its own, then other items of the same name (a rerun's
+    medal reuses the first run's icon, so a lost one is the same image)."""
+    name = item_name(texts, key)
+    same = sorted(k.rsplit(".", 1)[1] for k, v in texts.items() if k.startswith("consumable_item.name.") and v == name and name)
+    return [key] + [k for k in same if k != key]
 
 
 class Images:
@@ -246,9 +265,13 @@ class Facts:
         asset = f"ch{c['ActorSkeletonId']:03d}{c['AssetVariationId']:03d}"
         return self.images.img(f"ui/costume/{asset}/{asset}_standard")
 
-    def consumable_icon(self, item_id):
-        base = f"ui/consumable_item/consumable{item_id}/consumable{item_id}"
-        return self.images.img(base + "_icon") or self.images.img(base + "_standard")
+    def consumable_icon(self, key):
+        for k in icon_keys(self.text, key):
+            base = f"ui/consumable_item/consumable{k}/consumable{k}"
+            icon = self.images.img(base + "_icon") or self.images.img(base + "_standard")
+            if icon:
+                return icon
+        return None
 
     # -- one run -----------------------------------------------------------------------
     def event(self, chapter, run):
@@ -263,17 +286,23 @@ class Facts:
         view = er.run_view(t, chapter) or {}
         facts = {"name": name, "family": family, "start": start, "end": end, "crossover": name in self.crossovers}
         link = view.get("link_row") or {}
-        medal_id = 110000 + link["possession_id"] if link.get("possession_type") == MEDAL else None
-        if medal_id:
+        items = {r["ConsumableItemId"]: r for r in t.get("m_consumable_item", [])}
+        self._items = items
+        medal_id = link["possession_id"] if link.get("possession_type") == MEDAL else None
+        key = item_key(items, medal_id) if medal_id else None
+        if key:
             # The notices name a tiered medal by its family: "Happy Home Medals", not "Bronze Happy Home Medals".
-            medal_name = re.sub(r"^(Bronze|Silver|Gold) ", "", self.text.get(f"consumable_item.name.{medal_id}", ""))
-            facts["medal"] = {"id": medal_id, "name": medal_name, "plural": medal_name + "s", "icon": self.consumable_icon(medal_id)}
+            medal_name = re.sub(r"^(Bronze|Silver|Gold) ", "", item_name(self.text, key))
+            facts["medal"] = {"id": medal_id, "name": medal_name, "plural": medal_name + "s", "icon": self.consumable_icon(key)}
             shop = next((s for s in t["m_shop"] if s["ShopId"] == link.get("shop")), None)
             if shop:
                 facts["exchange"] = self.text.get(f"shop.name.{shop['NameShopTextId']}", "")
                 facts["exclusive"] = self.exclusive(t, shop)
         if family == "variation":
             facts["summons_name"] = name.removeprefix("Variation: ")
+            if facts.get("medal"):  # its currency is a tiered summon ticket, named by the event as officially
+                ticket = facts["summons_name"] + " Summon Ticket"
+                facts["medal"].update(name=ticket, plural=ticket + "s")
         facts["weapon_bonus"], facts["costume_bonus"] = self.bonuses(view, medal_id)
         return facts
 
@@ -307,9 +336,11 @@ class Facts:
                     by_lb = rules.setdefault((kind, who), {}).setdefault(item, {})
                     by_lb[lower] = max(by_lb.get(lower, 0), n)
         weapons, costumes, seen = [], [], set()
+        items = getattr(self, "_items", {})
         for (kind, who), medals in sorted(rules.items(), key=lambda kv: kv[0][1]):
             values = max(([m.get(lb, 0) for lb in range(5)] for m in medals.values()), key=lambda v: v[-1])
-            icons = tuple(i for i in (self.consumable_icon(110000 + item) for item in sorted(medals)) if i)
+            keys = [item_key(items, item) for item in sorted(medals)]
+            icons = tuple(i for i in (self.consumable_icon(k) for k in keys if k) if i)
             if kind == "weapon" and who in self.m.idx("Weapon", "WeaponId"):
                 name = self.weapon_name(who)  # a weapon and its evolution share a name and a row
                 if ("w", name) not in seen:

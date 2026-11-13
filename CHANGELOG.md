@@ -24,6 +24,20 @@ under its heading, down to the previous release.
   from the player's own game files, with the home screen's 2021 strip, which
   was never redrawn either.
 
+### Notices
+- With the Original calendar, home-screen banners from July 2021 to August
+  2022 opened "This notice isn't available.": the notice pack has few
+  announcements from then, and the banners' notice numbers were reused later
+  (one opened Seat of Shadow's from The Cage of Reincarnation's banner). Each
+  of these 83 banners now opens a notice of its own, rebuilt from the game
+  data in the layout and wording of the official notices of its kind: an
+  event's duration, medal and exchange, the exchange's character and weapon
+  with their stats, skills and abilities at maximum level, and its resonant
+  weapons with their extra medals by ascension. The facts were checked against
+  the official notices that survive (`scripts/check_event_notices.py`); the
+  pages say they were rebuilt. Notice pack 6 carries them
+  (`scripts/build_event_notices.py`).
+
 ### Releases
 - A release lists one notice pack, for launchers from 1.4 on. Launchers before
   1.4 accepted only part of it, so releases carried a second, smaller copy;

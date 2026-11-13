@@ -58,6 +58,25 @@ class ComingSoon(unittest.TestCase):
         self.assertIn("will be available starting Jul. 29 at 14:00 PST", n["body"])
 
 
+class Items(unittest.TestCase):
+    """Possession type 6 names an item by its id; its name and icon follow its asset ids."""
+
+    def test_an_item_is_named_by_its_asset(self):
+        import event_notice_facts as F
+        rows = {12: {"ConsumableItemId": 12, "AssetCategoryId": 110, "AssetVariationId": 19}}
+        texts = {"consumable_item.name.110019": "City of Discontent Medal"}
+        self.assertEqual(F.item_key(rows, 12), "110019")
+        self.assertEqual(F.item_name(texts, "110019"), "City of Discontent Medal")
+        self.assertIsNone(F.item_key(rows, 13))
+
+    def test_a_lost_icon_is_the_same_named_items(self):
+        import event_notice_facts as F
+        texts = {"consumable_item.name.110045": "Bronze Seat of Shadow Medal",
+                 "consumable_item.name.110218": "Bronze Seat of Shadow Medal",
+                 "consumable_item.name.110219": "Silver Seat of Shadow Medal"}
+        self.assertEqual(F.icon_keys(texts, "110045"), ["110045", "110218"])
+
+
 class Exclusive(unittest.TestCase):
     def test_how_to_play_names_the_exclusive_character(self):
         import event_notice_pages as pages
@@ -90,10 +109,6 @@ class Events(unittest.TestCase):
     def test_a_later_run_is_found_by_its_index(self):
         runs = {509: [(1, 2), (JUL28, SEP8)]}
         self.assertEqual(ben.event_at(JUL28, runs, {509: "Record: Sunset Port"}), (509, 1))
-
-    def test_medals(self):
-        self.assertEqual(ben.medal_item(6, 25), 110025)
-        self.assertIsNone(ben.medal_item(1, 25))
 
 
 class Art(unittest.TestCase):
