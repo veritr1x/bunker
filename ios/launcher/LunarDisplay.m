@@ -62,6 +62,7 @@
 #include "bunker_button.h"
 #include "title_now.h"
 #include "roulette_ads.h"
+#include "battle_mods.h"
 
 typedef struct { void *pointer; } LTMethod;  // Il2Cpp MethodInfo starts with its code pointer.
 
@@ -460,6 +461,12 @@ void LTOpenBunker(void);  // LunarLauncher.m
 static void GameLog(const char *message) { NSLog(@"[LunarTear] %s", message); }
 
 void LTUpscaleStart(void);  // LunarUpscale.m
+void LTDisplayLog(NSString *line);  // LunarWindow.m
+/** Battle mods' lines: the device log and the Lunar Tear log, so an exported log has them. */
+static void BattleModsLog(const char *message) {
+    NSLog(@"[LunarTear] %s", message);
+    LTDisplayLog([NSString stringWithUTF8String:message]);
+}
 
 void LTDisplayStart(NSString *toolsRoot) {
     gStatusPath = [toolsRoot stringByAppendingPathComponent:@"display.status"];
@@ -507,6 +514,9 @@ void LTDisplayStart(NSString *toolsRoot) {
     NSString *marker = [documents stringByAppendingPathComponent:@"saves/title.now"];  // gSaves: Lunar Tear writes it
     if (title_now_init(IL2CPPSymbol, GameLog, marker.fileSystemRepresentation))
         NSLog(@"[LunarTear] Title now: the game's IL2CPP API is missing; the next call returns to the title screen");
+    NSString *battleMods = [documents stringByAppendingPathComponent:@"saves/battle_mods.conf"];
+    if (battle_mods_init(IL2CPPSymbol, BattleModsLog, battleMods.fileSystemRepresentation))
+        NSLog(@"[LunarTear] Battle mods: the game's IL2CPP API is missing; no battle mods");
     if (bunker_button_init(IL2CPPSymbol, GameLog, LTOpenBunker))
         NSLog(@"[LunarTear] Bunker button: the game's IL2CPP API is missing; no button in the top row");
     if (gFps && (gFlyingMom = flying_mom_init(IL2CPPSymbol, GameLog)))
