@@ -67,9 +67,10 @@ class MakeTests(unittest.TestCase):
         self.assertEqual((self.out / name).read_bytes(), pack.read_bytes())
         self.assertNotIn("noticePack", update["assets"])  # no web app: one pack for every launcher
 
-    def test_a_pack_with_the_web_app_also_comes_without_it(self):
+    def test_a_pack_with_the_web_app_goes_only_to_launchers_that_take_it(self):
         # Launchers before 1.4 accept only notices.json and img/ in the pack they
         # update with ("notices"); 1.4 and later take the whole pack ("noticePack").
+        # One file: an older launcher finds no "notices" and keeps the pack it has.
         pack = self.work / "bunker-notices.zip"
         with zipfile.ZipFile(pack, "w") as z:
             z.writestr("notices.json", "{}")
@@ -79,11 +80,8 @@ class MakeTests(unittest.TestCase):
         full = update["assets"]["noticePack"]
         self.assertEqual(full["sha256"], sha256(pack))
         self.assertEqual((self.out / full["name"]).read_bytes(), pack.read_bytes())
-        legacy = update["assets"]["notices"]
-        with zipfile.ZipFile(self.out / legacy["name"]) as z:
-            self.assertEqual(sorted(z.namelist()), ["img/a.webp", "notices.json"])
-        self.assertEqual(legacy["sha256"], sha256(self.out / legacy["name"]))
-        self.assertNotEqual(legacy["name"], full["name"])
+        self.assertNotIn("notices", update["assets"])
+        self.assertEqual(sorted(p.name for p in self.out.glob("bunker-notices-*.zip")), [full["name"]])
 
     def test_refuses_master_data(self):
         (self.framework / "20240404193219.bin.e").write_text("master")
