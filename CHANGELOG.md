@@ -4,6 +4,15 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.0 (2026-11-13)
+
+Battle mods in the Arena, and game files from a link. Arena battles have a
+**MODS** button that opens **BATTLE MODS**, the game's own dialog, with No
+death, One hit and Zero cooldown: each applies at once, mid-battle too, and the
+choices are kept. Pod Programs › Players sets a player's Arena points. The game
+files can come straight from a link to the resource dump, downloading only what
+the game uses, and game files built for the other platform are refused.
+
 ## 2026-11-13
 
 ### Arena
