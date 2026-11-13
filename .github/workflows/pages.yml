@@ -41,7 +41,7 @@ jobs:
           cache-dependency-path: |
             scripts/requirements-notices.txt
             scripts/requirements-web-tests.txt
-      - run: python3 -m pip install pycryptodome msgpack lz4 fonttools==4.56.0 fastapi==0.115.14 jinja2==3.1.6 -r scripts/requirements-notices.txt -r scripts/requirements-web-tests.txt
+      - run: python3 -m pip install pycryptodome msgpack lz4 fonttools==4.56.0 fastapi==0.115.14 jinja2==3.1.6 python-multipart==0.0.20 -r scripts/requirements-notices.txt -r scripts/requirements-web-tests.txt
       # Chromium for the Deck Builder page tests, kept by Playwright's pin.
       - uses: actions/cache@v6
         with:
