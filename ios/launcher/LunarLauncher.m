@@ -1168,6 +1168,12 @@ static BOOL UpdatesEnabled(void) {
     NSNumber *on = [NSUserDefaults.standardUserDefaults objectForKey:@"BunkerCheckUpdates"];
     return on ? on.boolValue : YES;
 }
+// ⋮ → Auto deploy, as on Android. Off, the menu opens over the game at each
+// launch until DEPLOY; Lunar Tear still starts first, as it must before Unity.
+static BOOL AutoDeploy(void) {
+    NSNumber *on = [NSUserDefaults.standardUserDefaults objectForKey:@"BunkerAutoDeploy"];
+    return on ? on.boolValue : YES;
+}
 static NSString *SkippedVersion(void) { return [NSUserDefaults.standardUserDefaults stringForKey:@"BunkerSkippedVersion"] ?: @""; }
 static void SetSkippedVersion(NSString *version) { [NSUserDefaults.standardUserDefaults setObject:version forKey:@"BunkerSkippedVersion"]; }
 
@@ -1709,6 +1715,12 @@ static const CGFloat kInfoSize = 18;
     UIAction *log = item(T(@"launcher.menu.log"), @"doc.text", YES, ^{ [weakSelf showLog]; });
     UIAction *exportLog = item(T(@"launcher.menu.export_log"), @"square.and.arrow.up.on.square", YES, ^{ [weakSelf exportLogs]; });
     UIAction *check = item(T(@"launcher.menu.check"), @"checkmark.shield", running, ^{ [weakSelf checkServer]; });
+    UIAction *autoDeploy = item(AutoDeploy() ? T(@"launcher.menu.auto_deploy_on") : T(@"launcher.menu.auto_deploy_off"), @"bolt.circle", YES, ^{
+        BOOL on = !AutoDeploy();
+        [NSUserDefaults.standardUserDefaults setBool:on forKey:@"BunkerAutoDeploy"];
+        gMessage = on ? Said(@"launcher.menu.auto_deploy_on_toast") : Said(@"launcher.menu.auto_deploy_off_toast");
+        [weakSelf refresh];
+    });
     NSMutableArray<UIAction *> *modes = [NSMutableArray array];
     for (NSArray *m in @[@[@"system", T(@"launcher.display.system"), @"circle.lefthalf.filled"], @[@"light", T(@"launcher.display.light"), @"sun.max"], @[@"dark", T(@"launcher.display.dark"), @"moon"]]) {
         NSString *mode = m[0];
@@ -1735,7 +1747,7 @@ static const CGFloat kInfoSize = 18;
     UIAction *help = item(T(@"launcher.menu.help"), @"questionmark.circle", YES, ^{ [weakSelf help]; });
     UIAction *about = item(T(@"launcher.menu.about"), @"info.circle", YES, ^{ [weakSelf about]; });
     return [UIMenu menuWithTitle:@"" children:@[
-        [UIMenu menuWithTitle:TUpper(T(@"launcher.main.lunar_tear")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check]],
+        [UIMenu menuWithTitle:TUpper(T(@"launcher.main.lunar_tear")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[server, check, autoDeploy]],
         [UIMenu menuWithTitle:TUpper(T(@"launcher.menu.data")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[master, backup, restore]],
         [UIMenu menuWithTitle:TUpper(T(@"launcher.menu.support")) image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[log, exportLog, display, updates, checkNow, settings, help, about]],
     ]];
@@ -2649,6 +2661,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         // up to this build before the server starts; the launcher shows meanwhile.
         BOOL updateData = LTToolsAvailable() && LTDataNeedsUpdate(gSaves, ToolsRoot(), BunkerVersion());
         if (updateData) { gOpenMenu = YES; gMessage = Said(@"launcher.ios.main.updating_data"); }
+        if (!AutoDeploy()) gOpenMenu = YES;
         NSString *originalMaster = [[NSBundle bundleForClass:LTLauncherViewController.class] pathForResource:@"original-master" ofType:@"bin.e"];
         dispatch_async(gQueue, ^{
             // Automation only, like LUNAR_IMPORT_FROM: import a save backup

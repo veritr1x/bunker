@@ -139,6 +139,10 @@ content presets, as on Android) is on the Bunker itself. Tap **⋮** for:
 
 - **Display**: light, dark or the system setting (the default).
 - **Stop Lunar Tear** or **Start Lunar Tear**, and **Check Lunar Tear**.
+- **Auto deploy**: on (the default), the game opens with the Bunker hidden. Off,
+  the Bunker opens over the game at each launch until you tap **Deploy**, as on
+  Android. Lunar Tear starts with the app either way: it has to be up before the
+  game starts.
 - **Import master data** replaces the bundled master-data file.
 - **Export save backup** saves `game.db`, `auth.db` and `auth.key` in a ZIP.
 - **Import save backup** restores such a ZIP, from iOS or Android, or a bare

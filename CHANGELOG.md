@@ -4,6 +4,19 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.2 (2026-11-14)
+
+Auto deploy on iPhone and iPad. ⋮ → Auto deploy works as on Android: turned
+off, the Bunker opens at each launch until you tap Deploy.
+
+## 2026-11-14 (after 1.12.1)
+
+### Bunker menu
+- Auto deploy on iPhone and iPad, in the ⋮ menu under Lunar Tear: on (the
+  default), the game opens with the Bunker hidden, as before; off, the Bunker
+  opens over the game at each launch until you tap Deploy. Lunar Tear starts
+  with the app either way, since it must be up before the game starts.
+
 ## 1.12.1 (2026-11-14)
 
 Battle mods in the Arena, and game files from a link. Arena battles have a

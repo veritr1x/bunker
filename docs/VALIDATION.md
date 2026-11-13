@@ -1,5 +1,12 @@
 # Validation
 
+## Launcher Auto deploy on iOS — 2026-11-14
+
+- iPad Pro (M4): ⋮ shows Auto deploy: On under Lunar Tear. Turned off, the
+  launcher said so; after the app was closed and opened again, the Bunker
+  opened over the game and Deploy went to the game. Turned on again, a
+  restart opened the game directly, as before.
+
 ## Arena battle mods and Pod Programs › Arena points — 2026-11-13
 
 - Host tests: the settings file and the per-frame rules (android/tools/test_battle_mods.py, 7 pass);

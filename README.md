@@ -16,8 +16,7 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
   airplane mode.
 - **The Bunker**, the launcher: imports the resource dump (`.7z`, `.zip` or an extracted folder,
   copied or used in place), starts Lunar Tear and opens the game, and checks that the game can
-  reach it. On Android, turn off ⋮ → Auto deploy to have it open on the launcher until you tap
-  Deploy.
+  reach it. Turn off ⋮ → Auto deploy to have it open on the launcher until you tap Deploy.
 - **Pod Programs**, on the device:
   - **Content patcher**: events and shops, with presets and rollback.
   - **Save data**: automatic snapshots, backups and restore.
@@ -184,7 +183,9 @@ import, the Lunar Tear log and its export, Auto deploy, Display (light/dark/syst
    (⌘B with a keyboard). Long-pressing the NieR icon on the Home Screen offers **Bunker menu**,
    which opens the launcher too.
 
-Tap **⋮** for Lunar Tear control, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about. **Open Pod Programs** and **Open Archive** are on the Bunker itself.
+Tap **⋮** for Lunar Tear control, Auto deploy, master-data import, save backup and restore, the Lunar Tear log and its export, Display (light/dark/system), help and about.
+With **Auto deploy** off, the launcher opens over the game at each launch until you tap **Deploy**;
+Lunar Tear still starts with the app. **Open Pod Programs** and **Open Archive** are on the Bunker itself.
 
 ## Play on a Mac
 
