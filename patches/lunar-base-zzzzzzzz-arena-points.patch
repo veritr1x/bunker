@@ -19,3 +19,38 @@ diff --git a/server/internal/lunarbase/main.go b/server/internal/lunarbase/main.
  	case "":
  		return 0, errors.New("action required")
  	default:
+diff --git a/android/app/src/main/python/web/routes/users.py b/android/app/src/main/python/web/routes/users.py
+--- a/android/app/src/main/python/web/routes/users.py
++++ b/android/app/src/main/python/web/routes/users.py
+@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
+ import bunker_text
+ from web import config
+ from web.services import userdata_service
++import android_arena  # Bunker: Pod Programs › Players › Arena points
+ 
+ router = APIRouter()
+ templates = Jinja2Templates(directory=str(config.ROOT / "web" / "templates"))
+@@ -65,5 +66,6 @@ def user_detail_view(
+             "message": message,
+             "error": error,
+             "u": detail,
++            "arena_points": android_arena.current_points(user_id),  # Bunker: Arena points
+         },
+     )
+diff --git a/android/app/src/main/python/web/templates/user_detail.html b/android/app/src/main/python/web/templates/user_detail.html
+--- a/android/app/src/main/python/web/templates/user_detail.html
++++ b/android/app/src/main/python/web/templates/user_detail.html
+@@ -30,6 +30,13 @@
+     <dt>{{ t("pods.player.name") }}</dt>          <dd>{% if u.name %}{{ u.name }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.player.unset") }}</span>{% endif %}</dd>
+     <dt>{{ t("pods.player.message") }}</dt>       <dd>{% if u.message %}{{ u.message }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.player.none") }}</span>{% endif %}</dd>
+     <dt>{{ t("pods.player.level_exp") }}</dt>   <dd>{{ u.level }} &nbsp; {{ t("pods.player.exp", exp=number(u.exp)) }}</dd>
++    <dt>{{ t("pods.player.arena_points") }}</dt>
++    <dd>
++      <form method="post" action="/users/{{ u.user_id }}/arena-points" style="display:inline-flex;gap:.5em;align-items:center;margin:0">
++        <input type="number" name="points" min="0" max="52000" step="1" value="{{ arena_points }}" required aria-label="{{ t("pods.player.arena_points") }}">
++        <button type="submit" class="button">{{ t("pods.player.arena_points_set") }}</button>
++      </form>
++    </dd>
+     <dt>{{ t("pods.player.registered") }}</dt>    <dd>{% if u.register_at %}{{ u.register_at.strftime("%Y-%m-%d") }} {{ u.register_at.strftime("%H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">&mdash;</span>{% endif %}</dd>
+     <dt>{{ t("pods.player.last_login") }}</dt>    <dd>{% if u.last_login_at %}{{ u.last_login_at.strftime("%Y-%m-%d") }} {{ u.last_login_at.strftime("%H:%M:%S") }}{% else %}<span style="color:var(--fg-mid)">{{ t("pods.users.never") }}</span>{% endif %}</dd>
+     <dt>{{ t("pods.player.total_logins") }}</dt>  <dd>{{ u.total_login_count }}</dd>

@@ -31,7 +31,7 @@ CONVERTED_PY: list[Path] = [ROOT / p for p in _CONVERTED["python"]]
 SOURCES = [*POD.glob("*.html"), *ARCHIVE.glob("*.html"), *PY.glob("android_*.py"),
            *(p for p in PY.glob("bunker_*.py") if p.name != "bunker_text.py"),
            *(PY / "archive").glob("*.py"), *(PY / "deckbuilder").glob("*.py"), ROOT / "ios/python/ios_runtime.py",
-           *(ROOT / "patches").glob("lunar-base-*texts*.patch")]
+           *(ROOT / "patches").glob("lunar-base-*.patch")]
 CALL = re.compile(r"\b(t_count|t_around|plural_forms|t)\(\s*[\"']([a-z0-9_.-]+)[\"']((?:[^()]|\([^()]*\))*)\)")
 FORMS = re.compile(r"\bplural_forms\(\s*[\"']([a-z0-9_.-]+)[\"']\s*\)")
 # The launchers' Java: Texts.t(context, "key", "name", value…), Texts.count(context, "key", n, "name", value…),

@@ -115,7 +115,8 @@ def adapt_services():
     # opens the save (backup_<time>_update.db: it keeps the newest three itself,
     # the ordinary retention leaves them alone); Pod Programs › Gift, Deck
     # Builder and Story Jump back the save up before each change
-    # (android_gift.send, android_deckbuilder.write, android_story.jump).
+    # (android_gift.send, android_deckbuilder.write, android_story.jump,
+    # android_arena.set_points).
     for reason in REASONS:
         if reason not in backup_service.VALID_REASONS:
             backup_service.VALID_REASONS = (*backup_service.VALID_REASONS, reason)
@@ -212,7 +213,7 @@ REASONS = {"manual": "pods.backup.reason.manual", "auto": "pods.backup.reason.au
            "upgrade-manager": "pods.backup.reason.upgrade_manager", "memoir-editor": "pods.backup.reason.memoir_editor",
            "pre-restore": "pods.backup.reason.pre_restore", "player-switch": "pods.backup.reason.player_switch",
            "update": "pods.backup.reason.update", "gift": "pods.backup.reason.gift", "deck builder": "pods.backup.reason.deck_builder",
-           "story jump": "pods.backup.reason.story_jump"}
+           "story jump": "pods.backup.reason.story_jump", "arena points": "pods.backup.reason.arena_points"}
 
 
 def reason_label(reason):
@@ -374,6 +375,7 @@ def create_app(token, origin):
     import android_mods
     import android_story
     import android_players
+    import android_arena
     app = base_app()
     app.include_router(router)
     import android_calendar
@@ -385,6 +387,7 @@ def create_app(token, origin):
     app.include_router(android_deckbuilder.router)
     app.include_router(android_mods.router)
     app.include_router(android_story.router)
+    app.include_router(android_arena.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.
     install_game_guard(app, lambda: game_live(), lambda: close_game())
