@@ -34,8 +34,8 @@ under its heading, down to the previous release.
   event's duration, medal and exchange, the exchange's character and weapon
   with their stats, skills and abilities at maximum level, and its resonant
   weapons with their extra medals by ascension. The facts were checked against
-  the official notices that survive (`scripts/check_event_notices.py`); the
-  pages say they were rebuilt. Notice pack 6 carries them
+  the official notices that survive (`scripts/check_event_notices.py`).
+  Notice pack 6 carries them
   (`scripts/build_event_notices.py`).
 
 ### Releases

@@ -22,17 +22,18 @@ class Pages(unittest.TestCase):
         self.assertEqual(n["title"], 'Crossover Quest "Record: The Cage of Reincarnation" On Now')
         self.assertEqual(n["thumb"], "ab" * 32)
         body = n["body"]
-        for text in ("rebuilt by Bunker", "Jul. 28 at 14:00 PST", "Jul. 28 14:00 - Sept. 8 13:59 PST",
+        for text in ("Hello, and thank you for playing NieR Re[in]carnation.<br /> <br /> The Crossover Quest", "Jul. 28 at 14:00 PST", "Jul. 28 14:00 - Sept. 8 13:59 PST",
                      "Automata Medals", "Automata Medal Exchange", "<h3>Duration</h3>", "<h3>How to Play Event Quests</h3>",
                      "<h3> Notes </h3>", "This event may reappear in the future."):
             self.assertIn(text, body)
         self.assertNotIn("message from the management team", body)
+        self.assertNotIn("rebuilt", body)
 
     def test_a_banner_without_an_event_says_what_it_advertised(self):
         n = ben.make_notice(28, "campaign_937", (JUL28, SEP8), None, None)
         self.assertEqual((n["type"], n["title"]), (1, "Campaign On Now"))
         self.assertNotIn("thumb", n)
-        self.assertIn("rebuilt by Bunker", n["body"])
+        self.assertNotIn("rebuilt", n["body"])
         self.assertNotIn("<img", n["body"])
 
     def test_names_are_escaped(self):

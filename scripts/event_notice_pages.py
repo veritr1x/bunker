@@ -12,8 +12,8 @@ one the official notices of the same kind use, with their most common wording:
   - other home banners (campaigns, missions, the main story)
 
 Crossover events are titled 'Crossover Quest "…"', as their official notices.
-The greeting's "This is a message from the management team." is the one line
-that differs: a rebuilt page says it was rebuilt. Panels show characters and
+The greeting leaves out "This is a message from the management team.": the
+pages are Bunker's. Panels show characters and
 weapons at maximum level, as the official notices' Notes say; their stats match
 the official panels' (check_event_notices.py).
 """
@@ -33,8 +33,7 @@ ELEMENT_ICONS = {1: "img/c_b12402cccf574a37.webp", 2: "img/c_fb981984ea24b7a2.we
                  5: "img/c_fe490143031299c8.webp", 6: "img/c_7f7a83c2cb5765ec.webp"}
 WEAPON_TYPE_ICONS = {1: "img/c_b083068f901a8b57.webp", 2: "img/c_b8e3c5fb2b078a74.webp", 3: "img/c_f77459725f786faf.webp",
                      4: "img/c_dcb5da0da8bf844c.webp", 5: "img/c_644a6aafb7c446e8.webp", 6: "img/c_95b1263ee5358523.webp"}
-GREETING = ('Hello, and thank you for playing NieR Re[in]carnation.<br /> This notice was rebuilt by Bunker from the game '
-            'data: the original announcement has not been recovered.<br /> <br /> ')
+GREETING = 'Hello, and thank you for playing NieR Re[in]carnation.<br /> <br /> '
 CLOSING = '<section> <br> <p> Thank you very much for your ongoing support for NieR Re[in]carnation. </p> </section>'
 
 
