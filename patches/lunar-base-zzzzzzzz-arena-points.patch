@@ -1,0 +1,21 @@
+diff --git a/server/internal/lunarbase/main.go b/server/internal/lunarbase/main.go
+--- a/server/internal/lunarbase/main.go
++++ b/server/internal/lunarbase/main.go
+@@ -176,6 +176,8 @@ type request struct {
+ 	Ranks []rankSpec `json:"ranks"`
+ 	// Pod Programs › Story Jump (bunker_story.go)
+ 	Story *storySpec `json:"story"`
++	// Pod Programs › Players › Arena points (bunker_arena_points.go)
++	ArenaPoints *int32 `json:"arena_points"`
+ }
+ 
+ type response struct {
+@@ -427,6 +429,8 @@ func run(raw []byte) (int, error) {
+ 		return runRankCharacters(&req)
+ 	case "story_jump": // Bunker: Pod Programs › Story Jump (bunker_story.go)
+ 		return runStoryJump(&req)
++	case "set_arena_points": // Bunker: Pod Programs › Players (bunker_arena_points.go)
++		return runSetArenaPoints(&req)
+ 	case "":
+ 		return 0, errors.New("action required")
+ 	default:
