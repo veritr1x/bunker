@@ -1,5 +1,34 @@
 # Validation
 
+## Arena battle mods and Pod Programs › Arena points — 2026-11-13
+
+- Host tests: the settings file and the per-frame rules (android/tools/test_battle_mods.py, 7 pass);
+  Pod Programs › Players › Arena points (test_arena_points.py, 5 pass, the real player page
+  rendered); the catalogue, player and text tests pass. Server Go tests: pvp SetPoint (enters the
+  season, out of range refused unchanged, best rank kept, no season refused) and the editing
+  shim's set_arena_points on the patched game data (52,000 points, rank 1) and on the original
+  data (every season ended: refused, save unchanged).
+- iPad Pro 11-inch (M4), iOS build: in Arena battles the engine found the battle with
+  FindObjectOfType(BattleContext) (TurnbaseFrameCounterController._instance stays null in the
+  Arena) and both teams (the player's party hash is 0 there; team 1 is taken as the player's,
+  as logged). With all three mods on, Arena battles were won in about 16 s (52,049 → 52,090
+  and on); HP showed 1,000,000,000; quests and other battles were left alone (logged "not an
+  Arena battle"). A first build without the team-1 fallback treated the player as the opponent
+  and lost one Arena battle (−70 points); fixed before any release.
+- iPad: MODS sits left of fast-forward in the battle HUD, plain frame, bright lettering. It
+  opens BATTLE MODS (the game's message dialog: a label and an ON or OFF button per mod, and
+  CLOSE). The battle pauses while it is open. Flips save to saves/battle_mods.conf at once;
+  No death switched off gave each character their own max HP back (726,425 / 421,632 /
+  657,729); after a restart the engine read the saved choices.
+- Android 16 emulator (bunker_api36), the same shared code: the engine read the settings at
+  start, recognised two Arena battles and won both (0 → 100 → 195 points, win streak 2); MODS
+  showed beside fast-forward; BATTLE MODS opened, One Hit flipped to OFF and the file followed.
+  The emulator's save was put back afterwards.
+- With No death on, a character's HP number keeps its old value until the character is hit
+  (the HUD redraws HP on damage).
+- Not checked: a Japanese build (the popup's Japanese words), an iPhone, and a battle ending or
+  the app going to the background with BATTLE MODS open.
+
 ## TV launch, black bars, updates by the new updater — 2026-11-09
 
 - iPad Pro 11-inch (M4), iPadOS 26.6, a TV on a cable (3008x1692 points),

@@ -4,6 +4,23 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-13
+
+### Arena
+- **Battle mods**: Arena battles have a **MODS** button beside fast-forward. It
+  opens **BATTLE MODS**, the game's own dialog, with **No death** (your
+  characters' HP is raised out of reach, and their own comes back when it is
+  switched off), **One hit** (opponents are held at 1 HP) and **Zero
+  cooldown** (your active skills stay ready). Each applies at once, mid-battle
+  too, and the battle pauses while the dialog is open. The choices are kept in
+  `battle_mods.conf` beside the saves, for later battles and after a restart.
+  Quests and every other battle are left as they are. No game code is changed:
+  the mods work through the game's own battle data, on Android and iOS alike.
+- **Pod Programs › Players › Arena points**: set a player's Arena points, 0 to
+  52,000 (rank 1). The save enters the current Arena season first, so the
+  points stay on the next Arena visit, and a snapshot is taken before each
+  change. The points earn the week's and season's rewards like any others.
+
 ## 2026-11-11
 
 ### Game files

@@ -21,7 +21,9 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
 - **Pod Programs**, on the device:
   - **Content patcher**: events and shops, with presets and rollback.
   - **Save data**: automatic snapshots, backups and restore.
-  - **Players**: choose which player the game signs in as, or start a new one.
+  - **Players**: choose which player the game signs in as, or start a new one, and set a
+    player's Arena points (0 to 52,000, rank 1 at the top). The points count for the week's
+    and season's rewards like any others.
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
   - **Summon rates**: the odds of the next summons.
   - **Gift**: send yourself anything the game can hold, from gems and summon tickets to
@@ -36,6 +38,12 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
     slow skills, for a reward bonus up to ×10. "Comfort" turns on the Comfort Mod's set and
     "Everything" every mod but the challenges. Most of the Comfort set comes from the
     [Lunar Tear Comfort Mod](https://github.com/NavHobbyDev/lunar-tear-comfort-mod) by NavHobbyDev.
+  - **Battle mods** (in the game, not Pod Programs): in Arena battles a **MODS** button beside
+    fast-forward opens **BATTLE MODS**, the game's own dialog, with No death (your characters
+    cannot be defeated), One hit (any hit defeats an opponent) and Zero cooldown (your skills
+    are always ready). Each takes effect at once, mid-battle too; the battle pauses while the
+    dialog is open. The choices are kept for later battles and after a restart. Other battles
+    are left as they are.
   - **Deck Builder**: decks for the Arena and for Subjugation, from what you own or with
     everything maxed. Each deck shows its characters and gear, why each piece was picked, the
     game's exact Force and its win rate; filter by element, strategy, effects and characters,
