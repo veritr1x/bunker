@@ -78,6 +78,66 @@ class Rules(unittest.TestCase):
         self.assertEqual(self.values(["battle_mods_is_filler(1234567890)", "battle_mods_is_filler(421632)"]), [1, 0])
 
 
+@unittest.skipUnless(shutil.which("cc"), "needs a C compiler")
+class PlayerSide(unittest.TestCase):
+    def values(self, calls):
+        out, _ = run(" ".join('printf("%%d ", %s);' % c for c in calls))
+        return [int(x) for x in out.split()]
+
+    def test_player_hp_touched_only_for_no_death_or_restore(self):
+        # With No death off the game owns max HP, unless No death's value is still there to undo.
+        self.assertEqual(self.values([
+            "battle_mods_player_touch(1, 421632)", "battle_mods_player_touch(0, 421632)",
+            "battle_mods_player_touch(0, BATTLE_MODS_HUGE_HP)", "battle_mods_player_touch(1, BATTLE_MODS_HUGE_HP)",
+        ]), [1, 0, 1, 1])
+
+    def test_same_party_needs_both_hashes(self):
+        # A hash the game did not give (absent) never matches, even when the stand-in values are equal.
+        self.assertEqual(self.values([
+            "battle_mods_same_party(1, 6, 1, 6)", "battle_mods_same_party(1, 6, 1, 1)",
+            "battle_mods_same_party(0, -1, 0, -1)", "battle_mods_same_party(1, 0, 0, 0)",
+        ]), [1, 0, 0, 0])
+
+
+@unittest.skipUnless(shutil.which("cc"), "needs a C compiler")
+class Popup(unittest.TestCase):
+    """The popup's life: opening, dressed once, open, and always let go of the battle's pause."""
+
+    def steps(self, script):
+        # script: (failed, same_battle, dialog_found, dialog_open, dressed_ok) per frame; prints action and state.
+        body = "BattleModsPopup p; battle_mods_popup_open(&p);"
+        for failed, same, found, still_open, ok in script:
+            body += ("{ int a = battle_mods_popup_step(&p, %d, %d, %d, %d);"
+                     " if (a == BATTLE_MODS_POPUP_DRESS) battle_mods_popup_dressed(&p, %d), a = p.state == BATTLE_MODS_POPUP_CLOSED"
+                     " ? BATTLE_MODS_POPUP_RELEASE : a;"
+                     " printf(\"%%d/%%d \", a, p.state); }") % (failed, same, found, still_open, ok)
+        out, _ = run(body)
+        return out.split()
+
+    def test_opens_dresses_once_and_releases_on_close(self):
+        D, R, K = "1", "2", "0"  # DRESS, RELEASE, KEEP
+        out = self.steps([(0, 1, 0, 0, 1), (0, 1, 1, 1, 1), (0, 1, 1, 1, 1), (0, 1, 1, 0, 1)])
+        self.assertEqual([a.split("/")[0] for a in out], [K, D, K, R])
+        self.assertEqual(out[-1].split("/")[1], "0")  # closed
+
+    def test_failed_dress_is_not_retried(self):
+        out = self.steps([(0, 1, 1, 1, 0), (0, 1, 1, 1, 1)])
+        self.assertEqual(out, ["2/0", "0/0"])  # released and closed once; nothing more to do
+
+    def test_ui_failure_while_open_releases(self):
+        out = self.steps([(0, 1, 1, 1, 1), (1, 1, 1, 1, 1)])
+        self.assertEqual(out[1], "2/0")
+
+    def test_another_battle_releases(self):
+        out = self.steps([(0, 1, 1, 1, 1), (0, 0, 1, 1, 1)])
+        self.assertEqual(out[1], "2/0")
+
+    def test_gives_up_after_ten_seconds(self):
+        out = self.steps([(0, 1, 0, 0, 1)] * 301)
+        self.assertEqual(out[-1], "2/0")
+        self.assertTrue(all(a == "0/1" for a in out[:-1]))
+
+
 def c_string(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r") + '"'
 

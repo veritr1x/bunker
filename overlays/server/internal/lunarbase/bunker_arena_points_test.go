@@ -55,7 +55,7 @@ func TestArenaPointsShim(t *testing.T) {
 	}
 
 	for _, tc := range []struct{ raw, want string }{
-		{`{"action":"set_arena_points",` + base + `,"arena_points":52001}`, "arena points must be 0–52000"},
+		{`{"action":"set_arena_points",` + base + `,"arena_points":1000000}`, "arena points must be 0–999999"},
 		{`{"action":"set_arena_points",` + base + `}`, "arena_points required"},
 	} {
 		if ok, msg := arenaReply(t, tc.raw); ok || msg != tc.want {

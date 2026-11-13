@@ -1612,7 +1612,7 @@
   "pods.player.add": "add",
   "pods.player.all_users": "All users",
   "pods.player.arena_points": "Arena points",
-  "pods.player.arena_points_range": "Arena points must be a whole number from 0 to 52,000.",
+  "pods.player.arena_points_range": "Arena points must be a whole number from 0 to 999,999.",
   "pods.player.arena_points_saved": "Arena points set to {points} (rank {rank}). Backup: {backup}",
   "pods.player.arena_points_set": "Set",
   "pods.player.back": "Back to user {id}",

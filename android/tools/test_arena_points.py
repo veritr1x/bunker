@@ -65,7 +65,7 @@ class ArenaPoints(unittest.TestCase):
         self.assertEqual(out, {"ok": True, "point": 52000, "rank": 1, "backup": "backup_x_arena points.db"})
 
     def test_out_of_range_refused_without_backup(self):
-        for points in (-1, 52001):
+        for points in (-1, 1000000):
             with self.assertRaises(self.arena.ArenaError):
                 self.arena.set_points(1, points)
         r = self.client().post("/users/1/arena-points", data={"points": "abc"}, follow_redirects=False)
@@ -79,6 +79,10 @@ class ArenaPoints(unittest.TestCase):
         make_save(self.dir / "empty.db", {})
         self.assertEqual(self.arena.current_points(1, db_path=self.dir / "empty.db"), 0)
         self.assertEqual(self.arena.current_points(1, db_path=self.dir / "missing.db"), 0)
+
+    def test_points_above_the_ladder_accepted(self):
+        out = self.arena.set_points(1, 52136)  # one win past 52,049 on the iPad
+        self.assertEqual(out["point"], 52136)
 
     def test_route_redirects_with_message(self):
         r = self.client().post("/users/1/arena-points", data={"points": "52000"}, follow_redirects=False)
@@ -105,7 +109,7 @@ class ArenaPoints(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text[:500])
         self.assertIn("Arena points", r.text)
         self.assertIn('action="/users/1/arena-points"', r.text)
-        self.assertIn('name="points" min="0" max="52000" step="1" value="1234"', r.text)
+        self.assertIn('name="points" min="0" max="999999" step="1" value="1234"', r.text)
 
 
 if __name__ == "__main__":

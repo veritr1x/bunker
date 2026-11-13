@@ -49,7 +49,7 @@ func TestSetPointEntersSeason(t *testing.T) {
 func TestSetPointRefusesOutOfRange(t *testing.T) {
 	start, now, far := pointsNow()
 	c := pointsCatalog(start, far)
-	for _, point := range []int32{-1, 52001} {
+	for _, point := range []int32{-1, 1000000} {
 		u := &store.UserState{UserId: 1}
 		before := u.Ext.Pvp.Clone()
 		if _, _, err := c.SetPoint(u, point, now); err == nil {
@@ -58,6 +58,18 @@ func TestSetPointRefusesOutOfRange(t *testing.T) {
 		if !reflect.DeepEqual(u.Ext.Pvp, before) {
 			t.Errorf("%d: the Arena state changed: %+v", point, u.Ext.Pvp)
 		}
+	}
+}
+
+// Points past the top computer player's are reached in normal play (one win from
+// 51,986 gave 52,049): they can be kept and set, and rank stays 1.
+func TestSetPointAboveTheLadder(t *testing.T) {
+	start, now, far := pointsNow()
+	c := pointsCatalog(start, far)
+	u := &store.UserState{UserId: 1}
+	_, rank, err := c.SetPoint(u, 999999, now)
+	if err != nil || rank != 1 || u.Ext.Pvp.Point != 999999 {
+		t.Fatalf("err %v rank %d point %d", err, rank, u.Ext.Pvp.Point)
 	}
 }
 

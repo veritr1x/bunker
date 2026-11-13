@@ -10,6 +10,8 @@ int battle_mods_init(void *(*resolve)(const char *name), void (*log)(const char 
 BattleMods battle_mods_get(void);
 /** Applies from the next frame and saves the settings file. Main thread. */
 void battle_mods_set(BattleMods mods);
+/** The live battle's BattleContext (held by the engine), or NULL. */
+void *battle_mods_context(void);
 /** 1 while an Arena battle runs and the mods can reach it. */
 int battle_mods_in_arena(void);
 /** Called each battle frame after the mods (battle_mods_ui.c), with the HUD's BattleSystemMenuPresenter. */

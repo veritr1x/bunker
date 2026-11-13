@@ -83,3 +83,38 @@ int battle_mods_player_hp(int no_death, int hp, int real_max) {
 int battle_mods_opponent_hp(int one_hit, int hp) { return one_hit && hp > 1 ? 1 : hp; }
 
 int battle_mods_cooltime(int zero_cooldown, int current, int max) { return zero_cooldown && max > 0 ? max : current; }
+
+int battle_mods_player_touch(int no_death, int max) { return no_death || max == BATTLE_MODS_HUGE_HP; }
+
+int battle_mods_same_party(int a_found, int a, int b_found, int b) { return a_found && b_found && a == b; }
+
+// Ten seconds at 30 frames a second for the game's dialog to appear.
+#define POPUP_OPENING_FRAMES 300
+
+void battle_mods_popup_open(BattleModsPopup *p) {
+    p->state = BATTLE_MODS_POPUP_OPENING;
+    p->frames = 0;
+    p->dress_tried = 0;
+}
+
+static int release(BattleModsPopup *p) {
+    p->state = BATTLE_MODS_POPUP_CLOSED;
+    return BATTLE_MODS_POPUP_RELEASE;
+}
+
+int battle_mods_popup_step(BattleModsPopup *p, int failed, int same_battle, int dialog_found, int dialog_open) {
+    if (p->state == BATTLE_MODS_POPUP_CLOSED) return BATTLE_MODS_POPUP_KEEP;
+    if (failed || !same_battle) return release(p);
+    if (p->state == BATTLE_MODS_POPUP_OPENING) {
+        if (dialog_found && !p->dress_tried) {
+            p->dress_tried = 1;
+            return BATTLE_MODS_POPUP_DRESS;
+        }
+        return ++p->frames > POPUP_OPENING_FRAMES ? release(p) : BATTLE_MODS_POPUP_KEEP;
+    }
+    return dialog_open ? BATTLE_MODS_POPUP_KEEP : release(p);
+}
+
+void battle_mods_popup_dressed(BattleModsPopup *p, int ok) {
+    p->state = ok ? BATTLE_MODS_POPUP_OPEN : BATTLE_MODS_POPUP_CLOSED;
+}

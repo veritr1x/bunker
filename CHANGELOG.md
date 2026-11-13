@@ -17,7 +17,7 @@ under its heading, down to the previous release.
   Quests and every other battle are left as they are. No game code is changed:
   the mods work through the game's own battle data, on Android and iOS alike.
 - **Pod Programs › Players › Arena points**: set a player's Arena points, 0 to
-  52,000 (rank 1). The save enters the current Arena season first, so the
+  999,999 (52,000 is rank 1). The save enters the current Arena season first, so the
   points stay on the next Arena visit, and a snapshot is taken before each
   change. The points earn the week's and season's rewards like any others.
 

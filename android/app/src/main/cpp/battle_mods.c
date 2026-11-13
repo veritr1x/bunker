@@ -199,6 +199,7 @@ static void *battle;            // its record, for this battle
 static int arena = -1;          // -1 not known yet
 static int sides_known;      // the player's party is found (or the fallback taken) for this battle
 static int32_t player_hash;  // the battle's CurrentPlayerDeckPartyHash
+static int player_hash_found; // the game gave one
 static int player_team;      // the fallback: the team whose id is 1 (the player's in every battle seen)
 static int hash_matched;     // a party had the player's hash
 static int frames_since_look;
@@ -227,6 +228,16 @@ static int32_t real_max_of(void *actor, int32_t max) {
     return 0;
 }
 
+/** Forgets the character's own max HP once it is given back: the game owns max HP again (buffs and all). */
+static void forget(void *actor) {
+    for (int i = 0; i < MAX_ACTORS; i++)
+        if (recorded[i].actor == actor) {
+            memmove(&recorded[i], &recorded[i + 1], sizeof recorded[0] * (size_t)(MAX_ACTORS - 1 - i));
+            memset(&recorded[MAX_ACTORS - 1], 0, sizeof recorded[0]);
+            return;
+        }
+}
+
 /** The live battle's record, or NULL; looked up at most every 30 frames while there is none. */
 static void *current_battle(void) {
     uint8_t *context = held ? il2cpp.gchandle_get_target(held) : NULL;
@@ -250,6 +261,8 @@ static void apply_player(void *actor, void *status) {
     void *args[] = {status};
     int32_t hp = unbox(call(game.hp, args), -1), max = unbox(call(game.max_hp, args), -1);
     if (hp < 0 || max <= 0 || battle_mods_is_filler(max)) return;
+    // Only while No death is on, or to give back the max it raised; otherwise the game owns HP.
+    if (!battle_mods_player_touch(mods.no_death, max)) return;
     // The own max is the one seen first, before No death raises it.
     int32_t real = real_max_of(actor, max);
     if (real <= 0) return;
@@ -257,6 +270,7 @@ static void apply_player(void *actor, void *status) {
     if (want_max != max) { void *a[] = {status, actor, &want_max}; call(game.set_max, a); }
     int32_t want_hp = battle_mods_player_hp(mods.no_death, hp, real);
     if (want_hp != hp) { void *a[] = {status, actor, &want_hp}; call(game.set_hp, a); }
+    if (!mods.no_death && !refused) forget(actor);
 }
 
 static void apply_cooldowns(void *actor) {
@@ -291,7 +305,9 @@ static void apply_opponent(void *actor, void *status) {
  * the team whose id is 1. Logs each team and party once per battle. -1 while the battle is not set up yet. */
 static int find_sides(void *record) {
     void *bargs[] = {record};
-    player_hash = id_of(call(game.player_party_hash, bargs), -1);
+    void *hash_object = call(game.player_party_hash, bargs);
+    player_hash_found = hash_object != NULL;
+    player_hash = id_of(hash_object, 0);
     uint8_t *teams;
     int team_count = wrapped_list(call(game.teams, bargs), &teams);
     if (refused || team_count < 2) return -1;
@@ -306,8 +322,9 @@ static int find_sides(void *record) {
         int party_count = wrapped_list(call(game.team_parties, targs), &parties);
         for (int p = 0; p < party_count && !refused; p++) {
             void *pargs[] = {item(parties, p)};
-            int32_t hash = pargs[0] ? id_of(call(game.party_hash, pargs), -1) : -1;
-            if (hash == player_hash) hash_matched = 1;
+            void *party_hash = pargs[0] ? call(game.party_hash, pargs) : NULL;
+            int32_t hash = id_of(party_hash, 0);
+            if (battle_mods_same_party(player_hash_found, player_hash, party_hash != NULL, hash)) hash_matched = 1;
             if (used < (int)sizeof line) used += snprintf(line + used, sizeof line - used, " team %d party %d", team, hash);
         }
     }
@@ -341,7 +358,8 @@ static void tick(void) {
         for (int p = 0; p < party_count && !refused; p++) {
             void *pargs[] = {item(parties, p)};
             if (!pargs[0]) continue;
-            int mine = hash_matched ? id_of(call(game.party_hash, pargs), -1) == player_hash
+            void *party_hash = hash_matched ? call(game.party_hash, pargs) : NULL;
+            int mine = hash_matched ? battle_mods_same_party(player_hash_found, player_hash, party_hash != NULL, id_of(party_hash, 0))
                                     : id_of(call(game.team_id, targs), -1) == player_team;
             uint8_t *actors;
             int actor_count = wrapped_list(call(game.party_actors, pargs), &actors);
@@ -360,6 +378,11 @@ static void tick(void) {
             }
         }
     }
+}
+
+void *battle_mods_context(void) {
+    uint8_t *context = held ? il2cpp.gchandle_get_target(held) : NULL;
+    return context && *(void **)(context + 16) ? context : NULL;
 }
 
 int battle_mods_in_arena(void) { return battle && arena == 1 && !refused; }

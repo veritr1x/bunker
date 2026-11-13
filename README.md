@@ -22,7 +22,7 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
   - **Content patcher**: events and shops, with presets and rollback.
   - **Save data**: automatic snapshots, backups and restore.
   - **Players**: choose which player the game signs in as, or start a new one, and set a
-    player's Arena points (0 to 52,000, rank 1 at the top). The points count for the week's
+    player's Arena points (0 to 999,999; 52,000 is rank 1). The points count for the week's
     and season's rewards like any others.
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
   - **Summon rates**: the odds of the next summons.

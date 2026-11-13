@@ -47,7 +47,7 @@ diff --git a/android/app/src/main/python/web/templates/user_detail.html b/androi
 +    <dt>{{ t("pods.player.arena_points") }}</dt>
 +    <dd>
 +      <form method="post" action="/users/{{ u.user_id }}/arena-points" style="display:inline-flex;gap:.5em;align-items:center;margin:0">
-+        <input type="number" name="points" min="0" max="52000" step="1" value="{{ arena_points }}" required aria-label="{{ t("pods.player.arena_points") }}">
++        <input type="number" name="points" min="0" max="999999" step="1" value="{{ arena_points }}" required aria-label="{{ t("pods.player.arena_points") }}">
 +        <button type="submit" class="button">{{ t("pods.player.arena_points_set") }}</button>
 +      </form>
 +    </dd>

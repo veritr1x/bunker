@@ -157,12 +157,11 @@ static const char *text(int id) {
 
 // --- The popup -------------------------------------------------------------------
 
-enum { CLOSED, OPENING, OPEN };
-static int popup = CLOSED;
-static int opening_frames;
-static uint32_t dialog;   // GC handle on the MessageDialogPresenter
+static BattleModsPopup popup;  // its life: battle_mods_settings.c, host-tested
+static uint32_t dialog;         // GC handle on the dressed MessageDialogPresenter
 static void *rows_on[3], *rows_off[3];  // each row's ON and OFF buttons (one shown; either is its tap target)
-static void *paused_game; // the BattleGame paused while the popup is open
+static uint32_t paused;         // GC handle on the BattleContext whose game the popup paused
+static uint8_t paused_before;   // BattleGame._paused as it was, given back on release
 
 static int *mod_of(BattleMods *mods, int row) {
     return row == 0 ? &mods->no_death : row == 1 ? &mods->one_hit : &mods->zero_cooldown;
@@ -188,20 +187,35 @@ static void row_tap(void *target, Method *m) {
     }
 }
 
-static void pause_battle(void *presenter_context, int pause) {
-    if (pause) {
-        void *game = presenter_context ? FIELD(presenter_context, f_game, void *) : NULL;
-        if (!game) return;
-        FIELD(game, f_paused, uint8_t) = 1;
-        paused_game = game;
-    } else if (paused_game) {
-        FIELD(paused_game, f_paused, uint8_t) = 0;
-        paused_game = NULL;
-    }
+/** Pauses the battle the engine holds; its context is held by a GC handle, so the game is only ever reached
+ * through a live context (BattleGame is a plain object). */
+static void pause_battle(void) {
+    void *context = battle_mods_context();
+    void *game = context ? FIELD(context, f_game, void *) : NULL;
+    if (!game) return;
+    paused = il2cpp.gchandle_new(context, 0);
+    paused_before = FIELD(game, f_paused, uint8_t);
+    FIELD(game, f_paused, uint8_t) = 1;
 }
 
-/** The battle's BattleContext, as battle_mods.c finds it. */
-static void *battle_context(void) { return call(m_find_object, NULL, (void *[]){type_of(k_context)}); }
+/** Lets go of the pause and of everything the popup held, whatever ended it. The game's own pause state is given back
+ * only to a battle that is still alive; a torn-down one is left alone. */
+static void release_popup(void) {
+    void *context = paused ? il2cpp.gchandle_get_target(paused) : NULL;
+    void *game = alive(context) ? FIELD(context, f_game, void *) : NULL;
+    if (game) FIELD(game, f_paused, uint8_t) = paused_before;
+    if (paused) il2cpp.gchandle_free(paused);
+    if (dialog) il2cpp.gchandle_free(dialog);
+    paused = dialog = 0;
+    memset(rows_on, 0, sizeof rows_on);
+    memset(rows_off, 0, sizeof rows_off);
+}
+
+/** Whether the battle the popup paused is still the one running. */
+static int same_battle(void) {
+    void *context = paused ? il2cpp.gchandle_get_target(paused) : NULL;
+    return context && context == battle_mods_context();
+}
 
 /** Turns the open message dialog into BATTLE MODS; 1 when done. */
 /** A copy of a UI GameObject under parent, named and shown; its RectTransform, or NULL. */
@@ -287,7 +301,7 @@ static int dress_dialog(void *presenter) {
 
 static void open_popup(void *target, Method *m) {
     (void)target, (void)m;
-    if (popup != CLOSED || !battle_mods_in_arena()) return;
+    if (popup.state != BATTLE_MODS_POPUP_CLOSED || !battle_mods_in_arena()) return;
     void *dialogs = call(m_dialogs, NULL, NULL);
     if (!dialogs) return;
     int size = 1;  // DialogSize.Medium
@@ -295,33 +309,35 @@ static void open_popup(void *target, Method *m) {
     call(m_show_dialog, dialogs, (void *[]){&size, il2cpp.string_new(text(T_TITLE)), il2cpp.string_new(" "),
                                            il2cpp.string_new(text(T_CLOSE)), NULL, &outside});  // opens over the next frames
     if (failed) return;
-    popup = OPENING;
-    opening_frames = 0;
-    pause_battle(battle_context(), 1);
+    pause_battle();
+    if (!paused) return;
+    battle_mods_popup_open(&popup);
 }
 
+/** One frame of the popup: dressed once when the game's dialog appears, watched until it closes, and the pause let go
+ * of however it ends (closed, the UI refused, another battle, or the dialog never came). */
 static void watch_popup(void) {
-    if (popup == OPENING) {
-        void *presenter = call(m_find_object, NULL, (void *[]){type_of(k_presenter)});
-        if (presenter && FIELD(presenter, f_frame, void *) && dress_dialog(presenter)) {
-            dialog = il2cpp.gchandle_new(presenter, 0);
-            popup = OPEN;
-        } else if (++opening_frames > 300 || failed) {  // 10 s at 30 fps: give up, the battle goes on
-            say("Battle mods: the popup did not open");
-            popup = CLOSED;
-            pause_battle(NULL, 0);
+    if (popup.state == BATTLE_MODS_POPUP_CLOSED) return;
+    void *presenter = NULL;
+    if (popup.state == BATTLE_MODS_POPUP_OPENING && !failed)
+        presenter = call(m_find_object, NULL, (void *[]){type_of(k_presenter)});
+    if (presenter && !FIELD(presenter, f_frame, void *)) presenter = NULL;
+    void *open = dialog ? il2cpp.gchandle_get_target(dialog) : NULL;
+    int still_open = alive(open) && !FIELD(open, f_is_close, uint8_t);
+    int action = battle_mods_popup_step(&popup, failed, same_battle(), presenter != NULL, still_open);
+    if (action == BATTLE_MODS_POPUP_DRESS) {
+        int ok = dress_dialog(presenter);
+        if (ok) dialog = il2cpp.gchandle_new(presenter, 0);
+        battle_mods_popup_dressed(&popup, ok);
+        if (!ok) {
+            say("Battle mods: the popup could not be built; the battle goes on");
+            action = BATTLE_MODS_POPUP_RELEASE;
         }
-        return;
     }
-    if (popup == OPEN) {
-        void *presenter = il2cpp.gchandle_get_target(dialog);
-        if (alive(presenter) && !FIELD(presenter, f_is_close, uint8_t)) return;
-        il2cpp.gchandle_free(dialog);
-        dialog = 0;
-        memset(rows_on, 0, sizeof rows_on);
-        memset(rows_off, 0, sizeof rows_off);
-        popup = CLOSED;
-        pause_battle(NULL, 0);
+    if (action == BATTLE_MODS_POPUP_RELEASE) {
+        if (!still_open && popup.state == BATTLE_MODS_POPUP_CLOSED && !dialog && !failed && !presenter)
+            say("Battle mods: the popup did not open");
+        release_popup();
     }
 }
 
@@ -419,6 +435,7 @@ static void follow(void) {
 }
 
 static void hud_frame(void *presenter) {
+    watch_popup();  // first, and even after a refusal: a paused battle is always let go of
     if (failed) return;
     void *made_for = hud ? il2cpp.gchandle_get_target(hud) : NULL;
     if (made_for != presenter || !alive(button_object)) {
@@ -429,7 +446,6 @@ static void hud_frame(void *presenter) {
         if (!button_object || failed) return;
     }
     follow();
-    watch_popup();
 }
 
 // --- Start-up ----------------------------------------------------------------------

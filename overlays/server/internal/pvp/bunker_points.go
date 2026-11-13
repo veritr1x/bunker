@@ -9,9 +9,10 @@ import (
 
 // Bunker: Pod Programs › Players › Arena points (lunarbase set_arena_points).
 
-// MaxPlayerPoint is the most Arena points a player can be given: the top
-// computer player's, so rank 1.
-const MaxPlayerPoint int32 = topPoint
+// MaxPlayerPoint is the most Arena points a player can be given. Points past
+// the top computer player's (topPoint, rank 1) are reached in normal play, so a
+// player's own points can always be kept; 999,999 is far above any of them.
+const MaxPlayerPoint int32 = 999999
 
 // SetPoint gives the player point Arena points in the season open at now.
 // The Arena sync runs first, so a save that has never been in this season

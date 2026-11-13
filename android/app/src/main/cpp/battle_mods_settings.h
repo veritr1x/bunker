@@ -33,4 +33,24 @@ int battle_mods_opponent_hp(int one_hit, int hp);
 /** A skill's cooldown, which counts up to max (ready): max while Zero cooldown is on. */
 int battle_mods_cooltime(int zero_cooldown, int current, int max);
 
+/** Whether a player character's HP is to be changed this frame: while No death is on, or to undo its raised max. */
+int battle_mods_player_touch(int no_death, int max);
+/** Two party hashes match only when the game gave both (an absent hash never matches, whatever stands in for it). */
+int battle_mods_same_party(int a_found, int a, int b_found, int b);
+
+// The BATTLE MODS popup's life (battle_mods_ui.c), kept here so the host tests cover it: it is opened, dressed once
+// when the game's dialog appears, open until that dialog closes, and the battle's pause is always let go of when
+// it ends, however it ends (closed, refused, another battle, or never shown).
+enum { BATTLE_MODS_POPUP_CLOSED, BATTLE_MODS_POPUP_OPENING, BATTLE_MODS_POPUP_OPEN };
+enum { BATTLE_MODS_POPUP_KEEP, BATTLE_MODS_POPUP_DRESS, BATTLE_MODS_POPUP_RELEASE };
+typedef struct { int state, frames, dress_tried; } BattleModsPopup;
+/** The popup was asked for: OPENING. */
+void battle_mods_popup_open(BattleModsPopup *p);
+/** One HUD frame: failed (the UI gave up), same_battle (the battle it paused is still the one running),
+ * dialog_found (the game's dialog is there), dialog_open (it has not closed). What to do: KEEP, DRESS (once), or
+ * RELEASE (let go of the pause; the popup is CLOSED). */
+int battle_mods_popup_step(BattleModsPopup *p, int failed, int same_battle, int dialog_found, int dialog_open);
+/** After DRESS: ok makes it OPEN; otherwise it is CLOSED and the caller lets go of the pause. */
+void battle_mods_popup_dressed(BattleModsPopup *p, int ok);
+
 #endif

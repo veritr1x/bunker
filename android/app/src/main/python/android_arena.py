@@ -21,8 +21,8 @@ from web import config
 
 router = APIRouter()
 
-# The top computer player's points (pvp.MaxPlayerPoint): rank 1.
-MAX_POINTS = 52000
+# pvp.MaxPlayerPoint. 52,000 (the top computer player's) is rank 1; players pass it in normal play.
+MAX_POINTS = 999999
 
 
 class ArenaError(Exception):
