@@ -537,7 +537,7 @@ article .status_icon{width:12px;margin-right:4px;vertical-align:-1px}
 .pickup_character-content > div,.pickup_weapon-content > div{display:flex;flex-wrap:wrap;gap:8px}
 .pickup_character-chara_image_area{position:relative;flex:0 1 336px}
 .pickup_character-status_area{flex:1 1 260px;min-width:0}
-.chara_image{background-repeat:no-repeat;background-position:0 100%;background-size:230px 213px}
+.chara_image{background-repeat:no-repeat;background-position:53px 100%;background-size:230px 213px}
 .pickup_character-chara_image_area{min-height:300px}
 .chara_profile{background:#b3b0a1;border:2px solid var(--line);color:var(--bar-ink);padding:2px 4px}
 .character_name{background:var(--line);color:#e6e2cf;padding:0 4px;margin:0 4px;font-size:11px}
