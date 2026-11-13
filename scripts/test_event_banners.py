@@ -57,6 +57,19 @@ class Recreated(unittest.TestCase):
         self.assertEqual(eb.with_recreated({}), {"512": [900]})
 
 
+class Notices(unittest.TestCase):
+    """A home banner whose notice the pack lacks opens a notice rebuilt for it."""
+    # MomBannerId -> (DestinationDomainType, DestinationDomainId, StartDatetime)
+    FINAL = {2: (23, 156, 4_000_000_000_000), 3: (23, 1057, 1), 4: (1, 156, 1), 5: (23, 12, 4_000_000_000_000), 6: (23, 7, 1)}
+
+    def test_restored_or_dated_rows_with_a_missing_notice(self):
+        out = eb.home_notices(self.FINAL, {"2": [[0, DAY]]}, pack_ids={1057})
+        self.assertEqual(out, {"2": eb.NOTICE_BASE + 2, "6": eb.NOTICE_BASE + 6})  # 5 stays parked; 4 opens no notice
+
+    def test_rows_the_calendar_leaves_parked_are_skipped(self):
+        self.assertEqual(eb.home_notices(self.FINAL, {"2": [[0, DAY]]}, pack_ids={1057}, unrestored={2}), {"6": eb.NOTICE_BASE + 6})
+
+
 class Pick(unittest.TestCase):
     def test_the_newest_master_before_the_time(self):
         self.assertEqual(eb.pick([10, 20, 30], 25), 20)

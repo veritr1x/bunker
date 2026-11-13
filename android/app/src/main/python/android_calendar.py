@@ -465,8 +465,10 @@ def apply_event_runs(toc, blob, changed, schemas):
 # The banner each run showed (scripts/event_banners.py): the final game data
 # keeps the last run's, which for a rerun says "Resurrected". chapters: base
 # chapter -> banner per run (None: the final one); home: home-screen banner
-# row -> the image its restored first run showed.
+# row -> the image its restored first run showed; notices: home-screen banner
+# row -> the notice rebuilt for it (the pack lacks its own; build_event_notices.py).
 EVENT_BANNERS = Path(__file__).with_name("event_banners.json")
+NOTICE_DESTINATION = 23  # a home banner's DestinationDomainType for a notice
 
 
 def event_banner_data():
@@ -508,6 +510,21 @@ def home_banners(rows, home, name_col):
     return _table(out)
 
 
+def home_notices(rows, notices, type_col, target_col):
+    """Points each home-screen banner whose notice was lost at the one rebuilt for it."""
+    import msgpack
+    if not notices:
+        return rows
+    out = []
+    for header, cells in _rows(rows):
+        notice = notices.get(str(msgpack.unpackb(cells[0])))
+        if notice and max(type_col, target_col) < len(cells):
+            cells = list(cells)
+            cells[type_col], cells[target_col] = msgpack.packb(NOTICE_DESTINATION), msgpack.packb(notice)
+        out.append(header + b"".join(cells))
+    return _table(out)
+
+
 def apply_event_banners(toc, blob, changed, schemas):
     """Each run's chapter and home-screen banner as the run had them (event_banners)."""
     from patcher import patch_masterdata as pm
@@ -515,9 +532,12 @@ def apply_event_banners(toc, blob, changed, schemas):
     if data.get("chapters") and "m_event_quest_chapter" in toc:
         col = next(i for i, _, name in schemas["m_event_quest_chapter"][1] if name == "BannerAssetId")
         pm.apply_to_table(toc, blob, changed, "m_event_quest_chapter", lambda b: event_banners(b, data["chapters"], col))
+    columns = {name: i for i, _, name in schemas["m_mom_banner"][1]} if "m_mom_banner" in schemas else {}
     if data.get("home") and "m_mom_banner" in toc:
-        col = next(i for i, _, name in schemas["m_mom_banner"][1] if name == "BannerAssetName")
-        pm.apply_to_table(toc, blob, changed, "m_mom_banner", lambda b: home_banners(b, data["home"], col))
+        pm.apply_to_table(toc, blob, changed, "m_mom_banner", lambda b: home_banners(b, data["home"], columns["BannerAssetName"]))
+    if data.get("notices") and "m_mom_banner" in toc:
+        pm.apply_to_table(toc, blob, changed, "m_mom_banner",
+                          lambda b: home_notices(b, data["notices"], columns["DestinationDomainType"], columns["DestinationDomainId"]))
 
 
 def copy_chapter_rows(blob, copies):
@@ -964,14 +984,16 @@ def view_file():
 # Bumped when the copy's build changes, so a copy built before is rebuilt
 # (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
 # story chapters on their dates; 5 replays each event run with its own exchange;
-# 6 has daily missions from launch (daily set 21-26's first run); 7 shows each run's own banner.
-VIEW_VERSION = "7"
+# 6 has daily missions from launch (daily set 21-26's first run); 7 shows each run's own banner;
+# 8 opens rebuilt notices from home banners whose notice was lost.
+VIEW_VERSION = "8"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
 # (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat);
 # 4 replays each event run with its own exchange, medal and quests (event_runs.json);
 # 5 has daily missions from launch (daily set 21-26's first run, calendar_history.json);
-# 6 shows each event run's own banner (event_banners.json).
-DATA_VERSION = 6
+# 6 shows each event run's own banner (event_banners.json); 7 opens rebuilt notices from home
+# banners whose notice was lost.
+DATA_VERSION = 7
 
 
 def view_version_file():

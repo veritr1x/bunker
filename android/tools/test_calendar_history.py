@@ -430,10 +430,19 @@ class EventBanners(unittest.TestCase):
         out = cells(cal.home_banners(home, {"107": "event_mom_banner_520"}, name_col=4))
         self.assertEqual([(c[0], c[3], c[4]) for c in out], [(107, 269, "event_mom_banner_520"), (22, 289, "event_mom_banner_512")])
 
+    def test_a_home_banner_whose_notice_is_lost_opens_its_rebuilt_one(self):
+        home = table(row(2, 1, 23, 156, "event_mom_banner_500"), row(22, 1, 23, 289, "event_mom_banner_512"))
+        out = cells(cal.home_notices(home, {"2": 1600000002}, type_col=2, target_col=3))
+        self.assertEqual([(c[0], c[2], c[3]) for c in out], [(2, 23, 1600000002), (22, 23, 289)])
+
+    def test_without_rebuilt_notices_nothing_changes(self):
+        home = table(row(2, 1, 23, 156, "event_mom_banner_500"))
+        self.assertEqual(cal.home_notices(home, {}, type_col=2, target_col=3), home)
+
     def test_a_calendar_in_use_is_rebuilt(self):
         """Calendars built before each run had its own banner are rebuilt on update."""
-        self.assertGreaterEqual(cal.DATA_VERSION, 6)
-        self.assertGreaterEqual(int(cal.VIEW_VERSION), 7)
+        self.assertGreaterEqual(cal.DATA_VERSION, 7)
+        self.assertGreaterEqual(int(cal.VIEW_VERSION), 8)
 
 
 @unittest.skipUnless(ORIGINAL.exists(), "needs inputs/20240404193219.bin.e")

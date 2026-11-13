@@ -12,6 +12,12 @@ restores a row's first run. A row the live game reused later shows the final
 row's image in that run; each restored row gets the image it had then (its
 destination stays: those ids point into tables that changed over the years).
 
+Home banners open a notice (destination 23, by id). The notice pack lacks
+most 2021-2022 announcements, and the final rows' ids were reassigned over
+the years (two events share 156), so each home banner the calendar shows whose
+notice the pack lacks opens one rebuilt for it from the game data,
+NOTICE_BASE + its row id (build_event_notices.py writes them; --pack).
+
 Only banners whose images the game files have are recorded (--list, the
 resource dump's list.bin): a run whose image is gone keeps the final one.
 Record: Garden of Benediction's first run is the exception: its banner, 512,
@@ -19,7 +25,7 @@ was redrawn for the 2022 rerun, so it shows banner 900, which Bunker's server
 builds from the player's files and a recreated image in the notice pack
 (translation/banners.go, recreate_banners.py).
 
-  event_banners.py --masters DIR --list LIST.BIN [--out PATH]
+  event_banners.py --masters DIR --list LIST.BIN [--pack NOTICES.ZIP] [--out PATH]
 
 Needs pycryptodome, msgpack and lz4.
 """
@@ -35,6 +41,8 @@ OUT = ch.PYTHON / "event_banners.json"
 LANGUAGES = ("en", "ja", "ko")
 EVENT_HOME = "event_mom_banner_"
 DAY = 86_400_000
+NOTICE = 23  # DestinationDomainType: a notice, by id
+NOTICE_BASE = 1_600_000_000  # rebuilt home-banner notices: NOTICE_BASE + MomBannerId
 # chapter -> {run: banner} for runs whose banner no game file kept.
 RECREATED = {"512": {0: 900}}
 
@@ -128,6 +136,25 @@ def home_rows(history, final, at_time, paths, unrestored=()):
     return out
 
 
+def home_notices(final, history, pack_ids, unrestored=()):
+    """Home row -> its rebuilt notice, for each row the calendar shows (restored,
+    or dated in the final data) that opens a notice the pack lacks.
+    final: row -> (DestinationDomainType, DestinationDomainId, StartDatetime)."""
+    out = {}
+    for row, (kind, target, start) in final.items():
+        if kind != NOTICE or target in pack_ids or row in unrestored:
+            continue
+        if str(row) in history or start < ch.FOREVER:
+            out[str(row)] = NOTICE_BASE + row
+    return out
+
+
+def pack_notice_ids(pack: Path) -> set[int]:
+    import zipfile
+    with zipfile.ZipFile(pack) as z:
+        return {n["id"] for n in json.loads(z.read("notices.json"))["notices"]}
+
+
 def with_recreated(chapters):
     """chapters with the recreated banners (RECREATED) in their runs."""
     out = {k: list(v) for k, v in chapters.items()}
@@ -139,7 +166,7 @@ def with_recreated(chapters):
     return out
 
 
-def build(masters, paths):
+def build(masters, paths, pack_ids=None):
     import sys
     sys.path.insert(0, str(ch.PYTHON))
     import android_calendar as cal
@@ -165,22 +192,28 @@ def build(masters, paths):
     home = home_rows(history["m_mom_banner"]["rows"], table(last, "m_mom_banner", "MomBannerId", "BannerAssetName"),
                      lambda at: table(pick(times, at), "m_mom_banner", "MomBannerId", "BannerAssetName"), paths,
                      unrestored=cal.UNRESTORED_BANNERS)
-    return chapters, home
+    notices = {}
+    if pack_ids is not None:
+        notices = home_notices(table(last, "m_mom_banner", "MomBannerId", "DestinationDomainType", "DestinationDomainId", "StartDatetime"),
+                               history["m_mom_banner"]["rows"], pack_ids, unrestored=cal.UNRESTORED_BANNERS)
+    return chapters, home, notices
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--masters", type=Path, required=True, help="Folder of global .bin.e files named by date")
     parser.add_argument("--list", type=Path, required=True, help="The resource dump's revisions/0/list.bin")
+    parser.add_argument("--pack", type=Path, help="The notice pack the rebuilt notices are added to (its notices.json)")
     parser.add_argument("--out", type=Path, default=OUT)
     args = parser.parse_args()
     masters = sorted(args.masters.glob("*.bin.e"))
     if not masters:
         raise SystemExit("No .bin.e files in " + str(args.masters))
-    chapters, home = build(masters, bundle_paths(args.list))
-    args.out.write_text(json.dumps({"source": f"{len(masters)} global master data files", "chapters": chapters, "home": home},
-                                   sort_keys=True) + "\n")
-    print(f"{args.out}: {len(chapters)} chapters, {sum(b is not None for v in chapters.values() for b in v)} runs, {len(home)} home rows")
+    chapters, home, notices = build(masters, bundle_paths(args.list), pack_notice_ids(args.pack) if args.pack else None)
+    args.out.write_text(json.dumps({"source": f"{len(masters)} global master data files", "chapters": chapters, "home": home,
+                                    "notices": notices}, sort_keys=True) + "\n")
+    print(f"{args.out}: {len(chapters)} chapters, {sum(b is not None for v in chapters.values() for b in v)} runs, "
+          f"{len(home)} home rows, {len(notices)} rebuilt notices")
 
 
 if __name__ == "__main__":
