@@ -9,7 +9,7 @@ under its heading, down to the previous release.
 ### Bunker menu
 - The sign-off is split: the Bunker's main page closes with "End of
   transmission // Glory to mankind", and Pod Programs and the Archive with
-  "Operator link // Standing by". The web builder keeps both.
+  "Operator link // Standing by". The web builder closes as the main page.
 
 ## 1.12.4 (2026-11-14)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The NieR sign-off, in light and dark themes alike: the Bunker's main page (the launchers) closes with
 END OF TRANSMISSION // GLORY TO MANKIND; the programs (Pod Programs, the Archive) with
-OPERATOR LINK // STANDING BY. The web builder keeps both."""
+OPERATOR LINK // STANDING BY. The web builder closes as the main page."""
 from pathlib import Path
 import re
 import unittest
@@ -29,9 +29,10 @@ class SignOff(unittest.TestCase):
         css = (root / "overlays/python/web/static/css/automata.css").read_text()
         self.assertNotIn("sign-dark", css)
 
-    def test_the_web_builder_keeps_both(self):
+    def test_the_web_builder_closes_the_transmission(self):
         text = (root / "web/index.html").read_text().upper()
-        self.assertLess(text.index(OPERATOR), text.index(END))
+        self.assertIn(END, text)
+        self.assertNotIn(OPERATOR, text)
 
 
 if __name__ == "__main__":
