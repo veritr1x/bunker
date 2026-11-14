@@ -4,6 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.5 (2026-11-14)
+
+The sign-off is split: the Bunker's main page and the web builder close with
+"End of transmission // Glory to mankind", Pod Programs and the Archive with
+"Operator link // Standing by". The web builder's headline reads "Relive NieR
+Re[in]carnation".
+
 ## 2026-11-14 (after 1.12.4)
 
 ### Bunker menu
