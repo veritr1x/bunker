@@ -74,7 +74,8 @@ summon prices brought in line with `summon_rules.json` (`scripts/sync_notice_pri
 
 The pack also carries the one event banner no game file kept: Record: Garden of
 Benediction's 2021 banner, recreated by `scripts/recreate_banners.py` from the
-resource dump (`banners/<language>/event_banner_900.astc`). The server builds
+resource dump (`web/bunker/banners/<language>/event_banner_900.astc`: Android launchers accept only
+`notices.json`, `img/*.webp` and `web/` files in the pack they update with, and releases check it). The server builds
 the banner's bundles from the player's own game files and that image
 (`overlays/server/internal/translation/banners.go`). It also carries the notices
 rebuilt for home banners whose announcement was not recovered: `scripts/build_event_notices.py`

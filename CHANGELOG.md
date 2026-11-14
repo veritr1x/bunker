@@ -4,6 +4,26 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.4 (2026-11-14)
+
+Android updates to 1.12.3 failed with "Unexpected file in the notice pack":
+notice pack 6 kept the recreated banner where Android launchers do not accept
+files. Notice pack 7 moves it; releases now check the pack as Android
+launchers do. iPhone and iPad updates were not affected.
+
+## 2026-11-14 (after 1.12.3)
+
+### Releases
+- Android launchers check every file of the notice pack they update with and
+  accept only `notices.json`, `img/*.webp` and `web/`. Notice pack 6 kept the
+  recreated Garden of Benediction banner at `banners/`, so every Android update
+  to 1.12.3 stopped with "Unexpected file in the notice pack", and the web
+  builder's Android builds failed the same way. Notice pack 7 keeps it at
+  `web/bunker/banners/` (the server still reads pack 6's place), which every
+  Android launcher since 1.4 accepts, and a release now refuses a pack they
+  would refuse. iPhone and iPad updates take the pack whole and were not
+  affected.
+
 ## 1.12.3 (2026-11-14)
 
 Each event run shows its own banner, and home-screen banners open their notice.

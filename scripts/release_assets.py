@@ -57,6 +57,9 @@ def make(version, companion_apk, framework_dir, python_dir, out_dir, notices=Non
         # Launchers before 1.4 accept only notices.json and img/ in the pack they
         # update with ("notices"); a pack with the web app (web/) is listed only
         # for 1.4 and later ("noticePack"), so an older launcher keeps its pack.
+        import notice_pack  # android/tools: what an Android launcher accepts in the pack it updates with
+        for _ in notice_pack.entries(notices):
+            pass
         with zipfile.ZipFile(notices) as pack:
             web = any(n.startswith("web/") for n in pack.namelist())
         assets["noticePack" if web else "notices"] = _named_pack(notices, out)

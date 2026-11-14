@@ -186,7 +186,7 @@ func startBanners(t *testing.T, r roots, pack func(string) ([]byte, error)) *Tra
 func TestBannersJoinTheList(t *testing.T) {
 	r := bannerRoots(t)
 	recreated := bytes.Repeat([]byte{0xEE}, 32)
-	tr := startBanners(t, r, noticePack(map[string][]byte{"banners/en/event_banner_900.astc": recreated}))
+	tr := startBanners(t, r, noticePack(map[string][]byte{"web/bunker/banners/en/event_banner_900.astc": recreated}))
 	h := tr.Wrap(next(r))
 	revision, entries := listOf(t, get(t, h, listURL))
 	if revision <= 817 {
@@ -318,4 +318,23 @@ func TestRealBannersOpenInTheGame(t *testing.T) {
 		os.WriteFile(filepath.Join(os.TempDir(), name+".png"), png, 0644)
 		t.Logf("%s: %dx%d, %s", s.Path, tex.Width, tex.Height, filepath.Join(os.TempDir(), name+".png"))
 	}
+}
+
+// Notice pack 6 kept the image at banners/ (launchers' pack check refused it); it is still read.
+func TestBannerImageFromNoticePack6(t *testing.T) {
+	r := bannerRoots(t)
+	recreated := bytes.Repeat([]byte{0xEE}, 32)
+	tr := startBanners(t, r, noticePack(map[string][]byte{"banners/en/event_banner_900.astc": recreated}))
+	h := tr.Wrap(next(r))
+	_, entries := listOf(t, get(t, h, listURL))
+	for _, e := range entries {
+		if e.Path == "ui)quest)en)banner)event_banner_900" {
+			body := get(t, h, "/rrrrr/unso-1-assetbundle/"+e.ObjectID+"?generation=1&alt=media")
+			if !bytes.Equal(openBanner(t, body, e.Path).nodes[1].data, recreated) {
+				t.Fatal("not the recreated image")
+			}
+			return
+		}
+	}
+	t.Fatal("banner 900 not listed")
 }

@@ -90,6 +90,19 @@ class Portraits(unittest.TestCase):
         self.assertLessEqual(box[2] - box[0], 460)
 
 
+class PackLayout(unittest.TestCase):
+    """Launchers check every file of the notice pack they update with (android/tools/notice_pack.py, run on the
+    phone with the copy it was installed with): anything else fails the update."""
+
+    def test_the_banner_images_are_where_installed_launchers_accept_files(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "android/tools"))
+        import notice_pack
+        for lang in ("en", "ko"):
+            name = ben.banner_member(lang)
+            self.assertTrue(notice_pack._NAME.fullmatch(name), name)
+            self.assertTrue(name.startswith("web/bunker/"))
+
+
 class Exclusive(unittest.TestCase):
     def test_how_to_play_names_the_exclusive_character(self):
         import event_notice_pages as pages

@@ -83,6 +83,15 @@ class MakeTests(unittest.TestCase):
         self.assertNotIn("notices", update["assets"])
         self.assertEqual(sorted(p.name for p in self.out.glob("bunker-notices-*.zip")), [full["name"]])
 
+    def test_refuses_a_notice_pack_android_launchers_would_refuse(self):
+        # Android launchers check every file of the pack they update with (notice_pack.py on the phone).
+        pack = self.work / "bunker-notices.zip"
+        with zipfile.ZipFile(pack, "w") as z:
+            z.writestr("notices.json", "{}")
+            z.writestr("banners/en/event_banner_900.astc", b"x")
+        with self.assertRaisesRegex(ValueError, "banners/en/event_banner_900.astc"):
+            release_assets.make("1.2.3", self.apk, self.framework, self.python, self.out, notices=pack)
+
     def test_refuses_master_data(self):
         (self.framework / "20240404193219.bin.e").write_text("master")
         with zipfile.ZipFile(self.apk, "a") as z:

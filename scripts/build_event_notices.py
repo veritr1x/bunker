@@ -66,6 +66,13 @@ def when(ms):
     return f"{t.strftime('%b')}. {t.day}, {t.year} {t.strftime('%H:%M')}"
 
 
+def banner_member(lang):
+    """Where the pack keeps a recreated banner image: under web/, the one folder (besides img/*.webp) whose
+    files every installed launcher accepts in a notice pack (android/tools/notice_pack.py). The server
+    reads it from there (translation/banners.go) and does not serve web/bunker/."""
+    return f"web/bunker/banners/{lang}/event_banner_900.astc"
+
+
 def coming(chapter, at, runs):
     """(chapter, run index) of the chapter's next run after at, for a banner shown before it opens."""
     for n, (start, _) in enumerate(runs.get(chapter, [])):
@@ -162,8 +169,8 @@ def build(source_pack: Path, masters: list[Path], dump: Path, assets: Path, bann
     pack["notices"].extend(notices)
     assert len({n["id"] for n in pack["notices"]}) == len(pack["notices"])
     extra = dict(images.members)
-    for astc in sorted(banners.glob("banners/*/*.astc")):
-        extra[astc.relative_to(banners).as_posix()] = astc.read_bytes()
+    for astc in sorted(banners.glob("banners/*/event_banner_900.astc")):
+        extra[banner_member(astc.parent.name)] = astc.read_bytes()
     out_dir.mkdir(parents=True, exist_ok=True)
     temp = out_dir / "pack.zip.part"
     with zipfile.ZipFile(source_pack) as source, zipfile.ZipFile(temp, "w") as out:

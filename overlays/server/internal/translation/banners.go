@@ -27,7 +27,8 @@ import (
 //
 //   - ui)quest)<lang>)banner)event_banner_900, the event screen: banner 512's
 //     bundle with the recreated image from the notice pack
-//     (banners/<lang>/event_banner_900.astc, scripts/recreate_banners.py);
+//     (web/bunker/banners/<lang>/event_banner_900.astc, scripts/recreate_banners.py;
+//     notice pack 6 had it at banners/, which launchers' pack check refused);
 //     Japanese 512 was never redrawn and keeps its own image.
 //   - ui)quest)<lang>)mom_banner)event_mom_banner_900, the strip: banner
 //     512's with the home screen's 2021 strip, which was never redrawn
@@ -42,10 +43,10 @@ const bannerVersion = "1"
 var bannerLanguages = []string{"en", "ja", "ko"}
 
 type bannerSpec struct {
-	Path, Template string // list paths
-	Old, New       string // the name the template bundle uses for itself, and its replacement
-	PackImage      string // the image from the notice pack, if any
-	FromBundle     string // else the image of this bundle (a list path), if any
+	Path, Template string   // list paths
+	Old, New       string   // the name the template bundle uses for itself, and its replacement
+	PackImages     []string // the image from the notice pack, the first of these it has
+	FromBundle     string   // else the image of this bundle (a list path), if any
 }
 
 func bannerSpecs() []bannerSpec {
@@ -53,7 +54,8 @@ func bannerSpecs() []bannerSpec {
 	for _, lang := range bannerLanguages {
 		specs = append(specs, bannerSpec{
 			Path: "ui)quest)" + lang + ")banner)event_banner_900", Template: "ui)quest)" + lang + ")banner)event_banner_512",
-			Old: "event_banner_512", New: "event_banner_900", PackImage: "banners/" + lang + "/event_banner_900.astc",
+			Old: "event_banner_512", New: "event_banner_900",
+			PackImages: []string{"web/bunker/banners/" + lang + "/event_banner_900.astc", "banners/" + lang + "/event_banner_900.astc"},
 		}, bannerSpec{
 			Path: "ui)quest)" + lang + ")mom_banner)event_mom_banner_900", Template: "ui)quest)" + lang + ")mom_banner)event_mom_banner_512",
 			Old: "event_mom_banner_512", New: "event_mom_banner_900", FromBundle: "ui)mom_banner)" + lang + ")mom_banner_event_mom_banner_512",
@@ -366,15 +368,21 @@ func buildBanners(assets, listPath, listMD5, dir string, packFile func(string) (
 	key := sha256.New()
 	key.Write([]byte(bannerVersion + ":" + listMD5))
 	for _, s := range specs {
-		if s.PackImage == "" || packFile == nil {
+		if packFile == nil {
 			continue
 		}
-		if b, err := packFile(s.PackImage); err == nil {
-			images[s.PackImage] = b
-			sum := sha256.Sum256(b)
-			key.Write([]byte(":" + s.PackImage + ":" + hex.EncodeToString(sum[:])))
-		} else if !errors.Is(err, os.ErrNotExist) {
-			log.Printf("[Banners] %s: %v (the banner keeps its own image)", s.PackImage, err)
+		for _, name := range s.PackImages {
+			b, err := packFile(name)
+			if err == nil {
+				images[s.Path] = b
+				sum := sha256.Sum256(b)
+				key.Write([]byte(":" + s.Path + ":" + hex.EncodeToString(sum[:])))
+				break
+			}
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Printf("[Banners] %s: %v (the banner keeps its own image)", name, err)
+				break
+			}
 		}
 	}
 	id := hex.EncodeToString(key.Sum(nil))[:16]
@@ -413,7 +421,7 @@ func buildBanners(assets, listPath, listMD5, dir string, packFile func(string) (
 			log.Printf("[Banners] %s: %v", s.Path, err)
 			continue
 		}
-		pixels := images[s.PackImage]
+		pixels := images[s.Path]
 		if s.FromBundle != "" {
 			if pixels, err = bannerPixels(assets, s.FromBundle); err != nil {
 				log.Printf("[Banners] %s: %v (it keeps %s's image)", s.Path, err, s.Template)
