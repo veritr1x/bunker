@@ -1437,7 +1437,7 @@ static const CGFloat kInfoSize = 18;
 }
 // NieR flavour: the caption and sign-off stay in English in every language.
 - (void)updateSign {
-    NSMutableAttributedString *sign = [Tracked(@"OPERATOR LINK // STANDING BY\nEND OF TRANSMISSION // GLORY TO MANKIND",
+    NSMutableAttributedString *sign = [Tracked(@"END OF TRANSMISSION // GLORY TO MANKIND",
                                                [UIFont systemFontOfSize:10], Muted(), 2.4) mutableCopy];
     NSMutableParagraphStyle *lines = [NSMutableParagraphStyle new];
     lines.lineSpacing = 6;

@@ -4,6 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-14 (after 1.12.4)
+
+### Bunker menu
+- The sign-off is split: the Bunker's main page closes with "End of
+  transmission // Glory to mankind", and Pod Programs and the Archive with
+  "Operator link // Standing by". The web builder keeps both.
+
 ## 1.12.4 (2026-11-14)
 
 Android updates to 1.12.3 failed with "Unexpected file in the notice pack":

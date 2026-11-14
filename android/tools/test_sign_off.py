@@ -1,38 +1,37 @@
 #!/usr/bin/env python3
-"""The NieR sign-off under every Bunker screen: both lines, in light and dark themes alike,
-OPERATOR LINK // STANDING BY first, then END OF TRANSMISSION // GLORY TO MANKIND."""
+"""The NieR sign-off, in light and dark themes alike: the Bunker's main page (the launchers) closes with
+END OF TRANSMISSION // GLORY TO MANKIND; the programs (Pod Programs, the Archive) with
+OPERATOR LINK // STANDING BY. The web builder keeps both."""
 from pathlib import Path
 import re
 import unittest
 
 root = Path(__file__).resolve().parents[2]
-FIRST, SECOND = "OPERATOR LINK // STANDING BY", "END OF TRANSMISSION // GLORY TO MANKIND"
+OPERATOR, END = "OPERATOR LINK // STANDING BY", "END OF TRANSMISSION // GLORY TO MANKIND"
 
 
 class SignOff(unittest.TestCase):
-    def assert_both_in_order(self, text, name):
-        upper = text.upper()
-        self.assertIn(FIRST, upper, name)
-        self.assertIn(SECOND, upper, name)
-        self.assertLess(upper.index(FIRST), upper.index(SECOND), name)
-
-    def test_launchers_show_both_whatever_the_theme(self):
+    def test_launchers_close_the_transmission(self):
         java = (root / "android/app/src/main/java/org/veritr1x/bunker/Look.java").read_text()
         ios = (root / "ios/launcher/LunarLauncher.m").read_text()
         for name, text in (("Look.java", java), ("LunarLauncher.m", ios)):
-            self.assert_both_in_order(text, name)
-            self.assertNotRegex(text, r"dark\s*\?\s*@?\"OPERATOR LINK", name)
+            self.assertIn(END, text, name)
+            self.assertNotIn(OPERATOR, text, name)
 
-    def test_pages_show_both_whatever_the_theme(self):
-        for path in ("overlays/python/web/templates/base.html", "android/app/src/main/python/archive/templates/base.html",
-                     "web/index.html"):
+    def test_programs_keep_the_operator_link(self):
+        for path in ("overlays/python/web/templates/base.html", "android/app/src/main/python/archive/templates/base.html"):
             text = (root / path).read_text()
-            footer = re.search(r"Operator link.*?mankind", text, re.S | re.I).group(0)
-            self.assert_both_in_order(footer, path)
+            footer = re.search(r"<footer>.*?</footer>", text, re.S).group(0).upper()
+            self.assertIn(OPERATOR, footer, path)
+            self.assertNotIn(END, footer, path)
             self.assertNotIn("sign-dark", text, path)
             self.assertNotIn("sign-light", text, path)
         css = (root / "overlays/python/web/static/css/automata.css").read_text()
         self.assertNotIn("sign-dark", css)
+
+    def test_the_web_builder_keeps_both(self):
+        text = (root / "web/index.html").read_text().upper()
+        self.assertLess(text.index(OPERATOR), text.index(END))
 
 
 if __name__ == "__main__":

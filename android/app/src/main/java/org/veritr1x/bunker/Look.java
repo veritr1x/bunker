@@ -214,7 +214,7 @@ final class Look {
         LinearLayout f=new LinearLayout(context);f.setOrientation(LinearLayout.VERTICAL);
         View a=new View(context);a.setBackgroundColor(ink);f.addView(a,new LinearLayout.LayoutParams(-1,dp(1)));
         View b=new View(context);b.setBackgroundColor(ink);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(1));bp.setMargins(0,dp(2),0,0);f.addView(b,bp);
-        TextView sign=text("OPERATOR LINK // STANDING BY\nEND OF TRANSMISSION // GLORY TO MANKIND",10,mid);sign.setLetterSpacing(.24f);sign.setLineSpacing(dp(6),1f);sign.setGravity(Gravity.CENTER);
+        TextView sign=text("END OF TRANSMISSION // GLORY TO MANKIND",10,mid);sign.setLetterSpacing(.24f);sign.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.setMargins(0,dp(14),0,dp(18));f.addView(sign,sp);
         return f;
     }
