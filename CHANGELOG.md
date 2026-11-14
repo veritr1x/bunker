@@ -11,6 +11,9 @@ under its heading, down to the previous release.
   transmission // Glory to mankind", and Pod Programs and the Archive with
   "Operator link // Standing by". The web builder closes as the main page.
 
+### Web builder
+- The headline reads "Relive NieR Re[in]carnation".
+
 ## 1.12.4 (2026-11-14)
 
 Android updates to 1.12.3 failed with "Unexpected file in the notice pack":
