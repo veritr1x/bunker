@@ -1,5 +1,20 @@
 # Validation
 
+## Android keyboard in Pod Programs — 2026-11-15
+
+- Host tests: test_landscape_layout.py, test_archive_landscape.py and
+  test_info_buttons.py (31 pass).
+- Android 16 emulator (Medium Phone, API 36), the on-screen keyboard on, the
+  screen set to 1080x1920 (wm size) so that, as on the reporting Samsung
+  phone, the page with the keyboard open is wider than tall. Before (the
+  build already installed): tapping Item Editor's +amount turned the page
+  into the side-column layout under the keyboard. After (the 1.12.5 launcher
+  with the fixed pages, assembled with assemble_apk.py): the page stayed
+  upright, the keyboard stayed open and "250" was typed in +amount (cleared,
+  nothing granted); Consumables › Filter took "medal" the same way. Turned on
+  its side, Pod Programs still showed the side column.
+- Not checked: a real phone, and the Archive's search fields (the same rule).
+
 ## Launcher Auto deploy on iOS — 2026-11-14
 
 - iPad Pro (M4): ⋮ shows Auto deploy: On under Lunar Tear. Turned off, the

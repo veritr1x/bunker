@@ -4,6 +4,24 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.7 (2026-11-15)
+
+On Android, typing in Pod Programs and the Archive works again: tapping a
+field such as Item Editor's +amount or Filter no longer closes the keyboard at
+once.
+
+## 2026-11-15 (after 1.12.5)
+
+### Pod Programs
+- On Android, tapping a field (Item Editor's +amount and Filter, and the
+  others) opened the keyboard and closed it at once, so nothing could be
+  typed. The keyboard shortens the page, and an upright phone with its
+  keyboard open is wider than tall, so the page took itself for a phone on its
+  side: it moved into its side-column layout, which moved the field and closed
+  the keyboard. A phone on its side now also needs a page at least 560px
+  wide, which no upright phone has. The Archive's search fields had the same
+  fault. [414b789]
+
 ## 1.12.5 (2026-11-14)
 
 The sign-off is split: the Bunker's main page and the web builder close with
