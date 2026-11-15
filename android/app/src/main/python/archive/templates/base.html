@@ -22,7 +22,7 @@
   // the right pads the page's right edge. Only that app hides its bar, so only
   // there does the tab column carry the title and Close (archive.css).
   (() => {
-    const query = matchMedia("(orientation: landscape) and (max-height: 599px)");
+    const query = matchMedia("(orientation: landscape) and (max-height: 599px) and (min-width: 560px)");
     const root = document.documentElement, nav = document.querySelector("nav.primary");
     if (window.BunkerShell) root.classList.add("bunker-shell");
     function hole() {

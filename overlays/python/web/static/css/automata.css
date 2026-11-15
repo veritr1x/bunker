@@ -801,7 +801,7 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
    a side column beside it (the script in base.html moves what they mark
    data-side); everything is denser. Tablets and unfolded phones keep the tabs on
    top. Matches the apps' own test (ToolsActivity, LunarTools.m). */
-@media (orientation: landscape) and (max-height: 599px) {
+@media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {
   nav.primary {
     position: fixed;
     top: 0;
@@ -911,7 +911,7 @@ input[type="text"], input[type="number"], input[type="search"], select, textarea
 .grant-form.costume.owned, .grant-form.weapon.owned, .grant-form.costume.owned:hover, .grant-form.weapon.owned:hover { opacity: 1; }
 .grant-form.upgrade.pending, .grant-form.upgrade.pending:hover { opacity: 0.8; }
 .row-checkbox input[type="checkbox"] { width: 20px; height: 20px; }
-@media (orientation: landscape) and (max-height: 599px) {
+@media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {
   .page-side .panel, .page-side p { font-size: var(--fs-small); }
   /* Both columns one size, fields included (the viewport's maximum-scale stops an iPhone zooming in on them). */
   main, main label, main p, .bracket-header, summary.bracket-header, .setting label, .setting strong, .choice strong,

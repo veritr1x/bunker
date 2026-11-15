@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "overlays/python/web"
-QUERY = "(orientation: landscape) and (max-height: 599px)"
+QUERY = "(orientation: landscape) and (max-height: 599px) and (min-width: 560px)"
 
 # Each page and what it puts beside its content (data-side), and whether it lists sections (data-toc).
 PAGES = {

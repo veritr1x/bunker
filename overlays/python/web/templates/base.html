@@ -29,11 +29,11 @@
   #bunker-live .live-short { white-space: nowrap; letter-spacing: 0; }
   #bunker-live details.info { margin-left: 0; }
   /* A phone, upright or on its side: the explanation opens as a card along the bottom of the screen. */
-  @media (max-width: 600px), (orientation: landscape) and (max-height: 599px) {
+  @media (max-width: 600px), (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {
     details.info > div { position: fixed; top: auto; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: 50vh; overflow-y: auto; }
   }
   /* On its side the tab column (148px) covers the left of the screen: the card opens beside it. */
-  @media (orientation: landscape) and (max-height: 599px) {
+  @media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {
     details.info > div { left: calc(148px + 12px); right: max(16px, var(--hole-right, 0px)); }
   }
   </style>
@@ -70,8 +70,11 @@
   // column beside its content, and headers marked data-toc are listed there as
   // links. Turning the phone back puts every element back where it was. This
   // runs before the first paint, so the page never shows unsplit.
+  // The width test matters on Android: the keyboard shortens the page, and an
+  // upright phone with its keyboard open is wider than tall. Without it the
+  // page split, moved the field being typed in, and the keyboard closed.
   (() => {
-    const query = matchMedia("(orientation: landscape) and (max-height: 599px)");
+    const query = matchMedia("(orientation: landscape) and (max-height: 599px) and (min-width: 560px)");
     const main = document.querySelector("main");
     let split = null;
     // An open explanation (_info.html) closes on a tap anywhere else, or Escape; one opens at a time.

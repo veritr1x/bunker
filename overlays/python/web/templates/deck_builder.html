@@ -189,7 +189,7 @@
     .write-bar{position:sticky;bottom:0;padding:10px 0;background:inherit}
   }
   /* A phone on its side: the controls in the side column, two decks across (automata.css). */
-  @media (orientation: landscape) and (max-height: 599px) {
+  @media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {
     .filters-panel{inset:0;top:0;left:0;width:auto;max-height:none;transform:none;border:0;
       padding:0 max(14px,var(--hole-right,0px)) 0 max(14px,var(--hole-left,0px))}
     .filters-panel .sheet-head{position:sticky;top:0;z-index:3;background:var(--bg-cream);padding:8px 0;margin-bottom:8px}

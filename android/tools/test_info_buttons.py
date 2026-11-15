@@ -32,14 +32,14 @@ class InfoIcon(unittest.TestCase):
 
     def test_on_its_side_the_card_opens_beside_the_tabs(self):
         # The card along the bottom started at the screen's left edge, under the 148px tab column.
-        self.assertIn("@media (orientation: landscape) and (max-height: 599px) {\n"
+        self.assertIn("@media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {\n"
                       "    details.info > div { left: calc(148px + 12px); right: max(16px, var(--hole-right, 0px)); }", BASE)
 
     def test_landscape_text_is_one_size(self):
         # On a phone on its side the right column was a size larger than the left: everything in it, fields
         # included, uses the page title's size. The viewport stops an iPhone zooming in on a small field.
         css = (WEB / "static/css/automata.css").read_text()
-        landscape = css[css.rindex("@media (orientation: landscape) and (max-height: 599px) {"):]
+        landscape = css[css.rindex("@media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {"):]
         self.assertIn("main, main label, main p, .bracket-header, summary.bracket-header, .setting label, .setting strong, "
                       ".choice strong,\n  main input, main input[type=\"text\"], main input[type=\"number\"], main input[type=\"search\"], "
                       "main select, main textarea { font-size: var(--fs-small); }", landscape)
@@ -78,7 +78,7 @@ class InfoIcon(unittest.TestCase):
         self.assertIn('document.querySelectorAll("details.info[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });', BASE)
         self.assertIn('if (e.key === "Escape")', BASE)
         # a phone, upright or on its side: a card along the bottom of the screen, never off its edge
-        self.assertIn("@media (max-width: 600px), (orientation: landscape) and (max-height: 599px) {", BASE)
+        self.assertIn("@media (max-width: 600px), (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {", BASE)
         self.assertRegex(BASE, r"details\.info > div \{ position: fixed; top: auto; left: 16px; right: 16px;")
 
     def test_the_old_scripted_buttons_are_gone(self):

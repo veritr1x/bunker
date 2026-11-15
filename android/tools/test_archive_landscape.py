@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = ROOT / "android/app/src/main/python/archive"
 JAVA = ROOT / "android/app/src/main/java/org/veritr1x/bunker"
-QUERY = "(orientation: landscape) and (max-height: 599px)"
+QUERY = "(orientation: landscape) and (max-height: 599px) and (min-width: 560px)"
 
 
 class Page(unittest.TestCase):
@@ -38,7 +38,7 @@ class Page(unittest.TestCase):
         # The music player and the pager are fixed to the bottom; from the left edge, the 148px tab column
         # covered their play button and title.
         css = (ARCHIVE / "static/archive.css").read_text()
-        landscape = css[css.index("@media (orientation: landscape) and (max-height: 599px) {"):]
+        landscape = css[css.index("@media (orientation: landscape) and (max-height: 599px) and (min-width: 560px) {"):]
         self.assertIn("footer.player-bar, footer.pager { left: 148px; }", landscape)
 
     def test_pod_programs_styles_apply(self):
