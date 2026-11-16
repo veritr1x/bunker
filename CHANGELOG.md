@@ -15,6 +15,14 @@ under its heading, down to the previous release.
 - Deck Builder: a tab tapped while it prepares its pieces opens. The page's
   reload once they were ready cancelled the tap.
 
+### Game
+- Mama's News showed two pink pages to returning players in English and
+  Korean: the 2021 welcome-back pages, which the Original calendar restores,
+  survive only in Japanese. The first is rebuilt with the game's own English
+  "Welcome Back / Campaign" lettering (scripts/recreate_promotions.py, notice
+  pack 8); the second, the gifts, has no text and is the Japanese image. The
+  three Japanese-only gaps (global events' pages) take the English images.
+
 ## 1.12.7 (2026-11-15)
 
 On Android, typing in Pod Programs and the Archive works again: tapping a

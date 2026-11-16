@@ -103,6 +103,18 @@ class PackLayout(unittest.TestCase):
             self.assertTrue(name.startswith("web/bunker/"))
 
 
+    def test_mama_news_images_are_where_installed_launchers_accept_files(self):
+        import tempfile
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "android/tools"))
+        import notice_pack
+        folder = Path(tempfile.mkdtemp())
+        self.assertEqual(ben.promotion_members(folder), {})
+        (folder / "promotion/en").mkdir(parents=True)
+        (folder / "promotion/en/prm218.astc").write_bytes(b"x" * 16)
+        self.assertEqual(list(ben.promotion_members(folder)), ["web/bunker/promotion/en/prm218.astc"])
+        self.assertTrue(notice_pack._NAME.fullmatch("web/bunker/promotion/en/prm218.astc"))
+
+
 class Exclusive(unittest.TestCase):
     def test_how_to_play_names_the_exclusive_character(self):
         import event_notice_pages as pages

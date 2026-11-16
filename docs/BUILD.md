@@ -77,7 +77,11 @@ Benediction's 2021 banner, recreated by `scripts/recreate_banners.py` from the
 resource dump (`web/bunker/banners/<language>/event_banner_900.astc`: Android launchers accept only
 `notices.json`, `img/*.webp` and `web/` files in the pack they update with, and releases check it). The server builds
 the banner's bundles from the player's own game files and that image
-(`overlays/server/internal/translation/banners.go`). It also carries the notices
+(`overlays/server/internal/translation/banners.go`). It carries Mama's News images, too: the
+2021 welcome-back pages the calendar restores for returning players survive only in Japanese, so
+the game drew them pink in English and Korean. `scripts/recreate_promotions.py` swaps the Japanese
+title of one for the game's own English lettering (`web/bunker/promotion/<language>/prm218.astc`), and
+the server builds that and the other missing pages from another language's bundle. It also carries the notices
 rebuilt for home banners whose announcement was not recovered: `scripts/build_event_notices.py`
 builds the next pack from the pinned one, the weekly game data, the resource dump and Deck
 Builder's master data, and `scripts/check_event_notices.py` compares the facts it uses with the

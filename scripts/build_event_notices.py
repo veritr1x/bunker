@@ -11,10 +11,10 @@ page is laid out and worded as the official notices of its kind
 (event_notice_pages.py), from the game data (event_notice_facts.py): an
 event's exchange, medal, exchange characters with their stats, skills and
 abilities, and resonant weapons, as the run had them; checked against the
-official notices that survive (check_event_notices.py). It says it was rebuilt.
+official notices that survive (check_event_notices.py).
 
-The recreated banners (recreate_banners.py's banners/<lang>/*.astc) go in the
-same pack, under banners/.
+The recreated banners (recreate_banners.py's banners/<lang>/*.astc) and Mama's
+News images (recreate_promotions.py's promotion/) go in the same pack, under web/bunker/.
 
   build_event_notices.py --source-pack PINNED.ZIP --masters DIR --dump resource_dump_android.7z \\
                          --assets DIR --banners DIR --out DIR [--deckbuilder .build/deckbuilder]
@@ -71,6 +71,13 @@ def banner_member(lang):
     files every installed launcher accepts in a notice pack (android/tools/notice_pack.py). The server
     reads it from there (translation/banners.go) and does not serve web/bunker/."""
     return f"web/bunker/banners/{lang}/event_banner_900.astc"
+
+
+def promotion_members(folder):
+    """recreate_promotions.py's Mama's News images (folder/promotion/<lang>/prm<id>.astc) as pack members under
+    web/bunker/promotion/ (translation/banners.go)."""
+    return {f"web/bunker/promotion/{astc.parent.name}/{astc.name}": astc.read_bytes()
+            for astc in sorted((Path(folder) / "promotion").glob("*/prm*.astc"))}
 
 
 def coming(chapter, at, runs):
@@ -171,6 +178,7 @@ def build(source_pack: Path, masters: list[Path], dump: Path, assets: Path, bann
     extra = dict(images.members)
     for astc in sorted(banners.glob("banners/*/event_banner_900.astc")):
         extra[banner_member(astc.parent.name)] = astc.read_bytes()
+    extra.update(promotion_members(banners))
     out_dir.mkdir(parents=True, exist_ok=True)
     temp = out_dir / "pack.zip.part"
     with zipfile.ZipFile(source_pack) as source, zipfile.ZipFile(temp, "w") as out:
@@ -183,7 +191,7 @@ def build(source_pack: Path, masters: list[Path], dump: Path, assets: Path, bann
             if name in names_in:
                 continue  # an image the pack already has, by its content
             info = zipfile.ZipInfo(name, STAMP)
-            info.compress_type = zipfile.ZIP_DEFLATED if name.endswith(".astc") else zipfile.ZIP_STORED
+            info.compress_type = zipfile.ZIP_DEFLATED if name.endswith((".astc", ".json")) else zipfile.ZIP_STORED
             out.writestr(info, data)
     digest = hashlib.sha256(temp.read_bytes()).hexdigest()
     final = out_dir / f"bunker-notices-{digest[:12]}.zip"
@@ -199,7 +207,8 @@ def main():
     parser.add_argument("--masters", type=Path, required=True, help="Folder of global .bin.e files named by date")
     parser.add_argument("--dump", type=Path, required=True, help="resource_dump_android.7z")
     parser.add_argument("--assets", type=Path, required=True, help="Where its bundles go: DIR/revisions/0/assetbundle")
-    parser.add_argument("--banners", type=Path, required=True, help="recreate_banners.py's output folder")
+    parser.add_argument("--banners", type=Path, required=True,
+                        help="recreate_banners.py's and recreate_promotions.py's output folder")
     parser.add_argument("--deckbuilder", type=Path, default=ch.ROOT / ".build/deckbuilder", help="Deck Builder's master/ and names/")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()

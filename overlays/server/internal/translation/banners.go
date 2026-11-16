@@ -38,15 +38,35 @@ import (
 // layout stays) and given the new pixels (the same size and format), so no
 // field of the texture changes. The game finds the bundles through entries
 // added to the list it is served.
-const bannerVersion = "1"
+//
+// Mama's News images (m_dokan pages, ui)mom_promotion)<lang>)banner)prm<id>) the
+// game files lack in a language, built from another language's bundle with its
+// language renamed: the 2021 welcome-back pages, which survive only in Japanese
+// (prm218 with recreate_promotions.py's image from the pack, its title text in
+// the language's own lettering; prm219 has none), and global events' pages
+// Japanese never had, from English.
+const bannerVersion = "3"
+
+// promotionImages: the Mama's News image, the language it is missing in, and
+// the language its bundle is built from; withImage: only with the pack's image.
+var promotionImages = []struct {
+	image, lang, from string
+	withImage         bool
+}{
+	{"prm218", "en", "ja", true}, {"prm218", "ko", "ja", true},
+	{"prm219", "en", "ja", false}, {"prm219", "ko", "ja", false},
+	{"prm9004", "ja", "en", false}, {"prm1072", "ja", "en", false}, {"prm1073", "ja", "en", false},
+}
 
 var bannerLanguages = []string{"en", "ja", "ko"}
 
 type bannerSpec struct {
-	Path, Template string   // list paths
-	Old, New       string   // the name the template bundle uses for itself, and its replacement
-	PackImages     []string // the image from the notice pack, the first of these it has
-	FromBundle     string   // else the image of this bundle (a list path), if any
+	Path, Template string      // list paths
+	Old, New       string      // the name the template bundle uses for itself, and its replacement
+	PackImages     []string    // the image from the notice pack, the first of these it has
+	FromBundle     string      // else the image of this bundle (a list path), if any
+	NeedsImage     bool        // built only with an image from the pack
+	Also           [][2]string // further names to replace, of the same length
 }
 
 func bannerSpecs() []bannerSpec {
@@ -60,6 +80,21 @@ func bannerSpecs() []bannerSpec {
 			Path: "ui)quest)" + lang + ")mom_banner)event_mom_banner_900", Template: "ui)quest)" + lang + ")mom_banner)event_mom_banner_512",
 			Old: "event_mom_banner_512", New: "event_mom_banner_900", FromBundle: "ui)mom_banner)" + lang + ")mom_banner_event_mom_banner_512",
 		})
+	}
+	return append(specs, promotionSpecs()...)
+}
+
+func promotionSpecs() []bannerSpec {
+	var specs []bannerSpec
+	for _, p := range promotionImages {
+		s := bannerSpec{
+			Path: "ui)mom_promotion)" + p.lang + ")banner)" + p.image, Template: "ui)mom_promotion)" + p.from + ")banner)" + p.image,
+			Old: ")" + p.from + ")", New: ")" + p.lang + ")", Also: [][2]string{{"/" + p.from + "/", "/" + p.lang + "/"}},
+		}
+		if p.withImage {
+			s.PackImages, s.NeedsImage = []string{"web/bunker/promotion/" + p.lang + "/" + p.image + ".astc"}, true
+		}
+		specs = append(specs, s)
 	}
 	return specs
 }
@@ -210,8 +245,11 @@ func bannerFiles(b *nodeBundle) (serialized, resS *node, err error) {
 // pixels (nil keeps the template's). crc is list.bin's: the CRC-32 of the
 // bundle's files together.
 func buildBanner(raw []byte, spec bannerSpec, pixels []byte) (out []byte, crc uint32, err error) {
-	if len(spec.Old) != len(spec.New) || len(spec.Path) != len(spec.Template) {
-		return nil, 0, fmt.Errorf("%s: names must keep their length", spec.Path)
+	renames := append([][2]string{{spec.Old, spec.New}}, spec.Also...)
+	for _, r := range renames {
+		if len(r[0]) != len(r[1]) || len(spec.Path) != len(spec.Template) {
+			return nil, 0, fmt.Errorf("%s: names must keep their length", spec.Path)
+		}
 	}
 	plain, err := unityasset.Unmask(raw, spec.Template)
 	if err != nil {
@@ -232,11 +270,16 @@ func buildBanner(raw []byte, spec bannerSpec, pixels []byte) (out []byte, crc ui
 		return nil, 0, fmt.Errorf("%s: file name %q is not a CAB name", spec.Template, oldCAB)
 	}
 	data := bytes.Clone(serialized.data)
-	if !bytes.Contains(data, []byte(spec.Old)) || !bytes.Contains(data, []byte(oldCAB)) {
-		return nil, 0, fmt.Errorf("%s does not name %s", spec.Template, spec.Old)
+	if !bytes.Contains(data, []byte(oldCAB)) {
+		return nil, 0, fmt.Errorf("%s does not name its file %s", spec.Template, oldCAB)
 	}
 	data = bytes.ReplaceAll(data, []byte(oldCAB), []byte(newCAB))
-	data = bytes.ReplaceAll(data, []byte(spec.Old), []byte(spec.New))
+	for _, r := range renames {
+		if !bytes.Contains(data, []byte(r[0])) {
+			return nil, 0, fmt.Errorf("%s does not name %s", spec.Template, r[0])
+		}
+		data = bytes.ReplaceAll(data, []byte(r[0]), []byte(r[1]))
+	}
 	serialized.data, serialized.name = data, newCAB
 	resS.name = newCAB + ".resS"
 	if pixels != nil {
@@ -422,6 +465,9 @@ func buildBanners(assets, listPath, listMD5, dir string, packFile func(string) (
 			continue
 		}
 		pixels := images[s.Path]
+		if s.NeedsImage && pixels == nil {
+			continue
+		}
 		if s.FromBundle != "" {
 			if pixels, err = bannerPixels(assets, s.FromBundle); err != nil {
 				log.Printf("[Banners] %s: %v (it keeps %s's image)", s.Path, err, s.Template)
