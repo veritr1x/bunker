@@ -4,6 +4,17 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-16 (after 1.12.7)
+
+### Pod Programs
+- Item Editor: every amount (gems, consumables, materials) has Set beside
+  Grant. Grant adds the amount; Set makes it the count held, up or down (0
+  empties it). The save is backed up first, as for a grant.
+- The tab strip keeps its place from page to page, and the open tab is always
+  in view: on a phone it started from the first tab on every page.
+- Deck Builder: a tab tapped while it prepares its pieces opens. The page's
+  reload once they were ready cancelled the tap.
+
 ## 1.12.7 (2026-11-15)
 
 On Android, typing in Pod Programs and the Archive works again: tapping a

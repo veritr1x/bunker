@@ -142,6 +142,24 @@
         a.classList.toggle("by-hole", !!on && cut.side === "left" && b.bottom - pad > cut.top && b.top + pad < cut.bottom);
       });
     }
+    // Each tab is a page of its own: the strip (sideways on a phone, down a
+    // column on its side) keeps its place from page to page, so the next tab is
+    // where it was, and the open tab is always in view.
+    const PLACE = "bunker-tab-strip";
+    try {
+      const at = JSON.parse(sessionStorage.getItem(PLACE) || "null");
+      if (at) { nav.scrollLeft = at[0]; nav.scrollTop = at[1]; }
+    } catch (e) {}
+    const open = nav.querySelector(":scope > a.active");
+    if (open) {
+      const n = nav.getBoundingClientRect(), a = open.getBoundingClientRect();
+      if (a.left < n.left || a.right > n.right) nav.scrollLeft += a.left - n.left - (n.width - a.width) / 2;
+      if (a.top < n.top || a.bottom > n.bottom) nav.scrollTop += a.top - n.top - (n.height - a.height) / 2;
+    }
+    const keep = () => { try { sessionStorage.setItem(PLACE, JSON.stringify([nav.scrollLeft, nav.scrollTop])); } catch (e) {} };
+    nav.addEventListener("scroll", keep, {passive: true});
+    addEventListener("pagehide", keep);
+    keep();
     window.bunkerHoleChanged = () => { cut = hole(); mark(); };
     nav.addEventListener("scroll", mark, {passive: true});
     addEventListener("resize", mark);

@@ -5,16 +5,17 @@
 {% macro grant_row(possession_type, item) %}
 <form data-grant data-tab-key="{{ tab_key }}"
       data-ptype="{{ possession_type }}" data-id="{{ item.id }}"
-      data-name="{{ item.name|lower }}" class="grant-form">
+      data-name="{{ item.name|lower }}" class="grant-form settable">
   <span class="grant-name">{{ item.name }}</span>
   <span class="grant-id">{{ t("pods.items.id", id=item.id) }}</span>
   <span class="grant-current" data-current>
     {% if item.owned %}{{ number(item.count) }}
     {% else %}<span class="not-owned">&mdash;</span>{% endif %}
   </span>
-  <input type="number" name="count" min="1" max="999999999"
+  <input type="number" name="count" min="0" max="2147483647"
          placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
   <button type="submit">{{ t("pods.player.grant") }}</button>
+  <button type="button" data-set>{{ t("pods.items.set") }}</button>
 </form>
 {% endmacro %}
 
@@ -72,20 +73,22 @@
 <section id="tab-gems" class="tab-pane active">
   <div class="panel">
     <form data-grant data-tab-key="gems"
-          data-ptype="{{ ptype_paid_gem }}" data-id="0" data-name="paid gems" class="grant-form">
+          data-ptype="{{ ptype_paid_gem }}" data-id="0" data-name="paid gems" class="grant-form settable">
       <span class="grant-name">{{ t("pods.items.paid_gems") }}</span>
       <span class="grant-id"></span>
       <span class="grant-current" data-current>{{ number(paid_gem) }}</span>
-      <input type="number" name="count" min="1" max="999999999" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
+      <input type="number" name="count" min="0" max="2147483647" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
       <button type="submit">{{ t("pods.player.grant") }}</button>
+      <button type="button" data-set>{{ t("pods.items.set") }}</button>
     </form>
     <form data-grant data-tab-key="gems"
-          data-ptype="{{ ptype_free_gem }}" data-id="0" data-name="free gems" class="grant-form">
+          data-ptype="{{ ptype_free_gem }}" data-id="0" data-name="free gems" class="grant-form settable">
       <span class="grant-name">{{ t("pods.items.free_gems") }}</span>
       <span class="grant-id"></span>
       <span class="grant-current" data-current>{{ number(free_gem) }}</span>
-      <input type="number" name="count" min="1" max="999999999" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
+      <input type="number" name="count" min="0" max="2147483647" placeholder="{{ t("pods.items.amount") }}" inputmode="numeric" data-amount>
       <button type="submit">{{ t("pods.player.grant") }}</button>
+      <button type="button" data-set>{{ t("pods.items.set") }}</button>
     </form>
   </div>
   <div class="search-row">
@@ -127,6 +130,7 @@
     "owned": t("pods.player.owned"), "working": t("pods.player.working"),
     "enter_amount": t("pods.items.enter_amount"), "grant_failed": t("pods.player.grant_failed"),
     "granted_one": t("pods.items.granted_one", amount="{amount}", id="{id}"),
+    "set_one": t("pods.items.set_one", amount="{amount}", id="{id}"),
     "network_error": t("pods.player.network_error", error="{error}"),
     "nothing_chosen": t("pods.items.nothing_chosen"), "batch_failed": t("pods.player.batch_failed"),
     "granted": plural_forms("pods.items.granted"),
@@ -251,6 +255,45 @@
       }
       applyResults(json.results, new Map([[ptype + ":" + pid, form]]));
       showBanner(fmt(MSG.granted_one, {amount: num(count), id: pid}), "success");
+    } catch (err) {
+      showBanner(fmt(MSG.network_error, {error: err.message}), "error");
+    } finally {
+      form.dataset.busy = "0";
+    }
+  });
+
+  // ---------------- Set: the amount becomes the count held ----------------
+  document.addEventListener("click", async e => {
+    const btn = e.target.closest("button[data-set]");
+    if (!btn) return;
+    const form = btn.closest("form[data-grant]");
+    if (!form || form.dataset.busy === "1") return;
+    const amtEl = form.querySelector("[data-amount]");
+    const raw = ((amtEl && amtEl.value) || "").trim();
+    if (!/^\d+$/.test(raw)) {
+      showBanner(MSG.enter_amount, "error");
+      return;
+    }
+    const ptype = parseInt(form.dataset.ptype, 10);
+    const pid = parseInt(form.dataset.id, 10);
+    const count = parseInt(raw, 10);
+    form.dataset.busy = "1";
+    try {
+      const res = await fetch(`/users/${userId}/edit/items/set`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({possession_type: ptype, possession_id: pid, count: count}),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showBanner(json.error || MSG.grant_failed, "error");
+        return;
+      }
+      const display = form.querySelector("[data-current]");
+      if (display) display.textContent = num(count);
+      amtEl.value = "";
+      form.classList.add("grant-success");
+      showBanner(fmt(MSG.set_one, {amount: num(count), id: pid}), "success");
     } catch (err) {
       showBanner(fmt(MSG.network_error, {error: err.message}), "error");
     } finally {

@@ -691,7 +691,13 @@ async function writeDeck() {
     else { msg.className = "banner error"; msg.textContent = "> " + fill(TXT.error, {text: j.error}); }
   } finally { $("w-go").disabled = false; }
 }
-if (PREPARING) prepare(null).then(() => location.reload());
+// Shows the pieces once ready, unless the player has left meanwhile: a tab
+// tapped while they were prepared waits on the server, and a reload now would
+// cancel it.
+let leaving = false;
+addEventListener("beforeunload", () => { leaving = true; });
+document.addEventListener("click", e => { if (e.target.closest("a[href]:not([href^='#'])")) leaving = true; }, true);
+if (PREPARING) prepare(null).then(() => { if (!leaving) location.reload(); });
 else load(true);
 </script>
 {% endblock %}

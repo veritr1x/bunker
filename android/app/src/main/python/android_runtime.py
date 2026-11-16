@@ -376,6 +376,7 @@ def create_app(token, origin):
     import android_story
     import android_players
     import android_arena
+    import android_items
     app = base_app()
     app.include_router(router)
     import android_calendar
@@ -388,6 +389,7 @@ def create_app(token, origin):
     app.include_router(android_mods.router)
     app.include_router(android_story.router)
     app.include_router(android_arena.router)
+    app.include_router(android_items.router)
     android_players.install(app)
     # Inside the session check below: middleware added later runs first.
     install_game_guard(app, lambda: game_live(), lambda: close_game())

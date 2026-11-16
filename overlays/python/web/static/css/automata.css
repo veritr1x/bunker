@@ -394,6 +394,10 @@ a:hover { background: var(--accent); color: var(--bg-cream); border-bottom-color
 .grant-form.important {
   grid-template-columns: minmax(0, 1fr) 90px 180px 80px 90px;
 }
+/* Item Editor amounts: Grant adds the amount, Set makes it the count held. */
+.grant-form.settable {
+  grid-template-columns: minmax(0, 1fr) 90px 130px 130px 90px 90px;
+}
 .row-checkbox {
   display: inline-flex;
   align-items: center;
