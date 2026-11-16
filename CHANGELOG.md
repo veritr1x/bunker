@@ -4,6 +4,15 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.8 (2026-11-17)
+
+With the Original calendar, each earlier run of a rerun event plays its own
+copies of its quests: the list of drops before a quest shows the medal that run
+pays and its exchange takes, and clears carry over between runs as the live
+game's reruns did. Mama's News no longer shows pink pages to returning players.
+Pod Programs: Set beside Grant in the Item Editor, a tab strip that keeps its
+place, and tabs that open while Deck Builder prepares.
+
 ## 2026-11-17 (after 1.12.7)
 
 ### Calendar
