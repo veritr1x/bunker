@@ -4,6 +4,22 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-17 (after 1.12.7)
+
+### Calendar
+- Each earlier run of a rerun event plays its own copies of its quests, so the
+  list of drops before a quest shows that run's medal, the one it pays and its
+  exchange takes: Stronghold of Desolation's first run listed the rerun's medal
+  and paid its own. Clears carry over between a quest and its copies, as the
+  live game's reruns did ("Quest clear status from previous runs will be carried
+  over"): clear counts, first-clear rewards, quest missions and unlocks. Clears
+  in saves made before this show in every run. 33 runs, 1,048 quests.
+- Each run plays the quests it had, in its own order: two quests the final game
+  data dropped from their events are back (Sunset Port's 2022 run and the
+  FFXIV crossover, EX Hard). scripts/check_run_quests.py checks every run's
+  quests, drops, medals and unlocks against the game data. Calendars in use
+  rebuild (data version 8).
+
 ## 2026-11-16 (after 1.12.7)
 
 ### Pod Programs

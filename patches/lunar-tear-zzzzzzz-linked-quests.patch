@@ -1,0 +1,77 @@
+diff --git a/server/internal/runtime/holder.go b/server/internal/runtime/holder.go
+--- a/server/internal/runtime/holder.go
++++ b/server/internal/runtime/holder.go
+@@ -85,6 +85,12 @@
+ 		return fmt.Errorf("buildCatalogs: %w", err)
+ 	}
+ 	h.cur.Store(c)
++	// Bunker: earlier event runs' quest copies share their originals' progress (store.LinkQuests).
++	questIds := make([]int32, 0, len(c.Quest.QuestById))
++	for id := range c.Quest.QuestById {
++		questIds = append(questIds, id)
++	}
++	store.SetQuestCopies(questIds)
+ 	now := time.Now()
+ 	if err := os.Chtimes(h.binPath, now, now); err != nil {
+ 		log.Printf("[runtime] os.Chtimes(%s) failed (clients may not invalidate cache): %v", h.binPath, err)
+diff --git a/server/internal/store/sqlite/load.go b/server/internal/store/sqlite/load.go
+--- a/server/internal/store/sqlite/load.go
++++ b/server/internal/store/sqlite/load.go
+@@ -14,6 +14,7 @@
+ 	u, err := s.loadStored(userId)
+ 	if err == nil {
+ 		store.UpgradeTimeKeys(&u, gametime.NowMillis())
++		store.LinkQuests(&u) // Bunker: earlier event runs' quest copies (store/bunker_quest_links.go)
+ 	}
+ 	return u, err
+ }
+diff --git a/server/internal/store/sqlite/user.go b/server/internal/store/sqlite/user.go
+--- a/server/internal/store/sqlite/user.go
++++ b/server/internal/store/sqlite/user.go
+@@ -284,6 +284,7 @@
+ 	// Saved so the upgraded day and week keys replace the old ones.
+ 	store.UpgradeTimeKeys(&after, gametime.NowMillis())
+ 	mutate(&after)
++	store.LinkQuests(&after) // Bunker: earlier event runs' quest copies (store/bunker_quest_links.go)
+ 
+ 	tx, err := s.db.Begin()
+ 	if err != nil {
+diff --git a/server/internal/missions/engine.go b/server/internal/missions/engine.go
+--- a/server/internal/missions/engine.go
++++ b/server/internal/missions/engine.go
+@@ -172,7 +172,7 @@
+ 	}
+ 	for id, q := range after.Quests {
+ 		n := int64(q.ClearCount) - int64(before.Quests[id].ClearCount)
+-		if n <= 0 {
++		if n <= 0 || !playedOfFamily(after, before, id) {
+ 			continue
+ 		}
+ 		number := deck
+@@ -743,3 +743,26 @@
+ 		}
+ 	}
+ }
++
++// playedOfFamily: a clear counts once for a quest and its earlier runs' copies,
++// which share their progress (store.LinkQuests): for the one played (the event
++// quest in play before the change, finishing clears it; else the first whose clear count rose).
++func playedOfFamily(after, before *store.UserState, id int32) bool {
++	family := store.QuestFamily(id)
++	if len(family) == 1 {
++		return true
++	}
++	for _, current := range []int32{before.EventQuest.CurrentQuestId, after.EventQuest.CurrentQuestId} {
++		for _, member := range family {
++			if member == current {
++				return id == current
++			}
++		}
++	}
++	for _, member := range family {
++		if after.Quests[member].ClearCount > before.Quests[member].ClearCount {
++			return id == member
++		}
++	}
++	return true
++}

@@ -86,3 +86,22 @@ func TestABonusOutsideAnEarlierRunIsTheGameDatas(t *testing.T) {
 		t.Fatalf("bonus %v without a run and without m_quest_bonus", got)
 	}
 }
+
+// With the run's own copies of its quests (store.OriginalQuest), a copy is paid
+// its run's drops and bonuses, which event_runs.json records by the original.
+func TestARunsCopyOfAQuestPaysTheRunsMedal(t *testing.T) {
+	h := eventRunHandler(t, runLink)
+	copy := runQuest + 1_000_000_000
+	h.QuestById[copy] = masterdata.EntityMQuest{QuestId: copy, QuestPickupRewardGroupId: 1}
+	target := campaign.QuestTarget{QuestId: copy, QuestType: campaign.QuestTypeEventQuest, ChapterId: runChapter}
+	if got := medals(h.pickupDrops(h.QuestById[copy], target, campaign.DropRateMul{})); got[25] != 9 || got[149] != 0 {
+		t.Fatalf("drops %v, want the run's 9 of medal 25", got)
+	}
+	u := store.SeedUserState(1, "u", 0, model.DefaultPlatform)
+	u.Costumes["c"] = store.CostumeState{UserCostumeUuid: "c", CostumeId: 21001, LimitBreakCount: 1}
+	u.DeckCharacters["d"] = store.DeckCharacterState{UserDeckCharacterUuid: "d", UserCostumeUuid: "c"}
+	u.EventQuest.CurrentEventQuestChapterId, u.EventQuest.CurrentQuestId = runChapter, copy
+	if got := medals(h.questBonusDrops(u, h.QuestById[copy], store.DeckState{UserDeckCharacterUuid01: "d"}, 1)); got[25] != 5 {
+		t.Fatalf("bonus %v, want 5 of medal 25 (character +2, costume +3)", got)
+	}
+}

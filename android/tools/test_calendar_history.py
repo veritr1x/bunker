@@ -124,14 +124,26 @@ class EventRuns(unittest.TestCase):
         self.assertIn([second, 3, 6020, 6, 46], ln)
         self.assertIn([84, 3, 6064, 6, 149], ln)  # the last run's own row stays
 
-    def test_a_run_shows_only_the_quests_it_had(self):
+    def test_each_run_plays_its_own_copies_of_the_quests_it_had(self):
+        """An earlier run's quests are copies, quest + (RUN_IDS + n) * COPY_STEP, so the game shows each run's
+        own drops; the server keeps a copy's progress with its original's (store.LinkQuests)."""
         ch, _, gr, sq = self.build({"510": [self.RUN0, self.RUN1, None]})
-        trimmed = 200011 + 100 * cal.COPY_STEP
-        self.assertEqual(ch[0][7], trimmed)
-        self.assertEqual(ch[1][7], 200011)  # the second run had every quest
-        self.assertEqual(sorted(g for g in gr if g[0] == trimmed), [[trimmed, 1, 200028 + 100 * cal.COPY_STEP]])  # no quest left in 200509
-        self.assertEqual(sorted(q[2] for q in sq if q[0] == 200028 + 100 * cal.COPY_STEP), [1, 2])
-        self.assertEqual(len(sq), 5)  # the originals kept
+        s0, s1 = 100 * cal.COPY_STEP, 101 * cal.COPY_STEP
+        self.assertEqual([c[7] for c in ch], [200011 + s0, 200011 + s1, 200011, 2])
+        self.assertEqual(sorted(g for g in gr if g[0] == 200011 + s0), [[200011 + s0, 1, 200028 + s0]])  # no quest left in 200509
+        self.assertEqual(sorted(q[2] for q in sq if q[0] == 200028 + s0), [1 + s0, 2 + s0])
+        self.assertEqual(sorted(q[2] for q in sq if q[0] in (200028 + s1, 200509 + s1)), [1 + s1, 2 + s1, 3 + s1])
+        self.assertEqual(sorted(q[2] for q in sq if q[0] < cal.COPY_STEP), [1, 2, 3])  # the last run keeps the originals
+
+    def test_a_run_plays_its_own_layout_with_quests_the_final_data_dropped(self):
+        """509's 2022 run had a difficulty-4 quest (200773) the final game data no longer lists: the run's own
+        layout (event_runs.json "layout": difficulty, sequence, quests in order) is what it plays."""
+        run0 = dict(self.RUN0, quests=[1, 2, 9], layout=[[1, 200028, [2, 1]], [4, 200777, [9]]])
+        ch, _, gr, sq = self.build({"510": [run0, None, None]})
+        S = 100 * cal.COPY_STEP
+        self.assertEqual(sorted(g for g in gr if g[0] == 200011 + S), [[200011 + S, 1, 200028 + S], [200011 + S, 4, 200777 + S]])
+        self.assertEqual([q[2] for q in sorted((q for q in sq if q[0] == 200028 + S), key=lambda q: q[1])], [2 + S, 1 + S])
+        self.assertEqual([q[2] for q in sq if q[0] == 200777 + S], [9 + S])
 
     def test_a_run_gives_its_own_medals(self):
         run0 = dict(self.RUN0, drops={"1": [[6, 25, 9], [5, 100002, 4]], "2": []})
@@ -147,6 +159,76 @@ class EventRuns(unittest.TestCase):
         ch, ln, gr, sq = self.build({})
         self.assertEqual([c[5] for c in ch], [84, 84, 84, 90])
         self.assertEqual((len(ln), len(gr), len(sq)), (1, 2, 3))
+
+
+class RunQuests(unittest.TestCase):
+    """An earlier run's quests are copies (event_runs points its sequences at them): each copy has its scenes and
+    their battle rows, its unlock conditions pointing at the run's own copies, and the run's own drops as the list
+    the game shows (run_quest_copies)."""
+    S = 100 * cal.COPY_STEP
+
+    def tables(self):
+        return {
+            "m_event_quest_chapter": [{"EventQuestChapterId": 510, "EventQuestSequenceGroupId": 200011 + self.S},
+                                      {"EventQuestChapterId": 510 + cal.COPY_STEP, "EventQuestSequenceGroupId": 200011}],
+            "m_event_quest_sequence_group": [{"EventQuestSequenceGroupId": 200011 + self.S, "DifficultyType": 1, "EventQuestSequenceId": 200028 + self.S}],
+            "m_event_quest_sequence": [{"EventQuestSequenceId": 200028 + self.S, "SortOrder": 1, "QuestId": 1 + self.S},
+                                       {"EventQuestSequenceId": 200028 + self.S, "SortOrder": 2, "QuestId": 2 + self.S}],
+            "m_quest": [{"QuestId": 1, "QuestReleaseConditionListId": 0, "QuestPickupRewardGroupId": 7},
+                        {"QuestId": 2, "QuestReleaseConditionListId": 2, "QuestPickupRewardGroupId": 7},
+                        {"QuestId": 3, "QuestReleaseConditionListId": 0, "QuestPickupRewardGroupId": 7}],
+            "m_quest_release_condition_list": [{"QuestReleaseConditionListId": 2, "QuestReleaseConditionGroupId": 2, "ConditionOperationType": 1}],
+            "m_quest_release_condition_group": [{"QuestReleaseConditionGroupId": 2, "SortOrder": 1, "QuestReleaseConditionType": 4, "QuestReleaseConditionId": 9}],
+            "m_quest_release_condition_quest_clear": [{"QuestReleaseConditionId": 9, "QuestId": 1}],
+            "m_quest_scene": [{"QuestSceneId": 11, "QuestId": 1, "SortOrder": 1}, {"QuestSceneId": 12, "QuestId": 1, "SortOrder": 2},
+                              {"QuestSceneId": 21, "QuestId": 2, "SortOrder": 1}, {"QuestSceneId": 31, "QuestId": 3, "SortOrder": 1}],
+            "m_quest_scene_battle": [{"QuestSceneId": 12, "BattleGroupId": 5}, {"QuestSceneId": 21, "BattleGroupId": 6}],
+            "m_battle_quest_scene_bgm": [{"QuestSceneId": 12, "StartWaveNumber": 1, "BgmId": 3}],
+            "m_quest_schedule_correspondence": [{"QuestId": 1, "QuestScheduleId": 4}],
+            "m_quest_pickup_reward_group": [{"QuestPickupRewardGroupId": 7, "SortOrder": 1, "BattleDropRewardId": 70}],
+            "m_battle_drop_reward": [{"BattleDropRewardId": 70, "PossessionType": 6, "PossessionId": 108, "Count": 9}],
+        }
+
+    RUN0 = {"quests": [1, 2], "drops": {"1": [[6, 43, 9], [5, 100002, 4]]}}
+
+    def copies(self):
+        return cal.run_quest_copies(self.tables(), {"510": [self.RUN0, None]})
+
+    def test_each_quest_the_run_had_is_copied_with_its_scenes(self):
+        out, S = self.copies(), self.S
+        self.assertEqual(sorted(q["QuestId"] for q in out["m_quest"]), [1 + S, 2 + S])
+        self.assertEqual(sorted((r["QuestSceneId"], r["QuestId"]) for r in out["m_quest_scene"]), [(11 + S, 1 + S), (12 + S, 1 + S), (21 + S, 2 + S)])
+        self.assertEqual(sorted((r["QuestSceneId"], r["BattleGroupId"]) for r in out["m_quest_scene_battle"]), [(12 + S, 5), (21 + S, 6)])
+        self.assertEqual(out["m_battle_quest_scene_bgm"], [{"QuestSceneId": 12 + S, "StartWaveNumber": 1, "BgmId": 3}])
+        self.assertEqual(out["m_quest_schedule_correspondence"], [{"QuestId": 1 + S, "QuestScheduleId": 4}])
+
+    def test_a_copy_unlocks_with_the_runs_own_copies(self):
+        out, S = self.copies(), self.S
+        q2 = next(q for q in out["m_quest"] if q["QuestId"] == 2 + S)
+        self.assertEqual(q2["QuestReleaseConditionListId"], 2 + S)
+        self.assertEqual(out["m_quest_release_condition_list"], [{"QuestReleaseConditionListId": 2 + S, "QuestReleaseConditionGroupId": 2 + S, "ConditionOperationType": 1}])
+        self.assertEqual(out["m_quest_release_condition_group"], [{"QuestReleaseConditionGroupId": 2 + S, "SortOrder": 1, "QuestReleaseConditionType": 4, "QuestReleaseConditionId": 9 + S}])
+        self.assertEqual(out["m_quest_release_condition_quest_clear"], [{"QuestReleaseConditionId": 9 + S, "QuestId": 1 + S}])
+        q1 = next(q for q in out["m_quest"] if q["QuestId"] == 1 + S)
+        self.assertEqual(q1["QuestReleaseConditionListId"], 0)
+
+    def test_the_drop_list_is_the_runs_own(self):
+        out, S = self.copies(), self.S
+        q1 = next(q for q in out["m_quest"] if q["QuestId"] == 1 + S)
+        q2 = next(q for q in out["m_quest"] if q["QuestId"] == 2 + S)
+        group = q1["QuestPickupRewardGroupId"]
+        self.assertNotEqual(group, 7)
+        drops = {d["BattleDropRewardId"]: d for d in out["m_battle_drop_reward"]}
+        shown = [(drops[r["BattleDropRewardId"]]["PossessionType"], drops[r["BattleDropRewardId"]]["PossessionId"], drops[r["BattleDropRewardId"]]["Count"])
+                 for r in sorted(out["m_quest_pickup_reward_group"], key=lambda r: r["SortOrder"]) if r["QuestPickupRewardGroupId"] == group]
+        self.assertEqual(shown, [(6, 43, 9), (5, 100002, 4)])
+        self.assertTrue(all(d > 70 for d in drops))  # new rows, after the game's own
+        self.assertEqual(q2["QuestPickupRewardGroupId"], 7)  # no drops recorded for it: the game data's list
+
+    def test_without_copies_nothing_is_added(self):
+        tables = self.tables()
+        tables["m_event_quest_sequence"] = [dict(r, QuestId=r["QuestId"] - self.S) for r in tables["m_event_quest_sequence"]]
+        self.assertEqual({k: v for k, v in cal.run_quest_copies(tables, {"510": [self.RUN0, None]}).items() if v}, {})
 
 
 class DailyMissions(unittest.TestCase):

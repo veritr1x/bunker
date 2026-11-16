@@ -61,7 +61,8 @@ func (h *QuestHandler) pickupDrops(questDef masterdata.EntityMQuest, target camp
 	var drops []RewardGrant
 	if target.QuestType == campaign.QuestTypeEventQuest {
 		if run := h.eventRun(target.ChapterId); run != nil {
-			if own, ok := run.Drops[questDef.QuestId]; ok {
+			// An earlier run's copy of a quest (store.OriginalQuest) pays its run's drops, recorded by the original.
+			if own, ok := run.Drops[store.OriginalQuest(questDef.QuestId)]; ok {
 				for _, d := range own {
 					drops = append(drops, RewardGrant{PossessionType: model.PossessionType(d[0]), PossessionId: d[1], Count: dropRate.Apply(d[2])})
 				}
@@ -94,7 +95,7 @@ func (h *QuestHandler) runBonusDrops(user *store.UserState, questDef masterdata.
 	if run == nil {
 		return nil, false
 	}
-	rules := run.BonusRules(questDef.QuestId)
+	rules := run.BonusRules(store.OriginalQuest(questDef.QuestId))
 	pay := func(r masterdata.EventRunBonusRule) {
 		for _, p := range r.Pays {
 			out = append(out, RewardGrant{PossessionType: model.PossessionType(p[0]), PossessionId: p[1], Count: p[2]})

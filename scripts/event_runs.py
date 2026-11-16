@@ -132,7 +132,13 @@ def run_view(t, chapter):
             rules.sort(key=lambda r: (r[0], r[1], r[2]))
             name = json.dumps(rules)
             bonus_of[str(q)] = bonuses.setdefault(name, f"b{len(bonuses)}")
-    return {"link": row["EventQuestLinkId"], "display": row["EventQuestDisplayItemGroupId"], "quests": quests,
+    groups_of = [g for g in t["m_event_quest_sequence_group"] if g["EventQuestSequenceGroupId"] == row["EventQuestSequenceGroupId"]]
+    in_seq = _by(sorted(t["m_event_quest_sequence"], key=lambda s: s["SortOrder"]), "EventQuestSequenceId")
+    # Where each quest was (difficulty, sequence, order): the calendar copies the run as it was, with any
+    # quest the final game data dropped from the chapter (android_calendar.event_runs).
+    layout = [[g["DifficultyType"], g["EventQuestSequenceId"], [s["QuestId"] for s in in_seq.get(g["EventQuestSequenceId"], [])]]
+              for g in groups_of]
+    return {"link": row["EventQuestLinkId"], "display": row["EventQuestDisplayItemGroupId"], "quests": quests, "layout": layout,
             "link_row": {"shop": link.get("DestinationDomainId"), "possession_type": link.get("PossessionType"),
                          "possession_id": link.get("PossessionId")},
             "drops": drops, "bonus": bonus_of, "bonuses": {v: json.loads(k) for k, v in bonuses.items()},

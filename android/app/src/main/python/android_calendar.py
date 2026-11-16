@@ -390,8 +390,8 @@ def event_run_data():
 
 def event_runs(chapters, links, groups, sequences, runs, cols):
     """Gives each chapter copy of a rerun event its run's link (a new row with
-    that run's exchange and medal), shown medal and quests (a trimmed sequence
-    group when the run had fewer). runs: base chapter -> per-run data, the
+    that run's exchange and medal), shown medal and quests: a sequence group of
+    its own with the quests the run had, each the run's copy (quest + its step). runs: base chapter -> per-run data, the
     last run None; cols: the chapter's link, display and group columns.
     Returns the chapter, link, sequence group and sequence tables."""
     import msgpack
@@ -415,21 +415,135 @@ def event_runs(chapters, links, groups, sequences, runs, cols):
             cells[cols["display"]] = msgpack.packb(run["display"])
             group = msgpack.unpackb(cells[cols["group"]])
             had = set(run["quests"])
-            every = {msgpack.unpackb(q[2]) for g in group_rows.get(group, []) for q in seq_rows.get(msgpack.unpackb(g[2]), [])}
-            if had and had != every:
-                if group + step not in made:
-                    made.add(group + step)
-                    for g in group_rows.get(group, []):
-                        seq = msgpack.unpackb(g[2])
-                        kept = [q for q in seq_rows.get(seq, []) if msgpack.unpackb(q[2]) in had]
-                        if not kept:
-                            continue
-                        new_groups.append(bytes([0x90 | len(g)]) + msgpack.packb(group + step) + g[1] + msgpack.packb(seq + step) + b"".join(g[3:]))
-                        new_seqs.extend(bytes([0x90 | len(q)]) + msgpack.packb(seq + step) + b"".join(q[1:]) for q in kept)
-                cells[cols["group"]] = msgpack.packb(group + step)
+            if group + step not in made and run.get("layout"):
+                # The run as it was: each difficulty's sequence and its quests in order (event_runs.json),
+                # with any quest the final game data dropped from the chapter.
+                made.add(group + step)
+                for difficulty, seq, quests in run["layout"]:
+                    if not quests:
+                        continue
+                    new_groups.append(bytes([0x93]) + msgpack.packb(group + step) + msgpack.packb(difficulty) + msgpack.packb(seq + step))
+                    new_seqs.extend(bytes([0x93]) + msgpack.packb(seq + step) + msgpack.packb(order) + msgpack.packb(quest + step)
+                                    for order, quest in enumerate(quests, 1))
+            if group + step not in made:
+                made.add(group + step)
+                for g in group_rows.get(group, []):
+                    seq = msgpack.unpackb(g[2])
+                    kept = [q for q in seq_rows.get(seq, []) if not had or msgpack.unpackb(q[2]) in had]
+                    if not kept:
+                        continue
+                    new_groups.append(bytes([0x90 | len(g)]) + msgpack.packb(group + step) + g[1] + msgpack.packb(seq + step) + b"".join(g[3:]))
+                    # The run's own copy of each quest (copy_run_quests), so the game shows that run's drops.
+                    new_seqs.extend(bytes([0x90 | len(q)]) + msgpack.packb(seq + step) + q[1] + msgpack.packb(msgpack.unpackb(q[2]) + step)
+                                    + b"".join(q[3:]) for q in kept)
+            cells[cols["group"]] = msgpack.packb(group + step)
         chapter_rows.append(header + b"".join(cells))
     keep = lambda blob: [h + b"".join(c) for h, c in _rows(blob)]
     return _table(chapter_rows), _table(keep(links) + new_links), _table(keep(groups) + new_groups), _table(keep(sequences) + new_seqs)
+
+
+# An earlier run's quests are copies of the final game data's (event_runs gives
+# its sequences quest + its step): each copy brings its scenes and every row
+# keyed by them, its schedule, its unlock conditions pointing at the run's own
+# copies, and the drops the run had as the list the game shows before a quest.
+# The server keeps a copy's progress with its original's (store.LinkQuests), as
+# the live game, whose reruns replayed the same quests, carried clears over.
+COPY_SCENE_TABLES = ("m_quest_scene_battle", "m_battle_quest_scene_bgm_set_group", "m_battle_quest_scene_bgm",
+                     "m_battle_progress_ui_type", "m_battle_general_view_configuration", "m_battle_npc_special_end_act",
+                     "m_quest_scene_not_confirm_title_dialog", "m_quest_scene_outgame_blendshape_motion",
+                     "m_quest_scene_picture_book_replace", "m_user_quest_scene_grant_possession")
+COPY_QUEST_TABLES = ("m_quest_schedule_correspondence", "m_quest_display_enemy_thumbnail_replace")
+CLEAR_QUEST = 4  # QuestReleaseConditionType: clear a quest (m_quest_release_condition_quest_clear)
+
+
+def run_quest_copies(rows, runs):
+    """The rows an earlier run's quest copies need, by table (rows as {column: value}). rows: the tables, with
+    the event tables as event_runs left them; runs: event_run_data()."""
+    base = RUN_IDS * COPY_STEP
+    copies = {}  # copy quest id -> (original, step, run)
+    groups = {}
+    for g in rows.get("m_event_quest_sequence_group", []):
+        groups.setdefault(g["EventQuestSequenceGroupId"], set()).add(g["EventQuestSequenceId"])
+    in_sequence = {}
+    for q in rows.get("m_event_quest_sequence", []):
+        in_sequence.setdefault(q["EventQuestSequenceId"], []).append(q["QuestId"])
+    for ch in rows.get("m_event_quest_chapter", []):
+        chapter = ch["EventQuestChapterId"]
+        recorded = runs.get(str(chapter % COPY_STEP)) or []
+        n = chapter // COPY_STEP
+        run = recorded[n] if n < len(recorded) else None
+        for seq in groups.get(ch["EventQuestSequenceGroupId"], ()):
+            for quest in in_sequence.get(seq, []):
+                if quest >= base and run:
+                    copies[quest] = (quest % COPY_STEP, quest - quest % COPY_STEP, run)
+    out = {name: [] for name in ("m_quest", "m_quest_scene", "m_quest_release_condition_list", "m_quest_release_condition_group",
+                                 "m_quest_release_condition_quest_clear", "m_quest_pickup_reward_group", "m_battle_drop_reward",
+                                 *COPY_SCENE_TABLES, *COPY_QUEST_TABLES)}
+    if not copies:
+        return out
+    quests = {q["QuestId"]: q for q in rows.get("m_quest", [])}
+    lists, cond_groups, clears = {}, {}, {}
+    for r in rows.get("m_quest_release_condition_list", []):
+        lists.setdefault(r["QuestReleaseConditionListId"], []).append(r)
+    for r in rows.get("m_quest_release_condition_group", []):
+        cond_groups.setdefault(r["QuestReleaseConditionGroupId"], []).append(r)
+    for r in rows.get("m_quest_release_condition_quest_clear", []):
+        clears[r["QuestReleaseConditionId"]] = r["QuestId"]
+    next_drop = max((d["BattleDropRewardId"] for d in rows.get("m_battle_drop_reward", [])), default=0) + 1
+    made_lists, made_groups, made_clears = set(), set(), set()
+    original_quests = {}
+    for copy, (original, step, _) in copies.items():
+        original_quests.setdefault(original, []).append(copy)
+    for copy, (original, step, run) in sorted(copies.items()):
+        quest = quests.get(original)
+        if quest is None:
+            continue
+        new = dict(quest, QuestId=copy)
+        listed = quest.get("QuestReleaseConditionListId", 0)
+        if listed:
+            new["QuestReleaseConditionListId"] = listed + step
+            if listed + step not in made_lists:
+                made_lists.add(listed + step)
+                for row in lists.get(listed, []):
+                    group = row["QuestReleaseConditionGroupId"]
+                    out["m_quest_release_condition_list"].append(dict(row, QuestReleaseConditionListId=listed + step,
+                                                                      QuestReleaseConditionGroupId=group + step))
+                    if group + step in made_groups:
+                        continue
+                    made_groups.add(group + step)
+                    for cond in cond_groups.get(group, []):
+                        cond_id = cond["QuestReleaseConditionId"]
+                        target = clears.get(cond_id) if cond["QuestReleaseConditionType"] == CLEAR_QUEST else None
+                        if target is not None and target + step in copies:
+                            cond_id += step
+                            if cond_id not in made_clears:
+                                made_clears.add(cond_id)
+                                out["m_quest_release_condition_quest_clear"].append({"QuestReleaseConditionId": cond_id, "QuestId": target + step})
+                        out["m_quest_release_condition_group"].append(dict(cond, QuestReleaseConditionGroupId=group + step,
+                                                                           QuestReleaseConditionId=cond_id))
+        drops = (run.get("drops") or {}).get(str(original))
+        if drops:
+            new["QuestPickupRewardGroupId"] = copy
+            for order, (kind, item, count) in enumerate(drops, 1):
+                out["m_battle_drop_reward"].append({"BattleDropRewardId": next_drop, "PossessionType": kind, "PossessionId": item, "Count": count})
+                out["m_quest_pickup_reward_group"].append({"QuestPickupRewardGroupId": copy, "SortOrder": order, "BattleDropRewardId": next_drop})
+                next_drop += 1
+        out["m_quest"].append(new)
+    scenes = {}
+    for r in rows.get("m_quest_scene", []):
+        for copy in original_quests.get(r["QuestId"], ()):
+            step = copies[copy][1]
+            out["m_quest_scene"].append(dict(r, QuestSceneId=r["QuestSceneId"] + step, QuestId=copy))
+            scenes.setdefault(r["QuestSceneId"], []).append(step)
+    for name in COPY_SCENE_TABLES:
+        for r in rows.get(name, []):
+            for step in scenes.get(r["QuestSceneId"], ()):
+                out[name].append(dict(r, QuestSceneId=r["QuestSceneId"] + step))
+    for name in COPY_QUEST_TABLES:
+        for r in rows.get(name, []):
+            for copy in original_quests.get(r["QuestId"], ()):
+                out[name].append(dict(r, QuestId=copy))
+    return out
 
 
 def run_items(chapters, runs):
@@ -460,6 +574,34 @@ def apply_event_runs(toc, blob, changed, schemas):
     built = event_runs(*(tables[n] for n in names), runs=runs, cols=cols)
     for n, new in zip(names, built):
         pm.apply_to_table(toc, blob, changed, n, lambda b, new=new: new)
+    apply_run_quests(toc, blob, changed, schemas, runs)
+
+
+def table_rows(toc, blob, changed, schemas, name):
+    """A table's rows as {column: value}."""
+    import msgpack
+    from patcher import patch_masterdata as pm
+    names = [n for _, _, n in schemas[name][1]]
+    got = []
+    pm.apply_to_table(toc, blob, changed, name, lambda b: got.append(bytes(b)) or 0)
+    return [dict(zip(names, msgpack.unpackb(h + b"".join(c)))) for h, c in _rows(got[0])] if got else []
+
+
+def apply_run_quests(toc, blob, changed, schemas, runs):
+    """Adds the earlier runs' quest copies (run_quest_copies) to the game data."""
+    import msgpack
+    from patcher import patch_masterdata as pm
+    wanted = ("m_event_quest_chapter", "m_event_quest_sequence_group", "m_event_quest_sequence", "m_quest", "m_quest_scene",
+              "m_quest_release_condition_list", "m_quest_release_condition_group", "m_quest_release_condition_quest_clear",
+              "m_quest_pickup_reward_group", "m_battle_drop_reward", *COPY_SCENE_TABLES, *COPY_QUEST_TABLES)
+    rows = {n: table_rows(toc, blob, changed, schemas, n) for n in wanted if n in toc and n in schemas}
+    for name, added in run_quest_copies(rows, runs).items():
+        if not added or name not in rows:
+            continue
+        names = [n for _, _, n in schemas[name][1]]
+        every = sorted(rows[name] + added, key=lambda r: tuple(r[n] for n in names[:2]))
+        packed = _table([msgpack.packb([r[n] for n in names]) for r in every])
+        pm.apply_to_table(toc, blob, changed, name, lambda b, packed=packed: packed)
 
 
 # The banner each run showed (scripts/event_banners.py): the final game data
@@ -985,15 +1127,17 @@ def view_file():
 # (refresh_view): 2 caps start dates at launch (VIEW_FROM_LAUNCH) and opens
 # story chapters on their dates; 5 replays each event run with its own exchange;
 # 6 has daily missions from launch (daily set 21-26's first run); 7 shows each run's own banner;
-# 8 opens rebuilt notices from home banners whose notice was lost.
-VIEW_VERSION = "8"
+# 8 opens rebuilt notices from home banners whose notice was lost; 9 gives each earlier event run
+# its own copies of its quests.
+VIEW_VERSION = "9"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
 # (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat);
 # 4 replays each event run with its own exchange, medal and quests (event_runs.json);
 # 5 has daily missions from launch (daily set 21-26's first run, calendar_history.json);
 # 6 shows each event run's own banner (event_banners.json); 7 opens rebuilt notices from home
-# banners whose notice was lost.
-DATA_VERSION = 7
+# banners whose notice was lost; 8 gives each earlier event run its own copies of its quests
+# (run_quest_copies), whose list of drops is that run's.
+DATA_VERSION = 8
 
 
 def view_version_file():

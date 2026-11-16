@@ -56,6 +56,14 @@ class RunView(unittest.TestCase):
         self.assertEqual(run["quests"], [1, 2])
         self.assertEqual(run["drops"], {"1": [[6, 25, 9]], "2": [[6, 25, 9]]})
 
+    def test_the_runs_own_layout(self):
+        """Where each quest was: difficulty, sequence and order (a quest the final game data dropped is in it)."""
+        t = tables(quests=(1, 2, 3))
+        t["m_event_quest_sequence_group"].append({"EventQuestSequenceGroupId": 9, "DifficultyType": 4, "EventQuestSequenceId": 91})
+        t["m_event_quest_sequence"] = [s for s in t["m_event_quest_sequence"] if s["QuestId"] != 3] + [
+            {"EventQuestSequenceId": 91, "SortOrder": 1, "QuestId": 3}]
+        self.assertEqual(er.run_view(t, 510)["layout"], [[1, 90, [1, 2]], [4, 91, [3]]])
+
     def test_a_quest_without_drops_records_none(self):
         t = tables()
         t["m_quest"][0]["QuestPickupRewardGroupId"] = 0
