@@ -2,10 +2,14 @@ package masterdata
 
 import (
 	"os"
+	"reflect"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/masterdata/memorydb"
 	"lunar-tear/server/internal/model"
+	"lunar-tear/server/internal/store"
+	"lunar-tear/server/internal/utils"
 )
 
 // Runs against real game data: BUNKER_TEST_MASTER is a master data file.
@@ -64,4 +68,54 @@ func TestDarkMemorySummonLinksToDarkMemories(t *testing.T) {
 		return
 	}
 	t.Fatal("no Dark Memory chapter summon")
+}
+
+func TestChapterBoxGetsListedMaterials(t *testing.T) {
+	const a, b, c = 100, 200, 300
+	box := []store.GachaBoxContent{{PossessionType: 5, PossessionId: a, RarityType: 10, Count: 10, IsTarget: true}}
+	got := withListed(box, []int32{a, b, c}, map[int32]int32{a: 10, b: 30, c: 99})
+	want := []store.GachaBoxContent{
+		{PossessionType: 5, PossessionId: b, RarityType: 30, Count: 3, IsTarget: true},
+		{PossessionType: 5, PossessionId: a, RarityType: 10, Count: 10},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v\nwant %+v", got, want)
+	}
+	if !box[0].IsTarget {
+		t.Fatal("the input box was changed")
+	}
+}
+
+// Every material the game lists for a chapter summon (m_possession_acquisition_route,
+// "3/<asset>/...") is in that summon's box.
+func TestChapterSummonsHoldTheirListedItemsOnTheGameData(t *testing.T) {
+	loadTestMaster(t)
+	tickets, err := LoadChapterTickets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	box := map[string]map[int32]bool{}
+	for _, tk := range tickets {
+		box[tk.AssetName] = map[int32]bool{}
+		for _, c := range tk.Box {
+			box[tk.AssetName][c.PossessionId] = true
+		}
+	}
+	routes, _ := utils.ReadTable[EntityMPossessionAcquisitionRoute]("m_possession_acquisition_route")
+	listed, missing := 0, 0
+	for _, r := range routes {
+		if r.AcquisitionRouteType != 3 || !strings.HasPrefix(r.RelationValue, "3/") || r.PossessionType != 5 {
+			continue
+		}
+		listed++
+		asset := strings.Split(r.RelationValue, "/")[1]
+		if !box[asset][r.PossessionId] {
+			if missing++; missing <= 5 {
+				t.Errorf("%s lacks material %d", asset, r.PossessionId)
+			}
+		}
+	}
+	if listed == 0 || missing != 0 {
+		t.Fatalf("%d listed, %d missing", listed, missing)
+	}
 }

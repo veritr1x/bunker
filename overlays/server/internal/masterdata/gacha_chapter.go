@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"lunar-tear/server/internal/bunkercache"
 	"lunar-tear/server/internal/model"
@@ -197,6 +198,10 @@ func LoadChapterTickets() ([]ChapterTicket, error) {
 			EventQuestChapterId: firstEndChapter.EventQuestChapterId,
 			Box:                 chapterBox(questsByTicket[exTickets[0]], pickupDrops, pickupByQuest, dropById)})
 	}
+	listed := chapterSummonListed()
+	for i := range out {
+		out[i].Box = withListed(out[i].Box, listed[out[i].AssetName], materialRarity())
+	}
 	return out, nil
 }
 
@@ -237,8 +242,9 @@ func chapterGachaEntry(t ChapterTicket) store.GachaCatalogEntry {
 
 // Box contents. Chapter summons gave the materials found in that chapter, from
 // a box that refilled every month; the box itself is not in the game data. A
-// chapter's box holds each material its quests drop, fewer of the rarer ones
-// (chapterBoxCounts by rarity); the rarest are its targets.
+// chapter's box holds each material its quests drop and each the game lists
+// for the summon (withListed), fewer of the rarer ones (chapterBoxCounts by
+// rarity); the rarest are its targets.
 var chapterBoxCounts = map[int32]int32{model.RarityNormal: 10, model.RarityRare: 6, model.RaritySRare: 3, model.RaritySSRare: 1}
 
 var materialRarity = bunkercache.Value(func() map[int32]int32 {
@@ -256,7 +262,6 @@ var materialRarity = bunkercache.Value(func() map[int32]int32 {
 func chapterBox(quests []int32, pickupDrops map[int32][]int32, pickupByQuest map[int32]int32, dropById map[int32]EntityMBattleDropReward) []store.GachaBoxContent {
 	seen := map[int32]bool{}
 	var box []store.GachaBoxContent
-	top := int32(0)
 	for _, q := range quests {
 		for _, id := range pickupDrops[pickupByQuest[q]] {
 			d := dropById[id]
@@ -270,8 +275,17 @@ func chapterBox(quests []int32, pickupDrops map[int32][]int32, pickupByQuest map
 			}
 			seen[d.PossessionId] = true
 			box = append(box, store.GachaBoxContent{PossessionType: d.PossessionType, PossessionId: d.PossessionId, RarityType: rarity, Count: count})
-			top = max(top, rarity)
 		}
+	}
+	return finishBox(box)
+}
+
+// finishBox marks the rarest materials as the targets and sorts the box,
+// rarest first.
+func finishBox(box []store.GachaBoxContent) []store.GachaBoxContent {
+	top := int32(0)
+	for _, c := range box {
+		top = max(top, c.RarityType)
 	}
 	for i := range box {
 		box[i].IsTarget = box[i].RarityType == top
@@ -283,4 +297,46 @@ func chapterBox(quests []int32, pickupDrops map[int32][]int32, pickupByQuest map
 		return box[i].PossessionId < box[j].PossessionId
 	})
 	return box
+}
+
+// withListed is a copy of box that also holds the materials the game lists
+// for the summon (m_possession_acquisition_route, route type 3) and its quests
+// don't drop, counted by rarity like the rest.
+func withListed(box []store.GachaBoxContent, listed []int32, rarity map[int32]int32) []store.GachaBoxContent {
+	out := append([]store.GachaBoxContent(nil), box...)
+	seen := map[int32]bool{}
+	for _, c := range out {
+		seen[c.PossessionId] = true
+	}
+	for _, id := range listed {
+		r, ok := rarity[id]
+		count := chapterBoxCounts[r]
+		if seen[id] || !ok || count == 0 {
+			continue
+		}
+		seen[id] = true
+		out = append(out, store.GachaBoxContent{PossessionType: int32(model.PossessionTypeMaterial), PossessionId: id, RarityType: r, Count: count})
+	}
+	return finishBox(out)
+}
+
+// chapterSummonListed is the materials the game lists for each chapter
+// summon, by its asset name ("3/<asset>/..." routes).
+func chapterSummonListed() map[string][]int32 {
+	routes, err := utils.ReadTable[EntityMPossessionAcquisitionRoute]("m_possession_acquisition_route")
+	if err != nil {
+		log.Printf("[ChapterGacha] m_possession_acquisition_route: %v", err)
+		return nil
+	}
+	sort.SliceStable(routes, func(i, j int) bool { return routes[i].SortOrder < routes[j].SortOrder })
+	out := map[string][]int32{}
+	for _, r := range routes {
+		parts := strings.Split(r.RelationValue, "/")
+		if r.AcquisitionRouteType != acquisitionRouteSummon || len(parts) < 2 || parts[0] != "3" ||
+			model.PossessionType(r.PossessionType) != model.PossessionTypeMaterial {
+			continue
+		}
+		out[parts[1]] = append(out[parts[1]], r.PossessionId)
+	}
+	return out
 }

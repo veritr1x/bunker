@@ -19,8 +19,9 @@ import (
 // questflow/bunker_listed_drops.go rolls them.
 
 const (
-	acquisitionRouteQuest = 1
-	eventQuestTypeDungeon = 3
+	acquisitionRouteQuest  = 1
+	acquisitionRouteSummon = 3
+	eventQuestTypeDungeon  = 3
 )
 
 // PartsKind is a memoir piece at one rarity; its five ranks share it.
