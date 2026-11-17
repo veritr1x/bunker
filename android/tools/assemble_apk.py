@@ -60,6 +60,7 @@ SETTINGS = "assets/bin/Data/globalgamemanagers"
 
 # Android attribute resource IDs (stable across platform versions).
 NAME, VALUE, THEME, AUTHORITIES = 0x01010003, 0x01010024, 0x01010000, 0x01010018
+LABEL = 0x01010001
 MIN_SDK, EXTRACT_NATIVE, CLEARTEXT, PAGE_SIZE_COMPAT = 0x0101020C, 0x010104EA, 0x010104EC, 0x010106AB
 APP_CATEGORY, APP_CATEGORY_GAME = 0x01010545, 0
 THEME_MATERIAL_LIGHT_NO_ACTION_BAR = 0x01030241
@@ -153,7 +154,48 @@ def patch_master(original):
         return target.read_bytes()
 
 
-def patch_manifest(game_manifest, companion_manifest, port_offset=0):
+COMPONENT_TAGS = ("application", "activity", "activity-alias", "service", "receiver", "provider", "instrumentation")
+PERMISSION_TAGS = ("permission", "permission-tree", "permission-group", "uses-permission")
+PERMISSION_ATTRS = ("permission", "readPermission", "writePermission")
+
+
+def rename_package(manifest, old, new):
+    """Gives a second copy its own package (the builder's App ID): every name Android requires
+    to be unique per device moves with it. Class names stay, they name code in the game's dex."""
+    def moved(value):
+        return new + value[len(old):] if value == old or value.startswith(old + ".") else value
+    inside = re.compile(r"(?<![^.])" + re.escape(old) + r"(?![^.])")  # a whole dotted part, e.g. cct.<package>
+    for element in manifest.iter():
+        name = element.get("name")
+        if element.name in COMPONENT_TAGS and name is not None and name.raw:
+            if name.raw.startswith("."):
+                name.raw = old + name.raw
+            elif "." not in name.raw:
+                name.raw = old + "." + name.raw
+        elif element.name in PERMISSION_TAGS and name is not None and name.raw:
+            name.raw = moved(name.raw)
+        for attr in element.attrs:
+            if attr.ns != axml.ANDROID_NS or attr.type != axml.TYPE_STRING or not attr.raw:
+                continue
+            if attr.name == "authorities":
+                attr.raw = ";".join(moved(part) for part in attr.raw.split(";"))
+            elif attr.name in PERMISSION_ATTRS:
+                attr.raw = moved(attr.raw)
+            elif attr.name in ("host", "taskAffinity"):
+                attr.raw = inside.sub(new, attr.raw)
+    manifest.get("package", ns=None).raw = new
+
+
+def set_label(app, name):
+    """The name under the icon: the application's label and the launcher entry's own."""
+    app.set(Attr.string("label", name, LABEL))
+    for activity in app.find_all("activity") + app.find_all("activity-alias"):
+        if any(c.get("name") and c.get("name").raw == "android.intent.category.LAUNCHER"
+               for f in activity.find_all("intent-filter") for c in f.find_all("category")):
+            activity.set(Attr.string("label", name, LABEL))
+
+
+def patch_manifest(game_manifest, companion_manifest, port_offset=0, app_id=None, app_name=None):
     doc = axml.parse(game_manifest)
     companion = axml.parse(companion_manifest).root
     manifest = doc.root
@@ -207,6 +249,10 @@ def patch_manifest(game_manifest, companion_manifest, port_offset=0):
             if source.name == "provider":  # Authorities are unique per device: use the game's.
                 source.set(Attr.string("authorities", package + ".lunar_loopback", AUTHORITIES))
             app.children.append(source)
+    if app_id:  # A second copy (the builder's App ID); the game's activity keeps its class name.
+        rename_package(manifest, package, app_id)
+    if app_name:
+        set_label(app, app_name)
     privacy.harden_manifest(manifest)
     return axml.serialize(doc), game_activity
 

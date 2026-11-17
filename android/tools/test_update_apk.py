@@ -236,6 +236,68 @@ class ManifestTests(unittest.TestCase):
             self.assertEqual((m.get("value").type, m.get("value").data), (axml.TYPE_INT_BOOLEAN, 0xFFFFFFFF if on else 0))
 
 
+COMPONENTS = {"activity", "activity-alias", "service", "receiver", "provider", "application", "instrumentation"}
+
+
+def second_copy_manifests():
+    """The test manifests plus the shapes a rename must handle: several authorities in one
+    attribute, a relative and an absolute class name under the game's package, a permission."""
+    game, companion = manifests()
+    doc = axml.parse(game)
+    old = doc.root.get("package", ns=None).raw
+    app = doc.root.find_all("application")[0]
+    app.children += [
+        Element("provider", [Attr.string("name", "com.example.Multi", assemble_apk.NAME),
+                             Attr.string("authorities", f"{old}.a;{old}.b", assemble_apk.AUTHORITIES)]),
+        Element("activity", [Attr.string("name", ".Relative", assemble_apk.NAME)]),
+        Element("activity", [Attr.string("name", f"{old}.Absolute", assemble_apk.NAME),
+                             Attr.string("taskAffinity", old, 0x01010012)],
+                [Element("intent-filter", children=[Element("data", [Attr.string("host", f"cct.{old}", 0x01010028)])])]),
+    ]
+    doc.root.children.append(Element("permission", [Attr.string("name", f"{old}.permission.C2D_MESSAGE", assemble_apk.NAME)]))
+    doc.root.children.append(Element("uses-permission", [Attr.string("name", f"{old}.permission.C2D_MESSAGE", assemble_apk.NAME)]))
+    return axml.serialize(doc), companion, old
+
+
+class SecondCopyManifestTests(unittest.TestCase):
+    def setUp(self):
+        self.game, self.companion, self.old = second_copy_manifests()
+
+    def patched(self, **options):
+        manifest, game_activity = assemble_apk.patch_manifest(self.game, self.companion, 10000, **options)
+        return axml.parse(manifest).root, game_activity
+
+    def test_rename_package_moves_every_package_name(self):
+        root, _ = self.patched(app_id="com.example.nier2")
+        self.assertEqual(root.get("package", ns=None).raw, "com.example.nier2")
+        authorities = {part for e in root.iter() if e.get("authorities") for part in e.get("authorities").raw.split(";")}
+        self.assertLessEqual({"com.example.nier2.a", "com.example.nier2.b", "com.example.nier2.lunar_loopback"}, authorities)
+        left = [(e.name, a.name, a.raw) for e in root.iter() for a in e.attrs
+                if a.type == axml.TYPE_STRING and a.raw and self.old in a.raw
+                and not (a.name == "name" and e.name in COMPONENTS) and not (e.name == "meta-data" and a.name == "value")]
+        self.assertEqual(left, [])
+        self.assertIn("cct.com.example.nier2", {e.get("host").raw for e in root.iter() if e.name == "data" and e.get("host")})
+
+    def test_rename_package_keeps_class_names(self):
+        root, game_activity = self.patched(app_id="com.example.nier2")
+        names = {e.get("name").raw for e in root.iter() if e.name == "activity"}
+        self.assertLessEqual({f"{self.old}.Relative", f"{self.old}.Absolute"}, names)
+        self.assertEqual(game_activity, self.patched()[1])
+
+    def test_app_name_sets_the_label(self):
+        root, _ = self.patched(app_id="com.example.nier2", app_name="NieR & Co 2 — 니어")
+        app = root.find_all("application")[0]
+        self.assertEqual(app.get("label").raw, "NieR & Co 2 — 니어")
+        launcher = [a for a in app.find_all("activity") if any(c.get("name") and c.get("name").raw == "android.intent.category.LAUNCHER"
+                                                               for f in a.find_all("intent-filter") for c in f.find_all("category"))]
+        self.assertEqual([a.get("label").raw for a in launcher], ["NieR & Co 2 — 니어"])
+
+    def test_no_app_id_keeps_the_manifest(self):
+        plain = assemble_apk.patch_manifest(self.game, self.companion, 10000)
+        self.assertEqual(assemble_apk.patch_manifest(self.game, self.companion, 10000, app_id=None, app_name=None), plain)
+        self.assertEqual(axml.parse(plain[0]).root.get("package", ns=None).raw, self.old)
+
+
 class UnityConnectTests(unittest.TestCase):
     def test_game_settings(self):
         if not GAME_APK.is_file():
