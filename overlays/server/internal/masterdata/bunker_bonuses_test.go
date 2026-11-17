@@ -52,3 +52,14 @@ func TestImportantItemDropRatesOnTheGameData(t *testing.T) {
 		t.Errorf("Wednesday Drop Rate+ targets an item outside its group")
 	}
 }
+
+func TestQuestBonusExpOnTheGameData(t *testing.T) {
+	loadBonusTestMaster(t)
+	c, err := LoadQuestBonusCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := c.ExpByEffect[105]; e.ExpType != 2 || e.BonusValuePermil != 500 {
+		t.Fatalf("effect 105: %+v", e)
+	}
+}

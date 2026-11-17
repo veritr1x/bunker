@@ -26,6 +26,7 @@ type QuestBonusCatalog struct {
 	WeaponGroups         map[int32][]EntityMQuestBonusWeaponGroup
 	EffectGroups         map[int32][]EntityMQuestBonusEffectGroup
 	DropRewardsByEffect  map[int32][]EntityMQuestBonusDropReward
+	ExpByEffect          map[int32]EntityMQuestBonusExp // Bunker: EXP effects (m_quest_bonus_exp)
 	TermsByGroup         map[int32][]EntityMQuestBonusTermGroup
 }
 
@@ -58,6 +59,10 @@ func LoadQuestBonusCatalog() (*QuestBonusCatalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load quest bonus term group table: %w", err)
 	}
+	exps, err := utils.ReadTable[EntityMQuestBonusExp]("m_quest_bonus_exp")
+	if err != nil {
+		return nil, fmt.Errorf("load quest bonus exp table: %w", err)
+	}
 
 	c := &QuestBonusCatalog{
 		BonusById:            make(map[int32]EntityMQuestBonus, len(bonuses)),
@@ -66,6 +71,7 @@ func LoadQuestBonusCatalog() (*QuestBonusCatalog, error) {
 		WeaponGroups:         make(map[int32][]EntityMQuestBonusWeaponGroup),
 		EffectGroups:         make(map[int32][]EntityMQuestBonusEffectGroup),
 		DropRewardsByEffect:  make(map[int32][]EntityMQuestBonusDropReward),
+		ExpByEffect:          make(map[int32]EntityMQuestBonusExp, len(exps)),
 		TermsByGroup:         make(map[int32][]EntityMQuestBonusTermGroup),
 	}
 	for _, b := range bonuses {
@@ -89,6 +95,9 @@ func LoadQuestBonusCatalog() (*QuestBonusCatalog, error) {
 	}
 	for _, r := range drops {
 		c.DropRewardsByEffect[r.QuestBonusEffectId] = append(c.DropRewardsByEffect[r.QuestBonusEffectId], r)
+	}
+	for _, r := range exps {
+		c.ExpByEffect[r.QuestBonusEffectId] = r
 	}
 	for _, r := range terms {
 		c.TermsByGroup[r.QuestBonusTermGroupId] = append(c.TermsByGroup[r.QuestBonusTermGroupId], r)

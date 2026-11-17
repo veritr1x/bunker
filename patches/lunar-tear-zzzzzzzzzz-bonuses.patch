@@ -14,3 +14,17 @@
  	drops = h.appendBonusDrops(user, drops, target, nowMillis)
  	return modScaleDrops(spendableMedals(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)), target)
  }
+@@ -196,10 +198,11 @@
+ 	if questDef.CharacterExp != 0 {
+ 		for id := range deckCharacterIds {
+ 			row := user.Characters[id]
+-			row.Exp += modScaleExp(questDef.CharacterExp)
++			exp := withPermil(modScaleExp(questDef.CharacterExp), h.characterExpBonusPermil(questDef, id, nowMillis)) // Bunker: quest bonus EXP (bunker_exp_bonus.go)
++			row.Exp += exp
+ 			row.Level, row.Exp = gameutil.LevelAndCap(row.Exp, h.CharacterExpThresholds)
+ 			user.Characters[id] = row
+-			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, modScaleExp(questDef.CharacterExp), row.Exp, row.Level)
++			log.Printf("[applyExpRewards] questId=%d character=%d: +%d exp -> total=%d level=%d", questId, id, exp, row.Exp, row.Level)
+ 		}
+ 	}
+ 

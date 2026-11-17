@@ -140,8 +140,7 @@ func (h *QuestHandler) importantItemQuestMatches(groupId int32, t campaign.Quest
 // applyImportantItemDropCounts raises drop counts by the DROP_COUNT effects of
 // the important items the player owns (m_important_item_effect_drop_count):
 // count * CountPermil / 1000 more of each targeted drop, the fraction paid as
-// a chance of one more. DROP_RATE effects need a drop lottery, which Bunker's
-// fixed pickup drops do not have.
+// a chance of one more. DROP_RATE effects are in bunker_drop_boost.go.
 func (h *QuestHandler) applyImportantItemDropCounts(user *store.UserState, drops []RewardGrant, t campaign.QuestTarget, nowMillis int64, roll func(int64) int64) []RewardGrant {
 	ie := h.ImportantItemEffects
 	if ie == nil || len(drops) == 0 {
