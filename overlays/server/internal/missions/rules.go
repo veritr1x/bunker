@@ -35,7 +35,11 @@ func loadRules() (*ruleSet, error) {
 	if err := json.Unmarshal(regionalRulesJSON, &regional); err != nil {
 		return nil, err
 	}
-	return newRuleSet(base, regional)
+	var extra []Rule
+	if err := json.Unmarshal(extraRulesJSON, &extra); err != nil {
+		return nil, err
+	}
+	return newRuleSet(base, append(regional, extra...))
 }
 
 func newRuleSet(base, regional []Rule) (*ruleSet, error) {

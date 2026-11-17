@@ -38,6 +38,15 @@ var rulesJSON []byte
 //go:embed rules_regional.json
 var regionalRulesJSON []byte
 
+// rules_extra.json: hand-written rules for missions the generator can't read
+// from their names. Sun/Moon on Normal (2100xx): option groups 113-120 match
+// the Hard missions' 10013-10020 and their chapters. The Wishing Space (261xx):
+// event chapter 551, which their link opens. Mama's Exciting Festival (27101,
+// 900925): the summon that ran over exactly the mission's term.
+//
+//go:embed rules_extra.json
+var extraRulesJSON []byte
+
 // QuestFilter selects the quests a quest-clear mission counts. The kinds (Main,
 // Event, EventTypes, EventChapters, MainChapters, DailyLimited, Quests) are
 // alternatives; with none set, every quest counts. Diff, Order and Characters

@@ -14,6 +14,15 @@ and event summons hold every material the game lists for them. Web builder:
 an experimental Custom name builds a second copy that installs beside the
 first.
 
+## 2026-11-17 (after 1.12.9)
+
+### Missions
+- 19 missions that could never complete now count: the twelve "Clear The
+  Sun/Moon … on Normal" missions, the five Record: The Wishing Space event
+  missions, and the two Mama's Exciting Festival summon missions (draws on
+  that festival's own summon). Their rules are written by hand, since their
+  names don't say enough for the generated ones.
+
 ## 2026-11-17 (after 1.12.8)
 
 ### Web builder
