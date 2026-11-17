@@ -4,6 +4,16 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.9 (2026-11-17)
+
+Quests drop more than their screen shows, as in the live game: the materials
+an item's location list names for them, the rest of the memoir sets they
+show, and in memory dungeons the 3★ and 4★ versions. Drop Rate+ items, quest
+bonus characters' extra EXP and costume collection bonuses now work. Chapter
+and event summons hold every material the game lists for them. Web builder:
+an experimental Custom name builds a second copy that installs beside the
+first.
+
 ## 2026-11-17 (after 1.12.8)
 
 ### Web builder
