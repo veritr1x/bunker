@@ -26,6 +26,18 @@ under its heading, down to the previous release.
   drop the rest of the set at the same rarity. The live game's rates were
   never published, so these are estimates: rarer items drop less often. Drop
   campaigns raise them too.
+- The memoirs an event chapter's screen shows complete as sets too: its
+  quests can drop the other pieces at the same rarity.
+- Memory dungeons sometimes drop the 3★ and 4★ versions of the memoir sets
+  their quests show, rarer for each step up. Every memoir the game's drop
+  data holds can now be had.
+
+### Summons
+- Chapter summon boxes hold every material the game lists for them, counted
+  by rarity like the rest of the box, so the boxes are bigger.
+- Each level of an event summon also draws the materials the game lists for
+  it, beside the box; the box and the draws it takes to level up are
+  unchanged. The details page lists them under each level.
 
 ## 1.12.8 (2026-11-17)
 
