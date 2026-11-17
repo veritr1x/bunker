@@ -132,9 +132,32 @@ jobs:
           name: windows-launcher
           path: out
 
+  server:
+    needs: check
+    name: Server for computers
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/toolchain
+      - name: Prepare sources
+        run: |
+          python3.11 scripts/prepare.py
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+          make -C server proto
+      # One program per platform: Windows, Linux and macOS, x86-64 and ARM64.
+      - name: Build bunker-server
+        run: scripts/build_server.sh out
+      - uses: actions/upload-artifact@v7
+        with:
+          name: server
+          path: out
+
   release:
     name: GitHub Release
-    needs: [android, ios, windows]
+    needs: [android, ios, windows, server]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -157,6 +180,10 @@ jobs:
         with:
           name: windows-launcher
           path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: server
+          path: dist
       - uses: actions/cache@v6
         with:
           path: inputs/bunker-notices.zip
@@ -173,7 +200,7 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.exe dist/Bunker-*-linux-* dist/update.json --title "Bunker $(cat VERSION)" --notes-file dist/notes.md --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.exe dist/Bunker-*-linux-* dist/bunker-server-*-linux-* dist/bunker-server-*-macos-* dist/update.json --title "Bunker $(cat VERSION)" --notes-file dist/notes.md --verify-tag
 
   publish:
     name: Publish the web builder

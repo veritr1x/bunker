@@ -93,6 +93,9 @@ def downloads(version):
             f"With Waydroid installed they use Waydroid: they install `bunker.apk` and put the game files "
             f"into it, with no shared folder to mount. "
             f"See [Linux](https://github.com/veritr1x/bunker/blob/main/docs/LINUX.md).\n"
+            f"- The `bunker-server-{version}-*` files are the Lunar Tear server alone, for a game that runs on "
+            f"the computer itself: Windows, Linux and macOS, x86-64 and ARM64. "
+            f"Run one with `-data <save folder> -assets <game files folder>`.\n"
             f"- The `bunker-*.zip` files and `update.json` are for the Bunker's own updates. "
             f"You don't need to download them.")
 

@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/bodgit/sevenzip"
@@ -277,7 +276,7 @@ func (r *linkRecord) done(stream int) bool {
 
 // finish records a block once its files are written through to storage.
 func (r *linkRecord) finish(stream int, bytes int64) error {
-	syscall.Sync()
+	syncStorage()
 	r.mu.Lock()
 	r.Done = append(r.Done, stream)
 	r.Kept += bytes
@@ -324,15 +323,6 @@ func checkSpace(stage string, remaining int64, opt extractOptions) error {
 		return fmt.Errorf("Not enough free space: the game files need %.1f GB and %.1f GB is free.", float64(needed)/1e9, float64(free)/1e9)
 	}
 	return nil
-}
-
-// dupFile wraps a duplicate of fd, so closing it leaves the caller's open.
-func dupFile(fd int, name string) (*os.File, error) {
-	dup, e := syscall.Dup(fd)
-	if e != nil {
-		return nil, e
-	}
-	return os.NewFile(uintptr(dup), name), nil
 }
 
 // ImportProgress reports bytes ("done", "total") and files ("files",
