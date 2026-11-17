@@ -33,7 +33,7 @@ def addresses(port_offset=0):
 # A second copy (the builder's App ID and Name): web/app_identity.js checks the same rules
 # as the player types, with the same messages; web/app_identity_cases.json holds both to them.
 APP_ID_RULES = {
-    "android": (re.compile(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+"), 255,
+    "android": (re.compile(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+"), 127,  # resources.arsc holds the package name in 128 UTF-16 units
                 "The App ID must be at least two parts separated by dots, each starting with a letter and using only letters, digits and _ (Android)."),
     "ios": (re.compile(r"[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+"), 155,
             "The App ID must be at least two parts separated by dots, using only letters, digits and - (iOS)."),

@@ -315,6 +315,27 @@ class SecondCopyManifestTests(unittest.TestCase):
                                                                for f in a.find_all("intent-filter") for c in f.find_all("category"))]
         self.assertEqual([a.get("label").raw for a in launcher], ["NieR & Co 2 — 니어"])
 
+    def resources(self, package):
+        pool = axml._encode_pool([], True)
+        types, keys = axml._encode_pool(["string"], True), axml._encode_pool([], True)
+        header = struct.pack("<HHII", 0x0200, 288, 288 + len(types) + len(keys), 0x7F)
+        header += package.encode("utf-16-le").ljust(256, b"\0")
+        header += struct.pack("<5I", 288, 1, 288 + len(types), 0, 0)
+        chunk = header + types + keys
+        return struct.pack("<HHII", 2, 12, 12 + len(pool) + len(chunk), 1) + pool + chunk
+
+    # Unity finds its own strings by the package name in the resource table
+    # (getIdentifier(..., getPackageName())): a second copy crashed at start without this.
+    def test_resource_table_follows_the_package(self):
+        table = self.resources(self.old)
+        renamed = assemble_apk.rename_resource_package(table, self.old, "com.example.nier2")
+        self.assertEqual(len(renamed), len(table))
+        self.assertEqual(renamed, self.resources("com.example.nier2"))
+        with self.assertRaises(RuntimeError):
+            assemble_apk.rename_resource_package(table, "com.other.game", "com.example.nier2")
+        with self.assertRaises(ValueError):
+            assemble_apk.rename_resource_package(table, self.old, "a." + "b" * 126)
+
     def test_no_app_id_keeps_the_manifest(self):
         plain = assemble_apk.patch_manifest(self.game, self.companion, 10000)
         self.assertEqual(assemble_apk.patch_manifest(self.game, self.companion, 10000, app_id=None, app_name=None), plain)

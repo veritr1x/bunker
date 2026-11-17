@@ -186,6 +186,31 @@ def rename_package(manifest, old, new):
     manifest.get("package", ns=None).raw = new
 
 
+RESOURCE_PACKAGE_NAME = 128  # ResTable_package.name: UTF-16 code units, ending in 0
+
+
+def rename_resource_package(table, old, new):
+    """resources.arsc with the game's package chunk named new. Unity looks up its own strings by
+    the app's package name (getIdentifier(..., getPackageName())), so it must match the manifest."""
+    if len(new) >= RESOURCE_PACKAGE_NAME:
+        raise ValueError(f"The App ID must be at most {RESOURCE_PACKAGE_NAME - 1} characters on Android")
+    table = bytearray(table)
+    kind, header, size = struct.unpack_from("<HHI", table, 0)
+    at = header + struct.unpack_from("<I", table, header + 4)[0]  # past the global string pool
+    renamed = 0
+    while at < size:
+        kind, _, chunk = struct.unpack_from("<HHI", table, at)
+        if kind == 0x0200:
+            name = bytes(table[at + 12:at + 12 + 2 * RESOURCE_PACKAGE_NAME]).decode("utf-16-le").split("\0")[0]
+            if name == old:
+                table[at + 12:at + 12 + 2 * RESOURCE_PACKAGE_NAME] = new.encode("utf-16-le").ljust(2 * RESOURCE_PACKAGE_NAME, b"\0")
+                renamed += 1
+        at += chunk
+    if not renamed:
+        raise RuntimeError(f"The game's resources have no package {old}")
+    return bytes(table)
+
+
 def set_label(app, name):
     """The name under the icon: the application's label and the launcher entry's own."""
     app.set(Attr.string("label", name, LABEL))
@@ -362,6 +387,9 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
             original_master = Path(master).read_bytes()
             patched_master = patch_master(original_master)
             replaced = {"AndroidManifest.xml": manifest, LIB: lib, METADATA: metadata, SETTINGS: patch_unity_connect(game.read(SETTINGS))}
+            if app_id:  # A second copy: its resources carry its package too (updates copy them as installed).
+                original = axml.parse(game.read("AndroidManifest.xml")).root.get("package", ns=None).raw
+                replaced["resources.arsc"] = rename_resource_package(game.read("resources.arsc"), original, app_id)
             log("Adding letters to the game's fonts…")
             replaced.update(patch_font_entries(game, patched_files, log))
             dex = [n for n in names if re.fullmatch(r"classes\d*\.dex", n)]

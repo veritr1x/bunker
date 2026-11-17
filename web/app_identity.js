@@ -2,7 +2,7 @@
 // same rules with the same messages before building; app_identity_cases.json holds both to them.
 (function (exports) {
   const RULES = {
-    android: [/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/, 255,
+    android: [/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/, 127,  // resources.arsc: 128 UTF-16 units with the ending 0
       "The App ID must be at least two parts separated by dots, each starting with a letter and using only letters, digits and _ (Android)."],
     ios: [/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, 155,
       "The App ID must be at least two parts separated by dots, using only letters, digits and - (iOS)."],

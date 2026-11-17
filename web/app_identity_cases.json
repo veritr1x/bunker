@@ -175,5 +175,20 @@
   "portOffset": 0,
   "ok": true,
   "warn": "portOffset"
+ },
+ {
+  "platform": "android",
+  "appId": "a.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": true
+ },
+ {
+  "platform": "android",
+  "appId": "a.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
  }
 ]
