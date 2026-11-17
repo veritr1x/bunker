@@ -33,7 +33,7 @@ function checkIdentity() {
     : "Android: letters, digits and _, in parts separated by dots, each starting with a letter.";
   const result = checkAppIdentity(platform(), $("app-id").value, $("app-name").value, Number($("port-offset").value || 0));
   for (const [field, id] of [["appId", "app-id"], ["appName", "app-name"], ["portOffset", "port-offset"]]) {
-    const message = result.errors[field] || (field === "appName" && result.warning) || "";
+    const message = result.errors[field] || result.warnings[field] || "";
     $(id + "-error").textContent = message;
     $(id + "-error").classList.toggle("warning", !result.errors[field] && !!message);
     $(id).setAttribute("aria-invalid", result.errors[field] ? "true" : "false");

@@ -97,8 +97,9 @@ MESSAGES = {
     ("appId", "long"): "The App ID is too long.",
     ("appId", "game"): "That is the game's own ID: leave the field empty for it.",
     ("appName", None): "The name must be 30 characters or fewer, without control characters.",
-    ("portOffset", None): "A second copy needs a port offset other than 0, and different from the other copy's (for example 10000).",
 }
+PORT_WARNING = ("With port offset 0 this copy uses the same ports as the other: only one can run at a time. Stop the other "
+                "copy's server before opening this one, or give this copy its own offset (for example 10000).")
 HERE = Path(__file__).resolve().parent
 
 
@@ -117,9 +118,11 @@ class AppIdentityTest(unittest.TestCase):
             with self.subTest(case=case):
                 args = (case["platform"], case["appId"], case["appName"], case["portOffset"])
                 if case["ok"]:
-                    app_id, app_name = webbuild.check_app_identity(*args)
+                    warnings = []
+                    app_id, app_name = webbuild.check_app_identity(*args, log=warnings.append)
                     self.assertEqual(app_id, case["appId"].strip() or None)
                     self.assertEqual(app_name, case["appName"].strip() or None)
+                    self.assertEqual(warnings, [PORT_WARNING] if case.get("warn") == "portOffset" else [])
                 else:
                     with self.assertRaises(ValueError) as caught:
                         webbuild.check_app_identity(*args)
@@ -138,6 +141,7 @@ class AppIdentityTest(unittest.TestCase):
             with self.subTest(case=case):
                 if case["ok"]:
                     self.assertEqual(result["errors"], {})
+                    self.assertEqual(result["warnings"].get("portOffset"), PORT_WARNING if case.get("warn") == "portOffset" else None)
                     self.assertEqual(result["appId"], case["appId"].strip() or None)
                     self.assertEqual(result["appName"], case["appName"].strip() or None)
                 else:
@@ -147,8 +151,11 @@ class AppIdentityTest(unittest.TestCase):
     def test_app_identity_messages_are_the_same_in_both(self):
         python, js = (HERE / "webbuild.py").read_text(), (HERE / "app_identity.js").read_text()
         for message in MESSAGES.values():
-            self.assertIn(json.dumps(message)[1:-1].replace("\\'", "'"), python)
+            self.assertIn(message, python)
             self.assertIn(message, js)
+        import webbuild
+        self.assertEqual(webbuild.PORT_WARNING, PORT_WARNING)
+        self.assertIn(PORT_WARNING, js)
 
     def test_page_has_second_copy_fields(self):
         page = (HERE / "index.html").read_text()
@@ -171,8 +178,8 @@ class AppIdentityTest(unittest.TestCase):
             webbuild.build_android("missing.apk", "m", "c", "o", port_offset=10000, notices="n", app_id="bad")
         self.assertIn("(Android)", str(caught.exception))
         with self.assertRaises(ValueError) as caught:
-            webbuild.build_ios("missing.ipa", "m", "f", "p", "o", port_offset=0, app_id="com.example.nier2")
-        self.assertIn("port offset other than 0", str(caught.exception))
+            webbuild.build_ios("missing.ipa", "m", "f", "p", "o", port_offset=10000, app_id="com.example.nier_2")
+        self.assertIn("(iOS)", str(caught.exception))
 
     def test_app_identity_js_is_published(self):
         self.assertIn('"app_identity.js"', (HERE / "build_site.py").read_text())

@@ -165,15 +165,15 @@
   "appId": "com.example.nier2",
   "appName": "",
   "portOffset": 0,
-  "ok": false,
-  "field": "portOffset"
+  "ok": true,
+  "warn": "portOffset"
  },
  {
   "platform": "ios",
   "appId": "com.example.nier2",
   "appName": "NieR 2",
   "portOffset": 0,
-  "ok": false,
-  "field": "portOffset"
+  "ok": true,
+  "warn": "portOffset"
  }
 ]

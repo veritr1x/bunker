@@ -42,8 +42,13 @@ GAME_IDS = {"com.square_enix.android_googleplay.nierspww", "com.square_enix.andr
 NAME_LIMIT = 30
 
 
-def check_app_identity(platform, app_id, app_name, port_offset):
-    """The App ID and Name for a second copy, trimmed (None when empty); raises ValueError with the page's message."""
+PORT_WARNING = ("With port offset 0 this copy uses the same ports as the other: only one can run at a time. Stop the other "
+                "copy's server before opening this one, or give this copy its own offset (for example 10000).")
+
+
+def check_app_identity(platform, app_id, app_name, port_offset, log=print):
+    """The App ID and Name for a second copy, trimmed (None when empty); raises ValueError with the page's message.
+    A second copy on the default ports builds, with a warning in the log."""
     app_id, app_name = (app_id or "").strip() or None, (app_name or "").strip() or None
     if app_id:
         pattern, limit, message = APP_ID_RULES[platform]
@@ -56,7 +61,7 @@ def check_app_identity(platform, app_id, app_name, port_offset):
     if app_name and (len(app_name) > NAME_LIMIT or re.search(r"[\x00-\x1f\x7f]", app_name)):
         raise ValueError("The name must be 30 characters or fewer, without control characters.")
     if app_id and int(port_offset) == 0:
-        raise ValueError("A second copy needs a port offset other than 0, and different from the other copy's (for example 10000).")
+        log(PORT_WARNING)
     return app_id, app_name
 
 
@@ -64,7 +69,7 @@ def build_android(apk, master, companion, output, log=print, port_offset=0, noti
     """output is a path, or a function that takes the signed APK in pieces: it is then signed
     as it is written and never held whole (a browser keeps every file in memory)."""
     addresses(port_offset)  # Validate before the slow steps.
-    app_id, app_name = check_app_identity("android", app_id, app_name, port_offset)
+    app_id, app_name = check_app_identity("android", app_id, app_name, port_offset, log)
     if not notices or not Path(notices).is_file():
         raise ValueError("The notice pack is missing; download the builder's notices bundle before building the APK")
     notices = Path(notices)
@@ -106,7 +111,7 @@ def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_of
     output is a path, or a function that takes the IPA in pieces. The bundles are
     moved into the app or deleted once unpacked."""
     grpc, http, auth = addresses(port_offset)
-    app_id, app_name = check_app_identity("ios", app_id, app_name, port_offset)
+    app_id, app_name = check_app_identity("ios", app_id, app_name, port_offset, log)
     work = Path("/work/ios")
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)

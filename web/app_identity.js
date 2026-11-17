@@ -23,11 +23,12 @@
     }
     if (name && ([...name].length > NAME_LIMIT || /[\u0000-\u001f\u007f]/.test(name)))
       errors.appName = "The name must be 30 characters or fewer, without control characters.";
+    // Warnings: the build goes ahead.
+    const warnings = {};
     if (id && !errors.appId && Number(portOffset) === 0)
-      errors.portOffset = "A second copy needs a port offset other than 0, and different from the other copy's (for example 10000).";
-    const result = { errors, appId: id, appName: name };
-    if (id && !name) result.warning = "Without a name, both copies show as NieR.";
-    return result;
+      warnings.portOffset = "With port offset 0 this copy uses the same ports as the other: only one can run at a time. Stop the other copy's server before opening this one, or give this copy its own offset (for example 10000).";
+    if (id && !name) warnings.appName = "Without a name, both copies show as NieR.";
+    return { errors, warnings, appId: id, appName: name };
   }
 
   exports.checkAppIdentity = checkAppIdentity;
