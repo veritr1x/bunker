@@ -82,6 +82,23 @@ class InfoTests(unittest.TestCase):
             with (app / "Info.plist").open("rb") as handle:
                 self.assertEqual(plistlib.load(handle)["CFBundleDisplayName"], "NieR")
 
+    def test_second_copy_gets_its_bundle_id_and_name(self):
+        import package_ipa
+        with tempfile.TemporaryDirectory() as temp:
+            app = Path(temp)
+            original = {"CFBundleIdentifier": "com.square-enix.NieRSPww", "CFBundleExecutable": "Game", "CFBundleDisplayName": "NieR"}
+            for options, expected in (({}, ("com.square-enix.NieRSPww", "NieR")),
+                                      ({"bundle_id": "com.example.nier2", "display_name": "NieR 2"}, ("com.example.nier2", "NieR 2"))):
+                with (app / "Info.plist").open("wb") as handle:
+                    plistlib.dump(original, handle)
+                with mock.patch.multiple(package_ipa, place=mock.DEFAULT, insert_dylib=mock.DEFAULT, patch_unity_connect=lambda b: b,
+                                         add_letters=mock.DEFAULT, turn_off_adjust=mock.DEFAULT, patch_text_buffer=mock.DEFAULT,
+                                         patch_words=mock.DEFAULT):
+                    (app / package_ipa.SETTINGS).parent.mkdir(parents=True, exist_ok=True)
+                    (app / package_ipa.SETTINGS).write_bytes(b"")
+                    info = package_ipa.prepare_app(app, Path(temp) / "framework", **options)
+                self.assertEqual((info["CFBundleIdentifier"], info["CFBundleDisplayName"]), expected)
+
     def test_menu_may_turn_upright_but_the_game_starts_on_its_side(self):
         with tempfile.TemporaryDirectory() as temp:
             app = Path(temp)

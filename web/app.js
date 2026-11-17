@@ -17,12 +17,28 @@ function update() {
   $("game").accept = ios ? ".ipa" : ".apk";
   $("master-help").innerHTML = ios ? "The original master data, <code>20240404193219.bin.e</code>."
     : "The original master data: <code>20240404193219.bin.e</code> for the Global APK, <code>20240405123139.bin.e</code> for the Japanese APK.";
-  $("build").disabled = !($("game").files[0] && $("master").files[0]);
+  const identity = checkIdentity();
+  $("build").disabled = !($("game").files[0] && $("master").files[0]) || !identity.ok;
   for (const id of ["game", "master"]) {
     const file = $(id).files[0], chip = $(id + "-name");
     chip.textContent = file ? `${file.name} · ${Math.max(1, Math.round(file.size / 1048576))} MB` : "NOT CHOSEN";
     chip.classList.toggle("ok", !!file);
   }
+}
+
+// A second copy's App ID and Name (app_identity.js; the build checks the same rules again).
+function checkIdentity() {
+  const ios = platform() === "ios";
+  $("app-id-hint").textContent = ios ? "iOS: letters, digits and -, in parts separated by dots."
+    : "Android: letters, digits and _, in parts separated by dots, each starting with a letter.";
+  const result = checkAppIdentity(platform(), $("app-id").value, $("app-name").value, Number($("port-offset").value || 0));
+  for (const [field, id] of [["appId", "app-id"], ["appName", "app-name"], ["portOffset", "port-offset"]]) {
+    const message = result.errors[field] || (field === "appName" && result.warning) || "";
+    $(id + "-error").textContent = message;
+    $(id + "-error").classList.toggle("warning", !result.errors[field] && !!message);
+    $(id).setAttribute("aria-invalid", result.errors[field] ? "true" : "false");
+  }
+  return { ok: Object.keys(result.errors).length === 0, appId: result.appId, appName: result.appName };
 }
 
 function log(line) {
@@ -34,6 +50,7 @@ function log(line) {
 document.querySelectorAll("input[name=platform]").forEach((r) => r.addEventListener("change", update));
 $("game").addEventListener("change", update);
 $("master").addEventListener("change", update);
+for (const id of ["app-id", "app-name", "port-offset"]) $(id).addEventListener("input", update);
 
 $("build").addEventListener("click", () => {
   if (building) return;
@@ -44,12 +61,14 @@ $("build").addEventListener("click", () => {
   if (game.name === master.name) { log("Choose two different files."); return; }
   const portOffset = Number($("port-offset").value || 0);
   if (!Number.isInteger(portOffset) || portOffset < 0 || portOffset > 57455) { log("The port offset must be a whole number from 0 to 57455."); return; }
+  const identity = checkIdentity();
+  if (!identity.ok) { log("Correct the second-copy settings first."); return; }
   building = true;
   $("build").disabled = true;
   $("result").style.display = "none";
   $("log").textContent = "";
   if (url) URL.revokeObjectURL(url);
-  worker.postMessage({ platform: platform(), game, master, portOffset });
+  worker.postMessage({ platform: platform(), game, master, portOffset, appId: identity.appId, appName: identity.appName });
 });
 
 worker.onmessage = ({ data }) => {

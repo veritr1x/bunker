@@ -150,6 +150,30 @@ class AppIdentityTest(unittest.TestCase):
             self.assertIn(json.dumps(message)[1:-1].replace("\\'", "'"), python)
             self.assertIn(message, js)
 
+    def test_page_has_second_copy_fields(self):
+        page = (HERE / "index.html").read_text()
+        for needle in ('id="app-id"', 'id="app-name"', 'maxlength="30"', "SECOND COPY", 'id="app-id-error"',
+                       'id="app-name-error"', 'id="port-offset-error"'):
+            self.assertIn(needle, page)
+
+    def test_worker_passes_app_identity(self):
+        worker = (HERE / "worker.js").read_text()
+        self.assertRegex(worker, r"const \{[^}]*appId = null, appName = null[^}]*\} = data")
+        self.assertIn("handOver, log, portOffset, notices, appId, appName);", worker)
+        self.assertEqual(worker.count("portOffset, notices, appId, appName"), 2)
+        app = (HERE / "app.js").read_text()
+        self.assertIn("checkAppIdentity(", app)
+        self.assertRegex(app, r"worker\.postMessage\(\{[^}]*appId[^}]*appName")
+
+    def test_builds_refuse_a_bad_identity_before_work(self):
+        import webbuild
+        with self.assertRaises(ValueError) as caught:
+            webbuild.build_android("missing.apk", "m", "c", "o", port_offset=10000, notices="n", app_id="bad")
+        self.assertIn("(Android)", str(caught.exception))
+        with self.assertRaises(ValueError) as caught:
+            webbuild.build_ios("missing.ipa", "m", "f", "p", "o", port_offset=0, app_id="com.example.nier2")
+        self.assertIn("port offset other than 0", str(caught.exception))
+
     def test_app_identity_js_is_published(self):
         self.assertIn('"app_identity.js"', (HERE / "build_site.py").read_text())
         page = (HERE / "index.html").read_text()

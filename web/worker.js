@@ -85,7 +85,7 @@ async function setup() {
 }
 
 self.onmessage = async ({ data }) => {
-  const { platform, game, master, portOffset = 0 } = data;
+  const { platform, game, master, portOffset = 0, appId = null, appName = null } = data;
   try {
     ready = ready || setup();
     const pyodide = await ready;
@@ -109,13 +109,13 @@ self.onmessage = async ({ data }) => {
     if (platform === "android") {
       writeFile(pyodide, "/bundles/android.zip", await fetchBytes("bundles/android.zip", "the launcher"));
       const notices = await fetchNotices(pyodide);
-      builder.build_android(gamePath, masterPath, "/bundles/android.zip", handOver, log, portOffset, notices);
+      builder.build_android(gamePath, masterPath, "/bundles/android.zip", handOver, log, portOffset, notices, appId, appName);
       name = "bunker.apk";
     } else {
       writeFile(pyodide, "/bundles/ios-framework.zip", await fetchBytes("bundles/ios-framework.zip", "the launcher"));
       writeFile(pyodide, "/bundles/ios-python.zip", await fetchBytes("bundles/ios-python.zip", "Tools"));
       const notices = await fetchNotices(pyodide);
-      builder.build_ios(gamePath, masterPath, "/bundles/ios-framework.zip", "/bundles/ios-python.zip", handOver, log, portOffset, notices);
+      builder.build_ios(gamePath, masterPath, "/bundles/ios-framework.zip", "/bundles/ios-python.zip", handOver, log, portOffset, notices, appId, appName);
       name = "bunker.ipa";
     }
     const blob = pieces.done();

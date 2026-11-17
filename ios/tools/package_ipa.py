@@ -249,7 +249,7 @@ def add_letters(app, log=print):
     shutil.copyfile(game_fonts.NOTO / "OFL.txt", Path(app) / "NOTO_OFL.txt")
 
 
-def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_offset=0, move=False):
+def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_offset=0, move=False, display_name=None):
     """Everything Bunker changes in the patched game's NieR.app; returns its Info.plist.
 
     With move, the launcher, Python and notices are moved in, not copied."""
@@ -274,7 +274,7 @@ def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_
         add_python(app, python, move)
     if notices:
         add_notices(app, notices, move)
-    info = patch_info(app, bundle_id, port_offset=port_offset)
+    info = patch_info(app, bundle_id, display_name, port_offset=port_offset)
     executable = app / info["CFBundleExecutable"]
     print("Launcher load command", "added" if insert_dylib(executable) else "already present")
     settings = app / SETTINGS

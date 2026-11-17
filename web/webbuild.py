@@ -60,10 +60,11 @@ def check_app_identity(platform, app_id, app_name, port_offset):
     return app_id, app_name
 
 
-def build_android(apk, master, companion, output, log=print, port_offset=0, notices=None):
+def build_android(apk, master, companion, output, log=print, port_offset=0, notices=None, app_id=None, app_name=None):
     """output is a path, or a function that takes the signed APK in pieces: it is then signed
     as it is written and never held whole (a browser keeps every file in memory)."""
     addresses(port_offset)  # Validate before the slow steps.
+    app_id, app_name = check_app_identity("android", app_id, app_name, port_offset)
     if not notices or not Path(notices).is_file():
         raise ValueError("The notice pack is missing; download the builder's notices bundle before building the APK")
     notices = Path(notices)
@@ -71,11 +72,11 @@ def build_android(apk, master, companion, output, log=print, port_offset=0, noti
         pieces = _Pieces(output)
         log("Signing with the public Bunker key as the APK is written…")
         assemble_apk.assemble(Path(apk), Path(master), Path(companion), apk_sign.StreamSigner(pieces), log=log,
-                              port_offset=int(port_offset), notices=notices)
+                              port_offset=int(port_offset), notices=notices, app_id=app_id, app_name=app_name)
         pieces.flush()
     else:
         assemble_apk.assemble(Path(apk), Path(master), Path(companion), Path(output), log=log, port_offset=int(port_offset),
-                              notices=notices)
+                              notices=notices, app_id=app_id, app_name=app_name)
         log("Signing with the public Bunker key…")
         apk_sign.sign(Path(output))
     log("Signed APK ready to install.")
@@ -99,12 +100,13 @@ class _Pieces:
             self.buffer = bytearray()
 
 
-def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_offset=0, notices=None):
+def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_offset=0, notices=None, app_id=None, app_name=None):
     """Builds the unsigned IPA without unpacking the game (ipa_stream): a browser holds every file in memory.
 
     output is a path, or a function that takes the IPA in pieces. The bundles are
     moved into the app or deleted once unpacked."""
     grpc, http, auth = addresses(port_offset)
+    app_id, app_name = check_app_identity("ios", app_id, app_name, port_offset)
     work = Path("/work/ios")
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
@@ -133,7 +135,7 @@ def build_ios(ipa, master, framework_zip, python_zip, output, log=print, port_of
         packager = assemble_apk.load("package_ipa", REPO / "ios/tools/package_ipa.py")
         app = next((edited / "Payload").glob("*.app"))
         packager.prepare_app(app, framework, work / "python", Path(notices) if notices else None,
-                             port_offset=int(port_offset), move=True)
+                             bundle_id=app_id, port_offset=int(port_offset), move=True, display_name=app_name)
         log("Writing the IPA…")
         if callable(output):
             pieces = _Pieces(output)
