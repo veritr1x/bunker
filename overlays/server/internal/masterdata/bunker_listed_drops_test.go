@@ -116,3 +116,28 @@ func TestListedDropsOnTheGameData(t *testing.T) {
 		t.Fatalf("%d shown memoirs, %d set pieces with no parts", shown, missing)
 	}
 }
+
+func TestListedDropCatalogChapterShown(t *testing.T) {
+	const parts = 4
+	c := listedDropCatalog(listedDropTables{
+		chapters: []EntityMEventQuestChapter{
+			{EventQuestChapterId: 1, EventQuestDisplayItemGroupId: 10, EventQuestSequenceGroupId: 20},
+			{EventQuestChapterId: 2, EventQuestDisplayItemGroupId: 11, EventQuestSequenceGroupId: 21},
+		},
+		display: []EntityMEventQuestDisplayItemGroup{
+			{EventQuestDisplayItemGroupId: 10, PossessionType: parts, PossessionId: 230},
+			{EventQuestDisplayItemGroupId: 10, PossessionType: parts, PossessionId: 140},
+			{EventQuestDisplayItemGroupId: 10, PossessionType: 6, PossessionId: 1},
+			{EventQuestDisplayItemGroupId: 11, PossessionType: parts, PossessionId: 140},
+			{EventQuestDisplayItemGroupId: 11, PossessionType: parts, PossessionId: 330},
+		},
+		seqGroups: []EntityMEventQuestSequenceGroup{{EventQuestSequenceGroupId: 20, EventQuestSequenceId: 30}, {EventQuestSequenceGroupId: 21, EventQuestSequenceId: 31}},
+		sequences: []EntityMEventQuestSequence{{EventQuestSequenceId: 30, QuestId: 500}, {EventQuestSequenceId: 30, QuestId: 501}, {EventQuestSequenceId: 31, QuestId: 501}},
+	})
+	if got := c.ChapterShown[500]; !reflect.DeepEqual(got, []int32{140, 230}) {
+		t.Fatalf("quest 500: %v", got)
+	}
+	if got := c.ChapterShown[501]; !reflect.DeepEqual(got, []int32{140, 230, 330}) {
+		t.Fatalf("quest 501: %v", got)
+	}
+}

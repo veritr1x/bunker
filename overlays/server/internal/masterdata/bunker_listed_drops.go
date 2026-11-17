@@ -2,6 +2,7 @@ package masterdata
 
 import (
 	"log"
+	"slices"
 	"sort"
 
 	"lunar-tear/server/internal/bunkercache"
@@ -31,6 +32,10 @@ type ListedDropCatalog struct {
 	Parts     map[int32]PartsKind        // parts id -> kind
 	SetOf     map[int32][]int32          // parts group -> its set's three groups, ascending
 	PartsFor  map[PartsKind]int32        // kind -> the lowest parts id of that group and rarity
+	// ChapterShown is the memoirs on the screens of a quest's event chapters
+	// (m_event_quest_display_item_group): their sets complete like the ones
+	// the quest's own drops show.
+	ChapterShown map[int32][]int32 // original quest id -> parts ids, ascending
 }
 
 var ListedDrops = bunkercache.Value(func() ListedDropCatalog {
@@ -49,6 +54,14 @@ var ListedDrops = bunkercache.Value(func() ListedDropCatalog {
 	read("m_parts")
 	t.partsGroups, err = utils.ReadTable[EntityMPartsGroup]("m_parts_group")
 	read("m_parts_group")
+	t.chapters, err = utils.ReadTable[EntityMEventQuestChapter]("m_event_quest_chapter")
+	read("m_event_quest_chapter")
+	t.display, err = utils.ReadTable[EntityMEventQuestDisplayItemGroup]("m_event_quest_display_item_group")
+	read("m_event_quest_display_item_group")
+	t.seqGroups, err = utils.ReadTable[EntityMEventQuestSequenceGroup]("m_event_quest_sequence_group")
+	read("m_event_quest_sequence_group")
+	t.sequences, err = utils.ReadTable[EntityMEventQuestSequence]("m_event_quest_sequence")
+	read("m_event_quest_sequence")
 	return listedDropCatalog(t)
 })
 
@@ -57,6 +70,10 @@ type listedDropTables struct {
 	materials   []EntityMMaterial
 	parts       []EntityMParts
 	partsGroups []EntityMPartsGroup
+	chapters    []EntityMEventQuestChapter
+	display     []EntityMEventQuestDisplayItemGroup
+	seqGroups   []EntityMEventQuestSequenceGroup
+	sequences   []EntityMEventQuestSequence
 }
 
 func listedDropCatalog(t listedDropTables) ListedDropCatalog {
@@ -65,6 +82,8 @@ func listedDropCatalog(t listedDropTables) ListedDropCatalog {
 		Parts:     map[int32]PartsKind{},
 		SetOf:     map[int32][]int32{},
 		PartsFor:  map[PartsKind]int32{},
+
+		ChapterShown: map[int32][]int32{},
 	}
 
 	rarity := map[int32]int32{}
@@ -100,6 +119,36 @@ func listedDropCatalog(t listedDropTables) ListedDropCatalog {
 				c.SetOf[g] = set
 			}
 		}
+	}
+
+	shown := map[int32][]int32{}
+	for _, d := range t.display {
+		if model.PossessionType(d.PossessionType) == model.PossessionTypeParts {
+			shown[d.EventQuestDisplayItemGroupId] = append(shown[d.EventQuestDisplayItemGroupId], d.PossessionId)
+		}
+	}
+	sequenceQuests := map[int32][]int32{}
+	for _, s := range t.sequences {
+		sequenceQuests[s.EventQuestSequenceId] = append(sequenceQuests[s.EventQuestSequenceId], s.QuestId)
+	}
+	groupSequences := map[int32][]int32{}
+	for _, g := range t.seqGroups {
+		groupSequences[g.EventQuestSequenceGroupId] = append(groupSequences[g.EventQuestSequenceGroupId], g.EventQuestSequenceId)
+	}
+	for _, ch := range t.chapters {
+		memoirs := shown[ch.EventQuestDisplayItemGroupId]
+		if len(memoirs) == 0 {
+			continue
+		}
+		for _, seq := range groupSequences[ch.EventQuestSequenceGroupId] {
+			for _, q := range sequenceQuests[seq] {
+				c.ChapterShown[q] = append(c.ChapterShown[q], memoirs...)
+			}
+		}
+	}
+	for q, ids := range c.ChapterShown {
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		c.ChapterShown[q] = slices.Compact(ids)
 	}
 	return c
 }

@@ -109,3 +109,13 @@ func TestListedDropsForUsesTheOriginalQuest(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
+
+func TestListedMemoirsCompleteChapterScreenSets(t *testing.T) {
+	c := testListedCatalog()
+	c.ChapterShown = map[int32][]int32{11: {121}}
+	got := listedDrops(c, 11, nil, nil, double, listedRolls(t, 0, 1))
+	want := []RewardGrant{{PossessionType: tParts, PossessionId: 221, Count: 2}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}

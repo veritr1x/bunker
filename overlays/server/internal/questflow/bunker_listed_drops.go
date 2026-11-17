@@ -83,6 +83,13 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 			shownKinds[k] = true
 		}
 	}
+	// The quest's chapter screens show memoirs too; the chapter memoirs grant
+	// those pieces, and their sets complete here.
+	for _, id := range c.ChapterShown[questId] {
+		if k, ok := c.Parts[id]; ok {
+			shownKinds[k] = true
+		}
+	}
 	// A piece another rule granted already (the chapter memoirs) isn't rolled again.
 	grantedKinds := map[masterdata.PartsKind]bool{}
 	for _, g := range granted {
