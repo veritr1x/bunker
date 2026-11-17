@@ -14,7 +14,7 @@
  	drops = h.appendBonusDrops(user, drops, target, nowMillis)
  	return modScaleDrops(spendableMedals(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)), target)
  }
-@@ -196,10 +198,11 @@
+@@ -196,14 +198,16 @@
  	if questDef.CharacterExp != 0 {
  		for id := range deckCharacterIds {
  			row := user.Characters[id]
@@ -28,3 +28,32 @@
  		}
  	}
  
+ 	if questDef.CostumeExp != 0 {
++		costumeExp := withPermil(modScaleExp(questDef.CostumeExp), h.mainChapterCollectionPermil(user, questId, masterdata.CollectionBonusCostumeExp, nowMillis)) // Bunker: costume collection bonus (bunker_collection_bonus.go)
+ 		for key := range deckCostumeUuids {
+ 			row := user.Costumes[key]
+ 			cm, ok := h.CostumeById[row.CostumeId]
+@@ -219,12 +223,12 @@
+ 					continue
+ 				}
+ 			}
+-			row.Exp += modScaleExp(questDef.CostumeExp)
++			row.Exp += costumeExp
+ 			if thresholds, ok := h.CostumeExpByRarity[cm.RarityType]; ok {
+ 				row.Level, row.Exp = gameutil.ApplyExpWithMaxLevel(row.Exp, thresholds, maxLevel)
+ 			}
+ 			user.Costumes[key] = row
+-			log.Printf("[applyExpRewards] questId=%d costume=%d (key=%s): +%d exp -> total=%d level=%d", questId, row.CostumeId, key, modScaleExp(questDef.CostumeExp), row.Exp, row.Level)
++			log.Printf("[applyExpRewards] questId=%d costume=%d (key=%s): +%d exp -> total=%d level=%d", questId, row.CostumeId, key, costumeExp, row.Exp, row.Level)
+ 		}
+ 	}
+ }
+@@ -272,7 +276,7 @@
+ 	h.applyExpRewards(user, questId, nowMillis)
+ 
+ 	if questDef.Gold != 0 {
+-		gold := modScaleGold(questDef.Gold)
++		gold := withPermil(modScaleGold(questDef.Gold), h.mainChapterCollectionPermil(user, questId, masterdata.CollectionBonusGold, nowMillis)) // Bunker: costume collection bonus (bunker_collection_bonus.go)
+ 		user.ConsumableItems[h.Config.ConsumableItemIdForGold] += gold
+ 		log.Printf("[applyQuestRewards] questId=%d gold: +%d -> total=%d", questId, gold, user.ConsumableItems[h.Config.ConsumableItemIdForGold])
+ 	}

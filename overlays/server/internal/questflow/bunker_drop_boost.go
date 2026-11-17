@@ -2,6 +2,7 @@ package questflow
 
 import (
 	"lunar-tear/server/internal/campaign"
+	"lunar-tear/server/internal/masterdata"
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
 )
@@ -12,7 +13,8 @@ import (
 // often (boostedHit), and every other drop gets X more of its count, the
 // fraction as a chance of one more (boostCounts).
 //
-// Sources: Drop Rate+ important items (m_important_item_effect_drop_rate).
+// Sources: Drop Rate+ important items (m_important_item_effect_drop_rate) and
+// costume collection bonuses on the main story (bunker_collection_bonus.go).
 
 // dropBoost is the boost in permil for one drop; nil means none.
 type dropBoost func(t model.PossessionType, id int32) int64
@@ -56,26 +58,30 @@ func boostCounts(drops []RewardGrant, boost dropBoost, roll func(int64) int64) [
 
 // dropBoostFor is the boost a clear of quest t gets now: the Drop Rate+
 // items the player owns that target it, the largest rate of each grouping
-// (Drop Rate+ and ++ share one), the groupings added up. nil when none apply.
+// (Drop Rate+ and ++ share one), the groupings added up; on a main quest also
+// the costume collection drop rate, on every drop. nil when none apply.
 func (h *QuestHandler) dropBoostFor(user *store.UserState, t campaign.QuestTarget, nowMillis int64) dropBoost {
-	ie := h.ImportantItemEffects
-	if ie == nil {
-		return nil
+	var collection int64
+	if t.QuestType == campaign.QuestTypeMainQuest {
+		collection = collectionPermil(collectionBonusCatalog(), user, t.ChapterId, masterdata.CollectionBonusDropRate, nowMillis)
 	}
 	type rate struct {
 		grouping, permil, itemGroup int32
 	}
 	var rates []rate
-	for _, e := range ie.DropRates {
-		if user.ImportantItems[e.ImportantItemId] <= 0 || nowMillis < e.StartDatetime || nowMillis > e.EndDatetime {
-			continue
+	ie := h.ImportantItemEffects
+	if ie != nil {
+		for _, e := range ie.DropRates {
+			if user.ImportantItems[e.ImportantItemId] <= 0 || nowMillis < e.StartDatetime || nowMillis > e.EndDatetime {
+				continue
+			}
+			if !h.importantItemQuestMatches(e.QuestGroupId, t) {
+				continue
+			}
+			rates = append(rates, rate{e.GroupingId, e.RatePermil, e.ItemGroupId})
 		}
-		if !h.importantItemQuestMatches(e.QuestGroupId, t) {
-			continue
-		}
-		rates = append(rates, rate{e.GroupingId, e.RatePermil, e.ItemGroupId})
 	}
-	if len(rates) == 0 {
+	if len(rates) == 0 && collection == 0 {
 		return nil
 	}
 	return func(pt model.PossessionType, id int32) int64 {
@@ -85,7 +91,7 @@ func (h *QuestHandler) dropBoostFor(user *store.UserState, t campaign.QuestTarge
 				best[r.grouping] = r.permil
 			}
 		}
-		var sum int64
+		sum := collection
 		for _, p := range best {
 			sum += int64(p)
 		}

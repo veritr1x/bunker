@@ -63,3 +63,47 @@ func TestQuestBonusExpOnTheGameData(t *testing.T) {
 		t.Fatalf("effect 105: %+v", e)
 	}
 }
+
+func TestCollectionBonusesFromTables(t *testing.T) {
+	got := collectionBonuses(collectionBonusTables{
+		bonuses: []EntityMCostumeCollectionBonus{{CollectionBonusId: 1, CollectionBonusGroupId: 10, CollectionBonusQuestAssignmentGroupId: 20, CollectionBonusEffectId: 30, GroupingId: 5, EndDatetime: 9}},
+		groups:  []EntityMCostumeCollectionBonusGroup{{CollectionBonusGroupId: 10, CostumeId: 22}, {CollectionBonusGroupId: 10, CostumeId: 11}},
+		effects: []EntityMCollectionBonusEffect{{CollectionBonusEffectId: 30, CollectionBonusEffectType: 2, Amount00: 60, Amount01: 70, Amount02: 80, Amount03: 90, Amount04: 100}},
+		assignments: []EntityMCollectionBonusQuestAssignment{
+			{CollectionBonusQuestAssignmentId: 2, QuestAssignmentType: 2, MainQuestChapterId: 2},
+			{CollectionBonusQuestAssignmentId: 200, QuestAssignmentType: 6},
+		},
+		assignGroup: []EntityMCollectionBonusQuestAssignmentGroup{{CollectionBonusQuestAssignmentGroupId: 20, CollectionBonusQuestAssignmentId: 2}, {CollectionBonusQuestAssignmentGroupId: 20, CollectionBonusQuestAssignmentId: 200}},
+	})
+	if len(got) != 1 {
+		t.Fatalf("got %+v", got)
+	}
+	b := got[0]
+	if b.EffectType != 2 || b.GroupingId != 5 || b.Amounts != [5]int32{60, 70, 80, 90, 100} || len(b.Costumes) != 2 || b.Costumes[0] != 11 {
+		t.Fatalf("bonus %+v", b)
+	}
+	if len(b.MainChapters) != 1 || !b.MainChapters[2] {
+		t.Fatalf("chapters %v, want only main chapter 2", b.MainChapters)
+	}
+}
+
+func TestCollectionBonusesOnTheGameData(t *testing.T) {
+	loadBonusTestMaster(t)
+	all := CollectionBonuses()
+	if len(all) != 21 {
+		t.Fatalf("%d bonuses, want 21", len(all))
+	}
+	for _, b := range all {
+		if len(b.Costumes) < 2 || len(b.Costumes) > 3 {
+			t.Errorf("bonus %d has %d costumes", b.Id, len(b.Costumes))
+		}
+		switch b.EffectType {
+		case CollectionBonusCostumeExp, CollectionBonusDropRate, CollectionBonusGold:
+		default:
+			t.Errorf("bonus %d effect type %d", b.Id, b.EffectType)
+		}
+	}
+	if b := all[0]; b.Id != 201 || !b.MainChapters[2] || !b.MainChapters[3] || len(b.MainChapters) != 2 || b.Amounts[0] != 60 || b.Amounts[4] != 100 {
+		t.Errorf("bonus 201: %+v", b)
+	}
+}
