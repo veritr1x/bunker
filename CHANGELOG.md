@@ -41,11 +41,13 @@ under its heading, down to the previous release.
   as the game data has them.
 - A quest's bonus characters earn their extra character EXP ("Character EXP
   +50%") when they are in the deck.
-- Costume collection bonuses work on the main story. Owning every costume of
-  a set unlocks its bonus, which grows each time all of them ascend: costume
-  EXP on its chapters, and gold or drop rate on chapters 1–12. The amounts
-  are read as percentages; the game screen that lists them isn't in this
-  version to check against.
+- Costume collection bonuses work on the main story, at every difficulty
+  and in story replays, skips included. Owning every costume of a set
+  unlocks its bonus, which grows each time all of them ascend: costume EXP
+  on the chapters it names, or gold across the story. The amounts are read
+  as percentages; the game screen that lists them isn't in this version to
+  check against. The drop-rate and largest gold bonuses in the game data
+  were limited to 2021 and stay off.
 
 ### Summons
 - Chapter summon boxes hold every material the game lists for them, counted

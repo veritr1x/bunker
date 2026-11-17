@@ -112,3 +112,60 @@ func collectionBonuses(t collectionBonusTables) []CollectionBonus {
 	sort.Slice(out, func(i, j int) bool { return out[i].Id < out[j].Id })
 	return out
 }
+
+// MainQuestChapters maps every main-story quest to its chapter: each
+// difficulty (m_main_quest_sequence_group), and each story replay through the
+// quest it replays (m_quest_relation_main_flow). QuestCatalog's own map keeps
+// Normal quests only.
+var MainQuestChapters = bunkercache.Value(func() map[int32]int32 {
+	var t mainQuestChapterTables
+	var err error
+	read := func(name string) {
+		if err != nil {
+			log.Printf("[MainQuestChapters] %s: %v", name, err)
+		}
+	}
+	t.chapters, err = utils.ReadTable[EntityMMainQuestChapter]("m_main_quest_chapter")
+	read("m_main_quest_chapter")
+	t.groups, err = utils.ReadTable[EntityMMainQuestSequenceGroup]("m_main_quest_sequence_group")
+	read("m_main_quest_sequence_group")
+	t.sequences, err = utils.ReadTable[EntityMMainQuestSequence]("m_main_quest_sequence")
+	read("m_main_quest_sequence")
+	t.relations, err = utils.ReadTable[EntityMQuestRelationMainFlow]("m_quest_relation_main_flow")
+	read("m_quest_relation_main_flow")
+	return mainQuestChapters(t)
+})
+
+type mainQuestChapterTables struct {
+	chapters  []EntityMMainQuestChapter
+	groups    []EntityMMainQuestSequenceGroup
+	sequences []EntityMMainQuestSequence
+	relations []EntityMQuestRelationMainFlow
+}
+
+func mainQuestChapters(t mainQuestChapterTables) map[int32]int32 {
+	chapterOfGroup := map[int32]int32{}
+	for _, c := range t.chapters {
+		chapterOfGroup[c.MainQuestSequenceGroupId] = c.MainQuestChapterId
+	}
+	chapterOfSequence := map[int32]int32{}
+	for _, g := range t.groups {
+		if ch, ok := chapterOfGroup[g.MainQuestSequenceGroupId]; ok {
+			chapterOfSequence[g.MainQuestSequenceId] = ch
+		}
+	}
+	out := map[int32]int32{}
+	for _, s := range t.sequences {
+		if ch, ok := chapterOfSequence[s.MainQuestSequenceId]; ok {
+			out[s.QuestId] = ch
+		}
+	}
+	for _, r := range t.relations {
+		if ch, ok := out[r.MainFlowQuestId]; ok && r.ReplayFlowQuestId != 0 {
+			if _, mapped := out[r.ReplayFlowQuestId]; !mapped {
+				out[r.ReplayFlowQuestId] = ch
+			}
+		}
+	}
+	return out
+}

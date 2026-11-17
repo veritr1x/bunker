@@ -99,14 +99,11 @@ func TestMainQuestGoldGetsTheCollectionBonus(t *testing.T) {
 	saved := collectionBonusCatalog
 	t.Cleanup(func() { collectionBonusCatalog = saved })
 	collectionBonusCatalog = testCollection
+	onChapter2(t)
 	h := testHandler()
 	q := h.QuestById[testQuest]
 	q.QuestId, q.Gold, q.UserExp, q.CharacterExp, q.CostumeExp = testQuest, 100, 0, 0, 0
 	h.QuestById[testQuest] = q
-	if h.MainQuestChapterIdByQuestId == nil {
-		h.MainQuestChapterIdByQuestId = map[int32]int32{}
-	}
-	h.MainQuestChapterIdByQuestId[testQuest] = 2
 	gold := h.Config.ConsumableItemIdForGold
 	u := testUser()
 	ownCostume(u, "a", 11, 0)
@@ -115,5 +112,59 @@ func TestMainQuestGoldGetsTheCollectionBonus(t *testing.T) {
 	h.applyExpAndGoldRewards(u, testQuest, 0)
 	if got := u.ConsumableItems[gold] - before; got != 110 {
 		t.Fatalf("gold +%d, want 100 +10%%", got)
+	}
+}
+
+// onChapter2 puts testQuest in main chapter 2 the way every difficulty and
+// replay is looked up (the handler's own map holds Normal quests only).
+func onChapter2(t *testing.T) {
+	saved := mainQuestChapterOf
+	t.Cleanup(func() { mainQuestChapterOf = saved })
+	mainQuestChapterOf = func(questId int32) int32 {
+		if questId == testQuest {
+			return 2
+		}
+		return 0
+	}
+}
+
+func TestQuestSkipGoldGetsTheCollectionBonus(t *testing.T) {
+	saved := collectionBonusCatalog
+	t.Cleanup(func() { collectionBonusCatalog = saved })
+	collectionBonusCatalog = testCollection
+	onChapter2(t)
+	h := testHandler()
+	h.QuestById[testQuest] = masterdata.EntityMQuest{QuestId: testQuest, Stamina: 1, Gold: 100}
+	h.MaxStaminaByLevel = map[int32]int32{1: 50}
+	u := testUser()
+	u.Status.Level = 1
+	u.Status.StaminaMilliValue = 50000
+	u.ConsumableItems[h.Config.ConsumableItemIdForQuestSkipTicket] = 5
+	ownCostume(u, "a", 11, 0)
+	ownCostume(u, "b", 22, 0)
+	gold := h.Config.ConsumableItemIdForGold
+	before := u.ConsumableItems[gold]
+	if _, err := h.HandleQuestSkip(u, testQuest, 2, 1, 0); err != nil {
+		t.Fatal(err)
+	}
+	if got := u.ConsumableItems[gold] - before; got != 220 {
+		t.Fatalf("2 skips: gold +%d, want 2 × 110", got)
+	}
+}
+
+func TestDropBoostFindsTheChapterOfAnyDifficulty(t *testing.T) {
+	saved := collectionBonusCatalog
+	t.Cleanup(func() { collectionBonusCatalog = saved })
+	collectionBonusCatalog = func() []masterdata.CollectionBonus {
+		return []masterdata.CollectionBonus{{Id: 402, GroupingId: 12, EffectType: masterdata.CollectionBonusDropRate, Costumes: []int32{11},
+			Amounts: [5]int32{100, 200, 300, 400, 500}, MainChapters: map[int32]bool{2: true}, EndDatetime: 1000}}
+	}
+	onChapter2(t)
+	h := testHandler()
+	u := testUser()
+	ownCostume(u, "a", 11, 0)
+	hard := campaign.QuestTarget{QuestId: testQuest, QuestType: campaign.QuestTypeMainQuest} // no ChapterId: a Hard quest
+	if b := h.dropBoostFor(u, hard, 0); b == nil || b(tMaterial, 7) != 1000 {
+		t.Fatal("a Hard quest of chapter 2 gets the bonus")
 	}
 }

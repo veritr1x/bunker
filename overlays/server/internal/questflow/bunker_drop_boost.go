@@ -63,7 +63,11 @@ func boostCounts(drops []RewardGrant, boost dropBoost, roll func(int64) int64) [
 func (h *QuestHandler) dropBoostFor(user *store.UserState, t campaign.QuestTarget, nowMillis int64) dropBoost {
 	var collection int64
 	if t.QuestType == campaign.QuestTypeMainQuest {
-		collection = collectionPermil(collectionBonusCatalog(), user, t.ChapterId, masterdata.CollectionBonusDropRate, nowMillis)
+		chapter := mainQuestChapterOf(t.QuestId) // every difficulty; t.ChapterId has Normal only
+		if chapter == 0 {
+			chapter = t.ChapterId
+		}
+		collection = collectionPermil(collectionBonusCatalog(), user, chapter, masterdata.CollectionBonusDropRate, nowMillis)
 	}
 	type rate struct {
 		grouping, permil, itemGroup int32

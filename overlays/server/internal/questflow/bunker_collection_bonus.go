@@ -60,8 +60,11 @@ func collectionPermil(bs []masterdata.CollectionBonus, user *store.UserState, ch
 	return permil
 }
 
-// mainChapterCollectionPermil is collectionPermil for quest questId, a main
-// quest when it has a chapter.
+// mainQuestChapterOf is the main-story chapter of a quest of any difficulty
+// or a story replay, 0 for anything else.
+var mainQuestChapterOf = func(questId int32) int32 { return masterdata.MainQuestChapters()[questId] }
+
+// mainChapterCollectionPermil is collectionPermil for quest questId.
 func (h *QuestHandler) mainChapterCollectionPermil(user *store.UserState, questId, effectType int32, nowMillis int64) int64 {
-	return collectionPermil(collectionBonusCatalog(), user, h.MainQuestChapterIdByQuestId[questId], effectType, nowMillis)
+	return collectionPermil(collectionBonusCatalog(), user, mainQuestChapterOf(questId), effectType, nowMillis)
 }

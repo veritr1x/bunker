@@ -107,3 +107,28 @@ func TestCollectionBonusesOnTheGameData(t *testing.T) {
 		t.Errorf("bonus 201: %+v", b)
 	}
 }
+
+func TestMainQuestChaptersFromTables(t *testing.T) {
+	got := mainQuestChapters(mainQuestChapterTables{
+		chapters:  []EntityMMainQuestChapter{{MainQuestChapterId: 2, MainQuestSequenceGroupId: 2}},
+		groups:    []EntityMMainQuestSequenceGroup{{MainQuestSequenceGroupId: 2, DifficultyType: 1, MainQuestSequenceId: 2}, {MainQuestSequenceGroupId: 2, DifficultyType: 2, MainQuestSequenceId: 1002}},
+		sequences: []EntityMMainQuestSequence{{MainQuestSequenceId: 2, QuestId: 20}, {MainQuestSequenceId: 1002, QuestId: 10020}},
+		relations: []EntityMQuestRelationMainFlow{{MainFlowQuestId: 20, ReplayFlowQuestId: 30020}},
+	})
+	for _, q := range []int32{20, 10020, 30020} {
+		if got[q] != 2 {
+			t.Errorf("quest %d: chapter %d, want 2", q, got[q])
+		}
+	}
+}
+
+func TestMainQuestChaptersOnTheGameData(t *testing.T) {
+	loadBonusTestMaster(t)
+	m := MainQuestChapters()
+	if m[2] != 2 || m[10001] != 2 || m[30001] != 2 {
+		t.Fatalf("quest 2 (Normal) %d, 10001 (Hard) %d, 30001 (replay of 2) %d; want chapter 2", m[2], m[10001], m[30001])
+	}
+	if len(m) < 281+270+270+281 {
+		t.Fatalf("%d quests mapped", len(m))
+	}
+}

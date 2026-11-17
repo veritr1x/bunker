@@ -57,3 +57,14 @@
  		user.ConsumableItems[h.Config.ConsumableItemIdForGold] += gold
  		log.Printf("[applyQuestRewards] questId=%d gold: +%d -> total=%d", questId, gold, user.ConsumableItems[h.Config.ConsumableItemIdForGold])
  	}
+--- a/server/internal/questflow/quest.go
++++ b/server/internal/questflow/quest.go
+@@ -371,7 +371,7 @@
+ 		allDrops = append(allDrops, drops...)
+ 
+ 		if questDef.Gold != 0 {
+-			user.ConsumableItems[h.Config.ConsumableItemIdForGold] += modScaleGold(questDef.Gold)
++			user.ConsumableItems[h.Config.ConsumableItemIdForGold] += withPermil(modScaleGold(questDef.Gold), h.mainChapterCollectionPermil(user, questId, masterdata.CollectionBonusGold, nowMillis)) // Bunker: costume collection bonus (bunker_collection_bonus.go)
+ 		}
+ 		h.applyExpRewards(user, questId, nowMillis)
+ 	}
