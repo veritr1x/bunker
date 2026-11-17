@@ -40,6 +40,9 @@ under its bundle ID: an IPA signed with another ID installs as a second app,
 empty, and deleting an app deletes its data. Keep the game's own ID,
 `com.square-enix.NieRSPww`, if your profile allows it (a wildcard profile
 does); otherwise use one ID of your team's for every build and update.
+For a second copy beside the first, give the web builder's **Custom name** a
+different App ID (and a name, so the two icons differ), then sign the IPA with
+that same ID. Give it its own port offset if both should run at once.
 
 To sign it yourself, give it a bundle ID your team owns and a development
 profile that includes your device. One way to get the profile is to let

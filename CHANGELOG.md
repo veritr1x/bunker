@@ -4,6 +4,18 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-17 (after 1.12.8)
+
+### Web builder
+- Experimental Custom name: an App ID and a name for a second copy, which
+  installs beside the one you have with its own saves and game files. The page
+  checks the ID for the chosen platform as you type, and the build checks it
+  again; a second copy on the first copy's ports builds with a warning that only
+  one can run at a time. On Android every name tied to the package moves with
+  it (providers, the push permission, the link host), the name shows under the
+  icon, and in-app updates keep both. On iOS the IPA gets the bundle ID and
+  name; sign it with the same ID.
+
 ## 1.12.8 (2026-11-17)
 
 With the Original calendar, each earlier run of a rerun event plays its own

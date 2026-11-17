@@ -127,6 +127,13 @@ Limitations:
   iOS web build is the same as the command-line build.
 - **Experimental: port offset.** If another app on the device already uses the game's local
   ports (8003, 8080 or 3000), the launcher tells you. A build with a port offset moves all three.
+- **Experimental: custom name (a second copy).** Give the build an App ID and a name, and it
+  installs as a separate app beside the one you have, with its own saves and game files, for
+  example `com.example.nier2` and "NieR 2". The page checks the ID as you type (Android: letters,
+  digits and `_`; iOS: letters, digits and `-`; parts separated by dots). With the same port offset
+  as your other copy, only one copy can run at a time; give it its own offset (for example 10000)
+  to run both. Use the same App ID, name and offset for every update. Android's in-app updates keep
+  them by themselves; on iOS, sign with the same App ID.
 - **The resource dump is not part of the build.** Put its `.7z` on the phone and choose it in
   the app. The app unpacks only the files the game uses. On Android, you can do all of this
   without a computer. On iPhone and iPad, you usually need a computer once to sideload the IPA.
