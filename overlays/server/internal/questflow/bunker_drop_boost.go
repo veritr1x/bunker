@@ -84,10 +84,30 @@ func (h *QuestHandler) dropBoostFor(user *store.UserState, t campaign.QuestTarge
 	if len(rates) == 0 && collection == 0 {
 		return nil
 	}
+	// A target group names a memoir by one rank variant; any variant of the
+	// same memoir (group and rarity) matches, its rank being rolled at grant.
+	kinds := listedDropCatalog().Parts
+	matches := func(itemGroup int32, pt model.PossessionType, id int32) bool {
+		if ie.ItemMatches(itemGroup, int32(pt), id) {
+			return true
+		}
+		k, ok := kinds[id]
+		if pt != model.PossessionTypeParts || !ok {
+			return false
+		}
+		for _, r := range ie.ItemGroups[itemGroup] {
+			if model.PossessionType(r.PossessionType) == model.PossessionTypeParts {
+				if rk, ok := kinds[r.PossessionId]; ok && rk == k {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	return func(pt model.PossessionType, id int32) int64 {
 		best := map[int32]int32{}
 		for _, r := range rates {
-			if ie.ItemMatches(r.itemGroup, int32(pt), id) && r.permil > best[r.grouping] {
+			if matches(r.itemGroup, pt, id) && r.permil > best[r.grouping] {
 				best[r.grouping] = r.permil
 			}
 		}

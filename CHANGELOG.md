@@ -32,6 +32,21 @@ under its heading, down to the previous release.
   their quests show, rarer for each step up. Every memoir the game's drop
   data holds can now be had.
 
+### Bonuses
+- Drop Rate+ important items now work (the weekday quest, memory dungeon and
+  Dark Memory ones the Item Editor can give). Bunker always grants the drops
+  a quest shows, so a rate boost raises how many you get instead: the extra
+  drops roll that much more often, and each shown drop has that chance of an
+  extra copy (+100% gives one extra every clear). Drop Rate+ and ++ add up,
+  as the game data has them.
+- A quest's bonus characters earn their extra character EXP ("Character EXP
+  +50%") when they are in the deck.
+- Costume collection bonuses work on the main story. Owning every costume of
+  a set unlocks its bonus, which grows each time all of them ascend: costume
+  EXP on its chapters, and gold or drop rate on chapters 1–12. The amounts
+  are read as percentages; the game screen that lists them isn't in this
+  version to check against.
+
 ### Summons
 - Chapter summon boxes hold every material the game lists for them, counted
   by rarity like the rest of the box, so the boxes are bigger. A box already

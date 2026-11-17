@@ -97,3 +97,35 @@ func TestListedDropsBoosted(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
+
+// A target item group names memoirs by one rank variant; a drop of another
+// variant of the same memoir (group and rarity) is the same memoir: the rank
+// is rolled when it is granted.
+func TestDropBoostMatchesMemoirsByKind(t *testing.T) {
+	saved := listedDropCatalog
+	t.Cleanup(func() { listedDropCatalog = saved })
+	listedDropCatalog = testListedCatalog
+	h := testHandler()
+	h.ImportantItemEffects = &masterdata.ImportantItemEffectCatalog{
+		DropRates: []masterdata.ImportantItemDropRate{{ImportantItemId: 200019, GroupingId: 19, EndDatetime: 1000, RatePermil: 1000, QuestGroupId: 101, ItemGroupId: 1201}},
+		QuestGroups: map[int32][]masterdata.EntityMImportantItemEffectTargetQuestGroup{101: {
+			{ImportantItemEffectTargetQuestGroupType: masterdata.ImportantItemTargetMainQuestChapterId, TargetValue: 2},
+		}},
+		ItemGroups: map[int32][]masterdata.EntityMImportantItemEffectTargetItemGroup{1201: {{PossessionType: int32(tParts), PossessionId: 102}}},
+	}
+	c := testListedCatalog()
+	c.Parts[102] = masterdata.PartsKind{Group: 1, Rarity: 10} // another rank of 101
+	listedDropCatalog = func() masterdata.ListedDropCatalog { return c }
+	u := testUser()
+	u.ImportantItems[200019] = 1
+	b := h.dropBoostFor(u, campaign.QuestTarget{QuestId: testQuest, QuestType: campaign.QuestTypeMainQuest, ChapterId: 2}, 0)
+	if b == nil || b(tParts, 101) != 1000 {
+		t.Fatal("memoir 101 is the same kind as the targeted 102")
+	}
+	if b(tParts, 201) != 0 {
+		t.Fatal("memoir 201 is another group")
+	}
+	if b(tParts, 121) != 0 {
+		t.Fatal("memoir 121 is another rarity")
+	}
+}
