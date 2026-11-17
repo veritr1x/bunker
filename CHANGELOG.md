@@ -44,10 +44,10 @@ under its heading, down to the previous release.
 - Costume collection bonuses work on the main story, at every difficulty
   and in story replays, skips included. Owning every costume of a set
   unlocks its bonus, which grows each time all of them ascend: costume EXP
-  on the chapters it names, or gold across the story. The amounts are read
-  as percentages; the game screen that lists them isn't in this version to
-  check against. The drop-rate and largest gold bonuses in the game data
-  were limited to 2021 and stay off.
+  on the chapters it names, or gold or drop rate across the story. The
+  amounts are read as percentages; the game screen that lists them isn't in
+  this version to check against. Like other content that was limited-time,
+  the 2021 drop-rate and gold bonuses stay on.
 
 ### Summons
 - Chapter summon boxes hold every material the game lists for them, counted
