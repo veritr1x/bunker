@@ -152,7 +152,7 @@ class AppIdentityTest(unittest.TestCase):
 
     def test_page_has_second_copy_fields(self):
         page = (HERE / "index.html").read_text()
-        for needle in ('id="app-id"', 'id="app-name"', 'maxlength="30"', "SECOND COPY", 'id="app-id-error"',
+        for needle in ('id="app-id"', 'id="app-name"', 'maxlength="30"', "EXPERIMENTAL :: CUSTOM NAME", 'id="app-id-error"',
                        'id="app-name-error"', 'id="port-offset-error"'):
             self.assertIn(needle, page)
 

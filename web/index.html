@@ -160,19 +160,22 @@
       <div class="frame">
         <p>Takes a few minutes and needs about 2 GB of free memory. A desktop browser works best.</p>
         <details>
-          <summary>EXPERIMENTAL :: PORT OFFSET · SECOND COPY</summary>
+          <summary>EXPERIMENTAL :: PORT OFFSET</summary>
           <p style="margin:8px 0">The game talks to its server on this device through ports 8003, 8080 and 3000. If another app
             already uses one of them, the launcher tells you. An offset moves all three. For example, 30000 gives 38003, 38080
             and 33000. Leave it at 0 unless you need it, and use the same offset for updates.</p>
           <label>Offset <input type="number" id="port-offset" value="0" min="0" max="57455" step="1"></label>
-          <small class="field-error" id="port-offset-error" role="alert"></small>
-          <p style="margin:14px 0 8px">A different App ID installs as a separate app, beside the one you have, with its own
-            saves and game files. Give it a port offset other than the first copy's too, so both can run. Use the same App ID,
+        </details>
+        <details id="custom-name">
+          <summary>EXPERIMENTAL :: CUSTOM NAME</summary>
+          <p style="margin:8px 0">A different App ID installs as a separate app, beside the one you have, with its own saves
+            and game files. Give it a port offset other than the first copy's too (above), so both can run. Use the same App ID,
             name and port offset for every update. Leave both empty for the usual app.</p>
           <div class="fields">
             <label>App ID <input type="text" id="app-id" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="com.example.nier2"></label>
             <small class="field-hint" id="app-id-hint"></small>
             <small class="field-error" id="app-id-error" role="alert"></small>
+            <small class="field-error" id="port-offset-error" role="alert"></small>
             <label>Name <input type="text" id="app-name" maxlength="30" autocomplete="off" placeholder="NieR 2"></label>
             <small class="field-error" id="app-name-error" role="alert"></small>
           </div>

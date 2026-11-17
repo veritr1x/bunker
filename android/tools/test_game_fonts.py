@@ -322,11 +322,11 @@ class AndroidBuild(unittest.TestCase):
         work.mkdir()
         (work / "lib").write_bytes(b"lib"); (work / "meta").write_bytes(b"meta")
         with mock.patch.object(a, "patch_game_files", lambda *args: (work / "lib", work / "meta")), \
-                mock.patch.object(a, "patch_manifest", lambda *args: (b"manifest", "Main")), \
+                mock.patch.object(a, "patch_manifest", lambda *args, **options: (b"manifest", "Main")), \
                 mock.patch.object(a, "patch_master", lambda data: data), \
                 mock.patch.object(a, "patch_unity_connect", lambda data: data), \
                 mock.patch.object(a.build_info, "check_companion", lambda c: None), \
-                mock.patch.object(a.build_info, "describe", lambda *args: {}):
+                mock.patch.object(a.build_info, "describe", lambda *args, **options: {}):
             master = self.dir / "master.bin.e"
             master.write_bytes(b"master")
             a.assemble(apk, master, companion, out, log=lambda m: None)
