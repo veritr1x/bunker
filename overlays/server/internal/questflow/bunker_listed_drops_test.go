@@ -78,6 +78,20 @@ func TestListedMemoirsCompleteTheShownSet(t *testing.T) {
 	}
 }
 
+// The chapter-memoir rule may already have granted a piece (139 quest/memoir
+// pairs overlap in the game's data): it isn't rolled a second time.
+func TestListedMemoirsSkipAPieceAlreadyGranted(t *testing.T) {
+	shown := []RewardGrant{{PossessionType: tParts, PossessionId: 101, Count: 1}}
+	granted := append(append([]RewardGrant{}, shown...), RewardGrant{PossessionType: tParts, PossessionId: 202, Count: 1})
+	c := testListedCatalog()
+	c.Parts[202] = masterdata.PartsKind{Group: 2, Rarity: 10} // another rank of group 2 at rarity 10
+	got := listedDrops(c, 11, shown, granted, double, listedRolls(t, 0))
+	want := []RewardGrant{{PossessionType: tParts, PossessionId: 301, Count: 2}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}
+
 func TestListedMemoirsFullSetAddsNothing(t *testing.T) {
 	shown := []RewardGrant{{PossessionType: tParts, PossessionId: 101}, {PossessionType: tParts, PossessionId: 201}, {PossessionType: tParts, PossessionId: 301}}
 	if got := listedDrops(testListedCatalog(), 11, shown, shown, double, listedRolls(t)); len(got) != 0 {

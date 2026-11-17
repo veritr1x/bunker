@@ -83,6 +83,16 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 			shownKinds[k] = true
 		}
 	}
+	// A piece another rule granted already (the chapter memoirs) isn't rolled again.
+	grantedKinds := map[masterdata.PartsKind]bool{}
+	for _, g := range granted {
+		if g.PossessionType != model.PossessionTypeParts {
+			continue
+		}
+		if k, ok := c.Parts[g.PossessionId]; ok {
+			grantedKinds[k] = true
+		}
+	}
 	type setAt struct{ first, rarity int32 }
 	seen := map[setAt]bool{}
 	var sets []setAt
@@ -104,7 +114,7 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 		for _, g := range c.SetOf[s.first] {
 			k := masterdata.PartsKind{Group: g, Rarity: s.rarity}
 			id, ok := c.PartsFor[k]
-			if shownKinds[k] || !ok {
+			if shownKinds[k] || grantedKinds[k] || !ok {
 				continue
 			}
 			if roll(listedMemoirOneIn) == 0 {
