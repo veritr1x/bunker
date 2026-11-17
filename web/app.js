@@ -34,8 +34,9 @@ function checkIdentity() {
   const result = checkAppIdentity(platform(), $("app-id").value, $("app-name").value, Number($("port-offset").value || 0));
   for (const [field, id] of [["appId", "app-id"], ["appName", "app-name"], ["portOffset", "port-offset"]]) {
     const message = result.errors[field] || result.warnings[field] || "";
-    $(id + "-error").textContent = message;
-    $(id + "-error").classList.toggle("warning", !result.errors[field] && !!message);
+    const box = $(id + "-error");  // Rewritten only when it changes: screen readers announce each change.
+    if (box.textContent !== message) box.textContent = message;
+    box.classList.toggle("warning", !result.errors[field] && !!message);
     $(id).setAttribute("aria-invalid", result.errors[field] ? "true" : "false");
   }
   return { ok: Object.keys(result.errors).length === 0, appId: result.appId, appName: result.appName };

@@ -163,6 +163,13 @@ class AppIdentityTest(unittest.TestCase):
                        'id="app-name-error"', 'id="port-offset-error"'):
             self.assertIn(needle, page)
 
+    def test_field_messages_are_announced_politely_and_only_when_they_change(self):
+        page, app = (HERE / "index.html").read_text(), (HERE / "app.js").read_text()
+        self.assertNotIn('class="field-error" id="app-id-error" role="alert"', page)
+        for field in ("app-id", "app-name", "port-offset"):
+            self.assertRegex(page, f'class="field-error" id="{field}-error" aria-live="polite"')
+        self.assertIn('if (box.textContent !== message) box.textContent = message;', app)
+
     def test_worker_passes_app_identity(self):
         worker = (HERE / "worker.js").read_text()
         self.assertRegex(worker, r"const \{[^}]*appId = null, appName = null[^}]*\} = data")
