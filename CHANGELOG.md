@@ -4,15 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## 1.12.9 (2026-11-17)
+## 1.12.10 (2026-11-17)
 
-Quests drop more than their screen shows, as in the live game: the materials
-an item's location list names for them, the rest of the memoir sets they
-show, and in memory dungeons the 3★ and 4★ versions. Drop Rate+ items, quest
-bonus characters' extra EXP and costume collection bonuses now work. Chapter
-and event summons hold every material the game lists for them. Web builder:
-an experimental Custom name builds a second copy that installs beside the
-first.
+With the Original calendar the world map opens again instead of hanging the
+game. 19 missions that could never complete now count: the Sun/Moon chapters
+on Normal, Record: The Wishing Space, and the Mama's Exciting Festival summons.
+The release also carries bunker-server, the server as one program for Windows,
+Linux and macOS.
 
 ## 2026-11-17 (after 1.12.9)
 
@@ -23,6 +21,12 @@ first.
   that festival's own summon). Their rules are written by hand, since their
   names don't say enough for the generated ones.
 
+### Server
+- bunker-server: the Lunar Tear server as one program for Windows, Linux and
+  macOS (x86-64 and ARM64), for a game that runs on the computer itself. It
+  starts the same three loopback services from a save folder and a game files
+  folder; the release builds it for all six targets. [f6e69da]
+
 ### Game fixes
 - With the Original calendar the world map no longer hangs the game when it
   opens. The game keeps every map gimmick schedule that hasn't ended, in room
@@ -30,6 +34,16 @@ first.
   1638 were still to come, the map's gimmick data stopped loading partway and
   the map looped forever on a chain it couldn't finish. Android and iOS now
   give each of the map's gimmick tables room for 4096.
+
+## 1.12.9 (2026-11-17)
+
+Quests drop more than their screen shows, as in the live game: the materials
+an item's location list names for them, the rest of the memoir sets they
+show, and in memory dungeons the 3★ and 4★ versions. Drop Rate+ items, quest
+bonus characters' extra EXP and costume collection bonuses now work. Chapter
+and event summons hold every material the game lists for them. Web builder:
+an experimental Custom name builds a second copy that installs beside the
+first.
 
 ## 2026-11-17 (after 1.12.8)
 
