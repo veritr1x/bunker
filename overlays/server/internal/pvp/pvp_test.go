@@ -172,6 +172,7 @@ func TestBattle(t *testing.T) {
 
 func TestWeekAndDefense(t *testing.T) {
 	c, u := realSave(t)
+	u.Ext.Pvp = store.PvpState{}      // a save that played the Arena already has weekly results
 	monday := mondayOf(seasonTime(c)) // weeks start Monday 00:00 GMT-8
 	now := monday + 3*24*3600*1000    // a Thursday
 	season, ladder, ok := c.Sync(&u, now)

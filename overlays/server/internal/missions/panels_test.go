@@ -48,6 +48,7 @@ func TestPanelRunCountsAndPays(t *testing.T) {
 	if doll == nil {
 		t.Fatal("no run of Anecdote: Doll")
 	}
+	delete(u.Ext.PanelMissions, doll.Id) // a save that played this run already has progress
 	during := doll.Start + 1000
 	tap := func(at int64, n int32) {
 		prev := store.CloneUserState(u)
