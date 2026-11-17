@@ -41,8 +41,15 @@ def manifests():
             *(named("provider", name) for name in assemble_apk.SDK_PROVIDERS),
         ]),
     ])
+    # The launcher's shape as the real companion has it: the launcher entry and the
+    # game-process provider, which a second copy relabels and renames.
     companion = Element("manifest", children=[Element("application", children=[
-        named("activity", "org.veritr1x.bunker.MainActivity")])])
+        named("activity", "org.veritr1x.bunker.MainActivity", [Element("intent-filter", children=[
+            named("action", "android.intent.action.MAIN"),
+            named("category", "android.intent.category.LAUNCHER")])]),
+        Element("provider", [Attr.string("name", "org.veritr1x.bunker.GameProcessProvider", assemble_apk.NAME),
+                             Attr.string("authorities", "org.veritr1x.bunker.lunar_loopback", assemble_apk.AUTHORITIES)]),
+    ])])
     game.set(Attr("package", ns=None, raw=assemble_apk.PACKAGE))
     game.set(Attr.string("versionName", "3.7.1", 0x0101021C))
     return tuple(axml.serialize(Document(root, [("android", axml.ANDROID_NS, 0)])) for root in (game, companion))
