@@ -5,6 +5,7 @@ read-only under /input and the prebuilt bundles under /bundles. Nothing is
 uploaded anywhere; everything runs in the browser.
 """
 import os
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -27,6 +28,36 @@ def addresses(port_offset=0):
     if not 0 <= port_offset <= 65535 - 8080:
         raise ValueError(f"Port offset must be 0–{65535 - 8080}")
     return tuple(f"127.0.0.1:{port + port_offset}" for port in (8003, 8080, 3000))
+
+
+# A second copy (the builder's App ID and Name): web/app_identity.js checks the same rules
+# as the player types, with the same messages; web/app_identity_cases.json holds both to them.
+APP_ID_RULES = {
+    "android": (re.compile(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+"), 255,
+                "The App ID must be at least two parts separated by dots, each starting with a letter and using only letters, digits and _ (Android)."),
+    "ios": (re.compile(r"[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+"), 155,
+            "The App ID must be at least two parts separated by dots, using only letters, digits and - (iOS)."),
+}
+GAME_IDS = {"com.square_enix.android_googleplay.nierspww", "com.square_enix.android_googleplay.nierspjp", "com.square-enix.nierspww"}
+NAME_LIMIT = 30
+
+
+def check_app_identity(platform, app_id, app_name, port_offset):
+    """The App ID and Name for a second copy, trimmed (None when empty); raises ValueError with the page's message."""
+    app_id, app_name = (app_id or "").strip() or None, (app_name or "").strip() or None
+    if app_id:
+        pattern, limit, message = APP_ID_RULES[platform]
+        if len(app_id) > limit:
+            raise ValueError("The App ID is too long.")
+        if not pattern.fullmatch(app_id):
+            raise ValueError(message)
+        if app_id.lower() in GAME_IDS:
+            raise ValueError("That is the game's own ID: leave the field empty for it.")
+    if app_name and (len(app_name) > NAME_LIMIT or re.search(r"[\x00-\x1f\x7f]", app_name)):
+        raise ValueError("The name must be 30 characters or fewer, without control characters.")
+    if app_id and int(port_offset) == 0:
+        raise ValueError("A second copy needs a port offset other than 0, and different from the other copy's (for example 10000).")
+    return app_id, app_name
 
 
 def build_android(apk, master, companion, output, log=print, port_offset=0, notices=None):

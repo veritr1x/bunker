@@ -89,5 +89,72 @@ class WorkerFetchTest(unittest.TestCase):
         self.assertEqual([line for line in fetches if 'cache: "no-cache"' not in line], [])
 
 
+
+
+MESSAGES = {
+    ("appId", "android"): "The App ID must be at least two parts separated by dots, each starting with a letter and using only letters, digits and _ (Android).",
+    ("appId", "ios"): "The App ID must be at least two parts separated by dots, using only letters, digits and - (iOS).",
+    ("appId", "long"): "The App ID is too long.",
+    ("appId", "game"): "That is the game's own ID: leave the field empty for it.",
+    ("appName", None): "The name must be 30 characters or fewer, without control characters.",
+    ("portOffset", None): "A second copy needs a port offset other than 0, and different from the other copy's (for example 10000).",
+}
+HERE = Path(__file__).resolve().parent
+
+
+def expected_messages(case):
+    if case["field"] != "appId":
+        return {MESSAGES[(case["field"], None)]}
+    return {MESSAGES[("appId", case["platform"])], MESSAGES[("appId", "long")], MESSAGES[("appId", "game")]}
+
+
+class AppIdentityTest(unittest.TestCase):
+    cases = json.loads((HERE / "app_identity_cases.json").read_text())
+
+    def test_app_identity_python_matches_cases(self):
+        import webbuild
+        for case in self.cases:
+            with self.subTest(case=case):
+                args = (case["platform"], case["appId"], case["appName"], case["portOffset"])
+                if case["ok"]:
+                    app_id, app_name = webbuild.check_app_identity(*args)
+                    self.assertEqual(app_id, case["appId"].strip() or None)
+                    self.assertEqual(app_name, case["appName"].strip() or None)
+                else:
+                    with self.assertRaises(ValueError) as caught:
+                        webbuild.check_app_identity(*args)
+                    self.assertIn(str(caught.exception), expected_messages(case))
+
+    def test_app_identity_js_matches_cases(self):
+        import shutil
+        import subprocess
+        if not shutil.which("node"):
+            self.skipTest("node is not installed")
+        script = ("const {checkAppIdentity}=require(process.argv[1]); const cases=require(process.argv[2]);"
+                  "console.log(JSON.stringify(cases.map(c=>checkAppIdentity(c.platform,c.appId,c.appName,c.portOffset))))")
+        out = subprocess.run(["node", "-e", script, str(HERE / "app_identity.js"), str(HERE / "app_identity_cases.json")],
+                             capture_output=True, text=True, check=True).stdout
+        for case, result in zip(self.cases, json.loads(out)):
+            with self.subTest(case=case):
+                if case["ok"]:
+                    self.assertEqual(result["errors"], {})
+                    self.assertEqual(result["appId"], case["appId"].strip() or None)
+                    self.assertEqual(result["appName"], case["appName"].strip() or None)
+                else:
+                    self.assertEqual(list(result["errors"]), [case["field"]])
+                    self.assertIn(result["errors"][case["field"]], expected_messages(case))
+
+    def test_app_identity_messages_are_the_same_in_both(self):
+        python, js = (HERE / "webbuild.py").read_text(), (HERE / "app_identity.js").read_text()
+        for message in MESSAGES.values():
+            self.assertIn(json.dumps(message)[1:-1].replace("\\'", "'"), python)
+            self.assertIn(message, js)
+
+    def test_app_identity_js_is_published(self):
+        self.assertIn('"app_identity.js"', (HERE / "build_site.py").read_text())
+        page = (HERE / "index.html").read_text()
+        self.assertLess(page.index('<script src="app_identity.js"></script>'), page.index('<script src="app.js"></script>'))
+
+
 if __name__ == "__main__":
     unittest.main()

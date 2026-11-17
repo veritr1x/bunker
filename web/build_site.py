@@ -102,7 +102,7 @@ def main():
     out = args.output.resolve()
     shutil.rmtree(out, ignore_errors=True)
     (out / "bundles").mkdir(parents=True)
-    for name in ("index.html", "app.js", "worker.js"):
+    for name in ("index.html", "app_identity.js", "app.js", "worker.js"):
         shutil.copy2(ROOT / "web" / name, out / name)
     shutil.copy2(ROOT / "web/signing/bunker-key.p12", out / "bunker-key.p12")
     for name in PYTHON:

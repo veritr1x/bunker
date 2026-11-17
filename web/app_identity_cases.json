@@ -1,0 +1,179 @@
+[
+ {
+  "platform": "android",
+  "appId": "com.example.nier2",
+  "appName": "NieR 2",
+  "portOffset": 10000,
+  "ok": true
+ },
+ {
+  "platform": "ios",
+  "appId": "com.example.nier-2",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": true
+ },
+ {
+  "platform": "android",
+  "appId": "",
+  "appName": "",
+  "portOffset": 0,
+  "ok": true
+ },
+ {
+  "platform": "ios",
+  "appId": "",
+  "appName": "",
+  "portOffset": 0,
+  "ok": true
+ },
+ {
+  "platform": "android",
+  "appId": " com.example.nier2 ",
+  "appName": "  NieR 2 ",
+  "portOffset": 10000,
+  "ok": true
+ },
+ {
+  "platform": "android",
+  "appId": "com.example.nier_2",
+  "appName": "NieR & Co 2 — 니어",
+  "portOffset": 10000,
+  "ok": true
+ },
+ {
+  "platform": "android",
+  "appId": "com.example.nier-2",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "ios",
+  "appId": "com.example.nier_2",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "nier",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "ios",
+  "appId": "nier",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "com..nier",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "ios",
+  "appId": "com.nier.",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "com.2nier",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "a.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "ios",
+  "appId": "a.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "COM.SQUARE_ENIX.ANDROID_GOOGLEPLAY.NIERSPWW",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "com.square_enix.android_googleplay.nierspjp",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "ios",
+  "appId": "com.square-enix.nierspww",
+  "appName": "",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appId"
+ },
+ {
+  "platform": "android",
+  "appId": "com.example.nier2",
+  "appName": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appName"
+ },
+ {
+  "platform": "android",
+  "appId": "com.example.nier2",
+  "appName": "NieR\n2",
+  "portOffset": 10000,
+  "ok": false,
+  "field": "appName"
+ },
+ {
+  "platform": "ios",
+  "appId": "",
+  "appName": "NieR 2",
+  "portOffset": 0,
+  "ok": true
+ },
+ {
+  "platform": "android",
+  "appId": "com.example.nier2",
+  "appName": "",
+  "portOffset": 0,
+  "ok": false,
+  "field": "portOffset"
+ },
+ {
+  "platform": "ios",
+  "appId": "com.example.nier2",
+  "appName": "NieR 2",
+  "portOffset": 0,
+  "ok": false,
+  "field": "portOffset"
+ }
+]
