@@ -30,6 +30,15 @@ class BuildInfoTests(unittest.TestCase):
     def test_describe_without_version_file(self):
         self.assertEqual(build_info.describe(zip_of({"classes.dex": "d"}), 1, 0)["version"], "dev")
 
+    def test_describe_records_app_identity_only_when_set(self):
+        companion = zip_of({"lib/arm64-v8a/liblunar.so": b""})
+        plain = build_info.describe(companion, 1, 0)
+        self.assertNotIn("appId", plain)
+        self.assertNotIn("appName", plain)
+        copy = build_info.describe(companion, 1, 10000, app_id="com.example.nier2", app_name="NieR 2")
+        self.assertEqual((copy["appId"], copy["appName"]), ("com.example.nier2", "NieR 2"))
+        self.assertNotIn("appName", build_info.describe(companion, 1, 10000, app_id="com.example.nier2"))
+
     def test_is_bunker_entry(self):
         info = {"gameDex": 2, "bunkerLibs": ["lib/arm64-v8a/liblunar.so"]}
         for name in ["classes3.dex", "classes4.dex", "lib/arm64-v8a/liblunar.so", "assets/chaquopy/a", "assets/lunar/build.json"]:

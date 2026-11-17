@@ -23,14 +23,19 @@ def check_companion(companion):
         raise RuntimeError("The launcher bundle is out of date for this game patch. Rebuild the launcher with this builder before packaging.")
 
 
-def describe(companion, game_dex, port_offset, notices=None):
-    """build.json for an APK made from the companion (launcher) APK; notices is the notice pack's sha256."""
+def describe(companion, game_dex, port_offset, notices=None, app_id=None, app_name=None):
+    """build.json for an APK made from the companion (launcher) APK; notices is the notice pack's sha256.
+    app_id and app_name are a second copy's package and label, kept so updates keep them."""
     names = companion.namelist()
     version = companion.read(VERSION_ENTRY).decode().strip() if VERSION_ENTRY in names else "dev"
     info = {"version": version, "gamePatch": GAME_PATCH, "portOffset": int(port_offset), "gameDex": int(game_dex),
             "bunkerLibs": sorted(n for n in names if n.startswith("lib/arm64-v8a/"))}
     if notices:
         info["notices"] = notices
+    if app_id:
+        info["appId"] = app_id
+    if app_name:
+        info["appName"] = app_name
     return info
 
 

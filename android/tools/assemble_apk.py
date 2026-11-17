@@ -344,7 +344,7 @@ class ApkWriter:
             self.out.write(bytes(central) + eocd)
 
 
-def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None):
+def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None, app_id=None, app_name=None):
     with zipfile.ZipFile(apk) as game, zipfile.ZipFile(companion_apk) as companion, open(apk, "rb") as raw:
         build_info.check_companion(companion)
         names = set(game.namelist())
@@ -356,7 +356,8 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
         try:
             lib, metadata = patch_game_files(game, patched_files, port_offset)
             log("Updating the manifest…")
-            manifest, game_activity = patch_manifest(game.read("AndroidManifest.xml"), companion.read("AndroidManifest.xml"), port_offset)
+            manifest, game_activity = patch_manifest(game.read("AndroidManifest.xml"), companion.read("AndroidManifest.xml"), port_offset,
+                                                     app_id=app_id, app_name=app_name)
             log("Patching master data…")
             original_master = Path(master).read_bytes()
             patched_master = patch_master(original_master)
@@ -401,7 +402,8 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
                     for name, data, kind in notice_pack.entries(notices):
                         writer.add(name, data, compress=kind != zipfile.ZIP_STORED)
                 # What an update in place needs (build_info.py).
-                info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None)
+                info = build_info.describe(companion, len(dex), port_offset, notice_pack.sha256(notices) if notices else None,
+                                           app_id=app_id, app_name=app_name)
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
                 writer.add("assets/lunar/game-manifest.xml", game.read("AndroidManifest.xml"))
                 writer.close()
@@ -433,7 +435,7 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
         identity = axml.parse(game.read("assets/lunar/game-manifest.xml")).root
         profile = game_patch.profile_for_manifest(identity.get("package", ns=None).raw, identity.get("versionName").raw)
         manifest, _ = patch_manifest(game.read("assets/lunar/game-manifest.xml"), companion.read("AndroidManifest.xml"),
-                                     old["portOffset"])
+                                     old["portOffset"], app_id=old.get("appId"), app_name=old.get("appName"))
         # The game's fonts stay as built, so does the licence of the letters added to them.
         kept = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
                 "assets/lunar/game-manifest.xml", "assets/lunar/NOTO_OFL.txt"}
@@ -469,7 +471,8 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
                     for name, data, kind in notice_pack.entries(notices):
                         writer.add(name, data, compress=kind != zipfile.ZIP_STORED)
                 info = build_info.describe(companion, old["gameDex"], old["portOffset"],
-                                           notice_pack.sha256(notices) if notices else old.get("notices"))
+                                           notice_pack.sha256(notices) if notices else old.get("notices"),
+                                           app_id=old.get("appId"), app_name=old.get("appName"))
                 writer.add("assets/lunar/build.json", json.dumps(info, indent=1).encode())
                 writer.close()
             os.replace(temporary, output)
@@ -485,9 +488,13 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--port-offset", type=int, default=0, help="Move the game's ports 8003/8080/3000 by this amount")
     p.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip", help="Pinned notice pack (scripts/notices.py)")
+    p.add_argument("--app-id", help="A second copy's package name (with a port offset other than the first copy's); "
+                                    "the web builder checks it, this does not")
+    p.add_argument("--app-name", help="A second copy's name under the icon")
     args = p.parse_args()
     game_activity = assemble(args.apk.resolve(strict=True), args.master.resolve(strict=True), args.companion_apk.resolve(strict=True),
-                             args.output.resolve(), port_offset=args.port_offset, notices=args.notices.resolve(strict=True))
+                             args.output.resolve(), port_offset=args.port_offset, notices=args.notices.resolve(strict=True),
+                             app_id=args.app_id, app_name=args.app_name)
     print(f"Unsigned APK: {args.output}\nGame activity: {game_activity}\nSign it before installing.")
 
 

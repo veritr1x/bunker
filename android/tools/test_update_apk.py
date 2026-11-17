@@ -206,6 +206,29 @@ class UpdateTests(unittest.TestCase):
         info = assemble_apk.update(self.installed(portOffset=7), self.companion(), out, log=lambda m: None)
         self.assertEqual(info["portOffset"], 7)
 
+    def test_update_keeps_app_id_and_name(self):
+        out = self.work / "out.apk"
+        info = assemble_apk.update(self.installed(portOffset=10000, appId="com.example.nier2", appName="NieR 2"),
+                                   self.companion(), out, log=lambda m: None)
+        self.assertEqual((info["portOffset"], info["appId"], info["appName"]), (10000, "com.example.nier2", "NieR 2"))
+        with zipfile.ZipFile(out) as z:
+            root = axml.parse(z.read("AndroidManifest.xml")).root
+            self.assertEqual(json.loads(z.read("assets/lunar/build.json"))["appId"], "com.example.nier2")
+        self.assertEqual(root.get("package", ns=None).raw, "com.example.nier2")
+        self.assertEqual(root.find_all("application")[0].get("label").raw, "NieR 2")
+        offsets = [m.get("value").data for m in root.find_all("application")[0].find_all("meta-data")
+                   if m.get("name").raw == "org.veritr1x.bunker.PORT_OFFSET"]
+        self.assertEqual(offsets, [10000])
+
+    def test_update_from_build_without_app_id_stays_original(self):
+        out = self.work / "out.apk"
+        info = assemble_apk.update(self.installed(), self.companion(), out, log=lambda m: None)
+        self.assertNotIn("appId", info)
+        self.assertNotIn("appName", info)
+        with zipfile.ZipFile(out) as z:
+            package = axml.parse(z.read("AndroidManifest.xml")).root.get("package", ns=None).raw
+        self.assertEqual(package, axml.parse(self.game_manifest).root.get("package", ns=None).raw)
+
     def test_old_build_needs_web_builder(self):
         path = self.work / "old.apk"
         with zipfile.ZipFile(path, "w") as z:
