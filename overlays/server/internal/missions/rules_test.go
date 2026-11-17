@@ -3,6 +3,7 @@ package missions
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/masterdata"
@@ -201,8 +202,22 @@ func TestRegionalMasterDefinitions(t *testing.T) {
 					}
 				}
 			} else {
-				if m.Rule.Kind != "weapon_level" || len(cat.ruleChanges) != 0 {
-					t.Fatalf("Global rule: %+v, %d unexpected revisions", m.Rule, len(cat.ruleChanges))
+				// Only the hand-written rules (rules_extra.json) differ from rules.json.
+				var extra []Rule
+				if err := json.Unmarshal(extraRulesJSON, &extra); err != nil {
+					t.Fatal(err)
+				}
+				hand := map[int32]bool{}
+				for _, r := range extra {
+					hand[r.MissionId] = true
+				}
+				for id := range cat.ruleChanges {
+					if !hand[id] {
+						t.Errorf("Global rule %d has an unexpected revision", id)
+					}
+				}
+				if m.Rule.Kind != "weapon_level" {
+					t.Fatalf("Global rule: %+v", m.Rule)
 				}
 			}
 		})
@@ -265,5 +280,18 @@ func TestExtraRules(t *testing.T) {
 				t.Errorf("rule %d: no summon %d", r.MissionId, g)
 			}
 		}
+	}
+}
+
+// A rule without summon ids hashes as it did before the field existed, so
+// saved rule revisions stay valid and no progress is reset.
+func TestRuleRevisionUnchangedWithoutSummonIds(t *testing.T) {
+	r := Rule{MissionId: 1, Kind: "gacha_draw", Gacha: "chapter"}
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `"gi"`) {
+		t.Fatalf("rule without summon ids encodes gi: %s", b)
 	}
 }
