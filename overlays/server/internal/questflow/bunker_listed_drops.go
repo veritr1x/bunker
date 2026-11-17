@@ -41,8 +41,8 @@ const (
 var listedDropCatalog = masterdata.ListedDrops
 
 // listedDropsFor is listedDrops for a quest or an earlier run's copy of it.
-func listedDropsFor(questId int32, shown, granted []RewardGrant, rate func(int32) int32, roll func(int64) int64) []RewardGrant {
-	return listedDrops(listedDropCatalog(), store.OriginalQuest(questId), shown, granted, rate, roll)
+func listedDropsFor(questId int32, shown, granted []RewardGrant, rate func(int32) int32, roll func(int64) int64, boost dropBoost) []RewardGrant {
+	return listedDrops(listedDropCatalog(), store.OriginalQuest(questId), shown, granted, rate, roll, boost)
 }
 
 // listedDrops rolls, for quest questId (an original id):
@@ -52,8 +52,9 @@ func listedDropsFor(questId int32, shown, granted []RewardGrant, rate func(int32
 //     of that set not shown at R, at R.
 //
 // shown is the clear's pickup drops, granted everything granted so far.
-// rate applies the quest's drop-rate campaign; roll(n) is in [0, n).
-func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted []RewardGrant, rate func(int32) int32, roll func(int64) int64) []RewardGrant {
+// rate applies the quest's drop-rate campaign; roll(n) is in [0, n); boost
+// raises each roll's chance (bunker_drop_boost.go).
+func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted []RewardGrant, rate func(int32) int32, roll func(int64) int64, boost dropBoost) []RewardGrant {
 	type item struct {
 		t  model.PossessionType
 		id int32
@@ -71,7 +72,7 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 		if !ok || have[item{model.PossessionTypeMaterial, m.MaterialId}] {
 			continue
 		}
-		if roll(odds.OneIn) != 0 {
+		if !boostedHit(odds.OneIn, boost.of(model.PossessionTypeMaterial, m.MaterialId), roll) {
 			continue
 		}
 		count := odds.Min
@@ -140,7 +141,7 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 			if shownKinds[k] || grantedKinds[k] || !ok {
 				continue
 			}
-			if roll(listedMemoirOneIn) == 0 {
+			if boostedHit(listedMemoirOneIn, boost.of(model.PossessionTypeParts, id), roll) {
 				out = append(out, RewardGrant{PossessionType: model.PossessionTypeParts, PossessionId: id, Count: rate(1)})
 			}
 		}
@@ -181,7 +182,7 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 				if shownKinds[k] || grantedKinds[k] || !ok {
 					continue
 				}
-				if roll(oneIn) == 0 {
+				if boostedHit(oneIn, boost.of(model.PossessionTypeParts, id), roll) {
 					out = append(out, RewardGrant{PossessionType: model.PossessionTypeParts, PossessionId: id, Count: rate(1)})
 				}
 			}
