@@ -47,7 +47,8 @@ under its heading, down to the previous release.
   on the chapters it names, or gold or drop rate across the story. The
   amounts are read as percentages; the game screen that lists them isn't in
   this version to check against. Like other content that was limited-time,
-  the 2021 drop-rate and gold bonuses stay on.
+  the 2021 drop-rate and gold bonuses stay on; with the Original calendar
+  they come and go each loop on the weeks they ran in 2021.
 
 ### Summons
 - Chapter summon boxes hold every material the game lists for them, counted
