@@ -18,7 +18,10 @@ import (
 //   - the other pieces of a memoir set the quest shows a piece of.
 // questflow/bunker_listed_drops.go rolls them.
 
-const acquisitionRouteQuest = 1
+const (
+	acquisitionRouteQuest = 1
+	eventQuestTypeDungeon = 3
+)
 
 // PartsKind is a memoir piece at one rarity; its five ranks share it.
 type PartsKind struct{ Group, Rarity int32 }
@@ -36,6 +39,9 @@ type ListedDropCatalog struct {
 	// (m_event_quest_display_item_group): their sets complete like the ones
 	// the quest's own drops show.
 	ChapterShown map[int32][]int32 // original quest id -> parts ids, ascending
+	// Dungeon is the quests of the memory dungeons (event quest type 3), whose
+	// higher floors dropped higher rarities of the sets they show.
+	Dungeon map[int32]bool
 }
 
 var ListedDrops = bunkercache.Value(func() ListedDropCatalog {
@@ -84,6 +90,7 @@ func listedDropCatalog(t listedDropTables) ListedDropCatalog {
 		PartsFor:  map[PartsKind]int32{},
 
 		ChapterShown: map[int32][]int32{},
+		Dungeon:      map[int32]bool{},
 	}
 
 	rarity := map[int32]int32{}
@@ -137,12 +144,14 @@ func listedDropCatalog(t listedDropTables) ListedDropCatalog {
 	}
 	for _, ch := range t.chapters {
 		memoirs := shown[ch.EventQuestDisplayItemGroupId]
-		if len(memoirs) == 0 {
-			continue
-		}
 		for _, seq := range groupSequences[ch.EventQuestSequenceGroupId] {
 			for _, q := range sequenceQuests[seq] {
-				c.ChapterShown[q] = append(c.ChapterShown[q], memoirs...)
+				if ch.EventQuestType == eventQuestTypeDungeon {
+					c.Dungeon[q] = true
+				}
+				if len(memoirs) > 0 {
+					c.ChapterShown[q] = append(c.ChapterShown[q], memoirs...)
+				}
 			}
 		}
 	}

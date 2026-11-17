@@ -119,3 +119,56 @@ func TestListedMemoirsCompleteChapterScreenSets(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
+
+func dungeonCatalog() masterdata.ListedDropCatalog {
+	c := testListedCatalog()
+	for g, base := range map[int32]int32{1: 100, 2: 200, 3: 300} {
+		for _, r := range []int32{30, 40} {
+			id := base + r + 1
+			c.Parts[id] = masterdata.PartsKind{Group: g, Rarity: r}
+			c.PartsFor[masterdata.PartsKind{Group: g, Rarity: r}] = id
+		}
+	}
+	c.Dungeon = map[int32]bool{12: true}
+	return c
+}
+
+func TestListedDungeonRollsHigherRarities(t *testing.T) {
+	shown := []RewardGrant{{PossessionType: tParts, PossessionId: 121, Count: 1}}
+	got := listedDrops(dungeonCatalog(), 12, shown, shown, double, listedRolls(t, 1, 1, 0, 9, 9, 29, 0, 29))
+	want := []RewardGrant{{PossessionType: tParts, PossessionId: 131, Count: 2}, {PossessionType: tParts, PossessionId: 241, Count: 2}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}
+
+func TestListedDungeonTopRaritySetRollsNothingHigher(t *testing.T) {
+	shown := []RewardGrant{{PossessionType: tParts, PossessionId: 141}, {PossessionType: tParts, PossessionId: 241}, {PossessionType: tParts, PossessionId: 341}}
+	if got := listedDrops(dungeonCatalog(), 12, shown, shown, double, listedRolls(t)); len(got) != 0 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestListedNotADungeonRollsNoHigherRarity(t *testing.T) {
+	c := dungeonCatalog()
+	c.Dungeon = nil
+	shown := []RewardGrant{{PossessionType: tParts, PossessionId: 121, Count: 1}}
+	if got := listedDrops(c, 12, shown, shown, double, listedRolls(t, 1, 1)); len(got) != 0 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+// A dungeon's chapter screen may show a set's 4★ piece; the 3★ in between
+// still rolls, stepping up from the quest's own drops.
+func TestListedDungeonStepsUpFromItsOwnDrops(t *testing.T) {
+	c := dungeonCatalog()
+	c.ChapterShown = map[int32][]int32{12: {141}}
+	shown := []RewardGrant{{PossessionType: tParts, PossessionId: 121, Count: 1}}
+	// Completion: r20 g2, g3 miss; r40 (the screen's) g2, g3 miss.
+	// Dungeon from r20: r30 g1, g2 (hit), g3; r40 g2, g3 (g1 is on the screen).
+	got := listedDrops(c, 12, shown, shown, double, listedRolls(t, 1, 1, 1, 1, 9, 0, 9, 29, 29))
+	want := []RewardGrant{{PossessionType: tParts, PossessionId: 231, Count: 2}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+}

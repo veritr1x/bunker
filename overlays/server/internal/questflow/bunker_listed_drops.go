@@ -31,6 +31,13 @@ var listedMaterialOdds = map[int32]listedOdds{
 // Each missing piece of a set the quest shows: a set takes a few runs.
 const listedMemoirOneIn = 3
 
+// A memory dungeon's higher rarities: 1 in 10 one step up, then 3 times rarer
+// for each further step (1 in 30, 1 in 90). An estimate: a 4★ set is a long farm.
+const (
+	listedUpgradeOneIn int64 = 10
+	listedUpgradeStep  int64 = 3
+)
+
 var listedDropCatalog = masterdata.ListedDrops
 
 // listedDropsFor is listedDrops for a quest or an earlier run's copy of it.
@@ -127,6 +134,45 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 			if roll(listedMemoirOneIn) == 0 {
 				out = append(out, RewardGrant{PossessionType: model.PossessionTypeParts, PossessionId: id, Count: rate(1)})
 			}
+		}
+	}
+
+	// A memory dungeon also drops each set its drops show at the rarities above
+	// the highest they show it at: ever rarer for each step up.
+	if !c.Dungeon[questId] {
+		return out
+	}
+	// Stepping up from the quest's own drops: a chapter screen may show a
+	// higher rarity, whose pieces are skipped as shown, not the ones between.
+	top := map[int32]int32{}
+	for _, g := range shown {
+		if g.PossessionType != model.PossessionTypeParts {
+			continue
+		}
+		if k, ok := c.Parts[g.PossessionId]; ok && len(c.SetOf[k.Group]) > 0 {
+			first := c.SetOf[k.Group][0]
+			top[first] = max(top[first], k.Rarity)
+		}
+	}
+	firsts := make([]int32, 0, len(top))
+	for first := range top {
+		firsts = append(firsts, first)
+	}
+	sort.Slice(firsts, func(i, j int) bool { return firsts[i] < firsts[j] })
+	for _, first := range firsts {
+		oneIn := listedUpgradeOneIn
+		for rarity := top[first] + 10; rarity <= 40; rarity += 10 {
+			for _, g := range c.SetOf[first] {
+				k := masterdata.PartsKind{Group: g, Rarity: rarity}
+				id, ok := c.PartsFor[k]
+				if shownKinds[k] || grantedKinds[k] || !ok {
+					continue
+				}
+				if roll(oneIn) == 0 {
+					out = append(out, RewardGrant{PossessionType: model.PossessionTypeParts, PossessionId: id, Count: rate(1)})
+				}
+			}
+			oneIn *= listedUpgradeStep
 		}
 	}
 	return out
