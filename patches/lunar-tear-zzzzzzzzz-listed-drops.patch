@@ -1,0 +1,15 @@
+--- a/server/internal/questflow/rewards.go
++++ b/server/internal/questflow/rewards.go
+@@ -150,9 +150,11 @@
+ 	if h.Campaigns != nil {
+ 		dropRate = h.Campaigns.QuestDropRate(target, h.campaignFilter(user, nowMillis))
+ 	}
+-	drops = append(drops, h.pickupDrops(questDef, target, dropRate)...) // Bunker: an earlier run's own (bunker_event_runs.go)
++	pickups := h.pickupDrops(questDef, target, dropRate) // Bunker: an earlier run's own (bunker_event_runs.go)
++	drops = append(drops, pickups...)
+ 	drops = append(drops, slabDrops(target, dropRate.Apply, randInt64n)...)
+ 	drops = append(drops, chapterMemoirDrops(questDef.QuestId, dropRate.Apply)...)
++	drops = append(drops, listedDropsFor(questDef.QuestId, pickups, drops, dropRate.Apply, randInt64n)...) // Bunker: what the game lists but doesn't show (bunker_listed_drops.go)
+ 	drops = h.appendBonusDrops(user, drops, target, nowMillis)
+ 	return modScaleDrops(spendableMedals(h.applyImportantItemDropCounts(user, drops, target, nowMillis, randInt64n)), target)
+ }

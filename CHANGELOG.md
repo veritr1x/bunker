@@ -16,6 +16,17 @@ under its heading, down to the previous release.
   icon, and in-app updates keep both. On iOS the IPA gets the bundle ID and
   name; sign it with the same ID.
 
+### Quests
+- Quests drop more than their screen shows, as in the live game. Each clear
+  can also drop the materials an item's location list names for that quest:
+  Supreme Adoration, Polycrystal of Thought, Light of Memory and Wish
+  Fragments in Dark Memory, enhancement materials and weapon parts in daily
+  and character quests, Karma Stones, and Slab Fragments where the slab drops
+  didn't reach. A quest that shows one or two pieces of a memoir set can now
+  drop the rest of the set at the same rarity. The live game's rates were
+  never published, so these are estimates: rarer items drop less often. Drop
+  campaigns raise them too.
+
 ## 1.12.8 (2026-11-17)
 
 With the Original calendar, each earlier run of a rerun event plays its own
