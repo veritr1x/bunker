@@ -4,6 +4,8 @@
 //
 //	bunker-server -data <save directory> -assets <game files directory>
 //
+// "bunker-server import" puts the game files in place first (import.go).
+// "bunker-server saves" exports and imports save backups (saves.go).
 // With -control it also serves a loopback endpoint for Pod Programs (control.go).
 //
 // It runs until it is interrupted, or until its standard input closes when
@@ -22,6 +24,14 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "import" {
+		importCommand(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "saves" {
+		savesCommand(os.Args[2:])
+		return
+	}
 	data := flag.String("data", "", "directory for saves and server state (created if missing)")
 	assets := flag.String("assets", "", "directory holding the imported game files")
 	offset := flag.Int("port-offset", 0, "added to each port: 8003 game, 8080 assets, 3000 accounts")

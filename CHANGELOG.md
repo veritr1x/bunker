@@ -4,6 +4,23 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-18 (after 1.12.10)
+
+### Server on a computer
+- New: `bunker-server import` puts the game files in place, as the launcher
+  on a phone does: `-dump` takes the resource dump (`.7z` or `.zip`) and
+  `-master` the master data. The dump is extracted beside the current files
+  and swapped in only when it is complete, and progress is printed as JSON
+  lines.
+- New: `bunker-server saves export` and `saves import` write and restore a
+  save backup in the app's own format, so a save moves between a phone and a
+  computer either way.
+- New: `-control` serves a loopback endpoint for Pod Programs beside the
+  server: save edits with the server's own code, and stopping and starting
+  the server around a change. It wants a token from `BUNKER_CONTROL_TOKEN`.
+- New: `desktop_runtime.py` serves Pod Programs on a computer, through that
+  endpoint. Its pages load; editing a save through it has not been tried yet.
+
 ## 1.12.10 (2026-11-17)
 
 With the Original calendar the world map opens again instead of hanging the
