@@ -566,3 +566,17 @@ func TestPlayHistory(t *testing.T) {
 		t.Logf("history %d: %d", it.HistoryItemId, it.Count)
 	}
 }
+
+// A summon mission naming summons counts draws on those summons only.
+func TestGachaDrawBySummonId(t *testing.T) {
+	cat := &Catalog{}
+	m := &Mission{Rule: Rule{Kind: "gacha_draw", Gachas: []int32{552001}}}
+	c := &counts{gacha: map[string]int64{"": 15}, banners: map[int32]int64{552001: 10, 9: 5}}
+	if n := cat.amountFor(m, c); n != 10 {
+		t.Errorf("draws on 552001 count %d, want 10", n)
+	}
+	other := &counts{gacha: map[string]int64{"": 5}, banners: map[int32]int64{9: 5}}
+	if n := cat.amountFor(m, other); n != 0 {
+		t.Errorf("draws on another summon count %d, want 0", n)
+	}
+}

@@ -68,6 +68,7 @@ type Rule struct {
 	NoSkip     bool          `json:"ns"`
 	Only       bool          `json:"co"` // every costume in the deck must match Costumes
 	Gacha      string        `json:"g"`
+	Gachas     []int32       `json:"gi"` // summon ids: count draws on these only
 	Explores   []int32       `json:"ex"` // explore ids
 	Bosses     []int32       `json:"bh"` // subjugation boss ids
 	BoardTypes []int32       `json:"bg"` // Mythic Slab CharacterBoardGroupType

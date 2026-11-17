@@ -58,6 +58,7 @@ type counts struct {
 	byCostume map[string]map[int32]int64
 	byChar    map[string]map[int32]int64
 	gacha     map[string]int64                      // "" all, "daily", "chapter"
+	banners   map[int32]int64                       // summon id -> draws
 	explores  map[int32]int64                       // explore id -> explorations finished
 	rhythm    map[int32]int64                       // concert LiveType -> taps in one performance
 	pvp       int                                   // an Arena battle: pvpWin or pvpLoss
@@ -79,7 +80,7 @@ type questClear struct {
 
 func newCounts() *counts {
 	return &counts{amount: map[string]int64{}, byWeapon: map[string]map[int32]int64{},
-		byCostume: map[string]map[int32]int64{}, byChar: map[string]map[int32]int64{}, gacha: map[string]int64{},
+		byCostume: map[string]map[int32]int64{}, byChar: map[string]map[int32]int64{}, gacha: map[string]int64{}, banners: map[int32]int64{},
 		explores: map[int32]int64{}, rhythm: map[int32]int64{}}
 }
 
@@ -277,6 +278,7 @@ func collect(before, after *store.UserState, method string, req any) *counts {
 			continue
 		}
 		c.gacha[""] += n
+		c.banners[id] += n
 		if GachaLabel != nil && GachaLabel(id) == model.GachaLabelChapter {
 			c.gacha["chapter"] += n
 		}
@@ -342,6 +344,13 @@ func (cat *Catalog) amountFor(m *Mission, c *counts) int64 {
 	case "rhythm_tap":
 		return c.rhythm[r.LiveType]
 	case "gacha_draw":
+		if len(r.Gachas) > 0 {
+			var n int64
+			for _, id := range r.Gachas {
+				n += c.banners[id]
+			}
+			return n
+		}
 		return c.gacha[r.Gacha]
 	case "user_message":
 		if c.message != nil && messageMatches(r.Word, *c.message) {
