@@ -38,6 +38,10 @@ type BoxPrize struct {
 	Stock  int32 `json:"stock"`
 	Target bool  `json:"target"`
 	Main   bool  `json:"main"`
+	// Weight is an unlimited prize's share of the unlimited draws; 0 counts as
+	// 10, a common material's (chapterBoxCounts), so the shared pool is drawn
+	// alike as before and a level's own rarer prizes come up less often.
+	Weight int32 `json:"weight,omitempty"`
 }
 
 // EventLevel is one level's box: a draw takes one of its prizes with
@@ -280,8 +284,8 @@ func SetEventSummonRunsForTest(gachaId int32, runs map[int32][2]int64) {
 // withListedPrizes is a copy of f whose levels also hold the materials the game
 // lists for them (m_possession_acquisition_route, "2/event_<chapter>_<NN>/..."
 // routes, by the level's summon id), as the level's own unlimited prizes, one
-// each. The box, its stock and targets stay as they were, so the pace to level
-// up is unchanged. A material the level's box or the shared pool has already
+// each, weighted by rarity like the chapter boxes' counts. The box, its stock
+// and targets stay as they were, so the pace to level up is unchanged. A material the level's box or the shared pool has already
 // is left out.
 func withListedPrizes(f eventSummonsFile, listed map[int32][]int32, rarity map[int32]int32) eventSummonsFile {
 	shared := map[int32]bool{}
@@ -300,11 +304,12 @@ func withListedPrizes(f eventSummonsFile, listed map[int32][]int32, rarity map[i
 				has[p.Id] = true
 			}
 			for _, id := range listed[e.Base+int32(n)] {
-				if _, ok := rarity[id]; has[id] || shared[id] || !ok {
+				weight := chapterBoxCounts[rarity[id]]
+				if has[id] || shared[id] || weight == 0 {
 					continue
 				}
 				has[id] = true
-				level.Unlimited = append(level.Unlimited, BoxPrize{Type: int32(model.PossessionTypeMaterial), Id: id, Count: 1})
+				level.Unlimited = append(level.Unlimited, BoxPrize{Type: int32(model.PossessionTypeMaterial), Id: id, Count: 1, Weight: weight})
 			}
 			e.Levels[n] = level
 		}

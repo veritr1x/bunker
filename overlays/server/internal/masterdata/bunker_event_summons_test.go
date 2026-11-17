@@ -160,10 +160,10 @@ func TestEventLevelsGetListedPrizes(t *testing.T) {
 	if !reflect.DeepEqual(got.Events[0].Levels[0].Items, in.Events[0].Levels[0].Items) || len(got.Events[0].Levels[1].Items) != 0 {
 		t.Fatalf("boxes changed: %+v", got.Events[0].Levels)
 	}
-	if want := []BoxPrize{{Type: 5, Id: y, Count: 1}}; !reflect.DeepEqual(got.Events[0].Levels[0].Unlimited, want) {
+	if want := []BoxPrize{{Type: 5, Id: y, Count: 1, Weight: 6}}; !reflect.DeepEqual(got.Events[0].Levels[0].Unlimited, want) {
 		t.Fatalf("level 1 unlimited %+v", got.Events[0].Levels[0].Unlimited)
 	}
-	if want := []BoxPrize{{Type: 5, Id: z, Count: 1}}; !reflect.DeepEqual(got.Events[0].Levels[1].Unlimited, want) {
+	if want := []BoxPrize{{Type: 5, Id: z, Count: 1, Weight: 1}}; !reflect.DeepEqual(got.Events[0].Levels[1].Unlimited, want) {
 		t.Fatalf("level 2 unlimited %+v", got.Events[0].Levels[1].Unlimited)
 	}
 	if len(in.Events[0].Levels[0].Unlimited) != 0 || len(in.Events[0].Levels[1].Unlimited) != 0 {

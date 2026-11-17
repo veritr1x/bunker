@@ -55,7 +55,7 @@ func drawEventBox(bs *store.GachaBannerState, box masterdata.EventSummon, unlimi
 				roll -= n
 			}
 		case len(unlimited) > 0:
-			p = unlimited[rand.Intn(len(unlimited))]
+			p = weightedPrize(unlimited)
 		default:
 			continue
 		}
@@ -104,4 +104,26 @@ func resetEventBox(user *store.UserState, box masterdata.EventSummon) error {
 	bs.BoxDrewCounts = map[int32]int32{}
 	user.Gacha.BannerStates[box.Base] = bs
 	return nil
+}
+
+// weightedPrize picks an unlimited prize by its Weight (0 counts as 10).
+func weightedPrize(prizes []masterdata.BoxPrize) masterdata.BoxPrize {
+	weight := func(p masterdata.BoxPrize) int32 {
+		if p.Weight > 0 {
+			return p.Weight
+		}
+		return 10
+	}
+	total := int32(0)
+	for _, p := range prizes {
+		total += weight(p)
+	}
+	roll := rand.Int31n(total)
+	for _, p := range prizes {
+		if roll < weight(p) {
+			return p
+		}
+		roll -= weight(p)
+	}
+	return prizes[len(prizes)-1]
 }

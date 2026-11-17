@@ -34,10 +34,12 @@ under its heading, down to the previous release.
 
 ### Summons
 - Chapter summon boxes hold every material the game lists for them, counted
-  by rarity like the rest of the box, so the boxes are bigger.
+  by rarity like the rest of the box, so the boxes are bigger. A box already
+  drawn from this month gains the new items at once; the monthly refill
+  starts it fresh.
 - Each level of an event summon also draws the materials the game lists for
-  it, beside the box; the box and the draws it takes to level up are
-  unchanged. The details page lists them under each level.
+  it, beside the box, rarer ones less often; the box and the draws it takes
+  to level up are unchanged. The details page lists them under each level.
 
 ## 1.12.8 (2026-11-17)
 

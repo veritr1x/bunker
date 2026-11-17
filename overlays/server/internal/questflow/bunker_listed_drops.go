@@ -90,11 +90,13 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 			shownKinds[k] = true
 		}
 	}
-	// The quest's chapter screens show memoirs too; the chapter memoirs grant
-	// those pieces, and their sets complete here.
+	// The quest's chapter screens show memoirs too: their sets complete here.
+	// A screen piece is rolled like any missing one unless the chapter
+	// memoirs granted it this clear (grantedKinds).
+	screenKinds := map[masterdata.PartsKind]bool{}
 	for _, id := range c.ChapterShown[questId] {
 		if k, ok := c.Parts[id]; ok {
-			shownKinds[k] = true
+			screenKinds[k] = true
 		}
 	}
 	// A piece another rule granted already (the chapter memoirs) isn't rolled again.
@@ -110,7 +112,14 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 	type setAt struct{ first, rarity int32 }
 	seen := map[setAt]bool{}
 	var sets []setAt
+	setKinds := map[masterdata.PartsKind]bool{}
 	for k := range shownKinds {
+		setKinds[k] = true
+	}
+	for k := range screenKinds {
+		setKinds[k] = true
+	}
+	for k := range setKinds {
 		set := c.SetOf[k.Group]
 		if len(set) == 0 {
 			continue
@@ -162,6 +171,10 @@ func listedDrops(c masterdata.ListedDropCatalog, questId int32, shown, granted [
 	for _, first := range firsts {
 		oneIn := listedUpgradeOneIn
 		for rarity := top[first] + 10; rarity <= 40; rarity += 10 {
+			if seen[setAt{first, rarity}] { // the set completion rolled this rarity already
+				oneIn *= listedUpgradeStep
+				continue
+			}
 			for _, g := range c.SetOf[first] {
 				k := masterdata.PartsKind{Group: g, Rarity: rarity}
 				id, ok := c.PartsFor[k]
