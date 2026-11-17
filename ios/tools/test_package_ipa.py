@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import plistlib
 import subprocess
+import re
 import tempfile
 import unittest
 import zipfile
@@ -259,6 +260,34 @@ class RemainDaysTests(unittest.TestCase):
             self.assertEqual(original & 0xFFF8001F, 0x36480008)  # tbz w8, #9, ...
             self.assertEqual(offset + (patched & 0x3FFFFFF) * 4, offset + (original >> 5 & 0x3FFF) * 4 + 4)  # the call after the init check
             self.assertEqual([o - offset for o, _, _ in sites], [-12, -8, -4, 0])
+
+
+class GimmickCapacityTests(unittest.TestCase):
+    """The world map's gimmick tables hold 4096 rows instead of 1024 (gimmick_capacity.py)."""
+
+    @staticmethod
+    def movi_4s_lsl8(word):
+        """(register, lane value) of "movi vD.4s, #imm8, lsl #8"; None otherwise."""
+        if word & 0xFFF8FC00 != 0x4F002400:
+            return None
+        imm8 = (word >> 16 & 7) << 5 | (word >> 5 & 31)
+        return word & 31, imm8 << 8
+
+    def test_the_constructor_sizes_become_4096(self):
+        import gimmick_capacity
+        (offset, original, patched), = gimmick_capacity.SITES
+        self.assertEqual(offset, 0x281F924)  # WorldMapGimmickModel..cctor
+        self.assertEqual(self.movi_4s_lsl8(original), (1, 1024))
+        self.assertEqual(self.movi_4s_lsl8(patched), (1, 4096))
+
+    def test_new_builds_and_updates_apply_it(self):
+        import bunker_ios_update, gimmick_capacity
+        for site in gimmick_capacity.SITES:
+            self.assertIn(site, bunker_ios_update.unity_sites())
+        runtime = (Path(__file__).parents[1] / "python/ios_runtime.py").read_text()
+        modules, = re.findall(r"^UPDATER_MODULES = \(([^)]*)\)", runtime, re.M)
+        self.assertIn('"gimmick_capacity"', modules)
+        self.assertIn("gimmick_capacity.SITES", (Path(__file__).parent / "package_ipa.py").read_text())
 
 
 class AddLettersTests(unittest.TestCase):

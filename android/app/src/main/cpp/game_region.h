@@ -24,6 +24,7 @@ static inline uint32_t game_rva(uint32_t global) {
     case 0x2C7AC80: return 0x2C6E934;
     case 0x2C7ACD8: return 0x2C6E98C;
     case 0x2C7AD10: return 0x2C6E9C4;
+    case 0x2D3FFCC: return 0x2CBE520;
     case 0x2D5F7A0: return 0x2D06248;
     case 0x2E5BE0C: return 0x2E5E8FC;
     case 0x2E5C31C: return 0x2E5EE0C;

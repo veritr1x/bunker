@@ -27,6 +27,7 @@ import game_fonts  # noqa: E402
 from bunker_ios_update import ADJUST_SITES, SDK_SWITCHES, SETTINGS, UNITY, patch_unity_connect  # noqa: E402
 import guerrilla_unlock  # noqa: E402
 from ipa_stream import LEFTOVERS  # noqa: E402
+import gimmick_capacity  # noqa: E402
 import remain_days  # noqa: E402
 import scroll_snap  # noqa: E402
 from text_buffer import patch_text_buffer, patch_words  # noqa: E402
@@ -289,6 +290,8 @@ def prepare_app(app, framework, python=None, notices=None, bundle_id=None, port_
     print("Snapping list fix:", f"{changed} instruction" if changed else "already applied")
     changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", remain_days.SITES)
     print("Remaining days cap:", f"{changed} instructions" if changed else "already applied")
+    changed = patch_text_buffer(frameworks / "UnityFramework.framework" / "UnityFramework", gimmick_capacity.SITES)
+    print("World map gimmick capacity:", f"{changed} instruction" if changed else "already applied")
     changed = patch_words(frameworks / "UnityFramework.framework" / "UnityFramework", guerrilla_unlock.SITES,
                           "Unsupported UnityFramework at 0x{offset:X}; guerrilla Force Unlock button not changed")
     print("Guerrilla unlock button:", f"{changed} instructions" if changed else "already applied")

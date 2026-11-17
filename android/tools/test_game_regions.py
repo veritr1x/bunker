@@ -156,7 +156,7 @@ class OriginalApks(unittest.TestCase):
         for region, path in self.apks():
             with zipfile.ZipFile(path) as apk:
                 lib = apk.read(game_patch.LIB)
-            for name in ["text_buffer.c", "remain_days.c", "display_patch.c", "camera_edge.c"]:
+            for name in ["text_buffer.c", "remain_days.c", "display_patch.c", "camera_edge.c", "gimmick_capacity.c"]:
                 source = (cpp / name).read_text()
                 for a, word in re.findall(r"\{(0x[0-9A-F]+), (0x[0-9a-f]+)u", source):
                     rva, expected = int(a, 16), int(word, 16)
@@ -214,3 +214,34 @@ class OriginalApks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def orr_w_wzr_bitmask(word):
+    """(register, value) of "orr wD, wzr, #value" for a single run of set bits; None otherwise."""
+    if word & 0xFFC003E0 != 0x320003E0:
+        return None
+    immr, imms = word >> 16 & 63, word >> 10 & 63
+    ones = (1 << (imms + 1)) - 1
+    value = ((ones >> immr) | (ones << (32 - immr))) & 0xFFFFFFFF
+    return word & 31, value
+
+
+class GimmickCapacity(unittest.TestCase):
+    """The world map's gimmick tables hold 4096 rows instead of 1024 (gimmick_capacity.c)."""
+
+    def test_raises_every_gimmick_table_from_1024_to_4096(self):
+        source = (ROOT / "android/app/src/main/cpp/gimmick_capacity.c").read_text()
+        (rva, original, patched), = re.findall(r"\{(0x[0-9A-F]+), (0x[0-9a-f]+)u, (0x[0-9a-f]+)u\}", source)
+        self.assertEqual(rva, "0x2D3FFCC")  # WorldMapGimmickModel..cctor
+        self.assertEqual(orr_w_wzr_bitmask(int(original, 16)), (10, 1024))
+        self.assertEqual(orr_w_wzr_bitmask(int(patched, 16)), (10, 4096))
+
+    def test_japanese_build_has_the_same_instruction(self):
+        header = (ROOT / "android/app/src/main/cpp/game_region.h").read_text()
+        self.assertIn("case 0x2D3FFCC: return 0x2CBE520;", header)
+
+    def test_display_patch_applies_it(self):
+        source = (ROOT / "android/app/src/main/cpp/display_patch.c").read_text()
+        self.assertIn("gimmick_capacity_raise(base, write_word)", source)
+        build = (ROOT / "android/tools/build_native.sh").read_text()
+        self.assertIn("gimmick_capacity.c", build)

@@ -33,6 +33,7 @@ PYTHON = [
     "ios/tools/package_ipa.py",
     "ios/tools/ipa_stream.py",
     "ios/python/bunker_ios_update.py",
+    "ios/python/gimmick_capacity.py",
     "ios/python/remain_days.py",
     "ios/python/guerrilla_unlock.py",
     "ios/python/scroll_snap.py",

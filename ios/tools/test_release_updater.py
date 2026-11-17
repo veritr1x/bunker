@@ -22,7 +22,7 @@ def bundle(path, updater=RELEASE_UPDATER, fixes=True):
         if updater is not None:
             z.writestr("python/app/bunker_ios_update.py", updater)
         if fixes:
-            for name in ("guerrilla_unlock", "remain_days", "scroll_snap"):
+            for name in ("gimmick_capacity", "guerrilla_unlock", "remain_days", "scroll_snap"):
                 z.writestr(f"python/app/{name}.py", "SITES = []\n")
             z.writestr("python/app/text_buffer.py", "SITES = []\nMARK = 'release fixes'\n")
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()

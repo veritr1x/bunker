@@ -35,8 +35,9 @@ ADJUST_SITES = ((0x18F10C4, 0xA9BD57F6, 0xD65F03C0),)
 def unity_sites():
     """Every UnityFramework change Bunker makes, so an update brings the current ones to an
     installed app (package_ipa.prepare_app makes the same changes in a new build)."""
-    import guerrilla_unlock, remain_days, scroll_snap, text_buffer
-    return ADJUST_SITES + text_buffer.SITES + scroll_snap.SITES + remain_days.SITES + guerrilla_unlock.SITES
+    import gimmick_capacity, guerrilla_unlock, remain_days, scroll_snap, text_buffer
+    return (ADJUST_SITES + text_buffer.SITES + scroll_snap.SITES + remain_days.SITES + guerrilla_unlock.SITES
+            + gimmick_capacity.SITES)
 
 
 def patch_unity(source, target, sites=None):

@@ -30,7 +30,7 @@ def signature(m):
     return m['Name'], re.sub(r'MethodInfo_[0-9A-F]+', 'MethodInfo', m['Signature'])
 for m in jmethods:
     by_signature.setdefault(signature(m), []).append(m)
-sources = {name:(root / 'android/app/src/main/cpp' / name).read_text() for name in ['display_patch.c', 'text_buffer.c', 'remain_days.c', 'camera_edge.c', 'guerrilla_unlock.c']}
+sources = {name:(root / 'android/app/src/main/cpp' / name).read_text() for name in ['display_patch.c', 'text_buffer.c', 'remain_days.c', 'camera_edge.c', 'guerrilla_unlock.c', 'gimmick_capacity.c']}
 mapping = {}
 for source in sources.values():
     # Only code, never the crash addresses and branch-target annotations in comments.
@@ -82,7 +82,7 @@ for ra, old, new in triples:
         overrides.append((a,jp_old,jp_new))
 
 # The remaining patches and hook prologues must be byte-for-byte identical.
-for name in ['display_patch.c','remain_days.c']:
+for name in ['display_patch.c','remain_days.c','gimmick_capacity.c']:
     s=sources[name]
     for ra,old in re.findall(r'\{(0x[0-9A-Fa-f]+), (0x[0-9a-f]+)u',s):
         a,old=int(ra,16),int(old,16)

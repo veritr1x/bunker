@@ -82,6 +82,7 @@
 #include "roulette_ads.h"
 #include "text_buffer.h"
 #include "game_region.h"
+#include "gimmick_capacity.h"
 
 int bunker_game_japanese;
 
@@ -442,6 +443,8 @@ static const char *apply(int fps, int size, int idle, int heat, int effects_off,
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Text builder: unsupported game binary; long texts can still overrun");
     if (remain_days_cap(base, write_word))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Remaining days: unsupported game binary; open campaigns show their full day count");
+    if (gimmick_capacity_raise(base, write_word))
+        __android_log_print(ANDROID_LOG_WARN, "Bunker", "World map: unsupported game binary; with the Original calendar, opening the map can hang");
     if (camera_edge_fix(base, write_word))
         __android_log_print(ANDROID_LOG_WARN, "Bunker", "Story rooms: unsupported game binary; on very wide screens the camera stops short of the room's edge");
     if (guerrilla_unlock_button(base, hook))

@@ -268,7 +268,7 @@ def stop():
 
 
 # The updater and the modules it imports (the game fixes it applies to UnityFramework).
-UPDATER_MODULES = ("bunker_ios_update", "guerrilla_unlock", "remain_days", "scroll_snap", "text_buffer")
+UPDATER_MODULES = ("bunker_ios_update", "gimmick_capacity", "guerrilla_unlock", "remain_days", "scroll_snap", "text_buffer")
 
 
 def _file_sha256(path):

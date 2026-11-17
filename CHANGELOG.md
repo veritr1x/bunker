@@ -23,6 +23,14 @@ first.
   that festival's own summon). Their rules are written by hand, since their
   names don't say enough for the generated ones.
 
+### Game fixes
+- With the Original calendar the world map no longer hangs the game when it
+  opens. The game keeps every map gimmick schedule that hasn't ended, in room
+  for 1024; the calendar moves the game's schedules into the coming years, so
+  1638 were still to come, the map's gimmick data stopped loading partway and
+  the map looped forever on a chain it couldn't finish. Android and iOS now
+  give each of the map's gimmick tables room for 4096.
+
 ## 2026-11-17 (after 1.12.8)
 
 ### Web builder
