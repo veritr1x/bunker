@@ -142,6 +142,9 @@ func eventBoxHTML(r *http.Request, t *gameText, box masterdata.EventSummon) stri
 			}
 			fmt.Fprintf(&b, "<tr><td%s>%s ×%s</td><td class=n>%s</td></tr>", class, name, esc(num(max(p.Count, 1))), escText.Replace(have))
 		}
+		for _, p := range l.Unlimited { // the level's own unlimited prizes, drawn with the shared pool
+			fmt.Fprintf(&b, "<tr><td>%s ×%s</td><td class=n>%s</td></tr>", esc(possessionName(t, p.Type, p.Id)), esc(num(max(p.Count, 1))), say("ingame.summons.unlimited", nil))
+		}
 		b.WriteString("</table>")
 	}
 	if shared := masterdata.EventSummonUnlimited(); len(shared) > 0 {

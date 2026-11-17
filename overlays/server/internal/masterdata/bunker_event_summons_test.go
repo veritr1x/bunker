@@ -1,10 +1,13 @@
 package masterdata
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	"lunar-tear/server/internal/model"
 	"lunar-tear/server/internal/store"
+	"lunar-tear/server/internal/utils"
 )
 
 func testEventFile() eventSummonsFile {
@@ -139,5 +142,73 @@ func TestEventSummonFollowsTheOpenRun(t *testing.T) {
 	}
 	if _, _, isEvent := EventSummonRunAt(999, 1_500_000); isEvent {
 		t.Error("another summon counted as an event summon")
+	}
+}
+
+func TestEventLevelsGetListedPrizes(t *testing.T) {
+	const x, y, z, u, q = 1, 2, 3, 4, 5
+	in := eventSummonsFile{
+		Unlimited: []BoxPrize{{Type: 5, Id: u, Count: 1}},
+		Events: []EventSummon{{Base: 900, Levels: []EventLevel{
+			{Chance: 0.35, Items: []BoxPrize{{Type: 5, Id: x, Count: 2, Stock: 5}}},
+			{Chance: 0.30},
+		}}},
+	}
+	got := withListedPrizes(in, map[int32][]int32{900: {x, y}, 901: {u, z}, 777: {q}}, map[int32]int32{x: 10, y: 20, z: 40, u: 10, q: 10})
+	// The box and its stock stay as they were (the pace to the targets with
+	// them); the listed materials join the level's unlimited draws.
+	if !reflect.DeepEqual(got.Events[0].Levels[0].Items, in.Events[0].Levels[0].Items) || len(got.Events[0].Levels[1].Items) != 0 {
+		t.Fatalf("boxes changed: %+v", got.Events[0].Levels)
+	}
+	if want := []BoxPrize{{Type: 5, Id: y, Count: 1}}; !reflect.DeepEqual(got.Events[0].Levels[0].Unlimited, want) {
+		t.Fatalf("level 1 unlimited %+v", got.Events[0].Levels[0].Unlimited)
+	}
+	if want := []BoxPrize{{Type: 5, Id: z, Count: 1}}; !reflect.DeepEqual(got.Events[0].Levels[1].Unlimited, want) {
+		t.Fatalf("level 2 unlimited %+v", got.Events[0].Levels[1].Unlimited)
+	}
+	if len(in.Events[0].Levels[0].Unlimited) != 0 || len(in.Events[0].Levels[1].Unlimited) != 0 {
+		t.Fatalf("the input was changed: %+v", in.Events[0].Levels)
+	}
+}
+
+// Every material the game lists for an event summon level ("2/<asset>/..."
+// routes, route id = the level's summon id) is in that level's box, its
+// unlimited draws or the shared unlimited pool.
+func TestEventSummonsHoldTheirListedItemsOnTheGameData(t *testing.T) {
+	loadTestMaster(t)
+	f, err := loadEventSummonsFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f = withListedPrizes(f, eventSummonListed(), materialRarity())
+	has := map[int32]map[int32]bool{}
+	unlimited := map[int32]bool{}
+	for _, p := range f.Unlimited {
+		unlimited[p.Id] = true
+	}
+	for _, e := range f.Events {
+		for i, l := range e.Levels {
+			m := map[int32]bool{}
+			for _, p := range append(append([]BoxPrize(nil), l.Items...), l.Unlimited...) {
+				m[p.Id] = true
+			}
+			has[e.Base+int32(i)] = m
+		}
+	}
+	routes, _ := utils.ReadTable[EntityMPossessionAcquisitionRoute]("m_possession_acquisition_route")
+	listed, missing := 0, 0
+	for _, r := range routes {
+		if r.AcquisitionRouteType != 3 || !strings.HasPrefix(r.RelationValue, "2/") || r.PossessionType != 5 {
+			continue
+		}
+		listed++
+		if !has[r.RouteId][r.PossessionId] && !unlimited[r.PossessionId] {
+			if missing++; missing <= 5 {
+				t.Errorf("summon %d lacks material %d", r.RouteId, r.PossessionId)
+			}
+		}
+	}
+	if listed == 0 || missing != 0 {
+		t.Fatalf("%d listed, %d missing", listed, missing)
 	}
 }

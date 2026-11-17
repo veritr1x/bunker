@@ -28,12 +28,13 @@ func EventPrizeLeft(bs store.GachaBannerState, index int, p masterdata.BoxPrize)
 
 // drawEventBox draws count prizes from the player's current level: one of
 // the level's prizes with its Chance (every one left alike), else one from
-// the unlimited pool.
+// the unlimited pool and the level's own unlimited prizes.
 func drawEventBox(bs *store.GachaBannerState, box masterdata.EventSummon, unlimited []masterdata.BoxPrize, count int) []DrawnItem {
 	if bs.BoxDrewCounts == nil {
 		bs.BoxDrewCounts = map[int32]int32{}
 	}
 	level := eventLevel(*bs, box)
+	unlimited = append(append([]masterdata.BoxPrize(nil), unlimited...), level.Unlimited...)
 	out := make([]DrawnItem, 0, count)
 	for range count {
 		left := int32(0)

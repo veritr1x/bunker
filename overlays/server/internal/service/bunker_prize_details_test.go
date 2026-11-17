@@ -64,3 +64,16 @@ func TestPrizeBoxLinesShowTheStockLeft(t *testing.T) {
 		t.Fatalf("unlimited prizes shown, or limited ones skipped: %+v %+v", lines[2], lines[3])
 	}
 }
+
+// The prize details list each level's own unlimited prizes under it.
+func TestEventBoxDetailsListTheLevelsUnlimitedPrizes(t *testing.T) {
+	SetWebUsers(nil)
+	r := httptest.NewRequest("GET", "/web/en/gacha-details?gachaId=1", nil)
+	level := masterdata.EventLevel{Chance: 0.35, Items: []masterdata.BoxPrize{{Type: 6, Id: 1, Count: 1, Stock: 1}}}
+	plain := eventBoxHTML(r, &gameText{lang: "en", words: bunkertext.For("en")}, masterdata.EventSummon{Base: 1, Levels: []masterdata.EventLevel{level}})
+	level.Unlimited = []masterdata.BoxPrize{{Type: 5, Id: 300001, Count: 1}}
+	page := eventBoxHTML(r, &gameText{lang: "en", words: bunkertext.For("en")}, masterdata.EventSummon{Base: 1, Levels: []masterdata.EventLevel{level}})
+	if strings.Count(page, "<tr>")-strings.Count(plain, "<tr>") != 1 || strings.Count(page, "unlimited")-strings.Count(plain, "unlimited") != 1 {
+		t.Fatalf("level unlimited prizes missing:\n%s", page)
+	}
+}
