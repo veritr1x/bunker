@@ -971,6 +971,7 @@
   "pods.decks.error": "ERROR :: {text}",
   "pods.decks.error_choose_slot": "Choose a deck slot to write to",
   "pods.decks.error_deck_gone": "That deck is no longer listed",
+  "pods.decks.error_no_costume": "This save has no player with a costume yet. Play the game past its opening first",
   "pods.decks.error_raise_deck": "Only a costume of this deck that is not fully raised can be raised",
   "pods.decks.error_raise_loadout": "Only a costume of this loadout that is not fully raised can be raised",
   "pods.decks.error_slots": "Deck slots are Arena or Loadout decks 1 to {n}",

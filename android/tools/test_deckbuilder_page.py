@@ -266,6 +266,16 @@ class PageTest(unittest.TestCase):
         html = self.c.get("/decks", params={"user": 1}).text
         self.assertIn("await prepare(r.against, r.costumes)", html)
 
+    def test_a_save_nobody_played_is_refused_once(self):
+        """No costume to build from: prepare says so, and the page does not ask again."""
+        with mock.patch.object(db, "_owns_costume", lambda user: False):
+            r = self.c.post("/decks/prepare", json={"user": 1})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("no player with a costume", r.json()["error"])
+        html = self.c.get("/decks", params={"user": 1}).text
+        self.assertIn("if (await prepare(r.against, r.costumes)) load(true)", html)
+        self.assertIn("ok && !leaving", html)
+
     def test_the_picker_lists_every_costume_in_one_list(self):
         """One list, by character then costume: no split between Deck Builder's pool and the rest."""
         html = self.c.get("/decks", params={"user": 1}).text
