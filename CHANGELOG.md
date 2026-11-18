@@ -4,6 +4,22 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-18 (after 1.12.13)
+
+### Summons
+- Nine event summons that were missing are on the Event tab, so their
+  events' tickets can be spent:
+  - Variation: Puppets Parrah-Noya, the SINoALICE crossover: its summon
+    and Vol. 2 (from a week in) in the first run, and the rerun's summon.
+  - The Crossover Commemoration and Resurrected Crossover Commemoration
+    summons, open with their once-per-day quests.
+  - Nelgel the Netherfiend Vol. 2 and Vol. 3, and Tempestuous Armed
+    Aberration Vol. 2, each from the day it was added.
+  - Blazing Resentful Witch's first-run summon; its rerun's summon now
+    opens in the rerun only.
+- Their main prizes are the ones the notices name; the rest of each box,
+  and all of the two Commemoration boxes, follows a box from the same era.
+
 ## 1.12.13 (2026-11-18)
 
 Deck Builder on a save nobody has played yet says so, instead of failing with

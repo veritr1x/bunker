@@ -57,9 +57,18 @@ type EventLevel struct {
 }
 
 // EventSummon is one event's summon: its levels in order; the last one
-// replenishes once emptied.
+// replenishes once emptied. An event can have several: one per run when a
+// rerun brought its own (Run), and the Vol. 2 and Vol. 3 summons added
+// partway through a run (OpensDays).
 type EventSummon struct {
-	Chapter int32        `json:"chapter"`
+	Chapter int32 `json:"chapter"`
+	// Chapters are further quest chapters the summon is open with, as with
+	// Chapter (the once-per-day quests that drop one ticket).
+	Chapters []int32 `json:"chapters,omitempty"`
+	// Run is the run (1 for the first) the summon is open in; 0: every run.
+	Run int32 `json:"run,omitempty"`
+	// OpensDays is the days into a run the summon opens.
+	OpensDays int32 `json:"opens_days,omitempty"`
 	Base    int32        `json:"base"`
 	Assets  []string     `json:"assets"`
 	Tickets []int32      `json:"tickets"`
@@ -101,9 +110,13 @@ func EventSummonRunAt(gachaId int32, nowMillis int64) (chapter int32, open, isEv
 	eventSummons.RLock()
 	defer eventSummons.RUnlock()
 	runs, isEvent := eventSummons.runs[gachaId]
-	for _, r := range runs {
-		if r.start <= nowMillis && nowMillis < r.end+eventSummonGrace {
-			return r.chapter, true, true
+	// A run that is on comes first: back-to-back chapters (Chapters) would
+	// otherwise give the one before during its grace.
+	for _, grace := range []int64{0, eventSummonGrace} {
+		for _, r := range runs {
+			if r.start <= nowMillis && nowMillis < r.end+grace {
+				return r.chapter, true, true
+			}
 		}
 	}
 	return 0, false, isEvent
@@ -183,6 +196,36 @@ func eventRuns(chapters map[int32]EntityMEventQuestChapter, chapter int32) (runs
 	return runs, start, end, ok
 }
 
+// summonRuns is the runs an event summon is open in: its chapters' runs, only
+// the one it belongs to (Run), each from OpensDays in; and when the first
+// opens and the last closes. ok is false when the calendar lacks its run.
+func summonRuns(chapters map[int32]EntityMEventQuestChapter, ev EventSummon) (runs []eventRun, start, end int64, ok bool) {
+	for _, chapter := range append([]int32{ev.Chapter}, ev.Chapters...) {
+		more, _, _, _ := eventRuns(chapters, chapter)
+		runs = append(runs, more...)
+	}
+	sort.Slice(runs, func(i, j int) bool { return runs[i].start < runs[j].start })
+	if ev.Run > 0 {
+		if int(ev.Run) > len(runs) {
+			return nil, 0, 0, false
+		}
+		runs = runs[ev.Run-1 : ev.Run]
+	}
+	const day = int64(24 * 60 * 60 * 1000)
+	for i := range runs {
+		runs[i].start += int64(ev.OpensDays) * day
+	}
+	for i, r := range runs {
+		if i == 0 || r.start < start {
+			start = r.start
+		}
+		if i == 0 || r.end > end {
+			end = r.end
+		}
+	}
+	return runs, start, end, len(runs) > 0
+}
+
 // AddEventSummons adds each event's summon for its event's dates (as the game
 // data has them, so the Original calendar moves them with the event).
 func AddEventSummons(entries []store.GachaCatalogEntry) []store.GachaCatalogEntry {
@@ -223,7 +266,10 @@ func addEventSummons(entries []store.GachaCatalogEntry, f eventSummonsFile, chap
 		if _, ok := chapters[ev.Chapter]; !ok || taken[ev.Base] || len(ev.Levels) == 0 || len(ev.Tickets) == 0 {
 			continue
 		}
-		runs, start, end, _ := eventRuns(chapters, ev.Chapter)
+		runs, start, end, ok := summonRuns(chapters, ev)
+		if !ok {
+			continue
+		}
 		allRuns[ev.Base] = runs
 		e := store.GachaCatalogEntry{
 			GachaId:             ev.Base,

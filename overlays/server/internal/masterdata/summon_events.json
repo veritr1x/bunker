@@ -894,6 +894,895 @@
   },
   {
    "assets": [
+    "event_301_01",
+    "event_301_02",
+    "event_301_03",
+    "event_301_04",
+    "event_301_05",
+    "event_301_06",
+    "event_301_07"
+   ],
+   "base": 301001,
+   "chapter": 301,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310131,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 220071,
+       "main": true,
+       "n": 1,
+       "stock": 3,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 3,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 28,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 28,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 12,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 12,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310131,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 220071,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 30,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 52,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 52,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 22,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 22,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310131,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 100,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 45,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310131,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 100,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321007,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 48,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 9,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310131,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 100,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321007,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 65,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 12,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 5,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 100,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321007,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 10,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 63,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 11,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 112,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 112,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 48,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 48,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 321007,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302020,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302008,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 5,
+       "stock": 6,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 29,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "run": 1,
+   "src": "first run's summon (art set 301); no prize list: the rerun's box (summon 331001), the same event",
+   "tickets": [
+    6061,
+    6062,
+    6063
+   ]
+  },
+  {
+   "assets": [
     "event_331_01",
     "event_331_02",
     "event_331_03",
@@ -1773,6 +2662,7 @@
      ]
     }
    ],
+   "run": 2,
    "src": "main prizes: event guide Variation: Blazing Resentful Witch (Resurrected)",
    "tickets": [
     6061,
@@ -12494,6 +13384,2296 @@
   },
   {
    "assets": [
+    "event_317_01",
+    "event_317_02",
+    "event_317_03",
+    "event_317_04",
+    "event_317_05",
+    "event_317_06",
+    "event_317_07"
+   ],
+   "base": 317001,
+   "chapter": 317,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310491,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 47,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 3,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 7017,
+       "main": true,
+       "n": 100,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 3,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 29,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 29,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 12,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 12,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 7017,
+       "main": true,
+       "n": 100,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 30,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 53,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 53,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 23,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 23,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 45,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 48,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 9,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 65,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 12,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 5,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 5,
+       "stock": 20,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 62,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 11,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 109,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 109,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 321010,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302016,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302004,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 5,
+       "stock": 6,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 29,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "run": 1,
+   "src": "main prizes: notice 812 (Gun of Incineration, Puppet: Noya, 1-2022-11 Term Mama Medals x200); levels as summon 318001",
+   "tickets": [
+    6042,
+    6043,
+    6044
+   ]
+  },
+  {
+   "assets": [
+    "event_319_01",
+    "event_319_02",
+    "event_319_03",
+    "event_319_04"
+   ],
+   "base": 319001,
+   "chapter": 317,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 501002,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 45,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 501002,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 48,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 9,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 501002,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 65,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 12,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 321010,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302016,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302004,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 5,
+       "stock": 6,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 29,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "opens_days": 7,
+   "run": 1,
+   "src": "Vol. 2, from day 7 (notice 822: Piece: Black Pearl); levels 3-5 and 7 of summon 318001",
+   "tickets": [
+    6042,
+    6043,
+    6044
+   ]
+  },
+  {
+   "assets": [
+    "event_324_01",
+    "event_324_02",
+    "event_324_03",
+    "event_324_04",
+    "event_324_05",
+    "event_324_06",
+    "event_324_07"
+   ],
+   "base": 324001,
+   "chapter": 317,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 310491,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 2,
+       "target": true
+      },
+      {
+       "id": 47,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 3,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 3,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 29,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 29,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 12,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 12,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 30,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 53,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 53,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 23,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 23,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401002,
+       "main": true,
+       "n": 50,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 45,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 79,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 34,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 48,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 9,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 84,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 36,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 65,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 12,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 114,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 49,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 311003,
+       "main": true,
+       "n": 1,
+       "stock": 5,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 2,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 321010,
+       "main": true,
+       "n": 5,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 5,
+       "stock": 20,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 62,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 11,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 109,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 109,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 321010,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302016,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 302004,
+       "main": true,
+       "n": 3,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": true,
+       "n": 5,
+       "stock": 6,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 29,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 5,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 50,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "run": 2,
+   "src": "the rerun's summon (art set 324; chapter 317's quest link opens 324001); main prizes: notice 1116 as notice 812, without the 2022 Mama Medals",
+   "tickets": [
+    6042,
+    6043,
+    6044
+   ]
+  },
+  {
+   "assets": [
     "event_318_01",
     "event_318_02",
     "event_318_03",
@@ -21036,6 +24216,1228 @@
   },
   {
    "assets": [
+    "event_334_01",
+    "event_334_02",
+    "event_334_03",
+    "event_334_04",
+    "event_334_05"
+   ],
+   "base": 334001,
+   "chapter": 333,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 315001,
+       "main": true,
+       "n": 1,
+       "stock": 5,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 10,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312002,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 12,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 4,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 2,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 9,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 9,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 1006,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300024,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 321011,
+       "main": true,
+       "n": 10,
+       "stock": 6,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 42,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 14,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 75,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 75,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 32,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 32,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300024,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300023,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 46,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 81,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 81,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 35,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 35,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 315001,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 315001,
+       "main": true,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 325001,
+       "main": true,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 62,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 11,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 110,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 110,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 3001,
+       "main": true,
+       "n": 2,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": true,
+       "n": 5000,
+       "stock": 50,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 7,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 4,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "opens_days": 7,
+   "src": "Vol. 2, from day 7 (notice 1391: Karma Stone); levels as summon 333001",
+   "tickets": [
+    6066
+   ]
+  },
+  {
+   "assets": [
+    "event_335_01",
+    "event_335_02",
+    "event_335_03",
+    "event_335_04",
+    "event_335_05"
+   ],
+   "base": 335001,
+   "chapter": 333,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 315002,
+       "main": true,
+       "n": 1,
+       "stock": 5,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 10,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312002,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 12,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 4,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 2,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 9,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 9,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 1006,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300024,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 321011,
+       "main": true,
+       "n": 10,
+       "stock": 6,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 42,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 14,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 75,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 75,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 32,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 32,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300024,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300023,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 46,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 81,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 81,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 35,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 35,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 501002,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312023,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 315001,
+       "main": true,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 325001,
+       "main": true,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 62,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 21,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 11,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 110,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 110,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 47,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 3001,
+       "main": true,
+       "n": 2,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": true,
+       "n": 5000,
+       "stock": 50,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 7,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 4,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "opens_days": 14,
+   "src": "Vol. 3, from day 14 (notice 1397: Dark Karma Stone, Piece: Black Pearl); levels as summon 333001",
+   "tickets": [
+    6066
+   ]
+  },
+  {
+   "assets": [
     "event_336_01",
     "event_336_02",
     "event_336_03",
@@ -22278,6 +26680,625 @@
   },
   {
    "assets": [
+    "event_338_01",
+    "event_338_02",
+    "event_338_03",
+    "event_338_04",
+    "event_338_05"
+   ],
+   "base": 338001,
+   "chapter": 337,
+   "levels": [
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 1002,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 312021,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 5,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 2001,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 14,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 4,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 2,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 23,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 23,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 0,
+       "main": true,
+       "n": 50,
+       "stock": 5,
+       "t": 12,
+       "target": true
+      },
+      {
+       "id": 321009,
+       "main": true,
+       "n": 10,
+       "stock": 3,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312002,
+       "main": true,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 42,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 14,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 75,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 75,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 32,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 32,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 311003,
+       "main": true,
+       "n": 10,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 312003,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300024,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1006,
+       "main": true,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 46,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 15,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 8,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 2,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 82,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 82,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 35,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 35,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.35,
+     "items": [
+      {
+       "id": 401003,
+       "main": true,
+       "n": 20,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 315001,
+       "main": true,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300024,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 300023,
+       "main": true,
+       "n": 1,
+       "stock": 4,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 325001,
+       "main": true,
+       "n": 1,
+       "stock": 10,
+       "t": 5,
+       "target": true
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 60,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 20,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 11,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 3,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 107,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 107,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 46,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 46,
+       "t": 5,
+       "target": false
+      }
+     ]
+    },
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 3001,
+       "main": true,
+       "n": 2,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": true,
+       "n": 5000,
+       "stock": 50,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 7,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 4,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "opens_days": 14,
+   "src": "Vol. 2, from day 14 (notice 1511: Premium Summon Ticket, Karma Stone); levels as summon 337001",
+   "tickets": [
+    6068
+   ]
+  },
+  {
+   "assets": [
     "event_339_01",
     "event_339_02",
     "event_339_03",
@@ -23516,6 +28537,242 @@
    ],
    "weapons": [
     330731
+   ]
+  },
+  {
+   "assets": [
+    "event_320_01"
+   ],
+   "base": 320001,
+   "chapter": 400030,
+   "chapters": [
+    400031,
+    400032
+   ],
+   "levels": [
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 3001,
+       "main": true,
+       "n": 2,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": true,
+       "n": 5000,
+       "stock": 50,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 7,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 4,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "src": "Crossover Commemoration Event Summons (notice 814), with the once-per-day quests 400030-400032; no prize list: the last level of summon 337001",
+   "tickets": [
+    6032
+   ]
+  },
+  {
+   "assets": [
+    "event_326_01"
+   ],
+   "base": 326001,
+   "chapter": 400048,
+   "chapters": [
+    400049,
+    400050
+   ],
+   "levels": [
+    {
+     "chance": 0.3,
+     "items": [
+      {
+       "id": 3001,
+       "main": true,
+       "n": 2,
+       "stock": 5,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": true,
+       "n": 5000,
+       "stock": 50,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 1,
+       "main": false,
+       "n": 1000,
+       "stock": 22,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3001,
+       "main": false,
+       "n": 1,
+       "stock": 7,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 3002,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 0,
+       "main": false,
+       "n": 10,
+       "stock": 4,
+       "t": 12,
+       "target": false
+      },
+      {
+       "id": 321010,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 2001,
+       "main": false,
+       "n": 1,
+       "stock": 1,
+       "t": 6,
+       "target": false
+      },
+      {
+       "id": 100004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200004,
+       "main": false,
+       "n": 1,
+       "stock": 38,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 100003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      },
+      {
+       "id": 200003,
+       "main": false,
+       "n": 1,
+       "stock": 16,
+       "t": 5,
+       "target": false
+      }
+     ]
+    }
+   ],
+   "src": "Resurrected Crossover Commemoration Event Summons (notice 1117), with the once-per-day quests 400048-400050; no prize list: the last level of summon 337001",
+   "tickets": [
+    6045
    ]
   }
  ],
