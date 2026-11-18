@@ -4,6 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.14 (2026-11-18)
+
+Nine event summons that were missing are on the Event tab, among them the
+SINoALICE crossover's (Puppets Parrah-Noya and its Vol. 2) and the Crossover
+Commemoration summons, so those events' tickets can be spent.
+
 ## 2026-11-18 (after 1.12.13)
 
 ### Summons
