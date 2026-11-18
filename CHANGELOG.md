@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.11 (2026-11-18)
+
+bunker-server can now set a computer up by itself: `import` puts the resource
+dump and master data in place, and `saves export` and `saves import` move a
+save between a phone and a computer. Pod Programs can be served on a computer
+through a new loopback control endpoint; editing a save that way is untried.
+Nothing changes on a phone.
+
 ## 2026-11-18 (after 1.12.10)
 
 ### Server on a computer
@@ -19,7 +27,7 @@ under its heading, down to the previous release.
   server: save edits with the server's own code, and stopping and starting
   the server around a change. It wants a token from `BUNKER_CONTROL_TOKEN`.
 - New: `desktop_runtime.py` serves Pod Programs on a computer, through that
-  endpoint. Its pages load; editing a save through it has not been tried yet.
+  endpoint. Its pages load; editing a save through it has not been tried yet. [9e279db]
 
 ## 1.12.10 (2026-11-17)
 
