@@ -494,7 +494,7 @@ async function load(reset) {
     const res = await fetch("/decks/results?" + q);
     const r = await res.json();
     if (res.status === 409 && r.prepare) {          // the stage must be built first (an opponent outside it)
-      busy = false; await prepare(r.against, r.costumes); load(true); return;
+      busy = false; if (await prepare(r.against, r.costumes)) load(true); return;   // a refusal is shown once, not asked again
     }
     $("count").innerHTML = SUBJ() ? (r.total ? fill(esc(plural(TXT.loadouts, r.total)), {n: `<strong>${r.total}</strong>`, boss: esc($("boss").selectedOptions[0]?.dataset.name || TXT.boss)}) : esc(TXT.noLoadouts))
       : r.total ? fill(esc(plural(TXT.decksShowing, r.total)), {n: `<strong>${num(r.total)}</strong>`, last: offset + r.items.length}) : esc(TXT.noDecks);
@@ -617,7 +617,8 @@ async function prepare(against, costumes) {
   const res = await fetch("/decks/prepare", {method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({user: USER, against: against || null, costumes: costumes || []})});
   const j = await res.json();
-  if (!j.ok) say("error", j.error || TXT.prepareFailed);
+  if (!j.ok) { say("error", j.error || TXT.prepareFailed); $("count").textContent = TXT.prepareFailed; $("more").textContent = ""; }
+  return !!j.ok;
 }
 function say(kind, text) {
   const msg = $("db-msg");
@@ -697,7 +698,7 @@ async function writeDeck() {
 let leaving = false;
 addEventListener("beforeunload", () => { leaving = true; });
 document.addEventListener("click", e => { if (e.target.closest("a[href]:not([href^='#'])")) leaving = true; }, true);
-if (PREPARING) prepare(null).then(() => { if (!leaving) location.reload(); });
+if (PREPARING) prepare(null).then(ok => { if (ok && !leaving) location.reload(); });
 else load(true);
 </script>
 {% endblock %}

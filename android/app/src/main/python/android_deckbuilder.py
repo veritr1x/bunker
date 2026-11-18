@@ -11,7 +11,9 @@ ticked costumes changes.
 """
 from __future__ import annotations
 
+import contextlib
 import json
+import sqlite3
 import threading
 from pathlib import Path
 
@@ -413,10 +415,23 @@ def stage_ready(tables, experts, extra=()):
     return path if path.exists() and old == want else None
 
 
+def _owns_costume(user_id: int) -> bool:
+    """Whether this player has a costume and a weapon. The stage is built from
+    rows of theirs, so a save nobody has played yet has nothing to build from."""
+    try:
+        with contextlib.closing(sqlite3.connect(f"file:{config.GAME_DB_PATH}?mode=ro", uri=True)) as db:
+            return all(db.execute(f"select 1 from {table} where user_id=? limit 1", (user_id,)).fetchone()
+                       for table in ("user_costumes", "user_weapons"))
+    except sqlite3.Error:
+        return False
+
+
 def prepare(user_id: int, against=None, costumes=()) -> None:
     """Build the staging save (by the server's own upgrades): this build's pool
     and expert lineups, plus an opponent's costumes when one is named."""
     from deckbuilder import equip, experts as experts_mod, generate, stage
+    if not _owns_costume(user_id):
+        raise DeckBuilderError(bunker_text.t("pods.decks.error_no_costume"))
     tables = _tables_for(runtime.fingerprint(config.find_master_data_bin()))
     experts = experts_mod.Experts.load(tables)
     extra = ()

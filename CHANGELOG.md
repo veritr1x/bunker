@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-18 (after 1.12.12)
+
+### Pod Programs
+- Deck Builder on a save nobody has played yet (no costume to build from)
+  says so, instead of showing "'NoneType' object is not iterable". The page
+  also stops after a refused preparation: it used to ask again without end,
+  and each try stopped and started the server.
+
 ## 1.12.12 (2026-11-18)
 
 bunker-server no longer refuses a save made by another version: it takes the
