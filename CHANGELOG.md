@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.13 (2026-11-18)
+
+Deck Builder on a save nobody has played yet says so, instead of failing with
+an error and then stopping and starting the server over and over.
+
 ## 2026-11-18 (after 1.12.12)
 
 ### Pod Programs
