@@ -18,6 +18,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"lunar-tear/server/mobile"
@@ -35,6 +36,7 @@ func main() {
 	data := flag.String("data", "", "directory for saves and server state (created if missing)")
 	assets := flag.String("assets", "", "directory holding the imported game files")
 	offset := flag.Int("port-offset", 0, "added to each port: 8003 game, 8080 assets, 3000 accounts")
+	backups := flag.String("backups", "", "directory for the save snapshot taken before a new version first opens a save (default: backups inside -data)")
 	stdin := flag.Bool("stdin", false, "stop when standard input closes")
 	check := flag.Bool("self-test", false, "after starting, check that each service answers, then report")
 	control := flag.String("control", "", "also serve the control endpoint Pod Programs uses, on this loopback address (such as 127.0.0.1:0); the token is read from BUNKER_CONTROL_TOKEN")
@@ -46,6 +48,12 @@ func main() {
 	if e := os.MkdirAll(*data, 0o755); e != nil {
 		fail(e.Error())
 	}
+	// A save made by another version is copied here before this one updates it;
+	// without a folder the server refuses such a save.
+	if *backups == "" {
+		*backups = filepath.Join(*data, "backups")
+	}
+	mobile.SetBackupDir(*backups)
 	if e := mobile.SetPortOffset(*offset); e != "" {
 		fail(e)
 	}
