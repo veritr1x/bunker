@@ -4,6 +4,10 @@
 //
 //	bunker-server -data <save directory> -assets <game files directory>
 //
+// "bunker-server import" puts the game files in place first (import.go).
+// "bunker-server saves" exports and imports save backups (saves.go).
+// With -control it also serves a loopback endpoint for Pod Programs (control.go).
+//
 // It runs until it is interrupted, or until its standard input closes when
 // -stdin is given (a launcher that exits then takes the server with it).
 package main
@@ -20,11 +24,20 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "import" {
+		importCommand(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "saves" {
+		savesCommand(os.Args[2:])
+		return
+	}
 	data := flag.String("data", "", "directory for saves and server state (created if missing)")
 	assets := flag.String("assets", "", "directory holding the imported game files")
 	offset := flag.Int("port-offset", 0, "added to each port: 8003 game, 8080 assets, 3000 accounts")
 	stdin := flag.Bool("stdin", false, "stop when standard input closes")
 	check := flag.Bool("self-test", false, "after starting, check that each service answers, then report")
+	control := flag.String("control", "", "also serve the control endpoint Pod Programs uses, on this loopback address (such as 127.0.0.1:0); the token is read from BUNKER_CONTROL_TOKEN")
 	flag.Parse()
 	if *data == "" || *assets == "" || flag.NArg() != 0 {
 		flag.Usage()
@@ -40,6 +53,17 @@ func main() {
 		fail(e.Error())
 	}
 	fmt.Println(mobile.Ports())
+	if *control != "" {
+		token := os.Getenv("BUNKER_CONTROL_TOKEN")
+		if len(token) < 16 {
+			fail("-control needs BUNKER_CONTROL_TOKEN, at least 16 characters")
+		}
+		url, e := serveControl(*control, token, *data, *assets)
+		if e != nil {
+			fail(e.Error())
+		}
+		fmt.Printf("{\"control\":%q}\n", url)
+	}
 	if *check {
 		fmt.Println(mobile.SelfTest())
 	}
