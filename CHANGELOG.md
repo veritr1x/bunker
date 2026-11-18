@@ -4,6 +4,14 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 2026-11-18 (after 1.12.11)
+
+### Server on a computer
+- Fixed: bunker-server refused a save made by another version ("no snapshot
+  folder set"), so updating the server locked a player out of their save. It
+  now takes the snapshot before an update, as a phone does, into `backups`
+  inside the save folder; `-backups` names another folder.
+
 ## 1.12.11 (2026-11-18)
 
 bunker-server can now set a computer up by itself: `import` puts the resource
