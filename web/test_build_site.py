@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import unittest
 import json
 from pathlib import Path
@@ -20,6 +21,62 @@ def added_paths(source):
 
 
 class SiteFilesTest(unittest.TestCase):
+    def test_windows_compiler_requires_complete_verified_kit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            kit, target = root / "kit", root / "site"
+            files = {}
+            for name in build_site.WINDOWS_FILES:
+                path = kit / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                data = name.encode()
+                path.write_bytes(data)
+                files[name] = hashlib.sha256(data).hexdigest()
+            manifest = kit / "kit.json"
+            manifest.write_text(json.dumps({"format": 1, "files": {"compiler.mjs": files["compiler.mjs"]}}))
+            with self.assertRaisesRegex(ValueError, "Incomplete"):
+                build_site.windows_bundle(kit, target, "1.2.3")
+            manifest.write_text(json.dumps({"format": 1, "bunkerVersion": "1.2.3", "files": files}))
+            with self.assertRaisesRegex(ValueError, "Bunker 1.2.4"):
+                build_site.windows_bundle(kit, target, "1.2.4")
+            build_site.windows_bundle(kit, target, "1.2.3")
+            self.assertEqual((target / "coff.wasm").read_bytes(), b"coff.wasm")
+            (kit / "coff.wasm").write_bytes(b"changed")
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                build_site.windows_bundle(kit, target, "1.2.3")
+
+    def test_prepared_runtime_requires_matching_kit_and_intact_parts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            kit, pack = root / "kit", root / "pack"
+            kit.mkdir()
+            pack.mkdir()
+            kit_file = kit / "kit.json"
+            kit_file.write_bytes(b'{"format":1}')
+            data = b"example stored bytes"
+            digest = hashlib.sha256(data).hexdigest()
+            part = pack / "runtime.part001"
+            part.write_bytes(data)
+            manifest = {"format": 1, "kitSHA256": "0" * 64, "size": 1, "chunks": [digest],
+                        "parts": [{"size": len(data), "sha256": digest}]}
+            metadata = pack / "runtime.json"
+            metadata.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "support"):
+                build_site.prepared_windows_runtime(pack, kit, root)
+            kit_file.write_bytes(b'{"format":1,"preparedRuntimeFormat":1}')
+            with self.assertRaisesRegex(ValueError, "different Windows kit"):
+                build_site.prepared_windows_runtime(pack, kit, root)
+            manifest["kitSHA256"] = hashlib.sha256(kit_file.read_bytes()).hexdigest()
+            metadata.write_text(json.dumps(manifest))
+            target = root / "ok"
+            target.mkdir()
+            self.assertEqual(build_site.prepared_windows_runtime(pack, kit, target),
+                             hashlib.sha256(metadata.read_bytes()).hexdigest())
+            self.assertEqual((target / "runtime" / part.name).read_bytes(), data)
+            part.write_bytes(bytes(len(data)))
+            with self.assertRaisesRegex(ValueError, "runtime part 1"):
+                build_site.prepared_windows_runtime(pack, kit, root)
+
     def test_notice_parts_preserve_the_archive_and_fit_the_limit(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "source.zip"

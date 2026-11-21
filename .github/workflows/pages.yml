@@ -2,8 +2,8 @@
 # is published when this runs by hand or from release.yml, which passes the
 # release tag as "ref" (Pages deploys only from main, so the workflow runs on
 # main and checks out the tag).
-# The bundles are built from this repository only; no game files or master
-# data are used or published. Players supply their own files in the browser.
+# Released mobile bundles and the versioned Windows kit are verified before publishing.
+# The selected Windows release also serves the approved translated runtime. Players supply the APK and master data.
 name: Web builder
 
 on:
@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       ref: ${{ steps.ref.outputs.ref }}
+      mobile_release: ${{ steps.ref.outputs.mobile_release }}
     steps:
       - id: ref
         env:
@@ -71,10 +72,15 @@ jobs:
           else ref="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"; fi
           echo "Building $ref"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          if [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && gh release view "$ref" --repo "$GITHUB_REPOSITORY" --json assets |
+            jq -e --arg v "${ref#v}" '[.assets[].name] as $names | ["bunker-android-\($v).zip","bunker-ios-framework-\($v).zip","bunker-ios-python-\($v).zip"] - $names | length == 0' >/dev/null; then
+            echo "mobile_release=$ref" >> "$GITHUB_OUTPUT"
+          fi
 
   android:
     name: Android launcher
     needs: resolve
+    if: needs.resolve.outputs.mobile_release == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -109,6 +115,7 @@ jobs:
   ios:
     name: iOS launcher and Tools runtime
     needs: resolve
+    if: needs.resolve.outputs.mobile_release == ''
     runs-on: macos-26  # Xcode 26 (the iOS 26 SDK); macos-15 defaults to Xcode 16.4
     steps:
       - uses: actions/checkout@v7
@@ -143,7 +150,9 @@ jobs:
 
   site:
     name: Assemble the site
-    if: github.event_name == 'workflow_dispatch'
+    if: |
+      !cancelled() && github.event_name == 'workflow_dispatch' && needs.resolve.result == 'success' &&
+      (needs.resolve.outputs.mobile_release != '' || (needs.android.result == 'success' && needs.ios.result == 'success'))
     needs: [resolve, android, ios]
     runs-on: ubuntu-24.04
     steps:
@@ -155,13 +164,56 @@ jobs:
         with:
           python-version: "3.11"
       - uses: actions/download-artifact@v8
+        if: needs.resolve.outputs.mobile_release == ''
         with:
           name: android-launcher
           path: bundles/android
       - uses: actions/download-artifact@v8
+        if: needs.resolve.outputs.mobile_release == ''
         with:
           name: ios-bundles
           path: bundles/ios
+      - name: Reuse the verified Android and iOS release bundles
+        if: needs.resolve.outputs.mobile_release != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.mobile_release }}
+        run: |
+          v=${TAG#v}
+          mkdir -p bundles/android bundles/ios/python-bundle
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > "$RUNNER_TEMP/mobile-release.json"
+          for name in "bunker-android-$v.zip" "bunker-ios-framework-$v.zip" "bunker-ios-python-$v.zip"; do
+            gh release download "$TAG" --pattern "$name" --dir bundles
+            digest=$(jq -er --arg name "$name" '.assets[] | select(.name == $name) | .digest | select(startswith("sha256:"))' "$RUNNER_TEMP/mobile-release.json")
+            echo "${digest#sha256:}  bundles/$name" | sha256sum --check
+          done
+          mv "bundles/bunker-android-$v.zip" bundles/android/app-debug.apk
+          unzip -qo "bundles/bunker-ios-framework-$v.zip" -d bundles/ios
+          unzip -qo "bundles/bunker-ios-python-$v.zip" -d bundles/ios/python-bundle
+      # A mobile release tag can predate the matching Windows browser publisher.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .publisher
+          sparse-checkout: web
+          persist-credentials: false
+      - name: Select the tested Windows release
+        id: windows
+        run: |
+          lock=.publisher/web/windows-release.json
+          if [[ "$(jq -r .bunkerVersion "$lock")" == "$(cat VERSION)" ]]; then
+            cp .publisher/web/{app.js,index.html,build_site.py,windows-worker.js} web/
+            echo "revision=$(jq -er .runtimeRevision "$lock")" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Fetch the approved translated runtime
+        if: steps.windows.outputs.revision != ''
+        uses: actions/checkout@v7
+        with:
+          repository: veritr1x/reincomp-private-archive
+          ref: ${{ steps.windows.outputs.revision }}
+          path: .build/windows-runtime
+          ssh-key: ${{ secrets.WINDOWS_RUNTIME_DEPLOY_KEY }}
+          persist-credentials: false
       # The master-data patcher the builders run is Pod Programs' prepared copy.
       - run: python3.11 scripts/prepare.py
       # The notice pack is pinned by notices.lock.json and kept out of the repository.
@@ -170,14 +222,37 @@ jobs:
           path: inputs/bunker-notices.zip
           key: notices-${{ hashFiles('notices.lock.json') }}
       - name: Build the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_REVISION: ${{ steps.windows.outputs.revision }}
         run: |
+          version=$(cat VERSION)
+          asset="bunker-windows-browser-$version.zip"
+          windows=()
+          digest=""
+          if [[ -n "$WINDOWS_REVISION" ]]; then
+            lock=.publisher/web/windows-release.json
+            echo "$(jq -er .runtimeManifestSHA256 "$lock")  .build/windows-runtime/runtime.json" | sha256sum --check
+            digest=$(jq -er .kitArchiveSHA256 "$lock")
+            windows+=(--windows-runtime .build/windows-runtime)
+          elif [[ -f web/windows-worker.js ]]; then
+            digest=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+              jq -r --arg tag "v$version" --arg name "$asset" '.[] | select(.tag_name == $tag) | .assets[] | select(.name == $name) | .digest | ltrimstr("sha256:")')
+          fi
+          if [[ -n "$digest" ]]; then
+            gh release download "v$version" --pattern "$asset" --output bundles/windows-kit.zip
+            echo "$digest  bundles/windows-kit.zip" | sha256sum --check
+            mkdir -p .build/windows-kit
+            unzip -qo bundles/windows-kit.zip -d .build/windows-kit
+            windows+=(--windows-kit .build/windows-kit)
+          fi
           notices=()
           if [ -f notices.lock.json ]; then python3 scripts/notices.py; notices=(--notices inputs/bunker-notices.zip); fi
           python3 web/build_site.py \
             --companion-apk bundles/android/app-debug.apk \
             --framework bundles/ios/LunarTear.framework \
             --python bundles/ios/python-bundle \
-            --output site "${notices[@]}"
+            --output site "${notices[@]}" "${windows[@]}"
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
