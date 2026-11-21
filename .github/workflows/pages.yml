@@ -260,7 +260,8 @@ jobs:
 
   deploy:
     name: Publish
-    if: github.event_name == 'workflow_dispatch'
+    if: |
+      !cancelled() && github.event_name == 'workflow_dispatch' && needs.site.result == 'success'
     needs: site
     runs-on: ubuntu-24.04
     permissions:
