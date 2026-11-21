@@ -40,14 +40,12 @@ class Icon(unittest.TestCase):
             declared = int(re.search(r"kBunkerIconPngSize = (\d+)", expected).group(1))
             self.assertEqual(declared, len(header_png(expected)))
 
-    def test_icon_is_128_square_with_its_plate(self):
+    def test_in_game_icon_matches_its_native_header_slot(self):
         icon = Image.open(io.BytesIO(header_png(HEADER.read_text())))
-        self.assertEqual((icon.size, icon.mode), ((128, 128), "RGBA"))
+        self.assertEqual((icon.size, icon.mode), ((45, 45), "RGBA"))
         self.assertEqual(icon.getpixel((0, 0))[3], 0)  # outside the plate
-        self.assertEqual(icon.getpixel((64, 12))[:3], (36, 28, 19))  # the plate, as the game's (measured)
-        self.assertEqual(icon.getpixel((64, 12))[3], 196)
-        # The upright blade, in the glyph's cream.
-        self.assertEqual(icon.getpixel((64, 35))[:3], (231, 224, 205))
+        self.assertEqual(icon.getpixel((22, 4)), (43, 39, 38, 179))
+        self.assertEqual(icon.getpixel((22, 10)), (226, 220, 201, 252))
 
 
 ASSETS = root / "android/emblem"

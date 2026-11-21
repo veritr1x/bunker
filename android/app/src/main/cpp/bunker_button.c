@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <unistd.h>
 
 typedef struct { void *pointer; } Method;  // Il2Cpp MethodInfo starts with its code pointer.
@@ -174,9 +175,7 @@ static void tap(void *self, Method *method) {
     if (bunker_tap_allowed(enabled, FIELD(self, f_has_tap, uint8_t)) && open_bunker) open_bunker();
 }
 
-// The Bunker emblem over the copy's hidden icon image, placed as the game's
-// Notices icon is drawn (measured on a device: a little larger than its image
-// and lower, its tip behind the label).
+// The emblem fills the cloned Notices icon's rect.
 static void put_emblem(void *icon) {
     uint8_t no = 0;
     call(m_set_enabled, icon, (void *[]){&no});
@@ -186,7 +185,7 @@ static void put_emblem(void *icon) {
     void *rect = call(m_go_tr, gameobject, NULL);
     if (!raw || !rect) return;
     call(m_set_parent, rect, (void *[]){call(m_component_tr, icon, NULL), &no});
-    float low[2] = {-0.003f, -0.027f}, high[2] = {1.003f, 0.977f}, zero[2] = {0, 0};
+    float low[2] = {0, 0}, high[2] = {1, 1}, zero[2] = {0, 0};
     call(m_anchor_min, rect, (void *[]){low});
     call(m_anchor_max, rect, (void *[]){high});
     call(m_offset_min, rect, (void *[]){zero});
@@ -346,7 +345,7 @@ static void update_hook(void *self, Method *method) {
     float width = rect_width(seen->row);
     if (limit < -1e8f || width <= 0 || row[2] <= row[0]) return;
     float scale = (row[2] - row[0]) / width;  // world units per row unit
-    float margin = 6 * scale;
+    float margin = 14 * scale;
     void *count = call(m_child_count, seen->row, NULL);
     int shown = 0, n = count ? FIELD(count, 16, int) : 0;
     for (int i = 0; i < n; i++)
@@ -357,7 +356,7 @@ static void update_hook(void *self, Method *method) {
     float available = width + (row[0] - limit - margin) / scale;
     float button = (width - gap * (float)(shown - 1)) / (float)shown;
     float want = bunker_row_gap(available, button, shown, seen->gap, 0);
-    if (want != gap) {
+    if (fabsf(want - gap) > 0.015625f) {
         call(m_set_spacing, seen->layout, (void *[]){&want});
         char message[96];
         snprintf(message, sizeof message, "Bunker button: row gap %.1f -> %.1f (room %.0f of %.0f)", gap, want, available, width);
