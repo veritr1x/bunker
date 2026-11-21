@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.15 (2026-11-21)
+
+- Android and iOS now use the Windows in-game Bunker emblem's size, colors and spacing next to Notices.
+- The Windows web builder includes the fix for a summon freeze after the second reward of a ten-pull.
+
 ## 1.12.14 (2026-11-18)
 
 Nine event summons that were missing are on the Event tab, among them the
