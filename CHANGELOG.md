@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.16 (2026-11-21)
+
+- Windows players can update and restart from Bunker's launcher. Enable automatic installation in Options, or choose **Check for updates**. The first build with the updater comes from the web builder. Later updates reuse the installed APK and master data and keep saves, resources and settings.
+- Fixed taps and clicks after resizing the Windows game window and added spacing above **Close** in the game files dialog.
+
 ## 1.12.15 (2026-11-21)
 
 - Android and iOS now use the Windows in-game Bunker emblem's size, colors and spacing next to Notices.
