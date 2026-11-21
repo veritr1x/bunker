@@ -233,6 +233,7 @@ jobs:
           if [[ -n "$WINDOWS_REVISION" ]]; then
             lock=.publisher/web/windows-release.json
             echo "$(jq -er .runtimeManifestSHA256 "$lock")  .build/windows-runtime/runtime.json" | sha256sum --check
+            asset=$(jq -er .kitAsset "$lock")
             digest=$(jq -er .kitArchiveSHA256 "$lock")
             windows+=(--windows-runtime .build/windows-runtime)
           elif [[ -f web/windows-worker.js ]]; then
