@@ -1,7 +1,7 @@
 {
   "bunkerVersion": "1.12.14",
-  "kitAsset": "bunker-windows-browser-1.12.14-r2.zip",
-  "runtimeRevision": "0876bb5f56c29802a8467d9a7f05120aa7d5026f",
-  "runtimeManifestSHA256": "f29f5206b9ffec95c6d1133c92b859fb0eea014ecde2b32a4dd0de7f47b486b8",
-  "kitArchiveSHA256": "dedc40c1fbd43c83143e184e888fd81eac68e0b882fee71945d99997e26d625e"
+  "kitAsset": "bunker-windows-browser-1.12.14-r3.zip",
+  "runtimeRevision": "e1dde89553bbba10010dd952deca1347d8d77a23",
+  "runtimeManifestSHA256": "e29cd4492b3e3620bbb888e77906a59877972ed9b9ca50f9ea9fc6e8d76faf9d",
+  "kitArchiveSHA256": "dfb97b80fd837ba2a0b9a35c665250f23fb441197edcb486cb019935783594d5"
 }
