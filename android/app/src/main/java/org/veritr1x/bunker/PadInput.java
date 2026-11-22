@@ -1,12 +1,14 @@
 package org.veritr1x.bunker;
 
 import android.app.Activity;
-import android.content.Context;
 import android.graphics.*;
 import android.graphics.drawable.Drawable;
 import android.hardware.input.InputManager;
 import android.os.SystemClock;
 import android.view.*;
+import android.webkit.WebView;
+import android.widget.ImageView;
+import android.widget.PopupWindow;
 import java.util.Locale;
 
 /** One controller owns this window until it disconnects or the window loses focus. */
@@ -18,6 +20,8 @@ final class PadInput implements InputManager.InputDeviceListener, Choreographer.
     private final boolean game;
     private final Runnable toggle, back;
     private final Cursor cursor = new Cursor();
+    private final int[] origin = new int[2];
+    private PopupWindow cursorWindow;
     private final boolean[] contact = new boolean[2];
     private final float[] x = new float[2], y = new float[2];
     private final MotionEvent.PointerProperties[] ids = new MotionEvent.PointerProperties[2];
@@ -26,15 +30,15 @@ final class PadInput implements InputManager.InputDeviceListener, Choreographer.
     private int device = -1, arrows, width, height;
     private float lx, ly, rx, ry, hx, hy, px, py;
     private boolean focused, scheduled, visible, finger;
+    private final Rect visibleArea = new Rect();
     private static native void gameAction(int action);
 
-    PadInput(Activity activity, Window.Callback target, boolean game, Runnable toggle, Runnable back) {
-
+    PadInput(Activity activity, Window window, Window.Callback target, boolean game, Runnable toggle, Runnable back) {
         this.target = target;
         this.game = game;
         this.toggle = toggle;
         this.back = back;
-        root = activity.getWindow().getDecorView();
+        root = window.getDecorView();
         devices = activity.getSystemService(InputManager.class);
         for (int i = 0; i < 2; i++) {
             ids[i] = new MotionEvent.PointerProperties();
@@ -95,7 +99,7 @@ final class PadInput implements InputManager.InputDeviceListener, Choreographer.
             if (first) back.run();
             break;
         case KeyEvent.KEYCODE_BUTTON_Y:
-            if (first) command(1);
+            if (first && !overGamePage()) command(1);
             break;
         case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
         case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -166,6 +170,20 @@ final class PadInput implements InputManager.InputDeviceListener, Choreographer.
             Choreographer.getInstance().postFrameCallback(this);
         }
     }
+    private boolean webAt(View view, int sx, int sy) {
+        if (!view.isShown() || !view.getGlobalVisibleRect(visibleArea) || !visibleArea.contains(sx, sy)) return false;
+        if (view instanceof WebView) return true;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup)view;
+            for (int i = group.getChildCount()-1; i >= 0; i--)
+                if (webAt(group.getChildAt(i), sx, sy)) return true;
+        }
+        return false;
+    }
+    private boolean overGamePage() {
+        if (!game) return false;
+        return webAt(root, (int)px, (int)py);
+    }
     @Override public void doFrame(long time) {
         scheduled = false;
         if (!focused || finger || !bounds()) { lastFrame = 0; return; }
@@ -183,7 +201,8 @@ final class PadInput implements InputManager.InputDeviceListener, Choreographer.
         if (dx == 0 && dy == 0) { dx = lx; dy = ly; }
         float scale = Math.max(1, (float)Math.hypot(dx, dy));
         dx /= scale; dy /= scale;
-        if (!game) {
+        if (!game || ((dx != 0 || dy != 0) && overGamePage())) {
+            change(0, false, x[0], y[0]);
             if (dx != 0 || dy != 0) scroll(dx * dt * 14, dy * dt * 14);
         } else if (dx == 0 && dy == 0) change(0, false, x[0], y[0]);
         else {
@@ -239,14 +258,35 @@ final class PadInput implements InputManager.InputDeviceListener, Choreographer.
     }
     private void placeCursor() {
         int radius = Math.max(6, Math.round(root.getResources().getDisplayMetrics().density * 8));
-        cursor.setBounds((int)px-radius, (int)py-radius, (int)px+radius, (int)py+radius);
+        if (!game) {
+            cursor.setBounds((int)px-radius, (int)py-radius, (int)px+radius, (int)py+radius);
+            return;
+        }
+        // Unity can put its SurfaceView above the activity's decor, including its ViewOverlay.
+        // A non-touchable child window stays visible over that surface and passes taps through.
+        if (cursorWindow == null) {
+            ImageView image = new ImageView(root.getContext());
+            image.setBackground(cursor);
+            cursorWindow = new PopupWindow(image, radius*2, radius*2, false);
+            cursorWindow.setTouchable(false);
+            cursorWindow.setClippingEnabled(false);
+            cursorWindow.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
+            if (android.os.Build.VERSION.SDK_INT >= 29) cursorWindow.setIsLaidOutInScreen(true);
+        }
+        root.getLocationOnScreen(origin);
+        int cx = origin[0] + Math.round(px) - radius, cy = origin[1] + Math.round(py) - radius;
+        if (cursorWindow.isShowing()) cursorWindow.update(cx, cy, radius*2, radius*2);
+        else if (root.isAttachedToWindow()) cursorWindow.showAtLocation(root, Gravity.TOP | Gravity.LEFT, cx, cy);
     }
     private void showCursor() {
         placeCursor();
-        if (!visible) { root.getOverlay().add(cursor); visible = true; }
+        if (!visible && !game) root.getOverlay().add(cursor);
+        visible = true;
     }
     private void hideCursor() {
-        if (visible) { root.getOverlay().remove(cursor); visible = false; }
+        if (cursorWindow != null) cursorWindow.dismiss();
+        if (visible && !game) root.getOverlay().remove(cursor);
+        visible = false;
     }
     private static final class Cursor extends Drawable {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);

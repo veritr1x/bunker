@@ -8,7 +8,7 @@ import android.view.MotionEvent;
 abstract class ControllerActivity extends Activity {
     private PadInput pad;
     private PadInput pad() {
-        if (pad == null) pad = new PadInput(this, this, false, this::controllerToggle, this::onBackPressed);
+        if (pad == null) pad = new PadInput(this, getWindow(), this, false, this::controllerToggle, this::onBackPressed);
         return pad;
     }
     protected void controllerToggle() { onBackPressed(); }

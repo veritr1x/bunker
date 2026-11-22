@@ -181,28 +181,39 @@ final class DisplayPatch {
         });
     }
 
-    /** The activity's window callback: keyboard controls, and the window around the camera cutout. */
+    static void controlDialog(Activity activity, android.app.Dialog dialog) {
+        Window window = dialog.getWindow();
+        Window.Callback base = window.getCallback();
+        PadInput pad = new PadInput(activity, window, base, false, dialog::onBackPressed, dialog::onBackPressed);
+        window.setCallback(new GameWindow(base, false, null, pad));
+    }
+
+    /** Wrap the foreground window so dialogs receive their own pointer and controller focus. */
     private static final class GameWindow implements Window.Callback {
         private final Window.Callback base;
         private final boolean shortEdges;
         private final Keyboard keyboard;
         private final PadInput pad;
         GameWindow(Window.Callback base, Activity activity, boolean shortEdges) {
-            this.base = base;
-            this.shortEdges = shortEdges;
-            this.keyboard = new Keyboard(activity, base);
-            this.pad = new PadInput(activity, base, true, GameProcessProvider::openBunker, () -> {
+            this(base, shortEdges, new Keyboard(activity, base),
+                new PadInput(activity, activity.getWindow(), base, true, GameProcessProvider::openBunker, () -> {
                 long now = android.os.SystemClock.uptimeMillis();
                 base.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0));
                 base.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0));
-            });
+            }));
+        }
+        GameWindow(Window.Callback base, boolean shortEdges, Keyboard keyboard, PadInput pad) {
+            this.base = base;
+            this.shortEdges = shortEdges;
+            this.keyboard = keyboard;
+            this.pad = pad;
         }
 
         @Override public void onWindowAttributesChanged(WindowManager.LayoutParams attrs) {
             if (shortEdges) attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             base.onWindowAttributesChanged(attrs);
         }
-        @Override public boolean dispatchKeyEvent(KeyEvent event) { return pad.key(event) || keyboard.handle(event) || base.dispatchKeyEvent(event); }
+        @Override public boolean dispatchKeyEvent(KeyEvent event) { return pad.key(event) || (keyboard != null && keyboard.handle(event)) || base.dispatchKeyEvent(event); }
         @Override public boolean dispatchKeyShortcutEvent(KeyEvent event) { return base.dispatchKeyShortcutEvent(event); }
         @Override public boolean dispatchTouchEvent(MotionEvent event) { pad.physicalTouch(event); return base.dispatchTouchEvent(event); }
         @Override public boolean dispatchTrackballEvent(MotionEvent event) { return base.dispatchTrackballEvent(event); }
@@ -216,8 +227,8 @@ final class DisplayPatch {
         @Override public void onContentChanged() { base.onContentChanged(); }
         @Override public void onWindowFocusChanged(boolean focused) {
             pad.focus(focused);
-            if (!focused) keyboard.release();
-            else {
+            if (keyboard != null && !focused) keyboard.release();
+            if (keyboard != null && focused) {
                 HostKeys.attach(keyboard);
                 AudioResume.install();
             }

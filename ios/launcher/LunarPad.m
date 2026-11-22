@@ -171,7 +171,11 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
     BOOL game = [root.layer isKindOfClass:CAMetalLayer.class] && (hit == root || [hit isDescendantOfView:root]) &&
                 !Ancestor(hit, WKWebView.class) && !window.rootViewController.presentedViewController;
     if (pressed & 2) {
-        if (game) bunker_pad_request(BUNKER_PAD_BACK); else LTPadBack();
+        WKWebView *page = Ancestor(hit, WKWebView.class);
+        if (page.canGoBack) [page goBack];
+        else if (game || ([root.layer isKindOfClass:CAMetalLayer.class] && !window.rootViewController.presentedViewController))
+            bunker_pad_request(BUNKER_PAD_BACK);
+        else LTPadBack();
         return;
     }
     if (game && (pressed & 4)) bunker_pad_request(BUNKER_PAD_SKIP);
@@ -191,7 +195,7 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
 - (void)frame:(CADisplayLink *)link {
     [self sample];
     UIWindow *window = _window;
-    if (!window) return;
+    if (!window || window != LTPadWindow()) return;
     CFTimeInterval now = link.timestamp, dt = _lastFrame ? MIN(.05, now - _lastFrame) : 1./60;
     _lastFrame = now;
     GCExtendedGamepad *p = _controller.extendedGamepad;

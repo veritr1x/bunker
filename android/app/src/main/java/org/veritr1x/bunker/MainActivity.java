@@ -69,7 +69,15 @@ public final class MainActivity extends ControllerActivity {
 
     private final Runnable tick=new Runnable(){public void run(){query(1);refresh();handler.postDelayed(this,700);}};
     private int dp(int n){return look.dp(n);}
-    private AlertDialog.Builder dialog(){return new AlertDialog.Builder(this,look.dark?android.R.style.Theme_DeviceDefault_Dialog_Alert:android.R.style.Theme_DeviceDefault_Light_Dialog_Alert);}
+    private AlertDialog.Builder dialog(){
+        return new AlertDialog.Builder(this,look.dark?android.R.style.Theme_DeviceDefault_Dialog_Alert:android.R.style.Theme_DeviceDefault_Light_Dialog_Alert) {
+            @Override public AlertDialog create() {
+                AlertDialog dialog = super.create();
+                DisplayPatch.controlDialog(MainActivity.this, dialog);
+                return dialog;
+            }
+        };
+    }
     private LinearLayout panel(){
         LinearLayout p=new LinearLayout(this);p.setOrientation(LinearLayout.VERTICAL);p.setBackground(look.frame());
         int pad=look.framePadding();p.setPadding(pad,pad-dp(4),pad,pad-dp(4));return p;
@@ -352,6 +360,7 @@ public final class MainActivity extends ControllerActivity {
     private void showOptions(View anchor){
         boolean idle=!busy&&!running&&!tools;
         Dialog menu=new Dialog(this);menu.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        DisplayPatch.controlDialog(this,menu);
         LinearLayout panel=panel();
         // Pod Programs has its own panel on the Bunker; this section only appears while there is something to stop or check.
         if(running||busy)section(panel,Texts.t(this,"launcher.main.lunar_tear"));
