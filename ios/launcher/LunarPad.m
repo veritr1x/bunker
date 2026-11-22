@@ -83,6 +83,8 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
     BOOL _dragged;
     CFTimeInterval _lastFrame, _anchoredAt;
     NSUInteger _mask;
+    GCControllerButtonInput *_launcherButton;
+    GCSystemGestureState _previousGesture;
 }
 - (void)touch:(LTGameTouch *)touch phase:(UITouchPhase)phase at:(CGPoint)point {
     touch.previous = phase == UITouchPhaseBegan ? point : touch.point;
@@ -149,9 +151,8 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
 }
 - (NSUInteger)buttons {
     GCExtendedGamepad *p = _controller.extendedGamepad;
-    GCControllerButtonInput *toggle = IsSony(p) ? p.buttonMenu : p.buttonOptions;
     return (p.buttonA.isPressed ? 1 : 0) | (p.buttonB.isPressed ? 2 : 0) |
-           (p.buttonY.isPressed ? 4 : 0) | (toggle.isPressed ? 8 : 0);
+           (p.buttonY.isPressed ? 4 : 0) | (_launcherButton.isPressed ? 8 : 0);
 }
 - (void)sample {
     UIWindow *window = LTPadWindow();
@@ -227,16 +228,24 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
         [self touch:_move phase:UITouchPhaseMoved at:CGPointMake(anchor.x + stick.x*size.height*.15, anchor.y + stick.y*size.height*.15)];
     }
 }
-- (void)attach {
-    if (_controller || UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return;
-    for (GCController *c in GCController.controllers) if (c.extendedGamepad) { _controller = c; break; }
-    if (!_controller) return;
+- (void)bind:(GCController *)controller {
+    _controller = controller;
+    GCExtendedGamepad *p = controller.extendedGamepad;
+    _launcherButton = IsSony(p) ? p.buttonMenu : p.buttonOptions;
+    _previousGesture = _launcherButton.preferredSystemGestureState;
+    if (_launcherButton.isBoundToSystemGesture) _launcherButton.preferredSystemGestureState = GCSystemGestureStateDisabled;
     _mask = [self buttons];
     _frames = [CADisplayLink displayLinkWithTarget:self selector:@selector(frame:)];
     [_frames addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
 }
+- (void)attach {
+    if (_controller || UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return;
+    for (GCController *c in GCController.controllers) if (c.extendedGamepad) { [self bind:c]; break; }
+}
 - (void)detach {
     [self cancel]; [_frames invalidate]; _frames = nil;
+    _launcherButton.preferredSystemGestureState = _previousGesture;
+    _launcherButton = nil;
     _controller = nil; _window = nil; _size = CGSizeZero;
 }
 - (void)start {
