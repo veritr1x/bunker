@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.20 (2026-11-23)
+
+- Android and iOS now use the same Xbox and PlayStation controls as reincomp. Move in 2D and 3D scenes with the left stick or D-pad. Use the right stick to move the cursor, then press A or Cross to tap, or hold it while moving the cursor to drag.
+- Press B or Circle to go back, or Y or Triangle to activate a visible Skip button. Xbox View (Select/Back) and PlayStation Options open and close the Bunker launcher during play.
+
 ## 1.12.19 (2026-11-23)
 
 - The native Windows player advances through the first two Chapter 1 weapon memories. Their opening movies, dialogue and interaction prompts now appear.
