@@ -9,7 +9,7 @@ mkdir -p "$app"
 sdk="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 xcrun --sdk iphonesimulator clang -isysroot "$sdk" -target "$(uname -m)-apple-ios14.0-simulator" \
     -fobjc-arc -I "$root/android/app/src/main/cpp" "$root/ios/devtools/ControlHost/PadInputTest.m" \
-    -framework UIKit -framework Foundation -framework GameController -framework QuartzCore -framework WebKit -o "$app/ControllerTest"
+    -framework UIKit -framework Foundation -framework CoreGraphics -framework GameController -framework QuartzCore -framework WebKit -o "$app/ControllerTest"
 python3 - "$app/Info.plist" "$bundle" <<'PY'
 import plistlib,sys
 with open(sys.argv[1],"wb") as f:

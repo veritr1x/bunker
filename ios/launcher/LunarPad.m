@@ -142,7 +142,7 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
     if (control && control.enabled) {
         if ([control isKindOfClass:UITextField.class]) [control becomeFirstResponder];
         else if ([control isKindOfClass:UIButton.class] && ((UIButton *)control).showsMenuAsPrimaryAction) {
-            if (@available(iOS 16.0,*)) [control performPrimaryAction];
+            if (@available(iOS 17.4,*)) [control performPrimaryAction];
             else [control accessibilityActivate];
         } else [control sendActionsForControlEvents:UIControlEventTouchUpInside];
         return;
