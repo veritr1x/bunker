@@ -4,6 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.18 (2026-11-22)
+
+- The Archive keeps its Close button visible in compact and wide layouts, including in the Windows player.
+- The Windows Deck Builder displays character portraits and equipment images.
+- The web builder lists Apple silicon Macs alongside iPhone and iPad. All three use the IPA.
+
 ## 1.12.17 (2026-11-22)
 
 - Pod Programs keeps **Close** visible across desktop window sizes. It takes you back to Bunker from both portrait and landscape windows.
