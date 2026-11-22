@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="primary">
-    {#- A phone on its side in the Android app: its bar is gone, so the title and Close sit at the top of the tabs (automata.css). #}
+    {#- WebView2 uses this Close at every size. Android uses it when its native bar is hidden. #}
     <div class="shell-head"><b>{{ t("archive.menu.archive") }}</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
     {% for key, label, href in sections %}<a href="{{ href }}"{% if active == key %} class="active"{% endif %}>{{ label }}</a>{% endfor %}
   </nav>
@@ -19,12 +19,12 @@
   // drops its bar on a phone on its side and draws under the camera hole; it
   // says where the hole is (BunkerShell.cutout(): {side, top, bottom, depth}
   // in CSS px). Tabs passing beside a hole on the left step past it; a hole on
-  // the right pads the page's right edge. Only that app hides its bar, so only
-  // there does the tab column carry the title and Close (archive.css).
+  // the right pads the page's right edge.
   (() => {
     const query = matchMedia("(orientation: landscape) and (max-height: 599px) and (min-width: 560px)");
     const root = document.documentElement, nav = document.querySelector("nav.primary");
     if (window.BunkerShell) root.classList.add("bunker-shell");
+    if (window.chrome?.webview) nav.querySelector(".shell-head").setAttribute("data-desktop", "");
     function hole() {
       try { return window.BunkerShell ? JSON.parse(BunkerShell.cutout()) : null; } catch (e) { return null; }
     }

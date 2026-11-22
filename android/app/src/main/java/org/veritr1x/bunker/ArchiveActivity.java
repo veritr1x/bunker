@@ -23,7 +23,7 @@ public final class ArchiveActivity extends Activity {
     private FrameLayout stage;
     private LinearLayout body,bar;
     /** A phone on its side (as Pod Programs, ToolsActivity): no top bar or system bars, and the page runs under the camera hole. */
-    private boolean compact;
+    private boolean compact, pageFailed;
     /** Where the camera hole is, for the page (BunkerShell.cutout(), base.html): JSON, or null. */
     private volatile String cutout="null";
     private View fullscreen;
@@ -69,7 +69,10 @@ public final class ArchiveActivity extends Activity {
                 if(local(request.getUrl().toString())&&"/bunker/close".equals(request.getUrl().getPath())){finish();return true;}
                 return !local(request.getUrl().toString());
             }
-            @Override public void onPageFinished(WebView view,String url){if(local(url)){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);}}
+            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){pageFailed=false;}
+            @Override public void onPageFinished(WebView view,String url){
+                if(local(url)&&!pageFailed){message.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);updateBar();}
+            }
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())show("> "+Texts.t(ArchiveActivity.this,"launcher.archive.could_not_open"));}
         });
         // Pictures from the page ("Save PNG", the 3D snapshot) go where the user picks; WebView ignores download links.
@@ -125,11 +128,11 @@ public final class ArchiveActivity extends Activity {
     @Override public void onConfigurationChanged(android.content.res.Configuration config){super.onConfigurationChanged(config);applyCompact(config);}
     /** A phone on its side (the pages' own test: automata.css): the page has the whole screen, under the camera hole. */
     private void applyCompact(android.content.res.Configuration config){
-        compact=config.orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE&&config.screenHeightDp<600;
+        compact=config.orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE&&config.screenHeightDp<600&&config.screenWidthDp>=560;
         WindowManager.LayoutParams attrs=getWindow().getAttributes();
         attrs.layoutInDisplayCutoutMode=compact?WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES:WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
         getWindow().setAttributes(attrs);
-        bar.setVisibility(compact?View.GONE:View.VISIBLE);
+        updateBar();
         if(fullscreen==null)systemBars(!compact);
         stage.requestApplyInsets();
     }
@@ -140,7 +143,8 @@ public final class ArchiveActivity extends Activity {
         cutout=json;
         if(web!=null)web.evaluateJavascript("window.bunkerHoleChanged&&bunkerHoleChanged()",null);
     }
-    private void show(String text){message.setText(text);message.setVisibility(View.VISIBLE);web.setVisibility(View.GONE);}
+    private void updateBar(){bar.setVisibility(compact&&web.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);}
+    private void show(String text){pageFailed=true;message.setText(text);message.setVisibility(View.VISIBLE);web.setVisibility(View.GONE);updateBar();}
     private boolean local(String url){return !origin.isEmpty()&&(url.equals(origin)||url.startsWith(origin+"/"));}
     private void leaveFullscreen(){
         if(fullscreen==null)return;
