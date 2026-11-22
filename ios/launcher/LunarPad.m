@@ -66,7 +66,9 @@ static id Ancestor(UIView *view, Class cls) {
     return nil;
 }
 static BOOL IsSony(GCExtendedGamepad *pad) {
-    return [pad isKindOfClass:GCDualShockGamepad.class] || [pad isKindOfClass:NSClassFromString(@"GCDualSenseGamepad")];
+    if ([pad isKindOfClass:GCDualShockGamepad.class]) return YES;
+    if (@available(iOS 14.5, *)) return [pad isKindOfClass:GCDualSenseGamepad.class];
+    return NO;
 }
 
 @interface LTPad : NSObject
@@ -133,7 +135,10 @@ static BOOL IsSony(GCExtendedGamepad *pad) {
     if (web) {
         CGPoint p = [_window convertPoint:_point toView:web];
         // Use the visual viewport for pages which are zoomed or use a desktop viewport.
-        [web callAsyncJavaScript:@"const v=visualViewport; const el=document.elementFromPoint(x*v.width,y*v.height); if(el){el.focus?.();el.click?.();}"
+        // bunker-text: code
+        NSString *tapAtCursor = @"const v=visualViewport; const el=document.elementFromPoint(x*v.width,y*v.height); if(el){el.focus?.();el.click?.();}";
+        // bunker-text: end
+        [web callAsyncJavaScript:tapAtCursor
             arguments:@{@"x":@(p.x / MAX(1,web.bounds.size.width)), @"y":@(p.y / MAX(1,web.bounds.size.height))}
             inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:nil];
         return;
