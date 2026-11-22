@@ -186,21 +186,27 @@ final class DisplayPatch {
         private final Window.Callback base;
         private final boolean shortEdges;
         private final Keyboard keyboard;
+        private final PadInput pad;
         GameWindow(Window.Callback base, Activity activity, boolean shortEdges) {
             this.base = base;
             this.shortEdges = shortEdges;
             this.keyboard = new Keyboard(activity, base);
+            this.pad = new PadInput(activity, base, true, GameProcessProvider::openBunker, () -> {
+                long now = android.os.SystemClock.uptimeMillis();
+                base.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0));
+                base.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0));
+            });
         }
 
         @Override public void onWindowAttributesChanged(WindowManager.LayoutParams attrs) {
             if (shortEdges) attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             base.onWindowAttributesChanged(attrs);
         }
-        @Override public boolean dispatchKeyEvent(KeyEvent event) { return keyboard.handle(event) || base.dispatchKeyEvent(event); }
+        @Override public boolean dispatchKeyEvent(KeyEvent event) { return pad.key(event) || keyboard.handle(event) || base.dispatchKeyEvent(event); }
         @Override public boolean dispatchKeyShortcutEvent(KeyEvent event) { return base.dispatchKeyShortcutEvent(event); }
-        @Override public boolean dispatchTouchEvent(MotionEvent event) { return base.dispatchTouchEvent(event); }
+        @Override public boolean dispatchTouchEvent(MotionEvent event) { pad.physicalTouch(event); return base.dispatchTouchEvent(event); }
         @Override public boolean dispatchTrackballEvent(MotionEvent event) { return base.dispatchTrackballEvent(event); }
-        @Override public boolean dispatchGenericMotionEvent(MotionEvent event) { return base.dispatchGenericMotionEvent(event); }
+        @Override public boolean dispatchGenericMotionEvent(MotionEvent event) { return pad.motion(event) || base.dispatchGenericMotionEvent(event); }
         @Override public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event) { return base.dispatchPopulateAccessibilityEvent(event); }
         @Override public View onCreatePanelView(int feature) { return base.onCreatePanelView(feature); }
         @Override public boolean onCreatePanelMenu(int feature, Menu menu) { return base.onCreatePanelMenu(feature, menu); }
@@ -209,6 +215,7 @@ final class DisplayPatch {
         @Override public boolean onMenuItemSelected(int feature, MenuItem item) { return base.onMenuItemSelected(feature, item); }
         @Override public void onContentChanged() { base.onContentChanged(); }
         @Override public void onWindowFocusChanged(boolean focused) {
+            pad.focus(focused);
             if (!focused) keyboard.release();
             else {
                 HostKeys.attach(keyboard);
@@ -217,7 +224,7 @@ final class DisplayPatch {
             base.onWindowFocusChanged(focused);
         }
         @Override public void onAttachedToWindow() { base.onAttachedToWindow(); }
-        @Override public void onDetachedFromWindow() { base.onDetachedFromWindow(); }
+        @Override public void onDetachedFromWindow() { pad.focus(false); base.onDetachedFromWindow(); }
         @Override public void onPanelClosed(int feature, Menu menu) { base.onPanelClosed(feature, menu); }
         @Override public boolean onSearchRequested() { return base.onSearchRequested(); }
         @Override public boolean onSearchRequested(SearchEvent event) { return base.onSearchRequested(event); }

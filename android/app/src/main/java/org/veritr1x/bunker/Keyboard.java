@@ -153,7 +153,7 @@ final class Keyboard {
 
     private void openBunker() {
         release();
-        activity.startActivity(new Intent(activity, MainActivity.class).putExtra("manage", true)
+        activity.startActivity(new Intent(activity, MainActivity.class).putExtra("manage", true).putExtra("fromGame", true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
     }
 

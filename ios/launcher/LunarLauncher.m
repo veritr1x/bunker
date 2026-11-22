@@ -90,6 +90,8 @@ static NSDictionary *Status(void) {
 }
 static BOOL Running(void) { return [Status()[@"state"] isEqual:@"running"]; }
 void LTDisplayStart(NSString *toolsRoot);  // LunarDisplay.m
+void LTPadStart(void);
+BOOL LTToolsControllerBack(UIViewController *controller);
 void LTWindowStart(void);  // LunarWindow.m
 void LTAppLog(NSString *line);  // LunarWindow.m: an "[App]" line in the server log
 /** Bunker's version, from the app's Info.plist (package_ipa.py), or "dev". */
@@ -2471,6 +2473,29 @@ static void HideLauncher(void) {
     RecheckOrientation();
 }
 
+// Controller input uses the same front window and tool close callbacks as touch.
+UIWindow *LTPadWindow(void) {
+    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return nil;
+    return KeyWindow();
+}
+static UIViewController *PadPresented(void) {
+    UIViewController *controller = LTPadWindow().rootViewController.presentedViewController;
+    while (controller.presentedViewController) controller = controller.presentedViewController;
+    return controller;
+}
+void LTPadBack(void) {
+    UIViewController *presented = PadPresented();
+    if (presented) {
+        if (!LTToolsControllerBack(presented)) [presented accessibilityPerformEscape];
+    } else if (gWindow && gGameWindow && !gToolsOpen && !gRestartNeeded && Running()) HideLauncher();
+}
+void LTPadToggle(void) {
+    if (gWindow) {
+        if (PadPresented()) LTPadBack();
+        else if (gGameWindow && !gToolsOpen && !gRestartNeeded && Running()) HideLauncher();
+    } else { gMessage = @""; ShowLauncher(); }
+}
+
 #pragma mark - Home Screen quick action
 
 // Long-pressing the app icon offers "Bunker menu", which opens the launcher.
@@ -2650,6 +2675,7 @@ __attribute__((constructor)) static void LunarTearLoad(void) {
         }
         lt_rebind_image_symbols("UnityFramework.framework/UnityFramework", kReachability, sizeof(kReachability) / sizeof(kReachability[0]));
         LTDisplayStart(ToolsRoot());
+        LTPadStart();
         LTWindowStart();  // [Display] lines in the server log
         // Start before Unity boots, without waiting: the Go runtime's own
         // initializer runs after this one, so every Go call waits until this

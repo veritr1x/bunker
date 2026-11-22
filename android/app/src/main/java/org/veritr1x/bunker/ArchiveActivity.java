@@ -14,7 +14,7 @@ import java.io.File;
 
 /** The Archive: story, records, characters, pictures, movies and music from the imported game files. Read only, so the game keeps running.
  *  It runs in a process of its own, ended when the Archive closes. */
-public final class ArchiveActivity extends Activity {
+public final class ArchiveActivity extends ControllerActivity {
     private static boolean webInitialized;
     /** A WebView folder can be used by one process at a time; Pod Programs keeps "lunar_tools" in the server's. */
     private static synchronized void initWebView(){if(!webInitialized){WebView.setDataDirectorySuffix("lunar_archive");webInitialized=true;}}

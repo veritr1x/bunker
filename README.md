@@ -113,6 +113,19 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
 
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.
 
+## Android and iOS controller controls
+
+Pair an Xbox or PlayStation controller in the device’s Bluetooth settings, or connect it over USB.
+
+| Action | Xbox | PlayStation |
+| --- | --- | --- |
+| Move in 2D and 3D scenes, or scroll in Bunker | Left stick or D-pad | Left stick or D-pad |
+| Move the cursor | Right stick | Right stick |
+| Tap at the cursor, or hold and drag | A | Cross |
+| Go back | B | Circle |
+| Use the current scene’s Skip control | Y | Triangle |
+| Open Bunker during play or return to the game | View (Select/Back) | Options |
+
 ## Screenshots
 
 | The Bunker (launcher) | Options menu | Pod Programs |

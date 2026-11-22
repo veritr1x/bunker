@@ -14,7 +14,7 @@ import java.net.URL;
 import java.util.Locale;
 
 /** Private, on-device tools. Runs beside the service so Unity can fully close. */
-public final class ToolsActivity extends Activity {
+public final class ToolsActivity extends ControllerActivity {
     private static boolean webInitialized;
     /** Pod Programs' WebView profile; its folder can be set only once per process. */
     static synchronized void initWebView(){if(!webInitialized){WebView.setDataDirectorySuffix("lunar_tools");webInitialized=true;}}

@@ -22,7 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends ControllerActivity {
     private static final int ASSETS=10, MASTER=11, BACKUP=12, SAVE=13, ARCHIVE=14, LINK=15, LOGS=16;
     // Set while the player turns on All files access for "use in place".
     private boolean awaitingAccess;
@@ -494,7 +494,11 @@ public final class MainActivity extends Activity {
             });
         },"archive-index-check").start();
     }
-    private void openGame(){
+    @Override protected void controllerToggle() {
+        if (getIntent().getBooleanExtra("fromGame", false) && running && !busy && !tools) openGame(true);
+    }
+    private void openGame(){ openGame(false); }
+    private void openGame(boolean resume){
         if(indexing)openedWhileIndexing=true;
         Intent intent=null;
         try {
@@ -508,6 +512,7 @@ public final class MainActivity extends Activity {
         } catch(PackageManager.NameNotFoundException ignored){}
         if(intent==null)dialog().setTitle(Texts.t(this,"launcher.install_game.title")).setMessage(Texts.t(this,"launcher.install_game.message")).setPositiveButton(Texts.t(this,"common.ok"),null).show();
         else {
+            if (resume) intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             String unity=DisplayPatch.unityArguments(this);
             if(unity!=null)intent.putExtra("unity",unity);
             startActivity(intent);

@@ -163,7 +163,7 @@ public final class GameProcessProvider extends ContentProvider {
      */
     static void openBunker() {
         if (app == null) return;
-        app.startActivity(new Intent(app, MainActivity.class).setAction(Intent.ACTION_VIEW).putExtra("manage", true)
+        app.startActivity(new Intent(app, MainActivity.class).setAction(Intent.ACTION_VIEW).putExtra("manage", true).putExtra("fromGame", true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
     }
 

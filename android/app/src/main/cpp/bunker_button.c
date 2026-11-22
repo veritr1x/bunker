@@ -25,6 +25,7 @@
 // copy is Instantiate(Object) + Transform.SetParent, and the emblem is a
 // RawImage with a Texture2D over the hidden icon image.
 #include "bunker_button.h"
+#include "controller_actions.h"
 #include "arena_season.h"
 #include "big_hunt_season.h"
 #include "bunker_button_layout.h"
@@ -440,6 +441,7 @@ static void *install(void *unused) {
         usleep(100000);
     }
     il2cpp.thread_attach(il2cpp.domain_get());
+    bunker_pad_install();
     if (look_up()) { say("Bunker button: unsupported game; no button"); return NULL; }
     start_original = (void (*)(void *, Method *))m_start->pointer;
     update_original = (void (*)(void *, Method *))m_update->pointer;
@@ -460,6 +462,7 @@ int bunker_button_init(void *(*resolve)(const char *name), void (*log)(const cha
 #undef LOAD
     big_hunt_season_init(resolve, log);
     arena_season_init(resolve, log);
+    bunker_pad_prepare(resolve);
     pthread_t thread;
     if (pthread_create(&thread, NULL, install, NULL)) return -1;
     pthread_detach(thread);

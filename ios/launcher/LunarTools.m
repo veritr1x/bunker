@@ -569,6 +569,13 @@ UIInterfaceOrientationMask LTMenuOrientations(void);
 - (UIViewController *)childViewControllerForHomeIndicatorAutoHidden { return self.topViewController; }
 @end
 
+BOOL LTToolsControllerBack(UIViewController *controller) {
+    if (![controller isKindOfClass:LTToolsViewController.class]) return NO;
+    LTToolsViewController *tools = (LTToolsViewController *)controller;
+    if (tools.web.canGoBack) [tools.web goBack]; else [tools close];
+    return YES;
+}
+
 UIViewController *LTToolsBrowser(NSString *url, NSString *token, void (^close)(void), void (^archive)(NSString *path)) {
     LTToolsViewController *tools = [LTToolsViewController new];
     tools.origin = url;
