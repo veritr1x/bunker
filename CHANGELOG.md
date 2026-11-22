@@ -4,6 +4,12 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.19 (2026-11-23)
+
+- The native Windows player advances through the first two Chapter 1 weapon memories. Their opening movies, dialogue and interaction prompts now appear.
+- Windows setup offers native file selection and Deploy when WebView2 is unavailable, including on Wine and Proton. First-run asset preparation also works on older Wine versions.
+- In the Windows game, use **Ctrl+B → Options → Stop Lunar Tear** to close the game and server. From the reopened launcher, import an emulator's `game.db` or a Bunker backup ZIP, then deploy again.
+
 ## 1.12.18 (2026-11-22)
 
 - The Archive keeps its Close button visible in compact and wide layouts, including in the Windows player.
