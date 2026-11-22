@@ -40,8 +40,8 @@
 </head>
 <body>
   <nav class="primary">
-    {#- A phone on its side: the app's own bar is gone, so the title and Close sit at the top of the tabs. #}
-    <div class="shell-head"><b>{{ t("pods.menu.title") }}</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
+    {#- The desktop host has no native Close button. Phones use their own bar outside compact landscape. #}
+    <div class="shell-head"{% if request and request.app and request.app.state.desktop_pods %} data-desktop{% endif %}><b>{{ t("pods.menu.title") }}</b><a href="/bunker/close">{{ t("common.close") }}</a></div>
     <a href="/" {% if active == "home" %}class="active"{% endif %}>{{ t("pods.menu.programs") }}</a>
     <a href="/patcher" {% if active == "patcher" %}class="active"{% endif %}>{{ t("pods.menu.content") }}</a>
     <a href="/users" {% if active == "users" %}class="active"{% endif %}>{{ t("pods.menu.players") }}</a>

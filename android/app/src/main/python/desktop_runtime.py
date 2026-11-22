@@ -99,6 +99,7 @@ def start(data_root, asset_root, tools_root, original_master="", port=0):
     url = "http://127.0.0.1:" + str(sock.getsockname()[1])
     token = secrets.token_urlsafe(32)
     app = android_runtime.create_app(token, url)
+    app.state.desktop_pods = True
     server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, loop="asyncio", http="h11", lifespan="off"))
     thread = threading.Thread(target=lambda: server.run(sockets=[sock]), name="lunar-tools", daemon=True)
     thread.start()

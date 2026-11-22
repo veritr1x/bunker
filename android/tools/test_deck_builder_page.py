@@ -96,6 +96,31 @@ class DeckBuilderPage(unittest.TestCase):
             page.mouse.wheel(0, 4000)
             page.wait_for_timeout(250)
 
+    def test_close_across_desktop_and_phone_layouts(self):
+        env = Environment(loader=FileSystemLoader(str(TEMPLATES)))
+        import bunker_text
+        bunker_text.install(env)
+        template = env.get_template("base.html")
+        css = (TEMPLATES.parent / "static/css/automata.css").read_text(encoding="utf-8")
+        page = self.page(820, 599)
+        for desktop in (False, True):
+            request = {"cookies": {}, "app": {"state": {"desktop_pods": True} if desktop else {}}}
+            html = template.render(request=request)
+            page.set_content(html)
+            page.add_style_tag(content=css)
+            close = page.locator('nav a[href="/bunker/close"]')
+            for width, height in ((820, 420), (820, 599), (820, 600), (820, 660), (440, 600), (1280, 720)):
+                with self.subTest(desktop=desktop, viewport=(width, height)):
+                    page.set_viewport_size({"width": width, "height": height})
+                    compact = width >= 560 and width > height and height <= 599
+                    self.assertEqual(close.is_visible(), desktop or compact)
+                    self.assertEqual(page.locator(".shell-head b").is_visible(), compact)
+                    if desktop or compact:
+                        close.click(trial=True)
+        with page.expect_request("**/bunker/close") as clicked:
+            close.click()
+        self.assertEqual(urlparse(clicked.value.url).path, "/bunker/close")
+
     def test_a_tall_screen_keeps_loading_decks(self):
         # On a TV the first six fit with room to spare: the list stopped at six, with nothing to scroll.
         page = self.page(3008, 1692)

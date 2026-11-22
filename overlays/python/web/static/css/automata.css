@@ -795,8 +795,10 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
 .tl-text em { align-self: flex-start; font-style: normal; font-family: var(--mono); font-size: var(--fs-label); padding: 0 4px; background: var(--panel-inverse-fg); color: var(--panel-inverse-bg); }
 .tl-bar.next em, .tl-card em { background: var(--panel-inverse-bg); color: var(--panel-inverse-fg); }
 
-/* Only on a phone on its side (below). */
+/* Desktop always needs a Close link. The title and short notice belong to the compact sidebar. */
 .shell-head, .live-short { display: none; }
+.shell-head[data-desktop] { display: flex; flex: none; }
+.shell-head b { display: none; }
 
 /* A phone on its side (landscape, under 600 px tall): the app's own bar and the
    system bars are gone, so the page has the whole screen. The tabs are a column on
@@ -826,7 +828,7 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   }
   nav.primary a { padding: 7px 10px; font-size: var(--fs-label); letter-spacing: 0.12em; white-space: normal; line-height: 1.3; transition: padding-left 0.12s; }
   .shell-head { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 4px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); transition: padding-left 0.12s; }
-  .shell-head b { font-size: var(--fs-label); letter-spacing: 0.2em; white-space: nowrap; text-transform: uppercase; color: var(--fg-dark); }
+  .shell-head b { display: block; font-size: var(--fs-label); letter-spacing: 0.2em; white-space: nowrap; text-transform: uppercase; color: var(--fg-dark); }
   nav.primary .shell-head a { border: 1px solid var(--accent); padding: 4px 10px; }
   nav.primary .by-hole, nav.primary .shell-head.by-hole { padding-left: calc(var(--hole-depth, 0px) + 6px); }
 
