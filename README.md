@@ -14,21 +14,30 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
 - **Offline play.** The game and its Lunar Tear server run on the same device. After setup, it
   needs no computer or Internet connection. In-game downloads load from the device, even in
   airplane mode.
+
 - **The Bunker**, the launcher: imports the resource dump (`.7z`, `.zip` or an extracted folder,
   copied or used in place), starts Lunar Tear and opens the game, and checks that the game can
   reach it. Turn off ⋮ → Auto deploy to have it open on the launcher until you tap Deploy.
+
 - **Pod Programs**, on the device:
+
   - **Content patcher**: events and shops, with presets and rollback.
+
   - **Save data**: automatic snapshots, backups and restore.
+
   - **Players**: choose which player the game signs in as, or start a new one, and set a
     player's Arena points (0 to 999,999; 52,000 is rank 1). The points count for the week's
     and season's rewards like any others.
+
   - **Editors**: items, costumes, weapons, companions, upgrades, memoirs and more.
+
   - **Summon rates**: the odds of the next summons.
+
   - **Gift**: send yourself anything the game can hold, from gems and summon tickets to
     characters, weapons, memoirs and debris, sorted by what each is for. It arrives in the game's
     own Gift Box as "From Bunker, with love." and is claimed there like any other gift, with the
     game still running.
+
   - **Mods**: optional changes to how the game plays, all off by default, in five groups.
     Quests: free stamina, unlimited daily plays, free skips, quest rewards and EXP ×2 to
     ×10. Items & shops: stamina items and premium tickets that arrive as gold and gems, unlimited
@@ -37,24 +46,29 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
     slow skills, for a reward bonus up to ×10. "Comfort" turns on the Comfort Mod's set and
     "Everything" every mod but the challenges. Most of the Comfort set comes from the
     [Lunar Tear Comfort Mod](https://github.com/NavHobbyDev/lunar-tear-comfort-mod) by NavHobbyDev.
+
   - **Battle mods** (in the game, not Pod Programs): in Arena battles a **MODS** button beside
     fast-forward opens **BATTLE MODS**, the game's own dialog, with No death (your characters
     cannot be defeated), One hit (any hit defeats an opponent) and Zero cooldown (your skills
     are always ready). Each takes effect at once, mid-battle too; the battle pauses while the
     dialog is open. The choices are kept for later battles and after a restart. Other battles
     are left as they are.
+
   - **Deck Builder**: decks for the Arena and for Subjugation, from what you own or with
     everything maxed. Each deck shows its characters and gear, why each piece was picked, the
     game's exact Force and its win rate; filter by element, strategy, effects and characters,
     sort by best match, Force or fewest pieces to add, and write it to the Arena or Loadout deck
     you pick, with a snapshot taken first. All maxed is ranked from all 3.2 million decks of the
     playable costumes, fought ahead of time in their best gear and karma.
+
   - **Story Jump**: bring a save forward to the start of a main-story chapter, or a quest in
     one, without playing what comes before. Every quest before it counts as cleared and gives
     its first-clear rewards (the characters, weapons, companions and gems the story gives), the
     story tutorials before it are done, and the game picks up there. Season 2 asks which route;
     a preview lists what a jump gives, and a snapshot is taken first. Forward only.
+
   - **Start a new day** (Content): everything daily starts over at once.
+
   - **Display**: frame rate up to the screen's maximum refresh rate, and resolution up to the
     screen's own. Walking, battles and the Flying Mama minigame keep their normal speed.
     Experimental: it uses more battery.
@@ -62,14 +76,17 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
     On an iPad with Stage Manager the game's window can be resized, or moved to an external
     display such as a TV and made full screen there; the picture is stretched to the window,
     or keeps the game's shape with black bars.
+
 - **Archive**, read from your game files: the whole story by season and chapter, with the speaker of
   each line, the records, every costume with its art, story and voice lines, 3D models with field
   and battle motions, the soundtrack, a gallery, the movies (full screen in landscape on Android,
   in the system player on iOS), and search. The game keeps running while it is open.
+
 - **Missions**: daily, challenge, special and mission pass missions progress
   and pay their rewards (Lunar Tear left them at 0). The first time, progress already in your
   save is counted. Missions also cover the daily quest set reward, skipping
   several quests at once, and story choices.
+
 - **Arena**: battles against computer players on a ladder of 5,000, with decks
   raised to match yours. Points, grades, rank, win rewards, battle points,
   history, defense battles while you are away, weekly rewards and season
@@ -77,18 +94,23 @@ Run Nier Reincarnation and its Lunar Tear server on the same phone or tablet, on
   with a new ladder; your final rank pays the season's rank reward. Once
   Deck Builder has been opened, computer players field its decks, matched to
   how strong yours are. Opens after quest 61, as in the original.
+
 - **Summon rates** (Pod Programs, experimental): the ★4 and ★3 rates, the
   costume and featured shares, the 10-draw guarantee and the multi-step boost;
   the game's Rates page shows them.
+
 - **Summon details**: each banner's Details page lists its dates, cost,
   medal exchange, featured items and every item with its rate (names come
   from the Archive once it has been built).
+
 - **Server fixes**: friend actions and other calls that Lunar Tear did not
   answer no longer fail. Shop purchases add their items to the inventory.
   If the game was closed during a download, reward icons that stayed blank are
   downloaded again.
+
 - **Game Mode**: the app tells the system it is a game, so iOS Game Mode and Android's Game Mode and
   Game Dashboard work with it.
+
 - **Light and dark**: follows the device, or choose one in ⋮ → Display.
 
 ## Screenshots
@@ -173,7 +195,9 @@ app.
 ## Play on Android
 
 1. Install the APK, from the web builder or your own build.
+
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place, or paste a link to the `.7z` (a progress bar shows the time left).
+
 3. Tap **Deploy**. The server starts and the game opens.
 
 On later launches, the Bunker opens and starts the game by itself, unless **Auto deploy** is off
@@ -185,7 +209,9 @@ import, the Lunar Tear log and its export, Auto deploy, Display (light/dark/syst
 ## Play on iPhone or iPad
 
 1. Install the IPA, from the web builder or your own build, signed with Sideloadly, AltStore or your own certificate.
+
 2. Open it and tap **Choose** under **Game files**, then choose the resource dump's `.7z` or an extracted folder, to copy or use in place, or paste a link to the `.7z` (a progress bar shows the time left).
+
 3. The server starts and the game continues. Three-finger double-tap opens the launcher during play
    (⌘B with a keyboard). Long-pressing the NieR icon on the Home Screen offers **Bunker menu**,
    which opens the launcher too.
@@ -202,6 +228,7 @@ For Windows and Linux, see [Play on Windows](#play-on-windows) and [Play on Linu
 1. Sign the IPA with your own Apple developer team (see [iOS](docs/IOS.md#build)). The
    provisioning profile must include the Mac: add its **Provisioning UDID** (System Information ›
    Hardware) as a device. Sideloadly and AltStore install only on iPhone and iPad.
+
 2. Build with a port offset. On a Mac, the game shares ports with all other apps.
    Development servers often use port 3000:
    ```sh
@@ -210,9 +237,12 @@ For Windows and Linux, see [Play on Windows](#play-on-windows) and [Play on Linu
      --bundle-id <your bundle ID> --sign-identity <identity> --profile <profile>
    ```
    Keep the same offset for every update.
+
 3. Double-click `artifacts/bunker.ipa`; macOS installs it into Applications as **NieR**.
+
 4. Open NieR and click **Choose** under **Game files**, as on iPhone. The app can read only files
    you pick there.
+
 5. **Bunker › Open Bunker** (⌘B) opens the launcher during play.
 
 To update, quit NieR first and double-click the new IPA. If Applications then has more than
@@ -353,7 +383,9 @@ it when you copy files into the app with Finder, because Finder skips the app's 
 
 1. Put `resource_dump_android.7z` (or the extracted folder) on the phone, for example in
    `Download`: with a USB cable, or `adb push ~/Downloads/resource_dump_android.7z /sdcard/Download/`.
+
 2. Install the APK: open it on the phone, or run `adb install artifacts/bunker.apk`.
+
 3. Open the installed app, tap **Choose**, then **Archive (.7z or .zip)** and pick the `.7z`, or
    **Extracted folder: copy into the app** and pick the folder containing `revisions`. It unpacks
    or copies revision 0 into the app. A progress bar shows the time left. You can delete the
@@ -362,26 +394,32 @@ it when you copy files into the app with Finder, because Finder skips the app's 
    To save 21 GB, pick **Extracted folder: use in place** instead (Android 11 or later). The app
    asks you once to turn on **All files access** for NieR in Settings. Then it reads the folder
    from where it is. Keep the folder there: if it is moved or deleted, choose it again.
+
 4. Tap **Deploy**. The server starts on the phone and the game opens.
 
 **iPhone/iPad (iOS 14 or later):**
 
 1. Install the IPA (step 4).
+
 2. Open **NieR**. The launcher appears because the game files are missing.
+
 3. Under **Game files**, tap **Choose**, then **Archive (.7z or .zip)** and pick `resource_dump_ios.7z`, or an
    **Extracted folder** option and pick the extracted folder (the one
    containing `revisions`) from Files, iCloud Drive or a USB drive. You need about 25 GB free, plus
    space for the archive. If the folder is already inside NieR's own files (copied in with
    Finder), the app moves it instead of copying it. This is instant.
+
    **Link to the archive (download)** takes a link to the `.7z` (a direct link to a server that can send part of a file, or a
    Google Drive or Mega file link) and downloads only the parts holding revision 0, never the
    whole archive. It checks the free space before downloading. If the download stops, the finished
    parts are kept: choose the same link again to continue. Bunker does not say where to find the
    game files; bring your own link.
+
    **Extracted folder: use in place** reads a folder from where it is, outside NieR's files.
    It needs no extra space, but the folder must stay there, and a USB drive must stay connected
    while you play. iCloud Drive folders can only be copied. You can also use Finder to copy a
    prepared `assets` folder (step 5): drag it onto NieR (your device › Files) and tap **Check again**.
+
 4. The server starts inside the game. Three-finger double-tap opens the launcher during play
    (⌘B with a keyboard, or **Bunker › Open Bunker** on a Mac), and so does **Bunker menu** when
    you long-press the NieR icon on the Home Screen.
