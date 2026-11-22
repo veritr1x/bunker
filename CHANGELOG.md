@@ -4,6 +4,13 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.17 (2026-11-22)
+
+- Pod Programs keeps **Close** visible across desktop window sizes. It takes you back to Bunker from both portrait and landscape windows.
+- The native Windows game restores its previous window size and fits the game view on launch. Installation folders can contain spaces.
+- Use WASD to move, the right stick to aim the cursor, and Xbox A or PlayStation Cross to tap. Space, Xbox Y, or PlayStation Triangle activates Skip when available. Ctrl+B, Xbox View (Select/Back), and PlayStation Options open and close the Bunker launcher during play.
+- The Windows updater handles Edge restarting its browser process during a build. If an older updater reports that the build did not finish, use the Windows web builder to get this version.
+
 ## 1.12.16 (2026-11-21)
 
 - Windows players can update and restart from Bunker's launcher. Enable automatic installation in Options, or choose **Check for updates**. The first build with the updater comes from the web builder. Later updates reuse the installed APK and master data and keep saves, resources and settings.
