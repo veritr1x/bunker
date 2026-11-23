@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.21 (2026-11-23)
+
+- The Windows web builder publishes the reincomp player version alongside the Bunker version so the game can identify its own updates. Windows builds display both versions in the builder.
+- Spaced the calendar buttons away from the loop meter and fixed the short header rule in Pod Programs.
+
 ## 1.12.20 (2026-11-23)
 
 - Android and iOS now use the same Xbox and PlayStation controls as reincomp. Move in 2D and 3D scenes with the left stick or D-pad. Use the right stick to move the cursor, then press A or Cross to tap, or hold it while moving the cursor to drag.

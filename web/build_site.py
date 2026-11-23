@@ -69,6 +69,9 @@ def windows_bundle(source, target, bunker_version):
         raise ValueError("Incomplete Windows browser compiler manifest")
     if manifest.get("bunkerVersion") != bunker_version:
         raise ValueError(f"Expected a Windows compiler kit for Bunker {bunker_version}")
+    reincomp = manifest.get("reincompVersion")
+    if reincomp is not None and (not isinstance(reincomp, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", reincomp)):
+        raise ValueError("Invalid reincomp release version")
     for name, expected in files.items():
         path = Path(name)
         if (not name or "\\" in name or ":" in name or path.is_absolute() or ".." in path.parts
@@ -83,6 +86,7 @@ def windows_bundle(source, target, bunker_version):
         dest = target / path
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(member, dest)
+    return reincomp
 
 
 def prepared_windows_runtime(source, kit, target):
@@ -193,12 +197,14 @@ def main():
     # The version this site builds, shown in the page header.
     with zipfile.ZipFile(args.companion_apk) as companion:
         version = companion.read("assets/lunar/bunker-version.txt").decode().strip()
+    metadata = {"version": version, "windows": bool(args.windows_kit)}
     if args.windows_kit:
         try:
-            windows_bundle(args.windows_kit, out / "windows", version)
+            reincomp = windows_bundle(args.windows_kit, out / "windows", version)
+            if reincomp:
+                metadata["reincompVersion"] = reincomp
         except (OSError, ValueError) as error:
             p.error(str(error))
-    metadata = {"version": version, "windows": bool(args.windows_kit)}
     if args.windows_runtime:
         try:
             metadata["windowsRuntime"] = prepared_windows_runtime(args.windows_runtime, args.windows_kit, out / "windows")

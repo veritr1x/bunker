@@ -39,7 +39,15 @@ class SiteFilesTest(unittest.TestCase):
             manifest.write_text(json.dumps({"format": 1, "bunkerVersion": "1.2.3", "files": files}))
             with self.assertRaisesRegex(ValueError, "Bunker 1.2.4"):
                 build_site.windows_bundle(kit, target, "1.2.4")
-            build_site.windows_bundle(kit, target, "1.2.3")
+            self.assertIsNone(build_site.windows_bundle(kit, target, "1.2.3"))
+            info = json.loads(manifest.read_bytes())
+            info["reincompVersion"] = "invalid"
+            manifest.write_text(json.dumps(info))
+            with self.assertRaisesRegex(ValueError, "reincomp"):
+                build_site.windows_bundle(kit, target, "1.2.3")
+            info["reincompVersion"] = "0.2.6"
+            manifest.write_text(json.dumps(info))
+            self.assertEqual(build_site.windows_bundle(kit, target, "1.2.3"), "0.2.6")
             self.assertEqual((target / "coff.wasm").read_bytes(), b"coff.wasm")
             (kit / "coff.wasm").write_bytes(b"changed")
             with self.assertRaisesRegex(ValueError, "does not match"):

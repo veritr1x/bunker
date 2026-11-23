@@ -5,10 +5,12 @@ let url = null;
 let building = false;  // One build at a time, however fast the button is pressed.
 let windowsAvailable = false;
 let windowsRuntime;
+let bunkerVersion, reincompVersion;
 
 // The Bunker version this site builds (version.json, written by build_site.py).
 fetch("version.json").then((r) => r.ok ? r.json() : null).then((v) => {
-  if (v && v.version) $("bunker-version").textContent = "BUILDS BUNKER " + v.version;
+  bunkerVersion = v?.version;
+  reincompVersion = v?.reincompVersion;
   windowsAvailable = v?.windows === true;
   windowsRuntime = v?.windowsRuntime;
   update();
@@ -19,6 +21,8 @@ const platform = () => document.querySelector("input[name=platform]:checked").va
 function update() {
   const ios = platform() === "ios";
   const windows = platform() === "windows";
+  if (bunkerVersion) $("bunker-version").textContent = windows && reincompVersion
+    ? "BUILDS REINCOMP " + reincompVersion + " · BUNKER " + bunkerVersion : "BUILDS BUNKER " + bunkerVersion;
   $("ports").hidden = windows;
   $("custom-name").hidden = windows;
   $("game-help").textContent = ios ? "Your decrypted 3.7.1 game IPA." : windows ? "Original Global 3.7.1 ARM64 game APK." : "Original 3.7.1 ARM64 APK: Global (English/Korean) or Japanese (experimental).";
