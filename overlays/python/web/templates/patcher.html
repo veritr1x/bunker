@@ -24,7 +24,7 @@
     <dt>{{ t("pods.patcher.ends") }}</dt><dd>{{ calendar.ends }}</dd>
   </dl>
   <div class="loop-meter" role="img" aria-label="{{ t("pods.patcher.week_of", week=calendar.week, weeks=calendar.weeks) }}"><i style="width: {{ calendar.progress }}%"></i></div>
-  <div class="actions" style="margin-top: 0">
+  <div class="actions">
     <form action="/patcher/calendar/next" method="get"><button type="submit" class="secondary">{{ t("pods.calendar.next_update") }}</button></form>
     <form action="/patcher/calendar/next" method="get"><input type="hidden" name="by" value="week"><button type="submit" class="secondary">{{ t("pods.calendar.next_week") }}</button></form>
     <form action="/patcher/calendar/next-day" method="post"><button type="submit" class="secondary">{{ t("pods.calendar.next_day") }}</button></form>
